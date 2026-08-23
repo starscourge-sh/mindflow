@@ -13,6 +13,9 @@ export default defineConfig({
         '@': resolve('src/renderer/src')
       }
     },
+    optimizeDeps: {
+      exclude: ['@tldraw/assets']
+    },
     plugins: [react(), tailwindcss()]
   }
 })
