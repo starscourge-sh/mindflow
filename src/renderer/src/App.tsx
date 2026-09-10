@@ -1,15 +1,65 @@
 import { SimpleEditor } from './components/tiptap-templates/simple/simple-editor'
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable"
-import { Excalidraw } from "@excalidraw/excalidraw";
-import { Tldraw } from 'tldraw'
-import { getAssetUrlsByImport } from '@tldraw/assets/imports.vite'
+import { ResizablePanelGroup } from "@/components/ui/resizable"
+// import {
+//   ResizableHandle,
+//   ResizablePanel,
+//   ResizablePanelGroup,
+// } from "@/components/ui/resizable"
+// import { Excalidraw } from "@excalidraw/excalidraw";
+// import { Tldraw } from 'tldraw'
+// import { getAssetUrlsByImport } from '@tldraw/assets/imports.vite'
 import 'tldraw/tldraw.css'
-const assetUrls = getAssetUrlsByImport()
+// const assetUrls = getAssetUrlsByImport()
 import "@excalidraw/excalidraw/index.css";
+// import TiptapEditor from "./components/tiptap/tiptap";
+// import Tiptap from '@/components/tiptap/Tiptap.tsx'
+
+//
+// type CaptureKind = 'note' | 'excerpt' | 'quote' | 'question' | 'decision' | 'bit'
+//
+// interface Capture {
+//   id: string
+//   body: string
+//   kind: CaptureKind
+//   sourceId: string | null
+//   capturedAt: string
+// }
+//
+// interface Nugget {
+//   id: string
+//   body: string
+//   kind: CaptureKind
+//   originCaptureId: string | null
+//   sourceId: string | null
+//   private: boolean
+//   lastVisitedAt: string
+//   createdAt: string
+//   surfacingWeight: number
+//   context: string
+// }
+
+export default function App() {
+  return (
+    <div className='relative flex flex-col h-full w-full'>
+      <ResizablePanelGroup orientation="horizontal" className="h-full w-full">
+        <SimpleEditor />
+      </ResizablePanelGroup>
+    </div>
+  )
+}
+
+
+
+
+
+
+
+
+
+
+
+{
+  /**
 
 export default function App() {
   return (
@@ -29,4 +79,6 @@ export default function App() {
       </ResizablePanelGroup>
     </div>
   )
+}
+**/
 }
