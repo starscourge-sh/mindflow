@@ -41,6 +41,15 @@ import "@excalidraw/excalidraw/index.css";
 export default function App() {
   return (
     <div className='relative flex flex-col h-full w-full'>
+      <div className="w-full backdrop-blur-3xl fixed z-10 top-0 left-0 right-0 border-1 text-muted-foreground text-xs flex justify-between items-center gap-2 py-2 px-4" style={{ WebkitAppRegion: 'drag' }} >
+        <span className="flex-1 flex">
+        </span>
+        <span className="flex-1 flex justify-center">
+          Site of Grace
+        </span>
+        <div className="flex-1 flex justify-end" style={{ WebkitAppRegion: 'no-drag' }} >
+        </div>
+      </div>
       <ResizablePanelGroup orientation="horizontal" className="h-full w-full">
         <SimpleEditor />
       </ResizablePanelGroup>
