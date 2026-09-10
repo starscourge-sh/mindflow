@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
 
 // --- Tiptap Core Extensions ---
@@ -12,6 +13,22 @@ import { Highlight } from "@tiptap/extension-highlight"
 import { Subscript } from "@tiptap/extension-subscript"
 import { Superscript } from "@tiptap/extension-superscript"
 import { Selection } from "@tiptap/extensions"
+import { Mathematics } from "@tiptap/extension-mathematics"
+import "katex/dist/katex.min.css"
+
+// --- Extensions ---
+import { ObsidianShortcuts } from "@/extensions/obsidian-shortcuts"
+import { VimMode } from "@/extensions/vim-mode"
+
+/** Drive the editor with vim keys. Off by default. */
+const VIM_MODE_ENABLED = true
+
+/**
+ * Keep the caret clear of the window edges when an edit scrolls it into view.
+ * The bottom figure has to clear the fixed toolbar, which otherwise covers the
+ * very strip ProseMirror scrolls the caret into.
+ */
+const CARET_MARGIN = { top: 64, right: 0, bottom: 112, left: 0 }
 
 // --- UI Primitives ---
 import { Spacer } from "@/components/tiptap-ui-primitive/spacer"
@@ -59,6 +76,10 @@ import { LinkPopover } from "@renderer/components/tiptap-ui/link-popover"
 
 
 export function SimpleEditor() {
+  // The link popover opens only when a link is actually clicked, not whenever
+  // the cursor happens to land inside one.
+  const [linkClicked, setLinkClicked] = useState(false)
+
   const editor = useEditor({
     immediatelyRender: false,
     editorProps: {
@@ -68,6 +89,15 @@ export function SimpleEditor() {
         autocapitalize: "off",
         "aria-label": "Main content area, start typing to enter text.",
         class: "simple-editor",
+      },
+      // Start scrolling before the caret reaches the edge, and leave a margin
+      // once it has, so edits never happen just out of sight.
+      scrollThreshold: CARET_MARGIN,
+      scrollMargin: CARET_MARGIN,
+      handleClick: (_view, _pos, event) => {
+        const target = event.target as HTMLElement | null
+        setLinkClicked(!!target?.closest("a"))
+        return false
       },
     },
     extensions: [
@@ -88,6 +118,9 @@ export function SimpleEditor() {
       Superscript,
       Subscript,
       Selection,
+      Mathematics,
+      ObsidianShortcuts,
+      VimMode.configure({ enabled: VIM_MODE_ENABLED }),
       ImageUploadNode.configure({
         accept: "image/*",
         maxSize: MAX_FILE_SIZE,
@@ -103,44 +136,53 @@ export function SimpleEditor() {
     <div className="simple-editor-wrapper">
       <EditorContext.Provider value={{ editor }}>
 
-        <div className="w-full bg-red-300 fixed bottom-0 left-0 right-0 z-200">
-          <Toolbar>
-            <Spacer />
-            <ToolbarSeparator />
+        <div className="fixed w-min w-available bottom-3 left-0 right-0 z-10 m-auto">
+          <Toolbar className="rounded-xl backdrop-blur-3xl border-1">
             <ToolbarGroup>
-              <HeadingDropdownMenu modal={false} levels={[1, 2, 3]} />
+              <HeadingDropdownMenu
+                modal={false}
+                levels={[1, 2, 3]}
+                showTooltip={false}
+              />
               <ListDropdownMenu
                 modal={false}
                 types={["bulletList", "orderedList", "taskList"]}
+                showTooltip={false}
               />
-              <BlockquoteButton />
-              <CodeBlockButton />
+              <BlockquoteButton showTooltip={false} />
+              <CodeBlockButton showTooltip={false} />
             </ToolbarGroup>
             <ToolbarSeparator />
             <ToolbarGroup>
               <MarkDropdownMenu
                 modal={false}
                 types={["bold", "italic", "strike", "code", "underline", "superscript", "subscript"]}
+                showTooltip={false}
               />
-              <ColorHighlightPopover />
+              <ColorHighlightPopover showTooltip={false} />
             </ToolbarGroup>
             <ToolbarSeparator />
             <ToolbarGroup>
               <TextAlignDropdownMenu
                 modal={false}
                 aligns={["left", "center", "right", "justify"]}
+                showTooltip={false}
               />
               <LinkPopover
                 editor={editor}
                 hideWhenUnavailable={true}
-                autoOpenOnLinkActive={true}
+                autoOpenOnLinkActive={linkClicked}
+                showTooltip={false}
                 onSetLink={() => console.log('Link set!')}
-                onOpenChange={(isOpen) => console.log('Popover opened:', isOpen)}
+                onOpenChange={(isOpen) => {
+                  console.log('Popover opened:', isOpen)
+                  if (!isOpen) setLinkClicked(false)
+                }}
               />
             </ToolbarGroup>
             <ToolbarSeparator />
             <ToolbarGroup>
-              <ImageUploadButton text="Add" />
+              <ImageUploadButton text="Add" showTooltip={false} />
             </ToolbarGroup>
             <Spacer />
             <ToolbarGroup>

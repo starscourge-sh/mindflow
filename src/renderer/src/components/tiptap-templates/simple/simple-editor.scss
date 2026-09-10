@@ -80,7 +80,28 @@ body,
 
 .simple-editor-content .tiptap.ProseMirror.simple-editor {
   flex: 1;
-  padding: 3rem 3rem 30vh;
+  padding: 3rem 3rem 50vh;
+}
+
+.tiptap.ProseMirror [data-type=horizontalRule] {
+  margin-top: 1em !important;
+  margin-bottom: 1em !important;
+}
+
+.tiptap.ProseMirror ol, .tiptap.ProseMirror ul {
+    margin-top: 1.5em;
+    margin-bottom: 1em;
+    padding-left: 1em;
+}
+
+.tiptap.ProseMirror > :is(h1, h2, h3, h4, h5, h6) {
+    margin-top: 1.5em;
+}
+
+.tiptap-toolbar[data-variant=fixed] {
+    width: fit-content;
+    // background: var(--tt-toolbar-bg-color);
+    background: transparent;
 }
 
 @media screen and (max-width: 480px) {
@@ -94,4 +115,9 @@ body,
   .simple-editor-content .tiptap.ProseMirror.simple-editor {
     padding: 1rem 1.5rem 30vh;
   }
+}
+
+// Vim mode: the caret is the only cue for which mode you are in.
+.tiptap.ProseMirror[data-vim-mode="normal"] {
+  caret-color: #f5a623;
 }
