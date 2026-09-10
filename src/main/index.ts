@@ -8,10 +8,12 @@ function createWindow(): void {
   const mainWindow = new BrowserWindow({
     width: 600,
     height: 300,
-    resizable:false,
+    resizable: false,
     show: false,
-    alwaysOnTop:true,
+    alwaysOnTop: true,
     autoHideMenuBar: true,
+    titleBarStyle: 'hidden',
+    backgroundColor: 'black',
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -27,6 +29,12 @@ function createWindow(): void {
     shell.openExternal(details.url)
     return { action: 'deny' }
   })
+
+
+  // macOS-only: kill the traffic lights that titleBarStyle:'hidden' leaves behind
+  if (process.platform === 'darwin') {
+    mainWindow.setWindowButtonVisibility(false);
+  }
 
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
@@ -56,7 +64,7 @@ app.whenReady().then(() => {
 
   createWindow()
 
-  app.on('activate', function () {
+  app.on('activate', function() {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
