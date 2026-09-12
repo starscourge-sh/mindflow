@@ -10,7 +10,8 @@ import { ResizablePanelGroup } from "@/components/ui/resizable"
 // import { getAssetUrlsByImport } from '@tldraw/assets/imports.vite'
 import 'tldraw/tldraw.css'
 // const assetUrls = getAssetUrlsByImport()
-import "@excalidraw/excalidraw/index.css";
+// Excalidraw 0.17 bundles its own styles; the separate index.css only
+// exists from 0.18 onwards. Re-add it if i bring back component comes back.
 // import TiptapEditor from "./components/tiptap/tiptap";
 // import Tiptap from '@/components/tiptap/Tiptap.tsx'
 
