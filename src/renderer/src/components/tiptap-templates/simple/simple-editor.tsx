@@ -14,6 +14,7 @@ import { Subscript } from "@tiptap/extension-subscript"
 import { Superscript } from "@tiptap/extension-superscript"
 import { Selection } from "@tiptap/extensions"
 import { Mathematics } from "@tiptap/extension-mathematics"
+import { FindAndReplace } from "@tiptap/extension-find-and-replace"
 import "katex/dist/katex.min.css"
 
 // --- Extensions ---
@@ -60,6 +61,8 @@ import {
 } from "@/components/tiptap-ui/color-highlight-popover"
 import { MarkDropdownMenu } from "@/components/tiptap-ui/mark-dropdown-menu"
 import { TextAlignDropdownMenu } from "@/components/tiptap-ui/text-align-dropdown-menu"
+import { SearchBar } from "@/components/search/search-bar"
+import { EmojiSuggestion } from "@/components/emoji/emoji-suggestion"
 
 
 // --- Components ---
@@ -79,6 +82,7 @@ export function SimpleEditor() {
   // The link popover opens only when a link is actually clicked, not whenever
   // the cursor happens to land inside one.
   const [linkClicked, setLinkClicked] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -118,9 +122,14 @@ export function SimpleEditor() {
       Superscript,
       Subscript,
       Selection,
+      FindAndReplace,
+      EmojiSuggestion,
       Mathematics,
       ObsidianShortcuts,
-      VimMode.configure({ enabled: VIM_MODE_ENABLED }),
+      VimMode.configure({
+        enabled: VIM_MODE_ENABLED,
+        onSearch: () => setSearchOpen(true),
+      }),
       ImageUploadNode.configure({
         accept: "image/*",
         maxSize: MAX_FILE_SIZE,
@@ -137,6 +146,12 @@ export function SimpleEditor() {
       <EditorContext.Provider value={{ editor }}>
 
         <div className="fixed w-min w-available bottom-3 left-0 right-0 z-10 m-auto">
+          <SearchBar
+            editor={editor}
+            open={searchOpen}
+            onOpen={() => setSearchOpen(true)}
+            onClose={() => setSearchOpen(false)}
+          />
           <Toolbar className="rounded-xl backdrop-blur-3xl border-1">
             <ToolbarGroup>
               <HeadingDropdownMenu
