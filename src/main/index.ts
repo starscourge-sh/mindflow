@@ -6,8 +6,9 @@ import icon from '../../resources/icon.png?asset'
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 600,
+    width: 625,
     height: 300,
+    // minWidth: 625,
     resizable: false,
     show: false,
     alwaysOnTop: true,
