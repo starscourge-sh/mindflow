@@ -56,7 +56,9 @@ app.whenReady().then(() => {
   // and ignore CommandOrControl + R in production.
   // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
   app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
+    // Without this the toolkit blocks Cmd+- outright, so zooming only works
+    // one way. See @electron-toolkit/utils watchWindowShortcuts.
+    optimizer.watchWindowShortcuts(window, { zoom: true })
   })
 
   // IPC test
