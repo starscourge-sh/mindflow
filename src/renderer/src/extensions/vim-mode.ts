@@ -59,8 +59,15 @@ interface VimState {
   pendingG: boolean
   /** Whether `i` was just pressed, for the `iw` text object. */
   pendingTextObject: boolean
-  /** Where a visual selection started. The head is the live selection head. */
+  /** Where a visual selection started. */
   visualAnchor: number | null
+  /**
+   * Where the cursor is in a visual selection. Not the live selection head:
+   * that one has been pushed a character further out so the character under
+   * the cursor is highlighted, and measuring the next motion from there would
+   * move twice as far.
+   */
+  visualHead: number | null
   /** A `j` just typed in insert mode, for the `jk` escape. */
   pendingJ: { pos: number; at: number } | null
   register: VimRegister
@@ -88,6 +95,7 @@ const CLEARED = {
 const NORMAL = {
   mode: "normal" as const,
   visualAnchor: null,
+  visualHead: null,
   pendingJ: null,
   ...CLEARED,
 }
@@ -192,16 +200,16 @@ function nodesInRange(
 // --- motions ---------------------------------------------------------------
 
 /** h and l - clamped to the current block, so they never wrap onto another. */
-function moveHorizontal(view: EditorView, delta: number): void {
+/**
+ * `past` is for `a` and `A`, which type after a character. Normal mode sits *on*
+ * one, so `l` and `$` stop one short of the same position. An infinite delta is
+ * how `0` and `$` reach the line edges.
+ */
+function moveHorizontal(view: EditorView, delta: number, past = false): void {
   const { $head } = view.state.selection
   if (!$head.parent.isTextblock) return
-  select(view, Math.max($head.start(), Math.min($head.end(), $head.pos + delta)))
-}
-
-function moveToLineEdge(view: EditorView, edge: "start" | "end"): void {
-  const { $head } = view.state.selection
-  if (!$head.parent.isTextblock) return
-  select(view, edge === "start" ? $head.start() : $head.end())
+  const max = past ? $head.end() : Math.max($head.start(), $head.end() - 1)
+  select(view, Math.max($head.start(), Math.min(max, $head.pos + delta)))
 }
 
 /**
@@ -481,8 +489,15 @@ function wordMotion(
   }
 
   const entry = stream[Math.max(0, Math.min(stream.length - 1, i))]
-  // `e` lands past the last letter so a visual selection covers the word.
-  select(view, kind === "e" ? entry.pos + 1 : entry.pos)
+  select(view, entry.pos)
+}
+
+/** The depth of the nearest isolating ancestor - a table cell, a summary. */
+function isolatingDepth($pos: ResolvedPos): number {
+  for (let depth = $pos.depth; depth > 0; depth--) {
+    if ($pos.node(depth).type.spec.isolating) return depth
+  }
+  return 0
 }
 
 /** { and } - jump to the previous or next block. */
@@ -556,10 +571,10 @@ function runMotion(
       moveVertical(view, -1, count)
       return true
     case "0":
-      moveToLineEdge(view, "start")
+      moveHorizontal(view, -Infinity)
       return true
     case "$":
-      moveToLineEdge(view, "end")
+      moveHorizontal(view, Infinity)
       return true
     case "G":
       gotoBlock(view, hadCount ? count : Infinity)
@@ -601,7 +616,11 @@ function applyToRange(
   // container with it instead.
   while (linewise && operator !== "y") {
     const $from = state.doc.resolve(from)
-    if ($from.depth < 1 || $from.start() !== from || $from.end() !== to) break
+    if ($from.depth < 1) break
+    // A table cell is isolating: walking out of one takes the cell itself,
+    // leaving the row a column short.
+    if ($from.node().type.spec.isolating) break
+    if ($from.start() !== from || $from.end() !== to) break
     from = $from.before()
     to = $from.after()
   }
@@ -770,9 +789,20 @@ function joinLines(view: EditorView, count: number): void {
   let caret = state.selection.head
 
   for (let joins = Math.max(1, count - 1); joins > 0; joins--) {
-    const end = tr.doc.resolve(caret).end()
+    const $end = tr.doc.resolve(caret)
+    const end = $end.end()
     const next = textblockStarts(tr.doc).find((start) => start > end)
     if (next === undefined) break
+    // Joining across an isolating boundary - out of a table cell, or INTO a
+    // collapsible section's summary - eats the node in between. Both ends have
+    // to be checked: the summary is isolating, the paragraph before it is not.
+    const $next = tr.doc.resolve(next)
+    if (
+      $next.sharedDepth(end) <
+      Math.max(isolatingDepth($end), isolatingDepth($next))
+    ) {
+      break
+    }
 
     // Do not double up when the line already ends in a space.
     const separator = tr.doc.textBetween(end - 1, end) === " " ? "" : " "
@@ -790,16 +820,22 @@ function joinLines(view: EditorView, count: number): void {
 /** o - open a fresh line below and drop into insert mode. */
 function openLine(view: EditorView, dir: 1 | -1): void {
   const { state } = view
-  const { $head } = state.selection
-  if ($head.depth < 1) return
+  const { $head, from, to } = state.selection
 
-  const depth = lineDepth($head)
-  const at = dir > 0 ? $head.after(depth) : $head.before(depth)
-  const type =
-    $head.node(depth).type.name === "listItem" ||
-    $head.node(depth).type.name === "taskItem"
-      ? $head.node(depth).type
-      : state.schema.nodes.paragraph
+  // A whole-node selection - an image, a rule, a bookmark card - sits between
+  // blocks rather than inside one, so it has no enclosing line to open around.
+  // Its own edges are where the new paragraph goes.
+  let at = dir > 0 ? to : from
+  let type = state.schema.nodes.paragraph
+
+  if ($head.depth >= 1) {
+    const depth = lineDepth($head)
+    at = dir > 0 ? $head.after(depth) : $head.before(depth)
+    // Opening a line inside a list makes another item, not a paragraph.
+    const line = $head.node(depth).type
+    if (line.name === "listItem" || line.name === "taskItem") type = line
+  }
+
   const node = type.createAndFill()
   if (!node) return
 
@@ -817,15 +853,34 @@ function collapseSelection(view: EditorView, pos?: number): void {
   select(view, pos ?? view.state.selection.from)
 }
 
+/**
+ * One past a position, without escaping the block it sits in.
+ *
+ * `$pos.end()` is the end of the whole document at depth 0, so a position
+ * between blocks - which is where an image or a rule leaves the cursor - has
+ * to be left alone rather than clamped.
+ *
+ * The `try` is live: `visualAnchor` is never remapped, so an undo can shrink
+ * the document out from under it.
+ */
+function inclusiveEnd(state: EditorState, pos: number): number {
+  try {
+    const $pos = state.doc.resolve(pos)
+    return $pos.parent.isTextblock ? Math.min(pos + 1, $pos.end()) : pos
+  } catch {
+    return pos
+  }
+}
+
 /** The document range a visual selection currently covers. */
 function visualRange(
   state: EditorState,
   anchor: number,
+  head: number,
   linewise: boolean
 ): LineSpan | null {
-  const { head } = state.selection
   let from = Math.min(anchor, head)
-  let to = Math.max(anchor, head)
+  let to = inclusiveEnd(state, Math.max(anchor, head))
 
   if (linewise) {
     const first = lineSpanAt(state, from)
@@ -845,12 +900,19 @@ function visualRange(
  * the range would make the next `k` measure from the bottom again, so the
  * selection could never grow upwards.
  */
-function showVisual(view: EditorView, anchor: number, linewise: boolean): void {
-  const { doc, selection } = view.state
-  const head = selection.head
+function showVisual(
+  view: EditorView,
+  anchor: number,
+  head: number,
+  linewise: boolean
+): void {
+  const { doc } = view.state
 
-  let selAnchor = anchor
-  let selHead = head
+  // Extend whichever end is the far one, so a backward selection still covers
+  // the character it started on.
+  const forward = head >= anchor
+  let selAnchor = forward ? anchor : inclusiveEnd(view.state, anchor)
+  let selHead = forward ? inclusiveEnd(view.state, head) : head
 
   if (linewise) {
     const anchorLine = lineSpanAt(view.state, anchor)
@@ -879,6 +941,11 @@ declare module "@tiptap/core" {
       setVimMode: (enabled: boolean) => ReturnType
       /** Flip vim mode. */
       toggleVimMode: () => ReturnType
+      /**
+       * Drop into insert mode. For anything that hands the user a fresh place
+       * to type - a menu, a button - where normal mode would swallow it.
+       */
+      enterInsertMode: () => ReturnType
     }
   }
 }
@@ -916,6 +983,19 @@ export const VimMode = Extension.create<VimModeOptions>({
           const vim = vimPluginKey.getState(state)
           return commands.setVimMode(!vim?.enabled)
         },
+
+      enterInsertMode:
+        () =>
+        ({ state, dispatch }) => {
+          const vim = vimPluginKey.getState(state)
+          if (!vim?.enabled || vim.mode === "insert") return false
+          if (dispatch) {
+            dispatch(
+              state.tr.setMeta(vimPluginKey, { mode: "insert", ...CLEARED })
+            )
+          }
+          return true
+        },
     }
   },
 
@@ -936,6 +1016,7 @@ export const VimMode = Extension.create<VimModeOptions>({
             pendingG: false,
             pendingTextObject: false,
             visualAnchor: null,
+            visualHead: null,
             pendingJ: null,
             register: null,
           }),
@@ -1008,20 +1089,40 @@ export const VimMode = Extension.create<VimModeOptions>({
 
             if (event.metaKey || event.altKey) return false
 
+            // Motions read the selection head, so undo the display extension
+            // before any of them run. Anything that cannot be a motion - a bare
+            // modifier, a count, the `i` of `iw` or the `g` of `gg` - is left
+            // alone, or the highlight blinks out for a keystroke that moved
+            // nothing.
+            if (
+              inVisual &&
+              vim.visualHead !== null &&
+              key.length === 1 &&
+              !/^[0-9ig]$/.test(key) &&
+              view.state.selection.head !== vim.visualHead
+            ) {
+              select(view, vim.visualHead)
+            }
+
             const count = Math.max(1, parseInt(vim.count || "1", 10))
             const hadCount = vim.count !== ""
 
             /** A motion in visual mode moved the head - redraw the range. */
             const afterMotion = (): true => {
-              if (inVisual && anchor !== null) showVisual(view, anchor, linewise)
-              patch(view, CLEARED)
+              const head = view.state.selection.head
+              if (inVisual && anchor !== null) {
+                showVisual(view, anchor, head, linewise)
+              }
+              patch(view, { ...CLEARED, ...(inVisual ? { visualHead: head } : {}) })
               return true
             }
 
             /** Run an operator over the current visual selection and exit. */
             const applyToVisual = (operator: Operator): true => {
               const range =
-                anchor === null ? null : visualRange(view.state, anchor, linewise)
+                anchor === null || vim.visualHead === null
+                  ? null
+                  : visualRange(view.state, anchor, vim.visualHead, linewise)
               patch(view, NORMAL)
               if (range) {
                 applyToRange(view, operator, range.from, range.to, linewise)
@@ -1119,7 +1220,10 @@ export const VimMode = Extension.create<VimModeOptions>({
                 patch(view, CLEARED)
                 const range = key === "w" ? word() : null
                 if (range) {
-                  patch(view, { visualAnchor: range.from })
+                  patch(view, {
+                    visualAnchor: range.from,
+                    visualHead: Math.max(range.from, range.to - 1),
+                  })
                   view.dispatch(
                     view.state.tr.setSelection(
                       TextSelection.create(view.state.doc, range.from, range.to)
@@ -1200,13 +1304,13 @@ export const VimMode = Extension.create<VimModeOptions>({
             switch (key) {
               case "i":
               case "I":
-                if (key === "I") moveToLineEdge(view, "start")
+                if (key === "I") moveHorizontal(view, -Infinity)
                 patch(view, { mode: "insert", ...CLEARED })
                 return true
               case "a":
               case "A":
-                if (key === "a") moveHorizontal(view, 1)
-                else moveToLineEdge(view, "end")
+                if (key === "a") moveHorizontal(view, 1, true)
+                else moveHorizontal(view, Infinity, true)
                 patch(view, { mode: "insert", ...CLEARED })
                 return true
               case "o":
@@ -1221,9 +1325,14 @@ export const VimMode = Extension.create<VimModeOptions>({
                 patch(view, {
                   mode: key === "V" ? "visualLine" : "visual",
                   visualAnchor: head,
+                  visualHead: head,
                   ...CLEARED,
                 })
-                if (key === "V") showVisual(view, head, true)
+                // A node selection - an image or a rule - has no character to
+                // extend, and drawing over it would lose the node.
+                if (view.state.selection instanceof TextSelection) {
+                  showVisual(view, head, head, key === "V")
+                }
                 return true
               }
 
