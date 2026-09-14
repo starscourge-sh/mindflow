@@ -126,6 +126,21 @@ function select(view: EditorView, pos: number, bias: 1 | -1 = 1): void {
   view.dispatch(state.tr.setSelection(selection).scrollIntoView())
 }
 
+/**
+ * Put the caret back onto a character.
+ *
+ * The block cursor sits on one, never past the last. A caret left at the end of
+ * a line - by leaving insert mode after typing there, or by clicking past the
+ * text - has nothing under it, and `x` and its friends quietly do nothing. The
+ * motions already clamp; these are the other two ways in.
+ */
+function clampToLine(view: EditorView): void {
+  const { $head, empty } = view.state.selection
+  if (!empty || !$head.parent.isTextblock) return
+  if ($head.pos !== $head.end() || $head.pos === $head.start()) return
+  select(view, $head.pos - 1)
+}
+
 /** A bullet, a number or a checkbox: the things a list line can be. */
 const isListItem = (type: NodeType): boolean =>
   type.name === "listItem" || type.name === "taskItem"
@@ -1043,6 +1058,16 @@ export const VimMode = Extension.create<VimModeOptions>({
             return vim?.enabled ? { "data-vim-mode": vim.mode } : {}
           },
 
+          // A click past the last character of a line, which normal mode has
+          // nowhere to put the cursor.
+          createSelectionBetween: (view, $anchor, $head) => {
+            const vim = vimPluginKey.getState(view.state)
+            if (!vim?.enabled || vim.mode !== "normal") return null
+            if ($anchor.pos !== $head.pos || !$head.parent.isTextblock) return null
+            if ($head.pos !== $head.end() || $head.pos === $head.start()) return null
+            return TextSelection.create(view.state.doc, $head.pos - 1)
+          },
+
           // Normal and visual mode must never type.
           handleTextInput: (view) => {
             const vim = vimPluginKey.getState(view.state)
@@ -1060,6 +1085,7 @@ export const VimMode = Extension.create<VimModeOptions>({
             if (event.key === "Escape") {
               patch(view, NORMAL)
               if (inVisual) collapseSelection(view)
+              else clampToLine(view)
               return true
             }
 
@@ -1082,6 +1108,8 @@ export const VimMode = Extension.create<VimModeOptions>({
                     .setMeta(vimPluginKey, NORMAL)
                     .scrollIntoView()
                 )
+                // Removing the `j` can leave the caret at the end of the line.
+                clampToLine(view)
                 return true
               }
 
