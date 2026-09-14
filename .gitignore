@@ -8,3 +8,4 @@ out
 
 # Authentication tokens
 .npmrc
+*.tsbuildinfo
