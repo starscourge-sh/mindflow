@@ -5,6 +5,7 @@ import { join } from 'path'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { registerNotes } from './notes'
 
 /** Where dropped and pasted images live. */
 const assetsDir = (): string => join(app.getPath('userData'), 'assets')
@@ -133,6 +134,8 @@ app.userAgentFallback = app.userAgentFallback
   .replace(new RegExp(` ${app.getName()}\\/[\\d.]+`, 'i'), '')
 
 app.whenReady().then(() => {
+  registerNotes()
+
   // Serve the asset store. The pathname is the only thing trusted: anything
   // with a separator in it is refused, so a crafted src cannot walk the disk.
   protocol.handle('mindflow', async (request) => {
