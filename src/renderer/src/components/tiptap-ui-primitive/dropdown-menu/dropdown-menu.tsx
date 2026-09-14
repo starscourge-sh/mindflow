@@ -234,12 +234,16 @@ function DropdownMenuSubContent({
   className,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.SubContent>) {
+  // Portalled for the same reason Content is: a submenu rendered inside its
+  // parent panel is clipped by that panel's own `overflow`.
   return (
-    <DropdownMenuPrimitive.SubContent
-      data-slot="tiptap-dropdown-menu-sub-content"
-      className={cn("tiptap-dropdown-menu-sub-content", className)}
-      {...props}
-    />
+    <DropdownMenuPrimitive.Portal>
+      <DropdownMenuPrimitive.SubContent
+        data-slot="tiptap-dropdown-menu-sub-content"
+        className={cn("tiptap-dropdown-menu-sub-content", className)}
+        {...props}
+      />
+    </DropdownMenuPrimitive.Portal>
   )
 }
 

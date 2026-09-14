@@ -1,15 +1,7 @@
 :root {
-  /****************** 
-  Basics
-  ******************/
-
-  overflow-wrap: break-word;
-  /* iOS WebKit only honors the -webkit- prefixed form */
-  -webkit-text-size-adjust: none;
-  text-size-adjust: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* Definitions only. This file ships with the editor, so anything that
+     applies a style here lands on whatever page the editor is dropped into -
+     text rendering, box-sizing and the like belong to the host. */
 
   /****************** 
   Colors variables
@@ -162,15 +154,6 @@
   --tt-accent-contrast: 8%;
   --tt-destructive-contrast: 8%;
   --tt-foreground-contrast: 8%;
-
-  &,
-  *,
-  ::before,
-  ::after {
-    box-sizing: border-box;
-    transition: none var(--tt-transition-duration-default)
-      var(--tt-transition-easing-default);
-  }
 }
 
 :root {
@@ -276,11 +259,14 @@
 }
 
 .dark {
-  --tt-color-highlight-yellow: #6b6524;
-  --tt-color-highlight-green: #509568;
-  --tt-color-highlight-blue: #6e92aa;
-  --tt-color-highlight-purple: #583e74;
-  --tt-color-highlight-red: #743e42;
+  /* Translucent, not muddy opaque. A highlight sits over text, so the page
+     background has to show through: opaque #6b6524 left white text at 3.6:1 and
+     the vim caret at 2.95:1 - an orange caret on olive is invisible. */
+  --tt-color-highlight-yellow: rgba(250, 204, 21, 0.25);
+  --tt-color-highlight-green: rgba(74, 222, 128, 0.25);
+  --tt-color-highlight-blue: rgba(56, 189, 248, 0.25);
+  --tt-color-highlight-purple: rgba(192, 132, 252, 0.25);
+  --tt-color-highlight-red: rgba(248, 113, 113, 0.25);
   --tt-color-highlight-gray: rgb(47, 47, 47);
   --tt-color-highlight-brown: rgb(74, 50, 40);
   --tt-color-highlight-orange: rgb(92, 59, 35);

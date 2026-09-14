@@ -160,20 +160,13 @@
 /* =====================
      PLACEHOLDER
      ===================== */
-.is-empty:not(.with-slash)[data-placeholder]:has(
+.tiptap.ProseMirror .is-empty[data-placeholder]:has(
     > .ProseMirror-trailingBreak:only-child
   )::before {
   content: attr(data-placeholder);
 }
 
-.is-empty.with-slash[data-placeholder]:has(
-    > .ProseMirror-trailingBreak:only-child
-  )::before {
-  content: "Write, type '/' for commands…";
-  font-style: italic;
-}
-
-.is-empty[data-placeholder]:has(
+.tiptap.ProseMirror .is-empty[data-placeholder]:has(
     > .ProseMirror-trailingBreak:only-child
   ):before {
   pointer-events: none;
@@ -185,7 +178,7 @@
   right: 0;
 }
 
-.is-empty[data-placeholder]:has(> .ProseMirror-trailingBreak):before {
+.tiptap.ProseMirror .is-empty[data-placeholder]:has(> .ProseMirror-trailingBreak):before {
   color: var(--placeholder-color);
 }
 

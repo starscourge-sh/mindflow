@@ -4,7 +4,14 @@
   height: 1.25rem;
   margin: 0 -0.175rem;
   border-radius: var(--tt-radius-xl);
-  background-color: var(--highlight-color);
+  // The highlight colours are translucent, because a highlight sits over text.
+  // A swatch does not - composite it over white so the hue reads at full
+  // strength instead of sinking into the dark popover.
+  background-color: #fff;
+  background-image: linear-gradient(
+    var(--highlight-color),
+    var(--highlight-color)
+  );
   transition: transform 0.2s ease;
 
   &::after {

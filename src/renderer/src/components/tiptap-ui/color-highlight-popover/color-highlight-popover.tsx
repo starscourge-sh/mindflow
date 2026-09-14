@@ -95,15 +95,18 @@ export const ColorHighlightPopoverButton = forwardRef<
 
 ColorHighlightPopoverButton.displayName = "ColorHighlightPopoverButton"
 
+/** The swatches both the popover and its content fall back to. */
+const DEFAULT_COLORS = pickHighlightColorsByValue([
+  "var(--tt-color-highlight-green)",
+  "var(--tt-color-highlight-blue)",
+  "var(--tt-color-highlight-red)",
+  "var(--tt-color-highlight-purple)",
+  "var(--tt-color-highlight-yellow)",
+])
+
 export function ColorHighlightPopoverContent({
   editor,
-  colors = pickHighlightColorsByValue([
-    "var(--tt-color-highlight-green)",
-    "var(--tt-color-highlight-blue)",
-    "var(--tt-color-highlight-red)",
-    "var(--tt-color-highlight-purple)",
-    "var(--tt-color-highlight-yellow)",
-  ]),
+  colors = DEFAULT_COLORS,
   useColorValue = false,
 }: ColorHighlightPopoverContentProps) {
   const { handleRemoveHighlight } = useColorHighlight({ editor })
@@ -179,13 +182,7 @@ export function ColorHighlightPopoverContent({
 
 export function ColorHighlightPopover({
   editor: providedEditor,
-  colors = pickHighlightColorsByValue([
-    "var(--tt-color-highlight-green)",
-    "var(--tt-color-highlight-blue)",
-    "var(--tt-color-highlight-red)",
-    "var(--tt-color-highlight-purple)",
-    "var(--tt-color-highlight-yellow)",
-  ]),
+  colors = DEFAULT_COLORS,
   hideWhenUnavailable = false,
   useColorValue = false,
   onApplied,

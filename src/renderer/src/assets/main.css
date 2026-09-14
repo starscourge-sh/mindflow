@@ -1,9 +1,11 @@
+/* The editor asks for DM Sans; supplying it is the host app's job. Must stay
+   the first statement: the imports below are inlined, and a real @import
+   cannot follow the rules they bring in. */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/inter';
-@import './styles/_variables.scss';
-@import './styles/_keyframe-animations.scss';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -128,7 +130,8 @@
   #root {
     height: 100%;
     margin: 0;
-    background: black
+    padding: 0;
+    overscroll-behavior: none;
   }
   body {
     @apply bg-background text-foreground;
