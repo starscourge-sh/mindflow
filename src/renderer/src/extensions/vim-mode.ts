@@ -2,7 +2,8 @@ import { Extension } from "@tiptap/core"
 import { NodeSelection, Plugin, PluginKey, TextSelection } from "@tiptap/pm/state"
 import type { EditorState } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
-import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model"
+import type { Node as ProseMirrorNode, NodeType, ResolvedPos } from "@tiptap/pm/model"
+import { liftListItem, sinkListItem } from "@tiptap/pm/schema-list"
 import { undo, redo } from "@tiptap/pm/history"
 
 // --- Lib ---
@@ -125,6 +126,10 @@ function select(view: EditorView, pos: number, bias: 1 | -1 = 1): void {
   view.dispatch(state.tr.setSelection(selection).scrollIntoView())
 }
 
+/** A bullet, a number or a checkbox: the things a list line can be. */
+const isListItem = (type: NodeType): boolean =>
+  type.name === "listItem" || type.name === "taskItem"
+
 /**
  * The depth of the node acting as the current "line": a list item when the
  * cursor is in one, otherwise the block it sits in directly. Using the block
@@ -133,11 +138,14 @@ function select(view: EditorView, pos: number, bias: 1 | -1 = 1): void {
  */
 function lineDepth($pos: ResolvedPos): number {
   for (let depth = $pos.depth; depth >= 1; depth--) {
-    const name = $pos.node(depth).type.name
-    if (name === "listItem" || name === "taskItem") return depth
+    if (isListItem($pos.node(depth).type)) return depth
   }
   return Math.max(1, $pos.depth)
 }
+
+/** Is the cursor on a list item, where Tab nests and Shift-Tab lifts it? */
+const inList = ($pos: ResolvedPos): boolean =>
+  $pos.depth >= 1 && isListItem($pos.node(lineDepth($pos)).type)
 
 /** The span of the line containing a position. */
 function lineSpanAt(state: EditorState, pos: number): LineSpan | null {
@@ -833,7 +841,7 @@ function openLine(view: EditorView, dir: 1 | -1): void {
     at = dir > 0 ? $head.after(depth) : $head.before(depth)
     // Opening a line inside a list makes another item, not a paragraph.
     const line = $head.node(depth).type
-    if (line.name === "listItem" || line.name === "taskItem") type = line
+    if (isListItem(line)) type = line
   }
 
   const node = type.createAndFill()
@@ -1184,8 +1192,23 @@ export const VimMode = Extension.create<VimModeOptions>({
               return true
             }
 
-            // Named keys: arrows and friends still navigate, editing keys don't.
-            if (key.length > 1) return BLOCKED_NAMED_KEYS.includes(key)
+            // Named keys: arrows and friends still navigate, editing keys
+            // don't. Tab is the exception, because nesting a list item is a
+            // structural change rather than typing - vim's own `>>`, on the key
+            // the rest of the editor already uses for it.
+            if (key.length > 1) {
+              const $head = view.state.selection.$head
+              if (key === "Tab" && !inVisual && inList($head)) {
+                // Run it here rather than letting it fall through. An item with
+                // nothing above it cannot be nested, and a Tab that no one
+                // handles walks the focus out of the document.
+                const item = $head.node(lineDepth($head)).type
+                const nest = event.shiftKey ? liftListItem : sinkListItem
+                nest(item)(view.state, view.dispatch)
+                return true
+              }
+              return BLOCKED_NAMED_KEYS.includes(key)
+            }
 
             // Counts. A leading 0 is the motion, not a digit.
             if (/[1-9]/.test(key) || (key === "0" && vim.count)) {
