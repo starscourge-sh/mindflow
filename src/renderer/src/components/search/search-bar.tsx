@@ -6,7 +6,7 @@ import { useEditorState, type Editor } from "@tiptap/react"
  *
  * The searching is all `@tiptap/extension-find-and-replace` - this is only the
  * input. Replace, regex and the match options are deliberately left out; the
- * vendored `search-and-replace` panel still has them if they are wanted back.
+ * the full replace UI if it is ever wanted back.
  */
 export interface SearchBarProps {
   editor: Editor | null
@@ -49,7 +49,6 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps) {
       if ((event.metaKey || event.ctrlKey) && event.key === "f") {
         event.preventDefault()
         onOpen()
-        inputRef.current?.select()
         return
       }
       if (event.key === "Escape" && open) {
@@ -61,8 +60,9 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps) {
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [onOpen, open, leave])
 
+  // Runs after the mount below, which is why it can select rather than focus.
   useEffect(() => {
-    if (open) inputRef.current?.focus()
+    if (open) inputRef.current?.select()
   }, [open])
 
   if (!open) return null
@@ -87,6 +87,9 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps) {
         ref={inputRef}
         type="text"
         placeholder="Find"
+        // The bar unmounts when closed, so this re-seeds from the live search
+        // each time it opens - otherwise it reopens blank over a running search.
+        defaultValue={editor?.storage.findAndReplace?.searchTerm ?? ""}
         onChange={(event) => editor?.commands.setSearchTerm(event.target.value)}
         onKeyDown={(event) => {
           if (event.key !== "Enter") return
@@ -109,5 +112,3 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps) {
     </div>
   )
 }
-
-export default SearchBar
