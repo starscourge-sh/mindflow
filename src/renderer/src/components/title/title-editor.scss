@@ -1,0 +1,86 @@
+// Self-contained: this variant is meant to be dropped into a task box or a
+// command palette on its own, without the document editor around it.
+
+.tiptap-title-wrapper {
+  // Without this it shrinks to min-content in any flex row, and a one-character
+  // column wraps the text one letter per line.
+  width: 100%;
+  min-width: 0;
+  color: var(--tt-gray-light-900);
+
+  .dark & {
+    color: var(--tt-gray-dark-900);
+  }
+}
+
+.tiptap-title {
+  outline: none;
+
+  // The vendored `.tiptap.ProseMirror p` rule lands on this paragraph directly,
+  // so styling the root and inheriting loses to it. One paragraph, one line,
+  // flush in whatever box holds it.
+  // The vendored `.tiptap.ProseMirror p` rule lands on this paragraph directly,
+  // so styling the root and inheriting loses to it.
+  &.tiptap.ProseMirror p {
+    margin: 0;
+    font-size: 1.875rem;
+    font-weight: 700;
+    line-height: 1.4;
+  }
+
+  // A quick-capture field sits at input scale, not heading scale. Scale is all
+  // the variant changes - the box around it belongs to whoever embeds this.
+  .is-task &.tiptap.ProseMirror p {
+    font-size: 1rem;
+    font-weight: 500;
+    line-height: 1.5;
+  }
+
+  // Placeholder lives in paragraph-node.scss, which this variant does not pull
+  // in; three lines is cheaper than that whole stylesheet.
+  .is-empty[data-placeholder]::before {
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+    color: var(--tt-gray-light-a-500);
+  }
+
+  // Typed tokens. These are decorations, so the underlying text is untouched;
+  // the tint is only a hint that something was recognised.
+  .tiptap-token {
+    border-radius: 0.25rem;
+    padding: 0.05em 0.15em;
+    background-color: var(--tt-color-highlight-blue);
+  }
+
+  .tiptap-token[data-token="priority"] {
+    background-color: var(--tt-color-highlight-red);
+  }
+
+  .tiptap-token[data-token="date"] {
+    background-color: var(--tt-color-highlight-green);
+  }
+
+  .tiptap-token[data-token="label"] {
+    background-color: var(--tt-color-highlight-purple);
+  }
+
+  code {
+    padding: 0.1em 0.25em;
+    border-radius: 0.25rem;
+    background-color: var(--tt-gray-light-a-100);
+    font-family: "JetBrains Mono NL", monospace;
+    font-size: 0.875em;
+  }
+}
+
+.dark .tiptap-title {
+  .is-empty[data-placeholder]::before {
+    color: var(--tt-gray-dark-a-500);
+  }
+
+  code {
+    background-color: var(--tt-gray-dark-a-100);
+  }
+}
