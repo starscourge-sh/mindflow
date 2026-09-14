@@ -32,13 +32,6 @@ declare module "@tiptap/core" {
 }
 
 /**
- * Math nodes cannot hold an empty formula and this project has no inline
- * editor for them, so an empty selection gets a placeholder you can toggle
- * back into plain text and retype.
- */
-const MATH_PLACEHOLDER = "x"
-
-/**
  * The word under a collapsed cursor, or null when there is a real selection.
  */
 function selectedWordRange(
@@ -47,6 +40,22 @@ function selectedWordRange(
   const { empty, $from } = state.selection
   if (!empty) return null
   return wordRangeAt(state.doc, $from.pos)
+}
+
+/**
+ * What a math command should turn into a formula: the selection, or the word
+ * under the cursor. Math nodes cannot hold an empty formula and this project
+ * has no inline editor for them, so an empty target gets a placeholder you can
+ * toggle back into plain text and retype.
+ */
+function mathTarget(state: EditorState): {
+  from: number
+  to: number
+  latex: string
+} {
+  const { from, to } = state.selection
+  const range = selectedWordRange(state) ?? { from, to }
+  return { ...range, latex: state.doc.textBetween(range.from, range.to) || "x" }
 }
 
 export const ObsidianShortcuts = Extension.create({
@@ -85,7 +94,7 @@ export const ObsidianShortcuts = Extension.create({
       toggleInlineMath:
         () =>
         ({ state, chain }) => {
-          const { from, to, empty } = state.selection
+          const { from, to } = state.selection
 
           // Cursor sits on (or next to) an existing node - unwrap it back to text.
           let mathNode: ProseMirrorNode | null = null
@@ -109,23 +118,22 @@ export const ObsidianShortcuts = Extension.create({
               .run()
           }
 
-          const selected = empty ? "" : state.doc.textBetween(from, to)
-          const commands = chain()
-          if (!empty) commands.deleteSelection()
-          return commands
-            .insertInlineMath({ latex: selected || MATH_PLACEHOLDER })
+          // With nothing selected, take the word under the cursor - the same
+          // fallback the mark toggles use.
+          const { latex, ...range } = mathTarget(state)
+          return chain()
+            .deleteRange(range)
+            .insertInlineMath({ latex, pos: range.from })
             .run()
         },
 
       insertMathBlock:
         () =>
         ({ state, chain }) => {
-          const { from, to, empty } = state.selection
-          const selected = empty ? "" : state.doc.textBetween(from, to)
-          const commands = chain()
-          if (!empty) commands.deleteSelection()
-          return commands
-            .insertBlockMath({ latex: selected || MATH_PLACEHOLDER })
+          const { latex, ...range } = mathTarget(state)
+          return chain()
+            .deleteRange(range)
+            .insertBlockMath({ latex, pos: range.from })
             .run()
         },
 
@@ -160,9 +168,13 @@ export const ObsidianShortcuts = Extension.create({
       "Mod-Shift-s": () => this.editor.commands.toggleMarkOnWord("strike"),
       "Mod-Alt-8": () => this.editor.commands.toggleMarkOnWord("code"),
       "Mod-Alt-9": () => this.editor.commands.toggleInlineMath(),
+      "Mod-Alt-t": () =>
+        this.editor.commands.insertTable({
+          rows: 3,
+          cols: 3,
+          withHeaderRow: true,
+        }),
       "Mod-Alt-0": () => this.editor.commands.insertMathBlock(),
     }
   },
 })
-
-export default ObsidianShortcuts
