@@ -1,22 +1,22 @@
-import { contextBridge } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
+import { contextBridge, ipcRenderer } from 'electron'
+import type { LinkMetadata } from './index.d'
 
 // Custom APIs for renderer
-const api = {}
+const api = {
+  fetchLinkMetadata: (url: string): Promise<LinkMetadata> =>
+    ipcRenderer.invoke('fetch-link-metadata', url),
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
-if (process.contextIsolated) {
-  try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
-    contextBridge.exposeInMainWorld('api', api)
-  } catch (error) {
-    console.error(error)
-  }
-} else {
-  // @ts-ignore (define in dts)
-  window.electron = electronAPI
-  // @ts-ignore (define in dts)
-  window.api = api
+  /** Store image bytes and get back the URL that reads them again. */
+  saveImage: (mime: string, bytes: Uint8Array): Promise<string> =>
+    ipcRenderer.invoke('save-image', mime, bytes),
+
+  /** Put a stored image on the system clipboard. */
+  copyImage: (src: string): Promise<boolean> => ipcRenderer.invoke('copy-image', src),
+
+  /** Read a linked image, which the renderer's own content policy forbids. */
+  fetchImage: (href: string): Promise<{ mime: string; bytes: Uint8Array } | null> =>
+    ipcRenderer.invoke('fetch-image', href)
 }
+
+// Context isolation is on, so this is the only way across.
+contextBridge.exposeInMainWorld('api', api)
