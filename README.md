@@ -1,4 +1,4 @@
-# mindflow
+# mindflow: not your ordinary note taking app
 
 An Electron application with React and TypeScript
 
