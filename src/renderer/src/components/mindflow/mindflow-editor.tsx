@@ -317,7 +317,7 @@ export function MindflowEditor({
   }, [editor])
 
   return (
-    <div className="mindflow-editor-wrapper">
+    <div className="relative mindflow-editor-wrapper">
       <EditorContext.Provider value={{ editor }}>
 
         <div className="fixed w-min bottom-3 left-0 right-0 z-10 m-auto">
@@ -443,9 +443,9 @@ export function MindflowEditor({
                 const block =
                   item > 0
                     ? {
-                        type: $inside.node(item).type.name,
-                        content: [{ type: "paragraph" }],
-                      }
+                      type: $inside.node(item).type.name,
+                      content: [{ type: "paragraph" }],
+                    }
                     : { type: "paragraph" }
                 editor
                   .chain()
@@ -482,7 +482,6 @@ export function MindflowEditor({
         ) : null}
 
         <TableOfContents editor={editor} />
-        <WordCount editor={editor} />
 
         <SelectionMenu editor={editor}>
           <ToolbarGroup>
@@ -509,6 +508,8 @@ export function MindflowEditor({
           role="presentation"
           className="mindflow-editor-content relative"
         />
+
+        <WordCount editor={editor} />
       </EditorContext.Provider >
     </div>
   )
