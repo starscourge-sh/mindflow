@@ -58,7 +58,8 @@
   // markers plus the 44px cluster itself, so 3rem would clip it. The right side
   // matches it - the column is centred, so unequal padding puts the text off
   // centre inside it.
-  padding: 1rem 4.75rem 50vh;
+  padding: 4rem 4.75rem 50vh !important;
+  // padding: 0!important;
 }
 
 .tiptap.ProseMirror.mindflow-editor [data-type=horizontalRule] {
@@ -79,7 +80,8 @@
 }
 
 .tiptap.ProseMirror.mindflow-editor :is(h1, h2, h3, h4) {
-    margin-top: 1em;
+    // margin-top: 1em;
+    margin-top: 0;
 }
 
 .mindflow-editor-wrapper .tiptap-toolbar[data-variant="fixed"] {
@@ -906,7 +908,6 @@
 }
 
 .tiptap-word-count {
-  position: fixed;
   right: 0.75rem;
   bottom: 0.75rem;
   z-index: 20;
