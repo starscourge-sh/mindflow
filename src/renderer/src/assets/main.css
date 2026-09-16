@@ -140,3 +140,9 @@
     @apply font-sans;
   }
 }
+
+html, body { background: transparent; }
+.app-container {
+  border-radius: 24px 24px 16px 16px;
+  overflow: hidden;   /* clip content to the rounded corners */
+}
