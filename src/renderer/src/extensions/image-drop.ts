@@ -4,13 +4,6 @@ import { Plugin, PluginKey } from "@tiptap/pm/state"
 import { dropPoint } from "@tiptap/pm/transform"
 import type { EditorView } from "@tiptap/pm/view"
 
-/**
- * Anything larger goes to the main process as one buffer, gets hashed and
- * written there, and blocks it for the duration. A screenshot is well under
- * this; a RAW photo is not.
- */
-export const MAX_IMAGE_BYTES = 12 * 1024 * 1024
-
 export interface ImageDropOptions {
   /** Told about anything that could not be added, so nothing fails in silence. */
   onError: (problems: string[]) => void
@@ -55,9 +48,6 @@ export async function saveImage(file: File): Promise<string> {
     throw new Error(`${file.name || "That file"} is not an image`)
   }
   if (!file.size) throw new Error(`${file.name || "That file"} is empty`)
-  if (file.size > MAX_IMAGE_BYTES) {
-    throw new Error(`Images must be under ${MAX_IMAGE_BYTES / (1024 * 1024)}MB`)
-  }
 
   const bytes = new Uint8Array(await file.arrayBuffer())
   const src = await window.api.saveImage(file.type, bytes)

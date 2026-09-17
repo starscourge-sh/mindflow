@@ -30,43 +30,16 @@ const EXTENSIONS: Record<string, string> = {
   'image/vnd.microsoft.icon': 'ico'
 }
 
-/** Anything larger is refused rather than held in memory as one buffer. */
-const MAX_IMAGE_BYTES = 12 * 1024 * 1024
-
-/**
- * Do the bytes look like what they claim to be?
- *
- * A renamed text file, or an empty buffer, would otherwise be stored and
- * inserted as an image that can never render. Refusing here means the document
- * is never given a node that is broken from the moment it is created.
- */
-const looksRight = (mime: string, bytes: Uint8Array): boolean => {
-  const at = (offset: number, ...signature: number[]): boolean =>
-    signature.every((byte, index) => bytes[offset + index] === byte)
-
-  switch (mime) {
-    case 'image/png':
-    case 'image/apng':
-      return at(0, 0x89, 0x50, 0x4e, 0x47)
-    case 'image/jpeg':
-      return at(0, 0xff, 0xd8, 0xff)
-    case 'image/gif':
-      return at(0, 0x47, 0x49, 0x46, 0x38)
-    case 'image/webp':
-      return at(0, 0x52, 0x49, 0x46, 0x46) && at(8, 0x57, 0x45, 0x42, 0x50)
-    case 'image/avif':
-      return at(4, 0x66, 0x74, 0x79, 0x70)
-    case 'image/bmp':
-      return at(0, 0x42, 0x4d)
-    // SVG is text and an icon has no single signature worth trusting.
-    default:
-      return true
-  }
-}
-
-// A custom scheme rather than file:. The document stores `mindflow://assets/...`,
-// which survives the app moving and does not leak the user's home directory
-// into exported HTML. Must be declared before the app is ready.
+// invents custom 'scheme' (address type) like https:// but private to mindflow
+// allows app to point to assets without specififying absolute locations on disc
+// instead of file:///Users/{username}/Library/Application Support/mindflow/assets/abc.png this allows for
+// mindflow://assets/abc.png
+// obviously the 'file://' path would only work on my machine
+// when the window asks for an address, app will look up where its data folder lives and read the file
+// `standard: true` - dicates that address is shaped like a normal web address, e.g mindflow://assets/abc.png splits into a part before the slash and a part after
+//                    without it, the string is treated like one lump of text
+// `secure: true` - says treat it as trustworthy (like https) , without it browser will refuse and not trust files from this scheme
+// needs to run before the app (outside of app.whenReady()) is ready because, the browser engine builds its list of known address types once, as it starts
 protocol.registerSchemesAsPrivileged([
   { scheme: 'mindflow', privileges: { standard: true, secure: true } }
 ])
@@ -165,8 +138,7 @@ app.whenReady().then(() => {
 
     const extension = EXTENSIONS[mime]
     if (!extension) return ''
-    if (!bytes.byteLength || bytes.byteLength > MAX_IMAGE_BYTES) return ''
-    if (!looksRight(mime, bytes)) return ''
+    if (!bytes.byteLength) return ''
 
     const hash = createHash('sha256').update(bytes).digest('hex')
     const destination = join(assetsDir(), `${hash}.${extension}`)
@@ -214,9 +186,7 @@ app.whenReady().then(() => {
       if (!response.ok || !EXTENSIONS[mime]) return null
 
       const bytes = new Uint8Array(await response.arrayBuffer())
-      return bytes.byteLength && bytes.byteLength <= MAX_IMAGE_BYTES
-        ? { mime, bytes }
-        : null
+      return bytes.byteLength ? { mime, bytes } : null
     } catch {
       return null
     }
