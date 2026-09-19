@@ -1,5 +1,5 @@
 import { Extension } from "@tiptap/core"
-import { NodeSelection, type Selection } from "@tiptap/pm/state"
+import { NodeSelection, Selection } from "@tiptap/pm/state"
 import { Fragment, type Node as ProseMirrorNode } from "@tiptap/pm/model"
 
 declare module "@tiptap/core" {
@@ -105,18 +105,32 @@ export const ToggleHeading = Extension.create({
               ? blockAt(doc, "details", pos, state.selection)
               : null
 
-          if (folded && headingRank(folded.node) !== null) {
+          if (folded) {
             const [summary, body] = [folded.node.child(0), folded.node.child(1)]
-            const heading = schema.nodes.heading.create(
-              { ...summary.attrs, level: headingRank(folded.node) },
-              summary.content
-            )
+            const level = headingRank(folded.node)
+            // A section that was a heading goes back to being one. A section
+            // made from anything else has no rank to restore, so it comes back
+            // as plain text - which is what makes the command round trip
+            // instead of dead ending on whatever it folded.
+            const head =
+              level === null
+                ? schema.nodes.paragraph.create(summary.attrs, summary.content)
+                : schema.nodes.heading.create(
+                    { ...summary.attrs, level },
+                    summary.content
+                  )
             if (dispatch) {
               dispatch(
                 state.tr.replaceWith(
                   folded.pos,
                   folded.pos + folded.node.nodeSize,
-                  Fragment.from(heading).append(body.content)
+                  // An untouched body is the empty paragraph folding had to
+                  // put there; giving it back would leave a blank line behind.
+                  Fragment.from(head).append(
+                    body.childCount === 1 && body.firstChild?.content.size === 0
+                      ? Fragment.empty
+                      : body.content
+                  )
                 )
               )
             }
@@ -183,9 +197,16 @@ export const ToggleHeading = Extension.create({
           }
 
           if (dispatch) {
-            dispatch(
-              state.tr.replaceWith(target.pos, end, details).scrollIntoView()
+            const tr = state.tr.replaceWith(target.pos, end, details)
+            // Land in the title, at the same offset along it. Otherwise the
+            // caret is left wherever the replacement put it, and the same key
+            // pressed again folds the next block instead of unfolding this one.
+            const offset = Math.min(
+              Math.max(0, state.selection.from - target.pos - 1),
+              details.child(0).content.size
             )
+            tr.setSelection(Selection.near(tr.doc.resolve(target.pos + 2 + offset)))
+            dispatch(tr.scrollIntoView())
           }
           return true
         },
