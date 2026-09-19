@@ -44,6 +44,9 @@ type VimRegister =
 /** Everything an operator can be. `c` also drops into insert mode. */
 type Operator = "d" | "y" | "c" | "gU" | "gu"
 
+/** `>` and `<` wait for a target like an operator, but rewrite shape, not text. */
+type Pending = Operator | ">" | "<"
+
 interface LineSpan {
   from: number
   to: number
@@ -55,7 +58,7 @@ interface VimState {
   /** Digits typed so far, e.g. "12" in `12j`. */
   count: string
   /** An operator waiting for its target, as in `dd`, `ciw` or `gUiw`. */
-  operator: Operator | null
+  operator: Pending | null
   /** Whether `g` was just pressed, for `gg`, `gU` and `gu`. */
   pendingG: boolean
   /** Whether `i` was just pressed, for the `iw` text object. */
@@ -156,6 +159,41 @@ function lineDepth($pos: ResolvedPos): number {
     if (isListItem($pos.node(depth).type)) return depth
   }
   return Math.max(1, $pos.depth)
+}
+
+/**
+ * Nest or lift every list item a range touches: `>` and `<`.
+ *
+ * In a document there is no whitespace to add to the front of a line, so these
+ * mean the one thing indenting can mean here, which is moving an item in or out
+ * a level. Anything that is not a list item is left alone rather than given a
+ * fake indent.
+ */
+function indentLines(
+  view: EditorView,
+  from: number,
+  to: number,
+  out: boolean
+): void {
+  const { doc } = view.state
+  const at = (pos: number): ResolvedPos =>
+    doc.resolve(Math.max(0, Math.min(pos, doc.content.size)))
+
+  // `between` snaps to real text positions inside the blocks, which the ends of
+  // a line span are not: they sit around the item, not in it.
+  const covering = TextSelection.between(at(from), at(to))
+  if (!inList(covering.$from)) return
+
+  // Both commands read the selection, so covering the range is how a count, or
+  // a visual selection, reaches more than one item.
+  if (!view.state.selection.eq(covering)) {
+    view.dispatch(view.state.tr.setSelection(covering))
+  }
+
+  const item = covering.$from.node(lineDepth(covering.$from)).type
+  const run = out ? liftListItem : sinkListItem
+  run(item)(view.state, view.dispatch)
+  collapseSelection(view)
 }
 
 /** Is the cursor on a list item, where Tab nests and Shift-Tab lifts it? */
@@ -1047,7 +1085,14 @@ export const VimMode = Extension.create<VimModeOptions>({
             const meta = tr.getMeta(vimPluginKey) as
               | Partial<VimState>
               | undefined
-            return meta ? { ...value, ...meta } : value
+            if (meta) return { ...value, ...meta }
+
+            // A caret moved by something that is not a vim command - an arrow
+            // key, a click - abandons whatever was half typed. A count is
+            // invisible while it waits, so leaving it armed silently turns the
+            // next `dd` into `2dd`. Motions read their count before they move,
+            // so clearing here costs them nothing.
+            return value
           },
         },
 
@@ -1154,16 +1199,21 @@ export const VimMode = Extension.create<VimModeOptions>({
             }
 
             /** Run an operator over the current visual selection and exit. */
-            const applyToVisual = (operator: Operator): true => {
+            const applyToVisual = (operator: Pending): true => {
               const range =
                 anchor === null || vim.visualHead === null
                   ? null
                   : visualRange(view.state, anchor, vim.visualHead, linewise)
               patch(view, NORMAL)
-              if (range) {
-                applyToRange(view, operator, range.from, range.to, linewise)
-                if (operator !== "c") collapseSelection(view, range.from)
+              if (!range) return true
+
+              if (operator === ">" || operator === "<") {
+                indentLines(view, range.from, range.to, operator === "<")
+                return true
               }
+
+              applyToRange(view, operator, range.from, range.to, linewise)
+              if (operator !== "c") collapseSelection(view, range.from)
               return true
             }
 
@@ -1225,14 +1275,12 @@ export const VimMode = Extension.create<VimModeOptions>({
             // structural change rather than typing - vim's own `>>`, on the key
             // the rest of the editor already uses for it.
             if (key.length > 1) {
-              const $head = view.state.selection.$head
-              if (key === "Tab" && !inVisual && inList($head)) {
-                // Run it here rather than letting it fall through. An item with
+              if (key === "Tab" && !inVisual) {
+                // Handled here rather than left to fall through: an item with
                 // nothing above it cannot be nested, and a Tab that no one
                 // handles walks the focus out of the document.
-                const item = $head.node(lineDepth($head)).type
-                const nest = event.shiftKey ? liftListItem : sinkListItem
-                nest(item)(view.state, view.dispatch)
+                const { head } = view.state.selection
+                indentLines(view, head, head, event.shiftKey)
                 return true
               }
               return BLOCKED_NAMED_KEYS.includes(key)
@@ -1292,6 +1340,9 @@ export const VimMode = Extension.create<VimModeOptions>({
                   return applyToVisual("y")
                 case "c":
                   return applyToVisual("c")
+                case ">":
+                case "<":
+                  return applyToVisual(key)
                 case "U":
                   return applyToVisual("gU")
                 case "u":
@@ -1334,6 +1385,15 @@ export const VimMode = Extension.create<VimModeOptions>({
                   (operator === "gu" && key === "u"))
 
               patch(view, CLEARED)
+
+              if (operator === ">" || operator === "<") {
+                if (doubled) {
+                  // A count takes lines, as in `3>>`, not levels.
+                  const span = lineRange(view.state, count)
+                  if (span) indentLines(view, span.from, span.to, operator === "<")
+                }
+                return true
+              }
 
               if (vim.pendingTextObject && key === "w") {
                 const range = word()
@@ -1390,6 +1450,8 @@ export const VimMode = Extension.create<VimModeOptions>({
               case "d":
               case "y":
               case "c":
+              case ">":
+              case "<":
                 patch(view, { operator: key })
                 return true
               case "g":
