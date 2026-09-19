@@ -1,4 +1,32 @@
 import { app, shell, BrowserWindow, clipboard, ClipboardItem, ipcMain, net, protocol } from 'electron'
+/*
+ * app - Control your application's event lifecycle.
+ *     - app.on('window-all-closed', () => { app.quit() })
+ *     - emits events like:
+ *        - 'window-all-closed': Emitted when all windows have been closed.
+ *        - 'did-become-active': Emitted when all windows have been closed.
+ *        - Emitted when the application becomes active. This differs from the activate event in that did-become-active is emitted every time the app becomes active, not only when Dock icon is clicked or application is re-launched. It is also emitted when a user switches to the app via the macOS App Switcher.
+ *
+ * BrowserWindow: Create and control browser windows.
+ *        - const { BrowserWindow } = require('electron')
+ *        -   const win = new BrowserWindow({ width: 800, height: 600 })
+ *        - Load a remote URL
+ *        -   win.loadURL('https://github.com')
+ *        - Or load a local HTML file
+ *        -   win.loadFile('index.html')
+ *
+ * shell - The shell module provides functions related to desktop integration.
+ *       - An example of opening a URL in the user's default browser:
+ *       - shell.showItemInFolder(fullPath): Show the given file in a file manager. If possible, select the file.
+ *       - shell.openPath(path): Open the given file in the desktop's default manner.
+ *       - shell.trashItem(path): This moves a path to the OS-specific trash location (Trash on macOS, Recycle Bin on Windows, and a desktop-environment-specific location on Linux).
+ *
+ * net - Issue HTTP/HTTPS requests using Chromium's native networking library
+ *     - The net module is a client-side API for issuing HTTP(S) requests.
+ *     - It is similar to the HTTP and HTTPS modules of Node.js but uses Chromium's native networking library instead of the Node.js implementation, offering better support for web proxies.
+ *     - It also supports checking network status.
+*/
+
 import { createHash, randomUUID } from 'crypto'
 import { mkdir, readFile, rename, writeFile } from 'fs/promises'
 import { join } from 'path'
@@ -7,7 +35,73 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerNotes } from './notes'
 
-/** Where dropped and pasted images live. */
+
+/* The standard electron app file structure:
+ * One folder, named after your app
+ `app.getPath('userData')` - That is the only place you write. It resolves per machine:
+        macos - `~/Library/Application Support/mindflow`
+        linux - `~/.config/mindflow`
+        windows - `%APPDATA%\mindflow`
+ `userData` is a label you ask for, not a folder name. The name on disk is your app's name from `package.json`.
+ You share it with Chromium
+ Chromium writes a bunch of its own housekeeping items/files into that same folder:
+        `Cache`, `Cookies`, `Preferences`, `Local State`, `Local Storage`, `Session Storage`, `GPUCache`, `blob_storage` and friends. Your files sit beside them. There is no way around that, because there is one folder.
+
+ rule of thumb:
+ - One clearly-named entry per kind of thing.
+ - Note: Renaming after you ship strands data.
+```
+ mindflow/
+ ├── assets/          ← one entry, holds hundreds of images, audios etc
+ ├── {any other custom folder e.g notes/, tasks/ }/           ← one entry, holds every note
+ ├── app.db           ← one file, obviously yours
+ └── Cache/  Cookies  Preferences  …Chromium's
+ ```
+ At some point folders stop being the right shape.
+        One file per record works because a note stands alone.
+        Once you have tasks that belong to projects, that carry labels, that reference each other, you start wanting questions like "every task due this week across all projects".
+        Answering that by opening every file and checking it works until it does not.
+ That is when a database takes over:
+ ---
+ mindflow/
+ ├── app.db      ← tasks, projects, labels, notes, all of it
+ ├── assets/     ← images stay as files
+ └── Cache/  Cookies  …
+        notes/ does not get renamed then.
+        It disappears, and notes become rows alongside everything else.
+        assets/ stays, because images are the one thing that does not belong in a database.
+ ---
+ A single file at the top is fine. Two hundred is not. A lone `app.db` needs no folder wrapped round it.
+ The only hard part is never reusing a name Chromium already took, from the list above.
+  Which label for which job:
+        userData: database, settings, user files
+        cache: thumbnails, downloaded previews
+        temp: scratch files you delete yourself
+ The system can clear `cache` without asking. Nothing you would miss goes there.
+ ---
+ Big files and databases
+  A database is one file at the top of `userData`.
+  Keep large binary things out of it. Save the image as a file in `assets/` and store only its name in the database, which is what mindflow already does. Past roughly 100KB a file beats a database row, and it keeps the database small enough to copy and back up.
+ Two things that will bite you
+  Never write next to the app itself.** On a Mac the app bundle is signed and read-only, and the code sits inside a sealed archive. It works while you develop and fails on a real install.
+        Renaming the app orphans everyone's data.
+        The folder is named after the app. Change the name and every user gets a fresh empty folder, with their old one stranded.
+
+ Where mindflow stands:
+       You have `assets/` and `notes/`, and nothing else. No database, no settings file.
+       If you add either, they go at the top of the same folder as `app.db` and `config.json`, and nothing else moves.
+
+ The escape hatch, for later
+ ```app.setPath('sessionData', somewhereElse)```
+        Those two dozen files in your folder are not yours.
+        They belong to the browser engine inside Electron.
+        Your app is a browser window, so it quietly builds up the things browsers build up: cookies, caches, local storage, preferences.
+        Electron calls that whole pile the session data, and it has to live somewhere.
+        By default, that somewhere is the same folder as your own files.
+        That is the only reason Cookies and Cache sit next to notes/ and assets/.
+        It is a default, not a law.
+**/
+// Where dropped and pasted images live.
 const assetsDir = (): string => join(app.getPath('userData'), 'assets')
 
 /**
@@ -49,13 +143,18 @@ function createWindow(): void {
   const mainWindow = new BrowserWindow({
     width: 625,
     height: 400,
-    // minWidth: 625,
+    minHeight: 400,
+    minWidth: 600,
+
     resizable: false,
+    vibrancy: 'under-window',
+    visualEffectState: 'active',
+    backgroundColor: 'rgba(0,0,0,0)',
+
     show: false,
     alwaysOnTop: true,
     autoHideMenuBar: true,
     titleBarStyle: 'hidden',
-    backgroundColor: 'black',
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -100,11 +199,22 @@ function createWindow(): void {
   }
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
-// YouTube refuses to serve embeds to anything it reads as automation, and the
-// default user agent announces both Electron and the app name.
+// Every web request carries a short line saying what browser is asking. This edits that line to stop announcing Electron.
+// What the line looks like. Electron's default, on your machine:
+// Mozilla/5.0 (Macintosh; …) Chrome/152.0.7977.78 mindflow/1.0.0 Electron/44.3.0 Safari/537.36
+//                                                 └─ cut ─┘        └──── cut ────┘
+// The two marked pieces come off. What is left is what I measured in the running app:
+// Mozilla/5.0 (Macintosh; …) Chrome/152.0.7977.78 Safari/537.36
+// Indistinguishable from ordinary Chrome.
+// Why bother. Plenty of sites read that line and decide what to send back. A name they do not recognise often gets a stripped page, or a block. Since the link preview fetch sends this exact string, a bookmark card is the thing that quietly comes back empty.
+// The two replaces.
+// .replace(/ Electron\/[\d.]+/, '')
+// Finds a space, then Electron/, then a run of digits and dots, and deletes it. [\d.]+ is the version number, whatever it happens to be, so this keeps working after an upgrade.
+//
+// .replace(new RegExp(` ${app.getName()}\\/[\\d.]+`, 'i'), '')
+// Same shape, but the name has to be built while the app is running, because it comes from package.json and this file cannot know it in advance. That is the only reason one is written as a plain pattern and the other is assembled. The \\/ is an escaped slash, awkward only because it lives inside a string first. The 'i' makes it case-insensitive, so Mindflow and mindflow both go.
+//
+// Two details worth knowing. Each replace hits only the first match, which is fine since each token appears once. And this must run before the app is ready, like the scheme registration, or requests have already started going out with the old line.
 app.userAgentFallback = app.userAgentFallback
   .replace(/ Electron\/[\d.]+/, '')
   .replace(new RegExp(` ${app.getName()}\\/[\\d.]+`, 'i'), '')
