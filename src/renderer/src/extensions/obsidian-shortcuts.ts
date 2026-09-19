@@ -162,6 +162,8 @@ export const ObsidianShortcuts = Extension.create({
       "Mod-Alt-4": () => this.editor.commands.toggleCheckbox(),
       "Mod-Alt-5": () => this.editor.commands.toggleBulletList(),
       "Mod-Alt-6": () => this.editor.commands.toggleOrderedList(),
+      // Notion's numbering: 4 to-do, 5 bulleted, 6 numbered, 7 toggle.
+      "Mod-Alt-7": () => this.editor.commands.toggleHeadingSection(),
       "Mod-b": () => this.editor.commands.toggleMarkOnWord("bold"),
       "Mod-i": () => this.editor.commands.toggleMarkOnWord("italic"),
       "Mod-u": () => this.editor.commands.toggleMarkOnWord("underline"),
