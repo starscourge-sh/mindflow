@@ -89,12 +89,25 @@ const JK_TIMEOUT_MS = 250
 /** Keys that must not fall through to the browser's editing behaviour. */
 const BLOCKED_NAMED_KEYS = ["Enter", "Delete", "Tab"]
 
+/**
+ * Keys that are not keystrokes.
+ *
+ * Holding shift fires its own keydown, so `>` arrives as `Shift` then `>` and
+ * `gU` as `g`, `Shift`, `U`. Treating those as input would abandon the command
+ * halfway through typing it.
+ */
+const MODIFIER_KEYS = ["Shift", "Control", "Alt", "Meta", "CapsLock"]
+
 const CLEARED = {
   count: "",
   operator: null,
   pendingG: false,
   pendingTextObject: false,
 } as const
+
+/** Is a command half typed: a count, an operator, a prefix waiting for more? */
+const isPending = (vim: VimState): boolean =>
+  !!(vim.count || vim.operator || vim.pendingG || vim.pendingTextObject)
 
 const NORMAL = {
   mode: "normal" as const,
@@ -1103,6 +1116,15 @@ export const VimMode = Extension.create<VimModeOptions>({
             return vim?.enabled ? { "data-vim-mode": vim.mode } : {}
           },
 
+          // A click abandons a half typed command. The count is invisible
+          // while it waits, so leaving it armed turns the next `dd` into
+          // `2dd`, which is exactly as confusing as it sounds.
+          handleClick: (view) => {
+            const vim = vimPluginKey.getState(view.state)
+            if (vim?.enabled && isPending(vim)) patch(view, CLEARED)
+            return false
+          },
+
           // A click past the last character of a line, which normal mode has
           // nowhere to put the cursor.
           createSelectionBetween: (view, $anchor, $head) => {
@@ -1275,6 +1297,14 @@ export const VimMode = Extension.create<VimModeOptions>({
             // structural change rather than typing - vim's own `>>`, on the key
             // the rest of the editor already uses for it.
             if (key.length > 1) {
+              // Arrows, Enter, Tab and the rest are not part of any command
+              // here, so anything half typed before them is abandoned rather
+              // than left armed. A count is invisible while it waits, and the
+              // next `dd` silently becomes `2dd`.
+              if (!MODIFIER_KEYS.includes(key) && isPending(vim)) {
+                patch(view, CLEARED)
+              }
+
               if (key === "Tab" && !inVisual) {
                 // Handled here rather than left to fall through: an item with
                 // nothing above it cannot be nested, and a Tab that no one
