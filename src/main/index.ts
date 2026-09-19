@@ -63,8 +63,11 @@ function createWindow(): void {
     }
   })
 
+  // the ready-to-show event on the BrowserWindow class will be emitted when the renderer process has rendered the page for the first time if the window has not been shown yet.
+  // Showing the window after this event will have no visual flash:
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+    // still see a view of app before app fully paints, so will wait 1 sec before show.
+    setTimeout((): void => mainWindow.show(), 1000)
   })
 
   // A file dropped outside the editable would otherwise navigate the window to
