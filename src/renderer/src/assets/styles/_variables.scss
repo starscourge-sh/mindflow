@@ -190,6 +190,46 @@
     0px 6px 8px 0px rgba(0, 0, 0, 0.22), 0px 2px 3px 0px rgba(0, 0, 0, 0.12);
 }
 
+/* Gruvbox rides on top of `.dark`: both classes are set together, so everything
+   structural is already decided and only the colours underneath change. The
+   dark theme points its surfaces and borders at this ramp, so recolouring the
+   ramp recolours the editor without touching a single semantic token. */
+.gruvbox {
+  /* The page itself. Warmer than gruvbox's own #282828, matching warmbox. */
+  --black: rgba(31, 23, 16, 1);
+
+  /* Surfaces, low to high, then text weights. */
+  --tt-gray-dark-50: rgba(36, 28, 20, 1);
+  --tt-gray-dark-100: rgba(45, 36, 25, 1);
+  --tt-gray-dark-200: rgba(60, 48, 37, 1);
+  --tt-gray-dark-300: rgba(80, 68, 56, 1);
+  --tt-gray-dark-400: rgba(102, 90, 74, 1);
+  --tt-gray-dark-500: rgba(124, 111, 94, 1);
+  --tt-gray-dark-600: rgba(146, 131, 116, 1);
+  --tt-gray-dark-700: rgba(168, 153, 132, 1);
+  --tt-gray-dark-800: rgba(189, 174, 147, 1);
+  --tt-gray-dark-900: rgba(235, 219, 178, 1);
+
+  /* Overlays are tinted with the foreground cream rather than blue-white, or
+     every hover state would cool the page back down. */
+  --tt-gray-dark-a-50: rgba(235, 219, 178, 0.05);
+  --tt-gray-dark-a-100: rgba(235, 219, 178, 0.07);
+  --tt-gray-dark-a-200: rgba(235, 219, 178, 0.11);
+  --tt-gray-dark-a-300: rgba(235, 219, 178, 0.22);
+  --tt-gray-dark-a-400: rgba(235, 219, 178, 0.37);
+  --tt-gray-dark-a-500: rgba(235, 219, 178, 0.5);
+  --tt-gray-dark-a-600: rgba(235, 219, 178, 0.64);
+  --tt-gray-dark-a-700: rgba(235, 219, 178, 0.75);
+  --tt-gray-dark-a-800: rgba(235, 219, 178, 0.88);
+  --tt-gray-dark-a-900: rgba(235, 219, 178, 0.96);
+
+  /* Orange is gruvbox's accent, so it takes the caret and the selection. */
+  --tt-brand-color-400: rgba(254, 128, 25, 1);
+  --tt-cursor-color: rgba(254, 128, 25, 1);
+  --tt-selection-color: rgba(254, 128, 25, 0.2);
+  --mf-caret-vim: rgba(254, 128, 25, 1);
+}
+
 /* Text colors */
 :root {
   --tt-color-text-gray: hsl(45, 2%, 46%);
@@ -233,6 +273,21 @@
   --tt-color-text-purple-contrast: hsla(271, 56%, 60%, 0.18);
   --tt-color-text-pink-contrast: hsla(331, 67%, 58%, 0.22);
   --tt-color-text-red-contrast: hsla(0, 67%, 60%, 0.25);
+}
+
+/* The nine block colours, as gruvbox names them. The `-contrast` pairs are left
+   to `.dark`: they only show on the contrast variants of each colour, and the
+   inherited ones read acceptably on this ramp. */
+.gruvbox {
+  --tt-color-text-gray: #928374;
+  --tt-color-text-brown: #a9714b;
+  --tt-color-text-orange: #fe8019;
+  --tt-color-text-yellow: #fabd2f;
+  --tt-color-text-green: #b8bb26;
+  --tt-color-text-blue: #83a598;
+  --tt-color-text-purple: #d3869b;
+  --tt-color-text-pink: #e6899e;
+  --tt-color-text-red: #fb4934;
 }
 
 /* Highlight colors */
@@ -281,4 +336,16 @@
   --tt-color-highlight-brown-contrast: rgba(184, 101, 69, 0.25);
   --tt-color-highlight-orange-contrast: rgba(233, 126, 37, 0.2);
   --tt-color-highlight-pink-contrast: rgba(220, 76, 145, 0.22);
+}
+
+.gruvbox {
+  --tt-color-highlight-yellow: rgba(250, 189, 47, 0.25);
+  --tt-color-highlight-green: rgba(184, 187, 38, 0.25);
+  --tt-color-highlight-blue: rgba(131, 165, 152, 0.25);
+  --tt-color-highlight-purple: rgba(211, 134, 155, 0.25);
+  --tt-color-highlight-red: rgba(251, 73, 52, 0.25);
+  --tt-color-highlight-gray: rgb(60, 56, 54);
+  --tt-color-highlight-brown: rgb(80, 60, 45);
+  --tt-color-highlight-orange: rgb(92, 62, 30);
+  --tt-color-highlight-pink: rgb(84, 55, 62);
 }
