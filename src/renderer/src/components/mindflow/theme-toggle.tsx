@@ -1,44 +1,49 @@
-import { Button } from "@/components/tiptap-ui-primitive/button"
-
-// --- Icons ---
-import { MoonStarIcon } from "@/components/tiptap-icons/moon-star-icon"
-import { SunIcon } from "@/components/tiptap-icons/sun-icon"
 import { useEffect, useState } from "react"
+import { Palette } from "lucide-react"
 
-export function ThemeToggle() {
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(false)
+import { Button } from "@/components/tiptap-ui-primitive/button"
+import { MoonStarIcon } from "@/components/tiptap-icons/moon-star-icon"
+
+/**
+ * Dark and gruvbox, in that order.
+ *
+ * There is no light theme. The window is transparent and sits on a frosted
+ * desktop, so the page paints no background of its own: dark text would have
+ * nothing to sit on and would read as a ghost. Both themes here are built for
+ * that surface, and the choice is remembered.
+ */
+const THEMES = ["dark", "gruvbox"] as const
+type Theme = (typeof THEMES)[number]
+
+const ICONS: Record<Theme, React.ReactNode> = {
+  dark: <MoonStarIcon className="tiptap-button-icon" />,
+  gruvbox: <Palette className="tiptap-button-icon" />,
+}
+
+export function ThemeToggle(): React.JSX.Element {
+  const [theme, setTheme] = useState<Theme>(() => {
+    const saved = localStorage.getItem("theme")
+    return THEMES.includes(saved as Theme) ? (saved as Theme) : "dark"
+  })
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
-    const handleChange = () => setIsDarkMode(mediaQuery.matches)
-    mediaQuery.addEventListener("change", handleChange)
-    return () => mediaQuery.removeEventListener("change", handleChange)
-  }, [])
+    const { classList } = document.documentElement
+    // Gruvbox is a dark theme in different paint, so it carries `dark` too and
+    // only the colours underneath change.
+    classList.add("dark")
+    classList.toggle("gruvbox", theme === "gruvbox")
+    localStorage.setItem("theme", theme)
+  }, [theme])
 
-  useEffect(() => {
-    const initialDarkMode =
-      !!document.querySelector('meta[name="color-scheme"][content="dark"]') ||
-      window.matchMedia("(prefers-color-scheme: dark)").matches
-    setIsDarkMode(initialDarkMode)
-  }, [])
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", isDarkMode)
-  }, [isDarkMode])
-
-  const toggleDarkMode = () => setIsDarkMode((isDark) => !isDark)
+  const next = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]
 
   return (
     <Button
-      onClick={toggleDarkMode}
-      aria-label={`Switch to ${isDarkMode ? "light" : "dark"} mode`}
+      onClick={() => setTheme(next)}
+      aria-label={`Switch to ${next} theme`}
       variant="ghost"
     >
-      {isDarkMode ? (
-        <MoonStarIcon className="tiptap-button-icon" />
-      ) : (
-        <SunIcon className="tiptap-button-icon" />
-      )}
+      {ICONS[theme]}
     </Button>
   )
 }
