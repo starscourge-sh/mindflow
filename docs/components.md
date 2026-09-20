@@ -404,9 +404,11 @@ dropped into three notes is stored once, and a pasted image needs no filename.
 
 | Rule | Why |
 | --- | --- |
-| 12MB each | The bytes cross to the main process as one buffer |
 | `png` `jpeg` `gif` `webp` `avif` `bmp` `apng` `svg` `ico` | What the app can actually render |
-| Bytes must match the type they claim | A renamed text file would store as a node that can never draw |
+| The file must not be empty | A zero byte image is a node that can never draw |
+
+Anything else that is dropped in becomes an **attachment** instead, which has no
+type restriction at all.
 
 Anything refused is reported rather than dropped in silence. Wire it up if you
 want it in front of the user, since the default writes to the console:
@@ -434,8 +436,8 @@ What you need to know:
   keeps its own.
 - Both import the design tokens they need.
 - `MindflowEditor` also expects **Tailwind** and its two fonts from the host.
-  Without Tailwind the find bar loses its layout and the hidden toolbar becomes
-  visible. `TitleEditor` has no such dependency.
+  Without Tailwind the find bar loses its layout and the toolbar loses its
+  spacing. `TitleEditor` has no such dependency.
 - `MindflowEditor` owns its scroll container, so give it a sized parent.
 - The menus mount on `document.body`, which is why the colour tokens are defined
   on `:root`.
@@ -445,5 +447,142 @@ Two open caveats, both worth knowing before you build panels around this:
 1. The outline, the word count and the find bar use `position: fixed`. They
    anchor to the **window**, not to the editor. In a side panel they will sit in
    the wrong place.
-2. `ThemeToggle` writes a `dark` class on the document root. Embedded, that
-   flips the **host app's** theme, not just the editor's.
+2. `ThemeToggle` writes theme classes on the document root. Embedded, that
+   flips the **host app's** theme, not just the editor's. It cycles four:
+   `dark`, `gruvbox`, `kanagawa` and `tokyonight`. Every one of them carries
+   `dark` as well, since they are all dark themes in different paint, and the
+   choice is kept in `localStorage` under `theme`. Each one past `dark` also
+   sets four accent tokens, `--mf-heading`, `--mf-accent-ink`, `--mf-code-ink`
+   and `--mf-quote-ink`, which colour headings, list markers, inline code and
+   the quote bar. Prose carries no syntax to highlight, so without them a
+   document reads as one flat hue. `dark` sets none of them and every use site
+   falls back to the colour it already had.
+
+---
+
+## Attachments
+
+Any file that is not an image becomes a card showing its name and size, which
+opens on double click and has a button to save a copy somewhere.
+
+They share the image store: bytes are addressed by their hash, so the same file
+in three notes is one file on disk. That store has no room for a filename, which
+is why the name and size are kept on the node instead.
+
+Drop one in, or use `/` and pick **File**.
+
+A card holding a picture offers **Show as image** in the drag handle menu, since
+the file picker makes a card out of anything.
+
+---
+
+## Linking to another note
+
+Type `@`, pick a note, and you get a link. Clicking it opens that note.
+
+The editor does not know what a note is. It holds an id and reports the click,
+and the app decides what to do:
+
+```tsx
+<MindflowEditor
+  findNotes={(query) => notes.filter((n) => n.title.includes(query))}
+  onOpenNote={(id) => open(id)}
+/>
+```
+
+Without `findNotes`, `@` simply finds nothing. The link stores the note's title
+alongside its id on purpose: a link has to read as something when the note it
+points at has been renamed, or is gone.
+
+---
+
+## Exporting
+
+`/` then **Export as** offers four formats.
+
+| Format | Made by | Notes |
+| --- | --- | --- |
+| Markdown | `@tiptap/markdown` | Toggles, attachments and block colour have no markdown form and are flattened |
+| PDF | Chromium, in the main process | Laid out by the same engine that drew it on screen |
+| JSON | `editor.getJSON()` | Exact. This is what gets stored |
+| HTML | `editor.getHTML()` | Loses node attributes that JSON keeps |
+
+From code:
+
+```ts
+import { exportDocument } from "@/lib/export"
+await exportDocument(editor, "markdown", note.title)
+```
+
+It resolves `false` when the save dialog was dismissed, which is not an error.
+
+---
+
+## Seeing what is stored
+
+**⌘⌥S**, or the braces button in the toolbar, opens a panel beside the document
+showing its JSON and every file it points at. That is what a save writes, so it
+is the honest answer to "what am I actually keeping".
+
+From code, `useNotes()` hands you the open note's files already worked out:
+
+```tsx
+const { note, assets } = useNotes()
+
+assets                      // [{ src, kind: "image" | "attachment", name?, size? }]
+assets.filter(isStored)     // only the app's own files, not remote ones
+```
+
+For any other note, or a document you are holding yourself:
+
+```ts
+import { assetsOf, isStored } from "@/lib/document"
+
+assetsOf(someNote.doc)
+```
+
+It is worked out from the document every time rather than saved alongside it.
+A saved list goes stale the moment someone deletes a picture, and a stale
+backup list is worse than none.
+
+Deduplicated by `src`, because the same picture twice in one document is still
+one file. Remote images are included rather than hidden, so a document that has
+not been fully localised is visible.
+
+---
+
+## Locking
+
+The padlock in the toolbar calls `editor.setEditable(false)`. The caret still
+moves and text can still be selected and copied; nothing can change it, and the
+menus that would change it stop offering.
+
+---
+
+## Holding notes in state
+
+`useNotes()` is the whole surface an app needs around the two editors.
+
+```tsx
+const { notes, note, assets, open, create, remove, save } = useNotes()
+
+<TitleEditor key={note.id} defaultContent={note.titleHtml} onChange={({ text, html }) =>
+  save({ title: text, titleHtml: html })} />
+
+<MindflowEditor key={note.id} defaultContent={note.doc} onChange={(doc) => save({ doc })} />
+```
+
+`notes` is the list; a board or a task view is the same list rendered
+differently. Nothing in the hook knows where notes are kept, so changing the
+store means changing `window.api.notes` and nothing else.
+
+Two things it handles that are easy to get wrong. A save queued just before you
+switch notes carries its note's id, so it cannot land on the one you switched
+to. And documents are written straight through while titles are held for 400ms,
+because the editor already waits for a pause in typing and the title does not.
+
+The `key` is what makes switching work: both editors read their content once, at
+mount. Give them **different** keys, as above. Two siblings sharing one key is
+the kind of thing React cannot warn about here, and it reconciles them wrongly:
+switching notes mounted a new title editor without ever taking the old one
+down, so they stacked up one per switch.
