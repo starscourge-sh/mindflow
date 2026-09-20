@@ -1332,6 +1332,71 @@ $nested-ul: "ul:not([data-type='taskList'])";
   color: var(--mf-muted);
 }
 
+// Beside the document, not over it: the panel is fixed, so the editor has to
+// give up the width or the text sits underneath and stops taking clicks. The
+// wrapper gives it up rather than the editor's own padding, which is set as a
+// shorthand further up and would win.
+.mindflow-editor-wrapper.has-source {
+  width: calc(100% - min(26rem, 45vw));
+}
+
+// The stored JSON, beside the document rather than over it.
+.mindflow-source {
+  position: fixed;
+  top: 3rem;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  width: min(26rem, 45vw);
+  flex-direction: column;
+  border-left: 1px solid var(--tt-border-color);
+  background-color: var(--tt-card-bg-color);
+  font-size: 0.75rem;
+}
+
+.mindflow-source-head {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.625rem 0.875rem;
+  border-bottom: 1px solid var(--tt-border-color);
+  color: var(--mf-muted);
+}
+
+.mindflow-source-assets {
+  max-height: 30%;
+  margin: 0;
+  padding: 0.5rem 0.875rem;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--tt-border-color);
+  list-style: none;
+
+  li {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.125rem 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.mindflow-source-kind {
+  flex: none;
+  width: 5rem;
+  color: var(--mf-muted);
+}
+
+.mindflow-source-json {
+  margin: 0;
+  padding: 0.875rem;
+  overflow: auto;
+  font-family: ui-monospace, monospace;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 // Selected, either on its own or caught inside a range. The outline sits on the
 // card rather than the wrapper so it follows the rounded corners.
 .tiptap.ProseMirror.mindflow-editor .tiptap-attachment.is-selected {
