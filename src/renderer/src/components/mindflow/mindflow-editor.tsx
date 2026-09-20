@@ -98,6 +98,9 @@ import "@/components/tiptap-node/paragraph-node/paragraph-node.scss"
 import { HeadingDropdownMenu } from "@/components/tiptap-ui/heading-dropdown-menu"
 import { ListDropdownMenu } from "@/components/tiptap-ui/list-dropdown-menu"
 import { BlockquoteButton } from "@/components/tiptap-ui/blockquote-button"
+import { MarkButton } from "@/components/tiptap-ui/mark-button"
+import { LinkPopover } from "@/components/tiptap-ui/link-popover"
+import { SelectionMenu } from "@/components/selection/selection-menu"
 import { CodeBlockButton } from "@/components/tiptap-ui/code-block-button"
 import {
   ColorHighlightPopover,
@@ -500,25 +503,31 @@ export function MindflowEditor({
           </DragHandle>
         )}
 
-        {/*
+        {/* What you can do to a run of text. Turn into is not here: it acts on a
+            whole block, and the handle beside that block already offers it. */}
         <SelectionMenu editor={editor}>
           <ToolbarGroup>
-            <TurnIntoMenu editor={editor} />
+            {(["bold", "italic", "underline", "strike", "code"] as const).map((type) => (
+              <MarkButton key={type} type={type} showTooltip={false} />
+            ))}
           </ToolbarGroup>
           <ToolbarSeparator />
           <ToolbarGroup>
-            {(["bold", "italic", "strike", "underline", "code"] as const).map((type) => (
+            {(["superscript", "subscript"] as const).map((type) => (
               <MarkButton key={type} type={type} showTooltip={false} />
             ))}
           </ToolbarGroup>
           <ToolbarSeparator />
           <ToolbarGroup>
             <LinkPopover showTooltip={false} autoOpenOnLinkActive={false} />
-            <BlockquoteButton showTooltip={false} />
             <ColorHighlightPopover showTooltip={false} />
+            <TextAlignDropdownMenu
+              modal={false}
+              aligns={["left", "center", "right", "justify"]}
+              showTooltip={false}
+            />
           </ToolbarGroup>
         </SelectionMenu>
-          */}
 
         <EditorContent
           editor={editor}
