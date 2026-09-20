@@ -1247,6 +1247,18 @@ $nested-ul: "ul:not([data-type='taskList'])";
   content: "\2022"; // disc, and the cycle starts again
 }
 
+// An aligned image is pushed by its own margins rather than by the block around
+// it. Left needs no rule: an image with no auto margin is already left, and the
+// centring rule stops matching the moment the attribute changes.
+.tiptap.ProseMirror.mindflow-editor img[data-align="center"] {
+  margin-inline: auto;
+}
+
+.tiptap.ProseMirror.mindflow-editor img[data-align="right"] {
+  margin-inline-start: auto;
+  margin-inline-end: 0;
+}
+
 // A file the note carries. The card is the whole block, so it takes the width
 // of the column the way an embed card does.
 .tiptap-attachment {
