@@ -1,23 +1,25 @@
 import { useEffect, useState } from "react"
-import { Palette } from "lucide-react"
+import { Building2, Palette, Waves } from "lucide-react"
 
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { MoonStarIcon } from "@/components/tiptap-icons/moon-star-icon"
 
 /**
- * Dark and gruvbox, in that order.
+ * Dark, gruvbox, kanagawa and tokyonight moon, in that order.
  *
  * There is no light theme. The window is transparent and sits on a frosted
  * desktop, so the page paints no background of its own: dark text would have
- * nothing to sit on and would read as a ghost. Both themes here are built for
+ * nothing to sit on and would read as a ghost. All of them are built for
  * that surface, and the choice is remembered.
  */
-const THEMES = ["dark", "gruvbox"] as const
+const THEMES = ["dark", "gruvbox", "kanagawa", "tokyonight"] as const
 type Theme = (typeof THEMES)[number]
 
 const ICONS: Record<Theme, React.ReactNode> = {
   dark: <MoonStarIcon className="tiptap-button-icon" />,
   gruvbox: <Palette className="tiptap-button-icon" />,
+  kanagawa: <Waves className="tiptap-button-icon" />,
+  tokyonight: <Building2 className="tiptap-button-icon" />,
 }
 
 export function ThemeToggle(): React.JSX.Element {
@@ -28,10 +30,10 @@ export function ThemeToggle(): React.JSX.Element {
 
   useEffect(() => {
     const { classList } = document.documentElement
-    // Gruvbox is a dark theme in different paint, so it carries `dark` too and
+    // Both are dark themes in different paint, so they carry `dark` too and
     // only the colours underneath change.
     classList.add("dark")
-    classList.toggle("gruvbox", theme === "gruvbox")
+    for (const t of THEMES) if (t !== "dark") classList.toggle(t, theme === t)
     localStorage.setItem("theme", theme)
   }, [theme])
 

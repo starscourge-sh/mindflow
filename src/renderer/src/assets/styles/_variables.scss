@@ -223,11 +223,125 @@
   --tt-gray-dark-a-800: rgba(235, 219, 178, 0.88);
   --tt-gray-dark-a-900: rgba(235, 219, 178, 0.96);
 
-  /* Orange is gruvbox's accent, so it takes the caret and the selection. */
+  /* Orange is gruvbox's accent, so the whole brand ramp turns. Recolouring one
+     shade left everything else purple: the selected-image outline, the active
+     toolbar buttons and the focus rings all read different shades of it. */
+  --tt-brand-color-50: rgba(255, 237, 214, 1);
+  --tt-brand-color-100: rgba(254, 222, 186, 1);
+  --tt-brand-color-200: rgba(254, 199, 141, 1);
+  --tt-brand-color-300: rgba(254, 168, 88, 1);
   --tt-brand-color-400: rgba(254, 128, 25, 1);
+  --tt-brand-color-500: rgba(233, 111, 14, 1);
+  --tt-brand-color-600: rgba(214, 93, 14, 1);
+  --tt-brand-color-700: rgba(175, 58, 3, 1);
+  --tt-brand-color-800: rgba(133, 44, 2, 1);
+  --tt-brand-color-900: rgba(101, 37, 6, 1);
+  --tt-brand-color-950: rgba(60, 24, 6, 1);
+
   --tt-cursor-color: rgba(254, 128, 25, 1);
   --tt-selection-color: rgba(254, 128, 25, 0.2);
-  --mf-caret-vim: rgba(254, 128, 25, 1);
+}
+
+/* Kanagawa, the wave variant. This is the one people mean by "kanagawa": the
+   deep indigo of the Hokusai print, with cream text over it. The dragon variant
+   is the same scheme repainted in warm grey, which reads as almost no colour at
+   all on a page this size. */
+.kanagawa {
+  /* sumiInk3, the scheme's own background. */
+  --black: rgba(31, 31, 40, 1);
+
+  /* Surfaces, low to high, then text weights. sumiInk4 and sumiInk5 land on 100
+     and 200, fujiGray on 500, oldWhite on 800 and fujiWhite on 900; the rest are
+     steps between them, kept monotone so hover states do not shift hue. */
+  --tt-gray-dark-50: rgba(36, 36, 46, 1);
+  --tt-gray-dark-100: rgba(42, 42, 55, 1);
+  --tt-gray-dark-200: rgba(54, 54, 70, 1);
+  --tt-gray-dark-300: rgba(74, 74, 94, 1);
+  --tt-gray-dark-400: rgba(94, 94, 115, 1);
+  --tt-gray-dark-500: rgba(114, 113, 105, 1);
+  --tt-gray-dark-600: rgba(140, 138, 133, 1);
+  --tt-gray-dark-700: rgba(169, 166, 155, 1);
+  --tt-gray-dark-800: rgba(200, 192, 147, 1);
+  --tt-gray-dark-900: rgba(220, 215, 186, 1);
+
+  /* Overlays tinted with fujiWhite, so hover states warm the page rather than
+     cooling it toward the indigo. */
+  --tt-gray-dark-a-50: rgba(220, 215, 186, 0.05);
+  --tt-gray-dark-a-100: rgba(220, 215, 186, 0.07);
+  --tt-gray-dark-a-200: rgba(220, 215, 186, 0.11);
+  --tt-gray-dark-a-300: rgba(220, 215, 186, 0.22);
+  --tt-gray-dark-a-400: rgba(220, 215, 186, 0.37);
+  --tt-gray-dark-a-500: rgba(220, 215, 186, 0.5);
+  --tt-gray-dark-a-600: rgba(220, 215, 186, 0.64);
+  --tt-gray-dark-a-700: rgba(220, 215, 186, 0.75);
+  --tt-gray-dark-a-800: rgba(220, 215, 186, 0.88);
+  --tt-gray-dark-a-900: rgba(220, 215, 186, 0.96);
+
+  /* crystalBlue on 400: the wave itself, and the scheme's strongest accent. */
+  --tt-brand-color-50: rgba(238, 242, 251, 1);
+  --tt-brand-color-100: rgba(220, 229, 246, 1);
+  --tt-brand-color-200: rgba(188, 205, 236, 1);
+  --tt-brand-color-300: rgba(157, 181, 226, 1);
+  --tt-brand-color-400: rgba(126, 156, 216, 1);
+  --tt-brand-color-500: rgba(108, 135, 188, 1);
+  --tt-brand-color-600: rgba(90, 113, 160, 1);
+  --tt-brand-color-700: rgba(72, 91, 129, 1);
+  --tt-brand-color-800: rgba(54, 69, 97, 1);
+  --tt-brand-color-900: rgba(38, 49, 69, 1);
+  --tt-brand-color-950: rgba(26, 33, 48, 1);
+
+  --tt-cursor-color: rgba(126, 156, 216, 1);
+  /* waveBlue2, which is what the scheme highlights with. */
+  --tt-selection-color: rgba(45, 79, 103, 0.55);
+}
+
+/* Tokyonight moon. Cool and saturated where kanagawa is muted, so the two dark
+   blues never read as the same theme. */
+.tokyonight {
+  /* The scheme's own `bg`. */
+  --black: rgba(34, 36, 54, 1);
+
+  /* Surfaces, low to high, then text weights. The named shades land where they
+     fall: bg_highlight, fg_gutter, terminal_black, dark3, comment, dark5,
+     fg_dark, then fg. */
+  --tt-gray-dark-50: rgba(39, 41, 66, 1);
+  --tt-gray-dark-100: rgba(47, 51, 77, 1);
+  --tt-gray-dark-200: rgba(59, 66, 97, 1);
+  --tt-gray-dark-300: rgba(68, 74, 115, 1);
+  --tt-gray-dark-400: rgba(84, 92, 126, 1);
+  --tt-gray-dark-500: rgba(99, 109, 166, 1);
+  --tt-gray-dark-600: rgba(115, 122, 162, 1);
+  --tt-gray-dark-700: rgba(130, 139, 184, 1);
+  --tt-gray-dark-800: rgba(169, 184, 232, 1);
+  --tt-gray-dark-900: rgba(200, 211, 245, 1);
+
+  /* Overlays tinted with `fg`, so hover states stay in the same cool family. */
+  --tt-gray-dark-a-50: rgba(200, 211, 245, 0.05);
+  --tt-gray-dark-a-100: rgba(200, 211, 245, 0.07);
+  --tt-gray-dark-a-200: rgba(200, 211, 245, 0.11);
+  --tt-gray-dark-a-300: rgba(200, 211, 245, 0.22);
+  --tt-gray-dark-a-400: rgba(200, 211, 245, 0.37);
+  --tt-gray-dark-a-500: rgba(200, 211, 245, 0.5);
+  --tt-gray-dark-a-600: rgba(200, 211, 245, 0.64);
+  --tt-gray-dark-a-700: rgba(200, 211, 245, 0.75);
+  --tt-gray-dark-a-800: rgba(200, 211, 245, 0.88);
+  --tt-gray-dark-a-900: rgba(200, 211, 245, 0.96);
+
+  /* The scheme's `blue` on 400. */
+  --tt-brand-color-50: rgba(238, 243, 255, 1);
+  --tt-brand-color-100: rgba(219, 230, 255, 1);
+  --tt-brand-color-200: rgba(188, 207, 255, 1);
+  --tt-brand-color-300: rgba(159, 188, 255, 1);
+  --tt-brand-color-400: rgba(130, 170, 255, 1);
+  --tt-brand-color-500: rgba(110, 144, 219, 1);
+  --tt-brand-color-600: rgba(90, 119, 184, 1);
+  --tt-brand-color-700: rgba(71, 95, 148, 1);
+  --tt-brand-color-800: rgba(54, 72, 112, 1);
+  --tt-brand-color-900: rgba(38, 51, 79, 1);
+  --tt-brand-color-950: rgba(26, 35, 54, 1);
+
+  --tt-cursor-color: rgba(130, 170, 255, 1);
+  --tt-selection-color: rgba(45, 63, 118, 0.55);
 }
 
 /* Text colors */
@@ -290,6 +404,34 @@
   --tt-color-text-red: #fb4934;
 }
 
+/* The nine block colours, from the wave palette. Brown is boatYellow2, which
+   is the closest the scheme comes to naming one. */
+.kanagawa {
+  --tt-color-text-gray: #727169;
+  --tt-color-text-brown: #c0a36e;
+  --tt-color-text-orange: #ffa066;
+  --tt-color-text-yellow: #e6c384;
+  --tt-color-text-green: #98bb6c;
+  --tt-color-text-blue: #7e9cd8;
+  --tt-color-text-purple: #957fb8;
+  --tt-color-text-pink: #d27e99;
+  --tt-color-text-red: #e46876;
+}
+
+/* The nine block colours, from the moon palette. Brown is the one shade the
+   scheme has no name for, so it is `orange` taken down and desaturated. */
+.tokyonight {
+  --tt-color-text-gray: #737aa2;
+  --tt-color-text-brown: #b08a6a;
+  --tt-color-text-orange: #ff966c;
+  --tt-color-text-yellow: #ffc777;
+  --tt-color-text-green: #c3e88d;
+  --tt-color-text-blue: #82aaff;
+  --tt-color-text-purple: #c099ff;
+  --tt-color-text-pink: #fca7ea;
+  --tt-color-text-red: #ff757f;
+}
+
 /* Highlight colors */
 :root {
   --tt-color-highlight-yellow: #fef9c3;
@@ -348,4 +490,68 @@
   --tt-color-highlight-brown: rgb(80, 60, 45);
   --tt-color-highlight-orange: rgb(92, 62, 30);
   --tt-color-highlight-pink: rgb(84, 55, 62);
+}
+
+.kanagawa {
+  --tt-color-highlight-yellow: rgba(230, 195, 132, 0.25);
+  --tt-color-highlight-green: rgba(152, 187, 108, 0.25);
+  --tt-color-highlight-blue: rgba(126, 156, 216, 0.25);
+  --tt-color-highlight-purple: rgba(149, 127, 184, 0.25);
+  --tt-color-highlight-red: rgba(228, 104, 118, 0.25);
+  --tt-color-highlight-gray: rgb(54, 54, 70);
+  --tt-color-highlight-brown: rgb(73, 68, 60);
+  --tt-color-highlight-orange: rgb(80, 62, 50);
+  --tt-color-highlight-pink: rgb(72, 54, 64);
+}
+
+.tokyonight {
+  --tt-color-highlight-yellow: rgba(255, 199, 119, 0.25);
+  --tt-color-highlight-green: rgba(195, 232, 141, 0.25);
+  --tt-color-highlight-blue: rgba(130, 170, 255, 0.25);
+  --tt-color-highlight-purple: rgba(192, 153, 255, 0.25);
+  --tt-color-highlight-red: rgba(255, 117, 127, 0.25);
+  --tt-color-highlight-gray: rgb(47, 51, 77);
+  --tt-color-highlight-brown: rgb(62, 52, 62);
+  --tt-color-highlight-orange: rgb(75, 55, 60);
+  --tt-color-highlight-pink: rgb(72, 52, 78);
+}
+
+/* The vim caret, per theme. `:root.<theme>` rather than `.<theme>`: the
+   editor's own stylesheet loads after this one and sets this token on `.dark`,
+   which every theme here also carries, so equal specificity would lose. */
+:root.gruvbox { --mf-caret-vim: rgba(254, 128, 25, 1); }
+:root.kanagawa { --mf-caret-vim: rgba(126, 156, 216, 1); }
+:root.tokyonight { --mf-caret-vim: rgba(255, 199, 119, 1); }
+
+/* Prose accents, per theme. Code blocks get their colour from the token rules
+   above, but prose has no syntax to highlight, so without these a document is
+   one hue from top to bottom: headings, bullets, inline code and card icons all
+   inherit the page foreground.
+
+   `dark` deliberately defines none of them. Every use site falls back to the
+   value it already had, so the default theme is untouched.
+
+   Four roles, four hues, so no theme repeats itself: gold headings, then the
+   marks, inline code and the quote bar each take a different one. Which hue
+   plays which role changes per palette, because what matters is separating
+   them from the body text, and each body text is a different colour. */
+:root.gruvbox {
+  --mf-heading: #fabd2f;
+  --mf-accent-ink: #fe8019;
+  --mf-code-ink: #fb4934;
+  --mf-quote-ink: #b8bb26;
+}
+
+:root.kanagawa {
+  --mf-heading: #e6c384;
+  --mf-accent-ink: #7e9cd8;
+  --mf-code-ink: #e46876;
+  --mf-quote-ink: #98bb6c;
+}
+
+:root.tokyonight {
+  --mf-heading: #ffc777;
+  --mf-accent-ink: #82aaff;
+  --mf-code-ink: #ff757f;
+  --mf-quote-ink: #c3e88d;
 }

@@ -1429,6 +1429,38 @@ $nested-ul: "ul:not([data-type='taskList'])";
   text-decoration: none;
 }
 
+// Where the prose accents above get spent. Each one falls back to the value the
+// element already had, so a theme that defines none of these looks exactly as
+// it did before.
+.tiptap.ProseMirror.mindflow-editor {
+  :is(h1, h2, h3, h4, h5, h6) {
+    color: var(--mf-heading, inherit);
+  }
+
+  // Top-level markers are real list markers; nested ones are drawn with
+  // ::before, further up this file, because ::marker follows the border edge.
+  li::marker,
+  li ul > li::before {
+    color: var(--mf-accent-ink, currentColor);
+  }
+
+  // Not `code` on its own: inside a <pre> it is the syntax colours that have to
+  // win, and they are set on spans within it.
+  :not(pre) > code {
+    color: var(--mf-code-ink, var(--tt-inline-code-text-color));
+  }
+
+  blockquote::before {
+    background-color: var(--mf-quote-ink, var(--blockquote-bg-color));
+  }
+}
+
+// The one accent that lives outside the document, on cards rather than in text.
+// The bookmark's icon is a favicon, so there is nothing there to recolour.
+.tiptap-attachment-icon {
+  color: var(--mf-accent-ink, var(--mf-muted));
+}
+
 // Selected, either on its own or caught inside a range. The outline sits on the
 // card rather than the wrapper so it follows the rounded corners.
 .tiptap.ProseMirror.mindflow-editor .tiptap-attachment.is-selected {
