@@ -2,6 +2,7 @@ import { Extension } from "@tiptap/core"
 import { Fragment, Slice } from "@tiptap/pm/model"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
 import { dropPoint } from "@tiptap/pm/transform"
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import type { EditorView } from "@tiptap/pm/view"
 
 export interface ImageDropOptions {
@@ -42,6 +43,20 @@ function linked(data: DataTransfer | null): string {
   return /^https?:\/\//i.test(src) ? src : ""
 }
 
+/** Store one file of any kind and get back the node that shows it. */
+export async function saveAttachment(file: File): Promise<{
+  src: string
+  name: string
+  size: number
+}> {
+  if (!file.size) throw new Error(`${file.name || "That file"} is empty`)
+
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  const src = await window.api.saveFile(file.name, bytes)
+  if (!src) throw new Error(`Cannot store ${file.name || "that file"}`)
+  return { src, name: file.name, size: file.size }
+}
+
 /** Store one image and get back the URL that reads it again. */
 export async function saveImage(file: File): Promise<string> {
   if (!file.type.startsWith("image/")) {
@@ -75,7 +90,7 @@ export async function saveLinkedImage(href: string): Promise<string> {
  */
 function hold(
   view: EditorView,
-  sources: Array<Promise<string>>,
+  sources: Array<Promise<ProseMirrorNode>>,
   target: Target,
   onError: ImageDropOptions["onError"]
 ): void {
@@ -92,7 +107,7 @@ function hold(
 
 async function fill(
   view: EditorView,
-  sources: Array<Promise<string>>,
+  sources: Array<Promise<ProseMirrorNode>>,
   id: number,
   onError: ImageDropOptions["onError"]
 ): Promise<void> {
@@ -103,9 +118,7 @@ async function fill(
     one.status === "rejected" ? [reason(one.reason)] : []
   )
   const nodes = settled.flatMap((one) =>
-    one.status === "fulfilled"
-      ? [view.state.schema.nodes.image.create({ src: one.value })]
-      : []
+    one.status === "fulfilled" ? [one.value] : []
   )
 
   const spot = key.getState(view.state)?.find((one) => one.id === id)
@@ -187,7 +200,7 @@ export const ImageDrop = Extension.create<ImageDropOptions>({
           handleDrop(view, event) {
             const { images, rest } = sort(event.dataTransfer)
             const href = images.length ? "" : linked(event.dataTransfer)
-            if (!images.length && !href) return false
+            if (!images.length && !href && !rest.length) return false
 
             // Where it was dropped, not the end of the document.
             const found = view.posAtCoords({
@@ -205,13 +218,25 @@ export const ImageDrop = Extension.create<ImageDropOptions>({
                 ? { from: inside, to: inside + empty.nodeSize }
                 : { from: at, to: at }
 
+            const { schema } = view.state
+            const picture = (src: string): ProseMirrorNode =>
+              schema.nodes.image.create({ src })
+
             event.preventDefault()
-            if (rest.length) {
-              onError(rest.map((file) => `${file.name} is not an image`))
-            }
             hold(
               view,
-              href ? [saveLinkedImage(href)] : images.map(saveImage),
+              [
+                // Anything that is not a picture becomes a card rather than a
+                // complaint: the store does not care what the bytes are.
+                ...rest.map((file) =>
+                  saveAttachment(file).then((attrs) =>
+                    schema.nodes.attachment.create(attrs)
+                  )
+                ),
+                ...(href
+                  ? [saveLinkedImage(href).then(picture)]
+                  : images.map((file) => saveImage(file).then(picture))),
+              ],
               target,
               onError
             )
@@ -238,9 +263,12 @@ export const ImageDrop = Extension.create<ImageDropOptions>({
             // Read after that dispatch, and collapsed if it happened: the text
             // has already taken the selection's place.
             const { from, to } = view.state.selection
+            const { schema } = view.state
             hold(
               view,
-              images.map(saveImage),
+              images.map((file) =>
+                saveImage(file).then((src) => schema.nodes.image.create({ src }))
+              ),
               { from, to: rich ? from : to },
               onError
             )

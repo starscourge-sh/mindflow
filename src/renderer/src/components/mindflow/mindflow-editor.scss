@@ -1247,3 +1247,84 @@ $nested-ul: "ul:not([data-type='taskList'])";
   content: "\2022"; // disc, and the cycle starts again
 }
 
+// A file the note carries. The card is the whole block, so it takes the width
+// of the column the way an embed card does.
+.tiptap-attachment {
+  margin: 0.75em 0;
+}
+
+.tiptap-attachment-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--tt-border-color);
+  border-radius: 0.625rem;
+  background-color: var(--tt-card-bg-color);
+  text-align: left;
+  cursor: default;
+
+  &:hover {
+    background-color: var(--mf-surface);
+  }
+}
+
+// Round, and on the far right: the card's own action is opening it, so this
+// needs to read as a separate target rather than part of the row.
+.tiptap-attachment-save {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  margin-inline-start: auto;
+  border-radius: 999px;
+  background-color: var(--mf-surface);
+  color: var(--mf-muted);
+  cursor: default;
+
+  &:hover {
+    color: var(--tt-theme-text);
+  }
+
+  svg {
+    width: 1rem;
+    height: 1rem;
+  }
+}
+
+.tiptap-attachment-icon {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--mf-muted);
+}
+
+.tiptap-attachment-body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.tiptap-attachment-name {
+  overflow: hidden;
+  font-size: 0.9375rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tiptap-attachment-size {
+  font-size: 0.8125rem;
+  color: var(--mf-muted);
+}
+
+// Selected, either on its own or caught inside a range. The outline sits on the
+// card rather than the wrapper so it follows the rounded corners.
+.tiptap.ProseMirror.mindflow-editor .tiptap-attachment.is-selected {
+  .tiptap-attachment-card {
+    border-color: transparent;
+    outline: 0.125rem solid var(--tt-brand-color-500);
+  }
+}
