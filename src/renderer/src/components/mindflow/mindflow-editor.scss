@@ -58,8 +58,10 @@
   // markers plus the 44px cluster itself, so 3rem would clip it. The right side
   // matches it - the column is centred, so unequal padding puts the text off
   // centre inside it.
-  padding: 4rem 4.75rem 50vh !important;
+  // padding: 4em !important;
   // padding: 0!important;
+  // padding: 4rem 4.75rem 50vh !important;
+  padding: 1rem 3.75rem  !important;
 }
 
 .tiptap.ProseMirror.mindflow-editor [data-type=horizontalRule] {
@@ -76,7 +78,12 @@
 // is parked just left of it. "10." needs more room than a bullet, or the two
 // land on top of each other.
 .tiptap.ProseMirror.mindflow-editor ol {
-    padding-left: 1.75em;
+    // padding-left: 1.75em;
+    padding-left: 1em;
+}
+
+.tiptap.ProseMirror ul[data-type=taskList] {
+    padding-left: 0;
 }
 
 .tiptap.ProseMirror.mindflow-editor :is(h1, h2, h3, h4) {
@@ -87,7 +94,7 @@
 .mindflow-editor-wrapper .tiptap-toolbar[data-variant="fixed"] {
     width: fit-content;
     // background: var(--tt-toolbar-bg-color);
-    background: transparent;
+    // background: transparent;
 }
 
 @media screen and (max-width: 480px) {
@@ -127,16 +134,24 @@
   z-index: 50;
 }
 
-// The floating surface every panel the editor owns is built on.
+// The floating surface every panel the editor owns is built on. The block menu
+// was missing from this list and fell through to the vendored dropdown styling,
+// which is why it had no border and a rounder corner than everything else.
 .tiptap-slash-menu,
+.tiptap-block-menu,
 .tiptap-emoji-list,
 .tiptap-table-menu,
 .tiptap-find-bar,
 .tiptap-image-panel {
   border: 1px solid var(--tt-border-color);
-  border-radius: 0.75rem;
+  // Matches the app's own panels: --radius-xl, 14px.
+  border-radius: 0.875rem;
   background-color: var(--tt-card-bg-color);
-  box-shadow: var(--tt-shadow-elevated-md);
+  // A hairline border carries the edge. The four-layer drop shadow this used to
+  // have reads as a smudge now the window behind it is frosted rather than
+  // solid, so it is one soft layer for depth and nothing more. The host can set
+  // the token; the fallback keeps the component standing on its own.
+  box-shadow: var(--mf-panel-shadow, 0 8px 24px rgba(0, 0, 0, 0.28));
   overflow: hidden;
 }
 
@@ -645,7 +660,6 @@
 // Link preview cards.
 .tiptap.ProseMirror.mindflow-editor .tiptap-bookmark {
   display: flex;
-  gap: 0.875rem;
   margin: 1.25em 0;
   padding: 0;
   overflow: hidden;
@@ -683,7 +697,10 @@
   flex-direction: column;
   gap: 0.25rem;
   min-width: 0;
-  padding: 0.875rem 1rem 0.875rem 0;
+  // Its own padding on both sides rather than a gap on the card: a card with
+  // no thumbnail has nothing to its left, and the text ended up against the
+  // border. This way the inset is the same whether the picture loaded or not.
+  padding: 0.875rem 1rem;
   justify-content: center;
   font-size: 0.875rem;
 }
@@ -908,14 +925,18 @@
 }
 
 .tiptap-word-count {
-  right: 0.75rem;
-  bottom: 0.75rem;
+  // right: 0.75rem;
+  // left: 0.75rem;
+  // width: fit-content;
+  // margin: auto;
+  // bottom: 0.75rem;
   z-index: 20;
-  padding: 0 0.5rem;
-  font-size: 0.75rem;
+  // padding: 0 0.5rem;
+  // font-size: 0.75rem;
+  font-size: 9px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  color: var(--mf-muted);
+  // color: var(--mf-muted);
 }
 
 // Embedded videos scale to the column rather than their fixed attributes.
@@ -1177,6 +1198,7 @@
   color: var(--tt-color-text-red, #e5484d);
   font-size: 0.8125rem;
 }
+
 .tiptap.ProseMirror ol, .tiptap.ProseMirror ul {
     margin-top: 0;
     margin-bottom: 0;

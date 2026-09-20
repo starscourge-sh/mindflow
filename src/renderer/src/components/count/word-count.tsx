@@ -20,7 +20,8 @@ export function WordCount({ editor }: { editor: Editor | null }) {
   const words = editor.storage.characterCount.words()
 
   return (
-    <span className="tiptap-word-count fixed bottom-0 backdrop-blur-xl rounded-sm px-2 py-1">
+    <span
+      className="tiptap-word-count px-2 py-1 justify-center opacity-50 fixed right-2 bottom-5 color-white pointer-events-none text-shadow-lg">
       {words} {words === 1 ? "word" : "words"} ·{" "}
       {editor.storage.characterCount.characters()}
     </span>

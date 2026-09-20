@@ -91,7 +91,7 @@ export function NotesMenu({
 
       <PopoverContent
         align="end"
-        className="w-80 overflow-hidden rounded-xl border bg-popover text-popover-foreground shadow-lg"
+        className="notes-menu w-80 overflow-hidden rounded-xl border bg-popover text-popover-foreground"
         onOpenAutoFocus={(event) => {
           // Radix would focus the first row; the search field is where typing
           // should land.

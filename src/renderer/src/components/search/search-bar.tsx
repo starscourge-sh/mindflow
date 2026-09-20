@@ -82,7 +82,7 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps) {
   }
 
   return (
-    <div className="tiptap-find-bar">
+    <div className="tiptap-find-bar relative">
       <input
         ref={inputRef}
         type="text"
