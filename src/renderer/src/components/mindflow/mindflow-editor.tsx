@@ -1,13 +1,15 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import type { JSONContent } from "@tiptap/core"
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
 
 // --- Tiptap Core Extensions ---
 import { StarterKit } from "@tiptap/starter-kit"
+import { Markdown } from "@tiptap/markdown"
 import { Image } from "@tiptap/extension-image"
-import { TaskItem, TaskList } from "@tiptap/extension-list"
+import { ListItem, TaskItem, TaskList } from "@tiptap/extension-list"
 import { TextAlign } from "@tiptap/extension-text-align"
 import { Typography } from "@tiptap/extension-typography"
 import { Highlight } from "@tiptap/extension-highlight"
@@ -16,6 +18,7 @@ import { Superscript } from "@tiptap/extension-superscript"
 import { Selection, CharacterCount, Placeholder } from "@tiptap/extensions"
 import { Mathematics } from "@tiptap/extension-mathematics"
 import { FindAndReplace } from "@tiptap/extension-find-and-replace"
+
 // TableKit bundles Table, TableRow, TableHeader and TableCell.
 import { TableKit } from "@tiptap/extension-table"
 import { Youtube } from "@tiptap/extension-youtube"
@@ -36,7 +39,9 @@ import { ToggleHeading, headingRank } from "@/extensions/toggle-heading"
 import { ImageDrop } from "@/extensions/image-drop"
 import { ImagePlaceholder } from "@/extensions/image-placeholder"
 import { BlockColor } from "@/extensions/block-color"
+import { SelectedNodes } from "@/extensions/selected-nodes"
 import { Bookmark } from "@/extensions/bookmark"
+import { Attachment } from "@/extensions/attachment"
 
 /** Drive the editor with vim keys. Flip this to turn it off. */
 const VIM_MODE_ENABLED = true
@@ -50,14 +55,29 @@ const VIM_MODE_ENABLED = true
 const SAVE_DEBOUNCE_MS = 500
 
 /** How long the handle stays up after the pointer leaves a block. */
-const HANDLE_GRACE_MS = 400
+const HANDLE_GRACE_MS = 1000
 
 const CARET_MARGIN = { top: 64, right: 0, bottom: 112, left: 0 }
 
+/**
+ * Held still on purpose. `DragHandle` re-registers its ProseMirror plugin when
+ * its props change, and registering a plugin destroys every plugin view in the
+ * editor - which closed the `/` and `@` menus mid-typing.
+ */
+const HANDLE_NESTING = {
+  rules: [
+    {
+      id: "detailsParts",
+      evaluate: ({ node }: { node: { type: { name: string } } }) =>
+        ["detailsSummary", "detailsContent"].includes(node.type.name) ? 1000 : 0,
+    },
+  ],
+}
+
+const HANDLE_POSITION = { middleware: [offset({ mainAxis: 24, crossAxis: 2 })] }
+
 // --- UI Primitives ---
 import { Spacer } from "@/components/tiptap-ui-primitive/spacer"
-import { Button } from "@/components/tiptap-ui-primitive/button"
-import { ImagePlusIcon } from "@/components/tiptap-icons/image-plus-icon"
 import {
   Toolbar,
   ToolbarGroup,
@@ -83,16 +103,17 @@ import {
   ColorHighlightPopover,
 } from "@/components/tiptap-ui/color-highlight-popover"
 import { MarkDropdownMenu } from "@/components/tiptap-ui/mark-dropdown-menu"
-import { MarkButton } from "@/components/tiptap-ui/mark-button"
 import { TextAlignDropdownMenu } from "@/components/tiptap-ui/text-align-dropdown-menu"
 import { SearchBar } from "@/components/search/search-bar"
 import { TableMenu } from "@/components/table/table-menu"
 import { TableControls } from "@/components/table/table-controls"
-import { SelectionMenu } from "@/components/selection/selection-menu"
-import { TurnIntoMenu } from "@/components/turn-into/turn-into-menu"
 import { BlockMenu, type BlockTarget } from "@/components/turn-into/block-menu"
 import { WordCount } from "@/components/count/word-count"
 import { TableOfContents } from "@/components/toc/table-of-contents"
+import { SourceView } from "@/components/source/source-view"
+import { NoteLink, type NoteSuggestion } from "@/extensions/note-link"
+import { noteLinkRenderer } from "@/components/note-link/note-link-menu"
+import { ImageMenu } from "@/components/image/image-menu"
 import { CodeBlockView } from "@/components/code/code-block-view"
 import { slashRenderer } from "@/components/slash/slash-menu"
 import { slashItems } from "@/components/slash/slash-items"
@@ -101,8 +122,7 @@ import { EmojiSuggestion } from "@/components/emoji/emoji-suggestion"
 
 // --- Components ---
 import { ThemeToggle } from "@/components/mindflow/theme-toggle"
-
-// --- Lib ---
+import { EditorToggles } from "@/components/mindflow/editor-toggles"
 
 // --- Styles ---
 // The tokens every rule below reads, and the keyframes the menus animate with.
@@ -111,7 +131,6 @@ import "@/assets/styles/_variables.scss"
 import "@/assets/styles/_keyframe-animations.scss"
 import "@/components/mindflow/mindflow-editor.scss"
 
-import { LinkPopover } from "@renderer/components/tiptap-ui/link-popover"
 
 export interface MindflowEditorProps {
   /**
@@ -121,6 +140,15 @@ export interface MindflowEditorProps {
    */
   defaultContent?: JSONContent | string
   placeholder?: string
+  /** Start with the source panel open. It also toggles on Mod-Alt-s. */
+  showSource?: boolean
+  /**
+   * Which notes the `@` menu offers. The editor has no idea what a note is, so
+   * searching is the app's job; without this, `@` simply finds nothing.
+   */
+  findNotes?: (query: string) => NoteSuggestion[] | Promise<NoteSuggestion[]>
+  /** A note link was clicked. The editor reports; the app navigates. */
+  onOpenNote?: (id: string) => void
   /**
    * The document, debounced. JSON rather than HTML: node attributes - a folded
    * heading's rank, a block's colour - are the point, and JSON keeps them
@@ -132,11 +160,28 @@ export interface MindflowEditorProps {
 export function MindflowEditor({
   defaultContent = "",
   placeholder = "Write, type '/' for commands…",
+  showSource = false,
+  findNotes = () => [],
+  onOpenNote,
   onChange,
 }: MindflowEditorProps = {}) {
-  // The link popover opens only when a link is actually clicked, not whenever
-  // the cursor happens to land inside one.
+
   const [searchOpen, setSearchOpen] = useState(false)
+  const [sourceOpen, setSourceOpen] = useState(showSource)
+
+  const rememberBlock = useCallback(
+    ({ node, pos }: { node: ProseMirrorNode | null; pos: number }): void => {
+      blockTarget.current = node
+        ? { pos, name: node.type.name, level: headingRank(node) ?? undefined }
+        : null
+    },
+    []
+  )
+
+  const finder = useRef(findNotes)
+  const opener = useRef(onOpenNote)
+  finder.current = findNotes
+  opener.current = onOpenNote
   // @tiptap/react already routes `onUpdate` to the newest props. The ref is for
   // the teardown effect below, which is keyed on `[editor]` and would otherwise
   // close over the callback from the render that created the editor.
@@ -212,6 +257,8 @@ export function MindflowEditor({
     },
     extensions: [
       StarterKit.configure({
+        // Replaced below so a list item can hold a toggle as its first child.
+        listItem: false,
         horizontalRule: false,
         // Only h1-h4 are styled; an h5 would render as a paragraph.
         heading: { levels: [1, 2, 3, 4] },
@@ -224,10 +271,34 @@ export function MindflowEditor({
       }),
       HorizontalRule,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
+      // A bullet turns into a toggle in place, the way Notion does it: the item
+      // keeps its spot in the list and its children become what the toggle
+      // hides. That needs a toggle to be a legal first child.
+      ListItem.extend({ content: "(paragraph|details) block*" }),
       TaskList,
-      TaskItem.configure({ nested: true }),
+      TaskItem.configure({ nested: true }).extend({
+        content: "(paragraph|details) block*",
+      }),
       Highlight.configure({ multicolor: true }),
-      Image,
+      // Width and alignment live on the node so they survive a save. Width is a
+      // CSS length rather than a preset name, which leaves room for a drag.
+      Image.extend({
+        addAttributes() {
+          return {
+            ...this.parent?.(),
+            width: {
+              default: null,
+              parseHTML: (element) => element.style.width || null,
+              renderHTML: ({ width }) => (width ? { style: `width: ${width}` } : {}),
+            },
+            align: {
+              default: null,
+              parseHTML: (element) => element.getAttribute("data-align"),
+              renderHTML: ({ align }) => (align ? { "data-align": align } : {}),
+            },
+          }
+        },
+      }),
       Typography,
       Superscript,
       Subscript,
@@ -235,6 +306,17 @@ export function MindflowEditor({
       FindAndReplace.configure({ injectCSS: false }),
       TableKit.configure({ table: { resizable: true, cellMinWidth: 64 } }),
       Bookmark,
+      Attachment,
+      // Gives the editor `storage.markdown.getMarkdown()`, used by Export.
+      Markdown,
+      // Through refs, not the props directly: extensions are configured once,
+      // when the editor is built, and the note list is usually still loading
+      // then. Captured that early, `@` would search an empty list forever.
+      NoteLink.configure({
+        findNotes: (query) => finder.current(query),
+        onOpenNote: (id) => opener.current?.(id),
+        render: noteLinkRenderer,
+      }),
       // `enableTabIndentation` is the extension's own Tab handling: it indents
       // every selected line, where a hand-rolled insert replaces the selection.
       CodeBlockLowlight.extend({
@@ -280,7 +362,10 @@ export function MindflowEditor({
       ToggleHeading,
       ImageDrop,
       BlockColor,
-      ObsidianShortcuts,
+      SelectedNodes,
+      ObsidianShortcuts.configure({
+        onToggleSource: () => setSourceOpen((open) => !open),
+      }),
       VimMode.configure({
         enabled: VIM_MODE_ENABLED,
         onSearch: () => setSearchOpen(true),
@@ -317,98 +402,32 @@ export function MindflowEditor({
   }, [editor])
 
   return (
-    <div className="relative mindflow-editor-wrapper">
+    <div
+      className={`relative mindflow-editor-wrapper${sourceOpen ? " has-source" : ""}`}
+    >
       <EditorContext.Provider value={{ editor }}>
+        {sourceOpen ? <SourceView editor={editor} /> : null}
 
-        <div className="fixed w-min bottom-3 left-0 right-0 z-10 m-auto">
-          <SearchBar
-            editor={editor}
-            open={searchOpen}
-            onOpen={() => setSearchOpen(true)}
-            onClose={() => setSearchOpen(false)}
-          />
+        <ImageMenu editor={editor} />
 
-          <div className="invisible">
-            <Toolbar className="rounded-xl backdrop-blur-3xl border-1">
-              <ToolbarGroup>
-                <HeadingDropdownMenu
-                  modal={false}
-                  levels={[1, 2, 3]}
-                  showTooltip={false}
-                />
-                <ListDropdownMenu
-                  modal={false}
-                  types={["bulletList", "orderedList", "taskList"]}
-                  showTooltip={false}
-                />
-                <BlockquoteButton showTooltip={false} />
-                <CodeBlockButton showTooltip={false} />
-              </ToolbarGroup>
-              <ToolbarSeparator />
-              <ToolbarGroup>
-                <MarkDropdownMenu
-                  modal={false}
-                  types={["bold", "italic", "strike", "code", "underline", "superscript", "subscript"]}
-                  showTooltip={false}
-                />
-                <ColorHighlightPopover showTooltip={false} />
-              </ToolbarGroup>
-              <ToolbarSeparator />
-              <ToolbarGroup>
-                <TextAlignDropdownMenu
-                  modal={false}
-                  aligns={["left", "center", "right", "justify"]}
-                  showTooltip={false}
-                />
-              </ToolbarGroup>
-              <ToolbarSeparator />
-              <ToolbarGroup>
-                <Button
-                  data-style="ghost"
-                  onClick={() => editor?.commands.insertImagePlaceholder()}
-                >
-                  <ImagePlusIcon className="tiptap-button-icon" />
-                  <span className="tiptap-button-text">Add</span>
-                </Button>
-              </ToolbarGroup>
-              <Spacer />
-              <ToolbarGroup>
-                <ThemeToggle />
-              </ToolbarGroup>
-            </Toolbar>
-          </div>
-        </div>
+        <TableOfContents editor={editor} />
+        <TableControls editor={editor} />
+        <TableMenu editor={editor} />
 
-        {editor ? (
+        {editor && (
           <DragHandle
             editor={editor}
             // Per-item handles for lists, but never the parts of a collapsible
             // section: they are not separately draggable, and dropping one
             // splits the section in two.
-            nested={{
-              rules: [
-                {
-                  id: "detailsParts",
-                  evaluate: ({ node }) =>
-                    ["detailsSummary", "detailsContent"].includes(node.type.name)
-                      ? 1000
-                      : 0,
-                },
-              ],
-            }}
+            nested={HANDLE_NESTING}
             className="tiptap-drag-handle"
-            onNodeChange={({ node, pos }) => {
-              blockTarget.current = node
-                ? { pos, name: node.type.name, level: headingRank(node) ?? undefined }
-                : null
-            }}
+            onNodeChange={rememberBlock}
             // `left-start` is already the default; what it lacks is a gap. It
             // measures from the block's own rect, and a list marker sits
             // OUTSIDE that rect, so the clearance has to cover the marker too -
             // still inside the 3rem the editor leaves on the left.
-            computePositionConfig={{
-              middleware: [offset({ mainAxis: 24, crossAxis: 2 })],
-            }}
+            computePositionConfig={HANDLE_POSITION}
           >
             <button
               ref={watchHandle}
@@ -479,10 +498,9 @@ export function MindflowEditor({
               onOpenChange={setMenuOpen}
             />
           </DragHandle>
-        ) : null}
+        )}
 
-        <TableOfContents editor={editor} />
-
+        {/*
         <SelectionMenu editor={editor}>
           <ToolbarGroup>
             <TurnIntoMenu editor={editor} />
@@ -500,17 +518,70 @@ export function MindflowEditor({
             <ColorHighlightPopover showTooltip={false} />
           </ToolbarGroup>
         </SelectionMenu>
-        <TableControls editor={editor} />
-        <TableMenu editor={editor} />
+          */}
 
         <EditorContent
           editor={editor}
           role="presentation"
-          className="mindflow-editor-content relative"
+          className="mindflow-editor-content relative p-4 overflow-auto bg-background"
         />
 
-        <WordCount editor={editor} />
-      </EditorContext.Provider >
+        <div className="fixed w-full bottom-0 left-0 right-0 z-50 m-auto bg-linear-to-t from-[var(--accent)]/40">
+          <div className="w-full flex flex-col items-center py-4 select-none">
+            <SearchBar
+              editor={editor}
+              open={searchOpen}
+              onOpen={() => setSearchOpen(true)}
+              onClose={() => setSearchOpen(false)}
+            />
+
+            <Toolbar className="rounded-xl border-1 shadow"
+              style={{ background: 'var(--accent)' }}>
+              <ToolbarGroup>
+                <HeadingDropdownMenu
+                  modal={false}
+                  levels={[1, 2, 3]}
+                  showTooltip={false}
+                />
+                <ListDropdownMenu
+                  modal={false}
+                  types={["bulletList", "orderedList", "taskList"]}
+                  showTooltip={false}
+                />
+                <BlockquoteButton showTooltip={false} />
+                <CodeBlockButton showTooltip={false} />
+              </ToolbarGroup>
+              <ToolbarSeparator />
+              <ToolbarGroup>
+                <MarkDropdownMenu
+                  modal={false}
+                  types={["bold", "italic", "strike", "code", "underline", "superscript", "subscript"]}
+                  showTooltip={false}
+                />
+                <ColorHighlightPopover showTooltip={false} />
+              </ToolbarGroup>
+              <ToolbarSeparator />
+              <ToolbarGroup>
+                <TextAlignDropdownMenu
+                  modal={false}
+                  aligns={["left", "center", "right", "justify"]}
+                  showTooltip={false}
+                />
+              </ToolbarGroup>
+              <Spacer />
+              <ToolbarGroup>
+                <EditorToggles
+                  editor={editor}
+                  sourceOpen={sourceOpen}
+                  onToggleSource={() => setSourceOpen((open) => !open)}
+                />
+                <ThemeToggle />
+              </ToolbarGroup>
+            </Toolbar>
+            <WordCount editor={editor} />
+          </div>
+        </div>
+      </EditorContext.Provider>
     </div>
   )
 }
