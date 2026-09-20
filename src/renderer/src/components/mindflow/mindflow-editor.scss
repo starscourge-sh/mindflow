@@ -1397,6 +1397,16 @@ $nested-ul: "ul:not([data-type='taskList'])";
   word-break: break-word;
 }
 
+// A link to another note reads as a link, because following it is what it does.
+.tiptap.ProseMirror.mindflow-editor .tiptap-note-link {
+  border-radius: 0.25rem;
+  padding: 0 0.125rem;
+  background-color: var(--mf-surface);
+  color: var(--tt-brand-color-400);
+  cursor: pointer;
+  text-decoration: none;
+}
+
 // Selected, either on its own or caught inside a range. The outline sits on the
 // card rather than the wrapper so it follows the rounded corners.
 .tiptap.ProseMirror.mindflow-editor .tiptap-attachment.is-selected {
