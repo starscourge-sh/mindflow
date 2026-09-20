@@ -16,6 +16,14 @@ const api = {
   saveFile: (name: string, bytes: Uint8Array): Promise<string> =>
     ipcRenderer.invoke('save-file', name, bytes),
 
+  /** Write text to a file the user picks. */
+  exportText: (name: string, text: string): Promise<boolean> =>
+    ipcRenderer.invoke('export-text', name, text),
+
+  /** Render HTML to a PDF at a path the user picks. */
+  exportPdf: (name: string, html: string): Promise<boolean> =>
+    ipcRenderer.invoke('export-pdf', name, html),
+
   /** Copy a stored file somewhere the user picks, under its original name. */
   saveFileAs: (src: string, name: string): Promise<boolean> =>
     ipcRenderer.invoke('save-file-as', src, name),

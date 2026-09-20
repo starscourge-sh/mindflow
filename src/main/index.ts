@@ -290,6 +290,51 @@ app.whenReady().then(() => {
     return `mindflow://assets/${hash}.${suffix}`
   })
 
+  // Write text the renderer produced to a file the user picks: JSON, markdown
+  // or HTML. The renderer does the converting; this only puts bytes on disk.
+  ipcMain.handle('export-text', async (_event, name: unknown, text: unknown) => {
+    if (typeof name !== 'string' || typeof text !== 'string') return false
+
+    const { canceled, filePath } = await dialog.showSaveDialog({ defaultPath: name })
+    if (canceled || !filePath) return false
+
+    await writeFile(filePath, text, 'utf8')
+    return true
+  })
+
+  // A PDF, laid out by the same engine that drew the document on screen. An
+  // offscreen window rather than the real one, so printing cannot disturb what
+  // is on the page, and a small sheet because the editor's own styles are not
+  // loaded in it.
+  ipcMain.handle('export-pdf', async (_event, name: unknown, html: unknown) => {
+    if (typeof name !== 'string' || typeof html !== 'string') return false
+
+    const { canceled, filePath } = await dialog.showSaveDialog({ defaultPath: name })
+    if (canceled || !filePath) return false
+
+    const sheet = `body{font:14px/1.6 -apple-system,system-ui,sans-serif;margin:0;color:#111}
+      img{max-width:100%}pre{background:#f4f4f5;padding:.75em;border-radius:6px;overflow:auto}
+      blockquote{margin:0 0 0 1em;padding-left:1em;border-left:3px solid #ddd;color:#555}
+      table{border-collapse:collapse}td,th{border:1px solid #ddd;padding:.35em .6em}`
+
+    const printer = new BrowserWindow({ show: false, webPreferences: { offscreen: true } })
+    try {
+      await printer.loadURL(
+        `data:text/html;charset=utf-8,${encodeURIComponent(
+          `<meta charset="utf-8"><style>${sheet}</style>${html}`
+        )}`
+      )
+      const pdf = await printer.webContents.printToPDF({
+        printBackground: true,
+        margins: { top: 0.6, bottom: 0.6, left: 0.6, right: 0.6 }
+      })
+      await writeFile(filePath, pdf)
+      return true
+    } finally {
+      printer.destroy()
+    }
+  })
+
   // Copy a stored file somewhere the user picks. The store names everything by
   // its hash, so the original name has to be handed back in for the dialog.
   ipcMain.handle('save-file-as', async (_event, src: unknown, name: unknown) => {

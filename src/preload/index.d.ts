@@ -23,6 +23,10 @@ export interface Api {
   saveImage: (mime: string, bytes: Uint8Array) => Promise<string>
   /** Store any file and get back the URL that reads it again. */
   saveFile: (name: string, bytes: Uint8Array) => Promise<string>
+  /** Write text to a file the user picks. */
+  exportText: (name: string, text: string) => Promise<boolean>
+  /** Render HTML to a PDF at a path the user picks. */
+  exportPdf: (name: string, html: string) => Promise<boolean>
   /** Copy a stored file somewhere the user picks, under its original name. */
   saveFileAs: (src: string, name: string) => Promise<boolean>
   /** Open a stored file with whatever the system uses for it. */
