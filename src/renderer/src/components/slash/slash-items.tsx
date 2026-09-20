@@ -3,10 +3,16 @@ import {
   ChevronRight as ToggleIcon,
   Minus as DividerIcon,
   Table as TableIcon,
+  Download,
+  Paperclip,
   Type as TextIcon,
 } from "lucide-react"
 
+import type { Editor } from "@tiptap/core"
 import { isValidYoutubeUrl } from "@tiptap/extension-youtube"
+
+import { saveAttachment } from "@/extensions/image-drop"
+import { EXPORTS, exportDocument } from "@/lib/export"
 
 import type { SlashItem } from "@/extensions/slash-command"
 
@@ -144,6 +150,28 @@ export const slashItems: SlashItem[] = [
     run: (editor) => editor.commands.insertImagePlaceholder(),
   },
   {
+    title: "File",
+    group: "Media",
+    hint: "attach",
+    icon: <Paperclip />,
+    // The browser's own picker rather than a dialog through the main process:
+    // it hands back a `File`, which is exactly what the store already takes.
+    run: (editor) => {
+      const input = document.createElement("input")
+      input.type = "file"
+      input.onchange = async () => {
+        const file = input.files?.[0]
+        if (!file) return
+        try {
+          editor.chain().focus().setAttachment(await saveAttachment(file)).run()
+        } catch (cause) {
+          console.error(cause)
+        }
+      }
+      input.click()
+    },
+  },
+  {
     title: "Embed",
     group: "Media",
     hint: "video or link",
@@ -199,4 +227,15 @@ export const slashItems: SlashItem[] = [
       )
     },
   },
+  ...EXPORTS.map(({ format, label }) => ({
+    title: `Export as ${label}`,
+    group: "Export",
+    icon: <Download />,
+    // The title is the app's, not the editor's, so the filename falls back to
+    // the first heading or line of the document itself.
+    run: (editor: Editor) => {
+      const first = editor.state.doc.firstChild?.textContent?.trim()
+      void exportDocument(editor, format, first || "Untitled")
+    },
+  })),
 ]
