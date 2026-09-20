@@ -33,11 +33,24 @@ export interface VimModeOptions {
   enabled: boolean
   /** Called when `/` is pressed, so the app can open its search panel. */
   onSearch?: () => void
+  /**
+   * The document holds one line, as a title field does.
+   *
+   * Motions, text objects, case changes and the rest are unaffected. What
+   * changes is the handful of commands that add or remove whole lines: there
+   * is nowhere to open one, and taking the only paragraph away would leave a
+   * document the schema refuses. `dd` and `yy` work on the line's text instead,
+   * which in a one line document is the same thing a user means by them.
+   */
+  singleLine?: boolean
 }
 
 /** A yank is either whole blocks or a run of text, and `p` differs for each. */
 type VimRegister =
-  | { kind: "line"; nodes: unknown[] }
+  // The text as well as the nodes: a code block's lines live inside one node,
+  // so there is nothing for `nodesInRange` to collect and only the text says
+  // what was taken.
+  | { kind: "line"; nodes: unknown[]; text: string }
   | { kind: "char"; text: string }
   | null
 
@@ -157,9 +170,41 @@ function clampToLine(view: EditorView): void {
   select(view, $head.pos - 1)
 }
 
+/**
+ * How vim measures each motion when an operator is waiting on it.
+ *
+ * Exclusive is the default and stops short of where the cursor lands. Inclusive
+ * takes the character under it as well, which is why `d$` clears the line and
+ * `dw` leaves the next word alone. Linewise ignores columns entirely and takes
+ * whole lines.
+ */
+const INCLUSIVE_MOTIONS = ["e", "$"]
+const LINEWISE_MOTIONS = ["j", "k", "G"]
+
 /** A bullet, a number or a checkbox: the things a list line can be. */
 const isListItem = (type: NodeType): boolean =>
   type.name === "listItem" || type.name === "taskItem"
+
+/**
+ * Where the line under the cursor begins and ends inside its own textblock.
+ *
+ * Everywhere but a code block a block IS a line, so these are its own bounds. A
+ * code block keeps many lines in one textblock separated by newlines, and
+ * treating it as a single line is why `dd` used to delete the whole snippet and
+ * `$` jumped to the bottom of it.
+ */
+function textLineAt($pos: ResolvedPos): { start: number; end: number } {
+  const start = $pos.start()
+  if (!$pos.parent.type.spec.code) return { start, end: $pos.end() }
+
+  const text = $pos.parent.textContent
+  const offset = $pos.pos - start
+  const breaks = text.indexOf("\n", offset)
+  return {
+    start: start + text.lastIndexOf("\n", offset - 1) + 1,
+    end: start + (breaks === -1 ? text.length : breaks),
+  }
+}
 
 /**
  * The depth of the node acting as the current "line": a list item when the
@@ -223,6 +268,15 @@ function lineSpanAt(state: EditorState, pos: number): LineSpan | null {
   }
   if ($pos.depth < 1) return null
 
+  if ($pos.parent.type.spec.code) {
+    const line = textLineAt($pos)
+    const text = $pos.parent.textContent
+    // Take the newline with the line, so `dd` closes the gap. On the last line
+    // there is none after it, so the one before it goes instead.
+    if (line.end < $pos.start() + text.length) return { from: line.start, to: line.end + 1 }
+    return { from: Math.max($pos.start(), line.start - 1), to: line.end }
+  }
+
   const depth = lineDepth($pos)
   return { from: $pos.before(depth), to: $pos.after(depth) }
 }
@@ -282,8 +336,9 @@ function nodesInRange(
 function moveHorizontal(view: EditorView, delta: number, past = false): void {
   const { $head } = view.state.selection
   if (!$head.parent.isTextblock) return
-  const max = past ? $head.end() : Math.max($head.start(), $head.end() - 1)
-  select(view, Math.max($head.start(), Math.min(max, $head.pos + delta)))
+  const line = textLineAt($head)
+  const max = past ? line.end : Math.max(line.start, line.end - 1)
+  select(view, Math.max(line.start, Math.min(max, $head.pos + delta)))
 }
 
 /**
@@ -708,6 +763,7 @@ function applyToRange(
     ? {
         kind: "line",
         nodes: nodesInRange(state, from, to).map((node) => node.toJSON()),
+        text: state.doc.textBetween(from, to, "\n"),
       }
     : { kind: "char", text: state.doc.textBetween(from, to) }
 
@@ -781,7 +837,7 @@ function deleteChars(view: EditorView, count: number): void {
     view.dispatch(
       state.tr
         .setMeta(vimPluginKey, {
-          register: { kind: "line", nodes: [node.toJSON()] },
+          register: { kind: "line", nodes: [node.toJSON()], text: node.textContent },
         })
         .deleteSelection()
         .scrollIntoView()
@@ -804,7 +860,8 @@ function deleteChars(view: EditorView, count: number): void {
 function putRegister(
   view: EditorView,
   register: VimRegister,
-  count: number
+  count: number,
+  singleLinePut = false
 ): void {
   if (!register) return
   const { state } = view
@@ -819,6 +876,21 @@ function putRegister(
         .setSelection(
           TextSelection.near(tr.doc.resolve(at + register.text.length * count))
         )
+        .scrollIntoView()
+    )
+    return
+  }
+
+  if (singleLinePut || $head.parent.type.spec.code) {
+    // Blocks cannot go inside a code block or a one line document, so what
+    // lands there is the text.
+    const text = register.text.replace(/\n$/, "")
+    if (!text) return
+    const line = textLineAt($head)
+    const tr = state.tr.insertText(`\n${text}`.repeat(count), line.end)
+    view.dispatch(
+      tr
+        .setSelection(TextSelection.near(tr.doc.resolve(line.end + 1)))
         .scrollIntoView()
     )
     return
@@ -864,6 +936,19 @@ function joinLines(view: EditorView, count: number): void {
 
   for (let joins = Math.max(1, count - 1); joins > 0; joins--) {
     const $end = tr.doc.resolve(caret)
+
+    // A code block's lines are newlines, not blocks: joining them is replacing
+    // one character. Looking for the next textblock would reach past the whole
+    // snippet and pull the paragraph after it inside.
+    if ($end.parent.type.spec.code) {
+      const line = textLineAt($end)
+      if (line.end >= $end.end()) break
+      const separator = tr.doc.textBetween(line.end - 1, line.end) === " " ? "" : " "
+      tr.replaceWith(line.end, line.end + 1, state.schema.text(separator || " "))
+      caret = line.end
+      continue
+    }
+
     const end = $end.end()
     const next = textblockStarts(tr.doc).find((start) => start > end)
     if (next === undefined) break
@@ -895,6 +980,24 @@ function joinLines(view: EditorView, count: number): void {
 function openLine(view: EditorView, dir: 1 | -1): void {
   const { state } = view
   const { $head, from, to } = state.selection
+
+  // A code block keeps its lines as newlines inside one textblock, so opening a
+  // line there is a character, not a node. Inserting a node lands after the
+  // whole block, which is how this used to jump out of the snippet entirely.
+  if ($head.parent.type.spec.code) {
+    const line = textLineAt($head)
+    const at = dir > 0 ? line.end : line.start
+
+    const tr = state.tr.insertText("\n", at)
+    // `o` lands on the line it just made, below; `O` lands on the blank one it
+    // pushed the current line off.
+    view.dispatch(
+      tr
+        .setSelection(TextSelection.create(tr.doc, at + (dir > 0 ? 1 : 0)))
+        .scrollIntoView()
+    )
+    return
+  }
 
   // A whole-node selection - an image, a rule, a bookmark card - sits between
   // blocks rather than inside one, so it has no enclosing line to open around.
@@ -1074,7 +1177,7 @@ export const VimMode = Extension.create<VimModeOptions>({
   },
 
   addProseMirrorPlugins() {
-    const { enabled: initiallyEnabled, onSearch } = this.options
+    const { enabled: initiallyEnabled, onSearch, singleLine } = this.options
     const { editor } = this
 
     return [
@@ -1435,8 +1538,41 @@ export const VimMode = Extension.create<VimModeOptions>({
                   applyToRange(view, "c", $head.start(), $head.end(), false)
                 }
               } else if (doubled) {
-                const span = lineRange(view.state, count)
-                if (span) applyToRange(view, operator, span.from, span.to, true)
+                const { $head } = view.state.selection
+                if (singleLine && $head.parent.isTextblock) {
+                  // The paragraph is the whole document, so take its text.
+                  applyToRange(view, operator, $head.start(), $head.end(), false)
+                } else {
+                  const span = lineRange(view.state, count)
+                  if (span) applyToRange(view, operator, span.from, span.to, true)
+                }
+              } else {
+                // An operator with a motion: `dw`, `c$`, `y}`. Run the motion to
+                // find where it lands, then work on everything in between.
+                const start = view.state.selection.head
+                // `cw` behaves like `ce`: vim's own exception, so that changing
+                // a word does not swallow the space after it.
+                const measure = operator === "c" && key === "w" ? "e" : key
+                if (!runMotion(view, measure, count, hadCount)) return true
+
+                const landed = view.state.selection.head
+                const [from, to] = [
+                  Math.min(start, landed),
+                  Math.max(start, landed),
+                ]
+
+                if (LINEWISE_MOTIONS.includes(key)) {
+                  const first = lineSpanAt(view.state, from)
+                  const last = lineSpanAt(view.state, to)
+                  if (first && last) {
+                    applyToRange(view, operator, first.from, last.to, true)
+                    if (operator !== "c") collapseSelection(view, first.from)
+                  }
+                } else if (from !== to) {
+                  const end = to + (INCLUSIVE_MOTIONS.includes(measure) ? 1 : 0)
+                  applyToRange(view, operator, from, end, false)
+                  if (operator !== "c") collapseSelection(view, from)
+                }
               }
               return true
             }
@@ -1456,7 +1592,9 @@ export const VimMode = Extension.create<VimModeOptions>({
                 return true
               case "o":
               case "O":
-                openLine(view, key === "o" ? 1 : -1)
+                // Nowhere to open a line when the document is one line, so this
+                // just puts you in insert mode where you already are.
+                if (!singleLine) openLine(view, key === "o" ? 1 : -1)
                 patch(view, { mode: "insert", ...CLEARED })
                 return true
 
@@ -1464,7 +1602,8 @@ export const VimMode = Extension.create<VimModeOptions>({
               case "V": {
                 const head = view.state.selection.head
                 patch(view, {
-                  mode: key === "V" ? "visualLine" : "visual",
+                  // Linewise visual has no second line to reach for here.
+                  mode: key === "V" && !singleLine ? "visualLine" : "visual",
                   visualAnchor: head,
                   visualHead: head,
                   ...CLEARED,
@@ -1508,7 +1647,7 @@ export const VimMode = Extension.create<VimModeOptions>({
                 deleteChars(view, count)
                 break
               case "p":
-                putRegister(view, vim.register, count)
+                putRegister(view, vim.register, count, singleLine)
                 break
 
               default:
