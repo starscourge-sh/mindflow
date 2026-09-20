@@ -15,7 +15,7 @@ import {
 
 // --- Items ---
 import { slashItems } from "@/components/slash/slash-items"
-import { BLOCK_COLORS } from "@/extensions/block-color"
+import { BLOCK_COLORS, COLORABLE } from "@/extensions/block-color"
 
 /** The same conversions `/` offers, minus everything that inserts. */
 const CONVERSIONS = slashItems.filter((item) => item.turnInto)
@@ -101,11 +101,69 @@ export function BlockMenu({
     run()
   }
 
-  /** An image, a rule, a card: a thing, not a run of text to convert. */
   const thing = resolve()?.node
-  const isThing = !!thing && (thing.isAtom || thing.isLeaf)
+
+  /**
+   * Is there a line of text here to turn into something else?
+   *
+   * Asking whether the block is an atom was a proxy for this, and it was only
+   * ever right about images. A table is not an atom either, so it was offered
+   * nine conversions that all act on whatever cell the cursor lands in. The
+   * question is what the block holds: text, or other blocks.
+   */
+  const convertible =
+    !!thing &&
+    (thing.isTextblock ||
+      ["listItem", "taskItem", "blockquote"].includes(thing.type.name))
   const imageSrc: string | undefined =
     thing?.type.name === "image" ? thing.attrs.src : undefined
+
+  /**
+   * An attachment holding a picture, which can be shown as one instead.
+   *
+   * The store keeps every file the same way, so the card and the thumbnail are
+   * two ways of drawing the same bytes. Only the extension says which is
+   * possible: the slash menu's file picker makes a card out of anything.
+   */
+  const asImage: string | undefined =
+    thing?.type.name === "attachment" &&
+    /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i.test(thing.attrs.src ?? "")
+      ? thing.attrs.src
+      : undefined
+
+  /** Swap the card for a picture of the same file, in place. */
+  const showAsImage = (): void => {
+    const found = resolve()
+    if (!found || !asImage) return
+    editor
+      .chain()
+      .focus()
+      .insertContentAt(
+        { from: found.pos, to: found.pos + found.node.nodeSize },
+        { type: "image", attrs: { src: asImage } }
+      )
+      .run()
+  }
+
+  /**
+   * Would a colour land anywhere?
+   *
+   * `setBlockColor` walks up for the outermost block that can hold one, so the
+   * question is whether the target or any of its ancestors is such a block. An
+   * image holds no text and no surface, and a collapsible section does not
+   * declare the attributes, so on either of those every swatch was a no-op.
+   */
+  const colorable = (() => {
+    const found = resolve()
+    if (!found) return false
+    if (COLORABLE.includes(found.node.type.name)) return true
+
+    const $at = editor.state.doc.resolve(found.pos)
+    for (let depth = $at.depth; depth > 0; depth--) {
+      if (COLORABLE.includes($at.node(depth).type.name)) return true
+    }
+    return false
+  })()
 
   /** A copy of the block, right after it. */
   const duplicate = () => {
@@ -175,13 +233,12 @@ export function BlockMenu({
         />
 
         <div className="tiptap-block-menu-list">
-        {isThing || term ? null : (
+        {convertible && !term ? (
           <div className="tiptap-slash-menu-group">Turn into</div>
-        )}
+        ) : null}
 
-        {isThing
-          ? null
-          : conversions.map((item) => (
+        {convertible
+          ? conversions.map((item) => (
               <DropdownMenuItem key={item.title} asChild>
                 <button type="button" onClick={() => at(() => item.run(editor, ""))}>
                   {item.icon}
@@ -191,9 +248,18 @@ export function BlockMenu({
                   ) : null}
                 </button>
               </DropdownMenuItem>
-            ))}
+            ))
+          : null}
 
         {term ? null : <div className="tiptap-slash-menu-group">Block</div>}
+
+        {asImage && matches("Show as image") ? (
+          <DropdownMenuItem asChild>
+            <button type="button" onClick={showAsImage}>
+              <span className="tiptap-slash-menu-title">Show as image</span>
+            </button>
+          </DropdownMenuItem>
+        ) : null}
 
         {imageSrc && matches("Copy image") ? (
           <DropdownMenuItem asChild>
@@ -211,7 +277,10 @@ export function BlockMenu({
           </DropdownMenuItem>
         ) : null}
 
-        {matches("Color") ? (
+        {/* An image or a rule holds no text and no surface, so the whole
+            submenu was a dead end on one: every swatch left the node exactly
+            as it found it. */}
+        {colorable && matches("Color") ? (
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <span className="tiptap-slash-menu-title">Color</span>

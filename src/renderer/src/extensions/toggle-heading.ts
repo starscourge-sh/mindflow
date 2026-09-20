@@ -120,19 +120,26 @@ export const ToggleHeading = Extension.create({
                     summary.content
                   )
             if (dispatch) {
-              dispatch(
-                state.tr.replaceWith(
-                  folded.pos,
-                  folded.pos + folded.node.nodeSize,
-                  // An untouched body is the empty paragraph folding had to
-                  // put there; giving it back would leave a blank line behind.
-                  Fragment.from(head).append(
-                    body.childCount === 1 && body.firstChild?.content.size === 0
-                      ? Fragment.empty
-                      : body.content
-                  )
+              const tr = state.tr.replaceWith(
+                folded.pos,
+                folded.pos + folded.node.nodeSize,
+                // An untouched body is the empty paragraph folding had to put
+                // there; giving it back would leave a blank line behind.
+                Fragment.from(head).append(
+                  body.childCount === 1 && body.firstChild?.content.size === 0
+                    ? Fragment.empty
+                    : body.content
                 )
               )
+              // Back where the title was, measured against the NEW document.
+              // Left to itself the caret lands on whatever follows, and the
+              // next shortcut acts on the wrong block entirely.
+              const offset = Math.min(
+                Math.max(0, state.selection.from - folded.pos - 2),
+                summary.content.size
+              )
+              tr.setSelection(Selection.near(tr.doc.resolve(folded.pos + 1 + offset)))
+              dispatch(tr.scrollIntoView())
             }
             return true
           }
@@ -151,7 +158,12 @@ export const ToggleHeading = Extension.create({
           // same rank or higher - folded ones included. Anything else owns only
           // itself: it becomes the title, with an empty body to fill in.
           let end = target.pos + target.node.nodeSize
-          if (level !== null) {
+          // A toggle inside a list item owns the rest of that item. Its
+          // indented children are exactly what a toggle is for hiding, and the
+          // item keeps its place in the list either way.
+          if (level === null && /^(list|task)Item$/.test(parent.type.name)) {
+            end = $start.end()
+          } else if (level !== null) {
             for (let i = $start.index() + 1; i < parent.childCount; i++) {
               const child = parent.child(i)
               const rank = headingRank(child)

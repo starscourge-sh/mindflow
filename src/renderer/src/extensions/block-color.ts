@@ -16,7 +16,7 @@ export const BLOCK_COLORS = [
 export type BlockColor = (typeof BLOCK_COLORS)[number]
 
 /** Block types that can carry a colour. Inline containers cannot. */
-const COLORABLE = [
+export const COLORABLE = [
   "paragraph",
   "heading",
   "blockquote",
