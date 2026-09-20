@@ -6,6 +6,7 @@
   // column wraps the text one letter per line.
   width: 100%;
   min-width: 0;
+  padding: 0rem 3.75rem  !important;
   color: var(--tt-gray-light-900);
 
   .dark & {
@@ -31,8 +32,8 @@
   // A quick-capture field sits at input scale, not heading scale. Scale is all
   // the variant changes - the box around it belongs to whoever embeds this.
   .is-task &.tiptap.ProseMirror p {
-    font-size: 1rem;
-    font-weight: 500;
+    font-size: 1.2rem;
+    font-weight: 600;
     line-height: 1.5;
   }
 
@@ -83,4 +84,13 @@
   code {
     background-color: var(--tt-gray-dark-a-100);
   }
+}
+
+// Normal mode has to look different from insert mode, or the bindings are
+// invisible and the field just feels broken. Same block caret the document
+// editor uses; the token is defined there, so a fallback keeps this standing
+// on its own.
+.tiptap-title-wrapper .ProseMirror[data-vim-mode="normal"] {
+  caret-color: var(--mf-caret-vim, #a3550a);
+  caret-shape: block;
 }

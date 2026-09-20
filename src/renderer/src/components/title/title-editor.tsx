@@ -1,4 +1,5 @@
 import { useRef } from "react"
+import type { CSSProperties } from "react"
 import { EditorContent, useEditor } from "@tiptap/react"
 import { Fragment, Slice } from "@tiptap/pm/model"
 import { Document } from "@tiptap/extension-document"
@@ -11,6 +12,7 @@ import { Strike } from "@tiptap/extension-strike"
 import { Placeholder, UndoRedo } from "@tiptap/extensions"
 
 import { Tokens, findTokens, type TokenPattern, type TokenMatch } from "@/extensions/tokens"
+import { VimMode } from "@/extensions/vim-mode"
 import { SelectionMenu } from "@/components/selection/selection-menu"
 import { MarkButton } from "@/components/tiptap-ui/mark-button"
 import { ToolbarGroup } from "@/components/tiptap-ui-primitive/toolbar"
@@ -51,6 +53,7 @@ export function TitleEditor({
   placeholder = "Title",
   autofocus = variant === "task",
   tokens = [],
+  vim = true,
   onChange,
   onSubmit,
 }: {
@@ -60,6 +63,8 @@ export function TitleEditor({
   placeholder?: string
   /** A prompt should take the caret; a note title should not steal it. */
   autofocus?: boolean
+  /** Vim bindings, minus anything that needs more than one line. */
+  vim?: boolean
   /**
    * Patterns to highlight as they are typed, and report back. Read once at
    * mount; remount with a `key` to change them.
@@ -105,6 +110,9 @@ export function TitleEditor({
       Strike,
       UndoRedo,
       Tokens.configure({ patterns }),
+      // The same bindings as the document, minus the ones that need a second
+      // line. Motions, text objects, case changes and marks all carry over.
+      VimMode.configure({ enabled: vim, singleLine: true }),
       Placeholder.configure({ placeholder }),
     ],
     onUpdate: ({ editor: instance }) =>
@@ -116,18 +124,22 @@ export function TitleEditor({
   })
 
   return (
-    <div className={`tiptap-title-wrapper is-${variant}`}>
-      <SelectionMenu editor={editor}>
-        <ToolbarGroup>
-          {TITLE_MARKS.map((type) => (
-            <MarkButton key={type} type={type} showTooltip={false} />
-          ))}
-        </ToolbarGroup>
-      </SelectionMenu>
+    <div className={`tiptap-title-wrapper is-${variant} bg-background border-b`}>
+      <div style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
+        <SelectionMenu editor={editor}>
+          <ToolbarGroup>
+            {TITLE_MARKS.map((type) => (
+              <MarkButton key={type} type={type} showTooltip={false} />
+            ))}
+          </ToolbarGroup>
+        </SelectionMenu>
+      </div>
 
       <EditorContent
         editor={editor}
         role="presentation"
+        className="p-4"
+
         onKeyDown={(event) => {
           // An IME uses Enter to accept a candidate, so committing on it would
           // submit half-typed Japanese.
