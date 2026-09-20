@@ -1177,3 +1177,73 @@
   color: var(--tt-color-text-red, #e5484d);
   font-size: 0.8125rem;
 }
+.tiptap.ProseMirror ol, .tiptap.ProseMirror ul {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+.tiptap.ProseMirror p:not(:first-child):not(td p):not(th p) {
+    margin-top: 0;
+}
+
+// A list item holding a toggle shows the triangle instead of its bullet: two
+// markers on one line reads as a mistake, and the triangle is the one that
+// does something. The triangle then sits in the space the bullet gave up, so
+// the title lines up with the items above and below rather than sitting in.
+.tiptap.ProseMirror.mindflow-editor li:has(> [data-type="details"]) {
+  list-style: none;
+
+  > [data-type="details"] {
+    // The button's own width, plus the gap, pulled back into the gutter.
+    margin-left: -1.5rem;
+  }
+}
+
+.tiptap.ProseMirror.mindflow-editor [data-type=details] {
+    margin: 0;
+}
+
+// Reaching a sub item's handle means moving left, which leaves the item's own
+// box and lands in the parent list item that wraps it - so the handle jumps up
+// a line to the parent. Widening the box leftward keeps the pointer on the item
+// it is aiming at, and the padding pays the width straight back so the text does
+// not move.
+//
+// The catch is that a native marker is drawn against the BORDER edge, which
+// just moved, while the text follows the content edge. No pairing of margin and
+// padding separates those two, so the marker is drawn here instead, positioned
+// against the text where it already sat. Nested bullets only: an ordered list
+// would need its numbering rebuilt with counters to survive the same treatment.
+// A task list is a <ul> too, so without excluding it a checklist nested under a
+// bullet was given a bullet of its own next to its checkbox, and shifted by the
+// padding meant for a marker it never had. The exclusion has to apply to the
+// depth counting as well, or a task list in the middle of a nest would push the
+// bullets below it to the wrong shape.
+$nested-ul: "ul:not([data-type='taskList'])";
+
+.tiptap.ProseMirror.mindflow-editor li #{$nested-ul} > li {
+  position: relative;
+  margin-left: -1.5em;
+  padding-left: 1.5em;
+  list-style: none;
+
+  &::before {
+    content: "\25E6"; // circle
+    position: absolute;
+    left: 1.5em;
+    transform: translateX(-1.15em);
+  }
+}
+
+.tiptap.ProseMirror.mindflow-editor li #{$nested-ul} #{$nested-ul} > li::before {
+  content: "\25AA"; // square
+}
+
+.tiptap.ProseMirror.mindflow-editor
+  li
+  #{$nested-ul}
+  #{$nested-ul}
+  #{$nested-ul}
+  > li::before {
+  content: "\2022"; // disc, and the cycle starts again
+}
+
