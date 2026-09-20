@@ -21,6 +21,12 @@ export interface Api {
   fetchLinkMetadata: (url: string) => Promise<LinkMetadata>
   /** Store image bytes and get back the URL that reads them again. */
   saveImage: (mime: string, bytes: Uint8Array) => Promise<string>
+  /** Store any file and get back the URL that reads it again. */
+  saveFile: (name: string, bytes: Uint8Array) => Promise<string>
+  /** Copy a stored file somewhere the user picks, under its original name. */
+  saveFileAs: (src: string, name: string) => Promise<boolean>
+  /** Open a stored file with whatever the system uses for it. */
+  openFile: (src: string) => Promise<boolean>
   /** Put a stored image on the system clipboard. */
   copyImage: (src: string) => Promise<boolean>
   /** Read a linked image, which the renderer's own content policy forbids. */

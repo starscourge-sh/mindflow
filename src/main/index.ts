@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, clipboard, ClipboardItem, ipcMain, net, protocol } from 'electron'
+import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, ipcMain, net, protocol } from 'electron'
 /*
  * app - Control your application's event lifecycle.
  *     - app.on('window-all-closed', () => { app.quit() })
@@ -28,7 +28,7 @@ import { app, shell, BrowserWindow, clipboard, ClipboardItem, ipcMain, net, prot
 */
 
 import { createHash, randomUUID } from 'crypto'
-import { mkdir, readFile, rename, writeFile } from 'fs/promises'
+import { copyFile, mkdir, readFile, rename, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -143,8 +143,10 @@ function createWindow(): void {
   const mainWindow = new BrowserWindow({
     width: 625,
     height: 400,
-    minHeight: 400,
-    minWidth: 600,
+    // minHeight: 400,
+    // minWidth: 600,
+    // width: 725,
+    // height: 550,
 
     resizable: false,
     vibrancy: 'under-window',
@@ -266,6 +268,50 @@ app.whenReady().then(() => {
     await rename(temporary, destination)
 
     return `mindflow://assets/${hash}.${extension}`
+  })
+
+  // The same store, for files that are not pictures. The extension is taken
+  // from the name rather than a mime type, because a dropped file carries no
+  // trustworthy one, and anything unrecognised is stored as .bin.
+  ipcMain.handle('save-file', async (_event, name: unknown, bytes: unknown) => {
+    if (typeof name !== 'string' || !(bytes instanceof Uint8Array)) return ''
+    if (!bytes.byteLength) return ''
+
+    const extension = (name.split('.').pop() ?? '').toLowerCase()
+    const suffix = /^[a-z0-9]{1,12}$/.test(extension) ? extension : 'bin'
+    const hash = createHash('sha256').update(bytes).digest('hex')
+    const destination = join(assetsDir(), `${hash}.${suffix}`)
+
+    await mkdir(assetsDir(), { recursive: true })
+    const temporary = `${destination}.${randomUUID()}.tmp`
+    await writeFile(temporary, bytes)
+    await rename(temporary, destination)
+
+    return `mindflow://assets/${hash}.${suffix}`
+  })
+
+  // Copy a stored file somewhere the user picks. The store names everything by
+  // its hash, so the original name has to be handed back in for the dialog.
+  ipcMain.handle('save-file-as', async (_event, src: unknown, name: unknown) => {
+    const stored = typeof src === 'string' ? src.replace('mindflow://assets/', '') : ''
+    if (!/^[a-f0-9]{64}\.[a-z0-9]+$/.test(stored)) return false
+
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      defaultPath: typeof name === 'string' && name ? name : stored
+    })
+    if (canceled || !filePath) return false
+
+    await copyFile(join(assetsDir(), stored), filePath)
+    return true
+  })
+
+  // Hand a stored file to whatever the system opens it with.
+  ipcMain.handle('open-file', async (_event, src: unknown) => {
+    const name = typeof src === 'string' ? src.replace('mindflow://assets/', '') : ''
+    if (!/^[a-f0-9]{64}\.[a-z0-9]+$/.test(name)) return false
+
+    const problem = await shell.openPath(join(assetsDir(), name))
+    return problem === ''
   })
 
   // Put a stored image on the system clipboard, so it can be pasted into any

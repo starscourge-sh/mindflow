@@ -12,6 +12,17 @@ const api = {
   saveImage: (mime: string, bytes: Uint8Array): Promise<string> =>
     ipcRenderer.invoke('save-image', mime, bytes),
 
+  /** Store any file and get back the URL that reads it again. */
+  saveFile: (name: string, bytes: Uint8Array): Promise<string> =>
+    ipcRenderer.invoke('save-file', name, bytes),
+
+  /** Copy a stored file somewhere the user picks, under its original name. */
+  saveFileAs: (src: string, name: string): Promise<boolean> =>
+    ipcRenderer.invoke('save-file-as', src, name),
+
+  /** Open a stored file with whatever the system uses for it. */
+  openFile: (src: string): Promise<boolean> => ipcRenderer.invoke('open-file', src),
+
   /** Put a stored image on the system clipboard. */
   copyImage: (src: string): Promise<boolean> => ipcRenderer.invoke('copy-image', src),
 
