@@ -16,7 +16,7 @@ const DEBOUNCE_MS = 400
  *
  * ```tsx
  * const { note, notes, open, create, save } = useNotes()
- * <TitleEditor key={note.id} defaultContent={note.titleHtml} onChange={...} />
+ * <LineEditor key={`title-${note.id}`} defaultContent={note.titleHtml} onChange={...} />
  * <MindflowEditor key={note.id} defaultContent={note.doc} onChange={(doc) => save({ doc })} />
  * ```
  *

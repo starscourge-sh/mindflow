@@ -1,15 +1,15 @@
 # Using the editor components
 
-Two components. Both are TipTap editors, but they are built for different jobs
-and they do not share an API.
+One component. `MindflowEditor` is the editor; what changes between a whole
+page, a comment box and a one line title is which parts are switched on, not
+which component you reach for. See **One editor, dressed for the job** below.
 
-| Component | For | Takes | Emits |
-| --- | --- | --- | --- |
-| `MindflowEditor` | a whole document | JSON or HTML | JSON, debounced |
-| `TitleEditor` | one line of rich text | HTML | `{ text, html, tokens }`, per keystroke |
+| Takes | Emits |
+| --- | --- |
+| JSON or HTML, read once at mount | JSON plus the editor, debounced |
 
-Everything below is optional. Both components run with no props at all, which is
-useful for a first look but not for an app that saves anything.
+Everything is optional. It runs with no props at all, which is useful for a
+first look but not for an app that saves anything.
 
 ---
 
@@ -107,181 +107,51 @@ clock.
 
 ---
 
-## TitleEditor
+## The line shape
 
-One line. Bold, italic, strikethrough and inline code, and nothing else.
-
-The limit is the **schema**, not a set of hidden buttons. Headings, lists and
-code blocks are not registered at all, so they cannot arrive by shortcut, by
-markdown, or by pasting. Typing `# ` gives you a literal hash.
-
-It also holds exactly one paragraph. Paste three and they flatten into one line,
-joined by spaces, instead of growing the field.
-
-### Two variants
+One line. The limit is the **schema**, not a set of hidden buttons: with
+`shape="line"` the document holds a single paragraph, so Return has nowhere to
+go and pasting three paragraphs flattens them into one, joined by spaces.
 
 ```tsx
-import { TitleEditor, type TitleValue } from "@/components/title/title-editor"
+import { LineEditor } from "@/components/mindflow/presets"
 
-// A document title. Large, no chrome, does not steal focus.
-<TitleEditor variant="note" placeholder="Untitled" onChange={setDraft} />
-
-// A quick capture field. Input sized, autofocused, Enter commits.
-<TitleEditor
-  variant="task"
-  placeholder="Task name"
-  onChange={setDraft}
-  onSubmit={createTask}
-/>
-```
-
-The variants differ in **type scale only**. Neither draws a border or a
-background, because the box belongs to whatever you put it in. Your command
-palette owns that, not the field.
-
-### What it takes
-
-| Prop | Default | Notes |
-| --- | --- | --- |
-| `variant` | `"note"` | `"note"` is heading sized, `"task"` is input sized |
-| `defaultContent` | `""` | HTML, read once at mount |
-| `placeholder` | `"Title"` | also used as the accessible label |
-| `autofocus` | `variant === "task"` | a prompt takes the caret, a note title does not |
-| `tokens` | `[]` | patterns to highlight as they are typed. Read once at mount, like `defaultContent` |
-
-### What it emits
-
-`onChange` gives you three things on every keystroke. One line of text is small
-enough that there is nothing to debounce.
-
-```ts
-{
-  text: "Pay rent !p1 #home tomorrow",
-  html: "Pay rent <strong>!p1</strong> #home tomorrow",
-  tokens: [
-    { name: "priority", text: "!p1",      value: "1",        from: 10, to: 13 },
-    { name: "label",    text: "#home",    value: "home",     from: 14, to: 19 },
-    { name: "date",     text: "tomorrow", value: "tomorrow", from: 20, to: 28 },
-  ],
-}
-```
-
-Use `text` to parse, `html` to store with its marks, and `tokens` when you have
-given it patterns.
-
-`onSubmit` fires when Enter is pressed. Enter never inserts a newline, because
-there is no second line to go to. It is also safe during IME composition, so
-accepting a Japanese candidate does not submit the form.
-
-### Highlighting what was typed
-
-Pass `tokens` and anything matching lights up as it is typed, the way Todoist
-marks a date or a tag.
-
-```tsx
-<TitleEditor
-  variant="task"
+<LineEditor
+  className="is-title"
   placeholder="Task name"
   tokens={[
     { name: "priority", pattern: /!p([1-4])\b/ },
     { name: "label",    pattern: /#([\w-]+)/ },
-    { name: "date",     pattern: /\b(today|tomorrow)\b/i },
+    { name: "date",     pattern: /\b(today|tomorrow)\b/i }
   ]}
-  onChange={setDraft}
+  onSubmit={createTask}
+  onChange={(doc, editor) => setDraft({ text: editor.getText(), doc })}
 />
 ```
 
-`name` becomes `data-token` on the highlight, so the stylesheet can colour each
-kind. `priority`, `date` and `label` already have colours; anything else gets the
-default.
+`onSubmit` fires on Return, which commits rather than inserting a newline. It is
+guarded on composition, so accepting a Japanese candidate does not submit.
 
-`value` is the **first capture group** if the pattern has one, so `!p1` reports
-`"1"` rather than `"!p1"`. That is usually what you want to store.
-
-`from` and `to` are **ProseMirror document positions, not string offsets**. They
-are what `tr.delete(from, to)` takes. For a one line title the matching string
-index is `from - 1`, so slicing `text` with them directly is off by one.
-
-Where two patterns match the same characters, the one listed first wins and the
-other is dropped. Order your patterns most specific first.
-
-`TokenPattern` and `TokenMatch` come from `@/extensions/tokens`.
-
-Two things this does not do, on purpose:
-
-1. **It paints, it does not parse.** Turning `"tomorrow"` into a date is your
-   job. Date parsing is a library choice, and the component should not make it
-   for you.
-2. **It leaves the tokens in the text.** Todoist removes `!p1` once it has been
-   recognised. To do that you need the editor, which this component does not
-   hand out yet, so strip them from your own copy of the string instead:
+`tokens` tints anything matching as it is typed, the way Todoist marks a date or
+a tag. To read what matched, call `findTokens` with the editor `onChange` hands
+you:
 
 ```ts
-const clean = (v: TitleValue) =>
-  v.tokens
-    .slice()
-    .reverse()
-    .reduce((text, t) => text.slice(0, t.from - 1) + text.slice(t.to - 1), v.text)
-    .replace(/\s+/g, " ")
-    .trim()
+import { findTokens } from "@/extensions/tokens"
+
+onChange={(_doc, editor) => {
+  findTokens(editor, patterns)
+  // [{ name: "priority", text: "!p1", value: "1", from: 10, to: 13 }, ...]
+}}
 ```
 
-Reverse order, so removing one token does not shift the next one's position.
+The tint is a decoration, so the text underneath is untouched and what you save
+is exactly what was typed.
 
-The highlights are ProseMirror decorations, not marks. Nothing is written to the
-document, so `text` is exactly what was typed and the highlight can never drift
-out of step with it. Delete a character of `!p1` and it simply stops matching.
-
-Matching runs over each line's whole text, so a bold run in the middle of a
-token does not break it.
-
-### Worked example: a task prompt
-
-```tsx
-const PATTERNS = [
-  { name: "priority", pattern: /!p([1-4])\b/ },
-  { name: "label", pattern: /#([\w-]+)/ },
-]
-
-function QuickAdd({ onClose }: { onClose: () => void }) {
-  const [draft, setDraft] = useState<TitleValue | null>(null)
-
-  const submit = () => {
-    if (!draft) return
-    const priority = draft.tokens.find((t) => t.name === "priority")?.value
-    const labels = draft.tokens
-      .filter((t) => t.name === "label")
-      .map((t) => t.value)
-
-    createTask({
-      title: draft.html,
-      priority: priority ? Number(priority) : 4,
-      labels,
-    })
-    onClose()
-  }
-
-  return (
-    <div className="palette">
-      <TitleEditor
-        variant="task"
-        placeholder="Task name"
-        tokens={PATTERNS}
-        onChange={setDraft}
-        onSubmit={submit}
-      />
-    </div>
-  )
-}
-```
-
-`.palette` draws the box. The field autofocuses, Enter creates the task, and
-Escape is yours to handle since the component does not claim it.
-
-`PATTERNS` is defined outside the component on purpose. A fresh array on every
-render would be a new prop every time.
-
----
+Nothing here draws a border or a background. The box belongs to whatever you put
+the field in, and `className` and `style` go straight onto the editor's own box,
+so you dress it like any other component. Padding is `--mf-padding` rather than
+a fixed rule, so setting it from either one wins.
 
 ## Commands
 
@@ -435,10 +305,10 @@ What you need to know:
 - Neither sets a page background, a font, or `html`/`body` styles. The host
   keeps its own.
 - Both import the design tokens they need.
-- `MindflowEditor` also expects **Tailwind** and its two fonts from the host.
-  Without Tailwind the find bar loses its layout and the toolbar loses its
-  spacing. `TitleEditor` has no such dependency.
-- `MindflowEditor` owns its scroll container, so give it a sized parent.
+- It expects **Tailwind** and its two fonts from the host. Without Tailwind the
+  find bar loses its layout and the toolbar loses its spacing.
+- A `document` shaped editor owns its scroll container, so give it a sized
+  parent. A `line` shaped one hugs its text instead.
 - The menus mount on `document.body`, which is why the colour tokens are defined
   on `:root`.
 
@@ -590,24 +460,28 @@ defaults over the same component: `CommentEditor`, `DescriptionEditor` and
 ```
 
 Several editors can share a page. The outline, the source panel and the toolbar
-dock are positioned against the editor's own box, so each instance keeps its
-chrome to itself. One thing is still shared: `search` registers a window level
-Mod-f handler, so leave it off on every editor but the main one, which is what
-the presets do.
+are positioned against the editor's own box, so each one keeps its toolbars and
+panels to itself.
+
+One thing is still shared. `search` listens for Mod-f on the whole window, not
+just on its own editor, because that is the only way to take the shortcut off
+the browser. Two editors with `search` on means two listeners, and Mod-f opens
+the find box in both at once. So leave it on for the main editor only, which is
+what the presets do.
 
 ---
 
 ## Holding notes in state
 
-`useNotes()` is the whole surface an app needs around the two editors.
+`useNotes()` is the whole surface an app needs around the editors.
 
 ```tsx
 const { notes, note, assets, open, create, remove, save } = useNotes()
 
-<TitleEditor key={note.id} defaultContent={note.titleHtml} onChange={({ text, html }) =>
-  save({ title: text, titleHtml: html })} />
+<LineEditor key={`title-${note.id}`} defaultContent={note.titleHtml}
+  onChange={(_doc, editor) => save({ title: editor.getText(), titleHtml: editor.getHTML() })} />
 
-<MindflowEditor key={note.id} defaultContent={note.doc} onChange={(doc) => save({ doc })} />
+<MindflowEditor key={`doc-${note.id}`} defaultContent={note.doc} onChange={(doc) => save({ doc })} />
 ```
 
 `notes` is the list; a board or a task view is the same list rendered

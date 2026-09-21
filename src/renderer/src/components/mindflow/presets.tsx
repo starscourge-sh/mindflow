@@ -29,8 +29,9 @@ const SMALL_SELECTION = (
 
 /**
  * A comment. Several paragraphs if it needs them, formatting on selection, and
- * none of the chrome a page carries: no dock, no handles, no outline, and no
- * window level find, which would otherwise fight every other box on the page.
+ * none of what a page carries around it: no toolbar along the bottom, no drag
+ * handles, no outline, and no Mod-f, which listens on the whole window and
+ * would open the find box in every other comment on the page at once.
  */
 export function CommentEditor(props: MindflowEditorProps): React.JSX.Element {
   return (

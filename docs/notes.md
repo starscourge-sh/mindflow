@@ -72,12 +72,12 @@ Without it you keep editing the old document under a new name.
 
 ## Saving
 
-The two editors are saved differently on purpose.
+The title and the document are saved differently on purpose.
 
 | Editor | When it reports | What the app does |
 | --- | --- | --- |
 | `MindflowEditor` | 500ms after typing stops | writes straight through |
-| `TitleEditor` | every keystroke | waits 400ms, then writes |
+| the title, a `line` shaped one | every keystroke | waits 400ms, then writes |
 
 Debouncing the document twice would only add latency, since the editor already
 waits for a pause. Debouncing the title is what stops one write per character.

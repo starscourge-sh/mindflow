@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react'
 import type { JSONContent } from '@tiptap/core'
 
 import { MindflowEditor } from './components/mindflow/mindflow-editor'
-import { TitleEditor } from './components/title/title-editor'
+import { LineEditor } from './components/mindflow/presets'
 import { useNotes } from './lib/use-notes'
 
 export default function App(): React.JSX.Element {
@@ -51,12 +51,14 @@ const CapturePrompt = (): React.JSX.Element => {
           keyed by note, because both read their content once, at mount. */}
       {note ? (
         <>
-          <TitleEditor
+          <LineEditor
             key={`title-${note.id}`}
-            variant="task"
+            className="is-title border-b"
             defaultContent={note.titleHtml}
             placeholder="Issue title"
-            onChange={({ text, html }) => save({ title: text, titleHtml: html })}
+            onChange={(_doc, editor) =>
+              save({ title: editor.getText(), titleHtml: editor.getHTML() })
+            }
           />
 
           <MindflowEditor

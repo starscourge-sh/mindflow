@@ -66,7 +66,10 @@
   // padding: 4em !important;
   // padding: 0!important;
   // padding: 4rem 4.75rem 50vh !important;
-  padding: 1rem 3.75rem  !important;
+  // A variable, and no !important: a caller styling this like any other
+  // component has to be able to win. The selector already outranks the
+  // vendored one on its own.
+  padding: var(--mf-padding, 1rem 3.75rem);
 }
 
 .tiptap.ProseMirror.mindflow-editor [data-type=horizontalRule] {
@@ -137,6 +140,50 @@
 // toolbar's own stacking order would paint over the popup inside it.
 .tiptap-suggestion-popup {
   z-index: 50;
+}
+
+// Typed tokens. These are decorations, so the underlying text is untouched;
+// the tint is only a hint that something was recognised.
+.tiptap-token {
+  border-radius: 0.25rem;
+  padding: 0.05em 0.15em;
+  background-color: var(--tt-color-highlight-blue);
+
+  &[data-token="priority"] {
+    background-color: var(--tt-color-highlight-red);
+  }
+
+  &[data-token="date"] {
+    background-color: var(--tt-color-highlight-green);
+  }
+
+  &[data-token="label"] {
+    background-color: var(--tt-color-highlight-purple);
+  }
+}
+
+// A single line hugs its text rather than filling whatever holds it, and has
+// no toolbar or panel parked against its edges to clip.
+.mindflow-editor-wrapper.is-line {
+  height: auto;
+  overflow: visible;
+
+  .mindflow-editor-content {
+    height: auto;
+  }
+}
+
+// A document title. Input scale rather than heading scale: the box around it
+// belongs to whoever puts it there.
+.mindflow-editor-wrapper.is-title {
+  --mf-padding: 0 3.75rem;
+
+  .tiptap.ProseMirror p {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+    line-height: 1.5;
+  }
 }
 
 // The floating surface every panel the editor owns is built on. The block menu

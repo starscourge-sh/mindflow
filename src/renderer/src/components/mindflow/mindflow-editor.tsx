@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
 import type { JSONContent } from "@tiptap/core"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
@@ -27,13 +27,14 @@ import { DragHandle } from "@tiptap/extension-drag-handle-react"
 import { GripVertical } from "lucide-react"
 import { offset } from "@floating-ui/react"
 import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight"
-import { ReactNodeViewRenderer } from "@tiptap/react"
+import { ReactNodeViewRenderer, type Editor } from "@tiptap/react"
 import { lowlight } from "@/lib/lowlight"
 import "katex/dist/katex.min.css"
 
 // --- Extensions ---
 import { ObsidianShortcuts } from "@/extensions/obsidian-shortcuts"
 import { VimMode } from "@/extensions/vim-mode"
+import { Tokens, type TokenPattern } from "@/extensions/tokens"
 import { SlashCommand } from "@/extensions/slash-command"
 import { ToggleHeading, headingRank } from "@/extensions/toggle-heading"
 import { ImageDrop } from "@/extensions/image-drop"
@@ -137,13 +138,27 @@ import "@/assets/styles/_keyframe-animations.scss"
 import "@/components/mindflow/mindflow-editor.scss"
 
 
+/**
+ * A ref holding the newest value, for callbacks that outlive the render that
+ * made them. Written in an effect rather than during the render, which React
+ * treats as a side effect and warns about.
+ */
+function useLatest<T>(value: T): { readonly current: T } {
+  const ref = useRef(value)
+  useEffect(() => {
+    ref.current = value
+  })
+  return ref
+}
+
 export interface MindflowEditorProps {
   /**
    * `line` holds a single paragraph, `document` holds blocks. This is the
    * schema, so it is fixed at mount: remount with a `key` to change it.
    *
    * There is no shape between the two. What separates a comment box from a
-   * page is which chrome is switched on below, not what the schema allows.
+   * page is which of the toolbars, handles and panels below are switched on,
+   * not what the schema allows.
    */
   shape?: "line" | "document"
   /**
@@ -163,6 +178,23 @@ export interface MindflowEditorProps {
   /** Vim bindings. */
   vim?: boolean
   /**
+   * Added to the editor's own box. Padding is a variable rather than a fixed
+   * rule, so `--mf-padding` set from here or from `style` wins normally.
+   */
+  className?: string
+  /** Set on the editor's own box, the same as any other component. */
+  style?: CSSProperties
+  /**
+   * Return was pressed on a `line` shaped editor, which is a commit rather
+   * than a new paragraph, because there is no second line to go to.
+   */
+  onSubmit?: () => void
+  /**
+   * Patterns to tint as they are typed, and report back. Read once at mount:
+   * the extension captures them when the editor is built.
+   */
+  tokens?: TokenPattern[]
+  /**
    * Read once, at mount. To show a different document, remount with a `key`.
    * Defaults to empty: a default document would be written over the caller's
    * note by the first keystroke while their note was still loading.
@@ -181,9 +213,10 @@ export interface MindflowEditorProps {
   /**
    * The document, debounced. JSON rather than HTML: node attributes - a folded
    * heading's rank, a block's colour - are the point, and JSON keeps them
-   * exactly.
+   * exactly. The editor comes with it, for a caller that wants plain text or
+   * HTML as well without holding its own reference.
    */
-  onChange?: (doc: JSONContent) => void
+  onChange?: (doc: JSONContent, editor: Editor) => void
 }
 
 export function MindflowEditor({
@@ -197,10 +230,14 @@ export function MindflowEditor({
   outline = true,
   search = true,
   vim = VIM_MODE_ENABLED,
+  className = "",
+  style,
+  onSubmit,
+  tokens = [],
   findNotes = () => [],
   onOpenNote,
   onChange,
-}: MindflowEditorProps = {}) {
+}: MindflowEditorProps = {}): React.JSX.Element {
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [sourceOpen, setSourceOpen] = useState(showSource)
@@ -214,15 +251,16 @@ export function MindflowEditor({
     []
   )
 
-  const finder = useRef(findNotes)
-  const opener = useRef(onOpenNote)
-  finder.current = findNotes
-  opener.current = onOpenNote
+  const finder = useLatest(findNotes)
+  const opener = useLatest(onOpenNote)
   // @tiptap/react already routes `onUpdate` to the newest props. The ref is for
   // the teardown effect below, which is keyed on `[editor]` and would otherwise
   // close over the callback from the render that created the editor.
-  const latest = useRef(onChange)
-  latest.current = onChange
+  const latest = useLatest(onChange)
+  // Held from the first render: the extension captures its patterns when the
+  // editor is built, so a newer prop would tint what is not being matched.
+  const [held] = useState(tokens)
+  const submit = useLatest(onSubmit)
   const pending = useRef<ReturnType<typeof setTimeout>>(undefined)
   // Which block the drag handle is pointing at, so its menu needs no selection.
   // A ref rather than state: `onNodeChange` fires on every pointer move across a
@@ -237,7 +275,7 @@ export function MindflowEditor({
   const insert = useRef<HTMLButtonElement>(null)
   const detach = useRef<(() => void) | undefined>(undefined)
 
-  const watchHandle = (button: HTMLButtonElement | null) => {
+  const watchHandle = (button: HTMLButtonElement | null): void => {
     insert.current = button
     detach.current?.()
     detach.current = undefined
@@ -246,7 +284,7 @@ export function MindflowEditor({
     if (!handle) return
 
     let timer: ReturnType<typeof setTimeout>
-    const sync = () => {
+    const sync = (): void => {
       clearTimeout(timer)
       if (handle.style.visibility !== "hidden") handle.classList.add("is-shown")
       else {
@@ -274,7 +312,19 @@ export function MindflowEditor({
         autocorrect: "off",
         autocapitalize: "off",
         "aria-label": "Main content area, start typing to enter text.",
-        class: "mindflow-editor",
+        // The shape is on the element too. Both editors carry `mindflow-editor`
+        // now, so without this there is no way to tell a title from a document
+        // in CSS or from outside.
+        class: shape === "line" ? "mindflow-editor is-line" : "mindflow-editor",
+      },
+      // Return commits a single line rather than doing nothing. Guarded on
+      // composition, so accepting a Japanese candidate is not a submit.
+      handleKeyDown: (_view, event) => {
+        if (shape !== "line" || !submit.current) return false
+        if (event.key !== "Enter" || event.shiftKey || event.isComposing) return false
+        event.preventDefault()
+        submit.current()
+        return true
       },
       // Start scrolling before the caret reaches the edge, and leave a margin
       // once it has, so edits never happen just out of sight.
@@ -412,6 +462,7 @@ export function MindflowEditor({
         singleLine: shape === "line",
         onSearch: () => setSearchOpen(true),
       }),
+      ...(tokens.length ? [Tokens.configure({ patterns: held })] : []),
       ImagePlaceholder,
     ],
     content: defaultContent,
@@ -422,7 +473,7 @@ export function MindflowEditor({
       clearTimeout(pending.current)
       pending.current = setTimeout(() => {
         pending.current = undefined
-        latest.current?.(instance.getJSON())
+        latest.current?.(instance.getJSON(), instance)
       }, SAVE_DEBOUNCE_MS)
     },
   })
@@ -430,11 +481,11 @@ export function MindflowEditor({
   // Unmount covers switching notes with a `key`; `pagehide` covers closing the
   // window, which never unmounts anything.
   useEffect(() => {
-    const flush = () => {
+    const flush = (): void => {
       if (!pending.current) return
       clearTimeout(pending.current)
       pending.current = undefined
-      if (editor && !editor.isDestroyed) latest.current?.(editor.getJSON())
+      if (editor && !editor.isDestroyed) latest.current?.(editor.getJSON(), editor)
     }
     window.addEventListener("pagehide", flush)
     return () => {
@@ -529,7 +580,16 @@ export function MindflowEditor({
 
   return (
     <div
-      className={`relative mindflow-editor-wrapper${sourceOpen ? " has-source" : ""}`}
+      className={[
+        "relative mindflow-editor-wrapper",
+        // A line hugs its text. Only a document needs to fill what holds it.
+        shape === "line" ? "is-line" : "",
+        sourceOpen ? "has-source" : "",
+        className
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      style={style}
     >
       <EditorContext.Provider value={{ editor }}>
         {sourceOpen ? <SourceView editor={editor} /> : null}
