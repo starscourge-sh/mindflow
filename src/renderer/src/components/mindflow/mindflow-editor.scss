@@ -170,6 +170,10 @@
 
   .mindflow-editor-content {
     height: auto;
+    // A line has nothing to scroll, and the selection menu opens below the
+    // text, past the bottom of a box this short. Scrolling here only clipped
+    // the menu in half.
+    overflow: visible;
   }
 }
 
