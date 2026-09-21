@@ -65,8 +65,6 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps) {
     if (open) inputRef.current?.select()
   }, [open])
 
-  if (!open) return null
-
   const step = (back: boolean) => {
     if (back) editor?.commands.goToPreviousResult()
     else editor?.commands.goToNextResult()
@@ -82,7 +80,14 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps) {
   }
 
   return (
-    <div className="tiptap-find-bar relative">
+    <div
+      className="tiptap-find-bar relative"
+      // Kept in the page while closed so the row above can animate it shut as
+      // well as open. `inert` takes it out of the tab order and off the
+      // pointer while it is collapsed to nothing.
+      inert={!open}
+      aria-hidden={!open}
+    >
       <input
         ref={inputRef}
         type="text"

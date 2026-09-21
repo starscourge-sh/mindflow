@@ -530,7 +530,7 @@ export function MindflowEditor({
                 hides itself - taking with it the button the menu was measuring
                 against, so the menu landed in the corner. The popovers beside
                 this one never move focus, so they are unaffected. */}
-            {(["left", "center", "right", "justify"] as const).map((align) => (
+            {(["left", "center", "right"] as const).map((align) => (
               <TextAlignButton key={align} align={align} showTooltip={false} />
             ))}
           </ToolbarGroup>
@@ -544,12 +544,22 @@ export function MindflowEditor({
 
         <div className="fixed w-full bottom-0 left-0 right-0 z-50 m-auto bg-linear-to-t from-[var(--accent)]/40">
           <div className="w-full flex flex-col items-center py-4 select-none">
-            <SearchBar
-              editor={editor}
-              open={searchOpen}
-              onOpen={() => setSearchOpen(true)}
-              onClose={() => setSearchOpen(false)}
-            />
+            {/* A grid row rather than a height: `height: auto` cannot be
+                transitioned, but `0fr` to `1fr` can, so the gradient behind
+                this dock grows and shrinks with the box instead of jumping. */}
+            <div
+              className="grid w-full justify-items-center transition-[grid-template-rows] duration-200 ease-out"
+              style={{ gridTemplateRows: searchOpen ? "1fr" : "0fr" }}
+            >
+              <div className="overflow-hidden">
+                <SearchBar
+                  editor={editor}
+                  open={searchOpen}
+                  onOpen={() => setSearchOpen(true)}
+                  onClose={() => setSearchOpen(false)}
+                />
+              </div>
+            </div>
 
             <Toolbar className="rounded-xl border-1 shadow"
               style={{ background: 'var(--accent)' }}>

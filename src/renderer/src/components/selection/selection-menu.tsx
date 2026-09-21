@@ -6,6 +6,16 @@ import { EditorContext, type Editor } from '@tiptap/react'
 import { Toolbar } from '@/components/tiptap-ui-primitive/toolbar'
 
 /**
+ * Held still at module scope, or the menu re-registers its ProseMirror plugin
+ * on every render.
+ *
+ * `shift` is what keeps it off the window edges: the bubble is wider than some
+ * selections are far from the side, and without this it sat flush against the
+ * frame with its first button half cut off.
+ */
+const POSITION = { flip: true, shift: { padding: 12 } } as const
+
+/**
  * The toolbar again, at the selection.
  *
  * Which controls it holds is the caller's business - a document wants the lot,
@@ -35,6 +45,7 @@ export function SelectionMenu({
       // Inline rather than a class: the title variant does not import the
       // editor's stylesheet, and this is the menu's only styling.
       style={{ zIndex: 40 }}
+      options={POSITION}
       shouldShow={({ editor: instance, state }) =>
         // A node selection - an image, a rule, a card - is not text to format,
         // and a code block takes no marks.
@@ -45,7 +56,12 @@ export function SelectionMenu({
       }
     >
       <EditorContext.Provider value={{ editor }}>
-        <Toolbar variant="floating" style={{ background: "var(--accent)" }}>
+        <Toolbar
+          variant="floating"
+          // The accent on its own reads as a lit panel sitting on the page.
+          // Mixed back towards the page it keeps the hue and loses the glare.
+          style={{ background: "color-mix(in srgb, var(--accent) 55%, var(--background))" }}
+        >
           {children}
         </Toolbar>
       </EditorContext.Provider>

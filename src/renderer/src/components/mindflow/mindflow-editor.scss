@@ -146,6 +146,8 @@
   border: 1px solid var(--tt-border-color);
   // Matches the app's own panels: --radius-xl, 14px.
   border-radius: 0.875rem;
+  // Opaque on purpose. The window behind it is transparent, so a panel with no
+  // background of its own shows the document through it, and then the desktop.
   background-color: var(--tt-card-bg-color);
   // A hairline border carries the edge. The four-layer drop shadow this used to
   // have reads as a smudge now the window behind it is frosted rather than
