@@ -1,9 +1,9 @@
-import type { ReactNode } from "react"
-import { BubbleMenu } from "@tiptap/react/menus"
-import { TextSelection } from "@tiptap/pm/state"
-import { EditorContext, type Editor } from "@tiptap/react"
+import type { ReactNode } from 'react'
+import { BubbleMenu } from '@tiptap/react/menus'
+import { TextSelection } from '@tiptap/pm/state'
+import { EditorContext, type Editor } from '@tiptap/react'
 
-import { Toolbar } from "@/components/tiptap-ui-primitive/toolbar"
+import { Toolbar } from '@/components/tiptap-ui-primitive/toolbar'
 
 /**
  * The toolbar again, at the selection.
@@ -20,7 +20,7 @@ import { Toolbar } from "@/components/tiptap-ui-primitive/toolbar"
  */
 export function SelectionMenu({
   editor,
-  children,
+  children
 }: {
   editor: Editor | null
   children: ReactNode
@@ -41,11 +41,13 @@ export function SelectionMenu({
         state.selection instanceof TextSelection &&
         !state.selection.empty &&
         instance.isEditable &&
-        !instance.isActive("codeBlock")
+        !instance.isActive('codeBlock')
       }
     >
       <EditorContext.Provider value={{ editor }}>
-        <Toolbar variant="floating">{children}</Toolbar>
+        <Toolbar variant="floating" style={{ background: "var(--accent)" }}>
+          {children}
+        </Toolbar>
       </EditorContext.Provider>
     </BubbleMenu>
   )

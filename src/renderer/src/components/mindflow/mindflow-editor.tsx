@@ -107,6 +107,7 @@ import {
 } from "@/components/tiptap-ui/color-highlight-popover"
 import { MarkDropdownMenu } from "@/components/tiptap-ui/mark-dropdown-menu"
 import { TextAlignDropdownMenu } from "@/components/tiptap-ui/text-align-dropdown-menu"
+import { TextAlignButton } from "@/components/tiptap-ui/text-align-button"
 import { SearchBar } from "@/components/search/search-bar"
 import { TableMenu } from "@/components/table/table-menu"
 import { TableControls } from "@/components/table/table-controls"
@@ -521,11 +522,17 @@ export function MindflowEditor({
           <ToolbarGroup>
             <LinkPopover showTooltip={false} autoOpenOnLinkActive={false} />
             <ColorHighlightPopover showTooltip={false} />
-            <TextAlignDropdownMenu
-              modal={false}
-              aligns={["left", "center", "right", "justify"]}
-              showTooltip={false}
-            />
+          </ToolbarGroup>
+          <ToolbarSeparator />
+          <ToolbarGroup>
+            {/* Buttons, not the dropdown the fixed toolbar uses. A Radix menu
+                takes focus when it opens, the editor blurs, and the bubble
+                hides itself - taking with it the button the menu was measuring
+                against, so the menu landed in the corner. The popovers beside
+                this one never move focus, so they are unaffected. */}
+            {(["left", "center", "right", "justify"] as const).map((align) => (
+              <TextAlignButton key={align} align={align} showTooltip={false} />
+            ))}
           </ToolbarGroup>
         </SelectionMenu>
 
