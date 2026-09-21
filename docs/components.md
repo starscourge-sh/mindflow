@@ -164,6 +164,20 @@ the field in, and `className` and `style` go straight onto the editor's own box,
 so you dress it like any other component. Padding is `--mf-padding` rather than
 a fixed rule, so setting it from either one wins.
 
+## Lists that arrive in pieces
+
+Pasting a list from somewhere else often gives one list per line. On screen that
+is identical to a single list with several items, but it does not behave like
+one: Tab cannot nest an item under the line above it, because inside its own
+list that item is the first and has nothing to nest under.
+
+Adjacent lists of the same kind are joined as they appear, so a paste settles
+into one list. The kinds have to match. Every list holds `listItem+`, so
+ProseMirror considers a bullet list and a numbered list joinable, and taking its
+word for it would quietly turn numbers into bullets.
+
+---
+
 ## Commands
 
 These are what the menus run. Neither component hands the host a reference to

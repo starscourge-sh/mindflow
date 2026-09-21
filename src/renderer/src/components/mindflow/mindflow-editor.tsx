@@ -40,6 +40,7 @@ import { ToggleHeading, headingRank } from "@/extensions/toggle-heading"
 import { ImageDrop } from "@/extensions/image-drop"
 import { ImagePlaceholder } from "@/extensions/image-placeholder"
 import { BlockColor } from "@/extensions/block-color"
+import { JoinLists } from "@/extensions/join-lists"
 import { SelectedNodes } from "@/extensions/selected-nodes"
 import { Bookmark } from "@/extensions/bookmark"
 import { Attachment } from "@/extensions/attachment"
@@ -502,6 +503,7 @@ export function MindflowEditor({
       ToggleHeading,
       ImageDrop,
       BlockColor,
+      JoinLists,
       SelectedNodes,
       ObsidianShortcuts.configure({
         onToggleSource: () => setSourceOpen((open) => !open),
