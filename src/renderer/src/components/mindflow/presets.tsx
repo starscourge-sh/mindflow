@@ -12,14 +12,19 @@ import { MindflowEditor, type MindflowEditorProps } from "@/components/mindflow/
  * behaviour.
  */
 
-/** Marks and a link, which is as much as a small box has room for. */
-const SMALL_SELECTION = (
+/** The four marks a small box has room for. */
+const MARKS = (
+  <ToolbarGroup>
+    {(["bold", "italic", "strike", "code"] as const).map((type) => (
+      <MarkButton key={type} type={type} showTooltip={false} />
+    ))}
+  </ToolbarGroup>
+)
+
+/** The same, plus a link, for a box whose text can point somewhere. */
+const MARKS_AND_LINK = (
   <>
-    <ToolbarGroup>
-      {(["bold", "italic", "strike", "code"] as const).map((type) => (
-        <MarkButton key={type} type={type} showTooltip={false} />
-      ))}
-    </ToolbarGroup>
+    {MARKS}
     <ToolbarSeparator />
     <ToolbarGroup>
       <LinkPopover showTooltip={false} autoOpenOnLinkActive={false} />
@@ -37,7 +42,8 @@ export function CommentEditor(props: MindflowEditorProps): React.JSX.Element {
   return (
     <MindflowEditor
       placeholder="Write a comment"
-      toolbar={{ fixed: false, selection: SMALL_SELECTION }}
+      marks={["bold", "italic", "strike", "code", "link"]}
+      toolbar={{ fixed: false, selection: MARKS_AND_LINK }}
       handles={false}
       slash={false}
       outline={false}
@@ -64,7 +70,10 @@ export function LineEditor(props: MindflowEditorProps): React.JSX.Element {
     <CommentEditor
       shape="line"
       placeholder="Title"
-      toolbar={{ fixed: false, selection: SMALL_SELECTION }}
+      // No link: a title is a name, not somewhere to point. Left out of the
+      // marks as well as the toolbar, or it arrives by shortcut anyway.
+      marks={["bold", "italic", "strike", "code"]}
+      toolbar={{ fixed: false, selection: MARKS }}
       {...props}
     />
   )

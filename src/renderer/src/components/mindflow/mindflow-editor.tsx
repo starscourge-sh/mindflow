@@ -47,6 +47,39 @@ import { Attachment } from "@/extensions/attachment"
 /** Drive the editor with vim keys. Flip this to turn it off. */
 const VIM_MODE_ENABLED = true
 
+/** Every mark the editor can register. */
+export type MarkName =
+  | "bold"
+  | "italic"
+  | "strike"
+  | "code"
+  | "underline"
+  | "link"
+  | "highlight"
+  | "superscript"
+  | "subscript"
+
+const ALL_MARKS: MarkName[] = [
+  "bold",
+  "italic",
+  "strike",
+  "code",
+  "underline",
+  "link",
+  "highlight",
+  "superscript",
+  "subscript"
+]
+
+/**
+ * What a single line carries by default.
+ *
+ * A title is not a place for a highlight or a superscript, and leaving them
+ * registered means they arrive anyway: by shortcut, by markdown as you type, or
+ * by pasting. Unregistering is the only way to actually keep them out.
+ */
+const LINE_MARKS: MarkName[] = ["bold", "italic", "strike", "code"]
+
 /**
  * Keep the caret clear of the window edges when an edit scrolls it into view.
  * The bottom figure has to clear the fixed toolbar, which otherwise covers the
@@ -178,6 +211,15 @@ export interface MindflowEditorProps {
   /** Vim bindings. */
   vim?: boolean
   /**
+   * Which marks exist at all. Not a toolbar setting: a mark left out here is
+   * unreachable by shortcut, by markdown, and by pasting, because the schema
+   * has nowhere to put it.
+   *
+   * Defaults to everything for a document, and to bold, italic, strike and
+   * code for a line.
+   */
+  marks?: MarkName[]
+  /**
    * Added to the editor's own box. Padding is a variable rather than a fixed
    * rule, so `--mf-padding` set from here or from `style` wins normally.
    */
@@ -230,6 +272,7 @@ export function MindflowEditor({
   outline = true,
   search = true,
   vim = VIM_MODE_ENABLED,
+  marks,
   className = "",
   style,
   onSubmit,
@@ -260,6 +303,8 @@ export function MindflowEditor({
   // Held from the first render: the extension captures its patterns when the
   // editor is built, so a newer prop would tint what is not being matched.
   const [held] = useState(tokens)
+  const allowed = marks ?? (shape === "line" ? LINE_MARKS : ALL_MARKS)
+  const has = (mark: MarkName): boolean => allowed.includes(mark)
   const submit = useLatest(onSubmit)
   const pending = useRef<ReturnType<typeof setTimeout>>(undefined)
   // Which block the drag handle is pointing at, so its menu needs no selection.
@@ -343,9 +388,14 @@ export function MindflowEditor({
     },
     extensions: [
       StarterKit.configure({
-        // A line shape brings its own, holding a single paragraph. Everything
-        // else stays registered but unreachable: the schema will not accept it.
+        // A line shape brings its own, holding a single paragraph. Blocks stay
+        // registered but unreachable: the schema will not accept them.
         document: shape !== "line" && undefined,
+        bold: has("bold") && undefined,
+        italic: has("italic") && undefined,
+        strike: has("strike") && undefined,
+        code: has("code") && undefined,
+        underline: has("underline") && undefined,
         // Replaced below so a list item can hold a toggle as its first child.
         listItem: false,
         horizontalRule: false,
@@ -353,7 +403,7 @@ export function MindflowEditor({
         heading: { levels: [1, 2, 3, 4] },
         // Replaced by the highlighting version below.
         codeBlock: false,
-        link: {
+        link: has("link") && {
           openOnClick: false,
           enableClickSelection: true,
         },
@@ -369,7 +419,7 @@ export function MindflowEditor({
       TaskItem.configure({ nested: true }).extend({
         content: "(paragraph|details) block*",
       }),
-      Highlight.configure({ multicolor: true }),
+      ...(has("highlight") ? [Highlight.configure({ multicolor: true })] : []),
       // Width and alignment live on the node so they survive a save. Width is a
       // CSS length rather than a preset name, which leaves room for a drag.
       Image.extend({
@@ -390,8 +440,8 @@ export function MindflowEditor({
         },
       }),
       Typography,
-      Superscript,
-      Subscript,
+      ...(has("superscript") ? [Superscript] : []),
+      ...(has("subscript") ? [Subscript] : []),
       Selection,
       ...(search ? [FindAndReplace.configure({ injectCSS: false })] : []),
       TableKit.configure({ table: { resizable: true, cellMinWidth: 64 } }),

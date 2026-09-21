@@ -148,6 +148,17 @@ onChange={(_doc, editor) => {
 The tint is a decoration, so the text underneath is untouched and what you save
 is exactly what was typed.
 
+A line carries bold, italic, strikethrough and inline code, and nothing else.
+That is the **schema**, not a set of hidden buttons, so `==highlight==` stays
+literal text and Mod-Shift-h does nothing. Pass `marks` to change the set:
+
+```tsx
+<LineEditor marks={["bold", "italic"]} />
+```
+
+Keep the toolbar and the marks in step. A button for a mark the schema does not
+carry is a button that does nothing.
+
 Nothing here draws a border or a background. The box belongs to whatever you put
 the field in, and `className` and `style` go straight onto the editor's own box,
 so you dress it like any other component. Padding is `--mf-padding` rather than
@@ -443,6 +454,7 @@ and a title is which parts are switched on.
 | `outline` | `true` | The heading outline |
 | `search` | `true` | Find on Mod-f |
 | `vim` | `true` | Vim bindings |
+| `marks` | all for a document, four for a line | Which marks exist at all. Not a toolbar setting: a mark left out is unreachable by shortcut, by markdown and by pasting |
 
 The two toolbars are independent. Choosing where a toolbar sits never limits
 what it can hold, and either can carry anything the other can:
