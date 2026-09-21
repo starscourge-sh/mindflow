@@ -125,11 +125,12 @@ export const duplicateRow = (editor: Editor, at: number): boolean =>
   )
 
 export const clearColumn = (editor: Editor, at: number): boolean =>
-  reshape(editor, (grid) =>
-    grid.map((row, index) =>
-      index < headerRows(grid) ? row : row.map((cell, c) => (c === at ? blank(cell) : cell))
+  reshape(editor, (grid) => {
+    const head = headerRows(grid)
+    return grid.map((row, index) =>
+      index < head ? row : row.map((cell, c) => (c === at ? blank(cell) : cell))
     )
-  )
+  })
 
 export const clearRow = (editor: Editor, at: number): boolean =>
   reshape(editor, (grid) => grid.map((row, index) => (index === at ? row.map(blank) : row)))

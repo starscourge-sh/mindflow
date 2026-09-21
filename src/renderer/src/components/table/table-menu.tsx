@@ -66,6 +66,8 @@ function entries(editor: Editor): Entry[] {
   // it should land.
   const plain = isPlain(editor)
   const remove: Entry = ['Delete table', () => chain().deleteTable().run()]
+  /** Only offered on a plain table, and typed here so the lists need no casts. */
+  const whenPlain = (rows: Entry[]): Entry[] => (plain ? rows : [])
 
   if (at && cells?.isColSelection()) {
     const { column } = at
@@ -73,15 +75,13 @@ function entries(editor: Editor): Entry[] {
       ['Insert column left', () => chain().addColumnBefore().run()],
       ['Insert column right', () => chain().addColumnAfter().run()],
       null,
-      ...(plain
-        ? ([
-            ['Sort column A to Z', () => sortByColumn(editor, column, true)],
-            ['Sort column Z to A', () => sortByColumn(editor, column, false)],
-            null,
-            ['Duplicate column', () => duplicateColumn(editor, column)],
-            ['Clear column contents', () => clearColumn(editor, column)]
-          ] as Entry[])
-        : []),
+      ...whenPlain([
+        ['Sort column A to Z', () => sortByColumn(editor, column, true)],
+        ['Sort column Z to A', () => sortByColumn(editor, column, false)],
+        null,
+        ['Duplicate column', () => duplicateColumn(editor, column)],
+        ['Clear column contents', () => clearColumn(editor, column)]
+      ]),
       ['Delete column', () => chain().deleteColumn().run()],
       null,
       remove
@@ -94,12 +94,10 @@ function entries(editor: Editor): Entry[] {
       ['Insert row above', () => chain().addRowBefore().run()],
       ['Insert row below', () => chain().addRowAfter().run()],
       null,
-      ...(plain
-        ? ([
-            ['Duplicate row', () => duplicateRow(editor, row)],
-            ['Clear row contents', () => clearRow(editor, row)]
-          ] as Entry[])
-        : []),
+      ...whenPlain([
+        ['Duplicate row', () => duplicateRow(editor, row)],
+        ['Clear row contents', () => clearRow(editor, row)]
+      ]),
       ['Toggle header row', () => chain().toggleHeaderRow().run()],
       ['Delete row', () => chain().deleteRow().run()],
       null,
