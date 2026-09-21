@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import type { JSONContent } from "@tiptap/core"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
@@ -85,6 +85,7 @@ import {
 } from "@/components/tiptap-ui-primitive/toolbar"
 
 // --- Tiptap Node ---
+import { Document } from "@tiptap/extension-document"
 import { HorizontalRule } from "@/components/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension"
 import "@/components/tiptap-node/blockquote-node/blockquote-node.scss"
 import "@/components/tiptap-node/code-block-node/code-block-node.scss"
@@ -138,6 +139,30 @@ import "@/components/mindflow/mindflow-editor.scss"
 
 export interface MindflowEditorProps {
   /**
+   * `line` holds a single paragraph, `document` holds blocks. This is the
+   * schema, so it is fixed at mount: remount with a `key` to change it.
+   *
+   * There is no shape between the two. What separates a comment box from a
+   * page is which chrome is switched on below, not what the schema allows.
+   */
+  shape?: "line" | "document"
+  /**
+   * Which toolbars to show and what goes in them. Omit a key for its default
+   * contents, pass `false` for no toolbar, or pass your own nodes. The two are
+   * independent: neither placement limits what it can hold.
+   */
+  toolbar?: false | { fixed?: ReactNode | false; selection?: ReactNode | false }
+  /** The drag handle beside each block, and the menu it opens. */
+  handles?: boolean
+  /** The `/` menu. */
+  slash?: boolean
+  /** The heading outline down the right edge. */
+  outline?: boolean
+  /** Find, on Mod-f. Registers a window level key handler while mounted. */
+  search?: boolean
+  /** Vim bindings. */
+  vim?: boolean
+  /**
    * Read once, at mount. To show a different document, remount with a `key`.
    * Defaults to empty: a default document would be written over the caller's
    * note by the first keystroke while their note was still loading.
@@ -165,6 +190,13 @@ export function MindflowEditor({
   defaultContent = "",
   placeholder = "Write, type '/' for commands…",
   showSource = false,
+  shape = "document",
+  toolbar,
+  handles = true,
+  slash = true,
+  outline = true,
+  search = true,
+  vim = VIM_MODE_ENABLED,
   findNotes = () => [],
   onOpenNote,
   onChange,
@@ -261,6 +293,9 @@ export function MindflowEditor({
     },
     extensions: [
       StarterKit.configure({
+        // A line shape brings its own, holding a single paragraph. Everything
+        // else stays registered but unreachable: the schema will not accept it.
+        document: shape !== "line" && undefined,
         // Replaced below so a list item can hold a toggle as its first child.
         listItem: false,
         horizontalRule: false,
@@ -273,6 +308,7 @@ export function MindflowEditor({
           enableClickSelection: true,
         },
       }),
+      ...(shape === "line" ? [Document.extend({ content: "paragraph" })] : []),
       HorizontalRule,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       // A bullet turns into a toggle in place, the way Notion does it: the item
@@ -307,7 +343,7 @@ export function MindflowEditor({
       Superscript,
       Subscript,
       Selection,
-      FindAndReplace.configure({ injectCSS: false }),
+      ...(search ? [FindAndReplace.configure({ injectCSS: false })] : []),
       TableKit.configure({ table: { resizable: true, cellMinWidth: 64 } }),
       Bookmark,
       Attachment,
@@ -360,7 +396,7 @@ export function MindflowEditor({
       // where it could not be changed from code or translated.
       Placeholder.configure({ placeholder }),
       // Pasting a YouTube link embeds it; `/` is the deliberate way in.
-      SlashCommand.configure({ render: slashRenderer, items: slashItems }),
+      ...(slash ? [SlashCommand.configure({ render: slashRenderer, items: slashItems })] : []),
       EmojiSuggestion,
       Mathematics,
       ToggleHeading,
@@ -371,7 +407,9 @@ export function MindflowEditor({
         onToggleSource: () => setSourceOpen((open) => !open),
       }),
       VimMode.configure({
-        enabled: VIM_MODE_ENABLED,
+        enabled: vim,
+        // A line has nowhere for o, O, V or dd to go.
+        singleLine: shape === "line",
         onSearch: () => setSearchOpen(true),
       }),
       ImagePlaceholder,
@@ -405,6 +443,90 @@ export function MindflowEditor({
     }
   }, [editor])
 
+  // Omitting a toolbar key means its usual contents; `false` means no toolbar
+  // at all. Neither choice limits what the other can hold.
+  const fixedItems = toolbar === false ? false : toolbar?.fixed
+  const selectionItems = toolbar === false ? false : toolbar?.selection
+
+  // What you can do to a run of text. Turn into is not here: it acts on a whole
+  // block, and the handle beside that block already offers it.
+  const defaultSelection = (
+    <>
+          <ToolbarGroup>
+            {(["bold", "italic", "underline", "strike", "code"] as const).map((type) => (
+              <MarkButton key={type} type={type} showTooltip={false} />
+            ))}
+          </ToolbarGroup>
+          <ToolbarSeparator />
+          <ToolbarGroup>
+            {(["superscript", "subscript"] as const).map((type) => (
+              <MarkButton key={type} type={type} showTooltip={false} />
+            ))}
+          </ToolbarGroup>
+          <ToolbarSeparator />
+          <ToolbarGroup>
+            <LinkPopover showTooltip={false} autoOpenOnLinkActive={false} />
+            <ColorHighlightPopover showTooltip={false} />
+          </ToolbarGroup>
+          <ToolbarSeparator />
+          <ToolbarGroup>
+            {/* Buttons, not the dropdown the fixed toolbar uses. A Radix menu
+                takes focus when it opens, the editor blurs, and the bubble
+                hides itself - taking with it the button the menu was measuring
+                against, so the menu landed in the corner. The popovers beside
+                this one never move focus, so they are unaffected. */}
+            {(["left", "center", "right"] as const).map((align) => (
+              <TextAlignButton key={align} align={align} showTooltip={false} />
+            ))}
+          </ToolbarGroup>
+    </>
+  )
+
+  const defaultFixed = (
+    <>
+              <ToolbarGroup>
+                <HeadingDropdownMenu
+                  modal={false}
+                  levels={[1, 2, 3]}
+                  showTooltip={false}
+                />
+                <ListDropdownMenu
+                  modal={false}
+                  types={["bulletList", "orderedList", "taskList"]}
+                  showTooltip={false}
+                />
+                <BlockquoteButton showTooltip={false} />
+                <CodeBlockButton showTooltip={false} />
+              </ToolbarGroup>
+              <ToolbarSeparator />
+              <ToolbarGroup>
+                <MarkDropdownMenu
+                  modal={false}
+                  types={["bold", "italic", "strike", "code", "underline", "superscript", "subscript"]}
+                  showTooltip={false}
+                />
+                <ColorHighlightPopover showTooltip={false} />
+              </ToolbarGroup>
+              <ToolbarSeparator />
+              <ToolbarGroup>
+                <TextAlignDropdownMenu
+                  modal={false}
+                  aligns={["left", "center", "right", "justify"]}
+                  showTooltip={false}
+                />
+              </ToolbarGroup>
+              <Spacer />
+              <ToolbarGroup>
+                <EditorToggles
+                  editor={editor}
+                  sourceOpen={sourceOpen}
+                  onToggleSource={() => setSourceOpen((open) => !open)}
+                />
+                <ThemeToggle />
+              </ToolbarGroup>
+    </>
+  )
+
   return (
     <div
       className={`relative mindflow-editor-wrapper${sourceOpen ? " has-source" : ""}`}
@@ -414,11 +536,11 @@ export function MindflowEditor({
 
         <ImageMenu editor={editor} />
 
-        <TableOfContents editor={editor} />
+        {outline && <TableOfContents editor={editor} />}
         <TableControls editor={editor} />
         <TableMenu editor={editor} />
 
-        {editor && (
+        {handles && editor && (
           <DragHandle
             editor={editor}
             // Per-item handles for lists, but never the parts of a collapsible
@@ -504,37 +626,9 @@ export function MindflowEditor({
           </DragHandle>
         )}
 
-        {/* What you can do to a run of text. Turn into is not here: it acts on a
-            whole block, and the handle beside that block already offers it. */}
-        <SelectionMenu editor={editor}>
-          <ToolbarGroup>
-            {(["bold", "italic", "underline", "strike", "code"] as const).map((type) => (
-              <MarkButton key={type} type={type} showTooltip={false} />
-            ))}
-          </ToolbarGroup>
-          <ToolbarSeparator />
-          <ToolbarGroup>
-            {(["superscript", "subscript"] as const).map((type) => (
-              <MarkButton key={type} type={type} showTooltip={false} />
-            ))}
-          </ToolbarGroup>
-          <ToolbarSeparator />
-          <ToolbarGroup>
-            <LinkPopover showTooltip={false} autoOpenOnLinkActive={false} />
-            <ColorHighlightPopover showTooltip={false} />
-          </ToolbarGroup>
-          <ToolbarSeparator />
-          <ToolbarGroup>
-            {/* Buttons, not the dropdown the fixed toolbar uses. A Radix menu
-                takes focus when it opens, the editor blurs, and the bubble
-                hides itself - taking with it the button the menu was measuring
-                against, so the menu landed in the corner. The popovers beside
-                this one never move focus, so they are unaffected. */}
-            {(["left", "center", "right"] as const).map((align) => (
-              <TextAlignButton key={align} align={align} showTooltip={false} />
-            ))}
-          </ToolbarGroup>
-        </SelectionMenu>
+        {selectionItems !== false && (
+          <SelectionMenu editor={editor}>{selectionItems ?? defaultSelection}</SelectionMenu>
+        )}
 
         <EditorContent
           editor={editor}
@@ -542,71 +636,41 @@ export function MindflowEditor({
           className="mindflow-editor-content relative p-3 overflow-auto"
         />
 
-        <div className="absolute inset-x-0 bottom-0 z-50 m-auto bg-linear-to-t from-[var(--accent)]/40">
+        {/* The dock earns its place only if something is in it. */}
+        {(fixedItems !== false || search) && (
+          <div className="absolute inset-x-0 bottom-0 z-50 m-auto bg-linear-to-t from-[var(--accent)]/40">
           <div className="w-full flex flex-col gap-1 items-center py-3 select-none">
             {/* A grid row rather than a height: `height: auto` cannot be
                 transitioned, but `0fr` to `1fr` can, so the gradient above
                 grows and shrinks with the box instead of jumping. */}
-            <div
-              className="grid w-full justify-items-center transition-[grid-template-rows] duration-200 ease-out"
-              style={{ gridTemplateRows: searchOpen ? '1fr' : '0fr' }}
-            >
-              <div className="overflow-hidden">
-                <SearchBar
-                  editor={editor}
-                  open={searchOpen}
-                  onOpen={() => setSearchOpen(true)}
-                  onClose={() => setSearchOpen(false)}
-                />
+            {search && (
+              <div
+                className="grid w-full justify-items-center transition-[grid-template-rows] duration-200 ease-out"
+                style={{ gridTemplateRows: searchOpen ? '1fr' : '0fr' }}
+              >
+                <div className="overflow-hidden">
+                  <SearchBar
+                    editor={editor}
+                    open={searchOpen}
+                    onOpen={() => setSearchOpen(true)}
+                    onClose={() => setSearchOpen(false)}
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
-            <Toolbar className="rounded-xl border-1 shadow"
-              style={{ background: 'var(--accent)' }}>
-              <ToolbarGroup>
-                <HeadingDropdownMenu
-                  modal={false}
-                  levels={[1, 2, 3]}
-                  showTooltip={false}
-                />
-                <ListDropdownMenu
-                  modal={false}
-                  types={["bulletList", "orderedList", "taskList"]}
-                  showTooltip={false}
-                />
-                <BlockquoteButton showTooltip={false} />
-                <CodeBlockButton showTooltip={false} />
-              </ToolbarGroup>
-              <ToolbarSeparator />
-              <ToolbarGroup>
-                <MarkDropdownMenu
-                  modal={false}
-                  types={["bold", "italic", "strike", "code", "underline", "superscript", "subscript"]}
-                  showTooltip={false}
-                />
-                <ColorHighlightPopover showTooltip={false} />
-              </ToolbarGroup>
-              <ToolbarSeparator />
-              <ToolbarGroup>
-                <TextAlignDropdownMenu
-                  modal={false}
-                  aligns={["left", "center", "right", "justify"]}
-                  showTooltip={false}
-                />
-              </ToolbarGroup>
-              <Spacer />
-              <ToolbarGroup>
-                <EditorToggles
-                  editor={editor}
-                  sourceOpen={sourceOpen}
-                  onToggleSource={() => setSourceOpen((open) => !open)}
-                />
-                <ThemeToggle />
-              </ToolbarGroup>
-            </Toolbar>
+            {fixedItems !== false && (
+              <Toolbar
+                className="rounded-xl border-1 shadow"
+                style={{ background: 'var(--accent)' }}
+              >
+                {fixedItems ?? defaultFixed}
+              </Toolbar>
+            )}
             {/* <WordCount editor={editor} /> */}
+            </div>
           </div>
-        </div>
+        )}
       </EditorContext.Provider>
     </div>
   )

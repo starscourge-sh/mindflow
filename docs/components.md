@@ -559,6 +559,44 @@ menus that would change it stop offering.
 
 ---
 
+## One editor, dressed for the job
+
+`MindflowEditor` is the only editor. What changes between a page, a comment box
+and a title is which parts are switched on.
+
+| Prop | Default | What it does |
+| --- | --- | --- |
+| `shape` | `"document"` | `"line"` holds a single paragraph, `"document"` holds blocks. This is the schema, so it is fixed at mount |
+| `toolbar` | both, default contents | `false` for neither, or `{ fixed, selection }`. Omit a key for its usual contents, pass `false` for none, pass your own nodes for anything else |
+| `handles` | `true` | The drag handle and its block menu |
+| `slash` | `true` | The `/` menu |
+| `outline` | `true` | The heading outline |
+| `search` | `true` | Find on Mod-f |
+| `vim` | `true` | Vim bindings |
+
+The two toolbars are independent. Choosing where a toolbar sits never limits
+what it can hold, and either can carry anything the other can:
+
+```tsx
+toolbar={{ fixed: false, selection: <MarkButton type="bold" /> }}
+```
+
+Three presets ship in `components/mindflow/presets`, and each is only a set of
+defaults over the same component: `CommentEditor`, `DescriptionEditor` and
+`LineEditor`. Anything a preset sets can be overridden by passing the prop.
+
+```tsx
+<CommentEditor defaultContent={comment.doc} onChange={save} />
+```
+
+Several editors can share a page. The outline, the source panel and the toolbar
+dock are positioned against the editor's own box, so each instance keeps its
+chrome to itself. One thing is still shared: `search` registers a window level
+Mod-f handler, so leave it off on every editor but the main one, which is what
+the presets do.
+
+---
+
 ## Holding notes in state
 
 `useNotes()` is the whole surface an app needs around the two editors.
