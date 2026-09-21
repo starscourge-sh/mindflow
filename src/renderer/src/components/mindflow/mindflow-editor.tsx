@@ -112,7 +112,7 @@ import { SearchBar } from "@/components/search/search-bar"
 import { TableMenu } from "@/components/table/table-menu"
 import { TableControls } from "@/components/table/table-controls"
 import { BlockMenu, type BlockTarget } from "@/components/turn-into/block-menu"
-import { WordCount } from "@/components/count/word-count"
+// import { WordCount } from "@/components/count/word-count"
 import { TableOfContents } from "@/components/toc/table-of-contents"
 import { SourceView } from "@/components/source/source-view"
 import { NoteLink, type NoteSuggestion } from "@/extensions/note-link"
@@ -539,17 +539,17 @@ export function MindflowEditor({
         <EditorContent
           editor={editor}
           role="presentation"
-          className="mindflow-editor-content relative p-4 overflow-auto bg-background"
+          className="mindflow-editor-content relative p-3 overflow-auto"
         />
 
         <div className="fixed w-full bottom-0 left-0 right-0 z-50 m-auto bg-linear-to-t from-[var(--accent)]/40">
-          <div className="w-full flex flex-col items-center py-4 select-none">
+          <div className="w-full flex flex-col gap-1 items-center py-3 select-none">
             {/* A grid row rather than a height: `height: auto` cannot be
-                transitioned, but `0fr` to `1fr` can, so the gradient behind
-                this dock grows and shrinks with the box instead of jumping. */}
+                transitioned, but `0fr` to `1fr` can, so the gradient above
+                grows and shrinks with the box instead of jumping. */}
             <div
               className="grid w-full justify-items-center transition-[grid-template-rows] duration-200 ease-out"
-              style={{ gridTemplateRows: searchOpen ? "1fr" : "0fr" }}
+              style={{ gridTemplateRows: searchOpen ? '1fr' : '0fr' }}
             >
               <div className="overflow-hidden">
                 <SearchBar
@@ -604,7 +604,7 @@ export function MindflowEditor({
                 <ThemeToggle />
               </ToolbarGroup>
             </Toolbar>
-            <WordCount editor={editor} />
+            {/* <WordCount editor={editor} /> */}
           </div>
         </div>
       </EditorContext.Provider>

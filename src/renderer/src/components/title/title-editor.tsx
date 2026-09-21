@@ -124,7 +124,7 @@ export function TitleEditor({
   })
 
   return (
-    <div className={`tiptap-title-wrapper is-${variant} bg-background border-b`}>
+    <div className={`tiptap-title-wrapper is-${variant} border-b bg-none`}>
       <div style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
         <SelectionMenu editor={editor}>
           <ToolbarGroup>

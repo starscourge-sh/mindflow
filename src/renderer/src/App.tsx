@@ -7,7 +7,7 @@ import { useNotes } from './lib/use-notes'
 
 export default function App(): React.JSX.Element {
   return (
-    <div className="app-container flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-3 bg-background">
+    <div className="app-container flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-3 bg-background/50">
       <Header />
       <CapturePrompt />
     </div>
@@ -43,7 +43,7 @@ const CapturePrompt = (): React.JSX.Element => {
   }
 
   return (
-    <div className="relative overflow-hidden flex flex-col h-[400px] w-[625px] rounded-2xl"
+    <div className="relative overflow-hidden flex flex-col h-[400px] w-[625px] rounded-2xl bg-backgorund"
       style={{ transform: 'translate(0,0)' }}
     >
       {/* Nothing is editable until a note has arrived: an editor shown first and
