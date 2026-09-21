@@ -542,7 +542,7 @@ export function MindflowEditor({
           className="mindflow-editor-content relative p-3 overflow-auto"
         />
 
-        <div className="fixed w-full bottom-0 left-0 right-0 z-50 m-auto bg-linear-to-t from-[var(--accent)]/40">
+        <div className="absolute inset-x-0 bottom-0 z-50 m-auto bg-linear-to-t from-[var(--accent)]/40">
           <div className="w-full flex flex-col gap-1 items-center py-3 select-none">
             {/* A grid row rather than a height: `height: auto` cannot be
                 transitioned, but `0fr` to `1fr` can, so the gradient above
