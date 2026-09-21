@@ -498,6 +498,24 @@
   }
 
   // A grip is a thin rule alongside its row or column.
+  // Where the dragged row or column would come to rest. Drawn on the leading
+  // edge of the target rather than over it: a filled band hides the very cells
+  // you are judging the move by.
+  .tiptap-table-landing {
+    position: absolute;
+    background-color: var(--tt-brand-color-400);
+    border-radius: 999px;
+    pointer-events: none;
+
+    &.is-column {
+      width: 2px;
+    }
+
+    &.is-row {
+      height: 2px;
+    }
+  }
+
   // A pill with dots in it, so it reads as something to take hold of rather
   // than a stray rule beside the table. It spans the whole row or column:
   // a smaller pill looks tidier and is much harder to hit.

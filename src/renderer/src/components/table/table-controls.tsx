@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { CellSelection, TableMap } from '@tiptap/pm/tables'
 import { useEditorState, type Editor } from '@tiptap/react'
 
-import { cellAt, moveColumn, moveRow } from '@/lib/table'
+import { moveColumn, moveRow } from '@/lib/table'
 
 /** Where each row and column sits, relative to the editor's own box. */
 interface Geometry {
@@ -177,34 +177,32 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
     }
   }, [host, geometry])
 
-  /**
-   * Drop the grip on whichever row or column the pointer ended over.
-   *
-   * Where the drag started is read back from the selection rather than held:
-   * pressing the grip selected that row or column, and a drag does not change
-   * it. A press with no drag lands on the same index, which is no move at all.
-   */
-  const drop = useCallback(
-    (axis: 'row' | 'column', event: React.PointerEvent): void => {
-      const anchor = editor && cellAt(editor)
-      if (!anchor || !editor || !geometry || !host) return
-      const start = axis === 'column' ? anchor.column : anchor.row
-
+  /** Which row or column the pointer is over, or -1 when it is outside. */
+  const indexAt = useCallback(
+    (axis: "row" | "column", event: React.PointerEvent): number => {
+      if (!geometry || !host) return -1
       const origin = host.getBoundingClientRect()
       const x = event.clientX - origin.left
       const y = event.clientY - origin.top
-      const to =
-        axis === 'column'
-          ? geometry.columns.findIndex((c) => x >= c.left && x < c.left + c.width)
-          : geometry.rows.findIndex((r) => y >= r.top && y < r.top + r.height)
-      // Dropped outside the table, which is a change of mind, not a move.
-      if (to < 0) return
-
-      const target = axis === 'column' ? geometry.columns[to].col : to
-      if (axis === 'column') moveColumn(editor, start, target)
-      else moveRow(editor, start, target)
+      return axis === "column"
+        ? geometry.columns.findIndex((c) => x >= c.left && x < c.left + c.width)
+        : geometry.rows.findIndex((r) => y >= r.top && y < r.top + r.height)
     },
-    [editor, geometry, host]
+    [geometry, host]
+  )
+
+  /**
+   * The grip being held, where it started and where it would land.
+   *
+   * Only set while the pointer is down, so the extra renders stop the moment
+   * the drag does. Holding the start here rather than reading it back from the
+   * selection is what lets a press stay undecided: a click picks the row or
+   * column, a drag moves it, and only the click leaves a selection for the menu
+   * to attach to. Selecting on the way down opened the menu over the very table
+   * being dragged.
+   */
+  const [drag, setDrag] = useState<{ axis: "row" | "column"; from: number; to: number } | null>(
+    null
   )
 
   // The overlay has to live in the same box its coordinates were measured
@@ -230,14 +228,49 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
       style={style}
       onPointerDown={(event) => {
         event.currentTarget.setPointerCapture(event.pointerId)
-        select(axis, index)
+        setDrag({ axis, from: index, to: index })
       }}
-      onPointerUp={(event) => drop(axis, event)}
+      onPointerMove={(event) => {
+        // Capture means every move lands here until the button is released,
+        // so this is also how we know a drag is under way.
+        if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
+        const to = indexAt(axis, event)
+        setDrag((held) => (held && to >= 0 ? { ...held, to } : held))
+      }}
+      onPointerUp={() => {
+        setDrag(null)
+        if (!drag || !editor) return
+        const pick = (at: number): number =>
+          axis === "column" ? (geometry.columns[at]?.col ?? at) : at
+        if (drag.from === drag.to) select(axis, pick(drag.from))
+        else if (axis === "column") moveColumn(editor, pick(drag.from), pick(drag.to))
+        else moveRow(editor, drag.from, drag.to)
+      }}
     />
   )
 
+  // The edge the dragged row or column would come to rest against. Nothing is
+  // drawn until it would actually move, so a plain click stays quiet.
+  const moving = drag && drag.from !== drag.to ? drag : null
+  const mark = !moving
+    ? null
+    : moving.axis === "column"
+      ? geometry.columns[moving.to] && {
+          left: geometry.columns[moving.to].left,
+          top: geometry.top,
+          height: geometry.height
+        }
+      : geometry.rows[moving.to] && {
+          top: geometry.rows[moving.to].top,
+          left: geometry.left,
+          width: geometry.width
+        }
+
   return createPortal(
     <div className="tiptap-table-controls">
+      {moving && mark && (
+        <div className={`tiptap-table-landing is-${moving.axis}`} style={mark} />
+      )}
       {row && grip('row', hover.row, { top: row.top, left: geometry.left, height: row.height })}
       {column &&
         grip('column', column.col, {
