@@ -371,6 +371,25 @@ the file picker makes a card out of anything.
 
 ---
 
+## Links, cards and videos
+
+`/` offers **Bookmark** and **YouTube** separately, so a video can be either a
+card or a player. Bookmark takes any link, including a YouTube one. YouTube
+makes the player, and falls back to a card for anything that is not a video
+rather than doing nothing.
+
+A card carries the same fields Obsidian's cardlink does: `href`, `title`,
+`description`, `image`, `icon` and `site`, read from the page's Open Graph tags.
+
+YouTube is the exception, and it needs one. It builds its page in the browser,
+so the HTML that arrives holds an empty title and no image, and a card made from
+it came out blank. Its oEmbed endpoint needs no key and answers with the title
+and the thumbnail, so those two gaps are filled from there. It carries no
+description, so the channel name goes under the title instead. Only gaps are
+filled: a site that answers properly keeps its own words.
+
+---
+
 ## Linking to another note
 
 Type `@`, pick a note, and you get a link. Clicking it opens that note.

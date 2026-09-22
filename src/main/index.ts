@@ -425,6 +425,34 @@ app.whenReady().then(() => {
       site: target.hostname
     }
 
+    // YouTube builds its page in the browser, so the HTML that arrives holds
+    // an empty title and no og:image: a card made from it comes out blank.
+    // Its oEmbed endpoint needs no key and answers with both. The page does
+    // not advertise the endpoint, so there is nothing to discover and the
+    // address has to be named.
+    //
+    // oEmbed carries no description. The channel is the next most useful thing
+    // to put under a video's title, and it is the one field that is there.
+    const fromOembed = async (): Promise<{ title: string; description: string; image: string } | null> => {
+      if (!/(^|\.)(youtube\.com|youtu\.be)$/i.test(target.hostname)) return null
+      try {
+        const response = await fetch(
+          `https://www.youtube.com/oembed?url=${encodeURIComponent(target.href)}&format=json`,
+          { signal: AbortSignal.timeout(8000) }
+        )
+        if (!response.ok) return null
+
+        const data: unknown = await response.json()
+        const field = (name: string): string => {
+          const value = (data as Record<string, unknown>)?.[name]
+          return typeof value === 'string' ? value : ''
+        }
+        return { title: field('title'), description: field('author_name'), image: field('thumbnail_url') }
+      } catch {
+        return null
+      }
+    }
+
     try {
       const response = await fetch(target, {
         headers: { 'user-agent': app.userAgentFallback },
@@ -482,7 +510,7 @@ app.whenReady().then(() => {
       const resolve = (value: string): string =>
         value ? (URL.parse(value, base)?.href ?? '') : ''
 
-      return {
+      const scraped = {
         href: target.href,
         title:
           meta('og:title') ||
@@ -500,8 +528,23 @@ app.whenReady().then(() => {
           new URL('/favicon.ico', base).href,
         site: meta('og:site_name') || base.hostname
       }
+
+      // Only where the page left a gap, so a site that does answer properly
+      // keeps its own words.
+      const extra = await fromOembed()
+      if (!extra) return scraped
+      return {
+        ...scraped,
+        title: extra.title || scraped.title,
+        description: scraped.description || extra.description,
+        image: scraped.image || extra.image
+      }
     } catch {
-      return fallback
+      // The page may be unreachable while oEmbed still answers.
+      const extra = await fromOembed()
+      return extra
+        ? { ...fallback, title: extra.title || fallback.title, description: extra.description, image: extra.image }
+        : fallback
     }
   })
 
