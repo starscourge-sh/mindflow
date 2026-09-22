@@ -53,7 +53,9 @@ type VimRegister =
   // so there is nothing for `nodesInRange` to collect and only the text says
   // what was taken.
   | { kind: "line"; nodes: unknown[]; text: string }
-  | { kind: "char"; text: string }
+  // `nodes` as well as the text, because an emoji or a picture is a node with
+  // no text of its own: the text alone put back nothing at all.
+  | { kind: "char"; text: string; nodes: unknown[] }
   | null
 
 /** Everything an operator can be. `c` also drops into insert mode. */
@@ -614,7 +616,11 @@ function textStream(
   return stream
 }
 
-const WORD_CHAR_RE = /[\p{L}\p{N}_]/u
+// `\ufffc` stands in for a node with no text of its own, an emoji or a
+// picture. Counting it as a word means the motions stop on it rather than
+// stepping over it as if it were a space, which sent `b` past the emoji and
+// onto the line above.
+const WORD_CHAR_RE = /[\p{L}\p{N}_\uFFFC]/u
 
 /**
  * w, e and b. Punctuation counts as a separator rather than its own word,
@@ -788,18 +794,35 @@ function isolatingDepth($pos: ResolvedPos): number {
 }
 
 /** { and } - jump to the previous or next block. */
+/**
+ * `}` and `{`: to the next blank line, not the next block.
+ *
+ * Vim moves by paragraph, and a paragraph ends where an empty line begins. A
+ * run of bullets is one paragraph to it, so stepping one block at a time made
+ * `}` behave like `j` wherever the text was dense.
+ */
 function moveByBlock(view: EditorView, dir: 1 | -1, count: number): void {
-  const starts = textblockStarts(view.state.doc)
-  if (!starts.length) return
+  const blocks: { pos: number; empty: boolean }[] = []
+  view.state.doc.descendants((node, pos) => {
+    if (!node.isTextblock) return true
+    blocks.push({ pos: pos + 1, empty: node.content.size === 0 })
+    return false
+  })
+  if (!blocks.length) return
 
   const { head } = view.state.selection
-  let current = 0
-  for (let i = 0; i < starts.length; i++) {
-    if (starts[i] <= head) current = i
+  let at = 0
+  for (let i = 0; i < blocks.length; i++) if (blocks[i].pos <= head) at = i
+
+  for (let step = 0; step < count; step++) {
+    let next = at + dir
+    // Past the last blank line there is only the end of the document, which is
+    // where vim stops too.
+    while (next > 0 && next < blocks.length - 1 && !blocks[next].empty) next += dir
+    at = Math.max(0, Math.min(blocks.length - 1, next))
   }
 
-  const target = Math.max(0, Math.min(starts.length - 1, current + dir * count))
-  select(view, starts[target], dir)
+  select(view, blocks[at].pos, dir)
 }
 
 /** The nearest ancestor that actually scrolls, for page-sized motions. */
@@ -948,6 +971,13 @@ function runMotion(
  * Every operator funnels through here, whatever picked the range: a text
  * object, a whole line, or a visual selection.
  */
+/** The inline nodes in a range, as JSON, so a put can build them again. */
+function inlineRange(state: EditorState, from: number, to: number): unknown[] {
+  const nodes: unknown[] = []
+  state.doc.slice(from, to).content.forEach((node) => nodes.push(node.toJSON()))
+  return nodes
+}
+
 function applyToRange(
   view: EditorView,
   operator: Operator,
@@ -983,7 +1013,11 @@ function applyToRange(
         nodes: nodesInRange(state, from, to).map((node) => node.toJSON()),
         text: state.doc.textBetween(from, to, "\n"),
       }
-    : { kind: "char", text: state.doc.textBetween(from, to) }
+    : {
+        kind: "char" as const,
+        text: state.doc.textBetween(from, to),
+        nodes: inlineRange(state, from, to),
+      }
 
   const tr = state.tr.setMeta(vimPluginKey, { register })
   if (operator !== "y") tr.delete(from, to)
@@ -1087,15 +1121,20 @@ function putRegister(
   const { $head } = state.selection
 
   if (register.kind === "char") {
-    if (!$head.parent.isTextblock || !register.text) return
+    if (!$head.parent.isTextblock || !register.nodes.length) return
     const at = before ? $head.pos : Math.min($head.end(), $head.pos + 1)
-    const tr = state.tr.insertText(register.text.repeat(count), at)
+
+    // Rebuilt from the nodes rather than the text, so an emoji comes back as
+    // an emoji instead of as nothing.
+    const inline: ProseMirrorNode[] = []
+    for (let i = 0; i < count; i++) {
+      for (const json of register.nodes) inline.push(state.schema.nodeFromJSON(json))
+    }
+
+    const tr = state.tr.insert(at, inline)
+    const landed = inline.reduce((total, node) => total + node.nodeSize, 0)
     view.dispatch(
-      tr
-        .setSelection(
-          TextSelection.near(tr.doc.resolve(at + register.text.length * count))
-        )
-        .scrollIntoView()
+      tr.setSelection(TextSelection.near(tr.doc.resolve(at + landed))).scrollIntoView()
     )
     return
   }
