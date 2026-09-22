@@ -661,17 +661,49 @@ function scrollParent(node: HTMLElement | null): HTMLElement | null {
 }
 
 /** How many visual rows fit on screen, for Ctrl-f and friends. */
-function rowsPerPage(view: EditorView): number {
-  let lineHeight = 20
+function lineHeight(view: EditorView): number {
   try {
     const coords = view.coordsAtPos(view.state.selection.head)
-    lineHeight = Math.max(1, coords.bottom - coords.top)
+    return Math.max(1, coords.bottom - coords.top)
   } catch {
-    // Fall back to a sane guess rather than dying on an unrendered position.
+    // A sane guess rather than dying on an unrendered position.
+    return 20
   }
+}
+
+function rowsPerPage(view: EditorView): number {
   const scroller = scrollParent(view.dom as HTMLElement)
   const height = scroller ? scroller.clientHeight : window.innerHeight
-  return Math.max(1, Math.floor(height / lineHeight))
+  return Math.max(1, Math.floor(height / lineHeight(view)))
+}
+
+/**
+ * Move the window over the document, for Ctrl-e and Ctrl-y.
+ *
+ * Unlike every other motion here, the cursor is not what moves: the view
+ * slides and the cursor stays on the line it was on. It only moves when the
+ * scroll would carry it off the screen, and then only back to the edge, which
+ * is what vim does when there is nowhere else for it to be.
+ */
+function scrollLines(view: EditorView, direction: 1 | -1, lines: number): void {
+  const scroller = scrollParent(view.dom as HTMLElement)
+  if (!scroller) return
+
+  scroller.scrollTop += lineHeight(view) * lines * direction
+
+  const box = scroller.getBoundingClientRect()
+  const caret = view.coordsAtPos(view.state.selection.head)
+  const above = caret.top < box.top
+  if (!above && caret.bottom <= box.bottom) return
+
+  // A whole line inside the edge, or the point lands on the half-clipped line
+  // that is still leaving.
+  const edge = above ? box.top + lineHeight(view) : box.bottom - lineHeight(view)
+  const found = view.posAtCoords({ left: caret.left, top: edge })
+  if (!found) return
+  view.dispatch(
+    view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(found.pos)))
+  )
 }
 
 /** Half a screen, for Ctrl-d and Ctrl-u. */
@@ -1363,6 +1395,12 @@ export const VimMode = Extension.create<VimModeOptions>({
                   break
                 case "u":
                   moveVertical(view, -1, halfPage(view) * count)
+                  break
+                case "e":
+                  scrollLines(view, 1, count)
+                  break
+                case "y":
+                  scrollLines(view, -1, count)
                   break
                 case "}":
                 case "]":
