@@ -31,27 +31,34 @@ function measure(editor: Editor): Geometry | null {
     const dom = view.nodeDOM($from.before(depth))
     const table = (dom as HTMLElement | null)?.querySelector('table')
     // The overlay is positioned against the editor's own container.
-    const origin = view.dom.parentElement?.getBoundingClientRect()
-    if (!table || !origin) return null
+    // Everything below is in the scroller's own coordinates, not the window's.
+    // The overlay is positioned inside that scroller and scrolls with it, so a
+    // measurement taken against the window drifts by exactly how far down the
+    // document is: the grips ended up near the top of the note, far from the
+    // table they belong to.
+    const host = view.dom.parentElement
+    const origin = host?.getBoundingClientRect()
+    if (!table || !host || !origin) return null
+    const [downBy, acrossBy] = [host.scrollTop, host.scrollLeft]
 
     const box = table.getBoundingClientRect()
     const rows = [...table.rows].map((row) => {
       const rect = row.getBoundingClientRect()
-      return { top: rect.top - origin.top, height: rect.height }
+      return { top: rect.top - origin.top + downBy, height: rect.height }
     })
     // A colspan fills several map columns with the same cell, so the map index
     // has to be carried rather than inferred from the DOM position.
     let col = 0
     const columns = [...(table.rows[0]?.cells ?? [])].map((cell) => {
       const rect = cell.getBoundingClientRect()
-      const entry = { left: rect.left - origin.left, width: rect.width, col }
+      const entry = { left: rect.left - origin.left + acrossBy, width: rect.width, col }
       col += cell.colSpan
       return entry
     })
 
     return {
-      top: box.top - origin.top,
-      left: box.left - origin.left,
+      top: box.top - origin.top + downBy,
+      left: box.left - origin.left + acrossBy,
       width: box.width,
       height: box.height,
       rows,
@@ -141,8 +148,8 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
 
     const onMove = (event: MouseEvent): void => {
       const origin = host.getBoundingClientRect()
-      const x = event.clientX - origin.left
-      const y = event.clientY - origin.top
+      const x = event.clientX - origin.left + host.scrollLeft
+      const y = event.clientY - origin.top + host.scrollTop
       const near =
         x >= geometry.left - MARGIN &&
         x <= geometry.left + geometry.width &&
@@ -182,8 +189,8 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
     (axis: "row" | "column", event: React.PointerEvent): number => {
       if (!geometry || !host) return -1
       const origin = host.getBoundingClientRect()
-      const x = event.clientX - origin.left
-      const y = event.clientY - origin.top
+      const x = event.clientX - origin.left + host.scrollLeft
+      const y = event.clientY - origin.top + host.scrollTop
       return axis === "column"
         ? geometry.columns.findIndex((c) => x >= c.left && x < c.left + c.width)
         : geometry.rows.findIndex((r) => y >= r.top && y < r.top + r.height)
