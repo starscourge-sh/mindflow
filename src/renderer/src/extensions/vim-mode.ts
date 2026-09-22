@@ -1600,7 +1600,7 @@ export const VimMode = Extension.create<VimModeOptions>({
              * is none after, so deleting the last word of a line does not
              * leave it ending in one.
              */
-            const word = (around: boolean) => {
+            const word = (around: boolean): { from: number; to: number } | null => {
               const range = wordRangeAt(view.state.doc, view.state.selection.head)
               if (!range || !around) return range
 
