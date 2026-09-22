@@ -609,6 +609,13 @@
       margin-top: -0.9375rem;
     }
 
+    // The pointer says what it does: take hold, and hold on while moving.
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
+
     &:hover {
       background-color: var(--tt-brand-color-400);
     }

@@ -130,7 +130,10 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
         const selection =
           axis === 'row' ? CellSelection.rowSelection($cell) : CellSelection.colSelection($cell)
 
-        editor.view.dispatch(state.tr.setSelection(selection).scrollIntoView())
+        // No scrollIntoView. A column selection ends at the bottom of the
+        // table, so asking for it to be shown scrolled the page down to there,
+        // away from the grip that was just pressed.
+        editor.view.dispatch(state.tr.setSelection(selection))
         editor.view.focus()
         return
       }
@@ -258,17 +261,26 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
 
   // The edge the dragged row or column would come to rest against. Nothing is
   // drawn until it would actually move, so a plain click stays quiet.
+  // Where the row or column comes to rest, which is the far side of the target
+  // when it is travelling forwards: moving one column right puts it after the
+  // one it passed, so a line on that column's near side pointed at the gap it
+  // came from rather than the one it is going to.
   const moving = drag && drag.from !== drag.to ? drag : null
+  const onward = moving ? moving.to > moving.from : false
   const mark = !moving
     ? null
     : moving.axis === "column"
       ? geometry.columns[moving.to] && {
-          left: geometry.columns[moving.to].left,
+          left:
+            geometry.columns[moving.to].left +
+            (onward ? geometry.columns[moving.to].width : 0),
           top: geometry.top,
           height: geometry.height
         }
       : geometry.rows[moving.to] && {
-          top: geometry.rows[moving.to].top,
+          top:
+            geometry.rows[moving.to].top +
+            (onward ? geometry.rows[moving.to].height : 0),
           left: geometry.left,
           width: geometry.width
         }
