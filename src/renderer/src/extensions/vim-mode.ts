@@ -717,9 +717,19 @@ function walkWords(
   count: number,
   big = false
 ): number {
-  // A WORD, as vim spells it, runs to whitespace and takes punctuation with
-  // it, so `a.b` is one of them rather than three.
-  const isWord = (ch: string): boolean => (big ? !/\s/.test(ch) : WORD_CHAR_RE.test(ch))
+  /**
+   * Which of vim's three kinds a character belongs to: space, punctuation, or
+   * word. A run of one kind is a word, which is why `a.b` is three of them and
+   * `»` between two words is one of its own rather than a gap.
+   *
+   * A WORD, as vim spells it, has only two kinds: space, and everything else.
+   */
+  const kindOf = (at: number): number => {
+    const ch = stream[at]?.ch
+    if (ch === undefined || /\s/.test(ch)) return 0
+    if (big) return 1
+    return WORD_CHAR_RE.test(ch) ? 2 : 1
+  }
   let i = stream.findIndex((entry) => entry.pos >= head)
   if (i === -1) i = stream.length - 1
 
@@ -729,16 +739,20 @@ function walkWords(
 
   for (let step = 0; step < count; step++, onChar = true) {
     if (kind === "w") {
-      if (onChar) while (i < stream.length && isWord(stream[i].ch)) i++
-      while (i < stream.length && !isWord(stream[i].ch)) i++
+      // Off the end of the run the cursor is in, then over any space.
+      const here = kindOf(i)
+      if (onChar && here !== 0) while (i < stream.length && kindOf(i) === here) i++
+      while (i < stream.length && kindOf(i) === 0) i++
     } else if (kind === "e") {
       i++
-      while (i < stream.length && !isWord(stream[i].ch)) i++
-      while (i + 1 < stream.length && isWord(stream[i + 1].ch)) i++
+      while (i < stream.length && kindOf(i) === 0) i++
+      const run = kindOf(i)
+      if (run !== 0) while (i + 1 < stream.length && kindOf(i + 1) === run) i++
     } else {
       i--
-      while (i >= 0 && !isWord(stream[i].ch)) i--
-      while (i - 1 >= 0 && isWord(stream[i - 1].ch)) i--
+      while (i >= 0 && kindOf(i) === 0) i--
+      const run = kindOf(i)
+      if (run !== 0) while (i - 1 >= 0 && kindOf(i - 1) === run) i--
     }
     // Off the end of what we were given. Not `i <= 0`: sitting on the first
     // character is a legitimate place to be, and a count starting there was
@@ -802,12 +816,22 @@ function isolatingDepth($pos: ResolvedPos): number {
  * `}` behave like `j` wherever the text was dense.
  */
 function moveByBlock(view: EditorView, dir: 1 | -1, count: number): void {
+  // An empty table cell is an empty block, but it is not a blank line: the
+  // table is one thing in the flow of the page and a paragraph does not end
+  // inside it. Anything sealed off from the text around it, which is what a
+  // cell is, can be passed through but never stopped on.
   const blocks: { pos: number; empty: boolean }[] = []
-  view.state.doc.descendants((node, pos) => {
-    if (!node.isTextblock) return true
-    blocks.push({ pos: pos + 1, empty: node.content.size === 0 })
-    return false
-  })
+  const walk = (node: ProseMirrorNode, from: number, sealed: boolean): void => {
+    node.forEach((child, offset) => {
+      const at = from + offset
+      if (child.isTextblock) {
+        blocks.push({ pos: at + 1, empty: !sealed && child.content.size === 0 })
+      } else if (child.isBlock) {
+        walk(child, at + 1, sealed || child.type.spec.isolating === true)
+      }
+    })
+  }
+  walk(view.state.doc, 0, false)
   if (!blocks.length) return
 
   const { head } = view.state.selection
