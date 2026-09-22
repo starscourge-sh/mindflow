@@ -620,7 +620,7 @@ export function MindflowEditor({
               <ToolbarGroup>
                 <TextAlignDropdownMenu
                   modal={false}
-                  aligns={["left", "center", "right", "justify"]}
+                  aligns={["left", "center", "right"]}
                   showTooltip={false}
                 />
               </ToolbarGroup>
