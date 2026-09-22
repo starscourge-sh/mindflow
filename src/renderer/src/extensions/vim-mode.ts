@@ -572,9 +572,13 @@ function gotoBlock(view: EditorView, index: number): void {
 }
 
 /** Every character of every textblock, paired with its document position. */
-function textStream(state: EditorState): { pos: number; ch: string }[] {
+function textStream(
+  state: EditorState,
+  from = 0,
+  to = state.doc.content.size
+): { pos: number; ch: string }[] {
   const stream: { pos: number; ch: string }[] = []
-  state.doc.descendants((node, pos) => {
+  state.doc.nodesBetween(from, to, (node, pos) => {
     if (!node.isTextblock) return true
     // A break between blocks, or a word run carries straight on into the next
     // one: `e` on the last word of a line ran past it and stopped at the end
@@ -589,7 +593,8 @@ function textStream(state: EditorState): { pos: number; ch: string }[] {
       "\ufffc"
     )
     for (let i = 0; i < text.length; i++) {
-      stream.push({ pos: pos + 1 + i, ch: text[i] })
+      const at = pos + 1 + i
+      if (at >= from && at <= to) stream.push({ pos: at, ch: text[i] })
     }
     return false
   })
@@ -671,17 +676,17 @@ function runFind(
   return true
 }
 
-function wordMotion(
-  view: EditorView,
+/** Characters either side of the cursor a word motion is built over first. */
+const WORD_WINDOW = 4000
+
+/** Where a word motion lands, as an index into the stream it was given. */
+function walkWords(
+  stream: { pos: number; ch: string }[],
+  head: number,
   kind: "w" | "e" | "b",
   count: number
-): void {
-  const { state } = view
-  const stream = textStream(state)
-  if (!stream.length) return
-
-  const isWord = (ch: string) => WORD_CHAR_RE.test(ch)
-  const head = state.selection.head
+): number {
+  const isWord = (ch: string): boolean => WORD_CHAR_RE.test(ch)
   let i = stream.findIndex((entry) => entry.pos >= head)
   if (i === -1) i = stream.length - 1
 
@@ -702,11 +707,48 @@ function wordMotion(
       while (i >= 0 && !isWord(stream[i].ch)) i--
       while (i - 1 >= 0 && isWord(stream[i - 1].ch)) i--
     }
-    if (i <= 0 || i >= stream.length) break
+    // Off the end of what we were given. Not `i <= 0`: sitting on the first
+    // character is a legitimate place to be, and a count starting there was
+    // abandoned before it ran. Backwards has to stop at -1 though, or the next
+    // pass reads past the start.
+    if (i < 0 || i >= stream.length) break
   }
+  return i
+}
 
-  const entry = stream[Math.max(0, Math.min(stream.length - 1, i))]
-  select(view, entry.pos)
+/**
+ * `w`, `e` and `b`.
+ *
+ * Built over a window around the cursor rather than the whole document. A word
+ * is a few characters away and the document can be a hundred thousand of them,
+ * and paying for all of them on every press made these the slowest keys in the
+ * editor by a factor of ten. The window is only widened when the motion runs
+ * off its edge with document still to go, which a count large enough to leave
+ * it is the only way to do.
+ */
+function wordMotion(
+  view: EditorView,
+  kind: "w" | "e" | "b",
+  count: number
+): void {
+  const head = view.state.selection.head
+  const size = view.state.doc.content.size
+
+  for (const radius of [WORD_WINDOW, size]) {
+    const from = Math.max(0, head - radius)
+    const to = Math.min(size, head + radius)
+    const stream = textStream(view.state, from, to)
+    if (!stream.length) return
+
+    const landed = walkWords(stream, head, kind, count)
+    const ranOff =
+      landed <= 0 ? from > 0 : landed >= stream.length - 1 ? to < size : false
+    if (ranOff && radius !== size) continue
+
+    const entry = stream[Math.max(0, Math.min(stream.length - 1, landed))]
+    select(view, entry.pos)
+    return
+  }
 }
 
 /** The depth of the nearest isolating ancestor - a table cell, a summary. */
