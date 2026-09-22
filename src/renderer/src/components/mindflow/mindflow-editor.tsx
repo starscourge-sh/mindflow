@@ -41,6 +41,7 @@ import { ImageDrop } from "@/extensions/image-drop"
 import { ImagePlaceholder } from "@/extensions/image-placeholder"
 import { BlockColor } from "@/extensions/block-color"
 import { JoinLists } from "@/extensions/join-lists"
+import { CurrentItem } from "@/extensions/current-item"
 import { SelectedNodes } from "@/extensions/selected-nodes"
 import { Bookmark } from "@/extensions/bookmark"
 import { Attachment } from "@/extensions/attachment"
@@ -504,6 +505,7 @@ export function MindflowEditor({
       ImageDrop,
       BlockColor,
       JoinLists,
+      CurrentItem,
       SelectedNodes,
       ObsidianShortcuts.configure({
         onToggleSource: () => setSourceOpen((open) => !open),

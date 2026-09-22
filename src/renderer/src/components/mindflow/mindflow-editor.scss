@@ -1554,8 +1554,17 @@ $nested-ul: "ul:not([data-type='taskList'])";
 
   // Top-level markers are real list markers; nested ones are drawn with
   // ::before, further up this file, because ::marker follows the border edge.
+  //
+  // Held back a little, so the item the caret is in can come forward without
+  // the rest having to dim. Mixed towards transparent rather than given an
+  // opacity: ::marker takes a colour and little else.
   li::marker,
   li ul > li::before {
+    color: color-mix(in srgb, var(--mf-accent-ink, currentColor) 55%, transparent);
+  }
+
+  li.is-current::marker,
+  li ul > li.is-current::before {
     color: var(--mf-accent-ink, currentColor);
   }
 
