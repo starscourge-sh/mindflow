@@ -16,6 +16,7 @@ import { saveAttachment } from '@/extensions/image-drop'
 import { EXPORTS, exportDocument } from '@/lib/export'
 
 import type { SlashItem } from '@/extensions/slash-command'
+import { linkCard } from '@/lib/link-card'
 
 // --- Icons ---
 import { HeadingOneIcon } from '@/components/tiptap-icons/heading-one-icon'
@@ -32,52 +33,6 @@ import { ImagePlusIcon } from '@/components/tiptap-icons/image-plus-icon'
  * What `/` offers. The hints are the markdown shortcuts that already work, so
  * the menu doubles as a way to learn them.
  */
-/**
- * A card for any link, filled in from whatever the page publishes.
- *
- * The card goes in straight away and fills itself in, so the fetch does not
- * leave the menu sitting there with nothing happening.
- */
-const linkCard = async (editor: Editor, href: string): Promise<void> => {
-  const id = crypto.randomUUID()
-  const placeholder = {
-    href,
-    title: href,
-    description: '',
-    image: '',
-    icon: '',
-    site: '',
-    id,
-    loading: true
-  }
-  editor.chain().focus().setBookmark(placeholder).run()
-
-  // A failed fetch still has to clear the card, or it sits on "Loading..."
-  // for the life of the document.
-  const metadata = await window.api.fetchLinkMetadata(href).catch(() => null)
-  if (editor.isDestroyed) return
-
-  let at = -1
-  editor.state.doc.descendants((node, pos) => {
-    if (at >= 0) return false
-    if (node.type.name === 'bookmark' && node.attrs.id === id) at = pos
-    return at < 0
-  })
-  if (at < 0) return
-
-  // Filling the card in is not its own undo step - one undo should remove
-  // the whole thing.
-  editor.view.dispatch(
-    editor.state.tr
-      .setNodeMarkup(at, undefined, {
-        ...placeholder,
-        ...(metadata?.href ? metadata : {}),
-        loading: false
-      })
-      .setMeta('addToHistory', false)
-  )
-}
-
 export const slashItems: SlashItem[] = [
   {
     title: 'Text',

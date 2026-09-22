@@ -381,6 +381,16 @@ rather than doing nothing.
 A card carries the same fields Obsidian's cardlink does: `href`, `title`,
 `description`, `image`, `icon` and `site`, read from the page's Open Graph tags.
 
+Pasting an Obsidian note brings its cards with it. Obsidian writes them as a
+fenced block tagged `cardlink`, which arrives here as a code block holding six
+lines of `key: value`, and that block becomes the card it describes. Nothing is
+fetched, because the block already carries every field: asking the site again
+would only be slower and less certain.
+
+A link already in the document can become a card too. Select it and the
+selection toolbar offers it, next to the link button. The link itself goes, since
+a card and the words it came from would say the same thing twice.
+
 YouTube is the exception, and it needs one. It builds its page in the browser,
 so the HTML that arrives holds an empty title and no image, and a card made from
 it came out blank. Its oEmbed endpoint needs no key and answers with the title

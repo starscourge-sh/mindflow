@@ -42,6 +42,7 @@ import { ImagePlaceholder } from "@/extensions/image-placeholder"
 import { BlockColor } from "@/extensions/block-color"
 import { JoinLists } from "@/extensions/join-lists"
 import { CurrentItem } from "@/extensions/current-item"
+import { CardLink } from "@/extensions/card-link"
 import { SelectedNodes } from "@/extensions/selected-nodes"
 import { Bookmark } from "@/extensions/bookmark"
 import { Attachment } from "@/extensions/attachment"
@@ -137,6 +138,7 @@ import { ListDropdownMenu } from "@/components/tiptap-ui/list-dropdown-menu"
 import { BlockquoteButton } from "@/components/tiptap-ui/blockquote-button"
 import { MarkButton } from "@/components/tiptap-ui/mark-button"
 import { LinkPopover } from "@/components/tiptap-ui/link-popover"
+import { LinkToBookmarkButton } from "@/components/bookmark/link-to-bookmark-button"
 import { SelectionMenu } from "@/components/selection/selection-menu"
 import { CodeBlockButton } from "@/components/tiptap-ui/code-block-button"
 import {
@@ -506,6 +508,7 @@ export function MindflowEditor({
       BlockColor,
       JoinLists,
       CurrentItem,
+      CardLink,
       SelectedNodes,
       ObsidianShortcuts.configure({
         onToggleSource: () => setSourceOpen((open) => !open),
@@ -571,6 +574,7 @@ export function MindflowEditor({
           <ToolbarSeparator />
           <ToolbarGroup>
             <LinkPopover showTooltip={false} autoOpenOnLinkActive={false} />
+            <LinkToBookmarkButton editor={editor} />
             <ColorHighlightPopover showTooltip={false} />
           </ToolbarGroup>
           <ToolbarSeparator />
