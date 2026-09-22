@@ -775,6 +775,9 @@
 // Link preview cards.
 .tiptap.ProseMirror.mindflow-editor .tiptap-bookmark {
   display: flex;
+  // Measured so the picture can be dropped when there is no room for it. The
+  // window, not the card, is what changes width here.
+  container-type: inline-size;
   margin: 1.25em 0;
   padding: 0;
   overflow: hidden;
@@ -799,11 +802,25 @@
   width: 12rem;
   aspect-ratio: 16 / 9;
   align-self: center;
-  object-fit: contain;
+  // Fill the frame, do not fit inside it. YouTube's thumbnail is 4:3 with the
+  // widescreen picture letterboxed into it, so fitting showed the black bars
+  // it ships with, and bars of our own down either side. Cropping to 16:9
+  // takes the middle, which is the picture.
+  object-fit: cover;
   background-color: var(--mf-surface);
 
   &.is-loading {
     animation: tiptap-bookmark-pulse 1.2s ease-in-out infinite;
+  }
+}
+
+// No room for both, so the text wins: it is what the card is for. Written
+// through the editor's own selector because a container query adds no
+// specificity of its own, and the vendored rule that makes every image in the
+// document a block would otherwise outrank it.
+.tiptap.ProseMirror.mindflow-editor .tiptap-bookmark-image {
+  @container (max-width: 20rem) {
+    display: none;
   }
 }
 
