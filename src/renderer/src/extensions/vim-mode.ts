@@ -562,6 +562,11 @@ function textStream(state: EditorState): { pos: number; ch: string }[] {
   const stream: { pos: number; ch: string }[] = []
   state.doc.descendants((node, pos) => {
     if (!node.isTextblock) return true
+    // A break between blocks, or a word run carries straight on into the next
+    // one: `e` on the last word of a line ran past it and stopped at the end
+    // of the first word of the line below. Never landed on, because every
+    // motion here steps over anything that is not a word character.
+    if (stream.length) stream.push({ pos, ch: "\n" })
     // A one-character placeholder keeps positions lined up with the text.
     const text = state.doc.textBetween(
       pos + 1,
@@ -661,14 +666,18 @@ function scrollParent(node: HTMLElement | null): HTMLElement | null {
 }
 
 /** How many visual rows fit on screen, for Ctrl-f and friends. */
+/**
+ * One line, measured from the editor's own styling.
+ *
+ * Not from the selection: a card or a picture is one node with no line height
+ * of its own, and measuring the selection while it sat on one collapsed the
+ * step to a few pixels a press.
+ */
 function lineHeight(view: EditorView): number {
-  try {
-    const coords = view.coordsAtPos(view.state.selection.head)
-    return Math.max(1, coords.bottom - coords.top)
-  } catch {
-    // A sane guess rather than dying on an unrendered position.
-    return 20
-  }
+  const styled = parseFloat(getComputedStyle(view.dom).lineHeight)
+  if (styled > 0) return styled
+  const size = parseFloat(getComputedStyle(view.dom).fontSize)
+  return size > 0 ? size * 1.5 : 20
 }
 
 function rowsPerPage(view: EditorView): number {
@@ -676,6 +685,9 @@ function rowsPerPage(view: EditorView): number {
   const height = scroller ? scroller.clientHeight : window.innerHeight
   return Math.max(1, Math.floor(height / lineHeight(view)))
 }
+
+/** Lines of context kept between the cursor and the edge, as vim's scrolloff. */
+const SCROLL_MARGIN = 3
 
 /**
  * Move the window over the document, for Ctrl-e and Ctrl-y.
@@ -689,21 +701,26 @@ function scrollLines(view: EditorView, direction: 1 | -1, lines: number): void {
   const scroller = scrollParent(view.dom as HTMLElement)
   if (!scroller) return
 
-  scroller.scrollTop += lineHeight(view) * lines * direction
+  const step = lineHeight(view)
+  scroller.scrollTop += step * lines * direction
 
   const box = scroller.getBoundingClientRect()
   const caret = view.coordsAtPos(view.state.selection.head)
-  const above = caret.top < box.top
-  if (!above && caret.bottom <= box.bottom) return
+  const above = caret.top < box.top + step * SCROLL_MARGIN
+  const below = caret.bottom > box.bottom - step * SCROLL_MARGIN
+  if (!above && !below) return
 
-  // A whole line inside the edge, or the point lands on the half-clipped line
-  // that is still leaving.
-  const edge = above ? box.top + lineHeight(view) : box.bottom - lineHeight(view)
+  const edge = above
+    ? box.top + step * (SCROLL_MARGIN + 0.5)
+    : box.bottom - step * (SCROLL_MARGIN + 0.5)
   const found = view.posAtCoords({ left: caret.left, top: edge })
   if (!found) return
-  view.dispatch(
-    view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(found.pos)))
-  )
+
+  // Only onto text. A card or a picture is one whole node, and landing on it
+  // gives a node selection, which has no line to keep and no caret to show.
+  const to = TextSelection.near(view.state.doc.resolve(found.pos), direction)
+  if (!(to instanceof TextSelection)) return
+  view.dispatch(view.state.tr.setSelection(to))
 }
 
 /** Half a screen, for Ctrl-d and Ctrl-u. */
