@@ -123,7 +123,13 @@ export function CodeBlockView({ node, updateAttributes }: NodeViewProps) {
         </Button>
       </div>
 
-      <pre>
+      {/* The colour attributes are carried by hand. A React node view builds
+          its own DOM, so the ones the schema renders onto every other block
+          never reach this one and colouring a code block did nothing. */}
+      <pre
+        data-background={node.attrs.backgroundColor ?? undefined}
+        data-color={node.attrs.textColor ?? undefined}
+      >
         {/* The `as` prop is typed to div; the tag itself is free. */}
         <NodeViewContent as={"code" as "div"} />
       </pre>

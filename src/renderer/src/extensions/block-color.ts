@@ -24,7 +24,17 @@ export const COLORABLE = [
   "bulletList",
   "orderedList",
   "taskList",
+  "listItem",
+  "taskItem",
 ]
+
+/**
+ * Blocks that hold a paragraph and are the thing you pointed at.
+ *
+ * The handle beside a bullet or a quote means that bullet or that quote, not
+ * the paragraph inside it, and a tinted row has to take its marker with it.
+ */
+const WRAPPERS = ["listItem", "taskItem", "blockquote"]
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -75,16 +85,21 @@ export const BlockColor = Extension.create({
         ({ state, dispatch }) => {
           const { $from } = state.selection
 
-          // The outermost colourable ancestor, so colouring inside a list tints
-          // the list rather than the one item.
-          for (let depth = 1; depth <= $from.depth; depth++) {
+          // The block the cursor is in, working outwards from it. Picking the
+          // outermost instead tinted a whole list when one bullet was asked
+          // for, which is never what the handle beside that bullet meant.
+          for (let depth = $from.depth; depth >= 1; depth--) {
             const node = $from.node(depth)
             if (!COLORABLE.includes(node.type.name)) continue
 
+            const parent = depth > 1 ? $from.node(depth - 1) : null
+            const at = parent && WRAPPERS.includes(parent.type.name) ? depth - 1 : depth
+            const target = $from.node(at)
+
             if (dispatch) {
               dispatch(
-                state.tr.setNodeMarkup($from.before(depth), undefined, {
-                  ...node.attrs,
+                state.tr.setNodeMarkup($from.before(at), undefined, {
+                  ...target.attrs,
                   ...(background !== undefined
                     ? { backgroundColor: background }
                     : {}),
