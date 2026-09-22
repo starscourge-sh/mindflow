@@ -800,8 +800,13 @@
 .tiptap-bookmark-image {
   flex: none;
   width: 12rem;
+  // Both, and they do different jobs. The ratio decides how tall the picture
+  // asks to be, which is what a short card ends up as. Stretch then fills
+  // whatever the text turns out to need, so a taller card has no empty strips
+  // above and below the picture. Without the ratio the source's own shape sets
+  // the height, and a 4:3 thumbnail made every card taller than it needed.
   aspect-ratio: 16 / 9;
-  align-self: center;
+  align-self: stretch;
   // Fill the frame, do not fit inside it. YouTube's thumbnail is 4:3 with the
   // widescreen picture letterboxed into it, so fitting showed the black bars
   // it ships with, and bars of our own down either side. Cropping to 16:9
