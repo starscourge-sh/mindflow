@@ -2,6 +2,7 @@ import { Extension } from "@tiptap/core"
 import { NodeSelection, Plugin, PluginKey, TextSelection } from "@tiptap/pm/state"
 import { addRowAfter, goToNextCell, isInTable } from "@tiptap/pm/tables"
 import type { EditorState } from "@tiptap/pm/state"
+import { Decoration, DecorationSet } from "@tiptap/pm/view"
 import type { EditorView } from "@tiptap/pm/view"
 import type { Node as ProseMirrorNode, NodeType, ResolvedPos } from "@tiptap/pm/model"
 import { liftListItem, sinkListItem } from "@tiptap/pm/schema-list"
@@ -1346,6 +1347,31 @@ export const VimMode = Extension.create<VimModeOptions>({
         },
 
         props: {
+          /**
+           * Stand in for the block cursor on an emoji or any other inline atom.
+           *
+           * `caret-shape: block` is the browser's own and it sizes itself to a
+           * character. An atom is one node with no character in it, so there is
+           * nothing to size to and it falls back to a thin line, as if normal
+           * mode had quietly ended.
+           */
+          decorations: (state) => {
+            const vim = vimPluginKey.getState(state)
+            if (!vim?.enabled || vim.mode !== "normal") return null
+
+            const { empty, $head } = state.selection
+            // Not text: a text node is a leaf too, so it answers to isAtom,
+            // and the whole run would be covered rather than one character.
+            const node = empty ? $head.nodeAfter : null
+            if (!node || node.isText || !node.isAtom || !node.isInline) return null
+
+            return DecorationSet.create(state.doc, [
+              Decoration.inline($head.pos, $head.pos + node.nodeSize, {
+                class: "vim-block-cursor",
+              }),
+            ])
+          },
+
           // Lets CSS show which mode you are in, e.g. a different caret colour.
           attributes: (state): Record<string, string> => {
             const vim = vimPluginKey.getState(state)

@@ -119,6 +119,13 @@
   caret-shape: block;
 }
 
+// An emoji or any other inline atom has no character for the native block
+// caret to cover, so it is drawn behind the node instead.
+.tiptap.ProseMirror.mindflow-editor .vim-block-cursor {
+  border-radius: 0.125rem;
+  background-color: var(--mf-caret-vim);
+}
+
 // Everything below is light/dark through these three, so each rule is written
 // once. The vendored variables already establish the :root / .dark convention.
 :root {
