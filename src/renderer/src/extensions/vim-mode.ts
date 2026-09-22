@@ -1,5 +1,6 @@
 import { Extension } from "@tiptap/core"
 import { NodeSelection, Plugin, PluginKey, TextSelection } from "@tiptap/pm/state"
+import { addRowAfter, goToNextCell, isInTable } from "@tiptap/pm/tables"
 import type { EditorState } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
 import type { Node as ProseMirrorNode, NodeType, ResolvedPos } from "@tiptap/pm/model"
@@ -1464,6 +1465,20 @@ export const VimMode = Extension.create<VimModeOptions>({
               }
 
               if (key === "Tab" && !inVisual) {
+                // In a table, Tab is how you reach the next cell. Past the last
+                // one it makes a row, because that is where the next cell would
+                // be and it is what every other editor does.
+                if (isInTable(view.state)) {
+                  const forward = !event.shiftKey
+                  const step = (): boolean =>
+                    goToNextCell(forward ? 1 : -1)(view.state, view.dispatch)
+                  if (!step() && forward) {
+                    addRowAfter(view.state, view.dispatch)
+                    step()
+                  }
+                  return true
+                }
+
                 // Handled here rather than left to fall through: an item with
                 // nothing above it cannot be nested, and a Tab that no one
                 // handles walks the focus out of the document.
