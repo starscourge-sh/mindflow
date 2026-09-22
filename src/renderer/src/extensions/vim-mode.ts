@@ -86,6 +86,10 @@ interface VimState {
    * move twice as far.
    */
   visualHead: number | null
+  /** `f`, `F`, `t` or `T` waiting for the character to look for. */
+  pendingFind: FindKind | null
+  /** The last one that ran, for `;` and `,`. */
+  lastFind: { kind: FindKind; char: string } | null
   /** A `j` just typed in insert mode, for the `jk` escape. */
   pendingJ: { pos: number; at: number } | null
   register: VimRegister
@@ -112,16 +116,24 @@ const BLOCKED_NAMED_KEYS = ["Enter", "Delete", "Tab"]
  */
 const MODIFIER_KEYS = ["Shift", "Control", "Alt", "Meta", "CapsLock"]
 
+/** The four ways of jumping to a character on the line. */
+type FindKind = "f" | "F" | "t" | "T"
+
 const CLEARED = {
   count: "",
   operator: null,
   pendingG: false,
   pendingTextObject: false,
+  pendingFind: null,
 } as const
 
 /** Is a command half typed: a count, an operator, a prefix waiting for more? */
+/** The waiting operator, if it is one a find can be a target for. */
+const rangeOperator = (vim: VimState): Operator | null =>
+  vim.operator === ">" || vim.operator === "<" ? null : vim.operator
+
 const isPending = (vim: VimState): boolean =>
-  !!(vim.count || vim.operator || vim.pendingG || vim.pendingTextObject)
+  !!(vim.count || vim.operator || vim.pendingG || vim.pendingTextObject || vim.pendingFind)
 
 const NORMAL = {
   mode: "normal" as const,
@@ -589,6 +601,75 @@ const WORD_CHAR_RE = /[\p{L}\p{N}_]/u
  * w, e and b. Punctuation counts as a separator rather than its own word,
  * which is the one place this differs from vim.
  */
+/**
+ * Where `f`, `F`, `t` and `T` land, or null if the character is not there.
+ *
+ * The line only, which is what makes these different from a search: vim never
+ * carries them onto the line below. `t` and `T` stop one short of the
+ * character, and because that leaves the cursor right next to it, a repeat
+ * starts one further along or it would keep finding the same one.
+ */
+function findInLine(
+  state: EditorState,
+  kind: FindKind,
+  char: string,
+  count: number,
+  from: number
+): number | null {
+  const $pos = state.doc.resolve(from)
+  if (!$pos.parent.isTextblock) return null
+
+  const start = $pos.start()
+  const text = state.doc.textBetween(start, $pos.end(), undefined, "\ufffc")
+  const forward = kind === "f" || kind === "t"
+  const step = forward ? 1 : -1
+  let i = from - start
+
+  if (kind === "t" && text[i + 1] === char) i += 1
+  if (kind === "T" && text[i - 1] === char) i -= 1
+
+  for (let n = 0; n < count; n++) {
+    i += step
+    while (i >= 0 && i < text.length && text[i] !== char) i += step
+    if (i < 0 || i >= text.length) return null
+  }
+
+  return start + (kind === "t" ? i - 1 : kind === "T" ? i + 1 : i)
+}
+
+/**
+ * Jump to a character on the line, or act on everything up to it.
+ *
+ * Forward takes the character it landed on with it, backward does not, which
+ * is what makes `dfx` delete through the x and `dFx` stop before the cursor.
+ * `t` and `T` land one short, so their range comes out one short too, with no
+ * special case needed here.
+ */
+function runFind(
+  view: EditorView,
+  kind: FindKind,
+  char: string,
+  count: number,
+  // Only the operators that take a range. `>` and `<` work on whole lines, so
+  // a find is not a target they can use.
+  operator: Operator | null
+): boolean {
+  const head = view.state.selection.head
+  const target = findInLine(view.state, kind, char, count, head)
+  if (target === null) return false
+
+  if (!operator) {
+    select(view, target)
+    return true
+  }
+
+  const forward = kind === "f" || kind === "t"
+  const [from, to] = forward ? [head, target + 1] : [target, head]
+  if (from < to) applyToRange(view, operator, from, to, false)
+  if (operator !== "c") collapseSelection(view, from)
+  return true
+}
+
 function wordMotion(
   view: EditorView,
   kind: "w" | "e" | "b",
@@ -1242,6 +1323,8 @@ export const VimMode = Extension.create<VimModeOptions>({
             operator: null,
             pendingG: false,
             pendingTextObject: false,
+            pendingFind: null,
+            lastFind: null,
             visualAnchor: null,
             visualHead: null,
             pendingJ: null,
@@ -1487,6 +1570,36 @@ export const VimMode = Extension.create<VimModeOptions>({
                 return true
               }
               return BLOCKED_NAMED_KEYS.includes(key)
+            }
+
+            // The character f, F, t or T was waiting for. Taken before counts
+            // and operators, since any key at all is a target here, digits
+            // included.
+            if (vim.pendingFind) {
+              const kind = vim.pendingFind
+              patch(view, { pendingFind: null, lastFind: { kind, char: key } })
+              if (runFind(view, kind, key, count, rangeOperator(vim)) && !vim.operator) {
+                return afterMotion()
+              }
+              patch(view, CLEARED)
+              return true
+            }
+
+            if ("fFtT".includes(key) && key.length === 1) {
+              patch(view, { pendingFind: key as FindKind })
+              return true
+            }
+
+            // `;` repeats the last one, `,` repeats it the other way.
+            if ((key === ";" || key === ",") && vim.lastFind) {
+              const { kind, char } = vim.lastFind
+              const REVERSED: Record<FindKind, FindKind> = { f: "F", F: "f", t: "T", T: "t" }
+              const again = key === ";" ? kind : REVERSED[kind]
+              if (runFind(view, again, char, count, rangeOperator(vim)) && !vim.operator) {
+                return afterMotion()
+              }
+              patch(view, CLEARED)
+              return true
             }
 
             // Counts. A leading 0 is the motion, not a digit.
