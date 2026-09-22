@@ -77,7 +77,8 @@ interface VimState {
   /** Whether `g` was just pressed, for `gg`, `gU` and `gu`. */
   pendingG: boolean
   /** Whether `i` was just pressed, for the `iw` text object. */
-  pendingTextObject: boolean
+  /** `i` or `a` was just pressed, for `iw` and `aw`. */
+  pendingTextObject: "i" | "a" | null
   /** Where a visual selection started. */
   visualAnchor: number | null
   /**
@@ -87,6 +88,10 @@ interface VimState {
    * move twice as far.
    */
   visualHead: number | null
+  /** The last visual selection, for `gv`. */
+  lastVisual: { anchor: number; head: number; linewise: boolean } | null
+  /** `r` waiting for the character to put in place. */
+  pendingReplace: boolean
   /** `f`, `F`, `t` or `T` waiting for the character to look for. */
   pendingFind: FindKind | null
   /** The last one that ran, for `;` and `,`. */
@@ -124,8 +129,9 @@ const CLEARED = {
   count: "",
   operator: null,
   pendingG: false,
-  pendingTextObject: false,
+  pendingTextObject: null,
   pendingFind: null,
+  pendingReplace: false,
 } as const
 
 /** Is a command half typed: a count, an operator, a prefix waiting for more? */
@@ -134,7 +140,14 @@ const rangeOperator = (vim: VimState): Operator | null =>
   vim.operator === ">" || vim.operator === "<" ? null : vim.operator
 
 const isPending = (vim: VimState): boolean =>
-  !!(vim.count || vim.operator || vim.pendingG || vim.pendingTextObject || vim.pendingFind)
+  !!(
+    vim.count ||
+    vim.operator ||
+    vim.pendingG ||
+    vim.pendingTextObject ||
+    vim.pendingFind ||
+    vim.pendingReplace
+  )
 
 const NORMAL = {
   mode: "normal" as const,
@@ -607,6 +620,17 @@ const WORD_CHAR_RE = /[\p{L}\p{N}_]/u
  * w, e and b. Punctuation counts as a separator rather than its own word,
  * which is the one place this differs from vim.
  */
+/** `r`: put one character in place of what is under the cursor. */
+function replaceChars(view: EditorView, char: string, count: number): void {
+  const { $head, head } = view.state.selection
+  if (!$head.parent.isTextblock || [...char].length !== 1) return
+
+  const to = Math.min(head + count, textLineAt($head).end)
+  if (to <= head) return
+  view.dispatch(view.state.tr.insertText(char.repeat(to - head), head, to))
+  select(view, to - 1)
+}
+
 /**
  * Where `f`, `F`, `t` and `T` land, or null if the character is not there.
  *
@@ -684,9 +708,12 @@ function walkWords(
   stream: { pos: number; ch: string }[],
   head: number,
   kind: "w" | "e" | "b",
-  count: number
+  count: number,
+  big = false
 ): number {
-  const isWord = (ch: string): boolean => WORD_CHAR_RE.test(ch)
+  // A WORD, as vim spells it, runs to whitespace and takes punctuation with
+  // it, so `a.b` is one of them rather than three.
+  const isWord = (ch: string): boolean => (big ? !/\s/.test(ch) : WORD_CHAR_RE.test(ch))
   let i = stream.findIndex((entry) => entry.pos >= head)
   if (i === -1) i = stream.length - 1
 
@@ -729,7 +756,8 @@ function walkWords(
 function wordMotion(
   view: EditorView,
   kind: "w" | "e" | "b",
-  count: number
+  count: number,
+  big = false
 ): void {
   const head = view.state.selection.head
   const size = view.state.doc.content.size
@@ -740,7 +768,7 @@ function wordMotion(
     const stream = textStream(view.state, from, to)
     if (!stream.length) return
 
-    const landed = walkWords(stream, head, kind, count)
+    const landed = walkWords(stream, head, kind, count, big)
     const ranOff =
       landed <= 0 ? from > 0 : landed >= stream.length - 1 ? to < size : false
     if (ranOff && radius !== size) continue
@@ -893,6 +921,22 @@ function runMotion(
     case "b":
       wordMotion(view, key, count)
       return true
+    case "W":
+    case "E":
+    case "B":
+      wordMotion(view, key.toLowerCase() as "w" | "e" | "b", count, true)
+      return true
+    case "^": {
+      // The first character that is not a space, which is where a line of
+      // indented text actually begins.
+      const { $head } = view.state.selection
+      if (!$head.parent.isTextblock) return true
+      const { start, end } = textLineAt($head)
+      const text = view.state.doc.textBetween(start, end, undefined, "\ufffc")
+      const first = text.search(/\S/)
+      select(view, start + (first < 0 ? 0 : first))
+      return true
+    }
     default:
       return false
   }
@@ -1035,7 +1079,8 @@ function putRegister(
   view: EditorView,
   register: VimRegister,
   count: number,
-  singleLinePut = false
+  singleLinePut = false,
+  before = false
 ): void {
   if (!register) return
   const { state } = view
@@ -1043,7 +1088,7 @@ function putRegister(
 
   if (register.kind === "char") {
     if (!$head.parent.isTextblock || !register.text) return
-    const at = Math.min($head.end(), $head.pos + 1)
+    const at = before ? $head.pos : Math.min($head.end(), $head.pos + 1)
     const tr = state.tr.insertText(register.text.repeat(count), at)
     view.dispatch(
       tr
@@ -1365,9 +1410,11 @@ export const VimMode = Extension.create<VimModeOptions>({
             count: "",
             operator: null,
             pendingG: false,
-            pendingTextObject: false,
+            pendingTextObject: null,
             pendingFind: null,
+            pendingReplace: false,
             lastFind: null,
+            lastVisual: null,
             visualAnchor: null,
             visualHead: null,
             pendingJ: null,
@@ -1454,7 +1501,11 @@ export const VimMode = Extension.create<VimModeOptions>({
             const anchor = vim.visualAnchor
 
             if (event.key === "Escape") {
-              patch(view, NORMAL)
+              const held =
+                inVisual && anchor !== null
+                  ? { lastVisual: { anchor, head: vim.visualHead ?? anchor, linewise } }
+                  : {}
+              patch(view, { ...NORMAL, ...held })
               if (inVisual) collapseSelection(view)
               else clampToLine(view)
               return true
@@ -1543,9 +1594,29 @@ export const VimMode = Extension.create<VimModeOptions>({
               return true
             }
 
-            /** The word under the cursor, for `iw`. */
-            const word = () =>
-              wordRangeAt(view.state.doc, view.state.selection.head)
+            /**
+             * The word under the cursor, for `iw`, and for `aw` the space
+             * after it as well. Vim falls back to the space before when there
+             * is none after, so deleting the last word of a line does not
+             * leave it ending in one.
+             */
+            const word = (around: boolean) => {
+              const range = wordRangeAt(view.state.doc, view.state.selection.head)
+              if (!range || !around) return range
+
+              const { $head } = view.state.selection
+              if (!$head.parent.isTextblock) return range
+              const { start, end } = textLineAt($head)
+              const text = view.state.doc.textBetween(start, end, undefined, "\ufffc")
+
+              let to = range.to
+              while (to < end && /\s/.test(text[to - start])) to += 1
+              if (to > range.to) return { from: range.from, to }
+
+              let from = range.from
+              while (from > start && /\s/.test(text[from - start - 1])) from -= 1
+              return { from, to: range.to }
+            }
 
             // Ctrl is only ours for scrolling, block jumps, and redo.
             if (event.ctrlKey) {
@@ -1640,6 +1711,18 @@ export const VimMode = Extension.create<VimModeOptions>({
               return BLOCKED_NAMED_KEYS.includes(key)
             }
 
+            // The character `r` was waiting for, before anything else reads it.
+            if (vim.pendingReplace) {
+              patch(view, { ...CLEARED })
+              replaceChars(view, key, count)
+              return true
+            }
+
+            if (key === "r" && !inVisual) {
+              patch(view, { pendingReplace: true })
+              return true
+            }
+
             // The character f, F, t or T was waiting for. Taken before counts
             // and operators, since any key at all is a target here, digits
             // included.
@@ -1682,6 +1765,19 @@ export const VimMode = Extension.create<VimModeOptions>({
                 gotoBlock(view, hadCount ? count : 1)
                 return afterMotion()
               }
+              // `gv` puts back what was selected last.
+              if (key === "v" && vim.lastVisual) {
+                const { anchor: from, head: to, linewise: lines } = vim.lastVisual
+                patch(view, {
+                  ...CLEARED,
+                  mode: lines ? "visualLine" : "visual",
+                  visualAnchor: from,
+                  visualHead: to,
+                })
+                showVisual(view, from, to, lines)
+                return true
+              }
+
               if (key === "U" || key === "u") {
                 const operator: Operator = key === "U" ? "gU" : "gu"
                 if (inVisual) return applyToVisual(operator)
@@ -1694,14 +1790,15 @@ export const VimMode = Extension.create<VimModeOptions>({
 
             // --- visual mode ---
             if (inVisual && anchor !== null) {
-              if (key === "i") {
-                patch(view, { pendingTextObject: true })
+              if (key === "i" || key === "a") {
+                patch(view, { pendingTextObject: key })
                 return true
               }
 
               if (vim.pendingTextObject) {
+                const around = vim.pendingTextObject === "a"
                 patch(view, CLEARED)
-                const range = key === "w" ? word() : null
+                const range = key === "w" ? word(around) : null
                 if (range) {
                   patch(view, {
                     visualAnchor: range.from,
@@ -1757,8 +1854,8 @@ export const VimMode = Extension.create<VimModeOptions>({
             if (vim.operator) {
               const operator = vim.operator
 
-              if (key === "i" && !vim.pendingTextObject) {
-                patch(view, { pendingTextObject: true })
+              if ((key === "i" || key === "a") && !vim.pendingTextObject) {
+                patch(view, { pendingTextObject: key })
                 return true
               }
 
@@ -1780,7 +1877,7 @@ export const VimMode = Extension.create<VimModeOptions>({
               }
 
               if (vim.pendingTextObject && key === "w") {
-                const range = word()
+                const range = word(vim.pendingTextObject === "a")
                 if (range) applyToRange(view, operator, range.from, range.to, false)
               } else if (doubled && operator === "c") {
                 // `cc` empties the line but keeps the block, as vim does.
@@ -1900,6 +1997,49 @@ export const VimMode = Extension.create<VimModeOptions>({
               case "p":
                 putRegister(view, vim.register, count, singleLine)
                 break
+              case "P":
+                putRegister(view, vim.register, count, singleLine, true)
+                break
+
+              // The shorthands, each the same as the operator and motion it
+              // stands for: D is d$, C is c$, Y is yy, S is cc and s is cl.
+              case "D":
+              case "C": {
+                const { $head, head } = view.state.selection
+                if (!$head.parent.isTextblock) break
+                applyToRange(view, key === "D" ? "d" : "c", head, textLineAt($head).end, false)
+                break
+              }
+              case "Y": {
+                const span = lineRange(view.state, count)
+                if (span) applyToRange(view, "y", span.from, span.to, true)
+                break
+              }
+              case "S": {
+                const { $head } = view.state.selection
+                if ($head.parent.isTextblock) {
+                  applyToRange(view, "c", $head.start(), $head.end(), false)
+                }
+                break
+              }
+              case "s": {
+                const { $head, head } = view.state.selection
+                if (!$head.parent.isTextblock) break
+                applyToRange(view, "c", head, Math.min(head + count, textLineAt($head).end), false)
+                break
+              }
+              case "~": {
+                // Swap the case of what is under the cursor and step over it,
+                // which is how vim lets you run along a word with it.
+                const { $head, head } = view.state.selection
+                if (!$head.parent.isTextblock) break
+                const at = Math.min(head + count, textLineAt($head).end)
+                const text = view.state.doc.textBetween(head, at, undefined, "\ufffc")
+                if (!text) break
+                changeCase(view, head, at, text !== text.toUpperCase())
+                select(view, at)
+                break
+              }
 
               default:
                 runMotion(view, key, count, hadCount)

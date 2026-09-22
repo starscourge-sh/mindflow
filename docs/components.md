@@ -164,6 +164,23 @@ the field in, and `className` and `style` go straight onto the editor's own box,
 so you dress it like any other component. Padding is `--mf-padding` rather than
 a fixed rule, so setting it from either one wins.
 
+## Vim bindings
+
+Motions: `h j k l`, `w e b` and their `W E B` counterparts, `0 ^ $`, `gg G`,
+`{ }`, `f F t T` with `;` and `,`, and `Ctrl-f Ctrl-b Ctrl-d Ctrl-u` for pages
+with `Ctrl-e Ctrl-y` for single lines.
+
+Operators: `d c y` with any motion, `>` and `<`, `gU gu`, the `iw` and `aw` text
+objects, and the shorthands `D C Y S s x X ~ r J p P`. Visual mode with `v` and
+`V`, and `gv` to put the last one back. `u` and `Ctrl-r` undo and redo.
+
+Counts work on all of them. `jk` leaves insert mode, and `/` opens find.
+
+`.` is not implemented: repeating the last change means recording it, which is
+machinery rather than a binding.
+
+---
+
 ## Lists that arrive in pieces
 
 Pasting a list from somewhere else often gives one list per line. On screen that
