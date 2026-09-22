@@ -27,7 +27,10 @@ export function readCardLink(source: string): Record<string, string> | null {
     if (!field) continue
     card[field] = match[2].trim().replace(/^(["'])([^]*)\1$/, "$2")
   }
-  return card.href ? card : null
+  if (!card.href) return null
+  // A card with no title would render as a blank strip. The address says at
+  // least something, and it is what the slash menu shows while fetching.
+  return { ...card, title: card.title || card.href }
 }
 
 /**
