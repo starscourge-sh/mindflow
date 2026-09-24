@@ -9,6 +9,7 @@ import {
   clearRow,
   duplicateColumn,
   duplicateRow,
+  fitToWidth,
   isPlain,
   sortByColumn
 } from '@/lib/table'
@@ -66,6 +67,8 @@ function entries(editor: Editor): Entry[] {
   // it should land.
   const plain = isPlain(editor)
   const remove: Entry = ['Delete table', () => chain().deleteTable().run()]
+  // Dragging a border pins a column to a pixel width; this is the way back.
+  const fit: Entry = ['Fit to width', () => fitToWidth(editor)]
   /** Only offered on a plain table, and typed here so the lists need no casts. */
   const whenPlain = (rows: Entry[]): Entry[] => (plain ? rows : [])
 
@@ -82,8 +85,10 @@ function entries(editor: Editor): Entry[] {
         ['Duplicate column', () => duplicateColumn(editor, column)],
         ['Clear column contents', () => clearColumn(editor, column)]
       ]),
+      ['Toggle header column', () => chain().toggleHeaderColumn().run()],
       ['Delete column', () => chain().deleteColumn().run()],
       null,
+      fit,
       remove
     ]
   }
@@ -101,12 +106,13 @@ function entries(editor: Editor): Entry[] {
       ['Toggle header row', () => chain().toggleHeaderRow().run()],
       ['Delete row', () => chain().deleteRow().run()],
       null,
+      fit,
       remove
     ]
   }
 
   // Cells picked by dragging across them, which is neither a row nor a column.
-  return [['Merge or split cells', () => chain().mergeOrSplit().run()], null, remove]
+  return [['Merge or split cells', () => chain().mergeOrSplit().run()], null, fit, remove]
 }
 
 export function TableMenu({ editor }: { editor: Editor | null }): React.JSX.Element | null {

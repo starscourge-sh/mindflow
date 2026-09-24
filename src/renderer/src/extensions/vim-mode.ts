@@ -4,6 +4,7 @@ import { addRowAfter, goToNextCell, isInTable } from "@tiptap/pm/tables"
 import type { EditorState } from "@tiptap/pm/state"
 import { Decoration, DecorationSet } from "@tiptap/pm/view"
 import type { EditorView } from "@tiptap/pm/view"
+import { Fragment } from "@tiptap/pm/model"
 import type { Node as ProseMirrorNode, NodeType, ResolvedPos } from "@tiptap/pm/model"
 import { liftListItem, sinkListItem } from "@tiptap/pm/schema-list"
 import { undo, redo } from "@tiptap/pm/history"
@@ -100,6 +101,10 @@ interface VimState {
   lastFind: { kind: FindKind; char: string } | null
   /** A `j` just typed in insert mode, for the `jk` escape. */
   pendingJ: { pos: number; at: number } | null
+  /** Recent places a long motion left from, oldest first. */
+  jumps: number[]
+  /** Where `Ctrl-O` and `Ctrl-I` sit in that list; its length means the present. */
+  jumpAt: number
   register: VimRegister
 }
 
@@ -849,6 +854,64 @@ function moveByBlock(view: EditorView, dir: 1 | -1, count: number): void {
   select(view, blocks[at].pos, dir)
 }
 
+/**
+ * One line down or up, for `j` and `k` in visual-line mode.
+ *
+ * Not `moveByBlock`, which is `{` and `}` and stops only at a blank line: a
+ * page of bullets has none, so growing the selection with it would swallow
+ * everything to the end of the document in one press.
+ */
+function stepBlock(view: EditorView, dir: 1 | -1, count: number): void {
+  const starts = textblockStarts(view.state.doc)
+  if (!starts.length) return
+
+  const { head } = view.state.selection
+  let at = 0
+  for (let i = 0; i < starts.length; i++) if (starts[i] <= head) at = i
+
+  const next = Math.max(0, Math.min(starts.length - 1, at + dir * count))
+  select(view, starts[next], dir)
+}
+
+/** Motions worth coming back from. A `j` is not one: the list would fill with
+ * places nobody wants to return to, and the two nearby ones would be lost. */
+const JUMPS = ["G", "{", "}"]
+
+/** How many to keep. Snapping back a few places is the point; a history is not. */
+const JUMP_LIMIT = 10
+
+/** Remember where the cursor is, so `Ctrl-O` can come back to it. */
+function markJump(view: EditorView): void {
+  const vim = vimPluginKey.getState(view.state)
+  if (!vim) return
+
+  // Anything ahead is dropped: jumping somewhere new abandons the way forward,
+  // the same way taking a different turn does on a browser's back stack.
+  const jumps = [...vim.jumps.slice(0, vim.jumpAt), view.state.selection.head].slice(
+    -JUMP_LIMIT
+  )
+  patch(view, { jumps, jumpAt: jumps.length })
+}
+
+/** Step back or forward through them: `Ctrl-O` and `Ctrl-I`. */
+function jump(view: EditorView, back: boolean): void {
+  const vim = vimPluginKey.getState(view.state)
+  if (!vim) return
+
+  // Stepping back from the present records the present first, or there would
+  // be nothing for `Ctrl-I` to come forward to.
+  const jumps =
+    back && vim.jumpAt === vim.jumps.length
+      ? [...vim.jumps, view.state.selection.head]
+      : vim.jumps
+
+  const at = back ? vim.jumpAt - 1 : vim.jumpAt + 1
+  if (at < 0 || at >= jumps.length) return
+
+  patch(view, { jumps, jumpAt: at })
+  select(view, jumps[at])
+}
+
 /** The nearest ancestor that actually scrolls, for page-sized motions. */
 function scrollParent(node: HTMLElement | null): HTMLElement | null {
   let el: HTMLElement | null = node
@@ -1002,6 +1065,29 @@ function inlineRange(state: EditorState, from: number, to: number): unknown[] {
   return nodes
 }
 
+/**
+ * The sub-list hanging off a list item, if it has one.
+ *
+ * An item here is `(paragraph|details) block*`, so a list among the children
+ * after the first is the item's own sub-items rather than part of its line.
+ */
+function subList(node: ProseMirrorNode): ProseMirrorNode | null {
+  for (let i = 1; i < node.childCount; i++) {
+    const child = node.child(i)
+    if (child.type.name.endsWith("List")) return child
+  }
+  return null
+}
+
+/** The same item without its sub-list: the line the cursor is actually on. */
+function withoutSubList(item: ProseMirrorNode, sub: ProseMirrorNode): ProseMirrorNode {
+  const kept: ProseMirrorNode[] = []
+  item.content.forEach((child) => {
+    if (child !== sub) kept.push(child)
+  })
+  return item.copy(Fragment.fromArray(kept))
+}
+
 function applyToRange(
   view: EditorView,
   operator: Operator,
@@ -1031,6 +1117,38 @@ function applyToRange(
     return
   }
 
+  // A bullet with sub-bullets is not one line. Taking the subtree with it
+  // removes text that is nowhere near the cursor and leaves nothing on screen
+  // to say so, which is the one way `dd` should never surprise anyone.
+  //
+  // The children are lifted into the item's place first, and the operator then
+  // runs again on what is left - a plain item, the line it looked like all
+  // along. Two transactions a moment apart, so undo takes them as one.
+  const item = linewise ? state.doc.nodeAt(from) : null
+  const sub =
+    item && isListItem(item.type) && to === from + item.nodeSize ? subList(item) : null
+
+  if (item && sub) {
+    const line = withoutSubList(item, sub)
+    if (operator === "y") {
+      // A yank changes nothing, so there is nothing to lift: only the register
+      // needs to hold the line rather than the whole branch.
+      view.dispatch(
+        state.tr.setMeta(vimPluginKey, {
+          register: remember({ kind: "line", nodes: [line.toJSON()], text: line.textContent }),
+        })
+      )
+      collapseSelection(view, from)
+      return
+    }
+
+    const lifted: ProseMirrorNode[] = [line]
+    sub.content.forEach((child) => lifted.push(child))
+    view.dispatch(state.tr.replaceWith(from, to, lifted))
+    applyToRange(view, operator, from, from + line.nodeSize, linewise)
+    return
+  }
+
   const register: VimRegister = linewise
     ? {
         kind: "line",
@@ -1043,7 +1161,7 @@ function applyToRange(
         nodes: inlineRange(state, from, to),
       }
 
-  const tr = state.tr.setMeta(vimPluginKey, { register })
+  const tr = state.tr.setMeta(vimPluginKey, { register: remember(register) })
   if (operator !== "y") tr.delete(from, to)
 
   // A linewise change empties the lines but leaves one to type on, as vim
@@ -1113,7 +1231,11 @@ function deleteChars(view: EditorView, count: number): void {
     view.dispatch(
       state.tr
         .setMeta(vimPluginKey, {
-          register: { kind: "line", nodes: [node.toJSON()], text: node.textContent },
+          register: remember({
+            kind: "line",
+            nodes: [node.toJSON()],
+            text: node.textContent,
+          }),
         })
         .deleteSelection()
         .scrollIntoView()
@@ -1129,6 +1251,69 @@ function deleteChars(view: EditorView, count: number): void {
     $head.pos,
     Math.min($head.end(), $head.pos + count),
     false
+  )
+}
+
+/**
+ * vim's register and the system clipboard, kept as one.
+ *
+ * vim holds them apart because `d`, `c` and `x` all overwrite the unnamed
+ * register, and a delete that wiped the system clipboard would be a menace.
+ * That is a fair trade in a terminal with named registers to fall back on;
+ * here there are none, and the surprise of `p` putting back something other
+ * than what was just copied costs more than the one it avoids. This is what
+ * vim calls `clipboard=unnamedplus`.
+ */
+function remember(register: VimRegister): VimRegister {
+  if (register?.text) {
+    // Nothing to do if it fails - the register still holds what was taken.
+    navigator.clipboard.writeText(register.text).catch(() => {})
+  }
+  return register
+}
+
+/** Text from outside, shaped so it can be put back the way a yank would be. */
+function asRegister(text: string): VimRegister {
+  if (!text.includes("\n")) return { kind: "char", text, nodes: [{ type: "text", text }] }
+  return {
+    kind: "line",
+    text,
+    nodes: text.split("\n").map((line) => ({
+      type: "paragraph",
+      ...(line ? { content: [{ type: "text", text: line }] } : {}),
+    })),
+  }
+}
+
+/**
+ * `p` and `P`, taking whichever of the two was written last.
+ *
+ * Everything this editor yanks or deletes goes to the system clipboard too, so
+ * a register that no longer matches it means the copy came from somewhere else
+ * - another app, or this one's own Cmd-C. The register is preferred when they
+ * agree, because it carries the nodes: an emoji or a picture comes back whole,
+ * where the text alone would put back nothing.
+ */
+async function putEither(
+  view: EditorView,
+  register: VimRegister,
+  count: number,
+  singleLinePut = false,
+  before = false
+): Promise<void> {
+  let text = ""
+  try {
+    text = await navigator.clipboard.readText()
+  } catch {
+    // No clipboard to read: the register is all there is.
+  }
+
+  putRegister(
+    view,
+    text && text !== register?.text ? asRegister(text) : register,
+    count,
+    singleLinePut,
+    before
   )
 }
 
@@ -1352,6 +1537,13 @@ function visualRange(
   return { from, to }
 }
 
+/** A line span with any sub-list trimmed off: what an operator will take. */
+function lineOnly(state: EditorState, span: LineSpan): LineSpan {
+  const node = state.doc.nodeAt(span.from)
+  const sub = node && isListItem(node.type) ? subList(node) : null
+  return sub ? { from: span.from, to: span.to - sub.nodeSize } : span
+}
+
 /**
  * Redraw the selection after a motion has moved the head.
  *
@@ -1374,9 +1566,14 @@ function showVisual(
   let selHead = forward ? inclusiveEnd(view.state, head) : head
 
   if (linewise) {
-    const anchorLine = lineSpanAt(view.state, anchor)
-    const headLine = lineSpanAt(view.state, head)
-    if (!anchorLine || !headLine) return
+    // Trimmed, because that is what `d` and `y` will take. Highlighting a
+    // bullet's sub-bullets and then leaving them behind is the same surprise
+    // the other way round.
+    const first = lineSpanAt(view.state, anchor)
+    const last = lineSpanAt(view.state, head)
+    if (!first || !last) return
+    const anchorLine = lineOnly(view.state, first)
+    const headLine = lineOnly(view.state, last)
 
     const upwards = headLine.from < anchorLine.from
     selAnchor = upwards ? anchorLine.to - 1 : anchorLine.from + 1
@@ -1481,13 +1678,23 @@ export const VimMode = Extension.create<VimModeOptions>({
             visualAnchor: null,
             visualHead: null,
             pendingJ: null,
+            jumps: [],
+            jumpAt: 0,
             register: null,
           }),
           apply: (tr, value) => {
             const meta = tr.getMeta(vimPluginKey) as
               | Partial<VimState>
               | undefined
-            if (meta) return { ...value, ...meta }
+            const next = meta ? { ...value, ...meta } : value
+
+            // A jump is a place in the document, so typing above one moves it.
+            // Mapping here is the whole reason `Ctrl-O` still lands where it
+            // was pointed after the text around it has been edited.
+            if (tr.docChanged) {
+              return { ...next, jumps: next.jumps.map((pos) => tr.mapping.map(pos)) }
+            }
+            if (meta) return next
 
             // A caret moved by something that is not a vim command - an arrow
             // key, a click - abandons whatever was half typed. A count is
@@ -1687,6 +1894,12 @@ export const VimMode = Extension.create<VimModeOptions>({
                 case "r":
                   redo(view.state, view.dispatch)
                   break
+                case "o":
+                  jump(view, true)
+                  break
+                case "i":
+                  jump(view, false)
+                  break
                 case "f":
                   moveVertical(view, 1, rowsPerPage(view) * count)
                   break
@@ -1825,6 +2038,7 @@ export const VimMode = Extension.create<VimModeOptions>({
             // --- the g prefix: gg, gU, gu ---
             if (vim.pendingG) {
               if (key === "g") {
+                markJump(view)
                 gotoBlock(view, hadCount ? count : 1)
                 return afterMotion()
               }
@@ -1904,7 +2118,7 @@ export const VimMode = Extension.create<VimModeOptions>({
               // Visual-line grows by whole lines. Walking visual rows would
               // get stuck inside a list item that wraps.
               if (linewise && (key === "j" || key === "k")) {
-                moveByBlock(view, key === "j" ? 1 : -1, count)
+                stepBlock(view, key === "j" ? 1 : -1, count)
                 return afterMotion()
               }
 
@@ -2058,10 +2272,10 @@ export const VimMode = Extension.create<VimModeOptions>({
                 deleteChars(view, count)
                 break
               case "p":
-                putRegister(view, vim.register, count, singleLine)
-                break
               case "P":
-                putRegister(view, vim.register, count, singleLine, true)
+                // Reading the clipboard is asynchronous, so the put lands a
+                // tick later. The key is still ours either way.
+                void putEither(view, vim.register, count, singleLine, key === "P")
                 break
 
               // The shorthands, each the same as the operator and motion it
@@ -2105,6 +2319,7 @@ export const VimMode = Extension.create<VimModeOptions>({
               }
 
               default:
+                if (JUMPS.includes(key)) markJump(view)
                 runMotion(view, key, count, hadCount)
             }
 

@@ -18,6 +18,8 @@ export interface SlashItem {
   icon?: ReactNode
   /** Whether this converts the current block, so "Turn into" can offer it. */
   turnInto?: boolean
+  /** Only offered where this holds. Absent means everywhere. */
+  when?: (editor: Editor) => boolean
   /** Placeholder for the value to collect before running, if one is needed. */
   prompt?: string
   /** Filled in by the menu when the item asked for a value. */
@@ -48,13 +50,14 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
       Suggestion<SlashItem>({
         editor: this.editor,
         char: "/",
-        items: ({ query }) => {
+        items: ({ editor, query }) => {
           const term = query.toLowerCase()
           return items.filter(
             (item) =>
-              item.title.toLowerCase().includes(term) ||
-              item.group.toLowerCase().includes(term) ||
-              (item.hint?.toLowerCase().includes(term) ?? false)
+              (item.when?.(editor) ?? true) &&
+              (item.title.toLowerCase().includes(term) ||
+                item.group.toLowerCase().includes(term) ||
+                (item.hint?.toLowerCase().includes(term) ?? false))
           )
         },
         command: ({ editor, range, props }) => {

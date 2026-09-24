@@ -35,6 +35,8 @@ export interface Api {
   copyImage: (src: string) => Promise<boolean>
   /** Read a linked image, which the renderer's own content policy forbids. */
   fetchImage: (href: string) => Promise<{ mime: string; bytes: Uint8Array } | null>
+  /** Swap the window between the capture size and the roomier one. */
+  setExpanded: (expanded: boolean) => Promise<boolean>
   /** The stored notes. */
   notes: {
     list: () => Promise<NoteMeta[]>

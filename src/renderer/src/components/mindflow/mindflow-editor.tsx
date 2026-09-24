@@ -41,11 +41,13 @@ import { ImageDrop } from "@/extensions/image-drop"
 import { ImagePlaceholder } from "@/extensions/image-placeholder"
 import { BlockColor } from "@/extensions/block-color"
 import { JoinLists } from "@/extensions/join-lists"
+import { OutdentLists } from "@/extensions/outdent-lists"
 import { CurrentItem } from "@/extensions/current-item"
 import { CardLink } from "@/extensions/card-link"
 import { SelectedNodes } from "@/extensions/selected-nodes"
 import { Bookmark } from "@/extensions/bookmark"
 import { Attachment } from "@/extensions/attachment"
+import { ExcalidrawDiagram } from "@/extensions/excalidraw"
 
 /** Drive the editor with vim keys. Flip this to turn it off. */
 const VIM_MODE_ENABLED = true
@@ -93,6 +95,10 @@ const SAVE_DEBOUNCE_MS = 500
 
 /** How long the handle stays up after the pointer leaves a block. */
 const HANDLE_GRACE_MS = 1000
+
+/** The three kinds of list, and the items they hold. */
+const LISTS = ["bulletList", "orderedList", "taskList"]
+const LIST_ITEMS = ["listItem", "taskItem"]
 
 const CARET_MARGIN = { top: 64, right: 0, bottom: 112, left: 0 }
 
@@ -379,15 +385,42 @@ export function MindflowEditor({
       // once it has, so edits never happen just out of sight.
       scrollThreshold: CARET_MARGIN,
       scrollMargin: CARET_MARGIN,
-      // A contenteditable swallows link clicks, so a bookmark card has to open
-      // itself. setWindowOpenHandler in main sends it to the real browser.
-      handleClick: (_view, _pos, event) => {
-        const href = (event.target as HTMLElement | null)
-          ?.closest("a[data-bookmark]")
-          ?.getAttribute("href")
-        if (!href) return false
-        window.open(href, "_blank", "noopener")
-        return true
+      // A list pasted into an empty bullet takes that bullet's place.
+      //
+      // Dropped in as it comes, the list lands *inside* the item, beside the
+      // empty paragraph already there - which draws as a blank bullet with the
+      // whole pasted tree indented under it, a level deeper than anything was
+      // meant to be. An empty item is a place to put something, not something
+      // to nest under.
+      handlePaste: (view, _event, slice) => {
+        const { state } = view
+        const { $from, empty } = state.selection
+        const list = slice.content.firstChild
+        if (!empty || slice.content.childCount !== 1) return false
+        if (!list || !LISTS.includes(list.type.name)) return false
+
+        for (let depth = $from.depth; depth > 0; depth--) {
+          const item = $from.node(depth)
+          if (!LIST_ITEMS.includes(item.type.name)) continue
+          // Only an empty one. Anything typed here is content the paste should
+          // join, which is what the ordinary handling already does.
+          if (item.textContent.length || item.childCount > 1) return false
+
+          const parent = $from.node(depth - 1)
+          const index = $from.index(depth - 1)
+          // A checklist pasted into a bullet list has items the list cannot
+          // hold; let the usual paste sort that one out.
+          if (!parent.canReplace(index, index + 1, list.content)) return false
+
+          view.dispatch(
+            state.tr
+              .replaceWith($from.before(depth), $from.after(depth), list.content)
+              .scrollIntoView()
+          )
+          return true
+        }
+
+        return false
       },
     },
     extensions: [
@@ -418,10 +451,17 @@ export function MindflowEditor({
       // A bullet turns into a toggle in place, the way Notion does it: the item
       // keeps its spot in the list and its children become what the toggle
       // hides. That needs a toggle to be a legal first child.
-      ListItem.extend({ content: "(paragraph|details) block*" }),
+      // `bulletList|orderedList|taskList` are not shapes anyone types on
+      // purpose: they are what prosemirror-schema-list builds mid-lift, at
+      // `liftToOuterList`, where it wraps the items following the lifted ones
+      // in `itemType.create(null, list)`. Forbid it and Shift-Tab throws
+      // whenever there is a sibling after what is being lifted.
+      ListItem.extend({
+        content: "(paragraph|details|bulletList|orderedList|taskList) block*"
+      }),
       TaskList,
       TaskItem.configure({ nested: true }).extend({
-        content: "(paragraph|details) block*",
+        content: "(paragraph|details|bulletList|orderedList|taskList) block*",
       }),
       ...(has("highlight") ? [Highlight.configure({ multicolor: true })] : []),
       // Width and alignment live on the node so they survive a save. Width is a
@@ -449,8 +489,10 @@ export function MindflowEditor({
       Selection,
       ...(search ? [FindAndReplace.configure({ injectCSS: false })] : []),
       TableKit.configure({ table: { resizable: true, cellMinWidth: 64 } }),
+      OutdentLists,
       Bookmark,
       Attachment,
+      ExcalidrawDiagram,
       // Gives the editor `storage.markdown.getMarkdown()`, used by Export.
       Markdown,
       // Through refs, not the props directly: extensions are configured once,

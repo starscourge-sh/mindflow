@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { CellSelection, TableMap } from '@tiptap/pm/tables'
 import { useEditorState, type Editor } from '@tiptap/react'
 
-import { moveColumn, moveRow } from '@/lib/table'
+import { grow, moveColumn, moveRow } from '@/lib/table'
 
 /** Where each row and column sits, relative to the editor's own box. */
 interface Geometry {
@@ -155,9 +155,9 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
       const y = event.clientY - origin.top + host.scrollTop
       const near =
         x >= geometry.left - MARGIN &&
-        x <= geometry.left + geometry.width &&
+        x <= geometry.left + geometry.width + MARGIN &&
         y >= geometry.top - MARGIN &&
-        y <= geometry.top + geometry.height
+        y <= geometry.top + geometry.height + MARGIN
       if (!near) return setHover(null)
 
       // Past the last edge means the margin outside the table, which is where
@@ -189,12 +189,12 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
 
   /** Which row or column the pointer is over, or -1 when it is outside. */
   const indexAt = useCallback(
-    (axis: "row" | "column", event: React.PointerEvent): number => {
+    (axis: 'row' | 'column', event: React.PointerEvent): number => {
       if (!geometry || !host) return -1
       const origin = host.getBoundingClientRect()
       const x = event.clientX - origin.left + host.scrollLeft
       const y = event.clientY - origin.top + host.scrollTop
-      return axis === "column"
+      return axis === 'column'
         ? geometry.columns.findIndex((c) => x >= c.left && x < c.left + c.width)
         : geometry.rows.findIndex((r) => y >= r.top && y < r.top + r.height)
     },
@@ -211,9 +211,15 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
    * to attach to. Selecting on the way down opened the menu over the very table
    * being dragged.
    */
-  const [drag, setDrag] = useState<{ axis: "row" | "column"; from: number; to: number } | null>(
+  const [drag, setDrag] = useState<{ axis: 'row' | 'column'; from: number; to: number } | null>(
     null
   )
+
+  // How far the add bar has been dragged, and how many rows or columns that
+  // has already put on the table. Refs, not state: the table itself is the
+  // thing that changes, and re-rendering per step would fight the pointer.
+  const from = useRef(0)
+  const added = useRef(0)
 
   // The overlay has to live in the same box its coordinates were measured
   // against, or it drifts as soon as the document scrolls. That box is the
@@ -251,12 +257,53 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
         setDrag(null)
         if (!drag || !editor) return
         const pick = (at: number): number =>
-          axis === "column" ? (geometry.columns[at]?.col ?? at) : at
+          axis === 'column' ? (geometry.columns[at]?.col ?? at) : at
         if (drag.from === drag.to) select(axis, pick(drag.from))
-        else if (axis === "column") moveColumn(editor, pick(drag.from), pick(drag.to))
+        else if (axis === 'column') moveColumn(editor, pick(drag.from), pick(drag.to))
         else moveRow(editor, drag.from, drag.to)
       }}
     />
+  )
+
+  /**
+   * The `+` bars along the bottom and right edges.
+   *
+   * Click adds one; drag adds or takes away as many as the pointer passes,
+   * which is the only way to take several off at once. The table changes as
+   * you drag rather than on release, so you are choosing against the real
+   * thing instead of against a preview of it.
+   */
+  const bar = (axis: 'row' | 'column', style: React.CSSProperties): React.JSX.Element => (
+    <button
+      type="button"
+      className={`tiptap-table-add is-${axis}`}
+      tabIndex={-1}
+      title={`Click to add a ${axis}. Drag to add or remove ${axis}s.`}
+      style={style}
+      onPointerDown={(event) => {
+        // Keeps the caret in the table: without focus there is no table to
+        // measure, and the bars would vanish under the pointer.
+        event.preventDefault()
+        event.currentTarget.setPointerCapture(event.pointerId)
+        from.current = axis === 'row' ? event.clientY : event.clientX
+        added.current = 0
+      }}
+      onPointerMove={(event) => {
+        if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
+        const step = axis === 'row' ? (row?.height ?? 24) : (column?.width ?? 96)
+        const at = axis === 'row' ? event.clientY : event.clientX
+        const want = Math.round((at - from.current) / step)
+
+        // `grow` refuses to take the last one, which also ends the loop.
+        while (added.current < want && grow(editor, axis, true)) added.current += 1
+        while (added.current > want && grow(editor, axis, false)) added.current -= 1
+      }}
+      onPointerUp={() => {
+        if (!added.current) grow(editor, axis, true)
+      }}
+    >
+      +
+    </button>
   )
 
   // The edge the dragged row or column would come to rest against. Nothing is
@@ -269,28 +316,32 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
   const onward = moving ? moving.to > moving.from : false
   const mark = !moving
     ? null
-    : moving.axis === "column"
+    : moving.axis === 'column'
       ? geometry.columns[moving.to] && {
-          left:
-            geometry.columns[moving.to].left +
-            (onward ? geometry.columns[moving.to].width : 0),
+          left: geometry.columns[moving.to].left + (onward ? geometry.columns[moving.to].width : 0),
           top: geometry.top,
           height: geometry.height
         }
       : geometry.rows[moving.to] && {
-          top:
-            geometry.rows[moving.to].top +
-            (onward ? geometry.rows[moving.to].height : 0),
+          top: geometry.rows[moving.to].top + (onward ? geometry.rows[moving.to].height : 0),
           left: geometry.left,
           width: geometry.width
         }
 
   return createPortal(
     <div className="tiptap-table-controls">
-      {moving && mark && (
-        <div className={`tiptap-table-landing is-${moving.axis}`} style={mark} />
-      )}
+      {moving && mark && <div className={`tiptap-table-landing is-${moving.axis}`} style={mark} />}
       {row && grip('row', hover.row, { top: row.top, left: geometry.left, height: row.height })}
+      {bar('row', {
+        top: geometry.top + geometry.height + 4,
+        left: geometry.left,
+        width: geometry.width
+      })}
+      {bar('column', {
+        left: geometry.left + geometry.width + 4,
+        top: geometry.top,
+        height: geometry.height
+      })}
       {column &&
         grip('column', column.col, {
           left: column.left,

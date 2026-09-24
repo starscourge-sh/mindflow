@@ -38,6 +38,10 @@ const api = {
   fetchImage: (href: string): Promise<{ mime: string; bytes: Uint8Array } | null> =>
     ipcRenderer.invoke('fetch-image', href),
 
+  /** Swap the window between the capture size and the roomier one. */
+  setExpanded: (expanded: boolean): Promise<boolean> =>
+    ipcRenderer.invoke('window:expand', expanded),
+
   /** The stored notes. */
   notes: {
     list: (): Promise<NoteMeta[]> => ipcRenderer.invoke('notes:list'),

@@ -146,3 +146,48 @@ export const sortByColumn = (editor: Editor, at: number, up: boolean): boolean =
     )
     return [...grid.slice(0, head), ...(up ? body : body.reverse())]
   })
+
+/**
+ * Add a row at the bottom or a column at the right, or take the last one away.
+ *
+ * This is what the `+` bars along the edges of the table do. One at a time, so
+ * a drag can call it repeatedly and stop the moment the table runs out: the
+ * last row or column is never taken, because a table with none is not a table.
+ */
+export function grow(editor: Editor, axis: 'row' | 'column', add: boolean): boolean {
+  const found = tableAt(editor)
+  if (!found) return false
+
+  const map = TableMap.get(found.node)
+  const size = axis === 'row' ? map.height : map.width
+  if (!add && size < 2) return false
+
+  // A cell in the last row, or in the last column. Inserting and deleting both
+  // act on whatever the selection is in, so this is how the edge is named.
+  const index = axis === 'row' ? (map.height - 1) * map.width : map.width - 1
+  const chain = editor.chain().setTextSelection(found.pos + 2 + map.map[index])
+
+  if (axis === 'row') return add ? chain.addRowAfter().run() : chain.deleteRow().run()
+  return add ? chain.addColumnAfter().run() : chain.deleteColumn().run()
+}
+
+/**
+ * Drop every column width, so the table goes back to filling the page.
+ *
+ * Dragging a column border pins that column to a pixel width, and a table left
+ * with a few pinned columns no longer fits the note when the window changes.
+ */
+export function fitToWidth(editor: Editor): boolean {
+  const found = tableAt(editor)
+  if (!found) return false
+
+  const tr = editor.state.tr
+  found.node.descendants((node, pos) => {
+    if (!CELLS.includes(node.type.name)) return true
+    tr.setNodeMarkup(found.pos + 1 + pos, undefined, { ...node.attrs, colwidth: null })
+    return false
+  })
+
+  editor.view.dispatch(tr)
+  return true
+}

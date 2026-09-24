@@ -254,7 +254,13 @@
   --mf-panel-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
 }
 
-html, body { background: transparent; }
+html, body {
+background: transparent;
+}
 .app-container {
   overflow: hidden;   /* clip content to the rounded corners */
+  /* The only surface painting the page colour, so this is the only place a
+     theme change is visible. Variables cannot be transitioned; the property
+     reading them can, so the swap fades instead of snapping. */
+  transition: background-color 300ms ease;
 }

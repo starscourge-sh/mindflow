@@ -1,4 +1,5 @@
-import type { CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
+import { Maximize2, Minimize2 } from 'lucide-react'
 import type { JSONContent } from '@tiptap/core'
 
 import { MindflowEditor } from './components/mindflow/mindflow-editor'
@@ -15,6 +16,8 @@ export default function App(): React.JSX.Element {
 }
 
 const Header = (): React.JSX.Element => {
+  const [expanded, setExpanded] = useState(false)
+
   return (
     <div className="fixed top-0 right-0 left-0 z-10 flex items-center gap-2 px-4 pt-8 text-xs"
       style={{ WebkitAppRegion: 'drag', } as CSSProperties}>
@@ -25,6 +28,21 @@ const Header = (): React.JSX.Element => {
       </span>
         */}
       <span className="flex-1" />
+
+      {/* The strip is the window's drag handle, so the one thing on it that is
+          not a handle has to say so, or the click never lands. */}
+      <button
+        type="button"
+        aria-label={expanded ? 'Contract window' : 'Expand window'}
+        className="rounded-full p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+        style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
+        onClick={() => {
+          setExpanded(!expanded)
+          void window.api.setExpanded(!expanded)
+        }}
+      >
+        {expanded ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+      </button>
     </div>
   )
 }
@@ -43,7 +61,7 @@ const CapturePrompt = (): React.JSX.Element => {
   }
 
   return (
-    <div className="relative overflow-hidden flex flex-col h-[400px] w-[625px] rounded-2xl bg-backgorund"
+    <div className="relative overflow-hidden flex w-full flex-1 min-h-0 flex-col rounded-2xl bg-backgorund transition transition-all transition-duration-3"
       style={{ transform: 'translate(0,0)' }}
     >
       {/* Nothing is editable until a note has arrived: an editor shown first and

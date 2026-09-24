@@ -1,4 +1,7 @@
 import { Node, mergeAttributes } from "@tiptap/core"
+import { ReactNodeViewRenderer } from "@tiptap/react"
+
+import { BookmarkView } from "@/components/bookmark/bookmark-view"
 
 /**
  * A link rendered as a preview card: thumbnail, title, description, site.
@@ -98,6 +101,21 @@ export const Bookmark = Node.create({
         ],
       ],
     ]
+  },
+
+  /**
+   * An ordinary link. The card is a link with a picture fetched for it, and
+   * the picture is this app's doing, so plain markdown gets the link back.
+   * Without this the serializer has no renderer for the node and writes an
+   * empty string: the card left the document silently.
+   */
+  addNodeView() {
+    return ReactNodeViewRenderer(BookmarkView)
+  },
+
+  renderMarkdown(node): string {
+    const { href, title } = (node.attrs ?? {}) as Partial<BookmarkAttributes>
+    return `[${title || href}](${href})`
   },
 
   addCommands() {

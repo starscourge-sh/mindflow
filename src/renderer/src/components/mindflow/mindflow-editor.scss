@@ -95,8 +95,8 @@
 }
 
 .tiptap.ProseMirror.mindflow-editor :is(h1, h2, h3, h4) {
-    // margin-top: 1em;
-    margin-top: 0;
+    margin-top: 1em;
+    // margin-top: 0;
 }
 
 .mindflow-editor-wrapper .tiptap-toolbar[data-variant="fixed"] {
@@ -434,8 +434,16 @@
   [data-background] {
     padding: 0.25em 0.5em;
     margin-inline: -0.5em;
-    border-radius: 0.25rem;
     background-color: var(--tt-color-highlight-gray);
+  }
+
+  // A marker is drawn against the item's BORDER edge while its text follows the
+  // content edge, so the negative margin that keeps a paragraph's text still
+  // drags the marker left and the list goes ragged the moment one item is
+  // coloured. The item keeps its box; the tint starts at the text instead.
+  li[data-background] {
+    margin-inline: 0;
+    padding-inline: 0;
   }
 
   @each $name in ("gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red") {
@@ -576,6 +584,30 @@
 
     &.is-row {
       height: 2px;
+    }
+  }
+
+  // The `+` bars along the bottom and right edges. Thin and quiet until the
+  // pointer is on them: they run the whole length of the table, so anything
+  // louder would read as part of it.
+  .tiptap-table-add {
+    display: grid;
+    place-items: center;
+    color: var(--tt-card-bg-color);
+    font-size: 0.75rem;
+    line-height: 0;
+    opacity: 0.45;
+
+    &:hover {
+      opacity: 1;
+    }
+
+    &.is-row {
+      height: 0.6875rem;
+    }
+
+    &.is-column {
+      width: 0.6875rem;
     }
   }
 
@@ -789,6 +821,7 @@
 // Link preview cards.
 .tiptap.ProseMirror.mindflow-editor .tiptap-bookmark {
   display: flex;
+  position: relative;
   // Measured so the picture can be dropped when there is no room for it. The
   // window, not the card, is what changes width here.
   container-type: inline-size;
@@ -808,6 +841,36 @@
   &:hover {
     background-color: var(--mf-surface);
   }
+}
+
+// Tucked into the bottom corner, and only there once the card is under the
+// pointer: the card's own job is to be read and opened, not to offer controls.
+.tiptap-bookmark-copy {
+  position: absolute;
+  right: 0.625rem;
+  bottom: 0.625rem;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.375rem;
+  color: var(--mf-muted);
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+
+  svg {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  &:hover {
+    background-color: var(--mf-surface);
+    color: var(--tt-brand-color-500);
+  }
+}
+
+.tiptap-bookmark:hover .tiptap-bookmark-copy {
+  opacity: 1;
 }
 
 // `contain` on a fixed box: the whole thumbnail is visible, never cropped.
@@ -1629,3 +1692,125 @@ $nested-ul: "ul:not([data-type='taskList'])";
     outline: 0.125rem solid var(--tt-brand-color-500);
   }
 }
+
+.tiptap.ProseMirror.mindflow-editor [data-type=horizontalRule] {
+    margin: 0;
+}
+
+// --- Drawings -------------------------------------------------------------
+// A canvas in the flow of the note. The frame is the same card every other
+// block here sits in; what changes is what is inside it.
+
+.tiptap-excalidraw {
+  position: relative;
+  margin: 0.75em 0;
+}
+
+.tiptap-excalidraw-frame {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--tt-border-color);
+  border-radius: 0.625rem;
+  background-color: var(--tt-card-bg-color);
+}
+
+// Excalidraw fills whatever it is given and measures nothing itself. The
+// height is the block's, set by the grip below.
+.tiptap-excalidraw-canvas {
+  height: 100%;
+
+  .excalidraw {
+    --ui-font: inherit;
+  }
+}
+
+.tiptap-excalidraw-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  height: 100%;
+  color: var(--mf-muted);
+  cursor: default;
+
+  svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  &:hover {
+    background-color: var(--mf-surface);
+    color: var(--tt-theme-text);
+  }
+}
+
+// The drawing keeps its own shape inside whatever height the block is given:
+// an SVG with a viewBox letterboxes rather than stretching.
+.tiptap-excalidraw-preview {
+  height: 100%;
+  padding: 1rem;
+  cursor: default;
+
+  svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+// Notion's pill, under the bottom edge. Invisible until the block is worth
+// resizing, which is when the pointer is on it.
+.tiptap-excalidraw-grip {
+  position: absolute;
+  left: 50%;
+  bottom: 0.125rem;
+  width: 3.5rem;
+  height: 0.375rem;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background-color: var(--mf-muted);
+  opacity: 0;
+  cursor: ns-resize;
+  transition: opacity 0.15s ease;
+}
+
+.tiptap-excalidraw:hover .tiptap-excalidraw-grip,
+.tiptap-excalidraw-grip:active {
+  opacity: 0.6;
+}
+
+// Over the canvas, out of the way of Excalidraw's own toolbars, which sit on
+// the left and along the top.
+.tiptap-excalidraw-done {
+  position: absolute;
+  z-index: 5;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  background-color: var(--tt-brand-color-500);
+  color: #fff;
+  cursor: default;
+
+  svg {
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+}
+
+.tiptap.ProseMirror.mindflow-editor .tiptap-excalidraw.is-selected {
+  .tiptap-excalidraw-frame {
+    border-color: transparent;
+    outline: 0.125rem solid var(--tt-brand-color-500);
+  }
+}
+
+.tiptap.ProseMirror > img:not([data-type=emoji] img) {
+    margin: 1rem 0;
+}
+

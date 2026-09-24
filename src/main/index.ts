@@ -138,15 +138,20 @@ protocol.registerSchemesAsPrivileged([
   { scheme: 'mindflow', privileges: { standard: true, secure: true } }
 ])
 
+/** The capture box, and the roomier one the toolbar's expander swaps to. */
+const SIZES = {
+  compact: { width: 625, height: 400 },
+  expanded: { width: 900, height: 680 }
+}
+
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 625,
-    height: 400,
+    ...SIZES.compact,
     // minHeight: 400,
     // minWidth: 600,
-    // width: 725,
-    // height: 550,
+    width: 725,
+    height: 550,
 
     resizable: false,
     vibrancy: 'under-window',
@@ -248,6 +253,28 @@ app.whenReady().then(() => {
 
   // Save bytes dropped or pasted into the editor, and hand back the URL that
   // reads them again.
+  // Grows and shrinks around the window's own centre, so expanding does not
+  // walk the window across the screen. macOS animates the move itself, but it
+  // will not resize a window pinned non-resizable, hence the two calls around.
+  ipcMain.handle('window:expand', (event, expanded: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return false
+    const size = expanded ? SIZES.expanded : SIZES.compact
+    const bounds = win.getBounds()
+
+    win.setResizable(true)
+    win.setBounds(
+      {
+        x: Math.round(bounds.x + (bounds.width - size.width) / 2),
+        y: Math.round(bounds.y + (bounds.height - size.height) / 2),
+        ...size
+      },
+      true
+    )
+    win.setResizable(false)
+    return Boolean(expanded)
+  })
+
   ipcMain.handle('save-image', async (_event, mime: unknown, bytes: unknown) => {
     if (typeof mime !== 'string' || !(bytes instanceof Uint8Array)) return ''
 

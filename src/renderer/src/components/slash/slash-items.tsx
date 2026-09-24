@@ -5,15 +5,18 @@ import {
   Table as TableIcon,
   Download,
   Paperclip,
+  PencilRuler as DrawingIcon,
   SquarePlay as VideoIcon,
   Type as TextIcon
 } from 'lucide-react'
 
 import type { Editor } from '@tiptap/core'
+import { isInTable } from '@tiptap/pm/tables'
 import { isValidYoutubeUrl } from '@tiptap/extension-youtube'
 
 import { saveAttachment } from '@/extensions/image-drop'
 import { EXPORTS, exportDocument } from '@/lib/export'
+import { fitToWidth } from '@/lib/table'
 
 import type { SlashItem } from '@/extensions/slash-command'
 import { linkCard } from '@/lib/link-card'
@@ -174,6 +177,15 @@ export const slashItems: SlashItem[] = [
     }
   },
   {
+    title: 'Drawing',
+    group: 'Media',
+    hint: 'excalidraw',
+    icon: <DrawingIcon />,
+    // The canvas lives in the note, not in a file beside it, so it opens ready
+    // to draw in rather than asking where to put it first.
+    run: (editor) => editor.chain().focus().insertContent({ type: 'excalidraw' }).run()
+  },
+  {
     title: 'Bookmark',
     group: 'Media',
     hint: 'link card',
@@ -195,6 +207,30 @@ export const slashItems: SlashItem[] = [
       return undefined
     }
   },
+  // Everything the table grips offer, reachable from the keyboard. The grips
+  // put a whole row or column on the selection, which is the only way to open
+  // the table menu - so without these a table could not be changed at all
+  // without a pointer. Shown only inside a table, where they mean something.
+  ...([
+    ['Insert row above', (editor) => editor.chain().focus().addRowBefore().run()],
+    ['Insert row below', (editor) => editor.chain().focus().addRowAfter().run()],
+    ['Insert column left', (editor) => editor.chain().focus().addColumnBefore().run()],
+    ['Insert column right', (editor) => editor.chain().focus().addColumnAfter().run()],
+    ['Delete row', (editor) => editor.chain().focus().deleteRow().run()],
+    ['Delete column', (editor) => editor.chain().focus().deleteColumn().run()],
+    ['Toggle header row', (editor) => editor.chain().focus().toggleHeaderRow().run()],
+    ['Toggle header column', (editor) => editor.chain().focus().toggleHeaderColumn().run()],
+    ['Merge or split cells', (editor) => editor.chain().focus().mergeOrSplit().run()],
+    ['Fit to width', (editor) => fitToWidth(editor)],
+    ['Delete table', (editor) => editor.chain().focus().deleteTable().run()]
+  ] as Array<[string, (editor: Editor) => void]>).map(([title, run]) => ({
+    title,
+    group: 'Table',
+    icon: <TableIcon />,
+    when: (editor: Editor) => isInTable(editor.state),
+    run
+  })),
+
   ...EXPORTS.map(({ format, label }) => ({
     title: `Export as ${label}`,
     group: 'Export',

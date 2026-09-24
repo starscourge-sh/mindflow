@@ -84,6 +84,12 @@ export const Attachment = Node.create({
     return ReactNodeViewRenderer(AttachmentView)
   },
 
+  /** A link to the stored file, under the name it arrived with. */
+  renderMarkdown(node): string {
+    const { name, src } = (node.attrs ?? {}) as Partial<AttachmentAttributes>
+    return `[${name || "Attachment"}](${src})`
+  },
+
   addCommands() {
     return {
       setAttachment:

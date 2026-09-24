@@ -9,3 +9,6 @@ out
 # Authentication tokens
 .npmrc
 *.tsbuildinfo
+
+# Copied out of node_modules when the renderer builds.
+src/renderer/public
