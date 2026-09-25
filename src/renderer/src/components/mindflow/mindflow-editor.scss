@@ -45,7 +45,11 @@
 }
 
 .tiptap.ProseMirror.mindflow-editor {
-  font-family: "DM Sans", sans-serif;
+  font-family: "Fraunces Variable", Georgia, serif;
+  // The quirk in the g, k and y, and softer terminals. Off unless asked for.
+  font-variation-settings:
+    "SOFT" 20,
+    "WONK" 1;
 }
 
 .mindflow-editor-content {
@@ -1813,4 +1817,3 @@ $nested-ul: "ul:not([data-type='taskList'])";
 .tiptap.ProseMirror > img:not([data-type=emoji] img) {
     margin: 1rem 0;
 }
-

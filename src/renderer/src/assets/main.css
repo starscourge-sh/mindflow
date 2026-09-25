@@ -1,11 +1,10 @@
-/* The editor asks for DM Sans; supplying it is the host app's job. Must stay
-   the first statement: the imports below are inlined, and a real @import
-   cannot follow the rules they bring in. */
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
+/* The editor asks for Fraunces; supplying it is the host app's job. */
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
-@import '@fontsource-variable/inter';
+/* `full`, not `wght`: WONK and SOFT are the axes that give Fraunces its
+   character, and the default face ships neither. */
+@import '@fontsource-variable/fraunces/full.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -222,7 +221,7 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --font-heading: var(--font-sans);
-  --font-sans: 'Inter Variable', sans-serif;
+  --font-sans: 'Fraunces Variable', Georgia, serif;
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
@@ -245,6 +244,12 @@
   }
   html {
     @apply font-sans;
+    /* Fraunces is flat without these: WONK is the quirk in the g, k and y,
+       SOFT rounds the terminals, and opsz keeps small text from thinning out.
+       They are what the face is for, and off by default. */
+    font-variation-settings:
+      'SOFT' 20,
+      'WONK' 1;
   }
 }
 
