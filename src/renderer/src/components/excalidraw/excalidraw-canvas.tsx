@@ -4,19 +4,6 @@ import '@excalidraw/excalidraw/index.css'
 
 import type { DiagramScene } from '@/extensions/excalidraw'
 
-declare global {
-  interface Window {
-    EXCALIDRAW_ASSET_PATH?: string | string[]
-  }
-}
-
-// Excalidraw fetches its hand-drawn fonts at runtime and falls back to a CDN
-// when it cannot find them, which a local app has no business reaching for.
-// The fonts are copied next to `index.html` at build time (see the vite
-// config), so pointing this at the page's own folder works in dev over http
-// and in the packaged app over `file://` alike.
-window.EXCALIDRAW_ASSET_PATH = new URL('./', window.location.href).href
-
 /**
  * The drawing surface itself, kept in its own module so the 2 MB editor is
  * fetched only when a note actually holds a diagram.
