@@ -9,7 +9,6 @@ import {
   clearRow,
   duplicateColumn,
   duplicateRow,
-  fitToWidth,
   isPlain,
   sortByColumn
 } from '@/lib/table'
@@ -49,7 +48,8 @@ type Entry = [label: string, run: () => void] | null
  * Which entries show depends on what is selected, because the grips select a
  * whole row or column and that is what these act on. Moving is not here: the
  * grip that selected it also drags it, and two ways to do one thing is one too
- * many.
+ * many. Neither is anything that belongs to the whole table - header rows,
+ * fitting, deleting it - which live on the table's own handle instead.
  *
  * Words rather than symbols: every one of these is destructive or structural,
  * and a glyph nobody recognises is worse than a slightly wider menu.
@@ -66,9 +66,6 @@ function entries(editor: Editor): Entry[] {
   // covers ground in more than one row, so there is no single answer to where
   // it should land.
   const plain = isPlain(editor)
-  const remove: Entry = ['Delete table', () => chain().deleteTable().run()]
-  // Dragging a border pins a column to a pixel width; this is the way back.
-  const fit: Entry = ['Fit to width', () => fitToWidth(editor)]
   /** Only offered on a plain table, and typed here so the lists need no casts. */
   const whenPlain = (rows: Entry[]): Entry[] => (plain ? rows : [])
 
@@ -85,11 +82,7 @@ function entries(editor: Editor): Entry[] {
         ['Duplicate column', () => duplicateColumn(editor, column)],
         ['Clear column contents', () => clearColumn(editor, column)]
       ]),
-      ['Toggle header column', () => chain().toggleHeaderColumn().run()],
-      ['Delete column', () => chain().deleteColumn().run()],
-      null,
-      fit,
-      remove
+      ['Delete column', () => chain().deleteColumn().run()]
     ]
   }
 
@@ -103,16 +96,12 @@ function entries(editor: Editor): Entry[] {
         ['Duplicate row', () => duplicateRow(editor, row)],
         ['Clear row contents', () => clearRow(editor, row)]
       ]),
-      ['Toggle header row', () => chain().toggleHeaderRow().run()],
-      ['Delete row', () => chain().deleteRow().run()],
-      null,
-      fit,
-      remove
+      ['Delete row', () => chain().deleteRow().run()]
     ]
   }
 
   // Cells picked by dragging across them, which is neither a row nor a column.
-  return [['Merge or split cells', () => chain().mergeOrSplit().run()], null, fit, remove]
+  return [['Merge or split cells', () => chain().mergeOrSplit().run()]]
 }
 
 export function TableMenu({ editor }: { editor: Editor | null }): React.JSX.Element | null {
@@ -139,7 +128,11 @@ export function TableMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
       pluginKey="tableMenu"
       // Only once a grip has been used, or cells dragged across. A cursor
       // resting in a cell is someone typing, not someone asking for a menu.
-      shouldShow={({ state }) => state.selection instanceof CellSelection}
+      // Not while the table is being dragged: the drag starts from a cell
+      // selection and leaves it in place, so the menu floated over the drag.
+      shouldShow={({ editor: view, state }) =>
+        state.selection instanceof CellSelection && !view.view.dragging
+      }
       options={POSITION}
       className="tiptap-table-menu"
     >

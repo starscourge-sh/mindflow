@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
 import type { JSONContent } from "@tiptap/core"
-import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
+import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model"
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
 
 // --- Tiptap Core Extensions ---
@@ -113,6 +113,24 @@ const HANDLE_NESTING = {
       id: "detailsParts",
       evaluate: ({ node }: { node: { type: { name: string } } }) =>
         ["detailsSummary", "detailsContent"].includes(node.type.name) ? 1000 : 0,
+    },
+    {
+      // A table carries its own row and column grips, and a cell's paragraph
+      // is not separately draggable - pulling one out only breaks the table.
+      // A rule returns a deduction, so this leaves the table itself as the
+      // cheapest candidate and the handle points at the whole thing.
+      id: "tableParts",
+      // Strictly ABOVE this candidate, not above the pointer. `$pos` is the
+      // position under the cursor and every candidate shares it, so asking it
+      // about ancestors excluded the table along with its own cells and left
+      // nothing to point at. The table has no table above it; its rows, cells
+      // and their paragraphs all do.
+      evaluate: ({ $pos, depth }: { $pos: ResolvedPos; depth: number }) => {
+        for (let above = depth - 1; above > 0; above -= 1) {
+          if ($pos.node(above).type.name === "table") return 1000
+        }
+        return 0
+      },
     },
   ],
 }
@@ -294,12 +312,26 @@ export function MindflowEditor({
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [sourceOpen, setSourceOpen] = useState(showSource)
-
   const rememberBlock = useCallback(
-    ({ node, pos }: { node: ProseMirrorNode | null; pos: number }): void => {
+    ({ node, editor, pos }: { node: ProseMirrorNode | null; editor: Editor; pos: number }): void => {
       blockTarget.current = node
         ? { pos, name: node.type.name, level: headingRank(node) ?? undefined }
         : null
+
+      // A backstop for the rule above, for the case where the table is not
+      // among the candidates and the cheapest one is still inside it.
+      //
+      // Set on the element rather than through state: the plugin moves the
+      // handle in a promise of its own, and a class that arrives on React's
+      // next commit loses that race often enough to flash.
+      const $at = node ? editor.state.doc.resolve(pos) : null
+      let table = false
+      for (let depth = $at?.depth ?? 0; depth > 0; depth -= 1) {
+        if ($at?.node(depth).type.name === "table") table = true
+      }
+      editor.view.dom.parentElement
+        ?.querySelector(".tiptap-drag-handle")
+        ?.classList.toggle("is-hidden", table)
     },
     []
   )

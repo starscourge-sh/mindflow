@@ -16,6 +16,21 @@ import {
 // --- Items ---
 import { slashItems } from "@/components/slash/slash-items"
 import { BLOCK_COLORS, COLORABLE } from "@/extensions/block-color"
+import { fitToWidth } from "@/lib/table"
+
+/**
+ * What belongs to the whole table rather than to a row or a column.
+ *
+ * These were in the row and column menus, which is where they landed for want
+ * of anywhere else - and reading "Delete table" under a column's own actions
+ * is a good way to lose one. The handle points at the table, so this is the
+ * menu that means the table.
+ */
+const TABLE_ACTIONS: Array<[string, (editor: Editor) => void]> = [
+  ["Toggle header row", (editor) => editor.chain().focus().toggleHeaderRow().run()],
+  ["Toggle header column", (editor) => editor.chain().focus().toggleHeaderColumn().run()],
+  ["Fit to width", (editor) => void fitToWidth(editor)],
+]
 
 /** The same conversions `/` offers, minus everything that inserts. */
 const CONVERSIONS = slashItems.filter((item) => item.turnInto)
@@ -268,6 +283,16 @@ export function BlockMenu({
             </button>
           </DropdownMenuItem>
         ) : null}
+
+        {thing?.type.name === "table"
+          ? TABLE_ACTIONS.filter(([label]) => matches(label)).map(([label, run]) => (
+              <DropdownMenuItem key={label} asChild>
+                <button type="button" onClick={() => at(() => run(editor))}>
+                  <span className="tiptap-slash-menu-title">{label}</span>
+                </button>
+              </DropdownMenuItem>
+            ))
+          : null}
 
         {matches("Duplicate") ? (
           <DropdownMenuItem asChild>

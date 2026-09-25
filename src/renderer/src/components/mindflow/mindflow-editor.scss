@@ -1817,3 +1817,24 @@ $nested-ul: "ul:not([data-type='taskList'])";
 .tiptap.ProseMirror > img:not([data-type=emoji] img) {
     margin: 1rem 0;
 }
+
+// Hidden rather than unmounted: the handle is placed by a positioner that
+// would jump on every remount, and it is on screen constantly.
+.tiptap-drag-handle.is-hidden {
+  visibility: hidden;
+}
+
+// The handle's drag preview: a bare div parked off screen holding a clone of
+// the block, handed to `setDragImage`. A table's clone is full size, so the
+// ghost smeared across the page over the table it came from. A preview only
+// has to say what is being dragged.
+//
+// `!important` because the clone is not styled by any stylesheet: the handle
+// copies every computed property onto it as INLINE style, `max-height: none`
+// and `overflow: visible` among them, and inline beats a rule that does not
+// say this.
+body > div[dir] > .tableWrapper {
+  max-width: 20rem !important;
+  max-height: 6rem !important;
+  overflow: hidden !important;
+}
