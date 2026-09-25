@@ -274,6 +274,19 @@ export interface MindflowEditorProps {
   /** Start with the source panel open. It also toggles on Mod-Alt-s. */
   showSource?: boolean
   /**
+   * Read only, the way an input is: the caret still moves and the text can
+   * still be selected and copied, but nothing can change it, and the menus
+   * that would change it stop offering.
+   *
+   * Not `disabled`, which in a form means unfocusable and skipped over. A
+   * document nobody can edit is still a document to be read.
+   *
+   * The lock in the toolbar does the same thing from the inside, so a caller
+   * holding this should leave that button out of `toolbar` - otherwise the
+   * reader can simply unlock it until this prop next changes.
+   */
+  readOnly?: boolean
+  /**
    * Which notes the `@` menu offers. The editor has no idea what a note is, so
    * searching is the app's job; without this, `@` simply finds nothing.
    */
@@ -293,6 +306,7 @@ export function MindflowEditor({
   defaultContent = "",
   placeholder = "Write, type '/' for commands…",
   showSource = false,
+  readOnly = false,
   shape = "document",
   toolbar,
   handles = true,
@@ -393,6 +407,7 @@ export function MindflowEditor({
 
   const editor = useEditor({
     immediatelyRender: false,
+    editable: !readOnly,
     editorProps: {
       attributes: {
         autocomplete: "off",
@@ -611,6 +626,12 @@ export function MindflowEditor({
 
   // Unmount covers switching notes with a `key`; `pagehide` covers closing the
   // window, which never unmounts anything.
+  // `editable` above is read when the editor is built, so a caller that
+  // flips this later needs telling.
+  useEffect(() => {
+    editor?.setEditable(!readOnly)
+  }, [editor, readOnly])
+
   useEffect(() => {
     const flush = (): void => {
       if (!pending.current) return
