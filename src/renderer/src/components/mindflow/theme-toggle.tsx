@@ -1,24 +1,26 @@
 import { useEffect, useState } from "react"
-import { Building2, Palette, Waves } from "lucide-react"
+import { Building2, Flame, Palette, Waves } from "lucide-react"
 
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { MoonStarIcon } from "@/components/tiptap-icons/moon-star-icon"
 
 /**
- * Dark, gruvbox, kanagawa and tokyonight moon, in that order.
+ * Dark, gruvbox, kanagawa wave, kanagawa dragon and tokyonight moon, in that
+ * order.
  *
  * There is no light theme. The window is transparent and sits on a frosted
  * desktop, so the page paints no background of its own: dark text would have
  * nothing to sit on and would read as a ghost. All of them are built for
  * that surface, and the choice is remembered.
  */
-const THEMES = ["dark", "gruvbox", "kanagawa", "tokyonight"] as const
+const THEMES = ["dark", "gruvbox", "kanagawa", "kanagawa-dragon", "tokyonight"] as const
 type Theme = (typeof THEMES)[number]
 
 const ICONS: Record<Theme, React.ReactNode> = {
   dark: <MoonStarIcon className="tiptap-button-icon" />,
   gruvbox: <Palette className="tiptap-button-icon" />,
   kanagawa: <Waves className="tiptap-button-icon" />,
+  "kanagawa-dragon": <Flame className="tiptap-button-icon" />,
   tokyonight: <Building2 className="tiptap-button-icon" />,
 }
 

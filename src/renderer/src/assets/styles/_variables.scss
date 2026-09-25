@@ -295,6 +295,56 @@
   --tt-selection-color: rgba(45, 79, 103, 0.55);
 }
 
+/* Kanagawa dragon. The wave scheme repainted in warm grey: the indigo is gone
+   and every hue is taken down until it reads as tinted ink. The darkest theme
+   here by some way, which is the point of it. */
+.kanagawa-dragon {
+  /* dragonBlack3, the variant's own background. */
+  --black: rgba(24, 22, 22, 1);
+
+  /* dragonBlack2 and 4 on 50 and 100, Black5 on 200, Black6 on 500, then the
+     greys: Gray3, Gray2, Gray, and dragonWhite on 900. */
+  --tt-gray-dark-50: rgba(29, 28, 25, 1);
+  --tt-gray-dark-100: rgba(40, 39, 39, 1);
+  --tt-gray-dark-200: rgba(57, 56, 54, 1);
+  --tt-gray-dark-300: rgba(74, 73, 71, 1);
+  --tt-gray-dark-400: rgba(86, 85, 83, 1);
+  --tt-gray-dark-500: rgba(98, 94, 90, 1);
+  --tt-gray-dark-600: rgba(122, 131, 130, 1);
+  --tt-gray-dark-700: rgba(158, 155, 147, 1);
+  --tt-gray-dark-800: rgba(166, 166, 156, 1);
+  --tt-gray-dark-900: rgba(197, 201, 197, 1);
+
+  /* Overlays tinted with dragonWhite, which is warm grey rather than cream. */
+  --tt-gray-dark-a-50: rgba(197, 201, 197, 0.05);
+  --tt-gray-dark-a-100: rgba(197, 201, 197, 0.07);
+  --tt-gray-dark-a-200: rgba(197, 201, 197, 0.11);
+  --tt-gray-dark-a-300: rgba(197, 201, 197, 0.22);
+  --tt-gray-dark-a-400: rgba(197, 201, 197, 0.37);
+  --tt-gray-dark-a-500: rgba(197, 201, 197, 0.5);
+  --tt-gray-dark-a-600: rgba(197, 201, 197, 0.64);
+  --tt-gray-dark-a-700: rgba(197, 201, 197, 0.75);
+  --tt-gray-dark-a-800: rgba(197, 201, 197, 0.88);
+  --tt-gray-dark-a-900: rgba(197, 201, 197, 0.96);
+
+  /* dragonBlue2 on 400. Where wave has the crystal blue of the print, dragon
+     has this: the same role, drained of most of its colour. */
+  --tt-brand-color-50: rgba(236, 240, 242, 1);
+  --tt-brand-color-100: rgba(215, 224, 228, 1);
+  --tt-brand-color-200: rgba(189, 204, 211, 1);
+  --tt-brand-color-300: rgba(163, 183, 193, 1);
+  --tt-brand-color-400: rgba(139, 164, 176, 1);
+  --tt-brand-color-500: rgba(118, 139, 150, 1);
+  --tt-brand-color-600: rgba(98, 116, 125, 1);
+  --tt-brand-color-700: rgba(79, 93, 100, 1);
+  --tt-brand-color-800: rgba(59, 70, 75, 1);
+  --tt-brand-color-900: rgba(42, 50, 53, 1);
+  --tt-brand-color-950: rgba(29, 34, 37, 1);
+
+  --tt-cursor-color: rgba(139, 164, 176, 1);
+  --tt-selection-color: rgba(75, 89, 95, 0.55);
+}
+
 /* Tokyonight moon. Cool and saturated where kanagawa is muted, so the two dark
    blues never read as the same theme. */
 .tokyonight {
@@ -418,6 +468,21 @@
   --tt-color-text-red: #e46876;
 }
 
+/* The nine block colours, from the dragon palette. It names fewer hues than
+   wave does, so brown is dragonOrange taken down and desaturated - the same
+   trick gruvbox needs. */
+.kanagawa-dragon {
+  --tt-color-text-gray: #7a8382;
+  --tt-color-text-brown: #8f7b6a;
+  --tt-color-text-orange: #b6927b;
+  --tt-color-text-yellow: #c4b28a;
+  --tt-color-text-green: #8a9a7b;
+  --tt-color-text-blue: #8ba4b0;
+  --tt-color-text-purple: #8992a7;
+  --tt-color-text-pink: #a292a3;
+  --tt-color-text-red: #c4746e;
+}
+
 /* The nine block colours, from the moon palette. Brown is the one shade the
    scheme has no name for, so it is `orange` taken down and desaturated. */
 .tokyonight {
@@ -504,6 +569,18 @@
   --tt-color-highlight-pink: rgb(72, 54, 64);
 }
 
+.kanagawa-dragon {
+  --tt-color-highlight-yellow: rgba(196, 178, 138, 0.25);
+  --tt-color-highlight-green: rgba(138, 154, 123, 0.25);
+  --tt-color-highlight-blue: rgba(139, 164, 176, 0.25);
+  --tt-color-highlight-purple: rgba(137, 146, 167, 0.25);
+  --tt-color-highlight-red: rgba(196, 116, 110, 0.25);
+  --tt-color-highlight-gray: rgb(57, 56, 54);
+  --tt-color-highlight-brown: rgb(62, 55, 49);
+  --tt-color-highlight-orange: rgb(68, 57, 49);
+  --tt-color-highlight-pink: rgb(60, 53, 56);
+}
+
 .tokyonight {
   --tt-color-highlight-yellow: rgba(255, 199, 119, 0.25);
   --tt-color-highlight-green: rgba(195, 232, 141, 0.25);
@@ -521,6 +598,7 @@
    which every theme here also carries, so equal specificity would lose. */
 :root.gruvbox { --mf-caret-vim: rgba(254, 128, 25, 1); }
 :root.kanagawa { --mf-caret-vim: rgba(126, 156, 216, 1); }
+:root.kanagawa-dragon { --mf-caret-vim: rgba(139, 164, 176, 1); }
 :root.tokyonight { --mf-caret-vim: rgba(255, 199, 119, 1); }
 
 /* Prose accents, per theme. Code blocks get their colour from the token rules
@@ -547,6 +625,13 @@
   --mf-accent-ink: #7e9cd8;
   --mf-code-ink: #e46876;
   --mf-quote-ink: #98bb6c;
+}
+
+:root.kanagawa-dragon {
+  --mf-heading: #c4b28a;
+  --mf-accent-ink: #8ba4b0;
+  --mf-code-ink: #c4746e;
+  --mf-quote-ink: #8a9a7b;
 }
 
 :root.tokyonight {

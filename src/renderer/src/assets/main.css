@@ -149,6 +149,42 @@
   --sidebar-ring: #7e9cd8;
 }
 
+/* Kanagawa dragon, for the app chrome. The same scheme repainted in warm
+   grey: near-black ink, and hues taken so far down they read as tinted grey. */
+.kanagawa-dragon {
+  --background: #181616;
+  --foreground: #c5c9c5;
+  --card: #1d1c19;
+  --card-foreground: #c5c9c5;
+  --popover: #1d1c19;
+  --popover-foreground: #c5c9c5;
+  --primary: #8ba4b0;
+  --primary-foreground: #181616;
+  --secondary: #282727;
+  --secondary-foreground: #c5c9c5;
+  --muted: #282727;
+  --muted-foreground: #a6a69c;
+  --accent: #282727;
+  --accent-foreground: #c5c9c5;
+  --destructive: #c4746e;
+  --border: rgba(197, 201, 197, 0.12);
+  --input: rgba(197, 201, 197, 0.16);
+  --ring: #8ba4b0;
+  --chart-1: #8ba4b0;
+  --chart-2: #8a9a7b;
+  --chart-3: #c4b28a;
+  --chart-4: #8992a7;
+  --chart-5: #a292a3;
+  --sidebar: #1d1c19;
+  --sidebar-foreground: #c5c9c5;
+  --sidebar-primary: #8ba4b0;
+  --sidebar-primary-foreground: #181616;
+  --sidebar-accent: #282727;
+  --sidebar-accent-foreground: #c5c9c5;
+  --sidebar-border: rgba(197, 201, 197, 0.12);
+  --sidebar-ring: #8ba4b0;
+}
+
 /* Tokyonight moon, for the app chrome. */
 .tokyonight {
   --background: #222436;
