@@ -2,7 +2,9 @@ import { Extension } from "@tiptap/core"
 import { Plugin } from "@tiptap/pm/state"
 import { Decoration, DecorationSet } from "@tiptap/pm/view"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
-import type { Editor } from "@tiptap/core"
+import type { Editor, JSONContent } from "@tiptap/core"
+
+import { BLOCK_COLORS, type BlockColor } from "@/extensions/block-color"
 
 /** A thing worth picking out of what someone typed: a priority, a date, a tag. */
 export interface TokenPattern {
@@ -10,10 +12,51 @@ export interface TokenPattern {
   name: string
   /** Matched against each block of text. The `g` flag is added if missing. */
   pattern: RegExp
+  /**
+   * What colour to paint it.
+   *
+   * One of the nine the themes already define, not a hex: those are tuned per
+   * theme for contrast against that theme's page, so a tag stays readable when
+   * the palette changes under it.
+   *
+   * A function is handed the match's `value`, which is how one pattern gives
+   * every tag its own colour - `#feature` cyan, `#bug` red - rather than
+   * painting them all alike. Left out, `spread` does exactly that.
+   */
+  color?: BlockColor | ((value: string) => BlockColor)
+}
+
+/**
+ * The seven of the nine that are a hue.
+ *
+ * Gray and brown are left out: a tag painted in either reads as one that
+ * failed to get a colour, sitting flat beside a green or a purple one.
+ */
+const SPREAD = BLOCK_COLORS.filter((color) => color !== "gray" && color !== "brown")
+
+/**
+ * A colour per distinct value, stable across runs and evenly spread.
+ *
+ * The default for a pattern that does not say. The same tag is always the same
+ * colour, because the hash is of the text; different tags rarely collide,
+ * because seven buckets over a handful of tags is room enough.
+ */
+export function spread(value: string): BlockColor {
+  let hash = 0
+  for (let i = 0; i < value.length; i += 1) hash = (hash * 31 + value.charCodeAt(i)) | 0
+  return SPREAD[Math.abs(hash) % SPREAD.length]
+}
+
+/** The colour a match should be painted. */
+function colorOf({ color }: TokenPattern, value: string): BlockColor {
+  if (typeof color === "function") return color(value)
+  return color ?? spread(value)
 }
 
 export interface TokenMatch {
   name: string
+  /** Which of the nine this match is painted in. */
+  color: BlockColor
   /** The matched text, including the marker: `!p1`, `#inbox`. */
   text: string
   /** The first capture group if the pattern has one, else the whole match. */
@@ -44,7 +87,8 @@ function scan(doc: ProseMirrorNode, patterns: TokenPattern[]): TokenMatch[] {
     const text = node.textBetween(0, node.content.size, undefined, "￼")
     const start = pos + 1
 
-    for (const { name, pattern } of patterns) {
+    for (const token of patterns) {
+      const { name, pattern } = token
       const flags = pattern.flags.includes("g")
         ? pattern.flags
         : `${pattern.flags}g`
@@ -61,7 +105,8 @@ function scan(doc: ProseMirrorNode, patterns: TokenPattern[]): TokenMatch[] {
         // the same characters.
         if (found.some((other) => from < other.to && to > other.from)) continue
 
-        found.push({ name, text: match[0], value: match[1] ?? match[0], from, to })
+        const value = match[1] ?? match[0]
+        found.push({ name, color: colorOf(token, value), text: match[0], value, from, to })
       }
     }
 
@@ -70,6 +115,51 @@ function scan(doc: ProseMirrorNode, patterns: TokenPattern[]): TokenMatch[] {
   })
 
   return found.sort((a, b) => a.from - b.from)
+}
+
+/**
+ * Obsidian's tags: `#feature`, `#bug`, `#reading-list`.
+ *
+ * The editor's default, so `#something` is a tag without anyone configuring
+ * one. Passing `tokens` replaces this rather than adding to it.
+ */
+export const TAGS: TokenPattern[] = [{ name: "tag", pattern: /#([\w-]+)/ }]
+
+/**
+ * Every distinct tag in a stored document, with how often each appears.
+ *
+ * Reads the JSON rather than an editor, so a note that is not open can still
+ * be asked what it is about - the same way `assetsOf` lists the files a note
+ * points at without loading it.
+ */
+export function tagsOf(
+  doc: JSONContent | null | undefined,
+  patterns: TokenPattern[] = TAGS
+): Array<{ name: string; value: string; color: BlockColor; count: number }> {
+  const found = new Map<string, { name: string; value: string; color: BlockColor; count: number }>()
+
+  const walk = (node: JSONContent): void => {
+    if (typeof node.text === "string") {
+      for (const token of patterns) {
+        const flags = token.pattern.flags.includes("g")
+          ? token.pattern.flags
+          : `${token.pattern.flags}g`
+
+        for (const match of node.text.matchAll(new RegExp(token.pattern.source, flags))) {
+          if (!match[0]) continue
+          const value = match[1] ?? match[0]
+          const key = `${token.name}:${value}`
+          const seen = found.get(key)
+          if (seen) seen.count += 1
+          else found.set(key, { name: token.name, value, color: colorOf(token, value), count: 1 })
+        }
+      }
+    }
+    for (const child of node.content ?? []) walk(child)
+  }
+
+  if (doc) walk(doc)
+  return [...found.values()]
 }
 
 /** Every match in the document, in order. */
@@ -93,7 +183,10 @@ export function findTokens(
  * Patterns are read once, when the editor is built. Changing them later means
  * remounting the editor.
  */
-export const Tokens = Extension.create<{ patterns: TokenPattern[] }>({
+export const Tokens = Extension.create<{
+  patterns: TokenPattern[]
+  onClick?: (token: TokenMatch) => void
+}>({
   name: "tokens",
 
   addOptions() {
@@ -101,7 +194,7 @@ export const Tokens = Extension.create<{ patterns: TokenPattern[] }>({
   },
 
   addProseMirrorPlugins() {
-    const { patterns } = this.options
+    const { patterns, onClick } = this.options
 
     return [
       new Plugin({
@@ -113,9 +206,33 @@ export const Tokens = Extension.create<{ patterns: TokenPattern[] }>({
                 Decoration.inline(token.from, token.to, {
                   class: "tiptap-token",
                   "data-token": token.name,
+                  "data-token-color": token.color,
                 })
               )
             ),
+
+          /**
+           * Following a tag.
+           *
+           * A note link is a node with nothing to type in, so a plain click
+           * follows it. A token is live text someone may be in the middle of
+           * editing, and taking the plain click would leave no way to put the
+           * caret inside `#feature` to fix a typo. So Mod-click follows, the
+           * way a link in editable text does - and in a locked document, where
+           * there is nothing to edit, a plain click is enough.
+           */
+          handleClick: (view, pos, event) => {
+            if (!onClick) return false
+            if (view.editable && !(event.metaKey || event.ctrlKey)) return false
+
+            const hit = scan(view.state.doc, patterns).find(
+              (token) => pos >= token.from && pos < token.to
+            )
+            if (!hit) return false
+
+            onClick(hit)
+            return true
+          },
         },
       }),
     ]

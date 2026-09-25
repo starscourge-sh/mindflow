@@ -34,7 +34,7 @@ import "katex/dist/katex.min.css"
 // --- Extensions ---
 import { ObsidianShortcuts } from "@/extensions/obsidian-shortcuts"
 import { VimMode } from "@/extensions/vim-mode"
-import { Tokens, type TokenPattern } from "@/extensions/tokens"
+import { TAGS, Tokens, type TokenMatch, type TokenPattern } from "@/extensions/tokens"
 import { SlashCommand } from "@/extensions/slash-command"
 import { ToggleHeading, headingRank } from "@/extensions/toggle-heading"
 import { ImageDrop } from "@/extensions/image-drop"
@@ -262,6 +262,11 @@ export interface MindflowEditorProps {
   /**
    * Patterns to tint as they are typed, and report back. Read once at mount:
    * the extension captures them when the editor is built.
+   *
+   * Defaults to `TAGS`, so `#something` is a tag with no setup - each one in
+   * its own colour, which is the part Obsidian does not do. Pass `[]` for
+   * none, or your own patterns, which replace the default rather than adding
+   * to it.
    */
   tokens?: TokenPattern[]
   /**
@@ -294,6 +299,15 @@ export interface MindflowEditorProps {
   /** A note link was clicked. The editor reports; the app navigates. */
   onOpenNote?: (id: string) => void
   /**
+   * A tag was followed. The editor reports the match; what following one means
+   * - a search, a filter, a new view - is the app's.
+   *
+   * Mod-click, because a plain click belongs to the caret while the text can
+   * still be edited. With `readOnly` there is nothing to edit, so a plain
+   * click is enough.
+   */
+  onTokenClick?: (token: TokenMatch) => void
+  /**
    * The document, debounced. JSON rather than HTML: node attributes - a folded
    * heading's rank, a block's colour - are the point, and JSON keeps them
    * exactly. The editor comes with it, for a caller that wants plain text or
@@ -318,9 +332,10 @@ export function MindflowEditor({
   className = "",
   style,
   onSubmit,
-  tokens = [],
+  tokens = TAGS,
   findNotes = () => [],
   onOpenNote,
+  onTokenClick,
   onChange,
 }: MindflowEditorProps = {}): React.JSX.Element {
 
@@ -359,6 +374,14 @@ export function MindflowEditor({
   // Held from the first render: the extension captures its patterns when the
   // editor is built, so a newer prop would tint what is not being matched.
   const [held] = useState(tokens)
+  // Through a ref, like the note finder above: extensions are configured once,
+  // when the editor is built, and a handler captured then would be the first
+  // one this component ever rendered with.
+  const follow = useRef<(token: TokenMatch) => void>(() => {})
+  useEffect(() => {
+    follow.current = onTokenClick ?? ((): void => {})
+  })
+  const onToken = useCallback((token: TokenMatch): void => follow.current(token), [])
   const allowed = marks ?? (shape === "line" ? LINE_MARKS : ALL_MARKS)
   const has = (mark: MarkName): boolean => allowed.includes(mark)
   const submit = useLatest(onSubmit)
@@ -608,7 +631,13 @@ export function MindflowEditor({
         singleLine: shape === "line",
         onSearch: () => setSearchOpen(true),
       }),
-      ...(tokens.length ? [Tokens.configure({ patterns: held })] : []),
+      ...(tokens.length
+        ? // `onToken` reads a ref, which the rule cannot tell from reading one
+          // during render. It only runs on a click, which is the one place a
+          // ref is meant to be read.
+          // eslint-disable-next-line react-hooks/refs
+          [Tokens.configure({ patterns: held, onClick: onToken })]
+        : []),
       ImagePlaceholder,
     ],
     content: defaultContent,

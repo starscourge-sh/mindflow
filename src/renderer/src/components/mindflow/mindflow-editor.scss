@@ -160,17 +160,21 @@
   padding: 0.05em 0.15em;
   background-color: var(--tt-color-highlight-blue);
 
-  &[data-token="priority"] {
-    background-color: var(--tt-color-highlight-red);
+  // A colour per token, from the nine each theme already tunes for contrast
+  // against its own page - so a tag stays readable when the palette changes
+  // under it, which a hex would not.
+  //
+  // The tint only. Colouring the text as well took the caret with it, because
+  // `caret-color: auto` follows `color`, and it vanished into the tint it was
+  // sitting on. The text stays the page's, which also keeps every tag the same
+  // weight on the page: the nine are not equally vivid, so tinting the letters
+  // made some shout and others read as grey.
+  @each $name in ("gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red") {
+    &[data-token-color="#{$name}"] {
+      background-color: var(--tt-color-highlight-#{$name});
+    }
   }
 
-  &[data-token="date"] {
-    background-color: var(--tt-color-highlight-green);
-  }
-
-  &[data-token="label"] {
-    background-color: var(--tt-color-highlight-purple);
-  }
 }
 
 // A single line hugs its text rather than filling whatever holds it, and has
