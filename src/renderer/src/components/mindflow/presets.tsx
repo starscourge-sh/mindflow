@@ -33,22 +33,30 @@ const MARKS_AND_LINK = (
 )
 
 /**
+ * Everything a page carries that a field in a form does not.
+ *
+ * `search` among them because Mod-f listens on the whole window, so one box
+ * that keeps it opens the find bar in every other box on the page at once.
+ */
+const BARE = {
+  handles: false,
+  slash: false,
+  outline: false,
+  search: false,
+  vim: false,
+} as const
+
+/**
  * A comment. Several paragraphs if it needs them, formatting on selection, and
- * none of what a page carries around it: no toolbar along the bottom, no drag
- * handles, no outline, and no Mod-f, which listens on the whole window and
- * would open the find box in every other comment on the page at once.
+ * none of the chrome a page carries around it.
  */
 export function CommentEditor(props: MindflowEditorProps): React.JSX.Element {
   return (
     <MindflowEditor
+      {...BARE}
       placeholder="Write a comment"
       marks={["bold", "italic", "strike", "code", "link"]}
       toolbar={{ fixed: false, selection: MARKS_AND_LINK }}
-      handles={false}
-      slash={false}
-      outline={false}
-      search={false}
-      vim={false}
       {...props}
     />
   )
@@ -64,10 +72,15 @@ export function DescriptionEditor(props: MindflowEditorProps): React.JSX.Element
 /**
  * One line, for a title or a message box. The schema holds a single paragraph,
  * so Return has nowhere to go and a paste of several blocks flattens into it.
+ *
+ * Built on the editor rather than on `CommentEditor`: the two share only the
+ * chrome they switch off, and inheriting one from the other says a title is a
+ * kind of comment, which it is not.
  */
 export function LineEditor(props: MindflowEditorProps): React.JSX.Element {
   return (
-    <CommentEditor
+    <MindflowEditor
+      {...BARE}
       shape="line"
       placeholder="Title"
       // No link: a title is a name, not somewhere to point. Left out of the
@@ -77,4 +90,19 @@ export function LineEditor(props: MindflowEditorProps): React.JSX.Element {
       {...props}
     />
   )
+}
+
+/**
+ * A document's title: a line at input scale, lined up with the body below it.
+ *
+ * The editor's stylesheet carries that as `is-title`, and this is what applies
+ * it. Left to the caller it was a bare string in a `className` with no prop and
+ * no type behind it - something nobody finds twice, least of all anyone
+ * dropping this editor into their own app.
+ */
+export function TitleEditor({
+  className = "",
+  ...props
+}: MindflowEditorProps): React.JSX.Element {
+  return <LineEditor className={`is-title ${className}`.trim()} {...props} />
 }

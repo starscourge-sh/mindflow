@@ -3,7 +3,7 @@ import { Maximize2, Minimize2 } from 'lucide-react'
 import type { JSONContent } from '@tiptap/core'
 
 import { MindflowEditor } from './components/mindflow/mindflow-editor'
-import { LineEditor } from './components/mindflow/presets'
+import { TitleEditor } from './components/mindflow/presets'
 import { useNotes } from './lib/use-notes'
 
 export default function App(): React.JSX.Element {
@@ -22,11 +22,6 @@ const Header = (): React.JSX.Element => {
     <div className="fixed top-0 right-0 left-0 z-10 flex items-center gap-2 px-4 pt-8 text-xs"
       style={{ WebkitAppRegion: 'drag', } as CSSProperties}>
       <span className="flex-1" />
-      {/*
-      <span className="truncate text-center text-muted-foreground bg-accent/95 py-2 px-4 rounded-full border shadow-lg">
-        Mindflow
-      </span>
-        */}
       <span className="flex-1" />
 
       {/* The strip is the window's drag handle, so the one thing on it that is
@@ -61,7 +56,7 @@ const CapturePrompt = (): React.JSX.Element => {
   }
 
   return (
-    <div className="relative overflow-hidden flex w-full flex-1 min-h-0 flex-col rounded-2xl bg-backgorund transition transition-all transition-duration-3"
+    <div className="relative overflow-hidden flex w-full flex-1 min-h-0 flex-col rounded-2xl bg-backgorund transition transition-all transition-duration-3 pt-5"
       style={{ transform: 'translate(0,0)' }}
     >
       {/* Nothing is editable until a note has arrived: an editor shown first and
@@ -69,9 +64,9 @@ const CapturePrompt = (): React.JSX.Element => {
           keyed by note, because both read their content once, at mount. */}
       {note ? (
         <>
-          <LineEditor
+          <TitleEditor
             key={`title-${note.id}`}
-            className="is-title border-b"
+            className="border-b"
             defaultContent={note.titleHtml}
             placeholder="Issue title"
             onChange={(_doc, editor) =>
