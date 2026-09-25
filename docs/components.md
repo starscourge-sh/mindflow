@@ -55,6 +55,18 @@ the document mid-edit would throw away whatever was being typed.
 `placeholder` is the grey text in an empty document. Like `defaultContent`, it
 is read once at mount.
 
+`readOnly` locks the editor from the outside, the way an input's `readOnly`
+does: the caret still moves and text can still be selected and copied, but
+nothing can change it. Unlike `defaultContent` it is live - flip it and the
+editor follows.
+
+```tsx
+<MindflowEditor readOnly={!canEdit} defaultContent={note.doc} />
+```
+
+It is not `disabled`, which in a form means unfocusable and skipped over in the
+tab order. A document nobody may edit is still a document to be read.
+
 ### What it emits
 
 `onChange` gives you a JSON document, **500ms after typing stops**.
@@ -117,7 +129,6 @@ go and pasting three paragraphs flattens them into one, joined by spaces.
 import { LineEditor } from "@/components/mindflow/presets"
 
 <LineEditor
-  className="is-title"
   placeholder="Task name"
   tokens={[
     { name: "priority", pattern: /!p([1-4])\b/ },
@@ -133,20 +144,8 @@ import { LineEditor } from "@/components/mindflow/presets"
 guarded on composition, so accepting a Japanese candidate does not submit.
 
 `tokens` tints anything matching as it is typed, the way Todoist marks a date or
-a tag. To read what matched, call `findTokens` with the editor `onChange` hands
-you:
-
-```ts
-import { findTokens } from "@/extensions/tokens"
-
-onChange={(_doc, editor) => {
-  findTokens(editor, patterns)
-  // [{ name: "priority", text: "!p1", value: "1", from: 10, to: 13 }, ...]
-}}
-```
-
-The tint is a decoration, so the text underneath is untouched and what you save
-is exactly what was typed.
+a tag. See **Tags** below: it is the same machinery, and tags are what it does
+without being asked.
 
 A line carries bold, italic, strikethrough and inline code, and nothing else.
 That is the **schema**, not a set of hidden buttons, so `==highlight==` stays
@@ -164,6 +163,69 @@ the field in, and `className` and `style` go straight onto the editor's own box,
 so you dress it like any other component. Padding is `--mf-padding` rather than
 a fixed rule, so setting it from either one wins.
 
+## Tags
+
+`#feature`, `#bug`, `#reading-list`. Type one in any editor, document or line,
+and it colours itself. Nothing to switch on: `tokens` defaults to `TAGS`.
+
+Each distinct tag gets its own colour, which is the part Obsidian does not do -
+there, every tag looks alike. The colour comes from hashing the tag's text, so
+`#bug` is the same colour in every note and across restarts.
+
+Colours are the nine names the themes already define, never hexes. Each theme
+tunes its own for contrast against its own page, so a tag stays readable when
+you switch to gruvbox or kanagawa dragon.
+
+### Choosing the colours
+
+Pass your own pairs. A pattern can take a fixed colour, or a function of what
+matched, which is how one pattern paints every tag differently:
+
+```tsx
+import { TAGS, type TokenPattern } from "@/extensions/tokens"
+
+const MINE: TokenPattern[] = [
+  { name: "tag", pattern: /#([\w-]+)/, color: (tag) =>
+      tag === "bug" ? "red" : tag === "feature" ? "blue" : "gray" },
+  { name: "priority", pattern: /!p([1-4])\b/, color: "orange" }
+]
+
+<MindflowEditor tokens={MINE} />
+```
+
+`tokens` replaces the default rather than adding to it, so spread `...TAGS` in
+if you want tags as well. Pass `[]` for none. Patterns are read once, at mount.
+
+### Knowing which tags a note uses
+
+`tagsOf` reads a stored document, the way `assetsOf` lists the files one points
+at - so a note does not have to be open to be asked what it is about:
+
+```ts
+import { tagsOf } from "@/extensions/tokens"
+
+tagsOf(note.doc)
+// [{ name: "tag", value: "feature", color: "blue", count: 3 }, ...]
+```
+
+For an editor that is open, `findTokens` gives every match in order, with
+positions:
+
+```ts
+import { findTokens } from "@/extensions/tokens"
+
+onChange={(_doc, editor) => {
+  findTokens(editor, patterns)
+  // [{ name: "tag", color: "blue", text: "#feature", value: "feature", from: 10, to: 18 }, ...]
+}}
+```
+
+Both read the text; neither writes to it. The tint is a decoration, so what you
+save is exactly what was typed, and deleting a character of `#feature` simply
+stops it matching.
+
+---
+
 ## Vim bindings
 
 Motions: `h j k l`, `w e b` and their `W E B` counterparts, `0 ^ $`, `gg G`,
@@ -175,6 +237,22 @@ objects, and the shorthands `D C Y S s x X ~ r J p P`. Visual mode with `v` and
 `V`, and `gv` to put the last one back. `u` and `Ctrl-r` undo and redo.
 
 Counts work on all of them. `jk` leaves insert mode, and `/` opens find.
+
+`Ctrl-o` and `Ctrl-i` step back and forward through the last ten places a long
+motion left from - `G`, `gg`, `{`, `}`. Short motions do not record, or the
+list fills with places nobody wants to return to.
+
+The register and the system clipboard are one. Everything `y`, `d`, `c` and `x`
+take goes to the clipboard too, and `p` puts back whichever was written last,
+so a copy from another app lands where you expect. That is vim's
+`clipboard=unnamedplus`, and it costs what that costs: a delete overwrites what
+you copied.
+
+A "line" is a block, because the document is a tree rather than a buffer. `dd`
+on a bullet takes that bullet's own line and lifts its sub-bullets into its
+place - taking the branch as well would remove text that is nowhere near the
+cursor, with nothing on screen to say so. `V` highlights exactly what `d` and
+`y` will take.
 
 `.` is not implemented: repeating the last change means recording it, which is
 machinery rather than a binding.
@@ -388,6 +466,30 @@ the file picker makes a card out of anything.
 
 ---
 
+## Drawings
+
+`/` and pick **Drawing** for an Excalidraw canvas in the note. It is a block,
+not a file beside the note: the scene lives on the node, so copying the block
+copies the drawing and there is nothing to keep in step on disk.
+
+Reading a note shows a picture of it - an SVG, so ten diagrams cost ten images
+and not ten editors. Click to open the real canvas, and the tick in the corner
+closes it. The grip under the bottom edge sets the height; there is no width
+control, because the width is the column's, as it is for every other block.
+
+The editor asks for Excalidraw's hand-drawn fonts at runtime and falls back to
+a CDN if it cannot find them, which is a fine default on the web. An offline
+host copies them next to `index.html` at build time and points
+`window.EXCALIDRAW_ASSET_PATH` at the page's own folder - see `main.tsx` and
+the vite config in this repo for the shape of it. Where the fonts live is the
+host's business, like the page background and the web font.
+
+A markdown export writes `*(drawing)*`. A canvas has no markdown, and the scene
+inline would be megabytes of noise in a file meant to be read; export as JSON to
+keep the drawing itself.
+
+---
+
 ## Links, cards and videos
 
 `/` offers **Bookmark** and **YouTube** separately, so a video can be either a
@@ -414,6 +516,23 @@ it came out blank. Its oEmbed endpoint needs no key and answers with the title
 and the thumbnail, so those two gaps are filled from there. It carries no
 description, so the channel name goes under the title instead. Only gaps are
 filled: a site that answers properly keeps its own words.
+
+---
+
+## Tables
+
+Hover a table and a grip appears beside each row and column. Take hold of one
+to select that row or column, which is what the menu then acts on; drag it to
+move it. The `+` bars along the bottom and right edges add one on a click, and
+add or remove as many as you pass on a drag.
+
+What belongs to the whole table - header row, header column, fit to width,
+deleting it - is on the table's own drag handle rather than in the row or
+column menu. Reading "Delete table" under a column's actions is a good way to
+lose one.
+
+None of that needs a pointer. With the cursor in a table, `/` offers the same
+actions, shown only there.
 
 ---
 
@@ -498,6 +617,11 @@ The padlock in the toolbar calls `editor.setEditable(false)`. The caret still
 moves and text can still be selected and copied; nothing can change it, and the
 menus that would change it stop offering.
 
+That is the reader's own switch. `readOnly` is the same lock held by whoever
+mounted the editor - see **What it takes**. They act on the same thing, so a
+caller passing `readOnly` should leave the padlock out of `toolbar`, or the
+reader can simply unlock what was locked for them.
+
 ---
 
 ## One editor, dressed for the job
@@ -523,9 +647,15 @@ what it can hold, and either can carry anything the other can:
 toolbar={{ fixed: false, selection: <MarkButton type="bold" /> }}
 ```
 
-Three presets ship in `components/mindflow/presets`, and each is only a set of
-defaults over the same component: `CommentEditor`, `DescriptionEditor` and
-`LineEditor`. Anything a preset sets can be overridden by passing the prop.
+Four presets ship in `components/mindflow/presets`, and each is only a set of
+defaults over the same component: `CommentEditor`, `DescriptionEditor`,
+`LineEditor` and `TitleEditor`. Anything a preset sets can be overridden by
+passing the prop.
+
+`TitleEditor` is a `LineEditor` at input scale, lined up with the body text
+below it. It is the one to reach for above a document, and it exists so that
+the class carrying that scale stays inside the package: a caller should not
+have to know a magic string to make a title look like one.
 
 ```tsx
 <CommentEditor defaultContent={comment.doc} onChange={save} />
@@ -550,7 +680,7 @@ what the presets do.
 ```tsx
 const { notes, note, assets, open, create, remove, save } = useNotes()
 
-<LineEditor key={`title-${note.id}`} defaultContent={note.titleHtml}
+<TitleEditor key={`title-${note.id}`} defaultContent={note.titleHtml}
   onChange={(_doc, editor) => save({ title: editor.getText(), titleHtml: editor.getHTML() })} />
 
 <MindflowEditor key={`doc-${note.id}`} defaultContent={note.doc} onChange={(doc) => save({ doc })} />
