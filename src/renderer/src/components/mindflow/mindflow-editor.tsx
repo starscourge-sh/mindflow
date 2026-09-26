@@ -47,6 +47,7 @@ import { CurrentItem } from "@/extensions/current-item"
 import { CardLink } from "@/extensions/card-link"
 import { SelectedNodes } from "@/extensions/selected-nodes"
 import { Bookmark } from "@/extensions/bookmark"
+import { Callout } from "@/extensions/callout"
 import { Attachment } from "@/extensions/attachment"
 import { ExcalidrawDiagram } from "@/extensions/excalidraw"
 
@@ -610,6 +611,7 @@ function Surface({
       TableKit.configure({ table: { resizable: true, cellMinWidth: 64 } }),
       OutdentLists,
       Bookmark,
+      Callout,
       Attachment,
       ExcalidrawDiagram,
       // Gives the editor `storage.markdown.getMarkdown()`, used by Export.

@@ -4,6 +4,7 @@ import {
   Minus as DividerIcon,
   Table as TableIcon,
   Download,
+  Lightbulb as CalloutIcon,
   Paperclip,
   PencilRuler as DrawingIcon,
   SquarePlay as VideoIcon,
@@ -135,6 +136,14 @@ export const slashItems: SlashItem[] = [
     // Not `setDetails`: that leaves the title EMPTY and drops the block you
     // converted into the body. The block you point at should become the head.
     run: (editor) => editor.commands.toggleHeadingSection()
+  },
+  {
+    title: 'Callout',
+    group: 'Basic blocks',
+    turnInto: true,
+    hint: 'aside',
+    icon: <CalloutIcon />,
+    run: (editor) => editor.chain().focus().toggleCallout().run()
   },
   {
     title: 'Table',

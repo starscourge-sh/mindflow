@@ -213,7 +213,8 @@
 .tiptap-emoji-list,
 .tiptap-table-menu,
 .tiptap-find-bar,
-.tiptap-image-panel {
+.tiptap-image-panel,
+.tiptap-icon-picker {
   border: 1px solid var(--tt-border-color);
   // Matches the app's own panels: --radius-xl, 14px.
   border-radius: 0.875rem;
@@ -1841,4 +1842,146 @@ body > div[dir] > .tableWrapper {
   max-width: 20rem !important;
   max-height: 6rem !important;
   overflow: hidden !important;
+}
+
+// --- Callouts -------------------------------------------------------------
+// An aside. One accent does all the work: the tint and the border are mixed
+// from it, the way Linear's are, so a callout is a whisper of colour rather
+// than a highlighted band. The accent itself is the block palette, which each
+// theme already tunes for contrast.
+
+.tiptap.ProseMirror.mindflow-editor .tiptap-callout {
+  --callout-accent: var(--tt-color-text-blue);
+  --callout-tint: color-mix(in srgb, var(--callout-accent) 6%, transparent);
+  --callout-border: color-mix(in srgb, var(--callout-accent) 22%, transparent);
+
+  @each $name in ("gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red") {
+    &[data-accent="#{$name}"] {
+      --callout-accent: var(--tt-color-text-#{$name});
+    }
+  }
+
+  // The icon sits in the padding rather than in a flex row, so the text inside
+  // is ordinary flow: a list indents from the callout's edge as it would
+  // anywhere else, instead of from a flex item's box.
+  position: relative;
+  margin: 0.75em 0;
+  padding: 0.625rem 1rem 0.625rem 2.375rem;
+  border: 1px solid var(--callout-border);
+  border-radius: 0.5rem;
+  background: var(--callout-tint);
+
+  // A one line callout should be one line tall.
+  > .tiptap-callout-body > :first-child {
+    margin-top: 0;
+  }
+
+  > .tiptap-callout-body > :last-child {
+    margin-bottom: 0;
+  }
+}
+
+.tiptap-callout-icon {
+  position: absolute;
+  // Level with the first line of text, not with the box: the top edge is the
+  // callout's own padding, and the button is one line tall, so the two centre
+  // on each other. A fixed rem height sat a few pixels high of it.
+  top: 0.625rem;
+  left: 0.5rem;
+  height: 1.6em;
+  width: 1.6em;
+  border-radius: 0.25rem;
+  font-size: 0.9375rem;
+  line-height: 1.6em;
+  text-align: center;
+  user-select: none;
+
+  &:hover {
+    background-color: var(--callout-border);
+  }
+}
+
+.tiptap-icon-picker {
+  display: flex;
+  flex-direction: column;
+  // 13 columns of 28px, which is the shape Linear's picker has.
+  width: 27rem;
+
+  // Borderless and full width, with a rule under it rather than a box around
+  // it: the panel is the box.
+  input {
+    padding: 0.625rem 0.875rem;
+    border: 0;
+    border-bottom: 1px solid var(--tt-border-color);
+    background-color: transparent;
+    color: inherit;
+    font-size: 0.875rem;
+
+    &:focus {
+      outline: none;
+    }
+  }
+
+  h3 {
+    margin: 0;
+    padding: 0.625rem 0.875rem 0.25rem;
+    color: var(--mf-muted);
+    font-size: 0.8125rem;
+    font-weight: 400;
+  }
+}
+
+// The colours the callout can take. Linear keeps these on its Icons tab, which
+// this has no need of - an emoji brings its own colour - so they sit above the
+// search where they are the first thing offered.
+.tiptap-icon-picker-colors {
+  display: flex;
+  gap: 0.375rem;
+  padding: 0.625rem 0.875rem;
+  border-bottom: 1px solid var(--tt-border-color);
+
+  button {
+    width: 1.375rem;
+    height: 1.375rem;
+    border-radius: 999px;
+
+    &[data-active] {
+      outline: 2px solid var(--tt-brand-color-500);
+      outline-offset: 2px;
+    }
+  }
+
+  @each $name in ("gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red") {
+    button[data-color="#{$name}"] {
+      background-color: var(--tt-color-text-#{$name});
+    }
+  }
+}
+
+.tiptap-icon-picker-scroll {
+  height: 13rem;
+  padding-bottom: 0.5rem;
+  overflow-y: auto;
+}
+
+// `align-content: start` with a fixed row height, because the default stretches
+// rows to fill: one result got a row the full height of the grid, and a square
+// button in it came out eleven rems across.
+.tiptap-icon-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(13, 1fr);
+  grid-auto-rows: 1.75rem;
+  align-content: start;
+  padding: 0 0.875rem;
+
+  button {
+    border-radius: 0.25rem;
+    font-size: 1.125rem;
+    line-height: 1;
+
+    &:hover,
+    &[data-active] {
+      background-color: var(--tt-gray-dark-a-200);
+    }
+  }
 }
