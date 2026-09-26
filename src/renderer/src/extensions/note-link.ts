@@ -74,6 +74,17 @@ export const NoteLink = Node.create<NoteLinkOptions>({
     ]
   },
 
+  /**
+   * A wiki link, which is what another note is called everywhere else. The id
+   * means nothing outside this app, so the label is the whole of it. Without
+   * this the serializer has no renderer for the node and writes an empty
+   * string: the link left a markdown export silently.
+   */
+  renderMarkdown(node): string {
+    const { label, id } = (node.attrs ?? {}) as { label?: string; id?: string }
+    return `[[${label || id || ""}]]`
+  },
+
   addProseMirrorPlugins() {
     const { findNotes, onOpenNote, render } = this.options
 
