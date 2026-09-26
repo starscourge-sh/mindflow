@@ -1,3 +1,4 @@
+import { host } from "@/lib/host"
 import type { Editor } from "@tiptap/core"
 
 /**
@@ -21,8 +22,11 @@ export const linkCard = async (editor: Editor, href: string): Promise<void> => {
   editor.chain().focus().setBookmark(placeholder).run()
 
   // A failed fetch still has to clear the card, or it sits on "Loading..."
-  // for the life of the document.
-  const metadata = await window.api.fetchLinkMetadata(href).catch(() => null)
+  // for the life of the document. A host with no fetcher - a browser, which
+  // cannot read another origin's page - is the same case: the card settles as
+  // the bare link it was made from.
+  const look = host().fetchLinkMetadata
+  const metadata = look ? await look(href).catch(() => null) : null
   if (editor.isDestroyed) return
 
   let at = -1

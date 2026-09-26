@@ -16,6 +16,7 @@ import {
 // --- Items ---
 import { slashItems } from "@/components/slash/slash-items"
 import { BLOCK_COLORS, COLORABLE } from "@/extensions/block-color"
+import { host } from "@/lib/host"
 import { fitToWidth } from "@/lib/table"
 
 /**
@@ -193,7 +194,7 @@ export function BlockMenu({
 
   /** The picture itself on the clipboard, not a link to it. */
   const copyImage = async () => {
-    if (imageSrc && !(await window.api.copyImage(imageSrc))) {
+    if (imageSrc && !(await host().copyImage?.(imageSrc))) {
       console.error(`Could not copy ${imageSrc}`)
     }
   }

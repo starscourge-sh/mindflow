@@ -1,6 +1,7 @@
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react"
 import { Download, File } from "lucide-react"
 
+import { host } from "@/lib/host"
 import { isNodeSelected } from "@/extensions/selected-nodes"
 
 /** 57.3 KB, not 58624. Binary units, because that is what a file manager shows. */
@@ -31,7 +32,7 @@ export function AttachmentView(props: NodeViewProps): React.JSX.Element {
         // Opening is a double click on purpose. A single one selects the card,
         // which is what every other block here does, and handing a file to the
         // system is not something to do by brushing past it.
-        onDoubleClick={() => void window.api.openFile(src)}
+        onDoubleClick={() => void host().openFile?.(src)}
       >
         <File className="tiptap-attachment-icon" />
         <span className="tiptap-attachment-body">
@@ -46,7 +47,7 @@ export function AttachmentView(props: NodeViewProps): React.JSX.Element {
           // Without this the card's own handler counts the second click too.
           onClick={(event) => {
             event.stopPropagation()
-            void window.api.saveFileAs(src, name)
+            void host().saveFileAs?.(src, name)
           }}
         >
           <Download />

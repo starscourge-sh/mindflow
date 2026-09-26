@@ -16,6 +16,7 @@ import { isValidYoutubeUrl } from '@tiptap/extension-youtube'
 
 import { saveAttachment } from '@/extensions/image-drop'
 import { EXPORTS, exportDocument } from '@/lib/export'
+import { host } from '@/lib/host'
 import { fitToWidth } from '@/lib/table'
 
 import type { SlashItem } from '@/extensions/slash-command'
@@ -191,6 +192,8 @@ export const slashItems: SlashItem[] = [
     hint: 'link card',
     icon: <BookmarkIcon />,
     prompt: 'Paste a link',
+    // A card is only a card if something can say what the link is about.
+    when: () => Boolean(host().fetchLinkMetadata),
     run: (editor, href) => linkCard(editor, href)
   },
   {
@@ -235,6 +238,8 @@ export const slashItems: SlashItem[] = [
     title: `Export as ${label}`,
     group: 'Export',
     icon: <Download />,
+    // Offered only where the host can write the file.
+    when: () => Boolean(format === 'pdf' ? host().exportPdf : host().exportText),
     // The title is the app's, not the editor's, so the filename falls back to
     // the first heading or line of the document itself.
     run: (editor: Editor) => {

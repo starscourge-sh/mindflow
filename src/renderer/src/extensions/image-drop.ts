@@ -1,4 +1,5 @@
 import { Extension } from "@tiptap/core"
+import { host } from "@/lib/host"
 import { Fragment, Slice } from "@tiptap/pm/model"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
 import { dropPoint } from "@tiptap/pm/transform"
@@ -52,7 +53,7 @@ export async function saveAttachment(file: File): Promise<{
   if (!file.size) throw new Error(`${file.name || "That file"} is empty`)
 
   const bytes = new Uint8Array(await file.arrayBuffer())
-  const src = await window.api.saveFile(file.name, bytes)
+  const src = await host().saveFile?.(file.name, bytes)
   if (!src) throw new Error(`Cannot store ${file.name || "that file"}`)
   return { src, name: file.name, size: file.size }
 }
@@ -65,17 +66,17 @@ export async function saveImage(file: File): Promise<string> {
   if (!file.size) throw new Error(`${file.name || "That file"} is empty`)
 
   const bytes = new Uint8Array(await file.arrayBuffer())
-  const src = await window.api.saveImage(file.type, bytes)
+  const src = await host().saveImage?.(file.type, bytes)
   if (!src) throw new Error(`Cannot store ${file.type || "that file"}`)
   return src
 }
 
 /** Copy a linked image into the store so the note stops needing its host. */
 export async function saveLinkedImage(href: string): Promise<string> {
-  const found = await window.api.fetchImage(href)
+  const found = await host().fetchImage?.(href)
   if (!found) throw new Error(`Could not read ${href}`)
 
-  const src = await window.api.saveImage(found.mime, found.bytes)
+  const src = await host().saveImage?.(found.mime, found.bytes)
   if (!src) throw new Error(`Cannot store ${found.mime}`)
   return src
 }

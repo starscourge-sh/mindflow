@@ -16,8 +16,8 @@ const DEBOUNCE_MS = 400
  *
  * ```tsx
  * const { note, notes, open, create, save } = useNotes()
- * <TitleEditor key={`title-${note.id}`} defaultContent={note.titleHtml} onChange={...} />
- * <MindflowEditor key={note.id} defaultContent={note.doc} onChange={(doc) => save({ doc })} />
+ * <TitleEditor documentId={note?.id ?? null} defaultContent={note?.titleHtml} onChange={...} />
+ * <MindflowEditor documentId={note?.id ?? null} defaultContent={note?.doc} onChange={...} />
  * ```
  *
  * `notes` is the list; today it holds one open note beside it, and a board or a

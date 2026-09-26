@@ -2,8 +2,7 @@ import { useState, type CSSProperties } from 'react'
 import { Maximize2, Minimize2 } from 'lucide-react'
 import type { JSONContent } from '@tiptap/core'
 
-import { MindflowEditor } from './components/mindflow/mindflow-editor'
-import { TitleEditor } from './components/mindflow/presets'
+import { MindflowEditor, TitleEditor } from './components/mindflow'
 import { useNotes } from './lib/use-notes'
 
 export default function App(): React.JSX.Element {
@@ -59,30 +58,27 @@ const CapturePrompt = (): React.JSX.Element => {
     <div className="relative overflow-hidden flex w-full flex-1 min-h-0 flex-col rounded-2xl bg-backgorund transition transition-all transition-duration-3 pt-5"
       style={{ transform: 'translate(0,0)' }}
     >
-      {/* Nothing is editable until a note has arrived: an editor shown first and
-          filled in afterwards would throw away anything typed into it. Both are
-          keyed by note, because both read their content once, at mount. */}
-      {note ? (
-        <>
-          <TitleEditor
-            key={`title-${note.id}`}
-            className="border-b"
-            defaultContent={note.titleHtml}
-            placeholder="Issue title"
-            onChange={(_doc, editor) =>
-              save({ title: editor.getText(), titleHtml: editor.getHTML() })
-            }
-          />
+      {/* `documentId` carries both rules: nothing renders until the note has
+          arrived, and a different note is a different editor. */}
+      <TitleEditor
+        host={window.api}
+        documentId={note ? `title-${note.id}` : null}
+        className="border-b"
+        defaultContent={note?.titleHtml}
+        placeholder="Issue title"
+        onChange={(_doc, editor) =>
+          save({ title: editor.getText(), titleHtml: editor.getHTML() })
+        }
+      />
 
-          <MindflowEditor
-            key={`doc-${note.id}`}
-            defaultContent={(note.doc as JSONContent | null) ?? ''}
-            findNotes={findNotes}
-            onOpenNote={open}
-            onChange={(doc) => save({ doc })}
-          />
-        </>
-      ) : null}
+      <MindflowEditor
+        host={window.api}
+        documentId={note ? `doc-${note.id}` : null}
+        defaultContent={(note?.doc as JSONContent | null) ?? ''}
+        findNotes={findNotes}
+        onOpenNote={open}
+        onChange={(doc) => save({ doc })}
+      />
     </div>
   )
 }

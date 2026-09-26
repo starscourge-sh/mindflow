@@ -29,6 +29,7 @@ import { offset } from "@floating-ui/react"
 import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight"
 import { ReactNodeViewRenderer, type Editor } from "@tiptap/react"
 import { lowlight } from "@/lib/lowlight"
+import { setHost, type MindflowHost } from "@/lib/host"
 import "katex/dist/katex.min.css"
 
 // --- Extensions ---
@@ -49,7 +50,7 @@ import { Bookmark } from "@/extensions/bookmark"
 import { Attachment } from "@/extensions/attachment"
 import { ExcalidrawDiagram } from "@/extensions/excalidraw"
 
-/** Drive the editor with vim keys. Flip this to turn it off. */
+/** Drive the editor with vim keys. */
 const VIM_MODE_ENABLED = true
 
 /** Every mark the editor can register. */
@@ -279,6 +280,28 @@ export interface MindflowEditorProps {
   /** Start with the source panel open. It also toggles on Mod-Alt-s. */
   showSource?: boolean
   /**
+   * What the editor asks of whatever it is running inside: storing a dropped
+   * picture, reading what a link is about, handing a file to the system.
+   *
+   * Left out, a browser's own answers are used - a picture becomes a data URL,
+   * an export downloads - and anything a browser cannot do goes quiet instead
+   * of throwing. An Electron app passes its preload bridge here.
+   */
+  host?: MindflowHost
+  /**
+   * Which document this is.
+   *
+   * Change it and the editor swaps documents, by remounting - `defaultContent`
+   * is read once, so there is no other honest way to replace one, and a prop
+   * that rewrote the document in place would throw away whatever was being
+   * typed. This is the `key` you would otherwise write yourself.
+   *
+   * `null` means the content has not arrived yet and renders nothing, which
+   * saves a caller guarding every use site. Left out, one editor stays mounted
+   * for good.
+   */
+  documentId?: string | number | null
+  /**
    * Read only, the way an input is: the caret still moves and the text can
    * still be selected and copied, but nothing can change it, and the menus
    * that would change it stop offering.
@@ -316,11 +339,33 @@ export interface MindflowEditorProps {
   onChange?: (doc: JSONContent, editor: Editor) => void
 }
 
+/**
+ * The editor.
+ *
+ * A shell over the one below, holding the two rules a caller would otherwise
+ * have to know: `defaultContent` is read once at mount, so a different
+ * document needs a different editor, and an editor must not appear before its
+ * content has arrived.
+ *
+ * `documentId` does both. Changing it swaps the document by remounting, which
+ * is what a `key` was for; `null` says the content is still on its way and
+ * nothing is rendered until it is. Leaving it out keeps a single editor that
+ * never remounts, so nobody who never had an id is caught by this.
+ */
 export function MindflowEditor({
+  documentId,
+  ...props
+}: MindflowEditorProps = {}): React.JSX.Element | null {
+  if (documentId === null) return null
+  return <Surface key={documentId ?? undefined} {...props} />
+}
+
+function Surface({
   defaultContent = "",
   placeholder = "Write, type '/' for commands…",
   showSource = false,
   readOnly = false,
+  host,
   shape = "document",
   toolbar,
   handles = true,
@@ -338,6 +383,10 @@ export function MindflowEditor({
   onTokenClick,
   onChange,
 }: MindflowEditorProps = {}): React.JSX.Element {
+
+  // Before the editor exists, because an input rule or a paste handler can ask
+  // the moment it does, and those are not components with a context to read.
+  setHost(host)
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [sourceOpen, setSourceOpen] = useState(showSource)
@@ -656,10 +705,15 @@ export function MindflowEditor({
   // Unmount covers switching notes with a `key`; `pagehide` covers closing the
   // window, which never unmounts anything.
   // `editable` above is read when the editor is built, so a caller that
-  // flips this later needs telling.
+  // flips this later needs telling. Same for vim, which configures an
+  // extension once and has a command for the rest.
   useEffect(() => {
     editor?.setEditable(!readOnly)
   }, [editor, readOnly])
+
+  useEffect(() => {
+    editor?.commands.setVimMode(vim)
+  }, [editor, vim])
 
   useEffect(() => {
     const flush = (): void => {

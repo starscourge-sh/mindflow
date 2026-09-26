@@ -1,3 +1,4 @@
+import { host } from "@/lib/host"
 import type { Editor } from "@tiptap/core"
 
 export type ExportFormat = "markdown" | "json" | "html" | "pdf"
@@ -33,7 +34,9 @@ export async function exportDocument(
   }
   const name = `${safe(title)}.${extension}`
 
-  if (format === "pdf") return window.api.exportPdf(name, editor.getHTML())
+  // A host with no PDF renderer simply has no PDF: the slash menu leaves the
+  // entry out, and this is the other end of that.
+  if (format === "pdf") return (await host().exportPdf?.(name, editor.getHTML())) ?? false
 
   const text =
     format === "json"
@@ -44,5 +47,5 @@ export async function exportDocument(
         // the serializer is what turns a document into text.
         : editor.storage.markdown.manager.serialize(editor.getJSON())
 
-  return window.api.exportText(name, text)
+  return (await host().exportText?.(name, text)) ?? false
 }
