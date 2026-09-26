@@ -103,6 +103,13 @@
     // margin-top: 0;
 }
 
+// The same one soft layer every other panel here gets. The vendored four-layer
+// shadow reads as a grey box against a frosted window rather than as depth,
+// which is the whole reason `--mf-panel-shadow` exists.
+.tiptap-toolbar[data-variant="floating"] {
+  box-shadow: var(--mf-panel-shadow, 0 8px 24px rgba(0, 0, 0, 0.28));
+}
+
 .mindflow-editor-wrapper .tiptap-toolbar[data-variant="fixed"] {
     width: fit-content;
     // background: var(--tt-toolbar-bg-color);

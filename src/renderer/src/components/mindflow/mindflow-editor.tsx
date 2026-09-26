@@ -505,6 +505,21 @@ function Surface({
       // once it has, so edits never happen just out of sight.
       scrollThreshold: CARET_MARGIN,
       scrollMargin: CARET_MARGIN,
+      // Mod-click opens a link. A plain click belongs to the caret, because
+      // the text is there to be edited - the same rule a tag follows.
+      // `openOnClick` is off on the extension for exactly that reason, and it
+      // has no setting for "only with a modifier".
+      handleClick: (_view, _pos, event) => {
+        if (!(event.metaKey || event.ctrlKey)) return false
+        const href = (event.target as HTMLElement | null)
+          ?.closest("a[href]")
+          ?.getAttribute("href")
+        if (!href) return false
+
+        // setWindowOpenHandler in main sends it to the real browser.
+        window.open(href, "_blank", "noopener")
+        return true
+      },
       // A list pasted into an empty bullet takes that bullet's place.
       //
       // Dropped in as it comes, the list lands *inside* the item, beside the
