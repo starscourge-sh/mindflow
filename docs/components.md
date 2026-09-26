@@ -13,6 +13,53 @@ first look but not for an app that saves anything.
 
 ---
 
+Adding a block, a theme, or a slash entry? `extending.md` is the map: where
+notes and files are kept, how to read them back, and the whole recipe for a
+custom React block.
+
+---
+
+## Getting it
+
+One import. Everything else in these folders is the component's own business
+and may move.
+
+```tsx
+import {
+  MindflowEditor, TitleEditor, CommentEditor, LineEditor, DescriptionEditor,
+  setHost, TAGS, tagsOf, findTokens, assetsOf,
+  type MindflowEditorProps, type MindflowHost, type TokenPattern
+} from "@/components/mindflow"
+```
+
+---
+
+## What it asks of the app
+
+Storing a dropped picture, reading what a link is about, handing a file to the
+system: none of that is an editor's job, and none of it has one answer. So the
+editor asks the host.
+
+```tsx
+<MindflowEditor host={window.api} />
+```
+
+Every member of `MindflowHost` is optional. Left out, a browser's own answers
+are used - a dropped picture becomes a data URL, an export downloads - and what
+a browser genuinely cannot do goes **quiet rather than throwing**: no bookmark
+card without `fetchLinkMetadata`, no PDF entry without `exportPdf`. The `/`
+menu hides what the host cannot serve, so nobody is offered a dead end.
+
+| | |
+|---|---|
+| `saveImage`, `saveFile` | store bytes, return a URL that reads them back |
+| `fetchImage` | read a linked image the page's policy will not fetch |
+| `fetchLinkMetadata` | title, description and picture for a bookmark card |
+| `exportText`, `exportPdf` | write a file the user names |
+| `openFile`, `saveFileAs`, `copyImage` | hand a stored file to the system |
+
+---
+
 ## MindflowEditor
 
 The document surface: headings, lists, tables, code blocks, collapsible
@@ -35,25 +82,45 @@ at mount**. Changing the prop later does nothing.
 
 With no `defaultContent` you get an **empty document**. That is deliberate: a
 default document would appear while a note was still loading, and the first
-keystroke would save it over the real note. Still, do not mount the editor until
-your note has arrived.
+keystroke would save it over the real note.
 
 A document containing a node type this build does not register is dropped in
 full, leaving one empty paragraph. TipTap logs a console warning and nothing
 else, so validate anything you did not write yourself.
 
-To show a different note, remount it:
+`documentId` says which document this is, and carries both of the rules that
+follow from reading content once:
 
 ```tsx
-<MindflowEditor key={note.id} defaultContent={note.doc} onChange={save} />
+<MindflowEditor
+  documentId={note?.id ?? null}
+  defaultContent={note?.doc}
+  onChange={save}
+/>
 ```
 
-The `key` is what makes this work. Without it React keeps the same editor alive
-and you keep editing the old document. This is deliberate: a prop that replaced
-the document mid-edit would throw away whatever was being typed.
+**Change it and the editor swaps documents**, by remounting. That is the `key`
+you would otherwise write yourself; without one, React keeps the same editor
+alive and you go on editing the old document. A prop that rewrote the document
+in place would throw away whatever was being typed, which is why swapping means
+remounting and nothing else.
+
+**`null` renders nothing**, for content that has not arrived. It saves guarding
+every use site with `{note ? … : null}`, and it is what stops an empty editor
+appearing under someone's cursor a moment before the real note lands.
+
+Leave `documentId` out and one editor stays mounted for good, which is what a
+single static field wants.
 
 `placeholder` is the grey text in an empty document. Like `defaultContent`, it
 is read once at mount.
+
+**Read once, at mount:** `defaultContent`, `placeholder`, `shape`, `marks`,
+`tokens`, `host`. These configure the schema or the extensions, which are built
+once. Change one and nothing happens - use `documentId` to rebuild.
+
+**Live:** `readOnly`, `vim`, `documentId`, `handles`, `slash`, `outline`,
+`search`, `toolbar`, `className`, `style`, and every `on…` callback.
 
 `readOnly` locks the editor from the outside, the way an input's `readOnly`
 does: the caret still moves and text can still be selected and copied, but
@@ -100,19 +167,18 @@ function NoteView({ id }: { id: string }) {
     loadNote(id).then(setNote)
   }, [id])
 
-  if (!note) return null
-
   return (
     <MindflowEditor
-      key={id}
-      defaultContent={note.doc}
+      documentId={note ? id : null}
+      defaultContent={note?.doc}
       onChange={(doc) => saveNote(id, doc)}
     />
   )
 }
 ```
 
-`key={id}` reloads the editor when you open a different note. `onChange` fires
+`documentId` holds off until the note lands, then reloads the editor whenever
+you open a different one - no `if (!note) return null`. `onChange` fires
 once after each pause in typing, and once more when the editor goes away. It
 fires zero times while you are still typing, because each keystroke restarts the
 clock.
@@ -466,6 +532,24 @@ the file picker makes a card out of anything.
 
 ---
 
+## Callouts
+
+`/` and pick **Callout**, or convert the block you are on. It is a container,
+not a styled paragraph, so it holds whatever you put in it - a list, a code
+block, several paragraphs. That is the difference between an aside and a
+highlighted line.
+
+Click the icon to change it. The picker offers the nine palette colours and a
+searchable emoji grid; picking a colour leaves it open, picking an emoji closes
+it. Emoji rather than an icon set, because an emoji is text: nothing to
+resolve, nothing to ship, and the emoji extension already carries the list.
+
+Both live on the node as `icon` and `color`, so a callout survives a copy into
+another note, and the tint comes from the same nine each theme tunes for
+contrast.
+
+---
+
 ## Drawings
 
 `/` and pick **Drawing** for an Excalidraw canvas in the note. It is a block,
@@ -680,10 +764,11 @@ what the presets do.
 ```tsx
 const { notes, note, assets, open, create, remove, save } = useNotes()
 
-<TitleEditor key={`title-${note.id}`} defaultContent={note.titleHtml}
+<TitleEditor documentId={note ? `title-${note.id}` : null} defaultContent={note?.titleHtml}
   onChange={(_doc, editor) => save({ title: editor.getText(), titleHtml: editor.getHTML() })} />
 
-<MindflowEditor key={`doc-${note.id}`} defaultContent={note.doc} onChange={(doc) => save({ doc })} />
+<MindflowEditor documentId={note ? `doc-${note.id}` : null} defaultContent={note?.doc}
+  onChange={(doc) => save({ doc })} />
 ```
 
 `notes` is the list; a board or a task view is the same list rendered
