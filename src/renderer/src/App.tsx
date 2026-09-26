@@ -62,6 +62,9 @@ const CapturePrompt = (): React.JSX.Element => {
           arrived, and a different note is a different editor. */}
       <TitleEditor
         host={window.api}
+        // The presets leave vim off, because a form field that swallows `i`
+        // would surprise most callers. A title in this app is not that.
+        vim
         documentId={note ? `title-${note.id}` : null}
         className="border-b"
         defaultContent={note?.titleHtml}
