@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
 import type { JSONContent } from "@tiptap/core"
+import { Fragment, Slice } from "@tiptap/pm/model"
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model"
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
 
@@ -512,6 +513,32 @@ function Surface({
       // once it has, so edits never happen just out of sight.
       scrollThreshold: CARET_MARGIN,
       scrollMargin: CARET_MARGIN,
+      // A heading gets a blank line above it, if it did not arrive with one.
+      //
+      // Markdown has no empty paragraph - a blank line there separates blocks
+      // rather than being one - so pasting from Obsidian lands every section
+      // hard against the one before it. This puts the gap back as a real line,
+      // which is what it looks like in the file it came from.
+      //
+      // On the paste rather than on every change: a line you can delete is the
+      // whole difference between help and a fight. And only where there is not
+      // one already, so pasting the same text twice does not stack them up.
+      transformPasted: (slice, view) => {
+        const blocks: ProseMirrorNode[] = []
+
+        slice.content.forEach((node) => {
+          const previous = blocks[blocks.length - 1]
+          const blank = previous?.type.name === "paragraph" && previous.content.size === 0
+
+          // Nothing above the first block: it joins what is already there.
+          if (node.type.name === "heading" && previous && !blank) {
+            blocks.push(view.state.schema.nodes.paragraph.create())
+          }
+          blocks.push(node)
+        })
+
+        return new Slice(Fragment.fromArray(blocks), slice.openStart, slice.openEnd)
+      },
       // Mod-click opens a link. A plain click belongs to the caret, because
       // the text is there to be edited - the same rule a tag follows.
       // `openOnClick` is off on the extension for exactly that reason, and it
