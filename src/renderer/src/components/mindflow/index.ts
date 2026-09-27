@@ -30,5 +30,15 @@ export {
 /** The nine colours a tag, a callout or a block can take. */
 export { BLOCK_COLORS, type BlockColor } from "@/extensions/block-color"
 
+/**
+ * The page's own settings, and the switches for them. Both belong to the host:
+ * they cover every editor on the page, so they cannot live inside one.
+ */
+export { THEMES, applyTheme, currentTheme, type Theme } from "@/lib/theme"
+export { currentVim, onVimChange, setVim } from "@/lib/vim"
+export { ThemeToggle } from "@/components/mindflow/theme-toggle"
+export { VimToggle } from "@/components/mindflow/vim-toggle"
+
+
 /** Every stored file a document points at: the list to back up. */
 export { assetsOf, isStored, type DocumentAsset } from "@/lib/document"

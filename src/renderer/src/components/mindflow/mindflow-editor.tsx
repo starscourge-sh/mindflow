@@ -30,6 +30,7 @@ import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight"
 import { ReactNodeViewRenderer, type Editor } from "@tiptap/react"
 import { lowlight } from "@/lib/lowlight"
 import { setHost, type MindflowHost } from "@/lib/host"
+import { currentVim, onVimChange } from "@/lib/vim"
 import "katex/dist/katex.min.css"
 
 // --- Extensions ---
@@ -235,7 +236,10 @@ export interface MindflowEditorProps {
   outline?: boolean
   /** Find, on Mod-f. Registers a window level key handler while mounted. */
   search?: boolean
-  /** Vim bindings. */
+  /**
+   * Vim bindings. Left out, it follows the page's own switch, so one setting
+   * covers every editor on it - see `setVim`.
+   */
   vim?: boolean
   /**
    * Which marks exist at all. Not a toolbar setting: a mark left out here is
@@ -370,7 +374,7 @@ function Surface({
   slash = true,
   outline = true,
   search = true,
-  vim = true,
+  vim,
   marks,
   className = "",
   style,
@@ -385,6 +389,12 @@ function Surface({
   // Before the editor exists, because an input rule or a paste handler can ask
   // the moment it does, and those are not components with a context to read.
   setHost(host)
+
+  // A prop wins where it is passed; otherwise the page's switch does, and
+  // every editor on the page follows it while it is open.
+  const [pageVim, setPageVim] = useState(currentVim)
+  useEffect(() => onVimChange(setPageVim), [])
+  const vimOn = vim ?? pageVim
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [sourceOpen, setSourceOpen] = useState(showSource)
@@ -702,7 +712,7 @@ function Surface({
         onToggleSource: () => setSourceOpen((open) => !open),
       }),
       VimMode.configure({
-        enabled: vim,
+        enabled: vimOn,
         // A line has nowhere for o, O, V or dd to go.
         singleLine: shape === "line",
         onSearch: () => setSearchOpen(true),
@@ -739,8 +749,8 @@ function Surface({
   }, [editor, readOnly])
 
   useEffect(() => {
-    editor?.commands.setVimMode(vim)
-  }, [editor, vim])
+    editor?.commands.setVimMode(vimOn)
+  }, [editor, vimOn])
 
   useEffect(() => {
     const flush = (): void => {

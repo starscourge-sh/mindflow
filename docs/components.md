@@ -32,6 +32,20 @@ import {
 } from "@/components/mindflow"
 ```
 
+The editor has no light theme: the tokens it draws from are defined under
+`dark`, so **a host must put a theme on the document** or the colours have
+nothing to resolve against. Once, before the first paint:
+
+```tsx
+import { applyTheme, currentTheme } from "@/components/mindflow"
+
+applyTheme(currentTheme())
+```
+
+That is the host's to call, like the page background and the web font. It used
+to live inside the editor's toolbar, which meant a page with no editor on it
+lost its colours.
+
 ---
 
 ## What it asks of the app

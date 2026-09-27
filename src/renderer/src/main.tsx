@@ -18,8 +18,13 @@ declare global {
 window.EXCALIDRAW_ASSET_PATH = new URL('./', window.location.href).href
 
 import { StrictMode } from 'react'
+import { applyTheme, currentTheme } from './lib/theme'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+
+// Before the first paint, and before anything renders: the page wears a theme
+// whether or not an editor is on screen.
+applyTheme(currentTheme())
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
