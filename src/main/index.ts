@@ -173,7 +173,7 @@ function createWindow(): void {
   // Showing the window after this event will have no visual flash:
   mainWindow.on('ready-to-show', () => {
     // still see a view of app before app fully paints, so will wait 1 sec before show.
-    setTimeout((): void => mainWindow.show(), 1000)
+    mainWindow.show()
   })
 
   // A file dropped outside the editable would otherwise navigate the window to

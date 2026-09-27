@@ -4,6 +4,9 @@ import type { JSONContent } from '@tiptap/core'
 import { v4 as uuidv4 } from 'uuid';
 
 import { EmojiButton, MindflowEditor, TitleEditor } from './components/mindflow'
+import { StatusPicker, type Status } from './components/status/status-picker'
+import { CaptureKindPicker, type CaptureType } from './components/capture-kinds/capture-kind-picker';
+import { PriorityPicker, type Priority } from './components/priority/priority-picker'
 
 export default function App(): React.JSX.Element {
   return (
@@ -83,6 +86,9 @@ const CapturePrompt = (): React.JSX.Element => {
   // console.log("[CapturePrompt][notes] notes: ", notes)
 
   const [icon, setIcon] = useState('📃')
+  const [status, setStatus] = useState<Status>('todo')
+  const [priority, setPriority] = useState<Priority>('none')
+  const [kind, setKind] = useState<CaptureType>('note')
   const [title, setTitle] = useState<string>('')
   const [body, setBody] = useState<string>('')
 
@@ -137,6 +143,9 @@ const CapturePrompt = (): React.JSX.Element => {
       </div>
 
       <div className='flex flex-1 mx-[4.75em] gap-2'>
+        <StatusPicker value={status} onChange={setStatus} />
+        <CaptureKindPicker value={kind} onChange={setKind} />
+        <PriorityPicker value={priority} onChange={setPriority} />
       </div>
 
       <MindflowEditor
