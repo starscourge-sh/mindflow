@@ -136,21 +136,21 @@ const CapturePrompt = (): React.JSX.Element => {
               setTitle(editor.getHTML())
             }}
           />
-          <div className='w-fit flex items-center'>
-            hey jude
-          </div>
+          <div className='w-fit flex items-center'></div>
         </div>
       </div>
 
-      <div className='flex flex-1 mx-[4.75em] gap-2'>
-        <StatusPicker value={status} onChange={setStatus} />
+      <div className="flex flex-1 mx-[4.75em] gap-2 pb-2 bg-background/5 rounded-xl">
         <CaptureKindPicker value={kind} onChange={setKind} />
-        <PriorityPicker value={priority} onChange={setPriority} />
+        {/*
+          <StatusPicker value={status} onChange={setStatus} />
+          <PriorityPicker value={priority} onChange={setPriority} />
+          */}
       </div>
 
       <MindflowEditor
         host={window.api}
-        placeholder='Add details...'
+        placeholder="' / '  for commands..."
         onChange={(doc) => {
           // save({ doc })
           setBody(doc)
