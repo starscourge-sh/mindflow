@@ -180,11 +180,23 @@ function select(view: EditorView, pos: number, bias: 1 | -1 = 1): void {
 
   // A rule or an image holds no text, so `Selection.near` would search straight
   // past it and land in the block beyond. Select the node itself instead.
-  const node = $pos.nodeAfter
+  //
+  // Only ever the side we are heading for. The gap after one card is the same
+  // number as the gap before the next, so looking backwards while going down
+  // found the card we had just left and put the cursor straight back on it -
+  // `j` on a card went nowhere.
+  const standalone = (node: ProseMirrorNode | null): boolean =>
+    Boolean(node && node.isBlock && node.isLeaf && NodeSelection.isSelectable(node))
+
+  const before = $pos.nodeBefore
+  const at = standalone($pos.nodeAfter)
+    ? clamped
+    : bias < 0 && standalone(before) && before
+      ? clamped - before.nodeSize
+      : null
+
   const selection =
-    node && node.isBlock && node.isLeaf && NodeSelection.isSelectable(node)
-      ? NodeSelection.create(state.doc, clamped)
-      : TextSelection.near($pos, bias)
+    at === null ? TextSelection.near($pos, bias) : NodeSelection.create(state.doc, at)
 
   view.dispatch(state.tr.setSelection(selection).scrollIntoView())
 }
@@ -545,10 +557,16 @@ function positionAfterRows(
 function moveVertical(view: EditorView, dir: 1 | -1, count: number): void {
   const { selection } = view.state
 
-  // A whole node is selected - an image or a rule clicked on. Walk away from
-  // the node's own rectangle, or every probe lands back inside it.
+  // A whole node is selected - a card, an image, a rule. Walk away from the
+  // node's own rectangle, or every probe lands back inside it.
+  //
+  // The anchor is the FAR end from the way we are going, because the near end
+  // is the same number as the position beside the next node: after this card
+  // and before the next one are one position, so a probe that found the next
+  // card read as "has not moved" and was skipped. Going down that meant
+  // stepping over the card below entirely.
   if (selection instanceof NodeSelection) {
-    const anchor = dir > 0 ? selection.to : selection.from
+    const anchor = dir > 0 ? selection.from : selection.to
     const box = boxAt(view, anchor, selection.from)
     const to = positionAfterRows(view, anchor, dir, count, box)
     select(view, to === anchor ? anchor : to, dir)
