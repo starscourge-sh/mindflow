@@ -51,9 +51,6 @@ import { Callout } from "@/extensions/callout"
 import { Attachment } from "@/extensions/attachment"
 import { ExcalidrawDiagram } from "@/extensions/excalidraw"
 
-/** Drive the editor with vim keys. */
-const VIM_MODE_ENABLED = true
-
 /** Every mark the editor can register. */
 export type MarkName =
   | "bold"
@@ -373,7 +370,7 @@ function Surface({
   slash = true,
   outline = true,
   search = true,
-  vim = VIM_MODE_ENABLED,
+  vim = true,
   marks,
   className = "",
   style,
@@ -582,7 +579,20 @@ function Surface({
       }),
       ...(shape === "line" ? [Document.extend({ content: "paragraph" })] : []),
       HorizontalRule,
-      TextAlign.configure({ types: ["heading", "paragraph"] }),
+      // Not on a line. There is nothing to align a one line title against, and
+      // registering it hands Mod-Shift-r and its siblings a title to push to
+      // the right - which is how a title ended up right aligned.
+      ...(shape === "line"
+        ? []
+        : [
+            // No shortcuts. Mod-Shift-l/e/r/j are the extension's own, and they
+            // are far too easy to hit for something nobody reaches for: the
+            // title ended up right aligned by a stray Mod-Shift-r. The toolbar
+            // buttons still set it.
+            TextAlign.extend({ addKeyboardShortcuts: () => ({}) }).configure({
+              types: ["heading", "paragraph"],
+            }),
+          ]),
       // A bullet turns into a toggle in place, the way Notion does it: the item
       // keeps its spot in the list and its children become what the toggle
       // hides. That needs a toggle to be a legal first child.

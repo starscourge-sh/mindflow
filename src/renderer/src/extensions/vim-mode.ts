@@ -1977,10 +1977,13 @@ export const VimMode = Extension.create<VimModeOptions>({
                   return true
                 }
 
-                // Handled here rather than left to fall through: an item with
-                // nothing above it cannot be nested, and a Tab that no one
-                // handles walks the focus out of the document.
-                const { head } = view.state.selection
+                // Only a list item has anything to indent. Anywhere else Tab
+                // belongs to the page: it is how you get from the title to the
+                // body and back, and swallowing it left the focus stuck in
+                // whichever field it started in.
+                const { $head, head } = view.state.selection
+                if (!inList($head)) return false
+
                 indentLines(view, head, head, event.shiftKey)
                 return true
               }
