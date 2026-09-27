@@ -295,8 +295,11 @@
   --mf-panel-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
 }
 
-html, body {
-background: transparent;
+/* The window is transparent and sits on a frosted desktop; the page paints no
+   background of its own, so `.app-container` below is the only surface. */
+html,
+body {
+  background: transparent;
 }
 .app-container {
   overflow: hidden;   /* clip content to the rounded corners */

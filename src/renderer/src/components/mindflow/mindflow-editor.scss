@@ -16,7 +16,6 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  // background-color: var(--tt-bg-color);
   color: var(--tt-theme-text);
   font-optical-sizing: auto;
   font-weight: 400;
@@ -53,12 +52,12 @@
 }
 
 .mindflow-editor-content {
-  max-width: 648px;
   width: 100%;
   margin: 0 auto;
   height: 100%;
   display: flex;
   flex-direction: column;
+  padding: 0
 }
 
 .tiptap.ProseMirror.mindflow-editor {
@@ -67,13 +66,10 @@
   // markers plus the 44px cluster itself, so 3rem would clip it. The right side
   // matches it - the column is centred, so unequal padding puts the text off
   // centre inside it.
-  // padding: 4em !important;
-  // padding: 0!important;
-  // padding: 4rem 4.75rem 50vh !important;
   // A variable, and no !important: a caller styling this like any other
   // component has to be able to win. The selector already outranks the
   // vendored one on its own.
-  padding: var(--mf-padding, 1rem 3.75rem);
+  padding: var(--mf-padding, 1rem 4.75rem);
 }
 
 .tiptap.ProseMirror.mindflow-editor [data-type=horizontalRule] {
@@ -90,7 +86,6 @@
 // is parked just left of it. "10." needs more room than a bullet, or the two
 // land on top of each other.
 .tiptap.ProseMirror.mindflow-editor ol {
-    // padding-left: 1.75em;
     padding-left: 1em;
 }
 
@@ -100,7 +95,6 @@
 
 .tiptap.ProseMirror.mindflow-editor :is(h1, h2, h3, h4) {
     margin-top: 1em;
-    // margin-top: 0;
 }
 
 // The same one soft layer every other panel here gets. The vendored four-layer
@@ -112,15 +106,6 @@
 
 .mindflow-editor-wrapper .tiptap-toolbar[data-variant="fixed"] {
     width: fit-content;
-    // background: var(--tt-toolbar-bg-color);
-    // background: transparent;
-}
-
-@media screen and (max-width: 480px) {
-
-  .tiptap.ProseMirror.mindflow-editor {
-    padding: 1rem 3rem 30vh;
-  }
 }
 
 // Vim mode: the caret is the only cue for which mode you are in.
@@ -189,12 +174,13 @@
 .mindflow-editor-wrapper.is-line {
   height: auto;
   overflow: visible;
-
   // The document editor fills its column, which is what `flex: 1` is for. A
   // line has one line in it and must not: left on, it stretched to whatever
   // room the row around it happened to have.
   .tiptap.ProseMirror.mindflow-editor {
     flex: none;
+    padding-left:0;
+    padding-right:0;
   }
 
   .mindflow-editor-content {
@@ -209,7 +195,6 @@
 // A document title. Input scale rather than heading scale: the box around it
 // belongs to whoever puts it there.
 .mindflow-editor-wrapper.is-title {
-  --mf-padding: 0 3.75rem;
 
   .tiptap.ProseMirror p {
     margin: 0;
@@ -677,7 +662,6 @@
   }
 
 }
-
 
 // Table controls, shown only with the cursor parked in a cell.
 .tiptap-table-menu {
@@ -1162,18 +1146,10 @@
 }
 
 .tiptap-word-count {
-  // right: 0.75rem;
-  // left: 0.75rem;
-  // width: fit-content;
-  // margin: auto;
-  // bottom: 0.75rem;
   z-index: 20;
-  // padding: 0 0.5rem;
-  // font-size: 0.75rem;
   font-size: 9px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  // color: var(--mf-muted);
 }
 
 // Embedded videos scale to the column rather than their fixed attributes.
@@ -1242,7 +1218,6 @@
     justify-content: space-between;
   }
 }
-
 
 // The theme paints the tokens; the block keeps the editor's own shell, so this
 // retints the vendored variable rather than overriding the rule that uses it.
