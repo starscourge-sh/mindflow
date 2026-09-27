@@ -93,8 +93,12 @@
     padding-left: 0;
 }
 
+// A heading opens a section, so it wants more above it than below. Flat rather
+// than the node's own per-level scale, which at 2.5em for an h2 left a page of
+// short sections looking half empty.
 .tiptap.ProseMirror.mindflow-editor :is(h1, h2, h3, h4) {
-    margin-top: 1em;
+  margin-top: 0.9em;
+  margin-bottom: 0.3em;
 }
 
 // The same one soft layer every other panel here gets. The vendored four-layer
@@ -1691,8 +1695,10 @@ $nested-ul: "ul:not([data-type='taskList'])";
   }
 }
 
+// A rule divides, so the space around it is the whole of its job. At zero it
+// sat against whatever came next and read as an underline for it.
 .tiptap.ProseMirror.mindflow-editor [data-type=horizontalRule] {
-    margin: 0;
+  margin: 0.75em 0;
 }
 
 // --- Drawings -------------------------------------------------------------
