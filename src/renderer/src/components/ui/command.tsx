@@ -53,7 +53,14 @@ function CommandList({
   return (
     <CommandPrimitive.List
       data-slot="command-list"
-      className={cn("max-h-72 scroll-py-1 overflow-x-hidden overflow-y-auto p-1", className)}
+      className={cn(
+        // Never taller than the room the popover actually has. Radix measures
+        // the gap to the window edge for us; the 3.5rem is the search box
+        // above, which is part of that room and not part of this list.
+        "max-h-[min(18rem,calc(var(--radix-popover-content-available-height,100vh)-3.5rem))]",
+        "scroll-py-1 overflow-x-hidden overflow-y-auto p-1",
+        className
+      )}
       {...props}
     />
   )

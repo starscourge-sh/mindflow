@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Check, Ellipsis, SignalHigh, SignalLow, SignalMedium, TriangleAlert } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { useShortcut } from "@/lib/use-shortcut"
 
 import type { BlockColor } from "@/extensions/block-color"
 
@@ -34,15 +35,6 @@ export const PRIORITIES = [
 
 export type Priority = (typeof PRIORITIES)[number]["id"]
 
-/** Is the person typing somewhere a letter belongs? */
-const typing = (target: EventTarget | null): boolean => {
-  const element = target as HTMLElement | null
-  return (
-    element?.isContentEditable === true ||
-    ["INPUT", "TEXTAREA", "SELECT"].includes(element?.tagName ?? "")
-  )
-}
-
 /** The pill, and the list it opens. */
 export function PriorityPicker({
   value,
@@ -55,18 +47,7 @@ export function PriorityPicker({
   const current = PRIORITIES.find((priority) => priority.id === value) ?? PRIORITIES[0]
   const Icon = current.icon
 
-  // `p` opens it, unless a letter is what was wanted - a note is a
-  // contenteditable, and typing "priority" into one should not open a menu.
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== "p" && event.key !== "P") return
-      if (event.metaKey || event.ctrlKey || event.altKey || typing(event.target)) return
-      event.preventDefault()
-      setOpen(true)
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [])
+  useShortcut('p', () => setOpen(true))
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -88,7 +69,7 @@ export function PriorityPicker({
             setOpen(false)
           }}
         >
-          <CommandInput placeholder="Change priority to..." shortcut="P" />
+          <CommandInput placeholder="Change priority to..." shortcut="⌃P" />
           <CommandList>
             <CommandEmpty>No priority</CommandEmpty>
             {PRIORITIES.map((priority, index) => {

@@ -21,6 +21,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { useShortcut } from "@/lib/use-shortcut"
 
 import type { BlockColor } from "@/extensions/block-color"
 
@@ -61,6 +62,8 @@ export function CaptureKindPicker({ value, onChange }: {
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const current = CAPTURE_TYPES.find((Ctype) => Ctype.id === value) ?? CAPTURE_TYPES[0]
+
+  useShortcut('k', () => setOpen(true))
   const Icon = current.icon
 
   return (
@@ -85,7 +88,7 @@ export function CaptureKindPicker({ value, onChange }: {
             setOpen(false)
           }}
         >
-          <CommandInput placeholder="Change type..." />
+          <CommandInput placeholder="Change type..." shortcut="⌃K" />
           <CommandList>
             <CommandEmpty>No type</CommandEmpty>
             {CAPTURE_TYPES.map((type, index) => {
