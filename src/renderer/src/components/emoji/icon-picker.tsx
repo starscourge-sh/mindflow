@@ -65,10 +65,13 @@ const drawn = (emoji: string): string => (emoji.length === 1 ? `${emoji}️` : e
 export function IconPicker({
   icon,
   color,
+  className = "",
   onPick,
 }: {
   icon: string
-  color: BlockColor
+  /** Left out, the swatches are not offered: not everything takes a colour. */
+  color?: BlockColor
+  className?: string
   onPick: (change: { icon?: string; color?: BlockColor }) => void
 }): React.JSX.Element {
   const [query, setQuery] = useState("")
@@ -99,7 +102,8 @@ export function IconPicker({
   )
 
   return (
-    <div className="tiptap-icon-picker">
+    <div className={`tiptap-icon-picker ${className}`.trim()}>
+      {color && (
       <div className="tiptap-icon-picker-colors">
         {BLOCK_COLORS.map((swatch) => (
           <button
@@ -112,6 +116,7 @@ export function IconPicker({
           />
         ))}
       </div>
+      )}
 
       <input
         type="text"

@@ -11,6 +11,8 @@ export interface NoteMeta {
   /** The same line with its marks, which is what the title editor takes back. */
   titleHtml: string
   characters: number
+  /** The emoji shown beside the title. A page is a file until it is something. */
+  icon: string
   pinned: boolean
   /** Epoch milliseconds. */
   openedAt: number
@@ -22,7 +24,7 @@ export interface Note extends NoteMeta {
 }
 
 /** The fields a save is allowed to change. */
-type Patch = Partial<Pick<Note, 'title' | 'titleHtml' | 'doc' | 'pinned'>>
+type Patch = Partial<Pick<Note, 'title' | 'titleHtml' | 'doc' | 'pinned' | 'icon'>>
 
 const dir = (): string => join(app.getPath('userData'), 'notes')
 const file = (id: string): string => join(dir(), `${id}.json`)
@@ -79,6 +81,8 @@ const meta = (note: Note): NoteMeta => ({
   title: note.title,
   titleHtml: note.titleHtml,
   characters: note.characters,
+  // A note written before icons existed has none; it is a file like the rest.
+  icon: note.icon || '📄',
   pinned: note.pinned,
   openedAt: note.openedAt
 })
@@ -93,6 +97,7 @@ async function create(): Promise<Note> {
     title: '',
     titleHtml: '',
     characters: 0,
+    icon: '📄',
     pinned: false,
     openedAt: Date.now(),
     doc: null

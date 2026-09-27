@@ -15,6 +15,7 @@ export interface NotePatch {
   titleHtml?: string
   doc?: unknown
   pinned?: boolean
+  icon?: string
 }
 
 export interface Api {

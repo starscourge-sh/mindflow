@@ -39,6 +39,8 @@ export { currentVim, onVimChange, setVim } from "@/lib/vim"
 export { ThemeToggle } from "@/components/mindflow/theme-toggle"
 export { VimToggle } from "@/components/mindflow/vim-toggle"
 
+/** An emoji you can change: the button beside a note's title, and the picker. */
+export { EmojiButton } from "@/components/emoji/emoji-button"
 
 /** Every stored file a document points at: the list to back up. */
 export { assetsOf, isStored, type DocumentAsset } from "@/lib/document"
