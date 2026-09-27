@@ -1695,6 +1695,15 @@ $nested-ul: "ul:not([data-type='taskList'])";
   }
 }
 
+// The same mark on a link card. It is the whole element here rather than an
+// inner one, so the tint goes on with it: a card is mostly picture, and an
+// outline alone reads as a hover.
+.tiptap.ProseMirror.mindflow-editor .tiptap-bookmark.is-selected {
+  border-color: transparent;
+  outline: 0.125rem solid var(--tt-brand-color-500);
+  background-color: var(--tt-selection-color);
+}
+
 // A rule divides, so the space around it is the whole of its job. At zero it
 // sat against whatever came next and read as an underline for it.
 .tiptap.ProseMirror.mindflow-editor [data-type=horizontalRule] {

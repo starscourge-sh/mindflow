@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react"
+import { NodeViewWrapper, useEditorState, type NodeViewProps } from "@tiptap/react"
 import { Check, Copy } from "lucide-react"
 
 import type { BookmarkAttributes } from "@/extensions/bookmark"
@@ -21,9 +21,26 @@ export function BookmarkView(props: NodeViewProps): React.JSX.Element {
     .attrs as BookmarkAttributes
   const [copied, setCopied] = useState(false)
 
+  // Off the editor state rather than the `selected` prop or a decoration: a
+  // card holds no text for the browser to paint, so a select-all swept past it
+  // and left it looking untouched. This asks whether the selection covers it,
+  // which is true whether it is the whole selection or caught inside a bigger
+  // one, and a selector re-runs on every transaction so it cannot fall behind.
+  const selected = useEditorState({
+    editor: props.editor,
+    selector: ({ editor }) => {
+      const pos = props.getPos()
+      if (typeof pos !== "number") return false
+      const { from, to } = editor.state.selection
+      return from <= pos && to >= pos + props.node.nodeSize
+    },
+  })
+
   return (
     <NodeViewWrapper
-      className="tiptap-bookmark"
+      // A card holds no text for the browser to paint, so a select-all swept
+      // past it and left it looking untouched.
+      className={`tiptap-bookmark${selected ? " is-selected" : ""}`}
       data-loading={loading ? "" : undefined}
       onClick={() => !loading && window.open(href, "_blank", "noopener")}
     >
