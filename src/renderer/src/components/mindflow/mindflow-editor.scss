@@ -190,6 +190,13 @@
   height: auto;
   overflow: visible;
 
+  // The document editor fills its column, which is what `flex: 1` is for. A
+  // line has one line in it and must not: left on, it stretched to whatever
+  // room the row around it happened to have.
+  .tiptap.ProseMirror.mindflow-editor {
+    flex: none;
+  }
+
   .mindflow-editor-content {
     height: auto;
     // A line has nothing to scroll, and the selection menu opens below the
