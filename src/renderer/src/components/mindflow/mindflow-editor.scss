@@ -2046,6 +2046,52 @@ body > div[dir] > .tableWrapper {
   }
 }
 
+// A link is something you can open, so it says so. Mod-click is what actually
+// opens it - a plain click belongs to the caret, because the text is there to
+// be edited - but the hand is the only hint that there is anything to open.
+.tiptap.ProseMirror.mindflow-editor a[href] {
+  cursor: pointer;
+}
+
+// Where a link points, under the link, while the pointer is on it. The one
+// thing it must never do is get in the way of the click that follows, hence no
+// pointer events - the box is a label, not a target.
+// A link is something you can open, so it says so. Mod-click is what actually
+// opens it - a plain click belongs to the caret, because the text is there to
+// be edited - but the hand is the only hint that there is anything to open.
+.tiptap.ProseMirror.mindflow-editor a[href] {
+  cursor: pointer;
+}
+
+.tiptap-link-preview {
+  position: fixed;
+  z-index: 60;
+  max-width: 28rem;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid var(--tt-border-color);
+  border-radius: 0.5rem;
+  background-color: var(--tt-card-bg-color);
+  box-shadow: var(--mf-panel-shadow, 0 8px 24px rgba(0, 0, 0, 0.28));
+  color: var(--mf-muted);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  // A URL has no spaces to break at, so it has to be allowed to break anywhere
+  // - the alternative is one line running off the side of the window.
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  // An animation rather than a transition, because this is mounted when the
+  // pointer arrives and removed when it leaves - there is no earlier state to
+  // move away from. Matches the code block's toolbar, which fades on the same
+  // curve over the same 120ms.
+  animation: mf-fade-in 120ms ease-out;
+}
+
+@keyframes mf-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
 // The emoji beside a note's title. Sized to the title it stands next to, and
 // in the padding the editor already leaves, so the two read as one line.
 .mf-note-icon {

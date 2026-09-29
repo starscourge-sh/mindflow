@@ -1,8 +1,10 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
+import { createPortal } from "react-dom"
 import type { JSONContent } from "@tiptap/core"
 import { Fragment, Slice } from "@tiptap/pm/model"
+import { NodeSelection } from "@tiptap/pm/state"
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model"
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
 
@@ -500,11 +502,28 @@ function Surface({
         // in CSS or from outside.
         class: shape === "line" ? "mindflow-editor is-line" : "mindflow-editor",
       },
-      // Return commits a single line rather than doing nothing. Guarded on
-      // composition, so accepting a Japanese candidate is not a submit.
-      handleKeyDown: (_view, event) => {
-        if (shape !== "line" || !submit.current) return false
+      // What Return means, which depends on what is selected.
+      //
+      // Here rather than in a keyboard shortcut because ProseMirror checks
+      // these props before any plugin, and vim swallows Return in normal mode.
+      handleKeyDown: (view, event) => {
         if (event.key !== "Enter" || event.shiftKey || event.isComposing) return false
+
+        // A whole card is selected: open it. A card is a link you arrived at
+        // rather than clicked, and Return opens the thing under the cursor
+        // everywhere else - Space is a motion in vim and a scroll key outside
+        // it.
+        const { selection } = view.state
+        if (selection instanceof NodeSelection) {
+          const { href } = selection.node.attrs
+          if (typeof href !== "string" || !href) return false
+          event.preventDefault()
+          window.open(href, "_blank", "noopener")
+          return true
+        }
+
+        // A single line has no second line to go to, so Return commits it.
+        if (shape !== "line" || !submit.current) return false
         event.preventDefault()
         submit.current()
         return true
@@ -1002,6 +1021,8 @@ function Surface({
           className="mindflow-editor-content relative p-3 overflow-auto"
         />
 
+        <LinkPreview editor={editor} />
+
         {/* The dock earns its place only if something is in it. */}
         {(fixedItems !== false || search) && (
           <div className="absolute inset-x-0 bottom-0 z-50 m-auto bg-linear-to-t from-[var(--accent)]/40">
@@ -1041,4 +1062,58 @@ function Surface({
     </div>
   )
 }
+/**
+ * Where a link points, while the pointer is on it.
+ *
+ * The browser's own tooltip says the same thing, but it waits a second, cuts a
+ * long URL off at the window edge and looks like nothing else here. This is
+ * what Linear shows: the address without its scheme, wrapped rather than
+ * truncated, in a box the rest of the app would recognise.
+ *
+ * Portalled to the body because the editor scrolls: inside it the box would be
+ * clipped by the same overflow that makes the document scrollable.
+ */
+function LinkPreview({ editor }: { editor: Editor | null }): React.JSX.Element | null {
+  const [link, setLink] = useState<{ href: string; top: number; left: number } | null>(null)
 
+  useEffect(() => {
+    if (!editor) return
+    const root = editor.view.dom
+    const hide = (): void => setLink(null)
+
+    const show = (event: Event): void => {
+      const anchor = (event.target as HTMLElement | null)?.closest?.("a[href]")
+      if (!(anchor instanceof HTMLAnchorElement)) return hide()
+
+      const box = anchor.getBoundingClientRect()
+      setLink({
+        // The scheme is the one part nobody is checking, and it costs a line
+        // of a wrapped URL.
+        href: (anchor.getAttribute("href") ?? "").replace(/^https?:\/\//, ""),
+        top: box.bottom + 4,
+        left: box.left,
+      })
+    }
+
+    root.addEventListener("pointerover", show)
+    root.addEventListener("pointerleave", hide)
+    // Capture, because the thing that scrolls is inside the editor rather than
+    // the window, and a box pinned to the viewport would be left behind.
+    window.addEventListener("scroll", hide, true)
+
+    return () => {
+      root.removeEventListener("pointerover", show)
+      root.removeEventListener("pointerleave", hide)
+      window.removeEventListener("scroll", hide, true)
+    }
+  }, [editor])
+
+  if (!link?.href) return null
+
+  return createPortal(
+    <span className="tiptap-link-preview" style={{ top: link.top, left: link.left }}>
+      {link.href}
+    </span>,
+    document.body
+  )
+}
