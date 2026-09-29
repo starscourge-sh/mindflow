@@ -5,9 +5,11 @@
   margin: 0 -0.175rem;
   border-radius: var(--tt-radius-xl);
   // The highlight colours are translucent, because a highlight sits over text.
-  // A swatch does not - composite it over white so the hue reads at full
-  // strength instead of sinking into the dark popover.
-  background-color: #fff;
+  // A swatch does not, so it is composited over the page's own background -
+  // the thing a highlight would actually land on. Over white, as this was, a
+  // dark theme's colours all came back as the same pale pastel and the swatch
+  // stopped saying anything about what you were picking.
+  background-color: var(--tt-bg-color);
   background-image: linear-gradient(
     var(--highlight-color),
     var(--highlight-color)

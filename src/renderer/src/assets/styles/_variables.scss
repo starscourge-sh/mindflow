@@ -180,8 +180,14 @@
   --tt-border-color-tint: var(--tt-gray-dark-a-100);
   --tt-sidebar-bg-color: var(--tt-gray-dark-100);
   --tt-scrollbar-color: var(--tt-gray-dark-a-200);
+  // The accent. Every other theme sets its own; without these three `dark`
+  // kept the vendored template's violet, and a selected card, the caret and
+  // the selection all came out a colour nothing else on the page shares.
+  --tt-brand-color-500: #9f2d00;
+  --tt-brand-color-400: #c23600;
+
   --tt-cursor-color: var(--tt-brand-color-400);
-  --tt-selection-color: rgba(122, 82, 255, 0.2);
+  --tt-selection-color: color-mix(in srgb, var(--tt-brand-color-400) 25%, transparent);
   --tt-card-bg-color: var(--tt-gray-dark-50);
   --tt-card-border-color: var(--tt-gray-dark-a-50);
 
@@ -639,4 +645,24 @@
   --mf-accent-ink: #82aaff;
   --mf-code-ink: #ff757f;
   --mf-quote-ink: #c3e88d;
+}
+
+/* The highlight palette, from the nine colours each theme already tunes.
+
+   It was a second hand-written palette per theme, and the two drifted: a type
+   icon takes its colour from `--tt-color-text-*` and comes out vivid, while
+   the highlight of the same name beside it was a washed-out grey. One source
+   now, so they cannot disagree again - a highlight is that colour at a weight
+   you can still read through.
+
+   Last in the file on purpose. The theme blocks above are classes, the same
+   specificity as `:root`, so this only wins by coming after them. */
+:root {
+  @each $name in ("gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red") {
+    --tt-color-highlight-#{$name}: color-mix(
+      in srgb,
+      var(--tt-color-text-#{$name}) 28%,
+      transparent
+    );
+  }
 }
