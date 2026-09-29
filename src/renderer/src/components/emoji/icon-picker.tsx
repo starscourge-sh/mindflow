@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { emojis } from "@tiptap/extension-emoji"
 
 import { BLOCK_COLORS, type BlockColor } from "@/extensions/block-color"
+import { listDirection } from "@/lib/menu-keys"
 
 type Emoji = (typeof emojis)[number] & { emoji: string }
 
@@ -45,6 +46,18 @@ const SECTIONS = GROUPS.map(
 ).filter(([, items]) => items.length)
 
 /**
+ * The same emoji as one list, and where each group starts in it.
+ *
+ * The keys walk one list whether the groups are showing or not, so every cell
+ * needs its position in that list - and counting it up again on every render
+ * is work that never changes.
+ */
+const ALL = SECTIONS.flatMap(([, items]) => items)
+const STARTS = SECTIONS.map((_, group) =>
+  SECTIONS.slice(0, group).reduce((sum, [, items]) => sum + items.length, 0)
+)
+
+/**
  * Draw it as a picture rather than as a letter.
  *
  * The older emoji - ☺, ✌, ❤ - predate emoji and default to text presentation,
@@ -54,6 +67,9 @@ const SECTIONS = GROUPS.map(
  * sequence would change what the sequence means.
  */
 const drawn = (emoji: string): string => (emoji.length === 1 ? `${emoji}️` : emoji)
+
+/** Kept in step with `grid-template-columns` on `.tiptap-icon-picker-grid`. */
+const COLUMNS = 9
 
 /**
  * Pick the icon and the colour of a callout.
@@ -75,6 +91,8 @@ export function IconPicker({
   onPick: (change: { icon?: string; color?: BlockColor }) => void
 }): React.JSX.Element {
   const [query, setQuery] = useState("")
+  const [active, setActive] = useState(0)
+  const activeRef = useRef<HTMLButtonElement>(null)
 
   // Searching flattens the groups: a heading over two results is noise, and
   // what was asked for is the answer, not where it files.
@@ -89,12 +107,28 @@ export function IconPicker({
     )
   }, [query])
 
-  const cell = (item: Emoji): React.JSX.Element => (
+  const visible = found ?? ALL
+
+  // A new search is a new list, and the first result is the answer to it.
+  useEffect(() => setActive(0), [visible])
+
+  // Walking past the fold has to bring the row with it.
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: "nearest" })
+  }, [active])
+
+  const move = (by: number): void =>
+    setActive((current) => Math.max(0, Math.min(visible.length - 1, current + by)))
+
+  const cell = (item: Emoji, index: number): React.JSX.Element => (
     <button
       key={item.name}
       type="button"
+      ref={index === active ? activeRef : undefined}
+      data-selected={index === active ? "" : undefined}
       data-active={drawn(item.emoji) === icon ? "" : undefined}
       title={item.name.replace(/_/g, " ")}
+      onMouseEnter={() => setActive(index)}
       onClick={() => onPick({ icon: drawn(item.emoji) })}
     >
       {drawn(item.emoji)}
@@ -120,19 +154,47 @@ export function IconPicker({
 
       <input
         type="text"
+        autoFocus
         placeholder="Search emoji…"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            const item = visible[active]
+            if (!item) return
+            event.preventDefault()
+            onPick({ icon: drawn(item.emoji) })
+            return
+          }
+          // A grid, so up and down are a row apart and the arrows along it are
+          // one. The Ctrl chords every other menu here takes move by a row too.
+          const direction = listDirection(event)
+          if (direction) {
+            event.preventDefault()
+            move(direction === "down" ? COLUMNS : -COLUMNS)
+            return
+          }
+          if (event.key === "ArrowRight") {
+            event.preventDefault()
+            move(1)
+          }
+          if (event.key === "ArrowLeft") {
+            event.preventDefault()
+            move(-1)
+          }
+        }}
       />
 
       <div className="tiptap-icon-picker-scroll">
         {found ? (
           <div className="tiptap-icon-picker-grid">{found.map(cell)}</div>
         ) : (
-          SECTIONS.map(([label, items]) => (
+          SECTIONS.map(([label, items], group) => (
             <section key={label}>
               <h3>{label}</h3>
-              <div className="tiptap-icon-picker-grid">{items.map(cell)}</div>
+              <div className="tiptap-icon-picker-grid">
+                {items.map((item, index) => cell(item, STARTS[group] + index))}
+              </div>
             </section>
           ))
         )}

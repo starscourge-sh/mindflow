@@ -2001,8 +2001,11 @@ body > div[dir][style*="-10000px"] > .tableWrapper {
 .tiptap-icon-picker {
   display: flex;
   flex-direction: column;
-  // 13 columns of 28px, which is the shape Linear's picker has.
-  width: 27rem;
+  // Nine columns rather than Linear's thirteen: this opens beside a note's
+  // title in a window half the width of theirs, and a picker that reaches both
+  // edges of it reads as a takeover rather than a menu.
+  width: 19.5rem;
+  max-width: calc(100vw - 2rem);
 
   // Borderless and full width, with a rule under it rather than a box around
   // it: the panel is the box.
@@ -2066,7 +2069,7 @@ body > div[dir][style*="-10000px"] > .tableWrapper {
 // button in it came out eleven rems across.
 .tiptap-icon-picker-grid {
   display: grid;
-  grid-template-columns: repeat(13, 1fr);
+  grid-template-columns: repeat(9, 1fr);
   grid-auto-rows: 1.75rem;
   align-content: start;
   padding: 0 0.875rem;
@@ -2076,9 +2079,17 @@ body > div[dir][style*="-10000px"] > .tableWrapper {
     font-size: 1.125rem;
     line-height: 1;
 
+    // `data-active` is the icon already chosen; `data-selected` is where the
+    // keys are. Two different questions, so the second gets the outline the
+    // rest of the menus use rather than a second shade of the same grey.
     &:hover,
     &[data-active] {
       background-color: var(--tt-gray-dark-a-200);
+    }
+
+    &[data-selected] {
+      outline: 2px solid var(--tt-brand-color-500);
+      outline-offset: -2px;
     }
   }
 }
