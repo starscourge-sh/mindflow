@@ -17,6 +17,7 @@ import {
 import { slashItems } from "@/components/slash/slash-items"
 import { BLOCK_COLORS, COLORABLE } from "@/extensions/block-color"
 import { host } from "@/lib/host"
+import { listDirection } from "@/lib/menu-keys"
 import { fitToWidth } from "@/lib/table"
 
 /**
@@ -88,6 +89,24 @@ export function BlockMenu({
     const id = setTimeout(() => input.current?.focus(), 0)
     return () => clearTimeout(id)
   }, [open, targetRef])
+
+  /**
+   * Mark the row Enter would take, so it looks picked the way a cmdk row does.
+   *
+   * Radix gives its highlight to whatever holds the focus, and the focus is in
+   * the filter box - so nothing is highlighted until you press an arrow. This
+   * marks the first row instead, and the stylesheet only shows it while the
+   * box still has the focus, which is exactly until an arrow moves off it.
+   */
+  useEffect(() => {
+    const rows = input.current?.parentElement?.querySelectorAll<HTMLElement>('[role="menuitem"]')
+    rows?.forEach((row, index) => row.toggleAttribute("data-first", index === 0))
+  })
+
+  /** The row Enter takes: the first one still showing, whatever kind it is. */
+  const takeFirst = () => {
+    input.current?.parentElement?.querySelector<HTMLElement>('[role="menuitem"]')?.click()
+  }
 
   /** The block the handle pointed at, re-read now and checked for identity. */
   const resolve = () => {
@@ -192,6 +211,21 @@ export function BlockMenu({
       .run()
   }
 
+  /**
+   * The block on the clipboard, to paste somewhere else.
+   *
+   * Selecting the node and asking the browser to copy, rather than building
+   * the clipboard by hand: ProseMirror already serialises its own selection,
+   * so this puts there exactly what pressing copy on the block would - which
+   * means a paste back rebuilds the node instead of re-parsing its markup.
+   */
+  const copy = () => {
+    const found = resolve()
+    if (!found) return
+    editor.chain().focus().setNodeSelection(found.pos).run()
+    document.execCommand("copy")
+  }
+
   /** The picture itself on the clipboard, not a link to it. */
   const copyImage = async () => {
     if (imageSrc && !(await host().copyImage?.(imageSrc))) {
@@ -234,12 +268,26 @@ export function BlockMenu({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={(event) => {
+            // Radix owns the arrows, so a Ctrl chord is handed on as one rather
+            // than moving the selection here, which would leave two ideas of
+            // where the list is. Chords only - passing a real arrow on would
+            // match again on the way back and never stop.
+            const direction = event.ctrlKey ? listDirection(event) : null
+            if (direction) {
+              event.preventDefault()
+              event.currentTarget.dispatchEvent(
+                new KeyboardEvent("keydown", {
+                  key: direction === "down" ? "ArrowDown" : "ArrowUp",
+                  bubbles: true,
+                })
+              )
+              return
+            }
             // Enter takes the top match; arrows and Escape belong to Radix, and
             // everything else has to be kept from its own typeahead.
             if (event.key === "Enter") {
               event.preventDefault()
-              const first = conversions[0]
-              if (first) at(() => first.run(editor, ""))
+              takeFirst()
               return
             }
             if (!["ArrowDown", "ArrowUp", "Escape", "Tab"].includes(event.key)) {
@@ -294,6 +342,14 @@ export function BlockMenu({
               </DropdownMenuItem>
             ))
           : null}
+
+        {matches("Copy") ? (
+          <DropdownMenuItem asChild>
+            <button type="button" onClick={copy}>
+              <span className="tiptap-slash-menu-title">Copy</span>
+            </button>
+          </DropdownMenuItem>
+        ) : null}
 
         {matches("Duplicate") ? (
           <DropdownMenuItem asChild>

@@ -765,6 +765,12 @@
   }
 }
 
+// The row Enter would take, while the filter box still holds the focus. An
+// arrow key moves focus onto a real row, and Radix's own highlight takes over.
+.tiptap-block-menu input:focus + .tiptap-block-menu-list [data-first] {
+  background-color: var(--mf-surface);
+}
+
 // Zero-size: it only anchors the menu, because the grip itself cannot be the
 // trigger without losing its drag.
 .tiptap-block-menu-anchor {
