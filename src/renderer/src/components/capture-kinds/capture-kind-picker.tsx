@@ -53,6 +53,17 @@ export const CAPTURE_TYPES = [
   { id: "bit", label: "Bit", icon: Sticker, tint: tint("pink") },
 ] as const
 
+
+// type CaptureKind =
+//   | 'note'      // ✍️ - default — anything that isn't one of the others
+//   | 'quote'     // 💬 - someone else's words
+//   | 'word'      // 🗨️ - a term you looked up
+//   | 'link'      // 🔗 - a URL — parser sets this from paste detection
+//   | 'excerpt'   // 📑 - a long pasted block; the container, not the extract
+//   | 'decision'  // ⚖️ - a choice made, with its why
+//   | 'bit'       // 🃏 - a joke or one-liner
+//   | 'todo'      // 🎯 - an obligation
+
 export type CaptureType = (typeof CAPTURE_TYPES)[number]["id"]
 
 /** The pill, and the list it opens. */
@@ -63,13 +74,13 @@ export function CaptureKindPicker({ value, onChange }: {
   const [open, setOpen] = useState(false)
   const current = CAPTURE_TYPES.find((Ctype) => Ctype.id === value) ?? CAPTURE_TYPES[0]
 
-  useShortcut('k', () => setOpen(true))
+  useShortcut('t', () => setOpen(true))
   const Icon = current.icon
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1.5 rounded-full">
+        <Button variant="outline" size="sm" className="gap-1.5 rounded-full cursor-pointer">
           <Icon className="size-4" style={{ color: current.tint }} />
           {current.label}
         </Button>
@@ -88,7 +99,7 @@ export function CaptureKindPicker({ value, onChange }: {
             setOpen(false)
           }}
         >
-          <CommandInput placeholder="Change type..." shortcut="⌃K" />
+          <CommandInput placeholder="Change type..." shortcut="⌃T" />
           <CommandList>
             <CommandEmpty>No type</CommandEmpty>
             {CAPTURE_TYPES.map((type, index) => {

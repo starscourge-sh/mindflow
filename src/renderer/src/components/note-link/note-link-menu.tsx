@@ -6,6 +6,7 @@ import {
   type SuggestionListHandle,
 } from "@/components/suggestion/suggestion-renderer"
 import { noteLinkPluginKey, type NoteSuggestion } from "@/extensions/note-link"
+import { listDirection, step } from "@/lib/menu-keys"
 
 /** The `@` menu: which note to link to. */
 const NoteList = forwardRef<SuggestionListHandle, SuggestionProps<NoteSuggestion>>(
@@ -15,12 +16,9 @@ const NoteList = forwardRef<SuggestionListHandle, SuggestionProps<NoteSuggestion
 
     useImperativeHandle(ref, () => ({
       onKeyDown: ({ event }) => {
-        if (event.key === "ArrowDown") {
-          setSelected((was) => (was + 1) % (items.length || 1))
-          return true
-        }
-        if (event.key === "ArrowUp") {
-          setSelected((was) => (was - 1 + items.length) % (items.length || 1))
+        const direction = listDirection(event)
+        if (direction) {
+          setSelected((was) => step(was, direction, items.length))
           return true
         }
         if (event.key === "Enter" && items[selected]) {

@@ -14,6 +14,7 @@ import {
   type SuggestionListHandle,
 } from "@/components/suggestion/suggestion-renderer"
 import type { SlashItem } from "@/extensions/slash-command"
+import { listDirection, step } from "@/lib/menu-keys"
 
 const SlashList = forwardRef(function SlashList(
   { items, command }: SuggestionProps<SlashItem>,
@@ -48,12 +49,10 @@ const SlashList = forwardRef(function SlashList(
   useImperativeHandle(ref, () => ({
     onKeyDown: ({ event }) => {
       if (pending || !items.length) return false
-      if (event.key === "ArrowUp") {
-        setSelected((current) => (current + items.length - 1) % items.length)
-        return true
-      }
-      if (event.key === "ArrowDown") {
-        setSelected((current) => (current + 1) % items.length)
+
+      const direction = listDirection(event)
+      if (direction) {
+        setSelected((current) => step(current, direction, items.length))
         return true
       }
       if (event.key === "Enter" || event.key === "Tab") {
