@@ -18,6 +18,9 @@ function PopoverContent({
   className,
   align = "center",
   sideOffset = 4,
+  // Radix keeps a panel inside the window but will sit it flush against the
+  // edge to do it. This is the gap it keeps instead.
+  collisionPadding = 8,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
   return (
@@ -25,6 +28,7 @@ function PopoverContent({
       <PopoverPrimitive.Content
         align={align}
         sideOffset={sideOffset}
+        collisionPadding={collisionPadding}
         className={cn("tiptap-popover", className)}
         {...props}
       />
