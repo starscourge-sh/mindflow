@@ -509,6 +509,12 @@ function Surface({
         submit.current()
         return true
       },
+      // Alt and a drag leaves the block where it was and drops a copy, the way
+      // duplicating works everywhere else. ProseMirror already does this, but
+      // off a per-platform modifier - Alt on a Mac, Ctrl elsewhere - and the
+      // handle hands it `move: true` besides. Saying it here makes it one
+      // gesture on every platform and stops it depending on either.
+      dragCopies: (event) => event.altKey,
       // Start scrolling before the caret reaches the edge, and leave a margin
       // once it has, so edits never happen just out of sight.
       scrollThreshold: CARET_MARGIN,
