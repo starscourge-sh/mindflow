@@ -223,25 +223,47 @@ export interface MindflowEditorProps {
    * There is no shape between the two. What separates a comment box from a
    * page is which of the toolbars, handles and panels below are switched on,
    * not what the schema allows.
+   *
+   * @default "document"
    */
   shape?: "line" | "document"
   /**
    * Which toolbars to show and what goes in them. Omit a key for its default
    * contents, pass `false` for no toolbar, or pass your own nodes. The two are
    * independent: neither placement limits what it can hold.
+   *
+   * @default both, with their default contents
    */
   toolbar?: false | { fixed?: ReactNode | false; selection?: ReactNode | false }
-  /** The drag handle beside each block, and the menu it opens. */
+  /**
+   * The drag handle beside each block, and the menu it opens.
+   *
+   * @default true
+   */
   handles?: boolean
-  /** The `/` menu. */
+  /**
+   * The `/` menu.
+   *
+   * @default true
+   */
   slash?: boolean
-  /** The heading outline down the right edge. */
+  /**
+   * The heading outline down the right edge.
+   *
+   * @default true
+   */
   outline?: boolean
-  /** Find, on Mod-f. Registers a window level key handler while mounted. */
+  /**
+   * Find, on Mod-f. Registers a window level key handler while mounted.
+   *
+   * @default true
+   */
   search?: boolean
   /**
    * Vim bindings. Left out, it follows the page's own switch, so one setting
    * covers every editor on it - see `setVim`.
+   *
+   * @default the page's own switch - see `currentVim`
    */
   vim?: boolean
   /**
@@ -249,13 +271,14 @@ export interface MindflowEditorProps {
    * unreachable by shortcut, by markdown, and by pasting, because the schema
    * has nowhere to put it.
    *
-   * Defaults to everything for a document, and to bold, italic, strike and
-   * code for a line.
+   * @default every mark for a document; bold, italic, strike and code for a line
    */
   marks?: MarkName[]
   /**
    * Added to the editor's own box. Padding is a variable rather than a fixed
    * rule, so `--mf-padding` set from here or from `style` wins normally.
+   *
+   * @default ""
    */
   className?: string
   /** Set on the editor's own box, the same as any other component. */
@@ -273,16 +296,25 @@ export interface MindflowEditorProps {
    * its own colour, which is the part Obsidian does not do. Pass `[]` for
    * none, or your own patterns, which replace the default rather than adding
    * to it.
+   *
+   * @default `TAGS`
    */
   tokens?: TokenPattern[]
   /**
    * Read once, at mount. To show a different document, remount with a `key`.
    * Defaults to empty: a default document would be written over the caller's
    * note by the first keystroke while their note was still loading.
+   *
+   * @default "" - an empty document
    */
   defaultContent?: JSONContent | string
+  /** @default "Write, type '/' for commands…" */
   placeholder?: string
-  /** Start with the source panel open. It also toggles on Mod-Alt-s. */
+  /**
+   * Start with the source panel open. It also toggles on Mod-Alt-s.
+   *
+   * @default false
+   */
   showSource?: boolean
   /**
    * What the editor asks of whatever it is running inside: storing a dropped
@@ -317,11 +349,15 @@ export interface MindflowEditorProps {
    * The lock in the toolbar does the same thing from the inside, so a caller
    * holding this should leave that button out of `toolbar` - otherwise the
    * reader can simply unlock it until this prop next changes.
+   *
+   * @default false
    */
   readOnly?: boolean
   /**
    * Which notes the `@` menu offers. The editor has no idea what a note is, so
    * searching is the app's job; without this, `@` simply finds nothing.
+   *
+   * @default () => [] - the `@` menu finds nothing
    */
   findNotes?: (query: string) => NoteSuggestion[] | Promise<NoteSuggestion[]>
   /** A note link was clicked. The editor reports; the app navigates. */

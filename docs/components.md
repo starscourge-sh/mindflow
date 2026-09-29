@@ -89,6 +89,77 @@ import { MindflowEditor } from "@/components/mindflow/mindflow-editor"
 />
 ```
 
+### Every option, spelled out
+
+Every prop at its default value. Copy the block, delete what you do not need:
+nothing in it changes behaviour, because each line is what you get by leaving
+that line out.
+
+```tsx
+<MindflowEditor
+  // --- what it holds ------------------------------------------------------
+  shape="document"         // "document" holds blocks, "line" holds one paragraph
+  defaultContent=""        // TipTap JSON or an HTML string
+  placeholder="Write, type '/' for commands…"
+  marks={ALL_MARKS}        // for a "line": ["bold", "italic", "strike", "code"]
+  tokens={TAGS}            // `#thing` patterns to tint. `[]` for none
+  documentId={undefined}   // change it to swap documents, `null` to render nothing
+
+  // --- what is switched on ------------------------------------------------
+  toolbar={{}}             // `{ fixed: false }` or `{ selection: false }` or `false`
+  handles={true}           // the drag handle beside each block
+  slash={true}             // the `/` menu
+  outline={true}           // the heading outline down the right edge
+  search={true}            // find, on Mod-f
+  vim={currentVim()}       // left out, it follows the page switch
+  showSource={false}       // start with the source panel open
+  readOnly={false}         // locks it, the way an input's readOnly does
+
+  // --- the app around it --------------------------------------------------
+  host={undefined}         // the preload bridge. Left out, a browser's own answers
+  className=""
+  style={undefined}
+
+  // --- what it tells you --------------------------------------------------
+  onChange={undefined}     // (doc, editor) => void, 500ms after typing stops
+  onSubmit={undefined}     // Return on a "line" editor, which has nowhere to go
+  onOpenNote={undefined}   // an `@` link was clicked
+  onTokenClick={undefined} // a tag was clicked
+  findNotes={() => []}     // what the `@` menu offers
+/>
+```
+
+`ALL_MARKS` and `currentVim()` are written out here to say what the default
+*is*; neither is a value you have to pass. Leave the prop out instead.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `shape` | `"line" \| "document"` | `"document"` |
+| `defaultContent` | `JSONContent \| string` | `""` |
+| `placeholder` | `string` | `"Write, type '/' for commands…"` |
+| `marks` | `MarkName[]` | every mark, or four for a line |
+| `tokens` | `TokenPattern[]` | `TAGS` |
+| `documentId` | `string \| number \| null` | - |
+| `toolbar` | `false \| { fixed?, selection? }` | both, default contents |
+| `handles` | `boolean` | `true` |
+| `slash` | `boolean` | `true` |
+| `outline` | `boolean` | `true` |
+| `search` | `boolean` | `true` |
+| `vim` | `boolean` | the page switch |
+| `showSource` | `boolean` | `false` |
+| `readOnly` | `boolean` | `false` |
+| `host` | `MindflowHost` | a browser's own answers |
+| `className` | `string` | `""` |
+| `style` | `CSSProperties` | - |
+| `onChange` | `(doc, editor) => void` | - |
+| `onSubmit` | `() => void` | - |
+| `onOpenNote` | `(id: string) => void` | - |
+| `onTokenClick` | `(token: TokenMatch) => void` | - |
+| `findNotes` | `(query) => NoteSuggestion[]` | `() => []` |
+
+Each one carries its own `@default` in `MindflowEditorProps`, so your editor
+shows it on hover as well.
+
 ### What it takes
 
 `defaultContent` is a TipTap JSON document or an HTML string. It is read **once,
