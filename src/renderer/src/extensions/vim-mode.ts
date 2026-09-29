@@ -1496,6 +1496,19 @@ function openLine(view: EditorView, dir: 1 | -1): void {
     // Opening a line inside a list makes another item, not a paragraph.
     const line = $head.node(depth).type
     if (isListItem(line)) type = line
+
+    // `O` on the first line of a box - a callout, a quote - opens above the
+    // box rather than inside it. A box at the top of a document otherwise has
+    // nothing above it to open a line from, and the only way to put something
+    // there was to make room underneath and drag it up.
+    //
+    // Only while every step up is a first child: on the second line of a
+    // callout there is a line above to open from, so it means what it says.
+    if (dir < 0 && !isListItem(line)) {
+      let out = depth
+      while (out > 1 && $head.index(out - 1) === 0) out -= 1
+      if (out < depth) at = $head.before(out)
+    }
   }
 
   const node = type.createAndFill()
@@ -1734,19 +1747,36 @@ export const VimMode = Extension.create<VimModeOptions>({
            */
           decorations: (state) => {
             const vim = vimPluginKey.getState(state)
-            if (!vim?.enabled || vim.mode !== "normal") return null
+            if (!vim?.enabled) return null
 
             const { empty, $head } = state.selection
+            const decorations: Decoration[] = []
+
+            // `cursorline`: the line the cursor is on, tinted end to end. On
+            // the textblock rather than the top-level node, so it follows the
+            // caret through a list one item at a time instead of lighting up
+            // the whole list. Every mode, because in insert mode it is still
+            // the line you are working on.
+            if ($head.parent.isTextblock && $head.depth >= 1) {
+              decorations.push(
+                Decoration.node($head.before(), $head.after(), {
+                  class: "vim-cursor-line",
+                })
+              )
+            }
+
             // Not text: a text node is a leaf too, so it answers to isAtom,
             // and the whole run would be covered rather than one character.
-            const node = empty ? $head.nodeAfter : null
-            if (!node || node.isText || !node.isAtom || !node.isInline) return null
+            const node = empty && vim.mode === "normal" ? $head.nodeAfter : null
+            if (node && !node.isText && node.isAtom && node.isInline) {
+              decorations.push(
+                Decoration.inline($head.pos, $head.pos + node.nodeSize, {
+                  class: "vim-block-cursor",
+                })
+              )
+            }
 
-            return DecorationSet.create(state.doc, [
-              Decoration.inline($head.pos, $head.pos + node.nodeSize, {
-                class: "vim-block-cursor",
-              }),
-            ])
+            return decorations.length ? DecorationSet.create(state.doc, decorations) : null
           },
 
           // Lets CSS show which mode you are in, e.g. a different caret colour.

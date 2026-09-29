@@ -70,6 +70,41 @@
   // component has to be able to win. The selector already outranks the
   // vendored one on its own.
   padding: var(--mf-padding, 1rem 4.75rem);
+
+  // So the cursor line below can run past the text column without the editor
+  // growing a horizontal scrollbar. `clip` rather than `hidden` because it
+  // makes no scroll container, which leaves `overflow-y` visible - a scrolling
+  // box here would trap the toolbars that sit over the document.
+  overflow-x: clip;
+}
+
+// Only where the caret actually is. Decorations are drawn whether the editor
+// has the focus or not, so every vim editor on the page lit a line at once -
+// the title carried a band while you were typing in the body.
+//
+// A one-line editor is left out altogether: the band would cover the whole of
+// it, which reads as a selected input rather than as a cursor.
+//
+// The band is a pseudo-element rather than the line's own background, and it
+// takes no pointer events. Widening the line itself - a negative margin with
+// the padding to match - reached into the gutter where the drag handle looks
+// for what you are pointing at, and the handle started answering with the line
+// the caret was on instead of the one under the mouse.
+.tiptap.ProseMirror.mindflow-editor:not(.is-line) .vim-cursor-line {
+  position: relative;
+}
+
+.tiptap.ProseMirror.mindflow-editor:focus-within:not(.is-line) .vim-cursor-line::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  bottom: 0;
+  // More than any indent; the editor's own `overflow-x: clip` takes the rest.
+  left: -50rem;
+  right: -50rem;
+  background-color: var(--mf-cursor-line, color-mix(in srgb, currentColor 7%, transparent));
+  pointer-events: none;
 }
 
 .tiptap.ProseMirror.mindflow-editor [data-type=horizontalRule] {
@@ -1886,6 +1921,10 @@ body > div[dir] > .tableWrapper {
   // is ordinary flow: a list indents from the callout's edge as it would
   // anywhere else, instead of from a flex item's box.
   position: relative;
+  // The cursor line is drawn behind its own line. Without a stacking context
+  // here, "behind" means behind this box's tint as well, and the band vanished
+  // for every line inside a callout.
+  isolation: isolate;
   margin: 0.75em 0;
   padding: 0.625rem 1rem 0.625rem 2.375rem;
   border: 1px solid var(--callout-border);
