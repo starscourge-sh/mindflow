@@ -151,6 +151,17 @@
 
 // Typed tokens. These are decorations, so the underlying text is untouched;
 // the tint is only a hint that something was recognised.
+// The `/` and whatever is being typed after it, while the menu is open. It is
+// a place you are inside of rather than text you have written - the menu takes
+// the keys, Escape takes the characters back out - and looking like a chip is
+// what says so. The same shape as a tag, in the page's own selection colour
+// because it is not one of the nine and should not read as one.
+.tiptap-slash-token {
+  border-radius: 0.25rem;
+  padding: 0.05em 0.15em;
+  background-color: var(--tt-selection-color);
+}
+
 .tiptap-token {
   border-radius: 0.25rem;
   padding: 0.05em 0.15em;

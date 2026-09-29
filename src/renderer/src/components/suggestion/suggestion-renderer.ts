@@ -49,9 +49,18 @@ export function createSuggestionRenderer<I>(
       if (!renderer.editor.view.hasFocus()) return
       event.preventDefault()
       event.stopPropagation()
+
+      // Take the `/` or `@` with it. Standing the plugin down alone left the
+      // character sitting there to be deleted by hand, which is not what
+      // backing out of a menu means.
+      const { editor } = renderer
+      const { view } = editor
+      const range = pluginKey.getState(view.state)?.range
+      if (range) editor.chain().focus().deleteRange(range).run()
+
       // Tells the plugin to stand down, so it stops matching the query behind
       // the popup; that in turn fires `onExit` and tears this down.
-      exitSuggestion(renderer.editor.view, pluginKey)
+      exitSuggestion(view, pluginKey)
     }
 
     return {

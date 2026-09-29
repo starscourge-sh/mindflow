@@ -50,6 +50,10 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
       Suggestion<SlashItem>({
         editor: this.editor,
         char: "/",
+        // The live `/query` is already wrapped in a span by the plugin; this
+        // only names it, so the stylesheet can make it look like the chip it
+        // behaves as - a thing you are inside of, not text you have typed.
+        decorationClass: "tiptap-slash-token",
         items: ({ editor, query }) => {
           const term = query.toLowerCase()
           return items.filter(
