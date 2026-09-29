@@ -150,8 +150,8 @@ function createWindow(): void {
     ...SIZES.compact,
     // minHeight: 400,
     // minWidth: 600,
-    width: 725,
-    height: 550,
+    width: 625,
+    height: 400,
 
     resizable: false,
     vibrancy: 'under-window',
