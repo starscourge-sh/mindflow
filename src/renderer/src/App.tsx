@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { Maximize2, Minimize2, AudioLines } from 'lucide-react'
+import { AudioLines, X } from 'lucide-react'
+// import { Maximize2, Minimize2 } from 'lucide-react'
 import type { JSONContent } from '@tiptap/core'
 import { v4 as uuidv4 } from 'uuid';
 
-import { MindflowEditor, TitleEditor, TAGS } from './components/mindflow'
+import { MindflowEditor, TAGS } from './components/mindflow'
+// import { TitleEditor } from './components/mindflow'
 // import { EmojiButton } from './components/mindflow'
 // import { StatusPicker, type Status } from './components/status/status-picker'
 // import { PriorityPicker, type Priority } from './components/priority/priority-picker'
@@ -11,32 +13,119 @@ import { CaptureKindPicker, type CaptureType } from './components/capture-kinds/
 import { Button } from './components/ui/button';
 
 export default function App(): React.JSX.Element {
+  const id = useRef(uuidv4())
+  console.log('[CapturePrompt][id.current][🐦‍🔥]: ', id.current)
+  const [kind, setKind] = useState<CaptureType>('note')
+  const [capture, setCapture] = useState<Capture>({
+    id: id.current,
+    title: "",
+    capturedAt: (new Date()).toISOString(),
+    status: 'open',
+    kind: 'note',
+    closedAt: null,
+    isDraft: true
+  })
+
+  useEffect(() => {
+    const raw = localStorage.getItem("capture-draft")
+    const draft: Capture | null = raw ? JSON.parse(raw) : null
+    if (draft && draft.title) {
+      setCapture(draft)
+    }
+  }, [])
+
+
+  console.log('[CapturePrompt][kind][🐦‍🔥]: ', kind)
+  console.log('[CapturePrompt][capture][🫪]: ', capture)
+
+
   return (
     <div className="app-container bg-background/20 flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-3 color-white">
       <Header />
       <CapturePrompt />
-
-      <div
-        className="z-10 w-full bottom-0 left-0 right-0 py-[0.3rem] px-[4.75rem] flex justify-end">
-        <Button size="sm" className="">
-          Create
-        </Button>
+      <div className="w-full flex justify-between py-[0.5rem] px-[4.75rem]">
+        <CaptureKindPicker value={capture?.kind || "note"} onChange={setKind} />
+        {/*
+          <StatusPicker value={status} onChange={setStatus} />
+          <PriorityPicker value={priority} onChange={setPriority} />
+          */}
+        <Button className="bg-transparent cursor-pointer text-red-400 hover:bg-background cursor-pointer"> <AudioLines /> </Button>
       </div>
     </div>
   )
 }
 
+/**
+ * Escape puts the window away, the way it does in Raycast's notes.
+ *
+ * A menu gets it first - Escape belongs to whatever is open on top of the
+ * window before it belongs to the window - but vim does not. `jk` is the way
+ * out of insert mode, and having Escape do that as well would mean pressing it
+ * twice to put away a window you had only just opened.
+ *
+ * Capture phase, so it runs before the editor, which would otherwise consume
+ * it and change the mode on the way past.
+ */
+function useEscapeToHide(): void {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      if (
+        document.querySelector(
+          '[cmdk-root], [role=menu], [role=listbox], [role=dialog], .tiptap-suggestion-popup'
+        )
+      ) {
+        return
+      }
+      window.api.hideWindow()
+    }
+
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
+}
+
+/**
+ * The three dots, top left. Raycast's rather than the system's.
+ *
+ * They are not there until the pointer is over the window, and they only
+ * colour in once it is over them - the window is meant to look like a sheet of
+ * paper until you go looking for a control. Only the first one does anything;
+ * the other two are the shape people recognise.
+ *
+ * `no-drag`, because the strip they sit on is what moves the window, and a
+ * drag region swallows the click before the button sees it.
+ */
+const WindowDots = (): React.JSX.Element => (
+  <div className="mf-dots" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
+    {/* Out of the tab order: it is a window control, not part of the form, and
+        tabbing through a note should never land on the thing that closes it. */}
+    <button
+      type="button"
+      tabIndex={-1}
+      aria-label="Close"
+      onClick={() => window.api.hideWindow()}
+    >
+      <X />
+    </button>
+    <span />
+    <span />
+  </div>
+)
+
 const Header = (): React.JSX.Element => {
-  const [expanded, setExpanded] = useState(false)
+  // const [expanded, setExpanded] = useState(false)
 
   return (
     <div className="fixed top-0 right-0 left-0 z-10 flex items-center gap-2 text-xs"
-      style={{ WebkitAppRegion: 'drag', padding: '0.3rem 4.75rem' } as CSSProperties}>
+      style={{ WebkitAppRegion: 'drag', padding: '1rem 4.75rem' } as CSSProperties}>
+      <WindowDots />
       <span className="flex-1" />
       <span className="flex-1" />
 
       {/* The strip is the window's drag handle, so the one thing on it that is
           not a handle has to say so, or the click never lands. */}
+      {/*
       <button
         type="button"
         aria-label={expanded ? 'Contract window' : 'Expand window'}
@@ -49,6 +138,7 @@ const Header = (): React.JSX.Element => {
       >
         {expanded ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
       </button>
+        */}
 
       {/*
       <button
@@ -64,7 +154,6 @@ const Header = (): React.JSX.Element => {
         <Crosshair className="size-4" />
       </button>
         */}
-
     </div>
   )
 }
@@ -72,8 +161,8 @@ const Header = (): React.JSX.Element => {
 type CaptureStatus = 'open' | 'promoted' | 'resolved' | 'discarded'
 type Capture = {
   id: string,
-  body?: JSONContent | null | undefined
-  title: string | null
+  body?: JSONContent | undefined | string
+  title: string | undefined
   capturedAt: string
   status: CaptureStatus
   kind: CaptureType
@@ -82,39 +171,20 @@ type Capture = {
 }
 
 const CapturePrompt = (): React.JSX.Element => {
+  useEscapeToHide()
+
   // const {note, notes, save, open} = useNotes()
   // const [icon, setIcon] = useState('📃')
   // const [status, setStatus] = useState<Status>('todo')
   // const [capture, setCapture] = useState<Capture>(localStorage.getItem("capture-draft") && JSON.parse(localStorage.getItem("capture-draft")) as Capture)
   // const [priority, setPriority] = useState<Priority>('none')
-  const [kind, setKind] = useState<CaptureType>('note')
-  const [title, setTitle] = useState<string>('')
-  const [body, setBody] = useState<JSONContent | null>(null)
-  const id = useRef(uuidv4())
+  // const [kind, setKind] = useState<CaptureType>('note')
+  // const [title, setTitle] = useState<string>('')
+  // const [body, setBody] = useState<JSONContent | null>(null)
+  // console.log('[CapturePrompt][title][🐦‍🔥]: ', title)
+  // console.log('[CapturePrompt][body][🐦‍🔥]: ', body)
+  // console.log('[CapturePrompt][kind][🐦‍🔥]: ', kind)
 
-  const [capture, setCapture] = useState<Capture | null>({
-    id: id.current,
-    title: "",
-    capturedAt: (new Date()).toISOString(),
-    status: 'open',
-    kind: 'note',
-    closedAt: null,
-    isDraft: true
-  })
-
-  console.log('[CapturePrompt][id.current][🐦‍🔥]: ', id.current)
-  console.log('[CapturePrompt][title][🐦‍🔥]: ', title)
-  console.log('[CapturePrompt][body][🐦‍🔥]: ', body)
-  console.log('[CapturePrompt][kind][🐦‍🔥]: ', kind)
-  console.log('[CapturePrompt][capture][🫪]: ', capture)
-
-  useEffect(() => {
-    const raw = localStorage.getItem("capture-draft")
-    const draft: Capture | null = raw ? JSON.parse(raw) : null
-    if (draft && draft.title) {
-      setCapture(draft)
-    }
-  }, [])
 
   // useEffect(() => {
   //   const c: Capture = {
@@ -134,7 +204,7 @@ const CapturePrompt = (): React.JSX.Element => {
   //
 
   return (
-    <div className="relative overflow-hidden flex w-full flex-1 min-h-0 flex-col rounded-2xl transition transition-all transition-duration-3 pt-5"
+    <div className="relative overflow-hidden flex w-full flex-1 min-h-0 flex-col transition transition-all transition-duration-3 pt-6 border-b-2 rounded-b-3xl"
       style={{ transform: 'translate(0,0)' }}>
 
       {/* The icon sits beside the title rather than above it: a title is one
@@ -148,55 +218,6 @@ const CapturePrompt = (): React.JSX.Element => {
           onPick={(change) => change.icon && setIcon(change.icon)}
         />
         */}
-
-        <div className='flex flex-1 mx-[4.75em]'>
-          {/* Every option written out, whether or not it differs from the
-              default, so what this editor is can be read without opening the
-              component. A line that matches the default changes nothing. */}
-          <TitleEditor
-            // --- what it holds ---
-            // `shape` and `marks` come from the preset: one paragraph, and the
-            // four marks a title has room for. Setting them here would undo it.
-            placeholder="Issue title"
-            // defaultContent={note?.titleHtml}
-            defaultContent={capture?.title || ""}
-            tokens={TAGS}
-            // documentId={note ? `title-${note.id}` : null}
-
-            // --- what is switched on ---
-            // The preset switches the handles, the `/` menu, the outline, the
-            // find bar and the toolbars off already: none of them belong in a
-            // one line field.
-            //
-            // It leaves vim off too, because a form field that swallows `i`
-            // would surprise most callers. A title in this app is not that.
-            vim={true}
-            showSource={false}
-            readOnly={false}
-
-            // --- the app around it ---
-            host={window.api}
-            className="flex-1"
-
-            // --- what it tells you ---
-            onChange={(_doc, editor) => {
-              // save({ title: editor.getText(), titleHtml: editor.getHTML() })
-              setTitle(editor.getHTML())
-            }}
-            onSubmit={undefined}
-          />
-          <div className='w-fit flex items-center color-white'>
-            <Button className="bg-transparent cursor-pointer text-red-400 hover:bg-background cursor-pointer"> <AudioLines /> </Button>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex flex-1 mx-[4.75em] gap-2 py-2 rounded-xl">
-        <CaptureKindPicker value={capture?.kind || "note"} onChange={setKind} />
-        {/*
-          <StatusPicker value={status} onChange={setStatus} />
-          <PriorityPicker value={priority} onChange={setPriority} />
-          */}
       </div>
 
       {/* The same, spelled out. See `docs/components.md` for what each one
@@ -205,7 +226,7 @@ const CapturePrompt = (): React.JSX.Element => {
         // --- what it holds ---
         shape="document"
         placeholder="' / '  for commands..."
-        defaultContent={capture.body}
+        // defaultContent={capture?.body}
         tokens={TAGS}
         // documentId={note ? `doc-${note.id}` : null}
 
@@ -217,19 +238,22 @@ const CapturePrompt = (): React.JSX.Element => {
         slash={true}
         outline={true}
         search={true}
+        // vim is left out, so it follows the page switch.
+        vimStart="insert"
+        autofocus={true}
         showSource={false}
         readOnly={false}
 
         // --- the app around it ---
         host={window.api}
 
-        // --- what it tells you ---
-        onChange={(doc) => {
-          // save({ doc })
-          setBody(doc)
-        }}
-        // findNotes={findNotes}
-        // onOpenNote={open}
+      // --- what it tells you ---
+      // onChange={(doc) => {
+      // save({ doc })
+      // setBody(doc)
+      // }}
+      // findNotes={findNotes}
+      // onOpenNote={open}
       />
     </div>
   )
