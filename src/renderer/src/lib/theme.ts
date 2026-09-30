@@ -11,11 +11,13 @@
 /**
  * Every scheme, in the order the picker lists them.
  *
- * `dark` first, then the rest by name. Each is a class the stylesheet defines;
- * adding one here without adding it there gives a theme that does nothing.
+ * `dark` and `light` first, then the rest by name. Each is a class the
+ * stylesheet defines; adding one here without adding it there gives a theme
+ * that does nothing.
  */
 export const THEMES = [
   "dark",
+  "light",
   "adwaita",
   "blue-topaz",
   "catppuccin",
@@ -57,9 +59,10 @@ export function currentTheme(): Theme {
 /**
  * Put it on the document, and remember it.
  *
- * Call it once before the first paint. There is no light theme: the window is
- * transparent and sits on a frosted desktop, so every one of these carries
- * `dark` and only the colours underneath change.
+ * Call it once before the first paint. Every theme carries `dark`, including
+ * the light one: that class picks the ramp the editor reads, and each theme
+ * repaints the ramp underneath it. The page is transparent over the desktop
+ * either way, so there is no second set of rules to switch to.
  */
 export function applyTheme(theme: Theme): void {
   const { classList } = document.documentElement

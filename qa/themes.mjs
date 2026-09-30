@@ -38,28 +38,36 @@ await app.type(['# A heading', 'Body text with `code` in it.', '- a bullet'])
 
 const rows = []
 for (const theme of list) {
-  const read = await page.evaluate((name) => {
+  await page.evaluate((name) => {
     const root = document.documentElement
     for (const other of root.className.split(/\s+/)) {
       if (other !== 'dark') root.classList.remove(other)
     }
     root.classList.add('dark')
     if (name !== 'dark') root.classList.add(name)
+  }, theme)
+  // A repaint between the swap and the reading. Asked for in the same tick,
+  // the container still answers with the colours it was already wearing.
+  await page.waitForTimeout(120)
 
+  const read = await page.evaluate(() => {
+    const root = document.documentElement
     const editor = document.querySelector('.tiptap.ProseMirror.mindflow-editor:not(.is-line)')
     const body = editor.querySelector('p')
     const heading = editor.querySelector('h1')
     const style = getComputedStyle(root)
-    const page = getComputedStyle(document.querySelector('.app-container')).backgroundColor
+    // The theme's page colour, not the container's computed background: the
+    // window paints that at 20% over the desktop, and a ratio against a
+    // translucent wash measures the desktop as much as the theme.
     return {
-      page,
+      page: style.getPropertyValue('--black').trim(),
       body: getComputedStyle(body).color,
       heading: getComputedStyle(heading).color,
       caret: style.getPropertyValue('--tt-cursor-color').trim(),
       accent: style.getPropertyValue('--mf-accent-ink').trim(),
       chrome: style.getPropertyValue('--muted-foreground').trim()
     }
-  }, theme)
+  })
 
   // A swatch is a hex or an rgb; normalise by painting it and reading it back.
   const resolve = (value) =>
@@ -72,17 +80,18 @@ for (const theme of list) {
       return out
     }, value)
 
+  const paper = await resolve(read.page)
   const caret = await resolve(read.caret)
   const accent = await resolve(read.accent)
   const chrome = await resolve(read.chrome)
 
   rows.push({
     theme,
-    body: ratio(read.body, read.page),
-    heading: ratio(read.heading, read.page),
-    accent: ratio(accent, read.page),
-    caret: ratio(caret, read.page),
-    chrome: ratio(chrome, read.page)
+    body: ratio(read.body, paper),
+    heading: ratio(read.heading, paper),
+    accent: ratio(accent, paper),
+    caret: ratio(caret, paper),
+    chrome: ratio(chrome, paper)
   })
 }
 

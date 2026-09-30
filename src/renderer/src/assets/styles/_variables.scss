@@ -283,6 +283,17 @@ $mf-hues: "gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink"
    `dark`, the default, is not in here: it is the vendored ramp at the top of
    this file, and nothing below touches it. */
 $mf-themes: (
+  /* Paper. The only one of these with the ink darker than the page, which the
+     recipe above needs no help with: a surface step is a mix of ink into page
+     either way, and an overlay is the ink at low alpha either way. The hues
+     are the exception - a palette drawn to glow on black is washed out on
+     white, so these are taken down until they read as ink rather than as
+     highlighter. */
+  "light": (
+    "bg": #faf8f5, "ink": #2b2724, "accent": #b8420f,
+    "gray": #6f6a64, "brown": #8a5a3c, "orange": #b8480f, "yellow": #8a6410,
+    "green": #3a7237, "blue": #1c5f97, "purple": #6d3f99, "pink": #a3376c, "red": #b32521
+  ),
   /* Warmer than gruvbox's own #282828, matching warmbox. */
   "gruvbox": (
     "bg": #1f1710, "ink": #ebdbb2, "accent": #fe8019,
@@ -355,9 +366,12 @@ $mf-themes: (
   ),
   /* Nord, accented with aurora orange - which is the one thing Obsidian Nord
      changes about it, and the version worth keeping: plain Nord accents on
-     frost, which is another blue on another slate. */
+     frost, which is another blue on another slate.
+
+     A shade up from Nord's own #d08770, which lands at 4.39:1 on this page -
+     just under. The accent is what the caret and the links are made of. */
   "obsidian-nord": (
-    "bg": #2e3440, "ink": #eceff4, "accent": #d08770,
+    "bg": #2e3440, "ink": #eceff4, "accent": #d89178,
     "gray": #7b88a1, "brown": #b5806a, "orange": #d08770, "yellow": #ebcb8b,
     "green": #a3be8c, "blue": #81a1c1, "purple": #b48ead, "pink": #c9a0bd, "red": #bf616a
   )
