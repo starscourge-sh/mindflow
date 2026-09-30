@@ -57,7 +57,22 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 0
+  padding: 0;
+
+  // `smoothScroll`. Every scroll the editor makes on its own eases; the drag
+  // loop asks for `instant` and so is unaffected. Honoured by the caret being
+  // scrolled back into view, by vim's motions and by the search.
+  &.is-smooth {
+    scroll-behavior: smooth;
+  }
+}
+
+// Somebody who has asked their system not to animate gets no animation, even
+// with the prop on.
+@media (prefers-reduced-motion: reduce) {
+  .mindflow-editor-content.is-smooth {
+    scroll-behavior: auto;
+  }
 }
 
 .tiptap.ProseMirror.mindflow-editor {

@@ -286,6 +286,20 @@ export interface MindflowEditorProps {
    */
   autofocus?: boolean | "start" | "end"
   /**
+   * Ease the document to the caret instead of snapping to it.
+   *
+   * Every jump the editor makes on its own - a keystroke scrolling the caret
+   * back into view, a vim motion, a search hit - glides. Holding `j` then
+   * reads as the page moving under you rather than as a stack of jumps.
+   *
+   * Dragging a block past the edge is deliberately left out: that scroll is
+   * already a smooth loop of its own, and easing each of its steps would fight
+   * the pointer.
+   *
+   * @default true
+   */
+  smoothScroll?: boolean
+  /**
    * Which marks exist at all. Not a toolbar setting: a mark left out here is
    * unreachable by shortcut, by markdown, and by pasting, because the schema
    * has nowhere to put it.
@@ -435,6 +449,7 @@ function Surface({
   vim,
   vimStart = "normal",
   autofocus = false,
+  smoothScroll = true,
   marks,
   className = "",
   style,
@@ -474,6 +489,10 @@ function Surface({
     let at: number | null = null
     let frame = 0
 
+    // `instant`, spelled out: the box may be easing its own scrolls, and a
+    // frame loop that asks for an eased step every frame never arrives.
+    const by = (delta: number): void => box.scrollBy({ top: delta, behavior: "instant" })
+
     const step = (): void => {
       frame = requestAnimationFrame(step)
       if (at === null) return
@@ -481,8 +500,8 @@ function Surface({
       const { top, bottom } = box.getBoundingClientRect()
       const above = at - top
       const below = bottom - at
-      if (above < EDGE) box.scrollTop -= SPEED * (1 - Math.max(0, above) / EDGE)
-      else if (below < EDGE) box.scrollTop += SPEED * (1 - Math.max(0, below) / EDGE)
+      if (above < EDGE) by(-SPEED * (1 - Math.max(0, above) / EDGE))
+      else if (below < EDGE) by(SPEED * (1 - Math.max(0, below) / EDGE))
     }
 
     const follow = (event: DragEvent): void => {
@@ -1191,7 +1210,9 @@ function Surface({
         <EditorContent
           editor={editor}
           role="presentation"
-          className="mindflow-editor-content relative p-3 overflow-auto"
+          className={`mindflow-editor-content relative p-3 overflow-auto${
+            smoothScroll ? " is-smooth" : ""
+          }`}
           ref={(box) => dragScroll(box)}
         />
 
