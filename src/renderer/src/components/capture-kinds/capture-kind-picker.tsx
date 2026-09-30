@@ -74,7 +74,7 @@ export function CaptureKindPicker({ value, onChange }: {
   const [open, setOpen] = useState(false)
   const current = CAPTURE_TYPES.find((Ctype) => Ctype.id === value) ?? CAPTURE_TYPES[0]
 
-  useShortcut('t', () => setOpen(true))
+  useShortcut('l', () => setOpen(true))
   const Icon = current.icon
 
   return (
@@ -99,7 +99,7 @@ export function CaptureKindPicker({ value, onChange }: {
             setOpen(false)
           }}
         >
-          <CommandInput placeholder="Change type..." shortcut="⌃T" />
+          <CommandInput placeholder="Change type..." shortcut="⌃L" />
           <CommandList>
             <CommandEmpty>No type</CommandEmpty>
             {CAPTURE_TYPES.map((type, index) => {
