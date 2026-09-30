@@ -368,3 +368,15 @@ body {
   position: fixed;
   inset: 0;
 }
+
+/* Anything that floats over the window keeps its clicks.
+
+   The strip at the top is the window's drag handle, and a drag region is an
+   OS-level hit test: it wins over web content whatever the z-index says. A
+   panel that reaches the top of the window - a sheet, a dialog - had its close
+   button swallowed by it. */
+[data-slot='sheet-content'],
+[data-slot='sheet-overlay'],
+[role='dialog'] {
+  -webkit-app-region: no-drag;
+}

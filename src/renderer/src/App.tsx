@@ -1,16 +1,33 @@
 import React, { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { AudioLines, X } from 'lucide-react'
+import { AudioLines, FileJson2, Lock, LockOpen, X } from 'lucide-react'
 // import { Maximize2, Minimize2 } from 'lucide-react'
 import type { JSONContent } from '@tiptap/core'
 import { v4 as uuidv4 } from 'uuid';
 
-import { MindflowEditor, TAGS } from './components/mindflow'
+import { MindflowEditor, ThemeToggle, TAGS } from './components/mindflow'
 // import { TitleEditor } from './components/mindflow'
 // import { EmojiButton } from './components/mindflow'
 // import { StatusPicker, type Status } from './components/status/status-picker'
 // import { PriorityPicker, type Priority } from './components/priority/priority-picker'
 import { CaptureKindPicker, type CaptureType } from './components/capture-kinds/capture-kind-picker';
 import { Button } from './components/ui/button';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle
+} from './components/ui/sheet';
+
+/**
+ * The controls on the bar at the foot of the window.
+ *
+ * A colour of their own: inheriting left them near enough invisible against
+ * the bar, and an icon you have to look for is not a control.
+ */
+const CONTROL =
+  'bg-transparent cursor-pointer text-foreground/75 hover:text-foreground ' +
+  'hover:bg-accent [&_svg]:size-[1.1rem]'
 
 export default function App(): React.JSX.Element {
   const id = useRef(uuidv4())
@@ -35,6 +52,15 @@ export default function App(): React.JSX.Element {
   }, [])
 
 
+  // The editor takes both of these as props, so the buttons for them can live
+  // in the app's own chrome without reaching inside it.
+  const [locked, setLocked] = useState(false)
+  const [source, setSource] = useState(false)
+  // The document, as the editor last handed it over. The drawer reads this
+  // rather than the editor's own panel, so the source can sit beside the note
+  // instead of on top of it.
+  const [body, setBody] = useState<JSONContent | null>(null)
+
   console.log('[CapturePrompt][kind][🐦‍🔥]: ', kind)
   console.log('[CapturePrompt][capture][🫪]: ', capture)
 
@@ -42,14 +68,38 @@ export default function App(): React.JSX.Element {
   return (
     <div className="app-container bg-background/20 flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-3 color-white">
       <Header />
-      <CapturePrompt />
+      <CapturePrompt locked={locked} onChange={setBody} />
+      <SourceDrawer open={source} doc={body} onOpenChange={setSource} />
       <div className="w-full flex justify-between py-[0.5rem] px-[4.75rem] bg-linear-to-t from-[var(--accent)]/40">
         <CaptureKindPicker value={capture?.kind || "note"} onChange={setKind} />
         {/*
           <StatusPicker value={status} onChange={setStatus} />
           <PriorityPicker value={priority} onChange={setPriority} />
           */}
-        <Button className="bg-transparent cursor-pointer text-red-400 hover:bg-background cursor-pointer"> <AudioLines /> </Button>
+        <div className="flex items-center gap-1">
+          {/* The editor's settings, drawn here rather than in its toolbar: it
+              exposes them as props, so the chrome is the app's business and
+              the package stays whole. The theme knows how to look after
+              itself - it is a page-level thing, not an editor one. */}
+          <Button
+            className={CONTROL}
+            aria-label={locked ? 'Unlock the note' : 'Lock the note'}
+            onClick={() => setLocked(!locked)}
+          >
+            {locked ? <Lock /> : <LockOpen />}
+          </Button>
+          <Button
+            className={CONTROL}
+            aria-label={source ? 'Hide the source' : 'Show the source'}
+            onClick={() => setSource(!source)}
+          >
+            <FileJson2 />
+          </Button>
+          <ThemeToggle />
+          <Button className={`${CONTROL} text-red-400 hover:text-red-300`}>
+            <AudioLines />
+          </Button>
+        </div>
       </div>
     </div>
   )
@@ -164,7 +214,45 @@ type Capture = {
   isDraft: boolean
 }
 
-const CapturePrompt = (): React.JSX.Element => {
+/**
+ * The document as JSON, in a drawer off the right edge.
+ *
+ * Beside the note rather than over it: the editor's own source panel takes the
+ * window, and reading the shape of what you wrote while you cannot see what you
+ * wrote is not much use. It is fed by `onChange`, so it is whatever the editor
+ * last handed over.
+ */
+const SourceDrawer = ({
+  open,
+  doc,
+  onOpenChange
+}: {
+  open: boolean
+  doc: JSONContent | null
+  onOpenChange: (open: boolean) => void
+}): React.JSX.Element => (
+  <Sheet open={open} onOpenChange={onOpenChange}>
+    <SheetContent side="right" className="gap-0 p-0">
+      <SheetHeader className="border-b p-4">
+        <SheetTitle className="text-sm">Source</SheetTitle>
+        <SheetDescription className="sr-only">
+          The note as the editor last handed it over.
+        </SheetDescription>
+      </SheetHeader>
+      <pre className="flex-1 overflow-auto p-4 text-xs leading-relaxed break-words whitespace-pre-wrap">
+        {doc ? JSON.stringify(doc, null, 2) : ''}
+      </pre>
+    </SheetContent>
+  </Sheet>
+)
+
+const CapturePrompt = ({
+  locked,
+  onChange
+}: {
+  locked: boolean
+  onChange: (doc: JSONContent) => void
+}): React.JSX.Element => {
   useEscapeToHide()
 
   // const {note, notes, save, open} = useNotes()
@@ -236,16 +324,13 @@ const CapturePrompt = (): React.JSX.Element => {
         vimStart="insert"
         autofocus={true}
         showSource={false}
-        readOnly={false}
+        readOnly={locked}
 
         // --- the app around it ---
         host={window.api}
 
-      // --- what it tells you ---
-      // onChange={(doc) => {
-      // save({ doc })
-      // setBody(doc)
-      // }}
+        // --- what it tells you ---
+        onChange={onChange}
       // findNotes={findNotes}
       // onOpenNote={open}
       />
