@@ -15,6 +15,15 @@ import { THEMES, applyTheme, currentTheme, themeName, type Theme } from "@/lib/t
 const byName = (label: string): Theme | undefined =>
   THEMES.find((name) => themeName(name) === label)
 
+/** Three of a theme's colours, overlapping. The stylesheet paints them. */
+const Swatch = ({ theme }: { theme: Theme }): React.JSX.Element => (
+  <span className={`mf-swatch mf-swatch-${theme}`}>
+    <i />
+    <i />
+    <i />
+  </span>
+)
+
 /**
  * The pill, and the list it opens.
  *
@@ -54,12 +63,12 @@ export function ThemePicker({ className }: { className?: string }): React.JSX.El
     >
       <PopoverTrigger asChild>
         <Button variant="ghost" size="sm" aria-label="Change theme" className={className}>
-          <span className={`mf-swatch mf-swatch-${theme}`} />
+          <Swatch theme={theme} />
           {themeName(theme)}
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-64 p-0" align="end">
+      <PopoverContent className="w-64 p-0 [--mf-swatch-ring:var(--popover)]" align="end">
         <Command
           value={row}
           onValueChange={(label) => {
@@ -82,7 +91,7 @@ export function ThemePicker({ className }: { className?: string }): React.JSX.El
                   setOpen(false)
                 }}
               >
-                <span className={`mf-swatch mf-swatch-${name}`} />
+                <Swatch theme={name} />
                 <span>{themeName(name)}</span>
                 {name === theme && <Check className="ml-auto size-4" />}
               </CommandItem>

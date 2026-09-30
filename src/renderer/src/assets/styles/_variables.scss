@@ -377,22 +377,43 @@ $mf-themes: (
   )
 );
 
-/* The dot the picker lists a theme by. It is shaped once, here, and coloured
-   per theme below - it has to paint a theme that is NOT on, so it cannot read
-   a variable: those only exist on the root once the theme is applied. Before
-   the loop, or it would win on source order and every dot would come out the
-   colour of whichever theme was already showing. */
+/* The mark the picker lists a theme by: three of its colours overlapping,
+   the way a stack of labels reads. One dot was not enough - four of these
+   accent on almost the same blue, and a column of identical dots is no help.
+   Three is what fits in the space a dot took.
+
+   The colours are shaped here and painted per theme below. They have to paint
+   a theme that is NOT on, so they cannot read a variable: those only exist on
+   the root once the theme is applied. Before the loop, or these would win on
+   source order and every stack would come out one colour. */
 .mf-swatch {
-  width: 0.75rem;
-  height: 0.75rem;
+  display: inline-flex;
   flex: none;
-  border-radius: 999px;
+  align-items: center;
+
+  i {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 999px;
+    /* A ring in the surface behind, so overlapping dots stay three dots. */
+    box-shadow: 0 0 0 2px var(--mf-swatch-ring, var(--background));
+  }
+
+  i + i {
+    margin-left: -0.25rem;
+  }
 }
 
 /* `dark` is the vendored ramp at the top of this file rather than an entry in
-   the map, so its dot is written out. */
-.mf-swatch-dark {
+   the map, so its three are written out. */
+.mf-swatch-dark i:nth-child(1) {
   background: #c23600;
+}
+.mf-swatch-dark i:nth-child(2) {
+  background: hsl(36, 54%, 55%);
+}
+.mf-swatch-dark i:nth-child(3) {
+  background: hsl(145, 32%, 47%);
 }
 
 /* `:root.name`, not `.name`: it has to outrank `.dark`, which sets a caret and
@@ -402,8 +423,12 @@ $mf-themes: (
     @include mf-palette($mf-theme);
   }
 
-  .mf-swatch-#{$mf-name} {
-    background: #{map.get($mf-theme, "accent")};
+  /* The accent, the heading and the quote - the three the prose actually
+     wears, so the stack is a fair sample of the page. */
+  @each $mf-role, $mf-hue in ("1": "accent", "2": "yellow", "3": "green") {
+    .mf-swatch-#{$mf-name} i:nth-child(#{$mf-role}) {
+      background: #{map.get($mf-theme, $mf-hue)};
+    }
   }
 }
 
