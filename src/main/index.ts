@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShortcut, ipcMain, net, protocol } from 'electron'
+import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShortcut, ipcMain, net, protocol, screen } from 'electron'
 /*
  * app - Control your application's event lifecycle.
  *     - app.on('window-all-closed', () => { app.quit() })
@@ -245,6 +245,22 @@ function openDrawing(id: string, scene: unknown, note: Electron.WebContents): vo
   }
 }
 
+/**
+ * Top right, clear of the middle of the screen.
+ *
+ * A capture window arrives over whatever you were reading, and the middle is
+ * where that is. Measured against the work area rather than the display, so it
+ * sits under the menu bar and beside the dock rather than behind them.
+ */
+function topRight(width: number): { x: number; y: number } {
+  const { workArea } = screen.getPrimaryDisplay()
+  const margin = 16
+  return {
+    x: workArea.x + workArea.width - width - margin,
+    y: workArea.y + margin
+  }
+}
+
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -253,6 +269,7 @@ function createWindow(): void {
     // minWidth: 600,
     width: 625,
     height: 400,
+    ...topRight(625),
 
     resizable: false,
     vibrancy: 'under-window',

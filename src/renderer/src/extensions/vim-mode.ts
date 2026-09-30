@@ -1831,6 +1831,14 @@ export const VimMode = Extension.create<VimModeOptions>({
             const anchor = vim.visualAnchor
 
             if (event.key === "Escape") {
+              // Nothing to leave: let it go. Normal mode with no half-typed
+              // command is the resting state, and swallowing Escape there
+              // means nothing outside the editor can ever have it - the
+              // window's own Escape included.
+              const idle =
+                vim.mode === "normal" && !vim.operator && !vim.pendingG && !vim.count
+              if (idle) return false
+
               const held =
                 inVisual && anchor !== null
                   ? { lastVisual: { anchor, head: vim.visualHead ?? anchor, linewise } }

@@ -1,10 +1,9 @@
 import { Extension } from "@tiptap/core"
-import { canJoin } from "@tiptap/pm/transform"
-import { Selection } from "@tiptap/pm/state"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import type { EditorState } from "@tiptap/pm/state"
 
 // --- Lib ---
+import { retypeList } from "@/lib/retype-list"
 import { wordRangeAt } from "@/lib/word-range"
 
 /**
@@ -32,15 +31,6 @@ declare module "@tiptap/core" {
     }
   }
 }
-
-/** The item type each kind of list holds. */
-const ITEM_OF: Record<string, string> = {
-  bulletList: "listItem",
-  orderedList: "listItem",
-  taskList: "taskItem",
-}
-
-const ITEMS = ["listItem", "taskItem"]
 
 /**
  * The word under a collapsed cursor, or null when there is a real selection.
@@ -179,70 +169,6 @@ export const ObsidianShortcuts = Extension.create<ObsidianShortcutOptions>({
 
   addKeyboardShortcuts() {
     /**
-     * Retype just the item the cursor is on, leaving the rest of the list alone.
-     *
-     * TipTap's own `toggleList` calls `setNodeMarkup` on the whole list node, so
-     * one bullet in a run of twenty turns all twenty into numbers. Splitting the
-     * list around the item and retyping the single-item list left in the middle
-     * changes only that line - and unlike lifting the item out, its indented
-     * children come with it instead of being orphaned beside it.
-     */
-    const retypeItem = (list: string): boolean =>
-      this.editor.commands.command(({ state, tr, dispatch }) => {
-        const type = state.schema.nodes[list]
-        // A checklist holds `taskItem` and the other two hold `listItem`, so
-        // the item has to change type along with the list around it.
-        const item = state.schema.nodes[ITEM_OF[list]]
-        const { $from } = state.selection
-        const depth = $from.depth - 1
-        if (!type || !item || depth < 1) return false
-        if (!ITEMS.includes($from.node(depth).type.name)) return false
-
-        const parent = $from.node(depth - 1)
-        const index = $from.index(depth - 1)
-        // Later edge first throughout, here and in the joins below: cutting the
-        // earlier one would move every position after it.
-        if (index < parent.childCount - 1) tr.split($from.after(depth), 1)
-        if (index > 0) tr.split($from.before(depth), 1)
-
-        const at = tr.mapping.map($from.before(depth)) - 1
-        const was = tr.doc.nodeAt(at)
-        if (!was || was.type === type) return false
-
-        // Rebuilt in one step, not retyped in two: a list is only ever valid
-        // holding its own kind of item, so changing the list and then the item
-        // passes through a state the schema rejects and the whole thing throws.
-        const items: ProseMirrorNode[] = []
-        was.forEach((child) =>
-          items.push(child.type === item ? child : item.create(null, child.content))
-        )
-        const next = type.create(was.attrs, items)
-        tr.replaceWith(at, at + was.nodeSize, next)
-        // The rebuilt item holds the same content, so the same offset inside it
-        // is the same spot. Left to itself the caret maps into the list that
-        // follows, and the next press converts the wrong line.
-        tr.setSelection(
-          Selection.near(tr.doc.resolve(at + 1 + ($from.pos - $from.before(depth))))
-        )
-
-        // Two lists of the SAME kind side by side are one list, or converting a
-        // line and converting it back would leave the run cut in three where
-        // the split was. The type test is not redundant: `canJoin` only asks
-        // whether the content matches, and every list holds `listItem+`, so it
-        // would happily merge the numbered line straight back in.
-        const joinable = (pos: number): boolean =>
-          canJoin(tr.doc, pos) &&
-          tr.doc.resolve(pos).nodeBefore?.type ===
-            tr.doc.resolve(pos).nodeAfter?.type
-
-        if (joinable(at + next.nodeSize)) tr.join(at + next.nodeSize)
-        if (joinable(at)) tr.join(at)
-
-        if (dispatch) dispatch(tr.scrollIntoView())
-        return true
-      })
-
-    /**
      * Turn the line into a list of this kind.
      *
      * Inside a toggle it unfolds first: the item already sits in a list, so
@@ -257,15 +183,20 @@ export const ObsidianShortcuts = Extension.create<ObsidianShortcutOptions>({
       (): boolean => {
         const { editor } = this
         if (editor.isActive("details")) editor.commands.toggleHeadingSection()
-        if (editor.isActive(list)) return true
+        // Only when there is nothing selected. With a run selected, "already a
+        // checklist" is true the moment the *first* line is one, and bailing
+        // here left the rest of the selection as bullets.
+        if (editor.state.selection.empty && editor.isActive(list)) return true
         // Already in a list of the other kind: retype this line only.
-        return retypeItem(list) || editor.commands[command]()
+        return retypeList(editor, list) || editor.commands[command]()
       }
 
     return {
       // Already a checkbox: tick it. Otherwise make this line one.
+      // Ticks the box you are on; converts what you have selected. Selecting
+      // four lines and asking for checkboxes ticked one of them instead.
       "Mod-Alt-4": () =>
-        this.editor.isActive("taskItem")
+        this.editor.state.selection.empty && this.editor.isActive("taskItem")
           ? this.editor.commands.toggleCheckbox()
           : turnInto("toggleTaskList", "taskList")(),
       "Mod-Alt-5": turnInto("toggleBulletList", "bulletList"),

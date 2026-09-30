@@ -554,18 +554,33 @@ function Surface({
       attributes: {
         autocomplete: "off",
         autocorrect: "true",
-        autocapitalize: "true",
+        autocapitalize: "none",
         "aria-label": "Main content area, start typing to enter text.",
         // The shape is on the element too. Both editors carry `mindflow-editor`
         // now, so without this there is no way to tell a title from a document
         // in CSS or from outside.
         class: shape === "line" ? "mindflow-editor is-line" : "mindflow-editor",
       },
-      // What Return means, which depends on what is selected.
+      // Return, and the macOS editing keys nobody asked for.
       //
       // Here rather than in a keyboard shortcut because ProseMirror checks
       // these props before any plugin, and vim swallows Return in normal mode.
       handleKeyDown: (view, event) => {
+        // macOS gives every editable field a set of Emacs keys and Chromium
+        // honours them. Ctrl-H is a second Backspace, Ctrl-W eats a word and
+        // Ctrl-T swaps two characters - none of which anything here asked for.
+        //
+        // Ctrl-K stays: killing to the end of the line is `C` without the
+        // insert, and it earns its place. So do Ctrl-D, O, Y, E, F, B, U and
+        // the bracket pairs, which are vim's - and swallowing those here,
+        // before any plugin runs, would take them off vim mode as well.
+        if (event.ctrlKey && !event.metaKey && !event.altKey) {
+          if (["h", "w", "t"].includes(event.key.toLowerCase())) {
+            event.preventDefault()
+            return true
+          }
+        }
+
         if (event.key !== "Enter" || event.shiftKey || event.isComposing) return false
 
         // A whole card is selected: open it. A card is a link you arrived at
@@ -586,6 +601,26 @@ function Surface({
         event.preventDefault()
         submit.current()
         return true
+      },
+      // Dragging a block to somewhere off-screen. The document scrolls in its
+      // own box, and a drag does not scroll it - so anything further than one
+      // screenful away could not be reached at all, which is most of a long
+      // note. Near an edge the box scrolls itself, faster the closer you get.
+      handleDOMEvents: {
+        dragover: (view, event) => {
+          const box = view.dom.closest<HTMLElement>(".mindflow-editor-content")
+          if (!box) return false
+
+          const EDGE = 48
+          const SPEED = 12
+          const { top, bottom } = box.getBoundingClientRect()
+          const above = event.clientY - top
+          const below = bottom - event.clientY
+
+          if (above < EDGE) box.scrollTop -= SPEED * (1 - Math.max(0, above) / EDGE)
+          else if (below < EDGE) box.scrollTop += SPEED * (1 - Math.max(0, below) / EDGE)
+          return false
+        }
       },
       // Alt and a drag leaves the block where it was and drops a copy, the way
       // duplicating works everywhere else. ProseMirror already does this, but

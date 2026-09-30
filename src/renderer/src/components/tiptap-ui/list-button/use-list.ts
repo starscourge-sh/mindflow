@@ -6,6 +6,7 @@ import { NodeSelection, TextSelection } from "@tiptap/pm/state"
 
 // --- Hooks ---
 import { useTiptapEditor } from "@/hooks/use-tiptap-editor"
+import { retypeList } from "@/lib/retype-list"
 
 // --- Icons ---
 import { ListIcon } from "@/components/tiptap-icons/list-icon"
@@ -216,8 +217,11 @@ export function toggleList(editor: Editor | null, type: ListType): boolean {
         .lift("orderedList")
         .lift("taskList")
         .run()
-    } else {
-      // Wrap in specific list type
+    } else if (!retypeList(editor, type)) {
+      // Already in a list of another kind, `retypeList` has rebuilt it in
+      // place. Otherwise there is no list yet, and this wraps one round the
+      // line - which is the one thing TipTap's own toggles do correctly
+      // between a checklist and the other two.
       const toggleMap: Record<ListType, () => typeof chain> = {
         bulletList: () => chain.toggleBulletList(),
         orderedList: () => chain.toggleOrderedList(),

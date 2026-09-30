@@ -110,7 +110,10 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
   useEffect(() => {
     if (!full) return
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') toggleFull()
+      if (event.key !== 'Escape') return
+      // Say so, or the window takes it as well and goes away underneath.
+      event.preventDefault()
+      toggleFull()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)

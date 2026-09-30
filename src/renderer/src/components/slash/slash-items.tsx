@@ -21,6 +21,7 @@ import { host } from '@/lib/host'
 import { fitToWidth } from '@/lib/table'
 
 import type { SlashItem } from '@/extensions/slash-command'
+import { retypeList } from '@/lib/retype-list'
 import { linkCard } from '@/lib/link-card'
 
 // --- Icons ---
@@ -87,7 +88,8 @@ export const slashItems: SlashItem[] = [
     turnInto: true,
     hint: '-',
     icon: <ListIcon />,
-    run: (editor) => editor.chain().focus().toggleBulletList().run()
+    run: (editor) =>
+      retypeList(editor, 'bulletList') || editor.chain().focus().toggleBulletList().run()
   },
   {
     title: 'Numbered list',
@@ -95,7 +97,8 @@ export const slashItems: SlashItem[] = [
     turnInto: true,
     hint: '1.',
     icon: <ListOrderedIcon />,
-    run: (editor) => editor.chain().focus().toggleOrderedList().run()
+    run: (editor) =>
+      retypeList(editor, 'orderedList') || editor.chain().focus().toggleOrderedList().run()
   },
   {
     title: 'To-do list',
@@ -103,7 +106,8 @@ export const slashItems: SlashItem[] = [
     turnInto: true,
     hint: '[]',
     icon: <ListTodoIcon />,
-    run: (editor) => editor.chain().focus().toggleTaskList().run()
+    run: (editor) =>
+      retypeList(editor, 'taskList') || editor.chain().focus().toggleTaskList().run()
   },
   {
     title: 'Quote',

@@ -58,30 +58,24 @@ export default function App(): React.JSX.Element {
 /**
  * Escape puts the window away, the way it does in Raycast's notes.
  *
- * A menu gets it first - Escape belongs to whatever is open on top of the
- * window before it belongs to the window - but vim does not. `jk` is the way
- * out of insert mode, and having Escape do that as well would mean pressing it
- * twice to put away a window you had only just opened.
+ * Only once nothing else wants it. A menu closes, the find bar closes, vim
+ * leaves visual mode - each of those says so by preventing the default, and
+ * this asks rather than keeping its own list of what might be open. The list
+ * was always going to be missing whatever was added last.
  *
- * Capture phase, so it runs before the editor, which would otherwise consume
- * it and change the mode on the way past.
+ * Vim in its resting state deliberately does not claim it, or Escape could
+ * never reach the window from inside the editor. `jk` is the way out of
+ * insert mode, so Escape has nothing to do there anyway.
  */
 function useEscapeToHide(): void {
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape') return
-      if (
-        document.querySelector(
-          '[cmdk-root], [role=menu], [role=listbox], [role=dialog], .tiptap-suggestion-popup'
-        )
-      ) {
-        return
-      }
+      if (event.key !== 'Escape' || event.defaultPrevented) return
       window.api.hideWindow()
     }
 
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [])
 }
 
@@ -204,7 +198,7 @@ const CapturePrompt = (): React.JSX.Element => {
   //
 
   return (
-    <div className="relative overflow-hidden flex w-full flex-1 min-h-0 flex-col transition transition-all transition-duration-3 pt-6 border-b-2 rounded-b-3xl"
+    <div className="relative overflow-hidden flex w-full flex-1 min-h-0 flex-col transition transition-all transition-duration-3 pt-6 border-b-2 rounded-b-3xl shadow-xl"
       style={{ transform: 'translate(0,0)' }}>
 
       {/* The icon sits beside the title rather than above it: a title is one
