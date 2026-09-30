@@ -147,6 +147,15 @@
     width: fit-content;
 }
 
+// The caret in a place that holds no text - before a drawing that opens the
+// document, or between two cards. A horizontal line is right, since there is
+// no line of text for it to stand in, but the one ProseMirror ships is 1px of
+// black, which on a dark page reads as a stray mark rather than as a cursor.
+.tiptap.ProseMirror.mindflow-editor .ProseMirror-gapcursor::after {
+  border-top-color: var(--tt-cursor-color);
+  border-top-width: 0.125rem;
+}
+
 // Vim mode: the caret is the only cue for which mode you are in.
 // `caret-shape` is native, so unlike a drawn caret it cannot break the line.
 .tiptap.ProseMirror.mindflow-editor[data-vim-mode="normal"] {
@@ -164,15 +173,16 @@
 // Everything below is light/dark through these three, so each rule is written
 // once. The vendored variables already establish the :root / .dark convention.
 :root {
-  // #f5a623 reads 9.5:1 on the dark page but 2.0:1 on white.
-  --mf-caret-vim: #a3550a;
+  // The theme's own accent, which is what every hand-written value here used
+  // to be anyway - gruvbox's orange, kanagawa's blue - written once instead of
+  // once per theme, where the two could drift.
+  --mf-caret-vim: var(--tt-brand-color-400);
   --mf-surface: var(--tt-gray-light-a-100);
   --mf-muted: var(--tt-gray-light-a-500);
   --mf-muted-strong: var(--tt-gray-light-a-600);
 }
 
 .dark {
-  --mf-caret-vim: #f5a623;
   --mf-surface: var(--tt-gray-dark-a-100);
   --mf-muted: var(--tt-gray-dark-a-500);
   --mf-muted-strong: var(--tt-gray-dark-a-600);

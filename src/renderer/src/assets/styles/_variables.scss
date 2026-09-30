@@ -599,14 +599,6 @@
   --tt-color-highlight-pink: rgb(72, 52, 78);
 }
 
-/* The vim caret, per theme. `:root.<theme>` rather than `.<theme>`: the
-   editor's own stylesheet loads after this one and sets this token on `.dark`,
-   which every theme here also carries, so equal specificity would lose. */
-:root.gruvbox { --mf-caret-vim: rgba(254, 128, 25, 1); }
-:root.kanagawa { --mf-caret-vim: rgba(126, 156, 216, 1); }
-:root.kanagawa-dragon { --mf-caret-vim: rgba(139, 164, 176, 1); }
-:root.tokyonight { --mf-caret-vim: rgba(255, 199, 119, 1); }
-
 /* Prose accents, per theme. Code blocks get their colour from the token rules
    above, but prose has no syntax to highlight, so without these a document is
    one hue from top to bottom: headings, bullets, inline code and card icons all
