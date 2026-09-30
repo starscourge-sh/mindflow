@@ -67,7 +67,7 @@ export default function App(): React.JSX.Element {
 
 
   return (
-    <div className="app-container bg-background/20 flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-3 color-white">
+    <div className="app-container flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-3 color-white">
       <Header />
       <CapturePrompt locked={locked} onChange={setBody} />
       <SourceDrawer open={source} doc={body} onOpenChange={setSource} />

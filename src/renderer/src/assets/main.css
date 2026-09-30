@@ -168,10 +168,25 @@ body {
 }
 .app-container {
   overflow: hidden;   /* clip content to the rounded corners */
+  /* The page colour, thinned so the desktop shows through. A dark theme wants
+     a wash - that is the whole look. A light one cannot have it: a fifth of
+     paper over a dark desktop is grey, and dark ink on grey is unreadable, so
+     the light theme trades the frost for a page you can actually read.
+     `oklab`, which is the space Tailwind's own `bg-background/20` used, so
+     every dark theme paints exactly what it painted before. */
+  background-color: color-mix(
+    in oklab,
+    var(--background) var(--mf-window-tint, 20%),
+    transparent
+  );
   /* The only surface painting the page colour, so this is the only place a
      theme change is visible. Variables cannot be transitioned; the property
      reading them can, so the swap fades instead of snapping. */
   transition: background-color 300ms ease;
+}
+
+:root.light {
+  --mf-window-tint: 100%;
 }
 
 /* The window's own three dots, top left, in place of the system's.
