@@ -43,7 +43,7 @@ export default function App(): React.JSX.Element {
     <div className="app-container bg-background/20 flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-3 color-white">
       <Header />
       <CapturePrompt />
-      <div className="w-full flex justify-between py-[0.5rem] px-[4.75rem]">
+      <div className="w-full flex justify-between py-[0.5rem] px-[4.75rem] bg-linear-to-t from-[var(--accent)]/40">
         <CaptureKindPicker value={capture?.kind || "note"} onChange={setKind} />
         {/*
           <StatusPicker value={status} onChange={setStatus} />

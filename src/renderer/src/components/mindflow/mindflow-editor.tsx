@@ -1092,7 +1092,7 @@ function Surface({
 
         {/* The dock earns its place only if something is in it. */}
         {(fixedItems !== false || search) && (
-          <div className="absolute inset-x-0 bottom-0 z-50 m-auto bg-linear-to-t from-[var(--accent)]/40">
+          <div className="absolute inset-x-0 bottom-0 z-50 m-auto">
           <div className="w-full flex flex-col gap-1 items-center py-3 select-none">
             {/* A grid row rather than a height: `height: auto` cannot be
                 transitioned, but `0fr` to `1fr` can, so the gradient above
