@@ -1,6 +1,7 @@
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { NodeViewWrapper, useEditorState, type NodeViewProps } from '@tiptap/react'
-import { Check, PencilRuler } from 'lucide-react'
+import { Check, Maximize2, Minimize2, PencilRuler } from 'lucide-react'
 
 import type { DiagramScene } from '@/extensions/excalidraw'
 import type { ExcalidrawElement, NonDeleted } from '@excalidraw/excalidraw/element/types'
@@ -32,6 +33,56 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
   // draw in. One that was saved opens as what it is.
   const [editing, setEditing] = useState(!scene)
   const [preview, setPreview] = useState<string | null>(null)
+  // The block is as wide as the column and as tall as its grip allows, which
+  // is a thumbnail's worth of room for anything with more than four boxes in
+  // it. This lifts the same canvas out of the flow to fill the window.
+  const [full, setFull] = useState(false)
+
+  // Growing into full screen, and shrinking back out of it.
+  //
+  // The frame is a different element in each place - inline in the note, or
+  // portalled to the body - so there is nothing to transition. Instead the new
+  // one is measured against where the old one was and played from there: the
+  // picture starts exactly where you left it and arrives where it is going.
+  const box = useRef<HTMLDivElement>(null)
+  const from = useRef<DOMRect | null>(null)
+
+  const toggleFull = (): void => {
+    from.current = box.current?.getBoundingClientRect() ?? null
+    setFull(!full)
+  }
+
+  useLayoutEffect(() => {
+    const element = box.current
+    const start = from.current
+    from.current = null
+    if (!element || !start) return
+
+    const end = element.getBoundingClientRect()
+    element.animate(
+      [
+        {
+          transformOrigin: 'top left',
+          transform:
+            `translate(${start.left - end.left}px, ${start.top - end.top}px) ` +
+            `scale(${start.width / end.width}, ${start.height / end.height})`
+        },
+        { transformOrigin: 'top left', transform: 'none' }
+      ],
+      { duration: 220, easing: 'cubic-bezier(0.2, 0, 0, 1)' }
+    )
+  }, [full])
+
+  // Escape leaves the drawing rather than the app. The window's own Escape
+  // stands down for a dialog, which is what this is while it is up.
+  useEffect(() => {
+    if (!full) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') toggleFull()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [full])
 
   // Through a ref: the save below is deliberately stable, so it can also run
   // when the block goes away, and the props it closes over would be stale.
@@ -130,9 +181,15 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
     }
   }, [editing, scene])
 
-  return (
-    <NodeViewWrapper className={`tiptap-excalidraw${selected ? ' is-selected' : ''}`}>
-      <div className="tiptap-excalidraw-frame" style={{ height: shown }}>
+  const frame = (
+    <div
+      ref={box}
+      className={`tiptap-excalidraw-frame${full ? ' is-full' : ''}`}
+      // Filling the window is not a height the grip set, so it is not one to
+      // remember either: the block keeps the height it had underneath.
+      style={full ? undefined : { height: shown }}
+      role={full ? 'dialog' : undefined}
+    >
         {editing ? (
           <div className="tiptap-excalidraw-canvas">
             <Suspense fallback={null}>
@@ -140,13 +197,20 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
             </Suspense>
           </div>
         ) : preview ? (
-          // Our own export, a few lines above, rather than anything the
-          // document carried in.
-          <div
-            className="tiptap-excalidraw-preview"
-            onDoubleClick={() => setEditing(true)}
-            dangerouslySetInnerHTML={{ __html: preview }}
-          />
+          <>
+            {/* Our own export, a few lines above, rather than anything the
+                document carried in. */}
+            <div
+              className="tiptap-excalidraw-preview"
+              onDoubleClick={() => setEditing(true)}
+              dangerouslySetInnerHTML={{ __html: preview }}
+            />
+            {/* A finished drawing looks like a picture, and nothing about a
+                picture says it can be opened. This is the only place that
+                says so, and it says it on hover rather than all the time -
+                a note full of drawings should read as a note. */}
+            <div className="tiptap-excalidraw-hint">Double-click to edit</div>
+          </>
         ) : (
           // Empty, and also the moment before the picture of a full one is
           // ready: either way, this is the way back to the canvas.
@@ -160,20 +224,39 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
           </button>
         )}
 
-        {editing && (
+        {/* One island, the shape Excalidraw uses for its own floating tools,
+            on the wall opposite them so the two never overlap. */}
+        <div className="tiptap-excalidraw-tools">
           <button
             type="button"
-            className="tiptap-excalidraw-done"
-            aria-label="Finish drawing"
-            onClick={() => {
-              save()
-              setEditing(false)
-            }}
+            aria-label={full ? 'Leave full screen' : 'Open in full screen'}
+            onClick={toggleFull}
           >
-            <Check />
+            {full ? <Minimize2 /> : <Maximize2 />}
           </button>
-        )}
-      </div>
+
+          {editing && (
+            <button
+              type="button"
+              className="is-done"
+              aria-label="Finish drawing"
+              onClick={() => {
+                save()
+                setEditing(false)
+              }}
+            >
+              <Check />
+            </button>
+          )}
+        </div>
+    </div>
+  )
+
+  return (
+    <NodeViewWrapper className={`tiptap-excalidraw${selected ? ' is-selected' : ''}`}>
+      {/* Portalled while full: inside the editor it would be clipped by the
+          overflow that makes the document scroll, and sized by the column. */}
+      {full ? createPortal(frame, document.body) : frame}
 
       {/* Notion's bottom grip, and only that one: the width belongs to the
           column, so there is nothing to drag sideways. */}

@@ -1795,7 +1795,37 @@ $nested-ul: "ul:not([data-type='taskList'])";
 
   .excalidraw {
     --ui-font: inherit;
+
+    // The shape library. It is Excalidraw's own store of reusable pieces,
+    // which a diagram inside a note has no use for, and there is no option to
+    // turn it off - only this trigger to hide. The panel cannot be opened
+    // without it.
+    .default-sidebar-trigger {
+      display: none;
+    }
+
+    // Excalidraw sizes its chrome for a page, and this is a block a few lines
+    // tall: at full size the toolbar took a third of the drawing. Its own
+    // variables rather than a transform, so only the controls shrink and the
+    // canvas underneath is untouched.
+    //
+    // Not a documented API - these are Excalidraw's internals - so an upgrade
+    // could rename them. The failure is a toolbar back at full size, which is
+    // visible at a glance rather than silent.
+    --default-button-size: 1.375rem;
+    --default-icon-size: 0.6875rem;
+    --lg-button-size: 1.5rem;
+    --lg-icon-size: 0.6875rem;
   }
+}
+
+// Full screen has a page's worth of room, so the chrome goes back to the size
+// Excalidraw meant it to be.
+.tiptap-excalidraw-frame.is-full .tiptap-excalidraw-canvas .excalidraw {
+  --default-button-size: 2rem;
+  --default-icon-size: 1rem;
+  --lg-button-size: 2.25rem;
+  --lg-icon-size: 1rem;
 }
 
 .tiptap-excalidraw-empty {
@@ -1856,24 +1886,88 @@ $nested-ul: "ul:not([data-type='taskList'])";
 
 // Over the canvas, out of the way of Excalidraw's own toolbars, which sit on
 // the left and along the top.
-.tiptap-excalidraw-done {
+// Filling the window. Fixed rather than tall, so it is the same canvas with
+// more room and not a second one - the block underneath keeps its own height.
+.tiptap-excalidraw-frame.is-full {
+  position: fixed;
+  z-index: 100;
+  inset: 1rem;
+  border-radius: 0.875rem;
+  box-shadow: var(--mf-panel-shadow, 0 8px 24px rgba(0, 0, 0, 0.28));
+}
+
+// What says a finished drawing can be opened again. A caption along the foot
+// rather than a scrim over the whole picture: it is a label, and dimming the
+// drawing to say so hid the thing you were looking at.
+//
+// No pointer events: the double-click it is describing has to reach the
+// preview underneath.
+.tiptap-excalidraw-hint {
+  position: absolute;
+  z-index: 4;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 0.75rem 0.75rem 0.5rem;
+  background-image: linear-gradient(
+    transparent,
+    color-mix(in srgb, var(--tt-bg-color) 75%, transparent)
+  );
+  color: var(--mf-muted-strong);
+  font-size: 0.8125rem;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+  pointer-events: none;
+}
+
+.tiptap-excalidraw-frame:hover .tiptap-excalidraw-hint {
+  opacity: 1;
+}
+
+// The block's own tools: full screen, and the tick that finishes a drawing.
+//
+// One island in the shape Excalidraw gives its own floating tools, on the left
+// wall because theirs are on the right - two panels on the same edge would sit
+// on top of each other on a block only a few lines tall.
+.tiptap-excalidraw-tools {
   position: absolute;
   z-index: 5;
-  right: 0.75rem;
-  bottom: 0.75rem;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 999px;
-  background-color: var(--tt-brand-color-500);
-  color: #fff;
-  cursor: default;
+  flex-direction: column;
+  padding: 0.25rem;
+  border-radius: 0.625rem;
+  background-color: var(--tt-card-bg-color);
+  box-shadow: var(--mf-panel-shadow, 0 8px 24px rgba(0, 0, 0, 0.28));
 
-  svg {
-    width: 1.125rem;
-    height: 1.125rem;
+  button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.5rem;
+    color: var(--mf-muted-strong);
+    cursor: default;
+
+    &:hover {
+      background-color: var(--accent);
+      color: inherit;
+    }
+
+    // The one that commits. The accent rather than a filled circle: it is a
+    // row in an island now, and a disc would be the only round thing on it.
+    &.is-done {
+      color: var(--tt-brand-color-500);
+    }
+
+    svg {
+      width: 0.9375rem;
+      height: 0.9375rem;
+    }
   }
 }
 

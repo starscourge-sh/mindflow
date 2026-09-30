@@ -1,5 +1,5 @@
 import { memo, useRef } from 'react'
-import { Excalidraw, getSceneVersion } from '@excalidraw/excalidraw'
+import { Excalidraw, MainMenu, getSceneVersion } from '@excalidraw/excalidraw'
 import '@excalidraw/excalidraw/index.css'
 
 import type { DiagramScene } from '@/extensions/excalidraw'
@@ -26,9 +26,18 @@ function ExcalidrawCanvas({
       initialData={{
         elements: scene?.elements ?? [],
         files: scene?.files,
-        // The note's own background shows through, so a drawing reads as part
-        // of the page rather than a white card dropped onto it.
-        appState: { viewBackgroundColor: 'transparent' },
+        appState: {
+          // The note's own background shows through, so a drawing reads as
+          // part of the page rather than a white card dropped onto it.
+          viewBackgroundColor: 'transparent',
+          // Both on by default. A diagram in a note is boxes and arrows, and
+          // lining them up by eye in a block a few hundred pixels tall is most
+          // of the work: the grid gives them somewhere to land, and snapping
+          // lines them up with each other rather than with the grid. Toggled
+          // per drawing from the canvas menu, as before.
+          gridModeEnabled: true,
+          objectsSnapModeEnabled: true
+        },
         scrollToContent: true
       }}
       onChange={(elements, _appState, files) => {
@@ -48,7 +57,17 @@ function ExcalidrawCanvas({
           export: false
         }
       }}
-    />
+    >
+      {/* Our own menu, because the default one has no way to drop an item. It
+          is the default list minus three: the links and Help answer "how do I
+          use Excalidraw" rather than anything a note is asking, and clearing
+          the canvas is select-all and backspace. */}
+      <MainMenu>
+        <MainMenu.DefaultItems.SearchMenu />
+        <MainMenu.DefaultItems.SaveAsImage />
+        <MainMenu.DefaultItems.ChangeCanvasBackground />
+      </MainMenu>
+    </Excalidraw>
   )
 }
 

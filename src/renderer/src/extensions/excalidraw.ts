@@ -50,7 +50,7 @@ export const ExcalidrawDiagram = Node.create({
       // Height only. The width is the column's, the way every other block here
       // works, so a drawing never sits at an odd width against the text.
       height: {
-        default: 200,
+        default: 300,
         parseHTML: (element) => Number(element.getAttribute('data-height')) || undefined,
         renderHTML: ({ height }) => ({ 'data-height': String(height) })
       }
