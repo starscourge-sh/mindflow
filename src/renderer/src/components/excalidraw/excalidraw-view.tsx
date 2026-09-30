@@ -1,9 +1,10 @@
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { NodeViewWrapper, useEditorState, type NodeViewProps } from '@tiptap/react'
-import { Check, Maximize2, Minimize2, PencilRuler } from 'lucide-react'
+import { Check, ExternalLink, Maximize2, Minimize2, PencilRuler } from 'lucide-react'
 
 import type { DiagramScene } from '@/extensions/excalidraw'
+import { host } from '@/lib/host'
 import type { ExcalidrawElement, NonDeleted } from '@excalidraw/excalidraw/element/types'
 
 const ExcalidrawCanvas = lazy(() => import('@/components/excalidraw/excalidraw-canvas'))
@@ -37,6 +38,9 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
   // is a thumbnail's worth of room for anything with more than four boxes in
   // it. This lifts the same canvas out of the flow to fill the window.
   const [full, setFull] = useState(false)
+  // Open in a window of its own. The drawing lives there while it is, and this
+  // block is a picture of it - double-clicking must not start a second canvas.
+  const [elsewhere, setElsewhere] = useState(false)
 
   // Growing into full screen, and shrinking back out of it.
   //
@@ -79,6 +83,28 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
     void played.finished.then(() => window.dispatchEvent(new Event('resize')))
   }, [full])
 
+  /**
+   * A window of its own, and whatever comes back from it.
+   *
+   * The id is minted on first use rather than when the block is made, so a
+   * document written before any of this still works - and a drawing pasted
+   * into another note, which arrives carrying an id, is told apart from this
+   * one the moment either is opened.
+   */
+  const openInWindow = (): void => {
+    const id = (props.node.attrs.id as string | null) ?? crypto.randomUUID()
+    if (!props.node.attrs.id) props.updateAttributes({ id })
+
+    // Hand the drawing over rather than keeping a second live copy of it. The
+    // pending stroke is written down first, so what the window opens on is
+    // what is on screen here; then this one steps back to being a picture,
+    // which is also what stops two canvases writing over each other.
+    save()
+    setEditing(false)
+    setFull(false)
+    host().openDrawing?.(id, held.current ?? scene)
+  }
+
   // Escape leaves the drawing rather than the app. The window's own Escape
   // stands down for a dialog, which is what this is while it is up.
   useEffect(() => {
@@ -96,6 +122,21 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
   useEffect(() => {
     update.current = props.updateAttributes
   })
+
+  useEffect(() => {
+    return host().onDrawingWindow?.((id, open) => {
+      if (id === props.node.attrs.id) setElsewhere(open)
+    })
+  }, [props.node.attrs.id])
+
+  useEffect(() => {
+    return host().onDrawingChange?.((id, next) => {
+      if (id !== props.node.attrs.id) return
+      // Straight to the attributes: the window is the one being drawn in, so
+      // there is nothing here to debounce or to argue with.
+      update.current({ scene: next as DiagramScene })
+    })
+  }, [props.node.attrs.id])
 
   const held = useRef<DiagramScene | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -208,14 +249,16 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
                 document carried in. */}
             <div
               className="tiptap-excalidraw-preview"
-              onDoubleClick={() => setEditing(true)}
+              onDoubleClick={() => !elsewhere && setEditing(true)}
               dangerouslySetInnerHTML={{ __html: preview }}
             />
             {/* A finished drawing looks like a picture, and nothing about a
                 picture says it can be opened. This is the only place that
                 says so, and it says it on hover rather than all the time -
                 a note full of drawings should read as a note. */}
-            <div className="tiptap-excalidraw-hint">Double-click to edit</div>
+            <div className="tiptap-excalidraw-hint">
+              {elsewhere ? 'Open in its own window' : 'Double-click to edit'}
+            </div>
           </>
         ) : (
           // Empty, and also the moment before the picture of a full one is
@@ -223,7 +266,7 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
           <button
             type="button"
             className="tiptap-excalidraw-empty"
-            onClick={() => setEditing(true)}
+            onClick={() => !elsewhere && setEditing(true)}
           >
             <PencilRuler />
             <span>Drawing</span>
@@ -240,6 +283,16 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
           >
             {full ? <Minimize2 /> : <Maximize2 />}
           </button>
+
+          {host().openDrawing && (
+            <button
+              type="button"
+              aria-label={elsewhere ? 'Bring its window forward' : 'Open in its own window'}
+              onClick={openInWindow}
+            >
+              <ExternalLink />
+            </button>
+          )}
 
           {editing && (
             <button

@@ -28,6 +28,21 @@ export interface MindflowHost {
   openFile?: (src: string) => Promise<boolean>
   /** Put a stored image on the system clipboard. */
   copyImage?: (src: string) => Promise<boolean>
+  /**
+   * Open a drawing in a window of its own, and keep it in step.
+   *
+   * The host owns the window; the editor only says which drawing and what is
+   * in it. Whatever comes back through `onDrawingChange` is what the block
+   * writes down, so the two views never argue about which is newer.
+   *
+   * Left out - a web page, which has no second window to give - and the
+   * button is not offered at all.
+   */
+  openDrawing?: (id: string, scene: unknown) => void
+  /** Changes made in that window, for the block to write down. */
+  onDrawingChange?: (listen: (id: string, scene: unknown) => void) => () => void
+  /** Whether that window is open, so the block knows when it owns the drawing. */
+  onDrawingWindow?: (listen: (id: string, open: boolean) => void) => () => void
 }
 
 /** What a bookmark card is built from. */

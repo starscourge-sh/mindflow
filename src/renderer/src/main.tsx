@@ -35,13 +35,16 @@ import { StrictMode } from 'react'
 import { applyTheme, currentTheme } from './lib/theme'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import { DrawingWindow } from './components/excalidraw/drawing-window'
 
 // Before the first paint, and before anything renders: the page wears a theme
 // whether or not an editor is on screen.
 applyTheme(currentTheme())
 
+// A window opened on one drawing says so in its own URL, which is the only
+// thing a fresh renderer knows about itself before any of this has run.
+const drawing = new URLSearchParams(window.location.search).get('drawing')
+
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>
+  <StrictMode>{drawing ? <DrawingWindow id={drawing} /> : <App />}</StrictMode>
 )

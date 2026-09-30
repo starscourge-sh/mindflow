@@ -45,6 +45,31 @@ const api = {
   /** Put the window away. It keeps its contents and its place on screen. */
   hideWindow: (): void => ipcRenderer.send('window:hide'),
 
+  /** Open a drawing in a window of its own, or bring that window forward. */
+  openDrawing: (id: string, scene: unknown): void =>
+    ipcRenderer.send('drawing:open', id, scene),
+
+  /** What that window has drawn, for the block it came from to write down. */
+  onDrawingChange: (listen: (id: string, scene: unknown) => void): (() => void) => {
+    const relay = (_event: unknown, id: string, scene: unknown): void => listen(id, scene)
+    ipcRenderer.on('drawing:changed', relay)
+    return () => ipcRenderer.off('drawing:changed', relay)
+  },
+
+  /** Whether a drawing is open in a window of its own, as that changes. */
+  onDrawingWindow: (listen: (id: string, open: boolean) => void): (() => void) => {
+    const relay = (_event: unknown, id: string, open: boolean): void => listen(id, open)
+    ipcRenderer.on('drawing:open', relay)
+    return () => ipcRenderer.off('drawing:open', relay)
+  },
+
+  /** The other side: a drawing window asking what it is meant to show. */
+  drawingScene: (id: string): Promise<unknown> => ipcRenderer.invoke('drawing:scene', id),
+
+  /** And telling the note what it has become. */
+  saveDrawing: (id: string, scene: unknown): void =>
+    ipcRenderer.send('drawing:change', id, scene),
+
   /** The stored notes. */
   notes: {
     list: (): Promise<NoteMeta[]> => ipcRenderer.invoke('notes:list'),

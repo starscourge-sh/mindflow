@@ -39,6 +39,11 @@ export interface Api {
   /** Swap the window between the capture size and the roomier one. */
   setExpanded: (expanded: boolean) => Promise<boolean>
   hideWindow: () => void
+  openDrawing: (id: string, scene: unknown) => void
+  onDrawingChange: (listen: (id: string, scene: unknown) => void) => () => void
+  onDrawingWindow: (listen: (id: string, open: boolean) => void) => () => void
+  drawingScene: (id: string) => Promise<unknown>
+  saveDrawing: (id: string, scene: unknown) => void
   /** The stored notes. */
   notes: {
     list: () => Promise<NoteMeta[]>

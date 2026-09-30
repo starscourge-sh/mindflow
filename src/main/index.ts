@@ -189,6 +189,62 @@ function toggleWindow(): void {
   win.focus()
 }
 
+/**
+ * A drawing open in a window of its own.
+ *
+ * The note that opened it is remembered alongside, because the point is that
+ * what you draw over there lands back in the block over here. The scene is
+ * held too: the window asks for it once it has loaded, rather than being
+ * handed it before it can listen.
+ */
+const drawings = new Map<
+  string,
+  { window: BrowserWindow; note: Electron.WebContents; scene: unknown }
+>()
+
+/** Open a drawing in its own window, or bring the one already open forward. */
+function openDrawing(id: string, scene: unknown, note: Electron.WebContents): void {
+  const open = drawings.get(id)
+  if (open && !open.window.isDestroyed()) {
+    open.scene = scene
+    open.window.focus()
+    return
+  }
+
+  const window = new BrowserWindow({
+    width: 900,
+    height: 650,
+    show: false,
+    title: 'Drawing',
+    backgroundColor: '#1c1c1c',
+    autoHideMenuBar: true,
+    webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
+  })
+
+  drawings.set(id, { window, note, scene })
+  window.on('ready-to-show', () => window.show())
+
+  // The note has stepped back to being a picture while this is open, so it has
+  // to be told when it can be drawn in again.
+  const tell = (open: boolean): void => {
+    if (!note.isDestroyed()) note.send('drawing:open', id, open)
+  }
+  tell(true)
+  window.on('closed', () => {
+    drawings.delete(id)
+    tell(false)
+  })
+
+  // The id rides on the URL, which is the one thing a fresh renderer can read
+  // about itself before any of ours has run.
+  const query = `?drawing=${encodeURIComponent(id)}`
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    window.loadURL(`${process.env['ELECTRON_RENDERER_URL']}${query}`)
+  } else {
+    window.loadFile(join(__dirname, '../renderer/index.html'), { search: query })
+  }
+}
+
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -301,6 +357,24 @@ app.whenReady().then(() => {
   // Grows and shrinks around the window's own centre, so expanding does not
   // walk the window across the screen. macOS animates the move itself, but it
   // will not resize a window pinned non-resizable, hence the two calls around.
+  ipcMain.on('drawing:open', (event, id: unknown, scene: unknown) => {
+    if (typeof id === 'string') openDrawing(id, scene, event.sender)
+  })
+
+  /** What the drawing window asks for once it is ready to be told. */
+  ipcMain.handle('drawing:scene', (_event, id: unknown) =>
+    typeof id === 'string' ? (drawings.get(id)?.scene ?? null) : null
+  )
+
+  /** And what it sends back, which the note writes down. */
+  ipcMain.on('drawing:change', (_event, id: unknown, scene: unknown) => {
+    if (typeof id !== 'string') return
+    const open = drawings.get(id)
+    if (!open || open.note.isDestroyed()) return
+    open.scene = scene
+    open.note.send('drawing:changed', id, scene)
+  })
+
   // Put the window away without closing it, so it comes back as it was.
   ipcMain.on('window:hide', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)

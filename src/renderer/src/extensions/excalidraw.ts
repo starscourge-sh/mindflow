@@ -47,6 +47,18 @@ export const ExcalidrawDiagram = Node.create({
         parseHTML: (element) => readScene(element.getAttribute('data-scene')),
         renderHTML: ({ scene }) => (scene ? { 'data-scene': JSON.stringify(scene) } : {})
       },
+      /**
+       * Which drawing this is.
+       *
+       * Only so a window opened on it can say what it is sending back. It is
+       * minted here rather than by the host, because a drawing pasted into
+       * another note is a different drawing and has to be.
+       */
+      id: {
+        default: null,
+        parseHTML: (element) => element.getAttribute('data-id'),
+        renderHTML: ({ id }) => (id ? { 'data-id': String(id) } : {})
+      },
       // Height only. The width is the column's, the way every other block here
       // works, so a drawing never sits at an odd width against the text.
       height: {
