@@ -958,6 +958,9 @@
   border: 1px solid var(--tt-border-color);
   border-radius: 0.75rem;
   color: inherit;
+  // A link, not text: inside a contenteditable the text cursor wins unless
+  // something says otherwise, and the card gave no sign it could be clicked.
+  cursor: pointer;
 
   // The editor underlines links; the card is a block, not a run of text.
   &,

@@ -21,12 +21,22 @@ export const FullLineHighlight = Extension.create({
   name: "fullLineHighlight",
 
   addProseMirrorPlugins() {
+    // Answering from the last walk while the document stands still. This runs
+    // on every state change, including every arrow key, and the walk is the
+    // length of the note - which on a long one is the whole note, per press.
+    // Per editor rather than per module, so two on a page keep their own.
+    let lastDoc: ProseMirrorNode | null = null
+    let lastSet: DecorationSet | null = null
+
     return [
       new Plugin({
         props: {
           decorations: (state) => {
+            if (state.doc === lastDoc) return lastSet
+            lastDoc = state.doc
+
             const highlight = state.schema.marks.highlight
-            if (!highlight) return null
+            if (!highlight) return (lastSet = null)
 
             const decorations: Decoration[] = []
             state.doc.descendants((node: ProseMirrorNode, pos) => {
@@ -56,8 +66,9 @@ export const FullLineHighlight = Extension.create({
               return false
             })
 
-            if (!decorations.length) return null
-            return DecorationSet.create(state.doc, decorations)
+            return (lastSet = decorations.length
+              ? DecorationSet.create(state.doc, decorations)
+              : null)
           },
         },
       }),
