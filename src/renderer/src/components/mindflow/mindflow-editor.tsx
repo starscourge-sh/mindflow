@@ -456,6 +456,53 @@ function Surface({
   useEffect(() => onVimChange(setPageVim), [])
   const vimOn = vim ?? pageVim
 
+  /**
+   * Scroll the document while a block is dragged near its edge.
+   *
+   * Without it a block can only travel as far as one screenful, which on a
+   * long note is most of the way to useless. It runs on a frame loop rather
+   * than on `dragover`, because the gesture is to hold still at the edge and
+   * wait - and an event that only fires on movement stops the moment you do.
+   */
+  const dragScroll = useCallback((box: HTMLElement | null) => {
+    if (!box) return undefined
+
+    const EDGE = 64
+    const SPEED = 14
+    let at: number | null = null
+    let frame = 0
+
+    const step = (): void => {
+      frame = requestAnimationFrame(step)
+      if (at === null) return
+
+      const { top, bottom } = box.getBoundingClientRect()
+      const above = at - top
+      const below = bottom - at
+      if (above < EDGE) box.scrollTop -= SPEED * (1 - Math.max(0, above) / EDGE)
+      else if (below < EDGE) box.scrollTop += SPEED * (1 - Math.max(0, below) / EDGE)
+    }
+
+    const follow = (event: DragEvent): void => {
+      at = event.clientY
+    }
+    const stop = (): void => {
+      at = null
+    }
+
+    box.addEventListener('dragover', follow)
+    document.addEventListener('dragend', stop)
+    document.addEventListener('drop', stop)
+    frame = requestAnimationFrame(step)
+
+    return () => {
+      cancelAnimationFrame(frame)
+      box.removeEventListener('dragover', follow)
+      document.removeEventListener('dragend', stop)
+      document.removeEventListener('drop', stop)
+    }
+  }, [])
+
   const [searchOpen, setSearchOpen] = useState(false)
   const [sourceOpen, setSourceOpen] = useState(showSource)
   const rememberBlock = useCallback(
@@ -601,25 +648,51 @@ function Surface({
         submit.current()
         return true
       },
-      // Dragging a block to somewhere off-screen. The document scrolls in its
-      // own box, and a drag does not scroll it - so anything further than one
-      // screenful away could not be reached at all, which is most of a long
-      // note. Near an edge the box scrolls itself, faster the closer you get.
-      handleDOMEvents: {
-        dragover: (view, event) => {
-          const box = view.dom.closest<HTMLElement>(".mindflow-editor-content")
+      /**
+       * Which side of a block a dragged block lands on.
+       *
+       * ProseMirror asks where the pointer is and inserts at the nearest
+       * position, and anywhere inside a paragraph is nearest to the end of it
+       * - so the whole of a block meant "after this one" and only the hairline
+       * gap above it meant "before". A one-step move upwards did nothing at
+       * all, and reaching the top of a document needed a pixel-perfect aim.
+       *
+       * Halves, as everywhere else: above the middle drops before, below drops
+       * after. The move itself is still ProseMirror's - this only says where.
+       */
+      handleDrop: (view, event, slice, moved) => {
+        // Only a move. A copy - Alt held - is ProseMirror's own business, and
+        // taking it over here mangled the block it was copied from.
+        if (!moved) return false
+
+        const at = view.posAtCoords({ left: event.clientX, top: event.clientY })
+        if (!at) return false
+
+        // The top-level block under the pointer, and the edges it sits between.
+        const $at = view.state.doc.resolve(at.pos)
+        const depth = Math.min($at.depth, 1)
+
+        // Between two blocks rather than inside one: the position is already
+        // the boundary, so there is no half to pick.
+        let target = $at.pos
+        if (depth >= 1) {
+          const dom = view.nodeDOM($at.before(depth))
+          const box = dom instanceof HTMLElement ? dom.getBoundingClientRect() : null
           if (!box) return false
-
-          const EDGE = 48
-          const SPEED = 12
-          const { top, bottom } = box.getBoundingClientRect()
-          const above = event.clientY - top
-          const below = bottom - event.clientY
-
-          if (above < EDGE) box.scrollTop -= SPEED * (1 - Math.max(0, above) / EDGE)
-          else if (below < EDGE) box.scrollTop += SPEED * (1 - Math.max(0, below) / EDGE)
-          return false
+          target = event.clientY < box.top + box.height / 2 ? $at.before(depth) : $at.after(depth)
         }
+        const tr = view.state.tr
+
+        // Take it out first when it is a move, and map the target through that
+        // removal - the block being dropped may sit before the place it lands.
+        // `node` is the handle's own doing; ProseMirror's type does not know it.
+        const dragged = (view.dragging as { node?: NodeSelection } | null)?.node
+        if (moved && dragged) tr.delete(dragged.from, dragged.to)
+        tr.insert(tr.mapping.map(target), slice.content)
+
+        view.dispatch(tr.scrollIntoView())
+        event.preventDefault()
+        return true
       },
       // Alt and a drag leaves the block where it was and drops a copy, the way
       // duplicating works everywhere else. ProseMirror already does this, but
@@ -1115,6 +1188,7 @@ function Surface({
           editor={editor}
           role="presentation"
           className="mindflow-editor-content relative p-3 overflow-auto"
+          ref={(box) => dragScroll(box)}
         />
 
         <LinkPreview editor={editor} />

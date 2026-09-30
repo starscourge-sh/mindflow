@@ -11,6 +11,8 @@
 import { _electron as electron } from 'playwright'
 
 const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+/** Every line of the document, in the order they are read. */
+const LINES = `${EDITOR} li > p, ${EDITOR} li > div > p, ${EDITOR} > p, ${EDITOR} > h1, ${EDITOR} > h2`
 
 export async function open() {
   const app = await electron.launch({ args: ['.'] })
@@ -86,6 +88,78 @@ export async function open() {
       await page.waitForTimeout(300)
     },
 
+    /**
+     * Drag the block on one line onto another, by its handle.
+     *
+     * Hovering the line is what reveals the handle, so that comes first, and
+     * the drop aims at the half of the target the block should end up on.
+     */
+    async drag(fromIndex, toIndex, { alt = false } = {}) {
+      const lines = page.locator(LINES)
+      await lines.nth(fromIndex).hover()
+      await page.waitForTimeout(150)
+
+      const grip = page.locator('.tiptap-drag-handle-grip')
+      await grip.waitFor({ state: 'visible', timeout: 4000 })
+
+      const target = await lines.nth(toIndex).boundingBox()
+      const from = await grip.boundingBox()
+      if (!target || !from) throw new Error('no box to drag between')
+
+      await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+      if (alt) await page.keyboard.down('Alt')
+      await page.mouse.down()
+      // Which half of the target decides which side of it the block lands, so
+      // a drag upwards aims high and a drag downwards aims low. Several steps
+      // because one jump is not a drag - the handle needs movement to start one.
+      const edge = toIndex < fromIndex ? 0.2 : 0.8
+      await page.mouse.move(target.x + 40, target.y + target.height * edge, { steps: 12 })
+      await page.waitForTimeout(120)
+      await page.mouse.up()
+      if (alt) await page.keyboard.up('Alt')
+      await page.waitForTimeout(250)
+    },
+
+    /**
+     * Drag a block to somewhere off-screen, holding at the edge so the
+     * document scrolls under it. This is the move a long note needs and the
+     * one that cannot be done with a single jump.
+     */
+    async dragToEdge(fromIndex, { up = false, hold = 1500 } = {}) {
+      const lines = page.locator(LINES)
+      await lines.nth(fromIndex).hover()
+      await page.waitForTimeout(150)
+
+      const grip = page.locator('.tiptap-drag-handle-grip')
+      await grip.waitFor({ state: 'visible', timeout: 4000 })
+      const from = await grip.boundingBox()
+      const box = await page.locator('.mindflow-editor-content').boundingBox()
+      if (!from || !box) throw new Error('no box to drag in')
+
+      await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+      await page.mouse.down()
+      const edge = up ? box.y + 20 : box.y + box.height - 20
+      await page.mouse.move(box.x + 60, edge, { steps: 10 })
+
+      // Held at the edge, nudging, because the scroll runs off dragover.
+      const until = Date.now() + hold
+      while (Date.now() < until) {
+        await page.mouse.move(box.x + 60, edge + (Date.now() % 2 ? 1 : -1))
+        await page.waitForTimeout(30)
+      }
+      // Back inside before letting go: on the very edge the pointer is over
+      // the scroll boundary rather than over a line to drop against.
+      await page.mouse.move(box.x + 60, up ? box.y + 80 : box.y + box.height - 80, { steps: 5 })
+      await page.waitForTimeout(120)
+      await page.mouse.up()
+      await page.waitForTimeout(250)
+    },
+
+    /** How far the document has scrolled. */
+    scrollTop() {
+      return page.$eval('.mindflow-editor-content', (box) => box.scrollTop)
+    },
+
     async press(...keys) {
       for (const key of keys) {
         await page.keyboard.press(key)
@@ -97,7 +171,7 @@ export async function open() {
 
     /** Click the nth line of the document, the way a person would. */
     async line(index) {
-      const lines = page.locator(`${EDITOR} li > p, ${EDITOR} li > div > p, ${EDITOR} > p`)
+      const lines = page.locator(LINES)
       await lines.nth(index).click()
       // The click and the selection it causes are not the same tick: press a
       // key too soon and it lands wherever the caret was before.
