@@ -11,25 +11,23 @@
 /**
  * Every scheme, in the order the picker lists them.
  *
- * `dark` and `light` first, then the rest by name. Each is a class the
- * stylesheet defines; adding one here without adding it there gives a theme
- * that does nothing.
+ * The two plain ones first, then the rest roughly by how widely each is used,
+ * because the list is read top down and the answer is usually near the top.
+ * Each is a class the stylesheet defines; adding one here without adding it
+ * there gives a theme that does nothing.
  */
 export const THEMES = [
   "dark",
   "light",
-  "adwaita",
-  "blue-topaz",
   "catppuccin",
-  "dark-moss",
   "dracula",
-  "everforest",
-  "github",
   "gruvbox",
-  "kanagawa",
-  "kanagawa-dragon",
+  "tokyonight",
   "obsidian-nord",
-  "tokyonight"
+  "everforest",
+  "kanagawa",
+  "github",
+  "adwaita"
 ] as const
 
 export type Theme = (typeof THEMES)[number]

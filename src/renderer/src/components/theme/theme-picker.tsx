@@ -28,14 +28,14 @@ const Swatch = ({ theme }: { theme: Theme }): React.JSX.Element => (
  * The pill, and the list it opens.
  *
  * The same shape as the kind picker beside it: a pill saying what is on, a
- * command list, and typing to narrow it - which is what a dozen schemes need,
+ * command list, and typing to narrow it - which is what eleven schemes need,
  * since reading a list that long is slower than typing "drac". Each row wears
  * its own accent as a dot, and the dot is a class rather than an inline colour
  * because only the stylesheet knows what a theme that is not on looks like.
  *
  * Moving through the list wears each one as you pass it, with the keys or the
  * mouse - a palette can only really be judged against your own note, and the
- * alternative is choosing a dozen times to see a dozen themes. Leaving without
+ * alternative is choosing eleven times to see eleven themes. Leaving without
  * picking puts back the one that was on, so a look around costs nothing.
  *
  * It lives here and not in the editor because the theme is the page's, not any

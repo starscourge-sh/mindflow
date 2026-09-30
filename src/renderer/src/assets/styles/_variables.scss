@@ -210,7 +210,7 @@
 
    It used to be written out, about 120 lines a theme, and every one of them
    followed the same recipe by hand. Four themes could just about be kept in
-   step that way; a dozen could not, and the drift would show as one theme
+   step that way; eleven could not, and the drift would show as one theme
    whose hover states or focus rings were a shade off the rest.
 
    Each rides on top of `.dark`: both classes are set together, so everything
@@ -277,7 +277,7 @@ $mf-hues: "gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink"
   --mf-quote-ink: #{map.get($theme, "green")};
 }
 
-/* A dozen schemes, each as its own author drew it. Where a scheme names no
+/* Nine schemes, each as its own author drew it. Where a scheme names no
    brown - most of them do not - it is the orange taken down and desaturated,
    which is the one hue every palette here had to be given rather than quoted.
    `dark`, the default, is not in here: it is the vendored ramp at the top of
@@ -307,13 +307,6 @@ $mf-themes: (
     "gray": #727169, "brown": #c0a36e, "orange": #ffa066, "yellow": #e6c384,
     "green": #98bb6c, "blue": #7e9cd8, "purple": #957fb8, "pink": #d27e99, "red": #e46876
   ),
-  /* The same scheme repainted in warm grey: hues taken so far down they read
-     as tinted grey. */
-  "kanagawa-dragon": (
-    "bg": #181616, "ink": #c5c9c5, "accent": #8ba4b0,
-    "gray": #7a8382, "brown": #8f7b6a, "orange": #b6927b, "yellow": #c4b28a,
-    "green": #8a9a7b, "blue": #8ba4b0, "purple": #8992a7, "pink": #a292a3, "red": #c4746e
-  ),
   /* Tokyonight moon. Cool and saturated where kanagawa is muted. */
   "tokyonight": (
     "bg": #222436, "ink": #c8d3f5, "accent": #82aaff,
@@ -332,19 +325,6 @@ $mf-themes: (
     "bg": #242424, "ink": #f6f5f4, "accent": #62a0ea,
     "gray": #9a9996, "brown": #b5835a, "orange": #ff9f45, "yellow": #f8e45c,
     "green": #57e389, "blue": #62a0ea, "purple": #c061cb, "pink": #dc8add, "red": #f66151
-  ),
-  /* Blue Topaz: neutral grey under a single cold blue. Its own error red and
-     emphasis green are kept; the rest are tuned to sit beside them. */
-  "blue-topaz": (
-    "bg": #202020, "ink": #c6c6c6, "accent": #4d9fe8,
-    "gray": #8a8a8a, "brown": #b58a63, "orange": #e8995d, "yellow": #e5c07b,
-    "green": #a4ca8e, "blue": #4d9fe8, "purple": #b48ead, "pink": #e16d99, "red": #e16d76
-  ),
-  /* Dark Moss: a cold slate page under one mossy green. */
-  "dark-moss": (
-    "bg": #161b22, "ink": #dedede, "accent": #61d29d,
-    "gray": #8b949e, "brown": #b08a5e, "orange": #e3945c, "yellow": #d9c06a,
-    "green": #61d29d, "blue": #4bb8d8, "purple": #b48ead, "pink": #d98cb3, "red": #e5636b
   ),
   /* Dracula. Its cyan stands in for blue, which the scheme does not name. */
   "dracula": (
