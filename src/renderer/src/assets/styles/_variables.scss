@@ -210,7 +210,7 @@
 
    It used to be written out, about 120 lines a theme, and every one of them
    followed the same recipe by hand. Four themes could just about be kept in
-   step that way; sixteen could not, and the drift would show as one theme
+   step that way; a dozen could not, and the drift would show as one theme
    whose hover states or focus rings were a shade off the rest.
 
    Each rides on top of `.dark`: both classes are set together, so everything
@@ -277,7 +277,7 @@ $mf-hues: "gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink"
   --mf-quote-ink: #{map.get($theme, "green")};
 }
 
-/* Sixteen schemes, each as its own author drew it. Where a scheme names no
+/* A dozen schemes, each as its own author drew it. Where a scheme names no
    brown - most of them do not - it is the orange taken down and desaturated,
    which is the one hue every palette here had to be given rather than quoted.
    `dark`, the default, is not in here: it is the vendored ramp at the top of
@@ -322,24 +322,12 @@ $mf-themes: (
     "gray": #9a9996, "brown": #b5835a, "orange": #ff9f45, "yellow": #f8e45c,
     "green": #57e389, "blue": #62a0ea, "purple": #c061cb, "pink": #dc8add, "red": #f66151
   ),
-  /* Atom's One Dark. */
-  "atom": (
-    "bg": #282c34, "ink": #abb2bf, "accent": #61afef,
-    "gray": #5c6370, "brown": #a3785a, "orange": #d19a66, "yellow": #e5c07b,
-    "green": #98c379, "blue": #61afef, "purple": #c678dd, "pink": #e39ac7, "red": #e06c75
-  ),
   /* Blue Topaz: neutral grey under a single cold blue. Its own error red and
      emphasis green are kept; the rest are tuned to sit beside them. */
   "blue-topaz": (
     "bg": #202020, "ink": #c6c6c6, "accent": #4d9fe8,
     "gray": #8a8a8a, "brown": #b58a63, "orange": #e8995d, "yellow": #e5c07b,
     "green": #a4ca8e, "blue": #4d9fe8, "purple": #b48ead, "pink": #e16d99, "red": #e16d76
-  ),
-  /* Border, whose dark palette is bright hues over near-black. */
-  "border": (
-    "bg": #1e1e1e, "ink": #d8dade, "accent": #89bdf4,
-    "gray": #8b8b8b, "brown": #c9a07a, "orange": #fbbb83, "yellow": #ffe88b,
-    "green": #7cd37c, "blue": #89bdf4, "purple": #cb9eff, "pink": #f2b6de, "red": #ff7881
   ),
   /* Dark Moss: a cold slate page under one mossy green. */
   "dark-moss": (
@@ -365,14 +353,9 @@ $mf-themes: (
     "gray": #8b949e, "brown": #c2954a, "orange": #ffa657, "yellow": #e3b341,
     "green": #3fb950, "blue": #58a6ff, "purple": #bc8cff, "pink": #f778ba, "red": #f85149
   ),
-  /* Nord, accented with frost. */
-  "nord": (
-    "bg": #2e3440, "ink": #eceff4, "accent": #88c0d0,
-    "gray": #7b88a1, "brown": #b5806a, "orange": #d08770, "yellow": #ebcb8b,
-    "green": #a3be8c, "blue": #81a1c1, "purple": #b48ead, "pink": #c9a0bd, "red": #bf616a
-  ),
-  /* The same palette as above, accented with aurora orange instead - which is
-     the one thing Obsidian Nord changes, and the reason to have both. */
+  /* Nord, accented with aurora orange - which is the one thing Obsidian Nord
+     changes about it, and the version worth keeping: plain Nord accents on
+     frost, which is another blue on another slate. */
   "obsidian-nord": (
     "bg": #2e3440, "ink": #eceff4, "accent": #d08770,
     "gray": #7b88a1, "brown": #b5806a, "orange": #d08770, "yellow": #ebcb8b,

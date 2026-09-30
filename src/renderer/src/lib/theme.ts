@@ -17,9 +17,7 @@
 export const THEMES = [
   "dark",
   "adwaita",
-  "atom",
   "blue-topaz",
-  "border",
   "catppuccin",
   "dark-moss",
   "dracula",
@@ -28,7 +26,6 @@ export const THEMES = [
   "gruvbox",
   "kanagawa",
   "kanagawa-dragon",
-  "nord",
   "obsidian-nord",
   "tokyonight"
 ] as const

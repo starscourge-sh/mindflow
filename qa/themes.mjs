@@ -4,7 +4,7 @@
  * A palette can only really be judged by eye, but the failures that matter are
  * arithmetic: body text that does not stand off the page, a heading or an
  * accent that disappears into it, a caret nobody can find. Those are what this
- * measures, for all sixteen, so a new one cannot ship broken.
+ * measures, for every one of them, so a new theme cannot ship broken.
  */
 import { readFileSync } from 'node:fs'
 
