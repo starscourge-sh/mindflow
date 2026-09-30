@@ -99,12 +99,6 @@ export function retypeList(editor: Editor, list: string): boolean {
     if (joinable(at + next.nodeSize)) tr.join(at + next.nodeSize)
     if (joinable(at)) tr.join(at)
 
-    // The rebuild above carries an item's own children over as they were, so a
-    // selection that reaches into them converts only their parent. This walks
-    // what is left inside the selection and converts that too - selecting four
-    // lines means four, whatever depth they sit at.
-    retypeEach(tr, tr.doc, inside($from.pos), inside($to.pos), type, item, undefined)
-
     if (dispatch) dispatch(tr.scrollIntoView())
     return true
   })
@@ -213,10 +207,13 @@ function converted(node: ProseMirrorNode, type: NodeType, item: NodeType): Prose
 
   const items: ProseMirrorNode[] = []
   node.forEach((child) => {
-    const content: ProseMirrorNode[] = []
-    child.forEach((part) => content.push(converted(part, type, item)))
+    // This list's own items, and nothing below them. Recursing here converted
+    // an item's children along with it, so asking for three lines turned three
+    // lines and everything indented under them into checkboxes.
     // A task item carries its tick; a plain one has nothing to keep.
-    items.push(item.create(child.type === item ? child.attrs : null, content))
+    items.push(
+      child.type === item ? child : item.create(null, child.content)
+    )
   })
   return type.create(node.attrs, items)
 }

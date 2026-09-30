@@ -67,6 +67,25 @@ export async function open() {
       await page.waitForTimeout(80)
     },
 
+    /**
+     * Paste text, the way a real note arrives.
+     *
+     * Typing exercises the input rules; pasting exercises the markdown parser,
+     * and the two build different documents from the same characters.
+     */
+    async paste(text) {
+      await page.evaluate(async (value) => {
+        const target = document.querySelector('.tiptap.ProseMirror.mindflow-editor:not(.is-line)')
+        target?.focus()
+        const data = new DataTransfer()
+        data.setData('text/plain', value)
+        target?.dispatchEvent(
+          new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true })
+        )
+      }, text)
+      await page.waitForTimeout(300)
+    },
+
     async press(...keys) {
       for (const key of keys) {
         await page.keyboard.press(key)

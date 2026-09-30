@@ -98,6 +98,16 @@ test('ticking twice unticks', async (app) => {
   return app.shape()
 })
 
+test('converting a run leaves the children of the last line alone', async (app) => {
+  await app.type(['- one', 'two', 'parent'])
+  await app.press('Enter'); await app.press('Tab'); await app.type(['child a'])
+  await app.press('Enter'); await app.type(['child b'])
+  await app.line(0)
+  await app.press('Shift+ArrowDown', 'Shift+ArrowDown', 'Shift+End')
+  await app.press(TASK)
+  return app.shape()
+})
+
 const app = await open()
 for (const { name, run } of cases) {
   await app.reset()
