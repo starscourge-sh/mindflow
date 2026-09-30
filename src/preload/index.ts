@@ -42,6 +42,9 @@ const api = {
   setExpanded: (expanded: boolean): Promise<boolean> =>
     ipcRenderer.invoke('window:expand', expanded),
 
+  /** Put the window away. It keeps its contents and its place on screen. */
+  hideWindow: (): void => ipcRenderer.send('window:hide'),
+
   /** The stored notes. */
   notes: {
     list: (): Promise<NoteMeta[]> => ipcRenderer.invoke('notes:list'),

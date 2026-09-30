@@ -38,6 +38,7 @@ export interface Api {
   fetchImage: (href: string) => Promise<{ mime: string; bytes: Uint8Array } | null>
   /** Swap the window between the capture size and the roomier one. */
   setExpanded: (expanded: boolean) => Promise<boolean>
+  hideWindow: () => void
   /** The stored notes. */
   notes: {
     list: () => Promise<NoteMeta[]>

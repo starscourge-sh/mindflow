@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, ipcMain, net, protocol } from 'electron'
+import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShortcut, ipcMain, net, protocol } from 'electron'
 /*
  * app - Control your application's event lifecycle.
  *     - app.on('window-all-closed', () => { app.quit() })
@@ -144,6 +144,51 @@ const SIZES = {
   expanded: { width: 900, height: 680 }
 }
 
+/** What summons the window. */
+const SUMMON = 'Command+.'
+
+/**
+ * Where the window was when it was last put away.
+ *
+ * macOS usually hands a hidden window back where it was, but not always: shown
+ * again it lands on whatever Space is in front, and a tiling manager or a
+ * second display can have moved it in the meantime. Remembering it here means
+ * the window comes back where you left it however it was hidden - the key, the
+ * red dot or Escape.
+ */
+let lastBounds: Electron.Rectangle | null = null
+
+/** Put it away, keeping its place. Shared by the key, Escape and the dot. */
+function hideWindow(win: BrowserWindow): void {
+  lastBounds = win.getBounds()
+  win.hide()
+}
+
+/**
+ * Show it, or put it away if it is already in front.
+ *
+ * Only when it is *in front*: pressing the key while another app has the
+ * focus should bring this one forward, not hide the window you were about to
+ * type into. A window can be visible and still be behind everything.
+ */
+function toggleWindow(): void {
+  const [win] = BrowserWindow.getAllWindows()
+  if (!win) {
+    createWindow()
+    return
+  }
+
+  if (win.isVisible() && win.isFocused()) {
+    hideWindow(win)
+    return
+  }
+
+  // Before showing it, or you watch it arrive in one place and move to another.
+  if (lastBounds) win.setBounds(lastBounds)
+  win.show()
+  win.focus()
+}
+
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -256,6 +301,12 @@ app.whenReady().then(() => {
   // Grows and shrinks around the window's own centre, so expanding does not
   // walk the window across the screen. macOS animates the move itself, but it
   // will not resize a window pinned non-resizable, hence the two calls around.
+  // Put the window away without closing it, so it comes back as it was.
+  ipcMain.on('window:hide', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win) hideWindow(win)
+  })
+
   ipcMain.handle('window:expand', (event, expanded: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return false
@@ -577,12 +628,30 @@ app.whenReady().then(() => {
 
   createWindow()
 
+  /**
+   * The key that summons it from anywhere, and puts it away again.
+   *
+   * A scratch space you have to go and find is not a scratch space: the whole
+   * point is that the thought arrives while you are somewhere else. Hidden
+   * rather than closed, so the window comes back exactly as you left it.
+   *
+   * Registering can fail - another app may already hold the chord - and it
+   * fails quietly, so it says so rather than leaving you pressing a dead key.
+   */
+  if (!globalShortcut.register(SUMMON, toggleWindow)) {
+    console.error(`Could not register ${SUMMON}: something else already has it`)
+  }
+
   app.on('activate', function() {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
+
+// A global shortcut outlives the window, so it has to be handed back or it
+// stays registered against a process that is gone.
+app.on('will-quit', () => globalShortcut.unregisterAll())
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
