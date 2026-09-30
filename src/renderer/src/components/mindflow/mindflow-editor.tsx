@@ -192,7 +192,6 @@ import { EmojiSuggestion } from "@/components/emoji/emoji-suggestion"
 
 // --- Components ---
 import { ThemeToggle } from "@/components/mindflow/theme-toggle"
-import { EditorToggles } from "@/components/mindflow/editor-toggles"
 
 // --- Styles ---
 // The tokens every rule below reads, and the keyframes the menus animate with.
@@ -995,11 +994,6 @@ function Surface({
               </ToolbarGroup>
               <Spacer />
               <ToolbarGroup>
-                <EditorToggles
-                  editor={editor}
-                  sourceOpen={sourceOpen}
-                  onToggleSource={() => setSourceOpen((open) => !open)}
-                />
                 <ThemeToggle />
               </ToolbarGroup>
     </>
