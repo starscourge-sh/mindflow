@@ -17,6 +17,20 @@ declare global {
 // the same way the page background and the web font are.
 window.EXCALIDRAW_ASSET_PATH = new URL('./', window.location.href).href
 
+// Excalidraw opens files through `browser-fs-access`, which uses the File
+// System Access API where it finds one and a plain `<input type="file">` where
+// it does not. Electron exposes `showOpenFilePicker` without the permission
+// flow behind it, so the picker opened and closed again in the same breath -
+// "import image" did nothing at all.
+//
+// Taking the name away is how that library is told to use the fallback: it
+// feature-detects once, when it loads. Before the imports below, because the
+// editor is fetched lazily and this has to be gone before it arrives.
+//
+// Nothing else here asks for it. If Electron ever implements the flow, delete
+// this and the modern path comes back.
+delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker
+
 import { StrictMode } from 'react'
 import { applyTheme, currentTheme } from './lib/theme'
 import { createRoot } from 'react-dom/client'
