@@ -1931,7 +1931,8 @@ $nested-ul: "ul:not([data-type='taskList'])";
   pointer-events: none;
 }
 
-.tiptap-excalidraw-frame:hover .tiptap-excalidraw-hint {
+.tiptap-excalidraw-frame:hover .tiptap-excalidraw-hint,
+.tiptap-excalidraw-frame:hover .tiptap-excalidraw-tools {
   opacity: 1;
 }
 
@@ -1950,8 +1951,15 @@ $nested-ul: "ul:not([data-type='taskList'])";
   flex-direction: column;
   padding: 0.25rem;
   border-radius: 0.625rem;
-  background-color: var(--tt-card-bg-color);
+  // The accent rather than a card: this floats over a drawing, and the page's
+  // own panel colour is close enough to the canvas to read as a hole in it.
+  background-color: var(--accent);
   box-shadow: var(--mf-panel-shadow, 0 8px 24px rgba(0, 0, 0, 0.28));
+  // Out of the way until you reach for it: it floats over the canvas, and a
+  // drawing you are only looking at should be the drawing. The same fade the
+  // caption below uses, so the two arrive together.
+  opacity: 0;
+  transition: opacity 150ms ease-out;
 
   button {
     display: flex;
@@ -1964,7 +1972,7 @@ $nested-ul: "ul:not([data-type='taskList'])";
     cursor: default;
 
     &:hover {
-      background-color: var(--accent);
+      background-color: var(--tt-card-bg-color);
       color: inherit;
     }
 

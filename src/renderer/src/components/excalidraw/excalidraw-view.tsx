@@ -59,7 +59,7 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
     if (!element || !start) return
 
     const end = element.getBoundingClientRect()
-    element.animate(
+    const played = element.animate(
       [
         {
           transformOrigin: 'top left',
@@ -71,6 +71,12 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
       ],
       { duration: 220, easing: 'cubic-bezier(0.2, 0, 0, 1)' }
     )
+
+    // Excalidraw sizes its canvas from the box it is in, and a scaled box
+    // measures as the size it is being drawn at rather than the size it will
+    // settle at - so it read the old width mid-flight and kept it, leaving the
+    // grid stopping short of the frame. This asks once the transform is gone.
+    void played.finished.then(() => window.dispatchEvent(new Event('resize')))
   }, [full])
 
   // Escape leaves the drawing rather than the app. The window's own Escape
