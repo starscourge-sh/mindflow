@@ -1735,7 +1735,17 @@ export const VimMode = Extension.create<VimModeOptions>({
             // Mapping here is the whole reason `Ctrl-O` still lands where it
             // was pointed after the text around it has been edited.
             if (tr.docChanged) {
-              return { ...next, jumps: next.jumps.map((pos) => tr.mapping.map(pos)) }
+              const moved = { ...next, jumps: next.jumps.map((pos) => tr.mapping.map(pos)) }
+
+              // An edit from outside vim - a toolbar button, a colour from the
+              // selection menu - ends visual mode. It has done its work on the
+              // range, and left in visual the next `j` grows the selection
+              // instead of moving off what was just changed. Vim's own edits
+              // say so with a meta and pick their own mode.
+              if (!meta && (value.mode === "visual" || value.mode === "visualLine")) {
+                return { ...moved, mode: "normal", visualAnchor: null, visualHead: null }
+              }
+              return moved
             }
             if (meta) return next
 
