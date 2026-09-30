@@ -226,6 +226,10 @@
   border-radius: 0.25rem;
   padding: 0.05em 0.15em;
   background-color: var(--tt-color-highlight-blue);
+  // A chip is a thing, not a run of words: it reports its click through
+  // `onTokenClick`, and the text cursor a contenteditable hands you says the
+  // opposite.
+  cursor: pointer;
 
   // A colour per token, from the nine each theme already tunes for contrast
   // against its own page - so a tag stays readable when the palette changes
