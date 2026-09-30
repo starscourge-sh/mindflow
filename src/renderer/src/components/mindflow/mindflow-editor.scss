@@ -613,6 +613,27 @@
   box-decoration-break: clone;
 }
 
+// A whole line marked is a band across the line, which the extension spots and
+// the rules here paint. The mark inside stands down: two backgrounds over the
+// same words are darker where the words are, which is the ragged look the band
+// is there to replace.
+.tiptap.ProseMirror.mindflow-editor .mf-line-highlight {
+  background-color: var(
+    --mf-line-highlight,
+    color-mix(in srgb, var(--tt-cursor-color) 22%, transparent)
+  );
+  border-radius: 0.25rem;
+  // Out past the text on both sides, without moving it: the band is the block's
+  // width, not the sentence's.
+  padding-inline: 0.35em;
+  margin-inline: -0.35em;
+
+  mark {
+    background-color: transparent;
+    padding: 0;
+  }
+}
+
 // The insert caret is the brand purple, which sits at 2.3-2.6:1 on a highlight
 // band. Normal mode keeps its orange, which already clears 4.5:1 there.
 .dark .tiptap.ProseMirror.mindflow-editor:not([data-vim-mode="normal"]) mark {

@@ -48,6 +48,7 @@ import { BlockColor } from "@/extensions/block-color"
 import { JoinLists } from "@/extensions/join-lists"
 import { OutdentLists } from "@/extensions/outdent-lists"
 import { CurrentItem } from "@/extensions/current-item"
+import { FullLineHighlight } from "@/extensions/full-line-highlight"
 import { CardLink } from "@/extensions/card-link"
 import { SelectedNodes } from "@/extensions/selected-nodes"
 import { Bookmark } from "@/extensions/bookmark"
@@ -855,7 +856,7 @@ function Surface({
       TaskItem.configure({ nested: true }).extend({
         content: "(paragraph|details|bulletList|orderedList|taskList) block*",
       }),
-      ...(has("highlight") ? [Highlight.configure({ multicolor: true })] : []),
+      ...(has("highlight") ? [Highlight.configure({ multicolor: true }), FullLineHighlight] : []),
       // Width and alignment live on the node so they survive a save. Width is a
       // CSS length rather than a preset name, which leaves room for a drag.
       Image.extend({
