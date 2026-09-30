@@ -553,8 +553,8 @@ function Surface({
     editorProps: {
       attributes: {
         autocomplete: "off",
-        autocorrect: "off",
-        autocapitalize: "off",
+        autocorrect: "true",
+        autocapitalize: "true",
         "aria-label": "Main content area, start typing to enter text.",
         // The shape is on the element too. Both editors carry `mindflow-editor`
         // now, so without this there is no way to tell a title from a document
