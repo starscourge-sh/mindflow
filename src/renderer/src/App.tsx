@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, type CSSProperties } from 'react'
+import React, { useEffect, useState, type CSSProperties } from 'react'
 import { AudioLines, FileJson2, Keyboard, KeyboardOff, Lock, LockOpen, X } from 'lucide-react'
 // import { Maximize2, Minimize2 } from 'lucide-react'
 import type { JSONContent } from '@tiptap/core'
@@ -31,26 +31,32 @@ const CONTROL =
   'hover:bg-accent [&_svg]:size-[1.1rem]'
 
 export default function App(): React.JSX.Element {
-  const id = useRef(uuidv4())
-  console.log('[CapturePrompt][id.current][🐦‍🔥]: ', id.current)
-  const [kind, setKind] = useState<CaptureType>('note')
-  const [capture, setCapture] = useState<Capture>({
-    id: id.current,
-    title: "",
-    capturedAt: (new Date()).toISOString(),
-    status: 'open',
-    kind: 'note',
-    closedAt: null,
-    isDraft: true
-  })
-
-  useEffect(() => {
+  // Read once, as the first state there is, rather than set from an effect:
+  // an effect runs after the first paint, so the window came up empty and then
+  // swapped to the draft a frame later. A function, so the parse happens on
+  // mount and not on every render.
+  // No setter: nothing writes the draft back yet - the save is still
+  // commented out below - so this is read once and read only.
+  const [capture] = useState<Capture>(() => {
     const raw = localStorage.getItem("capture-draft")
-    const draft: Capture | null = raw ? JSON.parse(raw) : null
-    if (draft && draft.title) {
-      setCapture(draft)
+    const draft = raw ? (JSON.parse(raw) as Capture | null) : null
+    // A draft with no title is a box nobody typed in, which is not worth
+    // restoring over a fresh one.
+    if (draft?.title) return draft
+
+    return {
+      // `useState`, not `useRef(uuidv4())`: a ref's argument is evaluated on
+      // every render, so that minted an id each time and threw it away.
+      id: uuidv4(),
+      title: "",
+      capturedAt: new Date().toISOString(),
+      status: 'open',
+      kind: 'note',
+      closedAt: null,
+      isDraft: true
     }
-  }, [])
+  })
+  const [kind, setKind] = useState<CaptureType>('note')
 
 
   // The editor takes both of these as props, so the buttons for them can live
