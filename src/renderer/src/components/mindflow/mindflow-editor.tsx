@@ -467,8 +467,10 @@ function Surface({
   const dragScroll = useCallback((box: HTMLElement | null) => {
     if (!box) return undefined
 
-    const EDGE = 64
-    const SPEED = 14
+    // A wider band, so the edge is easy to find, and fast enough that a long
+    // note goes by at a useful rate rather than a crawl.
+    const EDGE = 96
+    const SPEED = 34
     let at: number | null = null
     let frame = 0
 
