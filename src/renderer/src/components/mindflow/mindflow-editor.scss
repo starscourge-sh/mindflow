@@ -600,8 +600,17 @@
 .tiptap.ProseMirror.mindflow-editor mark {
   background-color: color-mix(in srgb, var(--tt-cursor-color) 22%, transparent);
   color: inherit;
-  border-radius: 0.1875rem;
-  padding: 0.05em 0;
+  // Notion's proportions. The card's own 0.75rem turns a band this short into
+  // a pill, which reads as a tag rather than as marked-up text - the radius
+  // has to scale with the box, not be one number everywhere.
+  border-radius: 0.25rem;
+  // Just enough that the highlight clears the glyphs rather than sitting on
+  // them. More than this and the words stop looking like part of the line.
+  padding: 0.05em 0.15em;
+  // Every line of a wrapped highlight gets the full box. Without it only the
+  // first and last line are rounded and the middle runs corner to corner.
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
 // The insert caret is the brand purple, which sits at 2.3-2.6:1 on a highlight
