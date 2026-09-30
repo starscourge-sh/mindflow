@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { AudioLines, FileJson2, Lock, LockOpen, X } from 'lucide-react'
+import { AudioLines, FileJson2, Keyboard, KeyboardOff, Lock, LockOpen, X } from 'lucide-react'
 // import { Maximize2, Minimize2 } from 'lucide-react'
 import type { JSONContent } from '@tiptap/core'
 import { v4 as uuidv4 } from 'uuid';
 
-import { MindflowEditor, TAGS } from './components/mindflow'
+import { MindflowEditor, TAGS, currentVim, onVimChange, setVim } from './components/mindflow'
 import { ThemePicker } from './components/theme/theme-picker'
 // import { TitleEditor } from './components/mindflow'
 // import { EmojiButton } from './components/mindflow'
@@ -55,6 +55,11 @@ export default function App(): React.JSX.Element {
 
   // The editor takes both of these as props, so the buttons for them can live
   // in the app's own chrome without reaching inside it.
+  // Vim is the page's, not this component's, so the switch reads it back from
+  // the editor package rather than owning it - another editor on the page, or
+  // the `\` toggle inside one, has to move this button too.
+  const [vim, setVimOn] = useState(currentVim)
+  useEffect(() => onVimChange(setVimOn), [])
   const [locked, setLocked] = useState(false)
   const [source, setSource] = useState(false)
   // The document, as the editor last handed it over. The drawer reads this
@@ -82,6 +87,13 @@ export default function App(): React.JSX.Element {
               exposes them as props, so the chrome is the app's business and
               the package stays whole. The theme knows how to look after
               itself - it is a page-level thing, not an editor one. */}
+          <Button
+            className={CONTROL}
+            aria-label={vim ? 'Turn vim keys off' : 'Turn vim keys on'}
+            onClick={() => setVim(!vim)}
+          >
+            {vim ? <Keyboard /> : <KeyboardOff />}
+          </Button>
           <Button
             className={CONTROL}
             aria-label={locked ? 'Unlock the note' : 'Lock the note'}

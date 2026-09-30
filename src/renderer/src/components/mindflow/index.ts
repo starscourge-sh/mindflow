@@ -36,7 +36,6 @@ export { BLOCK_COLORS, type BlockColor } from "@/extensions/block-color"
  */
 export { THEMES, applyTheme, currentTheme, themeName, type Theme } from "@/lib/theme"
 export { currentVim, onVimChange, setVim } from "@/lib/vim"
-export { VimToggle } from "@/components/mindflow/vim-toggle"
 
 /** An emoji you can change: the button beside a note's title, and the picker. */
 export { EmojiButton } from "@/components/emoji/emoji-button"
