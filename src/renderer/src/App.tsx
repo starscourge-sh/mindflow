@@ -4,7 +4,8 @@ import { AudioLines, FileJson2, Lock, LockOpen, X } from 'lucide-react'
 import type { JSONContent } from '@tiptap/core'
 import { v4 as uuidv4 } from 'uuid';
 
-import { MindflowEditor, ThemeToggle, TAGS } from './components/mindflow'
+import { MindflowEditor, TAGS } from './components/mindflow'
+import { ThemePicker } from './components/theme/theme-picker'
 // import { TitleEditor } from './components/mindflow'
 // import { EmojiButton } from './components/mindflow'
 // import { StatusPicker, type Status } from './components/status/status-picker'
@@ -95,7 +96,7 @@ export default function App(): React.JSX.Element {
           >
             <FileJson2 />
           </Button>
-          <ThemeToggle showName className={`${CONTROL} gap-1.5 rounded-full border px-3`} />
+          <ThemePicker className={`${CONTROL} gap-1.5 rounded-full cursor-pointer`} />
           <Button className={`${CONTROL} text-red-400 hover:text-red-300`}>
             <AudioLines />
           </Button>

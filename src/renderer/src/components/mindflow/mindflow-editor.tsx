@@ -141,7 +141,6 @@ const HANDLE_NESTING = {
 const HANDLE_POSITION = { middleware: [offset({ mainAxis: 24, crossAxis: 2 })] }
 
 // --- UI Primitives ---
-import { Spacer } from "@/components/tiptap-ui-primitive/spacer"
 import {
   Toolbar,
   ToolbarGroup,
@@ -189,9 +188,6 @@ import { slashRenderer } from "@/components/slash/slash-menu"
 import { slashItems } from "@/components/slash/slash-items"
 import { EmojiSuggestion } from "@/components/emoji/emoji-suggestion"
 
-
-// --- Components ---
-import { ThemeToggle } from "@/components/mindflow/theme-toggle"
 
 // --- Styles ---
 // The tokens every rule below reads, and the keyframes the menus animate with.
@@ -1087,10 +1083,6 @@ function Surface({
                   aligns={["left", "center", "right"]}
                   showTooltip={false}
                 />
-              </ToolbarGroup>
-              <Spacer />
-              <ToolbarGroup>
-                <ThemeToggle />
               </ToolbarGroup>
     </>
   )

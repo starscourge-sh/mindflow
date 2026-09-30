@@ -380,11 +380,33 @@ $mf-themes: (
   )
 );
 
+/* The dot the picker lists a theme by. It is shaped once, here, and coloured
+   per theme below - it has to paint a theme that is NOT on, so it cannot read
+   a variable: those only exist on the root once the theme is applied. Before
+   the loop, or it would win on source order and every dot would come out the
+   colour of whichever theme was already showing. */
+.mf-swatch {
+  width: 0.75rem;
+  height: 0.75rem;
+  flex: none;
+  border-radius: 999px;
+}
+
+/* `dark` is the vendored ramp at the top of this file rather than an entry in
+   the map, so its dot is written out. */
+.mf-swatch-dark {
+  background: #c23600;
+}
+
 /* `:root.name`, not `.name`: it has to outrank `.dark`, which sets a caret and
    a brand colour of its own and is on the same element. */
 @each $mf-name, $mf-theme in $mf-themes {
   :root.#{$mf-name} {
     @include mf-palette($mf-theme);
+  }
+
+  .mf-swatch-#{$mf-name} {
+    background: #{map.get($mf-theme, "accent")};
   }
 }
 
