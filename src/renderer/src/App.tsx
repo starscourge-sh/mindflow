@@ -95,7 +95,7 @@ export default function App(): React.JSX.Element {
           >
             <FileJson2 />
           </Button>
-          <ThemeToggle />
+          <ThemeToggle showName className={`${CONTROL} gap-1.5 rounded-full border px-3`} />
           <Button className={`${CONTROL} text-red-400 hover:text-red-300`}>
             <AudioLines />
           </Button>
