@@ -141,6 +141,14 @@ const HANDLE_NESTING = {
 
 const HANDLE_POSITION = { middleware: [offset({ mainAxis: 24, crossAxis: 2 })] }
 
+/**
+ * Anything floating over the editor that moves on its own keys.
+ *
+ * Its own copy rather than a shared one: the host has a list like this for its
+ * pickers, and this file may not reach into the app around it.
+ */
+const MENU_OPEN = "[cmdk-root], [role=menu], [role=listbox], .tiptap-suggestion-popup"
+
 // --- UI Primitives ---
 import {
   Toolbar,
@@ -641,7 +649,13 @@ function Surface({
         // pairs stay: those are vim's own, and swallowing them here, before
         // any plugin runs, would take them off vim mode as well.
         if (event.ctrlKey && !event.metaKey && !event.altKey) {
-          if (["h", "k", "w", "t"].includes(event.key.toLowerCase())) {
+          const key = event.key.toLowerCase()
+          // Unless a menu is open, and then Ctrl-K is its "up". `handleKeyDown`
+          // is read off the props, which ProseMirror checks before any plugin,
+          // so swallowing it here took the key away from the slash menu before
+          // the menu ever saw it - Ctrl-J went down and nothing came back up.
+          const menu = key === "k" && document.querySelector(MENU_OPEN)
+          if (!menu && ["h", "k", "w", "t"].includes(key)) {
             event.preventDefault()
             return true
           }
