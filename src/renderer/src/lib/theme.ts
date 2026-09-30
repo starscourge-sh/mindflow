@@ -8,10 +8,48 @@
  * lived inside the editor's toolbar.
  */
 
-/** Dark, gruvbox, kanagawa wave, kanagawa dragon and tokyonight moon. */
-export const THEMES = ["dark", "gruvbox", "kanagawa", "kanagawa-dragon", "tokyonight"] as const
+/**
+ * Every scheme, in the order the picker lists them.
+ *
+ * `dark` first, then the rest by name. Each is a class the stylesheet defines;
+ * adding one here without adding it there gives a theme that does nothing.
+ */
+export const THEMES = [
+  "dark",
+  "adwaita",
+  "atom",
+  "blue-topaz",
+  "border",
+  "catppuccin",
+  "dark-moss",
+  "dracula",
+  "everforest",
+  "github",
+  "gruvbox",
+  "kanagawa",
+  "kanagawa-dragon",
+  "nord",
+  "obsidian-nord",
+  "tokyonight"
+] as const
 
 export type Theme = (typeof THEMES)[number]
+
+/** Two names the kebab case cannot spell. Everything else is title case. */
+const NAMES: Partial<Record<Theme, string>> = {
+  github: "GitHub",
+  tokyonight: "Tokyo Night"
+}
+
+/** What to call one, for a bar that shows the name beside the mark. */
+export function themeName(theme: Theme): string {
+  return (
+    NAMES[theme] ??
+    theme.replace(/(^|-)(\w)/g, (_, dash: string, letter: string) =>
+      (dash ? " " : "") + letter.toUpperCase()
+    )
+  )
+}
 
 /** The one last chosen, or the default. */
 export function currentTheme(): Theme {
