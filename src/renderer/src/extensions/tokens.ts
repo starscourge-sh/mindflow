@@ -81,6 +81,14 @@ function scan(doc: ProseMirrorNode, patterns: TokenPattern[]): TokenMatch[] {
   if (!patterns.length) return []
   const found: TokenMatch[] = []
 
+  // Text that is already something else. A `#` in a URL is part of the address
+  // and a `#` in inline code is code - chipping either one splits it in two
+  // and claims a piece, which is how `Fetching Data#nt3x` lost its fragment to
+  // a tag that led nowhere.
+  const inert = ["link", "code"]
+    .map((name) => doc.type.schema.marks[name])
+    .filter(Boolean)
+
   doc.descendants((node, pos) => {
     if (!node.isTextblock) return true
 
@@ -104,6 +112,7 @@ function scan(doc: ProseMirrorNode, patterns: TokenPattern[]): TokenMatch[] {
         // Earlier patterns win an overlap, so two highlights never fight over
         // the same characters.
         if (found.some((other) => from < other.to && to > other.from)) continue
+        if (inert.some((mark) => doc.rangeHasMark(from, to, mark))) continue
 
         const value = match[1] ?? match[0]
         found.push({ name, color: colorOf(token, value), text: match[0], value, from, to })
