@@ -1,5 +1,15 @@
 import React, { useEffect, useState, type CSSProperties } from 'react'
-import { AudioLines, FileJson2, Keyboard, KeyboardOff, Lock, LockOpen, X } from 'lucide-react'
+import {
+  AudioLines,
+  FileJson2,
+  Keyboard,
+  KeyboardOff,
+  Lock,
+  LockOpen,
+  Maximize2,
+  Minimize2,
+  X
+} from 'lucide-react'
 // import { Maximize2, Minimize2 } from 'lucide-react'
 import type { JSONContent } from '@tiptap/core'
 import { v4 as uuidv4 } from 'uuid';
@@ -177,46 +187,51 @@ const WindowDots = (): React.JSX.Element => (
 )
 
 const Header = (): React.JSX.Element => {
-  // const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+
+  const toggle = (): void => {
+    setExpanded((was) => {
+      void window.api.setExpanded(!was)
+      return !was
+    })
+  }
+
+  // The same chord Linear uses for it. On the window rather than the editor:
+  // the size of the box is not the document's business, and the shortcut has
+  // to work with the caret anywhere - or nowhere.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key.toLowerCase() !== 'f') return
+      if (!event.ctrlKey || !event.shiftKey || event.metaKey || event.altKey) return
+      event.preventDefault()
+      toggle()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // Once: `toggle` reads the size through the updater, so it is never stale.
+  }, [])
 
   return (
     <div className="fixed top-0 right-0 left-0 z-10 flex items-center gap-2 text-xs"
       style={{ WebkitAppRegion: 'drag', padding: '1rem 4.75rem' } as CSSProperties}>
       <WindowDots />
       <span className="flex-1" />
-      <span className="flex-1" />
 
       {/* The strip is the window's drag handle, so the one thing on it that is
-          not a handle has to say so, or the click never lands. */}
-      {/*
+          not a handle has to say so, or the click never lands. Out of the tab
+          order for the same reason the close button is: it is a window
+          control, not part of the note. */}
       <button
         type="button"
-        aria-label={expanded ? 'Contract window' : 'Expand window'}
-        className="rounded-full p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+        tabIndex={-1}
+        className="mf-expand"
+        aria-label={expanded ? 'Shrink the window' : 'Expand the window'}
+        title={`${expanded ? 'Shrink' : 'Expand'} \u2303\u21e7F`}
         style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-        onClick={() => {
-          setExpanded(!expanded)
-          void window.api.setExpanded(!expanded)
-        }}
+        onClick={toggle}
       >
-        {expanded ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+        {expanded ? <Minimize2 /> : <Maximize2 />}
       </button>
-        */}
-
-      {/*
-      <button
-        type="button"
-        aria-label={expanded ? 'Contract window' : 'Expand window'}
-        className="rounded-full p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-        style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-        onClick={() => {
-          setExpanded(!expanded)
-          void window.api.setExpanded(!expanded)
-        }}
-      >
-        <Crosshair className="size-4" />
-      </button>
-        */}
     </div>
   )
 }

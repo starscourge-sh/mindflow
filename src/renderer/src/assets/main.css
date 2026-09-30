@@ -242,6 +242,37 @@ body {
   stroke-width: 3;
 }
 
+/* Expand: the window swaps between the capture box and a roomier one. Top
+   right, opposite the dots, and hidden until the pointer is over the window
+   for the same reason they are - a note with nothing on it reads as a sheet of
+   paper, and the controls turn up when you go looking. */
+.mf-expand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border-radius: 999px;
+  cursor: pointer;
+  color: color-mix(in srgb, var(--foreground) 45%, transparent);
+  opacity: 0;
+  outline: none;
+  transition: opacity 150ms ease-out, color 120ms ease-out, background-color 120ms ease-out;
+}
+
+.app-container:hover .mf-expand {
+  opacity: 1;
+}
+
+.mf-expand:hover {
+  background-color: var(--accent);
+  color: var(--foreground);
+}
+
+.mf-expand svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
 /* A drawing given a window to itself: the canvas is the whole page, since
    there is nothing else in here to make room for. */
 .drawing-window {
