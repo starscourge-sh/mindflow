@@ -618,12 +618,14 @@ function Surface({
         // honours them. Ctrl-H is a second Backspace, Ctrl-W eats a word and
         // Ctrl-T swaps two characters - none of which anything here asked for.
         //
-        // Ctrl-K stays: killing to the end of the line is `C` without the
-        // insert, and it earns its place. So do Ctrl-D, O, Y, E, F, B, U and
-        // the bracket pairs, which are vim's - and swallowing those here,
-        // before any plugin runs, would take them off vim mode as well.
+        // Ctrl-K goes with them: killing to the end of the line is `D`, and
+        // changing to it is `C`, both of which vim mode already has - so all
+        // the chord adds is the same edit under a name nobody reached for, and
+        // in insert mode besides. Ctrl-D, O, Y, E, F, B, U and the bracket
+        // pairs stay: those are vim's own, and swallowing them here, before
+        // any plugin runs, would take them off vim mode as well.
         if (event.ctrlKey && !event.metaKey && !event.altKey) {
-          if (["h", "w", "t"].includes(event.key.toLowerCase())) {
+          if (["h", "k", "w", "t"].includes(event.key.toLowerCase())) {
             event.preventDefault()
             return true
           }
