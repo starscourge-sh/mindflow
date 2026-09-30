@@ -74,7 +74,7 @@ export function CaptureKindPicker({ value, onChange }: {
   const [open, setOpen] = useState(false)
   const current = CAPTURE_TYPES.find((Ctype) => Ctype.id === value) ?? CAPTURE_TYPES[0]
 
-  useShortcut('l', () => setOpen(true))
+  useShortcut('l', setOpen, open)
   const Icon = current.icon
 
   return (

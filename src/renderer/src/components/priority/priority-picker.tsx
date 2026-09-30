@@ -47,7 +47,7 @@ export function PriorityPicker({
   const current = PRIORITIES.find((priority) => priority.id === value) ?? PRIORITIES[0]
   const Icon = current.icon
 
-  useShortcut('p', () => setOpen(true))
+  useShortcut('p', setOpen, open)
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
