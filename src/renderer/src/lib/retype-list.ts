@@ -2,7 +2,7 @@ import { canJoin } from "@tiptap/pm/transform"
 import { TextSelection } from "@tiptap/pm/state"
 import type { Editor } from "@tiptap/react"
 import type { Node as ProseMirrorNode, NodeType } from "@tiptap/pm/model"
-import type { EditorState, Transaction } from "@tiptap/pm/state"
+import type { Transaction } from "@tiptap/pm/state"
 
 /** The item type each kind of list holds. */
 const ITEM_OF: Record<string, string> = {
@@ -47,7 +47,7 @@ export function retypeList(editor: Editor, list: string): boolean {
     // No single list holds both ends of the selection. That is what a run
     // looks like once part of it has been converted - a checklist and a bullet
     // list side by side are two lists, not one - so each is rebuilt in place.
-    if (!range) return retypeEach(tr, state, $from.pos, $to.pos, type, item, dispatch)
+    if (!range) return retypeEach(tr, state.doc, $from.pos, $to.pos, type, item, dispatch)
     if (!ITEMS.includes(range.parent.child(range.startIndex).type.name)) return false
 
     // Later edge first throughout, here and in the joins below: cutting the
@@ -99,6 +99,12 @@ export function retypeList(editor: Editor, list: string): boolean {
     if (joinable(at + next.nodeSize)) tr.join(at + next.nodeSize)
     if (joinable(at)) tr.join(at)
 
+    // The rebuild above carries an item's own children over as they were, so a
+    // selection that reaches into them converts only their parent. This walks
+    // what is left inside the selection and converts that too - selecting four
+    // lines means four, whatever depth they sit at.
+    retypeEach(tr, tr.doc, inside($from.pos), inside($to.pos), type, item, undefined)
+
     if (dispatch) dispatch(tr.scrollIntoView())
     return true
   })
@@ -113,7 +119,7 @@ export function retypeList(editor: Editor, list: string): boolean {
  */
 function retypeEach(
   tr: Transaction,
-  state: EditorState,
+  doc: ProseMirrorNode,
   from: number,
   to: number,
   type: NodeType,
@@ -122,21 +128,19 @@ function retypeEach(
 ): boolean {
   const edits: { pos: number; node: ProseMirrorNode }[] = []
 
-  state.doc.nodesBetween(from, to, (node, pos) => {
+  doc.nodesBetween(from, to, (node, pos) => {
     if (!LISTS.includes(node.type.name)) return true
-    // Already this kind, or nested inside one about to be rebuilt anyway.
-    if (node.type !== type) edits.push({ pos, node })
+    // Already this kind: nothing to rebuild here, but keep looking inside it -
+    // a sub-list under a converted item is exactly what gets missed otherwise.
+    if (node.type === type) return true
+    edits.push({ pos, node })
     return false
   })
   if (!edits.length) return false
 
   // Later edge first, so an earlier rebuild cannot move a position after it.
   for (const { pos, node } of edits.reverse()) {
-    const items: ProseMirrorNode[] = []
-    node.forEach((child) =>
-      items.push(child.type === item ? child : item.create(null, child.content))
-    )
-    tr.replaceWith(pos, pos + node.nodeSize, type.create(node.attrs, items))
+    tr.replaceWith(pos, pos + node.nodeSize, converted(node, type, item))
   }
 
   // Two lists of the same kind, now adjacent, are one list. Lists only: the
@@ -158,4 +162,61 @@ function retypeEach(
   tr.setSelection(TextSelection.between(tr.doc.resolve(at(from)), tr.doc.resolve(at(to))))
   if (dispatch) dispatch(tr.scrollIntoView())
   return true
+}
+
+/**
+ * Tick or untick every task item the selection touches.
+ *
+ * Returns false when the selection is not already all checkboxes, so a caller
+ * can fall through to converting. That is the whole rule: on checkboxes the
+ * press means tick, anywhere else it means make these checkboxes - and it
+ * reads the same whether one line is selected or ten.
+ *
+ * Without it, pressing again fell through to TipTap's own toggle, which reads
+ * "already a task list" as "undo the list" and lifts every item out - the run
+ * came back as plain paragraphs with its children orphaned beside them.
+ */
+export function toggleChecks(editor: Editor): boolean {
+  return editor.commands.command(({ state, tr, dispatch }) => {
+    const { from, to } = state.selection
+    const items: { pos: number; node: ProseMirrorNode }[] = []
+    let mixed = false
+
+    state.doc.nodesBetween(from, to, (node, pos) => {
+      if (node.type.name === "taskItem") items.push({ pos, node })
+      // A plain item in the selection means this is a conversion, not a tick.
+      if (node.type.name === "listItem") mixed = true
+      return true
+    })
+    if (mixed || !items.length) return false
+
+    // All ticked means untick; anything else means tick, so one press always
+    // moves the whole selection to the same place.
+    const checked = !items.every((item) => item.node.attrs.checked)
+    for (const { pos, node } of items) {
+      tr.setNodeMarkup(pos, undefined, { ...node.attrs, checked })
+    }
+
+    if (dispatch) dispatch(tr)
+    return true
+  })
+}
+
+/**
+ * A list of this kind, all the way down.
+ *
+ * Rebuilding an item without looking inside it carries any sub-list over as it
+ * was, so a selection reaching into the children converted only their parent.
+ */
+function converted(node: ProseMirrorNode, type: NodeType, item: NodeType): ProseMirrorNode {
+  if (!LISTS.includes(node.type.name)) return node
+
+  const items: ProseMirrorNode[] = []
+  node.forEach((child) => {
+    const content: ProseMirrorNode[] = []
+    child.forEach((part) => content.push(converted(part, type, item)))
+    // A task item carries its tick; a plain one has nothing to keep.
+    items.push(item.create(child.type === item ? child.attrs : null, content))
+  })
+  return type.create(node.attrs, items)
 }

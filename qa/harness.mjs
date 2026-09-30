@@ -33,6 +33,10 @@ export async function open() {
       // The app restores a draft, so without this each case starts on the last
       // one's leftovers.
       await page.evaluate(() => localStorage.clear())
+      // Collapse whatever the last case left selected: the selection toolbar
+      // floats over the text, and the click below lands on it instead.
+      await page.keyboard.press('ArrowRight')
+      await page.waitForTimeout(120)
       await page.click(EDITOR)
       // Vim follows the page switch, so it may or may not be on. Insert mode
       // is where typing works either way.
@@ -41,6 +45,14 @@ export async function open() {
       }
       await page.keyboard.press('ControlOrMeta+a')
       await page.keyboard.press('Backspace')
+
+      // Wait until it is genuinely empty. Without this a case starts typing
+      // into the tail of the last one and its text arrives interleaved.
+      await page.waitForFunction(
+        (selector) => (document.querySelector(selector)?.textContent ?? '').trim() === '',
+        EDITOR,
+        { timeout: 5000 }
+      )
     },
 
     /** Type lines, pressing Enter between them. */
@@ -88,14 +100,21 @@ export async function open() {
             const pad = '  '.repeat(depth)
             const kind = child.getAttribute('data-type')
 
-            if (kind === 'taskItem') {
-              const ticked = child.querySelector('input')?.checked ? 'x' : ' '
-              const text = child.querySelector('div > p')?.textContent?.trim() ?? ''
-              out.push(`${pad}[${ticked}] "${text}"`)
-              // Anything nested under the item, which is what a broken convert
-              // hides inside one.
-              const nested = child.querySelector(':scope > div')
-              if (nested) out.push(...walk(nested, depth + 1).filter((l) => !l.includes('"' + text + '"')))
+            // A task item is an `li` holding a checkbox; nothing marks it with
+            // a data-type, so that is what it is recognised by.
+            if (child.tagName === 'LI' && child.querySelector(':scope > label > input')) {
+              const ticked = child.querySelector(':scope > label > input')?.checked
+              const body = child.querySelector(':scope > div')
+              const text = body?.querySelector(':scope > p')?.textContent?.trim() ?? ''
+              out.push(`${pad}[${ticked ? 'x' : ' '}] "${text}"`)
+              // Everything else under the item - which is where a broken
+              // convert hides a whole list.
+              if (body) {
+                for (const part of body.children) {
+                  if (part.tagName === 'P') continue
+                  out.push(...walk({ children: [part] }, depth + 1))
+                }
+              }
               continue
             }
 

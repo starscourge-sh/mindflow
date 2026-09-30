@@ -3,7 +3,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import type { EditorState } from "@tiptap/pm/state"
 
 // --- Lib ---
-import { retypeList } from "@/lib/retype-list"
+import { retypeList, toggleChecks } from "@/lib/retype-list"
 import { wordRangeAt } from "@/lib/word-range"
 
 /**
@@ -193,12 +193,11 @@ export const ObsidianShortcuts = Extension.create<ObsidianShortcutOptions>({
 
     return {
       // Already a checkbox: tick it. Otherwise make this line one.
-      // Ticks the box you are on; converts what you have selected. Selecting
-      // four lines and asking for checkboxes ticked one of them instead.
+      // On checkboxes it ticks them; anywhere else it makes them. One line or
+      // ten, and `toggleChecks` stands down for a selection that is not all
+      // checkboxes, which is what makes the fall-through the conversion.
       "Mod-Alt-4": () =>
-        this.editor.state.selection.empty && this.editor.isActive("taskItem")
-          ? this.editor.commands.toggleCheckbox()
-          : turnInto("toggleTaskList", "taskList")(),
+        toggleChecks(this.editor) || turnInto("toggleTaskList", "taskList")(),
       "Mod-Alt-5": turnInto("toggleBulletList", "bulletList"),
       "Mod-Alt-6": turnInto("toggleOrderedList", "orderedList"),
       // Notion's numbering: 4 to-do, 5 bulleted, 6 numbered, 7 toggle.
