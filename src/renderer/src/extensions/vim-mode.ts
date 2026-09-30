@@ -34,6 +34,15 @@ export type VimModeName = "normal" | "insert" | "visual" | "visualLine"
 export interface VimModeOptions {
   /** Master switch. Everything below is inert while this is false. */
   enabled: boolean
+  /**
+   * Which mode to open in.
+   *
+   * Only asked while `enabled` is true, since insert is the only mode there is
+   * with vim off.
+   *
+   * @default "normal"
+   */
+  start?: "normal" | "insert"
   /** Called when `/` is pressed, so the app can open its search panel. */
   onSearch?: () => void
   /**
@@ -1644,7 +1653,7 @@ export const VimMode = Extension.create<VimModeOptions>({
   priority: 2000,
 
   addOptions() {
-    return { enabled: false, onSearch: undefined }
+    return { enabled: false, start: "normal", onSearch: undefined }
   },
 
   addCommands() {
@@ -1688,6 +1697,7 @@ export const VimMode = Extension.create<VimModeOptions>({
 
   addProseMirrorPlugins() {
     const { enabled: initiallyEnabled, onSearch, singleLine } = this.options
+    const initialMode = this.options.start ?? "normal"
     const { editor } = this
 
     return [
@@ -1697,7 +1707,9 @@ export const VimMode = Extension.create<VimModeOptions>({
         state: {
           init: () => ({
             enabled: initiallyEnabled,
-            mode: initiallyEnabled ? "normal" : "insert",
+            // Insert is the only mode there is with vim off, so the starting
+            // mode is only a question when it is on.
+            mode: initiallyEnabled ? initialMode : "insert",
             count: "",
             operator: null,
             pendingG: false,

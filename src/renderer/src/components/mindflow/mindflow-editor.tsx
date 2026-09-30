@@ -267,6 +267,26 @@ export interface MindflowEditorProps {
    */
   vim?: boolean
   /**
+   * Which mode vim opens in, when vim is on at all.
+   *
+   * `insert` is what a box you summoned with a key wants: the thought arrived
+   * somewhere else and the window is in the way of writing it down. `normal`
+   * is what a document you came back to wants.
+   *
+   * @default "normal"
+   */
+  vimStart?: "normal" | "insert"
+  /**
+   * Put the caret in it on mount, so it can be typed into without a click.
+   *
+   * `true` and `"start"` are the top of the document, `"end"` the bottom -
+   * which is what a scratch space wants, since the next line goes after the
+   * last one. Read once, at mount.
+   *
+   * @default false
+   */
+  autofocus?: boolean | "start" | "end"
+  /**
    * Which marks exist at all. Not a toolbar setting: a mark left out here is
    * unreachable by shortcut, by markdown, and by pasting, because the schema
    * has nowhere to put it.
@@ -414,6 +434,8 @@ function Surface({
   outline = true,
   search = true,
   vim,
+  vimStart = "normal",
+  autofocus = false,
   marks,
   className = "",
   style,
@@ -527,6 +549,7 @@ function Surface({
   const editor = useEditor({
     immediatelyRender: false,
     editable: !readOnly,
+    autofocus,
     editorProps: {
       attributes: {
         autocomplete: "off",
@@ -801,6 +824,7 @@ function Surface({
       }),
       VimMode.configure({
         enabled: vimOn,
+        start: vimStart,
         // A line has nowhere for o, O, V or dd to go.
         singleLine: shape === "line",
         onSearch: () => setSearchOpen(true),
@@ -836,8 +860,15 @@ function Surface({
     editor?.setEditable(!readOnly)
   }, [editor, readOnly])
 
+  // Only when the switch actually moves. The extension is built with `vimOn`
+  // already, so running this on mount changed nothing except the one thing it
+  // had no business changing: `setVimMode` puts you in normal mode, which
+  // threw away `vimStart` and left a box you had just opened unable to type.
+  const appliedVim = useRef(vimOn)
   useEffect(() => {
-    editor?.commands.setVimMode(vimOn)
+    if (!editor || appliedVim.current === vimOn) return
+    appliedVim.current = vimOn
+    editor.commands.setVimMode(vimOn)
   }, [editor, vimOn])
 
   useEffect(() => {

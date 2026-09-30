@@ -112,6 +112,8 @@ that line out.
   outline={true}           // the heading outline down the right edge
   search={true}            // find, on Mod-f
   vim={currentVim()}       // left out, it follows the page switch
+  vimStart="normal"        // which mode vim opens in, when vim is on at all
+  autofocus={false}        // `true`/`"start"` for the top, `"end"` for the bottom
   showSource={false}       // start with the source panel open
   readOnly={false}         // locks it, the way an input's readOnly does
 
@@ -146,6 +148,8 @@ that line out.
 | `outline` | `boolean` | `true` |
 | `search` | `boolean` | `true` |
 | `vim` | `boolean` | the page switch |
+| `vimStart` | `"normal" \| "insert"` | `"normal"` |
+| `autofocus` | `boolean \| "start" \| "end"` | `false` |
 | `showSource` | `boolean` | `false` |
 | `readOnly` | `boolean` | `false` |
 | `host` | `MindflowHost` | a browser's own answers |
