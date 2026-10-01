@@ -293,30 +293,24 @@ function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     ...SIZES.compact,
-    // minHeight: 400,
-    // minWidth: 600,
-    width: 625,
-    height: 400,
-    ...topRight(625),
+    ...topRight(SIZES.compact.width),
 
     resizable: false,
-    // No close button, and with the accessory policy below this is what keeps
-    // a tiling window manager's hands off the window entirely. AeroSpace's own
+    // No window buttons at all which, with the accessory policy below, is what
+    // keeps a tiling window manager's hands off this window. AeroSpace's own
     // rule, from its source: a window belonging to an accessory app and having
     // no close button is "not even a real window", so it is never managed and
     // never filed under a workspace. Summon it from anywhere and it turns up
     // where you are.
     //
-    // Both halves are needed - with the policy alone AeroSpace still manages
-    // it, because `titleBarStyle: 'hidden'` only *hides* the buttons and the
-    // accessibility tree still has them.
+    // All three, not just `closable`: macOS drops the button row only when the
+    // style mask has none of them left, and until then the close button is
+    // merely disabled - which the accessibility tree still counts as a button.
+    // The policy alone is not enough either, for the same reason.
     //
-    // Nothing is lost by it: the traffic lights are already hidden and the
-    // window has its own dot to put it away.
-    // All three, not just `closable`. macOS only drops the button row when the
-    // style mask has none of them left; with minimise or full screen still in
-    // it the close button is merely disabled, and a disabled button is still a
-    // button as far as the accessibility tree - and AeroSpace - is concerned.
+    // Nothing is lost by it. The traffic lights were already hidden, the
+    // window has its own dot to put it away, and `quit` makes them closable
+    // again on the way out.
     closable: false,
     minimizable: false,
     fullscreenable: false,
