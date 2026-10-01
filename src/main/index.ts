@@ -141,7 +141,7 @@ protocol.registerSchemesAsPrivileged([
 /** The capture box, and the roomier one the toolbar's expander swaps to. */
 const SIZES = {
   compact: { width: 625, height: 400 },
-  expanded: { width: 900, height: 680 }
+  expanded: { width: 720, height: 816 }
 }
 
 /** What summons the window. */
@@ -337,6 +337,16 @@ function createWindow(): void {
   // macOS-only: kill the traffic lights that titleBarStyle:'hidden' leaves behind
   if (process.platform === 'darwin') {
     mainWindow.setWindowButtonVisibility(false);
+
+    // Over a full-screen app too.
+    //
+    // Native full screen puts an app on a Space of its own, and an ordinary
+    // window - even one that is always on top - belongs to the Space it was
+    // opened on, so summoning it there did nothing you could see. These two
+    // say the window has no Space of its own and sits above the level a
+    // full-screen app occupies.
+    mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+    mainWindow.setAlwaysOnTop(true, 'screen-saver')
   }
 
   // An accessory app has no menu bar of its own, so the one chord everybody
