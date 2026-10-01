@@ -50,14 +50,20 @@ export const ExcalidrawDiagram = Node.create({
       /**
        * Which drawing this is.
        *
-       * Only so a window opened on it can say what it is sending back. It is
-       * minted here rather than by the host, because a drawing pasted into
-       * another note is a different drawing and has to be.
+       * Only so a window opened on it can say what it is sending back, and
+       * minted on first use rather than when the block is made.
+       *
+       * `rendered: false` is what keeps a copy from being the same drawing.
+       * It still travels in the document's JSON, which is how a note is
+       * stored, so reopening a note finds its drawings where it left them.
+       * But a copy goes through the clipboard as HTML, and leaving the id out
+       * of that means the paste arrives without one and is given a new one -
+       * two blocks carrying the same id would both answer for the same
+       * window, and a stroke in one would land in the other.
        */
       id: {
         default: null,
-        parseHTML: (element) => element.getAttribute('data-id'),
-        renderHTML: ({ id }) => (id ? { 'data-id': String(id) } : {})
+        rendered: false
       },
       // Height only. The width is the column's, the way every other block here
       // works, so a drawing never sits at an odd width against the text.
