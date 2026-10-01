@@ -27,6 +27,7 @@ import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShor
  *     - It also supports checking network status.
 */
 
+import { execFile } from 'child_process'
 import { createHash, randomUUID } from 'crypto'
 import { copyFile, mkdir, readFile, rename, writeFile } from 'fs/promises'
 import { join } from 'path'
@@ -165,6 +166,41 @@ function hideWindow(win: BrowserWindow): void {
 }
 
 /**
+ * Drag the window to whatever AeroSpace workspace is in front.
+ *
+ * AeroSpace has no sticky windows, so the config moves this one by hand on
+ * every workspace change - but a hidden window is not in its list, so the
+ * switches that happen while the window is away are the ones it misses. Come
+ * back and the window is still filed under the workspace it was hidden on,
+ * and focusing it takes you there rather than the other way round.
+ *
+ * So the move happens again on the way out. Harmless without AeroSpace: the
+ * command is simply not there and the failure is swallowed.
+ */
+function followWorkspace(): void {
+  if (process.platform !== 'darwin') return
+
+  // After the window is back on screen, or AeroSpace has nothing to move: it
+  // learns about the window from the accessibility API, which is a moment
+  // behind `show()`.
+  setTimeout(() => {
+    execFile(
+      '/bin/bash',
+      [
+        '-c',
+        `ws=$(aerospace list-workspaces --focused) || exit 0
+         aerospace list-windows --monitor all --format '%{window-id}|%{app-bundle-id}' \
+           | awk -F'|' '$2 == "com.github.Electron" || $2 == "com.electron.app" { print $1 }' \
+           | while read -r id; do
+               aerospace move-node-to-workspace "$ws" --window-id "$id"
+             done`
+      ],
+      () => {}
+    )
+  }, 120)
+}
+
+/**
  * Show it, or put it away if it is already in front.
  *
  * Only when it is *in front*: pressing the key while another app has the
@@ -187,6 +223,7 @@ function toggleWindow(): void {
   if (lastBounds) win.setBounds(lastBounds)
   win.show()
   win.focus()
+  followWorkspace()
 }
 
 /**
