@@ -27,8 +27,9 @@ import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShor
  *     - It also supports checking network status.
 */
 
-import { execFile } from 'child_process'
+import { execFile, execFileSync } from 'child_process'
 import { createHash, randomUUID } from 'crypto'
+import { existsSync } from 'fs'
 import { copyFile, mkdir, readFile, rename, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
@@ -166,38 +167,95 @@ function hideWindow(win: BrowserWindow): void {
 }
 
 /**
- * Drag the window to whatever AeroSpace workspace is in front.
+ * Where AeroSpace keeps its CLI.
  *
- * AeroSpace has no sticky windows, so the config moves this one by hand on
- * every workspace change - but a hidden window is not in its list, so the
- * switches that happen while the window is away are the ones it misses. Come
- * back and the window is still filed under the workspace it was hidden on,
- * and focusing it takes you there rather than the other way round.
- *
- * So the move happens again on the way out. Harmless without AeroSpace: the
- * command is simply not there and the failure is swallowed.
+ * Looked for by path rather than run by name: an app launched from the Dock
+ * gets `/usr/bin:/bin:/usr/sbin:/sbin` and nothing else, so `aerospace` is not
+ * on it even when it is installed. Searched once; on a Mac without AeroSpace
+ * the answer is `null` and nothing below ever runs again.
  */
-function followWorkspace(): void {
-  if (process.platform !== 'darwin') return
+const AEROSPACE_PATHS = [
+  '/opt/homebrew/bin/aerospace',
+  '/usr/local/bin/aerospace',
+  '/Applications/AeroSpace.app/Contents/MacOS/aerospace'
+]
 
-  // After the window is back on screen, or AeroSpace has nothing to move: it
-  // learns about the window from the accessibility API, which is a moment
-  // behind `show()`.
+let aerospacePath: string | null | undefined
+
+function aerospace(): string | null {
+  if (aerospacePath === undefined) {
+    aerospacePath =
+      process.platform === 'darwin'
+        ? (AEROSPACE_PATHS.find((path) => existsSync(path)) ?? null)
+        : null
+  }
+  return aerospacePath
+}
+
+/**
+ * Which workspace is in front.
+ *
+ * Synchronous, and asked *before* the window is shown. Bringing it forward is
+ * what makes AeroSpace jump to wherever the window was last filed, and from
+ * that moment on "the workspace in front" is the one we are trying to leave.
+ * It costs about 13ms, once, on a key you pressed on purpose.
+ */
+function focusedWorkspace(): string | null {
+  const cli = aerospace()
+  if (!cli) return null
+
+  try {
+    const out = execFileSync(cli, ['list-workspaces', '--focused'], {
+      encoding: 'utf8',
+      timeout: 1000
+    })
+    return out.trim() || null
+  } catch {
+    return null
+  }
+}
+
+/** This app, in dev and packaged. AeroSpace knows windows by bundle id. */
+const BUNDLE_IDS = ['com.github.Electron', 'com.electron.app']
+
+/**
+ * Drag the window to the workspace that was in front when it was summoned,
+ * and follow it back there.
+ *
+ * AeroSpace has no sticky windows. It files this one under whichever workspace
+ * it was on when it went away, and bringing it back takes you to that
+ * workspace instead of bringing the window to you. The config moves it by hand
+ * on every workspace change, but that cannot help here: a hidden window has no
+ * workspace, and AeroSpace answers `move-node-to-workspace` for it with
+ * "Invalid <window-id>".
+ *
+ * So it happens on the way back out, in two parts, because moving a window is
+ * not the same as going to it - without the second call you end up looking at
+ * the workspace the window just left.
+ */
+function followWorkspace(workspace: string | null): void {
+  const cli = aerospace()
+  if (!cli || !workspace) return
+
+  // A beat after the window is back on screen: a window AeroSpace cannot see
+  // yet is one it will refuse to move, and it learns about this one from the
+  // accessibility API a moment behind `show()`.
   setTimeout(() => {
-    execFile(
-      '/bin/bash',
-      [
-        '-c',
-        `ws=$(aerospace list-workspaces --focused) || exit 0
-         aerospace list-windows --monitor all --format '%{window-id}|%{app-bundle-id}' \
-           | awk -F'|' '$2 == "com.github.Electron" || $2 == "com.electron.app" { print $1 }' \
-           | while read -r id; do
-               aerospace move-node-to-workspace "$ws" --window-id "$id"
-             done`
-      ],
-      () => {}
-    )
-  }, 120)
+    let left = BUNDLE_IDS.length
+
+    for (const bundle of BUNDLE_IDS) {
+      const args = ['list-windows', '--monitor', 'all', '--app-bundle-id', bundle]
+      execFile(cli, [...args, '--format', '%{window-id}'], (error, out) => {
+        if (!error) {
+          for (const id of out.split('\n').map((line) => line.trim()).filter(Boolean)) {
+            execFile(cli, ['move-node-to-workspace', workspace, '--window-id', id], () => {})
+          }
+        }
+        // Once every window has been asked to move, go and look at them.
+        if (--left === 0) execFile(cli, ['workspace', workspace], () => {})
+      })
+    }
+  }, 150)
 }
 
 /**
@@ -219,11 +277,14 @@ function toggleWindow(): void {
     return
   }
 
+  // Asked before anything is shown, for the reason in `focusedWorkspace`.
+  const workspace = focusedWorkspace()
+
   // Before showing it, or you watch it arrive in one place and move to another.
   if (lastBounds) win.setBounds(lastBounds)
   win.show()
   win.focus()
-  followWorkspace()
+  followWorkspace(workspace)
 }
 
 /**
