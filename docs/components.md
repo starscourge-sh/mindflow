@@ -111,6 +111,7 @@ that line out.
   slash={true}             // the `/` menu
   outline={true}           // the heading outline down the right edge
   search={true}            // find, on Mod-f
+  smoothScroll={true}      // ease to the caret instead of snapping to it
   vim={currentVim()}       // left out, it follows the page switch
   vimStart="normal"        // which mode vim opens in, when vim is on at all
   autofocus={false}        // `true`/`"start"` for the top, `"end"` for the bottom
@@ -147,6 +148,7 @@ that line out.
 | `slash` | `boolean` | `true` |
 | `outline` | `boolean` | `true` |
 | `search` | `boolean` | `true` |
+| `smoothScroll` | `boolean` | `true` |
 | `vim` | `boolean` | the page switch |
 | `vimStart` | `"normal" \| "insert"` | `"normal"` |
 | `autofocus` | `boolean \| "start" \| "end"` | `false` |
@@ -163,6 +165,74 @@ that line out.
 
 Each one carries its own `@default` in `MindflowEditorProps`, so your editor
 shows it on hover as well.
+
+### The small types, written out
+
+Four of the props above take a shape rather than a flag. These are all of the
+values each one accepts - there is nothing else.
+
+**`MarkName`** - the whole set, and `marks` takes any subset:
+
+```ts
+"bold" | "italic" | "strike" | "code" | "underline"
+  | "link" | "highlight" | "superscript" | "subscript"
+```
+
+A document defaults to all nine; a `shape="line"` editor defaults to the first
+four. A mark left out is unreachable by shortcut, by markdown and by pasting,
+because the schema has nowhere to put it - this is not a toolbar setting.
+
+**`BlockColor`** - the nine, used by tags, callouts and block colours alike:
+
+```ts
+"gray" | "brown" | "orange" | "yellow" | "green"
+  | "blue" | "purple" | "pink" | "red"
+```
+
+Names rather than hexes, because each theme tunes its own nine for contrast
+against its own page. A hex that reads well on gruvbox disappears on paper.
+
+**`TokenPattern`** - what `tokens` takes:
+
+```ts
+{
+  name: string        // becomes `data-token`, so CSS can target this kind
+  pattern: RegExp     // matched against each block's text; `g` is added if missing
+  color?: BlockColor | ((value: string) => BlockColor)   // default: spread by hash
+}
+```
+
+**`TokenMatch`** - what `onTokenClick` gives you:
+
+```ts
+{
+  name: string        // which pattern matched
+  color: BlockColor
+  text: string        // the match including its marker: "#inbox"
+  value: string       // the first capture group, else the whole match: "inbox"
+  from: number        // ProseMirror positions, not string offsets -
+  to: number          // what `tr.delete(from, to)` wants
+}
+```
+
+**`NoteSuggestion`** - what `findNotes` returns, and `onOpenNote` receives the
+`id` of:
+
+```ts
+{ id: string; label: string }
+```
+
+**`toolbar`** takes `false` to remove both bars, or an object naming either:
+
+```tsx
+toolbar={false}                      // no bars at all
+toolbar={{ fixed: false }}           // keep the selection bubble only
+toolbar={{ selection: false }}       // keep the bar at the top only
+toolbar={{ fixed: <MyToolbar /> }}   // your own, in place of the default
+```
+
+Each half is `ReactNode | false`, so passing your own replaces the default
+rather than adding to it.
 
 ### What it takes
 
@@ -271,6 +341,184 @@ you open a different one - no `if (!note) return null`. `onChange` fires
 once after each pause in typing, and once more when the editor goes away. It
 fires zero times while you are still typing, because each keystroke restarts the
 clock.
+
+---
+
+## Three apps, built out of this
+
+The props above make more sense once you see which ones each kind of app
+reaches for. These are sketches, not libraries - the point is which knobs
+matter and which you leave alone.
+
+### Linear: an issue, with a title and a body
+
+Two editors, not one. The title is a `shape="line"`: a single paragraph, no
+blocks, no drag handles, and Return means submit rather than new line. The body
+is an ordinary document.
+
+```tsx
+function NewIssue({ onCreate }: { onCreate: (issue: Issue) => void }) {
+  const title = useRef("")
+  const body = useRef<JSONContent | null>(null)
+
+  const submit = (): void => {
+    if (!title.current.trim()) return
+    onCreate({ title: title.current, body: body.current })
+  }
+
+  return (
+    <>
+      <MindflowEditor
+        shape="line"
+        placeholder="Issue title"
+        autofocus="end"
+        onChange={(_doc, editor) => (title.current = editor.getText())}
+        onSubmit={submit}          // Return, because a line has nowhere to go
+      />
+      <MindflowEditor
+        placeholder="Add description…"
+        toolbar={{ fixed: false }} // the bubble only; no bar over a small panel
+        outline={false}            // nothing to outline in a few paragraphs
+        onChange={(doc) => (body.current = doc)}
+      />
+    </>
+  )
+}
+```
+
+A line editor keeps four marks - bold, italic, strike, code - because the rest
+have nowhere sensible to go in one line of text. Pass `marks` to narrow that
+further; an issue title that should be plain text takes `marks={[]}`.
+
+Labels and priorities are tokens. Type `!p1` in the body and it paints itself,
+and `onTokenClick` tells you which one was pressed:
+
+```tsx
+const ISSUE_TOKENS: TokenPattern[] = [
+  { name: "priority", pattern: /!p([0-4])\b/, color: "red" },
+  { name: "label", pattern: /#([\w-]+)/ }          // colour spread by hash
+]
+
+<MindflowEditor
+  tokens={ISSUE_TOKENS}
+  onTokenClick={(token) => {
+    if (token.name === "priority") setPriority(Number(token.value))
+    if (token.name === "label") toggleLabel(token.value)
+  }}
+/>
+```
+
+`tokens` is read once at mount, so build the array outside the component or
+memoise it - a new array every render is a new editor's worth of work for
+nothing.
+
+### Obsidian: a vault of notes that link to each other
+
+The `@` menu is the whole feature. `findNotes` says what it offers and
+`onOpenNote` says what happens when one is clicked - the editor stores an id,
+never a path, so renaming a note cannot break a link.
+
+```tsx
+function Vault() {
+  const { notes, note, open, save } = useNotes()
+
+  return (
+    <MindflowEditor
+      documentId={note?.id ?? null}
+      defaultContent={note?.doc}
+      onChange={save}
+      findNotes={(query) =>
+        notes
+          .filter((n) => n.title.toLowerCase().includes(query.toLowerCase()))
+          .slice(0, 8)
+          .map((n) => ({ id: n.id, label: n.title }))
+      }
+      onOpenNote={open}
+    />
+  )
+}
+```
+
+Backlinks fall out of `referencesOf`, which reads stored JSON - so you can build
+the graph without opening a single note:
+
+```ts
+const backlinks = (target: string) =>
+  notes.filter((note) =>
+    referencesOf(note.doc).some((ref) => ref.kind === "note" && ref.src === target)
+  )
+```
+
+And the tag index the same way, from `tagsOf`:
+
+```ts
+const byTag = new Map<string, Note[]>()
+for (const note of notes)
+  for (const { value } of tagsOf(note.doc))
+    byTag.set(value, [...(byTag.get(value) ?? []), note])
+```
+
+Both are worked out from the documents rather than kept beside them. A saved
+index goes stale the moment someone edits a note in another window.
+
+### Notion: blocks, and a database of them
+
+Everything is on by default, which is the Notion shape: the `/` menu, the drag
+handle, block colours, callouts, drawings, tables. The work is not in the
+editor - it is in what you hang off `onChange`.
+
+```tsx
+<MindflowEditor
+  documentId={page.id}
+  defaultContent={page.doc}
+  onChange={async (doc) => {
+    await savePage(page.id, doc)
+    // Properties, derived rather than stored twice.
+    await setProperties(page.id, {
+      tags: tagsOf(doc).map((t) => t.value),
+      links: referencesOf(doc).filter((r) => r.kind === "note").map((r) => r.src)
+    })
+  }}
+/>
+```
+
+Two things to decide early if pages are going anywhere but one machine:
+
+```ts
+// Before uploading a page, move what it carries into your own store.
+const tidy = await localise(page.doc)
+
+// And know what to upload beside it.
+const files = referencesOf(tidy).filter(isStored)
+```
+
+`localise` is a tidy-up you run, not part of a save - it can involve fetching
+somebody else's server. Running it on a background pass, or when a page is
+first shared, keeps it off the typing path.
+
+For a database view, the cells are `shape="line"` editors with most things off:
+
+```tsx
+<MindflowEditor
+  shape="line"
+  marks={["bold", "italic", "code"]}
+  toolbar={false}
+  handles={false}
+  slash={false}
+  search={false}
+  defaultContent={cell.doc}
+  onChange={(doc) => saveCell(cell.id, doc)}
+/>
+```
+
+### What none of the three do
+
+They do not reach into the editor. There is no "get the ProseMirror state and
+fix it up" step in any of this, and that is deliberate: everything above is a
+prop in, a callback out, or a pure function over the stored JSON. If you find
+yourself wanting the editor instance, check the **Commands** section first -
+the second argument to `onChange` is the editor, and the handful of things
+worth doing to it from outside are commands with names.
 
 ---
 
