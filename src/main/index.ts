@@ -515,7 +515,11 @@ app.whenReady().then(() => {
     const size = expanded ? SIZES.expanded : SIZES.compact
     const bounds = win.getBounds()
 
-    win.setResizable(true)
+    // No `setResizable` dance around this: `setBounds` is honoured on a window
+    // that is not resizable, and toggling the flag rebuilds the title bar -
+    // which is the traffic lights appearing for a moment in the wrong place
+    // halfway through the resize.
+    //
     // Grown about its own middle, then brought back on screen if that put an
     // edge over the side.
     win.setBounds(
@@ -526,7 +530,6 @@ app.whenReady().then(() => {
       }),
       true
     )
-    win.setResizable(false)
     return Boolean(expanded)
   })
 
