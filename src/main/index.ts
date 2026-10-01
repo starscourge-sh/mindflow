@@ -370,6 +370,20 @@ function createWindow(): void {
     ...topRight(625),
 
     resizable: false,
+    // No close button, and with the accessory policy below this is what keeps
+    // a tiling window manager's hands off the window entirely. AeroSpace's own
+    // rule, from its source: a window belonging to an accessory app and having
+    // no close button is "not even a real window", so it is never managed and
+    // never filed under a workspace. Summon it from anywhere and it turns up
+    // where you are.
+    //
+    // Both halves are needed - with the policy alone AeroSpace still manages
+    // it, because `titleBarStyle: 'hidden'` only *hides* the buttons and the
+    // accessibility tree still has them.
+    //
+    // Nothing is lost by it: the traffic lights are already hidden and the
+    // window has its own dot to put it away.
+    closable: false,
     vibrancy: 'under-window',
     visualEffectState: 'active',
     backgroundColor: 'rgba(0,0,0,0)',
@@ -441,6 +455,13 @@ function createWindow(): void {
 app.userAgentFallback = app.userAgentFallback
   .replace(/ Electron\/[\d.]+/, '')
   .replace(new RegExp(` ${app.getName()}\\/[\\d.]+`, 'i'), '')
+
+// An accessory app: no Dock icon, no app switcher entry, no Mission Control
+// tile. Half of what makes the window invisible to a tiling window manager -
+// see `closable` on the window - and a fair description of what this is, which
+// is a box summoned by a key rather than an app you go to. A window with a
+// main window of its own would want the ordinary policy back.
+if (process.platform === 'darwin') app.setActivationPolicy('accessory')
 
 app.whenReady().then(() => {
   registerNotes()
