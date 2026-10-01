@@ -44,6 +44,14 @@ const FROM_ATTR: Record<string, { attr: string; kind: ReferenceKind }[]> = {
   noteLink: [{ attr: "id", kind: "note" }]
 }
 
+/**
+ * The kinds that are a picture somewhere else, and so can be copied here.
+ *
+ * `attachment` is left out because it is already in the store by the time it
+ * is in the document, and `note` because it is an id rather than a URL.
+ */
+const MOVABLE: ReferenceKind[] = ["image", "bookmark-image", "bookmark-icon"]
+
 /** How many bytes a `data:...;base64,...` URL is actually carrying. */
 function dataUrlSize(src: string): number | undefined {
   const base64 = src.split(",")[1]
@@ -78,7 +86,10 @@ export function referencesOf(doc: JSONContent | null | undefined): Reference[] {
 
   const add = (src: unknown, kind: ReferenceKind, extra: Partial<Reference> = {}): void => {
     if (typeof src !== "string" || !src || found.has(src)) return
-    found.set(src, { src, kind, ...extra })
+    // Anything inline can be weighed, wherever it hangs - a picture dropped in
+    // the text arrives as a data URL too, not just the ones inside a drawing.
+    const size = extra.size ?? dataUrlSize(src)
+    found.set(src, { src, kind, ...extra, ...(size === undefined ? {} : { size }) })
   }
 
   const walk = (node: JSONContent): void => {
@@ -96,7 +107,7 @@ export function referencesOf(doc: JSONContent | null | undefined): Reference[] {
       const files = (node.attrs?.scene as { files?: Record<string, { dataURL?: string }> })?.files
       for (const file of Object.values(files ?? {})) {
         if (!file?.dataURL) continue
-        add(file.dataURL, "diagram-image", { size: dataUrlSize(file.dataURL) })
+        add(file.dataURL, "diagram-image")
       }
     }
 
@@ -163,22 +174,29 @@ export async function localise(
 ): Promise<JSONContent | null | undefined> {
   if (!doc || !using.saveImage) return doc
 
-  // One upload per distinct source, however many places point at it.
-  const moved = new Map<string, string | null>()
+  // One upload per distinct source, however many places point at it. The
+  // promise is what is remembered, not the answer: siblings are walked
+  // together, so the second place to ask for a picture arrives while the first
+  // upload is still in the air, and remembering a not-yet-filled-in answer
+  // would leave that one pointing at the original.
+  const moved = new Map<string, Promise<string | null>>()
 
-  const store = async (src: string): Promise<string | null> => {
-    if (moved.has(src)) return moved.get(src) ?? null
-    moved.set(src, null)
+  const store = (src: string): Promise<string | null> => {
+    const already = moved.get(src)
+    if (already) return already
 
-    try {
-      const inline = decode(src)
-      const got = inline ?? (src.startsWith("http") ? await using.fetchImage?.(src) : null)
-      const url = got ? ((await using.saveImage?.(got.mime, got.bytes)) ?? null) : null
-      moved.set(src, url)
-      return url
-    } catch {
-      return null
-    }
+    const job = (async () => {
+      try {
+        const inline = decode(src)
+        const got = inline ?? (src.startsWith("http") ? await using.fetchImage?.(src) : null)
+        return got ? ((await using.saveImage?.(got.mime, got.bytes)) ?? null) : null
+      } catch {
+        return null
+      }
+    })()
+
+    moved.set(src, job)
+    return job
   }
 
   /** Swap one attribute for its stored copy, if there is anything to swap. */
@@ -194,10 +212,10 @@ export async function localise(
 
     if (node.attrs) {
       const attrs = { ...node.attrs }
-      if (node.type === "image") await swap(attrs, "src")
-      if (node.type === "bookmark") {
-        await swap(attrs, "image")
-        await swap(attrs, "icon")
+      // Driven by the same table `referencesOf` reads, so the two cannot come
+      // to disagree about where a picture hangs off a node.
+      for (const { attr, kind } of FROM_ATTR[node.type ?? ""] ?? []) {
+        if (MOVABLE.includes(kind)) await swap(attrs, attr)
       }
 
       // A drawing's pictures sit inside the scene rather than on the node, so

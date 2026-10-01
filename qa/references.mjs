@@ -21,8 +21,10 @@ const PNG =
 // A different picture, or the two would dedupe into one reference - which is
 // correct, and would hide what this case is checking.
 const GIF = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+// A third, so the pair below dedupes against each other and nothing else.
+const DUP = 'data:image/gif;base64,R0lGODlhAQABAPAAAP///wAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw=='
 
-const built = await page.evaluate(({ png, gif }) => {
+const built = await page.evaluate(({ png, gif, dup }) => {
   // Tiptap hangs the editor off its own DOM node, which is the only handle
   // this harness has on it from outside.
   const editor = document.querySelector('.tiptap.ProseMirror.mindflow-editor:not(.is-line)').editor
@@ -33,6 +35,10 @@ const built = await page.evaluate(({ png, gif }) => {
     content: [
       { type: 'paragraph', content: [{ type: 'text', text: 'a note with things in it' }] },
       { type: 'image', attrs: { src: 'mindflow://assets/aaaa.png' } },
+      // The same picture twice, side by side: siblings are walked together, so
+      // this is where a cache that remembers an unfinished answer shows up.
+      { type: 'image', attrs: { src: dup } },
+      { type: 'image', attrs: { src: dup } },
       { type: 'attachment', attrs: { src: 'mindflow://assets/bbbb.pdf', name: 'spec.pdf', size: 1234 } },
       {
         type: 'excalidraw',
@@ -54,7 +60,7 @@ const built = await page.evaluate(({ png, gif }) => {
   }
   editor.commands.setContent(doc)
   return true
-}, { png: PNG, gif: GIF })
+}, { png: PNG, gif: GIF, dup: DUP })
 
 if (!built) {
   console.log('could not reach the editor view')
@@ -91,10 +97,10 @@ const stored = await page.evaluate(
 )
 
 for (const ref of stored.refs) console.log(`${ref.kind.padEnd(15)} ${ref.src}${ref.size ? `  (${ref.size}B)` : ''}`)
-console.log(`\nassetsOf: ${stored.assets} (expect 2)`)
-console.log(`inlineBytes: ${stored.inline} (the drawing's picture, not the text)`)
+console.log(`\nassetsOf: ${stored.assets} (two distinct pictures and the attachment)`)
+console.log(`inlineBytes: ${stored.inline} (every data URL in the document, whatever holds it)`)
 
-const kinds = stored.refs.map((r) => r.kind).sort()
+const kinds = [...new Set(stored.refs.map((r) => r.kind))].sort()
 const want = ['attachment', 'bookmark-icon', 'bookmark-image', 'diagram-image', 'image', 'note']
 console.log(`\nRESULT every kind found: ${JSON.stringify(kinds) === JSON.stringify(want)}`)
 
@@ -144,6 +150,8 @@ console.log(`the card's inline icon moved too: ${icon?.src.startsWith('mindflow:
 console.log(`the unreachable one was left alone: ${
   after.refs.find((r) => r.kind === 'bookmark-image')?.src.startsWith('https://')
 }`)
+const twice = after.refs.filter((r) => r.kind === 'image' && r.src.startsWith('mindflow://'))
+console.log(`the same picture in two places moved once, for both: ${twice.length === 2}`)
 console.log(`RESULT nothing is left inside the document: ${after.inline === 0 && after.loads}`)
 
 await app.close()

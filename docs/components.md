@@ -813,8 +813,8 @@ A `diagram-image` is a picture somebody pasted into a drawing. Excalidraw keeps
 those in the scene itself, so they ride inside the document rather than in the
 store: undeduplicated, and resent whole on every save. A drawing of shapes and
 arrows is small JSON and perfectly happy inline - a drawing with a screenshot in
-it is not, and `inlineBytes(doc)` is how you find out which you have before a
-row will not fit.
+it is not. `inlineBytes(doc)` totals every data URL in a document, wherever it
+hangs, which is how you find out which kind you have before a row will not fit.
 
 ### Moving them into the store
 
