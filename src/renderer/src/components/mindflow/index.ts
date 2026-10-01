@@ -40,5 +40,17 @@ export { currentVim, onVimChange, setVim } from "@/lib/vim"
 /** An emoji you can change: the button beside a note's title, and the picker. */
 export { EmojiButton } from "@/components/emoji/emoji-button"
 
-/** Every stored file a document points at: the list to back up. */
-export { assetsOf, isStored, type DocumentAsset } from "@/lib/document"
+/**
+ * Everything a document points at that is not its text: files, the pictures
+ * inside a drawing, a link card's borrowed images, and the notes it links to.
+ * The list to back up, to upload, and to check before deleting anything.
+ */
+export {
+  assetsOf,
+  inlineBytes,
+  isInline,
+  isStored,
+  referencesOf,
+  type Reference,
+  type ReferenceKind,
+} from "@/lib/document"

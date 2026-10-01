@@ -27,8 +27,8 @@ and may move.
 ```tsx
 import {
   MindflowEditor, TitleEditor, CommentEditor, LineEditor, DescriptionEditor,
-  setHost, TAGS, tagsOf, findTokens, assetsOf,
-  type MindflowEditorProps, type MindflowHost, type TokenPattern
+  setHost, TAGS, tagsOf, findTokens, referencesOf, assetsOf, isStored, isInline,
+  type MindflowEditorProps, type MindflowHost, type TokenPattern, type Reference
 } from "@/components/mindflow"
 ```
 
@@ -781,6 +781,49 @@ backup list is worse than none.
 Deduplicated by `src`, because the same picture twice in one document is still
 one file. Remote images are included rather than hidden, so a document that has
 not been fully localised is visible.
+
+### Everything a note points at
+
+`assetsOf` answers the narrow question - what did this note put in the store.
+`referencesOf` answers the whole one, which is what a host moving notes
+somewhere else needs:
+
+```ts
+import { referencesOf, isStored, isInline, inlineBytes } from "@/components/mindflow"
+
+referencesOf(note.doc)
+// [{ src: "mindflow://assets/9f2….png", kind: "image" },
+//  { src: "mindflow://assets/4c1….pdf", kind: "attachment", name: "spec.pdf", size: 83122 },
+//  { src: "data:image/png;base64,…",    kind: "diagram-image", size: 240110 },
+//  { src: "https://example.com/card.png", kind: "bookmark-image" },
+//  { src: "https://example.com/favicon.ico", kind: "bookmark-icon" },
+//  { src: "note-42", kind: "note" }]
+```
+
+Six kinds, and the three new ones are the ones that bite:
+
+| kind | where it lives | what to do about it |
+| --- | --- | --- |
+| `image`, `attachment` | the store, by hash | copy it; `isStored` tells yours from a remote one |
+| `diagram-image` | **inside the document**, as a data URL | see below |
+| `bookmark-image`, `bookmark-icon` | someone else's server | copy it, or accept that it rots |
+| `note` | another note's id | the graph: what breaks if that note goes |
+
+A `diagram-image` is a picture somebody pasted into a drawing. Excalidraw keeps
+those in the scene itself, so they ride inside the document rather than in the
+store: undeduplicated, and resent whole on every save. A drawing of shapes and
+arrows is small JSON and perfectly happy inline - a drawing with a screenshot in
+it is not, and `inlineBytes(doc)` is how you find out which you have before a
+row will not fit.
+
+Nothing rewrites these yet. Pushing them through `host.saveImage` and swapping
+the data URL for the returned URL is the obvious move, and the thing to check
+first is whether Excalidraw will render a `files` entry whose `dataURL` is not
+actually a data URL.
+
+Like `tagsOf`, it reads the stored JSON and nothing else - no editor, no disk,
+no network - so a host that keeps notes in S3 and never touches a filesystem
+asks it exactly the way this app does.
 
 ---
 

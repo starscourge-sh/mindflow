@@ -50,6 +50,12 @@ assetsOf(note.doc).filter(isStored)
 // [{ src: "mindflow://assets/9f2…png", kind: "image" }, …]
 ```
 
+`referencesOf(doc)` is the wider version, and the one to reach for if notes are
+going anywhere but this disk: it adds the pictures pasted into drawings (which
+live inside the document as data URLs), a link card's borrowed preview images,
+and the notes this note links to. See **Everything a note points at** in
+`docs/components.md`.
+
 Tags work the same way - `tagsOf(note.doc)` reads stored JSON and tells you
 which tags a note uses, without opening it.
 

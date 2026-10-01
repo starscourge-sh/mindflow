@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
-import { assetsOf, type DocumentAsset } from "./document"
+import { assetsOf, type Reference } from "./document"
 
 export type Note = Awaited<ReturnType<typeof window.api.notes.open>>
 export type NoteMeta = Awaited<ReturnType<typeof window.api.notes.list>>[number]
@@ -31,7 +31,7 @@ export function useNotes(): {
   /** The one being edited, or null until the first has loaded. */
   note: Note | null
   /** Every file the open note points at. The list to back up. */
-  assets: DocumentAsset[]
+  assets: Reference[]
   /** Open one. No id means the note last worked on, making one if there is none. */
   open: (id?: string) => void
   create: () => void

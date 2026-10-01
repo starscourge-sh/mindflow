@@ -253,6 +253,13 @@ ordinary, and discarding the promise inside with `void`, is the way around that.
 - A note file holds its whole document, so saving a title rewrites the document
   with it. On a very long note that is a larger write than it looks.
 - Deleting a note leaves any images it used in the asset store. Nothing sweeps
-  them yet.
+  them yet; `assetsOf` over every note is the list of what is still reachable.
+- A picture pasted into a drawing stays inside the document as a data URL
+  rather than going to the store, so it is not deduplicated and is rewritten
+  whole on every save. `referencesOf` reports those as `diagram-image` and
+  `inlineBytes(doc)` totals them.
+- A link card's preview image and favicon still point at the site they came
+  from. They will eventually 404, and fetching them tells that site who is
+  reading.
 - The last few hundred milliseconds of typing are written on `pagehide`. That is
   an asynchronous message, so a hard kill can still outrun it.
