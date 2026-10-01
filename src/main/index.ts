@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShortcut, ipcMain, net, protocol, screen } from 'electron'
+import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShortcut, ipcMain, Menu, nativeImage, net, protocol, screen, Tray } from 'electron'
 /*
  * app - Control your application's event lifecycle.
  *     - app.on('window-all-closed', () => { app.quit() })
@@ -427,6 +427,16 @@ function createWindow(): void {
     mainWindow.setWindowButtonVisibility(false);
   }
 
+  // An accessory app has no menu bar of its own, so the one chord everybody
+  // expects to end a program is not bound to anything. Taken from the window
+  // rather than globally: Cmd+Q belongs to whichever app is in front.
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown' || !input.meta || input.control || input.alt) return
+    if (input.key.toLowerCase() !== 'q') return
+    event.preventDefault()
+    quit()
+  })
+
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -463,8 +473,50 @@ app.userAgentFallback = app.userAgentFallback
 // main window of its own would want the ordinary policy back.
 if (process.platform === 'darwin') app.setActivationPolicy('accessory')
 
+/**
+ * End the program.
+ *
+ * `app.quit()` on its own does nothing here: it works by closing every window,
+ * and these windows are `closable: false` - which is half of what keeps a
+ * tiling window manager off them. So they are made closable first, and only
+ * then asked to go.
+ */
+function quit(): void {
+  for (const win of BrowserWindow.getAllWindows()) win.closable = true
+  app.quit()
+}
+
+/**
+ * The menu bar icon.
+ *
+ * An accessory app has no Dock icon, no app switcher entry and no window you
+ * can leave open, so without this there is nothing anywhere to say it is
+ * running and no way to stop it - the key still summons a window from a
+ * process you cannot see. Held in a variable because a Tray that nothing
+ * refers to is collected, and the icon vanishes a few seconds after launch.
+ */
+let tray: Tray | null = null
+
+function createTray(): void {
+  const image = nativeImage.createFromPath(icon).resize({ width: 18, height: 18 })
+  // A template image is drawn in the menu bar's own colour, so it follows the
+  // system between light and dark instead of being a small photograph.
+  image.setTemplateImage(true)
+
+  tray = new Tray(image)
+  tray.setToolTip('mindflow')
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: 'Show mindflow', accelerator: SUMMON, click: () => toggleWindow() },
+      { type: 'separator' },
+      { label: 'Quit mindflow', accelerator: 'Command+Q', click: quit }
+    ])
+  )
+}
+
 app.whenReady().then(() => {
   registerNotes()
+  createTray()
 
   // Serve the asset store. The pathname is the only thing trusted: anything
   // with a separator in it is refused, so a crafted src cannot walk the disk.
