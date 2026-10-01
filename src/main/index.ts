@@ -258,6 +258,20 @@ function openDrawing(id: string, scene: unknown, note: Electron.WebContents): vo
  * where that is. Measured against the work area rather than the display, so it
  * sits under the menu bar and beside the dock rather than behind them.
  */
+/** Same place, same size. */
+function sameBox(a: Electron.Rectangle, b: Electron.Rectangle): boolean {
+  return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
+}
+
+/**
+ * Where the window was before it was expanded, and where the expand put it.
+ *
+ * The second half is how "has it been moved since" is answered: if the window
+ * is no longer where the expand left it, somebody dragged it, and where it
+ * came from is no longer where it wants to go back to.
+ */
+let grew: { was: Electron.Rectangle; became: Electron.Rectangle } | null = null
+
 /**
  * Nudge a rectangle back onto the screen it is mostly on.
  *
@@ -515,6 +529,14 @@ app.whenReady().then(() => {
     const size = expanded ? SIZES.expanded : SIZES.compact
     const bounds = win.getBounds()
 
+    // Shrinking straight back to where it came from, if it has not been moved
+    // since: a box tucked into a corner belongs in that corner, and growing
+    // then shrinking about the middle walks it away from there a step at a
+    // time. Moved by hand and the old place is stale, so it is forgotten and
+    // the shrink happens about the middle as usual.
+    const wasMoved = !grew || !sameBox(bounds, grew.became)
+    const back = !expanded && !wasMoved ? grew?.was : undefined
+
     // No `setResizable` dance around this: `setBounds` is honoured on a window
     // that is not resizable, and toggling the flag rebuilds the title bar -
     // which is the traffic lights appearing for a moment in the wrong place
@@ -523,13 +545,17 @@ app.whenReady().then(() => {
     // Grown about its own middle, then brought back on screen if that put an
     // edge over the side.
     win.setBounds(
-      onScreen({
-        x: Math.round(bounds.x + (bounds.width - size.width) / 2),
-        y: Math.round(bounds.y + (bounds.height - size.height) / 2),
-        ...size
-      }),
+      onScreen(
+        back ?? {
+          x: Math.round(bounds.x + (bounds.width - size.width) / 2),
+          y: Math.round(bounds.y + (bounds.height - size.height) / 2),
+          ...size
+        }
+      ),
       true
     )
+
+    grew = expanded ? { was: bounds, became: win.getBounds() } : null
     return Boolean(expanded)
   })
 
