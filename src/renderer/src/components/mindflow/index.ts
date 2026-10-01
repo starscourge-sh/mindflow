@@ -48,6 +48,7 @@ export { EmojiButton } from "@/components/emoji/emoji-button"
 export {
   assetsOf,
   inlineBytes,
+  localise,
   isInline,
   isStored,
   referencesOf,

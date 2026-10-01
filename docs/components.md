@@ -27,7 +27,7 @@ and may move.
 ```tsx
 import {
   MindflowEditor, TitleEditor, CommentEditor, LineEditor, DescriptionEditor,
-  setHost, TAGS, tagsOf, findTokens, referencesOf, assetsOf, isStored, isInline,
+  setHost, TAGS, tagsOf, findTokens, referencesOf, localise, assetsOf, isStored,
   type MindflowEditorProps, type MindflowHost, type TokenPattern, type Reference
 } from "@/components/mindflow"
 ```
@@ -816,10 +816,33 @@ arrows is small JSON and perfectly happy inline - a drawing with a screenshot in
 it is not, and `inlineBytes(doc)` is how you find out which you have before a
 row will not fit.
 
-Nothing rewrites these yet. Pushing them through `host.saveImage` and swapping
-the data URL for the returned URL is the obvious move, and the thing to check
-first is whether Excalidraw will render a `files` entry whose `dataURL` is not
-actually a data URL.
+### Moving them into the store
+
+`localise(doc)` does the rewriting. It walks the document, pushes anything not
+already yours through `host.saveImage`, and gives back a new document pointing
+at the copies. The one passed in is not touched.
+
+```ts
+import { localise, inlineBytes } from "@/components/mindflow"
+
+inlineBytes(note.doc)           // 240110 - a screenshot inside a drawing
+const tidied = await localise(note.doc)
+inlineBytes(tidied)             // 0
+```
+
+Three rules make it safe to run whenever you like:
+
+- **Anything it cannot move is left exactly as it was** - a host with no
+  `saveImage`, a server that will not answer, bytes that will not decode. It
+  tidies up; it cannot fail a save.
+- **Already stored is skipped**, so running it twice is free.
+- **One upload per distinct source**, and the store addresses by hash, so the
+  same picture in three places is one object either way.
+
+A drawing keeps working afterwards. Excalidraw puts a file back on the canvas
+by handing `files[id].dataURL` to an `<img>`, and a `mindflow://assets/…` URL
+loads there exactly like a `data:` one - which is checked in
+`qa/references.mjs` rather than assumed.
 
 Like `tagsOf`, it reads the stored JSON and nothing else - no editor, no disk,
 no network - so a host that keeps notes in S3 and never touches a filesystem

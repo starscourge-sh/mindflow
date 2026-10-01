@@ -254,12 +254,13 @@ ordinary, and discarding the promise inside with `void`, is the way around that.
   with it. On a very long note that is a larger write than it looks.
 - Deleting a note leaves any images it used in the asset store. Nothing sweeps
   them yet; `assetsOf` over every note is the list of what is still reachable.
-- A picture pasted into a drawing stays inside the document as a data URL
-  rather than going to the store, so it is not deduplicated and is rewritten
-  whole on every save. `referencesOf` reports those as `diagram-image` and
-  `inlineBytes(doc)` totals them.
-- A link card's preview image and favicon still point at the site they came
-  from. They will eventually 404, and fetching them tells that site who is
-  reading.
+- A picture pasted into a drawing arrives inside the document as a data URL,
+  so until something moves it, it is not deduplicated and is rewritten whole on
+  every save. `inlineBytes(doc)` totals what a note carries that way, and
+  `localise(doc)` moves it into the store. Nothing calls `localise`
+  automatically yet - it is a tidy-up you run, not part of a save.
+- A link card's preview image and favicon point at the site they came from
+  until `localise` copies them. They rot, and fetching them tells that site who
+  is reading.
 - The last few hundred milliseconds of typing are written on `pagehide`. That is
   an asynchronous message, so a hard kill can still outrun it.

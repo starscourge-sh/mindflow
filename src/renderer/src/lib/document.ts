@@ -1,3 +1,6 @@
+import { host } from "@/lib/host"
+
+import type { MindflowHost } from "@/lib/host"
 import type { JSONContent } from "@tiptap/core"
 
 /**
@@ -125,3 +128,97 @@ export const inlineBytes = (doc: JSONContent | null | undefined): number =>
   referencesOf(doc)
     .filter(isInline)
     .reduce((total, ref) => total + (ref.size ?? 0), 0)
+
+/** The bytes behind a `data:<mime>;base64,<...>` URL, and what they are. */
+function decode(src: string): { mime: string; bytes: Uint8Array } | null {
+  const [head, base64] = src.split(",")
+  if (!head?.startsWith("data:") || !base64) return null
+  try {
+    const binary = atob(base64)
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+    return { mime: head.slice(5).replace(";base64", "") || "application/octet-stream", bytes }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Put everything a document points at into the host's own store.
+ *
+ * The pictures pasted into drawings stop riding inside the document, and a
+ * link card's preview stops being a request to somebody else's server every
+ * time the note is opened. What comes back is a new document; the one passed
+ * in is not touched.
+ *
+ * Anything that cannot be moved is left exactly as it was - a host with no
+ * `saveImage`, a server that will not answer, bytes that will not decode. This
+ * is a thing you run to tidy up, not a thing that can fail a save.
+ *
+ * Safe to run twice: a reference already in the store is skipped, and the same
+ * picture in two places is stored once because the store addresses by hash.
+ */
+export async function localise(
+  doc: JSONContent | null | undefined,
+  using: MindflowHost = host()
+): Promise<JSONContent | null | undefined> {
+  if (!doc || !using.saveImage) return doc
+
+  // One upload per distinct source, however many places point at it.
+  const moved = new Map<string, string | null>()
+
+  const store = async (src: string): Promise<string | null> => {
+    if (moved.has(src)) return moved.get(src) ?? null
+    moved.set(src, null)
+
+    try {
+      const inline = decode(src)
+      const got = inline ?? (src.startsWith("http") ? await using.fetchImage?.(src) : null)
+      const url = got ? ((await using.saveImage?.(got.mime, got.bytes)) ?? null) : null
+      moved.set(src, url)
+      return url
+    } catch {
+      return null
+    }
+  }
+
+  /** Swap one attribute for its stored copy, if there is anything to swap. */
+  const swap = async (attrs: Record<string, unknown>, key: string): Promise<void> => {
+    const src = attrs[key]
+    if (typeof src !== "string" || !src || src.startsWith("mindflow://")) return
+    const url = await store(src)
+    if (url) attrs[key] = url
+  }
+
+  const walk = async (node: JSONContent): Promise<JSONContent> => {
+    const next: JSONContent = { ...node }
+
+    if (node.attrs) {
+      const attrs = { ...node.attrs }
+      if (node.type === "image") await swap(attrs, "src")
+      if (node.type === "bookmark") {
+        await swap(attrs, "image")
+        await swap(attrs, "icon")
+      }
+
+      // A drawing's pictures sit inside the scene rather than on the node, so
+      // the scene is rebuilt around them.
+      if (node.type === "excalidraw") {
+        const scene = attrs.scene as { files?: Record<string, { dataURL?: string }> } | null
+        if (scene?.files) {
+          const files: Record<string, unknown> = {}
+          for (const [id, file] of Object.entries(scene.files)) {
+            const url = file?.dataURL ? await store(file.dataURL) : null
+            files[id] = url ? { ...file, dataURL: url } : file
+          }
+          attrs.scene = { ...scene, files }
+        }
+      }
+      next.attrs = attrs
+    }
+
+    if (node.content) next.content = await Promise.all(node.content.map(walk))
+    return next
+  }
+
+  return walk(doc)
+}
