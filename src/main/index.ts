@@ -184,7 +184,9 @@ function toggleWindow(): void {
   }
 
   // Before showing it, or you watch it arrive in one place and move to another.
-  if (lastBounds) win.setBounds(lastBounds)
+  // Checked against the screen as it is now: a display can have been unplugged
+  // while the window was away.
+  if (lastBounds) win.setBounds(onScreen(lastBounds))
   win.show()
   // An accessory app is not in the running-app rotation, so asking for the
   // window alone sometimes leaves the keyboard with whatever had it. `steal`
@@ -256,6 +258,28 @@ function openDrawing(id: string, scene: unknown, note: Electron.WebContents): vo
  * where that is. Measured against the work area rather than the display, so it
  * sits under the menu bar and beside the dock rather than behind them.
  */
+/**
+ * Nudge a rectangle back onto the screen it is mostly on.
+ *
+ * There is no built-in for this. macOS keeps a window on screen when a person
+ * drags it, but `setBounds` is not a drag and is taken literally - so growing
+ * a window parked near an edge pushes half of it off. Pinned to the top left
+ * of the work area if it is somehow bigger than the screen, which is the half
+ * worth keeping.
+ */
+function onScreen(bounds: Electron.Rectangle): Electron.Rectangle {
+  const { workArea } = screen.getDisplayMatching(bounds)
+  return {
+    ...bounds,
+    x: Math.round(
+      Math.max(workArea.x, Math.min(bounds.x, workArea.x + workArea.width - bounds.width))
+    ),
+    y: Math.round(
+      Math.max(workArea.y, Math.min(bounds.y, workArea.y + workArea.height - bounds.height))
+    )
+  }
+}
+
 function topRight(width: number): { x: number; y: number } {
   const { workArea } = screen.getPrimaryDisplay()
   const margin = 16
@@ -498,12 +522,14 @@ app.whenReady().then(() => {
     const bounds = win.getBounds()
 
     win.setResizable(true)
+    // Grown about its own middle, then brought back on screen if that put an
+    // edge over the side.
     win.setBounds(
-      {
+      onScreen({
         x: Math.round(bounds.x + (bounds.width - size.width) / 2),
         y: Math.round(bounds.y + (bounds.height - size.height) / 2),
         ...size
-      },
+      }),
       true
     )
     win.setResizable(false)
