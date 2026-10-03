@@ -116,7 +116,7 @@ export function CaptureKindPicker({ value, onChange }: {
                   }}
                 >
                   <Mark style={{ color: type.tint }} />
-                  <span>{type.label}</span>
+                  <span className="text-xs">{type.label}</span>
                   {type.id === value && <Check className="ml-auto size-4" />}
                   <CommandShortcut className={type.id === value ? "ml-2" : ""}>
                     {index + 1}

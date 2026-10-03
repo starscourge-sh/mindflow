@@ -14,7 +14,7 @@ first look but not for an app that saves anything.
 ---
 
 Adding a block, a theme, or a slash entry? `extending.md` is the map: where
-notes and files are kept, how to read them back, and the whole recipe for a
+captures and files are kept, how to read them back, and the whole recipe for a
 custom React block.
 
 ---
@@ -420,7 +420,7 @@ never a path, so renaming a note cannot break a link.
 
 ```tsx
 function Vault() {
-  const { notes, note, open, save } = useNotes()
+  const { notes, note, open, save } = useVault() // whatever holds your notes
 
   return (
     <MindflowEditor
@@ -1005,21 +1005,13 @@ It resolves `false` when the save dialog was dismissed, which is not an error.
 showing its JSON and every file it points at. That is what a save writes, so it
 is the honest answer to "what am I actually keeping".
 
-From code, `useNotes()` hands you the open note's files already worked out:
-
-```tsx
-const { note, assets } = useNotes()
-
-assets                      // [{ src, kind: "image" | "attachment", name?, size? }]
-assets.filter(isStored)     // only the app's own files, not remote ones
-```
-
-For any other note, or a document you are holding yourself:
+From code, `assetsOf` works it out from any document, open or not:
 
 ```ts
 import { assetsOf, isStored } from "@/lib/document"
 
-assetsOf(someNote.doc)
+assetsOf(doc)                   // [{ src, kind: "image" | "attachment", name?, size? }]
+assetsOf(doc).filter(isStored)  // only the app's own files, not remote ones
 ```
 
 It is worked out from the document every time rather than saved alongside it.
@@ -1157,34 +1149,3 @@ just on its own editor, because that is the only way to take the shortcut off
 the browser. Two editors with `search` on means two listeners, and Mod-f opens
 the find box in both at once. So leave it on for the main editor only, which is
 what the presets do.
-
----
-
-## Holding notes in state
-
-`useNotes()` is the whole surface an app needs around the editors.
-
-```tsx
-const { notes, note, assets, open, create, remove, save } = useNotes()
-
-<TitleEditor documentId={note ? `title-${note.id}` : null} defaultContent={note?.titleHtml}
-  onChange={(_doc, editor) => save({ title: editor.getText(), titleHtml: editor.getHTML() })} />
-
-<MindflowEditor documentId={note ? `doc-${note.id}` : null} defaultContent={note?.doc}
-  onChange={(doc) => save({ doc })} />
-```
-
-`notes` is the list; a board or a task view is the same list rendered
-differently. Nothing in the hook knows where notes are kept, so changing the
-store means changing `window.api.notes` and nothing else.
-
-Two things it handles that are easy to get wrong. A save queued just before you
-switch notes carries its note's id, so it cannot land on the one you switched
-to. And documents are written straight through while titles are held for 400ms,
-because the editor already waits for a pause in typing and the title does not.
-
-The `key` is what makes switching work: both editors read their content once, at
-mount. Give them **different** keys, as above. Two siblings sharing one key is
-the kind of thing React cannot warn about here, and it reconciles them wrongly:
-switching notes mounted a new title editor without ever taking the old one
-down, so they stacked up one per switch.

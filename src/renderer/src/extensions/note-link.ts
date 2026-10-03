@@ -1,11 +1,18 @@
 import { Node, mergeAttributes } from "@tiptap/core"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
 import Suggestion, { type SuggestionOptions } from "@tiptap/suggestion"
+import type { ReactNode } from "react"
 
 /** One note the `@` menu can offer. The app decides what is findable. */
 export interface NoteSuggestion {
   id: string
   label: string
+  /** A short handle shown before the label, like `MF-30`. */
+  key?: string
+  /** Drawn at the start of the row in the menu, not in the link. */
+  icon?: ReactNode
+  /** The menu's heading for this row. */
+  group?: string
 }
 
 export interface NoteLinkOptions {
@@ -54,7 +61,14 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       label: {
         default: "",
         rendered: false,
-        parseHTML: (el) => (el.textContent ?? "").replace(/^@/, ""),
+        parseHTML: (el) =>
+          el.querySelector(".tiptap-note-link-label")?.textContent ??
+          (el.textContent ?? "").replace(/^@/, ""),
+      },
+      key: {
+        default: "",
+        rendered: false,
+        parseHTML: (el) => el.getAttribute("data-key") ?? "",
       },
     }
   },
@@ -63,14 +77,21 @@ export const NoteLink = Node.create<NoteLinkOptions>({
     return [{ tag: "a[data-note]", priority: 100 }]
   },
 
+  // With a key it reads the way Linear's does, `MF-30 hey jude`. Without one it
+  // is the plain `@title` it always was.
   renderHTML({ HTMLAttributes, node }) {
+    const { id, key, label } = node.attrs
+    const attrs = mergeAttributes(HTMLAttributes, {
+      "data-note": id,
+      "data-key": key || null,
+      class: "tiptap-note-link",
+    })
+    if (!key) return ["a", attrs, `@${label}`]
     return [
       "a",
-      mergeAttributes(HTMLAttributes, {
-        "data-note": node.attrs.id,
-        class: "tiptap-note-link",
-      }),
-      `@${node.attrs.label}`,
+      attrs,
+      ["span", { class: "tiptap-note-link-key" }, key],
+      ["span", { class: "tiptap-note-link-label" }, label],
     ]
   },
 
@@ -99,7 +120,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
             .chain()
             .focus()
             .insertContentAt(range, [
-              { type: "noteLink", attrs: { id: props.id, label: props.label } },
+              { type: "noteLink", attrs: { id: props.id, label: props.label, key: props.key ?? "" } },
               { type: "text", text: " " },
             ])
             .run()

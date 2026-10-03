@@ -2,19 +2,18 @@
 
 Where things live, how to get them back, and how to add your own block.
 
-`docs/components.md` is the API. `docs/notes.md` is the storage. This is the
+`docs/components.md` is the API. `docs/captures.md` is the storage. This is the
 map between them.
 
 ---
 
 ## Where everything is
 
-Two folders under Electron's `userData`, and nothing else - no database, no
-settings file.
+Two things under Electron's `userData`, and no settings file.
 
 ```
-notes/     one <id>.json per note: the TipTap document, its title, when it was opened
-assets/    one file per picture or attachment, named by the hash of its bytes
+mindflow.db   every capture: the TipTap document, its title, kind and status
+assets/       one file per picture or attachment, named by the hash of its bytes
 ```
 
 The same picture in three notes is one file, because the name **is** the
@@ -22,31 +21,25 @@ hash. A note points at it with a `mindflow://assets/<hash>.<ext>` URL, which
 `src/main/index.ts` serves.
 
 Adding a kind of thing to store? It goes in `assets/` if it is bytes, and in
-the note's JSON if it is not. Do not add a third folder before you have to.
+the database if it is not. Do not add a third place before you have to.
 
 ---
 
 ## Getting it back
 
 ```ts
-const notes = await window.api.notes.list()   // every note, metadata only
-const note  = await window.api.notes.open(id) // one, with its document
+const captures = await window.api.captures.list()  // every capture, no bodies
+const capture  = await window.api.captures.get(id) // one, with its body
 ```
 
-Or from React, which handles the debounced saving for you:
-
-```tsx
-const { notes, note, assets, open, create, remove, save } = useNotes()
-```
-
-`assets` is every file the open note points at - the list to back up, and the
-list to check before deleting anything. It comes from `assetsOf(doc)`, which
-walks the JSON, so you can ask it about a note that is not open:
+`assetsOf(doc)` lists every file a document points at: the list to back up, and
+the list to check before deleting anything. It walks the JSON, so it works on a
+capture that is not open:
 
 ```ts
 import { assetsOf, isStored } from "@/components/mindflow"
 
-assetsOf(note.doc).filter(isStored)
+assetsOf(capture.body).filter(isStored)
 // [{ src: "mindflow://assets/9f2…png", kind: "image" }, …]
 ```
 
@@ -57,7 +50,7 @@ and the notes this note links to, and `localise(doc)` moves everything it can
 into the host's store. See **Everything a note points at** in
 `docs/components.md`.
 
-Tags work the same way - `tagsOf(note.doc)` reads stored JSON and tells you
+Tags work the same way: `tagsOf(capture.body)` reads stored JSON and tells you
 which tags a note uses, without opening it.
 
 ---

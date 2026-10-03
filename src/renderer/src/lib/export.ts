@@ -1,6 +1,11 @@
 import { host } from "@/lib/host"
 import type { Editor } from "@tiptap/core"
 
+/** The document as Markdown. Through the manager: `getMarkdown` is a command on
+ * the editor, but the serializer is what turns a document into text. */
+export const toMarkdown = (editor: Editor): string =>
+  editor.storage.markdown.manager.serialize(editor.getJSON())
+
 export type ExportFormat = "markdown" | "json" | "html" | "pdf"
 
 /** What each format is called and what it is saved as. */
@@ -43,9 +48,7 @@ export async function exportDocument(
       ? JSON.stringify(editor.getJSON(), null, 2)
       : format === "html"
         ? editor.getHTML()
-        // Through the manager: `getMarkdown` is a command on the editor, but
-        // the serializer is what turns a document into text.
-        : editor.storage.markdown.manager.serialize(editor.getJSON())
+        : toMarkdown(editor)
 
   return (await host().exportText?.(name, text)) ?? false
 }

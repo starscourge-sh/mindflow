@@ -1,7 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { LinkMetadata } from './index.d'
-import type { NotePatch } from './index.d'
-import type { Note, NoteMeta } from '../main/notes'
+import type { Capture, CaptureMeta, CapturePatch } from '../main/captures'
 
 // Custom APIs for renderer
 const api = {
@@ -42,8 +41,18 @@ const api = {
   setExpanded: (expanded: boolean): Promise<boolean> =>
     ipcRenderer.invoke('window:expand', expanded),
 
+  /** Bring up the capture prompt, from any window. */
+  showPrompt: (): void => ipcRenderer.send('prompt:show'),
+
   /** Put the window away. It keeps its contents and its place on screen. */
   hideWindow: (): void => ipcRenderer.send('window:hide'),
+
+  /** Whether the pointer is over the window, as that changes. */
+  onPointer: (listen: (inside: boolean) => void): (() => void) => {
+    const relay = (_event: unknown, inside: boolean): void => listen(inside)
+    ipcRenderer.on('window:pointer', relay)
+    return () => ipcRenderer.off('window:pointer', relay)
+  },
 
   /** Open a drawing in a window of its own, or bring that window forward. */
   openDrawing: (id: string, scene: unknown): void =>
@@ -70,15 +79,21 @@ const api = {
   saveDrawing: (id: string, scene: unknown): void =>
     ipcRenderer.send('drawing:change', id, scene),
 
-  /** The stored notes. */
-  notes: {
-    list: (): Promise<NoteMeta[]> => ipcRenderer.invoke('notes:list'),
-    /** No id opens the one last worked on, making one if the store is empty. */
-    open: (id?: string): Promise<Note> => ipcRenderer.invoke('notes:open', id),
-    create: (): Promise<Note> => ipcRenderer.invoke('notes:create'),
-    save: (id: string, patch: NotePatch): Promise<NoteMeta | null> =>
-      ipcRenderer.invoke('notes:save', id, patch),
-    remove: (id: string): Promise<void> => ipcRenderer.invoke('notes:delete', id)
+  /** Every capture, kept by the main process. */
+  captures: {
+    list: (): Promise<CaptureMeta[]> => ipcRenderer.invoke('captures:list'),
+    get: (id: string): Promise<Capture | null> => ipcRenderer.invoke('captures:get', id),
+    /** What `@` offers for the text typed after it. */
+    search: (query: string): Promise<CaptureMeta[]> => ipcRenderer.invoke('captures:search', query),
+    create: (patch: CapturePatch): Promise<string> => ipcRenderer.invoke('captures:create', patch),
+    save: (id: string, patch: CapturePatch): Promise<void> =>
+      ipcRenderer.invoke('captures:save', id, patch),
+    /** Any window's write, as it happens. */
+    onChange: (listen: () => void): (() => void) => {
+      const relay = (): void => listen()
+      ipcRenderer.on('captures:changed', relay)
+      return () => ipcRenderer.off('captures:changed', relay)
+    }
   }
 }
 

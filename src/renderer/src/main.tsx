@@ -36,6 +36,7 @@ import { applyTheme, currentTheme } from './lib/theme'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import { DrawingWindow } from './components/excalidraw/drawing-window'
+import { Home } from './home'
 
 // Before the first paint, and before anything renders: the page wears a theme
 // whether or not an editor is on screen.
@@ -43,8 +44,11 @@ applyTheme(currentTheme())
 
 // A window opened on one drawing says so in its own URL, which is the only
 // thing a fresh renderer knows about itself before any of this has run.
-const drawing = new URLSearchParams(window.location.search).get('drawing')
+const params = new URLSearchParams(window.location.search)
+const drawing = params.get('drawing')
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>{drawing ? <DrawingWindow id={drawing} /> : <App />}</StrictMode>
+  <StrictMode>
+    {drawing ? <DrawingWindow id={drawing} /> : params.get('view') === 'home' ? <Home /> : <App />}
+  </StrictMode>
 )

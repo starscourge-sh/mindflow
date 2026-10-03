@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useState } from "react"
+import { Fragment, forwardRef, useEffect, useImperativeHandle, useState } from "react"
 import type { SuggestionProps } from "@tiptap/suggestion"
 
 import {
@@ -35,16 +35,23 @@ const NoteList = forwardRef<SuggestionListHandle, SuggestionProps<NoteSuggestion
       <div className="tiptap-slash-menu">
         <div className="tiptap-slash-menu-list">
           {items.map((item, index) => (
-            <button
-              key={item.id}
-              type="button"
-              className={index === selected ? "is-selected" : undefined}
-              onClick={() => command(item)}
-            >
-              <span className="tiptap-slash-menu-title">
-                {item.label || "Untitled"}
-              </span>
-            </button>
+            <Fragment key={item.id}>
+              {item.group && item.group !== items[index - 1]?.group ? (
+                <div className="tiptap-slash-menu-group">{item.group}</div>
+              ) : null}
+              <button
+                type="button"
+                className={index === selected ? "is-selected" : undefined}
+                onMouseEnter={() => setSelected(index)}
+                onClick={() => command(item)}
+              >
+                {item.icon}
+                {item.key ? <span className="tiptap-note-link-key">{item.key}</span> : null}
+                <span className="tiptap-slash-menu-title tiptap-note-link-title">
+                  {item.label || "Untitled"}
+                </span>
+              </button>
+            </Fragment>
           ))}
         </div>
       </div>

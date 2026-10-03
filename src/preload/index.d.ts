@@ -1,3 +1,5 @@
+import type { Capture, CaptureMeta, CapturePatch } from '../main/captures'
+
 export interface LinkMetadata {
   href: string
   title: string
@@ -5,17 +7,6 @@ export interface LinkMetadata {
   image: string
   icon: string
   site: string
-}
-
-export type { Note, NoteMeta } from '../main/notes'
-
-/** The fields a save may change. */
-export interface NotePatch {
-  title?: string
-  titleHtml?: string
-  doc?: unknown
-  pinned?: boolean
-  icon?: string
 }
 
 export interface Api {
@@ -39,18 +30,21 @@ export interface Api {
   /** Swap the window between the capture size and the roomier one. */
   setExpanded: (expanded: boolean) => Promise<boolean>
   hideWindow: () => void
+  showPrompt: () => void
+  onPointer: (listen: (inside: boolean) => void) => () => void
   openDrawing: (id: string, scene: unknown) => void
   onDrawingChange: (listen: (id: string, scene: unknown) => void) => () => void
   onDrawingWindow: (listen: (id: string, open: boolean) => void) => () => void
   drawingScene: (id: string) => Promise<unknown>
   saveDrawing: (id: string, scene: unknown) => void
-  /** The stored notes. */
-  notes: {
-    list: () => Promise<NoteMeta[]>
-    open: (id?: string) => Promise<Note>
-    create: () => Promise<Note>
-    save: (id: string, patch: NotePatch) => Promise<NoteMeta | null>
-    remove: (id: string) => Promise<void>
+  /** Every capture, kept by the main process. */
+  captures: {
+    list: () => Promise<CaptureMeta[]>
+    get: (id: string) => Promise<Capture | null>
+    search: (query: string) => Promise<CaptureMeta[]>
+    create: (patch: CapturePatch) => Promise<string>
+    save: (id: string, patch: CapturePatch) => Promise<void>
+    onChange: (listen: () => void) => () => void
   }
 }
 

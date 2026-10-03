@@ -33,7 +33,7 @@ import { join } from 'path'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { registerNotes } from './notes'
+import { registerCaptures } from './captures'
 
 
 /* The standard electron app file structure:
@@ -120,7 +120,6 @@ const EXTENSIONS: Record<string, string> = {
   'image/avif': 'avif',
   'image/bmp': 'bmp',
   'image/apng': 'png',
-  'image/x-icon': 'ico',
   'image/vnd.microsoft.icon': 'ico'
 }
 
@@ -139,9 +138,11 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 /** The capture box, and the roomier one the toolbar's expander swaps to. */
+// const WIDTH = 720
+const WIDTH = 1080
 const SIZES = {
-  compact: { width: 625, height: 400 },
-  expanded: { width: 720, height: 816 }
+  compact: { width: WIDTH, height: 400 },
+  expanded: { width: WIDTH, height: 816 }
 }
 
 /** What summons the window. */
@@ -172,7 +173,7 @@ function hideWindow(win: BrowserWindow): void {
  * type into. A window can be visible and still be behind everything.
  */
 function toggleWindow(): void {
-  const [win] = BrowserWindow.getAllWindows()
+  const win = prompt
   if (!win) {
     createWindow()
     return
@@ -193,6 +194,19 @@ function toggleWindow(): void {
   // is what brings this app forward at all.
   app.focus({ steal: true })
   win.focus()
+}
+
+/**
+ * Load the app's page into a window. The query says which view it is, since
+ * that is the one thing a fresh renderer can read about itself before any of
+ * ours has run.
+ */
+function load(win: BrowserWindow, query = ''): void {
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}${query}`)
+  } else {
+    win.loadFile(join(__dirname, '../renderer/index.html'), { search: query })
+  }
 }
 
 /**
@@ -241,14 +255,75 @@ function openDrawing(id: string, scene: unknown, note: Electron.WebContents): vo
     tell(false)
   })
 
-  // The id rides on the URL, which is the one thing a fresh renderer can read
-  // about itself before any of ours has run.
-  const query = `?drawing=${encodeURIComponent(id)}`
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    window.loadURL(`${process.env['ELECTRON_RENDERER_URL']}${query}`)
-  } else {
-    window.loadFile(join(__dirname, '../renderer/index.html'), { search: query })
-  }
+  guard(window)
+  load(window, `?drawing=${encodeURIComponent(id)}`)
+}
+
+/**
+ * What every window with an editor in it needs: links leave for the browser,
+ * nothing navigates the page away, and Cmd+Q quits.
+ */
+function guard(win: BrowserWindow): void {
+  const page = win.webContents
+  // A file dropped outside the editable would otherwise navigate the window to
+  // it, and nothing here is saved.
+  page.on('will-navigate', (event, url) => {
+    if (url !== page.getURL()) event.preventDefault()
+  })
+
+  // Editor content reaches this through window.open, so file: and whatever else
+  // the OS would happily launch is dropped. The list mirrors the editor's own
+  // isAllowedUri, minus the schemes nothing can open.
+  const OPENABLE = ['http:', 'https:', 'mailto:', 'tel:', 'sms:', 'callto:', 'ftp:', 'ftps:']
+  page.setWindowOpenHandler(({ url }) => {
+    if (OPENABLE.includes(URL.parse(url)?.protocol ?? '')) shell.openExternal(url)
+    return { action: 'deny' }
+  })
+
+  // An accessory app has no menu bar of its own, so the one chord everybody
+  // expects to end a program is not bound to anything. Taken from the window
+  // rather than globally: Cmd+Q belongs to whichever app is in front.
+  page.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown' || !input.meta || input.control || input.alt) return
+    if (input.key.toLowerCase() !== 'q') return
+    event.preventDefault()
+    quit()
+  })
+}
+
+/** The capture prompt. Every other window is something else. */
+let prompt: BrowserWindow | null = null
+
+/**
+ * The main window: every note, and one open beside the list.
+ *
+ * An ordinary window, buttons and all, so a tiling window manager files it
+ * like any other. The prompt stays out of its reach because it has no close
+ * button; this one has one, and is meant to be tiled.
+ */
+let home: BrowserWindow | null = null
+
+function openHome(): void {
+  // An accessory app is not in the running-app rotation, so the window alone
+  // does not bring it forward. The same as the prompt does.
+  app.focus({ steal: true })
+  // `show` focuses too. A new window waits for its first paint, or it flashes
+  // up empty.
+  if (home) return home.show()
+
+  home = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    show: false,
+    title: 'mindflow',
+    backgroundColor: '#1c1c1c',
+    autoHideMenuBar: true,
+    webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
+  })
+  home.on('ready-to-show', () => home?.show())
+  home.on('closed', () => (home = null))
+  guard(home)
+  load(home, '?view=home')
 }
 
 /**
@@ -305,7 +380,7 @@ function topRight(width: number): { x: number; y: number } {
 
 function createWindow(): void {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  const mainWindow = (prompt = new BrowserWindow({
     ...SIZES.compact,
     ...topRight(SIZES.compact.width),
 
@@ -341,28 +416,13 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
     }
-  })
+  }))
 
   // the ready-to-show event on the BrowserWindow class will be emitted when the renderer process has rendered the page for the first time if the window has not been shown yet.
   // Showing the window after this event will have no visual flash:
   mainWindow.on('ready-to-show', () => {
     // still see a view of app before app fully paints, so will wait 1 sec before show.
     mainWindow.show()
-  })
-
-  // A file dropped outside the editable would otherwise navigate the window to
-  // it, and nothing here is saved.
-  mainWindow.webContents.on('will-navigate', (event, url) => {
-    if (url !== mainWindow.webContents.getURL()) event.preventDefault()
-  })
-
-  // Editor content reaches this through window.open, so file: and whatever else
-  // the OS would happily launch is dropped. The list mirrors the editor's own
-  // isAllowedUri, minus the schemes nothing can open.
-  const OPENABLE = ['http:', 'https:', 'mailto:', 'tel:', 'sms:', 'callto:', 'ftp:', 'ftps:']
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (OPENABLE.includes(URL.parse(url)?.protocol ?? '')) shell.openExternal(url)
-    return { action: 'deny' }
   })
 
 
@@ -381,23 +441,24 @@ function createWindow(): void {
     mainWindow.setAlwaysOnTop(true, 'screen-saver')
   }
 
-  // An accessory app has no menu bar of its own, so the one chord everybody
-  // expects to end a program is not bound to anything. Taken from the window
-  // rather than globally: Cmd+Q belongs to whichever app is in front.
-  mainWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.type !== 'keyDown' || !input.meta || input.control || input.alt) return
-    if (input.key.toLowerCase() !== 'q') return
-    event.preventDefault()
-    quit()
-  })
+  // Whether the pointer is over the window, for the controls that only show
+  // then. The page cannot tell for itself: macOS handles the drag strip, so
+  // the page never hears the pointer there and takes it for gone. Asked of the
+  // screen instead, a few times a second, and only while the window is shown.
+  let pointerIn = false
+  const pointer = setInterval(() => {
+    if (!mainWindow.isVisible()) return
+    const { x, y } = screen.getCursorScreenPoint()
+    const b = mainWindow.getBounds()
+    const inside = x >= b.x && x < b.x + b.width && y >= b.y && y < b.y + b.height
+    if (inside === pointerIn) return
+    pointerIn = inside
+    mainWindow.webContents.send('window:pointer', inside)
+  }, 80)
+  mainWindow.on('closed', () => clearInterval(pointer))
 
-  // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
-  } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
-  }
+  guard(mainWindow)
+  load(mainWindow)
 }
 
 // Every web request carries a short line saying what browser is asking. This edits that line to stop announcing Electron.
@@ -423,8 +484,9 @@ app.userAgentFallback = app.userAgentFallback
 // An accessory app: no Dock icon, no app switcher entry, no Mission Control
 // tile. Half of what makes the window invisible to a tiling window manager -
 // see `closable` on the window - and a fair description of what this is, which
-// is a box summoned by a key rather than an app you go to. A window with a
-// main window of its own would want the ordinary policy back.
+// is a box summoned by a key rather than an app you go to. The main window
+// lives with it: it is reached from the menu bar icon or the prompt, not the
+// Dock or Cmd+Tab.
 if (process.platform === 'darwin') app.setActivationPolicy('accessory')
 
 /**
@@ -443,10 +505,9 @@ function quit(): void {
 /**
  * The menu bar icon.
  *
- * An accessory app has no Dock icon, no app switcher entry and no window you
- * can leave open, so without this there is nothing anywhere to say it is
- * running and no way to stop it - the key still summons a window from a
- * process you cannot see. Held in a variable because a Tray that nothing
+ * An accessory app has no Dock icon and no app switcher entry, so this is the
+ * one place that says it is running, the way to stop it, and the way to the
+ * main window. Held in a variable because a Tray that nothing
  * refers to is collected, and the icon vanishes a few seconds after launch.
  */
 let tray: Tray | null = null
@@ -462,6 +523,7 @@ function createTray(): void {
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'Show mindflow', accelerator: SUMMON, click: () => toggleWindow() },
+      { label: 'Open all notes', click: openHome },
       { type: 'separator' },
       { label: 'Quit mindflow', accelerator: 'Command+Q', click: quit }
     ])
@@ -469,7 +531,7 @@ function createTray(): void {
 }
 
 app.whenReady().then(() => {
-  registerNotes()
+  registerCaptures()
   createTray()
 
   // Serve the asset store. The pathname is the only thing trusted: anything
@@ -516,6 +578,9 @@ app.whenReady().then(() => {
     open.scene = scene
     open.note.send('drawing:changed', id, scene)
   })
+
+  // The main window's "new" button: the same prompt the key brings up.
+  ipcMain.on('prompt:show', () => toggleWindow())
 
   // Put the window away without closing it, so it comes back as it was.
   ipcMain.on('window:hide', (event) => {

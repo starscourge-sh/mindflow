@@ -15,6 +15,8 @@ export interface SlashItem {
   group: string
   /** The markdown shortcut that does the same thing, shown on the right. */
   hint?: string
+  /** Other words that should find it, not shown. */
+  keywords?: string[]
   icon?: ReactNode
   /** Whether this converts the current block, so "Turn into" can offer it. */
   turnInto?: boolean
@@ -61,7 +63,8 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
               (item.when?.(editor) ?? true) &&
               (item.title.toLowerCase().includes(term) ||
                 item.group.toLowerCase().includes(term) ||
-                (item.hint?.toLowerCase().includes(term) ?? false))
+                (item.hint?.toLowerCase().includes(term) ?? false) ||
+                (item.keywords?.some((word) => word.includes(term)) ?? false))
           )
         },
         command: ({ editor, range, props }) => {

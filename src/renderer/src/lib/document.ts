@@ -240,3 +240,20 @@ export async function localise(
 
   return walk(doc)
 }
+
+/**
+ * A capture's title: the first line of it that has any words in.
+ *
+ * There is no title box. You type, and the opening line names it, the way a
+ * commit message does. A line break inside the first block ends the line too,
+ * so a shift-enter does not glue the second line onto the title.
+ */
+export const titleOf = (doc: JSONContent | null): string => {
+  const text = (node: JSONContent): string =>
+    node.type === 'hardBreak' ? '\n' : (node.text ?? (node.content ?? []).map(text).join(''))
+  for (const block of doc?.content ?? []) {
+    const line = text(block).split('\n')[0].trim()
+    if (line) return line
+  }
+  return ''
+}

@@ -92,7 +92,7 @@ export function ThemePicker({ className }: { className?: string }): React.JSX.El
                 }}
               >
                 <Swatch theme={name} />
-                <span>{themeName(name)}</span>
+                <span className="text-xs">{themeName(name)}</span>
                 {name === theme && <Check className="ml-auto size-4" />}
               </CommandItem>
             ))}

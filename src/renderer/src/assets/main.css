@@ -202,7 +202,7 @@ body {
   transition: opacity 150ms ease-out;
 }
 
-.app-container:hover .mf-dots {
+.app-container.pointer-in .mf-dots {
   opacity: 1;
 }
 
@@ -220,7 +220,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: default;
+  cursor: pointer;
   /* The glyph is there the whole time and only shows when the dot reddens,
      which is what stops it arriving a frame late. */
   color: transparent;
@@ -259,7 +259,7 @@ body {
   transition: opacity 150ms ease-out, color 120ms ease-out, background-color 120ms ease-out;
 }
 
-.app-container:hover .mf-expand {
+.app-container.pointer-in .mf-expand {
   opacity: 1;
 }
 

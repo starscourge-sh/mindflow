@@ -24,13 +24,13 @@ npm run dev
 | --- | --- |
 | [`docs/components.md`](docs/components.md) | **Start here.** Every prop, every type it takes, and worked examples of building a Linear-, Obsidian- or Notion-shaped app out of it. |
 | [`docs/extending.md`](docs/extending.md) | Adding a block, a command, a `/` menu item, a kind of thing to store. |
-| [`docs/notes.md`](docs/notes.md) | How this app saves: the file layout, the asset store, and the gaps that are still gaps. |
+| [`docs/captures.md`](docs/captures.md) | How this app saves: the SQLite table, the asset store, and how a capture reaches the main window. |
 | [`qa/README.md`](qa/README.md) | The tests. They drive the built app with Playwright rather than mocking it. |
 
 ## The shape of it
 
 ```
-src/main/        the Electron side: the window, the global key, the file store
+src/main/        the Electron side: the windows, the global key, the capture store
 src/preload/     the bridge, which is what `MindflowHost` is implemented over
 src/renderer/
   components/mindflow/   the editor, and its public surface in `index.ts`
