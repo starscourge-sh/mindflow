@@ -65,7 +65,9 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
   if (!cards.length) return null
   return (
     <section className="mb-2">
-      <h3 className="px-2 pb-1 text-xs text-muted-foreground">Waiting on you</h3>
+      <Tip label="Three old captures with no exit yet, a new three each time you open this. A sample, not a list to clear. Click one to read or edit it.">
+        <h3 className="w-fit px-2 pb-1 text-xs text-muted-foreground">Waiting on you</h3>
+      </Tip>
       {cards.map((card) => (
         <div
           key={card.id}
@@ -93,7 +95,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
               {captureKey(card.number)} · {new Date(card.capturedAt).toLocaleDateString()}
             </span>
             {EXITS.map((one) => (
-              <Tip key={one.key} label={`${one.label} (${one.key})`}>
+              <Tip key={one.key} label={`${one.what}  ${one.key.toUpperCase()}`}>
               <Button variant="ghost" size="sm"
  className="opacity-70 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
  style={{ color: `var(--tt-color-text-${one.tint})` }}
@@ -103,7 +105,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
               </Button>
               </Tip>
             ))}
-            <Tip label="Who said it (w)">
+            <Tip label="Say who said it: a quote needs one to be kept  W">
             <Button variant="ghost" size="sm"
  className="opacity-70 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
  

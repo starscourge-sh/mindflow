@@ -17,9 +17,9 @@ export const STATUS_ICON = {
 /** The three ways out of a capture, each one key where a card has the focus. */
 export const EXITS = [
   // Their colours mean the same everywhere: kept, done, let go.
-  { key: 'p', status: 'promoted', label: 'Promote', done: 'Promoted', tint: 'purple' },
-  { key: 'r', status: 'resolved', label: 'Resolve', done: 'Resolved', tint: 'green' },
-  { key: 'd', status: 'discarded', label: 'Discard', done: 'Discarded', tint: 'red' }
+  { key: 'p', status: 'promoted', label: 'Promote', done: 'Promoted', tint: 'purple', what: 'Keep it as a nugget: it can come back to you, and be tested' },
+  { key: 'r', status: 'resolved', label: 'Resolve', done: 'Resolved', tint: 'green', what: 'Done with it: dealt with, or no longer needed' },
+  { key: 'd', status: 'discarded', label: 'Discard', done: 'Discarded', tint: 'red', what: 'Let it go: into Discarded, where it can come back' }
 ] as const
 
 /** Take one. Promote makes a nugget as well; the other two only mark the capture. */
