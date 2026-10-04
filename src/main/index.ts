@@ -434,6 +434,10 @@ function createWindow(): void {
       backgroundThrottling: false
     }
   }))
+  // Kept out of screen shares and recordings, so a call never shows what you
+  // are jotting. Honoured by older capture; recorders on Apple's newer
+  // ScreenCaptureKit may still see it.
+  mainWindow.setContentProtection(true)
 
   // the ready-to-show event on the BrowserWindow class will be emitted when the renderer process has rendered the page for the first time if the window has not been shown yet.
   // Showing the window after this event will have no visual flash:
