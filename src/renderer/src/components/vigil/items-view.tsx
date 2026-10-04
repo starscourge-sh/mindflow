@@ -31,22 +31,7 @@ const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.fin
  */
 export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article'; focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const all = useLive(() => vigil.items(tier), [] as Item[], [tier])
-  const [view, setView] = useView(tier, { sort: 'newest', group: 'none' })
-  const facets: Facet<Item>[] = [
-    { key: 'kind', label: 'Kind', options: CAPTURE_TYPES.filter((type) => all.some((one) => one.kind === type.id)).map(({ id, label }) => ({ id, label })), test: (one, kind) => one.kind === kind },
-    { key: 'when', label: 'Kept', options: AGES, test: (one, when) => period(one.createdAt) === when },
-    { key: 'tested', label: 'Review', options: [{ id: 'tested', label: 'Tested' }, { id: 'not', label: 'Not tested' }, { id: 'leech', label: 'Forgotten often' }], test: (one, how) => (how === 'leech' ? one.lapses >= 4 : !!one.prompt === (how === 'tested')) },
-    { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Pinned' }, { id: 'private', label: 'Private' }, { id: 'pushed', label: 'Note to self' }], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : flag === 'private' ? !!one.private : one.mode === 'pushed') }
-  ]
-  const groups = arrange(all, view, facets, {
-    newest: (a, b) => b.createdAt.localeCompare(a.createdAt),
-    oldest: (a, b) => a.createdAt.localeCompare(b.createdAt),
-    name: (a, b) => a.title.localeCompare(b.title),
-    due: (a, b) => (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9')
-  }, {
-    kind: (one) => CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note',
-    date: (one) => period(one.createdAt)
-  })
+  const { groups, display } = useItemDisplay(tier, all)
   const items = groups.flatMap(([, list]) => list)
   // Each group's name, on its first row.
   const heads = new Map(groups.map(([name, list]) => [list[0], name]))
@@ -123,13 +108,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
                   <Plus className="size-3.5" /> New article
                 </Button>
               )}
-              <Display
-                view={view}
-                onChange={setView}
-                facets={facets}
-                sorts={[{ id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'name', label: 'Name' }, { id: 'due', label: 'Next review' }]}
-                groups={[{ id: 'none', label: 'None' }, { id: 'kind', label: 'Kind' }, { id: 'date', label: 'Date' }]}
-              />
+              {display}
             </span>
           )
         }
@@ -518,4 +497,37 @@ function Supersede({ item }: { item: ItemFull }): React.JSX.Element {
       className="mx-1 resize-none text-[13px]"
     />
   )
+}
+
+/**
+ * Filter, sort and group for nuggets or articles, with the Display menu that
+ * sets them: the same in the main window and the prompt's Kept tab.
+ */
+export function useItemDisplay(name: string, all: Item[]): { groups: [string, Item[]][]; display: React.JSX.Element } {
+  const [view, setView] = useView(name, { sort: 'newest', group: 'none' })
+  const facets: Facet<Item>[] = [
+    { key: 'kind', label: 'Kind', options: CAPTURE_TYPES.filter((type) => all.some((one) => one.kind === type.id)).map(({ id, label }) => ({ id, label })), test: (one, kind) => one.kind === kind },
+    { key: 'when', label: 'Kept', options: AGES, test: (one, when) => period(one.createdAt) === when },
+    { key: 'tested', label: 'Review', options: [{ id: 'tested', label: 'Tested' }, { id: 'not', label: 'Not tested' }, { id: 'leech', label: 'Forgotten often' }], test: (one, how) => (how === 'leech' ? one.lapses >= 4 : !!one.prompt === (how === 'tested')) },
+    { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Pinned' }, { id: 'private', label: 'Private' }, { id: 'pushed', label: 'Note to self' }], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : flag === 'private' ? !!one.private : one.mode === 'pushed') }
+  ]
+  const groups = arrange(all, view, facets, {
+    newest: (a, b) => b.createdAt.localeCompare(a.createdAt),
+    oldest: (a, b) => a.createdAt.localeCompare(b.createdAt),
+    name: (a, b) => a.title.localeCompare(b.title),
+    due: (a, b) => (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9')
+  }, {
+    kind: (one) => CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note',
+    date: (one) => period(one.createdAt)
+  })
+  const display = (
+    <Display
+      view={view}
+      onChange={setView}
+      facets={facets}
+      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'name', label: 'Name' }, { id: 'due', label: 'Next review' }]}
+      groups={[{ id: 'none', label: 'None' }, { id: 'kind', label: 'Kind' }, { id: 'date', label: 'Date' }]}
+    />
+  )
+  return { groups, display }
 }

@@ -186,7 +186,8 @@ import {
 } from "@/components/tiptap-ui/color-highlight-popover"
 import { MarkDropdownMenu } from "@/components/tiptap-ui/mark-dropdown-menu"
 import { TextAlignDropdownMenu } from "@/components/tiptap-ui/text-align-dropdown-menu"
-import { AlignMenu, MarkMenu, ScriptMenu } from "./sub-menu"
+import { AlignMenu, ScriptMenu } from "./sub-menu"
+import { MarkButton } from "@/components/tiptap-ui/mark-button"
 import { SearchBar } from "@/components/search/search-bar"
 import { TableMenu } from "@/components/table/table-menu"
 import { TableControls } from "@/components/table/table-controls"
@@ -1155,7 +1156,9 @@ function Surface({
   const defaultSelection = (
     <>
           <ToolbarGroup>
-            {editor && <MarkMenu editor={editor} />}
+            {(["bold", "italic", "underline", "strike", "code"] as const).map((type) => (
+              <MarkButton key={type} type={type} showTooltip={false} />
+            ))}
           </ToolbarGroup>
           <ToolbarSeparator />
           <ToolbarGroup>

@@ -5,7 +5,8 @@ import { AnimatePresence, motion } from 'motion/react'
 import { chime } from '@/lib/sound'
 import { taskSaid, useLive, vigil, when, type Task } from '@/lib/vigil'
 import { toast, typing, useListKeys } from './ui'
-import { Chips } from './display'
+import { Chips, Display, arrange, useView } from './display'
+import { taskFacets } from './tasks-view'
 import { RowMenu, copy } from './row-menu'
 import { Tip } from '@/components/vigil/ui'
 
@@ -33,7 +34,11 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   const [ticking, setTicking] = useState<string | null>(null)
   // Every task list, not only today's: the same cuts as the main window.
   const [scope, setScope] = useState<Scope>('today')
-  const due = tasks.filter((task) => task.status === 'open' && SCOPES[scope].test(task))
+  // Narrowed as in the main window: marked, tag, where it came from.
+  const [view, setView] = useView('prompt:tasks', { sort: 'manual', group: 'none' })
+  const facets = taskFacets(tasks)
+  const [[, narrowed]] = arrange(tasks, view, facets, {})
+  const due = narrowed.filter((task) => task.status === 'open' && SCOPES[scope].test(task))
 
   const add = useRef<HTMLInputElement>(null)
   const [cursor] = useListKeys(due.length, { onOpen: (index) => onOpen(due[index].id) })
@@ -74,6 +79,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   return (
     <div className="flex flex-col gap-1 text-sm">
       {/* Each list with how many it holds, so a task sent to the backlog is seen landing there. */}
+      <div className="flex items-center gap-1">
       <Chips
         options={(Object.keys(SCOPES) as Scope[]).map((id) => {
           const n = tasks.filter((task) => task.status === 'open' && SCOPES[id].test(task)).length
@@ -82,6 +88,8 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
         on={(id) => id === scope}
         pick={(id) => setScope(id as Scope)}
       />
+      <span className="ml-auto"><Display view={view} onChange={setView} facets={facets} sorts={[{ id: 'manual', label: 'Your order' }]} /></span>
+      </div>
       <form
         className="mb-2 flex items-center gap-2 rounded-md border px-2 py-1.5 focus-within:border-ring"
         onSubmit={(event) => {

@@ -307,7 +307,7 @@ export function registerVigil(): void {
   )
 
   // A few capture fields set one at a time from the properties column.
-  const CAPTURE_FIELDS = { attribution: 'attribution', medium: 'medium', capturedAt: 'captured_at' } as const
+  const CAPTURE_FIELDS = { attribution: 'attribution', medium: 'medium', capturedAt: 'captured_at', origin: 'origin_id' } as const
   // Many at once, from a selection: a tag added to each, or one date for all,
   // for filling in when a batch of old things was really written.
   handle('captures:bulk', (ids: string[], change: { tag?: string; capturedAt?: string }) => {

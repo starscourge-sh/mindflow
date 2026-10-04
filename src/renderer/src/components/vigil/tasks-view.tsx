@@ -41,12 +41,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   const [leaving, setLeaving] = useState<string | null>(null)
 
   const [view, setView] = useView(`tasks:${mode}`, { sort: 'manual', group: 'when' })
-  const facets: Facet<Task>[] = [
-    { key: 'marked', label: 'Marked', options: [{ id: 'important', label: 'Important' }, { id: 'deadline', label: 'Has a deadline' }, { id: 'blocked', label: 'Blocked' }, { id: 'estimate', label: 'Estimated' }],
-      test: (task, mark) => (mark === 'important' ? !!task.important : mark === 'deadline' ? !!task.deadline : mark === 'blocked' ? !!task.blocker : task.estimate !== null) },
-    { key: 'tag', label: 'Tag', options: [...new Set(tasks.flatMap((task) => splitTags(task.title).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}` })), test: (task, tag) => splitTags(task.title).tags.includes(tag) },
-    { key: 'from', label: 'Came from', options: [{ id: 'capture', label: 'A capture' }, { id: 'typed', label: 'Typed here' }], test: (task, from) => (task.captureId ? 'capture' : 'typed') === from }
-  ]
+  const facets = taskFacets(tasks)
   // Filtered and ordered first; the view's own groups are cut from what is left.
   const [[, chosenTasks]] = arrange(tasks, view, facets, {
     name: (a, b) => a.title.localeCompare(b.title),
@@ -545,4 +540,14 @@ function Checklist({ task }: { task: TaskFull }): React.JSX.Element {
       />
     </section>
   )
+}
+
+/** What a task list can be narrowed by: the same in the main window and the prompt. */
+export function taskFacets(tasks: Task[]): Facet<Task>[] {
+  return [
+    { key: 'marked', label: 'Marked', options: [{ id: 'important', label: 'Important' }, { id: 'deadline', label: 'Has a deadline' }, { id: 'blocked', label: 'Blocked' }, { id: 'estimate', label: 'Estimated' }],
+      test: (task, mark) => (mark === 'important' ? !!task.important : mark === 'deadline' ? !!task.deadline : mark === 'blocked' ? !!task.blocker : task.estimate !== null) },
+    { key: 'tag', label: 'Tag', options: [...new Set(tasks.flatMap((task) => splitTags(task.title).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}` })), test: (task, tag) => splitTags(task.title).tags.includes(tag) },
+    { key: 'from', label: 'Came from', options: [{ id: 'capture', label: 'A capture' }, { id: 'typed', label: 'Typed here' }], test: (task, from) => (task.captureId ? 'capture' : 'typed') === from }
+  ]
 }

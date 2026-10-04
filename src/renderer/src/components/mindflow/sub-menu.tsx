@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { useEditorState, type Editor } from "@tiptap/react"
 
 import { Button } from "@/components/tiptap-ui-primitive/button"
@@ -7,11 +8,6 @@ import { AlignLeftIcon } from "@/components/tiptap-icons/align-left-icon"
 import { AlignRightIcon } from "@/components/tiptap-icons/align-right-icon"
 import { SubscriptIcon } from "@/components/tiptap-icons/subscript-icon"
 import { SuperscriptIcon } from "@/components/tiptap-icons/superscript-icon"
-import { BoldIcon } from "@/components/tiptap-icons/bold-icon"
-import { ItalicIcon } from "@/components/tiptap-icons/italic-icon"
-import { UnderlineIcon } from "@/components/tiptap-icons/underline-icon"
-import { StrikeIcon } from "@/components/tiptap-icons/strike-icon"
-import { Code2Icon } from "@/components/tiptap-icons/code2-icon"
 
 type Choice = { label: string; icon: React.ComponentType<{ className?: string }>; active: (editor: Editor) => boolean; apply: (editor: Editor) => void }
 
@@ -24,12 +20,23 @@ type Choice = { label: string; icon: React.ComponentType<{ className?: string }>
 function SubMenu({ editor, label, choices, fallback, plain = -1 }: { editor: Editor; label: string; choices: Choice[]; fallback: Choice["icon"]; plain?: number }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const box = useRef<HTMLDivElement>(null)
+  const panel = useRef<HTMLDivElement>(null)
+  // Placed on the page, not inside the bar, which clips what hangs off it:
+  // beneath the button, kept 8px inside the window.
+  const [at, setAt] = useState<{ left: number; top: number } | null>(null)
+  useEffect(() => {
+    if (!open || !box.current) return setAt(null)
+    const button = box.current.getBoundingClientRect()
+    const width = panel.current?.offsetWidth ?? choices.length * 34 + 8
+    const left = Math.min(Math.max(8, button.left + button.width / 2 - width / 2), window.innerWidth - width - 8)
+    setAt({ left, top: button.bottom + 6 })
+  }, [open, choices.length])
   const current = useEditorState({ editor, selector: ({ editor }) => (editor ? choices.findIndex((one) => one.active(editor)) : -1) }) ?? -1
   const Icon = current >= 0 ? choices[current].icon : fallback
   // Gone on a click anywhere else, or Escape.
   useEffect(() => {
     if (!open) return
-    const away = (event: MouseEvent): void => void (box.current?.contains(event.target as Node) || setOpen(false))
+    const away = (event: MouseEvent): void => void (box.current?.contains(event.target as Node) || panel.current?.contains(event.target as Node) || setOpen(false))
     const key = (event: KeyboardEvent): void => void (event.key === "Escape" && setOpen(false))
     window.addEventListener("mousedown", away, true)
     window.addEventListener("keydown", key, true)
@@ -48,16 +55,17 @@ function SubMenu({ editor, label, choices, fallback, plain = -1 }: { editor: Edi
         tabIndex={-1}
         aria-label={label}
         aria-expanded={open}
-        tooltip={label}
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => setOpen(!open)}
       >
         <Icon className="tiptap-button-icon" />
       </Button>
-      {open && (
+      {open && createPortal(
         <div
+          ref={panel}
           role="menu"
-          className="absolute top-full left-1/2 z-50 mt-1.5 flex -translate-x-1/2 gap-0.5 rounded-lg border bg-popover p-1 shadow-lg"
+          className="fixed z-[60] flex gap-0.5 rounded-lg border bg-popover p-1 shadow-lg"
+          style={{ left: at?.left ?? -9999, top: at?.top ?? -9999 }}
           onMouseDown={(event) => event.preventDefault()}
         >
           {choices.map((one, index) => (
@@ -69,7 +77,6 @@ function SubMenu({ editor, label, choices, fallback, plain = -1 }: { editor: Edi
               data-active-state={index === current ? "on" : "off"}
               tabIndex={-1}
               aria-label={one.label}
-              tooltip={one.label}
               onClick={() => {
                 one.apply(editor)
                 setOpen(false)
@@ -78,7 +85,8 @@ function SubMenu({ editor, label, choices, fallback, plain = -1 }: { editor: Edi
               <one.icon className="tiptap-button-icon" />
             </Button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
@@ -113,30 +121,3 @@ export const ScriptMenu = ({ editor }: { editor: Editor }): React.JSX.Element =>
   />
 )
 
-/**
- * Bold, italic, underline, strike and code behind one button showing the one
- * in use. Each acts like its key: on the selection, or the word under the
- * caret when nothing is selected. Picking one in use takes it off.
- */
-export const MarkMenu = ({ editor }: { editor: Editor }): React.JSX.Element => {
-  const word = (type: string) => (editor: Editor) => {
-    const commands = editor.commands as unknown as { toggleMarkOnWord?: (type: string) => boolean }
-    if (commands.toggleMarkOnWord) void (editor.chain().focus().run(), commands.toggleMarkOnWord(type))
-    else void editor.chain().focus().toggleMark(type).run()
-  }
-  const marks = [
-    ["bold", "Bold", BoldIcon],
-    ["italic", "Italic", ItalicIcon],
-    ["underline", "Underline", UnderlineIcon],
-    ["strike", "Strike", StrikeIcon],
-    ["code", "Code", Code2Icon],
-  ] as const
-  return (
-    <SubMenu
-      editor={editor}
-      label="Text style"
-      fallback={BoldIcon}
-      choices={marks.map(([type, label, icon]) => ({ label, icon, active: (editor) => editor.isActive(type), apply: word(type) }))}
-    />
-  )
-}

@@ -5,10 +5,10 @@ import { ArrowUpRight, CheckCircle2, FileText, Hash, Inbox, ListTodo, Lock, Merg
 import { MindflowEditor, TAGS } from '../mindflow'
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { CaptureList, useCaptures, type CaptureMeta } from '../capture-list'
-import { AGES, Display, arrange, period, useView, type Facet } from './display'
+import { AGES, Display, arrange, period, useView, type Facet, type View } from './display'
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
-import { STATUS_ICON, captureKey, findCaptures, flying, takeExit, toTask, follow } from '@/lib/capture-links'
+import { EXITS, STATUS_ICON, captureKey, exit, findCaptures, flying, takeExit, toTask, follow } from '@/lib/capture-links'
 import { toMarkdown } from '@/lib/export'
 import { splitTags, vigil } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
@@ -53,6 +53,9 @@ export function CapturesView({ title, keep, focus, onOpen }: {
         event.preventDefault()
         return setChosen([])
       }
+      // P, R and D take that exit on the row under the cursor, as the menu says.
+      const one = EXITS.find((e) => e.key === event.key)
+      if (one && shown[cursor]?.status === 'open') return void exit(shown[cursor].id, one.status)
       if (event.key !== 'x') return
       const capture = shown[cursor]
       if (capture) setChosen((ids) => (ids.includes(capture.id) ? ids.filter((one) => one !== capture.id) : [...ids, capture.id]))
@@ -193,7 +196,7 @@ export function CapturesView({ title, keep, focus, onOpen }: {
 }
 
 /** Status and the exits, then what the capture is, then where it came from. */
-function CaptureProps({ capture, onOpen }: { capture: CaptureMeta; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
+export function CaptureProps({ capture, onOpen }: { capture: CaptureMeta; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const Status = STATUS_ICON[capture.status as keyof typeof STATUS_ICON] ?? STATUS_ICON.open
   const reopen = (): void => void window.api.captures.save(capture.id, { status: 'open' })
   const [who, setWho] = useState(capture.attribution ?? '')
@@ -294,9 +297,13 @@ function CaptureProps({ capture, onOpen }: { capture: CaptureMeta; onOpen?: (typ
  * sets them: the same in the main window and the prompt. `name` keeps each
  * list's choice apart.
  */
-export function useCaptureDisplay(name: string, kept: CaptureMeta[]): { groups: [string, CaptureMeta[]][]; display: React.JSX.Element } {
-  const [view, setView] = useView(name, { sort: 'newest', group: 'none' })
+export function useCaptureDisplay(name: string, kept: CaptureMeta[], filter?: View['filter']): { groups: [string, CaptureMeta[]][]; display: React.JSX.Element } {
+  const [view, setView] = useView(name, { sort: 'newest', group: 'none', filter })
+  const statuses = [...new Set(kept.map((one) => one.status))]
   const facets: Facet<CaptureMeta>[] = [
+    // Whether it has taken an exit: offered when the list holds more than one,
+    // so handled and discarded captures can be reached where it is all held.
+    ...(statuses.length > 1 ? [{ key: 'status', label: 'Status', options: ['open', 'promoted', 'resolved', 'discarded'].filter((one) => statuses.includes(one)).map((id) => ({ id, label: id[0].toUpperCase() + id.slice(1) })), test: (one: CaptureMeta, status: string) => one.status === status }] : []),
     { key: 'kind', label: 'Kind', options: CAPTURE_TYPES.filter((type) => kept.some((one) => one.kind === type.id)).map(({ id, label }) => ({ id, label })), test: (one, kind) => one.kind === kind },
     { key: 'when', label: 'Captured', options: AGES, test: (one, when) => period(one.capturedAt) === when },
     { key: 'tag', label: 'Tag', options: [...new Set(kept.flatMap((one) => splitTags(one.label).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}` })), test: (one, tag) => splitTags(one.label).tags.includes(tag) },

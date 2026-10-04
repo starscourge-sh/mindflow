@@ -13,7 +13,7 @@ import { toast } from './ui'
  * where it came from (`from`, the note it was lifted out of), and the note's
  * source is inherited, never invented at the point of selection.
  */
-export function selectionActions(origin: { captureId?: string; attribution?: string | null; from?: string }) {
+export function selectionActions(origin: { captureId?: string; attribution?: string | null; from?: string; onLifted?: (id: string) => void }) {
   return (editor: Editor): React.JSX.Element => {
     const words = (): string => {
       const { from, to } = editor.state.selection
@@ -35,7 +35,11 @@ export function selectionActions(origin: { captureId?: string; attribution?: str
               if (!text) return
               chime('tap')
               void window.api.captures.create({ body: text, ...(origin.from ? { origin: origin.from } : {}) })
-                .then(() => toast(origin.from ? 'In your inbox, linked back to here' : 'In your inbox'))
+                .then((id) => {
+                  // From a note not saved yet: it is linked back once that note is.
+                  if (!origin.from) origin.onLifted?.(id)
+                  toast(origin.from ? 'In your inbox, linked back to here' : 'In your inbox, linked once this note is saved')
+                })
             }}
           >
             <Inbox /> Capture

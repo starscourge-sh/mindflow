@@ -15,7 +15,7 @@ export type Choice = { id: string; label: string }
 export type Facet<T> = { key: string; label: string; options: Choice[]; test: (item: T, option: string) => boolean }
 export type View = { filter: Record<string, string[]>; sort: string; group: string }
 
-export function useView(name: string, initial: { sort: string; group: string }): [View, (view: View) => void] {
+export function useView(name: string, initial: { sort: string; group: string; filter?: View['filter'] }): [View, (view: View) => void] {
   const key = `view:${name}`
   const read = (): View => {
     try {

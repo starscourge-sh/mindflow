@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowLeft, FileJson2, Keyboard, KeyboardOff, Lock, LockOpen, Maximize2, Minimize2, SquarePen, TableOfContents, X } from 'lucide-react'
+import { ArrowLeft, FileJson2, PanelRight, Keyboard, KeyboardOff, Lock, LockOpen, Maximize2, Minimize2, SquarePen, TableOfContents, X } from 'lucide-react'
 import type { Editor, JSONContent } from '@tiptap/core'
 
 import { MindflowEditor, TAGS, currentVim, onVimChange, setVim } from './components/mindflow'
 import { ThemePicker } from './components/theme/theme-picker'
-import { findCaptures, follow } from './lib/capture-links'
+import { EXITS, exit, findCaptures, follow } from './lib/capture-links'
 import { toMarkdown } from './lib/export'
 import { CaptureList, useCaptures } from './components/capture-list'
 import { RotCards, textOf } from './components/rot-cards'
@@ -16,7 +16,7 @@ import { TodayPanel } from './components/vigil/today-panel'
 import { selectionActions } from './components/vigil/selection-actions'
 import { ReviewView } from './components/vigil/review-view'
 import { useAppearance, useLive } from './lib/vigil'
-import { BackToTop, Kbd, Remembered, useListKeys, useSmooth, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
+import { BackToTop, Kbd, Remembered, ask, typing, useListKeys, useSmooth, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import type { LucideIcon } from 'lucide-react'
 import { Rolling, Toaster, toast } from './components/vigil/ui'
@@ -24,7 +24,7 @@ import { Reader } from './components/vigil/reader'
 import { assetsOf } from './lib/document'
 import { tagsOf } from './extensions/tokens'
 import { KeptPanel } from './components/vigil/kept-panel'
-import { useCaptureDisplay } from './components/vigil/captures-view'
+import { CaptureProps, useCaptureDisplay } from './components/vigil/captures-view'
 import { Search } from './components/search'
 import { taskSaid, vigil } from './lib/vigil'
 import { chime } from './lib/sound'
@@ -216,6 +216,17 @@ export default function App(): React.JSX.Element {
   // The heading outline down the right edge. Dimmed button means hidden.
   const [outline, setOutline] = useState(false)
   const [source, setSource] = useState(false)
+  const [details, setDetails] = useState(false)
+  // ⌘I: the open capture's details, in the prompt.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.metaKey || event.key !== 'i' || !latestEditing.current) return
+      event.preventDefault()
+      setDetails((open) => !open)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
 
   // What you write. Its first line is its name, worked out wherever it is
   // shown and never stored, so an edit never leaves a stale one behind.
@@ -318,6 +329,9 @@ export default function App(): React.JSX.Element {
   // after reading an old capture, and the note you had started comes back.
   const fresh = (keepDraft = false): void => {
     if (!keepDraft) localStorage.removeItem('capture-draft')
+    // A draft set aside for good takes its pending links with it; a submit
+    // has already used them by now.
+    if (!keepDraft && !editing) lifted.length = 0
     const draft = keepDraft ? readDraft() : undefined
     openedAt.current = Date.now()
     setEditing(null)
@@ -376,6 +390,8 @@ export default function App(): React.JSX.Element {
     const action = sorted === 'todo' || tags.some((tag) => actionTags.includes(tag))
     chime('send')
     const markdown = editorRef.current ? toMarkdown(editorRef.current) : undefined
+    // Taken now: a fresh box clears the list before the save comes back.
+    const pieces = lifted.splice(0)
     // ⌥ is Linear's "create more": the box is fresh at once, so the next one
     // can be typed straight away. Otherwise the box leaves and the window goes.
     if (more) {
@@ -390,6 +406,9 @@ export default function App(): React.JSX.Element {
         attribution: attribution.trim(), medium: where || undefined, private: secret })
       .then(async (id) => {
         await vigil.linkSession(id)
+        // Anything captured out of this note while it was a draft now points
+        // back to it, so its lineage holds.
+        for (const piece of pieces) await vigil.setCapture(piece, 'origin', id)
         // A link shows as its card, filled in once the page answers.
         if (sorted === 'link') void cardUp({ id, kind: sorted, body: hasContent(doc) ? doc : null })
         if (action) {
@@ -578,6 +597,9 @@ export default function App(): React.JSX.Element {
                 <BarToggle on={locked} icon={locked ? Lock : LockOpen} label="Lock" tip={locked ? 'Locked: read only' : 'Lock the note'} onClick={() => setLocked(!locked)} />
                 <BarToggle on={outline} icon={TableOfContents} label="Outline" tip={outline ? 'Hide the outline' : 'Show the outline'} onClick={() => setOutline(!outline)} />
                 <BarToggle on={source} icon={FileJson2} label="Source" tip={source ? 'Hide the source' : 'Show the source'} keys="⌘⌥S" onClick={() => setSource(!source)} />
+                {/* An open capture's exits, lineage, who and where, merge,
+                    reminder and first words, without the main window. */}
+                {editing && <BarToggle on={details} icon={PanelRight} label="Details" tip={details ? 'Hide its details' : 'Its details: exits, lineage, who and where'} keys="⌘I" onClick={() => setDetails(!details)} />}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span><ThemePicker className={`${CONTROL} gap-1.5 rounded-md`} /></span>
@@ -601,6 +623,7 @@ export default function App(): React.JSX.Element {
             )}
           </div>
           <SourceDrawer open={source} doc={body} onOpenChange={setSource} />
+          {editing && <DetailsDrawer open={details} id={editing.id} captures={captures} onOpenChange={setDetails} onOpen={openAny} />}
         </ResizablePanel>
 
         {!focus && <ResizableHandle withHandle />}
@@ -648,6 +671,42 @@ function useEscapeToHide(): void {
  * wrote is not much use. It is fed by `onChange`, so it is whatever the editor
  * last handed over.
  */
+/**
+ * An open capture's details in the prompt, the same panel the main window
+ * shows beside it: exits, kind, surfacing, who and where, lineage, merge,
+ * reminder and date, and the words as first written.
+ */
+function DetailsDrawer({ open, id, captures, onOpenChange, onOpen }: {
+  open: boolean
+  id: string
+  captures: Parameters<typeof CaptureList>[0]['captures']
+  onOpenChange: (open: boolean) => void
+  onOpen: (type: string, id: string) => void
+}): React.JSX.Element | null {
+  const capture = captures.find((one) => one.id === id)
+  const original = useLive(() => window.api.captures.get(id).then((found) => found?.original ?? null), null as unknown, [id])
+  if (!capture) return null
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="gap-0 overflow-y-auto p-0">
+        <SheetHeader className="border-b p-4">
+          <SheetTitle className="text-sm">Details</SheetTitle>
+          <SheetDescription className="sr-only">What can be done with this capture, and where it came from.</SheetDescription>
+        </SheetHeader>
+        <div className="p-2 text-[13px]">
+          <CaptureProps capture={capture} onOpen={onOpen} />
+          {original !== null && original !== undefined && (
+            <div className="mx-2 mt-3 border-t pt-3">
+              <p className="mb-1 text-xs text-muted-foreground">As first written</p>
+              <p className="whitespace-pre-wrap text-muted-foreground">{textOf(original as JSONContent)}</p>
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  )
+}
+
 const SourceDrawer = ({
   open,
   doc,
@@ -694,6 +753,9 @@ const SourceDrawer = ({
   </Sheet>
 )
 
+/** Captures lifted out of the note being written, waiting for it to be saved. */
+const lifted: string[] = []
+
 const CapturePrompt = ({
   initial,
   locked,
@@ -737,7 +799,7 @@ const CapturePrompt = ({
         // --- what is switched on ---
         // No fixed toolbar: the dock would sit over the capture prompt. The
         // selection toolbar keeps its default contents.
-        toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: from, from }) }}
+        toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: from, from, onLifted: (id) => lifted.push(id) }) }}
         handles={true}
         slash={true}
         outline={outline}
@@ -796,8 +858,14 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading }: {
   // The inbox is what has no exit yet; what is handled lives in All captures.
   const open = captures.filter((capture) => capture.status === 'open')
   // The same Display menu as the main window's inbox: filter, sort, group.
-  const { groups, display } = useCaptureDisplay('prompt:inbox', open)
+  // Every capture, starting on those with no exit: Display's Status reaches
+  // the handled and discarded ones without leaving the prompt.
+  const { groups, display } = useCaptureDisplay('prompt:captures', captures, { status: ['open'] })
   const shown = groups.flatMap(([, list]) => list)
+  // x picks several, the way it does in the main window, for one exit on all.
+  const [chosen, setChosen] = useState<string[]>([])
+  const shownNow = useRef(shown)
+  shownNow.current = shown
   const tabs = [
     { id: 'inbox', label: 'Inbox', count: open.length },
     { id: 'today', label: 'Tasks', count: openTasks },
@@ -807,6 +875,33 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading }: {
   // The same keys as every list: j and k when the editor does not have the
   // focus, Enter to open. ⌘1 to ⌘3 switch tabs from anywhere in the window.
   const [cursor] = useListKeys(shown.length, { onOpen: (index) => onOpen(shown[index].id), enabled: tab === 'inbox' })
+  // On the row under the cursor: x picks it, and P, R and D take the exit the
+  // right-click menu shows them beside.
+  useEffect(() => {
+    if (tab !== 'inbox') return
+    const onKey = (event: KeyboardEvent): void => {
+      if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
+      // A focused card takes its own P, R and D.
+      if ((event.target as Element | null)?.closest?.('[data-tone="knock"]')) return
+      if (event.key === 'Escape' && chosen.length) {
+        event.preventDefault()
+        return setChosen([])
+      }
+      const row = shownNow.current[cursor]
+      if (!row) return
+      if (event.key === 'x') return setChosen((ids) => (ids.includes(row.id) ? ids.filter((one) => one !== row.id) : [...ids, row.id]))
+      const one = EXITS.find((e) => e.key === event.key)
+      if (one && row.status === 'open') void exit(row.id, one.status)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [tab, cursor, chosen.length])
+  const bulk = (status: string): void => {
+    const ids = chosen
+    setChosen([])
+    void Promise.all(ids.map((id) => window.api.captures.save(id, { status }))).then(() =>
+      toast(`${ids.length} ${status}`, () => void Promise.all(ids.map((id) => window.api.captures.save(id, { status: 'open' })))))
+  }
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       const to = event.ctrlKey && !event.metaKey ? tabs[Number(event.key) - 1] : undefined
@@ -867,18 +962,36 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading }: {
           <div className="flex min-h-full flex-col">
             {tab === 'inbox' ? (
               <>
-                <div className="flex items-center px-2 pt-2 pb-1 text-xs text-muted-foreground">
-                  <Tip label="Every capture with no exit yet. The cards above are a few old ones pulled out of this same pile.">
-                    <h3 className="w-fit">{shown.length === open.length ? 'Everything waiting' : `${shown.length} of ${open.length}`}</h3>
-                  </Tip>
-                  <span className="ml-auto">{display}</span>
+                <div className="flex items-center gap-1 px-2 pt-2 pb-1 text-xs text-muted-foreground">
+                  {chosen.length ? (
+                    <>
+                      <span className="mr-auto">{chosen.length} selected</span>
+                      <Button variant="ghost" size="sm" onClick={() => bulk('resolved')}>Resolve</Button>
+                      <Button variant="ghost" size="sm" onClick={() => bulk('discarded')}>Discard</Button>
+                      {chosen.length > 1 && (
+                        <Button variant="ghost" size="sm" onClick={() => void ask(`One task from these ${chosen.length}. What is it?`, 'e.g. sort out the freight rules by Thursday').then((text) => {
+                          if (!text) return
+                          const ids = chosen
+                          setChosen([])
+                          void vigil.taskFrom(ids, text).then((made) => toast(taskSaid(made, `One task, from ${ids.length} captures`)))
+                        })}>One task</Button>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <Tip label="Every capture with no exit yet; Display's Status shows the rest. x selects several.">
+                        <h3 className="w-fit">{shown.length === open.length ? 'Everything waiting' : `${shown.length} shown`}</h3>
+                      </Tip>
+                      <span className="ml-auto">{display}</span>
+                    </>
+                  )}
                 </div>
                 {groups.map(([name, list], index) => {
                   const before = groups.slice(0, index).reduce((n, [, one]) => n + one.length, 0)
                   return (
                     <div key={name || 'all'}>
                       {name && <div className="px-2 pt-3 pb-1 text-xs text-muted-foreground">{name} <span className="tabular-nums">{list.length}</span></div>}
-                      <CaptureList captures={list} selected={editing} cursor={cursor - before} onPick={onOpen} />
+                      <CaptureList captures={list} selected={editing} cursor={cursor - before} chosen={chosen} onPick={onOpen} />
                     </div>
                   )
                 })}
