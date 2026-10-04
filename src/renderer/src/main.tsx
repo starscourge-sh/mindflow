@@ -57,6 +57,8 @@ window.addEventListener('focus', blurred(false))
 // thing a fresh renderer knows about itself before any of this has run.
 const params = new URLSearchParams(window.location.search)
 const drawing = params.get('drawing')
+// The page's own name, not the framework's: the window bar shows it.
+document.title = drawing ? 'Drawing' : 'Vigil'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

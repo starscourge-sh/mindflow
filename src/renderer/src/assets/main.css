@@ -299,6 +299,19 @@ body {
   inset: 0;
 }
 
+/* Excalidraw's chrome in the app's clothes, in a note or a window of its
+   own: the app's type, and its panels the colour of the app's menus. Doubled
+   to outrank Excalidraw's own theme rules, which load after this. */
+:is(.drawing-window, .tiptap-excalidraw-canvas) .excalidraw.excalidraw {
+  --ui-font: inherit;
+  --island-bg-color: var(--popover);
+}
+
+/* The shape library has no off switch; a drawing in a note has no use for it. */
+.drawing-window .excalidraw .default-sidebar-trigger {
+  display: none;
+}
+
 /* Anything that floats over the window keeps its clicks.
 
    The strip at the top is the window's drag handle, and a drag region is an
