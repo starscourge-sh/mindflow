@@ -7,6 +7,7 @@ import { chime } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
 import { toast } from './vigil/ui'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
+import { Input } from '@/components/ui/input'
 
 type Hint = NonNullable<Awaited<ReturnType<typeof window.api.hints.next>>>
 
@@ -89,7 +90,7 @@ export function HintCard({ onOpen }: { onOpen: (captureId: string) => void }): R
         >
           <div className="line-clamp-6 whitespace-pre-line">{shown(hint.title, hint.body)}</div>
           {asking ? (
-            <input
+            <Input
               autoFocus
               placeholder="Worth testing? Write the question and press Enter"
               onBlur={() => setHint(null)}
@@ -101,7 +102,7 @@ export function HintCard({ onOpen }: { onOpen: (captureId: string) => void }): R
                   setHint(null)
                 })
               }}
-              className="mt-2 w-full rounded-md border bg-background/60 px-2 py-1 outline-none placeholder:text-muted-foreground focus:border-ring"
+              className="mt-2 w-full h-8"
             />
           ) : (
             <div className="mt-2 flex items-center gap-1 text-muted-foreground [&_svg]:size-3.5">

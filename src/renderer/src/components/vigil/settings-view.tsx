@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { Download } from 'lucide-react'
 
 import { Slider } from '@/components/ui/slider'
+import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
 import { SoundPacks } from './sound-packs'
@@ -19,7 +20,7 @@ function Setting({ title, children, note }: { title: string; children: ReactNode
   )
 }
 
-const field = 'rounded-md border bg-transparent px-2 py-1 tabular-nums outline-none focus:border-ring'
+const field = 'h-8 tabular-nums'
 
 /**
  * The settings. Each one is a value read in one place, and each says what it
@@ -88,13 +89,13 @@ export function SettingsView(): React.JSX.Element {
           <span className="w-10 text-right tabular-nums">{Math.round(settings.retention * 100)}%</span>
         </Setting>
         <Setting title="Daily limits" note="New items and reviews a day. A cap is what keeps the queue finishable; an uncapped one becomes a wall you stop opening.">
-          <input type="number" min={0} className={`${field} w-16`} value={settings.newPerDay} onChange={(event) => set({ newPerDay: Number(event.target.value) })} /> new
-          <input type="number" min={0} className={`${field} w-16`} value={settings.reviewsPerDay} onChange={(event) => set({ reviewsPerDay: Number(event.target.value) })} /> reviews
+          <Input type="number" min={0} className={`${field} w-16`} value={settings.newPerDay} onChange={(event) => set({ newPerDay: Number(event.target.value) })} /> new
+          <Input type="number" min={0} className={`${field} w-16`} value={settings.reviewsPerDay} onChange={(event) => set({ reviewsPerDay: Number(event.target.value) })} /> reviews
         </Setting>
         <Setting title="Quiet hours" note="A window in which nothing marked private comes up unasked. Search and lists still show everything.">
-          <input type="time" className={field} value={settings.quietStart} onChange={(event) => set({ quietStart: event.target.value })} />
+          <Input type="time" className={field} value={settings.quietStart} onChange={(event) => set({ quietStart: event.target.value })} />
           <span className="text-muted-foreground">to</span>
-          <input type="time" className={field} value={settings.quietEnd} onChange={(event) => set({ quietEnd: event.target.value })} />
+          <Input type="time" className={field} value={settings.quietEnd} onChange={(event) => set({ quietEnd: event.target.value })} />
         </Setting>
         <Setting title="When a task's time comes" note="Pull: it rises to the top of Today. Quiet: the menu bar counts it too. Alerts: a notification over your work, once, at the time. Alerts train you to dismiss them, so the default is quiet.">
           <div className="flex rounded-md border p-0.5">

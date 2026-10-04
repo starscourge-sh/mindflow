@@ -7,6 +7,7 @@ import { MindflowEditor } from '../mindflow'
 import { chime } from '@/lib/sound'
 import { interval, vigil, type Due } from '@/lib/vigil'
 import { Empty, Kbd, Page, toast } from './ui'
+import { Textarea } from '@/components/ui/textarea'
 
 /** The four grades, as the plan defines them: how the retrieval felt, not whether it was right. */
 const GRADES = [
@@ -164,7 +165,7 @@ export function ReviewView(): React.JSX.Element {
           </>
         ) : (
           <>
-          <textarea
+          <Textarea
             value={said}
             onChange={(event) => setSaid(event.target.value)}
             onKeyDown={(event) => {
@@ -175,7 +176,7 @@ export function ReviewView(): React.JSX.Element {
             }}
             rows={3}
             placeholder="Say it back in your own words first, if you like. ⌘↵ to check."
-            className="resize-none rounded-lg border bg-transparent px-3 py-2 text-[15px] outline-none placeholder:text-muted-foreground focus:border-ring"
+            className="resize-none text-[15px]"
           />
           <button
             type="button"

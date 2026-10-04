@@ -46,6 +46,10 @@ export const titleOfMarkdown = (chunk: string): string =>
   (chunk.split('\n').find((line) => !line.trim().startsWith('```')) ?? '')
     .replace(/^\s*([-*]|\d+\.)\s+(\[[ x]\]\s+)?/, '')
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    // Obsidian's own marks: [[page|shown]], [[page]], $maths$, ==highlight==, ~~struck~~.
+    .replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, '$1')
+    .replace(/\$([^$\n]+)\$/g, '$1')
+    .replace(/==|~~/g, '')
     .replace(/[*_`]/g, '')
     .trim()
 
@@ -95,7 +99,7 @@ export function kindOf(line: string): string | null {
   return null
 }
 
-type Node = { type?: string; text?: string; content?: Node[] }
+type Node = { type?: string; text?: string; attrs?: { latex?: string; label?: string }; content?: Node[] }
 /**
  * The first line with words in it: what a capture is called. From the
  * editor's JSON, a line runs to the end of its block or a line break, with its
@@ -103,9 +107,11 @@ type Node = { type?: string; text?: string; content?: Node[] }
  */
 export function firstLine(body: unknown): string {
   if (typeof body === 'string') return titleOfMarkdown(body.replace(/^\s*\n/, ''))
-  const text = (node: Node): string => (node.type === 'hardBreak' ? '\n' : node.text ?? (node.content ?? []).map(text).join(''))
+  // Maths reads as its source, so a name keeps every word it was written with.
+  const text = (node: Node): string =>
+    node.type === 'hardBreak' ? '\n' : node.text ?? node.attrs?.latex ?? (node.content ?? []).map(text).join('')
   const blocks = (node: Node): Node[] =>
-    node.content?.some((child) => child.text !== undefined || child.type === 'hardBreak') ? [node] : (node.content ?? []).flatMap(blocks)
+    node.content?.some((child) => child.text !== undefined || child.type === 'hardBreak' || child.attrs?.latex !== undefined) ? [node] : (node.content ?? []).flatMap(blocks)
   for (const block of body ? blocks(body as Node) : []) {
     const line = text(block).split('\n').find((one) => one.trim())
     if (line) return line.trim()

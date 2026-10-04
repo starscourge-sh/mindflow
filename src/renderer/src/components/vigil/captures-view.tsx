@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { ArrowUpRight, Calendar, CheckCircle2, FileText, Hash, Inbox, ListTodo, Lock, Merge, Pin, Trash2, X } from 'lucide-react'
+import { ArrowUpRight, CheckCircle2, FileText, Hash, Inbox, ListTodo, Lock, Merge, Pin, Trash2, X } from 'lucide-react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { CaptureList, useCaptures, type CaptureMeta } from '../capture-list'
 import { AGES, Display, arrange, period, useView, type Facet } from './display'
+import { DatePicker } from './date-picker'
 import { STATUS_ICON, captureKey, findCaptures } from '@/lib/capture-links'
 import { toMarkdown } from '@/lib/export'
 import { splitTags, vigil } from '@/lib/vigil'
@@ -98,12 +99,7 @@ export function CapturesView({ title, keep, focus }: {
                 }}
                 className="w-20 rounded-md bg-transparent px-2 py-1 text-xs outline-none placeholder:text-muted-foreground hover:bg-accent focus:bg-accent"
               />
-              <input
-                type="date"
-                title="Set when these were written"
-                onChange={(event) => event.target.value && void vigil.bulk(chosen, { capturedAt: new Date(`${event.target.value}T12:00:00`).toISOString() }).then((n) => toast(`Dated ${n}`))}
-                className="rounded-md bg-transparent px-2 py-1 text-xs hover:bg-accent"
-              />
+              <DatePicker value={null} placeholder="Date…" className="text-xs" onChange={(at) => at && void vigil.bulk(chosen, { capturedAt: at }).then((n) => toast(`Dated ${n}`))} />
               <button type="button" title="Clear" className="rounded p-1 hover:bg-accent" onClick={() => setChosen([])}><X className="size-3.5" /></button>
             </span>
           ) : (
@@ -254,16 +250,7 @@ function CaptureProps({ capture }: { capture: CaptureMeta }): React.JSX.Element 
       {capture.source && <Prop icon={FileText}>{capture.source.replace(/\.md$/, '')}</Prop>}
       {/* Editable, because a system you can catch up on beats one you
           cannot fall behind in: a note from last Tuesday can say so. */}
-      <label className="flex items-center gap-2 rounded-md px-2 py-1.5 focus-within:text-foreground hover:bg-accent">
-        <Calendar className="size-4 shrink-0" />
-        <input
-          key={capture.id}
-          type="date"
-          defaultValue={capture.capturedAt.slice(0, 10)}
-          onChange={(event) => event.target.value && void vigil.setCapture(capture.id, 'capturedAt', new Date(`${event.target.value}T12:00:00`).toISOString())}
-          className="min-w-0 flex-1 bg-transparent text-[13px] outline-none"
-        />
-      </label>
+      <DatePicker key={capture.id} value={capture.capturedAt} className="w-full" onChange={(at) => at && void vigil.setCapture(capture.id, 'capturedAt', at)} />
     </Props>
   )
 }

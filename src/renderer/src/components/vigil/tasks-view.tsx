@@ -10,6 +10,10 @@ import { captureKey } from '@/lib/capture-links'
 import { splitTags, useLive, vigil, when, type Session, type Task, type TaskFull } from '@/lib/vigil'
 import { Empty, Kbd, Page, Prop, PropLabel, Props, Tags, toast, useListKeys } from './ui'
 import { Display, arrange, useView, type Facet } from './display'
+import { DatePicker } from './date-picker'
+import { RowMenu, copy } from './row-menu'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 
 const startOfDay = (offset = 0): number => new Date(new Date().setHours(0, 0, 0, 0) + offset * 86400000).getTime()
 
@@ -169,8 +173,20 @@ export function TasksView({ mode }: { mode: 'today' | 'upcoming' | 'routines' })
                   {list.map((task) => {
                     const index = shown.indexOf(task)
                     return (
+                      <RowMenu key={task.id} items={[
+                        { label: 'Open', keys: '↵', run: () => pick(task.id) },
+                        { label: 'Complete', run: () => complete(task) },
+                        'separator',
+                        { label: 'Today', keys: 'T', run: () => void vigil.saveTask(task.id, { due: shiftTo(0) }) },
+                        { label: 'Tomorrow', keys: 'M', run: () => void vigil.saveTask(task.id, { due: shiftTo(1) }) },
+                        { label: 'Next week', keys: 'W', run: () => void vigil.saveTask(task.id, { due: shiftTo(7) }) },
+                        'separator',
+                        { label: task.important ? 'Not important' : 'Mark important', run: () => void vigil.saveTask(task.id, { important: task.important ? 0 : 1 }) },
+                        { label: `Copy ${captureKey(task.number).replace('MF', 'T')}`, run: () => copy(task.title, 'Copied', toast) },
+                        'separator',
+                        { label: 'Close without doing', danger: true, run: () => void vigil.saveTask(task.id, { status: 'done' }).then(() => toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' }))) }
+                      ]}>
                       <motion.div
-                        key={task.id}
                         layout="position"
                         initial={{ opacity: 0, y: -4 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -213,6 +229,7 @@ export function TasksView({ mode }: { mode: 'today' | 'upcoming' | 'routines' })
                           )}
                         </button>
                       </motion.div>
+                      </RowMenu>
                     )
                   })}
                   </AnimatePresence>
@@ -239,7 +256,6 @@ export function TasksView({ mode }: { mode: 'today' | 'upcoming' | 'routines' })
 function TaskDetail({ task: first, onClose }: { task: TaskFull; onClose: () => void }): React.JSX.Element {
   // Read again on every change, so a toggle shows what it now is.
   const task = useLive(async () => (await vigil.task(first.id)) ?? first, first, [first.id])
-  const local = (iso: string | null): string => (iso ? new Date(new Date(iso).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '')
   const title = useRef<HTMLInputElement>(null)
   return (
     <div className="flex min-w-0 flex-[1.4] border-l">
@@ -285,56 +301,46 @@ function TaskDetail({ task: first, onClose }: { task: TaskFull; onClose: () => v
             </button>
           ))}
         </div>
-        <input
-          type="datetime-local"
-          defaultValue={local(task.dueAt)}
-          onChange={(event) => void vigil.saveTask(task.id, { due: event.target.value ? new Date(event.target.value).toISOString() : null })}
-          className="mx-1 rounded-md border bg-transparent px-2 py-1 text-foreground"
-        />
+        <DatePicker time value={task.dueAt} onChange={(due) => void vigil.saveTask(task.id, { due })} placeholder="No date" />
         <Prop icon={Flag} active={!!task.important} onClick={() => void vigil.saveTask(task.id, { important: task.important ? 0 : 1 })}>
           {task.important ? 'Important: sorts first' : 'Mark important'}
         </Prop>
         {/* When you mean to do it is the due date; when it must be done by is this. */}
         <PropLabel>Deadline</PropLabel>
-        <input
-          type="date"
-          defaultValue={task.deadline?.slice(0, 10) ?? ''}
-          onChange={(event) => void vigil.saveTask(task.id, { deadline: event.target.value ? new Date(`${event.target.value}T23:59:00`).toISOString() : null })}
-          className="mx-1 rounded-md border bg-transparent px-2 py-1 text-foreground"
-        />
+        <DatePicker value={task.deadline} onChange={(deadline) => void vigil.saveTask(task.id, { deadline })} placeholder="No deadline" />
         <PropLabel>Blocked by</PropLabel>
-        <input
+        <Input
           defaultValue={task.blocker ?? ''}
           placeholder="What is in the way"
           onBlur={(event) => void vigil.saveTask(task.id, { blocker: event.target.value.trim() || null })}
-          className="mx-1 rounded-md border bg-transparent px-2 py-1 text-foreground placeholder:text-muted-foreground"
+          className="mx-1 h-8 w-auto"
         />
         <PropLabel>Estimate</PropLabel>
-        <label className="mx-1 flex items-center gap-2 rounded-md border px-2 py-1">
-          <input
+        <label className="mx-1 flex items-center gap-2">
+          <Input
             type="number"
             min={0}
             step={5}
             defaultValue={task.estimate ?? ''}
             placeholder="–"
             onBlur={(event) => void vigil.saveTask(task.id, { estimate: event.target.value ? Number(event.target.value) : null })}
-            className="w-16 bg-transparent text-foreground tabular-nums outline-none"
+            className="h-8 w-20 tabular-nums"
           />
           <span className="text-xs">minutes</span>
         </label>
         <PropLabel>Waiting on</PropLabel>
-        <input
+        <Input
           defaultValue={task.waitingOn ?? ''}
           placeholder="Someone's name"
           onBlur={(event) => void vigil.saveTask(task.id, { waitingOn: event.target.value.trim() || null })}
-          className="mx-1 rounded-md border bg-transparent px-2 py-1 text-foreground placeholder:text-muted-foreground"
+          className="mx-1 h-8 w-auto"
         />
         <PropLabel>Repeats</PropLabel>
-        <input
+        <Input
           defaultValue={task.recurrence ?? ''}
           placeholder="e.g. every week"
           onBlur={(event) => void vigil.saveTask(task.id, { recurrence: event.target.value.trim() || null })}
-          className="mx-1 rounded-md border bg-transparent px-2 py-1 text-foreground placeholder:text-muted-foreground"
+          className="mx-1 h-8 w-auto"
         />
         <p className="mx-2 mt-1 text-xs leading-relaxed">
           “every” follows the calendar. “every!” counts from when you last did it. Add “until” and a date when you type a task to end the series.
@@ -411,12 +417,12 @@ function Sessions({ taskId }: { taskId: string }): React.JSX.Element {
             <span className="size-1.5 animate-pulse rounded-full bg-[var(--tt-color-text-red)]" />
             <span className="text-lg font-semibold tabular-nums">{clock(tick - new Date(running.startedAt).getTime())}</span>
           </div>
-          <textarea
+          <Textarea
             value={recap}
             onChange={(event) => setRecap(event.target.value)}
             rows={3}
             placeholder="What surprised you?"
-            className="w-full resize-none rounded-md border bg-transparent px-2 py-1.5 text-[13px] text-foreground outline-none placeholder:text-muted-foreground focus:border-ring"
+            className="w-full resize-none text-[13px]"
           />
           <Prop icon={Square} onClick={() => end(false)}>End session</Prop>
           {recap.trim() && <Prop icon={Gem} onClick={() => end(true)}>End, and keep the recap</Prop>}

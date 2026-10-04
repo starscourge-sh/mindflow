@@ -3,9 +3,11 @@ import { Lock, Pin } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
-import { captureKey } from '@/lib/capture-links'
-import { splitTags } from '@/lib/vigil'
-import { Tags } from './vigil/ui'
+import { EXITS, captureKey, takeExit } from '@/lib/capture-links'
+import { splitTags, vigil } from '@/lib/vigil'
+import { Tags, toast } from './vigil/ui'
+import { RowMenu, copy } from './vigil/row-menu'
+import { chime } from '@/lib/sound'
 
 export type CaptureMeta = Awaited<ReturnType<typeof window.api.captures.list>>[number]
 
@@ -49,8 +51,24 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
         const kind = CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
         const { text, tags } = splitTags(capture.label)
         return (
+          <RowMenu key={capture.id} items={[
+            { label: 'Open', run: () => onPick?.(capture.id), keys: '↵' },
+            'separator',
+            ...(capture.status === 'open'
+              ? EXITS.map((exit) => ({ label: exit.label, keys: exit.key.toUpperCase(), danger: exit.status === 'discarded', run: () => {
+                  chime(exit.status === 'discarded' ? 'away' : exit.status === 'promoted' ? 'promote' : 'done')
+                  void takeExit(capture.id, exit.status).then((result) => toast(result === 'needs-source' ? 'A quote needs to say who said it first' : `${exit.label}d`))
+                } }))
+              : [{ label: 'Back to the inbox', run: () => void window.api.captures.save(capture.id, { status: 'open' }) }]),
+            capture.status === 'open' && { label: 'Make it a task', run: () => void vigil.toTask(capture.id).then(() => toast('Now a task')) },
+            'separator',
+            { label: capture.pinnedAt ? 'Unpin' : 'Pin to the prompt', run: () => void vigil.pin('captures', capture.id, !capture.pinnedAt).then((ok) => ok || toast('Three pins at most: unpin one first')) },
+            { label: capture.private ? 'Let it surface' : 'Make private', run: () => void vigil.setPrivate('captures', capture.id, !capture.private) },
+            'separator',
+            { label: `Copy ${captureKey(capture.number)}`, run: () => copy(captureKey(capture.number), `Copied ${captureKey(capture.number)}`, toast) },
+            { label: 'Copy text', run: () => copy(capture.label, 'Copied', toast) }
+          ]}>
           <motion.button
-            key={capture.id}
             layout="position"
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: capture.status === 'open' ? 1 : 0.5, y: 0 }}
@@ -75,6 +93,7 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
               {tags.length ? <span className="ml-2 inline-flex"><Tags tags={tags} /></span> : null}
             </span>
           </motion.button>
+          </RowMenu>
         )
       })}
       </AnimatePresence>

@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { toast } from './ui'
+import { RowMenu, copy } from './row-menu'
 import { Switch } from '@/components/ui/switch'
 
 const COLORS = ['gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const
 import { FileText, Gem, Inbox, ListTodo, Tag } from 'lucide-react'
 
-import { useLive, vigil } from '@/lib/vigil'
+import { splitTags, useLive, vigil } from '@/lib/vigil'
 import { Empty, Page, useListKeys } from './ui'
+import { Input } from '@/components/ui/input'
 
 const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo }
 
@@ -32,8 +34,11 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
         {tags.length ? (
           <div className="flex flex-col px-3 py-2">
             {tags.map(({ tag, count, color }, index) => (
+              <RowMenu key={tag} items={[
+                { label: 'Open', keys: '↵', run: () => setChosen(tag) },
+                { label: `Copy #${tag}`, run: () => copy(`#${tag}`, `Copied #${tag}`, toast) }
+              ]}>
               <button
-                key={tag}
                 type="button"
                 data-row
                 data-cursor={index === cursor || undefined}
@@ -49,6 +54,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 )}
                 <span className="w-8 text-right text-xs text-muted-foreground tabular-nums">{count}</span>
               </button>
+              </RowMenu>
             ))}
           </div>
         ) : (
@@ -80,10 +86,10 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               <span className="whitespace-nowrap">Makes a task</span>
             </label>
             {/* An alias: this tag counts as another without the words changing. */}
-            <input
+            <Input
               key={`alias-${chosen}`}
               placeholder="Counts as #…"
-              className="w-32 rounded-md border bg-transparent px-2 py-1 text-[13px] outline-none placeholder:text-muted-foreground focus:border-ring"
+              className="w-32 text-[13px] h-8"
               onKeyDown={(event) => {
                 const to = event.currentTarget.value.trim()
                 if (event.key !== 'Enter') return
@@ -94,10 +100,10 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               }}
             />
             {/* Rename everywhere at once; renaming onto a tag that exists merges them. */}
-            <input
+            <Input
               key={chosen}
               placeholder="Rename or merge into…"
-              className="w-44 rounded-md border bg-transparent px-2 py-1 text-[13px] outline-none placeholder:text-muted-foreground focus:border-ring"
+              className="w-44 text-[13px] h-8"
               onKeyDown={(event) => {
                 const to = event.currentTarget.value.trim()
                 if (event.key !== 'Enter' || !to) return
@@ -120,7 +126,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                   className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent/60"
                 >
                   <Icon className="size-4 shrink-0 text-muted-foreground" />
-                  <span className="flex-1 truncate">{item.title || 'Untitled'}</span>
+                  <span className="flex-1 truncate">{splitTags(item.title).text || 'Untitled'}</span>
                   <span className="text-xs text-muted-foreground capitalize">{item.type}</span>
                 </button>
               )

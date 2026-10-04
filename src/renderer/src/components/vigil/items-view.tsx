@@ -13,8 +13,11 @@ import { findCaptures } from '@/lib/capture-links'
 import { interval, splitTags, useLive, vigil, when, type Item, type ItemFull } from '@/lib/vigil'
 import { Empty, Page, Prop, PropLabel, Props, Tags, toast, useListKeys } from './ui'
 import { AGES, Display, arrange, period, useView, type Facet } from './display'
+import { RowMenu, copy } from './row-menu'
 import * as chrono from 'chrono-node'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 
 const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
 
@@ -142,6 +145,15 @@ export function ItemsView({ tier, focus, onOpenCapture }: { tier: 'nugget' | 'ar
               {view.group !== 'none' && groups.find(([, list]) => list[0] === item)?.[0] && (
                 <div className="px-2 pt-4 pb-1 text-xs text-muted-foreground first:pt-1">{groups.find(([, list]) => list[0] === item)![0]}</div>
               )}
+              <RowMenu items={[
+                { label: 'Open', keys: '↵', run: () => pick(item.id) },
+                'separator',
+                { label: item.pinnedAt ? 'Unpin' : 'Pin to the prompt', run: () => void vigil.pin('nuggets', item.id, !item.pinnedAt).then((ok) => ok || toast('Three pins at most: unpin one first')) },
+                { label: item.private ? 'Let it surface' : 'Make private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
+                tier === 'nugget' && { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(item.id) },
+                'separator',
+                { label: 'Copy title', run: () => copy(item.title, 'Copied', toast) }
+              ]}>
               <button
                 data-cursor={index === cursor || undefined}
                 type="button"
@@ -151,6 +163,7 @@ export function ItemsView({ tier, focus, onOpenCapture }: { tier: 'nugget' | 'ar
               >
                 {tier === 'nugget' ? <NuggetRow item={item} /> : <ArticleRow item={item} />}
               </button>
+              </RowMenu>
               </Fragment>
             ))}
           </div>
@@ -283,13 +296,13 @@ function ItemDetail({ item, onOpenCapture }: { item: ItemFull; onOpenCapture?: (
             {item.mode === 'pushed' ? 'Only now and then' : 'Keep showing me this'}
           </Prop>
         )}
-        <textarea
+        <Textarea
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
           onBlur={savePrompt}
           rows={3}
           placeholder="Write a question and the text becomes its answer. Leave it empty to let it come back on its own."
-          className="mx-1 mt-1 resize-none rounded-md border bg-transparent px-2 py-1.5 text-[13px] text-foreground outline-none placeholder:text-muted-foreground focus:border-ring"
+          className="mx-1 mt-1 resize-none text-[13px]"
         />
         <Prop icon={SquareDashed} onClick={cloze}>Blank the selected words</Prop>
         {item.dueAt && <Prop icon={Calendar}>Next review {when(item.dueAt, false)}</Prop>}
@@ -317,12 +330,12 @@ function ItemDetail({ item, onOpenCapture }: { item: ItemFull; onOpenCapture?: (
         {item.tier === 'nugget' ? (
           <>
             <PropLabel>Context</PropLabel>
-            <textarea
+            <Textarea
               defaultValue={item.context ?? ''}
               onBlur={(event) => void vigil.saveItem(item.id, { context: event.target.value.trim() || null })}
               rows={2}
               placeholder="What makes the answer make sense: shown after it in review"
-              className="mx-1 resize-none rounded-md border bg-transparent px-2 py-1.5 text-[13px] text-foreground outline-none placeholder:text-muted-foreground focus:border-ring"
+              className="mx-1 resize-none text-[13px]"
             />
             <PropLabel>Grow it</PropLabel>
             <Prop icon={Plus} onClick={() => void vigil.article([item.id]).then(() => toast('Article started from this nugget'))}>
@@ -364,7 +377,7 @@ function ItemDetail({ item, onOpenCapture }: { item: ItemFull; onOpenCapture?: (
             <p className="mt-0.5 text-xs text-muted-foreground">{when(one.createdAt)}{one.author === 'ai' ? ' · AI' : ''}</p>
           </div>
         ))}
-        <textarea
+        <Textarea
           value={gloss}
           onChange={(event) => setGloss(event.target.value)}
           onKeyDown={(event) => {
@@ -374,7 +387,7 @@ function ItemDetail({ item, onOpenCapture }: { item: ItemFull; onOpenCapture?: (
           }}
           rows={2}
           placeholder="Why you kept it, or where you disagree"
-          className="mx-1 resize-none rounded-md border bg-transparent px-2 py-1.5 text-[13px] text-foreground outline-none placeholder:text-muted-foreground focus:border-ring"
+          className="mx-1 resize-none text-[13px]"
         />
       </Props>
     </div>
@@ -438,7 +451,7 @@ function StudyThis({ item }: { item: ItemFull }): React.JSX.Element {
   const [asking, setAsking] = useState(false)
   if (!asking) return <Prop icon={BookOpen} onClick={() => setAsking(true)}>Study this…</Prop>
   return (
-    <input
+    <Input
       autoFocus
       placeholder="When? “tomorrow”, “thursday 9am”"
       onBlur={() => setAsking(false)}
@@ -450,7 +463,7 @@ function StudyThis({ item }: { item: ItemFull }): React.JSX.Element {
           toast('Task made, with this linked to it')
         })
       }}
-      className="mx-1 rounded-md border bg-transparent px-2 py-1 text-[13px] text-foreground outline-none placeholder:text-muted-foreground focus:border-ring"
+      className="mx-1 text-[13px] h-8"
     />
   )
 }
@@ -464,7 +477,7 @@ function Supersede({ item }: { item: ItemFull }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   if (!open) return <Prop icon={TriangleAlert} onClick={() => setOpen(true)}>This turned out wrong…</Prop>
   return (
-    <textarea
+    <Textarea
       autoFocus
       rows={2}
       placeholder="What is actually true? Enter to save"
@@ -475,7 +488,7 @@ function Supersede({ item }: { item: ItemFull }): React.JSX.Element {
         event.preventDefault()
         void vigil.supersede(item.id, event.currentTarget.value.trim()).then(() => toast('Corrected: the new version is a nugget, this one is out of review'))
       }}
-      className="mx-1 resize-none rounded-md border bg-transparent px-2 py-1.5 text-[13px] text-foreground outline-none placeholder:text-muted-foreground focus:border-ring"
+      className="mx-1 resize-none text-[13px]"
     />
   )
 }

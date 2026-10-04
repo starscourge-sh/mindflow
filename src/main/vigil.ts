@@ -614,7 +614,7 @@ export function registerVigil(): void {
   // --- tags, worked out from the words every time so they cannot go stale
   const tagged = (): { tag: string; id: string; type: string; title: string }[] => {
     const rows = [
-      ...(db.prepare("select id, 'capture' as type, title, body from captures where status != 'discarded'").all() as Record<string, string>[]),
+      ...(db.prepare(`select id, 'capture' as type, ${LABEL} as title, body from captures where status != 'discarded'`).all() as Record<string, string>[]),
       ...(db.prepare('select id, tier as type, title, body from nuggets').all() as Record<string, string>[]),
       ...(db.prepare("select id, 'task' as type, title, notes as body from tasks").all() as Record<string, string>[])
     ]
