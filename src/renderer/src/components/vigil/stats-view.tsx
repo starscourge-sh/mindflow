@@ -49,7 +49,7 @@ export function StatsView(): React.JSX.Element {
 
   return (
     <Page title="Stats">
-      <div className="mx-auto max-w-[62ch] px-6 pb-20">
+      <div className="px-5 pb-20 [&_p]:max-w-[62ch]">
         <Section title="Today">
           <p>
             {stats.day.captured + stats.day.exits + stats.day.reviews ? (

@@ -55,7 +55,7 @@ export function SettingsView(): React.JSX.Element {
 
   return (
     <Page title="Settings">
-      <div ref={page} className="mx-auto max-w-2xl px-6 pb-16">
+      <div ref={page} className="px-5 pb-16">
         <Setting title="Theme" note="The colours of every window: the prompt and this one change together. Point at one to try it, click to keep it.">
           <ThemePicker className="h-8 gap-1.5 rounded-full px-2 hover:bg-accent" />
         </Setting>

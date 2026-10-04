@@ -106,7 +106,7 @@ export function ReviewView(): React.JSX.Element {
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: -24 }}
         transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-        className="mx-auto flex max-w-2xl flex-col gap-6 px-8 py-[10vh]"
+        className="flex flex-col gap-6 px-5 py-8"
       >
         {/* The question is editable in place: a card forgotten again and again
             is usually asking the wrong thing, and this is where you notice. */}

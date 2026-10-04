@@ -52,7 +52,7 @@ export function Empty({ shape, title, children, action }: {
   action?: ReactNode
 }): React.JSX.Element {
   return (
-    <div className="mx-auto flex max-w-sm flex-col items-start gap-3 px-6 py-[16vh]">
+    <div className="flex max-w-sm flex-col items-start gap-3 px-5 py-[16vh]">
       <Coolshape type={shape[0]} index={shape[1]} noise={false} size={56} className="mb-3" />
       <h2 className="text-[15px] font-semibold">{title}</h2>
       <p className="leading-relaxed text-muted-foreground">{children}</p>
