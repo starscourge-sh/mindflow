@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { RowMenu } from './vigil/row-menu'
-import { ArrowUpRight, ThumbsDown, ThumbsUp, Trash2, X } from 'lucide-react'
+import { ArrowUpRight, Pencil, ThumbsDown, ThumbsUp, Trash2, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { shown } from './rot-cards'
@@ -22,6 +22,38 @@ type Hint = NonNullable<Awaited<ReturnType<typeof window.api.hints.next>>>
 export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element | null {
   const [hint, setHint] = useState<Hint | null>(null)
   const shownAt = useRef(0)
+  // Fixing it where it stands: the words in a field, Enter keeps them.
+  const [fixing, setFixing] = useState<string | null>(null)
+  useEffect(() => setFixing(null), [hint?.id])
+  const open = (): void => {
+    if (!hint) return
+    onOpen(hint.id === hint.captureId ? 'capture' : ((hint as { tier?: string }).tier ?? 'nugget'), hint.id)
+    setHint(null)
+  }
+  // One plain paragraph can be fixed in place; anything richer opens whole,
+  // so a list or a picture is never flattened into a line.
+  const plain = (body: unknown): boolean => {
+    const doc = body as { content?: { type?: string; content?: { type?: string }[] }[] } | null
+    if (typeof body === 'string') return !body.includes('\n')
+    return !!doc && (doc.content?.length ?? 0) <= 1 && (doc.content?.[0]?.type ?? 'paragraph') === 'paragraph' && (doc.content?.[0]?.content ?? []).every((one) => one.type === 'text')
+  }
+  const fix = (): void => {
+    if (!hint) return
+    if (!plain(hint.body)) return open()
+    setFixing(shown(hint.title, hint.body))
+  }
+  const keep = (text: string): void => {
+    if (!hint) return
+    const words = text.trim()
+    setFixing(null)
+    if (!words || words === shown(hint.title, hint.body)) return
+    const body = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: words }] }] }
+    setHint({ ...hint, title: words, body })
+    void (hint.id === hint.captureId
+      ? window.api.captures.save(hint.id, { body })
+      : vigil.saveItem(hint.id, { body, title: words })
+    ).then(() => toast('Fixed'))
+  }
 
   // Most opens show nothing: the rate is a setting, a tenth by default.
   useEffect(
@@ -82,7 +114,8 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
   const actions: { icon: typeof X; tip: string; keys?: string; run: () => void }[] = !hint ? [] : [
                 // Opened right here in the prompt: the capture in the box, a
                 // nugget or article in its place.
-                { icon: ArrowUpRight, tip: 'Open it', run: () => { onOpen(hint.id === hint.captureId ? 'capture' : ((hint as { tier?: string }).tier ?? 'nugget'), hint.id); setHint(null) } },
+                { icon: ArrowUpRight, tip: 'Open it', run: open },
+                { icon: Pencil, tip: 'Fix its words', run: fix },
                 { icon: ThumbsUp, tip: 'Show this more often', keys: '⌃⇧↑', run: () => react('up') },
                 { icon: ThumbsDown, tip: 'Show this less often', keys: '⌃⇧↓', run: () => react('down') },
                 { icon: X, tip: 'Not now', run: () => setHint(null) },
@@ -111,7 +144,22 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
           className="mt-2 mb-3 overflow-hidden rounded-lg bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,transparent)] px-3 py-2.5 text-sm"
         >
           <RowMenu items={actions.map(({ tip, keys, run }) => ({ label: tip, keys, run, danger: tip === 'Discard it' }))}>
-            <div className="line-clamp-6 whitespace-pre-line">{shown(hint.title, hint.body)}</div>
+            {fixing !== null ? (
+              <Input
+                autoFocus
+                value={fixing}
+                onChange={(event) => setFixing(event.target.value)}
+                onBlur={() => keep(fixing)}
+                onKeyDown={(event) => {
+                  event.stopPropagation()
+                  if (event.key === 'Enter') keep(fixing)
+                  if (event.key === 'Escape') setFixing(null)
+                }}
+                className="h-8"
+              />
+            ) : (
+              <div className="line-clamp-6 cursor-text whitespace-pre-line" onClick={fix}>{shown(hint.title, hint.body)}</div>
+            )}
           </RowMenu>
           {asking ? (
             <Input
