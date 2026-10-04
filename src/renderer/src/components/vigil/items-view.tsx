@@ -143,7 +143,7 @@ export function ItemsView({ tier, focus, onOpenCapture }: { tier: 'nugget' | 'ar
                 <div className="px-2 pt-4 pb-1 text-xs text-muted-foreground first:pt-1">{groups.find(([, list]) => list[0] === item)![0]}</div>
               )}
               <button
-                ref={index === cursor ? (element) => element?.scrollIntoView({ block: 'nearest' }) : undefined}
+                data-cursor={index === cursor || undefined}
                 type="button"
                 data-row
                 onClick={(event) => (event.shiftKey || event.metaKey ? toggle(item.id) : pick(item.id))}

@@ -137,6 +137,11 @@ export function useListKeys(count: number, { onOpen, onBack, enabled = true }: {
   const latest = useRef({ count, onOpen, onBack, at })
   latest.current = { count, onOpen, onBack, at }
   useEffect(() => setAt((index) => Math.min(index, Math.max(0, count - 1))), [count])
+  // The row the cursor is on stays in view. Rows mark themselves with
+  // data-cursor, since a ref on an animated row is only read once.
+  useEffect(() => {
+    if (at >= 0) document.querySelector('[data-cursor]')?.scrollIntoView({ block: 'nearest' })
+  }, [at])
 
   useEffect(() => {
     if (!enabled) return

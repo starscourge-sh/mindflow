@@ -524,7 +524,8 @@ const fromCli = (argv: string[]): string | null => {
   const at = argv.indexOf('--capture')
   return at < 0 ? null : argv.slice(at + 1).join(' ').trim() || null
 }
-if (!app.requestSingleInstanceLock()) app.quit()
+// A QA run is its own app on its own data, and may start while the last one closes.
+if (!process.env.MINDFLOW_USER_DATA && !app.requestSingleInstanceLock()) app.quit()
 app.on('second-instance', (_event, argv) => {
   const text = fromCli(argv)
   if (text) captureText(text)

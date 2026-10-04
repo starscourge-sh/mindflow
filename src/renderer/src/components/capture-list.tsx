@@ -56,7 +56,7 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
             animate={{ opacity: capture.status === 'open' ? 1 : 0.5, y: 0 }}
             exit={{ opacity: 0, x: 16 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
-            ref={index === cursor ? (element) => element?.scrollIntoView({ block: 'nearest' }) : undefined}
+            data-cursor={index === cursor || undefined}
             type="button"
             className={`flex flex-col gap-0.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent/60 ${chosen.includes(capture.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : capture.id === selected ? 'bg-accent' : ''} ${index === cursor ? 'ring-1 ring-border' : ''}`}
             data-row

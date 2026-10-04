@@ -175,7 +175,7 @@ export function TasksView({ mode }: { mode: 'today' | 'upcoming' | 'routines' })
                         initial={{ opacity: 0, y: -4 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, x: 24, transition: { duration: 0.2 } }}
-                        ref={index === cursor ? (element) => element?.scrollIntoView({ block: 'nearest' }) : undefined}
+                        data-cursor={index === cursor || undefined}
                         className={`group flex items-start gap-3 border-b border-border/50 px-2 py-2 transition-colors ${task.id === open?.id ? 'bg-accent/60' : ''} ${index === cursor ? 'ring-1 ring-border' : ''}`}
                       >
                         <button

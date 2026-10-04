@@ -664,28 +664,33 @@ function SidePanel({ captures, editing, onOpen }: {
       <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={tab}
-        ref={setScroller}
         initial={{ opacity: 0, x: 8 }}
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: -8 }}
         transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
-        className="min-h-0 flex-1 overflow-y-auto"
+        className="flex min-h-0 flex-1 flex-col"
       >
-        {/* One child, which is what the easing moves. */}
-        <div className="flex min-h-full flex-col">
-        {tab === 'inbox' ? (
-          <>
+        {/* Two kinds of thing, two places: what is waiting on you stays put,
+            and only your captures scroll under it. */}
+        {tab === 'inbox' && (
+          <div className="shrink-0 border-b border-border/60">
             <Pins />
             <RotCards onOpen={onOpen} />
-            <CaptureList captures={captures} selected={editing} cursor={cursor} onPick={onOpen} />
-          </>
-        ) : tab === 'today' ? (
-          <TodayPanel />
-        ) : (
-          <div className="flex flex-1 [&_header]:hidden">
-            <ReviewView />
           </div>
         )}
+        <div ref={setScroller} className="min-h-0 flex-1 overflow-y-auto">
+          {/* One child, which is what the easing moves. */}
+          <div className="flex min-h-full flex-col">
+            {tab === 'inbox' ? (
+              <CaptureList captures={captures} selected={editing} cursor={cursor} onPick={onOpen} />
+            ) : tab === 'today' ? (
+              <TodayPanel />
+            ) : (
+              <div className="flex flex-1 [&_header]:hidden">
+                <ReviewView />
+              </div>
+            )}
+          </div>
         </div>
       </motion.div>
       </AnimatePresence>

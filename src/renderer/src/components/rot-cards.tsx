@@ -52,7 +52,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
 
   if (!cards.length) return null
   return (
-    <section className="mb-4">
+    <section className="mb-2">
       <h3 className="px-2 pb-1 text-xs text-muted-foreground">Waiting on you</h3>
       {cards.map((card) => (
         <div

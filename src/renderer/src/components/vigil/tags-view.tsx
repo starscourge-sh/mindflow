@@ -34,6 +34,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 key={tag}
                 type="button"
                 data-row
+                data-cursor={index === cursor || undefined}
                 onClick={() => setChosen(tag)}
                 className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/60 ${chosen === tag ? 'bg-accent' : ''} ${index === cursor ? 'ring-1 ring-border' : ''}`}
               >
