@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { toast } from './ui'
-import { tick } from '@/lib/sound'
 import { FileText, Gem, Inbox, ListTodo, Tag } from 'lucide-react'
 
 import { useLive, vigil } from '@/lib/vigil'
@@ -29,7 +28,6 @@ export function TagsView({ onOpen }: { onOpen: (type: string, id: string) => voi
               <button
                 key={tag}
                 type="button"
-                onMouseEnter={tick}
                 onClick={() => setChosen(tag)}
                 className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/60 ${chosen === tag ? 'bg-accent' : ''} ${index === cursor ? 'ring-1 ring-border' : ''}`}
               >

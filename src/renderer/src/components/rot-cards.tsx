@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
 
 import { EXITS, captureKey, takeExit } from '@/lib/capture-links'
-import { chime, tick } from '@/lib/sound'
+import { chime } from '@/lib/sound'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.rot>>[number]
 
@@ -43,7 +43,6 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
         <div
           key={card.id}
           tabIndex={0}
-          onMouseEnter={tick}
           className="group border-b border-border/60 px-2 py-2 text-sm outline-none last:border-b-0 focus-visible:bg-accent/40"
           onKeyDown={(event) => {
             const picked = EXITS.find((one) => one.key === event.key)

@@ -6,7 +6,6 @@ import { AnimatePresence, motion } from 'motion/react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { textOf } from '../rot-cards'
-import { tick } from '@/lib/sound'
 import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { age } from '../capture-list'
 import { findCaptures } from '@/lib/capture-links'
@@ -111,7 +110,6 @@ export function ItemsView({ tier, focus }: { tier: 'nugget' | 'article'; focus?:
                 key={item.id}
                 ref={index === cursor ? (element) => element?.scrollIntoView({ block: 'nearest' }) : undefined}
                 type="button"
-                onMouseEnter={tick}
                 onClick={(event) => (event.shiftKey || event.metaKey ? toggle(item.id) : pick(item.id))}
                 className={`rounded-md px-2 py-2 text-left transition-colors ${chosen.includes(item.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : item.id === open?.id ? 'bg-accent' : 'hover:bg-accent/60'} ${index === cursor ? 'ring-1 ring-border' : ''} ${item.suspended ? 'opacity-50' : ''}`}
               >

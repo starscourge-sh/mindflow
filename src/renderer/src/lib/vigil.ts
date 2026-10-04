@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { soundOn } from './sound'
+import { installTicks, soundOn } from './sound'
 
 /**
  * The main process's `vigil:` channels, typed. One generic bridge in the
@@ -181,6 +181,7 @@ export function splitTags(text: string): { text: string; tags: string[] } {
  */
 export function useAppearance(): void {
   const settings = useLive(vigil.settings, null as Settings | null)
+  useEffect(installTicks, [])
   useEffect(() => {
     if (!settings) return
     document.documentElement.dataset.width = settings.fullWidth ? 'full' : 'page'

@@ -24,7 +24,7 @@ import {
 } from 'lucide-react'
 import { SlotText } from 'slot-text/react'
 import { AnimatePresence, motion } from 'motion/react'
-import { chime, tick } from './lib/sound'
+import { chime } from './lib/sound'
 import 'slot-text/style.css'
 
 import { CAPTURE_TYPES } from './components/capture-kinds/capture-kind-picker'
@@ -199,7 +199,6 @@ export function Home(): React.JSX.Element {
             <TooltipTrigger asChild>
             <button
               type="button"
-              onMouseEnter={tick}
               onClick={() => setView({ id: section.id })}
               className={`group relative flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors ${view.id === section.id ? 'text-foreground' : 'text-foreground/80 hover:bg-accent/60'}`}
             >

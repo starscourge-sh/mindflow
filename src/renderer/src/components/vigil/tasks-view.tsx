@@ -5,7 +5,7 @@ import { CalendarDays, Check, FileText, Gem, Hash, History, Play, Plus, Repeat, 
 import { AnimatePresence, motion } from 'motion/react'
 
 import { MindflowEditor } from '../mindflow'
-import { chime, tick } from '@/lib/sound'
+import { chime } from '@/lib/sound'
 import { captureKey } from '@/lib/capture-links'
 import { splitTags, useLive, vigil, when, type Session, type Task, type TaskFull } from '@/lib/vigil'
 import { Empty, Kbd, Page, Prop, PropLabel, Props, Tags, toast, useListKeys } from './ui'
@@ -141,7 +141,6 @@ export function TasksView({ mode }: { mode: 'today' | 'upcoming' | 'routines' })
                       <motion.div
                         key={task.id}
                         layout="position"
-                        onMouseEnter={tick}
                         initial={{ opacity: 0, y: -4 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, x: 24, transition: { duration: 0.2 } }}

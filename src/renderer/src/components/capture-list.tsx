@@ -5,7 +5,6 @@ import { AnimatePresence, motion } from 'motion/react'
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { captureKey } from '@/lib/capture-links'
 import { splitTags } from '@/lib/vigil'
-import { tick } from '@/lib/sound'
 import { Tags } from './vigil/ui'
 
 export type CaptureMeta = Awaited<ReturnType<typeof window.api.captures.list>>[number]
@@ -60,7 +59,6 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
             ref={index === cursor ? (element) => element?.scrollIntoView({ block: 'nearest' }) : undefined}
             type="button"
             className={`flex flex-col gap-0.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent/60 ${chosen.includes(capture.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : capture.id === selected ? 'bg-accent' : ''} ${index === cursor ? 'ring-1 ring-border' : ''}`}
-            onMouseEnter={tick}
             onClick={() => onPick?.(capture.id)}
           >
             <span className="flex items-center gap-2">

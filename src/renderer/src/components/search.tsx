@@ -4,7 +4,6 @@ import type { JSONContent } from '@tiptap/core'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { MindflowEditor } from './mindflow'
-import { tick } from '@/lib/sound'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 
@@ -71,10 +70,7 @@ export function Search({ onOpen, onClose }: { onOpen: (id: string) => void; onCl
                   <button
                     type="button"
                     className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left ${index === at ? 'bg-accent' : ''}`}
-                    onMouseEnter={() => {
-                      tick()
-                      setAt(index)
-                    }}
+                    onMouseEnter={() => setAt(index)}
                     onClick={() => onOpen(capture.id)}
                   >
                     <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />

@@ -73,3 +73,35 @@ export function tick(): void {
   lastTick = now
   chime('tick')
 }
+
+/**
+ * The tick everywhere, from two listeners on the whole page rather than one
+ * per list: once each time the pointer arrives on something you can press,
+ * and once for every 40 or so pixels any scrolling area travels, like the
+ * detents of a wheel. Installed once per window.
+ */
+export function installTicks(): () => void {
+  let over: Element | null = null
+  const onOver = (event: PointerEvent): void => {
+    const target = (event.target as Element | null)?.closest('button, [role="button"], [role="tab"], a[href], [tabindex="0"]') ?? null
+    if (target === over) return
+    over = target
+    if (target && !(target as HTMLButtonElement).disabled) tick()
+  }
+  const travelled = new WeakMap<Element, number>()
+  const onScroll = (event: Event): void => {
+    const box = event.target instanceof Element ? event.target : document.scrollingElement
+    if (!box) return
+    const last = travelled.get(box)
+    if (last === undefined) return void travelled.set(box, box.scrollTop)
+    if (Math.abs(box.scrollTop - last) < 40) return
+    travelled.set(box, box.scrollTop)
+    tick()
+  }
+  document.addEventListener('pointerover', onOver)
+  document.addEventListener('scroll', onScroll, true)
+  return () => {
+    document.removeEventListener('pointerover', onOver)
+    document.removeEventListener('scroll', onScroll, true)
+  }
+}
