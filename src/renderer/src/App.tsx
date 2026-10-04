@@ -673,7 +673,7 @@ function SidePanel({ captures, editing, onOpen }: {
         {/* Two kinds of thing, two places: what is waiting on you stays put,
             and only your captures scroll under it. */}
         {tab === 'inbox' && (
-          <div className="shrink-0 border-b border-border/60">
+          <div className="relative z-10 shrink-0 shadow-[0_10px_18px_-10px_rgb(0_0_0/0.55)]">
             <Pins />
             <RotCards onOpen={onOpen} />
           </div>
