@@ -226,6 +226,10 @@ export function registerVigil(): void {
   column('tasks', 'sort_order real')
   column('tasks', 'notified_at text')
   column('tasks', 'repeat_until text')
+  column('tasks', 'important integer not null default 0')
+  column('tasks', 'deadline_at text')
+  column('tasks', 'blocker text')
+  column('tasks', 'reschedules integer not null default 0')
   column('nuggets', 'superseded_by text')
   column('nuggets', 'edited_since_review integer not null default 0')
   db.exec('create table if not exists task_links (task_id text not null, item_id text not null, primary key (task_id, item_id))')
@@ -272,6 +276,22 @@ export function registerVigil(): void {
 
   // A few capture fields set one at a time from the properties column.
   const CAPTURE_FIELDS = { attribution: 'attribution', medium: 'medium', capturedAt: 'captured_at' } as const
+  // Many at once, from a selection: a tag added to each, or one date for all,
+  // for filling in when a batch of old things was really written.
+  handle('captures:bulk', (ids: string[], change: { tag?: string; capturedAt?: string }) => {
+    for (const id of ids) {
+      if (change.capturedAt) db.prepare('update captures set captured_at = ? where id = ?').run(change.capturedAt, id)
+      if (!change.tag) continue
+      const tag = `#${change.tag.replace(/^#/, '')}`
+      const row = db.prepare('select body from captures where id = ?').get(id) as { body: string }
+      const body = JSON.parse(row.body ?? 'null')
+      const next = body && typeof body === 'object'
+        ? { ...body, content: [...(body.content ?? []), { type: 'paragraph', content: [{ type: 'text', text: tag }] }] }
+        : `${body ?? ''}\n${tag}`.trim()
+      db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(next), id)
+    }
+    return write(ids.length)
+  })
   handle('capture:set', (id: string, field: keyof typeof CAPTURE_FIELDS, value: string | number | null) => {
     const column = CAPTURE_FIELDS[field]
     if (!column) return null
@@ -352,13 +372,14 @@ export function registerVigil(): void {
       : undefined
     // Half the time, or always while there are few nuggets, an old capture
     // still open: the link you meant to read, the thing you meant to look up.
+    // An open link is an unread one, so links come up three times as often.
     // Never one a rot card showed in the last three days.
     const few = (db.prepare('select count(*) n from nuggets where suspended = 0').get() as { n: number }).n < 20
     const old = !pushed && (few || Math.random() < 0.5)
       ? (db.prepare(`select id, id as captureId, kind, title, body from captures where status = 'open' and coalesce(surfaced_at, '') < ?
           and captured_at < ? ${hidePrivate ? 'and private = 0' : ''}
           and id not in (select nugget_id from hint_events where shown_at >= ?)
-          order by (julianday('now') - julianday(captured_at)) * (abs(random()) % 1000) desc limit 1`).get(ago(3), ago(7), ago(3)) as Record<string, string> | undefined)
+          order by (julianday('now') - julianday(captured_at)) * (case kind when 'link' then 3 else 1 end) * (abs(random()) % 1000) desc limit 1`).get(ago(3), ago(7), ago(3)) as Record<string, string> | undefined)
       : undefined
     const hint = pushed ?? old ?? db
       .prepare(
@@ -527,8 +548,9 @@ export function registerVigil(): void {
 
   // --- tasks
   const TASK = `id, number, title, status, due_at as dueAt, all_day as allDay, recurrence, origin_capture_id as captureId,
-    created_at as createdAt, completed_at as completedAt, waiting_on as waitingOn, estimate, sort_order as sortOrder, repeat_until as repeatUntil`
-  handle('tasks', () => db.prepare(`select ${TASK} from tasks order by status, coalesce(sort_order, 1e12), due_at is null, due_at, created_at`).all())
+    created_at as createdAt, completed_at as completedAt, waiting_on as waitingOn, estimate, sort_order as sortOrder, repeat_until as repeatUntil,
+    important, deadline_at as deadline, blocker, reschedules`
+  handle('tasks', () => db.prepare(`select ${TASK} from tasks order by status, important desc, coalesce(sort_order, 1e12), due_at is null, due_at, created_at`).all())
   handle('task', (id: string) => {
     const row = db.prepare(`select ${TASK}, notes, subtasks from tasks where id = ?`).get(id) as Record<string, unknown> | undefined
     if (!row) return null
@@ -546,17 +568,19 @@ export function registerVigil(): void {
     db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(task, itemId)
     return write(task)
   })
-  handle('task:save', (id: string, patch: { title?: string; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null; subtasks?: unknown; estimate?: number | null; sortOrder?: number }) => {
+  const TASK_COLUMNS = { title: 'title', recurrence: 'recurrence', waitingOn: 'waiting_on', estimate: 'estimate', sortOrder: 'sort_order', important: 'important', deadline: 'deadline_at', blocker: 'blocker', reschedules: 'reschedules' } as const
+  handle('task:save', (id: string, patch: { title?: string; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null; subtasks?: unknown; estimate?: number | null; sortOrder?: number; important?: number; deadline?: string | null; blocker?: string | null; reschedules?: number }) => {
+    for (const [key, column] of Object.entries(TASK_COLUMNS))
+      if (patch[key as keyof typeof patch] !== undefined) db.prepare(`update tasks set ${column} = ? where id = ?`).run(patch[key as keyof typeof patch] as string | number | null, id)
     if (patch.subtasks !== undefined) db.prepare('update tasks set subtasks = ? where id = ?').run(JSON.stringify(patch.subtasks), id)
-    if (patch.estimate !== undefined) db.prepare('update tasks set estimate = ? where id = ?').run(patch.estimate, id)
-    if (patch.sortOrder !== undefined) db.prepare('update tasks set sort_order = ? where id = ?').run(patch.sortOrder, id)
-    // A new time is a new moment to be told about.
-    if (patch.due !== undefined) db.prepare('update tasks set notified_at = null where id = ?').run(id)
-    if (patch.title !== undefined) db.prepare('update tasks set title = ? where id = ?').run(patch.title, id)
     if (patch.notes !== undefined) db.prepare('update tasks set notes = ? where id = ?').run(JSON.stringify(patch.notes), id)
-    if (patch.due !== undefined) db.prepare('update tasks set due_at = ? where id = ?').run(patch.due, id)
-    if (patch.recurrence !== undefined) db.prepare('update tasks set recurrence = ? where id = ?').run(patch.recurrence, id)
-    if (patch.waitingOn !== undefined) db.prepare('update tasks set waiting_on = ? where id = ?').run(patch.waitingOn, id)
+    if (patch.due !== undefined) {
+      // Pushed later is a reschedule, counted: after three the task asks to be
+      // made smaller or dropped. A new time is also a new moment to be told about.
+      const was = (db.prepare('select due_at from tasks where id = ?').get(id) as { due_at: string | null }).due_at
+      const later = was && patch.due && patch.due > was ? 1 : 0
+      db.prepare('update tasks set due_at = ?, notified_at = null, reschedules = reschedules + ? where id = ?').run(patch.due, later, id)
+    }
     if (patch.status !== undefined) db.prepare('update tasks set status = ?, completed_at = ? where id = ?').run(patch.status, patch.status === 'done' ? now() : null, id)
     return write(true)
   })
@@ -738,8 +762,27 @@ export function registerVigil(): void {
         reviewDays: one<{ n: number }>('select count(distinct substr(reviewed_at, 1, 10)) n from review_log where reviewed_at >= ?', ago(7)).n,
         articles: one<{ n: number }>("select count(*) n from nuggets where tier = 'article' and created_at >= ?", ago(7)).n
       },
-      leeches: one<{ n: number }>(
-        "select count(*) n from nuggets where (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) >= 4").n,
+      // Wrapped, for the day and for the year: what happened, set down plainly.
+      day: (() => {
+        const since = new Date(new Date().setHours(0, 0, 0, 0)).toISOString()
+        return one<{ captured: number; exits: number; reviews: number }>(
+          `select (select count(*) from captures where captured_at >= ?) captured, (select count(*) from captures where exited_at >= ?) exits,
+            (select count(*) from review_log where reviewed_at >= ?) reviews`, since, since, since)
+      })(),
+      year: (() => {
+        const since = new Date(new Date().getFullYear(), 0, 1).toISOString()
+        return {
+          ...one<{ captured: number; nuggets: number; articles: number }>(
+            `select (select count(*) from captures where captured_at >= ?) captured,
+              (select count(*) from nuggets where tier = 'nugget' and created_at >= ?) nuggets,
+              (select count(*) from nuggets where tier = 'article' and created_at >= ?) articles`, since, since, since),
+          month: one<{ month: string | null }>(
+            "select strftime('%m', captured_at, 'localtime') month from captures where captured_at >= ? group by month order by count(*) desc limit 1", since)?.month ?? null
+        }
+      })(),
+      // Leeches, named: a card forgotten four times wants rewriting, not hiding.
+      leeches: all<{ title: string }>(
+        "select title from nuggets where (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) >= 4").map((row) => row.title),
       // A hint "stopped you" if you voted it up, or it stayed on screen four
       // seconds or more: the rare signal and the universal one together.
       stopped: one<{ n: number }>("select count(*) n from hint_events where shown_at >= ? and (reaction = 'up' or dwell_ms >= 4000)", ago(30)).n,

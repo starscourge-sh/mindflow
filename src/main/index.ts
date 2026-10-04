@@ -28,12 +28,13 @@ import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShor
 */
 
 import { createHash, randomUUID } from 'crypto'
-import { copyFile, mkdir, readFile, readdir, rename, stat, writeFile } from 'fs/promises'
+import { copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'fs/promises'
 import { basename, join, relative } from 'path'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { importBookmarks, importMarkdown, importNote, recordOpen, registerCaptures } from './captures'
+import { captureText, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, recordOpen, registerCaptures } from './captures'
+import { backupDir } from './backup'
 import { activeSession, badge, registerVigil, toggleSafeMode } from './vigil'
 
 
@@ -516,6 +517,20 @@ if (process.platform === 'darwin') app.setActivationPolicy('accessory')
 // and must never open the database your real captures are in.
 if (process.env.MINDFLOW_USER_DATA) app.setPath('userData', process.env.MINDFLOW_USER_DATA)
 
+// From a terminal, without the window: `open -a mindflow --args --capture "buy milk"`,
+// or the binary itself with the same flags. One copy of the app runs; a second
+// launch hands its words to the first and leaves.
+const fromCli = (argv: string[]): string | null => {
+  const at = argv.indexOf('--capture')
+  return at < 0 ? null : argv.slice(at + 1).join(' ').trim() || null
+}
+if (!app.requestSingleInstanceLock()) app.quit()
+app.on('second-instance', (_event, argv) => {
+  const text = fromCli(argv)
+  if (text) captureText(text)
+  else toggleWindow()
+})
+
 /**
  * A whole Obsidian vault, each note one capture. Its own settings folder and
  * the trash are left out; everything else that is Markdown comes in, once.
@@ -538,21 +553,60 @@ async function importVault(): Promise<void> {
 }
 
 /**
+ * Put a day's copy back. What you have now is copied first, beside the
+ * backups, so a restore can itself be undone; then the app starts again on
+ * the copy you chose.
+ */
+async function restore(): Promise<void> {
+  const { filePaths: [chosen] } = await dialog.showOpenDialog({
+    title: 'Restore from a backup',
+    defaultPath: join(backupDir(), 'database'),
+    properties: ['openFile'],
+    filters: [{ name: 'mindflow database', extensions: ['db'] }]
+  })
+  if (!chosen) return
+  const { response } = await dialog.showMessageBox({
+    type: 'warning',
+    message: `Go back to ${basename(chosen)}?`,
+    detail: 'Everything changed since that copy will be replaced. What you have now is saved first, beside the backups, so this can be undone the same way.',
+    buttons: ['Restore', 'Cancel'],
+    defaultId: 1,
+    cancelId: 1
+  })
+  if (response !== 0) return
+  const live = join(app.getPath('userData'), 'mindflow.db')
+  database().prepare('vacuum into ?').run(join(backupDir(), 'database', `before-restore-${Date.now()}.db`))
+  database().close()
+  await copyFile(chosen, live)
+  for (const extra of ['-wal', '-shm']) await rm(`${live}${extra}`, { force: true })
+  app.relaunch()
+  app.exit(0)
+}
+
+/**
  * Jottings from Markdown files - an inbox note, a file of jokes - as captures.
  * A file with "joke" or "bit" in its name gives bits; anything else, notes.
- * An HTML file is a bookmarks export, from Raindrop or a browser: links.
+ * An HTML file is a bookmarks export, from Raindrop or a browser: links. A
+ * CSV or JSON file, or Kindle's clippings, is highlights; any other text file
+ * is Anki's plain-text export, cards to be tested on.
  */
 async function importFiles(): Promise<void> {
   const { filePaths } = await dialog.showOpenDialog({
-    title: 'Import Markdown or bookmarks',
+    title: 'Import',
     properties: ['openFile', 'multiSelections'],
-    filters: [{ name: 'Markdown, or bookmarks from Raindrop or a browser', extensions: ['md', 'html', 'htm'] }]
+    filters: [{ name: 'Markdown, bookmarks, highlights (Readwise, Kindle) or Anki cards', extensions: ['md', 'html', 'htm', 'csv', 'json', 'txt'] }]
   })
   const lines = []
   for (const path of filePaths) {
     const name = basename(path)
     const text = await readFile(path, 'utf8')
-    const added = /\.html?$/i.test(name) ? importBookmarks(name, text) : importMarkdown(name, text, /joke|bit/i.test(name) ? 'bit' : 'note')
+    const added = /\.html?$/i.test(name)
+      ? importBookmarks(name, text)
+      : /\.(csv|json)$/i.test(name) || text.includes('==========')
+        ? importHighlights(name, text)
+        : /\.txt$/i.test(name)
+          ? importAnki(text)
+          : importMarkdown(name, text, /joke|bit/i.test(name) ? 'bit' : 'note')
     lines.push(`${name}: ${added} new`)
   }
   if (lines.length) await dialog.showMessageBox({ message: 'Imported', detail: lines.join('\n') })
@@ -610,8 +664,9 @@ function updateTray(): void {
     Menu.buildFromTemplate([
       { label: 'Show mindflow', accelerator: SUMMON, click: () => toggleWindow() },
       { label: 'Open all notes', click: openHome },
-      { label: 'Import Markdown or bookmarks…', click: () => void importFiles() },
+      { label: 'Import…', click: () => void importFiles() },
       { label: 'Import an Obsidian vault…', click: () => void importVault() },
+      { label: 'Restore from a backup…', click: () => void restore() },
       { type: 'separator' },
       { label: 'Safe mode', type: 'checkbox', checked: safe, click: () => (toggleSafeMode(), updateTray()) },
       { type: 'separator' },
@@ -623,6 +678,8 @@ function updateTray(): void {
 app.whenReady().then(() => {
   registerCaptures()
   registerVigil()
+  const first = fromCli(process.argv)
+  if (first) captureText(first)
   createTray()
 
   // Serve the asset store. The pathname is the only thing trusted: anything

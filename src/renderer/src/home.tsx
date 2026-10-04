@@ -147,9 +147,9 @@ export function Home(): React.JSX.Element {
       {searching && (
         <Search
           onClose={() => setSearching(false)}
-          onOpen={(id) => {
+          onOpen={(type, id) => {
             setSearching(false)
-            open('capture', id)
+            open(type, id)
           }}
         />
       )}

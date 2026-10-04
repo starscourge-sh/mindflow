@@ -150,19 +150,6 @@ export function click(name: ClickName): void {
   tone.stop(t + duration * 1.5 + 0.01)
 }
 
-let last = 0
-/** Held to one every so often, so a fast sweep is a purr, not a rattle. */
-const often = (name: keyof typeof CLICKS, gap = 40): void => {
-  const now = performance.now()
-  if (now - last < gap) return
-  last = now
-  click(name)
-}
-// While a list scrolls, rows slide under a still pointer and would each tick
-// as if hovered: the scroll speaks for itself, so hover stays quiet until the
-// scrolling has stopped for a moment.
-let scrolledAt = 0
-
 /**
  * The tick everywhere, from two listeners on the whole page rather than one
  * per list: once each time the pointer arrives on something you can press,
@@ -174,7 +161,6 @@ export function installTicks(): () => void {
   const onOver = (event: PointerEvent): void => {
     // The Settings preview plays its own sounds, through the pack being tried.
     if ((event.target as Element | null)?.closest('[data-silent]')) return
-    if (performance.now() - scrolledAt < 160) return
     // The outermost thing you can press: a card and the buttons on it are one
     // sound, made on arriving at the card, not one more for each button.
     const PRESSABLE = 'button, [role="button"], [role="tab"], a[href], [tabindex="0"]'
@@ -184,20 +170,18 @@ export function installTicks(): () => void {
     over = target
     // A row can name its own sound; anything else gets the soft click.
     const tone = target?.closest('[data-tone]')?.getAttribute('data-tone') as keyof typeof CLICKS | null
-    if (target && !(target as HTMLButtonElement).disabled) often(tone && tone in CLICKS ? tone : 'soft')
+    if (target && !(target as HTMLButtonElement).disabled) click(tone && tone in CLICKS ? tone : 'soft')
   }
   const travelled = new WeakMap<Element, number>()
   const onScroll = (event: Event): void => {
     const box = event.target instanceof Element ? event.target : document.scrollingElement
     if (!box || box.closest('[data-silent]')) return
-    scrolledAt = performance.now()
     const last = travelled.get(box)
     if (last === undefined) return void travelled.set(box, box.scrollTop)
-    // A detent every 90px, and never more than one every 110ms however fast
-    // the wheel goes: a steady, unhurried tock under a long scroll.
-    if (Math.abs(box.scrollTop - last) < 90) return
+    // A detent every 40px, like the notches of a wheel: no limit on how often.
+    if (Math.abs(box.scrollTop - last) < 40) return
     travelled.set(box, box.scrollTop)
-    often('tock', 110)
+    click('tock')
   }
   // Opening a note: a press on any row marked as one, the brighter tick.
   const onDown = (event: PointerEvent): void => {

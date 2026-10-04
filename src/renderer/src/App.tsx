@@ -410,6 +410,9 @@ export default function App(): React.JSX.Element {
                   if (editing) void vigil.setCapture(editing.id, 'medium', value.trim() || null)
                 }} />
               )}
+              {ASKS[kind].why && textOf(body).trim().split('\n').filter(Boolean).length < 2 && (
+                <span className="truncate px-1.5 text-xs text-muted-foreground/70">{ASKS[kind].why}</span>
+              )}
               {like && (
                 <button
                   type="button"

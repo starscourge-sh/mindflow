@@ -67,6 +67,22 @@ export function CapturesView({ title, keep, focus }: {
               <span className="mr-1">{chosen.length} selected</span>
               <button type="button" className="rounded-md px-2 py-1 hover:bg-accent hover:text-foreground" onClick={() => bulk('resolved')}>Resolve</button>
               <button type="button" className="rounded-md px-2 py-1 hover:bg-accent hover:text-foreground" onClick={() => bulk('discarded')}>Discard</button>
+              <input
+                placeholder="#tag ↵"
+                onKeyDown={(event) => {
+                  const tag = event.currentTarget.value.trim()
+                  if (event.key !== 'Enter' || !tag) return
+                  void vigil.bulk(chosen, { tag }).then((n) => toast(`Tagged ${n} with #${tag.replace(/^#/, '')}`))
+                  event.currentTarget.value = ''
+                }}
+                className="w-20 rounded-md bg-transparent px-2 py-1 text-xs outline-none placeholder:text-muted-foreground hover:bg-accent focus:bg-accent"
+              />
+              <input
+                type="date"
+                title="Set when these were written"
+                onChange={(event) => event.target.value && void vigil.bulk(chosen, { capturedAt: new Date(`${event.target.value}T12:00:00`).toISOString() }).then((n) => toast(`Dated ${n}`))}
+                className="rounded-md bg-transparent px-2 py-1 text-xs hover:bg-accent"
+              />
               <button type="button" title="Clear" className="rounded p-1 hover:bg-accent" onClick={() => setChosen([])}><X className="size-3.5" /></button>
             </span>
           ) : shown.length > 1 ? <span className="text-xs">x to select</span> : null

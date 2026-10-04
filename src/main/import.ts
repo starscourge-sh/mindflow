@@ -86,7 +86,8 @@ export function unstamp(chunk: string): { text: string; at: string | null } {
 export function kindOf(line: string): string | null {
   const text = line.trim()
   if (/^https?:\/\/\S+$/.test(text)) return 'link'
-  if (/^(todo|to do|fix|add|buy|call|book|email|ask|look into|remind|cancel|pay|get|send|order|renew|schedule|return|pick up|text|message|reply|finish|sort out|need to|must|remember to)\b/i.test(text)) return 'todo'
+  // Starts with something to do, or to tell someone: "tell rory to", "ping Sam".
+  if (/^(todo|to do|fix|add|buy|call|phone|ring|book|email|mail|ask|tell|ping|text|message|reply|respond|chase|follow up|check|look into|look up|find|remind|cancel|pay|get|send|order|renew|schedule|arrange|organise|organize|plan|prepare|return|pick up|drop off|collect|finish|start|sort out|set up|install|update|clean|tidy|move|write|read|watch|try|visit|meet|contact|confirm|sign|submit|file|need to|have to|must|should|remember to|don'?t forget)\b/i.test(text)) return 'todo'
   if (/^(decided|decision|going with|chose|we('ll| will) go with)\b/i.test(text)) return 'decision'
   if (/^(joke|bit)\b/i.test(text)) return 'bit'
   if (/^["“].+["”]/.test(text) || /^[A-Z][\w .'-]{1,30}( \([^)]*\))?: \S/.test(text) || /^["“'].+["”']\s*[-—]\s*\w/.test(text)) return 'quote'

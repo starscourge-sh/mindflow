@@ -19,7 +19,7 @@ const groupOf = (at: string): string => {
  * they were captured, with the one under the cursor previewed on the right.
  * Arrows move, Enter opens, Escape closes.
  */
-export function Search({ onOpen, onClose }: { onOpen: (id: string) => void; onClose: () => void }): React.JSX.Element {
+export function Search({ onOpen, onClose }: { onOpen: (type: string, id: string) => void; onClose: () => void }): React.JSX.Element {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Capture[]>([])
   const [at, setAt] = useState(0)
@@ -45,13 +45,13 @@ export function Search({ onOpen, onClose }: { onOpen: (id: string) => void; onCl
             ref={box}
             autoFocus
             className="flex-1 bg-transparent outline-none"
-            placeholder="Search captures…"
+            placeholder="Search everything…  kind:quote to narrow"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Escape') onClose()
-              else if (event.key === 'Enter' && current) onOpen(current.id)
-              else if (event.key === 'Tab' && current) setAsking(true)
+              else if (event.key === 'Enter' && current) onOpen(current.type, current.id)
+              else if (event.key === 'Tab' && current?.type === 'capture') setAsking(true)
               // The arrows, or Ctrl-J and Ctrl-K: the editor's vim, carried into the box.
               else if (event.key === 'ArrowDown' || (event.ctrlKey && event.key === 'j')) setAt((n) => Math.min(n + 1, results.length - 1))
               else if (event.key === 'ArrowUp' || (event.ctrlKey && event.key === 'k')) setAt((n) => Math.max(n - 1, 0))
@@ -78,12 +78,13 @@ export function Search({ onOpen, onClose }: { onOpen: (id: string) => void; onCl
                     className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left ${index === at ? 'bg-accent' : ''}`}
                     onMouseEnter={() => setAt(index)}
                     data-row
-                    onClick={() => onOpen(capture.id)}
+                    onClick={() => onOpen(capture.type, capture.id)}
                   >
                     <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
                     <span className="truncate">{capture.label || 'Untitled'}</span>
+                    {capture.type !== 'capture' && <span className="shrink-0 rounded bg-accent px-1.5 text-xs text-muted-foreground capitalize">{capture.type}</span>}
                     {capture.source && <span className="shrink-0 truncate text-xs text-muted-foreground">— {capture.source.replace(/\.md$/, '')}</span>}
-                    {index === at && !asking && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{capture.attribution ?? 'Tab: who said it'}</span>}
+                    {index === at && !asking && capture.type === 'capture' && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{capture.attribution ?? 'Tab: who said it'}</span>}
                   </button>
                   {index === at && asking && (
                     <div className="px-8 pb-1">

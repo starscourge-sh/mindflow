@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { join } from 'path'
 
 import { backUp, writeMarkdown } from './backup'
-import { chunks, createdOf, firstLine, guessKind, titleOfMarkdown, unstamp } from './import'
+import { chunks, createdOf, firstLine, guessKind, kindOf, titleOfMarkdown, unstamp } from './import'
 
 /** What the list shows. The body is only read when one is opened. */
 export interface CaptureMeta {
@@ -166,12 +166,33 @@ export function registerCaptures(): void {
 
   // Search: the words anywhere in the title or the body, newest first, with the
   // body for the preview. Nothing typed gives the most recent.
-  ipcMain.handle('captures:find', (_event, query: unknown) =>
-    db
-      .prepare(`select ${LIST}, body from captures where title like ? or body like ? order by captured_at desc limit 50`)
-      .all(`%${query}%`, `%${query}%`)
-      .map((row) => ({ ...row, body: JSON.parse(row.body as string) }))
-  )
+  // Search: every word you type must appear, in any order, in the name or the
+  // words; `kind:quote` narrows to one kind. Captures, nuggets and tasks alike,
+  // newest first, each saying what it is.
+  ipcMain.handle('captures:find', (_event, query: unknown) => {
+    const words = String(query ?? '').toLowerCase().split(/\s+/).filter(Boolean)
+    const kind = words.find((word) => word.startsWith('kind:'))?.slice(5)
+    const terms = words.filter((word) => !word.startsWith('kind:')).map((word) => `%${word}%`)
+    const match = (text: string): string => terms.map(() => `${text} like ?`).join(' and ') || '1'
+    const args = (n: number): string[] => [...Array(n)].flatMap(() => terms)
+    const rows = db.prepare(
+      `select * from (
+         select 'capture' as type, id, number, kind, status, source, attribution, ${LABEL} as label, body, captured_at as capturedAt
+           from captures where status != 'discarded' and ${match(`(${LABEL} || ' ' || body)`)}
+         union all
+         select tier, id, null, kind, 'open', '', attribution, title, body, created_at from nuggets where ${match("(title || ' ' || body)")}
+         union all
+         select 'task', id, number, 'todo', status, '', null, title, coalesce(notes, 'null'), created_at from tasks where ${match("(title || ' ' || coalesce(notes, ''))")}
+       ) ${kind ? 'where kind = ?' : ''} order by capturedAt desc limit 60`
+    ).all(...args(3), ...(kind ? [kind] : [])) as Record<string, unknown>[]
+    return rows.map((row) => {
+      try {
+        return { ...row, body: JSON.parse(row.body as string) }
+      } catch {
+        return { ...row, body: row.body }
+      }
+    })
+  })
 
   ipcMain.handle('captures:get', (_event, id: unknown) => {
     const row = db.prepare(`select ${LIST}, body from captures where id = ?`).get(String(id))
@@ -282,6 +303,108 @@ export function importBookmarks(name: string, html: string): number {
     )
     where.run(new URL(url).hostname.replace(/^www\./, ''), id)
     void writeMarkdown(number, `[${title || url}](${url})`)
+    added += 1
+  }
+  if (added) changed()
+  return added
+}
+
+/** A capture from the command line: plain words, its kind guessed from them. */
+export function captureText(text: string): void {
+  insert({ title: '', kind: kindOf(text) ?? (/^https?:\/\/\S+$/.test(text) ? 'link' : 'note'), body: text }, new Date().toISOString())
+  recordOpen('cli')
+  changed()
+}
+
+/** A CSV file's rows as objects keyed by its header, quoted fields and all. */
+function csv(text: string): Record<string, string>[] {
+  const rows: string[][] = [[]]
+  let field = ''
+  let quoted = false
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (quoted) {
+      if (c === '"' && text[i + 1] === '"') field += text[++i]
+      else if (c === '"') quoted = false
+      else field += c
+    } else if (c === '"') quoted = true
+    else if (c === ',') rows.at(-1)!.push(field), (field = '')
+    else if (c === '\n') rows.at(-1)!.push(field.replace(/\r$/, '')), (field = ''), rows.push([])
+    else field += c
+  }
+  rows.at(-1)!.push(field)
+  const [head, ...body] = rows
+  return body.filter((row) => row.some(Boolean)).map((row) => Object.fromEntries(head.map((key, i) => [key.trim().toLowerCase(), row[i] ?? ''])))
+}
+
+/** Words from elsewhere, as captures: who said them and where, kept. */
+type Found = { text: string; who?: string; where?: string; at?: string; kind?: string }
+function bring(name: string, found: Found[]): number {
+  const seen = db.prepare('select 1 from captures where source = ? and body = ?')
+  const set = db.prepare('update captures set attribution = ?, medium = ? where id = ?')
+  let added = 0
+  for (const one of found) {
+    const text = one.text.trim()
+    if (!text || seen.get(name, JSON.stringify(text))) continue
+    const at = one.at && !Number.isNaN(Date.parse(one.at)) ? new Date(one.at).toISOString() : new Date().toISOString()
+    const kind = one.kind ?? (text.length > 600 ? 'excerpt' : one.who ? 'quote' : guessKind(text, 'note'))
+    const { id, number } = insert({ title: '', kind, body: text, source: name }, at)
+    set.run(one.who?.trim() || null, one.where?.trim() || null, id)
+    void writeMarkdown(number, text)
+    added += 1
+  }
+  if (added) changed()
+  return added
+}
+
+/**
+ * Highlights and notes from other apps. Readwise's CSV, and any CSV with a
+ * text, body, note or highlight column; Kindle's My Clippings.txt; a JSON list
+ * of { text, author, source, date }. Each highlight is a quote, said by the
+ * book's author, met in the book, on the day it was highlighted.
+ */
+export function importHighlights(name: string, text: string): number {
+  if (/\.json$/i.test(name)) {
+    const list = z.array(z.record(z.string(), z.unknown())).parse(JSON.parse(text))
+    const pick = (row: Record<string, unknown>, ...keys: string[]): string | undefined =>
+      keys.map((key) => row[key]).find((value) => typeof value === 'string') as string | undefined
+    return bring(name, list.map((row) => ({
+      text: pick(row, 'text', 'body', 'content', 'highlight', 'note') ?? '',
+      who: pick(row, 'author', 'attribution', 'who'),
+      where: pick(row, 'source', 'title', 'book', 'medium'),
+      at: pick(row, 'date', 'created', 'createdAt', 'highlighted_at')
+    })))
+  }
+  if (/\.csv$/i.test(name))
+    return bring(name, csv(text).map((row) => ({
+      text: [row.highlight ?? row.text ?? row.body ?? row.content ?? row.note ?? '', row.highlight && row.note ? `\n\n${row.note}` : ''].join(''),
+      who: row['book author'] ?? row.author,
+      where: row['book title'] ?? row.title ?? row.source,
+      at: row['highlighted at'] ?? row.date ?? row.created
+    })))
+  // Kindle: entries between lines of equals signs; the title line ends in the
+  // author in brackets, the next says when, then the words.
+  return bring(name, text.split(/^==========\s*$/m).map((entry) => {
+    const [head = '', meta = '', ...rest] = entry.trim().split('\n')
+    const author = /\(([^()]*)\)\s*$/.exec(head)?.[1]
+    return { text: rest.join('\n'), who: author, where: head.replace(/\s*\([^()]*\)\s*$/, '').replace(/^\uFEFF/, ''), at: /Added on \w+, (.+)$/.exec(meta)?.[1] }
+  }))
+}
+
+/**
+ * Anki's "Notes in Plain Text" export: one card a line, front and back split
+ * by a tab. Each becomes a nugget already tested, the front its question.
+ */
+export function importAnki(text: string): number {
+  const seen = db.prepare('select 1 from nuggets where prompt = ?')
+  const add = db.prepare("insert into nuggets (id, kind, title, body, prompt, created_at, updated_at) values (?, 'note', ?, ?, ?, ?, ?)")
+  let added = 0
+  for (const line of text.split('\n')) {
+    if (line.startsWith('#') || !line.includes('\t')) continue
+    const [front, back] = line.split('\t').map((part) => part.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim())
+    if (!front || !back || seen.get(front)) continue
+    const at = new Date().toISOString()
+    add.run(randomUUID(), back.split('\n')[0].slice(0, 160), JSON.stringify(back), front, at, at)
     added += 1
   }
   if (added) changed()

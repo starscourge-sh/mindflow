@@ -49,6 +49,16 @@ export function StatsView(): React.JSX.Element {
   return (
     <Page title="Stats">
       <div className="mx-auto max-w-[62ch] px-6 pb-20">
+        <Section title="Today">
+          <p>
+            {stats.day.captured + stats.day.exits + stats.day.reviews ? (
+              <>
+                You caught <N>{plural(stats.day.captured, 'thing', 'things')}</N>, saw <N>{stats.day.exits}</N> through to an exit and reviewed <N>{stats.day.reviews}</N>.
+              </>
+            ) : 'A quiet day here. That is allowed.'}
+          </p>
+        </Section>
+
         <Section title="This week">
           <p>
             You captured <N>{stats.week}</N> {stats.week === 1 ? 'thing' : 'things'}
@@ -100,7 +110,12 @@ export function StatsView(): React.JSX.Element {
           </p>
           <p>
             <N>{stats.unprocessed.now}</N> captures have taken no exit, against <N>{stats.unprocessed.weekAgo}</N> a week ago.
-            {stats.leeches ? <> <N>{plural(stats.leeches, 'card has', 'cards have')}</N> been forgotten four times or more: worth rewriting.</> : ''}
+            {stats.leeches.length ? (
+              <>
+                {' '}<N>{plural(stats.leeches.length, 'card has', 'cards have')}</N> been forgotten four times or more, worth rewriting:{' '}
+                {stats.leeches.slice(0, 5).map((title, index) => <span key={title}>{index ? ', ' : ''}“{title}”</span>)}.
+              </>
+            ) : ''}
           </p>
         </Section>
 
@@ -154,6 +169,14 @@ export function StatsView(): React.JSX.Element {
           </p>
           <p>
             You keep <N>{plural(stats.nuggets, 'nugget', 'nuggets')}</N>, <N>{stats.recall}</N> of them tested, and <N>{plural(stats.articles, 'article', 'articles')}</N> written from them.
+          </p>
+        </Section>
+
+        <Section title={`${new Date().getFullYear()} so far`}>
+          <p>
+            <N>{plural(stats.year.captured, 'capture', 'captures')}</N>, <N>{plural(stats.year.nuggets, 'nugget', 'nuggets')}</N> kept and{' '}
+            <N>{plural(stats.year.articles, 'article', 'articles')}</N> written.
+            {stats.year.month && <> Your busiest month was <N>{new Date(2000, Number(stats.year.month) - 1).toLocaleString('en', { month: 'long' })}</N>.</>}
           </p>
         </Section>
 

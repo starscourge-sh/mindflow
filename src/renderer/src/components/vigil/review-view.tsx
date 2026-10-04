@@ -26,6 +26,8 @@ export function ReviewView(): React.JSX.Element {
   const [queue, setQueue] = useState<Due[] | null>(null)
   const [at, setAt] = useState(0)
   const [shown, setShown] = useState(false)
+  // Explain it back: your own words first, then the answer beside them.
+  const [said, setSaid] = useState('')
   const started = useRef(Date.now())
   useEffect(() => void vigil.queue().then(setQueue), [])
   const card = queue?.[at]
@@ -34,6 +36,8 @@ export function ReviewView(): React.JSX.Element {
     if (shown) return
     chime('reveal')
     setShown(true)
+    // Out of the box, so 1 to 4 grade straight away.
+    ;(document.activeElement as HTMLElement | null)?.blur()
   }
   const grade = (value: 1 | 2 | 3 | 4): void => {
     if (!card || !shown) return
@@ -43,6 +47,7 @@ export function ReviewView(): React.JSX.Element {
     // before the session ends.
     if (value === 1) setQueue((cards) => [...(cards ?? []), card])
     setShown(false)
+    setSaid('')
     setAt((index) => index + 1)
     started.current = Date.now()
   }
@@ -109,6 +114,17 @@ export function ReviewView(): React.JSX.Element {
 
         {shown ? (
           <>
+            {said.trim() && (
+              <div className="-mb-2 flex items-start gap-3 text-sm text-muted-foreground">
+                <p className="flex-1 whitespace-pre-line">You said: {said}</p>
+                <button type="button" className="shrink-0 rounded-md px-2 py-0.5 hover:bg-accent hover:text-foreground" onClick={() =>
+                  void vigil.gloss(card.id, said.trim()).then(() => {
+                    setSaid('')
+                    toast('Kept as a gloss')
+                  })
+                }>Keep as a gloss</button>
+              </div>
+            )}
             <motion.div
               initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
@@ -147,6 +163,20 @@ export function ReviewView(): React.JSX.Element {
             </div>
           </>
         ) : (
+          <>
+          <textarea
+            value={said}
+            onChange={(event) => setSaid(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && event.metaKey) {
+                event.preventDefault()
+                reveal()
+              } else if (event.key === 'Escape') event.currentTarget.blur()
+            }}
+            rows={3}
+            placeholder="Say it back in your own words first, if you like. ⌘↵ to check."
+            className="resize-none rounded-lg border bg-transparent px-3 py-2 text-[15px] outline-none placeholder:text-muted-foreground focus:border-ring"
+          />
           <button
             type="button"
             onClick={reveal}
@@ -154,6 +184,7 @@ export function ReviewView(): React.JSX.Element {
           >
             Show the answer <Kbd>Space</Kbd>
           </button>
+          </>
         )}
         {!shown && (
           <button type="button" onClick={bury} className="-mt-3 self-start text-sm text-muted-foreground hover:text-foreground">

@@ -1,6 +1,6 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { CalendarDays, Check, FileText, Gem, Hash, History, Play, Plus, Repeat, Square, Trash2, X } from 'lucide-react'
+import { CalendarDays, Check, FileText, Flag, Gem, Hash, History, Play, Plus, Repeat, Square, Trash2, X } from 'lucide-react'
 
 import { AnimatePresence, motion } from 'motion/react'
 
@@ -51,7 +51,7 @@ export function TasksView({ mode }: { mode: 'today' | 'upcoming' | 'routines' })
               (task) => when(task.dueAt)
             ) as Record<string, Task[]>
           ),
-          ['No date', live.filter((task) => !task.dueAt)],
+          ['Backlog, no date', live.filter((task) => !task.dueAt)],
           // Chasing is not doing: what you are waiting on gets its own place.
           ['Waiting on someone', waiting]
         ]
@@ -161,8 +161,9 @@ export function TasksView({ mode }: { mode: 'today' | 'upcoming' | 'routines' })
                             <span className="truncate">{splitTags(task.title).text}</span>
                             <Tags tags={splitTags(task.title).tags} />
                           </span>
-                          {(task.dueAt || task.recurrence || task.waitingOn) && (
+                          {(task.dueAt || task.recurrence || task.waitingOn || task.important || task.deadline || task.blocker) && (
                             <span className="flex items-center gap-3 text-xs text-muted-foreground">
+                              {task.important ? <Flag className="size-3 text-[var(--tt-color-text-red)]" /> : null}
                               {task.dueAt && (
                                 <span className="flex items-center gap-1" style={{ color: tone(task) }}>
                                   <CalendarDays className="size-3" />
@@ -171,6 +172,12 @@ export function TasksView({ mode }: { mode: 'today' | 'upcoming' | 'routines' })
                               )}
                               {task.recurrence && <Repeat className="size-3" />}
                               {task.waitingOn && <span>Waiting on {task.waitingOn}</span>}
+                              {task.deadline && (
+                                <span style={{ color: new Date(task.deadline).getTime() < startOfDay(1) ? 'var(--tt-color-text-red)' : undefined }}>
+                                  By {when(task.deadline).toLowerCase()}
+                                </span>
+                              )}
+                              {task.blocker && <span className="truncate">Blocked: {task.blocker}</span>}
                             </span>
                           )}
                         </button>
@@ -198,12 +205,32 @@ export function TasksView({ mode }: { mode: 'today' | 'upcoming' | 'routines' })
 }
 
 /** The open task: its notes, and down the right when it is and what it has been. */
-function TaskDetail({ task, onClose }: { task: TaskFull; onClose: () => void }): React.JSX.Element {
+function TaskDetail({ task: first, onClose }: { task: TaskFull; onClose: () => void }): React.JSX.Element {
+  // Read again on every change, so a toggle shows what it now is.
+  const task = useLive(async () => (await vigil.task(first.id)) ?? first, first, [first.id])
   const local = (iso: string | null): string => (iso ? new Date(new Date(iso).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '')
+  const title = useRef<HTMLInputElement>(null)
   return (
     <div className="flex min-w-0 flex-[1.4] border-l">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
+        {/* Pushed back three times: the plan's question, once, without a verdict. */}
+        {task.reschedules >= 3 && task.status === 'open' && (
+          <div className="mx-auto mb-3 flex w-full max-w-[44rem] items-center gap-2 px-12 text-sm text-muted-foreground">
+            <span className="mr-auto">Moved {task.reschedules} times. Smaller, or let it go?</span>
+            <button type="button" className="rounded-md px-2 py-1 hover:bg-accent hover:text-foreground" onClick={() => {
+              void vigil.saveTask(task.id, { reschedules: 0 })
+              title.current?.select()
+            }}>Make it smaller</button>
+            <button type="button" className="rounded-md px-2 py-1 hover:bg-accent hover:text-foreground" onClick={() =>
+              void vigil.saveTask(task.id, { status: 'done' }).then(() => {
+                onClose()
+                toast('Let go', () => void vigil.saveTask(task.id, { status: 'open' }))
+              })
+            }>Let it go</button>
+          </div>
+        )}
         <input
+          ref={title}
           className="mx-auto mb-2 block w-full max-w-[44rem] bg-transparent px-12 text-2xl font-semibold outline-none"
           defaultValue={task.title}
           onBlur={(event) => void vigil.saveTask(task.id, { title: event.target.value })}
@@ -232,6 +259,24 @@ function TaskDetail({ task, onClose }: { task: TaskFull; onClose: () => void }):
           defaultValue={local(task.dueAt)}
           onChange={(event) => void vigil.saveTask(task.id, { due: event.target.value ? new Date(event.target.value).toISOString() : null })}
           className="mx-1 rounded-md border bg-transparent px-2 py-1 text-foreground"
+        />
+        <Prop icon={Flag} active={!!task.important} onClick={() => void vigil.saveTask(task.id, { important: task.important ? 0 : 1 })}>
+          {task.important ? 'Important: sorts first' : 'Mark important'}
+        </Prop>
+        {/* When you mean to do it is the due date; when it must be done by is this. */}
+        <PropLabel>Deadline</PropLabel>
+        <input
+          type="date"
+          defaultValue={task.deadline?.slice(0, 10) ?? ''}
+          onChange={(event) => void vigil.saveTask(task.id, { deadline: event.target.value ? new Date(`${event.target.value}T23:59:00`).toISOString() : null })}
+          className="mx-1 rounded-md border bg-transparent px-2 py-1 text-foreground"
+        />
+        <PropLabel>Blocked by</PropLabel>
+        <input
+          defaultValue={task.blocker ?? ''}
+          placeholder="What is in the way"
+          onBlur={(event) => void vigil.saveTask(task.id, { blocker: event.target.value.trim() || null })}
+          className="mx-1 rounded-md border bg-transparent px-2 py-1 text-foreground placeholder:text-muted-foreground"
         />
         <PropLabel>Estimate</PropLabel>
         <label className="mx-1 flex items-center gap-2 rounded-md border px-2 py-1">

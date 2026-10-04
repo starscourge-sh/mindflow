@@ -64,6 +64,14 @@ export type Task = {
   estimate: number | null
   sortOrder: number | null
   repeatUntil: string | null
+  /** 1 when it matters more than the rest: it sorts first. */
+  important: number
+  /** When it must be done by, apart from when you mean to do it. */
+  deadline: string | null
+  /** What is in the way. */
+  blocker: string | null
+  /** How many times it has been pushed later. */
+  reschedules: number
 }
 export type Subtask = { text: string; done: boolean }
 export type TaskFull = Task & { notes: unknown; done: { at: string }[]; subtasks: Subtask[]; linked: { id: string; tier: string; kind: string; title: string }[] }
@@ -90,7 +98,9 @@ export type Stats = {
   retention: number
   estimates: { estimated: number | null; spent: number | null }
   lead: { exits: number; glosses: number; reviewDays: number; articles: number }
-  leeches: number
+  leeches: string[]
+  day: { captured: number; exits: number; reviews: number }
+  year: { captured: number; nuggets: number; articles: number; month: string | null }
   stopped: number
   unprocessed: { now: number; weekAgo: number }
 }
@@ -116,7 +126,7 @@ export const vigil = {
   tasks: () => call<Task[]>('tasks'),
   task: (id: string) => call<TaskFull | null>('task', id),
   addTask: (text: string, origin?: string) => call<string>('task:add', text, origin),
-  saveTask: (id: string, patch: Partial<{ title: string; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number }>) =>
+  saveTask: (id: string, patch: Partial<{ title: string; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number; important: number; deadline: string | null; blocker: string | null; reschedules: number }>) =>
     call('task:save', id, patch),
   doneTask: (id: string) => call('task:done', id),
   tags: () => call<{ tag: string; count: number; color: string | null; action: boolean }[]>('tags'),
@@ -129,6 +139,7 @@ export const vigil = {
   stats: () => call<Stats>('stats'),
   exportAll: () => call<string | null>('export'),
   bury: (id: string) => call('review:bury', id),
+  bulk: (ids: string[], change: { tag?: string; capturedAt?: string }) => call<number>('captures:bulk', ids, change),
   setCapture: (id: string, field: 'attribution' | 'medium' | 'capturedAt', value: string | number | null) => call('capture:set', id, field, value),
   linkSession: (id: string) => call('capture:session', id),
   nuggetFrom: (text: string, origin: { captureId?: string; attribution?: string | null }) => call<string>('nugget:from', text, origin),
