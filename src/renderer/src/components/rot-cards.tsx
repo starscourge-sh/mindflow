@@ -16,12 +16,13 @@ export const textOf = (body: unknown): string => {
 }
 
 /**
- * What a card says: its words, with the stored title first only when the words
- * do not already open with it, as a bookmark's page name over its address.
+ * What a card says: its words, once. The stored title is only shown over a
+ * bare address, as a bookmark's page name, or when there are no words at all;
+ * for anything else it is a cleaned copy of the first line, said twice.
  */
 export const shown = (title: string, body: unknown): string => {
   const text = textOf(body).trim()
-  return title && !text.startsWith(title) ? `${title}\n${text}` : text || title
+  return /^https?:\/\/\S+$/.test(text) && title && title !== text ? `${title}\n${text}` : text || title
 }
 
 /**
