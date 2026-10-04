@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowUpRight, ThumbsDown, ThumbsUp, X } from 'lucide-react'
+import { ArrowUpRight, ThumbsDown, ThumbsUp, Trash2, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { shown } from './rot-cards'
@@ -113,7 +113,18 @@ export function HintCard({ onOpen }: { onOpen: (captureId: string) => void }): R
                 ...(hint.captureId ? [{ icon: ArrowUpRight, tip: 'Open it', run: () => { onOpen(hint.captureId!); setHint(null) } }] : []),
                 { icon: ThumbsUp, tip: 'Show this more often', keys: '⌃⇧↑', run: () => react('up') },
                 { icon: ThumbsDown, tip: 'Show this less often', keys: '⌃⇧↓', run: () => react('down') },
-                { icon: X, tip: 'Not now', run: () => setHint(null) }
+                { icon: X, tip: 'Not now', run: () => setHint(null) },
+                // Gone for good, but never destroyed: a capture goes to
+                // Discarded and a nugget stops surfacing; both come back.
+                { icon: Trash2, tip: hint.id === hint.captureId ? 'Discard it' : 'Stop showing it', run: () => {
+                  const id = hint.id
+                  const capture = id === hint.captureId
+                  chime('away')
+                  setHint(null)
+                  void (capture ? window.api.captures.save(id, { status: 'discarded' }) : vigil.saveItem(id, { suspended: true })).then(() =>
+                    toast(capture ? 'Discarded: it is in Discarded if you want it back' : 'It will not come up again', () =>
+                      void (capture ? window.api.captures.save(id, { status: 'open' }) : vigil.saveItem(id, { suspended: false }))))
+                } }
               ].map(({ icon: Icon, tip, keys, run }) => (
                 <Tooltip key={tip}>
                   <TooltipTrigger asChild>
