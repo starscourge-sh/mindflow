@@ -75,7 +75,7 @@ export function SettingsView(): React.JSX.Element {
         {settings.sounds && (
           <div className="border-b">
             <div className="pt-5 font-medium">Sound pack</div>
-            <p className="mt-1 max-w-md text-sm leading-relaxed text-muted-foreground">Nine characters for the same sounds. Point at one to hear it on the pieces of the app, and click to keep it.</p>
+            <p className="mt-1 max-w-md text-sm leading-relaxed text-muted-foreground">Nine characters for the same sounds. Point at one to hear a click of it; click it to make it yours. The pieces on the right always play the one you have.</p>
             <SoundPacks chosen={settings.soundPack} />
           </div>
         )}

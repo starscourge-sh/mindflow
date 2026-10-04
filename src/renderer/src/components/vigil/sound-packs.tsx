@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { Check, CircleDashed } from 'lucide-react'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
@@ -7,21 +7,14 @@ import { vigil } from '@/lib/vigil'
 
 /**
  * The sound pack, chosen by ear: the nine packs down the left, and on the right
- * the app's own pieces to try them on, each making the sound it makes in use.
- * Pointing at a pack is enough to hear it; clicking one keeps it. Inspired by
- * sensory-ui's showcase, set in this app rather than in a demo of buttons.
+ * the app's own pieces, each making the sound it makes in use. One rule: the
+ * pieces play the pack you have. Pointing at a pack plays a click of it;
+ * clicking one makes it yours, and the pieces play it from then on.
  */
 export function SoundPacks({ chosen }: { chosen: PackName }): React.JSX.Element {
-  const [trying, setTrying] = useState<PackName>(chosen)
   const [done, setDone] = useState(false)
-  const last = useRef(0)
-  const play = (sound: () => void): void => withPack(trying, sound)
-  const hover = (name: ClickName): void => {
-    const now = performance.now()
-    if (now - last.current < 40) return
-    last.current = now
-    play(() => click(name))
-  }
+  const play = (sound: () => void): void => withPack(chosen, sound)
+  const hover = (name: ClickName): void => play(() => click(name))
   const sample = [
     { kind: 'quote', title: 'Friction determines behaviour more than intent does' },
     { kind: 'word', title: 'anachronistic' },
@@ -30,25 +23,19 @@ export function SoundPacks({ chosen }: { chosen: PackName }): React.JSX.Element 
 
   return (
     <div data-silent className="grid grid-cols-[14rem_1fr] gap-6 py-5">
-      <div className="flex flex-col gap-0.5" onMouseLeave={() => setTrying(chosen)}>
+      <div className="flex flex-col gap-0.5">
         {(Object.keys(PACKS) as PackName[]).map((name) => (
           <button
             key={name}
             type="button"
-            onMouseEnter={() => {
-              setTrying(name)
-              withPack(name, () => click('soft'))
-            }}
+            onMouseEnter={() => withPack(name, () => click('soft'))}
             // Reached by j and k as well as by the pointer: the same preview.
-            onFocus={() => {
-              setTrying(name)
-              withPack(name, () => click('soft'))
-            }}
+            onFocus={() => withPack(name, () => click('soft'))}
             onClick={() => {
               void vigil.setSettings({ soundPack: name })
               withPack(name, () => chime('promote'))
             }}
-            className={`flex items-start gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${trying === name ? 'bg-accent' : ''}`}
+            className={`flex items-start gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/60 ${chosen === name ? 'bg-accent' : ''}`}
           >
             <Check className={`mt-0.5 size-4 shrink-0 ${chosen === name ? 'text-[var(--tt-brand-color-400)]' : 'invisible'}`} />
             <span>
@@ -60,8 +47,8 @@ export function SoundPacks({ chosen }: { chosen: PackName }): React.JSX.Element 
       </div>
 
       <div className="flex flex-col gap-5 text-sm">
-        <p className="text-muted-foreground">
-          Trying <span className="text-foreground">{PACKS[trying].label}</span>. Point at, scroll and press the pieces below.
+        <p className="truncate text-muted-foreground">
+          Playing <span className="text-foreground">{PACKS[chosen].label}</span>, your pack. Click another to switch.
         </p>
 
         <div>
