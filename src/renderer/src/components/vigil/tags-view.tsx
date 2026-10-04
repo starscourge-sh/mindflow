@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from './ui'
 import { Switch } from '@/components/ui/switch'
 
@@ -15,9 +15,10 @@ const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo }
  * for, kept from the words themselves so it can never disagree with them. How
  * often a tag comes up is shown, never acted on: no threshold, no nagging.
  */
-export function TagsView({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element {
+export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string) => void; focus?: string }): React.JSX.Element {
   const tags = useLive(vigil.tags, [] as Awaited<ReturnType<typeof vigil.tags>>)
-  const [chosen, setChosen] = useState<string | null>(null)
+  const [chosen, setChosen] = useState<string | null>(focus ?? null)
+  useEffect(() => setChosen(focus ?? null), [focus])
   const items = useLive(() => (chosen ? vigil.tag(chosen) : Promise.resolve([])), [], [chosen])
   const [cursor] = useListKeys(tags.length, { onOpen: (index) => setChosen(tags[index].tag), onBack: () => setChosen(null) })
   const top = tags[0]?.count ?? 1

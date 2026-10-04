@@ -80,6 +80,8 @@ export function Home(): React.JSX.Element {
   useAppearance()
   const [searching, setSearching] = useState(false)
   const [kindsOpen, setKindsOpen] = useState(false)
+  const [tagsOpen, setTagsOpen] = useState(true)
+  const tags = useLive(vigil.tags, [] as Awaited<ReturnType<typeof vigil.tags>>)
   const captures = useCaptures()
   const due = useLive(vigil.dueCount, 0)
   const tasks = useLive(vigil.tasks, [] as Task[])
@@ -247,6 +249,30 @@ export function Home(): React.JSX.Element {
             )
           })}
 
+        {/* Your most used tags, with counts, the way Todoist keeps favourite labels. */}
+        {tags.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setTagsOpen(!tagsOpen)}
+            className="mt-4 mb-1 flex items-center gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+          >
+            Tags <ChevronRight className={`size-3 transition-transform ${tagsOpen ? 'rotate-90' : ''}`} />
+          </button>
+        )}
+        {tagsOpen &&
+          tags.slice(0, 8).map(({ tag, count }) => (
+            <button
+              key={tag}
+              type="button"
+              onClick={() => setView({ id: 'tags', focus: tag })}
+              className={`flex items-center gap-2.5 rounded-md px-2 py-1 ${view.id === 'tags' && view.focus === tag ? 'bg-accent' : 'text-foreground/80 hover:bg-accent/60'}`}
+            >
+              <Tag className="size-4 text-muted-foreground" />
+              <span className="flex-1 truncate text-left">{tag}</span>
+              <span className="text-xs text-muted-foreground tabular-nums">{count}</span>
+            </button>
+          ))}
+
         <div className="mt-auto flex flex-col gap-px pt-4">
           <button
             type="button"
@@ -290,9 +316,9 @@ export function Home(): React.JSX.Element {
         ) : view.id === 'today' || view.id === 'upcoming' || view.id === 'routines' ? (
           <TasksView mode={view.id} />
         ) : view.id === 'nuggets' || view.id === 'articles' ? (
-          <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} focus={view.focus} />
+          <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} focus={view.focus} onOpenCapture={(id) => open('capture', id)} />
         ) : view.id === 'tags' ? (
-          <TagsView onOpen={open} />
+          <TagsView onOpen={open} focus={view.focus} />
         ) : view.id === 'stats' ? (
           <StatsView />
         ) : (

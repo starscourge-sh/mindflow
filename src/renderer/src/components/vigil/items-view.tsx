@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { AlarmClock, BookOpen, Brain, Calendar, Eye, FileText, Layers, Lock, Pause, Pin, Play, Plus, Quote, RefreshCw, SquareDashed, TriangleAlert, X } from 'lucide-react'
 
@@ -12,6 +12,9 @@ import { age } from '../capture-list'
 import { findCaptures } from '@/lib/capture-links'
 import { interval, splitTags, useLive, vigil, when, type Item, type ItemFull } from '@/lib/vigil'
 import { Empty, Page, Prop, PropLabel, Props, Tags, toast, useListKeys } from './ui'
+import { AGES, Display, arrange, period, useView, type Facet } from './display'
+import * as chrono from 'chrono-node'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
 
@@ -20,8 +23,25 @@ const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.fin
  * lines of them, with a line saying how it comes back; an article as a titled
  * document. Same row underneath, so one view, drawn two ways.
  */
-export function ItemsView({ tier, focus }: { tier: 'nugget' | 'article'; focus?: string }): React.JSX.Element {
-  const items = useLive(() => vigil.items(tier), [] as Item[], [tier])
+export function ItemsView({ tier, focus, onOpenCapture }: { tier: 'nugget' | 'article'; focus?: string; onOpenCapture?: (id: string) => void }): React.JSX.Element {
+  const all = useLive(() => vigil.items(tier), [] as Item[], [tier])
+  const [view, setView] = useView(tier, { sort: 'newest', group: 'none' })
+  const facets: Facet<Item>[] = [
+    { key: 'kind', label: 'Kind', options: CAPTURE_TYPES.filter((type) => all.some((one) => one.kind === type.id)).map(({ id, label }) => ({ id, label })), test: (one, kind) => one.kind === kind },
+    { key: 'when', label: 'Kept', options: AGES, test: (one, when) => period(one.createdAt) === when },
+    { key: 'tested', label: 'Review', options: [{ id: 'tested', label: 'Tested' }, { id: 'not', label: 'Not tested' }, { id: 'leech', label: 'Forgotten often' }], test: (one, how) => (how === 'leech' ? one.lapses >= 4 : !!one.prompt === (how === 'tested')) },
+    { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Pinned' }, { id: 'private', label: 'Private' }, { id: 'pushed', label: 'Note to self' }], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : flag === 'private' ? !!one.private : one.mode === 'pushed') }
+  ]
+  const groups = arrange(all, view, facets, {
+    newest: (a, b) => b.createdAt.localeCompare(a.createdAt),
+    oldest: (a, b) => a.createdAt.localeCompare(b.createdAt),
+    name: (a, b) => a.title.localeCompare(b.title),
+    due: (a, b) => (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9')
+  }, {
+    kind: (one) => CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note',
+    date: (one) => period(one.createdAt)
+  })
+  const items = groups.flatMap(([, list]) => list)
   const [open, setOpen] = useState<ItemFull | null>(null)
   const pick = (id: string): void => void vigil.item(id).then(setOpen)
   const [cursor] = useListKeys(items.length, { onOpen: (index) => pick(items[index].id), onBack: () => setOpen(null) })
@@ -73,14 +93,25 @@ export function ItemsView({ tier, focus }: { tier: 'nugget' | 'article'; focus?:
                 <X className="size-3.5" />
               </button>
             </span>
-          ) : tier === 'nugget' && items.length > 1 ? (
+          ) : (
             <span className="flex items-center gap-2 text-xs">
-              x to select
-              <button type="button" className="rounded-md px-2 py-1 text-[13px] hover:bg-accent hover:text-foreground" onClick={() => void vigil.random().then(setPair)}>
-                Two at random
-              </button>
+              {tier === 'nugget' && items.length > 1 && (
+                <>
+                  x to select
+                  <button type="button" className="rounded-md px-2 py-1 text-[13px] hover:bg-accent hover:text-foreground" onClick={() => void vigil.random().then(setPair)}>
+                    Two at random
+                  </button>
+                </>
+              )}
+              <Display
+                view={view}
+                onChange={setView}
+                facets={facets}
+                sorts={[{ id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'name', label: 'Name' }, { id: 'due', label: 'Next review' }]}
+                groups={[{ id: 'none', label: 'None' }, { id: 'kind', label: 'Kind' }, { id: 'date', label: 'Date' }]}
+              />
             </span>
-          ) : null
+          )
         }
       >
         <AnimatePresence>
@@ -107,8 +138,11 @@ export function ItemsView({ tier, focus }: { tier: 'nugget' | 'article'; focus?:
         {items.length ? (
           <div className="flex flex-col px-3 py-2">
             {items.map((item, index) => (
+              <Fragment key={item.id}>
+              {view.group !== 'none' && groups.find(([, list]) => list[0] === item)?.[0] && (
+                <div className="px-2 pt-4 pb-1 text-xs text-muted-foreground first:pt-1">{groups.find(([, list]) => list[0] === item)![0]}</div>
+              )}
               <button
-                key={item.id}
                 ref={index === cursor ? (element) => element?.scrollIntoView({ block: 'nearest' }) : undefined}
                 type="button"
                 data-row
@@ -117,6 +151,7 @@ export function ItemsView({ tier, focus }: { tier: 'nugget' | 'article'; focus?:
               >
                 {tier === 'nugget' ? <NuggetRow item={item} /> : <ArticleRow item={item} />}
               </button>
+              </Fragment>
             ))}
           </div>
         ) : tier === 'nugget' ? (
@@ -129,7 +164,7 @@ export function ItemsView({ tier, focus }: { tier: 'nugget' | 'article'; focus?:
           </Empty>
         )}
       </Page>
-      {open && <ItemDetail key={open.id} item={open} />}
+      {open && <ItemDetail key={open.id} item={open} onOpenCapture={onOpenCapture} />}
     </>
   )
 }
@@ -173,7 +208,7 @@ function ArticleRow({ item }: { item: Item }): React.JSX.Element {
 }
 
 /** The open nugget or article: its words, its glosses, and down the right how it comes back. */
-function ItemDetail({ item }: { item: ItemFull }): React.JSX.Element {
+function ItemDetail({ item, onOpenCapture }: { item: ItemFull; onOpenCapture?: (id: string) => void }): React.JSX.Element {
   const [prompt, setPrompt] = useState(item.prompt ?? '')
   const [gloss, setGloss] = useState('')
   const editor = useRef<Editor | null>(null)
@@ -214,6 +249,7 @@ function ItemDetail({ item }: { item: ItemFull }): React.JSX.Element {
           documentId={`item-${item.id}`}
           defaultContent={(item.body as JSONContent | string | null) ?? ''}
           findNotes={findCaptures}
+          onOpenNote={onOpenCapture}
           onChange={(body, instance) => {
             editor.current = instance
             void vigil.saveItem(item.id, { body, ...(item.tier === 'nugget' ? { title: instance.getText().split('\n')[0] } : {}) })
@@ -350,22 +386,50 @@ function ItemDetail({ item }: { item: ItemFull }): React.JSX.Element {
  * prompt when it comes round. The only kind of nudge that runs on your clock.
  */
 export function RemindMe({ table, id, at }: { table: 'captures' | 'nuggets'; id: string; at: string | null }): React.JSX.Element {
-  const local = at ? new Date(new Date(at).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''
+  // Linear's picker: say when in words, or take one of four, each showing the
+  // date it lands on.
+  const [open, setOpen] = useState(false)
+  const [words, setWords] = useState('')
+  const hour = 3600000
+  const presets: [string, Date][] = [
+    ['An hour from now', new Date(Date.now() + hour)],
+    ['Tomorrow', new Date(new Date(Date.now() + 24 * hour).setHours(9, 0, 0, 0))],
+    ['Next week', new Date(new Date(Date.now() + 7 * 24 * hour).setHours(9, 0, 0, 0))],
+    ['A month from now', new Date(new Date(Date.now() + 30 * 24 * hour).setHours(9, 0, 0, 0))]
+  ]
+  const typed = words.trim() ? chrono.parseDate(/^\d+ \w+$/.test(words.trim()) ? `in ${words}` : words, new Date(), { forwardDate: true }) : null
+  const set = (date: Date | null): void => {
+    setOpen(false)
+    setWords('')
+    void vigil.remind(table, id, date ? date.toISOString() : null).then(() =>
+      toast(date ? `Will pin itself ${when(date.toISOString(), false).toLowerCase()}` : 'Reminder cleared'))
+  }
   return (
-    <label className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent hover:text-foreground">
-      <AlarmClock className="size-4 shrink-0" />
-      <input
-        type="datetime-local"
-        value={local}
-        onChange={(event) =>
-          void vigil.remind(table, id, event.target.value ? new Date(event.target.value).toISOString() : null).then(() =>
-            event.target.value && toast(`Will pin itself ${when(new Date(event.target.value).toISOString(), false).toLowerCase()}`)
-          )
-        }
-        className="min-w-0 flex-1 bg-transparent text-[13px] outline-none"
-        title="Remind me"
-      />
-    </label>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button type="button" className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent hover:text-foreground">
+          <AlarmClock className="size-4 shrink-0" />
+          <span className="text-[13px]">{at ? `Reminds ${when(at, false).toLowerCase()}` : 'Remind me…'}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 p-1 text-sm">
+        <input
+          autoFocus
+          value={words}
+          onChange={(event) => setWords(event.target.value)}
+          onKeyDown={(event) => event.key === 'Enter' && typed && set(typed)}
+          placeholder="Try: 4 pm, 2 days, in 5 weeks…"
+          className="w-full border-b bg-transparent px-2 py-2 outline-none placeholder:text-muted-foreground"
+        />
+        {(typed ? [[words, typed] as [string, Date]] : presets).map(([label, date]) => (
+          <button key={label} type="button" onClick={() => set(date)} className="flex w-full items-center justify-between rounded-md px-2 py-1.5 hover:bg-accent">
+            <span>{label}</span>
+            <span className="text-xs text-muted-foreground">{date.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</span>
+          </button>
+        ))}
+        {at && <button type="button" onClick={() => set(null)} className="w-full rounded-md px-2 py-1.5 text-left text-muted-foreground hover:bg-accent">Clear the reminder</button>}
+      </PopoverContent>
+    </Popover>
   )
 }
 

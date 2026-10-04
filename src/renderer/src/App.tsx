@@ -382,6 +382,7 @@ export default function App(): React.JSX.Element {
               locked={locked}
               outline={outline}
               onReady={(editor) => (editorRef.current = editor)}
+              onOpenNote={openCapture}
               onChange={(doc, editor) => {
                 setBody(doc)
                 // The kind follows the wording of the first line until you choose one.
@@ -390,6 +391,16 @@ export default function App(): React.JSX.Element {
                 saveField({ body: doc, markdown: toMarkdown(editor) })
               }}
             />
+            {/* Reading another capture with a note half written: the way back
+                to it stays in view, so a link followed never loses the draft. */}
+            {editing && readDraft() && (
+              <div className="flex items-center gap-2 px-[4.75rem] pt-2 text-xs text-muted-foreground">
+                <span className="truncate">Unfinished: {firstLine(readDraft()) || 'your draft'}</span>
+                <button type="button" onClick={() => fresh(true)} className="shrink-0 rounded-md bg-accent px-2 py-0.5 text-foreground hover:bg-accent/70">
+                  Finish it <kbd className="font-sans opacity-60">⌘↵</kbd>
+                </button>
+              </div>
+            )}
             {/* Under the writing: what it is, who said it and where you met it. */}
             <div className="flex items-center gap-1 px-[4.6rem] py-2">
               <CaptureKindPicker
@@ -532,13 +543,15 @@ const CapturePrompt = ({
   locked,
   outline,
   onChange,
-  onReady
+  onReady,
+  onOpenNote
 }: {
   initial?: JSONContent
   locked: boolean
   outline: boolean
   onChange: (doc: JSONContent, editor: Editor) => void
   onReady: (editor: Editor) => void
+  onOpenNote: (id: string) => void
 }): React.JSX.Element => {
   useEscapeToHide()
 
@@ -578,6 +591,7 @@ const CapturePrompt = ({
         // --- what it tells you ---
         onChange={onChange}
         findNotes={findCaptures}
+        onOpenNote={onOpenNote}
       />
     </div>
   )

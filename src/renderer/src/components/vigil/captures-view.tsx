@@ -3,11 +3,12 @@ import type { JSONContent } from '@tiptap/core'
 import { ArrowUpRight, Calendar, CheckCircle2, FileText, Hash, Inbox, ListTodo, Lock, Merge, Pin, Trash2, X } from 'lucide-react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
-import { ASKS, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
+import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { CaptureList, useCaptures, type CaptureMeta } from '../capture-list'
+import { AGES, Display, arrange, period, useView, type Facet } from './display'
 import { STATUS_ICON, captureKey, findCaptures } from '@/lib/capture-links'
 import { toMarkdown } from '@/lib/export'
-import { vigil } from '@/lib/vigil'
+import { splitTags, vigil } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
 import { Empty, Kbd, Page, Prop, PropLabel, Props, Remembered, toast, useListKeys } from './ui'
 import { RemindMe } from './items-view'
@@ -26,7 +27,27 @@ export function CapturesView({ title, keep, focus }: {
   focus?: string
 }): React.JSX.Element {
   const all = useCaptures()
-  const shown = all.filter(keep)
+  const [view, setView] = useView(`captures:${title}`, { sort: 'newest', group: 'none' })
+  const kept = all.filter(keep)
+  const facets: Facet<CaptureMeta>[] = [
+    { key: 'kind', label: 'Kind', options: CAPTURE_TYPES.filter((type) => kept.some((one) => one.kind === type.id)).map(({ id, label }) => ({ id, label })), test: (one, kind) => one.kind === kind },
+    { key: 'when', label: 'Captured', options: AGES, test: (one, when) => period(one.capturedAt) === when },
+    { key: 'tag', label: 'Tag', options: [...new Set(kept.flatMap((one) => splitTags(one.label).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}` })), test: (one, tag) => splitTags(one.label).tags.includes(tag) },
+    { key: 'from', label: 'Came from', options: [{ id: 'typed', label: 'Typed here' }, { id: 'imported', label: 'Imported' }], test: (one, from) => (one.source ? 'imported' : 'typed') === from },
+    { key: 'who', label: 'Who said it', options: [{ id: 'mine', label: 'My words' }, { id: 'theirs', label: 'Someone else' }], test: (one, who) => (one.attribution ? 'theirs' : 'mine') === who },
+    { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Pinned' }, { id: 'private', label: 'Private' }], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : !!one.private) }
+  ]
+  const groups = arrange(kept, view, facets, {
+    newest: (a, b) => b.capturedAt.localeCompare(a.capturedAt),
+    oldest: (a, b) => a.capturedAt.localeCompare(b.capturedAt),
+    name: (a, b) => a.label.localeCompare(b.label),
+    kind: (a, b) => a.kind.localeCompare(b.kind)
+  }, {
+    kind: (one) => CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note',
+    date: (one) => period(one.capturedAt),
+    source: (one) => one.source.replace(/\.(md|html?|csv|json|txt)$/i, '') || 'Typed here'
+  })
+  const shown = groups.flatMap(([, list]) => list)
   const [open, setOpen] = useState<Capture | null>(null)
   const pick = (id: string): void => void window.api.captures.get(id).then(setOpen)
   const [cursor] = useListKeys(shown.length, { onOpen: (index) => pick(shown[index].id), onBack: () => setOpen(null) })
@@ -85,13 +106,36 @@ export function CapturesView({ title, keep, focus }: {
               />
               <button type="button" title="Clear" className="rounded p-1 hover:bg-accent" onClick={() => setChosen([])}><X className="size-3.5" /></button>
             </span>
-          ) : shown.length > 1 ? <span className="text-xs">x to select</span> : null
+          ) : (
+            <span className="flex items-center gap-2">
+              {shown.length > 1 && <span className="text-xs">x to select</span>}
+              <Display
+                view={view}
+                onChange={setView}
+                facets={facets}
+                sorts={[{ id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'name', label: 'Name' }, { id: 'kind', label: 'Kind' }]}
+                groups={[{ id: 'none', label: 'None' }, { id: 'kind', label: 'Kind' }, { id: 'date', label: 'Date' }, { id: 'source', label: 'Where from' }]}
+              />
+            </span>
+          )
         }
       >
         {shown.length ? (
           <div className="px-3 py-2">
-            <CaptureList captures={shown} selected={open?.id} cursor={cursor} chosen={chosen} onPick={pick} />
+            {groups.map(([name, list], index) => {
+              const before = groups.slice(0, index).reduce((n, [, one]) => n + one.length, 0)
+              return (
+                <div key={name || 'all'}>
+                  {name && <div className="px-2 pt-4 pb-1 text-xs text-muted-foreground first:pt-1">{name} <span className="tabular-nums">{list.length}</span></div>}
+                  <CaptureList captures={list} selected={open?.id} cursor={cursor - before} chosen={chosen} onPick={pick} />
+                </div>
+              )
+            })}
           </div>
+        ) : kept.length ? (
+          <Empty shape={['ellipse', 3]} title="Nothing matches">
+            The filters in Display hide everything here. Press <Kbd>F</Kbd> to change them.
+          </Empty>
         ) : (
           <Empty shape={['flower', 2]} title="Nothing waiting">
             Everything here has taken an exit. Press <Kbd>⌘</Kbd> <Kbd>.</Kbd> anywhere to catch the next thought.

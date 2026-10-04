@@ -9,6 +9,7 @@ import { chime } from '@/lib/sound'
 import { captureKey } from '@/lib/capture-links'
 import { splitTags, useLive, vigil, when, type Session, type Task, type TaskFull } from '@/lib/vigil'
 import { Empty, Kbd, Page, Prop, PropLabel, Props, Tags, toast, useListKeys } from './ui'
+import { Display, arrange, useView, type Facet } from './display'
 
 const startOfDay = (offset = 0): number => new Date(new Date().setHours(0, 0, 0, 0) + offset * 86400000).getTime()
 
@@ -33,11 +34,27 @@ export function TasksView({ mode }: { mode: 'today' | 'upcoming' | 'routines' })
   const [draft, setDraft] = useState('')
   const [leaving, setLeaving] = useState<string | null>(null)
 
+  const [view, setView] = useView(`tasks:${mode}`, { sort: 'manual', group: 'when' })
+  const facets: Facet<Task>[] = [
+    { key: 'marked', label: 'Marked', options: [{ id: 'important', label: 'Important' }, { id: 'deadline', label: 'Has a deadline' }, { id: 'blocked', label: 'Blocked' }, { id: 'estimate', label: 'Estimated' }],
+      test: (task, mark) => (mark === 'important' ? !!task.important : mark === 'deadline' ? !!task.deadline : mark === 'blocked' ? !!task.blocker : task.estimate !== null) },
+    { key: 'tag', label: 'Tag', options: [...new Set(tasks.flatMap((task) => splitTags(task.title).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}` })), test: (task, tag) => splitTags(task.title).tags.includes(tag) },
+    { key: 'from', label: 'Came from', options: [{ id: 'capture', label: 'A capture' }, { id: 'typed', label: 'Typed here' }], test: (task, from) => (task.captureId ? 'capture' : 'typed') === from }
+  ]
+  // Filtered and ordered first; the view's own groups are cut from what is left.
+  const [[, chosenTasks]] = arrange(tasks, view, facets, {
+    name: (a, b) => a.title.localeCompare(b.title),
+    due: (a, b) => (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9'),
+    deadline: (a, b) => (a.deadline ?? '9').localeCompare(b.deadline ?? '9'),
+    added: (a, b) => b.createdAt.localeCompare(a.createdAt)
+  })
   // Routines live in a view of their own, or they flood Today.
-  const live = tasks.filter((task) => task.status === 'open' && !task.waitingOn && (mode === 'routines' ? task.recurrence : !task.recurrence || mode === 'today'))
-  const waiting = tasks.filter((task) => task.status === 'open' && task.waitingOn)
+  const live = chosenTasks.filter((task) => task.status === 'open' && !task.waitingOn && (mode === 'routines' ? task.recurrence : !task.recurrence || mode === 'today'))
+  const waiting = chosenTasks.filter((task) => task.status === 'open' && task.waitingOn)
   const groups: [string, Task[]][] =
-    mode === 'routines'
+    view.group === 'none'
+      ? [['', [...live.filter((task) => mode !== 'today' || (task.dueAt && new Date(task.dueAt).getTime() < startOfDay(1))), ...(mode === 'upcoming' ? waiting : [])]]]
+      : mode === 'routines'
       ? [['Every so often', live]]
       : mode === 'today'
       ? [
@@ -104,7 +121,19 @@ export function TasksView({ mode }: { mode: 'today' | 'upcoming' | 'routines' })
 
   return (
     <>
-      <Page title={mode} count={shown.length} actions={shown.length ? <span className="text-xs"><Kbd>T</Kbd> <Kbd>M</Kbd> <Kbd>W</Kbd> today, tomorrow, next week · <Kbd>⌥J</Kbd> <Kbd>⌥K</Kbd> reorder</span> : null}>
+      <Page title={mode} count={shown.length} actions={
+        <span className="flex items-center gap-2">
+          {shown.length > 0 && <span className="text-xs"><Kbd>T</Kbd> <Kbd>M</Kbd> <Kbd>W</Kbd> today, tomorrow, next week · <Kbd>⌥J</Kbd> <Kbd>⌥K</Kbd> reorder</span>}
+          <Display
+            view={view}
+            onChange={setView}
+            facets={facets}
+            sorts={[{ id: 'manual', label: 'Your order' }, { id: 'name', label: 'Name' }, { id: 'due', label: 'Date' }, { id: 'deadline', label: 'Deadline' }, { id: 'added', label: 'Date added' }]}
+            groups={[{ id: 'when', label: 'By date' }, { id: 'none', label: 'None' }]}
+          />
+        </span>
+      }>
+
         <form
           className="mx-3 mt-3 flex items-center gap-3 rounded-lg border px-2 py-2 focus-within:border-ring"
           onSubmit={(event) => {
@@ -130,10 +159,12 @@ export function TasksView({ mode }: { mode: 'today' | 'upcoming' | 'routines' })
           <div className="px-3 pb-6">
             {groups.map(([label, list]) =>
               list.length ? (
-                <Fragment key={label}>
-                  <h3 className="mt-6 mb-1 border-b px-2 pb-1.5 text-[13px] font-semibold" style={{ color: label === 'Overdue' ? 'var(--tt-color-text-red)' : undefined }}>
-                    {label} <span className="font-normal text-muted-foreground">{list.length}</span>
-                  </h3>
+                <Fragment key={label || 'all'}>
+                  {label ? (
+                    <h3 className="mt-6 mb-1 border-b px-2 pb-1.5 text-[13px] font-semibold" style={{ color: label === 'Overdue' ? 'var(--tt-color-text-red)' : undefined }}>
+                      {label} <span className="font-normal text-muted-foreground">{list.length}</span>
+                    </h3>
+                  ) : <div className="mt-3" />}
                   <AnimatePresence initial={false}>
                   {list.map((task) => {
                     const index = shown.indexOf(task)

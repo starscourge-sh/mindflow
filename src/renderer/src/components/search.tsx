@@ -21,7 +21,17 @@ const groupOf = (at: string): string => {
  */
 export function Search({ onOpen, onClose }: { onOpen: (type: string, id: string) => void; onClose: () => void }): React.JSX.Element {
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<Capture[]>([])
+  const [found, setFound] = useState<Capture[]>([])
+  // Notion's chips under the box: names only, one type of thing, one kind.
+  const [titleOnly, setTitleOnly] = useState(false)
+  const [types, setTypes] = useState<string[]>([])
+  const [kinds, setKinds] = useState<string[]>([])
+  const flip = (list: string[], id: string): string[] => (list.includes(id) ? list.filter((one) => one !== id) : [...list, id])
+  const words = query.toLowerCase().split(/\s+/).filter((word) => word && !word.startsWith('kind:'))
+  const results = found.filter((one) =>
+    (!titleOnly || words.every((word) => one.label.toLowerCase().includes(word))) &&
+    (!types.length || types.includes(one.type === 'article' ? 'nugget' : one.type)) &&
+    (!kinds.length || kinds.includes(one.kind)))
   const [at, setAt] = useState(0)
   // Tab on a result asks who said it, without leaving search.
   const [asking, setAsking] = useState(false)
@@ -29,11 +39,12 @@ export function Search({ onOpen, onClose }: { onOpen: (type: string, id: string)
   // Notion's highlight pane: on by default, and a button to put it away.
   const [pane, setPane] = useState(true)
   useEffect(() => {
-    void window.api.captures.find(query).then((found) => {
-      setResults(found)
+    void window.api.captures.find(query).then((list) => {
+      setFound(list)
       setAt(0)
     })
   }, [query])
+  useEffect(() => setAt(0), [titleOnly, types, kinds])
   const current = results[at]
 
   return (
@@ -63,8 +74,25 @@ export function Search({ onOpen, onClose }: { onOpen: (type: string, id: string)
             <PanelRight className="size-4" />
           </button>
         </label>
+        <div className="flex flex-wrap items-center gap-1 border-b px-3 py-1.5 text-xs">
+          {[
+            { on: titleOnly, label: 'Name only', run: () => setTitleOnly(!titleOnly) },
+            ...[['capture', 'Captures'], ['nugget', 'Nuggets'], ['task', 'Tasks']].map(([id, label]) => ({ on: types.includes(id), label, run: () => setTypes(flip(types, id)) })),
+            ...CAPTURE_TYPES.map((type) => ({ on: kinds.includes(type.id), label: type.label, run: () => setKinds(flip(kinds, type.id)) }))
+          ].map(({ on, label, run }, index) => (
+            <button
+              key={label}
+              type="button"
+              onClick={run}
+              className={`rounded-md px-2 py-0.5 transition-colors ${index === 1 || index === 4 ? 'ml-2' : ''} ${on ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="flex min-h-0 flex-1">
           <div className={`${pane ? 'w-1/2' : 'flex-1'} overflow-y-auto p-2`}>
+            {query.trim() && !results.length && <p className="px-2 py-3 text-sm text-muted-foreground">Nothing matches{types.length || kinds.length || titleOnly ? ' with those filters' : ''}.</p>}
             {results.map((capture, index) => {
               const kind = CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
               const group = groupOf(capture.capturedAt)
@@ -91,7 +119,7 @@ export function Search({ onOpen, onClose }: { onOpen: (type: string, id: string)
                       <AskWho id={capture.id} onDone={() => {
                         setAsking(false)
                         box.current?.focus()
-                        void window.api.captures.find(query).then(setResults)
+                        void window.api.captures.find(query).then(setFound)
                       }} />
                     </div>
                   )}

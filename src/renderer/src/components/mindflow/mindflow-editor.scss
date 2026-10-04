@@ -816,6 +816,8 @@
   display: flex;
   flex-direction: column;
   min-width: 15rem;
+  // A long capture name is cut short, not let run off the window.
+  max-width: min(28rem, calc(100vw - 2rem));
   max-height: min(18rem, 40vh);
 
   // `h-10 px-3 text-sm` with a rule under it, like `CommandInput`.
@@ -921,6 +923,10 @@
 
 .tiptap-slash-menu-title {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.875rem;
 }
 
