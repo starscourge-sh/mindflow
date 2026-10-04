@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { toast } from './ui'
+import { Switch } from '@/components/ui/switch'
+
+const COLORS = ['gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const
 import { FileText, Gem, Inbox, ListTodo, Tag } from 'lucide-react'
 
 import { useLive, vigil } from '@/lib/vigil'
@@ -13,25 +16,27 @@ const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo }
  * often a tag comes up is shown, never acted on: no threshold, no nagging.
  */
 export function TagsView({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element {
-  const tags = useLive(vigil.tags, [] as { tag: string; count: number }[])
+  const tags = useLive(vigil.tags, [] as Awaited<ReturnType<typeof vigil.tags>>)
   const [chosen, setChosen] = useState<string | null>(null)
   const items = useLive(() => (chosen ? vigil.tag(chosen) : Promise.resolve([])), [], [chosen])
   const [cursor] = useListKeys(tags.length, { onOpen: (index) => setChosen(tags[index].tag), onBack: () => setChosen(null) })
   const top = tags[0]?.count ?? 1
+  const current = tags.find((one) => one.tag === chosen)
 
   return (
     <>
       <Page title="Tags" count={tags.length}>
         {tags.length ? (
           <div className="flex flex-col px-3 py-2">
-            {tags.map(({ tag, count }, index) => (
+            {tags.map(({ tag, count, color }, index) => (
               <button
                 key={tag}
                 type="button"
+                data-row
                 onClick={() => setChosen(tag)}
                 className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/60 ${chosen === tag ? 'bg-accent' : ''} ${index === cursor ? 'ring-1 ring-border' : ''}`}
               >
-                <Tag className="size-4 text-muted-foreground" />
+                <Tag className="size-4" style={{ color: color ? `var(--tt-color-text-${color})` : undefined }} />
                 <span className="w-40 truncate">{tag}</span>
                 <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-border/50">
                   <span className="block h-full rounded-full bg-muted-foreground/40" style={{ width: `${(count / top) * 100}%` }} />
@@ -51,7 +56,26 @@ export function TagsView({ onOpen }: { onOpen: (type: string, id: string) => voi
           title={`#${chosen}`}
           count={items.length}
           actions={
-            // Rename everywhere at once; renaming onto a tag that exists merges them.
+            <span className="flex items-center gap-3">
+            {/* A colour, and whether writing this tag makes a task, the way
+                #bug does. Labels, not kinds: a colour and one behaviour. */}
+            <span className="flex items-center gap-1">
+              {COLORS.map((one) => (
+                <button
+                  key={one}
+                  type="button"
+                  title={one}
+                  onClick={() => void vigil.setTag(chosen, { color: one })}
+                  className={`size-3.5 rounded-full ${current?.color === one ? 'ring-2 ring-foreground/60 ring-offset-1 ring-offset-background' : ''}`}
+                  style={{ background: `var(--tt-color-text-${one})` }}
+                />
+              ))}
+            </span>
+            <label className="flex items-center gap-1.5 text-xs">
+              <Switch checked={!!current?.action} onCheckedChange={(action) => void vigil.setTag(chosen, { action }).then(() => toast(action ? `#${chosen} now makes a task` : `#${chosen} is only a label`))} />
+              Makes a task
+            </label>
+            {/* Rename everywhere at once; renaming onto a tag that exists merges them. */}
             <input
               key={chosen}
               placeholder="Rename or merge into…"
@@ -66,6 +90,7 @@ export function TagsView({ onOpen }: { onOpen: (type: string, id: string) => voi
                 })
               }}
             />
+            </span>
           }
         >
           <div className="flex flex-col px-3 py-2">

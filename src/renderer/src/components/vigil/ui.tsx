@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import type { LucideIcon } from 'lucide-react'
+import { ArrowUp, type LucideIcon } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
 import { Coolshape, type shapeTypes } from 'coolshapes-react'
 import Lenis from 'lenis'
+import { useLive, vigil } from '@/lib/vigil'
 
 /**
  * The few parts every view is built from, so the views read as one app. The
@@ -110,14 +112,21 @@ export function IconButton({ icon: Icon, title, onClick, active }: {
 
 /** Tags as Todoist draws them: a small tag glyph and the word, in a quiet colour. */
 export function Tags({ tags }: { tags: string[] }): React.JSX.Element | null {
+  const colors = useTagColors()
   if (!tags.length) return null
   return (
-    <span className="flex shrink-0 items-center gap-2 text-xs text-[var(--tt-color-text-blue)]">
+    <span className="flex shrink-0 items-center gap-2 text-xs">
       {tags.map((tag) => (
-        <span key={tag}>#{tag}</span>
+        <span key={tag} style={{ color: `var(--tt-color-text-${colors[tag] ?? 'blue'})` }}>#{tag}</span>
       ))}
     </span>
   )
+}
+
+/** Each tag's chosen colour, read once and again whenever anything changes. */
+function useTagColors(): Record<string, string> {
+  const meta = useLive(vigil.tagMeta, [] as { tag: string; color: string | null }[])
+  return Object.fromEntries(meta.filter((row) => row.color).map((row) => [row.tag, row.color!]))
 }
 
 /** Where the focus is: a text box, the editor, or nothing that takes letters. */
@@ -234,9 +243,9 @@ export function Toaster(): React.JSX.Element | null {
  * editor scrolls itself and is left alone; this is the lists and pages.
  */
 export function SmoothScroll({ children }: { children: ReactNode }): React.JSX.Element {
-  const box = useRef<HTMLDivElement>(null)
+  const [box, setBox] = useState<HTMLDivElement | null>(null)
   useEffect(() => {
-    const wrapper = box.current
+    const wrapper = box
     if (!wrapper || matchMedia('(prefers-reduced-motion: reduce)').matches) return
     const lenis = new Lenis({ wrapper, content: wrapper.firstElementChild as HTMLElement, lerp: 0.14, smoothWheel: true })
     let frame = requestAnimationFrame(function loop(time) {
@@ -247,10 +256,54 @@ export function SmoothScroll({ children }: { children: ReactNode }): React.JSX.E
       cancelAnimationFrame(frame)
       lenis.destroy()
     }
-  }, [])
+  }, [box])
   return (
-    <div ref={box} className="min-h-0 flex-1 overflow-y-auto">
-      <div>{children}</div>
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <div ref={setBox} className="min-h-0 flex-1 overflow-y-auto">
+        <div>{children}</div>
+      </div>
+      <BackToTop target={box} />
     </div>
+  )
+}
+
+/**
+ * Back to the top, once you are far enough down for it to be a trip: a small
+ * button that rises in at the bottom right of the scrolling area it watches,
+ * and glides you back. Gone again at the top.
+ */
+export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX.Element {
+  const [shown, setShown] = useState(false)
+  useEffect(() => {
+    const box = target
+    setShown(false)
+    if (!box) return
+    const check = (): void => setShown(box.scrollTop > box.clientHeight * 1.5)
+    box.addEventListener('scroll', check, { passive: true })
+    return () => box.removeEventListener('scroll', check)
+  }, [target])
+  return (
+    <AnimatePresence>
+      {shown && (
+        <motion.button
+          type="button"
+          title="Back to top"
+          initial={{ opacity: 0, y: 8, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 8, scale: 0.9 }}
+          transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+          onClick={() => {
+            // From far down, jump most of the way and glide the last stretch:
+            // a glide over a few hundred rows is a wait, not a motion.
+            if (!target) return
+            if (target.scrollTop > target.clientHeight * 2) target.scrollTop = target.clientHeight
+            target.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
+          className="absolute right-4 bottom-4 z-20 flex items-center gap-1.5 rounded-full bg-popover px-3 py-1.5 text-xs text-muted-foreground shadow-[0_6px_20px_-6px_rgb(0_0_0/0.5)] hover:text-foreground"
+        >
+          <ArrowUp className="size-3.5" /> Top
+        </motion.button>
+      )}
+    </AnimatePresence>
   )
 }

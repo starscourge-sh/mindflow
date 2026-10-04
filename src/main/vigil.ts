@@ -43,6 +43,8 @@ const DEFAULTS = {
   fullWidth: false,
   // The small sounds on complete, promote and grade.
   sounds: true,
+  // Which of the nine packs they play through.
+  soundPack: 'soft' as string,
   // The share of prompt opens that show a hint, and how many rot cards.
   hintRate: 0.1,
   rotCount: 3,
@@ -181,6 +183,11 @@ export function registerVigil(): void {
   column('tasks', 'sort_order real')
   column('tasks', 'notified_at text')
   db.exec('create table if not exists task_links (task_id text not null, item_id text not null, primary key (task_id, item_id))')
+  // A tag's colour, and whether it makes a task: the plan's labels, a colour
+  // and a string with one behaviour you choose. Seeded with the four labels
+  // the plan collapses into todo, because seeded beats empty.
+  db.exec(`create table if not exists tag_meta (tag text primary key, color text, action integer not null default 0);
+    insert or ignore into tag_meta (tag, color, action) values ('bug', 'red', 1), ('fix', 'orange', 1), ('feature', 'blue', 1), ('improvement', 'green', 1);`)
   db.exec(`
     create table if not exists tasks (
       id text primary key, number integer, title text not null, notes text,
@@ -341,6 +348,15 @@ export function registerVigil(): void {
     ).run(id, parts[0]?.title ?? 'Untitled', JSON.stringify(text), JSON.stringify(ids), now(), now())
     return write(id)
   })
+  // A nugget from selected words: the excerpt, with the note it came from and
+  // that note's source carried down.
+  handle('nugget:from', (text: string, origin: { captureId?: string; cite?: string | null }) => {
+    const id = randomUUID()
+    const cite = origin.cite ?? (origin.captureId ? (db.prepare('select cite from captures where id = ?').get(origin.captureId) as { cite: string | null } | undefined)?.cite : null)
+    db.prepare("insert into nuggets (id, capture_id, kind, title, body, cite, created_at, updated_at) values (?, ?, 'note', ?, ?, ?, ?, ?)")
+      .run(id, origin.captureId ?? null, text.split('\n')[0].slice(0, 160), JSON.stringify(text), cite ?? null, now(), now())
+    return write(id)
+  })
   // A gloss is a row, never an edit: past-you stays readable beside present-you.
   handle('gloss', (itemId: string, text: string) =>
     write(db.prepare('insert into glosses (id, item_id, body, created_at) values (?, ?, ?, ?)').run(randomUUID(), itemId, text, now()))
@@ -448,7 +464,15 @@ export function registerVigil(): void {
   handle('tags', () => {
     const counts = new Map<string, number>()
     for (const { tag } of tagged()) counts.set(tag, (counts.get(tag) ?? 0) + 1)
-    return [...counts].map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count)
+    const meta = new Map((db.prepare('select tag, color, action from tag_meta').all() as { tag: string; color: string | null; action: number }[]).map((row) => [row.tag, row]))
+    return [...counts].map(([tag, count]) => ({ tag, count, color: meta.get(tag)?.color ?? null, action: !!meta.get(tag)?.action })).sort((a, b) => b.count - a.count)
+  })
+  handle('tag:meta', () => db.prepare('select tag, color, action from tag_meta').all())
+  handle('tag:set', (tag: string, patch: { color?: string | null; action?: boolean }) => {
+    db.prepare('insert or ignore into tag_meta (tag) values (?)').run(tag)
+    if (patch.color !== undefined) db.prepare('update tag_meta set color = ? where tag = ?').run(patch.color, tag)
+    if (patch.action !== undefined) db.prepare('update tag_meta set action = ? where tag = ?').run(patch.action ? 1 : 0, tag)
+    return write(true)
   })
   handle('tag', (tag: string) => tagged().filter((row) => row.tag === tag))
   // Rename everywhere at once; renaming onto a tag that exists is a merge. The

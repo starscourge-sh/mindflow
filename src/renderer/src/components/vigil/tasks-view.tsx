@@ -156,7 +156,7 @@ export function TasksView({ mode }: { mode: 'today' | 'upcoming' | 'routines' })
                         >
                           <Check className={`size-3 transition-opacity ${leaving === task.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'}`} />
                         </button>
-                        <button type="button" onClick={() => pick(task.id)} className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left">
+                        <button type="button" data-row onClick={() => pick(task.id)} className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left">
                           <span className="flex max-w-full items-center gap-2">
                             <span className="truncate">{splitTags(task.title).text}</span>
                             <Tags tags={splitTags(task.title).tags} />

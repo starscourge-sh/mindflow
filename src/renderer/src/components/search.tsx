@@ -71,6 +71,7 @@ export function Search({ onOpen, onClose }: { onOpen: (id: string) => void; onCl
                     type="button"
                     className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left ${index === at ? 'bg-accent' : ''}`}
                     onMouseEnter={() => setAt(index)}
+                    data-row
                     onClick={() => onOpen(capture.id)}
                   >
                     <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />

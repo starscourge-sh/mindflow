@@ -4,6 +4,7 @@ import { Download } from 'lucide-react'
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
+import { SoundPacks } from './sound-packs'
 import { Page, toast } from './ui'
 
 function Setting({ title, children, note }: { title: string; children: ReactNode; note: string }): React.JSX.Element {
@@ -38,6 +39,13 @@ export function SettingsView(): React.JSX.Element {
         <Setting title="Sounds" note="A small sound when you finish a task, promote a capture or grade a review. Always off if your system asks for reduced motion.">
           <Switch checked={settings.sounds} onCheckedChange={(sounds) => set({ sounds })} />
         </Setting>
+        {settings.sounds && (
+          <div className="border-b">
+            <div className="pt-5 font-medium">Sound pack</div>
+            <p className="mt-1 max-w-md text-sm leading-relaxed text-muted-foreground">Nine characters for the same sounds. Point at one to hear it on the pieces of the app, and click to keep it.</p>
+            <SoundPacks chosen={settings.soundPack} />
+          </div>
+        )}
         <Setting title="Hints" note="How often the prompt shows you something you kept. Rare is the point: a hint every time is one you learn to ignore.">
           <Slider className="w-40" min={0} max={0.5} step={0.05} value={[settings.hintRate]} onValueChange={([hintRate]) => set({ hintRate })} />
           <span className="w-16 text-right tabular-nums">{settings.hintRate ? `1 in ${Math.round(1 / settings.hintRate)}` : 'never'}</span>

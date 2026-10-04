@@ -241,7 +241,7 @@ export interface MindflowEditorProps {
    *
    * @default both, with their default contents
    */
-  toolbar?: false | { fixed?: ReactNode | false; selection?: ReactNode | false }
+  toolbar?: false | { fixed?: ReactNode | false; selection?: ReactNode | false; selectionExtra?: (editor: Editor) => ReactNode }
   /**
    * The drag handle beside each block, and the menu it opens.
    *
@@ -1283,7 +1283,11 @@ function Surface({
         )}
 
         {selectionItems !== false && (
-          <SelectionMenu editor={editor}>{selectionItems ?? defaultSelection}</SelectionMenu>
+          <SelectionMenu editor={editor}>
+            {selectionItems ?? defaultSelection}
+            {/* The host's own actions on a selection, after the editor's. */}
+            {toolbar !== false && toolbar?.selectionExtra && editor ? toolbar.selectionExtra(editor) : null}
+          </SelectionMenu>
         )}
 
         <EditorContent

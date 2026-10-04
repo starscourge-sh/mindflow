@@ -43,13 +43,14 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
         <div
           key={card.id}
           tabIndex={0}
+          data-tone="knock"
           className="group border-b border-border/60 px-2 py-2 text-sm outline-none last:border-b-0 focus-visible:bg-accent/40"
           onKeyDown={(event) => {
             const picked = EXITS.find((one) => one.key === event.key)
             if (picked) exit(card.id, picked.status)
           }}
         >
-          <button type="button" className="line-clamp-3 w-full whitespace-pre-line text-left" onClick={() => onOpen(card.id)}>
+          <button type="button" data-row className="line-clamp-3 w-full whitespace-pre-line text-left" onClick={() => onOpen(card.id)}>
             {textOf(card.body)}
           </button>
           <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">

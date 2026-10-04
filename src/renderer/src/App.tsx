@@ -14,9 +14,10 @@ import { RotCards, textOf } from './components/rot-cards'
 import { HintCard } from './components/hint-card'
 import { Pins } from './components/pins'
 import { TodayPanel } from './components/vigil/today-panel'
+import { selectionActions } from './components/vigil/selection-actions'
 import { ReviewView } from './components/vigil/review-view'
 import { useAppearance, useLive } from './lib/vigil'
-import { useListKeys } from './components/vigil/ui'
+import { BackToTop, useListKeys } from './components/vigil/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import type { LucideIcon } from 'lucide-react'
 import { Toaster, toast } from './components/vigil/ui'
@@ -224,6 +225,7 @@ export default function App(): React.JSX.Element {
   // come back; offload, and it is only ever found by looking. Set per capture.
   const [offload, setOffload] = useState(false)
   const [sending, setSending] = useState(false)
+  const actionTags = useLive(() => vigil.tagMeta().then((meta) => meta.filter((row) => row.action).map((row) => row.tag)), [] as string[])
 
   // Kind by prefix: while the capture is a single word that starts a kind's
   // name, Tab takes that kind and clears the word. Only at the very start, and
@@ -302,9 +304,10 @@ export default function App(): React.JSX.Element {
       // and a long block is an excerpt, the container for what comes out of it.
       const text = textOf(body).trim()
       const sorted = kind !== 'note' ? kind : /^https?:\/\/\S+$/.test(text) ? 'link' : text.length > 600 ? 'excerpt' : kind
-      // #bug, #fix, #feature and #improvement are todos wearing a label: they go
-      // to the task list at once, the same as a todo does.
-      const action = sorted === 'todo' || /(^|\s)#(bug|fix|feature|improvement)\b/i.test(text)
+      // A tag marked "makes a task" (#bug, #fix and the rest by default) is a
+      // todo wearing a label: it goes to the task list at once, as a todo does.
+      const tags = [...text.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase())
+      const action = sorted === 'todo' || tags.some((tag) => actionTags.includes(tag))
       chime('send')
       setSending(true)
       void window.api.captures.create({ title, kind: sorted, body, markdown }).then(async (id) => {
@@ -315,17 +318,20 @@ export default function App(): React.JSX.Element {
           toast('Added to your tasks')
         }
         // Let the box finish leaving before it is replaced.
+        // ⌥⌘↵ is Linear's "create more": saved, and a fresh box for the next.
+        const more = event.altKey
         setTimeout(() => {
           setSending(false)
           setOffload(false)
           fresh()
-          window.api.hideWindow()
+          if (more) toast('Saved. Next one')
+          else window.api.hideWindow()
         }, 180)
       })
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [body, title, kind, markdown, editing, offload])
+  }, [body, title, kind, markdown, editing, offload, actionTags])
 
   console.log('[CapturePrompt][kind][🐦‍🔥]: ', kind)
   console.log('[CapturePrompt][capture][🫪]: ', { ...capture, kind, title })
@@ -543,7 +549,7 @@ const CapturePrompt = ({
         // --- what is switched on ---
         // No fixed toolbar: the dock would sit over the capture prompt. The
         // selection toolbar keeps its default contents.
-        toolbar={{ fixed: false }}
+        toolbar={{ fixed: false, selectionExtra: selectionActions({}) }}
         handles={true}
         slash={true}
         outline={outline}
@@ -578,6 +584,7 @@ function SidePanel({ captures, editing, onOpen }: {
   onOpen: (id: string) => void
 }): React.JSX.Element {
   const [tab, setTab] = useState<'inbox' | 'today' | 'review'>('inbox')
+  const [scroller, setScroller] = useState<HTMLDivElement | null>(null)
   const due = useLive(() => window.api.vigil('review:counts') as Promise<number>, 0)
   const today = useLive(
     () => (window.api.vigil('tasks') as Promise<{ status: string; dueAt: string | null }[]>).then(
@@ -605,7 +612,7 @@ function SidePanel({ captures, editing, onOpen }: {
   })
 
   return (
-    <div className="flex h-full w-full flex-col p-2">
+    <div className="relative flex h-full w-full flex-col p-2">
       <div className="mb-2 flex gap-1 rounded-lg bg-accent/40 p-0.5 text-sm">
         {tabs.map((one) => (
           <button
@@ -630,6 +637,7 @@ function SidePanel({ captures, editing, onOpen }: {
       <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={tab}
+        ref={setScroller}
         initial={{ opacity: 0, x: 8 }}
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: -8 }}
@@ -652,6 +660,7 @@ function SidePanel({ captures, editing, onOpen }: {
         )}
       </motion.div>
       </AnimatePresence>
+      <BackToTop target={scroller} />
     </div>
   )
 }

@@ -12,6 +12,7 @@ import { vigil } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
 import { Empty, Kbd, Page, Prop, PropLabel, Props, toast, useListKeys } from './ui'
 import { RemindMe } from './items-view'
+import { selectionActions } from './selection-actions'
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
 
@@ -90,7 +91,7 @@ export function CapturesView({ title, keep, focus }: {
               key={open.id}
               host={window.api}
               tokens={TAGS}
-              toolbar={{ fixed: false }}
+              toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: open.id }) }}
               documentId={`capture-${open.id}`}
               defaultContent={(open.body as JSONContent | string | null) ?? ''}
               findNotes={findCaptures}

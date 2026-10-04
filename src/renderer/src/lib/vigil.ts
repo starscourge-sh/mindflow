@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { installTicks, soundOn } from './sound'
+import { installTicks, setPack, soundOn, type PackName } from './sound'
 
 /**
  * The main process's `vigil:` channels, typed. One generic bridge in the
@@ -11,6 +11,7 @@ const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.
 export type Settings = {
   fullWidth: boolean
   sounds: boolean
+  soundPack: PackName
   hintRate: number
   rotCount: number
   retention: number
@@ -114,13 +115,16 @@ export const vigil = {
   saveTask: (id: string, patch: Partial<{ title: string; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number }>) =>
     call('task:save', id, patch),
   doneTask: (id: string) => call('task:done', id),
-  tags: () => call<{ tag: string; count: number }[]>('tags'),
+  tags: () => call<{ tag: string; count: number; color: string | null; action: boolean }[]>('tags'),
+  tagMeta: () => call<{ tag: string; color: string | null; action: number }[]>('tag:meta'),
+  setTag: (tag: string, patch: { color?: string | null; action?: boolean }) => call('tag:set', tag, patch),
   tag: (tag: string) => call<{ tag: string; id: string; type: string; title: string }[]>('tag', tag),
   stats: () => call<Stats>('stats'),
   exportAll: () => call<string | null>('export'),
   bury: (id: string) => call('review:bury', id),
   setCapture: (id: string, field: 'discharge' | 'cite' | 'capturedAt', value: string | number | null) => call('capture:set', id, field, value),
   linkSession: (id: string) => call('capture:session', id),
+  nuggetFrom: (text: string, origin: { captureId?: string; cite?: string | null }) => call<string>('nugget:from', text, origin),
   random: () => call<{ id: string; kind: string; title: string; body: unknown }[]>('random'),
   study: (itemId: string, text: string) => call<string>('study', itemId, text),
   pursue: (captureId: string) => call<string>('pursue', captureId),
@@ -186,5 +190,6 @@ export function useAppearance(): void {
     if (!settings) return
     document.documentElement.dataset.width = settings.fullWidth ? 'full' : 'page'
     soundOn(settings.sounds)
-  }, [settings?.fullWidth, settings?.sounds])
+    setPack(settings.soundPack)
+  }, [settings?.fullWidth, settings?.sounds, settings?.soundPack])
 }
