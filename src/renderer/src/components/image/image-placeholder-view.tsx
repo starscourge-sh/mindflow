@@ -66,7 +66,15 @@ export function ImagePlaceholderView({ editor, node, getPos }: NodeViewProps) {
           </button>
         </PopoverTrigger>
 
-        <PopoverContent align="start" className="tiptap-image-panel">
+        <PopoverContent
+          align="start"
+          className="tiptap-image-panel outline-none"
+          // Opens on the panel itself, not with a tab already ringed.
+          onOpenAutoFocus={(event) => {
+            event.preventDefault()
+            ;(event.currentTarget as HTMLElement | null)?.focus?.()
+          }}
+        >
           <div className="tiptap-image-panel-tabs">
             {(["add", "link"] as const).map((name) => (
               <button

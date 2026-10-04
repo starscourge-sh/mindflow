@@ -46,6 +46,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
 import { Tip } from '@/components/vigil/ui'
+import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 
 
@@ -656,12 +657,18 @@ export default function App(): React.JSX.Element {
                   { label: 'Private', on: secret, set: (on: boolean) => {
                     setSecret(on)
                     if (editing) void vigil.setPrivate('captures', editing.id, on)
-                  } },
-                  ...(editing ? [] : [{ label: 'Create more', on: createMore, keys: '⌥⌘↵', set: setCreateMore }])
+                  } }
                 ]}
                 actions={[{ label: 'New capture', keys: '⌘N', run: () => fresh() }]}
               />
               <span className="flex-1" />
+              {/* Beside Create, as in Linear: on, a save keeps the box open for the next one. */}
+              {!editing && (
+                <label className="mr-2 flex cursor-pointer items-center gap-2 text-control text-muted-foreground">
+                  <Switch size="sm" checked={createMore} onCheckedChange={setCreateMore} tabIndex={-1} />
+                  Create more
+                </label>
+              )}
               <Tip label={createMore && !editing ? 'Save, and a fresh box for the next  ⌘↵' : 'Save and close  ⌘↵ · once with a fresh box after  ⌥⌘↵'}>
               <Button variant="secondary" onClick={() => submit()} className="text-control">
                 <Rolling text={editing ? 'Done' : saved ? 'Saved' : 'Create'} /> <kbd className="font-sans text-key text-muted-foreground">⌘↵</kbd>

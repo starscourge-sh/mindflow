@@ -1260,6 +1260,8 @@ function Surface({
               ref={watchHandle}
               type="button"
               tabIndex={-1}
+              // Silent, like the grip: they appear under the pointer on every line passed.
+              data-silent=""
               aria-label="Insert a block below"
               // A new paragraph plus a "/" - the same menu typing it would open,
               // so there is one list of blocks rather than two.
@@ -1312,6 +1314,7 @@ function Surface({
               type="button"
               tabIndex={-1}
               className="tiptap-drag-handle-grip"
+              data-silent=""
               aria-label="Block actions"
               onClick={() => setMenuOpen(true)}
             >
