@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
 import { FileJson2, Keyboard, KeyboardOff, Lock, LockOpen, Maximize2, Minimize2, SquarePen, TableOfContents, X } from 'lucide-react'
 import type { Editor, JSONContent } from '@tiptap/core'
@@ -183,6 +184,9 @@ export default function App(): React.JSX.Element {
   const [chosen, setChosen] = useState(false)
   const captures = useCaptures()
   useAppearance()
+  // Once a launch, a little after it: links still bare become cards, and
+  // cards whose pictures live on their sites keep a copy.
+  useEffect(() => void setTimeout(cardsUp, 5000), [])
 
   // The window's controls show while the pointer is over it. Told by the main
   // process rather than read from `:hover`, which goes false over the drag strip.
@@ -301,6 +305,8 @@ export default function App(): React.JSX.Element {
         if (attribution.trim()) await vigil.setCapture(id, 'attribution', attribution.trim())
         if (where) await vigil.setCapture(id, 'medium', where)
         await vigil.linkSession(id)
+        // A link shows as its card, filled in once the page answers.
+        if (sorted === 'link') void cardUp({ id, kind: sorted, body: hasContent(doc) ? doc : null })
         if (action) {
           await vigil.toTask(id)
           toast('Added to your tasks')

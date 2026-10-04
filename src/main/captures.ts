@@ -180,6 +180,10 @@ export function registerCaptures(): void {
     return row ? { ...row, body: JSON.parse(row.body as string) } : null
   })
 
+  ipcMain.handle('captures:cards', () =>
+    (db.prepare(`select id, kind, body from captures where kind = 'link' or body like '%"bookmark"%'`).all() as { id: string; kind: string; body: string }[])
+      .map((row) => ({ ...row, body: JSON.parse(row.body ?? 'null') })))
+
   ipcMain.handle('captures:create', (_event, raw: unknown) => {
     const patch = Patch.parse(raw)
     const { id, number } = insert(patch, new Date().toISOString())

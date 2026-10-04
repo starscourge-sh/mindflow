@@ -111,6 +111,8 @@ const api = {
   captures: {
     list: (): Promise<CaptureMeta[]> => ipcRenderer.invoke('captures:list'),
     get: (id: string): Promise<Capture | null> => ipcRenderer.invoke('captures:get', id),
+    /** Links and captures holding a card, to tidy: read without counting as an open. */
+    cards: (): Promise<{ id: string; kind: string; body: unknown }[]> => ipcRenderer.invoke('captures:cards'),
     /** Search the titles and bodies, newest first. */
     find: (query: string): Promise<Capture[]> => ipcRenderer.invoke('captures:find', query),
     /** Three open captures, leaning old: the rot sampler. */

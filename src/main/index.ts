@@ -121,7 +121,8 @@ const EXTENSIONS: Record<string, string> = {
   'image/avif': 'avif',
   'image/bmp': 'bmp',
   'image/apng': 'png',
-  'image/vnd.microsoft.icon': 'ico'
+  'image/vnd.microsoft.icon': 'ico',
+  'image/x-icon': 'ico'
 }
 
 // invents custom 'scheme' (address type) like https:// but private to mindflow
@@ -714,8 +715,9 @@ app.whenReady().then(() => {
     return Boolean(expanded)
   })
 
-  ipcMain.handle('save-image', async (_event, mime: unknown, bytes: unknown) => {
-    if (typeof mime !== 'string' || !(bytes instanceof Uint8Array)) return ''
+  ipcMain.handle('save-image', (_event, mime: unknown, bytes: unknown) =>
+    typeof mime === 'string' && bytes instanceof Uint8Array ? storeImage(mime, bytes) : '')
+  async function storeImage(mime: string, bytes: Uint8Array): Promise<string> {
 
     const extension = EXTENSIONS[mime]
     if (!extension) return ''
@@ -734,7 +736,7 @@ app.whenReady().then(() => {
     await rename(temporary, destination)
 
     return `mindflow://assets/${hash}.${extension}`
-  })
+  }
 
   // The same store, for files that are not pictures. The extension is taken
   // from the name rather than a mime type, because a dropped file carries no
@@ -876,7 +878,7 @@ app.whenReady().then(() => {
 
   // Link previews are fetched here: the renderer cannot, being subject to CORS
   // and its own content policy.
-  ipcMain.handle('fetch-link-metadata', async (_event, url: unknown) => {
+  const lookUp = async (url: unknown): Promise<{ href: string; title: string; description: string; image: string; icon: string; site: string }> => {
     const empty = { href: '', title: '', description: '', image: '', icon: '', site: '' }
     if (typeof url !== 'string') return empty
 
@@ -1012,6 +1014,24 @@ app.whenReady().then(() => {
         ? { ...fallback, title: extra.title || fallback.title, description: extra.description, image: extra.image }
         : fallback
     }
+  }
+  // A card's picture and icon are kept with your notes, not fetched each time
+  // from the site: offline, or after the site changes, the card still looks
+  // as it did. Either one that cannot be fetched stays a link to the site.
+  const keep = async (src: string): Promise<string> => {
+    if (!/^https?:/.test(src)) return src
+    try {
+      const response = await net.fetch(src, { signal: AbortSignal.timeout(8000) })
+      const mime = (response.headers.get('content-type') ?? '').split(';')[0].trim()
+      return (response.ok && (await storeImage(mime, new Uint8Array(await response.arrayBuffer())))) || src
+    } catch {
+      return src
+    }
+  }
+  ipcMain.handle('fetch-link-metadata', async (_event, url: unknown) => {
+    const found = await lookUp(url)
+    const [image, icon] = await Promise.all([keep(found.image), keep(found.icon)])
+    return { ...found, image, icon }
   })
 
   createWindow()

@@ -49,6 +49,7 @@ export interface Api {
   captures: {
     list: () => Promise<CaptureMeta[]>
     get: (id: string) => Promise<Capture | null>
+    cards: () => Promise<{ id: string; kind: string; body: unknown }[]>
     search: (query: string) => Promise<CaptureMeta[]>
     rot: () => Promise<Capture[]>
     find: (query: string) => Promise<Capture[]>
