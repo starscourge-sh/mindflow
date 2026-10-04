@@ -45,6 +45,19 @@ import {
 
 
 /**
+ * A new note half written, kept as you type so it survives quitting and
+ * reading old captures. Only if it holds anything.
+ */
+const readDraft = (): JSONContent | undefined => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('capture-draft') ?? 'null')
+    return hasContent(saved) ? saved : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
  * Whether a body holds anything, so ⌘↵ on an empty box saves nothing. An empty
  * editor still hands over one bare paragraph, so an empty paragraph or heading
  * does not count; a picture or a drawing has nothing inside it and still does.
@@ -176,18 +189,7 @@ export default function App(): React.JSX.Element {
   const [source, setSource] = useState(false)
 
   // The document, as the editor last handed it over. The drawer reads this
-  // A new note half written survives quitting: saved as you type, restored at
-  // launch if it holds anything. Judged by the body, not the title: a capture
-  // that is only a picture or a drawing has no title and is still worth keeping.
-  const [draft] = useState<JSONContent | undefined>(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('capture-draft') ?? 'null')
-      return hasContent(saved) ? saved : undefined
-    } catch {
-      return undefined
-    }
-  })
-  const [body, setBody] = useState<JSONContent | null>(draft ?? null)
+  const [body, setBody] = useState<JSONContent | null>(readDraft() ?? null)
 
   const title = titleOf(body)
   // The same, as text, for the copy kept beside the backups.
@@ -240,11 +242,13 @@ export default function App(): React.JSX.Element {
       setBody(found.body as JSONContent)
       setKind(found.kind as CaptureType)
     })
-  const fresh = (): void => {
+  // A fresh box. Sent, or a new note asked for, and the draft goes; put down
+  // after reading an old capture, and the note you had started comes back.
+  const fresh = (keepDraft = false): void => {
     editorRef.current = null
-    localStorage.removeItem('capture-draft')
+    if (!keepDraft) localStorage.removeItem('capture-draft')
     setEditing(null)
-    setBody(null)
+    setBody(keepDraft ? readDraft() ?? null : null)
     setKind('note')
     setRound((n) => n + 1)
   }
@@ -253,7 +257,7 @@ export default function App(): React.JSX.Element {
   // sent is still there, the way any capture box keeps a half-typed thought.
   const latestEditing = useRef(editing)
   latestEditing.current = editing
-  useEffect(() => window.api.onHiding(() => latestEditing.current && fresh()), [])
+  useEffect(() => window.api.onHiding(() => latestEditing.current && fresh(true)), [])
   // ⌘N, from anywhere in the window: a fresh box. ⌘⇧O: keep or offload.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -277,7 +281,7 @@ export default function App(): React.JSX.Element {
       if (event.key !== 'Enter' || !event.metaKey) return
       event.preventDefault()
       event.stopPropagation()
-      if (editing) return fresh()
+      if (editing) return fresh(true)
       if (!hasContent(body)) return
       // What a paste is, when the kind was left alone: a bare link is a link,
       // and a long block is an excerpt, the container for what comes out of it.
@@ -317,7 +321,7 @@ export default function App(): React.JSX.Element {
     <TooltipProvider delayDuration={500}>
     <div className={`app-container ${pointerIn ? 'pointer-in' : ''} flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-8 color-white`}>
       <Toaster />
-      <Header onNew={fresh} />
+      <Header onNew={() => fresh()} />
 
       <ResizablePanelGroup
         orientation="horizontal"
@@ -340,7 +344,7 @@ export default function App(): React.JSX.Element {
             >
             <CapturePrompt
               key={editing?.id ?? round}
-              initial={editing?.body ?? (round === 0 ? draft : undefined)}
+              initial={editing?.body ?? readDraft()}
               locked={locked}
               outline={outline}
               onChange={(doc, editor) => {

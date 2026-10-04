@@ -188,6 +188,7 @@ export function registerVigil(): void {
   column('tasks', 'notified_at text')
   column('tasks', 'repeat_until text')
   column('nuggets', 'superseded_by text')
+  column('nuggets', 'edited_since_review integer not null default 0')
   db.exec('create table if not exists task_links (task_id text not null, item_id text not null, primary key (task_id, item_id))')
   // A tag's colour, and whether it makes a task: the plan's labels, a colour
   // and a string with one behaviour you choose. Seeded with the four labels
@@ -350,14 +351,23 @@ export function registerVigil(): void {
     const sets = Object.entries(patch).filter(([key, value]) => value !== undefined && allowed.includes(key))
     // A meaningful change to something you are tested on brings it back sooner,
     // a 30% cut to what is left of its interval, never a reset: fixing a
-    // sentence should not cost months. "Meaningful" is more than a few letters.
-    const before = db.prepare('select body, prompt, state, due_at from nuggets where id = ?').get(id) as { body: string; prompt: string | null; state: string | null; due_at: string | null } | undefined
-    const changed = (a: string, b: string): boolean => Math.abs(a.length - b.length) > 12 || (a !== b && a.slice(0, 40) !== b.slice(0, 40))
-    if (before?.state && before.due_at && new Date(before.due_at).getTime() > Date.now() &&
+    // sentence should not cost months. Once per review, not once per save, or
+    // typing would shrink it to nothing. "Meaningful" is more than a few
+    // letters: what differs once the shared start and end are taken off.
+    const before = db.prepare('select body, prompt, state, due_at, edited_since_review from nuggets where id = ?').get(id) as
+      { body: string; prompt: string | null; state: string | null; due_at: string | null; edited_since_review: number } | undefined
+    const changed = (a: string, b: string): boolean => {
+      let start = 0
+      while (start < a.length && a[start] === b[start]) start++
+      let end = 0
+      while (end < a.length - start && end < b.length - start && a[a.length - 1 - end] === b[b.length - 1 - end]) end++
+      return Math.max(a.length, b.length) - start - end > 12
+    }
+    if (before?.state && !before.edited_since_review && before.due_at && new Date(before.due_at).getTime() > Date.now() &&
       ((patch.body !== undefined && changed(plain(JSON.parse(before.body ?? 'null')), plain(patch.body))) ||
         (patch.prompt !== undefined && changed(before.prompt ?? '', patch.prompt ?? '')))) {
       const left = new Date(before.due_at).getTime() - Date.now()
-      db.prepare('update nuggets set due_at = ? where id = ?').run(new Date(Date.now() + left * 0.7).toISOString(), id)
+      db.prepare('update nuggets set due_at = ?, edited_since_review = 1 where id = ?').run(new Date(Date.now() + left * 0.7).toISOString(), id)
     }
     for (const [key, value] of sets) {
       const stored = key === 'body' ? JSON.stringify(value) : key === 'suspended' ? (value ? 1 : 0) : value
@@ -444,7 +454,7 @@ export function registerVigil(): void {
   handle('review:grade', (id: string, grade: Grade, ms: number) => {
     const row = db.prepare('select state from nuggets where id = ?').get(id) as { state: string | null }
     const { card } = scheduler().next(cardOf(row.state), new Date(), grade)
-    db.prepare('update nuggets set state = ?, due_at = ? where id = ?').run(JSON.stringify(card), card.due.toISOString(), id)
+    db.prepare('update nuggets set state = ?, due_at = ?, edited_since_review = 0 where id = ?').run(JSON.stringify(card), card.due.toISOString(), id)
     db.prepare('insert into review_log (item_id, grade, reviewed_at, ms, first) values (?, ?, ?, ?, ?)').run(id, grade, now(), ms, row.state ? 0 : 1)
     return write(card.due.toISOString())
   })
@@ -527,9 +537,6 @@ export function registerVigil(): void {
   })
   handle('tag:meta', () => db.prepare('select tag, color, action from tag_meta').all())
   handle('tag:set', (tag: string, patch: { color?: string | null; action?: boolean; aliasOf?: string | null }) => {
-    if (patch.aliasOf !== undefined) {
-      db.prepare('insert or ignore into tag_meta (tag) values (?)').run(patch.aliasOf ?? tag)
-    }
     db.prepare('insert or ignore into tag_meta (tag) values (?)').run(tag)
     if (patch.color !== undefined) db.prepare('update tag_meta set color = ? where tag = ?').run(patch.color, tag)
     if (patch.action !== undefined) db.prepare('update tag_meta set action = ? where tag = ?').run(patch.action ? 1 : 0, tag)
