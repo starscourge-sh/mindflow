@@ -695,7 +695,7 @@ function SidePanel({ captures, editing, onOpen }: {
           >
             {/* One pill that slides between tabs rather than three that blink. */}
             {tab === one.id && (
-              <motion.span layoutId="prompt-tab" className="absolute inset-0 -z-10 rounded-md bg-background shadow-sm" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />
+              <motion.span layoutId="prompt-tab" className="absolute inset-0 -z-10 rounded-md border border-border bg-background shadow-sm" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />
             )}
             {one.label}
             {one.count ? <span className="text-xs tabular-nums text-muted-foreground">{one.count}</span> : null}

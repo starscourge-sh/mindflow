@@ -403,5 +403,5 @@ body {
   transition: opacity 0.2s ease;
 }
 [data-blurred='on'] body {
-  opacity: 0.72;
+  opacity: 0.55;
 }
