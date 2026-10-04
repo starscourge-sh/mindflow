@@ -671,7 +671,7 @@ export default function App(): React.JSX.Element {
               )}
               <Tip label={createMore && !editing ? 'Save, and a fresh box for the next  ⌘↵' : 'Save and close  ⌘↵ · once with a fresh box after  ⌥⌘↵'}>
               <Button variant="secondary" onClick={() => submit()} className="text-control">
-                <Rolling text={editing ? 'Done' : saved ? 'Saved' : 'Create'} /> <kbd className="font-sans text-key text-muted-foreground">⌘↵</kbd>
+                <Rolling text={editing ? 'Done' : saved ? 'Saved' : 'Create'} /> <kbd className="font-sans text-key opacity-70">⌘↵</kbd>
               </Button>
               </Tip>
             </main>
@@ -879,7 +879,7 @@ const CapturePrompt = ({
           does and what it is when you leave it out. */}
       <MindflowEditor
         shape="document"
-        placeholder="' / '  for commands..."
+        placeholder="Type / for commands…"
         defaultContent={initial}
         tokens={TAGS}
         onTokenClick={(token) => token.name === 'tag' && onTag(token.value)}

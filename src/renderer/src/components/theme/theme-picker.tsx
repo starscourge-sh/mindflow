@@ -87,7 +87,7 @@ export function ThemePicker({ className }: { className?: string }): React.JSX.El
             if (found) applyTheme(found, false)
           }}
         >
-          <CommandInput placeholder="Change theme..." />
+          <CommandInput placeholder="Change theme…" />
           <CommandList>
             <CommandEmpty>No theme</CommandEmpty>
             {THEMES.map((name) => (

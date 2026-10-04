@@ -229,9 +229,9 @@ function Asker(): React.JSX.Element | null {
     setAsked(null)
   }
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 pt-[22vh]" onMouseDown={() => done(null)}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[22vh]" onMouseDown={() => done(null)}>
       {/* A click on its padding keeps the focus in the box, so Escape still answers it. */}
-      <div role="dialog" aria-modal="true" aria-label={asked.question} className="w-[min(32rem,90vw)] rounded-xl bg-popover p-4 shadow-2xl"
+      <div role="dialog" aria-modal="true" aria-label={asked.question} className="w-[min(32rem,90vw)] rounded-xl bg-popover p-4 shadow-(--mf-panel-shadow)"
         onMouseDown={(event) => {
           event.stopPropagation()
           if (!(event.target instanceof HTMLInputElement)) event.preventDefault()
@@ -266,8 +266,18 @@ export function Toaster(): React.JSX.Element | null {
       // Longer when it can be taken back, so the undo is there to reach.
       timer = setTimeout(() => setShown(null), detail.undo ? 6000 : 3200)
     }
+    // A save that failed on the way to the database says so, rather than the
+    // success toast just never coming.
+    const onFail = (event: PromiseRejectionEvent): void => {
+      const message = String(event.reason?.message ?? event.reason ?? '')
+      if (message.includes('Error invoking remote method')) toast(`Not saved: ${message.replace(/^.*?Error: /, '')}`)
+    }
     window.addEventListener('vigil:toast', onToast)
-    return () => window.removeEventListener('vigil:toast', onToast)
+    window.addEventListener('unhandledrejection', onFail)
+    return () => {
+      window.removeEventListener('vigil:toast', onToast)
+      window.removeEventListener('unhandledrejection', onFail)
+    }
   }, [])
   // ⌘Z takes back what the toast offers, outside a field or the editor, which
   // keep their own undo.

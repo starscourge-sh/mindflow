@@ -201,7 +201,7 @@ body {
   /* The only surface painting the page colour, so this is the only place a
      theme change is visible. Variables cannot be transitioned; the property
      reading them can, so the swap fades instead of snapping. */
-  transition: background-color 300ms ease;
+  transition: background-color 300ms ease-out;
 }
 
 :root.light {
@@ -421,7 +421,7 @@ html[data-width='page'] header.page-column {
 
 /* A window that has lost focus dims slightly, and comes back as you return. */
 body {
-  transition: opacity 0.2s ease;
+  transition: opacity 0.2s ease-out;
 }
 [data-blurred='on'] body {
   opacity: 0.55;

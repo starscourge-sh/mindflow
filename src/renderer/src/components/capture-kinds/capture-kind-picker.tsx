@@ -105,7 +105,7 @@ export function CaptureKindPicker({ value, onChange, suggested = false }: {
             setOpen(false)
           }}
         >
-          <CommandInput placeholder="Change type..." shortcut="⌃L" />
+          <CommandInput placeholder="Change type…" shortcut="⌃L" />
           <CommandList>
             <CommandEmpty>No type</CommandEmpty>
             {CAPTURE_TYPES.map((type, index) => {

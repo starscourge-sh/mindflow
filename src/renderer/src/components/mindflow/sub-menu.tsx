@@ -64,7 +64,7 @@ function SubMenu({ editor, label, choices, fallback, plain = -1 }: { editor: Edi
         <div
           ref={panel}
           role="menu"
-          className="fixed z-[60] flex gap-0.5 rounded-lg border bg-popover p-1 shadow-lg"
+          className="fixed z-[60] flex gap-0.5 rounded-lg border bg-popover p-1 shadow-(--mf-panel-shadow)"
           style={{ left: at?.left ?? -9999, top: at?.top ?? -9999 }}
           onMouseDown={(event) => event.preventDefault()}
         >

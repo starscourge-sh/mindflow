@@ -55,7 +55,7 @@ export function BookmarkView(props: NodeViewProps): React.JSX.Element {
         {description && <span className="tiptap-bookmark-description">{description}</span>}
         <span className="tiptap-bookmark-site">
           {icon && !loading && <img className="tiptap-bookmark-icon" src={icon} alt="" />}
-          <span>{loading ? "Loading..." : site}</span>
+          <span>{loading ? "Loading…" : site}</span>
         </span>
       </span>
 

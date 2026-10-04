@@ -55,14 +55,14 @@ export function Search({ onOpen, onClose, initial = '' }: { onOpen: (type: strin
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[10vh]" onMouseDown={onClose}>
-      <div className="flex h-[70vh] w-[min(56rem,90vw)] flex-col overflow-hidden rounded-xl border bg-background text-sm shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
+      <div className="flex h-[70vh] w-[min(56rem,90vw)] flex-col overflow-hidden rounded-xl border bg-background text-sm shadow-(--mf-panel-shadow)" onMouseDown={(event) => event.stopPropagation()}>
         <label className="flex items-center gap-3 border-b px-4 py-3">
           <SearchIcon className="size-4 text-muted-foreground" />
           <input
             ref={box}
             autoFocus
             className="flex-1 bg-transparent text-heading outline-none"
-            placeholder="Search everything…  kind:quote to narrow"
+            placeholder="Search everything… kind:quote to narrow"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
@@ -89,6 +89,9 @@ export function Search({ onOpen, onClose, initial = '' }: { onOpen: (type: strin
         </div>
         <div className="flex min-h-0 flex-1">
           <div className={`${pane ? 'w-1/2' : 'flex-1'} overflow-y-auto p-2`}>
+            {!query.trim() && (
+              <p className="px-2 py-3 text-body text-muted-foreground">Type to search captures, nuggets, articles and tasks. kind:quote narrows to one kind.</p>
+            )}
             {query.trim() && !results.length && (
               <p className="px-2 py-3 text-sm text-muted-foreground">
                 {types.length || kinds.length || titleOnly

@@ -51,11 +51,11 @@
 }
 
 .tiptap-dropdown-menu-content[data-state="open"] {
-  animation: dropdown-in 100ms ease forwards;
+  animation: dropdown-in 100ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .tiptap-dropdown-menu-content[data-state="closed"] {
-  animation: dropdown-out 100ms ease forwards;
+  animation: dropdown-out 100ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
   overflow: hidden;
 }
 
@@ -92,11 +92,11 @@
 }
 
 .tiptap-dropdown-menu-sub-content[data-state="open"] {
-  animation: dropdown-in 100ms ease forwards;
+  animation: dropdown-in 100ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .tiptap-dropdown-menu-sub-content[data-state="closed"] {
-  animation: dropdown-out 100ms ease forwards;
+  animation: dropdown-out 100ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* Shared enter/exit keyframes — slide direction driven by --slide-x/y on the element */

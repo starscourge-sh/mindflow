@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronUp, X } from "lucide-react"
 import { useCallback, useEffect, useRef } from "react"
 import { useEditorState, type Editor } from "@tiptap/react"
 
@@ -106,13 +107,13 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps) {
         {counts?.total ? `${(counts.index ?? 0) + 1}/${counts.total}` : "0/0"}
       </span>
       <button type="button" onClick={() => step(true)} aria-label="Previous match">
-        ↑
+        <ChevronUp className="size-3.5" />
       </button>
       <button type="button" onClick={() => step(false)} aria-label="Next match">
-        ↓
+        <ChevronDown className="size-3.5" />
       </button>
       <button type="button" onClick={() => leave(true)} aria-label="Close find">
-        ✕
+        <X className="size-3.5" />
       </button>
     </div>
   )

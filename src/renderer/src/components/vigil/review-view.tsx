@@ -101,7 +101,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   return (
     <Page title="Review" count={queue.length - at}>
       <div className="h-0.5 bg-border">
-        <div className="h-full bg-[var(--tt-brand-color-400)] transition-[width] duration-300" style={{ width: `${(at / queue.length) * 100}%` }} />
+        <div className="h-full w-full origin-left bg-[var(--tt-brand-color-400)] transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]" style={{ transform: `scaleX(${at / queue.length})` }} />
       </div>
       <AnimatePresence mode="wait">
       <motion.div
@@ -183,7 +183,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
                   type="button"
                 
                   onClick={() => grade(value)}
-                  className="flex flex-col items-center gap-1 rounded-md border px-3 py-2.5 transition-all hover:-translate-y-px hover:bg-accent active:translate-y-0"
+                  className="flex flex-col items-center gap-1 rounded-md border px-3 py-2.5 transition-colors hover:bg-accent"
                 >
                   <span className="font-medium" style={{ color: tone }}>{label}</span>
                   <span className="text-xs text-muted-foreground tabular-nums">

@@ -979,7 +979,7 @@ export function registerVigil(): void {
       // seconds or more: the rare signal and the universal one together.
       stopped: one<{ n: number }>("select count(*) n from hint_events where shown_at >= ? and (reaction = 'up' or dwell_ms >= 4000)", ago(30)).n,
       unprocessed: one<{ now: number; weekAgo: number }>(
-        "select sum(status = 'open') now, sum(captured_at < ? and (status = 'open' or exited_at >= ?)) weekAgo from captures", ago(7), ago(7))
+        "select coalesce(sum(status = 'open'), 0) now, coalesce(sum(captured_at < ? and (status = 'open' or exited_at >= ?)), 0) weekAgo from captures", ago(7), ago(7))
     }
   })
 

@@ -218,7 +218,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
                   </TooltipTrigger>
                   <TooltipContent>
                     {tip}
-                    {keys && <kbd className="ml-2 font-sans text-key opacity-60">{keys}</kbd>}
+                    {keys && <kbd className="ml-2 font-sans text-key opacity-70">{keys}</kbd>}
                   </TooltipContent>
                 </Tooltip>
               ))}
