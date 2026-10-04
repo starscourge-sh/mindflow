@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'motion/react'
 
 import { MindflowEditor } from '../mindflow'
 import { chime } from '@/lib/sound'
-import { interval, vigil, type Due } from '@/lib/vigil'
+import { interval, vigil, type Due, useLive } from '@/lib/vigil'
 import { Empty, Kbd, Page, toast, typing } from './ui'
 import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/vigil/ui'
@@ -161,6 +161,8 @@ export function ReviewView(): React.JSX.Element {
             {/* Context: what makes the answer learnable, shown only after it, or
                 it would give the prompt away. */}
             {card.context && <p className="-mt-2 text-sm leading-relaxed whitespace-pre-line text-muted-foreground">{card.context}</p>}
+            {/* Where it came from, which a flashcard app never knows. */}
+            <Origin id={card.id} attribution={card.attribution} />
             <div className="grid grid-cols-4 gap-2">
               {GRADES.map(({ grade: value, label, hint, tone }) => (
                 <Tip key={value} label={hint}>
@@ -210,5 +212,17 @@ export function ReviewView(): React.JSX.Element {
       </motion.div>
       </AnimatePresence>
     </Page>
+  )
+}
+
+/** Who said it and the capture it began as, under the answer. */
+function Origin({ id, attribution }: { id: string; attribution: string | null }): React.JSX.Element | null {
+  const lineage = useLive(() => vigil.lineage(id), null, [id])
+  const from = lineage?.from[0]
+  if (!from && !attribution) return null
+  return (
+    <p className="-mt-2 text-xs text-muted-foreground">
+      {[attribution && `Said by ${attribution}`, from && `from “${from.title}”`].filter(Boolean).join(', ')}
+    </p>
   )
 }

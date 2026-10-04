@@ -346,12 +346,15 @@ export function registerVigil(): void {
       db.prepare(`select ${table === 'captures' ? "'capture'" : 'tier'} as type, id, ${title} as title from ${table} where body like ? or body like ?`).all(`%"id":"${id}"%`, `%"id":"%:${id}"%`) as never
     return {
       from: [
-        ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title from captures where id = (select capture_id from nuggets where id = ?)`).all(id) as never[]),
+        ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title from captures where id in (select capture_id from nuggets where id = ? union select origin_capture_id from tasks where id = ?)`).all(id, id) as never[]),
         ...(JSON.parse((db.prepare('select origins from nuggets where id = ?').get(id) as { origins: string | null } | undefined)?.origins ?? '[]') as string[])
           .map((origin) => db.prepare('select tier as type, id, title from nuggets where id = ?').get(origin) as never)
           .filter(Boolean)
       ],
-      became: db.prepare("select tier as type, id, title from nuggets where capture_id = ? or origins like ?").all(id, `%"${id}"%`),
+      became: [
+        ...(db.prepare("select tier as type, id, title from nuggets where capture_id = ? or origins like ?").all(id, `%"${id}"%`) as never[]),
+        ...(db.prepare("select 'task' as type, id, title from tasks where origin_capture_id = ?").all(id) as never[])
+      ],
       linked: [...links('captures', LABEL), ...links('nuggets', 'title')].filter((row) => row.id !== id)
     }
   })

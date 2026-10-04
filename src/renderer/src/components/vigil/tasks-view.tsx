@@ -11,6 +11,7 @@ import { splitTags, useLive, vigil, when, type Session, type Task, type TaskFull
 import { Empty, Kbd, Page, Prop, PropLabel, Props, Tags, toast, useListKeys, typing } from './ui'
 import { Display, arrange, useView, type Facet } from './display'
 import { DatePicker } from './date-picker'
+import { Lineage } from './lineage'
 import { RowMenu, copy } from './row-menu'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -34,7 +35,7 @@ const tone = (task: Task): string | undefined => {
  * you type. A task is not a note with a tickbox: it has a when, a record of each
  * time it was done, and a way back to the capture it came from.
  */
-export function TasksView({ mode, focus }: { mode: 'today' | 'upcoming' | 'routines'; focus?: string }): React.JSX.Element {
+export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' | 'routines'; focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const tasks = useLive(vigil.tasks, [] as Task[])
   const [open, setOpen] = useState<TaskFull | null>(null)
   const [draft, setDraft] = useState('')
@@ -256,13 +257,13 @@ export function TasksView({ mode, focus }: { mode: 'today' | 'upcoming' | 'routi
           </Empty>
         )}
       </Page>
-      {open && <TaskDetail key={open.id} task={open} onClose={() => setOpen(null)} />}
+      {open && <TaskDetail key={open.id} task={open} onClose={() => setOpen(null)} onOpen={onOpen} />}
     </>
   )
 }
 
 /** The open task: its notes, and down the right when it is and what it has been. */
-function TaskDetail({ task: first, onClose }: { task: TaskFull; onClose: () => void }): React.JSX.Element {
+function TaskDetail({ task: first, onClose, onOpen }: { task: TaskFull; onClose: () => void; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   // Read again on every change, so a toggle shows what it now is.
   const task = useLive(async () => (await vigil.task(first.id)) ?? first, first, [first.id])
   const title = useRef<HTMLInputElement>(null)
@@ -356,12 +357,8 @@ function TaskDetail({ task: first, onClose }: { task: TaskFull; onClose: () => v
           {task.repeatUntil ? ` This one ends ${when(task.repeatUntil).toLowerCase()}.` : ''}
         </p>
 
-        {task.captureId && (
-          <>
-            <PropLabel>From</PropLabel>
-            <Prop icon={Hash}>A capture</Prop>
-          </>
-        )}
+        {/* Why it exists: the capture it came from, one click away. */}
+        <Lineage id={task.id} onOpen={onOpen} />
         {task.done.length > 0 && (
           <>
             <PropLabel>Done</PropLabel>

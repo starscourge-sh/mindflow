@@ -1,10 +1,10 @@
 import { Fragment } from 'react'
-import { FileText, Gem, Inbox } from 'lucide-react'
+import { FileText, Gem, Inbox, ListTodo } from 'lucide-react'
 
 import { useLive, vigil } from '@/lib/vigil'
 import { Prop, PropLabel } from './ui'
 
-const ICON = { capture: Inbox, nugget: Gem, article: FileText }
+const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo }
 
 /**
  * Where a thing came from, what it became, and what links to it. A promoted

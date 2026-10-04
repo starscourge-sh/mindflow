@@ -316,7 +316,7 @@ export function Home(): React.JSX.Element {
         ) : view.id === 'review' ? (
           <ReviewView />
         ) : view.id === 'today' || view.id === 'upcoming' || view.id === 'routines' ? (
-          <TasksView mode={view.id} focus={view.focus} />
+          <TasksView mode={view.id} focus={view.focus} onOpen={open} />
         ) : view.id === 'nuggets' || view.id === 'articles' ? (
           <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} focus={view.focus} onOpen={open} />
         ) : view.id === 'tags' ? (
