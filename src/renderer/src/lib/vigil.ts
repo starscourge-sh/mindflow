@@ -79,6 +79,11 @@ export type Task = {
   notify: 'pull' | 'quiet' | 'alerts' | null
 }
 export type Subtask = { text: string; done: boolean }
+/** A task made, or the open one with that name already there, which it joined. */
+export type Made = { id: string; number: number; existed: boolean }
+/** What to say after making a task: the usual words, or that it joined one. */
+export const taskSaid = (made: Made | null | undefined, fresh: string): string =>
+  made?.existed ? `Already a task: T-${made.number}. Linked to it, not added twice` : fresh
 export type TaskFull = Task & { notes: unknown; done: { at: string; recap: string | null }[]; subtasks: Subtask[]; linked: { id: string; tier: string; kind: string; title: string }[] }
 
 export type Session = { id: string; startedAt: string; endedAt: string | null; recap: string | null }
@@ -123,7 +128,7 @@ export const vigil = {
   lineage: (id: string) => call<Record<'from' | 'became' | 'linked', { type: string; id: string; title: string }[]>>('lineage', id),
   newArticle: () => call<string>('article:new'),
   findItems: (query: string) => call<{ id: string; tier: 'nugget' | 'article'; title: string }[]>('items:find', query),
-  toTask: (id: string) => call<string | null>('toTask', id),
+  toTask: (id: string) => call<Made | null>('toTask', id),
   items: (tier: 'nugget' | 'article') => call<Item[]>('items', tier),
   item: (id: string) => call<ItemFull | null>('item', id),
   saveItem: (id: string, patch: Partial<{ body: unknown; title: string; prompt: string | null; kind: string; suspended: boolean; attribution: string | null; context: string | null; mode: string }>) =>
@@ -136,7 +141,7 @@ export const vigil = {
   tasks: () => call<Task[]>('tasks'),
   task: (id: string) => call<TaskFull | null>('task', id),
   /** `today`: with no date in the words, it is for today. */
-  addTask: (text: string, origin?: string, today = false) => call<string>('task:add', text, origin, today),
+  addTask: (text: string, origin?: string, today = false) => call<Made>('task:add', text, origin, today),
   saveTask: (id: string, patch: Partial<{ title: string; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number; important: number; deadline: string | null; blocker: string | null; reschedules: number; notify: string | null }>) =>
     call('task:save', id, patch),
   doneTask: (id: string) => call('task:done', id),
@@ -150,13 +155,13 @@ export const vigil = {
   stats: () => call<Stats>('stats'),
   exportAll: () => call<string | null>('export'),
   bury: (id: string) => call('review:bury', id),
-  taskFrom: (ids: string[], text: string) => call<string>('tasks:from', ids, text),
+  taskFrom: (ids: string[], text: string) => call<Made>('tasks:from', ids, text),
   bulk: (ids: string[], change: { tag?: string; capturedAt?: string }) => call<number>('captures:bulk', ids, change),
   setCapture: (id: string, field: 'attribution' | 'medium' | 'capturedAt', value: string | number | null) => call('capture:set', id, field, value),
   linkSession: (id: string) => call('capture:session', id),
   nuggetFrom: (text: string, origin: { captureId?: string; attribution?: string | null }) => call<string>('nugget:from', text, origin),
   random: () => call<{ id: string; kind: string; title: string; body: unknown }[]>('random'),
-  study: (itemId: string, text: string) => call<string>('study', itemId, text),
+  study: (itemId: string, text: string) => call<Made>('study', itemId, text),
   /** What you have typed in a field before, most used first. */
   values: (field: 'attribution' | 'medium') => call<string[]>('values', field),
   renameTag: (from: string, to: string) => call<string | null>('tag:rename', from, to),

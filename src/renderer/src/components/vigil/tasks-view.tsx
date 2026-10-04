@@ -6,7 +6,7 @@ import { Bell, CalendarDays, Check, FileText, Flag, Gem, Hash, History, Play, Pl
 import { MindflowEditor } from '../mindflow'
 import { chime } from '@/lib/sound'
 import { captureKey } from '@/lib/capture-links'
-import { splitTags, useLive, vigil, when, type Session, type Task, type TaskFull } from '@/lib/vigil'
+import { splitTags, taskSaid, useLive, vigil, when, type Session, type Task, type TaskFull } from '@/lib/vigil'
 import { Empty, Kbd, Page, Prop, PropLabel, Props, Tags, toast, useListKeys, typing, VirtualList } from './ui'
 import { Display, arrange, useView, type Facet } from './display'
 import { DatePicker } from './date-picker'
@@ -155,7 +155,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
           onSubmit={(event) => {
             event.preventDefault()
             if (!draft.trim()) return
-            void vigil.addTask(draft, undefined, mode === 'today').then((id) => vigil.task(id)).then((task) => {
+            void vigil.addTask(draft, undefined, mode === 'today').then(async (made) => {
+              if (made.existed) return void (setDraft(''), toast(taskSaid(made, '')))
+              const task = await vigil.task(made.id)
               setDraft('')
               // Said where it went when that is not the list in front of you.
               const where = !task ? mode

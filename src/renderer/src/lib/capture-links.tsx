@@ -4,7 +4,7 @@ import { ask, toast } from '@/components/vigil/ui'
 import { chime } from '@/lib/sound'
 import { lift, type Home } from '@/lib/fly-home'
 import type { NoteSuggestion } from '@/extensions/note-link'
-import { vigil } from '@/lib/vigil'
+import { vigil, type Made } from '@/lib/vigil'
 
 /** The short handle a capture goes by, like Linear's `REE-30`. */
 export const captureKey = (number: number): string => `MF-${number}`
@@ -51,7 +51,7 @@ export async function flying<T>(id: string, home: Home, work: () => Promise<T>):
 }
 
 /** A capture made into a task, flown into Tasks. */
-export const toTask = (id: string): Promise<unknown> => flying(id, 'task', () => vigil.toTask(id))
+export const toTask = (id: string): Promise<Made | null> => flying(id, 'task', () => vigil.toTask(id))
 
 /** Take one. Promote makes a nugget as well; the other two only mark the capture. */
 export async function takeExit(id: string, status: string): Promise<unknown> {

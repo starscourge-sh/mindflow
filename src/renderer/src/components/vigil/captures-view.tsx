@@ -12,7 +12,7 @@ import { STATUS_ICON, captureKey, findCaptures, flying, takeExit, toTask, follow
 import { toMarkdown } from '@/lib/export'
 import { splitTags, vigil } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
-import { Empty, Kbd, Page, Prop, PropLabel, Props, Remembered, ask, toast, useListKeys, typing, pin } from './ui'
+import { Empty, Kbd, Page, Prop, PropLabel, Props, Remembered, Rolling, ask, toast, useListKeys, typing, pin } from './ui'
 import { RemindMe } from './items-view'
 import { selectionActions } from './selection-actions'
 import { Tip } from '@/components/vigil/ui'
@@ -212,7 +212,8 @@ function CaptureProps({ capture, onOpen }: { capture: CaptureMeta; onOpen?: (typ
     <Props>
       <PropLabel>Status</PropLabel>
       <Prop icon={Status} active>
-        <span className="capitalize">{capture.status}</span>
+        {/* A status that changes rolls to the new word: the change is seen. */}
+        <Rolling text={capture.status[0].toUpperCase() + capture.status.slice(1)} />
       </Prop>
       {capture.status === 'open'
         ? exits.map((exit) => (

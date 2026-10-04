@@ -3,7 +3,7 @@ import { CalendarDays, Check, Plus, Repeat } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { chime } from '@/lib/sound'
-import { useLive, vigil, when, type Task } from '@/lib/vigil'
+import { taskSaid, useLive, vigil, when, type Task } from '@/lib/vigil'
 import { toast, typing, useListKeys } from './ui'
 import { Chips } from './display'
 import { RowMenu, copy } from './row-menu'
@@ -87,7 +87,9 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
         onSubmit={(event) => {
           event.preventDefault()
           if (!draft.trim()) return
-          void vigil.addTask(draft, undefined, scope === 'today').then((id) => vigil.task(id)).then((task) => {
+          void vigil.addTask(draft, undefined, scope === 'today').then(async (made) => {
+            if (made.existed) return void (setDraft(''), toast(taskSaid(made, '')))
+            const task = await vigil.task(made.id)
             setDraft('')
             // Said where it went when it is not in this list: a later day, or a routine.
             if (task && !SCOPES[scope].test(task)) toast(task.recurrence ? 'Added to Routines' : task.dueAt ? `Added for ${when(task.dueAt, !!task.allDay).toLowerCase()}` : 'Added to the backlog')

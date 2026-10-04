@@ -3,8 +3,9 @@ import type { JSONContent } from '@tiptap/core'
 
 import { EXITS, captureKey, exit as exitWith, toTask } from '@/lib/capture-links'
 import { wordsOf } from '../../../main/import'
-import { AskWho, pin, toast } from './vigil/ui'
+import { AskWho, Rolling, pin, toast } from './vigil/ui'
 import { AnimatePresence, motion } from 'motion/react'
+import { taskSaid } from '@/lib/vigil'
 import { RowMenu, copy } from './vigil/row-menu'
 import { age, ageTint } from './capture-list'
 import { Kbd, Tip } from '@/components/vigil/ui'
@@ -97,7 +98,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             { label: 'Open', run: () => onOpen(card.id) },
             'separator',
             ...EXITS.map((one) => ({ label: one.label, keys: one.key.toUpperCase(), danger: one.status === 'discarded', run: () => exit(card.id, one.status) })),
-            { label: 'Make it a task', run: () => void toTask(card.id).then(() => { toast('Now a task'); drop(card.id) }) },
+            { label: 'Make it a task', run: () => void toTask(card.id).then((made) => { toast(taskSaid(made, 'Now a task')); drop(card.id) }) },
             { label: 'Say who said it', keys: 'W', run: () => setAsking(card.id) },
             'separator',
             { label: 'Pin to the prompt', run: () => pin('captures', card.id, true) },
@@ -132,7 +133,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             ))}
             <Tip label={<span className="flex items-center gap-2">Say who said it: a quote needs one to be kept<Kbd>W</Kbd></span>}>
             <Button variant="ghost" size="sm" className="text-muted-foreground transition-colors group-hover:text-foreground focus-visible:text-foreground" onClick={() => setAsking(card.id)}>
-              {card.attribution ?? 'Who?'}
+              <Rolling text={card.attribution ?? 'Who?'} />
             </Button>
             </Tip>
           </div>

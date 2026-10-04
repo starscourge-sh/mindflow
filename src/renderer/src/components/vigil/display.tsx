@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { SlidersHorizontal } from 'lucide-react'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Tip, typing } from './ui'
+import { Rolling, Tip, typing } from './ui'
 import { chime } from '@/lib/sound'
 
 /**
@@ -84,7 +84,7 @@ export function Chips({ options, on, pick }: { options: readonly Choice[]; on: (
           }}
           className={`rounded-md px-2 py-0.5 text-xs transition-colors ${on(option.id) ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'}`}
         >
-          {option.label}
+          <Rolling text={option.label} />
         </button>
       ))}
     </div>

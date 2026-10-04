@@ -19,12 +19,12 @@ import { useAppearance, useLive } from './lib/vigil'
 import { BackToTop, Kbd, Remembered, useListKeys, useSmooth, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import type { LucideIcon } from 'lucide-react'
-import { Toaster, toast } from './components/vigil/ui'
+import { Rolling, Toaster, toast } from './components/vigil/ui'
 import { Reader } from './components/vigil/reader'
 import { KeptPanel } from './components/vigil/kept-panel'
 import { useCaptureDisplay } from './components/vigil/captures-view'
 import { Search } from './components/search'
-import { vigil } from './lib/vigil'
+import { taskSaid, vigil } from './lib/vigil'
 import { chime } from './lib/sound'
 
 
@@ -241,6 +241,7 @@ export default function App(): React.JSX.Element {
   const editingNow = useRef<string | undefined>(undefined)
   editingNow.current = editing?.id
   const [sending, setSending] = useState(false)
+  const [saved, setSaved] = useState(false)
   const actionTags = useLive(() => vigil.tagMeta().then((meta) => meta.filter((row) => row.action).map((row) => row.tag)), [] as string[])
 
   // Kept as you type, so a half-written note survives quitting.
@@ -375,7 +376,10 @@ export default function App(): React.JSX.Element {
     // can be typed straight away. Otherwise the box leaves and the window goes.
     if (more) {
       fresh()
-      toast('Saved. Next one')
+      // Said on the button itself, rolling to Saved and back: the box is
+      // already fresh for the next one, so nothing else needs to move.
+      setSaved(true)
+      setTimeout(() => setSaved(false), 1200)
     } else setSending(true)
     void window.api.captures
       .create({ title: '', kind: sorted, elapsedMs: Date.now() - openedAt.current, body: hasContent(doc) ? doc : null, markdown,
@@ -385,8 +389,7 @@ export default function App(): React.JSX.Element {
         // A link shows as its card, filled in once the page answers.
         if (sorted === 'link') void cardUp({ id, kind: sorted, body: hasContent(doc) ? doc : null })
         if (action) {
-          await vigil.toTask(id)
-          toast('Added to your tasks')
+          toast(taskSaid(await vigil.toTask(id), 'Added to your tasks'))
         }
         if (more) return
         // Let the box finish leaving before it is replaced.
@@ -576,7 +579,7 @@ export default function App(): React.JSX.Element {
               )}
               <Tip label={createMore && !editing ? 'Save, and a fresh box for the next  ⌘↵' : 'Save and close  ⌘↵ · once with a fresh box after  ⌥⌘↵'}>
               <Button variant="secondary" onClick={() => submit()} className={`${editing ? 'ml-auto ' : ''}text-[13px]`}>
-                {editing ? 'Done' : 'Create'} <kbd className="font-sans text-[11px] text-muted-foreground">⌘↵</kbd>
+                <Rolling text={editing ? 'Done' : saved ? 'Saved' : 'Create'} /> <kbd className="font-sans text-[11px] text-muted-foreground">⌘↵</kbd>
               </Button>
               </Tip>
             </main>
@@ -793,7 +796,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading }: {
               <motion.span layoutId="prompt-tab" className="absolute inset-0 -z-10 rounded-md border border-border bg-background shadow-sm" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />
             )}
             {one.label}
-            {one.count ? <span className="text-xs tabular-nums text-muted-foreground">{one.count}</span> : null}
+            {one.count ? <span className="text-xs tabular-nums text-muted-foreground"><Rolling text={one.count} /></span> : null}
           </button>
           </Tip>
         ))}

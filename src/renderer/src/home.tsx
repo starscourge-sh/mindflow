@@ -22,10 +22,8 @@ import {
   Tag,
   type LucideIcon
 } from 'lucide-react'
-import { SlotText } from 'slot-text/react'
 import { AnimatePresence, motion } from 'motion/react'
 import { chime } from './lib/sound'
-import 'slot-text/style.css'
 
 import { CAPTURE_TYPES } from './components/capture-kinds/capture-kind-picker'
 import { useCaptures, type CaptureMeta } from './components/capture-list'
@@ -37,7 +35,7 @@ import { SettingsView } from './components/vigil/settings-view'
 import { StatsView } from './components/vigil/stats-view'
 import { TagsView } from './components/vigil/tags-view'
 import { TasksView } from './components/vigil/tasks-view'
-import { Kbd, Toaster, toast, typing, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
+import { Kbd, Rolling, Toaster, toast, typing, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import { useAppearance, useLive, vigil, type Item, type Settings, type Task } from './lib/vigil'
 import { Tip } from '@/components/vigil/ui'
@@ -219,8 +217,8 @@ export function Home(): React.JSX.Element {
               <section.icon className="size-4" style={{ color: `var(--tt-color-text-${section.tint})` }} />
               <span className="flex-1 text-left">{section.label}</span>
               {counts[section.id] ? (
-                <SlotText
-                  text={String(counts[section.id])}
+                <Rolling
+                  text={counts[section.id]}
                   className={`text-xs tabular-nums ${section.id === 'today' ? 'text-[var(--tt-color-text-orange)]' : 'text-muted-foreground'}`}
                 />
               ) : null}
@@ -252,7 +250,7 @@ export function Home(): React.JSX.Element {
               >
                 <type.icon className="size-4" style={{ color: type.tint }} />
                 <span className="flex-1 text-left">{type.label}</span>
-                <span className="text-xs text-muted-foreground tabular-nums">{count || ''}</span>
+                <span className="text-xs text-muted-foreground tabular-nums">{count ? <Rolling text={count} /> : ''}</span>
               </button>
             )
           })}
@@ -277,7 +275,7 @@ export function Home(): React.JSX.Element {
             >
               <Tag className="size-4 text-muted-foreground" style={color ? { color: `var(--tt-color-text-${color})` } : undefined} />
               <span className="flex-1 truncate text-left">{tag}</span>
-              <span className="text-xs text-muted-foreground tabular-nums">{count}</span>
+              <span className="text-xs text-muted-foreground tabular-nums"><Rolling text={count} /></span>
             </button>
           ))}
 

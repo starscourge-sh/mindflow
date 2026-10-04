@@ -3,7 +3,7 @@ import { Gem, Inbox, ListTodo } from 'lucide-react'
 
 import { ToolbarGroup, ToolbarSeparator } from '@/components/tiptap-ui-primitive/toolbar'
 import { chime } from '@/lib/sound'
-import { vigil } from '@/lib/vigil'
+import { taskSaid, vigil } from '@/lib/vigil'
 import { toast } from './ui'
 
 /**
@@ -24,20 +24,22 @@ export function selectionActions(origin: { captureId?: string; attribution?: str
       <>
         <ToolbarSeparator />
         <ToolbarGroup>
-          {origin.from && (
-            <button
-              type="button"
-              className={button}
-              onClick={() => {
-                const text = words()
-                if (!text) return
-                chime('tap')
-                void window.api.captures.create({ body: text, origin: origin.from }).then(() => toast('In your inbox, linked back to here'))
-              }}
-            >
-              <Inbox /> Capture
-            </button>
-          )}
+          {/* Always offered: words too raw for a nugget go to the inbox to be
+              worked on. When they were lifted out of something saved, they
+              point back to it. */}
+          <button
+            type="button"
+            className={button}
+            onClick={() => {
+              const text = words()
+              if (!text) return
+              chime('tap')
+              void window.api.captures.create({ body: text, ...(origin.from ? { origin: origin.from } : {}) })
+                .then(() => toast(origin.from ? 'In your inbox, linked back to here' : 'In your inbox'))
+            }}
+          >
+            <Inbox /> Capture
+          </button>
           <button
             type="button"
             className={button}
@@ -57,7 +59,7 @@ export function selectionActions(origin: { captureId?: string; attribution?: str
               const text = words()
               if (!text) return
               chime('done')
-              void vigil.addTask(text, origin.captureId).then(() => toast('Added to your tasks'))
+              void vigil.addTask(text, origin.captureId).then((made) => toast(taskSaid(made, 'Added to your tasks')))
             }}
           >
             <ListTodo /> Task

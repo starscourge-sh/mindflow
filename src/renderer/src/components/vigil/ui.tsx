@@ -1,5 +1,6 @@
 import { Children, cloneElement, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { SlotText } from 'slot-text/react'
 import { ArrowUp, CircleCheck, Volume2, VolumeX, type LucideIcon } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Coolshape, type shapeTypes } from 'coolshapes-react'
@@ -31,7 +32,7 @@ export function Page({ title, count, actions, children, aside = false }: {
       {(count !== undefined || actions) && (
         <header data-chrome={aside || undefined} className="page-column flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground">
           {typeof title === 'string' && title.startsWith('#') ? <span className="font-medium text-foreground">{title}</span> : null}
-          {count !== undefined && <span className="tabular-nums">{count} {count === 1 ? 'item' : 'items'}</span>}
+          {count !== undefined && <span className="tabular-nums"><Rolling text={count} /> {count === 1 ? 'item' : 'items'}</span>}
           <div className="ml-auto flex items-center gap-1">{actions}</div>
         </header>
       )}
@@ -571,5 +572,24 @@ export function SoundToggle({ className = '' }: { className?: string }): React.J
         {on ? <Volume2 /> : <VolumeX />}
       </button>
     </Tip>
+  )
+}
+
+/**
+ * Text that rolls into place when it changes, slot-text's way: a count that
+ * goes up rolls up, one that goes down rolls down, and only the digits that
+ * moved turn over. Still when motion is off, so it is plain text then.
+ */
+export function Rolling({ text, className = '' }: { text: string | number; className?: string }): React.JSX.Element {
+  const last = useRef(text)
+  const up = typeof text === 'number' && typeof last.current === 'number' ? text >= last.current : true
+  useEffect(() => void (last.current = text), [text])
+  const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+  return (
+    <SlotText
+      text={String(text)}
+      className={className}
+      options={{ direction: up ? 'up' : 'down', duration: still ? 0 : 260, stagger: still ? 0 : 35, exitOffset: still ? 0 : 40 }}
+    />
   )
 }

@@ -147,19 +147,34 @@ function taskFrom(text: string): { title: string; due: string | null; allDay: bo
   return { title, due: due?.toISOString() ?? null, allDay, recurrence: repeat?.[0] ?? null, until: until?.toISOString() ?? null }
 }
 
-function addTask(text: string, origin: string | null = null, today = false): string {
-  const id = randomUUID()
+/** What making a task gave back: the task, and whether it was already there. */
+export type Made = { id: string; number: number; existed: boolean }
+
+/**
+ * A task from a line of text. The same task twice is one task: an open one
+ * with the same name is returned instead, and what this one came from is
+ * linked to it, so nothing is lost and nothing is doubled.
+ */
+function addTask(text: string, origin: string | null = null, today = false): Made {
+  const db = database()
   const task = taskFrom(text)
+  const title = task.title || text
+  const twin = db.prepare("select id, number from tasks where status = 'open' and lower(trim(title)) = lower(trim(?))").get(title) as { id: string; number: number } | undefined
+  if (twin) {
+    if (origin) db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(twin.id, origin)
+    return { ...twin, existed: true }
+  }
+  const id = randomUUID()
   // Typed into Today with no date, it is for today, as in Todoist: all day,
   // not dropped into a backlog the list you typed it in does not show.
   if (today && !task.due) Object.assign(task, { due: new Date(new Date().setHours(9, 0, 0, 0)).toISOString(), allDay: true })
-  database()
+  const { number } = db
     .prepare(
       `insert into tasks (id, number, title, due_at, all_day, recurrence, repeat_until, origin_capture_id, created_at)
-       values (?, (select coalesce(max(number), 0) + 1 from tasks), ?, ?, ?, ?, ?, ?, ?)`
+       values (?, (select coalesce(max(number), 0) + 1 from tasks), ?, ?, ?, ?, ?, ?, ?) returning number`
     )
-    .run(id, task.title || text, task.due, task.allDay ? 1 : 0, task.recurrence, task.until, origin, now())
-  return id
+    .get(id, title, task.due, task.allDay ? 1 : 0, task.recurrence, task.until, origin, now()) as { number: number }
+  return { id, number, existed: false }
 }
 
 // --- the registration -----------------------------------------------------
@@ -317,7 +332,7 @@ export function registerVigil(): void {
   handle('tasks:from', (ids: string[], text: string) => {
     const task = addTask(String(text), ids[0] ?? null)
     for (const id of ids) {
-      db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(task, id)
+      db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(task.id, id)
       db.prepare("update captures set status = 'resolved' where id = ?").run(id)
     }
     return write(task)
@@ -676,7 +691,7 @@ export function registerVigil(): void {
   // reading has a when and the material is waiting when the task opens.
   handle('study', (itemId: string, text: string) => {
     const task = addTask(text)
-    db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(task, itemId)
+    db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(task.id, itemId)
     return write(task)
   })
   const TASK_COLUMNS = { title: 'title', recurrence: 'recurrence', waitingOn: 'waiting_on', estimate: 'estimate', sortOrder: 'sort_order', important: 'important', deadline: 'deadline_at', blocker: 'blocker', reschedules: 'reschedules', notify: 'notify' } as const

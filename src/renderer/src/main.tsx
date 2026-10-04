@@ -1,4 +1,6 @@
 import './assets/main.css'
+// Rolling text (counts, labels): the cell clipping it needs, once for every window.
+import 'slot-text/style.css'
 
 declare global {
   interface Window {
