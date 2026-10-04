@@ -14,6 +14,7 @@ import { DatePicker } from './date-picker'
 import { RowMenu, copy } from './row-menu'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Tip } from '@/components/vigil/ui'
 
 const startOfDay = (offset = 0): number => new Date(new Date().setHours(0, 0, 0, 0) + offset * 86400000).getTime()
 
@@ -194,15 +195,17 @@ export function TasksView({ mode }: { mode: 'today' | 'upcoming' | 'routines' })
                         data-cursor={index === cursor || undefined}
                         className={`group flex items-start gap-3 border-b border-border/50 px-2 py-2 transition-colors ${task.id === open?.id ? 'bg-accent/60' : ''} ${index === cursor ? 'ring-1 ring-border' : ''}`}
                       >
+                        <Tip label="Complete">
                         <button
                           type="button"
-                          title="Complete"
+                        
                           onClick={() => complete(task)}
                           className="mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors hover:bg-accent"
                           style={{ borderColor: tone(task), background: leaving === task.id ? 'var(--tt-color-text-green)' : undefined }}
                         >
                           <Check className={`size-3 transition-opacity ${leaving === task.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'}`} />
                         </button>
+                        </Tip>
                         <button type="button" data-row onClick={() => pick(task.id)} className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left">
                           <span className="flex max-w-full items-center gap-2">
                             <span className="truncate">{splitTags(task.title).text}</span>
@@ -496,9 +499,11 @@ function Checklist({ task }: { task: TaskFull }): React.JSX.Element {
               {item.done && <Check className="size-3 text-white" />}
             </button>
             <span className={`flex-1 ${item.done ? 'text-muted-foreground line-through' : ''}`}>{item.text}</span>
-            <button type="button" title="Remove" onClick={() => save(items.filter((_, at) => at !== index))} className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground">
+            <Tip label="Remove">
+            <button type="button" onClick={() => save(items.filter((_, at) => at !== index))} className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground">
               <X className="size-3.5" />
             </button>
+            </Tip>
           </li>
         ))}
       </ul>

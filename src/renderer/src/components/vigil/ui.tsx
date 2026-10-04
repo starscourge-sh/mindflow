@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Coolshape, type shapeTypes } from 'coolshapes-react'
 import Lenis from 'lenis'
 import { useLive, vigil } from '@/lib/vigil'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 /**
  * The few parts every view is built from, so the views read as one app. The
@@ -279,7 +280,8 @@ export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX
       {shown && (
         <motion.button
           type="button"
-          title="Back to top"
+          aria-label="Back to top"
+        
           initial={{ opacity: 0, y: 8, scale: 0.9 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 8, scale: 0.9 }}
@@ -356,5 +358,19 @@ export function AskWho({ id, onDone }: { id: string; onDone: () => void }): Reac
         onDone()
       }}
     />
+  )
+}
+
+/**
+ * A label on hover, shadcn's tooltip rather than the system's: says what a
+ * button does, and its key if it has one.
+ */
+export function Tip({ label, children }: { label: ReactNode; children: React.ReactElement }): React.JSX.Element {
+  if (!label) return children
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   )
 }

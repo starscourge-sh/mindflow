@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, when, type Task } from '@/lib/vigil'
 import { toast } from './ui'
+import { Tip } from '@/components/vigil/ui'
 
 const endOfToday = (): number => new Date().setHours(24, 0, 0, 0)
 const startOfToday = (): number => new Date().setHours(0, 0, 0, 0)
@@ -58,9 +59,10 @@ export function TodayPanel(): React.JSX.Element {
               exit={{ opacity: 0, x: 16, transition: { duration: 0.18 } }}
               className="group flex items-start gap-2.5 rounded-md px-1.5 py-1.5 hover:bg-accent/50"
             >
+              <Tip label="Complete">
               <button
                 type="button"
-                title="Complete"
+              
                 onClick={() => tick(task)}
                 className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors"
                 style={{
@@ -70,6 +72,7 @@ export function TodayPanel(): React.JSX.Element {
               >
                 <Check className={`size-2.5 transition-opacity ${ticking === task.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'}`} />
               </button>
+              </Tip>
               <div className="min-w-0 flex-1">
                 <p className="truncate">{task.title}</p>
                 <p className="flex items-center gap-1 text-xs" style={{ color: late ? 'var(--tt-color-text-red)' : 'var(--tt-color-text-orange)' }}>

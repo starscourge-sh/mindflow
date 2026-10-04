@@ -41,6 +41,9 @@ import { Home } from './home'
 // Before the first paint, and before anything renders: the page wears a theme
 // whether or not an editor is on screen.
 applyTheme(currentTheme())
+// Chosen in another window, the prompt or the main one: wear it here too, at
+// once, so the two never disagree.
+window.addEventListener('storage', (event) => event.key === 'theme' && applyTheme(currentTheme()))
 
 // A window opened on one drawing says so in its own URL, which is the only
 // thing a fresh renderer knows about itself before any of this has run.

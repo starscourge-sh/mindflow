@@ -18,6 +18,7 @@ import * as chrono from 'chrono-node'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Tip } from '@/components/vigil/ui'
 
 const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
 
@@ -92,9 +93,11 @@ export function ItemsView({ tier, focus, onOpenCapture }: { tier: 'nugget' | 'ar
               >
                 Start an article
               </button>
-              <button type="button" title="Clear" className="rounded p-1 hover:bg-accent" onClick={() => setChosen([])}>
+              <Tip label="Clear">
+              <button type="button" className="rounded p-1 hover:bg-accent" onClick={() => setChosen([])}>
                 <X className="size-3.5" />
               </button>
+              </Tip>
             </span>
           ) : (
             <span className="flex items-center gap-2 text-xs">

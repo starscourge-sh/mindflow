@@ -9,6 +9,7 @@ import { FileText, Gem, Inbox, ListTodo, Tag } from 'lucide-react'
 import { splitTags, useLive, vigil } from '@/lib/vigil'
 import { Empty, Page, useListKeys } from './ui'
 import { Input } from '@/components/ui/input'
+import { Tip } from '@/components/vigil/ui'
 
 const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo }
 
@@ -71,14 +72,15 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 #bug does. Labels, not kinds: a colour and one behaviour. */}
             <span className="flex items-center gap-1">
               {COLORS.map((one) => (
+                <Tip key={one} label={one}>
                 <button
-                  key={one}
                   type="button"
-                  title={one}
+                
                   onClick={() => void vigil.setTag(chosen, { color: one })}
                   className={`size-3.5 rounded-full ${current?.color === one ? 'ring-2 ring-foreground/60 ring-offset-1 ring-offset-background' : ''}`}
                   style={{ background: `var(--tt-color-text-${one})` }}
                 />
+                </Tip>
               ))}
             </span>
             <label className="flex items-center gap-1.5 text-xs">

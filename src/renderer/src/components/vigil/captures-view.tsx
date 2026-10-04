@@ -14,6 +14,7 @@ import { chime } from '@/lib/sound'
 import { Empty, Kbd, Page, Prop, PropLabel, Props, Remembered, toast, useListKeys } from './ui'
 import { RemindMe } from './items-view'
 import { selectionActions } from './selection-actions'
+import { Tip } from '@/components/vigil/ui'
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
 
@@ -100,7 +101,9 @@ export function CapturesView({ title, keep, focus }: {
                 className="w-20 rounded-md bg-transparent px-2 py-1 text-xs outline-none placeholder:text-muted-foreground hover:bg-accent focus:bg-accent"
               />
               <DatePicker value={null} placeholder="Date…" className="text-xs" onChange={(at) => at && void vigil.bulk(chosen, { capturedAt: at }).then((n) => toast(`Dated ${n}`))} />
-              <button type="button" title="Clear" className="rounded p-1 hover:bg-accent" onClick={() => setChosen([])}><X className="size-3.5" /></button>
+              <Tip label="Clear">
+              <button type="button" className="rounded p-1 hover:bg-accent" onClick={() => setChosen([])}><X className="size-3.5" /></button>
+              </Tip>
             </span>
           ) : (
             <span className="flex items-center gap-2">

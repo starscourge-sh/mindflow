@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Check } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -50,6 +50,16 @@ export function ThemePicker({ className }: { className?: string }): React.JSX.El
   // The last theme actually chosen. A ref, not the state above: the close
   // handler runs in the same tick as the choice and would read the old one.
   const chosen = useRef<Theme>(theme)
+  // Another window, or Settings, chose one: show it here as well.
+  useEffect(() => {
+    const follow = (event: StorageEvent): void => {
+      if (event.key !== "theme") return
+      chosen.current = currentTheme()
+      setTheme(chosen.current)
+    }
+    window.addEventListener("storage", follow)
+    return () => window.removeEventListener("storage", follow)
+  }, [])
 
   return (
     <Popover
@@ -74,7 +84,7 @@ export function ThemePicker({ className }: { className?: string }): React.JSX.El
           onValueChange={(label) => {
             setRow(label)
             const found = byName(label)
-            if (found) applyTheme(found)
+            if (found) applyTheme(found, false)
           }}
         >
           <CommandInput placeholder="Change theme..." />

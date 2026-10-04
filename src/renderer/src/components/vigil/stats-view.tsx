@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { useLive, vigil, type Stats } from '@/lib/vigil'
 import { Page } from './ui'
+import { Tip } from '@/components/vigil/ui'
 
 const percent = (part: number, whole: number): string => (whole ? `${Math.round((part / whole) * 100)}%` : '–')
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`
@@ -140,7 +141,9 @@ export function StatsView(): React.JSX.Element {
         <Section title="Days you opened it">
           <div className="grid w-fit grid-flow-col grid-rows-7 gap-[3px]">
             {days.map((day) => (
-              <div key={day} title={day} className={`size-2.5 rounded-[2px] ${opened.has(day) ? 'bg-[var(--tt-brand-color-400)]' : 'bg-border/70'}`} />
+              <Tip key={day} label={day}>
+              <div className={`size-2.5 rounded-[2px] ${opened.has(day) ? 'bg-[var(--tt-brand-color-400)]' : 'bg-border/70'}`} />
+              </Tip>
             ))}
           </div>
           <p>
@@ -184,7 +187,11 @@ export function StatsView(): React.JSX.Element {
           <div className="flex h-14 items-end gap-[3px]">
             {Array.from({ length: 24 }, (_, hour) => {
               const n = stats.hours.find((row) => row.hour === hour)?.n ?? 0
-              return <div key={hour} title={`${hour}:00 · ${n}`} className="flex-1 rounded-t-[2px] bg-muted-foreground/35" style={{ height: `${Math.max(3, (n / maxHour) * 100)}%` }} />
+              return (
+                <Tip key={hour} label={`${hour}:00 · ${n}`}>
+                  <div className="flex-1 rounded-t-[2px] bg-muted-foreground/35" style={{ height: `${Math.max(3, (n / maxHour) * 100)}%` }} />
+                </Tip>
+              )
             })}
           </div>
           <div className="flex justify-between text-xs tabular-nums">

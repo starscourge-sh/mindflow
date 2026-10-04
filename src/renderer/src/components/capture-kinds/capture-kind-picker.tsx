@@ -24,6 +24,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useShortcut } from "@/lib/use-shortcut"
 
 import type { BlockColor } from "@/extensions/block-color"
+import { Tip } from '@/components/vigil/ui'
 
 /**
  * One of the nine the themes already tune for contrast, rather than a Tailwind
@@ -81,12 +82,14 @@ export function CaptureKindPicker({ value, onChange, suggested = false }: {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
+      <Tip label={suggested ? 'Suggested from what you typed. ⌃T or ⌘1-8 to choose' : undefined}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" title={suggested ? 'Suggested from what you typed. ⌃T or ⌘1-8 to choose' : undefined} className={`gap-1.5 rounded-full cursor-pointer ${suggested ? 'border-dashed' : ''}`}>
+        <Button variant="outline" size="sm" className={`gap-1.5 rounded-full cursor-pointer ${suggested ? 'border-dashed' : ''}`}>
           <Icon className="size-4" style={{ color: current.tint }} />
           {current.label}
         </Button>
-      </PopoverTrigger>
+        </PopoverTrigger>
+      </Tip>
 
       <PopoverContent className="w-64 p-0" align="start">
         <Command

@@ -8,6 +8,7 @@ import { chime } from '@/lib/sound'
 import { interval, vigil, type Due } from '@/lib/vigil'
 import { Empty, Kbd, Page, toast } from './ui'
 import { Textarea } from '@/components/ui/textarea'
+import { Tip } from '@/components/vigil/ui'
 
 /** The four grades, as the plan defines them: how the retrieval felt, not whether it was right. */
 const GRADES = [
@@ -148,10 +149,10 @@ export function ReviewView(): React.JSX.Element {
             {card.context && <p className="-mt-2 text-sm leading-relaxed whitespace-pre-line text-muted-foreground">{card.context}</p>}
             <div className="grid grid-cols-4 gap-2">
               {GRADES.map(({ grade: value, label, hint, tone }) => (
+                <Tip key={value} label={hint}>
                 <button
-                  key={value}
                   type="button"
-                  title={hint}
+                
                   onClick={() => grade(value)}
                   className="flex flex-col items-center gap-1 rounded-lg border px-3 py-2.5 transition-all hover:-translate-y-px hover:bg-accent active:translate-y-0"
                 >
@@ -160,6 +161,7 @@ export function ReviewView(): React.JSX.Element {
                     {interval(card.intervals[value])} · <Kbd>{value}</Kbd>
                   </span>
                 </button>
+                </Tip>
               ))}
             </div>
           </>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { SlidersHorizontal } from 'lucide-react'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Tip } from '@/components/vigil/ui'
 
 /**
  * Display, the way Todoist and Linear do it: one button on a list that holds
@@ -114,12 +115,14 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [] }: {
   const Label = ({ children }: { children: string }): React.JSX.Element => <div className="mb-1.5 text-xs text-muted-foreground">{children}</div>
   return (
     <Popover open={open} onOpenChange={setOpen}>
+      <Tip label="Display  F">
       <PopoverTrigger asChild>
-        <button type="button" title="Display  F" className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] hover:bg-accent hover:text-foreground ${active ? 'text-foreground' : ''}`}>
+        <button type="button" className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] hover:bg-accent hover:text-foreground ${active ? 'text-foreground' : ''}`}>
           <SlidersHorizontal className="size-3.5" />
           Display{active ? ` · ${active}` : ''}
         </button>
-      </PopoverTrigger>
+        </PopoverTrigger>
+      </Tip>
       <PopoverContent align="end" className="w-80 space-y-4 p-3 text-sm">
         {groups.length > 0 && (
           <div>

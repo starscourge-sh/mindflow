@@ -6,6 +6,7 @@ import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { MindflowEditor } from './mindflow'
 import { AskWho } from './vigil/ui'
 import { Chips } from './vigil/display'
+import { Tip } from '@/components/vigil/ui'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 
@@ -71,9 +72,11 @@ export function Search({ onOpen, onClose }: { onOpen: (type: string, id: string)
               event.preventDefault()
             }}
           />
-          <button type="button" title="Show highlight pane" className={`rounded p-1 hover:bg-accent ${pane ? 'text-foreground' : 'text-muted-foreground'}`} onClick={() => setPane(!pane)}>
+          <Tip label="Show highlight pane">
+          <button type="button" className={`rounded p-1 hover:bg-accent ${pane ? 'text-foreground' : 'text-muted-foreground'}`} onClick={() => setPane(!pane)}>
             <PanelRight className="size-4" />
           </button>
+          </Tip>
         </label>
         <div className="flex flex-wrap items-center gap-3 border-b px-3 py-1.5">
           <Chips options={[{ id: 'name', label: 'Name only' }]} on={() => titleOnly} pick={() => setTitleOnly(!titleOnly)} />

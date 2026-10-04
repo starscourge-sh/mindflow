@@ -62,9 +62,10 @@ export function currentTheme(): Theme {
  * repaints the ramp underneath it. The page is transparent over the desktop
  * either way, so there is no second set of rules to switch to.
  */
-export function applyTheme(theme: Theme): void {
+export function applyTheme(theme: Theme, remember = true): void {
   const { classList } = document.documentElement
   classList.add("dark")
   for (const other of THEMES) if (other !== "dark") classList.toggle(other, theme === other)
-  localStorage.setItem("theme", theme)
+  // A preview is worn, not kept, so the other window does not follow it.
+  if (remember) localStorage.setItem("theme", theme)
 }

@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { useLive, vigil, type Pin as Pinned } from '@/lib/vigil'
+import { Tip } from '@/components/vigil/ui'
 
 /**
  * Pinned: what you parked to see again soon, "mention the freight change at
@@ -42,14 +43,16 @@ export function Pins(): React.JSX.Element | null {
                   )}
                 </span>
               )}
+              <Tip label="Unpin">
               <button
                 type="button"
-                title="Unpin"
+              
                 className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground"
                 onClick={() => void vigil.pin(table, pin.id, false)}
               >
                 <X className="size-3.5" />
               </button>
+              </Tip>
             </motion.div>
           )
         })}

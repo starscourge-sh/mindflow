@@ -39,6 +39,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
+import { Tip } from '@/components/vigil/ui'
 
 
 
@@ -141,32 +142,36 @@ const Header = ({ onNew }: { onNew: () => void }): React.JSX.Element => {
       <div className="flex w-full" style={{ padding: '0rem 4.75rem' } as CSSProperties}>
         <WindowDots />
         <span className="flex-1" />
+        <Tip label="New capture ⌘N">
         <button
           type="button"
           tabIndex={-1}
           className="mf-expand"
           aria-label="New capture"
-          title="New capture ⌘N"
+        
           style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
           onClick={onNew}
         >
           <SquarePen />
         </button>
+        </Tip>
         {/* The strip is the window's drag handle, so the one thing on it that is
           not a handle has to say so, or the click never lands. Out of the tab
           order for the same reason the close button is: it is a window
           control, not part of the note. */}
+        <Tip label={`${expanded ? 'Shrink' : 'Expand'} \u2303\u21e7F`}>
         <button
           type="button"
           tabIndex={-1}
           className="mf-expand"
           aria-label={expanded ? 'Shrink the window' : 'Expand the window'}
-          title={`${expanded ? 'Shrink' : 'Expand'} \u2303\u21e7F`}
+        
           style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
           onClick={toggle}
         >
           {expanded ? <Minimize2 /> : <Maximize2 />}
         </button>
+        </Tip>
       </div>
       <div className="w-full shadow-xl px-[4.75rem]">
         <div className="h-[2px] w-full bg-background/10 shadow-xl" />
@@ -419,14 +424,16 @@ export default function App(): React.JSX.Element {
                 <span className="truncate px-1.5 text-xs text-muted-foreground/70">{ASKS[kind].why}</span>
               )}
               {like && (
+                <Tip label={like.title}>
                 <button
                   type="button"
                   onClick={() => openCapture(like.id)}
                   className="ml-auto max-w-56 truncate text-xs text-muted-foreground hover:text-foreground"
-                  title={like.title}
+                
                 >
                   You wrote something like this: MF-{like.number}
                 </button>
+                </Tip>
               )}
             </div>
             {/* A hint sits at the foot of the box: a glance at something you
@@ -451,14 +458,16 @@ export default function App(): React.JSX.Element {
                 </Tooltip>
               </div>
               {/* Create, bottom right, where the eye ends up. */}
+              <Tip label="Save  ⌘↵  ·  keep going  ⌥⌘↵">
               <button
                 type="button"
                 onClick={() => submit()}
-                title="Save  ⌘↵  ·  keep going  ⌥⌘↵"
+              
                 className="ml-auto flex h-7 items-center gap-1.5 rounded-md bg-accent px-2.5 text-[13px] text-foreground transition-colors hover:bg-accent/70"
               >
                 {editing ? 'Done' : 'Create'} <kbd className="font-sans text-[11px] text-muted-foreground">⌘↵</kbd>
               </button>
+              </Tip>
             </main>
           </div>
           <SourceDrawer open={source} doc={body} onOpenChange={setSource} />
@@ -636,14 +645,14 @@ function SidePanel({ captures, editing, onOpen }: {
     <div className="relative flex h-full w-full flex-col p-2">
       <div className="mb-2 flex gap-1 rounded-lg bg-accent/40 p-0.5 text-sm">
         {tabs.map((one) => (
+          <Tip key={one.id} label={`⌃${tabs.indexOf(one) + 1}`}>
           <button
-            key={one.id}
             type="button"
             onClick={() => {
               if (tab !== one.id) chime('tap')
               setTab(one.id)
             }}
-            title={`⌃${tabs.indexOf(one) + 1}`}
+          
             className={`relative flex flex-1 items-center justify-center gap-1.5 rounded-md py-1 transition-colors ${tab === one.id ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
           >
             {/* One pill that slides between tabs rather than three that blink. */}
@@ -653,6 +662,7 @@ function SidePanel({ captures, editing, onOpen }: {
             {one.label}
             {one.count ? <span className="text-xs tabular-nums text-muted-foreground">{one.count}</span> : null}
           </button>
+          </Tip>
         ))}
       </div>
       <AnimatePresence mode="wait" initial={false}>

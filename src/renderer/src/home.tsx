@@ -40,6 +40,7 @@ import { TasksView } from './components/vigil/tasks-view'
 import { Kbd, Toaster, toast } from './components/vigil/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import { useAppearance, useLive, vigil, type Item, type Settings, type Task } from './lib/vigil'
+import { Tip } from '@/components/vigil/ui'
 
 type View = { id: string; focus?: string }
 
@@ -181,15 +182,17 @@ export function Home(): React.JSX.Element {
           {SECTIONS.find((section) => section.id === view.id)?.label ?? (kind ? kind.label : view.id === 'settings' ? 'Settings' : '')}
         </span>
         <span className="flex-1" />
+        <Tip label="New capture  C">
         <button
           type="button"
-          title="New capture  C"
+        
           onClick={() => window.api.showPrompt()}
           style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
           className="flex items-center gap-1.5 rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <SquarePen className="size-4" /> New
         </button>
+        </Tip>
       </header>
 
       <div className="flex min-h-0 flex-1">
@@ -274,15 +277,17 @@ export function Home(): React.JSX.Element {
           ))}
 
         <div className="mt-auto flex flex-col gap-px pt-4">
+          <Tip label="⌥⌘S">
           <button
             type="button"
             onClick={safeMode}
-            title="⌥⌘S"
+          
             className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-accent/60 ${settings?.safeMode ? 'text-[var(--tt-brand-color-400)]' : 'text-foreground/80'}`}
           >
             {settings?.safeMode ? <Shield className="size-4" /> : <ShieldOff className="size-4" />}
             <span className="flex-1 text-left">{settings?.safeMode ? 'Safe mode on' : 'Safe mode'}</span>
           </button>
+          </Tip>
           <button
             type="button"
             onClick={() => setView({ id: 'settings' })}

@@ -4,6 +4,7 @@ import type { JSONContent } from '@tiptap/core'
 import { EXITS, captureKey, takeExit } from '@/lib/capture-links'
 import { chime } from '@/lib/sound'
 import { AskWho, toast } from './vigil/ui'
+import { Tip } from '@/components/vigil/ui'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.rot>>[number]
 
@@ -82,24 +83,27 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
               {captureKey(card.number)} · {new Date(card.capturedAt).toLocaleDateString()}
             </span>
             {EXITS.map((one) => (
+              <Tip key={one.key} label={`${one.label} (${one.key})`}>
               <button
-                key={one.key}
                 type="button"
                 className="rounded px-1.5 py-0.5 opacity-70 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 hover:bg-accent hover:text-foreground"
-                title={`${one.label} (${one.key})`}
+              
                 onClick={() => exit(card.id, one.status)}
               >
                 {one.label}
               </button>
+              </Tip>
             ))}
+            <Tip label="Who said it (w)">
             <button
               type="button"
               className="rounded px-1.5 py-0.5 opacity-70 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 hover:bg-accent hover:text-foreground"
-              title="Who said it (w)"
+            
               onClick={() => setAsking(card.id)}
             >
               {card.attribution ?? 'Who?'}
             </button>
+            </Tip>
           </div>
           )}
         </div>

@@ -3,6 +3,7 @@ import { Download } from 'lucide-react'
 
 import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
+import { ThemePicker } from '../theme/theme-picker'
 import { Switch } from '@/components/ui/switch'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
 import { SoundPacks } from './sound-packs'
@@ -54,6 +55,9 @@ export function SettingsView(): React.JSX.Element {
   return (
     <Page title="Settings">
       <div ref={page} className="mx-auto max-w-2xl px-6 pb-16">
+        <Setting title="Theme" note="The colours of every window: the prompt and this one change together. Point at one to try it, click to keep it.">
+          <ThemePicker className="h-8 gap-1.5 rounded-full px-2 hover:bg-accent" />
+        </Setting>
         <Setting title="Full width" note="Off, pages sit in a centred column the way Notion lays them out, with room either side. On, the writing runs edge to edge.">
           <Switch checked={settings.fullWidth} onCheckedChange={(fullWidth) => set({ fullWidth })} />
         </Setting>
