@@ -260,9 +260,9 @@ export function Toaster(): React.JSX.Element | null {
     <Asker />
     {shown && <div
       key={shown.key}
-      // A pill with an edge and a mark, like the kind chip: it has to be seen
+      // An edge and a mark, with the buttons' corners: it has to be seen
       // from the corner of the eye, on any theme.
-      className="fixed right-5 bottom-5 z-50 flex items-center gap-2 rounded-full border border-border bg-popover py-1.5 pr-4 pl-2.5 text-sm font-medium shadow-[0_8px_24px_-6px_rgb(0_0_0/0.5)] animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]"
+      className="fixed right-5 bottom-5 z-50 flex items-center gap-2 rounded-md border border-border bg-popover py-1.5 pr-3.5 pl-2.5 text-sm font-medium shadow-[0_8px_24px_-6px_rgb(0_0_0/0.5)] animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]"
     >
       <CircleCheck className="size-4 shrink-0 text-[var(--tt-brand-color-400)]" />
       <span>{shown.text}</span>
