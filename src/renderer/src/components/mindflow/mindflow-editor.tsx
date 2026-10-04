@@ -419,6 +419,8 @@ export interface MindflowEditorProps {
    * HTML as well without holding its own reference.
    */
   onChange?: (doc: JSONContent, editor: Editor) => void
+  /** The editor, once built: for a caller that must read it now, not after the pause onChange waits for. */
+  onReady?: (editor: Editor) => void
 }
 
 /**
@@ -467,6 +469,7 @@ function Surface({
   onOpenNote,
   onTokenClick,
   onChange,
+  onReady,
 }: MindflowEditorProps = {}): React.JSX.Element {
 
   // Before the editor exists, because an input rule or a paste handler can ask
@@ -1001,6 +1004,7 @@ function Surface({
     content: defaultContent,
     // A string is Markdown: what an imported note, or one pasted from a file, is.
     contentType: typeof defaultContent === "string" ? "markdown" : "json",
+    onCreate: ({ editor: instance }) => onReady?.(instance),
     onUpdate: ({ editor: instance }) => {
       if (!latest.current) return
       // Serialising a long document on every keystroke is real work; the caller

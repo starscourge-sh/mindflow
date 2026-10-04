@@ -210,7 +210,7 @@ function ItemDetail({ item }: { item: ItemFull }): React.JSX.Element {
         <MindflowEditor
           host={window.api}
           tokens={TAGS}
-          toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: item.captureId ?? undefined, cite: item.cite }) }}
+          toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: item.captureId ?? undefined, attribution: item.attribution }) }}
           documentId={`item-${item.id}`}
           defaultContent={(item.body as JSONContent | string | null) ?? ''}
           findNotes={findCaptures}
@@ -310,9 +310,9 @@ function ItemDetail({ item }: { item: ItemFull }): React.JSX.Element {
         <label className="flex items-center gap-2 rounded-md px-2 py-1.5 focus-within:text-foreground hover:bg-accent">
           <Quote className="size-4 shrink-0" />
           <input
-            defaultValue={item.cite ?? ''}
+            defaultValue={item.attribution ?? ''}
             placeholder="Who, or where from"
-            onBlur={(event) => void vigil.saveItem(item.id, { cite: event.target.value.trim() || null })}
+            onBlur={(event) => void vigil.saveItem(item.id, { attribution: event.target.value.trim() || null })}
             className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground"
           />
         </label>

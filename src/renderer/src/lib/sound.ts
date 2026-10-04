@@ -175,7 +175,11 @@ export function installTicks(): () => void {
     // The Settings preview plays its own sounds, through the pack being tried.
     if ((event.target as Element | null)?.closest('[data-silent]')) return
     if (performance.now() - scrolledAt < 160) return
-    const target = (event.target as Element | null)?.closest('button, [role="button"], [role="tab"], a[href], [tabindex="0"]') ?? null
+    // The outermost thing you can press: a card and the buttons on it are one
+    // sound, made on arriving at the card, not one more for each button.
+    const PRESSABLE = 'button, [role="button"], [role="tab"], a[href], [tabindex="0"]'
+    let target = (event.target as Element | null)?.closest(PRESSABLE) ?? null
+    for (let outer = target?.parentElement?.closest(PRESSABLE); outer; outer = outer.parentElement?.closest(PRESSABLE)) target = outer
     if (target === over) return
     over = target
     // A row can name its own sound; anything else gets the soft click.

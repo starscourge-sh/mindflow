@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { randomUUID } from 'crypto'
 import { DatabaseSync } from 'node:sqlite'
+import { z } from 'zod'
 import { join } from 'path'
 
 import { backUp, writeMarkdown } from './backup'
@@ -12,6 +13,8 @@ export interface CaptureMeta {
   /** Counts up from 1, for the short `MF-30` handle. */
   number: number
   title: string
+  /** The title, or the first line when there is none: what lists show. */
+  label: string
   kind: string
   status: string
   /** The file an imported capture came from; empty for one typed here. */
@@ -22,10 +25,12 @@ export interface CaptureMeta {
   /** When it will pin itself, if a reminder is set. */
   remindAt: string | null
   capturedAt: string
-  /** 1 when it was captured to be let go of: searchable, never offered back. */
-  discharge: number
-  /** Where it came from, in your words: "Kayla, standup", a book, a podcast. */
-  cite: string | null
+  /** Who said it: "George Orwell", "Kayla". Null means the words are yours. */
+  attribution: string | null
+  /** Where you met it: "YouTube", "book", "meeting". Free text. */
+  medium: string | null
+  /** When it took an exit; null while open. */
+  closedAt: string | null
 }
 
 export interface Capture extends CaptureMeta {
@@ -52,7 +57,23 @@ let db: DatabaseSync
 /** The open database, for the rest of the main process. */
 export const database = (): DatabaseSync => db
 
-export const LIST = 'id, number, title, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, discharge, cite'
+/**
+ * What a window may send to make or change a capture, checked here rather
+ * than trusted: `as CapturePatch` is a hope, this is a check. The kinds are
+ * the brief's eight.
+ */
+const KINDS = ['note', 'todo', 'quote', 'word', 'link', 'excerpt', 'decision', 'bit'] as const
+const Patch = z.object({
+  title: z.string().optional(),
+  kind: z.enum(KINDS).optional(),
+  status: z.enum(['open', 'promoted', 'resolved', 'discarded']).optional(),
+  body: z.unknown().optional(),
+  markdown: z.string().optional()
+})
+
+/** The name a capture is shown by: its title, or with none, its first line of text. Worked out on reading, never stored. */
+export const LABEL = "coalesce(nullif(title, ''), (select value from json_tree(captures.body) where key = 'text' limit 1), '')"
+export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, attribution, medium, exited_at as closedAt`
 
 /** Tell every window the list changed, so whichever is showing it reloads. */
 export const changed = (): void => {
@@ -126,7 +147,7 @@ export function registerCaptures(): void {
     db
       .prepare(
         `select ${LIST} from captures
-         where title like ? or ('MF-' || number) like ?
+         where ${LABEL} like ? or ('MF-' || number) like ?
          order by captured_at desc limit 8`
       )
       .all(`%${query}%`, `${query}%`)
@@ -143,10 +164,13 @@ export function registerCaptures(): void {
 
   ipcMain.handle('captures:get', (_event, id: unknown) => {
     const row = db.prepare(`select ${LIST}, body from captures where id = ?`).get(String(id))
+    // Opening it is a use: the first one sets its time to first use.
+    db.prepare("update captures set first_used_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') where id = ? and first_used_at is null and julianday('now') - julianday(captured_at) > 1.0 / 1440").run(String(id))
     return row ? { ...row, body: JSON.parse(row.body as string) } : null
   })
 
-  ipcMain.handle('captures:create', (_event, patch: CapturePatch) => {
+  ipcMain.handle('captures:create', (_event, raw: unknown) => {
+    const patch = Patch.parse(raw)
     const { id, number } = insert(patch, new Date().toISOString())
     if (patch.markdown !== undefined) void writeMarkdown(number, patch.markdown)
     changed()
@@ -154,7 +178,8 @@ export function registerCaptures(): void {
   })
 
   // Only the fields passed are written. `coalesce` keeps the rest as they were.
-  ipcMain.handle('captures:save', (_event, id: unknown, patch: CapturePatch) => {
+  ipcMain.handle('captures:save', (_event, id: unknown, raw: unknown) => {
+    const patch = Patch.parse(raw)
     const row = db.prepare(
       `update captures set
          title  = coalesce(?, title),
@@ -172,7 +197,6 @@ export function registerCaptures(): void {
     )
     // When an exit was taken, for the lead measures: "did you take an exit
     // this week" needs the day, not only the state.
-    if (patch.status) db.prepare("update captures set exited_at = case when ? = 'open' then null else ? end where id = ?").run(patch.status, new Date().toISOString(), String(id))
     if (row && patch.markdown !== undefined) void writeMarkdown(row.number as number, patch.markdown)
     changed()
   })

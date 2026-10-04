@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ThumbsDown, ThumbsUp, X } from 'lucide-react'
+import { ArrowUpRight, ThumbsDown, ThumbsUp, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { textOf } from './rot-cards'
@@ -15,7 +15,7 @@ type Hint = NonNullable<Awaited<ReturnType<typeof window.api.hints.next>>>
  * screen. Up and down change how often it comes back; doing nothing is the
  * normal case and says nothing. It never grades and never schedules.
  */
-export function HintCard(): React.JSX.Element | null {
+export function HintCard({ onOpen }: { onOpen: (captureId: string) => void }): React.JSX.Element | null {
   const [hint, setHint] = useState<Hint | null>(null)
   const shownAt = useRef(0)
 
@@ -82,7 +82,7 @@ export function HintCard(): React.JSX.Element | null {
           exit={{ opacity: 0, height: 0, marginBottom: 0, transition: { duration: 0.2 } }}
           transition={{ type: 'spring', stiffness: 380, damping: 30 }}
           onAnimationStart={() => chime('hint')}
-          className="mb-4 overflow-hidden rounded-lg bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,transparent)] px-3 py-2.5 text-sm"
+          className="mt-2 mb-3 overflow-hidden rounded-lg bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,transparent)] px-3 py-2.5 text-sm"
         >
           <div className="line-clamp-6 whitespace-pre-line">{textOf(hint.body)}</div>
           {asking ? (
@@ -103,6 +103,15 @@ export function HintCard(): React.JSX.Element | null {
           ) : (
             <div className="mt-2 flex items-center gap-1 text-muted-foreground [&_svg]:size-3.5">
               <span className="mr-auto text-xs">Hint · {hint.kind}</span>
+              {/* Open, or let it go: a hint asks nothing else of you. */}
+              {hint.captureId && (
+                <button type="button" className="rounded p-1 hover:bg-accent" title="Open" onClick={() => {
+                  onOpen(hint.captureId!)
+                  setHint(null)
+                }}>
+                  <ArrowUpRight />
+                </button>
+              )}
               <button type="button" className="rounded p-1 hover:bg-accent" title="More of this  ⌃⇧↑" onClick={() => react('up')}>
                 <ThumbsUp />
               </button>

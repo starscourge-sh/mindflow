@@ -1,9 +1,10 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { PanelRight, Search as SearchIcon } from 'lucide-react'
 import type { JSONContent } from '@tiptap/core'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { MindflowEditor } from './mindflow'
+import { AskWho } from './vigil/ui'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 
@@ -22,6 +23,9 @@ export function Search({ onOpen, onClose }: { onOpen: (id: string) => void; onCl
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Capture[]>([])
   const [at, setAt] = useState(0)
+  // Tab on a result asks who said it, without leaving search.
+  const [asking, setAsking] = useState(false)
+  const box = useRef<HTMLInputElement>(null)
   // Notion's highlight pane: on by default, and a button to put it away.
   const [pane, setPane] = useState(true)
   useEffect(() => {
@@ -38,6 +42,7 @@ export function Search({ onOpen, onClose }: { onOpen: (id: string) => void; onCl
         <label className="flex items-center gap-3 border-b px-4 py-3">
           <SearchIcon className="size-4 text-muted-foreground" />
           <input
+            ref={box}
             autoFocus
             className="flex-1 bg-transparent outline-none"
             placeholder="Search captures…"
@@ -46,6 +51,7 @@ export function Search({ onOpen, onClose }: { onOpen: (id: string) => void; onCl
             onKeyDown={(event) => {
               if (event.key === 'Escape') onClose()
               else if (event.key === 'Enter' && current) onOpen(current.id)
+              else if (event.key === 'Tab' && current) setAsking(true)
               // The arrows, or Ctrl-J and Ctrl-K: the editor's vim, carried into the box.
               else if (event.key === 'ArrowDown' || (event.ctrlKey && event.key === 'j')) setAt((n) => Math.min(n + 1, results.length - 1))
               else if (event.key === 'ArrowUp' || (event.ctrlKey && event.key === 'k')) setAt((n) => Math.max(n - 1, 0))
@@ -75,9 +81,19 @@ export function Search({ onOpen, onClose }: { onOpen: (id: string) => void; onCl
                     onClick={() => onOpen(capture.id)}
                   >
                     <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
-                    <span className="truncate">{capture.title || 'Untitled'}</span>
+                    <span className="truncate">{capture.label || 'Untitled'}</span>
                     {capture.source && <span className="shrink-0 truncate text-xs text-muted-foreground">— {capture.source.replace(/\.md$/, '')}</span>}
+                    {index === at && !asking && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{capture.attribution ?? 'Tab: who said it'}</span>}
                   </button>
+                  {index === at && asking && (
+                    <div className="px-8 pb-1">
+                      <AskWho id={capture.id} onDone={() => {
+                        setAsking(false)
+                        box.current?.focus()
+                        void window.api.captures.find(query).then(setResults)
+                      }} />
+                    </div>
+                  )}
                 </Fragment>
               )
             })}

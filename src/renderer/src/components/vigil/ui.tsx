@@ -259,6 +259,8 @@ export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX
     return () => box.removeEventListener('scroll', check)
   }, [target])
   return (
+    // Centred in a strip of its own, so the spring can own the button's transform.
+    <div className="pointer-events-none absolute inset-x-0 bottom-5 z-20 flex justify-center">
     <AnimatePresence>
       {shown && (
         <motion.button
@@ -275,11 +277,65 @@ export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX
             if (target.scrollTop > target.clientHeight * 2) target.scrollTop = target.clientHeight
             target.scrollTo({ top: 0, behavior: 'smooth' })
           }}
-          className="absolute right-4 bottom-4 z-20 flex items-center gap-1.5 rounded-full bg-popover px-3 py-1.5 text-xs text-muted-foreground shadow-[0_6px_20px_-6px_rgb(0_0_0/0.5)] hover:text-foreground"
+          className="pointer-events-auto flex items-center gap-1 rounded-full bg-popover/85 py-1 pr-3 pl-2 font-sans text-xs font-medium text-muted-foreground shadow-[0_0_0_1px_var(--border),0_8px_24px_-8px_rgb(0_0_0/0.6)] backdrop-blur-md transition-colors hover:text-foreground"
         >
           <ArrowUp className="size-3.5" /> Top
         </motion.button>
       )}
     </AnimatePresence>
+    </div>
+  )
+}
+
+/** What you have typed before in a field, most used first, for its autocomplete. */
+export function Remembered({ field, value, onChange, placeholder, className = 'w-28', ...rest }: {
+  field: 'attribution' | 'medium'
+  value: string
+  onChange: (value: string) => void
+  placeholder: string
+  className?: string
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>): React.JSX.Element {
+  const values = useLive(() => vigil.values(field), [] as string[])
+  return (
+    <>
+      <input
+        {...rest}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        list={`remembered-${field}`}
+        placeholder={placeholder}
+        className={`${className} rounded-md bg-transparent px-1.5 py-0.5 text-xs text-muted-foreground outline-none placeholder:text-muted-foreground/60 hover:bg-accent/50 focus:bg-accent/50 focus:text-foreground`}
+      />
+      <datalist id={`remembered-${field}`}>
+        {values.map((one) => <option key={one} value={one} />)}
+      </datalist>
+    </>
+  )
+}
+
+/**
+ * Who said it, asked in place: one key from a rot card or a search result
+ * opens it, Enter keeps it, Escape leaves it as it was.
+ */
+export function AskWho({ id, onDone }: { id: string; onDone: () => void }): React.JSX.Element {
+  const [who, setWho] = useState('')
+  return (
+    <Remembered
+      autoFocus
+      field="attribution"
+      value={who}
+      onChange={setWho}
+      placeholder="Who said it?  ↵"
+      className="w-full text-[13px]"
+      onBlur={onDone}
+      onKeyDown={(event) => {
+        event.stopPropagation()
+        if (event.key === 'Escape') onDone()
+        if (event.key !== 'Enter') return
+        event.preventDefault()
+        if (who.trim()) void vigil.setCapture(id, 'attribution', who.trim()).then(() => toast(`Said by ${who.trim()}`))
+        onDone()
+      }}
+    />
   )
 }

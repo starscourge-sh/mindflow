@@ -136,10 +136,10 @@ export function StatsView(): React.JSX.Element {
         <Section title="Is it working">
           <p>
             {stats.firstUse === null ? (
-              'Nothing has been promoted yet, so there is no time from capture to first use to measure.'
+              'Nothing has been opened, acted on or given an exit since it was captured, so there is no time to first use to measure yet.'
             ) : (
               <>
-                A capture waits <N>{stats.firstUse.toFixed(1)} days</N> on average before it is first used. If that falls over the months, the app is doing what it is for.
+                A capture waits <N>{stats.firstUse.toFixed(1)} days</N> on average before it is first opened, acted on or given an exit. If that falls over the months, the app is doing what it is for.
               </>
             )}
           </p>

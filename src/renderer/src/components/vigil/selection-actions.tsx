@@ -11,7 +11,7 @@ import { toast } from './ui'
  * task without leaving the note. The new thing remembers where it came from:
  * the note's source is inherited, never invented at the point of selection.
  */
-export function selectionActions(origin: { captureId?: string; cite?: string | null }) {
+export function selectionActions(origin: { captureId?: string; attribution?: string | null }) {
   return (editor: Editor): React.JSX.Element => {
     const words = (): string => {
       const { from, to } = editor.state.selection

@@ -5,7 +5,7 @@ import { join } from 'path'
 import * as chrono from 'chrono-node'
 import { createEmptyCard, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
 
-import { LIST, changed, database } from './captures'
+import { LABEL, LIST, changed, database } from './captures'
 
 /**
  * Everything past the capture: nuggets and articles, the review queue, tasks,
@@ -18,6 +18,7 @@ import { LIST, changed, database } from './captures'
  */
 
 const now = (): string => new Date().toISOString()
+const ago = (days: number): string => new Date(Date.now() - days * 86400000).toISOString()
 const body = <T extends { body?: unknown }>(row: T): T => ({ ...row, body: JSON.parse((row.body as string) ?? 'null') })
 
 /** A document's words, whether it is Markdown or the editor's JSON. */
@@ -159,6 +160,26 @@ export function registerVigil(): void {
       // Already there.
     }
   }
+  // The tables first, so a new database gets every column added below.
+  db.exec(`
+    create table if not exists tasks (
+      id text primary key, number integer, title text not null, notes text,
+      status text not null default 'open', due_at text, all_day integer not null default 0,
+      recurrence text, origin_capture_id text, created_at text not null, completed_at text
+    );
+    create table if not exists task_done (task_id text not null, done_at text not null);
+    create table if not exists glosses (id text primary key, item_id text not null, body text not null, author text not null default 'user', created_at text not null);
+    create table if not exists review_log (item_id text not null, grade integer not null, reviewed_at text not null, ms integer, first integer not null default 0);
+    create table if not exists settings (key text primary key, value text not null);
+  `)
+  // Renamed in place, so what was typed as a source is kept as attribution.
+  for (const table of ['captures', 'nuggets']) {
+    try {
+      db.exec(`alter table ${table} rename column cite to attribution`)
+    } catch {
+      // Already renamed, or never had it.
+    }
+  }
   column('captures', 'private integer not null default 0')
   column('captures', 'pinned_at text')
   column('nuggets', "tier text not null default 'nugget'")
@@ -176,10 +197,23 @@ export function registerVigil(): void {
   column('tasks', 'waiting_on text')
   column('hint_events', 'dwell_ms integer')
   column('captures', 'discharge integer not null default 0')
-  column('captures', 'cite text')
+  column('captures', 'attribution text')
+  column('captures', 'medium text')
   column('captures', 'exited_at text')
   column('captures', 'session_id text')
-  column('nuggets', 'cite text')
+  column('captures', 'first_used_at text')
+  column('captures', 'surfaced_at text')
+  // Kept by the database, so no exit can forget them: when a capture left the
+  // inbox, and when it was first used (opened, exited or given a who or where),
+  // which time to first use is measured by. Not in its first minute: that is
+  // still the capturing.
+  const stamp = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
+  db.exec(`create trigger if not exists capture_exit after update of status on captures when new.status is not old.status begin
+      update captures set exited_at = case when new.status = 'open' then null else ${stamp} end where id = new.id; end;
+    create trigger if not exists capture_used after update of status, attribution, medium on captures
+      when new.first_used_at is null and julianday('now') - julianday(new.captured_at) > 1.0 / 1440 begin
+      update captures set first_used_at = ${stamp} where id = new.id; end;`)
+  column('nuggets', 'attribution text')
   column('nuggets', 'context text')
   column('nuggets', "mode text not null default 'encounter'")
   column('tasks', 'subtasks text')
@@ -196,22 +230,24 @@ export function registerVigil(): void {
   db.exec(`create table if not exists tag_meta (tag text primary key, color text, action integer not null default 0);
     insert or ignore into tag_meta (tag, color, action) values ('bug', 'red', 1), ('fix', 'orange', 1), ('feature', 'blue', 1), ('improvement', 'green', 1);`)
   column('tag_meta', 'alias_of text')
-  db.exec(`
-    create table if not exists tasks (
-      id text primary key, number integer, title text not null, notes text,
-      status text not null default 'open', due_at text, all_day integer not null default 0,
-      recurrence text, origin_capture_id text, created_at text not null, completed_at text
-    );
-    create table if not exists task_done (task_id text not null, done_at text not null);
-    create table if not exists glosses (id text primary key, item_id text not null, body text not null, author text not null default 'user', created_at text not null);
-    create table if not exists review_log (item_id text not null, grade integer not null, reviewed_at text not null, ms integer, first integer not null default 0);
-    create table if not exists settings (key text primary key, value text not null);
-  `)
 
   // One-time changes, counted in the file itself. Bits default private: the
   // plan's one fail-safe kind, where the screen-share risk actually lives.
-  if ((db.prepare('pragma user_version').get() as { user_version: number }).user_version < 1) {
+  const version = (db.prepare('pragma user_version').get() as { user_version: number }).user_version
+  if (version < 1) {
     db.exec("update captures set private = 1 where kind = 'bit'; update nuggets set private = 1 where kind = 'bit'; pragma user_version = 1")
+  }
+  // The eight kinds: a kind is what you can tell apart, at capture and at
+  // review. Tip, idea and question failed that and become notes; a turn of
+  // phrase is a quote. Keep-or-offload is gone: everything open waits.
+  if (version < 2) {
+    db.exec(`
+      update captures set kind = 'quote' where kind = 'saying';
+      update captures set kind = 'note' where kind in ('tip', 'idea', 'question', 'self');
+      update nuggets set kind = 'quote' where kind = 'saying';
+      update nuggets set kind = 'note' where kind in ('tip', 'idea', 'question', 'self');
+      update captures set discharge = 0;
+      pragma user_version = 2`)
   }
 
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
@@ -230,7 +266,7 @@ export function registerVigil(): void {
   )
 
   // A few capture fields set one at a time from the properties column.
-  const CAPTURE_FIELDS = { discharge: 'discharge', cite: 'cite', capturedAt: 'captured_at' } as const
+  const CAPTURE_FIELDS = { attribution: 'attribution', medium: 'medium', capturedAt: 'captured_at' } as const
   handle('capture:set', (id: string, field: keyof typeof CAPTURE_FIELDS, value: string | number | null) => {
     const column = CAPTURE_FIELDS[field]
     if (!column) return null
@@ -242,6 +278,13 @@ export function registerVigil(): void {
     db.prepare('update captures set session_id = (select id from sessions where ended_at is null order by started_at desc limit 1) where id = ?').run(id)
   )
 
+  // What you have typed before in a field, most used first: the autocomplete
+  // for attribution and medium. Never a preset list: seeding "book, podcast"
+  // would lean you toward medium, the less useful half.
+  handle('values', (field: 'attribution' | 'medium') =>
+    (db.prepare(`select ${field} as v, count(*) n from captures where ${field} is not null and ${field} != '' group by v order by n desc limit 50`).all() as { v: string }[]).map((row) => row.v)
+  )
+
   // --- the capture exits
   // Promote: a nugget made from the capture, which stays as it was. A word
   // comes with its prompt, the one kind with a natural question and answer.
@@ -250,13 +293,13 @@ export function registerVigil(): void {
     if (!capture) return null
     // A quote's whole claim is "someone said this", so it does not become a
     // nugget until it says who.
-    if (capture.kind === 'quote' && !capture.cite && !/^[^:]{2,40}:/.test(capture.title)) return 'needs-source'
+    if (capture.kind === 'quote' && !capture.attribution && !/^[^:]{2,40}:/.test(capture.title)) return 'needs-source'
     const nugget = randomUUID()
     db.prepare(
-      `insert into nuggets (id, capture_id, kind, title, body, prompt, private, cite, mode, created_at, updated_at)
+      `insert into nuggets (id, capture_id, kind, title, body, prompt, private, attribution, mode, created_at, updated_at)
        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(nugget, id, capture.kind, capture.title, capture.body, capture.kind === 'word' ? `What does "${capture.title}" mean?` : null,
-      capture.private, capture.cite, capture.kind === 'self' ? 'pushed' : 'encounter', now(), now())
+      capture.private, capture.attribution, 'encounter', now(), now())
     db.prepare("update captures set status = 'promoted' where id = ?").run(id)
     return write(nugget)
   }
@@ -276,13 +319,18 @@ export function registerVigil(): void {
   ipcMain.handle('captures:rot', () => {
     const { blackout, hidePrivate } = gate()
     if (blackout) return []
-    return db
+    // Not one whose nugget was a hint in the last three days, and the same the
+    // other way: the same thing twice in a row is a nag, not a surprise.
+    const rot = db
       .prepare(
-        `select ${LIST}, body from captures where status = 'open' and discharge = 0 ${hidePrivate ? 'and private = 0' : ''}
+        `select ${LIST}, body from captures where status = 'open' ${hidePrivate ? 'and private = 0' : ''}
+         and id not in (select capture_id from nuggets where capture_id is not null and last_visited_at >= ?)
          order by (julianday('now') - julianday(captured_at) + 1) * (abs(random()) % 1000) desc limit ${Math.max(0, Math.min(10, settings().rotCount))}`
       )
-      .all()
+      .all(ago(3))
       .map(body)
+    for (const row of rot) db.prepare('update captures set surfaced_at = ? where id = ?').run(now(), row.id as string)
+    return rot
   })
 
   // One hint: a nugget or article, picked at random but leaning towards the
@@ -294,16 +342,16 @@ export function registerVigil(): void {
     // A third of the time, a note-to-self on rotation: the one that has gone
     // longest unseen, unconditionally. Otherwise a weighted random encounter.
     const pushed = Math.random() < 1 / 3
-      ? (db.prepare(`select id, kind, tier, title, body from nuggets where mode = 'pushed' and suspended = 0 ${hidePrivate ? 'and private = 0' : ''}
-          order by coalesce(last_visited_at, '') limit 1`).get() as Record<string, string> | undefined)
+      ? (db.prepare(`select id, capture_id as captureId, kind, tier, title, body from nuggets where mode = 'pushed' and suspended = 0 and coalesce(capture_id, '') not in (select id from captures where surfaced_at >= ?) ${hidePrivate ? 'and private = 0' : ''}
+          order by coalesce(last_visited_at, '') limit 1`).get(ago(3)) as Record<string, string> | undefined)
       : undefined
     const hint = pushed ?? db
       .prepare(
-        `select id, kind, tier, title, body from nuggets where suspended = 0 and mode != 'pushed' ${hidePrivate ? 'and private = 0' : ''}
+        `select id, capture_id as captureId, kind, tier, title, body from nuggets where suspended = 0 and mode != 'pushed' and coalesce(capture_id, '') not in (select id from captures where surfaced_at >= ?) ${hidePrivate ? 'and private = 0' : ''}
          order by (julianday('now') - julianday(coalesce(last_visited_at, '2000-01-01'))) * surfacing_weight * (abs(random()) % 1000) desc
          limit 1`
       )
-      .get() as Record<string, string> | undefined
+      .get(ago(3)) as Record<string, string> | undefined
     if (!hint) return null
     db.prepare('update nuggets set last_visited_at = ? where id = ?').run(now(), hint.id)
     const { lastInsertRowid } = db.prepare('insert into hint_events (nugget_id, shown_at) values (?, ?)').run(hint.id, now())
@@ -336,7 +384,7 @@ export function registerVigil(): void {
   // --- nuggets and articles
   const ITEM = `id, tier, kind, title, prompt, private, pinned_at as pinnedAt, due_at as dueAt, suspended,
     state is not null as reviewed, created_at as createdAt, capture_id as captureId, remind_at as remindAt,
-    (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses, cite, context, mode, superseded_by as supersededBy`
+    (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses, attribution, context, mode, superseded_by as supersededBy`
   handle('items', (tier: string) =>
     db.prepare(`select ${ITEM} from nuggets where tier = ? order by created_at desc`).all(tier)
   )
@@ -346,8 +394,8 @@ export function registerVigil(): void {
     const glosses = db.prepare('select id, body, author, created_at as createdAt from glosses where item_id = ? order by created_at').all(id)
     return { ...body(row), origins: JSON.parse((row.origins as string) ?? '[]'), glosses }
   })
-  handle('item:save', (id: string, patch: { body?: unknown; title?: string; prompt?: string | null; kind?: string; suspended?: boolean; cite?: string | null; context?: string | null; mode?: string }) => {
-    const allowed = ['body', 'title', 'prompt', 'kind', 'suspended', 'cite', 'context', 'mode']
+  handle('item:save', (id: string, patch: { body?: unknown; title?: string; prompt?: string | null; kind?: string; suspended?: boolean; attribution?: string | null; context?: string | null; mode?: string }) => {
+    const allowed = ['body', 'title', 'prompt', 'kind', 'suspended', 'attribution', 'context', 'mode']
     const sets = Object.entries(patch).filter(([key, value]) => value !== undefined && allowed.includes(key))
     // A meaningful change to something you are tested on brings it back sooner,
     // a 30% cut to what is left of its interval, never a reset: fixing a
@@ -388,21 +436,21 @@ export function registerVigil(): void {
   })
   // A nugget from selected words: the excerpt, with the note it came from and
   // that note's source carried down.
-  handle('nugget:from', (text: string, origin: { captureId?: string; cite?: string | null }) => {
+  handle('nugget:from', (text: string, origin: { captureId?: string; attribution?: string | null }) => {
     const id = randomUUID()
-    const cite = origin.cite ?? (origin.captureId ? (db.prepare('select cite from captures where id = ?').get(origin.captureId) as { cite: string | null } | undefined)?.cite : null)
-    db.prepare("insert into nuggets (id, capture_id, kind, title, body, cite, created_at, updated_at) values (?, ?, 'note', ?, ?, ?, ?, ?)")
-      .run(id, origin.captureId ?? null, text.split('\n')[0].slice(0, 160), JSON.stringify(text), cite ?? null, now(), now())
+    const attribution = origin.attribution ?? (origin.captureId ? (db.prepare('select attribution from captures where id = ?').get(origin.captureId) as { attribution: string | null } | undefined)?.attribution : null)
+    db.prepare("insert into nuggets (id, capture_id, kind, title, body, attribution, created_at, updated_at) values (?, ?, 'note', ?, ?, ?, ?, ?)")
+      .run(id, origin.captureId ?? null, text.split('\n')[0].slice(0, 160), JSON.stringify(text), attribution ?? null, now(), now())
     return write(id)
   })
   // Wrong, and corrected: the correction becomes its own nugget, the wrong one
   // leaves review at once and points to it. Nothing is deleted: the wrong
   // version beside the right one teaches more than either alone.
   handle('supersede', (id: string, truth: string) => {
-    const old = db.prepare('select kind, cite, private from nuggets where id = ?').get(id) as { kind: string; cite: string | null; private: number }
+    const old = db.prepare('select kind, attribution, private from nuggets where id = ?').get(id) as { kind: string; attribution: string | null; private: number }
     const fixed = randomUUID()
-    db.prepare('insert into nuggets (id, kind, title, body, cite, private, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(fixed, old.kind, truth.split('\n')[0].slice(0, 160), JSON.stringify(truth), old.cite, old.private, now(), now())
+    db.prepare('insert into nuggets (id, kind, title, body, attribution, private, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(fixed, old.kind, truth.split('\n')[0].slice(0, 160), JSON.stringify(truth), old.attribution, old.private, now(), now())
     db.prepare('update nuggets set superseded_by = ?, suspended = 1 where id = ?').run(fixed, id)
     return write(fixed)
   })
@@ -417,7 +465,7 @@ export function registerVigil(): void {
       ? { ...a, content: [...(a.content ?? []), ...(b.content ?? [])] }
       : `${plain(a)}\n\n${plain(b)}`
     db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(joined), into.id)
-    db.prepare("update captures set status = 'discarded', exited_at = ? where id = ?").run(now(), id)
+    db.prepare("update captures set status = 'discarded' where id = ?").run(id)
     return write(into.id)
   })
   // A gloss is a row, never an edit: past-you stays readable beside present-you.
@@ -478,14 +526,6 @@ export function registerVigil(): void {
   handle('study', (itemId: string, text: string) => {
     const task = addTask(text)
     db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(task, itemId)
-    return write(task)
-  })
-  // A question pursued: it becomes a task with a session already running.
-  handle('pursue', (captureId: string) => {
-    const capture = db.prepare('select title from captures where id = ?').get(captureId) as { title: string }
-    const task = addTask(capture.title, captureId)
-    db.prepare("update captures set status = 'resolved', exited_at = ? where id = ?").run(now(), captureId)
-    db.prepare('insert into sessions (id, task_id, started_at) values (?, ?, ?)').run(randomUUID(), task, now())
     return write(task)
   })
   handle('task:save', (id: string, patch: { title?: string; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null; subtasks?: unknown; estimate?: number | null; sortOrder?: number }) => {
@@ -567,7 +607,7 @@ export function registerVigil(): void {
     const privacy = hidePrivate ? 'and private = 0' : ''
     return db
       .prepare(
-        `select id, 'capture' as type, kind, title, pinned_at as pinnedAt from captures where pinned_at is not null ${privacy}
+        `select id, 'capture' as type, kind, ${LABEL} as title, pinned_at as pinnedAt from captures where pinned_at is not null ${privacy}
          union all select id, tier as type, kind, title, pinned_at from nuggets where pinned_at is not null ${privacy}
          order by pinnedAt desc limit 3`
       )
@@ -641,7 +681,6 @@ export function registerVigil(): void {
   handle('stats', () => {
     const one = <T>(sql: string, ...args: (string | number)[]): T => db.prepare(sql).get(...args) as T
     const all = <T>(sql: string, ...args: (string | number)[]): T[] => db.prepare(sql).all(...args) as T[]
-    const ago = (days: number): string => new Date(Date.now() - days * 86400000).toISOString()
     return {
       exits: all<{ status: string; n: number }>('select status, count(*) n from captures group by status'),
       kinds: all<{ kind: string; n: number }>('select kind, count(*) n from captures group by kind order by n desc'),
@@ -656,7 +695,7 @@ export function registerVigil(): void {
       reviews: one<{ n: number; recalled: number }>('select count(*) n, sum(grade > 1) recalled from review_log where reviewed_at >= ?', ago(30)),
       hours: all<{ hour: number; n: number }>("select cast(strftime('%H', captured_at, 'localtime') as integer) hour, count(*) n from captures group by hour"),
       firstUse: one<{ days: number | null }>(
-        `select avg(julianday(n.created_at) - julianday(c.captured_at)) days from nuggets n join captures c on c.id = n.capture_id where n.created_at >= ?`, ago(90)).days,
+        `select avg(julianday(first_used_at) - julianday(captured_at)) days from captures where first_used_at >= ?`, ago(90)).days,
       tasksDone: one<{ n: number }>('select count(*) n from task_done where done_at >= ?', ago(7)).n,
       // Wrapped: what the week was, in the work itself.
       sessions: one<{ n: number; minutes: number | null }>(

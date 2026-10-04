@@ -57,7 +57,7 @@ const api = {
 
   /** Hints: one nugget at a time, with up and down. */
   hints: {
-    next: (): Promise<{ id: string; kind: string; body: unknown; event: number } | null> =>
+    next: (): Promise<{ id: string; captureId: string | null; kind: string; body: unknown; event: number } | null> =>
       ipcRenderer.invoke('hints:next'),
     react: (event: number, id: string, reaction: 'up' | 'down'): Promise<void> =>
       ipcRenderer.invoke('hints:react', event, id, reaction),

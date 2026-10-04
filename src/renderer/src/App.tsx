@@ -1,11 +1,10 @@
 import React, { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Archive, FileJson2, Inbox, Keyboard, KeyboardOff, Lock, LockOpen, Maximize2, Minimize2, SquarePen, TableOfContents, X } from 'lucide-react'
+import { FileJson2, Keyboard, KeyboardOff, Lock, LockOpen, Maximize2, Minimize2, SquarePen, TableOfContents, X } from 'lucide-react'
 import type { Editor, JSONContent } from '@tiptap/core'
 
 import { MindflowEditor, TAGS, currentVim, onVimChange, setVim } from './components/mindflow'
 import { ThemePicker } from './components/theme/theme-picker'
-import { titleOf } from './lib/document'
 import { findCaptures } from './lib/capture-links'
 import { toMarkdown } from './lib/export'
 import { CaptureList, useCaptures } from './components/capture-list'
@@ -16,7 +15,7 @@ import { TodayPanel } from './components/vigil/today-panel'
 import { selectionActions } from './components/vigil/selection-actions'
 import { ReviewView } from './components/vigil/review-view'
 import { useAppearance, useLive } from './lib/vigil'
-import { BackToTop, useListKeys } from './components/vigil/ui'
+import { BackToTop, Remembered, useListKeys } from './components/vigil/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import type { LucideIcon } from 'lucide-react'
 import { Toaster, toast } from './components/vigil/ui'
@@ -48,14 +47,22 @@ import {
  * A new note half written, kept as you type so it survives quitting and
  * reading old captures. Only if it holds anything.
  */
-const readDraft = (): JSONContent | undefined => {
+const readDraft = (): { title: string; body: JSONContent | null } | undefined => {
   try {
     const saved = JSON.parse(localStorage.getItem('capture-draft') ?? 'null')
-    return hasContent(saved) ? saved : undefined
+    return saved && (saved.title?.trim() || hasContent(saved.body)) ? saved : undefined
   } catch {
     return undefined
   }
 }
+
+/** youtube.com is YouTube; anything else, its name with a capital. */
+const SITES: Record<string, string> = { youtube: 'YouTube', youtu: 'YouTube', github: 'GitHub', linkedin: 'LinkedIn', x: 'X', twitter: 'X' }
+const siteName = (host: string): string => {
+  const name = host.replace(/^www\./, '').split('.')[0]
+  return SITES[name] ?? name.charAt(0).toUpperCase() + name.slice(1)
+}
+
 
 /**
  * Whether a body holds anything, so ⌘↵ on an empty box saves nothing. An empty
@@ -188,33 +195,31 @@ export default function App(): React.JSX.Element {
   const [outline, setOutline] = useState(false)
   const [source, setSource] = useState(false)
 
-  // The document, as the editor last handed it over. The drawer reads this
-  const [body, setBody] = useState<JSONContent | null>(readDraft() ?? null)
-
-  const title = titleOf(body)
-  // The same, as text, for the copy kept beside the backups.
+  // The two halves of a capture: the line you type, which is the title, and
+  // the optional detail below it. Nine in ten are the line and nothing else.
+  // Both are typed; nothing is worked out from the other and stored.
+  const [title, setTitle] = useState(() => readDraft()?.title ?? '')
+  const [body, setBody] = useState<JSONContent | null>(() => readDraft()?.body ?? null)
+  // Who said it and where you met it. Null who means the words are yours.
+  const [attribution, setAttribution] = useState('')
+  const [medium, setMedium] = useState('')
+  // The body as text, for the copy kept beside the backups.
   const [markdown, setMarkdown] = useState('')
-  // Bumped on submit. The prompt is keyed on it, so a fresh editor replaces
-  // the one just sent.
+  // Bumped on a fresh box. The editor is keyed on it, so a new one replaces it.
   const [round, setRound] = useState(0)
   // A capture opened from the list on the right. Edits save to it as they
-  // happen; Cmd+Enter puts it down and brings back a fresh prompt.
+  // happen; Cmd+Enter puts it down and brings back the box you had.
   const [editing, setEditing] = useState<{ id: string; body: JSONContent } | null>(null)
   const editorRef = useRef<Editor | null>(null)
-  // Keep or offload: the plan's most consequential field. Keep, and it can
-  // come back; offload, and it is only ever found by looking. Set per capture.
-  const [offload, setOffload] = useState(false)
+  const titleRef = useRef<HTMLTextAreaElement>(null)
   const [sending, setSending] = useState(false)
   const actionTags = useLive(() => vigil.tagMeta().then((meta) => meta.filter((row) => row.action).map((row) => row.tag)), [] as string[])
 
-  // Kind by prefix: while the capture is a single word that starts a kind's
-  // name, Tab takes that kind and clears the word. Only at the very start, and
-  // gone at the first space, so "we made a decision" never offers one.
-  // From the document, not the editor: after ⌘N the old editor is gone.
-  const typed = body ? textOf(body).trim() : ''
-  const offered = !editing && typed && !/\s/.test(typed)
-    ? CAPTURE_TYPES.find((type) => type.label.toLowerCase().startsWith(typed.toLowerCase()))
-    : undefined
+  // Kept as you type, so a half-written note survives quitting.
+  useEffect(() => {
+    if (!editing) localStorage.setItem('capture-draft', JSON.stringify({ title, body }))
+  }, [title, body, editing])
+
   // The same idea arriving again is a vote, not a duplicate: say so quietly,
   // and let the new one land anyway.
   const [like, setLike] = useState<{ id: string; number: number; title: string } | null>(null)
@@ -223,48 +228,38 @@ export default function App(): React.JSX.Element {
     void vigil.similar(title).then(setLike)
   }, [title, editing])
 
-  useEffect(() => {
-    if (!offered) return
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== 'Tab' || event.shiftKey) return
-      event.preventDefault()
-      event.stopPropagation()
-      setKind(offered.id)
-      editorRef.current?.commands.clearContent(true)
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [offered])
   const openCapture = (id: string): void =>
     void window.api.captures.get(id).then((found) => {
       if (!found) return
       setEditing({ id, body: found.body as JSONContent })
+      setTitle(found.title)
       setBody(found.body as JSONContent)
       setKind(found.kind as CaptureType)
+      setAttribution(found.attribution ?? '')
+      setMedium(found.medium ?? '')
     })
   // A fresh box. Sent, or a new note asked for, and the draft goes; put down
   // after reading an old capture, and the note you had started comes back.
   const fresh = (keepDraft = false): void => {
-    editorRef.current = null
     if (!keepDraft) localStorage.removeItem('capture-draft')
+    const draft = keepDraft ? readDraft() : undefined
     setEditing(null)
-    setBody(keepDraft ? readDraft() ?? null : null)
+    setTitle(draft?.title ?? '')
+    setBody(draft?.body ?? null)
+    setAttribution('')
+    setMedium('')
     setKind('note')
     setRound((n) => n + 1)
+    requestAnimationFrame(() => titleRef.current?.focus())
   }
   // ⌘. means "I want to write something". A capture opened from the list is
-  // put down, so the box comes back empty; a new one you had started and not
-  // sent is still there, the way any capture box keeps a half-typed thought.
+  // put down as the window hides, so the box comes back as the one you had.
   const latestEditing = useRef(editing)
   latestEditing.current = editing
   useEffect(() => window.api.onHiding(() => latestEditing.current && fresh(true)), [])
-  // ⌘N, from anywhere in the window: a fresh box. ⌘⇧O: keep or offload.
+  // ⌘N, from anywhere in the window: a fresh box.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (event.metaKey && event.shiftKey && event.code === 'KeyO') {
-        event.preventDefault()
-        return setOffload((on) => !on)
-      }
       if (!event.metaKey || event.key !== 'n') return
       event.preventDefault()
       fresh()
@@ -273,48 +268,66 @@ export default function App(): React.JSX.Element {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // Cmd+Enter sends the capture to the main process, which stores it and tells
-  // every window. Caught before the editor sees it, where it would otherwise
-  // only step out of a code block.
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== 'Enter' || !event.metaKey) return
-      event.preventDefault()
-      event.stopPropagation()
-      if (editing) return fresh(true)
-      if (!hasContent(body)) return
-      // What a paste is, when the kind was left alone: a bare link is a link,
-      // and a long block is an excerpt, the container for what comes out of it.
-      const text = textOf(body).trim()
-      const sorted = kind !== 'note' ? kind : /^https?:\/\/\S+$/.test(text) ? 'link' : text.length > 600 ? 'excerpt' : kind
-      // A tag marked "makes a task" (#bug, #fix and the rest by default) is a
-      // todo wearing a label: it goes to the task list at once, as a todo does.
-      const tags = [...text.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase())
-      const action = sorted === 'todo' || tags.some((tag) => actionTags.includes(tag))
-      chime('send')
-      setSending(true)
-      void window.api.captures.create({ title, kind: sorted, body, markdown }).then(async (id) => {
-        await vigil.setCapture(id, 'discharge', offload ? 1 : 0)
+  // Saving an open capture's fields as they change.
+  const saveField = (patch: Parameters<typeof window.api.captures.save>[1]): void => {
+    if (editing) void window.api.captures.save(editing.id, patch)
+  }
+
+  // Save. Never fails, and no field can block it: an empty box is the only
+  // thing it refuses, because there is nothing there to keep.
+  const submit = (more = false): void => {
+    if (editing) return fresh(true)
+    // Read from the editor itself: its onChange waits for a pause in the
+    // typing, and ⌘↵ often comes before one.
+    const doc = editorRef.current?.getJSON() ?? body
+    const text = `${title}\n${textOf(doc)}`.trim()
+    if (!text) return
+    // What a paste is, when the kind was left alone: a bare link is a link,
+    // and where it came from is the site; a long block is an excerpt, the
+    // container for what comes out of it later.
+    const url = /^https?:\/\/\S+$/.test(text) ? new URL(text) : null
+    const sorted = kind !== 'note' ? kind : url ? 'link' : text.length > 600 ? 'excerpt' : kind
+    const where = medium || (url ? siteName(url.hostname) : '')
+    // A tag marked "makes a task" (#bug, #fix and the rest by default) is a
+    // todo wearing a label: it goes to the task list at once, as a todo does.
+    const tags = [...text.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase())
+    const action = sorted === 'todo' || tags.some((tag) => actionTags.includes(tag))
+    chime('send')
+    setSending(true)
+    void window.api.captures
+      .create({ title: title.trim(), kind: sorted, body: hasContent(doc) ? doc : null, markdown: editorRef.current ? toMarkdown(editorRef.current) : markdown })
+      .then(async (id) => {
+        if (attribution.trim()) await vigil.setCapture(id, 'attribution', attribution.trim())
+        if (where) await vigil.setCapture(id, 'medium', where)
         await vigil.linkSession(id)
         if (action) {
           await vigil.toTask(id)
           toast('Added to your tasks')
         }
-        // Let the box finish leaving before it is replaced.
-        // ⌥⌘↵ is Linear's "create more": saved, and a fresh box for the next.
-        const more = event.altKey
+        // Let the box finish leaving before it is replaced. ⌥ is Linear's
+        // "create more": saved, and a fresh box for the next.
         setTimeout(() => {
           setSending(false)
-          setOffload(false)
           fresh()
           if (more) toast('Saved. Next one')
           else window.api.hideWindow()
         }, 180)
       })
+  }
+  // ⌘↵ from anywhere in the window, ⌥⌘↵ to keep going. Caught before the
+  // editor, where it would otherwise only step out of a code block.
+  const latestSubmit = useRef(submit)
+  latestSubmit.current = submit
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Enter' || !event.metaKey) return
+      event.preventDefault()
+      event.stopPropagation()
+      latestSubmit.current(event.altKey)
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [body, title, kind, markdown, editing, offload, actionTags])
+  }, [])
 
 
   return (
@@ -342,51 +355,91 @@ export default function App(): React.JSX.Element {
               animate={sending ? { opacity: 0, y: -10, scale: 0.985, filter: 'blur(2px)' } : { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
               transition={{ duration: sending ? 0.18 : 0.22, ease: [0.16, 1, 0.3, 1] }}
             >
-            <CapturePrompt
-              key={editing?.id ?? round}
-              initial={editing?.body ?? readDraft()}
-              locked={locked}
-              outline={outline}
-              onChange={(doc, editor) => {
-                editorRef.current = editor
-                setBody(doc)
-                if (!editing) localStorage.setItem('capture-draft', JSON.stringify(doc))
-                setMarkdown(toMarkdown(editor))
-                if (editing) {
-                  void window.api.captures.save(editing.id, { body: doc, title: titleOf(doc), markdown: toMarkdown(editor) })
+            {/* The line you type is the title: large, first, and Enter saves.
+                Shift-Enter or ↓ goes to the detail below, if there is any. */}
+            <textarea
+              ref={titleRef}
+              autoFocus
+              rows={1}
+              value={title}
+              placeholder="What's on your mind?"
+              onChange={(event) => {
+                setTitle(event.target.value)
+                saveField({ title: event.target.value })
+              }}
+              onPaste={(event) => {
+                // A long or many-lined paste has no title of its own: it goes in
+                // as the detail, an excerpt, shown by its first line until named.
+                const text = event.clipboardData.getData('text/plain')
+                if (text.length < 200 && !text.includes('\n')) return
+                event.preventDefault()
+                editorRef.current?.chain().focus('end').insertContent(text.split(/\n{2,}/).map((para) => ({ type: 'paragraph', content: para.trim() ? [{ type: 'text', text: para }] : [] }))).run()
+                if (kind === 'note') setKind('excerpt')
+              }}
+              onKeyDown={(event) => {
+                const picked = event.metaKey && !event.shiftKey && !event.altKey ? CAPTURE_TYPES[Number(event.key) - 1] : undefined
+                if (picked) {
+                  // ⌘1 to ⌘8: a kind you already know, without the picker.
+                  event.preventDefault()
+                  setKind(picked.id)
+                  saveField({ kind: picked.id })
+                } else if (event.key === 'Enter' && !event.shiftKey && !event.metaKey) {
+                  event.preventDefault()
+                  submit(event.altKey)
+                } else if ((event.key === 'Enter' && event.shiftKey) || event.key === 'ArrowDown') {
+                  event.preventDefault()
+                  editorRef.current?.commands.focus('start')
                 }
               }}
+              className="field-sizing-content w-full resize-none bg-transparent px-[4.75rem] pt-2 text-2xl leading-snug font-semibold outline-none placeholder:text-muted-foreground/50"
             />
-            </motion.div>
-            <main className="flex justify-between py-[0.5rem] px-[4.75rem] bg-linear-to-t from-[var(--accent)]/40">
+            {/* Under the title, what it is, who said it and where you met it. */}
+            <div className="flex items-center gap-1 px-[4.6rem] pt-1 pb-1">
               <CaptureKindPicker
                 value={kind}
                 onChange={(next) => {
                   setKind(next)
-                  if (editing) void window.api.captures.save(editing.id, { kind: next })
+                  saveField({ kind: next })
                 }}
               />
-              <BarToggle
-                on={!offload}
-                icon={offload ? Archive : Inbox}
-                label={offload ? 'Offload' : 'Keep'}
-                tip={offload ? 'Offload: out of your head, found only by searching' : 'Keep: it can come back to you'}
-                keys="⌘⇧O"
-                onClick={() => setOffload(!offload)}
-                text
-              />
-              {offered && <span className="mr-auto ml-2 self-center text-xs text-muted-foreground">⇥ {offered.label}</span>}
-              {!offered && like && (
+              <Remembered field="attribution" value={attribution} placeholder="Who said it" onChange={(value) => {
+                setAttribution(value)
+                if (editing) void vigil.setCapture(editing.id, 'attribution', value.trim() || null)
+              }} />
+              <Remembered field="medium" value={medium} placeholder="Where from" onChange={(value) => {
+                setMedium(value)
+                if (editing) void vigil.setCapture(editing.id, 'medium', value.trim() || null)
+              }} />
+              {like && (
                 <button
                   type="button"
                   onClick={() => openCapture(like.id)}
-                  className="mr-auto ml-2 max-w-64 truncate self-center text-xs text-muted-foreground hover:text-foreground"
+                  className="ml-auto max-w-56 truncate text-xs text-muted-foreground hover:text-foreground"
                   title={like.title}
                 >
                   You wrote something like this: MF-{like.number}
                 </button>
               )}
-              {!offered && !like && <span className="flex-1" />}
+            </div>
+            <CapturePrompt
+              key={editing?.id ?? round}
+              initial={editing?.body ?? readDraft()?.body ?? undefined}
+              locked={locked}
+              outline={outline}
+              onReady={(editor) => (editorRef.current = editor)}
+              onChange={(doc, editor) => {
+                setBody(doc)
+                setMarkdown(toMarkdown(editor))
+                saveField({ body: doc, markdown: toMarkdown(editor) })
+              }}
+            />
+            {/* A hint sits at the foot of the box: a glance at something you
+                wrote once, while you are here to write. Usually empty. */}
+            <div className="px-[4.75rem]">
+              <HintCard onOpen={openCapture} />
+            </div>
+            </motion.div>
+            <main className="flex items-center gap-1 py-[0.5rem] px-[4.75rem] bg-linear-to-t from-[var(--accent)]/40">
               {/* The editor's settings, one shape each, every one named with its
                   key on hover, and on or off shown by a fill rather than a fade. */}
               <div className="flex items-center gap-0.5">
@@ -401,6 +454,15 @@ export default function App(): React.JSX.Element {
                   <TooltipContent>Theme</TooltipContent>
                 </Tooltip>
               </div>
+              {/* Create, bottom right, where the eye ends up. */}
+              <button
+                type="button"
+                onClick={() => submit()}
+                title="Save  ⌘↵  ·  keep going  ⌥⌘↵"
+                className="ml-auto flex h-7 items-center gap-1.5 rounded-md bg-accent px-2.5 text-[13px] text-foreground transition-colors hover:bg-accent/70"
+              >
+                {editing ? 'Done' : 'Create'} <kbd className="font-sans text-[11px] text-muted-foreground">⌘↵</kbd>
+              </button>
             </main>
           </div>
           <SourceDrawer open={source} doc={body} onOpenChange={setSource} />
@@ -478,12 +540,14 @@ const CapturePrompt = ({
   initial,
   locked,
   outline,
-  onChange
+  onChange,
+  onReady
 }: {
   initial?: JSONContent
   locked: boolean
   outline: boolean
   onChange: (doc: JSONContent, editor: Editor) => void
+  onReady: (editor: Editor) => void
 }): React.JSX.Element => {
   useEscapeToHide()
 
@@ -511,7 +575,8 @@ const CapturePrompt = ({
         search={true}
         // vim is left out, so it follows the page switch.
         vimStart="insert"
-        autofocus={true}
+        autofocus={false}
+        onReady={onReady}
         showSource={false}
         readOnly={locked}
 
@@ -557,7 +622,7 @@ function SidePanel({ captures, editing, onOpen }: {
   const [cursor] = useListKeys(captures.length, { onOpen: (index) => onOpen(captures[index].id), enabled: tab === 'inbox' })
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      const to = event.metaKey ? tabs[Number(event.key) - 1] : undefined
+      const to = event.ctrlKey && !event.metaKey ? tabs[Number(event.key) - 1] : undefined
       if (!to) return
       event.preventDefault()
       setTab(to.id)
@@ -602,7 +667,6 @@ function SidePanel({ captures, editing, onOpen }: {
         {tab === 'inbox' ? (
           <>
             <Pins />
-            <HintCard />
             <RotCards onOpen={onOpen} />
             <CaptureList captures={captures} selected={editing} cursor={cursor} onPick={onOpen} />
           </>

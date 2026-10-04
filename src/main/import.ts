@@ -61,13 +61,14 @@ export const createdOf = (text: string): string | null =>
  */
 export function guessKind(chunk: string, fallback: string): string {
   const text = titleOfMarkdown(chunk)
+  // The old inbox's own tags, mapped onto the eight kinds: a tip, an idea or
+  // a question is a note; a goal is a todo.
   const tag = /#(tip|idea|quote|bit|goal|question|word)\b/.exec(chunk)?.[1]
-  if (tag) return tag === 'goal' ? 'todo' : tag
+  if (tag) return { goal: 'todo', tip: 'note', idea: 'note', question: 'note' }[tag] ?? tag
   if (/^\s*[-*]?\s*\[?https?:\/\/\S+$/.test(chunk)) return 'link'
   if (/^\s*[-*]\s+\[ \]/.test(chunk) || /^(todo|fix|add|buy|call|book|email|ask|look into|remind)\b/i.test(text)) return 'todo'
   if (chunk.length > 600) return 'excerpt'
   if (/^[A-Z][\w .'-]{1,30}( \([^)]*\))?: \S/.test(text) || /^["“'].+["”']\s*[-—]\s*\w/.test(text)) return 'quote'
-  if (/^(what is|what's|who is|why|how)\b.*|\?$/i.test(text)) return 'question'
   if (/^\S+$/.test(text) || /\bmeaning$/i.test(text)) return 'word'
   return fallback
 }

@@ -47,7 +47,7 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
       <AnimatePresence initial={false}>
       {captures.map((capture, index) => {
         const kind = CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
-        const { text, tags } = splitTags(capture.title)
+        const { text, tags } = splitTags(capture.label)
         return (
           <motion.button
             key={capture.id}

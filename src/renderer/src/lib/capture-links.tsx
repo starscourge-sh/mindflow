@@ -30,7 +30,7 @@ export async function findCaptures(query: string): Promise<NoteSuggestion[]> {
     const Icon = STATUS_ICON[capture.status as keyof typeof STATUS_ICON] ?? CircleDashed
     return {
       id: capture.id,
-      label: capture.title || 'Untitled',
+      label: capture.label || 'Untitled',
       key: captureKey(capture.number),
       icon: <Icon className="size-4 shrink-0 text-muted-foreground" />,
       group: 'Captures'

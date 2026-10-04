@@ -39,7 +39,7 @@ export type Item = {
   captureId: string | null
   remindAt: string | null
   lapses: number
-  cite: string | null
+  attribution: string | null
   context: string | null
   mode: 'encounter' | 'pushed'
   supersededBy: string | null
@@ -104,7 +104,7 @@ export const vigil = {
   toTask: (id: string) => call<string | null>('toTask', id),
   items: (tier: 'nugget' | 'article') => call<Item[]>('items', tier),
   item: (id: string) => call<ItemFull | null>('item', id),
-  saveItem: (id: string, patch: Partial<{ body: unknown; title: string; prompt: string | null; kind: string; suspended: boolean; cite: string | null; context: string | null; mode: string }>) =>
+  saveItem: (id: string, patch: Partial<{ body: unknown; title: string; prompt: string | null; kind: string; suspended: boolean; attribution: string | null; context: string | null; mode: string }>) =>
     call('item:save', id, patch),
   article: (ids: string[]) => call<string>('article', ids),
   gloss: (id: string, text: string) => call('gloss', id, text),
@@ -127,12 +127,13 @@ export const vigil = {
   stats: () => call<Stats>('stats'),
   exportAll: () => call<string | null>('export'),
   bury: (id: string) => call('review:bury', id),
-  setCapture: (id: string, field: 'discharge' | 'cite' | 'capturedAt', value: string | number | null) => call('capture:set', id, field, value),
+  setCapture: (id: string, field: 'attribution' | 'medium' | 'capturedAt', value: string | number | null) => call('capture:set', id, field, value),
   linkSession: (id: string) => call('capture:session', id),
-  nuggetFrom: (text: string, origin: { captureId?: string; cite?: string | null }) => call<string>('nugget:from', text, origin),
+  nuggetFrom: (text: string, origin: { captureId?: string; attribution?: string | null }) => call<string>('nugget:from', text, origin),
   random: () => call<{ id: string; kind: string; title: string; body: unknown }[]>('random'),
   study: (itemId: string, text: string) => call<string>('study', itemId, text),
-  pursue: (captureId: string) => call<string>('pursue', captureId),
+  /** What you have typed in a field before, most used first. */
+  values: (field: 'attribution' | 'medium') => call<string[]>('values', field),
   renameTag: (from: string, to: string) => call<string | null>('tag:rename', from, to),
   remind: (table: 'captures' | 'nuggets', id: string, at: string | null) => call('remind', table, id, at),
   similar: (text: string) => call<{ id: string; number: number; title: string; score: number } | null>('similar', text),

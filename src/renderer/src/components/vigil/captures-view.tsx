@@ -1,16 +1,15 @@
 import { useEffect, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { Archive, ArrowUpRight, Calendar, CheckCircle2, Compass, FileText, Hash, Inbox, ListTodo, Lock, Merge, Pin, Quote, Trash2, X } from 'lucide-react'
+import { ArrowUpRight, Calendar, CheckCircle2, FileText, Hash, Inbox, ListTodo, Lock, Merge, Pin, Trash2, X } from 'lucide-react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { CaptureList, useCaptures, type CaptureMeta } from '../capture-list'
 import { STATUS_ICON, captureKey, findCaptures } from '@/lib/capture-links'
-import { titleOf } from '@/lib/document'
 import { toMarkdown } from '@/lib/export'
 import { vigil } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
-import { Empty, Kbd, Page, Prop, PropLabel, Props, toast, useListKeys } from './ui'
+import { Empty, Kbd, Page, Prop, PropLabel, Props, Remembered, toast, useListKeys } from './ui'
 import { RemindMe } from './items-view'
 import { selectionActions } from './selection-actions'
 
@@ -86,7 +85,14 @@ export function CapturesView({ title, keep, focus }: {
       {open && meta ? (
         <div className="flex min-w-0 flex-[1.4] border-l">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
-            {/* The first line names the capture, the same as in the prompt. */}
+            {/* The title, typed, then the detail under it: the same as in the prompt. */}
+            <input
+              key={open.id}
+              defaultValue={open.title}
+              placeholder={meta.label || "What's on your mind?"}
+              onChange={(event) => void window.api.captures.save(open.id, { title: event.target.value })}
+              className="mx-[4.75rem] mb-2 bg-transparent text-2xl font-semibold outline-none placeholder:text-muted-foreground/50"
+            />
             <MindflowEditor
               key={open.id}
               host={window.api}
@@ -97,7 +103,7 @@ export function CapturesView({ title, keep, focus }: {
               findNotes={findCaptures}
               onOpenNote={pick}
               onChange={(body, editor) =>
-                window.api.captures.save(open.id, { body, title: titleOf(body), markdown: toMarkdown(editor) })
+                window.api.captures.save(open.id, { body, markdown: toMarkdown(editor) })
               }
             />
           </div>
@@ -112,11 +118,14 @@ export function CapturesView({ title, keep, focus }: {
 function CaptureProps({ capture }: { capture: CaptureMeta }): React.JSX.Element {
   const Status = STATUS_ICON[capture.status as keyof typeof STATUS_ICON] ?? STATUS_ICON.open
   const reopen = (): void => void window.api.captures.save(capture.id, { status: 'open' })
+  const [who, setWho] = useState(capture.attribution ?? '')
+  const [where, setWhere] = useState(capture.medium ?? '')
+  useEffect(() => {
+    setWho(capture.attribution ?? '')
+    setWhere(capture.medium ?? '')
+  }, [capture.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const exits = [
     { icon: ArrowUpRight, label: 'Promote to nugget', run: () => vigil.promote(capture.id), said: 'Promoted to a nugget' },
-    // A question is a curiosity, not an obligation, until you choose to chase
-    // it: then it becomes a task with a session already running.
-    ...(capture.kind === 'question' ? [{ icon: Compass, label: 'Pursue it', run: () => vigil.pursue(capture.id), said: 'Now a task, with a session started' }] : []),
     { icon: ListTodo, label: 'Make it a task', run: () => vigil.toTask(capture.id), said: 'Now a task' },
     { icon: CheckCircle2, label: 'Resolve', run: () => window.api.captures.save(capture.id, { status: 'resolved' }), said: 'Resolved' },
     { icon: Trash2, label: 'Discard', run: () => window.api.captures.save(capture.id, { status: 'discarded' }), said: 'Discarded' }
@@ -153,13 +162,6 @@ function CaptureProps({ capture }: { capture: CaptureMeta }): React.JSX.Element 
       </div>
 
       <PropLabel>Surfacing</PropLabel>
-      <Prop
-        icon={capture.discharge ? Archive : Inbox}
-        active={!capture.discharge}
-        onClick={() => void vigil.setCapture(capture.id, 'discharge', capture.discharge ? 0 : 1)}
-      >
-        {capture.discharge ? 'Offloaded: found only by search' : 'Kept: it can come back to you'}
-      </Prop>
       <Prop icon={Lock} active={!!capture.private} onClick={() => void vigil.setPrivate('captures', capture.id, !capture.private)}>
         {capture.private ? 'Private' : 'Can surface any time'}
       </Prop>
@@ -185,17 +187,15 @@ function CaptureProps({ capture }: { capture: CaptureMeta }): React.JSX.Element 
           />
         </label>
       )}
-      <PropLabel>Source</PropLabel>
-      <label className="flex items-center gap-2 rounded-md px-2 py-1.5 focus-within:text-foreground hover:bg-accent">
-        <Quote className="size-4 shrink-0" />
-        <input
-          key={capture.id}
-          defaultValue={capture.cite ?? ''}
-          placeholder="Who, or where from"
-          onBlur={(event) => void vigil.setCapture(capture.id, 'cite', event.target.value.trim() || null)}
-          className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground"
-        />
-      </label>
+      <PropLabel>Who and where</PropLabel>
+      <Remembered key={`a${capture.id}`} field="attribution" value={who} placeholder="Who said it" className="w-full text-[13px]" onChange={(value) => {
+        setWho(value)
+        void vigil.setCapture(capture.id, 'attribution', value.trim() || null)
+      }} />
+      <Remembered key={`m${capture.id}`} field="medium" value={where} placeholder="Where from" className="w-full text-[13px]" onChange={(value) => {
+        setWhere(value)
+        void vigil.setCapture(capture.id, 'medium', value.trim() || null)
+      }} />
       <PropLabel>Details</PropLabel>
       <Prop icon={Hash}>{captureKey(capture.number)}</Prop>
       {capture.source && <Prop icon={FileText}>{capture.source.replace(/\.md$/, '')}</Prop>}

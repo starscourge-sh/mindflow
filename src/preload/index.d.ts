@@ -35,7 +35,7 @@ export interface Api {
   onShown: (listen: () => void) => () => void
   onHiding: (listen: () => void) => () => void
   hints: {
-    next: () => Promise<{ id: string; kind: string; body: unknown; event: number } | null>
+    next: () => Promise<{ id: string; captureId: string | null; kind: string; body: unknown; event: number } | null>
     react: (event: number, id: string, reaction: 'up' | 'down') => Promise<void>
     dwell: (event: number, ms: number) => Promise<void>
   }

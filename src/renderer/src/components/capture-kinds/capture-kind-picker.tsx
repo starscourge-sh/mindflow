@@ -9,11 +9,6 @@ import {
   ScrollText,
   Split,
   Sticker,
-  Lightbulb,
-  CircleHelp,
-  MessageSquareQuote,
-  Sparkles,
-  RefreshCw,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -51,16 +46,10 @@ export const CAPTURE_TYPES = [
   { id: "note", label: "Note", icon: NotebookText, tint: tint("gray") },
   { id: "todo", label: "Todo", icon: ListTodo, tint: tint("orange") },
   { id: "quote", label: "Quote", icon: Quote, tint: tint("purple") },
-  { id: "saying", label: "Saying", icon: MessageSquareQuote, tint: tint("purple") },
   { id: "word", label: "Word", icon: Bookmark, tint: tint("green") },
-  { id: "tip", label: "Tip", icon: Sparkles, tint: tint("green") },
-  { id: "idea", label: "Idea", icon: Lightbulb, tint: tint("yellow") },
-  { id: "question", label: "Question", icon: CircleHelp, tint: tint("blue") },
   { id: "link", label: "Link", icon: Link, tint: tint("blue") },
   { id: "excerpt", label: "Excerpt", icon: ScrollText, tint: tint("yellow") },
   { id: "decision", label: "Decision", icon: Split, tint: tint("red") },
-  // A standing principle to yourself, timeless: it comes round on rotation.
-  { id: "self", label: "Note to self", icon: RefreshCw, tint: tint("orange") },
   { id: "bit", label: "Bit", icon: Sticker, tint: tint("pink") },
 ] as const
 
@@ -85,7 +74,7 @@ export function CaptureKindPicker({ value, onChange }: {
   const [open, setOpen] = useState(false)
   const current = CAPTURE_TYPES.find((Ctype) => Ctype.id === value) ?? CAPTURE_TYPES[0]
 
-  useShortcut('l', setOpen, open)
+  useShortcut('t', setOpen, open)
   const Icon = current.icon
 
   return (
@@ -110,7 +99,7 @@ export function CaptureKindPicker({ value, onChange }: {
             setOpen(false)
           }}
         >
-          <CommandInput placeholder="Change type..." shortcut="⌃L" />
+          <CommandInput placeholder="Change type..." shortcut="⌃T" />
           <CommandList>
             <CommandEmpty>No type</CommandEmpty>
             {CAPTURE_TYPES.map((type, index) => {
