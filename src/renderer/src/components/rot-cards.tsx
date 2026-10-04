@@ -51,7 +51,15 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
   const [cards, setCards] = useState<Capture[]>([])
   // The card whose who is being asked, from its w key.
   const [asking, setAsking] = useState<string | null>(null)
-  const reload = (): void => void window.api.captures.rot().then(setCards)
+  // A fresh deal arrives whole and still, oldest first: only a card you act on
+  // moves. Keying the list by the deal keeps a reshuffle from animating as if
+  // the cards were being reordered under you.
+  const [deal, setDeal] = useState(0)
+  const reload = (): void =>
+    void window.api.captures.rot().then((next) => {
+      setCards([...next].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)))
+      setDeal((n) => n + 1)
+    })
   const drop = (id: string): void => setCards((all) => all.filter((one) => one.id !== id))
   useEffect(() => {
     reload()
@@ -72,7 +80,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
       </Tip>
       {/* A card that takes an exit leaves sideways, the way it was dealt with,
           and the next one fades into its place. */}
-      <AnimatePresence initial={false} mode="popLayout">
+      <AnimatePresence key={deal} initial={false} mode="popLayout">
       {cards.map((card) => (
         <motion.div
           key={card.id}
