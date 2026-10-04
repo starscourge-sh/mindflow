@@ -352,7 +352,7 @@ export interface MindflowEditorProps {
    * @default "" - an empty document
    */
   defaultContent?: JSONContent | string
-  /** @default "Write, type '/' for commands…" */
+  /** @default "Write, or type / for commands…" */
   placeholder?: string
   /**
    * Start with the source panel open. It also toggles on Mod-Alt-s.
@@ -451,7 +451,7 @@ export function MindflowEditor({
 
 function Surface({
   defaultContent = "",
-  placeholder = "Write, type '/' for commands…",
+  placeholder = "Write, or type / for commands…",
   showSource = false,
   onToggleSource,
   readOnly = false,

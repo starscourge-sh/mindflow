@@ -79,6 +79,8 @@ export function ReadThrough({ items, start = 0, onClose, onEdit }: {
           {page && (
             <MindflowEditor
               key={item.id}
+              // The note's own files, so its pictures load.
+              host={window.api}
               shape="document"
               readOnly
               defaultContent={page.body ?? ''}

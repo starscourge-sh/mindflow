@@ -57,7 +57,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
   const [deal, setDeal] = useState(0)
   const reload = (): void =>
     void window.api.captures.rot().then((next) => {
-      setCards([...next].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)))
+      setCards([...next].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt) || a.number - b.number))
       setDeal((n) => n + 1)
     })
   const drop = (id: string): void => setCards((all) => all.filter((one) => one.id !== id))
@@ -75,7 +75,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
     // otherwise come back at the end.
     const back = (): void => {
       if (!card) return
-      setCards((all) => (all.some((one) => one.id === id) ? all : [...all, card].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt))))
+      setCards((all) => (all.some((one) => one.id === id) ? all : [...all, card].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt) || a.number - b.number)))
       setDeal((n) => n + 1)
     }
     void exitWith(id, status, back).then(() => window.api.captures.get(id)).then((now) => now?.status !== 'open' && drop(id))

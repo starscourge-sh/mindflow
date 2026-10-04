@@ -266,6 +266,11 @@ export function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: s
           <input
             className="mx-auto mb-2 block w-full max-w-[44rem] bg-transparent px-12 text-title font-semibold text-balance outline-none placeholder:text-muted-foreground"
             defaultValue={item.title}
+            // A new article starts in its title, the stand-in name selected
+            // so typing replaces it, and the button that made it does not
+            // keep the keys.
+            autoFocus={!item.title || item.title === 'Untitled'}
+            onFocus={(event) => void (event.target.value === 'Untitled' && event.target.select())}
             placeholder="Untitled"
             onBlur={(event) => void vigil.saveItem(item.id, { title: event.target.value })}
           />

@@ -48,7 +48,9 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
       editor={editor}
       pluginKey="imageMenu"
       style={{ zIndex: 40 }}
-      shouldShow={({ state }) =>
+      // Nothing to resize or delete in a page only being read.
+      shouldShow={({ state, editor }) =>
+        editor.isEditable &&
         state.selection instanceof NodeSelection &&
         state.selection.node.type.name === "image"
       }

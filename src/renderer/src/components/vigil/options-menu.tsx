@@ -59,7 +59,7 @@ export function OptionsMenu({ options, actions }: {
         {/* Each theme is worn as you pass it, against your own note; leaving
             without picking puts back the one that was on. */}
         <DropdownMenuSub onOpenChange={(open) => void (!open && applyTheme(theme, false))}>
-          <DropdownMenuSubTrigger>Theme <span className="ml-auto text-muted-foreground">{themeName(theme)}</span></DropdownMenuSubTrigger>
+          <DropdownMenuSubTrigger>Theme <span className="flex-1 text-right text-muted-foreground">{themeName(theme)}</span></DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="text-control" onPointerLeave={() => applyTheme(theme, false)}>
             <DropdownMenuRadioGroup
               value={theme}
@@ -78,8 +78,9 @@ export function OptionsMenu({ options, actions }: {
           </DropdownMenuSubContent>
         </DropdownMenuSub>
         {actions.length > 0 && <DropdownMenuSeparator />}
+        {/* Room on the right like the tickable rows, so every shortcut lines up. */}
         {actions.map((one) => (
-          <DropdownMenuItem key={one.label} onSelect={one.run}>
+          <DropdownMenuItem key={one.label} onSelect={one.run} className="pr-8">
             {one.label}
             {one.keys && <DropdownMenuShortcut>{one.keys}</DropdownMenuShortcut>}
           </DropdownMenuItem>

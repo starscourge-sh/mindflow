@@ -270,7 +270,7 @@ export function Toaster(): React.JSX.Element | null {
     // success toast just never coming.
     const onFail = (event: PromiseRejectionEvent): void => {
       const message = String(event.reason?.message ?? event.reason ?? '')
-      if (message.includes('Error invoking remote method')) toast(`Not saved: ${message.replace(/^.*?Error: /, '')}`)
+      if (message.includes('Error invoking remote method')) toast(`Not saved: ${message.replace(/^.*?Error: /, '').split('\n')[0].replace(/^Error invoking remote method.*$/, 'it was not accepted')}`)
     }
     window.addEventListener('vigil:toast', onToast)
     window.addEventListener('unhandledrejection', onFail)

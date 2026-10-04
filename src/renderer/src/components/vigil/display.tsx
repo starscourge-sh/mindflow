@@ -225,6 +225,7 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
         align="end"
         // Kept 12px clear of the window's edge, rounded corner and all.
         collisionPadding={12}
+        tabIndex={-1}
         className="max-h-[calc(var(--radix-popover-content-available-height)-12px)] w-80 gap-0 overflow-y-auto p-0 text-control"
         // A choice in one of its menus is inside Display, not a click away.
         onInteractOutside={(event) => void ((event.target as Element | null)?.closest?.('[data-slot="dropdown-menu-content"]') && event.preventDefault())}
@@ -256,7 +257,11 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
           <div className="border-t p-1">
             <button
               type="button"
-              onClick={() => onChange({ ...view, filter: { ...defaults }, group: groups[0]?.id ?? view.group, sort: sorts[0]?.id ?? view.sort })}
+              onClick={(event) => {
+                // The button goes with the changes it undid; the focus stays in the panel.
+                event.currentTarget.closest<HTMLElement>('[data-slot="popover-content"]')?.focus()
+                onChange({ ...view, filter: { ...defaults }, group: groups[0]?.id ?? view.group, sort: sorts[0]?.id ?? view.sort })
+              }}
               className="w-full rounded-md py-2 font-medium text-[var(--tt-color-text-red)] hover:bg-accent/50"
             >
               Reset all

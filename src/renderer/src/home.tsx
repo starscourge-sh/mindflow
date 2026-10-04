@@ -122,6 +122,8 @@ export function Home(): React.JSX.Element {
         return setView({ id: 'settings' })
       }
       if (event.metaKey || event.ctrlKey || event.altKey) return
+      // Shift on its own is half of a capital, not a key: G, let go, Shift+R.
+      if (event.key === 'Shift') return
       if (pending) {
         pending = false
         const to = SECTIONS.find((section) => section.key === event.key.toLowerCase())

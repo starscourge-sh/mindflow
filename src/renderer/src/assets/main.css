@@ -342,7 +342,7 @@ body {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--foreground) 18%, transparent) transparent;
 }
-:focus-visible:not(input, textarea, select, [contenteditable]) {
+:focus-visible:not(input, textarea, select, [contenteditable], [tabindex="-1"]) {
   outline: 1.5px solid color-mix(in srgb, var(--tt-brand-color-400) 70%, transparent);
   /* Drawn just inside the edge: outside it, any panel that clips its
      overflow cut the ring off wherever a control met the panel's edge. */
