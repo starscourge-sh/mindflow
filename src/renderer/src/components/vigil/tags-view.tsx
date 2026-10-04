@@ -26,6 +26,8 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
 
   return (
     <>
+      {/* With a tag open, the list narrows to a column and the tag takes the rest. */}
+      <div className={chosen ? 'flex w-72 shrink-0 border-r' : 'contents'}>
       <Page title="Tags" count={tags.length}>
         {tags.length ? (
           <div className="flex flex-col px-3 py-2">
@@ -39,10 +41,12 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/60 ${chosen === tag ? 'bg-accent' : ''} ${index === cursor ? 'ring-1 ring-border' : ''}`}
               >
                 <Tag className="size-4" style={{ color: color ? `var(--tt-color-text-${color})` : undefined }} />
-                <span className="w-40 truncate">{tag}</span>
-                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-border/50">
-                  <span className="block h-full rounded-full bg-muted-foreground/40" style={{ width: `${(count / top) * 100}%` }} />
-                </span>
+                <span className={chosen ? 'min-w-0 flex-1 truncate' : 'w-40 truncate'}>{tag}</span>
+                {!chosen && (
+                  <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-border/50">
+                    <span className="block h-full rounded-full bg-muted-foreground/40" style={{ width: `${(count / top) * 100}%` }} />
+                  </span>
+                )}
                 <span className="w-8 text-right text-xs text-muted-foreground tabular-nums">{count}</span>
               </button>
             ))}
@@ -53,12 +57,10 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
           </Empty>
         )}
       </Page>
+      </div>
       {chosen && (
-        <Page
-          title={`#${chosen}`}
-          count={items.length}
-          actions={
-            <span className="flex items-center gap-3">
+        <Page title={`#${chosen}`} count={items.length}>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-5 py-3">
             {/* A colour, and whether writing this tag makes a task, the way
                 #bug does. Labels, not kinds: a colour and one behaviour. */}
             <span className="flex items-center gap-1">
@@ -75,7 +77,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
             </span>
             <label className="flex items-center gap-1.5 text-xs">
               <Switch checked={!!current?.action} onCheckedChange={(action) => void vigil.setTag(chosen, { action }).then(() => toast(action ? `#${chosen} now makes a task` : `#${chosen} is only a label`))} />
-              Makes a task
+              <span className="whitespace-nowrap">Makes a task</span>
             </label>
             {/* An alias: this tag counts as another without the words changing. */}
             <input
@@ -106,9 +108,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 })
               }}
             />
-            </span>
-          }
-        >
+            </div>
           <div className="flex flex-col px-3 py-2">
             {items.map((item) => {
               const Icon = ICON[item.type as keyof typeof ICON] ?? Inbox
