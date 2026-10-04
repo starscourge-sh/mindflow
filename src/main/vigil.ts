@@ -210,6 +210,7 @@ export function registerVigil(): void {
   column('captures', 'first_used_at text')
   column('captures', 'surfaced_at text')
   column('captures', 'device text')
+  column('captures', 'original_body text')
   column('captures', 'elapsed_ms integer')
   column('captures', 'surfacing_weight real not null default 1')
   // Kept by the database, so no exit can forget them: when a capture left the
@@ -219,6 +220,11 @@ export function registerVigil(): void {
   const stamp = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
   db.exec(`create trigger if not exists capture_exit after update of status on captures when new.status is not old.status begin
       update captures set exited_at = case when new.status = 'open' then null else ${stamp} end where id = new.id; end;
+    -- The words as first written, kept the first time they change: a capture
+    -- edited and then promoted still has what you actually caught.
+    create trigger if not exists capture_original after update of body on captures
+      when old.original_body is null and new.body is not old.body begin
+      update captures set original_body = old.body where id = new.id; end;
     create trigger if not exists capture_used after update of status, attribution, medium on captures
       when new.first_used_at is null and julianday('now') - julianday(new.captured_at) > 1.0 / 1440 begin
       update captures set first_used_at = ${stamp} where id = new.id; end;`)

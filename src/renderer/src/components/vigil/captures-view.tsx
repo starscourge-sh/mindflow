@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { ArrowUpRight, CheckCircle2, FileText, Hash, Inbox, ListTodo, Lock, Merge, Pin, Trash2, X, Laptop, Timer } from 'lucide-react'
+import { ArrowUpRight, CheckCircle2, FileText, Hash, Inbox, ListTodo, Lock, Merge, Pin, Trash2, X, Laptop, Timer, History } from 'lucide-react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
@@ -55,6 +55,9 @@ export function CapturesView({ title, keep, focus, onOpen }: {
   })
   const shown = groups.flatMap(([, list]) => list)
   const [open, setOpen] = useState<Capture | null>(null)
+  // The capture as first written, shown in place of the editor, or null.
+  const [first, setFirst] = useState<unknown>(null)
+  useEffect(() => setFirst(null), [open?.id])
   const pick = (id: string): void => void window.api.captures.get(id).then(setOpen)
   const [cursor] = useListKeys(shown.length, { onOpen: (index) => pick(shown[index].id), onBack: () => setOpen(null) })
   // x selects, as in Linear, for an exit on many at once.
@@ -150,7 +153,35 @@ export function CapturesView({ title, keep, focus, onOpen }: {
       {open && meta ? (
         <div className="flex min-w-0 flex-[1.4] border-l">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
-            {/* The first line names the capture, the same as in the prompt. */}
+            {/* What you first caught, kept from the first edit on: read it
+                beside what it has become, never lost to an edit. */}
+            <div className="flex justify-end px-6">
+              <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() =>
+                first !== null
+                  ? // Back from reading: the capture read again, so the editor
+                    // opens on its words now and never saves older ones over them.
+                    void window.api.captures.get(open.id).then((found) => {
+                      setOpen(found)
+                      setFirst(null)
+                    })
+                  : void window.api.captures.get(open.id).then((found) => (found?.original ? setFirst(found.original) : toast('Unchanged since you wrote it')))
+              }>
+                <History className="size-3.5" /> {first !== null ? 'Back to now' : 'As first written'}
+              </Button>
+            </div>
+            {first !== null ? (
+              <MindflowEditor
+                key={`first-${open.id}`}
+                defaultContent={(first as JSONContent | string | null) ?? ''}
+                readOnly
+                toolbar={false}
+                handles={false}
+                slash={false}
+                outline={false}
+                search={false}
+                autofocus={false}
+              />
+            ) : (
             <MindflowEditor
               key={open.id}
               host={window.api}
@@ -164,6 +195,7 @@ export function CapturesView({ title, keep, focus, onOpen }: {
                 window.api.captures.save(open.id, { body, markdown: toMarkdown(editor) })
               }
             />
+            )}
           </div>
           <CaptureProps capture={meta} onOpen={onOpen} />
         </div>

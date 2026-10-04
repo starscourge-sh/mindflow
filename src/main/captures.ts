@@ -41,6 +41,8 @@ export interface CaptureMeta {
 export interface Capture extends CaptureMeta {
   /** A TipTap document. */
   body: unknown
+  /** The words as first written, once they have been changed; null until then. */
+  original?: unknown
 }
 
 /**
@@ -203,10 +205,10 @@ export function registerCaptures(): void {
   })
 
   ipcMain.handle('captures:get', (_event, id: unknown) => {
-    const row = db.prepare(`select ${LIST}, body from captures where id = ?`).get(String(id))
+    const row = db.prepare(`select ${LIST}, body, original_body as original from captures where id = ?`).get(String(id))
     // Opening it is a use: the first one sets its time to first use.
     db.prepare("update captures set first_used_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') where id = ? and first_used_at is null and julianday('now') - julianday(captured_at) > 1.0 / 1440").run(String(id))
-    return row ? { ...row, body: JSON.parse(row.body as string) } : null
+    return row ? { ...row, body: JSON.parse(row.body as string), original: row.original ? JSON.parse(row.original as string) : null } : null
   })
 
   ipcMain.handle('captures:cards', () =>
