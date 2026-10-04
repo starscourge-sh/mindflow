@@ -5,7 +5,7 @@ import { EXITS, captureKey, takeExit } from '@/lib/capture-links'
 import { chime } from '@/lib/sound'
 import { wordsOf } from '../../../main/import'
 import { AskWho, toast } from './vigil/ui'
-import { Tip } from '@/components/vigil/ui'
+import { Kbd, Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.rot>>[number]
@@ -95,7 +95,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
               {captureKey(card.number)} · {new Date(card.capturedAt).toLocaleDateString()}
             </span>
             {EXITS.map((one) => (
-              <Tip key={one.key} label={`${one.what}  ${one.key.toUpperCase()}`}>
+              <Tip key={one.key} label={<span className="flex items-center gap-2">{one.what}<Kbd>{one.key.toUpperCase()}</Kbd></span>}>
               <Button variant="ghost" size="sm"
  className="opacity-70 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
  style={{ color: `var(--tt-color-text-${one.tint})` }}
@@ -105,7 +105,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
               </Button>
               </Tip>
             ))}
-            <Tip label="Say who said it: a quote needs one to be kept  W">
+            <Tip label={<span className="flex items-center gap-2">Say who said it: a quote needs one to be kept<Kbd>W</Kbd></span>}>
             <Button variant="ghost" size="sm"
  className="opacity-70 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
  
