@@ -88,6 +88,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
         <motion.div
           key={card.id}
           data-id={card.id}
+          data-private={card.private ? '' : undefined}
           layout
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -116,7 +117,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             { label: `Copy ${captureKey(card.number)}`, run: () => copy(captureKey(card.number)) }
           ]}>
             <button type="button" data-row className="line-clamp-3 w-full whitespace-pre-line text-left" onClick={() => onOpen(card.id)}>
-              {shown(card.title, card.body)}
+              <span className="private-text">{shown(card.title, card.body)}</span>
             </button>
           </RowMenu>
           {asking === card.id ? (

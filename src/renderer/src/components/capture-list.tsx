@@ -80,11 +80,13 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
             className={`flex w-full flex-col gap-0.5 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-accent/50 ${capture.status === 'open' ? '' : 'opacity-50'} ${chosen.includes(capture.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : capture.id === selected ? 'bg-accent' : index === cursor ? 'bg-accent/50' : ''}`}
             data-row
             data-id={capture.id}
+            data-private={capture.private ? '' : undefined}
+            data-open={capture.id === selected ? '' : undefined}
             onClick={() => onPick?.(capture.id)}
           >
             <span className="flex items-center gap-2">
               <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
-              <span className="flex-1 truncate">{text || 'Untitled'}</span>
+              <span className="private-text flex-1 truncate">{text || 'Untitled'}</span>
               {capture.pinnedAt && <Pin className="size-3 shrink-0 text-muted-foreground" />}
               {capture.private ? (
                 <Tip label="Private: never comes up unasked in quiet hours or safe mode">

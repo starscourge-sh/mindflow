@@ -165,6 +165,8 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
               ]}>
               <button
                 data-cursor={index === cursor || undefined}
+                data-private={item.private ? "" : undefined}
+                data-open={item.id === open?.id ? "" : undefined}
                 type="button"
                 data-row
                 onClick={(event) => (event.shiftKey || event.metaKey ? toggle(item.id) : pick(item.id))}
@@ -211,7 +213,7 @@ function NuggetRow({ item }: { item: Item }): React.JSX.Element {
     <>
       <span className="flex items-start gap-2">
         <kind.icon className="mt-0.5 size-4 shrink-0" style={{ color: kind.tint }} />
-        <span className="line-clamp-2 flex-1">{text || 'Untitled'}</span>
+        <span className="private-text line-clamp-2 flex-1">{text || 'Untitled'}</span>
       </span>
       <span className="mt-1 flex items-center gap-3 pl-6 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
@@ -234,7 +236,7 @@ function ArticleRow({ item }: { item: Item }): React.JSX.Element {
   return (
     <span className="flex items-center gap-3">
       <FileText className="size-4 shrink-0 text-muted-foreground" />
-      <span className="flex-1 truncate">{item.title || 'Untitled'}</span>
+      <span className="private-text flex-1 truncate">{item.title || 'Untitled'}</span>
       <span className="shrink-0 text-xs text-muted-foreground">{when(item.createdAt)}</span>
     </span>
   )
