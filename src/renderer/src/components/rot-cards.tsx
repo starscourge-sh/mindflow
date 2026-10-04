@@ -116,8 +116,9 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             { label: 'Pin to the prompt', run: () => pin('captures', card.id, true) },
             { label: `Copy ${captureKey(card.number)}`, run: () => copy(captureKey(card.number)) }
           ]}>
-            <button type="button" data-row className="line-clamp-3 w-full whitespace-pre-line text-left" onClick={() => onOpen(card.id)}>
-              <span className="private-text">{shown(card.title, card.body)}</span>
+            {/* Blurred as a whole box: blur inside a clamped box was cut at its edges. */}
+            <button type="button" data-row className="private-text line-clamp-2 w-full whitespace-pre-line text-left" onClick={() => onOpen(card.id)}>
+              {shown(card.title, card.body)}
             </button>
           </RowMenu>
           {asking === card.id ? (

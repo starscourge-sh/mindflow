@@ -172,8 +172,10 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
               />
             ) : (
               <div className="line-clamp-6 cursor-text whitespace-pre-line" onClick={fix}>
-                {/* The words roll in when it arrives, a hint being dealt. */}
-                <Rolling by="word" text={said} />
+                {/* The words roll in when it arrives, a hint being dealt; a
+                    long one, which must wrap, simply appears, since rolling
+                    text keeps to one line. */}
+                {said.length <= 60 && !said.includes('\n') ? <Rolling by="word" text={said} /> : said}
               </div>
             )}
           </RowMenu>

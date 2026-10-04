@@ -1,11 +1,10 @@
 import React, { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowLeft, BookOpen, Info, Eye, EyeOff, FileJson2, PanelRight, Keyboard, KeyboardOff, Lock, LockOpen, Maximize2, Minimize2, SquarePen, TableOfContents, X } from 'lucide-react'
+import { ArrowLeft, BookOpen, EyeOff, PanelRight, Maximize2, Minimize2, X } from 'lucide-react'
 import type { Editor, JSONContent } from '@tiptap/core'
 
 import { MindflowEditor, TAGS, currentVim, onVimChange, setVim } from './components/mindflow'
-import { ThemePicker } from './components/theme/theme-picker'
 import { EXITS, exit, findCaptures, follow } from './lib/capture-links'
 import { toMarkdown } from './lib/export'
 import { CaptureList, useCaptures } from './components/capture-list'
@@ -16,11 +15,11 @@ import { TodayPanel } from './components/vigil/today-panel'
 import { selectionActions } from './components/vigil/selection-actions'
 import { ReviewView } from './components/vigil/review-view'
 import { useAppearance, useLive } from './lib/vigil'
-import { BackToTop, Empty, Kbd, Remembered, ask, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
-import type { LucideIcon } from 'lucide-react'
+import { BackToTop, Empty, Kbd, Remembered, ask, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode } from './components/vigil/ui'
+import { TooltipProvider } from './components/ui/tooltip'
 import { Rolling, Toaster, toast } from './components/vigil/ui'
 import { Reader } from './components/vigil/reader'
+import { OptionsMenu } from './components/vigil/options-menu'
 import { ReadThrough, type Readable } from './components/vigil/read-through'
 import { assetsOf } from './lib/document'
 import { tagsOf } from './extensions/tokens'
@@ -48,7 +47,6 @@ import {
 } from "@/components/ui/resizable"
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
 
 
 
@@ -85,14 +83,6 @@ const hasContent = (body: JSONContent | string | null): boolean =>
     ? body.trim() !== ''
     : (body?.content ?? []).some((b) => b.content?.length || !['paragraph', 'heading'].includes(b.type ?? ''))
 
-/**
- * The controls on the bar at the foot of the window.
- *
- * A colour of their own: inheriting left them near enough invisible against
- * the bar, and an icon you have to look for is not a control.
- */
-const CONTROL = 'bg-transparent cursor-pointer text-foreground/75 hover:text-foreground ' +
-  'hover:bg-accent [&_svg]:size-[1.1rem]'
 
 /**
  * The three dots, top left. Raycast's rather than the system's.
@@ -124,7 +114,7 @@ const WindowDots = (): React.JSX.Element => (
   </div>
 )
 
-const Header = ({ onNew, panel, onPanel }: { onNew: () => void; panel: boolean; onPanel: () => void }): React.JSX.Element => {
+const Header = ({ panel, onPanel }: { panel: boolean; onPanel: () => void }): React.JSX.Element => {
   const [expanded, setExpanded] = useState(false)
   const toggle = (): void => {
     setExpanded((was) => {
@@ -153,7 +143,6 @@ const Header = ({ onNew, panel, onPanel }: { onNew: () => void; panel: boolean; 
       <div className="flex w-full" style={{ padding: '0rem 4.75rem' } as CSSProperties}>
         <WindowDots />
         <span className="flex-1" />
-        <SoundToggle className="mf-expand" />
         <Tip label={`${panel ? 'Hide' : 'Show'} Inbox, Tasks, Review and Kept  ⌘\\`}>
         <button
           type="button"
@@ -165,19 +154,6 @@ const Header = ({ onNew, panel, onPanel }: { onNew: () => void; panel: boolean; 
           onClick={onPanel}
         >
           <PanelRight />
-        </button>
-        </Tip>
-        <Tip label="New capture ⌘N">
-        <button
-          type="button"
-          tabIndex={-1}
-          className="mf-expand"
-          aria-label="New capture"
-        
-          style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-          onClick={onNew}
-        >
-          <SquarePen />
         </button>
         </Tip>
         {/* The strip is the window's drag handle, so the one thing on it that is
@@ -246,6 +222,8 @@ export default function App(): React.JSX.Element {
   // shown and never stored, so an edit never leaves a stale one behind.
   const [body, setBody] = useState<JSONContent | null>(() => readDraft() ?? null)
   const first = firstLine(body)
+  // Whether anything is written yet: who and where wait until there is.
+  const started = hasContent(body)
   // Who said it and where you met it. Null who means the words are yours.
   const [attribution, setAttribution] = useState('')
   const [medium, setMedium] = useState('')
@@ -540,7 +518,7 @@ export default function App(): React.JSX.Element {
         />
       )}
       <FocusNote />
-      <Header onNew={() => fresh()} panel={panel} onPanel={() => setPanel(!panel)} />
+      <Header panel={panel} onPanel={() => setPanel(!panel)} />
 
       <ResizablePanelGroup
         orientation="horizontal"
@@ -612,26 +590,31 @@ export default function App(): React.JSX.Element {
                 onChange={pick}
               />
               {/* Only what this kind asks for, unless it already holds something. */}
-              {(ASKS[kind].who || attribution) && (
+              {/* Who and where once there is something to say it about, and only
+                  what this kind asks for, unless it already holds something. */}
+              {((started && ASKS[kind].who) || attribution) && (
                 <Remembered field="attribution" value={attribution} placeholder={ASKS[kind].who ?? 'Who'} className="field-sizing-content min-w-16 max-w-48 px-1.5 py-0.5 text-meta" onChange={(value) => {
                   setAttribution(value)
                   if (editing) void vigil.setCapture(editing.id, 'attribution', value.trim() || null)
                 }} />
               )}
-              {(ASKS[kind].where || medium) && (
+              {((started && ASKS[kind].where) || medium) && (
                 <Remembered field="medium" value={medium} placeholder={ASKS[kind].where ?? 'Where'} className="field-sizing-content min-w-16 max-w-48 px-1.5 py-0.5 text-meta" onChange={(value) => {
                   setMedium(value)
                   if (editing) void vigil.setCapture(editing.id, 'medium', value.trim() || null)
                 }} />
               )}
-              <Tip label={secret ? 'Private: never comes up unasked in quiet hours or safe mode' : 'Make it private'}>
-                <Button variant="ghost" size="icon-sm" aria-label="Private" aria-pressed={secret} className={secret ? 'text-foreground' : 'text-muted-foreground/60'} onClick={() => {
-                  setSecret(!secret)
-                  if (editing) void vigil.setPrivate('captures', editing.id, !secret)
-                }}>
-                  {secret ? <EyeOff /> : <Eye />}
-                </Button>
-              </Tip>
+              {/* Private shows only when it is on; it is switched in Options. */}
+              {secret && (
+                <Tip label="Private: blurred in lists, never a hint. Click to make it public">
+                  <Button variant="ghost" size="icon-sm" aria-label="Private" aria-pressed onClick={() => {
+                    setSecret(false)
+                    if (editing) void vigil.setPrivate('captures', editing.id, false)
+                  }}>
+                    <EyeOff />
+                  </Button>
+                </Tip>
+              )}
               {ASKS[kind].why && textOf(body).trim().split('\n').filter(Boolean).length < 2 && (
                 <span className="truncate px-1.5 text-xs text-muted-foreground/70">{ASKS[kind].why}</span>
               )}
@@ -658,32 +641,26 @@ export default function App(): React.JSX.Element {
             )}
             {!reading && (
             <main data-chrome className="flex items-center gap-1 pt-2 pb-3 px-[4.75rem] bg-linear-to-t from-[var(--accent)]/40">
-              {/* The editor's settings, one shape each, every one named with its
-                  key on hover, and on or off shown by a fill rather than a fade. */}
-              <div className="flex items-center gap-0.5">
-                <BarToggle on={vim} icon={vim ? Keyboard : KeyboardOff} label="Vim keys" tip={vim ? 'Vim keys on' : 'Vim keys off'} keys={'\\'} onClick={() => setVim(!vim)} />
-                <BarToggle on={locked} icon={locked ? Lock : LockOpen} label="Lock" tip={locked ? 'Locked: read only' : 'Lock the note'} onClick={() => setLocked(!locked)} />
-                <BarToggle on={outline} icon={TableOfContents} label="Outline" tip={outline ? 'Hide the outline' : 'Show the outline'} onClick={() => setOutline(!outline)} />
-                <BarToggle on={source} icon={FileJson2} label="Source" tip={source ? 'Hide the source' : 'Show the source'} keys="⌘⌥S" onClick={() => setSource(!source)} />
-                {/* An open capture's exits, lineage, who and where, merge,
-                    reminder and first words, without the main window. */}
-                {editing && <BarToggle on={details} icon={Info} label="Details" tip={details ? 'Hide its details' : 'Its details: exits, lineage, who and where'} keys="⌘⇧D" onClick={() => setDetails(!details)} />}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span><ThemePicker className={`${CONTROL} gap-1.5 rounded-md`} /></span>
-                  </TooltipTrigger>
-                  <TooltipContent>Theme</TooltipContent>
-                </Tooltip>
-              </div>
-              {/* Create, bottom right, where the eye ends up. */}
-              {!editing && (
-                <label className="mr-4 ml-auto flex items-center gap-2 text-control text-muted-foreground">
-                  <Switch checked={createMore} onCheckedChange={setCreateMore} />
-                  Create more
-                </label>
-              )}
+              {/* What matters first is the writing and Create; every other
+                  switch is in here, each keeping its own key. */}
+              <OptionsMenu
+                options={[
+                  { label: 'Vim keys', on: vim, keys: '\\', set: setVim },
+                  { label: 'Lock: read only', on: locked, set: setLocked },
+                  { label: 'Outline', on: outline, set: setOutline },
+                  { label: 'Source', on: source, keys: '⌘⌥S', set: setSource },
+                  ...(editing ? [{ label: 'Details', on: details, keys: '⌘⇧D', set: setDetails }] : []),
+                  { label: 'Private', on: secret, set: (on: boolean) => {
+                    setSecret(on)
+                    if (editing) void vigil.setPrivate('captures', editing.id, on)
+                  } },
+                  ...(editing ? [] : [{ label: 'Create more', on: createMore, keys: '⌥⌘↵', set: setCreateMore }])
+                ]}
+                actions={[{ label: 'New capture', keys: '⌘N', run: () => fresh() }]}
+              />
+              <span className="flex-1" />
               <Tip label={createMore && !editing ? 'Save, and a fresh box for the next  ⌘↵' : 'Save and close  ⌘↵ · once with a fresh box after  ⌥⌘↵'}>
-              <Button variant="secondary" onClick={() => submit()} className={`${editing ? 'ml-auto ' : ''}text-control`}>
+              <Button variant="secondary" onClick={() => submit()} className="text-control">
                 <Rolling text={editing ? 'Done' : saved ? 'Saved' : 'Create'} /> <kbd className="font-sans text-key text-muted-foreground">⌘↵</kbd>
               </Button>
               </Tip>
@@ -1123,42 +1100,3 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
 }
 
 
-/**
- * One control on the prompt's bar: an icon, a fill when it is on, and a
- * tooltip that names it and gives its key, so nothing on the bar is a guess.
- */
-function BarToggle({ on, icon: Icon, label, tip, keys, onClick, text }: {
-  on: boolean
-  icon: LucideIcon
-  label: string
-  tip: string
-  keys?: string
-  onClick: () => void
-  text?: boolean
-}): React.JSX.Element {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          aria-label={tip}
-          aria-pressed={on}
-          onClick={() => {
-            chime('tap')
-            onClick()
-          }}
-          className={`flex h-7 items-center gap-1.5 rounded-md px-1.5 text-control transition-colors [&_svg]:size-4 ${
-            on ? 'bg-accent/70 text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-          }`}
-        >
-          <Icon />
-          {text && label}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent className="flex items-center gap-2">
-        {tip}
-        {keys && <kbd className="rounded border border-border/80 px-1 font-sans text-key text-muted-foreground">{keys}</kbd>}
-      </TooltipContent>
-    </Tooltip>
-  )
-}
