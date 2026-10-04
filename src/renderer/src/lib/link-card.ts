@@ -84,8 +84,13 @@ export async function cardUp(capture: { id: string; kind: string; body: unknown 
   const visit = async (node: Node): Promise<void> => {
     if (node.type === 'bookmark' && node.attrs && (remote(node.attrs.image) || remote(node.attrs.icon))) {
       const card = await look(String(node.attrs.href)).catch(() => null)
-      if (card && (!remote(card.image) || !remote(card.icon))) {
-        node.attrs = { ...node.attrs, image: card.image || node.attrs.image, icon: card.icon || node.attrs.icon }
+      // Only a picture that is now stored replaces the address: offline, or
+      // with nothing to store, the card is left as it was.
+      const kept = (was: unknown, now?: string): unknown => (remote(was) && now && !remote(now) ? now : was)
+      const image = kept(node.attrs.image, card?.image)
+      const icon = kept(node.attrs.icon, card?.icon)
+      if (image !== node.attrs.image || icon !== node.attrs.icon) {
+        node.attrs = { ...node.attrs, image, icon }
         changed = true
       }
     }

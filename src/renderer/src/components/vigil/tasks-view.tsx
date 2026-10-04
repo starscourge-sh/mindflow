@@ -8,7 +8,7 @@ import { MindflowEditor } from '../mindflow'
 import { chime } from '@/lib/sound'
 import { captureKey } from '@/lib/capture-links'
 import { splitTags, useLive, vigil, when, type Session, type Task, type TaskFull } from '@/lib/vigil'
-import { Empty, Kbd, Page, Prop, PropLabel, Props, Tags, toast, useListKeys } from './ui'
+import { Empty, Kbd, Page, Prop, PropLabel, Props, Tags, toast, useListKeys, typing } from './ui'
 import { Display, arrange, useView, type Facet } from './display'
 import { DatePicker } from './date-picker'
 import { RowMenu, copy } from './row-menu'
@@ -33,7 +33,7 @@ const tone = (task: Task): string | undefined => {
  * you type. A task is not a note with a tickbox: it has a when, a record of each
  * time it was done, and a way back to the capture it came from.
  */
-export function TasksView({ mode }: { mode: 'today' | 'upcoming' | 'routines' }): React.JSX.Element {
+export function TasksView({ mode, focus }: { mode: 'today' | 'upcoming' | 'routines'; focus?: string }): React.JSX.Element {
   const tasks = useLive(vigil.tasks, [] as Task[])
   const [open, setOpen] = useState<TaskFull | null>(null)
   const [draft, setDraft] = useState('')
@@ -79,6 +79,10 @@ export function TasksView({ mode }: { mode: 'today' | 'upcoming' | 'routines' })
         ]
   const shown = groups.flatMap(([, list]) => list)
   const pick = (id: string): void => void vigil.task(id).then(setOpen)
+  // Sent here for one task, from search or a link: open it.
+  useEffect(() => {
+    if (focus) pick(focus)
+  }, [focus])
   const [cursor, setCursor] = useListKeys(shown.length, { onOpen: (index) => pick(shown[index].id), onBack: () => setOpen(null) })
 
   // On the row the keyboard is on: Alt-J and Alt-K move it (dates say what is
@@ -86,14 +90,14 @@ export function TasksView({ mode }: { mode: 'today' | 'upcoming' | 'routines' })
   // or next week in one press.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      const active = document.activeElement as HTMLElement | null
-      if (active?.isContentEditable || ['INPUT', 'TEXTAREA'].includes(active?.tagName ?? '')) return
+      if (typing() || event.defaultPrevented) return
       const task = shown[cursor]
       if (!task) return
       if (event.altKey && (event.code === 'KeyJ' || event.code === 'KeyK')) {
         event.preventDefault()
         const to = cursor + (event.code === 'KeyJ' ? 1 : -1)
-        if (to < 0 || to >= shown.length) return
+        // Important ones sort first, so a task moves only among its own kind.
+        if (to < 0 || to >= shown.length || shown[to].important !== task.important) return
         // Renumber the list as shown, with the two swapped.
         const order = [...shown]
         ;[order[cursor], order[to]] = [order[to], order[cursor]]

@@ -15,9 +15,9 @@ export const STATUS_ICON = {
 
 /** The three ways out of a capture, each one key where a card has the focus. */
 export const EXITS = [
-  { key: 'p', status: 'promoted', label: 'Promote' },
-  { key: 'r', status: 'resolved', label: 'Resolve' },
-  { key: 'd', status: 'discarded', label: 'Discard' }
+  { key: 'p', status: 'promoted', label: 'Promote', done: 'Promoted' },
+  { key: 'r', status: 'resolved', label: 'Resolve', done: 'Resolved' },
+  { key: 'd', status: 'discarded', label: 'Discard', done: 'Discarded' }
 ] as const
 
 /** Take one. Promote makes a nugget as well; the other two only mark the capture. */

@@ -11,7 +11,7 @@ import { STATUS_ICON, captureKey, findCaptures } from '@/lib/capture-links'
 import { toMarkdown } from '@/lib/export'
 import { splitTags, vigil } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
-import { Empty, Kbd, Page, Prop, PropLabel, Props, Remembered, toast, useListKeys } from './ui'
+import { Empty, Kbd, Page, Prop, PropLabel, Props, Remembered, toast, useListKeys, typing, pin } from './ui'
 import { RemindMe } from './items-view'
 import { selectionActions } from './selection-actions'
 import { Tip } from '@/components/vigil/ui'
@@ -57,8 +57,7 @@ export function CapturesView({ title, keep, focus }: {
   const [chosen, setChosen] = useState<string[]>([])
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      const active = document.activeElement as HTMLElement | null
-      if (event.key !== 'x' || active?.isContentEditable || ['INPUT', 'TEXTAREA'].includes(active?.tagName ?? '')) return
+      if (event.key !== 'x' || typing()) return
       const capture = shown[cursor]
       if (capture) setChosen((ids) => (ids.includes(capture.id) ? ids.filter((one) => one !== capture.id) : [...ids, capture.id]))
     }
@@ -217,7 +216,7 @@ function CaptureProps({ capture }: { capture: CaptureMeta }): React.JSX.Element 
       <Prop icon={Lock} active={!!capture.private} onClick={() => void vigil.setPrivate('captures', capture.id, !capture.private)}>
         {capture.private ? 'Private' : 'Can surface any time'}
       </Prop>
-      <Prop icon={Pin} active={!!capture.pinnedAt} onClick={() => void vigil.pin('captures', capture.id, !capture.pinnedAt).then((ok) => ok || toast('Three pins at most: unpin one first'))}>
+      <Prop icon={Pin} active={!!capture.pinnedAt} onClick={() => pin('captures', capture.id, !capture.pinnedAt)}>
         {capture.pinnedAt ? 'Pinned' : 'Pin to the prompt'}
       </Prop>
       <RemindMe table="captures" id={capture.id} at={capture.remindAt} />

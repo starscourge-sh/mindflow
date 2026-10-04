@@ -350,7 +350,7 @@ export function registerVigil(): void {
     const rot = db
       .prepare(
         `select ${LIST}, body from captures where status = 'open' ${hidePrivate ? 'and private = 0' : ''}
-         and id not in (select nugget_id from hint_events where shown_at >= ? union select capture_id from nuggets where id in (select nugget_id from hint_events where shown_at >= ?))
+         and id not in (select nugget_id from hint_events where shown_at >= ? union select capture_id from nuggets where capture_id is not null and id in (select nugget_id from hint_events where shown_at >= ?))
          order by (julianday('now') - julianday(captured_at) + 1) * (abs(random()) % 1000) desc limit ${Math.max(0, Math.min(10, settings().rotCount))}`
       )
       .all(ago(3), ago(3))
@@ -668,10 +668,15 @@ export function registerVigil(): void {
   handle('remind', (table: 'captures' | 'nuggets', id: string, at: string | null) =>
     write(db.prepare(`update ${table === 'nuggets' ? 'nuggets' : 'captures'} set remind_at = ? where id = ?`).run(at, id))
   )
+  // Within the three pins: a reminder that comes round while three are pinned
+  // waits for a free place, rather than pushing one off or being lost.
+  const pins = (): number =>
+    (db.prepare('select (select count(*) from captures where pinned_at is not null) + (select count(*) from nuggets where pinned_at is not null) n').get() as { n: number }).n
   setInterval(() => {
     let fired = 0
     for (const table of ['captures', 'nuggets'])
-      fired += Number(db.prepare(`update ${table} set pinned_at = ?, remind_at = null where remind_at is not null and remind_at <= ?`).run(now(), now()).changes)
+      for (let due; pins() < 3 && (due = db.prepare(`select id from ${table} where remind_at <= ? order by remind_at limit 1`).get(now()) as { id: string } | undefined); fired++)
+        db.prepare(`update ${table} set pinned_at = ?, remind_at = null where id = ?`).run(now(), due.id)
     if (fired) changed()
   }, 60_000)
   // Three pins at most, across both tables: a fourth is refused rather than

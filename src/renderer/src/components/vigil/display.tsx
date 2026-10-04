@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { SlidersHorizontal } from 'lucide-react'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Tip } from '@/components/vigil/ui'
+import { Tip, typing } from './ui'
 
 /**
  * Display, the way Todoist and Linear do it: one button on a list that holds
@@ -98,9 +98,8 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [] }: {
   const [open, setOpen] = useState(false)
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      const active = document.activeElement as HTMLElement | null
       if (event.key !== 'f' || event.metaKey || event.ctrlKey || event.altKey) return
-      if (active?.isContentEditable || ['INPUT', 'TEXTAREA'].includes(active?.tagName ?? '')) return
+      if (typing()) return
       event.preventDefault()
       setOpen((was) => !was)
     }

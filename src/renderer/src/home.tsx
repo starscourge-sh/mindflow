@@ -37,7 +37,7 @@ import { SettingsView } from './components/vigil/settings-view'
 import { StatsView } from './components/vigil/stats-view'
 import { TagsView } from './components/vigil/tags-view'
 import { TasksView } from './components/vigil/tasks-view'
-import { Kbd, Toaster, toast } from './components/vigil/ui'
+import { Kbd, Toaster, toast, typing } from './components/vigil/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import { useAppearance, useLive, vigil, type Item, type Settings, type Task } from './lib/vigil'
 import { Tip } from '@/components/vigil/ui'
@@ -107,8 +107,7 @@ export function Home(): React.JSX.Element {
   useEffect(() => {
     let pending = false
     const onKey = (event: KeyboardEvent): void => {
-      const active = document.activeElement as HTMLElement | null
-      if (active?.isContentEditable || ['INPUT', 'TEXTAREA'].includes(active?.tagName ?? '')) return
+      if (typing()) return
       if (event.metaKey && event.key === 'k') {
         event.preventDefault()
         return setSearching(true)
@@ -121,19 +120,23 @@ export function Home(): React.JSX.Element {
       if (pending) {
         pending = false
         const to = SECTIONS.find((section) => section.key === event.key)
-        if (to) setView({ id: to.id })
+        // Taken here, so G T goes to Today and does not also move a task to today.
+        if (to) {
+          event.preventDefault()
+          setView({ id: to.id })
+        }
         return
       }
       if (event.key === 'g') pending = true
       else if (event.key === 'c') window.api.showPrompt()
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   })
 
   // Somewhere else sent you to one thing: open its section with it open.
   const open = (type: string, id: string): void =>
-    setView({ id: type === 'capture' ? 'all' : type === 'task' ? 'today' : `${type}s`, focus: id })
+    setView({ id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id })
 
   const kind = CAPTURE_TYPES.find((type) => `kind:${type.id}` === view.id)
   const keep: Record<string, (capture: CaptureMeta) => boolean> = {
@@ -319,11 +322,11 @@ export function Home(): React.JSX.Element {
         ) : view.id === 'review' ? (
           <ReviewView />
         ) : view.id === 'today' || view.id === 'upcoming' || view.id === 'routines' ? (
-          <TasksView mode={view.id} />
+          <TasksView mode={view.id} focus={view.focus} />
         ) : view.id === 'nuggets' || view.id === 'articles' ? (
           <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} focus={view.focus} onOpenCapture={(id) => open('capture', id)} />
         ) : view.id === 'tags' ? (
-          <TagsView onOpen={open} focus={view.focus} />
+          <TagsView key={view.focus} onOpen={open} focus={view.focus} />
         ) : view.id === 'stats' ? (
           <StatsView />
         ) : (

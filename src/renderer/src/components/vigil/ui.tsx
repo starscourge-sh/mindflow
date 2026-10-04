@@ -118,6 +118,12 @@ const focus = (): 'box' | 'editor' | null => {
   if (active?.isContentEditable) return 'editor'
   return active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName) ? 'box' : null
 }
+/** Whether a key is going into something you are writing in, not to the page. */
+export const typing = (): boolean => focus() !== null
+
+/** Pin or unpin, and say so when the three places are full. */
+export const pin = (table: 'captures' | 'nuggets', id: string, on: boolean): void =>
+  void vigil.pin(table, id, on).then((ok) => ok || toast('Three pins at most: unpin one first'))
 
 /**
  * Moving through a list the way the editor moves through a document: j and k,

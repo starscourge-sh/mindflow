@@ -517,7 +517,7 @@ if (process.platform === 'darwin') app.setActivationPolicy('accessory')
 // and must never open the database your real captures are in.
 if (process.env.MINDFLOW_USER_DATA) app.setPath('userData', process.env.MINDFLOW_USER_DATA)
 
-// From a terminal, without the window: `open -a mindflow --args --capture "buy milk"`,
+// From a terminal, without the window: `open -n -a mindflow --args --capture "buy milk"`,
 // or the binary itself with the same flags. One copy of the app runs; a second
 // launch hands its words to the first and leaves.
 const fromCli = (argv: string[]): string | null => {
@@ -603,7 +603,7 @@ async function importFiles(): Promise<void> {
     const text = await readFile(path, 'utf8')
     const added = /\.html?$/i.test(name)
       ? importBookmarks(name, text)
-      : /\.(csv|json)$/i.test(name) || text.includes('==========')
+      : /\.(csv|json)$/i.test(name) || (/\.txt$/i.test(name) && text.includes('=========='))
         ? importHighlights(name, text)
         : /\.txt$/i.test(name)
           ? importAnki(text)

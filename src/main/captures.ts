@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import { randomUUID } from 'crypto'
 import { DatabaseSync } from 'node:sqlite'
 import { z } from 'zod'
+import Papa from 'papaparse'
 import { join } from 'path'
 
 import { backUp, writeMarkdown } from './backup'
@@ -288,14 +289,16 @@ export function importMarkdown(name: string, text: string, kind: string): number
  * its site as where it came from. One already imported is skipped.
  */
 export function importBookmarks(name: string, html: string): number {
-  const seen = db.prepare('select 1 from captures where source = ? and body = ?')
+  // Matched on the address anywhere in the body: once a link becomes its card,
+  // the body is the card, and a second import must still see it.
+  const seen = db.prepare('select 1 from captures where source = ? and body like ?')
   const where = db.prepare('update captures set medium = ? where id = ?')
   let added = 0
   const plain = (text: string): string =>
     text.replace(/&(amp|quot|#39|lt|gt);/g, (_, code: string) => ({ amp: '&', quot: '"', '#39': "'", lt: '<', gt: '>' })[code]!).trim()
   for (const [, url, attrs, raw] of html.matchAll(/<a\s+href="([^"]+)"([^>]*)>([^<]*)<\/a>/gi)) {
     const title = plain(raw)
-    if (!/^https?:/.test(url) || seen.get(name, JSON.stringify(url))) continue
+    if (!/^https?:/.test(url) || seen.get(name, `%${url}%`)) continue
     const saved = /add_date="(\d+)"/i.exec(attrs)?.[1]
     const { id, number } = insert(
       { title: title || url, kind: 'link', body: url, source: name },
@@ -311,34 +314,17 @@ export function importBookmarks(name: string, html: string): number {
 
 /** A capture from the command line: plain words, its kind guessed from them. */
 export function captureText(text: string): void {
-  insert({ title: '', kind: kindOf(text) ?? (/^https?:\/\/\S+$/.test(text) ? 'link' : 'note'), body: text }, new Date().toISOString())
+  insert({ title: '', kind: kindOf(text) ?? 'note', body: text }, new Date().toISOString())
   recordOpen('cli')
   changed()
 }
 
-/** A CSV file's rows as objects keyed by its header, quoted fields and all. */
-function csv(text: string): Record<string, string>[] {
-  const rows: string[][] = [[]]
-  let field = ''
-  let quoted = false
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i]
-    if (quoted) {
-      if (c === '"' && text[i + 1] === '"') field += text[++i]
-      else if (c === '"') quoted = false
-      else field += c
-    } else if (c === '"') quoted = true
-    else if (c === ',') rows.at(-1)!.push(field), (field = '')
-    else if (c === '\n') rows.at(-1)!.push(field.replace(/\r$/, '')), (field = ''), rows.push([])
-    else field += c
-  }
-  rows.at(-1)!.push(field)
-  const [head, ...body] = rows
-  return body.filter((row) => row.some(Boolean)).map((row) => Object.fromEntries(head.map((key, i) => [key.trim().toLowerCase(), row[i] ?? ''])))
-}
+/** A CSV file's rows as objects keyed by its header, in lower case. */
+const csv = (text: string): Record<string, string>[] =>
+  Papa.parse<Record<string, string>>(text.trim(), { header: true, skipEmptyLines: true, transformHeader: (key) => key.trim().toLowerCase() }).data
 
 /** Words from elsewhere, as captures: who said them and where, kept. */
-type Found = { text: string; who?: string; where?: string; at?: string; kind?: string }
+type Found = { text: string; who?: string; where?: string; at?: string }
 function bring(name: string, found: Found[]): number {
   const seen = db.prepare('select 1 from captures where source = ? and body = ?')
   const set = db.prepare('update captures set attribution = ?, medium = ? where id = ?')
@@ -347,7 +333,7 @@ function bring(name: string, found: Found[]): number {
     const text = one.text.trim()
     if (!text || seen.get(name, JSON.stringify(text))) continue
     const at = one.at && !Number.isNaN(Date.parse(one.at)) ? new Date(one.at).toISOString() : new Date().toISOString()
-    const kind = one.kind ?? (text.length > 600 ? 'excerpt' : one.who ? 'quote' : guessKind(text, 'note'))
+    const kind = text.length > 600 ? 'excerpt' : one.who ? 'quote' : guessKind(text, 'note')
     const { id, number } = insert({ title: '', kind, body: text, source: name }, at)
     set.run(one.who?.trim() || null, one.where?.trim() || null, id)
     void writeMarkdown(number, text)

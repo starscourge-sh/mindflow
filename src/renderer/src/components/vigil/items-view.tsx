@@ -11,7 +11,7 @@ import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-k
 import { age } from '../capture-list'
 import { findCaptures } from '@/lib/capture-links'
 import { interval, splitTags, useLive, vigil, when, type Item, type ItemFull } from '@/lib/vigil'
-import { Empty, Page, Prop, PropLabel, Props, Tags, toast, useListKeys } from './ui'
+import { Empty, Page, Prop, PropLabel, Props, Tags, toast, useListKeys, typing, pin } from './ui'
 import { AGES, Display, arrange, period, useView, type Facet } from './display'
 import { RowMenu, copy } from './row-menu'
 import * as chrono from 'chrono-node'
@@ -46,6 +46,8 @@ export function ItemsView({ tier, focus, onOpenCapture }: { tier: 'nugget' | 'ar
     date: (one) => period(one.createdAt)
   })
   const items = groups.flatMap(([, list]) => list)
+  // Each group's name, on its first row.
+  const heads = new Map(groups.map(([name, list]) => [list[0], name]))
   const [open, setOpen] = useState<ItemFull | null>(null)
   const pick = (id: string): void => void vigil.item(id).then(setOpen)
   const [cursor] = useListKeys(items.length, { onOpen: (index) => pick(items[index].id), onBack: () => setOpen(null) })
@@ -60,8 +62,7 @@ export function ItemsView({ tier, focus, onOpenCapture }: { tier: 'nugget' | 'ar
   useEffect(() => {
     if (tier !== 'nugget') return
     const onKey = (event: KeyboardEvent): void => {
-      const active = document.activeElement as HTMLElement | null
-      if (event.key !== 'x' || active?.isContentEditable || ['INPUT', 'TEXTAREA'].includes(active?.tagName ?? '')) return
+      if (event.key !== 'x' || typing()) return
       const item = items[at.current]
       if (item) toggle(item.id)
     }
@@ -145,13 +146,11 @@ export function ItemsView({ tier, focus, onOpenCapture }: { tier: 'nugget' | 'ar
           <div className="flex flex-col px-3 py-2">
             {items.map((item, index) => (
               <Fragment key={item.id}>
-              {view.group !== 'none' && groups.find(([, list]) => list[0] === item)?.[0] && (
-                <div className="px-2 pt-4 pb-1 text-xs text-muted-foreground first:pt-1">{groups.find(([, list]) => list[0] === item)![0]}</div>
-              )}
+              {heads.get(item) && <div className="px-2 pt-4 pb-1 text-xs text-muted-foreground first:pt-1">{heads.get(item)}</div>}
               <RowMenu items={[
                 { label: 'Open', keys: '↵', run: () => pick(item.id) },
                 'separator',
-                { label: item.pinnedAt ? 'Unpin' : 'Pin to the prompt', run: () => void vigil.pin('nuggets', item.id, !item.pinnedAt).then((ok) => ok || toast('Three pins at most: unpin one first')) },
+                { label: item.pinnedAt ? 'Unpin' : 'Pin to the prompt', run: () => pin('nuggets', item.id, !item.pinnedAt) },
                 { label: item.private ? 'Let it surface' : 'Make private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
                 tier === 'nugget' && { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(item.id) },
                 'separator',
@@ -325,7 +324,7 @@ function ItemDetail({ item, onOpenCapture }: { item: ItemFull; onOpenCapture?: (
         <Prop icon={Lock} active={!!item.private} onClick={() => void vigil.setPrivate('nuggets', item.id, !item.private)}>
           {item.private ? 'Private' : 'Can surface any time'}
         </Prop>
-        <Prop icon={Pin} active={!!item.pinnedAt} onClick={() => void vigil.pin('nuggets', item.id, !item.pinnedAt).then((ok) => ok || toast('Three pins at most: unpin one first'))}>
+        <Prop icon={Pin} active={!!item.pinnedAt} onClick={() => pin('nuggets', item.id, !item.pinnedAt)}>
           {item.pinnedAt ? 'Pinned' : 'Pin to the prompt'}
         </Prop>
         <RemindMe table="nuggets" id={item.id} at={item.remindAt} />

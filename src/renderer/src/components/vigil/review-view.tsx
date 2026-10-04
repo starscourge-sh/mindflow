@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { MindflowEditor } from '../mindflow'
 import { chime } from '@/lib/sound'
 import { interval, vigil, type Due } from '@/lib/vigil'
-import { Empty, Kbd, Page, toast } from './ui'
+import { Empty, Kbd, Page, toast, typing } from './ui'
 import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/vigil/ui'
 
@@ -58,14 +58,14 @@ export function ReviewView(): React.JSX.Element {
     if (!card) return
     void vigil.bury(card.id).then(() => toast('Buried until tomorrow'))
     setShown(false)
+    setSaid('')
     setAt((index) => index + 1)
   }
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.metaKey || event.ctrlKey) return
       // Never while typing: in the prompt the editor sits beside the review.
-      const active = document.activeElement as HTMLElement | null
-      if (active?.isContentEditable || ['INPUT', 'TEXTAREA'].includes(active?.tagName ?? '')) return
+      if (typing()) return
       if (event.key === ' ' && card) {
         event.preventDefault()
         reveal()
