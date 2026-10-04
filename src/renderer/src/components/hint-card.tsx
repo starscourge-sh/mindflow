@@ -110,8 +110,8 @@ export function HintCard({ onOpen }: { onOpen: (captureId: string) => void }): R
                   button says what it does, since the icons alone do not. */}
               {[
                 ...(hint.captureId ? [{ icon: ArrowUpRight, tip: 'Open it', run: () => { onOpen(hint.captureId!); setHint(null) } }] : []),
-                { icon: ThumbsUp, tip: 'More like this', keys: '⌃⇧↑', run: () => react('up') },
-                { icon: ThumbsDown, tip: 'Fewer like this', keys: '⌃⇧↓', run: () => react('down') },
+                { icon: ThumbsUp, tip: 'Show this more often', keys: '⌃⇧↑', run: () => react('up') },
+                { icon: ThumbsDown, tip: 'Show this less often', keys: '⌃⇧↓', run: () => react('down') },
                 { icon: X, tip: 'Not now', run: () => setHint(null) }
               ].map(({ icon: Icon, tip, keys, run }) => (
                 <Tooltip key={tip}>

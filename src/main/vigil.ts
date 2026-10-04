@@ -210,6 +210,7 @@ export function registerVigil(): void {
   column('captures', 'session_id text')
   column('captures', 'first_used_at text')
   column('captures', 'surfaced_at text')
+  column('captures', 'surfacing_weight real not null default 1')
   // Kept by the database, so no exit can forget them: when a capture left the
   // inbox, and when it was first used (opened, exited or given a who or where),
   // which time to first use is measured by. Not in its first minute: that is
@@ -381,7 +382,7 @@ export function registerVigil(): void {
       ? (db.prepare(`select id, id as captureId, kind, title, body from captures where status = 'open' and coalesce(surfaced_at, '') < ?
           and captured_at < ? ${hidePrivate ? 'and private = 0' : ''}
           and id not in (select nugget_id from hint_events where shown_at >= ?)
-          order by (julianday('now') - julianday(captured_at)) * (case kind when 'link' then 3 else 1 end) * (abs(random()) % 1000) desc limit 1`).get(ago(3), ago(7), ago(3)) as Record<string, string> | undefined)
+          order by (julianday('now') - julianday(captured_at)) * (case kind when 'link' then 3 else 1 end) * surfacing_weight * (abs(random()) % 1000) desc limit 1`).get(ago(3), ago(7), ago(3)) as Record<string, string> | undefined)
       : undefined
     const hint = pushed ?? old ?? db
       .prepare(
@@ -416,7 +417,10 @@ export function registerVigil(): void {
   })
   // Up makes it come back more, down less. Never a schedule, never a grade.
   ipcMain.handle('hints:react', (_event, event: number, id: string, reaction: 'up' | 'down') => {
-    db.prepare('update nuggets set surfacing_weight = surfacing_weight * ? where id = ?').run(reaction === 'up' ? 1.5 : 1 / 1.5, id)
+    // Up: this one comes back half as often again; down, two-thirds as often.
+    // A hint is a nugget or an old capture, so whichever it is.
+    for (const table of ['nuggets', 'captures'])
+      db.prepare(`update ${table} set surfacing_weight = surfacing_weight * ? where id = ?`).run(reaction === 'up' ? 1.5 : 1 / 1.5, id)
     db.prepare('update hint_events set reaction = ? where rowid = ?').run(reaction, event)
   })
 
