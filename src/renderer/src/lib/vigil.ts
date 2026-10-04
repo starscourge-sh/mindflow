@@ -99,7 +99,8 @@ export const vigil = {
   settings: () => call<Settings>('settings'),
   setSettings: (patch: Partial<Settings>) => call<Settings>('settings:set', patch),
   setPrivate: (table: 'captures' | 'nuggets', id: string, on: boolean) => call('private', table, id, on),
-  pin: (table: 'captures' | 'nuggets', id: string, on: boolean) => call('pin', table, id, on),
+  /** False when three are pinned already. */
+  pin: (table: 'captures' | 'nuggets', id: string, on: boolean) => call<boolean>('pin', table, id, on),
   pins: () => call<Pin[]>('pins'),
   promote: (id: string) => call<string | null>('promote', id),
   toTask: (id: string) => call<string | null>('toTask', id),

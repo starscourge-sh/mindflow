@@ -273,7 +273,7 @@ function ItemDetail({ item }: { item: ItemFull }): React.JSX.Element {
         <Prop icon={Lock} active={!!item.private} onClick={() => void vigil.setPrivate('nuggets', item.id, !item.private)}>
           {item.private ? 'Private' : 'Can surface any time'}
         </Prop>
-        <Prop icon={Pin} active={!!item.pinnedAt} onClick={() => void vigil.pin('nuggets', item.id, !item.pinnedAt)}>
+        <Prop icon={Pin} active={!!item.pinnedAt} onClick={() => void vigil.pin('nuggets', item.id, !item.pinnedAt).then((ok) => ok || toast('Three pins at most: unpin one first'))}>
           {item.pinnedAt ? 'Pinned' : 'Pin to the prompt'}
         </Prop>
         <RemindMe table="nuggets" id={item.id} at={item.remindAt} />

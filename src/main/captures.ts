@@ -207,11 +207,12 @@ function insert(patch: CapturePatch & { source?: string }, capturedAt: string): 
   const id = randomUUID()
   const { number } = db
     .prepare(
-      `insert into captures (id, number, title, kind, body, captured_at, source)
-       values (?, (select coalesce(max(number), 0) + 1 from captures), ?, ?, ?, ?, ?)
+      // A bit starts private: the one kind where a screen share is the risk.
+      `insert into captures (id, number, title, kind, body, captured_at, source, private)
+       values (?, (select coalesce(max(number), 0) + 1 from captures), ?, ?, ?, ?, ?, ?)
        returning number`
     )
-    .get(id, patch.title ?? '', patch.kind ?? 'note', JSON.stringify(patch.body ?? null), capturedAt, patch.source ?? '') as { number: number }
+    .get(id, patch.title ?? '', patch.kind ?? 'note', JSON.stringify(patch.body ?? null), capturedAt, patch.source ?? '', patch.kind === 'bit' ? 1 : 0) as { number: number }
   return { id, number }
 }
 

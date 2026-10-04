@@ -165,7 +165,7 @@ function CaptureProps({ capture }: { capture: CaptureMeta }): React.JSX.Element 
       <Prop icon={Lock} active={!!capture.private} onClick={() => void vigil.setPrivate('captures', capture.id, !capture.private)}>
         {capture.private ? 'Private' : 'Can surface any time'}
       </Prop>
-      <Prop icon={Pin} active={!!capture.pinnedAt} onClick={() => void vigil.pin('captures', capture.id, !capture.pinnedAt)}>
+      <Prop icon={Pin} active={!!capture.pinnedAt} onClick={() => void vigil.pin('captures', capture.id, !capture.pinnedAt).then((ok) => ok || toast('Three pins at most: unpin one first'))}>
         {capture.pinnedAt ? 'Pinned' : 'Pin to the prompt'}
       </Prop>
       <RemindMe table="captures" id={capture.id} at={capture.remindAt} />

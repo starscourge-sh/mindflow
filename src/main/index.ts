@@ -599,12 +599,12 @@ function createTray(): void {
  */
 function updateTray(): void {
   if (!tray) return
-  const { due, safe } = badge()
+  const { due, tasks, safe } = badge()
   // A running session shows its minutes, so the menu bar says what you are on.
   const session = activeSession()
   const minutes = session ? Math.floor((Date.now() - new Date(session.startedAt).getTime()) / 60000) : 0
-  tray.setTitle([session ? `● ${minutes}m` : '', due ? String(due) : '', safe ? 'Safe' : ''].filter(Boolean).join(' · '), { fontType: 'monospacedDigit' })
-  tray.setToolTip(`mindflow${due ? ` · ${due} to review` : ''}${safe ? ' · safe mode on' : ''}`)
+  tray.setTitle([session ? `● ${minutes}m` : '', tasks ? `▸${tasks}` : '', due ? String(due) : '', safe ? 'Safe' : ''].filter(Boolean).join(' · '), { fontType: 'monospacedDigit' })
+  tray.setToolTip(`mindflow${tasks ? ` · ${tasks} task${tasks === 1 ? '' : 's'} due now` : ''}${due ? ` · ${due} to review` : ''}${safe ? ' · safe mode on' : ''}`)
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'Show mindflow', accelerator: SUMMON, click: () => toggleWindow() },

@@ -92,7 +92,10 @@ const cardOf = (state: string | null): Card => {
   const card = JSON.parse(state)
   return { ...card, due: new Date(card.due), last_review: card.last_review ? new Date(card.last_review) : undefined }
 }
-const scheduler = (): ReturnType<typeof fsrs> => fsrs(generatorParameters({ request_retention: settings().retention }))
+// The plan's learning steps, ten minutes then a day, and fuzz so cards learnt
+// together spread over the days around their due date instead of landing at once.
+const scheduler = (): ReturnType<typeof fsrs> =>
+  fsrs(generatorParameters({ request_retention: settings().retention, learning_steps: ['10m', '1d'], enable_fuzz: true }))
 
 /** When each of the four grades would bring an item back, for the buttons. */
 const preview = (state: string | null): Record<number, string> => {
@@ -443,7 +446,7 @@ export function registerVigil(): void {
     const text = parts.map((part) => plain(JSON.parse(part.body))).join('\n\n')
     const id = randomUUID()
     db.prepare(
-      `insert into nuggets (id, tier, kind, title, body, origins, created_at, updated_at) values (?, 'article', 'idea', ?, ?, ?, ?, ?)`
+      `insert into nuggets (id, tier, kind, title, body, origins, created_at, updated_at) values (?, 'article', 'note', ?, ?, ?, ?, ?)`
     ).run(id, parts[0]?.title ?? 'Untitled', JSON.stringify(text), JSON.stringify(ids), now(), now())
     return write(id)
   })
@@ -454,6 +457,8 @@ export function registerVigil(): void {
     const attribution = origin.attribution ?? (origin.captureId ? (db.prepare('select attribution from captures where id = ?').get(origin.captureId) as { attribution: string | null } | undefined)?.attribution : null)
     db.prepare("insert into nuggets (id, capture_id, kind, title, body, attribution, created_at, updated_at) values (?, ?, 'note', ?, ?, ?, ?, ?)")
       .run(id, origin.captureId ?? null, text.split('\n')[0].slice(0, 160), JSON.stringify(text), attribution ?? null, now(), now())
+    // An excerpt is a container: once something is pulled out of it, it has done its job.
+    if (origin.captureId) db.prepare("update captures set status = 'promoted' where id = ? and kind = 'excerpt' and status = 'open'").run(origin.captureId)
     return write(id)
   })
   // Wrong, and corrected: the correction becomes its own nugget, the wrong one
@@ -636,9 +641,15 @@ export function registerVigil(): void {
       fired += Number(db.prepare(`update ${table} set pinned_at = ?, remind_at = null where remind_at is not null and remind_at <= ?`).run(now(), now()).changes)
     if (fired) changed()
   }, 60_000)
-  handle('pin', (table: 'captures' | 'nuggets', id: string, on: boolean) =>
+  // Three pins at most, across both tables: a fourth is refused rather than
+  // quietly pushing the oldest off, so a pin always means what you think.
+  handle('pin', (table: 'captures' | 'nuggets', id: string, on: boolean) => {
+    const others = (db.prepare(`select (select count(*) from captures where pinned_at is not null and id != ?)
+      + (select count(*) from nuggets where pinned_at is not null and id != ?) n`).get(id, id) as { n: number }).n
+    if (on && others >= 3) return false
     write(db.prepare(`update ${table === 'nuggets' ? 'nuggets' : 'captures'} set pinned_at = ? where id = ?`).run(on ? now() : null, id))
-  )
+    return true
+  })
 
   // --- the same idea again: a vote, not a duplicate
   // Trigrams, not a model: enough to notice "you have written this before"
@@ -671,7 +682,7 @@ export function registerVigil(): void {
   handle('session:end', (id: string, recap: string, keep: boolean) => {
     db.prepare('update sessions set ended_at = ?, recap = ? where id = ?').run(now(), recap, id)
     if (keep && recap.trim())
-      db.prepare("insert into nuggets (id, kind, title, body, created_at, updated_at) values (?, 'tip', ?, ?, ?, ?)").run(
+      db.prepare("insert into nuggets (id, kind, title, body, created_at, updated_at) values (?, 'note', ?, ?, ?, ?)").run(
         randomUUID(), recap.split('\n')[0].slice(0, 120), JSON.stringify(recap), now(), now())
     return write(true)
   })
@@ -753,11 +764,15 @@ export function registerVigil(): void {
 }
 
 /** What the menu bar says: reviews due, and whether safe mode is on. */
-export function badge(): { due: number; safe: boolean } {
+export function badge(): { due: number; tasks: number; safe: boolean } {
   const { n } = database()
     .prepare("select count(*) n from nuggets where coalesce(prompt, '') != '' and suspended = 0 and (due_at is null or due_at <= ?)")
     .get(now()) as { n: number }
-  return { due: n, safe: settings().safeMode }
+  // Quiet push: a task whose time has come is counted in the menu bar, unless
+  // you chose pull, where it only rises in Today.
+  const tasks = settings().notify === 'pull' ? 0 : (database()
+    .prepare("select count(*) n from tasks where status = 'open' and all_day = 0 and due_at <= ?").get(now()) as { n: number }).n
+  return { due: n, tasks, safe: settings().safeMode }
 }
 
 /** Flip safe mode from outside a window: the menu bar. */
