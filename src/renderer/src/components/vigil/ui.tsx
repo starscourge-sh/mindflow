@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { ArrowUp, type LucideIcon } from 'lucide-react'
+import { ArrowUp, Volume2, VolumeX, type LucideIcon } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Coolshape, type shapeTypes } from 'coolshapes-react'
 import Lenis from 'lenis'
@@ -519,5 +519,26 @@ export function VirtualList<T>({ items, keyOf, cursor, estimate = 48, className 
         </div>
       ))}
     </div>
+  )
+}
+
+/** Sounds on or off in one click, from the top of either window. */
+export function SoundToggle({ className = '' }: { className?: string }): React.JSX.Element | null {
+  const settings = useLive(vigil.settings, null as Awaited<ReturnType<typeof vigil.settings>> | null)
+  if (!settings) return null
+  const on = settings.sounds
+  return (
+    <Tip label={on ? 'Sounds on: click for quiet' : 'Sounds off: click to hear them'}>
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label={on ? 'Turn sounds off' : 'Turn sounds on'}
+        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        onClick={() => void vigil.setSettings({ sounds: !on })}
+        className={className}
+      >
+        {on ? <Volume2 /> : <VolumeX />}
+      </button>
+    </Tip>
   )
 }

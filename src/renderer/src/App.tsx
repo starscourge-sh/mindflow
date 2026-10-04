@@ -16,7 +16,7 @@ import { TodayPanel } from './components/vigil/today-panel'
 import { selectionActions } from './components/vigil/selection-actions'
 import { ReviewView } from './components/vigil/review-view'
 import { useAppearance, useLive } from './lib/vigil'
-import { BackToTop, Remembered, useListKeys, useSmooth, FocusNote, useFocusMode } from './components/vigil/ui'
+import { BackToTop, Remembered, useListKeys, useSmooth, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import type { LucideIcon } from 'lucide-react'
 import { Toaster, toast } from './components/vigil/ui'
@@ -146,6 +146,7 @@ const Header = ({ onNew }: { onNew: () => void }): React.JSX.Element => {
       <div className="flex w-full" style={{ padding: '0rem 4.75rem' } as CSSProperties}>
         <WindowDots />
         <span className="flex-1" />
+        <SoundToggle className="mf-expand" />
         <Tip label="New capture ⌘N">
         <button
           type="button"

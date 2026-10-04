@@ -37,7 +37,7 @@ import { SettingsView } from './components/vigil/settings-view'
 import { StatsView } from './components/vigil/stats-view'
 import { TagsView } from './components/vigil/tags-view'
 import { TasksView } from './components/vigil/tasks-view'
-import { Kbd, Toaster, toast, typing, FocusNote, useFocusMode } from './components/vigil/ui'
+import { Kbd, Toaster, toast, typing, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import { useAppearance, useLive, vigil, type Item, type Settings, type Task } from './lib/vigil'
 import { Tip } from '@/components/vigil/ui'
@@ -184,6 +184,7 @@ export function Home(): React.JSX.Element {
           {SECTIONS.find((section) => section.id === view.id)?.label ?? (kind ? kind.label : view.id === 'settings' ? 'Settings' : '')}
         </span>
         <span className="flex-1" />
+        <SoundToggle className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-4" />
         <Tip label="New capture  C">
         <Button variant="ghost" size="sm"
         
