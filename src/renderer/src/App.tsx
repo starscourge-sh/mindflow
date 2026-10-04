@@ -303,7 +303,10 @@ export default function App(): React.JSX.Element {
     // and where it came from is the site; a long block is an excerpt, the
     // container for what comes out of it later.
     const url = /^https?:\/\/\S+$/.test(text) ? new URL(text) : null
-    const sorted = kind !== 'note' ? kind : url ? 'link' : text.length > 600 ? 'excerpt' : kind
+    // The suggestion is worked out a moment after typing stops; a save before
+    // then works it out here, so a quick "Call the plumber" is still a todo.
+    const said = chosen ? kind : ((kindOf(firstLine(doc)) as CaptureType | null) ?? kind)
+    const sorted = said !== 'note' ? said : url ? 'link' : text.length > 600 ? 'excerpt' : said
     const where = medium || (url ? siteName(url.hostname) : '')
     // A tag marked "makes a task" (#bug, #fix and the rest by default) is a
     // todo wearing a label: it goes to the task list at once, as a todo does.
