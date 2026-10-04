@@ -352,7 +352,7 @@ export function useCaptureDisplay(name: string, kept: CaptureMeta[], filter?: Vi
       view={view}
       onChange={setView}
       facets={facets}
-      defaults={filter}
+      defaults={filter ?? {}}
       sorts={[{ id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'name', label: 'Name' }, { id: 'kind', label: 'Kind' }]}
       groups={[{ id: 'none', label: 'None' }, { id: 'kind', label: 'Kind' }, { id: 'date', label: 'Date' }, { id: 'source', label: 'Where from' }]}
     />

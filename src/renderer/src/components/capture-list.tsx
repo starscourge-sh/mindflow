@@ -56,7 +56,7 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
         const kind = CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
         const { text, tags } = splitTags(capture.label)
         return (
-          <div className="pb-0.5">
+          <div>
           <RowMenu items={[
             { label: 'Open', run: () => onPick?.(capture.id), keys: '↵' },
             'separator',
@@ -74,7 +74,10 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
           <button
             data-cursor={index === cursor || undefined}
             type="button"
-            className={`flex w-full flex-col gap-0.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent/60 ${capture.status === 'open' ? '' : 'opacity-50'} ${chosen.includes(capture.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : capture.id === selected ? 'bg-accent' : ''} ${index === cursor ? 'ring-1 ring-border' : ''}`}
+            // Rows flush, Linear's way: one plain highlight for the one open,
+            // a fainter one under the keyboard, a tint for the picked. No
+            // outlines and no gaps, so the list reads as a list, not cards.
+            className={`flex w-full flex-col gap-0.5 rounded-[5px] px-2 py-1.5 text-left transition-colors hover:bg-accent/50 ${capture.status === 'open' ? '' : 'opacity-50'} ${chosen.includes(capture.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : capture.id === selected ? 'bg-accent' : index === cursor ? 'bg-accent/50' : ''}`}
             data-row
             data-id={capture.id}
             onClick={() => onPick?.(capture.id)}

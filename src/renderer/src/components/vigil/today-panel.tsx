@@ -133,7 +133,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, x: 16, transition: { duration: 0.18 } }}
-              className="group flex items-start gap-2.5 rounded-md px-1.5 py-1.5 hover:bg-accent/50"
+              className={`group flex items-start gap-2.5 rounded-[5px] px-1.5 py-1.5 hover:bg-accent/50 ${index === cursor ? "bg-accent/50" : ""}`}
             >
               <Tip label="Complete">
               <button
@@ -163,7 +163,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
                 'separator',
                 { label: 'Close without doing', danger: true, run: () => void vigil.saveTask(task.id, { status: 'dropped' }).then(() => toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' }))) }
               ]}>
-              <button type="button" data-cursor={index === cursor || undefined} className={`min-w-0 flex-1 rounded text-left ${index === cursor ? 'ring-1 ring-border' : ''} ${task.id === open ? 'font-medium' : ''}`} onClick={() => onOpen(task.id)}>
+              <button type="button" data-cursor={index === cursor || undefined} className={`min-w-0 flex-1 text-left ${task.id === open ? 'font-medium' : ''}`} onClick={() => onOpen(task.id)}>
                 <p className="truncate">{task.title}</p>
                 <p className="flex items-center gap-1 text-xs" style={{ color: late ? 'var(--tt-color-text-red)' : 'var(--tt-color-text-orange)' }}>
                   <CalendarDays className="size-3" /> {when(task.dueAt, !!task.allDay)}

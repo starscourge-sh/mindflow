@@ -168,7 +168,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
                 type="button"
                 data-row
                 onClick={(event) => (event.shiftKey || event.metaKey ? toggle(item.id) : pick(item.id))}
-                className={`rounded-md px-2 py-2 text-left transition-colors ${chosen.includes(item.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : item.id === open?.id ? 'bg-accent' : 'hover:bg-accent/60'} ${index === cursor ? 'ring-1 ring-border' : ''} ${item.suspended ? 'opacity-50' : ''}`}
+                className={`rounded-[5px] px-2 py-1.5 text-left transition-colors ${chosen.includes(item.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : item.id === open?.id ? 'bg-accent' : index === cursor ? 'bg-accent/50' : 'hover:bg-accent/50'} ${item.suspended ? 'opacity-50' : ''}`}
               >
                 {tier === 'nugget' ? <NuggetRow item={item} /> : <ArticleRow item={item} />}
               </button>

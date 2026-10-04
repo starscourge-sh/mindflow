@@ -17,11 +17,13 @@ export type View = { filter: Record<string, string[]>; sort: string; group: stri
 
 export function useView(name: string, initial: { sort: string; group: string; filter?: View['filter'] }): [View, (view: View) => void] {
   const key = `view:${name}`
+  // A starting filter left out is no filter, never a missing one.
+  const start = { ...initial, filter: initial.filter ?? {} }
   const read = (): View => {
     try {
-      return { filter: {}, ...initial, ...JSON.parse(localStorage.getItem(key) ?? '{}') }
+      return { ...start, ...JSON.parse(localStorage.getItem(key) ?? '{}') }
     } catch {
-      return { filter: {}, ...initial }
+      return start
     }
   }
   const [view, setView] = useState(read)

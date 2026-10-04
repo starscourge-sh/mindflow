@@ -94,7 +94,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
                   type="button"
                   data-cursor={index === cursor || undefined}
                   onClick={() => onOpen(tier, item.id)}
-                  className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-accent/60 ${chosen.includes(item.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : item.id === open ? 'bg-accent' : ''} ${index === cursor ? 'ring-1 ring-border' : ''}`}
+                  className={`flex w-full items-center gap-2 rounded-[5px] px-2 py-1.5 text-left hover:bg-accent/50 ${chosen.includes(item.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : item.id === open ? 'bg-accent' : index === cursor ? 'bg-accent/50' : ''}`}
                 >
                   <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
                   <span className="flex-1 truncate">{item.title || 'Untitled'}</span>
