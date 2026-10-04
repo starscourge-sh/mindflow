@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/resizable"
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 
 
 
@@ -218,6 +219,9 @@ export default function App(): React.JSX.Element {
   const [medium, setMedium] = useState('')
   // Private from the start: never surfaces unasked in quiet hours or safe mode.
   const [secret, setSecret] = useState(false)
+  // Linear's "Create more": on, a save keeps the box open for the next one.
+  const [createMore, setCreateMore] = useState(() => localStorage.getItem('create-more') === 'on')
+  useEffect(() => localStorage.setItem('create-more', createMore ? 'on' : 'off'), [createMore])
   // When the box was opened, for how long a capture took to write.
   const openedAt = useRef(Date.now())
   useEffect(() => window.api.onShown(() => void (openedAt.current = Date.now())), [])
@@ -296,7 +300,8 @@ export default function App(): React.JSX.Element {
 
   // Save. Never fails, and no field can block it: an empty box is the only
   // thing it refuses, because there is nothing there to keep.
-  const submit = (more = false): void => {
+  const submit = (once = false): void => {
+    const more = once || createMore
     if (editing) return fresh(true)
     // Read from the editor itself: its onChange waits for a pause in the
     // typing, and ⌘↵ often comes before one.
@@ -489,8 +494,14 @@ export default function App(): React.JSX.Element {
                 </Tooltip>
               </div>
               {/* Create, bottom right, where the eye ends up. */}
-              <Tip label="Save and close ⌘↵ · Save and write another ⌥⌘↵">
-              <Button variant="secondary" onClick={() => submit()} className="ml-auto text-[13px]">
+              {!editing && (
+                <label className="ml-auto flex items-center gap-2 text-[13px] text-muted-foreground">
+                  <Switch checked={createMore} onCheckedChange={setCreateMore} />
+                  Create more
+                </label>
+              )}
+              <Tip label={createMore && !editing ? 'Save, and a fresh box for the next  ⌘↵' : 'Save and close  ⌘↵ · once with a fresh box after  ⌥⌘↵'}>
+              <Button variant="secondary" onClick={() => submit()} className={`${editing ? 'ml-auto ' : ''}text-[13px]`}>
                 {editing ? 'Done' : 'Create'} <kbd className="font-sans text-[11px] text-muted-foreground">⌘↵</kbd>
               </Button>
               </Tip>
