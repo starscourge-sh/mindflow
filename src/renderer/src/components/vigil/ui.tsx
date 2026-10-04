@@ -568,6 +568,8 @@ export function SoundToggle({ className = '' }: { className?: string }): React.J
     <Tip label={on ? 'Sounds on: click for quiet' : 'Sounds off: click to hear them'}>
       <button
         type="button"
+        // Never where the focus lands: opening the window is for typing.
+        tabIndex={-1}
         aria-label={on ? 'Turn sounds off' : 'Turn sounds on'}
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         onClick={() => void vigil.setSettings({ sounds: !on })}

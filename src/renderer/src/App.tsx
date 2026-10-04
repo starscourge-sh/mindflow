@@ -243,7 +243,15 @@ export default function App(): React.JSX.Element {
   useEffect(() => localStorage.setItem('create-more', createMore ? 'on' : 'off'), [createMore])
   // When the box was opened, for how long a capture took to write.
   const openedAt = useRef(Date.now())
-  useEffect(() => window.api.onShown(() => void (openedAt.current = Date.now())), [])
+  // Each time the window comes up, the box has the caret, ready to type, not
+  // whichever button the focus was last left on.
+  useEffect(() => window.api.onShown(() => {
+    openedAt.current = Date.now()
+    requestAnimationFrame(() => {
+      const active = document.activeElement
+      if (!active || active === document.body || active.closest('header, [data-window-controls], button')) editorRef.current?.commands.focus('end')
+    })
+  }), [])
   // Bumped on a fresh box. The editor is keyed on it, so a new one replaces it.
   const [round, setRound] = useState(0)
   // A capture opened from the list on the right. Edits save to it as they
