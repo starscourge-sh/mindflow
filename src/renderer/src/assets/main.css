@@ -323,3 +323,51 @@ html[data-width='page'] .mindflow-editor-wrapper:not(.is-line) .tiptap.ProseMirr
   max-width: 54rem;
   margin-inline: auto;
 }
+
+/* Every button answers the press: a small give, gone the moment you let go.
+   Not on the editor's drag grip, which is picked up rather than pressed. */
+button:not(:disabled):not(.tiptap-drag-handle *) {
+  transition-property: color, background-color, border-color, opacity, transform;
+  transition-duration: 120ms;
+}
+button:not(:disabled):not(.tiptap-drag-handle *):active {
+  transform: scale(0.97);
+}
+
+/* Tailwind's reset gives buttons the arrow. Anything you can press shows the
+   hand, so you never have to hover to find out. The window's own dots keep
+   the arrow, the way the system's do. */
+button:not(:disabled),
+[role='button'],
+[role='switch'],
+[role='tab'],
+a[href],
+label:has(input:not([type='text']):not([type='number']):not([type='date']):not([type='datetime-local']):not([type='time'])),
+summary {
+  cursor: pointer;
+}
+.mf-dots,
+.mf-dots > * {
+  cursor: default;
+}
+
+/* The app is an app, not a page: its labels, rows and dates do not select or
+   show a text cursor. Only the places you actually write or read text do. */
+body {
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+[contenteditable='true'],
+.ProseMirror,
+input,
+textarea,
+pre {
+  user-select: text;
+  -webkit-user-select: text;
+}
+[contenteditable='true'],
+input:not([type='checkbox']):not([type='radio']):not([type='range']),
+textarea {
+  cursor: text;
+}

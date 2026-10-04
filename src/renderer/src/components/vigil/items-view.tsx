@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { AlarmClock, Brain, Calendar, Eye, FileText, Layers, Lock, Pause, Pin, Play, Plus, SquareDashed, TriangleAlert, X } from 'lucide-react'
+import { AlarmClock, BookOpen, Brain, Calendar, Eye, FileText, Layers, Lock, Pause, Pin, Play, Plus, Quote, RefreshCw, SquareDashed, TriangleAlert, X } from 'lucide-react'
+
+import { AnimatePresence, motion } from 'motion/react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
+import { textOf } from '../rot-cards'
+import { tick } from '@/lib/sound'
 import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { age } from '../capture-list'
 import { findCaptures } from '@/lib/capture-links'
@@ -23,6 +27,9 @@ export function ItemsView({ tier, focus }: { tier: 'nugget' | 'article'; focus?:
   const [cursor] = useListKeys(items.length, { onOpen: (index) => pick(items[index].id), onBack: () => setOpen(null) })
   // x selects, the way Linear does it; several nuggets make one article.
   const [chosen, setChosen] = useState<string[]>([])
+  // The Luhmann move: two unrelated nuggets side by side, for the connection
+  // nobody would have gone looking for.
+  const [pair, setPair] = useState<Awaited<ReturnType<typeof vigil.random>>>([])
   const toggle = (id: string): void => setChosen((ids) => (ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
   const at = useRef(cursor)
   at.current = cursor
@@ -67,10 +74,36 @@ export function ItemsView({ tier, focus }: { tier: 'nugget' | 'article'; focus?:
               </button>
             </span>
           ) : tier === 'nugget' && items.length > 1 ? (
-            <span className="text-xs text-muted-foreground">x to select</span>
+            <span className="flex items-center gap-2 text-xs">
+              x to select
+              <button type="button" className="rounded-md px-2 py-1 text-[13px] hover:bg-accent hover:text-foreground" onClick={() => void vigil.random().then(setPair)}>
+                Two at random
+              </button>
+            </span>
           ) : null
         }
       >
+        <AnimatePresence>
+          {pair.length === 2 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden border-b"
+            >
+              <div className="grid grid-cols-2 gap-6 px-5 py-4">
+                {pair.map((one) => (
+                  <button key={one.id} type="button" onClick={() => pick(one.id)} className="line-clamp-5 self-start text-left whitespace-pre-line hover:text-foreground">
+                    {textOf(one.body)}
+                  </button>
+                ))}
+              </div>
+              <p className="px-5 pb-3 text-xs text-muted-foreground">
+                What connects these? <button type="button" className="underline-offset-2 hover:underline" onClick={() => setPair([])}>Close</button>
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
         {items.length ? (
           <div className="flex flex-col px-3 py-2">
             {items.map((item, index) => (
@@ -78,6 +111,7 @@ export function ItemsView({ tier, focus }: { tier: 'nugget' | 'article'; focus?:
                 key={item.id}
                 ref={index === cursor ? (element) => element?.scrollIntoView({ block: 'nearest' }) : undefined}
                 type="button"
+                onMouseEnter={tick}
                 onClick={(event) => (event.shiftKey || event.metaKey ? toggle(item.id) : pick(item.id))}
                 className={`rounded-md px-2 py-2 text-left transition-colors ${chosen.includes(item.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : item.id === open?.id ? 'bg-accent' : 'hover:bg-accent/60'} ${index === cursor ? 'ring-1 ring-border' : ''} ${item.suspended ? 'opacity-50' : ''}`}
               >
@@ -113,8 +147,8 @@ function NuggetRow({ item }: { item: Item }): React.JSX.Element {
       </span>
       <span className="mt-1 flex items-center gap-3 pl-6 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
-          {recall ? <Brain className="size-3" /> : <Eye className="size-3" />}
-          {recall ? (item.dueAt ? `Recall · ${new Date(item.dueAt) <= new Date() ? 'due' : `in ${interval(item.dueAt)}`}` : 'Recall · new') : 'Comes back on its own'}
+          {recall ? <Brain className="size-3" /> : item.mode === 'pushed' ? <RefreshCw className="size-3" /> : <Eye className="size-3" />}
+          {recall ? (item.dueAt ? `Recall · ${new Date(item.dueAt) <= new Date() ? 'due' : `in ${interval(item.dueAt)}`}` : 'Recall · new') : item.mode === 'pushed' ? 'On rotation' : 'Now and then'}
         </span>
         <Tags tags={tags} />
         {item.lapses >= 4 && <TriangleAlert className="size-3 text-[var(--tt-color-text-orange)]" />}
@@ -198,9 +232,20 @@ function ItemDetail({ item }: { item: ItemFull }): React.JSX.Element {
         )}
 
         <PropLabel>How it comes back</PropLabel>
-        <Prop icon={item.prompt ? Brain : Eye} active>
-          {item.prompt ? 'Tested, on a schedule' : 'On its own, as a hint'}
+        <Prop icon={item.prompt ? Brain : item.mode === 'pushed' ? RefreshCw : Eye} active>
+          {item.prompt ? 'Tested, on a schedule' : item.mode === 'pushed' ? 'On rotation, always' : 'Now and then, as a hint'}
         </Prop>
+        {!item.prompt && (
+          // Pushed: a standing principle that should keep coming round, the
+          // note-to-self's way, rather than turning up by chance.
+          <Prop
+            icon={item.mode === 'pushed' ? Eye : RefreshCw}
+            onClick={() => void vigil.saveItem(item.id, { mode: item.mode === 'pushed' ? 'encounter' : 'pushed' }).then(() =>
+              toast(item.mode === 'pushed' ? 'Back to turning up by chance' : 'On rotation: it will keep coming back'))}
+          >
+            {item.mode === 'pushed' ? 'Only now and then' : 'Keep showing me this'}
+          </Prop>
+        )}
         <textarea
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
@@ -234,10 +279,19 @@ function ItemDetail({ item }: { item: ItemFull }): React.JSX.Element {
 
         {item.tier === 'nugget' ? (
           <>
+            <PropLabel>Context</PropLabel>
+            <textarea
+              defaultValue={item.context ?? ''}
+              onBlur={(event) => void vigil.saveItem(item.id, { context: event.target.value.trim() || null })}
+              rows={2}
+              placeholder="What makes the answer make sense: shown after it in review"
+              className="mx-1 resize-none rounded-md border bg-transparent px-2 py-1.5 text-[13px] text-foreground outline-none placeholder:text-muted-foreground focus:border-ring"
+            />
             <PropLabel>Grow it</PropLabel>
             <Prop icon={Plus} onClick={() => void vigil.article([item.id]).then(() => toast('Article started from this nugget'))}>
               Start an article
             </Prop>
+            <StudyThis item={item} />
           </>
         ) : (
           <>
@@ -245,6 +299,16 @@ function ItemDetail({ item }: { item: ItemFull }): React.JSX.Element {
             <Prop icon={Layers}>{item.origins.length ? `${item.origins.length} nugget${item.origins.length === 1 ? '' : 's'}` : 'Written from scratch'}</Prop>
           </>
         )}
+        <PropLabel>Source</PropLabel>
+        <label className="flex items-center gap-2 rounded-md px-2 py-1.5 focus-within:text-foreground hover:bg-accent">
+          <Quote className="size-4 shrink-0" />
+          <input
+            defaultValue={item.cite ?? ''}
+            placeholder="Who, or where from"
+            onBlur={(event) => void vigil.saveItem(item.id, { cite: event.target.value.trim() || null })}
+            className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground"
+          />
+        </label>
         <PropLabel>Details</PropLabel>
         <Prop icon={Calendar}>Kept {when(item.createdAt)}</Prop>
 
@@ -295,5 +359,27 @@ export function RemindMe({ table, id, at }: { table: 'captures' | 'nuggets'; id:
         title="Remind me"
       />
     </label>
+  )
+}
+
+/** Study this: a task to read it by a date, linked, so it is waiting when the task opens. */
+function StudyThis({ item }: { item: ItemFull }): React.JSX.Element {
+  const [asking, setAsking] = useState(false)
+  if (!asking) return <Prop icon={BookOpen} onClick={() => setAsking(true)}>Study this…</Prop>
+  return (
+    <input
+      autoFocus
+      placeholder="When? “tomorrow”, “thursday 9am”"
+      onBlur={() => setAsking(false)}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') setAsking(false)
+        if (event.key !== 'Enter') return
+        void vigil.study(item.id, `Study: ${item.title} ${event.currentTarget.value}`).then(() => {
+          setAsking(false)
+          toast('Task made, with this linked to it')
+        })
+      }}
+      className="mx-1 rounded-md border bg-transparent px-2 py-1 text-[13px] text-foreground outline-none placeholder:text-muted-foreground focus:border-ring"
+    />
   )
 }

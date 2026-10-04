@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
 
+import { AnimatePresence, motion } from 'motion/react'
+
 import { MindflowEditor } from '../mindflow'
 import { chime } from '@/lib/sound'
 import { interval, vigil, type Due } from '@/lib/vigil'
@@ -28,10 +30,15 @@ export function ReviewView(): React.JSX.Element {
   useEffect(() => void vigil.queue().then(setQueue), [])
   const card = queue?.[at]
 
+  const reveal = (): void => {
+    if (shown) return
+    chime('reveal')
+    setShown(true)
+  }
   const grade = (value: 1 | 2 | 3 | 4): void => {
     if (!card || !shown) return
     void vigil.grade(card.id, value, Date.now() - started.current)
-    chime('grade')
+    chime((['again', 'hard', 'good', 'easy'] as const)[value - 1])
     // Again is not failure, it is a short gap: the card comes round once more
     // before the session ends.
     if (value === 1) setQueue((cards) => [...(cards ?? []), card])
@@ -54,7 +61,7 @@ export function ReviewView(): React.JSX.Element {
       if (active?.isContentEditable || ['INPUT', 'TEXTAREA'].includes(active?.tagName ?? '')) return
       if (event.key === ' ' && card) {
         event.preventDefault()
-        setShown(true)
+        reveal()
       }
       if (['1', '2', '3', '4'].includes(event.key)) grade(Number(event.key) as 1 | 2 | 3 | 4)
       if (event.key === 'b') bury()
@@ -84,7 +91,15 @@ export function ReviewView(): React.JSX.Element {
       <div className="h-0.5 bg-border">
         <div className="h-full bg-[var(--tt-brand-color-400)] transition-[width] duration-300" style={{ width: `${(at / queue.length) * 100}%` }} />
       </div>
-      <div key={card.id} className="mx-auto flex max-w-2xl flex-col gap-6 px-8 py-[10vh] animate-in fade-in-0 slide-in-from-right-2 duration-200">
+      <AnimatePresence mode="wait">
+      <motion.div
+        key={`${card.id}-${at}`}
+        initial={{ opacity: 0, x: 24 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -24 }}
+        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+        className="mx-auto flex max-w-2xl flex-col gap-6 px-8 py-[10vh]"
+      >
         <h2 className="text-2xl leading-snug font-semibold text-balance">{card.prompt}</h2>
         {card.lapses >= 4 && (
           <p className="-mt-3 text-sm text-[var(--tt-color-text-orange)]">
@@ -94,7 +109,12 @@ export function ReviewView(): React.JSX.Element {
 
         {shown ? (
           <>
-            <div className="rounded-xl border bg-accent/30 animate-in fade-in-0 duration-200">
+            <motion.div
+              initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+              className="rounded-xl border bg-accent/30"
+            >
               <MindflowEditor
                 defaultContent={(card.body as JSONContent | string | null) ?? ''}
                 readOnly
@@ -105,7 +125,10 @@ export function ReviewView(): React.JSX.Element {
                 search={false}
                 autofocus={false}
               />
-            </div>
+            </motion.div>
+            {/* Context: what makes the answer learnable, shown only after it, or
+                it would give the prompt away. */}
+            {card.context && <p className="-mt-2 text-sm leading-relaxed whitespace-pre-line text-muted-foreground">{card.context}</p>}
             <div className="grid grid-cols-4 gap-2">
               {GRADES.map(({ grade: value, label, hint, tone }) => (
                 <button
@@ -126,7 +149,7 @@ export function ReviewView(): React.JSX.Element {
         ) : (
           <button
             type="button"
-            onClick={() => setShown(true)}
+            onClick={reveal}
             className="self-start rounded-lg border px-4 py-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             Show the answer <Kbd>Space</Kbd>
@@ -137,7 +160,8 @@ export function ReviewView(): React.JSX.Element {
             Not today <Kbd>B</Kbd>
           </button>
         )}
-      </div>
+      </motion.div>
+      </AnimatePresence>
     </Page>
   )
 }

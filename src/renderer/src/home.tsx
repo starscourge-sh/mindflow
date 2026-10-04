@@ -9,6 +9,8 @@ import {
   FileText,
   Gem,
   Inbox,
+  Repeat,
+  Trash2,
   Layers,
   PanelLeft,
   Search as SearchIcon,
@@ -21,6 +23,8 @@ import {
   type LucideIcon
 } from 'lucide-react'
 import { SlotText } from 'slot-text/react'
+import { AnimatePresence, motion } from 'motion/react'
+import { chime, tick } from './lib/sound'
 import 'slot-text/style.css'
 
 import { CAPTURE_TYPES } from './components/capture-kinds/capture-kind-picker'
@@ -45,11 +49,13 @@ const SECTIONS: { id: string; label: string; icon: LucideIcon; key: string }[] =
   { id: 'review', label: 'Review', icon: Brain, key: 'r' },
   { id: 'today', label: 'Today', icon: Sun, key: 't' },
   { id: 'upcoming', label: 'Upcoming', icon: CalendarDays, key: 'u' },
+  { id: 'routines', label: 'Routines', icon: Repeat, key: 'o' },
   { id: 'nuggets', label: 'Nuggets', icon: Gem, key: 'n' },
   { id: 'articles', label: 'Articles', icon: FileText, key: 'a' },
   { id: 'tags', label: 'Tags', icon: Tag, key: '#' },
   { id: 'stats', label: 'Stats', icon: BarChart3, key: 's' },
-  { id: 'all', label: 'All captures', icon: Layers, key: 'l' }
+  { id: 'all', label: 'All captures', icon: Layers, key: 'l' },
+  { id: 'discarded', label: 'Discarded', icon: Trash2, key: 'd' }
 ]
 
 const today = (): number => new Date().setHours(24, 0, 0, 0)
@@ -64,8 +70,10 @@ export function Home(): React.JSX.Element {
   // Where you have been, for back and forward: a list and a place in it.
   const [trail, setTrail] = useState<{ views: View[]; at: number }>({ views: [{ id: 'inbox' }], at: 0 })
   const view = trail.views[trail.at]
-  const setView = (next: View): void =>
+  const setView = (next: View): void => {
+    if (next.id !== trail.views[trail.at].id) chime('tap')
     setTrail(({ views, at }) => ({ views: [...views.slice(0, at + 1), next], at: at + 1 }))
+  }
   const step = (by: -1 | 1): void =>
     setTrail(({ views, at }) => ({ views, at: Math.max(0, Math.min(views.length - 1, at + by)) }))
   const [sidebar, setSidebar] = useState(true)
@@ -127,7 +135,9 @@ export function Home(): React.JSX.Element {
   const kind = CAPTURE_TYPES.find((type) => `kind:${type.id}` === view.id)
   const keep: Record<string, (capture: CaptureMeta) => boolean> = {
     inbox: (capture) => capture.status === 'open',
-    all: () => true
+    all: (capture) => capture.status !== 'discarded',
+    // Nothing is destroyed: a discard lands here, and comes back from here.
+    discarded: (capture) => capture.status === 'discarded'
   }
 
   return (
@@ -189,9 +199,14 @@ export function Home(): React.JSX.Element {
             <TooltipTrigger asChild>
             <button
               type="button"
+              onMouseEnter={tick}
               onClick={() => setView({ id: section.id })}
-              className={`group flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors ${view.id === section.id ? 'bg-accent text-foreground' : 'text-foreground/80 hover:bg-accent/60'}`}
+              className={`group relative flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors ${view.id === section.id ? 'text-foreground' : 'text-foreground/80 hover:bg-accent/60'}`}
             >
+              {/* One highlight that slides to the section, not one per row. */}
+              {view.id === section.id && (
+                <motion.span layoutId="nav" className="absolute inset-0 -z-10 rounded-md bg-accent" transition={{ type: 'spring', stiffness: 500, damping: 40 }} />
+              )}
               <section.icon className={`size-4 ${section.id === 'review' && due ? 'text-[var(--tt-brand-color-400)]' : ''}`} />
               <span className="flex-1 text-left">{section.label}</span>
               {counts[section.id] ? (
@@ -258,14 +273,22 @@ export function Home(): React.JSX.Element {
       </aside>
       )}
 
-      <div key={view.id} className="flex min-w-0 flex-1">
-        {view.id === 'inbox' || view.id === 'all' ? (
-          <CapturesView title={view.id === 'inbox' ? 'Inbox' : 'All captures'} keep={keep[view.id]} focus={view.focus} />
+      <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={view.id}
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -4 }}
+        transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+        className="flex min-w-0 flex-1"
+      >
+        {view.id === 'inbox' || view.id === 'all' || view.id === 'discarded' ? (
+          <CapturesView title={SECTIONS.find((section) => section.id === view.id)!.label} keep={keep[view.id]} focus={view.focus} />
         ) : kind ? (
           <CapturesView title={kind.label} keep={(capture) => capture.kind === kind.id} />
         ) : view.id === 'review' ? (
           <ReviewView />
-        ) : view.id === 'today' || view.id === 'upcoming' ? (
+        ) : view.id === 'today' || view.id === 'upcoming' || view.id === 'routines' ? (
           <TasksView mode={view.id} />
         ) : view.id === 'nuggets' || view.id === 'articles' ? (
           <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} focus={view.focus} />
@@ -276,7 +299,8 @@ export function Home(): React.JSX.Element {
         ) : (
           <SettingsView />
         )}
-      </div>
+      </motion.div>
+      </AnimatePresence>
       </div>
     </div>
     </TooltipProvider>

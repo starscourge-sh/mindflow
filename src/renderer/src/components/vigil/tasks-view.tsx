@@ -1,14 +1,14 @@
 import { Fragment, useEffect, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { CalendarDays, Check, Gem, Hash, History, Play, Plus, Repeat, Square, Trash2 } from 'lucide-react'
+import { CalendarDays, Check, FileText, Gem, Hash, History, Play, Plus, Repeat, Square, Trash2, X } from 'lucide-react'
 
 import { AnimatePresence, motion } from 'motion/react'
 
 import { MindflowEditor } from '../mindflow'
-import { chime } from '@/lib/sound'
+import { chime, tick } from '@/lib/sound'
 import { captureKey } from '@/lib/capture-links'
-import { useLive, vigil, when, type Session, type Task, type TaskFull } from '@/lib/vigil'
-import { Empty, Kbd, Page, Prop, PropLabel, Props, toast, useListKeys } from './ui'
+import { splitTags, useLive, vigil, when, type Session, type Task, type TaskFull } from '@/lib/vigil'
+import { Empty, Kbd, Page, Prop, PropLabel, Props, Tags, toast, useListKeys } from './ui'
 
 const startOfDay = (offset = 0): number => new Date(new Date().setHours(0, 0, 0, 0) + offset * 86400000).getTime()
 
@@ -27,16 +27,19 @@ const tone = (task: Task): string | undefined => {
  * you type. A task is not a note with a tickbox: it has a when, a record of each
  * time it was done, and a way back to the capture it came from.
  */
-export function TasksView({ mode }: { mode: 'today' | 'upcoming' }): React.JSX.Element {
+export function TasksView({ mode }: { mode: 'today' | 'upcoming' | 'routines' }): React.JSX.Element {
   const tasks = useLive(vigil.tasks, [] as Task[])
   const [open, setOpen] = useState<TaskFull | null>(null)
   const [draft, setDraft] = useState('')
   const [leaving, setLeaving] = useState<string | null>(null)
 
-  const live = tasks.filter((task) => task.status === 'open' && !task.waitingOn)
+  // Routines live in a view of their own, or they flood Today.
+  const live = tasks.filter((task) => task.status === 'open' && !task.waitingOn && (mode === 'routines' ? task.recurrence : !task.recurrence || mode === 'today'))
   const waiting = tasks.filter((task) => task.status === 'open' && task.waitingOn)
   const groups: [string, Task[]][] =
-    mode === 'today'
+    mode === 'routines'
+      ? [['Every so often', live]]
+      : mode === 'today'
       ? [
           ['Overdue', live.filter((task) => task.dueAt && new Date(task.dueAt).getTime() < startOfDay())],
           ['Today', live.filter((task) => task.dueAt && new Date(task.dueAt).getTime() >= startOfDay() && new Date(task.dueAt).getTime() < startOfDay(1))]
@@ -54,7 +57,35 @@ export function TasksView({ mode }: { mode: 'today' | 'upcoming' }): React.JSX.E
         ]
   const shown = groups.flatMap(([, list]) => list)
   const pick = (id: string): void => void vigil.task(id).then(setOpen)
-  const [cursor] = useListKeys(shown.length, { onOpen: (index) => pick(shown[index].id), onBack: () => setOpen(null) })
+  const [cursor, setCursor] = useListKeys(shown.length, { onOpen: (index) => pick(shown[index].id), onBack: () => setOpen(null) })
+
+  // On the row the keyboard is on: Alt-J and Alt-K move it (dates say what is
+  // due, order says what is next), and T, M and W put it on today, tomorrow
+  // or next week in one press.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      const active = document.activeElement as HTMLElement | null
+      if (active?.isContentEditable || ['INPUT', 'TEXTAREA'].includes(active?.tagName ?? '')) return
+      const task = shown[cursor]
+      if (!task) return
+      if (event.altKey && (event.code === 'KeyJ' || event.code === 'KeyK')) {
+        event.preventDefault()
+        const to = cursor + (event.code === 'KeyJ' ? 1 : -1)
+        if (to < 0 || to >= shown.length) return
+        // Renumber the list as shown, with the two swapped.
+        const order = [...shown]
+        ;[order[cursor], order[to]] = [order[to], order[cursor]]
+        void Promise.all(order.map((one, index) => vigil.saveTask(one.id, { sortOrder: index })))
+        setCursor(to)
+        return
+      }
+      const days = { t: 0, m: 1, w: 7 }[event.key]
+      if (days === undefined || event.metaKey || event.ctrlKey || event.altKey) return
+      void vigil.saveTask(task.id, { due: shiftTo(days) }).then(() => toast(`Moved to ${when(shiftTo(days)).toLowerCase()}`))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
 
   // The circle fills first, then the row goes: the click is answered before
   // the list changes under you.
@@ -73,7 +104,7 @@ export function TasksView({ mode }: { mode: 'today' | 'upcoming' }): React.JSX.E
 
   return (
     <>
-      <Page title={mode === 'today' ? 'Today' : 'Upcoming'} count={shown.length}>
+      <Page title={mode} count={shown.length} actions={shown.length ? <span className="text-xs"><Kbd>T</Kbd> <Kbd>M</Kbd> <Kbd>W</Kbd> today, tomorrow, next week · <Kbd>⌥J</Kbd> <Kbd>⌥K</Kbd> reorder</span> : null}>
         <form
           className="mx-3 mt-3 flex items-center gap-3 rounded-lg border px-2 py-2 focus-within:border-ring"
           onSubmit={(event) => {
@@ -110,6 +141,7 @@ export function TasksView({ mode }: { mode: 'today' | 'upcoming' }): React.JSX.E
                       <motion.div
                         key={task.id}
                         layout="position"
+                        onMouseEnter={tick}
                         initial={{ opacity: 0, y: -4 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, x: 24, transition: { duration: 0.2 } }}
@@ -126,7 +158,10 @@ export function TasksView({ mode }: { mode: 'today' | 'upcoming' }): React.JSX.E
                           <Check className={`size-3 transition-opacity ${leaving === task.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'}`} />
                         </button>
                         <button type="button" onClick={() => pick(task.id)} className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left">
-                          <span className="truncate">{task.title}</span>
+                          <span className="flex max-w-full items-center gap-2">
+                            <span className="truncate">{splitTags(task.title).text}</span>
+                            <Tags tags={splitTags(task.title).tags} />
+                          </span>
                           {(task.dueAt || task.recurrence || task.waitingOn) && (
                             <span className="flex items-center gap-3 text-xs text-muted-foreground">
                               {task.dueAt && (
@@ -149,8 +184,10 @@ export function TasksView({ mode }: { mode: 'today' | 'upcoming' }): React.JSX.E
             )}
           </div>
         ) : (
-          <Empty shape={mode === 'today' ? ['star', 6] : ['ellipse', 4]} title={mode === 'today' ? 'Nothing due today' : 'Nothing coming up'}>
-            {mode === 'today'
+          <Empty shape={mode === 'today' ? ['star', 6] : mode === 'routines' ? ['flower', 5] : ['ellipse', 4]} title={mode === 'today' ? 'Nothing due today' : mode === 'routines' ? 'No routines' : 'Nothing coming up'}>
+            {mode === 'routines'
+              ? 'A routine is a task that repeats: “water the plants every! 3 days”, “bins every week”. They live here so they do not crowd Today.'
+              : mode === 'today'
               ? 'A clear day. Anything with a date lands here on the day, and anything late stays on top until it is done.'
               : 'Tasks with a date further out show here, grouped by day. Type one above with the date in the words.'}
           </Empty>
@@ -179,16 +216,37 @@ function TaskDetail({ task, onClose }: { task: TaskFull; onClose: () => void }):
           defaultContent={(task.notes as JSONContent | null) ?? ''}
           onChange={(notes) => void vigil.saveTask(task.id, { notes })}
         />
+        <Checklist task={task} />
       </div>
       <Props>
         <Sessions taskId={task.id} />
         <PropLabel>Due</PropLabel>
+        <div className="mx-1 mb-1 flex gap-1">
+          {([['Today', 0], ['Tomorrow', 1], ['Next week', 7]] as const).map(([label, days]) => (
+            <button key={label} type="button" onClick={() => void vigil.saveTask(task.id, { due: shiftTo(days) })} className="flex-1 rounded-md border px-1.5 py-1 text-xs hover:bg-accent hover:text-foreground">
+              {label}
+            </button>
+          ))}
+        </div>
         <input
           type="datetime-local"
           defaultValue={local(task.dueAt)}
           onChange={(event) => void vigil.saveTask(task.id, { due: event.target.value ? new Date(event.target.value).toISOString() : null })}
           className="mx-1 rounded-md border bg-transparent px-2 py-1 text-foreground"
         />
+        <PropLabel>Estimate</PropLabel>
+        <label className="mx-1 flex items-center gap-2 rounded-md border px-2 py-1">
+          <input
+            type="number"
+            min={0}
+            step={5}
+            defaultValue={task.estimate ?? ''}
+            placeholder="–"
+            onBlur={(event) => void vigil.saveTask(task.id, { estimate: event.target.value ? Number(event.target.value) : null })}
+            className="w-16 bg-transparent text-foreground tabular-nums outline-none"
+          />
+          <span className="text-xs">minutes</span>
+        </label>
         <PropLabel>Waiting on</PropLabel>
         <input
           defaultValue={task.waitingOn ?? ''}
@@ -297,5 +355,80 @@ function Sessions({ taskId }: { taskId: string }): React.JSX.Element {
         </div>
       ))}
     </>
+  )
+}
+
+/** A date that many days from today, at nine unless the time is kept. */
+function shiftTo(days: number): string {
+  const date = new Date()
+  date.setDate(date.getDate() + days)
+  date.setHours(9, 0, 0, 0)
+  return date.toISOString()
+}
+
+/**
+ * Below the notes: what the task is about, linked from nuggets and articles,
+ * then its subtasks. The linked material comes first, so opening the task is
+ * looking at what it is for: review before performance, without asking.
+ */
+function Checklist({ task }: { task: TaskFull }): React.JSX.Element {
+  const [items, setItems] = useState(task.subtasks)
+  const [draft, setDraft] = useState('')
+  const save = (next: typeof items): void => {
+    setItems(next)
+    void vigil.saveTask(task.id, { subtasks: next })
+  }
+  return (
+    <section className="mx-auto w-full max-w-[44rem] px-12 pb-10">
+      {task.linked.length > 0 && (
+        <>
+          <h3 className="mb-2 text-[13px] font-semibold">For this</h3>
+          <ul className="mb-6 space-y-1">
+            {task.linked.map((item) => (
+              <li key={item.id} className="flex items-center gap-2">
+                <FileText className="size-4 text-muted-foreground" />
+                <span className="truncate">{item.title || 'Untitled'}</span>
+                <span className="text-xs text-muted-foreground capitalize">{item.tier}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <h3 className="mb-2 text-[13px] font-semibold">
+        Subtasks {items.length ? <span className="font-normal text-muted-foreground">{items.filter((one) => one.done).length}/{items.length}</span> : null}
+      </h3>
+      <ul className="space-y-1">
+        {items.map((item, index) => (
+          <li key={index} className="group flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (!item.done) chime('done')
+                save(items.map((one, at) => (at === index ? { ...one, done: !one.done } : one)))
+              }}
+              className="flex size-4 shrink-0 items-center justify-center rounded border transition-colors"
+              style={{ background: item.done ? 'var(--tt-brand-color-400)' : undefined, borderColor: item.done ? 'var(--tt-brand-color-400)' : undefined }}
+            >
+              {item.done && <Check className="size-3 text-white" />}
+            </button>
+            <span className={`flex-1 ${item.done ? 'text-muted-foreground line-through' : ''}`}>{item.text}</span>
+            <button type="button" title="Remove" onClick={() => save(items.filter((_, at) => at !== index))} className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground">
+              <X className="size-3.5" />
+            </button>
+          </li>
+        ))}
+      </ul>
+      <input
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' || !draft.trim()) return
+          save([...items, { text: draft.trim(), done: false }])
+          setDraft('')
+        }}
+        placeholder="Add a subtask"
+        className="mt-1 w-full bg-transparent py-1 outline-none placeholder:text-muted-foreground"
+      />
+    </section>
   )
 }

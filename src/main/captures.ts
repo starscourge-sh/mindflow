@@ -22,6 +22,10 @@ export interface CaptureMeta {
   /** When it will pin itself, if a reminder is set. */
   remindAt: string | null
   capturedAt: string
+  /** 1 when it was captured to be let go of: searchable, never offered back. */
+  discharge: number
+  /** Where it came from, in your words: "Kayla, standup", a book, a podcast. */
+  cite: string | null
 }
 
 export interface Capture extends CaptureMeta {
@@ -48,7 +52,7 @@ let db: DatabaseSync
 /** The open database, for the rest of the main process. */
 export const database = (): DatabaseSync => db
 
-export const LIST = 'id, number, title, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt'
+export const LIST = 'id, number, title, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, discharge, cite'
 
 /** Tell every window the list changed, so whichever is showing it reloads. */
 export const changed = (): void => {
@@ -166,6 +170,9 @@ export function registerCaptures(): void {
       patch.body === undefined ? null : JSON.stringify(patch.body),
       String(id)
     )
+    // When an exit was taken, for the lead measures: "did you take an exit
+    // this week" needs the day, not only the state.
+    if (patch.status) db.prepare("update captures set exited_at = case when ? = 'open' then null else ? end where id = ?").run(patch.status, new Date().toISOString(), String(id))
     if (row && patch.markdown !== undefined) void writeMarkdown(row.number as number, patch.markdown)
     changed()
   })

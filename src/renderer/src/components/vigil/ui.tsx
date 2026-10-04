@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { Coolshape, type shapeTypes } from 'coolshapes-react'
+import Lenis from 'lenis'
 
 /**
  * The few parts every view is built from, so the views read as one app. The
@@ -27,7 +28,7 @@ export function Page({ title, count, actions, children }: {
           <div className="ml-auto flex items-center gap-1">{actions}</div>
         </header>
       )}
-      <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+      <SmoothScroll>{children}</SmoothScroll>
     </section>
   )
 }
@@ -223,6 +224,33 @@ export function Toaster(): React.JSX.Element | null {
           Undo
         </button>
       )}
+    </div>
+  )
+}
+
+/**
+ * A scrolling area that eases, as Lenis does it: the wheel and trackpad move
+ * toward where you sent them over a few frames instead of in fixed jumps. The
+ * editor scrolls itself and is left alone; this is the lists and pages.
+ */
+export function SmoothScroll({ children }: { children: ReactNode }): React.JSX.Element {
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const wrapper = box.current
+    if (!wrapper || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const lenis = new Lenis({ wrapper, content: wrapper.firstElementChild as HTMLElement, lerp: 0.14, smoothWheel: true })
+    let frame = requestAnimationFrame(function loop(time) {
+      lenis.raf(time)
+      frame = requestAnimationFrame(loop)
+    })
+    return () => {
+      cancelAnimationFrame(frame)
+      lenis.destroy()
+    }
+  }, [])
+  return (
+    <div ref={box} className="min-h-0 flex-1 overflow-y-auto">
+      <div>{children}</div>
     </div>
   )
 }

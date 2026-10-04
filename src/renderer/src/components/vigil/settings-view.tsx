@@ -59,6 +59,20 @@ export function SettingsView(): React.JSX.Element {
           <span className="text-muted-foreground">to</span>
           <input type="time" className={field} value={settings.quietEnd} onChange={(event) => set({ quietEnd: event.target.value })} />
         </Setting>
+        <Setting title="When a task's time comes" note="Pull: it rises to the top of Today. Quiet: the menu bar counts it too. Alerts: a notification over your work, once, at the time. Alerts train you to dismiss them, so the default is quiet.">
+          <div className="flex rounded-md border p-0.5">
+            {(['pull', 'quiet', 'alerts'] as const).map((level) => (
+              <button
+                key={level}
+                type="button"
+                onClick={() => set({ notify: level })}
+                className={`rounded px-2.5 py-1 capitalize transition-colors ${settings.notify === level ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                {level}
+              </button>
+            ))}
+          </div>
+        </Setting>
         <Setting title="Safe mode" note="Nothing comes up unasked at all: no hints, rot cards or pins. For screen shares. ⌥⌘S anywhere in the app.">
           <Switch checked={settings.safeMode} onCheckedChange={(safeMode) => set({ safeMode })} />
         </Setting>

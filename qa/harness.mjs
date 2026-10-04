@@ -30,6 +30,8 @@ export async function open() {
 
   const api = {
     page,
+    /** The Electron app itself, for reaching the main process. */
+    electron: app,
     logs,
     /** Console output since the last call, for debugging a case. */
     drain() {

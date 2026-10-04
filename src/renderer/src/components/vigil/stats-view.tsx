@@ -64,6 +64,46 @@ export function StatsView(): React.JSX.Element {
           </p>
         </Section>
 
+        <Section title="The week, in the work">
+          <p>
+            {stats.sessions.n ? (
+              <>
+                You ran <N>{plural(stats.sessions.n, 'session', 'sessions')}</N> for <N>{Math.round((stats.sessions.minutes ?? 0) / 60 * 10) / 10} hours</N> of focus.{' '}
+              </>
+            ) : 'No sessions this week. '}
+            {Object.keys(stats.tagsWeek).length ? (
+              <>
+                What you captured gathered around{' '}
+                {Object.entries(stats.tagsWeek).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([tag], index, all) => (
+                  <span key={tag}><N>#{tag}</N>{index < all.length - 2 ? ', ' : index === all.length - 2 ? ' and ' : '.'}</span>
+                ))}
+              </>
+            ) : 'Nothing you captured carried a tag.'}
+          </p>
+          {stats.reviews.n > 0 && (
+            <p>
+              You aim to remember <N>{Math.round(stats.retention * 100)}%</N> and actually remembered <N>{percent(stats.reviews.recalled ?? 0, stats.reviews.n)}</N>.
+            </p>
+          )}
+          {stats.estimates.estimated ? (
+            <p>
+              Tasks you estimated at <N>{stats.estimates.estimated} minutes</N> took <N>{Math.round(stats.estimates.spent ?? 0)}</N> in sessions.
+            </p>
+          ) : null}
+        </Section>
+
+        <Section title="The doing, this week">
+          <p>
+            No target here, only the trend. You took <N>{plural(stats.lead.exits, 'exit', 'exits')}</N> on captures, wrote <N>{plural(stats.lead.glosses, 'gloss', 'glosses')}</N>,
+            reviewed on <N>{plural(stats.lead.reviewDays, 'day', 'days')}</N> and started <N>{plural(stats.lead.articles, 'article', 'articles')}</N>.
+            The article is the one that cannot be faked.
+          </p>
+          <p>
+            <N>{stats.unprocessed.now}</N> captures have taken no exit, against <N>{stats.unprocessed.weekAgo}</N> a week ago.
+            {stats.leeches ? <> <N>{plural(stats.leeches, 'card has', 'cards have')}</N> been forgotten four times or more: worth rewriting.</> : ''}
+          </p>
+        </Section>
+
         <Section title="Where captures go">
           <div className="flex h-2 overflow-hidden rounded-full bg-border/60">
             {exits.map((exit) => (
@@ -106,7 +146,7 @@ export function StatsView(): React.JSX.Element {
           <p>
             {stats.hints.shown ? (
               <>
-                <N>{percent(stats.hints.up ?? 0, stats.hints.shown)}</N> of <N>{stats.hints.shown}</N> hints stopped you this month. If that falls, fewer get shown, not more.
+                <N>{percent(stats.stopped, stats.hints.shown)}</N> of <N>{stats.hints.shown}</N> hints stopped you this month: voted up, or kept on screen four seconds or more. If that falls, show fewer, not more.
               </>
             ) : (
               'No hints yet: they draw from nuggets, so they start once something is promoted.'

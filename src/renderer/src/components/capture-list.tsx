@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { captureKey } from '@/lib/capture-links'
 import { splitTags } from '@/lib/vigil'
+import { tick } from '@/lib/sound'
 import { Tags } from './vigil/ui'
 
 export type CaptureMeta = Awaited<ReturnType<typeof window.api.captures.list>>[number]
@@ -34,10 +35,11 @@ export function age(at: string): string {
  * `cursor` is where the keyboard is, drawn as a ring rather than a fill, so it
  * reads apart from the one that is open.
  */
-export function CaptureList({ captures, selected, cursor, onPick }: {
+export function CaptureList({ captures, selected, cursor, chosen = [], onPick }: {
   captures: CaptureMeta[]
   selected?: string
   cursor?: number
+  chosen?: string[]
   onPick?: (id: string) => void
 }): React.JSX.Element {
   return (
@@ -57,7 +59,8 @@ export function CaptureList({ captures, selected, cursor, onPick }: {
             transition={{ duration: 0.18, ease: 'easeOut' }}
             ref={index === cursor ? (element) => element?.scrollIntoView({ block: 'nearest' }) : undefined}
             type="button"
-            className={`flex flex-col gap-0.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent/60 ${capture.id === selected ? 'bg-accent' : ''} ${index === cursor ? 'ring-1 ring-border' : ''}`}
+            className={`flex flex-col gap-0.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent/60 ${chosen.includes(capture.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : capture.id === selected ? 'bg-accent' : ''} ${index === cursor ? 'ring-1 ring-border' : ''}`}
+            onMouseEnter={tick}
             onClick={() => onPick?.(capture.id)}
           >
             <span className="flex items-center gap-2">

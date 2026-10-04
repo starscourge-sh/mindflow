@@ -19,6 +19,7 @@ export type Settings = {
   quietStart: string
   quietEnd: string
   safeMode: boolean
+  notify: 'pull' | 'quiet' | 'alerts'
 }
 
 /** A nugget or an article: the same row, told apart by `tier`. */
@@ -37,6 +38,9 @@ export type Item = {
   captureId: string | null
   remindAt: string | null
   lapses: number
+  cite: string | null
+  context: string | null
+  mode: 'encounter' | 'pushed'
 }
 export type Gloss = { id: string; body: string; author: 'user' | 'ai'; createdAt: string }
 export type ItemFull = Item & { body: unknown; origins: string[]; glosses: Gloss[] }
@@ -54,8 +58,11 @@ export type Task = {
   createdAt: string
   completedAt: string | null
   waitingOn: string | null
+  estimate: number | null
+  sortOrder: number | null
 }
-export type TaskFull = Task & { notes: unknown; done: { at: string }[] }
+export type Subtask = { text: string; done: boolean }
+export type TaskFull = Task & { notes: unknown; done: { at: string }[]; subtasks: Subtask[]; linked: { id: string; tier: string; kind: string; title: string }[] }
 
 export type Session = { id: string; startedAt: string; endedAt: string | null; recap: string | null }
 
@@ -74,6 +81,14 @@ export type Stats = {
   hours: { hour: number; n: number }[]
   firstUse: number | null
   tasksDone: number
+  sessions: { n: number; minutes: number | null }
+  tagsWeek: Record<string, number>
+  retention: number
+  estimates: { estimated: number | null; spent: number | null }
+  lead: { exits: number; glosses: number; reviewDays: number; articles: number }
+  leeches: number
+  stopped: number
+  unprocessed: { now: number; weekAgo: number }
 }
 
 export const vigil = {
@@ -86,7 +101,7 @@ export const vigil = {
   toTask: (id: string) => call<string | null>('toTask', id),
   items: (tier: 'nugget' | 'article') => call<Item[]>('items', tier),
   item: (id: string) => call<ItemFull | null>('item', id),
-  saveItem: (id: string, patch: Partial<{ body: unknown; title: string; prompt: string | null; kind: string; suspended: boolean }>) =>
+  saveItem: (id: string, patch: Partial<{ body: unknown; title: string; prompt: string | null; kind: string; suspended: boolean; cite: string | null; context: string | null; mode: string }>) =>
     call('item:save', id, patch),
   article: (ids: string[]) => call<string>('article', ids),
   gloss: (id: string, text: string) => call('gloss', id, text),
@@ -96,7 +111,7 @@ export const vigil = {
   tasks: () => call<Task[]>('tasks'),
   task: (id: string) => call<TaskFull | null>('task', id),
   addTask: (text: string, origin?: string) => call<string>('task:add', text, origin),
-  saveTask: (id: string, patch: Partial<{ title: string; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null }>) =>
+  saveTask: (id: string, patch: Partial<{ title: string; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number }>) =>
     call('task:save', id, patch),
   doneTask: (id: string) => call('task:done', id),
   tags: () => call<{ tag: string; count: number }[]>('tags'),
@@ -104,6 +119,11 @@ export const vigil = {
   stats: () => call<Stats>('stats'),
   exportAll: () => call<string | null>('export'),
   bury: (id: string) => call('review:bury', id),
+  setCapture: (id: string, field: 'discharge' | 'cite' | 'capturedAt', value: string | number | null) => call('capture:set', id, field, value),
+  linkSession: (id: string) => call('capture:session', id),
+  random: () => call<{ id: string; kind: string; title: string; body: unknown }[]>('random'),
+  study: (itemId: string, text: string) => call<string>('study', itemId, text),
+  pursue: (captureId: string) => call<string>('pursue', captureId),
   renameTag: (from: string, to: string) => call<string | null>('tag:rename', from, to),
   remind: (table: 'captures' | 'nuggets', id: string, at: string | null) => call('remind', table, id, at),
   similar: (text: string) => call<{ id: string; number: number; title: string; score: number } | null>('similar', text),

@@ -1,4 +1,4 @@
-import { dialog, ipcMain } from 'electron'
+import { Notification, dialog, ipcMain } from 'electron'
 import { randomUUID } from 'crypto'
 import { mkdir, writeFile } from 'fs/promises'
 import { join } from 'path'
@@ -51,7 +51,11 @@ const DEFAULTS = {
   reviewsPerDay: 50,
   quietStart: '22:00',
   quietEnd: '07:00',
-  safeMode: false
+  safeMode: false,
+  // The plan's fifth setting: how a task with a time tells you it is time.
+  // Pull: it rises in Today. Quiet: the menu bar counts it. Alerts: a system
+  // notification over your work, useful for "leave now", corrosive by default.
+  notify: 'quiet' as 'pull' | 'quiet' | 'alerts'
 }
 export type Settings = typeof DEFAULTS
 
@@ -165,6 +169,18 @@ export function registerVigil(): void {
   column('nuggets', 'remind_at text')
   column('tasks', 'waiting_on text')
   column('hint_events', 'dwell_ms integer')
+  column('captures', 'discharge integer not null default 0')
+  column('captures', 'cite text')
+  column('captures', 'exited_at text')
+  column('captures', 'session_id text')
+  column('nuggets', 'cite text')
+  column('nuggets', 'context text')
+  column('nuggets', "mode text not null default 'encounter'")
+  column('tasks', 'subtasks text')
+  column('tasks', 'estimate integer')
+  column('tasks', 'sort_order real')
+  column('tasks', 'notified_at text')
+  db.exec('create table if not exists task_links (task_id text not null, item_id text not null, primary key (task_id, item_id))')
   db.exec(`
     create table if not exists tasks (
       id text primary key, number integer, title text not null, notes text,
@@ -198,17 +214,34 @@ export function registerVigil(): void {
     write(db.prepare(`update ${table === 'nuggets' ? 'nuggets' : 'captures'} set private = ? where id = ?`).run(on ? 1 : 0, id))
   )
 
+  // A few capture fields set one at a time from the properties column.
+  const CAPTURE_FIELDS = { discharge: 'discharge', cite: 'cite', capturedAt: 'captured_at' } as const
+  handle('capture:set', (id: string, field: keyof typeof CAPTURE_FIELDS, value: string | number | null) => {
+    const column = CAPTURE_FIELDS[field]
+    if (!column) return null
+    return write(db.prepare(`update captures set ${column} = ? where id = ?`).run(value, id))
+  })
+  // A capture made while a session runs belongs to it: what you noticed while
+  // doing the work is the work's record too.
+  handle('capture:session', (id: string) =>
+    db.prepare('update captures set session_id = (select id from sessions where ended_at is null order by started_at desc limit 1) where id = ?').run(id)
+  )
+
   // --- the capture exits
   // Promote: a nugget made from the capture, which stays as it was. A word
   // comes with its prompt, the one kind with a natural question and answer.
   const promote = (id: string): string | null => {
     const capture = db.prepare("select * from captures where id = ? and status != 'promoted'").get(id) as Record<string, string> | undefined
     if (!capture) return null
+    // A quote's whole claim is "someone said this", so it does not become a
+    // nugget until it says who.
+    if (capture.kind === 'quote' && !capture.cite && !/^[^:]{2,40}:/.test(capture.title)) return 'needs-source'
     const nugget = randomUUID()
     db.prepare(
-      `insert into nuggets (id, capture_id, kind, title, body, prompt, private, created_at, updated_at)
-       values (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(nugget, id, capture.kind, capture.title, capture.body, capture.kind === 'word' ? `What does "${capture.title}" mean?` : null, capture.private, now(), now())
+      `insert into nuggets (id, capture_id, kind, title, body, prompt, private, cite, mode, created_at, updated_at)
+       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(nugget, id, capture.kind, capture.title, capture.body, capture.kind === 'word' ? `What does "${capture.title}" mean?` : null,
+      capture.private, capture.cite, capture.kind === 'self' ? 'pushed' : 'encounter', now(), now())
     db.prepare("update captures set status = 'promoted' where id = ?").run(id)
     return write(nugget)
   }
@@ -231,7 +264,7 @@ export function registerVigil(): void {
     if (blackout) return []
     return db
       .prepare(
-        `select ${LIST}, private, body from captures where status = 'open' ${hidePrivate ? 'and private = 0' : ''}
+        `select ${LIST}, body from captures where status = 'open' and discharge = 0 ${hidePrivate ? 'and private = 0' : ''}
          order by (julianday('now') - julianday(captured_at) + 1) * (abs(random()) % 1000) desc limit ${Math.max(0, Math.min(10, settings().rotCount))}`
       )
       .all()
@@ -244,9 +277,15 @@ export function registerVigil(): void {
   ipcMain.handle('hints:next', () => {
     const { blackout, hidePrivate } = gate()
     if (blackout) return null
-    const hint = db
+    // A third of the time, a note-to-self on rotation: the one that has gone
+    // longest unseen, unconditionally. Otherwise a weighted random encounter.
+    const pushed = Math.random() < 1 / 3
+      ? (db.prepare(`select id, kind, tier, title, body from nuggets where mode = 'pushed' and suspended = 0 ${hidePrivate ? 'and private = 0' : ''}
+          order by coalesce(last_visited_at, '') limit 1`).get() as Record<string, string> | undefined)
+      : undefined
+    const hint = pushed ?? db
       .prepare(
-        `select id, kind, tier, title, body from nuggets where suspended = 0 ${hidePrivate ? 'and private = 0' : ''}
+        `select id, kind, tier, title, body from nuggets where suspended = 0 and mode != 'pushed' ${hidePrivate ? 'and private = 0' : ''}
          order by (julianday('now') - julianday(coalesce(last_visited_at, '2000-01-01'))) * surfacing_weight * (abs(random()) % 1000) desc
          limit 1`
       )
@@ -256,6 +295,9 @@ export function registerVigil(): void {
     const { lastInsertRowid } = db.prepare('insert into hint_events (nugget_id, shown_at) values (?, ?)').run(hint.id, now())
     return { ...body(hint), event: Number(lastInsertRowid) }
   })
+  // The Luhmann move: two unrelated things side by side, for the connection
+  // you would never have gone looking for.
+  handle('random', () => db.prepare('select id, kind, title, body from nuggets order by random() limit 2').all().map(body))
   // Dwell: how long the hint was in front of you before the window went. The
   // signal every hint produces, where a vote is the rare one.
   ipcMain.handle('hints:dwell', (_event, event: number, ms: number) =>
@@ -269,7 +311,7 @@ export function registerVigil(): void {
   // --- nuggets and articles
   const ITEM = `id, tier, kind, title, prompt, private, pinned_at as pinnedAt, due_at as dueAt, suspended,
     state is not null as reviewed, created_at as createdAt, capture_id as captureId, remind_at as remindAt,
-    (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses`
+    (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses, cite, context, mode`
   handle('items', (tier: string) =>
     db.prepare(`select ${ITEM} from nuggets where tier = ? order by created_at desc`).all(tier)
   )
@@ -279,8 +321,9 @@ export function registerVigil(): void {
     const glosses = db.prepare('select id, body, author, created_at as createdAt from glosses where item_id = ? order by created_at').all(id)
     return { ...body(row), origins: JSON.parse((row.origins as string) ?? '[]'), glosses, preview: row.prompt ? preview(null) : null }
   })
-  handle('item:save', (id: string, patch: { body?: unknown; title?: string; prompt?: string | null; kind?: string; suspended?: boolean }) => {
-    const sets = Object.entries(patch).filter(([, value]) => value !== undefined)
+  handle('item:save', (id: string, patch: { body?: unknown; title?: string; prompt?: string | null; kind?: string; suspended?: boolean; cite?: string | null; context?: string | null; mode?: string }) => {
+    const allowed = ['body', 'title', 'prompt', 'kind', 'suspended', 'cite', 'context', 'mode']
+    const sets = Object.entries(patch).filter(([key, value]) => value !== undefined && allowed.includes(key))
     for (const [key, value] of sets) {
       const stored = key === 'body' ? JSON.stringify(value) : key === 'suspended' ? (value ? 1 : 0) : value
       db.prepare(`update nuggets set ${key} = ?, updated_at = ? where id = ?`).run(stored as string, now(), id)
@@ -314,8 +357,8 @@ export function registerVigil(): void {
       .prepare(`select ${ITEM}, body, state from nuggets where coalesce(prompt, '') != '' and suspended = 0 and state is not null and due_at <= ? order by due_at limit ?`)
       .all(now(), Math.max(0, reviewsPerDay - (done.old ?? 0))) as Record<string, unknown>[]
     const fresh = db
-      .prepare(`select ${ITEM}, body, state from nuggets where coalesce(prompt, '') != '' and suspended = 0 and state is null and (due_at is null or due_at <= datetime('now')) order by created_at limit ?`)
-      .all(Math.max(0, newPerDay - (done.fresh ?? 0))) as Record<string, unknown>[]
+      .prepare(`select ${ITEM}, body, state from nuggets where coalesce(prompt, '') != '' and suspended = 0 and state is null and (due_at is null or due_at <= ?) order by created_at limit ?`)
+      .all(now(), Math.max(0, newPerDay - (done.fresh ?? 0))) as Record<string, unknown>[]
     return [...due, ...fresh].map((row) => ({ ...body(row), state: undefined, intervals: preview(row.state as string | null) }))
   })
   // Bury: not today. The timing is wrong, the item is fine, and the schedule is
@@ -339,16 +382,39 @@ export function registerVigil(): void {
 
   // --- tasks
   const TASK = `id, number, title, status, due_at as dueAt, all_day as allDay, recurrence, origin_capture_id as captureId,
-    created_at as createdAt, completed_at as completedAt, waiting_on as waitingOn`
-  handle('tasks', () => db.prepare(`select ${TASK} from tasks order by status, due_at is null, due_at, created_at`).all())
+    created_at as createdAt, completed_at as completedAt, waiting_on as waitingOn, estimate, sort_order as sortOrder`
+  handle('tasks', () => db.prepare(`select ${TASK} from tasks order by status, coalesce(sort_order, 1e12), due_at is null, due_at, created_at`).all())
   handle('task', (id: string) => {
-    const row = db.prepare(`select ${TASK}, notes from tasks where id = ?`).get(id) as Record<string, unknown> | undefined
+    const row = db.prepare(`select ${TASK}, notes, subtasks from tasks where id = ?`).get(id) as Record<string, unknown> | undefined
     if (!row) return null
     const done = db.prepare('select done_at as at from task_done where task_id = ? order by done_at desc').all(id)
-    return { ...row, notes: JSON.parse((row.notes as string) ?? 'null'), done }
+    // What the task is about, linked from nuggets and articles: shown as a
+    // checklist on it, and the material comes up first when you open it.
+    const linked = db.prepare(`select n.id, n.tier, n.kind, n.title from task_links l join nuggets n on n.id = l.item_id where l.task_id = ?`).all(id)
+    return { ...row, notes: JSON.parse((row.notes as string) ?? 'null'), subtasks: JSON.parse((row.subtasks as string) ?? '[]'), done, linked }
   })
   handle('task:add', (text: string, origin?: string) => write(addTask(text, origin ?? null)))
-  handle('task:save', (id: string, patch: { title?: string; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null }) => {
+  // Study this: a task made from a nugget or an article, linked to it, so the
+  // reading has a when and the material is waiting when the task opens.
+  handle('study', (itemId: string, text: string) => {
+    const task = addTask(text)
+    db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(task, itemId)
+    return write(task)
+  })
+  // A question pursued: it becomes a task with a session already running.
+  handle('pursue', (captureId: string) => {
+    const capture = db.prepare('select title from captures where id = ?').get(captureId) as { title: string }
+    const task = addTask(capture.title, captureId)
+    db.prepare("update captures set status = 'resolved', exited_at = ? where id = ?").run(now(), captureId)
+    db.prepare('insert into sessions (id, task_id, started_at) values (?, ?, ?)').run(randomUUID(), task, now())
+    return write(task)
+  })
+  handle('task:save', (id: string, patch: { title?: string; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null; subtasks?: unknown; estimate?: number | null; sortOrder?: number }) => {
+    if (patch.subtasks !== undefined) db.prepare('update tasks set subtasks = ? where id = ?').run(JSON.stringify(patch.subtasks), id)
+    if (patch.estimate !== undefined) db.prepare('update tasks set estimate = ? where id = ?').run(patch.estimate, id)
+    if (patch.sortOrder !== undefined) db.prepare('update tasks set sort_order = ? where id = ?').run(patch.sortOrder, id)
+    // A new time is a new moment to be told about.
+    if (patch.due !== undefined) db.prepare('update tasks set notified_at = null where id = ?').run(id)
     if (patch.title !== undefined) db.prepare('update tasks set title = ? where id = ?').run(patch.title, id)
     if (patch.notes !== undefined) db.prepare('update tasks set notes = ? where id = ?').run(JSON.stringify(patch.notes), id)
     if (patch.due !== undefined) db.prepare('update tasks set due_at = ? where id = ?').run(patch.due, id)
@@ -461,6 +527,20 @@ export function registerVigil(): void {
     return write(true)
   })
 
+  // --- a time of day means something happens at that time
+  // Pull: it is already first in Today. Quiet: the menu bar counts it. Alerts:
+  // a notification, once per due time. All-day tasks never alert.
+  setInterval(() => {
+    if (settings().notify !== 'alerts' || !Notification.isSupported()) return
+    const due = db.prepare(
+      "select id, title from tasks where status = 'open' and all_day = 0 and due_at <= ? and due_at > ? and notified_at is null"
+    ).all(now(), new Date(Date.now() - 3600000).toISOString()) as { id: string; title: string }[]
+    for (const task of due) {
+      new Notification({ title: task.title, body: 'Due now', silent: false }).show()
+      db.prepare('update tasks set notified_at = ? where id = ?').run(now(), task.id)
+    }
+  }, 30_000)
+
   // --- the numbers: observations with a comparison, never a score to keep up
   handle('stats', () => {
     const one = <T>(sql: string, ...args: (string | number)[]): T => db.prepare(sql).get(...args) as T
@@ -481,7 +561,31 @@ export function registerVigil(): void {
       hours: all<{ hour: number; n: number }>("select cast(strftime('%H', captured_at, 'localtime') as integer) hour, count(*) n from captures group by hour"),
       firstUse: one<{ days: number | null }>(
         `select avg(julianday(n.created_at) - julianday(c.captured_at)) days from nuggets n join captures c on c.id = n.capture_id where n.created_at >= ?`, ago(90)).days,
-      tasksDone: one<{ n: number }>('select count(*) n from task_done where done_at >= ?', ago(7)).n
+      tasksDone: one<{ n: number }>('select count(*) n from task_done where done_at >= ?', ago(7)).n,
+      // Wrapped: what the week was, in the work itself.
+      sessions: one<{ n: number; minutes: number | null }>(
+        "select count(*) n, sum((julianday(ended_at) - julianday(started_at)) * 1440) minutes from sessions where ended_at is not null and started_at >= ?", ago(7)),
+      tagsWeek: (db.prepare('select title, body from captures where captured_at >= ?').all(ago(7)) as { title: string; body: string }[])
+        .flatMap((row) => tagsIn(`${row.title} ${plain(JSON.parse(row.body ?? 'null'))}`))
+        .reduce<Record<string, number>>((counts, tag) => ({ ...counts, [tag]: (counts[tag] ?? 0) + 1 }), {}),
+      retention: settings().retention,
+      estimates: one<{ estimated: number | null; spent: number | null }>(
+        `select sum(t.estimate) estimated, sum((select sum((julianday(s.ended_at) - julianday(s.started_at)) * 1440) from sessions s where s.task_id = t.id and s.ended_at is not null)) spent
+         from tasks t where t.estimate is not null and t.status = 'done' and t.completed_at >= ?`, ago(30)),
+      // Lead measures: the doing, this week, day by day. No target; the trend.
+      lead: {
+        exits: one<{ n: number }>("select count(*) n from captures where exited_at >= ?", ago(7)).n,
+        glosses: one<{ n: number }>("select count(*) n from glosses where author = 'user' and created_at >= ?", ago(7)).n,
+        reviewDays: one<{ n: number }>('select count(distinct substr(reviewed_at, 1, 10)) n from review_log where reviewed_at >= ?', ago(7)).n,
+        articles: one<{ n: number }>("select count(*) n from nuggets where tier = 'article' and created_at >= ?", ago(7)).n
+      },
+      leeches: one<{ n: number }>(
+        "select count(*) n from nuggets where (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) >= 4").n,
+      // A hint "stopped you" if you voted it up, or it stayed on screen four
+      // seconds or more: the rare signal and the universal one together.
+      stopped: one<{ n: number }>("select count(*) n from hint_events where shown_at >= ? and (reaction = 'up' or dwell_ms >= 4000)", ago(30)).n,
+      unprocessed: one<{ now: number; weekAgo: number }>(
+        "select sum(status = 'open') now, sum(captured_at < ? and (status = 'open' or exited_at >= ?)) weekAgo from captures", ago(7), ago(7))
     }
   })
 
@@ -514,4 +618,11 @@ export function toggleSafeMode(): boolean {
   database().prepare("insert or replace into settings (key, value) values ('safeMode', ?)").run(JSON.stringify(on))
   changed()
   return on
+}
+
+/** The session running now, if any, for the menu bar. */
+export function activeSession(): { title: string; startedAt: string } | null {
+  return (database()
+    .prepare('select t.title, s.started_at as startedAt from sessions s join tasks t on t.id = s.task_id where s.ended_at is null order by s.started_at desc limit 1')
+    .get() as { title: string; startedAt: string } | undefined) ?? null
 }

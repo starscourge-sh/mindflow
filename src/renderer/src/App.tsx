@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { AudioLines, FileJson2, Keyboard, KeyboardOff, Lock, LockOpen, Maximize2, Minimize2, SquarePen, TableOfContents, X } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
+import { Archive, FileJson2, Inbox, Keyboard, KeyboardOff, Lock, LockOpen, Maximize2, Minimize2, SquarePen, TableOfContents, X } from 'lucide-react'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { v4 as uuidv4 } from 'uuid';
 
@@ -16,15 +17,17 @@ import { TodayPanel } from './components/vigil/today-panel'
 import { ReviewView } from './components/vigil/review-view'
 import { useAppearance, useLive } from './lib/vigil'
 import { useListKeys } from './components/vigil/ui'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
+import type { LucideIcon } from 'lucide-react'
 import { Toaster, toast } from './components/vigil/ui'
 import { vigil } from './lib/vigil'
+import { chime } from './lib/sound'
 
 // import { Maximize2, Minimize2 } from 'lucide-react'
 // import { StatusPicker, type Status } from './components/status/status-picker'
 // import { PriorityPicker, type Priority } from './components/priority/priority-picker'
 
 import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from './components/capture-kinds/capture-kind-picker';
-import { Button } from './components/ui/button';
 import {
   Sheet,
   SheetContent,
@@ -217,6 +220,10 @@ export default function App(): React.JSX.Element {
   // happen; Cmd+Enter puts it down and brings back a fresh prompt.
   const [editing, setEditing] = useState<{ id: string; body: JSONContent } | null>(null)
   const editorRef = useRef<Editor | null>(null)
+  // Keep or offload: the plan's most consequential field. Keep, and it can
+  // come back; offload, and it is only ever found by looking. Set per capture.
+  const [offload, setOffload] = useState(false)
+  const [sending, setSending] = useState(false)
 
   // Kind by prefix: while the capture is a single word that starts a kind's
   // name, Tab takes that kind and clears the word. Only at the very start, and
@@ -265,10 +272,14 @@ export default function App(): React.JSX.Element {
   // sent is still there, the way any capture box keeps a half-typed thought.
   const latestEditing = useRef(editing)
   latestEditing.current = editing
-  useEffect(() => window.api.onShown(() => latestEditing.current && fresh()), [])
-  // ⌘N, from anywhere in the window: a fresh box.
+  useEffect(() => window.api.onHiding(() => latestEditing.current && fresh()), [])
+  // ⌘N, from anywhere in the window: a fresh box. ⌘⇧O: keep or offload.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      if (event.metaKey && event.shiftKey && event.code === 'KeyO') {
+        event.preventDefault()
+        return setOffload((on) => !on)
+      }
       if (!event.metaKey || event.key !== 'n') return
       event.preventDefault()
       fresh()
@@ -287,25 +298,40 @@ export default function App(): React.JSX.Element {
       event.stopPropagation()
       if (editing) return fresh()
       if (!hasContent(body)) return
-      void window.api.captures.create({ title, kind, body, markdown }).then(async (id) => {
-        // A todo leaves for the task list at once, the plan's action kind: the
-        // capture keeps the words, the task takes the date out of them.
-        if (kind === 'todo') {
+      // What a paste is, when the kind was left alone: a bare link is a link,
+      // and a long block is an excerpt, the container for what comes out of it.
+      const text = textOf(body).trim()
+      const sorted = kind !== 'note' ? kind : /^https?:\/\/\S+$/.test(text) ? 'link' : text.length > 600 ? 'excerpt' : kind
+      // #bug, #fix, #feature and #improvement are todos wearing a label: they go
+      // to the task list at once, the same as a todo does.
+      const action = sorted === 'todo' || /(^|\s)#(bug|fix|feature|improvement)\b/i.test(text)
+      chime('send')
+      setSending(true)
+      void window.api.captures.create({ title, kind: sorted, body, markdown }).then(async (id) => {
+        await vigil.setCapture(id, 'discharge', offload ? 1 : 0)
+        await vigil.linkSession(id)
+        if (action) {
           await vigil.toTask(id)
           toast('Added to your tasks')
         }
-        fresh()
-        window.api.hideWindow()
+        // Let the box finish leaving before it is replaced.
+        setTimeout(() => {
+          setSending(false)
+          setOffload(false)
+          fresh()
+          window.api.hideWindow()
+        }, 180)
       })
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [body, title, kind, markdown, editing])
+  }, [body, title, kind, markdown, editing, offload])
 
   console.log('[CapturePrompt][kind][🐦‍🔥]: ', kind)
   console.log('[CapturePrompt][capture][🫪]: ', { ...capture, kind, title })
 
   return (
+    <TooltipProvider delayDuration={500}>
     <div className={`app-container ${pointerIn ? 'pointer-in' : ''} flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-8 color-white`}>
       <Toaster />
       <Header onNew={fresh} />
@@ -320,6 +346,15 @@ export default function App(): React.JSX.Element {
           className="h-full w-full"
         >
           <div className="h-full w-full flex flex-col">
+            {/* Keyed like the editor, so each note that opens, old or fresh,
+                eases in rather than snapping into place. */}
+            <motion.div
+              key={editing?.id ?? round}
+              className="flex min-h-0 flex-1 flex-col"
+              initial={{ opacity: 0, y: 8, filter: 'blur(3px)' }}
+              animate={sending ? { opacity: 0, y: -10, scale: 0.985, filter: 'blur(2px)' } : { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+              transition={{ duration: sending ? 0.18 : 0.22, ease: [0.16, 1, 0.3, 1] }}
+            >
             <CapturePrompt
               key={editing?.id ?? round}
               initial={editing?.body}
@@ -334,6 +369,7 @@ export default function App(): React.JSX.Element {
                 }
               }}
             />
+            </motion.div>
             <main className="flex justify-between py-[0.5rem] px-[4.75rem] bg-linear-to-t from-[var(--accent)]/40">
               <CaptureKindPicker
                 value={kind}
@@ -341,6 +377,15 @@ export default function App(): React.JSX.Element {
                   setKind(next)
                   if (editing) void window.api.captures.save(editing.id, { kind: next })
                 }}
+              />
+              <BarToggle
+                on={!offload}
+                icon={offload ? Archive : Inbox}
+                label={offload ? 'Offload' : 'Keep'}
+                tip={offload ? 'Offload: out of your head, found only by searching' : 'Keep: it can come back to you'}
+                keys="⌘⇧O"
+                onClick={() => setOffload(!offload)}
+                text
               />
               {offered && <span className="mr-auto ml-2 self-center text-xs text-muted-foreground">⇥ {offered.label}</span>}
               {!offered && like && (
@@ -353,43 +398,20 @@ export default function App(): React.JSX.Element {
                   You wrote something like this: MF-{like.number}
                 </button>
               )}
-              {/*
-                  <StatusPicker value={status} onChange={setStatus} />
-                  <PriorityPicker value={priority} onChange={setPriority} />
-                  */}
-              <div className="flex items-center gap-1">
-                <Button
-                  className={CONTROL}
-                  aria-label={vim ? 'Turn vim keys off' : 'Turn vim keys on'}
-                  onClick={() => setVim(!vim)}
-                >
-                  {vim ? <Keyboard /> : <KeyboardOff />}
-                </Button>
-                <Button
-                  className={CONTROL}
-                  aria-label={locked ? 'Unlock the note' : 'Lock the note'}
-                  onClick={() => setLocked(!locked)}
-                >
-                  {locked ? <Lock /> : <LockOpen />}
-                </Button>
-                <Button
-                  className={`${CONTROL} ${outline ? '' : 'opacity-40'}`}
-                  aria-label={outline ? 'Hide the outline' : 'Show the outline'}
-                  onClick={() => setOutline(!outline)}
-                >
-                  <TableOfContents />
-                </Button>
-                <Button
-                  className={CONTROL}
-                  aria-label={source ? 'Hide the source' : 'Show the source'}
-                  onClick={() => setSource(!source)}
-                >
-                  <FileJson2 />
-                </Button>
-                <ThemePicker className={`${CONTROL} gap-1.5 rounded-full cursor-pointer`} />
-                <Button className={`${CONTROL} text-red-400 hover:text-red-300`}>
-                  <AudioLines />
-                </Button>
+              {!offered && !like && <span className="flex-1" />}
+              {/* The editor's settings, one shape each, every one named with its
+                  key on hover, and on or off shown by a fill rather than a fade. */}
+              <div className="flex items-center gap-0.5">
+                <BarToggle on={vim} icon={vim ? Keyboard : KeyboardOff} label="Vim keys" tip={vim ? 'Vim keys on' : 'Vim keys off'} keys="\\" onClick={() => setVim(!vim)} />
+                <BarToggle on={locked} icon={locked ? Lock : LockOpen} label="Lock" tip={locked ? 'Locked: read only' : 'Lock the note'} onClick={() => setLocked(!locked)} />
+                <BarToggle on={outline} icon={TableOfContents} label="Outline" tip={outline ? 'Hide the outline' : 'Show the outline'} onClick={() => setOutline(!outline)} />
+                <BarToggle on={source} icon={FileJson2} label="Source" tip={source ? 'Hide the source' : 'Show the source'} keys="⌘⌥S" onClick={() => setSource(!source)} />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span><ThemePicker className={`${CONTROL} gap-1.5 rounded-md`} /></span>
+                  </TooltipTrigger>
+                  <TooltipContent>Theme</TooltipContent>
+                </Tooltip>
               </div>
             </main>
           </div>
@@ -403,6 +425,7 @@ export default function App(): React.JSX.Element {
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>
+    </TooltipProvider>
   )
 }
 
@@ -588,16 +611,31 @@ function SidePanel({ captures, editing, onOpen }: {
           <button
             key={one.id}
             type="button"
-            onClick={() => setTab(one.id)}
+            onClick={() => {
+              if (tab !== one.id) chime('tap')
+              setTab(one.id)
+            }}
             title={`⌘${tabs.indexOf(one) + 1}`}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-1 transition-colors ${tab === one.id ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            className={`relative flex flex-1 items-center justify-center gap-1.5 rounded-md py-1 transition-colors ${tab === one.id ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
           >
+            {/* One pill that slides between tabs rather than three that blink. */}
+            {tab === one.id && (
+              <motion.span layoutId="prompt-tab" className="absolute inset-0 -z-10 rounded-md bg-background shadow-sm" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />
+            )}
             {one.label}
             {one.count ? <span className="text-xs tabular-nums text-muted-foreground">{one.count}</span> : null}
           </button>
         ))}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={tab}
+        initial={{ opacity: 0, x: 8 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -8 }}
+        transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
+        className="min-h-0 flex-1 overflow-y-auto"
+      >
         {tab === 'inbox' ? (
           <>
             <Pins />
@@ -612,7 +650,48 @@ function SidePanel({ captures, editing, onOpen }: {
             <ReviewView />
           </div>
         )}
-      </div>
+      </motion.div>
+      </AnimatePresence>
     </div>
+  )
+}
+
+/**
+ * One control on the prompt's bar: an icon, a fill when it is on, and a
+ * tooltip that names it and gives its key, so nothing on the bar is a guess.
+ */
+function BarToggle({ on, icon: Icon, label, tip, keys, onClick, text }: {
+  on: boolean
+  icon: LucideIcon
+  label: string
+  tip: string
+  keys?: string
+  onClick: () => void
+  text?: boolean
+}): React.JSX.Element {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={tip}
+          aria-pressed={on}
+          onClick={() => {
+            chime('tap')
+            onClick()
+          }}
+          className={`flex h-7 items-center gap-1.5 rounded-md px-1.5 text-[13px] transition-colors [&_svg]:size-4 ${
+            on ? 'bg-accent/70 text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+          }`}
+        >
+          <Icon />
+          {text && label}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent className="flex items-center gap-2">
+        {tip}
+        {keys && <kbd className="rounded border border-border/80 px-1 font-sans text-[11px] text-muted-foreground">{keys}</kbd>}
+      </TooltipContent>
+    </Tooltip>
   )
 }

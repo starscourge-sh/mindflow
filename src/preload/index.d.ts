@@ -33,6 +33,7 @@ export interface Api {
   showPrompt: () => void
   vigil: (channel: string, ...args: unknown[]) => Promise<unknown>
   onShown: (listen: () => void) => () => void
+  onHiding: (listen: () => void) => () => void
   hints: {
     next: () => Promise<{ id: string; kind: string; body: unknown; event: number } | null>
     react: (event: number, id: string, reaction: 'up' | 'down') => Promise<void>

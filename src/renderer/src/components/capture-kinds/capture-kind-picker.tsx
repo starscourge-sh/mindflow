@@ -13,6 +13,7 @@ import {
   CircleHelp,
   MessageSquareQuote,
   Sparkles,
+  RefreshCw,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -58,6 +59,8 @@ export const CAPTURE_TYPES = [
   { id: "link", label: "Link", icon: Link, tint: tint("blue") },
   { id: "excerpt", label: "Excerpt", icon: ScrollText, tint: tint("yellow") },
   { id: "decision", label: "Decision", icon: Split, tint: tint("red") },
+  // A standing principle to yourself, timeless: it comes round on rotation.
+  { id: "self", label: "Note to self", icon: RefreshCw, tint: tint("orange") },
   { id: "bit", label: "Bit", icon: Sticker, tint: tint("pink") },
 ] as const
 

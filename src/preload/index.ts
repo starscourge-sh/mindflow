@@ -41,6 +41,13 @@ const api = {
   setExpanded: (expanded: boolean): Promise<boolean> =>
     ipcRenderer.invoke('window:expand', expanded),
 
+  /** Each time the window is about to be put away. */
+  onHiding: (listen: () => void): (() => void) => {
+    const relay = (): void => listen()
+    ipcRenderer.on('window:hiding', relay)
+    return () => ipcRenderer.off('window:hiding', relay)
+  },
+
   /** Each time the window is brought up: the moment the rot cards reshuffle and a hint may show. */
   onShown: (listen: () => void): (() => void) => {
     const relay = (): void => listen()

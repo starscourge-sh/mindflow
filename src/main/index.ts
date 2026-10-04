@@ -34,7 +34,7 @@ import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { importMarkdown, recordOpen, registerCaptures } from './captures'
-import { badge, registerVigil, toggleSafeMode } from './vigil'
+import { activeSession, badge, registerVigil, toggleSafeMode } from './vigil'
 
 
 /* The standard electron app file structure:
@@ -164,6 +164,9 @@ let lastBounds: Electron.Rectangle | null = null
 /** Put it away, keeping its place. Shared by the key, Escape and the dot. */
 function hideWindow(win: BrowserWindow): void {
   lastBounds = win.getBounds()
+  // Told before it goes, so the page can clear itself while hidden and come
+  // back already blank rather than showing the old note for a frame.
+  win.webContents.send('window:hiding')
   win.hide()
 }
 
@@ -423,7 +426,10 @@ function createWindow(): void {
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      // Keep painting while hidden: a page that clears itself on the way out
+      // must have that frame ready, or the stale one shows on the way back in.
+      backgroundThrottling: false
     }
   }))
 
@@ -571,7 +577,10 @@ function createTray(): void {
 function updateTray(): void {
   if (!tray) return
   const { due, safe } = badge()
-  tray.setTitle([due ? String(due) : '', safe ? 'Safe' : ''].filter(Boolean).join(' · '), { fontType: 'monospacedDigit' })
+  // A running session shows its minutes, so the menu bar says what you are on.
+  const session = activeSession()
+  const minutes = session ? Math.floor((Date.now() - new Date(session.startedAt).getTime()) / 60000) : 0
+  tray.setTitle([session ? `● ${minutes}m` : '', due ? String(due) : '', safe ? 'Safe' : ''].filter(Boolean).join(' · '), { fontType: 'monospacedDigit' })
   tray.setToolTip(`mindflow${due ? ` · ${due} to review` : ''}${safe ? ' · safe mode on' : ''}`)
   tray.setContextMenu(
     Menu.buildFromTemplate([

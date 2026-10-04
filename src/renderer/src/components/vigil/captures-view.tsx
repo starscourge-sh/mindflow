@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { ArrowUpRight, Calendar, CheckCircle2, FileText, Hash, Inbox, ListTodo, Lock, Pin, Trash2 } from 'lucide-react'
+import { Archive, ArrowUpRight, Calendar, CheckCircle2, Compass, FileText, Hash, Inbox, ListTodo, Lock, Pin, Quote, Trash2, X } from 'lucide-react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
@@ -30,6 +30,26 @@ export function CapturesView({ title, keep, focus }: {
   const [open, setOpen] = useState<Capture | null>(null)
   const pick = (id: string): void => void window.api.captures.get(id).then(setOpen)
   const [cursor] = useListKeys(shown.length, { onOpen: (index) => pick(shown[index].id), onBack: () => setOpen(null) })
+  // x selects, as in Linear, for an exit on many at once.
+  const [chosen, setChosen] = useState<string[]>([])
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      const active = document.activeElement as HTMLElement | null
+      if (event.key !== 'x' || active?.isContentEditable || ['INPUT', 'TEXTAREA'].includes(active?.tagName ?? '')) return
+      const capture = shown[cursor]
+      if (capture) setChosen((ids) => (ids.includes(capture.id) ? ids.filter((one) => one !== capture.id) : [...ids, capture.id]))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+  const bulk = (status: string): void => {
+    const ids = chosen
+    chime(status === 'discarded' ? 'away' : 'done')
+    void Promise.all(ids.map((id) => window.api.captures.save(id, { status }))).then(() => {
+      setChosen([])
+      toast(`${ids.length} ${status}`, () => void Promise.all(ids.map((id) => window.api.captures.save(id, { status: 'open' }))))
+    })
+  }
   useEffect(() => {
     if (focus) pick(focus)
   }, [focus])
@@ -38,10 +58,23 @@ export function CapturesView({ title, keep, focus }: {
 
   return (
     <>
-      <Page title={title} count={shown.length}>
+      <Page
+        title={title}
+        count={shown.length}
+        actions={
+          chosen.length ? (
+            <span className="flex items-center gap-1">
+              <span className="mr-1">{chosen.length} selected</span>
+              <button type="button" className="rounded-md px-2 py-1 hover:bg-accent hover:text-foreground" onClick={() => bulk('resolved')}>Resolve</button>
+              <button type="button" className="rounded-md px-2 py-1 hover:bg-accent hover:text-foreground" onClick={() => bulk('discarded')}>Discard</button>
+              <button type="button" title="Clear" className="rounded p-1 hover:bg-accent" onClick={() => setChosen([])}><X className="size-3.5" /></button>
+            </span>
+          ) : shown.length > 1 ? <span className="text-xs">x to select</span> : null
+        }
+      >
         {shown.length ? (
           <div className="px-3 py-2">
-            <CaptureList captures={shown} selected={open?.id} cursor={cursor} onPick={pick} />
+            <CaptureList captures={shown} selected={open?.id} cursor={cursor} chosen={chosen} onPick={pick} />
           </div>
         ) : (
           <Empty shape={['flower', 2]} title="Nothing waiting">
@@ -80,6 +113,9 @@ function CaptureProps({ capture }: { capture: CaptureMeta }): React.JSX.Element 
   const reopen = (): void => void window.api.captures.save(capture.id, { status: 'open' })
   const exits = [
     { icon: ArrowUpRight, label: 'Promote to nugget', run: () => vigil.promote(capture.id), said: 'Promoted to a nugget' },
+    // A question is a curiosity, not an obligation, until you choose to chase
+    // it: then it becomes a task with a session already running.
+    ...(capture.kind === 'question' ? [{ icon: Compass, label: 'Pursue it', run: () => vigil.pursue(capture.id), said: 'Now a task, with a session started' }] : []),
     { icon: ListTodo, label: 'Make it a task', run: () => vigil.toTask(capture.id), said: 'Now a task' },
     { icon: CheckCircle2, label: 'Resolve', run: () => window.api.captures.save(capture.id, { status: 'resolved' }), said: 'Resolved' },
     { icon: Trash2, label: 'Discard', run: () => window.api.captures.save(capture.id, { status: 'discarded' }), said: 'Discarded' }
@@ -98,7 +134,11 @@ function CaptureProps({ capture }: { capture: CaptureMeta }): React.JSX.Element 
               icon={exit.icon}
               onClick={() => {
                 chime(exit.label === 'Discard' ? 'away' : exit.label === 'Promote to nugget' ? 'promote' : 'done')
-                void exit.run().then(() => toast(exit.said, exit.label === 'Promote to nugget' ? undefined : reopen))
+                void exit.run().then((result) =>
+                  result === 'needs-source'
+                    ? toast('A quote needs to say who said it: add a source below first')
+                    : toast(exit.said, exit.label === 'Promote to nugget' ? undefined : reopen)
+                )
               }}
             >
               {exit.label}
@@ -112,6 +152,13 @@ function CaptureProps({ capture }: { capture: CaptureMeta }): React.JSX.Element 
       </div>
 
       <PropLabel>Surfacing</PropLabel>
+      <Prop
+        icon={capture.discharge ? Archive : Inbox}
+        active={!capture.discharge}
+        onClick={() => void vigil.setCapture(capture.id, 'discharge', capture.discharge ? 0 : 1)}
+      >
+        {capture.discharge ? 'Offloaded: found only by search' : 'Kept: it can come back to you'}
+      </Prop>
       <Prop icon={Lock} active={!!capture.private} onClick={() => void vigil.setPrivate('captures', capture.id, !capture.private)}>
         {capture.private ? 'Private' : 'Can surface any time'}
       </Prop>
@@ -120,10 +167,32 @@ function CaptureProps({ capture }: { capture: CaptureMeta }): React.JSX.Element 
       </Prop>
       <RemindMe table="captures" id={capture.id} at={capture.remindAt} />
 
+      <PropLabel>Source</PropLabel>
+      <label className="flex items-center gap-2 rounded-md px-2 py-1.5 focus-within:text-foreground hover:bg-accent">
+        <Quote className="size-4 shrink-0" />
+        <input
+          key={capture.id}
+          defaultValue={capture.cite ?? ''}
+          placeholder="Who, or where from"
+          onBlur={(event) => void vigil.setCapture(capture.id, 'cite', event.target.value.trim() || null)}
+          className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground"
+        />
+      </label>
       <PropLabel>Details</PropLabel>
       <Prop icon={Hash}>{captureKey(capture.number)}</Prop>
       {capture.source && <Prop icon={FileText}>{capture.source.replace(/\.md$/, '')}</Prop>}
-      <Prop icon={Calendar}>{new Date(capture.capturedAt).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}</Prop>
+      {/* Editable, because a system you can catch up on beats one you
+          cannot fall behind in: a note from last Tuesday can say so. */}
+      <label className="flex items-center gap-2 rounded-md px-2 py-1.5 focus-within:text-foreground hover:bg-accent">
+        <Calendar className="size-4 shrink-0" />
+        <input
+          key={capture.id}
+          type="date"
+          defaultValue={capture.capturedAt.slice(0, 10)}
+          onChange={(event) => event.target.value && void vigil.setCapture(capture.id, 'capturedAt', new Date(`${event.target.value}T12:00:00`).toISOString())}
+          className="min-w-0 flex-1 bg-transparent text-[13px] outline-none"
+        />
+      </label>
     </Props>
   )
 }
