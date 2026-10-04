@@ -27,7 +27,7 @@ export function Page({ title, count, actions, children, aside = false }: {
       {/* The window's toolbar already names the section, so this line only
           carries the count and the actions, and goes when it has neither. */}
       {(count !== undefined || actions) && (
-        <header data-chrome className="page-column flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground">
+        <header data-chrome={aside || undefined} className="page-column flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground">
           {typeof title === 'string' && title.startsWith('#') ? <span className="font-medium text-foreground">{title}</span> : null}
           {count !== undefined && <span className="tabular-nums">{count} {count === 1 ? 'item' : 'items'}</span>}
           <div className="ml-auto flex items-center gap-1">{actions}</div>

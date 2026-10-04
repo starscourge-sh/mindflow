@@ -183,7 +183,7 @@ export function ReviewView(): React.JSX.Element {
           />
           <Button variant="outline" size="lg"
  onClick={reveal}
- className="self-start text-muted-foreground"
+ className="self-start text-sm text-muted-foreground"
 >
             Show the answer <Kbd>Space</Kbd>
           </Button>

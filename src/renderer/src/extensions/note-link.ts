@@ -1,6 +1,7 @@
 import { Node, mergeAttributes } from "@tiptap/core"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
 import Suggestion, { type SuggestionOptions } from "@tiptap/suggestion"
+import { vigil } from "@/lib/vigil"
 import type { ReactNode } from "react"
 
 /** One note the `@` menu can offer. The app decides what is findable. */
@@ -22,10 +23,12 @@ export interface NoteLinkOptions {
   onOpenNote?: (id: string) => void
   /** Supplied by the app, which owns the popup rendering. */
   render: NonNullable<SuggestionOptions<NoteSuggestion>["render"]>
+  /** The same for the `#` menu, which needs its own, or Escape closes the wrong one. */
+  tagRender?: SuggestionOptions<NoteSuggestion>["render"]
 }
 
 export const noteLinkPluginKey = new PluginKey("noteLink")
-const tagPluginKey = new PluginKey("tagSuggest")
+export const tagPluginKey = new PluginKey("tagSuggest")
 
 /**
  * A link to another note, typed with `@`.
@@ -108,7 +111,9 @@ export const NoteLink = Node.create<NoteLinkOptions>({
   },
 
   addProseMirrorPlugins() {
-    const { findNotes, onOpenNote, render } = this.options
+    const { findNotes, onOpenNote, render, tagRender } = this.options
+    // The tags are read once as the `#` menu opens, then narrowed as you type.
+    let tags: ReturnType<typeof vigil.tags> = Promise.resolve([])
 
     return [
       Suggestion<NoteSuggestion>({
@@ -136,8 +141,8 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         char: "#",
         pluginKey: tagPluginKey,
         items: async ({ query }) => {
-          const tags = ((await (window as { api?: { vigil?: (channel: string) => Promise<unknown> } }).api?.vigil?.("tags")) ?? []) as { tag: string; count: number }[]
-          return tags
+          if (!query) tags = vigil.tags()
+          return (await tags)
             .filter(({ tag }) => tag.startsWith(query.toLowerCase()))
             .slice(0, 8)
             .map(({ tag, count }) => ({ id: tag, label: `#${tag}`, key: String(count), group: "Tags" }))
@@ -145,7 +150,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         command: ({ editor, range, props }) => {
           editor.chain().focus().insertContentAt(range, `#${props.id} `).run()
         },
-        render,
+        render: tagRender ?? render,
       }),
 
       // A link is for following, so a plain click follows it rather than

@@ -17,7 +17,7 @@ export const textOf = (body: unknown): string => {
       .replace(/^\s*[-*]\s+/gm, '')
       .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
       .replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, '$1')
-      .replace(/\$([^$\n]+)\$/g, '$1')
+      .replace(/\$(?=\S)([^$\n]*?\S)\$(?!\d)/g, '$1')
       .replace(/\*\*|__|`|==|~~/g, '')
   const walk = (node: JSONContent): string => node.text ?? (node.content ?? []).map(walk).join('\n')
   return body ? walk(body as JSONContent) : ''

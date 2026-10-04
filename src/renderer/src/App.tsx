@@ -443,7 +443,7 @@ export default function App(): React.JSX.Element {
             {/* A hint sits at the foot of the box: a glance at something you
                 wrote once, while you are here to write. Usually empty. */}
             <div data-chrome className="px-[4.75rem]">
-              <HintCard onOpen={openCapture} />
+              {!focus && <HintCard onOpen={openCapture} />}
             </div>
             </motion.div>
             <main data-chrome className="flex items-center gap-1 py-[0.5rem] px-[4.75rem] bg-linear-to-t from-[var(--accent)]/40">

@@ -193,7 +193,7 @@ import { BlockMenu, type BlockTarget } from "@/components/turn-into/block-menu"
 import { TableOfContents } from "@/components/toc/table-of-contents"
 import { SourceView } from "@/components/source/source-view"
 import { NoteLink, type NoteSuggestion } from "@/extensions/note-link"
-import { noteLinkRenderer } from "@/components/note-link/note-link-menu"
+import { noteLinkRenderer, tagRenderer } from "@/components/note-link/note-link-menu"
 import { ImageMenu } from "@/components/image/image-menu"
 import { CodeBlockView } from "@/components/code/code-block-view"
 import { slashRenderer } from "@/components/slash/slash-menu"
@@ -932,6 +932,7 @@ function Surface({
         findNotes: (query) => finder.current(query),
         onOpenNote: (id) => opener.current?.(id),
         render: noteLinkRenderer,
+        tagRender: tagRenderer,
       }),
       // `enableTabIndentation` is the extension's own Tab handling: it indents
       // every selected line, where a hand-rolled insert replaces the selection.

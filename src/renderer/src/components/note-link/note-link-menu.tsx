@@ -5,7 +5,7 @@ import {
   createSuggestionRenderer,
   type SuggestionListHandle,
 } from "@/components/suggestion/suggestion-renderer"
-import { noteLinkPluginKey, type NoteSuggestion } from "@/extensions/note-link"
+import { noteLinkPluginKey, tagPluginKey, type NoteSuggestion } from "@/extensions/note-link"
 import { listDirection, step } from "@/lib/menu-keys"
 
 /** The `@` menu: which note to link to. */
@@ -60,3 +60,4 @@ const NoteList = forwardRef<SuggestionListHandle, SuggestionProps<NoteSuggestion
 )
 
 export const noteLinkRenderer = createSuggestionRenderer(NoteList, noteLinkPluginKey)
+export const tagRenderer = createSuggestionRenderer(NoteList, tagPluginKey)

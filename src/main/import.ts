@@ -48,7 +48,7 @@ export const titleOfMarkdown = (chunk: string): string =>
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     // Obsidian's own marks: [[page|shown]], [[page]], $maths$, ==highlight==, ~~struck~~.
     .replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, '$1')
-    .replace(/\$([^$\n]+)\$/g, '$1')
+    .replace(/\$(?=\S)([^$\n]*?\S)\$(?!\d)/g, '$1')
     .replace(/==|~~/g, '')
     .replace(/[*_`]/g, '')
     .trim()
