@@ -66,7 +66,7 @@ export function Search({ onOpen, onClose }: { onOpen: (type: string, id: string)
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === 'Escape') onClose()
+              if (event.key === 'Escape') { event.preventDefault(); onClose() }
               else if (event.key === 'Enter' && current) onOpen(current.type, current.id)
               else if (event.key === 'Tab' && current?.type === 'capture') setAsking(true)
               // The arrows, or Ctrl-J and Ctrl-K: the editor's vim, carried into the box.

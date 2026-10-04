@@ -33,26 +33,8 @@ export function CapturesView({ title, keep, focus, onOpen }: {
   onOpen?: (type: string, id: string) => void
 }): React.JSX.Element {
   const all = useCaptures()
-  const [view, setView] = useView(`captures:${title}`, { sort: 'newest', group: 'none' })
   const kept = all.filter(keep)
-  const facets: Facet<CaptureMeta>[] = [
-    { key: 'kind', label: 'Kind', options: CAPTURE_TYPES.filter((type) => kept.some((one) => one.kind === type.id)).map(({ id, label }) => ({ id, label })), test: (one, kind) => one.kind === kind },
-    { key: 'when', label: 'Captured', options: AGES, test: (one, when) => period(one.capturedAt) === when },
-    { key: 'tag', label: 'Tag', options: [...new Set(kept.flatMap((one) => splitTags(one.label).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}` })), test: (one, tag) => splitTags(one.label).tags.includes(tag) },
-    { key: 'from', label: 'Came from', options: [{ id: 'typed', label: 'Typed here' }, { id: 'imported', label: 'Imported' }], test: (one, from) => (one.source ? 'imported' : 'typed') === from },
-    { key: 'who', label: 'Who said it', options: [{ id: 'mine', label: 'My words' }, { id: 'theirs', label: 'Someone else' }], test: (one, who) => (one.attribution ? 'theirs' : 'mine') === who },
-    { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Pinned' }, { id: 'private', label: 'Private' }], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : !!one.private) }
-  ]
-  const groups = arrange(kept, view, facets, {
-    newest: (a, b) => b.capturedAt.localeCompare(a.capturedAt),
-    oldest: (a, b) => a.capturedAt.localeCompare(b.capturedAt),
-    name: (a, b) => a.label.localeCompare(b.label),
-    kind: (a, b) => a.kind.localeCompare(b.kind)
-  }, {
-    kind: (one) => CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note',
-    date: (one) => period(one.capturedAt),
-    source: (one) => one.source.replace(/\.(md|html?|csv|json|txt)$/i, '') || 'Typed here'
-  })
+  const { groups, display } = useCaptureDisplay(`captures:${title}`, kept)
   const shown = groups.flatMap(([, list]) => list)
   const [open, setOpen] = useState<Capture | null>(null)
   // The capture as first written, shown in place of the editor, or null.
@@ -128,13 +110,7 @@ export function CapturesView({ title, keep, focus, onOpen }: {
           ) : (
             <span className="flex items-center gap-2">
               {shown.length > 1 && <span className="text-xs">x to select</span>}
-              <Display
-                view={view}
-                onChange={setView}
-                facets={facets}
-                sorts={[{ id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'name', label: 'Name' }, { id: 'kind', label: 'Kind' }]}
-                groups={[{ id: 'none', label: 'None' }, { id: 'kind', label: 'Kind' }, { id: 'date', label: 'Date' }, { id: 'source', label: 'Where from' }]}
-              />
+              {display}
             </span>
           )
         }
@@ -309,4 +285,41 @@ function CaptureProps({ capture, onOpen }: { capture: CaptureMeta; onOpen?: (typ
       <DatePicker key={capture.id} value={capture.capturedAt} className="w-full" onChange={(at) => at && void vigil.setCapture(capture.id, 'capturedAt', at)} />
     </Props>
   )
+}
+
+/**
+ * Filter, sort and group for a list of captures, with the Display menu that
+ * sets them: the same in the main window and the prompt. `name` keeps each
+ * list's choice apart.
+ */
+export function useCaptureDisplay(name: string, kept: CaptureMeta[]): { groups: [string, CaptureMeta[]][]; display: React.JSX.Element } {
+  const [view, setView] = useView(name, { sort: 'newest', group: 'none' })
+  const facets: Facet<CaptureMeta>[] = [
+    { key: 'kind', label: 'Kind', options: CAPTURE_TYPES.filter((type) => kept.some((one) => one.kind === type.id)).map(({ id, label }) => ({ id, label })), test: (one, kind) => one.kind === kind },
+    { key: 'when', label: 'Captured', options: AGES, test: (one, when) => period(one.capturedAt) === when },
+    { key: 'tag', label: 'Tag', options: [...new Set(kept.flatMap((one) => splitTags(one.label).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}` })), test: (one, tag) => splitTags(one.label).tags.includes(tag) },
+    { key: 'from', label: 'Came from', options: [{ id: 'typed', label: 'Typed here' }, { id: 'imported', label: 'Imported' }], test: (one, from) => (one.source ? 'imported' : 'typed') === from },
+    { key: 'who', label: 'Who said it', options: [{ id: 'mine', label: 'My words' }, { id: 'theirs', label: 'Someone else' }], test: (one, who) => (one.attribution ? 'theirs' : 'mine') === who },
+    { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Pinned' }, { id: 'private', label: 'Private' }], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : !!one.private) }
+  ]
+  const groups = arrange(kept, view, facets, {
+    newest: (a, b) => b.capturedAt.localeCompare(a.capturedAt),
+    oldest: (a, b) => a.capturedAt.localeCompare(b.capturedAt),
+    name: (a, b) => a.label.localeCompare(b.label),
+    kind: (a, b) => a.kind.localeCompare(b.kind)
+  }, {
+    kind: (one) => CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note',
+    date: (one) => period(one.capturedAt),
+    source: (one) => one.source.replace(/\.(md|html?|csv|json|txt)$/i, '') || 'Typed here'
+  })
+  const display = (
+    <Display
+      view={view}
+      onChange={setView}
+      facets={facets}
+      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'name', label: 'Name' }, { id: 'kind', label: 'Kind' }]}
+      groups={[{ id: 'none', label: 'None' }, { id: 'kind', label: 'Kind' }, { id: 'date', label: 'Date' }, { id: 'source', label: 'Where from' }]}
+    />
+  )
+  return { groups, display }
 }

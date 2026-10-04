@@ -348,7 +348,9 @@ export function registerVigil(): void {
     if (!capture) return null
     // A quote's whole claim is "someone said this", so it does not become a
     // nugget until it says who.
-    if (capture.kind === 'quote' && !capture.attribution && !/^[^:]{2,40}:/.test(capture.title)) return 'needs-source'
+    // Said in the words already: "…" - Alan Kay, or Alan Kay: "…".
+    capture.attribution ||= /["”']\s*[-—–]\s*([^"“”]{2,60})$/.exec(capture.title)?.[1]?.trim() ?? /^([^:"“]{2,40}):/.exec(capture.title)?.[1]?.trim() ?? ''
+    if (capture.kind === 'quote' && !capture.attribution) return 'needs-source'
     // Nor until it says something in your own words: someone else's sentence
     // kept with nothing of yours beside it is a quote you collected, not one
     // you understood. Those words become its first gloss.
@@ -358,7 +360,8 @@ export function registerVigil(): void {
       `insert into nuggets (id, capture_id, kind, title, body, prompt, private, attribution, mode, created_at, updated_at)
        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(nugget, id, capture.kind, capture.title, capture.body, capture.kind === 'word' ? `What does "${capture.title}" mean?` : null,
-      capture.private, capture.attribution, 'encounter', now(), now())
+      capture.private, capture.attribution || null, 'encounter', now(), now())
+    if (capture.attribution) db.prepare('update captures set attribution = coalesce(attribution, ?) where id = ?').run(capture.attribution, id)
     if (words?.trim()) db.prepare('insert into glosses (id, item_id, body, created_at) values (?, ?, ?, ?)').run(randomUUID(), nugget, words.trim(), now())
     // The capture is kept as it was, only marked: the nugget is a copy, edited
     // on its own, and each points at the other.

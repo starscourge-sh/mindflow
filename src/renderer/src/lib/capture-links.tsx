@@ -25,7 +25,14 @@ export const EXITS = [
 /** Take one. Promote makes a nugget as well; the other two only mark the capture. */
 export async function takeExit(id: string, status: string): Promise<unknown> {
   if (status !== 'promoted') return window.api.captures.save(id, { status })
-  const result = await vigil.promote(id)
+  let result = await vigil.promote(id)
+  // A quote needs who said it: asked here, so the prompt is never a dead end.
+  if (result === 'needs-source') {
+    const who = await ask('Who said it? A quote is kept with its source.', 'e.g. Alan Kay, or a colleague in standup')
+    if (!who) return 'cancelled'
+    await vigil.setCapture(id, 'attribution', who)
+    result = await vigil.promote(id)
+  }
   if (result !== 'needs-words') return result
   // A quote is kept with a line of yours beside it, or not at all.
   const words = await ask('A quote keeps a line in your own words. What does it say to you?', 'Why it is worth keeping…')

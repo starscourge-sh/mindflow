@@ -5,11 +5,21 @@ import { AnimatePresence, motion } from 'motion/react'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, when, type Task } from '@/lib/vigil'
 import { toast, typing, useListKeys } from './ui'
+import { Chips } from './display'
 import { RowMenu, copy } from './row-menu'
 import { Tip } from '@/components/vigil/ui'
 
 const endOfToday = (): number => new Date().setHours(24, 0, 0, 0)
 const startOfToday = (): number => new Date().setHours(0, 0, 0, 0)
+
+type Scope = 'today' | 'upcoming' | 'routines' | 'backlog' | 'waiting'
+const SCOPES: Record<Scope, { label: string; test: (task: Task) => boolean }> = {
+  today: { label: 'Today', test: (task) => !task.waitingOn && !!task.dueAt && new Date(task.dueAt).getTime() < endOfToday() },
+  upcoming: { label: 'Upcoming', test: (task) => !task.waitingOn && !task.recurrence && !!task.dueAt && new Date(task.dueAt).getTime() >= endOfToday() },
+  routines: { label: 'Routines', test: (task) => !!task.recurrence },
+  backlog: { label: 'Backlog', test: (task) => !task.waitingOn && !task.dueAt },
+  waiting: { label: 'Waiting', test: (task) => !!task.waitingOn }
+}
 
 /**
  * Today, sized for the prompt: what is due or late, a line to add one, and the
@@ -21,7 +31,9 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   const tasks = useLive(vigil.tasks, [] as Task[])
   const [draft, setDraft] = useState('')
   const [ticking, setTicking] = useState<string | null>(null)
-  const due = tasks.filter((task) => task.status === 'open' && task.dueAt && new Date(task.dueAt).getTime() < endOfToday())
+  // Every task list, not only today's: the same cuts as the main window.
+  const [scope, setScope] = useState<Scope>('today')
+  const due = tasks.filter((task) => task.status === 'open' && SCOPES[scope].test(task))
 
   const add = useRef<HTMLInputElement>(null)
   const [cursor] = useListKeys(due.length, { onOpen: (index) => onOpen(due[index].id) })
@@ -59,15 +71,16 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
 
   return (
     <div className="flex flex-col gap-1 text-sm">
+      <Chips options={(Object.keys(SCOPES) as Scope[]).map((id) => ({ id, label: SCOPES[id].label }))} on={(id) => id === scope} pick={(id) => setScope(id as Scope)} />
       <form
         className="mb-2 flex items-center gap-2 rounded-md border px-2 py-1.5 focus-within:border-ring"
         onSubmit={(event) => {
           event.preventDefault()
           if (!draft.trim()) return
-          void vigil.addTask(draft, undefined, true).then((id) => vigil.task(id)).then((task) => {
+          void vigil.addTask(draft, undefined, scope === 'today').then((id) => vigil.task(id)).then((task) => {
             setDraft('')
             // Said where it went when it is not in this list: a later day, or a routine.
-            if (task?.dueAt && new Date(task.dueAt).getTime() >= endOfToday()) toast(`Added for ${when(task.dueAt, !!task.allDay).toLowerCase()}`)
+            if (task && !SCOPES[scope].test(task)) toast(task.recurrence ? 'Added to Routines' : task.dueAt ? `Added for ${when(task.dueAt, !!task.allDay).toLowerCase()}` : 'Added to the backlog')
           })
         }}
       >
@@ -135,7 +148,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
       </AnimatePresence>
       {!due.length && (
         <p className="px-1.5 py-6 leading-relaxed text-muted-foreground">
-          Nothing due today. Tasks with a date land here on the day, and late ones stay until they are done.
+          {scope === 'today' ? 'Nothing due today. Tasks with a date land here on the day, and late ones stay until they are done.' : `Nothing in ${SCOPES[scope].label.toLowerCase()}.`}
         </p>
       )}
     </div>

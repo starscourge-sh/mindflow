@@ -21,6 +21,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './comp
 import type { LucideIcon } from 'lucide-react'
 import { Toaster, toast } from './components/vigil/ui'
 import { Reader } from './components/vigil/reader'
+import { KeptPanel } from './components/vigil/kept-panel'
+import { useCaptureDisplay } from './components/vigil/captures-view'
+import { Search } from './components/search'
 import { vigil } from './lib/vigil'
 import { chime } from './lib/sound'
 
@@ -278,6 +281,18 @@ export default function App(): React.JSX.Element {
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [reading])
+  // ⌘K: search everything from the prompt, and open what it finds here.
+  const [searching, setSearching] = useState(false)
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.metaKey || event.key !== 'k') return
+      event.preventDefault()
+      event.stopPropagation()
+      setSearching(true)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
   const openCapture = (id: string): void => {
     setReading(null)
     // The note being written is kept as it is now, not as it was at the last
@@ -416,6 +431,15 @@ export default function App(): React.JSX.Element {
     <TooltipProvider delayDuration={500}>
     <div className={`app-container ${pointerIn ? 'pointer-in' : ''} flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-8 color-white`}>
       <Toaster />
+      {searching && (
+        <Search
+          onClose={() => setSearching(false)}
+          onOpen={(type, id) => {
+            setSearching(false)
+            openAny(type, id)
+          }}
+        />
+      )}
       <FocusNote />
       <Header onNew={() => fresh()} />
 
@@ -706,7 +730,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading }: {
   onOpenAny: (type: string, id: string) => void
   reading?: string
 }): React.JSX.Element {
-  const [tab, setTab] = useState<'inbox' | 'today' | 'review'>('inbox')
+  const [tab, setTab] = useState<'inbox' | 'today' | 'review' | 'kept'>('inbox')
   // Today and Review are worked by keys, so the capture box lets go of them
   // there; typing goes back to the box on the Inbox tab or a click into it.
   useEffect(() => {
@@ -724,14 +748,18 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading }: {
   )
   // The inbox is what has no exit yet; what is handled lives in All captures.
   const open = captures.filter((capture) => capture.status === 'open')
+  // The same Display menu as the main window's inbox: filter, sort, group.
+  const { groups, display } = useCaptureDisplay('prompt:inbox', open)
+  const shown = groups.flatMap(([, list]) => list)
   const tabs = [
     { id: 'inbox', label: 'Inbox', count: open.length },
-    { id: 'today', label: 'Today', count: today },
-    { id: 'review', label: 'Review', count: due }
+    { id: 'today', label: 'Tasks', count: today },
+    { id: 'review', label: 'Review', count: due },
+    { id: 'kept', label: 'Kept', count: 0 }
   ] as const
   // The same keys as every list: j and k when the editor does not have the
   // focus, Enter to open. ⌘1 to ⌘3 switch tabs from anywhere in the window.
-  const [cursor] = useListKeys(open.length, { onOpen: (index) => onOpen(open[index].id), enabled: tab === 'inbox' })
+  const [cursor] = useListKeys(shown.length, { onOpen: (index) => onOpen(shown[index].id), enabled: tab === 'inbox' })
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       const to = event.ctrlKey && !event.metaKey ? tabs[Number(event.key) - 1] : undefined
@@ -790,13 +818,26 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading }: {
           <div className="flex min-h-full flex-col">
             {tab === 'inbox' ? (
               <>
-                <Tip label="Every capture with no exit yet, newest first. The cards above are a few old ones pulled out of this same pile.">
-                  <h3 className="w-fit px-2 pb-1 pt-2 text-xs text-muted-foreground">Newest</h3>
-                </Tip>
-                <CaptureList captures={open} selected={editing} cursor={cursor} onPick={onOpen} />
+                <div className="flex items-center px-2 pt-2 pb-1 text-xs text-muted-foreground">
+                  <Tip label="Every capture with no exit yet. The cards above are a few old ones pulled out of this same pile.">
+                    <h3 className="w-fit">{shown.length === open.length ? 'Everything waiting' : `${shown.length} of ${open.length}`}</h3>
+                  </Tip>
+                  <span className="ml-auto">{display}</span>
+                </div>
+                {groups.map(([name, list], index) => {
+                  const before = groups.slice(0, index).reduce((n, [, one]) => n + one.length, 0)
+                  return (
+                    <div key={name || 'all'}>
+                      {name && <div className="px-2 pt-3 pb-1 text-xs text-muted-foreground">{name} <span className="tabular-nums">{list.length}</span></div>}
+                      <CaptureList captures={list} selected={editing} cursor={cursor - before} onPick={onOpen} />
+                    </div>
+                  )
+                })}
               </>
             ) : tab === 'today' ? (
               <TodayPanel onOpen={(id) => onOpenAny('task', id)} open={reading} />
+            ) : tab === 'kept' ? (
+              <KeptPanel onOpen={onOpenAny} open={reading} />
             ) : (
               <div className="flex flex-1 [&_header]:hidden">
                 <ReviewView />

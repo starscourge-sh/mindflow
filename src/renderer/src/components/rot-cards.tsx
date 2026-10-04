@@ -4,7 +4,9 @@ import type { JSONContent } from '@tiptap/core'
 import { EXITS, captureKey, takeExit } from '@/lib/capture-links'
 import { chime } from '@/lib/sound'
 import { wordsOf } from '../../../main/import'
-import { AskWho, toast } from './vigil/ui'
+import { AskWho, pin, toast } from './vigil/ui'
+import { RowMenu, copy } from './vigil/row-menu'
+import { vigil } from '@/lib/vigil'
 import { Kbd, Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 
@@ -56,10 +58,8 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
 
   const exit = (id: string, status: string): void => {
     chime(status === 'discarded' ? 'away' : status === 'promoted' ? 'promote' : 'done')
-    void takeExit(id, status).then((result) => {
-      if (result === 'needs-source') toast('A quote needs a source first: open it and say who said it')
-      reload()
-    })
+    // A quote with no source is asked for one inside takeExit.
+    void takeExit(id, status).then(reload)
   }
 
   if (!cards.length) return null
@@ -84,9 +84,20 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             }
           }}
         >
-          <button type="button" data-row className="line-clamp-3 w-full whitespace-pre-line text-left" onClick={() => onOpen(card.id)}>
-            {shown(card.title, card.body)}
-          </button>
+          <RowMenu items={[
+            { label: 'Open', run: () => onOpen(card.id) },
+            'separator',
+            ...EXITS.map((one) => ({ label: one.label, keys: one.key.toUpperCase(), danger: one.status === 'discarded', run: () => exit(card.id, one.status) })),
+            { label: 'Make it a task', run: () => void vigil.toTask(card.id).then(() => { toast('Now a task'); reload() }) },
+            { label: 'Say who said it', keys: 'W', run: () => setAsking(card.id) },
+            'separator',
+            { label: 'Pin to the prompt', run: () => pin('captures', card.id, true) },
+            { label: `Copy ${captureKey(card.number)}`, run: () => copy(captureKey(card.number)) }
+          ]}>
+            <button type="button" data-row className="line-clamp-3 w-full whitespace-pre-line text-left" onClick={() => onOpen(card.id)}>
+              {shown(card.title, card.body)}
+            </button>
+          </RowMenu>
           {asking === card.id ? (
             <div className="mt-1"><AskWho id={card.id} onDone={() => setAsking(null)} /></div>
           ) : (
