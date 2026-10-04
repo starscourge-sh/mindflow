@@ -291,3 +291,35 @@ body {
 [role='dialog'] {
   -webkit-app-region: no-drag;
 }
+
+/* A focus ring is for the keyboard. After a click it is only noise. */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* The parts the browser draws unless told otherwise, from the palette: what
+   separates a built app from an assembled one. Selection and the caret take
+   the brand colour, scrollbars are thin and quiet until wanted, and every
+   form control uses the accent rather than the system blue. */
+::selection {
+  background: color-mix(in srgb, var(--tt-brand-color-400) 30%, transparent);
+}
+* {
+  caret-color: var(--tt-brand-color-400);
+  accent-color: var(--tt-brand-color-400);
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--foreground) 18%, transparent) transparent;
+}
+:focus-visible:not(input, textarea, select, [contenteditable]) {
+  outline: 1.5px solid color-mix(in srgb, var(--tt-brand-color-400) 70%, transparent);
+  outline-offset: 1px;
+}
+
+/* Notion's page: the writing in a centred column, the margins either side
+   left empty, unless Full width is on in Settings. Only a document's own
+   editor; a line editor hugs its text anyway. */
+html[data-width='page'] .mindflow-editor-wrapper:not(.is-line) .tiptap.ProseMirror.mindflow-editor {
+  width: 100%;
+  max-width: 54rem;
+  margin-inline: auto;
+}

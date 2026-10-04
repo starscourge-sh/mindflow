@@ -1,0 +1,299 @@
+import { useEffect, useRef, useState } from 'react'
+import type { Editor, JSONContent } from '@tiptap/core'
+import { AlarmClock, Brain, Calendar, Eye, FileText, Layers, Lock, Pause, Pin, Play, Plus, SquareDashed, TriangleAlert, X } from 'lucide-react'
+
+import { MindflowEditor, TAGS } from '../mindflow'
+import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
+import { age } from '../capture-list'
+import { findCaptures } from '@/lib/capture-links'
+import { interval, splitTags, useLive, vigil, when, type Item, type ItemFull } from '@/lib/vigil'
+import { Empty, Page, Prop, PropLabel, Props, Tags, toast, useListKeys } from './ui'
+
+const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
+
+/**
+ * Nuggets and articles: the kept tiers. A nugget reads as its own words, two
+ * lines of them, with a line saying how it comes back; an article as a titled
+ * document. Same row underneath, so one view, drawn two ways.
+ */
+export function ItemsView({ tier, focus }: { tier: 'nugget' | 'article'; focus?: string }): React.JSX.Element {
+  const items = useLive(() => vigil.items(tier), [] as Item[], [tier])
+  const [open, setOpen] = useState<ItemFull | null>(null)
+  const pick = (id: string): void => void vigil.item(id).then(setOpen)
+  const [cursor] = useListKeys(items.length, { onOpen: (index) => pick(items[index].id), onBack: () => setOpen(null) })
+  // x selects, the way Linear does it; several nuggets make one article.
+  const [chosen, setChosen] = useState<string[]>([])
+  const toggle = (id: string): void => setChosen((ids) => (ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
+  const at = useRef(cursor)
+  at.current = cursor
+  useEffect(() => {
+    if (tier !== 'nugget') return
+    const onKey = (event: KeyboardEvent): void => {
+      const active = document.activeElement as HTMLElement | null
+      if (event.key !== 'x' || active?.isContentEditable || ['INPUT', 'TEXTAREA'].includes(active?.tagName ?? '')) return
+      const item = items[at.current]
+      if (item) toggle(item.id)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [items, tier])
+  useEffect(() => {
+    if (focus) pick(focus)
+  }, [focus])
+  // Re-read the open one when anything changes, so a gloss or a prompt shows.
+  useEffect(() => window.api.captures.onChange(() => open && pick(open.id)), [open?.id])
+
+  return (
+    <>
+      <Page
+        title={tier === 'nugget' ? 'Nuggets' : 'Articles'}
+        count={items.length}
+        actions={
+          chosen.length ? (
+            <span className="flex items-center gap-2 text-muted-foreground">
+              {chosen.length} selected
+              <button
+                type="button"
+                className="rounded-md bg-accent px-2 py-1 text-foreground hover:bg-accent/70"
+                onClick={() => void vigil.article(chosen).then(() => {
+                  toast(`Article started from ${chosen.length} nugget${chosen.length === 1 ? '' : 's'}`)
+                  setChosen([])
+                })}
+              >
+                Start an article
+              </button>
+              <button type="button" title="Clear" className="rounded p-1 hover:bg-accent" onClick={() => setChosen([])}>
+                <X className="size-3.5" />
+              </button>
+            </span>
+          ) : tier === 'nugget' && items.length > 1 ? (
+            <span className="text-xs text-muted-foreground">x to select</span>
+          ) : null
+        }
+      >
+        {items.length ? (
+          <div className="flex flex-col px-3 py-2">
+            {items.map((item, index) => (
+              <button
+                key={item.id}
+                ref={index === cursor ? (element) => element?.scrollIntoView({ block: 'nearest' }) : undefined}
+                type="button"
+                onClick={(event) => (event.shiftKey || event.metaKey ? toggle(item.id) : pick(item.id))}
+                className={`rounded-md px-2 py-2 text-left transition-colors ${chosen.includes(item.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : item.id === open?.id ? 'bg-accent' : 'hover:bg-accent/60'} ${index === cursor ? 'ring-1 ring-border' : ''} ${item.suspended ? 'opacity-50' : ''}`}
+              >
+                {tier === 'nugget' ? <NuggetRow item={item} /> : <ArticleRow item={item} />}
+              </button>
+            ))}
+          </div>
+        ) : tier === 'nugget' ? (
+          <Empty shape={['misc', 3]} title="No nuggets yet">
+            A nugget is a capture worth keeping, cleaned up so it reads cold. Promote one from the inbox or a rot card and it lands here, ready to come back to you.
+          </Empty>
+        ) : (
+          <Empty shape={['rectangle', 2]} title="No articles yet">
+            An article is your own words on one idea, made from the nuggets that led to it. Open a nugget and choose “Start an article”.
+          </Empty>
+        )}
+      </Page>
+      {open && <ItemDetail key={open.id} item={open} />}
+    </>
+  )
+}
+
+/** A nugget's card: the kind, the words, and how it returns. */
+function NuggetRow({ item }: { item: Item }): React.JSX.Element {
+  const kind = kindOf(item.kind)
+  const recall = !!item.prompt
+  const { text, tags } = splitTags(item.title)
+  return (
+    <>
+      <span className="flex items-start gap-2">
+        <kind.icon className="mt-0.5 size-4 shrink-0" style={{ color: kind.tint }} />
+        <span className="line-clamp-2 flex-1">{text || 'Untitled'}</span>
+      </span>
+      <span className="mt-1 flex items-center gap-3 pl-6 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1">
+          {recall ? <Brain className="size-3" /> : <Eye className="size-3" />}
+          {recall ? (item.dueAt ? `Recall · ${new Date(item.dueAt) <= new Date() ? 'due' : `in ${interval(item.dueAt)}`}` : 'Recall · new') : 'Comes back on its own'}
+        </span>
+        <Tags tags={tags} />
+        {item.lapses >= 4 && <TriangleAlert className="size-3 text-[var(--tt-color-text-orange)]" />}
+        {item.pinnedAt && <Pin className="size-3" />}
+        {item.private ? <Lock className="size-3" /> : null}
+        <span className="ml-auto tabular-nums">{age(item.createdAt)}</span>
+      </span>
+    </>
+  )
+}
+
+/** An article's line: a document, titled, dated. */
+function ArticleRow({ item }: { item: Item }): React.JSX.Element {
+  return (
+    <span className="flex items-center gap-3">
+      <FileText className="size-4 shrink-0 text-muted-foreground" />
+      <span className="flex-1 truncate text-[15px] font-medium">{item.title || 'Untitled'}</span>
+      <span className="shrink-0 text-xs text-muted-foreground">{when(item.createdAt)}</span>
+    </span>
+  )
+}
+
+/** The open nugget or article: its words, its glosses, and down the right how it comes back. */
+function ItemDetail({ item }: { item: ItemFull }): React.JSX.Element {
+  const [prompt, setPrompt] = useState(item.prompt ?? '')
+  const [gloss, setGloss] = useState('')
+  const editor = useRef<Editor | null>(null)
+  // A cloze: the words you selected, blanked. Two keystrokes and no writing,
+  // the cheapest way to make something testable, and right for a name or a
+  // number; anything with a "because" in it is better as a question.
+  const cloze = (): void => {
+    const view = editor.current
+    const { from, to } = view?.state.selection ?? { from: 0, to: 0 }
+    const words = view?.state.doc.textBetween(from, to).trim()
+    if (!view || !words) return toast('Select the words to blank out first')
+    const text = view.getText().replace(words, '_____')
+    setPrompt(text)
+    void vigil.saveItem(item.id, { prompt: text }).then(() => toast('Cloze made: it joins the review queue'))
+  }
+  const savePrompt = (): void => {
+    if ((item.prompt ?? '') === prompt.trim()) return
+    void vigil.saveItem(item.id, { prompt: prompt.trim() || null }).then(() =>
+      toast(prompt.trim() ? 'Now tested: it will come up in review' : 'Back to coming up on its own')
+    )
+  }
+
+  return (
+    <div className="flex min-w-0 flex-[1.4] border-l">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
+        {item.tier === 'article' && (
+          <input
+            className="mx-auto mb-2 block w-full max-w-[44rem] bg-transparent px-12 text-3xl font-semibold outline-none placeholder:text-muted-foreground"
+            defaultValue={item.title}
+            placeholder="Untitled"
+            onBlur={(event) => void vigil.saveItem(item.id, { title: event.target.value })}
+          />
+        )}
+        <MindflowEditor
+          host={window.api}
+          tokens={TAGS}
+          toolbar={{ fixed: false }}
+          documentId={`item-${item.id}`}
+          defaultContent={(item.body as JSONContent | string | null) ?? ''}
+          findNotes={findCaptures}
+          onChange={(body, instance) => {
+            editor.current = instance
+            void vigil.saveItem(item.id, { body, ...(item.tier === 'nugget' ? { title: instance.getText().split('\n')[0] } : {}) })
+          }}
+        />
+
+      </div>
+
+      <Props>
+        {item.tier === 'nugget' && (
+          <>
+            <PropLabel>Kind</PropLabel>
+            <div className="px-1">
+              <CaptureKindPicker value={item.kind as CaptureType} onChange={(kind) => void vigil.saveItem(item.id, { kind })} />
+            </div>
+          </>
+        )}
+
+        <PropLabel>How it comes back</PropLabel>
+        <Prop icon={item.prompt ? Brain : Eye} active>
+          {item.prompt ? 'Tested, on a schedule' : 'On its own, as a hint'}
+        </Prop>
+        <textarea
+          value={prompt}
+          onChange={(event) => setPrompt(event.target.value)}
+          onBlur={savePrompt}
+          rows={3}
+          placeholder="Write a question and the text becomes its answer. Leave it empty to let it come back on its own."
+          className="mx-1 mt-1 resize-none rounded-md border bg-transparent px-2 py-1.5 text-[13px] text-foreground outline-none placeholder:text-muted-foreground focus:border-ring"
+        />
+        <Prop icon={SquareDashed} onClick={cloze}>Blank the selected words</Prop>
+        {item.dueAt && <Prop icon={Calendar}>Next review {when(item.dueAt, false)}</Prop>}
+        {item.lapses >= 4 && (
+          <p className="mx-2 my-1 text-xs leading-relaxed text-[var(--tt-color-text-orange)]">
+            Forgotten {item.lapses} times. That is usually the prompt, not you: try rewriting it.
+          </p>
+        )}
+        <Prop
+          icon={item.suspended ? Play : Pause}
+          onClick={() => void vigil.saveItem(item.id, { suspended: !item.suspended }).then(() => toast(item.suspended ? 'Back in rotation' : 'Suspended until you bring it back'))}
+        >
+          {item.suspended ? 'Bring back into rotation' : 'Suspend'}
+        </Prop>
+
+        <PropLabel>Surfacing</PropLabel>
+        <Prop icon={Lock} active={!!item.private} onClick={() => void vigil.setPrivate('nuggets', item.id, !item.private)}>
+          {item.private ? 'Private' : 'Can surface any time'}
+        </Prop>
+        <Prop icon={Pin} active={!!item.pinnedAt} onClick={() => void vigil.pin('nuggets', item.id, !item.pinnedAt)}>
+          {item.pinnedAt ? 'Pinned' : 'Pin to the prompt'}
+        </Prop>
+        <RemindMe table="nuggets" id={item.id} at={item.remindAt} />
+
+        {item.tier === 'nugget' ? (
+          <>
+            <PropLabel>Grow it</PropLabel>
+            <Prop icon={Plus} onClick={() => void vigil.article([item.id]).then(() => toast('Article started from this nugget'))}>
+              Start an article
+            </Prop>
+          </>
+        ) : (
+          <>
+            <PropLabel>Made from</PropLabel>
+            <Prop icon={Layers}>{item.origins.length ? `${item.origins.length} nugget${item.origins.length === 1 ? '' : 's'}` : 'Written from scratch'}</Prop>
+          </>
+        )}
+        <PropLabel>Details</PropLabel>
+        <Prop icon={Calendar}>Kept {when(item.createdAt)}</Prop>
+
+        {/* Glosses: present-you beside the material, one row each and never an
+            edit, so the history of your thinking about it stays readable. */}
+        <PropLabel>Glosses</PropLabel>
+        {item.glosses.map((one) => (
+          <div key={one.id} className="mx-2 mb-2 text-foreground">
+            <p className="whitespace-pre-line">{one.body}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{when(one.createdAt)}{one.author === 'ai' ? ' · AI' : ''}</p>
+          </div>
+        ))}
+        <textarea
+          value={gloss}
+          onChange={(event) => setGloss(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' || event.shiftKey || !gloss.trim()) return
+            event.preventDefault()
+            void vigil.gloss(item.id, gloss.trim()).then(() => setGloss(''))
+          }}
+          rows={2}
+          placeholder="Why you kept it, or where you disagree"
+          className="mx-1 resize-none rounded-md border bg-transparent px-2 py-1.5 text-[13px] text-foreground outline-none placeholder:text-muted-foreground focus:border-ring"
+        />
+      </Props>
+    </div>
+  )
+}
+
+/**
+ * A reminder is a pin with a date: pick a time and the item pins itself to the
+ * prompt when it comes round. The only kind of nudge that runs on your clock.
+ */
+export function RemindMe({ table, id, at }: { table: 'captures' | 'nuggets'; id: string; at: string | null }): React.JSX.Element {
+  const local = at ? new Date(new Date(at).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''
+  return (
+    <label className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent hover:text-foreground">
+      <AlarmClock className="size-4 shrink-0" />
+      <input
+        type="datetime-local"
+        value={local}
+        onChange={(event) =>
+          void vigil.remind(table, id, event.target.value ? new Date(event.target.value).toISOString() : null).then(() =>
+            event.target.value && toast(`Will pin itself ${when(new Date(event.target.value).toISOString(), false).toLowerCase()}`)
+          )
+        }
+        className="min-w-0 flex-1 bg-transparent text-[13px] outline-none"
+        title="Remind me"
+      />
+    </label>
+  )
+}

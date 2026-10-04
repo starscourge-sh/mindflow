@@ -52,3 +52,30 @@ export const titleOfMarkdown = (chunk: string): string =>
 /** When the file says it was made, or nothing. */
 export const createdOf = (text: string): string | null =>
   /^created:\s*(\S+)/m.exec(text)?.[1] ?? null
+
+/**
+ * A best guess at what a jotting is, from the cheap signals only: the tags the
+ * old inbox used, a name and a colon, a question, a lone word, a link, length.
+ * Anything it cannot place is the file's own kind. It is a first pass for
+ * triage to correct, not a judgement.
+ */
+export function guessKind(chunk: string, fallback: string): string {
+  const text = titleOfMarkdown(chunk)
+  const tag = /#(tip|idea|quote|bit|goal|question|word)\b/.exec(chunk)?.[1]
+  if (tag) return tag === 'goal' ? 'todo' : tag
+  if (/^\s*[-*]?\s*\[?https?:\/\/\S+$/.test(chunk)) return 'link'
+  if (/^\s*[-*]\s+\[ \]/.test(chunk) || /^(todo|fix|add|buy|call|book|email|ask|look into|remind)\b/i.test(text)) return 'todo'
+  if (chunk.length > 600) return 'excerpt'
+  if (/^[A-Z][\w .'-]{1,30}( \([^)]*\))?: \S/.test(text) || /^["“'].+["”']\s*[-—]\s*\w/.test(text)) return 'quote'
+  if (/^(what is|what's|who is|why|how)\b.*|\?$/i.test(text)) return 'question'
+  if (/^\S+$/.test(text) || /\bmeaning$/i.test(text)) return 'word'
+  return fallback
+}
+
+/** The old inbox's "$2026-06-05 08:34:42$ 💭 »" prefix: its time, and the text without it. */
+export function unstamp(chunk: string): { text: string; at: string | null } {
+  const match = /\$(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\$\s*💭\s*»\s*/.exec(chunk)
+  return match
+    ? { text: chunk.replace(match[0], ''), at: new Date(match[1].replace(' ', 'T')).toISOString() }
+    : { text: chunk, at: null }
+}

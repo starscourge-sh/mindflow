@@ -1,150 +1,284 @@
-import { useEffect, useState } from 'react'
-import type { JSONContent } from '@tiptap/core'
-import { Calendar, FileText, Hash, Inbox, Layers, Search as SearchIcon, SquarePen } from 'lucide-react'
+import { useEffect, useState, type CSSProperties } from 'react'
+import {
+  ArrowLeft,
+  ArrowRight,
+  BarChart3,
+  Brain,
+  CalendarDays,
+  ChevronRight,
+  FileText,
+  Gem,
+  Inbox,
+  Layers,
+  PanelLeft,
+  Search as SearchIcon,
+  Settings as SettingsIcon,
+  Shield,
+  ShieldOff,
+  SquarePen,
+  Sun,
+  Tag,
+  type LucideIcon
+} from 'lucide-react'
+import { SlotText } from 'slot-text/react'
+import 'slot-text/style.css'
 
-import { MindflowEditor, TAGS } from './components/mindflow'
-import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from './components/capture-kinds/capture-kind-picker'
-import { CaptureList, useCaptures, type CaptureMeta } from './components/capture-list'
-import { EXITS, STATUS_ICON, captureKey, findCaptures, takeExit } from './lib/capture-links'
-import { titleOf } from './lib/document'
-import { toMarkdown } from './lib/export'
+import { CAPTURE_TYPES } from './components/capture-kinds/capture-kind-picker'
+import { useCaptures, type CaptureMeta } from './components/capture-list'
 import { Search } from './components/search'
+import { CapturesView } from './components/vigil/captures-view'
+import { ItemsView } from './components/vigil/items-view'
+import { ReviewView } from './components/vigil/review-view'
+import { SettingsView } from './components/vigil/settings-view'
+import { StatsView } from './components/vigil/stats-view'
+import { TagsView } from './components/vigil/tags-view'
+import { TasksView } from './components/vigil/tasks-view'
+import { Kbd, Toaster, toast } from './components/vigil/ui'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
+import { useAppearance, useLive, vigil, type Item, type Settings, type Task } from './lib/vigil'
 
-type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
+type View = { id: string; focus?: string }
 
-/** The views down the side: what is still open, everything, and each kind. */
-const VIEWS = [
-  { id: 'inbox', label: 'Inbox', icon: Inbox, tint: undefined, keep: (c: CaptureMeta) => c.status === 'open' },
-  { id: 'all', label: 'All', icon: Layers, tint: undefined, keep: () => true },
-  ...CAPTURE_TYPES.map((type) => ({ ...type, keep: (c: CaptureMeta) => c.kind === type.id }))
+/** The sections down the side, each with the key that jumps to it after G. */
+const SECTIONS: { id: string; label: string; icon: LucideIcon; key: string }[] = [
+  { id: 'inbox', label: 'Inbox', icon: Inbox, key: 'i' },
+  { id: 'review', label: 'Review', icon: Brain, key: 'r' },
+  { id: 'today', label: 'Today', icon: Sun, key: 't' },
+  { id: 'upcoming', label: 'Upcoming', icon: CalendarDays, key: 'u' },
+  { id: 'nuggets', label: 'Nuggets', icon: Gem, key: 'n' },
+  { id: 'articles', label: 'Articles', icon: FileText, key: 'a' },
+  { id: 'tags', label: 'Tags', icon: Tag, key: '#' },
+  { id: 'stats', label: 'Stats', icon: BarChart3, key: 's' },
+  { id: 'all', label: 'All captures', icon: Layers, key: 'l' }
 ]
 
+const today = (): number => new Date().setHours(24, 0, 0, 0)
+
 /**
- * The main window, in three panes the way Linear lays out its inbox: the views,
- * the captures in the one picked, and the open capture with its properties.
+ * The main window: the sections down the left, the one picked filling the
+ * rest. Built the way Linear and Todoist are, because the plan spends its
+ * novelty on the tiers and the resurfacing, and nothing on the chrome: a
+ * sidebar with counts, G and a letter to jump, C to capture, ⌘K to search.
  */
 export function Home(): React.JSX.Element {
-  const captures = useCaptures()
-  const [view, setView] = useState(VIEWS[0])
-  const [open, setOpen] = useState<Capture | null>(null)
-  const pick = (id: string): void => void window.api.captures.get(id).then(setOpen)
-  // Cmd+K searches, the chord every one of these apps uses for it.
+  // Where you have been, for back and forward: a list and a place in it.
+  const [trail, setTrail] = useState<{ views: View[]; at: number }>({ views: [{ id: 'inbox' }], at: 0 })
+  const view = trail.views[trail.at]
+  const setView = (next: View): void =>
+    setTrail(({ views, at }) => ({ views: [...views.slice(0, at + 1), next], at: at + 1 }))
+  const step = (by: -1 | 1): void =>
+    setTrail(({ views, at }) => ({ views, at: Math.max(0, Math.min(views.length - 1, at + by)) }))
+  const [sidebar, setSidebar] = useState(true)
+  useAppearance()
   const [searching, setSearching] = useState(false)
+  const [kindsOpen, setKindsOpen] = useState(false)
+  const captures = useCaptures()
+  const due = useLive(vigil.dueCount, 0)
+  const tasks = useLive(vigil.tasks, [] as Task[])
+  const nuggets = useLive(() => vigil.items('nugget'), [] as Item[])
+  const articles = useLive(() => vigil.items('article'), [] as Item[])
+  const settings = useLive(vigil.settings, null as Settings | null)
+
+  const counts: Record<string, number> = {
+    inbox: captures.filter((capture) => capture.status === 'open').length,
+    review: due,
+    today: tasks.filter((task) => task.status === 'open' && task.dueAt && new Date(task.dueAt).getTime() < today()).length,
+    nuggets: nuggets.length,
+    articles: articles.length
+  }
+
+  const safeMode = (): void => {
+    const on = !settings?.safeMode
+    void vigil.setSettings({ safeMode: on }).then(() => toast(on ? 'Safe mode: nothing will surface unasked' : 'Safe mode off'))
+  }
+
+  // The keyboard, Linear's way: G then a letter goes somewhere, C captures.
   useEffect(() => {
+    let pending = false
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== 'k' || !event.metaKey) return
-      event.preventDefault()
-      setSearching(true)
+      const active = document.activeElement as HTMLElement | null
+      if (active?.isContentEditable || ['INPUT', 'TEXTAREA'].includes(active?.tagName ?? '')) return
+      if (event.metaKey && event.key === 'k') {
+        event.preventDefault()
+        return setSearching(true)
+      }
+      if (event.metaKey && event.altKey && event.code === 'KeyS') return safeMode()
+      if (event.metaKey && event.key === '[') return step(-1)
+      if (event.metaKey && event.key === ']') return step(1)
+      if (event.metaKey && event.key === '\\') return setSidebar((open) => !open)
+      if (event.metaKey || event.ctrlKey || event.altKey) return
+      if (pending) {
+        pending = false
+        const to = SECTIONS.find((section) => section.key === event.key)
+        if (to) setView({ id: to.id })
+        return
+      }
+      if (event.key === 'g') pending = true
+      else if (event.key === 'c') window.api.showPrompt()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
-  const shown = captures.filter(view.keep)
-  // The open capture as the list last saw it, so its status follows an exit.
-  const meta = captures.find((c) => c.id === open?.id)
-  const save = (patch: Parameters<typeof window.api.captures.save>[1]): void => {
-    if (open) void window.api.captures.save(open.id, patch)
+  })
+
+  // Somewhere else sent you to one thing: open its section with it open.
+  const open = (type: string, id: string): void =>
+    setView({ id: type === 'capture' ? 'all' : type === 'task' ? 'today' : `${type}s`, focus: id })
+
+  const kind = CAPTURE_TYPES.find((type) => `kind:${type.id}` === view.id)
+  const keep: Record<string, (capture: CaptureMeta) => boolean> = {
+    inbox: (capture) => capture.status === 'open',
+    all: () => true
   }
 
   return (
-    <div className="flex h-screen bg-background text-sm text-foreground">
+    <TooltipProvider delayDuration={600}>
+    <div className="flex h-screen flex-col bg-background text-sm text-foreground">
+      <Toaster />
       {searching && (
         <Search
           onClose={() => setSearching(false)}
           onOpen={(id) => {
             setSearching(false)
-            pick(id)
+            open('capture', id)
           }}
         />
       )}
-      <aside className="flex w-56 shrink-0 flex-col gap-0.5 overflow-y-auto border-r p-2 pt-10">
-        <div className="mb-3 flex items-center justify-between px-2">
-          <span className="flex-1 font-medium">Vigil</span>
-          <button type="button" className="rounded-md p-1.5 hover:bg-accent" title="Search ⌘K" onClick={() => setSearching(true)}>
-            <SearchIcon className="size-4" />
+
+      {/* The toolbar, with the traffic lights set into its left end. The strip
+          drags the window; every control on it says it does not. */}
+      <header className="flex h-12 shrink-0 items-center gap-0.5 border-b pr-3 pl-[84px]" style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
+        {[
+          { icon: PanelLeft, title: 'Sidebar ⌘\\', run: () => setSidebar(!sidebar) },
+          { icon: SearchIcon, title: 'Search ⌘K', run: () => setSearching(true) },
+          { icon: ArrowLeft, title: 'Back ⌘[', run: () => step(-1), off: trail.at === 0 },
+          { icon: ArrowRight, title: 'Forward ⌘]', run: () => step(1), off: trail.at === trail.views.length - 1 }
+        ].map(({ icon: Icon, title, run, off }) => (
+          <button
+            key={title}
+            type="button"
+            title={title}
+            disabled={off}
+            onClick={run}
+            style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent"
+          >
+            <Icon className="size-4" />
           </button>
-          <button type="button" className="rounded-md p-1.5 hover:bg-accent" title="New capture ⌘." onClick={() => window.api.showPrompt()}>
-            <SquarePen className="size-4" />
-          </button>
-        </div>
-        {VIEWS.map((item, index) => (
-          <div key={item.id}>
-            {index === 2 && <div className="mt-4 mb-1 px-2 text-xs text-muted-foreground">Kinds</div>}
+        ))}
+        <span className="ml-3 font-medium">
+          {SECTIONS.find((section) => section.id === view.id)?.label ?? (kind ? kind.label : view.id === 'settings' ? 'Settings' : '')}
+        </span>
+        <span className="flex-1" />
+        <button
+          type="button"
+          title="New capture  C"
+          onClick={() => window.api.showPrompt()}
+          style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
+          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <SquarePen className="size-4" /> New
+        </button>
+      </header>
+
+      <div className="flex min-h-0 flex-1">
+      {sidebar && (
+      <aside className="flex w-56 shrink-0 flex-col overflow-y-auto border-r bg-accent/20 p-2">
+        <nav className="flex flex-col gap-px">
+          {SECTIONS.map((section) => (
+            <Tooltip key={section.id}>
+            <TooltipTrigger asChild>
             <button
               type="button"
-              className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent ${item.id === view.id ? 'bg-accent' : ''}`}
-              onClick={() => setView(item)}
+              onClick={() => setView({ id: section.id })}
+              className={`group flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors ${view.id === section.id ? 'bg-accent text-foreground' : 'text-foreground/80 hover:bg-accent/60'}`}
             >
-              <item.icon className="size-4" style={{ color: item.tint }} />
-              <span className="flex-1 text-left">{item.label}</span>
-              <span className="text-xs text-muted-foreground">{captures.filter(item.keep).length || ''}</span>
+              <section.icon className={`size-4 ${section.id === 'review' && due ? 'text-[var(--tt-brand-color-400)]' : ''}`} />
+              <span className="flex-1 text-left">{section.label}</span>
+              {counts[section.id] ? (
+                <SlotText
+                  text={String(counts[section.id])}
+                  className={`text-xs tabular-nums ${section.id === 'today' ? 'text-[var(--tt-color-text-orange)]' : 'text-muted-foreground'}`}
+                />
+              ) : null}
             </button>
-          </div>
-        ))}
-      </aside>
-
-      <section className="flex w-80 shrink-0 flex-col border-r">
-        <header className="px-4 pt-10 pb-2 font-medium">
-          {view.label} <span className="font-normal text-muted-foreground">{shown.length}</span>
-        </header>
-        <div className="flex-1 overflow-y-auto px-2 pb-2">
-          <CaptureList captures={shown} selected={open?.id} onPick={pick} />
-        </div>
-      </section>
-
-      {open && meta ? (
-        <main className="flex min-w-0 flex-1">
-          <div className="min-w-0 flex-1 overflow-y-auto pt-8">
-            {/* The first line names the capture, the same as in the prompt. */}
-            <MindflowEditor
-              host={window.api}
-              tokens={TAGS}
-              toolbar={{ fixed: false }}
-              documentId={`capture-${open.id}`}
-              defaultContent={(open.body as JSONContent | string | null) ?? ''}
-              findNotes={findCaptures}
-              onOpenNote={pick}
-              onChange={(body, editor) => save({ body, title: titleOf(body), markdown: toMarkdown(editor) })}
-            />
-          </div>
-          <Properties capture={meta} onKind={(kind) => save({ kind })} />
-        </main>
-      ) : (
-        <main className="flex flex-1 items-center justify-center text-muted-foreground">
-          Pick a capture, or press ⌘. to write one.
-        </main>
-      )}
-    </div>
-  )
-}
-
-/** What Linear puts down the right of an issue, cut to what a capture has. */
-function Properties({ capture, onKind }: { capture: CaptureMeta; onKind: (kind: CaptureType) => void }): React.JSX.Element {
-  const Status = STATUS_ICON[capture.status as keyof typeof STATUS_ICON] ?? STATUS_ICON.open
-  const row = 'flex items-center gap-2 px-2 py-1'
-
-  return (
-    <aside className="flex w-56 shrink-0 flex-col gap-1 border-l p-3 pt-10 text-muted-foreground">
-      <div className="mb-1 px-2 text-xs">Properties</div>
-      <div className={`${row} text-foreground`}>
-        <Status className="size-4" />
-        <span className="capitalize">{capture.status}</span>
-      </div>
-      {capture.status === 'open' && (
-        <div className="flex gap-1 px-1 text-xs">
-          {EXITS.map((one) => (
-            <button key={one.key} type="button" className="rounded px-1.5 py-0.5 hover:bg-accent hover:text-foreground" onClick={() => void takeExit(capture.id, one.status)}>
-              {one.label}
-            </button>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="flex items-center gap-1.5">
+              {section.label} <Kbd>G</Kbd><Kbd>{section.key.toUpperCase()}</Kbd>
+            </TooltipContent>
+            </Tooltip>
           ))}
+        </nav>
+
+        <button
+          type="button"
+          onClick={() => setKindsOpen(!kindsOpen)}
+          className="mt-5 mb-1 flex items-center gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+        >
+          Kinds <ChevronRight className={`size-3 transition-transform ${kindsOpen ? 'rotate-90' : ''}`} />
+        </button>
+        {kindsOpen &&
+          CAPTURE_TYPES.map((type) => {
+            const count = captures.filter((capture) => capture.kind === type.id).length
+            return (
+              <button
+                key={type.id}
+                type="button"
+                onClick={() => setView({ id: `kind:${type.id}` })}
+                className={`flex items-center gap-2.5 rounded-md px-2 py-1 ${view.id === `kind:${type.id}` ? 'bg-accent' : 'text-foreground/80 hover:bg-accent/60'}`}
+              >
+                <type.icon className="size-4" style={{ color: type.tint }} />
+                <span className="flex-1 text-left">{type.label}</span>
+                <span className="text-xs text-muted-foreground tabular-nums">{count || ''}</span>
+              </button>
+            )
+          })}
+
+        <div className="mt-auto flex flex-col gap-px pt-4">
+          <button
+            type="button"
+            onClick={safeMode}
+            title="⌥⌘S"
+            className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-accent/60 ${settings?.safeMode ? 'text-[var(--tt-brand-color-400)]' : 'text-foreground/80'}`}
+          >
+            {settings?.safeMode ? <Shield className="size-4" /> : <ShieldOff className="size-4" />}
+            <span className="flex-1 text-left">{settings?.safeMode ? 'Safe mode on' : 'Safe mode'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setView({ id: 'settings' })}
+            className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 ${view.id === 'settings' ? 'bg-accent' : 'text-foreground/80 hover:bg-accent/60'}`}
+          >
+            <SettingsIcon className="size-4" />
+            <span className="flex-1 text-left">Settings</span>
+          </button>
+          <p className="mt-2 px-2 text-[11px] text-muted-foreground">
+            <Kbd>G</Kbd> then a letter to jump · <Kbd>C</Kbd> to capture
+          </p>
         </div>
+      </aside>
       )}
-      <div className="px-1">
-        <CaptureKindPicker value={capture.kind as CaptureType} onChange={onKind} />
+
+      <div key={view.id} className="flex min-w-0 flex-1">
+        {view.id === 'inbox' || view.id === 'all' ? (
+          <CapturesView title={view.id === 'inbox' ? 'Inbox' : 'All captures'} keep={keep[view.id]} focus={view.focus} />
+        ) : kind ? (
+          <CapturesView title={kind.label} keep={(capture) => capture.kind === kind.id} />
+        ) : view.id === 'review' ? (
+          <ReviewView />
+        ) : view.id === 'today' || view.id === 'upcoming' ? (
+          <TasksView mode={view.id} />
+        ) : view.id === 'nuggets' || view.id === 'articles' ? (
+          <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} focus={view.focus} />
+        ) : view.id === 'tags' ? (
+          <TagsView onOpen={open} />
+        ) : view.id === 'stats' ? (
+          <StatsView />
+        ) : (
+          <SettingsView />
+        )}
       </div>
-      <div className={row}><Hash className="size-4" />{captureKey(capture.number)}</div>
-      {capture.source && <div className={row}><FileText className="size-4 shrink-0" /><span className="truncate">{capture.source.replace(/\.md$/, '')}</span></div>}
-      <div className={row}><Calendar className="size-4" />{new Date(capture.capturedAt).toLocaleDateString()}</div>
-    </aside>
+      </div>
+    </div>
+    </TooltipProvider>
   )
 }

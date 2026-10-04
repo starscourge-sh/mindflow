@@ -1,8 +1,9 @@
 import { Fragment, useEffect, useState } from 'react'
-import { Search as SearchIcon } from 'lucide-react'
+import { PanelRight, Search as SearchIcon } from 'lucide-react'
+import type { JSONContent } from '@tiptap/core'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
-import { textOf } from './rot-cards'
+import { MindflowEditor } from './mindflow'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 
@@ -21,6 +22,8 @@ export function Search({ onOpen, onClose }: { onOpen: (id: string) => void; onCl
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Capture[]>([])
   const [at, setAt] = useState(0)
+  // Notion's highlight pane: on by default, and a button to put it away.
+  const [pane, setPane] = useState(true)
   useEffect(() => {
     void window.api.captures.find(query).then((found) => {
       setResults(found)
@@ -43,15 +46,19 @@ export function Search({ onOpen, onClose }: { onOpen: (id: string) => void; onCl
             onKeyDown={(event) => {
               if (event.key === 'Escape') onClose()
               else if (event.key === 'Enter' && current) onOpen(current.id)
-              else if (event.key === 'ArrowDown') setAt((n) => Math.min(n + 1, results.length - 1))
-              else if (event.key === 'ArrowUp') setAt((n) => Math.max(n - 1, 0))
+              // The arrows, or Ctrl-J and Ctrl-K: the editor's vim, carried into the box.
+              else if (event.key === 'ArrowDown' || (event.ctrlKey && event.key === 'j')) setAt((n) => Math.min(n + 1, results.length - 1))
+              else if (event.key === 'ArrowUp' || (event.ctrlKey && event.key === 'k')) setAt((n) => Math.max(n - 1, 0))
               else return
               event.preventDefault()
             }}
           />
+          <button type="button" title="Show highlight pane" className={`rounded p-1 hover:bg-accent ${pane ? 'text-foreground' : 'text-muted-foreground'}`} onClick={() => setPane(!pane)}>
+            <PanelRight className="size-4" />
+          </button>
         </label>
         <div className="flex min-h-0 flex-1">
-          <div className="w-1/2 overflow-y-auto p-2">
+          <div className={`${pane ? 'w-1/2' : 'flex-1'} overflow-y-auto p-2`}>
             {results.map((capture, index) => {
               const kind = CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
               const group = groupOf(capture.capturedAt)
@@ -74,7 +81,23 @@ export function Search({ onOpen, onClose }: { onOpen: (id: string) => void; onCl
               )
             })}
           </div>
-          <div className="w-1/2 overflow-y-auto border-l p-4 whitespace-pre-line">{current ? textOf(current.body) : ''}</div>
+          {/* The capture as it reads, not its raw text: the same editor, read only,
+              and a fresh one for each result. */}
+          {pane && current && (
+            <div className="m-3 w-1/2 overflow-y-auto rounded-lg border">
+              <MindflowEditor
+                key={current.id}
+                defaultContent={(current.body as JSONContent | string | null) ?? ''}
+                readOnly
+                toolbar={false}
+                handles={false}
+                slash={false}
+                outline={false}
+                search={false}
+                autofocus={false}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

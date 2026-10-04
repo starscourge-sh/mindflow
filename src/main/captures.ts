@@ -4,7 +4,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { join } from 'path'
 
 import { backUp, writeMarkdown } from './backup'
-import { chunks, createdOf, titleOfMarkdown } from './import'
+import { chunks, createdOf, guessKind, titleOfMarkdown, unstamp } from './import'
 
 /** What the list shows. The body is only read when one is opened. */
 export interface CaptureMeta {
@@ -16,6 +16,11 @@ export interface CaptureMeta {
   status: string
   /** The file an imported capture came from; empty for one typed here. */
   source: string
+  /** 1 when it should never surface unasked in quiet hours or safe mode. */
+  private: number
+  pinnedAt: string | null
+  /** When it will pin itself, if a reminder is set. */
+  remindAt: string | null
   capturedAt: string
 }
 
@@ -40,10 +45,13 @@ export type CapturePatch = Partial<Pick<Capture, 'title' | 'kind' | 'status' | '
  */
 let db: DatabaseSync
 
-const LIST = 'id, number, title, kind, status, source, captured_at as capturedAt'
+/** The open database, for the rest of the main process. */
+export const database = (): DatabaseSync => db
+
+export const LIST = 'id, number, title, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt'
 
 /** Tell every window the list changed, so whichever is showing it reloads. */
-const changed = (): void => {
+export const changed = (): void => {
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send('captures:changed')
 }
 
@@ -141,57 +149,7 @@ export function registerCaptures(): void {
     return id
   })
 
-  // Three open captures, leaning old: the rot sampler. Random, so it is a
-  // sample and never a queue to finish; weighted by age, so the old pile
-  // comes up more than what you wrote this morning.
-  ipcMain.handle('captures:rot', () =>
-    db
-      .prepare(
-        `select ${LIST}, body from captures where status = 'open'
-         order by (julianday('now') - julianday(captured_at) + 1) * (abs(random()) % 1000) desc
-         limit 3`
-      )
-      .all()
-      .map((row) => ({ ...row, body: JSON.parse(row.body as string) }))
-  )
-
   // Only the fields passed are written. `coalesce` keeps the rest as they were.
-  // Promote: a nugget made from the capture, and the capture marked as having
-  // taken that exit. Once: promoting it again from another window adds nothing.
-  ipcMain.handle('captures:promote', (_event, id: unknown) => {
-    db.prepare(
-      `insert into nuggets (id, capture_id, kind, body, created_at)
-       select ?, id, kind, body, ? from captures where id = ? and status != 'promoted'`
-    ).run(randomUUID(), new Date().toISOString(), String(id))
-    db.prepare("update captures set status = 'promoted' where id = ?").run(String(id))
-    changed()
-  })
-
-  // One hint: a nugget, picked at random but leaning towards the ones not seen
-  // for longest and the ones voted up. Logged, so a stop rate can be worked out.
-  ipcMain.handle('hints:next', () => {
-    const nugget = db
-      .prepare(
-        `select id, kind, body from nuggets
-         order by (julianday('now') - julianday(coalesce(last_visited_at, '2000-01-01')))
-                  * surfacing_weight * (abs(random()) % 1000) desc
-         limit 1`
-      )
-      .get()
-    if (!nugget) return null
-    const now = new Date().toISOString()
-    db.prepare('update nuggets set last_visited_at = ? where id = ?').run(now, nugget.id as string)
-    const { lastInsertRowid } = db.prepare('insert into hint_events (nugget_id, shown_at) values (?, ?)').run(nugget.id as string, now)
-    return { ...nugget, body: JSON.parse(nugget.body as string), event: Number(lastInsertRowid) }
-  })
-
-  // Up makes it come back more, down less. Never a schedule, never a grade.
-  ipcMain.handle('hints:react', (_event, event: unknown, id: unknown, reaction: unknown) => {
-    const up = reaction === 'up'
-    db.prepare('update nuggets set surfacing_weight = surfacing_weight * ? where id = ?').run(up ? 1.5 : 1 / 1.5, String(id))
-    db.prepare('update hint_events set reaction = ? where rowid = ?').run(up ? 'up' : 'down', Number(event))
-  })
-
   ipcMain.handle('captures:save', (_event, id: unknown, patch: CapturePatch) => {
     const row = db.prepare(
       `update captures set
@@ -240,11 +198,14 @@ export function importMarkdown(name: string, text: string, kind: string): number
   const at = createdOf(text) ?? new Date().toISOString()
   const seen = db.prepare('select 1 from captures where source = ? and body = ?')
   let added = 0
-  for (const chunk of chunks(text)) {
+  for (const raw of chunks(text)) {
+    const { text: chunk, at: stamped } = unstamp(raw)
     const body = JSON.stringify(chunk)
     if (seen.get(name, body)) continue
-    const link = /^\s*[-*]?\s*\[?https?:\/\/\S+$/.test(chunk)
-    const { number } = insert({ title: titleOfMarkdown(chunk), kind: link ? 'link' : kind, body: chunk, source: name }, new Date(at).toISOString())
+    const { number } = insert(
+      { title: titleOfMarkdown(chunk), kind: guessKind(chunk, kind), body: chunk, source: name },
+      stamped ?? new Date(at).toISOString()
+    )
     // Already Markdown, so the readable copy beside the backups is the chunk itself.
     void writeMarkdown(number, chunk)
     added += 1

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
 
 import { EXITS, captureKey, takeExit } from '@/lib/capture-links'
+import { chime } from '@/lib/sound'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.rot>>[number]
 
@@ -29,25 +30,29 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
     return window.api.onShown(reload)
   }, [])
 
-  const exit = (id: string, status: string): void => void takeExit(id, status).then(reload)
+  const exit = (id: string, status: string): void => {
+    chime(status === 'discarded' ? 'away' : status === 'promoted' ? 'promote' : 'done')
+    void takeExit(id, status).then(reload)
+  }
 
   if (!cards.length) return null
   return (
-    <div className="mb-3 flex flex-col gap-2">
+    <section className="mb-4">
+      <h3 className="px-2 pb-1 text-xs text-muted-foreground">Waiting on you</h3>
       {cards.map((card) => (
         <div
           key={card.id}
           tabIndex={0}
-          className="rounded-md border p-2 text-sm outline-none focus:border-[var(--tt-brand-color-400)]"
+          className="group border-b border-border/60 px-2 py-2 text-sm outline-none last:border-b-0 focus-visible:bg-accent/40"
           onKeyDown={(event) => {
             const picked = EXITS.find((one) => one.key === event.key)
             if (picked) exit(card.id, picked.status)
           }}
         >
-          <button type="button" className="line-clamp-4 w-full whitespace-pre-line text-left" onClick={() => onOpen(card.id)}>
+          <button type="button" className="line-clamp-3 w-full whitespace-pre-line text-left" onClick={() => onOpen(card.id)}>
             {textOf(card.body)}
           </button>
-          <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+          <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
             <span className="mr-auto truncate">
               {captureKey(card.number)} · {new Date(card.capturedAt).toLocaleDateString()}
             </span>
@@ -55,7 +60,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
               <button
                 key={one.key}
                 type="button"
-                className="rounded px-1.5 py-0.5 hover:bg-accent hover:text-foreground"
+                className="rounded px-1.5 py-0.5 opacity-70 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 hover:bg-accent hover:text-foreground"
                 title={`${one.label} (${one.key})`}
                 onClick={() => exit(card.id, one.status)}
               >
@@ -65,6 +70,6 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
           </div>
         </div>
       ))}
-    </div>
+    </section>
   )
 }

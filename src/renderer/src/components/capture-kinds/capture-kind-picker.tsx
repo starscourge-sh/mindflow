@@ -9,6 +9,10 @@ import {
   ScrollText,
   Split,
   Sticker,
+  Lightbulb,
+  CircleHelp,
+  MessageSquareQuote,
+  Sparkles,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -46,7 +50,11 @@ export const CAPTURE_TYPES = [
   { id: "note", label: "Note", icon: NotebookText, tint: tint("gray") },
   { id: "todo", label: "Todo", icon: ListTodo, tint: tint("orange") },
   { id: "quote", label: "Quote", icon: Quote, tint: tint("purple") },
+  { id: "saying", label: "Saying", icon: MessageSquareQuote, tint: tint("purple") },
   { id: "word", label: "Word", icon: Bookmark, tint: tint("green") },
+  { id: "tip", label: "Tip", icon: Sparkles, tint: tint("green") },
+  { id: "idea", label: "Idea", icon: Lightbulb, tint: tint("yellow") },
+  { id: "question", label: "Question", icon: CircleHelp, tint: tint("blue") },
   { id: "link", label: "Link", icon: Link, tint: tint("blue") },
   { id: "excerpt", label: "Excerpt", icon: ScrollText, tint: tint("yellow") },
   { id: "decision", label: "Decision", icon: Split, tint: tint("red") },

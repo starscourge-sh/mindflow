@@ -34,6 +34,7 @@ import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { importMarkdown, recordOpen, registerCaptures } from './captures'
+import { badge, registerVigil, toggleSafeMode } from './vigil'
 
 
 /* The standard electron app file structure:
@@ -322,6 +323,10 @@ function openHome(): void {
     title: 'mindflow',
     backgroundColor: '#1c1c1c',
     autoHideMenuBar: true,
+    // The app draws its own toolbar, with the traffic lights set into it the
+    // way Claude's and Linear's are, rather than a grey strip saying "Electron".
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 16, y: 16 },
     webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
   })
   home.on('ready-to-show', () => home?.show())
@@ -553,12 +558,28 @@ function createTray(): void {
   image.setTemplateImage(true)
 
   tray = new Tray(image)
-  tray.setToolTip('mindflow')
+  updateTray()
+  // Kept current without a window open: the count changes as the day goes on.
+  setInterval(updateTray, 30_000)
+}
+
+/**
+ * The menu bar: how many reviews are due beside the icon, and "Safe" while
+ * safe mode is on, so a quiet app is never mistaken for a broken one. The menu
+ * carries the toggle, for when no window is open to reach it from.
+ */
+function updateTray(): void {
+  if (!tray) return
+  const { due, safe } = badge()
+  tray.setTitle([due ? String(due) : '', safe ? 'Safe' : ''].filter(Boolean).join(' · '), { fontType: 'monospacedDigit' })
+  tray.setToolTip(`mindflow${due ? ` · ${due} to review` : ''}${safe ? ' · safe mode on' : ''}`)
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'Show mindflow', accelerator: SUMMON, click: () => toggleWindow() },
       { label: 'Open all notes', click: openHome },
       { label: 'Import Markdown…', click: () => void importFiles() },
+      { type: 'separator' },
+      { label: 'Safe mode', type: 'checkbox', checked: safe, click: () => (toggleSafeMode(), updateTray()) },
       { type: 'separator' },
       { label: 'Quit mindflow', accelerator: 'Command+Q', click: quit }
     ])
@@ -567,6 +588,7 @@ function createTray(): void {
 
 app.whenReady().then(() => {
   registerCaptures()
+  registerVigil()
   createTray()
 
   // Serve the asset store. The pathname is the only thing trusted: anything

@@ -19,7 +19,8 @@ const LINES = `${EDITOR} li > p, ${EDITOR} li > div > p, ${EDITOR} > p, ${EDITOR
 
 export async function open() {
   // A fresh folder for the app's data, so a run never touches your real captures.
-  const data = mkdtempSync(join(tmpdir(), 'mindflow-qa-'))
+  // QA_DATA points a run at a copy of real data, to see it with a real corpus.
+  const data = process.env.QA_DATA ?? mkdtempSync(join(tmpdir(), 'mindflow-qa-'))
   const app = await electron.launch({ args: ['.'], env: { ...process.env, MINDFLOW_USER_DATA: data } })
   const page = await app.firstWindow()
   const logs = []

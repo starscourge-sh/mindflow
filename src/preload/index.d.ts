@@ -31,10 +31,12 @@ export interface Api {
   setExpanded: (expanded: boolean) => Promise<boolean>
   hideWindow: () => void
   showPrompt: () => void
+  vigil: (channel: string, ...args: unknown[]) => Promise<unknown>
   onShown: (listen: () => void) => () => void
   hints: {
     next: () => Promise<{ id: string; kind: string; body: unknown; event: number } | null>
     react: (event: number, id: string, reaction: 'up' | 'down') => Promise<void>
+    dwell: (event: number, ms: number) => Promise<void>
   }
   onPointer: (listen: (inside: boolean) => void) => () => void
   openDrawing: (id: string, scene: unknown) => void

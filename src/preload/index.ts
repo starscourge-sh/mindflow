@@ -53,8 +53,14 @@ const api = {
     next: (): Promise<{ id: string; kind: string; body: unknown; event: number } | null> =>
       ipcRenderer.invoke('hints:next'),
     react: (event: number, id: string, reaction: 'up' | 'down'): Promise<void> =>
-      ipcRenderer.invoke('hints:react', event, id, reaction)
+      ipcRenderer.invoke('hints:react', event, id, reaction),
+    /** How long it was on screen before the window went. */
+    dwell: (event: number, ms: number): Promise<void> => ipcRenderer.invoke('hints:dwell', event, ms)
   },
+
+  /** Everything past the capture, by channel. Only `vigil:` channels pass. */
+  vigil: (channel: string, ...args: unknown[]): Promise<unknown> =>
+    ipcRenderer.invoke(`vigil:${channel}`, ...args),
 
   /** Bring up the capture prompt, from any window. */
   showPrompt: (): void => ipcRenderer.send('prompt:show'),

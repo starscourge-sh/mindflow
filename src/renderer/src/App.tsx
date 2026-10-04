@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { AudioLines, FileJson2, Keyboard, KeyboardOff, Lock, LockOpen, Maximize2, Minimize2, TableOfContents, X } from 'lucide-react'
+import { AudioLines, FileJson2, Keyboard, KeyboardOff, Lock, LockOpen, Maximize2, Minimize2, SquarePen, TableOfContents, X } from 'lucide-react'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { v4 as uuidv4 } from 'uuid';
 
@@ -9,8 +9,15 @@ import { titleOf } from './lib/document'
 import { findCaptures } from './lib/capture-links'
 import { toMarkdown } from './lib/export'
 import { CaptureList, useCaptures } from './components/capture-list'
-import { RotCards } from './components/rot-cards'
+import { RotCards, textOf } from './components/rot-cards'
 import { HintCard } from './components/hint-card'
+import { Pins } from './components/pins'
+import { TodayPanel } from './components/vigil/today-panel'
+import { ReviewView } from './components/vigil/review-view'
+import { useAppearance, useLive } from './lib/vigil'
+import { useListKeys } from './components/vigil/ui'
+import { Toaster, toast } from './components/vigil/ui'
+import { vigil } from './lib/vigil'
 
 // import { Maximize2, Minimize2 } from 'lucide-react'
 // import { StatusPicker, type Status } from './components/status/status-picker'
@@ -94,7 +101,7 @@ const WindowDots = (): React.JSX.Element => (
   </div>
 )
 
-const Header = (): React.JSX.Element => {
+const Header = ({ onNew }: { onNew: () => void }): React.JSX.Element => {
   const [expanded, setExpanded] = useState(false)
   const toggle = (): void => {
     setExpanded((was) => {
@@ -123,6 +130,17 @@ const Header = (): React.JSX.Element => {
       <div className="flex w-full" style={{ padding: '0rem 4.75rem' } as CSSProperties}>
         <WindowDots />
         <span className="flex-1" />
+        <button
+          type="button"
+          tabIndex={-1}
+          className="mf-expand"
+          aria-label="New capture"
+          title="New capture ⌘N"
+          style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
+          onClick={onNew}
+        >
+          <SquarePen />
+        </button>
         {/* The strip is the window's drag handle, so the one thing on it that is
           not a handle has to say so, or the click never lands. Out of the tab
           order for the same reason the close button is: it is a window
@@ -149,6 +167,7 @@ const Header = (): React.JSX.Element => {
 export default function App(): React.JSX.Element {
   const [kind, setKind] = useState<CaptureType>('note')
   const captures = useCaptures()
+  useAppearance()
   const [capture] = useState<Capture>(() => {
     const raw = localStorage.getItem("capture-draft")
     const draft = raw ? (JSON.parse(raw) as Capture | null) : null
@@ -202,10 +221,19 @@ export default function App(): React.JSX.Element {
   // Kind by prefix: while the capture is a single word that starts a kind's
   // name, Tab takes that kind and clears the word. Only at the very start, and
   // gone at the first space, so "we made a decision" never offers one.
-  const typed = body ? editorRef.current?.getText().trim() ?? '' : ''
+  // From the document, not the editor: after ⌘N the old editor is gone.
+  const typed = body ? textOf(body).trim() : ''
   const offered = !editing && typed && !/\s/.test(typed)
     ? CAPTURE_TYPES.find((type) => type.label.toLowerCase().startsWith(typed.toLowerCase()))
     : undefined
+  // The same idea arriving again is a vote, not a duplicate: say so quietly,
+  // and let the new one land anyway.
+  const [like, setLike] = useState<{ id: string; number: number; title: string } | null>(null)
+  useEffect(() => {
+    if (editing || !title) return setLike(null)
+    void vigil.similar(title).then(setLike)
+  }, [title, editing])
+
   useEffect(() => {
     if (!offered) return
     const onKey = (event: KeyboardEvent): void => {
@@ -226,11 +254,28 @@ export default function App(): React.JSX.Element {
       setKind(found.kind as CaptureType)
     })
   const fresh = (): void => {
+    editorRef.current = null
     setEditing(null)
     setBody(null)
     setKind('note')
     setRound((n) => n + 1)
   }
+  // ⌘. means "I want to write something". A capture opened from the list is
+  // put down, so the box comes back empty; a new one you had started and not
+  // sent is still there, the way any capture box keeps a half-typed thought.
+  const latestEditing = useRef(editing)
+  latestEditing.current = editing
+  useEffect(() => window.api.onShown(() => latestEditing.current && fresh()), [])
+  // ⌘N, from anywhere in the window: a fresh box.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.metaKey || event.key !== 'n') return
+      event.preventDefault()
+      fresh()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   // Cmd+Enter sends the capture to the main process, which stores it and tells
   // every window. Caught before the editor sees it, where it would otherwise
@@ -242,7 +287,13 @@ export default function App(): React.JSX.Element {
       event.stopPropagation()
       if (editing) return fresh()
       if (!hasContent(body)) return
-      void window.api.captures.create({ title, kind, body, markdown }).then(() => {
+      void window.api.captures.create({ title, kind, body, markdown }).then(async (id) => {
+        // A todo leaves for the task list at once, the plan's action kind: the
+        // capture keeps the words, the task takes the date out of them.
+        if (kind === 'todo') {
+          await vigil.toTask(id)
+          toast('Added to your tasks')
+        }
         fresh()
         window.api.hideWindow()
       })
@@ -256,7 +307,8 @@ export default function App(): React.JSX.Element {
 
   return (
     <div className={`app-container ${pointerIn ? 'pointer-in' : ''} flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-8 color-white`}>
-      <Header />
+      <Toaster />
+      <Header onNew={fresh} />
 
       <ResizablePanelGroup
         orientation="horizontal"
@@ -291,6 +343,16 @@ export default function App(): React.JSX.Element {
                 }}
               />
               {offered && <span className="mr-auto ml-2 self-center text-xs text-muted-foreground">⇥ {offered.label}</span>}
+              {!offered && like && (
+                <button
+                  type="button"
+                  onClick={() => openCapture(like.id)}
+                  className="mr-auto ml-2 max-w-64 truncate self-center text-xs text-muted-foreground hover:text-foreground"
+                  title={like.title}
+                >
+                  You wrote something like this: MF-{like.number}
+                </button>
+              )}
               {/*
                   <StatusPicker value={status} onChange={setStatus} />
                   <PriorityPicker value={priority} onChange={setPriority} />
@@ -337,13 +399,7 @@ export default function App(): React.JSX.Element {
         <ResizableHandle withHandle />
 
         <ResizablePanel defaultSize="40%" minSize={"30%"}>
-          <div className="h-full w-full p-2">
-            <div className="h-full w-full overflow-y-auto shadow-3xl rounded bg-background/50 p-1">
-              <HintCard />
-              <RotCards onOpen={openCapture} />
-              <CaptureList captures={captures} selected={editing?.id} onPick={openCapture} />
-            </div>
-          </div>
+          <SidePanel captures={captures} editing={editing?.id} onOpen={openCapture} />
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>
@@ -483,6 +539,80 @@ const CapturePrompt = ({
         onChange={onChange}
         findNotes={findCaptures}
       />
+    </div>
+  )
+}
+
+/**
+ * The prompt's right-hand side, which is most of the app for most of the day:
+ * the inbox (pins, a hint, the rot cards, everything captured), today's tasks,
+ * and the review queue, a tab each. The main window has the same things with
+ * room to spread out; this is them at the size you actually keep open.
+ */
+function SidePanel({ captures, editing, onOpen }: {
+  captures: Parameters<typeof CaptureList>[0]['captures']
+  editing?: string
+  onOpen: (id: string) => void
+}): React.JSX.Element {
+  const [tab, setTab] = useState<'inbox' | 'today' | 'review'>('inbox')
+  const due = useLive(() => window.api.vigil('review:counts') as Promise<number>, 0)
+  const today = useLive(
+    () => (window.api.vigil('tasks') as Promise<{ status: string; dueAt: string | null }[]>).then(
+      (tasks) => tasks.filter((task) => task.status === 'open' && task.dueAt && new Date(task.dueAt).getTime() < new Date().setHours(24, 0, 0, 0)).length
+    ),
+    0
+  )
+  const tabs = [
+    { id: 'inbox', label: 'Inbox', count: captures.filter((capture) => capture.status === 'open').length },
+    { id: 'today', label: 'Today', count: today },
+    { id: 'review', label: 'Review', count: due }
+  ] as const
+  // The same keys as every list: j and k when the editor does not have the
+  // focus, Enter to open. ⌘1 to ⌘3 switch tabs from anywhere in the window.
+  const [cursor] = useListKeys(captures.length, { onOpen: (index) => onOpen(captures[index].id), enabled: tab === 'inbox' })
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      const to = event.metaKey ? tabs[Number(event.key) - 1] : undefined
+      if (!to) return
+      event.preventDefault()
+      setTab(to.id)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
+  return (
+    <div className="flex h-full w-full flex-col p-2">
+      <div className="mb-2 flex gap-1 rounded-lg bg-accent/40 p-0.5 text-sm">
+        {tabs.map((one) => (
+          <button
+            key={one.id}
+            type="button"
+            onClick={() => setTab(one.id)}
+            title={`⌘${tabs.indexOf(one) + 1}`}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-1 transition-colors ${tab === one.id ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            {one.label}
+            {one.count ? <span className="text-xs tabular-nums text-muted-foreground">{one.count}</span> : null}
+          </button>
+        ))}
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {tab === 'inbox' ? (
+          <>
+            <Pins />
+            <HintCard />
+            <RotCards onOpen={onOpen} />
+            <CaptureList captures={captures} selected={editing} cursor={cursor} onPick={onOpen} />
+          </>
+        ) : tab === 'today' ? (
+          <TodayPanel />
+        ) : (
+          <div className="flex h-full [&_header]:hidden">
+            <ReviewView />
+          </div>
+        )}
+      </div>
     </div>
   )
 }
