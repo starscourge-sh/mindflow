@@ -42,6 +42,7 @@ export type Item = {
   cite: string | null
   context: string | null
   mode: 'encounter' | 'pushed'
+  supersededBy: string | null
 }
 export type Gloss = { id: string; body: string; author: 'user' | 'ai'; createdAt: string }
 export type ItemFull = Item & { body: unknown; origins: string[]; glosses: Gloss[] }
@@ -61,6 +62,7 @@ export type Task = {
   waitingOn: string | null
   estimate: number | null
   sortOrder: number | null
+  repeatUntil: string | null
 }
 export type Subtask = { text: string; done: boolean }
 export type TaskFull = Task & { notes: unknown; done: { at: string }[]; subtasks: Subtask[]; linked: { id: string; tier: string; kind: string; title: string }[] }
@@ -117,7 +119,10 @@ export const vigil = {
   doneTask: (id: string) => call('task:done', id),
   tags: () => call<{ tag: string; count: number; color: string | null; action: boolean }[]>('tags'),
   tagMeta: () => call<{ tag: string; color: string | null; action: number }[]>('tag:meta'),
-  setTag: (tag: string, patch: { color?: string | null; action?: boolean }) => call('tag:set', tag, patch),
+  setTag: (tag: string, patch: { color?: string | null; action?: boolean; aliasOf?: string | null }) => call('tag:set', tag, patch),
+  supersede: (id: string, truth: string) => call<string>('supersede', id, truth),
+  mergeCapture: (id: string, intoNumber: number) => call<string | null>('capture:merge', id, intoNumber),
+  hintRate: () => call<{ rate: number; tuned: boolean; shown: number; stopped: number }>('hints:rate'),
   tag: (tag: string) => call<{ tag: string; id: string; type: string; title: string }[]>('tag', tag),
   stats: () => call<Stats>('stats'),
   exportAll: () => call<string | null>('export'),

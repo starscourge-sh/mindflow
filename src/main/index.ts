@@ -28,12 +28,12 @@ import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShor
 */
 
 import { createHash, randomUUID } from 'crypto'
-import { copyFile, mkdir, readFile, rename, writeFile } from 'fs/promises'
-import { basename, join } from 'path'
+import { copyFile, mkdir, readFile, readdir, rename, stat, writeFile } from 'fs/promises'
+import { basename, join, relative } from 'path'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { importMarkdown, recordOpen, registerCaptures } from './captures'
+import { importMarkdown, importNote, recordOpen, registerCaptures } from './captures'
 import { activeSession, badge, registerVigil, toggleSafeMode } from './vigil'
 
 
@@ -516,6 +516,27 @@ if (process.platform === 'darwin') app.setActivationPolicy('accessory')
 if (process.env.MINDFLOW_USER_DATA) app.setPath('userData', process.env.MINDFLOW_USER_DATA)
 
 /**
+ * A whole Obsidian vault, each note one capture. Its own settings folder and
+ * the trash are left out; everything else that is Markdown comes in, once.
+ */
+async function importVault(): Promise<void> {
+  const { filePaths } = await dialog.showOpenDialog({ title: 'Import an Obsidian vault', properties: ['openDirectory'] })
+  const root = filePaths[0]
+  if (!root) return
+  let added = 0
+  const walk = async (folder: string): Promise<void> => {
+    for (const entry of await readdir(folder, { withFileTypes: true })) {
+      if (entry.name.startsWith('.') || entry.name === '.trash') continue
+      const path = join(folder, entry.name)
+      if (entry.isDirectory()) await walk(path)
+      else if (entry.name.endsWith('.md') && importNote(relative(root, path), await readFile(path, 'utf8'), (await stat(path)).mtime)) added += 1
+    }
+  }
+  await walk(root)
+  await dialog.showMessageBox({ message: 'Imported', detail: `${added} notes from ${basename(root)}` })
+}
+
+/**
  * Jottings from Markdown files - an inbox note, a file of jokes - as captures.
  * A file with "joke" or "bit" in its name gives bits; anything else, notes.
  */
@@ -587,6 +608,7 @@ function updateTray(): void {
       { label: 'Show mindflow', accelerator: SUMMON, click: () => toggleWindow() },
       { label: 'Open all notes', click: openHome },
       { label: 'Import Markdown…', click: () => void importFiles() },
+      { label: 'Import an Obsidian vault…', click: () => void importVault() },
       { type: 'separator' },
       { label: 'Safe mode', type: 'checkbox', checked: safe, click: () => (toggleSafeMode(), updateTray()) },
       { type: 'separator' },

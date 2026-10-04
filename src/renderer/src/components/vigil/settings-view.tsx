@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { Download } from 'lucide-react'
 
 import { Slider } from '@/components/ui/slider'
@@ -27,12 +27,32 @@ const field = 'rounded-md border bg-transparent px-2 py-1 tabular-nums outline-n
  */
 export function SettingsView(): React.JSX.Element {
   const settings = useLive(vigil.settings, null as Settings | null)
+  // Vim keys here too: j and k move between the controls, h and l turn a
+  // slider down and up, and Enter or Space presses what has the focus.
+  const page = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      const active = document.activeElement as HTMLElement | null
+      if (event.metaKey || event.ctrlKey || event.altKey || ['INPUT', 'TEXTAREA'].includes(active?.tagName ?? '')) return
+      const controls = [...(page.current?.querySelectorAll<HTMLElement>('button, [role="slider"], input') ?? [])]
+      const at = controls.indexOf(active as HTMLElement)
+      if (event.key === 'j' || event.key === 'k') {
+        event.preventDefault()
+        controls[Math.max(0, Math.min(controls.length - 1, at + (event.key === 'j' ? 1 : -1)))]?.focus()
+      } else if ((event.key === 'h' || event.key === 'l') && active?.getAttribute('role') === 'slider') {
+        event.preventDefault()
+        active.dispatchEvent(new KeyboardEvent('keydown', { key: event.key === 'h' ? 'ArrowLeft' : 'ArrowRight', bubbles: true }))
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   if (!settings) return <Page title="Settings"><div /></Page>
   const set = (patch: Partial<Settings>): void => void vigil.setSettings(patch)
 
   return (
     <Page title="Settings">
-      <div className="mx-auto max-w-2xl px-6 pb-16">
+      <div ref={page} className="mx-auto max-w-2xl px-6 pb-16">
         <Setting title="Full width" note="Off, pages sit in a centred column the way Notion lays them out, with room either side. On, the writing runs edge to edge.">
           <Switch checked={settings.fullWidth} onCheckedChange={(fullWidth) => set({ fullWidth })} />
         </Setting>
@@ -50,6 +70,7 @@ export function SettingsView(): React.JSX.Element {
           <Slider className="w-40" min={0} max={0.5} step={0.05} value={[settings.hintRate]} onValueChange={([hintRate]) => set({ hintRate })} />
           <span className="w-16 text-right tabular-nums">{settings.hintRate ? `1 in ${Math.round(1 / settings.hintRate)}` : 'never'}</span>
         </Setting>
+        <HintTuning />
         <Setting title="Rot cards" note="How many unhandled captures come back each time you open the prompt. A few, never the whole pile.">
           <Slider className="w-40" min={0} max={6} step={1} value={[settings.rotCount]} onValueChange={([rotCount]) => set({ rotCount })} />
           <span className="w-16 text-right tabular-nums">{settings.rotCount}</span>
@@ -95,5 +116,16 @@ export function SettingsView(): React.JSX.Element {
         </Setting>
       </div>
     </Page>
+  )
+}
+
+/** Said out loud when the app has turned the hints down itself, and why. */
+function HintTuning(): React.JSX.Element | null {
+  const tuning = useLive(vigil.hintRate, null as Awaited<ReturnType<typeof vigil.hintRate>> | null)
+  if (!tuning?.tuned) return null
+  return (
+    <p className="-mt-2 border-b pb-4 text-sm leading-relaxed text-[var(--tt-color-text-orange)]">
+      Only {tuning.stopped} of the last {tuning.shown} hints stopped you, so half as many are being shown: 1 in {Math.round(1 / tuning.rate)}. It goes back up when they start landing again.
+    </p>
   )
 }

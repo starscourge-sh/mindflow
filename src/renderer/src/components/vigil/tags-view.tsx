@@ -75,6 +75,20 @@ export function TagsView({ onOpen }: { onOpen: (type: string, id: string) => voi
               <Switch checked={!!current?.action} onCheckedChange={(action) => void vigil.setTag(chosen, { action }).then(() => toast(action ? `#${chosen} now makes a task` : `#${chosen} is only a label`))} />
               Makes a task
             </label>
+            {/* An alias: this tag counts as another without the words changing. */}
+            <input
+              key={`alias-${chosen}`}
+              placeholder="Counts as #…"
+              className="w-32 rounded-md border bg-transparent px-2 py-1 text-[13px] outline-none placeholder:text-muted-foreground focus:border-ring"
+              onKeyDown={(event) => {
+                const to = event.currentTarget.value.trim()
+                if (event.key !== 'Enter') return
+                void vigil.setTag(chosen, { aliasOf: to || null }).then(() => {
+                  toast(to ? `#${chosen} now counts as #${to.replace(/^#/, '')}` : `#${chosen} counts as itself again`)
+                  if (to) setChosen(to.replace(/^#/, '').toLowerCase())
+                })
+              }}
+            />
             {/* Rename everywhere at once; renaming onto a tag that exists merges them. */}
             <input
               key={chosen}

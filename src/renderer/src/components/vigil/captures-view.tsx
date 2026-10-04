@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { Archive, ArrowUpRight, Calendar, CheckCircle2, Compass, FileText, Hash, Inbox, ListTodo, Lock, Pin, Quote, Trash2, X } from 'lucide-react'
+import { Archive, ArrowUpRight, Calendar, CheckCircle2, Compass, FileText, Hash, Inbox, ListTodo, Lock, Merge, Pin, Quote, Trash2, X } from 'lucide-react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
@@ -168,6 +168,23 @@ function CaptureProps({ capture }: { capture: CaptureMeta }): React.JSX.Element 
       </Prop>
       <RemindMe table="captures" id={capture.id} at={capture.remindAt} />
 
+      {capture.status === 'open' && (
+        <label className="flex items-center gap-2 rounded-md px-2 py-1.5 focus-within:text-foreground hover:bg-accent">
+          <Merge className="size-4 shrink-0" />
+          <input
+            key={capture.id}
+            placeholder="Merge into MF-…"
+            onKeyDown={(event) => {
+              const number = Number(event.currentTarget.value.replace(/\D/g, ''))
+              if (event.key !== 'Enter' || !number) return
+              void vigil.mergeCapture(capture.id, number).then((into) =>
+                into ? toast(`Merged into MF-${number}`, () => void window.api.captures.save(capture.id, { status: 'open' })) : toast(`No MF-${number} to merge into`)
+              )
+            }}
+            className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground"
+          />
+        </label>
+      )}
       <PropLabel>Source</PropLabel>
       <label className="flex items-center gap-2 rounded-md px-2 py-1.5 focus-within:text-foreground hover:bg-accent">
         <Quote className="size-4 shrink-0" />

@@ -176,7 +176,18 @@ export default function App(): React.JSX.Element {
   const [source, setSource] = useState(false)
 
   // The document, as the editor last handed it over. The drawer reads this
-  const [body, setBody] = useState<JSONContent | null>(null)
+  // A new note half written survives quitting: saved as you type, restored at
+  // launch if it holds anything. Judged by the body, not the title: a capture
+  // that is only a picture or a drawing has no title and is still worth keeping.
+  const [draft] = useState<JSONContent | undefined>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('capture-draft') ?? 'null')
+      return hasContent(saved) ? saved : undefined
+    } catch {
+      return undefined
+    }
+  })
+  const [body, setBody] = useState<JSONContent | null>(draft ?? null)
 
   const title = titleOf(body)
   // The same, as text, for the copy kept beside the backups.
@@ -231,6 +242,7 @@ export default function App(): React.JSX.Element {
     })
   const fresh = (): void => {
     editorRef.current = null
+    localStorage.removeItem('capture-draft')
     setEditing(null)
     setBody(null)
     setKind('note')
@@ -328,12 +340,13 @@ export default function App(): React.JSX.Element {
             >
             <CapturePrompt
               key={editing?.id ?? round}
-              initial={editing?.body}
+              initial={editing?.body ?? (round === 0 ? draft : undefined)}
               locked={locked}
               outline={outline}
               onChange={(doc, editor) => {
                 editorRef.current = editor
                 setBody(doc)
+                if (!editing) localStorage.setItem('capture-draft', JSON.stringify(doc))
                 setMarkdown(toMarkdown(editor))
                 if (editing) {
                   void window.api.captures.save(editing.id, { body: doc, title: titleOf(doc), markdown: toMarkdown(editor) })

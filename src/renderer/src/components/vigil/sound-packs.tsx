@@ -39,6 +39,11 @@ export function SoundPacks({ chosen }: { chosen: PackName }): React.JSX.Element 
               setTrying(name)
               withPack(name, () => click('soft'))
             }}
+            // Reached by j and k as well as by the pointer: the same preview.
+            onFocus={() => {
+              setTrying(name)
+              withPack(name, () => click('soft'))
+            }}
             onClick={() => {
               void vigil.setSettings({ soundPack: name })
               withPack(name, () => chime('promote'))

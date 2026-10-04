@@ -24,7 +24,7 @@ export function Page({ title, count, actions, children }: {
       {/* The window's toolbar already names the section, so this line only
           carries the count and the actions, and goes when it has neither. */}
       {(count !== undefined || actions) && (
-        <header className="flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground">
+        <header className="page-column flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground">
           {typeof title === 'string' && title.startsWith('#') ? <span className="font-medium text-foreground">{title}</span> : null}
           {count !== undefined && <span className="tabular-nums">{count} {count === 1 ? 'item' : 'items'}</span>}
           <div className="ml-auto flex items-center gap-1">{actions}</div>
@@ -236,7 +236,7 @@ export function SmoothScroll({ children }: { children: ReactNode }): React.JSX.E
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div ref={setBox} className="min-h-0 flex-1 overflow-y-auto">
-        <div>{children}</div>
+        <div className="page-column">{children}</div>
       </div>
       <BackToTop target={box} />
     </div>

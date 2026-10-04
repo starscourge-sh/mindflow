@@ -23,9 +23,9 @@ export function HintCard(): React.JSX.Element | null {
   useEffect(
     () =>
       window.api.onShown(async () => {
-        const { hintRate } = await vigil.settings()
+        const { rate } = await vigil.hintRate()
         setAsking(false)
-        if (Math.random() < hintRate) {
+        if (Math.random() < rate) {
           const next = await window.api.hints.next()
           shownAt.current = Date.now()
           setHint(next)

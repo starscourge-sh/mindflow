@@ -260,7 +260,10 @@ function TaskDetail({ task, onClose }: { task: TaskFull; onClose: () => void }):
           onBlur={(event) => void vigil.saveTask(task.id, { recurrence: event.target.value.trim() || null })}
           className="mx-1 rounded-md border bg-transparent px-2 py-1 text-foreground placeholder:text-muted-foreground"
         />
-        <p className="mx-2 mt-1 text-xs leading-relaxed">“every” follows the calendar. “every!” counts from when you last did it.</p>
+        <p className="mx-2 mt-1 text-xs leading-relaxed">
+          “every” follows the calendar. “every!” counts from when you last did it. Add “until” and a date when you type a task to end the series.
+          {task.repeatUntil ? ` This one ends ${when(task.repeatUntil).toLowerCase()}.` : ''}
+        </p>
 
         {task.captureId && (
           <>

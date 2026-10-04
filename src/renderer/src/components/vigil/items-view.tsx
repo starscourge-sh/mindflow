@@ -151,6 +151,7 @@ function NuggetRow({ item }: { item: Item }): React.JSX.Element {
           {recall ? (item.dueAt ? `Recall · ${new Date(item.dueAt) <= new Date() ? 'due' : `in ${interval(item.dueAt)}`}` : 'Recall · new') : item.mode === 'pushed' ? 'On rotation' : 'Now and then'}
         </span>
         <Tags tags={tags} />
+        {item.supersededBy && <span className="text-[var(--tt-color-text-orange)]">Superseded</span>}
         {item.lapses >= 4 && <TriangleAlert className="size-3 text-[var(--tt-color-text-orange)]" />}
         {item.pinnedAt && <Pin className="size-3" />}
         {item.private ? <Lock className="size-3" /> : null}
@@ -299,6 +300,12 @@ function ItemDetail({ item }: { item: ItemFull }): React.JSX.Element {
             <Prop icon={Layers}>{item.origins.length ? `${item.origins.length} nugget${item.origins.length === 1 ? '' : 's'}` : 'Written from scratch'}</Prop>
           </>
         )}
+        <PropLabel>Wrong?</PropLabel>
+        {item.supersededBy ? (
+          <Prop icon={TriangleAlert}>Superseded: out of review, kept beside its correction</Prop>
+        ) : (
+          <Supersede item={item} />
+        )}
         <PropLabel>Source</PropLabel>
         <label className="flex items-center gap-2 rounded-md px-2 py-1.5 focus-within:text-foreground hover:bg-accent">
           <Quote className="size-4 shrink-0" />
@@ -380,6 +387,31 @@ function StudyThis({ item }: { item: ItemFull }): React.JSX.Element {
         })
       }}
       className="mx-1 rounded-md border bg-transparent px-2 py-1 text-[13px] text-foreground outline-none placeholder:text-muted-foreground focus:border-ring"
+    />
+  )
+}
+
+/**
+ * This turned out to be wrong: write what is true, and the correction becomes a
+ * nugget of its own while this one leaves review. A falsehood recalled with
+ * confidence is worse than one forgotten, and meetings are not textbooks.
+ */
+function Supersede({ item }: { item: ItemFull }): React.JSX.Element {
+  const [open, setOpen] = useState(false)
+  if (!open) return <Prop icon={TriangleAlert} onClick={() => setOpen(true)}>This turned out wrong…</Prop>
+  return (
+    <textarea
+      autoFocus
+      rows={2}
+      placeholder="What is actually true? Enter to save"
+      onBlur={() => setOpen(false)}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') setOpen(false)
+        if (event.key !== 'Enter' || event.shiftKey || !event.currentTarget.value.trim()) return
+        event.preventDefault()
+        void vigil.supersede(item.id, event.currentTarget.value.trim()).then(() => toast('Corrected: the new version is a nugget, this one is out of review'))
+      }}
+      className="mx-1 resize-none rounded-md border bg-transparent px-2 py-1.5 text-[13px] text-foreground outline-none placeholder:text-muted-foreground focus:border-ring"
     />
   )
 }

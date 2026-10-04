@@ -220,3 +220,19 @@ export function importMarkdown(name: string, text: string, kind: string): number
   if (added) changed()
   return added
 }
+
+/**
+ * A whole note as one capture: what an Obsidian vault is made of, where each
+ * file is a page rather than a list of jottings. Named after its file, dated
+ * by its own `created:` line or the file's, and skipped if already imported.
+ */
+export function importNote(path: string, text: string, modified: Date): boolean {
+  const body = text.replace(/^---\n[\s\S]*?\n---\n/, '').trim()
+  if (!body) return false
+  if (db.prepare('select 1 from captures where source = ? and body = ?').get(path, JSON.stringify(body))) return false
+  const title = path.split('/').pop()!.replace(/\.md$/, '')
+  const at = createdOf(text) ?? modified.toISOString()
+  const { number } = insert({ title, kind: 'note', body, source: path }, new Date(at).toISOString())
+  void writeMarkdown(number, body)
+  return true
+}

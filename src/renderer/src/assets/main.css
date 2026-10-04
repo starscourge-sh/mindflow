@@ -371,3 +371,16 @@ input:not([type='checkbox']):not([type='radio']):not([type='range']),
 textarea {
   cursor: text;
 }
+
+/* The same setting for the app's own pages: with Full width off, a list or a
+   page sits in a centred column the way Notion's do, and the space either
+   side stays empty. The header's line still runs edge to edge. */
+html[data-width='page'] .page-column {
+  width: 100%;
+  max-width: 56rem;
+  margin-inline: auto;
+}
+html[data-width='page'] header.page-column {
+  max-width: none;
+  padding-inline: max(1.25rem, calc((100% - 56rem) / 2 + 1.25rem));
+}

@@ -119,8 +119,12 @@ function advance(from: Date, rule: string): Date {
  * tomorrow 5pm", "water the plants every! 3 days". The date and the repeat are
  * taken out of the title. A date with no time is all day.
  */
-function taskFrom(text: string): { title: string; due: string | null; allDay: boolean; recurrence: string | null } {
+function taskFrom(text: string): { title: string; due: string | null; allDay: boolean; recurrence: string | null; until: string | null } {
   let title = text.trim()
+  // "until December": a series can end. Read first, so its date is not the due date.
+  const ending = /\buntil\s+(.+)$/i.exec(title)
+  const until = ending ? chrono.parseDate(ending[1], new Date(), { forwardDate: true }) : null
+  if (ending && until) title = title.slice(0, ending.index).trim()
   const repeat = RECURRENCE.exec(title)
   if (repeat) title = title.replace(repeat[0], '').trim()
   const [found] = chrono.parse(title, new Date(), { forwardDate: true })
@@ -129,7 +133,7 @@ function taskFrom(text: string): { title: string; due: string | null; allDay: bo
   if (!due && repeat) due = new Date()
   const allDay = !!due && !found?.start.isCertain('hour')
   if (due && allDay) due.setHours(9, 0, 0, 0)
-  return { title, due: due?.toISOString() ?? null, allDay, recurrence: repeat?.[0] ?? null }
+  return { title, due: due?.toISOString() ?? null, allDay, recurrence: repeat?.[0] ?? null, until: until?.toISOString() ?? null }
 }
 
 function addTask(text: string, origin: string | null = null): string {
@@ -137,10 +141,10 @@ function addTask(text: string, origin: string | null = null): string {
   const task = taskFrom(text)
   database()
     .prepare(
-      `insert into tasks (id, number, title, due_at, all_day, recurrence, origin_capture_id, created_at)
-       values (?, (select coalesce(max(number), 0) + 1 from tasks), ?, ?, ?, ?, ?, ?)`
+      `insert into tasks (id, number, title, due_at, all_day, recurrence, repeat_until, origin_capture_id, created_at)
+       values (?, (select coalesce(max(number), 0) + 1 from tasks), ?, ?, ?, ?, ?, ?, ?)`
     )
-    .run(id, task.title || text, task.due, task.allDay ? 1 : 0, task.recurrence, origin, now())
+    .run(id, task.title || text, task.due, task.allDay ? 1 : 0, task.recurrence, task.until, origin, now())
   return id
 }
 
@@ -182,12 +186,15 @@ export function registerVigil(): void {
   column('tasks', 'estimate integer')
   column('tasks', 'sort_order real')
   column('tasks', 'notified_at text')
+  column('tasks', 'repeat_until text')
+  column('nuggets', 'superseded_by text')
   db.exec('create table if not exists task_links (task_id text not null, item_id text not null, primary key (task_id, item_id))')
   // A tag's colour, and whether it makes a task: the plan's labels, a colour
   // and a string with one behaviour you choose. Seeded with the four labels
   // the plan collapses into todo, because seeded beats empty.
   db.exec(`create table if not exists tag_meta (tag text primary key, color text, action integer not null default 0);
     insert or ignore into tag_meta (tag, color, action) values ('bug', 'red', 1), ('fix', 'orange', 1), ('feature', 'blue', 1), ('improvement', 'green', 1);`)
+  column('tag_meta', 'alias_of text')
   db.exec(`
     create table if not exists tasks (
       id text primary key, number integer, title text not null, notes text,
@@ -308,6 +315,17 @@ export function registerVigil(): void {
   // signal every hint produces, where a vote is the rare one.
   ipcMain.handle('hints:dwell', (_event, event: number, ms: number) =>
     void db.prepare('update hint_events set dwell_ms = ? where rowid = ? and dwell_ms is null').run(Math.round(ms), event))
+  // The hint rate, tuned by its own instrument: if hints have stopped stopping
+  // you (under one in ten over the last month, with enough shown to tell),
+  // half as many are shown. Legible: it says so, rather than going quiet.
+  handle('hints:rate', () => {
+    const { hintRate } = settings()
+    const { shown, stopped } = db.prepare(
+      "select count(*) shown, sum(reaction = 'up' or dwell_ms >= 4000) stopped from hint_events where shown_at >= ?"
+    ).get(new Date(Date.now() - 30 * 86400000).toISOString()) as { shown: number; stopped: number | null }
+    const low = shown >= 20 && (stopped ?? 0) / shown < 0.1
+    return { rate: low ? hintRate / 2 : hintRate, tuned: low, shown, stopped: stopped ?? 0 }
+  })
   // Up makes it come back more, down less. Never a schedule, never a grade.
   ipcMain.handle('hints:react', (_event, event: number, id: string, reaction: 'up' | 'down') => {
     db.prepare('update nuggets set surfacing_weight = surfacing_weight * ? where id = ?').run(reaction === 'up' ? 1.5 : 1 / 1.5, id)
@@ -317,7 +335,7 @@ export function registerVigil(): void {
   // --- nuggets and articles
   const ITEM = `id, tier, kind, title, prompt, private, pinned_at as pinnedAt, due_at as dueAt, suspended,
     state is not null as reviewed, created_at as createdAt, capture_id as captureId, remind_at as remindAt,
-    (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses, cite, context, mode`
+    (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses, cite, context, mode, superseded_by as supersededBy`
   handle('items', (tier: string) =>
     db.prepare(`select ${ITEM} from nuggets where tier = ? order by created_at desc`).all(tier)
   )
@@ -330,6 +348,17 @@ export function registerVigil(): void {
   handle('item:save', (id: string, patch: { body?: unknown; title?: string; prompt?: string | null; kind?: string; suspended?: boolean; cite?: string | null; context?: string | null; mode?: string }) => {
     const allowed = ['body', 'title', 'prompt', 'kind', 'suspended', 'cite', 'context', 'mode']
     const sets = Object.entries(patch).filter(([key, value]) => value !== undefined && allowed.includes(key))
+    // A meaningful change to something you are tested on brings it back sooner,
+    // a 30% cut to what is left of its interval, never a reset: fixing a
+    // sentence should not cost months. "Meaningful" is more than a few letters.
+    const before = db.prepare('select body, prompt, state, due_at from nuggets where id = ?').get(id) as { body: string; prompt: string | null; state: string | null; due_at: string | null } | undefined
+    const changed = (a: string, b: string): boolean => Math.abs(a.length - b.length) > 12 || (a !== b && a.slice(0, 40) !== b.slice(0, 40))
+    if (before?.state && before.due_at && new Date(before.due_at).getTime() > Date.now() &&
+      ((patch.body !== undefined && changed(plain(JSON.parse(before.body ?? 'null')), plain(patch.body))) ||
+        (patch.prompt !== undefined && changed(before.prompt ?? '', patch.prompt ?? '')))) {
+      const left = new Date(before.due_at).getTime() - Date.now()
+      db.prepare('update nuggets set due_at = ? where id = ?').run(new Date(Date.now() + left * 0.7).toISOString(), id)
+    }
     for (const [key, value] of sets) {
       const stored = key === 'body' ? JSON.stringify(value) : key === 'suspended' ? (value ? 1 : 0) : value
       db.prepare(`update nuggets set ${key} = ?, updated_at = ? where id = ?`).run(stored as string, now(), id)
@@ -355,6 +384,31 @@ export function registerVigil(): void {
     db.prepare("insert into nuggets (id, capture_id, kind, title, body, cite, created_at, updated_at) values (?, ?, 'note', ?, ?, ?, ?, ?)")
       .run(id, origin.captureId ?? null, text.split('\n')[0].slice(0, 160), JSON.stringify(text), cite ?? null, now(), now())
     return write(id)
+  })
+  // Wrong, and corrected: the correction becomes its own nugget, the wrong one
+  // leaves review at once and points to it. Nothing is deleted: the wrong
+  // version beside the right one teaches more than either alone.
+  handle('supersede', (id: string, truth: string) => {
+    const old = db.prepare('select kind, cite, private from nuggets where id = ?').get(id) as { kind: string; cite: string | null; private: number }
+    const fixed = randomUUID()
+    db.prepare('insert into nuggets (id, kind, title, body, cite, private, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(fixed, old.kind, truth.split('\n')[0].slice(0, 160), JSON.stringify(truth), old.cite, old.private, now(), now())
+    db.prepare('update nuggets set superseded_by = ?, suspended = 1 where id = ?').run(fixed, id)
+    return write(fixed)
+  })
+  // Two captures that are the same thought: this one's words join the other's,
+  // and this one is discarded, so it is still there to restore.
+  handle('capture:merge', (id: string, intoNumber: number) => {
+    const from = db.prepare('select body from captures where id = ?').get(id) as { body: string } | undefined
+    const into = db.prepare('select id, body from captures where number = ?').get(intoNumber) as { id: string; body: string } | undefined
+    if (!from || !into || into.id === id) return null
+    const a = JSON.parse(into.body ?? 'null'), b = JSON.parse(from.body ?? 'null')
+    const joined = a && b && typeof a === 'object' && typeof b === 'object'
+      ? { ...a, content: [...(a.content ?? []), ...(b.content ?? [])] }
+      : `${plain(a)}\n\n${plain(b)}`
+    db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(joined), into.id)
+    db.prepare("update captures set status = 'discarded', exited_at = ? where id = ?").run(now(), id)
+    return write(into.id)
   })
   // A gloss is a row, never an edit: past-you stays readable beside present-you.
   handle('gloss', (itemId: string, text: string) =>
@@ -397,7 +451,7 @@ export function registerVigil(): void {
 
   // --- tasks
   const TASK = `id, number, title, status, due_at as dueAt, all_day as allDay, recurrence, origin_capture_id as captureId,
-    created_at as createdAt, completed_at as completedAt, waiting_on as waitingOn, estimate, sort_order as sortOrder`
+    created_at as createdAt, completed_at as completedAt, waiting_on as waitingOn, estimate, sort_order as sortOrder, repeat_until as repeatUntil`
   handle('tasks', () => db.prepare(`select ${TASK} from tasks order by status, coalesce(sort_order, 1e12), due_at is null, due_at, created_at`).all())
   handle('task', (id: string) => {
     const row = db.prepare(`select ${TASK}, notes, subtasks from tasks where id = ?`).get(id) as Record<string, unknown> | undefined
@@ -442,12 +496,15 @@ export function registerVigil(): void {
   // calendar matters, from today when only the gap does ("every!"), and never
   // onto a day already gone, so a missed week does not stack up.
   handle('task:done', (id: string) => {
-    const task = db.prepare('select due_at, recurrence from tasks where id = ?').get(id) as { due_at: string | null; recurrence: string | null }
+    const task = db.prepare('select due_at, recurrence, repeat_until from tasks where id = ?').get(id) as { due_at: string | null; recurrence: string | null; repeat_until: string | null }
     db.prepare('insert into task_done (task_id, done_at) values (?, ?)').run(id, now())
     if (!task.recurrence) return write(db.prepare("update tasks set status = 'done', completed_at = ? where id = ?").run(now(), id))
     const fromToday = task.recurrence.includes('!') || !task.due_at
     let next = advance(fromToday ? new Date() : new Date(task.due_at!), task.recurrence)
     while (next.getTime() < Date.now()) next = advance(next, task.recurrence)
+    // Past its end, the series is over: this one was the last.
+    if (task.repeat_until && next.toISOString() > task.repeat_until)
+      return write(db.prepare("update tasks set status = 'done', completed_at = ? where id = ?").run(now(), id))
     return write(db.prepare('update tasks set due_at = ? where id = ?').run(next.toISOString(), id))
   })
 
@@ -458,7 +515,9 @@ export function registerVigil(): void {
       ...(db.prepare('select id, tier as type, title, body from nuggets').all() as Record<string, string>[]),
       ...(db.prepare("select id, 'task' as type, title, notes as body from tasks").all() as Record<string, string>[])
     ]
-    return rows.flatMap((row) => tagsIn(`${row.title} ${plain(JSON.parse(row.body ?? 'null'))}`).map((tag) => ({ tag, id: row.id, type: row.type, title: row.title })))
+    // An alias counts as the tag it stands for, without the words changing.
+    const alias = new Map((db.prepare('select tag, alias_of from tag_meta where alias_of is not null').all() as { tag: string; alias_of: string }[]).map((row) => [row.tag, row.alias_of]))
+    return rows.flatMap((row) => [...new Set(tagsIn(`${row.title} ${plain(JSON.parse(row.body ?? 'null'))}`).map((tag) => alias.get(tag) ?? tag))].map((tag) => ({ tag, id: row.id, type: row.type, title: row.title })))
   }
   handle('tags', () => {
     const counts = new Map<string, number>()
@@ -467,10 +526,17 @@ export function registerVigil(): void {
     return [...counts].map(([tag, count]) => ({ tag, count, color: meta.get(tag)?.color ?? null, action: !!meta.get(tag)?.action })).sort((a, b) => b.count - a.count)
   })
   handle('tag:meta', () => db.prepare('select tag, color, action from tag_meta').all())
-  handle('tag:set', (tag: string, patch: { color?: string | null; action?: boolean }) => {
+  handle('tag:set', (tag: string, patch: { color?: string | null; action?: boolean; aliasOf?: string | null }) => {
+    if (patch.aliasOf !== undefined) {
+      db.prepare('insert or ignore into tag_meta (tag) values (?)').run(patch.aliasOf ?? tag)
+    }
     db.prepare('insert or ignore into tag_meta (tag) values (?)').run(tag)
     if (patch.color !== undefined) db.prepare('update tag_meta set color = ? where tag = ?').run(patch.color, tag)
     if (patch.action !== undefined) db.prepare('update tag_meta set action = ? where tag = ?').run(patch.action ? 1 : 0, tag)
+    if (patch.aliasOf !== undefined) {
+      db.prepare('insert or ignore into tag_meta (tag) values (?)').run(tag)
+      db.prepare('update tag_meta set alias_of = ? where tag = ?').run(patch.aliasOf?.replace(/^#/, '').toLowerCase() || null, tag)
+    }
     return write(true)
   })
   handle('tag', (tag: string) => tagged().filter((row) => row.tag === tag))
