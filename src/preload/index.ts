@@ -5,7 +5,12 @@ import type { Capture, CaptureMeta, CapturePatch } from '../main/captures'
 // Every live view listens for changes; one IPC listener tells them all,
 // rather than one each past Node's limit of ten.
 const changes = new Set<() => void>()
-ipcRenderer.on('captures:changed', () => changes.forEach((listen) => listen()))
+// A burst of changes, an import or several saves in a row, is told once.
+let telling: ReturnType<typeof setTimeout> | undefined
+ipcRenderer.on('captures:changed', () => {
+  clearTimeout(telling)
+  telling = setTimeout(() => changes.forEach((listen) => listen()), 60)
+})
 
 // Custom APIs for renderer
 const api = {

@@ -69,7 +69,6 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
             { label: 'Copy text', run: () => copy(capture.label) }
           ]}>
           <motion.button
-            layout="position"
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: capture.status === 'open' ? 1 : 0.5, y: 0 }}
             exit={{ opacity: 0, x: 16 }}

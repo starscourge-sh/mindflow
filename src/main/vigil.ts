@@ -5,7 +5,7 @@ import { join } from 'path'
 import * as chrono from 'chrono-node'
 import { createEmptyCard, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
 
-import { LABEL, LIST, changed, database } from './captures'
+import { LABEL, LIST, changed, database, like } from './captures'
 
 /**
  * Everything past the capture: nuggets and articles, the review queue, tasks,
@@ -366,7 +366,7 @@ export function registerVigil(): void {
   })
   // What @ offers besides captures: nuggets and articles by name.
   handle('items:find', (query: string) =>
-    db.prepare("select id, tier, title from nuggets where title like ? and superseded_by is null order by updated_at desc limit 6").all(`%${query}%`))
+    db.prepare("select id, tier, title from nuggets where title like ? escape '\\' and superseded_by is null order by updated_at desc limit 6").all(`%${like(query)}%`))
   // A page of your own from nothing: notes on linear algebra, say. An article
   // with no nuggets behind it, there to be written in.
   handle('article:new', () => {

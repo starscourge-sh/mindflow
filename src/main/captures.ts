@@ -81,6 +81,9 @@ const Patch = z.object({
   elapsedMs: z.number().optional()
 })
 
+/** Text matched literally by `like … escape '\\'`: its own % and _ escaped. */
+export const like = (text: string): string => text.replace(/[\\%_]/g, '\\$&')
+
 /**
  * The name a capture is shown by: the first line of what it says, worked out
  * on reading so an edit never leaves a stale name behind. The stored title is
@@ -96,12 +99,24 @@ export const changed = (): void => {
 
 export function registerCaptures(): void {
   db = new DatabaseSync(join(app.getPath('userData'), 'mindflow.db'))
+  // Worked out once per wording and remembered: every list asks for every
+  // name, and reading each body again on every change made a big inbox slow.
+  // Capped, since a name is a line in a list, not the whole of a long one.
+  const names = new Map<string, string>()
   db.function('label', (title, body) => {
-    try {
-      return firstLine(JSON.parse(String(body ?? 'null'))) || String(title ?? '')
-    } catch {
-      return String(title ?? '')
+    const key = `${title}\u0000${body}`
+    let name = names.get(key)
+    if (name === undefined) {
+      try {
+        name = firstLine(JSON.parse(String(body ?? 'null'))) || String(title ?? '')
+      } catch {
+        name = String(title ?? '')
+      }
+      name = name.slice(0, 300)
+      if (names.size > 20000) names.clear()
+      names.set(key, name)
     }
+    return name
   })
   db.exec(`
     create table if not exists captures (
@@ -168,10 +183,10 @@ export function registerCaptures(): void {
     db
       .prepare(
         `select ${LIST} from captures
-         where ${LABEL} like ? or ('MF-' || number) like ?
+         where ${LABEL} like ? escape '\\' or ('MF-' || number) like ?
          order by captured_at desc limit 8`
       )
-      .all(`%${query}%`, `${query}%`)
+      .all(`%${like(String(query))}%`, `${query}%`)
   )
 
   // Search: the words anywhere in the title or the body, newest first, with the
@@ -182,8 +197,9 @@ export function registerCaptures(): void {
   ipcMain.handle('captures:find', (_event, query: unknown) => {
     const words = String(query ?? '').toLowerCase().split(/\s+/).filter(Boolean)
     const kind = words.find((word) => word.startsWith('kind:'))?.slice(5)
-    const terms = words.filter((word) => !word.startsWith('kind:')).map((word) => `%${word}%`)
-    const match = (text: string): string => terms.map(() => `${text} like ?`).join(' and ') || '1'
+    // % and _ are a search's own wildcards; typed, they mean themselves.
+    const terms = words.filter((word) => !word.startsWith('kind:')).map((word) => `%${like(word)}%`)
+    const match = (text: string): string => terms.map(() => `${text} like ? escape '\\'`).join(' and ') || '1'
     const args = (n: number): string[] => [...Array(n)].flatMap(() => terms)
     const rows = db.prepare(
       `select * from (
