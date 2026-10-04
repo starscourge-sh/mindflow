@@ -273,8 +273,8 @@ export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX
     return () => box.removeEventListener('scroll', check)
   }, [target])
   return (
-    // Centred in a strip of its own, so the spring can own the button's transform.
-    <div className="pointer-events-none absolute inset-x-0 bottom-5 z-20 flex justify-center">
+    // Bottom right, in a strip of its own, so the spring can own the button's transform.
+    <div className="pointer-events-none absolute inset-x-0 bottom-5 z-20 flex justify-end pr-5">
     <AnimatePresence>
       {shown && (
         <motion.button
