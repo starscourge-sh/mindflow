@@ -120,7 +120,10 @@ export function registerCaptures(): void {
     let name = names.get(key)
     if (name === undefined) {
       try {
-        name = firstLine(JSON.parse(String(body ?? 'null'))) || String(title ?? '')
+        // With no words at all, named for what it holds rather than "Untitled".
+        const raw = String(body ?? '')
+        name = firstLine(JSON.parse(raw || 'null')) || String(title ?? '') ||
+          (/"type":"image"/.test(raw) ? 'Picture' : /"type":"excalidraw"/.test(raw) ? 'Drawing' : /"type":"attachment"/.test(raw) ? 'File' : '')
       } catch {
         name = String(title ?? '')
       }

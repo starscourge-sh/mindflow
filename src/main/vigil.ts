@@ -519,7 +519,8 @@ export function registerVigil(): void {
   })
 
   // --- nuggets and articles
-  const ITEM = `id, tier, kind, title, prompt, private, pinned_at as pinnedAt, due_at as dueAt, suspended,
+  // A nugget with no name of its own is named from its words, or for what it holds.
+  const ITEM = `id, tier, kind, coalesce(nullif(title, ''), label('', body)) as title, prompt, private, pinned_at as pinnedAt, due_at as dueAt, suspended,
     state is not null as reviewed, created_at as createdAt, capture_id as captureId, remind_at as remindAt,
     (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses, attribution, context, mode, superseded_by as supersededBy, revisions`
   handle('items', (tier: string) =>
