@@ -6,6 +6,7 @@ import { shown } from './rot-cards'
 import { chime } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
 import { toast } from './vigil/ui'
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 
 type Hint = NonNullable<Awaited<ReturnType<typeof window.api.hints.next>>>
 
@@ -105,24 +106,26 @@ export function HintCard({ onOpen }: { onOpen: (captureId: string) => void }): R
           ) : (
             <div className="mt-2 flex items-center gap-1 text-muted-foreground [&_svg]:size-3.5">
               <span className="mr-auto text-xs">Hint · {hint.kind}</span>
-              {/* Open, or let it go: a hint asks nothing else of you. */}
-              {hint.captureId && (
-                <button type="button" className="rounded p-1 hover:bg-accent" title="Open" onClick={() => {
-                  onOpen(hint.captureId!)
-                  setHint(null)
-                }}>
-                  <ArrowUpRight />
-                </button>
-              )}
-              <button type="button" className="rounded p-1 hover:bg-accent" title="More of this  ⌃⇧↑" onClick={() => react('up')}>
-                <ThumbsUp />
-              </button>
-              <button type="button" className="rounded p-1 hover:bg-accent" title="Less of this  ⌃⇧↓" onClick={() => react('down')}>
-                <ThumbsDown />
-              </button>
-              <button type="button" className="rounded p-1 hover:bg-accent" title="Dismiss" onClick={() => setHint(null)}>
-                <X />
-              </button>
+              {/* Open, or let it go: a hint asks nothing else of you. Each
+                  button says what it does, since the icons alone do not. */}
+              {[
+                ...(hint.captureId ? [{ icon: ArrowUpRight, tip: 'Open it', run: () => { onOpen(hint.captureId!); setHint(null) } }] : []),
+                { icon: ThumbsUp, tip: 'More like this', keys: '⌃⇧↑', run: () => react('up') },
+                { icon: ThumbsDown, tip: 'Fewer like this', keys: '⌃⇧↓', run: () => react('down') },
+                { icon: X, tip: 'Not now', run: () => setHint(null) }
+              ].map(({ icon: Icon, tip, keys, run }) => (
+                <Tooltip key={tip}>
+                  <TooltipTrigger asChild>
+                    <button type="button" aria-label={tip} className="rounded p-1 hover:bg-accent hover:text-foreground" onClick={run}>
+                      <Icon />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {tip}
+                    {keys && <kbd className="ml-2 font-sans opacity-60">{keys}</kbd>}
+                  </TooltipContent>
+                </Tooltip>
+              ))}
             </div>
           )}
         </motion.div>
