@@ -296,7 +296,7 @@ export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX
             if (lenis) lenis.scrollTo(0, { duration: 0.6 })
             else target.scrollTo({ top: 0, behavior: 'smooth' })
           }}
-          className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,var(--popover))] py-1.5 pr-3.5 pl-2.5 font-sans text-xs font-medium text-[var(--tt-brand-color-400)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--tt-brand-color-400)_35%,transparent),0_10px_24px_-8px_rgb(0_0_0/0.6)] transition-colors hover:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_32%,var(--popover))]"
+          className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,var(--popover))] py-1.5 pr-3.5 pl-2.5 font-sans text-xs font-medium text-[var(--tt-brand-color-400)] border border-dashed border-[color-mix(in_srgb,var(--tt-brand-color-400)_60%,transparent)] shadow-[0_10px_24px_-8px_rgb(0_0_0/0.6)] transition-colors hover:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_32%,var(--popover))]"
         >
           <ArrowUp className="size-3.5" /> Top
         </motion.button>
