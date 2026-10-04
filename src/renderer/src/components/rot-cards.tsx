@@ -16,6 +16,15 @@ export const textOf = (body: unknown): string => {
 }
 
 /**
+ * What a card says: its words, with the stored title first only when the words
+ * do not already open with it, as a bookmark's page name over its address.
+ */
+export const shown = (title: string, body: unknown): string => {
+  const text = textOf(body).trim()
+  return title && !text.startsWith(title) ? `${title}\n${text}` : text || title
+}
+
+/**
  * The rot sampler: three captures nobody has done anything with, leaning old,
  * each with its three exits right there. A sample, never a queue - it does not
  * empty, and nothing says it should.
@@ -62,7 +71,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
           }}
         >
           <button type="button" data-row className="line-clamp-3 w-full whitespace-pre-line text-left" onClick={() => onOpen(card.id)}>
-            {[card.title, textOf(card.body)].filter(Boolean).join('\n')}
+            {shown(card.title, card.body)}
           </button>
           {asking === card.id ? (
             <div className="mt-1"><AskWho id={card.id} onDone={() => setAsking(null)} /></div>

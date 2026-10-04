@@ -85,14 +85,7 @@ export function CapturesView({ title, keep, focus }: {
       {open && meta ? (
         <div className="flex min-w-0 flex-[1.4] border-l">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
-            {/* The title, typed, then the detail under it: the same as in the prompt. */}
-            <input
-              key={open.id}
-              defaultValue={open.title}
-              placeholder={meta.label || "What's on your mind?"}
-              onChange={(event) => void window.api.captures.save(open.id, { title: event.target.value })}
-              className="mx-[4.75rem] mb-2 bg-transparent text-2xl font-semibold outline-none placeholder:text-muted-foreground/50"
-            />
+            {/* The first line names the capture, the same as in the prompt. */}
             <MindflowEditor
               key={open.id}
               host={window.api}

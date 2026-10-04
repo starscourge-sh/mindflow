@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { join } from 'path'
 
 import { backUp, writeMarkdown } from './backup'
-import { chunks, createdOf, guessKind, titleOfMarkdown, unstamp } from './import'
+import { chunks, createdOf, firstLine, guessKind, titleOfMarkdown, unstamp } from './import'
 
 /** What the list shows. The body is only read when one is opened. */
 export interface CaptureMeta {
@@ -71,8 +71,12 @@ const Patch = z.object({
   markdown: z.string().optional()
 })
 
-/** The name a capture is shown by: its title, or with none, its first line of text. Worked out on reading, never stored. */
-export const LABEL = "coalesce(nullif(title, ''), (select value from json_tree(captures.body) where key = 'text' limit 1), '')"
+/**
+ * The name a capture is shown by: the first line of what it says, worked out
+ * on reading so an edit never leaves a stale name behind. The stored title is
+ * only the fallback, for an import or a bookmark whose body is plain text.
+ */
+export const LABEL = 'label(title, body)'
 export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, attribution, medium, exited_at as closedAt`
 
 /** Tell every window the list changed, so whichever is showing it reloads. */
@@ -82,6 +86,13 @@ export const changed = (): void => {
 
 export function registerCaptures(): void {
   db = new DatabaseSync(join(app.getPath('userData'), 'mindflow.db'))
+  db.function('label', (title, body) => {
+    try {
+      return firstLine(JSON.parse(String(body ?? 'null'))) || String(title ?? '')
+    } catch {
+      return String(title ?? '')
+    }
+  })
   db.exec(`
     create table if not exists captures (
       id          text primary key,

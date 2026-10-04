@@ -27,7 +27,7 @@ import { chime } from './lib/sound'
 // import { PriorityPicker, type Priority } from './components/priority/priority-picker'
 
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from './components/capture-kinds/capture-kind-picker'
-import { kindOf } from '../../main/import'
+import { firstLine, kindOf } from '../../main/import'
 import {
   Sheet,
   SheetContent,
@@ -48,10 +48,10 @@ import {
  * A new note half written, kept as you type so it survives quitting and
  * reading old captures. Only if it holds anything.
  */
-const readDraft = (): { title: string; body: JSONContent | null } | undefined => {
+const readDraft = (): JSONContent | undefined => {
   try {
     const saved = JSON.parse(localStorage.getItem('capture-draft') ?? 'null')
-    return saved && (saved.title?.trim() || hasContent(saved.body)) ? saved : undefined
+    return hasContent(saved) ? saved : undefined
   } catch {
     return undefined
   }
@@ -198,11 +198,10 @@ export default function App(): React.JSX.Element {
   const [outline, setOutline] = useState(false)
   const [source, setSource] = useState(false)
 
-  // The two halves of a capture: the line you type, which is the title, and
-  // the optional detail below it. Nine in ten are the line and nothing else.
-  // Both are typed; nothing is worked out from the other and stored.
-  const [title, setTitle] = useState(() => readDraft()?.title ?? '')
-  const [body, setBody] = useState<JSONContent | null>(() => readDraft()?.body ?? null)
+  // What you write. Its first line is its name, worked out wherever it is
+  // shown and never stored, so an edit never leaves a stale one behind.
+  const [body, setBody] = useState<JSONContent | null>(() => readDraft() ?? null)
+  const first = firstLine(body)
   // Who said it and where you met it. Null who means the words are yours.
   const [attribution, setAttribution] = useState('')
   const [medium, setMedium] = useState('')
@@ -214,28 +213,26 @@ export default function App(): React.JSX.Element {
   // happen; Cmd+Enter puts it down and brings back the box you had.
   const [editing, setEditing] = useState<{ id: string; body: JSONContent } | null>(null)
   const editorRef = useRef<Editor | null>(null)
-  const titleRef = useRef<HTMLTextAreaElement>(null)
   const [sending, setSending] = useState(false)
   const actionTags = useLive(() => vigil.tagMeta().then((meta) => meta.filter((row) => row.action).map((row) => row.tag)), [] as string[])
 
   // Kept as you type, so a half-written note survives quitting.
   useEffect(() => {
-    if (!editing) localStorage.setItem('capture-draft', JSON.stringify({ title, body }))
-  }, [title, body, editing])
+    if (!editing) localStorage.setItem('capture-draft', JSON.stringify(body))
+  }, [body, editing])
 
   // The same idea arriving again is a vote, not a duplicate: say so quietly,
   // and let the new one land anyway.
   const [like, setLike] = useState<{ id: string; number: number; title: string } | null>(null)
   useEffect(() => {
-    if (editing || !title) return setLike(null)
-    void vigil.similar(title).then(setLike)
-  }, [title, editing])
+    if (editing || !first) return setLike(null)
+    void vigil.similar(first).then(setLike)
+  }, [first, editing])
 
   const openCapture = (id: string): void =>
     void window.api.captures.get(id).then((found) => {
       if (!found) return
       setEditing({ id, body: found.body as JSONContent })
-      setTitle(found.title)
       setBody(found.body as JSONContent)
       setKind(found.kind as CaptureType)
       setChosen(true)
@@ -248,14 +245,13 @@ export default function App(): React.JSX.Element {
     if (!keepDraft) localStorage.removeItem('capture-draft')
     const draft = keepDraft ? readDraft() : undefined
     setEditing(null)
-    setTitle(draft?.title ?? '')
-    setBody(draft?.body ?? null)
+    setBody(draft ?? null)
     setAttribution('')
     setMedium('')
     setKind('note')
     setChosen(false)
     setRound((n) => n + 1)
-    requestAnimationFrame(() => titleRef.current?.focus())
+    requestAnimationFrame(() => editorRef.current?.commands.focus('end'))
   }
   // ⌘. means "I want to write something". A capture opened from the list is
   // put down as the window hides, so the box comes back as the one you had.
@@ -285,7 +281,7 @@ export default function App(): React.JSX.Element {
     // Read from the editor itself: its onChange waits for a pause in the
     // typing, and ⌘↵ often comes before one.
     const doc = editorRef.current?.getJSON() ?? body
-    const text = `${title}\n${textOf(doc)}`.trim()
+    const text = textOf(doc).trim()
     if (!text) return
     // What a paste is, when the kind was left alone: a bare link is a link,
     // and where it came from is the site; a long block is an excerpt, the
@@ -300,7 +296,7 @@ export default function App(): React.JSX.Element {
     chime('send')
     setSending(true)
     void window.api.captures
-      .create({ title: title.trim(), kind: sorted, body: hasContent(doc) ? doc : null, markdown: editorRef.current ? toMarkdown(editorRef.current) : markdown })
+      .create({ title: '', kind: sorted, body: hasContent(doc) ? doc : null, markdown: editorRef.current ? toMarkdown(editorRef.current) : markdown })
       .then(async (id) => {
         if (attribution.trim()) await vigil.setCapture(id, 'attribution', attribution.trim())
         if (where) await vigil.setCapture(id, 'medium', where)
@@ -321,10 +317,24 @@ export default function App(): React.JSX.Element {
   }
   // ⌘↵ from anywhere in the window, ⌥⌘↵ to keep going. Caught before the
   // editor, where it would otherwise only step out of a code block.
+  const pick = (next: CaptureType): void => {
+    setKind(next)
+    setChosen(true)
+    saveField({ kind: next })
+  }
+  const latestPick = useRef(pick)
+  latestPick.current = pick
   const latestSubmit = useRef(submit)
   latestSubmit.current = submit
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      // ⌘1 to ⌘8: a kind you already know, without opening the picker.
+      const picked = event.metaKey && !event.shiftKey && !event.altKey ? CAPTURE_TYPES[Number(event.key) - 1] : undefined
+      if (picked) {
+        event.preventDefault()
+        latestPick.current(picked.id)
+        return
+      }
       if (event.key !== 'Enter' || !event.metaKey) return
       event.preventDefault()
       event.stopPropagation()
@@ -360,58 +370,26 @@ export default function App(): React.JSX.Element {
               animate={sending ? { opacity: 0, y: -10, scale: 0.985, filter: 'blur(2px)' } : { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
               transition={{ duration: sending ? 0.18 : 0.22, ease: [0.16, 1, 0.3, 1] }}
             >
-            {/* The line you type is the title: large, first, and Enter saves.
-                Shift-Enter or ↓ goes to the detail below, if there is any. */}
-            <textarea
-              ref={titleRef}
-              autoFocus
-              rows={1}
-              value={title}
-              placeholder="What's on your mind?"
-              onChange={(event) => {
-                setTitle(event.target.value)
-                // The kind follows the wording until you choose one.
-                if (!chosen && !editing) setKind((kindOf(event.target.value) ?? 'note') as CaptureType)
-                saveField({ title: event.target.value })
+            <CapturePrompt
+              key={editing?.id ?? round}
+              initial={editing?.body ?? readDraft()}
+              locked={locked}
+              outline={outline}
+              onReady={(editor) => (editorRef.current = editor)}
+              onChange={(doc, editor) => {
+                setBody(doc)
+                // The kind follows the wording of the first line until you choose one.
+                if (!chosen && !editing) setKind((kindOf(firstLine(doc)) ?? 'note') as CaptureType)
+                setMarkdown(toMarkdown(editor))
+                saveField({ body: doc, markdown: toMarkdown(editor) })
               }}
-              onPaste={(event) => {
-                // A long or many-lined paste has no title of its own: it goes in
-                // as the detail, an excerpt, shown by its first line until named.
-                const text = event.clipboardData.getData('text/plain')
-                if (text.length < 200 && !text.includes('\n')) return
-                event.preventDefault()
-                editorRef.current?.chain().focus('end').insertContent(text.split(/\n{2,}/).map((para) => ({ type: 'paragraph', content: para.trim() ? [{ type: 'text', text: para }] : [] }))).run()
-                if (kind === 'note') setKind('excerpt')
-                setChosen(true)
-              }}
-              onKeyDown={(event) => {
-                const picked = event.metaKey && !event.shiftKey && !event.altKey ? CAPTURE_TYPES[Number(event.key) - 1] : undefined
-                if (picked) {
-                  // ⌘1 to ⌘8: a kind you already know, without the picker.
-                  event.preventDefault()
-                  setKind(picked.id)
-                  setChosen(true)
-                  saveField({ kind: picked.id })
-                } else if (event.key === 'Enter' && !event.shiftKey && !event.metaKey) {
-                  event.preventDefault()
-                  submit(event.altKey)
-                } else if ((event.key === 'Enter' && event.shiftKey) || event.key === 'ArrowDown') {
-                  event.preventDefault()
-                  editorRef.current?.commands.focus('start')
-                }
-              }}
-              className="field-sizing-content w-full resize-none bg-transparent px-[4.75rem] pt-2 text-2xl leading-snug font-semibold outline-none placeholder:text-muted-foreground/50"
             />
-            {/* Under the title, what it is, who said it and where you met it. */}
-            <div className="flex items-center gap-1 px-[4.6rem] pt-1 pb-1">
+            {/* Under the writing: what it is, who said it and where you met it. */}
+            <div className="flex items-center gap-1 px-[4.6rem] py-2">
               <CaptureKindPicker
                 suggested={!chosen && kind !== 'note'}
                 value={kind}
-                onChange={(next) => {
-                  setKind(next)
-                  setChosen(true)
-                  saveField({ kind: next })
-                }}
+                onChange={pick}
               />
               {/* Only what this kind asks for, unless it already holds something. */}
               {(ASKS[kind].who || attribution) && (
@@ -437,18 +415,6 @@ export default function App(): React.JSX.Element {
                 </button>
               )}
             </div>
-            <CapturePrompt
-              key={editing?.id ?? round}
-              initial={editing?.body ?? readDraft()?.body ?? undefined}
-              locked={locked}
-              outline={outline}
-              onReady={(editor) => (editorRef.current = editor)}
-              onChange={(doc, editor) => {
-                setBody(doc)
-                setMarkdown(toMarkdown(editor))
-                saveField({ body: doc, markdown: toMarkdown(editor) })
-              }}
-            />
             {/* A hint sits at the foot of the box: a glance at something you
                 wrote once, while you are here to write. Usually empty. */}
             <div className="px-[4.75rem]">
@@ -591,7 +557,7 @@ const CapturePrompt = ({
         search={true}
         // vim is left out, so it follows the page switch.
         vimStart="insert"
-        autofocus={false}
+        autofocus={true}
         onReady={onReady}
         showSource={false}
         readOnly={locked}
@@ -658,7 +624,7 @@ function SidePanel({ captures, editing, onOpen }: {
               if (tab !== one.id) chime('tap')
               setTab(one.id)
             }}
-            title={`⌘${tabs.indexOf(one) + 1}`}
+            title={`⌃${tabs.indexOf(one) + 1}`}
             className={`relative flex flex-1 items-center justify-center gap-1.5 rounded-md py-1 transition-colors ${tab === one.id ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
           >
             {/* One pill that slides between tabs rather than three that blink. */}

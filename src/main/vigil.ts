@@ -294,7 +294,7 @@ export function registerVigil(): void {
   // Promote: a nugget made from the capture, which stays as it was. A word
   // comes with its prompt, the one kind with a natural question and answer.
   const promote = (id: string): string | null => {
-    const capture = db.prepare("select * from captures where id = ? and status != 'promoted'").get(id) as Record<string, string> | undefined
+    const capture = db.prepare(`select kind, body, private, attribution, ${LABEL} as title from captures where id = ? and status != 'promoted'`).get(id) as Record<string, string> | undefined
     if (!capture) return null
     // A quote's whole claim is "someone said this", so it does not become a
     // nugget until it says who.
@@ -311,7 +311,7 @@ export function registerVigil(): void {
   handle('promote', promote)
   // Resolve elsewhere: the capture becomes a task, and remembers it did.
   handle('toTask', (id: string) => {
-    const capture = db.prepare('select title from captures where id = ?').get(id) as { title: string } | undefined
+    const capture = db.prepare(`select ${LABEL} as title from captures where id = ?`).get(id) as { title: string } | undefined
     if (!capture) return null
     const task = addTask(capture.title, id)
     db.prepare("update captures set status = 'resolved' where id = ?").run(id)
@@ -662,7 +662,7 @@ export function registerVigil(): void {
     if (text.trim().length < 12) return null
     const mine = grams(text)
     let best: { id: string; number: number; title: string; score: number } | null = null
-    for (const row of db.prepare("select id, number, title from captures where status != 'discarded'").all() as { id: string; number: number; title: string }[]) {
+    for (const row of db.prepare(`select id, number, ${LABEL} as title from captures where status != 'discarded'`).all() as { id: string; number: number; title: string }[]) {
       const theirs = grams(row.title)
       const shared = [...mine].filter((gram) => theirs.has(gram)).length
       const score = shared / (mine.size + theirs.size - shared || 1)

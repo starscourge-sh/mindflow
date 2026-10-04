@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowUpRight, ThumbsDown, ThumbsUp, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 
-import { textOf } from './rot-cards'
+import { shown } from './rot-cards'
 import { chime } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
 import { toast } from './vigil/ui'
@@ -86,7 +86,7 @@ export function HintCard({ onOpen }: { onOpen: (captureId: string) => void }): R
           onAnimationStart={() => chime('hint')}
           className="mt-2 mb-3 overflow-hidden rounded-lg bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,transparent)] px-3 py-2.5 text-sm"
         >
-          <div className="line-clamp-6 whitespace-pre-line">{[hint.title, textOf(hint.body)].filter(Boolean).join('\n')}</div>
+          <div className="line-clamp-6 whitespace-pre-line">{shown(hint.title, hint.body)}</div>
           {asking ? (
             <input
               autoFocus

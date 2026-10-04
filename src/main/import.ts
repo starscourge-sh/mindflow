@@ -93,3 +93,21 @@ export function kindOf(line: string): string | null {
   if (/^[\w'-]+$/.test(text) || /\bmeaning$/i.test(text) || /^(define|what does .+ mean)/i.test(text)) return 'word'
   return null
 }
+
+type Node = { type?: string; text?: string; content?: Node[] }
+/**
+ * The first line with words in it: what a capture is called. From the
+ * editor's JSON, a line runs to the end of its block or a line break, with its
+ * bold and links kept whole; from Markdown, its first line without markers.
+ */
+export function firstLine(body: unknown): string {
+  if (typeof body === 'string') return titleOfMarkdown(body.replace(/^\s*\n/, ''))
+  const text = (node: Node): string => (node.type === 'hardBreak' ? '\n' : node.text ?? (node.content ?? []).map(text).join(''))
+  const blocks = (node: Node): Node[] =>
+    node.content?.some((child) => child.text !== undefined || child.type === 'hardBreak') ? [node] : (node.content ?? []).flatMap(blocks)
+  for (const block of body ? blocks(body as Node) : []) {
+    const line = text(block).split('\n').find((one) => one.trim())
+    if (line) return line.trim()
+  }
+  return ''
+}
