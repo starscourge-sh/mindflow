@@ -495,7 +495,7 @@ export default function App(): React.JSX.Element {
               </div>
               {/* Create, bottom right, where the eye ends up. */}
               {!editing && (
-                <label className="ml-auto flex items-center gap-2 text-[13px] text-muted-foreground">
+                <label className="mr-4 ml-auto flex items-center gap-2 text-[13px] text-muted-foreground">
                   <Switch checked={createMore} onCheckedChange={setCreateMore} />
                   Create more
                 </label>
