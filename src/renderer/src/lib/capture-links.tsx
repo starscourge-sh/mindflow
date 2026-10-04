@@ -30,12 +30,12 @@ export const EXITS = [
  * resolve or discard can be taken back; a promotion has made a nugget, which
  * stays.
  */
-export async function exit(id: string, status: string): Promise<void> {
+export async function exit(id: string, status: string, onUndo?: () => void): Promise<void> {
   const one = EXITS.find((e) => e.status === status)
   chime(status === 'discarded' ? 'away' : status === 'promoted' ? 'promote' : 'done')
   const result = status === 'promoted' ? await flying(id, 'nugget', () => takeExit(id, status)) : await takeExit(id, status)
   if (result === 'cancelled' || !one) return
-  toast(one.done, status === 'promoted' ? undefined : () => void window.api.captures.save(id, { status: 'open' }))
+  toast(one.done, status === 'promoted' ? undefined : () => void window.api.captures.save(id, { status: 'open' }).then(() => onUndo?.()))
 }
 
 /**

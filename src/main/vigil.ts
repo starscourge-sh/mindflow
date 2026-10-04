@@ -110,14 +110,22 @@ const preview = (state: string | null): Record<number, string> => {
 
 // --- tasks ----------------------------------------------------------------
 
-const RECURRENCE = /\bevery(!)?\s+(day|weekday|week|month|year|\d+\s+(?:days?|weeks?|months?))\b/i
+// Named days, alone or listed: "every mon, wed", "every tuesday and friday".
+const DAY = '(?:mon|tue|wed|thu|fri|sat|sun)[a-z]*'
+const RECURRENCE = new RegExp(`\\bevery(!)?\\s+(day|weekday|week|month|year|\\d+\\s+(?:days?|weeks?|months?)|${DAY}(?:\\s*(?:,|and|&)\\s*${DAY})*)\\b`, 'i')
+const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+/** The days of the week a "every mon, wed" rule falls on, or none. */
+const namedDays = (unit: string): number[] =>
+  /^(?:mon|tue|wed|thu|fri|sat|sun)/i.test(unit) ? [...unit.toLowerCase().matchAll(/(mon|tue|wed|thu|fri|sat|sun)/g)].map((m) => DAYS.indexOf(m[1])) : []
 
-/** The next date in a series, from `from`. `every 3 days`, `every weekday`. */
+/** The next date in a series, from `from`. `every 3 days`, `every weekday`, `every mon, wed`. */
 function advance(from: Date, rule: string): Date {
   const next = new Date(from)
   const [, , unit] = RECURRENCE.exec(rule) ?? []
   const count = Number(/\d+/.exec(unit ?? '')?.[0] ?? 1)
-  if (/day/.test(unit) && !/weekday/.test(unit)) next.setDate(next.getDate() + count)
+  const named = namedDays(unit ?? '')
+  if (named.length) do next.setDate(next.getDate() + 1); while (!named.includes(next.getDay()))
+  else if (/day/.test(unit) && !/weekday/.test(unit)) next.setDate(next.getDate() + count)
   else if (/weekday/.test(unit)) do next.setDate(next.getDate() + 1); while ([0, 6].includes(next.getDay()))
   else if (/week/.test(unit)) next.setDate(next.getDate() + 7 * count)
   else if (/month/.test(unit)) next.setMonth(next.getMonth() + count)
@@ -138,9 +146,27 @@ function taskFrom(text: string): { title: string; due: string | null; allDay: bo
   if (ending && until) title = title.slice(0, ending.index).trim()
   const repeat = RECURRENCE.exec(title)
   if (repeat) title = title.replace(repeat[0], '').trim()
+  // "on the 1st": the next time the month reaches that day.
+  const ordinal = /\b(?:on\s+)?the\s+(\d{1,2})(?:st|nd|rd|th)\b/i.exec(title)
+  let onDay: Date | null = null
+  if (ordinal) {
+    const day = Number(ordinal[1])
+    onDay = new Date()
+    if (onDay.getDate() > day) onDay.setMonth(onDay.getMonth() + 1)
+    onDay.setDate(day)
+    title = title.replace(ordinal[0], ' ')
+  }
   const [found] = chrono.parse(title, new Date(), { forwardDate: true })
-  if (found) title = (title.slice(0, found.index) + title.slice(found.index + found.text.length)).replace(/\s+/g, ' ').trim()
-  let due = found?.start.date() ?? null
+  if (found) title = title.slice(0, found.index) + title.slice(found.index + found.text.length)
+  // A word left hanging where its date was taken out: "email Sam by".
+  title = title.replace(/\s+/g, ' ').trim().replace(/\s+(?:by|on|at|due|before|for|from)$/i, '').trim()
+  let due = onDay ?? found?.start.date() ?? null
+  // A series of named days starts on the first of them, today included.
+  const named = namedDays(repeat?.[2] ?? '')
+  if (!due && named.length) {
+    due = new Date()
+    while (!named.includes(due.getDay())) due.setDate(due.getDate() + 1)
+  }
   if (!due && repeat) due = new Date()
   const allDay = !!due && !found?.start.isCertain('hour')
   if (due && allDay) due.setHours(9, 0, 0, 0)
@@ -319,9 +345,14 @@ export function registerVigil(): void {
       const tag = `#${change.tag.replace(/^#/, '')}`
       const row = db.prepare('select body from captures where id = ?').get(id) as { body: string }
       const body = JSON.parse(row.body ?? 'null')
+      // On the first line, where a row reads its tags: added at the end it
+      // was there but never showed.
+      const first = body?.content?.[0]
       const next = body && typeof body === 'object'
-        ? { ...body, content: [...(body.content ?? []), { type: 'paragraph', content: [{ type: 'text', text: tag }] }] }
-        : `${body ?? ''}\n${tag}`.trim()
+        ? first?.type === 'paragraph'
+          ? { ...body, content: [{ ...first, content: [...(first.content ?? []), { type: 'text', text: ` ${tag}` }] }, ...body.content.slice(1)] }
+          : { ...body, content: [{ type: 'paragraph', content: [{ type: 'text', text: tag }] }, ...(body.content ?? [])] }
+        : String(body ?? '').replace(/^([^\n]*)/, (line) => `${line} ${tag}`.trim())
       db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(next), id)
     }
     db.exec('commit')
@@ -726,7 +757,14 @@ export function registerVigil(): void {
     db.prepare('insert into task_done (task_id, done_at, session_id) values (?, ?, ?)').run(id, now(), session)
     if (!task.recurrence) return write(db.prepare("update tasks set status = 'done', completed_at = ? where id = ?").run(now(), id))
     const fromToday = task.recurrence.includes('!') || !task.due_at
-    let next = advance(fromToday ? new Date() : new Date(task.due_at!), task.recurrence)
+    // Counted from today, but at the time of day it had: "every! 3 days" at
+    // 9 stays at 9, rather than taking the minute it was ticked.
+    const base = new Date()
+    if (fromToday && task.due_at) {
+      const was = new Date(task.due_at)
+      base.setHours(was.getHours(), was.getMinutes(), 0, 0)
+    }
+    let next = advance(fromToday ? base : new Date(task.due_at!), task.recurrence)
     while (next.getTime() < Date.now()) next = advance(next, task.recurrence)
     // Past its end, the series is over: this one was the last.
     if (task.repeat_until && next.toISOString() > task.repeat_until)
@@ -784,7 +822,7 @@ export function registerVigil(): void {
     const privacy = hidePrivate ? 'and private = 0' : ''
     return db
       .prepare(
-        `select id, 'capture' as type, kind, ${LABEL} as title, pinned_at as pinnedAt from captures where pinned_at is not null ${hidePrivate ? "and private = 0 and status != 'open'" : ''}
+        `select id, 'capture' as type, kind, ${LABEL} as title, pinned_at as pinnedAt from captures where pinned_at is not null ${privacy}
          union all select id, tier as type, kind, title, pinned_at from nuggets where pinned_at is not null ${privacy}
          order by pinnedAt desc limit 3`
       )

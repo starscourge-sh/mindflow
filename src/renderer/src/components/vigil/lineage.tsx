@@ -18,8 +18,19 @@ export function Lineage({ id, onOpen }: { id: string; onOpen?: (type: string, id
   useEffect(() => {
     const load = (): void => void vigil.lineage(id).then(setLineage)
     load()
+    // Again once things settle after a change (a capture lifted out of this
+    // one, say), but not on every keystroke of an autosave.
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const stop = window.api.captures.onChange(() => {
+      clearTimeout(timer)
+      timer = setTimeout(load, 1500)
+    })
     window.addEventListener('focus', load)
-    return () => window.removeEventListener('focus', load)
+    return () => {
+      clearTimeout(timer)
+      stop()
+      window.removeEventListener('focus', load)
+    }
   }, [id])
   if (!lineage) return null
   const groups = [['Came from', lineage.from], ['Became', lineage.became], ['Linked from', lineage.linked]] as const

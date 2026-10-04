@@ -332,6 +332,8 @@ export function TaskDetail({ task: first, onClose, onOpen }: { task: TaskFull; o
         <Input
           defaultValue={task.blocker ?? ''}
           placeholder="What is in the way"
+          // Enter keeps it, the way it does in every other field here.
+          onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
           onBlur={(event) => void vigil.saveTask(task.id, { blocker: event.target.value.trim() || null })}
           className="h-8 w-auto"
         />
@@ -352,6 +354,8 @@ export function TaskDetail({ task: first, onClose, onOpen }: { task: TaskFull; o
         <Input
           defaultValue={task.waitingOn ?? ''}
           placeholder="Someone's name"
+          // Enter keeps it, the way it does in every other field here.
+          onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
           onBlur={(event) => void vigil.saveTask(task.id, { waitingOn: event.target.value.trim() || null })}
           className="h-8 w-auto"
         />
@@ -359,6 +363,8 @@ export function TaskDetail({ task: first, onClose, onOpen }: { task: TaskFull; o
         <Input
           defaultValue={task.recurrence ?? ''}
           placeholder="e.g. every week"
+          // Enter keeps it, the way it does in every other field here.
+          onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
           onBlur={(event) => void vigil.saveTask(task.id, { recurrence: event.target.value.trim() || null })}
           className="h-8 w-auto"
         />
@@ -435,7 +441,7 @@ function Sessions({ taskId }: { taskId: string }): React.JSX.Element {
         <div className="space-y-2">
           <div className="flex items-center gap-2 px-1 text-foreground">
             <span className="size-1.5 animate-pulse rounded-full bg-[var(--tt-color-text-red)]" />
-            <span className="text-lg font-semibold tabular-nums">{clock(tick - new Date(running.startedAt).getTime())}</span>
+            <span className="text-lg font-semibold tabular-nums">{clock(Math.max(0, tick - new Date(running.startedAt).getTime()))}</span>
           </div>
           <Textarea
             value={recap}

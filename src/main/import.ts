@@ -92,10 +92,12 @@ export function kindOf(line: string): string | null {
   const text = line.trim()
   if (/^https?:\/\/\S+$/.test(text)) return 'link'
   // Starts with something to do, or to tell someone: "tell rory to", "ping Sam".
-  if (/^(todo|to do|fix|add|buy|call|phone|ring|book|email|mail|ask|tell|ping|text|message|reply|respond|chase|follow up|check|look into|look up|find|remind|cancel|pay|get|send|order|renew|schedule|arrange|organise|organize|plan|prepare|return|pick up|drop off|collect|finish|start|sort out|set up|install|update|clean|tidy|move|write|read|watch|try|visit|meet|contact|confirm|sign|submit|file|need to|have to|must|should|remember to|don'?t forget)\b/i.test(text)) return 'todo'
+  if (/^(todo|to do|fix|add|buy|call|phone|ring|book|email|mail|ask|tell|ping|text|message|reply|respond|chase|follow up|check|look into|look up|find|remind|cancel|pay|get|send|order|renew|schedule|arrange|organise|organize|plan|prepare|return|pick up|drop off|collect|finish|start|sort out|set up|install|update|clean|tidy|move|write|read|watch|try|visit|meet|contact|confirm|sign|submit|file|need to|have to|must|should|remember to|don'?t forget)\b/i.test(text) && !/\?\s*$/.test(text)) return 'todo'
   if (/^(decided|decision|going with|chose|we('ll| will) go with)\b/i.test(text)) return 'decision'
   if (/^(joke|bit)\b/i.test(text)) return 'bit'
-  if (/^["“].+["”]/.test(text) || /^[A-Z][\w .'-]{1,30}( \([^)]*\))?: \S/.test(text) || /^["“'].+["”']\s*[-—]\s*\w/.test(text)) return 'quote'
+  // A question is a question, not a todo; "Name: words" is a quote only when
+  // there are words enough to be said, not a label like "Shopping list: eggs".
+  if (/^["“].+["”]/.test(text) || /^[A-Z][\w.'-]*(?: [A-Z][\w.'-]*){0,2}( \([^)]*\))?: (?:\S+\s+){4,}\S/.test(text) || /^["“'].+["”']\s*[-—]\s*\w/.test(text)) return 'quote'
   if (/^[\w'-]+$/.test(text) || /\bmeaning$/i.test(text) || /^(define|what does .+ mean)/i.test(text)) return 'word'
   return null
 }

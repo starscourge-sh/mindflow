@@ -27,6 +27,7 @@ const GRADES = [
  */
 export function ReviewView({ compact = false }: { compact?: boolean }): React.JSX.Element {
   const [queue, setQueue] = useState<Due[] | null>(null)
+  const [reviewed, setReviewed] = useState<Set<string>>(new Set())
   const [at, setAt] = useState(0)
   const [shown, setShown] = useState(false)
   // Explain it back: your own words first, then the answer beside them.
@@ -45,6 +46,9 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   const grade = (value: 1 | 2 | 3 | 4): void => {
     if (!card || !shown) return
     void vigil.grade(card.id, value, Date.now() - started.current)
+    // Counted by card, so one seen twice after Again counts once, and a
+    // buried one not at all.
+    setReviewed((ids) => new Set(ids).add(card.id))
     chime((['again', 'hard', 'good', 'easy'] as const)[value - 1])
     // Again is not failure, it is a short gap: the card comes round once more
     // before the session ends.
@@ -83,7 +87,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     return (
       <Page title="Review">
         {queue.length ? (
-          <Empty compact={compact} shape={['star', 2]} title={`Done: ${queue.length} reviewed`}>
+          <Empty compact={compact} shape={['star', 2]} title={`Done: ${reviewed.size} reviewed`}>
             That is today’s queue finished. What you could not recall comes back soonest; the rest waits until just before you would forget it.
           </Empty>
         ) : (

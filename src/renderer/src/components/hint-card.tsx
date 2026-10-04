@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { shown } from './rot-cards'
 import { chime } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
-import { toast } from './vigil/ui'
+import { Rolling, toast } from './vigil/ui'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -22,6 +22,15 @@ type Hint = NonNullable<Awaited<ReturnType<typeof window.api.hints.next>>>
 export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element | null {
   const [hint, setHint] = useState<Hint | null>(null)
   const shownAt = useRef(0)
+  // What the card says, set a beat after it arrives so the words roll in
+  // from nothing rather than appearing already there.
+  const [said, setSaid] = useState('')
+  useEffect(() => {
+    setSaid('')
+    if (!hint) return
+    const timer = setTimeout(() => setSaid(shown(hint.title, hint.body)), 120)
+    return () => clearTimeout(timer)
+  }, [hint?.id, hint?.title]) // eslint-disable-line react-hooks/exhaustive-deps
   // Fixing it where it stands: the words in a field, Enter keeps them.
   const [fixing, setFixing] = useState<string | null>(null)
   useEffect(() => setFixing(null), [hint?.id])
@@ -153,12 +162,19 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
                 onKeyDown={(event) => {
                   event.stopPropagation()
                   if (event.key === 'Enter') keep(fixing)
-                  if (event.key === 'Escape') setFixing(null)
+                  // Closes the field only, never the window behind it.
+                  if (event.key === 'Escape') {
+                    event.preventDefault()
+                    setFixing(null)
+                  }
                 }}
                 className="h-8"
               />
             ) : (
-              <div className="line-clamp-6 cursor-text whitespace-pre-line" onClick={fix}>{shown(hint.title, hint.body)}</div>
+              <div className="line-clamp-6 cursor-text whitespace-pre-line" onClick={fix}>
+                {/* The words roll in when it arrives, a hint being dealt. */}
+                <Rolling by="word" text={said} />
+              </div>
             )}
           </RowMenu>
           {asking ? (
@@ -167,7 +183,10 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
               placeholder={hint.id === hint.captureId ? 'Keep it? Say why in a line and press Enter' : 'Worth testing? Write the question and press Enter'}
               onBlur={() => setHint(null)}
               onKeyDown={(event) => {
-                if (event.key === 'Escape') return setHint(null)
+                if (event.key === 'Escape') {
+                  event.preventDefault()
+                  return setHint(null)
+                }
                 if (event.key !== 'Enter' || !event.currentTarget.value.trim()) return
                 const line = event.currentTarget.value.trim()
                 void (hint.id === hint.captureId

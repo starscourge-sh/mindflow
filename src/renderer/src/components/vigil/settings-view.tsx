@@ -98,7 +98,7 @@ export function SettingsView(): React.JSX.Element {
           <Input type="number" min={0} className={`${field} w-16`} value={settings.reviewsPerDay} onChange={(event) => set({ reviewsPerDay: Number(event.target.value) })} /> reviews
         </Setting>
         <CapTuning />
-        <Setting title="Quiet hours" note="A window in which nothing marked private comes up unasked. Search and lists still show everything.">
+        <Setting title="Quiet hours" note="A window in which nothing private, and no capture you have not dealt with yet, comes up unasked. Your pins stay. Search and lists still show everything.">
           <Input type="time" className={field} value={settings.quietStart} onChange={(event) => set({ quietStart: event.target.value })} />
           <span className="text-muted-foreground">to</span>
           <Input type="time" className={field} value={settings.quietEnd} onChange={(event) => set({ quietEnd: event.target.value })} />

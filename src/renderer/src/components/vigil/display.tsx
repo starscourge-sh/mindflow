@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { SlidersHorizontal } from 'lucide-react'
+import { Check, ChevronDown, SlidersHorizontal } from 'lucide-react'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Rolling, Tip, typing } from './ui'
@@ -11,7 +12,14 @@ import { chime } from '@/lib/sound'
  * any chosen option will do; across filters, all must hold. Each list keeps
  * its own choices, in this browser only: they are how you look, not data.
  */
-export type Choice = { id: string; label: string }
+export type Choice = {
+  id: string
+  label: string
+  /** Drawn beside it in Display's menus, in its tint: a kind's own icon. */
+  icon?: React.ComponentType<{ className?: string; style?: React.CSSProperties }>
+  /** A colour that means something here: a kind's or a tag's. */
+  tint?: string
+}
 export type Facet<T> = { key: string; label: string; options: Choice[]; test: (item: T, option: string) => boolean }
 export type View = { filter: Record<string, string[]>; sort: string; group: string }
 
@@ -93,13 +101,71 @@ export function Chips({ options, on, pick, className = 'flex-wrap' }: { options:
   )
 }
 
-/** The Display button and its panel. F opens it from anywhere on the list. */
+/**
+ * One setting's control in Display: a field showing what is chosen, opening
+ * a menu of the choices with their icons. Ticks for several, one tick for one;
+ * a menu of several stays open while you pick.
+ */
+function Pick({ options, chosen, many, onPick }: { options: Choice[]; chosen: string[]; many: boolean; onPick: (id: string) => void }): React.JSX.Element {
+  const names = options.filter((one) => chosen.includes(one.id)).map((one) => one.label)
+  const shown = !names.length ? 'All' : names.length > 2 ? `${names.length} chosen` : names.join(', ')
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <button type="button" className="flex h-7 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input px-2.5 text-left hover:bg-accent/50 data-[state=open]:border-ring">
+          <span className={`truncate ${names.length ? 'text-foreground' : 'text-muted-foreground'}`}>{shown}</span>
+          <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-h-72 w-(--radix-dropdown-menu-trigger-width) min-w-44 overflow-y-auto">
+        {options.map((one) => {
+          const icon = one.icon ? <one.icon className="size-4" style={{ color: one.tint }} /> : one.tint ? <span className="size-2.5 rounded-full" style={{ background: one.tint }} /> : null
+          const on = chosen.includes(one.id)
+          return many ? (
+            // A box drawn for every option, ticked or not, so it reads as a
+            // list to tick rather than a menu to leave.
+            <DropdownMenuItem
+              key={one.id}
+              role="menuitemcheckbox"
+              aria-checked={on}
+              onSelect={(event) => {
+                event.preventDefault()
+                onPick(one.id)
+              }}
+              className="gap-2 text-control"
+            >
+              <span className={`flex size-4 shrink-0 items-center justify-center rounded-sm border ${on ? 'border-[var(--tt-brand-color-400)] bg-[var(--tt-brand-color-400)] text-primary-foreground' : 'border-input'}`}>
+                {on && <Check className="size-3" />}
+              </span>
+              {icon}
+              {one.label}
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem key={one.id} onSelect={() => onPick(one.id)} className="gap-2 text-control">
+              <Check className={`size-3.5 ${chosen.includes(one.id) ? '' : 'invisible'}`} />
+              {icon}
+              {one.label}
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/**
+ * The Display button and its panel, the way Todoist lays it out: Sort, then
+ * Filter, each setting a name and a field. A changed setting carries a dot,
+ * each section counts its changes, and Reset all puts everything back. F opens
+ * it from anywhere on the list.
+ */
 export function Display<T>({ view, onChange, facets, sorts, groups = [], defaults = {} }: {
   view: View
-  /** Filters the list starts with: not counted as chosen, and what Clear goes back to. */
+  /** Filters the list starts with: not counted as chosen, and what Reset goes back to. */
   defaults?: View['filter']
   onChange: (view: View) => void
   facets: Facet<T>[]
+  /** The first of each is the list's own default. */
   sorts: Choice[]
   groups?: Choice[]
 }): React.JSX.Element {
@@ -115,16 +181,31 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
     return () => window.removeEventListener('keydown', onKey)
   }, [])
   const same = (key: string): boolean => JSON.stringify([...(view.filter[key] ?? [])].sort()) === JSON.stringify([...(defaults[key] ?? [])].sort())
-  const active = Object.entries(view.filter).reduce((n, [key, list]) => n + (same(key) ? 0 : list.length), 0)
+  const filtered = Object.entries(view.filter).reduce((n, [key, list]) => n + (same(key) ? 0 : Math.max(list.length, 1)), 0)
+  const regrouped = groups.length > 1 && view.group !== groups[0].id
+  const reordered = sorts.length > 1 && view.sort !== sorts[0].id
+  const sorted = Number(regrouped) + Number(reordered)
+  const active = filtered + sorted
   const toggle = (key: string, id: string): void => {
     const list = view.filter[key] ?? []
     onChange({ ...view, filter: { ...view.filter, [key]: list.includes(id) ? list.filter((one) => one !== id) : [...list, id] } })
   }
-  // One row per setting, its name beside its choices: denser than stacked
-  // headings, and a setting with nothing to choose between is left out.
-  const Row = ({ label, children }: { label: string; children: ReactNode }): React.JSX.Element => (
+  const shownFacets = facets.filter((facet) => facet.options.length > 1 || (view.filter[facet.key] ?? []).length > 0)
+  const Section = ({ title, count, children }: { title: string; count: number; children: ReactNode }): React.JSX.Element => (
+    <section className="border-t px-3 py-2.5 first:border-t-0">
+      <h3 className="mb-2 flex items-center gap-1.5 font-semibold text-foreground">
+        {title}
+        {count > 0 && <span className="rounded bg-accent px-1 text-meta tabular-nums text-muted-foreground">{count}</span>}
+      </h3>
+      <div className="grid grid-cols-[6rem_1fr] items-center gap-x-3 gap-y-1.5">{children}</div>
+    </section>
+  )
+  const Row = ({ label, changed, children }: { label: string; changed: boolean; children: ReactNode }): React.JSX.Element => (
     <>
-      <div className="pt-0.5 text-xs text-muted-foreground">{label}</div>
+      <div className="flex items-center gap-1.5 text-muted-foreground">
+        {label}
+        {changed && <span className="size-1.5 rounded-full bg-[var(--tt-brand-color-400)]" aria-label="changed" />}
+      </div>
       {children}
     </>
   )
@@ -134,32 +215,50 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
       <PopoverTrigger asChild>
         <button type="button" className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-control hover:bg-accent hover:text-foreground ${active ? 'text-foreground' : ''}`}>
           <SlidersHorizontal className="size-3.5" />
-          Display{active ? ` · ${active}` : ''}
+          Display{active ? `: ${active}` : ''}
         </button>
         </PopoverTrigger>
       </Tip>
-      <PopoverContent align="end" className="max-h-(--radix-popover-content-available-height) w-96 gap-0 overflow-y-auto p-3 text-sm">
-        <div className="grid grid-cols-[5.5rem_1fr] items-start gap-x-2 gap-y-3">
-          {groups.length > 1 && (
-            <Row label="Grouping">
-              <Chips options={groups} on={(id) => view.group === id} pick={(group) => onChange({ ...view, group })} />
-            </Row>
-          )}
-          {sorts.length > 1 && (
-            <Row label="Ordering">
-              <Chips options={sorts} on={(id) => view.sort === id} pick={(sort) => onChange({ ...view, sort })} />
-            </Row>
-          )}
-          {facets.filter((facet) => facet.options.length > 1 || (view.filter[facet.key] ?? []).length > 0).map((facet) => (
-            <Row key={facet.key} label={facet.label}>
-              <Chips options={facet.options} on={(id) => (view.filter[facet.key] ?? []).includes(id)} pick={(id) => toggle(facet.key, id)} />
-            </Row>
-          ))}
-        </div>
+      <PopoverContent
+        align="end"
+        // Kept 12px clear of the window's edge, rounded corner and all.
+        className="max-h-[calc(var(--radix-popover-content-available-height)-12px)] w-80 gap-0 overflow-y-auto p-0 text-control"
+        // A choice in one of its menus is inside Display, not a click away.
+        onInteractOutside={(event) => void ((event.target as Element | null)?.closest?.('[data-slot="dropdown-menu-content"]') && event.preventDefault())}
+      >
+        {(groups.length > 1 || sorts.length > 1) && (
+          <Section title="Sort" count={sorted}>
+            {groups.length > 1 && (
+              <Row label="Grouping" changed={regrouped}>
+                <Pick options={groups} chosen={[view.group]} many={false} onPick={(group) => onChange({ ...view, group })} />
+              </Row>
+            )}
+            {sorts.length > 1 && (
+              <Row label="Ordering" changed={reordered}>
+                <Pick options={sorts} chosen={[view.sort]} many={false} onPick={(sort) => onChange({ ...view, sort })} />
+              </Row>
+            )}
+          </Section>
+        )}
+        {shownFacets.length > 0 && (
+          <Section title="Filter" count={filtered}>
+            {shownFacets.map((facet) => (
+              <Row key={facet.key} label={facet.label} changed={!same(facet.key)}>
+                <Pick options={facet.options} chosen={view.filter[facet.key] ?? []} many onPick={(id) => toggle(facet.key, id)} />
+              </Row>
+            ))}
+          </Section>
+        )}
         {active > 0 && (
-          <button type="button" onClick={() => onChange({ ...view, filter: { ...defaults } })} className="mt-3 text-xs text-muted-foreground hover:text-foreground">
-            Clear filters
-          </button>
+          <div className="border-t p-1">
+            <button
+              type="button"
+              onClick={() => onChange({ ...view, filter: { ...defaults }, group: groups[0]?.id ?? view.group, sort: sorts[0]?.id ?? view.sort })}
+              className="w-full rounded-md py-2 font-medium text-[var(--tt-color-text-red)] hover:bg-accent/50"
+            >
+              Reset all
+            </button>
+          </div>
         )}
       </PopoverContent>
     </Popover>

@@ -674,13 +674,31 @@ export default function App(): React.JSX.Element {
  */
 function useEscapeToHide(): void {
   useEffect(() => {
+    // The editor marks every Escape as handled, so whether it was spent is
+    // read before it gets there: in the editor, Escape hides the window only
+    // when nothing else would take it (no menu open, no words selected, and
+    // vim, if on, already at rest in normal mode).
+    let free = false
+    const before = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      const editor = (event.target as Element | null)?.closest?.('.ProseMirror')
+      if (!editor) return void (free = false)
+      const mode = editor.getAttribute('data-vim-mode')
+      free = (!mode || mode === 'normal') && (window.getSelection()?.isCollapsed ?? true) &&
+        !document.querySelector('[role=menu], [role=listbox], [role=dialog], .tiptap-suggestion-popup, [cmdk-root]')
+    }
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape' || event.defaultPrevented) return
+      if (event.key !== 'Escape') return
+      if (event.defaultPrevented && !free) return
+      free = false
       window.api.hideWindow()
     }
-
+    window.addEventListener('keydown', before, true)
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', before, true)
+      window.removeEventListener('keydown', onKey)
+    }
   }, [])
 }
 

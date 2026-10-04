@@ -69,7 +69,10 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
   const exit = (id: string, status: string): void => {
     // Only that card goes: the others stay put, and a fresh three comes the
     // next time the prompt opens.
-    void exitWith(id, status).then(() => window.api.captures.get(id)).then((now) => now?.status !== 'open' && drop(id))
+    // Undone, it comes back to its place among the cards.
+    const card = cards.find((one) => one.id === id)
+    const back = (): void => void (card && setCards((all) => (all.some((one) => one.id === id) ? all : [...all, card].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)))))
+    void exitWith(id, status, back).then(() => window.api.captures.get(id)).then((now) => now?.status !== 'open' && drop(id))
   }
 
   if (!cards.length) return null

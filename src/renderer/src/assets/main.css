@@ -331,7 +331,9 @@ body {
 }
 :focus-visible:not(input, textarea, select, [contenteditable]) {
   outline: 1.5px solid color-mix(in srgb, var(--tt-brand-color-400) 70%, transparent);
-  outline-offset: 1px;
+  /* Drawn just inside the edge: outside it, any panel that clips its
+     overflow cut the ring off wherever a control met the panel's edge. */
+  outline-offset: -1.5px;
 }
 
 /* Notion's page: the writing in a centred column, the margins either side

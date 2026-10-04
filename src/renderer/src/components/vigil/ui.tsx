@@ -184,7 +184,7 @@ export function useListKeys(count: number, { onOpen, onBack, enabled = true }: {
       if (event.key === 'G') return move(count - 1)
       if (event.key === 'g' && last.current === 'g') return move(0)
       last.current = event.key
-      if (event.key === 'Enter' && onOpen && at >= 0) {
+      if (event.key === 'Enter' && onOpen && at >= 0 && at < count) {
         event.preventDefault()
         onOpen(at)
       }
@@ -235,6 +235,9 @@ function Asker(): React.JSX.Element | null {
         <p className="mb-2 text-sm">{asked.question}</p>
         <Input
           autoFocus
+          // Again a beat later: a right-click menu hands the focus back to
+          // its row as it closes, after autofocus has already run.
+          ref={(input) => void (input && setTimeout(() => input.focus(), 30))}
           placeholder={asked.placeholder}
           onKeyDown={(event) => {
             event.stopPropagation()
@@ -588,7 +591,7 @@ export function SoundToggle({ className = '' }: { className?: string }): React.J
  * goes up rolls up, one that goes down rolls down, and only the digits that
  * moved turn over. Still when motion is off, so it is plain text then.
  */
-export function Rolling({ text, className = '' }: { text: string | number; className?: string }): React.JSX.Element {
+export function Rolling({ text, className = '', by = 'character' }: { text: string | number; className?: string; by?: 'character' | 'word' }): React.JSX.Element {
   const last = useRef(text)
   const up = typeof text === 'number' && typeof last.current === 'number' ? text >= last.current : true
   useEffect(() => void (last.current = text), [text])
@@ -597,7 +600,7 @@ export function Rolling({ text, className = '' }: { text: string | number; class
     <SlotText
       text={String(text)}
       className={className}
-      options={{ direction: up ? 'up' : 'down', duration: still ? 0 : 260, stagger: still ? 0 : 35, exitOffset: still ? 0 : 40 }}
+      options={{ direction: up ? 'up' : 'down', rollBy: by, duration: still ? 0 : 260, stagger: still ? 0 : by === 'word' ? 22 : 35, exitOffset: still ? 0 : 40 }}
     />
   )
 }
