@@ -33,7 +33,7 @@ import { basename, join, relative } from 'path'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { importMarkdown, importNote, recordOpen, registerCaptures } from './captures'
+import { importBookmarks, importMarkdown, importNote, recordOpen, registerCaptures } from './captures'
 import { activeSession, badge, registerVigil, toggleSafeMode } from './vigil'
 
 
@@ -539,17 +539,19 @@ async function importVault(): Promise<void> {
 /**
  * Jottings from Markdown files - an inbox note, a file of jokes - as captures.
  * A file with "joke" or "bit" in its name gives bits; anything else, notes.
+ * An HTML file is a bookmarks export, from Raindrop or a browser: links.
  */
 async function importFiles(): Promise<void> {
   const { filePaths } = await dialog.showOpenDialog({
-    title: 'Import Markdown',
+    title: 'Import Markdown or bookmarks',
     properties: ['openFile', 'multiSelections'],
-    filters: [{ name: 'Markdown', extensions: ['md'] }]
+    filters: [{ name: 'Markdown, or bookmarks from Raindrop or a browser', extensions: ['md', 'html', 'htm'] }]
   })
   const lines = []
   for (const path of filePaths) {
     const name = basename(path)
-    const added = importMarkdown(name, await readFile(path, 'utf8'), /joke|bit/i.test(name) ? 'bit' : 'note')
+    const text = await readFile(path, 'utf8')
+    const added = /\.html?$/i.test(name) ? importBookmarks(name, text) : importMarkdown(name, text, /joke|bit/i.test(name) ? 'bit' : 'note')
     lines.push(`${name}: ${added} new`)
   }
   if (lines.length) await dialog.showMessageBox({ message: 'Imported', detail: lines.join('\n') })
@@ -607,7 +609,7 @@ function updateTray(): void {
     Menu.buildFromTemplate([
       { label: 'Show mindflow', accelerator: SUMMON, click: () => toggleWindow() },
       { label: 'Open all notes', click: openHome },
-      { label: 'Import Markdown…', click: () => void importFiles() },
+      { label: 'Import Markdown or bookmarks…', click: () => void importFiles() },
       { label: 'Import an Obsidian vault…', click: () => void importVault() },
       { type: 'separator' },
       { label: 'Safe mode', type: 'checkbox', checked: safe, click: () => (toggleSafeMode(), updateTray()) },

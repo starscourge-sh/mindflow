@@ -56,7 +56,10 @@ export function SettingsView(): React.JSX.Element {
         <Setting title="Full width" note="Off, pages sit in a centred column the way Notion lays them out, with room either side. On, the writing runs edge to edge.">
           <Switch checked={settings.fullWidth} onCheckedChange={(fullWidth) => set({ fullWidth })} />
         </Setting>
-        <Setting title="Sounds" note="A small sound when you finish a task, promote a capture or grade a review. Always off if your system asks for reduced motion.">
+        <Setting title="Motion" note="Things ease in and out: a capture leaving, a card arriving, a page sliding over. Off, everything appears at once.">
+          <Switch checked={settings.motion} onCheckedChange={(motion) => set({ motion })} />
+        </Setting>
+        <Setting title="Sounds" note="A small click as you point at things and scroll, and a sound when you finish a task, promote a capture or grade a review.">
           <Switch checked={settings.sounds} onCheckedChange={(sounds) => set({ sounds })} />
         </Setting>
         {settings.sounds && (

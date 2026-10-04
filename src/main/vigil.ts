@@ -44,6 +44,8 @@ const DEFAULTS = {
   fullWidth: false,
   // The small sounds on complete, promote and grade.
   sounds: true,
+  // Things ease in and out rather than appearing at once.
+  motion: true,
   // Which of the nine packs they play through.
   soundPack: 'soft' as string,
   // The share of prompt opens that show a hint, and how many rot cards.
@@ -324,10 +326,10 @@ export function registerVigil(): void {
     const rot = db
       .prepare(
         `select ${LIST}, body from captures where status = 'open' ${hidePrivate ? 'and private = 0' : ''}
-         and id not in (select capture_id from nuggets where capture_id is not null and last_visited_at >= ?)
+         and id not in (select nugget_id from hint_events where shown_at >= ? union select capture_id from nuggets where id in (select nugget_id from hint_events where shown_at >= ?))
          order by (julianday('now') - julianday(captured_at) + 1) * (abs(random()) % 1000) desc limit ${Math.max(0, Math.min(10, settings().rotCount))}`
       )
-      .all(ago(3))
+      .all(ago(3), ago(3))
       .map(body)
     for (const row of rot) db.prepare('update captures set surfaced_at = ? where id = ?').run(now(), row.id as string)
     return rot
@@ -345,7 +347,17 @@ export function registerVigil(): void {
       ? (db.prepare(`select id, capture_id as captureId, kind, tier, title, body from nuggets where mode = 'pushed' and suspended = 0 and coalesce(capture_id, '') not in (select id from captures where surfaced_at >= ?) ${hidePrivate ? 'and private = 0' : ''}
           order by coalesce(last_visited_at, '') limit 1`).get(ago(3)) as Record<string, string> | undefined)
       : undefined
-    const hint = pushed ?? db
+    // Half the time, or always while there are few nuggets, an old capture
+    // still open: the link you meant to read, the thing you meant to look up.
+    // Never one a rot card showed in the last three days.
+    const few = (db.prepare('select count(*) n from nuggets where suspended = 0').get() as { n: number }).n < 20
+    const old = !pushed && (few || Math.random() < 0.5)
+      ? (db.prepare(`select id, id as captureId, kind, title, body from captures where status = 'open' and coalesce(surfaced_at, '') < ?
+          and captured_at < ? ${hidePrivate ? 'and private = 0' : ''}
+          and id not in (select nugget_id from hint_events where shown_at >= ?)
+          order by (julianday('now') - julianday(captured_at)) * (abs(random()) % 1000) desc limit 1`).get(ago(3), ago(7), ago(3)) as Record<string, string> | undefined)
+      : undefined
+    const hint = pushed ?? old ?? db
       .prepare(
         `select id, capture_id as captureId, kind, tier, title, body from nuggets where suspended = 0 and mode != 'pushed' and coalesce(capture_id, '') not in (select id from captures where surfaced_at >= ?) ${hidePrivate ? 'and private = 0' : ''}
          order by (julianday('now') - julianday(coalesce(last_visited_at, '2000-01-01'))) * surfacing_weight * (abs(random()) % 1000) desc
@@ -353,7 +365,8 @@ export function registerVigil(): void {
       )
       .get(ago(3)) as Record<string, string> | undefined
     if (!hint) return null
-    db.prepare('update nuggets set last_visited_at = ? where id = ?').run(now(), hint.id)
+    if (!old) db.prepare('update nuggets set last_visited_at = ? where id = ?').run(now(), hint.id)
+    // A capture's id goes in the same column: either way, what was shown.
     const { lastInsertRowid } = db.prepare('insert into hint_events (nugget_id, shown_at) values (?, ?)').run(hint.id, now())
     return { ...body(hint), event: Number(lastInsertRowid) }
   })

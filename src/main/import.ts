@@ -65,12 +65,9 @@ export function guessKind(chunk: string, fallback: string): string {
   // a question is a note; a goal is a todo.
   const tag = /#(tip|idea|quote|bit|goal|question|word)\b/.exec(chunk)?.[1]
   if (tag) return { goal: 'todo', tip: 'note', idea: 'note', question: 'note' }[tag] ?? tag
-  if (/^\s*[-*]?\s*\[?https?:\/\/\S+$/.test(chunk)) return 'link'
-  if (/^\s*[-*]\s+\[ \]/.test(chunk) || /^(todo|fix|add|buy|call|book|email|ask|look into|remind)\b/i.test(text)) return 'todo'
+  if (/^\s*[-*]\s+\[ \]/.test(chunk)) return 'todo'
   if (chunk.length > 600) return 'excerpt'
-  if (/^[A-Z][\w .'-]{1,30}( \([^)]*\))?: \S/.test(text) || /^["“'].+["”']\s*[-—]\s*\w/.test(text)) return 'quote'
-  if (/^\S+$/.test(text) || /\bmeaning$/i.test(text)) return 'word'
-  return fallback
+  return kindOf(text.replace(/^\s*[-*]\s*\[?/, '')) ?? fallback
 }
 
 /** The old inbox's "$2026-06-05 08:34:42$ 💭 »" prefix: its time, and the text without it. */
@@ -79,4 +76,20 @@ export function unstamp(chunk: string): { text: string; at: string | null } {
   return match
     ? { text: chunk.replace(match[0], ''), at: new Date(match[1].replace(' ', 'T')).toISOString() }
     : { text: chunk, at: null }
+}
+
+/**
+ * What a line of text most likely is, from how it is worded: the kind the
+ * capture box suggests as you type, and the import's guess. Null when it reads
+ * as a plain note.
+ */
+export function kindOf(line: string): string | null {
+  const text = line.trim()
+  if (/^https?:\/\/\S+$/.test(text)) return 'link'
+  if (/^(todo|to do|fix|add|buy|call|book|email|ask|look into|remind|cancel|pay|get|send|order|renew|schedule|return|pick up|text|message|reply|finish|sort out|need to|must|remember to)\b/i.test(text)) return 'todo'
+  if (/^(decided|decision|going with|chose|we('ll| will) go with)\b/i.test(text)) return 'decision'
+  if (/^(joke|bit)\b/i.test(text)) return 'bit'
+  if (/^["“].+["”]/.test(text) || /^[A-Z][\w .'-]{1,30}( \([^)]*\))?: \S/.test(text) || /^["“'].+["”']\s*[-—]\s*\w/.test(text)) return 'quote'
+  if (/^[\w'-]+$/.test(text) || /\bmeaning$/i.test(text) || /^(define|what does .+ mean)/i.test(text)) return 'word'
+  return null
 }

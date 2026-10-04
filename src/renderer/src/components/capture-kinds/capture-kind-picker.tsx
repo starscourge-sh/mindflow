@@ -67,9 +67,11 @@ export const CAPTURE_TYPES = [
 export type CaptureType = (typeof CAPTURE_TYPES)[number]["id"]
 
 /** The pill, and the list it opens. */
-export function CaptureKindPicker({ value, onChange }: {
+export function CaptureKindPicker({ value, onChange, suggested = false }: {
   value: CaptureType
   onChange: (kind: CaptureType) => void
+  /** Guessed from the wording, not chosen: drawn dashed until you pick. */
+  suggested?: boolean
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const current = CAPTURE_TYPES.find((Ctype) => Ctype.id === value) ?? CAPTURE_TYPES[0]
@@ -80,7 +82,7 @@ export function CaptureKindPicker({ value, onChange }: {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1.5 rounded-full cursor-pointer">
+        <Button variant="outline" size="sm" title={suggested ? 'Suggested from what you typed. ⌃T or ⌘1-8 to choose' : undefined} className={`gap-1.5 rounded-full cursor-pointer ${suggested ? 'border-dashed' : ''}`}>
           <Icon className="size-4" style={{ color: current.tint }} />
           {current.label}
         </Button>
@@ -129,4 +131,19 @@ export function CaptureKindPicker({ value, onChange }: {
       </PopoverContent>
     </Popover>
   )
+}
+
+/**
+ * What each kind asks for besides its words: who and where, named the way that
+ * kind would say it. A kind without one does not ask; a todo asks for neither.
+ */
+export const ASKS: Record<CaptureType, { who?: string; where?: string }> = {
+  note: { where: 'Where from' },
+  todo: {},
+  quote: { who: 'Who said it', where: 'Where from' },
+  word: { where: 'Where you met it' },
+  link: { who: 'Who made it', where: 'Site' },
+  excerpt: { who: 'Who wrote it', where: 'Where from' },
+  decision: { who: 'Decided with' },
+  bit: { who: 'Whose bit', where: 'Where you heard it' }
 }

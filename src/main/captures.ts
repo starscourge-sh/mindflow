@@ -246,6 +246,33 @@ export function importMarkdown(name: string, text: string, kind: string): number
 }
 
 /**
+ * Bookmarks, as links: the HTML file Raindrop, and every browser, exports.
+ * Each keeps its title, its address as the body, the day it was saved, and
+ * its site as where it came from. One already imported is skipped.
+ */
+export function importBookmarks(name: string, html: string): number {
+  const seen = db.prepare('select 1 from captures where source = ? and body = ?')
+  const where = db.prepare('update captures set medium = ? where id = ?')
+  let added = 0
+  const plain = (text: string): string =>
+    text.replace(/&(amp|quot|#39|lt|gt);/g, (_, code: string) => ({ amp: '&', quot: '"', '#39': "'", lt: '<', gt: '>' })[code]!).trim()
+  for (const [, url, attrs, raw] of html.matchAll(/<a\s+href="([^"]+)"([^>]*)>([^<]*)<\/a>/gi)) {
+    const title = plain(raw)
+    if (!/^https?:/.test(url) || seen.get(name, JSON.stringify(url))) continue
+    const saved = /add_date="(\d+)"/i.exec(attrs)?.[1]
+    const { id, number } = insert(
+      { title: title || url, kind: 'link', body: url, source: name },
+      saved ? new Date(Number(saved) * 1000).toISOString() : new Date().toISOString()
+    )
+    where.run(new URL(url).hostname.replace(/^www\./, ''), id)
+    void writeMarkdown(number, `[${title || url}](${url})`)
+    added += 1
+  }
+  if (added) changed()
+  return added
+}
+
+/**
  * A whole note as one capture: what an Obsidian vault is made of, where each
  * file is a page rather than a list of jottings. Named after its file, dated
  * by its own `created:` line or the file's, and skipped if already imported.

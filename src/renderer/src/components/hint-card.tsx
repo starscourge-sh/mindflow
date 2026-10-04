@@ -52,7 +52,9 @@ export function HintCard({ onOpen }: { onOpen: (captureId: string) => void }): R
     void window.api.hints.react(hint.event, hint.id, reaction)
     if (reaction === 'up') {
       chime('promote')
-      setAsking(true)
+      // Only a nugget can be tested; an old capture is just glad you looked.
+      if (hint.id === hint.captureId) setHint(null)
+      else setAsking(true)
     } else {
       chime('away')
       setHint(null)
@@ -84,7 +86,7 @@ export function HintCard({ onOpen }: { onOpen: (captureId: string) => void }): R
           onAnimationStart={() => chime('hint')}
           className="mt-2 mb-3 overflow-hidden rounded-lg bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,transparent)] px-3 py-2.5 text-sm"
         >
-          <div className="line-clamp-6 whitespace-pre-line">{textOf(hint.body)}</div>
+          <div className="line-clamp-6 whitespace-pre-line">{[hint.title, textOf(hint.body)].filter(Boolean).join('\n')}</div>
           {asking ? (
             <input
               autoFocus

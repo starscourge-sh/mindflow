@@ -149,7 +149,7 @@ export function StatsView(): React.JSX.Element {
                 <N>{percent(stats.stopped, stats.hints.shown)}</N> of <N>{stats.hints.shown}</N> hints stopped you this month: voted up, or kept on screen four seconds or more. If that falls, show fewer, not more.
               </>
             ) : (
-              'No hints yet: they draw from nuggets, so they start once something is promoted.'
+              'No hints yet: about one opening in ten shows one, from your nuggets and old captures.'
             )}
           </p>
           <p>

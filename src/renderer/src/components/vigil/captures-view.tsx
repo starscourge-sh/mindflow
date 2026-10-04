@@ -3,7 +3,7 @@ import type { JSONContent } from '@tiptap/core'
 import { ArrowUpRight, Calendar, CheckCircle2, FileText, Hash, Inbox, ListTodo, Lock, Merge, Pin, Trash2, X } from 'lucide-react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
-import { CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
+import { ASKS, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { CaptureList, useCaptures, type CaptureMeta } from '../capture-list'
 import { STATUS_ICON, captureKey, findCaptures } from '@/lib/capture-links'
 import { toMarkdown } from '@/lib/export'
@@ -188,11 +188,11 @@ function CaptureProps({ capture }: { capture: CaptureMeta }): React.JSX.Element 
         </label>
       )}
       <PropLabel>Who and where</PropLabel>
-      <Remembered key={`a${capture.id}`} field="attribution" value={who} placeholder="Who said it" className="w-full text-[13px]" onChange={(value) => {
+      <Remembered key={`a${capture.id}`} field="attribution" value={who} placeholder={ASKS[capture.kind as CaptureType]?.who ?? 'Who'} className="w-full text-[13px]" onChange={(value) => {
         setWho(value)
         void vigil.setCapture(capture.id, 'attribution', value.trim() || null)
       }} />
-      <Remembered key={`m${capture.id}`} field="medium" value={where} placeholder="Where from" className="w-full text-[13px]" onChange={(value) => {
+      <Remembered key={`m${capture.id}`} field="medium" value={where} placeholder={ASKS[capture.kind as CaptureType]?.where ?? 'Where'} className="w-full text-[13px]" onChange={(value) => {
         setWhere(value)
         void vigil.setCapture(capture.id, 'medium', value.trim() || null)
       }} />

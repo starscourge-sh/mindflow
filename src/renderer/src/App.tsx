@@ -26,7 +26,8 @@ import { chime } from './lib/sound'
 // import { StatusPicker, type Status } from './components/status/status-picker'
 // import { PriorityPicker, type Priority } from './components/priority/priority-picker'
 
-import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from './components/capture-kinds/capture-kind-picker';
+import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from './components/capture-kinds/capture-kind-picker'
+import { kindOf } from '../../main/import'
 import {
   Sheet,
   SheetContent,
@@ -178,6 +179,8 @@ const Header = ({ onNew }: { onNew: () => void }): React.JSX.Element => {
 
 export default function App(): React.JSX.Element {
   const [kind, setKind] = useState<CaptureType>('note')
+  // Picked by hand: from then on the wording no longer suggests one.
+  const [chosen, setChosen] = useState(false)
   const captures = useCaptures()
   useAppearance()
 
@@ -235,6 +238,7 @@ export default function App(): React.JSX.Element {
       setTitle(found.title)
       setBody(found.body as JSONContent)
       setKind(found.kind as CaptureType)
+      setChosen(true)
       setAttribution(found.attribution ?? '')
       setMedium(found.medium ?? '')
     })
@@ -249,6 +253,7 @@ export default function App(): React.JSX.Element {
     setAttribution('')
     setMedium('')
     setKind('note')
+    setChosen(false)
     setRound((n) => n + 1)
     requestAnimationFrame(() => titleRef.current?.focus())
   }
@@ -365,6 +370,8 @@ export default function App(): React.JSX.Element {
               placeholder="What's on your mind?"
               onChange={(event) => {
                 setTitle(event.target.value)
+                // The kind follows the wording until you choose one.
+                if (!chosen && !editing) setKind((kindOf(event.target.value) ?? 'note') as CaptureType)
                 saveField({ title: event.target.value })
               }}
               onPaste={(event) => {
@@ -375,6 +382,7 @@ export default function App(): React.JSX.Element {
                 event.preventDefault()
                 editorRef.current?.chain().focus('end').insertContent(text.split(/\n{2,}/).map((para) => ({ type: 'paragraph', content: para.trim() ? [{ type: 'text', text: para }] : [] }))).run()
                 if (kind === 'note') setKind('excerpt')
+                setChosen(true)
               }}
               onKeyDown={(event) => {
                 const picked = event.metaKey && !event.shiftKey && !event.altKey ? CAPTURE_TYPES[Number(event.key) - 1] : undefined
@@ -382,6 +390,7 @@ export default function App(): React.JSX.Element {
                   // ⌘1 to ⌘8: a kind you already know, without the picker.
                   event.preventDefault()
                   setKind(picked.id)
+                  setChosen(true)
                   saveField({ kind: picked.id })
                 } else if (event.key === 'Enter' && !event.shiftKey && !event.metaKey) {
                   event.preventDefault()
@@ -396,20 +405,27 @@ export default function App(): React.JSX.Element {
             {/* Under the title, what it is, who said it and where you met it. */}
             <div className="flex items-center gap-1 px-[4.6rem] pt-1 pb-1">
               <CaptureKindPicker
+                suggested={!chosen && kind !== 'note'}
                 value={kind}
                 onChange={(next) => {
                   setKind(next)
+                  setChosen(true)
                   saveField({ kind: next })
                 }}
               />
-              <Remembered field="attribution" value={attribution} placeholder="Who said it" onChange={(value) => {
-                setAttribution(value)
-                if (editing) void vigil.setCapture(editing.id, 'attribution', value.trim() || null)
-              }} />
-              <Remembered field="medium" value={medium} placeholder="Where from" onChange={(value) => {
-                setMedium(value)
-                if (editing) void vigil.setCapture(editing.id, 'medium', value.trim() || null)
-              }} />
+              {/* Only what this kind asks for, unless it already holds something. */}
+              {(ASKS[kind].who || attribution) && (
+                <Remembered field="attribution" value={attribution} placeholder={ASKS[kind].who ?? 'Who'} onChange={(value) => {
+                  setAttribution(value)
+                  if (editing) void vigil.setCapture(editing.id, 'attribution', value.trim() || null)
+                }} />
+              )}
+              {(ASKS[kind].where || medium) && (
+                <Remembered field="medium" value={medium} placeholder={ASKS[kind].where ?? 'Where'} onChange={(value) => {
+                  setMedium(value)
+                  if (editing) void vigil.setCapture(editing.id, 'medium', value.trim() || null)
+                }} />
+              )}
               {like && (
                 <button
                   type="button"

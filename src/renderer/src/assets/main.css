@@ -384,3 +384,11 @@ html[data-width='page'] header.page-column {
   max-width: none;
   padding-inline: max(1.25rem, calc((100% - 56rem) / 2 + 1.25rem));
 }
+
+/* The Motion setting, off: CSS transitions and animations stop too. */
+[data-motion='off'] *,
+[data-motion='off'] *::before,
+[data-motion='off'] *::after {
+  transition-duration: 0s !important;
+  animation-duration: 0s !important;
+}

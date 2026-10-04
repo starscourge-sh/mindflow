@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-
+import { MotionGlobalConfig } from 'motion/react'
 import { installTicks, setPack, soundOn, type PackName } from './sound'
 
 /**
@@ -11,6 +11,7 @@ const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.
 export type Settings = {
   fullWidth: boolean
   sounds: boolean
+  motion: boolean
   soundPack: PackName
   hintRate: number
   rotCount: number
@@ -195,7 +196,9 @@ export function useAppearance(): void {
   useEffect(() => {
     if (!settings) return
     document.documentElement.dataset.width = settings.fullWidth ? 'full' : 'page'
+    document.documentElement.dataset.motion = settings.motion ? 'on' : 'off'
+    MotionGlobalConfig.skipAnimations = !settings.motion
     soundOn(settings.sounds)
     setPack(settings.soundPack)
-  }, [settings?.fullWidth, settings?.sounds, settings?.soundPack])
+  }, [settings?.fullWidth, settings?.motion, settings?.sounds, settings?.soundPack])
 }
