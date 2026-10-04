@@ -220,6 +220,19 @@ export function Toaster(): React.JSX.Element | null {
  */
 export function SmoothScroll({ children }: { children: ReactNode }): React.JSX.Element {
   const [box, setBox] = useState<HTMLDivElement | null>(null)
+  useSmooth(box)
+  return (
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <div ref={setBox} className="min-h-0 flex-1 overflow-y-auto">
+        <div className="page-column">{children}</div>
+      </div>
+      <BackToTop target={box} />
+    </div>
+  )
+}
+
+/** The same easing on any scrolling box, whose first child is what scrolls. */
+export function useSmooth(box: HTMLElement | null): void {
   useEffect(() => {
     const wrapper = box
     if (!wrapper || matchMedia('(prefers-reduced-motion: reduce)').matches) return
@@ -233,14 +246,6 @@ export function SmoothScroll({ children }: { children: ReactNode }): React.JSX.E
       lenis.destroy()
     }
   }, [box])
-  return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
-      <div ref={setBox} className="min-h-0 flex-1 overflow-y-auto">
-        <div className="page-column">{children}</div>
-      </div>
-      <BackToTop target={box} />
-    </div>
-  )
 }
 
 /**

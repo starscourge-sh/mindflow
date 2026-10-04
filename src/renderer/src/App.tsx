@@ -16,7 +16,7 @@ import { TodayPanel } from './components/vigil/today-panel'
 import { selectionActions } from './components/vigil/selection-actions'
 import { ReviewView } from './components/vigil/review-view'
 import { useAppearance, useLive } from './lib/vigil'
-import { BackToTop, Remembered, useListKeys } from './components/vigil/ui'
+import { BackToTop, Remembered, useListKeys, useSmooth } from './components/vigil/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import type { LucideIcon } from 'lucide-react'
 import { Toaster, toast } from './components/vigil/ui'
@@ -596,6 +596,8 @@ function SidePanel({ captures, editing, onOpen }: {
 }): React.JSX.Element {
   const [tab, setTab] = useState<'inbox' | 'today' | 'review'>('inbox')
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null)
+  // The same easing as the main window's lists.
+  useSmooth(scroller)
   const due = useLive(() => window.api.vigil('review:counts') as Promise<number>, 0)
   const today = useLive(
     () => (window.api.vigil('tasks') as Promise<{ status: string; dueAt: string | null }[]>).then(
@@ -655,6 +657,8 @@ function SidePanel({ captures, editing, onOpen }: {
         transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
         className="min-h-0 flex-1 overflow-y-auto"
       >
+        {/* One child, which is what the easing moves. */}
+        <div className="flex min-h-full flex-col">
         {tab === 'inbox' ? (
           <>
             <Pins />
@@ -664,16 +668,18 @@ function SidePanel({ captures, editing, onOpen }: {
         ) : tab === 'today' ? (
           <TodayPanel />
         ) : (
-          <div className="flex h-full [&_header]:hidden">
+          <div className="flex flex-1 [&_header]:hidden">
             <ReviewView />
           </div>
         )}
+        </div>
       </motion.div>
       </AnimatePresence>
       <BackToTop target={scroller} />
     </div>
   )
 }
+
 
 /**
  * One control on the prompt's bar: an icon, a fill when it is on, and a
