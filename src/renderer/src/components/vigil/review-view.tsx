@@ -108,10 +108,23 @@ export function ReviewView(): React.JSX.Element {
         transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
         className="mx-auto flex max-w-2xl flex-col gap-6 px-8 py-[10vh]"
       >
-        <h2 className="text-2xl leading-snug font-semibold text-balance">{card.prompt}</h2>
+        {/* The question is editable in place: a card forgotten again and again
+            is usually asking the wrong thing, and this is where you notice. */}
+        <h2
+          key={card.id}
+          contentEditable
+          suppressContentEditableWarning
+          onBlur={(event) => {
+            const prompt = event.currentTarget.textContent?.trim()
+            if (prompt && prompt !== card.prompt) void vigil.saveItem(card.id, { prompt }).then(() => toast('Question rewritten'))
+          }}
+          className="text-2xl leading-snug font-semibold text-balance outline-none"
+        >
+          {card.prompt}
+        </h2>
         {card.lapses >= 4 && (
           <p className="-mt-3 text-sm text-[var(--tt-color-text-orange)]">
-            Forgotten {card.lapses} times. If it goes again, rewrite the prompt rather than drilling it.
+            Forgotten {card.lapses} times. Rewrite the question above rather than drilling it: click it to edit.
           </p>
         )}
 

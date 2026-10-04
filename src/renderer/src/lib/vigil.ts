@@ -54,7 +54,7 @@ export type Task = {
   id: string
   number: number
   title: string
-  status: 'open' | 'done'
+  status: 'open' | 'done' | 'dropped'
   dueAt: string | null
   allDay: number
   recurrence: string | null

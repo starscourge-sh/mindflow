@@ -115,7 +115,6 @@ export function Home(): React.JSX.Element {
         event.preventDefault()
         return setSearching(true)
       }
-      if (event.metaKey && event.altKey && event.code === 'KeyS') return safeMode()
       if (event.metaKey && event.key === '[') return step(-1)
       if (event.metaKey && event.key === ']') return step(1)
       if (event.metaKey && event.key === '\\') return setSidebar((open) => !open)

@@ -1,6 +1,6 @@
-import { Notification, dialog, ipcMain } from 'electron'
+import { Notification, app, dialog, ipcMain } from 'electron'
 import { randomUUID } from 'crypto'
-import { mkdir, writeFile } from 'fs/promises'
+import { cp, mkdir, writeFile } from 'fs/promises'
 import { join } from 'path'
 import * as chrono from 'chrono-node'
 import { createEmptyCard, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
@@ -820,11 +820,16 @@ export function registerVigil(): void {
     if (!filePaths[0]) return null
     const folder = join(filePaths[0], `vigil-${new Date().toISOString().slice(0, 10)}`)
     await mkdir(join(folder, 'markdown'), { recursive: true })
-    const tables = ['captures', 'nuggets', 'tasks', 'glosses', 'review_log']
+    // Every table, so nothing stays behind in the app: sessions, settings and all.
+    const tables = (db.prepare("select name from sqlite_master where type = 'table' and name not like 'sqlite_%'").all() as { name: string }[]).map((row) => row.name)
     const data = Object.fromEntries(tables.map((table) => [table, db.prepare(`select * from ${table}`).all()]))
     await writeFile(join(folder, 'vigil.json'), JSON.stringify(data, null, 2))
     for (const row of data.captures as { number: number; body: string }[])
       await writeFile(join(folder, 'markdown', `MF-${row.number}.md`), plain(JSON.parse(row.body ?? 'null')))
+    for (const row of data.nuggets as { id: string; tier: string; title: string; body: string }[])
+      await writeFile(join(folder, 'markdown', `${row.tier}-${row.id.slice(0, 8)}.md`), `# ${row.title}\n\n${plain(JSON.parse(row.body ?? 'null'))}`)
+    // The pictures and files the notes point at.
+    await cp(join(app.getPath('userData'), 'assets'), join(folder, 'assets'), { recursive: true }).catch(() => undefined)
     return folder
   })
 }

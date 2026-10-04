@@ -214,6 +214,8 @@ export default function App(): React.JSX.Element {
   // Who said it and where you met it. Null who means the words are yours.
   const [attribution, setAttribution] = useState('')
   const [medium, setMedium] = useState('')
+  // Private from the start: never surfaces unasked in quiet hours or safe mode.
+  const [secret, setSecret] = useState(false)
   // Bumped on a fresh box. The editor is keyed on it, so a new one replaces it.
   const [round, setRound] = useState(0)
   // A capture opened from the list on the right. Edits save to it as they
@@ -245,6 +247,7 @@ export default function App(): React.JSX.Element {
       setChosen(true)
       setAttribution(found.attribution ?? '')
       setMedium(found.medium ?? '')
+      setSecret(!!found.private)
     })
   // A fresh box. Sent, or a new note asked for, and the draft goes; put down
   // after reading an old capture, and the note you had started comes back.
@@ -255,6 +258,7 @@ export default function App(): React.JSX.Element {
     setBody(draft ?? null)
     setAttribution('')
     setMedium('')
+    setSecret(false)
     setKind('note')
     setChosen(false)
     setRound((n) => n + 1)
@@ -308,6 +312,7 @@ export default function App(): React.JSX.Element {
         if (attribution.trim()) await vigil.setCapture(id, 'attribution', attribution.trim())
         if (where) await vigil.setCapture(id, 'medium', where)
         await vigil.linkSession(id)
+        if (secret) await vigil.setPrivate('captures', id, true)
         // A link shows as its card, filled in once the page answers.
         if (sorted === 'link') void cardUp({ id, kind: sorted, body: hasContent(doc) ? doc : null })
         if (action) {
@@ -424,6 +429,14 @@ export default function App(): React.JSX.Element {
                   if (editing) void vigil.setCapture(editing.id, 'medium', value.trim() || null)
                 }} />
               )}
+              <Tip label={secret ? 'Private: never comes up unasked in quiet hours or safe mode' : 'Make it private'}>
+                <Button variant="ghost" size="icon-sm" aria-label="Private" className={secret ? 'text-foreground' : 'text-muted-foreground/60'} onClick={() => {
+                  setSecret(!secret)
+                  if (editing) void vigil.setPrivate('captures', editing.id, !secret)
+                }}>
+                  {secret ? <Lock /> : <LockOpen />}
+                </Button>
+              </Tip>
               {ASKS[kind].why && textOf(body).trim().split('\n').filter(Boolean).length < 2 && (
                 <span className="truncate px-1.5 text-xs text-muted-foreground/70">{ASKS[kind].why}</span>
               )}

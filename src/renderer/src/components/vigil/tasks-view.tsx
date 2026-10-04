@@ -191,7 +191,7 @@ export function TasksView({ mode, focus }: { mode: 'today' | 'upcoming' | 'routi
                         { label: task.important ? 'Not important' : 'Mark important', run: () => void vigil.saveTask(task.id, { important: task.important ? 0 : 1 }) },
                         { label: `Copy T-${task.number}`, run: () => copy(`T-${task.number}`, `Copied T-${task.number}`) },
                         'separator',
-                        { label: 'Close without doing', danger: true, run: () => void vigil.saveTask(task.id, { status: 'done' }).then(() => toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' }))) }
+                        { label: 'Close without doing', danger: true, run: () => void vigil.saveTask(task.id, { status: 'dropped' }).then(() => toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' }))) }
                       ]}>
                       <motion.div
                         layout="position"
@@ -278,7 +278,7 @@ function TaskDetail({ task: first, onClose }: { task: TaskFull; onClose: () => v
               title.current?.select()
             }}>Make it smaller</Button>
             <Button variant="ghost" size="sm" onClick={() =>
-              void vigil.saveTask(task.id, { status: 'done' }).then(() => {
+              void vigil.saveTask(task.id, { status: 'dropped' }).then(() => {
                 onClose()
                 toast('Let go', () => void vigil.saveTask(task.id, { status: 'open' }))
               })
@@ -375,7 +375,7 @@ function TaskDetail({ task: first, onClose }: { task: TaskFull; onClose: () => v
         <Prop
           icon={Trash2}
           onClick={() =>
-            void vigil.saveTask(task.id, { status: 'done' }).then(() => {
+            void vigil.saveTask(task.id, { status: 'dropped' }).then(() => {
               onClose()
               toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' }))
             })

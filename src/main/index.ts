@@ -1107,6 +1107,12 @@ app.whenReady().then(() => {
   if (!globalShortcut.register(SUMMON, toggleWindow)) {
     console.error(`Could not register ${SUMMON}: something else already has it`)
   }
+  // Safe mode from anywhere, before a screen share, with no window to open:
+  // the menu bar says it took.
+  globalShortcut.register('Alt+Command+S', () => {
+    toggleSafeMode()
+    updateTray()
+  })
 
   app.on('activate', function() {
     // On macOS it's common to re-create a window in the app when the
