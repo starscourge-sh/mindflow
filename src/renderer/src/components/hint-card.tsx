@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { RowMenu } from './vigil/row-menu'
 import { ArrowUpRight, ThumbsDown, ThumbsUp, Trash2, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 
@@ -18,7 +19,7 @@ type Hint = NonNullable<Awaited<ReturnType<typeof window.api.hints.next>>>
  * screen. Up and down change how often it comes back; doing nothing is the
  * normal case and says nothing. It never grades and never schedules.
  */
-export function HintCard({ onOpen }: { onOpen: (captureId: string) => void }): React.JSX.Element | null {
+export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element | null {
   const [hint, setHint] = useState<Hint | null>(null)
   const shownAt = useRef(0)
 
@@ -77,6 +78,26 @@ export function HintCard({ onOpen }: { onOpen: (captureId: string) => void }): R
     return () => window.removeEventListener('keydown', onKey)
   })
 
+  // What a hint offers, as buttons and as its right-click menu alike.
+  const actions: { icon: typeof X; tip: string; keys?: string; run: () => void }[] = !hint ? [] : [
+                // Opened right here in the prompt: the capture in the box, a
+                // nugget or article in its place.
+                { icon: ArrowUpRight, tip: 'Open it', run: () => { onOpen(hint.id === hint.captureId ? 'capture' : ((hint as { tier?: string }).tier ?? 'nugget'), hint.id); setHint(null) } },
+                { icon: ThumbsUp, tip: 'Show this more often', keys: '⌃⇧↑', run: () => react('up') },
+                { icon: ThumbsDown, tip: 'Show this less often', keys: '⌃⇧↓', run: () => react('down') },
+                { icon: X, tip: 'Not now', run: () => setHint(null) },
+                // Gone for good, but never destroyed: a capture goes to
+                // Discarded and a nugget stops surfacing; both come back.
+                { icon: Trash2, tip: hint.id === hint.captureId ? 'Discard it' : 'Stop showing it', run: () => {
+                  const id = hint.id
+                  const capture = id === hint.captureId
+                  chime('away')
+                  setHint(null)
+                  void (capture ? window.api.captures.save(id, { status: 'discarded' }) : vigil.saveItem(id, { suspended: true })).then(() =>
+                    toast(capture ? 'Discarded: it is in Discarded if you want it back' : 'It will not come up again', () =>
+                      void (capture ? window.api.captures.save(id, { status: 'open' }) : vigil.saveItem(id, { suspended: false }))))
+                } }
+]
   return (
     <AnimatePresence>
       {hint && (
@@ -89,7 +110,9 @@ export function HintCard({ onOpen }: { onOpen: (captureId: string) => void }): R
           onAnimationStart={() => chime('hint')}
           className="mt-2 mb-3 overflow-hidden rounded-lg bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,transparent)] px-3 py-2.5 text-sm"
         >
-          <div className="line-clamp-6 whitespace-pre-line">{shown(hint.title, hint.body)}</div>
+          <RowMenu items={actions.map(({ tip, keys, run }) => ({ label: tip, keys, run, danger: tip === 'Discard it' }))}>
+            <div className="line-clamp-6 whitespace-pre-line">{shown(hint.title, hint.body)}</div>
+          </RowMenu>
           {asking ? (
             <Input
               autoFocus
@@ -111,23 +134,7 @@ export function HintCard({ onOpen }: { onOpen: (captureId: string) => void }): R
               <span className="mr-auto text-xs">Hint · {hint.kind}</span>
               {/* Open, or let it go: a hint asks nothing else of you. Each
                   button says what it does, since the icons alone do not. */}
-              {[
-                ...(hint.captureId ? [{ icon: ArrowUpRight, tip: 'Open it', run: () => { onOpen(hint.captureId!); setHint(null) } }] : []),
-                { icon: ThumbsUp, tip: 'Show this more often', keys: '⌃⇧↑', run: () => react('up') },
-                { icon: ThumbsDown, tip: 'Show this less often', keys: '⌃⇧↓', run: () => react('down') },
-                { icon: X, tip: 'Not now', run: () => setHint(null) },
-                // Gone for good, but never destroyed: a capture goes to
-                // Discarded and a nugget stops surfacing; both come back.
-                { icon: Trash2, tip: hint.id === hint.captureId ? 'Discard it' : 'Stop showing it', run: () => {
-                  const id = hint.id
-                  const capture = id === hint.captureId
-                  chime('away')
-                  setHint(null)
-                  void (capture ? window.api.captures.save(id, { status: 'discarded' }) : vigil.saveItem(id, { suspended: true })).then(() =>
-                    toast(capture ? 'Discarded: it is in Discarded if you want it back' : 'It will not come up again', () =>
-                      void (capture ? window.api.captures.save(id, { status: 'open' }) : vigil.saveItem(id, { suspended: false }))))
-                } }
-              ].map(({ icon: Icon, tip, keys, run }) => (
+              {actions.map(({ icon: Icon, tip, keys, run }) => (
                 <Tooltip key={tip}>
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon-sm" aria-label={tip} onClick={run}>

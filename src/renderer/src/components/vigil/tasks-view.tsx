@@ -108,8 +108,11 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
         setCursor(to)
         return
       }
+      if (event.metaKey || event.ctrlKey || event.altKey) return
+      // e completes, as in Todoist.
+      if (event.key === 'e') return complete(task)
       const days = { t: 0, m: 1, w: 7 }[event.key]
-      if (days === undefined || event.metaKey || event.ctrlKey || event.altKey) return
+      if (days === undefined) return
       void vigil.saveTask(task.id, { due: shiftTo(days) }).then(() => toast(`Moved to ${when(shiftTo(days)).toLowerCase()}`))
     }
     window.addEventListener('keydown', onKey)
@@ -196,7 +199,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
               return (
                       <RowMenu items={[
                         { label: 'Open', keys: '↵', run: () => pick(task.id) },
-                        { label: 'Complete', run: () => complete(task) },
+                        { label: 'Complete', keys: 'E', run: () => complete(task) },
                         'separator',
                         { label: 'Today', keys: 'T', run: () => void vigil.saveTask(task.id, { due: shiftTo(0) }) },
                         { label: 'Tomorrow', keys: 'M', run: () => void vigil.saveTask(task.id, { due: shiftTo(1) }) },
@@ -268,7 +271,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
 }
 
 /** The open task: its notes, and down the right when it is and what it has been. */
-function TaskDetail({ task: first, onClose, onOpen }: { task: TaskFull; onClose: () => void; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
+export function TaskDetail({ task: first, onClose, onOpen }: { task: TaskFull; onClose: () => void; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   // Read again on every change, so a toggle shows what it now is.
   const task = useLive(async () => (await vigil.task(first.id)) ?? first, first, [first.id])
   const title = useRef<HTMLInputElement>(null)

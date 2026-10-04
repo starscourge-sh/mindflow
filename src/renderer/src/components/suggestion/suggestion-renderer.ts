@@ -50,13 +50,13 @@ export function createSuggestionRenderer<I>(
       event.preventDefault()
       event.stopPropagation()
 
-      // Take the `/` or `@` with it. Standing the plugin down alone left the
-      // character sitting there to be deleted by hand, which is not what
-      // backing out of a menu means.
+      // A lone `/` or `@` goes with it: backing out of a menu should not leave
+      // the character to delete by hand. Anything typed after it stays, since
+      // "#proj" or "@hey" is your words and Escape only closes the menu.
       const { editor } = renderer
       const { view } = editor
-      const range = pluginKey.getState(view.state)?.range
-      if (range) editor.chain().focus().deleteRange(range).run()
+      const state = pluginKey.getState(view.state)
+      if (state?.range && !state.query) editor.chain().focus().deleteRange(state.range).run()
 
       // Tells the plugin to stand down, so it stops matching the query behind
       // the popup; that in turn fires `onExit` and tears this down.

@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CalendarDays, Check, Plus, Repeat } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { chime } from '@/lib/sound'
 import { useLive, vigil, when, type Task } from '@/lib/vigil'
-import { toast } from './ui'
+import { toast, typing, useListKeys } from './ui'
+import { RowMenu, copy } from './row-menu'
 import { Tip } from '@/components/vigil/ui'
 
 const endOfToday = (): number => new Date().setHours(24, 0, 0, 0)
@@ -12,14 +13,40 @@ const startOfToday = (): number => new Date().setHours(0, 0, 0, 0)
 
 /**
  * Today, sized for the prompt: what is due or late, a line to add one, and the
- * circle to tick it off. The full list, with its notes and sessions, is in the
- * main window; this is the glance you get without leaving the capture box.
+ * circle to tick it off. A task opens here in the prompt, notes and all, so
+ * nothing about it needs the main window. The keys: j and k move, Enter opens,
+ * e completes, t, m and w move it to today, tomorrow or next week, a adds.
  */
-export function TodayPanel(): React.JSX.Element {
+export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; open?: string }): React.JSX.Element {
   const tasks = useLive(vigil.tasks, [] as Task[])
   const [draft, setDraft] = useState('')
   const [ticking, setTicking] = useState<string | null>(null)
   const due = tasks.filter((task) => task.status === 'open' && task.dueAt && new Date(task.dueAt).getTime() < endOfToday())
+
+  const add = useRef<HTMLInputElement>(null)
+  const [cursor] = useListKeys(due.length, { onOpen: (index) => onOpen(due[index].id) })
+  const move = (task: Task, days: number): void => {
+    const at = new Date()
+    at.setDate(at.getDate() + days)
+    at.setHours(9, 0, 0, 0)
+    void vigil.saveTask(task.id, { due: at.toISOString() }).then(() => toast(`Moved to ${when(at.toISOString()).toLowerCase()}`))
+  }
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
+      if (event.key === 'a') {
+        event.preventDefault()
+        return add.current?.focus()
+      }
+      const task = due[cursor]
+      if (!task) return
+      const days = { t: 0, m: 1, w: 7 }[event.key]
+      if (event.key === 'e') tick(task)
+      else if (days !== undefined) move(task, days)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
 
   const tick = (task: Task): void => {
     setTicking(task.id)
@@ -46,6 +73,8 @@ export function TodayPanel(): React.JSX.Element {
       >
         <Plus className="size-3.5 text-muted-foreground" />
         <input
+          ref={add}
+          onKeyDown={(event) => event.key === 'Escape' && (event.preventDefault(), event.currentTarget.blur())}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           placeholder="Add a task, with the date in the words"
@@ -53,7 +82,7 @@ export function TodayPanel(): React.JSX.Element {
         />
       </form>
       <AnimatePresence initial={false}>
-        {due.map((task) => {
+        {due.map((task, index) => {
           const late = new Date(task.dueAt!).getTime() < startOfToday()
           return (
             <motion.div
@@ -79,13 +108,27 @@ export function TodayPanel(): React.JSX.Element {
               </button>
               </Tip>
               {/* The row opens the task where its notes and sessions are. */}
-              <button type="button" className="min-w-0 flex-1 text-left" onClick={() => window.api.openInHome('task', task.id)}>
+              <RowMenu items={[
+                { label: 'Open', keys: '↵', run: () => onOpen(task.id) },
+                { label: 'Complete', keys: 'E', run: () => tick(task) },
+                'separator',
+                { label: 'Today', keys: 'T', run: () => move(task, 0) },
+                { label: 'Tomorrow', keys: 'M', run: () => move(task, 1) },
+                { label: 'Next week', keys: 'W', run: () => move(task, 7) },
+                'separator',
+                { label: task.important ? 'Not important' : 'Mark important', run: () => void vigil.saveTask(task.id, { important: task.important ? 0 : 1 }) },
+                { label: `Copy T-${task.number}`, run: () => copy(`T-${task.number}`, `Copied T-${task.number}`) },
+                'separator',
+                { label: 'Close without doing', danger: true, run: () => void vigil.saveTask(task.id, { status: 'dropped' }).then(() => toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' }))) }
+              ]}>
+              <button type="button" data-cursor={index === cursor || undefined} className={`min-w-0 flex-1 rounded text-left ${index === cursor ? 'ring-1 ring-border' : ''} ${task.id === open ? 'font-medium' : ''}`} onClick={() => onOpen(task.id)}>
                 <p className="truncate">{task.title}</p>
                 <p className="flex items-center gap-1 text-xs" style={{ color: late ? 'var(--tt-color-text-red)' : 'var(--tt-color-text-orange)' }}>
                   <CalendarDays className="size-3" /> {when(task.dueAt, !!task.allDay)}
                   {task.recurrence && <Repeat className="ml-1 size-3 text-muted-foreground" />}
                 </p>
               </button>
+              </RowMenu>
             </motion.div>
           )
         })}

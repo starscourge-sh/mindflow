@@ -236,7 +236,7 @@ function ArticleRow({ item }: { item: Item }): React.JSX.Element {
 }
 
 /** The open nugget or article: its words, its glosses, and down the right how it comes back. */
-function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
+export function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const [prompt, setPrompt] = useState(item.prompt ?? '')
   const [gloss, setGloss] = useState('')
   const glossWords = item.glosses.filter((one) => one.author === 'user').reduce((sum, one) => sum + one.body.split(/\s+/).filter(Boolean).length, 0)

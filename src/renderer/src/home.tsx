@@ -118,6 +118,11 @@ export function Home(): React.JSX.Element {
       if (event.metaKey && event.key === '[') return step(-1)
       if (event.metaKey && event.key === ']') return step(1)
       if (event.metaKey && event.key === '\\') return setSidebar((open) => !open)
+      // ⌘, opens Settings, as in every Mac app.
+      if (event.metaKey && event.key === ',') {
+        event.preventDefault()
+        return setView({ id: 'settings' })
+      }
       if (event.metaKey || event.ctrlKey || event.altKey) return
       if (pending) {
         pending = false

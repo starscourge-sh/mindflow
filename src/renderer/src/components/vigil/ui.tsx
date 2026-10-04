@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { ArrowUp, Volume2, VolumeX, type LucideIcon } from 'lucide-react'
+import { ArrowUp, CircleCheck, Volume2, VolumeX, type LucideIcon } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Coolshape, type shapeTypes } from 'coolshapes-react'
 import Lenis from 'lenis'
@@ -260,8 +260,11 @@ export function Toaster(): React.JSX.Element | null {
     <Asker />
     {shown && <div
       key={shown.key}
-      className="fixed right-5 bottom-5 z-50 flex items-center gap-3 rounded-lg bg-popover px-3.5 py-2 text-sm shadow-[0_8px_24px_-6px_rgb(0_0_0/0.45)] animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]"
+      // A pill with an edge and a mark, like the kind chip: it has to be seen
+      // from the corner of the eye, on any theme.
+      className="fixed right-5 bottom-5 z-50 flex items-center gap-2 rounded-full border border-border bg-popover py-1.5 pr-4 pl-2.5 text-sm font-medium shadow-[0_8px_24px_-6px_rgb(0_0_0/0.5)] animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]"
     >
+      <CircleCheck className="size-4 shrink-0 text-[var(--tt-brand-color-400)]" />
       <span>{shown.text}</span>
       {shown.undo && (
         <button

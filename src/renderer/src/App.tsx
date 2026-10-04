@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
-import { FileJson2, Keyboard, KeyboardOff, Lock, LockOpen, Maximize2, Minimize2, SquarePen, TableOfContents, X } from 'lucide-react'
+import { ArrowLeft, FileJson2, Keyboard, KeyboardOff, Lock, LockOpen, Maximize2, Minimize2, SquarePen, TableOfContents, X } from 'lucide-react'
 import type { Editor, JSONContent } from '@tiptap/core'
 
 import { MindflowEditor, TAGS, currentVim, onVimChange, setVim } from './components/mindflow'
 import { ThemePicker } from './components/theme/theme-picker'
-import { findCaptures } from './lib/capture-links'
+import { findCaptures, follow } from './lib/capture-links'
 import { toMarkdown } from './lib/export'
 import { CaptureList, useCaptures } from './components/capture-list'
 import { RotCards, textOf } from './components/rot-cards'
@@ -16,10 +16,11 @@ import { TodayPanel } from './components/vigil/today-panel'
 import { selectionActions } from './components/vigil/selection-actions'
 import { ReviewView } from './components/vigil/review-view'
 import { useAppearance, useLive } from './lib/vigil'
-import { BackToTop, Remembered, useListKeys, useSmooth, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
+import { BackToTop, Kbd, Remembered, useListKeys, useSmooth, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import type { LucideIcon } from 'lucide-react'
 import { Toaster, toast } from './components/vigil/ui'
+import { Reader } from './components/vigil/reader'
 import { vigil } from './lib/vigil'
 import { chime } from './lib/sound'
 
@@ -252,7 +253,33 @@ export default function App(): React.JSX.Element {
     void vigil.similar(first).then(setLike)
   }, [first, editing])
 
+  // A task, nugget or article open in the prompt, in place of the box: read
+  // and changed here, never by switching to the main window. The note you were
+  // writing waits as a draft, as it does when a capture is opened.
+  const [reading, setReading] = useState<{ type: string; id: string } | null>(null)
+  const openAny = (type: string, id: string): void => {
+    if (type === 'capture') return openCapture(id)
+    if (!latestEditing.current && editorRef.current) localStorage.setItem('capture-draft', JSON.stringify(editorRef.current.getJSON()))
+    setReading({ type, id })
+  }
+  // Escape goes back to the note, before it hides the window. Not while a
+  // field or the editor's insert mode has it: those keep their own Escape.
+  useEffect(() => {
+    if (!reading) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      const target = event.target as HTMLElement
+      if (target.closest?.('[data-vim-mode="insert"]')) return
+      event.preventDefault()
+      event.stopPropagation()
+      if (['INPUT', 'TEXTAREA'].includes(target.tagName)) return target.blur()
+      setReading(null)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [reading])
   const openCapture = (id: string): void => {
+    setReading(null)
     // The note being written is kept as it is now, not as it was at the last
     // pause in typing, or opening another straight after typing loses words.
     if (!latestEditing.current && editorRef.current) localStorage.setItem('capture-draft', JSON.stringify(editorRef.current.getJSON()))
@@ -402,6 +429,20 @@ export default function App(): React.JSX.Element {
           className="h-full w-full"
         >
           <div className="h-full w-full flex flex-col">
+            {reading ? (
+              <div className="flex min-h-0 flex-1 flex-col">
+                <div data-chrome className="flex items-center gap-2 px-4 pt-2 text-[13px] text-muted-foreground">
+                  <Button variant="ghost" size="sm" onClick={() => setReading(null)}>
+                    <ArrowLeft className="size-4" /> Back to your note
+                  </Button>
+                  <Kbd>Esc</Kbd>
+                </div>
+                <div className="flex min-h-0 flex-1">
+                  <Reader type={reading.type} id={reading.id} onOpen={openAny} onClose={() => setReading(null)} />
+                </div>
+              </div>
+            ) : (
+            <>
             {/* Keyed like the editor, so each note that opens, old or fresh,
                 eases in rather than snapping into place. */}
             <motion.div
@@ -417,7 +458,7 @@ export default function App(): React.JSX.Element {
               locked={locked}
               outline={outline}
               onReady={(editor) => (editorRef.current = editor)}
-              onOpenNote={openCapture}
+              onOpenNote={(link) => follow(link, openAny)}
               from={editing?.id}
               onChange={(doc, editor) => {
                 if (editing?.id !== editingNow.current) return saveField({ body: doc, markdown: toMarkdown(editor) })
@@ -481,9 +522,12 @@ export default function App(): React.JSX.Element {
             {/* A hint sits at the foot of the box: a glance at something you
                 wrote once, while you are here to write. Usually empty. */}
             <div data-chrome className="px-[4.75rem]">
-              {!focus && <HintCard onOpen={openCapture} />}
+              {!focus && <HintCard onOpen={openAny} />}
             </div>
             </motion.div>
+            </>
+            )}
+            {!reading && (
             <main data-chrome className="flex items-center gap-1 py-[0.5rem] px-[4.75rem] bg-linear-to-t from-[var(--accent)]/40">
               {/* The editor's settings, one shape each, every one named with its
                   key on hover, and on or off shown by a fill rather than a fade. */}
@@ -512,6 +556,7 @@ export default function App(): React.JSX.Element {
               </Button>
               </Tip>
             </main>
+            )}
           </div>
           <SourceDrawer open={source} doc={body} onOpenChange={setSource} />
         </ResizablePanel>
@@ -519,7 +564,7 @@ export default function App(): React.JSX.Element {
         {!focus && <ResizableHandle withHandle />}
         {!focus && (
           <ResizablePanel defaultSize="40%" minSize={"30%"}>
-            <SidePanel captures={captures} editing={editing?.id} onOpen={openCapture} />
+            <SidePanel captures={captures} editing={editing?.id} onOpen={openCapture} onOpenAny={openAny} reading={reading?.id} />
           </ResizablePanel>
         )}
       </ResizablePanelGroup>
@@ -653,12 +698,20 @@ const CapturePrompt = ({
  * and the review queue, a tab each. The main window has the same things with
  * room to spread out; this is them at the size you actually keep open.
  */
-function SidePanel({ captures, editing, onOpen }: {
+function SidePanel({ captures, editing, onOpen, onOpenAny, reading }: {
   captures: Parameters<typeof CaptureList>[0]['captures']
   editing?: string
   onOpen: (id: string) => void
+  /** A task, nugget or article, opened in the prompt. */
+  onOpenAny: (type: string, id: string) => void
+  reading?: string
 }): React.JSX.Element {
   const [tab, setTab] = useState<'inbox' | 'today' | 'review'>('inbox')
+  // Today and Review are worked by keys, so the capture box lets go of them
+  // there; typing goes back to the box on the Inbox tab or a click into it.
+  useEffect(() => {
+    if (tab !== 'inbox') (document.activeElement as HTMLElement | null)?.blur()
+  }, [tab])
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null)
   // The same easing as the main window's lists.
   useSmooth(scroller)
@@ -728,7 +781,7 @@ function SidePanel({ captures, editing, onOpen }: {
             box's own, cut to fall only below it. */}
         {tab === 'inbox' && (
           <div className="relative z-10 shrink-0 shadow-xl [clip-path:inset(0_0_-3rem_0)]">
-            <Pins />
+            <Pins onOpen={onOpenAny} />
             <RotCards onOpen={onOpen} />
           </div>
         )}
@@ -743,7 +796,7 @@ function SidePanel({ captures, editing, onOpen }: {
                 <CaptureList captures={open} selected={editing} cursor={cursor} onPick={onOpen} />
               </>
             ) : tab === 'today' ? (
-              <TodayPanel />
+              <TodayPanel onOpen={(id) => onOpenAny('task', id)} open={reading} />
             ) : (
               <div className="flex flex-1 [&_header]:hidden">
                 <ReviewView />
