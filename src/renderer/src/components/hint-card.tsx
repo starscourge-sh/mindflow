@@ -8,6 +8,7 @@ import { vigil } from '@/lib/vigil'
 import { toast } from './vigil/ui'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 
 type Hint = NonNullable<Awaited<ReturnType<typeof window.api.hints.next>>>
 
@@ -128,9 +129,9 @@ export function HintCard({ onOpen }: { onOpen: (captureId: string) => void }): R
               ].map(({ icon: Icon, tip, keys, run }) => (
                 <Tooltip key={tip}>
                   <TooltipTrigger asChild>
-                    <button type="button" aria-label={tip} className="rounded p-1 hover:bg-accent hover:text-foreground" onClick={run}>
+                    <Button variant="ghost" size="icon-sm" aria-label={tip} onClick={run}>
                       <Icon />
-                    </button>
+                    </Button>
                   </TooltipTrigger>
                   <TooltipContent>
                     {tip}

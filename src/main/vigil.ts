@@ -380,7 +380,10 @@ export function registerVigil(): void {
     // dozen links and words. Within a kind, older and voted-up come first.
     const candidates = `from captures where status = 'open' and coalesce(surfaced_at, '') < ?
       and captured_at < ? ${hidePrivate ? 'and private = 0' : ''}
-      and id not in (select nugget_id from hint_events where shown_at >= ?)`
+      and id not in (select nugget_id from hint_events where shown_at >= ?)
+      and ${LABEL} not like 'http%'`
+    // A bare address says nothing at a glance: a link comes up as a hint once
+    // it has a name, its page's or yours.
     const kinds = (db.prepare(`select distinct kind ${candidates}`).all(ago(3), ago(7), ago(3)) as { kind: string }[]).map((row) => row.kind)
     const kind = kinds[Math.floor(Math.random() * kinds.length)]
     const old = !pushed && kind && (few || Math.random() < 0.5)

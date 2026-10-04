@@ -41,6 +41,7 @@ import { Kbd, Toaster, toast, typing } from './components/vigil/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import { useAppearance, useLive, vigil, type Item, type Settings, type Task } from './lib/vigil'
 import { Tip } from '@/components/vigil/ui'
+import { Button } from '@/components/ui/button'
 
 type View = { id: string; focus?: string }
 
@@ -187,15 +188,14 @@ export function Home(): React.JSX.Element {
         </span>
         <span className="flex-1" />
         <Tip label="New capture  C">
-        <button
-          type="button"
+        <Button variant="ghost" size="sm"
         
           onClick={() => window.api.showPrompt()}
           style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="flex items-center gap-1.5 text-muted-foreground"
         >
           <SquarePen className="size-4" /> New
-        </button>
+        </Button>
         </Tip>
       </header>
 

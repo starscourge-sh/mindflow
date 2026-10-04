@@ -19,6 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/vigil/ui'
+import { Button } from '@/components/ui/button'
 
 const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
 
@@ -95,9 +96,9 @@ export function ItemsView({ tier, focus, onOpenCapture }: { tier: 'nugget' | 'ar
                 Start an article
               </button>
               <Tip label="Clear">
-              <button type="button" className="rounded p-1 hover:bg-accent" onClick={() => setChosen([])}>
+              <Button variant="ghost" size="icon-sm" onClick={() => setChosen([])}>
                 <X className="size-3.5" />
-              </button>
+              </Button>
               </Tip>
             </span>
           ) : (
@@ -105,9 +106,9 @@ export function ItemsView({ tier, focus, onOpenCapture }: { tier: 'nugget' | 'ar
               {tier === 'nugget' && items.length > 1 && (
                 <>
                   x to select
-                  <button type="button" className="rounded-md px-2 py-1 text-[13px] hover:bg-accent hover:text-foreground" onClick={() => void vigil.random().then(setPair)}>
+                  <Button variant="ghost" size="sm" onClick={() => void vigil.random().then(setPair)}>
                     Two at random
-                  </button>
+                  </Button>
                 </>
               )}
               <Display

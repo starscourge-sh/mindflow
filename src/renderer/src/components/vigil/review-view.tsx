@@ -9,6 +9,7 @@ import { interval, vigil, type Due } from '@/lib/vigil'
 import { Empty, Kbd, Page, toast, typing } from './ui'
 import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/vigil/ui'
+import { Button } from '@/components/ui/button'
 
 /** The four grades, as the plan defines them: how the retrieval felt, not whether it was right. */
 const GRADES = [
@@ -119,12 +120,12 @@ export function ReviewView(): React.JSX.Element {
             {said.trim() && (
               <div className="-mb-2 flex items-start gap-3 text-sm text-muted-foreground">
                 <p className="flex-1 whitespace-pre-line">You said: {said}</p>
-                <button type="button" className="shrink-0 rounded-md px-2 py-0.5 hover:bg-accent hover:text-foreground" onClick={() =>
+                <Button variant="ghost" size="sm" className="shrink-0" onClick={() =>
                   void vigil.gloss(card.id, said.trim()).then(() => {
                     setSaid('')
                     toast('Kept as a gloss')
                   })
-                }>Keep as a gloss</button>
+                }>Keep as a gloss</Button>
               </div>
             )}
             <motion.div

@@ -4,6 +4,7 @@ import { CalendarDays } from 'lucide-react'
 import { Calendar } from '@/components/ui/calendar'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Button } from '@/components/ui/button'
 
 /**
  * A date, picked from shadcn's calendar in a popover rather than the
@@ -56,13 +57,13 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
           {time && (
             <Input type="time" className="h-8 w-28" value={clock} onChange={(event) => date && event.target.value && onChange(at(date, event.target.value))} />
           )}
-          <button type="button" className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => onChange(at(new Date()))}>
+          <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => onChange(at(new Date()))}>
             Today
-          </button>
+          </Button>
           {value && (
-            <button type="button" className="ml-auto rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => { onChange(null); setOpen(false) }}>
+            <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground" onClick={() => { onChange(null); setOpen(false) }}>
               Clear
-            </button>
+            </Button>
           )}
         </div>
       </PopoverContent>

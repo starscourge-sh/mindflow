@@ -15,6 +15,7 @@ import { RowMenu, copy } from './row-menu'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/vigil/ui'
+import { Button } from '@/components/ui/button'
 
 const startOfDay = (offset = 0): number => new Date(new Date().setHours(0, 0, 0, 0) + offset * 86400000).getTime()
 
@@ -271,16 +272,16 @@ function TaskDetail({ task: first, onClose }: { task: TaskFull; onClose: () => v
         {task.reschedules >= 3 && task.status === 'open' && (
           <div className="mx-auto mb-3 flex w-full max-w-[44rem] items-center gap-2 px-12 text-sm text-muted-foreground">
             <span className="mr-auto">Moved {task.reschedules} times. Smaller, or let it go?</span>
-            <button type="button" className="rounded-md px-2 py-1 hover:bg-accent hover:text-foreground" onClick={() => {
+            <Button variant="ghost" size="sm" onClick={() => {
               void vigil.saveTask(task.id, { reschedules: 0 })
               title.current?.select()
-            }}>Make it smaller</button>
-            <button type="button" className="rounded-md px-2 py-1 hover:bg-accent hover:text-foreground" onClick={() =>
+            }}>Make it smaller</Button>
+            <Button variant="ghost" size="sm" onClick={() =>
               void vigil.saveTask(task.id, { status: 'done' }).then(() => {
                 onClose()
                 toast('Let go', () => void vigil.saveTask(task.id, { status: 'open' }))
               })
-            }>Let it go</button>
+            }>Let it go</Button>
           </div>
         )}
         <input

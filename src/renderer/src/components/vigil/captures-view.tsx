@@ -15,6 +15,7 @@ import { Empty, Kbd, Page, Prop, PropLabel, Props, Remembered, toast, useListKey
 import { RemindMe } from './items-view'
 import { selectionActions } from './selection-actions'
 import { Tip } from '@/components/vigil/ui'
+import { Button } from '@/components/ui/button'
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
 
@@ -87,8 +88,8 @@ export function CapturesView({ title, keep, focus }: {
           chosen.length ? (
             <span className="flex items-center gap-1">
               <span className="mr-1">{chosen.length} selected</span>
-              <button type="button" className="rounded-md px-2 py-1 hover:bg-accent hover:text-foreground" onClick={() => bulk('resolved')}>Resolve</button>
-              <button type="button" className="rounded-md px-2 py-1 hover:bg-accent hover:text-foreground" onClick={() => bulk('discarded')}>Discard</button>
+              <Button variant="ghost" size="sm" onClick={() => bulk('resolved')}>Resolve</Button>
+              <Button variant="ghost" size="sm" onClick={() => bulk('discarded')}>Discard</Button>
               <input
                 placeholder="#tag ↵"
                 onKeyDown={(event) => {
@@ -101,7 +102,7 @@ export function CapturesView({ title, keep, focus }: {
               />
               <DatePicker value={null} placeholder="Date…" className="text-xs" onChange={(at) => at && void vigil.bulk(chosen, { capturedAt: at }).then((n) => toast(`Dated ${n}`))} />
               <Tip label="Clear">
-              <button type="button" className="rounded p-1 hover:bg-accent" onClick={() => setChosen([])}><X className="size-3.5" /></button>
+              <Button variant="ghost" size="icon-sm" onClick={() => setChosen([])}><X className="size-3.5" /></Button>
               </Tip>
             </span>
           ) : (

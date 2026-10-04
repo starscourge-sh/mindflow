@@ -10,6 +10,7 @@ import { splitTags, useLive, vigil } from '@/lib/vigil'
 import { Empty, Page, useListKeys } from './ui'
 import { Input } from '@/components/ui/input'
 import { Tip } from '@/components/vigil/ui'
+import { Button } from '@/components/ui/button'
 
 const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo }
 
@@ -121,16 +122,15 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
             {items.map((item) => {
               const Icon = ICON[item.type as keyof typeof ICON] ?? Inbox
               return (
-                <button
+                <Button variant="ghost" size="sm"
                   key={`${item.type}-${item.id}`}
-                  type="button"
                   onClick={() => onOpen(item.type, item.id)}
-                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent/60"
-                >
+                  className="flex items-center gap-2 text-left"
+        >
                   <Icon className="size-4 shrink-0 text-muted-foreground" />
                   <span className="flex-1 truncate">{splitTags(item.title).text || 'Untitled'}</span>
                   <span className="text-xs text-muted-foreground capitalize">{item.type}</span>
-                </button>
+                </Button>
               )
             })}
           </div>
