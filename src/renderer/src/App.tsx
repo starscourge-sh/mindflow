@@ -60,7 +60,9 @@ const readDraft = (): JSONContent | undefined => {
 /** youtube.com is YouTube; anything else, its name with a capital. */
 const SITES: Record<string, string> = { youtube: 'YouTube', youtu: 'YouTube', github: 'GitHub', linkedin: 'LinkedIn', x: 'X', twitter: 'X' }
 const siteName = (host: string): string => {
-  const name = host.replace(/^www\./, '').split('.')[0]
+  // The name before the domain's ending: en.wikipedia.org is Wikipedia.
+  const parts = host.split('.')
+  const name = (['co', 'com', 'org', 'ac', 'gov'].includes(parts.at(-2) ?? '') ? parts.at(-3) : parts.at(-2)) ?? parts[0]
   return SITES[name] ?? name.charAt(0).toUpperCase() + name.slice(1)
 }
 
@@ -216,6 +218,9 @@ export default function App(): React.JSX.Element {
   const [medium, setMedium] = useState('')
   // Private from the start: never surfaces unasked in quiet hours or safe mode.
   const [secret, setSecret] = useState(false)
+  // When the box was opened, for how long a capture took to write.
+  const openedAt = useRef(Date.now())
+  useEffect(() => window.api.onShown(() => void (openedAt.current = Date.now())), [])
   // Bumped on a fresh box. The editor is keyed on it, so a new one replaces it.
   const [round, setRound] = useState(0)
   // A capture opened from the list on the right. Edits save to it as they
@@ -305,9 +310,15 @@ export default function App(): React.JSX.Element {
     const tags = [...text.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase())
     const action = sorted === 'todo' || tags.some((tag) => actionTags.includes(tag))
     chime('send')
-    setSending(true)
+    const markdown = editorRef.current ? toMarkdown(editorRef.current) : undefined
+    // ⌥ is Linear's "create more": the box is fresh at once, so the next one
+    // can be typed straight away. Otherwise the box leaves and the window goes.
+    if (more) {
+      fresh()
+      toast('Saved. Next one')
+    } else setSending(true)
     void window.api.captures
-      .create({ title: '', kind: sorted, body: hasContent(doc) ? doc : null, markdown: editorRef.current ? toMarkdown(editorRef.current) : undefined })
+      .create({ title: '', kind: sorted, elapsedMs: Date.now() - openedAt.current, body: hasContent(doc) ? doc : null, markdown })
       .then(async (id) => {
         if (attribution.trim()) await vigil.setCapture(id, 'attribution', attribution.trim())
         if (where) await vigil.setCapture(id, 'medium', where)
@@ -319,13 +330,12 @@ export default function App(): React.JSX.Element {
           await vigil.toTask(id)
           toast('Added to your tasks')
         }
-        // Let the box finish leaving before it is replaced. ⌥ is Linear's
-        // "create more": saved, and a fresh box for the next.
+        if (more) return
+        // Let the box finish leaving before it is replaced.
         setTimeout(() => {
           setSending(false)
           fresh()
-          if (more) toast('Saved. Next one')
-          else window.api.hideWindow()
+          window.api.hideWindow()
         }, 180)
       })
   }

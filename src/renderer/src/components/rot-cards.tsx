@@ -3,6 +3,7 @@ import type { JSONContent } from '@tiptap/core'
 
 import { EXITS, captureKey, takeExit } from '@/lib/capture-links'
 import { chime } from '@/lib/sound'
+import { wordsOf } from '../../../main/import'
 import { AskWho, toast } from './vigil/ui'
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
@@ -19,7 +20,9 @@ export const textOf = (body: unknown): string => {
       .replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, '$1')
       .replace(/\$(?=\S)([^$\n]*?\S)\$(?!\d)/g, '$1')
       .replace(/\*\*|__|`|==|~~/g, '')
-  const walk = (node: JSONContent): string => node.text ?? (node.content ?? []).map(walk).join('\n')
+  // Blocks on their own lines; inside one, its words as written, emoji and all.
+  const walk = (node: JSONContent): string =>
+    node.content?.some((child) => child.text !== undefined || child.type === 'emoji') ? wordsOf(node) : node.text ?? (node.content ?? []).map(walk).join('\n')
   return body ? walk(body as JSONContent) : ''
 }
 

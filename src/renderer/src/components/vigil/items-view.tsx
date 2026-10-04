@@ -9,11 +9,12 @@ import { textOf } from '../rot-cards'
 import { selectionActions } from './selection-actions'
 import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { age } from '../capture-list'
-import { findCaptures } from '@/lib/capture-links'
+import { findCaptures, follow } from '@/lib/capture-links'
 import { interval, splitTags, useLive, vigil, when, type Item, type ItemFull } from '@/lib/vigil'
 import { Empty, Page, Prop, PropLabel, Props, Tags, toast, useListKeys, typing, pin } from './ui'
 import { AGES, Display, arrange, period, useView, type Facet } from './display'
 import { RowMenu, copy } from './row-menu'
+import { Lineage } from './lineage'
 import * as chrono from 'chrono-node'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
@@ -28,7 +29,7 @@ const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.fin
  * lines of them, with a line saying how it comes back; an article as a titled
  * document. Same row underneath, so one view, drawn two ways.
  */
-export function ItemsView({ tier, focus, onOpenCapture }: { tier: 'nugget' | 'article'; focus?: string; onOpenCapture?: (id: string) => void }): React.JSX.Element {
+export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article'; focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const all = useLive(() => vigil.items(tier), [] as Item[], [tier])
   const [view, setView] = useView(tier, { sort: 'newest', group: 'none' })
   const facets: Facet<Item>[] = [
@@ -63,7 +64,9 @@ export function ItemsView({ tier, focus, onOpenCapture }: { tier: 'nugget' | 'ar
   useEffect(() => {
     if (tier !== 'nugget') return
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== 'x' || typing()) return
+      if (typing()) return
+      if (event.key === 'Escape') return setChosen([])
+      if (event.key !== 'x') return
       const item = items[at.current]
       if (item) toggle(item.id)
     }
@@ -109,6 +112,11 @@ export function ItemsView({ tier, focus, onOpenCapture }: { tier: 'nugget' | 'ar
                     Two at random
                   </Button>
                 </>
+              )}
+              {tier === 'article' && (
+                <Button variant="ghost" size="sm" onClick={() => void vigil.newArticle().then(pick)}>
+                  <Plus className="size-3.5" /> New article
+                </Button>
               )}
               <Display
                 view={view}
@@ -175,11 +183,11 @@ export function ItemsView({ tier, focus, onOpenCapture }: { tier: 'nugget' | 'ar
           </Empty>
         ) : (
           <Empty shape={['rectangle', 2]} title="No articles yet">
-            An article is your own words on one idea, made from the nuggets that led to it. Open a nugget and choose “Start an article”.
+            An article is your own words on one idea: notes on linear algebra, a thesis, a guide. Start one from nothing with New article, or from nuggets with “Start an article”.
           </Empty>
         )}
       </Page>
-      {open && <ItemDetail key={open.id} item={open} onOpenCapture={onOpenCapture} />}
+      {open && <ItemDetail key={open.id} item={open} onOpen={(type, id) => (type === tier ? pick(id) : onOpen?.(type, id))} />}
     </>
   )
 }
@@ -223,7 +231,7 @@ function ArticleRow({ item }: { item: Item }): React.JSX.Element {
 }
 
 /** The open nugget or article: its words, its glosses, and down the right how it comes back. */
-function ItemDetail({ item, onOpenCapture }: { item: ItemFull; onOpenCapture?: (id: string) => void }): React.JSX.Element {
+function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const [prompt, setPrompt] = useState(item.prompt ?? '')
   const [gloss, setGloss] = useState('')
   const editor = useRef<Editor | null>(null)
@@ -264,7 +272,7 @@ function ItemDetail({ item, onOpenCapture }: { item: ItemFull; onOpenCapture?: (
           documentId={`item-${item.id}`}
           defaultContent={(item.body as JSONContent | string | null) ?? ''}
           findNotes={findCaptures}
-          onOpenNote={onOpenCapture}
+          onOpenNote={(link) => onOpen && follow(link, onOpen)}
           onChange={(body, instance) => {
             editor.current = instance
             void vigil.saveItem(item.id, { body, ...(item.tier === 'nugget' ? { title: instance.getText().split('\n')[0] } : {}) })
@@ -351,6 +359,7 @@ function ItemDetail({ item, onOpenCapture }: { item: ItemFull; onOpenCapture?: (
             <Prop icon={Layers}>{item.origins.length ? `${item.origins.length} nugget${item.origins.length === 1 ? '' : 's'}` : 'Written from scratch'}</Prop>
           </>
         )}
+        <Lineage id={item.id} onOpen={onOpen} />
         <PropLabel>Wrong?</PropLabel>
         {item.supersededBy ? (
           <Prop icon={TriangleAlert}>Superseded: out of review, kept beside its correction</Prop>

@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { ArrowUpRight, CheckCircle2, FileText, Hash, Inbox, ListTodo, Lock, Merge, Pin, Trash2, X } from 'lucide-react'
+import { ArrowUpRight, CheckCircle2, FileText, Hash, Inbox, ListTodo, Lock, Merge, Pin, Trash2, X, Laptop, Timer } from 'lucide-react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { CaptureList, useCaptures, type CaptureMeta } from '../capture-list'
 import { AGES, Display, arrange, period, useView, type Facet } from './display'
 import { DatePicker } from './date-picker'
-import { STATUS_ICON, captureKey, findCaptures } from '@/lib/capture-links'
+import { Lineage } from './lineage'
+import { STATUS_ICON, captureKey, findCaptures, takeExit, follow } from '@/lib/capture-links'
 import { toMarkdown } from '@/lib/export'
 import { splitTags, vigil } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
@@ -24,10 +25,12 @@ type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
  * with its properties and its exits. `focus` opens one straight away, for when
  * search or a tag sent you here.
  */
-export function CapturesView({ title, keep, focus }: {
+export function CapturesView({ title, keep, focus, onOpen }: {
   title: string
   keep: (capture: CaptureMeta) => boolean
   focus?: string
+  /** Go to another thing: a nugget it became, a page that links to it. */
+  onOpen?: (type: string, id: string) => void
 }): React.JSX.Element {
   const all = useCaptures()
   const [view, setView] = useView(`captures:${title}`, { sort: 'newest', group: 'none' })
@@ -58,7 +61,10 @@ export function CapturesView({ title, keep, focus }: {
   const [chosen, setChosen] = useState<string[]>([])
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== 'x' || typing()) return
+      if (typing()) return
+      // Escape lets a selection go, the way Linear's does.
+      if (event.key === 'Escape' && chosen.length) return setChosen([])
+      if (event.key !== 'x') return
       const capture = shown[cursor]
       if (capture) setChosen((ids) => (ids.includes(capture.id) ? ids.filter((one) => one !== capture.id) : [...ids, capture.id]))
     }
@@ -153,13 +159,13 @@ export function CapturesView({ title, keep, focus }: {
               documentId={`capture-${open.id}`}
               defaultContent={(open.body as JSONContent | string | null) ?? ''}
               findNotes={findCaptures}
-              onOpenNote={pick}
+              onOpenNote={(link) => follow(link, (type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id)))}
               onChange={(body, editor) =>
                 window.api.captures.save(open.id, { body, markdown: toMarkdown(editor) })
               }
             />
           </div>
-          <CaptureProps capture={meta} />
+          <CaptureProps capture={meta} onOpen={onOpen} />
         </div>
       ) : null}
     </>
@@ -167,7 +173,7 @@ export function CapturesView({ title, keep, focus }: {
 }
 
 /** Status and the exits, then what the capture is, then where it came from. */
-function CaptureProps({ capture }: { capture: CaptureMeta }): React.JSX.Element {
+function CaptureProps({ capture, onOpen }: { capture: CaptureMeta; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const Status = STATUS_ICON[capture.status as keyof typeof STATUS_ICON] ?? STATUS_ICON.open
   const reopen = (): void => void window.api.captures.save(capture.id, { status: 'open' })
   const [who, setWho] = useState(capture.attribution ?? '')
@@ -177,7 +183,7 @@ function CaptureProps({ capture }: { capture: CaptureMeta }): React.JSX.Element 
     setWhere(capture.medium ?? '')
   }, [capture.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const exits = [
-    { icon: ArrowUpRight, tint: 'purple', label: 'Promote to nugget', run: () => vigil.promote(capture.id), said: 'Promoted to a nugget' },
+    { icon: ArrowUpRight, tint: 'purple', label: 'Promote to nugget', run: () => takeExit(capture.id, 'promoted'), said: 'Promoted to a nugget' },
     { icon: ListTodo, tint: 'orange', label: 'Make it a task', run: () => vigil.toTask(capture.id), said: 'Now a task' },
     { icon: CheckCircle2, tint: 'green', label: 'Resolve', run: () => window.api.captures.save(capture.id, { status: 'resolved' }), said: 'Resolved' },
     { icon: Trash2, tint: 'red', label: 'Discard', run: () => window.api.captures.save(capture.id, { status: 'discarded' }), said: 'Discarded' }
@@ -198,7 +204,7 @@ function CaptureProps({ capture }: { capture: CaptureMeta }): React.JSX.Element 
               onClick={() => {
                 chime(exit.label === 'Discard' ? 'away' : exit.label === 'Promote to nugget' ? 'promote' : 'done')
                 void exit.run().then((result) =>
-                  result === 'needs-source'
+                  result === 'cancelled' ? undefined : result === 'needs-source'
                     ? toast('A quote needs to say who said it: add a source below first')
                     : toast(exit.said, exit.label === 'Promote to nugget' ? undefined : reopen)
                 )
@@ -249,8 +255,11 @@ function CaptureProps({ capture }: { capture: CaptureMeta }): React.JSX.Element 
         setWhere(value)
         void vigil.setCapture(capture.id, 'medium', value.trim() || null)
       }} />
+      <Lineage id={capture.id} onOpen={onOpen} />
       <PropLabel>Details</PropLabel>
       <Prop icon={Hash}>{captureKey(capture.number)}</Prop>
+      {capture.device && <Prop icon={Laptop}>{capture.device}</Prop>}
+      {capture.elapsedMs ? <Prop icon={Timer}>Written in {capture.elapsedMs < 60000 ? `${Math.round(capture.elapsedMs / 1000)}s` : `${Math.round(capture.elapsedMs / 60000)} min`}</Prop> : null}
       {capture.source && <Prop icon={FileText}>{capture.source.replace(/\.md$/, '')}</Prop>}
       {/* Editable, because a system you can catch up on beats one you
           cannot fall behind in: a note from last Tuesday can say so. */}

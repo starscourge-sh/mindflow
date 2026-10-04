@@ -206,12 +206,8 @@ export function Home(): React.JSX.Element {
             <button
               type="button"
               onClick={() => setView({ id: section.id })}
-              className={`group relative flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors ${view.id === section.id ? 'text-foreground' : 'text-foreground/80 hover:bg-accent/60'}`}
+              className={`group relative flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors ${view.id === section.id ? 'bg-accent text-foreground' : 'text-foreground/80 hover:bg-accent/60'}`}
             >
-              {/* One highlight that slides to the section, not one per row. */}
-              {view.id === section.id && (
-                <motion.span layoutId="nav" className="absolute inset-0 -z-10 rounded-md bg-accent" transition={{ type: 'spring', stiffness: 500, damping: 40 }} />
-              )}
               <section.icon className="size-4" style={{ color: `var(--tt-color-text-${section.tint})` }} />
               <span className="flex-1 text-left">{section.label}</span>
               {counts[section.id] ? (
@@ -314,15 +310,15 @@ export function Home(): React.JSX.Element {
         className="flex min-w-0 flex-1"
       >
         {view.id === 'inbox' || view.id === 'all' || view.id === 'discarded' ? (
-          <CapturesView title={SECTIONS.find((section) => section.id === view.id)!.label} keep={keep[view.id]} focus={view.focus} />
+          <CapturesView title={SECTIONS.find((section) => section.id === view.id)!.label} keep={keep[view.id]} focus={view.focus} onOpen={open} />
         ) : kind ? (
-          <CapturesView title={kind.label} keep={(capture) => capture.kind === kind.id} />
+          <CapturesView title={kind.label} keep={(capture) => capture.kind === kind.id} onOpen={open} />
         ) : view.id === 'review' ? (
           <ReviewView />
         ) : view.id === 'today' || view.id === 'upcoming' || view.id === 'routines' ? (
           <TasksView mode={view.id} focus={view.focus} />
         ) : view.id === 'nuggets' || view.id === 'articles' ? (
-          <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} focus={view.focus} onOpenCapture={(id) => open('capture', id)} />
+          <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} focus={view.focus} onOpen={open} />
         ) : view.id === 'tags' ? (
           <TagsView key={view.focus} onOpen={open} focus={view.focus} />
         ) : view.id === 'stats' ? (

@@ -209,6 +209,8 @@ export function registerVigil(): void {
   column('captures', 'session_id text')
   column('captures', 'first_used_at text')
   column('captures', 'surfaced_at text')
+  column('captures', 'device text')
+  column('captures', 'elapsed_ms integer')
   column('captures', 'surfacing_weight real not null default 1')
   // Kept by the database, so no exit can forget them: when a capture left the
   // inbox, and when it was first used (opened, exited or given a who or where),
@@ -314,22 +316,55 @@ export function registerVigil(): void {
   // --- the capture exits
   // Promote: a nugget made from the capture, which stays as it was. A word
   // comes with its prompt, the one kind with a natural question and answer.
-  const promote = (id: string): string | null => {
+  const promote = (id: string, words?: string): string | null => {
     const capture = db.prepare(`select kind, body, private, attribution, ${LABEL} as title from captures where id = ? and status != 'promoted'`).get(id) as Record<string, string> | undefined
     if (!capture) return null
     // A quote's whole claim is "someone said this", so it does not become a
     // nugget until it says who.
     if (capture.kind === 'quote' && !capture.attribution && !/^[^:]{2,40}:/.test(capture.title)) return 'needs-source'
+    // Nor until it says something in your own words: someone else's sentence
+    // kept with nothing of yours beside it is a quote you collected, not one
+    // you understood. Those words become its first gloss.
+    if (capture.kind === 'quote' && !words?.trim()) return 'needs-words'
     const nugget = randomUUID()
     db.prepare(
       `insert into nuggets (id, capture_id, kind, title, body, prompt, private, attribution, mode, created_at, updated_at)
        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(nugget, id, capture.kind, capture.title, capture.body, capture.kind === 'word' ? `What does "${capture.title}" mean?` : null,
       capture.private, capture.attribution, 'encounter', now(), now())
+    if (words?.trim()) db.prepare('insert into glosses (id, item_id, body, created_at) values (?, ?, ?, ?)').run(randomUUID(), nugget, words.trim(), now())
+    // The capture is kept as it was, only marked: the nugget is a copy, edited
+    // on its own, and each points at the other.
     db.prepare("update captures set status = 'promoted' where id = ?").run(id)
     return write(nugget)
   }
   handle('promote', promote)
+  // Where something came from, what it became, and what links to it: the
+  // lineage both ways, and the backlinks an @ link leaves.
+  handle('lineage', (id: string) => {
+    const links = (table: string, title: string): { type: string; id: string; title: string }[] =>
+      db.prepare(`select ${table === 'captures' ? "'capture'" : 'tier'} as type, id, ${title} as title from ${table} where body like ? or body like ?`).all(`%"id":"${id}"%`, `%"id":"%:${id}"%`) as never
+    return {
+      from: [
+        ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title from captures where id = (select capture_id from nuggets where id = ?)`).all(id) as never[]),
+        ...(JSON.parse((db.prepare('select origins from nuggets where id = ?').get(id) as { origins: string | null } | undefined)?.origins ?? '[]') as string[])
+          .map((origin) => db.prepare('select tier as type, id, title from nuggets where id = ?').get(origin) as never)
+          .filter(Boolean)
+      ],
+      became: db.prepare("select tier as type, id, title from nuggets where capture_id = ? or origins like ?").all(id, `%"${id}"%`),
+      linked: [...links('captures', LABEL), ...links('nuggets', 'title')].filter((row) => row.id !== id)
+    }
+  })
+  // What @ offers besides captures: nuggets and articles by name.
+  handle('items:find', (query: string) =>
+    db.prepare("select id, tier, title from nuggets where title like ? and superseded_by is null order by updated_at desc limit 6").all(`%${query}%`))
+  // A page of your own from nothing: notes on linear algebra, say. An article
+  // with no nuggets behind it, there to be written in.
+  handle('article:new', () => {
+    const id = randomUUID()
+    db.prepare("insert into nuggets (id, tier, kind, title, body, created_at, updated_at) values (?, 'article', 'note', 'Untitled', 'null', ?, ?)").run(id, now(), now())
+    return write(id)
+  })
   // Resolve elsewhere: the capture becomes a task, and remembers it did.
   handle('toTask', (id: string) => {
     const capture = db.prepare(`select ${LABEL} as title from captures where id = ?`).get(id) as { title: string } | undefined

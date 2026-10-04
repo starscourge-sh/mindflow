@@ -57,7 +57,7 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
             ...(capture.status === 'open'
               ? EXITS.map((exit) => ({ label: exit.label, danger: exit.status === 'discarded', run: () => {
                   chime(exit.status === 'discarded' ? 'away' : exit.status === 'promoted' ? 'promote' : 'done')
-                  void takeExit(capture.id, exit.status).then((result) => toast(result === 'needs-source' ? 'A quote needs to say who said it first' : exit.done))
+                  void takeExit(capture.id, exit.status).then((result) => result !== 'cancelled' && toast(result === 'needs-source' ? 'A quote needs to say who said it first' : exit.done))
                 } }))
               : [{ label: 'Back to the inbox', run: () => void window.api.captures.save(capture.id, { status: 'open' }) }]),
             capture.status === 'open' && { label: 'Make it a task', run: () => void vigil.toTask(capture.id).then(() => toast('Now a task')) },

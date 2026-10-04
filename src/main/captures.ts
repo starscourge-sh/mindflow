@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { z } from 'zod'
 import Papa from 'papaparse'
 import { join } from 'path'
+import { hostname } from 'os'
 
 import { backUp, writeMarkdown } from './backup'
 import { chunks, createdOf, firstLine, guessKind, kindOf, titleOfMarkdown, unstamp } from './import'
@@ -28,6 +29,9 @@ export interface CaptureMeta {
   capturedAt: string
   /** Who said it: "George Orwell", "Kayla". Null means the words are yours. */
   attribution: string | null
+  /** The machine it was captured on, and how long writing it took. */
+  device: string | null
+  elapsedMs: number | null
   /** Where you met it: "YouTube", "book", "meeting". Free text. */
   medium: string | null
   /** When it took an exit; null while open. */
@@ -45,6 +49,7 @@ export interface Capture extends CaptureMeta {
  */
 export type CapturePatch = Partial<Pick<Capture, 'title' | 'kind' | 'status' | 'body'>> & {
   markdown?: string
+  elapsedMs?: number
 }
 
 /**
@@ -69,7 +74,9 @@ const Patch = z.object({
   kind: z.enum(KINDS).optional(),
   status: z.enum(['open', 'promoted', 'resolved', 'discarded']).optional(),
   body: z.unknown().optional(),
-  markdown: z.string().optional()
+  markdown: z.string().optional(),
+  /** How long the capture took to write, from the box opening to saving it. */
+  elapsedMs: z.number().optional()
 })
 
 /**
@@ -78,7 +85,7 @@ const Patch = z.object({
  * only the fallback, for an import or a bookmark whose body is plain text.
  */
 export const LABEL = 'label(title, body)'
-export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, attribution, medium, exited_at as closedAt`
+export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, attribution, medium, exited_at as closedAt, device, elapsed_ms as elapsedMs`
 
 /** Tell every window the list changed, so whichever is showing it reloads. */
 export const changed = (): void => {
@@ -209,6 +216,8 @@ export function registerCaptures(): void {
   ipcMain.handle('captures:create', (_event, raw: unknown) => {
     const patch = Patch.parse(raw)
     const { id, number } = insert(patch, new Date().toISOString())
+    // The plan's automatic context: which machine, and how long it took.
+    db.prepare('update captures set device = ?, elapsed_ms = ? where id = ?').run(hostname().replace(/\.local$/, ''), patch.elapsedMs ?? null, id)
     if (patch.markdown !== undefined) void writeMarkdown(number, patch.markdown)
     changed()
     return id
@@ -399,15 +408,24 @@ export function importAnki(text: string): number {
 
 /**
  * A whole note as one capture: what an Obsidian vault is made of, where each
- * file is a page rather than a list of jottings. Named after its file, dated
+ * file is a page rather than a list of jottings. A note in a `permanent`
+ * folder becomes an article instead. Named after its file, dated
  * by its own `created:` line or the file's, and skipped if already imported.
  */
 export function importNote(path: string, text: string, modified: Date): boolean {
   const body = text.replace(/^---\n[\s\S]*?\n---\n/, '').trim()
   if (!body) return false
-  if (db.prepare('select 1 from captures where source = ? and body = ?').get(path, JSON.stringify(body))) return false
   const title = path.split('/').pop()!.replace(/\.md$/, '')
   const at = createdOf(text) ?? modified.toISOString()
+  // A Zettelkasten's permanent notes are finished thinking in your own words:
+  // they arrive as articles, not as an inbox to triage.
+  if (/(^|\/)permanent\//.test(path)) {
+    if (db.prepare("select 1 from nuggets where tier = 'article' and title = ?").get(title)) return false
+    db.prepare("insert into nuggets (id, tier, kind, title, body, created_at, updated_at) values (?, 'article', 'note', ?, ?, ?, ?)")
+      .run(randomUUID(), title, JSON.stringify(body), new Date(at).toISOString(), modified.toISOString())
+    return true
+  }
+  if (db.prepare('select 1 from captures where source = ? and body = ?').get(path, JSON.stringify(body))) return false
   const { number } = insert({ title, kind: 'note', body, source: path }, new Date(at).toISOString())
   void writeMarkdown(number, body)
   return true

@@ -1,4 +1,4 @@
-import { Node, mergeAttributes } from "@tiptap/core"
+import { InputRule, Node, mergeAttributes } from "@tiptap/core"
 import { ReactNodeViewRenderer } from "@tiptap/react"
 
 import { CalloutView } from "@/components/callout/callout-view"
@@ -11,6 +11,16 @@ declare module "@tiptap/core" {
       toggleCallout: () => ReturnType
     }
   }
+}
+
+/** Obsidian's callout types, as an icon and a colour each; any other is a note. */
+const TYPES: Record<string, [string, BlockColor]> = {
+  note: ["📝", "blue"], info: ["ℹ️", "blue"], abstract: ["📋", "blue"], summary: ["📋", "blue"], tldr: ["📋", "blue"],
+  todo: ["☑️", "blue"], tip: ["💡", "green"], hint: ["💡", "green"], important: ["🔥", "orange"], success: ["✅", "green"],
+  check: ["✅", "green"], done: ["✅", "green"], question: ["❓", "purple"], help: ["❓", "purple"], faq: ["❓", "purple"],
+  warning: ["⚠️", "orange"], caution: ["⚠️", "orange"], attention: ["⚠️", "orange"], failure: ["❌", "red"], fail: ["❌", "red"],
+  missing: ["❌", "red"], danger: ["⛔", "red"], error: ["⛔", "red"], bug: ["🐞", "red"], example: ["🧪", "purple"],
+  quote: ["💬", "gray"], cite: ["💬", "gray"],
 }
 
 /**
@@ -77,6 +87,22 @@ export const Callout = Node.create({
 
   addNodeView() {
     return ReactNodeViewRenderer(CalloutView)
+  },
+
+  /**
+   * Obsidian's own way in: `> [!tip] ` at the start of a line, or `[!warning] `
+   * on its own, becomes a callout of that type, its icon and colour with it.
+   */
+  addInputRules() {
+    return [
+      new InputRule({
+        find: /^\[!(\w+)\][+-]?\s$/,
+        handler: ({ range, match, chain }) => {
+          const [icon, color] = TYPES[match[1].toLowerCase()] ?? TYPES.note
+          chain().deleteRange(range).lift("blockquote").wrapIn(this.name, { icon, color }).run()
+        },
+      }),
+    ]
   },
 
   addCommands() {

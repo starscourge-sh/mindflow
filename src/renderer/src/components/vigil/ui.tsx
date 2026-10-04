@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Coolshape, type shapeTypes } from 'coolshapes-react'
 import Lenis from 'lenis'
 import { useLive, vigil } from '@/lib/vigil'
+import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 /**
@@ -196,6 +197,44 @@ export function useListKeys(count: number, { onOpen, onBack, enabled = true }: {
 export const toast = (text: string, undo?: () => void): void =>
   void window.dispatchEvent(new CustomEvent('vigil:toast', { detail: { text, undo } }))
 
+/**
+ * A question that needs a line from you before something can go on, asked in
+ * place: Enter answers, Escape lets it go. Resolves to the words, or null.
+ */
+export const ask = (question: string, placeholder = ''): Promise<string | null> =>
+  new Promise((answer) => void window.dispatchEvent(new CustomEvent('vigil:ask', { detail: { question, placeholder, answer } })))
+
+function Asker(): React.JSX.Element | null {
+  const [asked, setAsked] = useState<{ question: string; placeholder: string; answer: (words: string | null) => void } | null>(null)
+  useEffect(() => {
+    const onAsk = (event: Event): void => setAsked((event as CustomEvent).detail)
+    window.addEventListener('vigil:ask', onAsk)
+    return () => window.removeEventListener('vigil:ask', onAsk)
+  }, [])
+  if (!asked) return null
+  const done = (words: string | null): void => {
+    asked.answer(words?.trim() || null)
+    setAsked(null)
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 pt-[22vh]" onMouseDown={() => done(null)}>
+      <div className="w-[min(32rem,90vw)] rounded-xl bg-popover p-4 shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
+        <p className="mb-2 text-sm">{asked.question}</p>
+        <Input
+          autoFocus
+          placeholder={asked.placeholder}
+          onKeyDown={(event) => {
+            event.stopPropagation()
+            if (event.key === 'Enter') done(event.currentTarget.value)
+            if (event.key === 'Escape') done(null)
+          }}
+        />
+        <p className="mt-2 text-xs text-muted-foreground">Enter to keep · Escape to leave it</p>
+      </div>
+    </div>
+  )
+}
+
 export function Toaster(): React.JSX.Element | null {
   const [shown, setShown] = useState<{ text: string; undo?: () => void; key: number } | null>(null)
   useEffect(() => {
@@ -208,8 +247,10 @@ export function Toaster(): React.JSX.Element | null {
     window.addEventListener('vigil:toast', onToast)
     return () => window.removeEventListener('vigil:toast', onToast)
   }, [])
-  if (!shown) return null
+  if (!shown) return <Asker />
   return (
+    <>
+    <Asker />
     <div
       key={shown.key}
       className="fixed right-5 bottom-5 z-50 flex items-center gap-3 rounded-lg bg-popover px-3.5 py-2 text-sm shadow-[0_8px_24px_-6px_rgb(0_0_0/0.45)] animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]"
@@ -228,6 +269,7 @@ export function Toaster(): React.JSX.Element | null {
         </button>
       )}
     </div>
+    </>
   )
 }
 

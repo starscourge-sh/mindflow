@@ -113,7 +113,11 @@ export const vigil = {
   /** False when three are pinned already. */
   pin: (table: 'captures' | 'nuggets', id: string, on: boolean) => call<boolean>('pin', table, id, on),
   pins: () => call<Pin[]>('pins'),
-  promote: (id: string) => call<string | null>('promote', id),
+  promote: (id: string, words?: string) => call<string | null>('promote', id, words),
+  /** What it came from, what it became, and what links to it. */
+  lineage: (id: string) => call<Record<'from' | 'became' | 'linked', { type: string; id: string; title: string }[]>>('lineage', id),
+  newArticle: () => call<string>('article:new'),
+  findItems: (query: string) => call<{ id: string; tier: 'nugget' | 'article'; title: string }[]>('items:find', query),
   toTask: (id: string) => call<string | null>('toTask', id),
   items: (tier: 'nugget' | 'article') => call<Item[]>('items', tier),
   item: (id: string) => call<ItemFull | null>('item', id),
