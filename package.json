@@ -27,6 +27,7 @@
     "@fontsource-variable/fraunces": "^5.3.0",
     "@radix-ui/react-dropdown-menu": "^2.1.24",
     "@radix-ui/react-popover": "^1.1.23",
+    "@tanstack/react-virtual": "^3.14.13",
     "@tiptap/core": "3.31.3",
     "@tiptap/extension-bold": "3.31.3",
     "@tiptap/extension-code": "3.31.3",

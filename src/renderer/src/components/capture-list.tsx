@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { Lock, Pin } from 'lucide-react'
-import { AnimatePresence, motion } from 'motion/react'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { EXITS, captureKey, takeExit } from '@/lib/capture-links'
@@ -43,15 +43,43 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
   chosen?: string[]
   onPick?: (id: string) => void
 }): React.JSX.Element {
+  // Only the rows in view are drawn, with TanStack Virtual: a thousand
+  // captures cost what twenty do. The list scrolls with whatever box holds it,
+  // from where it sits in that box, so it can sit under rot cards or a heading.
+  const box = useRef<HTMLDivElement>(null)
+  const [scroller, setScroller] = useState<HTMLElement | null>(null)
+  const [margin, setMargin] = useState(0)
+  useLayoutEffect(() => {
+    let parent = box.current?.parentElement ?? null
+    while (parent && !/auto|scroll/.test(getComputedStyle(parent).overflowY)) parent = parent.parentElement
+    setScroller(parent)
+  }, [])
+  useLayoutEffect(() => {
+    if (!box.current || !scroller) return
+    const at = Math.round(box.current.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop)
+    if (at !== margin) setMargin(at)
+  })
+  const rows = useVirtualizer({
+    count: captures.length,
+    getScrollElement: () => scroller,
+    estimateSize: () => 58,
+    overscan: 10,
+    scrollMargin: margin,
+    getItemKey: (index) => captures[index].id
+  })
+  // The keyboard's row is brought into view even when it is not drawn yet.
+  useEffect(() => {
+    if (cursor !== undefined && cursor >= 0 && cursor < captures.length) rows.scrollToIndex(cursor)
+  }, [cursor]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <div className="flex flex-col gap-0.5 text-sm">
-      {/* A row that takes an exit slides out, and the rest close up behind it. */}
-      <AnimatePresence initial={false}>
-      {captures.map((capture, index) => {
+    <div ref={box} className="relative text-sm" style={{ height: rows.getTotalSize() }}>
+      {rows.getVirtualItems().map(({ index, key, start }) => {
+        const capture = captures[index]
         const kind = CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
         const { text, tags } = splitTags(capture.label)
         return (
-          <RowMenu key={capture.id} items={[
+          <div key={key} data-index={index} ref={rows.measureElement} className="absolute top-0 left-0 w-full pb-0.5" style={{ transform: `translateY(${start - margin}px)` }}>
+          <RowMenu items={[
             { label: 'Open', run: () => onPick?.(capture.id), keys: '↵' },
             'separator',
             ...(capture.status === 'open'
@@ -68,14 +96,10 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
             { label: `Copy ${captureKey(capture.number)}`, run: () => copy(captureKey(capture.number), `Copied ${captureKey(capture.number)}`) },
             { label: 'Copy text', run: () => copy(capture.label) }
           ]}>
-          <motion.button
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: capture.status === 'open' ? 1 : 0.5, y: 0 }}
-            exit={{ opacity: 0, x: 16 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
+          <button
             data-cursor={index === cursor || undefined}
             type="button"
-            className={`flex flex-col gap-0.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent/60 ${chosen.includes(capture.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : capture.id === selected ? 'bg-accent' : ''} ${index === cursor ? 'ring-1 ring-border' : ''}`}
+            className={`flex w-full flex-col gap-0.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent/60 ${capture.status === 'open' ? '' : 'opacity-50'} ${chosen.includes(capture.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : capture.id === selected ? 'bg-accent' : ''} ${index === cursor ? 'ring-1 ring-border' : ''}`}
             data-row
             onClick={() => onPick?.(capture.id)}
           >
@@ -91,11 +115,11 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
               {capture.source ? ` · ${capture.source.replace(/\.md$/, '')}` : ''}
               {tags.length ? <span className="ml-2 inline-flex"><Tags tags={tags} /></span> : null}
             </span>
-          </motion.button>
+          </button>
           </RowMenu>
+          </div>
         )
       })}
-      </AnimatePresence>
     </div>
   )
 }
