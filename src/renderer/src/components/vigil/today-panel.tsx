@@ -140,13 +140,15 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
                 type="button"
               
                 onClick={() => tick(task)}
-                className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors"
+                // The tick shows only over the circle itself: the row opens the
+                // task, and a tick there read as if a click would complete it.
+                className="group/tick mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors"
                 style={{
                   borderColor: late ? 'var(--tt-color-text-red)' : 'var(--tt-color-text-orange)',
                   background: ticking === task.id ? 'var(--tt-color-text-green)' : undefined
                 }}
               >
-                <Check className={`size-2.5 transition-opacity ${ticking === task.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'}`} />
+                <Check className={`size-2.5 transition-opacity ${ticking === task.id ? 'opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
               </button>
               </Tip>
               {/* The row opens the task where its notes and sessions are. */}
