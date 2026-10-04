@@ -416,10 +416,7 @@ export default function App(): React.JSX.Element {
                 to it stays in view, so a link followed never loses the draft. */}
             {editing && readDraft() && (
               <div className="flex items-center gap-2 px-[4.75rem] pt-2 text-xs text-muted-foreground">
-                <span className="truncate">Unfinished: {firstLine(readDraft()) || 'your draft'}</span>
-                <Button variant="secondary" size="sm" onClick={() => fresh(true)} className="shrink-0">
-                  Finish it <kbd className="font-sans opacity-60">⌘↵</kbd>
-                </Button>
+                <span className="truncate">Your draft “{firstLine(readDraft()) || 'unfinished'}” is waiting: Done takes you back to it.</span>
               </div>
             )}
             {/* Under the writing: what it is, who said it and where you met it. */}

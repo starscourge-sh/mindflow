@@ -140,6 +140,9 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         editor: this.editor,
         char: "#",
         pluginKey: tagPluginKey,
+        // Only at the end of a tag being typed: with the caret inside one
+        // already written, offering to replace half of it splits it in two.
+        allow: ({ state, range }) => !/[\w-]/.test(state.doc.textBetween(range.to, Math.min(range.to + 1, state.doc.content.size), "", "")),
         items: async ({ query }) => {
           if (!query) tags = vigil.tags()
           return (await tags)
