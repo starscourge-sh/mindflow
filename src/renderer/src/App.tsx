@@ -21,6 +21,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './comp
 import type { LucideIcon } from 'lucide-react'
 import { Rolling, Toaster, toast } from './components/vigil/ui'
 import { Reader } from './components/vigil/reader'
+import { assetsOf } from './lib/document'
+import { tagsOf } from './extensions/tokens'
 import { KeptPanel } from './components/vigil/kept-panel'
 import { useCaptureDisplay } from './components/vigil/captures-view'
 import { Search } from './components/search'
@@ -284,6 +286,8 @@ export default function App(): React.JSX.Element {
   }, [reading])
   // ⌘K: search everything from the prompt, and open what it finds here.
   const [searching, setSearching] = useState(false)
+  // What search opens with: a clicked tag, or nothing.
+  const [searchFrom, setSearchFrom] = useState('')
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!event.metaKey || event.key !== 'k') return
@@ -436,9 +440,14 @@ export default function App(): React.JSX.Element {
       <Toaster />
       {searching && (
         <Search
-          onClose={() => setSearching(false)}
+          initial={searchFrom}
+          onClose={() => {
+            setSearching(false)
+            setSearchFrom('')
+          }}
           onOpen={(type, id) => {
             setSearching(false)
+            setSearchFrom('')
             openAny(type, id)
           }}
         />
@@ -487,6 +496,12 @@ export default function App(): React.JSX.Element {
               onReady={(editor) => (editorRef.current = editor)}
               onOpenNote={(link) => follow(link, openAny)}
               from={editing?.id}
+              onSource={() => setSource((open) => !open)}
+              // A tag opens everything carrying it, in search.
+              onTag={(tag) => {
+                setSearchFrom(`#${tag}`)
+                setSearching(true)
+              }}
               onChange={(doc, editor) => {
                 if (editing?.id !== editingNow.current) return saveField({ body: doc, markdown: toMarkdown(editor) })
                 setBody(doc)
@@ -650,6 +665,28 @@ const SourceDrawer = ({
           The note as the editor last handed it over.
         </SheetDescription>
       </SheetHeader>
+      {/* What the note uses, before what it is: its tags, and the files a
+          backup has to carry with it. */}
+      {doc && (tagsOf(doc).length > 0 || assetsOf(doc).length > 0) && (
+        <div className="space-y-3 border-b p-4 text-xs">
+          {tagsOf(doc).length > 0 && (
+            <div>
+              <p className="mb-1 text-muted-foreground">Tags</p>
+              <p>{tagsOf(doc).map((tag) => `#${tag.value}${tag.count > 1 ? ` ×${tag.count}` : ''}`).join('  ')}</p>
+            </div>
+          )}
+          {assetsOf(doc).length > 0 && (
+            <div>
+              <p className="mb-1 text-muted-foreground">Files</p>
+              <ul className="space-y-0.5">
+                {assetsOf(doc).map((asset) => (
+                  <li key={asset.src} className="truncate">{asset.name ?? asset.src.split('/').pop()} <span className="text-muted-foreground">{asset.kind}</span></li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
       <pre className="flex-1 overflow-auto p-4 text-xs leading-relaxed break-words whitespace-pre-wrap">
         {doc ? JSON.stringify(doc, null, 2) : ''}
       </pre>
@@ -664,8 +701,12 @@ const CapturePrompt = ({
   onChange,
   onReady,
   onOpenNote,
-  from
+  from,
+  onSource,
+  onTag
 }: {
+  onSource: () => void
+  onTag: (tag: string) => void
   /** The capture open in the box, if any: what a selection lifted out of it points back to. */
   from?: string
   initial?: JSONContent
@@ -689,6 +730,8 @@ const CapturePrompt = ({
         placeholder="' / '  for commands..."
         defaultContent={initial}
         tokens={TAGS}
+        onTokenClick={(token) => token.name === 'tag' && onTag(token.value)}
+        onToggleSource={onSource}
         // documentId={note ? `doc-${note.id}` : null}
 
         // --- what is switched on ---

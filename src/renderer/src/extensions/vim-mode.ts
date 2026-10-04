@@ -2383,13 +2383,18 @@ export const VimMode = Extension.create<VimModeOptions>({
                 patch(view, { pendingG: true })
                 return true
 
+              // A search and each step through its results are jumps, so
+              // Ctrl-O comes back to where you were before looking.
               case "/":
+                markJump(view)
                 onSearch?.()
                 return true
               case "n":
+                markJump(view)
                 editor.commands.goToNextResult()
                 break
               case "N":
+                markJump(view)
                 editor.commands.goToPreviousResult()
                 break
 

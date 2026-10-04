@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { tagColors } from '@/extensions/tokens'
+import type { BlockColor } from '@/extensions/block-color'
 import { MotionGlobalConfig } from 'motion/react'
 import { installTicks, setPack, setVolume, soundOn, type PackName } from './sound'
 
@@ -221,6 +223,12 @@ export function splitTags(text: string): { text: string; tags: string[] } {
  */
 export function useAppearance(): void {
   const settings = useLive(vigil.settings, null as Settings | null)
+  // Tag colours from the Tags page, for every editor in this window.
+  const meta = useLive(vigil.tagMeta, [] as Awaited<ReturnType<typeof vigil.tagMeta>>)
+  useEffect(() => {
+    tagColors.clear()
+    for (const row of meta) if (row.color) tagColors.set(row.tag.toLowerCase(), row.color as BlockColor)
+  }, [meta])
   useEffect(installTicks, [])
   useEffect(() => {
     if (!settings) return

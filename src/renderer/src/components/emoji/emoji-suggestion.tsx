@@ -5,6 +5,7 @@ import {
   useState,
   type ForwardedRef,
 } from "react"
+import { listDirection } from "@/lib/menu-keys"
 import {
   Emoji,
   EmojiSuggestionPluginKey,
@@ -42,9 +43,11 @@ const EmojiList = forwardRef(function EmojiList(
   useImperativeHandle(ref, () => ({
     onKeyDown: ({ event }) => {
       if (!items.length) return false
+      // Ctrl+K and Ctrl+J as well as the arrows, as in every other menu.
+      const way = listDirection(event)
       const back =
         event.key === "ArrowLeft" ||
-        event.key === "ArrowUp" ||
+        way === "up" ||
         // Tab completes; Shift+Tab steps back rather than being swallowed
         // by whatever handles it downstream.
         (event.key === "Tab" && event.shiftKey)
@@ -52,7 +55,7 @@ const EmojiList = forwardRef(function EmojiList(
         setSelected((current) => (current + items.length - 1) % items.length)
         return true
       }
-      if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      if (event.key === "ArrowRight" || way === "down") {
         setSelected((current) => (current + 1) % items.length)
         return true
       }

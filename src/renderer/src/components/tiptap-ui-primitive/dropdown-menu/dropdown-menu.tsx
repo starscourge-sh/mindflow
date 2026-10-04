@@ -43,6 +43,7 @@ function DropdownMenuContent({
   return (
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
+        collisionPadding={10}
         data-slot="tiptap-dropdown-menu-content"
         sideOffset={sideOffset}
         align={align}

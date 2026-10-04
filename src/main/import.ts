@@ -117,13 +117,14 @@ export const wordsOf = (node: Node): string =>
  * editor's JSON, a line runs to the end of its block or a line break, with its
  * bold and links kept whole; from Markdown, its first line without markers.
  */
+/** The blocks that hold words directly: paragraphs and headings, however deep. */
+const textBlocks = (node: Node): Node[] =>
+  node.content?.some((child) => child.text !== undefined || child.type === 'hardBreak' || child.type === 'emoji' || child.attrs?.latex !== undefined) ? [node] : (node.content ?? []).flatMap(textBlocks)
+
 export function firstLine(body: unknown): string {
   if (typeof body === 'string') return titleOfMarkdown(body.replace(/^\s*\n/, ''))
-  const text = wordsOf
-  const blocks = (node: Node): Node[] =>
-    node.content?.some((child) => child.text !== undefined || child.type === 'hardBreak' || child.type === 'emoji' || child.attrs?.latex !== undefined) ? [node] : (node.content ?? []).flatMap(blocks)
-  for (const block of body ? blocks(body as Node) : []) {
-    const line = text(block).split('\n').find((one) => one.trim())
+  for (const block of body ? textBlocks(body as Node) : []) {
+    const line = wordsOf(block).split('\n').find((one) => one.trim())
     if (line) return line.trim()
   }
   return ''

@@ -173,6 +173,7 @@ export function CapturesView({ title, keep, focus, onOpen }: {
               key={open.id}
               host={window.api}
               tokens={TAGS}
+              onTokenClick={(token) => token.name === 'tag' && onOpen?.('tag', token.value)}
               toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: open.id, from: open.id }) }}
               documentId={`capture-${open.id}`}
               defaultContent={(open.body as JSONContent | string | null) ?? ''}

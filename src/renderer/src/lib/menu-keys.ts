@@ -16,12 +16,10 @@ export function listDirection(event: {
   if (event.key === "ArrowUp") return "up"
   if (!event.ctrlKey || event.metaKey || event.altKey) return null
 
-  // Ctrl-P is left out on purpose: it opens the priority picker, which is the
-  // only thing it has ever meant here. cmdk still claims it inside its own
-  // lists, which is cmdk's binding rather than this one.
+  // Emacs's Ctrl-N and Ctrl-P alongside vim's Ctrl-J and Ctrl-K.
   const key = event.key.toLowerCase()
   if (key === "n" || key === "j") return "down"
-  if (key === "k") return "up"
+  if (key === "k" || key === "p") return "up"
   return null
 }
 

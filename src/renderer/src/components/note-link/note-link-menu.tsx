@@ -1,4 +1,4 @@
-import { Fragment, forwardRef, useEffect, useImperativeHandle, useState } from "react"
+import { Fragment, forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react"
 import type { SuggestionProps } from "@tiptap/suggestion"
 
 import {
@@ -12,6 +12,11 @@ import { listDirection, step } from "@/lib/menu-keys"
 const NoteList = forwardRef<SuggestionListHandle, SuggestionProps<NoteSuggestion>>(
   function NoteList({ items, command }, ref) {
     const [selected, setSelected] = useState(0)
+    // Moving past the fold brings the row with it, as in the / menu.
+    const selectedRef = useRef<HTMLButtonElement>(null)
+    useEffect(() => {
+      selectedRef.current?.scrollIntoView({ block: "nearest" })
+    }, [selected])
     useEffect(() => setSelected(0), [items])
 
     useImperativeHandle(ref, () => ({
@@ -41,6 +46,7 @@ const NoteList = forwardRef<SuggestionListHandle, SuggestionProps<NoteSuggestion
               ) : null}
               <button
                 type="button"
+                ref={index === selected ? selectedRef : undefined}
                 className={index === selected ? "is-selected" : undefined}
                 onMouseEnter={() => setSelected(index)}
                 onClick={() => command(item)}

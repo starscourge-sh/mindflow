@@ -94,6 +94,10 @@ export function toggleMark(editor: Editor | null, type: Mark): boolean {
   if (!editor || !editor.isEditable) return false
   if (!canToggleMark(editor, type)) return false
 
+  // A click acts like the key: with nothing selected, on the word under the
+  // caret, when the editor has that command.
+  const commands = editor.commands as unknown as { toggleMarkOnWord?: (type: Mark) => boolean }
+  if (commands.toggleMarkOnWord) return editor.chain().focus().run() && commands.toggleMarkOnWord(type)
   return editor.chain().focus().toggleMark(type).run()
 }
 

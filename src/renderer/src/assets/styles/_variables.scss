@@ -186,8 +186,8 @@
   // The accent. Every other theme sets its own; without these three `dark`
   // kept the vendored template's violet, and a selected card, the caret and
   // the selection all came out a colour nothing else on the page shares.
-  --tt-brand-color-500: #c23600;
-  --tt-brand-color-400: #e8602a;
+  --tt-brand-color-500: #9f2d00;
+  --tt-brand-color-400: #c23600;
 
   --tt-cursor-color: var(--tt-brand-color-400);
   --tt-selection-color: color-mix(in srgb, var(--tt-brand-color-400) 25%, transparent);
@@ -386,7 +386,7 @@ $mf-themes: (
 /* `dark` is the vendored ramp at the top of this file rather than an entry in
    the map, so its three are written out. */
 .mf-swatch-dark i:nth-child(1) {
-  background: #e8602a;
+  background: #c23600;
 }
 .mf-swatch-dark i:nth-child(2) {
   background: hsl(36, 54%, 55%);

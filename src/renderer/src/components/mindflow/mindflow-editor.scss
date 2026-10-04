@@ -271,18 +271,6 @@
   }
 }
 
-// A document title. Input scale rather than heading scale: the box around it
-// belongs to whoever puts it there.
-.mindflow-editor-wrapper.is-title {
-
-  .tiptap.ProseMirror p {
-    margin: 0;
-    font-size: 1.2rem;
-    font-weight: 600;
-    line-height: 1.5;
-  }
-}
-
 // The floating surface every panel the editor owns is built on. The block menu
 // was missing from this list and fell through to the vendored dropdown styling,
 // which is why it had no border and a rounder corner than everything else.
@@ -2303,12 +2291,6 @@ body > div[dir][style*="-10000px"] > .tableWrapper {
 // Where a link points, under the link, while the pointer is on it. The one
 // thing it must never do is get in the way of the click that follows, hence no
 // pointer events - the box is a label, not a target.
-// A link is something you can open, so it says so. Mod-click is what actually
-// opens it - a plain click belongs to the caret, because the text is there to
-// be edited - but the hand is the only hint that there is anything to open.
-.tiptap.ProseMirror.mindflow-editor a[href] {
-  cursor: pointer;
-}
 
 .tiptap-link-preview {
   position: fixed;

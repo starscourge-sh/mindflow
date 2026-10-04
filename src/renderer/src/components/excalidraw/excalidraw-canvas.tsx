@@ -1,4 +1,5 @@
 import { memo, useRef } from 'react'
+import { currentTheme } from "@/lib/theme"
 import { Excalidraw, MainMenu, getSceneVersion } from '@excalidraw/excalidraw'
 import '@excalidraw/excalidraw/index.css'
 
@@ -21,8 +22,8 @@ function ExcalidrawCanvas({
 
   return (
     <Excalidraw
-      // The app has no light theme; the window sits on a dark desktop.
-      theme="dark"
+      // Dark, except under the app's one light theme.
+      theme={currentTheme() === "light" ? "light" : "dark"}
       initialData={{
         elements: scene?.elements ?? [],
         files: scene?.files,

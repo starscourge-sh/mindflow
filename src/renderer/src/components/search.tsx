@@ -21,8 +21,8 @@ const groupOf = (at: string): string => {
  * they were captured, with the one under the cursor previewed on the right.
  * Arrows move, Enter opens, Escape closes.
  */
-export function Search({ onOpen, onClose }: { onOpen: (type: string, id: string) => void; onClose: () => void }): React.JSX.Element {
-  const [query, setQuery] = useState('')
+export function Search({ onOpen, onClose, initial = '' }: { onOpen: (type: string, id: string) => void; onClose: () => void; initial?: string }): React.JSX.Element {
+  const [query, setQuery] = useState(initial)
   const [found, setFound] = useState<Capture[]>([])
   // Notion's chips under the box: names only, one type of thing, one kind.
   const [titleOnly, setTitleOnly] = useState(false)
@@ -115,7 +115,7 @@ export function Search({ onOpen, onClose }: { onOpen: (type: string, id: string)
                     <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
                     <span className="truncate">{capture.label || 'Untitled'}</span>
                     {capture.type !== 'capture' && <span className="shrink-0 rounded bg-accent px-1.5 text-xs text-muted-foreground capitalize">{capture.type}</span>}
-                    {capture.source && <span className="shrink-0 truncate text-xs text-muted-foreground">— {capture.source.replace(/\.md$/, '')}</span>}
+                    {capture.source && <span className="shrink-0 truncate text-xs text-muted-foreground">· {capture.source.replace(/\.md$/, '')}</span>}
                     {index === at && !asking && capture.type === 'capture' && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{capture.attribution ?? 'Tab: who said it'}</span>}
                   </button>
                   {index === at && asking && (

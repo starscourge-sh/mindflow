@@ -77,12 +77,13 @@ export function CaptureKindPicker({ value, onChange, suggested = false }: {
   const [open, setOpen] = useState(false)
   const current = CAPTURE_TYPES.find((Ctype) => Ctype.id === value) ?? CAPTURE_TYPES[0]
 
-  useShortcut('t', setOpen, open)
+  // ⌃L, for label; ⌃T is a tag in the editor.
+  useShortcut('l', setOpen, open)
   const Icon = current.icon
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <Tip label={suggested ? 'Suggested from what you typed. ⌃T or ⌘1-8 to choose' : undefined}>
+      <Tip label={suggested ? 'Suggested from what you typed. ⌃L or ⌘1-8 to choose' : undefined}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className={`gap-1.5 rounded-full cursor-pointer ${suggested ? 'border-dashed' : ''}`}>
           <Icon className="size-4" style={{ color: current.tint }} />
@@ -104,7 +105,7 @@ export function CaptureKindPicker({ value, onChange, suggested = false }: {
             setOpen(false)
           }}
         >
-          <CommandInput placeholder="Change type..." shortcut="⌃T" />
+          <CommandInput placeholder="Change type..." shortcut="⌃L" />
           <CommandList>
             <CommandEmpty>No type</CommandEmpty>
             {CAPTURE_TYPES.map((type, index) => {

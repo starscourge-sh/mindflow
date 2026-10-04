@@ -274,6 +274,8 @@ export function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: s
         <MindflowEditor
           host={window.api}
           tokens={TAGS}
+          // A tag opens its page: everything carrying it.
+          onTokenClick={(token) => token.name === 'tag' && onOpen?.('tag', token.value)}
           toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: item.captureId ?? undefined, attribution: item.attribution, from: item.id }) }}
           documentId={`item-${item.id}`}
           defaultContent={(item.body as JSONContent | string | null) ?? ''}

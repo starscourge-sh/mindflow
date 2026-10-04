@@ -132,7 +132,14 @@ function scan(doc: ProseMirrorNode, patterns: TokenPattern[]): TokenMatch[] {
  * The editor's default, so `#something` is a tag without anyone configuring
  * one. Passing `tokens` replaces this rather than adding to it.
  */
-export const TAGS: TokenPattern[] = [{ name: "tag", pattern: /#([\w-]+)/ }]
+/**
+ * Colours chosen for tags on the Tags page, by name. Filled by the app; read
+ * each time a tag is painted, so a choice shows on the next edit, in every
+ * editor, without each one being built again.
+ */
+export const tagColors = new Map<string, BlockColor>()
+
+export const TAGS: TokenPattern[] = [{ name: "tag", pattern: /#([\w-]+)/, color: (value) => tagColors.get(value.toLowerCase()) ?? spread(value) }]
 
 /**
  * Every distinct tag in a stored document, with how often each appears.

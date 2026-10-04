@@ -91,18 +91,3 @@ export function LineEditor(props: MindflowEditorProps): React.JSX.Element {
     />
   )
 }
-
-/**
- * A document's title: a line at input scale, lined up with the body below it.
- *
- * The editor's stylesheet carries that as `is-title`, and this is what applies
- * it. Left to the caller it was a bare string in a `className` with no prop and
- * no type behind it - something nobody finds twice, least of all anyone
- * dropping this editor into their own app.
- */
-export function TitleEditor({
-  className = "",
-  ...props
-}: MindflowEditorProps): React.JSX.Element {
-  return <LineEditor className={`is-title ${className}`.trim()} {...props} />
-}

@@ -63,6 +63,22 @@ export const Callout = Node.create({
     return [{ tag: "div[data-callout]" }]
   },
 
+  // Up from the start of a callout that opens the note makes a line above
+  // it: otherwise nothing can ever be written before it.
+  addKeyboardShortcuts() {
+    return {
+      ArrowUp: ({ editor }) => {
+        const { state } = editor
+        const { $from, empty } = state.selection
+        const first = state.doc.firstChild
+        if (!empty || first?.type.name !== this.name || $from.parentOffset !== 0) return false
+        // The caret's block is the callout's first, and the callout is the note's first.
+        if ($from.depth < 2 || $from.index(0) !== 0 || $from.index(1) !== 0) return false
+        return editor.chain().insertContentAt(0, { type: "paragraph" }).setTextSelection(1).run()
+      },
+    }
+  },
+
   renderHTML({ HTMLAttributes }) {
     return [
       "div",

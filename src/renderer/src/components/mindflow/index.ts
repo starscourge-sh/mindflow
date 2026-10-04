@@ -11,7 +11,6 @@ export {
   CommentEditor,
   DescriptionEditor,
   LineEditor,
-  TitleEditor,
 } from "@/components/mindflow/presets"
 
 /** What the editor asks of the app around it. */

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Reac
 import { createPortal } from "react-dom"
 import type { JSONContent } from "@tiptap/core"
 import { Fragment, Slice } from "@tiptap/pm/model"
-import { NodeSelection } from "@tiptap/pm/state"
+import { NodeSelection, Selection as PMSelection } from "@tiptap/pm/state"
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model"
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
 
@@ -104,7 +104,10 @@ const HANDLE_GRACE_MS = 1000
 const LISTS = ["bulletList", "orderedList", "taskList"]
 const LIST_ITEMS = ["listItem", "taskItem"]
 
-const CARET_MARGIN = { top: 64, right: 0, bottom: 112, left: 0 }
+// The caret keeps about a third of the view above and below it, so what you
+// are writing sits near the middle rather than at an edge.
+const third = Math.round((typeof window === "undefined" ? 600 : window.innerHeight) * 0.32)
+const CARET_MARGIN = { top: Math.max(64, third), right: 0, bottom: Math.max(112, third), left: 0 }
 
 /**
  * Held still on purpose. `DragHandle` re-registers its ProseMirror plugin when
@@ -174,7 +177,6 @@ import "@/components/tiptap-node/paragraph-node/paragraph-node.scss"
 import { HeadingDropdownMenu } from "@/components/tiptap-ui/heading-dropdown-menu"
 import { ListDropdownMenu } from "@/components/tiptap-ui/list-dropdown-menu"
 import { BlockquoteButton } from "@/components/tiptap-ui/blockquote-button"
-import { MarkButton } from "@/components/tiptap-ui/mark-button"
 import { LinkPopover } from "@/components/tiptap-ui/link-popover"
 import { LinkToBookmarkButton } from "@/components/bookmark/link-to-bookmark-button"
 import { SelectionMenu } from "@/components/selection/selection-menu"
@@ -184,7 +186,7 @@ import {
 } from "@/components/tiptap-ui/color-highlight-popover"
 import { MarkDropdownMenu } from "@/components/tiptap-ui/mark-dropdown-menu"
 import { TextAlignDropdownMenu } from "@/components/tiptap-ui/text-align-dropdown-menu"
-import { AlignCycle, ScriptCycle } from "./cycle-button"
+import { AlignMenu, MarkMenu, ScriptMenu } from "./sub-menu"
 import { SearchBar } from "@/components/search/search-bar"
 import { TableMenu } from "@/components/table/table-menu"
 import { TableControls } from "@/components/table/table-controls"
@@ -357,6 +359,8 @@ export interface MindflowEditorProps {
    * @default false
    */
   showSource?: boolean
+  /** ⌘⌥S calls this instead of opening the editor's own source panel. */
+  onToggleSource?: () => void
   /**
    * What the editor asks of whatever it is running inside: storing a dropped
    * picture, reading what a link is about, handing a file to the system.
@@ -448,6 +452,7 @@ function Surface({
   defaultContent = "",
   placeholder = "Write, type '/' for commands…",
   showSource = false,
+  onToggleSource,
   readOnly = false,
   host,
   shape = "document",
@@ -544,6 +549,9 @@ function Surface({
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [sourceOpen, setSourceOpen] = useState(showSource)
+  // Through a ref: extensions are built once, and the handler can change.
+  const toggleSource = useRef(onToggleSource)
+  toggleSource.current = onToggleSource
   const rememberBlock = useCallback(
     ({ node, editor, pos }: { node: ProseMirrorNode | null; editor: Editor; pos: number }): void => {
       blockTarget.current = node
@@ -651,6 +659,23 @@ function Surface({
       // Here rather than in a keyboard shortcut because ProseMirror checks
       // these props before any plugin, and vim swallows Return in normal mode.
       handleKeyDown: (view, event) => {
+        // Escape with words selected lets go of them first, rather than going
+        // straight on to hide the window. Not in vim's visual mode, which
+        // leaves it itself, and not while a menu has the key.
+        if (event.key === "Escape" && !view.state.selection.empty && !document.querySelector(MENU_OPEN) && !/visual/i.test(view.dom.getAttribute("data-vim-mode") ?? "")) {
+          const { head } = view.state.selection
+          view.dispatch(view.state.tr.setSelection(PMSelection.near(view.state.doc.resolve(head))))
+          return true
+        }
+        // Ctrl-T starts a tag: a # where the caret is, which opens the tag
+        // menu (a space first when it would run into a word).
+        if (event.ctrlKey && !event.metaKey && !event.altKey && event.key.toLowerCase() === "t" && view.editable) {
+          const { from, $from } = view.state.selection
+          const before = $from.parent.textBetween(Math.max(0, $from.parentOffset - 1), $from.parentOffset)
+          view.dispatch(view.state.tr.insertText(before && !/\s/.test(before) ? " #" : "#", from))
+          event.preventDefault()
+          return true
+        }
         // macOS gives every editable field a set of Emacs keys and Chromium
         // honours them. Ctrl-H is a second Backspace, Ctrl-W eats a word and
         // Ctrl-T swaps two characters - none of which anything here asked for.
@@ -668,7 +693,7 @@ function Surface({
           // so swallowing it here took the key away from the slash menu before
           // the menu ever saw it - Ctrl-J went down and nothing came back up.
           const menu = key === "k" && document.querySelector(MENU_OPEN)
-          if (!menu && ["h", "k", "w", "t"].includes(key)) {
+          if (!menu && ["h", "k", "w"].includes(key)) {
             event.preventDefault()
             return true
           }
@@ -984,7 +1009,7 @@ function Surface({
       CardLink,
       SelectedNodes,
       ObsidianShortcuts.configure({
-        onToggleSource: () => setSourceOpen((open) => !open),
+        onToggleSource: () => (toggleSource.current ? toggleSource.current() : setSourceOpen((open) => !open)),
       }),
       VimMode.configure({
         enabled: vimOn,
@@ -1130,13 +1155,11 @@ function Surface({
   const defaultSelection = (
     <>
           <ToolbarGroup>
-            {(["bold", "italic", "underline", "strike", "code"] as const).map((type) => (
-              <MarkButton key={type} type={type} showTooltip={false} />
-            ))}
+            {editor && <MarkMenu editor={editor} />}
           </ToolbarGroup>
           <ToolbarSeparator />
           <ToolbarGroup>
-            {editor && <ScriptCycle editor={editor} />}
+            {editor && <ScriptMenu editor={editor} />}
           </ToolbarGroup>
           <ToolbarSeparator />
           <ToolbarGroup>
@@ -1146,10 +1169,10 @@ function Surface({
           </ToolbarGroup>
           <ToolbarSeparator />
           <ToolbarGroup>
-            {/* One button that cycles, not the dropdown the fixed toolbar
-                uses: a Radix menu takes focus when it opens, the editor blurs,
-                and the bubble hides itself with the menu's anchor. */}
-            {editor && <AlignCycle editor={editor} />}
+            {/* A small row of its own, opened beneath the button: not the
+                fixed toolbar's Radix dropdown, which takes the focus and makes
+                the bar hide itself. */}
+            {editor && <AlignMenu editor={editor} />}
           </ToolbarGroup>
     </>
   )

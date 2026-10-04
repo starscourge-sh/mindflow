@@ -204,6 +204,7 @@ export const slashItems: SlashItem[] = [
     title: 'Bookmark',
     group: 'Media',
     hint: 'link card',
+    keywords: ['embed', 'link', 'card'],
     icon: <BookmarkIcon />,
     prompt: 'Paste a link',
     // A card is only a card if something can say what the link is about.
@@ -214,6 +215,7 @@ export const slashItems: SlashItem[] = [
     title: 'YouTube',
     group: 'Media',
     hint: 'video player',
+    keywords: ['embed', 'video'],
     icon: <VideoIcon />,
     prompt: 'Paste a YouTube link',
     run: (editor, href) => {
