@@ -40,6 +40,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
 import { Tip } from '@/components/vigil/ui'
+import { Button } from '@/components/ui/button'
 
 
 
@@ -398,9 +399,9 @@ export default function App(): React.JSX.Element {
             {editing && readDraft() && (
               <div className="flex items-center gap-2 px-[4.75rem] pt-2 text-xs text-muted-foreground">
                 <span className="truncate">Unfinished: {firstLine(readDraft()) || 'your draft'}</span>
-                <button type="button" onClick={() => fresh(true)} className="shrink-0 rounded-md bg-accent px-2 py-0.5 text-foreground hover:bg-accent/70">
+                <Button variant="secondary" size="sm" onClick={() => fresh(true)} className="shrink-0">
                   Finish it <kbd className="font-sans opacity-60">⌘↵</kbd>
-                </button>
+                </Button>
               </div>
             )}
             {/* Under the writing: what it is, who said it and where you met it. */}
@@ -462,14 +463,13 @@ export default function App(): React.JSX.Element {
               </div>
               {/* Create, bottom right, where the eye ends up. */}
               <Tip label="Save  ⌘↵  ·  keep going  ⌥⌘↵">
-              <button
-                type="button"
-                onClick={() => submit()}
-              
-                className="ml-auto flex h-7 items-center gap-1.5 rounded-md bg-accent px-2.5 text-[13px] text-foreground transition-colors hover:bg-accent/70"
-              >
+              <Button variant="secondary"
+ onClick={() => submit()}
+ 
+ className="ml-auto text-[13px]"
+>
                 {editing ? 'Done' : 'Create'} <kbd className="font-sans text-[11px] text-muted-foreground">⌘↵</kbd>
-              </button>
+              </Button>
               </Tip>
             </main>
           </div>

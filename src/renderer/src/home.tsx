@@ -173,17 +173,16 @@ export function Home(): React.JSX.Element {
           { icon: ArrowLeft, title: 'Back ⌘[', run: () => step(-1), off: trail.at === 0 },
           { icon: ArrowRight, title: 'Forward ⌘]', run: () => step(1), off: trail.at === trail.views.length - 1 }
         ].map(({ icon: Icon, title, run, off }) => (
-          <button
-            key={title}
-            type="button"
-            title={title}
-            disabled={off}
-            onClick={run}
-            style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent"
-          >
+          <Button variant="ghost" size="icon"
+ key={title}
+ title={title}
+ disabled={off}
+ onClick={run}
+ style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
+ className="text-muted-foreground"
+>
             <Icon className="size-4" />
-          </button>
+          </Button>
         ))}
         <span className="ml-3 font-medium">
           {SECTIONS.find((section) => section.id === view.id)?.label ?? (kind ? kind.label : view.id === 'settings' ? 'Settings' : '')}

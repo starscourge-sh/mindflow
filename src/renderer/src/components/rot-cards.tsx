@@ -5,13 +5,20 @@ import { EXITS, captureKey, takeExit } from '@/lib/capture-links'
 import { chime } from '@/lib/sound'
 import { AskWho, toast } from './vigil/ui'
 import { Tip } from '@/components/vigil/ui'
+import { Button } from '@/components/ui/button'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.rot>>[number]
 
 /** A body's words, whether it arrived as Markdown or as the editor's JSON. */
 export const textOf = (body: unknown): string => {
-  // Markdown read as words: no list markers, no bold or code marks.
-  if (typeof body === 'string') return body.replace(/^\s*[-*]\s+/gm, '').replace(/\*\*|__|`/g, '')
+  // Markdown read as words: no list markers, links as their words, no marks.
+  if (typeof body === 'string')
+    return body
+      .replace(/^\s*[-*]\s+/gm, '')
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+      .replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, '$1')
+      .replace(/\$([^$\n]+)\$/g, '$1')
+      .replace(/\*\*|__|`|==|~~/g, '')
   const walk = (node: JSONContent): string => node.text ?? (node.content ?? []).map(walk).join('\n')
   return body ? walk(body as JSONContent) : ''
 }
@@ -84,25 +91,23 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             </span>
             {EXITS.map((one) => (
               <Tip key={one.key} label={`${one.label} (${one.key})`}>
-              <button
-                type="button"
-                className="rounded px-1.5 py-0.5 opacity-70 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 hover:bg-accent"
-                style={{ color: `var(--tt-color-text-${one.tint})` }}
-                onClick={() => exit(card.id, one.status)}
-              >
+              <Button variant="ghost" size="sm"
+ className="opacity-70 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+ style={{ color: `var(--tt-color-text-${one.tint})` }}
+ onClick={() => exit(card.id, one.status)}
+>
                 {one.label}
-              </button>
+              </Button>
               </Tip>
             ))}
             <Tip label="Who said it (w)">
-            <button
-              type="button"
-              className="rounded px-1.5 py-0.5 opacity-70 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 hover:bg-accent hover:text-foreground"
-            
-              onClick={() => setAsking(card.id)}
-            >
+            <Button variant="ghost" size="sm"
+ className="opacity-70 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+ 
+ onClick={() => setAsking(card.id)}
+>
               {card.attribution ?? 'Who?'}
-            </button>
+            </Button>
             </Tip>
           </div>
           )}

@@ -4,6 +4,7 @@ import { Check, CircleDashed } from 'lucide-react'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { PACKS, chime, click, withPack, type ClickName, type PackName } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
+import { Button } from '@/components/ui/button'
 
 /**
  * The sound pack, chosen by ear: the nine packs down the left, and on the right
@@ -70,8 +71,8 @@ export function SoundPacks({ chosen }: { chosen: PackName }): React.JSX.Element 
           <p className="mb-1 text-xs text-muted-foreground">Waiting on you: a rot card knocks</p>
           <div onMouseEnter={() => hover('knock')} className="flex items-center gap-3 rounded-md border px-3 py-2">
             <span className="flex-1">It disappeared like a fart in the wind.</span>
-            <button type="button" className="rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => play(() => chime('promote'))}>Promote</button>
-            <button type="button" className="rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => play(() => chime('away'))}>Discard</button>
+            <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => play(() => chime('promote'))}>Promote</Button>
+            <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => play(() => chime('away'))}>Discard</Button>
           </div>
         </div>
 
@@ -92,27 +93,26 @@ export function SoundPacks({ chosen }: { chosen: PackName }): React.JSX.Element 
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setDone(!done)
-              if (!done) play(() => chime('done'))
-            }}
-            className="flex items-center gap-2 rounded-md border px-3 py-1.5 hover:bg-accent"
-          >
+          <Button variant="outline" size="lg"
+ onClick={() => {
+ setDone(!done)
+ if (!done) play(() => chime('done'))
+ }}
+ 
+>
             {done ? <Check className="size-4 text-[var(--tt-color-text-green)]" /> : <CircleDashed className="size-4" />} Tick off a task
-          </button>
-          <button type="button" onClick={() => play(() => chime('send'))} className="rounded-md border px-3 py-1.5 hover:bg-accent">Send a capture</button>
-          <button type="button" onClick={() => play(() => chime('hint'))} className="rounded-md border px-3 py-1.5 hover:bg-accent">A hint arrives</button>
-          <button type="button" onClick={() => play(() => chime('tap'))} className="rounded-md border px-3 py-1.5 hover:bg-accent">Switch tab</button>
+          </Button>
+          <Button variant="outline" size="lg" onClick={() => play(() => chime('send'))}>Send a capture</Button>
+          <Button variant="outline" size="lg" onClick={() => play(() => chime('hint'))}>A hint arrives</Button>
+          <Button variant="outline" size="lg" onClick={() => play(() => chime('tap'))}>Switch tab</Button>
         </div>
 
         <div>
           <p className="mb-1 text-xs text-muted-foreground">Review: reveal, then grade</p>
           <div className="flex gap-2">
-            <button type="button" onClick={() => play(() => chime('reveal'))} className="rounded-md border px-3 py-1.5 hover:bg-accent">Show</button>
+            <Button variant="outline" size="lg" onClick={() => play(() => chime('reveal'))}>Show</Button>
             {(['again', 'hard', 'good', 'easy'] as const).map((grade) => (
-              <button key={grade} type="button" onClick={() => play(() => chime(grade))} className="rounded-md border px-3 py-1.5 capitalize hover:bg-accent">{grade}</button>
+              <Button variant="outline" size="lg" key={grade} onClick={() => play(() => chime(grade))} className="capitalize">{grade}</Button>
             ))}
           </div>
         </div>

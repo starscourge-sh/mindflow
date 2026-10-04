@@ -181,19 +181,18 @@ export function ReviewView(): React.JSX.Element {
             placeholder="Say it back in your own words first, if you like. ⌘↵ to check."
             className="resize-none text-[15px]"
           />
-          <button
-            type="button"
-            onClick={reveal}
-            className="self-start rounded-lg border px-4 py-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
+          <Button variant="outline" size="lg"
+ onClick={reveal}
+ className="self-start text-muted-foreground"
+>
             Show the answer <Kbd>Space</Kbd>
-          </button>
+          </Button>
           </>
         )}
         {!shown && (
-          <button type="button" onClick={bury} className="-mt-3 self-start text-sm text-muted-foreground hover:text-foreground">
+          <Button variant="ghost" size="sm" onClick={bury} className="-mt-3 self-start text-muted-foreground">
             Not today <Kbd>B</Kbd>
-          </button>
+          </Button>
         )}
       </motion.div>
       </AnimatePresence>

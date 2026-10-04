@@ -85,16 +85,15 @@ export function ItemsView({ tier, focus, onOpenCapture }: { tier: 'nugget' | 'ar
           chosen.length ? (
             <span className="flex items-center gap-2 text-muted-foreground">
               {chosen.length} selected
-              <button
-                type="button"
-                className="rounded-md bg-accent px-2 py-1 text-foreground hover:bg-accent/70"
-                onClick={() => void vigil.article(chosen).then(() => {
-                  toast(`Article started from ${chosen.length} nugget${chosen.length === 1 ? '' : 's'}`)
-                  setChosen([])
-                })}
-              >
+              <Button variant="secondary" size="sm"
+ 
+ onClick={() => void vigil.article(chosen).then(() => {
+ toast(`Article started from ${chosen.length} nugget${chosen.length === 1 ? '' : 's'}`)
+ setChosen([])
+ })}
+>
                 Start an article
-              </button>
+              </Button>
               <Tip label="Clear">
               <Button variant="ghost" size="icon-sm" onClick={() => setChosen([])}>
                 <X className="size-3.5" />

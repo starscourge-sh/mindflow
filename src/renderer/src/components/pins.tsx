@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { useLive, vigil, type Pin as Pinned } from '@/lib/vigil'
 import { Tip } from '@/components/vigil/ui'
+import { Button } from '@/components/ui/button'
 
 /**
  * Pinned: what you parked to see again soon, "mention the freight change at
@@ -37,9 +38,9 @@ export function Pins(): React.JSX.Element | null {
               {stale && (
                 <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
                   Still relevant?
-                  <button type="button" className="rounded px-1 hover:bg-accent hover:text-foreground" onClick={() => void vigil.pin(table, pin.id, true)}>Keep</button>
+                  <Button variant="ghost" size="sm" onClick={() => void vigil.pin(table, pin.id, true)}>Keep</Button>
                   {pin.type === 'capture' && (
-                    <button type="button" className="rounded px-1 hover:bg-accent hover:text-foreground" onClick={() => void vigil.toTask(pin.id).then(() => vigil.pin(table, pin.id, false))}>Task</button>
+                    <Button variant="ghost" size="sm" onClick={() => void vigil.toTask(pin.id).then(() => vigil.pin(table, pin.id, false))}>Task</Button>
                   )}
                 </span>
               )}

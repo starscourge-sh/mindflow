@@ -305,9 +305,9 @@ function TaskDetail({ task: first, onClose }: { task: TaskFull; onClose: () => v
         <PropLabel>Due</PropLabel>
         <div className="mx-1 mb-1 flex gap-1">
           {([['Today', 0], ['Tomorrow', 1], ['Next week', 7]] as const).map(([label, days]) => (
-            <button key={label} type="button" onClick={() => void vigil.saveTask(task.id, { due: shiftTo(days) })} className="flex-1 rounded-md border px-1.5 py-1 text-xs hover:bg-accent hover:text-foreground">
+            <Button variant="outline" size="sm" key={label} onClick={() => void vigil.saveTask(task.id, { due: shiftTo(days) })} className="flex-1">
               {label}
-            </button>
+            </Button>
           ))}
         </div>
         <DatePicker time value={task.dueAt} onChange={(due) => void vigil.saveTask(task.id, { due })} placeholder="No date" />

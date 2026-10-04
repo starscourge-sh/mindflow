@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
 import { SoundPacks } from './sound-packs'
 import { Page, toast } from './ui'
+import { Button } from '@/components/ui/button'
 
 function Setting({ title, children, note }: { title: string; children: ReactNode; note: string }): React.JSX.Element {
   return (
@@ -119,13 +120,12 @@ export function SettingsView(): React.JSX.Element {
           <Switch checked={settings.safeMode} onCheckedChange={(safeMode) => set({ safeMode })} />
         </Setting>
         <Setting title="Your data" note="Everything as JSON and Markdown, in a folder you choose. No lock-in: it is all yours to read without this app. Importing is in the menu bar icon.">
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-md border px-3 py-1.5 hover:bg-accent"
-            onClick={() => void vigil.exportAll().then((folder) => folder && toast(`Exported to ${folder.split('/').slice(-2).join('/')}`))}
-          >
+          <Button variant="outline" size="lg"
+ 
+ onClick={() => void vigil.exportAll().then((folder) => folder && toast(`Exported to ${folder.split('/').slice(-2).join('/')}`))}
+>
             <Download className="size-4" /> Export everything
-          </button>
+          </Button>
         </Setting>
       </div>
     </Page>
