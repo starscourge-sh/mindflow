@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowLeft, FileJson2, PanelRight, Keyboard, KeyboardOff, Lock, LockOpen, Maximize2, Minimize2, SquarePen, TableOfContents, X } from 'lucide-react'
+import { ArrowLeft, BookOpen, FileJson2, PanelRight, Keyboard, KeyboardOff, Lock, LockOpen, Maximize2, Minimize2, SquarePen, TableOfContents, X } from 'lucide-react'
 import type { Editor, JSONContent } from '@tiptap/core'
 
 import { MindflowEditor, TAGS, currentVim, onVimChange, setVim } from './components/mindflow'
@@ -16,11 +16,12 @@ import { TodayPanel } from './components/vigil/today-panel'
 import { selectionActions } from './components/vigil/selection-actions'
 import { ReviewView } from './components/vigil/review-view'
 import { useAppearance, useLive } from './lib/vigil'
-import { BackToTop, Kbd, Remembered, ask, typing, useListKeys, useSmooth, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
+import { BackToTop, Empty, Kbd, Remembered, ask, typing, useListKeys, useSmooth, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import type { LucideIcon } from 'lucide-react'
 import { Rolling, Toaster, toast } from './components/vigil/ui'
 import { Reader } from './components/vigil/reader'
+import { ReadThrough, type Readable } from './components/vigil/read-through'
 import { assetsOf } from './lib/document'
 import { tagsOf } from './extensions/tokens'
 import { KeptPanel } from './components/vigil/kept-panel'
@@ -295,6 +296,8 @@ export default function App(): React.JSX.Element {
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [reading])
+  // Reading through a list, one note at a time with nothing else on screen.
+  const [readList, setReadList] = useState<{ items: Readable[]; start: number } | null>(null)
   // ⌘K: search everything from the prompt, and open what it finds here.
   const [searching, setSearching] = useState(false)
   // What search opens with: a clicked tag, or nothing.
@@ -457,6 +460,17 @@ export default function App(): React.JSX.Element {
     <TooltipProvider delayDuration={500}>
     <div className={`app-container ${pointerIn ? 'pointer-in' : ''} flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-8 color-white`}>
       <Toaster />
+      {readList && (
+        <ReadThrough
+          items={readList.items}
+          start={readList.start}
+          onClose={() => setReadList(null)}
+          onEdit={(type, id) => {
+            setReadList(null)
+            openAny(type, id)
+          }}
+        />
+      )}
       {searching && (
         <Search
           initial={searchFrom}
@@ -629,7 +643,7 @@ export default function App(): React.JSX.Element {
         {!focus && <ResizableHandle withHandle />}
         {!focus && (
           <ResizablePanel defaultSize="40%" minSize={"30%"}>
-            <SidePanel captures={captures} editing={editing?.id} onOpen={openCapture} onOpenAny={openAny} reading={reading?.id} />
+            <SidePanel captures={captures} editing={editing?.id} onOpen={openCapture} onOpenAny={openAny} reading={reading?.id} onRead={(items, start) => setReadList({ items, start })} />
           </ResizablePanel>
         )}
       </ResizablePanelGroup>
@@ -830,7 +844,9 @@ const CapturePrompt = ({
  * and the review queue, a tab each. The main window has the same things with
  * room to spread out; this is them at the size you actually keep open.
  */
-function SidePanel({ captures, editing, onOpen, onOpenAny, reading }: {
+function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead }: {
+  /** Read through a list, from a place in it. */
+  onRead: (items: Readable[], start: number) => void
   captures: Parameters<typeof CaptureList>[0]['captures']
   editing?: string
   onOpen: (id: string) => void
@@ -896,6 +912,17 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading }: {
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [tab, cursor, chosen.length])
+  // ⌘⇧R reads through the inbox as it is shown, from the row under the cursor.
+  useEffect(() => {
+    if (tab !== 'inbox') return
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.metaKey || !event.shiftKey || event.key.toLowerCase() !== 'r' || !shownNow.current.length) return
+      event.preventDefault()
+      onRead(shownNow.current.map((one) => ({ type: 'capture', id: one.id })), Math.max(0, cursor))
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [tab, cursor, onRead])
   const bulk = (status: string): void => {
     const ids = chosen
     setChosen([])
@@ -982,7 +1009,12 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading }: {
                       <Tip label="Every capture with no exit yet; Display's Status shows the rest. x selects several.">
                         <h3 className="w-fit">{shown.length === open.length ? 'Everything waiting' : `${shown.length} shown`}</h3>
                       </Tip>
-                      <span className="ml-auto">{display}</span>
+                      <Tip label="Read through these, one at a time  ⌘⇧R">
+                        <Button variant="ghost" size="sm" className="ml-auto" onClick={() => onRead(shown.map((one) => ({ type: 'capture', id: one.id })), Math.max(0, cursor))}>
+                          <BookOpen className="size-3.5" /> Read
+                        </Button>
+                      </Tip>
+                      <span>{display}</span>
                     </>
                   )}
                 </div>
@@ -995,11 +1027,18 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading }: {
                     </div>
                   )
                 })}
+                {!shown.length && (
+                  open.length ? (
+                    <Empty compact shape={['ellipse', 3]} title="Nothing matches">Display's filters hide everything here. Change them, or clear them.</Empty>
+                  ) : (
+                    <Empty compact shape={['flower', 2]} title="Nothing waiting">Every capture has taken its exit. Write the next thought on the left.</Empty>
+                  )
+                )}
               </>
             ) : tab === 'today' ? (
               <TodayPanel onOpen={(id) => onOpenAny('task', id)} open={reading} />
             ) : tab === 'kept' ? (
-              <KeptPanel onOpen={onOpenAny} open={reading} />
+              <KeptPanel onOpen={onOpenAny} open={reading} onRead={onRead} />
             ) : (
               <div className="flex flex-1 [&_header]:hidden">
                 <ReviewView />

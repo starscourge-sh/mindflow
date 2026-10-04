@@ -192,7 +192,7 @@ import { SearchBar } from "@/components/search/search-bar"
 import { TableMenu } from "@/components/table/table-menu"
 import { TableControls } from "@/components/table/table-controls"
 import { BlockMenu, type BlockTarget } from "@/components/turn-into/block-menu"
-// import { WordCount } from "@/components/count/word-count"
+import { WordCount } from "@/components/count/word-count"
 import { TableOfContents } from "@/components/toc/table-of-contents"
 import { SourceView } from "@/components/source/source-view"
 import { NoteLink, type NoteSuggestion } from "@/extensions/note-link"
@@ -1343,6 +1343,9 @@ function Surface({
 
         <LinkPreview editor={editor} />
 
+        {/* How much is written, quietly in the corner of a document. */}
+        {shape === "document" && !readOnly && <WordCount editor={editor} />}
+
         {/* The dock earns its place only if something is in it. */}
         {(fixedItems !== false || search) && (
           <div className="absolute inset-x-0 bottom-0 z-50 m-auto">
@@ -1374,7 +1377,6 @@ function Surface({
                 {fixedItems ?? defaultFixed}
               </Toolbar>
             )}
-            {/* <WordCount editor={editor} /> */}
             </div>
           </div>
         )}

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Brain, Lock, Pin } from 'lucide-react'
+import { BookOpen, Brain, Lock, Pin } from 'lucide-react'
+import type { Readable } from './read-through'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { useLive, vigil, type Item } from '@/lib/vigil'
 import { Chips } from './display'
 import { RowMenu, copy } from './row-menu'
-import { ask, pin, toast, typing, useListKeys, VirtualList } from './ui'
+import { Empty, ask, pin, toast, typing, useListKeys, VirtualList } from './ui'
 import { Button } from '@/components/ui/button'
 import { useItemDisplay } from './items-view'
 
@@ -15,7 +16,7 @@ const TIERS = [{ id: 'nugget', label: 'Nuggets' }, { id: 'article', label: 'Arti
  * What you kept, in the prompt: nuggets and articles, newest first, each one
  * opened right here. j and k move, Enter opens, and a right click has the rest.
  */
-export function KeptPanel({ onOpen, open }: { onOpen: (type: string, id: string) => void; open?: string }): React.JSX.Element {
+export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id: string) => void; open?: string; onRead: (items: Readable[], start: number) => void }): React.JSX.Element {
   const [tier, setTier] = useState<'nugget' | 'article'>('nugget')
   const all = useLive(() => vigil.items(tier), [] as Item[], [tier])
   // The same filters as the main window's list, kept apart per tier.
@@ -38,6 +39,17 @@ export function KeptPanel({ onOpen, open }: { onOpen: (type: string, id: string)
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   })
+  const read = (): void => void (items.length && onRead(items.map((one) => ({ type: tier, id: one.id })), Math.max(0, cursor)))
+  // ⌘⇧R reads through what is shown, from the row under the cursor.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.metaKey || !event.shiftKey || event.key.toLowerCase() !== 'r') return
+      event.preventDefault()
+      read()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  })
   const article = (ids: string[]): void =>
     void vigil.article(ids).then((id) => {
       setChosen([])
@@ -48,8 +60,10 @@ export function KeptPanel({ onOpen, open }: { onOpen: (type: string, id: string)
     <div className="flex flex-col gap-2 text-sm">
       <div className="flex items-center gap-2 px-1 pt-1">
         <Chips options={TIERS} on={(id) => id === tier} pick={(id) => setTier(id as 'nugget' | 'article')} />
-        <span className="ml-auto">{display}</span>
-        <span className="text-xs text-muted-foreground tabular-nums">{items.length} {tier === "nugget" ? (items.length === 1 ? "nugget" : "nuggets") : items.length === 1 ? "article" : "articles"}</span>
+        {/* Read and the count only when there is something to read or count. */}
+        {all.length > 0 && <Button variant="ghost" size="sm" className="ml-auto" onClick={read}><BookOpen className="size-3.5" /> Read</Button>}
+        <span className={all.length ? '' : 'ml-auto'}>{display}</span>
+        {all.length > 0 && <span className="text-xs text-muted-foreground tabular-nums">{items.length} {tier === "nugget" ? (items.length === 1 ? "nugget" : "nuggets") : items.length === 1 ? "article" : "articles"}</span>}
         {tier === 'article' && (
           <Button variant="outline" size="sm" onClick={() => void vigil.newArticle().then((id) => onOpen('article', id))}>New article</Button>
         )}
@@ -93,9 +107,9 @@ export function KeptPanel({ onOpen, open }: { onOpen: (type: string, id: string)
           }}
         </VirtualList>
       ) : (
-        <p className="px-2 py-6 leading-relaxed text-muted-foreground">
-          {tier === 'nugget' ? 'Nothing kept yet. Promote a capture and it lands here.' : 'No articles yet. Start one here with New article, or from a nugget.'}
-        </p>
+        <Empty compact shape={tier === 'nugget' ? ['star', 3] : ['polygon', 4]} title={tier === 'nugget' ? 'Nothing kept yet' : 'No articles yet'}>
+          {tier === 'nugget' ? 'Promote a capture and it lands here, to come back to you.' : 'Your own words on one idea. Start one with New article, or from a nugget.'}
+        </Empty>
       )}
     </div>
   )

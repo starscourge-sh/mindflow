@@ -46,15 +46,17 @@ export function Page({ title, count, actions, children, aside = false }: {
  * coolshapes, clean rather than grainy, in place of a grey icon: an empty view
  * is the first thing a new feature shows you, and it should not read as an error.
  */
-export function Empty({ shape, title, children, action }: {
+export function Empty({ shape, title, children, action, compact = false }: {
   shape: [shapeTypes, number]
   title: string
   children: ReactNode
   action?: ReactNode
+  /** Sized for the prompt's narrow panel: less height above, a smaller shape. */
+  compact?: boolean
 }): React.JSX.Element {
   return (
-    <div className="flex max-w-sm flex-col items-start gap-3 px-5 py-[16vh]">
-      <Coolshape type={shape[0]} index={shape[1]} noise={false} size={56} className="mb-3" />
+    <div className={`flex max-w-sm flex-col items-start gap-3 px-5 ${compact ? 'py-10 text-[13px]' : 'py-[16vh]'}`}>
+      <Coolshape type={shape[0]} index={shape[1]} noise={false} size={compact ? 44 : 56} className="mb-3" />
       <h2 className="text-[15px] font-semibold">{title}</h2>
       <p className="leading-relaxed text-muted-foreground">{children}</p>
       {action}
@@ -73,7 +75,9 @@ export function Kbd({ children }: { children: ReactNode }): React.JSX.Element {
 
 /** A labelled run of properties, the right-hand column of an open item. */
 export function Props({ children }: { children: ReactNode }): React.JSX.Element {
-  return <aside data-chrome className="flex w-60 shrink-0 flex-col gap-0.5 overflow-y-auto border-l p-3 pt-4 text-muted-foreground">{children}</aside>
+  // One size for every row, whatever window it sits in: the prompt's larger
+  // base made some rows grow and others not.
+  return <aside data-chrome className="flex w-64 shrink-0 flex-col gap-px overflow-y-auto border-l p-3 pt-4 text-[13px] leading-snug text-muted-foreground">{children}</aside>
 }
 export function PropLabel({ children }: { children: ReactNode }): React.JSX.Element {
   return <div className="mt-3 mb-1 px-2 text-xs first:mt-0">{children}</div>

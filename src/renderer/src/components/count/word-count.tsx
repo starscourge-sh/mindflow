@@ -18,12 +18,13 @@ export function WordCount({ editor }: { editor: Editor | null }) {
   if (!editor || !doc) return null
 
   const words = editor.storage.characterCount.words()
+  // Nothing to count says nothing: an empty box stays empty.
+  if (!words) return null
+  const characters = editor.storage.characterCount.characters()
 
   return (
-    <span
-      className="tiptap-word-count px-2 py-1 justify-center right-2 bottom-5 color-white pointer-events-none text-shadow-2xl bg-accent rounded-full ">
-      {words} {words === 1 ? "word" : "words"} ·{" "}
-      {editor.storage.characterCount.characters()}
+    <span className="tiptap-word-count pointer-events-none absolute right-4 bottom-2 text-xs text-muted-foreground tabular-nums">
+      {words} {words === 1 ? "word" : "words"} · {characters} {characters === 1 ? "character" : "characters"}
     </span>
   )
 }

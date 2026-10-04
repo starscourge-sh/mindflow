@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { ArrowUpRight, CheckCircle2, FileText, Hash, Inbox, ListTodo, Lock, Merge, Pin, Trash2, X, Laptop, Timer, History } from 'lucide-react'
+import { ArrowUpRight, BookOpen, CheckCircle2, FileText, Hash, Inbox, ListTodo, Lock, Merge, Pin, Trash2, X, Laptop, Timer, History } from 'lucide-react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
@@ -14,6 +14,7 @@ import { splitTags, vigil } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
 import { Empty, Kbd, Page, Prop, PropLabel, Props, Remembered, Rolling, ask, toast, useListKeys, typing, pin } from './ui'
 import { RemindMe } from './items-view'
+import { ReadThrough } from './read-through'
 import { selectionActions } from './selection-actions'
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
@@ -42,6 +43,17 @@ export function CapturesView({ title, keep, focus, onOpen }: {
   useEffect(() => setFirst(null), [open?.id])
   const pick = (id: string): void => void window.api.captures.get(id).then(setOpen)
   const [cursor] = useListKeys(shown.length, { onOpen: (index) => pick(shown[index].id), onBack: () => setOpen(null) })
+  // Reading through what is shown, one at a time with nothing else on screen.
+  const [readFrom, setReadFrom] = useState<number | null>(null)
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.metaKey || !event.shiftKey || event.key.toLowerCase() !== 'r' || !shown.length) return
+      event.preventDefault()
+      setReadFrom(Math.max(0, cursor))
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  })
   // x selects, as in Linear, for an exit on many at once.
   const [chosen, setChosen] = useState<string[]>([])
   useEffect(() => {
@@ -113,6 +125,9 @@ export function CapturesView({ title, keep, focus, onOpen }: {
           ) : (
             <span className="flex items-center gap-2">
               {shown.length > 1 && <span className="text-xs">x to select</span>}
+              <Tip label="Read through these, one at a time  ⌘⇧R">
+                <Button variant="ghost" size="sm" onClick={() => setReadFrom(Math.max(0, cursor))} disabled={!shown.length}><BookOpen className="size-3.5" /> Read</Button>
+              </Tip>
               {display}
             </span>
           )
@@ -140,6 +155,17 @@ export function CapturesView({ title, keep, focus, onOpen }: {
           </Empty>
         )}
       </Page>
+      {readFrom !== null && (
+        <ReadThrough
+          items={shown.map((one) => ({ type: 'capture', id: one.id }))}
+          start={readFrom}
+          onClose={() => setReadFrom(null)}
+          onEdit={(_, id) => {
+            setReadFrom(null)
+            pick(id)
+          }}
+        />
+      )}
       {open && meta ? (
         <div className="flex min-w-0 flex-[1.4] border-l">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
@@ -326,6 +352,7 @@ export function useCaptureDisplay(name: string, kept: CaptureMeta[], filter?: Vi
       view={view}
       onChange={setView}
       facets={facets}
+      defaults={filter}
       sorts={[{ id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'name', label: 'Name' }, { id: 'kind', label: 'Kind' }]}
       groups={[{ id: 'none', label: 'None' }, { id: 'kind', label: 'Kind' }, { id: 'date', label: 'Date' }, { id: 'source', label: 'Where from' }]}
     />

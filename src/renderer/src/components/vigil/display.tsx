@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { SlidersHorizontal } from 'lucide-react'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -71,9 +71,9 @@ export function period(iso: string | null): string {
 }
 export const AGES: Choice[] = ['Today', 'This week', 'This month', 'This year', 'Older'].map((id) => ({ id, label: id }))
 
-export function Chips({ options, on, pick }: { options: readonly Choice[]; on: (id: string) => boolean; pick: (id: string) => void }): React.JSX.Element {
+export function Chips({ options, on, pick, className = 'flex-wrap' }: { options: readonly Choice[]; on: (id: string) => boolean; pick: (id: string) => void; className?: string }): React.JSX.Element {
   return (
-    <div data-hover-quiet className="flex flex-wrap gap-1">
+    <div data-hover-quiet className={`flex gap-1 ${className}`}>
       {options.map((option) => (
         <button
           key={option.id}
@@ -92,8 +92,10 @@ export function Chips({ options, on, pick }: { options: readonly Choice[]; on: (
 }
 
 /** The Display button and its panel. F opens it from anywhere on the list. */
-export function Display<T>({ view, onChange, facets, sorts, groups = [] }: {
+export function Display<T>({ view, onChange, facets, sorts, groups = [], defaults = {} }: {
   view: View
+  /** Filters the list starts with: not counted as chosen, and what Clear goes back to. */
+  defaults?: View['filter']
   onChange: (view: View) => void
   facets: Facet<T>[]
   sorts: Choice[]
@@ -110,12 +112,20 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [] }: {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
-  const active = Object.values(view.filter).reduce((n, list) => n + list.length, 0)
+  const same = (key: string): boolean => JSON.stringify([...(view.filter[key] ?? [])].sort()) === JSON.stringify([...(defaults[key] ?? [])].sort())
+  const active = Object.entries(view.filter).reduce((n, [key, list]) => n + (same(key) ? 0 : list.length), 0)
   const toggle = (key: string, id: string): void => {
     const list = view.filter[key] ?? []
     onChange({ ...view, filter: { ...view.filter, [key]: list.includes(id) ? list.filter((one) => one !== id) : [...list, id] } })
   }
-  const Label = ({ children }: { children: string }): React.JSX.Element => <div className="mb-1.5 text-xs text-muted-foreground">{children}</div>
+  // One row per setting, its name beside its choices: denser than stacked
+  // headings, and a setting with nothing to choose between is left out.
+  const Row = ({ label, children }: { label: string; children: ReactNode }): React.JSX.Element => (
+    <>
+      <div className="pt-1 text-xs text-muted-foreground">{label}</div>
+      {children}
+    </>
+  )
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <Tip label="Display  F">
@@ -126,25 +136,26 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [] }: {
         </button>
         </PopoverTrigger>
       </Tip>
-      <PopoverContent align="end" className="w-80 space-y-4 p-3 text-sm">
-        {groups.length > 0 && (
-          <div>
-            <Label>Grouping</Label>
-            <Chips options={groups} on={(id) => view.group === id} pick={(group) => onChange({ ...view, group })} />
-          </div>
-        )}
-        <div>
-          <Label>Ordering</Label>
-          <Chips options={sorts} on={(id) => view.sort === id} pick={(sort) => onChange({ ...view, sort })} />
+      <PopoverContent align="end" className="w-96 p-3 text-sm">
+        <div className="grid grid-cols-[5.5rem_1fr] items-start gap-x-2 gap-y-2.5">
+          {groups.length > 1 && (
+            <Row label="Grouping">
+              <Chips options={groups} on={(id) => view.group === id} pick={(group) => onChange({ ...view, group })} />
+            </Row>
+          )}
+          {sorts.length > 1 && (
+            <Row label="Ordering">
+              <Chips options={sorts} on={(id) => view.sort === id} pick={(sort) => onChange({ ...view, sort })} />
+            </Row>
+          )}
+          {facets.filter((facet) => facet.options.length > 1 || (view.filter[facet.key] ?? []).length > 0).map((facet) => (
+            <Row key={facet.key} label={facet.label}>
+              <Chips options={facet.options} on={(id) => (view.filter[facet.key] ?? []).includes(id)} pick={(id) => toggle(facet.key, id)} />
+            </Row>
+          ))}
         </div>
-        {facets.filter((facet) => facet.options.length).map((facet) => (
-          <div key={facet.key}>
-            <Label>{facet.label}</Label>
-            <Chips options={facet.options} on={(id) => (view.filter[facet.key] ?? []).includes(id)} pick={(id) => toggle(facet.key, id)} />
-          </div>
-        ))}
         {active > 0 && (
-          <button type="button" onClick={() => onChange({ ...view, filter: {} })} className="text-xs text-muted-foreground hover:text-foreground">
+          <button type="button" onClick={() => onChange({ ...view, filter: { ...defaults } })} className="mt-3 text-xs text-muted-foreground hover:text-foreground">
             Clear filters
           </button>
         )}

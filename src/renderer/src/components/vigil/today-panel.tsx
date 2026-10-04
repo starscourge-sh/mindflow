@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'motion/react'
 
 import { chime } from '@/lib/sound'
 import { taskSaid, useLive, vigil, when, type Task } from '@/lib/vigil'
-import { toast, typing, useListKeys } from './ui'
+import { Empty, toast, typing, useListKeys } from './ui'
 import { Chips, Display, arrange, useView } from './display'
 import { taskFacets } from './tasks-view'
 import { RowMenu, copy } from './row-menu'
@@ -14,6 +14,13 @@ const endOfToday = (): number => new Date().setHours(24, 0, 0, 0)
 const startOfToday = (): number => new Date().setHours(0, 0, 0, 0)
 
 type Scope = 'today' | 'upcoming' | 'routines' | 'backlog' | 'waiting'
+const EMPTY: Record<Scope, { shape: [Parameters<typeof Empty>[0]['shape'][0], number]; title: string; text: string }> = {
+  today: { shape: ['star', 6], title: 'Nothing due today', text: 'A clear day. Anything with a date lands here on the day, and anything late stays on top until it is done.' },
+  upcoming: { shape: ['ellipse', 4], title: 'Nothing coming up', text: 'Put a day in the words, “friday” or “in 3 days”, and it waits here until then.' },
+  routines: { shape: ['flower', 5], title: 'No routines', text: '“every week” follows the calendar; “every! 3 days” counts from when you last did it.' },
+  backlog: { shape: ['wheel', 2], title: 'Nothing in the backlog', text: 'A task with no date goes here, out of the way until you give it one.' },
+  waiting: { shape: ['moon', 3], title: 'Waiting on no one', text: 'Say who a task is waiting on and it comes here, with a day to chase them.' }
+}
 const SCOPES: Record<Scope, { label: string; test: (task: Task) => boolean }> = {
   today: { label: 'Today', test: (task) => !task.waitingOn && !!task.dueAt && new Date(task.dueAt).getTime() < endOfToday() },
   upcoming: { label: 'Upcoming', test: (task) => !task.waitingOn && !task.recurrence && !!task.dueAt && new Date(task.dueAt).getTime() >= endOfToday() },
@@ -87,6 +94,8 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
         })}
         on={(id) => id === scope}
         pick={(id) => setScope(id as Scope)}
+        // One line that scrolls sideways, never wrapping under itself.
+        className="min-w-0 flex-1 flex-nowrap overflow-x-auto [scrollbar-width:none] [&>button]:shrink-0"
       />
       <span className="ml-auto"><Display view={view} onChange={setView} facets={facets} sorts={[{ id: 'manual', label: 'Your order' }]} /></span>
       </div>
@@ -167,9 +176,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
         })}
       </AnimatePresence>
       {!due.length && (
-        <p className="px-1.5 py-6 leading-relaxed text-muted-foreground">
-          {scope === 'today' ? 'Nothing due today. Tasks with a date land here on the day, and late ones stay until they are done.' : `Nothing in ${SCOPES[scope].label.toLowerCase()}.`}
-        </p>
+        <Empty compact shape={EMPTY[scope].shape} title={EMPTY[scope].title}>{EMPTY[scope].text}</Empty>
       )}
     </div>
   )

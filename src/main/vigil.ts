@@ -435,11 +435,13 @@ export function registerVigil(): void {
     // other way: the same thing twice in a row is a nag, not a surprise.
     const rot = db
       .prepare(
-        `select ${LIST}, body from captures where status = 'open' ${hidePrivate ? 'and 0' : ''}
+        `select ${LIST}, body from captures where status = 'open' and captured_at < ? ${hidePrivate ? 'and 0' : ''}
          and id not in (select nugget_id from hint_events where shown_at >= ? union select capture_id from nuggets where capture_id is not null and id in (select nugget_id from hint_events where shown_at >= ?))
          order by (julianday('now') - julianday(captured_at) + 1) * (abs(random()) % 1000) desc limit ${Math.max(0, Math.min(10, settings().rotCount))}`
       )
-      .all(ago(3), ago(3))
+      // Only what has sat a day: anything newer is in the list right below,
+      // and a card for it would only say the same thing twice.
+      .all(ago(1), ago(3), ago(3))
       .map(body)
     for (const row of rot) db.prepare('update captures set surfaced_at = ? where id = ?').run(now(), row.id as string)
     return rot

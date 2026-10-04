@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { MindflowEditor, TAGS } from '../mindflow'
 import { textOf } from '../rot-cards'
 import { selectionActions } from './selection-actions'
+import { ReadThrough } from './read-through'
 import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { age } from '../capture-list'
 import { findCaptures, follow } from '@/lib/capture-links'
@@ -38,6 +39,17 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   const [open, setOpen] = useState<ItemFull | null>(null)
   const pick = (id: string): void => void vigil.item(id).then(setOpen)
   const [cursor] = useListKeys(items.length, { onOpen: (index) => pick(items[index].id), onBack: () => setOpen(null) })
+  // Reading through what is shown, one at a time with nothing else on screen.
+  const [readFrom, setReadFrom] = useState<number | null>(null)
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.metaKey || !event.shiftKey || event.key.toLowerCase() !== 'r' || !items.length) return
+      event.preventDefault()
+      setReadFrom(Math.max(0, cursor))
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  })
   // x selects, the way Linear does it; several nuggets make one article.
   const [chosen, setChosen] = useState<string[]>([])
   // The Luhmann move: two unrelated nuggets side by side, for the connection
@@ -108,6 +120,9 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
                   <Plus className="size-3.5" /> New article
                 </Button>
               )}
+              <Tip label="Read through these, one at a time  ⌘⇧R">
+                <Button variant="ghost" size="sm" onClick={() => setReadFrom(Math.max(0, cursor))} disabled={!items.length}><BookOpen className="size-3.5" /> Read</Button>
+              </Tip>
               {display}
             </span>
           )
@@ -171,6 +186,17 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           </Empty>
         )}
       </Page>
+      {readFrom !== null && (
+        <ReadThrough
+          items={items.map((one) => ({ type: tier, id: one.id }))}
+          start={readFrom}
+          onClose={() => setReadFrom(null)}
+          onEdit={(_, id) => {
+            setReadFrom(null)
+            pick(id)
+          }}
+        />
+      )}
       {open && <ItemDetail key={open.id} item={open} onOpen={(type, id) => (type === tier ? pick(id) : onOpen?.(type, id))} />}
     </>
   )
@@ -298,7 +324,7 @@ export function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: s
           onChange={(event) => setPrompt(event.target.value)}
           onBlur={savePrompt}
           rows={3}
-          placeholder="Write a question and the text becomes its answer. Leave it empty to let it come back on its own."
+          placeholder="A question this answers. Empty, it comes back on its own."
           className="mx-1 mt-1 resize-none text-[13px]"
         />
         <Prop icon={SquareDashed} onClick={cloze}>Blank the selected words</Prop>
@@ -459,7 +485,7 @@ function StudyThis({ item }: { item: ItemFull }): React.JSX.Element {
   return (
     <Input
       autoFocus
-      placeholder="When? “tomorrow”, “thursday 9am”"
+      placeholder="When? e.g. thursday 9am"
       onBlur={() => setAsking(false)}
       onKeyDown={(event) => {
         if (event.key === 'Escape') setAsking(false)
@@ -469,7 +495,7 @@ function StudyThis({ item }: { item: ItemFull }): React.JSX.Element {
           toast('Task made, with this linked to it')
         })
       }}
-      className="mx-1 text-[13px] h-8"
+      className="mx-1 h-8 w-auto text-[13px]"
     />
   )
 }

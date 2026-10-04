@@ -117,7 +117,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
           <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
             {/* How long it has gone untouched, warming with age: the rot itself. */}
             <span className="mr-auto truncate">
-              <span style={{ color: ageTint(card.capturedAt) }}>untouched {age(card.capturedAt)}</span>
+              <span style={{ color: ageTint(card.capturedAt) }}>{Date.now() - new Date(card.capturedAt).getTime() < 86400000 ? 'from today' : `untouched ${age(card.capturedAt)}`}</span>
             </span>
             {EXITS.map((one) => (
               <Tip key={one.key} label={<span className="flex items-center gap-2">{one.what}<Kbd>{one.key.toUpperCase()}</Kbd></span>}>
