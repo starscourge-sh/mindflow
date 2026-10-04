@@ -25,7 +25,7 @@ export function SoundPacks({ chosen }: { chosen: PackName }): React.JSX.Element 
   const sample = [
     { kind: 'quote', title: 'Friction determines behaviour more than intent does' },
     { kind: 'word', title: 'anachronistic' },
-    { kind: 'idea', title: 'Dev logs where I clone a UI from scratch' }
+    { kind: 'note', title: 'Dev logs where I clone a UI from scratch' }
   ]
 
   return (

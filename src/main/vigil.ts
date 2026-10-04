@@ -44,6 +44,8 @@ const DEFAULTS = {
   fullWidth: false,
   // The small sounds on complete, promote and grade.
   sounds: true,
+  // How loud they are, from silent to full.
+  volume: 1,
   // Things ease in and out rather than appearing at once.
   motion: true,
   // Which of the nine packs they play through.

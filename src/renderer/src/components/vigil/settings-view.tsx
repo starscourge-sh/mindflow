@@ -63,6 +63,11 @@ export function SettingsView(): React.JSX.Element {
           <Switch checked={settings.sounds} onCheckedChange={(sounds) => set({ sounds })} />
         </Setting>
         {settings.sounds && (
+          <Setting title="Volume" note="How loud every sound is, from silent to as loud as they were made.">
+            <Slider className="w-40" min={0} max={1} step={0.05} value={[settings.volume]} onValueChange={([volume]) => set({ volume })} />
+          </Setting>
+        )}
+        {settings.sounds && (
           <div className="border-b">
             <div className="pt-5 font-medium">Sound pack</div>
             <p className="mt-1 max-w-md text-sm leading-relaxed text-muted-foreground">Nine characters for the same sounds. Point at one to hear it on the pieces of the app, and click to keep it.</p>

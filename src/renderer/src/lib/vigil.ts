@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { MotionGlobalConfig } from 'motion/react'
-import { installTicks, setPack, soundOn, type PackName } from './sound'
+import { installTicks, setPack, setVolume, soundOn, type PackName } from './sound'
 
 /**
  * The main process's `vigil:` channels, typed. One generic bridge in the
@@ -11,6 +11,7 @@ const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.
 export type Settings = {
   fullWidth: boolean
   sounds: boolean
+  volume: number
   motion: boolean
   soundPack: PackName
   hintRate: number
@@ -211,6 +212,7 @@ export function useAppearance(): void {
     document.documentElement.dataset.motion = settings.motion ? 'on' : 'off'
     MotionGlobalConfig.skipAnimations = !settings.motion
     soundOn(settings.sounds)
+    setVolume(settings.volume)
     setPack(settings.soundPack)
-  }, [settings?.fullWidth, settings?.motion, settings?.sounds, settings?.soundPack])
+  }, [settings?.fullWidth, settings?.motion, settings?.sounds, settings?.volume, settings?.soundPack])
 }

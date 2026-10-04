@@ -14,6 +14,11 @@ let enabled = true
 export const soundOn = (on: boolean): void => {
   enabled = on
 }
+let volume = 1
+/** The Volume setting, 0 to 1: every sound is scaled by it. */
+export const setVolume = (level: number): void => {
+  volume = Math.max(0, Math.min(1, level))
+}
 
 type Note = [frequency: number, delay: number, length?: number, level?: number]
 
@@ -40,7 +45,7 @@ const CUES = {
 } satisfies Record<string, Note[]>
 
 export function chime(cue: keyof typeof CUES): void {
-  if (!enabled) return
+  if (!enabled || !volume) return
   context ??= new AudioContext()
   // A context made before any click starts suspended; resuming is free after.
   if (context.state === 'suspended') void context.resume()
@@ -55,7 +60,7 @@ export function chime(cue: keyof typeof CUES): void {
     tone.type = sound.osc
     tone.frequency.value = frequency * sound.pitch
     level.gain.setValueAtTime(0, at)
-    level.gain.linearRampToValueAtTime(peak * sound.gain * loud, at + 0.004)
+    level.gain.linearRampToValueAtTime(Math.max(0.0002, peak * sound.gain * loud * volume), at + 0.004)
     level.gain.exponentialRampToValueAtTime(0.0001, at + length * sound.decay)
     tone.connect(level).connect(context.destination)
     tone.start(at)
@@ -112,13 +117,13 @@ export function withPack(name: PackName, play: () => void): void {
 
 export type ClickName = keyof typeof CLICKS
 export function click(name: ClickName): void {
-  if (!enabled) return
+  if (!enabled || !volume) return
   context ??= new AudioContext()
   if (context.state === 'suspended') void context.resume()
   const tune = CLICKS[name]
   const SOFT = PACKS[pack]
   const t = context.currentTime
-  const volume = tune.volume * SOFT.gain
+  const level = Math.max(0.002, tune.volume * SOFT.gain * volume)
   const duration = tune.duration * SOFT.decay
   const frequency = tune.frequency * SOFT.pitch
 
@@ -133,9 +138,9 @@ export function click(name: ClickName): void {
   filter.type = 'bandpass'
   filter.frequency.value = frequency
   filter.Q.value = tune.q * SOFT.q
-  const level = context.createGain()
-  level.gain.value = volume
-  noise.connect(filter).connect(level).connect(context.destination)
+  const gain = context.createGain()
+  gain.gain.value = level
+  noise.connect(filter).connect(gain).connect(context.destination)
   noise.start(t)
 
   const tone = context.createOscillator()
@@ -143,7 +148,7 @@ export function click(name: ClickName): void {
   tone.frequency.value = frequency
   const envelope = context.createGain()
   envelope.gain.setValueAtTime(0.001, t)
-  envelope.gain.linearRampToValueAtTime(volume * 0.3, t + 0.001)
+  envelope.gain.linearRampToValueAtTime(level * 0.3, t + 0.001)
   envelope.gain.exponentialRampToValueAtTime(0.001, t + duration * 1.5)
   tone.connect(envelope).connect(context.destination)
   tone.start(t)
