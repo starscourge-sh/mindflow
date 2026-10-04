@@ -437,7 +437,7 @@ body {
    screen, clear while you point at it, have the keyboard on it, or have it
    open. Search shows them plainly; you typed the words. */
 [data-private] .private-text {
-  filter: blur(5px);
+  filter: blur(2.5px);
   transition: filter 150ms ease-out;
 }
 [data-private]:hover .private-text,
