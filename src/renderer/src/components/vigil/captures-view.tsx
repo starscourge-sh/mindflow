@@ -176,10 +176,10 @@ function CaptureProps({ capture }: { capture: CaptureMeta }): React.JSX.Element 
     setWhere(capture.medium ?? '')
   }, [capture.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const exits = [
-    { icon: ArrowUpRight, label: 'Promote to nugget', run: () => vigil.promote(capture.id), said: 'Promoted to a nugget' },
-    { icon: ListTodo, label: 'Make it a task', run: () => vigil.toTask(capture.id), said: 'Now a task' },
-    { icon: CheckCircle2, label: 'Resolve', run: () => window.api.captures.save(capture.id, { status: 'resolved' }), said: 'Resolved' },
-    { icon: Trash2, label: 'Discard', run: () => window.api.captures.save(capture.id, { status: 'discarded' }), said: 'Discarded' }
+    { icon: ArrowUpRight, tint: 'purple', label: 'Promote to nugget', run: () => vigil.promote(capture.id), said: 'Promoted to a nugget' },
+    { icon: ListTodo, tint: 'orange', label: 'Make it a task', run: () => vigil.toTask(capture.id), said: 'Now a task' },
+    { icon: CheckCircle2, tint: 'green', label: 'Resolve', run: () => window.api.captures.save(capture.id, { status: 'resolved' }), said: 'Resolved' },
+    { icon: Trash2, tint: 'red', label: 'Discard', run: () => window.api.captures.save(capture.id, { status: 'discarded' }), said: 'Discarded' }
   ]
 
   return (
@@ -193,6 +193,7 @@ function CaptureProps({ capture }: { capture: CaptureMeta }): React.JSX.Element 
             <Prop
               key={exit.label}
               icon={exit.icon}
+              tint={exit.tint}
               onClick={() => {
                 chime(exit.label === 'Discard' ? 'away' : exit.label === 'Promote to nugget' ? 'promote' : 'done')
                 void exit.run().then((result) =>

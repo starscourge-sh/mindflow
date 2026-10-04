@@ -86,8 +86,8 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
               <Tip key={one.key} label={`${one.label} (${one.key})`}>
               <button
                 type="button"
-                className="rounded px-1.5 py-0.5 opacity-70 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 hover:bg-accent hover:text-foreground"
-              
+                className="rounded px-1.5 py-0.5 opacity-70 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 hover:bg-accent"
+                style={{ color: `var(--tt-color-text-${one.tint})` }}
                 onClick={() => exit(card.id, one.status)}
               >
                 {one.label}

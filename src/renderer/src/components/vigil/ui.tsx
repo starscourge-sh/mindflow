@@ -73,8 +73,10 @@ export function Props({ children }: { children: ReactNode }): React.JSX.Element 
 export function PropLabel({ children }: { children: ReactNode }): React.JSX.Element {
   return <div className="mt-3 mb-1 px-2 text-xs first:mt-0">{children}</div>
 }
-export function Prop({ icon: Icon, children, onClick, active }: {
+export function Prop({ icon: Icon, children, onClick, active, tint }: {
   icon: LucideIcon
+  /** A theme colour for the icon, where the colour means something. */
+  tint?: string
   children: ReactNode
   onClick?: () => void
   active?: boolean
@@ -86,7 +88,7 @@ export function Prop({ icon: Icon, children, onClick, active }: {
       onClick={onClick}
       className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-left ${onClick ? 'hover:bg-accent hover:text-foreground' : ''} ${active ? 'text-foreground' : ''}`}
     >
-      <Icon className="size-4 shrink-0" />
+      <Icon className="size-4 shrink-0" style={tint ? { color: `var(--tt-color-text-${tint})` } : undefined} />
       <span className="min-w-0 truncate">{children}</span>
     </Tag>
   )

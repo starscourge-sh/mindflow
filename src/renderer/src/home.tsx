@@ -45,18 +45,19 @@ import { Tip } from '@/components/vigil/ui'
 type View = { id: string; focus?: string }
 
 /** The sections down the side, each with the key that jumps to it after G. */
-const SECTIONS: { id: string; label: string; icon: LucideIcon; key: string }[] = [
-  { id: 'inbox', label: 'Inbox', icon: Inbox, key: 'i' },
-  { id: 'review', label: 'Review', icon: Brain, key: 'r' },
-  { id: 'today', label: 'Today', icon: Sun, key: 't' },
-  { id: 'upcoming', label: 'Upcoming', icon: CalendarDays, key: 'u' },
-  { id: 'routines', label: 'Routines', icon: Repeat, key: 'o' },
-  { id: 'nuggets', label: 'Nuggets', icon: Gem, key: 'n' },
-  { id: 'articles', label: 'Articles', icon: FileText, key: 'a' },
-  { id: 'tags', label: 'Tags', icon: Tag, key: '#' },
-  { id: 'stats', label: 'Stats', icon: BarChart3, key: 's' },
-  { id: 'all', label: 'All captures', icon: Layers, key: 'l' },
-  { id: 'discarded', label: 'Discarded', icon: Trash2, key: 'd' }
+/** Each has its own colour from the theme, as Todoist gives Inbox, Today and Upcoming theirs. */
+const SECTIONS: { id: string; label: string; icon: LucideIcon; key: string; tint: string }[] = [
+  { id: 'inbox', label: 'Inbox', icon: Inbox, key: 'i', tint: 'blue' },
+  { id: 'review', label: 'Review', icon: Brain, key: 'r', tint: 'purple' },
+  { id: 'today', label: 'Today', icon: Sun, key: 't', tint: 'green' },
+  { id: 'upcoming', label: 'Upcoming', icon: CalendarDays, key: 'u', tint: 'orange' },
+  { id: 'routines', label: 'Routines', icon: Repeat, key: 'o', tint: 'yellow' },
+  { id: 'nuggets', label: 'Nuggets', icon: Gem, key: 'n', tint: 'pink' },
+  { id: 'articles', label: 'Articles', icon: FileText, key: 'a', tint: 'brown' },
+  { id: 'tags', label: 'Tags', icon: Tag, key: '#', tint: 'red' },
+  { id: 'stats', label: 'Stats', icon: BarChart3, key: 's', tint: 'blue' },
+  { id: 'all', label: 'All captures', icon: Layers, key: 'l', tint: 'gray' },
+  { id: 'discarded', label: 'Discarded', icon: Trash2, key: 'd', tint: 'gray' }
 ]
 
 const today = (): number => new Date().setHours(24, 0, 0, 0)
@@ -214,7 +215,7 @@ export function Home(): React.JSX.Element {
               {view.id === section.id && (
                 <motion.span layoutId="nav" className="absolute inset-0 -z-10 rounded-md bg-accent" transition={{ type: 'spring', stiffness: 500, damping: 40 }} />
               )}
-              <section.icon className={`size-4 ${section.id === 'review' && due ? 'text-[var(--tt-brand-color-400)]' : ''}`} />
+              <section.icon className="size-4" style={{ color: `var(--tt-color-text-${section.tint})` }} />
               <span className="flex-1 text-left">{section.label}</span>
               {counts[section.id] ? (
                 <SlotText
@@ -266,14 +267,14 @@ export function Home(): React.JSX.Element {
           </button>
         )}
         {tagsOpen &&
-          tags.slice(0, 8).map(({ tag, count }) => (
+          tags.slice(0, 8).map(({ tag, count, color }) => (
             <button
               key={tag}
               type="button"
               onClick={() => setView({ id: 'tags', focus: tag })}
               className={`flex items-center gap-2.5 rounded-md px-2 py-1 ${view.id === 'tags' && view.focus === tag ? 'bg-accent' : 'text-foreground/80 hover:bg-accent/60'}`}
             >
-              <Tag className="size-4 text-muted-foreground" />
+              <Tag className="size-4 text-muted-foreground" style={color ? { color: `var(--tt-color-text-${color})` } : undefined} />
               <span className="flex-1 truncate text-left">{tag}</span>
               <span className="text-xs text-muted-foreground tabular-nums">{count}</span>
             </button>
