@@ -44,6 +44,10 @@ applyTheme(currentTheme())
 // Chosen in another window, the prompt or the main one: wear it here too, at
 // once, so the two never disagree.
 window.addEventListener('storage', (event) => event.key === 'theme' && applyTheme(currentTheme()))
+// A window you are not in steps back a little, so the one you are in is clear.
+const blurred = (on: boolean) => (): void => void (document.documentElement.dataset.blurred = on ? 'on' : 'off')
+window.addEventListener('blur', blurred(true))
+window.addEventListener('focus', blurred(false))
 
 // A window opened on one drawing says so in its own URL, which is the only
 // thing a fresh renderer knows about itself before any of this has run.

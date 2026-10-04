@@ -397,3 +397,11 @@ html[data-width='page'] header.page-column {
 [data-focus='on'] [data-chrome] {
   display: none !important;
 }
+
+/* A window that has lost focus dims slightly, and comes back as you return. */
+body {
+  transition: opacity 0.2s ease;
+}
+[data-blurred='on'] body {
+  opacity: 0.72;
+}
