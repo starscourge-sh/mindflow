@@ -243,7 +243,10 @@ export default function App(): React.JSX.Element {
     void vigil.similar(first).then(setLike)
   }, [first, editing])
 
-  const openCapture = (id: string): void =>
+  const openCapture = (id: string): void => {
+    // The note being written is kept as it is now, not as it was at the last
+    // pause in typing, or opening another straight after typing loses words.
+    if (!latestEditing.current && editorRef.current) localStorage.setItem('capture-draft', JSON.stringify(editorRef.current.getJSON()))
     void window.api.captures.get(id).then((found) => {
       if (!found) return
       setEditing({ id, body: found.body as JSONContent })
@@ -254,6 +257,7 @@ export default function App(): React.JSX.Element {
       setMedium(found.medium ?? '')
       setSecret(!!found.private)
     })
+  }
   // A fresh box. Sent, or a new note asked for, and the draft goes; put down
   // after reading an old capture, and the note you had started comes back.
   const fresh = (keepDraft = false): void => {
@@ -342,7 +346,7 @@ export default function App(): React.JSX.Element {
         }, 180)
       })
   }
-  // ⌘↵ from anywhere in the window, ⌥⌘↵ to keep going. Caught before the
+  // ⌘↵ from anywhere in the window saves and closes; ⌥⌘↵ saves and starts another. Caught before the
   // editor, where it would otherwise only step out of a code block.
   const pick = (next: CaptureType): void => {
     setKind(next)
@@ -485,12 +489,8 @@ export default function App(): React.JSX.Element {
                 </Tooltip>
               </div>
               {/* Create, bottom right, where the eye ends up. */}
-              <Tip label="Save  ⌘↵  ·  keep going  ⌥⌘↵">
-              <Button variant="secondary"
- onClick={() => submit()}
- 
- className="ml-auto text-[13px]"
->
+              <Tip label="Save and close ⌘↵ · Save and write another ⌥⌘↵">
+              <Button variant="secondary" onClick={() => submit()} className="ml-auto text-[13px]">
                 {editing ? 'Done' : 'Create'} <kbd className="font-sans text-[11px] text-muted-foreground">⌘↵</kbd>
               </Button>
               </Tip>
