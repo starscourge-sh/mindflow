@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowLeft, BookOpen, FileJson2, PanelRight, Keyboard, KeyboardOff, Lock, LockOpen, Maximize2, Minimize2, SquarePen, TableOfContents, X } from 'lucide-react'
+import { ArrowLeft, BookOpen, Eye, EyeOff, FileJson2, PanelRight, Keyboard, KeyboardOff, Lock, LockOpen, Maximize2, Minimize2, SquarePen, TableOfContents, X } from 'lucide-react'
 import type { Editor, JSONContent } from '@tiptap/core'
 
 import { MindflowEditor, TAGS, currentVim, onVimChange, setVim } from './components/mindflow'
@@ -583,7 +583,7 @@ export default function App(): React.JSX.Element {
                   setSecret(!secret)
                   if (editing) void vigil.setPrivate('captures', editing.id, !secret)
                 }}>
-                  {secret ? <Lock /> : <LockOpen />}
+                  {secret ? <EyeOff /> : <Eye />}
                 </Button>
               </Tip>
               {ASKS[kind].why && textOf(body).trim().split('\n').filter(Boolean).length < 2 && (

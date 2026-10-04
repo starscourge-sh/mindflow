@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BookOpen, Brain, Lock, Pin } from 'lucide-react'
+import { BookOpen, Brain, EyeOff, Pin } from 'lucide-react'
 import type { Readable } from './read-through'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
@@ -100,7 +100,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
                   <span className="flex-1 truncate">{item.title || 'Untitled'}</span>
                   {item.prompt && <Brain className="size-3 shrink-0 text-muted-foreground" />}
                   {item.pinnedAt && <Pin className="size-3 shrink-0 text-muted-foreground" />}
-                  {item.private ? <Lock className="size-3 shrink-0 text-muted-foreground" /> : null}
+                  {item.private ? <EyeOff className="size-3 shrink-0 text-muted-foreground" aria-label="Private" /> : null}
                 </button>
               </RowMenu>
             )

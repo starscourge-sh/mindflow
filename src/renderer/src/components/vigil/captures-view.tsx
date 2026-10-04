@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { ArrowUpRight, BookOpen, CheckCircle2, FileText, Hash, Inbox, ListTodo, Lock, Merge, Pin, Trash2, X, Laptop, Timer, History } from 'lucide-react'
+import { ArrowUpRight, BookOpen, Eye, EyeOff, CheckCircle2, FileText, Hash, Inbox, ListTodo, Merge, Pin, Trash2, X, Laptop, Timer, History } from 'lucide-react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
@@ -271,8 +271,8 @@ export function CaptureProps({ capture, onOpen }: { capture: CaptureMeta; onOpen
       </div>
 
       <PropLabel>Surfacing</PropLabel>
-      <Prop icon={Lock} active={!!capture.private} onClick={() => void vigil.setPrivate('captures', capture.id, !capture.private)}>
-        {capture.private ? 'Private' : 'Can surface any time'}
+      <Prop icon={capture.private ? EyeOff : Eye} active={!!capture.private} onClick={() => void vigil.setPrivate('captures', capture.id, !capture.private)}>
+        {capture.private ? 'Private: kept back in quiet hours' : 'Can surface any time'}
       </Prop>
       <Prop icon={Pin} active={!!capture.pinnedAt} onClick={() => pin('captures', capture.id, !capture.pinnedAt)}>
         {capture.pinnedAt ? 'Pinned' : 'Pin to the prompt'}

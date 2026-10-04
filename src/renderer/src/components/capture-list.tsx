@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Lock, Pin } from 'lucide-react'
+import { EyeOff, Pin } from 'lucide-react'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { EXITS, captureKey, exit, toTask } from '@/lib/capture-links'
 import { splitTags, taskSaid, vigil } from '@/lib/vigil'
-import { Tags, VirtualList, toast, pin } from './vigil/ui'
+import { Tags, Tip, VirtualList, toast, pin } from './vigil/ui'
 import { RowMenu, copy } from './vigil/row-menu'
 
 export type CaptureMeta = Awaited<ReturnType<typeof window.api.captures.list>>[number]
@@ -86,7 +86,11 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
               <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
               <span className="flex-1 truncate">{text || 'Untitled'}</span>
               {capture.pinnedAt && <Pin className="size-3 shrink-0 text-muted-foreground" />}
-              {capture.private ? <Lock className="size-3 shrink-0 text-muted-foreground" /> : null}
+              {capture.private ? (
+                <Tip label="Private: never comes up unasked in quiet hours or safe mode">
+                  <EyeOff className="size-3 shrink-0 text-muted-foreground" />
+                </Tip>
+              ) : null}
               <span className="shrink-0 text-xs text-muted-foreground tabular-nums" style={{ color: capture.status === 'open' ? ageTint(capture.capturedAt) : undefined }}>{age(capture.capturedAt)}</span>
             </span>
             <span className="truncate pl-6 text-xs text-muted-foreground">

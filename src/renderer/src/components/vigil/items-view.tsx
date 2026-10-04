@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { AlarmClock, BookOpen, Brain, Calendar, Eye, FileText, History, Layers, Lock, Pause, Pin, Play, Plus, Quote, RefreshCw, SquareDashed, TriangleAlert, X } from 'lucide-react'
+import { AlarmClock, BookOpen, Brain, Calendar, Eye, EyeOff, FileText, History, Layers, Pause, Pin, Play, Plus, Quote, RefreshCw, SquareDashed, TriangleAlert, X } from 'lucide-react'
 
 import { AnimatePresence, motion } from 'motion/react'
 
@@ -222,7 +222,7 @@ function NuggetRow({ item }: { item: Item }): React.JSX.Element {
         {item.supersededBy && <span className="text-[var(--tt-color-text-orange)]">Superseded</span>}
         {item.lapses >= 4 && <TriangleAlert className="size-3 text-[var(--tt-color-text-orange)]" />}
         {item.pinnedAt && <Pin className="size-3" />}
-        {item.private ? <Lock className="size-3" /> : null}
+        {item.private ? <EyeOff className="size-3" aria-label="Private" /> : null}
         <span className="ml-auto tabular-nums">{age(item.createdAt)}</span>
       </span>
     </>
@@ -342,8 +342,8 @@ export function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: s
         </Prop>
 
         <PropLabel>Surfacing</PropLabel>
-        <Prop icon={Lock} active={!!item.private} onClick={() => void vigil.setPrivate('nuggets', item.id, !item.private)}>
-          {item.private ? 'Private' : 'Can surface any time'}
+        <Prop icon={item.private ? EyeOff : Eye} active={!!item.private} onClick={() => void vigil.setPrivate('nuggets', item.id, !item.private)}>
+          {item.private ? 'Private: kept back in quiet hours' : 'Can surface any time'}
         </Prop>
         <Prop icon={Pin} active={!!item.pinnedAt} onClick={() => pin('nuggets', item.id, !item.pinnedAt)}>
           {item.pinnedAt ? 'Pinned' : 'Pin to the prompt'}
