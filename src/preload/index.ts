@@ -81,6 +81,8 @@ const api = {
 
   /** Bring up the capture prompt, from any window. */
   showPrompt: (): void => ipcRenderer.send('prompt:show'),
+  /** The frosted backing follows the theme: dark under a dark theme. */
+  setAppearance: (mode: 'light' | 'dark'): void => ipcRenderer.send('appearance', mode),
   /** Bring up the main window with one thing open in it. */
   openInHome: (type: string, id: string): void => ipcRenderer.send('home:open', type, id),
   /** In the main window: where the prompt sent you, now and from here on. */

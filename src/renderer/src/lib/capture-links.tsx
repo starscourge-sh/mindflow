@@ -1,6 +1,7 @@
 import { CircleArrowUp, CircleCheck, CircleDashed, CircleX } from 'lucide-react'
 
-import { ask } from '@/components/vigil/ui'
+import { ask, toast } from '@/components/vigil/ui'
+import { chime } from '@/lib/sound'
 import type { NoteSuggestion } from '@/extensions/note-link'
 import { vigil } from '@/lib/vigil'
 
@@ -21,6 +22,20 @@ export const EXITS = [
   { key: 'r', status: 'resolved', label: 'Resolve', done: 'Resolved', tint: 'green', what: 'Done with it: dealt with, or no longer needed' },
   { key: 'd', status: 'discarded', label: 'Discard', done: 'Discarded', tint: 'red', what: 'Let it go: into Discarded, where it can come back' }
 ] as const
+
+/**
+ * Take an exit and say so, with the sound and an undo: the one way every list,
+ * card and menu does it, so the same action never answers differently. A
+ * resolve or discard can be taken back; a promotion has made a nugget, which
+ * stays.
+ */
+export async function exit(id: string, status: string): Promise<void> {
+  const one = EXITS.find((e) => e.status === status)
+  chime(status === 'discarded' ? 'away' : status === 'promoted' ? 'promote' : 'done')
+  const result = await takeExit(id, status)
+  if (result === 'cancelled' || !one) return
+  toast(one.done, status === 'promoted' ? undefined : () => void window.api.captures.save(id, { status: 'open' }))
+}
 
 /** Take one. Promote makes a nugget as well; the other two only mark the capture. */
 export async function takeExit(id: string, status: string): Promise<unknown> {

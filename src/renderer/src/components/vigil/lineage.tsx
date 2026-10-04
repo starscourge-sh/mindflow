@@ -1,7 +1,7 @@
-import { Fragment } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { FileText, Gem, Inbox, ListTodo } from 'lucide-react'
 
-import { useLive, vigil } from '@/lib/vigil'
+import { vigil } from '@/lib/vigil'
 import { Prop, PropLabel } from './ui'
 
 const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo }
@@ -12,7 +12,15 @@ const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo }
  * are always one click away, and the nugget one click back.
  */
 export function Lineage({ id, onOpen }: { id: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element | null {
-  const lineage = useLive(() => vigil.lineage(id), null, [id])
+  // Read when it opens and when you come back to the window, not on every
+  // save: links change rarely, and each read scans every body for them.
+  const [lineage, setLineage] = useState<Awaited<ReturnType<typeof vigil.lineage>> | null>(null)
+  useEffect(() => {
+    const load = (): void => void vigil.lineage(id).then(setLineage)
+    load()
+    window.addEventListener('focus', load)
+    return () => window.removeEventListener('focus', load)
+  }, [id])
   if (!lineage) return null
   const groups = [['Came from', lineage.from], ['Became', lineage.became], ['Linked from', lineage.linked]] as const
   return (

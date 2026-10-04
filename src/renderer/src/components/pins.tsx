@@ -56,7 +56,7 @@ export function Pins({ onOpen }: { onOpen: (type: string, id: string) => void })
               <button
                 type="button"
               
-                className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground"
+                className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground"
                 onClick={() => void vigil.pin(table, pin.id, false)}
               >
                 <X className="size-3.5" />

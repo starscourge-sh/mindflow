@@ -2,11 +2,10 @@ import { useEffect, useState } from 'react'
 import { Lock, Pin } from 'lucide-react'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
-import { EXITS, captureKey, takeExit } from '@/lib/capture-links'
+import { EXITS, captureKey, exit } from '@/lib/capture-links'
 import { splitTags, vigil } from '@/lib/vigil'
 import { Tags, VirtualList, toast, pin } from './vigil/ui'
 import { RowMenu, copy } from './vigil/row-menu'
-import { chime } from '@/lib/sound'
 
 export type CaptureMeta = Awaited<ReturnType<typeof window.api.captures.list>>[number]
 
@@ -27,6 +26,15 @@ export function age(at: string): string {
   const units: [number, string][] = [[525600, 'y'], [43200, 'mo'], [1440, 'd'], [60, 'h'], [1, 'm']]
   const [size, unit] = units.find(([size]) => minutes >= size) ?? [1, 'm']
   return `${Math.floor(minutes / size)}${unit}`
+}
+
+/**
+ * The colour of an age: the thesis made visible. Fresh is quiet; a month
+ * untouched starts to warm, half a year is plainly rotting.
+ */
+export function ageTint(at: string): string | undefined {
+  const days = (Date.now() - new Date(at).getTime()) / 86400000
+  return days < 30 ? undefined : days < 180 ? 'color-mix(in srgb, var(--tt-color-text-orange) 60%, var(--muted-foreground))' : 'var(--tt-color-text-orange)'
 }
 
 /**
@@ -53,10 +61,7 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
             { label: 'Open', run: () => onPick?.(capture.id), keys: '↵' },
             'separator',
             ...(capture.status === 'open'
-              ? EXITS.map((exit) => ({ label: exit.label, danger: exit.status === 'discarded', run: () => {
-                  chime(exit.status === 'discarded' ? 'away' : exit.status === 'promoted' ? 'promote' : 'done')
-                  void takeExit(capture.id, exit.status).then((result) => result !== 'cancelled' && toast(result === 'needs-source' ? 'A quote needs to say who said it first' : exit.done))
-                } }))
+              ? EXITS.map((one) => ({ label: one.label, keys: one.key.toUpperCase(), danger: one.status === 'discarded', run: () => void exit(capture.id, one.status) }))
               : [{ label: 'Back to the inbox', run: () => void window.api.captures.save(capture.id, { status: 'open' }) }]),
             capture.status === 'open' && { label: 'Make it a task', run: () => void vigil.toTask(capture.id).then(() => toast('Now a task')) },
             'separator',
@@ -78,7 +83,7 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
               <span className="flex-1 truncate">{text || 'Untitled'}</span>
               {capture.pinnedAt && <Pin className="size-3 shrink-0 text-muted-foreground" />}
               {capture.private ? <Lock className="size-3 shrink-0 text-muted-foreground" /> : null}
-              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{age(capture.capturedAt)}</span>
+              <span className="shrink-0 text-xs text-muted-foreground tabular-nums" style={{ color: capture.status === 'open' ? ageTint(capture.capturedAt) : undefined }}>{age(capture.capturedAt)}</span>
             </span>
             <span className="truncate pl-6 text-xs text-muted-foreground">
               {captureKey(capture.number)}

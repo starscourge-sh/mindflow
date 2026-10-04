@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShortcut, ipcMain, Menu, nativeImage, net, protocol, screen, Tray } from 'electron'
+import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, net, protocol, screen, Tray } from 'electron'
 /*
  * app - Control your application's event lifecycle.
  *     - app.on('window-all-closed', () => { app.quit() })
@@ -730,6 +730,8 @@ app.whenReady().then(() => {
 
   // The main window's "new" button: the same prompt the key brings up.
   ipcMain.on('prompt:show', () => toggleWindow())
+  // The app's theme decides the frosting behind every window, not the system's.
+  ipcMain.on('appearance', (_event, mode: string) => void (nativeTheme.themeSource = mode === 'light' ? 'light' : 'dark'))
   // The prompt sends you to one thing in the main window: a task's notes and
   // sessions live there. Kept until the window asks, in case it is still
   // starting; sent at once if it is already up.

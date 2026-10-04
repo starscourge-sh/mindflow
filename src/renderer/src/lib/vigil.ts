@@ -221,7 +221,9 @@ export function useAppearance(): void {
     if (!settings) return
     document.documentElement.dataset.width = settings.fullWidth ? 'full' : 'page'
     document.documentElement.dataset.motion = settings.motion ? 'on' : 'off'
-    MotionGlobalConfig.skipAnimations = !settings.motion
+    // The system's Reduce motion is honoured too: things still appear and
+    // fade, but nothing slides or springs.
+    MotionGlobalConfig.skipAnimations = !settings.motion || matchMedia('(prefers-reduced-motion: reduce)').matches
     soundOn(settings.sounds)
     setVolume(settings.volume)
     setPack(settings.soundPack)

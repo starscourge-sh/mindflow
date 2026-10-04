@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
 
-import { EXITS, captureKey, takeExit } from '@/lib/capture-links'
-import { chime } from '@/lib/sound'
+import { EXITS, captureKey, exit as exitWith } from '@/lib/capture-links'
 import { wordsOf } from '../../../main/import'
 import { AskWho, pin, toast } from './vigil/ui'
+import { AnimatePresence, motion } from 'motion/react'
 import { RowMenu, copy } from './vigil/row-menu'
+import { age, ageTint } from './capture-list'
 import { vigil } from '@/lib/vigil'
 import { Kbd, Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
@@ -57,9 +58,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
   }, [])
 
   const exit = (id: string, status: string): void => {
-    chime(status === 'discarded' ? 'away' : status === 'promoted' ? 'promote' : 'done')
-    // A quote with no source is asked for one inside takeExit.
-    void takeExit(id, status).then(reload)
+    void exitWith(id, status).then(reload)
   }
 
   if (!cards.length) return null
@@ -68,9 +67,16 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
       <Tip label="Three old captures with no exit yet, a new three each time you open this. A sample, not a list to clear. Click one to read or edit it.">
         <h3 className="w-fit px-2 pb-1 text-xs text-muted-foreground">Waiting on you</h3>
       </Tip>
+      {/* A card that takes an exit leaves sideways, the way it was dealt with,
+          and the next one fades into its place. */}
+      <AnimatePresence initial={false} mode="popLayout">
       {cards.map((card) => (
-        <div
+        <motion.div
           key={card.id}
+          layout
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0, x: 24, transition: { duration: 0.18 } }}
           tabIndex={0}
           data-tone="knock"
           className="group border-b border-border/60 px-2 py-2 text-sm outline-none last:border-b-0 focus-visible:bg-accent/40"
@@ -102,33 +108,32 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             <div className="mt-1"><AskWho id={card.id} onDone={() => setAsking(null)} /></div>
           ) : (
           <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+            {/* How long it has gone untouched, warming with age: the rot itself. */}
             <span className="mr-auto truncate">
-              {captureKey(card.number)} · {new Date(card.capturedAt).toLocaleDateString()}
+              <span style={{ color: ageTint(card.capturedAt) }}>untouched {age(card.capturedAt)}</span>
             </span>
             {EXITS.map((one) => (
               <Tip key={one.key} label={<span className="flex items-center gap-2">{one.what}<Kbd>{one.key.toUpperCase()}</Kbd></span>}>
+              {/* Quiet at rest, their colour when you reach the card. */}
               <Button variant="ghost" size="sm"
- className="opacity-70 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
- style={{ color: `var(--tt-color-text-${one.tint})` }}
- onClick={() => exit(card.id, one.status)}
->
+                className="text-muted-foreground transition-colors group-hover:text-[var(--tint)] group-focus-visible:text-[var(--tint)] focus-visible:text-[var(--tint)]"
+                style={{ '--tint': `var(--tt-color-text-${one.tint})` } as React.CSSProperties}
+                onClick={() => exit(card.id, one.status)}
+              >
                 {one.label}
               </Button>
               </Tip>
             ))}
             <Tip label={<span className="flex items-center gap-2">Say who said it: a quote needs one to be kept<Kbd>W</Kbd></span>}>
-            <Button variant="ghost" size="sm"
- className="opacity-70 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
- 
- onClick={() => setAsking(card.id)}
->
+            <Button variant="ghost" size="sm" className="text-muted-foreground transition-colors group-hover:text-foreground focus-visible:text-foreground" onClick={() => setAsking(card.id)}>
               {card.attribution ?? 'Who?'}
             </Button>
             </Tip>
           </div>
           )}
-        </div>
+        </motion.div>
       ))}
+      </AnimatePresence>
     </section>
   )
 }

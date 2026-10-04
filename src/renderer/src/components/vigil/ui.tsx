@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { cloneElement, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { ArrowUp, CircleCheck, Volume2, VolumeX, type LucideIcon } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
@@ -247,12 +247,27 @@ export function Toaster(): React.JSX.Element | null {
     let timer: ReturnType<typeof setTimeout>
     const onToast = (event: Event): void => {
       clearTimeout(timer)
-      setShown({ ...(event as CustomEvent).detail, key: Date.now() })
-      timer = setTimeout(() => setShown(null), 3200)
+      const detail = (event as CustomEvent).detail
+      setShown({ ...detail, key: Date.now() })
+      // Longer when it can be taken back, so the undo is there to reach.
+      timer = setTimeout(() => setShown(null), detail.undo ? 6000 : 3200)
     }
     window.addEventListener('vigil:toast', onToast)
     return () => window.removeEventListener('vigil:toast', onToast)
   }, [])
+  // ⌘Z takes back what the toast offers, outside a field or the editor, which
+  // keep their own undo.
+  useEffect(() => {
+    if (!shown?.undo) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.metaKey || event.key !== 'z' || event.shiftKey || typing()) return
+      event.preventDefault()
+      shown.undo?.()
+      setShown(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [shown])
   // Asker always in the same place, so a toast coming or going never
   // remounts it and loses a question being answered.
   return (
@@ -260,6 +275,8 @@ export function Toaster(): React.JSX.Element | null {
     <Asker />
     {shown && <div
       key={shown.key}
+      role="status"
+      aria-live="polite"
       // An edge and a mark, with the buttons' corners: it has to be seen
       // from the corner of the eye, on any theme.
       className="fixed right-5 bottom-5 z-50 flex items-center gap-2 rounded-md border border-border bg-popover py-1.5 pr-3.5 pl-2.5 text-sm font-medium shadow-[0_8px_24px_-6px_rgb(0_0_0/0.5)] animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]"
@@ -275,7 +292,7 @@ export function Toaster(): React.JSX.Element | null {
             setShown(null)
           }}
         >
-          Undo
+          Undo <kbd className="ml-0.5 font-sans text-[11px] opacity-70">⌘Z</kbd>
         </button>
       )}
     </div>}
@@ -429,11 +446,14 @@ export function AskWho({ id, onDone }: { id: string; onDone: () => void }): Reac
  * A label on hover, shadcn's tooltip rather than the system's: says what a
  * button does, and its key if it has one.
  */
-export function Tip({ label, children }: { label: ReactNode; children: React.ReactElement }): React.JSX.Element {
+export function Tip({ label, children }: { label: ReactNode; children: React.ReactElement<{ 'aria-label'?: string }> }): React.JSX.Element {
   if (!label) return children
+  // A plain-text tip is also the control's name, so an icon-only button can
+  // be read out, not only hovered.
+  const named = typeof label === 'string' && !children.props['aria-label'] ? cloneElement(children, { 'aria-label': label }) : children
   return (
     <Tooltip>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipTrigger asChild>{named}</TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>
   )

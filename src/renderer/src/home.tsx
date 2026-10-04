@@ -144,7 +144,7 @@ export function Home(): React.JSX.Element {
   // Somewhere else sent you to one thing: open its section with it open.
   const open = (type: string, id: string): void =>
     setView({ id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id })
-  useEffect(() => window.api.onSentTo((type, id) => setView({ id: type === 'task' ? 'today' : type, focus: id })), [])
+  useEffect(() => window.api.onSentTo((type, id) => (type === 'task' ? setView({ id: 'today', focus: id }) : open(type, id))), [])
 
   const kind = CAPTURE_TYPES.find((type) => `kind:${type.id}` === view.id)
   const keep: Record<string, (capture: CaptureMeta) => boolean> = {
@@ -300,8 +300,8 @@ export function Home(): React.JSX.Element {
             <SettingsIcon className="size-4" />
             <span className="flex-1 text-left">Settings</span>
           </button>
-          <p className="mt-2 px-2 text-[11px] text-muted-foreground">
-            <Kbd>G</Kbd> then a letter to jump · <Kbd>C</Kbd> to capture
+          <p className="mt-2 px-2 text-xs whitespace-nowrap text-muted-foreground">
+            <Kbd>G</Kbd> jump <span className="mx-1">·</span> <Kbd>C</Kbd> capture
           </p>
         </div>
       </aside>

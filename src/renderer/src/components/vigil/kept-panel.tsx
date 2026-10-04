@@ -22,7 +22,7 @@ export function KeptPanel({ onOpen, open }: { onOpen: (type: string, id: string)
     <div className="flex flex-col gap-2 text-sm">
       <div className="flex items-center gap-2 px-1 pt-1">
         <Chips options={TIERS} on={(id) => id === tier} pick={(id) => setTier(id as 'nugget' | 'article')} />
-        <span className="ml-auto text-xs text-muted-foreground tabular-nums">{items.length}</span>
+        <span className="ml-auto text-xs text-muted-foreground tabular-nums">{items.length} {tier === "nugget" ? (items.length === 1 ? "nugget" : "nuggets") : items.length === 1 ? "article" : "articles"}</span>
         {tier === 'article' && (
           <Button variant="outline" size="sm" onClick={() => void vigil.newArticle().then((id) => onOpen('article', id))}>New article</Button>
         )}

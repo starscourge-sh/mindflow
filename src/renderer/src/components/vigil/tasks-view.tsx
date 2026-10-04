@@ -509,6 +509,9 @@ function Checklist({ task }: { task: TaskFull }): React.JSX.Element {
           <li key={index} className="group flex items-center gap-2">
             <button
               type="button"
+              role="checkbox"
+              aria-checked={item.done}
+              aria-label={item.text}
               onClick={() => {
                 if (!item.done) chime('done')
                 save(items.map((one, at) => (at === index ? { ...one, done: !one.done } : one)))
@@ -516,11 +519,11 @@ function Checklist({ task }: { task: TaskFull }): React.JSX.Element {
               className="flex size-4 shrink-0 items-center justify-center rounded border transition-colors"
               style={{ background: item.done ? 'var(--tt-brand-color-400)' : undefined, borderColor: item.done ? 'var(--tt-brand-color-400)' : undefined }}
             >
-              {item.done && <Check className="size-3 text-white" />}
+              {item.done && <Check className="size-3 text-primary-foreground" />}
             </button>
             <span className={`flex-1 ${item.done ? 'text-muted-foreground line-through' : ''}`}>{item.text}</span>
             <Tip label="Remove">
-            <button type="button" onClick={() => save(items.filter((_, at) => at !== index))} className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground">
+            <button type="button" onClick={() => save(items.filter((_, at) => at !== index))} className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground">
               <X className="size-3.5" />
             </button>
             </Tip>

@@ -1089,6 +1089,23 @@ function Surface({
     editor.commands.setVimMode(vimOn)
   }, [editor, vimOn])
 
+  // An image whose file is gone shows a quiet note in its place rather than
+  // the browser's broken-picture icon. Only what is drawn changes: the note
+  // keeps its link, so the image comes back if the file does.
+  useEffect(() => {
+    const dom = editor?.view.dom
+    if (!dom) return
+    const missing = (event: Event): void => {
+      const img = event.target
+      if (!(img instanceof HTMLImageElement) || img.dataset.missing) return
+      img.dataset.missing = "1"
+      img.alt = "Image not found"
+      img.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="56"><rect width="100%" height="100%" rx="8" fill="none" stroke="#888" stroke-opacity=".4" stroke-dasharray="4 4"/><text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" font-family="system-ui" font-size="13" fill="#888">Image not found</text></svg>')}`
+    }
+    dom.addEventListener("error", missing, true)
+    return () => dom.removeEventListener("error", missing, true)
+  }, [editor])
+
   useEffect(() => {
     const flush = (): void => {
       if (!pending.current) return

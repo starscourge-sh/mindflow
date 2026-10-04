@@ -68,4 +68,7 @@ export function applyTheme(theme: Theme, remember = true): void {
   for (const other of THEMES) if (other !== "dark") classList.toggle(other, theme === other)
   // A preview is worn, not kept, so the other window does not follow it.
   if (remember) localStorage.setItem("theme", theme)
+  // The window is see-through over macOS's frosted backing: it has to be
+  // dark frosting under a dark theme, or the text lands on white.
+  window.api?.setAppearance?.(theme === "light" ? "light" : "dark")
 }

@@ -149,7 +149,6 @@
   --tt-transition-easing-cubic: cubic-bezier(0.65, 0.05, 0.36, 1);
   --tt-transition-easing-quart: cubic-bezier(0.77, 0, 0.18, 1);
   --tt-transition-easing-circ: cubic-bezier(0.79, 0.14, 0.15, 0.86);
-  --tt-transition-easing-back: cubic-bezier(0.68, -0.55, 0.27, 1.55);
 
   /****************** 
   Contrast variables
@@ -187,8 +186,8 @@
   // The accent. Every other theme sets its own; without these three `dark`
   // kept the vendored template's violet, and a selected card, the caret and
   // the selection all came out a colour nothing else on the page shares.
-  --tt-brand-color-500: #9f2d00;
-  --tt-brand-color-400: #c23600;
+  --tt-brand-color-500: #c23600;
+  --tt-brand-color-400: #e8602a;
 
   --tt-cursor-color: var(--tt-brand-color-400);
   --tt-selection-color: color-mix(in srgb, var(--tt-brand-color-400) 25%, transparent);
@@ -334,7 +333,7 @@ $mf-themes: (
   ),
   /* Everforest, dark medium. */
   "everforest": (
-    "bg": #2d353b, "ink": #d3c6aa, "accent": #a7c080,
+    "bg": #2d353b, "ink": #ece4d0, "accent": #a7c080,
     "gray": #859289, "brown": #c0a072, "orange": #e69875, "yellow": #dbbc7f,
     "green": #a7c080, "blue": #7fbbb3, "purple": #d699b6, "pink": #e39fb8, "red": #e67e80
   ),
@@ -387,7 +386,7 @@ $mf-themes: (
 /* `dark` is the vendored ramp at the top of this file rather than an entry in
    the map, so its three are written out. */
 .mf-swatch-dark i:nth-child(1) {
-  background: #c23600;
+  background: #e8602a;
 }
 .mf-swatch-dark i:nth-child(2) {
   background: hsl(36, 54%, 55%);

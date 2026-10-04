@@ -676,7 +676,7 @@ const CapturePrompt = ({
 
 
   return (
-    <div className="flex-1 w-full relative overflow-hidden flex w-full flex-1 min-h-0 flex-col transition transition-all transition-duration-3 border-b-2 rounded-b-3xl shadow-xl"
+    <div className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-b-3xl border-b shadow-xl"
       style={{ transform: 'translate(0,0)' }}>
 
       {/* The same, spelled out. See `docs/components.md` for what each one

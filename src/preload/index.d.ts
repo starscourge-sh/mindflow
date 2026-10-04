@@ -31,6 +31,7 @@ export interface Api {
   setExpanded: (expanded: boolean) => Promise<boolean>
   hideWindow: () => void
   showPrompt: () => void
+  setAppearance: (mode: 'light' | 'dark') => void
   openInHome: (type: string, id: string) => void
   onSentTo: (listen: (type: string, id: string) => void) => () => void
   vigil: (channel: string, ...args: unknown[]) => Promise<unknown>

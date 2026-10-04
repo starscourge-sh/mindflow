@@ -65,7 +65,9 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
     chime('done')
     setTimeout(() => void vigil.doneTask(task.id).then(() => {
       setTicking(null)
-      toast('Done', task.recurrence ? undefined : () => void vigil.saveTask(task.id, { status: 'open' }))
+      // The last one for today says so: the day is done, not only the task.
+      const last = scope === 'today' && due.length === 1
+      toast(last ? 'Done. That is everything for today' : 'Done', task.recurrence ? undefined : () => void vigil.saveTask(task.id, { status: 'open' }))
     }), 260)
   }
 

@@ -89,7 +89,13 @@ export function Search({ onOpen, onClose }: { onOpen: (type: string, id: string)
         </div>
         <div className="flex min-h-0 flex-1">
           <div className={`${pane ? 'w-1/2' : 'flex-1'} overflow-y-auto p-2`}>
-            {query.trim() && !results.length && <p className="px-2 py-3 text-sm text-muted-foreground">Nothing matches{types.length || kinds.length || titleOnly ? ' with those filters' : ''}.</p>}
+            {query.trim() && !results.length && (
+              <p className="px-2 py-3 text-sm text-muted-foreground">
+                {types.length || kinds.length || titleOnly
+                  ? 'Nothing matches with those filters. Turn a chip off to widen it.'
+                  : 'Nothing matches. Try fewer words: every word has to appear somewhere.'}
+              </p>
+            )}
             {results.map((capture, index) => {
               const kind = CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
               const group = groupOf(capture.capturedAt)
