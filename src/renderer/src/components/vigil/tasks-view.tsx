@@ -131,7 +131,8 @@ export function TasksView({ mode, focus }: { mode: 'today' | 'upcoming' | 'routi
 
   return (
     <>
-      <Page title={mode} count={shown.length} actions={
+      <Page aside={!!open}
+ title={mode} count={shown.length} actions={
         <span className="flex items-center gap-2">
           {shown.length > 0 && <span className="text-xs"><Kbd>T</Kbd> <Kbd>M</Kbd> <Kbd>W</Kbd> today, tomorrow, next week · <Kbd>⌥J</Kbd> <Kbd>⌥K</Kbd> reorder</span>}
           <Display

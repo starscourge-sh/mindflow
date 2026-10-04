@@ -81,7 +81,7 @@ export function CapturesView({ title, keep, focus }: {
 
   return (
     <>
-      <Page
+      <Page aside={!!open}
         title={title}
         count={shown.length}
         actions={

@@ -16,7 +16,7 @@ import { TodayPanel } from './components/vigil/today-panel'
 import { selectionActions } from './components/vigil/selection-actions'
 import { ReviewView } from './components/vigil/review-view'
 import { useAppearance, useLive } from './lib/vigil'
-import { BackToTop, Remembered, useListKeys, useSmooth } from './components/vigil/ui'
+import { BackToTop, Remembered, useListKeys, useSmooth, FocusNote, useFocusMode } from './components/vigil/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import type { LucideIcon } from 'lucide-react'
 import { Toaster, toast } from './components/vigil/ui'
@@ -186,6 +186,8 @@ export default function App(): React.JSX.Element {
   const [chosen, setChosen] = useState(false)
   const captures = useCaptures()
   useAppearance()
+  // Focus: only the writing, until ⌘⇧F again.
+  const focus = useFocusMode('prompt')
   // Once a launch, a little after it: links still bare become cards, and
   // cards whose pictures live on their sites keep a copy.
   useEffect(() => void setTimeout(cardsUp, 5000), [])
@@ -355,6 +357,7 @@ export default function App(): React.JSX.Element {
     <TooltipProvider delayDuration={500}>
     <div className={`app-container ${pointerIn ? 'pointer-in' : ''} flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-8 color-white`}>
       <Toaster />
+      <FocusNote />
       <Header onNew={() => fresh()} />
 
       <ResizablePanelGroup
@@ -401,7 +404,7 @@ export default function App(): React.JSX.Element {
               </div>
             )}
             {/* Under the writing: what it is, who said it and where you met it. */}
-            <div className="flex items-center gap-1 px-[4.6rem] py-2">
+            <div data-chrome className="flex items-center gap-1 px-[4.6rem] py-2">
               <CaptureKindPicker
                 suggested={!chosen && kind !== 'note'}
                 value={kind}
@@ -438,11 +441,11 @@ export default function App(): React.JSX.Element {
             </div>
             {/* A hint sits at the foot of the box: a glance at something you
                 wrote once, while you are here to write. Usually empty. */}
-            <div className="px-[4.75rem]">
+            <div data-chrome className="px-[4.75rem]">
               <HintCard onOpen={openCapture} />
             </div>
             </motion.div>
-            <main className="flex items-center gap-1 py-[0.5rem] px-[4.75rem] bg-linear-to-t from-[var(--accent)]/40">
+            <main data-chrome className="flex items-center gap-1 py-[0.5rem] px-[4.75rem] bg-linear-to-t from-[var(--accent)]/40">
               {/* The editor's settings, one shape each, every one named with its
                   key on hover, and on or off shown by a fill rather than a fade. */}
               <div className="flex items-center gap-0.5">
@@ -473,11 +476,12 @@ export default function App(): React.JSX.Element {
           <SourceDrawer open={source} doc={body} onOpenChange={setSource} />
         </ResizablePanel>
 
-        <ResizableHandle withHandle />
-
-        <ResizablePanel defaultSize="40%" minSize={"30%"}>
-          <SidePanel captures={captures} editing={editing?.id} onOpen={openCapture} />
-        </ResizablePanel>
+        {!focus && <ResizableHandle withHandle />}
+        {!focus && (
+          <ResizablePanel defaultSize="40%" minSize={"30%"}>
+            <SidePanel captures={captures} editing={editing?.id} onOpen={openCapture} />
+          </ResizablePanel>
+        )}
       </ResizablePanelGroup>
     </div>
     </TooltipProvider>

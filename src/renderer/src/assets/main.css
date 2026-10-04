@@ -392,3 +392,8 @@ html[data-width='page'] header.page-column {
   transition-duration: 0s !important;
   animation-duration: 0s !important;
 }
+
+/* Focus: the marked parts go, and what is left has the window. */
+[data-focus='on'] [data-chrome] {
+  display: none !important;
+}

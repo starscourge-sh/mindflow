@@ -78,7 +78,7 @@ export function ItemsView({ tier, focus, onOpenCapture }: { tier: 'nugget' | 'ar
 
   return (
     <>
-      <Page
+      <Page aside={!!open}
         title={tier === 'nugget' ? 'Nuggets' : 'Articles'}
         count={items.length}
         actions={

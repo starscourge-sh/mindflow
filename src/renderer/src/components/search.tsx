@@ -47,6 +47,10 @@ export function Search({ onOpen, onClose }: { onOpen: (type: string, id: string)
     })
   }, [query])
   useEffect(() => setAt(0), [titleOnly, types, kinds])
+  // The highlighted result stays in view as the arrows move it.
+  useEffect(() => {
+    document.querySelector('[data-search-at]')?.scrollIntoView({ block: 'nearest' })
+  }, [at, results.length])
   const current = results[at]
 
   return (
@@ -97,6 +101,7 @@ export function Search({ onOpen, onClose }: { onOpen: (type: string, id: string)
                   <button
                     type="button"
                     className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left ${index === at ? 'bg-accent' : ''}`}
+                    data-search-at={index === at || undefined}
                     onMouseEnter={() => setAt(index)}
                     data-row
                     onClick={() => onOpen(capture.type, capture.id)}

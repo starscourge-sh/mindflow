@@ -37,7 +37,7 @@ import { SettingsView } from './components/vigil/settings-view'
 import { StatsView } from './components/vigil/stats-view'
 import { TagsView } from './components/vigil/tags-view'
 import { TasksView } from './components/vigil/tasks-view'
-import { Kbd, Toaster, toast, typing } from './components/vigil/ui'
+import { Kbd, Toaster, toast, typing, FocusNote, useFocusMode } from './components/vigil/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import { useAppearance, useLive, vigil, type Item, type Settings, type Task } from './lib/vigil'
 import { Tip } from '@/components/vigil/ui'
@@ -81,6 +81,7 @@ export function Home(): React.JSX.Element {
     setTrail(({ views, at }) => ({ views, at: Math.max(0, Math.min(views.length - 1, at + by)) }))
   const [sidebar, setSidebar] = useState(true)
   useAppearance()
+  useFocusMode('home')
   const [searching, setSearching] = useState(false)
   const [kindsOpen, setKindsOpen] = useState(false)
   const [tagsOpen, setTagsOpen] = useState(true)
@@ -152,6 +153,7 @@ export function Home(): React.JSX.Element {
     <TooltipProvider delayDuration={600}>
     <div className="flex h-screen flex-col bg-background text-sm text-foreground">
       <Toaster />
+      <FocusNote />
       {searching && (
         <Search
           onClose={() => setSearching(false)}
@@ -201,7 +203,7 @@ export function Home(): React.JSX.Element {
 
       <div className="flex min-h-0 flex-1">
       {sidebar && (
-      <aside className="flex w-56 shrink-0 flex-col overflow-y-auto border-r bg-accent/20 p-2">
+      <aside data-chrome className="flex w-56 shrink-0 flex-col overflow-y-auto border-r bg-accent/20 p-2">
         <nav className="flex flex-col gap-px">
           {SECTIONS.map((section) => (
             <Tooltip key={section.id}>

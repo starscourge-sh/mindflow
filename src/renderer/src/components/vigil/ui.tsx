@@ -14,18 +14,20 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
  */
 
 /** A view's frame: title, a muted count, actions on the right, then the body. */
-export function Page({ title, count, actions, children }: {
+export function Page({ title, count, actions, children, aside = false }: {
   title: ReactNode
+  /** A list beside an open item: in focus it goes, and the item has the window. */
+  aside?: boolean
   count?: number
   actions?: ReactNode
   children: ReactNode
 }): React.JSX.Element {
   return (
-    <section className="flex min-w-0 flex-1 flex-col">
+    <section data-chrome={aside || undefined} className="flex min-w-0 flex-1 flex-col">
       {/* The window's toolbar already names the section, so this line only
           carries the count and the actions, and goes when it has neither. */}
       {(count !== undefined || actions) && (
-        <header className="page-column flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground">
+        <header data-chrome className="page-column flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground">
           {typeof title === 'string' && title.startsWith('#') ? <span className="font-medium text-foreground">{title}</span> : null}
           {count !== undefined && <span className="tabular-nums">{count} {count === 1 ? 'item' : 'items'}</span>}
           <div className="ml-auto flex items-center gap-1">{actions}</div>
@@ -68,7 +70,7 @@ export function Kbd({ children }: { children: ReactNode }): React.JSX.Element {
 
 /** A labelled run of properties, the right-hand column of an open item. */
 export function Props({ children }: { children: ReactNode }): React.JSX.Element {
-  return <aside className="flex w-60 shrink-0 flex-col gap-0.5 overflow-y-auto border-l p-3 pt-4 text-muted-foreground">{children}</aside>
+  return <aside data-chrome className="flex w-60 shrink-0 flex-col gap-0.5 overflow-y-auto border-l p-3 pt-4 text-muted-foreground">{children}</aside>
 }
 export function PropLabel({ children }: { children: ReactNode }): React.JSX.Element {
   return <div className="mt-3 mb-1 px-2 text-xs first:mt-0">{children}</div>
@@ -156,6 +158,8 @@ export function useListKeys(count: number, { onOpen, onBack, enabled = true }: {
     if (!enabled) return
     const onKey = (event: KeyboardEvent): void => {
       const { count, onOpen, onBack, at } = latest.current
+      // A key something in front already took, like search over this list.
+      if (event.defaultPrevented) return
       // The editor has its own vim, and its menus their own Ctrl-J and K.
       if (focus() === 'editor') return
       const inBox = focus() === 'box'
@@ -380,5 +384,47 @@ export function Tip({ label, children }: { label: ReactNode; children: React.Rea
       <TooltipTrigger asChild>{children}</TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>
+  )
+}
+
+/**
+ * Focus: everything but the thing you are on goes, until ⌘⇧F again. Each
+ * window keeps its own; the parts that go are marked data-chrome.
+ */
+export function useFocusMode(name: string): boolean {
+  const key = `focus:${name}`
+  const [on, setOn] = useState(() => {
+    try {
+      return localStorage.getItem(key) === 'on'
+    } catch {
+      return false
+    }
+  })
+  useEffect(() => {
+    document.documentElement.dataset.focus = on ? 'on' : 'off'
+    try {
+      localStorage.setItem(key, on ? 'on' : 'off')
+    } catch {
+      // Kept for this window only.
+    }
+  }, [on, key])
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.metaKey || !event.shiftKey || event.code !== 'KeyF') return
+      event.preventDefault()
+      setOn((was) => !was)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
+  return on
+}
+
+/** The way out of focus, small, in a corner. */
+export function FocusNote(): React.JSX.Element {
+  return (
+    <div className="pointer-events-none fixed right-4 bottom-4 z-30 hidden rounded-full bg-popover px-3 py-1 font-sans text-xs text-muted-foreground shadow [[data-focus=on]_&]:block">
+      Focus · ⌘⇧F to come back
+    </div>
   )
 }
