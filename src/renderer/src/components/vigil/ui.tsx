@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { ArrowUp, type LucideIcon } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Coolshape, type shapeTypes } from 'coolshapes-react'
@@ -467,6 +468,56 @@ export function FocusNote(): React.JSX.Element {
   return (
     <div className="pointer-events-none fixed right-4 bottom-4 z-30 hidden rounded-full bg-popover px-3 py-1 font-sans text-xs text-muted-foreground shadow [[data-focus=on]_&]:block">
       Focus · ⌘⇧F to come back
+    </div>
+  )
+}
+
+/**
+ * A long list that draws only the rows in view, with TanStack Virtual. It
+ * scrolls with whatever box holds it, from where it sits in that box, so it can
+ * sit under cards or headings; the keyboard's row is scrolled to even before it
+ * is drawn, so gg and G land.
+ */
+export function VirtualList<T>({ items, keyOf, cursor, estimate = 48, className = '', children }: {
+  items: T[]
+  keyOf: (item: T) => string
+  /** The row the keyboard is on, scrolled into view when it moves. */
+  cursor?: number
+  estimate?: number
+  className?: string
+  children: (item: T, index: number) => ReactNode
+}): React.JSX.Element {
+  const box = useRef<HTMLDivElement>(null)
+  const [scroller, setScroller] = useState<HTMLElement | null>(null)
+  const [margin, setMargin] = useState(0)
+  useLayoutEffect(() => {
+    let parent = box.current?.parentElement ?? null
+    while (parent && !/auto|scroll/.test(getComputedStyle(parent).overflowY)) parent = parent.parentElement
+    setScroller(parent)
+  }, [])
+  useLayoutEffect(() => {
+    if (!box.current || !scroller) return
+    const at = Math.round(box.current.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop)
+    if (at !== margin) setMargin(at)
+  })
+  const rows = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => scroller,
+    estimateSize: () => estimate,
+    overscan: 10,
+    scrollMargin: margin,
+    getItemKey: (index) => keyOf(items[index])
+  })
+  useEffect(() => {
+    if (cursor !== undefined && cursor >= 0 && cursor < items.length) rows.scrollToIndex(cursor)
+  }, [cursor]) // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div ref={box} className={`relative ${className}`} style={{ height: rows.getTotalSize() }}>
+      {rows.getVirtualItems().map(({ index, key, start }) => (
+        <div key={key} data-index={index} ref={rows.measureElement} className="absolute top-0 left-0 w-full" style={{ transform: `translateY(${start - margin}px)` }}>
+          {children(items[index], index)}
+        </div>
+      ))}
     </div>
   )
 }

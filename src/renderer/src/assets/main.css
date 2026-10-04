@@ -405,3 +405,9 @@ body {
 [data-blurred='on'] body {
   opacity: 0.55;
 }
+
+/* The row a right-click menu belongs to stays marked while the menu is open. */
+[data-slot='context-menu-trigger'][data-state='open'] {
+  background-color: var(--accent);
+  border-radius: calc(var(--radius) - 2px);
+}

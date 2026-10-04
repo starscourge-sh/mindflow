@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { AlarmClock, BookOpen, Brain, Calendar, Eye, FileText, Layers, Lock, Pause, Pin, Play, Plus, Quote, RefreshCw, SquareDashed, TriangleAlert, X } from 'lucide-react'
 
@@ -11,7 +11,7 @@ import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-k
 import { age } from '../capture-list'
 import { findCaptures, follow } from '@/lib/capture-links'
 import { interval, splitTags, useLive, vigil, when, type Item, type ItemFull } from '@/lib/vigil'
-import { Empty, Page, Prop, PropLabel, Props, Tags, toast, useListKeys, typing, pin } from './ui'
+import { Empty, Page, Prop, PropLabel, Props, Tags, toast, useListKeys, typing, pin, VirtualList } from './ui'
 import { AGES, Display, arrange, period, useView, type Facet } from './display'
 import { RowMenu, copy } from './row-menu'
 import { Lineage } from './lineage'
@@ -151,9 +151,9 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           )}
         </AnimatePresence>
         {items.length ? (
-          <div className="flex flex-col px-3 py-2">
-            {items.map((item, index) => (
-              <Fragment key={item.id}>
+          <VirtualList items={items} keyOf={(item) => item.id} cursor={cursor} estimate={60} className="mx-3 my-2">
+            {(item, index) => (
+              <div className="flex flex-col">
               {heads.get(item) && <div className="px-2 pt-4 pb-1 text-xs text-muted-foreground first:pt-1">{heads.get(item)}</div>}
               <RowMenu items={[
                 { label: 'Open', keys: '↵', run: () => pick(item.id) },
@@ -174,9 +174,9 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
                 {tier === 'nugget' ? <NuggetRow item={item} /> : <ArticleRow item={item} />}
               </button>
               </RowMenu>
-              </Fragment>
-            ))}
-          </div>
+              </div>
+            )}
+          </VirtualList>
         ) : tier === 'nugget' ? (
           <Empty shape={['misc', 3]} title="No nuggets yet">
             A nugget is a capture worth keeping, cleaned up so it reads cold. Promote one from the inbox or a rot card and it lands here, ready to come back to you.

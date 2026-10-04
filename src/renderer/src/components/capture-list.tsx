@@ -1,11 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { useVirtualizer } from '@tanstack/react-virtual'
+import { useEffect, useState } from 'react'
 import { Lock, Pin } from 'lucide-react'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { EXITS, captureKey, takeExit } from '@/lib/capture-links'
 import { splitTags, vigil } from '@/lib/vigil'
-import { Tags, toast, pin } from './vigil/ui'
+import { Tags, VirtualList, toast, pin } from './vigil/ui'
 import { RowMenu, copy } from './vigil/row-menu'
 import { chime } from '@/lib/sound'
 
@@ -43,42 +42,13 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
   chosen?: string[]
   onPick?: (id: string) => void
 }): React.JSX.Element {
-  // Only the rows in view are drawn, with TanStack Virtual: a thousand
-  // captures cost what twenty do. The list scrolls with whatever box holds it,
-  // from where it sits in that box, so it can sit under rot cards or a heading.
-  const box = useRef<HTMLDivElement>(null)
-  const [scroller, setScroller] = useState<HTMLElement | null>(null)
-  const [margin, setMargin] = useState(0)
-  useLayoutEffect(() => {
-    let parent = box.current?.parentElement ?? null
-    while (parent && !/auto|scroll/.test(getComputedStyle(parent).overflowY)) parent = parent.parentElement
-    setScroller(parent)
-  }, [])
-  useLayoutEffect(() => {
-    if (!box.current || !scroller) return
-    const at = Math.round(box.current.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop)
-    if (at !== margin) setMargin(at)
-  })
-  const rows = useVirtualizer({
-    count: captures.length,
-    getScrollElement: () => scroller,
-    estimateSize: () => 58,
-    overscan: 10,
-    scrollMargin: margin,
-    getItemKey: (index) => captures[index].id
-  })
-  // The keyboard's row is brought into view even when it is not drawn yet.
-  useEffect(() => {
-    if (cursor !== undefined && cursor >= 0 && cursor < captures.length) rows.scrollToIndex(cursor)
-  }, [cursor]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <div ref={box} className="relative text-sm" style={{ height: rows.getTotalSize() }}>
-      {rows.getVirtualItems().map(({ index, key, start }) => {
-        const capture = captures[index]
+    <VirtualList items={captures} keyOf={(capture) => capture.id} cursor={cursor} estimate={58} className="text-sm">
+      {(capture, index) => {
         const kind = CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
         const { text, tags } = splitTags(capture.label)
         return (
-          <div key={key} data-index={index} ref={rows.measureElement} className="absolute top-0 left-0 w-full pb-0.5" style={{ transform: `translateY(${start - margin}px)` }}>
+          <div className="pb-0.5">
           <RowMenu items={[
             { label: 'Open', run: () => onPick?.(capture.id), keys: '↵' },
             'separator',
@@ -119,7 +89,7 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
           </RowMenu>
           </div>
         )
-      })}
-    </div>
+      }}
+    </VirtualList>
   )
 }

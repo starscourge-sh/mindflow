@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { toast } from './ui'
+import { toast, VirtualList } from './ui'
 import { RowMenu, copy } from './row-menu'
 import { Switch } from '@/components/ui/switch'
 
@@ -33,9 +33,9 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
       <div className={chosen ? 'flex w-72 shrink-0 border-r' : 'contents'}>
       <Page title="Tags" count={tags.length}>
         {tags.length ? (
-          <div className="flex flex-col px-3 py-2">
-            {tags.map(({ tag, count, color }, index) => (
-              <RowMenu key={tag} items={[
+          <VirtualList items={tags} keyOf={(one) => one.tag} cursor={cursor} estimate={36} className="mx-3 my-2">
+            {({ tag, count, color }, index) => (
+              <RowMenu items={[
                 { label: 'Open', keys: '↵', run: () => setChosen(tag) },
                 { label: `Copy #${tag}`, run: () => copy(`#${tag}`, `Copied #${tag}`) }
               ]}>
@@ -44,7 +44,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 data-row
                 data-cursor={index === cursor || undefined}
                 onClick={() => setChosen(tag)}
-                className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/60 ${chosen === tag ? 'bg-accent' : ''} ${index === cursor ? 'ring-1 ring-border' : ''}`}
+                className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/60 ${chosen === tag ? 'bg-accent' : ''} ${index === cursor ? 'ring-1 ring-border' : ''}`}
               >
                 <Tag className="size-4" style={{ color: color ? `var(--tt-color-text-${color})` : undefined }} />
                 <span className={chosen ? 'min-w-0 flex-1 truncate' : 'w-40 truncate'}>{tag}</span>
@@ -56,8 +56,8 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 <span className="w-8 text-right text-xs text-muted-foreground tabular-nums">{count}</span>
               </button>
               </RowMenu>
-            ))}
-          </div>
+            )}
+          </VirtualList>
         ) : (
           <Empty shape={['polygon', 3]} title="No tags yet">
             Write a <span className="text-foreground">#word</span> anywhere in a capture, a nugget or a task and it shows up here, counted. The ones that keep coming up are the ones worth a home of their own.
@@ -117,23 +117,22 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               }}
             />
             </div>
-          <div className="flex flex-col px-3 py-2">
-            {items.map((item) => {
+          <VirtualList items={items} keyOf={(item) => `${item.type}-${item.id}`} estimate={36} className="mx-3 my-2">
+            {(item) => {
               const Icon = ICON[item.type as keyof typeof ICON] ?? Inbox
               return (
                 <button
                   type="button"
-                  key={`${item.type}-${item.id}`}
                   onClick={() => onOpen(item.type, item.id)}
-                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent/60"
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent/60"
                 >
                   <Icon className="size-4 shrink-0 text-muted-foreground" />
                   <span className="flex-1 truncate">{splitTags(item.title).text || 'Untitled'}</span>
                   <span className="text-xs text-muted-foreground capitalize">{item.type}</span>
                 </button>
               )
-            })}
-          </div>
+            }}
+          </VirtualList>
         </Page>
       )}
     </>

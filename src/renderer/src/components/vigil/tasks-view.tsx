@@ -1,14 +1,13 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
 import { CalendarDays, Check, FileText, Flag, Gem, Hash, History, Play, Plus, Repeat, Square, Trash2, X } from 'lucide-react'
 
-import { AnimatePresence, motion } from 'motion/react'
 
 import { MindflowEditor } from '../mindflow'
 import { chime } from '@/lib/sound'
 import { captureKey } from '@/lib/capture-links'
 import { splitTags, useLive, vigil, when, type Session, type Task, type TaskFull } from '@/lib/vigil'
-import { Empty, Kbd, Page, Prop, PropLabel, Props, Tags, toast, useListKeys, typing } from './ui'
+import { Empty, Kbd, Page, Prop, PropLabel, Props, Tags, toast, useListKeys, typing, VirtualList } from './ui'
 import { Display, arrange, useView, type Facet } from './display'
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
@@ -80,6 +79,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
           ['Waiting on someone', waiting]
         ]
   const shown = groups.flatMap(([, list]) => list)
+  // One list for the virtual scroller: each group's heading, then its tasks.
+  const rows: (Task | { heading: string; count: number })[] = groups.flatMap(([heading, list]) => (list.length ? [{ heading, count: list.length }, ...list] : []))
   const pick = (id: string): void => void vigil.task(id).then(setOpen)
   // Sent here for one task, from search or a link: open it.
   useEffect(() => {
@@ -168,20 +169,23 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
         </form>
 
         {shown.length ? (
-          <div className="px-3 pb-6">
-            {groups.map(([label, list]) =>
-              list.length ? (
-                <Fragment key={label || 'all'}>
-                  {label ? (
-                    <h3 className="mt-6 mb-1 border-b px-2 pb-1.5 text-[13px] font-semibold" style={{ color: label === 'Overdue' ? 'var(--tt-color-text-red)' : undefined }}>
-                      {label} <span className="font-normal text-muted-foreground">{list.length}</span>
-                    </h3>
-                  ) : <div className="mt-3" />}
-                  <AnimatePresence initial={false}>
-                  {list.map((task) => {
-                    const index = shown.indexOf(task)
-                    return (
-                      <RowMenu key={task.id} items={[
+          <VirtualList
+            items={rows}
+            keyOf={(row) => ('id' in row ? row.id : `heading-${row.heading}`)}
+            cursor={shown[cursor] ? rows.indexOf(shown[cursor]) : undefined}
+            className="mx-3 mb-6"
+          >
+            {(row) => {
+              if (!('id' in row))
+                return row.heading ? (
+                  <h3 className="mt-6 mb-1 border-b px-2 pb-1.5 text-[13px] font-semibold" style={{ color: row.heading === 'Overdue' ? 'var(--tt-color-text-red)' : undefined }}>
+                    {row.heading} <span className="font-normal text-muted-foreground">{row.count}</span>
+                  </h3>
+                ) : <div className="h-3" />
+              const task = row
+              const index = shown.indexOf(task)
+              return (
+                      <RowMenu items={[
                         { label: 'Open', keys: '↵', run: () => pick(task.id) },
                         { label: 'Complete', run: () => complete(task) },
                         'separator',
@@ -194,11 +198,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                         'separator',
                         { label: 'Close without doing', danger: true, run: () => void vigil.saveTask(task.id, { status: 'dropped' }).then(() => toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' }))) }
                       ]}>
-                      <motion.div
-                        layout="position"
-                        initial={{ opacity: 0, y: -4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, x: 24, transition: { duration: 0.2 } }}
+                      <div
                         data-cursor={index === cursor || undefined}
                         className={`group flex items-start gap-3 border-b border-border/50 px-2 py-2 transition-colors ${task.id === open?.id ? 'bg-accent/60' : ''} ${index === cursor ? 'ring-1 ring-border' : ''}`}
                       >
@@ -238,15 +238,11 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                             </span>
                           )}
                         </button>
-                      </motion.div>
+                      </div>
                       </RowMenu>
-                    )
-                  })}
-                  </AnimatePresence>
-                </Fragment>
-              ) : null
-            )}
-          </div>
+              )
+            }}
+          </VirtualList>
         ) : (
           <Empty shape={mode === 'today' ? ['star', 6] : mode === 'routines' ? ['flower', 5] : ['ellipse', 4]} title={mode === 'today' ? 'Nothing due today' : mode === 'routines' ? 'No routines' : 'Nothing coming up'}>
             {mode === 'routines'
