@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
 
-import { EXITS, captureKey, exit as exitWith } from '@/lib/capture-links'
+import { EXITS, captureKey, exit as exitWith, toTask } from '@/lib/capture-links'
 import { wordsOf } from '../../../main/import'
 import { AskWho, pin, toast } from './vigil/ui'
 import { AnimatePresence, motion } from 'motion/react'
 import { RowMenu, copy } from './vigil/row-menu'
 import { age, ageTint } from './capture-list'
-import { vigil } from '@/lib/vigil'
 import { Kbd, Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 
@@ -73,6 +72,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
       {cards.map((card) => (
         <motion.div
           key={card.id}
+          data-id={card.id}
           layout
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -94,7 +94,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             { label: 'Open', run: () => onOpen(card.id) },
             'separator',
             ...EXITS.map((one) => ({ label: one.label, keys: one.key.toUpperCase(), danger: one.status === 'discarded', run: () => exit(card.id, one.status) })),
-            { label: 'Make it a task', run: () => void vigil.toTask(card.id).then(() => { toast('Now a task'); reload() }) },
+            { label: 'Make it a task', run: () => void toTask(card.id).then(() => { toast('Now a task'); reload() }) },
             { label: 'Say who said it', keys: 'W', run: () => setAsking(card.id) },
             'separator',
             { label: 'Pin to the prompt', run: () => pin('captures', card.id, true) },

@@ -2,6 +2,7 @@ import { CircleArrowUp, CircleCheck, CircleDashed, CircleX } from 'lucide-react'
 
 import { ask, toast } from '@/components/vigil/ui'
 import { chime } from '@/lib/sound'
+import { lift, type Home } from '@/lib/fly-home'
 import type { NoteSuggestion } from '@/extensions/note-link'
 import { vigil } from '@/lib/vigil'
 
@@ -32,10 +33,25 @@ export const EXITS = [
 export async function exit(id: string, status: string): Promise<void> {
   const one = EXITS.find((e) => e.status === status)
   chime(status === 'discarded' ? 'away' : status === 'promoted' ? 'promote' : 'done')
-  const result = await takeExit(id, status)
+  const result = status === 'promoted' ? await flying(id, 'nugget', () => takeExit(id, status)) : await takeExit(id, status)
   if (result === 'cancelled' || !one) return
   toast(one.done, status === 'promoted' ? undefined : () => void window.api.captures.save(id, { status: 'open' }))
 }
+
+/**
+ * Do something that sends a capture somewhere, and show it going there: the
+ * picture is taken first, while the capture is still on screen, and flies
+ * once the work is done. A cancelled step flies nowhere.
+ */
+export async function flying<T>(id: string, home: Home, work: () => Promise<T>): Promise<T> {
+  const land = lift(id, home)
+  const result = await work()
+  if (result !== 'cancelled' && result !== 'needs-source' && result !== null) land?.()
+  return result
+}
+
+/** A capture made into a task, flown into Tasks. */
+export const toTask = (id: string): Promise<unknown> => flying(id, 'task', () => vigil.toTask(id))
 
 /** Take one. Promote makes a nugget as well; the other two only mark the capture. */
 export async function takeExit(id: string, status: string): Promise<unknown> {

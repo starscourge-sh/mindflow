@@ -212,6 +212,7 @@ export function Home(): React.JSX.Element {
             <TooltipTrigger asChild>
             <button
               type="button"
+              data-home={section.id === 'nuggets' ? 'nugget' : section.id === 'upcoming' ? 'task' : undefined}
               onClick={() => setView({ id: section.id })}
               className={`group relative flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors ${view.id === section.id ? 'bg-accent text-foreground' : 'text-foreground/80 hover:bg-accent/60'}`}
             >

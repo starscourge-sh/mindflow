@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Lock, Pin } from 'lucide-react'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
-import { EXITS, captureKey, exit } from '@/lib/capture-links'
+import { EXITS, captureKey, exit, toTask } from '@/lib/capture-links'
 import { splitTags, vigil } from '@/lib/vigil'
 import { Tags, VirtualList, toast, pin } from './vigil/ui'
 import { RowMenu, copy } from './vigil/row-menu'
@@ -63,7 +63,7 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
             ...(capture.status === 'open'
               ? EXITS.map((one) => ({ label: one.label, keys: one.key.toUpperCase(), danger: one.status === 'discarded', run: () => void exit(capture.id, one.status) }))
               : [{ label: 'Back to the inbox', run: () => void window.api.captures.save(capture.id, { status: 'open' }) }]),
-            capture.status === 'open' && { label: 'Make it a task', run: () => void vigil.toTask(capture.id).then(() => toast('Now a task')) },
+            capture.status === 'open' && { label: 'Make it a task', run: () => void toTask(capture.id).then(() => toast('Now a task')) },
             'separator',
             { label: capture.pinnedAt ? 'Unpin' : 'Pin to the prompt', run: () => pin('captures', capture.id, !capture.pinnedAt) },
             { label: capture.private ? 'Let it surface' : 'Make private', run: () => void vigil.setPrivate('captures', capture.id, !capture.private) },
@@ -76,6 +76,7 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
             type="button"
             className={`flex w-full flex-col gap-0.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent/60 ${capture.status === 'open' ? '' : 'opacity-50'} ${chosen.includes(capture.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : capture.id === selected ? 'bg-accent' : ''} ${index === cursor ? 'ring-1 ring-border' : ''}`}
             data-row
+            data-id={capture.id}
             onClick={() => onPick?.(capture.id)}
           >
             <span className="flex items-center gap-2">

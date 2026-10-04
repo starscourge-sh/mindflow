@@ -778,6 +778,8 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading }: {
           <Tip key={one.id} label={`⌃${tabs.indexOf(one) + 1}`}>
           <button
             type="button"
+            // Where a promoted capture or a new task flies to.
+            data-home={one.id === 'kept' ? 'nugget' : one.id === 'today' ? 'task' : undefined}
             onClick={() => {
               if (tab !== one.id) chime('tap')
               setTab(one.id)

@@ -8,7 +8,7 @@ import { CaptureList, useCaptures, type CaptureMeta } from '../capture-list'
 import { AGES, Display, arrange, period, useView, type Facet } from './display'
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
-import { STATUS_ICON, captureKey, findCaptures, takeExit, follow } from '@/lib/capture-links'
+import { STATUS_ICON, captureKey, findCaptures, flying, takeExit, toTask, follow } from '@/lib/capture-links'
 import { toMarkdown } from '@/lib/export'
 import { splitTags, vigil } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
@@ -202,8 +202,8 @@ function CaptureProps({ capture, onOpen }: { capture: CaptureMeta; onOpen?: (typ
     setWhere(capture.medium ?? '')
   }, [capture.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const exits = [
-    { icon: ArrowUpRight, tint: 'purple', label: 'Promote to nugget', run: () => takeExit(capture.id, 'promoted'), said: 'Promoted to a nugget' },
-    { icon: ListTodo, tint: 'orange', label: 'Make it a task', run: () => vigil.toTask(capture.id), said: 'Now a task' },
+    { icon: ArrowUpRight, tint: 'purple', label: 'Promote to nugget', run: () => flying(capture.id, 'nugget', () => takeExit(capture.id, 'promoted')), said: 'Promoted to a nugget' },
+    { icon: ListTodo, tint: 'orange', label: 'Make it a task', run: () => toTask(capture.id), said: 'Now a task' },
     { icon: CheckCircle2, tint: 'green', label: 'Resolve', run: () => window.api.captures.save(capture.id, { status: 'resolved' }), said: 'Resolved' },
     { icon: Trash2, tint: 'red', label: 'Discard', run: () => window.api.captures.save(capture.id, { status: 'discarded' }), said: 'Discarded' }
   ]
