@@ -3,6 +3,7 @@ import type { JSONContent } from '@tiptap/core'
 
 import { EXITS, captureKey, takeExit } from '@/lib/capture-links'
 import { chime } from '@/lib/sound'
+import { toast } from './vigil/ui'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.rot>>[number]
 
@@ -32,7 +33,10 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
 
   const exit = (id: string, status: string): void => {
     chime(status === 'discarded' ? 'away' : status === 'promoted' ? 'promote' : 'done')
-    void takeExit(id, status).then(reload)
+    void takeExit(id, status).then((result) => {
+      if (result === 'needs-source') toast('A quote needs a source first: open it and say who said it')
+      reload()
+    })
   }
 
   if (!cards.length) return null

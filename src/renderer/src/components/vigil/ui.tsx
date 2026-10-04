@@ -91,24 +91,6 @@ export function Prop({ icon: Icon, children, onClick, active }: {
   )
 }
 
-/** A small rounded button with an icon, for header actions. */
-export function IconButton({ icon: Icon, title, onClick, active }: {
-  icon: LucideIcon
-  title: string
-  onClick: () => void
-  active?: boolean
-}): React.JSX.Element {
-  return (
-    <button
-      type="button"
-      title={title}
-      onClick={onClick}
-      className={`rounded-md p-1.5 transition-colors hover:bg-accent ${active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-    >
-      <Icon className="size-4" />
-    </button>
-  )
-}
 
 /** Tags as Todoist draws them: a small tag glyph and the word, in a quiet colour. */
 export function Tags({ tags }: { tags: string[] }): React.JSX.Element | null {
@@ -188,12 +170,6 @@ export function useListKeys(count: number, { onOpen, onBack, enabled = true }: {
   return [at, setAt]
 }
 
-/** Scroll a row into view when the keyboard moves onto it, not on hover. */
-export function useScrollIntoView(active: boolean): (element: HTMLElement | null) => void {
-  return (element) => {
-    if (active) element?.scrollIntoView({ block: 'nearest' })
-  }
-}
 
 /**
  * Say what an action did, briefly, with a way back. The answer to "did that

@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Archive, FileJson2, Inbox, Keyboard, KeyboardOff, Lock, LockOpen, Maximize2, Minimize2, SquarePen, TableOfContents, X } from 'lucide-react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { v4 as uuidv4 } from 'uuid';
 
 import { MindflowEditor, TAGS, currentVim, onVimChange, setVim } from './components/mindflow'
 import { ThemePicker } from './components/theme/theme-picker'
@@ -44,24 +43,13 @@ import {
 } from "@/components/ui/resizable"
 
 
-export type CaptureStatus = 'open' | 'promoted' | 'resolved' | 'discarded'
-export type Capture = {
-  id: string,
-  body?: JSONContent | undefined | string
-  title: string | undefined
-  capturedAt: string
-  status: CaptureStatus
-  kind: CaptureType
-  closedAt: string | null
-  isDraft: boolean
-}
 
 /**
- * Whether a body holds anything. An empty editor still hands over a document
- * with one bare paragraph in it, so an empty paragraph or heading does not
- * count. A picture or a drawing has nothing inside it and still does.
+ * Whether a body holds anything, so ⌘↵ on an empty box saves nothing. An empty
+ * editor still hands over one bare paragraph, so an empty paragraph or heading
+ * does not count; a picture or a drawing has nothing inside it and still does.
  */
-const hasContent = (body: Capture['body'] | null): boolean =>
+const hasContent = (body: JSONContent | string | null): boolean =>
   typeof body === 'string'
     ? body.trim() !== ''
     : (body?.content ?? []).some((b) => b.content?.length || !['paragraph', 'heading'].includes(b.type ?? ''))
@@ -172,27 +160,6 @@ export default function App(): React.JSX.Element {
   const [kind, setKind] = useState<CaptureType>('note')
   const captures = useCaptures()
   useAppearance()
-  const [capture] = useState<Capture>(() => {
-    const raw = localStorage.getItem("capture-draft")
-    const draft = raw ? (JSON.parse(raw) as Capture | null) : null
-
-    // An empty draft is a box nobody typed in, which is not worth restoring
-    // over a fresh one. Judged by the body, not the title: a capture that is
-    // only a picture or a drawing has no title and is still worth keeping.
-    if (draft && hasContent(draft.body)) return draft
-
-    return {
-      // `useState`, not `useRef(uuidv4())`: a ref's argument is evaluated on
-      // every render, so that minted an id each time and threw it away.
-      id: uuidv4(),
-      title: "",
-      capturedAt: new Date().toISOString(),
-      status: 'open',
-      kind: 'note',
-      closedAt: null,
-      isDraft: true
-    }
-  })
 
   // The window's controls show while the pointer is over it. Told by the main
   // process rather than read from `:hover`, which goes false over the drag strip.
@@ -333,8 +300,6 @@ export default function App(): React.JSX.Element {
     return () => window.removeEventListener('keydown', onKey, true)
   }, [body, title, kind, markdown, editing, offload, actionTags])
 
-  console.log('[CapturePrompt][kind][🐦‍🔥]: ', kind)
-  console.log('[CapturePrompt][capture][🫪]: ', { ...capture, kind, title })
 
   return (
     <TooltipProvider delayDuration={500}>
@@ -408,7 +373,7 @@ export default function App(): React.JSX.Element {
               {/* The editor's settings, one shape each, every one named with its
                   key on hover, and on or off shown by a fill rather than a fade. */}
               <div className="flex items-center gap-0.5">
-                <BarToggle on={vim} icon={vim ? Keyboard : KeyboardOff} label="Vim keys" tip={vim ? 'Vim keys on' : 'Vim keys off'} keys="\\" onClick={() => setVim(!vim)} />
+                <BarToggle on={vim} icon={vim ? Keyboard : KeyboardOff} label="Vim keys" tip={vim ? 'Vim keys on' : 'Vim keys off'} keys={'\\'} onClick={() => setVim(!vim)} />
                 <BarToggle on={locked} icon={locked ? Lock : LockOpen} label="Lock" tip={locked ? 'Locked: read only' : 'Lock the note'} onClick={() => setLocked(!locked)} />
                 <BarToggle on={outline} icon={TableOfContents} label="Outline" tip={outline ? 'Hide the outline' : 'Show the outline'} onClick={() => setOutline(!outline)} />
                 <BarToggle on={source} icon={FileJson2} label="Source" tip={source ? 'Hide the source' : 'Show the source'} keys="⌘⌥S" onClick={() => setSource(!source)} />
@@ -505,33 +470,6 @@ const CapturePrompt = ({
 }): React.JSX.Element => {
   useEscapeToHide()
 
-  // const [status, setStatus] = useState<Status>('todo')
-  // const [capture, setCapture] = useState<Capture>(localStorage.getItem("capture-draft") && JSON.parse(localStorage.getItem("capture-draft")) as Capture)
-  // const [priority, setPriority] = useState<Priority>('none')
-  // const [kind, setKind] = useState<CaptureType>('note')
-  // const [title, setTitle] = useState<string>('')
-  // const [body, setBody] = useState<JSONContent | null>(null)
-  // console.log('[CapturePrompt][title][🐦‍🔥]: ', title)
-  // console.log('[CapturePrompt][body][🐦‍🔥]: ', body)
-  // console.log('[CapturePrompt][kind][🐦‍🔥]: ', kind)
-
-
-  // useEffect(() => {
-  //   const c: Capture = {
-  //     id: id.current,
-  //     title: title,
-  //     body: body,
-  //     capturedAt: (new Date()).toISOString(),
-  //     // status: status,
-  //     kind: kind,
-  //     closedAt: null,
-  //     isDraft: true
-  //   }
-  //   localStorage.setItem("capture-draft", JSON.stringify(c))
-  //   // setCature(c)
-  //   setCapture(c)
-  // }, [title, body, kind])
-  //
 
   return (
     <div className="flex-1 w-full relative overflow-hidden flex w-full flex-1 min-h-0 flex-col transition transition-all transition-duration-3 border-b-2 rounded-b-3xl shadow-xl"

@@ -253,7 +253,6 @@ export function registerVigil(): void {
     return write(nugget)
   }
   handle('promote', promote)
-  ipcMain.handle('captures:promote', (_event, id: string) => promote(id))
   // Resolve elsewhere: the capture becomes a task, and remembers it did.
   handle('toTask', (id: string) => {
     const capture = db.prepare('select title from captures where id = ?').get(id) as { title: string } | undefined
@@ -326,7 +325,7 @@ export function registerVigil(): void {
     const row = db.prepare(`select ${ITEM}, body, origins from nuggets where id = ?`).get(id) as Record<string, unknown> | undefined
     if (!row) return null
     const glosses = db.prepare('select id, body, author, created_at as createdAt from glosses where item_id = ? order by created_at').all(id)
-    return { ...body(row), origins: JSON.parse((row.origins as string) ?? '[]'), glosses, preview: row.prompt ? preview(null) : null }
+    return { ...body(row), origins: JSON.parse((row.origins as string) ?? '[]'), glosses }
   })
   handle('item:save', (id: string, patch: { body?: unknown; title?: string; prompt?: string | null; kind?: string; suspended?: boolean; cite?: string | null; context?: string | null; mode?: string }) => {
     const allowed = ['body', 'title', 'prompt', 'kind', 'suspended', 'cite', 'context', 'mode']

@@ -52,7 +52,6 @@ export interface Api {
     search: (query: string) => Promise<CaptureMeta[]>
     rot: () => Promise<Capture[]>
     find: (query: string) => Promise<Capture[]>
-    promote: (id: string) => Promise<void>
     create: (patch: CapturePatch) => Promise<string>
     save: (id: string, patch: CapturePatch) => Promise<void>
     onChange: (listen: () => void) => () => void

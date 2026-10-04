@@ -115,8 +115,6 @@ const api = {
     find: (query: string): Promise<Capture[]> => ipcRenderer.invoke('captures:find', query),
     /** Three open captures, leaning old: the rot sampler. */
     rot: (): Promise<Capture[]> => ipcRenderer.invoke('captures:rot'),
-    /** Promote: make a nugget from it. */
-    promote: (id: string): Promise<void> => ipcRenderer.invoke('captures:promote', id),
     /** What `@` offers for the text typed after it. */
     search: (query: string): Promise<CaptureMeta[]> => ipcRenderer.invoke('captures:search', query),
     create: (patch: CapturePatch): Promise<string> => ipcRenderer.invoke('captures:create', patch),
