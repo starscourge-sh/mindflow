@@ -168,7 +168,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
                 type="button"
                 data-row
                 onClick={(event) => (event.shiftKey || event.metaKey ? toggle(item.id) : pick(item.id))}
-                className={`rounded-[5px] px-2 py-1.5 text-left transition-colors ${chosen.includes(item.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : item.id === open?.id ? 'bg-accent' : index === cursor ? 'bg-accent/50' : 'hover:bg-accent/50'} ${item.suspended ? 'opacity-50' : ''}`}
+                className={`rounded-sm px-2 py-1.5 text-left transition-colors ${chosen.includes(item.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : item.id === open?.id ? 'bg-accent' : index === cursor ? 'bg-accent/50' : 'hover:bg-accent/50'} ${item.suspended ? 'opacity-50' : ''}`}
               >
                 {tier === 'nugget' ? <NuggetRow item={item} /> : <ArticleRow item={item} />}
               </button>
@@ -234,7 +234,7 @@ function ArticleRow({ item }: { item: Item }): React.JSX.Element {
   return (
     <span className="flex items-center gap-3">
       <FileText className="size-4 shrink-0 text-muted-foreground" />
-      <span className="flex-1 truncate text-[15px] font-medium">{item.title || 'Untitled'}</span>
+      <span className="flex-1 truncate">{item.title || 'Untitled'}</span>
       <span className="shrink-0 text-xs text-muted-foreground">{when(item.createdAt)}</span>
     </span>
   )
@@ -270,7 +270,7 @@ export function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: s
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
         {item.tier === 'article' && (
           <input
-            className="mx-auto mb-2 block w-full max-w-[44rem] bg-transparent px-12 text-3xl font-semibold outline-none placeholder:text-muted-foreground"
+            className="mx-auto mb-2 block w-full max-w-[44rem] bg-transparent px-12 text-title font-semibold text-balance outline-none placeholder:text-muted-foreground"
             defaultValue={item.title}
             placeholder="Untitled"
             onBlur={(event) => void vigil.saveItem(item.id, { title: event.target.value })}
@@ -298,7 +298,7 @@ export function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: s
         {item.tier === 'nugget' && (
           <>
             <PropLabel>Kind</PropLabel>
-            <div className="px-1">
+            <div>
               <CaptureKindPicker value={item.kind as CaptureType} onChange={(kind) => void vigil.saveItem(item.id, { kind })} />
             </div>
           </>
@@ -325,7 +325,7 @@ export function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: s
           onBlur={savePrompt}
           rows={3}
           placeholder="A question this answers. Empty, it comes back on its own."
-          className="mx-1 mt-1 resize-none text-[13px]"
+          className="mt-1 resize-none text-control"
         />
         <Prop icon={SquareDashed} onClick={cloze}>Blank the selected words</Prop>
         {item.dueAt && <Prop icon={Calendar}>Next review {when(item.dueAt, false)}</Prop>}
@@ -358,7 +358,7 @@ export function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: s
               onBlur={(event) => void vigil.saveItem(item.id, { context: event.target.value.trim() || null })}
               rows={2}
               placeholder="What makes the answer make sense: shown after it in review"
-              className="mx-1 resize-none text-[13px]"
+              className="resize-none text-control"
             />
             <PropLabel>Grow it</PropLabel>
             {/* Two hundred words of your own beside it is an article written
@@ -393,7 +393,7 @@ export function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: s
             defaultValue={item.attribution ?? ''}
             placeholder="Who, or where from"
             onBlur={(event) => void vigil.saveItem(item.id, { attribution: event.target.value.trim() || null })}
-            className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-muted-foreground"
           />
         </label>
         <PropLabel>Details</PropLabel>
@@ -419,7 +419,7 @@ export function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: s
           }}
           rows={2}
           placeholder="Why you kept it, or where you disagree"
-          className="mx-1 resize-none text-[13px]"
+          className="resize-none text-control"
         />
       </Props>
     </div>
@@ -454,10 +454,10 @@ export function RemindMe({ table, id, at }: { table: 'captures' | 'nuggets'; id:
       <PopoverTrigger asChild>
         <button type="button" className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent hover:text-foreground">
           <AlarmClock className="size-4 shrink-0" />
-          <span className="text-[13px]">{at ? `Reminds ${when(at, false).toLowerCase()}` : 'Remind me…'}</span>
+          <span className="text-control">{at ? `Reminds ${when(at, false).toLowerCase()}` : 'Remind me…'}</span>
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 p-1 text-sm">
+      <PopoverContent align="start" className="w-72 gap-0 p-1 text-sm">
         <input
           autoFocus
           value={words}
@@ -495,7 +495,7 @@ function StudyThis({ item }: { item: ItemFull }): React.JSX.Element {
           toast('Task made, with this linked to it')
         })
       }}
-      className="mx-1 h-8 w-auto text-[13px]"
+      className="h-8 w-auto text-control"
     />
   )
 }
@@ -520,7 +520,7 @@ function Supersede({ item }: { item: ItemFull }): React.JSX.Element {
         event.preventDefault()
         void vigil.supersede(item.id, event.currentTarget.value.trim()).then(() => toast('Corrected: the new version is a nugget, this one is out of review'))
       }}
-      className="mx-1 resize-none text-[13px]"
+      className="resize-none text-control"
     />
   )
 }

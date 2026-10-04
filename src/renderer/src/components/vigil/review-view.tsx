@@ -127,7 +127,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
             card.prompt = prompt
             void vigil.saveItem(card.id, { prompt }).then(() => toast('Question rewritten'))
           }}
-          className="rounded-md text-2xl leading-snug font-semibold text-balance outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="rounded-md text-title font-semibold text-balance outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           {card.prompt}
         </h2>
@@ -154,7 +154,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
               initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
               transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-              className="rounded-xl border bg-accent/30"
+              className="rounded-lg border bg-accent/30"
             >
               <MindflowEditor
                 defaultContent={(card.body as JSONContent | string | null) ?? ''}
@@ -179,7 +179,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
                   type="button"
                 
                   onClick={() => grade(value)}
-                  className="flex flex-col items-center gap-1 rounded-lg border px-3 py-2.5 transition-all hover:-translate-y-px hover:bg-accent active:translate-y-0"
+                  className="flex flex-col items-center gap-1 rounded-md border px-3 py-2.5 transition-all hover:-translate-y-px hover:bg-accent active:translate-y-0"
                 >
                   <span className="font-medium" style={{ color: tone }}>{label}</span>
                   <span className="text-xs text-muted-foreground tabular-nums">
@@ -203,7 +203,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
             }}
             rows={3}
             placeholder="Say it back in your own words first, if you like. ⌘↵ to check."
-            className="resize-none text-[15px]"
+            className="resize-none text-heading"
           />
           <Button variant="outline" size="lg"
  onClick={reveal}

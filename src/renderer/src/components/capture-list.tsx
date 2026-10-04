@@ -77,7 +77,7 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
             // Rows flush, Linear's way: one plain highlight for the one open,
             // a fainter one under the keyboard, a tint for the picked. No
             // outlines and no gaps, so the list reads as a list, not cards.
-            className={`flex w-full flex-col gap-0.5 rounded-[5px] px-2 py-1.5 text-left transition-colors hover:bg-accent/50 ${capture.status === 'open' ? '' : 'opacity-50'} ${chosen.includes(capture.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : capture.id === selected ? 'bg-accent' : index === cursor ? 'bg-accent/50' : ''}`}
+            className={`flex w-full flex-col gap-0.5 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-accent/50 ${capture.status === 'open' ? '' : 'opacity-50'} ${chosen.includes(capture.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : capture.id === selected ? 'bg-accent' : index === cursor ? 'bg-accent/50' : ''}`}
             data-row
             data-id={capture.id}
             onClick={() => onPick?.(capture.id)}

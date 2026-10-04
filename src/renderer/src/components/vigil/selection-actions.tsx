@@ -19,7 +19,7 @@ export function selectionActions(origin: { captureId?: string; attribution?: str
       const { from, to } = editor.state.selection
       return editor.state.doc.textBetween(from, to, '\n').trim()
     }
-    const button = 'flex h-8 items-center gap-1.5 rounded-md px-2 text-[13px] text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-4'
+    const button = 'flex h-8 items-center gap-1.5 rounded-md px-2 text-control text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-4'
     return (
       <>
         <ToolbarSeparator />

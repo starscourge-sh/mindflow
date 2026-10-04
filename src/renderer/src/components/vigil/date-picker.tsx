@@ -33,7 +33,7 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button type="button" className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-accent hover:text-foreground ${date ? '' : 'text-muted-foreground'} ${className}`}>
+        <button type="button" className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-control hover:bg-accent hover:text-foreground ${date ? '' : 'text-muted-foreground'} ${className}`}>
           {children ?? (
             <>
               <CalendarDays className="size-4 shrink-0" />
@@ -42,7 +42,7 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-auto p-0">
+      <PopoverContent align="start" className="w-auto gap-0 p-0">
         <Calendar
           mode="single"
           selected={date}

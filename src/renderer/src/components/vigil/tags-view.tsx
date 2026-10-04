@@ -44,7 +44,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 data-row
                 data-cursor={index === cursor || undefined}
                 onClick={() => setChosen(tag)}
-                className={`flex w-full items-center gap-2 rounded-[5px] px-2 py-1.5 text-left transition-colors hover:bg-accent/50 ${chosen === tag ? 'bg-accent' : index === cursor ? 'bg-accent/50' : ''}`}
+                className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-accent/50 ${chosen === tag ? 'bg-accent' : index === cursor ? 'bg-accent/50' : ''}`}
               >
                 <Tag className="size-4" style={{ color: color ? `var(--tt-color-text-${color})` : undefined }} />
                 <span className={chosen ? 'min-w-0 flex-1 truncate' : 'w-40 truncate'}>{tag}</span>
@@ -91,7 +91,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
             <Input
               key={`alias-${chosen}`}
               placeholder="Counts as #…"
-              className="w-32 text-[13px] h-8"
+              className="w-32 text-control h-8"
               onKeyDown={(event) => {
                 const to = event.currentTarget.value.trim()
                 if (event.key !== 'Enter') return
@@ -105,7 +105,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
             <Input
               key={chosen}
               placeholder="Rename or merge into…"
-              className="w-44 text-[13px] h-8"
+              className="w-44 text-control h-8"
               onKeyDown={(event) => {
                 const to = event.currentTarget.value.trim()
                 if (event.key !== 'Enter' || !to) return
@@ -124,7 +124,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 <button
                   type="button"
                   onClick={() => onOpen(item.type, item.id)}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent/60"
+                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-accent/60"
                 >
                   <Icon className="size-4 shrink-0 text-muted-foreground" />
                   <span className="flex-1 truncate">{splitTags(item.title).text || 'Untitled'}</span>

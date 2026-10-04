@@ -7,6 +7,7 @@ import { Coolshape, type shapeTypes } from 'coolshapes-react'
 import Lenis from 'lenis'
 import { useLive, vigil } from '@/lib/vigil'
 import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/cn'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 /**
@@ -32,7 +33,7 @@ export function Page({ title, count, actions, children, aside = false }: {
       {(count !== undefined || actions) && (
         <header data-chrome={aside || undefined} className="page-column flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground">
           {typeof title === 'string' && title.startsWith('#') ? <span className="font-medium text-foreground">{title}</span> : null}
-          {count !== undefined && <span className="tabular-nums"><Rolling text={count} /> {count === 1 ? 'item' : 'items'}</span>}
+          {count ? <span className="tabular-nums"><Rolling text={count} /> {count === 1 ? 'item' : 'items'}</span> : null}
           <div className="ml-auto flex items-center gap-1">{actions}</div>
         </header>
       )}
@@ -55,9 +56,9 @@ export function Empty({ shape, title, children, action, compact = false }: {
   compact?: boolean
 }): React.JSX.Element {
   return (
-    <div className={`flex max-w-sm flex-col items-start gap-3 px-5 ${compact ? 'py-10 text-[13px]' : 'py-[16vh]'}`}>
+    <div className={`flex max-w-sm flex-col items-start gap-3 ${compact ? 'px-2 py-10' : 'px-5 py-[16vh]'}`}>
       <Coolshape type={shape[0]} index={shape[1]} noise={false} size={compact ? 44 : 56} className="mb-3" />
-      <h2 className="text-[15px] font-semibold">{title}</h2>
+      <h2 className="text-heading font-semibold">{title}</h2>
       <p className="leading-relaxed text-muted-foreground">{children}</p>
       {action}
     </div>
@@ -67,20 +68,21 @@ export function Empty({ shape, title, children, action, compact = false }: {
 /** A key, the way a menu shows a shortcut. */
 export function Kbd({ children }: { children: ReactNode }): React.JSX.Element {
   return (
-    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-border/80 px-1 font-sans text-[11px] text-muted-foreground">
+    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-border/80 px-1 font-sans text-key text-muted-foreground">
       {children}
     </kbd>
   )
 }
 
 /** A labelled run of properties, the right-hand column of an open item. */
-export function Props({ children }: { children: ReactNode }): React.JSX.Element {
+export function Props({ children, className }: { children: ReactNode; className?: string }): React.JSX.Element {
   // One size for every row, whatever window it sits in: the prompt's larger
-  // base made some rows grow and others not.
-  return <aside data-chrome className="flex w-64 shrink-0 flex-col gap-px overflow-y-auto border-l p-3 pt-4 text-[13px] leading-snug text-muted-foreground">{children}</aside>
+  // base made some rows grow and others not. A caller's classes are merged
+  // over these, so the prompt's drawer can drop the width and the rule.
+  return <aside data-chrome className={cn('flex w-64 shrink-0 flex-col gap-px overflow-y-auto border-l p-3 pt-4 text-control text-muted-foreground', className)}>{children}</aside>
 }
 export function PropLabel({ children }: { children: ReactNode }): React.JSX.Element {
-  return <div className="mt-3 mb-1 px-2 text-xs first:mt-0">{children}</div>
+  return <div className="mt-3 mb-1 px-2 text-meta font-medium first:mt-0">{children}</div>
 }
 export function Prop({ icon: Icon, children, onClick, active, tint }: {
   icon: LucideIcon
@@ -297,7 +299,7 @@ export function Toaster(): React.JSX.Element | null {
             setShown(null)
           }}
         >
-          Undo <kbd className="ml-0.5 font-sans text-[11px] opacity-70">⌘Z</kbd>
+          Undo <kbd className="ml-0.5 font-sans text-key opacity-70">⌘Z</kbd>
         </button>
       )}
     </div>}
@@ -395,7 +397,7 @@ export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX
 }
 
 /** What you have typed before in a field, most used first, for its autocomplete. */
-export function Remembered({ field, value, onChange, placeholder, className = 'w-28', ...rest }: {
+export function Remembered({ field, value, onChange, placeholder, className = 'field-sizing-content min-w-16 max-w-48 px-1.5 py-0.5', ...rest }: {
   field: 'attribution' | 'medium'
   value: string
   onChange: (value: string) => void
@@ -411,7 +413,7 @@ export function Remembered({ field, value, onChange, placeholder, className = 'w
         onChange={(event) => onChange(event.target.value)}
         list={`remembered-${field}`}
         placeholder={placeholder}
-        className={`${className} rounded-md bg-transparent px-1.5 py-0.5 text-xs text-muted-foreground outline-none placeholder:text-muted-foreground/60 hover:bg-accent/50 focus:bg-accent/50 focus:text-foreground`}
+        className={cn('rounded-md bg-transparent text-muted-foreground outline-none placeholder:text-muted-foreground/60 hover:bg-accent/50 focus:bg-accent/50 focus:text-foreground', className)}
       />
       <datalist id={`remembered-${field}`}>
         {values.map((one) => <option key={one} value={one} />)}
@@ -434,7 +436,7 @@ export function AskWho({ id, initial = '', onDone }: { id: string; initial?: str
       value={who}
       onChange={setWho}
       placeholder="Who said it?  ↵"
-      className="w-full text-[13px]"
+      className="w-full px-1.5 py-0.5 text-control"
       onBlur={() => onDone()}
       onKeyDown={(event) => {
         event.stopPropagation()

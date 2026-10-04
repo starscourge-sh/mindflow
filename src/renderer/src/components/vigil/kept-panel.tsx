@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BookOpen, Brain, EyeOff, Pin } from 'lucide-react'
+import { BookOpen, Brain, EyeOff, Pin, Plus } from 'lucide-react'
 import type { Readable } from './read-through'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
@@ -57,15 +57,14 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
       onOpen('article', id)
     })
   return (
-    <div className="flex flex-col gap-2 text-sm">
-      <div className="flex items-center gap-2 px-1 pt-1">
-        <Chips options={TIERS} on={(id) => id === tier} pick={(id) => setTier(id as 'nugget' | 'article')} />
-        {/* Read and the count only when there is something to read or count. */}
+    <div className="flex flex-col gap-1 text-sm">
+      <div className="flex h-8 min-w-0 items-center gap-1">
+        <Chips className="shrink-0" options={TIERS} on={(id) => id === tier} pick={(id) => setTier(id as 'nugget' | 'article')} />
+        {/* Read only when there is something to read. */}
         {all.length > 0 && <Button variant="ghost" size="sm" className="ml-auto" onClick={read}><BookOpen className="size-3.5" /> Read</Button>}
         <span className={all.length ? '' : 'ml-auto'}>{display}</span>
-        {all.length > 0 && <span className="text-xs text-muted-foreground tabular-nums">{items.length} {tier === "nugget" ? (items.length === 1 ? "nugget" : "nuggets") : items.length === 1 ? "article" : "articles"}</span>}
         {tier === 'article' && (
-          <Button variant="outline" size="sm" onClick={() => void vigil.newArticle().then((id) => onOpen('article', id))}>New article</Button>
+          <Button variant="ghost" size="sm" onClick={() => void vigil.newArticle().then((id) => onOpen('article', id))}><Plus className="size-3.5" /> New article</Button>
         )}
       </div>
       {chosen.length > 0 && (
@@ -94,7 +93,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
                   type="button"
                   data-cursor={index === cursor || undefined}
                   onClick={() => onOpen(tier, item.id)}
-                  className={`flex w-full items-center gap-2 rounded-[5px] px-2 py-1.5 text-left hover:bg-accent/50 ${chosen.includes(item.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : item.id === open ? 'bg-accent' : index === cursor ? 'bg-accent/50' : ''}`}
+                  className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-accent/50 ${chosen.includes(item.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : item.id === open ? 'bg-accent' : index === cursor ? 'bg-accent/50' : ''}`}
                 >
                   <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
                   <span className="flex-1 truncate">{item.title || 'Untitled'}</span>

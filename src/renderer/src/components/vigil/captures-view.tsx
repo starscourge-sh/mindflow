@@ -171,7 +171,7 @@ export function CapturesView({ title, keep, focus, onOpen }: {
           <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
             {/* What you first caught, kept from the first edit on: read it
                 beside what it has become, never lost to an edit. */}
-            <div className="flex justify-end px-6">
+            <div className="flex justify-end px-[4.25rem]">
               <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() =>
                 first !== null
                   ? // Back from reading: the capture read again, so the editor
@@ -222,7 +222,7 @@ export function CapturesView({ title, keep, focus, onOpen }: {
 }
 
 /** Status and the exits, then what the capture is, then where it came from. */
-export function CaptureProps({ capture, onOpen }: { capture: CaptureMeta; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
+export function CaptureProps({ capture, onOpen, className }: { capture: CaptureMeta; onOpen?: (type: string, id: string) => void; className?: string }): React.JSX.Element {
   const Status = STATUS_ICON[capture.status as keyof typeof STATUS_ICON] ?? STATUS_ICON.open
   const reopen = (): void => void window.api.captures.save(capture.id, { status: 'open' })
   const [who, setWho] = useState(capture.attribution ?? '')
@@ -239,7 +239,7 @@ export function CaptureProps({ capture, onOpen }: { capture: CaptureMeta; onOpen
   ]
 
   return (
-    <Props>
+    <Props className={className}>
       <PropLabel>Status</PropLabel>
       <Prop icon={Status} active>
         {/* A status that changes rolls to the new word: the change is seen. */}
@@ -266,7 +266,7 @@ export function CaptureProps({ capture, onOpen }: { capture: CaptureMeta; onOpen
         : <Prop icon={Inbox} onClick={reopen}>Back to the inbox</Prop>}
 
       <PropLabel>Kind</PropLabel>
-      <div className="px-1">
+      <div>
         <CaptureKindPicker value={capture.kind as CaptureType} onChange={(kind) => void window.api.captures.save(capture.id, { kind })} />
       </div>
 
@@ -292,16 +292,16 @@ export function CaptureProps({ capture, onOpen }: { capture: CaptureMeta; onOpen
                 into ? toast(`Merged into MF-${number}`, () => void window.api.captures.save(capture.id, { status: 'open' })) : toast(`No MF-${number} to merge into`)
               )
             }}
-            className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-muted-foreground"
           />
         </label>
       )}
       <PropLabel>Who and where</PropLabel>
-      <Remembered key={`a${capture.id}`} field="attribution" value={who} placeholder={ASKS[capture.kind as CaptureType]?.who ?? 'Who'} className="w-full text-[13px]" onChange={(value) => {
+      <Remembered key={`a${capture.id}`} field="attribution" value={who} placeholder={ASKS[capture.kind as CaptureType]?.who ?? 'Who'} className="w-full rounded-md px-2 py-1.5 text-control hover:bg-accent" onChange={(value) => {
         setWho(value)
         void vigil.setCapture(capture.id, 'attribution', value.trim() || null)
       }} />
-      <Remembered key={`m${capture.id}`} field="medium" value={where} placeholder={ASKS[capture.kind as CaptureType]?.where ?? 'Where'} className="w-full text-[13px]" onChange={(value) => {
+      <Remembered key={`m${capture.id}`} field="medium" value={where} placeholder={ASKS[capture.kind as CaptureType]?.where ?? 'Where'} className="w-full rounded-md px-2 py-1.5 text-control hover:bg-accent" onChange={(value) => {
         setWhere(value)
         void vigil.setCapture(capture.id, 'medium', value.trim() || null)
       }} />

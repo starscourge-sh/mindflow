@@ -38,7 +38,7 @@ function CommandInput({
         {...props}
       />
       {shortcut && (
-        <kbd className="rounded border px-1.5 py-0.5 text-[11px] text-muted-foreground">
+        <kbd className="rounded border px-1.5 py-0.5 text-key text-muted-foreground">
           {shortcut}
         </kbd>
       )}

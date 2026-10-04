@@ -75,7 +75,7 @@ export const AGES: Choice[] = ['Today', 'This week', 'This month', 'This year', 
 
 export function Chips({ options, on, pick, className = 'flex-wrap' }: { options: readonly Choice[]; on: (id: string) => boolean; pick: (id: string) => void; className?: string }): React.JSX.Element {
   return (
-    <div data-hover-quiet className={`flex gap-1 ${className}`}>
+    <div data-hover-quiet className={`flex gap-x-1 gap-y-0.5 ${className}`}>
       {options.map((option) => (
         <button
           key={option.id}
@@ -124,7 +124,7 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
   // headings, and a setting with nothing to choose between is left out.
   const Row = ({ label, children }: { label: string; children: ReactNode }): React.JSX.Element => (
     <>
-      <div className="pt-1 text-xs text-muted-foreground">{label}</div>
+      <div className="pt-0.5 text-xs text-muted-foreground">{label}</div>
       {children}
     </>
   )
@@ -132,14 +132,14 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
     <Popover open={open} onOpenChange={setOpen}>
       <Tip label="Display  F">
       <PopoverTrigger asChild>
-        <button type="button" className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] hover:bg-accent hover:text-foreground ${active ? 'text-foreground' : ''}`}>
+        <button type="button" className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-control hover:bg-accent hover:text-foreground ${active ? 'text-foreground' : ''}`}>
           <SlidersHorizontal className="size-3.5" />
           Display{active ? ` · ${active}` : ''}
         </button>
         </PopoverTrigger>
       </Tip>
-      <PopoverContent align="end" className="w-96 p-3 text-sm">
-        <div className="grid grid-cols-[5.5rem_1fr] items-start gap-x-2 gap-y-2.5">
+      <PopoverContent align="end" className="max-h-(--radix-popover-content-available-height) w-96 gap-0 overflow-y-auto p-3 text-sm">
+        <div className="grid grid-cols-[5.5rem_1fr] items-start gap-x-2 gap-y-3">
           {groups.length > 1 && (
             <Row label="Grouping">
               <Chips options={groups} on={(id) => view.group === id} pick={(group) => onChange({ ...view, group })} />

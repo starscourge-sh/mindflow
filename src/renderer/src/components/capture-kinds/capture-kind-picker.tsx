@@ -92,7 +92,7 @@ export function CaptureKindPicker({ value, onChange, suggested = false }: {
         </PopoverTrigger>
       </Tip>
 
-      <PopoverContent className="w-64 p-0" align="start">
+      <PopoverContent className="w-64 gap-0 p-0" align="start">
         <Command
           // The number beside each row picks it. Taken before the input sees
           // it, or the digit is typed into the search instead - no type has

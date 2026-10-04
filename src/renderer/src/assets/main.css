@@ -123,6 +123,25 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --font-heading: var(--font-sans);
   --font-sans: 'Fraunces Variable', Georgia, serif;
+  /* Six type roles, so a size says what the text is rather than a pixel count. */
+  /* meta: metadata, ages, counts and labels. */
+  --text-meta: 0.75rem;
+  --text-meta--line-height: 1rem;
+  /* control: properties, the toolbar, buttons, menus and panel inputs. */
+  --text-control: 0.8125rem;
+  --text-control--line-height: 1.125rem;
+  /* body: list rows and panels. */
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.25rem;
+  /* heading: section titles and the titles of empty states. */
+  --text-heading: 0.9375rem;
+  --text-heading--line-height: 1.25rem;
+  /* title: the title of a task, an article or a review question. */
+  --text-title: 1.5rem;
+  --text-title--line-height: 1.875rem;
+  /* key: the letters on keycaps. */
+  --text-key: 0.6875rem;
+  --text-key--line-height: 1;
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
@@ -141,7 +160,7 @@
     overscroll-behavior: none;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground text-sm;
   }
   html {
     @apply font-sans;
@@ -409,5 +428,5 @@ body {
 /* The row a right-click menu belongs to stays marked while the menu is open. */
 [data-slot='context-menu-trigger'][data-state='open'] {
   background-color: var(--accent);
-  border-radius: calc(var(--radius) - 2px);
+  border-radius: calc(var(--radius) - 4px);
 }

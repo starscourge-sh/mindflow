@@ -508,7 +508,7 @@ export default function App(): React.JSX.Element {
           <div className="h-full w-full flex flex-col">
             {reading ? (
               <div className="flex min-h-0 flex-1 flex-col">
-                <div data-chrome className="flex items-center gap-2 px-4 pt-2 text-[13px] text-muted-foreground">
+                <div data-chrome className="flex items-center gap-2 px-[4.25rem] pt-2 text-control text-muted-foreground">
                   <Button variant="ghost" size="sm" onClick={() => setReading(null)}>
                     <ArrowLeft className="size-4" /> Back to your note
                   </Button>
@@ -559,7 +559,7 @@ export default function App(): React.JSX.Element {
               </div>
             )}
             {/* Under the writing: what it is, who said it and where you met it. */}
-            <div data-chrome className="flex items-center gap-1 px-[4.6rem] py-2">
+            <div data-chrome className="flex items-center gap-1 px-[4.75rem] py-2">
               <CaptureKindPicker
                 suggested={!chosen && kind !== 'note'}
                 value={kind}
@@ -567,13 +567,13 @@ export default function App(): React.JSX.Element {
               />
               {/* Only what this kind asks for, unless it already holds something. */}
               {(ASKS[kind].who || attribution) && (
-                <Remembered field="attribution" value={attribution} placeholder={ASKS[kind].who ?? 'Who'} onChange={(value) => {
+                <Remembered field="attribution" value={attribution} placeholder={ASKS[kind].who ?? 'Who'} className="field-sizing-content min-w-16 max-w-48 px-1.5 py-0.5 text-meta" onChange={(value) => {
                   setAttribution(value)
                   if (editing) void vigil.setCapture(editing.id, 'attribution', value.trim() || null)
                 }} />
               )}
               {(ASKS[kind].where || medium) && (
-                <Remembered field="medium" value={medium} placeholder={ASKS[kind].where ?? 'Where'} onChange={(value) => {
+                <Remembered field="medium" value={medium} placeholder={ASKS[kind].where ?? 'Where'} className="field-sizing-content min-w-16 max-w-48 px-1.5 py-0.5 text-meta" onChange={(value) => {
                   setMedium(value)
                   if (editing) void vigil.setCapture(editing.id, 'medium', value.trim() || null)
                 }} />
@@ -611,7 +611,7 @@ export default function App(): React.JSX.Element {
             </>
             )}
             {!reading && (
-            <main data-chrome className="flex items-center gap-1 py-[0.5rem] px-[4.75rem] bg-linear-to-t from-[var(--accent)]/40">
+            <main data-chrome className="flex items-center gap-1 pt-2 pb-3 px-[4.75rem] bg-linear-to-t from-[var(--accent)]/40">
               {/* The editor's settings, one shape each, every one named with its
                   key on hover, and on or off shown by a fill rather than a fade. */}
               <div className="flex items-center gap-0.5">
@@ -631,14 +631,14 @@ export default function App(): React.JSX.Element {
               </div>
               {/* Create, bottom right, where the eye ends up. */}
               {!editing && (
-                <label className="mr-4 ml-auto flex items-center gap-2 text-[13px] text-muted-foreground">
+                <label className="mr-4 ml-auto flex items-center gap-2 text-control text-muted-foreground">
                   <Switch checked={createMore} onCheckedChange={setCreateMore} />
                   Create more
                 </label>
               )}
               <Tip label={createMore && !editing ? 'Save, and a fresh box for the next  ⌘↵' : 'Save and close  ⌘↵ · once with a fresh box after  ⌥⌘↵'}>
-              <Button variant="secondary" onClick={() => submit()} className={`${editing ? 'ml-auto ' : ''}text-[13px]`}>
-                <Rolling text={editing ? 'Done' : saved ? 'Saved' : 'Create'} /> <kbd className="font-sans text-[11px] text-muted-foreground">⌘↵</kbd>
+              <Button variant="secondary" onClick={() => submit()} className={`${editing ? 'ml-auto ' : ''}text-control`}>
+                <Rolling text={editing ? 'Done' : saved ? 'Saved' : 'Create'} /> <kbd className="font-sans text-key text-muted-foreground">⌘↵</kbd>
               </Button>
               </Tip>
             </main>
@@ -715,11 +715,11 @@ function DetailsDrawer({ open, id, captures, onOpenChange, onOpen }: {
           <SheetTitle className="text-sm">Details</SheetTitle>
           <SheetDescription className="sr-only">What can be done with this capture, and where it came from.</SheetDescription>
         </SheetHeader>
-        <div className="p-2 text-[13px]">
-          <CaptureProps capture={capture} onOpen={onOpen} />
+        <div>
+          <CaptureProps capture={capture} onOpen={onOpen} className="w-full border-l-0 p-2 pt-3" />
           {original !== null && original !== undefined && (
-            <div className="mx-2 mt-3 border-t pt-3">
-              <p className="mb-1 text-xs text-muted-foreground">As first written</p>
+            <div className="mx-4 mt-3 border-t pt-3">
+              <p className="mb-1 text-meta text-muted-foreground">As first written</p>
               <p className="whitespace-pre-wrap text-muted-foreground">{textOf(original as JSONContent)}</p>
             </div>
           )}
@@ -997,7 +997,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead }: {
           <div className="flex min-h-full flex-col">
             {tab === 'inbox' ? (
               <>
-                <div className="flex items-center gap-1 px-2 pt-2 pb-1 text-xs text-muted-foreground">
+                <div className="mb-1 flex h-8 items-center gap-1 pl-2 text-control text-muted-foreground">
                   {chosen.length ? (
                     <>
                       <span className="mr-auto">{chosen.length} selected</span>
@@ -1086,7 +1086,7 @@ function BarToggle({ on, icon: Icon, label, tip, keys, onClick, text }: {
             chime('tap')
             onClick()
           }}
-          className={`flex h-7 items-center gap-1.5 rounded-md px-1.5 text-[13px] transition-colors [&_svg]:size-4 ${
+          className={`flex h-7 items-center gap-1.5 rounded-md px-1.5 text-control transition-colors [&_svg]:size-4 ${
             on ? 'bg-accent/70 text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
           }`}
         >
@@ -1096,7 +1096,7 @@ function BarToggle({ on, icon: Icon, label, tip, keys, onClick, text }: {
       </TooltipTrigger>
       <TooltipContent className="flex items-center gap-2">
         {tip}
-        {keys && <kbd className="rounded border border-border/80 px-1 font-sans text-[11px] text-muted-foreground">{keys}</kbd>}
+        {keys && <kbd className="rounded border border-border/80 px-1 font-sans text-key text-muted-foreground">{keys}</kbd>}
       </TooltipContent>
     </Tooltip>
   )

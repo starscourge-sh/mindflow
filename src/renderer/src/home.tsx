@@ -154,7 +154,7 @@ export function Home(): React.JSX.Element {
 
   return (
     <TooltipProvider delayDuration={600}>
-    <div className="flex h-screen flex-col bg-background text-sm text-foreground">
+    <div className="flex h-screen flex-col bg-background text-foreground">
       <Toaster />
       <FocusNote />
       {searching && (
@@ -203,7 +203,7 @@ export function Home(): React.JSX.Element {
 
       <div className="flex min-h-0 flex-1">
       {sidebar && (
-      <aside data-chrome className="flex w-56 shrink-0 flex-col overflow-y-auto border-r bg-accent/20 p-2">
+      <aside data-chrome className="flex w-56 shrink-0 flex-col overflow-y-auto border-r bg-accent/20 p-2 pb-3">
         <nav className="flex flex-col gap-px">
           {SECTIONS.map((section) => (
             <Tooltip key={section.id}>
@@ -234,7 +234,7 @@ export function Home(): React.JSX.Element {
         <button
           type="button"
           onClick={() => setKindsOpen(!kindsOpen)}
-          className="mt-5 mb-1 flex items-center gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+          className="mt-4 mb-1 flex items-center gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
         >
           Kinds <ChevronRight className={`size-3 transition-transform ${kindsOpen ? 'rotate-90' : ''}`} />
         </button>

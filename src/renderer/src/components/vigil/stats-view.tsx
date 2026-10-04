@@ -10,13 +10,13 @@ const plural = (n: number, one: string, many: string): string => `${n} ${n === 1
 
 /** A number inside a sentence, set apart only by weight and even figures. */
 function N({ children }: { children: ReactNode }): React.JSX.Element {
-  return <strong className="font-semibold text-foreground tabular-nums">{children}</strong>
+  return <strong className="font-semibold text-foreground proportional-nums">{children}</strong>
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }): React.JSX.Element {
   return (
     <section className="mt-12 first:mt-8">
-      <h2 className="mb-3 text-[15px] font-semibold">{title}</h2>
+      <h2 className="mb-3 text-heading font-semibold">{title}</h2>
       <div className="space-y-3 leading-relaxed text-muted-foreground">{children}</div>
     </section>
   )
@@ -49,7 +49,7 @@ export function StatsView(): React.JSX.Element {
 
   return (
     <Page title="Stats">
-      <div className="px-5 pb-20 [&_p]:max-w-[62ch]">
+      <div className="px-5 pb-20 [&>section]:max-w-[62ch]">
         <Section title="Today">
           <p>
             {stats.day.captured + stats.day.exits + stats.day.reviews ? (

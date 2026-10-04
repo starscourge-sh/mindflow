@@ -41,7 +41,7 @@ export function SoundPacks({ chosen }: { chosen: PackName }): React.JSX.Element 
             <Check className={`mt-0.5 size-4 shrink-0 ${chosen === name ? 'text-[var(--tt-brand-color-400)]' : 'invisible'}`} />
             <span>
               <span className="block font-medium">{PACKS[name].label}</span>
-              <span className="block text-xs leading-snug text-muted-foreground">{PACKS[name].feel}</span>
+              <span className="block text-meta leading-relaxed text-pretty text-muted-foreground">{PACKS[name].feel}</span>
             </span>
           </button>
         ))}

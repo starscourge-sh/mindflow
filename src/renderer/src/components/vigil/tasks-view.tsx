@@ -146,7 +146,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
       }>
 
         <form
-          className="mx-3 mt-3 flex items-center gap-3 rounded-lg border px-2 py-2 focus-within:border-ring"
+          className="mx-3 mt-3 flex items-center gap-2 rounded-md border px-2 py-1.5 focus-within:border-ring"
           onSubmit={(event) => {
             event.preventDefault()
             if (!draft.trim()) return
@@ -187,7 +187,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
             {(row) => {
               if (!('id' in row))
                 return row.heading ? (
-                  <h3 className="mt-6 mb-1 border-b px-2 pb-1.5 text-[13px] font-semibold" style={{ color: row.heading === 'Overdue' ? 'var(--tt-color-text-red)' : undefined }}>
+                  <h3 className="mt-6 mb-1 border-b px-2 pb-1.5 text-meta font-medium" style={{ color: row.heading === 'Overdue' ? 'var(--tt-color-text-red)' : undefined }}>
                     {row.heading} <span className="font-normal text-muted-foreground">{row.count}</span>
                   </h3>
                 ) : <div className="h-3" />
@@ -209,7 +209,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                       ]}>
                       <div
                         data-cursor={index === cursor || undefined}
-                        className={`group flex items-start gap-3 border-b border-border/50 px-2 py-2 transition-colors ${task.id === open?.id ? 'bg-accent/60' : index === cursor ? 'bg-accent/40' : ''}`}
+                        className={`group flex items-start gap-3 rounded-sm px-2 py-2 transition-colors ${task.id === open?.id ? 'bg-accent' : index === cursor ? 'bg-accent/40' : 'hover:bg-accent/50'}`}
                       >
                         <Tip label="Complete">
                         <button
@@ -294,7 +294,7 @@ export function TaskDetail({ task: first, onClose, onOpen }: { task: TaskFull; o
         )}
         <input
           ref={title}
-          className="mx-auto mb-2 block w-full max-w-[44rem] bg-transparent px-12 text-2xl font-semibold outline-none"
+          className="mx-auto mb-2 block w-full max-w-[44rem] bg-transparent px-12 text-title font-semibold text-balance outline-none"
           defaultValue={task.title}
           onBlur={(event) => void vigil.saveTask(task.id, { title: event.target.value })}
         />
@@ -310,7 +310,7 @@ export function TaskDetail({ task: first, onClose, onOpen }: { task: TaskFull; o
       <Props>
         <Sessions taskId={task.id} />
         <PropLabel>Due</PropLabel>
-        <div className="mx-1 mb-1 flex gap-1">
+        <div className="mb-1 flex gap-1">
           {([['Today', 0], ['Tomorrow', 1], ['Next week', 7]] as const).map(([label, days]) => (
             <Button variant="outline" size="sm" key={label} onClick={() => void vigil.saveTask(task.id, { due: shiftTo(days) })} className="flex-1">
               {label}
@@ -333,10 +333,10 @@ export function TaskDetail({ task: first, onClose, onOpen }: { task: TaskFull; o
           defaultValue={task.blocker ?? ''}
           placeholder="What is in the way"
           onBlur={(event) => void vigil.saveTask(task.id, { blocker: event.target.value.trim() || null })}
-          className="mx-1 h-8 w-auto"
+          className="h-8 w-auto"
         />
         <PropLabel>Estimate</PropLabel>
-        <label className="mx-1 flex items-center gap-2">
+        <label className="flex items-center gap-2">
           <Input
             type="number"
             min={0}
@@ -353,14 +353,14 @@ export function TaskDetail({ task: first, onClose, onOpen }: { task: TaskFull; o
           defaultValue={task.waitingOn ?? ''}
           placeholder="Someone's name"
           onBlur={(event) => void vigil.saveTask(task.id, { waitingOn: event.target.value.trim() || null })}
-          className="mx-1 h-8 w-auto"
+          className="h-8 w-auto"
         />
         <PropLabel>Repeats</PropLabel>
         <Input
           defaultValue={task.recurrence ?? ''}
           placeholder="e.g. every week"
           onBlur={(event) => void vigil.saveTask(task.id, { recurrence: event.target.value.trim() || null })}
-          className="mx-1 h-8 w-auto"
+          className="h-8 w-auto"
         />
         <p className="mx-2 mt-1 text-xs leading-relaxed">
           “every” follows the calendar. “every!” counts from when you last did it. Add “until” and a date when you type a task to end the series.
@@ -375,7 +375,7 @@ export function TaskDetail({ task: first, onClose, onOpen }: { task: TaskFull; o
             {task.done.slice(0, 6).map((one) => (
               <div key={one.at}>
                 <Prop icon={History}>{when(one.at, false)}</Prop>
-                {one.recap && <p className="mx-2 -mt-1 mb-1.5 line-clamp-3 pl-6 text-[13px] text-foreground">{one.recap}</p>}
+                {one.recap && <p className="mx-2 -mt-1 mb-1.5 line-clamp-3 pl-6 text-control text-foreground">{one.recap}</p>}
               </div>
             ))}
           </>
@@ -432,7 +432,7 @@ function Sessions({ taskId }: { taskId: string }): React.JSX.Element {
     <>
       <PropLabel>Sessions {sessions.length ? `· ${sessions.length}` : ''}</PropLabel>
       {running ? (
-        <div className="mx-1 space-y-2">
+        <div className="space-y-2">
           <div className="flex items-center gap-2 px-1 text-foreground">
             <span className="size-1.5 animate-pulse rounded-full bg-[var(--tt-color-text-red)]" />
             <span className="text-lg font-semibold tabular-nums">{clock(tick - new Date(running.startedAt).getTime())}</span>
@@ -442,7 +442,7 @@ function Sessions({ taskId }: { taskId: string }): React.JSX.Element {
             onChange={(event) => setRecap(event.target.value)}
             rows={3}
             placeholder="What surprised you?"
-            className="w-full resize-none text-[13px]"
+            className="w-full resize-none text-control"
           />
           <Prop icon={Square} onClick={() => end(false)}>End session</Prop>
           <Prop icon={Check} onClick={() => end(false, true)}>End, and the task is done</Prop>
@@ -456,7 +456,7 @@ function Sessions({ taskId }: { taskId: string }): React.JSX.Element {
           <p className="text-xs tabular-nums">
             {when(session.startedAt, false)} · {clock(new Date(session.endedAt!).getTime() - new Date(session.startedAt).getTime())}
           </p>
-          {session.recap && <p className="mt-0.5 line-clamp-3 text-[13px] text-foreground">{session.recap}</p>}
+          {session.recap && <p className="mt-0.5 line-clamp-3 text-control text-foreground">{session.recap}</p>}
         </div>
       ))}
     </>
@@ -487,7 +487,7 @@ function Checklist({ task }: { task: TaskFull }): React.JSX.Element {
     <section className="mx-auto w-full max-w-[44rem] px-12 pb-10">
       {task.linked.length > 0 && (
         <>
-          <h3 className="mb-2 text-[13px] font-semibold">For this</h3>
+          <h3 className="mb-2 text-control font-semibold">For this</h3>
           <ul className="mb-6 space-y-1">
             {task.linked.map((item) => (
               <li key={item.id} className="flex items-center gap-2">
@@ -499,7 +499,7 @@ function Checklist({ task }: { task: TaskFull }): React.JSX.Element {
           </ul>
         </>
       )}
-      <h3 className="mb-2 text-[13px] font-semibold">
+      <h3 className="mb-2 text-control font-semibold">
         Subtasks {items.length ? <span className="font-normal text-muted-foreground">{items.filter((one) => one.done).length}/{items.length}</span> : null}
       </h3>
       <ul className="space-y-1">

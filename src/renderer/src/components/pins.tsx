@@ -16,7 +16,7 @@ export function Pins({ onOpen }: { onOpen: (type: string, id: string) => void })
   const pins = useLive(vigil.pins, [] as Pinned[])
   if (!pins.length) return null
   return (
-    <div className="mb-3 flex flex-col gap-1">
+    <div className="mb-3 flex flex-col overflow-hidden rounded-lg bg-accent/40">
       <AnimatePresence initial={false}>
         {pins.map((pin) => {
           const kind = CAPTURE_TYPES.find((type) => type.id === pin.kind) ?? CAPTURE_TYPES[0]
@@ -31,7 +31,7 @@ export function Pins({ onOpen }: { onOpen: (type: string, id: string) => void })
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, height: 0 }}
-              className="group flex items-center gap-2 rounded-md bg-accent/50 px-2 py-1.5 text-sm"
+              className="group flex items-center gap-2 px-2 py-1.5 text-sm"
             >
               <Pin className="size-3.5 shrink-0 text-[var(--tt-brand-color-400)]" />
               <kind.icon className="size-3.5 shrink-0" style={{ color: kind.tint }} />

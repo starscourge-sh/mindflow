@@ -14,7 +14,7 @@ function Setting({ title, children, note }: { title: string; children: ReactNode
   return (
     <div className="flex items-start justify-between gap-8 border-b py-5">
       <div>
-        <div className="font-medium">{title}</div>
+        <div className="text-heading font-semibold">{title}</div>
         <p className="mt-1 max-w-md text-sm leading-relaxed text-muted-foreground">{note}</p>
       </div>
       <div className="flex shrink-0 items-center gap-2">{children}</div>
@@ -55,9 +55,9 @@ export function SettingsView(): React.JSX.Element {
 
   return (
     <Page title="Settings">
-      <div ref={page} className="px-5 pb-16">
+      <div ref={page} className="px-5 pt-3 pb-16">
         <Setting title="Theme" note="The colours of every window: the prompt and this one change together. Point at one to try it, click to keep it.">
-          <ThemePicker className="h-8 gap-1.5 rounded-full px-2 hover:bg-accent" />
+          <ThemePicker className="-mr-2 h-8 gap-1.5 rounded-full px-2 hover:bg-accent" />
         </Setting>
         <Setting title="Full width" note="Off, pages sit in a centred column the way Notion lays them out, with room either side. On, the writing runs edge to edge.">
           <Switch checked={settings.fullWidth} onCheckedChange={(fullWidth) => set({ fullWidth })} />
@@ -75,7 +75,7 @@ export function SettingsView(): React.JSX.Element {
         )}
         {settings.sounds && (
           <div className="border-b">
-            <div className="pt-5 font-medium">Sound pack</div>
+            <div className="pt-5 text-heading font-semibold">Sound pack</div>
             <p className="mt-1 max-w-md text-sm leading-relaxed text-muted-foreground">Nine characters for the same sounds. Point at one to hear a click of it; click it to make it yours. The pieces on the right always play the one you have.</p>
             <SoundPacks chosen={settings.soundPack} />
           </div>
@@ -110,7 +110,7 @@ export function SettingsView(): React.JSX.Element {
                 key={level}
                 type="button"
                 onClick={() => set({ notify: level })}
-                className={`rounded px-2.5 py-1 capitalize transition-colors ${settings.notify === level ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                className={`rounded-sm px-2.5 py-1 capitalize transition-colors ${settings.notify === level ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 {level}
               </button>

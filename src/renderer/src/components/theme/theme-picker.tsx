@@ -78,7 +78,7 @@ export function ThemePicker({ className }: { className?: string }): React.JSX.El
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-64 p-0 [--mf-swatch-ring:var(--popover)]" align="end">
+      <PopoverContent className="w-64 gap-0 p-0 [--mf-swatch-ring:var(--popover)]" align="end">
         <Command
           value={row}
           onValueChange={(label) => {

@@ -55,13 +55,13 @@ export function Search({ onOpen, onClose, initial = '' }: { onOpen: (type: strin
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[10vh]" onMouseDown={onClose}>
-      <div className="flex h-[70vh] w-[min(56rem,90vw)] flex-col overflow-hidden rounded-xl border bg-background shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
+      <div className="flex h-[70vh] w-[min(56rem,90vw)] flex-col overflow-hidden rounded-xl border bg-background text-sm shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
         <label className="flex items-center gap-3 border-b px-4 py-3">
           <SearchIcon className="size-4 text-muted-foreground" />
           <input
             ref={box}
             autoFocus
-            className="flex-1 bg-transparent outline-none"
+            className="flex-1 bg-transparent text-heading outline-none"
             placeholder="Search everything…  kind:quote to narrow"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -82,7 +82,7 @@ export function Search({ onOpen, onClose, initial = '' }: { onOpen: (type: strin
           </button>
           </Tip>
         </label>
-        <div className="flex flex-wrap items-center gap-3 border-b px-3 py-1.5">
+        <div className="flex flex-wrap items-center gap-3 border-b px-2 py-1.5">
           <Chips options={[{ id: 'name', label: 'Name only' }]} on={() => titleOnly} pick={() => setTitleOnly(!titleOnly)} />
           <Chips options={[{ id: 'capture', label: 'Captures' }, { id: 'nugget', label: 'Nuggets' }, { id: 'task', label: 'Tasks' }]} on={(id) => types.includes(id)} pick={(id) => setTypes(flip(types, id))} />
           <Chips options={CAPTURE_TYPES} on={(id) => kinds.includes(id)} pick={(id) => setKinds(flip(kinds, id))} />
@@ -106,16 +106,16 @@ export function Search({ onOpen, onClose, initial = '' }: { onOpen: (type: strin
                   )}
                   <button
                     type="button"
-                    className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left ${index === at ? 'bg-accent' : ''}`}
+                    className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left ${index === at ? 'bg-accent' : ''}`}
                     data-search-at={index === at || undefined}
                     onMouseEnter={() => setAt(index)}
                     data-row
                     onClick={() => onOpen(capture.type, capture.id)}
                   >
                     <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
-                    <span className="truncate">{capture.label || 'Untitled'}</span>
+                    <span className="min-w-0 truncate">{capture.label || 'Untitled'}</span>
                     {capture.type !== 'capture' && <span className="shrink-0 rounded bg-accent px-1.5 text-xs text-muted-foreground capitalize">{capture.type}</span>}
-                    {capture.source && <span className="shrink-0 truncate text-xs text-muted-foreground">· {capture.source.replace(/\.md$/, '')}</span>}
+                    {capture.source && <span className="min-w-0 max-w-[40%] truncate text-xs text-muted-foreground">· {capture.source.replace(/\.md$/, '')}</span>}
                     {index === at && !asking && capture.type === 'capture' && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{capture.attribution ?? 'Tab: who said it'}</span>}
                   </button>
                   {index === at && asking && (
@@ -134,7 +134,7 @@ export function Search({ onOpen, onClose, initial = '' }: { onOpen: (type: strin
           {/* The capture as it reads, not its raw text: the same editor, read only,
               and a fresh one for each result. */}
           {pane && current && (
-            <div className="m-3 w-1/2 overflow-y-auto rounded-lg border">
+            <div className="m-3 w-1/2 overflow-y-auto rounded-lg border [--mf-padding:1rem_1.25rem]">
               <MindflowEditor
                 key={current.id}
                 defaultContent={(current.body as JSONContent | string | null) ?? ''}

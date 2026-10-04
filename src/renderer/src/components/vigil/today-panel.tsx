@@ -86,7 +86,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   return (
     <div className="flex flex-col gap-1 text-sm">
       {/* Each list with how many it holds, so a task sent to the backlog is seen landing there. */}
-      <div className="flex items-center gap-1">
+      <div className="flex h-8 items-center gap-1">
       <Chips
         options={(Object.keys(SCOPES) as Scope[]).map((id) => {
           const n = tasks.filter((task) => task.status === 'open' && SCOPES[id].test(task)).length
@@ -113,7 +113,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
           })
         }}
       >
-        <Plus className="size-3.5 text-muted-foreground" />
+        <Plus className="size-4 text-muted-foreground" />
         <input
           ref={add}
           onKeyDown={(event) => event.key === 'Escape' && (event.preventDefault(), event.currentTarget.blur())}
@@ -133,7 +133,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, x: 16, transition: { duration: 0.18 } }}
-              className={`group flex items-start gap-2.5 rounded-[5px] px-1.5 py-1.5 hover:bg-accent/50 ${index === cursor ? "bg-accent/50" : ""}`}
+              className={`group flex items-start gap-2 rounded-sm px-2 py-1.5 hover:bg-accent/50 ${index === cursor ? "bg-accent/50" : ""}`}
             >
               <Tip label="Complete">
               <button
