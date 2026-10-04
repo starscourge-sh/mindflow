@@ -36,7 +36,12 @@ export function TodayPanel(): React.JSX.Element {
         className="mb-2 flex items-center gap-2 rounded-md border px-2 py-1.5 focus-within:border-ring"
         onSubmit={(event) => {
           event.preventDefault()
-          if (draft.trim()) void vigil.addTask(draft).then(() => setDraft(''))
+          if (!draft.trim()) return
+          void vigil.addTask(draft, undefined, true).then((id) => vigil.task(id)).then((task) => {
+            setDraft('')
+            // Said where it went when it is not in this list: a later day, or a routine.
+            if (task?.dueAt && new Date(task.dueAt).getTime() >= endOfToday()) toast(`Added for ${when(task.dueAt, !!task.allDay).toLowerCase()}`)
+          })
         }}
       >
         <Plus className="size-3.5 text-muted-foreground" />
@@ -73,13 +78,14 @@ export function TodayPanel(): React.JSX.Element {
                 <Check className={`size-2.5 transition-opacity ${ticking === task.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'}`} />
               </button>
               </Tip>
-              <div className="min-w-0 flex-1">
+              {/* The row opens the task where its notes and sessions are. */}
+              <button type="button" className="min-w-0 flex-1 text-left" onClick={() => window.api.openInHome('task', task.id)}>
                 <p className="truncate">{task.title}</p>
                 <p className="flex items-center gap-1 text-xs" style={{ color: late ? 'var(--tt-color-text-red)' : 'var(--tt-color-text-orange)' }}>
                   <CalendarDays className="size-3" /> {when(task.dueAt, !!task.allDay)}
                   {task.recurrence && <Repeat className="ml-1 size-3 text-muted-foreground" />}
                 </p>
-              </div>
+              </button>
             </motion.div>
           )
         })}

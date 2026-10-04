@@ -81,6 +81,15 @@ const api = {
 
   /** Bring up the capture prompt, from any window. */
   showPrompt: (): void => ipcRenderer.send('prompt:show'),
+  /** Bring up the main window with one thing open in it. */
+  openInHome: (type: string, id: string): void => ipcRenderer.send('home:open', type, id),
+  /** In the main window: where the prompt sent you, now and from here on. */
+  onSentTo: (listen: (type: string, id: string) => void): (() => void) => {
+    const relay = (_event: unknown, type: string, id: string): void => listen(type, id)
+    ipcRenderer.on('home:open', relay)
+    void (ipcRenderer.invoke('home:sent') as Promise<[string, string] | null>).then((sent) => sent && listen(...sent))
+    return () => ipcRenderer.off('home:open', relay)
+  },
 
   /** Put the window away. It keeps its contents and its place on screen. */
   hideWindow: (): void => ipcRenderer.send('window:hide'),

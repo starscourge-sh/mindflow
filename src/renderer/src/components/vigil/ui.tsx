@@ -219,7 +219,12 @@ function Asker(): React.JSX.Element | null {
   }
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 pt-[22vh]" onMouseDown={() => done(null)}>
-      <div className="w-[min(32rem,90vw)] rounded-xl bg-popover p-4 shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
+      {/* A click on its padding keeps the focus in the box, so Escape still answers it. */}
+      <div role="dialog" aria-modal="true" aria-label={asked.question} className="w-[min(32rem,90vw)] rounded-xl bg-popover p-4 shadow-2xl"
+        onMouseDown={(event) => {
+          event.stopPropagation()
+          if (!(event.target instanceof HTMLInputElement)) event.preventDefault()
+        }}>
         <p className="mb-2 text-sm">{asked.question}</p>
         <Input
           autoFocus
@@ -248,11 +253,12 @@ export function Toaster(): React.JSX.Element | null {
     window.addEventListener('vigil:toast', onToast)
     return () => window.removeEventListener('vigil:toast', onToast)
   }, [])
-  if (!shown) return <Asker />
+  // Asker always in the same place, so a toast coming or going never
+  // remounts it and loses a question being answered.
   return (
     <>
     <Asker />
-    <div
+    {shown && <div
       key={shown.key}
       className="fixed right-5 bottom-5 z-50 flex items-center gap-3 rounded-lg bg-popover px-3.5 py-2 text-sm shadow-[0_8px_24px_-6px_rgb(0_0_0/0.45)] animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]"
     >
@@ -269,7 +275,7 @@ export function Toaster(): React.JSX.Element | null {
           Undo
         </button>
       )}
-    </div>
+    </div>}
     </>
   )
 }
@@ -531,7 +537,6 @@ export function SoundToggle({ className = '' }: { className?: string }): React.J
     <Tip label={on ? 'Sounds on: click for quiet' : 'Sounds off: click to hear them'}>
       <button
         type="button"
-        tabIndex={-1}
         aria-label={on ? 'Turn sounds off' : 'Turn sounds on'}
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         onClick={() => void vigil.setSettings({ sounds: !on })}

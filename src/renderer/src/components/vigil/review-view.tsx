@@ -114,11 +114,20 @@ export function ReviewView(): React.JSX.Element {
           key={card.id}
           contentEditable
           suppressContentEditableWarning
+          // One line: Enter keeps it rather than starting a second.
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter') return
+            event.preventDefault()
+            event.currentTarget.blur()
+          }}
           onBlur={(event) => {
             const prompt = event.currentTarget.textContent?.trim()
-            if (prompt && prompt !== card.prompt) void vigil.saveItem(card.id, { prompt }).then(() => toast('Question rewritten'))
+            if (!prompt || prompt === card.prompt) return
+            // The card in the queue too, so an Again brings back the new words.
+            card.prompt = prompt
+            void vigil.saveItem(card.id, { prompt }).then(() => toast('Question rewritten'))
           }}
-          className="text-2xl leading-snug font-semibold text-balance outline-none"
+          className="rounded-md text-2xl leading-snug font-semibold text-balance outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           {card.prompt}
         </h2>

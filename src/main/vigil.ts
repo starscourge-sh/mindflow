@@ -85,6 +85,9 @@ export function gate(): { blackout: boolean; hidePrivate: boolean } {
     quietStart <= quietEnd ? time >= quietStart && time < quietEnd : time >= quietStart || time < quietEnd
   return { blackout: false, hidePrivate: quiet }
 }
+// An untriaged capture counts as private, the plan's fail-safe: you have not
+// looked at it since you wrote it, so in quiet hours it is not volunteered.
+// Taking an exit is what clears it, so the default resolves itself.
 
 // --- spaced repetition ----------------------------------------------------
 
@@ -144,9 +147,12 @@ function taskFrom(text: string): { title: string; due: string | null; allDay: bo
   return { title, due: due?.toISOString() ?? null, allDay, recurrence: repeat?.[0] ?? null, until: until?.toISOString() ?? null }
 }
 
-function addTask(text: string, origin: string | null = null): string {
+function addTask(text: string, origin: string | null = null, today = false): string {
   const id = randomUUID()
   const task = taskFrom(text)
+  // Typed into Today with no date, it is for today, as in Todoist: all day,
+  // not dropped into a backlog the list you typed it in does not show.
+  if (today && !task.due) Object.assign(task, { due: new Date(new Date().setHours(9, 0, 0, 0)).toISOString(), allDay: true })
   database()
     .prepare(
       `insert into tasks (id, number, title, due_at, all_day, recurrence, repeat_until, origin_capture_id, created_at)
@@ -213,6 +219,7 @@ export function registerVigil(): void {
   column('captures', 'original_body text')
   column('captures', 'elapsed_ms integer')
   column('captures', 'surfacing_weight real not null default 1')
+  column('captures', 'origin_id text')
   // Kept by the database, so no exit can forget them: when a capture left the
   // inbox, and when it was first used (opened, exited or given a who or where),
   // which time to first use is measured by. Not in its first minute: that is
@@ -220,11 +227,7 @@ export function registerVigil(): void {
   const stamp = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
   db.exec(`create trigger if not exists capture_exit after update of status on captures when new.status is not old.status begin
       update captures set exited_at = case when new.status = 'open' then null else ${stamp} end where id = new.id; end;
-    -- The words as first written, kept the first time they change: a capture
-    -- edited and then promoted still has what you actually caught.
-    create trigger if not exists capture_original after update of body on captures
-      when old.original_body is null and new.body is not old.body begin
-      update captures set original_body = old.body where id = new.id; end;
+    drop trigger if exists capture_original;
     create trigger if not exists capture_used after update of status, attribution, medium on captures
       when new.first_used_at is null and julianday('now') - julianday(new.captured_at) > 1.0 / 1440 begin
       update captures set first_used_at = ${stamp} where id = new.id; end;`)
@@ -240,8 +243,13 @@ export function registerVigil(): void {
   column('tasks', 'deadline_at text')
   column('tasks', 'blocker text')
   column('tasks', 'reschedules integer not null default 0')
+  column('tasks', 'notify text')
+  column('task_done', 'session_id text')
   column('nuggets', 'superseded_by text')
+  column('nuggets', 'revisions integer not null default 0')
   column('nuggets', 'edited_since_review integer not null default 0')
+  // What lineage looks up on every change: where each nugget and task came from.
+  db.exec('create index if not exists nuggets_by_capture on nuggets(capture_id); create index if not exists tasks_by_capture on tasks(origin_capture_id); create index if not exists captures_by_origin on captures(origin_id)')
   db.exec('create table if not exists task_links (task_id text not null, item_id text not null, primary key (task_id, item_id))')
   // A tag's colour, and whether it makes a task: the plan's labels, a colour
   // and a string with one behaviour you choose. Seeded with the four labels
@@ -288,6 +296,8 @@ export function registerVigil(): void {
   // Many at once, from a selection: a tag added to each, or one date for all,
   // for filling in when a batch of old things was really written.
   handle('captures:bulk', (ids: string[], change: { tag?: string; capturedAt?: string }) => {
+    // One write for the lot: a hundred rows are one change, not a hundred.
+    db.exec('begin')
     for (const id of ids) {
       if (change.capturedAt) db.prepare('update captures set captured_at = ? where id = ?').run(change.capturedAt, id)
       if (!change.tag) continue
@@ -299,7 +309,18 @@ export function registerVigil(): void {
         : `${body ?? ''}\n${tag}`.trim()
       db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(next), id)
     }
+    db.exec('commit')
     return write(ids.length)
+  })
+  // One task from several captures: each is linked from it, so the task can
+  // say why it exists, and each has taken its exit.
+  handle('tasks:from', (ids: string[], text: string) => {
+    const task = addTask(String(text), ids[0] ?? null)
+    for (const id of ids) {
+      db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(task, id)
+      db.prepare("update captures set status = 'resolved' where id = ?").run(id)
+    }
+    return write(task)
   })
   handle('capture:set', (id: string, field: keyof typeof CAPTURE_FIELDS, value: string | number | null) => {
     const column = CAPTURE_FIELDS[field]
@@ -352,21 +373,24 @@ export function registerVigil(): void {
       db.prepare(`select ${table === 'captures' ? "'capture'" : 'tier'} as type, id, ${title} as title from ${table} where body like ? or body like ?`).all(`%"id":"${id}"%`, `%"id":"%:${id}"%`) as never
     return {
       from: [
-        ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title from captures where id in (select capture_id from nuggets where id = ? union select origin_capture_id from tasks where id = ?)`).all(id, id) as never[]),
+        ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title from captures where id in (select capture_id from nuggets where id = ? union select origin_capture_id from tasks where id = ?
+          union select origin_id from captures where id = ?)`).all(id, id, id) as never[]),
+        ...(db.prepare('select tier as type, id, title from nuggets where id = (select origin_id from captures where id = ?)').all(id) as never[]),
         ...(JSON.parse((db.prepare('select origins from nuggets where id = ?').get(id) as { origins: string | null } | undefined)?.origins ?? '[]') as string[])
           .map((origin) => db.prepare('select tier as type, id, title from nuggets where id = ?').get(origin) as never)
           .filter(Boolean)
       ],
       became: [
         ...(db.prepare("select tier as type, id, title from nuggets where capture_id = ? or origins like ?").all(id, `%"${id}"%`) as never[]),
-        ...(db.prepare("select 'task' as type, id, title from tasks where origin_capture_id = ?").all(id) as never[])
+        ...(db.prepare("select 'task' as type, id, title from tasks where origin_capture_id = ?").all(id) as never[]),
+        ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title from captures where origin_id = ?`).all(id) as never[])
       ],
       linked: [...links('captures', LABEL), ...links('nuggets', 'title')].filter((row) => row.id !== id)
     }
   })
   // What @ offers besides captures: nuggets and articles by name.
-  handle('items:find', (query: string) =>
-    db.prepare("select id, tier, title from nuggets where title like ? escape '\\' and superseded_by is null order by updated_at desc limit 6").all(`%${like(query)}%`))
+  handle('items:find', (query: unknown) =>
+    db.prepare("select id, tier, title from nuggets where title like ? escape '\\' and superseded_by is null order by updated_at desc limit 6").all(`%${like(String(query))}%`))
   // A page of your own from nothing: notes on linear algebra, say. An article
   // with no nuggets behind it, there to be written in.
   handle('article:new', () => {
@@ -393,7 +417,7 @@ export function registerVigil(): void {
     // other way: the same thing twice in a row is a nag, not a surprise.
     const rot = db
       .prepare(
-        `select ${LIST}, body from captures where status = 'open' ${hidePrivate ? 'and private = 0' : ''}
+        `select ${LIST}, body from captures where status = 'open' ${hidePrivate ? 'and 0' : ''}
          and id not in (select nugget_id from hint_events where shown_at >= ? union select capture_id from nuggets where capture_id is not null and id in (select nugget_id from hint_events where shown_at >= ?))
          order by (julianday('now') - julianday(captured_at) + 1) * (abs(random()) % 1000) desc limit ${Math.max(0, Math.min(10, settings().rotCount))}`
       )
@@ -423,7 +447,7 @@ export function registerVigil(): void {
     // then one of its captures, so three hundred bits do not crowd out the
     // dozen links and words. Within a kind, older and voted-up come first.
     const candidates = `from captures where status = 'open' and coalesce(surfaced_at, '') < ?
-      and captured_at < ? ${hidePrivate ? 'and private = 0' : ''}
+      and captured_at < ? ${hidePrivate ? 'and 0' : ''}
       and id not in (select nugget_id from hint_events where shown_at >= ?)
       and ${LABEL} not like 'http%'`
     // A bare address says nothing at a glance: a link comes up as a hint once
@@ -477,7 +501,7 @@ export function registerVigil(): void {
   // --- nuggets and articles
   const ITEM = `id, tier, kind, title, prompt, private, pinned_at as pinnedAt, due_at as dueAt, suspended,
     state is not null as reviewed, created_at as createdAt, capture_id as captureId, remind_at as remindAt,
-    (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses, attribution, context, mode, superseded_by as supersededBy`
+    (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses, attribution, context, mode, superseded_by as supersededBy, revisions`
   handle('items', (tier: string) =>
     db.prepare(`select ${ITEM} from nuggets where tier = ? order by created_at desc`).all(tier)
   )
@@ -495,8 +519,8 @@ export function registerVigil(): void {
     // sentence should not cost months. Once per review, not once per save, or
     // typing would shrink it to nothing. "Meaningful" is more than a few
     // letters: what differs once the shared start and end are taken off.
-    const before = db.prepare('select body, prompt, state, due_at, edited_since_review from nuggets where id = ?').get(id) as
-      { body: string; prompt: string | null; state: string | null; due_at: string | null; edited_since_review: number } | undefined
+    const before = db.prepare('select body, prompt, state, due_at, edited_since_review, updated_at from nuggets where id = ?').get(id) as
+      { body: string; prompt: string | null; state: string | null; due_at: string | null; edited_since_review: number; updated_at: string | null } | undefined
     const changed = (a: string, b: string): boolean => {
       let start = 0
       while (start < a.length && a[start] === b[start]) start++
@@ -510,6 +534,11 @@ export function registerVigil(): void {
       const left = new Date(before.due_at).getTime() - Date.now()
       db.prepare('update nuggets set due_at = ?, edited_since_review = 1 where id = ?').run(new Date(Date.now() + left * 0.7).toISOString(), id)
     }
+    // Rewritten, counted: the one sign an item got better. Once per sitting,
+    // not once per autosave: only when the last change is ten minutes old.
+    if (before && patch.body !== undefined && changed(plain(JSON.parse(before.body ?? 'null')), plain(patch.body)) &&
+      Date.now() - new Date(before.updated_at ?? 0).getTime() > 600000)
+      db.prepare('update nuggets set revisions = revisions + 1 where id = ?').run(id)
     for (const [key, value] of sets) {
       const stored = key === 'body' ? JSON.stringify(value) : key === 'suspended' ? (value ? 1 : 0) : value
       db.prepare(`update nuggets set ${key} = ?, updated_at = ? where id = ?`).run(stored as string, now(), id)
@@ -520,7 +549,11 @@ export function registerVigil(): void {
   // the derivation edge kept so the article knows what it was made from.
   handle('article', (ids: string[]) => {
     const parts = ids.map((id) => db.prepare('select title, body from nuggets where id = ?').get(id) as { title: string; body: string })
-    const text = parts.map((part) => plain(JSON.parse(part.body))).join('\n\n')
+    // Each body, then your glosses on it: the words already in your own voice
+    // are where an article starts.
+    const glossed = (id: string): string[] =>
+      (db.prepare("select body from glosses where item_id = ? and author = 'user' order by created_at").all(id) as { body: string }[]).map((row) => row.body)
+    const text = parts.map((part, at) => [plain(JSON.parse(part.body)), ...glossed(ids[at])].join('\n\n')).join('\n\n')
     const id = randomUUID()
     db.prepare(
       `insert into nuggets (id, tier, kind, title, body, origins, created_at, updated_at) values (?, 'article', 'note', ?, ?, ?, ?, ?)`
@@ -571,8 +604,20 @@ export function registerVigil(): void {
   // --- review
   // Due items with a prompt, most at risk first, inside the day's two limits so
   // the queue can always be finished.
-  handle('review:queue', () => {
+  // The new-item cap, tuned by its own instrument: when reviews more than a
+  // day overdue outnumber a day's limit, the queue is not being finished, and
+  // half as many new ones come in until it is. Said in Settings, never silent.
+  const newCap = (): { cap: number; tuned: boolean; behind: number } => {
     const { newPerDay, reviewsPerDay } = settings()
+    const behind = (db.prepare(`select count(*) n from nuggets where coalesce(prompt, '') != '' and suspended = 0 and state is not null and due_at <= ?`)
+      .get(new Date(Date.now() - 86400000).toISOString()) as { n: number }).n
+    const tuned = behind > reviewsPerDay
+    return { cap: tuned ? Math.floor(newPerDay / 2) : newPerDay, tuned, behind }
+  }
+  handle('review:tuning', newCap)
+  handle('review:queue', () => {
+    const { reviewsPerDay } = settings()
+    const newPerDay = newCap().cap
     const today = new Date().toISOString().slice(0, 10)
     const done = db.prepare('select sum(first) as fresh, count(*) - sum(first) as old from review_log where reviewed_at >= ?').get(today) as { fresh: number | null; old: number | null }
     // Most at risk: the lowest chance of recall now, by the card's own memory.
@@ -611,18 +656,19 @@ export function registerVigil(): void {
   // --- tasks
   const TASK = `id, number, title, status, due_at as dueAt, all_day as allDay, recurrence, origin_capture_id as captureId,
     created_at as createdAt, completed_at as completedAt, waiting_on as waitingOn, estimate, sort_order as sortOrder, repeat_until as repeatUntil,
-    important, deadline_at as deadline, blocker, reschedules`
+    important, deadline_at as deadline, blocker, reschedules, notify`
   handle('tasks', () => db.prepare(`select ${TASK} from tasks order by status, important desc, coalesce(sort_order, 1e12), due_at is null, due_at, created_at`).all())
   handle('task', (id: string) => {
     const row = db.prepare(`select ${TASK}, notes, subtasks from tasks where id = ?`).get(id) as Record<string, unknown> | undefined
     if (!row) return null
-    const done = db.prepare('select done_at as at from task_done where task_id = ? order by done_at desc').all(id)
+    const done = db.prepare('select done_at as at, s.recap from task_done d left join sessions s on s.id = d.session_id where d.task_id = ? order by done_at desc').all(id)
     // What the task is about, linked from nuggets and articles: shown as a
     // checklist on it, and the material comes up first when you open it.
-    const linked = db.prepare(`select n.id, n.tier, n.kind, n.title from task_links l join nuggets n on n.id = l.item_id where l.task_id = ?`).all(id)
+    const linked = db.prepare(`select n.id, n.tier, n.kind, n.title from task_links l join nuggets n on n.id = l.item_id where l.task_id = ?
+      union all select c.id, 'capture', c.kind, label(c.title, c.body) from task_links l join captures c on c.id = l.item_id where l.task_id = ?`).all(id, id)
     return { ...row, notes: JSON.parse((row.notes as string) ?? 'null'), subtasks: JSON.parse((row.subtasks as string) ?? '[]'), done, linked }
   })
-  handle('task:add', (text: string, origin?: string) => write(addTask(text, origin ?? null)))
+  handle('task:add', (text: string, origin?: string, today = false) => write(addTask(String(text), origin ?? null, today)))
   // Study this: a task made from a nugget or an article, linked to it, so the
   // reading has a when and the material is waiting when the task opens.
   handle('study', (itemId: string, text: string) => {
@@ -630,10 +676,13 @@ export function registerVigil(): void {
     db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(task, itemId)
     return write(task)
   })
-  const TASK_COLUMNS = { title: 'title', recurrence: 'recurrence', waitingOn: 'waiting_on', estimate: 'estimate', sortOrder: 'sort_order', important: 'important', deadline: 'deadline_at', blocker: 'blocker', reschedules: 'reschedules' } as const
-  handle('task:save', (id: string, patch: { title?: string; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null; subtasks?: unknown; estimate?: number | null; sortOrder?: number; important?: number; deadline?: string | null; blocker?: string | null; reschedules?: number }) => {
+  const TASK_COLUMNS = { title: 'title', recurrence: 'recurrence', waitingOn: 'waiting_on', estimate: 'estimate', sortOrder: 'sort_order', important: 'important', deadline: 'deadline_at', blocker: 'blocker', reschedules: 'reschedules', notify: 'notify' } as const
+  handle('task:save', (id: string, patch: { title?: string; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null; subtasks?: unknown; estimate?: number | null; sortOrder?: number; important?: number; deadline?: string | null; blocker?: string | null; reschedules?: number; notify?: string | null }) => {
     for (const [key, column] of Object.entries(TASK_COLUMNS))
       if (patch[key as keyof typeof patch] !== undefined) db.prepare(`update tasks set ${column} = ? where id = ?`).run(patch[key as keyof typeof patch] as string | number | null, id)
+    // Waiting on someone needs a day to chase them, or it becomes a second
+    // rot pool: three days out, if it has no date of its own.
+    if (patch.waitingOn) db.prepare('update tasks set due_at = ? where id = ? and due_at is null').run(new Date(Date.now() + 3 * 86400000).toISOString(), id)
     if (patch.subtasks !== undefined) db.prepare('update tasks set subtasks = ? where id = ?').run(JSON.stringify(patch.subtasks), id)
     if (patch.notes !== undefined) db.prepare('update tasks set notes = ? where id = ?').run(JSON.stringify(patch.notes), id)
     if (patch.due !== undefined) {
@@ -649,9 +698,11 @@ export function registerVigil(): void {
   // Done. A routine moves to its next date instead: from the due date when the
   // calendar matters, from today when only the gap does ("every!"), and never
   // onto a day already gone, so a missed week does not stack up.
-  handle('task:done', (id: string) => {
+  // A session can close it, and the row says which: its recap is the
+  // completion note. A routine closes many times, so it is a row, not a field.
+  const finish = (id: string, session: string | null = null): unknown => {
     const task = db.prepare('select due_at, recurrence, repeat_until from tasks where id = ?').get(id) as { due_at: string | null; recurrence: string | null; repeat_until: string | null }
-    db.prepare('insert into task_done (task_id, done_at) values (?, ?)').run(id, now())
+    db.prepare('insert into task_done (task_id, done_at, session_id) values (?, ?, ?)').run(id, now(), session)
     if (!task.recurrence) return write(db.prepare("update tasks set status = 'done', completed_at = ? where id = ?").run(now(), id))
     const fromToday = task.recurrence.includes('!') || !task.due_at
     let next = advance(fromToday ? new Date() : new Date(task.due_at!), task.recurrence)
@@ -660,7 +711,8 @@ export function registerVigil(): void {
     if (task.repeat_until && next.toISOString() > task.repeat_until)
       return write(db.prepare("update tasks set status = 'done', completed_at = ? where id = ?").run(now(), id))
     return write(db.prepare('update tasks set due_at = ? where id = ?').run(next.toISOString(), id))
-  })
+  }
+  handle('task:done', (id: string) => finish(id))
 
   // --- tags, worked out from the words every time so they cannot go stale
   const tagged = (): { tag: string; id: string; type: string; title: string }[] => {
@@ -711,7 +763,7 @@ export function registerVigil(): void {
     const privacy = hidePrivate ? 'and private = 0' : ''
     return db
       .prepare(
-        `select id, 'capture' as type, kind, ${LABEL} as title, pinned_at as pinnedAt from captures where pinned_at is not null ${privacy}
+        `select id, 'capture' as type, kind, ${LABEL} as title, pinned_at as pinnedAt from captures where pinned_at is not null ${hidePrivate ? "and private = 0 and status != 'open'" : ''}
          union all select id, tier as type, kind, title, pinned_at from nuggets where pinned_at is not null ${privacy}
          order by pinnedAt desc limit 3`
       )
@@ -770,8 +822,9 @@ export function registerVigil(): void {
   handle('session:start', (taskId: string) => write(db.prepare('insert into sessions (id, task_id, started_at) values (?, ?, ?)').run(randomUUID(), taskId, now())))
   // Ending asks for the recap, and the recap can become a nugget: the loop that
   // turns doing the work into something worth keeping.
-  handle('session:end', (id: string, recap: string, keep: boolean) => {
+  handle('session:end', (id: string, recap: string, keep: boolean, close = false) => {
     db.prepare('update sessions set ended_at = ?, recap = ? where id = ?').run(now(), recap, id)
+    if (close) finish((db.prepare('select task_id from sessions where id = ?').get(id) as { task_id: string }).task_id, id)
     if (keep && recap.trim())
       db.prepare("insert into nuggets (id, kind, title, body, created_at, updated_at) values (?, 'note', ?, ?, ?, ?)").run(
         randomUUID(), recap.split('\n')[0].slice(0, 120), JSON.stringify(recap), now(), now())
@@ -782,10 +835,11 @@ export function registerVigil(): void {
   // Pull: it is already first in Today. Quiet: the menu bar counts it. Alerts:
   // a notification, once per due time. All-day tasks never alert.
   setInterval(() => {
-    if (settings().notify !== 'alerts' || !Notification.isSupported()) return
+    if (!Notification.isSupported()) return
+    // A task's own level wins over the setting: most never set one.
     const due = db.prepare(
-      "select id, title from tasks where status = 'open' and all_day = 0 and due_at <= ? and due_at > ? and notified_at is null"
-    ).all(now(), new Date(Date.now() - 3600000).toISOString()) as { id: string; title: string }[]
+      "select id, title from tasks where status = 'open' and all_day = 0 and due_at <= ? and due_at > ? and notified_at is null and coalesce(notify, ?) = 'alerts'"
+    ).all(now(), new Date(Date.now() - 3600000).toISOString(), settings().notify) as { id: string; title: string }[]
     for (const task of due) {
       new Notification({ title: task.title, body: 'Due now', silent: false }).show()
       db.prepare('update tasks set notified_at = ? where id = ?').run(now(), task.id)

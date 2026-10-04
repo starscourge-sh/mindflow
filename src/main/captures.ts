@@ -52,6 +52,13 @@ export interface Capture extends CaptureMeta {
 export type CapturePatch = Partial<Pick<Capture, 'title' | 'kind' | 'status' | 'body'>> & {
   markdown?: string
   elapsedMs?: number
+  /** The capture, nugget or article it was lifted out of, if any. */
+  origin?: string
+  attribution?: string
+  medium?: string
+  private?: boolean
+  /** Filled in by the app (a link's card), not by you: not an edit to remember. */
+  fetched?: boolean
 }
 
 /**
@@ -78,7 +85,12 @@ const Patch = z.object({
   body: z.unknown().optional(),
   markdown: z.string().optional(),
   /** How long the capture took to write, from the box opening to saving it. */
-  elapsedMs: z.number().optional()
+  elapsedMs: z.number().optional(),
+  origin: z.string().optional(),
+  attribution: z.string().optional(),
+  medium: z.string().optional(),
+  private: z.boolean().optional(),
+  fetched: z.boolean().optional()
 })
 
 /** Text matched literally by `like … escape '\\'`: its own % and _ escaped. */
@@ -235,7 +247,14 @@ export function registerCaptures(): void {
     const patch = Patch.parse(raw)
     const { id, number } = insert(patch, new Date().toISOString())
     // The plan's automatic context: which machine, and how long it took.
-    db.prepare('update captures set device = ?, elapsed_ms = ? where id = ?').run(hostname().replace(/\.local$/, ''), patch.elapsedMs ?? null, id)
+    // Who and where, and private, in the same breath: never briefly public.
+    db.prepare('update captures set device = ?, elapsed_ms = ?, attribution = ?, medium = ?, private = max(private, ?) where id = ?').run(
+      hostname().replace(/\.local$/, ''), patch.elapsedMs ?? null, patch.attribution || null, patch.medium || null, patch.private ? 1 : 0, id)
+    // Lifted out of something else: it points back, and inherits the source,
+    // never one invented at the point of selection.
+    if (patch.origin)
+      db.prepare(`update captures set origin_id = ?, attribution = coalesce(
+        (select attribution from captures where id = ?), (select attribution from nuggets where id = ?)) where id = ?`).run(patch.origin, patch.origin, patch.origin, id)
     if (patch.markdown !== undefined) void writeMarkdown(number, patch.markdown)
     changed()
     return id
@@ -244,6 +263,11 @@ export function registerCaptures(): void {
   // Only the fields passed are written. `coalesce` keeps the rest as they were.
   ipcMain.handle('captures:save', (_event, id: unknown, raw: unknown) => {
     const patch = Patch.parse(raw)
+    // The words as first written, kept the first time you change them: a
+    // capture edited and then promoted still has what you actually caught.
+    // Only your edits count; a link's card or a tag added in bulk do not.
+    if (patch.body !== undefined && !patch.fetched)
+      db.prepare('update captures set original_body = body where id = ? and original_body is null and body is not ?').run(String(id), JSON.stringify(patch.body))
     const row = db.prepare(
       `update captures set
          title  = coalesce(?, title),

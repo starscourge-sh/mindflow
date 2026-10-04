@@ -139,6 +139,7 @@ export function Home(): React.JSX.Element {
   // Somewhere else sent you to one thing: open its section with it open.
   const open = (type: string, id: string): void =>
     setView({ id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id })
+  useEffect(() => window.api.onSentTo((type, id) => setView({ id: type === 'task' ? 'today' : type, focus: id })), [])
 
   const kind = CAPTURE_TYPES.find((type) => `kind:${type.id}` === view.id)
   const keep: Record<string, (capture: CaptureMeta) => boolean> = {

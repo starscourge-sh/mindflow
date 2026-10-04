@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { AlarmClock, BookOpen, Brain, Calendar, Eye, FileText, Layers, Lock, Pause, Pin, Play, Plus, Quote, RefreshCw, SquareDashed, TriangleAlert, X } from 'lucide-react'
+import { AlarmClock, BookOpen, Brain, Calendar, Eye, FileText, History, Layers, Lock, Pause, Pin, Play, Plus, Quote, RefreshCw, SquareDashed, TriangleAlert, X } from 'lucide-react'
 
 import { AnimatePresence, motion } from 'motion/react'
 
@@ -65,14 +65,19 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
     if (tier !== 'nugget') return
     const onKey = (event: KeyboardEvent): void => {
       if (typing()) return
-      if (event.key === 'Escape') return setChosen([])
+      // Escape lets the selection go, and only that: taken first, so the
+      // list does not also close what is open.
+      if (event.key === 'Escape' && chosen.length) {
+        event.preventDefault()
+        return setChosen([])
+      }
       if (event.key !== 'x') return
       const item = items[at.current]
       if (item) toggle(item.id)
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [items, tier])
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [items, tier, chosen.length])
   useEffect(() => {
     if (focus) pick(focus)
   }, [focus])
@@ -154,7 +159,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           <VirtualList items={items} keyOf={(item) => item.id} cursor={cursor} estimate={60} className="mx-3 my-2">
             {(item, index) => (
               <div className="flex flex-col">
-              {heads.get(item) && <div className="px-2 pt-4 pb-1 text-xs text-muted-foreground first:pt-1">{heads.get(item)}</div>}
+              {heads.get(item) && <div className={`px-2 pb-1 text-xs text-muted-foreground ${index === 0 ? 'pt-1' : 'pt-4'}`}>{heads.get(item)}</div>}
               <RowMenu items={[
                 { label: 'Open', keys: '↵', run: () => pick(item.id) },
                 'separator',
@@ -234,6 +239,7 @@ function ArticleRow({ item }: { item: Item }): React.JSX.Element {
 function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const [prompt, setPrompt] = useState(item.prompt ?? '')
   const [gloss, setGloss] = useState('')
+  const glossWords = item.glosses.filter((one) => one.author === 'user').reduce((sum, one) => sum + one.body.split(/\s+/).filter(Boolean).length, 0)
   const editor = useRef<Editor | null>(null)
   // A cloze: the words you selected, blanked. Two keystrokes and no writing,
   // the cheapest way to make something testable, and right for a name or a
@@ -268,7 +274,7 @@ function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: string, 
         <MindflowEditor
           host={window.api}
           tokens={TAGS}
-          toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: item.captureId ?? undefined, attribution: item.attribution }) }}
+          toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: item.captureId ?? undefined, attribution: item.attribution, from: item.id }) }}
           documentId={`item-${item.id}`}
           defaultContent={(item.body as JSONContent | string | null) ?? ''}
           findNotes={findCaptures}
@@ -348,6 +354,13 @@ function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: string, 
               className="mx-1 resize-none text-[13px]"
             />
             <PropLabel>Grow it</PropLabel>
+            {/* Two hundred words of your own beside it is an article written
+                without noticing: said, never automated. */}
+            {glossWords >= 200 && (
+              <p className="mx-2 mb-1 text-xs leading-relaxed text-[var(--tt-color-text-purple)]">
+                Your glosses here run to {glossWords} words: that is an article already. Start one and they come with it.
+              </p>
+            )}
             <Prop icon={Plus} onClick={() => void vigil.article([item.id]).then(() => toast('Article started from this nugget'))}>
               Start an article
             </Prop>
@@ -378,6 +391,7 @@ function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: string, 
         </label>
         <PropLabel>Details</PropLabel>
         <Prop icon={Calendar}>Kept {when(item.createdAt)}</Prop>
+        {item.revisions > 0 && <Prop icon={History}>Rewritten {item.revisions === 1 ? 'once' : `${item.revisions} times`}</Prop>}
 
         {/* Glosses: present-you beside the material, one row each and never an
             edit, so the history of your thinking about it stays readable. */}

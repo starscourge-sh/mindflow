@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { CalendarDays, Check, FileText, Flag, Gem, Hash, History, Play, Plus, Repeat, Square, Trash2, X } from 'lucide-react'
+import { Bell, CalendarDays, Check, FileText, Flag, Gem, Hash, History, Play, Plus, Repeat, Square, Trash2, X } from 'lucide-react'
 
 
 import { MindflowEditor } from '../mindflow'
@@ -152,9 +152,18 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
           onSubmit={(event) => {
             event.preventDefault()
             if (!draft.trim()) return
-            void vigil.addTask(draft).then(() => {
+            void vigil.addTask(draft, undefined, mode === 'today').then((id) => vigil.task(id)).then((task) => {
               setDraft('')
-              toast('Task added')
+              // Said where it went when that is not the list in front of you.
+              const where = !task ? mode
+                : task.recurrence ? 'routines'
+                : task.dueAt && new Date(task.dueAt).getTime() < startOfDay(1) ? 'today'
+                : 'upcoming'
+              toast(where === mode ? 'Task added'
+                : where === 'routines' ? 'Added to Routines'
+                : where === 'today' ? 'Added to Today'
+                : task?.dueAt ? `Added to Upcoming, ${when(task.dueAt).toLowerCase()}`
+                : 'Added to the backlog in Upcoming: put a day in the words to date it')
             })
           }}
         >
@@ -311,6 +320,10 @@ function TaskDetail({ task: first, onClose, onOpen }: { task: TaskFull; onClose:
         <Prop icon={Flag} active={!!task.important} onClick={() => void vigil.saveTask(task.id, { important: task.important ? 0 : 1 })}>
           {task.important ? 'Important: sorts first' : 'Mark important'}
         </Prop>
+        {/* Its own alert level, for the one task that must interrupt you. */}
+        <Prop icon={Bell} active={task.notify === 'alerts'} onClick={() => void vigil.saveTask(task.id, { notify: task.notify === 'alerts' ? null : 'alerts' })}>
+          {task.notify === 'alerts' ? 'Alerts you at its time' : 'Alert me at its time'}
+        </Prop>
         {/* When you mean to do it is the due date; when it must be done by is this. */}
         <PropLabel>Deadline</PropLabel>
         <DatePicker value={task.deadline} onChange={(deadline) => void vigil.saveTask(task.id, { deadline })} placeholder="No deadline" />
@@ -359,7 +372,10 @@ function TaskDetail({ task: first, onClose, onOpen }: { task: TaskFull; onClose:
           <>
             <PropLabel>Done</PropLabel>
             {task.done.slice(0, 6).map((one) => (
-              <Prop key={one.at} icon={History}>{when(one.at, false)}</Prop>
+              <div key={one.at}>
+                <Prop icon={History}>{when(one.at, false)}</Prop>
+                {one.recap && <p className="mx-2 -mt-1 mb-1.5 line-clamp-3 pl-6 text-[13px] text-foreground">{one.recap}</p>}
+              </div>
             ))}
           </>
         )}
@@ -404,10 +420,11 @@ function Sessions({ taskId }: { taskId: string }): React.JSX.Element {
     const timer = setInterval(() => setTick(Date.now()), 1000)
     return () => clearInterval(timer)
   }, [running])
-  const end = (keep: boolean): void =>
-    void vigil.endSession(running!.id, recap, keep).then(() => {
+  const end = (keep: boolean, close = false): void =>
+    void vigil.endSession(running!.id, recap, keep, close).then(() => {
       setRecap('')
-      toast(keep && recap.trim() ? 'Session saved, and the recap kept as a nugget' : 'Session saved')
+      if (close) chime('done')
+      toast(close ? 'Done, with this session as how' : keep && recap.trim() ? 'Session saved, and the recap kept as a nugget' : 'Session saved')
     })
 
   return (
@@ -427,6 +444,7 @@ function Sessions({ taskId }: { taskId: string }): React.JSX.Element {
             className="w-full resize-none text-[13px]"
           />
           <Prop icon={Square} onClick={() => end(false)}>End session</Prop>
+          <Prop icon={Check} onClick={() => end(false, true)}>End, and the task is done</Prop>
           {recap.trim() && <Prop icon={Gem} onClick={() => end(true)}>End, and keep the recap</Prop>}
         </div>
       ) : (

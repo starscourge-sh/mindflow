@@ -75,7 +75,8 @@ export async function cardUp(capture: { id: string; kind: string; body: unknown 
     await window.api.captures.save(id, {
       title: card.title,
       body: { type: 'doc', content: [{ type: 'bookmark', attrs: { ...card, id: crypto.randomUUID(), loading: false } }] },
-      markdown: `[${card.title}](${card.href})`
+      markdown: `[${card.title}](${card.href})`,
+      fetched: true
     })
     return
   }
@@ -97,7 +98,7 @@ export async function cardUp(capture: { id: string; kind: string; body: unknown 
     for (const child of node.content ?? []) await visit(child)
   }
   await visit(body)
-  if (changed) await window.api.captures.save(id, { body })
+  if (changed) await window.api.captures.save(id, { body, fetched: true })
 }
 
 /** Every link and card once, one at a time, in the background. */

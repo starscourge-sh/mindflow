@@ -45,6 +45,8 @@ export type Item = {
   context: string | null
   mode: 'encounter' | 'pushed'
   supersededBy: string | null
+  /** Sittings in which its words were meaningfully rewritten. */
+  revisions: number
 }
 export type Gloss = { id: string; body: string; author: 'user' | 'ai'; createdAt: string }
 export type ItemFull = Item & { body: unknown; origins: string[]; glosses: Gloss[] }
@@ -73,9 +75,11 @@ export type Task = {
   blocker: string | null
   /** How many times it has been pushed later. */
   reschedules: number
+  /** This task's own alert level, over the setting; null follows the setting. */
+  notify: 'pull' | 'quiet' | 'alerts' | null
 }
 export type Subtask = { text: string; done: boolean }
-export type TaskFull = Task & { notes: unknown; done: { at: string }[]; subtasks: Subtask[]; linked: { id: string; tier: string; kind: string; title: string }[] }
+export type TaskFull = Task & { notes: unknown; done: { at: string; recap: string | null }[]; subtasks: Subtask[]; linked: { id: string; tier: string; kind: string; title: string }[] }
 
 export type Session = { id: string; startedAt: string; endedAt: string | null; recap: string | null }
 
@@ -113,6 +117,7 @@ export const vigil = {
   /** False when three are pinned already. */
   pin: (table: 'captures' | 'nuggets', id: string, on: boolean) => call<boolean>('pin', table, id, on),
   pins: () => call<Pin[]>('pins'),
+  reviewTuning: () => call<{ cap: number; tuned: boolean; behind: number }>('review:tuning'),
   promote: (id: string, words?: string) => call<string | null>('promote', id, words),
   /** What it came from, what it became, and what links to it. */
   lineage: (id: string) => call<Record<'from' | 'became' | 'linked', { type: string; id: string; title: string }[]>>('lineage', id),
@@ -130,8 +135,9 @@ export const vigil = {
   grade: (id: string, grade: 1 | 2 | 3 | 4, ms: number) => call<string>('review:grade', id, grade, ms),
   tasks: () => call<Task[]>('tasks'),
   task: (id: string) => call<TaskFull | null>('task', id),
-  addTask: (text: string, origin?: string) => call<string>('task:add', text, origin),
-  saveTask: (id: string, patch: Partial<{ title: string; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number; important: number; deadline: string | null; blocker: string | null; reschedules: number }>) =>
+  /** `today`: with no date in the words, it is for today. */
+  addTask: (text: string, origin?: string, today = false) => call<string>('task:add', text, origin, today),
+  saveTask: (id: string, patch: Partial<{ title: string; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number; important: number; deadline: string | null; blocker: string | null; reschedules: number; notify: string | null }>) =>
     call('task:save', id, patch),
   doneTask: (id: string) => call('task:done', id),
   tags: () => call<{ tag: string; count: number; color: string | null; action: boolean }[]>('tags'),
@@ -144,6 +150,7 @@ export const vigil = {
   stats: () => call<Stats>('stats'),
   exportAll: () => call<string | null>('export'),
   bury: (id: string) => call('review:bury', id),
+  taskFrom: (ids: string[], text: string) => call<string>('tasks:from', ids, text),
   bulk: (ids: string[], change: { tag?: string; capturedAt?: string }) => call<number>('captures:bulk', ids, change),
   setCapture: (id: string, field: 'attribution' | 'medium' | 'capturedAt', value: string | number | null) => call('capture:set', id, field, value),
   linkSession: (id: string) => call('capture:session', id),
@@ -157,7 +164,7 @@ export const vigil = {
   similar: (text: string) => call<{ id: string; number: number; title: string; score: number } | null>('similar', text),
   sessions: (taskId: string) => call<Session[]>('sessions', taskId),
   startSession: (taskId: string) => call('session:start', taskId),
-  endSession: (id: string, recap: string, keep: boolean) => call('session:end', id, recap, keep)
+  endSession: (id: string, recap: string, keep: boolean, close = false) => call('session:end', id, recap, keep, close)
 }
 
 /**

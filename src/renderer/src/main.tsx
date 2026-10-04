@@ -46,7 +46,9 @@ applyTheme(currentTheme())
 window.addEventListener('storage', (event) => event.key === 'theme' && applyTheme(currentTheme()))
 // A window you are not in steps back a little, so the one you are in is clear.
 const blurred = (on: boolean) => (): void => void (document.documentElement.dataset.blurred = on ? 'on' : 'off')
-window.addEventListener('blur', blurred(true))
+// Checked a moment later: focus moving into an embed (a video in a note)
+// blurs the page but not the window, and that should not dim it.
+window.addEventListener('blur', () => setTimeout(() => blurred(!document.hasFocus())(), 0))
 window.addEventListener('focus', blurred(false))
 
 // A window opened on one drawing says so in its own URL, which is the only

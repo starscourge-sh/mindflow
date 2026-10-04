@@ -232,6 +232,10 @@ export default function App(): React.JSX.Element {
   // happen; Cmd+Enter puts it down and brings back the box you had.
   const [editing, setEditing] = useState<{ id: string; body: JSONContent } | null>(null)
   const editorRef = useRef<Editor | null>(null)
+  // What is open now, for a change that arrives late from a box already put
+  // down: it must not land on the draft that came back.
+  const editingNow = useRef<string | undefined>(undefined)
+  editingNow.current = editing?.id
   const [sending, setSending] = useState(false)
   const actionTags = useLive(() => vigil.tagMeta().then((meta) => meta.filter((row) => row.action).map((row) => row.tag)), [] as string[])
 
@@ -268,6 +272,7 @@ export default function App(): React.JSX.Element {
   const fresh = (keepDraft = false): void => {
     if (!keepDraft) localStorage.removeItem('capture-draft')
     const draft = keepDraft ? readDraft() : undefined
+    openedAt.current = Date.now()
     setEditing(null)
     setBody(draft ?? null)
     setAttribution('')
@@ -331,12 +336,10 @@ export default function App(): React.JSX.Element {
       toast('Saved. Next one')
     } else setSending(true)
     void window.api.captures
-      .create({ title: '', kind: sorted, elapsedMs: Date.now() - openedAt.current, body: hasContent(doc) ? doc : null, markdown })
+      .create({ title: '', kind: sorted, elapsedMs: Date.now() - openedAt.current, body: hasContent(doc) ? doc : null, markdown,
+        attribution: attribution.trim(), medium: where || undefined, private: secret })
       .then(async (id) => {
-        if (attribution.trim()) await vigil.setCapture(id, 'attribution', attribution.trim())
-        if (where) await vigil.setCapture(id, 'medium', where)
         await vigil.linkSession(id)
-        if (secret) await vigil.setPrivate('captures', id, true)
         // A link shows as its card, filled in once the page answers.
         if (sorted === 'link') void cardUp({ id, kind: sorted, body: hasContent(doc) ? doc : null })
         if (action) {
@@ -415,7 +418,9 @@ export default function App(): React.JSX.Element {
               outline={outline}
               onReady={(editor) => (editorRef.current = editor)}
               onOpenNote={openCapture}
+              from={editing?.id}
               onChange={(doc, editor) => {
+                if (editing?.id !== editingNow.current) return saveField({ body: doc, markdown: toMarkdown(editor) })
                 setBody(doc)
                 // The kind follows the wording of the first line until you choose one.
                 if (!chosen && !editing) setKind((kindOf(firstLine(doc)) ?? 'note') as CaptureType)
@@ -450,7 +455,7 @@ export default function App(): React.JSX.Element {
                 }} />
               )}
               <Tip label={secret ? 'Private: never comes up unasked in quiet hours or safe mode' : 'Make it private'}>
-                <Button variant="ghost" size="icon-sm" aria-label="Private" className={secret ? 'text-foreground' : 'text-muted-foreground/60'} onClick={() => {
+                <Button variant="ghost" size="icon-sm" aria-label="Private" aria-pressed={secret} className={secret ? 'text-foreground' : 'text-muted-foreground/60'} onClick={() => {
                   setSecret(!secret)
                   if (editing) void vigil.setPrivate('captures', editing.id, !secret)
                 }}>
@@ -586,8 +591,11 @@ const CapturePrompt = ({
   outline,
   onChange,
   onReady,
-  onOpenNote
+  onOpenNote,
+  from
 }: {
+  /** The capture open in the box, if any: what a selection lifted out of it points back to. */
+  from?: string
   initial?: JSONContent
   locked: boolean
   outline: boolean
@@ -614,7 +622,7 @@ const CapturePrompt = ({
         // --- what is switched on ---
         // No fixed toolbar: the dock would sit over the capture prompt. The
         // selection toolbar keeps its default contents.
-        toolbar={{ fixed: false, selectionExtra: selectionActions({}) }}
+        toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: from, from }) }}
         handles={true}
         slash={true}
         outline={outline}
@@ -661,14 +669,16 @@ function SidePanel({ captures, editing, onOpen }: {
     ),
     0
   )
+  // The inbox is what has no exit yet; what is handled lives in All captures.
+  const open = captures.filter((capture) => capture.status === 'open')
   const tabs = [
-    { id: 'inbox', label: 'Inbox', count: captures.filter((capture) => capture.status === 'open').length },
+    { id: 'inbox', label: 'Inbox', count: open.length },
     { id: 'today', label: 'Today', count: today },
     { id: 'review', label: 'Review', count: due }
   ] as const
   // The same keys as every list: j and k when the editor does not have the
   // focus, Enter to open. ⌘1 to ⌘3 switch tabs from anywhere in the window.
-  const [cursor] = useListKeys(captures.length, { onOpen: (index) => onOpen(captures[index].id), enabled: tab === 'inbox' })
+  const [cursor] = useListKeys(open.length, { onOpen: (index) => onOpen(open[index].id), enabled: tab === 'inbox' })
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       const to = event.ctrlKey && !event.metaKey ? tabs[Number(event.key) - 1] : undefined
@@ -726,7 +736,12 @@ function SidePanel({ captures, editing, onOpen }: {
           {/* One child, which is what the easing moves. */}
           <div className="flex min-h-full flex-col">
             {tab === 'inbox' ? (
-              <CaptureList captures={captures} selected={editing} cursor={cursor} onPick={onOpen} />
+              <>
+                <Tip label="Every capture with no exit yet, newest first. The cards above are a few old ones pulled out of this same pile.">
+                  <h3 className="w-fit px-2 pb-1 pt-2 text-xs text-muted-foreground">Newest</h3>
+                </Tip>
+                <CaptureList captures={open} selected={editing} cursor={cursor} onPick={onOpen} />
+              </>
             ) : tab === 'today' ? (
               <TodayPanel />
             ) : (

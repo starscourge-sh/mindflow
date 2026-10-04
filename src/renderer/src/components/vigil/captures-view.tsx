@@ -12,7 +12,7 @@ import { STATUS_ICON, captureKey, findCaptures, takeExit, follow } from '@/lib/c
 import { toMarkdown } from '@/lib/export'
 import { splitTags, vigil } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
-import { Empty, Kbd, Page, Prop, PropLabel, Props, Remembered, toast, useListKeys, typing, pin } from './ui'
+import { Empty, Kbd, Page, Prop, PropLabel, Props, Remembered, ask, toast, useListKeys, typing, pin } from './ui'
 import { RemindMe } from './items-view'
 import { selectionActions } from './selection-actions'
 import { Tip } from '@/components/vigil/ui'
@@ -66,13 +66,17 @@ export function CapturesView({ title, keep, focus, onOpen }: {
     const onKey = (event: KeyboardEvent): void => {
       if (typing()) return
       // Escape lets a selection go, the way Linear's does.
-      if (event.key === 'Escape' && chosen.length) return setChosen([])
+      // Taken first, so the list does not also close what is open.
+      if (event.key === 'Escape' && chosen.length) {
+        event.preventDefault()
+        return setChosen([])
+      }
       if (event.key !== 'x') return
       const capture = shown[cursor]
       if (capture) setChosen((ids) => (ids.includes(capture.id) ? ids.filter((one) => one !== capture.id) : [...ids, capture.id]))
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   })
   const bulk = (status: string): void => {
     const ids = chosen
@@ -99,6 +103,13 @@ export function CapturesView({ title, keep, focus, onOpen }: {
               <span className="mr-1">{chosen.length} selected</span>
               <Button variant="ghost" size="sm" onClick={() => bulk('resolved')}>Resolve</Button>
               <Button variant="ghost" size="sm" onClick={() => bulk('discarded')}>Discard</Button>
+              {chosen.length > 1 && (
+                <Button variant="ghost" size="sm" onClick={() => void ask(`One task from these ${chosen.length}. What is it?`, 'e.g. sort out the freight rules by Thursday').then((text) => {
+                  if (!text) return
+                  const ids = chosen
+                  void vigil.taskFrom(ids, text).then(() => { chime('done'); setChosen([]); toast(`One task, from ${ids.length} captures`) })
+                })}>One task</Button>
+              )}
               <input
                 placeholder="#tag ↵"
                 onKeyDown={(event) => {
@@ -186,7 +197,7 @@ export function CapturesView({ title, keep, focus, onOpen }: {
               key={open.id}
               host={window.api}
               tokens={TAGS}
-              toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: open.id }) }}
+              toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: open.id, from: open.id }) }}
               documentId={`capture-${open.id}`}
               defaultContent={(open.body as JSONContent | string | null) ?? ''}
               findNotes={findCaptures}

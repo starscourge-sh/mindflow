@@ -97,6 +97,7 @@ export function SettingsView(): React.JSX.Element {
           <Input type="number" min={0} className={`${field} w-16`} value={settings.newPerDay} onChange={(event) => set({ newPerDay: Number(event.target.value) })} /> new
           <Input type="number" min={0} className={`${field} w-16`} value={settings.reviewsPerDay} onChange={(event) => set({ reviewsPerDay: Number(event.target.value) })} /> reviews
         </Setting>
+        <CapTuning />
         <Setting title="Quiet hours" note="A window in which nothing marked private comes up unasked. Search and lists still show everything.">
           <Input type="time" className={field} value={settings.quietStart} onChange={(event) => set({ quietStart: event.target.value })} />
           <span className="text-muted-foreground">to</span>
@@ -116,19 +117,27 @@ export function SettingsView(): React.JSX.Element {
             ))}
           </div>
         </Setting>
-        <Setting title="Safe mode" note="Nothing comes up unasked at all: no hints, rot cards or pins. For screen shares. ⌥⌘S anywhere in the app.">
+        <Setting title="Safe mode" note="Nothing comes up unasked at all: no hints, rot cards or pins. For screen shares. ⌥⌘S turns it on from anywhere, even with this app in the background.">
           <Switch checked={settings.safeMode} onCheckedChange={(safeMode) => set({ safeMode })} />
         </Setting>
         <Setting title="Your data" note="Everything as JSON and Markdown, in a folder you choose. No lock-in: it is all yours to read without this app. Importing is in the menu bar icon.">
-          <Button variant="outline" size="lg"
- 
- onClick={() => void vigil.exportAll().then((folder) => folder && toast(`Exported to ${folder.split('/').slice(-2).join('/')}`))}
->
+          <Button variant="outline" size="lg" onClick={() => void vigil.exportAll().then((folder) => folder && toast(`Exported to ${folder.split('/').slice(-2).join('/')}`))}>
             <Download className="size-4" /> Export everything
           </Button>
         </Setting>
       </div>
     </Page>
+  )
+}
+
+/** Said out loud when the app has lowered the new-item cap itself, and why. */
+function CapTuning(): React.JSX.Element | null {
+  const tuning = useLive(vigil.reviewTuning, null as Awaited<ReturnType<typeof vigil.reviewTuning>> | null)
+  if (!tuning?.tuned) return null
+  return (
+    <p className="-mt-2 border-b pb-4 text-sm leading-relaxed text-[var(--tt-color-text-orange)]">
+      {tuning.behind} reviews are more than a day overdue, more than a day's limit, so new items are halved to {tuning.cap} a day. It goes back up once the queue is being finished.
+    </p>
   )
 }
 

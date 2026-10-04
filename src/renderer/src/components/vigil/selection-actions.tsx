@@ -1,5 +1,5 @@
 import type { Editor } from '@tiptap/core'
-import { Gem, ListTodo } from 'lucide-react'
+import { Gem, Inbox, ListTodo } from 'lucide-react'
 
 import { ToolbarGroup, ToolbarSeparator } from '@/components/tiptap-ui-primitive/toolbar'
 import { chime } from '@/lib/sound'
@@ -7,11 +7,13 @@ import { vigil } from '@/lib/vigil'
 import { toast } from './ui'
 
 /**
- * Select-to-anything: highlight words in a note and make them a nugget or a
- * task without leaving the note. The new thing remembers where it came from:
- * the note's source is inherited, never invented at the point of selection.
+ * Select-to-anything: highlight words in a note and make them a capture, a
+ * nugget or a task without leaving the note. A capture is for words too raw
+ * to keep yet: they go to the inbox to be worked on. The new thing remembers
+ * where it came from (`from`, the note it was lifted out of), and the note's
+ * source is inherited, never invented at the point of selection.
  */
-export function selectionActions(origin: { captureId?: string; attribution?: string | null }) {
+export function selectionActions(origin: { captureId?: string; attribution?: string | null; from?: string }) {
   return (editor: Editor): React.JSX.Element => {
     const words = (): string => {
       const { from, to } = editor.state.selection
@@ -22,6 +24,20 @@ export function selectionActions(origin: { captureId?: string; attribution?: str
       <>
         <ToolbarSeparator />
         <ToolbarGroup>
+          {origin.from && (
+            <button
+              type="button"
+              className={button}
+              onClick={() => {
+                const text = words()
+                if (!text) return
+                chime('tap')
+                void window.api.captures.create({ body: text, origin: origin.from }).then(() => toast('In your inbox, linked back to here'))
+              }}
+            >
+              <Inbox /> Capture
+            </button>
+          )}
           <button
             type="button"
             className={button}

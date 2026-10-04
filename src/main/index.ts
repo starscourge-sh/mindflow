@@ -730,6 +730,21 @@ app.whenReady().then(() => {
 
   // The main window's "new" button: the same prompt the key brings up.
   ipcMain.on('prompt:show', () => toggleWindow())
+  // The prompt sends you to one thing in the main window: a task's notes and
+  // sessions live there. Kept until the window asks, in case it is still
+  // starting; sent at once if it is already up.
+  let sentTo: [string, string] | null = null
+  ipcMain.on('home:open', (_event, type: string, id: string) => {
+    sentTo = [String(type), String(id)]
+    const ready = home && !home.webContents.isLoading()
+    openHome()
+    if (ready) home?.webContents.send('home:open', ...sentTo)
+  })
+  ipcMain.handle('home:sent', () => {
+    const was = sentTo
+    sentTo = null
+    return was
+  })
 
   // Put the window away without closing it, so it comes back as it was.
   ipcMain.on('window:hide', (event) => {
@@ -1109,10 +1124,11 @@ app.whenReady().then(() => {
   }
   // Safe mode from anywhere, before a screen share, with no window to open:
   // the menu bar says it took.
-  globalShortcut.register('Alt+Command+S', () => {
+  const safeKey = globalShortcut.register('Alt+Command+S', () => {
     toggleSafeMode()
     updateTray()
   })
+  if (!safeKey) console.error('Could not register Alt+Command+S for safe mode: something else already has it')
 
   app.on('activate', function() {
     // On macOS it's common to re-create a window in the app when the

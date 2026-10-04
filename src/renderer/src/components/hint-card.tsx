@@ -55,9 +55,9 @@ export function HintCard({ onOpen }: { onOpen: (captureId: string) => void }): R
     void window.api.hints.react(hint.event, hint.id, reaction)
     if (reaction === 'up') {
       chime('promote')
-      // Only a nugget can be tested; an old capture is just glad you looked.
-      if (hint.id === hint.captureId) setHint(null)
-      else setAsking(true)
+      // Attention it earned is evidence: a nugget is asked for a question, an
+      // old capture whether to keep it, both one line, right there.
+      setAsking(true)
     } else {
       chime('away')
       setHint(null)
@@ -93,15 +93,16 @@ export function HintCard({ onOpen }: { onOpen: (captureId: string) => void }): R
           {asking ? (
             <Input
               autoFocus
-              placeholder="Worth testing? Write the question and press Enter"
+              placeholder={hint.id === hint.captureId ? 'Keep it? Say why in a line and press Enter' : 'Worth testing? Write the question and press Enter'}
               onBlur={() => setHint(null)}
               onKeyDown={(event) => {
                 if (event.key === 'Escape') return setHint(null)
                 if (event.key !== 'Enter' || !event.currentTarget.value.trim()) return
-                void vigil.saveItem(hint.id, { prompt: event.currentTarget.value.trim() }).then(() => {
-                  toast('Now tested: it joins your review')
-                  setHint(null)
-                })
+                const line = event.currentTarget.value.trim()
+                void (hint.id === hint.captureId
+                  ? vigil.promote(hint.id, line).then((result) => toast(result === 'needs-source' ? 'A quote needs to say who said it first' : 'Kept as a nugget, with your line beside it'))
+                  : vigil.saveItem(hint.id, { prompt: line }).then(() => toast('Now tested: it joins your review'))
+                ).then(() => setHint(null))
               }}
               className="mt-2 w-full h-8"
             />
