@@ -221,7 +221,7 @@ export function registerCaptures(): void {
          select 'capture' as type, id, number, kind, status, source, attribution, ${LABEL} as label, body, captured_at as capturedAt
            from captures where status != 'discarded' and ${match(`(${LABEL} || ' ' || body)`)}
          union all
-         select tier, id, null, kind, 'open', '', attribution, title, body, created_at from nuggets where ${match("(title || ' ' || body)")}
+         select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), body, created_at from nuggets where ${match("(title || ' ' || body)")}
          union all
          select 'task', id, number, 'todo', status, '', null, title, coalesce(notes, 'null'), created_at from tasks where ${match("(title || ' ' || coalesce(notes, ''))")}
        ) ${kind ? 'where kind = ?' : ''} order by capturedAt desc limit 60`

@@ -1049,7 +1049,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead }: {
               <KeptPanel onOpen={onOpenAny} open={reading} onRead={onRead} />
             ) : (
               <div className="flex flex-1 [&_header]:hidden">
-                <ReviewView />
+                <ReviewView compact />
               </div>
             )}
           </div>

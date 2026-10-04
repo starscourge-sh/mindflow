@@ -25,7 +25,7 @@ const GRADES = [
  * when the session starts and capped by the day's limits, so it can always be
  * finished, and an item stays in front of you until you grade it.
  */
-export function ReviewView(): React.JSX.Element {
+export function ReviewView({ compact = false }: { compact?: boolean }): React.JSX.Element {
   const [queue, setQueue] = useState<Due[] | null>(null)
   const [at, setAt] = useState(0)
   const [shown, setShown] = useState(false)
@@ -83,11 +83,11 @@ export function ReviewView(): React.JSX.Element {
     return (
       <Page title="Review">
         {queue.length ? (
-          <Empty shape={['star', 2]} title={`Done: ${queue.length} reviewed`}>
+          <Empty compact={compact} shape={['star', 2]} title={`Done: ${queue.length} reviewed`}>
             That is today’s queue finished. What you could not recall comes back soonest; the rest waits until just before you would forget it.
           </Empty>
         ) : (
-          <Empty shape={['moon', 1]} title="Nothing to review">
+          <Empty compact={compact} shape={['moon', 1]} title="Nothing to review">
             Review holds only what you chose to be tested on. Open a nugget and write it a question, and it joins the queue tomorrow at the latest.
           </Empty>
         )}
