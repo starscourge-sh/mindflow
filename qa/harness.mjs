@@ -8,6 +8,9 @@
  *
  *   npm run build && node qa/harness.mjs
  */
+import { mkdtempSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
 import { _electron as electron } from 'playwright'
 
 const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
@@ -15,7 +18,9 @@ const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
 const LINES = `${EDITOR} li > p, ${EDITOR} li > div > p, ${EDITOR} > p, ${EDITOR} > h1, ${EDITOR} > h2`
 
 export async function open() {
-  const app = await electron.launch({ args: ['.'] })
+  // A fresh folder for the app's data, so a run never touches your real captures.
+  const data = mkdtempSync(join(tmpdir(), 'mindflow-qa-'))
+  const app = await electron.launch({ args: ['.'], env: { ...process.env, MINDFLOW_USER_DATA: data } })
   const page = await app.firstWindow()
   const logs = []
   page.on('console', (message) => logs.push(message.text()))

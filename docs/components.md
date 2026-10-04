@@ -99,7 +99,7 @@ that line out.
 <MindflowEditor
   // --- what it holds ------------------------------------------------------
   shape="document"         // "document" holds blocks, "line" holds one paragraph
-  defaultContent=""        // TipTap JSON or an HTML string
+  defaultContent=""        // TipTap JSON or a Markdown string
   placeholder="Write, type '/' for commands…"
   marks={ALL_MARKS}        // for a "line": ["bold", "italic", "strike", "code"]
   tokens={TAGS}            // `#thing` patterns to tint. `[]` for none
@@ -236,7 +236,7 @@ rather than adding to it.
 
 ### What it takes
 
-`defaultContent` is a TipTap JSON document or an HTML string. It is read **once,
+`defaultContent` is a TipTap JSON document or a Markdown string. It is read **once,
 at mount**. Changing the prop later does nothing.
 
 With no `defaultContent` you get an **empty document**. That is deliberate: a

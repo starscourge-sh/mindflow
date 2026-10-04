@@ -41,6 +41,21 @@ const api = {
   setExpanded: (expanded: boolean): Promise<boolean> =>
     ipcRenderer.invoke('window:expand', expanded),
 
+  /** Each time the window is brought up: the moment the rot cards reshuffle and a hint may show. */
+  onShown: (listen: () => void): (() => void) => {
+    const relay = (): void => listen()
+    ipcRenderer.on('window:shown', relay)
+    return () => ipcRenderer.off('window:shown', relay)
+  },
+
+  /** Hints: one nugget at a time, with up and down. */
+  hints: {
+    next: (): Promise<{ id: string; kind: string; body: unknown; event: number } | null> =>
+      ipcRenderer.invoke('hints:next'),
+    react: (event: number, id: string, reaction: 'up' | 'down'): Promise<void> =>
+      ipcRenderer.invoke('hints:react', event, id, reaction)
+  },
+
   /** Bring up the capture prompt, from any window. */
   showPrompt: (): void => ipcRenderer.send('prompt:show'),
 
@@ -83,6 +98,12 @@ const api = {
   captures: {
     list: (): Promise<CaptureMeta[]> => ipcRenderer.invoke('captures:list'),
     get: (id: string): Promise<Capture | null> => ipcRenderer.invoke('captures:get', id),
+    /** Search the titles and bodies, newest first. */
+    find: (query: string): Promise<Capture[]> => ipcRenderer.invoke('captures:find', query),
+    /** Three open captures, leaning old: the rot sampler. */
+    rot: (): Promise<Capture[]> => ipcRenderer.invoke('captures:rot'),
+    /** Promote: make a nugget from it. */
+    promote: (id: string): Promise<void> => ipcRenderer.invoke('captures:promote', id),
     /** What `@` offers for the text typed after it. */
     search: (query: string): Promise<CaptureMeta[]> => ipcRenderer.invoke('captures:search', query),
     create: (patch: CapturePatch): Promise<string> => ipcRenderer.invoke('captures:create', patch),

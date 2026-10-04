@@ -1,16 +1,5 @@
-import React, { useEffect, useState, type CSSProperties } from 'react'
-import {
-  AudioLines,
-  FileJson2,
-  Keyboard,
-  KeyboardOff,
-  Lock,
-  LockOpen,
-  Maximize2,
-  Minimize2,
-  TableOfContents,
-  X
-} from 'lucide-react'
+import React, { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { AudioLines, FileJson2, Keyboard, KeyboardOff, Lock, LockOpen, Maximize2, Minimize2, TableOfContents, X } from 'lucide-react'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { v4 as uuidv4 } from 'uuid';
 
@@ -19,10 +8,15 @@ import { ThemePicker } from './components/theme/theme-picker'
 import { titleOf } from './lib/document'
 import { findCaptures } from './lib/capture-links'
 import { toMarkdown } from './lib/export'
+import { CaptureList, useCaptures } from './components/capture-list'
+import { RotCards } from './components/rot-cards'
+import { HintCard } from './components/hint-card'
+
 // import { Maximize2, Minimize2 } from 'lucide-react'
 // import { StatusPicker, type Status } from './components/status/status-picker'
 // import { PriorityPicker, type Priority } from './components/priority/priority-picker'
-import { CaptureKindPicker, type CaptureType } from './components/capture-kinds/capture-kind-picker';
+
+import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from './components/capture-kinds/capture-kind-picker';
 import { Button } from './components/ui/button';
 import {
   Sheet,
@@ -31,6 +25,12 @@ import {
   SheetHeader,
   SheetTitle
 } from './components/ui/sheet';
+
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable"
 
 
 export type CaptureStatus = 'open' | 'promoted' | 'resolved' | 'discarded'
@@ -140,7 +140,7 @@ const Header = (): React.JSX.Element => {
         </button>
       </div>
       <div className="w-full shadow-xl px-[4.75rem]">
-        <div className="h-[2px] w-full bg-background/10  shadow-xl" />
+        <div className="h-[2px] w-full bg-background/10 shadow-xl" />
       </div>
     </div>
   )
@@ -148,6 +148,7 @@ const Header = (): React.JSX.Element => {
 
 export default function App(): React.JSX.Element {
   const [kind, setKind] = useState<CaptureType>('note')
+  const captures = useCaptures()
   const [capture] = useState<Capture>(() => {
     const raw = localStorage.getItem("capture-draft")
     const draft = raw ? (JSON.parse(raw) as Capture | null) : null
@@ -193,6 +194,43 @@ export default function App(): React.JSX.Element {
   // Bumped on submit. The prompt is keyed on it, so a fresh editor replaces
   // the one just sent.
   const [round, setRound] = useState(0)
+  // A capture opened from the list on the right. Edits save to it as they
+  // happen; Cmd+Enter puts it down and brings back a fresh prompt.
+  const [editing, setEditing] = useState<{ id: string; body: JSONContent } | null>(null)
+  const editorRef = useRef<Editor | null>(null)
+
+  // Kind by prefix: while the capture is a single word that starts a kind's
+  // name, Tab takes that kind and clears the word. Only at the very start, and
+  // gone at the first space, so "we made a decision" never offers one.
+  const typed = body ? editorRef.current?.getText().trim() ?? '' : ''
+  const offered = !editing && typed && !/\s/.test(typed)
+    ? CAPTURE_TYPES.find((type) => type.label.toLowerCase().startsWith(typed.toLowerCase()))
+    : undefined
+  useEffect(() => {
+    if (!offered) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Tab' || event.shiftKey) return
+      event.preventDefault()
+      event.stopPropagation()
+      setKind(offered.id)
+      editorRef.current?.commands.clearContent(true)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [offered])
+  const openCapture = (id: string): void =>
+    void window.api.captures.get(id).then((found) => {
+      if (!found) return
+      setEditing({ id, body: found.body as JSONContent })
+      setBody(found.body as JSONContent)
+      setKind(found.kind as CaptureType)
+    })
+  const fresh = (): void => {
+    setEditing(null)
+    setBody(null)
+    setKind('note')
+    setRound((n) => n + 1)
+  }
 
   // Cmd+Enter sends the capture to the main process, which stores it and tells
   // every window. Caught before the editor sees it, where it would otherwise
@@ -202,74 +240,112 @@ export default function App(): React.JSX.Element {
       if (event.key !== 'Enter' || !event.metaKey) return
       event.preventDefault()
       event.stopPropagation()
+      if (editing) return fresh()
       if (!hasContent(body)) return
       void window.api.captures.create({ title, kind, body, markdown }).then(() => {
-        setBody(null)
-        setRound((n) => n + 1)
+        fresh()
         window.api.hideWindow()
       })
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [body, title, kind, markdown])
+  }, [body, title, kind, markdown, editing])
 
   console.log('[CapturePrompt][kind][🐦‍🔥]: ', kind)
   console.log('[CapturePrompt][capture][🫪]: ', { ...capture, kind, title })
 
-
   return (
-    <div className={`app-container ${pointerIn ? 'pointer-in' : ''} flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-10 color-white`}>
+    <div className={`app-container ${pointerIn ? 'pointer-in' : ''} flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-8 color-white`}>
       <Header />
-      <CapturePrompt
-        key={round}
-        locked={locked}
-        outline={outline}
-        onChange={(doc, editor) => {
-          setBody(doc)
-          setMarkdown(toMarkdown(editor))
-        }}
-      />
-      <SourceDrawer open={source} doc={body} onOpenChange={setSource} />
 
-      <main className="w-full flex justify-between py-[0.5rem] px-[4.75rem] bg-linear-to-t from-[var(--accent)]/40">
-        <CaptureKindPicker value={capture?.kind || "note"} onChange={setKind} />
-        {/* <StatusPicker value={status} onChange={setStatus} />
-          <PriorityPicker value={priority} onChange={setPriority} /> */}
-        <div className="flex items-center gap-1">
-          <Button
-            className={CONTROL}
-            aria-label={vim ? 'Turn vim keys off' : 'Turn vim keys on'}
-            onClick={() => setVim(!vim)}
-          >
-            {vim ? <Keyboard /> : <KeyboardOff />}
-          </Button>
-          <Button
-            className={CONTROL}
-            aria-label={locked ? 'Unlock the note' : 'Lock the note'}
-            onClick={() => setLocked(!locked)}
-          >
-            {locked ? <Lock /> : <LockOpen />}
-          </Button>
-          <Button
-            className={`${CONTROL} ${outline ? '' : 'opacity-40'}`}
-            aria-label={outline ? 'Hide the outline' : 'Show the outline'}
-            onClick={() => setOutline(!outline)}
-          >
-            <TableOfContents />
-          </Button>
-          <Button
-            className={CONTROL}
-            aria-label={source ? 'Hide the source' : 'Show the source'}
-            onClick={() => setSource(!source)}
-          >
-            <FileJson2 />
-          </Button>
-          <ThemePicker className={`${CONTROL} gap-1.5 rounded-full cursor-pointer`} />
-          <Button className={`${CONTROL} text-red-400 hover:text-red-300`}>
-            <AudioLines />
-          </Button>
-        </div>
-      </main>
+      <ResizablePanelGroup
+        orientation="horizontal"
+        className="w-full h-full"
+      >
+        <ResizablePanel
+          defaultSize="60%"
+          minSize={"60%"}
+          className="h-full w-full"
+        >
+          <div className="h-full w-full flex flex-col">
+            <CapturePrompt
+              key={editing?.id ?? round}
+              initial={editing?.body}
+              locked={locked}
+              outline={outline}
+              onChange={(doc, editor) => {
+                editorRef.current = editor
+                setBody(doc)
+                setMarkdown(toMarkdown(editor))
+                if (editing) {
+                  void window.api.captures.save(editing.id, { body: doc, title: titleOf(doc), markdown: toMarkdown(editor) })
+                }
+              }}
+            />
+            <main className="flex justify-between py-[0.5rem] px-[4.75rem] bg-linear-to-t from-[var(--accent)]/40">
+              <CaptureKindPicker
+                value={kind}
+                onChange={(next) => {
+                  setKind(next)
+                  if (editing) void window.api.captures.save(editing.id, { kind: next })
+                }}
+              />
+              {offered && <span className="mr-auto ml-2 self-center text-xs text-muted-foreground">⇥ {offered.label}</span>}
+              {/*
+                  <StatusPicker value={status} onChange={setStatus} />
+                  <PriorityPicker value={priority} onChange={setPriority} />
+                  */}
+              <div className="flex items-center gap-1">
+                <Button
+                  className={CONTROL}
+                  aria-label={vim ? 'Turn vim keys off' : 'Turn vim keys on'}
+                  onClick={() => setVim(!vim)}
+                >
+                  {vim ? <Keyboard /> : <KeyboardOff />}
+                </Button>
+                <Button
+                  className={CONTROL}
+                  aria-label={locked ? 'Unlock the note' : 'Lock the note'}
+                  onClick={() => setLocked(!locked)}
+                >
+                  {locked ? <Lock /> : <LockOpen />}
+                </Button>
+                <Button
+                  className={`${CONTROL} ${outline ? '' : 'opacity-40'}`}
+                  aria-label={outline ? 'Hide the outline' : 'Show the outline'}
+                  onClick={() => setOutline(!outline)}
+                >
+                  <TableOfContents />
+                </Button>
+                <Button
+                  className={CONTROL}
+                  aria-label={source ? 'Hide the source' : 'Show the source'}
+                  onClick={() => setSource(!source)}
+                >
+                  <FileJson2 />
+                </Button>
+                <ThemePicker className={`${CONTROL} gap-1.5 rounded-full cursor-pointer`} />
+                <Button className={`${CONTROL} text-red-400 hover:text-red-300`}>
+                  <AudioLines />
+                </Button>
+              </div>
+            </main>
+          </div>
+          <SourceDrawer open={source} doc={body} onOpenChange={setSource} />
+        </ResizablePanel>
+
+        <ResizableHandle withHandle />
+
+        <ResizablePanel defaultSize="40%" minSize={"30%"}>
+          <div className="h-full w-full p-2">
+            <div className="h-full w-full overflow-y-auto shadow-3xl rounded bg-background/50 p-1">
+              <HintCard />
+              <RotCards onOpen={openCapture} />
+              <CaptureList captures={captures} selected={editing?.id} onPick={openCapture} />
+            </div>
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   )
 }
@@ -332,10 +408,12 @@ const SourceDrawer = ({
 )
 
 const CapturePrompt = ({
+  initial,
   locked,
   outline,
   onChange
 }: {
+  initial?: JSONContent
   locked: boolean
   outline: boolean
   onChange: (doc: JSONContent, editor: Editor) => void
@@ -371,16 +449,15 @@ const CapturePrompt = ({
   //
 
   return (
-    <div className="relative overflow-hidden flex w-full flex-1 min-h-0 flex-col transition transition-all transition-duration-3 border-b-2 rounded-b-3xl shadow-xl"
+    <div className="flex-1 w-full relative overflow-hidden flex w-full flex-1 min-h-0 flex-col transition transition-all transition-duration-3 border-b-2 rounded-b-3xl shadow-xl"
       style={{ transform: 'translate(0,0)' }}>
 
       {/* The same, spelled out. See `docs/components.md` for what each one
           does and what it is when you leave it out. */}
       <MindflowEditor
-        // --- what it holds ---
         shape="document"
         placeholder="' / '  for commands..."
-        // defaultContent={capture?.body}
+        defaultContent={initial}
         tokens={TAGS}
         // documentId={note ? `doc-${note.id}` : null}
 

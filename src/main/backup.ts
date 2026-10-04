@@ -15,7 +15,10 @@ import { join } from 'path'
  */
 const ICLOUD = join(homedir(), 'Library/Mobile Documents/com~apple~CloudDocs')
 export const backupDir = (): string =>
-  existsSync(ICLOUD) ? join(ICLOUD, 'mindflow') : join(app.getPath('userData'), 'backups')
+  // A QA run keeps its own data, and its backups with it, off iCloud.
+  existsSync(ICLOUD) && !process.env.MINDFLOW_USER_DATA
+    ? join(ICLOUD, 'mindflow')
+    : join(app.getPath('userData'), 'backups')
 
 const KEEP = 30
 

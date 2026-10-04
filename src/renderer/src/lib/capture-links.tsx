@@ -5,12 +5,23 @@ import type { NoteSuggestion } from '@/extensions/note-link'
 /** The short handle a capture goes by, like Linear's `REE-30`. */
 export const captureKey = (number: number): string => `MF-${number}`
 
-const STATUS_ICON = {
+export const STATUS_ICON = {
   open: CircleDashed,
   promoted: CircleArrowUp,
   resolved: CircleCheck,
   discarded: CircleX
 }
+
+/** The three ways out of a capture, each one key where a card has the focus. */
+export const EXITS = [
+  { key: 'p', status: 'promoted', label: 'Promote' },
+  { key: 'r', status: 'resolved', label: 'Resolve' },
+  { key: 'd', status: 'discarded', label: 'Discard' }
+] as const
+
+/** Take one. Promote makes a nugget as well; the other two only mark the capture. */
+export const takeExit = (id: string, status: string): Promise<void> =>
+  status === 'promoted' ? window.api.captures.promote(id) : window.api.captures.save(id, { status })
 
 /** What `@` offers in any editor that can link captures. */
 export async function findCaptures(query: string): Promise<NoteSuggestion[]> {

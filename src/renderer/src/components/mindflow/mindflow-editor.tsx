@@ -137,6 +137,9 @@ const HANDLE_NESTING = {
       },
     },
   ],
+  // The default prefers the parent whenever the pointer is within 12px of a
+  // child's left edge, which is exactly the way to that child's handle.
+  edgeDetection: "none" as const,
 }
 
 const HANDLE_POSITION = { middleware: [offset({ mainAxis: 24, crossAxis: 2 })] }
@@ -487,26 +490,33 @@ function Surface({
   const dragScroll = useCallback((box: HTMLElement | null) => {
     if (!box) return undefined
 
-    // A wider band, so the edge is easy to find, and fast enough that a long
-    // note goes by at a useful rate rather than a crawl.
+    // A wider band, so the edge is easy to find. Pixels a second at the very
+    // edge, easing to none at the inside of the band. Per second rather than
+    // per frame: per frame, a 120Hz screen scrolled twice as fast as a 60Hz one,
+    // which at the old 34 a frame was over 4000px a second.
     const EDGE = 96
-    const SPEED = 34
+    const SPEED = 100
     let at: number | null = null
     let frame = 0
+    let last = 0
 
     // `instant`, spelled out: the box may be easing its own scrolls, and a
     // frame loop that asks for an eased step every frame never arrives.
     const by = (delta: number): void => box.scrollBy({ top: delta, behavior: "instant" })
 
-    const step = (): void => {
+    const step = (now: number): void => {
       frame = requestAnimationFrame(step)
+      // Capped, so a frame after a stall does not jump a screenful.
+      const seconds = Math.min(now - last, 50) / 1000
+      last = now
       if (at === null) return
 
       const { top, bottom } = box.getBoundingClientRect()
       const above = at - top
       const below = bottom - at
-      if (above < EDGE) by(-SPEED * (1 - Math.max(0, above) / EDGE))
-      else if (below < EDGE) by(SPEED * (1 - Math.max(0, below) / EDGE))
+      const rate = SPEED * seconds
+      if (above < EDGE) by(-rate * (1 - Math.max(0, above) / EDGE))
+      else if (below < EDGE) by(rate * (1 - Math.max(0, below) / EDGE))
     }
 
     const follow = (event: DragEvent): void => {
@@ -702,9 +712,18 @@ function Surface({
         const at = view.posAtCoords({ left: event.clientX, top: event.clientY })
         if (!at) return false
 
-        // The top-level block under the pointer, and the edges it sits between.
+        // The block under the pointer at the dragged block's own level, and the
+        // edges it sits between: a top-level block lands between top-level
+        // blocks, a list item inside a callout between the items around it.
+        // Stepping out only as far as needed for what is dropped to fit there.
         const $at = view.state.doc.resolve(at.pos)
-        const depth = Math.min($at.depth, 1)
+        const $from = (view.dragging as { node?: NodeSelection } | null)?.node?.$from ?? view.state.selection.$from
+        let depth = Math.min($at.depth, $from.depth + 1)
+        while (depth > 1) {
+          const index = $at.index(depth - 1)
+          if ($at.node(depth - 1).canReplace(index, index, slice.content)) break
+          depth -= 1
+        }
 
         // Between two blocks rather than inside one: the position is already
         // the boundary, so there is no half to pick.
@@ -980,6 +999,8 @@ function Surface({
       ImagePlaceholder,
     ],
     content: defaultContent,
+    // A string is Markdown: what an imported note, or one pasted from a file, is.
+    contentType: typeof defaultContent === "string" ? "markdown" : "json",
     onUpdate: ({ editor: instance }) => {
       if (!latest.current) return
       // Serialising a long document on every keystroke is real work; the caller
@@ -1000,6 +1021,57 @@ function Surface({
   useEffect(() => {
     editor?.setEditable(!readOnly)
   }, [editor, readOnly])
+
+  // A nested block's handle sits over its parent's padding, so reaching for it
+  // crossed the parent and the handle jumped there: the inner one could be seen
+  // but never caught. While the pointer is left of the block the handle points
+  // at, and level with it, the handle is not told the pointer moved, so it stays.
+  // Not the plugin's own lock: a locked handle cannot be dragged. Top-level
+  // blocks need none of this; the gutter beside them maps back to them already.
+  useEffect(() => {
+    if (!editor || !handles) return
+    const dom = editor.view.dom
+    const onMove = (event: MouseEvent): void => {
+      const at = blockTarget.current?.pos
+      if (at == null || event.buttons || editor.state.doc.resolve(at).depth === 0) return
+      const block = editor.view.nodeDOM(at)
+      if (!(block instanceof HTMLElement)) return
+      const box = block.getBoundingClientRect()
+      if (event.clientX < box.left && event.clientY >= box.top && event.clientY <= box.bottom) {
+        event.stopPropagation()
+      }
+    }
+    // Right-click opens the grip's menu for the block under the pointer. Found
+    // from the pointer rather than taken from the handle, which can be pointing
+    // at a neighbour. A tick later: the click is still moving focus into the
+    // editor, which the menu would read as a click away.
+    //
+    // Not on a locked note, whose menu would still delete, nor inside a drawing,
+    // which has a menu of its own. Inside a table it is the table's menu, as
+    // with the grip: a cell's line pulled out on its own breaks the table.
+    const onContext = (event: MouseEvent): void => {
+      if (!editor.isEditable || (event.target as HTMLElement).closest(".tiptap-excalidraw-canvas")) return
+      const found = editor.view.posAtCoords({ left: event.clientX, top: event.clientY })
+      if (!found || found.inside < 0) return
+      const $at = editor.state.doc.resolve(found.inside)
+      let pos = found.inside
+      for (let depth = $at.depth; depth > 0; depth -= 1) {
+        if ($at.node(depth).type.name === "table") pos = $at.before(depth)
+      }
+      const node = editor.state.doc.nodeAt(pos)
+      if (!node) return
+      event.preventDefault()
+      blockTarget.current = { pos, name: node.type.name, level: headingRank(node) ?? undefined }
+      setTimeout(() => setMenuOpen(true))
+    }
+    // Capture, so this runs before the handle's own listener further down.
+    dom.addEventListener("mousemove", onMove, true)
+    dom.addEventListener("contextmenu", onContext)
+    return () => {
+      dom.removeEventListener("mousemove", onMove, true)
+      dom.removeEventListener("contextmenu", onContext)
+    }
+  }, [editor, handles])
 
   // Only when the switch actually moves. The extension is built with `vimOn`
   // already, so running this on mount changed nothing except the one thing it

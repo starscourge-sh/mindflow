@@ -1180,11 +1180,11 @@ function applyToRange(
     ? {
         kind: "line",
         nodes: nodesInRange(state, from, to).map((node) => node.toJSON()),
-        text: state.doc.textBetween(from, to, "\n"),
+        text: state.doc.textBetween(from, to, "\n", leafText),
       }
     : {
         kind: "char" as const,
-        text: state.doc.textBetween(from, to),
+        text: state.doc.textBetween(from, to, undefined, leafText),
         nodes: inlineRange(state, from, to),
       }
 
@@ -1292,12 +1292,22 @@ function deleteChars(view: EditorView, count: number): void {
  * vim calls `clipboard=unnamedplus`.
  */
 function remember(register: VimRegister): VimRegister {
-  if (register?.text) {
+  // Even when there is no text: a card or a drawing has none, and leaving the
+  // clipboard as it was made `p` take that older copy over the block just cut.
+  if (register) {
     // Nothing to do if it fails - the register still holds what was taken.
     navigator.clipboard.writeText(register.text).catch(() => {})
   }
   return register
 }
+
+/**
+ * What a node with no text inside reads as on the clipboard: its own text if it
+ * has one, an emoji's character say, and otherwise its link, a card's or a
+ * picture's. Passing this replaces the node's own, so it has to ask for it.
+ */
+const leafText = (node: ProseMirrorNode): string =>
+  node.type.spec.leafText?.(node) || node.attrs.href || node.attrs.src || ""
 
 /** Text from outside, shaped so it can be put back the way a yank would be. */
 function asRegister(text: string): VimRegister {
@@ -1356,6 +1366,13 @@ function putRegister(
   const { state } = view
   const { $head } = state.selection
 
+  // On a card, a drawing or a picture there is no line to put text into, so a
+  // run of text arrives as a line of its own, below it like any other line.
+  const block = state.selection instanceof NodeSelection && state.selection.node.isBlock
+  if (block && register.kind === "char") {
+    register = { kind: "line", text: register.text, nodes: [{ type: "paragraph", content: register.nodes }] }
+  }
+
   if (register.kind === "char") {
     if (!$head.parent.isTextblock || !register.nodes.length) return
     const at = before ? $head.pos : Math.min($head.end(), $head.pos + 1)
@@ -1390,8 +1407,12 @@ function putRegister(
     return
   }
 
-  if (!register.nodes.length || $head.depth < 1) return
-  const at = $head.after(lineDepth($head))
+  if (!register.nodes.length) return
+  // Below the line, or above it for `P`. A selected block is its own line.
+  let at: number
+  if (block) at = before ? state.selection.from : state.selection.to
+  else if ($head.depth < 1) return
+  else at = before ? $head.before(lineDepth($head)) : $head.after(lineDepth($head))
 
   const nodes: ProseMirrorNode[] = []
   for (let i = 0; i < count; i++) {
@@ -2262,10 +2283,37 @@ export const VimMode = Extension.create<VimModeOptions>({
                 if (!runMotion(view, measure, count, hadCount)) return true
 
                 const landed = view.state.selection.head
-                const [from, to] = [
-                  Math.min(start, landed),
-                  Math.max(start, landed),
-                ]
+                const [from, to] = [Math.min(start, landed), Math.max(start, landed)]
+                let end = to + (INCLUSIVE_MOTIONS.includes(measure) ? 1 : 0)
+
+                // vim's other `w` exception: when the last word moved over ends
+                // its line, the operator stops there rather than taking the
+                // line break, or the block after it, with it. `dw` on a line's
+                // last word deleted the card below. That last word starts where
+                // one word fewer lands, which for a single `w` is the cursor.
+                if (key === "w" || key === "W") {
+                  let last = start
+                  if (count > 1) {
+                    select(view, start)
+                    runMotion(view, measure, count - 1, true)
+                    last = view.state.selection.head
+                  }
+                  const line = textLineAt(view.state.doc.resolve(last))
+                  if (end > line.end) end = line.end
+                  // With no word after it, the last word of the note has nowhere
+                  // to land but its own last letter, which `w` leaves out. Still
+                  // inside a word means that is what happened: take the rest.
+                  const kind = (ch: string): number =>
+                    !ch || /\s/.test(ch) ? 0 : key === "W" || WORD_CHAR_RE.test(ch) ? 2 : 1
+                  const { doc } = view.state
+                  if (measure === key && landed < line.end && kind(doc.textBetween(landed - 1, landed)) === kind(doc.textBetween(landed, landed + 1)) && kind(doc.textBetween(landed, landed + 1))) {
+                    end = line.end
+                  }
+                  // `cw` on a word's last letter changes that letter, as `ce`
+                  // would from inside the word. It used to reach the next one.
+                  const here = view.state.doc.textBetween(start, Math.min(start + 2, line.end))
+                  if (operator === "c" && count === 1 && /^\S\s?$/.test(here)) end = Math.min(end, start + 1)
+                }
 
                 if (LINEWISE_MOTIONS.includes(key)) {
                   const first = lineSpanAt(view.state, from)
@@ -2275,7 +2323,9 @@ export const VimMode = Extension.create<VimModeOptions>({
                     if (operator !== "c") collapseSelection(view, first.from)
                   }
                 } else if (from !== to) {
-                  const end = to + (INCLUSIVE_MOTIONS.includes(measure) ? 1 : 0)
+                  // Back to the start first: the motion may have run past where
+                  // the range was cut short, and `c` types where the cursor is.
+                  select(view, from)
                   applyToRange(view, operator, from, end, false)
                   if (operator !== "c") collapseSelection(view, from)
                 }

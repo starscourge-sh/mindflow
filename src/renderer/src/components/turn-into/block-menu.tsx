@@ -152,6 +152,8 @@ export function BlockMenu({
       ["listItem", "taskItem", "blockquote"].includes(thing.type.name))
   const imageSrc: string | undefined =
     thing?.type.name === "image" ? thing.attrs.src : undefined
+  /** A card's address. Opened through `window.open`, which the app hands to the browser. */
+  const href: string | undefined = thing?.attrs.href || undefined
 
   /**
    * An attachment holding a picture, which can be shown as one instead.
@@ -342,6 +344,22 @@ export function BlockMenu({
               </DropdownMenuItem>
             ))
           : null}
+
+        {href && matches("Open link") ? (
+          <DropdownMenuItem asChild>
+            <button type="button" onClick={() => window.open(href)}>
+              <span className="tiptap-slash-menu-title">Open link</span>
+            </button>
+          </DropdownMenuItem>
+        ) : null}
+
+        {href && matches("Copy link") ? (
+          <DropdownMenuItem asChild>
+            <button type="button" onClick={() => void navigator.clipboard.writeText(href)}>
+              <span className="tiptap-slash-menu-title">Copy link</span>
+            </button>
+          </DropdownMenuItem>
+        ) : null}
 
         {matches("Copy") ? (
           <DropdownMenuItem asChild>

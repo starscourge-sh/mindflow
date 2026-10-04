@@ -29,11 +29,11 @@ import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShor
 
 import { createHash, randomUUID } from 'crypto'
 import { copyFile, mkdir, readFile, rename, writeFile } from 'fs/promises'
-import { join } from 'path'
+import { basename, join } from 'path'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { registerCaptures } from './captures'
+import { importMarkdown, recordOpen, registerCaptures } from './captures'
 
 
 /* The standard electron app file structure:
@@ -141,7 +141,8 @@ protocol.registerSchemesAsPrivileged([
 // const WIDTH = 720
 const WIDTH = 1080
 const SIZES = {
-  compact: { width: WIDTH, height: 400 },
+  // compact: { width: WIDTH, height: 400 },
+  compact: { width: WIDTH, height: 600 },
   expanded: { width: WIDTH, height: 816 }
 }
 
@@ -189,6 +190,8 @@ function toggleWindow(): void {
   // while the window was away.
   if (lastBounds) win.setBounds(onScreen(lastBounds))
   win.show()
+  recordOpen('prompt')
+  win.webContents.send('window:shown')
   // An accessory app is not in the running-app rotation, so asking for the
   // window alone sometimes leaves the keyboard with whatever had it. `steal`
   // is what brings this app forward at all.
@@ -304,6 +307,7 @@ let prompt: BrowserWindow | null = null
 let home: BrowserWindow | null = null
 
 function openHome(): void {
+  recordOpen('home')
   // An accessory app is not in the running-app rotation, so the window alone
   // does not bring it forward. The same as the prompt does.
   app.focus({ steal: true })
@@ -423,6 +427,8 @@ function createWindow(): void {
   mainWindow.on('ready-to-show', () => {
     // still see a view of app before app fully paints, so will wait 1 sec before show.
     mainWindow.show()
+    recordOpen('prompt')
+    mainWindow.webContents.send('window:shown')
   })
 
 
@@ -437,8 +443,13 @@ function createWindow(): void {
     // opened on, so summoning it there did nothing you could see. These two
     // say the window has no Space of its own and sits above the level a
     // full-screen app occupies.
+    //
+    // `pop-up-menu`, not `screen-saver`: at the screen-saver level macOS never
+    // delivers a drop to the window, so a block picked up by its grip went
+    // nowhere and no ghost of it followed the pointer. Every level below that
+    // drags fine; this is the highest of them.
     mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-    mainWindow.setAlwaysOnTop(true, 'screen-saver')
+    mainWindow.setAlwaysOnTop(true, 'pop-up-menu')
   }
 
   // Whether the pointer is over the window, for the controls that only show
@@ -489,6 +500,29 @@ app.userAgentFallback = app.userAgentFallback
 // Dock or Cmd+Tab.
 if (process.platform === 'darwin') app.setActivationPolicy('accessory')
 
+// Somewhere else to keep everything, for the QA runs: they drive this same app,
+// and must never open the database your real captures are in.
+if (process.env.MINDFLOW_USER_DATA) app.setPath('userData', process.env.MINDFLOW_USER_DATA)
+
+/**
+ * Jottings from Markdown files - an inbox note, a file of jokes - as captures.
+ * A file with "joke" or "bit" in its name gives bits; anything else, notes.
+ */
+async function importFiles(): Promise<void> {
+  const { filePaths } = await dialog.showOpenDialog({
+    title: 'Import Markdown',
+    properties: ['openFile', 'multiSelections'],
+    filters: [{ name: 'Markdown', extensions: ['md'] }]
+  })
+  const lines = []
+  for (const path of filePaths) {
+    const name = basename(path)
+    const added = importMarkdown(name, await readFile(path, 'utf8'), /joke|bit/i.test(name) ? 'bit' : 'note')
+    lines.push(`${name}: ${added} new`)
+  }
+  if (lines.length) await dialog.showMessageBox({ message: 'Imported', detail: lines.join('\n') })
+}
+
 /**
  * End the program.
  *
@@ -524,6 +558,7 @@ function createTray(): void {
     Menu.buildFromTemplate([
       { label: 'Show mindflow', accelerator: SUMMON, click: () => toggleWindow() },
       { label: 'Open all notes', click: openHome },
+      { label: 'Import Markdown…', click: () => void importFiles() },
       { type: 'separator' },
       { label: 'Quit mindflow', accelerator: 'Command+Q', click: quit }
     ])

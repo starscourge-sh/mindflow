@@ -31,6 +31,11 @@ export interface Api {
   setExpanded: (expanded: boolean) => Promise<boolean>
   hideWindow: () => void
   showPrompt: () => void
+  onShown: (listen: () => void) => () => void
+  hints: {
+    next: () => Promise<{ id: string; kind: string; body: unknown; event: number } | null>
+    react: (event: number, id: string, reaction: 'up' | 'down') => Promise<void>
+  }
   onPointer: (listen: (inside: boolean) => void) => () => void
   openDrawing: (id: string, scene: unknown) => void
   onDrawingChange: (listen: (id: string, scene: unknown) => void) => () => void
@@ -42,6 +47,9 @@ export interface Api {
     list: () => Promise<CaptureMeta[]>
     get: (id: string) => Promise<Capture | null>
     search: (query: string) => Promise<CaptureMeta[]>
+    rot: () => Promise<Capture[]>
+    find: (query: string) => Promise<Capture[]>
+    promote: (id: string) => Promise<void>
     create: (patch: CapturePatch) => Promise<string>
     save: (id: string, patch: CapturePatch) => Promise<void>
     onChange: (listen: () => void) => () => void

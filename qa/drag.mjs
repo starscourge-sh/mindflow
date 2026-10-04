@@ -43,6 +43,37 @@ test('a checkbox keeps its tick when moved', async (app) => {
   return app.shape()
 })
 
+test('a list item in a callout can be reached and moved', async (app) => {
+  const { page } = app
+  const p = (text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
+  await page.$eval('.tiptap.ProseMirror.mindflow-editor:not(.is-line)', (root, items) =>
+    root.editor.commands.setContent({ type: 'doc', content: [{ type: 'callout', content: [items[0],
+      { type: 'bulletList', content: [{ type: 'listItem', content: [items[1]] }, { type: 'listItem', content: [items[2]] }] }] }] }),
+    [p('intro'), p('one'), p('two')])
+  await page.waitForTimeout(400)
+
+  // Hover the first item, then travel left to its grip across the callout's
+  // padding. The grip must still be the item's when the pointer gets there.
+  const items = page.locator('li p')
+  const one = await items.nth(0).boundingBox()
+  await page.mouse.move(one.x + 40, one.y + one.height / 2, { steps: 5 })
+  await page.waitForTimeout(200)
+  const grip = await page.locator('.tiptap-drag-handle-grip').boundingBox()
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2, { steps: 25 })
+  await page.waitForTimeout(200)
+  const still = await page.locator('.tiptap-drag-handle-grip').boundingBox()
+  if (Math.abs(still.y - grip.y) > 2) return `grip jumped from ${grip.y} to ${still.y}`
+
+  const two = await items.nth(1).boundingBox()
+  await page.mouse.move(still.x + still.width / 2 + 1, still.y + still.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(two.x + 40, two.y + two.height * 0.8, { steps: 12 })
+  await page.waitForTimeout(120)
+  await page.mouse.up()
+  await page.waitForTimeout(250)
+  return app.shape()
+})
+
 const app = await open()
 for (const { name, run } of cases) {
   await app.reset()

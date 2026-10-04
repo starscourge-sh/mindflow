@@ -6,7 +6,8 @@
     "src/renderer/src/**/*.tsx",
     "src/preload/*.d.ts",
     "src/main/captures.ts",
-    "src/main/backup.ts"
+    "src/main/backup.ts",
+    "src/main/import.ts"
   ],
   "compilerOptions": {
     "noImplicitAny": true,
