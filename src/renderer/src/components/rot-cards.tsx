@@ -51,13 +51,16 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
   // The card whose who is being asked, from its w key.
   const [asking, setAsking] = useState<string | null>(null)
   const reload = (): void => void window.api.captures.rot().then(setCards)
+  const drop = (id: string): void => setCards((all) => all.filter((one) => one.id !== id))
   useEffect(() => {
     reload()
     return window.api.onShown(reload)
   }, [])
 
   const exit = (id: string, status: string): void => {
-    void exitWith(id, status).then(reload)
+    // Only that card goes: the others stay put, and a fresh three comes the
+    // next time the prompt opens.
+    void exitWith(id, status).then(() => window.api.captures.get(id)).then((now) => now?.status !== 'open' && drop(id))
   }
 
   if (!cards.length) return null
@@ -94,7 +97,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             { label: 'Open', run: () => onOpen(card.id) },
             'separator',
             ...EXITS.map((one) => ({ label: one.label, keys: one.key.toUpperCase(), danger: one.status === 'discarded', run: () => exit(card.id, one.status) })),
-            { label: 'Make it a task', run: () => void toTask(card.id).then(() => { toast('Now a task'); reload() }) },
+            { label: 'Make it a task', run: () => void toTask(card.id).then(() => { toast('Now a task'); drop(card.id) }) },
             { label: 'Say who said it', keys: 'W', run: () => setAsking(card.id) },
             'separator',
             { label: 'Pin to the prompt', run: () => pin('captures', card.id, true) },
@@ -105,7 +108,10 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             </button>
           </RowMenu>
           {asking === card.id ? (
-            <div className="mt-1"><AskWho id={card.id} onDone={() => setAsking(null)} /></div>
+            <div className="mt-1"><AskWho id={card.id} initial={card.attribution ?? ''} onDone={(who) => {
+              setAsking(null)
+              if (who !== undefined) setCards((all) => all.map((one) => (one.id === card.id ? { ...one, attribution: who || null } : one)))
+            }} /></div>
           ) : (
           <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
             {/* How long it has gone untouched, warming with age: the rot itself. */}

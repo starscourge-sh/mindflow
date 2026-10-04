@@ -166,6 +166,12 @@ export function installTicks(): () => void {
   const onOver = (event: PointerEvent): void => {
     // The Settings preview plays its own sounds, through the pack being tried.
     if ((event.target as Element | null)?.closest('[data-silent]')) return
+    // Tabs and chips sound when pressed, not when passed over: a row of them
+    // crossed on the way somewhere else would rattle.
+    if ((event.target as Element | null)?.closest('[data-hover-quiet]')) {
+      over = null
+      return
+    }
     // The outermost thing you can press: a card and the buttons on it are one
     // sound, made on arriving at the card, not one more for each button.
     const PRESSABLE = 'button, [role="button"], [role="tab"], a[href], [tabindex="0"]'

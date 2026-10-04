@@ -3,6 +3,7 @@ import { SlidersHorizontal } from 'lucide-react'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tip, typing } from './ui'
+import { chime } from '@/lib/sound'
 
 /**
  * Display, the way Todoist and Linear do it: one button on a list that holds
@@ -72,12 +73,15 @@ export const AGES: Choice[] = ['Today', 'This week', 'This month', 'This year', 
 
 export function Chips({ options, on, pick }: { options: readonly Choice[]; on: (id: string) => boolean; pick: (id: string) => void }): React.JSX.Element {
   return (
-    <div className="flex flex-wrap gap-1">
+    <div data-hover-quiet className="flex flex-wrap gap-1">
       {options.map((option) => (
         <button
           key={option.id}
           type="button"
-          onClick={() => pick(option.id)}
+          onClick={() => {
+            chime('tap')
+            pick(option.id)
+          }}
           className={`rounded-md px-2 py-0.5 text-xs transition-colors ${on(option.id) ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'}`}
         >
           {option.label}

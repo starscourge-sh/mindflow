@@ -740,12 +740,13 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading }: {
   // The same easing as the main window's lists.
   useSmooth(scroller)
   const due = useLive(() => window.api.vigil('review:counts') as Promise<number>, 0)
-  const today = useLive(
-    () => (window.api.vigil('tasks') as Promise<{ status: string; dueAt: string | null }[]>).then(
-      (tasks) => tasks.filter((task) => task.status === 'open' && task.dueAt && new Date(task.dueAt).getTime() < new Date().setHours(24, 0, 0, 0)).length
-    ),
+  // Each tab counts what it holds, so a thing sent there visibly arrives:
+  // every open task, every nugget and article.
+  const openTasks = useLive(
+    () => (window.api.vigil('tasks') as Promise<{ status: string }[]>).then((tasks) => tasks.filter((task) => task.status === 'open').length),
     0
   )
+  const kept = useLive(() => Promise.all([vigil.items('nugget'), vigil.items('article')]).then(([n, a]) => n.length + a.length), 0)
   // The inbox is what has no exit yet; what is handled lives in All captures.
   const open = captures.filter((capture) => capture.status === 'open')
   // The same Display menu as the main window's inbox: filter, sort, group.
@@ -753,9 +754,9 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading }: {
   const shown = groups.flatMap(([, list]) => list)
   const tabs = [
     { id: 'inbox', label: 'Inbox', count: open.length },
-    { id: 'today', label: 'Tasks', count: today },
+    { id: 'today', label: 'Tasks', count: openTasks },
     { id: 'review', label: 'Review', count: due },
-    { id: 'kept', label: 'Kept', count: 0 }
+    { id: 'kept', label: 'Kept', count: kept }
   ] as const
   // The same keys as every list: j and k when the editor does not have the
   // focus, Enter to open. ⌘1 to ⌘3 switch tabs from anywhere in the window.
@@ -773,7 +774,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading }: {
 
   return (
     <div className="relative flex h-full w-full flex-col p-2">
-      <div className="mb-2 flex gap-1 rounded-lg bg-accent/40 p-0.5 text-sm">
+      <div data-hover-quiet className="mb-2 flex gap-1 rounded-lg bg-accent/40 p-0.5 text-sm">
         {tabs.map((one) => (
           <Tip key={one.id} label={`⌃${tabs.indexOf(one) + 1}`}>
           <button

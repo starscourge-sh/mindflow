@@ -73,7 +73,15 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
 
   return (
     <div className="flex flex-col gap-1 text-sm">
-      <Chips options={(Object.keys(SCOPES) as Scope[]).map((id) => ({ id, label: SCOPES[id].label }))} on={(id) => id === scope} pick={(id) => setScope(id as Scope)} />
+      {/* Each list with how many it holds, so a task sent to the backlog is seen landing there. */}
+      <Chips
+        options={(Object.keys(SCOPES) as Scope[]).map((id) => {
+          const n = tasks.filter((task) => task.status === 'open' && SCOPES[id].test(task)).length
+          return { id, label: n ? `${SCOPES[id].label} ${n}` : SCOPES[id].label }
+        })}
+        on={(id) => id === scope}
+        pick={(id) => setScope(id as Scope)}
+      />
       <form
         className="mb-2 flex items-center gap-2 rounded-md border px-2 py-1.5 focus-within:border-ring"
         onSubmit={(event) => {

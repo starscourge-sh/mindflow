@@ -1,4 +1,4 @@
-import { cloneElement, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Children, cloneElement, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { ArrowUp, CircleCheck, Volume2, VolumeX, type LucideIcon } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
@@ -419,8 +419,9 @@ export function Remembered({ field, value, onChange, placeholder, className = 'w
  * Who said it, asked in place: one key from a rot card or a search result
  * opens it, Enter keeps it, Escape leaves it as it was.
  */
-export function AskWho({ id, onDone }: { id: string; onDone: () => void }): React.JSX.Element {
-  const [who, setWho] = useState('')
+export function AskWho({ id, initial = '', onDone }: { id: string; initial?: string; onDone: (who?: string) => void }): React.JSX.Element {
+  // Starts from the name it has, so a fix is an edit rather than a retype.
+  const [who, setWho] = useState(initial)
   return (
     <Remembered
       autoFocus
@@ -429,14 +430,15 @@ export function AskWho({ id, onDone }: { id: string; onDone: () => void }): Reac
       onChange={setWho}
       placeholder="Who said it?  ↵"
       className="w-full text-[13px]"
-      onBlur={onDone}
+      onBlur={() => onDone()}
       onKeyDown={(event) => {
         event.stopPropagation()
         if (event.key === 'Escape') onDone()
         if (event.key !== 'Enter') return
         event.preventDefault()
-        if (who.trim()) void vigil.setCapture(id, 'attribution', who.trim()).then(() => toast(`Said by ${who.trim()}`))
-        onDone()
+        // Emptied and Enter clears it: a wrong name can be taken off.
+        void vigil.setCapture(id, 'attribution', who.trim() || null).then(() => toast(who.trim() ? `Said by ${who.trim()}` : 'Who said it: cleared'))
+        onDone(who.trim())
       }}
     />
   )
@@ -446,11 +448,12 @@ export function AskWho({ id, onDone }: { id: string; onDone: () => void }): Reac
  * A label on hover, shadcn's tooltip rather than the system's: says what a
  * button does, and its key if it has one.
  */
-export function Tip({ label, children }: { label: ReactNode; children: React.ReactElement<{ 'aria-label'?: string }> }): React.JSX.Element {
+export function Tip({ label, children }: { label: ReactNode; children: React.ReactElement<{ 'aria-label'?: string; children?: ReactNode }> }): React.JSX.Element {
   if (!label) return children
-  // A plain-text tip is also the control's name, so an icon-only button can
-  // be read out, not only hovered.
-  const named = typeof label === 'string' && !children.props['aria-label'] ? cloneElement(children, { 'aria-label': label }) : children
+  // A plain-text tip names an icon-only button, so it can be read out, not
+  // only hovered. A button with words of its own keeps them as its name.
+  const worded = Children.toArray(children.props.children).some((child) => typeof child === 'string' || typeof child === 'number')
+  const named = typeof label === 'string' && !worded && !children.props['aria-label'] ? cloneElement(children, { 'aria-label': label }) : children
   return (
     <Tooltip>
       <TooltipTrigger asChild>{named}</TooltipTrigger>
