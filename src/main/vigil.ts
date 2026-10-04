@@ -375,14 +375,19 @@ export function registerVigil(): void {
       : undefined
     // Half the time, or always while there are few nuggets, an old capture
     // still open: the link you meant to read, the thing you meant to look up.
-    // An open link is an unread one, so links come up three times as often.
     // Never one a rot card showed in the last three days.
     const few = (db.prepare('select count(*) n from nuggets where suspended = 0').get() as { n: number }).n < 20
-    const old = !pushed && (few || Math.random() < 0.5)
-      ? (db.prepare(`select id, id as captureId, kind, title, body from captures where status = 'open' and coalesce(surfaced_at, '') < ?
-          and captured_at < ? ${hidePrivate ? 'and private = 0' : ''}
-          and id not in (select nugget_id from hint_events where shown_at >= ?)
-          order by (julianday('now') - julianday(captured_at)) * (case kind when 'link' then 3 else 1 end) * surfacing_weight * (abs(random()) % 1000) desc limit 1`).get(ago(3), ago(7), ago(3)) as Record<string, string> | undefined)
+    // Fair by kind: a kind is drawn first, each with the same chance, and
+    // then one of its captures, so three hundred bits do not crowd out the
+    // dozen links and words. Within a kind, older and voted-up come first.
+    const candidates = `from captures where status = 'open' and coalesce(surfaced_at, '') < ?
+      and captured_at < ? ${hidePrivate ? 'and private = 0' : ''}
+      and id not in (select nugget_id from hint_events where shown_at >= ?)`
+    const kinds = (db.prepare(`select distinct kind ${candidates}`).all(ago(3), ago(7), ago(3)) as { kind: string }[]).map((row) => row.kind)
+    const kind = kinds[Math.floor(Math.random() * kinds.length)]
+    const old = !pushed && kind && (few || Math.random() < 0.5)
+      ? (db.prepare(`select id, id as captureId, kind, title, body ${candidates} and kind = ?
+          order by (julianday('now') - julianday(captured_at)) * surfacing_weight * (abs(random()) % 1000) desc limit 1`).get(ago(3), ago(7), ago(3), kind) as Record<string, string> | undefined)
       : undefined
     const hint = pushed ?? old ?? db
       .prepare(
