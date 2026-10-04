@@ -242,16 +242,20 @@ export function useSmooth(box: HTMLElement | null): void {
     const wrapper = box
     if (!wrapper || matchMedia('(prefers-reduced-motion: reduce)').matches) return
     const lenis = new Lenis({ wrapper, content: wrapper.firstElementChild as HTMLElement, lerp: 0.14, smoothWheel: true })
+    // Anything that moves this box itself goes through Lenis, or the two fight.
+    smooth.set(wrapper, lenis)
     let frame = requestAnimationFrame(function loop(time) {
       lenis.raf(time)
       frame = requestAnimationFrame(loop)
     })
     return () => {
       cancelAnimationFrame(frame)
+      smooth.delete(wrapper)
       lenis.destroy()
     }
   }, [box])
 }
+const smooth = new WeakMap<HTMLElement, Lenis>()
 
 /**
  * Back to the top, once you are far enough down for it to be a trip: a small
@@ -284,10 +288,15 @@ export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX
             // From far down, jump most of the way and glide the last stretch:
             // a glide over a few hundred rows is a wait, not a motion.
             if (!target) return
-            if (target.scrollTop > target.clientHeight * 2) target.scrollTop = target.clientHeight
-            target.scrollTo({ top: 0, behavior: 'smooth' })
+            const lenis = smooth.get(target)
+            if (target.scrollTop > target.clientHeight * 2) {
+              if (lenis) lenis.scrollTo(target.clientHeight, { immediate: true })
+              else target.scrollTop = target.clientHeight
+            }
+            if (lenis) lenis.scrollTo(0, { duration: 0.6 })
+            else target.scrollTo({ top: 0, behavior: 'smooth' })
           }}
-          className="pointer-events-auto flex items-center gap-1 rounded-full bg-popover/85 py-1 pr-3 pl-2 font-sans text-xs font-medium text-muted-foreground shadow-[0_0_0_1px_var(--border),0_8px_24px_-8px_rgb(0_0_0/0.6)] backdrop-blur-md transition-colors hover:text-foreground"
+          className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-[var(--tt-brand-color-400)] py-1.5 pr-3.5 pl-2.5 font-sans text-xs font-medium text-white shadow-[0_10px_24px_-8px_color-mix(in_srgb,var(--tt-brand-color-400)_70%,black)] transition-[filter] hover:brightness-110"
         >
           <ArrowUp className="size-3.5" /> Top
         </motion.button>
