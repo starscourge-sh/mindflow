@@ -153,6 +153,26 @@ function Pick({ options, chosen, many, onPick }: { options: Choice[]; chosen: st
   )
 }
 
+/** Defined once, out here: made inside Display, every change rebuilt them and closed the open menu. */
+const Section = ({ title, count, children }: { title: string; count: number; children: ReactNode }): React.JSX.Element => (
+  <section className="border-t px-3 py-2.5 first:border-t-0">
+    <h3 className="mb-2 flex items-center gap-1.5 font-semibold text-foreground">
+      {title}
+      {count > 0 && <span className="rounded bg-accent px-1 text-meta tabular-nums text-muted-foreground">{count}</span>}
+    </h3>
+    <div className="grid grid-cols-[6rem_1fr] items-center gap-x-3 gap-y-1.5">{children}</div>
+  </section>
+)
+const Row = ({ label, changed, children }: { label: string; changed: boolean; children: ReactNode }): React.JSX.Element => (
+  <>
+    <div className="flex items-center gap-1.5 text-muted-foreground">
+      {label}
+      {changed && <span className="size-1.5 rounded-full bg-[var(--tt-brand-color-400)]" aria-label="changed" />}
+    </div>
+    {children}
+  </>
+)
+
 /**
  * The Display button and its panel, the way Todoist lays it out: Sort, then
  * Filter, each setting a name and a field. A changed setting carries a dot,
@@ -191,24 +211,6 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
     onChange({ ...view, filter: { ...view.filter, [key]: list.includes(id) ? list.filter((one) => one !== id) : [...list, id] } })
   }
   const shownFacets = facets.filter((facet) => facet.options.length > 1 || (view.filter[facet.key] ?? []).length > 0)
-  const Section = ({ title, count, children }: { title: string; count: number; children: ReactNode }): React.JSX.Element => (
-    <section className="border-t px-3 py-2.5 first:border-t-0">
-      <h3 className="mb-2 flex items-center gap-1.5 font-semibold text-foreground">
-        {title}
-        {count > 0 && <span className="rounded bg-accent px-1 text-meta tabular-nums text-muted-foreground">{count}</span>}
-      </h3>
-      <div className="grid grid-cols-[6rem_1fr] items-center gap-x-3 gap-y-1.5">{children}</div>
-    </section>
-  )
-  const Row = ({ label, changed, children }: { label: string; changed: boolean; children: ReactNode }): React.JSX.Element => (
-    <>
-      <div className="flex items-center gap-1.5 text-muted-foreground">
-        {label}
-        {changed && <span className="size-1.5 rounded-full bg-[var(--tt-brand-color-400)]" aria-label="changed" />}
-      </div>
-      {children}
-    </>
-  )
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <Tip label="Display  F">
@@ -222,6 +224,7 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
       <PopoverContent
         align="end"
         // Kept 12px clear of the window's edge, rounded corner and all.
+        collisionPadding={12}
         className="max-h-[calc(var(--radix-popover-content-available-height)-12px)] w-80 gap-0 overflow-y-auto p-0 text-control"
         // A choice in one of its menus is inside Display, not a click away.
         onInteractOutside={(event) => void ((event.target as Element | null)?.closest?.('[data-slot="dropdown-menu-content"]') && event.preventDefault())}

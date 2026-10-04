@@ -124,7 +124,7 @@ export function Home(): React.JSX.Element {
       if (event.metaKey || event.ctrlKey || event.altKey) return
       if (pending) {
         pending = false
-        const to = SECTIONS.find((section) => section.key === event.key)
+        const to = SECTIONS.find((section) => section.key === event.key.toLowerCase())
         // Taken here, so G T goes to Today and does not also move a task to today.
         if (to) {
           event.preventDefault()
@@ -132,7 +132,7 @@ export function Home(): React.JSX.Element {
         }
         return
       }
-      if (event.key === 'g') pending = true
+      if (event.key.toLowerCase() === 'g') pending = true
       else if (event.key === 'c') window.api.showPrompt()
     }
     window.addEventListener('keydown', onKey, true)

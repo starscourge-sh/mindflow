@@ -94,9 +94,9 @@ export function ReadThrough({ items, start = 0, onClose, onEdit }: {
       {/* The only furniture: where you are, and how to move. */}
       <footer className="flex shrink-0 items-center justify-center gap-4 pb-4 text-xs text-muted-foreground">
         <span className="tabular-nums">{at + 1} of {items.length}</span>
-        <span><Kbd>J</Kbd> <Kbd>K</Kbd> turn</span>
+        <span><Kbd>J</Kbd> next <Kbd>K</Kbd> back</span>
         <span><Kbd>E</Kbd> change it</span>
-        <span><Kbd>Esc</Kbd> back</span>
+        <span><Kbd>Esc</Kbd> close</span>
       </footer>
     </div>
   )

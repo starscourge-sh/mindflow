@@ -71,7 +71,13 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
     // next time the prompt opens.
     // Undone, it comes back to its place among the cards.
     const card = cards.find((one) => one.id === id)
-    const back = (): void => void (card && setCards((all) => (all.some((one) => one.id === id) ? all : [...all, card].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)))))
+    // Dealt again rather than slotted in: a card still on its way out would
+    // otherwise come back at the end.
+    const back = (): void => {
+      if (!card) return
+      setCards((all) => (all.some((one) => one.id === id) ? all : [...all, card].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt))))
+      setDeal((n) => n + 1)
+    }
     void exitWith(id, status, back).then(() => window.api.captures.get(id)).then((now) => now?.status !== 'open' && drop(id))
   }
 

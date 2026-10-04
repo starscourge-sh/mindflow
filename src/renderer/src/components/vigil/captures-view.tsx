@@ -57,7 +57,7 @@ export function CapturesView({ title, keep, focus, onOpen }: {
       // it tracks the G itself.
       if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
       const afterG = lastKey.current === 'g'
-      lastKey.current = event.key
+      lastKey.current = event.key.toLowerCase()
       if (afterG) return
       // Escape lets a selection go, the way Linear's does.
       // Taken first, so the list does not also close what is open.
@@ -66,7 +66,8 @@ export function CapturesView({ title, keep, focus, onOpen }: {
         return setChosen([])
       }
       // P, R and D take that exit on the row under the cursor, as the menu says.
-      const one = EXITS.find((e) => e.key === event.key)
+      // Shift alone is not an exit: Shift+R is half of G R typed in capitals.
+      const one = !event.shiftKey && EXITS.find((e) => e.key === event.key)
       if (one && shown[cursor]?.status === 'open') return void exit(shown[cursor].id, one.status)
       if (event.key !== 'x') return
       const capture = shown[cursor]
@@ -272,7 +273,7 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
 
       <PropLabel>Surfacing</PropLabel>
       <Prop icon={capture.private ? EyeOff : Eye} active={!!capture.private} onClick={() => void vigil.setPrivate('captures', capture.id, !capture.private)}>
-        {capture.private ? 'Private: kept back in quiet hours' : 'Can surface any time'}
+        {capture.private ? 'Private' : 'Can surface any time'}
       </Prop>
       <Prop icon={Pin} active={!!capture.pinnedAt} onClick={() => pin('captures', capture.id, !capture.pinnedAt)}>
         {capture.pinnedAt ? 'Pinned' : 'Pin to the prompt'}

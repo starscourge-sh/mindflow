@@ -140,7 +140,8 @@ const Header = ({ panel, onPanel }: { panel: boolean; onPanel: () => void }): Re
 
   return (
     <div className="h-fit fixed top-0 right-0 left-0 z-10 flex flex-col items-center py-2 text-xs cursor-pointer" style={{ WebkitAppRegion: 'drag' }}>
-      <div className="flex w-full" style={{ padding: '0rem 4.75rem' } as CSSProperties}>
+      <div className="flex w-full" // Over the panel, the icons end where the panel's own edge does.
+        style={{ padding: panel ? '0 0.75rem 0 4.75rem' : '0rem 4.75rem' } as CSSProperties}>
         <WindowDots />
         <span className="flex-1" />
         <Tip label={`${panel ? 'Hide' : 'Show'} Inbox, Tasks, Review and Kept  ⌘\\`}>
@@ -326,6 +327,8 @@ export default function App(): React.JSX.Element {
   })
   // Reading through a list, one note at a time with nothing else on screen.
   const [readList, setReadList] = useState<{ items: Readable[]; start: number } | null>(null)
+  // With the panel shut, ⌘⇧R still reads: the inbox, from the top.
+  useReadKey(() => setReadList({ items: captures.filter((one) => one.status === 'open').map((one) => ({ type: 'capture', id: one.id })), start: 0 }), captures.length, !panel)
   // ⌘K: search everything from the prompt, and open what it finds here.
   const [searching, setSearching] = useState(false)
   // What search opens with: a clicked tag, or nothing.
@@ -751,7 +754,13 @@ function DetailsDrawer({ open, id, captures, onOpenChange, onOpen }: {
   if (!capture) return null
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="gap-0 overflow-y-auto p-0">
+      <SheetContent side="right" className="gap-0 overflow-y-auto p-0"
+        // Back to the writing, so the next Escape is the editor's, not a hide.
+        onCloseAutoFocus={(event) => {
+          event.preventDefault()
+          document.querySelector<HTMLElement>('.tiptap.ProseMirror')?.focus()
+        }}
+      >
         <SheetHeader className="border-b p-4">
           <SheetTitle className="text-sm">Details</SheetTitle>
           <SheetDescription className="sr-only">What can be done with this capture, and where it came from.</SheetDescription>

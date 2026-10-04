@@ -53,7 +53,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
     const at = new Date()
     at.setDate(at.getDate() + days)
     at.setHours(9, 0, 0, 0)
-    void vigil.saveTask(task.id, { due: at.toISOString() }).then(() => toast(`Moved to ${when(at.toISOString()).toLowerCase()}`))
+    void vigil.saveTask(task.id, { due: at.toISOString() }).then(() => toast(`Moved to ${when(at.toISOString())}`))
   }
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -95,7 +95,8 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
         on={(id) => id === scope}
         pick={(id) => setScope(id as Scope)}
         // One line that scrolls sideways, never wrapping under itself.
-        className="min-w-0 flex-1 flex-nowrap overflow-x-auto [scrollbar-width:none] [&>button]:shrink-0"
+        // and fading at its end, so a cut-off chip reads as more to scroll to.
+        className="min-w-0 flex-1 flex-nowrap overflow-x-auto pr-6 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] [&>button]:shrink-0"
       />
       <span className="ml-auto"><Display view={view} onChange={setView} facets={facets} sorts={[{ id: 'manual', label: 'Your order' }]} /></span>
       </div>
@@ -109,7 +110,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
             const task = await vigil.task(made.id)
             setDraft('')
             // Said where it went when it is not in this list: a later day, or a routine.
-            if (task && !SCOPES[scope].test(task)) toast(task.recurrence ? 'Added to Routines' : task.dueAt ? `Added for ${when(task.dueAt, !!task.allDay).toLowerCase()}` : 'Added to the backlog')
+            if (task && !SCOPES[scope].test(task)) toast(task.recurrence ? 'Added to Routines' : task.dueAt ? `Added for ${when(task.dueAt, !!task.allDay)}` : 'Added to the backlog')
           })
         }}
       >

@@ -154,28 +154,34 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
         >
           <RowMenu items={actions.map(({ tip, keys, run }) => ({ label: tip, keys, run, danger: tip === 'Discard it' }))}>
             {fixing !== null ? (
-              <Input
+              // Grows with the words and sits where they sat, so a two-line hint
+              // stays two lines and the card does not jump.
+              <textarea
                 autoFocus
+                rows={1}
                 value={fixing}
                 onChange={(event) => setFixing(event.target.value)}
                 onBlur={() => keep(fixing)}
                 onKeyDown={(event) => {
                   event.stopPropagation()
-                  if (event.key === 'Enter') keep(fixing)
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault()
+                    keep(fixing)
+                  }
                   // Closes the field only, never the window behind it.
                   if (event.key === 'Escape') {
                     event.preventDefault()
                     setFixing(null)
                   }
                 }}
-                className="h-8"
+                className="block w-full resize-none bg-transparent outline-none [field-sizing:content]"
               />
             ) : (
               <div className="line-clamp-6 cursor-text whitespace-pre-line" onClick={fix}>
                 {/* The words roll in when it arrives, a hint being dealt; a
                     long one, which must wrap, simply appears, since rolling
                     text keeps to one line. */}
-                {said.length <= 60 && !said.includes('\n') ? <Rolling by="word" text={said} /> : said}
+                {said.length <= 40 && !said.includes('\n') ? <Rolling by="word" text={said} /> : said}
               </div>
             )}
           </RowMenu>

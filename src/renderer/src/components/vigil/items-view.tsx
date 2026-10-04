@@ -337,7 +337,7 @@ export function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: s
 
         <PropLabel>Surfacing</PropLabel>
         <Prop icon={item.private ? EyeOff : Eye} active={!!item.private} onClick={() => void vigil.setPrivate('nuggets', item.id, !item.private)}>
-          {item.private ? 'Private: kept back in quiet hours' : 'Can surface any time'}
+          {item.private ? 'Private' : 'Can surface any time'}
         </Prop>
         <Prop icon={Pin} active={!!item.pinnedAt} onClick={() => pin('nuggets', item.id, !item.pinnedAt)}>
           {item.pinnedAt ? 'Pinned' : 'Pin to the prompt'}
