@@ -671,9 +671,10 @@ function SidePanel({ captures, editing, onOpen }: {
         className="flex min-h-0 flex-1 flex-col"
       >
         {/* Two kinds of thing, two places: what is waiting on you stays put,
-            and only your captures scroll under it. */}
+            and only your captures scroll under it. Its shadow is the capture
+            box's own, cut to fall only below it. */}
         {tab === 'inbox' && (
-          <div className="relative z-10 shrink-0 shadow-[0_10px_18px_-10px_rgb(0_0_0/0.55)]">
+          <div className="relative z-10 shrink-0 shadow-xl [clip-path:inset(0_0_-3rem_0)]">
             <Pins />
             <RotCards onOpen={onOpen} />
           </div>
