@@ -16,7 +16,7 @@ const byName = (label: string): Theme | undefined =>
   THEMES.find((name) => themeName(name) === label)
 
 /** Three of a theme's colours, overlapping. The stylesheet paints them. */
-const Swatch = ({ theme }: { theme: Theme }): React.JSX.Element => (
+export const Swatch = ({ theme }: { theme: Theme }): React.JSX.Element => (
   <span className={`mf-swatch mf-swatch-${theme}`}>
     <i />
     <i />

@@ -18,6 +18,7 @@ import {
 import { THEMES, applyTheme, currentTheme, themeName, type Theme } from '@/lib/theme'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
 import { Tip } from './ui'
+import { Swatch } from '../theme/theme-picker'
 
 /** One setting the box can have switched on or off. */
 export type Option = { label: string; on: boolean; keys?: string; set: (on: boolean) => void }
@@ -55,9 +56,11 @@ export function OptionsMenu({ options, actions }: {
             Sounds
           </DropdownMenuCheckboxItem>
         )}
-        <DropdownMenuSub>
+        {/* Each theme is worn as you pass it, against your own note; leaving
+            without picking puts back the one that was on. */}
+        <DropdownMenuSub onOpenChange={(open) => void (!open && applyTheme(theme, false))}>
           <DropdownMenuSubTrigger>Theme <span className="ml-auto text-muted-foreground">{themeName(theme)}</span></DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="text-control">
+          <DropdownMenuSubContent className="text-control" onPointerLeave={() => applyTheme(theme, false)}>
             <DropdownMenuRadioGroup
               value={theme}
               onValueChange={(next) => {
@@ -66,7 +69,10 @@ export function OptionsMenu({ options, actions }: {
               }}
             >
               {THEMES.map((one) => (
-                <DropdownMenuRadioItem key={one} value={one}>{themeName(one)}</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem key={one} value={one} className="gap-2" onFocus={() => applyTheme(one, false)}>
+                  <Swatch theme={one} />
+                  {themeName(one)}
+                </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
           </DropdownMenuSubContent>
