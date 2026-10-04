@@ -550,6 +550,7 @@ function Surface({
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [sourceOpen, setSourceOpen] = useState(showSource)
+  const emptyAtStart = typeof defaultContent === "string" ? !defaultContent.trim() : !JSON.stringify(defaultContent ?? null).includes('"text":"')
   // Through a ref: extensions are built once, and the handler can change.
   const toggleSource = useRef(onToggleSource)
   toggleSource.current = onToggleSource
@@ -1014,7 +1015,9 @@ function Surface({
       }),
       VimMode.configure({
         enabled: vimOn,
-        start: vimStart,
+        // An empty document opens ready to type, whatever the default: in
+        // normal mode its first letters were commands, and nothing appeared.
+        start: emptyAtStart ? "insert" : vimStart,
         // A line has nowhere for o, O, V or dd to go.
         singleLine: shape === "line",
         onSearch: () => setSearchOpen(true),
