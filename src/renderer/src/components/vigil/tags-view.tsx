@@ -36,7 +36,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
             {tags.map(({ tag, count, color }, index) => (
               <RowMenu key={tag} items={[
                 { label: 'Open', keys: '↵', run: () => setChosen(tag) },
-                { label: `Copy #${tag}`, run: () => copy(`#${tag}`, `Copied #${tag}`, toast) }
+                { label: `Copy #${tag}`, run: () => copy(`#${tag}`, `Copied #${tag}`) }
               ]}>
               <button
                 type="button"

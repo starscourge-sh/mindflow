@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react'
 
+import { toast } from './ui'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut, ContextMenuTrigger } from '@/components/ui/context-menu'
 
 /** One line of a right-click menu, or a rule between groups. */
@@ -31,5 +32,4 @@ export function RowMenu({ items, children }: { items: MenuItem[]; children: Reac
 }
 
 /** Put text on the clipboard and say so. */
-export const copy = (text: string, said: string, toast: (message: string) => void): void =>
-  void navigator.clipboard.writeText(text).then(() => toast(said))
+export const copy = (text: string, said = 'Copied'): void => void navigator.clipboard.writeText(text).then(() => toast(said))

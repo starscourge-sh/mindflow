@@ -5,6 +5,7 @@ import type { JSONContent } from '@tiptap/core'
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { MindflowEditor } from './mindflow'
 import { AskWho } from './vigil/ui'
+import { Chips } from './vigil/display'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 
@@ -74,21 +75,10 @@ export function Search({ onOpen, onClose }: { onOpen: (type: string, id: string)
             <PanelRight className="size-4" />
           </button>
         </label>
-        <div className="flex flex-wrap items-center gap-1 border-b px-3 py-1.5 text-xs">
-          {[
-            { on: titleOnly, label: 'Name only', run: () => setTitleOnly(!titleOnly) },
-            ...[['capture', 'Captures'], ['nugget', 'Nuggets'], ['task', 'Tasks']].map(([id, label]) => ({ on: types.includes(id), label, run: () => setTypes(flip(types, id)) })),
-            ...CAPTURE_TYPES.map((type) => ({ on: kinds.includes(type.id), label: type.label, run: () => setKinds(flip(kinds, type.id)) }))
-          ].map(({ on, label, run }, index) => (
-            <button
-              key={label}
-              type="button"
-              onClick={run}
-              className={`rounded-md px-2 py-0.5 transition-colors ${index === 1 || index === 4 ? 'ml-2' : ''} ${on ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'}`}
-            >
-              {label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-3 border-b px-3 py-1.5">
+          <Chips options={[{ id: 'name', label: 'Name only' }]} on={() => titleOnly} pick={() => setTitleOnly(!titleOnly)} />
+          <Chips options={[{ id: 'capture', label: 'Captures' }, { id: 'nugget', label: 'Nuggets' }, { id: 'task', label: 'Tasks' }]} on={(id) => types.includes(id)} pick={(id) => setTypes(flip(types, id))} />
+          <Chips options={CAPTURE_TYPES} on={(id) => kinds.includes(id)} pick={(id) => setKinds(flip(kinds, id))} />
         </div>
         <div className="flex min-h-0 flex-1">
           <div className={`${pane ? 'w-1/2' : 'flex-1'} overflow-y-auto p-2`}>

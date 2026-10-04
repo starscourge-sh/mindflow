@@ -23,9 +23,6 @@ import { Toaster, toast } from './components/vigil/ui'
 import { vigil } from './lib/vigil'
 import { chime } from './lib/sound'
 
-// import { Maximize2, Minimize2 } from 'lucide-react'
-// import { StatusPicker, type Status } from './components/status/status-picker'
-// import { PriorityPicker, type Priority } from './components/priority/priority-picker'
 
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from './components/capture-kinds/capture-kind-picker'
 import { firstLine, kindOf } from '../../main/import'
@@ -209,8 +206,6 @@ export default function App(): React.JSX.Element {
   // Who said it and where you met it. Null who means the words are yours.
   const [attribution, setAttribution] = useState('')
   const [medium, setMedium] = useState('')
-  // The body as text, for the copy kept beside the backups.
-  const [markdown, setMarkdown] = useState('')
   // Bumped on a fresh box. The editor is keyed on it, so a new one replaces it.
   const [round, setRound] = useState(0)
   // A capture opened from the list on the right. Edits save to it as they
@@ -300,7 +295,7 @@ export default function App(): React.JSX.Element {
     chime('send')
     setSending(true)
     void window.api.captures
-      .create({ title: '', kind: sorted, body: hasContent(doc) ? doc : null, markdown: editorRef.current ? toMarkdown(editorRef.current) : markdown })
+      .create({ title: '', kind: sorted, body: hasContent(doc) ? doc : null, markdown: editorRef.current ? toMarkdown(editorRef.current) : undefined })
       .then(async (id) => {
         if (attribution.trim()) await vigil.setCapture(id, 'attribution', attribution.trim())
         if (where) await vigil.setCapture(id, 'medium', where)
@@ -387,7 +382,6 @@ export default function App(): React.JSX.Element {
                 setBody(doc)
                 // The kind follows the wording of the first line until you choose one.
                 if (!chosen && !editing) setKind((kindOf(firstLine(doc)) ?? 'note') as CaptureType)
-                setMarkdown(toMarkdown(editor))
                 saveField({ body: doc, markdown: toMarkdown(editor) })
               }}
             />

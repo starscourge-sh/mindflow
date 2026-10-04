@@ -182,7 +182,7 @@ export function TasksView({ mode }: { mode: 'today' | 'upcoming' | 'routines' })
                         { label: 'Next week', keys: 'W', run: () => void vigil.saveTask(task.id, { due: shiftTo(7) }) },
                         'separator',
                         { label: task.important ? 'Not important' : 'Mark important', run: () => void vigil.saveTask(task.id, { important: task.important ? 0 : 1 }) },
-                        { label: `Copy ${captureKey(task.number).replace('MF', 'T')}`, run: () => copy(task.title, 'Copied', toast) },
+                        { label: `Copy T-${task.number}`, run: () => copy(`T-${task.number}`, `Copied T-${task.number}`) },
                         'separator',
                         { label: 'Close without doing', danger: true, run: () => void vigil.saveTask(task.id, { status: 'done' }).then(() => toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' }))) }
                       ]}>

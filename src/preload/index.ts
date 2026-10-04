@@ -2,6 +2,11 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { LinkMetadata } from './index.d'
 import type { Capture, CaptureMeta, CapturePatch } from '../main/captures'
 
+// Every live view listens for changes; one IPC listener tells them all,
+// rather than one each past Node's limit of ten.
+const changes = new Set<() => void>()
+ipcRenderer.on('captures:changed', () => changes.forEach((listen) => listen()))
+
 // Custom APIs for renderer
 const api = {
   fetchLinkMetadata: (url: string): Promise<LinkMetadata> =>
@@ -124,9 +129,8 @@ const api = {
       ipcRenderer.invoke('captures:save', id, patch),
     /** Any window's write, as it happens. */
     onChange: (listen: () => void): (() => void) => {
-      const relay = (): void => listen()
-      ipcRenderer.on('captures:changed', relay)
-      return () => ipcRenderer.off('captures:changed', relay)
+      changes.add(listen)
+      return () => void changes.delete(listen)
     }
   }
 }

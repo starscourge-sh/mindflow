@@ -203,7 +203,6 @@ export function registerVigil(): void {
   column('nuggets', 'remind_at text')
   column('tasks', 'waiting_on text')
   column('hint_events', 'dwell_ms integer')
-  column('captures', 'discharge integer not null default 0')
   column('captures', 'attribution text')
   column('captures', 'medium text')
   column('captures', 'exited_at text')
@@ -258,7 +257,6 @@ export function registerVigil(): void {
       update captures set kind = 'note' where kind in ('tip', 'idea', 'question', 'self');
       update nuggets set kind = 'quote' where kind = 'saying';
       update nuggets set kind = 'note' where kind in ('tip', 'idea', 'question', 'self');
-      update captures set discharge = 0;
       pragma user_version = 2`)
   }
 

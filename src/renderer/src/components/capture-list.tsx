@@ -65,8 +65,8 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
             { label: capture.pinnedAt ? 'Unpin' : 'Pin to the prompt', run: () => void vigil.pin('captures', capture.id, !capture.pinnedAt).then((ok) => ok || toast('Three pins at most: unpin one first')) },
             { label: capture.private ? 'Let it surface' : 'Make private', run: () => void vigil.setPrivate('captures', capture.id, !capture.private) },
             'separator',
-            { label: `Copy ${captureKey(capture.number)}`, run: () => copy(captureKey(capture.number), `Copied ${captureKey(capture.number)}`, toast) },
-            { label: 'Copy text', run: () => copy(capture.label, 'Copied', toast) }
+            { label: `Copy ${captureKey(capture.number)}`, run: () => copy(captureKey(capture.number), `Copied ${captureKey(capture.number)}`) },
+            { label: 'Copy text', run: () => copy(capture.label) }
           ]}>
           <motion.button
             layout="position"

@@ -152,7 +152,7 @@ export function ItemsView({ tier, focus, onOpenCapture }: { tier: 'nugget' | 'ar
                 { label: item.private ? 'Let it surface' : 'Make private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
                 tier === 'nugget' && { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(item.id) },
                 'separator',
-                { label: 'Copy title', run: () => copy(item.title, 'Copied', toast) }
+                { label: 'Copy title', run: () => copy(item.title) }
               ]}>
               <button
                 data-cursor={index === cursor || undefined}

@@ -69,7 +69,7 @@ export function period(iso: string | null): string {
 }
 export const AGES: Choice[] = ['Today', 'This week', 'This month', 'This year', 'Older'].map((id) => ({ id, label: id }))
 
-function Chips({ options, on, pick }: { options: Choice[]; on: (id: string) => boolean; pick: (id: string) => void }): React.JSX.Element {
+export function Chips({ options, on, pick }: { options: readonly Choice[]; on: (id: string) => boolean; pick: (id: string) => void }): React.JSX.Element {
   return (
     <div className="flex flex-wrap gap-1">
       {options.map((option) => (
