@@ -141,10 +141,10 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 /** The capture box, and the roomier one the toolbar's expander swaps to. */
-// const WIDTH = 720
-const WIDTH = 1080
+// Just the box until the side panel is asked for, then wide enough for both.
+const WIDTH = 640
+const WITH_PANEL = 1080
 const SIZES = {
-  // compact: { width: WIDTH, height: 400 },
   compact: { width: WIDTH, height: 600 },
   expanded: { width: WIDTH, height: 816 }
 }
@@ -754,11 +754,23 @@ app.whenReady().then(() => {
     if (win) hideWindow(win)
   })
 
+  // The side panel, asked for: the window grows to the right, so the box
+  // you are writing in stays exactly where it is.
+  ipcMain.handle('window:panel', (event, open: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return false
+    const bounds = win.getBounds()
+    win.setBounds(onScreen({ ...bounds, width: open ? WITH_PANEL : WIDTH }), true)
+    if (grew) grew = { ...grew, became: win.getBounds() }
+    return Boolean(open)
+  })
+
   ipcMain.handle('window:expand', (event, expanded: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return false
-    const size = expanded ? SIZES.expanded : SIZES.compact
     const bounds = win.getBounds()
+    // Taller or shorter; as wide as it is, panel open or not.
+    const size = { width: bounds.width, height: (expanded ? SIZES.expanded : SIZES.compact).height }
 
     // Shrinking straight back to where it came from, if it has not been moved
     // since: a box tucked into a corner belongs in that corner, and growing
@@ -766,7 +778,7 @@ app.whenReady().then(() => {
     // time. Moved by hand and the old place is stale, so it is forgotten and
     // the shrink happens about the middle as usual.
     const wasMoved = !grew || !sameBox(bounds, grew.became)
-    const back = !expanded && !wasMoved ? grew?.was : undefined
+    const back = !expanded && !wasMoved && grew ? { ...grew.was, width: bounds.width } : undefined
 
     // No `setResizable` dance around this: `setBounds` is honoured on a window
     // that is not resizable, and toggling the flag rebuilds the title bar -

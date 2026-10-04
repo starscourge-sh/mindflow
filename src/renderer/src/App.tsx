@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowLeft, BookOpen, Eye, EyeOff, FileJson2, PanelRight, Keyboard, KeyboardOff, Lock, LockOpen, Maximize2, Minimize2, SquarePen, TableOfContents, X } from 'lucide-react'
+import { ArrowLeft, BookOpen, Info, Eye, EyeOff, FileJson2, PanelRight, Keyboard, KeyboardOff, Lock, LockOpen, Maximize2, Minimize2, SquarePen, TableOfContents, X } from 'lucide-react'
 import type { Editor, JSONContent } from '@tiptap/core'
 
 import { MindflowEditor, TAGS, currentVim, onVimChange, setVim } from './components/mindflow'
@@ -124,7 +124,7 @@ const WindowDots = (): React.JSX.Element => (
   </div>
 )
 
-const Header = ({ onNew }: { onNew: () => void }): React.JSX.Element => {
+const Header = ({ onNew, panel, onPanel }: { onNew: () => void; panel: boolean; onPanel: () => void }): React.JSX.Element => {
   const [expanded, setExpanded] = useState(false)
   const toggle = (): void => {
     setExpanded((was) => {
@@ -154,6 +154,19 @@ const Header = ({ onNew }: { onNew: () => void }): React.JSX.Element => {
         <WindowDots />
         <span className="flex-1" />
         <SoundToggle className="mf-expand" />
+        <Tip label={`${panel ? 'Hide' : 'Show'} Inbox, Tasks, Review and Kept  ⌘\\`}>
+        <button
+          type="button"
+          tabIndex={-1}
+          className="mf-expand"
+          aria-label={panel ? 'Hide the side panel' : 'Show the side panel'}
+          aria-pressed={panel}
+          style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
+          onClick={onPanel}
+        >
+          <PanelRight />
+        </button>
+        </Tip>
         <Tip label="New capture ⌘N">
         <button
           type="button"
@@ -304,6 +317,32 @@ export default function App(): React.JSX.Element {
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [reading])
+  // The box alone until the side panel is asked for: progressive disclosure.
+  // Remembered, and the window is sized to match on every start.
+  const [panel, setPanelOpen] = useState(() => localStorage.getItem('panel') === 'open')
+  const [tab, setTab] = useState<Tab>('inbox')
+  const setPanel = (open: boolean): void => {
+    setPanelOpen(open)
+    localStorage.setItem('panel', open ? 'open' : 'closed')
+    void window.api.setPanel(open)
+  }
+  useEffect(() => void window.api.setPanel(panel), []) // eslint-disable-line react-hooks/exhaustive-deps
+  // ⌘\ shows or hides the panel; ⌃1 to ⌃4 open it on Inbox, Tasks, Review or Kept.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.metaKey && !event.ctrlKey && event.key === '\\') {
+        event.preventDefault()
+        return setPanel(!panel)
+      }
+      const to = event.ctrlKey && !event.metaKey ? TABS[Number(event.key) - 1] : undefined
+      if (!to) return
+      event.preventDefault()
+      setTab(to)
+      if (!panel) setPanel(true)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
   // Reading through a list, one note at a time with nothing else on screen.
   const [readList, setReadList] = useState<{ items: Readable[]; start: number } | null>(null)
   // ⌘K: search everything from the prompt, and open what it finds here.
@@ -494,7 +533,7 @@ export default function App(): React.JSX.Element {
         />
       )}
       <FocusNote />
-      <Header onNew={() => fresh()} />
+      <Header onNew={() => fresh()} panel={panel} onPanel={() => setPanel(!panel)} />
 
       <ResizablePanelGroup
         orientation="horizontal"
@@ -621,7 +660,7 @@ export default function App(): React.JSX.Element {
                 <BarToggle on={source} icon={FileJson2} label="Source" tip={source ? 'Hide the source' : 'Show the source'} keys="⌘⌥S" onClick={() => setSource(!source)} />
                 {/* An open capture's exits, lineage, who and where, merge,
                     reminder and first words, without the main window. */}
-                {editing && <BarToggle on={details} icon={PanelRight} label="Details" tip={details ? 'Hide its details' : 'Its details: exits, lineage, who and where'} keys="⌘I" onClick={() => setDetails(!details)} />}
+                {editing && <BarToggle on={details} icon={Info} label="Details" tip={details ? 'Hide its details' : 'Its details: exits, lineage, who and where'} keys="⌘I" onClick={() => setDetails(!details)} />}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span><ThemePicker className={`${CONTROL} gap-1.5 rounded-md`} /></span>
@@ -648,10 +687,10 @@ export default function App(): React.JSX.Element {
           {editing && <DetailsDrawer open={details} id={editing.id} captures={captures} onOpenChange={setDetails} onOpen={openAny} />}
         </ResizablePanel>
 
-        {!focus && <ResizableHandle withHandle />}
-        {!focus && (
+        {!focus && panel && <ResizableHandle withHandle />}
+        {!focus && panel && (
           <ResizablePanel defaultSize="40%" minSize={"30%"}>
-            <SidePanel captures={captures} editing={editing?.id} onOpen={openCapture} onOpenAny={openAny} reading={reading?.id} onRead={(items, start) => setReadList({ items, start })} />
+            <SidePanel tab={tab} setTab={setTab} captures={captures} editing={editing?.id} onOpen={openCapture} onOpenAny={openAny} reading={reading?.id} onRead={(items, start) => setReadList({ items, start })} />
           </ResizablePanel>
         )}
       </ResizablePanelGroup>
@@ -870,7 +909,12 @@ const CapturePrompt = ({
  * and the review queue, a tab each. The main window has the same things with
  * room to spread out; this is them at the size you actually keep open.
  */
-function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead }: {
+type Tab = 'inbox' | 'today' | 'review' | 'kept'
+const TABS: Tab[] = ['inbox', 'today', 'review', 'kept']
+
+function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab, setTab }: {
+  tab: Tab
+  setTab: (tab: Tab) => void
   /** Read through a list, from a place in it. */
   onRead: (items: Readable[], start: number) => void
   captures: Parameters<typeof CaptureList>[0]['captures']
@@ -880,7 +924,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead }: {
   onOpenAny: (type: string, id: string) => void
   reading?: string
 }): React.JSX.Element {
-  const [tab, setTab] = useState<'inbox' | 'today' | 'review' | 'kept'>('inbox')
+  // Which tab is open is the window's to keep: ⌃1 to ⌃4 open the panel on one.
   // Today and Review are worked by keys, so the capture box lets go of them
   // there; typing goes back to the box on the Inbox tab or a click into it.
   useEffect(() => {
@@ -955,16 +999,6 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead }: {
     void Promise.all(ids.map((id) => window.api.captures.save(id, { status }))).then(() =>
       toast(`${ids.length} ${status}`, () => void Promise.all(ids.map((id) => window.api.captures.save(id, { status: 'open' })))))
   }
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      const to = event.ctrlKey && !event.metaKey ? tabs[Number(event.key) - 1] : undefined
-      if (!to) return
-      event.preventDefault()
-      setTab(to.id)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  })
 
   return (
     <div className="relative flex h-full w-full flex-col p-2">

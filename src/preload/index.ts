@@ -50,6 +50,8 @@ const api = {
   /** Swap the window between the capture size and the roomier one. */
   setExpanded: (expanded: boolean): Promise<boolean> =>
     ipcRenderer.invoke('window:expand', expanded),
+  /** Widen the window for the side panel, or narrow it back to the box. */
+  setPanel: (open: boolean): Promise<boolean> => ipcRenderer.invoke('window:panel', open),
 
   /** Each time the window is about to be put away. */
   onHiding: (listen: () => void): (() => void) => {

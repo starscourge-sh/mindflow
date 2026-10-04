@@ -29,6 +29,7 @@ export interface Api {
   fetchImage: (href: string) => Promise<{ mime: string; bytes: Uint8Array } | null>
   /** Swap the window between the capture size and the roomier one. */
   setExpanded: (expanded: boolean) => Promise<boolean>
+  setPanel: (open: boolean) => Promise<boolean>
   hideWindow: () => void
   showPrompt: () => void
   setAppearance: (mode: 'light' | 'dark') => void
