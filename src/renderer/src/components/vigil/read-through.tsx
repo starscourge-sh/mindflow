@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
 import { AnimatePresence, motion } from 'motion/react'
 
@@ -38,7 +38,9 @@ export function ReadThrough({ items, start = 0, onClose, onEdit }: {
       if (event.metaKey || event.ctrlKey || event.altKey) return
       const next = event.key === 'j' || event.key === 'ArrowDown' || event.key === 'ArrowRight' || event.key === ' '
       const back = event.key === 'k' || event.key === 'ArrowUp' || event.key === 'ArrowLeft'
-      if (next || back || event.key === 'Escape' || event.key === 'e') {
+      // Every plain key is Read's while it is open: none reaches the list
+      // or the note underneath, where a stray letter would act or type.
+      if (event.key.length === 1 || next || back || event.key === 'Escape') {
         event.preventDefault()
         event.stopPropagation()
       }
@@ -52,9 +54,17 @@ export function ReadThrough({ items, start = 0, onClose, onEdit }: {
     return () => window.removeEventListener('keydown', onKey, true)
   }, [items.length, item, onClose, onEdit])
 
+  // The focus comes here while reading, and goes back where it was after.
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const was = document.activeElement as HTMLElement | null
+    box.current?.focus()
+    return () => was?.focus?.()
+  }, [])
+
   if (!item) return null
   return (
-    <div className="fixed inset-0 z-[55] flex flex-col bg-background" role="dialog" aria-label="Reading">
+    <div ref={box} tabIndex={-1} className="fixed inset-0 z-[55] flex flex-col bg-background outline-none" role="dialog" aria-label="Reading">
       <AnimatePresence mode="wait" initial={false}>
         <motion.article
           key={item.id}

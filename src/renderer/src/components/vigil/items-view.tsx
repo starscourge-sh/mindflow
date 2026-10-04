@@ -12,7 +12,7 @@ import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-k
 import { age } from '../capture-list'
 import { findCaptures, follow } from '@/lib/capture-links'
 import { interval, splitTags, useLive, vigil, when, type Item, type ItemFull } from '@/lib/vigil'
-import { Empty, Page, Prop, PropLabel, Props, Tags, toast, useListKeys, typing, pin, VirtualList } from './ui'
+import { Empty, Page, Prop, PropLabel, Props, Tags, toast, useListKeys, useReadKey, typing, pin, VirtualList } from './ui'
 import { AGES, Display, arrange, period, useView, type Facet } from './display'
 import { RowMenu, copy } from './row-menu'
 import { Lineage } from './lineage'
@@ -41,15 +41,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   const [cursor] = useListKeys(items.length, { onOpen: (index) => pick(items[index].id), onBack: () => setOpen(null) })
   // Reading through what is shown, one at a time with nothing else on screen.
   const [readFrom, setReadFrom] = useState<number | null>(null)
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      if (!event.metaKey || !event.shiftKey || event.key.toLowerCase() !== 'r' || !items.length) return
-      event.preventDefault()
-      setReadFrom(Math.max(0, cursor))
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  })
+  useReadKey(() => setReadFrom(Math.max(0, cursor)), items.length)
   // x selects, the way Linear does it; several nuggets make one article.
   const [chosen, setChosen] = useState<string[]>([])
   // The Luhmann move: two unrelated nuggets side by side, for the connection

@@ -90,7 +90,7 @@ export type TaskFull = Task & { notes: unknown; done: { at: string; recap: strin
 
 export type Session = { id: string; startedAt: string; endedAt: string | null; recap: string | null }
 
-export type Pin = { id: string; type: 'capture' | 'nugget' | 'article'; kind: string; title: string; pinnedAt: string }
+export type Pin = { id: string; type: 'capture' | 'nugget' | 'article'; kind: string; title: string; pinnedAt: string; private: number }
 export type Stats = {
   exits: { status: string; n: number }[]
   kinds: { kind: string; n: number }[]

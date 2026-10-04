@@ -140,7 +140,7 @@ protocol.registerSchemesAsPrivileged([
   { scheme: 'mindflow', privileges: { standard: true, secure: true } }
 ])
 
-/** The capture box, and the roomier one the toolbar's expander swaps to. */
+/** The capture box's sizes: the toolbar's expander changes the height, the side panel the width. */
 // Just the box until the side panel is asked for, then wide enough for both.
 const WIDTH = 640
 const WITH_PANEL = 1080
@@ -756,11 +756,19 @@ app.whenReady().then(() => {
 
   // The side panel, asked for: the window grows to the right, so the box
   // you are writing in stays exactly where it is.
+  // If the screen's edge forces it left to fit, by how much, so closing the
+  // panel puts it back where it was rather than leaving it shifted.
+  let panelShift = 0
   ipcMain.handle('window:panel', (event, open: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return false
     const bounds = win.getBounds()
-    win.setBounds(onScreen({ ...bounds, width: open ? WITH_PANEL : WIDTH }), true)
+    const width = open ? WITH_PANEL : WIDTH
+    if (width === bounds.width) return Boolean(open)
+    const next = onScreen({ ...bounds, x: open ? bounds.x : bounds.x + panelShift, width })
+    panelShift = open ? bounds.x - next.x : 0
+    // Instant: macOS's own resize animation is slow enough to wait on.
+    win.setBounds(next)
     if (grew) grew = { ...grew, became: win.getBounds() }
     return Boolean(open)
   })
@@ -795,7 +803,8 @@ app.whenReady().then(() => {
           ...size
         }
       ),
-      true
+      // Instant, like the panel: the animated resize was slow.
+      false
     )
 
     grew = expanded ? { was: bounds, became: win.getBounds() } : null

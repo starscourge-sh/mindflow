@@ -131,8 +131,12 @@ const focus = (): 'box' | 'editor' | null => {
   if (active?.isContentEditable) return 'editor'
   return active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName) ? 'box' : null
 }
-/** Whether a key is going into something you are writing in, not to the page. */
-export const typing = (): boolean => focus() !== null
+/**
+ * Whether a key is going into something you are writing in, not to the page:
+ * a field, the editor, or anything held over the page (Read, Details, a
+ * question), whose keys the lists underneath must not act on.
+ */
+export const typing = (): boolean => focus() !== null || !!document.querySelector('[role="dialog"]')
 
 /** Pin or unpin, and say so when the three places are full. */
 export const pin = (table: 'captures' | 'nuggets', id: string, on: boolean): void =>
@@ -603,4 +607,23 @@ export function Rolling({ text, className = '', by = 'character' }: { text: stri
       options={{ direction: up ? 'up' : 'down', rollBy: by, duration: still ? 0 : 260, stagger: still ? 0 : by === 'word' ? 22 : 35, exitOffset: still ? 0 : 40 }}
     />
   )
+}
+
+/**
+ * ⌘⇧R: read through the list on screen, one note at a time. One handler for
+ * every list that offers it; `read` is called only when it has rows.
+ */
+export function useReadKey(read: () => void, rows: number, enabled = true): void {
+  const latest = useRef(read)
+  latest.current = read
+  useEffect(() => {
+    if (!enabled) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.metaKey || !event.shiftKey || event.key.toLowerCase() !== 'r' || !rows) return
+      event.preventDefault()
+      latest.current()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [rows, enabled])
 }

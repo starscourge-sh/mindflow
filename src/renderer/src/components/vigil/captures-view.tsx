@@ -11,9 +11,9 @@ import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
 import { EXITS, STATUS_ICON, captureKey, exit, findCaptures, flying, takeExit, toTask, follow } from '@/lib/capture-links'
 import { toMarkdown } from '@/lib/export'
-import { splitTags, vigil } from '@/lib/vigil'
+import { splitTags, taskSaid, vigil } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
-import { Empty, Kbd, Page, Prop, PropLabel, Props, Remembered, Rolling, ask, toast, useListKeys, typing, pin } from './ui'
+import { Empty, Kbd, Page, Prop, PropLabel, Props, Remembered, Rolling, ask, toast, useListKeys, useReadKey, typing, pin } from './ui'
 import { RemindMe } from './items-view'
 import { ReadThrough } from './read-through'
 import { selectionActions } from './selection-actions'
@@ -46,15 +46,7 @@ export function CapturesView({ title, keep, focus, onOpen }: {
   const [cursor] = useListKeys(shown.length, { onOpen: (index) => pick(shown[index].id), onBack: () => setOpen(null) })
   // Reading through what is shown, one at a time with nothing else on screen.
   const [readFrom, setReadFrom] = useState<number | null>(null)
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      if (!event.metaKey || !event.shiftKey || event.key.toLowerCase() !== 'r' || !shown.length) return
-      event.preventDefault()
-      setReadFrom(Math.max(0, cursor))
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  })
+  useReadKey(() => setReadFrom(Math.max(0, cursor)), shown.length)
   // x selects, as in Linear, for an exit on many at once.
   const [chosen, setChosen] = useState<string[]>([])
   const lastKey = useRef('')
@@ -112,7 +104,7 @@ export function CapturesView({ title, keep, focus, onOpen }: {
                 <Button variant="ghost" size="sm" onClick={() => void ask(`One task from these ${chosen.length}. What is it?`, 'e.g. sort out the freight rules by Thursday').then((text) => {
                   if (!text) return
                   const ids = chosen
-                  void vigil.taskFrom(ids, text).then(() => { chime('done'); setChosen([]); toast(`One task, from ${ids.length} captures`) })
+                  void vigil.taskFrom(ids, text).then((made) => { chime('done'); setChosen([]); toast(taskSaid(made, `One task, from ${ids.length} captures`)) })
                 })}>One task</Button>
               )}
               <input

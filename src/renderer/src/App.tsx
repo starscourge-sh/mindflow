@@ -16,7 +16,7 @@ import { TodayPanel } from './components/vigil/today-panel'
 import { selectionActions } from './components/vigil/selection-actions'
 import { ReviewView } from './components/vigil/review-view'
 import { useAppearance, useLive } from './lib/vigil'
-import { BackToTop, Empty, Kbd, Remembered, ask, typing, useListKeys, useSmooth, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
+import { BackToTop, Empty, Kbd, Remembered, ask, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import type { LucideIcon } from 'lucide-react'
 import { Rolling, Toaster, toast } from './components/vigil/ui'
@@ -231,10 +231,10 @@ export default function App(): React.JSX.Element {
   const [outline, setOutline] = useState(false)
   const [source, setSource] = useState(false)
   const [details, setDetails] = useState(false)
-  // ⌘I: the open capture's details, in the prompt.
+  // ⌘⇧D: the open capture's details, in the prompt (⌘I stays italic).
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (!event.metaKey || event.key !== 'i' || !latestEditing.current) return
+      if (!event.metaKey || !event.shiftKey || event.key.toLowerCase() !== 'd' || !latestEditing.current) return
       event.preventDefault()
       setDetails((open) => !open)
     }
@@ -270,6 +270,9 @@ export default function App(): React.JSX.Element {
   // A capture opened from the list on the right. Edits save to it as they
   // happen; Cmd+Enter puts it down and brings back the box you had.
   const [editing, setEditing] = useState<{ id: string; body: JSONContent } | null>(null)
+  // Closed again whenever a different capture opens or the box is put down.
+  useEffect(() => setDetails(false), [editing?.id])
+
   const editorRef = useRef<Editor | null>(null)
   // What is open now, for a change that arrives late from a box already put
   // down: it must not land on the draft that came back.
@@ -381,7 +384,7 @@ export default function App(): React.JSX.Element {
     if (!keepDraft) localStorage.removeItem('capture-draft')
     // A draft set aside for good takes its pending links with it; a submit
     // has already used them by now.
-    if (!keepDraft && !editing) lifted.length = 0
+    if (!keepDraft) keepLifted([])
     const draft = keepDraft ? readDraft() : undefined
     openedAt.current = Date.now()
     setEditing(null)
@@ -404,11 +407,14 @@ export default function App(): React.JSX.Element {
     const onKey = (event: KeyboardEvent): void => {
       if (!event.metaKey || event.key !== 'n') return
       event.preventDefault()
-      fresh()
+      latestFresh.current()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+  // The current fresh(), for the listener above, which is set up once.
+  const latestFresh = useRef(fresh)
+  latestFresh.current = fresh
 
   // Saving an open capture's fields as they change.
   const saveField = (patch: Parameters<typeof window.api.captures.save>[1]): void => {
@@ -441,7 +447,8 @@ export default function App(): React.JSX.Element {
     chime('send')
     const markdown = editorRef.current ? toMarkdown(editorRef.current) : undefined
     // Taken now: a fresh box clears the list before the save comes back.
-    const pieces = lifted.splice(0)
+    const pieces = [...lifted]
+    keepLifted([])
     // ⌥ is Linear's "create more": the box is fresh at once, so the next one
     // can be typed straight away. Otherwise the box leaves and the window goes.
     if (more) {
@@ -660,7 +667,7 @@ export default function App(): React.JSX.Element {
                 <BarToggle on={source} icon={FileJson2} label="Source" tip={source ? 'Hide the source' : 'Show the source'} keys="⌘⌥S" onClick={() => setSource(!source)} />
                 {/* An open capture's exits, lineage, who and where, merge,
                     reminder and first words, without the main window. */}
-                {editing && <BarToggle on={details} icon={Info} label="Details" tip={details ? 'Hide its details' : 'Its details: exits, lineage, who and where'} keys="⌘I" onClick={() => setDetails(!details)} />}
+                {editing && <BarToggle on={details} icon={Info} label="Details" tip={details ? 'Hide its details' : 'Its details: exits, lineage, who and where'} keys="⌘⇧D" onClick={() => setDetails(!details)} />}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span><ThemePicker className={`${CONTROL} gap-1.5 rounded-md`} /></span>
@@ -833,7 +840,18 @@ const SourceDrawer = ({
 )
 
 /** Captures lifted out of the note being written, waiting for it to be saved. */
-const lifted: string[] = []
+// Kept beside the draft, so quitting with a draft does not lose its links.
+const lifted: string[] = (() => {
+  try {
+    return JSON.parse(localStorage.getItem('capture-lifted') ?? '[]') as string[]
+  } catch {
+    return []
+  }
+})()
+const keepLifted = (ids: string[]): void => {
+  lifted.splice(0, lifted.length, ...ids)
+  localStorage.setItem('capture-lifted', JSON.stringify(lifted))
+}
 
 const CapturePrompt = ({
   initial,
@@ -878,7 +896,7 @@ const CapturePrompt = ({
         // --- what is switched on ---
         // No fixed toolbar: the dock would sit over the capture prompt. The
         // selection toolbar keeps its default contents.
-        toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: from, from, onLifted: (id) => lifted.push(id) }) }}
+        toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: from, from, onLifted: (id) => keepLifted([...lifted, id]) }) }}
         handles={true}
         slash={true}
         outline={outline}
@@ -983,16 +1001,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
     return () => window.removeEventListener('keydown', onKey, true)
   }, [tab, cursor, chosen.length])
   // ⌘⇧R reads through the inbox as it is shown, from the row under the cursor.
-  useEffect(() => {
-    if (tab !== 'inbox') return
-    const onKey = (event: KeyboardEvent): void => {
-      if (!event.metaKey || !event.shiftKey || event.key.toLowerCase() !== 'r' || !shownNow.current.length) return
-      event.preventDefault()
-      onRead(shownNow.current.map((one) => ({ type: 'capture', id: one.id })), Math.max(0, cursor))
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [tab, cursor, onRead])
+  useReadKey(() => onRead(shownNow.current.map((one) => ({ type: 'capture', id: one.id })), Math.max(0, cursor)), shown.length, tab === 'inbox')
   const bulk = (status: string): void => {
     const ids = chosen
     setChosen([])

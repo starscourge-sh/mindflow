@@ -146,20 +146,25 @@ function taskFrom(text: string): { title: string; due: string | null; allDay: bo
   if (ending && until) title = title.slice(0, ending.index).trim()
   const repeat = RECURRENCE.exec(title)
   if (repeat) title = title.replace(repeat[0], '').trim()
-  // "on the 1st": the next time the month reaches that day.
-  const ordinal = /\b(?:on\s+)?the\s+(\d{1,2})(?:st|nd|rd|th)\b/i.exec(title)
+  // "on the 1st": the next time the month reaches that day. Only with "on",
+  // so "read the 2nd chapter" stays a title.
+  const ordinal = /\bon\s+the\s+(\d{1,2})(?:st|nd|rd|th)\b/i.exec(title)
   let onDay: Date | null = null
   if (ordinal) {
     const day = Number(ordinal[1])
-    onDay = new Date()
-    if (onDay.getDate() > day) onDay.setMonth(onDay.getMonth() + 1)
-    onDay.setDate(day)
+    const now = new Date()
+    // Built whole, month and day together, so the 31st never spills over.
+    onDay = new Date(now.getFullYear(), now.getMonth() + (now.getDate() > day ? 1 : 0), day)
     title = title.replace(ordinal[0], ' ')
   }
   const [found] = chrono.parse(title, new Date(), { forwardDate: true })
   if (found) title = title.slice(0, found.index) + title.slice(found.index + found.text.length)
-  // A word left hanging where its date was taken out: "email Sam by".
-  title = title.replace(/\s+/g, ' ').trim().replace(/\s+(?:by|on|at|due|before|for|from)$/i, '').trim()
+  // A word left hanging where a date was taken out: "email Sam by". Only
+  // then, so "sign up for" keeps its "for".
+  title = title.replace(/\s+/g, ' ').trim()
+  if (found || ordinal) title = title.replace(/\s+(?:by|on|at|due|before|for|from)$/i, '').trim()
+  // "on the 1st at 3pm": the day from the ordinal, the time from chrono.
+  if (onDay && found?.start.isCertain('hour')) onDay.setHours(found.start.get('hour') ?? 9, found.start.get('minute') ?? 0)
   let due = onDay ?? found?.start.date() ?? null
   // A series of named days starts on the first of them, today included.
   const named = namedDays(repeat?.[2] ?? '')
@@ -185,7 +190,10 @@ function addTask(text: string, origin: string | null = null, today = false): Mad
   const db = database()
   const task = taskFrom(text)
   const title = task.title || text
-  const twin = db.prepare("select id, number from tasks where status = 'open' and lower(trim(title)) = lower(trim(?))").get(title) as { id: string; number: number } | undefined
+  // The same name with no date or repeat of its own is the same task; one
+  // that brings a date or a repeat is meant as a new one.
+  const twin = task.due || task.recurrence ? undefined
+    : (db.prepare("select id, number from tasks where status = 'open' and lower(trim(title)) = lower(trim(?))").get(title) as { id: string; number: number } | undefined)
   if (twin) {
     if (origin) db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(twin.id, origin)
     return { ...twin, existed: true }
@@ -347,10 +355,12 @@ export function registerVigil(): void {
       const body = JSON.parse(row.body ?? 'null')
       // On the first line, where a row reads its tags: added at the end it
       // was there but never showed.
-      const first = body?.content?.[0]
+      // The first block holding words, heading or paragraph: that line is
+      // the capture's name, and where a row reads its tags.
+      const at = (body?.content ?? []).findIndex((block: { type?: string; content?: unknown[] }) => ['paragraph', 'heading'].includes(block.type ?? '') && block.content?.length)
       const next = body && typeof body === 'object'
-        ? first?.type === 'paragraph'
-          ? { ...body, content: [{ ...first, content: [...(first.content ?? []), { type: 'text', text: ` ${tag}` }] }, ...body.content.slice(1)] }
+        ? at >= 0
+          ? { ...body, content: body.content.map((block: { content?: unknown[] }, index: number) => (index === at ? { ...block, content: [...(block.content ?? []), { type: 'text', text: ` ${tag}` }] } : block)) }
           : { ...body, content: [{ type: 'paragraph', content: [{ type: 'text', text: tag }] }, ...(body.content ?? [])] }
         : String(body ?? '').replace(/^([^\n]*)/, (line) => `${line} ${tag}`.trim())
       db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(next), id)
@@ -558,10 +568,12 @@ export function registerVigil(): void {
     db.prepare(`select ${ITEM} from nuggets where tier = ? order by created_at desc`).all(tier)
   )
   handle('item', (id: string) => {
-    const row = db.prepare(`select ${ITEM}, body, origins from nuggets where id = ?`).get(id) as Record<string, unknown> | undefined
+    // Its own title, not the name lists give it: an untitled article's title
+    // box stays empty rather than showing its first line as if it were set.
+    const row = db.prepare(`select ${ITEM}, title as own, body, origins from nuggets where id = ?`).get(id) as Record<string, unknown> | undefined
     if (!row) return null
     const glosses = db.prepare('select id, body, author, created_at as createdAt from glosses where item_id = ? order by created_at').all(id)
-    return { ...body(row), origins: JSON.parse((row.origins as string) ?? '[]'), glosses }
+    return { ...body(row), title: row.own, origins: JSON.parse((row.origins as string) ?? '[]'), glosses }
   })
   handle('item:save', (id: string, patch: { body?: unknown; title?: string; prompt?: string | null; kind?: string; suspended?: boolean; attribution?: string | null; context?: string | null; mode?: string }) => {
     const allowed = ['body', 'title', 'prompt', 'kind', 'suspended', 'attribution', 'context', 'mode']
@@ -822,8 +834,8 @@ export function registerVigil(): void {
     const privacy = hidePrivate ? 'and private = 0' : ''
     return db
       .prepare(
-        `select id, 'capture' as type, kind, ${LABEL} as title, pinned_at as pinnedAt from captures where pinned_at is not null ${privacy}
-         union all select id, tier as type, kind, title, pinned_at from nuggets where pinned_at is not null ${privacy}
+        `select id, 'capture' as type, kind, ${LABEL} as title, pinned_at as pinnedAt, private from captures where pinned_at is not null ${hidePrivate ? "and private = 0 and status != 'open'" : ''}
+         union all select id, tier as type, kind, title, pinned_at, private from nuggets where pinned_at is not null ${privacy}
          order by pinnedAt desc limit 3`
       )
       .all()
