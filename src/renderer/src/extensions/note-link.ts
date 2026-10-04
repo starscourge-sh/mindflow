@@ -25,6 +25,7 @@ export interface NoteLinkOptions {
 }
 
 export const noteLinkPluginKey = new PluginKey("noteLink")
+const tagPluginKey = new PluginKey("tagSuggest")
 
 /**
  * A link to another note, typed with `@`.
@@ -124,6 +125,25 @@ export const NoteLink = Node.create<NoteLinkOptions>({
               { type: "text", text: " " },
             ])
             .run()
+        },
+        render,
+      }),
+
+      // `#` offers the tags already in use, most used first, so one is reused
+      // rather than spelt a new way. It writes plain text: a tag is a word.
+      Suggestion<NoteSuggestion>({
+        editor: this.editor,
+        char: "#",
+        pluginKey: tagPluginKey,
+        items: async ({ query }) => {
+          const tags = ((await (window as { api?: { vigil?: (channel: string) => Promise<unknown> } }).api?.vigil?.("tags")) ?? []) as { tag: string; count: number }[]
+          return tags
+            .filter(({ tag }) => tag.startsWith(query.toLowerCase()))
+            .slice(0, 8)
+            .map(({ tag, count }) => ({ id: tag, label: `#${tag}`, key: String(count), group: "Tags" }))
+        },
+        command: ({ editor, range, props }) => {
+          editor.chain().focus().insertContentAt(range, `#${props.id} `).run()
         },
         render,
       }),

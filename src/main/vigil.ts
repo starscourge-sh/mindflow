@@ -531,9 +531,15 @@ export function registerVigil(): void {
     const { newPerDay, reviewsPerDay } = settings()
     const today = new Date().toISOString().slice(0, 10)
     const done = db.prepare('select sum(first) as fresh, count(*) - sum(first) as old from review_log where reviewed_at >= ?').get(today) as { fresh: number | null; old: number | null }
-    const due = db
-      .prepare(`select ${ITEM}, body, state from nuggets where coalesce(prompt, '') != '' and suspended = 0 and state is not null and due_at <= ? order by due_at limit ?`)
-      .all(now(), Math.max(0, reviewsPerDay - (done.old ?? 0))) as Record<string, unknown>[]
+    // Most at risk: the lowest chance of recall now, by the card's own memory.
+    const risk = scheduler()
+    const due = (db
+      .prepare(`select ${ITEM}, body, state from nuggets where coalesce(prompt, '') != '' and suspended = 0 and state is not null and due_at <= ?`)
+      .all(now()) as Record<string, unknown>[])
+      .map((row) => ({ row, recall: risk.get_retrievability(cardOf(row.state as string), new Date(), false) }))
+      .sort((a, b) => a.recall - b.recall)
+      .slice(0, Math.max(0, reviewsPerDay - (done.old ?? 0)))
+      .map(({ row }) => row)
     const fresh = db
       .prepare(`select ${ITEM}, body, state from nuggets where coalesce(prompt, '') != '' and suspended = 0 and state is null and (due_at is null or due_at <= ?) order by created_at limit ?`)
       .all(now(), Math.max(0, newPerDay - (done.fresh ?? 0))) as Record<string, unknown>[]
