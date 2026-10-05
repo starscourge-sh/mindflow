@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { chime } from '@/lib/sound'
 import type { JSONContent } from '@tiptap/core'
 import { AnimatePresence, motion } from 'motion/react'
 
@@ -44,6 +45,8 @@ export function ReadThrough({ items, start = 0, onClose, onEdit }: {
         event.preventDefault()
         event.stopPropagation()
       }
+      // A page turned sounds like one; at either end there is no page to turn.
+      if ((next && at < items.length - 1) || (back && at > 0)) chime('page')
       if (next) setAt((n) => Math.min(items.length - 1, n + 1))
       else if (back) setAt((n) => Math.max(0, n - 1))
       else if (event.key === 'Escape') onClose()
@@ -52,7 +55,7 @@ export function ReadThrough({ items, start = 0, onClose, onEdit }: {
     // Taken first, so the lists and the editor underneath never see the keys.
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [items.length, item, onClose, onEdit])
+  }, [items.length, item, at, onClose, onEdit])
 
   // The focus comes here while reading, and goes back where it was after.
   const box = useRef<HTMLDivElement>(null)

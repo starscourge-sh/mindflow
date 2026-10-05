@@ -86,7 +86,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   return (
     <div className="flex flex-col gap-1 text-sm">
       {/* Each list with how many it holds, so a task sent to the backlog is seen landing there. */}
-      <div className="flex h-8 items-center gap-1">
+      <div className="sticky top-0 z-[5] flex h-8 items-center gap-1 px-1 backdrop-blur-xl">
       <Chips
         options={(Object.keys(SCOPES) as Scope[]).map((id) => {
           const n = tasks.filter((task) => task.status === 'open' && SCOPES[id].test(task)).length
@@ -106,6 +106,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
           event.preventDefault()
           if (!draft.trim()) return
           void vigil.addTask(draft, undefined, scope === 'today').then(async (made) => {
+            chime(made.existed ? 'nope' : 'noted')
             if (made.existed) return void (setDraft(''), toast(taskSaid(made, '')))
             const task = await vigil.task(made.id)
             setDraft('')

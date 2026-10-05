@@ -294,6 +294,11 @@ function guard(win: BrowserWindow): void {
   // rather than globally: Cmd+Q belongs to whichever app is in front.
   page.on('before-input-event', (event, input) => {
     if (input.type !== 'keyDown' || !input.meta || input.control || input.alt) return
+    // Cmd+, opens Settings, as in every Mac app: from any window, typing or not.
+    if (input.key === ',') {
+      event.preventDefault()
+      return sendHome('view', 'settings')
+    }
     if (input.key.toLowerCase() !== 'q') return
     event.preventDefault()
     quit()
@@ -312,18 +317,85 @@ let prompt: BrowserWindow | null = null
  */
 let home: BrowserWindow | null = null
 
+/**
+ * Open the main window on one thing. A page already listening is told now;
+ * one still starting picks it up when it asks (`home:sent`), and only once.
+ */
+function sendHome(type: string, id: string): void {
+  openHome()
+  if (homeAsked && home) home.webContents.send('home:open', String(type), String(id))
+  else sentTo = [String(type), String(id)]
+}
+
+/**
+ * The focus timer: a small pill that floats over everything, the way Raycast
+ * Focus shows one, until the session ends. Dragged anywhere; remembered.
+ */
+let focusPill: BrowserWindow | null = null
+function showFocus(on: boolean): void {
+  if (!on) return void focusPill?.hide()
+  if (focusPill && !focusPill.isDestroyed()) return focusPill.showInactive()
+  const { workArea } = screen.getPrimaryDisplay()
+  focusPill = new BrowserWindow({
+    width: 340,
+    height: 64,
+    x: Math.round(workArea.x + workArea.width / 2 - 170),
+    y: workArea.y + 12,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    closable: false,
+    skipTaskbar: true,
+    hasShadow: false,
+    alwaysOnTop: true,
+    show: false,
+    webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
+  })
+  focusPill.setAlwaysOnTop(true, 'floating')
+  focusPill.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  focusPill.once('ready-to-show', () => focusPill?.showInactive())
+  guard(focusPill)
+  load(focusPill, '?view=focus')
+}
+
+let homePainted = false
+/** What the main window was sent to while it was not yet listening. */
+let sentTo: [string, string] | null = null
+/** The main window's page has asked for what it was sent: it is listening. */
+let homeAsked = false
+
 function openHome(): void {
-  recordOpen('home')
+  if (!home?.isVisible()) recordOpen('home')
+  // One window at a time: going to the main app puts the prompt away.
+  if (prompt?.isVisible()) hideWindow(prompt)
   // An accessory app is not in the running-app rotation, so the window alone
   // does not bring it forward. The same as the prompt does.
   app.focus({ steal: true })
-  // `show` focuses too. A new window waits for its first paint, or it flashes
-  // up empty.
-  if (home) return home.show()
+  // Made ahead of time and kept when closed (see `makeHome`), so this is a
+  // show, never a load: no wait, no blank frame.
+  const win = makeHome()
+  // Painted already (it was made in the background), or the first paint is
+  // still to come: either way it shows the moment there is something to see.
+  if (homePainted) win.show()
+  else win.once('ready-to-show', () => win.show())
+}
 
+/**
+ * The main window, made hidden: soon after start, so the first open is as
+ * quick as every other, and again only if it is ever really gone. Closing it
+ * hides it; only quitting closes it for good.
+ */
+function makeHome(): BrowserWindow {
+  if (home) return home
+
+  // Compact by default, a window that sits beside your work rather than
+  // taking it over; filling the screen is a button away (`home:fill`).
   home = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: 760,
+    height: 520,
     show: false,
     title: 'mindflow',
     backgroundColor: '#1c1c1c',
@@ -331,13 +403,28 @@ function openHome(): void {
     // The app draws its own toolbar, with the traffic lights set into it the
     // way Claude's and Linear's are, rather than a grey strip saying "Electron".
     titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 16 },
+    trafficLightPosition: { x: 20, y: 20 },
     webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
   })
-  home.on('ready-to-show', () => home?.show())
-  home.on('closed', () => (home = null))
+  // Small enough to sit in a corner, not so small its pages fold up.
+  home.setMinimumSize(560, 400)
+  home.on('close', (event) => {
+    if (quitting) return
+    event.preventDefault()
+    home?.hide()
+  })
+  home.on('closed', () => {
+    home = null
+    homePainted = false
+    homeAsked = false
+  })
+  home.once('ready-to-show', () => (homePainted = true))
+  // The fill icon follows the window, however it was filled or brought back.
+  home.on('maximize', () => home?.webContents.send('home:filled', true))
+  home.on('unmaximize', () => home?.webContents.send('home:filled', false))
   guard(home)
   load(home, '?view=home')
+  return home
 }
 
 /**
@@ -625,6 +712,9 @@ async function importFiles(): Promise<void> {
  * tiling window manager off them. So they are made closable first, and only
  * then asked to go.
  */
+let quitting = false
+app.on('before-quit', () => (quitting = true))
+
 function quit(): void {
   for (const win of BrowserWindow.getAllWindows()) win.closable = true
   app.quit()
@@ -739,14 +829,9 @@ app.whenReady().then(() => {
   // The prompt sends you to one thing in the main window: a task's notes and
   // sessions live there. Kept until the window asks, in case it is still
   // starting; sent at once if it is already up.
-  let sentTo: [string, string] | null = null
-  ipcMain.on('home:open', (_event, type: string, id: string) => {
-    sentTo = [String(type), String(id)]
-    const ready = home && !home.webContents.isLoading()
-    openHome()
-    if (ready) home?.webContents.send('home:open', ...sentTo)
-  })
+  ipcMain.on('home:open', (_event, type: string, id: string) => sendHome(type, id))
   ipcMain.handle('home:sent', () => {
+    homeAsked = true
     const was = sentTo
     sentTo = null
     return was
@@ -775,6 +860,25 @@ app.whenReady().then(() => {
     win.setBounds(next)
     if (grew) grew = { ...grew, became: win.getBounds() }
     return Boolean(open)
+  })
+
+  // Seen by screen recorders and shares, or kept out of them (the default).
+  ipcMain.on('focus:show', (_event, on: unknown) => showFocus(Boolean(on)))
+
+  ipcMain.handle('window:recordable', (event, on: unknown) => {
+    BrowserWindow.fromWebContents(event.sender)?.setContentProtection(!on)
+    return Boolean(on)
+  })
+
+  // The main window fills the screen, or goes back to where it was: the
+  // window's own maximize, which remembers the size and place it came from.
+  ipcMain.handle('home:fill', (event, fill: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return false
+    const on = fill === 'toggle' ? !win.isMaximized() : Boolean(fill)
+    if (on) win.maximize()
+    else win.unmaximize()
+    return on
   })
 
   ipcMain.handle('window:expand', (event, expanded: unknown) => {
@@ -1135,6 +1239,8 @@ app.whenReady().then(() => {
   })
 
   createWindow()
+  // The main window, made in the background once the prompt is up.
+  setTimeout(makeHome, 1500)
 
   /**
    * The key that summons it from anywhere, and puts it away again.

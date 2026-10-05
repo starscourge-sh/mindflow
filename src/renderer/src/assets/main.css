@@ -459,3 +459,45 @@ body {
 [data-private][data-open] .private-text {
   filter: none;
 }
+
+/* The beam: light along the window's top edge for an answer or a wait. */
+.mf-beam {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 70;
+  height: 2px;
+  pointer-events: none;
+  border-radius: 999px;
+}
+.mf-beam-success,
+.mf-beam-error {
+  background: radial-gradient(closest-side, var(--beam) 0%, color-mix(in srgb, var(--beam) 40%, transparent) 60%, transparent 100%);
+  box-shadow: 0 0 12px 1px color-mix(in srgb, var(--beam) 60%, transparent);
+  animation: mf-beam-out 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.mf-beam-success { --beam: var(--tt-color-text-green); }
+.mf-beam-error { --beam: var(--tt-color-text-red); animation-name: mf-beam-flicker; }
+.mf-beam-loading {
+  background: linear-gradient(90deg, transparent 0%, var(--tt-brand-color-400) 50%, transparent 100%) no-repeat;
+  background-size: 35% 100%;
+  animation: mf-beam-travel 1.1s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes mf-beam-out {
+  0% { opacity: 0; transform: scaleX(0.2); }
+  20% { opacity: 1; transform: scaleX(1); }
+  100% { opacity: 0; transform: scaleX(1); }
+}
+@keyframes mf-beam-flicker {
+  0%, 30% { opacity: 1; transform: scaleX(1); }
+  15%, 45% { opacity: 0.35; }
+  60% { opacity: 1; }
+  100% { opacity: 0; transform: scaleX(1); }
+}
+@keyframes mf-beam-travel {
+  from { background-position: -40% 0; }
+  to { background-position: 140% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mf-beam { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+  .mf-beam-loading { opacity: 0.8; animation: none; background-size: 100% 100%; }
+}

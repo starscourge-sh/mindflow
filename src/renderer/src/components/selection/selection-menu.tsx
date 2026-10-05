@@ -58,6 +58,8 @@ export function SelectionMenu({
       <EditorContext.Provider value={{ editor }}>
         <Toolbar
           variant="floating"
+          // Silent on hover: it appears under the pointer whenever words are selected.
+          data-silent=""
           // The accent on its own reads as a lit panel sitting on the page.
           // Mixed back towards the page it keeps the hue and loses the glare.
           style={{ background: "color-mix(in srgb, var(--accent) 55%, var(--background))" }}

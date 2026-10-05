@@ -4,7 +4,19 @@ import { Gem, Inbox, ListTodo } from 'lucide-react'
 import { ToolbarGroup, ToolbarSeparator } from '@/components/tiptap-ui-primitive/toolbar'
 import { chime } from '@/lib/sound'
 import { taskSaid, vigil } from '@/lib/vigil'
-import { toast } from './ui'
+import { refuse, toast } from './ui'
+
+/**
+ * What has already been lifted, by kind and words, so a second click on the
+ * same selection says so instead of making a duplicate. For this session only.
+ */
+const lifted = new Set<string>()
+const once = (kind: 'capture' | 'nugget' | 'task', text: string): boolean => {
+  const key = `${kind}\n${text}`
+  if (!lifted.has(key)) return !!lifted.add(key)
+  refuse({ capture: 'Already in your inbox', nugget: 'Already a nugget', task: 'Already a task' }[kind])
+  return false
+}
 
 /**
  * Select-to-anything: highlight words in a note and make them a capture, a
@@ -32,8 +44,8 @@ export function selectionActions(origin: { captureId?: string; attribution?: str
             className={button}
             onClick={() => {
               const text = words()
-              if (!text) return
-              chime('tap')
+              if (!text || !once('capture', text)) return
+              chime('send')
               void window.api.captures.create({ body: text, ...(origin.from ? { origin: origin.from } : {}) })
                 .then((id) => {
                   // From a note not saved yet: it is linked back once that note is.
@@ -49,9 +61,14 @@ export function selectionActions(origin: { captureId?: string; attribution?: str
             className={button}
             onClick={() => {
               const text = words()
-              if (!text) return
-              chime('promote')
-              void vigil.nuggetFrom(text, origin).then(() => toast('Kept as a nugget'))
+              if (!text || !once('nugget', text)) return
+              // Only what can cross to the main process: not the callbacks.
+              void vigil.nuggetFrom(text, { captureId: origin.captureId, attribution: origin.attribution })
+                .then(() => {
+                  chime('promote')
+                  toast('Kept as a nugget')
+                })
+                .catch(() => lifted.delete(`nugget\n${text}`))
             }}
           >
             <Gem /> Nugget
@@ -61,9 +78,11 @@ export function selectionActions(origin: { captureId?: string; attribution?: str
             className={button}
             onClick={() => {
               const text = words()
-              if (!text) return
-              chime('done')
-              void vigil.addTask(text, origin.captureId).then((made) => toast(taskSaid(made, 'Added to your tasks')))
+              if (!text || !once('task', text)) return
+              void vigil.addTask(text, origin.captureId).then((made) => {
+                chime(made.existed ? 'nope' : 'noted')
+                toast(taskSaid(made, 'Added to your tasks'))
+              })
             }}
           >
             <ListTodo /> Task

@@ -52,6 +52,18 @@ const api = {
     ipcRenderer.invoke('window:expand', expanded),
   /** Widen the window for the side panel, or narrow it back to the box. */
   setPanel: (open: boolean): Promise<boolean> => ipcRenderer.invoke('window:panel', open),
+  /** The main window: fill the screen, or back to its compact size. */
+  fillHome: (fill: boolean | 'toggle'): Promise<boolean> => ipcRenderer.invoke('home:fill', fill),
+  /** Told whenever the main window fills the screen or comes back from it. */
+  onFilled: (listen: (filled: boolean) => void): (() => void) => {
+    const relay = (_event: unknown, filled: boolean): void => listen(filled)
+    ipcRenderer.on('home:filled', relay)
+    return () => ipcRenderer.off('home:filled', relay)
+  },
+  /** The prompt shows up in screen recordings and shares, or not. */
+  setRecordable: (on: boolean): Promise<boolean> => ipcRenderer.invoke('window:recordable', on),
+  /** The floating focus timer, shown or put away. */
+  showFocus: (on: boolean): void => ipcRenderer.send('focus:show', on),
 
   /** Each time the window is about to be put away. */
   onHiding: (listen: () => void): (() => void) => {

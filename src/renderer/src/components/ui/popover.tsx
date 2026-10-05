@@ -1,5 +1,11 @@
 import * as React from "react"
 import { cn } from "@/lib/cn"
+import { chime } from "@/lib/sound"
+
+// Unfolding makes its own small sound, once, when the panel appears: the
+// wrapper is mounted with every row that has a menu, the panel only on open.
+// Closing is silent, like putting a thing down.
+const openCue = (node: HTMLElement | null): void => void (node && chime("open"))
 import { Popover as PopoverPrimitive } from "radix-ui"
 
 function Popover({
@@ -26,6 +32,7 @@ function PopoverContent({
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
+        ref={openCue}
         data-slot="popover-content"
         align={align}
         sideOffset={sideOffset}

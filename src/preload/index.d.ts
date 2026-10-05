@@ -30,6 +30,10 @@ export interface Api {
   /** Swap the window between the capture size and the roomier one. */
   setExpanded: (expanded: boolean) => Promise<boolean>
   setPanel: (open: boolean) => Promise<boolean>
+  fillHome: (fill: boolean | 'toggle') => Promise<boolean>
+  onFilled: (listen: (filled: boolean) => void) => () => void
+  setRecordable: (on: boolean) => Promise<boolean>
+  showFocus: (on: boolean) => void
   hideWindow: () => void
   showPrompt: () => void
   setAppearance: (mode: 'light' | 'dark') => void

@@ -23,14 +23,41 @@ export const setVolume = (level: number): void => {
 type Note = [frequency: number, delay: number, length?: number, level?: number]
 
 const CUES = {
-  // A light tick: switching a tab, moving to a section, opening an item.
+  // A light tick: switching a tab, moving to a section.
   tap: [[1320, 0, 0.05]],
+  // A menu or panel unfolds: a quick upward flick, quieter than anything you do.
+  open: [[988, 0, 0.04, 0.035], [1318, 0.025, 0.06, 0.035]],
+  // A switch turned on climbs a fifth; turned off, it comes back down.
+  on: [[523, 0, 0.07, 0.05], [784, 0.045, 0.1, 0.05]],
+  off: [[784, 0, 0.07, 0.04], [523, 0.045, 0.1, 0.04]],
+  // Undo: three quick steps back down, a rewind.
+  undo: [[1046, 0, 0.05, 0.05], [880, 0.04, 0.05, 0.05], [698, 0.08, 0.1, 0.05]],
+  // Copy: the same high note twice, a duplicate.
+  copy: [[1568, 0, 0.04, 0.045], [1568, 0.06, 0.05, 0.045]],
+  // Pin: a note pressed down and held, a clip closing.
+  pin: [[1175, 0, 0.04], [880, 0.03, 0.14]],
+  // Search: one ping with a long tail, sonar going out.
+  search: [[1318, 0, 0.45, 0.04]],
+  // The side panel slides out (rising) or folds away (falling), low and soft.
+  slide: [[392, 0, 0.08, 0.04], [523, 0.05, 0.12, 0.04]],
+  fold: [[523, 0, 0.08, 0.035], [392, 0.05, 0.12, 0.035]],
+  // A task written down: two light knocks, something noted.
+  noted: [[740, 0, 0.06], [740, 0.08, 0.1]],
+  // A theme kept: a small major chord, the room settled.
+  settled: [[523, 0, 0.3, 0.045], [659, 0.03, 0.3, 0.045], [784, 0.06, 0.4, 0.045]],
+  // Reading: a page turned.
+  page: [[660, 0, 0.05, 0.03]],
   // A capture sent: a quick rising pair, the "got it".
   send: [[587, 0, 0.12], [880, 0.06, 0.18]],
   // Done: a rising third, the small ta-da of a ticked box.
   done: [[660, 0, 0.14], [990, 0.07, 0.22]],
+  // Resolve: a short cadence that comes home, dealt with.
+  resolve: [[880, 0, 0.08], [784, 0.05, 0.08], [1046, 0.1, 0.22]],
   // Promote: one bright, ringing note, something kept.
   promote: [[880, 0, 0.1], [1320, 0.05, 0.3]],
+  // Not allowed: the same low note twice, a soft "uh-uh". Already done, needs
+  // something first, nothing to do it to.
+  nope: [[196, 0, 0.07], [196, 0.1, 0.1]],
   // Let go: a falling pair, quieter.
   away: [[440, 0, 0.12], [330, 0.06, 0.18]],
   // A hint arrives: two soft bells, rare enough to be noticed.
@@ -44,7 +71,24 @@ const CUES = {
   easy: [[784, 0, 0.1], [1175, 0.05, 0.2]]
 } satisfies Record<string, Note[]>
 
-export function chime(cue: keyof typeof CUES): void {
+export type Cue = keyof typeof CUES
+
+/**
+ * One soft note from a pentatonic scale, by step: how a row of choices can
+ * each have a voice of its own (each theme in the theme menu) and still sound
+ * like they belong together.
+ */
+export function step(n: number): void {
+  const SCALE = [523, 587, 659, 784, 880]
+  const octave = Math.floor(n / SCALE.length)
+  play([[SCALE[((n % SCALE.length) + SCALE.length) % SCALE.length] * 2 ** octave, 0, 0.12, 0.035]])
+}
+
+export function chime(cue: Cue): void {
+  play(CUES[cue] as Note[])
+}
+
+function play(notes: Note[]): void {
   if (!enabled || !volume) return
   context ??= new AudioContext()
   // A context made before any click starts suspended; resuming is free after.
@@ -53,7 +97,7 @@ export function chime(cue: keyof typeof CUES): void {
   const sound = PACKS[pack]
   // Square and saw are loud for their level; they are brought down to match.
   const loud = sound.osc === 'square' || sound.osc === 'sawtooth' ? 0.45 : 1
-  for (const [frequency, delay, length = 0.18, peak = 0.07] of CUES[cue] as Note[]) {
+  for (const [frequency, delay, length = 0.18, peak = 0.07] of notes) {
     const at = start + delay
     const tone = context.createOscillator()
     const level = context.createGain()
@@ -163,19 +207,41 @@ export function click(name: ClickName): void {
  */
 export function installTicks(): () => void {
   let over: Element | null = null
+  // Only a hand on the mouse makes a sound. A list redrawing, a menu opening
+  // or a page scrolling slides things under a still pointer, and the browser
+  // calls that "pointer over" too: without this, ticks came from nowhere.
+  let movedAt = 0
+  const onMove = (event: PointerEvent): void => {
+    if (event.movementX || event.movementY) movedAt = event.timeStamp
+  }
+  // The same for scrolling: a detent is felt only when you turned the wheel
+  // or dragged, not when the list scrolled itself to follow the cursor.
+  let wheelAt = -Infinity
+  const onWheel = (event: Event): void => {
+    wheelAt = event.timeStamp
+  }
   const onOver = (event: PointerEvent): void => {
-    // The Settings preview plays its own sounds, through the pack being tried.
-    if ((event.target as Element | null)?.closest('[data-silent]')) return
+    const at = event.target as Element | null
+    // Not here: the Settings preview plays its own sounds; a menu speaks when
+    // it opens and when you choose, not for every row passed; and writing or
+    // drawing surfaces are not things you press.
+    if (!at || at.closest('[data-silent], [role="menu"], [contenteditable="true"], .excalidraw, canvas')) {
+      over = null
+      return
+    }
+    if (!event.movementX && !event.movementY && event.timeStamp - movedAt > 80) return
     // Tabs and chips sound when pressed, not when passed over: a row of them
     // crossed on the way somewhere else would rattle.
-    if ((event.target as Element | null)?.closest('[data-hover-quiet]')) {
+    if (at.closest('[data-hover-quiet]')) {
       over = null
       return
     }
     // The outermost thing you can press: a card and the buttons on it are one
     // sound, made on arriving at the card, not one more for each button.
-    const PRESSABLE = 'button, [role="button"], [role="tab"], a[href], [tabindex="0"]'
-    let target = (event.target as Element | null)?.closest(PRESSABLE) ?? null
+    // Named, not guessed from tabindex: a focusable editor or canvas is not
+    // a button. A card that knocks says so with its own data-tone.
+    const PRESSABLE = 'button, [role="button"], [role="tab"], a[href], [data-tone]'
+    let target = at.closest(PRESSABLE)
     for (let outer = target?.parentElement?.closest(PRESSABLE); outer; outer = outer.parentElement?.closest(PRESSABLE)) target = outer
     if (target === over) return
     over = target
@@ -192,18 +258,28 @@ export function installTicks(): () => void {
     // A detent every 40px, like the notches of a wheel: no limit on how often.
     if (Math.abs(box.scrollTop - last) < 40) return
     travelled.set(box, box.scrollTop)
-    click('tock')
+    // Smooth scrolling coasts on after the wheel stops; a moment's grace
+    // keeps the last few detents, anything later moved by itself.
+    if (event.timeStamp - wheelAt < 600) click('tock')
   }
   // Opening a note: a press on any row marked as one, the brighter tick.
   const onDown = (event: PointerEvent): void => {
     const target = event.target as Element | null
+    // The left button only: a right-click opens a menu, which has its own sound.
+    if (event.button !== 0) return
     if (target?.closest('[data-row]') && !target.closest('[data-silent]')) click('tick')
   }
   document.addEventListener('pointerdown', onDown)
+  document.addEventListener('pointermove', onMove, true)
   document.addEventListener('pointerover', onOver)
+  document.addEventListener('wheel', onWheel, { capture: true, passive: true })
+  document.addEventListener('touchmove', onWheel, { capture: true, passive: true })
   document.addEventListener('scroll', onScroll, true)
   return () => {
     document.removeEventListener('pointerdown', onDown)
+    document.removeEventListener('pointermove', onMove, true)
+    document.removeEventListener('wheel', onWheel, true)
+    document.removeEventListener('touchmove', onWheel, true)
     document.removeEventListener('pointerover', onOver)
     document.removeEventListener('scroll', onScroll, true)
   }

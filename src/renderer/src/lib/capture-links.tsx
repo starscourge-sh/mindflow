@@ -32,9 +32,10 @@ export const EXITS = [
  */
 export async function exit(id: string, status: string, onUndo?: () => void): Promise<void> {
   const one = EXITS.find((e) => e.status === status)
-  chime(status === 'discarded' ? 'away' : status === 'promoted' ? 'promote' : 'done')
   const result = status === 'promoted' ? await flying(id, 'nugget', () => takeExit(id, status)) : await takeExit(id, status)
   if (result === 'cancelled' || !one) return
+  // After the work, so a cancelled question or a refusal makes no false promise.
+  chime(status === 'discarded' ? 'away' : status === 'promoted' ? 'promote' : 'resolve')
   toast(one.done, status === 'promoted' ? undefined : () => void window.api.captures.save(id, { status: 'open' }).then(() => onUndo?.()))
 }
 

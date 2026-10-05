@@ -12,7 +12,7 @@ import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-k
 import { age } from '../capture-list'
 import { findCaptures, follow } from '@/lib/capture-links'
 import { interval, splitTags, useLive, vigil, when, type Item, type ItemFull } from '@/lib/vigil'
-import { Empty, Page, Prop, PropLabel, Props, Tags, toast, useListKeys, useReadKey, typing, pin, VirtualList } from './ui'
+import { Empty, Page, Prop, PropLabel, Props, Tags, refuse, toast, useListKeys, useReadKey, typing, pin, VirtualList } from './ui'
 import { AGES, Display, arrange, period, useView, type Facet } from './display'
 import { RowMenu, copy } from './row-menu'
 import { Lineage } from './lineage'
@@ -247,7 +247,7 @@ export function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: s
     const view = editor.current
     const { from, to } = view?.state.selection ?? { from: 0, to: 0 }
     const words = view?.state.doc.textBetween(from, to).trim()
-    if (!view || !words) return toast('Select the words to blank out first')
+    if (!view || !words) return refuse('Select the words to blank out first')
     const text = view.getText().replace(words, '_____')
     setPrompt(text)
     void vigil.saveItem(item.id, { prompt: text }).then(() => toast('Cloze made: it joins the review queue'))
@@ -260,7 +260,7 @@ export function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: s
   }
 
   return (
-    <div className="flex min-w-0 flex-[1.4] border-l">
+    <div className="flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_1.5rem_1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
         {item.tier === 'article' && (
           <input

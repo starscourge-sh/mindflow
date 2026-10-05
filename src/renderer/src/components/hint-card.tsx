@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { shown } from './rot-cards'
 import { chime } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
-import { Rolling, toast } from './vigil/ui'
+import { Rolling, refuse, toast } from './vigil/ui'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -21,6 +21,9 @@ type Hint = NonNullable<Awaited<ReturnType<typeof window.api.hints.next>>>
  */
 export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element | null {
   const [hint, setHint] = useState<Hint | null>(null)
+  // Two bells once, when a hint arrives: not on every animation the card
+  // runs afterwards, which rang them again as the page moved around it.
+  useEffect(() => void (hint && chime('hint')), [hint?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const shownAt = useRef(0)
   // What the card says, set a beat after it arrives so the words roll in
   // from nothing rather than appearing already there.
@@ -149,7 +152,6 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, height: 0, marginBottom: 0, transition: { duration: 0.2 } }}
           transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-          onAnimationStart={() => chime('hint')}
           className="mt-2 mb-3 overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,transparent)] px-3 py-2.5 text-sm"
         >
           <RowMenu items={actions.map(({ tip, keys, run }) => ({ label: tip, keys, run, danger: tip === 'Discard it' }))}>
@@ -198,7 +200,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
                 if (event.key !== 'Enter' || !event.currentTarget.value.trim()) return
                 const line = event.currentTarget.value.trim()
                 void (hint.id === hint.captureId
-                  ? vigil.promote(hint.id, line).then((result) => toast(result === 'needs-source' ? 'A quote needs to say who said it first' : 'Kept as a nugget, with your line beside it'))
+                  ? vigil.promote(hint.id, line).then((result) => (result === 'needs-source' ? refuse('A quote needs to say who said it first') : toast('Kept as a nugget, with your line beside it')))
                   : vigil.saveItem(hint.id, { prompt: line }).then(() => toast('Now tested: it joins your review'))
                 ).then(() => setHint(null))
               }}

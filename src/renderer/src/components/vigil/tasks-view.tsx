@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import * as chrono from 'chrono-node'
 import type { JSONContent } from '@tiptap/core'
 import { Bell, CalendarDays, Check, FileText, Flag, Gem, Hash, History, Play, Plus, Repeat, Square, Trash2, X } from 'lucide-react'
 
@@ -134,7 +135,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
       <Page aside={!!open}
  title={mode} count={shown.length} actions={
         <span className="flex items-center gap-2">
-          {shown.length > 0 && <span className="text-xs"><Kbd>T</Kbd> <Kbd>M</Kbd> <Kbd>W</Kbd> today, tomorrow, next week · <Kbd>⌥J</Kbd> <Kbd>⌥K</Kbd> reorder</span>}
+          {shown.length > 0 && <span className="hidden text-xs whitespace-nowrap @[60rem]/page:inline"><Kbd>T</Kbd> <Kbd>M</Kbd> <Kbd>W</Kbd> today, tomorrow, next week · <Kbd>⌥J</Kbd> <Kbd>⌥K</Kbd> reorder</span>}
           <Display
             view={view}
             onChange={setView}
@@ -274,7 +275,7 @@ export function TaskDetail({ task: first, onClose, onOpen }: { task: TaskFull; o
   const task = useLive(async () => (await vigil.task(first.id)) ?? first, first, [first.id])
   const title = useRef<HTMLInputElement>(null)
   return (
-    <div className="flex min-w-0 flex-[1.4] border-l">
+    <div className="flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_1.5rem_1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
         {/* Pushed back three times: the plan's question, once, without a verdict. */}
         {task.reschedules >= 3 && task.status === 'open' && (
@@ -308,7 +309,7 @@ export function TaskDetail({ task: first, onClose, onOpen }: { task: TaskFull; o
         <Checklist task={task} />
       </div>
       <Props>
-        <Sessions taskId={task.id} />
+        <Sessions taskId={task.id} title={task.title} />
         <PropLabel>Due</PropLabel>
         <div className="mb-1 flex gap-1">
           {([['Today', 0], ['Tomorrow', 1], ['Next week', 7]] as const).map(([label, days]) => (
@@ -411,13 +412,79 @@ const clock = (ms: number): string => {
   return (parts[0] ? parts : parts.slice(1)).map((part, index) => (index ? String(part).padStart(2, '0') : part)).join(':')
 }
 
+/** How long, from what you would say: 45 min, 1:30, 1h30, 2 hours, until 6pm. */
+export function duration(text: string): number | null | undefined {
+  const said = text.trim().toLowerCase()
+  if (!said || /^no ?limit$/.test(said)) return null
+  if (said.startsWith('until')) {
+    const at = chrono.parseDate(said.replace(/^until\s*/, '').replace('noon', '12pm'), new Date(), { forwardDate: true })
+    return at ? Math.max(0, at.getTime() - Date.now()) : undefined
+  }
+  const clock = said.match(/^(\d+):(\d{2})$/)
+  if (clock) return (Number(clock[1]) * 60 + Number(clock[2])) * 60000
+  if (/^\d+$/.test(said)) return Number(said) * 60000
+  const parts = said.match(/^(?:(\d+(?:\.\d+)?)\s*h\w*)?\s*(?:(\d+)\s*m\w*)?$/)
+  if (parts && (parts[1] || parts[2])) return (Number(parts[1] ?? 0) * 60 + Number(parts[2] ?? 0)) * 60000
+  return undefined
+}
+
+const LENGTHS = ['25 min', '45 min', '1 hour', '1:30', 'until noon', 'until 6pm', 'No limit']
+
+/**
+ * Starting a focus session, the way Raycast Focus asks: a goal and how long,
+ * said in words, then a timer that floats over everything until you are done.
+ */
+function StartFocus({ taskId, title }: { taskId: string; title: string }): React.JSX.Element {
+  const [open, setOpen] = useState(false)
+  const [goal, setGoal] = useState(title)
+  const [length, setLength] = useState('25 min')
+  const planned = duration(length)
+  const start = (): void => {
+    if (planned === undefined) return
+    void vigil.startSession(taskId, goal, planned).then(() => {
+      chime('slide')
+      window.api.showFocus(true)
+      setOpen(false)
+    })
+  }
+  if (!open) return <Prop icon={Play} onClick={() => setOpen(true)}>Start a focus session</Prop>
+  return (
+    <form
+      className="mx-1 flex flex-col gap-2 rounded-lg border p-2"
+      onSubmit={(event) => {
+        event.preventDefault()
+        start()
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          event.stopPropagation()
+          setOpen(false)
+        }
+      }}
+    >
+      <label className="grid gap-1 text-xs">Goal
+        <Input autoFocus value={goal} onChange={(event) => setGoal(event.target.value)} className="h-8 text-control" />
+      </label>
+      <label className="grid gap-1 text-xs">How long
+        <Input value={length} onChange={(event) => setLength(event.target.value)} placeholder="45 min, 1:30, until 6pm" className={`h-8 text-control ${planned === undefined ? 'border-[var(--tt-color-text-red)]' : ''}`} />
+      </label>
+      <div className="flex flex-wrap gap-1">
+        {LENGTHS.map((one) => (
+          <button key={one} type="button" onClick={() => setLength(one)} className={`rounded-md px-1.5 py-0.5 text-xs ${length === one ? 'bg-accent text-foreground' : 'hover:bg-accent/60'}`}>{one}</button>
+        ))}
+      </div>
+      <Button type="submit" size="sm" variant="secondary" disabled={planned === undefined}>Start <Kbd>↵</Kbd></Button>
+    </form>
+  )
+}
+
 /**
  * Sessions: effort against a task, counted, with a record of what happened.
  * The recap does not ask for a summary, which gets "worked on freight rules";
  * it asks what surprised you, which is already shaped like something worth
  * keeping, and it can be kept as a nugget in the same breath.
  */
-function Sessions({ taskId }: { taskId: string }): React.JSX.Element {
+function Sessions({ taskId, title }: { taskId: string; title: string }): React.JSX.Element {
   const sessions = useLive(() => vigil.sessions(taskId), [] as Session[], [taskId])
   const running = sessions.find((session) => !session.endedAt)
   const [recap, setRecap] = useState('')
@@ -455,7 +522,7 @@ function Sessions({ taskId }: { taskId: string }): React.JSX.Element {
           {recap.trim() && <Prop icon={Gem} onClick={() => end(true)}>End, and keep the recap</Prop>}
         </div>
       ) : (
-        <Prop icon={Play} onClick={() => void vigil.startSession(taskId)}>Start a session</Prop>
+        <StartFocus taskId={taskId} title={title} />
       )}
       {sessions.filter((session) => session.endedAt).slice(0, 4).map((session) => (
         <div key={session.id} className="mx-2 mb-1.5">

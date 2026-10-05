@@ -39,6 +39,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import { DrawingWindow } from './components/excalidraw/drawing-window'
 import { Home } from './home'
+import { FocusPill } from './components/vigil/focus-pill'
 
 // Before the first paint, and before anything renders: the page wears a theme
 // whether or not an editor is on screen.
@@ -62,6 +63,6 @@ document.title = drawing ? 'Drawing' : 'Vigil'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    {drawing ? <DrawingWindow id={drawing} /> : params.get('view') === 'home' ? <Home /> : <App />}
+    {drawing ? <DrawingWindow id={drawing} /> : params.get('view') === 'home' ? <Home /> : params.get('view') === 'focus' ? <FocusPill /> : <App />}
   </StrictMode>
 )

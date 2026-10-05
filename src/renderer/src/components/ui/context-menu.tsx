@@ -1,5 +1,11 @@
 import * as React from "react"
 import { cn } from "@/lib/cn"
+import { chime } from "@/lib/sound"
+
+// Unfolding makes its own small sound, once, when the panel appears: the
+// wrapper is mounted with every row that has a menu, the panel only on open.
+// Closing is silent, like putting a thing down.
+const openCue = (node: HTMLElement | null): void => void (node && chime("open"))
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui"
 import { ChevronRightIcon, CheckIcon } from "lucide-react"
 
@@ -64,6 +70,7 @@ function ContextMenuContent({
   return (
     <ContextMenuPrimitive.Portal>
       <ContextMenuPrimitive.Content
+        ref={openCue}
         data-slot="context-menu-content"
         // Kept clear of the window's edges, never touching them.
         collisionPadding={10}
@@ -140,6 +147,7 @@ function ContextMenuCheckboxItem({
   children,
   checked,
   inset,
+  onCheckedChange,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.CheckboxItem> & {
   inset?: boolean
@@ -153,6 +161,11 @@ function ContextMenuCheckboxItem({
         className
       )}
       checked={checked}
+      // A switch sounds its direction: up for on, down for off.
+      onCheckedChange={(on) => {
+        chime(on ? "on" : "off")
+        onCheckedChange?.(on)
+      }}
       {...props}
     >
       <span className="pointer-events-none absolute right-2 flex items-center justify-center">

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowLeft, BookOpen, EyeOff, PanelRight, Maximize2, Minimize2, X } from 'lucide-react'
+import { ArrowLeft, BookOpen, EyeOff, PanelRight, Maximize2, Minimize2, Settings2, X } from 'lucide-react'
 import type { Editor, JSONContent } from '@tiptap/core'
 
 import { MindflowEditor, TAGS, currentVim, onVimChange, setVim } from './components/mindflow'
@@ -17,7 +17,7 @@ import { ReviewView } from './components/vigil/review-view'
 import { useAppearance, useLive } from './lib/vigil'
 import { BackToTop, Empty, Kbd, Remembered, ask, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode } from './components/vigil/ui'
 import { TooltipProvider } from './components/ui/tooltip'
-import { Rolling, Toaster, toast } from './components/vigil/ui'
+import { Rolling, Toaster, beam, toast } from './components/vigil/ui'
 import { Reader } from './components/vigil/reader'
 import { OptionsMenu } from './components/vigil/options-menu'
 import { ReadThrough, type Readable } from './components/vigil/read-through'
@@ -115,7 +115,7 @@ const WindowDots = (): React.JSX.Element => (
   </div>
 )
 
-const Header = ({ panel, onPanel }: { panel: boolean; onPanel: () => void }): React.JSX.Element => {
+const Header = ({ panel, onPanel, menu }: { panel: boolean; onPanel: () => void; menu: React.ReactNode }): React.JSX.Element => {
   const [expanded, setExpanded] = useState(false)
   const toggle = (): void => {
     setExpanded((was) => {
@@ -175,6 +175,9 @@ const Header = ({ panel, onPanel }: { panel: boolean; onPanel: () => void }): Re
           {expanded ? <Minimize2 /> : <Maximize2 />}
         </button>
         </Tip>
+        {/* The app's own settings, in the corner the way Notion keeps a
+            page's: apart from the note's, which sit beside the note. */}
+        <span className="ml-1" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>{menu}</span>
       </div>
       <div className="w-full shadow-xl px-[4.75rem]">
         <div className="h-[2px] w-full bg-background/10 shadow-xl" />
@@ -231,6 +234,17 @@ export default function App(): React.JSX.Element {
   const [medium, setMedium] = useState('')
   // Private from the start: never surfaces unasked in quiet hours or safe mode.
   const [secret, setSecret] = useState(false)
+  // Hidden from screen recordings and shares unless let in, for a demo or a
+  // Loom; remembered, and put back on every start.
+  const [recordable, setRecordableState] = useState(() => localStorage.getItem('recordable') === 'on')
+  const setRecordable = (on: boolean): void => {
+    setRecordableState(on)
+    localStorage.setItem('recordable', on ? 'on' : 'off')
+    void window.api.setRecordable(on)
+  }
+  useEffect(() => void (recordable && window.api.setRecordable(true)), []) // eslint-disable-line react-hooks/exhaustive-deps
+  // A focus session left running across a restart brings its timer back.
+  useEffect(() => void vigil.focusNow().then((focus) => focus && window.api.showFocus(true)), [])
   // Linear's "Create more": on, a save keeps the box open for the next one.
   const [createMore, setCreateMore] = useState(() => localStorage.getItem('create-more') === 'on')
   useEffect(() => localStorage.setItem('create-more', createMore ? 'on' : 'off'), [createMore])
@@ -305,6 +319,7 @@ export default function App(): React.JSX.Element {
   const [panel, setPanelOpen] = useState(() => localStorage.getItem('panel') === 'open')
   const [tab, setTab] = useState<Tab>('inbox')
   const setPanel = (open: boolean): void => {
+    chime(open ? 'slide' : 'fold')
     setPanelOpen(open)
     localStorage.setItem('panel', open ? 'open' : 'closed')
     void window.api.setPanel(open)
@@ -412,7 +427,10 @@ export default function App(): React.JSX.Element {
     // typing, and ⌘↵ often comes before one.
     const doc = editorRef.current?.getJSON() ?? body
     const text = textOf(doc).trim()
-    if (!text) return
+    // Nothing to keep: said with the "not allowed" sound, not in silence. A
+    // picture or a drawing with no words is still something.
+    const something = (doc as JSONContent | null)?.content?.some((node) => node.type !== 'paragraph' || node.content?.length)
+    if (!text && !something) return chime('nope')
     // What a paste is, when the kind was left alone: a bare link is a link,
     // and where it came from is the site; a long block is an excerpt, the
     // container for what comes out of it later.
@@ -427,6 +445,8 @@ export default function App(): React.JSX.Element {
     const tags = [...text.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase())
     const action = sorted === 'todo' || tags.some((tag) => actionTags.includes(tag))
     chime('send')
+    // The top edge lights green: kept, without a word.
+    beam('success')
     const markdown = editorRef.current ? toMarkdown(editorRef.current) : undefined
     // Taken now: a fresh box clears the list before the save comes back.
     const pieces = [...lifted]
@@ -522,7 +542,21 @@ export default function App(): React.JSX.Element {
         />
       )}
       <FocusNote />
-      <Header panel={panel} onPanel={() => setPanel(!panel)} />
+      <Header panel={panel} onPanel={() => setPanel(!panel)} menu={
+        <OptionsMenu
+          app
+          label="Vigil"
+          icon={<Settings2 className="size-3.5" />}
+          side="bottom"
+          align="end"
+          className="size-6"
+          options={[
+            { label: 'Vim keys', on: vim, keys: '\\', set: setVim },
+            { label: 'Show in screen recordings', on: recordable, set: setRecordable }
+          ]}
+          actions={[{ label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') }]}
+        />
+      } />
 
       <ResizablePanelGroup
         orientation="horizontal"
@@ -542,7 +576,7 @@ export default function App(): React.JSX.Element {
                   </Button>
                   <Kbd>Esc</Kbd>
                 </div>
-                <div className="flex min-h-0 flex-1">
+                <div className="@container/page flex min-h-0 flex-1">
                   <Reader type={reading.type} id={reading.id} onOpen={openAny} onClose={() => setReading(null)} />
                 </div>
               </div>
@@ -648,8 +682,8 @@ export default function App(): React.JSX.Element {
               {/* What matters first is the writing and Create; every other
                   switch is in here, each keeping its own key. */}
               <OptionsMenu
+                label="This note"
                 options={[
-                  { label: 'Vim keys', on: vim, keys: '\\', set: setVim },
                   { label: 'Lock: read only', on: locked, set: setLocked },
                   { label: 'Outline', on: outline, set: setOutline },
                   { label: 'Source', on: source, keys: '⌘⌥S', set: setSource },
@@ -998,8 +1032,10 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   const bulk = (status: string): void => {
     const ids = chosen
     setChosen([])
-    void Promise.all(ids.map((id) => window.api.captures.save(id, { status }))).then(() =>
-      toast(`${ids.length} ${status}`, () => void Promise.all(ids.map((id) => window.api.captures.save(id, { status: 'open' })))))
+    void Promise.all(ids.map((id) => window.api.captures.save(id, { status }))).then(() => {
+      chime(status === 'discarded' ? 'away' : 'resolve')
+      toast(`${ids.length} ${status}`, () => void Promise.all(ids.map((id) => window.api.captures.save(id, { status: 'open' }))))
+    })
   }
 
   return (
@@ -1051,7 +1087,8 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
           <div className="flex min-h-full flex-col">
             {tab === 'inbox' ? (
               <>
-                <div className="mb-1 flex h-8 items-center gap-1 pl-2 text-control text-muted-foreground">
+                {/* Stays put while the list scrolls under it: what you are looking at, and what you can do with it. */}
+                <div className="sticky top-0 z-[5] mb-1 flex h-8 shrink-0 items-center gap-1 px-1 backdrop-blur-xl pl-2 text-control text-muted-foreground">
                   {chosen.length ? (
                     <>
                       <span className="mr-auto">{chosen.length} selected</span>
@@ -1062,7 +1099,10 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                           if (!text) return
                           const ids = chosen
                           setChosen([])
-                          void vigil.taskFrom(ids, text).then((made) => toast(taskSaid(made, `One task, from ${ids.length} captures`)))
+                          void vigil.taskFrom(ids, text).then((made) => {
+                            chime('noted')
+                            toast(taskSaid(made, `One task, from ${ids.length} captures`))
+                          })
                         })}>One task</Button>
                       )}
                     </>

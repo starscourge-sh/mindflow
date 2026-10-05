@@ -1,5 +1,11 @@
 import * as React from "react"
 import { cn } from "@/lib/cn"
+import { chime } from "@/lib/sound"
+
+// Unfolding makes its own small sound, once, when the panel appears: the
+// wrapper is mounted with every row that has a menu, the panel only on open.
+// Closing is silent, like putting a thing down.
+const openCue = (node: HTMLElement | null): void => void (node && chime("open"))
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
 import { CheckIcon, ChevronRightIcon } from "lucide-react"
 
@@ -37,6 +43,7 @@ function DropdownMenuContent({
   return (
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
+        ref={openCue}
         data-slot="dropdown-menu-content"
         // Kept clear of the window's edges, never touching them.
         collisionPadding={10}
@@ -85,6 +92,7 @@ function DropdownMenuCheckboxItem({
   children,
   checked,
   inset,
+  onCheckedChange,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.CheckboxItem> & {
   inset?: boolean
@@ -98,6 +106,11 @@ function DropdownMenuCheckboxItem({
         className
       )}
       checked={checked}
+      // A switch sounds its direction: up for on, down for off.
+      onCheckedChange={(on) => {
+        chime(on ? "on" : "off")
+        onCheckedChange?.(on)
+      }}
       {...props}
     >
       <span

@@ -23,7 +23,7 @@ export function SoundPacks({ chosen }: { chosen: PackName }): React.JSX.Element 
   ]
 
   return (
-    <div data-silent className="grid grid-cols-[14rem_1fr] gap-6 py-5">
+    <div data-silent className="grid grid-cols-1 gap-6 py-5 @[48rem]/page:grid-cols-[14rem_minmax(0,1fr)]">
       <div className="flex flex-col gap-0.5">
         {(Object.keys(PACKS) as PackName[]).map((name) => (
           <button
@@ -105,6 +105,21 @@ export function SoundPacks({ chosen }: { chosen: PackName }): React.JSX.Element 
           <Button variant="outline" size="lg" onClick={() => play(() => chime('send'))}>Send a capture</Button>
           <Button variant="outline" size="lg" onClick={() => play(() => chime('hint'))}>A hint arrives</Button>
           <Button variant="outline" size="lg" onClick={() => play(() => chime('tap'))}>Switch tab</Button>
+        </div>
+
+        <div>
+          <p className="mb-1 text-xs text-muted-foreground">Everything else: each thing you do has its own sound</p>
+          <div className="flex flex-wrap gap-2">
+            {([
+              ['resolve', 'Resolve'], ['away', 'Discard'], ['promote', 'Promote'], ['noted', 'Add a task'],
+              ['undo', 'Undo'], ['copy', 'Copy'], ['pin', 'Pin'], ['search', 'Search'],
+              ['open', 'A menu opens'], ['on', 'Switch on'], ['off', 'Switch off'],
+              ['slide', 'Panel out'], ['fold', 'Panel away'], ['page', 'Turn a page'],
+              ['settled', 'Keep a theme'], ['nope', 'Not allowed']
+            ] as const).map(([cue, label]) => (
+              <Button variant="outline" size="lg" key={cue} onClick={() => play(() => chime(cue))}>{label}</Button>
+            ))}
+          </div>
         </div>
 
         <div>

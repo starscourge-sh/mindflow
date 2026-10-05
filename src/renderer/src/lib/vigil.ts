@@ -89,6 +89,8 @@ export const taskSaid = (made: Made | null | undefined, fresh: string): string =
 export type TaskFull = Task & { notes: unknown; done: { at: string; recap: string | null }[]; subtasks: Subtask[]; linked: { id: string; tier: string; kind: string; title: string }[] }
 
 export type Session = { id: string; startedAt: string; endedAt: string | null; recap: string | null }
+/** The session running now, as the floating timer shows it. */
+export type Focus = { id: string; taskId: string; goal: string; startedAt: string; plannedMs: number | null; pausedMs: number; pausedAt: string | null }
 
 export type Pin = { id: string; type: 'capture' | 'nugget' | 'article'; kind: string; title: string; pinnedAt: string; private: number }
 export type Stats = {
@@ -170,7 +172,11 @@ export const vigil = {
   remind: (table: 'captures' | 'nuggets', id: string, at: string | null) => call('remind', table, id, at),
   similar: (text: string) => call<{ id: string; number: number; title: string; score: number } | null>('similar', text),
   sessions: (taskId: string) => call<Session[]>('sessions', taskId),
-  startSession: (taskId: string) => call('session:start', taskId),
+  startSession: (taskId: string, goal?: string, plannedMs?: number | null) => call<string>('session:start', taskId, goal, plannedMs),
+  focusNow: () => call<Focus | null>('focus:now'),
+  pauseSession: (id: string) => call('session:pause', id),
+  resumeSession: (id: string) => call('session:resume', id),
+  cancelSession: (id: string) => call('session:cancel', id),
   endSession: (id: string, recap: string, keep: boolean, close = false) => call('session:end', id, recap, keep, close)
 }
 

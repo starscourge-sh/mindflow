@@ -47,6 +47,9 @@ export const shown = (title: string, body: unknown): string => {
  * Drawn each time the window is brought up and after an exit, not on every
  * change elsewhere, or the cards would shuffle under you while you type.
  */
+/** Oldest first; a tie, as imports often have, by number. */
+const byAge = (a: Capture, b: Capture): number => a.capturedAt.localeCompare(b.capturedAt) || a.number - b.number
+
 export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JSX.Element | null {
   const [cards, setCards] = useState<Capture[]>([])
   // The card whose who is being asked, from its w key.
@@ -57,7 +60,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
   const [deal, setDeal] = useState(0)
   const reload = (): void =>
     void window.api.captures.rot().then((next) => {
-      setCards([...next].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt) || a.number - b.number))
+      setCards([...next].sort(byAge))
       setDeal((n) => n + 1)
     })
   const drop = (id: string): void => setCards((all) => all.filter((one) => one.id !== id))
@@ -75,7 +78,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
     // otherwise come back at the end.
     const back = (): void => {
       if (!card) return
-      setCards((all) => (all.some((one) => one.id === id) ? all : [...all, card].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt) || a.number - b.number)))
+      setCards((all) => (all.some((one) => one.id === id) ? all : [...all, card].sort(byAge)))
       setDeal((n) => n + 1)
     }
     void exitWith(id, status, back).then(() => window.api.captures.get(id)).then((now) => now?.status !== 'open' && drop(id))

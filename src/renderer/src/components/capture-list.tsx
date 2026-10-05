@@ -98,7 +98,7 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
             <span className="truncate pl-6 text-xs text-muted-foreground">
               {captureKey(capture.number)}
               {capture.source ? ` · ${capture.source.replace(/\.md$/, '')}` : ''}
-              {tags.length ? <span className="ml-2 inline-flex"><Tags tags={tags} /></span> : null}
+              {tags.length ? <span className="ml-2"><Tags tags={tags} /></span> : null}
             </span>
           </button>
           </RowMenu>

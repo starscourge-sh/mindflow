@@ -50,7 +50,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     })
   return (
     <div className="flex flex-col gap-1 text-sm">
-      <div className="flex h-8 min-w-0 items-center gap-1">
+      <div className="sticky top-0 z-[5] flex h-8 min-w-0 items-center gap-1 px-1 backdrop-blur-xl">
         <Chips className="shrink-0" options={TIERS} on={(id) => id === tier} pick={(id) => setTier(id as 'nugget' | 'article')} />
         {/* Read only when there is something to read. */}
         {all.length > 0 && <Button variant="ghost" size="sm" className="ml-auto" onClick={read}><BookOpen className="size-3.5" /> Read</Button>}

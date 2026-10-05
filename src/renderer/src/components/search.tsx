@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
+import { chime } from '@/lib/sound'
 import { PanelRight, Search as SearchIcon } from 'lucide-react'
 import type { JSONContent } from '@tiptap/core'
 
@@ -23,6 +24,8 @@ const groupOf = (at: string): string => {
  */
 export function Search({ onOpen, onClose, initial = '' }: { onOpen: (type: string, id: string) => void; onClose: () => void; initial?: string }): React.JSX.Element {
   const [query, setQuery] = useState(initial)
+  // Opening search sends out one ping.
+  useEffect(() => chime('search'), [])
   const [found, setFound] = useState<Capture[]>([])
   // Notion's chips under the box: names only, one type of thing, one kind.
   const [titleOnly, setTitleOnly] = useState(false)

@@ -11,9 +11,9 @@ import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
 import { EXITS, STATUS_ICON, captureKey, exit, findCaptures, flying, takeExit, toTask, follow } from '@/lib/capture-links'
 import { toMarkdown } from '@/lib/export'
-import { splitTags, taskSaid, vigil } from '@/lib/vigil'
+import { splitTags, taskSaid, vigil, type Made } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
-import { Empty, Kbd, Page, Prop, PropLabel, Props, Remembered, Rolling, ask, toast, useListKeys, useReadKey, typing, pin } from './ui'
+import { Empty, Kbd, Page, Prop, PropLabel, Props, Remembered, Rolling, ask, refuse, toast, useListKeys, useReadKey, typing, pin } from './ui'
 import { RemindMe } from './items-view'
 import { ReadThrough } from './read-through'
 import { selectionActions } from './selection-actions'
@@ -78,8 +78,8 @@ export function CapturesView({ title, keep, focus, onOpen }: {
   })
   const bulk = (status: string): void => {
     const ids = chosen
-    chime(status === 'discarded' ? 'away' : 'done')
     void Promise.all(ids.map((id) => window.api.captures.save(id, { status }))).then(() => {
+      chime(status === 'discarded' ? 'away' : 'resolve')
       setChosen([])
       toast(`${ids.length} ${status}`, () => void Promise.all(ids.map((id) => window.api.captures.save(id, { status: 'open' }))))
     })
@@ -105,7 +105,7 @@ export function CapturesView({ title, keep, focus, onOpen }: {
                 <Button variant="ghost" size="sm" onClick={() => void ask(`One task from these ${chosen.length}. What is it?`, 'e.g. sort out the freight rules by Thursday').then((text) => {
                   if (!text) return
                   const ids = chosen
-                  void vigil.taskFrom(ids, text).then((made) => { chime('done'); setChosen([]); toast(taskSaid(made, `One task, from ${ids.length} captures`)) })
+                  void vigil.taskFrom(ids, text).then((made) => { chime('noted'); setChosen([]); toast(taskSaid(made, `One task, from ${ids.length} captures`)) })
                 })}>One task</Button>
               )}
               <input
@@ -125,7 +125,7 @@ export function CapturesView({ title, keep, focus, onOpen }: {
             </span>
           ) : (
             <span className="flex items-center gap-2">
-              {shown.length > 1 && <span className="text-xs">x to select</span>}
+              {shown.length > 1 && <span className="hidden text-xs whitespace-nowrap @[48rem]/page:inline">x to select</span>}
               <Tip label="Read through these, one at a time  ⌘⇧R">
                 <Button variant="ghost" size="sm" onClick={() => setReadFrom(Math.max(0, cursor))} disabled={!shown.length}><BookOpen className="size-3.5" /> Read</Button>
               </Tip>
@@ -168,11 +168,11 @@ export function CapturesView({ title, keep, focus, onOpen }: {
         />
       )}
       {open && meta ? (
-        <div className="flex min-w-0 flex-[1.4] border-l">
+        <div className="flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_1.5rem_1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
             {/* What you first caught, kept from the first edit on: read it
                 beside what it has become, never lost to an edit. */}
-            <div className="flex justify-end px-[4.25rem]">
+            <div className="flex justify-end px-3 @[40rem]/page:px-[4.25rem]">
               <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() =>
                 first !== null
                   ? // Back from reading: the capture read again, so the editor
@@ -253,12 +253,20 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
               icon={exit.icon}
               tint={exit.tint}
               onClick={() => {
-                chime(exit.label === 'Discard' ? 'away' : exit.label === 'Promote to nugget' ? 'promote' : 'done')
-                void exit.run().then((result) =>
-                  result === 'cancelled' ? undefined : result === 'needs-source'
-                    ? toast('A quote needs to say who said it: add a source below first')
-                    : toast(exit.said, exit.label === 'Promote to nugget' ? undefined : reopen)
-                )
+                void exit.run().then((result) => {
+                  if (result === 'cancelled') return
+                  // A task says what really happened, and has no undo: the task it made stays.
+                  if (exit.label === 'Make it a task') {
+                    const made = result as Made | null
+                    if (!made) return refuse('That capture is gone')
+                    chime(made.existed ? 'nope' : 'noted')
+                    return toast(taskSaid(made, exit.said))
+                  }
+                  if (result === 'needs-source') return refuse('A quote needs to say who said it: add a source below first')
+                  // The sound once it went through, so a refusal never sounds like success first.
+                  chime(exit.label === 'Discard' ? 'away' : exit.label === 'Promote to nugget' ? 'promote' : 'resolve')
+                  toast(exit.said, exit.label === 'Promote to nugget' ? undefined : reopen)
+                })
               }}
             >
               {exit.label}
@@ -290,7 +298,7 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
               const number = Number(event.currentTarget.value.replace(/\D/g, ''))
               if (event.key !== 'Enter' || !number) return
               void vigil.mergeCapture(capture.id, number).then((into) =>
-                into ? toast(`Merged into MF-${number}`, () => void window.api.captures.save(capture.id, { status: 'open' })) : toast(`No MF-${number} to merge into`)
+                into ? toast(`Merged into MF-${number}`, () => void window.api.captures.save(capture.id, { status: 'open' })) : refuse(`No MF-${number} to merge into`)
               )
             }}
             className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-muted-foreground"

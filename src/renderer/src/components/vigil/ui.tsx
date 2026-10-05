@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Coolshape, type shapeTypes } from 'coolshapes-react'
 import Lenis from 'lenis'
 import { useLive, vigil } from '@/lib/vigil'
+import { chime } from '@/lib/sound'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/cn'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -27,14 +28,14 @@ export function Page({ title, count, actions, children, aside = false }: {
   children: ReactNode
 }): React.JSX.Element {
   return (
-    <section data-chrome={aside || undefined} className="flex min-w-0 flex-1 flex-col">
+    <section data-chrome={aside || undefined} className={cn('flex min-w-0 flex-1 flex-col', aside && 'hidden @[56rem]/page:flex')}>
       {/* The window's toolbar already names the section, so this line only
           carries the count and the actions, and goes when it has neither. */}
       {(count !== undefined || actions) && (
         <header data-chrome={aside || undefined} className="page-column flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground">
           {typeof title === 'string' && title.startsWith('#') ? <span className="font-medium text-foreground">{title}</span> : null}
-          {count ? <span className="tabular-nums"><Rolling text={count} /> {count === 1 ? 'item' : 'items'}</span> : null}
-          <div className="ml-auto flex items-center gap-1">{actions}</div>
+          {count ? <span className="whitespace-nowrap tabular-nums"><Rolling text={count} /> {count === 1 ? 'item' : 'items'}</span> : null}
+          <div className="ml-auto flex min-w-0 items-center gap-1">{actions}</div>
         </header>
       )}
       <SmoothScroll>{children}</SmoothScroll>
@@ -79,7 +80,7 @@ export function Props({ children, className }: { children: ReactNode; className?
   // One size for every row, whatever window it sits in: the prompt's larger
   // base made some rows grow and others not. A caller's classes are merged
   // over these, so the prompt's drawer can drop the width and the rule.
-  return <aside data-chrome className={cn('flex w-64 shrink-0 flex-col gap-px overflow-y-auto border-l p-3 pt-4 text-control text-muted-foreground', className)}>{children}</aside>
+  return <aside data-chrome className={cn('flex w-full shrink-0 flex-col gap-px overflow-y-auto border-t p-3 pt-4 text-control text-muted-foreground @[40rem]/page:w-64 @[40rem]/page:border-t-0 @[40rem]/page:border-l', className)}>{children}</aside>
 }
 export function PropLabel({ children }: { children: ReactNode }): React.JSX.Element {
   return <div className="mt-3 mb-1 px-2 text-meta font-medium first:mt-0">{children}</div>
@@ -140,7 +141,7 @@ export const typing = (): boolean => focus() !== null || !!document.querySelecto
 
 /** Pin or unpin, and say so when the three places are full. */
 export const pin = (table: 'captures' | 'nuggets', id: string, on: boolean): void =>
-  void vigil.pin(table, id, on).then((ok) => ok || toast('Three pins at most: unpin one first'))
+  void vigil.pin(table, id, on).then((ok) => (ok ? on && chime('pin') : refuse('Three pins at most: unpin one first')))
 
 /**
  * Moving through a list the way the editor moves through a document: j and k,
@@ -206,8 +207,55 @@ export function useListKeys(count: number, { onOpen, onBack, enabled = true }: {
  * Say what an action did, briefly, with a way back. The answer to "did that
  * work?" and the plan's undo-everywhere in one: three seconds, then gone.
  */
-export const toast = (text: string, undo?: () => void): void =>
-  void window.dispatchEvent(new CustomEvent('vigil:toast', { detail: { text, undo } }))
+export const toast = (text: string, undo?: () => void, tone: 'success' | 'error' = 'success'): void => {
+  beam(tone)
+  window.dispatchEvent(new CustomEvent('vigil:toast', { detail: { text, undo, tone } }))
+}
+
+/** Say why something was not done, with the "not allowed" sound. */
+export const refuse = (text: string): void => {
+  chime('nope')
+  toast(text, undefined, 'error')
+}
+
+export type BeamState = 'success' | 'error' | 'loading' | null
+/**
+ * The light along the window's top edge, the way Raycast's does it: a green
+ * sweep when something worked, a red flicker when it did not, a travelling
+ * shimmer while something is on its way. Seen from the corner of the eye,
+ * without reading a word.
+ */
+export const beam = (state: BeamState): void => void window.dispatchEvent(new CustomEvent('vigil:beam', { detail: state }))
+/** The shimmer for as long as the work takes, then the answer it gave. */
+export async function beaming<T>(work: Promise<T>): Promise<T> {
+  beam('loading')
+  try {
+    const done = await work
+    beam(null)
+    return done
+  } catch (error) {
+    beam('error')
+    throw error
+  }
+}
+
+export function Beam(): React.JSX.Element | null {
+  const [state, setState] = useState<{ tone: BeamState; key: number }>({ tone: null, key: 0 })
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>
+    const onBeam = (event: Event): void => {
+      clearTimeout(timer)
+      const tone = (event as CustomEvent<BeamState>).detail
+      setState({ tone, key: Date.now() })
+      // Loading stays until it is answered; an answer fades on its own.
+      if (tone && tone !== 'loading') timer = setTimeout(() => setState({ tone: null, key: Date.now() }), 1400)
+    }
+    window.addEventListener('vigil:beam', onBeam)
+    return () => window.removeEventListener('vigil:beam', onBeam)
+  }, [])
+  if (!state.tone) return null
+  return <div key={state.key} aria-hidden className={`mf-beam mf-beam-${state.tone}`} />
+}
 
 /**
  * A question that needs a line from you before something can go on, asked in
@@ -270,7 +318,7 @@ export function Toaster(): React.JSX.Element | null {
     // success toast just never coming.
     const onFail = (event: PromiseRejectionEvent): void => {
       const message = String(event.reason?.message ?? event.reason ?? '')
-      if (message.includes('Error invoking remote method')) toast(`Not saved: ${message.replace(/^.*?Error: /, '').split('\n')[0].replace(/^Error invoking remote method.*$/, 'it was not accepted')}`)
+      if (message.includes('Error invoking remote method')) refuse(`Not saved: ${message.replace(/^.*?Error: /, '').split('\n')[0].replace(/^Error invoking remote method.*$/, 'it was not accepted')}`)
     }
     window.addEventListener('vigil:toast', onToast)
     window.addEventListener('unhandledrejection', onFail)
@@ -286,6 +334,7 @@ export function Toaster(): React.JSX.Element | null {
     const onKey = (event: KeyboardEvent): void => {
       if (!event.metaKey || event.key !== 'z' || event.shiftKey || typing()) return
       event.preventDefault()
+      chime('undo')
       shown.undo?.()
       setShown(null)
     }
@@ -297,13 +346,15 @@ export function Toaster(): React.JSX.Element | null {
   return (
     <>
     <Asker />
-    {shown && <div
+    <Beam />
+    {/* Centred along the bottom, where the eye drops after acting. */}
+    {shown && <div className="pointer-events-none fixed inset-x-0 bottom-5 z-50 flex justify-center"><div
       key={shown.key}
       role="status"
       aria-live="polite"
       // An edge and a mark, with the buttons' corners: it has to be seen
       // from the corner of the eye, on any theme.
-      className="fixed right-5 bottom-5 z-50 flex items-center gap-2 rounded-md border border-border bg-popover py-1.5 pr-3.5 pl-2.5 text-sm font-medium shadow-[0_8px_24px_-6px_rgb(0_0_0/0.5)] animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]"
+      className="pointer-events-auto flex items-center gap-2 rounded-md border border-border bg-popover py-1.5 pr-3.5 pl-2.5 text-sm font-medium shadow-[0_8px_24px_-6px_rgb(0_0_0/0.5)] animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]"
     >
       <CircleCheck className="size-4 shrink-0 text-[var(--tt-brand-color-400)]" />
       <span>{shown.text}</span>
@@ -312,6 +363,7 @@ export function Toaster(): React.JSX.Element | null {
           type="button"
           className="font-medium text-[var(--tt-brand-color-400)] hover:underline"
           onClick={() => {
+            chime('undo')
             shown.undo?.()
             setShown(null)
           }}
@@ -319,7 +371,7 @@ export function Toaster(): React.JSX.Element | null {
           Undo <kbd className="ml-0.5 font-sans text-key opacity-70">⌘Z</kbd>
         </button>
       )}
-    </div>}
+    </div></div>}
     </>
   )
 }

@@ -1,5 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import {
+  Maximize2,
+  Minimize2,
   ArrowLeft,
   ArrowRight,
   BarChart3,
@@ -71,13 +73,33 @@ export function Home(): React.JSX.Element {
   // Where you have been, for back and forward: a list and a place in it.
   const [trail, setTrail] = useState<{ views: View[]; at: number }>({ views: [{ id: 'inbox' }], at: 0 })
   const view = trail.views[trail.at]
-  const setView = (next: View): void => {
-    if (next.id !== trail.views[trail.at].id) chime('tap')
-    setTrail(({ views, at }) => ({ views: [...views.slice(0, at + 1), next], at: at + 1 }))
-  }
+  const setView = (next: View): void =>
+    setTrail((trail) => {
+      const here = trail.views[trail.at]
+      // Going where you already are is not a step: Back would have to undo it.
+      if (here.id === next.id && here.focus === next.focus) return trail
+      if (here.id !== next.id) chime('tap')
+      return { views: [...trail.views.slice(0, trail.at + 1), next], at: trail.at + 1 }
+    })
   const step = (by: -1 | 1): void =>
     setTrail(({ views, at }) => ({ views, at: Math.max(0, Math.min(views.length - 1, at + by)) }))
   const [sidebar, setSidebar] = useState(true)
+  // Compact, beside your work, unless asked to fill the screen; remembered.
+  // Filling the screen is the window's own maximize, so the green button, a
+  // drag or a tiling manager all keep this icon honest.
+  const [fill, setFillState] = useState(false)
+  const setFill = (on: boolean): void => void window.api.fillHome(on)
+  useEffect(() => window.api.onFilled(setFillState), [])
+  // ⌃⇧F, the same chord that makes the prompt bigger. Held, it fires once.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.repeat || event.key.toLowerCase() !== 'f' || !event.ctrlKey || !event.shiftKey || event.metaKey || event.altKey) return
+      event.preventDefault()
+      void window.api.fillHome('toggle')
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   useAppearance()
   useFocusMode('home')
   const [searching, setSearching] = useState(false)
@@ -116,11 +138,6 @@ export function Home(): React.JSX.Element {
       if (event.metaKey && event.key === '[') return step(-1)
       if (event.metaKey && event.key === ']') return step(1)
       if (event.metaKey && event.key === '\\') return setSidebar((open) => !open)
-      // ⌘, opens Settings, as in every Mac app.
-      if (event.metaKey && event.key === ',') {
-        event.preventDefault()
-        return setView({ id: 'settings' })
-      }
       if (event.metaKey || event.ctrlKey || event.altKey) return
       // Shift on its own is half of a capital, not a key: G, let go, Shift+R.
       if (event.key === 'Shift') return
@@ -144,7 +161,8 @@ export function Home(): React.JSX.Element {
   // Somewhere else sent you to one thing: open its section with it open.
   const open = (type: string, id: string): void =>
     setView({ id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id })
-  useEffect(() => window.api.onSentTo((type, id) => (type === 'task' ? setView({ id: 'today', focus: id }) : open(type, id))), [])
+  // A view is sent by name (⌘, sends Settings), anything else as one thing to open.
+  useEffect(() => window.api.onSentTo((type, id) => (type === 'view' ? setView({ id }) : type === 'task' ? setView({ id: 'today', focus: id }) : open(type, id))), [])
 
   const kind = CAPTURE_TYPES.find((type) => `kind:${type.id}` === view.id)
   const keep: Record<string, (capture: CaptureMeta) => boolean> = {
@@ -169,43 +187,24 @@ export function Home(): React.JSX.Element {
         />
       )}
 
-      {/* The toolbar, with the traffic lights set into its left end. The strip
-          drags the window; every control on it says it does not. */}
-      <header className="flex h-12 shrink-0 items-center gap-0.5 border-b pr-3 pl-[84px]" style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
-        {[
-          { icon: PanelLeft, title: 'Sidebar ⌘\\', run: () => setSidebar(!sidebar) },
-          { icon: SearchIcon, title: 'Search ⌘K', run: () => setSearching(true) },
-          { icon: ArrowLeft, title: 'Back ⌘[', run: () => step(-1), off: trail.at === 0 },
-          { icon: ArrowRight, title: 'Forward ⌘]', run: () => step(1), off: trail.at === trail.views.length - 1 }
-        ].map(({ icon: Icon, title, run, off }) => (
-          <Tip key={title} label={title}>
-            <span style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
-              <Button variant="ghost" size="icon" aria-label={title} disabled={off} onClick={run} className="text-muted-foreground">
-                <Icon className="size-4" />
-              </Button>
-            </span>
-          </Tip>
-        ))}
-        <span className="ml-3 font-medium">
-          {SECTIONS.find((section) => section.id === view.id)?.label ?? (kind ? kind.label : view.id === 'settings' ? 'Settings' : '')}
-        </span>
-        <span className="flex-1" />
-        <SoundToggle className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-4" />
-        <Tip label="New capture  C">
-        <Button variant="ghost" size="sm"
-        
-          onClick={() => window.api.showPrompt()}
-          style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-          className="flex items-center gap-1.5 text-muted-foreground"
-        >
-          <SquarePen className="size-4" /> New
-        </Button>
-        </Tip>
-      </header>
-
-      <div className="flex min-h-0 flex-1">
+      {/* Like Raycast's settings window: the sidebar is a card of its own with
+          the window's buttons set into it, and the page beside it has only a
+          slim bar. The bar and the card's top drag the window; every control
+          on them says it does not. */}
+      <div className="flex min-h-0 flex-1 gap-2 p-2">
       {sidebar && (
-      <aside data-chrome className="flex w-56 shrink-0 flex-col overflow-y-auto border-r bg-accent/20 p-2 pb-3">
+      <aside data-chrome className="flex w-56 shrink-0 flex-col overflow-y-auto rounded-xl border bg-accent/20 p-2 pb-3">
+        {/* Room for the traffic lights, and somewhere to hold the window by. */}
+        <div className="h-8 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
+        <button
+          type="button"
+          onClick={() => setSearching(true)}
+          className="mb-3 flex items-center gap-2 rounded-lg bg-accent/60 px-2.5 py-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <SearchIcon className="size-4" />
+          <span className="flex-1 text-left">Search…</span>
+          <Kbd>⌘K</Kbd>
+        </button>
         <nav className="flex flex-col gap-px">
           {SECTIONS.map((section) => (
             <Tooltip key={section.id}>
@@ -308,6 +307,55 @@ export function Home(): React.JSX.Element {
       </aside>
       )}
 
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+      <header className={`flex h-8 shrink-0 items-center gap-1 ${sidebar ? '' : 'pl-[68px]'}`} style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
+        {[
+          { icon: PanelLeft, title: 'Sidebar ⌘\\', run: () => setSidebar(!sidebar) },
+          // With the sidebar away, its search field comes up here as a button.
+          ...(sidebar ? [] : [{ icon: SearchIcon, title: 'Search ⌘K', run: () => setSearching(true) }])
+        ].map(({ icon: Icon, title, run }) => (
+          <Tip key={title} label={title}>
+            <span style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
+              <Button variant="ghost" size="icon" aria-label={title} onClick={run} className="text-muted-foreground">
+                <Icon className="size-4" />
+              </Button>
+            </span>
+          </Tip>
+        ))}
+        {/* Back and forward as one pill, the way Raycast and Safari join them. */}
+        <span className="flex items-center rounded-full border" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
+          {[
+            { icon: ArrowLeft, title: 'Back ⌘[', run: () => step(-1), off: trail.at === 0 },
+            { icon: ArrowRight, title: 'Forward ⌘]', run: () => step(1), off: trail.at === trail.views.length - 1 }
+          ].map(({ icon: Icon, title, run, off }, index) => (
+            <Tip key={title} label={title}>
+              <button type="button" aria-label={title} disabled={off} onClick={run}
+                className={`flex h-7 w-8 items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-40 ${index ? 'border-l' : ''}`}>
+                <Icon className="size-3.5" />
+              </button>
+            </Tip>
+          ))}
+        </span>
+        <span className="ml-2 truncate font-medium">{SECTIONS.find((section) => section.id === view.id)?.label ?? (kind ? kind.label : view.id === 'settings' ? 'Settings' : '')}</span>
+        <span className="flex-1" />
+        <SoundToggle className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-4" />
+        <Tip label={`${fill ? 'Back to compact' : 'Fill the screen'}  ⌃⇧F`}>
+          <button type="button" aria-label={fill ? 'Back to compact' : 'Fill the screen'} onClick={() => setFill(!fill)}
+            style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
+            className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground">
+            {fill ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+          </button>
+        </Tip>
+        <Tip label="New capture  C">
+          <Button variant="ghost" size="sm" onClick={() => window.api.showPrompt()}
+            style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
+            className="flex items-center gap-1.5 text-muted-foreground">
+            <SquarePen className="size-4" /> New
+          </Button>
+        </Tip>
+      </header>
+      {/* The page itself, a card like the sidebar's. */}
+      <div className="@container/page flex min-h-0 flex-1 overflow-hidden rounded-xl border">
       <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={view.id}
@@ -336,6 +384,8 @@ export function Home(): React.JSX.Element {
         )}
       </motion.div>
       </AnimatePresence>
+      </div>
+      </div>
       </div>
     </div>
     </TooltipProvider>

@@ -1,10 +1,12 @@
 import * as React from "react"
 import { cn } from "@/lib/cn"
+import { chime } from "@/lib/sound"
 import { Switch as SwitchPrimitive } from "radix-ui"
 
 function Switch({
   className,
   size = "default",
+  onCheckedChange,
   ...props
 }: React.ComponentProps<typeof SwitchPrimitive.Root> & {
   size?: "sm" | "default"
@@ -18,6 +20,11 @@ function Switch({
         className
       )}
       {...props}
+      // Up for on, down for off.
+      onCheckedChange={(on) => {
+        chime(on ? "on" : "off")
+        onCheckedChange?.(on)
+      }}
     >
       <SwitchPrimitive.Thumb
         data-slot="switch-thumb"

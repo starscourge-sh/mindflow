@@ -890,7 +890,31 @@ export function registerVigil(): void {
   handle('sessions', (taskId: string) =>
     db.prepare('select id, started_at as startedAt, ended_at as endedAt, recap from sessions where task_id = ? order by started_at desc').all(taskId)
   )
-  handle('session:start', (taskId: string) => write(db.prepare('insert into sessions (id, task_id, started_at) values (?, ?, ?)').run(randomUUID(), taskId, now())))
+  // A focus session: a goal, an optional length, and pauses that do not count.
+  column('sessions', 'goal text')
+  column('sessions', 'planned_ms integer')
+  column('sessions', 'paused_ms integer not null default 0')
+  column('sessions', 'paused_at text')
+  // One at a time: starting another ends the one running, recap and all kept.
+  handle('session:start', (taskId: string, goal?: string, plannedMs?: number | null) => {
+    db.prepare('update sessions set ended_at = ? where ended_at is null').run(now())
+    const id = randomUUID()
+    db.prepare('insert into sessions (id, task_id, started_at, goal, planned_ms) values (?, ?, ?, ?, ?)').run(id, taskId, now(), goal?.trim() || null, plannedMs ?? null)
+    return write(id)
+  })
+  /** The session running now, with its task's name, for the floating timer. */
+  handle('focus:now', () =>
+    db.prepare(`select s.id, s.task_id as taskId, coalesce(s.goal, t.title) as goal, s.started_at as startedAt, s.planned_ms as plannedMs,
+      s.paused_ms as pausedMs, s.paused_at as pausedAt from sessions s join tasks t on t.id = s.task_id where s.ended_at is null order by s.started_at desc limit 1`).get() ?? null)
+  handle('session:pause', (id: string) => write(db.prepare('update sessions set paused_at = ? where id = ? and paused_at is null').run(now(), id)))
+  handle('session:resume', (id: string) => {
+    const at = db.prepare('select paused_at from sessions where id = ?').get(id) as { paused_at: string | null } | undefined
+    if (!at?.paused_at) return
+    db.prepare('update sessions set paused_ms = paused_ms + ?, paused_at = null where id = ?').run(Date.now() - new Date(at.paused_at).getTime(), id)
+    return write(true)
+  })
+  // Called off: no record that it happened.
+  handle('session:cancel', (id: string) => write(db.prepare('delete from sessions where id = ?').run(id)))
   // Ending asks for the recap, and the recap can become a nugget: the loop that
   // turns doing the work into something worth keeping.
   handle('session:end', (id: string, recap: string, keep: boolean, close = false) => {
