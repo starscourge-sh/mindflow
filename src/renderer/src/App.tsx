@@ -1164,7 +1164,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
 
   return (
     <div className="relative flex h-full w-full flex-col p-2">
-      <div data-hover-quiet className="mb-2 flex gap-1 rounded-lg bg-accent/40 p-0.5 text-sm">
+      <div data-hover-quiet className="mb-2 flex gap-1 rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-sm">
         {tabs.map((one) => (
           <Tip key={one.id} label={`⌃${tabs.indexOf(one) + 1}`}>
           <button
@@ -1180,7 +1180,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
           >
             {/* One pill that slides between tabs rather than three that blink. */}
             {tab === one.id && (
-              <motion.span layoutId="prompt-tab" className="absolute inset-0 -z-10 rounded-md border border-border bg-background shadow-sm" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />
+              <motion.span layoutId="prompt-tab" className="absolute inset-0 -z-10 rounded-md border border-foreground/15 bg-background shadow-sm" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />
             )}
             {one.label}
             {one.count ? <span className="text-xs tabular-nums text-muted-foreground"><Rolling text={one.count} /></span> : null}
