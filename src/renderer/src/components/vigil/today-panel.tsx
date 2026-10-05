@@ -184,7 +184,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
                 </p>
                 <p className="flex items-center gap-2 text-xs" style={{ color: late ? 'var(--tt-color-text-red)' : scope === 'today' ? 'var(--tt-color-text-orange)' : 'var(--muted-foreground)' }}>
                   {task.dueAt && <span className="flex items-center gap-1"><CalendarDays className="size-3" /> {when(task.dueAt, !!task.allDay)}</span>}
-                  {task.deadline && <span className="flex items-center gap-1"><CalendarClock className="size-3" /> Due by {when(task.deadline).toLowerCase()}</span>}
+                  {task.deadline && <span className="flex items-center gap-1"><CalendarClock className="size-3" /> Due by {when(task.deadline, !task.deadlineTimed).toLowerCase()}</span>}
                   {later && !task.dueAt && <span>{BUCKETS[later]}</span>}
                   {task.recurrence && <Repeat className="size-3 text-muted-foreground" />}
                 </p>

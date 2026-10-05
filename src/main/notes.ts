@@ -71,22 +71,29 @@ export function registerNotes({ load, guard }: Windows): void {
         insert into versions (item_id, body, saved_at) values (old.id, old.body, ${stamp});
         delete from versions where item_id = old.id and id not in (select id from versions where item_id = old.id order by id desc limit 50);
       end;`)
+  // A note deleted for good takes its versions with it; and any left behind
+  // by notes deleted before this was here go now.
+  for (const name of ['captures', 'nuggets'])
+    db.exec(`create trigger if not exists ${name}_versions_gone after delete on ${name} begin delete from versions where item_id = old.id; end;`)
+  db.exec('delete from versions where item_id not in (select id from captures union all select id from nuggets)')
+
+  // What a note's words work out to, kept per note (not per wording, which
+  // would keep one more with every autosave), and worked out again when they change.
+  type Kept<T> = Map<string, { body: string; value: T }>
+  const remember = <T>(kept: Kept<T>, key: string, body: string, make: () => T): T => {
+    const was = kept.get(key)
+    if (was?.body === body) return was.value
+    const value = make()
+    kept.set(key, { body, value })
+    return value
+  }
 
   // --- pictures in lists
   // The first stored picture in each note, worked out once per wording.
-  const firsts = new Map<string, string>()
-  const firstPicture = (body: string): string => {
-    let found = firsts.get(body)
-    if (found === undefined) {
-      found = PICTURE.exec(body)?.[0] ?? ''
-      if (firsts.size > 20000) firsts.clear()
-      firsts.set(body, found)
-    }
-    return found
-  }
+  const firsts: Kept<string> = new Map()
   handle('notes:thumbs', () => {
     const rows = db.prepare(`select id, body from captures where body like '%mindflow://assets/%' union all select id, body from nuggets where body like '%mindflow://assets/%'`).all() as { id: string; body: string }[]
-    return Object.fromEntries(rows.map((row) => [row.id, firstPicture(row.body)]).filter(([, src]) => src))
+    return Object.fromEntries(rows.map((row) => [row.id, remember(firsts, row.id, row.body, () => PICTURE.exec(row.body)?.[0] ?? '')]).filter(([, src]) => src))
   })
   // Small and kept: a list shows dozens at once, and the full picture is
   // often megabytes. Made once per picture per run.
@@ -102,18 +109,11 @@ export function registerNotes({ load, guard }: Windows): void {
     return made
   })
   // A card's first lines: only asked for while cards are shown.
-  const glances = new Map<string, string>()
+  const glances: Kept<string> = new Map()
   handle('notes:glance', (name: string) => {
     const rows = db.prepare(`select id, body from ${table(name)}`).all() as { id: string; body: string }[]
-    return Object.fromEntries(rows.map((row) => {
-      let text = glances.get(row.body)
-      if (text === undefined) {
-        text = plain(parse(row.body)).replace(/\n{2,}/g, '\n').trim().slice(0, 280)
-        if (glances.size > 20000) glances.clear()
-        glances.set(row.body, text)
-      }
-      return [row.id, text]
-    }))
+    return Object.fromEntries(rows.map((row) => [row.id, remember(glances, `${table(name)}:${row.id}`, row.body, () =>
+      plain(parse(row.body)).replace(/\n{2,}/g, '\n').trim().slice(0, 280))]))
   })
 
   // --- your own order, one per list
@@ -244,9 +244,18 @@ export function registerNotes({ load, guard }: Windows): void {
     if (!filePaths[0]) return null
     const safe = (text: string): string => text.replace(/[/\\:*?"<>|\n]+/g, ' ').trim().slice(0, 80)
     let saved = 0
+    // Two notes with one name each get their own folder: "Untitled 2".
+    const folders = new Set<string>()
     for (const { note, found } of files) {
       // One note's files go straight in; every note's go in a folder each.
-      const folder = files.length > 1 || !notes?.length ? join(filePaths[0], safe(note) || 'Untitled') : filePaths[0]
+      let folder = filePaths[0]
+      if (files.length > 1 || !notes?.length) {
+        const base = safe(note) || 'Untitled'
+        let one = base
+        for (let k = 2; folders.has(one.toLowerCase()); k++) one = `${base} ${k}`
+        folders.add(one.toLowerCase())
+        folder = join(filePaths[0], one)
+      }
       await mkdir(folder, { recursive: true })
       const taken = new Set<string>()
       for (const [n, { src, name }] of found.entries()) {
@@ -261,7 +270,8 @@ export function registerNotes({ load, guard }: Windows): void {
         await copyFile(join(assets(), stored), join(folder, one)).then(() => saved++, () => undefined)
       }
     }
-    return saved
+    // What was written, out of how many: a file missing from the store is told, not counted.
+    return { saved, total }
   })
 
   // --- a page a day
@@ -275,7 +285,7 @@ export function registerNotes({ load, guard }: Windows): void {
       exists: !!page,
       body: parse(page?.body),
       reviewed: !!page?.reviewed,
-      captured: db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, private from captures where ${on('captured_at')} order by captured_at`).all(day),
+      captured: db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, private from captures where archived_at is null and status != 'discarded' and ${on('captured_at')} order by captured_at`).all(day),
       resolved: db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, status, private from captures where status != 'open' and ${on('exited_at')} order by exited_at`).all(day),
       studied: db.prepare(`select distinct n.tier as type, n.id, coalesce(nullif(n.title, ''), label('', n.body)) as title, n.kind, n.private from review_log r join nuggets n on n.id = r.item_id where ${on('r.reviewed_at')}`).all(day),
       done: db.prepare(`select distinct 'task' as type, t.id, t.title, 0 as private from task_done d join tasks t on t.id = d.task_id where ${on('d.done_at')}`).all(day)
@@ -287,7 +297,11 @@ export function registerNotes({ load, guard }: Windows): void {
     const was = db.prepare('select body, reviewed from day_pages where day = ?').get(day) as { body: string | null; reviewed: number } | undefined
     const body = patch.body !== undefined ? JSON.stringify(patch.body) : was?.body ?? null
     const reviewed = patch.reviewed !== undefined ? (patch.reviewed ? 1 : 0) : was?.reviewed ?? 0
-    const empty = !plain(parse(body)).trim()
+    // Empty is nothing but blank paragraphs: a page holding only a picture,
+    // a drawing or a file has no words, and is still kept.
+    const doc = parse(body) as Doc | string | null
+    const empty = !doc || (typeof doc === 'string' ? !doc.trim() : (doc.content ?? []).every((node) =>
+      node.type === 'paragraph' && (node.content ?? []).every((part) => part.type === 'text' && !part.text?.trim())))
     if (empty && !reviewed) db.prepare('delete from day_pages where day = ?').run(day)
     else db.prepare('insert or replace into day_pages (day, body, reviewed, updated_at) values (?, ?, ?, ?)').run(day, body, reviewed, now())
     changed()

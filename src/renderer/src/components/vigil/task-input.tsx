@@ -88,6 +88,8 @@ export function taskTokens(line: () => string | null): TokenPattern[] {
   return (Object.keys(TINT) as Span['kind'][]).map((kind) => ({
     name: `task-${kind}`,
     color: TINT[kind],
+    // The task is its first line; the rest is notes, and its words are only words.
+    firstBlockOnly: true,
     get pattern() {
       const text = line() ?? ''
       const words = (read()?.spans ?? []).filter((one) => one.kind === kind).map((one) => escape(text.slice(one.from, one.to)))

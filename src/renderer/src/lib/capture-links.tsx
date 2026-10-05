@@ -3,7 +3,7 @@ import { CircleArrowUp, CircleCheck, CircleDashed, CircleX } from 'lucide-react'
 import { ask, askQuestion, toast } from '@/components/vigil/ui'
 import { chime } from '@/lib/sound'
 import { lift, type Home } from '@/lib/fly-home'
-import type { NoteSuggestion } from '@/extensions/note-link'
+import { showHeading, type NoteSuggestion } from '@/extensions/note-link'
 import { headingsIn } from '@/components/toc/headings'
 import type { JSONContent } from '@tiptap/core'
 import { vigil } from '@/lib/vigil'
@@ -102,8 +102,16 @@ export async function findHeadings(link: string): Promise<string[]> {
   return headingsIn(body as JSONContent | string | null)
 }
 
-/** Follow an @ link: a capture's id alone, or `nugget:` / `article:` and an id. */
-export const follow = (link: string, open: (type: string, id: string) => void): void => {
+/**
+ * Follow an @ link: a capture's id alone, or `nugget:` / `article:` and an id.
+ * A link to a heading lands on it, in the note already open if it is.
+ */
+export const follow = (link: string, open: (type: string, id: string) => void, heading?: string): void => {
   const [type, id] = link.includes(':') ? link.split(':') : ['capture', link]
   open(type, id)
+  if (heading) headingIn(type, id, heading)
 }
+
+/** Land on a heading in a note just opened, by the editor id every view gives it. */
+export const headingIn = (type: string, id: string, heading: string): void =>
+  showHeading(`${type === 'capture' || type === 'task' ? type : 'item'}-${id}`, heading)

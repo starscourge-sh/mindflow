@@ -41,8 +41,8 @@ export interface Api {
   showPrompt: () => void
   importFrom: (what: 'vault' | 'files') => Promise<void>
   setAppearance: (mode: 'light' | 'dark') => void
-  openInHome: (type: string, id: string) => void
-  onSentTo: (listen: (type: string, id: string) => void) => () => void
+  openInHome: (type: string, id: string, heading?: string) => void
+  onSentTo: (listen: (type: string, id: string, heading?: string) => void) => () => void
   vigil: (channel: string, ...args: unknown[]) => Promise<unknown>
   onShown: (listen: () => void) => () => void
   onHiding: (listen: () => void) => () => void

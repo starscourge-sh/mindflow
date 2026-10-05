@@ -197,7 +197,7 @@ import { WordCount } from "@/components/count/word-count"
 import { TableOfContents } from "@/components/toc/table-of-contents"
 import { OutlineKeys, goToHeading } from "@/components/toc/headings"
 import { SourceView } from "@/components/source/source-view"
-import { NoteLink, takePendingHeading, type NoteSuggestion } from "@/extensions/note-link"
+import { NoteLink, showingDocument, takePendingHeading, type NoteSuggestion } from "@/extensions/note-link"
 import { noteLinkRenderer, tagRenderer } from "@/components/note-link/note-link-menu"
 import { ImageMenu } from "@/components/image/image-menu"
 import { CodeBlockView } from "@/components/code/code-block-view"
@@ -422,8 +422,8 @@ export interface MindflowEditorProps {
   findNotes?: (query: string) => NoteSuggestion[] | Promise<NoteSuggestion[]>
   /**
    * A note link was clicked. The editor reports; the app navigates. A link to
-   * a heading says which, though the app need do nothing with it: the next
-   * editor to open scrolls there itself.
+   * a heading says which: the next editor to open scrolls there itself, and
+   * `showHeading` covers a note that is already open or opens elsewhere.
    */
   onOpenNote?: (id: string, heading?: string) => void
   /**
@@ -474,10 +474,11 @@ export function MindflowEditor({
   ...props
 }: MindflowEditorProps = {}): React.JSX.Element | null {
   if (documentId === null) return null
-  return <Surface key={documentId ?? undefined} {...props} />
+  return <Surface key={documentId ?? undefined} documentId={documentId} {...props} />
 }
 
 function Surface({
+  documentId,
   defaultContent = "",
   placeholder = "Write, or type / for commands…",
   showSource = false,
@@ -1188,6 +1189,10 @@ function Surface({
     return () => dom.removeEventListener("error", missing, true)
   }, [editor])
 
+  // Known by its id while open, so a heading link to this same document lands
+  // here rather than waiting for an editor that will never mount.
+  useEffect(() => (documentId != null && editor ? showingDocument(String(documentId), editor) : undefined), [editor, documentId])
+
   // The first line, watched against the window rather than the scroller: in
   // the box the document scrolls itself, in a page its column does, and only
   // the window is the same in both. The top 48px are the host's bar.
@@ -1196,6 +1201,12 @@ function Surface({
   const firstLine = useEditorState({
     editor,
     selector: ({ editor: instance }) => (onTitleOut && instance ? instance.state.doc.firstChild?.textContent.trim() ?? "" : ""),
+  })
+  // Its kind too: turning the line into a heading swaps its element for a new
+  // one with the same words, and the watcher would stay on the old one.
+  const firstType = useEditorState({
+    editor,
+    selector: ({ editor: instance }) => (onTitleOut && instance ? `${instance.state.doc.firstChild?.type.name}:${instance.state.doc.firstChild?.attrs.level ?? ""}` : ""),
   })
   useEffect(() => {
     const first = onTitleOut && editor && !editor.isDestroyed ? editor.view.dom.firstElementChild : null
@@ -1206,7 +1217,7 @@ function Surface({
     watch.observe(first)
     return () => watch.disconnect()
     // Again when the first block is replaced, as a new heading or a paste does.
-  }, [editor, !onTitleOut, firstLine]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [editor, !onTitleOut, firstLine, firstType]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     titleOut.current?.(titleGone && firstLine ? firstLine : null)
   }, [titleGone, firstLine]) // eslint-disable-line react-hooks/exhaustive-deps

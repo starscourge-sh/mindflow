@@ -7,7 +7,7 @@ import { EXITS, captureKey, exit } from '@/lib/capture-links'
 import { splitTags, vigil } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
 import { Tags, Tip, VirtualList, pin } from './vigil/ui'
-import { RowMenu, copy } from './vigil/row-menu'
+import { RowMenu, copy, type MenuItem } from './vigil/row-menu'
 import { stickOnDesktop } from './vigil/sticky-note'
 import { Thumb, useRowDrag } from './vigil/note-extras'
 import { archive, changeKind, openWindow, saveAttachments } from '@/lib/notes'
@@ -45,6 +45,28 @@ export function ageTint(at: string): string | undefined {
   return days < 30 ? undefined : days < 180 ? 'color-mix(in srgb, var(--tt-color-text-orange) 60%, var(--muted-foreground))' : 'var(--tt-color-text-orange)'
 }
 
+/** A capture's right-click menu: the same on a row in the list and on a card. */
+export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void): MenuItem[] => [
+  { label: 'Open', run: () => onPick?.(capture.id), keys: '↵' },
+  'separator',
+  ...(capture.status === 'open'
+    ? EXITS.map((one) => ({ label: one.label, keys: one.key.toUpperCase(), danger: one.status === 'discarded', run: () => void exit(capture.id, one.status) }))
+    : [{ label: 'Back to the inbox', run: () => void window.api.captures.save(capture.id, { status: 'open' }).then(() => chime('undo')) }]),
+  capture.status === 'open' && { label: 'Make it a task', run: () => void makeTask({ capture: capture.id }) },
+  'separator',
+  { label: capture.pinnedAt ? 'Unpin' : 'Pin to the prompt', run: () => pin('captures', capture.id, !capture.pinnedAt) },
+  { label: capture.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('captures', capture.id, !capture.private) },
+  { label: 'Stick on the desktop', run: () => stickOnDesktop('capture', capture.id) },
+  { label: 'Open in a new window', keys: '⌘-click', run: () => openWindow('capture', capture.id) },
+  'separator',
+  { label: 'Change kind…', run: () => void changeKind('captures', capture.id, capture.kind) },
+  { label: capture.archivedAt ? 'Unarchive' : 'Archive', run: () => void archive('captures', [capture.id], !capture.archivedAt) },
+  { label: 'Save its pictures and files…', run: () => void saveAttachments([{ table: 'captures', id: capture.id }]) },
+  'separator',
+  { label: `Copy ${captureKey(capture.number)}`, run: () => copy(captureKey(capture.number), `Copied ${captureKey(capture.number)}`) },
+  { label: 'Copy text', run: () => copy(capture.label) }
+]
+
 /**
  * Two lines a capture: kind, title and age; then its handle and where it came
  * from. One that has taken an exit is dimmed, the way Linear dims what is read.
@@ -68,26 +90,7 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick, o
         const { text, tags } = splitTags(capture.label)
         return (
           <div>
-          <RowMenu items={[
-            { label: 'Open', run: () => onPick?.(capture.id), keys: '↵' },
-            'separator',
-            ...(capture.status === 'open'
-              ? EXITS.map((one) => ({ label: one.label, keys: one.key.toUpperCase(), danger: one.status === 'discarded', run: () => void exit(capture.id, one.status) }))
-              : [{ label: 'Back to the inbox', run: () => void window.api.captures.save(capture.id, { status: 'open' }).then(() => chime('undo')) }]),
-            capture.status === 'open' && { label: 'Make it a task', run: () => void makeTask({ capture: capture.id }) },
-            'separator',
-            { label: capture.pinnedAt ? 'Unpin' : 'Pin to the prompt', run: () => pin('captures', capture.id, !capture.pinnedAt) },
-            { label: capture.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('captures', capture.id, !capture.private) },
-            { label: 'Stick on the desktop', run: () => stickOnDesktop('capture', capture.id) },
-            { label: 'Open in a new window', keys: '⌘-click', run: () => openWindow('capture', capture.id) },
-            'separator',
-            { label: 'Change kind…', run: () => void changeKind('captures', capture.id, capture.kind) },
-            { label: capture.archivedAt ? 'Unarchive' : 'Archive', run: () => void archive('captures', [capture.id], !capture.archivedAt) },
-            { label: 'Save its pictures and files…', run: () => void saveAttachments([{ table: 'captures', id: capture.id }]) },
-            'separator',
-            { label: `Copy ${captureKey(capture.number)}`, run: () => copy(captureKey(capture.number), `Copied ${captureKey(capture.number)}`) },
-            { label: 'Copy text', run: () => copy(capture.label) }
-          ]}>
+          <RowMenu items={captureMenu(capture, onPick)}>
           <button
             data-cursor={index === cursor || undefined}
             type="button"

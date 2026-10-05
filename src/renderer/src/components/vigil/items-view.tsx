@@ -14,9 +14,9 @@ import { age } from '../capture-list'
 import { findCaptures, findHeadings, follow } from '@/lib/capture-links'
 import { interval, splitTags, useLive, vigil, when, type Item, type ItemFull } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
-import { Empty, Page, Prop, PropLabel, Props, Tags, refuse, toast, useListKeys, useReadKey, typing, pin, VirtualList, Stepper, startAt, Rolling, Typed, showTopTitle } from './ui'
+import { Empty, Island, Page, Prop, Props, Tags, refuse, toast, useListKeys, useReadKey, typing, pin, VirtualList, Stepper, startAt, Rolling, Typed, showTopTitle } from './ui'
 import { AGES, Display, arrange, period, useView, type Facet } from './display'
-import { RowMenu, copy } from './row-menu'
+import { RowMenu, copy, type MenuItem } from './row-menu'
 import { stickOnDesktop } from './sticky-note'
 import { Lineage } from './lineage'
 import { ReviewHistory } from './review-view'
@@ -50,6 +50,12 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   const heads = new Map(groups.map(([name, list]) => [list[0], name]))
   const [open, setOpen] = useState<ItemFull | null>(null)
   const pick = (id: string): void => void vigil.item(id).then(setOpen)
+  // Opened in a window of its own: closed here, so only one editor saves it.
+  useEffect(() => {
+    const onApart = (event: Event): void => setOpen((was) => (was?.id === (event as CustomEvent).detail ? null : was))
+    window.addEventListener('vigil:opened-apart', onApart)
+    return () => window.removeEventListener('vigil:opened-apart', onApart)
+  }, [])
   const [cursor, setCursor] = useListKeys(items.length, { onOpen: (index) => pick(items[index].id), onBack: () => setOpen(null) })
   // ⌥↑ and ⌥↓ (or ⌥K and ⌥J) move the row under the cursor in your own order.
   useEffect(() => {
@@ -97,6 +103,22 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   }, [focus])
   // Re-read the open one when anything changes, so a gloss or a prompt shows.
   useEffect(() => window.api.captures.onChange(() => open && pick(open.id)), [open?.id])
+  // The right-click menu: the same on a row and on a card.
+  const menuFor = (item: Item): MenuItem[] => [
+    { label: 'Open', keys: '↵', run: () => pick(item.id) },
+    'separator',
+    { label: item.pinnedAt ? 'Unpin' : 'Pin to the prompt', run: () => pin('nuggets', item.id, !item.pinnedAt) },
+    { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
+    { label: 'Stick on the desktop', run: () => stickOnDesktop('nugget', item.id) },
+    { label: 'Open in a new window', keys: '⌘-click', run: () => openWindow(tier, item.id) },
+    'separator',
+    tier === 'nugget' && { label: 'Change kind…', run: () => void changeKind('nuggets', item.id, item.kind) },
+    { label: item.archivedAt ? 'Unarchive' : 'Archive', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
+    { label: 'Save its pictures and files…', run: () => void saveAttachments([{ table: 'nuggets', id: item.id }]) },
+    tier === 'nugget' && { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(item.id) },
+    'separator',
+    { label: 'Copy title', run: () => copy(item.title) }
+  ]
 
   return (
     <>
@@ -171,27 +193,14 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           )}
         </AnimatePresence>
         {items.length && layout === 'cards' ? (
-          <NoteCards table="nuggets" cards={items.map((one) => ({ id: one.id, title: one.title, kind: one.kind, type: tier, dim: !!one.suspended }))} selected={open?.id} cursor={cursor} onPick={pick} />
+          <NoteCards table="nuggets" cards={items.map((one) => ({ id: one.id, title: one.title, kind: one.kind, type: tier, dim: !!one.suspended }))} selected={open?.id} cursor={cursor} onPick={pick}
+            menu={(card) => menuFor(items.find((one) => one.id === card.id)!)} />
         ) : items.length ? (
           <VirtualList items={items} keyOf={(item) => item.id} cursor={cursor} estimate={60} className="mx-3 my-2">
             {(item, index) => (
               <div className="flex flex-col">
               {heads.get(item) && <div className={`px-2 pb-1 text-xs text-muted-foreground ${index === 0 ? 'pt-1' : 'pt-4'}`}>{heads.get(item)}</div>}
-              <RowMenu items={[
-                { label: 'Open', keys: '↵', run: () => pick(item.id) },
-                'separator',
-                { label: item.pinnedAt ? 'Unpin' : 'Pin to the prompt', run: () => pin('nuggets', item.id, !item.pinnedAt) },
-                { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
-                { label: 'Stick on the desktop', run: () => stickOnDesktop('nugget', item.id) },
-                { label: 'Open in a new window', keys: '⌘-click', run: () => openWindow(tier, item.id) },
-                'separator',
-                tier === 'nugget' && { label: 'Change kind…', run: () => void changeKind('nuggets', item.id, item.kind) },
-                { label: item.archivedAt ? 'Unarchive' : 'Archive', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
-                { label: 'Save its pictures and files…', run: () => void saveAttachments([{ table: 'nuggets', id: item.id }]) },
-                tier === 'nugget' && { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(item.id) },
-                'separator',
-                { label: 'Copy title', run: () => copy(item.title) }
-              ]}>
+              <RowMenu items={menuFor(item)}>
               <button
                 data-cursor={index === cursor || undefined}
                 data-private={item.private ? "" : undefined}
@@ -356,7 +365,7 @@ export function ItemDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (ty
           defaultContent={((restored ? restored.body : item.body) as JSONContent | string | null) ?? ''}
           findNotes={findCaptures}
           findHeadings={findHeadings}
-          onOpenNote={(link) => onOpen && follow(link, onOpen)}
+          onOpenNote={(link, heading) => onOpen && follow(link, onOpen, heading)}
           after={<Mentions id={item.id} onOpen={onOpen} />}
           onChange={(body, instance) => {
             editor.current = instance
@@ -370,145 +379,154 @@ export function ItemDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (ty
       <Props>
         {item.tier === 'nugget' && (
           <>
-            <PropLabel>Kind</PropLabel>
-            <div>
-              <CaptureKindPicker value={item.kind as CaptureType} onChange={(kind) => void changeKind('nuggets', item.id, item.kind, kind)} />
-            </div>
+            <Island compact title="Kind">
+              <div>
+                <CaptureKindPicker value={item.kind as CaptureType} onChange={(kind) => void changeKind('nuggets', item.id, item.kind, kind)} />
+              </div>
+            </Island>
             <KindFields table="nuggets" id={item.id} kind={item.kind} />
           </>
         )}
 
-        <PropLabel>How it comes back</PropLabel>
-        <Prop icon={item.prompt ? Brain : item.mode === 'pushed' ? RefreshCw : Eye} active>
-          <Rolling by="word" text={item.prompt ? 'Tested, on a schedule' : item.mode === 'pushed' ? 'On rotation, always' : 'Now and then, as a hint'} />
-        </Prop>
-        {!item.prompt && (
-          // Pushed: a standing principle that should keep coming round, the
-          // note-to-self's way, rather than turning up by chance.
-          <Prop
-            icon={item.mode === 'pushed' ? Eye : RefreshCw}
-            onClick={() => void vigil.saveItem(item.id, { mode: item.mode === 'pushed' ? 'encounter' : 'pushed' }).then(() =>
-              (chime(item.mode === 'pushed' ? 'off' : 'on'), toast(item.mode === 'pushed' ? 'Back to turning up by chance' : 'On rotation: it will keep coming back')))}
-          >
-            {item.mode === 'pushed' ? 'Only now and then' : 'Keep showing me this'}
+        <Island compact title="Review">
+          <Prop icon={item.prompt ? Brain : item.mode === 'pushed' ? RefreshCw : Eye} active>
+            <Rolling by="word" text={item.prompt ? 'Tested, on a schedule' : item.mode === 'pushed' ? 'On rotation, always' : 'Now and then, as a hint'} />
           </Prop>
-        )}
-        <Textarea
-          value={prompt}
-          onChange={(event) => setPrompt(event.target.value)}
-          onBlur={savePrompt}
-          rows={3}
-          placeholder="A question this answers. Empty, it comes back on its own."
-          className="mt-1 resize-none text-control"
-        />
-        <Prop icon={SquareDashed} onClick={cloze}>Blank the selected words</Prop>
-        {item.dueAt && <Prop icon={Calendar}>Next review {when(item.dueAt, false)}</Prop>}
-        {!!item.reviewed && <div className="mx-2 my-1 text-muted-foreground"><ReviewHistory id={item.id} /></div>}
-        {item.lapses >= 4 && (
-          <p className="mx-2 my-1 text-xs leading-relaxed text-[var(--tt-color-text-orange)]">
-            <Typed text={`Forgotten ${item.lapses} times. That is usually the prompt, not you: try rewriting it.`} step={28} />
-          </p>
-        )}
-        <Prop
-          icon={item.suspended ? Play : Pause}
-          onClick={() => void vigil.saveItem(item.id, { suspended: !item.suspended }).then(() => (chime(item.suspended ? 'on' : 'off'), toast(item.suspended ? 'Back in rotation' : 'Suspended until you bring it back')))}
-        >
-          {item.suspended ? 'Bring back into rotation' : 'Suspend'}
-        </Prop>
+          {!item.prompt && (
+            // Pushed: a standing principle that should keep coming round, the
+            // note-to-self's way, rather than turning up by chance.
+            <Prop
+              icon={item.mode === 'pushed' ? Eye : RefreshCw}
+              onClick={() => void vigil.saveItem(item.id, { mode: item.mode === 'pushed' ? 'encounter' : 'pushed' }).then(() =>
+                (chime(item.mode === 'pushed' ? 'off' : 'on'), toast(item.mode === 'pushed' ? 'Back to turning up by chance' : 'On rotation: it will keep coming back')))}
+            >
+              {item.mode === 'pushed' ? 'Only now and then' : 'Keep showing me this'}
+            </Prop>
+          )}
+          <Textarea
+            value={prompt}
+            onChange={(event) => setPrompt(event.target.value)}
+            onBlur={savePrompt}
+            rows={3}
+            placeholder="A question this answers. Empty, it comes back on its own."
+            className="resize-none text-control"
+          />
+          <Prop icon={SquareDashed} onClick={cloze}>Blank the selected words</Prop>
+          {item.dueAt && <Prop icon={Calendar}>Next review {when(item.dueAt, false)}</Prop>}
+          {!!item.reviewed && <div className="px-2 py-1.5 text-muted-foreground"><ReviewHistory id={item.id} /></div>}
+          {item.lapses >= 4 && (
+            <p className="px-2 py-1.5 text-xs leading-relaxed text-[var(--tt-color-text-orange)]">
+              <Typed text={`Forgotten ${item.lapses} times. That is usually the prompt, not you: try rewriting it.`} step={28} />
+            </p>
+          )}
+          <Prop
+            icon={item.suspended ? Play : Pause}
+            onClick={() => void vigil.saveItem(item.id, { suspended: !item.suspended }).then(() => (chime(item.suspended ? 'on' : 'off'), toast(item.suspended ? 'Back in rotation' : 'Suspended until you bring it back')))}
+          >
+            {item.suspended ? 'Bring back into rotation' : 'Suspend'}
+          </Prop>
+        </Island>
 
-        <PropLabel>Surfacing</PropLabel>
-        <Prop icon={item.private ? EyeOff : Eye} active={!!item.private} onClick={() => void vigil.setPrivate('nuggets', item.id, !item.private)}>
-          {item.private ? 'Private' : 'Can surface any time'}
-        </Prop>
-        <Prop icon={Pin} active={!!item.pinnedAt} onClick={() => pin('nuggets', item.id, !item.pinnedAt)}>
-          {item.pinnedAt ? 'Pinned' : 'Pin to the prompt'}
-        </Prop>
-        <RemindMe table="nuggets" id={item.id} at={item.remindAt} />
-        <Prop icon={item.archivedAt ? ArchiveRestore : Archive} active={!!item.archivedAt} onClick={() => void archive('nuggets', [item.id], !item.archivedAt)}>
-          {item.archivedAt ? 'Archived: bring it back' : 'Archive'}
-        </Prop>
+        <Island compact title="Surfacing">
+          <Prop icon={item.private ? EyeOff : Eye} active={!!item.private} onClick={() => void vigil.setPrivate('nuggets', item.id, !item.private)}>
+            {item.private ? 'Private' : 'Can surface any time'}
+          </Prop>
+          <Prop icon={Pin} active={!!item.pinnedAt} onClick={() => pin('nuggets', item.id, !item.pinnedAt)}>
+            {item.pinnedAt ? 'Pinned' : 'Pin to the prompt'}
+          </Prop>
+          <RemindMe table="nuggets" id={item.id} at={item.remindAt} />
+          <Prop icon={item.archivedAt ? ArchiveRestore : Archive} active={!!item.archivedAt} onClick={() => void archive('nuggets', [item.id], !item.archivedAt)}>
+            {item.archivedAt ? 'Archived: bring it back' : 'Archive'}
+          </Prop>
+        </Island>
 
         {item.tier === 'nugget' ? (
           <>
-            <PropLabel>Context</PropLabel>
-            <Textarea
-              defaultValue={item.context ?? ''}
-              onBlur={(event) => void vigil.saveItem(item.id, { context: event.target.value.trim() || null })}
-              rows={2}
-              placeholder="What makes the answer make sense: shown after it in review"
-              className="resize-none text-control"
-            />
-            <PropLabel>Why</PropLabel>
-            <Textarea
-              defaultValue={item.why ?? ''}
-              onBlur={(event) => void vigil.saveItem(item.id, { why: event.target.value.trim() || null })}
-              rows={1}
-              placeholder="Why the answer is so, in a line: under it in review"
-              className="resize-none text-control"
-            />
-            <PropLabel>Grow it</PropLabel>
-            {/* Two hundred words of your own beside it is an article written
-                without noticing: said, never automated. */}
-            {glossWords >= 200 && (
-              <p className="mx-2 mb-1 text-xs leading-relaxed text-[var(--tt-color-text-purple)]">
-                Your glosses here run to {glossWords} words: that is an article already. Start one and they come with it.
-              </p>
-            )}
-            <Prop icon={Plus} onClick={() => void vigil.article([item.id]).then((id) => { chime('promote'); toast('An article, from this nugget'); onOpen?.('article', id) })}>
-              Start an article
-            </Prop>
-            <StudyThis item={item} />
+            <Island compact title="Context">
+              <Textarea
+                defaultValue={item.context ?? ''}
+                onBlur={(event) => void vigil.saveItem(item.id, { context: event.target.value.trim() || null })}
+                rows={2}
+                placeholder="What makes the answer make sense: shown after it in review"
+                className="resize-none text-control"
+              />
+            </Island>
+            <Island compact title="Why">
+              <Textarea
+                defaultValue={item.why ?? ''}
+                onBlur={(event) => void vigil.saveItem(item.id, { why: event.target.value.trim() || null })}
+                rows={1}
+                placeholder="Why the answer is so, in a line: under it in review"
+                className="resize-none text-control"
+              />
+            </Island>
+            <Island compact title="Grow it">
+              {/* Two hundred words of your own beside it is an article written
+                  without noticing: said, never automated. */}
+              {glossWords >= 200 && (
+                <p className="px-2 py-1.5 text-xs leading-relaxed text-[var(--tt-color-text-purple)]">
+                  Your glosses here run to {glossWords} words: that is an article already. Start one and they come with it.
+                </p>
+              )}
+              <Prop icon={Plus} onClick={() => void vigil.article([item.id]).then((id) => { chime('promote'); toast('An article, from this nugget'); onOpen?.('article', id) })}>
+                Start an article
+              </Prop>
+              <StudyThis item={item} />
+            </Island>
           </>
         ) : (
-          <>
-            <PropLabel>Made from</PropLabel>
+          <Island compact title="Made from">
             <Prop icon={Layers}>{item.origins.length ? `${item.origins.length} nugget${item.origins.length === 1 ? '' : 's'}` : 'Written from scratch'}</Prop>
-          </>
+          </Island>
         )}
         <Lineage id={item.id} onOpen={onOpen} />
         <LocalGraph id={item.id} title={item.title} onOpen={onOpen} />
-        <Prop icon={Download} onClick={() => void saveAttachments([{ table: 'nuggets', id: item.id }])}>Save its pictures and files…</Prop>
-        <PropLabel>Wrong?</PropLabel>
-        {item.supersededBy ? (
-          <Prop icon={TriangleAlert}>Superseded: out of review, kept beside its correction</Prop>
-        ) : (
-          <Supersede item={item} />
-        )}
-        <PropLabel>Source</PropLabel>
-        <label className="flex items-center gap-2 rounded-md px-2 py-1.5 focus-within:text-foreground hover:bg-accent">
-          <Quote className="size-4 shrink-0" />
-          <input
-            defaultValue={item.attribution ?? ''}
-            placeholder="Who, or where from"
-            onBlur={(event) => void vigil.saveItem(item.id, { attribution: event.target.value.trim() || null })}
-            className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-muted-foreground"
-          />
-        </label>
-        <PropLabel>Details</PropLabel>
-        <Prop icon={Calendar}>Kept {when(item.createdAt)}</Prop>
-        {item.revisions > 0 && <Prop icon={History}>Rewritten {item.revisions === 1 ? 'once' : `${item.revisions} times`}</Prop>}
+        <Island compact title="Wrong?">
+          {item.supersededBy ? (
+            <Prop icon={TriangleAlert}>Superseded: out of review, kept beside its correction</Prop>
+          ) : (
+            <Supersede item={item} />
+          )}
+        </Island>
+        <Island compact title="Where it came from">
+          <label className="flex items-center gap-2 px-2 py-1.5 focus-within:text-foreground hover:bg-accent">
+            <Quote className="size-4 shrink-0" />
+            <input
+              defaultValue={item.attribution ?? ''}
+              placeholder="Who, or where from"
+              onBlur={(event) => void vigil.saveItem(item.id, { attribution: event.target.value.trim() || null })}
+              className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-muted-foreground"
+            />
+          </label>
+        </Island>
+        <Island compact title="Details">
+          <Prop icon={Calendar}>Kept {when(item.createdAt)}</Prop>
+          {item.revisions > 0 && <Prop icon={History}>Rewritten {item.revisions === 1 ? 'once' : `${item.revisions} times`}</Prop>}
+          <Prop icon={Download} onClick={() => void saveAttachments([{ table: 'nuggets', id: item.id }])}>Save its pictures and files…</Prop>
+        </Island>
 
         {/* Glosses: present-you beside the material, one row each and never an
             edit, so the history of your thinking about it stays readable. */}
-        <PropLabel>Glosses</PropLabel>
-        {item.glosses.map((one) => (
-          <div key={one.id} className="mx-2 mb-2 text-foreground">
-            <p className="whitespace-pre-line">{one.body}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">{when(one.createdAt)}{one.author === 'ai' ? ' · AI' : ''}</p>
-          </div>
-        ))}
-        <Textarea
-          value={gloss}
-          onChange={(event) => setGloss(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter' || event.shiftKey || !gloss.trim()) return
-            event.preventDefault()
-            void vigil.gloss(item.id, gloss.trim()).then(() => (chime('noted'), setGloss('')))
-          }}
-          rows={2}
-          placeholder="Why you kept it, or where you disagree"
-          className="resize-none text-control"
-        />
+        <Island compact title="Glosses">
+          {item.glosses.map((one) => (
+            <div key={one.id} className="px-2 py-1.5 text-foreground">
+              <p className="whitespace-pre-line">{one.body}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{when(one.createdAt)}{one.author === 'ai' ? ' · AI' : ''}</p>
+            </div>
+          ))}
+          <Textarea
+            value={gloss}
+            onChange={(event) => setGloss(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' || event.shiftKey || !gloss.trim()) return
+              event.preventDefault()
+              void vigil.gloss(item.id, gloss.trim()).then(() => (chime('noted'), setGloss('')))
+            }}
+            rows={2}
+            placeholder="Why you kept it, or where you disagree"
+            className="resize-none text-control"
+          />
+        </Island>
       </Props>
     </div>
   )
@@ -631,13 +649,14 @@ export function useItemDisplay(name: string, every: Item[]): {
   const mine = (): void => void (view.sort !== 'manual' && setView({ ...view, sort: 'manual' }))
   const move = (ids: string[], id: string, target: string, after: boolean): void => {
     mine()
-    own.move(ids, id, target, after)
+    // From another sort, the order you see is the one the move starts from.
+    own.move(ids, id, target, after, false, view.sort !== 'manual' ? groups.flatMap(([, list]) => list.map((one) => one.id)) : undefined)
   }
   const moveBy = (shown: string[], id: string, by: number): boolean => {
     const target = shown[shown.indexOf(id) + by]
     if (!target) return false
     mine()
-    own.move(every.map((one) => one.id), id, target, by > 0, true)
+    own.move(every.map((one) => one.id), id, target, by > 0, true, view.sort !== 'manual' ? shown : undefined)
     return true
   }
   const facets: Facet<Item>[] = [

@@ -9,7 +9,7 @@ import { findCaptures, follow } from '@/lib/capture-links'
 import { dayOf, notes, type Day, type DayEntry } from '@/lib/notes'
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/vigil'
-import { Kbd, Page, Rolling, Tip, Typed, toast, typing } from './ui'
+import { Island, Kbd, Page, Rolling, Tip, Typed, toast, typing } from './ui'
 
 /** A day's date, as you would say it: "Monday 5 October". */
 const named = (day: string): string =>
@@ -100,24 +100,25 @@ export function DayView({ onOpen }: { onOpen?: (type: string, id: string) => voi
           />
         )}
         {sections.map(([title, Icon, list]) => (
-          <section key={title} className="mt-6">
-            <h2 className="mb-1 flex items-center gap-2 text-sm font-medium">
-              <Icon className="size-4 text-muted-foreground" /> {title} <span className="text-muted-foreground tabular-nums"><Rolling text={list.length} /></span>
-            </h2>
+          <Island key={title} className="mt-6 first:mt-6" title={
+            <span className="flex items-center gap-2">
+              <Icon className="size-4 text-muted-foreground" /> {title} <span className="font-normal text-muted-foreground tabular-nums"><Rolling text={list.length} /></span>
+            </span>
+          }>
             {list.length ? list.map((entry) => {
               const kind = CAPTURE_TYPES.find((type) => type.id === entry.kind)
               const Mark = entry.type === 'task' ? ListTodo : entry.type === 'capture' ? kind?.icon ?? Inbox : Gem
               return (
                 <button key={`${title}-${entry.id}`} type="button" data-private={entry.private ? '' : undefined}
                   onClick={() => onOpen?.(entry.type, entry.id)}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-sm hover:bg-accent/50">
+                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-accent/50">
                   <Mark className="size-4 shrink-0" style={kind && entry.type === 'capture' ? { color: kind.tint } : undefined} />
                   <span className="private-text flex-1 truncate">{entry.title || 'Untitled'}</span>
                   {entry.status && <span className="text-xs text-muted-foreground">{entry.status}</span>}
                 </button>
               )
-            }) : <p className="px-2 text-xs text-muted-foreground">Nothing</p>}
-          </section>
+            }) : <p className="px-4 py-2 text-xs text-muted-foreground">Nothing</p>}
+          </Island>
         ))}
       </div>
     </Page>

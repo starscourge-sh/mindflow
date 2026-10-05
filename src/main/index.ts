@@ -395,10 +395,12 @@ let home: BrowserWindow | null = null
  * Open the main window on one thing. A page already listening is told now;
  * one still starting picks it up when it asks (`home:sent`), and only once.
  */
-function sendHome(type: string, id: string): void {
+function sendHome(type: string, id: string, heading?: string): void {
   openHome()
-  if (homeAsked && home) home.webContents.send('home:open', String(type), String(id))
-  else sentTo = [String(type), String(id)]
+  // A heading link's heading goes along, so the note opens there.
+  const sent: [string, string, string?] = heading ? [String(type), String(id), String(heading)] : [String(type), String(id)]
+  if (homeAsked && home) home.webContents.send('home:open', ...sent)
+  else sentTo = sent
 }
 
 /**
@@ -526,7 +528,13 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   }
   win.on('moved', remember)
   win.on('resized', remember)
-  win.on('closed', () => stickies.delete(key))
+  // Closed any way but quitting (⌘W too) is taken down, so it stays down after a restart.
+  win.on('closed', () => {
+    stickies.delete(key)
+    if (quitting) return
+    stuck = stuck.filter((one) => `${one.type}:${one.id}` !== key)
+    keepStuck()
+  })
   stickies.set(key, win)
   if (!stuck.some((one) => `${one.type}:${one.id}` === key)) stuck.push({ type, id, bounds: place })
   keepStuck()
@@ -546,7 +554,7 @@ async function restoreStickies(): Promise<void> {
 
 let homePainted = false
 /** What the main window was sent to while it was not yet listening. */
-let sentTo: [string, string] | null = null
+let sentTo: [string, string, string?] | null = null
 /** The main window's page has asked for what it was sent: it is listening. */
 let homeAsked = false
 
@@ -1078,7 +1086,7 @@ app.whenReady().then(() => {
   // The prompt sends you to one thing in the main window: a task's notes and
   // sessions live there. Kept until the window asks, in case it is still
   // starting; sent at once if it is already up.
-  ipcMain.on('home:open', (_event, type: string, id: string) => sendHome(type, id))
+  ipcMain.on('home:open', (_event, type: string, id: string, heading?: string) => sendHome(type, id, heading))
   ipcMain.handle('home:sent', () => {
     homeAsked = true
     const was = sentTo

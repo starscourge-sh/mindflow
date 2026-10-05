@@ -1,8 +1,8 @@
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { FileText, Gem, Inbox, ListTodo } from 'lucide-react'
 
 import { vigil } from '@/lib/vigil'
-import { Prop, PropLabel } from './ui'
+import { Island, Prop } from './ui'
 
 const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo }
 
@@ -38,14 +38,13 @@ export function Lineage({ id, onOpen }: { id: string; onOpen?: (type: string, id
     <>
       {groups.map(([label, list]) =>
         list.length ? (
-          <Fragment key={label}>
-            <PropLabel>{label}</PropLabel>
+          <Island compact key={label} title={label}>
             {list.map((one) => (
               <Prop key={one.id} secret={!!one.private} icon={ICON[one.type as keyof typeof ICON] ?? Inbox} onClick={onOpen && (() => onOpen(one.type, one.id))}>
                 {one.title || 'Untitled'}
               </Prop>
             ))}
-          </Fragment>
+          </Island>
         ) : null
       )}
     </>

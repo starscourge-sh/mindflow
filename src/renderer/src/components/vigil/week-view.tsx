@@ -36,7 +36,8 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
   const load = useLive(() => (from + 7 > 0 ? vigil.reviewLoad(from + 7) : Promise.resolve([])), [] as number[], [from])
   const [at, setAt] = useState<{ col: number; id: string | null }>({ col: 0, id: null })
   const [open, setOpen] = useState<TaskFull | null>(null)
-  const [dragging, setDragging] = useState<Card | null>(null)
+  // Where the drag began, kept: the card objects are rebuilt on every load.
+  const [dragging, setDragging] = useState<{ card: Card; col: number } | null>(null)
 
   const live = tasks.filter((task) => task.status === 'open')
   const days = Array.from({ length: 7 }, (_, index) => {
@@ -67,7 +68,7 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
     if (new Date(to).setHours(0, 0, 0, 0) === new Date(was).setHours(0, 0, 0, 0)) return chime('nope')
     void vigil.saveTask(card.task.id, { [field]: to }).then(() => {
       chime('shift')
-      toast(`${card.kind === 'scheduled' ? 'Moved to' : 'Due by'} ${when(to).toLowerCase()}`, () => void vigil.saveTask(card.task.id, { [field]: was }))
+      toast(`${card.kind === 'scheduled' ? 'Moved to' : 'Due by'} ${when(to, card.kind === 'scheduled' ? !!card.task.allDay : !card.task.deadlineTimed).toLowerCase()}`, () => void vigil.saveTask(card.task.id, { [field]: was }))
     })
   }
   const go = (col: number): void => {
@@ -143,8 +144,7 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
                 onDragOver={(event) => dragging && event.preventDefault()}
                 onDrop={() => {
                   if (!dragging) return
-                  const was = days.findIndex((one) => one.cards.includes(dragging))
-                  move(dragging, col - was)
+                  move(dragging.card, col - dragging.col)
                   setDragging(null)
                 }}
                 className={`flex min-w-0 flex-col gap-1 rounded-md p-1.5 ${col === at.col ? 'bg-accent/30' : ''}`}
@@ -170,7 +170,7 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
                       key={id}
                       type="button"
                       draggable
-                      onDragStart={() => setDragging(card)}
+                      onDragStart={() => setDragging({ card, col })}
                       onDragEnd={() => setDragging(null)}
                       data-cursor={at.id === id || undefined}
                       onClick={() => (setAt({ col, id }), pick(card.task.id))}
@@ -182,7 +182,7 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
                       </span>
                       <span className="flex items-center gap-1.5 text-xs text-muted-foreground" style={{ color: late ? 'var(--tt-color-text-red)' : undefined }}>
                         {card.kind === 'deadline' ? (
-                          <span className="flex items-center gap-1" style={{ color: 'var(--tt-color-text-red)' }}><CalendarClock className="size-3" /> Due by</span>
+                          <span className="flex items-center gap-1" style={{ color: 'var(--tt-color-text-red)' }}><CalendarClock className="size-3" /> Due by{card.task.deadlineTimed ? ` ${new Date(card.task.deadline!).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}</span>
                         ) : late ? (
                           when(card.task.dueAt, !!card.task.allDay)
                         ) : !card.task.allDay ? (

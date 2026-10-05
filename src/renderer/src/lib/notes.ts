@@ -83,22 +83,29 @@ export const smallPicture = (src: string): Promise<string> => {
  */
 export function useOwnOrder(list: string): {
   compare: (a: string, b: string) => number
-  /** Move a row to just before (or after) another, among every row in `all`. */
-  move: (all: string[], id: string, target: string, after: boolean, quiet?: boolean) => void
+  /**
+   * Move a row to just before (or after) another, among every row in `all`.
+   * `shown`: the ids as on screen, passed when the list is sorted some other way.
+   */
+  move: (all: string[], id: string, target: string, after: boolean, quiet?: boolean, shown?: string[]) => void
 } {
   const order = useLive(() => notes.order(list), [] as string[], [list])
   const rank = new Map(order.map((id, at) => [id, at]))
   const compare = (a: string, b: string): number => (rank.get(a) ?? -1) - (rank.get(b) ?? -1)
-  const move = (all: string[], id: string, target: string, after: boolean, quiet = false): void => {
+  const move = (all: string[], id: string, target: string, after: boolean, quiet = false, shown?: string[]): void => {
     if (id === target) return
-    const before = [...all].sort(compare)
-    const next = before.filter((one) => one !== id)
+    // Dragged while sorted some other way, the rows start from where you see
+    // them (the rest after), not from an order you cannot see.
+    const seen = new Set(shown)
+    const start = shown ? [...shown, ...all.filter((one) => !seen.has(one)).sort(compare)] : [...all].sort(compare)
+    const next = start.filter((one) => one !== id)
     const at = next.indexOf(target)
     if (at < 0) return
     next.splice(after ? at + 1 : at, 0, id)
+    const was = order
     chime('shift')
     void notes.setOrder(list, next).then(() => {
-      if (!quiet) toast('Moved', () => void notes.setOrder(list, before))
+      if (!quiet) toast('Moved', () => void notes.setOrder(list, was))
     })
   }
   return { compare, move }
@@ -145,17 +152,22 @@ export async function archive(table: NoteTable, ids: string[], on: boolean, quie
 
 /** Every picture and file in these notes (or every note), under its own name, to a folder. */
 export async function saveAttachments(list?: { table: NoteTable; id: string }[]): Promise<void> {
-  const saved = await beaming(call<number | null>('notes:attachments', list))
-  if (saved === null) return
-  if (!saved) return refuse(list ? 'No pictures or files in this note' : 'No pictures or files anywhere yet')
+  const done = await beaming(call<{ saved: number; total: number } | 0 | null>('notes:attachments', list))
+  if (done === null) return
+  if (!done) return refuse(list ? 'No pictures or files in this note' : 'No pictures or files anywhere yet')
+  const { saved, total } = done
+  if (!saved) return refuse(`Could not save ${total === 1 ? 'the file' : `any of the ${total} files`}`)
   chime('saved')
-  toast(`Saved ${saved} ${saved === 1 ? 'file' : 'files'}, under their own names`)
+  toast(`Saved ${saved < total ? `${saved} of ${total}` : saved} ${total === 1 ? 'file' : 'files'}, under their own names`)
 }
 
 /** A note in a window of its own: ⌘-click on any row. */
 export const openWindow = (type: string, id: string): void => {
   chime('window')
   void call('notes:window', type === 'capture' ? 'capture' : type, id)
+  // Closed here once it has a window of its own: two editors on one note
+  // would each save over the other's words.
+  window.dispatchEvent(new CustomEvent('vigil:opened-apart', { detail: id }))
 }
 
 /** Go to today's page, in the main window. */

@@ -116,8 +116,10 @@ function prepare(text: string): string {
   )
 }
 
+// Always a dot and no thousands commas, whatever the Mac's region: an answer
+// written in has to read back as the same number on the next line.
 const number = (n: number): string =>
-  n.toLocaleString(undefined, { maximumFractionDigits: Math.abs(n) < 1 ? 6 : 4 })
+  n.toLocaleString("en-US", { maximumFractionDigits: Math.abs(n) < 1 ? 6 : 4, useGrouping: false })
 
 /** An answer worth showing, or null for anything that is not a quantity. */
 function show(result: unknown): string | null {
@@ -129,21 +131,24 @@ function show(result: unknown): string | null {
     const value = result.toNumber(unit)
     if (!Number.isFinite(value)) return null
     if (CURRENCIES.has(unit)) {
-      return value.toLocaleString(undefined, { style: "currency", currency: unit })
+      return value.toLocaleString("en-US", { style: "currency", currency: unit, useGrouping: false })
     }
     return `${number(value)} ${unit}`
   }
   return null
 }
 
+/** One word on its own that names nothing in the note: `g =` is not asking what a gram is. */
+const bare = (text: string, scope: Map<string, unknown>): boolean => /^[A-Za-z_]\w*$/.test(text.trim()) && !scope.has(text.trim())
+
 function evaluate(text: string, scope: Map<string, unknown>): string | null {
-  if (!math || !text.trim()) return null
+  if (!math || !text.trim() || bare(text, scope)) return null
   try {
     return show(math.evaluate(prepare(text), scope))
   } catch {
     // A label in front of the sum, `Dinner: 25 * 2 =`, is words, not math.
     const colon = text.lastIndexOf(":")
-    if (colon < 0) return null
+    if (colon < 0 || bare(text.slice(colon + 1), scope)) return null
     try {
       return show(math.evaluate(prepare(text.slice(colon + 1)), scope))
     } catch {
@@ -173,15 +178,18 @@ function answers(doc: ProseMirrorNode): DecorationSet {
     if (trimmed.endsWith("=") && !trimmed.endsWith("==")) {
       const said = evaluate(trimmed.slice(0, -1), scope)
       if (said) {
+        const shown = `${text.endsWith(" ") ? "" : " "}${said}`
         const ghost = (): HTMLElement => {
           const span = document.createElement("span")
           span.className = "mf-calc-ghost"
           span.contentEditable = "false"
           span.title = "Tab writes it in"
-          span.textContent = `${text.endsWith(" ") ? "" : " "}${said}`
+          span.textContent = shown
           return span
         }
-        found.push(Decoration.widget(pos + node.nodeSize - 1, ghost, { side: 1, key: `calc:${said}`, answer: said } satisfies Answer & { side: number; key: string }))
+        // The space is part of the key, or typing one keeps the old widget and
+        // the answer shows two spaces off.
+        found.push(Decoration.widget(pos + node.nodeSize - 1, ghost, { side: 1, key: `calc:${shown}`, answer: said } satisfies Answer & { side: number; key: string }))
       }
     } else if (NAMING.test(text)) {
       evaluate(text, scope)

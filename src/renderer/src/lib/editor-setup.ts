@@ -6,6 +6,7 @@ import '@fontsource/opendyslexic/700.css'
 // whole editor into everything that reads the settings.
 import { setCues, type EditorCue } from '@/lib/cues'
 import { setCalc } from '@/extensions/calc'
+import { setTagSource } from '@/extensions/note-link'
 import { chime, step, type Cue } from './sound'
 import { vigil, type Settings } from './vigil'
 
@@ -29,7 +30,7 @@ const CUES: Record<EditorCue, Cue | 'step'> = {
 
 /** The fonts a note can be written in, besides any the Mac has. */
 export const NOTE_FONTS: { id: string; label: string; family: string }[] = [
-  { id: 'default', label: 'Fraunces', family: '' },
+  { id: 'default', label: 'Fraunces', family: '"Fraunces Variable", Georgia, serif' },
   { id: 'system', label: 'System', family: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif' },
   { id: 'serif', label: 'New York', family: '"New York", ui-serif, Georgia, serif' },
   { id: 'mono', label: 'Monospace', family: 'ui-monospace, "SF Mono", Menlo, monospace' },
@@ -38,7 +39,7 @@ export const NOTE_FONTS: { id: string; label: string; family: string }[] = [
 ]
 
 /** A font setting as CSS: one of ours, or a family the Mac has by that name. */
-const familyOf = (font: string): string =>
+export const familyOf = (font: string): string =>
   NOTE_FONTS.find((one) => one.id === font)?.family ?? `"${font.replace(/"/g, '')}", system-ui, sans-serif`
 
 /** The sizes ⌘+ and ⌘− step through. */
@@ -61,14 +62,14 @@ export async function systemFonts(): Promise<string[]> {
  */
 export function useEditorSetup(settings: Settings | null): void {
   useEffect(() => setCues((cue, n) => (CUES[cue] === 'step' ? step(n ?? 0) : chime(CUES[cue] as Cue))), [])
+  // The `#` menu offers the tags already in use here.
+  useEffect(() => setTagSource(vigil.tags), [])
 
   useEffect(() => {
     if (!settings) return
     setCalc(settings.calc)
     const root = document.documentElement.style
-    const family = familyOf(settings.noteFont)
-    if (family) root.setProperty('--mf-font', family)
-    else root.removeProperty('--mf-font')
+    root.setProperty('--mf-font', familyOf(settings.noteFont))
     root.setProperty('--mf-text-scale', String(settings.textSize))
   }, [settings?.calc, settings?.noteFont, settings?.textSize]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -76,7 +77,10 @@ export function useEditorSetup(settings: Settings | null): void {
   // own page zoom, which would grow the whole window instead.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (!event.metaKey || event.ctrlKey || event.altKey || !settings) return
+      if (!event.metaKey || event.ctrlKey || event.altKey || !settings || event.defaultPrevented) return
+      // Only where a note is on screen: the drawing window and the like keep
+      // ⌘+ ⌘− for their own zoom.
+      if (!document.querySelector('.mindflow-editor-wrapper')) return
       const at = TEXT_SIZES.indexOf(TEXT_SIZES.reduce((near, size) => (Math.abs(size - settings.textSize) < Math.abs(near - settings.textSize) ? size : near)))
       const to = ['=', '+'].includes(event.key) ? at + 1 : event.key === '-' ? at - 1 : event.key === '0' ? TEXT_SIZES.indexOf(1) : null
       if (to === null) return

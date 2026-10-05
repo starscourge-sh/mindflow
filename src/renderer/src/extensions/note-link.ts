@@ -1,8 +1,8 @@
 import { InputRule, Node, mergeAttributes } from "@tiptap/core"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
+import type { Editor } from "@tiptap/react"
 import Suggestion, { type SuggestionOptions } from "@tiptap/suggestion"
-import { vigil } from "@/lib/vigil"
 import type { ReactNode } from "react"
 
 import { goToHeading, headingsOf } from "@/components/toc/headings"
@@ -37,6 +37,47 @@ export function takePendingHeading(): string | null {
   const wanted = pending && Date.now() - pending.at < 2000 ? pending.heading : null
   pending = null
   return wanted
+}
+
+/** A tag already in use, for the `#` menu: how often, and its colour if it has one. */
+export interface TagSuggestion {
+  tag: string
+  count: number
+  color?: string | null
+}
+
+/**
+ * Where the `#` menu's tags come from. The editor keeps no list of tags; the
+ * app says once, for every editor on the page, the way it gives the sounds.
+ * Left unset, `#` offers nothing.
+ */
+let tagSource: () => Promise<TagSuggestion[]> = async () => []
+
+/** Say where the tags come from, for every editor on the page. */
+export function setTagSource(source: () => Promise<TagSuggestion[]>): void {
+  tagSource = source
+}
+
+/** The editors on this page, by the `documentId` their host gave them. */
+const showing = new Map<string, Editor>()
+
+/** Count an editor as showing this document until the returned function is called. */
+export function showingDocument(documentId: string, editor: Editor): () => void {
+  showing.set(documentId, editor)
+  return () => void (showing.get(documentId) === editor && showing.delete(documentId))
+}
+
+/**
+ * Land on a heading in a document the host has just been asked to open. One
+ * already on screen goes there now, since no fresh editor will mount to do it;
+ * otherwise the editor that mounts next for it does.
+ */
+export function showHeading(documentId: string, heading: string): void {
+  const open = showing.get(documentId)
+  if (open && !open.isDestroyed) {
+    pending = null
+    goToHeading(open, heading)
+  } else pending = { heading, at: Date.now() }
 }
 
 /** `[[Note]]`, `[[Note#Heading]]`, `[[Note|shown]]`, `[[#Heading]]` and the rest. */
@@ -163,7 +204,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
   },
 
   /**
-   * Read back the form that carries an id, `[[@id|name]]`, which an imported
+   * Read back the form that carries an id, `[[@id|name]]` or `[[@id#Heading|name]]`, which an imported
    * vault's [[links]] are turned into once the page they point at is here.
    *
    * A plain `[[Note#Heading|shown]]` comes back as a link too, with no id yet:
@@ -173,10 +214,12 @@ export const NoteLink = Node.create<NoteLinkOptions>({
   markdownTokenizer: {
     name: "noteLink",
     level: "inline",
-    start: (src: string) => src.indexOf("[["),
-    tokenize: (src: string) => {
-      const withId = /^\[\[@([^|\]]+)\|([^\]]+)\]\]/.exec(src)
-      if (withId) return { type: "noteLink", raw: withId[0], id: withId[1], label: withId[2] }
+    // Not after `!`: `![[x.png|300]]` is an embed, not a link.
+    start: (src: string) => src.search(/(?<!!)\[\[/),
+    tokenize: (src: string, tokens: { raw?: string }[]) => {
+      if (tokens.at(-1)?.raw?.endsWith("!")) return undefined
+      const withId = /^\[\[@([^|#\]]+)(?:#([^|\]]+))?\|([^\]]+)\]\]/.exec(src)
+      if (withId) return { type: "noteLink", raw: withId[0], id: withId[1], label: withId[3], heading: withId[2]?.trim() ?? "" }
       const wiki = new RegExp(`^${WIKI.source}`).exec(src)
       if (!wiki || !(wiki[1].trim() || wiki[2])) return undefined
       return { type: "noteLink", raw: wiki[0], id: "", label: wiki[1].trim(), heading: wiki[2]?.trim() ?? "", text: wiki[3]?.trim() ?? "" }
@@ -222,7 +265,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         .map((heading) => ({ ...note, heading, group: note.label ? `Headings in ${note.label}` : "Headings in this note" }))
     }
     // The tags are read once as the `#` menu opens, then narrowed as you type.
-    let tags: ReturnType<typeof vigil.tags> = Promise.resolve([])
+    let tags: Promise<TagSuggestion[]> = Promise.resolve([])
 
     return [
       Suggestion<NoteSuggestion>({
@@ -253,7 +296,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         // already written, offering to replace half of it splits it in two.
         allow: ({ state, range }) => !/[\w-]/.test(state.doc.textBetween(range.to, Math.min(range.to + 1, state.doc.content.size), "", "")),
         items: async ({ query }) => {
-          if (!query) tags = vigil.tags()
+          if (!query) tags = tagSource()
           return (await tags)
             .filter(({ tag }) => tag.startsWith(query.toLowerCase()))
             .slice(0, 8)
@@ -273,9 +316,11 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         props: {
           handleClickOn: (_view, _pos, node) => {
             if (node.type.name !== "noteLink") return false
-            const { id, heading } = node.attrs
+            const { id, heading, label } = node.attrs
             if (!id) {
-              if (heading) goToHeading(editor, heading)
+              // Only a link to this note's own heading: an unresolved
+              // [[Other#H]] is about another note, not a place in this one.
+              if (heading && !label) goToHeading(editor, heading)
               return true
             }
             if (!onOpenNote) return false

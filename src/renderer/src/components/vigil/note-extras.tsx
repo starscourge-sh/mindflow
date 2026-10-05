@@ -13,7 +13,7 @@ import { notes, openWindow, smallPicture, useThumb, type GraphNode, type NoteTab
 import { splitTags, useLive } from '@/lib/vigil'
 import { Chips } from './display'
 import { RowMenu, type MenuItem } from './row-menu'
-import { PropInput, PropLabel, Rolling, Tip, Typed, VirtualList, toast } from './ui'
+import { Island, PropInput, Rolling, Tip, Typed, VirtualList, toast } from './ui'
 
 // --- a note's first picture, small
 
@@ -242,15 +242,18 @@ export function KindAsker(): React.JSX.Element | null {
 /** The fields this note's kind asks for, in the properties column. Nothing for a kind that asks for none. */
 export function KindFields({ table, id, kind }: { table: NoteTable; id: string; kind: string }): React.JSX.Element | null {
   const fields = KIND_FIELDS[kind] ?? []
-  const values = useLive(() => notes.fields(table, id), {} as Record<string, string | number>, [table, id])
-  if (!fields.length) return null
+  // Tagged with the note they belong to: until this note's own have come in,
+  // a field would start from nothing (or the last note's words) and a blur
+  // would write that over what is kept.
+  const read = useLive(() => notes.fields(table, id).then((values) => ({ of: `${table}:${id}`, values })), { of: '', values: {} as Record<string, string | number> }, [table, id])
+  const values = read.values
+  if (!fields.length || read.of !== `${table}:${id}`) return null
   const save = (key: string, value: string | number | null): void => {
     if ((values[key] ?? null) === (value === '' ? null : value)) return
     void notes.setField(table, id, key, value === '' ? null : value).then(() => chime('noted'))
   }
   return (
-    <>
-      <PropLabel>{CAPTURE_TYPES.find((type) => type.id === kind)?.label ?? 'Kind'} details</PropLabel>
+    <Island compact title={`${CAPTURE_TYPES.find((type) => type.id === kind)?.label ?? 'Kind'} details`}>
       {fields.map((field) => {
         const value = values[field.key]
         if (field.type === 'choice')
@@ -273,15 +276,15 @@ export function KindFields({ table, id, kind }: { table: NoteTable; id: string; 
           )
         if (field.type === 'long')
           return (
-            <label key={`${id}-${field.key}`} className="flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-accent focus-within:bg-accent">
+            <label key={`${id}-${field.key}-${value ?? ''}`} className="flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-accent focus-within:bg-accent">
               <AlignLeft className="mt-1 size-4 shrink-0" />
               <Textarea rows={2} defaultValue={String(value ?? '')} placeholder={field.placeholder ?? field.label} onBlur={(event) => save(field.key, event.target.value.trim())}
                 className="min-h-0 resize-none border-0 bg-transparent p-0 text-control text-foreground shadow-none focus-visible:ring-0" />
             </label>
           )
-        return <PropInput key={`${id}-${field.key}`} icon={Type} value={String(value ?? '')} placeholder={field.placeholder ?? field.label} onSave={(text) => save(field.key, text)} />
+        return <PropInput key={`${id}-${field.key}-${value ?? ''}`} icon={Type} value={String(value ?? '')} placeholder={field.placeholder ?? field.label} onSave={(text) => save(field.key, text)} />
       })}
-    </>
+    </Island>
   )
 }
 
@@ -305,6 +308,13 @@ export function Versions({ table, id, onShow, onRestored }: {
   const close = (): void => {
     setList(null)
     onShow(null)
+  }
+  // Back to now from looking back: the editor comes back, so it is given the
+  // words as they are kept now, not the ones read when the note was opened,
+  // which the next keystroke would save over the latest edits.
+  const back = (): void => {
+    close()
+    onRestored()
   }
   const show = (versions: Version[], index: number): void => {
     setAt(index)
@@ -334,7 +344,7 @@ export function Versions({ table, id, onShow, onRestored }: {
       if (event.key !== 'Escape' || event.defaultPrevented) return
       event.preventDefault()
       chime('fold')
-      close()
+      back()
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
@@ -365,7 +375,7 @@ export function Versions({ table, id, onShow, onRestored }: {
         toast(`Brought back the version from ${whenSaved(version.savedAt)}`, () => void notes.restore(table, id, undo).then(onRestored))
       })}>Restore</Button>
       <Tip label="Back to now  Esc">
-        <Button variant="ghost" size="icon-sm" aria-label="Back to now" onClick={() => (chime('fold'), close())}><X className="size-3.5" /></Button>
+        <Button variant="ghost" size="icon-sm" aria-label="Back to now" onClick={() => (chime('fold'), back())}><X className="size-3.5" /></Button>
       </Tip>
     </div>
   )
@@ -415,12 +425,11 @@ export function LocalGraph({ id, title, onOpen }: { id: string; title: string; o
   const sides = { in: shown.filter((node) => node.way === 'in'), out: shown.filter((node) => node.way !== 'in') }
   const short = (text: string): string => (text.length > 16 ? `${text.slice(0, 15)}…` : text) || 'Untitled'
   return (
-    <>
-      <PropLabel>Links</PropLabel>
+    <Island compact title="Links">
       {!shown.length ? (
-        <p className="px-2 pb-1 text-xs text-muted-foreground"><Typed text="No links yet. Type @ in the note to link another, and it shows here." step={25} /></p>
+        <p className="px-2 py-1.5 text-xs text-muted-foreground"><Typed text="No links yet. Type @ in the note to link another, and it shows here." step={25} /></p>
       ) : (
-        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="mx-auto overflow-visible" role="img" aria-label={`${graph.out.length} links out, ${graph.in.length} in`}>
+        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="mx-auto block max-w-full overflow-visible" role="img" aria-label={`${graph.out.length} links out, ${graph.in.length} in`}>
           <defs>
             <marker id="mf-arrow" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
               <path d="M0,0 L6,3 L0,6 z" fill="currentColor" />
@@ -448,7 +457,7 @@ export function LocalGraph({ id, title, onOpen }: { id: string; title: string; o
           <text x={cx} y={cy - 12} textAnchor="middle" className="fill-foreground text-[10px] font-medium">{short(title)}</text>
         </svg>
       )}
-      {more > 0 && <p className="px-2 text-xs text-muted-foreground">and <Rolling text={more} /> more, under Linked from</p>}
-    </>
+      {more > 0 && <p className="px-2 py-1.5 text-xs text-muted-foreground">and <Rolling text={more} /> more, under Linked from</p>}
+    </Island>
   )
 }

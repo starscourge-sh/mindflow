@@ -11,14 +11,14 @@ import { selectionActions } from './selection-actions'
 import { Toaster } from './ui'
 import { Versions } from './note-extras'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { findCaptures, follow } from '@/lib/capture-links'
+import { findCaptures, findHeadings, follow, headingIn } from '@/lib/capture-links'
 import { toMarkdown } from '@/lib/export'
 import { useAppearance, vigil, type ItemFull } from '@/lib/vigil'
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
 
 /** Anything a link in here leads to opens in the main window, beside everything else. */
-const elsewhere = (type: string, id: string): void => window.api.openInHome(type, id)
+const elsewhere = (type: string, id: string, heading?: string): void => window.api.openInHome(type, id, heading)
 
 /**
  * One note in a window of its own, opened with ⌘-click from any list: its
@@ -72,7 +72,8 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
           documentId={`capture-${id}`}
           defaultContent={(capture.body as JSONContent | string | null) ?? ''}
           findNotes={findCaptures}
-          onOpenNote={(to) => follow(to, elsewhere)}
+          findHeadings={findHeadings}
+          onOpenNote={(to, heading) => (to === id && heading ? headingIn('capture', id, heading) : follow(to, (type, at) => elsewhere(type, at, heading)))}
           after={<Mentions id={id} onOpen={elsewhere} />}
           onChange={(body, editor) => window.api.captures.save(id, { body, markdown: toMarkdown(editor) })}
         />

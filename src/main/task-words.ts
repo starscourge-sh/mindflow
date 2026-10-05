@@ -122,14 +122,16 @@ export function readTask(text: string, at = new Date()): ReadTask {
 
   // Each date found, with whether "by", "due" or "before" came first: that
   // one is when it must be done by, the other when you mean to do it.
-  type Found = { index: number; length: number; date: Date; timed: boolean; by: boolean }
+  // A repeat has no deadline: "every week by friday" starts on Friday, so the
+  // series keeps one date to move on.
+  type Found = { index: number; length: number; date: Date; timed: boolean; by: boolean; timeOnly?: boolean }
   const dates: Found[] = []
   const lead = (index: number): RegExpExecArray | null => /\b(?:due\s+by|by|due|before)\s+$/i.exec(rest.slice(0, index))
-  const add = (index: number, length: number, date: Date, timed: boolean): void => {
+  const add = (index: number, length: number, date: Date, timed: boolean, timeOnly = false): void => {
     const by = lead(index)
     const from = by ? by.index : index
-    dates.push({ index: from, length: index + length - from, date, timed, by: !!by })
-    take(from, index + length, by ? 'deadline' : 'date')
+    dates.push({ index: from, length: index + length - from, date, timed, by: !!by && !recurrence, timeOnly })
+    take(from, index + length, by && !recurrence ? 'deadline' : 'date')
   }
   // Said as words: end of the day is five, end of the week is Friday at five.
   for (const [pattern, said] of [[/\b(?:eod|end of (?:the )?day)\b/i, 'today 5pm'], [/\b(?:eow|end of (?:the )?week)\b/i, 'friday 5pm']] as const) {
@@ -154,7 +156,7 @@ export function readTask(text: string, at = new Date()): ReadTask {
       onDay.date.setHours(found.start.get('hour') ?? 9, found.start.get('minute') ?? 0)
       onDay.timed = true
       take(found.index, found.index + found.text.length, onDay.by ? 'deadline' : 'date')
-    } else add(found.index, found.text.length, found.start.date(), found.start.isCertain('hour'))
+    } else add(found.index, found.text.length, found.start.date(), found.start.isCertain('hour'), timeOnly)
   }
 
   const deadlineAt = dates.find((one) => one.by)
@@ -171,6 +173,8 @@ export function readTask(text: string, at = new Date()): ReadTask {
   if (due && allDay) due.setHours(9, 0, 0, 0)
   const deadline = deadlineAt ? new Date(deadlineAt.date) : null
   if (deadline && !deadlineAt?.timed) deadline.setHours(9, 0, 0, 0)
+  // "call mom tomorrow by 5pm": a time alone is on the day it is scheduled.
+  if (deadline && deadlineAt?.timeOnly && scheduled) deadline.setFullYear(scheduled.date.getFullYear(), scheduled.date.getMonth(), scheduled.date.getDate())
 
   // A word left hanging where a date was taken out: "email Sam on". Only
   // then, so "sign up for" keeps its "for".

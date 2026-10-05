@@ -24,6 +24,8 @@ export interface TokenPattern {
    * painting them all alike. Left out, `spread` does exactly that.
    */
   color?: BlockColor | ((value: string) => BlockColor)
+  /** Matched in the document's first block only, as when that line is a title read for meaning. */
+  firstBlockOnly?: boolean
 }
 
 /**
@@ -97,6 +99,7 @@ function scan(doc: ProseMirrorNode, patterns: TokenPattern[]): TokenMatch[] {
 
     for (const token of patterns) {
       const { name, pattern } = token
+      if (token.firstBlockOnly && pos !== 0) continue
       const flags = pattern.flags.includes("g")
         ? pattern.flags
         : `${pattern.flags}g`

@@ -6,6 +6,7 @@ import { Calendar } from '@/components/ui/calendar'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
+import { Island, IslandRow } from './ui'
 
 /**
  * A date, picked from shadcn's calendar in a popover rather than the
@@ -43,7 +44,9 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-auto gap-0 p-0">
+      {/* The day and the time each an island, the way Settings groups its rows. */}
+      <PopoverContent align="start" className="w-auto gap-0 p-2">
+        <Island compact title="Day">
         <Calendar
           mode="single"
           selected={date}
@@ -55,10 +58,15 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
             if (!time) setOpen(false)
           }}
         />
-        <div className="flex items-center gap-2 border-t p-2">
-          {time && (
-            <Input type="time" className="h-8 w-28" value={clock} onChange={(event) => date && event.target.value && onChange(at(date, event.target.value))} />
-          )}
+        </Island>
+        {time && (
+          <Island compact title="Time">
+            <IslandRow label="At" className="px-2.5 py-1">
+              <Input type="time" className="h-7 w-28" value={clock} onChange={(event) => date && event.target.value && onChange(at(date, event.target.value))} />
+            </IslandRow>
+          </Island>
+        )}
+        <div className="mt-2 flex items-center gap-2">
           <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => (chime('tap'), onChange(at(new Date())))}>
             Today
           </Button>

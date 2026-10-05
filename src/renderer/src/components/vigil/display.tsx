@@ -3,7 +3,7 @@ import { Check, ChevronDown } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Rolling, Tip, typing } from './ui'
+import { Island, Rolling, Tip, typing } from './ui'
 import { chime } from '@/lib/sound'
 import SlidersHorizontalIcon from '@/components/ui/sliders-horizontal-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
@@ -161,23 +161,20 @@ function Pick({ options, chosen, many, onPick }: { options: Choice[]; chosen: st
 }
 
 /** Defined once, out here: made inside Display, every change rebuilt them and closed the open menu. */
+// Each section an island, the way Settings groups its rows.
 const Section = ({ title, count, children }: { title: string; count: number; children: ReactNode }): React.JSX.Element => (
-  <section className="border-t px-3 py-2.5 first:border-t-0">
-    <h3 className="mb-2 flex items-center gap-1.5 font-semibold text-foreground">
-      {title}
-      {count > 0 && <span className="rounded bg-accent px-1 text-meta tabular-nums text-muted-foreground">{count}</span>}
-    </h3>
-    <div className="grid grid-cols-[6rem_1fr] items-center gap-x-3 gap-y-1.5">{children}</div>
-  </section>
+  <Island compact title={<span className="flex items-center gap-1.5">{title}{count > 0 && <span className="rounded bg-accent px-1 font-normal tabular-nums text-muted-foreground"><Rolling text={count} /></span>}</span>}>
+    {children}
+  </Island>
 )
 const Row = ({ label, changed, children }: { label: string; changed: boolean; children: ReactNode }): React.JSX.Element => (
-  <>
+  <div className="grid grid-cols-[5.5rem_1fr] items-center gap-x-2 px-2.5 py-1.5">
     <div className="flex items-center gap-1.5 text-muted-foreground">
       {label}
       {changed && <span className="size-1.5 rounded-full bg-[var(--tt-brand-color-400)]" aria-label="changed" />}
     </div>
     {children}
-  </>
+  </div>
 )
 
 /**
@@ -236,7 +233,7 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
         // Kept 12px clear of the window's edge, rounded corner and all.
         collisionPadding={12}
         tabIndex={-1}
-        className={`max-h-[calc(var(--radix-popover-content-available-height)-12px)] w-80 gap-0 overflow-y-auto p-0 text-control ${more ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-3rem),transparent)]' : ''}`}
+        className={`max-h-[calc(var(--radix-popover-content-available-height)-12px)] w-80 gap-0 overflow-y-auto p-2 text-control ${more ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-3rem),transparent)]' : ''}`}
         // A soft fade at the foot while there is more below, as the type list
         // has: in a short window the filters run past the edge, and this says so.
         ref={(panel) => void (panel && requestAnimationFrame(() => setMore(panel.scrollTop + panel.clientHeight < panel.scrollHeight - 4)))}
@@ -271,7 +268,7 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
           </Section>
         )}
         {active > 0 && (
-          <div className="border-t p-1">
+          <div className="mt-2">
             <button
               type="button"
               onClick={(event) => {

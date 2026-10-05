@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { chime, click, soundOn, step } from '@/lib/sound'
-import { Download, Search as SearchIcon, X } from 'lucide-react'
-import { applyTheme, customThemes, frosted, importTheme, removeTheme, restoreTheme, setFrosted, themeName } from '@/lib/theme'
+import { PACKS, chime, click, soundOn, step } from '@/lib/sound'
+import { NOTE_FONTS } from '@/lib/editor-setup'
+import { Brain, Download, HardDrive, Inbox, Keyboard, LifeBuoy, ListChecks, Palette, PenLine, Search as SearchIcon, Sparkles, Volume2, X, type LucideIcon } from 'lucide-react'
+import { allThemes, applyTheme, customThemes, frosted, importTheme, removeTheme, restoreTheme, setFrosted, themeName } from '@/lib/theme'
 import { Marked, ShortcutList } from './shortcut-sheet'
 import { Swatch } from '../theme/theme-picker'
 
@@ -12,7 +13,7 @@ import { Switch } from '@/components/ui/switch'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
 import { SoundPacks } from './sound-packs'
 import { FontPicker, TextSize } from './font-picker'
-import { Kbd, Page, Rolling, beaming, refuse, toast } from './ui'
+import { BackToTop, Kbd, Rolling, Tip, beaming, refuse, toast, useSmooth } from './ui'
 import { Button } from '@/components/ui/button'
 
 /**
@@ -28,9 +29,16 @@ const matches = (query: string, ...texts: string[]): boolean => !query.trim() ||
  * set under it (`below`) takes the full width. Searched for and not matching,
  * it is not there at all.
  */
-function Setting({ title, children, note, below }: { title: string; children?: ReactNode; note: string; below?: ReactNode }): React.JSX.Element | null {
+function Setting({ title, children, note, below, keywords = '' }: {
+  title: string
+  children?: ReactNode
+  note: string
+  below?: ReactNode
+  /** More words it is found by: the names of what it offers, a theme's or a font's. */
+  keywords?: string
+}): React.JSX.Element | null {
   const { query, all } = useContext(Query)
-  if (!all && !matches(query, title, note)) return null
+  if (!all && !matches(query, title, note, keywords)) return null
   const shown = all ? '' : query
   return (
     <div data-setting className="px-4 py-3">
@@ -46,13 +54,37 @@ function Setting({ title, children, note, below }: { title: string; children?: R
   )
 }
 
-/** Settings that belong together, in one rounded island under a heading. Gone while a search leaves none of them. */
-function Group({ title, children }: { title: string; children: ReactNode }): React.JSX.Element {
+/**
+ * The sections down the left, the way Raycast's settings list them: a small
+ * coloured tile each, one section on the right at a time. A Group names its
+ * section; one whose section is not listed here would never show, so a new
+ * section goes in this list too.
+ */
+const SECTIONS: { title: string; icon: LucideIcon; tile: string }[] = [
+  { title: 'Appearance', icon: Palette, tile: 'bg-violet-500' },
+  { title: 'Writing', icon: PenLine, tile: 'bg-orange-500' },
+  { title: 'Capturing', icon: Inbox, tile: 'bg-sky-500' },
+  { title: 'What comes back to you', icon: Sparkles, tile: 'bg-amber-500' },
+  { title: 'Review', icon: Brain, tile: 'bg-pink-500' },
+  { title: 'Tasks', icon: ListChecks, tile: 'bg-emerald-500' },
+  { title: 'Sound', icon: Volume2, tile: 'bg-red-500' },
+  { title: 'Your data', icon: HardDrive, tile: 'bg-slate-500' },
+  { title: 'Help', icon: LifeBuoy, tile: 'bg-teal-500' },
+  { title: 'Shortcuts', icon: Keyboard, tile: 'bg-indigo-500' }
+]
+/** The section on show, unless a search shows every section's matches. */
+const Shown = createContext('')
+
+/** Settings that belong together, in one rounded island under a heading. Gone while a search leaves none of them, or while another section is on show. */
+function Group({ title, section = title, children }: { title: string; section?: string; children: ReactNode }): React.JSX.Element | null {
   const { query } = useContext(Query)
+  const shown = useContext(Shown)
+  if (!query.trim() && section !== shown) return null
   return (
-    <Query.Provider value={{ query, all: !!query.trim() && matches(query, title) }}>
+    <Query.Provider value={{ query, all: !!query.trim() && matches(query, title, section) }}>
       <section className="mt-6 first:mt-0 [&:not(:has([data-setting]))]:hidden">
-        <h2 className="mb-2 px-1 text-body font-semibold text-foreground"><Marked text={title} query={query} /></h2>
+        {/* Searching, rows from every section show at once, so each island says whose it is. */}
+        <h2 className="mb-2 px-1 text-body font-semibold text-foreground">{query.trim() && <span className="font-normal text-muted-foreground">{section} · </span>}<Marked text={title} query={query} /></h2>
         <div className="divide-y divide-border/60 overflow-hidden rounded-xl border bg-accent/25">{children}</div>
       </section>
     </Query.Provider>
@@ -72,10 +104,34 @@ export function SettingsView(): React.JSX.Element {
   // Vim keys here too: j and k move between the controls, h and l turn a
   // slider down and up, and Enter or Space presses what has the focus.
   const page = useRef<HTMLDivElement>(null)
+  // One section at a time, the last one you looked at, as Raycast keeps it.
+  const [section, setSectionState] = useState(() => {
+    try {
+      const kept = localStorage.getItem('settings:section')
+      return SECTIONS.some((one) => one.title === kept) ? kept! : SECTIONS[0].title
+    } catch {
+      return SECTIONS[0].title
+    }
+  })
+  const setSection = (title: string): void => {
+    if (title === section) return
+    // Each section has its own note, so moving down the list is a scale.
+    step(SECTIONS.findIndex((one) => one.title === title))
+    setSectionState(title)
+    if (scroller) scroller.scrollTop = 0
+    try {
+      localStorage.setItem('settings:section', title)
+    } catch {
+      // Not remembered, but still shown.
+    }
+  }
+  const [scroller, setScroller] = useState<HTMLDivElement | null>(null)
+  useSmooth(scroller)
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       const active = document.activeElement as HTMLElement | null
-      if (event.metaKey || event.ctrlKey || event.altKey || ['INPUT', 'TEXTAREA'].includes(active?.tagName ?? '')) return
+      // In the section list, j and k move between sections instead.
+      if (event.metaKey || event.ctrlKey || event.altKey || ['INPUT', 'TEXTAREA'].includes(active?.tagName ?? '') || active?.closest('[data-sections]')) return
       const controls = [...(page.current?.querySelectorAll<HTMLElement>('button, [role="slider"], input') ?? [])]
       const at = controls.indexOf(active as HTMLElement)
       if (event.key === 'j' || event.key === 'k') {
@@ -89,41 +145,84 @@ export function SettingsView(): React.JSX.Element {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
-  if (!settings) return <Page title="Settings"><div /></Page>
+  if (!settings) return <section className="flex-1" />
   const set = (patch: Partial<Settings>): void => void vigil.setSettings(patch)
+  const searching = !!query.trim()
 
+  // The section list and the search over it on the left, the section on the
+  // right. Under 44rem of page the list folds to its tiles, like the main
+  // sidebar, and the search moves over the settings. Not in the page column,
+  // so Full width changes nothing here.
   return (
-    <Page title="Settings">
+    <section className={`grid min-h-0 min-w-0 flex-1 grid-cols-[3.5rem_1fr] grid-rows-[auto_1fr] @[44rem]/page:grid-cols-[14rem_1fr]`}>
+      <nav
+        data-sections
+        aria-label="Settings sections"
+        className={`col-start-1 row-span-2 row-start-1 flex flex-col gap-px overflow-y-auto px-2 pt-4 pb-4 @[44rem]/page:row-span-1 @[44rem]/page:row-start-2 @[44rem]/page:pt-0`}
+        onKeyDown={(event) => {
+          const by = { ArrowDown: 1, j: 1, ArrowUp: -1, k: -1 }[event.key]
+          if (!by || event.metaKey || event.ctrlKey || event.altKey) return
+          event.preventDefault()
+          const at = SECTIONS.findIndex((one) => one.title === section)
+          const next = SECTIONS[Math.max(0, Math.min(SECTIONS.length - 1, at + by))]
+          setSection(next.title)
+          event.currentTarget.querySelector<HTMLElement>(`[data-section="${next.title}"]`)?.focus()
+        }}
+      >
+        {SECTIONS.map((one) => (
+          <Tip key={one.title} label={one.title}>
+            <button
+              type="button"
+              data-section={one.title}
+              aria-current={!searching && section === one.title ? 'page' : undefined}
+              onClick={() => {
+                setSection(one.title)
+                if (searching) (chime('fold'), setQuery(''))
+              }}
+              className={`flex items-center justify-center gap-2.5 rounded-md p-1.5 text-left text-body transition-colors @[44rem]/page:justify-start @[44rem]/page:px-2 ${!searching && section === one.title ? 'bg-accent text-foreground' : 'text-foreground/80 hover:bg-accent/60'}`}
+            >
+              <span className={`flex size-5 shrink-0 items-center justify-center rounded-md text-white ${one.tile}`}><one.icon className="size-3.5" /></span>
+              <span className={`hidden truncate @[44rem]/page:inline`}>{one.title}</span>
+            </button>
+          </Tip>
+        ))}
+      </nav>
+      <label className={`col-start-2 row-start-1 mx-5 mt-4 mb-2 flex items-center gap-2 rounded-lg border bg-accent/25 px-3 py-1.5 text-muted-foreground focus-within:border-ring @[44rem]/page:col-start-1 @[44rem]/page:mx-2`}>
+        <SearchIcon className="size-4 shrink-0" />
+        <input
+          value={query}
+          placeholder="Search…"
+          className="min-w-0 flex-1 bg-transparent text-body text-foreground outline-none"
+          onChange={(event) => {
+            // One ping as a search starts, then a soft tick for each letter.
+            if (!query && event.target.value) chime('search')
+            else click('soft')
+            setQuery(event.target.value)
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape' || !query) return
+            event.preventDefault()
+            chime('fold')
+            setQuery('')
+          }}
+        />
+        {query && <Kbd>Esc</Kbd>}
+      </label>
+      <div className={`relative col-start-2 row-start-2 flex min-h-0 min-w-0 flex-col @[44rem]/page:row-span-2 @[44rem]/page:row-start-1`}>
+      <div ref={setScroller} className="min-h-0 flex-1 overflow-y-auto">
       <Query.Provider value={{ query, all: false }}>
-      <div ref={page} className="mx-auto w-full max-w-2xl px-5 pt-5 pb-16 [&:has([data-setting])>[data-none]]:hidden">
-        <label className="mb-6 flex items-center gap-2 rounded-lg border bg-accent/25 px-3 py-2 text-muted-foreground focus-within:border-ring">
-          <SearchIcon className="size-4 shrink-0" />
-          <input
-            value={query}
-            placeholder="Search settings and shortcuts…"
-            className="min-w-0 flex-1 bg-transparent text-body text-foreground outline-none"
-            onChange={(event) => {
-              // One ping as a search starts, then a soft tick for each letter.
-              if (!query && event.target.value) chime('search')
-              else click('soft')
-              setQuery(event.target.value)
-            }}
-            onKeyDown={(event) => {
-              if (event.key !== 'Escape' || !query) return
-              event.preventDefault()
-              chime('fold')
-              setQuery('')
-            }}
-          />
-          {query && <Kbd>Esc</Kbd>}
-        </label>
+      <Shown.Provider value={section}>
+      <div ref={page} className="w-full max-w-2xl px-6 pt-4 pb-16 [&:has([data-setting])>[data-none]]:hidden">
+        {!searching && <h1 className="px-1 text-lg font-semibold text-foreground">{section}</h1>}
         <p data-none className="px-1 text-body text-muted-foreground">Nothing here matches “{query}”. Try fewer letters, or what it changes.</p>
-        <Group title="Appearance">
-          <Setting title="Theme" note="The colours of every window: the prompt and this one change together. Point at one to try it, click to keep it.">
+        <Group section="Appearance" title="Theme">
+          <Setting title="Theme" note="The colours of every window: the prompt and this one change together. Point at one to try it, click to keep it." keywords={allThemes().map(themeName).join(' ')}>
             <ThemePicker className="-mr-2 h-8 gap-1.5 rounded-full px-2 hover:bg-accent" />
           </Setting>
           <ImportedThemes />
           <Frosted />
+        </Group>
+        <Group section="Appearance" title="Layout">
           <Setting title="Full width" note="Off, pages sit in a centred column the way Notion lays them out. On, the writing runs edge to edge.">
             <Switch checked={settings.fullWidth} onCheckedChange={(fullWidth) => set({ fullWidth })} />
           </Setting>
@@ -133,15 +232,17 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Pictures in lists" note="A note with a picture in it shows the first one, small, at the end of its row and on its card.">
             <Switch checked={settings.thumbnails !== false} onCheckedChange={(thumbnails) => set({ thumbnails })} />
           </Setting>
-          <Setting title="Note font" note="What notes are written in, in the box and here: Fraunces, a few others, or any font on this Mac. OpenDyslexic is easier for some to read.">
+        </Group>
+        <Group section="Appearance" title="Text">
+          <Setting title="Note font" note="What notes are written in, in the box and here: Fraunces, a few others, or any font on this Mac. OpenDyslexic is easier for some to read." below={<Sample />} keywords={NOTE_FONTS.map((font) => font.label).join(' ')}>
             <FontPicker value={settings.noteFont} />
           </Setting>
-          <Setting title="Text size" note="How big the words in notes are. ⌘+ and ⌘− change it from any note, ⌘0 puts it back.">
+          <Setting title="Text size" note="How big the words in notes are. ⌘+ and ⌘− change it from any note, ⌘0 puts it back." below={<Sample />}>
             <TextSize value={settings.textSize} />
           </Setting>
         </Group>
 
-        <Group title="Writing">
+        <Group section="Writing" title="As you write">
           <Setting title="Math as you type" note="End a line with = and its answer shows after it; Tab writes it in. lunch = 25 names a number for the lines below. Units and money work too: 5 km in mi, $40 * 3 in EUR.">
             <Switch checked={settings.calc} onCheckedChange={(calc) => set({ calc })} />
           </Setting>
@@ -150,24 +251,26 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
 
-        <Group title="Sound">
+        <Group section="Sound" title="What you hear">
           <Setting title="Sounds" note="A small click as you point at things and scroll, and a sound for each thing you do.">
             <Switch checked={settings.sounds} onCheckedChange={(sounds) => {
               soundOn(sounds)
               set({ sounds })
             }} />
           </Setting>
-          {settings.sounds && (
-            <Setting title="Volume" note="How loud every sound is, from silent to as loud as they were made.">
-              <Slider className="w-40" min={0} max={1} step={0.05} value={[settings.volume]} onValueChange={([volume]) => set({ volume })} onValueCommit={() => chime('tap')} />
-            </Setting>
-          )}
-          {settings.sounds && (
-            <Setting title="Sound pack" note="Nine characters for the same sounds. Point at one to hear it; click it to make it yours. The pieces on the right always play the one you have." below={<SoundPacks chosen={settings.soundPack} />} />
-          )}
+          {/* Shown with sounds off too, greyed, so a search still finds them. */}
+          <Setting title="Volume" note="How loud every sound is, from silent to as loud as they were made.">
+            <Slider disabled={!settings.sounds} className="w-40" min={0} max={1} step={0.05} value={[settings.volume]} onValueChange={([volume]) => set({ volume })} onValueCommit={() => chime('tap')} />
+          </Setting>
+          <Setting
+            title="Sound pack"
+            note="Nine characters for the same sounds. Point at one to hear it; click it to make it yours. The pieces on the right always play the one you have."
+            keywords={Object.values(PACKS).map((one) => `${one.label} ${one.feel}`).join(' ')}
+            below={<div inert={!settings.sounds} className={settings.sounds ? '' : 'opacity-50'}><SoundPacks chosen={settings.soundPack} /></div>}
+          />
         </Group>
 
-        <Group title="What comes back to you">
+        <Group section="What comes back to you" title="Hints and cards">
           <Setting title="Hints" note="How often the prompt shows you something you kept. Rare is the point: a hint every time is one you learn to ignore.">
             <Slider className="w-40" min={0} max={0.5} step={0.05} value={[settings.hintRate]} onValueChange={([hintRate]) => set({ hintRate })} onValueCommit={() => chime('tap')} />
             <span className="w-16 text-right tabular-nums"><Rolling text={settings.hintRate ? `1 in ${Math.round(1 / settings.hintRate)}` : 'never'} /></span>
@@ -180,6 +283,8 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Memories" note="Some hints are memories, the way Photos brings them: a year ago today, this week in an earlier year, more from one source. Each says which it is.">
             <Switch checked={settings.memories} onCheckedChange={(memories) => set({ memories })} />
           </Setting>
+        </Group>
+        <Group section="What comes back to you" title="Once a week">
           <Setting title="Weekly review" note="Once a week, on the day you pick, the prompt suggests walking the inbox through its exits. Never in quiet hours.">
             {settings.weeklyReview && (
               <div className="flex rounded-md border p-0.5">
@@ -202,6 +307,8 @@ export function SettingsView(): React.JSX.Element {
             )}
             <Switch checked={settings.weeklyReview} onCheckedChange={(weeklyReview) => set({ weeklyReview })} />
           </Setting>
+        </Group>
+        <Group section="What comes back to you" title="Keeping it quiet">
           <Setting title="Quiet hours" note="Nothing private, and no capture you have not dealt with yet, comes up unasked; pins stay, except private ones and unhandled captures. Search and lists still show everything.">
             <Input type="time" className={field} value={settings.quietStart} onChange={(event) => set({ quietStart: event.target.value })} />
             <span className="text-muted-foreground">to</span>
@@ -215,7 +322,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
 
-        <Group title="Review">
+        <Group section="Review" title="Remembering">
           <Setting title="How much to remember" note="The share of tested items you want to still know when they come back. Higher means more reviews; 90% is where most land.">
             <Slider className="w-40" min={0.8} max={0.97} step={0.01} value={[settings.retention]} onValueChange={([retention]) => set({ retention })} onValueCommit={() => chime('tap')} />
             <span className="w-10 text-right tabular-nums"><Rolling text={`${Math.round(settings.retention * 100)}%`} /></span>
@@ -225,12 +332,14 @@ export function SettingsView(): React.JSX.Element {
             <Input type="number" min={0} className={`${field} w-16`} value={settings.reviewsPerDay} onChange={(event) => set({ reviewsPerDay: Number(event.target.value) })} /> reviews
           </Setting>
           <CapTuning />
+        </Group>
+        <Group section="Review" title="Exams">
           <Setting title="Exam nudges" note="A tag with an exam date (set on its page in Tags) says so in the prompt when its cards fall behind, once a day at most, never in quiet hours.">
             <Switch checked={settings.examNudges} onCheckedChange={(examNudges) => set({ examNudges })} />
           </Setting>
         </Group>
 
-        <Group title="Tasks">
+        <Group section="Tasks" title="Reminders">
           <Setting title="When a task's time comes" note="Pull: it rises to the top of Today. Quiet: the menu bar counts it too. Alerts: a notification, once, at the time.">
             <div className="flex rounded-md border p-0.5">
               {(['pull', 'quiet', 'alerts'] as const).map((level, index) => (
@@ -251,13 +360,13 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
 
-        <Group title="Capturing">
+        <Group section="Capturing" title="With each capture">
           <Setting title="Weather" note="Each capture keeps the weather outside when you caught it, like 12°C, light rain. It asks wttr.in, which guesses your town from your connection: no account and no location permission. Left out when offline.">
             <Switch checked={settings.weather} onCheckedChange={(weather) => set({ weather })} />
           </Setting>
         </Group>
 
-        <Group title="Help">
+        <Group section="Help" title="Getting started">
           <Setting title="Tour" note="The two-minute walk through the box, the inbox's exits, rot cards and hints that played the first time.">
             <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('vigil:tour'))}>Play it again</Button>
           </Setting>
@@ -266,7 +375,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
 
-        <Group title="Your data">
+        <Group section="Your data" title="Export and import">
           <Setting title="Export everything" note="All of it as JSON and Markdown, in a folder you choose: yours to read without this app.">
             <Button variant="outline" size="sm" onClick={() => void beaming(vigil.exportAll()).then((folder) => {
               if (!folder) return
@@ -282,12 +391,16 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
 
-        <Group title="Shortcuts">
+        <Group section="Shortcuts" title="Every shortcut">
           <ShortcutRows />
         </Group>
       </div>
+      </Shown.Provider>
       </Query.Provider>
-    </Page>
+      </div>
+      <BackToTop target={scroller} />
+      </div>
+    </section>
   )
 }
 
@@ -344,6 +457,18 @@ function ImportedThemes(): React.JSX.Element {
       }} />
       <Button variant="outline" size="sm" onClick={() => file.current?.click()}>Import a theme…</Button>
     </Setting>
+  )
+}
+
+/**
+ * A line in the note font at the note size, under those two settings: both
+ * only change notes, so without it a pick would show nothing here.
+ */
+function Sample(): React.JSX.Element {
+  return (
+    <p className="mt-2 truncate text-foreground" style={{ fontFamily: 'var(--mf-font, "Fraunces Variable", Georgia, serif)', fontSize: 'calc(1rem * var(--mf-text-scale, 1))' }}>
+      The quick brown fox jumps over the lazy dog.
+    </p>
   )
 }
 

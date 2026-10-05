@@ -566,4 +566,6 @@ input[list]::-webkit-calendar-picker-indicator { display: none !important; }
   100% { opacity: 0; }
 }
 :root[data-motion='off'] .mf-glow { animation: mf-glow-still 1.4s step-end forwards; }
+/* Its length kept, past the Motion rule that stops every animation at once. */
+:root[data-motion='off'] .mf-glow { animation-duration: 1.4s !important; }
 @media (prefers-reduced-motion: reduce) { .mf-glow { animation: mf-glow-still 1.4s step-end forwards; } }

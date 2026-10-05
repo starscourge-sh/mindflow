@@ -56,7 +56,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Writing', keys: '⌘↵', does: 'Send the capture', where: 'The box' },
   { group: 'Writing', keys: '⌥⌘↵', does: 'Send, and keep the box open for the next', where: 'The box' },
   { group: 'Writing', keys: '⌘N', does: 'New capture', where: 'The box' },
-  { group: 'Writing', keys: '⌘1', does: 'Kind: the first to the eighth (⌘1 to ⌘8)', where: 'The box' },
+  { group: 'Writing', keys: '⌘1', does: 'Kind: the first to the ninth (⌘1 to ⌘9)', where: 'The box' },
   { group: 'Writing', keys: '⌃L', does: 'Pick a kind', where: 'The box' },
   { group: 'Writing', keys: '⇧⌘C', does: 'Copy the note as Markdown', where: 'The box' },
   { group: 'Writing', keys: '⌘E', does: 'Show or hide the source', where: 'Writing' },
@@ -128,7 +128,8 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Settings', keys: 'J', does: 'Next setting', where: 'Main window' },
   { group: 'Settings', keys: 'K', does: 'Setting before', where: 'Main window' },
   { group: 'Settings', keys: 'H', does: 'Slider down', where: 'Main window' },
-  { group: 'Settings', keys: 'L', does: 'Slider up', where: 'Main window' }
+  { group: 'Settings', keys: 'L', does: 'Slider up', where: 'Main window' },
+  { group: 'Settings', keys: '↑ ↓', does: 'Next or previous section, in the section list (J and K too)', where: 'Main window' }
 ]
 
 /** The list in its groups, in the order they first appear. */

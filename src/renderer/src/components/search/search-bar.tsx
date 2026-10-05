@@ -45,7 +45,14 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
     (clearTerm: boolean) => {
       onClose()
       cue("find-close")
-      if (clearTerm) editor?.commands.clearSearch()
+      if (clearTerm) {
+        editor?.commands.clearSearch()
+        // The bar stays mounted while shut, so its boxes would still show the
+        // old words the next time it opens.
+        if (inputRef.current) inputRef.current.value = ""
+        if (replaceRef.current) replaceRef.current.value = ""
+        editor?.commands.setReplaceTerm("")
+      }
       editor?.commands.focus()
     },
     [editor, onClose]
@@ -62,7 +69,7 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
         const focused = document.activeElement?.closest(".mindflow-editor-wrapper[data-search]")
         if ((focused ?? document.querySelector(".mindflow-editor-wrapper[data-search]")) !== mine) return
         event.preventDefault()
-        if (event.altKey) setReplacing(true)
+        if (event.altKey && editor?.isEditable) setReplacing(true)
         if (open) inputRef.current?.select()
         else onOpen()
         return
@@ -100,8 +107,14 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
     })
   }
 
+  // A locked or read-only note can be searched but not changed. Read at
+  // render, since a lock is not a transaction; the hook only redraws on one.
+  useEditorState({ editor, selector: ({ editor: instance }) => instance?.isEditable ?? false })
+  const editable = !!editor?.isEditable
+
   const replace = (all: boolean): void => {
-    if (!editor?.storage.findAndReplace?.results.length) return cue("find-miss")
+    if (!editor?.isEditable) return cue("find-miss")
+    if (!editor.storage.findAndReplace?.results.length) return cue("find-miss")
     // The extension replaces the current match; with none chosen yet, the
     // first is the one you would expect.
     if (editor.storage.findAndReplace.currentIndex === null) editor.commands.goToNextResult()
@@ -123,6 +136,7 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
       <div className="tiptap-find-bar-row">
         <button
           type="button"
+          hidden={!editable}
           onClick={() => {
             setReplacing((was) => !was)
             requestAnimationFrame(() => replaceRef.current?.focus())
@@ -160,7 +174,7 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
           <X className="size-3.5" />
         </button>
       </div>
-      {replacing && (
+      {replacing && editable && (
         <div className="tiptap-find-bar-row">
           <input
             ref={replaceRef}

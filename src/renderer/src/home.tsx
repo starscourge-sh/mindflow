@@ -53,9 +53,11 @@ import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
 import { Tour } from '@/components/vigil/tour'
 import { DayView } from '@/components/vigil/day-view'
 import { noteActions } from '@/lib/notes'
+import { headingIn } from '@/lib/capture-links'
 import { Archive, NotebookPen } from 'lucide-react'
 
-type View = { id: string; focus?: string }
+// A nonce makes asking again a fresh visit: the recap reopens each time.
+type View = { id: string; focus?: string; nonce?: number }
 
 /** The sections down the side, each with the key that jumps to it after G. */
 /** Each has its own colour from the theme, as Todoist gives Inbox, Today and Upcoming theirs. */
@@ -105,7 +107,7 @@ export function Home(): React.JSX.Element {
     setTrail((trail) => {
       const here = trail.views[trail.at]
       // Going where you already are is not a step: Back would have to undo it.
-      if (here.id === next.id && here.focus === next.focus) return trail
+      if (here.id === next.id && here.focus === next.focus && here.nonce === next.nonce) return trail
       if (here.id !== next.id) chime('tap')
       return { views: [...trail.views.slice(0, trail.at + 1), next], at: trail.at + 1 }
     })
@@ -165,11 +167,12 @@ export function Home(): React.JSX.Element {
   useEffect(() => showTopTitle(null), [view.id])
 
   const counts: Record<string, number> = {
-    inbox: captures.filter((capture) => capture.status === 'open').length,
+    // Archived ones are out of sight in their lists, so out of the counts too.
+    inbox: captures.filter((capture) => capture.status === 'open' && !capture.archivedAt).length,
     review: due,
     today: tasks.filter((task) => task.status === 'open' && !task.waitingOn && (placed(task) ?? Infinity) < today()).length,
-    nuggets: nuggets.length,
-    articles: articles.length
+    nuggets: nuggets.filter((one) => !one.archivedAt).length,
+    articles: articles.filter((one) => !one.archivedAt).length
   }
 
   const safeMode = (): void => {
@@ -217,7 +220,14 @@ export function Home(): React.JSX.Element {
   const open = (type: string, id: string): void =>
     setView({ id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id })
   // A view is sent by name (⌘, sends Settings), anything else as one thing to open.
-  useEffect(() => window.api.onSentTo((type, id) => (type === 'view' ? setView({ id }) : type === 'recap' ? setView({ id: 'stats', focus: id }) : type === 'task' ? setView({ id: 'today', focus: id }) : open(type, id))), [])
+  // A heading link from a note window lands on its heading once the note is open.
+  useEffect(() => window.api.onSentTo((type, id, heading) => {
+    if (type === 'view') setView({ id })
+    else if (type === 'recap') setView({ id: 'stats', focus: id, nonce: Date.now() })
+    else if (type === 'task') setView({ id: 'today', focus: id })
+    else open(type, id)
+    if (heading) headingIn(type, id, heading)
+  }), [])
 
   const kind = CAPTURE_TYPES.find((type) => `kind:${type.id}` === view.id)
   const keep: Record<string, (capture: CaptureMeta) => boolean> = {
@@ -260,8 +270,8 @@ export function Home(): React.JSX.Element {
             { label: 'Settings', keys: '⌘,', run: () => setView({ id: 'settings' }) },
             ...noteActions({ day: false }),
             // The recap, Wrapped's way, over Stats.
-            { label: 'Your month, wrapped', run: () => setView({ id: 'stats', focus: 'month' }) },
-            { label: 'Your year, wrapped', run: () => setView({ id: 'stats', focus: 'year' }) }
+            { label: 'Your month, wrapped', run: () => setView({ id: 'stats', focus: 'month', nonce: Date.now() }) },
+            { label: 'Your year, wrapped', run: () => setView({ id: 'stats', focus: 'year', nonce: Date.now() }) }
           ]}
           onClose={() => setSearching(false)}
           onOpen={(type, id) => {
@@ -485,7 +495,7 @@ export function Home(): React.JSX.Element {
         ) : view.id === 'tags' ? (
           <TagsView key={view.focus} onOpen={open} focus={view.focus} />
         ) : view.id === 'stats' ? (
-          <StatsView key={view.focus} recap={view.focus} />
+          <StatsView key={`${view.focus}-${view.nonce}`} recap={view.focus} />
         ) : (
           <SettingsView />
         )}

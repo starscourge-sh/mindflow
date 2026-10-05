@@ -22,8 +22,11 @@ export { setCues, type EditorCue } from "@/lib/cues"
 /** Math as you type, on or off for every editor on the page. */
 export { setCalc } from "@/extensions/calc"
 
-/** A stored note's headings, for `findHeadings`. */
-export { headingsIn } from "@/components/toc/headings"
+/** Land on a heading in a document just opened, by its `documentId`; and where `#` finds its tags. */
+export { showHeading, setTagSource, type TagSuggestion } from "@/extensions/note-link"
+
+/** A stored note's headings, for `findHeadings`; and going to one in an open editor. */
+export { goToHeading, headingsIn } from "@/components/toc/headings"
 
 /** Tags and anything else worth picking out of the text. */
 export {

@@ -483,7 +483,7 @@ export function importNote(path: string, text: string, modified: Date): { link: 
 
 /**
  * After a vault is in: its `[[Page]]` links become links to what those pages
- * became here, written `[[@link|shown]]`, which the editor reads as a note
+ * became here, written `[[@link#Heading|shown]]`, which the editor reads as a note
  * link. A page that did not come in stays as the words it was.
  */
 export function linkImported(made: { link: string }[], byName: Map<string, string>): number {
@@ -493,13 +493,20 @@ export function linkImported(made: { link: string }[], byName: Map<string, strin
     const row = db.prepare(`select body from ${table} where id = ?`).get(id) as { body: string } | undefined
     const body = row && (JSON.parse(row.body) as unknown)
     if (typeof body !== 'string') continue
-    const next = body.replace(/(?<!!)\[\[([^\]|#]+)(#[^\]|]*)?(?:\|([^\]]+))?\]\]/g, (whole, page: string, _heading, shown?: string) => {
+    const next = body.replace(/(?<!!)\[\[([^\]|#]+)(#[^\]|]*)?(?:\|([^\]]+))?\]\]/g, (whole, page: string, heading: string | undefined, shown?: string) => {
       const to = byName.get(page.trim().toLowerCase())
       if (!to) return whole
       linked += 1
-      return `[[@${to}|${(shown ?? page).trim()}]]`
+      // The heading goes along, so the link still lands where it pointed.
+      const at = heading && heading.length > 1 ? `#${heading.slice(1).trim()}` : ''
+      return `[[@${to}${at}|${(shown ?? page).trim()}]]`
     })
-    if (next !== body) db.prepare(`update ${table} set body = ? where id = ?`).run(JSON.stringify(next), id)
+    if (next === body) continue
+    // Linking is part of coming in, not an edit: the version the database
+    // keeps of the words before it is dropped again.
+    const last = (db.prepare('select coalesce(max(id), 0) as n from versions').get() as { n: number }).n
+    db.prepare(`update ${table} set body = ? where id = ?`).run(JSON.stringify(next), id)
+    db.prepare('delete from versions where item_id = ? and id > ?').run(id, last)
   }
   if (linked) changed()
   return linked

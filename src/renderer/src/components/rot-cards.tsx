@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { chime } from '@/lib/sound'
 import type { JSONContent } from '@tiptap/core'
 
@@ -6,7 +6,7 @@ import { EXITS, captureKey, exit as exitWith } from '@/lib/capture-links'
 import { wordsOf } from '../../../main/import'
 import { AskWho, Rolling, Typed, pin } from './vigil/ui'
 import { AnimatePresence, motion } from 'motion/react'
-import { vigil } from '@/lib/vigil'
+import { useLive, vigil } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
 import { RowMenu, copy } from './vigil/row-menu'
 import { age, ageTint } from './capture-list'
@@ -14,6 +14,10 @@ import { Kbd, Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.rot>>[number]
+
+// The last count seen, kept across visits so the all-clear chord sounds when
+// the last one goes, not each time the Inbox opens.
+let was: number | null = null
 
 /** A body's words, whether it arrived as Markdown or as the editor's JSON. */
 export const textOf = (body: unknown): string => {
@@ -63,11 +67,12 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
   // How many old captures are still open at all: none, and the area says so
   // with a chord, once, as the line arrives.
   const [left, setLeft] = useState<number | null>(null)
-  const was = useRef<number | null>(null)
+  // Cards turned off in Settings: no area, so no all-clear either.
+  const off = useLive(vigil.settings, null as Awaited<ReturnType<typeof vigil.settings>> | null)?.rotCount === 0
   const count = (): void =>
     void vigil.rotLeft().then((n) => {
-      if (n === 0 && was.current !== 0) chime('clear')
-      was.current = n
+      if (n === 0 && was !== 0 && !off) chime('clear')
+      was = n
       setLeft(n)
     })
   const reload = (): void => {
@@ -113,7 +118,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
   }
 
   if (!cards.length)
-    return left === 0 ? (
+    return left === 0 && !off ? (
       <p className="mb-2 px-2 py-1 text-xs text-muted-foreground">
         <Typed text="Nothing rotting: every old capture has taken an exit." step={28} delay={200} />
       </p>

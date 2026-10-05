@@ -63,12 +63,25 @@ export function ShortcutSheet(): React.JSX.Element | null {
       window.removeEventListener('vigil:shortcuts', onAsk)
     }
   }, [])
-  if (!open) return null
   const close = (): void => {
     chime('fold')
     setOpen(false)
     setQuery('')
   }
+  // While open, Esc is the sheet's wherever focus is: caught first, on the
+  // way down, so the box never hides its window with the sheet still up.
+  useEffect(() => {
+    if (!open) return
+    const onEscape = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      close()
+    }
+    window.addEventListener('keydown', onEscape, true)
+    return () => window.removeEventListener('keydown', onEscape, true)
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  if (!open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[8vh] animate-in fade-in-0 duration-150" onMouseDown={close}>
       <div
@@ -87,8 +100,7 @@ export function ShortcutSheet(): React.JSX.Element | null {
             setQuery(event.target.value)
           }}
           onKeyDown={(event) => {
-            // Taken here, so the box does not also hide its window.
-            if (event.key === 'Escape' || (event.key === '?' && !query)) {
+            if (event.key === '?' && !query) {
               event.preventDefault()
               event.stopPropagation()
               close()

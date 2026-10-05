@@ -4,7 +4,7 @@ import { ArrowUpRight, Eye, EyeOff, CheckCircle2, FileText, Hash, Inbox, ListTod
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
-import { CaptureList, useCaptures, type CaptureMeta } from '../capture-list'
+import { CaptureList, captureMenu, useCaptures, type CaptureMeta } from '../capture-list'
 import { tagColors, spread } from '@/extensions/tokens'
 import { AGES, Display, arrange, period, useView, type Facet, type View } from './display'
 import { DatePicker } from './date-picker'
@@ -15,7 +15,7 @@ import { toMarkdown } from '@/lib/export'
 import { splitTags, vigil } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
 import { chime } from '@/lib/sound'
-import { Empty, Page, Prop, PropLabel, Props, Remembered, Rolling, ask, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle } from './ui'
+import { Empty, Island, Page, Prop, Props, Remembered, Rolling, ask, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle } from './ui'
 import { RemindMe } from './items-view'
 import { ReadThrough } from './read-through'
 import { selectionActions } from './selection-actions'
@@ -58,6 +58,12 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
   const [first, setFirst] = useState<unknown>(null)
   useEffect(() => setFirst(null), [open?.id])
   const pick = (id: string): void => void window.api.captures.get(id).then(setOpen)
+  // Opened in a window of its own: closed here, so only one editor saves it.
+  useEffect(() => {
+    const onApart = (event: Event): void => setOpen((was) => (was?.id === (event as CustomEvent).detail ? null : was))
+    window.addEventListener('vigil:opened-apart', onApart)
+    return () => window.removeEventListener('vigil:opened-apart', onApart)
+  }, [])
   const [cursor, setCursor] = useListKeys(shown.length, { onOpen: (index) => pick(shown[index].id), onBack: () => setOpen(null) })
   // Reading through what is shown, one at a time with nothing else on screen.
   const [readFrom, setReadFrom] = useState<number | null>(null)
@@ -165,7 +171,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
         }
       >
         {shown.length && layout === 'cards' ? (
-          <NoteCards table="captures" cards={shown.map((one) => ({ id: one.id, title: one.label, kind: one.kind, type: 'capture', dim: one.status !== 'open' }))} selected={open?.id} cursor={cursor} onPick={pick} />
+          <NoteCards table="captures" cards={shown.map((one) => ({ id: one.id, title: one.label, kind: one.kind, type: 'capture', dim: one.status !== 'open' }))} selected={open?.id} cursor={cursor} onPick={pick}
+            menu={(card) => captureMenu(shown.find((one) => one.id === card.id)!, pick)} />
         ) : shown.length ? (
           <div className="px-3 py-2">
             {groups.map(([name, list], index) => {
@@ -264,7 +271,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
               defaultContent={(open.body as JSONContent | string | null) ?? ''}
               findNotes={findCaptures}
               findHeadings={findHeadings}
-              onOpenNote={(link) => follow(link, (type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id)))}
+              onOpenNote={(link, heading) => follow(link, (type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id)), heading)}
               after={<Mentions id={open.id} onOpen={(type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id))} />}
               onChange={(body, editor) =>
                 window.api.captures.save(open.id, { body, markdown: toMarkdown(editor) })
@@ -300,93 +307,103 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
 
   return (
     <Props className={className}>
-      <PropLabel>Status</PropLabel>
-      <Prop icon={Status} active>
-        {/* A status that changes rolls to the new word: the change is seen. */}
-        <Rolling text={capture.status[0].toUpperCase() + capture.status.slice(1)} />
-      </Prop>
-      {capture.status === 'open'
-        ? exits.map((exit) => (
-            <Prop
-              key={exit.label}
-              icon={exit.icon}
-              tint={exit.tint}
-              onClick={() => {
-                void exit.run().then((result) => {
-                  if (result === 'cancelled') return
-                  // A task was heard, said and made undoable where it was made; only a capture gone is left to say.
-                  if (exit.label === 'Make it a task') return void (result || refuse('That capture is gone'))
-                  if (result === 'needs-source') return refuse('A quote needs to say who said it: add a source below first')
-                  // The sound once it went through, so a refusal never sounds like success first.
-                  chime(exit.label === 'Discard' ? 'away' : exit.label === 'Promote to nugget' ? 'promote' : 'resolve')
-                  if (exit.label === 'Promote to nugget')
-                    return toast(exit.said, typeof result === 'string' ? () => void vigil.unpromote(capture.id, result) : undefined, 'success', typeof result === 'string' ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
-                  toast(exit.said, reopen)
-                })
+      <Island compact title="Status">
+        <Prop icon={Status} active>
+          {/* A status that changes rolls to the new word: the change is seen. */}
+          <Rolling text={capture.status[0].toUpperCase() + capture.status.slice(1)} />
+        </Prop>
+        {capture.status === 'open'
+          ? exits.map((exit) => (
+              <Prop
+                key={exit.label}
+                icon={exit.icon}
+                tint={exit.tint}
+                onClick={() => {
+                  void exit.run().then((result) => {
+                    if (result === 'cancelled') return
+                    // A task was heard, said and made undoable where it was made; only a capture gone is left to say.
+                    if (exit.label === 'Make it a task') return void (result || refuse('That capture is gone'))
+                    if (result === 'needs-source') return refuse('A quote needs to say who said it: add a source below first')
+                    // The sound once it went through, so a refusal never sounds like success first.
+                    chime(exit.label === 'Discard' ? 'away' : exit.label === 'Promote to nugget' ? 'promote' : 'resolve')
+                    if (exit.label === 'Promote to nugget')
+                      return toast(exit.said, typeof result === 'string' ? () => void vigil.unpromote(capture.id, result) : undefined, 'success', typeof result === 'string' ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
+                    toast(exit.said, reopen)
+                  })
+                }}
+              >
+                {exit.label}
+              </Prop>
+            ))
+          : <Prop icon={Inbox} onClick={reopen}>Back to the inbox</Prop>}
+        {capture.status === 'open' && (
+          <label className="flex items-center gap-2 px-2 py-1.5 focus-within:text-foreground hover:bg-accent">
+            <Merge className="size-4 shrink-0" />
+            <input
+              key={capture.id}
+              placeholder="Merge into MF-…"
+              onKeyDown={(event) => {
+                const number = Number(event.currentTarget.value.replace(/\D/g, ''))
+                if (event.key !== 'Enter' || !number) return
+                void vigil.mergeCapture(capture.id, number).then((into) =>
+                  into ? (chime('resolve'), toast(`Merged into MF-${number}`, () => void window.api.captures.save(capture.id, { status: 'open' }))) : refuse(`No MF-${number} to merge into`)
+                )
               }}
-            >
-              {exit.label}
-            </Prop>
-          ))
-        : <Prop icon={Inbox} onClick={reopen}>Back to the inbox</Prop>}
+              className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-muted-foreground"
+            />
+          </label>
+        )}
+      </Island>
 
-      <PropLabel>Kind</PropLabel>
-      <div>
-        <CaptureKindPicker value={capture.kind as CaptureType} onChange={(kind) => void changeKind('captures', capture.id, capture.kind, kind)} />
-      </div>
+      <Island compact title="Kind">
+        <div>
+          <CaptureKindPicker value={capture.kind as CaptureType} onChange={(kind) => void changeKind('captures', capture.id, capture.kind, kind)} />
+        </div>
+      </Island>
       <KindFields table="captures" id={capture.id} kind={capture.kind} />
 
-      <PropLabel>Surfacing</PropLabel>
-      <Prop icon={capture.private ? EyeOff : Eye} active={!!capture.private} onClick={() => void vigil.setPrivate('captures', capture.id, !capture.private)}>
-        {capture.private ? 'Private' : 'Can surface any time'}
-      </Prop>
-      <Prop icon={Pin} active={!!capture.pinnedAt} onClick={() => pin('captures', capture.id, !capture.pinnedAt)}>
-        {capture.pinnedAt ? 'Pinned' : 'Pin to the prompt'}
-      </Prop>
-      <RemindMe table="captures" id={capture.id} at={capture.remindAt} />
-      {/* Out of sight, apart from the exits: whatever became of it, it can be put away. */}
-      <Prop icon={capture.archivedAt ? ArchiveRestore : Archive} active={!!capture.archivedAt} onClick={() => void archive('captures', [capture.id], !capture.archivedAt)}>
-        {capture.archivedAt ? 'Archived: bring it back' : 'Archive'}
-      </Prop>
+      <Island compact title="Surfacing">
+        <Prop icon={capture.private ? EyeOff : Eye} active={!!capture.private} onClick={() => void vigil.setPrivate('captures', capture.id, !capture.private)}>
+          {capture.private ? 'Private' : 'Can surface any time'}
+        </Prop>
+        <Prop icon={Pin} active={!!capture.pinnedAt} onClick={() => pin('captures', capture.id, !capture.pinnedAt)}>
+          {capture.pinnedAt ? 'Pinned' : 'Pin to the prompt'}
+        </Prop>
+        <RemindMe table="captures" id={capture.id} at={capture.remindAt} />
+        {/* Out of sight, apart from the exits: whatever became of it, it can be put away. */}
+        <Prop icon={capture.archivedAt ? ArchiveRestore : Archive} active={!!capture.archivedAt} onClick={() => void archive('captures', [capture.id], !capture.archivedAt)}>
+          {capture.archivedAt ? 'Archived: bring it back' : 'Archive'}
+        </Prop>
+      </Island>
 
-      {capture.status === 'open' && (
-        <label className="flex items-center gap-2 rounded-md px-2 py-1.5 focus-within:text-foreground hover:bg-accent">
-          <Merge className="size-4 shrink-0" />
-          <input
-            key={capture.id}
-            placeholder="Merge into MF-…"
-            onKeyDown={(event) => {
-              const number = Number(event.currentTarget.value.replace(/\D/g, ''))
-              if (event.key !== 'Enter' || !number) return
-              void vigil.mergeCapture(capture.id, number).then((into) =>
-                into ? (chime('resolve'), toast(`Merged into MF-${number}`, () => void window.api.captures.save(capture.id, { status: 'open' }))) : refuse(`No MF-${number} to merge into`)
-              )
-            }}
-            className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-muted-foreground"
-          />
-        </label>
-      )}
-      <PropLabel>Who and where</PropLabel>
-      <Remembered key={`a${capture.id}`} field="attribution" value={who} placeholder={ASKS[capture.kind as CaptureType]?.who ?? 'Who'} className="w-full rounded-md px-2 py-1.5 text-control hover:bg-accent" onChange={(value) => {
-        setWho(value)
-        void vigil.setCapture(capture.id, 'attribution', value.trim() || null)
-      }} />
-      <Remembered key={`m${capture.id}`} field="medium" value={where} placeholder={ASKS[capture.kind as CaptureType]?.where ?? 'Where'} className="w-full rounded-md px-2 py-1.5 text-control hover:bg-accent" onChange={(value) => {
-        setWhere(value)
-        void vigil.setCapture(capture.id, 'medium', value.trim() || null)
-      }} />
+      {/* Each in a box of its own: the datalist beside it would otherwise count as a row. */}
+      <Island compact title="Where it came from">
+        <div>
+          <Remembered key={`a${capture.id}`} field="attribution" value={who} placeholder={ASKS[capture.kind as CaptureType]?.who ?? 'Who'} className="w-full rounded-none px-2 py-1.5 text-control hover:bg-accent" onChange={(value) => {
+            setWho(value)
+            void vigil.setCapture(capture.id, 'attribution', value.trim() || null)
+          }} />
+        </div>
+        <div>
+          <Remembered key={`m${capture.id}`} field="medium" value={where} placeholder={ASKS[capture.kind as CaptureType]?.where ?? 'Where'} className="w-full rounded-none px-2 py-1.5 text-control hover:bg-accent" onChange={(value) => {
+            setWhere(value)
+            void vigil.setCapture(capture.id, 'medium', value.trim() || null)
+          }} />
+        </div>
+      </Island>
       <Lineage id={capture.id} onOpen={onOpen} />
       <LocalGraph id={capture.id} title={capture.label} onOpen={onOpen} />
-      <Prop icon={Download} onClick={() => void saveAttachments([{ table: 'captures', id: capture.id }])}>Save its pictures and files…</Prop>
-      <PropLabel>Details</PropLabel>
-      <Prop icon={Hash}>{captureKey(capture.number)}</Prop>
-      {capture.device && <Prop icon={Laptop}>{capture.device}</Prop>}
-      {capture.weather && <Prop icon={CloudSun}>{capture.weather}</Prop>}
-      {capture.elapsedMs ? <Prop icon={Timer}>Written in {capture.elapsedMs < 60000 ? `${Math.round(capture.elapsedMs / 1000)}s` : `${Math.round(capture.elapsedMs / 60000)} min`}</Prop> : null}
-      {capture.source && <Prop icon={FileText}>{capture.source.replace(/\.md$/, '')}</Prop>}
-      {/* Editable, because a system you can catch up on beats one you
-          cannot fall behind in: a note from last Tuesday can say so. */}
-      <DatePicker key={capture.id} value={capture.capturedAt} className="w-full" onChange={(at) => at && void vigil.setCapture(capture.id, 'capturedAt', at)} />
+      <Island compact title="Details">
+        <Prop icon={Hash}>{captureKey(capture.number)}</Prop>
+        {capture.device && <Prop icon={Laptop}>{capture.device}</Prop>}
+        {capture.weather && <Prop icon={CloudSun}>{capture.weather}</Prop>}
+        {capture.elapsedMs ? <Prop icon={Timer}>Written in {capture.elapsedMs < 60000 ? `${Math.round(capture.elapsedMs / 1000)}s` : `${Math.round(capture.elapsedMs / 60000)} min`}</Prop> : null}
+        {capture.source && <Prop icon={FileText}>{capture.source.replace(/\.md$/, '')}</Prop>}
+        {/* Editable, because a system you can catch up on beats one you
+            cannot fall behind in: a note from last Tuesday can say so. */}
+        <DatePicker key={capture.id} value={capture.capturedAt} className="w-full" onChange={(at) => at && void vigil.setCapture(capture.id, 'capturedAt', at)} />
+        <Prop icon={Download} onClick={() => void saveAttachments([{ table: 'captures', id: capture.id }])}>Save its pictures and files…</Prop>
+      </Island>
     </Props>
   )
 }
@@ -413,13 +430,14 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   const mine = (): void => void (view.sort !== 'manual' && setView({ ...view, sort: 'manual' }))
   const move = (ids: string[], id: string, target: string, after: boolean): void => {
     mine()
-    own.move(ids, id, target, after)
+    // From another sort, the order you see is the one the move starts from.
+    own.move(ids, id, target, after, false, view.sort !== 'manual' ? groups.flatMap(([, list]) => list.map((one) => one.id)) : undefined)
   }
   const moveBy = (shown: string[], id: string, by: number): boolean => {
     const target = shown[shown.indexOf(id) + by]
     if (!target) return false
     mine()
-    own.move(kept.map((one) => one.id), id, target, by > 0, true)
+    own.move(kept.map((one) => one.id), id, target, by > 0, true, view.sort !== 'manual' ? shown : undefined)
     return true
   }
   const statuses = [...new Set(kept.map((one) => one.status))]

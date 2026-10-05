@@ -129,8 +129,11 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
     if (!hint || asking) return
     const onKey = (event: KeyboardEvent): void => {
       if (!event.ctrlKey || !event.shiftKey) return
-      if (event.code === 'ArrowUp') react('up')
-      else if (event.code === 'ArrowDown') react('down')
+      // A memory is not kept from here, as its card offers no thumbs up.
+      if (event.code === 'ArrowUp') {
+        if (hint.memory) return
+        react('up')
+      } else if (event.code === 'ArrowDown') react('down')
       else return
       event.preventDefault()
     }

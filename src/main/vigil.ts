@@ -130,9 +130,9 @@ const DEFAULTS = {
   examNudges: true,
   // Hints can be memories: this day last year, things from one source.
   memories: true,
-  // The weather outside, kept with each capture as context. Off unless asked:
-  // it asks a weather service where you roughly are.
-  weather: false,
+  // The weather outside, kept with each capture as context. It asks a weather
+  // service that guesses your town from your connection; off in Settings.
+  weather: true,
   // A note's first picture, small, at the end of its row in every list.
   thumbnails: true
 }
@@ -232,10 +232,10 @@ function addTask(text: string, origin: string | null = null, today = false): Mad
   if (today && !task.due && !task.plan) Object.assign(task, { due: new Date(new Date().setHours(9, 0, 0, 0)).toISOString(), allDay: true })
   const { number } = db
     .prepare(
-      `insert into tasks (id, number, title, due_at, all_day, recurrence, repeat_until, origin_capture_id, created_at, deadline_at, priority, important, plan_for)
-       values (?, (select coalesce(max(number), 0) + 1 from tasks), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) returning number`
+      `insert into tasks (id, number, title, due_at, all_day, recurrence, repeat_until, origin_capture_id, created_at, deadline_at, priority, important, plan_for, deadline_timed)
+       values (?, (select coalesce(max(number), 0) + 1 from tasks), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) returning number`
     )
-    .get(id, title, task.due, task.allDay ? 1 : 0, task.recurrence, task.until, origin, now(), task.deadline, task.priority, [1, 2].includes(task.priority) ? 1 : 0, task.plan) as { number: number }
+    .get(id, title, task.due, task.allDay ? 1 : 0, task.recurrence, task.until, origin, now(), task.deadline, task.priority, [1, 2].includes(task.priority) ? 1 : 0, task.plan, task.deadlineTimed ? 1 : 0) as { number: number }
   return { id, number, existed: false }
 }
 
@@ -319,6 +319,8 @@ export function registerVigil(): void {
   column('tasks', 'repeat_until text')
   column('tasks', 'important integer not null default 0')
   column('tasks', 'deadline_at text')
+  // "by 5pm" has a time that matters; "by friday" is only a day.
+  column('tasks', 'deadline_timed integer not null default 0')
   column('tasks', 'blocker text')
   column('tasks', 'reschedules integer not null default 0')
   column('tasks', 'notify text')
@@ -619,12 +621,6 @@ export function registerVigil(): void {
     db.prepare("update captures set status = 'resolved' where id = ?").run(id)
     return write(task)
   })
-  // Made a task by mistake: the task goes, if it was new, and the capture is open again.
-  handle('toTask:undo', (captureId: string, taskId: string, existed: boolean) => {
-    if (!existed) db.prepare('delete from tasks where id = ? and origin_capture_id = ?').run(taskId, captureId)
-    db.prepare("update captures set status = 'open' where id = ?").run(captureId)
-    return write(true)
-  })
 
   // Three open captures, leaning old: the rot sampler. Random, so a sample and
   // never a queue to finish. Gated: nothing in safe mode, no private ones in
@@ -839,7 +835,7 @@ export function registerVigil(): void {
     return { cap: tuned ? Math.floor(newPerDay / 2) : newPerDay, tuned, behind }
   }
   handle('review:tuning', newCap)
-  handle('review:queue', () => {
+  reviewQueue = () => {
     const { reviewsPerDay } = settings()
     const newPerDay = newCap().cap
     const today = new Date().toISOString().slice(0, 10)
@@ -857,7 +853,10 @@ export function registerVigil(): void {
     const swept = ({ row, exam }: { row: Record<string, unknown>; exam: Exam | null }): boolean => {
       if (!exam || Date.now() < exam.sweep) return false
       const last = cardOf(row.state as string).last_review
-      return !last || last.getTime() < exam.sweep
+      // A card buried today waits for tomorrow, which falls before the exam
+      // ends; only one whose own day would come after it is called in early.
+      const due = row.dueAt ? new Date(String(row.dueAt)).getTime() : 0
+      return (!last || last.getTime() < exam.sweep) && (due <= Date.now() || due > exam.day + DAY_MS)
     }
     const nearest = (a: { exam: Exam | null }, b: { exam: Exam | null }): number => (a.exam?.day ?? Infinity) - (b.exam?.day ?? Infinity)
     const due = tested
@@ -885,17 +884,16 @@ export function registerVigil(): void {
     return [...examDue, ...examFresh, ...otherDue, ...fresh].map(({ row, exam }) => ({
       ...body(row), state: undefined, exam: exam?.tag ?? null, intervals: preview(row.state as string | null, (when) => capped(when, exam))
     }))
-  })
+  }
+  handle('review:queue', () => reviewQueue())
   // Bury: not today. The timing is wrong, the item is fine, and the schedule is
   // left as it was; it is simply back tomorrow.
   handle('review:bury', (id: string) => {
     const tomorrow = new Date(new Date().setHours(24, 0, 0, 0)).toISOString()
     return write(db.prepare('update nuggets set due_at = ? where id = ?').run(tomorrow, id))
   })
-  handle('review:counts', () => {
-    const due = db.prepare(`select count(*) n from nuggets where coalesce(prompt, '') != '' and suspended = 0 and archived_at is null and (due_at is null or due_at <= ?)`).get(now()) as { n: number }
-    return due.n
-  })
+  // The same cards a session would start with, exam sweep and limits included.
+  handle('review:counts', () => reviewQueue().length)
   // Only a graded review moves a schedule: not opening, not searching.
   handle('review:grade', (id: string, grade: Grade, ms: number) => {
     const row = db.prepare(`select ${ITEM}, body, state from nuggets where id = ?`).get(id) as Record<string, unknown> & { state: string | null }
@@ -976,7 +974,9 @@ export function registerVigil(): void {
       const late = mine.filter((row) => row.state && row.dueAt && new Date(String(row.dueAt)).getTime() < startOfToday).length
       const behind = late + (Date.now() >= sweep ? unseen : 0)
       const days = Math.max(0, Math.ceil((day - startOfToday) / DAY_MS))
-      return { tag, at: new Date(day).toISOString(), days, total: mine.length, solid, learning: mine.length - unseen - struggling - solid, struggling, unseen, behind, perDay: Math.ceil((behind + unseen) / Math.max(1, days)) }
+      // Paced like the queue: everything met by the sweep, then within the days left.
+      const pace = Date.now() < sweep ? Math.ceil((sweep - Date.now()) / DAY_MS) : days
+      return { tag, at: new Date(day).toISOString(), days, total: mine.length, solid, learning: mine.length - unseen - struggling - solid, struggling, unseen, behind, perDay: Math.ceil((late + unseen) / Math.max(1, pace)) }
     })
   }
   handle('exams', readiness)
@@ -998,7 +998,7 @@ export function registerVigil(): void {
           return { kind: 'exam', view: 'review', label: `Exam · #${exam.tag}`,
             text: `#${exam.tag} is ${exam.days === 0 ? 'today' : exam.days === 1 ? 'tomorrow' : `in ${exam.days} days`}, and ${exam.behind} ${exam.behind === 1 ? 'card is' : 'cards are'} behind. About ${exam.perDay} a day catches you up.` }
     if (weeklyReview && new Date().getDay() === weeklyDay) {
-      const open = (db.prepare("select count(*) n from captures where status = 'open'").get() as { n: number }).n
+      const open = (db.prepare("select count(*) n from captures where status = 'open' and archived_at is null").get() as { n: number }).n
       if (open && !nudgedToday('weekly'))
         return { kind: 'weekly', view: 'inbox', label: 'Weekly review',
           text: `A good day to walk the inbox: ${open} ${open === 1 ? 'capture is' : 'captures are'} waiting for an exit. Keep, deal with or let go of each.` }
@@ -1016,7 +1016,7 @@ export function registerVigil(): void {
     const lastYear = `${year - 1}${today.slice(4)}`
     // Never a private one, and in quiet hours nothing you have not dealt with.
     const from = `select id, id as captureId, kind, ${LABEL} as title, body, captured_at as at, attribution from captures
-      where status != 'discarded' and private = 0 ${hidePrivate ? "and status != 'open'" : ''} and id not in (select nugget_id from hint_events where shown_at >= ?)`
+      where status != 'discarded' and private = 0 and not exists (select 1 from nuggets where capture_id = captures.id and private = 1) ${hidePrivate ? "and status != 'open'" : ''} and id not in (select nugget_id from hint_events where shown_at >= ?)`
     const pick = <T>(rows: T[]): T | undefined => rows[Math.floor(Math.random() * rows.length)]
     const age = (at: string): number => year - Number(new Date(at).getFullYear())
     const kinds: (() => (Record<string, unknown> & { body?: unknown; memory: string }) | undefined)[] = [
@@ -1050,7 +1050,7 @@ export function registerVigil(): void {
   })
 
   // Whether any capture is still old enough to rot: none, and the rot area says so.
-  handle('rot:left', () => (db.prepare("select count(*) n from captures where status = 'open' and captured_at < ?").get(ago(1)) as { n: number }).n)
+  handle('rot:left', () => (db.prepare("select count(*) n from captures where status = 'open' and archived_at is null and captured_at < ?").get(ago(1)) as { n: number }).n)
 
   // --- the recap, Wrapped's way: a month or a year in what you did here
   handle('recap', (period: 'month' | 'year') => {
@@ -1062,14 +1062,17 @@ export function registerVigil(): void {
     start.setHours(0, 0, 0, 0)
     const end = period === 'month' && start.getMonth() !== new Date().getMonth() ? new Date(start.getFullYear(), start.getMonth() + 1, 1) : new Date()
     const [since, until] = [start.toISOString(), end.toISOString()]
-    const rows = db.prepare(`select ${LABEL} as title, body, status, attribution, captured_at as at from captures where captured_at >= ? and captured_at < ?`).all(since, until) as { title: string; body: string; status: string; attribution: string | null; at: string }[]
+    const rows = db.prepare(`select ${LABEL} as title, body, status, attribution, private, captured_at as at from captures where captured_at >= ? and captured_at < ?`).all(since, until) as { title: string; body: string; status: string; attribution: string | null; private: number; at: string }[]
+    // Counted whole, but a private one never named: its tags and source stay out.
+    const open = rows.filter((row) => !row.private)
     const top = (values: string[], limit = 5): { name: string; n: number }[] =>
       [...values.reduce((counts, value) => counts.set(value, (counts.get(value) ?? 0) + 1), new Map<string, number>())]
         .sort((a, b) => b[1] - a[1]).slice(0, limit).map(([name, n]) => ({ name, n }))
     const local = (at: string): Date => new Date(at)
     const busiestDay = top(rows.map((row) => local(row.at).toLocaleDateString('en-CA')), 1)[0] ?? null
     const busiestMonth = period === 'year' ? top(rows.map((row) => String(local(row.at).getMonth())), 1)[0] ?? null : null
-    const reviewed = db.prepare(`select n.title, count(*) n from review_log r join nuggets n on n.id = r.item_id where r.reviewed_at >= ? and r.reviewed_at < ?
+    const reviewed = db.prepare(`select coalesce(nullif(n.title, ''), label('', n.body)) as title, count(*) n from review_log r join nuggets n on n.id = r.item_id
+      where r.reviewed_at >= ? and r.reviewed_at < ? and n.private = 0
       group by r.item_id order by n desc limit 1`).get(since, until) as { title: string; n: number } | undefined
     return {
       label: period === 'year' ? String(start.getFullYear()) : start.toLocaleDateString('en', { month: 'long', year: 'numeric' }),
@@ -1077,8 +1080,8 @@ export function registerVigil(): void {
       words: rows.reduce((sum, row) => sum + plain(JSON.parse(row.body ?? 'null')).split(/\s+/).filter(Boolean).length, 0),
       busiestDay,
       busiestMonth: busiestMonth && { name: new Date(2000, Number(busiestMonth.name)).toLocaleString('en', { month: 'long' }), n: busiestMonth.n },
-      tags: top(rows.flatMap((row) => tagsIn(`${row.title} ${plain(JSON.parse(row.body ?? 'null'))}`))),
-      sources: top(rows.map((row) => row.attribution ?? '').filter(Boolean)),
+      tags: top(open.flatMap((row) => tagsIn(`${row.title} ${plain(JSON.parse(row.body ?? 'null'))}`))),
+      sources: top(open.map((row) => row.attribution ?? '').filter(Boolean)),
       kept: rows.filter((row) => row.status === 'promoted').length,
       resolved: rows.filter((row) => row.status === 'resolved').length,
       discarded: rows.filter((row) => row.status === 'discarded').length,
@@ -1090,7 +1093,7 @@ export function registerVigil(): void {
   // --- tasks
   const TASK = `id, number, title, status, due_at as dueAt, all_day as allDay, recurrence, origin_capture_id as captureId,
     created_at as createdAt, completed_at as completedAt, waiting_on as waitingOn, estimate, sort_order as sortOrder, repeat_until as repeatUntil,
-    important, deadline_at as deadline, blocker, reschedules, notify, priority, plan_for as planFor`
+    important, deadline_at as deadline, deadline_timed as deadlineTimed, blocker, reschedules, notify, priority, plan_for as planFor`
   // Where an open task came from, for grouping by note: the capture it was
   // made from, or else the first thing linked to it.
   const FROM = `coalesce(origin_capture_id, (select item_id from task_links where task_id = tasks.id limit 1))`
@@ -1118,6 +1121,12 @@ export function registerVigil(): void {
   })
   const TASK_COLUMNS = { title: 'title', recurrence: 'recurrence', waitingOn: 'waiting_on', estimate: 'estimate', sortOrder: 'sort_order', important: 'important', deadline: 'deadline_at', blocker: 'blocker', reschedules: 'reschedules', notify: 'notify', priority: 'priority', plan: 'plan_for' } as const
   handle('task:save', (id: string, patch: { title?: string; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null; subtasks?: unknown; estimate?: number | null; sortOrder?: number; important?: number; deadline?: string | null; blocker?: string | null; reschedules?: number; notify?: string | null; priority?: number; plan?: string | null }) => {
+    // A deadline moved by whole days keeps its time; one picked as a day has none.
+    const clock = (iso: string | null | undefined): string => (iso ? new Date(iso).toTimeString().slice(0, 5) : '')
+    if (patch.deadline !== undefined) {
+      const was = (db.prepare('select deadline_at from tasks where id = ?').get(id) as { deadline_at: string | null } | undefined)?.deadline_at
+      if (clock(was) !== clock(patch.deadline)) db.prepare('update tasks set deadline_timed = 0 where id = ?').run(id)
+    }
     for (const [key, column] of Object.entries(TASK_COLUMNS))
       if (patch[key as keyof typeof patch] !== undefined) db.prepare(`update tasks set ${column} = ? where id = ?`).run(patch[key as keyof typeof patch] as string | number | null, id)
     // Important and priority are one thing said two ways: Urgent and High are
@@ -1149,10 +1158,10 @@ export function registerVigil(): void {
   // A session can close it, and the row says which: its recap is the
   // completion note. A routine closes many times, so it is a row, not a field.
   // It gives back what it was, so a routine ticked by mistake can be put back.
-  const finish = (id: string, session: string | null = null): { dueAt: string | null; doneAt: string; notifiedAt: string | null } => {
-    const task = db.prepare('select due_at, recurrence, repeat_until, notified_at from tasks where id = ?').get(id) as { due_at: string | null; recurrence: string | null; repeat_until: string | null; notified_at: string | null }
+  const finish = (id: string, session: string | null = null): { dueAt: string | null; doneAt: string; notifiedAt: string | null; deadlineAt?: string | null } => {
+    const task = db.prepare('select due_at, deadline_at, recurrence, repeat_until, notified_at from tasks where id = ?').get(id) as { due_at: string | null; deadline_at: string | null; recurrence: string | null; repeat_until: string | null; notified_at: string | null }
     const doneAt = now()
-    const was = { dueAt: task.due_at, doneAt, notifiedAt: task.notified_at }
+    const was = { dueAt: task.due_at, doneAt, notifiedAt: task.notified_at, deadlineAt: task.deadline_at }
     db.prepare('insert into task_done (task_id, done_at, session_id) values (?, ?, ?)').run(id, doneAt, session)
     const close = (): typeof was => write((db.prepare("update tasks set status = 'done', completed_at = ? where id = ?").run(doneAt, id), was))
     if (!task.recurrence) return close()
@@ -1168,15 +1177,18 @@ export function registerVigil(): void {
     while (next.getTime() < Date.now()) next = advance(next, task.recurrence)
     // Past its end, the series is over: this one was the last.
     if (task.repeat_until && next.toISOString() > task.repeat_until) return close()
-    db.prepare('update tasks set due_at = ? where id = ?').run(next.toISOString(), id)
+    // A deadline moves with the date it belongs to, the same distance on.
+    const deadline = task.deadline_at && task.due_at ? new Date(new Date(task.deadline_at).getTime() + next.getTime() - new Date(task.due_at).getTime()).toISOString() : task.deadline_at
+    db.prepare('update tasks set due_at = ?, deadline_at = ?, notified_at = null where id = ?').run(next.toISOString(), deadline, id)
     return write(was)
   }
   handle('task:done', (id: string) => finish(id))
   // Done by mistake: open again, on the date it had, and that time it was
   // done no longer counted. The same for a one-off and a routine.
-  handle('task:undone', (id: string, was: { dueAt: string | null; doneAt: string; notifiedAt: string | null }) => {
+  handle('task:undone', (id: string, was: { dueAt: string | null; doneAt: string; notifiedAt: string | null; deadlineAt?: string | null }) => {
     db.prepare('delete from task_done where task_id = ? and done_at = ?').run(id, was.doneAt)
     db.prepare("update tasks set status = 'open', completed_at = null, due_at = ?, notified_at = ? where id = ?").run(was.dueAt, was.notifiedAt, id)
+    if (was.deadlineAt !== undefined) db.prepare('update tasks set deadline_at = ? where id = ?').run(was.deadlineAt, id)
     return write(true)
   })
   // A task made by mistake, from wherever it was made: a new one goes with
@@ -1196,6 +1208,9 @@ export function registerVigil(): void {
     const rows = db.prepare(`select due_at from nuggets where coalesce(prompt, '') != '' and suspended = 0 and archived_at is null and superseded_by is null and (due_at is null or due_at < ?)`)
       .all(new Date(start + days * 86400000).toISOString()) as { due_at: string | null }[]
     for (const { due_at } of rows) load[Math.max(0, Math.floor((new Date(due_at ?? 0).setHours(0, 0, 0, 0) - start) / 86400000))] += 1
+    // Today is what a session would really ask, with the daily limits, not
+    // every card never seen.
+    if (days > 0) load[0] = reviewQueue().length
     return load
   })
 
@@ -1312,9 +1327,8 @@ export function registerVigil(): void {
   column('sessions', 'paused_at text')
   // One at a time: starting another ends the one running, recap and all kept.
   handle('session:start', (taskId: string, goal?: string, plannedMs?: number | null) => {
-    // A timer running is put away, not ended: it would count as a session.
-    db.prepare("delete from sessions where task_id = '' and ended_at is null").run()
-    db.prepare('update sessions set ended_at = ? where ended_at is null').run(now())
+    // A timer from the box keeps running underneath: only a focus session ends.
+    db.prepare("update sessions set ended_at = ? where ended_at is null and task_id != ''").run(now())
     const id = randomUUID()
     db.prepare('insert into sessions (id, task_id, started_at, goal, planned_ms) values (?, ?, ?, ?, ?)').run(id, taskId, now(), goal?.trim() || null, plannedMs ?? null)
     return write(id)
@@ -1361,7 +1375,7 @@ export function registerVigil(): void {
     if (!Notification.isSupported()) return
     // A task's own level wins over the setting: most never set one.
     const due = db.prepare(
-      "select id, title from tasks where status = 'open' and all_day = 0 and due_at <= ? and due_at > ? and notified_at is null and coalesce(notify, ?) = 'alerts'"
+      `select id, title from tasks where status = 'open' and ${ALERT_AT} <= ? and ${ALERT_AT} > ? and notified_at is null and coalesce(notify, ?) = 'alerts'`
     ).all(now(), new Date(Date.now() - 3600000).toISOString(), settings().notify) as { id: string; title: string }[]
     for (const task of due) {
       new Notification({ title: task.title, body: 'Due now', silent: false }).show()
@@ -1489,15 +1503,19 @@ export function registerVigil(): void {
   })
 }
 
+/** When a task's time comes: its timed date, or else a timed "by", as "by 5pm". All-day ones never come. */
+const ALERT_AT = 'case when due_at is not null and all_day = 0 then due_at when deadline_timed = 1 then deadline_at end'
+
+/** Today's review queue, set once the handlers are registered; the badge counts it too. */
+let reviewQueue: () => unknown[] = () => []
+
 /** What the menu bar says: reviews due, and whether safe mode is on. */
 export function badge(): { due: number; tasks: number; safe: boolean } {
-  const { n } = database()
-    .prepare("select count(*) n from nuggets where coalesce(prompt, '') != '' and suspended = 0 and archived_at is null and (due_at is null or due_at <= ?)")
-    .get(now()) as { n: number }
+  const n = reviewQueue().length
   // Quiet push: a task whose time has come is counted in the menu bar, unless
   // you chose pull, where it only rises in Today.
   const tasks = settings().notify === 'pull' ? 0 : (database()
-    .prepare("select count(*) n from tasks where status = 'open' and all_day = 0 and due_at <= ?").get(now()) as { n: number }).n
+    .prepare(`select count(*) n from tasks where status = 'open' and ${ALERT_AT} <= ?`).get(now()) as { n: number }).n
   return { due: n, tasks, safe: settings().safeMode }
 }
 

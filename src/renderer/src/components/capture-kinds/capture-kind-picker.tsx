@@ -91,7 +91,7 @@ export function CaptureKindPicker({ value, onChange, suggested = false }: {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <Tip label={suggested ? 'Suggested from what you typed. ⌃L or ⌘1-8 to choose' : undefined}>
+      <Tip label={suggested ? 'Suggested from what you typed. ⌃L or ⌘1-9 to choose' : undefined}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className={`gap-1.5 rounded-full cursor-pointer ${suggested ? 'border-dashed' : ''}`}>
           <Icon className="size-4" style={{ color: current.tint }} />

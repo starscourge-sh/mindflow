@@ -11,12 +11,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-import { NOTE_FONTS, TEXT_SIZES, systemFonts } from '@/lib/editor-setup'
+import { NOTE_FONTS, TEXT_SIZES, familyOf, systemFonts } from '@/lib/editor-setup'
 import { chime, step } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
 import { Kbd, Rolling } from './ui'
-
-const familyOf = (font: string): string => NOTE_FONTS.find((one) => one.id === font)?.family || (font === 'default' ? '"Fraunces Variable", Georgia, serif' : `"${font}"`)
 
 /**
  * The font notes are written in: ours first, then every family on this Mac,

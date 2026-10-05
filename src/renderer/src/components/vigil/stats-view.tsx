@@ -1,9 +1,9 @@
-import { useState, type ReactNode } from 'react'
+import { Children, useState, type ReactNode } from 'react'
 import { Sparkles } from 'lucide-react'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { useLive, vigil, type Stats } from '@/lib/vigil'
-import { Page, Rolling } from './ui'
+import { Island, Page, Rolling } from './ui'
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
@@ -17,12 +17,14 @@ function N({ children }: { children: ReactNode }): React.JSX.Element {
   return <strong className="font-semibold text-foreground proportional-nums">{typeof children === 'string' || typeof children === 'number' ? <Rolling text={children} /> : children}</strong>
 }
 
+/** One island per section, each sentence or chart a row of its own; a row left out leaves no gap. */
 function Section({ title, children }: { title: string; children: ReactNode }): React.JSX.Element {
   return (
-    <section className="mt-12 first:mt-8">
-      <h2 className="mb-3 text-heading font-semibold">{title}</h2>
-      <div className="space-y-3 leading-relaxed text-muted-foreground">{children}</div>
-    </section>
+    <Island title={title} className="mt-8 first:mt-6">
+      {Children.toArray(children).map((row, index) => (
+        <div key={index} className="space-y-3 px-4 py-3 leading-relaxed text-muted-foreground">{row}</div>
+      ))}
+    </Island>
   )
 }
 

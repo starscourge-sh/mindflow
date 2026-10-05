@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Plus, Settings2, X } from 'lucide-react'
 import type { Editor, JSONContent } from '@tiptap/core'
 
-import { MindflowEditor, TAGS, currentVim, onVimChange, setVim } from './components/mindflow'
+import { MindflowEditor, TAGS, currentVim, goToHeading, onVimChange, setVim } from './components/mindflow'
 import { EXITS, exit, findCaptures, findHeadings, follow } from './lib/capture-links'
 import { toMarkdown } from './lib/export'
 import { CaptureList, useCaptures } from './components/capture-list'
@@ -17,7 +17,7 @@ import { ReviewView } from './components/vigil/review-view'
 import { useAppearance, useLive } from './lib/vigil'
 import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, ask, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt } from './components/vigil/ui'
 import { TooltipProvider } from './components/ui/tooltip'
-import { Rolling, Toaster, beam, refuse, toast } from './components/vigil/ui'
+import { Rolling, Toaster, Typed, beam, refuse, toast } from './components/vigil/ui'
 import { Reader } from './components/vigil/reader'
 import { OptionsMenu } from './components/vigil/options-menu'
 import { ReadThrough, type Readable } from './components/vigil/read-through'
@@ -459,7 +459,7 @@ export default function App(): React.JSX.Element {
   // Reading through a list, one note at a time with nothing else on screen.
   const [readList, setReadList] = useState<{ items: Readable[]; start: number } | null>(null)
   // With the panel shut, ⇧⌘R still reads: the inbox, from the top.
-  useReadKey(() => setReadList({ items: captures.filter((one) => one.status === 'open').map((one) => ({ type: 'capture', id: one.id })), start: 0 }), captures.length, !panel)
+  useReadKey(() => setReadList({ items: captures.filter((one) => one.status === 'open' && !one.archivedAt).map((one) => ({ type: 'capture', id: one.id })), start: 0 }), captures.length, !panel)
   // ⌘K: search everything from the prompt, and open what it finds here.
   const [searching, setSearching] = useState(false)
   // What search opens with: a clicked tag, or nothing.
@@ -570,9 +570,22 @@ export default function App(): React.JSX.Element {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
-  // The current fresh(), for the listener above, which is set up once.
-  const latestFresh = useRef(fresh)
-  latestFresh.current = fresh
+  // A new note asked for (⌘N, the pill's +, the ⌘K list) over words not yet
+  // sent: they go, but a toast can bring them back.
+  const startOver = (): void => {
+    const draft = latestEditing.current ? readDraft() : editorRef.current?.getJSON()
+    const links = [...lifted]
+    fresh()
+    if (!hasContent(draft ?? null)) return
+    toast('Draft cleared', () => {
+      localStorage.setItem('capture-draft', JSON.stringify(draft))
+      keepLifted(links)
+      fresh(true)
+    })
+  }
+  // The current startOver(), for the listener above, which is set up once.
+  const latestFresh = useRef(startOver)
+  latestFresh.current = startOver
 
   // Saving an open capture's fields as they change.
   const saveField = (patch: Parameters<typeof window.api.captures.save>[1]): void => {
@@ -593,13 +606,22 @@ export default function App(): React.JSX.Element {
     const something = (doc as JSONContent | null)?.content?.some((node) => node.type !== 'paragraph' || node.content?.length)
     if (!text && !something) return chime('nope')
     // "5m tea", "timer 25m": a countdown in the floating timer, not a capture.
-    const timer = (doc as JSONContent | null)?.content?.length === 1 ? timerFrom(text) : null
+    // Not when a kind was picked or it is a todo, nor when the rest has a date,
+    // a repeat or a tag: "10 min walk every day #health" is a task to keep.
+    const asTimer = !chosen && kind !== 'todo' && (doc as JSONContent | null)?.content?.length === 1 ? timerFrom(text) : null
+    const rest = asTimer && readTask(asTimer.goal)
+    const timer = rest && !rest.due && !rest.deadline && !rest.recurrence && !rest.plan && !/(?:^|\s)#[a-z]/i.test(text) ? asTimer : null
     if (timer) {
       chime('timer')
       beam('success')
       void vigil.startTimer(timer.goal, timer.ms).then((id) => {
         window.api.showFocus(true)
-        toast(`Timer set: ${lengthSaid(timer.ms)}${timer.goal === 'Timer' ? '' : ` for ${timer.goal}`}`, () => void vigil.cancelSession(id))
+        // Undone, the words come back into the box as they were typed.
+        toast(`Timer set: ${lengthSaid(timer.ms)}${timer.goal === 'Timer' ? '' : ` for ${timer.goal}`}`, () => {
+          void vigil.cancelSession(id)
+          localStorage.setItem('capture-draft', JSON.stringify(doc))
+          fresh(true)
+        })
       })
       fresh()
       if (!more) window.api.hideWindow()
@@ -672,7 +694,7 @@ export default function App(): React.JSX.Element {
   latestSubmit.current = submit
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      // ⌘1 to ⌘8: a kind you already know, without opening the picker.
+      // ⌘1 to ⌘9: a kind you already know, without opening the picker.
       const picked = event.metaKey && !event.shiftKey && !event.altKey ? CAPTURE_TYPES[Number(event.key) - 1] : undefined
       if (picked) {
         event.preventDefault()
@@ -714,13 +736,13 @@ export default function App(): React.JSX.Element {
           initial={searchFrom}
           // Everything the box can do, by name and key, as Raycast's ⌘K lists it.
           actions={[
-            { label: 'New capture', keys: '⌘N', run: () => fresh() },
+            { label: 'New capture', keys: '⌘N', run: () => startOver() },
             { label: panel ? 'Hide the side panel' : 'Show the side panel', keys: '⌘\\', cue: null, run: () => setPanel(!panel) },
             ...TABS.map((one, index) => ({ label: `Go to ${({ inbox: 'Inbox', today: 'Tasks', review: 'Review', kept: 'Kept' } as Record<string, string>)[one] ?? one}`, keys: `⌃${index + 1}`, run: () => {
               setTab(one)
               if (!panel) setPanel(true)
             } })),
-            { label: 'Read the inbox from the top', run: () => setReadList({ items: captures.filter((one) => one.status === 'open').map((one) => ({ type: 'capture', id: one.id })), start: 0 }) },
+            { label: 'Read the inbox from the top', run: () => setReadList({ items: captures.filter((one) => one.status === 'open' && !one.archivedAt).map((one) => ({ type: 'capture', id: one.id })), start: 0 }) },
             { label: 'Copy this note as Markdown', keys: '⇧⌘C', run: copyMarkdown },
             ...(editing ? [{ label: 'Stick this note on the desktop', cue: null, run: () => stickOnDesktop('capture', editing.id) }] : []),
             { label: locked ? 'Unlock this note' : 'Lock this note: read only', cue: locked ? 'off' : 'on', run: () => setLocked(!locked) },
@@ -775,7 +797,7 @@ export default function App(): React.JSX.Element {
         </span>
       )} onNew={() => {
         chime('tap')
-        fresh()
+        startOver()
       }} title={appSettings?.topTitle === false ? null : topTitle}
       // Safe mode says so beside the pill, or the quiet looks like nothing happening.
       aside={appSettings?.safeMode && <Tip label="Safe mode: no hints, rot cards or pins come up  ⌥⌘S"><span className="mr-1 rounded-full bg-accent px-2 py-0.5 text-key text-[var(--tt-brand-color-400)]">Safe</span></Tip>}
@@ -841,7 +863,8 @@ export default function App(): React.JSX.Element {
               onTitleOut={setTopTitle}
               onReady={(editor) => (editorRef.current = editor)}
               tokens={boxTokens}
-              onOpenNote={(link) => follow(link, openAny)}
+              // A heading in the note already open is gone to here; anywhere else, once it opens.
+              onOpenNote={(link, heading) => (heading && link === editing?.id && editorRef.current ? void goToHeading(editorRef.current, heading) : follow(link, (type, id) => openAny(type, id), heading))}
               from={editing?.id}
               onSource={() => setSource((open) => !open)}
               // A tag opens everything carrying it, in search.
@@ -861,8 +884,8 @@ export default function App(): React.JSX.Element {
                 to it stays in view, so a link followed never loses the draft. */}
             {editing && readDraft() && (
               <div className="flex items-center gap-2 px-[4.75rem] pt-2 text-xs text-muted-foreground">
-                {/* One line, so it rolls in rather than typing; the key drawn as a key. */}
-                <span className="truncate"><Rolling by="word" text={`Your draft “${(firstLine(readDraft()) || 'unfinished').slice(0, 32)}${(firstLine(readDraft()) ?? '').length > 32 ? '…' : ''}” is waiting:`} /></span>
+                {/* A sentence, so it types in; the key drawn as a key. */}
+                <span className="truncate"><Typed text={`Your draft “${(firstLine(readDraft()) || 'unfinished').slice(0, 32)}${(firstLine(readDraft()) ?? '').length > 32 ? '…' : ''}” is waiting:`} /></span>
                 <span className="flex shrink-0 items-center gap-1"><Kbd>⌘[</Kbd> takes you back.</span>
               </div>
             )}
@@ -902,7 +925,7 @@ export default function App(): React.JSX.Element {
                 </Tip>
               )}
               {ASKS[kind].why && textOf(body).trim().split('\n').filter(Boolean).length < 2 && (
-                <span className="truncate px-1.5 text-xs text-muted-foreground/70"><Rolling by="word" text={ASKS[kind].why} /></span>
+                <span className="truncate px-1.5 text-xs text-muted-foreground/70"><Typed text={ASKS[kind].why} /></span>
               )}
               {like && (
                 <Tip label={`Open it: ${like.title}`}>
@@ -1179,7 +1202,7 @@ const CapturePrompt = ({
   outline: boolean
   onChange: (doc: JSONContent, editor: Editor) => void
   onReady: (editor: Editor) => void
-  onOpenNote: (id: string) => void
+  onOpenNote: (id: string, heading?: string) => void
 }): React.JSX.Element => {
   useEscapeToHide()
 
@@ -1274,9 +1297,10 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
     }),
     0
   )
-  const kept = useLive(() => Promise.all([vigil.items('nugget'), vigil.items('article')]).then(([n, a]) => n.length + a.length), 0)
+  // Archived ones are out of sight, so not counted.
+  const kept = useLive(() => Promise.all([vigil.items('nugget'), vigil.items('article')]).then((both) => both.flat().filter((one) => !one.archivedAt).length), 0)
   // The inbox is what has no exit yet; what is handled lives in All captures.
-  const open = captures.filter((capture) => capture.status === 'open')
+  const open = captures.filter((capture) => capture.status === 'open' && !capture.archivedAt)
   // The same Display menu as the main window's inbox: filter, sort, group.
   // Every capture, starting on those with no exit: Display's Status reaches
   // the handled and discarded ones without leaving the prompt.

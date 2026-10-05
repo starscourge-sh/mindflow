@@ -111,6 +111,8 @@ export type Task = {
   important: number
   /** When it must be done by, apart from when you mean to do it. */
   deadline: string | null
+  /** 1 when the deadline has a time: "by 5pm". */
+  deadlineTimed: number
   /** What is in the way. */
   blocker: string | null
   /** How many times it has been pushed later. */
@@ -128,7 +130,7 @@ export type Task = {
 }
 export type Subtask = { text: string; done: boolean }
 /** What a task was before it was done, so it can be put back. */
-export type Finished = { dueAt: string | null; doneAt: string; notifiedAt: string | null }
+export type Finished = { dueAt: string | null; doneAt: string; notifiedAt: string | null; deadlineAt?: string | null }
 /** A task made, or the open one with that name already there, which it joined. */
 export type Made = { id: string; number: number; existed: boolean }
 /** What to say after making a task: the usual words, or that it joined one. */
@@ -176,7 +178,6 @@ export const vigil = {
   pin: (table: 'captures' | 'nuggets', id: string, on: boolean) => call<boolean>('pin', table, id, on),
   pins: () => call<Pin[]>('pins'),
   reviewTuning: () => call<{ cap: number; tuned: boolean; behind: number }>('review:tuning'),
-  untask: (captureId: string, taskId: string, existed: boolean) => call<boolean>('toTask:undo', captureId, taskId, existed),
   promote: (id: string, words?: string) => call<string | null>('promote', id, words),
   unpromote: (captureId: string, nuggetId: string) => call<boolean>('promote:undo', captureId, nuggetId),
   /** What it came from, what it became, and what links to it. */

@@ -11,7 +11,7 @@ import { splitTags, useLive, vigil, when, type Made, type Session, type Task, ty
 import { BUCKETS, bucket, makeTask, placed } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, TaskInput, planFor, setPriority } from './task-input'
-import { Empty, Kbd, Page, Prop, PropInput, PropLabel, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper } from './ui'
+import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper } from './ui'
 import { Display, arrange, useView, type Facet } from './display'
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
@@ -176,8 +176,10 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   }
   const tick = (task: Task, at: number): void => {
     const subtasks = task.subtasks ?? []
-    if (!subtasks[at].done) chime('done')
-    void vigil.saveTask(task.id, { subtasks: subtasks.map((one, index) => (index === at ? { ...one, done: !one.done } : one)) })
+    // Unticked sounds like a switch off, as a to-do in a note does.
+    chime(subtasks[at].done ? 'off' : 'done')
+    void vigil.saveTask(task.id, { subtasks: subtasks.map((one, index) => (index === at ? { ...one, done: !one.done } : one)) }).then(() =>
+      toast(subtasks[at].done ? 'Step open again' : 'Step done', () => void vigil.saveTask(task.id, { subtasks })))
   }
 
   return (
@@ -251,7 +253,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                       ]}>
                       <div
                         data-cursor={index === cursor || undefined}
-                        className={`group flex items-start gap-3 rounded-sm px-2 py-2 transition-colors ${task.id === open?.id ? 'bg-accent' : index === cursor ? 'bg-accent/40' : 'hover:bg-accent/50'}`}
+                        className={`group flex items-start gap-3 rounded-md px-2 py-2 transition-colors ${task.id === open?.id ? 'bg-accent' : index === cursor ? 'bg-accent/40' : 'hover:bg-accent/50'}`}
                       >
                         <Tip label="Complete">
                         <button
@@ -285,7 +287,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                               {task.deadline && (
                                 <span className="flex items-center gap-1" style={{ color: new Date(task.deadline).getTime() < startOfDay(1) ? 'var(--tt-color-text-red)' : undefined }}>
                                   <CalendarClock className="size-3" />
-                                  Due by {when(task.deadline).toLowerCase()}
+                                  Due by {when(task.deadline, !task.deadlineTimed).toLowerCase()}
                                 </span>
                               )}
                               {later && mode !== 'later' && <span className="flex items-center gap-1"><Telescope className="size-3" />{BUCKETS[later]}</span>}
@@ -380,79 +382,83 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
       <Props>
         <Sessions taskId={task.id} title={task.title} />
         {/* When you mean to do it, Todoist's date: the day it shows on. */}
-        <PropLabel>Scheduled</PropLabel>
-        <div className="mb-1 flex gap-1">
-          {([['Today', 0], ['Tomorrow', 1], ['Next week', 7]] as const).map(([label, days]) => (
-            <Button variant="outline" size="sm" key={label} onClick={() => moveTo(task.id, days)} className="flex-1">
-              {label}
-            </Button>
-          ))}
-        </div>
-        <DatePicker time value={task.dueAt} onChange={(due) => void vigil.saveTask(task.id, { due })} placeholder="Not scheduled" />
-        {/* Or no day yet: one of the later lists. */}
-        <div className="mt-1 mb-1 flex gap-1">
-          {(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => (
-            <Button variant={bucket(task) === which ? 'secondary' : 'ghost'} size="sm" key={which} onClick={() => planFor(task, which)} className="flex-1 text-xs">
-              {BUCKETS[which]}
-            </Button>
-          ))}
-        </div>
-        {/* When it must be done by, apart from when you mean to do it: Todoist's deadline. */}
-        <PropLabel>Due by</PropLabel>
-        <DatePicker value={task.deadline} onChange={(deadline) => void vigil.saveTask(task.id, { deadline })} placeholder="No due date" />
-        {/* Linear's four, each with its key; important is High or Urgent. */}
-        <PropLabel>Priority</PropLabel>
-        <div className="mb-1 flex gap-1">
-          {[1, 2, 3, 4, 0].map((level) => (
-            <Tip key={level} label={<>{PRIORITY_NAMES[level]} <Kbd>{level}</Kbd></>}>
-              <Button variant={task.priority === level ? 'secondary' : 'ghost'} size="sm" className="flex-1" onClick={() => setPriority(task, level)} aria-label={PRIORITY_NAMES[level]}>
-                <PriorityIcon level={level} />
+        <Island compact title="Scheduled">
+          <div className="flex gap-1 p-1">
+            {([['Today', 0], ['Tomorrow', 1], ['Next week', 7]] as const).map(([label, days]) => (
+              <Button variant="outline" size="sm" key={label} onClick={() => moveTo(task.id, days)} className="flex-1">
+                {label}
               </Button>
-            </Tip>
-          ))}
-        </div>
-        {/* Its own alert level, for the one task that must interrupt you. */}
-        <Prop icon={Bell} active={task.notify === 'alerts'} onClick={() => void vigil.saveTask(task.id, { notify: task.notify === 'alerts' ? null : 'alerts' }).then(() => chime(task.notify === 'alerts' ? 'off' : 'on'))}>
-          {task.notify === 'alerts' ? 'Alerts you at its time' : 'Alert me at its time'}
-        </Prop>
+            ))}
+          </div>
+          <DatePicker time value={task.dueAt} onChange={(due) => void vigil.saveTask(task.id, { due })} placeholder="Not scheduled" />
+          {/* Or no day yet: one of the later lists. */}
+          <div className="flex gap-1 p-1">
+            {(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => (
+              <Button variant={bucket(task) === which ? 'secondary' : 'ghost'} size="sm" key={which} onClick={() => planFor(task, which)} className="flex-1 text-xs">
+                {BUCKETS[which]}
+              </Button>
+            ))}
+          </div>
+        </Island>
+        {/* When it must be done by, apart from when you mean to do it: Todoist's deadline. */}
+        <Island compact title="Due by">
+          <DatePicker value={task.deadline} onChange={(deadline) => void vigil.saveTask(task.id, { deadline })} placeholder="No due date" />
+        </Island>
+        {/* Linear's four, each with its key; important is High or Urgent. */}
+        <Island compact title="Priority">
+          <div className="flex gap-1 p-1">
+            {[1, 2, 3, 4, 0].map((level) => (
+              <Tip key={level} label={<>{PRIORITY_NAMES[level]} <Kbd>{level}</Kbd></>}>
+                <Button variant={task.priority === level ? 'secondary' : 'ghost'} size="sm" className="flex-1" onClick={() => setPriority(task, level)} aria-label={PRIORITY_NAMES[level]}>
+                  <PriorityIcon level={level} />
+                </Button>
+              </Tip>
+            ))}
+          </div>
+          {/* Its own alert level, for the one task that must interrupt you. */}
+          <Prop icon={Bell} active={task.notify === 'alerts'} onClick={() => void vigil.saveTask(task.id, { notify: task.notify === 'alerts' ? null : 'alerts' }).then(() => chime(task.notify === 'alerts' ? 'off' : 'on'))}>
+            {task.notify === 'alerts' ? 'Alerts you at its time' : 'Alert me at its time'}
+          </Prop>
+        </Island>
         {/* The rest of what a task can carry, each one row like the rest. */}
-        <PropLabel>Details</PropLabel>
-        <PropInput icon={Ban} value={task.blocker ?? ''} placeholder="Blocked by…" onSave={(blocker) => void vigil.saveTask(task.id, { blocker: blocker || null })} />
-        <PropInput icon={Timer} type="number" value={task.estimate ? String(task.estimate) : ''} placeholder="Estimate" suffix="minutes" onSave={(minutes) => void vigil.saveTask(task.id, { estimate: minutes ? Number(minutes) : null })} />
-        <PropInput icon={Hourglass} value={task.waitingOn ?? ''} placeholder="Waiting on…" onSave={(waitingOn) => void vigil.saveTask(task.id, { waitingOn: waitingOn || null })} />
-        <PropInput icon={Repeat} value={task.recurrence ?? ''} placeholder="Repeats, e.g. every week" onSave={(recurrence) => void vigil.saveTask(task.id, { recurrence: recurrence || null })} />
-        <p className="mx-2 mt-1 text-xs leading-relaxed">
-          “every” follows the calendar. “every!” counts from when you last did it. Add “until” and a date when you type a task to end the series.
-          {task.repeatUntil ? ` This one ends ${when(task.repeatUntil).toLowerCase()}.` : ''}
-        </p>
+        <Island compact title="Details">
+          <PropInput icon={Ban} value={task.blocker ?? ''} placeholder="Blocked by…" onSave={(blocker) => void vigil.saveTask(task.id, { blocker: blocker || null })} />
+          <PropInput icon={Timer} type="number" value={task.estimate ? String(task.estimate) : ''} placeholder="Estimate" suffix="minutes" onSave={(minutes) => void vigil.saveTask(task.id, { estimate: minutes ? Number(minutes) : null })} />
+          <PropInput icon={Hourglass} value={task.waitingOn ?? ''} placeholder="Waiting on…" onSave={(waitingOn) => void vigil.saveTask(task.id, { waitingOn: waitingOn || null })} />
+          <PropInput icon={Repeat} value={task.recurrence ?? ''} placeholder="Repeats, e.g. every week" onSave={(recurrence) => void vigil.saveTask(task.id, { recurrence: recurrence || null })} />
+          <p className="px-2 py-1.5 text-xs leading-relaxed">
+            “every” follows the calendar. “every!” counts from when you last did it. Add “until” and a date when you type a task to end the series.
+            {task.repeatUntil ? ` This one ends ${when(task.repeatUntil).toLowerCase()}.` : ''}
+          </p>
+        </Island>
 
         {/* Why it exists: the capture it came from, one click away. */}
         <Lineage id={task.id} onOpen={onOpen} />
         {task.done.length > 0 && (
-          <>
-            <PropLabel>Done</PropLabel>
+          <Island compact title="History">
             {task.done.slice(0, 6).map((one) => (
               <div key={one.at}>
                 <Prop icon={History}>{when(one.at, false)}</Prop>
                 {one.recap && <p className="mx-2 -mt-1 mb-1.5 line-clamp-3 pl-6 text-control text-foreground">{one.recap}</p>}
               </div>
             ))}
-          </>
+          </Island>
         )}
-        <PropLabel>Task</PropLabel>
-        <Prop icon={Hash}>{captureKey(task.number).replace('MF', 'T')}</Prop>
-        <Prop
-          icon={Trash2}
-          onClick={() =>
-            void vigil.saveTask(task.id, { status: 'dropped' }).then(() => {
-              onClose()
-              chime('away')
-              toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' }))
-            })
-          }
-        >
-          Close without doing
-        </Prop>
+        <Island compact title="Task">
+          <Prop icon={Hash}>{captureKey(task.number).replace('MF', 'T')}</Prop>
+          <Prop
+            icon={Trash2}
+            onClick={() =>
+              void vigil.saveTask(task.id, { status: 'dropped' }).then(() => {
+                onClose()
+                chime('away')
+                toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' }))
+              })
+            }
+          >
+            Close without doing
+          </Prop>
+        </Island>
       </Props>
     </div>
   )
@@ -508,7 +514,7 @@ function StartFocus({ taskId, title }: { taskId: string; title: string }): React
   }}>Start a focus session</Prop>
   return (
     <form
-      className="mx-1 flex flex-col gap-2 rounded-lg border p-2"
+      className="mx-1 flex flex-col gap-2"
       onSubmit={(event) => {
         event.preventDefault()
         start()
@@ -520,20 +526,21 @@ function StartFocus({ taskId, title }: { taskId: string; title: string }): React
         }
       }}
     >
-      <label className="grid gap-1 text-xs">Goal
-        <Input autoFocus value={goal} onChange={(event) => setGoal(event.target.value)} className="h-8 text-control" />
-      </label>
-      <label className="grid gap-1 text-xs">How long
-        <Input value={length} onChange={(event) => setLength(event.target.value)} placeholder="45 min, 1:30, until 6pm" className={`h-8 text-control ${planned === undefined ? 'border-[var(--tt-color-text-red)]' : ''}`} />
-      </label>
-      <div className="flex flex-wrap gap-1">
-        {LENGTHS.map((one, index) => (
-          <button key={one} type="button" onClick={() => {
-            step(index)
-            setLength(one)
-          }} className={`rounded-md px-1.5 py-0.5 text-xs ${length === one ? 'bg-accent text-foreground' : 'hover:bg-accent/60'}`}>{one}</button>
-        ))}
-      </div>
+      {/* The goal and the length each an island, the way Settings groups its rows. */}
+      <Island compact title="Goal">
+        <Input autoFocus aria-label="Goal" value={goal} onChange={(event) => setGoal(event.target.value)} className="h-8 px-2.5 text-control" />
+      </Island>
+      <Island compact title="How long" className="mt-1">
+        <Input aria-label="How long" value={length} onChange={(event) => setLength(event.target.value)} placeholder="45 min, 1:30, until 6pm" className={`h-8 px-2.5 text-control ${planned === undefined ? 'text-[var(--tt-color-text-red)]' : ''}`} />
+        <div className="flex flex-wrap gap-1 p-1.5">
+          {LENGTHS.map((one, index) => (
+            <button key={one} type="button" onClick={() => {
+              step(index)
+              setLength(one)
+            }} className={`rounded-md px-1.5 py-0.5 text-xs ${length === one ? 'bg-accent text-foreground' : 'hover:bg-accent/60'}`}>{one}</button>
+          ))}
+        </div>
+      </Island>
       <Button type="submit" size="sm" variant="secondary" disabled={planned === undefined}>Start <Kbd>↵</Kbd></Button>
     </form>
   )
@@ -566,10 +573,9 @@ function Sessions({ taskId, title }: { taskId: string; title: string }): React.J
     })
 
   return (
-    <>
-      <PropLabel>Sessions {sessions.length ? <>· <Rolling text={sessions.length} /></> : ''}</PropLabel>
+    <Island compact title={<>Sessions {sessions.length ? <>· <Rolling text={sessions.length} /></> : ''}</>}>
       {running ? (
-        <div className="space-y-2">
+        <div className="space-y-1 p-1">
           <div className="flex items-center gap-2 px-1 text-foreground">
             <span className="size-1.5 animate-pulse rounded-full bg-[var(--tt-color-text-red)]" />
             <span className="text-lg font-semibold tabular-nums">{clock(Math.max(0, tick - new Date(running.startedAt).getTime()))}</span>
@@ -589,14 +595,14 @@ function Sessions({ taskId, title }: { taskId: string; title: string }): React.J
         <StartFocus taskId={taskId} title={title} />
       )}
       {sessions.filter((session) => session.endedAt).slice(0, 4).map((session) => (
-        <div key={session.id} className="mx-2 mb-1.5">
+        <div key={session.id} className="px-2 py-1.5">
           <p className="text-xs tabular-nums">
             {when(session.startedAt, false)} · {clock(new Date(session.endedAt!).getTime() - new Date(session.startedAt).getTime())}
           </p>
           {session.recap && <p className="mt-0.5 line-clamp-3 text-control text-foreground">{session.recap}</p>}
         </div>
       ))}
-    </>
+    </Island>
   )
 }
 

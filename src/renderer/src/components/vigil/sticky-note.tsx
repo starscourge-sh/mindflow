@@ -3,16 +3,18 @@ import { ArrowUpRight, X } from 'lucide-react'
 
 import '@/assets/styles/_variables.scss'
 import { glance } from './note-preview'
+import { toast } from './ui'
 import { chime } from '@/lib/sound'
 import { useAppearance, useLive, vigil } from '@/lib/vigil'
 
 const DRAG = { WebkitAppRegion: 'drag' } as CSSProperties
 const STILL = { WebkitAppRegion: 'no-drag' } as CSSProperties
 
-/** Stick a note on the desktop, or take it down, with its own sound. */
+/** Stick a note on the desktop, or take it down, with its own sound; undoable. */
 export const stickOnDesktop = (type: string, id: string, on = true): void => {
   chime(on ? 'stick' : 'unstick')
   window.api.stick(type, id, on)
+  toast(on ? 'Stuck on the desktop' : 'Taken off the desktop', () => window.api.stick(type, id, !on))
 }
 
 /**

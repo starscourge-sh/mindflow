@@ -771,7 +771,9 @@ export function VirtualList<T>({ items, keyOf, cursor, estimate = 48, className 
   return (
     <div ref={box} className={`relative ${className}`} style={{ height: rows.getTotalSize() }}>
       {rows.getVirtualItems().map(({ index, key, start }) => (
-        <div key={key} data-index={index} ref={rows.measureElement} className="absolute top-0 left-0 w-full" style={{ transform: `translateY(${start - margin}px)` }}>
+        // A sliver of room under each row, so two lit rows (the open one and the
+        // cursor) never touch. Padding, not margin: the measure counts padding.
+        <div key={key} data-index={index} ref={rows.measureElement} className="absolute top-0 left-0 w-full pb-0.5" style={{ transform: `translateY(${start - margin}px)` }}>
           {children(items[index], index)}
         </div>
       ))}
@@ -861,4 +863,51 @@ export function useTopTitle(): string | null {
     return () => void topTitleListeners.delete(setTitle)
   }, [])
   return title
+}
+
+/**
+ * Things that belong together, in one rounded island under an optional
+ * heading, rows divided by hairlines: the macOS settings look, used for
+ * every grouped panel so they all read the same.
+ */
+export function Island({ title, actions, children, className, compact }: {
+  title?: ReactNode
+  actions?: ReactNode
+  children: ReactNode
+  className?: string
+  /**
+   * For a narrow column beside an open note: tighter spacing, a smaller
+   * heading, each child a square row (fields lose their own box), and the
+   * island gone while nothing in it is shown.
+   */
+  compact?: boolean
+}): React.JSX.Element {
+  return (
+    <section className={cn(compact ? 'mt-3 first:mt-0 has-[>div:last-child:empty]:hidden' : 'mt-6 first:mt-0', className)}>
+      {(title || actions) && (
+        <div className={cn('flex items-center gap-2 px-1', compact ? 'mb-1' : 'mb-2')}>
+          {title && <h2 className={cn('font-semibold text-foreground', compact ? 'text-meta' : 'text-body')}>{title}</h2>}
+          {actions && <div className="ml-auto flex items-center gap-1">{actions}</div>}
+        </div>
+      )}
+      <div className={cn('divide-y divide-border/60 overflow-hidden border bg-accent/25', compact
+        ? 'rounded-lg [&>*]:rounded-none [&>textarea]:border-0 [&>textarea]:bg-transparent [&>textarea]:shadow-none [&>textarea]:focus-visible:ring-0 [&>input]:border-0 [&>input]:bg-transparent [&>input]:shadow-none [&>input]:focus-visible:ring-0'
+        : 'rounded-xl')}>{children}</div>
+    </section>
+  )
+}
+
+/** One row of an island: a label on the left, its value or control on the right. */
+export function IslandRow({ label, note, children, className }: { label?: ReactNode; note?: ReactNode; children?: ReactNode; className?: string }): React.JSX.Element {
+  return (
+    <div className={cn('flex items-center justify-between gap-4 px-4 py-2.5', className)}>
+      {(label || note) && (
+        <div className="min-w-0">
+          {label && <div className="text-body text-foreground">{label}</div>}
+          {note && <p className="mt-0.5 text-meta leading-relaxed text-muted-foreground">{note}</p>}
+        </div>
+      )}
+      {children !== undefined && <div className="flex min-w-0 shrink-0 items-center gap-2 text-control">{children}</div>}
+    </div>
+  )
 }

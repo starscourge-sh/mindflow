@@ -41,6 +41,11 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   const exams = useLive(vigil.exams, [] as Exam[])
   // The card you just missed, its source open to reread.
   const [source, setSource] = useState<Source | null>(null)
+  // The source of the card just missed, there for R until the next grade.
+  const [missed, setMissed] = useState<Source | null>(null)
+  // The question shows unmasked while you edit it, so the mask is never saved.
+  const [editing, setEditing] = useState(false)
+  const [rewrites, setRewrites] = useState(0)
   // A cloze's answer, and the question with every other place it appears
   // blanked too: a title or a line that repeats it gives it away.
   const answer = card ? answerOf(card.prompt, card.body) : null
@@ -55,6 +60,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   }
   const grade = (value: 1 | 2 | 3 | 4): void => {
     if (!card || !shown) return
+    setMissed(null)
     void vigil.grade(card.id, value, Date.now() - started.current)
     // Counted by card, so one seen twice after Again counts once, and a
     // buried one not at all.
@@ -66,9 +72,8 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
       setQueue((cards) => [...(cards ?? []), card])
       // Missed: the place it came from is offered, to read it again in context.
       const needles = [answer, textOf(card.body).trim().split('\n')[0].slice(0, 40)].filter(Boolean) as string[]
-      void vigil.source(card.id).then((found) => {
-        if (found) toast('Back once more before the end', undefined, 'success', { label: 'Reread the source', key: 'R', run: () => (chime('read'), setSource({ ...found, needles })) })
-      })
+      toast('Back once more before the end')
+      void vigil.source(card.id).then((found) => found && setMissed({ ...found, needles }))
     }
     setShown(false)
     setSaid('')
@@ -78,6 +83,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   // Bury: not today. The schedule is untouched; it is back tomorrow.
   const bury = (): void => {
     if (!card) return
+    setMissed(null)
     void vigil.bury(card.id).then(() => (chime('away'), toast('Buried until tomorrow')))
     setShown(false)
     setSaid('')
@@ -86,14 +92,22 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.metaKey || event.ctrlKey) return
-      // Never while typing: in the prompt the editor sits beside the review.
-      if (typing()) return
+      // Before the window's own Escape, which would hide the box.
       if (source) {
         if (event.key === 'Escape') {
           event.preventDefault()
+          event.stopPropagation()
           chime('unread')
           setSource(null)
         }
+        return
+      }
+      // Never while typing: in the prompt the editor sits beside the review.
+      if (typing()) return
+      if (event.key === 'r' && missed) {
+        event.preventDefault()
+        chime('read')
+        setSource(missed)
         return
       }
       if (event.key === ' ' && card) {
@@ -103,8 +117,8 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
       if (['1', '2', '3', '4'].includes(event.key)) grade(Number(event.key) as 1 | 2 | 3 | 4)
       if (event.key === 'b') bury()
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   })
 
   if (!queue) return <Page title="Review"><div /></Page>
@@ -139,6 +153,11 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
         </div>
       )}
       {at === 0 && <Exams exams={exams} />}
+      {missed && (
+        <p className="px-5 pt-4 -mb-6 text-xs text-muted-foreground">
+          <Typed text="Missed that one? Reread where it came from:" step={28} delay={100} /> <Kbd>R</Kbd>
+        </p>
+      )}
       <AnimatePresence mode="wait">
       <motion.div
         key={`${card.id}-${at}`}
@@ -159,7 +178,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
         {/* The question is editable in place: a card forgotten again and again
             is usually asking the wrong thing, and this is where you notice. */}
         <h2
-          key={card.id}
+          key={`${card.id}-${rewrites}`}
           contentEditable
           suppressContentEditableWarning
           // One line: Enter keeps it rather than starting a second.
@@ -168,16 +187,20 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
             event.preventDefault()
             event.currentTarget.blur()
           }}
+          onFocus={() => setEditing(true)}
           onBlur={(event) => {
             const prompt = event.currentTarget.textContent?.trim()
-            if (!prompt || prompt === card.prompt || prompt === asked) return
+            // Drawn afresh, so what you typed never sits under React's own text.
+            setEditing(false)
+            setRewrites((n) => n + 1)
+            if (!prompt || prompt === card.prompt) return
             // The card in the queue too, so an Again brings back the new words.
             card.prompt = prompt
             void vigil.saveItem(card.id, { prompt }).then(() => (chime('noted'), toast('Question rewritten')))
           }}
           className="rounded-md text-title font-semibold text-balance outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
-          {asked}
+          {editing ? card.prompt : asked}
         </h2>
         {card.lapses >= 4 && (
           <p className="-mt-3 text-sm text-[var(--tt-color-text-orange)]">

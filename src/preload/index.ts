@@ -111,12 +111,12 @@ const api = {
   /** The frosted backing follows the theme: dark under a dark theme. */
   setAppearance: (mode: 'light' | 'dark'): void => ipcRenderer.send('appearance', mode),
   /** Bring up the main window with one thing open in it. */
-  openInHome: (type: string, id: string): void => ipcRenderer.send('home:open', type, id),
+  openInHome: (type: string, id: string, heading?: string): void => ipcRenderer.send('home:open', type, id, heading),
   /** In the main window: where the prompt sent you, now and from here on. */
-  onSentTo: (listen: (type: string, id: string) => void): (() => void) => {
-    const relay = (_event: unknown, type: string, id: string): void => listen(type, id)
+  onSentTo: (listen: (type: string, id: string, heading?: string) => void): (() => void) => {
+    const relay = (_event: unknown, type: string, id: string, heading?: string): void => listen(type, id, heading)
     ipcRenderer.on('home:open', relay)
-    void (ipcRenderer.invoke('home:sent') as Promise<[string, string] | null>).then((sent) => sent && listen(...sent))
+    void (ipcRenderer.invoke('home:sent') as Promise<[string, string, string?] | null>).then((sent) => sent && listen(...sent))
     return () => ipcRenderer.off('home:open', relay)
   },
 
