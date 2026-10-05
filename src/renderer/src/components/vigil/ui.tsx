@@ -10,6 +10,7 @@ import { useLive, vigil } from '@/lib/vigil'
 import { chime, soundOn } from '@/lib/sound'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/cn'
+import { Kbd as ShadKbd, KbdGroup } from '@/components/ui/kbd'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 /**
@@ -63,7 +64,12 @@ export function Typed({ text, className, step = 40, delay = 700 }: { text: strin
       {words.map((word, index) =>
         /^\s+$/.test(word) ? word : (
           <span key={index} aria-hidden className="mf-typed" // 1.4: each word a beat slower than first built, easier to follow.
-          style={{ animationDelay: `${delay + (index / 2) * step * 1.4}ms` }}>{word}</span>
+          style={{ animationDelay: `${delay + (index / 2) * step * 1.4}ms` }}>
+            {/* A shortcut in a sentence is drawn as keys, one cap each. */}
+            {/[⌃⌥⇧⌘]/.test(word)
+              ? <KbdGroup className="translate-y-[-1px] align-middle">{Array.from(word).map((key, n) => <Kbd key={n}>{key}</Kbd>)}</KbdGroup>
+              : word}
+          </span>
         )
       )}
     </span>
@@ -89,12 +95,9 @@ export function Empty({ shape, title, children, action, compact = false }: {
 }
 
 /** A key, the way a menu shows a shortcut. */
+/** A key, as shadcn draws one, with a hairline edge so it reads as a cap. */
 export function Kbd({ children, className }: { children: ReactNode; className?: string }): React.JSX.Element {
-  return (
-    <kbd className={cn('inline-flex h-5 min-w-5 items-center justify-center rounded border border-border/80 px-1 font-sans text-key text-muted-foreground', className)}>
-      {children}
-    </kbd>
-  )
+  return <ShadKbd className={cn('rounded border border-border/80 text-key', className)}>{children}</ShadKbd>
 }
 
 /** A labelled run of properties, the right-hand column of an open item. */
