@@ -214,8 +214,20 @@ function arrive(win: BrowserWindow): void {
  */
 function reshape(win: BrowserWindow, bounds: Electron.Rectangle): void {
   if (!motionOn()) return win.setBounds(bounds, false)
-  fadeIn(win, 120, 40)
-  win.setBounds(bounds, false)
+  // Out gently rather than off at once, then the new size while it cannot
+  // be seen, then back in a little slower than it left.
+  clearInterval(arriving)
+  const from = win.getOpacity()
+  const start = Date.now()
+  const OUT = 70
+  arriving = setInterval(() => {
+    const t = Math.min(1, (Date.now() - start) / OUT)
+    win.setOpacity(from * (1 - t * t))
+    if (t < 1) return
+    clearInterval(arriving)
+    win.setBounds(bounds, false)
+    fadeIn(win, 200, 30)
+  }, 1000 / 120)
 }
 
 function toggleWindow(): void {
