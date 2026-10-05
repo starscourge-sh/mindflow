@@ -4,8 +4,9 @@ import type { JSONContent } from '@tiptap/core'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { MindflowEditor } from '../mindflow'
-import { vigil } from '@/lib/vigil'
-import { Kbd } from './ui'
+import { taskSaid, vigil } from '@/lib/vigil'
+import { Kbd, toast } from './ui'
+import { exit, toTask } from '@/lib/capture-links'
 
 export type Readable = { type: string; id: string }
 
@@ -37,6 +38,8 @@ export function ReadThrough({ items, start = 0, onClose, onEdit }: {
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.metaKey || event.ctrlKey || event.altKey) return
+      // A question asked over the page (who said it?) has the keys.
+      if (document.querySelector('[role="dialog"]:not([aria-label="Reading"])')) return
       const next = event.key === 'j' || event.key === 'ArrowDown' || event.key === 'ArrowRight' || event.key === ' '
       const back = event.key === 'k' || event.key === 'ArrowUp' || event.key === 'ArrowLeft'
       // Every plain key is Read's while it is open: none reaches the list
@@ -51,6 +54,13 @@ export function ReadThrough({ items, start = 0, onClose, onEdit }: {
       else if (back) setAt((n) => Math.max(0, n - 1))
       else if (event.key === 'Escape') onClose()
       else if (event.key === 'e' && item) onEdit(item.type, item.id)
+      // Deal with it while it is in front of you: an exit or a task, then the
+      // next page. ⌘Z still takes it back.
+      else if (item?.type === 'capture' && 'prdt'.includes(event.key)) {
+        const next = (): void => setAt((n) => Math.min(items.length - 1, n + 1))
+        if (event.key === 't') void toTask(item.id).then((made) => made && (chime(made.existed ? 'nope' : 'noted'), toast(taskSaid(made, 'Now a task')), next()))
+        else void exit(item.id, { p: 'promoted', r: 'resolved', d: 'discarded' }[event.key as 'p' | 'r' | 'd']).then(next)
+      }
     }
     // Taken first, so the lists and the editor underneath never see the keys.
     window.addEventListener('keydown', onKey, true)
@@ -92,6 +102,7 @@ export function ReadThrough({ items, start = 0, onClose, onEdit }: {
               slash={false}
               outline={false}
               vim={false}
+              search={false}
             />
           )}
         </motion.article>
@@ -101,6 +112,7 @@ export function ReadThrough({ items, start = 0, onClose, onEdit }: {
         <span className="tabular-nums">{at + 1} of {items.length}</span>
         <span><Kbd>J</Kbd> next <Kbd>K</Kbd> back</span>
         <span><Kbd>E</Kbd> change it</span>
+        {item.type === 'capture' && <span><Kbd>P</Kbd> <Kbd>R</Kbd> <Kbd>D</Kbd> exits · <Kbd>T</Kbd> task</span>}
         <span><Kbd>Esc</Kbd> close</span>
       </footer>
     </div>

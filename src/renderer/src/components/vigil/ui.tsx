@@ -277,7 +277,7 @@ function Asker(): React.JSX.Element | null {
     setAsked(null)
   }
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[22vh]" onMouseDown={() => done(null)}>
+    <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/40 pt-[22vh]" onMouseDown={() => done(null)}>
       {/* A click on its padding keeps the focus in the box, so Escape still answers it. */}
       <div role="dialog" aria-modal="true" aria-label={asked.question} className="w-[min(32rem,90vw)] rounded-xl bg-popover p-4 shadow-(--mf-panel-shadow)"
         onMouseDown={(event) => {
@@ -348,7 +348,7 @@ export function Toaster(): React.JSX.Element | null {
     <Asker />
     <Beam />
     {/* Centred along the bottom, where the eye drops after acting. */}
-    {shown && <div className="pointer-events-none fixed inset-x-0 bottom-5 z-50 flex justify-center"><div
+    {shown && <div className="pointer-events-none fixed inset-x-0 bottom-[var(--toast-bottom,1.25rem)] z-50 flex justify-center"><div
       key={shown.key}
       role="status"
       aria-live="polite"

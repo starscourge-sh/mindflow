@@ -145,7 +145,9 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
               <Tip key={one.key} label={<span className="flex items-center gap-2">{one.what}<Kbd>{one.key.toUpperCase()}</Kbd></span>}>
               {/* Quiet at rest, their colour when you reach the card. */}
               <Button variant="ghost" size="sm"
-                className="text-muted-foreground transition-colors group-hover:text-[var(--tint)] group-focus-visible:text-[var(--tint)] focus-visible:text-[var(--tint)]"
+                // Out of sight until you reach the card: three cards of three buttons
+                // each was a wall of controls over the list.
+                className="text-muted-foreground opacity-0 transition-[color,opacity] group-hover:text-[var(--tint)] group-hover:opacity-100 group-focus-visible:text-[var(--tint)] group-focus-visible:opacity-100 focus-visible:text-[var(--tint)] focus-visible:opacity-100"
                 style={{ '--tint': `var(--tt-color-text-${one.tint})` } as React.CSSProperties}
                 onClick={() => exit(card.id, one.status)}
               >
@@ -153,11 +155,14 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
               </Button>
               </Tip>
             ))}
+            {/* Who said it matters for a quote, or once someone is named. */}
+            {(card.kind === 'quote' || card.attribution) && (
             <Tip label={<span className="flex items-center gap-2">Say who said it: a quote needs one to be kept<Kbd>W</Kbd></span>}>
             <Button variant="ghost" size="sm" className="text-muted-foreground transition-colors group-hover:text-foreground focus-visible:text-foreground" onClick={() => setAsking(card.id)}>
               <Rolling text={card.attribution ?? 'Who?'} />
             </Button>
             </Tip>
+            )}
           </div>
           )}
         </motion.div>

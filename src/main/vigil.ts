@@ -29,6 +29,51 @@ export function plain(value: unknown): string {
   return value ? walk(value as { content?: unknown[] }) : ''
 }
 
+type Doc = { type?: string; text?: string; attrs?: Record<string, unknown>; marks?: { type: string; attrs?: Record<string, unknown> }[]; content?: Doc[] }
+/**
+ * A document as Markdown, the way any editor would read it back: headings,
+ * lists, quotes, code, links and emphasis kept. Markdown already is.
+ */
+export function markdown(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (!value) return ''
+  const inline = (nodes: Doc[] = []): string =>
+    nodes.map((node) => {
+      if (node.type === 'hardBreak') return '  \n'
+      if (node.type === 'image') return `![${node.attrs?.alt ?? ''}](${node.attrs?.src ?? ''})`
+      let text = node.text ?? inline(node.content)
+      for (const mark of node.marks ?? []) {
+        if (mark.type === 'bold') text = `**${text}**`
+        else if (mark.type === 'italic') text = `*${text}*`
+        else if (mark.type === 'strike') text = `~~${text}~~`
+        else if (mark.type === 'code') text = `\`${text}\``
+        else if (mark.type === 'link') text = `[${text}](${mark.attrs?.href ?? ''})`
+      }
+      return text
+    }).join('')
+  const block = (node: Doc, indent = ''): string => {
+    const kids = node.content ?? []
+    switch (node.type) {
+      case 'heading': return `${'#'.repeat(Number(node.attrs?.level ?? 1))} ${inline(kids)}`
+      case 'paragraph': return indent + inline(kids)
+      case 'blockquote': return kids.map((child) => block(child)).join('\n\n').split('\n').map((line) => `> ${line}`).join('\n')
+      case 'codeBlock': return `\`\`\`${node.attrs?.language ?? ''}\n${inline(kids)}\n\`\`\``
+      case 'horizontalRule': return '---'
+      case 'image': return inline([node])
+      case 'bulletList':
+      case 'orderedList':
+      case 'taskList':
+        return kids.map((item, n) => {
+          const mark = node.type === 'orderedList' ? `${n + 1}.` : node.type === 'taskList' ? `- [${item.attrs?.checked ? 'x' : ' '}]` : '-'
+          const [first, ...rest] = item.content ?? []
+          return [`${indent}${mark} ${first ? inline(first.content) : ''}`, ...rest.map((child) => block(child, indent + '  '))].join('\n')
+        }).join('\n')
+      default: return kids.length ? kids.map((child) => block(child, indent)).join('\n\n') : inline([node])
+    }
+  }
+  return block(value as Doc).trim() + '\n'
+}
+
 /** `#tags` in a text, lower-cased, once each. A heading's `# ` is not one. */
 const tagsIn = (text: string): string[] =>
   [...new Set([...text.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase()))]
@@ -139,7 +184,16 @@ function advance(from: Date, rule: string): Date {
  * taken out of the title. A date with no time is all day.
  */
 function taskFrom(text: string): { title: string; due: string | null; allDay: boolean; recurrence: string | null; until: string | null } {
+  // The ways people say a repeat or a time without the word "every":
+  // "weekdays", "daily", "eod" become what this already understands.
   let title = text.trim()
+    .replace(/(?<!every\s)\b(?:on\s+)?weekdays\b/i, 'every weekday')
+    .replace(/(?<!every\s)\bdaily\b/i, 'every day')
+    .replace(/(?<!every\s)\bweekly\b/i, 'every week')
+    .replace(/(?<!every\s)\bmonthly\b/i, 'every month')
+    .replace(/(?<!every\s)\b(?:yearly|annually)\b/i, 'every year')
+    .replace(/\b(?:eod|end of (?:the )?day)\b/i, 'today 5pm')
+    .replace(/\b(?:eow|end of (?:the )?week)\b/i, 'friday 5pm')
   // "until December": a series can end. Read first, so its date is not the due date.
   const ending = /\buntil\s+(.+)$/i.exec(title)
   const until = ending ? chrono.parseDate(ending[1], new Date(), { forwardDate: true }) : null
@@ -1017,10 +1071,20 @@ export function registerVigil(): void {
     const tables = (db.prepare("select name from sqlite_master where type = 'table' and name not like 'sqlite_%'").all() as { name: string }[]).map((row) => row.name)
     const data = Object.fromEntries(tables.map((table) => [table, db.prepare(`select * from ${table}`).all()]))
     await writeFile(join(folder, 'vigil.json'), JSON.stringify(data, null, 2))
-    for (const row of data.captures as { number: number; body: string }[])
-      await writeFile(join(folder, 'markdown', `MF-${row.number}.md`), plain(JSON.parse(row.body ?? 'null')))
-    for (const row of data.nuggets as { id: string; tier: string; title: string; body: string }[])
-      await writeFile(join(folder, 'markdown', `${row.tier}-${row.id.slice(0, 8)}.md`), `# ${row.title}\n\n${plain(JSON.parse(row.body ?? 'null'))}`)
+    // Real Markdown with what is known about each one up top, named so a
+    // folder listing reads like the notes do.
+    const front = (fields: Record<string, unknown>): string =>
+      `---\n${Object.entries(fields).filter(([, v]) => v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && !v.length)).map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join('\n')}\n---\n\n`
+    const slug = (text: string): string => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50)
+    for (const row of data.captures as Record<string, string & number>[]) {
+      const text = markdown(JSON.parse(row.body ?? 'null'))
+      const name = slug(plain(JSON.parse(row.body ?? 'null')).split('\n')[0] ?? '')
+      await writeFile(join(folder, 'markdown', `MF-${row.number}${name ? ` ${name}` : ''}.md`),
+        front({ id: `MF-${row.number}`, kind: row.kind, status: row.status, captured: row.captured_at, who: row.attribution, where: row.medium, tags: tagsIn(plain(JSON.parse(row.body ?? 'null'))) }) + text)
+    }
+    for (const row of data.nuggets as Record<string, string>[])
+      await writeFile(join(folder, 'markdown', `${row.tier}-${slug(row.title) || row.id.slice(0, 8)}.md`),
+        front({ kind: row.tier, created: row.created_at, who: row.attribution, question: row.prompt }) + `# ${row.title}\n\n${markdown(JSON.parse(row.body ?? 'null'))}`)
     // The pictures and files the notes point at.
     await cp(join(app.getPath('userData'), 'assets'), join(folder, 'assets'), { recursive: true }).catch(() => undefined)
     return folder

@@ -26,7 +26,7 @@ import { tagsOf } from './extensions/tokens'
 import { KeptPanel } from './components/vigil/kept-panel'
 import { CaptureProps, useCaptureDisplay } from './components/vigil/captures-view'
 import { Search } from './components/search'
-import { taskSaid, vigil } from './lib/vigil'
+import { taskSaid, vigil, type Settings } from './lib/vigil'
 import { chime } from './lib/sound'
 
 
@@ -236,6 +236,7 @@ export default function App(): React.JSX.Element {
   const [secret, setSecret] = useState(false)
   // Hidden from screen recordings and shares unless let in, for a demo or a
   // Loom; remembered, and put back on every start.
+  const appSettings = useLive(vigil.settings, null as Settings | null)
   const [recordable, setRecordableState] = useState(() => localStorage.getItem('recordable') === 'on')
   const setRecordable = (on: boolean): void => {
     setRecordableState(on)
@@ -325,6 +326,28 @@ export default function App(): React.JSX.Element {
     void window.api.setPanel(open)
   }
   useEffect(() => void window.api.setPanel(panel), []) // eslint-disable-line react-hooks/exhaustive-deps
+  // From the writing to the list and back without the mouse: ⌃J or ⌃K leaves
+  // the note for the panel's list (opening the panel if it is shut), and I
+  // comes back, as vim's insert does. A menu open in the note keeps ⌃J and ⌃K.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.metaKey || event.altKey) return
+      const inNote = !!(document.activeElement as HTMLElement | null)?.closest?.('.ProseMirror')
+      const key = event.key.toLowerCase()
+      if (event.ctrlKey && inNote && (key === 'j' || key === 'k')) {
+        if (document.querySelector('.tiptap-suggestion-popup, [cmdk-root], [role="menu"], [role="dialog"]')) return
+        ;(document.activeElement as HTMLElement).blur()
+        if (!panel) setPanel(true)
+        return
+      }
+      if (!event.ctrlKey && event.key === 'i' && !inNote && panel && !typing()) {
+        event.preventDefault()
+        document.querySelector<HTMLElement>('.tiptap.ProseMirror')?.focus()
+      }
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  })
   // ⌘\ shows or hides the panel; ⌃1 to ⌃4 open it on Inbox, Tasks, Review or Kept.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -337,6 +360,8 @@ export default function App(): React.JSX.Element {
       event.preventDefault()
       setTab(to)
       if (!panel) setPanel(true)
+      // Going to a list means working the list: its keys, not the note's.
+      ;(document.activeElement as HTMLElement | null)?.closest?.('.ProseMirror') && (document.activeElement as HTMLElement).blur()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -515,7 +540,8 @@ export default function App(): React.JSX.Element {
   return (
     <TooltipProvider delayDuration={500}>
     <div className={`app-container ${pointerIn ? 'pointer-in' : ''} flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-8 color-white`}>
-      <Toaster />
+      {/* Toasts sit above the box's footer here, clear of Create. */}
+      <div className="contents [--toast-bottom:5.5rem]"><Toaster /></div>
       {readList && (
         <ReadThrough
           items={readList.items}
@@ -543,6 +569,9 @@ export default function App(): React.JSX.Element {
       )}
       <FocusNote />
       <Header panel={panel} onPanel={() => setPanel(!panel)} menu={
+        <span className="flex items-center gap-1">
+        {/* Safe mode says so here, or the quiet looks like nothing happening. */}
+        {appSettings?.safeMode && <Tip label="Safe mode: nothing private or unasked comes up  ⌥⌘S"><span className="rounded-full bg-accent px-2 py-0.5 text-key text-[var(--tt-brand-color-400)]">Safe</span></Tip>}
         <OptionsMenu
           app
           label="Vigil"
@@ -556,6 +585,7 @@ export default function App(): React.JSX.Element {
           ]}
           actions={[{ label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') }]}
         />
+        </span>
       } />
 
       <ResizablePanelGroup
@@ -980,9 +1010,13 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   useSmooth(scroller)
   const due = useLive(() => window.api.vigil('review:counts') as Promise<number>, 0)
   // Each tab counts what it holds, so a thing sent there visibly arrives:
-  // every open task, every nugget and article.
+  // what is due today (as the main window's Today counts it), every nugget
+  // and article.
   const openTasks = useLive(
-    () => (window.api.vigil('tasks') as Promise<{ status: string }[]>).then((tasks) => tasks.filter((task) => task.status === 'open').length),
+    () => (window.api.vigil('tasks') as Promise<{ status: string; dueAt: string | null; waitingOn: string | null }[]>).then((tasks) => {
+      const end = new Date().setHours(24, 0, 0, 0)
+      return tasks.filter((task) => task.status === 'open' && !task.waitingOn && task.dueAt && new Date(task.dueAt).getTime() < end).length
+    }),
     0
   )
   const kept = useLive(() => Promise.all([vigil.items('nugget'), vigil.items('article')]).then(([n, a]) => n.length + a.length), 0)
