@@ -35,13 +35,19 @@ type Doc = { type?: string; text?: string; attrs?: Record<string, unknown>; mark
  * A document as Markdown, the way any editor would read it back: headings,
  * lists, quotes, code, links and emphasis kept. Markdown already is.
  */
-export function markdown(value: unknown): string {
-  if (typeof value === 'string') return value.replace(/\[\[@[^|\]]+\|([^\]]+)\]\]/g, '[[$1]]')
+export function markdown(value: unknown, nameOf: (id: string) => string | undefined = () => undefined): string {
+  // A link names the file it leads to, with its own words after a bar when
+  // they differ, so it opens in Obsidian or any other Markdown tool.
+  const link = (id: string, label: string): string => {
+    const name = nameOf(id.replace(/^[a-z]+:/, ''))
+    return name ? (name === label ? `[[${name}]]` : `[[${name}|${label}]]`) : `[[${label}]]`
+  }
+  if (typeof value === 'string') return value.replace(/\[\[@([^|\]]+)\|([^\]]+)\]\]/g, (_, id: string, label: string) => link(id, label))
   if (!value) return ''
   const inline = (nodes: Doc[] = []): string =>
     nodes.map((node) => {
       if (node.type === 'hardBreak') return '  \n'
-      if (node.type === 'noteLink') return `[[${node.attrs?.label ?? ''}]]`
+      if (node.type === 'noteLink') return link(String(node.attrs?.id ?? ''), String(node.attrs?.label ?? ''))
       if (node.type === 'image') return `![${node.attrs?.alt ?? ''}](${node.attrs?.src ?? ''})`
       let text = node.text ?? inline(node.content)
       for (const mark of node.marks ?? []) {
@@ -488,7 +494,7 @@ export function registerVigil(): void {
   // lineage both ways, and the backlinks an @ link leaves.
   handle('lineage', (id: string) => {
     const links = (table: string, title: string): { type: string; id: string; title: string }[] =>
-      db.prepare(`select ${table === 'captures' ? "'capture'" : 'tier'} as type, id, ${title} as title from ${table} where body like ? or body like ? or body like ?`).all(`%"id":"${id}"%`, `%"id":"%:${id}"%`, `%[[@%${id}|%`) as never
+      db.prepare(`select ${table === 'captures' ? "'capture'" : 'tier'} as type, id, ${title} as title, private from ${table} where body like ? or body like ? or body like ?`).all(`%"id":"${id}"%`, `%"id":"%:${id}"%`, `%[[@%${id}|%`) as never
     return {
       from: [
         ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title from captures where id in (select capture_id from nuggets where id = ? union select origin_capture_id from tasks where id = ?
@@ -509,10 +515,10 @@ export function registerVigil(): void {
   // Backlinks the way Obsidian lists them under a note: every note that links
   // here, with the sentence it does it in; and every note that names this
   // one without linking it yet, which one press turns into a link.
-  type Mention = { type: string; id: string; title: string; snippet: string }
-  const everything = (): { type: string; id: string; title: string; body: string }[] => [
-    ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title, body from captures where status != 'discarded'`).all() as never[]),
-    ...(db.prepare("select tier as type, id, title, body from nuggets where superseded_by is null").all() as never[])
+  type Mention = { type: string; id: string; title: string; snippet: string; private: number }
+  const everything = (): { type: string; id: string; title: string; body: string; private: number }[] => [
+    ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title, body, private from captures where status != 'discarded'`).all() as never[]),
+    ...(db.prepare("select tier as type, id, title, body, private from nuggets where superseded_by is null").all() as never[])
   ]
   const around = (text: string, at: number, length: number): string => {
     const start = Math.max(0, text.lastIndexOf('\n', at) + 1, at - 80)
@@ -553,11 +559,11 @@ export function registerVigil(): void {
         const label = /"label":"([^"]*)"/.exec(row.body.slice(Math.max(0, row.body.search(new RegExp(`"id":"(?:[a-z]+:)?${id}"`)))))?.[1] ??
           new RegExp(`\\[\\[@(?:[a-z]+:)?${id}\\|([^\\]]+)\\]\\]`).exec(row.body)?.[1] ?? name
         const at = text.indexOf(label)
-        linked.push({ type: row.type, id: row.id, title: row.title, snippet: at >= 0 ? around(text, at, label.length) : text.slice(0, 160) })
+        linked.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: at >= 0 ? around(text, at, label.length) : text.slice(0, 160) })
         continue
       }
       const hit = pattern?.exec(text)
-      if (hit) unlinked.push({ type: row.type, id: row.id, title: row.title, snippet: around(text, hit.index, hit[0].length) })
+      if (hit) unlinked.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: around(text, hit.index, hit[0].length) })
     }
     return { linked, unlinked: unlinked.slice(0, 20) }
   })
@@ -574,12 +580,14 @@ export function registerVigil(): void {
       ? { type: 'doc', content: stored.split('\n').map((line) => ({ type: 'paragraph', content: line ? [{ type: 'text', text: line }] : [] })) }
       : stored ?? { type: 'doc', content: [] }
     const lower = me.title.toLowerCase()
+    const whole = new RegExp(`(?<![\\w])${me.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w])`, 'i')
     let done = false
     const walk = (node: Doc): void => {
       if (done || !node.content) return
       const next: Doc[] = []
       for (const child of node.content) {
-        const at = !done && child.type === 'text' && !child.marks?.some((mark) => mark.type === 'code') ? (child.text ?? '').toLowerCase().indexOf(lower) : -1
+        // The name as a whole word, as the mention was found: never inside "paragraph".
+        const at = !done && child.type === 'text' && !child.marks?.some((mark) => mark.type === 'code') ? (child.text ?? '').search(whole) : -1
         if (at < 0) {
           next.push(child)
           walk(child)
@@ -1185,20 +1193,29 @@ export function registerVigil(): void {
       let one = name
       for (let n = 2; taken.has(one); n++) one = `${name} ${n}`
       taken.add(one)
-      return `${one}.md`
+      return one
     }
-    for (const row of data.captures as Record<string, string & number>[]) {
-      const body = JSON.parse(row.body ?? 'null')
-      const name = slug(plain(body).split('\n').find((line) => line.trim()) ?? '')
-      await writeFile(join(folder, 'markdown', unique(`MF-${row.number}${name ? ` ${name}` : ''}`)),
-        front({ id: `MF-${row.number}`, kind: row.kind, status: row.status, captured: row.captured_at, who: row.attribution, where: row.medium, tags: tagsIn(plain(body)) }) + local(markdown(body)))
+    // Every file named first, so a link can point at the file it leads to.
+    const captureRows = data.captures as Record<string, string & number>[]
+    const nuggetRows = data.nuggets as Record<string, string>[]
+    const names = new Map<string, string>()
+    for (const row of captureRows) {
+      const name = slug(plain(JSON.parse(row.body ?? 'null')).split('\n').find((line) => line.trim()) ?? '')
+      names.set(row.id, unique(`MF-${row.number}${name ? ` ${name}` : ''}`))
     }
-    for (const row of data.nuggets as Record<string, string>[]) {
+    for (const row of nuggetRows) names.set(row.id, unique(`${row.tier}-${slug(row.title) || row.id.slice(0, 8)}`))
+    const nameOf = (id: string): string | undefined => names.get(id)
+    for (const row of captureRows) {
       const body = JSON.parse(row.body ?? 'null')
-      const text = local(markdown(body))
+      await writeFile(join(folder, 'markdown', `${names.get(row.id)}.md`),
+        front({ id: `MF-${row.number}`, kind: row.kind, status: row.status, captured: row.captured_at, who: row.attribution, where: row.medium, tags: tagsIn(plain(body)) }) + local(markdown(body, nameOf)))
+    }
+    for (const row of nuggetRows) {
+      const body = JSON.parse(row.body ?? 'null')
+      const text = local(markdown(body, nameOf))
       // A heading of its own already names it; otherwise the title does.
       const heading = /^#\s/.test(text) ? '' : `# ${row.title}\n\n`
-      await writeFile(join(folder, 'markdown', unique(`${row.tier}-${slug(row.title) || row.id.slice(0, 8)}`)),
+      await writeFile(join(folder, 'markdown', `${names.get(row.id)}.md`),
         front({ kind: row.tier, created: row.created_at, who: row.attribution, question: row.prompt, tags: tagsIn(plain(body)) }) + heading + text)
     }
     // The pictures and files the notes point at.

@@ -165,7 +165,7 @@ let lastBounds: Electron.Rectangle | null = null
 
 /** Put it away, keeping its place. Shared by the key, Escape and the dot. */
 function hideWindow(win: BrowserWindow): void {
-  lastBounds = win.getBounds()
+  lastBounds = boundsOf(win)
   // Told before it goes, so the page can clear itself while hidden and come
   // back already blank rather than showing the old note for a frame.
   win.webContents.send('window:hiding')
@@ -185,9 +185,23 @@ function hideWindow(win: BrowserWindow): void {
  * App's onShown). At once when Motion is off.
  */
 let arriving: ReturnType<typeof setInterval> | undefined
+/**
+ * The size a fade is on its way to, before it is applied: what the next
+ * resize must start from, or two quick presses read the old size and undo
+ * each other.
+ */
+let pending: { win: BrowserWindow; bounds: Electron.Rectangle } | null = null
+/** Where the window is, or is about to be. */
+const boundsOf = (win: BrowserWindow): Electron.Rectangle => (pending?.win === win ? pending.bounds : win.getBounds())
+/** A fade cut short still lands its size. */
+function settle(): void {
+  if (pending && !pending.win.isDestroyed()) pending.win.setBounds(pending.bounds, false)
+  pending = null
+}
 /** Up from nothing over `length` ms, easing out: most of the way at once. */
 function fadeIn(win: BrowserWindow, length: number, after = 0): void {
   clearInterval(arriving)
+  settle()
   win.setOpacity(0)
   const start = Date.now() + after
   arriving = setInterval(() => {
@@ -199,6 +213,7 @@ function fadeIn(win: BrowserWindow, length: number, after = 0): void {
 function arrive(win: BrowserWindow): void {
   if (!motionOn()) {
     clearInterval(arriving)
+    settle()
     win.setOpacity(1)
     return win.show()
   }
@@ -213,10 +228,15 @@ function arrive(win: BrowserWindow): void {
  * caught up. At once when Motion is off.
  */
 function reshape(win: BrowserWindow, bounds: Electron.Rectangle): void {
-  if (!motionOn()) return win.setBounds(bounds, false)
+  clearInterval(arriving)
+  settle()
+  if (!motionOn()) {
+    win.setOpacity(1)
+    return win.setBounds(bounds, false)
+  }
   // Out gently rather than off at once, then the new size while it cannot
   // be seen, then back in a little slower than it left.
-  clearInterval(arriving)
+  pending = { win, bounds }
   const from = win.getOpacity()
   const start = Date.now()
   const OUT = 70
@@ -225,7 +245,7 @@ function reshape(win: BrowserWindow, bounds: Electron.Rectangle): void {
     win.setOpacity(from * (1 - t * t))
     if (t < 1) return
     clearInterval(arriving)
-    win.setBounds(bounds, false)
+    settle()
     fadeIn(win, 200, 30)
   }, 1000 / 120)
 }
@@ -962,14 +982,14 @@ app.whenReady().then(() => {
   ipcMain.handle('window:panel', (event, open: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return false
-    const bounds = win.getBounds()
+    const bounds = boundsOf(win)
     const width = open ? WITH_PANEL : WIDTH
     if (width === bounds.width) return Boolean(open)
     const next = onScreen({ ...bounds, x: open ? bounds.x : bounds.x + panelShift, width })
     panelShift = open ? bounds.x - next.x : 0
     // Instant: macOS's own resize animation is slow enough to wait on.
     reshape(win, next)
-    if (grew) grew = { ...grew, became: win.getBounds() }
+    if (grew) grew = { ...grew, became: next }
     return Boolean(open)
   })
 
@@ -995,7 +1015,7 @@ app.whenReady().then(() => {
   ipcMain.handle('window:expand', (event, expanded: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return false
-    const bounds = win.getBounds()
+    const bounds = boundsOf(win)
     // Taller or shorter; as wide as it is, panel open or not.
     const size = { width: bounds.width, height: (expanded ? SIZES.expanded : SIZES.compact).height }
 
@@ -1015,18 +1035,16 @@ app.whenReady().then(() => {
     // Grown about its own middle, then brought back on screen if that put an
     // edge over the side.
     // Instant, like the panel: the animated resize was slow.
-    reshape(
-      win,
-      onScreen(
-        back ?? {
-          x: Math.round(bounds.x + (bounds.width - size.width) / 2),
-          y: Math.round(bounds.y + (bounds.height - size.height) / 2),
-          ...size
-        }
-      )
+    const next = onScreen(
+      back ?? {
+        x: Math.round(bounds.x + (bounds.width - size.width) / 2),
+        y: Math.round(bounds.y + (bounds.height - size.height) / 2),
+        ...size
+      }
     )
+    reshape(win, next)
 
-    grew = expanded ? { was: bounds, became: win.getBounds() } : null
+    grew = expanded ? { was: bounds, became: next } : null
     return Boolean(expanded)
   })
 

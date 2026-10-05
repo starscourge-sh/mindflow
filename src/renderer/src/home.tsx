@@ -90,6 +90,12 @@ export function Home(): React.JSX.Element {
       return { views, at: next }
     })
   const [sidebar, setSidebar] = useState(true)
+  // Private titles shown on purpose go back to blurred once the window is put away.
+  useEffect(() => {
+    const onHide = (): void => void (document.hidden && delete document.documentElement.dataset.reveal)
+    document.addEventListener('visibilitychange', onHide)
+    return () => document.removeEventListener('visibilitychange', onHide)
+  }, [])
   // Compact, beside your work, unless asked to fill the screen; remembered.
   // Filling the screen is the window's own maximize, so the green button, a
   // drag or a tiling manager all keep this icon honest.
@@ -181,7 +187,8 @@ export function Home(): React.JSX.Element {
   return (
     <TooltipProvider delayDuration={600}>
     <div className="flex h-screen flex-col bg-background text-foreground">
-      <Toaster />
+      {/* Centred over the page, not the sidebar beside it. */}
+      <div className={`contents ${sidebar ? '[--toast-left:15rem]' : ''}`}><Toaster /></div>
       <NotePreview />
       <FocusNote />
       {searching && (
@@ -198,6 +205,11 @@ export function Home(): React.JSX.Element {
               void vigil.setSettings({ sounds: !settings?.sounds })
             } },
             { label: settings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', run: safeMode },
+            { label: 'reveal' in document.documentElement.dataset ? 'Blur private titles again' : 'Show private titles', run: () => {
+              const root = document.documentElement
+              if ('reveal' in root.dataset) delete root.dataset.reveal
+              else root.dataset.reveal = ''
+            } },
             { label: 'Settings', keys: '⌘,', run: () => setView({ id: 'settings' }) }
           ]}
           onClose={() => setSearching(false)}

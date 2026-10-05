@@ -41,7 +41,7 @@ export function Lineage({ id, onOpen }: { id: string; onOpen?: (type: string, id
           <Fragment key={label}>
             <PropLabel>{label}</PropLabel>
             {list.map((one) => (
-              <Prop key={one.id} icon={ICON[one.type as keyof typeof ICON] ?? Inbox} onClick={onOpen && (() => onOpen(one.type, one.id))}>
+              <Prop key={one.id} secret={!!one.private} icon={ICON[one.type as keyof typeof ICON] ?? Inbox} onClick={onOpen && (() => onOpen(one.type, one.id))}>
                 {one.title || 'Untitled'}
               </Prop>
             ))}

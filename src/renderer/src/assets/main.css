@@ -512,3 +512,8 @@ body {
 .mf-faded .mindflow-editor-content {
   mask-image: linear-gradient(to bottom, transparent 0, #000 0.75rem, #000 calc(100% - 2.5rem), transparent 100%);
 }
+
+/* One highlight at a time: a card reached by keyboard, not also a list row. */
+body:has([data-tone="knock"]:focus) [data-cursor] {
+  background-color: transparent !important;
+}

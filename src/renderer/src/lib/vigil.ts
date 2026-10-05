@@ -129,9 +129,9 @@ export const vigil = {
   reviewTuning: () => call<{ cap: number; tuned: boolean; behind: number }>('review:tuning'),
   promote: (id: string, words?: string) => call<string | null>('promote', id, words),
   /** What it came from, what it became, and what links to it. */
-  mentions: (id: string) => call<Record<'linked' | 'unlinked', { type: string; id: string; title: string; snippet: string }[]>>('mentions', id),
+  mentions: (id: string) => call<Record<'linked' | 'unlinked', { type: string; id: string; title: string; snippet: string; private?: number }[]>>('mentions', id),
   linkMention: (sourceType: string, sourceId: string, targetId: string) => call<boolean>('mention:link', sourceType, sourceId, targetId),
-  lineage: (id: string) => call<Record<'from' | 'became' | 'linked', { type: string; id: string; title: string }[]>>('lineage', id),
+  lineage: (id: string) => call<Record<'from' | 'became' | 'linked', { type: string; id: string; title: string; private?: number }[]>>('lineage', id),
   newArticle: () => call<string>('article:new'),
   findItems: (query: string) => call<{ id: string; tier: 'nugget' | 'article'; title: string }[]>('items:find', query),
   toTask: (id: string) => call<Made | null>('toTask', id),

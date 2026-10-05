@@ -359,11 +359,19 @@ export default function App(): React.JSX.Element {
         ;(document.activeElement as HTMLElement).blur()
         if (!panel) setPanel(true)
         // The cards waiting on you come first, then the list under them.
-        const card = tab === 'inbox' ? document.querySelector<HTMLElement>('[data-tone="knock"]') : null
-        if (card) {
-          event.preventDefault()
-          card.focus()
+        if (tab !== 'inbox') return
+        // No cards waiting and the panel already open: the list takes ⌃J.
+        if (panel && !document.querySelector('[data-tone="knock"]')) return
+        event.preventDefault()
+        // Shown as reached by keyboard, controls and all; a panel just opened
+        // has a frame or two before its cards are there.
+        let tries = 0
+        const land = (): void => {
+          const card = document.querySelector<HTMLElement>('[data-tone="knock"]')
+          if (card) card.focus({ focusVisible: true } as FocusOptions)
+          else if (tries++ < 20) requestAnimationFrame(land)
         }
+        land()
         return
       }
       if (!event.ctrlKey && event.key === 'i' && !inNote && panel && !typing()) {
@@ -589,7 +597,7 @@ export default function App(): React.JSX.Element {
     <div className={`app-container ${pointerIn ? 'pointer-in' : ''} flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-8 color-white`}>
       {/* Toasts sit above the box's footer here, clear of Create. */}
       {/* Toasts over the note, above its footer: clear of Create and of the panel. */}
-      <div className={`contents [--toast-bottom:5.5rem] ${panel ? '[--toast-right:440px]' : ''}`}><Toaster /></div>
+      <div className={`contents [--toast-bottom:6.5rem] ${panel ? '[--toast-right:440px]' : ''}`}><Toaster /></div>
       <NotePreview />
       {readList && (
         <ReadThrough
@@ -940,6 +948,11 @@ const SourceDrawer = ({
 }): React.JSX.Element => (
   <Sheet open={open} onOpenChange={onOpenChange}>
     <SheetContent side="right" className="gap-0 p-0"
+      // Closed, the keys go back to the writing, so ⌘E opens it again.
+      onCloseAutoFocus={(event) => {
+        event.preventDefault()
+        document.querySelector<HTMLElement>('.tiptap.ProseMirror')?.focus()
+      }}
       // ⌘E closes it as it opened it.
       onKeyDown={(event) => {
         if (event.metaKey && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'e') {

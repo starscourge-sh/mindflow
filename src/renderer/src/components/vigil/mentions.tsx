@@ -32,10 +32,10 @@ export function Mentions({ id, onOpen }: { id: string; onOpen?: (type: string, i
   if (!found || (!found.linked.length && !found.unlinked.length)) return null
 
   const row = (one: Found['linked'][number], link?: boolean): React.JSX.Element => (
-    <div key={one.id} className="group flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-accent/50">
+    <div key={one.id} data-private={one.private ? '' : undefined} className="group flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-accent/50">
       <button type="button" data-row className="min-w-0 flex-1 text-left" onClick={() => onOpen?.(one.type, one.id)}>
-        <span className="block truncate font-medium text-foreground">{one.title || 'Untitled'}</span>
-        <span className="line-clamp-2 text-control text-muted-foreground">{one.snippet}</span>
+        <span className="private-text block truncate font-medium text-foreground">{one.title || 'Untitled'}</span>
+        <span className="private-text line-clamp-2 text-control text-muted-foreground">{one.snippet}</span>
       </button>
       {link && (
         <Tip label="Make this mention a link">
@@ -44,7 +44,7 @@ export function Mentions({ id, onOpen }: { id: string; onOpen?: (type: string, i
             aria-label="Link it"
             className="mt-0.5 flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-control text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100"
             onClick={() => void vigil.linkMention(one.type, one.id, id).then((ok) => {
-              if (!ok) return refuse('Its name is only inside a link there already')
+              if (!ok) return refuse('Could not link it there: the name is split by formatting, or already a link. Use @ to link it by hand')
               chime('pin')
               toast('Linked')
             })}

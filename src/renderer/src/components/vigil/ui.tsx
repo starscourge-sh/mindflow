@@ -86,8 +86,10 @@ export function Props({ children, className }: { children: ReactNode; className?
 export function PropLabel({ children }: { children: ReactNode }): React.JSX.Element {
   return <div className="mt-3 mb-1 px-2 text-meta font-medium first:mt-0">{children}</div>
 }
-export function Prop({ icon: Icon, children, onClick, active, tint }: {
+export function Prop({ icon: Icon, children, onClick, active, tint, secret }: {
   icon: LucideIcon
+  /** Private: blurred at rest, as in any list. */
+  secret?: boolean
   /** A theme colour for the icon, where the colour means something. */
   tint?: string
   children: ReactNode
@@ -99,10 +101,11 @@ export function Prop({ icon: Icon, children, onClick, active, tint }: {
     <Tag
       type={onClick ? 'button' : undefined}
       onClick={onClick}
+      data-private={secret ? '' : undefined}
       className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-left ${onClick ? 'hover:bg-accent hover:text-foreground' : ''} ${active ? 'text-foreground' : ''}`}
     >
       <Icon className="size-4 shrink-0" style={tint ? { color: `var(--tt-color-text-${tint})` } : undefined} />
-      <span className="min-w-0 truncate">{children}</span>
+      <span className={`min-w-0 truncate ${secret ? 'private-text' : ''}`}>{children}</span>
     </Tag>
   )
 }
@@ -385,7 +388,7 @@ export function Toaster(): React.JSX.Element | null {
     <Asker />
     <Beam />
     {/* Centred along the bottom, where the eye drops after acting. */}
-    {shown && <div className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-0 z-50 flex justify-center"><div
+    {shown && <div className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-50 flex justify-center"><div
       key={shown.key}
       role="status"
       aria-live="polite"

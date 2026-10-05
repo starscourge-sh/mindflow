@@ -82,7 +82,17 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
       setCards((all) => (all.some((one) => one.id === id) ? all : [...all, card].sort(byAge)))
       setDeal((n) => n + 1)
     }
-    void exitWith(id, status, back).then(() => window.api.captures.get(id)).then((now) => now?.status !== 'open' && drop(id))
+    // Worked by keyboard, the next card takes the focus, so j, k and the
+    // exits carry on without a click.
+    const all = [...document.querySelectorAll<HTMLElement>('[data-tone="knock"]')]
+    const here = all.findIndex((one) => one.dataset.id === id)
+    const byKeys = document.activeElement === all[here]
+    const after = all[here + 1] ?? all[here - 1]
+    void exitWith(id, status, back).then(() => window.api.captures.get(id)).then((now) => {
+      if (now?.status === 'open') return
+      drop(id)
+      if (byKeys) after?.focus({ focusVisible: true } as FocusOptions)
+    })
   }
 
   if (!cards.length) return null
