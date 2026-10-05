@@ -51,17 +51,18 @@ export function Page({ title, count, actions, children, aside = false }: {
  */
 /**
  * A sentence that tells you something, typed out a word at a time as it
- * arrives, so the app reads as if it is talking to you rather than showing a
+ * arrives, a beat after the page paints so the motion is seen rather than
+ * lost in the opening frame, so the app reads as if it is talking to you rather than showing a
  * label (textmotion.dev's word reveal). Typed again when the words change.
  * Plain text when Motion is off.
  */
-export function Typed({ text, className, step = 40 }: { text: string; className?: string; step?: number }): React.JSX.Element {
+export function Typed({ text, className, step = 40, delay = 400 }: { text: string; className?: string; step?: number; delay?: number }): React.JSX.Element {
   const words = text.split(/(\s+)/)
   return (
     <span key={text} className={className} aria-label={text}>
       {words.map((word, index) =>
         /^\s+$/.test(word) ? word : (
-          <span key={index} aria-hidden className="mf-typed" style={{ animationDelay: `${(index / 2) * step}ms` }}>{word}</span>
+          <span key={index} aria-hidden className="mf-typed" style={{ animationDelay: `${delay + (index / 2) * step}ms` }}>{word}</span>
         )
       )}
     </span>
