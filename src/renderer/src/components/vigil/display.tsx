@@ -132,6 +132,8 @@ function Pick({ options, chosen, many, onPick }: { options: Choice[]; chosen: st
               aria-checked={on}
               onSelect={(event) => {
                 event.preventDefault()
+                // A box ticked climbs, untick it and it comes back down.
+                chime(on ? 'off' : 'on')
                 onPick(one.id)
               }}
               className="gap-2 text-control"
@@ -143,7 +145,10 @@ function Pick({ options, chosen, many, onPick }: { options: Choice[]; chosen: st
               {one.label}
             </DropdownMenuItem>
           ) : (
-            <DropdownMenuItem key={one.id} onSelect={() => onPick(one.id)} className="gap-2 text-control">
+            <DropdownMenuItem key={one.id} onSelect={() => {
+              chime('tap')
+              onPick(one.id)
+            }} className="gap-2 text-control">
               <Check className={`size-3.5 ${chosen.includes(one.id) ? '' : 'invisible'}`} />
               {icon}
               {one.label}
@@ -261,6 +266,7 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
               type="button"
               onClick={(event) => {
                 // The button goes with the changes it undid; the focus stays in the panel.
+                chime('undo')
                 event.currentTarget.closest<HTMLElement>('[data-slot="popover-content"]')?.focus()
                 onChange({ ...view, filter: { ...defaults }, group: groups[0]?.id ?? view.group, sort: sorts[0]?.id ?? view.sort })
               }}
