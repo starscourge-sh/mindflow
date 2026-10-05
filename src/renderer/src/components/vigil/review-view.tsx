@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
+import { Rest } from './scenery'
 
 /** The four grades, as the plan defines them: how the retrieval felt, not whether it was right. */
 const GRADES = [
@@ -66,13 +67,16 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     // buried one not at all.
     setReviewed((ids) => new Set(ids).add(card.id))
     chime((['again', 'hard', 'good', 'easy'] as const)[value - 1])
+    // The last card of the day answered: once the grade's own note has
+    // sounded, the queue closes with one of its own.
+    if (value !== 1 && queue && at + 1 === queue.length) setTimeout(() => chime('reviewed'), 380)
     // Again is not failure, it is a short gap: the card comes round once more
     // before the session ends.
     if (value === 1) {
       setQueue((cards) => [...(cards ?? []), card])
       // Missed: the place it came from is offered, to read it again in context.
       const needles = [answer, textOf(card.body).trim().split('\n')[0].slice(0, 40)].filter(Boolean) as string[]
-      toast('Back once more before the end')
+      toast('This card comes back once more before you finish')
       void vigil.source(card.id).then((found) => found && setMissed({ ...found, needles }))
     }
     setShown(false)
@@ -132,13 +136,17 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     return (
       <Page title="Review">
         {queue.length ? (
-          <Empty compact={compact} shape={['star', 2]} title={`Done: ${reviewed.size} reviewed`}>
-            That is today’s queue finished. What you could not recall comes back soonest; the rest waits until just before you would forget it.
-          </Empty>
+          <Rest seed="review-done" compact={compact}>
+            <Empty compact={compact} shape={['star', 2]} title={<>Done: <Rolling text={reviewed.size} /> reviewed</>}>
+              That is today’s queue finished. What you could not recall comes back soonest; the rest waits until just before you would forget it.
+            </Empty>
+          </Rest>
         ) : (
-          <Empty compact={compact} shape={['moon', 1]} title="Nothing to review">
-            Review holds only what you chose to be tested on. Open a nugget and write it a question, and it joins the queue tomorrow at the latest.
-          </Empty>
+          <Rest seed="review-none" compact={compact}>
+            <Empty compact={compact} shape={['moon', 1]} title="Nothing to review">
+              Review holds only what you chose to be tested on. Open a nugget and write it a question, and it joins the queue tomorrow at the latest.
+            </Empty>
+          </Rest>
         )}
         <Exams exams={exams} />
       </Page>
@@ -252,7 +260,10 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
                   type="button"
                 
                   onClick={() => grade(value)}
-                  className="flex flex-col items-center gap-1 rounded-md border px-3 py-2.5 transition-colors hover:bg-accent"
+                  // Under the pointer the grade takes on its own colour, edge and wash,
+                  // so the four read as four answers rather than four grey boxes.
+                  style={{ '--tone': tone } as React.CSSProperties}
+                  className="flex flex-col items-center gap-1 rounded-md border px-3 py-2.5 transition-colors hover:border-[color-mix(in_srgb,var(--tone)_45%,var(--border))] hover:bg-[color-mix(in_srgb,var(--tone)_10%,transparent)]"
                 >
                   <span className="font-medium" style={{ color: tone }}>{label}</span>
                   <span className="text-xs text-muted-foreground tabular-nums">

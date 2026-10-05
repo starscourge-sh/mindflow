@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
 import { Recap } from './recap-view'
 
-const percent = (part: number, whole: number): string => (whole ? `${Math.round((part / whole) * 100)}%` : '–')
+const percent = (part: number, whole: number): string => (whole ? `${Math.round((part / whole) * 100)}%` : 'none')
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`
 
 /** A number inside a sentence, set apart only by weight and even figures. It rolls into place. */

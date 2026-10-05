@@ -3,15 +3,16 @@ import { CalendarClock, CalendarDays, Check, Plus, Repeat } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { chime } from '@/lib/sound'
-import { useLive, vigil, when, type Task } from '@/lib/vigil'
+import { useLive, vigil, when, whenInLine, type Task } from '@/lib/vigil'
 import { BUCKETS, bucket, makeTask, placed } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { Empty, toast, typing, useListKeys, Strip } from './ui'
 import { Chips, Display, arrange, useView } from './display'
-import { completeTask, landed, taskFacets } from './tasks-view'
+import { completeTask, landed, moveTo, taskFacets } from './tasks-view'
 import { PriorityIcon, TaskInput, planFor, setPriority } from './task-input'
 import { RowMenu, copy } from './row-menu'
 import { Tip } from '@/components/vigil/ui'
+import { Rest } from './scenery'
 
 const endOfToday = (): number => new Date().setHours(24, 0, 0, 0)
 const startOfToday = (): number => new Date().setHours(0, 0, 0, 0)
@@ -62,15 +63,8 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
 
   const add = useRef<HTMLInputElement>(null)
   const [cursor] = useListKeys(due.length, { onOpen: (index) => onOpen(due[index].id) })
-  const move = (task: Task, days: number): void => {
-    const at = new Date()
-    at.setDate(at.getDate() + days)
-    at.setHours(9, 0, 0, 0)
-    void vigil.saveTask(task.id, { due: at.toISOString() }).then(() => {
-      chime('tap')
-      toast(`Moved to ${when(at.toISOString())}`)
-    })
-  }
+  // The main window's wording, time kept and undo and all.
+  const move = moveTo
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
@@ -186,7 +180,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
                 </p>
                 <p className="flex items-center gap-2 text-xs" style={{ color: late ? 'var(--tt-color-text-red)' : scope === 'today' ? 'var(--tt-color-text-orange)' : 'var(--muted-foreground)' }}>
                   {task.dueAt && <span className="flex items-center gap-1"><CalendarDays className="size-3" /> {when(task.dueAt, !!task.allDay)}</span>}
-                  {task.deadline && <span className="flex items-center gap-1"><CalendarClock className="size-3" /> Due by {when(task.deadline, !task.deadlineTimed).toLowerCase()}</span>}
+                  {task.deadline && <span className="flex items-center gap-1"><CalendarClock className="size-3" /> Due by {whenInLine(task.deadline, !task.deadlineTimed)}</span>}
                   {later && !task.dueAt && <span>{BUCKETS[later]}</span>}
                   {task.recurrence && <Repeat className="size-3 text-muted-foreground" />}
                 </p>
@@ -197,7 +191,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
         })}
       </AnimatePresence>
       {!due.length && (
-        <Empty compact shape={EMPTY[scope].shape} title={EMPTY[scope].title}>{EMPTY[scope].text}</Empty>
+        <Rest compact seed="today" off={scope !== 'today'}><Empty compact shape={EMPTY[scope].shape} title={EMPTY[scope].title}>{EMPTY[scope].text}</Empty></Rest>
       )}
     </div>
   )

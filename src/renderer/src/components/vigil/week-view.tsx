@@ -3,7 +3,7 @@ import { motion } from 'motion/react'
 import { Brain, CalendarClock, ChevronLeft, ChevronRight, Repeat } from 'lucide-react'
 
 import { chime } from '@/lib/sound'
-import { useLive, vigil, when, type Task, type TaskFull } from '@/lib/vigil'
+import { useLive, vigil, when, whenInLine, type Task, type TaskFull } from '@/lib/vigil'
 import { Kbd, Page, Rolling, Tip, toast, typing } from './ui'
 import { PriorityIcon, setPriority } from './task-input'
 import { TaskDetail, completeTask } from './tasks-view'
@@ -80,7 +80,7 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
     if (new Date(to).setHours(0, 0, 0, 0) === new Date(was).setHours(0, 0, 0, 0)) return chime('nope')
     void vigil.saveTask(card.task.id, { [field]: to }).then(() => {
       chime('shift')
-      toast(`${card.kind === 'scheduled' ? 'Moved to' : 'Due by'} ${when(to, card.kind === 'scheduled' ? !!card.task.allDay : !card.task.deadlineTimed).toLowerCase()}`, () => void vigil.saveTask(card.task.id, { [field]: was }))
+      toast(`${card.kind === 'scheduled' ? 'Moved to' : 'Due by'} ${whenInLine(to, card.kind === 'scheduled' ? !!card.task.allDay : !card.task.deadlineTimed)}`, () => void vigil.saveTask(card.task.id, { [field]: was }))
     })
   }
   const go = (col: number): void => {
@@ -138,7 +138,7 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
           {/* The dates, which take you back to this week from any other. */}
           <Tip label="Back to this week">
             <button type="button" onClick={() => (chime('tap'), setFrom(0))} className="rounded px-1 text-foreground hover:bg-accent">
-              <Rolling by="word" className="whitespace-nowrap" text={`${first.toLocaleDateString([], { day: 'numeric', month: 'short' })} – ${last.toLocaleDateString([], { day: 'numeric', month: 'short' })}`} />
+              <Rolling by="word" className="whitespace-nowrap" text={`${first.toLocaleDateString([], { day: 'numeric', month: 'short' })} to ${last.toLocaleDateString([], { day: 'numeric', month: 'short' })}`} />
             </button>
           </Tip>
           <Tip label="Week after  ]">

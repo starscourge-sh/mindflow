@@ -80,7 +80,7 @@ export function Typed({ text, className, step = 40, delay = 700 }: { text: strin
 
 export function Empty({ shape, title, children, action, compact = false }: {
   shape: [shapeTypes, number]
-  title: string
+  title: ReactNode
   children: ReactNode
   action?: ReactNode
   /** Sized for the prompt's narrow panel: less height above, a smaller shape. */
@@ -89,7 +89,9 @@ export function Empty({ shape, title, children, action, compact = false }: {
   return (
     <div className={`flex max-w-sm flex-col items-start gap-3 ${compact ? 'px-2 py-10' : 'px-5 py-[16vh]'}`}>
       <Coolshape type={shape[0]} index={shape[1]} noise={false} size={compact ? 44 : 56} className="mb-3" />
-      <h2 className="text-heading font-semibold">{title}</h2>
+      {/* A rest is a moment, not a missing list: its line at title size in the
+          heading font, a step down in the prompt's narrow panel. */}
+      <h2 className={compact ? 'text-heading font-semibold' : 'text-title font-medium'}>{title}</h2>
       <p className="leading-relaxed text-muted-foreground">{typeof children === 'string' ? <Typed text={children} step={30} /> : children}</p>
       {action}
     </div>
@@ -344,6 +346,19 @@ export const refuse = (text: string): void => {
   toast(text, undefined, 'error')
 }
 
+/**
+ * Why a save failed, in plain words, from the error the main process sent
+ * back: the database's own wording means nothing to someone writing a note,
+ * so the common ones say what to do instead.
+ */
+export const whyFailed = (error: unknown): string => {
+  const raw = String((error as Error | undefined)?.message ?? error ?? '').replace(/^Error invoking remote method[^:]*:\s*(?:\w*Error:\s*)?/, '').split('\n')[0].trim()
+  if (/full|SQLITE_FULL|ENOSPC/i.test(raw)) return 'your disk is full. Free up some space, then try again'
+  if (/locked|busy/i.test(raw)) return 'your notes were busy for a moment. Try again'
+  if (/readonly|read-only|EACCES|EPERM/i.test(raw)) return 'Vigil is not allowed to write to its folder. Check its permissions in Finder, then try again'
+  return `${raw || 'something went wrong'}. Try again, and restart Vigil if it keeps happening`
+}
+
 export type BeamState = 'success' | 'error' | 'loading' | null
 /**
  * The light along the window's top edge, the way Raycast's does it: a green
@@ -454,13 +469,14 @@ export function Toaster(): React.JSX.Element | null {
       const detail = (event as CustomEvent).detail
       setShown({ ...detail, key: Date.now() })
       // Longer when it can be taken back, so the undo is there to reach.
-      timer = setTimeout(() => setShown(null), detail.undo || detail.action ? 6000 : 3200)
+      // A problem stays as long, so what to do about it can be read.
+      timer = setTimeout(() => setShown(null), detail.undo || detail.action || detail.tone === 'error' ? 6000 : 3200)
     }
     // A save that failed on the way to the database says so, rather than the
     // success toast just never coming.
     const onFail = (event: PromiseRejectionEvent): void => {
       const message = String(event.reason?.message ?? event.reason ?? '')
-      if (message.includes('Error invoking remote method')) refuse(`Not saved: ${message.replace(/^.*?Error: /, '').split('\n')[0].replace(/^Error invoking remote method.*$/, 'it was not accepted')}`)
+      if (message.includes('Error invoking remote method')) refuse(`Not saved: ${whyFailed(event.reason)}.`)
     }
     window.addEventListener('vigil:toast', onToast)
     window.addEventListener('unhandledrejection', onFail)
@@ -537,16 +553,16 @@ export function Toaster(): React.JSX.Element | null {
       aria-live="polite"
       // An edge and a mark, with the buttons' corners: it has to be seen
       // from the corner of the eye, on any theme.
-      className="pointer-events-auto flex items-center gap-2 rounded-md border border-border bg-popover py-1.5 pr-3.5 pl-2.5 text-sm font-medium shadow-[0_8px_24px_-6px_rgb(0_0_0/0.5)] animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]"
+      className="pointer-events-auto mx-4 flex max-w-xl items-center gap-2 rounded-md border border-border bg-popover py-1.5 pr-3.5 pl-2.5 text-sm font-medium shadow-[0_8px_24px_-6px_rgb(0_0_0/0.5)] animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]"
     >
       {shown.tone === 'error'
         ? <CircleX className="size-4 shrink-0 text-[var(--tt-color-text-red)]" />
         : <CircleCheck className="size-4 shrink-0 text-[var(--tt-brand-color-400)]" />}
-      <span>{shown.text}</span>
+      <span className="min-w-0 text-pretty wrap-break-word">{shown.text}</span>
       {shown.action && (
         <button
           type="button"
-          className="font-medium text-foreground underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground"
+          className="shrink-0 font-medium whitespace-nowrap text-foreground underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground"
           onClick={() => {
             setShown(null)
             shown.action?.run()
@@ -558,7 +574,7 @@ export function Toaster(): React.JSX.Element | null {
       {shown.undo && (
         <button
           type="button"
-          className="font-medium text-[var(--tt-brand-color-400)] hover:underline"
+          className="shrink-0 font-medium whitespace-nowrap text-[var(--tt-brand-color-400)] hover:underline"
           onClick={() => {
             chime('undo')
             shown.undo?.()
@@ -599,11 +615,28 @@ export function useSmooth(box: HTMLElement | null): void {
     const lenis = new Lenis({ wrapper, content: wrapper.firstElementChild as HTMLElement, lerp: 0.14, smoothWheel: true })
     // Anything that moves this box itself goes through Lenis, or the two fight.
     smooth.set(wrapper, lenis)
-    let frame = requestAnimationFrame(function loop(time) {
+    // Ticks only while a glide is under way. The box and the glow keep running
+    // while hidden (they never throttle), so a loop that never stops would
+    // spend every frame of the day on a window nobody can see.
+    let frame = 0
+    let idle = 0
+    const loop = (time: number): void => {
       lenis.raf(time)
-      frame = requestAnimationFrame(loop)
-    })
+      idle = lenis.isScrolling ? 0 : idle + 1
+      frame = idle > 2 ? 0 : requestAnimationFrame(loop)
+    }
+    const wake = (): void => {
+      idle = 0
+      if (!frame) frame = requestAnimationFrame(loop)
+    }
+    const off = lenis.on('virtual-scroll', wake)
+    const scrollTo = lenis.scrollTo.bind(lenis)
+    lenis.scrollTo = (...args) => {
+      scrollTo(...args)
+      wake()
+    }
     return () => {
+      off()
       cancelAnimationFrame(frame)
       smooth.delete(wrapper)
       lenis.destroy()
@@ -930,7 +963,7 @@ export function Island({ title, actions, children, className, compact }: {
           {actions && <div className="ml-auto flex items-center gap-1">{actions}</div>}
         </div>
       )}
-      <div className={cn('divide-y divide-border/60 overflow-hidden border bg-accent/25', compact
+      <div className={cn('mf-island divide-y divide-border/60 overflow-hidden border bg-accent/25', compact
         ? 'rounded-lg [&>*]:rounded-none [&>textarea]:border-0 [&>textarea]:bg-transparent [&>textarea]:shadow-none [&>textarea]:focus-visible:ring-0 [&>input]:border-0 [&>input]:bg-transparent [&>input]:shadow-none [&>input]:focus-visible:ring-0'
         : 'rounded-xl')}>{children}</div>
     </section>

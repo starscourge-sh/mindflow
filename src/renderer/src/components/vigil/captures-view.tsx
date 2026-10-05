@@ -26,6 +26,7 @@ import { AliveIcon } from '@/components/vigil/alive-icon'
 import { Archive, ArchiveRestore, Download } from 'lucide-react'
 import { KindFields, LayoutToggle, LocalGraph, NoteCards, Versions, useLayout } from './note-extras'
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
+import { Rest } from './scenery'
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
 
@@ -117,7 +118,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
     // Only the open ones: a promoted capture resolved, or undone back to open,
     // would lose where it went.
     const ids = chosen.filter((id) => all.find((capture) => capture.id === id)?.status === 'open')
-    if (!ids.length) return refuse('None of these is open')
+    if (!ids.length) return refuse('Nothing changed: none of the picked captures is still in the inbox')
     void Promise.all(ids.map((id) => window.api.captures.save(id, { status }))).then(() => {
       chime(status === 'discarded' ? 'away' : 'resolve')
       setChosen([])
@@ -200,9 +201,11 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
             {'Archive puts a note out of sight without letting it go. Right-click any note, or ⌘K, to archive it; it waits here.'}
           </Empty>
         ) : (
-          <Empty shape={['flower', 2]} title="Nothing waiting">
-            {'Every capture has taken its exit. ⌘. catches the next thought, from anywhere.'}
-          </Empty>
+          <Rest seed="inbox">
+            <Empty shape={['flower', 2]} title="Nothing waiting">
+              {'Every capture has taken its exit. ⌘. catches the next thought, from anywhere.'}
+            </Empty>
+          </Rest>
         )}
       </Page>
       {readFrom !== null && (
@@ -328,7 +331,7 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
                   void exit.run().then((result) => {
                     if (result === 'cancelled') return
                     // A task was heard, said and made undoable where it was made; only a capture gone is left to say.
-                    if (exit.label === 'Make it a task') return void (result || refuse('That capture is gone'))
+                    if (exit.label === 'Make it a task') return void (result || refuse('That capture no longer exists, so it cannot become a task'))
                     if (result === 'needs-source') return refuse('A quote needs to say who said it: add a source below first')
                     // The sound once it went through, so a refusal never sounds like success first.
                     chime(exit.label === 'Discard' ? 'away' : exit.label === 'Promote to nugget' ? 'promote' : 'resolve')
@@ -351,8 +354,9 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
               onKeyDown={(event) => {
                 const number = Number(event.currentTarget.value.replace(/\D/g, ''))
                 if (event.key !== 'Enter' || !number) return
+                if (number === capture.number) return refuse('A capture cannot be merged into itself. Type the number of another one')
                 void vigil.mergeCapture(capture.id, number).then((into) =>
-                  into ? (chime('resolve'), toast(`Merged into MF-${number}`, () => void window.api.captures.save(capture.id, { status: 'open' }))) : refuse(`No MF-${number} to merge into`)
+                  into ? (chime('resolve'), toast(`Merged into MF-${number}`, () => void window.api.captures.save(capture.id, { status: 'open' }))) : refuse(`There is no MF-${number}. Check the number and try again`)
                 )
               }}
               className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-foreground/70"

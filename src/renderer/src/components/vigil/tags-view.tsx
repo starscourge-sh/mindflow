@@ -130,7 +130,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 const to = event.currentTarget.value.trim()
                 if (event.key !== 'Enter' || !to) return
                 void vigil.renameTag(chosen, to).then((done) => {
-                  if (!done) return refuse('A tag is letters, digits and dashes')
+                  if (!done) return refuse('Not renamed: a tag starts with a letter and uses only letters, numbers, dashes and underscores')
                   chime('noted')
                   toast(`#${chosen} is now #${done} everywhere`)
                   setChosen(done)

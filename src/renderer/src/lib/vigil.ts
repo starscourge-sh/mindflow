@@ -46,7 +46,24 @@ export type Settings = {
   weather: boolean
   /** A note's first picture at the end of its row. */
   thumbnails: boolean
+  /** Pictures from your own folders at the quiet moments; see components/vigil/scenery.tsx. */
+  scenery: boolean
+  sceneryFolders: string[]
+  sceneryRest: boolean
+  sceneryRecap: boolean
+  sceneryToday: boolean
+  sceneryFocus: boolean
+  /** Golden scenes in the morning, dusk in the evening, night at night. */
+  sceneryTime: boolean
+  /** How far each scene is dimmed toward the page colour, 0 to 1. */
+  sceneryDim: number
+  /** Turned over by "Show another", so every scene changes at once. */
+  sceneryShuffle: number
 }
+
+/** A picture from the Scenery folders, as the main process describes its smaller copy. */
+export type Mood = 'day' | 'dusk' | 'night' | 'interior'
+export type Scene = { id: string; url: string; mood: Mood; width: number; height: number; pixel: boolean; color: string; light: number }
 
 /** A nugget or an article: the same row, told apart by `tier`. */
 export type Item = {
@@ -83,6 +100,7 @@ export type Exam = { tag: string; at: string; days: number; total: number; solid
 /** A month or a year, Wrapped's way. */
 export type Recap = {
   label: string
+  finished: boolean
   captures: number
   words: number
   busiestDay: { name: string; n: number } | null
@@ -176,6 +194,10 @@ export type Stats = {
 export const vigil = {
   settings: () => call<Settings>('settings'),
   setSettings: (patch: Partial<Settings>) => call<Settings>('settings:set', patch),
+  /** The scenes in these folders so far; copies of new pictures are made in the background. */
+  scenery: (folders: string[]) => call<{ scenes: Scene[]; scanning: boolean }>('scenery', folders),
+  /** A folder of pictures, picked in the system's own chooser. */
+  sceneryFolder: () => call<string | null>('scenery:folder'),
   // Up for private, down for not, from whichever menu or button switched it.
   setPrivate: (table: 'captures' | 'nuggets', id: string, on: boolean, quiet = false) => (quiet || chime(on ? 'on' : 'off'), call('private', table, id, on)),
   /** False when three are pinned already. */
@@ -261,7 +283,15 @@ export const vigil = {
 export function useLive<T>(read: () => Promise<T>, initial: T, deps: unknown[] = []): T {
   const [value, setValue] = useState<T>(initial)
   useEffect(() => {
-    const load = (): void => void read().then(setValue)
+    // Every write anywhere reloads every list, a note being typed in included:
+    // an answer the same as the last keeps the old value, so nothing redraws.
+    let last: string | undefined
+    const load = (): void => void read().then((next) => {
+      const now = JSON.stringify(next)
+      if (now === last) return
+      last = now
+      setValue(next)
+    })
     load()
     return window.api.captures.onChange(load)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -281,6 +311,9 @@ export function when(iso: string | null, allDay = true): string {
   if (days > 1 && days < 7) return `${date.toLocaleDateString([], { weekday: 'long' })}${time}`
   return `${date.toLocaleDateString([], { day: 'numeric', month: 'short' })}${time}`
 }
+
+/** `when` inside a sentence: "moved to tomorrow", but "moved to Saturday" and "6 Oct" keep their capitals. */
+export const whenInLine = (iso: string | null, allDay = true): string => when(iso, allDay).replace(/^(Today|Tomorrow|Yesterday)/, (word) => word.toLowerCase())
 
 /** How far off a review is: "10m", "1d", "3w". From now, or from another moment. */
 export function interval(iso: string, from: string | number = Date.now()): string {

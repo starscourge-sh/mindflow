@@ -37,6 +37,7 @@ import { captureText, database, importAnki, importBookmarks, importHighlights, i
 import { backupDir } from './backup'
 import { activeSession, badge, motionOn, registerVigil, toggleSafeMode } from './vigil'
 import { registerNotes } from './notes'
+import { registerScenery, sceneryDir } from './scenery'
 
 
 /* The standard electron app file structure:
@@ -1038,6 +1039,7 @@ app.whenReady().then(() => {
   registerCaptures()
   registerVigil()
   registerNotes({ load, guard })
+  registerScenery()
   const first = fromCli(process.argv)
   if (first) captureText(first)
   createTray()
@@ -1049,6 +1051,16 @@ app.whenReady().then(() => {
     // path `/x.png`, so the store name is the host, not part of the path.
     const { host, pathname } = new URL(request.url)
     const name = pathname.replace(/^\/+/, '')
+
+    // Scenery's smaller copies, named the same careful way.
+    if (host === 'scenery') {
+      if (!/^[a-f0-9]{32}\.(jpg|png)$/.test(name)) return new Response('not found', { status: 404 })
+      try {
+        return await net.fetch(pathToFileURL(join(sceneryDir(), name)).toString())
+      } catch {
+        return new Response('not found', { status: 404 })
+      }
+    }
 
     // Only a bare hash and extension. Anything with a separator in it, or any
     // attempt to walk out of the store, fails this and is refused.

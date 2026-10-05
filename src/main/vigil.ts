@@ -2,6 +2,7 @@ import { Notification, app, dialog, ipcMain, net } from 'electron'
 import { randomUUID } from 'crypto'
 import { cp, mkdir, writeFile } from 'fs/promises'
 import { join } from 'path'
+import { homedir } from 'os'
 import { createEmptyCard, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
 
 import { LABEL, LIST, changed, database, like } from './captures'
@@ -142,7 +143,19 @@ const DEFAULTS = {
   // service that guesses your town from your connection; off in Settings.
   weather: true,
   // A note's first picture, small, at the end of its row in every list.
-  thumbnails: true
+  thumbnails: true,
+  // Scenery: pictures from your own folders at the quiet moments. Where they
+  // come from, the four places they may show, whether they follow the time of
+  // day, how far they are dimmed, and a number "Show another" turns over.
+  scenery: true,
+  sceneryFolders: [join(homedir(), 'Documents/img/Elden Ring Environments'), join(homedir(), 'Documents/img/elden-ring')] as string[],
+  sceneryRest: true,
+  sceneryRecap: true,
+  sceneryToday: true,
+  sceneryFocus: true,
+  sceneryTime: true,
+  sceneryDim: 0.5,
+  sceneryShuffle: 0
 }
 export type Settings = typeof DEFAULTS
 
@@ -1070,11 +1083,20 @@ export function registerVigil(): void {
   handle('recap', (period: 'month' | 'year') => {
     const start = new Date()
     if (period === 'year') start.setMonth(0, 1)
-    // Early in a month there is little to say yet: the month before, whole.
-    else if (start.getDate() < 7) start.setMonth(start.getMonth() - 1, 1)
     else start.setDate(1)
     start.setHours(0, 0, 0, 0)
-    const end = period === 'month' && start.getMonth() !== new Date().getMonth() ? new Date(start.getFullYear(), start.getMonth() + 1, 1) : new Date()
+    let end = new Date()
+    let finished = false
+    // Early in a month there is little to say yet: the month before, whole,
+    // if anything was caught in it; otherwise this month so far.
+    if (period === 'month' && end.getDate() < 7) {
+      const before = new Date(start.getFullYear(), start.getMonth() - 1, 1)
+      if ((db.prepare('select count(*) n from captures where captured_at >= ? and captured_at < ?').get(before.toISOString(), start.toISOString()) as { n: number }).n) {
+        end = new Date(start)
+        start.setTime(before.getTime())
+        finished = true
+      }
+    }
     const [since, until] = [start.toISOString(), end.toISOString()]
     const rows = db.prepare(`select ${LABEL} as title, body, status, attribution, private, captured_at as at from captures where captured_at >= ? and captured_at < ?`).all(since, until) as { title: string; body: string; status: string; attribution: string | null; private: number; at: string }[]
     // Counted whole, but a private one never named: its tags and source stay out.
@@ -1090,6 +1112,8 @@ export function registerVigil(): void {
       group by r.item_id order by n desc limit 1`).get(since, until) as { title: string; n: number } | undefined
     return {
       label: period === 'year' ? String(start.getFullYear()) : start.toLocaleDateString('en', { month: 'long', year: 'numeric' }),
+      // A month already over has no "yet" about it.
+      finished,
       captures: rows.length,
       words: rows.reduce((sum, row) => sum + plain(JSON.parse(row.body ?? 'null')).split(/\s+/).filter(Boolean).length, 0),
       busiestDay,

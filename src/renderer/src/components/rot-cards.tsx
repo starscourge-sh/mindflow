@@ -12,6 +12,7 @@ import { RowMenu, copy } from './vigil/row-menu'
 import { age, ageTint } from './capture-list'
 import { Kbd, Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
+import { Rest } from './vigil/scenery'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.rot>>[number]
 
@@ -119,9 +120,11 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
 
   if (!cards.length)
     return left === 0 && !off ? (
-      <p className="mb-2 px-2 py-1 text-xs text-muted-foreground">
-        <Typed text="Nothing rotting: every old capture has taken an exit." step={28} delay={200} />
-      </p>
+      <Rest compact strip seed="rot">
+        <p className="mb-2 px-2 py-1 text-xs text-muted-foreground">
+          <Typed text="Nothing rotting: every old capture has taken an exit." step={28} delay={200} />
+        </p>
+      </Rest>
     ) : null
   return (
     <section className="mb-2">

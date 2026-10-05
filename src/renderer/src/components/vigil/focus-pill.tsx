@@ -88,14 +88,17 @@ export function FocusPill(): React.JSX.Element | null {
   const icon = 'flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)]'
 
   return (
-    <div className="flex h-screen items-center justify-center p-2">
+    // In pixels, not rem: the pill's window is a fixed 340 by 64, and at Large
+    // Interface size a rem-sized pill outgrew it and was cut off top and bottom.
+    <div className="mf-floating flex h-screen items-center justify-center p-[8px]">
       <div
         onPointerEnter={() => setHover(true)}
         onPointerLeave={() => setHover(false)}
         // Solid, whatever the theme: a glass theme's see-through colours let the
         // window behind show through the pill, lines and text and all.
-        style={{ backgroundImage: 'linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' }}
-        className={`flex h-11 w-full items-center gap-2.5 rounded-full border pr-1.5 pl-2 font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_3px_8px_-2px_rgb(0_0_0/0.12)] transition-colors duration-300 ${over ? 'border-[color-mix(in_oklab,var(--tt-brand-color-400)_40%,var(--border))]' : ''}`}
+        // Time up: an accent wash over the solid, so the pill says so from across the room.
+        style={{ backgroundImage: `${over ? 'linear-gradient(color-mix(in oklab, var(--tt-brand-color-400) 14%, transparent), color-mix(in oklab, var(--tt-brand-color-400) 14%, transparent)), ' : ''}linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))`, backgroundColor: 'Canvas' }}
+        className={`flex h-[44px] w-full items-center gap-2.5 rounded-full border pr-1.5 pl-2 font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_3px_8px_-2px_rgb(0_0_0/0.12)] transition-colors duration-300 ${over ? 'mf-timeup border-[color-mix(in_oklab,var(--tt-brand-color-400)_55%,var(--border))]' : ''}`}
       >
         <Ring share={over ? 1 : share} over={over} paused={paused} />
         {/* The goal stays put; only the right-hand end changes under the pointer. */}
@@ -134,7 +137,7 @@ export function FocusPill(): React.JSX.Element | null {
                 title={timer ? 'Done' : 'End the session, and keep it'}
                 // Past its time it has already glowed: ending it is only the tick.
                 onClick={() => void (timer ? vigil.cancelSession(focus.id) : vigil.endSession(focus.id, '', false)).then(() => (over ? chime('done') : glowEnd('done')))}
-                className={over ? 'flex h-7 items-center rounded-full bg-[var(--tt-brand-color-400)] px-3 text-xs font-semibold text-white transition-[filter] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tt-brand-color-400)]' : icon}
+                className={over ? 'flex h-7 items-center rounded-full bg-[var(--tt-brand-color-400)] px-3 text-[12px] font-semibold text-white transition-[filter] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tt-brand-color-400)]' : icon}
               >
                 {over ? 'Done' : <Square className="size-3 fill-current" />}
               </button>
@@ -166,7 +169,8 @@ export function FocusPill(): React.JSX.Element | null {
 function Ring({ share, over, paused }: { share: number | null; over: boolean; paused: boolean }): React.JSX.Element {
   const r = 8
   const around = 2 * Math.PI * r
-  const tone = over ? 'var(--tt-brand-color-400)' : 'var(--foreground)'
+  // The pill's one colour: the accent while the time runs, grey while it waits.
+  const tone = paused && !over ? 'var(--foreground)' : 'var(--tt-brand-color-400)'
   return (
     <svg viewBox="0 0 22 22" className="size-[22px] shrink-0 -rotate-90" aria-hidden>
       <circle cx="11" cy="11" r={r} fill="none" stroke="var(--border)" strokeWidth="2.5" />

@@ -121,7 +121,9 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --font-heading: var(--font-sans);
+  /* `font-heading`: a title that is not an h1-h4 (an input, a moment's line)
+     still takes the heading font chosen in Settings. */
+  --font-heading: var(--mf-heading-font, var(--font-sans));
   /* The app's own words follow the font chosen in Settings, unless that is set to notes only. */
   --font-sans: var(--mf-app-font, 'Fraunces Variable', Georgia, serif);
   /* Six type roles, so a size says what the text is rather than a pixel count. */
@@ -143,6 +145,11 @@
   /* key: the letters on keycaps. */
   --text-key: 0.6875rem;
   --text-key--line-height: 1;
+  /* Tailwind's own depths, same shapes, in the warm ink the panels use
+     (--mf-shadow-ink) instead of black: the capture box's card keeps its lift
+     without a grey smudge under it on a light page. */
+  --shadow-sm: 0 1px 3px 0 color-mix(in oklab, var(--mf-shadow-ink) 10%, transparent), 0 1px 2px -1px color-mix(in oklab, var(--mf-shadow-ink) 10%, transparent);
+  --shadow-xl: 0 20px 25px -5px color-mix(in oklab, var(--mf-shadow-ink) 12%, transparent), 0 8px 10px -6px color-mix(in oklab, var(--mf-shadow-ink) 12%, transparent);
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
@@ -175,9 +182,18 @@
 }
 
 /* One depth for every floating panel, the editor's and the app's alike. The
-   editor reads this too, with its own fallback, so it still stands alone. */
+   editor reads this too, with its own fallback, so it still stands alone.
+   Two layers, the way a sheet of paper lifts: a crisp edge where it nearly
+   touches, and a soft spread further out. Both in a warm ink rather than pure
+   black, so the shadow belongs to the page it falls on. */
 :root {
-  --mf-panel-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  --mf-shadow-ink: oklch(0.2 0.02 50);
+  /* The one curve the app moves on, the same one its Motion animations use:
+     quick to answer, slow to settle, so a change lands rather than stops. */
+  --mf-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --mf-panel-shadow:
+    0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 16%, transparent),
+    0 12px 32px -6px color-mix(in oklab, var(--mf-shadow-ink) 32%, transparent);
 }
 
 /* The window is transparent and sits on a frosted desktop; the page paints no
@@ -202,7 +218,7 @@ body {
   /* The only surface painting the page colour, so this is the only place a
      theme change is visible. Variables cannot be transitioned; the property
      reading them can, so the swap fades instead of snapping. */
-  transition: background-color 300ms ease-out;
+  transition: background-color 300ms var(--mf-ease);
 }
 
 :root.light,
@@ -222,7 +238,7 @@ body {
   display: flex;
   gap: 0.5rem;
   opacity: 0;
-  transition: opacity 150ms ease-out;
+  transition: opacity 150ms var(--mf-ease);
 }
 
 .app-container.pointer-in .mf-dots {
@@ -283,7 +299,7 @@ body {
   color: color-mix(in srgb, var(--foreground) 45%, transparent);
   opacity: 0;
   outline: none;
-  transition: opacity 150ms ease-out, color 120ms ease-out, background-color 120ms ease-out;
+  transition: opacity 150ms var(--mf-ease), color 120ms var(--mf-ease), background-color 120ms var(--mf-ease);
 }
 
 .app-container.pointer-in .mf-expand {
@@ -371,6 +387,7 @@ html[data-width='page'] .mindflow-editor-wrapper:not(.is-line) .tiptap.ProseMirr
 button:not(:disabled):not(.tiptap-drag-handle *) {
   transition-property: color, background-color, border-color, opacity, transform;
   transition-duration: 120ms;
+  transition-timing-function: var(--mf-ease);
 }
 button:not(:disabled):not(.tiptap-drag-handle *):active {
   transform: scale(0.97);
@@ -452,10 +469,15 @@ html[data-width='full'] .note-pane {
 
 /* A window that has lost focus dims slightly, and comes back as you return. */
 body {
-  transition: opacity 0.2s ease-out;
+  transition: opacity 0.2s var(--mf-ease);
 }
 [data-blurred='on'] body {
   opacity: 0.55;
+}
+/* Except the floating timer: it is never the window you are in, and a
+   pill at half strength read as a timer that had stopped. */
+[data-blurred='on'] body:has(.mf-floating) {
+  opacity: 1;
 }
 
 /* The row a right-click menu belongs to stays marked while the menu is open. */
@@ -469,7 +491,7 @@ body {
    open. Search shows them plainly; you typed the words. */
 [data-private] .private-text {
   filter: blur(2.5px);
-  transition: filter 150ms ease-out;
+  transition: filter 150ms var(--mf-ease);
 }
 /* Shown plainly for a while, by choice: the switch in the prompt's app menu. */
 :root[data-reveal] [data-private] .private-text,
@@ -590,6 +612,8 @@ input[list]::-webkit-calendar-picker-indicator { display: none !important; }
    text, Dia's way); otherwise they are the text's. */
 :is(h1, h2, h3, h4) {
   font-family: var(--mf-heading-font, inherit);
+  /* A heading that wraps breaks evenly, not with one word left on a line. */
+  text-wrap: balance;
 }
 
 /* Postcards, a choice in Settings: a picture in a note sits in a white
@@ -600,4 +624,28 @@ input[list]::-webkit-calendar-picker-indicator { display: none !important; }
   background: #fff;
   border-radius: 0.75rem;
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.14), 0 10px 28px -10px rgb(0 0 0 / 0.35);
+}
+
+/* The focus pill at time up: two rings of the accent leave its edge, with the
+   screen glow and the bell, then it holds still and waits for you. */
+.mf-timeup {
+  animation: mf-timeup 1.1s cubic-bezier(0.16, 1, 0.3, 1) 2;
+}
+@keyframes mf-timeup {
+  from { box-shadow: 0 1px 2px rgb(0 0 0 / 0.14), 0 0 0 0 color-mix(in oklab, var(--tt-brand-color-400) 55%, transparent); }
+  to { box-shadow: 0 1px 2px rgb(0 0 0 / 0.14), 0 0 0 8px color-mix(in oklab, var(--tt-brand-color-400) 0%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) { .mf-timeup { animation: none; } }
+
+/* An island is a tray, not a printed box: a hair of light along its top
+   inside edge, as on a machined part. Every theme wears `dark`, so the light
+   pages are named: there the hair is brighter and a faint lift sits under the
+   island, so it rests on the page instead of being drawn on it. */
+.mf-island {
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 5%, transparent);
+}
+:root:is(.light, .paper) .mf-island {
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 60%, transparent),
+    0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 5%, transparent);
 }

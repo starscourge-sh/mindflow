@@ -10,6 +10,7 @@ import { makeTask } from '@/lib/tasks'
 import { Kbd, Rolling } from './ui'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { exit } from '@/lib/capture-links'
+import { Scenery } from './scenery'
 
 export type Readable = { type: string; id: string }
 
@@ -130,7 +131,8 @@ export function ReadThrough({ items, start = 0, onClose }: {
 
   if (!item) return null
   return (
-    <div ref={box} tabIndex={-1} className="fixed inset-0 z-[55] flex flex-col bg-background outline-none" role="dialog" aria-label="Reading">
+    <div ref={box} tabIndex={-1} className="fixed inset-0 z-[55] isolate flex flex-col bg-background outline-none" role="dialog" aria-label="Reading">
+      <Scenery place="focus" seed={`read:${new Date().toDateString()}`} text="middle" className="absolute inset-0 -z-10" />
       <AnimatePresence mode="wait" initial={false}>
         <motion.article
           key={item.id}

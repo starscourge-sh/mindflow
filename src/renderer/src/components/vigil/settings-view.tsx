@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { PACKS, chime, click, soundOn, step } from '@/lib/sound'
 import { NOTE_FONTS } from '@/lib/editor-setup'
-import { Brain, Download, HardDrive, Inbox, Keyboard, LifeBuoy, ListChecks, Palette, PenLine, Search as SearchIcon, Sparkles, Volume2, X, type LucideIcon } from 'lucide-react'
+import { Brain, Download, FolderPlus, HardDrive, Inbox, Keyboard, LifeBuoy, ListChecks, Mountain, Palette, PenLine, Search as SearchIcon, Sparkles, Volume2, X, type LucideIcon } from 'lucide-react'
 import { allThemes, applyTheme, customThemes, frosted, importTheme, removeTheme, restoreTheme, setFrosted, themeName } from '@/lib/theme'
 import { Marked, ShortcutList } from './shortcut-sheet'
 import { Swatch } from '../theme/theme-picker'
@@ -62,6 +62,7 @@ function Setting({ title, children, note, below, keywords = '' }: {
  */
 const SECTIONS: { title: string; icon: LucideIcon; tile: string }[] = [
   { title: 'Appearance', icon: Palette, tile: 'bg-violet-500' },
+  { title: 'Scenery', icon: Mountain, tile: 'bg-lime-600' },
   { title: 'Writing', icon: PenLine, tile: 'bg-orange-500' },
   { title: 'Capturing', icon: Inbox, tile: 'bg-sky-500' },
   { title: 'What comes back to you', icon: Sparkles, tile: 'bg-amber-500' },
@@ -85,7 +86,7 @@ function Group({ title, section = title, children }: { title: string; section?: 
       <section className="mt-6 first:mt-0 [&:not(:has([data-setting]))]:hidden">
         {/* Searching, rows from every section show at once, so each island says whose it is. */}
         <h2 className="mb-2 px-1 text-body font-semibold text-foreground">{query.trim() && <span className="font-normal text-muted-foreground">{section} · </span>}<Marked text={title} query={query} /></h2>
-        <div className="divide-y divide-border/60 overflow-hidden rounded-xl border bg-accent/25">{children}</div>
+        <div className="mf-island divide-y divide-border/60 overflow-hidden rounded-xl border bg-accent/25">{children}</div>
       </section>
     </Query.Provider>
   )
@@ -325,6 +326,42 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
 
+        <Group section="Scenery" title="Pictures at rest">
+          <Setting title="Scenery" note="Pictures from your own folders at the quiet moments: an empty inbox, a finished review, the top of today's page. Only where you rest, never behind your work." keywords="pictures images photos wallpaper background landscape scenes art">
+            <Switch checked={settings.scenery} onCheckedChange={(scenery) => (set({ scenery }), chime(scenery ? 'on' : 'off'))} />
+          </Setting>
+          <SceneryFolders folders={settings.sceneryFolders} on={settings.scenery} onSave={(sceneryFolders) => set({ sceneryFolders })} />
+          <Setting title="Show another" note="A different picture in every place at once. The ones you see stay put otherwise: one a day, the same all day." keywords="shuffle next change picture random">
+            <Button variant="outline" size="sm" disabled={!settings.scenery} onClick={() => {
+              const was = settings.sceneryShuffle ?? 0
+              set({ sceneryShuffle: was + 1 })
+              chime('scene')
+              toast('Another set of pictures', () => set({ sceneryShuffle: was }))
+            }}>Show another</Button>
+          </Setting>
+        </Group>
+        <Group section="Scenery" title="Where they show">
+          {([
+            ['sceneryRest', 'When there is nothing to do', 'Inbox empty, review done, nothing due today, nothing rotting: a wide picture above the sentence that says so.', 'empty inbox zero review done'],
+            ['sceneryToday', "Today's page", "A painted strip across the top of each day's page, the same picture all that day. With Postcards on, it sits in a white frame.", 'banner header day daily'],
+            ['sceneryRecap', 'Recaps', 'Each page of a month or year recap over its own picture: morning light for the opening, night for the close.', 'wrapped month year'],
+            ['sceneryFocus', 'Reading and Focus', 'Behind Read mode and ⇧⌘F Focus, dimmed far enough that the words read as well as on a plain page.', 'read mode focus backdrop']
+          ] as const).map(([key, title, note, keywords]) => (
+            <Setting key={key} title={title} note={note} keywords={`scenery pictures ${keywords}`}>
+              <Switch disabled={!settings.scenery} checked={settings[key] !== false} onCheckedChange={(on) => (set({ [key]: on }), chime(on ? 'on' : 'off'))} />
+            </Setting>
+          ))}
+        </Group>
+        <Group section="Scenery" title="How they look">
+          <Setting title="Match the time of day" note="Golden scenes in the morning and afternoon, dusk in the evening, night and candlelight after dark. Off, any picture at any hour." keywords="scenery morning evening night dusk golden hour mood">
+            <Switch disabled={!settings.scenery} checked={settings.sceneryTime} onCheckedChange={(sceneryTime) => (set({ sceneryTime }), chime(sceneryTime ? 'on' : 'off'))} />
+          </Setting>
+          <Setting title="Dimness" note="How far the pictures fade toward the page colour. Wherever words sit over one, it is dimmed further still, so they always read clearly." keywords="scenery dim darken fade brightness opacity">
+            <SettingSlider disabled={!settings.scenery} min={0} max={0.9} step={0.05} value={settings.sceneryDim} onSave={(sceneryDim) => set({ sceneryDim })} />
+            <span className="w-10 text-right tabular-nums"><Rolling text={`${Math.round(settings.sceneryDim * 100)}%`} /></span>
+          </Setting>
+        </Group>
+
         <Group section="Writing" title="As you write">
           <Setting title="Math as you type" note="End a line with = and its answer shows after it; Tab writes it in. lunch = 25 names a number for the lines below. Units and money work too: 5 km in mi, $40 * 3 in EUR.">
             <Switch checked={settings.calc} onCheckedChange={(calc) => set({ calc })} />
@@ -535,7 +572,7 @@ function ImportedThemes(): React.JSX.Element {
           refresh()
           applyTheme(made.id)
           chime('settled')
-          toast(`Imported ${made.name}, and wearing it`, () => (made.undo(), refresh()))
+          toast(`Imported ${made.name} and switched to it`, () => (made.undo(), refresh()))
         })
       }} />
       <Button variant="outline" size="sm" onClick={() => file.current?.click()}>Import a theme…</Button>
@@ -574,6 +611,48 @@ function HintTuning(): React.JSX.Element | null {
     <p className="px-4 py-3 text-meta leading-relaxed text-[var(--tt-color-text-orange)]">
       Only {tuning.stopped} of the last {tuning.shown} hints stopped you, so half as many are being shown: 1 in {Math.round(1 / tuning.rate)}. It goes back up when they start landing again.
     </p>
+  )
+}
+
+/**
+ * The folders Scenery takes its pictures from: each with a count of what is
+ * ready in it, a way to take it out (undoable), and one to add another.
+ */
+function SceneryFolders({ folders, on, onSave }: { folders: string[]; on: boolean; onSave: (folders: string[]) => void }): React.JSX.Element {
+  const found = useLive(() => (on && folders.length ? vigil.scenery(folders) : Promise.resolve(null)), null as Awaited<ReturnType<typeof vigil.scenery>> | null, [on, JSON.stringify(folders)])
+  const ready = found?.scenes.length ?? 0
+  return (
+    <Setting
+      title="Folders"
+      note={`Where the pictures come from. They stay where they are: Vigil keeps only smaller copies for itself, and looks for new ones every ten minutes or so.${on && found ? ` ${ready} ${ready === 1 ? 'picture' : 'pictures'} ready${found.scanning ? ', more on the way' : ''}.` : ''}`}
+      keywords="scenery folder pictures images add remove choose"
+      below={folders.length > 0 && (
+        <div className="mt-2 flex flex-col gap-1">
+          {folders.map((folder) => (
+            <span key={folder} className="flex items-center gap-2 rounded-md border py-1 pr-1 pl-2.5 text-control">
+              <span className="min-w-0 flex-1 truncate" title={folder}>{folder.split('/').slice(-2).join('/')}</span>
+              <button type="button" aria-label={`Remove ${folder}`} className="rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => {
+                onSave(folders.filter((one) => one !== folder))
+                chime('away')
+                toast(`Removed ${folder.split('/').pop()}`, () => onSave(folders))
+              }}>
+                <X className="size-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    >
+      <Button variant="outline" size="sm" onClick={() => void vigil.sceneryFolder().then((folder) => {
+        if (!folder) return
+        if (folders.includes(folder)) return refuse('That folder is already in the list')
+        onSave([...folders, folder])
+        chime('settled')
+        toast(`Added ${folder.split('/').pop()}`, () => onSave(folders))
+      })}>
+        <FolderPlus className="size-4" /> Add a folder…
+      </Button>
+    </Setting>
   )
 }
 

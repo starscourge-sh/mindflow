@@ -1,19 +1,45 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
+import { useEffect, useState, type ReactElement, type ReactNode } from 'react'
+import { AnimatePresence, animate, motion, useMotionValue, useTransform, type Variants } from 'motion/react'
 import { X } from 'lucide-react'
 
 import { chime } from '@/lib/sound'
-import { vigil, type Recap as Data } from '@/lib/vigil'
+import { vigil, type Mood, type Recap as Data } from '@/lib/vigil'
 import { Kbd, Rolling, Typed } from './ui'
 import { Button } from '@/components/ui/button'
+import { Scenery } from './scenery'
+
+/** The light each page sits in: the year opens at dawn and closes at night. */
+const RECAP_MOODS: Record<string, Mood> = { intro: 'day', captures: 'day', busiest: 'day', tags: 'dusk', sources: 'dusk', exits: 'interior', reviewed: 'night', outro: 'night', none: 'night' }
+
+const PAGE_MOTION: Variants = {
+  enter: (dir: number) => ({ opacity: 0, x: 28 * dir }),
+  show: { opacity: 1, x: 0, transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] } },
+  leave: (dir: number) => ({ opacity: 0, x: -20 * dir, transition: { duration: 0.14, ease: [0.4, 0, 1, 1] } })
+}
 
 const plural = (n: number, one: string, many: string): string => `${n.toLocaleString()} ${n === 1 ? one : many}`
 
-/** A big number that rolls up into place, with what it counts under it. */
+/**
+ * A number counted up from nothing as its page arrives, fast at first and
+ * easing into its place, the way a total is added up in front of you. Figures
+ * of one width, so the line holds still as it climbs. With Motion off, motion
+ * skips straight to the total.
+ */
+function CountUp({ n }: { n: number }): React.JSX.Element {
+  const value = useMotionValue(0)
+  const shown = useTransform(value, (at) => Math.round(at).toLocaleString())
+  useEffect(() => {
+    const run = animate(value, n, { duration: Math.min(1.6, 0.6 + Math.log10(n + 1) * 0.3), delay: 0.25, ease: [0.16, 1, 0.3, 1] })
+    return () => run.stop()
+  }, [n, value])
+  return <motion.span aria-label={n.toLocaleString()}>{shown}</motion.span>
+}
+
+/** A big number that counts up into place, with what it counts under it. */
 function Big({ n, children }: { n: number; children: ReactNode }): React.JSX.Element {
   return (
     <div>
-      <div className="text-[clamp(3rem,12vw,6rem)] leading-none font-semibold tabular-nums text-foreground"><Rolling text={n.toLocaleString()} /></div>
+      <div className="text-[clamp(3rem,12vw,6rem)] leading-none font-semibold tabular-nums text-foreground"><CountUp n={n} /></div>
       <div className="mt-2 text-heading text-muted-foreground">{children}</div>
     </div>
   )
@@ -43,10 +69,12 @@ function Ranked({ rows, prefix = '' }: { rows: { name: string; n: number }[]; pr
 export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: () => void }): React.JSX.Element {
   const [data, setData] = useState<Data | null>(null)
   const [at, setAt] = useState(0)
+  // Which way the last step went, so a page slides in from the side you are heading to.
+  const [dir, setDir] = useState(1)
   useEffect(() => void vigil.recap(period).then(setData), [period])
 
   const pages: ReactNode[] = !data ? [] : data.captures === 0 ? [
-    <p key="none" className="text-title"><Typed text={`Nothing was captured in ${data.label} yet. Come back when there is.`} /></p>
+    <p key="none" className="text-title"><Typed text={data.finished ? `Nothing was captured in ${data.label}.` : `Nothing was captured in ${data.label} yet. Come back when there is.`} /></p>
   ] : [
     <div key="intro" className="space-y-3">
       <p className="text-heading text-muted-foreground">Your recap</p>
@@ -99,10 +127,12 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
   ].filter(Boolean)
 
   const last = pages.length - 1
+  const pageKey = String((pages[at] as ReactElement | undefined)?.key ?? 'none')
   const go = (to: number): void => {
     const next = Math.max(0, Math.min(last, to))
     if (next === at) return
     chime(next === last ? 'wrapped' : 'page')
+    setDir(next > at ? 1 : -1)
     setAt(next)
   }
   useEffect(() => {
@@ -126,7 +156,9 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
       className="absolute inset-0 z-40 flex flex-col bg-[color-mix(in_srgb,var(--tt-brand-color-400)_8%,var(--background))]"
       aria-label="Recap"
     >
-      <div className="flex items-center gap-3 px-5 pt-4">
+      {/* Each page over a scene of its own mood: morning for the opening, night for the close. */}
+      <Scenery place="recap" seed={`recap:${period}:${data?.label}:${pageKey}`} mood={[RECAP_MOODS[pageKey] ?? 'day']} text="left" className="absolute inset-0" />
+      <div className="relative flex items-center gap-3 px-5 pt-4">
         {/* Where you are, as dots: nothing to fill before you have begun. */}
         <div className="flex flex-1 gap-1.5">
           {pages.map((_, index) => (
@@ -142,14 +174,20 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
         const box = event.currentTarget.getBoundingClientRect()
         go(event.clientX - box.left > box.width / 3 ? at + 1 : at - 1)
       }}>
-        <AnimatePresence mode="wait">
+        {/* Sideways, the way the arrows point: forward slides in from the right
+            and leaves to the left, back the other way. The old page goes
+            quickly, so the next one is never waited for. */}
+        <AnimatePresence mode="wait" custom={dir}>
           <motion.div
             key={at}
-            initial={{ opacity: 0, y: 24, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -16 }}
-            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full max-w-2xl"
+            custom={dir}
+            variants={PAGE_MOTION}
+            initial="enter"
+            animate="show"
+            exit="leave"
+            // The recap's every line in the heading font: the one place the app
+            // speaks at length, so it speaks in its own voice.
+            className="w-full max-w-2xl font-heading"
           >
             {pages[at]}
           </motion.div>

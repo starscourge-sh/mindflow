@@ -43,6 +43,7 @@ import { TasksView } from './components/vigil/tasks-view'
 import { WeekView } from './components/vigil/week-view'
 import { placed } from './lib/tasks'
 import { Kbd, Rolling, Toaster, toast, typing, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
+import { FocusScenery } from './components/vigil/scenery'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import { useAppearance, useLive, vigil, type Item, type Settings, type Task } from './lib/vigil'
 import { Tip, showTopTitle, useTopTitle } from '@/components/vigil/ui'
@@ -274,13 +275,14 @@ export function Home(): React.JSX.Element {
 
   return (
     <TooltipProvider delayDuration={600}>
-    <div className="flex h-screen flex-col bg-background text-foreground">
+    <div className="isolate flex h-screen flex-col bg-background text-foreground">
       {/* Centred over the page, not the sidebar beside it. */}
       <div className={`contents ${sidebar ? (narrow ? '[--toast-left:4rem]' : '[--toast-left:15rem]') : ''}`}><Toaster /></div>
       <NotePreview />
       <ShortcutSheet />
       <Tour firstRun />
       <FocusNote />
+      <FocusScenery />
       {searching && (
         <Search
           // The same palette as the prompt's: places to go and things to switch.
@@ -322,7 +324,7 @@ export function Home(): React.JSX.Element {
           on them says it does not. */}
       <div className="flex min-h-0 flex-1 gap-2 p-2">
       {sidebar && (
-      <aside data-chrome className={`flex shrink-0 flex-col overflow-y-auto rounded-xl border bg-accent/20 p-2 pb-3 ${narrow ? 'w-12' : 'w-56'}`}>
+      <aside data-chrome className={`group/side flex shrink-0 flex-col overflow-y-auto rounded-xl border bg-accent/20 p-2 pb-3 ${narrow ? 'w-12' : 'w-56'}`}>
         {/* Room for the traffic lights, and somewhere to hold the window by. */}
         <div className="h-8 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
         <button
@@ -366,7 +368,12 @@ export function Home(): React.JSX.Element {
               onClick={() => setView({ id: section.id })}
               className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors ${narrow ? 'justify-center px-0' : 'px-2'} ${view.id === section.id ? 'bg-accent text-foreground' : 'text-foreground/80 hover:bg-accent/60'}`}
             >
-              <section.icon className="size-4" style={{ color: `var(--tt-color-text-${section.tint})` }} />
+              {/* Each icon keeps its colour, softened while at rest so eleven hues do not
+                  shout at once; the one you are on, or reaching for, is in full. */}
+              <section.icon
+                className={`size-4 transition-colors ${view.id === section.id ? 'text-[var(--tint)]' : 'text-[color-mix(in_oklab,var(--tint)_55%,var(--muted-foreground))] group-hover:text-[var(--tint)]'}`}
+                style={{ '--tint': `var(--tt-color-text-${section.tint})` } as CSSProperties}
+              />
               {!narrow && <span className="flex-1 text-left">{section.label}</span>}
               {!narrow && counts[section.id] ? (
                 <Rolling
@@ -459,8 +466,9 @@ export function Home(): React.JSX.Element {
             {!narrow && <span className="flex-1 text-left">Settings</span>}
           </button>
           </Tip>
+          {/* Faint until the pointer comes to the sidebar: read once, then out of the way. */}
           {!narrow && (
-            <p className="mt-2 px-2 text-xs whitespace-nowrap text-muted-foreground">
+            <p className="mt-2 px-2 text-xs whitespace-nowrap text-muted-foreground opacity-60 transition-opacity duration-200 group-hover/side:opacity-100">
               <Kbd>G</Kbd> jump <span className="mx-1">·</span> <Kbd>C</Kbd> capture <span className="mx-1">·</span> <Kbd>?</Kbd> keys
             </p>
           )}

@@ -18,7 +18,7 @@ import { ReviewView } from './components/vigil/review-view'
 import { useAppearance, useLive } from './lib/vigil'
 import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, ask, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt } from './components/vigil/ui'
 import { TooltipProvider } from './components/ui/tooltip'
-import { Rolling, Toaster, Typed, beam, refuse, toast } from './components/vigil/ui'
+import { Rolling, Toaster, Typed, beam, refuse, toast, whyFailed } from './components/vigil/ui'
 import { Reader } from './components/vigil/reader'
 import { OptionsMenu } from './components/vigil/options-menu'
 import { ReadThrough, type Readable } from './components/vigil/read-through'
@@ -62,6 +62,7 @@ import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
 import { useStoredFlag } from '@/lib/use-stored-flag'
 import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
+import { FocusScenery, Rest } from './components/vigil/scenery'
 
 
 
@@ -75,6 +76,18 @@ const readDraft = (): JSONContent | undefined => {
     return hasContent(saved) ? saved : undefined
   } catch {
     return undefined
+  }
+}
+
+/**
+ * The draft put by for later. A note too big for the window's small store (a
+ * few large pictures) is not kept as a draft, rather than breaking the box.
+ */
+const putDraft = (doc: unknown): void => {
+  try {
+    localStorage.setItem('capture-draft', JSON.stringify(doc))
+  } catch {
+    // Still in the box; only quitting now would lose it.
   }
 }
 
@@ -356,7 +369,7 @@ export default function App(): React.JSX.Element {
 
   // Kept as you type, so a half-written note survives quitting.
   useEffect(() => {
-    if (!editing) localStorage.setItem('capture-draft', JSON.stringify(body))
+    if (!editing) putDraft(body)
   }, [body, editing])
 
   // The same idea arriving again is a vote, not a duplicate: say so quietly,
@@ -373,7 +386,7 @@ export default function App(): React.JSX.Element {
   const [reading, setReading] = useState<{ type: string; id: string } | null>(null)
   const openAny = (type: string, id: string, travelling = false): void => {
     if (type === 'capture') return openCapture(id, travelling)
-    if (!latestEditing.current && editorRef.current) localStorage.setItem('capture-draft', JSON.stringify(editorRef.current.getJSON()))
+    if (!latestEditing.current && editorRef.current) putDraft(editorRef.current.getJSON())
     // A nugget, article or task is a step in the box's history too: ⌘[ comes back.
     const step = `${type}:${id}`
     if (!travelling) setTrail((now) => (now.stack[now.at] === step ? now : { stack: [...now.stack.slice(0, now.at + 1), step], at: now.at + 1 }))
@@ -510,7 +523,7 @@ export default function App(): React.JSX.Element {
     setReading(null)
     // The note being written is kept as it is now, not as it was at the last
     // pause in typing, or opening another straight after typing loses words.
-    if (!latestEditing.current && editorRef.current) localStorage.setItem('capture-draft', JSON.stringify(editorRef.current.getJSON()))
+    if (!latestEditing.current && editorRef.current) putDraft(editorRef.current.getJSON())
     void window.api.captures.get(id).then((found) => {
       if (!found) return
       setEditing({ id, body: found.body as JSONContent })
@@ -582,6 +595,8 @@ export default function App(): React.JSX.Element {
   useEffect(() => window.api.onHiding(() => latestEditing.current && fresh(true)), [])
   // The capture open here is the note ⌘K acts on, as in the main window.
   const editingMeta = editing ? captures.find((one) => one.id === editing.id) : undefined
+  // The draft set aside while a kept capture is open, read once a render.
+  const waiting = editing ? readDraft() : undefined
   useOpenNote(editingMeta ? { table: 'captures', type: 'capture', id: editingMeta.id, kind: editingMeta.kind, archived: !!editingMeta.archivedAt } : null)
   useEffect(() => {
     // Opened in a window of its own, from here or another window: put down
@@ -621,7 +636,7 @@ export default function App(): React.JSX.Element {
     fresh()
     if (!hasContent(draft ?? null)) return
     toast('Draft cleared', () => {
-      localStorage.setItem('capture-draft', JSON.stringify(draft))
+      putDraft(draft)
       keepLifted(links)
       fresh(true)
     })
@@ -640,6 +655,8 @@ export default function App(): React.JSX.Element {
   const submit = (once = false): void => {
     const more = once || createMore
     if (editing) return fresh(true)
+    // A second ⌘↵ while the first is still on its way would keep it twice.
+    if (sending) return
     // Read from the editor itself: its onChange waits for a pause in the
     // typing, and ⌘↵ often comes before one.
     const doc = editorRef.current?.getJSON() ?? body
@@ -662,7 +679,7 @@ export default function App(): React.JSX.Element {
         // Undone, the words come back into the box as they were typed.
         toast(`Timer set: ${lengthSaid(timer.ms)}${timer.goal === 'Timer' ? '' : ` for ${timer.goal}`}`, () => {
           void vigil.cancelSession(id)
-          localStorage.setItem('capture-draft', JSON.stringify(doc))
+          putDraft(doc)
           fresh(true)
         })
       })
@@ -722,6 +739,24 @@ export default function App(): React.JSX.Element {
           fresh()
           window.api.hideWindow()
         }, 180)
+      }, (error: unknown) => {
+        // Not kept: the words must not go with it. Without ⌥ they are still in
+        // the box; with it the box was already cleared, so they come back into
+        // it, or, if the next note is under way, on a key from the toast.
+        keepLifted(pieces)
+        setSending(false)
+        const why = `Not saved: ${whyFailed(error)}.`
+        const restore = (): void => {
+          putDraft(doc)
+          fresh(true)
+        }
+        if (!more) return refuse(`${why} Your note is still here.`)
+        if (!latestEditing.current && !hasContent(editorRef.current?.getJSON() ?? null)) {
+          restore()
+          return refuse(`${why} Your note is back in the box.`)
+        }
+        chime('nope')
+        toast(why, undefined, 'error', { label: 'Bring it back', key: 'B', run: restore })
       })
   }
   // ⌘↵ from anywhere in the window saves and closes; ⌥⌘↵ saves and starts another. Caught before the
@@ -757,7 +792,7 @@ export default function App(): React.JSX.Element {
 
   return (
     <TooltipProvider delayDuration={500}>
-    <div className={`app-container ${pointerIn ? 'pointer-in' : ''} flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-10 color-white`}>
+    <div className={`app-container ${pointerIn ? 'pointer-in' : ''} isolate flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-10 color-white`}>
       {/* Toasts sit above the box's footer here, clear of Create. */}
       {/* Toasts over the note, above its footer: clear of Create and of the panel. */}
       <div className={`contents [--toast-bottom:6.5rem] ${panel ? '[--toast-right:440px]' : ''}`}><Toaster /></div>
@@ -825,6 +860,7 @@ export default function App(): React.JSX.Element {
         />
       )}
       <FocusNote />
+      <FocusScenery />
       <Header panel={panel} onPanel={() => setPanel(!panel)} nav={trail.stack.length > 1 && (
         // Back and forward, joined in one pill as Safari and Raycast do it.
         <span className="ml-3 flex items-center self-center rounded-full border border-foreground/15 [&_svg]:size-3">
@@ -921,15 +957,17 @@ export default function App(): React.JSX.Element {
                 setBody(doc)
                 // The kind follows the wording of the first line until you choose one.
                 if (!chosen && !editing) setKind((kindOf(firstLine(doc)) ?? 'note') as CaptureType)
-                saveField({ body: doc, markdown: toMarkdown(editor) })
+                // Only a capture already kept is written as you type; a new note's
+                // Markdown is made once, when it is saved, not on every pause.
+                if (editing) saveField({ body: doc, markdown: toMarkdown(editor) })
               }}
             />
             {/* Reading another capture with a note half written: the way back
                 to it stays in view, so a link followed never loses the draft. */}
-            {editing && readDraft() && (
+            {waiting && (
               <div className="flex items-center gap-2 px-[4.75rem] pt-2 text-xs text-muted-foreground">
                 {/* A sentence, so it types in; the key drawn as a key. */}
-                <span className="truncate"><Typed text={`Your draft “${(firstLine(readDraft()) || 'unfinished').slice(0, 32)}${(firstLine(readDraft()) ?? '').length > 32 ? '…' : ''}” is waiting:`} /></span>
+                <span className="truncate"><Typed text={`Your draft “${(firstLine(waiting) || 'unfinished').slice(0, 32)}${(firstLine(waiting) ?? '').length > 32 ? '…' : ''}” is waiting:`} /></span>
                 <span className="flex shrink-0 items-center gap-1"><Kbd>⌘[</Kbd> takes you back.</span>
               </div>
             )}
@@ -980,7 +1018,8 @@ export default function App(): React.JSX.Element {
                   // roll in when a match arrives, and roll over when it changes.
                   className="group/like ml-auto flex max-w-64 cursor-pointer items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--tt-brand-color-400)_35%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_12%,transparent)] px-2.5 py-0.5 text-xs text-foreground animate-in fade-in-0 zoom-in-95 duration-200 hover:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_20%,transparent)]"
                 >
-                  <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-[var(--tt-brand-color-400)]" />
+                  {/* Still, not pulsing: it turns up while you write, and a beat that never stops pulls the eye off the words. */}
+                  <span className="size-1.5 shrink-0 rounded-full bg-[var(--tt-brand-color-400)]" />
                   <span className="truncate"><Rolling by="word" text={`Similar to MF-${like.number}`} /></span>
                   {/* Says it goes somewhere: an arrow that leans further on hover. */}
                   <ArrowUpRight className="size-3.5 shrink-0 text-[var(--tt-brand-color-400)] transition-transform group-hover/like:translate-x-0.5 group-hover/like:-translate-y-0.5" />
@@ -1496,7 +1535,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                   open.length ? (
                     <Empty compact shape={['ellipse', 3]} title="Nothing matches">Display's filters hide everything here. Change them, or clear them.</Empty>
                   ) : (
-                    <Empty compact shape={['flower', 2]} title="Nothing waiting">Every capture has taken its exit. Write the next thought on the left.</Empty>
+                    <Rest compact seed="inbox"><Empty compact shape={['flower', 2]} title="Nothing waiting">Every capture has taken its exit. Write the next thought on the left.</Empty></Rest>
                   )
                 )}
               </>

@@ -18,6 +18,14 @@ export function RowMenu({ items, children }: { items: MenuItem[]; children: Reac
       <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
       <ContextMenuContent
         className="w-56"
+        // An item that opens its own picker (Change kind…) keeps the keys
+        // there: the menu would otherwise hand focus back to the row.
+        onCloseAutoFocus={(event) => {
+          const picker = document.querySelector<HTMLElement>('[aria-modal="true"]')
+          if (!picker) return
+          event.preventDefault()
+          picker.querySelector<HTMLElement>('input, textarea, button')?.focus()
+        }}
         // The key a row shows works here too, on the row that was
         // right-clicked: press R with the menu open and that row resolves.
         onKeyDown={(event) => {

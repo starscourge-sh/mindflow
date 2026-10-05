@@ -526,8 +526,8 @@ function Surface({
    * Scroll the document while a block is dragged near its edge.
    *
    * Without it a block can only travel as far as one screenful, which on a
-   * long note is most of the way to useless. It runs on a frame loop rather
-   * than on `dragover`, because the gesture is to hold still at the edge and
+   * long note is most of the way to useless. It runs on a frame loop while a
+   * drag is on rather than on `dragover` alone, because the gesture is to hold still at the edge and
    * wait - and an event that only fires on movement stops the moment you do.
    */
   const dragScroll = useCallback((box: HTMLElement | null) => {
@@ -547,12 +547,14 @@ function Surface({
     // frame loop that asks for an eased step every frame never arrives.
     const by = (delta: number): void => box.scrollBy({ top: delta, behavior: "instant" })
 
+    // Only while something is being dragged: a loop left running would tick
+    // every frame for as long as the editor is open, seen or not.
     const step = (now: number): void => {
+      if (at === null) return void (frame = 0)
       frame = requestAnimationFrame(step)
       // Capped, so a frame after a stall does not jump a screenful.
       const seconds = Math.min(now - last, 50) / 1000
       last = now
-      if (at === null) return
 
       const { top, bottom } = box.getBoundingClientRect()
       const above = at - top
@@ -564,6 +566,9 @@ function Surface({
 
     const follow = (event: DragEvent): void => {
       at = event.clientY
+      if (frame) return
+      last = performance.now()
+      frame = requestAnimationFrame(step)
     }
     const stop = (): void => {
       at = null
@@ -572,7 +577,6 @@ function Surface({
     box.addEventListener('dragover', follow)
     document.addEventListener('dragend', stop)
     document.addEventListener('drop', stop)
-    frame = requestAnimationFrame(step)
 
     return () => {
       cancelAnimationFrame(frame)
@@ -1475,7 +1479,9 @@ function Surface({
 
         {/* The dock earns its place only if something is in it. */}
         {(fixedItems !== false || search) && (
-          <div className="absolute inset-x-0 bottom-0 z-50 m-auto">
+          // The holder spans the editor's width but is see-through to the
+          // pointer, so only its controls catch clicks, not the lines under it.
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-50 m-auto">
           <div className="w-full flex flex-col gap-1 items-center py-3 select-none">
             {/* A grid row rather than a height: `height: auto` cannot be
                 transitioned, but `0fr` to `1fr` can, so the gradient above
@@ -1485,7 +1491,7 @@ function Surface({
                 className="grid w-full justify-items-center transition-[grid-template-rows] duration-200 ease-out"
                 style={{ gridTemplateRows: searchOpen ? '1fr' : '0fr' }}
               >
-                <div className="overflow-hidden">
+                <div className="pointer-events-auto overflow-hidden">
                   <SearchBar
                     editor={editor}
                     open={searchOpen}
@@ -1498,7 +1504,7 @@ function Surface({
 
             {fixedItems !== false && (
               <Toolbar
-                className="rounded-xl border-1 shadow"
+                className="pointer-events-auto rounded-xl border-1 shadow"
                 style={{ background: 'var(--accent)' }}
               >
                 {fixedItems ?? defaultFixed}

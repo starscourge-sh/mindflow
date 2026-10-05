@@ -21,7 +21,15 @@ export type CaptureMeta = Awaited<ReturnType<typeof window.api.captures.list>>[n
 export function useCaptures(archived = false): CaptureMeta[] {
   const [captures, setCaptures] = useState<CaptureMeta[]>([])
   useEffect(() => {
-    const reload = (): void => void window.api.captures.list().then((all) => setCaptures(archived ? all : all.filter((one) => !one.archivedAt)))
+    // The same list as last time (typing past a note's first line) keeps the
+    // old one, so the lists holding it do not redraw on every pause.
+    let last: string | undefined
+    const reload = (): void => void window.api.captures.list().then((all) => {
+      const now = JSON.stringify(all)
+      if (now === last) return
+      last = now
+      setCaptures(archived ? all : all.filter((one) => !one.archivedAt))
+    })
     reload()
     return window.api.captures.onChange(reload)
   }, [archived])

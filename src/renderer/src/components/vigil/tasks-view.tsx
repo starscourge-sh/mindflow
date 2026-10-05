@@ -7,7 +7,7 @@ import { Bell, CalendarClock, CalendarDays, Check, FileText, Gem, Hash, History,
 import { MindflowEditor } from '../mindflow'
 import { chime, step } from '@/lib/sound'
 import { captureKey } from '@/lib/capture-links'
-import { splitTags, useLive, vigil, when, type Made, type Session, type Task, type TaskFull } from '@/lib/vigil'
+import { splitTags, useLive, vigil, when, whenInLine, type Made, type Session, type Task, type TaskFull } from '@/lib/vigil'
 import { BUCKETS, bucket, makeTask, placed } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, TaskInput, planFor, setPriority } from './task-input'
@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
+import { Rest } from './scenery'
 
 // Counted on the calendar, so a clock change never moves a day by an hour.
 const startOfDay = (offset = 0): number => {
@@ -39,11 +40,14 @@ const tone = (task: Task): string | undefined => {
 }
 
 /** Move a task to a day from now, and say where: one wording for keys, menus and buttons. */
-export const moveTo = (id: string, days: number): void =>
-  void vigil.saveTask(id, { due: shiftTo(days) }).then(() => {
+export const moveTo = (task: Pick<Task, 'id' | 'dueAt' | 'allDay' | 'planFor'>, days: number): void => {
+  const due = shiftTo(days, task.dueAt)
+  const was = { due: task.dueAt, plan: task.planFor }
+  void vigil.saveTask(task.id, { due }).then(() => {
     chime('tap')
-    toast(`Moved to ${when(shiftTo(days))}`)
+    toast(`Moved to ${whenInLine(due, !task.dueAt || !!task.allDay)}`, () => void vigil.saveTask(task.id, was))
   })
+}
 
 /**
  * Done, heard and seen first, then undoable from the notice: a routine goes
@@ -70,7 +74,7 @@ export async function landed(made: Made, here: string): Promise<string> {
   if (later) return `Added to ${BUCKETS[later]}`
   return where === 'routines' ? 'Added to Routines'
     : where === 'today' ? 'Added to Today'
-    : day !== null && day !== undefined ? `Added to Upcoming, ${when(new Date(day).toISOString()).toLowerCase()}`
+    : day !== null && day !== undefined ? `Added to Upcoming, ${whenInLine(new Date(day).toISOString())}`
     : 'Added to the backlog in Upcoming: put a day in the words to date it'
 }
 
@@ -188,7 +192,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
       if (event.key === 'e') return complete(task)
       const days = { t: 0, m: 1, w: 7 }[event.key]
       if (days === undefined) return
-      moveTo(task.id, days)
+      moveTo(task, days)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -267,9 +271,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                         { label: 'Open', keys: '↵', run: () => pick(task.id) },
                         { label: 'Complete', keys: 'E', run: () => complete(task) },
                         'separator',
-                        { label: 'Today', keys: 'T', run: () => moveTo(task.id, 0) },
-                        { label: 'Tomorrow', keys: 'M', run: () => moveTo(task.id, 1) },
-                        { label: 'Next week', keys: 'W', run: () => moveTo(task.id, 7) },
+                        { label: 'Today', keys: 'T', run: () => moveTo(task, 0) },
+                        { label: 'Tomorrow', keys: 'M', run: () => moveTo(task, 1) },
+                        { label: 'Next week', keys: 'W', run: () => moveTo(task, 7) },
                         ...(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => ({ label: BUCKETS[which], run: () => planFor(task, which) })),
                         'separator',
                         ...[1, 2, 3, 4, 0].map((level) => ({ label: PRIORITY_NAMES[level], keys: String(level), run: () => setPriority(task, level) })),
@@ -314,7 +318,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                               {task.deadline && (
                                 <span className="flex items-center gap-1" style={{ color: new Date(task.deadline).getTime() < startOfDay(1) ? 'var(--tt-color-text-red)' : undefined }}>
                                   <CalendarClock className="size-3" />
-                                  Due by {when(task.deadline, !task.deadlineTimed).toLowerCase()}
+                                  Due by {whenInLine(task.deadline, !task.deadlineTimed)}
                                 </span>
                               )}
                               {later && mode !== 'later' && <span className="flex items-center gap-1"><Telescope className="size-3" />{BUCKETS[later]}</span>}
@@ -349,6 +353,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
             }}
           </VirtualList>
         ) : (
+          <Rest seed="today" off={mode !== 'today'}>
           <Empty shape={mode === 'today' ? ['star', 6] : mode === 'routines' ? ['flower', 5] : mode === 'later' ? ['moon', 3] : ['ellipse', 4]} title={mode === 'today' ? 'Nothing due today' : mode === 'routines' ? 'No routines' : mode === 'later' ? 'Nothing put off' : 'Nothing coming up'}>
             {mode === 'routines'
               ? 'A routine is a task that repeats, kept here so it does not crowd Today. To make one, type it in the box above with how often: “water the plants every! 3 days”, “bins every week”.'
@@ -358,6 +363,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
               ? 'For what has no day yet: say “this month”, “this year” or “someday” in the words, and it waits here, out of the way.'
               : 'Tasks with a date further out show here, grouped by day. Type one above with the date in the words.'}
           </Empty>
+          </Rest>
         )}
       </Page>
       {open && <TaskDetail top={<Stepper at={shown.findIndex((one) => one.id === open.id)} total={shown.length} onStep={(to) => pick(shown[to].id)} />} key={open.id} task={open} onClose={() => setOpen(null)} onOpen={onOpen} />}
@@ -393,7 +399,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
         )}
         <input
           ref={title}
-          className="page-narrow mx-auto mb-2 block w-full bg-transparent px-12 text-title font-semibold text-balance outline-none"
+          className="page-narrow mx-auto mb-2 block w-full bg-transparent px-12 font-heading text-title font-semibold text-balance outline-none"
           defaultValue={task.title}
           onBlur={(event) => void vigil.saveTask(task.id, { title: event.target.value })}
         />
@@ -414,7 +420,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           {/* Equal columns that may shrink: a narrow panel squeezes the words rather than pushing a button past its edge. */}
           <div className="grid grid-cols-3 gap-1 p-1">
             {([['Today', 0], ['Tomorrow', 1], ['Next week', 7]] as const).map(([label, days]) => (
-              <Button variant="outline" size="sm" key={label} onClick={() => moveTo(task.id, days)} className="min-w-0 truncate px-1">
+              <Button variant="outline" size="sm" key={label} onClick={() => moveTo(task, days)} className="min-w-0 truncate px-1">
                 {label}
               </Button>
             ))}
@@ -457,7 +463,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           <PropInput icon={Repeat} value={task.recurrence ?? ''} placeholder="Repeats, e.g. every week" onSave={(recurrence) => void vigil.saveTask(task.id, { recurrence: recurrence || null })} />
           <p className="px-2 py-1.5 text-xs leading-relaxed">
             “every” follows the calendar. “every!” counts from when you last did it. Add “until” and a date when you type a task to end the series.
-            {task.repeatUntil ? ` This one ends ${when(task.repeatUntil).toLowerCase()}.` : ''}
+            {task.repeatUntil ? ` This one ends ${whenInLine(task.repeatUntil)}.` : ''}
           </p>
         </Island>
 
@@ -635,11 +641,12 @@ function Sessions({ taskId, title }: { taskId: string; title: string }): React.J
   )
 }
 
-/** A date that many days from today, at nine unless the time is kept. */
-function shiftTo(days: number): string {
+/** A date that many days from today, at the time it had, or nine with none. */
+function shiftTo(days: number, from?: string | null): string {
   const date = new Date()
   date.setDate(date.getDate() + days)
-  date.setHours(9, 0, 0, 0)
+  const time = from ? new Date(from) : null
+  date.setHours(time ? time.getHours() : 9, time ? time.getMinutes() : 0, 0, 0)
   return date.toISOString()
 }
 

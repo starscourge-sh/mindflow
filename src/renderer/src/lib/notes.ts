@@ -135,7 +135,7 @@ export async function changeKind(table: NoteTable, id: string, from: string, to?
   const kind = to ?? (await pickKind(from))
   if (!kind || kind === from) return
   const was = await call<{ kind: string; fields: string | null } | null>('notes:kind', table, id, kind, fieldKeys(kind))
-  if (!was) return refuse('That note is gone')
+  if (!was) return refuse('That note no longer exists, so its kind was not changed')
   chime('retag')
   toast(`Now a ${label(kind).toLowerCase()}`, () => void call('notes:kind:undo', table, id, was))
 }
@@ -155,7 +155,7 @@ export async function saveAttachments(list?: { table: NoteTable; id: string }[])
   if (done === null) return
   if (!done) return refuse(list ? 'No pictures or files in this note' : 'No pictures or files anywhere yet')
   const { saved, total } = done
-  if (!saved) return refuse(`Could not save ${total === 1 ? 'the file' : `any of the ${total} files`}`)
+  if (!saved) return refuse(`Could not save ${total === 1 ? 'the file' : `any of the ${total} files`}. Pick a folder you can write to and try again`)
   chime('saved')
   toast(`Saved ${saved < total ? `${saved} of ${total}` : saved} ${total === 1 ? 'file' : 'files'}, under their own names`)
 }

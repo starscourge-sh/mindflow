@@ -17,3 +17,5 @@ out-me
 # Throwaway scripts from QA passes, kept out of history
 qa/qa-*
 undefined/
+out-qa
+out-*

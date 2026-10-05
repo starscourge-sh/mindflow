@@ -111,7 +111,12 @@ const CUES = {
   // A recap's last page: a rising arpeggio that lands.
   wrapped: [[523, 0, 0.12], [659, 0.08, 0.12], [784, 0.16, 0.12], [1046, 0.24, 0.4]],
   // A task put off to a later list: a note drifting down and away, unhurried.
-  later: [[587, 0, 0.18, 0.04, 494, 0.02], [392, 0.1, 0.3, 0.035]]
+  later: [[587, 0, 0.18, 0.04, 494, 0.02], [392, 0.1, 0.3, 0.035]],
+  // Another scene: two soft open fifths, slow to arrive, like a view clearing.
+  scene: [[392, 0, 0.6, 0.03, undefined, 0.12], [587, 0.12, 0.7, 0.025, undefined, 0.14]],
+  // The day's review queue finished: the last grade answered by a soft
+  // descending third and its root, a book closed rather than a bell rung.
+  reviewed: [[784, 0, 0.3, 0.035], [659, 0.1, 0.35, 0.035], [523, 0.2, 0.7, 0.04]]
 } satisfies Record<string, Note[]>
 
 export type Cue = keyof typeof CUES

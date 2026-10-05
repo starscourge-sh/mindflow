@@ -33,7 +33,7 @@ window.EXCALIDRAW_ASSET_PATH = new URL('./', window.location.href).href
 // this and the modern path comes back.
 delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker
 
-import { StrictMode } from 'react'
+import { Component, StrictMode, type ReactNode } from 'react'
 import { applyTheme, currentTheme } from './lib/theme'
 import { createRoot } from 'react-dom/client'
 import App from './App'
@@ -71,8 +71,38 @@ const wordCount = (): void => {
 wordCount()
 window.addEventListener('storage', wordCount)
 
+/**
+ * A window whose page broke while drawing says so and offers the way back,
+ * instead of going blank with no clue. Notes are saved as they are typed (the
+ * box's draft too), so reloading loses nothing.
+ */
+class Broken extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null }
+  static getDerivedStateFromError(error: Error): { error: Error } {
+    return { error }
+  }
+  render(): ReactNode {
+    if (!this.state.error) return this.props.children
+    // The glow covers the whole screen and takes no clicks: nothing, rather
+    // than a panel stuck over every app that cannot be pressed.
+    if (params.get('view') === 'glow') return null
+    return (
+      <div role="alert" className="m-3 flex flex-col items-start gap-2 rounded-xl border bg-background p-4 text-sm text-foreground shadow-(--mf-panel-shadow)">
+        <p className="font-medium">This window ran into a problem and stopped.</p>
+        <p className="text-muted-foreground">Your notes are saved. Reload the window to carry on; if it happens again, restart Vigil.</p>
+        <p className="line-clamp-2 font-mono text-xs text-muted-foreground wrap-anywhere">{this.state.error.message}</p>
+        <button type="button" autoFocus onClick={() => location.reload()} className="mt-1 rounded-md border bg-accent/60 px-3 py-1 font-medium hover:bg-accent">
+          Reload window
+        </button>
+      </div>
+    )
+  }
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    <Broken>
     {drawing ? <DrawingWindow id={drawing} /> : params.get('note') ? <NoteWindow link={params.get('note')!} /> : params.get('view') === 'home' ? <Home /> : params.get('view') === 'focus' ? <FocusPill /> : params.get('view') === 'glow' ? <ScreenGlow /> : params.get('view') === 'sticky' ? <StickyNote type={params.get('type') ?? 'capture'} id={params.get('id') ?? ''} /> : <App />}
+    </Broken>
   </StrictMode>
 )

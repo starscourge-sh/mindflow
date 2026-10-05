@@ -10,6 +10,7 @@ import { dayOf, notes, type Day, type DayEntry } from '@/lib/notes'
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/vigil'
 import { Island, Kbd, Page, Rolling, Tip, Typed, toast, typing } from './ui'
+import { DayBanner } from './scenery'
 
 /** A day's date, as you would say it: "Monday 5 October". */
 const named = (day: string): string =>
@@ -74,6 +75,7 @@ export function DayView({ onOpen }: { onOpen?: (type: string, id: string) => voi
       }
     >
       <div className="page-narrow mx-auto w-full px-5 pt-6 pb-16 [--mf-padding:0.5rem_0]">
+        <DayBanner day={day} />
         <h1 className="text-title font-semibold"><Rolling text={day === today ? `Today, ${named(day)}` : named(day)} by="word" /></h1>
         {data && !data.exists && (
           <p className="mt-1 text-meta text-muted-foreground"><Typed text="No page for this day yet. Write below and it keeps one." step={28} /></p>

@@ -7,12 +7,13 @@ import { AnimatePresence, motion } from 'motion/react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { textOf } from '../rot-cards'
+import { firstLineOf } from '@/extensions/tokens'
 import { selectionActions } from './selection-actions'
 import { ReadThrough } from './read-through'
 import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { age } from '../capture-list'
 import { findCaptures, findHeadings, follow } from '@/lib/capture-links'
-import { interval, splitTags, useLive, vigil, when, type Item, type ItemFull } from '@/lib/vigil'
+import { interval, splitTags, useLive, vigil, when, whenInLine, type Item, type ItemFull } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
 import { Empty, Island, Page, Prop, Props, Tags, refuse, toast, useListKeys, useReadKey, typing, pin, VirtualList, Stepper, startAt, Rolling, Typed, showTopTitle } from './ui'
 import { AGES, Display, arrange, period, useView, type Facet } from './display'
@@ -295,6 +296,8 @@ export function ItemDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (ty
   const [gloss, setGloss] = useState('')
   const glossWords = item.glosses.filter((one) => one.author === 'user').reduce((sum, one) => sum + one.body.split(/\s+/).filter(Boolean).length, 0)
   const editor = useRef<Editor | null>(null)
+  // The words as opened or last saved, to tell a real edit from the editor settling.
+  const seen = useRef<{ body: string; line: string } | null>(null)
   // An earlier version, shown in place of the editor while you look back; and
   // the words read again after one is restored, with a new key so the editor
   // opens on them.
@@ -368,9 +371,18 @@ export function ItemDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (ty
           findHeadings={findHeadings}
           onOpenNote={(link, heading) => onOpen && follow(link, onOpen, heading)}
           after={<Mentions id={item.id} onOpen={onOpen} />}
+          onReady={(instance) => { seen.current = { body: JSON.stringify(instance.getJSON()), line: firstLineOf(instance.state.doc)?.text ?? '' } }}
           onChange={(body, instance) => {
             editor.current = instance
-            void vigil.saveItem(item.id, { body, ...(item.tier === 'nugget' ? { title: instance.getText().split('\n')[0] } : {}) })
+            // The editor can tidy a document as it opens (a list first, say);
+            // that is not an edit, and saving it once wiped a nugget's title.
+            const now = { body: JSON.stringify(body), line: firstLineOf(instance.state.doc)?.text ?? '' }
+            if (now.body === seen.current?.body) return
+            // Named for its first line with words, and only when that line
+            // changed: a blank one, or one the title never came from, keeps it.
+            const title = item.tier === 'nugget' && now.line && now.line !== seen.current?.line ? now.line : undefined
+            seen.current = now
+            void vigil.saveItem(item.id, { body, ...(title ? { title } : {}) })
           }}
         />
         )}
@@ -554,14 +566,14 @@ export function RemindMe({ table, id, at }: { table: 'captures' | 'nuggets'; id:
     setOpen(false)
     setWords('')
     void vigil.remind(table, id, date ? date.toISOString() : null).then(() =>
-      (chime(date ? 'pin' : 'off'), toast(date ? `Will pin itself ${when(date.toISOString(), false).toLowerCase()}` : 'Reminder cleared')))
+      (chime(date ? 'pin' : 'off'), toast(date ? `Will pin itself ${whenInLine(date.toISOString(), false)}` : 'Reminder cleared')))
   }
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button type="button" className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent hover:text-foreground">
           <AlarmClock className="size-4 shrink-0" />
-          <span className="text-control">{at ? `Reminds ${when(at, false).toLowerCase()}` : 'Remind me…'}</span>
+          <span className="text-control">{at ? `Reminds ${whenInLine(at, false)}` : 'Remind me…'}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 gap-0 p-1 text-sm">
