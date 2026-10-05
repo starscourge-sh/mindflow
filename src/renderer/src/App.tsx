@@ -1039,10 +1039,17 @@ const SourceDrawer = ({
           )}
           {assetsOf(doc).length > 0 && (
             <div>
-              <p className="mb-1 text-muted-foreground">Files</p>
-              <ul className="space-y-0.5">
+              {/* What the note holds besides words, as you would know them: a
+                  picture by its look, a file by its name. The store names
+                  them by a hash of their bytes, which means nothing to read. */}
+              <p className="mb-1 text-muted-foreground">Pictures and files</p>
+              <ul className="flex flex-wrap gap-2">
                 {assetsOf(doc).map((asset) => (
-                  <li key={asset.src} className="truncate">{asset.name ?? asset.src.split('/').pop()} <span className="text-muted-foreground">{asset.kind}</span></li>
+                  <li key={asset.src} className="flex min-w-0 items-center gap-2">
+                    {asset.kind === 'image'
+                      ? <img src={asset.src} alt="" className="size-12 rounded-md border object-cover" />
+                      : <span className="max-w-48 truncate rounded-md border px-2 py-1">{asset.name ?? 'File'}</span>}
+                  </li>
                 ))}
               </ul>
             </div>
