@@ -22,6 +22,15 @@ export async function open() {
   // QA_DATA points a run at a copy of real data, to see it with a real corpus.
   const data = process.env.QA_DATA ?? mkdtempSync(join(tmpdir(), 'mindflow-qa-'))
   const app = await electron.launch({ args: ['.'], env: { ...process.env, MINDFLOW_USER_DATA: data } })
+  // Never left running: the app keeps its windows when asked to close (a
+  // window put away, not quit), so a plain kill can leave it stuck exiting.
+  // However the run ends (done, failed, interrupted), it is killed outright.
+  const child = app.process()
+  const end = () => { try { child.kill('SIGKILL') } catch {} }
+  process.on('exit', end)
+  for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => { end(); process.exit(1) })
+  process.on('uncaughtException', (error) => { console.error(error); end(); process.exit(1) })
+  process.on('unhandledRejection', (error) => { console.error(error); end(); process.exit(1) })
   const page = await app.firstWindow()
   const logs = []
   page.on('console', (message) => logs.push(message.text()))
