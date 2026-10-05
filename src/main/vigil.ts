@@ -490,6 +490,14 @@ export function registerVigil(): void {
     return write(nugget)
   }
   handle('promote', promote)
+  // Promotion taken back: the nugget it made goes (with its glosses), and the
+  // capture is open again, as if it had never been kept.
+  handle('promote:undo', (captureId: string, nuggetId: string) => {
+    db.prepare('delete from glosses where item_id = ?').run(nuggetId)
+    db.prepare('delete from nuggets where id = ? and capture_id = ?').run(nuggetId, captureId)
+    db.prepare("update captures set status = 'open' where id = ?").run(captureId)
+    return write(true)
+  })
   // Where something came from, what it became, and what links to it: the
   // lineage both ways, and the backlinks an @ link leaves.
   handle('lineage', (id: string) => {

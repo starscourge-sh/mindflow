@@ -271,7 +271,7 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
                   // The sound once it went through, so a refusal never sounds like success first.
                   chime(exit.label === 'Discard' ? 'away' : exit.label === 'Promote to nugget' ? 'promote' : 'resolve')
                   if (exit.label === 'Promote to nugget')
-                    return toast(exit.said, undefined, 'success', typeof result === 'string' ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
+                    return toast(exit.said, typeof result === 'string' ? () => void vigil.unpromote(capture.id, result) : undefined, 'success', typeof result === 'string' ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
                   toast(exit.said, reopen)
                 })
               }}

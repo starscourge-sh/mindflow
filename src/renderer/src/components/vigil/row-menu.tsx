@@ -16,7 +16,21 @@ export function RowMenu({ items, children }: { items: MenuItem[]; children: Reac
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
-      <ContextMenuContent className="w-56">
+      <ContextMenuContent
+        className="w-56"
+        // The key a row shows works here too, on the row that was
+        // right-clicked: press R with the menu open and that row resolves.
+        onKeyDown={(event) => {
+          if (event.metaKey || event.ctrlKey || event.altKey) return
+          const item = shown.find((one) => one !== 'separator' && one.keys?.length === 1 && one.keys.toLowerCase() === event.key.toLowerCase())
+          if (!item || item === 'separator') return
+          event.preventDefault()
+          event.stopPropagation()
+          // Closed as Escape closes it: the menu has no open switch of its own.
+          event.currentTarget.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+          item.run()
+        }}
+      >
         {shown.map((item, index) =>
           item === 'separator' ? (
             <ContextMenuSeparator key={`separator-${index}`} />

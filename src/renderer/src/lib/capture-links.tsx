@@ -37,7 +37,8 @@ export async function exit(id: string, status: string, onUndo?: () => void): Pro
   // After the work, so a cancelled question or a refusal makes no false promise.
   chime(status === 'discarded' ? 'away' : status === 'promoted' ? 'promote' : 'resolve')
   // Kept as a nugget: the question review will test it with is one key away.
-  if (status === 'promoted') return toast(one.done, undefined, 'success', typeof result === 'string' ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
+  // Kept, and it can be taken back like the other exits: the nugget goes, the capture is open again.
+  if (status === 'promoted') return toast(one.done, typeof result === 'string' ? () => void vigil.unpromote(id, result).then(() => onUndo?.()) : undefined, 'success', typeof result === 'string' ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
   toast(one.done, () => void window.api.captures.save(id, { status: 'open' }).then(() => onUndo?.()))
 }
 

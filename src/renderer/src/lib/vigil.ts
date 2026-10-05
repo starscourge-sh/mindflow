@@ -129,6 +129,7 @@ export const vigil = {
   pins: () => call<Pin[]>('pins'),
   reviewTuning: () => call<{ cap: number; tuned: boolean; behind: number }>('review:tuning'),
   promote: (id: string, words?: string) => call<string | null>('promote', id, words),
+  unpromote: (captureId: string, nuggetId: string) => call<boolean>('promote:undo', captureId, nuggetId),
   /** What it came from, what it became, and what links to it. */
   mentions: (id: string) => call<Record<'linked' | 'unlinked', { type: string; id: string; title: string; snippet: string; private?: number }[]>>('mentions', id),
   linkMention: (sourceType: string, sourceId: string, targetId: string) => call<boolean>('mention:link', sourceType, sourceId, targetId),
