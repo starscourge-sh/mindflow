@@ -17,7 +17,7 @@ import { ReviewView } from './components/vigil/review-view'
 import { useAppearance, useLive } from './lib/vigil'
 import { BackToTop, Empty, Kbd, Remembered, ask, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode } from './components/vigil/ui'
 import { TooltipProvider } from './components/ui/tooltip'
-import { Rolling, Toaster, beam, toast } from './components/vigil/ui'
+import { Rolling, Toaster, beam, refuse, toast } from './components/vigil/ui'
 import { Reader } from './components/vigil/reader'
 import { OptionsMenu } from './components/vigil/options-menu'
 import { ReadThrough, type Readable } from './components/vigil/read-through'
@@ -27,7 +27,7 @@ import { KeptPanel } from './components/vigil/kept-panel'
 import { CaptureProps, useCaptureDisplay } from './components/vigil/captures-view'
 import { Search } from './components/search'
 import { taskSaid, vigil, type Settings } from './lib/vigil'
-import { chime } from './lib/sound'
+import { chime, soundOn } from './lib/sound'
 
 
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from './components/capture-kinds/capture-kind-picker'
@@ -402,6 +402,24 @@ export default function App(): React.JSX.Element {
   }
   // A fresh box. Sent, or a new note asked for, and the draft goes; put down
   // after reading an old capture, and the note you had started comes back.
+  // ⇧⌘C: the note as Markdown on the clipboard, ready to paste anywhere.
+  const copyMarkdown = (): void => {
+    const editor = editorRef.current
+    if (!editor || !textOf(editor.getJSON()).trim()) return refuse('Nothing to copy yet')
+    void navigator.clipboard.writeText(toMarkdown(editor)).then(() => {
+      chime('copy')
+      toast('Copied as Markdown')
+    })
+  }
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.metaKey || !event.shiftKey || event.altKey || event.ctrlKey || event.key.toLowerCase() !== 'c') return
+      event.preventDefault()
+      copyMarkdown()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
   const fresh = (keepDraft = false): void => {
     if (!keepDraft) localStorage.removeItem('capture-draft')
     // A draft set aside for good takes its pending links with it; a submit
@@ -556,6 +574,33 @@ export default function App(): React.JSX.Element {
       {searching && (
         <Search
           initial={searchFrom}
+          // Everything the box can do, by name and key, as Raycast's ⌘K lists it.
+          actions={[
+            { label: 'New capture', keys: '⌘ N', run: () => fresh() },
+            { label: panel ? 'Hide the side panel' : 'Show the side panel', keys: '⌘ \\', run: () => setPanel(!panel) },
+            ...TABS.map((one, index) => ({ label: `Go to ${({ inbox: 'Inbox', today: 'Tasks', review: 'Review', kept: 'Kept' } as Record<string, string>)[one] ?? one}`, keys: `⌃ ${index + 1}`, run: () => {
+              setTab(one)
+              if (!panel) setPanel(true)
+            } })),
+            { label: 'Read through the inbox', keys: '⌘ ⇧ R', run: () => setReadList({ items: captures.filter((one) => one.status === 'open').map((one) => ({ type: 'capture', id: one.id })), start: 0 }) },
+            { label: 'Copy this note as Markdown', keys: '⇧ ⌘ C', run: copyMarkdown },
+            { label: locked ? 'Unlock this note' : 'Lock this note: read only', run: () => setLocked(!locked) },
+            { label: secret ? 'Make this note not private' : 'Make this note private', run: () => {
+              setSecret(!secret)
+              if (editing) void vigil.setPrivate('captures', editing.id, !secret)
+            } },
+            { label: outline ? 'Hide the outline' : 'Show the outline', run: () => setOutline(!outline) },
+            { label: source ? 'Hide the source' : 'Show the source', keys: '⌘ ⌥ S', run: () => setSource(!source) },
+            { label: vim ? 'Turn vim keys off' : 'Turn vim keys on', keys: '\\', run: () => setVim(!vim) },
+            { label: appSettings?.sounds ? 'Turn sounds off' : 'Turn sounds on', run: () => {
+              soundOn(!appSettings?.sounds)
+              void vigil.setSettings({ sounds: !appSettings?.sounds })
+            } },
+            { label: appSettings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥ ⌘ S', run: () => void vigil.setSettings({ safeMode: !appSettings?.safeMode }).then(() => toast(appSettings?.safeMode ? 'Safe mode off' : 'Safe mode: nothing will surface unasked')) },
+            { label: recordable ? 'Hide from screen recordings' : 'Show in screen recordings', run: () => setRecordable(!recordable) },
+            { label: 'Open the main window', run: () => window.api.openInHome('view', 'inbox') },
+            { label: 'Settings', keys: '⌘ ,', run: () => window.api.openInHome('view', 'settings') }
+          ]}
           onClose={() => {
             setSearching(false)
             setSearchFrom('')

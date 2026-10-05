@@ -261,11 +261,17 @@ export function Beam(): React.JSX.Element | null {
  * A question that needs a line from you before something can go on, asked in
  * place: Enter answers, Escape lets it go. Resolves to the words, or null.
  */
-export const ask = (question: string, placeholder = ''): Promise<string | null> =>
-  new Promise((answer) => void window.dispatchEvent(new CustomEvent('vigil:ask', { detail: { question, placeholder, answer } })))
+export const ask = (question: string, placeholder = '', field?: 'attribution' | 'medium'): Promise<string | null> =>
+  new Promise((answer) => void window.dispatchEvent(new CustomEvent('vigil:ask', { detail: { question, placeholder, field, answer } })))
+
+/** The names typed before in a field, offered as you type: the list behind `list=`. */
+function Suggest({ field }: { field: 'attribution' | 'medium' }): React.JSX.Element {
+  const values = useLive(() => vigil.values(field), [] as string[])
+  return <datalist id={`remembered-${field}`}>{values.map((one) => <option key={one} value={one} />)}</datalist>
+}
 
 function Asker(): React.JSX.Element | null {
-  const [asked, setAsked] = useState<{ question: string; placeholder: string; answer: (words: string | null) => void } | null>(null)
+  const [asked, setAsked] = useState<{ question: string; placeholder: string; field?: 'attribution' | 'medium'; answer: (words: string | null) => void } | null>(null)
   useEffect(() => {
     const onAsk = (event: Event): void => setAsked((event as CustomEvent).detail)
     window.addEventListener('vigil:ask', onAsk)
@@ -291,12 +297,15 @@ function Asker(): React.JSX.Element | null {
           // its row as it closes, after autofocus has already run.
           ref={(input) => void (input && setTimeout(() => input.focus(), 30))}
           placeholder={asked.placeholder}
+          // Who said it before, offered as you type: it gets quicker with use.
+          list={asked.field ? `remembered-${asked.field}` : undefined}
           onKeyDown={(event) => {
             event.stopPropagation()
             if (event.key === 'Enter') done(event.currentTarget.value)
             if (event.key === 'Escape') done(null)
           }}
         />
+        {asked.field && <Suggest field={asked.field} />}
         <p className="mt-2 text-xs text-muted-foreground">Enter to keep · Escape to leave it</p>
       </div>
     </div>

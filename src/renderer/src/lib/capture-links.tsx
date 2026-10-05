@@ -60,7 +60,7 @@ export async function takeExit(id: string, status: string): Promise<unknown> {
   let result = await vigil.promote(id)
   // A quote needs who said it: asked here, so the prompt is never a dead end.
   if (result === 'needs-source') {
-    const who = await ask('Who said it? A quote is kept with its source.', 'e.g. Alan Kay, or a colleague in standup')
+    const who = await ask('Who said it? A quote is kept with its source.', 'e.g. Alan Kay, or a colleague in standup', 'attribution')
     if (!who) return 'cancelled'
     await vigil.setCapture(id, 'attribution', who)
     result = await vigil.promote(id)
