@@ -185,22 +185,37 @@ function hideWindow(win: BrowserWindow): void {
  * App's onShown). At once when Motion is off.
  */
 let arriving: ReturnType<typeof setInterval> | undefined
-function arrive(win: BrowserWindow): void {
+/** Up from nothing over `length` ms, easing out: most of the way at once. */
+function fadeIn(win: BrowserWindow, length: number, after = 0): void {
   clearInterval(arriving)
-  if (!motionOn()) {
-    win.setOpacity(1)
-    return win.show()
-  }
   win.setOpacity(0)
-  win.show()
-  const start = Date.now()
-  const LENGTH = 140
+  const start = Date.now() + after
   arriving = setInterval(() => {
-    const t = Math.min(1, (Date.now() - start) / LENGTH)
-    // Ease out: most of the way at once, the last of it gently.
+    const t = Math.max(0, Math.min(1, (Date.now() - start) / length))
     win.setOpacity(1 - (1 - t) ** 3)
     if (t === 1) clearInterval(arriving)
   }, 1000 / 120)
+}
+function arrive(win: BrowserWindow): void {
+  if (!motionOn()) {
+    clearInterval(arriving)
+    win.setOpacity(1)
+    return win.show()
+  }
+  fadeIn(win, 140)
+  win.show()
+}
+
+/**
+ * A new size without the jolt: the page needs a frame or two to lay itself
+ * out at the new size, and that frame showed stretched and half drawn. So the
+ * window goes clear, takes its new size, and fades back once the page has
+ * caught up. At once when Motion is off.
+ */
+function reshape(win: BrowserWindow, bounds: Electron.Rectangle): void {
+  if (!motionOn()) return win.setBounds(bounds, false)
+  fadeIn(win, 120, 40)
+  win.setBounds(bounds, false)
 }
 
 function toggleWindow(): void {
@@ -941,7 +956,7 @@ app.whenReady().then(() => {
     const next = onScreen({ ...bounds, x: open ? bounds.x : bounds.x + panelShift, width })
     panelShift = open ? bounds.x - next.x : 0
     // Instant: macOS's own resize animation is slow enough to wait on.
-    win.setBounds(next)
+    reshape(win, next)
     if (grew) grew = { ...grew, became: win.getBounds() }
     return Boolean(open)
   })
@@ -987,16 +1002,16 @@ app.whenReady().then(() => {
     //
     // Grown about its own middle, then brought back on screen if that put an
     // edge over the side.
-    win.setBounds(
+    // Instant, like the panel: the animated resize was slow.
+    reshape(
+      win,
       onScreen(
         back ?? {
           x: Math.round(bounds.x + (bounds.width - size.width) / 2),
           y: Math.round(bounds.y + (bounds.height - size.height) / 2),
           ...size
         }
-      ),
-      // Instant, like the panel: the animated resize was slow.
-      false
+      )
     )
 
     grew = expanded ? { was: bounds, became: win.getBounds() } : null
