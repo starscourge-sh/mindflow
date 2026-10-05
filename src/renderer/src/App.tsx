@@ -778,10 +778,12 @@ export default function App(): React.JSX.Element {
                 <button
                   type="button"
                   onClick={() => openCapture(like.id)}
-                  className="ml-auto max-w-56 truncate text-xs text-muted-foreground hover:text-foreground"
-                
+                  // Hard to miss but not loud: a brand-tinted chip whose words
+                  // roll in when a match arrives, and roll over when it changes.
+                  className="ml-auto flex max-w-64 items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--tt-brand-color-400)_35%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_12%,transparent)] px-2.5 py-0.5 text-xs text-foreground animate-in fade-in-0 zoom-in-95 duration-200 hover:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_20%,transparent)]"
                 >
-                  You wrote something like this: MF-{like.number}
+                  <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-[var(--tt-brand-color-400)]" />
+                  <span className="truncate"><Rolling by="word" text={`Written before: MF-${like.number}`} /></span>
                 </button>
                 </Tip>
               )}
