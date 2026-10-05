@@ -1,6 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 
 import type { DiagramScene } from '@/extensions/excalidraw'
+import { useAppearance } from '@/lib/vigil'
 
 const ExcalidrawCanvas = lazy(() => import('@/components/excalidraw/excalidraw-canvas'))
 
@@ -16,6 +17,8 @@ const DEBOUNCE_MS = 400
  * this window holds nothing when it closes.
  */
 export function DrawingWindow({ id }: { id: string }): React.JSX.Element {
+  // Sounds and Motion as you set them, in this window too.
+  useAppearance()
   const [scene, setScene] = useState<DiagramScene | null>(null)
   // Until the note has answered there is nothing to draw, and mounting the
   // canvas empty would send that emptiness straight back as an edit.

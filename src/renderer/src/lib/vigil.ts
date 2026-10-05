@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { tagColors } from '@/extensions/tokens'
 import type { BlockColor } from '@/extensions/block-color'
 import { MotionGlobalConfig } from 'motion/react'
-import { installTicks, setPack, setVolume, soundOn, type PackName } from './sound'
+import { chime, installTicks, setPack, setVolume, soundOn, type PackName } from './sound'
 
 /**
  * The main process's `vigil:` channels, typed. One generic bridge in the
@@ -122,7 +122,8 @@ export type Stats = {
 export const vigil = {
   settings: () => call<Settings>('settings'),
   setSettings: (patch: Partial<Settings>) => call<Settings>('settings:set', patch),
-  setPrivate: (table: 'captures' | 'nuggets', id: string, on: boolean) => call('private', table, id, on),
+  // Up for private, down for not, from whichever menu or button switched it.
+  setPrivate: (table: 'captures' | 'nuggets', id: string, on: boolean, quiet = false) => (quiet || chime(on ? 'on' : 'off'), call('private', table, id, on)),
   /** False when three are pinned already. */
   pin: (table: 'captures' | 'nuggets', id: string, on: boolean) => call<boolean>('pin', table, id, on),
   pins: () => call<Pin[]>('pins'),

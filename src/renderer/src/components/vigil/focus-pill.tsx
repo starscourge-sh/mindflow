@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Check, GripVertical, Pause, Play, X } from 'lucide-react'
 
 import { chime } from '@/lib/sound'
-import { useLive, vigil, type Focus } from '@/lib/vigil'
+import { useAppearance, useLive, vigil, type Focus } from '@/lib/vigil'
 
 /** 59:55, or 1:02:03 past the hour. */
 const clock = (ms: number): string => {
@@ -24,6 +24,8 @@ const DRAG = { WebkitAppRegion: 'drag' } as CSSProperties
  * things you would do with it. The whole pill drags; the buttons do not.
  */
 export function FocusPill(): React.JSX.Element | null {
+  // Your Sounds, pack, volume and Motion here too: a window of its own still obeys them.
+  useAppearance()
   const focus = useLive(vigil.focusNow, undefined as Focus | null | undefined)
   const [now, setNow] = useState(Date.now())
   const rang = useRef<string | null>(null)

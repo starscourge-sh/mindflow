@@ -655,29 +655,29 @@ export default function App(): React.JSX.Element {
           // Everything the box can do, by name and key, as Raycast's ⌘K lists it.
           actions={[
             { label: 'New capture', keys: '⌘N', run: () => fresh() },
-            { label: panel ? 'Hide the side panel' : 'Show the side panel', keys: '⌘\\', run: () => setPanel(!panel) },
+            { label: panel ? 'Hide the side panel' : 'Show the side panel', keys: '⌘\\', cue: null, run: () => setPanel(!panel) },
             ...TABS.map((one, index) => ({ label: `Go to ${({ inbox: 'Inbox', today: 'Tasks', review: 'Review', kept: 'Kept' } as Record<string, string>)[one] ?? one}`, keys: `⌃${index + 1}`, run: () => {
               setTab(one)
               if (!panel) setPanel(true)
             } })),
             { label: 'Read through the inbox', keys: '⇧⌘R', run: () => setReadList({ items: captures.filter((one) => one.status === 'open').map((one) => ({ type: 'capture', id: one.id })), start: 0 }) },
             { label: 'Copy this note as Markdown', keys: '⇧⌘C', run: copyMarkdown },
-            { label: locked ? 'Unlock this note' : 'Lock this note: read only', run: () => setLocked(!locked) },
-            { label: secret ? 'Make this note not private' : 'Make this note private', run: () => {
+            { label: locked ? 'Unlock this note' : 'Lock this note: read only', cue: locked ? 'off' : 'on', run: () => setLocked(!locked) },
+            { label: secret ? 'Make this note not private' : 'Make this note private', cue: editing ? null : secret ? 'off' : 'on', run: () => {
               setSecret(!secret)
               if (editing) void vigil.setPrivate('captures', editing.id, !secret)
             } },
-            { label: outline ? 'Hide the outline' : 'Show the outline', run: () => setOutline(!outline) },
-            { label: source ? 'Hide the source' : 'Show the source', keys: '⌘E', run: () => setSource(!source) },
-            { label: vim ? 'Turn vim keys off' : 'Turn vim keys on', keys: '\\', run: () => setVim(!vim) },
-            { label: appSettings?.sounds ? 'Turn sounds off' : 'Turn sounds on', run: () => {
+            { label: outline ? 'Hide the outline' : 'Show the outline', cue: outline ? 'off' : 'on', run: () => setOutline(!outline) },
+            { label: source ? 'Hide the source' : 'Show the source', keys: '⌘E', cue: null, run: () => setSource(!source) },
+            { label: vim ? 'Turn vim keys off' : 'Turn vim keys on', keys: '\\', cue: vim ? 'off' : 'on', run: () => setVim(!vim) },
+            { label: appSettings?.sounds ? 'Turn sounds off' : 'Turn sounds on', cue: null, run: () => {
               soundOn(!appSettings?.sounds)
               chime(appSettings?.sounds ? 'off' : 'on')
               void vigil.setSettings({ sounds: !appSettings?.sounds })
             } },
-            { label: appSettings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', run: () => void vigil.setSettings({ safeMode: !appSettings?.safeMode }).then(() => toast(appSettings?.safeMode ? 'Safe mode off' : 'Safe mode: nothing will surface unasked')) },
-            { label: recordable ? 'Hide from screen recordings' : 'Show in screen recordings', run: () => setRecordable(!recordable) },
-            { label: reveal ? 'Blur private titles again' : 'Show private titles', run: () => setReveal(!reveal) },
+            { label: appSettings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', cue: appSettings?.safeMode ? 'off' : 'on', run: () => void vigil.setSettings({ safeMode: !appSettings?.safeMode }).then(() => toast(appSettings?.safeMode ? 'Safe mode off' : 'Safe mode: nothing will surface unasked')) },
+            { label: recordable ? 'Hide from screen recordings' : 'Show in screen recordings', cue: recordable ? 'off' : 'on', run: () => setRecordable(!recordable) },
+            { label: reveal ? 'Blur private titles again' : 'Show private titles', cue: reveal ? 'off' : 'on', run: () => setReveal(!reveal) },
             { label: 'Open the main window', run: () => window.api.openInHome('view', 'inbox') },
             { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') }
           ]}
@@ -865,7 +865,7 @@ export default function App(): React.JSX.Element {
                   ...(editing ? [{ label: 'Details', on: details, keys: '⇧⌘D', set: setDetails }] : []),
                   { label: 'Private', on: secret, set: (on: boolean) => {
                     setSecret(on)
-                    if (editing) void vigil.setPrivate('captures', editing.id, on)
+                    if (editing) void vigil.setPrivate('captures', editing.id, on, true)
                   } }
                 ]}
                 actions={[{ label: 'New capture', keys: '⌘N', run: () => fresh() }]}

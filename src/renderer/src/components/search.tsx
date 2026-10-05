@@ -1,18 +1,21 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { chime } from '@/lib/sound'
-import { PanelRight, Search as SearchIcon } from 'lucide-react'
+import { chime, click, type Cue } from '@/lib/sound'
 import type { JSONContent } from '@tiptap/core'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { MindflowEditor } from './mindflow'
-import { AskWho, Kbd } from './vigil/ui'
+import { AskWho, Kbd, Typed } from './vigil/ui'
+import { AliveIcon } from './vigil/alive-icon'
+import MagnifierIcon from '@/components/ui/magnifier-icon'
+import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import { Chips } from './vigil/display'
 import { Tip } from '@/components/vigil/ui'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 
 /** Something to do from the palette, with the key that does it anywhere. */
-export type Action = { label: string; keys?: string; run: () => void }
+/** `cue` is its sound, on/off for a switch; a tap when it says nothing. */
+export type Action = { label: string; keys?: string; run: () => void; cue?: Cue | null }
 
 /** Which of Notion's three groups a date falls in. */
 const groupOf = (at: string): string => {
@@ -67,6 +70,8 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
   const compact = actions.length > 0 && !query.trim()
   const preview = pane && !!current
   const run = (action: Action): void => {
+    // null: the action sounds for itself (the sound switch, the panel).
+    if (action.cue !== null) chime(action.cue ?? 'tap')
     onClose()
     action.run()
   }
@@ -75,7 +80,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[10vh]" onMouseDown={onClose}>
       <div className={`flex flex-col overflow-hidden rounded-xl border bg-background text-sm shadow-(--mf-panel-shadow) ${compact ? 'max-h-[70vh] w-[min(36rem,calc(100vw-2rem))]' : 'h-[70vh] w-[min(56rem,calc(100vw-2rem))]'}`} onMouseDown={(event) => event.stopPropagation()}>
         <label className="flex items-center gap-3 border-b px-4 py-3">
-          <SearchIcon className="size-4 text-muted-foreground" />
+          <span className="text-muted-foreground"><AliveIcon icon={MagnifierIcon} size={16} /></span>
           <input
             ref={box}
             autoFocus
@@ -84,20 +89,20 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === 'Escape') { event.preventDefault(); onClose() }
+              if (event.key === 'Escape') { event.preventDefault(); chime('fold'); onClose() }
               else if (event.key === 'Enter' && at < doing.length) run(doing[at])
               else if (event.key === 'Enter' && current) onOpen(current.type, current.id)
               else if (event.key === 'Tab' && current?.type === 'capture') setAsking(true)
               // The arrows, or Ctrl-J and Ctrl-K: the editor's vim, carried into the box.
-              else if (event.key === 'ArrowDown' || (event.ctrlKey && event.key === 'j')) setAt((n) => Math.min(n + 1, total - 1))
-              else if (event.key === 'ArrowUp' || (event.ctrlKey && event.key === 'k')) setAt((n) => Math.max(n - 1, 0))
+              else if (event.key === 'ArrowDown' || (event.ctrlKey && event.key === 'j')) { click('soft'); setAt((n) => Math.min(n + 1, total - 1)) }
+              else if (event.key === 'ArrowUp' || (event.ctrlKey && event.key === 'k')) { click('soft'); setAt((n) => Math.max(n - 1, 0)) }
               else return
               event.preventDefault()
             }}
           />
           <Tip label="Show highlight pane">
-          <button type="button" className={`rounded p-1 hover:bg-accent ${pane ? 'text-foreground' : 'text-muted-foreground'} ${compact ? 'hidden' : ''}`} onClick={() => setPane(!pane)}>
-            <PanelRight className="size-4" />
+          <button type="button" className={`rounded p-1 hover:bg-accent ${pane ? 'text-foreground' : 'text-muted-foreground'} ${compact ? 'hidden' : ''}`} onClick={() => { chime(pane ? 'fold' : 'slide'); setPane(!pane) }}>
+            <AliveIcon icon={LayoutSidebarRightIcon} size={16} />
           </button>
           </Tip>
         </label>
@@ -123,13 +128,13 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
               </button>
             ))}
             {!query.trim() && !doing.length && (
-              <p className="px-2 py-3 text-body text-muted-foreground">Type to search captures, nuggets, articles and tasks. kind:quote narrows to one kind.</p>
+              <p className="px-2 py-3 text-body text-muted-foreground"><Typed text="Type to search captures, nuggets, articles and tasks. kind:quote narrows to one kind." /></p>
             )}
             {query.trim() && !results.length && !doing.length && (
               <p className="px-2 py-3 text-sm text-muted-foreground">
-                {types.length || kinds.length || titleOnly
+                <Typed text={types.length || kinds.length || titleOnly
                   ? 'Nothing matches with those filters. Turn a chip off to widen it.'
-                  : 'Nothing matches. Try fewer words: every word has to appear somewhere.'}
+                  : 'Nothing matches. Try fewer words: every word has to appear somewhere.'} />
               </p>
             )}
             {results.map((capture, index) => {

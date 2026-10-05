@@ -169,7 +169,7 @@ export const typing = (): boolean => focus() !== null || !!document.querySelecto
 
 /** Pin or unpin, and say so when the three places are full. */
 export const pin = (table: 'captures' | 'nuggets', id: string, on: boolean): void =>
-  void vigil.pin(table, id, on).then((ok) => (ok ? on && chime('pin') : refuse('Three pins at most: unpin one first')))
+  void vigil.pin(table, id, on).then((ok) => (ok ? chime(on ? 'pin' : 'fold') : refuse('Three pins at most: unpin one first')))
 
 /**
  * Moving through a list the way the editor moves through a document: j and k,
@@ -322,12 +322,16 @@ function Suggest({ field }: { field: 'attribution' | 'medium' }): React.JSX.Elem
 function Asker(): React.JSX.Element | null {
   const [asked, setAsked] = useState<{ question: string; placeholder: string; field?: 'attribution' | 'medium'; answer: (words: string | null) => void } | null>(null)
   useEffect(() => {
-    const onAsk = (event: Event): void => setAsked((event as CustomEvent).detail)
+    const onAsk = (event: Event): void => {
+      chime('open')
+      setAsked((event as CustomEvent).detail)
+    }
     window.addEventListener('vigil:ask', onAsk)
     return () => window.removeEventListener('vigil:ask', onAsk)
   }, [])
   if (!asked) return null
   const done = (words: string | null): void => {
+    if (words?.trim()) chime('tap')
     asked.answer(words?.trim() || null)
     setAsked(null)
   }
@@ -476,7 +480,7 @@ export function SmoothScroll({ children }: { children: ReactNode }): React.JSX.E
 export function useSmooth(box: HTMLElement | null): void {
   useEffect(() => {
     const wrapper = box
-    if (!wrapper || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    if (!wrapper || document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches) return
     const lenis = new Lenis({ wrapper, content: wrapper.firstElementChild as HTMLElement, lerp: 0.14, smoothWheel: true })
     // Anything that moves this box itself goes through Lenis, or the two fight.
     smooth.set(wrapper, lenis)

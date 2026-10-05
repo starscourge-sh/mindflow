@@ -4,6 +4,8 @@ import type {
   RefAttributes,
 } from "react"
 import { ReactRenderer } from "@tiptap/react"
+import { chime, click } from "@/lib/sound"
+import { listDirection } from "@/lib/menu-keys"
 import type { PluginKey } from "@tiptap/pm/state"
 import {
   SuggestionPluginKey,
@@ -72,9 +74,19 @@ export function createSuggestionRenderer<I>(
         })
         unmount = props.mount(renderer.element)
         window.addEventListener("keydown", onEscape, true)
+        chime("open")
       },
       onUpdate: (props) => renderer?.updateProps(props),
-      onKeyDown: (props) => renderer?.ref?.onKeyDown(props) ?? false,
+      // Moving through the menu ticks; choosing lands with the pickers' chord.
+      onKeyDown: (props) => {
+        const handled = renderer?.ref?.onKeyDown(props) ?? false
+        if (handled) {
+          const key = props.event.key
+          if (key === "Enter" || key === "Tab") chime("settled")
+          else if (listDirection(props.event)) click("soft")
+        }
+        return handled
+      },
       onExit: () => {
         window.removeEventListener("keydown", onEscape, true)
         unmount?.()

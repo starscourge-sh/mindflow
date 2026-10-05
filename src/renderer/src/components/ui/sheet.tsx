@@ -1,9 +1,18 @@
 import * as React from "react"
 import { cn } from "@/lib/cn"
+import { chime } from "@/lib/sound"
 import { Dialog as SheetPrimitive } from "radix-ui"
 import { XIcon } from "lucide-react"
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
+  // A drawer slides out and folds away with the panel's sounds, however it
+  // was opened (a click, a key, a menu).
+  const was = React.useRef(props.open)
+  React.useEffect(() => {
+    if (props.open === undefined || props.open === was.current) return
+    was.current = props.open
+    chime(props.open ? "slide" : "fold")
+  }, [props.open])
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import {
   Maximize2,
   Minimize2,
@@ -102,13 +102,19 @@ export function Home(): React.JSX.Element {
   // Filling the screen is the window's own maximize, so the green button, a
   // drag or a tiling manager all keep this icon honest.
   const [fill, setFillState] = useState(false)
-  const setFill = (on: boolean): void => void window.api.fillHome(on)
+  const setFill = (on: boolean): void => {
+    chime(on ? 'slide' : 'fold')
+    void window.api.fillHome(on)
+  }
+  const fillRef = useRef(false)
+  fillRef.current = fill
   useEffect(() => window.api.onFilled(setFillState), [])
   // ⌃⇧F, the same chord that makes the prompt bigger. Held, it fires once.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.repeat || event.key.toLowerCase() !== 'f' || !event.ctrlKey || !event.shiftKey || event.metaKey || event.altKey) return
       event.preventDefault()
+      chime(fillRef.current ? 'fold' : 'slide')
       void window.api.fillHome('toggle')
     }
     window.addEventListener('keydown', onKey)
@@ -137,6 +143,7 @@ export function Home(): React.JSX.Element {
 
   const safeMode = (): void => {
     const on = !settings?.safeMode
+    chime(on ? 'on' : 'off')
     void vigil.setSettings({ safeMode: on }).then(() => toast(on ? 'Safe mode: nothing will surface unasked' : 'Safe mode off'))
   }
 
@@ -151,7 +158,10 @@ export function Home(): React.JSX.Element {
       }
       if (event.metaKey && event.key === '[') return step(-1)
       if (event.metaKey && event.key === ']') return step(1)
-      if (event.metaKey && event.key === '\\') return setSidebar((open) => !open)
+      if (event.metaKey && event.key === '\\') {
+        chime(sidebar ? 'fold' : 'slide')
+        return setSidebar((open) => !open)
+      }
       if (event.metaKey || event.ctrlKey || event.altKey) return
       // Shift on its own is half of a capital, not a key: G, let go, Shift+R.
       if (event.key === 'Shift') return
@@ -199,15 +209,15 @@ export function Home(): React.JSX.Element {
           actions={[
             { label: 'New capture', keys: 'C', run: () => window.api.showPrompt() },
             ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),
-            { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘\\', run: () => setSidebar(!sidebar) },
-            { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', run: () => void window.api.fillHome(!fill) },
-            { label: settings?.sounds ? 'Turn sounds off' : 'Turn sounds on', run: () => {
+            { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘\\', cue: sidebar ? 'fold' : 'slide', run: () => setSidebar(!sidebar) },
+            { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', cue: null, run: () => setFill(!fill) },
+            { label: settings?.sounds ? 'Turn sounds off' : 'Turn sounds on', cue: null, run: () => {
               soundOn(!settings?.sounds)
               chime(settings?.sounds ? 'off' : 'on')
               void vigil.setSettings({ sounds: !settings?.sounds })
             } },
-            { label: settings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', run: safeMode },
-            { label: 'reveal' in document.documentElement.dataset ? 'Blur private titles again' : 'Show private titles', run: () => {
+            { label: settings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', cue: null, run: safeMode },
+            { label: 'reveal' in document.documentElement.dataset ? 'Blur private titles again' : 'Show private titles', cue: 'reveal' in document.documentElement.dataset ? 'off' : 'on', run: () => {
               const root = document.documentElement
               if ('reveal' in root.dataset) delete root.dataset.reveal
               else root.dataset.reveal = ''
@@ -347,7 +357,7 @@ export function Home(): React.JSX.Element {
       <div className="flex min-w-0 flex-1 flex-col gap-2">
       <header className={`flex h-8 shrink-0 items-center gap-1 ${sidebar ? '' : 'pl-[68px]'}`} style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
         {[
-          { icon: PanelLeft, title: 'Sidebar ⌘\\', run: () => setSidebar(!sidebar) },
+          { icon: PanelLeft, title: 'Sidebar ⌘\\', run: () => (chime(sidebar ? 'fold' : 'slide'), setSidebar(!sidebar)) },
           // With the sidebar away, its search field comes up here as a button.
           ...(sidebar ? [] : [{ icon: SearchIcon, title: 'Search ⌘K', run: () => setSearching(true) }])
         ].map(({ icon: Icon, title, run }) => (

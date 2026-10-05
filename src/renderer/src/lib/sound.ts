@@ -282,6 +282,12 @@ export function installTicks(): () => void {
     if (event.button !== 0) return
     if (target?.closest('[data-row]') && !target.closest('[data-silent]')) click('tick')
   }
+  // A to-do ticked inside a note sounds like a task done, unticked like a switch off.
+  const onChange = (event: Event): void => {
+    const box = event.target as HTMLInputElement | null
+    if (box?.type === 'checkbox' && box.closest('li[data-type="taskItem"]')) chime(box.checked ? 'done' : 'off')
+  }
+  document.addEventListener('change', onChange, true)
   document.addEventListener('pointerdown', onDown)
   document.addEventListener('pointermove', onMove, true)
   document.addEventListener('pointerover', onOver)
@@ -290,6 +296,7 @@ export function installTicks(): () => void {
   document.addEventListener('scroll', onScroll, true)
   return () => {
     document.removeEventListener('pointerdown', onDown)
+    document.removeEventListener('change', onChange, true)
     document.removeEventListener('pointermove', onMove, true)
     document.removeEventListener('wheel', onWheel, true)
     document.removeEventListener('touchmove', onWheel, true)

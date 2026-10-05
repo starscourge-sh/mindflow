@@ -3,6 +3,10 @@ import { cn } from "@/lib/tiptap-utils"
 import { CheckIcon } from "@/components/tiptap-icons/check-icon"
 
 import "@/components/tiptap-ui-primitive/dropdown-menu/dropdown-menu.scss"
+import { chime } from "@/lib/sound"
+
+// Unfolding makes its own small sound, once, when the panel appears.
+const openCue = (node: HTMLElement | null): void => void (node && chime("open"))
 
 function DropdownMenu({
   ...props
@@ -43,6 +47,7 @@ function DropdownMenuContent({
   return (
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
+        ref={openCue}
         collisionPadding={10}
         data-slot="tiptap-dropdown-menu-content"
         sideOffset={sideOffset}

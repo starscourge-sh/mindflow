@@ -1,6 +1,10 @@
 import * as PopoverPrimitive from "@radix-ui/react-popover"
 import { cn } from "@/lib/tiptap-utils"
 import "@/components/tiptap-ui-primitive/popover/popover.scss"
+import { chime } from "@/lib/sound"
+
+// Unfolding makes its own small sound, once, when the panel appears.
+const openCue = (node: HTMLElement | null): void => void (node && chime("open"))
 
 function Popover({
   ...props
@@ -26,6 +30,7 @@ function PopoverContent({
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
+        ref={openCue}
         align={align}
         sideOffset={sideOffset}
         collisionPadding={collisionPadding}
