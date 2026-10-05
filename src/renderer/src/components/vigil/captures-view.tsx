@@ -14,7 +14,7 @@ import { EXITS, STATUS_ICON, captureKey, exit, findCaptures, flying, takeExit, t
 import { toMarkdown } from '@/lib/export'
 import { splitTags, taskSaid, vigil, type Made } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
-import { Empty, Kbd, Page, Prop, PropLabel, Props, Remembered, Rolling, ask, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion } from './ui'
+import { Empty, Page, Prop, PropLabel, Props, Remembered, Rolling, ask, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion } from './ui'
 import { RemindMe } from './items-view'
 import { ReadThrough } from './read-through'
 import { selectionActions } from './selection-actions'
