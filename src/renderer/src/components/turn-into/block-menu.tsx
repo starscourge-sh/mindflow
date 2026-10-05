@@ -56,12 +56,15 @@ export function BlockMenu({
   targetRef,
   open,
   onOpenChange,
+  at: point,
 }: {
   editor: Editor
   /** A ref, so tracking the pointer does not re-render the editor. */
   targetRef: { current: BlockTarget | null }
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Where a right-click happened: the menu opens there, not at the grip. */
+  at?: { x: number; y: number } | null
 }) {
   // The handle keeps following the pointer, so read it once, on open, and hold
   // that - otherwise the target drifts out from under the menu.
@@ -255,7 +258,23 @@ export function BlockMenu({
       {/* The grip cannot be the trigger: Radix preventDefaults its pointerdown,
           which kills the handle's native drag. This anchors the menu instead. */}
       <DropdownMenuTrigger asChild>
-        <span className="tiptap-block-menu-anchor" />
+        <span
+          className="tiptap-block-menu-anchor"
+          // At the click, measured against whatever box the anchor sits in:
+          // the window can sit inside a moved (transformed) box, where a
+          // fixed position is not the screen's.
+          ref={(node) => {
+            if (!node) return
+            if (!point) {
+              node.style.position = ""
+              return
+            }
+            node.style.position = "absolute"
+            const box = (node.offsetParent ?? document.body).getBoundingClientRect()
+            node.style.left = `${point.x - box.left}px`
+            node.style.top = `${point.y - box.top}px`
+          }}
+        />
       </DropdownMenuTrigger>
 
       <DropdownMenuContent

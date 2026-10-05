@@ -625,6 +625,8 @@ function Surface({
   // block, and re-rendering the editor that often makes the handle flicker.
   const blockTarget = useRef<BlockTarget | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  // A right-click's spot, so its menu opens under the pointer; the grip's opens at the grip.
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null)
   // The plugin hides its handle by writing inline `visibility`, instantly, from
   // several different paths. Watching that one attribute catches all of them -
   // listening to `onNodeChange` alone left the handle stuck on screen. We turn
@@ -1108,6 +1110,7 @@ function Surface({
       if (!node) return
       event.preventDefault()
       blockTarget.current = { pos, name: node.type.name, level: headingRank(node) ?? undefined }
+      setMenuAt({ x: event.clientX, y: event.clientY })
       setTimeout(() => setMenuOpen(true))
     }
     // Capture, so this runs before the handle's own listener further down.
@@ -1328,7 +1331,10 @@ function Surface({
               className="tiptap-drag-handle-grip"
               data-silent=""
               aria-label="Block actions"
-              onClick={() => setMenuOpen(true)}
+              onClick={() => {
+                setMenuAt(null)
+                setMenuOpen(true)
+              }}
             >
               <GripVertical />
             </button>
@@ -1336,6 +1342,7 @@ function Surface({
             <BlockMenu
               editor={editor}
               targetRef={blockTarget}
+              at={menuAt}
               open={menuOpen}
               onOpenChange={setMenuOpen}
             />
