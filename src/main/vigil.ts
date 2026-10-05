@@ -483,7 +483,7 @@ export function registerVigil(): void {
   // lineage both ways, and the backlinks an @ link leaves.
   handle('lineage', (id: string) => {
     const links = (table: string, title: string): { type: string; id: string; title: string }[] =>
-      db.prepare(`select ${table === 'captures' ? "'capture'" : 'tier'} as type, id, ${title} as title from ${table} where body like ? or body like ?`).all(`%"id":"${id}"%`, `%"id":"%:${id}"%`) as never
+      db.prepare(`select ${table === 'captures' ? "'capture'" : 'tier'} as type, id, ${title} as title from ${table} where body like ? or body like ? or body like ?`).all(`%"id":"${id}"%`, `%"id":"%:${id}"%`, `%[[@%${id}|%`) as never
     return {
       from: [
         ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title from captures where id in (select capture_id from nuggets where id = ? union select origin_capture_id from tasks where id = ?
@@ -518,7 +518,8 @@ export function registerVigil(): void {
   // The words as read: inline pieces run together, links as their names,
   // blocks on their own lines.
   const words = (value: unknown): string => {
-    if (typeof value === 'string') return value
+    // An imported page's [[@link|name]] reads as its name.
+    if (typeof value === 'string') return value.replace(/\[\[@[^|\]]+\|([^\]]+)\]\]/g, '$1')
     const walk = (node: Doc): string =>
       node.type === 'noteLink' ? String(node.attrs?.label ?? '') :
       node.text ?? (node.content ?? []).map(walk).join(node.content?.every((child) => child.type === 'text' || child.type === 'noteLink' || child.type === 'hardBreak') ? '' : '\n')
@@ -540,10 +541,12 @@ export function registerVigil(): void {
     const unlinked: Mention[] = []
     for (const row of everything()) {
       if (row.id === id || !row.body) continue
-      const links = row.body.includes(`"id":"${id}"`)
+      // A link as the editor keeps it, or as an imported page still holds it.
+      const links = row.body.includes(`"id":"${id}"`) || new RegExp(`\\[\\[@(?:[a-z]+:)?${id}\\|`).test(row.body)
       const text = words(JSON.parse(row.body))
       if (links) {
-        const label = /"label":"([^"]*)"/.exec(row.body.slice(row.body.indexOf(`"id":"${id}"`)))?.[1] ?? name
+        const label = /"label":"([^"]*)"/.exec(row.body.slice(Math.max(0, row.body.indexOf(`"id":"${id}"`))))?.[1] ??
+          new RegExp(`\\[\\[@(?:[a-z]+:)?${id}\\|([^\\]]+)\\]\\]`).exec(row.body)?.[1] ?? name
         const at = text.indexOf(label)
         linked.push({ type: row.type, id: row.id, title: row.title, snippet: at >= 0 ? around(text, at, label.length) : text.slice(0, 160) })
         continue

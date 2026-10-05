@@ -110,6 +110,25 @@ export const NoteLink = Node.create<NoteLinkOptions>({
     return `[[${label || id || ""}]]`
   },
 
+  /**
+   * Read back the one form that carries an id: `[[@id|name]]`, which an
+   * imported vault's [[links]] are turned into once the page they point at is
+   * here. A plain [[name]] stays words, since a name alone points nowhere.
+   */
+  markdownTokenizer: {
+    name: "noteLink",
+    level: "inline",
+    start: (src: string) => src.indexOf("[[@"),
+    tokenize: (src: string) => {
+      const match = /^\[\[@([^|\]]+)\|([^\]]+)\]\]/.exec(src)
+      return match ? { type: "noteLink", raw: match[0], id: match[1], label: match[2] } : undefined
+    },
+  },
+  parseMarkdown: (token) => ({
+    type: "noteLink",
+    attrs: { id: String(token.id ?? ""), label: String(token.label ?? ""), key: "" },
+  }),
+
   addProseMirrorPlugins() {
     const { findNotes, onOpenNote, render, tagRender } = this.options
     // The tags are read once as the `#` menu opens, then narrowed as you type.

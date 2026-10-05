@@ -29,11 +29,11 @@ import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShor
 
 import { createHash, randomUUID } from 'crypto'
 import { copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'fs/promises'
-import { basename, join, relative } from 'path'
+import { basename, dirname, join, relative } from 'path'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { captureText, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, recordOpen, registerCaptures } from './captures'
+import { captureText, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures } from './captures'
 import { backupDir } from './backup'
 import { activeSession, badge, registerVigil, toggleSafeMode } from './vigil'
 
@@ -624,24 +624,80 @@ app.on('second-instance', (_event, argv) => {
 })
 
 /**
- * A whole Obsidian vault, each note one capture. Its own settings folder and
- * the trash are left out; everything else that is Markdown comes in, once.
+ * A whole Obsidian vault, each note one capture (or an article, from a
+ * `permanent` folder). Its settings, its trash and any folder that looks like
+ * it holds credentials are left out. What a note's frontmatter says comes
+ * with it: its tags as #tags, its date, its aliases as other names to link
+ * by. Its pictures come too, into the app's own store, and its [[links]]
+ * become links to what those pages became here.
  */
-async function importVault(): Promise<void> {
-  const { filePaths } = await dialog.showOpenDialog({ title: 'Import an Obsidian vault', properties: ['openDirectory'] })
-  const root = filePaths[0]
+async function importVault(given?: string): Promise<void> {
+  const root = given ?? (await dialog.showOpenDialog({ title: 'Import an Obsidian vault', properties: ['openDirectory'] })).filePaths[0]
   if (!root) return
-  let added = 0
+  const notes: string[] = []
+  // Attachments by file name: Obsidian embeds them by name alone, wherever they are.
+  const files = new Map<string, string>()
   const walk = async (folder: string): Promise<void> => {
     for (const entry of await readdir(folder, { withFileTypes: true })) {
-      if (entry.name.startsWith('.') || entry.name === '.trash') continue
+      if (entry.name.startsWith('.') || /cred|secret|password|private[-_ ]?key/i.test(entry.name)) continue
       const path = join(folder, entry.name)
       if (entry.isDirectory()) await walk(path)
-      else if (entry.name.endsWith('.md') && importNote(relative(root, path), await readFile(path, 'utf8'), (await stat(path)).mtime)) added += 1
+      else if (entry.name.endsWith('.md')) notes.push(path)
+      else files.set(entry.name.toLowerCase(), path)
     }
   }
   await walk(root)
-  await dialog.showMessageBox({ message: 'Imported', detail: `${added} notes from ${basename(root)}` })
+
+  const IMAGE: Record<string, string> = { png: 'png', jpg: 'jpg', jpeg: 'jpg', gif: 'gif', webp: 'webp', svg: 'svg', avif: 'avif', bmp: 'bmp' }
+  let pictures = 0
+  // Stored by the hash of its bytes, as a pasted picture is, so a picture
+  // embedded in ten notes is kept once.
+  const keep = async (path: string): Promise<string | null> => {
+    const extension = IMAGE[path.split('.').pop()?.toLowerCase() ?? '']
+    if (!extension) return null
+    const bytes = await readFile(path).catch(() => null)
+    if (!bytes) return null
+    const name = `${createHash('sha256').update(bytes).digest('hex')}.${extension}`
+    await mkdir(assetsDir(), { recursive: true })
+    await stat(join(assetsDir(), name)).catch(() => writeFile(join(assetsDir(), name), bytes))
+    pictures += 1
+    return `mindflow://assets/${name}`
+  }
+  const listed = (front: string, key: string): string[] => {
+    const inline = new RegExp(`^${key}:[ \\t]*(.+)$`, 'm').exec(front)?.[1]?.trim()
+    if (inline) return inline.replace(/^\[|\]$/g, '').split(/[,\s]+/).map((one) => one.replace(/^["'#]|["']$/g, '')).filter(Boolean)
+    const block = new RegExp(`^${key}:\\s*\\n((?:\\s*-\\s*.+\\n?)+)`, 'm').exec(front)?.[1] ?? ''
+    return [...block.matchAll(/-\s*(.+)/g)].map((match) => match[1].trim().replace(/^["'#]|["']$/g, '')).filter(Boolean)
+  }
+
+  const made: { link: string; title: string }[] = []
+  const byName = new Map<string, string>()
+  for (const path of notes) {
+    let text = await readFile(path, 'utf8')
+    const front = /^---\n([\s\S]*?)\n---\n/.exec(text)?.[1] ?? ''
+    const tags = listed(front, 'tags')
+    // Pictures: ![[name.png|300]] by name anywhere in the vault, ![](path) beside the note.
+    for (const match of [...text.matchAll(/!\[\[([^\]|#]+)(?:\|[^\]]*)?\]\]/g)]) {
+      const found = files.get(match[1].trim().split('/').pop()!.toLowerCase())
+      const url = found && (await keep(found))
+      if (url) text = text.replace(match[0], `![](${url})`)
+    }
+    for (const match of [...text.matchAll(/!\[([^\]]*)\]\((?!https?:|mindflow:)([^)\s]+)\)/g)]) {
+      const local = decodeURIComponent(match[2])
+      const found = files.get(local.split('/').pop()!.toLowerCase()) ?? join(dirname(path), local)
+      const url = await keep(found)
+      if (url) text = text.replace(match[0], `![${match[1]}](${url})`)
+    }
+    if (tags.length) text = `${text.trimEnd()}\n\n${tags.map((tag) => `#${tag.replace(/\s+/g, '-')}`).join(' ')}\n`
+    const one = importNote(relative(root, path), text, (await stat(path)).mtime)
+    if (!one) continue
+    made.push(one)
+    byName.set(one.title.toLowerCase(), one.link)
+    for (const alias of listed(front, 'aliases')) byName.set(alias.toLowerCase(), one.link)
+  }
+  const linked = linkImported(made, byName)
+  if (given) return console.log(`imported ${made.length} notes, ${pictures} pictures, ${linked} links`)
+  await dialog.showMessageBox({ message: 'Imported', detail: `${made.length} notes from ${basename(root)}, with ${pictures} pictures and ${linked} links` })
 }
 
 /**
@@ -1239,6 +1295,8 @@ app.whenReady().then(() => {
   })
 
   createWindow()
+  // The QA harness imports a test vault without the folder dialog.
+  if (process.env.MINDFLOW_QA_VAULT) void importVault(process.env.MINDFLOW_QA_VAULT)
   // The main window, made in the background once the prompt is up.
   setTimeout(makeHome, 1500)
 

@@ -457,21 +457,46 @@ export function importAnki(text: string): number {
  * folder becomes an article instead. Named after its file, dated
  * by its own `created:` line or the file's, and skipped if already imported.
  */
-export function importNote(path: string, text: string, modified: Date): boolean {
+export function importNote(path: string, text: string, modified: Date): { link: string; title: string } | null {
   const body = text.replace(/^---\n[\s\S]*?\n---\n/, '').trim()
-  if (!body) return false
+  if (!body) return null
   const title = path.split('/').pop()!.replace(/\.md$/, '')
   const at = createdOf(text) ?? modified.toISOString()
   // A Zettelkasten's permanent notes are finished thinking in your own words:
   // they arrive as articles, not as an inbox to triage.
   if (/(^|\/)permanent\//.test(path)) {
-    if (db.prepare("select 1 from nuggets where tier = 'article' and title = ?").get(title)) return false
+    if (db.prepare("select 1 from nuggets where tier = 'article' and title = ?").get(title)) return null
+    const id = randomUUID()
     db.prepare("insert into nuggets (id, tier, kind, title, body, created_at, updated_at) values (?, 'article', 'note', ?, ?, ?, ?)")
-      .run(randomUUID(), title, JSON.stringify(body), new Date(at).toISOString(), modified.toISOString())
-    return true
+      .run(id, title, JSON.stringify(body), new Date(at).toISOString(), modified.toISOString())
+    return { link: `article:${id}`, title }
   }
-  if (db.prepare('select 1 from captures where source = ? and body = ?').get(path, JSON.stringify(body))) return false
-  const { number } = insert({ title, kind: 'note', body, source: path }, new Date(at).toISOString())
+  if (db.prepare('select 1 from captures where source = ? and body = ?').get(path, JSON.stringify(body))) return null
+  const { id, number } = insert({ title, kind: 'note', body, source: path }, new Date(at).toISOString())
   void writeMarkdown(number, body)
-  return true
+  return { link: id, title }
+}
+
+/**
+ * After a vault is in: its `[[Page]]` links become links to what those pages
+ * became here, written `[[@link|shown]]`, which the editor reads as a note
+ * link. A page that did not come in stays as the words it was.
+ */
+export function linkImported(made: { link: string }[], byName: Map<string, string>): number {
+  let linked = 0
+  for (const { link } of made) {
+    const [table, id] = link.startsWith('article:') ? ['nuggets', link.slice(8)] : ['captures', link]
+    const row = db.prepare(`select body from ${table} where id = ?`).get(id) as { body: string } | undefined
+    const body = row && (JSON.parse(row.body) as unknown)
+    if (typeof body !== 'string') continue
+    const next = body.replace(/(?<!!)\[\[([^\]|#]+)(#[^\]|]*)?(?:\|([^\]]+))?\]\]/g, (whole, page: string, _heading, shown?: string) => {
+      const to = byName.get(page.trim().toLowerCase())
+      if (!to) return whole
+      linked += 1
+      return `[[@${to}|${(shown ?? page).trim()}]]`
+    })
+    if (next !== body) db.prepare(`update ${table} set body = ? where id = ?`).run(JSON.stringify(next), id)
+  }
+  if (linked) changed()
+  return linked
 }
