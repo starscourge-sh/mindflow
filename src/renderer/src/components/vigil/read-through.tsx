@@ -5,7 +5,8 @@ import { AnimatePresence, motion } from 'motion/react'
 
 import { MindflowEditor } from '../mindflow'
 import { taskSaid, vigil } from '@/lib/vigil'
-import { Kbd, toast } from './ui'
+import { Kbd, Rolling, toast } from './ui'
+import { ArrowDown, ArrowUp } from 'lucide-react'
 import { exit, toTask } from '@/lib/capture-links'
 
 export type Readable = { type: string; id: string }
@@ -114,8 +115,13 @@ export function ReadThrough({ items, start = 0, onClose, onEdit }: {
       </AnimatePresence>
       {/* The only furniture: where you are, and how to move. */}
       <footer className="flex shrink-0 items-center justify-center gap-4 pb-4 text-xs text-muted-foreground">
-        <span className="tabular-nums">{at + 1} of {items.length}</span>
-        <span><Kbd>J</Kbd> next <Kbd>K</Kbd> back</span>
+        {/* Where you are, and arrows to move, as Linear's issue view has them. */}
+        <span className="flex items-center gap-1 tabular-nums">
+          <span className="text-foreground"><Rolling text={at + 1} /></span> / {items.length}
+          <button type="button" aria-label="Next" disabled={at >= items.length - 1} onClick={() => (chime('page'), setAt(at + 1))} className="ml-1 flex size-6 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowDown className="size-3.5" /></button>
+          <button type="button" aria-label="Previous" disabled={at <= 0} onClick={() => (chime('page'), setAt(at - 1))} className="flex size-6 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowUp className="size-3.5" /></button>
+        </span>
+        <span><Kbd>↓</Kbd> <Kbd>J</Kbd> next · <Kbd>↑</Kbd> <Kbd>K</Kbd> back</span>
         <span><Kbd>E</Kbd> change it</span>
         {item.type === 'capture' && <span><Kbd>P</Kbd> <Kbd>R</Kbd> <Kbd>D</Kbd> exits · <Kbd>T</Kbd> task</span>}
         <span><Kbd>Esc</Kbd> close</span>
