@@ -36,6 +36,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
       if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || tier !== 'nugget') return
       if (event.key === 'Escape' && chosen.length) {
         event.preventDefault()
+        chime('off')
         return setChosen([])
       }
       const row = items[cursor]

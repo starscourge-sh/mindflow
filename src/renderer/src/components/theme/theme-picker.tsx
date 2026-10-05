@@ -67,7 +67,13 @@ export function ThemePicker({ className }: { className?: string }): React.JSX.El
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
-        if (next) setRow(themeName(chosen.current))
+        // Read afresh: Settings in this same window may have changed it, and
+        // a storage event only tells the other windows.
+        if (next) {
+          chosen.current = currentTheme()
+          setTheme(chosen.current)
+          setRow(themeName(chosen.current))
+        }
         // Everything tried on the way out was a preview.
         else applyTheme(chosen.current)
       }}

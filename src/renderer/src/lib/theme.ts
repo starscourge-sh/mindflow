@@ -173,7 +173,7 @@ function lightColour(colour: string | undefined): boolean {
  * `--name: value` is taken, whatever selector it sits under. Returns the
  * theme added, or a sentence saying what was wrong.
  */
-export function importTheme(fileName: string, text: string): CustomTheme | string {
+export function importTheme(fileName: string, text: string): (CustomTheme & { undo: () => void }) | string {
   let given: Record<string, string> = {}
   if (/\.json$/i.test(fileName) || text.trim().startsWith("{")) {
     try {
@@ -187,8 +187,20 @@ export function importTheme(fileName: string, text: string): CustomTheme | strin
   if (!Object.keys(vars).length) return "No colours found: a theme file needs bg, ink and accent, or --variables"
   const id = `custom-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || Date.now()}` as const
   const theme: CustomTheme = { id, name, vars, light: lightColour(given.bg ?? given["--black"] ?? given["--background"]) }
+  // Undo puts things as they were: an earlier theme of the same name comes
+  // back rather than going with it, and the theme worn before is worn again.
+  const before = currentTheme()
+  const replaced = customThemes().find((one) => one.id === id)
   saveCustom([...customThemes().filter((one) => one.id !== id), theme])
-  return theme
+  const undo = (): void => {
+    if (replaced) saveCustom(customThemes().map((one) => (one.id === id ? replaced : one)))
+    else {
+      saveCustom(customThemes().filter((one) => one.id !== id))
+      document.documentElement.classList.remove(id)
+    }
+    applyTheme(allThemes().includes(before) ? before : "dark")
+  }
+  return { ...theme, undo }
 }
 
 /** Take one away. Returns it, so it can be put back. */
@@ -228,4 +240,20 @@ export function paintCustom(): void {
       return `:root.${id} { ${body} } ${dot(1, vars["--tt-brand-color-400"])} ${dot(2, vars["--tt-color-text-yellow"])} ${dot(3, vars["--tt-color-text-green"])}`
     })
     .join("\n")
+}
+
+/**
+ * The themes as things to do from ⌘K: "Theme: Rosé Pine" puts it on, and
+ * "Next theme" steps through them, so a change is two keys and a word away.
+ */
+export function themeActions(said: (text: string) => void): { label: string; run: () => void }[] {
+  const wear = (theme: Theme): void => {
+    applyTheme(theme)
+    said(`Wearing ${themeName(theme)}`)
+  }
+  const all = allThemes()
+  return [
+    { label: 'Next theme', run: () => wear(all[(all.indexOf(currentTheme()) + 1) % all.length]) },
+    ...all.map((theme) => ({ label: `Theme: ${themeName(theme)}`, run: () => wear(theme) }))
+  ]
 }

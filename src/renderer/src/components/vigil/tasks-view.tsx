@@ -21,7 +21,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 
-const startOfDay = (offset = 0): number => new Date(new Date().setHours(0, 0, 0, 0) + offset * 86400000).getTime()
+// Counted on the calendar, so a clock change never moves a day by an hour.
+const startOfDay = (offset = 0): number => {
+  const now = new Date()
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset).getTime()
+}
 /** The day a task shows on, as a number to compare: never, for one with no day. */
 const dayOf = (task: Task): number => placed(task) ?? Infinity
 
@@ -103,6 +107,18 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   const live = chosenTasks.filter((task) => task.status === 'open' && !task.waitingOn && (mode === 'later' ? !!bucket(task) : !bucket(task) || !!task.deadline) && (mode === 'routines' ? task.recurrence : !task.recurrence || mode === 'today'))
   const waiting = mode === 'upcoming' ? chosenTasks.filter((task) => task.status === 'open' && task.waitingOn) : []
   const base = mode === 'today' ? live.filter((task) => dayOf(task) < startOfDay(1)) : live
+  // Pull, the gentlest of the three: a task whose time has come rises to the
+  // top of Today instead of making a noise. Looked at again each minute.
+  const notify = useLive(vigil.settings, null as Awaited<ReturnType<typeof vigil.settings>> | null)?.notify
+  const [, minute] = useState(0)
+  useEffect(() => {
+    const every = setInterval(() => minute((n) => n + 1), 60_000)
+    return () => clearInterval(every)
+  }, [])
+  const come = (task: Task): boolean =>
+    (task.notify ?? notify) === 'pull' &&
+    ((!!task.dueAt && !task.allDay && Date.parse(task.dueAt) <= Date.now()) || (!!task.deadline && !!task.deadlineTimed && Date.parse(task.deadline) <= Date.now()))
+  const today = base.filter((task) => dayOf(task) >= startOfDay())
   const groups: [string, Task[], string?][] =
     view.group === 'none'
       ? [['', [...base, ...waiting]]]
@@ -115,7 +131,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
       : mode === 'today'
       ? [
           ['Overdue', base.filter((task) => dayOf(task) < startOfDay())],
-          ['Today', base.filter((task) => dayOf(task) >= startOfDay())]
+          ['Today', [...today.filter(come), ...today.filter((task) => !come(task))]]
         ]
       : [
           // By day, in the order of the days, whatever the order inside each.
@@ -135,6 +151,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
     if (focus) pick(focus)
   }, [focus])
   const [cursor, setCursor] = useListKeys(shown.length, { onOpen: (index) => pick(shown[index].id), onBack: () => setOpen(null) })
+  const addRef = useRef<HTMLInputElement>(null)
 
   // On the row the keyboard is on: Alt-J and Alt-K move it (dates say what is
   // due, order says what is next), T, M and W put it on today, tomorrow or
@@ -142,6 +159,11 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (typing() || event.defaultPrevented) return
+      // A goes to the add-a-task field, as it does in the box's Today.
+      if (event.key === 'a' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault()
+        return addRef.current?.focus()
+      }
       const task = shown[cursor]
       if (!task) return
       if (event.altKey && (event.code === 'KeyJ' || event.code === 'KeyK')) {
@@ -152,6 +174,10 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
         // Renumber the list as shown, with the two swapped.
         const order = [...shown]
         ;[order[cursor], order[to]] = [order[to], order[cursor]]
+        // Moving a row is choosing your own order, as in captures and nuggets:
+        // the list switches to it, numbered as you saw it.
+        if (view.sort !== 'manual') setView({ ...view, sort: 'manual' })
+        chime('shift')
         void Promise.all(order.map((one, index) => vigil.saveTask(one.id, { sortOrder: index })))
         setCursor(to)
         return
@@ -187,7 +213,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
       <Page aside={!!open}
  title={mode} count={shown.length} actions={
         <span className="flex items-center gap-2">
-          {shown.length > 0 && <span className="hidden text-xs whitespace-nowrap @[60rem]/page:inline"><Kbd>T</Kbd> <Kbd>M</Kbd> <Kbd>W</Kbd> today, tomorrow, next week · <Kbd>1</Kbd>–<Kbd>4</Kbd> priority · <Kbd>⌥J</Kbd> <Kbd>⌥K</Kbd> reorder</span>}
+          {shown.length > 0 && <span className="hidden text-xs whitespace-nowrap @[48rem]/page:inline"><Kbd>?</Kbd> or <Kbd>⌘/</Kbd> for keys</span>}
           <Display
             view={view}
             onChange={setView}
@@ -210,6 +236,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
         >
           <Plus className="size-4 text-muted-foreground" />
           <TaskInput
+            inputRef={addRef}
             value={draft}
             onChange={setDraft}
             placeholder={mode === 'later' ? 'Add a task: “learn Welsh someday”, “book the holiday this year”' : 'Add a task: “call the accountant tomorrow 10am”, “file taxes by friday !!”'}
@@ -324,7 +351,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
         ) : (
           <Empty shape={mode === 'today' ? ['star', 6] : mode === 'routines' ? ['flower', 5] : mode === 'later' ? ['moon', 3] : ['ellipse', 4]} title={mode === 'today' ? 'Nothing due today' : mode === 'routines' ? 'No routines' : mode === 'later' ? 'Nothing put off' : 'Nothing coming up'}>
             {mode === 'routines'
-              ? 'A routine is a task that repeats: “water the plants every! 3 days”, “bins every week”. They live here so they do not crowd Today.'
+              ? 'A routine is a task that repeats, kept here so it does not crowd Today. To make one, type it in the box above with how often: “water the plants every! 3 days”, “bins every week”.'
               : mode === 'today'
               ? 'A clear day. Anything with a date lands here on the day, and anything late stays on top until it is done.'
               : mode === 'later'
@@ -344,12 +371,12 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
   const task = useLive(async () => (await vigil.task(first.id)) ?? first, first, [first.id])
   const title = useRef<HTMLInputElement>(null)
   return (
-    <div className="flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_1.5rem_1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
+    <div className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_1.5rem_1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
         {top && <div className="-mt-3 mb-1 flex px-3 @[40rem]/page:px-[4.25rem]">{top}</div>}
         {/* Pushed back three times: the plan's question, once, without a verdict. */}
         {task.reschedules >= 3 && task.status === 'open' && (
-          <div className="mx-auto mb-3 flex w-full max-w-[44rem] items-center gap-2 px-12 text-sm text-muted-foreground">
+          <div className="page-narrow mx-auto mb-3 flex w-full items-center gap-2 px-12 text-sm text-muted-foreground">
             <span className="mr-auto">Moved {task.reschedules} times. Smaller, or let it go?</span>
             <Button variant="ghost" size="sm" onClick={() => {
               void vigil.saveTask(task.id, { reschedules: 0 })
@@ -366,7 +393,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
         )}
         <input
           ref={title}
-          className="mx-auto mb-2 block w-full max-w-[44rem] bg-transparent px-12 text-title font-semibold text-balance outline-none"
+          className="page-narrow mx-auto mb-2 block w-full bg-transparent px-12 text-title font-semibold text-balance outline-none"
           defaultValue={task.title}
           onBlur={(event) => void vigil.saveTask(task.id, { title: event.target.value })}
         />
@@ -377,24 +404,26 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           defaultContent={(task.notes as JSONContent | null) ?? ''}
           onChange={(notes) => void vigil.saveTask(task.id, { notes })}
         />
-        <Checklist task={task} />
+        {/* Keyed by the list itself, so a change made elsewhere (the other window, an undo) shows. */}
+        <Checklist key={JSON.stringify(task.subtasks)} task={task} />
       </div>
       <Props>
         <Sessions taskId={task.id} title={task.title} />
         {/* When you mean to do it, Todoist's date: the day it shows on. */}
         <Island compact title="Scheduled">
-          <div className="flex gap-1 p-1">
+          {/* Equal columns that may shrink: a narrow panel squeezes the words rather than pushing a button past its edge. */}
+          <div className="grid grid-cols-3 gap-1 p-1">
             {([['Today', 0], ['Tomorrow', 1], ['Next week', 7]] as const).map(([label, days]) => (
-              <Button variant="outline" size="sm" key={label} onClick={() => moveTo(task.id, days)} className="flex-1">
+              <Button variant="outline" size="sm" key={label} onClick={() => moveTo(task.id, days)} className="min-w-0 truncate px-1">
                 {label}
               </Button>
             ))}
           </div>
           <DatePicker time value={task.dueAt} onChange={(due) => void vigil.saveTask(task.id, { due })} placeholder="Not scheduled" />
           {/* Or no day yet: one of the later lists. */}
-          <div className="flex gap-1 p-1">
+          <div className="grid grid-cols-3 gap-1 p-1">
             {(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => (
-              <Button variant={bucket(task) === which ? 'secondary' : 'ghost'} size="sm" key={which} onClick={() => planFor(task, which)} className="flex-1 text-xs">
+              <Button variant={bucket(task) === which ? 'secondary' : 'ghost'} size="sm" key={which} onClick={() => planFor(task, which)} className="min-w-0 truncate px-1 text-xs">
                 {BUCKETS[which]}
               </Button>
             ))}
@@ -406,10 +435,10 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
         </Island>
         {/* Linear's four, each with its key; important is High or Urgent. */}
         <Island compact title="Priority">
-          <div className="flex gap-1 p-1">
+          <div className="grid grid-cols-5 gap-1 p-1">
             {[1, 2, 3, 4, 0].map((level) => (
               <Tip key={level} label={<>{PRIORITY_NAMES[level]} <Kbd>{level}</Kbd></>}>
-                <Button variant={task.priority === level ? 'secondary' : 'ghost'} size="sm" className="flex-1" onClick={() => setPriority(task, level)} aria-label={PRIORITY_NAMES[level]}>
+                <Button variant={task.priority === level ? 'secondary' : 'ghost'} size="sm" className="min-w-0 px-0" onClick={() => setPriority(task, level)} aria-label={PRIORITY_NAMES[level]}>
                   <PriorityIcon level={level} />
                 </Button>
               </Tip>
@@ -578,7 +607,7 @@ function Sessions({ taskId, title }: { taskId: string; title: string }): React.J
         <div className="space-y-1 p-1">
           <div className="flex items-center gap-2 px-1 text-foreground">
             <span className="size-1.5 animate-pulse rounded-full bg-[var(--tt-color-text-red)]" />
-            <span className="text-lg font-semibold tabular-nums">{clock(Math.max(0, tick - new Date(running.startedAt).getTime()))}</span>
+            <span className="text-lg font-semibold tabular-nums">{clock(Math.max(0, tick - new Date(running.startedAt).getTime() - running.pausedMs - (running.pausedAt ? tick - new Date(running.pausedAt).getTime() : 0)))}</span>
           </div>
           <Textarea
             value={recap}
@@ -597,7 +626,7 @@ function Sessions({ taskId, title }: { taskId: string; title: string }): React.J
       {sessions.filter((session) => session.endedAt).slice(0, 4).map((session) => (
         <div key={session.id} className="px-2 py-1.5">
           <p className="text-xs tabular-nums">
-            {when(session.startedAt, false)} · {clock(new Date(session.endedAt!).getTime() - new Date(session.startedAt).getTime())}
+            {when(session.startedAt, false)} · {clock(new Date(session.endedAt!).getTime() - new Date(session.startedAt).getTime() - session.pausedMs)}
           </p>
           {session.recap && <p className="mt-0.5 line-clamp-3 text-control text-foreground">{session.recap}</p>}
         </div>
@@ -627,7 +656,7 @@ function Checklist({ task }: { task: TaskFull }): React.JSX.Element {
     void vigil.saveTask(task.id, { subtasks: next })
   }
   return (
-    <section className="mx-auto w-full max-w-[44rem] px-12 pb-10">
+    <section className="page-narrow mx-auto w-full px-12 pb-10">
       {task.linked.length > 0 && (
         <>
           <h3 className="mb-2 text-control font-semibold">For this</h3>
@@ -680,7 +709,7 @@ function Checklist({ task }: { task: TaskFull }): React.JSX.Element {
           setDraft('')
         }}
         placeholder="Add a subtask"
-        className="mt-1 w-full bg-transparent py-1 outline-none placeholder:text-muted-foreground"
+        className="mt-1 w-full bg-transparent py-1 outline-none placeholder:text-foreground/70"
       />
     </section>
   )
@@ -693,6 +722,6 @@ export function taskFacets(tasks: Task[]): Facet<Task>[] {
       test: (task, mark) => (mark === 'important' ? !!task.important : mark === 'deadline' ? !!task.deadline : mark === 'blocked' ? !!task.blocker : task.estimate !== null) },
     { key: 'priority', label: 'Priority', options: [1, 2, 3, 4, 0].map((level) => ({ id: String(level), label: PRIORITY_NAMES[level] })), test: (task, level) => task.priority === Number(level) },
     { key: 'tag', label: 'Tag', options: [...new Set(tasks.flatMap((task) => splitTags(task.title).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}` })), test: (task, tag) => splitTags(task.title).tags.includes(tag) },
-    { key: 'from', label: 'Came from', options: [{ id: 'capture', label: 'A capture' }, { id: 'typed', label: 'Typed here' }], test: (task, from) => (task.captureId ? 'capture' : 'typed') === from }
+    { key: 'from', label: 'Came from', options: [{ id: 'capture', label: 'A note' }, { id: 'typed', label: 'Typed here' }], test: (task, from) => (task.fromId ? 'capture' : 'typed') === from }
   ]
 }

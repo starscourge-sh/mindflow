@@ -74,14 +74,29 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
         else onOpen()
         return
       }
-      if (event.key === "Escape" && open) {
-        event.preventDefault()
-        leave(false)
-      }
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [onOpen, open, leave])
+
+  // Escape closes the bar before anything else hears it. Listening late, in
+  // the bubble, lost the race to a host that hides its window on Escape. A
+  // menu open in the note keeps its Escape, and so does another editor.
+  useEffect(() => {
+    if (!open) return
+    const onEscape = (event: KeyboardEvent): void => {
+      if (event.key !== "Escape") return
+      const mine = barRef.current?.closest(".mindflow-editor-wrapper") ?? barRef.current
+      const target = event.target as Node | null
+      if (target && target !== document.body && !mine?.contains(target)) return
+      if (document.querySelector("[role=menu], [role=listbox], .tiptap-suggestion-popup")) return
+      event.preventDefault()
+      event.stopPropagation()
+      leave(false)
+    }
+    window.addEventListener("keydown", onEscape, true)
+    return () => window.removeEventListener("keydown", onEscape, true)
+  }, [open, leave])
 
   // Runs after the mount below, which is why it can select rather than focus.
   // Opening is the bar's sound; vim's `/` opens it too and is heard the same.
@@ -151,6 +166,7 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
           ref={inputRef}
           type="text"
           placeholder="Find"
+          aria-label="Find in note"
           // The bar unmounts when closed, so this re-seeds from the live search
           // each time it opens - otherwise it reopens blank over a running search.
           defaultValue={editor?.storage.findAndReplace?.searchTerm ?? ""}

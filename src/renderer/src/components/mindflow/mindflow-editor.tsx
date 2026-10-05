@@ -34,6 +34,7 @@ import { ReactNodeViewRenderer, type Editor } from "@tiptap/react"
 import { lowlight } from "@/lib/lowlight"
 import { setHost, type MindflowHost } from "@/lib/host"
 import { currentVim, onVimChange } from "@/lib/vim"
+import { cue } from "@/lib/cues"
 import "katex/dist/katex.min.css"
 
 // --- Extensions ---
@@ -605,6 +606,28 @@ function Surface({
   }, [contentBox, !after]) // eslint-disable-line react-hooks/exhaustive-deps
   const toggleSource = useRef(onToggleSource)
   toggleSource.current = onToggleSource
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  // The editor's own source panel, heard opening and closing; Escape shuts it.
+  const sourceOpenRef = useRef(sourceOpen)
+  sourceOpenRef.current = sourceOpen
+  const setSource = (open: boolean): void => {
+    cue(open ? "source" : "source-close")
+    setSourceOpen(open)
+  }
+  const setSourceRef = useRef(setSource)
+  setSourceRef.current = setSource
+  useEffect(() => {
+    if (!sourceOpen) return
+    const onEscape = (event: KeyboardEvent): void => {
+      if (event.key !== "Escape" || !wrapperRef.current?.contains(event.target as Node)) return
+      if (document.querySelector("[role=menu], [role=listbox], [role=dialog], .tiptap-suggestion-popup, .tiptap-find-bar:not([inert])")) return
+      event.preventDefault()
+      event.stopPropagation()
+      setSourceRef.current(false)
+    }
+    window.addEventListener("keydown", onEscape, true)
+    return () => window.removeEventListener("keydown", onEscape, true)
+  }, [sourceOpen])
   const rememberBlock = useCallback(
     ({ node, editor, pos }: { node: ProseMirrorNode | null; editor: Editor; pos: number }): void => {
       blockTarget.current = node
@@ -1059,7 +1082,7 @@ function Surface({
       CardLink,
       SelectedNodes,
       ObsidianShortcuts.configure({
-        onToggleSource: () => (toggleSource.current ? toggleSource.current() : setSourceOpen((open) => !open)),
+        onToggleSource: () => (toggleSource.current ? toggleSource.current() : setSourceRef.current(!sourceOpenRef.current)),
       }),
       VimMode.configure({
         enabled: vimOn,
@@ -1309,6 +1332,7 @@ function Surface({
 
   return (
     <div
+      ref={wrapperRef}
       className={[
         "relative mindflow-editor-wrapper",
         // A line hugs its text. Only a document needs to fill what holds it.

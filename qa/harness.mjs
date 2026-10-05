@@ -21,7 +21,9 @@ export async function open() {
   // A fresh folder for the app's data, so a run never touches your real captures.
   // QA_DATA points a run at a copy of real data, to see it with a real corpus.
   const data = process.env.QA_DATA ?? mkdtempSync(join(tmpdir(), 'mindflow-qa-'))
-  const app = await electron.launch({ args: ['.'], env: { ...process.env, MINDFLOW_USER_DATA: data } })
+  // QA_ENTRY runs a build kept apart from out/, so one test's build does not
+  // pull the app out from under another test running at the same time.
+  const app = await electron.launch({ args: [process.env.QA_ENTRY ?? '.'], env: { ...process.env, MINDFLOW_USER_DATA: data } })
   // Never left running: the app keeps its windows when asked to close (a
   // window put away, not quit), so a plain kill can leave it stuck exiting.
   // However the run ends (done, failed, interrupted), it is killed outright.

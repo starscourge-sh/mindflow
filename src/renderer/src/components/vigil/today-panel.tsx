@@ -23,6 +23,7 @@ const EMPTY: Record<Scope, { shape: [Parameters<typeof Empty>[0]['shape'][0], nu
   routines: { shape: ['flower', 5], title: 'No routines', text: '“every week” follows the calendar; “every! 3 days” counts from when you last did it.' },
   month: { shape: ['polygon', 4], title: 'Nothing this month', text: 'Say “this month” in the words for something with no day yet that should still happen soon.' },
   year: { shape: ['flower', 3], title: 'Nothing this year', text: '“this year” or “next month” keeps a task here, without a day, until you give it one.' },
+  next: { shape: ['polygon', 5], title: 'Nothing next year', text: '“next year” keeps a task here, without a day, until the year comes round.' },
   someday: { shape: ['moon', 2], title: 'Nothing for someday', text: '“learn Welsh someday”: the things you might do, kept where they do not nag.' },
   backlog: { shape: ['wheel', 2], title: 'Nothing in the backlog', text: 'A task with no date goes here, out of the way until you give it one.' },
   waiting: { shape: ['moon', 3], title: 'Waiting on no one', text: 'Say who a task is waiting on and it comes here, with a day to chase them.' }
@@ -34,6 +35,7 @@ const SCOPES: Record<Scope, { label: string; test: (task: Task) => boolean }> = 
   routines: { label: 'Routines', test: (task) => !!task.recurrence },
   month: { label: BUCKETS.month, test: (task) => !task.waitingOn && bucket(task) === 'month' },
   year: { label: BUCKETS.year, test: (task) => !task.waitingOn && bucket(task) === 'year' },
+  next: { label: BUCKETS.next, test: (task) => !task.waitingOn && bucket(task) === 'next' },
   someday: { label: BUCKETS.someday, test: (task) => !task.waitingOn && bucket(task) === 'someday' },
   backlog: { label: 'Backlog', test: (task) => !task.waitingOn && placed(task) === null && !bucket(task) },
   waiting: { label: 'Waiting', test: (task) => !!task.waitingOn }

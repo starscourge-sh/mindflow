@@ -61,7 +61,8 @@ export function Tour({ firstRun = false }: { firstRun?: boolean }): React.JSX.El
   }, [stop?.at])
 
   const go = (to: number): void => {
-    if (to < 0) return
+    // The import card is the last: nothing past it to go to.
+    if (to < 0 || to > STOPS.length) return void chime('nope')
     chime('page')
     setAt(to)
   }

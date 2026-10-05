@@ -168,7 +168,8 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             { label: 'Open', run: () => onOpen(card.id) },
             'separator',
             ...EXITS.map((one) => ({ label: one.label, keys: one.key.toUpperCase(), danger: one.status === 'discarded', run: () => exit(card.id, one.status) })),
-            { label: 'Make it a task', run: () => void makeTask({ capture: card.id }).then((made) => made && drop(card.id)) },
+            // Undone, the task goes and the card comes back to its place.
+            { label: 'Make it a task', run: () => void makeTask({ capture: card.id }, undefined, { onUndo: () => setCards((all) => (all.some((one) => one.id === card.id) ? all : [...all, card].sort(byAge))) }).then((made) => made && drop(card.id)) },
             { label: 'Say who said it', keys: 'W', run: () => setAsking(card.id) },
             'separator',
             { label: 'Pin to the prompt', run: () => pin('captures', card.id, true) },

@@ -21,21 +21,33 @@ import { Kbd, Rolling } from './ui'
  * each shown in itself. The Mac's list is asked for the first time the menu
  * opens, since reading every font is not free.
  */
-export function FontPicker({ value }: { value: string }): React.JSX.Element {
+export function FontPicker({ value, setting = 'noteFont', same }: {
+  value: string
+  /** Which setting it changes: the text's font or the headings'. */
+  setting?: 'noteFont' | 'headingFont'
+  /** Offered first for headings: no font of their own, the text's instead. */
+  same?: string
+}): React.JSX.Element {
   const [mac, setMac] = useState<string[] | null>(null)
-  const name = NOTE_FONTS.find((one) => one.id === value)?.label ?? value
+  const name = same && (!value || value === 'same') ? same : (NOTE_FONTS.find((one) => one.id === value)?.label ?? value)
   return (
     <DropdownMenu modal={false} onOpenChange={(open) => void (open && mac === null && systemFonts().then(setMac))}>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="max-w-48" style={{ fontFamily: familyOf(value) }}>
+        <Button variant="outline" size="sm" className="max-w-48" style={{ fontFamily: same && (!value || value === 'same') ? undefined : familyOf(value) }}>
           <span className="truncate"><Rolling text={name} /></span> <ChevronDown className="size-3.5 opacity-60" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="max-h-80 w-56 overflow-y-auto">
-        <DropdownMenuRadioGroup value={value} onValueChange={(noteFont) => {
+        <DropdownMenuRadioGroup value={value || 'same'} onValueChange={(font) => {
           chime('settled')
-          void vigil.setSettings({ noteFont })
+          void vigil.setSettings({ [setting]: font })
         }}>
+          {same && (
+            <>
+              <DropdownMenuRadioItem value="same">{same}</DropdownMenuRadioItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
           {NOTE_FONTS.map((one) => (
             <DropdownMenuRadioItem key={one.id} value={one.id} style={{ fontFamily: familyOf(one.id) }}>{one.label}</DropdownMenuRadioItem>
           ))}

@@ -90,13 +90,16 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
       // "resolve this". This listener runs before the window's G handler, so
       // it tracks the G itself.
       if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
+      if (event.key === 'Shift') return
+      // The key after G finishes the pair, so G G does not also eat the next key.
       const afterG = lastKey.current === 'g'
-      lastKey.current = event.key.toLowerCase()
+      lastKey.current = afterG ? '' : event.key.toLowerCase()
       if (afterG) return
       // Escape lets a selection go, the way Linear's does.
       // Taken first, so the list does not also close what is open.
       if (event.key === 'Escape' && chosen.length) {
         event.preventDefault()
+        chime('off')
         return setChosen([])
       }
       // P, R and D take that exit on the row under the cursor, as the menu says.
@@ -111,7 +114,10 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
     return () => window.removeEventListener('keydown', onKey, true)
   })
   const bulk = (status: string): void => {
-    const ids = chosen
+    // Only the open ones: a promoted capture resolved, or undone back to open,
+    // would lose where it went.
+    const ids = chosen.filter((id) => all.find((capture) => capture.id === id)?.status === 'open')
+    if (!ids.length) return refuse('None of these is open')
     void Promise.all(ids.map((id) => window.api.captures.save(id, { status }))).then(() => {
       chime(status === 'discarded' ? 'away' : 'resolve')
       setChosen([])
@@ -151,7 +157,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
                   void vigil.bulk(chosen, { tag }).then((n) => (chime('noted'), toast(`Tagged ${n} with #${tag.replace(/^#/, '')}`)))
                   event.currentTarget.value = ''
                 }}
-                className="w-20 rounded-md bg-transparent px-2 py-1 text-xs outline-none placeholder:text-muted-foreground hover:bg-accent focus:bg-accent"
+                className="w-20 rounded-md bg-transparent px-2 py-1 text-xs outline-none placeholder:text-foreground/70 hover:bg-accent focus:bg-accent"
               />
               <DatePicker value={null} placeholder="Date…" className="text-xs" onChange={(at) => at && void vigil.bulk(chosen, { capturedAt: at }).then((n) => (chime('noted'), toast(`Dated ${n}`)))} />
               <Tip label="Clear">
@@ -171,7 +177,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
         }
       >
         {shown.length && layout === 'cards' ? (
-          <NoteCards table="captures" cards={shown.map((one) => ({ id: one.id, title: one.label, kind: one.kind, type: 'capture', dim: one.status !== 'open' }))} selected={open?.id} cursor={cursor} onPick={pick}
+          <NoteCards table="captures" cards={shown.map((one) => ({ id: one.id, title: one.label, kind: one.kind, type: 'capture', dim: one.status !== 'open', private: !!one.private }))} selected={open?.id} cursor={cursor} onPick={pick}
             menu={(card) => captureMenu(shown.find((one) => one.id === card.id)!, pick)} />
         ) : shown.length ? (
           <div className="px-3 py-2">
@@ -211,7 +217,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
         />
       )}
       {open && meta ? (
-        <div className="flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_1.5rem_1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
+        <div className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_1.5rem_1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
             {/* What you first caught, kept from the first edit on: read it
                 beside what it has become, never lost to an edit. */}
@@ -349,7 +355,7 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
                   into ? (chime('resolve'), toast(`Merged into MF-${number}`, () => void window.api.captures.save(capture.id, { status: 'open' }))) : refuse(`No MF-${number} to merge into`)
                 )
               }}
-              className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-muted-foreground"
+              className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-foreground/70"
             />
           </label>
         )}

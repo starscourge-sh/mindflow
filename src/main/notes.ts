@@ -49,6 +49,10 @@ export function registerNotes({ load, guard }: Windows): void {
   // put away whatever became of it, and come back as it was.
   column('captures', 'archived_at text')
   column('nuggets', 'archived_at text')
+  // The pin and reminder a note had when it was archived: put away, it is not
+  // pinned or due, and coming back it has them again.
+  column('captures', 'archived_was text')
+  column('nuggets', 'archived_was text')
   // The fields a kind asks for (a word's definition, a book's rating), as one
   // JSON object: which fields exist is the renderer's one table, not a column each.
   column('captures', 'fields text')
@@ -160,13 +164,25 @@ export function registerNotes({ load, guard }: Windows): void {
 
   // --- archive
   handle('notes:archive', (name: string, ids: string[], on: boolean) => {
-    const set = db.prepare(`update ${table(name)} set archived_at = ? where id = ?`)
-    for (const id of ids) set.run(on ? now() : null, id)
+    const at = table(name)
+    const away = db.prepare(`update ${at} set archived_at = ?, archived_was = json_object('pinned_at', pinned_at, 'remind_at', remind_at), pinned_at = null, remind_at = null where id = ? and archived_at is null`)
+    const back = db.prepare(`update ${at} set archived_at = null, pinned_at = coalesce(pinned_at, ?), remind_at = coalesce(remind_at, ?), archived_was = null where id = ?`)
+    const pins = (): number =>
+      (db.prepare('select (select count(*) from captures where pinned_at is not null) + (select count(*) from nuggets where pinned_at is not null) n').get() as { n: number }).n
+    for (const id of ids) {
+      if (on) {
+        away.run(now(), id)
+        continue
+      }
+      const was = parse((db.prepare(`select archived_was from ${at} where id = ?`).get(id) as { archived_was: string | null } | undefined)?.archived_was) as { pinned_at?: string | null; remind_at?: string | null } | null
+      // Three pins at most: with no room, the pin waits as a reminder due now,
+      // which pins itself when a place frees up.
+      const room = pins() < 3
+      back.run(room ? was?.pinned_at ?? null : null, was?.remind_at ?? (!room && was?.pinned_at ? now() : null), id)
+    }
     changed()
     return ids.length
   })
-  handle('notes:archived', (name: string) =>
-    (db.prepare(`select id from ${table(name)} where archived_at is not null`).all() as { id: string }[]).map((row) => row.id))
 
   // --- versions
   handle('notes:versions', (id: string) =>
@@ -200,15 +216,15 @@ export function registerNotes({ load, guard }: Windows): void {
     const out = new Set<string>()
     const walk = (node: Doc | string | null): void => {
       if (!node) return
-      if (typeof node === 'string') return void [...node.matchAll(/\[\[@([^|\]]+)\|/g)].forEach((match) => out.add(match[1]))
+      if (typeof node === 'string') return void [...node.matchAll(/\[\[@([^|#\]]+)/g)].forEach((match) => out.add(match[1]))
       if (node.type === 'noteLink' && node.attrs?.id) out.add(String(node.attrs.id))
       node.content?.forEach(walk)
     }
     walk(parse(row?.body) as Doc | string | null)
     // In: every note whose words hold a link to this one.
-    const into = db.prepare(`select 'capture' as type, id, ${LABEL} as title, private from captures where status != 'discarded' and (body like ? or body like ? or body like ?)
-      union all select tier, id, coalesce(nullif(title, ''), label('', body)), private from nuggets where body like ? or body like ? or body like ?`)
-      .all(...[0, 1].flatMap(() => [`%"id":"${id}"%`, `%"id":"%:${id}"%`, `%[[@%${id}|%`])) as Node[]
+    const into = db.prepare(`select 'capture' as type, id, ${LABEL} as title, private from captures where status != 'discarded' and (body like ? or body like ? or body like ? or body like ?)
+      union all select tier, id, coalesce(nullif(title, ''), label('', body)), private from nuggets where body like ? or body like ? or body like ? or body like ?`)
+      .all(...[0, 1].flatMap(() => [`%"id":"${id}"%`, `%"id":"%:${id}"%`, `%[[@%${id}|%`, `%[[@%${id}#%`])) as Node[]
     return {
       out: [...out].map(nodeOf).filter((node): node is Node => !!node && node.id !== id),
       in: into.filter((node) => node.id !== id)
@@ -286,8 +302,8 @@ export function registerNotes({ load, guard }: Windows): void {
       body: parse(page?.body),
       reviewed: !!page?.reviewed,
       captured: db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, private from captures where archived_at is null and status != 'discarded' and ${on('captured_at')} order by captured_at`).all(day),
-      resolved: db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, status, private from captures where status != 'open' and ${on('exited_at')} order by exited_at`).all(day),
-      studied: db.prepare(`select distinct n.tier as type, n.id, coalesce(nullif(n.title, ''), label('', n.body)) as title, n.kind, n.private from review_log r join nuggets n on n.id = r.item_id where ${on('r.reviewed_at')}`).all(day),
+      resolved: db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, status, private from captures where status != 'open' and archived_at is null and ${on('exited_at')} order by exited_at`).all(day),
+      studied: db.prepare(`select distinct n.tier as type, n.id, coalesce(nullif(n.title, ''), label('', n.body)) as title, n.kind, n.private from review_log r join nuggets n on n.id = r.item_id where n.archived_at is null and ${on('r.reviewed_at')}`).all(day),
       done: db.prepare(`select distinct 'task' as type, t.id, t.title, 0 as private from task_done d join tasks t on t.id = d.task_id where ${on('d.done_at')}`).all(day)
     }
   })
@@ -307,7 +323,6 @@ export function registerNotes({ load, guard }: Windows): void {
     changed()
     return true
   })
-  handle('notes:days', () => (db.prepare('select day from day_pages order by day desc').all() as { day: string }[]).map((row) => row.day))
 
   // --- a note in a window of its own: ⌘-click in any list
   const open = new Map<string, BrowserWindow>()
@@ -327,6 +342,8 @@ export function registerNotes({ load, guard }: Windows): void {
       webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
     })
     open.set(link, win)
+    // Closed wherever else it is open: the box, the main window, the other.
+    for (const other of BrowserWindow.getAllWindows()) if (other !== win) other.webContents.send('notes:opened-apart', id)
     win.on('closed', () => open.delete(link))
     win.once('ready-to-show', () => win.show())
     // ⌘W closes it: an accessory app has no menu to bind it.

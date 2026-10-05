@@ -1,4 +1,5 @@
 import { Extension, type JSONContent } from "@tiptap/core"
+import { TextSelection } from "@tiptap/pm/state"
 import type { Editor } from "@tiptap/react"
 
 import { headingRank } from "@/extensions/toggle-heading"
@@ -37,7 +38,9 @@ export function headingsOf(editor: Editor): Heading[] {
  * host hands back for `@Note#`.
  */
 export function headingsIn(doc: JSONContent | string | null | undefined): string[] {
-  if (typeof doc === "string") return [...doc.matchAll(/^#{1,6}\s+(.+)$/gm)].map((match) => match[1].trim())
+  // Emphasis marks come off, so `## The *plan*` is found as "The plan", the
+  // words the editor shows; a snake_case word keeps its underscore.
+  if (typeof doc === "string") return [...doc.matchAll(/^#{1,6}\s+(.+)$/gm)].map((match) => match[1].replace(/(^|[^\w*])(\*{1,3}|_{1,3})(?!\s)(.+?)(?<!\s)\2(?![\w*])/g, "$1$3").trim())
   const found: string[] = []
   const text = (node: JSONContent): string => node.text ?? (node.content ?? []).map(text).join("")
   const walk = (node: JSONContent): void => {
@@ -52,7 +55,12 @@ export function headingsIn(doc: JSONContent | string | null | undefined): string
 
 /** Put the caret on a heading and bring it into view. */
 export function land(editor: Editor, heading: Heading): void {
-  editor.chain().focus().setTextSelection(heading.pos + 1).scrollIntoView().run()
+  // Near, not at: a folded heading's first position is the section itself,
+  // not text, and a bare position there would leave the caret nowhere.
+  editor.chain().focus().command(({ tr }) => {
+    tr.setSelection(TextSelection.near(tr.doc.resolve(heading.pos + 1)))
+    return true
+  }).scrollIntoView().run()
   cue("heading")
 }
 

@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowRight, Check, CheckCircle2, Gem, Inbox, ListTodo, Brain
 import { MindflowEditor, TAGS } from '../mindflow'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { Button } from '@/components/ui/button'
-import { findCaptures, follow } from '@/lib/capture-links'
+import { findCaptures, findHeadings, follow } from '@/lib/capture-links'
 import { dayOf, notes, type Day, type DayEntry } from '@/lib/notes'
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/vigil'
@@ -73,7 +73,7 @@ export function DayView({ onOpen }: { onOpen?: (type: string, id: string) => voi
         </span>
       }
     >
-      <div className="mx-auto w-full max-w-[44rem] px-5 pt-6 pb-16 [--mf-padding:0.5rem_0]">
+      <div className="page-narrow mx-auto w-full px-5 pt-6 pb-16 [--mf-padding:0.5rem_0]">
         <h1 className="text-title font-semibold"><Rolling text={day === today ? `Today, ${named(day)}` : named(day)} by="word" /></h1>
         {data && !data.exists && (
           <p className="mt-1 text-meta text-muted-foreground"><Typed text="No page for this day yet. Write below and it keeps one." step={28} /></p>
@@ -92,7 +92,8 @@ export function DayView({ onOpen }: { onOpen?: (type: string, id: string) => voi
             documentId={`day-${day}`}
             defaultContent={(data.body as JSONContent | string | null) ?? ''}
             findNotes={findCaptures}
-            onOpenNote={(link) => onOpen && follow(link, onOpen)}
+            findHeadings={findHeadings}
+            onOpenNote={(link, heading) => onOpen && follow(link, onOpen, heading)}
             onTokenClick={(token) => token.name === 'tag' && onOpen?.('tag', token.value)}
             outline={false}
             autofocus={false}

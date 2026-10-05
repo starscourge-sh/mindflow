@@ -122,7 +122,8 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --font-heading: var(--font-sans);
-  --font-sans: 'Fraunces Variable', Georgia, serif;
+  /* The app's own words follow the font chosen in Settings, unless that is set to notes only. */
+  --font-sans: var(--mf-app-font, 'Fraunces Variable', Georgia, serif);
   /* Six type roles, so a size says what the text is rather than a pixel count. */
   /* meta: metadata, ages, counts and labels. */
   --text-meta: 0.75rem;
@@ -425,6 +426,16 @@ html[data-width='page'] header.page-column {
   max-width: none;
   padding-inline: max(1.25rem, calc((100% - 56rem) / 2 + 1.25rem));
 }
+/* A day's page, a task's or nugget's title and checklist: a narrower column,
+   and the same switch lets them run edge to edge. */
+html[data-width='page'] .page-narrow {
+  max-width: 44rem;
+}
+/* A note open beside its list keeps wide margins for the page look; with Full
+   width on they shrink to the room the drag grip needs. */
+html[data-width='full'] .note-pane {
+  --mf-padding: 1rem 1.5rem 1rem 3.25rem;
+}
 
 /* The Motion setting, off: CSS transitions and animations stop too. */
 [data-motion='off'] *,
@@ -506,8 +517,11 @@ body {
   from { background-position: -40% 0; }
   to { background-position: 140% 0; }
 }
+/* Without motion the beam still answers: lit for a moment, then gone, as the
+   screen glow does (mf-glow-still, below), rather than cut to nothing. */
+:root[data-motion='off'] :is(.mf-beam-success, .mf-beam-error) { animation: mf-glow-still 1.4s step-end forwards; animation-duration: 1.4s !important; }
 @media (prefers-reduced-motion: reduce) {
-  .mf-beam { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+  .mf-beam-success, .mf-beam-error { animation: mf-glow-still 1.4s step-end forwards; }
   .mf-beam-loading { opacity: 0.8; animation: none; background-size: 100% 100%; }
 }
 
@@ -547,6 +561,8 @@ input[list]::-webkit-calendar-picker-indicator { display: none !important; }
 .mf-glow {
   position: fixed;
   inset: 0;
+  /* Rounded like a Mac's built-in screen, whose corners would otherwise cut the light off. */
+  border-radius: 12px;
   pointer-events: none;
   box-shadow: inset 0 0 36px color-mix(in srgb, var(--glow) 32%, transparent), inset 0 0 0 1.5px color-mix(in srgb, var(--glow) 55%, transparent);
   opacity: 0;
@@ -569,3 +585,19 @@ input[list]::-webkit-calendar-picker-indicator { display: none !important; }
 /* Its length kept, past the Motion rule that stops every animation at once. */
 :root[data-motion='off'] .mf-glow { animation-duration: 1.4s !important; }
 @media (prefers-reduced-motion: reduce) { .mf-glow { animation: mf-glow-still 1.4s step-end forwards; } }
+
+/* Headings in their own font when Settings names one (a serif over plain
+   text, Dia's way); otherwise they are the text's. */
+:is(h1, h2, h3, h4) {
+  font-family: var(--mf-heading-font, inherit);
+}
+
+/* Postcards, a choice in Settings: a picture in a note sits in a white
+   border with rounded corners and a soft shadow under it, as a print does on
+   a table. White in every theme, the way the paper would be. */
+:root[data-postcards] .tiptap.ProseMirror img:not([data-type='emoji'] img, .ProseMirror-widget img) {
+  padding: 0.4rem;
+  background: #fff;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.14), 0 10px 28px -10px rgb(0 0 0 / 0.35);
+}

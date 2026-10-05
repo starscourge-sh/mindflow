@@ -97,7 +97,7 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick, o
             // Rows flush, Linear's way: one plain highlight for the one open,
             // a fainter one under the keyboard, a tint for the picked. No
             // outlines and no gaps, so the list reads as a list, not cards.
-            className={`relative flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-accent/50 ${capture.status === 'open' ? '' : 'opacity-50'} ${chosen.includes(capture.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : capture.id === selected ? 'bg-accent' : index === cursor ? 'bg-accent/50' : ''}`}
+            className={`group/row relative flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-accent/50 ${capture.status === 'open' ? '' : 'opacity-50'} ${chosen.includes(capture.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : capture.id === selected ? 'bg-accent' : index === cursor ? 'bg-accent/50' : ''}`}
             data-row
             data-id={capture.id}
             data-private={capture.private ? '' : undefined}
@@ -119,9 +119,15 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick, o
               ) : null}
               <span className="shrink-0 text-xs text-muted-foreground tabular-nums" style={{ color: capture.status === 'open' ? ageTint(capture.capturedAt) : undefined }}>{age(capture.capturedAt)}</span>
             </span>
-            <span className="truncate pl-6 text-xs text-muted-foreground">
-              {captureKey(capture.number)}
-              {capture.source ? ` · ${capture.source.replace(/\.md$/, '')}` : ''}
+            {/* The MF number is for copying and linking, not reading: it shows
+                on the row under the pointer or the cursor. The line keeps its
+                height either way, so rows do not jump. */}
+            <span className="min-h-4 truncate pl-6 text-xs text-muted-foreground">
+              <span className={index === cursor || capture.id === selected ? '' : 'hidden group-hover/row:inline'}>
+                {captureKey(capture.number)}
+                {capture.source ? ' · ' : ''}
+              </span>
+              {capture.source ? capture.source.replace(/\.md$/, '') : ''}
               {tags.length ? <span className="ml-2"><Tags tags={tags} /></span> : null}
             </span>
             </span>

@@ -32,6 +32,10 @@ export type Settings = {
   topTitle: boolean
   /** A key from NOTE_FONTS, or a system font's family name. */
   noteFont: string
+  fontNotesOnly: boolean
+  headingFont: string
+  postcards: boolean
+  interfaceSize: 'small' | 'medium' | 'large'
   /** Text in notes, as a scale: 1 is normal. */
   textSize: number
   weeklyReview: boolean
@@ -138,7 +142,7 @@ export const taskSaid = (made: Made | null | undefined, fresh: string): string =
   made?.existed ? `Already a task: T-${made.number}. Linked to it, not added twice` : fresh
 export type TaskFull = Task & { notes: unknown; done: { at: string; recap: string | null }[]; subtasks: Subtask[]; linked: { id: string; tier: string; kind: string; title: string }[] }
 
-export type Session = { id: string; startedAt: string; endedAt: string | null; recap: string | null }
+export type Session = { id: string; startedAt: string; endedAt: string | null; recap: string | null; pausedMs: number; pausedAt: string | null }
 /** The session running now, as the floating timer shows it. */
 export type Focus = { id: string; taskId: string; goal: string; startedAt: string; plannedMs: number | null; pausedMs: number; pausedAt: string | null }
 
@@ -223,7 +227,7 @@ export const vigil = {
   supersede: (id: string, truth: string) => call<string>('supersede', id, truth),
   mergeCapture: (id: string, intoNumber: number) => call<string | null>('capture:merge', id, intoNumber),
   hintRate: () => call<{ rate: number; tuned: boolean; shown: number; stopped: number }>('hints:rate'),
-  tag: (tag: string) => call<{ tag: string; id: string; type: string; title: string }[]>('tag', tag),
+  tag: (tag: string) => call<{ tag: string; id: string; type: string; title: string; private: boolean }[]>('tag', tag),
   stats: () => call<Stats>('stats'),
   exportAll: () => call<string | null>('export'),
   bury: (id: string) => call('review:bury', id),
@@ -297,6 +301,9 @@ export function splitTags(text: string): { text: string; tags: string[] } {
  * moment they change: the page width as a flag on the document, which the
  * stylesheet reads, and the sounds as a switch the chimes check.
  */
+/** The root size for each interface size; small is the size the app was drawn at. */
+export const INTERFACE_SIZES = { small: 16, medium: 17, large: 18.5 } as const
+
 export function useAppearance(): void {
   const settings = useLive(vigil.settings, null as Settings | null)
   // Tag colours from the Tags page, for every editor in this window.
@@ -312,11 +319,14 @@ export function useAppearance(): void {
     if (!settings) return
     document.documentElement.dataset.width = settings.fullWidth ? 'full' : 'page'
     document.documentElement.dataset.motion = settings.motion ? 'on' : 'off'
+    document.documentElement.toggleAttribute('data-postcards', !!settings.postcards)
+    // Every size in the app is in rem, so the root's size scales all of it at once.
+    document.documentElement.style.fontSize = `${INTERFACE_SIZES[settings.interfaceSize] ?? INTERFACE_SIZES.medium}px`
     // The system's Reduce motion is honoured too: things still appear and
     // fade, but nothing slides or springs.
     MotionGlobalConfig.skipAnimations = !settings.motion || matchMedia('(prefers-reduced-motion: reduce)').matches
     soundOn(settings.sounds)
     setVolume(settings.volume)
     setPack(settings.soundPack)
-  }, [settings?.fullWidth, settings?.motion, settings?.sounds, settings?.volume, settings?.soundPack])
+  }, [settings?.fullWidth, settings?.motion, settings?.postcards, settings?.interfaceSize, settings?.sounds, settings?.volume, settings?.soundPack])
 }

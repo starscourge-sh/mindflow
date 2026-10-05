@@ -49,7 +49,7 @@ applyTheme(currentTheme())
 // Chosen in another window, the prompt or the main one: wear it here too, at
 // once, so the two never disagree.
 // An imported theme added or taken away there is painted here as well.
-window.addEventListener('storage', (event) => (event.key === 'theme' || event.key === 'custom-themes' || event.key === 'frosted') && applyTheme(currentTheme()))
+window.addEventListener('storage', (event) => (event.key === 'theme' || event.key === 'custom-themes' || event.key === 'frosted') && applyTheme(currentTheme(), false))
 // A window you are not in steps back a little, so the one you are in is clear.
 const blurred = (on: boolean) => (): void => void (document.documentElement.dataset.blurred = on ? 'on' : 'off')
 // Checked a moment later: focus moving into an embed (a video in a note)

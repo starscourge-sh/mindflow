@@ -121,6 +121,14 @@ const DEFAULTS = {
   calc: true,
   topTitle: true,
   noteFont: 'default' as string,
+  // The font is the whole app's unless this says it is only for notes.
+  fontNotesOnly: false,
+  // Headings in a font of their own, the way Dia sets a serif over plain text; 'same' follows the text.
+  headingFont: 'same' as string,
+  // Pictures in notes framed like a postcard: a white border and a soft shadow.
+  postcards: false,
+  // How big the whole interface is, Raycast's way: small, medium or large.
+  interfaceSize: 'medium' as 'small' | 'medium' | 'large',
   textSize: 1,
   // Once a week, on this day (0 is Sunday), the box suggests walking the
   // inbox through its exits.
@@ -487,20 +495,20 @@ export function registerVigil(): void {
   // lineage both ways, and the backlinks an @ link leaves.
   handle('lineage', (id: string) => {
     const links = (table: string, title: string): { type: string; id: string; title: string }[] =>
-      db.prepare(`select ${table === 'captures' ? "'capture'" : 'tier'} as type, id, ${title} as title, private from ${table} where body like ? or body like ? or body like ?`).all(`%"id":"${id}"%`, `%"id":"%:${id}"%`, `%[[@%${id}|%`) as never
+      db.prepare(`select ${table === 'captures' ? "'capture'" : 'tier'} as type, id, ${title} as title, private from ${table} where body like ? or body like ? or body like ? or body like ?`).all(`%"id":"${id}"%`, `%"id":"%:${id}"%`, `%[[@%${id}|%`, `%[[@%${id}#%`) as never
     return {
       from: [
-        ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title from captures where id in (select capture_id from nuggets where id = ? union select origin_capture_id from tasks where id = ?
+        ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title, private from captures where id in (select capture_id from nuggets where id = ? union select origin_capture_id from tasks where id = ?
           union select origin_id from captures where id = ?)`).all(id, id, id) as never[]),
-        ...(db.prepare('select tier as type, id, title from nuggets where id = (select origin_id from captures where id = ?)').all(id) as never[]),
+        ...(db.prepare('select tier as type, id, title, private from nuggets where id = (select origin_id from captures where id = ?)').all(id) as never[]),
         ...(JSON.parse((db.prepare('select origins from nuggets where id = ?').get(id) as { origins: string | null } | undefined)?.origins ?? '[]') as string[])
-          .map((origin) => db.prepare('select tier as type, id, title from nuggets where id = ?').get(origin) as never)
+          .map((origin) => db.prepare('select tier as type, id, title, private from nuggets where id = ?').get(origin) as never)
           .filter(Boolean)
       ],
       became: [
-        ...(db.prepare("select tier as type, id, title from nuggets where capture_id = ? or origins like ?").all(id, `%"${id}"%`) as never[]),
-        ...(db.prepare("select 'task' as type, id, title from tasks where origin_capture_id = ?").all(id) as never[]),
-        ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title from captures where origin_id = ?`).all(id) as never[])
+        ...(db.prepare("select tier as type, id, title, private from nuggets where capture_id = ? or origins like ?").all(id, `%"${id}"%`) as never[]),
+        ...(db.prepare("select 'task' as type, id, title, 0 as private from tasks where origin_capture_id = ?").all(id) as never[]),
+        ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title, private from captures where origin_id = ?`).all(id) as never[])
       ],
       linked: [...links('captures', LABEL), ...links('nuggets', 'title')].filter((row) => row.id !== id)
     }
@@ -690,7 +698,7 @@ export function registerVigil(): void {
   })
   // The Luhmann move: two unrelated things side by side, for the connection
   // you would never have gone looking for.
-  handle('random', () => db.prepare('select id, kind, title, body from nuggets order by random() limit 2').all().map(body))
+  handle('random', () => db.prepare('select id, kind, title, body from nuggets where archived_at is null and superseded_by is null and private = 0 order by random() limit 2').all().map(body))
   // Dwell: how long the hint was in front of you before the window went. The
   // signal every hint produces, where a vote is the rare one.
   ipcMain.handle('hints:dwell', (_event, event: number, ms: number) =>
@@ -1015,9 +1023,14 @@ export function registerVigil(): void {
     const today = new Date().toLocaleDateString('en-CA')
     const lastYear = `${year - 1}${today.slice(4)}`
     // Never a private one, and in quiet hours nothing you have not dealt with.
-    const from = `select id, id as captureId, kind, ${LABEL} as title, body, captured_at as at, attribution from captures
-      where status != 'discarded' and private = 0 and not exists (select 1 from nuggets where capture_id = captures.id and private = 1) ${hidePrivate ? "and status != 'open'" : ''} and id not in (select nugget_id from hint_events where shown_at >= ?)`
-    const pick = <T>(rows: T[]): T | undefined => rows[Math.floor(Math.random() * rows.length)]
+    const from = `select id, id as captureId, kind, ${LABEL} as title, body, captured_at as at, attribution, surfacing_weight as weight from captures
+      where status != 'discarded' and archived_at is null and private = 0 and not exists (select 1 from nuggets where capture_id = captures.id and private = 1) ${hidePrivate ? "and status != 'open'" : ''} and id not in (select nugget_id from hint_events where shown_at >= ?)`
+    // Weighted by your thumbs: down makes a memory come up less, up more.
+    const pick = <T,>(rows: T[]): T | undefined => {
+      const weight = (row: T): number => Number((row as { weight?: number }).weight ?? 1)
+      let left = Math.random() * rows.reduce((sum, row) => sum + weight(row), 0)
+      return rows.find((row) => (left -= weight(row)) < 0) ?? rows[rows.length - 1]
+    }
     const age = (at: string): number => year - Number(new Date(at).getFullYear())
     const kinds: (() => (Record<string, unknown> & { body?: unknown; memory: string }) | undefined)[] = [
       () => {
@@ -1033,7 +1046,7 @@ export function registerVigil(): void {
         return row && { ...row, memory: `This week in ${new Date(row.at).getFullYear()}` }
       },
       () => {
-        const source = pick(db.prepare("select attribution from captures where status != 'discarded' and private = 0 and coalesce(attribution, '') != '' group by attribution having count(*) >= 2").all() as { attribution: string }[])
+        const source = pick(db.prepare("select attribution from captures where status != 'discarded' and archived_at is null and private = 0 and coalesce(attribution, '') != '' group by attribution having count(*) >= 2").all() as { attribution: string }[])
         const rows = source ? (db.prepare(`${from} and attribution = ?`).all(ago(30), source.attribution) as Record<string, string>[]) : []
         const row = pick(rows)
         return row && { ...row, memory: `From ${row.attribution}${rows.length > 1 ? `, one of ${rows.length}` : ''}` }
@@ -1043,6 +1056,7 @@ export function registerVigil(): void {
     for (const kind of kinds.sort(() => Math.random() - 0.5)) {
       const found = kind()
       if (!found) continue
+      delete found.weight
       const { lastInsertRowid } = db.prepare('insert into hint_events (nugget_id, shown_at) values (?, ?)').run(String(found.id), now())
       return { ...body(found), event: Number(lastInsertRowid) }
     }
@@ -1127,6 +1141,7 @@ export function registerVigil(): void {
       const was = (db.prepare('select deadline_at from tasks where id = ?').get(id) as { deadline_at: string | null } | undefined)?.deadline_at
       if (clock(was) !== clock(patch.deadline)) db.prepare('update tasks set deadline_timed = 0 where id = ?').run(id)
     }
+    const deadlineWas = patch.deadline !== undefined ? (db.prepare('select deadline_at from tasks where id = ?').get(id) as { deadline_at: string | null } | undefined)?.deadline_at : undefined
     for (const [key, column] of Object.entries(TASK_COLUMNS))
       if (patch[key as keyof typeof patch] !== undefined) db.prepare(`update tasks set ${column} = ? where id = ?`).run(patch[key as keyof typeof patch] as string | number | null, id)
     // Important and priority are one thing said two ways: Urgent and High are
@@ -1149,6 +1164,8 @@ export function registerVigil(): void {
       const later = was && patch.due && patch.due > was ? 1 : 0
       db.prepare('update tasks set due_at = ?, notified_at = null, reschedules = reschedules + ? where id = ?').run(patch.due, later, id)
     }
+    // A new due-by date is a new moment to be told about, as a new day is.
+    if (patch.deadline !== undefined && patch.deadline !== deadlineWas) db.prepare('update tasks set notified_at = null where id = ?').run(id)
     if (patch.status !== undefined) db.prepare('update tasks set status = ?, completed_at = ? where id = ?').run(patch.status, patch.status === 'done' ? now() : null, id)
     return write(true)
   })
@@ -1203,11 +1220,13 @@ export function registerVigil(): void {
   // How many reviews fall on each of the days ahead, today with what is
   // late, so a week of tasks can be planned around the reviewing.
   handle('review:load', (days: number) => {
-    const start = new Date().setHours(0, 0, 0, 0)
+    const today = new Date()
+    const start = today.setHours(0, 0, 0, 0)
     const load = Array<number>(days).fill(0)
     const rows = db.prepare(`select due_at from nuggets where coalesce(prompt, '') != '' and suspended = 0 and archived_at is null and superseded_by is null and (due_at is null or due_at < ?)`)
-      .all(new Date(start + days * 86400000).toISOString()) as { due_at: string | null }[]
-    for (const { due_at } of rows) load[Math.max(0, Math.floor((new Date(due_at ?? 0).setHours(0, 0, 0, 0) - start) / 86400000))] += 1
+      .all(new Date(today.getFullYear(), today.getMonth(), today.getDate() + days).toISOString()) as { due_at: string | null }[]
+    // Rounded, not floored: a day across a clock change is 23 or 25 hours.
+    for (const { due_at } of rows) load[Math.max(0, Math.round((new Date(due_at ?? 0).setHours(0, 0, 0, 0) - start) / 86400000))] += 1
     // Today is what a session would really ask, with the daily limits, not
     // every card never seen.
     if (days > 0) load[0] = reviewQueue().length
@@ -1215,15 +1234,15 @@ export function registerVigil(): void {
   })
 
   // --- tags, worked out from the words every time so they cannot go stale
-  const tagged = (): { tag: string; id: string; type: string; title: string }[] => {
+  const tagged = (): { tag: string; id: string; type: string; title: string; private: boolean }[] => {
     const rows = [
-      ...(db.prepare(`select id, 'capture' as type, ${LABEL} as title, body from captures where status != 'discarded'`).all() as Record<string, string>[]),
-      ...(db.prepare('select id, tier as type, title, body from nuggets').all() as Record<string, string>[]),
-      ...(db.prepare("select id, 'task' as type, title, notes as body from tasks").all() as Record<string, string>[])
+      ...(db.prepare(`select id, 'capture' as type, ${LABEL} as title, body, private from captures where status != 'discarded' and archived_at is null`).all() as Record<string, string>[]),
+      ...(db.prepare('select id, tier as type, title, body, private from nuggets where archived_at is null and superseded_by is null').all() as Record<string, string>[]),
+      ...(db.prepare("select id, 'task' as type, title, notes as body, 0 as private from tasks").all() as Record<string, string>[])
     ]
     // An alias counts as the tag it stands for, without the words changing.
     const alias = new Map((db.prepare('select tag, alias_of from tag_meta where alias_of is not null').all() as { tag: string; alias_of: string }[]).map((row) => [row.tag, row.alias_of]))
-    return rows.flatMap((row) => [...new Set(tagsIn(`${row.title} ${plain(JSON.parse(row.body ?? 'null'))}`).map((tag) => alias.get(tag) ?? tag))].map((tag) => ({ tag, id: row.id, type: row.type, title: row.title })))
+    return rows.flatMap((row) => [...new Set(tagsIn(`${row.title} ${plain(JSON.parse(row.body ?? 'null'))}`).map((tag) => alias.get(tag) ?? tag))].map((tag) => ({ tag, id: row.id, type: row.type, title: row.title, private: !!Number(row.private) })))
   }
   handle('tags', () => {
     const counts = new Map<string, number>()
@@ -1264,8 +1283,8 @@ export function registerVigil(): void {
     const privacy = hidePrivate ? 'and private = 0' : ''
     return db
       .prepare(
-        `select id, 'capture' as type, kind, ${LABEL} as title, pinned_at as pinnedAt, private from captures where pinned_at is not null ${hidePrivate ? "and private = 0 and status != 'open'" : ''}
-         union all select id, tier as type, kind, title, pinned_at, private from nuggets where pinned_at is not null ${privacy}
+        `select id, 'capture' as type, kind, ${LABEL} as title, pinned_at as pinnedAt, private from captures where pinned_at is not null and archived_at is null ${hidePrivate ? "and private = 0 and status != 'open'" : ''}
+         union all select id, tier as type, kind, title, pinned_at, private from nuggets where pinned_at is not null and archived_at is null ${privacy}
          order by pinnedAt desc limit 3`
       )
       .all()
@@ -1281,7 +1300,7 @@ export function registerVigil(): void {
   setInterval(() => {
     let fired = 0
     for (const table of ['captures', 'nuggets'])
-      for (let due; pins() < 3 && (due = db.prepare(`select id from ${table} where remind_at <= ? order by remind_at limit 1`).get(now()) as { id: string } | undefined); fired++)
+      for (let due; pins() < 3 && (due = db.prepare(`select id from ${table} where remind_at <= ? and archived_at is null order by remind_at limit 1`).get(now()) as { id: string } | undefined); fired++)
         db.prepare(`update ${table} set pinned_at = ?, remind_at = null where id = ?`).run(now(), due.id)
     if (fired) changed()
   }, 60_000)
@@ -1318,7 +1337,7 @@ export function registerVigil(): void {
   // --- sessions: effort against a task, with a recap of what actually happened
   db.exec('create table if not exists sessions (id text primary key, task_id text not null, started_at text not null, ended_at text, recap text)')
   handle('sessions', (taskId: string) =>
-    db.prepare('select id, started_at as startedAt, ended_at as endedAt, recap from sessions where task_id = ? order by started_at desc').all(taskId)
+    db.prepare('select id, started_at as startedAt, ended_at as endedAt, recap, paused_ms as pausedMs, paused_at as pausedAt from sessions where task_id = ? order by started_at desc').all(taskId)
   )
   // A focus session: a goal, an optional length, and pauses that do not count.
   column('sessions', 'goal text')
@@ -1360,7 +1379,9 @@ export function registerVigil(): void {
   // Ending asks for the recap, and the recap can become a nugget: the loop that
   // turns doing the work into something worth keeping.
   handle('session:end', (id: string, recap: string, keep: boolean, close = false) => {
-    db.prepare('update sessions set ended_at = ?, recap = ? where id = ?').run(now(), recap, id)
+    // Ended while paused: the pause up to now does not count either.
+    const at = now()
+    db.prepare('update sessions set ended_at = ?, recap = ?, paused_ms = paused_ms + coalesce(round((julianday(?) - julianday(paused_at)) * 86400000), 0), paused_at = null where id = ?').run(at, recap, at, id)
     if (close) finish((db.prepare('select task_id from sessions where id = ?').get(id) as { task_id: string }).task_id, id)
     if (keep && recap.trim())
       db.prepare("insert into nuggets (id, kind, title, body, created_at, updated_at) values (?, 'note', ?, ?, ?, ?)").run(
@@ -1405,13 +1426,13 @@ export function registerVigil(): void {
       tasksDone: one<{ n: number }>('select count(*) n from task_done where done_at >= ?', ago(7)).n,
       // Wrapped: what the week was, in the work itself.
       sessions: one<{ n: number; minutes: number | null }>(
-        "select count(*) n, sum((julianday(ended_at) - julianday(started_at)) * 1440) minutes from sessions where ended_at is not null and started_at >= ?", ago(7)),
+        "select count(*) n, sum((julianday(ended_at) - julianday(started_at)) * 1440 - paused_ms / 60000.0) minutes from sessions where ended_at is not null and started_at >= ?", ago(7)),
       tagsWeek: (db.prepare('select title, body from captures where captured_at >= ?').all(ago(7)) as { title: string; body: string }[])
         .flatMap((row) => tagsIn(`${row.title} ${plain(JSON.parse(row.body ?? 'null'))}`))
         .reduce<Record<string, number>>((counts, tag) => ({ ...counts, [tag]: (counts[tag] ?? 0) + 1 }), {}),
       retention: settings().retention,
       estimates: one<{ estimated: number | null; spent: number | null }>(
-        `select sum(t.estimate) estimated, sum((select sum((julianday(s.ended_at) - julianday(s.started_at)) * 1440) from sessions s where s.task_id = t.id and s.ended_at is not null)) spent
+        `select sum(t.estimate) estimated, sum((select sum((julianday(s.ended_at) - julianday(s.started_at)) * 1440 - s.paused_ms / 60000.0) from sessions s where s.task_id = t.id and s.ended_at is not null)) spent
          from tasks t where t.estimate is not null and t.status = 'done' and t.completed_at >= ?`, ago(30)),
       // Lead measures: the doing, this week, day by day. No target; the trend.
       lead: {

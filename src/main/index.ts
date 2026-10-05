@@ -613,6 +613,16 @@ function makeHome(): BrowserWindow {
   // The fill icon follows the window, however it was filled or brought back.
   home.on('maximize', () => home?.webContents.send('home:filled', true))
   home.on('unmaximize', () => home?.webContents.send('home:filled', false))
+  // Raycast's settings way: put away filled or stretched, it comes back the
+  // small window it was made as, centred on the screen you are on. Filling is
+  // for this visit only.
+  home.on('hide', () => {
+    if (!home || home.isDestroyed()) return
+    if (home.isMaximized()) home.unmaximize()
+    if (home.isFullScreen()) home.setFullScreen(false)
+    const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+    home.setBounds({ width: 760, height: 520, x: Math.round(workArea.x + (workArea.width - 760) / 2), y: Math.round(workArea.y + (workArea.height - 520) / 2) })
+  })
   guard(home)
   load(home, '?view=home')
   return home

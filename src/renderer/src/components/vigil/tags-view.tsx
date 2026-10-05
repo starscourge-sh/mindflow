@@ -147,10 +147,11 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                   type="button"
                   // ⌘-click: a note in a window of its own; a task opens where tasks live.
                   onClick={(event) => (event.metaKey && item.type !== 'task' ? openWindow(item.type, item.id) : onOpen(item.type, item.id))}
+                  data-private={item.private ? '' : undefined}
                   className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-accent/60"
                 >
                   <Icon className="size-4 shrink-0 text-muted-foreground" />
-                  <span className="flex-1 truncate">{splitTags(item.title).text || 'Untitled'}</span>
+                  <span className="private-text flex-1 truncate">{splitTags(item.title).text || 'Untitled'}</span>
                   <span className="text-xs text-muted-foreground capitalize">{item.type}</span>
                 </button>
               )

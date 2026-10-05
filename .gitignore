@@ -12,3 +12,8 @@ out
 
 # Copied out of node_modules when the renderer builds.
 src/renderer/public
+out-me
+
+# Throwaway scripts from QA passes, kept out of history
+qa/qa-*
+undefined/

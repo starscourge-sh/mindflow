@@ -41,7 +41,7 @@ export function ShortcutList({ query, columns = false, quiet = false }: { query:
 }
 
 /**
- * ? anywhere you are not typing: every shortcut over the window, searchable,
+ * ? anywhere you are not typing, or ⌘/ even while you are: every shortcut over the window, searchable,
  * gone again with Esc or another ?. The same list Settings shows.
  */
 export function ShortcutSheet(): React.JSX.Element | null {
@@ -49,7 +49,12 @@ export function ShortcutSheet(): React.JSX.Element | null {
   const [query, setQuery] = useState('')
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== '?' || event.metaKey || event.ctrlKey || event.altKey || typing()) return
+      // ⌘/ works even while writing; ? when not, or in vim's normal mode,
+      // where letters are commands rather than words.
+      const command = event.metaKey && !event.ctrlKey && !event.altKey && (event.key === '/' || event.code === 'Slash')
+      const vimAtRest = document.activeElement?.closest?.('[data-vim-mode]')?.getAttribute('data-vim-mode') === 'normal'
+      const plain = event.key === '?' && !event.metaKey && !event.ctrlKey && !event.altKey && (!typing() || vimAtRest)
+      if (!command && !plain) return
       event.preventDefault()
       chime('open')
       setOpen(true)

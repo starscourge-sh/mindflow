@@ -1,3 +1,4 @@
+import { themeActions } from '@/lib/theme'
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import {
   Minimize2,
@@ -54,7 +55,7 @@ import { Tour } from '@/components/vigil/tour'
 import { DayView } from '@/components/vigil/day-view'
 import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
-import { Archive, NotebookPen } from 'lucide-react'
+import { Archive, Ellipsis, NotebookPen } from 'lucide-react'
 
 // A nonce makes asking again a fresh visit: the recap reopens each time.
 type View = { id: string; focus?: string; nonce?: number }
@@ -65,7 +66,8 @@ const SECTIONS: { id: string; label: string; icon: LucideIcon; key: string; tint
   { id: 'inbox', label: 'Inbox', icon: Inbox, key: 'i', tint: 'blue' },
   { id: 'review', label: 'Review', icon: Brain, key: 'r', tint: 'purple' },
   // The daily note: written in, and what the day held.
-  { id: 'day', label: "Today's page", icon: NotebookPen, key: 'p', tint: 'green' },
+  // Its own colour, not Today's green: the two sit next to each other.
+  { id: 'day', label: "Today's page", icon: NotebookPen, key: 'p', tint: 'yellow' },
   { id: 'today', label: 'Today', icon: Sun, key: 't', tint: 'green' },
   { id: 'upcoming', label: 'Upcoming', icon: CalendarDays, key: 'u', tint: 'orange' },
   { id: 'week', label: 'Week', icon: CalendarRange, key: 'w', tint: 'blue' },
@@ -81,6 +83,28 @@ const SECTIONS: { id: string; label: string; icon: LucideIcon; key: string; tint
   // Out of sight, not let go: apart from the exits.
   { id: 'archived', label: 'Archived', icon: Archive, key: 'v', tint: 'gray' }
 ]
+
+/** The sections folded under More in the sidebar. G and their letter still reach them. */
+const MORE = ['all', 'discarded', 'archived']
+
+/** An open-or-shut fold in the sidebar, remembered across launches; shut to start. */
+function useRemembered(key: string): [boolean, (open: boolean) => void] {
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem(key) === 'open'
+    } catch {
+      return false
+    }
+  })
+  return [open, (next) => {
+    setOpen(next)
+    try {
+      localStorage.setItem(key, next ? 'open' : 'shut')
+    } catch {
+      // Open for now, not next time.
+    }
+  }]
+}
 
 const today = (): number => new Date().setHours(24, 0, 0, 0)
 
@@ -154,7 +178,9 @@ export function Home(): React.JSX.Element {
   useFocusMode('home')
   const [searching, setSearching] = useState(false)
   const [kindsOpen, setKindsOpen] = useState(false)
-  const [tagsOpen, setTagsOpen] = useState(true)
+  // Folded away unless you open them, and kept the way you left them.
+  const [tagsOpen, setTagsOpen] = useRemembered('sidebar:tags')
+  const [moreOpen, setMoreOpen] = useRemembered('sidebar:more')
   const tags = useLive(vigil.tags, [] as Awaited<ReturnType<typeof vigil.tags>>)
   const captures = useCaptures()
   const due = useLive(vigil.dueCount, 0)
@@ -185,7 +211,9 @@ export function Home(): React.JSX.Element {
   useEffect(() => {
     let pending = false
     const onKey = (event: KeyboardEvent): void => {
-      if (typing()) return
+      // ⌘ keys work with the caret in a note too; only something held over
+      // the page (Read, a question) keeps them.
+      if (document.querySelector('[role="dialog"]')) return
       if (event.metaKey && event.key === 'k') {
         event.preventDefault()
         return setSearching(true)
@@ -196,7 +224,7 @@ export function Home(): React.JSX.Element {
         chime(sidebar ? 'fold' : 'slide')
         return setSidebar((open) => !open)
       }
-      if (event.metaKey || event.ctrlKey || event.altKey) return
+      if (event.metaKey || event.ctrlKey || event.altKey || typing()) return
       // Shift on its own is half of a capital, not a key: G, let go, Shift+R.
       if (event.key === 'Shift') return
       if (pending) {
@@ -209,8 +237,9 @@ export function Home(): React.JSX.Element {
         }
         return
       }
-      if (event.key.toLowerCase() === 'g') pending = true
-      else if (event.key === 'c') window.api.showPrompt()
+      // Only a small g: ⇧G is the lists' last row.
+      if (event.key === 'g') pending = true
+      else if (event.key === 'c') (chime('open'), window.api.showPrompt())
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
@@ -225,7 +254,12 @@ export function Home(): React.JSX.Element {
     if (type === 'view') setView({ id })
     else if (type === 'recap') setView({ id: 'stats', focus: id, nonce: Date.now() })
     else if (type === 'task') setView({ id: 'today', focus: id })
-    else open(type, id)
+    // A capture's version history, asked for in the box: opened, then once
+    // its page is up, its history.
+    else if (type === 'versions') {
+      open('capture', id)
+      setTimeout(() => window.dispatchEvent(new CustomEvent('vigil:versions', { detail: id })), 600)
+    } else open(type, id)
     if (heading) headingIn(type, id, heading)
   }), [])
 
@@ -267,6 +301,7 @@ export function Home(): React.JSX.Element {
               else root.dataset.reveal = ''
             } },
             { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('vigil:shortcuts')) },
+            ...themeActions((text) => toast(text)),
             { label: 'Settings', keys: '⌘,', run: () => setView({ id: 'settings' }) },
             ...noteActions({ day: false }),
             // The recap, Wrapped's way, over Stats.
@@ -308,6 +343,19 @@ export function Home(): React.JSX.Element {
             {section.id === 'today' && (narrow ? <div className="mt-3" /> : <div className="mt-3 mb-0.5 px-2 text-meta text-muted-foreground">Tasks</div>)}
             {section.id === 'nuggets' && (narrow ? <div className="mt-3" /> : <div className="mt-3 mb-0.5 px-2 text-meta text-muted-foreground">Kept</div>)}
             {section.id === 'tags' && <div className="mt-3" />}
+            {/* All, Discarded and Archived are visited rarely: one fold for the three. */}
+            {section.id === 'all' && (
+              <button
+                type="button"
+                aria-expanded={moreOpen}
+                aria-label="More"
+                onClick={() => (chime(moreOpen ? 'fold' : 'slide'), setMoreOpen(!moreOpen))}
+                className={`mt-3 flex items-center gap-1 py-1 text-xs text-muted-foreground hover:text-foreground ${narrow ? 'justify-center' : 'px-2'}`}
+              >
+                {narrow ? <Ellipsis className="size-4" /> : <>More <ChevronRight className={`size-3 transition-transform ${moreOpen ? 'rotate-90' : ''}`} /></>}
+              </button>
+            )}
+            {(!MORE.includes(section.id) || moreOpen || view.id === section.id) && (
             <Tooltip>
             <TooltipTrigger asChild>
             <button
@@ -332,6 +380,7 @@ export function Home(): React.JSX.Element {
               {section.label} <Kbd>G</Kbd><Kbd>{section.key.toUpperCase()}</Kbd>
             </TooltipContent>
             </Tooltip>
+            )}
             </Fragment>
           ))}
         </nav>
@@ -346,7 +395,7 @@ export function Home(): React.JSX.Element {
         </button>
         {kindsOpen &&
           CAPTURE_TYPES.map((type) => {
-            const count = captures.filter((capture) => capture.kind === type.id).length
+            const count = captures.filter((capture) => capture.kind === type.id && !capture.archivedAt).length
             return (
               <button
                 key={type.id}
@@ -393,7 +442,7 @@ export function Home(): React.JSX.Element {
             onClick={safeMode}
           
             aria-label={settings?.safeMode ? 'Safe mode: on' : 'Safe mode: off'}
-            className={`flex items-center gap-2.5 rounded-md py-1.5 transition-colors hover:bg-accent/60 ${narrow ? 'justify-center px-0' : 'px-2'} ${settings?.safeMode ? 'text-[var(--tt-brand-color-400)]' : 'text-foreground/80'}`}
+            className={`flex items-center gap-2.5 rounded-md py-1.5 transition-colors hover:bg-accent/60 ${narrow ? 'justify-center px-0' : 'px-2'} ${settings?.safeMode ? 'text-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,var(--foreground))]' : 'text-foreground/80'}`}
           >
             {settings?.safeMode ? <Shield className="size-4" /> : <ShieldOff className="size-4" />}
             {!narrow && <span className="flex-1 text-left">{settings?.safeMode ? 'Safe mode: on' : 'Safe mode: off'}</span>}
@@ -448,7 +497,7 @@ export function Home(): React.JSX.Element {
             </Tip>
           ))}
         </span>
-        <span className="ml-2 truncate font-medium">{SECTIONS.find((section) => section.id === view.id)?.label ?? (kind ? kind.label : view.id === 'settings' ? 'Settings' : '')}</span>
+        <h1 className="ml-2 truncate font-medium">{SECTIONS.find((section) => section.id === view.id)?.label ?? (kind ? kind.label : view.id === 'settings' ? 'Settings' : '')}</h1>
         {/* The open note's name, faint, once its first line has scrolled away. */}
         <span className={`min-w-0 flex-1 truncate px-4 text-center text-muted-foreground transition-opacity duration-200 ${topTitle && settings?.topTitle !== false ? 'opacity-100' : 'opacity-0'}`}>{topTitle}</span>
         <SoundToggle className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-4" />
@@ -460,7 +509,7 @@ export function Home(): React.JSX.Element {
           </button>
         </Tip>
         <Tip label="New capture  C">
-          <Button variant="ghost" size="sm" onClick={() => window.api.showPrompt()}
+          <Button variant="ghost" size="sm" onClick={() => (chime('open'), window.api.showPrompt())}
             style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
             className="flex items-center gap-1.5 text-muted-foreground">
             <SquarePen className="size-4" /> New

@@ -26,6 +26,9 @@ export type EditorCue =
   | "heading"
   /** A worked-out answer was written in. */
   | "math"
+  /** The source panel opened, or closed. */
+  | "source"
+  | "source-close"
 
 let play: (cue: EditorCue, n?: number) => void = () => {}
 

@@ -52,12 +52,21 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
   const box = useRef<HTMLInputElement>(null)
   // Notion's highlight pane: on by default, and a button to put it away.
   const [pane, setPane] = useState(true)
+  // The words the list on screen answers. A reply for words since changed is
+  // dropped: a slow search must not land over a quicker, newer one.
+  const [searched, setSearched] = useState<string | null>(null)
   useEffect(() => {
+    let old = false
     void window.api.captures.find(query).then((list) => {
+      if (old) return
       setFound(list)
+      setSearched(query)
       setAt(0)
     })
+    return () => void (old = true)
   }, [query])
+  // The kinds are many: one Kind chip opens them.
+  const [kindsOpen, setKindsOpen] = useState(false)
   useEffect(() => setAt(0), [titleOnly, types, kinds])
   // The highlighted result stays in view as the arrows move it.
   useEffect(() => {
@@ -109,7 +118,8 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
         <div className={`flex flex-wrap items-center gap-3 border-b px-2 py-1.5 ${compact ? 'hidden' : ''}`}>
           <Chips options={[{ id: 'name', label: 'Name only' }]} on={() => titleOnly} pick={() => setTitleOnly(!titleOnly)} />
           <Chips options={[{ id: 'capture', label: 'Captures' }, { id: 'nugget', label: 'Nuggets' }, { id: 'task', label: 'Tasks' }]} on={(id) => types.includes(id)} pick={(id) => setTypes(flip(types, id))} />
-          <Chips options={CAPTURE_TYPES} on={(id) => kinds.includes(id)} pick={(id) => setKinds(flip(kinds, id))} />
+          <Chips options={[{ id: 'kind', label: kinds.length ? `Kind · ${kinds.length}` : 'Kind' }]} on={() => kindsOpen || kinds.length > 0} pick={() => setKindsOpen(!kindsOpen)} />
+          {kindsOpen && <Chips options={CAPTURE_TYPES} on={(id) => kinds.includes(id)} pick={(id) => setKinds(flip(kinds, id))} />}
         </div>
         {/* Side by side when there is room; in a narrow window the preview goes
             under the results instead of squeezing both to nothing. */}
@@ -132,7 +142,10 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
             {!query.trim() && !doing.length && (
               <p className="px-2 py-3 text-body text-muted-foreground"><Typed text="Type to search captures, nuggets, articles and tasks. kind:quote narrows to one kind." /></p>
             )}
-            {query.trim() && !results.length && !doing.length && (
+            {query.trim() && searched !== query && !results.length && !doing.length && (
+              <p className="px-2 py-3 text-sm text-muted-foreground"><Typed text="Searching…" /></p>
+            )}
+            {query.trim() && searched === query && !results.length && !doing.length && (
               <p className="px-2 py-3 text-sm text-muted-foreground">
                 <Typed text={types.length || kinds.length || titleOnly
                   ? 'Nothing matches with those filters. Turn a chip off to widen it.'

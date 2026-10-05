@@ -57,7 +57,7 @@ export function Mentions({ id, onOpen }: { id: string; onOpen?: (type: string, i
   )
 
   return (
-    <section data-chrome className="mx-auto mt-6 mb-16 w-full max-w-[44rem] border-t px-10 pt-4 text-body">
+    <section data-chrome className="page-narrow mx-auto mt-6 mb-16 w-full border-t px-10 pt-4 text-body">
       {found.linked.length > 0 && (
         <>
           <h3 className="mb-1 px-2 text-meta text-muted-foreground">{found.linked.length} linked {found.linked.length === 1 ? 'mention' : 'mentions'}</h3>

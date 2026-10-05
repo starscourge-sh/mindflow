@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { motion } from 'motion/react'
 import { Brain, CalendarClock, ChevronLeft, ChevronRight, Repeat } from 'lucide-react'
 
 import { chime } from '@/lib/sound'
@@ -8,8 +9,12 @@ import { PriorityIcon, setPriority } from './task-input'
 import { TaskDetail, completeTask } from './tasks-view'
 import { Button } from '@/components/ui/button'
 
-const DAY = 86400000
-const dayStart = (offset: number): number => new Date(new Date().setHours(0, 0, 0, 0) + offset * DAY).setHours(0, 0, 0, 0)
+// Days are counted on the calendar, not in hours, so a clock change never
+// repeats or skips one.
+const dayStart = (offset: number): number => {
+  const now = new Date()
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset).getTime()
+}
 
 /** One card in a day: a task on the day it is scheduled, or on the day it is due by. */
 type Card = { task: Task; kind: 'scheduled' | 'deadline' }
@@ -36,13 +41,20 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
   const load = useLive(() => (from + 7 > 0 ? vigil.reviewLoad(from + 7) : Promise.resolve([])), [] as number[], [from])
   const [at, setAt] = useState<{ col: number; id: string | null }>({ col: 0, id: null })
   const [open, setOpen] = useState<TaskFull | null>(null)
-  // Where the drag began, kept: the card objects are rebuilt on every load.
-  const [dragging, setDragging] = useState<{ card: Card; col: number } | null>(null)
+  // The day a dragged card is over, lit so you can see where it will land;
+  // and whether the press was a drag, so letting go does not also open it.
+  const [over, setOver] = useState<number | null>(null)
+  const dragged = useRef(false)
+  /** The day under the pointer: the cards follow the pointer, not the browser's drag and drop. */
+  const dayAt = (x: number, y: number): number | null => {
+    const found = document.elementsFromPoint(x - window.scrollX, y - window.scrollY).find((element) => (element as HTMLElement).dataset?.day !== undefined) as HTMLElement | undefined
+    return found ? Number(found.dataset.day) : null
+  }
 
   const live = tasks.filter((task) => task.status === 'open')
   const days = Array.from({ length: 7 }, (_, index) => {
     const start = dayStart(from + index)
-    const end = start + DAY
+    const end = dayStart(from + index + 1)
     // Today's column carries what is late, so nothing overdue falls off the week.
     const inDay = (iso: string | null): boolean => !!iso && new Date(iso).getTime() < end && (new Date(iso).getTime() >= start || (from === 0 && index === 0))
     const cards: Card[] = [
@@ -141,13 +153,8 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
             return (
               <section
                 key={day.start}
-                onDragOver={(event) => dragging && event.preventDefault()}
-                onDrop={() => {
-                  if (!dragging) return
-                  move(dragging.card, col - dragging.col)
-                  setDragging(null)
-                }}
-                className={`flex min-w-0 flex-col gap-1 rounded-md p-1.5 ${col === at.col ? 'bg-accent/30' : ''}`}
+                data-day={col}
+                className={`flex min-h-[calc(100vh-9rem)] min-w-0 flex-col gap-1 rounded-md p-1.5 transition-colors ${over === col ? 'bg-accent/60 ring-1 ring-ring' : col === at.col ? 'bg-accent/30' : ''}`}
               >
                 <header className="mb-1 flex items-baseline gap-1.5 px-1">
                   <span className={`text-meta font-medium ${today ? 'text-[var(--tt-color-text-orange)]' : ''}`}>{date.toLocaleDateString([], { weekday: 'short' })}</span>
@@ -166,15 +173,30 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
                   const id = `${card.kind}:${card.task.id}`
                   const late = card.kind === 'scheduled' ? new Date(card.task.dueAt!).getTime() < dayStart(0) : new Date(card.task.deadline!).getTime() < dayStart(0)
                   return (
-                    <button
+                    <motion.button
                       key={id}
                       type="button"
-                      draggable
-                      onDragStart={() => setDragging({ card, col })}
-                      onDragEnd={() => setDragging(null)}
+                      // Picked up and carried by the pointer; let go over a day and it moves there.
+                      drag
+                      dragSnapToOrigin
+                      dragMomentum={false}
+                      whileDrag={{ scale: 1.03, zIndex: 50, cursor: 'grabbing' }}
+                      onDragStart={() => {
+                        dragged.current = true
+                        chime('tap')
+                      }}
+                      onDrag={(_, info) => setOver(dayAt(info.point.x, info.point.y))}
+                      onDragEnd={(_, info) => {
+                        const to = dayAt(info.point.x, info.point.y)
+                        setOver(null)
+                        if (to !== null && to !== col) move(card, to - col)
+                        else chime('fold')
+                        // The click that follows letting go is the drag's, not a request to open.
+                        setTimeout(() => (dragged.current = false))
+                      }}
                       data-cursor={at.id === id || undefined}
-                      onClick={() => (setAt({ col, id }), pick(card.task.id))}
-                      className={`flex flex-col items-start gap-0.5 rounded-md border px-2 py-1.5 text-left text-control transition-colors hover:bg-accent/60 ${at.id === id && at.col === col ? 'border-ring bg-accent/50' : ''} ${open?.id === card.task.id ? 'bg-accent' : ''}`}
+                      onClick={() => !dragged.current && (setAt({ col, id }), pick(card.task.id))}
+                      className={`relative flex touch-none flex-col items-start gap-0.5 rounded-md border bg-background px-2 py-1.5 text-left text-control transition-colors hover:bg-accent/60 ${at.id === id && at.col === col ? 'border-ring bg-accent/50' : ''} ${open?.id === card.task.id ? 'bg-accent' : ''}`}
                     >
                       <span className="flex w-full items-start gap-1.5">
                         {card.task.priority ? <PriorityIcon level={card.task.priority} className="mt-0.5 size-3 shrink-0" /> : null}
@@ -190,7 +212,7 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
                         ) : null}
                         {card.task.recurrence && <Repeat className="size-3" />}
                       </span>
-                    </button>
+                    </motion.button>
                   )
                 })}
               </section>

@@ -24,8 +24,27 @@ export interface TokenPattern {
    * painting them all alike. Left out, `spread` does exactly that.
    */
   color?: BlockColor | ((value: string) => BlockColor)
-  /** Matched in the document's first block only, as when that line is a title read for meaning. */
+  /** Matched in the document's first line only (see `firstLineOf`), as when that line is a title read for meaning. */
   firstBlockOnly?: boolean
+}
+
+/**
+ * The first line with words in it, and the position of the block holding it:
+ * what a note is called. The same rule as the stored note's `firstLine`, so
+ * the words lit as you type are the ones read for meaning: blank blocks are
+ * passed over, and a line runs to the end of its block or a line break.
+ */
+export function firstLineOf(doc: ProseMirrorNode): { pos: number; text: string } | null {
+  let found: { pos: number; text: string } | null = null
+  doc.descendants((node, pos) => {
+    if (found) return false
+    if (!node.isTextblock) return true
+    const text = node.textBetween(0, node.content.size, "\n", (leaf) => (leaf.type.name === "hardBreak" ? "\n" : String(leaf.attrs.label ?? "")))
+    const line = text.split("\n").find((one) => one.trim())
+    if (line) found = { pos, text: line.trim() }
+    return false
+  })
+  return found
 }
 
 /**
@@ -91,6 +110,7 @@ function scan(doc: ProseMirrorNode, patterns: TokenPattern[]): TokenMatch[] {
     .map((name) => doc.type.schema.marks[name])
     .filter(Boolean)
 
+  const first = patterns.some((token) => token.firstBlockOnly) ? firstLineOf(doc)?.pos : undefined
   doc.descendants((node, pos) => {
     if (!node.isTextblock) return true
 
@@ -99,7 +119,7 @@ function scan(doc: ProseMirrorNode, patterns: TokenPattern[]): TokenMatch[] {
 
     for (const token of patterns) {
       const { name, pattern } = token
-      if (token.firstBlockOnly && pos !== 0) continue
+      if (token.firstBlockOnly && pos !== first) continue
       const flags = pattern.flags.includes("g")
         ? pattern.flags
         : `${pattern.flags}g`

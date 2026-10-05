@@ -89,6 +89,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
       // list does not also close what is open.
       if (event.key === 'Escape' && chosen.length) {
         event.preventDefault()
+        chime('off')
         return setChosen([])
       }
       if (event.key !== 'x') return
@@ -193,7 +194,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           )}
         </AnimatePresence>
         {items.length && layout === 'cards' ? (
-          <NoteCards table="nuggets" cards={items.map((one) => ({ id: one.id, title: one.title, kind: one.kind, type: tier, dim: !!one.suspended }))} selected={open?.id} cursor={cursor} onPick={pick}
+          <NoteCards table="nuggets" cards={items.map((one) => ({ id: one.id, title: one.title, kind: one.kind, type: tier, dim: !!one.suspended, private: !!one.private }))} selected={open?.id} cursor={cursor} onPick={pick}
             menu={(card) => menuFor(items.find((one) => one.id === card.id)!)} />
         ) : items.length ? (
           <VirtualList items={items} keyOf={(item) => item.id} cursor={cursor} estimate={60} className="mx-3 my-2">
@@ -320,7 +321,7 @@ export function ItemDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (ty
   }
 
   return (
-    <div className="flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_1.5rem_1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
+    <div className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_1.5rem_1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
         <div className="-mt-3 mb-1 flex items-center justify-between gap-2 px-3 @[40rem]/page:px-[4.25rem]">
           {top ?? <span />}
@@ -329,7 +330,7 @@ export function ItemDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (ty
         </div>
         {item.tier === 'article' && (
           <input
-            className="mx-auto mb-2 block w-full max-w-[44rem] bg-transparent px-12 text-title font-semibold text-balance outline-none placeholder:text-muted-foreground"
+            className="page-narrow mx-auto mb-2 block w-full bg-transparent px-12 text-title font-semibold text-balance outline-none placeholder:text-foreground/70"
             defaultValue={item.title}
             // A new article starts in its title, the stand-in name selected
             // so typing replaces it, and the button that made it does not
@@ -495,7 +496,7 @@ export function ItemDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (ty
               defaultValue={item.attribution ?? ''}
               placeholder="Who, or where from"
               onBlur={(event) => void vigil.saveItem(item.id, { attribution: event.target.value.trim() || null })}
-              className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-muted-foreground"
+              className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-foreground/70"
             />
           </label>
         </Island>
@@ -570,7 +571,7 @@ export function RemindMe({ table, id, at }: { table: 'captures' | 'nuggets'; id:
           onChange={(event) => setWords(event.target.value)}
           onKeyDown={(event) => event.key === 'Enter' && typed && set(typed)}
           placeholder="Try: 4 pm, 2 days, in 5 weeks…"
-          className="w-full border-b bg-transparent px-2 py-2 outline-none placeholder:text-muted-foreground"
+          className="w-full border-b bg-transparent px-2 py-2 outline-none placeholder:text-foreground/70"
         />
         {(typed ? [[words, typed] as [string, Date]] : presets).map(([label, date]) => (
           <button key={label} type="button" onClick={() => set(date)} className="flex w-full items-center justify-between rounded-md px-2 py-1.5 hover:bg-accent">

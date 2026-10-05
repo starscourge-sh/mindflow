@@ -207,6 +207,9 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+  // Opening is heard, by F or a click, as every other panel is. The panel's
+  // own ref is taken by the fade below, so the popover cannot play it itself.
+  useEffect(() => void (open && chime('open')), [open])
   const same = (key: string): boolean => JSON.stringify([...(view.filter[key] ?? [])].sort()) === JSON.stringify([...(defaults[key] ?? [])].sort())
   const filtered = Object.entries(view.filter).reduce((n, [key, list]) => n + (same(key) ? 0 : Math.max(list.length, 1)), 0)
   const regrouped = groups.length > 1 && view.group !== groups[0].id

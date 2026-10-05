@@ -29,7 +29,6 @@ export const notes = {
   setOrder: (list: string, ids: string[]) => call('notes:order:set', list, ids),
   fields: (table: NoteTable, id: string) => call<Record<string, string | number>>('notes:fields', table, id),
   setField: (table: NoteTable, id: string, key: string, value: string | number | null) => call('notes:fields:set', table, id, key, value),
-  archived: (table: NoteTable) => call<string[]>('notes:archived', table),
   versions: (id: string) => call<Version[]>('notes:versions', id),
   version: (id: number) => call<unknown>('notes:version', id),
   restore: (table: NoteTable, id: string, version: number) => call<number | null>('notes:version:restore', table, id, version),

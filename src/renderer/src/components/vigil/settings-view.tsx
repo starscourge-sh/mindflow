@@ -94,6 +94,59 @@ function Group({ title, section = title, children }: { title: string; section?: 
 const field = 'h-8 tabular-nums'
 
 /**
+ * A slider that holds its own value while it moves and saves a moment after:
+ * read back from the saved settings, quick presses arrived before the last
+ * save had, and each one started from the old value.
+ */
+function SettingSlider({ value, onSave, ...props }: { value: number; onSave: (value: number) => void; min: number; max: number; step: number; disabled?: boolean }): React.JSX.Element {
+  const [held, setHeld] = useState<number | null>(null)
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => () => clearTimeout(timer.current), [])
+  // Let go once the save has come back, so it never flicks to the old value.
+  useEffect(() => void (held === value && setHeld(null)), [value, held])
+  return (
+    <Slider
+      {...props}
+      className="w-40"
+      value={[held ?? value]}
+      onValueChange={([next]) => {
+        setHeld(next)
+        clearTimeout(timer.current)
+        timer.current = setTimeout(() => onSave(next), 250)
+      }}
+      onValueCommit={() => chime('tap')}
+    />
+  )
+}
+
+/** A number box that saves a number, never the empty field you pass through on the way to one. */
+function NumberSetting({ value, onSave }: { value: number; onSave: (value: number) => void }): React.JSX.Element {
+  const [text, setText] = useState(String(value))
+  // While you type, the box is yours; a save coming back must not undo a key.
+  const typing = useRef(false)
+  useEffect(() => void (!typing.current && setText(String(value))), [value])
+  const valid = (raw: string): boolean => raw.trim() !== '' && Number.isFinite(Number(raw)) && Number(raw) >= 0
+  return (
+    <Input
+      type="number"
+      min={0}
+      className={`${field} w-16`}
+      value={text}
+      onChange={(event) => {
+        setText(event.target.value)
+        if (valid(event.target.value)) onSave(Number(event.target.value))
+      }}
+      // Left empty, it goes back to what is saved.
+      onFocus={() => void (typing.current = true)}
+      onBlur={() => {
+        typing.current = false
+        if (!valid(text)) setText(String(value))
+      }}
+    />
+  )
+}
+
+/**
  * The settings. Each one is a value read in one place, and each says what it
  * changes in a sentence, so a setting never needs looking up.
  */
@@ -132,7 +185,11 @@ export function SettingsView(): React.JSX.Element {
       const active = document.activeElement as HTMLElement | null
       // In the section list, j and k move between sections instead.
       if (event.metaKey || event.ctrlKey || event.altKey || ['INPUT', 'TEXTAREA'].includes(active?.tagName ?? '') || active?.closest('[data-sections]')) return
-      const controls = [...(page.current?.querySelectorAll<HTMLElement>('button, [role="slider"], input') ?? [])]
+      // Only what you can see and reach: the hidden file input behind "Import a
+      // theme…" would otherwise take the focus and keep it.
+      const controls = [...(page.current?.querySelectorAll<HTMLElement>('button, [role="slider"], input') ?? [])].filter(
+        (one) => one.tabIndex >= 0 && !one.matches(':disabled') && one.checkVisibility()
+      )
       const at = controls.indexOf(active as HTMLElement)
       if (event.key === 'j' || event.key === 'k') {
         event.preventDefault()
@@ -229,13 +286,39 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Motion" note="Things ease in and out: a capture leaving, a card arriving, a page sliding over. Off, everything appears at once.">
             <Switch checked={settings.motion} onCheckedChange={(motion) => set({ motion })} />
           </Setting>
+          <Setting title="Interface size" note="How big everything is: the lists, menus and notes together, in every window." keywords="zoom scale bigger smaller text ui">
+            <span className="flex items-center gap-1">
+              {(['small', 'medium', 'large'] as const).map((size, index) => (
+                <button
+                  key={size}
+                  type="button"
+                  aria-label={size[0].toUpperCase() + size.slice(1)}
+                  aria-pressed={(settings.interfaceSize ?? 'medium') === size}
+                  onClick={() => (set({ interfaceSize: size }), step(index))}
+                  className={`flex h-8 min-w-9 items-center justify-center rounded-md px-2 font-medium transition-colors hover:bg-accent ${(settings.interfaceSize ?? 'medium') === size ? 'bg-accent text-foreground' : 'text-muted-foreground'}`}
+                  style={{ fontSize: [12, 14, 17][index] }}
+                >
+                  Aa
+                </button>
+              ))}
+            </span>
+          </Setting>
+          <Setting title="Postcards" note="Pictures in notes sit in a white border with rounded corners and a soft shadow, like a print laid on the desk." keywords="images pictures photos border frame white">
+            <Switch checked={!!settings.postcards} onCheckedChange={(postcards) => (set({ postcards }), chime(postcards ? 'on' : 'off'))} />
+          </Setting>
           <Setting title="Pictures in lists" note="A note with a picture in it shows the first one, small, at the end of its row and on its card.">
             <Switch checked={settings.thumbnails !== false} onCheckedChange={(thumbnails) => set({ thumbnails })} />
           </Setting>
         </Group>
         <Group section="Appearance" title="Text">
-          <Setting title="Note font" note="What notes are written in, in the box and here: Fraunces, a few others, or any font on this Mac. OpenDyslexic is easier for some to read." below={<Sample />} keywords={NOTE_FONTS.map((font) => font.label).join(' ')}>
+          <Setting title="Font" note="What the whole app is written in, notes, lists and menus: Fraunces, a few others, or any font on this Mac. OpenDyslexic is easier for some to read." below={<Sample />} keywords={`note font ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
             <FontPicker value={settings.noteFont} />
+          </Setting>
+          <Setting title="Heading font" note="Headings in a font of their own, in notes and on these pages: a characterful serif over plain text reads well, the way Dia pairs them. Or the same as the text." keywords={`headings titles ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
+            <FontPicker value={settings.headingFont} setting="headingFont" same="Same as text" />
+          </Setting>
+          <Setting title="Notes only" note="On, the font above is used only for what you write, and the app's own lists, menus and labels stay in Fraunces.">
+            <Switch checked={!!settings.fontNotesOnly} onCheckedChange={(fontNotesOnly) => (set({ fontNotesOnly }), chime(fontNotesOnly ? 'on' : 'off'))} />
           </Setting>
           <Setting title="Text size" note="How big the words in notes are. ⌘+ and ⌘− change it from any note, ⌘0 puts it back." below={<Sample />}>
             <TextSize value={settings.textSize} />
@@ -260,7 +343,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
           {/* Shown with sounds off too, greyed, so a search still finds them. */}
           <Setting title="Volume" note="How loud every sound is, from silent to as loud as they were made.">
-            <Slider disabled={!settings.sounds} className="w-40" min={0} max={1} step={0.05} value={[settings.volume]} onValueChange={([volume]) => set({ volume })} onValueCommit={() => chime('tap')} />
+            <SettingSlider disabled={!settings.sounds} min={0} max={1} step={0.05} value={settings.volume} onSave={(volume) => set({ volume })} />
           </Setting>
           <Setting
             title="Sound pack"
@@ -272,12 +355,12 @@ export function SettingsView(): React.JSX.Element {
 
         <Group section="What comes back to you" title="Hints and cards">
           <Setting title="Hints" note="How often the prompt shows you something you kept. Rare is the point: a hint every time is one you learn to ignore.">
-            <Slider className="w-40" min={0} max={0.5} step={0.05} value={[settings.hintRate]} onValueChange={([hintRate]) => set({ hintRate })} onValueCommit={() => chime('tap')} />
+            <SettingSlider min={0} max={0.5} step={0.05} value={settings.hintRate} onSave={(hintRate) => set({ hintRate })} />
             <span className="w-16 text-right tabular-nums"><Rolling text={settings.hintRate ? `1 in ${Math.round(1 / settings.hintRate)}` : 'never'} /></span>
           </Setting>
           <HintTuning />
           <Setting title="Rot cards" note="How many unhandled captures come back each time you open the prompt. A few, never the whole pile.">
-            <Slider className="w-40" min={0} max={6} step={1} value={[settings.rotCount]} onValueChange={([rotCount]) => set({ rotCount })} onValueCommit={() => chime('tap')} />
+            <SettingSlider min={0} max={6} step={1} value={settings.rotCount} onSave={(rotCount) => set({ rotCount })} />
             <span className="w-16 text-right tabular-nums"><Rolling text={settings.rotCount} /></span>
           </Setting>
           <Setting title="Memories" note="Some hints are memories, the way Photos brings them: a year ago today, this week in an earlier year, more from one source. Each says which it is.">
@@ -324,12 +407,12 @@ export function SettingsView(): React.JSX.Element {
 
         <Group section="Review" title="Remembering">
           <Setting title="How much to remember" note="The share of tested items you want to still know when they come back. Higher means more reviews; 90% is where most land.">
-            <Slider className="w-40" min={0.8} max={0.97} step={0.01} value={[settings.retention]} onValueChange={([retention]) => set({ retention })} onValueCommit={() => chime('tap')} />
+            <SettingSlider min={0.8} max={0.97} step={0.01} value={settings.retention} onSave={(retention) => set({ retention })} />
             <span className="w-10 text-right tabular-nums"><Rolling text={`${Math.round(settings.retention * 100)}%`} /></span>
           </Setting>
           <Setting title="Daily limits" note="New items and reviews a day. A cap keeps the queue finishable; an uncapped one becomes a wall you stop opening.">
-            <Input type="number" min={0} className={`${field} w-16`} value={settings.newPerDay} onChange={(event) => set({ newPerDay: Number(event.target.value) })} /> new
-            <Input type="number" min={0} className={`${field} w-16`} value={settings.reviewsPerDay} onChange={(event) => set({ reviewsPerDay: Number(event.target.value) })} /> reviews
+            <NumberSetting value={settings.newPerDay} onSave={(newPerDay) => set({ newPerDay })} /> new
+            <NumberSetting value={settings.reviewsPerDay} onSave={(reviewsPerDay) => set({ reviewsPerDay })} /> reviews
           </Setting>
           <CapTuning />
         </Group>
@@ -452,7 +535,7 @@ function ImportedThemes(): React.JSX.Element {
           refresh()
           applyTheme(made.id)
           chime('settled')
-          toast(`Imported ${made.name}, and wearing it`, () => (removeTheme(made.id), refresh()))
+          toast(`Imported ${made.name}, and wearing it`, () => (made.undo(), refresh()))
         })
       }} />
       <Button variant="outline" size="sm" onClick={() => file.current?.click()}>Import a theme…</Button>

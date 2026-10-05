@@ -27,7 +27,8 @@ export function Thumb({ id, className = 'size-9' }: { id: string; className?: st
   }, [src])
   if (!src) return null
   return (
-    <span className={`block shrink-0 overflow-hidden rounded-md border bg-accent/40 ${className}`}>
+    // Blurred with the words when its row is private: a picture says as much.
+    <span className={`private-text block shrink-0 overflow-hidden rounded-md border bg-accent/40 ${className}`}>
       {shown && <img src={shown} alt="" loading="lazy" decoding="async" draggable={false} className="size-full object-cover animate-in fade-in-0 duration-200" />}
     </span>
   )
@@ -116,7 +117,7 @@ export function LayoutToggle({ layout, onChange }: { layout: Layout; onChange: (
   )
 }
 
-export type Card = { id: string; title: string; kind: string; dim?: boolean; type: string }
+export type Card = { id: string; title: string; kind: string; dim?: boolean; type: string; private?: boolean }
 
 /**
  * Notes as cards: the picture, the name, and the first lines under it. Rows
@@ -160,6 +161,7 @@ export function NoteCards({ cards, table, selected, cursor = -1, onPick, menu }:
                   data-row
                   data-cursor={index === cursor || undefined}
                   data-id={card.id}
+                  data-private={card.private ? '' : undefined}
                   onClick={(event) => (event.metaKey ? openWindow(card.type, card.id) : onPick(card.id))}
                   className={`flex h-44 w-full flex-col overflow-hidden rounded-lg border text-left transition-colors hover:bg-accent/40 ${card.dim ? 'opacity-50' : ''} ${card.id === selected ? 'border-ring bg-accent/60' : index === cursor ? 'bg-accent/40' : ''}`}
                 >
@@ -440,7 +442,7 @@ export function LocalGraph({ id, title, onOpen }: { id: string; title: string; o
               const [x, y] = place(side, index, sides[side].length)
               const out = node.way !== 'in'
               return (
-                <motion.g key={node.id} initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.04, duration: 0.25 }}
+                <motion.g key={node.id} data-private={node.private ? '' : undefined} initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.04, duration: 0.25 }}
                   style={{ transformOrigin: `${x}px ${y}px`, cursor: onOpen ? 'pointer' : undefined }}
                   onClick={() => onOpen && (chime('tap'), onOpen(node.type, node.id))}>
                   <title>{`${out ? (node.way === 'both' ? 'Links both ways: ' : 'Links to: ') : 'Linked from: '}${node.title || 'Untitled'}`}</title>

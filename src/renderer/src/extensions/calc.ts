@@ -106,6 +106,11 @@ function load(): void {
 function prepare(text: string): string {
   return (
     text
+      // The editor's typography turns `2 * 3` into `2 × 3` as you type; read the
+      // pretty signs back as the plain ones mathjs knows.
+      .replace(/×/g, "*")
+      .replace(/÷/g, "/")
+      .replace(/−/g, "-")
       // $40 is 40 USD; a thousands comma inside an amount is not an argument list.
       .replace(/([$€£¥₹])\s?(\d[\d,]*(?:\.\d+)?)/g, (_, sign: string, amount: string) => `${amount.replace(/,/g, "")} ${SIGNS[sign]}`)
       // 10% of 200.
@@ -192,7 +197,10 @@ function answers(doc: ProseMirrorNode): DecorationSet {
         found.push(Decoration.widget(pos + node.nodeSize - 1, ghost, { side: 1, key: `calc:${shown}`, answer: said } satisfies Answer & { side: number; key: string }))
       }
     } else if (NAMING.test(text)) {
-      evaluate(text, scope)
+      // Once Tab has written the answer in, `lunch = 12 * 2 = 24`: the name
+      // is what comes before the second `=`.
+      const second = text.indexOf("=", text.indexOf("=") + 1)
+      evaluate(second < 0 ? text : text.slice(0, second), scope)
     }
     return false
   })

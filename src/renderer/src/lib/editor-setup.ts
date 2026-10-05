@@ -25,7 +25,10 @@ const CUES: Record<EditorCue, Cue | 'step'> = {
   'outline-close': 'fold',
   'outline-step': 'step',
   heading: 'page',
-  math: 'settled'
+  math: 'settled',
+  // The same as the box's source drawer, which is a sheet.
+  source: 'slide',
+  'source-close': 'fold'
 }
 
 /** The fonts a note can be written in, besides any the Mac has. */
@@ -62,16 +65,38 @@ export async function systemFonts(): Promise<string[]> {
  */
 export function useEditorSetup(settings: Settings | null): void {
   useEffect(() => setCues((cue, n) => (CUES[cue] === 'step' ? step(n ?? 0) : chime(CUES[cue] as Cue))), [])
-  // The `#` menu offers the tags already in use here.
-  useEffect(() => setTagSource(vigil.tags), [])
+  // The `#` menu offers the tags already in use here. Reading them scans every
+  // note, so they are kept between openings and read again only once
+  // something has changed, and not more than every half minute while you type.
+  useEffect(() => {
+    let tags: ReturnType<typeof vigil.tags> | null = null
+    let stale = false
+    let at = 0
+    const stop = window.api.captures.onChange(() => (stale = true))
+    setTagSource(() => {
+      if (!tags || (stale && Date.now() - at > 30_000)) {
+        tags = vigil.tags()
+        stale = false
+        at = Date.now()
+      }
+      return tags
+    })
+    return stop
+  }, [])
 
   useEffect(() => {
     if (!settings) return
     setCalc(settings.calc)
     const root = document.documentElement.style
     root.setProperty('--mf-font', familyOf(settings.noteFont))
+    // The menus, lists and labels too, unless the font is for notes only.
+    if (settings.fontNotesOnly) root.removeProperty('--mf-app-font')
+    else root.setProperty('--mf-app-font', familyOf(settings.noteFont))
+    // Headings, in notes and on the app's own pages, in theirs when one is chosen.
+    if (!settings.headingFont || settings.headingFont === 'same') root.removeProperty('--mf-heading-font')
+    else root.setProperty('--mf-heading-font', familyOf(settings.headingFont))
     root.setProperty('--mf-text-scale', String(settings.textSize))
-  }, [settings?.calc, settings?.noteFont, settings?.textSize]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [settings?.calc, settings?.noteFont, settings?.fontNotesOnly, settings?.headingFont, settings?.textSize]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ⌘+ and ⌘− step the text size, ⌘0 puts it back. Taken before Chromium's
   // own page zoom, which would grow the whole window instead.

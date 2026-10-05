@@ -12,6 +12,11 @@ ipcRenderer.on('captures:changed', () => {
   telling = setTimeout(() => changes.forEach((listen) => listen()), 60)
 })
 
+// A note opened in a window of its own, told by the main process to every
+// other window, which closes it there: two editors on one note would each
+// save over the other's words.
+ipcRenderer.on('notes:opened-apart', (_event, id: string) => window.dispatchEvent(new CustomEvent('vigil:opened-apart', { detail: id })))
+
 // Custom APIs for renderer
 const api = {
   fetchLinkMetadata: (url: string): Promise<LinkMetadata> =>

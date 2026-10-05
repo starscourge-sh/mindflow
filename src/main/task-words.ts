@@ -35,10 +35,15 @@ export const PRIORITY_NAMES = ['No priority', 'Urgent', 'High', 'Medium', 'Low']
 /** "2026-10" for a month, "2026" for a year, or "someday": a when without a day. */
 export const monthKey = (date: Date): string => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
 
-/** Which of the three later lists a plan sits in today. A month gone by is still this month's, so nothing slips off. */
-export function bucketOf(plan: string | null, at = new Date()): 'month' | 'year' | 'someday' | null {
+/**
+ * Which of the later lists a plan sits in today. A month gone by is still this
+ * month's, so nothing slips off; anything in a year after this one, "next
+ * year" or "next month" said in December, is next year's, not this year's.
+ */
+export function bucketOf(plan: string | null, at = new Date()): 'month' | 'year' | 'next' | 'someday' | null {
   if (!plan) return null
   if (plan === 'someday') return 'someday'
+  if (Number(plan.slice(0, 4)) > at.getFullYear()) return 'next'
   if (plan.length === 7) return plan <= monthKey(at) ? 'month' : 'year'
   return 'year'
 }
@@ -145,8 +150,11 @@ export function readTask(text: string, at = new Date()): ReadTask {
   let onDay: Found | null = null
   if (ordinal) {
     const day = Number(ordinal[1])
-    // Built whole, month and day together, so the 31st never spills over.
-    add(ordinal.index, ordinal[0].length, new Date(at.getFullYear(), at.getMonth() + (at.getDate() > day ? 1 : 0), day), false)
+    // A month too short for the day takes its last one: the 31st in
+    // November is the 30th, the 30th in February the 28th, never March.
+    const month = at.getMonth() + (at.getDate() > day ? 1 : 0)
+    const last = new Date(at.getFullYear(), month + 1, 0).getDate()
+    add(ordinal.index, ordinal[0].length, new Date(at.getFullYear(), month, Math.min(day, last)), false)
     onDay = dates[dates.length - 1]
   }
   for (const found of chrono.parse(rest, at, { forwardDate: true }).slice(0, 2)) {

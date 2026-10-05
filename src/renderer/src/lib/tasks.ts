@@ -47,17 +47,17 @@ export function placed(task: Pick<Task, 'dueAt' | 'deadline'>): number | null {
 }
 
 /**
- * Which later list a task is in: This month, This year, Someday, or none once
+ * Which later list a task is in: This month, This year, Next year, Someday, or none once
  * it is scheduled. One with a due-by date shows on that day as well, so a
  * deadline never hides in Someday.
  */
 export const bucket = (task: Pick<Task, 'planFor' | 'dueAt'>): ReturnType<typeof bucketOf> => (task.dueAt ? null : bucketOf(task.planFor))
 
-/** The three later lists, by what each is called. */
-export const BUCKETS = { month: 'This month', year: 'This year', someday: 'Someday' } as const
+/** The later lists, by what each is called. */
+export const BUCKETS = { month: 'This month', year: 'This year', next: 'Next year', someday: 'Someday' } as const
 
 /** A month or a year key for now, for putting a task in a later list. */
 export function planKey(which: keyof typeof BUCKETS): string {
   const now = new Date()
-  return which === 'someday' ? 'someday' : which === 'year' ? String(now.getFullYear()) : monthKey(now)
+  return which === 'someday' ? 'someday' : which === 'year' ? String(now.getFullYear()) : which === 'next' ? String(now.getFullYear() + 1) : monthKey(now)
 }

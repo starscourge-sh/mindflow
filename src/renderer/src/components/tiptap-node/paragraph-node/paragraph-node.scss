@@ -203,8 +203,8 @@
 .tiptap.ProseMirror {
   --tt-indent-unit: 24px;
 
+  // No transition: animating margin-left reflows every line below on each frame.
   [data-indent] {
-    transition: margin-left 150ms ease-out;
     margin-left: calc(var(--tt-indent-unit) * var(--tt-indent-level, 0));
   }
 }

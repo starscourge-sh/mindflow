@@ -27,21 +27,32 @@ export function ReadThrough({ items, start = 0, onClose }: {
   onEdit?: (type: string, id: string) => void
 }): React.JSX.Element | null {
   const [at, setAt] = useState(Math.min(Math.max(0, start), Math.max(0, items.length - 1)))
-  const [page, setPage] = useState<{ title?: string; body: JSONContent | string | null } | null>(null)
+  // Which note the page is: a load that comes back after the page has turned
+  // is thrown away, so one note's words are never shown, or saved, as another's.
+  const [page, setPage] = useState<{ id: string; title?: string; body: JSONContent | string | null } | null>(null)
   const item = items[at]
   // Writing in place: the same page, the same quiet, the words now editable.
   // E, Enter or a click starts it; Escape puts the keys back to reading.
   const [writing, setWriting] = useState(false)
   useEffect(() => setWriting(false), [item?.id])
-  const saving = useRef<ReturnType<typeof setTimeout>>(undefined)
-  const save = (doc: JSONContent, editor: Editor): void => {
-    if (!item) return
-    clearTimeout(saving.current)
-    saving.current = setTimeout(() => void (item.type === 'capture'
-      // The Markdown copy too, where this editor can write one.
-      ? window.api.captures.save(item.id, { body: doc, markdown: (editor.storage as { markdown?: unknown }).markdown ? toMarkdown(editor) : undefined })
-      : vigil.saveItem(item.id, { body: doc })), 400)
+  // The save waiting to happen, kept with the note it belongs to, and made at
+  // once when the page turns rather than dropped by the next page's typing.
+  const saving = useRef<{ timer: ReturnType<typeof setTimeout>; run: () => void } | null>(null)
+  const flush = (): void => {
+    if (!saving.current) return
+    clearTimeout(saving.current.timer)
+    saving.current.run()
+    saving.current = null
   }
+  const save = (target: Readable, doc: JSONContent, editor: Editor): void => {
+    if (saving.current) clearTimeout(saving.current.timer)
+    const run = (): void => void (target.type === 'capture'
+      // The Markdown copy too, where this editor can write one.
+      ? window.api.captures.save(target.id, { body: doc, markdown: (editor.storage as { markdown?: unknown }).markdown ? toMarkdown(editor) : undefined })
+      : vigil.saveItem(target.id, { body: doc }))
+    saving.current = { run, timer: setTimeout(() => ((saving.current = null), run()), 400) }
+  }
+  useEffect(() => flush, [item?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!item) return
@@ -49,7 +60,9 @@ export function ReadThrough({ items, start = 0, onClose }: {
     const load = item.type === 'capture'
       ? window.api.captures.get(item.id).then((found) => found && { body: found.body as JSONContent })
       : vigil.item(item.id).then((found) => found && { title: found.tier === 'article' ? found.title : undefined, body: found.body as JSONContent })
-    void load.then((next) => setPage(next ?? { body: null }))
+    let current = true
+    void load.then((next) => current && setPage({ id: item.id, ...(next ?? { body: null }) }))
+    return () => void (current = false)
   }, [item?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -129,7 +142,7 @@ export function ReadThrough({ items, start = 0, onClose }: {
           className="mx-auto flex min-h-0 w-full max-w-[40rem] flex-1 flex-col overflow-y-auto px-8 pt-14 pb-8 [&_.tiptap.ProseMirror]:text-[1.15rem] [&_.tiptap.ProseMirror]:leading-[1.7]"
         >
           {page?.title && <h1 className="mb-4 text-3xl font-semibold text-balance">{page.title}</h1>}
-          {page && (
+          {page && page.id === item.id && (
             <div className={writing ? '' : 'cursor-text'} onClick={() => void (!writing && (chime('on'), setWriting(true)))}>
             <MindflowEditor
               key={`${item.id}-${writing}`}
@@ -140,8 +153,8 @@ export function ReadThrough({ items, start = 0, onClose }: {
               autofocus={writing ? 'end' : false}
               defaultContent={page.body ?? ''}
               onChange={(doc, editor) => {
-                setPage((now) => (now ? { ...now, body: doc } : now))
-                save(doc, editor)
+                setPage((now) => (now && now.id === item.id ? { ...now, body: doc } : now))
+                save(item, doc, editor)
               }}
               // Writing keeps the selection bar, so a highlight or a link is a
               // selection away; reading has nothing on the page but the words.

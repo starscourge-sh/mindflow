@@ -18,6 +18,7 @@ export function TableOfContents({ editor, shown = true }: { editor: Editor | nul
   const navRef = useRef<HTMLElement>(null)
   // The row the keys are on while the outline has them; null when it does not.
   const [keyed, setKeyed] = useState<number | null>(null)
+  const wantsFocus = useRef(false)
   const state = useEditorState({
     editor,
     selector: ({ editor: instance }) =>
@@ -40,11 +41,21 @@ export function TableOfContents({ editor, shown = true }: { editor: Editor | nul
       if (!headingsOf(editor).length) return
       cue("outline")
       setKeyed(Math.max(0, headingsOf(editor).findLastIndex((h) => h.pos <= editor.state.selection.from)))
-      requestAnimationFrame(() => navRef.current?.focus())
+      wantsFocus.current = true
+      // Already drawn (shown, or opened twice): it can take the keys now.
+      navRef.current?.focus()
     }
     dom.addEventListener(OPEN, open)
     return () => dom.removeEventListener(OPEN, open)
   }, [editor])
+
+  // Focus once the outline is actually drawn. With it hidden there is nothing
+  // to focus until this render, and a next-frame focus could still miss it.
+  useEffect(() => {
+    if (keyed === null || !wantsFocus.current || !navRef.current) return
+    wantsFocus.current = false
+    navRef.current.focus()
+  }, [keyed])
 
   // A long outline scrolls, so the entry the caret is under has to be brought
   // to it. Keyed on `lit` alone: scrolling on hover would move the rows out

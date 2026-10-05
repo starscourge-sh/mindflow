@@ -1,3 +1,4 @@
+import { themeActions } from '@/lib/theme'
 import React, { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
@@ -22,11 +23,11 @@ import { Reader } from './components/vigil/reader'
 import { OptionsMenu } from './components/vigil/options-menu'
 import { ReadThrough, type Readable } from './components/vigil/read-through'
 import { assetsOf } from './lib/document'
-import { tagsOf, type TokenPattern } from './extensions/tokens'
+import { firstLineOf, tagsOf, type TokenPattern } from './extensions/tokens'
 import { KeptPanel } from './components/vigil/kept-panel'
 import { CaptureProps, useCaptureDisplay } from './components/vigil/captures-view'
 import { Search } from './components/search'
-import { noteActions } from './lib/notes'
+import { noteActions, useOpenNote } from './lib/notes'
 import { vigil, type Settings } from './lib/vigil'
 import { makeTask, placed } from './lib/tasks'
 import { TaskChips, taskTokens } from './components/vigil/task-input'
@@ -226,7 +227,9 @@ export default function App(): React.JSX.Element {
   const [kind, setKind] = useState<CaptureType>('note')
   // Picked by hand: from then on the wording no longer suggests one.
   const [chosen, setChosen] = useState(false)
-  const captures = useCaptures()
+  // Archived ones too: Display's Archived filter reaches them; every other
+  // use here leaves them out itself.
+  const captures = useCaptures(true)
   useAppearance()
   // Focus: only the writing, until ⇧⌘F again.
   const focus = useFocusMode('prompt')
@@ -254,8 +257,10 @@ export default function App(): React.JSX.Element {
   // ⇧⌘D: the open capture's details, in the prompt (⌘I stays italic).
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (!event.metaKey || !event.shiftKey || event.key.toLowerCase() !== 'd' || !latestEditing.current) return
+      if (!event.metaKey || !event.shiftKey || event.key.toLowerCase() !== 'd') return
       event.preventDefault()
+      // A note not yet sent has no details to show: say so, rather than nothing.
+      if (!latestEditing.current) return chime('nope')
       setDetails((open) => !open)
     }
     window.addEventListener('keydown', onKey, true)
@@ -336,7 +341,7 @@ export default function App(): React.JSX.Element {
   // built once; painted again when the note turns into a todo or out of one.
   const kindNow = useRef(kind)
   kindNow.current = kind
-  const [boxTokens] = useState(() => [...TAGS, ...taskTokens(() => (kindNow.current === 'todo' ? (editorRef.current?.state.doc.firstChild?.textContent ?? null) : null))])
+  const [boxTokens] = useState(() => [...TAGS, ...taskTokens(() => (kindNow.current === 'todo' && editorRef.current ? (firstLineOf(editorRef.current.state.doc)?.text ?? null) : null))])
   useEffect(() => {
     const editor = editorRef.current
     if (editor && !editor.isDestroyed) editor.view.dispatch(editor.state.tr)
@@ -448,6 +453,7 @@ export default function App(): React.JSX.Element {
       const to = event.ctrlKey && !event.metaKey ? TABS[Number(event.key) - 1] : undefined
       if (!to) return
       event.preventDefault()
+      if (to !== tab || !panel) chime('tap')
       setTab(to)
       if (!panel) setPanel(true)
       // Going to a list means working the list: its keys, not the note's.
@@ -536,6 +542,20 @@ export default function App(): React.JSX.Element {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   })
+  // ⌥C: Create more on or off from the keys. Read by its key's place, since
+  // ⌥C types ç on a Mac, and taken before the editor can write it.
+  useEffect(() => {
+    if (editing) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.altKey || event.metaKey || event.ctrlKey || event.shiftKey || event.code !== 'KeyC') return
+      event.preventDefault()
+      event.stopPropagation()
+      setCreateMore(!createMore)
+      chime(createMore ? 'off' : 'on')
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [editing, createMore, setCreateMore])
   const fresh = (keepDraft = false, travelling = false): void => {
     setLocked(false)
     if (!travelling) setTrail({ stack: [null], at: 0 })
@@ -560,11 +580,34 @@ export default function App(): React.JSX.Element {
   const latestEditing = useRef(editing)
   latestEditing.current = editing
   useEffect(() => window.api.onHiding(() => latestEditing.current && fresh(true)), [])
+  // The capture open here is the note ⌘K acts on, as in the main window.
+  const editingMeta = editing ? captures.find((one) => one.id === editing.id) : undefined
+  useOpenNote(editingMeta ? { table: 'captures', type: 'capture', id: editingMeta.id, kind: editingMeta.kind, archived: !!editingMeta.archivedAt } : null)
+  useEffect(() => {
+    // Opened in a window of its own, from here or another window: put down
+    // here, so only one editor saves it.
+    const onApart = (event: Event): void => void ((event as CustomEvent).detail === latestEditing.current?.id && fresh(true))
+    // Version history lives in the main window, where there is room to read
+    // back through them: the note goes there, its history open.
+    const onVersions = (event: Event): void => {
+      const id = (event as CustomEvent).detail
+      if (id !== latestEditing.current?.id) return
+      fresh(true)
+      window.api.openInHome('versions', id)
+    }
+    window.addEventListener('vigil:opened-apart', onApart)
+    window.addEventListener('vigil:versions', onVersions)
+    return () => {
+      window.removeEventListener('vigil:opened-apart', onApart)
+      window.removeEventListener('vigil:versions', onVersions)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // ⌘N, from anywhere in the window: a fresh box.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!event.metaKey || event.key !== 'n') return
       event.preventDefault()
+      chime('tap')
       latestFresh.current()
     }
     window.addEventListener('keydown', onKey)
@@ -764,6 +807,7 @@ export default function App(): React.JSX.Element {
             { label: 'Open the main window', run: () => window.api.openInHome('view', 'inbox') },
             ...noteActions(),
             { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('vigil:shortcuts')) },
+            ...themeActions((text) => toast(text)),
             { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') },
             // The recap opens in the main window, over Stats.
             { label: 'Your month, wrapped', run: () => window.api.openInHome('recap', 'month') },
@@ -800,7 +844,7 @@ export default function App(): React.JSX.Element {
         startOver()
       }} title={appSettings?.topTitle === false ? null : topTitle}
       // Safe mode says so beside the pill, or the quiet looks like nothing happening.
-      aside={appSettings?.safeMode && <Tip label="Safe mode: no hints, rot cards or pins come up  ⌥⌘S"><span className="mr-1 rounded-full bg-accent px-2 py-0.5 text-key text-[var(--tt-brand-color-400)]">Safe</span></Tip>}
+      aside={appSettings?.safeMode && <Tip label="Safe mode: no hints, rot cards or pins come up  ⌥⌘S"><span className="mr-1 flex h-5 items-center rounded-full bg-accent px-2 text-key leading-none text-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,var(--foreground))]">Safe</span></Tip>}
       menu={(expanded, toggleExpanded) => (
         <OptionsMenu
           app
@@ -973,10 +1017,12 @@ export default function App(): React.JSX.Element {
               <span className="flex-1" />
               {/* Beside Create, as in Linear: on, a save keeps the box open for the next one. */}
               {!editing && (
+                <Tip label="Keep the box open after each save  ⌥C">
                 <label className="mr-2 flex cursor-pointer items-center gap-2 text-control text-muted-foreground">
                   <Switch size="sm" checked={createMore} onCheckedChange={setCreateMore} tabIndex={-1} />
                   Create more
                 </label>
+                </Tip>
               )}
               <Tip label={createMore && !editing ? 'Save, and a fresh box for the next  ⌘↵' : (editing ? 'Close this note and go back to your draft  ⌘↵ · changes save as you make them' : 'Save and close  ⌘↵ · once with a fresh box after  ⌥⌘↵')}>
               <Button variant="secondary" onClick={() => submit()} className="text-control">
@@ -1329,6 +1375,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
       if ((event.target as Element | null)?.closest?.('[data-card]')) return
       if (event.key === 'Escape' && chosen.length) {
         event.preventDefault()
+        chime('off')
         return setChosen([])
       }
       const row = shownNow.current[cursor]

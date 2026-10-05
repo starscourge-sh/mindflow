@@ -25,7 +25,7 @@ export function WordCount({ editor }: { editor: Editor | null }) {
   return (
     <span // Centred under the page on a soft pill, the way Raycast Notes shows it, so a
     // line of text running under it stays readable.
-    className="tiptap-word-count pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-background/80 px-2 py-0.5 text-xs whitespace-nowrap text-muted-foreground tabular-nums backdrop-blur-sm">
+    className="tiptap-word-count pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-background px-2 py-0.5 text-xs whitespace-nowrap text-foreground/70 tabular-nums">
       {words} {words === 1 ? "word" : "words"} · {characters} {characters === 1 ? "character" : "characters"}
     </span>
   )

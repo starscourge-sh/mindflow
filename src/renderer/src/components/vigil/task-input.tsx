@@ -171,7 +171,7 @@ export function TaskInput({ value, onChange, inputRef, placeholder, className = 
           onSelect={follow}
           onKeyDown={onKeyDown}
           placeholder={placeholder}
-          className="relative w-full bg-transparent text-transparent caret-foreground outline-none placeholder:text-muted-foreground"
+          className="relative w-full bg-transparent text-transparent caret-foreground outline-none placeholder:text-foreground/70"
         />
       </span>
       <TaskChips read={read} />

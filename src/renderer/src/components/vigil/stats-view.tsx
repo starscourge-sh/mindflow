@@ -124,9 +124,8 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
 
         <Section title="The doing, this week">
           <p>
-            No target here, only the trend. You took <N>{plural(stats.lead.exits, 'exit', 'exits')}</N> on captures, wrote <N>{plural(stats.lead.glosses, 'gloss', 'glosses')}</N>,
-            reviewed on <N>{plural(stats.lead.reviewDays, 'day', 'days')}</N> and started <N>{plural(stats.lead.articles, 'article', 'articles')}</N>.
-            The article is the one that cannot be faked.
+            No target here, only the trend. This week: <N>{`${plural(stats.lead.exits, 'capture', 'captures')} dealt with`}</N>, <N>{`${plural(stats.lead.glosses, 'note', 'notes')} added`}</N>,
+            reviews on <N>{plural(stats.lead.reviewDays, 'day', 'days')}</N> and <N>{plural(stats.lead.articles, 'article', 'articles')}</N> started.
           </p>
           <p>
             <N>{stats.unprocessed.now}</N> captures have taken no exit, against <N>{stats.unprocessed.weekAgo}</N> a week ago.

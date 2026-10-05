@@ -179,7 +179,7 @@ export function PropInput({ icon: Icon, value, placeholder, onSave, suffix, type
         placeholder={placeholder}
         onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
         onBlur={(event) => onSave(event.target.value.trim())}
-        className="min-w-0 flex-1 bg-transparent text-control text-foreground tabular-nums outline-none placeholder:text-muted-foreground [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+        className="min-w-0 flex-1 bg-transparent text-control text-foreground tabular-nums outline-none placeholder:text-foreground/70 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
       />
       {suffix && <span className="shrink-0 text-meta">{suffix}</span>}
     </label>
@@ -291,7 +291,8 @@ export function useListKeys(count: number, { onOpen, onBack, enabled = true }: {
       if ((chord && event.key === 'k') || (!inBox && !chord && (event.key === 'k' || event.key === 'ArrowUp'))) return move(at - 1)
       if (inBox) return
       if (event.key === 'G') return move(count - 1)
-      if (event.key === 'g' && last.current === 'g') return move(0)
+      // A finished G G starts over, so a third g is the start of the next pair.
+      if (event.key === 'g' && last.current === 'g') return void ((last.current = ''), move(0))
       last.current = event.key
       if (event.key === 'Enter' && onOpen && at >= 0 && at < count) {
         event.preventDefault()
@@ -441,6 +442,9 @@ function Asker(): React.JSX.Element | null {
   )
 }
 
+/** When anything was last typed into a field or the editor. */
+let lastEdit = 0
+
 export function Toaster(): React.JSX.Element | null {
   const [shown, setShown] = useState<{ text: string; undo?: () => void; tone?: 'success' | 'error'; action?: ToastAction; key: number } | null>(null)
   useEffect(() => {
@@ -484,9 +488,41 @@ export function Toaster(): React.JSX.Element | null {
       shown.undo?.()
       setShown(null)
     }
+    // Writing, ⌘Z is the toast's when nothing was typed since it came up: the
+    // note has nothing newer of its own to take back. Heard first, before the
+    // editor spends the key on an older edit.
+    const onWritingUndo = (event: KeyboardEvent): void => {
+      if (!shown.undo || !event.metaKey || event.key !== 'z' || event.shiftKey || event.altKey) return
+      if (focus() === null || lastEdit > shown.key) return
+      event.preventDefault()
+      event.stopPropagation()
+      chime('undo')
+      shown.undo()
+      setShown(null)
+    }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('keydown', onWritingUndo, true)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('keydown', onWritingUndo, true)
+    }
   }, [shown])
+  // When anything was last typed, so ⌘Z knows whose undo it is. Any key in a
+  // field counts, not only ones that change it: guessing "edited" when it was
+  // not only leaves ⌘Z with the note, which is the safe way to be wrong.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (['Meta', 'Shift', 'Alt', 'Control'].includes(event.key) || (event.metaKey && event.key.toLowerCase() === 'z')) return
+      if (focus() !== null) lastEdit = Date.now()
+    }
+    const onEdit = (): void => void (lastEdit = Date.now())
+    window.addEventListener('keydown', onKey, true)
+    for (const kind of ['input', 'paste', 'drop']) window.addEventListener(kind, onEdit, true)
+    return () => {
+      window.removeEventListener('keydown', onKey, true)
+      for (const kind of ['input', 'paste', 'drop']) window.removeEventListener(kind, onEdit, true)
+    }
+  }, [])
   // Asker always in the same place, so a toast coming or going never
   // remounts it and loses a question being answered.
   return (
@@ -645,7 +681,7 @@ export function Remembered({ field, value, onChange, placeholder, className = 'f
         onChange={(event) => onChange(event.target.value)}
         list={`remembered-${field}`}
         placeholder={placeholder}
-        className={cn('rounded-md bg-transparent text-muted-foreground outline-none placeholder:text-muted-foreground/60 hover:bg-accent/50 focus:bg-accent/50 focus:text-foreground', className)}
+        className={cn('rounded-md bg-transparent text-muted-foreground outline-none placeholder:text-foreground/70/60 hover:bg-accent/50 focus:bg-accent/50 focus:text-foreground', className)}
       />
       <datalist id={`remembered-${field}`}>
         {values.map((one) => <option key={one} value={one} />)}
@@ -707,12 +743,16 @@ export function Tip({ label, children }: { label: ReactNode; children: React.Rea
  */
 export function useFocusMode(name: string): boolean {
   const [on, setOn] = useStoredFlag(`focus:${name}`)
+  const now = useRef(on)
+  now.current = on
   useEffect(() => void (document.documentElement.dataset.focus = on ? 'on' : 'off'), [on])
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!event.metaKey || !event.shiftKey || event.code !== 'KeyF') return
       event.preventDefault()
-      setOn((was) => !was)
+      // Heard as a switch, the way safe mode is.
+      chime(now.current ? 'off' : 'on')
+      setOn(!now.current)
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
