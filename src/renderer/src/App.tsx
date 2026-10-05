@@ -1321,9 +1321,9 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                       <Tip label="Every capture with no exit yet; Display's Status shows the rest. x selects several.">
                         <h3 className="w-fit">{shown.length === open.length ? 'Everything waiting' : `${shown.length} shown`}</h3>
                       </Tip>
-                      <Tip label="Read through these, one at a time  ⇧⌘R">
+                      <Tip label="Read this list full screen, one note at a time, from the highlighted one (or the first). You can write in each as you go.  ⇧⌘R">
                         <Button variant="ghost" size="sm" className="ml-auto" onClick={() => onRead(shown.map((one) => ({ type: 'capture', id: one.id })), Math.max(0, cursor))}>
-                          <AliveIcon icon={BookIcon} size={14} /> Read
+                          <AliveIcon icon={BookIcon} size={14} /> Read list
                         </Button>
                       </Tip>
                       <span>{display}</span>

@@ -7,7 +7,7 @@ import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { taskSaid, useLive, vigil, type Item } from '@/lib/vigil'
 import { Chips } from './display'
 import { RowMenu, copy } from './row-menu'
-import { Empty, ask, pin, toast, typing, useListKeys, useReadKey, VirtualList, Strip } from './ui'
+import { Empty, ask, pin, toast, typing, useListKeys, useReadKey, VirtualList, Strip, Tip } from './ui'
 import { Button } from '@/components/ui/button'
 import { useItemDisplay } from './items-view'
 import BookIcon from '@/components/ui/book-icon'
@@ -57,7 +57,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
       <Strip className="flex h-8 min-w-0 items-center gap-1 px-1">
         <Chips className="shrink-0" options={TIERS} on={(id) => id === tier} pick={(id) => setTier(id as 'nugget' | 'article')} />
         {/* Read only when there is something to read. */}
-        {all.length > 0 && <Button variant="ghost" size="sm" className="ml-auto" onClick={read}><AliveIcon icon={BookIcon} size={14} /> Read</Button>}
+        {all.length > 0 && <Tip label="Read this list full screen, one note at a time, from the highlighted one (or the first). You can write in each as you go.  ⇧⌘R"><Button variant="ghost" size="sm" className="ml-auto" onClick={read}><AliveIcon icon={BookIcon} size={14} /> Read list</Button></Tip>}
         <span className={all.length ? '' : 'ml-auto'}>{display}</span>
         {tier === 'article' && (
           <Button variant="ghost" size="sm" onClick={() => void vigil.newArticle().then((id) => (chime('promote'), onOpen('article', id)))}><Plus className="size-3.5" /> New article</Button>

@@ -119,8 +119,8 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
                   <Plus className="size-3.5" /> New article
                 </Button>
               )}
-              <Tip label="Read through these, one at a time  ⇧⌘R">
-                <Button variant="ghost" size="sm" onClick={() => setReadFrom(Math.max(0, cursor))} disabled={!items.length}><AliveIcon icon={BookIcon} size={14} /> Read</Button>
+              <Tip label="Read this list full screen, one note at a time, from the highlighted one (or the first). You can write in each as you go.  ⇧⌘R">
+                <Button variant="ghost" size="sm" onClick={() => setReadFrom(Math.max(0, cursor))} disabled={!items.length}><AliveIcon icon={BookIcon} size={14} /> Read list</Button>
               </Tip>
               {display}
             </span>

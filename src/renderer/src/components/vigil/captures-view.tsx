@@ -129,8 +129,8 @@ export function CapturesView({ title, keep, focus, onOpen }: {
           ) : (
             <span className="flex items-center gap-2">
               {shown.length > 1 && <span className="hidden text-xs whitespace-nowrap @[48rem]/page:inline">x to select</span>}
-              <Tip label="Read through these, one at a time  ⇧⌘R">
-                <Button variant="ghost" size="sm" onClick={() => setReadFrom(Math.max(0, cursor))} disabled={!shown.length}><AliveIcon icon={BookIcon} size={14} /> Read</Button>
+              <Tip label="Read this list full screen, one note at a time, from the highlighted one (or the first). You can write in each as you go.  ⇧⌘R">
+                <Button variant="ghost" size="sm" onClick={() => setReadFrom(Math.max(0, cursor))} disabled={!shown.length}><AliveIcon icon={BookIcon} size={14} /> Read list</Button>
               </Tip>
               {display}
             </span>

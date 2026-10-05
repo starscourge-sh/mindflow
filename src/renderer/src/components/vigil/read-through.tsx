@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
-import type { JSONContent } from '@tiptap/core'
+import type { Editor, JSONContent } from '@tiptap/core'
+import { toMarkdown } from '@/lib/export'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { MindflowEditor } from '../mindflow'
@@ -17,15 +18,29 @@ export type Readable = { type: string; id: string }
  * buttons. j and k (or the arrows) turn the page, e opens the one in front of
  * you to change it, Escape goes back to where you were.
  */
-export function ReadThrough({ items, start = 0, onClose, onEdit }: {
+export function ReadThrough({ items, start = 0, onClose }: {
   items: Readable[]
   start?: number
   onClose: () => void
-  onEdit: (type: string, id: string) => void
+  /** No longer used: a note is changed in place, here. */
+  onEdit?: (type: string, id: string) => void
 }): React.JSX.Element | null {
   const [at, setAt] = useState(Math.min(Math.max(0, start), Math.max(0, items.length - 1)))
   const [page, setPage] = useState<{ title?: string; body: JSONContent | string | null } | null>(null)
   const item = items[at]
+  // Writing in place: the same page, the same quiet, the words now editable.
+  // E, Enter or a click starts it; Escape puts the keys back to reading.
+  const [writing, setWriting] = useState(false)
+  useEffect(() => setWriting(false), [item?.id])
+  const saving = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const save = (doc: JSONContent, editor: Editor): void => {
+    if (!item) return
+    clearTimeout(saving.current)
+    saving.current = setTimeout(() => void (item.type === 'capture'
+      // The Markdown copy too, where this editor can write one.
+      ? window.api.captures.save(item.id, { body: doc, markdown: (editor.storage as { markdown?: unknown }).markdown ? toMarkdown(editor) : undefined })
+      : vigil.saveItem(item.id, { body: doc })), 400)
+  }
 
   useEffect(() => {
     if (!item) return
@@ -38,6 +53,17 @@ export function ReadThrough({ items, start = 0, onClose, onEdit }: {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      // Writing: every key is the note's, but Escape, which stops writing.
+      if (writing) {
+        if (event.key === 'Escape' && !document.querySelector('.tiptap-suggestion-popup, [role="menu"]')) {
+          event.preventDefault()
+          event.stopPropagation()
+          ;(document.activeElement as HTMLElement | null)?.blur()
+          chime('off')
+          setWriting(false)
+        }
+        return
+      }
       if (event.metaKey || event.ctrlKey || event.altKey) return
       // A question asked over the page (who said it?) has the keys.
       if (document.querySelector('[role="dialog"]:not([aria-label="Reading"])')) return
@@ -54,7 +80,11 @@ export function ReadThrough({ items, start = 0, onClose, onEdit }: {
       if (next) setAt((n) => Math.min(items.length - 1, n + 1))
       else if (back) setAt((n) => Math.max(0, n - 1))
       else if (event.key === 'Escape') onClose()
-      else if (event.key === 'e' && item) onEdit(item.type, item.id)
+      else if ((event.key === 'e' || event.key === 'Enter') && item) {
+        event.preventDefault()
+        chime('on')
+        setWriting(true)
+      }
       // Deal with it while it is in front of you: an exit or a task, then the
       // next page. ⌘Z still takes it back.
       else if (item?.type === 'capture' && 'prdt'.includes(event.key)) {
@@ -66,7 +96,7 @@ export function ReadThrough({ items, start = 0, onClose, onEdit }: {
     // Taken first, so the lists and the editor underneath never see the keys.
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [items.length, item, at, onClose, onEdit])
+  }, [items.length, item, at, onClose, writing])
 
   // The focus comes here while reading, and goes back where it was after.
   const box = useRef<HTMLDivElement>(null)
@@ -96,20 +126,29 @@ export function ReadThrough({ items, start = 0, onClose, onEdit }: {
         >
           {page?.title && <h1 className="mb-4 text-3xl font-semibold text-balance">{page.title}</h1>}
           {page && (
+            <div className={writing ? '' : 'cursor-text'} onClick={() => void (!writing && (chime('on'), setWriting(true)))}>
             <MindflowEditor
-              key={item.id}
+              key={`${item.id}-${writing}`}
               // The note's own files, so its pictures load.
               host={window.api}
               shape="document"
-              readOnly
+              readOnly={!writing}
+              autofocus={writing ? 'end' : false}
               defaultContent={page.body ?? ''}
-              toolbar={false}
+              onChange={(doc, editor) => {
+                setPage((now) => (now ? { ...now, body: doc } : now))
+                save(doc, editor)
+              }}
+              // Writing keeps the selection bar, so a highlight or a link is a
+              // selection away; reading has nothing on the page but the words.
+              toolbar={writing ? undefined : false}
               handles={false}
-              slash={false}
+              slash={writing}
               outline={false}
               vim={false}
               search={false}
             />
+            </div>
           )}
         </motion.article>
       </AnimatePresence>
@@ -121,10 +160,16 @@ export function ReadThrough({ items, start = 0, onClose, onEdit }: {
           <button type="button" aria-label="Next" disabled={at >= items.length - 1} onClick={() => (chime('page'), setAt(at + 1))} className="ml-1 flex size-6 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowDown className="size-3.5" /></button>
           <button type="button" aria-label="Previous" disabled={at <= 0} onClick={() => (chime('page'), setAt(at - 1))} className="flex size-6 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowUp className="size-3.5" /></button>
         </span>
-        <span><Kbd>↓</Kbd> <Kbd>J</Kbd> next · <Kbd>↑</Kbd> <Kbd>K</Kbd> back</span>
-        <span><Kbd>E</Kbd> change it</span>
-        {item.type === 'capture' && <span><Kbd>P</Kbd> <Kbd>R</Kbd> <Kbd>D</Kbd> exits · <Kbd>T</Kbd> task</span>}
-        <span><Kbd>Esc</Kbd> close</span>
+        {writing ? (
+          <span><span className="text-foreground">Writing</span>, saved as you go · <Kbd>Esc</Kbd> back to reading</span>
+        ) : (
+          <>
+            <span><Kbd>↓</Kbd> <Kbd>J</Kbd> next · <Kbd>↑</Kbd> <Kbd>K</Kbd> back</span>
+            <span><Kbd>E</Kbd> write in it</span>
+            {item.type === 'capture' && <span><Kbd>P</Kbd> <Kbd>R</Kbd> <Kbd>D</Kbd> exits · <Kbd>T</Kbd> task</span>}
+            <span><Kbd>Esc</Kbd> close</span>
+          </>
+        )}
       </footer>
     </div>
   )
