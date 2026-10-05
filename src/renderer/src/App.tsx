@@ -255,6 +255,15 @@ export default function App(): React.JSX.Element {
     void window.api.setRecordable(on)
   }
   useEffect(() => void (recordable && window.api.setRecordable(true)), []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Summoned, the box settles into place as the window fades up: a few
+  // pixels and a hair of scale, the way a sheet of paper lands.
+  useEffect(() => window.api.onShown(() => {
+    if (document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    document.querySelector('.app-container')?.animate(
+      [{ transform: 'translateY(-6px) scale(0.985)' }, { transform: 'none' }],
+      { duration: 180, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' }
+    )
+  }), [])
   // A focus session left running across a restart brings its timer back.
   useEffect(() => void vigil.focusNow().then((focus) => focus && window.api.showFocus(true)), [])
   // Linear's "Create more": on, a save keeps the box open for the next one.

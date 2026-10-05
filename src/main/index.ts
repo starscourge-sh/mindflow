@@ -35,7 +35,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { captureText, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures } from './captures'
 import { backupDir } from './backup'
-import { activeSession, badge, registerVigil, toggleSafeMode } from './vigil'
+import { activeSession, badge, motionOn, registerVigil, toggleSafeMode } from './vigil'
 
 
 /* The standard electron app file structure:
@@ -179,6 +179,30 @@ function hideWindow(win: BrowserWindow): void {
  * focus should bring this one forward, not hide the window you were about to
  * type into. A window can be visible and still be behind everything.
  */
+/**
+ * The box arrives rather than appears: the whole window, frosted backing and
+ * all, fades up over a few frames while the page settles into place (see
+ * App's onShown). At once when Motion is off.
+ */
+let arriving: ReturnType<typeof setInterval> | undefined
+function arrive(win: BrowserWindow): void {
+  clearInterval(arriving)
+  if (!motionOn()) {
+    win.setOpacity(1)
+    return win.show()
+  }
+  win.setOpacity(0)
+  win.show()
+  const start = Date.now()
+  const LENGTH = 140
+  arriving = setInterval(() => {
+    const t = Math.min(1, (Date.now() - start) / LENGTH)
+    // Ease out: most of the way at once, the last of it gently.
+    win.setOpacity(1 - (1 - t) ** 3)
+    if (t === 1) clearInterval(arriving)
+  }, 1000 / 120)
+}
+
 function toggleWindow(): void {
   const win = prompt
   if (!win) {
@@ -195,7 +219,7 @@ function toggleWindow(): void {
   // Checked against the screen as it is now: a display can have been unplugged
   // while the window was away.
   if (lastBounds) win.setBounds(onScreen(lastBounds))
-  win.show()
+  arrive(win)
   recordOpen('prompt')
   win.webContents.send('window:shown')
   // An accessory app is not in the running-app rotation, so asking for the

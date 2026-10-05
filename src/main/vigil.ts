@@ -113,6 +113,9 @@ const DEFAULTS = {
 }
 export type Settings = typeof DEFAULTS
 
+/** The Motion setting, for the window's own arrival. */
+export const motionOn = (): boolean => settings().motion
+
 function settings(): Settings {
   const rows = database().prepare('select key, value from settings').all() as { key: string; value: string }[]
   return { ...DEFAULTS, ...Object.fromEntries(rows.map((row) => [row.key, JSON.parse(row.value)])) }
