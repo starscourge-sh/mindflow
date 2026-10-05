@@ -68,9 +68,9 @@ export function Empty({ shape, title, children, action, compact = false }: {
 }
 
 /** A key, the way a menu shows a shortcut. */
-export function Kbd({ children }: { children: ReactNode }): React.JSX.Element {
+export function Kbd({ children, className }: { children: ReactNode; className?: string }): React.JSX.Element {
   return (
-    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-border/80 px-1 font-sans text-key text-muted-foreground">
+    <kbd className={cn('inline-flex h-5 min-w-5 items-center justify-center rounded border border-border/80 px-1 font-sans text-key text-muted-foreground', className)}>
       {children}
     </kbd>
   )
@@ -385,7 +385,7 @@ export function Toaster(): React.JSX.Element | null {
     <Asker />
     <Beam />
     {/* Centred along the bottom, where the eye drops after acting. */}
-    {shown && <div className="pointer-events-none fixed inset-x-0 bottom-[var(--toast-bottom,1.25rem)] z-50 flex justify-center"><div
+    {shown && <div className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-0 z-50 flex justify-center"><div
       key={shown.key}
       role="status"
       aria-live="polite"
@@ -400,7 +400,7 @@ export function Toaster(): React.JSX.Element | null {
       {shown.action && (
         <button
           type="button"
-          className="font-medium text-[var(--tt-brand-color-400)] hover:underline"
+          className="font-medium text-foreground underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground"
           onClick={() => {
             setShown(null)
             shown.action?.run()

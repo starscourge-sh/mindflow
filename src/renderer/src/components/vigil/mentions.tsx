@@ -3,7 +3,7 @@ import { ChevronRight, Link2 } from 'lucide-react'
 
 import { chime } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
-import { Tip, toast } from './ui'
+import { Tip, refuse, toast } from './ui'
 
 type Found = Awaited<ReturnType<typeof vigil.mentions>>
 
@@ -44,7 +44,7 @@ export function Mentions({ id, onOpen }: { id: string; onOpen?: (type: string, i
             aria-label="Link it"
             className="mt-0.5 flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-control text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100"
             onClick={() => void vigil.linkMention(one.type, one.id, id).then((ok) => {
-              if (!ok) return
+              if (!ok) return refuse('Its name is only inside a link there already')
               chime('pin')
               toast('Linked')
             })}
@@ -57,7 +57,7 @@ export function Mentions({ id, onOpen }: { id: string; onOpen?: (type: string, i
   )
 
   return (
-    <section data-chrome className="mx-auto mt-6 mb-8 w-full max-w-[44rem] border-t px-10 pt-4 text-body">
+    <section data-chrome className="mx-auto mt-6 mb-16 w-full max-w-[44rem] border-t px-10 pt-4 text-body">
       {found.linked.length > 0 && (
         <>
           <h3 className="mb-1 px-2 text-meta text-muted-foreground">{found.linked.length} linked {found.linked.length === 1 ? 'mention' : 'mentions'}</h3>

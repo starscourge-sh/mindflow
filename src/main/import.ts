@@ -111,6 +111,8 @@ type Node = { type?: string; text?: string; attrs?: { latex?: string; label?: st
 export const wordsOf = (node: Node): string =>
   node.type === 'hardBreak'
     ? '\n'
+    : node.type === 'noteLink'
+      ? (node.attrs?.label ?? '')
     : node.type === 'emoji'
       ? (shortcodeToEmoji(node.attrs?.name ?? '', gitHubEmojis)?.emoji ?? '')
       : (node.text ?? node.attrs?.latex ?? (node.content ?? []).map(wordsOf).join(''))
@@ -121,7 +123,7 @@ export const wordsOf = (node: Node): string =>
  */
 /** The blocks that hold words directly: paragraphs and headings, however deep. */
 const textBlocks = (node: Node): Node[] =>
-  node.content?.some((child) => child.text !== undefined || child.type === 'hardBreak' || child.type === 'emoji' || child.attrs?.latex !== undefined) ? [node] : (node.content ?? []).flatMap(textBlocks)
+  node.content?.some((child) => child.text !== undefined || child.type === 'hardBreak' || child.type === 'emoji' || child.type === 'noteLink' || child.attrs?.latex !== undefined) ? [node] : (node.content ?? []).flatMap(textBlocks)
 
 export function firstLine(body: unknown): string {
   if (typeof body === 'string') return titleOfMarkdown(body.replace(/^\s*\n/, ''))

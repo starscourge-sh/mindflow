@@ -1,5 +1,5 @@
 appId: com.electron.app
-productName: mindflow
+productName: Vigil
 directories:
   buildResources: build
 files:

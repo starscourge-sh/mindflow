@@ -4,9 +4,10 @@ import { vigil } from '@/lib/vigil'
 
 /** The words of a stored body, for a glance: no markup, first lines only. */
 const glance = (body: unknown): string => {
-  if (typeof body === 'string') return body
-  const walk = (node: { text?: string; content?: unknown[] }): string =>
-    node.text ?? (node.content ?? []).map((child) => walk(child as typeof node)).join(' ')
+  if (typeof body === 'string') return body.replace(/\[\[@[^|\]]+\|([^\]]+)\]\]/g, '$1')
+  const walk = (node: { type?: string; text?: string; attrs?: { label?: string }; content?: unknown[] }): string =>
+    node.type === 'noteLink' ? `@${node.attrs?.label ?? ''}` :
+    node.text ?? (node.content ?? []).map((child) => walk(child as typeof node)).join(node.content?.some((child) => (child as { text?: string }).text !== undefined) ? '' : ' ')
   return body ? walk(body as { content?: unknown[] }) : ''
 }
 
@@ -65,7 +66,7 @@ export function NotePreview(): React.JSX.Element | null {
       className="pointer-events-none fixed z-[70] w-80 rounded-lg border bg-popover p-3 text-control shadow-(--mf-panel-shadow) animate-in fade-in-0 duration-150"
       style={{ left: Math.max(12, shown.x), top: shown.y, transform: shown.above ? 'translateY(-100%)' : undefined }}
     >
-      <p className="mb-1 truncate font-medium text-foreground">{shown.title}</p>
+      <p className="private-text mb-1 truncate font-medium text-foreground">{shown.title}</p>
       <p className="private-text line-clamp-6 whitespace-pre-line text-muted-foreground">{shown.text}</p>
     </div>
   )

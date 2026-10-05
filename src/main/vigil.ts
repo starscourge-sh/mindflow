@@ -23,8 +23,9 @@ const body = <T extends { body?: unknown }>(row: T): T => ({ ...row, body: JSON.
 
 /** A document's words, whether it is Markdown or the editor's JSON. */
 export function plain(value: unknown): string {
-  if (typeof value === 'string') return value
-  const walk = (node: { text?: string; content?: unknown[] }): string =>
+  if (typeof value === 'string') return value.replace(/\[\[@[^|\]]+\|([^\]]+)\]\]/g, '$1')
+  const walk = (node: { type?: string; text?: string; attrs?: { label?: string }; content?: unknown[] }): string =>
+    node.type === 'noteLink' ? (node.attrs?.label ?? '') :
     node.text ?? (node.content ?? []).map((child) => walk(child as typeof node)).join('\n')
   return value ? walk(value as { content?: unknown[] }) : ''
 }
@@ -35,11 +36,12 @@ type Doc = { type?: string; text?: string; attrs?: Record<string, unknown>; mark
  * lists, quotes, code, links and emphasis kept. Markdown already is.
  */
 export function markdown(value: unknown): string {
-  if (typeof value === 'string') return value
+  if (typeof value === 'string') return value.replace(/\[\[@[^|\]]+\|([^\]]+)\]\]/g, '[[$1]]')
   if (!value) return ''
   const inline = (nodes: Doc[] = []): string =>
     nodes.map((node) => {
       if (node.type === 'hardBreak') return '  \n'
+      if (node.type === 'noteLink') return `[[${node.attrs?.label ?? ''}]]`
       if (node.type === 'image') return `![${node.attrs?.alt ?? ''}](${node.attrs?.src ?? ''})`
       let text = node.text ?? inline(node.content)
       for (const mark of node.marks ?? []) {
@@ -525,11 +527,11 @@ export function registerVigil(): void {
       node.text ?? (node.content ?? []).map(walk).join(node.content?.every((child) => child.type === 'text' || child.type === 'noteLink' || child.type === 'hardBreak') ? '' : '\n')
     return value ? walk(value as Doc) : ''
   }
-  const titleOf = (id: string): { title: string; key: string } | null => {
+  const titleOf = (id: string): { title: string; key: string; link: string } | null => {
     const capture = db.prepare(`select ${LABEL} as title, number from captures where id = ?`).get(id) as { title: string; number: number } | undefined
-    if (capture) return { title: capture.title, key: `MF-${capture.number}` }
-    const nugget = db.prepare('select title from nuggets where id = ?').get(id) as { title: string } | undefined
-    return nugget ? { title: nugget.title, key: '' } : null
+    if (capture) return { title: capture.title, key: `MF-${capture.number}`, link: id }
+    const nugget = db.prepare('select title, tier from nuggets where id = ?').get(id) as { title: string; tier: string } | undefined
+    return nugget ? { title: nugget.title, key: '', link: `${nugget.tier}:${id}` } : null
   }
   handle('mentions', (id: string) => {
     const me = titleOf(id)
@@ -542,10 +544,10 @@ export function registerVigil(): void {
     for (const row of everything()) {
       if (row.id === id || !row.body) continue
       // A link as the editor keeps it, or as an imported page still holds it.
-      const links = row.body.includes(`"id":"${id}"`) || new RegExp(`\\[\\[@(?:[a-z]+:)?${id}\\|`).test(row.body)
+      const links = new RegExp(`"id":"(?:[a-z]+:)?${id}"|\\[\\[@(?:[a-z]+:)?${id}\\|`).test(row.body)
       const text = words(JSON.parse(row.body))
       if (links) {
-        const label = /"label":"([^"]*)"/.exec(row.body.slice(Math.max(0, row.body.indexOf(`"id":"${id}"`))))?.[1] ??
+        const label = /"label":"([^"]*)"/.exec(row.body.slice(Math.max(0, row.body.search(new RegExp(`"id":"(?:[a-z]+:)?${id}"`)))))?.[1] ??
           new RegExp(`\\[\\[@(?:[a-z]+:)?${id}\\|([^\\]]+)\\]\\]`).exec(row.body)?.[1] ?? name
         const at = text.indexOf(label)
         linked.push({ type: row.type, id: row.id, title: row.title, snippet: at >= 0 ? around(text, at, label.length) : text.slice(0, 160) })
@@ -582,7 +584,8 @@ export function registerVigil(): void {
         }
         const text = child.text ?? ''
         if (at > 0) next.push({ ...child, text: text.slice(0, at) })
-        next.push({ type: 'noteLink', attrs: { id: targetId, label: me.title, key: me.key } })
+        // A nugget or article is linked as `tier:id`, the way @ links them.
+        next.push({ type: 'noteLink', attrs: { id: me.link, label: me.title, key: me.key } })
         if (at + lower.length < text.length) next.push({ ...child, text: text.slice(at + lower.length) })
         done = true
       }
@@ -1171,15 +1174,30 @@ export function registerVigil(): void {
     const front = (fields: Record<string, unknown>): string =>
       `---\n${Object.entries(fields).filter(([, v]) => v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && !v.length)).map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join('\n')}\n---\n\n`
     const slug = (text: string): string => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50)
-    for (const row of data.captures as Record<string, string & number>[]) {
-      const text = markdown(JSON.parse(row.body ?? 'null'))
-      const name = slug(plain(JSON.parse(row.body ?? 'null')).split('\n')[0] ?? '')
-      await writeFile(join(folder, 'markdown', `MF-${row.number}${name ? ` ${name}` : ''}.md`),
-        front({ id: `MF-${row.number}`, kind: row.kind, status: row.status, captured: row.captured_at, who: row.attribution, where: row.medium, tags: tagsIn(plain(JSON.parse(row.body ?? 'null'))) }) + text)
+    // Pictures point at the assets copied beside the notes, not the app's own store.
+    const local = (text: string): string => text.replace(/mindflow:\/\/assets\//g, '../assets/')
+    const taken = new Set<string>()
+    // Two notes with the same name each keep their own file.
+    const unique = (name: string): string => {
+      let one = name
+      for (let n = 2; taken.has(one); n++) one = `${name} ${n}`
+      taken.add(one)
+      return `${one}.md`
     }
-    for (const row of data.nuggets as Record<string, string>[])
-      await writeFile(join(folder, 'markdown', `${row.tier}-${slug(row.title) || row.id.slice(0, 8)}.md`),
-        front({ kind: row.tier, created: row.created_at, who: row.attribution, question: row.prompt }) + `# ${row.title}\n\n${markdown(JSON.parse(row.body ?? 'null'))}`)
+    for (const row of data.captures as Record<string, string & number>[]) {
+      const body = JSON.parse(row.body ?? 'null')
+      const name = slug(plain(body).split('\n').find((line) => line.trim()) ?? '')
+      await writeFile(join(folder, 'markdown', unique(`MF-${row.number}${name ? ` ${name}` : ''}`)),
+        front({ id: `MF-${row.number}`, kind: row.kind, status: row.status, captured: row.captured_at, who: row.attribution, where: row.medium, tags: tagsIn(plain(body)) }) + local(markdown(body)))
+    }
+    for (const row of data.nuggets as Record<string, string>[]) {
+      const body = JSON.parse(row.body ?? 'null')
+      const text = local(markdown(body))
+      // A heading of its own already names it; otherwise the title does.
+      const heading = /^#\s/.test(text) ? '' : `# ${row.title}\n\n`
+      await writeFile(join(folder, 'markdown', unique(`${row.tier}-${slug(row.title) || row.id.slice(0, 8)}`)),
+        front({ kind: row.tier, created: row.created_at, who: row.attribution, question: row.prompt, tags: tagsIn(plain(body)) }) + heading + text)
+    }
     // The pictures and files the notes point at.
     await cp(join(app.getPath('userData'), 'assets'), join(folder, 'assets'), { recursive: true }).catch(() => undefined)
     return folder

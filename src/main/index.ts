@@ -397,7 +397,7 @@ function makeHome(): BrowserWindow {
     width: 760,
     height: 520,
     show: false,
-    title: 'mindflow',
+    title: 'Vigil',
     backgroundColor: '#1c1c1c',
     autoHideMenuBar: true,
     // The app draws its own toolbar, with the traffic lights set into it the
@@ -606,7 +606,11 @@ if (process.platform === 'darwin') app.setActivationPolicy('accessory')
 
 // Somewhere else to keep everything, for the QA runs: they drive this same app,
 // and must never open the database your real captures are in.
-if (process.env.MINDFLOW_USER_DATA) app.setPath('userData', process.env.MINDFLOW_USER_DATA)
+// The app is called Vigil, but its notes stay where they have always been,
+// in the folder named for what it was first called: renaming must never look
+// like losing everything.
+app.setName('Vigil')
+app.setPath('userData', process.env.MINDFLOW_USER_DATA ?? join(app.getPath('appData'), 'mindflow'))
 
 // From a terminal, without the window: `open -n -a mindflow --args --capture "buy milk"`,
 // or the binary itself with the same flags. One copy of the app runs; a second
@@ -710,7 +714,7 @@ async function restore(): Promise<void> {
     title: 'Restore from a backup',
     defaultPath: join(backupDir(), 'database'),
     properties: ['openFile'],
-    filters: [{ name: 'mindflow database', extensions: ['db'] }]
+    filters: [{ name: 'Vigil database', extensions: ['db'] }]
   })
   if (!chosen) return
   const { response } = await dialog.showMessageBox({
@@ -810,18 +814,18 @@ function updateTray(): void {
   const session = activeSession()
   const minutes = session ? Math.floor((Date.now() - new Date(session.startedAt).getTime()) / 60000) : 0
   tray.setTitle([session ? `● ${minutes}m` : '', tasks ? `▸${tasks}` : '', due ? String(due) : '', safe ? 'Safe' : ''].filter(Boolean).join(' · '), { fontType: 'monospacedDigit' })
-  tray.setToolTip(`mindflow${tasks ? ` · ${tasks} task${tasks === 1 ? '' : 's'} due now` : ''}${due ? ` · ${due} to review` : ''}${safe ? ' · safe mode on' : ''}`)
+  tray.setToolTip(`Vigil${tasks ? ` · ${tasks} task${tasks === 1 ? '' : 's'} due now` : ''}${due ? ` · ${due} to review` : ''}${safe ? ' · safe mode on' : ''}`)
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: 'Show mindflow', accelerator: SUMMON, click: () => toggleWindow() },
-      { label: 'Open all notes', click: openHome },
+      { label: 'Show Vigil', accelerator: SUMMON, click: () => toggleWindow() },
+      { label: 'Open the main window', click: openHome },
       { label: 'Import…', click: () => void importFiles() },
       { label: 'Import an Obsidian vault…', click: () => void importVault() },
       { label: 'Restore from a backup…', click: () => void restore() },
       { type: 'separator' },
       { label: 'Safe mode', type: 'checkbox', checked: safe, click: () => (toggleSafeMode(), updateTray()) },
       { type: 'separator' },
-      { label: 'Quit mindflow', accelerator: 'Command+Q', click: quit }
+      { label: 'Quit Vigil', accelerator: 'Command+Q', click: quit }
     ])
   )
 }

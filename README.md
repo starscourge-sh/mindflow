@@ -1,4 +1,6 @@
-# mindflow
+# Vigil
+
+(The repository, the package and the data folder keep their first name, `mindflow`.)
 
 A capture box you summon with a key, and the editor inside it.
 

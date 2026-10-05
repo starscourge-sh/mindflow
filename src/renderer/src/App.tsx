@@ -143,7 +143,7 @@ const Header = ({ panel, onPanel, menu }: { panel: boolean; onPanel: () => void;
 
   return (
     <div className="h-fit fixed top-0 right-0 left-0 z-10 flex flex-col items-center py-2 text-xs cursor-pointer" style={{ WebkitAppRegion: 'drag' }}>
-      <div className="flex w-full" // Over the panel, the icons end where the panel's own edge does.
+      <div className="flex w-full items-center gap-1" // Over the panel, the icons end where the panel's own edge does.
         style={{ padding: panel ? '0 0.75rem 0 4.75rem' : '0rem 4.75rem' } as CSSProperties}>
         <WindowDots />
         <span className="flex-1" />
@@ -349,6 +349,12 @@ export default function App(): React.JSX.Element {
         if (document.querySelector('.tiptap-suggestion-popup, [cmdk-root], [role="menu"], [role="dialog"]')) return
         ;(document.activeElement as HTMLElement).blur()
         if (!panel) setPanel(true)
+        // The cards waiting on you come first, then the list under them.
+        const card = tab === 'inbox' ? document.querySelector<HTMLElement>('[data-tone="knock"]') : null
+        if (card) {
+          event.preventDefault()
+          card.focus()
+        }
         return
       }
       if (!event.ctrlKey && event.key === 'i' && !inNote && panel && !typing()) {
@@ -573,7 +579,8 @@ export default function App(): React.JSX.Element {
     <TooltipProvider delayDuration={500}>
     <div className={`app-container ${pointerIn ? 'pointer-in' : ''} flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-8 color-white`}>
       {/* Toasts sit above the box's footer here, clear of Create. */}
-      <div className="contents [--toast-bottom:5.5rem]"><Toaster /></div>
+      {/* Toasts over the note, above its footer: clear of Create and of the panel. */}
+      <div className={`contents [--toast-bottom:5.5rem] ${panel ? '[--toast-right:440px]' : ''}`}><Toaster /></div>
       <NotePreview />
       {readList && (
         <ReadThrough
@@ -923,7 +930,15 @@ const SourceDrawer = ({
   onOpenChange: (open: boolean) => void
 }): React.JSX.Element => (
   <Sheet open={open} onOpenChange={onOpenChange}>
-    <SheetContent side="right" className="gap-0 p-0">
+    <SheetContent side="right" className="gap-0 p-0"
+      // ⌘E closes it as it opened it.
+      onKeyDown={(event) => {
+        if (event.metaKey && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'e') {
+          event.preventDefault()
+          onOpenChange(false)
+        }
+      }}
+    >
       <SheetHeader className="border-b p-4">
         <SheetTitle className="text-sm">Source</SheetTitle>
         <SheetDescription className="sr-only">

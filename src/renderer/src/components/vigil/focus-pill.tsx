@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { Check, Pause, Play, X } from 'lucide-react'
+import { Check, GripVertical, Pause, Play, X } from 'lucide-react'
 
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type Focus } from '@/lib/vigil'
@@ -16,7 +16,7 @@ const clock = (ms: number): string => {
 export const worked = (focus: Focus, now = Date.now()): number =>
   now - new Date(focus.startedAt).getTime() - focus.pausedMs - (focus.pausedAt ? now - new Date(focus.pausedAt).getTime() : 0)
 
-const NO_DRAG = { WebkitAppRegion: 'no-drag' } as CSSProperties
+const DRAG = { WebkitAppRegion: 'drag' } as CSSProperties
 
 /**
  * The focus timer, floating over everything in a window of its own, the way
@@ -27,6 +27,8 @@ export function FocusPill(): React.JSX.Element | null {
   const focus = useLive(vigil.focusNow, undefined as Focus | null | undefined)
   const [now, setNow] = useState(Date.now())
   const rang = useRef<string | null>(null)
+  // Hover told by the pointer itself: a window's drag area never reports it.
+  const [hover, setHover] = useState(false)
 
   // A see-through window: only the pill is drawn.
   useEffect(() => {
@@ -52,9 +54,11 @@ export function FocusPill(): React.JSX.Element | null {
   const paused = !!focus.pausedAt
 
   return (
-    <div className="flex h-screen items-center justify-center p-2" style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
+    <div className="flex h-screen items-center justify-center p-2">
       <div
-        className={`group flex h-11 w-full items-center gap-2 rounded-full border bg-popover/95 p-1.5 pr-2 text-control shadow-(--mf-panel-shadow) backdrop-blur-xl ${over ? 'border-[var(--tt-brand-color-400)]' : ''}`}
+        onPointerEnter={() => setHover(true)}
+        onPointerLeave={() => setHover(false)}
+        className={`flex h-11 w-full items-center gap-2 rounded-full border bg-popover p-1.5 pr-1 text-control shadow-(--mf-panel-shadow) ${over ? 'border-[var(--tt-brand-color-400)]' : ''}`}
       >
         <span
           className={`rounded-full px-2.5 py-1 font-mono text-xs tabular-nums ${over ? 'bg-[var(--tt-brand-color-400)] text-white' : 'bg-accent text-muted-foreground'} ${paused ? 'animate-pulse' : ''}`}
@@ -62,15 +66,16 @@ export function FocusPill(): React.JSX.Element | null {
           {over ? "Time's up" : clock(left ?? done)}
         </span>
         {/* The goal at rest; what you can do with it under the pointer. */}
+        {!hover ? (
         <button
           type="button"
-          style={NO_DRAG}
           onClick={() => window.api.openInHome('task', focus.taskId)}
-          className="min-w-0 flex-1 truncate text-left font-medium group-hover:hidden"
+          className="min-w-0 flex-1 truncate text-left font-medium"
         >
           {focus.goal}
         </button>
-        <span className="hidden flex-1 items-center justify-end gap-1 group-hover:flex" style={NO_DRAG}>
+        ) : (
+        <span className="flex flex-1 items-center justify-end gap-1">
           <button
             type="button"
             onClick={() => void (paused ? vigil.resumeSession(focus.id) : vigil.pauseSession(focus.id)).then(() => chime(paused ? 'on' : 'off'))}
@@ -94,6 +99,11 @@ export function FocusPill(): React.JSX.Element | null {
           >
             <X className="size-3.5" />
           </button>
+        </span>
+        )}
+        {/* The one place that moves the window, as Raycast's grip does. */}
+        <span aria-hidden className="flex h-7 w-5 shrink-0 cursor-grab items-center justify-center text-muted-foreground" style={DRAG}>
+          <GripVertical className="size-3.5" />
         </span>
       </div>
     </div>
