@@ -330,9 +330,12 @@ export default function App(): React.JSX.Element {
   // and changed here, never by switching to the main window. The note you were
   // writing waits as a draft, as it does when a capture is opened.
   const [reading, setReading] = useState<{ type: string; id: string } | null>(null)
-  const openAny = (type: string, id: string): void => {
-    if (type === 'capture') return openCapture(id)
+  const openAny = (type: string, id: string, travelling = false): void => {
+    if (type === 'capture') return openCapture(id, travelling)
     if (!latestEditing.current && editorRef.current) localStorage.setItem('capture-draft', JSON.stringify(editorRef.current.getJSON()))
+    // A nugget, article or task is a step in the box's history too: ⌘[ comes back.
+    const step = `${type}:${id}`
+    if (!travelling) setTrail((now) => (now.stack[now.at] === step ? now : { stack: [...now.stack.slice(0, now.at + 1), step], at: now.at + 1 }))
     setReading({ type, id })
   }
   // Escape goes back to the note, before it hides the window. Not while a
@@ -444,6 +447,8 @@ export default function App(): React.JSX.Element {
     if (to < 0 || to >= trail.stack.length) return
     chime('tap')
     setTrail((now) => ({ ...now, at: to }))
+    if (where?.includes(':')) return openAny(where.split(':')[0], where.split(':')[1], true)
+    setReading(null)
     if (where) openCapture(where, true)
     else fresh(true, true)
   }
