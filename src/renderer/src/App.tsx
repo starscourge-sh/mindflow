@@ -28,6 +28,7 @@ import { CaptureProps, useCaptureDisplay } from './components/vigil/captures-vie
 import { Search } from './components/search'
 import { taskSaid, vigil, type Settings } from './lib/vigil'
 import { chime, soundOn } from './lib/sound'
+import { liftFrom } from './lib/fly-home'
 
 
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from './components/capture-kinds/capture-kind-picker'
@@ -491,6 +492,8 @@ export default function App(): React.JSX.Element {
     // The top edge lights green: kept, without a word.
     beam('success')
     const markdown = editorRef.current ? toMarkdown(editorRef.current) : undefined
+    // With the panel open, the note is seen going into the Inbox tab.
+    const land = panel ? liftFrom(document.querySelector<HTMLElement>('.mindflow-editor-content'), 'capture') : undefined
     // Taken now: a fresh box clears the list before the save comes back.
     const pieces = [...lifted]
     keepLifted([])
@@ -507,6 +510,7 @@ export default function App(): React.JSX.Element {
       .create({ title: '', kind: sorted, elapsedMs: Date.now() - openedAt.current, body: hasContent(doc) ? doc : null, markdown,
         attribution: attribution.trim(), medium: where || undefined, private: secret })
       .then(async (id) => {
+        land?.()
         await vigil.linkSession(id)
         // Anything captured out of this note while it was a draft now points
         // back to it, so its lineage holds.
@@ -981,7 +985,9 @@ const CapturePrompt = ({
 
 
   return (
-    <div className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-b-3xl border-b shadow-xl"
+    // mf-faded: the note fades out at its top and bottom edges as it scrolls,
+    // the way Raycast Notes reads, instead of being cut by a hard line.
+    <div className="mf-faded relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-b-3xl border-b shadow-xl"
       style={{ transform: 'translate(0,0)' }}>
 
       {/* The same, spelled out. See `docs/components.md` for what each one
@@ -1125,7 +1131,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
           <button
             type="button"
             // Where a promoted capture or a new task flies to.
-            data-home={one.id === 'kept' ? 'nugget' : one.id === 'today' ? 'task' : undefined}
+            data-home={one.id === 'kept' ? 'nugget' : one.id === 'today' ? 'task' : one.id === 'inbox' ? 'capture' : undefined}
             onClick={() => {
               if (tab !== one.id) chime('tap')
               setTab(one.id)

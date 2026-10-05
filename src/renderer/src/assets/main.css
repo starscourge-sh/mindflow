@@ -501,3 +501,8 @@ body {
   .mf-beam { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
   .mf-beam-loading { opacity: 0.8; animation: none; background-size: 100% 100%; }
 }
+
+/* The prompt's note fades at its edges as it scrolls, Raycast Notes' way. */
+.mf-faded .mindflow-editor-content {
+  mask-image: linear-gradient(to bottom, transparent 0, #000 0.75rem, #000 calc(100% - 2.5rem), transparent 100%);
+}

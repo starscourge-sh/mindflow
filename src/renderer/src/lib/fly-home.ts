@@ -7,13 +7,16 @@
  * Call `lift` before the change, while the source is still on screen; it
  * returns a `land` to call once the change is made, or nothing to call.
  */
-export type Home = 'nugget' | 'task'
+export type Home = 'nugget' | 'task' | 'capture'
 
 const still = (): boolean =>
   document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
-export function lift(id: string, home: Home): (() => void) | undefined {
-  const from = document.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`)
+export const lift = (id: string, home: Home): (() => void) | undefined =>
+  liftFrom(document.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`), home)
+
+/** The same, from any element: a whole note sent off to the Inbox. */
+export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | undefined {
   if (!from || still()) return undefined
   const box = from.getBoundingClientRect()
   // A picture of it as it is now: the real one is about to change or go.
