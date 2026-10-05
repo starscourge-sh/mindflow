@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import {
-  Maximize2,
   Minimize2,
   ArrowLeft,
   ArrowRight,
@@ -44,6 +43,7 @@ import { useAppearance, useLive, vigil, type Item, type Settings, type Task } fr
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
+import ExpandIcon from '@/components/ui/expand-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
 
 type View = { id: string; focus?: string }
@@ -279,7 +279,7 @@ export function Home(): React.JSX.Element {
 
         <button
           type="button"
-          onClick={() => setKindsOpen(!kindsOpen)}
+          onClick={() => (chime(kindsOpen ? 'fold' : 'slide'), setKindsOpen(!kindsOpen))}
           className="mt-4 mb-1 flex items-center gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
         >
           Kinds <ChevronRight className={`size-3 transition-transform ${kindsOpen ? 'rotate-90' : ''}`} />
@@ -305,7 +305,7 @@ export function Home(): React.JSX.Element {
         {tags.length > 0 && (
           <button
             type="button"
-            onClick={() => setTagsOpen(!tagsOpen)}
+            onClick={() => (chime(tagsOpen ? 'fold' : 'slide'), setTagsOpen(!tagsOpen))}
             className="mt-4 mb-1 flex items-center gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
           >
             Tags <ChevronRight className={`size-3 transition-transform ${tagsOpen ? 'rotate-90' : ''}`} />
@@ -390,7 +390,7 @@ export function Home(): React.JSX.Element {
           <button type="button" aria-label={fill ? 'Back to compact' : 'Fill the screen'} onClick={() => setFill(!fill)}
             style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground">
-            {fill ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+            {fill ? <Minimize2 className="size-4" /> : <AliveIcon icon={ExpandIcon} size={16} />}
           </button>
         </Tip>
         <Tip label="New capture  C">

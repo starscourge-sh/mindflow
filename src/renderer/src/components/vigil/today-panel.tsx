@@ -166,7 +166,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
                 { label: 'Tomorrow', keys: 'M', run: () => move(task, 1) },
                 { label: 'Next week', keys: 'W', run: () => move(task, 7) },
                 'separator',
-                { label: task.important ? 'Not important' : 'Mark important', run: () => void vigil.saveTask(task.id, { important: task.important ? 0 : 1 }) },
+                { label: task.important ? 'Not important' : 'Mark important', run: () => void vigil.saveTask(task.id, { important: task.important ? 0 : 1 }).then(() => chime(task.important ? 'off' : 'on')) },
                 { label: `Copy T-${task.number}`, run: () => copy(`T-${task.number}`, `Copied T-${task.number}`) },
                 'separator',
                 { label: 'Close without doing', danger: true, run: () => void vigil.saveTask(task.id, { status: 'dropped' }).then(() => (chime('away'), toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' })))) }

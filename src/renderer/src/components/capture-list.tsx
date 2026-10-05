@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { chime } from '@/lib/sound'
 import { EyeOff, Pin } from 'lucide-react'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
@@ -62,8 +63,8 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
             'separator',
             ...(capture.status === 'open'
               ? EXITS.map((one) => ({ label: one.label, keys: one.key.toUpperCase(), danger: one.status === 'discarded', run: () => void exit(capture.id, one.status) }))
-              : [{ label: 'Back to the inbox', run: () => void window.api.captures.save(capture.id, { status: 'open' }) }]),
-            capture.status === 'open' && { label: 'Make it a task', run: () => void toTask(capture.id).then((made) => toast(taskSaid(made, 'Now a task'))) },
+              : [{ label: 'Back to the inbox', run: () => void window.api.captures.save(capture.id, { status: 'open' }).then(() => chime('undo')) }]),
+            capture.status === 'open' && { label: 'Make it a task', run: () => void toTask(capture.id).then((made) => { if (!made) return; chime(made.existed ? 'nope' : 'noted'); toast(taskSaid(made, 'Now a task')) }) },
             'separator',
             { label: capture.pinnedAt ? 'Unpin' : 'Pin to the prompt', run: () => pin('captures', capture.id, !capture.pinnedAt) },
             { label: capture.private ? 'Let it surface' : 'Make private', run: () => void vigil.setPrivate('captures', capture.id, !capture.private) },

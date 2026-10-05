@@ -61,7 +61,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   // Bury: not today. The schedule is untouched; it is back tomorrow.
   const bury = (): void => {
     if (!card) return
-    void vigil.bury(card.id).then(() => toast('Buried until tomorrow'))
+    void vigil.bury(card.id).then(() => (chime('away'), toast('Buried until tomorrow')))
     setShown(false)
     setSaid('')
     setAt((index) => index + 1)
@@ -129,7 +129,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
             if (!prompt || prompt === card.prompt) return
             // The card in the queue too, so an Again brings back the new words.
             card.prompt = prompt
-            void vigil.saveItem(card.id, { prompt }).then(() => toast('Question rewritten'))
+            void vigil.saveItem(card.id, { prompt }).then(() => (chime('noted'), toast('Question rewritten')))
           }}
           className="rounded-md text-title font-semibold text-balance outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
@@ -149,6 +149,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
                 <Button variant="ghost" size="sm" className="shrink-0" onClick={() =>
                   void vigil.gloss(card.id, said.trim()).then(() => {
                     setSaid('')
+                    chime('noted')
                     toast('Kept as a gloss')
                   })
                 }>Keep as a gloss</Button>

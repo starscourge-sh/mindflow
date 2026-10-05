@@ -211,7 +211,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                         { label: 'Tomorrow', keys: 'M', run: () => moveTo(task.id, 1) },
                         { label: 'Next week', keys: 'W', run: () => moveTo(task.id, 7) },
                         'separator',
-                        { label: task.important ? 'Not important' : 'Mark important', run: () => void vigil.saveTask(task.id, { important: task.important ? 0 : 1 }) },
+                        { label: task.important ? 'Not important' : 'Mark important', run: () => void vigil.saveTask(task.id, { important: task.important ? 0 : 1 }).then(() => chime(task.important ? 'off' : 'on')) },
                         { label: `Copy T-${task.number}`, run: () => copy(`T-${task.number}`, `Copied T-${task.number}`) },
                         'separator',
                         { label: 'Close without doing', danger: true, run: () => void vigil.saveTask(task.id, { status: 'dropped' }).then(() => (chime('away'), toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' })))) }
@@ -296,6 +296,7 @@ export function TaskDetail({ task: first, onClose, onOpen }: { task: TaskFull; o
             <Button variant="ghost" size="sm" onClick={() =>
               void vigil.saveTask(task.id, { status: 'dropped' }).then(() => {
                 onClose()
+                chime('away')
                 toast('Let go', () => void vigil.saveTask(task.id, { status: 'open' }))
               })
             }>Let it go</Button>
@@ -327,11 +328,11 @@ export function TaskDetail({ task: first, onClose, onOpen }: { task: TaskFull; o
           ))}
         </div>
         <DatePicker time value={task.dueAt} onChange={(due) => void vigil.saveTask(task.id, { due })} placeholder="No date" />
-        <Prop icon={Flag} active={!!task.important} onClick={() => void vigil.saveTask(task.id, { important: task.important ? 0 : 1 })}>
+        <Prop icon={Flag} active={!!task.important} onClick={() => void vigil.saveTask(task.id, { important: task.important ? 0 : 1 }).then(() => chime(task.important ? 'off' : 'on'))}>
           {task.important ? 'Important: sorts first' : 'Mark important'}
         </Prop>
         {/* Its own alert level, for the one task that must interrupt you. */}
-        <Prop icon={Bell} active={task.notify === 'alerts'} onClick={() => void vigil.saveTask(task.id, { notify: task.notify === 'alerts' ? null : 'alerts' })}>
+        <Prop icon={Bell} active={task.notify === 'alerts'} onClick={() => void vigil.saveTask(task.id, { notify: task.notify === 'alerts' ? null : 'alerts' }).then(() => chime(task.notify === 'alerts' ? 'off' : 'on'))}>
           {task.notify === 'alerts' ? 'Alerts you at its time' : 'Alert me at its time'}
         </Prop>
         {/* When you mean to do it is the due date; when it must be done by is this. */}
@@ -506,7 +507,8 @@ function Sessions({ taskId, title }: { taskId: string; title: string }): React.J
   const end = (keep: boolean, close = false): void =>
     void vigil.endSession(running!.id, recap, keep, close).then(() => {
       setRecap('')
-      if (close) chime('done')
+      // Every ending is heard: done, or kept as a nugget, or simply finished.
+      chime(close ? 'done' : keep && recap.trim() ? 'promote' : 'resolve')
       toast(close ? 'Done, with this session as how' : keep && recap.trim() ? 'Session saved, and the recap kept as a nugget' : 'Session saved')
     })
 

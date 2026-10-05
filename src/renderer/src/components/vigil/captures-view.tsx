@@ -74,7 +74,7 @@ export function CapturesView({ title, keep, focus, onOpen }: {
       if (one && shown[cursor]?.status === 'open') return void exit(shown[cursor].id, one.status)
       if (event.key !== 'x') return
       const capture = shown[cursor]
-      if (capture) setChosen((ids) => (ids.includes(capture.id) ? ids.filter((one) => one !== capture.id) : [...ids, capture.id]))
+      if (capture) setChosen((ids) => (chime(ids.includes(capture.id) ? 'off' : 'on'), ids.includes(capture.id) ? ids.filter((one) => one !== capture.id) : [...ids, capture.id]))
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
@@ -151,11 +151,11 @@ export function CapturesView({ title, keep, focus, onOpen }: {
           </div>
         ) : kept.length ? (
           <Empty shape={['ellipse', 3]} title="Nothing matches">
-            The filters in Display hide everything here. Press <Kbd>F</Kbd> to change them.
+            {"Display's filters hide everything here. Change them, or clear them."}
           </Empty>
         ) : (
           <Empty shape={['flower', 2]} title="Nothing waiting">
-            Everything here has taken an exit. Press <Kbd>⌘</Kbd> <Kbd>.</Kbd> anywhere to catch the next thought.
+            {'Every capture has taken its exit. ⌘. catches the next thought, from anywhere.'}
           </Empty>
         )}
       </Page>
@@ -229,7 +229,7 @@ export function CapturesView({ title, keep, focus, onOpen }: {
 /** Status and the exits, then what the capture is, then where it came from. */
 export function CaptureProps({ capture, onOpen, className }: { capture: CaptureMeta; onOpen?: (type: string, id: string) => void; className?: string }): React.JSX.Element {
   const Status = STATUS_ICON[capture.status as keyof typeof STATUS_ICON] ?? STATUS_ICON.open
-  const reopen = (): void => void window.api.captures.save(capture.id, { status: 'open' })
+  const reopen = (): void => void window.api.captures.save(capture.id, { status: 'open' }).then(() => chime('undo'))
   const [who, setWho] = useState(capture.attribution ?? '')
   const [where, setWhere] = useState(capture.medium ?? '')
   useEffect(() => {

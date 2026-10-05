@@ -61,6 +61,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
     if (!words || words === shown(hint.title, hint.body)) return
     const body = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: words }] }] }
     setHint({ ...hint, title: words, body })
+    chime('noted')
     void (hint.id === hint.captureId
       ? window.api.captures.save(hint.id, { body })
       : vigil.saveItem(hint.id, { body, title: words })
@@ -130,7 +131,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
                 { icon: Pencil, tip: 'Fix its words', run: fix },
                 { icon: ThumbsUp, tip: 'Show this more often', keys: '⌃⇧↑', run: () => react('up') },
                 { icon: ThumbsDown, tip: 'Show this less often', keys: '⌃⇧↓', run: () => react('down') },
-                { icon: X, tip: 'Not now', run: () => setHint(null) },
+                { icon: X, tip: 'Not now', run: () => (chime('fold'), setHint(null)) },
                 // Gone for good, but never destroyed: a capture goes to
                 // Discarded and a nugget stops surfacing; both come back.
                 { icon: Trash2, tip: hint.id === hint.captureId ? 'Discard it' : 'Stop showing it', run: () => {

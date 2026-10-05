@@ -1216,7 +1216,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
       }
       const row = shownNow.current[cursor]
       if (!row) return
-      if (event.key === 'x') return setChosen((ids) => (ids.includes(row.id) ? ids.filter((one) => one !== row.id) : [...ids, row.id]))
+      if (event.key === 'x') return setChosen((ids) => (chime(ids.includes(row.id) ? 'off' : 'on'), ids.includes(row.id) ? ids.filter((one) => one !== row.id) : [...ids, row.id]))
       const one = EXITS.find((e) => e.key === event.key)
       if (one && row.status === 'open') void exit(row.id, one.status)
     }

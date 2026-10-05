@@ -1,3 +1,4 @@
+import { chime } from '@/lib/sound'
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { AlarmClock, BookOpen, Brain, Calendar, Eye, EyeOff, FileText, History, Layers, Pause, Pin, Play, Plus, Quote, RefreshCw, SquareDashed, TriangleAlert, X } from 'lucide-react'
@@ -11,7 +12,7 @@ import { ReadThrough } from './read-through'
 import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { age } from '../capture-list'
 import { findCaptures, follow } from '@/lib/capture-links'
-import { interval, splitTags, useLive, vigil, when, type Item, type ItemFull } from '@/lib/vigil'
+import { interval, splitTags, taskSaid, useLive, vigil, when, type Item, type ItemFull } from '@/lib/vigil'
 import { Empty, Page, Prop, PropLabel, Props, Tags, refuse, toast, useListKeys, useReadKey, typing, pin, VirtualList } from './ui'
 import { AGES, Display, arrange, period, useView, type Facet } from './display'
 import { RowMenu, copy } from './row-menu'
@@ -50,7 +51,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   // The Luhmann move: two unrelated nuggets side by side, for the connection
   // nobody would have gone looking for.
   const [pair, setPair] = useState<Awaited<ReturnType<typeof vigil.random>>>([])
-  const toggle = (id: string): void => setChosen((ids) => (ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
+  const toggle = (id: string): void => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
   const at = useRef(cursor)
   at.current = cursor
   useEffect(() => {
@@ -87,9 +88,12 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
               {chosen.length} selected
               <Button variant="secondary" size="sm"
  
- onClick={() => void vigil.article(chosen).then(() => {
- toast(`Article started from ${chosen.length} nugget${chosen.length === 1 ? '' : 's'}`)
+ onClick={() => void vigil.article(chosen).then((id) => {
+ // The same words and the same landing as the prompt's: the article opens.
+ chime('promote')
+ toast(chosen.length > 1 ? `An article, from ${chosen.length} nuggets` : 'An article, from this nugget')
  setChosen([])
+ pick(id)
  })}
 >
                 Start an article
@@ -111,7 +115,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
                 </>
               )}
               {tier === 'article' && (
-                <Button variant="ghost" size="sm" onClick={() => void vigil.newArticle().then(pick)}>
+                <Button variant="ghost" size="sm" onClick={() => void vigil.newArticle().then((id) => (chime('promote'), pick(id)))}>
                   <Plus className="size-3.5" /> New article
                 </Button>
               )}
@@ -174,7 +178,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
             )}
           </VirtualList>
         ) : tier === 'nugget' ? (
-          <Empty shape={['misc', 3]} title="No nuggets yet">
+          <Empty shape={['star', 3]} title="Nothing kept yet">
             A nugget is a capture worth keeping, cleaned up so it reads cold. Promote one from the inbox or a rot card and it lands here, ready to come back to you.
           </Empty>
         ) : (
@@ -317,7 +321,7 @@ export function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: s
           <Prop
             icon={item.mode === 'pushed' ? Eye : RefreshCw}
             onClick={() => void vigil.saveItem(item.id, { mode: item.mode === 'pushed' ? 'encounter' : 'pushed' }).then(() =>
-              toast(item.mode === 'pushed' ? 'Back to turning up by chance' : 'On rotation: it will keep coming back'))}
+              (chime(item.mode === 'pushed' ? 'off' : 'on'), toast(item.mode === 'pushed' ? 'Back to turning up by chance' : 'On rotation: it will keep coming back')))}
           >
             {item.mode === 'pushed' ? 'Only now and then' : 'Keep showing me this'}
           </Prop>
@@ -339,7 +343,7 @@ export function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: s
         )}
         <Prop
           icon={item.suspended ? Play : Pause}
-          onClick={() => void vigil.saveItem(item.id, { suspended: !item.suspended }).then(() => toast(item.suspended ? 'Back in rotation' : 'Suspended until you bring it back'))}
+          onClick={() => void vigil.saveItem(item.id, { suspended: !item.suspended }).then(() => (chime(item.suspended ? 'on' : 'off'), toast(item.suspended ? 'Back in rotation' : 'Suspended until you bring it back')))}
         >
           {item.suspended ? 'Bring back into rotation' : 'Suspend'}
         </Prop>
@@ -371,7 +375,7 @@ export function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: s
                 Your glosses here run to {glossWords} words: that is an article already. Start one and they come with it.
               </p>
             )}
-            <Prop icon={Plus} onClick={() => void vigil.article([item.id]).then(() => toast('Article started from this nugget'))}>
+            <Prop icon={Plus} onClick={() => void vigil.article([item.id]).then((id) => { chime('promote'); toast('An article, from this nugget'); onOpen?.('article', id) })}>
               Start an article
             </Prop>
             <StudyThis item={item} />
@@ -418,7 +422,7 @@ export function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: s
           onKeyDown={(event) => {
             if (event.key !== 'Enter' || event.shiftKey || !gloss.trim()) return
             event.preventDefault()
-            void vigil.gloss(item.id, gloss.trim()).then(() => setGloss(''))
+            void vigil.gloss(item.id, gloss.trim()).then(() => (chime('noted'), setGloss('')))
           }}
           rows={2}
           placeholder="Why you kept it, or where you disagree"
@@ -488,14 +492,16 @@ function StudyThis({ item }: { item: ItemFull }): React.JSX.Element {
   return (
     <Input
       autoFocus
-      placeholder="When? e.g. thursday 9am"
+      placeholder="When will you study it? e.g. thursday 9am"
       onBlur={() => setAsking(false)}
       onKeyDown={(event) => {
         if (event.key === 'Escape') setAsking(false)
         if (event.key !== 'Enter') return
-        void vigil.study(item.id, `Study: ${item.title} ${event.currentTarget.value}`).then(() => {
+        // One wording with the prompt's: the title, the toast, the sound.
+        void vigil.study(item.id, `Study “${item.title}” ${event.currentTarget.value}`).then((made) => {
           setAsking(false)
-          toast('Task made, with this linked to it')
+          chime(made.existed ? 'nope' : 'noted')
+          toast(taskSaid(made, 'A task, with this linked'))
         })
       }}
       className="h-8 w-auto text-control"

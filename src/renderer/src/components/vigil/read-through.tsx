@@ -72,7 +72,12 @@ export function ReadThrough({ items, start = 0, onClose, onEdit }: {
   useEffect(() => {
     const was = document.activeElement as HTMLElement | null
     box.current?.focus()
-    return () => was?.focus?.()
+    // Reading opens out and folds away, like a panel.
+    chime('slide')
+    return () => {
+      chime('fold')
+      was?.focus?.()
+    }
   }, [])
 
   if (!item) return null

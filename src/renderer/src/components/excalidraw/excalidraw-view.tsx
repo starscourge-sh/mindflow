@@ -1,7 +1,10 @@
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { NodeViewWrapper, useEditorState, type NodeViewProps } from '@tiptap/react'
-import { Check, ExternalLink, Maximize2, Minimize2, PencilRuler } from 'lucide-react'
+import { Check, ExternalLink, Minimize2, PencilRuler } from 'lucide-react'
+import { chime } from '@/lib/sound'
+import { AliveIcon } from '@/components/vigil/alive-icon'
+import ExpandIcon from '@/components/ui/expand-icon'
 
 import type { DiagramScene } from '@/extensions/excalidraw'
 import { host } from '@/lib/host'
@@ -282,9 +285,13 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
           <button
             type="button"
             aria-label={full ? 'Leave full screen' : 'Open in full screen'}
-            onClick={toggleFull}
+            onClick={() => {
+              // Full screen grows like the box's own expand, and sounds it.
+              chime(full ? 'fold' : 'slide')
+              toggleFull()
+            }}
           >
-            {full ? <Minimize2 /> : <Maximize2 />}
+            {full ? <Minimize2 /> : <AliveIcon icon={ExpandIcon} size={14} />}
           </button>
 
           {host().openDrawing && (

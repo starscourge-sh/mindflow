@@ -1,3 +1,4 @@
+import { chime } from '@/lib/sound'
 import { useEffect, useState } from 'react'
 import { Brain, EyeOff, Pin, Plus } from 'lucide-react'
 import type { Readable } from './read-through'
@@ -36,7 +37,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
         return setChosen([])
       }
       const row = items[cursor]
-      if (event.key === 'x' && row) setChosen((ids) => (ids.includes(row.id) ? ids.filter((one) => one !== row.id) : [...ids, row.id]))
+      if (event.key === 'x' && row) setChosen((ids) => (chime(ids.includes(row.id) ? 'off' : 'on'), ids.includes(row.id) ? ids.filter((one) => one !== row.id) : [...ids, row.id]))
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
@@ -46,6 +47,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
   useReadKey(read, items.length)
   const article = (ids: string[]): void =>
     void vigil.article(ids).then((id) => {
+      chime('promote')
       setChosen([])
       toast(ids.length > 1 ? `An article, from ${ids.length} nuggets` : 'An article, from this nugget')
       onOpen('article', id)
@@ -58,7 +60,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
         {all.length > 0 && <Button variant="ghost" size="sm" className="ml-auto" onClick={read}><AliveIcon icon={BookIcon} size={14} /> Read</Button>}
         <span className={all.length ? '' : 'ml-auto'}>{display}</span>
         {tier === 'article' && (
-          <Button variant="ghost" size="sm" onClick={() => void vigil.newArticle().then((id) => onOpen('article', id))}><Plus className="size-3.5" /> New article</Button>
+          <Button variant="ghost" size="sm" onClick={() => void vigil.newArticle().then((id) => (chime('promote'), onOpen('article', id)))}><Plus className="size-3.5" /> New article</Button>
         )}
       </Strip>
       {chosen.length > 0 && (
@@ -76,7 +78,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
                 { label: 'Open', keys: '↵', run: () => onOpen(tier, item.id) },
                 { label: item.prompt ? 'Change the question' : 'Test me on this', run: () => void ask('The question it answers', item.prompt ?? 'e.g. What does MVCC stand for?').then((prompt) => { if (prompt) void vigil.saveItem(item.id, { prompt }).then(() => toast('Now tested: it will come up in review')) }) },
                 ...(tier === 'nugget' ? [{ label: 'Start an article', run: () => article([item.id]) }] : []),
-                { label: 'Study this', run: () => void ask('When will you study it?', 'e.g. read it again on Thursday').then((when) => { if (when) void vigil.study(item.id, `Study “${item.title}” ${when}`).then((made) => toast(taskSaid(made, 'A task, with this linked'))) }) },
+                { label: 'Study this', run: () => void ask('When will you study it?', 'e.g. read it again on Thursday').then((when) => { if (when) void vigil.study(item.id, `Study “${item.title}” ${when}`).then((made) => { chime(made.existed ? 'nope' : 'noted'); toast(taskSaid(made, 'A task, with this linked')) }) }) },
                 'separator',
                 { label: item.pinnedAt ? 'Unpin' : 'Pin to the prompt', run: () => pin('nuggets', item.id, !item.pinnedAt) },
                 { label: item.private ? 'Let it surface' : 'Make private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
