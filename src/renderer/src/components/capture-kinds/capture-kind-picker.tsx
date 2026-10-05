@@ -1,4 +1,5 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { chime, step } from "@/lib/sound"
 import {
   Check,
   ListTodo,
@@ -75,10 +76,14 @@ export function CaptureKindPicker({ value, onChange, suggested = false }: {
   suggested?: boolean
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
+  // The row under the cursor, kept here so moving through the list can be heard.
+  const [row, setRow] = useState('')
   const current = CAPTURE_TYPES.find((Ctype) => Ctype.id === value) ?? CAPTURE_TYPES[0]
 
   // ⌃L, for label; ⌃T is a tag in the editor.
   useShortcut('l', setOpen, open)
+  // Opened by click or ⌃L, the cursor starts on the type it is now.
+  useEffect(() => void (open && setRow(current.label)), [open]) // eslint-disable-line react-hooks/exhaustive-deps
   const Icon = current.icon
 
   return (
@@ -94,6 +99,14 @@ export function CaptureKindPicker({ value, onChange, suggested = false }: {
 
       <PopoverContent className="w-64 gap-0 p-0" align="start">
         <Command
+          // Each type its own note as you move through them, as the themes
+          // have: a scale under the list. Picking one lands with a chord.
+          value={row}
+          onValueChange={(label) => {
+            const at = CAPTURE_TYPES.findIndex((type) => type.label === label)
+            if (at >= 0 && label !== row) step(at)
+            setRow(label)
+          }}
           // The number beside each row picks it. Taken before the input sees
           // it, or the digit is typed into the search instead - no type has
           // one in its name, so nothing is lost by claiming them.
@@ -101,6 +114,7 @@ export function CaptureKindPicker({ value, onChange, suggested = false }: {
             const picked = CAPTURE_TYPES[Number(event.key) - 1]
             if (!picked) return
             event.preventDefault()
+            chime('settled')
             onChange(picked.id)
             setOpen(false)
           }}
@@ -117,6 +131,7 @@ export function CaptureKindPicker({ value, onChange, suggested = false }: {
                   // id, because the label is what was typed.
                   value={type.label}
                   onSelect={() => {
+                    chime('settled')
                     onChange(type.id)
                     setOpen(false)
                   }}

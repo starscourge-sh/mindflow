@@ -607,6 +607,7 @@ export default function App(): React.JSX.Element {
       const picked = event.metaKey && !event.shiftKey && !event.altKey ? CAPTURE_TYPES[Number(event.key) - 1] : undefined
       if (picked) {
         event.preventDefault()
+        chime('settled')
         latestPick.current(picked.id)
         return
       }
