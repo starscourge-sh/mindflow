@@ -186,7 +186,8 @@ const Header = ({ panel, onPanel, menu, nav }: { panel: boolean; onPanel: () => 
             page's: apart from the note's, which sit beside the note. */}
         <span className="ml-1" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>{menu}</span>
       </div>
-      <div className="w-full shadow-xl px-[4.75rem]">
+      {/* Room under the buttons, so none of them sits on the rule. */}
+      <div className="mt-2 w-full shadow-xl px-[4.75rem]">
         <div className="h-[2px] w-full bg-background/10 shadow-xl" />
       </div>
     </div>
