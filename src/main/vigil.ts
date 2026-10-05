@@ -501,6 +501,98 @@ export function registerVigil(): void {
       linked: [...links('captures', LABEL), ...links('nuggets', 'title')].filter((row) => row.id !== id)
     }
   })
+  // Backlinks the way Obsidian lists them under a note: every note that links
+  // here, with the sentence it does it in; and every note that names this
+  // one without linking it yet, which one press turns into a link.
+  type Mention = { type: string; id: string; title: string; snippet: string }
+  const everything = (): { type: string; id: string; title: string; body: string }[] => [
+    ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title, body from captures where status != 'discarded'`).all() as never[]),
+    ...(db.prepare("select tier as type, id, title, body from nuggets where superseded_by is null").all() as never[])
+  ]
+  const around = (text: string, at: number, length: number): string => {
+    const start = Math.max(0, text.lastIndexOf('\n', at) + 1, at - 80)
+    const end = Math.min(text.length, at + length + 80)
+    const line = text.slice(start, end).split('\n')[0]
+    return `${start > 0 && text[start - 1] !== '\n' ? '…' : ''}${line}${end < text.length && !text.slice(at, end).includes('\n') ? '…' : ''}`
+  }
+  // The words as read: inline pieces run together, links as their names,
+  // blocks on their own lines.
+  const words = (value: unknown): string => {
+    if (typeof value === 'string') return value
+    const walk = (node: Doc): string =>
+      node.type === 'noteLink' ? String(node.attrs?.label ?? '') :
+      node.text ?? (node.content ?? []).map(walk).join(node.content?.every((child) => child.type === 'text' || child.type === 'noteLink' || child.type === 'hardBreak') ? '' : '\n')
+    return value ? walk(value as Doc) : ''
+  }
+  const titleOf = (id: string): { title: string; key: string } | null => {
+    const capture = db.prepare(`select ${LABEL} as title, number from captures where id = ?`).get(id) as { title: string; number: number } | undefined
+    if (capture) return { title: capture.title, key: `MF-${capture.number}` }
+    const nugget = db.prepare('select title from nuggets where id = ?').get(id) as { title: string } | undefined
+    return nugget ? { title: nugget.title, key: '' } : null
+  }
+  handle('mentions', (id: string) => {
+    const me = titleOf(id)
+    const name = me?.title.trim() ?? ''
+    // A name worth looking for: not empty, not "Untitled", not one tiny word.
+    const findable = name.length >= 4 && !/^untitled$/i.test(name)
+    const pattern = findable ? new RegExp(`(?<![\\w])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w])`, 'i') : null
+    const linked: Mention[] = []
+    const unlinked: Mention[] = []
+    for (const row of everything()) {
+      if (row.id === id || !row.body) continue
+      const links = row.body.includes(`"id":"${id}"`)
+      const text = words(JSON.parse(row.body))
+      if (links) {
+        const label = /"label":"([^"]*)"/.exec(row.body.slice(row.body.indexOf(`"id":"${id}"`)))?.[1] ?? name
+        const at = text.indexOf(label)
+        linked.push({ type: row.type, id: row.id, title: row.title, snippet: at >= 0 ? around(text, at, label.length) : text.slice(0, 160) })
+        continue
+      }
+      const hit = pattern?.exec(text)
+      if (hit) unlinked.push({ type: row.type, id: row.id, title: row.title, snippet: around(text, hit.index, hit[0].length) })
+    }
+    return { linked, unlinked: unlinked.slice(0, 20) }
+  })
+  // Turn the first plain mention of a note in another into a real link.
+  handle('mention:link', (sourceType: string, sourceId: string, targetId: string) => {
+    const me = titleOf(targetId)
+    if (!me) return false
+    const table = sourceType === 'capture' ? 'captures' : 'nuggets'
+    const row = db.prepare(`select body from ${table} where id = ?`).get(sourceId) as { body: string } | undefined
+    if (!row?.body) return false
+    const stored = JSON.parse(row.body) as Doc | string | null
+    // A body kept as plain text becomes a document, a paragraph a line.
+    const doc: Doc = typeof stored === 'string'
+      ? { type: 'doc', content: stored.split('\n').map((line) => ({ type: 'paragraph', content: line ? [{ type: 'text', text: line }] : [] })) }
+      : stored ?? { type: 'doc', content: [] }
+    const lower = me.title.toLowerCase()
+    let done = false
+    const walk = (node: Doc): void => {
+      if (done || !node.content) return
+      const next: Doc[] = []
+      for (const child of node.content) {
+        const at = !done && child.type === 'text' && !child.marks?.some((mark) => mark.type === 'code') ? (child.text ?? '').toLowerCase().indexOf(lower) : -1
+        if (at < 0) {
+          next.push(child)
+          walk(child)
+          continue
+        }
+        const text = child.text ?? ''
+        if (at > 0) next.push({ ...child, text: text.slice(0, at) })
+        next.push({ type: 'noteLink', attrs: { id: targetId, label: me.title, key: me.key } })
+        if (at + lower.length < text.length) next.push({ ...child, text: text.slice(at + lower.length) })
+        done = true
+      }
+      node.content = next
+    }
+    walk(doc)
+    if (!done) return false
+    // Captures keep no edit time; nuggets do.
+    if (table === 'captures') db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(doc), sourceId)
+    else db.prepare('update nuggets set body = ?, updated_at = ? where id = ?').run(JSON.stringify(doc), now(), sourceId)
+    return write(true)
+  })
+
   // What @ offers besides captures: nuggets and articles by name.
   handle('items:find', (query: unknown) =>
     db.prepare("select id, tier, coalesce(nullif(title, ''), label('', body)) as name, coalesce(nullif(title, ''), label('', body)) as title from nuggets where name like ? escape '\\' and superseded_by is null order by updated_at desc limit 6").all(`%${like(String(query))}%`))

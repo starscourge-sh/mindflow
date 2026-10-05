@@ -362,6 +362,8 @@ export interface MindflowEditorProps {
   showSource?: boolean
   /** ⌘E calls this instead of opening the editor's own source panel. */
   onToggleSource?: () => void
+  /** Shown after the document, scrolling with it: backlinks, as Obsidian keeps them. */
+  after?: ReactNode
   /**
    * What the editor asks of whatever it is running inside: storing a dropped
    * picture, reading what a link is about, handing a file to the system.
@@ -454,6 +456,7 @@ function Surface({
   placeholder = "Write, or type / for commands…",
   showSource = false,
   onToggleSource,
+  after,
   readOnly = false,
   host,
   shape = "document",
@@ -547,11 +550,29 @@ function Surface({
       document.removeEventListener('drop', stop)
     }
   }, [])
+  // Stable, so the content box is set once, not on every render.
+  const contentRef = useCallback((box: HTMLDivElement | null) => {
+    dragScroll(box)
+    setContentBox(box)
+  }, [dragScroll])
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [sourceOpen, setSourceOpen] = useState(showSource)
   const emptyAtStart = typeof defaultContent === "string" ? !defaultContent.trim() : !JSON.stringify(defaultContent ?? null).includes('"text":"')
   // Through a ref: extensions are built once, and the handler can change.
+  // A place after the document for `after`, appended once the content box exists.
+  const [contentBox, setContentBox] = useState<HTMLDivElement | null>(null)
+  const [afterBox, setAfterBox] = useState<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!contentBox || !after) return
+    const box = document.createElement("div")
+    contentBox.appendChild(box)
+    setAfterBox(box)
+    return () => {
+      box.remove()
+      setAfterBox(null)
+    }
+  }, [contentBox, !after]) // eslint-disable-line react-hooks/exhaustive-deps
   const toggleSource = useRef(onToggleSource)
   toggleSource.current = onToggleSource
   const rememberBlock = useCallback(
@@ -1344,8 +1365,11 @@ function Surface({
           className={`mindflow-editor-content relative p-3 overflow-auto${
             smoothScroll ? " is-smooth" : ""
           }`}
-          ref={(box) => dragScroll(box)}
+          ref={contentRef}
         />
+        {/* After the words, inside the same scroll: added beside ProseMirror's
+            own element, never inside it. */}
+        {after && afterBox && createPortal(after, afterBox)}
 
         <LinkPreview editor={editor} />
 

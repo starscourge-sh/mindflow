@@ -16,6 +16,7 @@ import { Empty, Page, Prop, PropLabel, Props, Tags, refuse, toast, useListKeys, 
 import { AGES, Display, arrange, period, useView, type Facet } from './display'
 import { RowMenu, copy } from './row-menu'
 import { Lineage } from './lineage'
+import { Mentions } from './mentions'
 import * as chrono from 'chrono-node'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
@@ -285,6 +286,7 @@ export function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: s
           defaultContent={(item.body as JSONContent | string | null) ?? ''}
           findNotes={findCaptures}
           onOpenNote={(link) => onOpen && follow(link, onOpen)}
+          after={<Mentions id={item.id} onOpen={onOpen} />}
           onChange={(body, instance) => {
             editor.current = instance
             void vigil.saveItem(item.id, { body, ...(item.tier === 'nugget' ? { title: instance.getText().split('\n')[0] } : {}) })

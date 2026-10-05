@@ -9,6 +9,7 @@ import { tagColors, spread } from '@/extensions/tokens'
 import { AGES, Display, arrange, period, useView, type Facet, type View } from './display'
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
+import { Mentions } from './mentions'
 import { EXITS, STATUS_ICON, captureKey, exit, findCaptures, flying, takeExit, toTask, follow } from '@/lib/capture-links'
 import { toMarkdown } from '@/lib/export'
 import { splitTags, taskSaid, vigil, type Made } from '@/lib/vigil'
@@ -209,6 +210,7 @@ export function CapturesView({ title, keep, focus, onOpen }: {
               defaultContent={(open.body as JSONContent | string | null) ?? ''}
               findNotes={findCaptures}
               onOpenNote={(link) => follow(link, (type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id)))}
+              after={<Mentions id={open.id} onOpen={(type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id))} />}
               onChange={(body, editor) =>
                 window.api.captures.save(open.id, { body, markdown: toMarkdown(editor) })
               }

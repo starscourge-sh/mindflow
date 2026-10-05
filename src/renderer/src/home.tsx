@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { chime, soundOn } from './lib/sound'
+import { NotePreview } from './components/vigil/note-preview'
 
 import { CAPTURE_TYPES } from './components/capture-kinds/capture-kind-picker'
 import { useCaptures, type CaptureMeta } from './components/capture-list'
@@ -181,6 +182,7 @@ export function Home(): React.JSX.Element {
     <TooltipProvider delayDuration={600}>
     <div className="flex h-screen flex-col bg-background text-foreground">
       <Toaster />
+      <NotePreview />
       <FocusNote />
       {searching && (
         <Search

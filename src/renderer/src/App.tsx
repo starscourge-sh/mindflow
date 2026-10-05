@@ -29,6 +29,7 @@ import { Search } from './components/search'
 import { taskSaid, vigil, type Settings } from './lib/vigil'
 import { chime, soundOn } from './lib/sound'
 import { liftFrom } from './lib/fly-home'
+import { NotePreview } from './components/vigil/note-preview'
 
 
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from './components/capture-kinds/capture-kind-picker'
@@ -573,6 +574,7 @@ export default function App(): React.JSX.Element {
     <div className={`app-container ${pointerIn ? 'pointer-in' : ''} flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-8 color-white`}>
       {/* Toasts sit above the box's footer here, clear of Create. */}
       <div className="contents [--toast-bottom:5.5rem]"><Toaster /></div>
+      <NotePreview />
       {readList && (
         <ReadThrough
           items={readList.items}
