@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowLeft, BookOpen, EyeOff, PanelRight, Maximize2, Minimize2, Settings2, X } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, BookOpen, ChevronLeft, ChevronRight, EyeOff, PanelRight, Maximize2, Minimize2, Settings2, X } from 'lucide-react'
 import type { Editor, JSONContent } from '@tiptap/core'
 
 import { MindflowEditor, TAGS, currentVim, onVimChange, setVim } from './components/mindflow'
@@ -117,7 +117,7 @@ const WindowDots = (): React.JSX.Element => (
   </div>
 )
 
-const Header = ({ panel, onPanel, menu }: { panel: boolean; onPanel: () => void; menu: React.ReactNode }): React.JSX.Element => {
+const Header = ({ panel, onPanel, menu, nav }: { panel: boolean; onPanel: () => void; menu: React.ReactNode; nav?: React.ReactNode }): React.JSX.Element => {
   const [expanded, setExpanded] = useState(false)
   const toggle = (): void => {
     setExpanded((was) => {
@@ -146,6 +146,7 @@ const Header = ({ panel, onPanel, menu }: { panel: boolean; onPanel: () => void;
       <div className="flex w-full items-center gap-1" // Over the panel, the icons end where the panel's own edge does.
         style={{ padding: panel ? '0 0.75rem 0 4.75rem' : '0rem 4.75rem' } as CSSProperties}>
         <WindowDots />
+        <span style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>{nav}</span>
         <span className="flex-1" />
         <Tip label={`${panel ? 'Hide' : 'Show'} Inbox, Tasks, Review and Kept  ⌘\\`}>
         <button
@@ -418,7 +419,28 @@ export default function App(): React.JSX.Element {
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [])
-  const openCapture = (id: string): void => {
+  // Where the box has been, for back and forward the way a browser keeps
+  // them: the draft you were writing (null), then each capture opened from it.
+  const [trail, setTrail] = useState<{ stack: (string | null)[]; at: number }>({ stack: [null], at: 0 })
+  const travel = (to: number): void => {
+    const where = trail.stack[to]
+    if (to < 0 || to >= trail.stack.length) return
+    chime('tap')
+    setTrail((now) => ({ ...now, at: to }))
+    if (where) openCapture(where, true)
+    else fresh(true, true)
+  }
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.metaKey || event.shiftKey || event.altKey || event.ctrlKey || (event.key !== '[' && event.key !== ']')) return
+      event.preventDefault()
+      travel(trail.at + (event.key === '[' ? -1 : 1))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+  const openCapture = (id: string, travelling = false): void => {
+    if (!travelling) setTrail((now) => ({ stack: [...now.stack.slice(0, now.at + 1), id], at: now.at + 1 }))
     setReading(null)
     // The note being written is kept as it is now, not as it was at the last
     // pause in typing, or opening another straight after typing loses words.
@@ -454,7 +476,8 @@ export default function App(): React.JSX.Element {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   })
-  const fresh = (keepDraft = false): void => {
+  const fresh = (keepDraft = false, travelling = false): void => {
+    if (!travelling) setTrail({ stack: [null], at: 0 })
     if (!keepDraft) localStorage.removeItem('capture-draft')
     // A draft set aside for good takes its pending links with it; a submit
     // has already used them by now.
@@ -654,7 +677,21 @@ export default function App(): React.JSX.Element {
         />
       )}
       <FocusNote />
-      <Header panel={panel} onPanel={() => setPanel(!panel)} menu={
+      <Header panel={panel} onPanel={() => setPanel(!panel)} nav={trail.stack.length > 1 && (
+        // Back and forward, joined in one pill as Safari and Raycast do it.
+        <span className="ml-3 flex items-center rounded-full border border-foreground/15">
+          {([['Back  ⌘[', -1, ChevronLeft], ['Forward  ⌘]', 1, ChevronRight]] as const).map(([label, by, Icon], index) => (
+            <Tip key={label} label={label}>
+              <button type="button" tabIndex={-1} aria-label={label} disabled={!trail.stack[trail.at + by] && trail.stack[trail.at + by] !== null}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => travel(trail.at + by)}
+                className={`flex h-6 w-7 items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-35 ${index ? 'border-l border-foreground/15' : ''}`}>
+                <Icon className="size-3.5" />
+              </button>
+            </Tip>
+          ))}
+        </span>
+      )} menu={
         <span className="flex items-center gap-1">
         {/* Safe mode says so here, or the quiet looks like nothing happening. */}
         {appSettings?.safeMode && <Tip label="Safe mode: nothing private or unasked comes up  ⌥⌘S"><span className="rounded-full bg-accent px-2 py-0.5 text-key text-[var(--tt-brand-color-400)]">Safe</span></Tip>}
@@ -734,7 +771,7 @@ export default function App(): React.JSX.Element {
                 to it stays in view, so a link followed never loses the draft. */}
             {editing && readDraft() && (
               <div className="flex items-center gap-2 px-[4.75rem] pt-2 text-xs text-muted-foreground">
-                <span className="truncate">Your draft “{firstLine(readDraft()) || 'unfinished'}” is waiting: Done takes you back to it.</span>
+                <span className="truncate">Your draft “{firstLine(readDraft()) || 'unfinished'}” is waiting: back (⌘[) takes you to it.</span>
               </div>
             )}
             {/* Under the writing: what it is, who said it and where you met it. */}
@@ -774,16 +811,18 @@ export default function App(): React.JSX.Element {
                 <span className="truncate px-1.5 text-xs text-muted-foreground/70">{ASKS[kind].why}</span>
               )}
               {like && (
-                <Tip label={like.title}>
+                <Tip label={`Open it: ${like.title}`}>
                 <button
                   type="button"
                   onClick={() => openCapture(like.id)}
                   // Hard to miss but not loud: a brand-tinted chip whose words
                   // roll in when a match arrives, and roll over when it changes.
-                  className="ml-auto flex max-w-64 items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--tt-brand-color-400)_35%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_12%,transparent)] px-2.5 py-0.5 text-xs text-foreground animate-in fade-in-0 zoom-in-95 duration-200 hover:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_20%,transparent)]"
+                  className="group/like ml-auto flex max-w-64 cursor-pointer items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--tt-brand-color-400)_35%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_12%,transparent)] px-2.5 py-0.5 text-xs text-foreground animate-in fade-in-0 zoom-in-95 duration-200 hover:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_20%,transparent)]"
                 >
                   <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-[var(--tt-brand-color-400)]" />
                   <span className="truncate"><Rolling by="word" text={`Written before: MF-${like.number}`} /></span>
+                  {/* Says it goes somewhere: an arrow that leans further on hover. */}
+                  <ArrowUpRight className="size-3.5 shrink-0 text-[var(--tt-brand-color-400)] transition-transform group-hover/like:translate-x-0.5 group-hover/like:-translate-y-0.5" />
                 </button>
                 </Tip>
               )}
@@ -824,7 +863,8 @@ export default function App(): React.JSX.Element {
               )}
               <Tip label={createMore && !editing ? 'Save, and a fresh box for the next  ⌘↵' : 'Save and close  ⌘↵ · once with a fresh box after  ⌥⌘↵'}>
               <Button variant="secondary" onClick={() => submit()} className="text-control">
-                <Rolling text={editing ? 'Done' : saved ? 'Saved' : 'Create'} /> <kbd className="font-sans text-key opacity-70">⌘↵</kbd>
+                {/* Only read, nothing changed: going back, not finishing anything. */}
+                <Rolling text={editing ? (textOf(body).trim() === textOf(editing.body).trim() ? 'Back' : 'Done') : saved ? 'Saved' : 'Create'} /> <kbd className="font-sans text-key opacity-70">⌘↵</kbd>
               </Button>
               </Tip>
             </main>
