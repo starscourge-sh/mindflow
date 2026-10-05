@@ -102,7 +102,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
         // and fading at its end, so a cut-off chip reads as more to scroll to.
         className="min-w-0 flex-1 flex-nowrap overflow-x-auto pr-6 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] [&>button]:shrink-0"
       />
-      <span className="ml-auto"><Display view={view} onChange={setView} facets={facets} sorts={[{ id: 'manual', label: 'Your order' }]} /></span>
+      <span className="ml-auto shrink-0"><Display compact view={view} onChange={setView} facets={facets} sorts={[{ id: 'manual', label: 'Your order' }]} /></span>
       </Strip>
       <form
         className="mb-2 flex items-center gap-2 rounded-md border px-2 py-1.5 focus-within:border-ring"

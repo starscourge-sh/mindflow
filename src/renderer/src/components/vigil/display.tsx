@@ -186,7 +186,9 @@ const Row = ({ label, changed, children }: { label: string; changed: boolean; ch
  * each section counts its changes, and Reset all puts everything back. F opens
  * it from anywhere on the list.
  */
-export function Display<T>({ view, onChange, facets, sorts, groups = [], defaults = {} }: {
+export function Display<T>({ view, onChange, facets, sorts, groups = [], defaults = {}, compact = false }: {
+  /** Icon only, where the row beside it needs the room. */
+  compact?: boolean
   view: View
   /** Filters the list starts with: not counted as chosen, and what Reset goes back to. */
   defaults?: View['filter']
@@ -224,7 +226,7 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
       <PopoverTrigger asChild>
         <button type="button" className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-control hover:bg-accent hover:text-foreground ${active ? 'text-foreground' : ''}`}>
           <AliveIcon icon={SlidersHorizontalIcon} size={14} />
-          Display{active ? `: ${active}` : ''}
+          {compact ? (active ? active : null) : `Display${active ? `: ${active}` : ''}`}
         </button>
         </PopoverTrigger>
       </Tip>

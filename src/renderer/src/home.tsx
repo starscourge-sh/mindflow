@@ -402,7 +402,7 @@ export function Home(): React.JSX.Element {
         </Tip>
       </header>
       {/* The page itself, a card like the sidebar's. */}
-      <div className="@container/page flex min-h-0 flex-1 overflow-hidden rounded-xl border">
+      <div className="@container/page relative flex min-h-0 flex-1 overflow-hidden rounded-xl border">
       <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={view.id}

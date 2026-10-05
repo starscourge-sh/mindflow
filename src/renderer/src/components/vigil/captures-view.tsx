@@ -14,7 +14,7 @@ import { EXITS, STATUS_ICON, captureKey, exit, findCaptures, flying, takeExit, t
 import { toMarkdown } from '@/lib/export'
 import { splitTags, taskSaid, vigil, type Made } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
-import { Empty, Page, Prop, PropLabel, Props, Remembered, Rolling, ask, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion } from './ui'
+import { Empty, Page, Prop, PropLabel, Props, Remembered, Rolling, ask, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper } from './ui'
 import { RemindMe } from './items-view'
 import { ReadThrough } from './read-through'
 import { selectionActions } from './selection-actions'
@@ -175,7 +175,8 @@ export function CapturesView({ title, keep, focus, onOpen }: {
           <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
             {/* What you first caught, kept from the first edit on: read it
                 beside what it has become, never lost to an edit. */}
-            <div className="flex justify-end px-3 @[40rem]/page:px-[4.25rem]">
+            <div className="flex items-center justify-between gap-2 px-3 @[40rem]/page:px-[4.25rem]">
+              <Stepper at={shown.findIndex((one) => one.id === open.id)} total={shown.length} onStep={(to) => pick(shown[to].id)} />
               <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() =>
                 first !== null
                   ? // Back from reading: the capture read again, so the editor

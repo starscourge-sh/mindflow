@@ -455,7 +455,8 @@ export default function App(): React.JSX.Element {
     return () => window.removeEventListener('keydown', onKey)
   })
   const openCapture = (id: string, travelling = false): void => {
-    if (!travelling) setTrail((now) => ({ stack: [...now.stack.slice(0, now.at + 1), id], at: now.at + 1 }))
+    // The same one again is not a step back to take.
+    if (!travelling) setTrail((now) => (now.stack[now.at] === id ? now : { stack: [...now.stack.slice(0, now.at + 1), id], at: now.at + 1 }))
     setReading(null)
     // The note being written is kept as it is now, not as it was at the last
     // pause in typing, or opening another straight after typing loses words.

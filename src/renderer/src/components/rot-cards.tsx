@@ -81,6 +81,8 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
       if (!card) return
       setCards((all) => (all.some((one) => one.id === id) ? all : [...all, card].sort(byAge)))
       setDeal((n) => n + 1)
+      // Brought back by keyboard, it has the focus again, so j and k carry on.
+      if (byKeys) requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-tone="knock"][data-id="${CSS.escape(id)}"]`)?.focus({ focusVisible: true } as FocusOptions))
     }
     // Worked by keyboard, the next card takes the focus, so j, k and the
     // exits carry on without a click.

@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import * as chrono from 'chrono-node'
 import type { JSONContent } from '@tiptap/core'
-import { Bell, CalendarDays, Check, FileText, Flag, Gem, Hash, History, Play, Plus, Repeat, Square, Trash2, X } from 'lucide-react'
+import { Bell, CalendarDays, Check, FileText, Flag, Gem, Hash, History, Play, Plus, Repeat, Square, Trash2, X, Ban, Timer, Hourglass } from 'lucide-react'
 
 
 import { MindflowEditor } from '../mindflow'
 import { chime } from '@/lib/sound'
 import { captureKey } from '@/lib/capture-links'
 import { splitTags, taskSaid, useLive, vigil, when, type Session, type Task, type TaskFull } from '@/lib/vigil'
-import { Empty, Kbd, Page, Prop, PropLabel, Props, Tags, toast, useListKeys, typing, VirtualList } from './ui'
+import { Empty, Kbd, Page, Prop, PropInput, PropLabel, Props, Tags, toast, useListKeys, typing, VirtualList, Stepper } from './ui'
 import { Display, arrange, useView, type Facet } from './display'
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
@@ -272,19 +272,20 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
           </Empty>
         )}
       </Page>
-      {open && <TaskDetail key={open.id} task={open} onClose={() => setOpen(null)} onOpen={onOpen} />}
+      {open && <TaskDetail top={<Stepper at={shown.findIndex((one) => one.id === open.id)} total={shown.length} onStep={(to) => pick(shown[to].id)} />} key={open.id} task={open} onClose={() => setOpen(null)} onOpen={onOpen} />}
     </>
   )
 }
 
 /** The open task: its notes, and down the right when it is and what it has been. */
-export function TaskDetail({ task: first, onClose, onOpen }: { task: TaskFull; onClose: () => void; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
+export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFull; onClose: () => void; onOpen?: (type: string, id: string) => void; top?: React.ReactNode }): React.JSX.Element {
   // Read again on every change, so a toggle shows what it now is.
   const task = useLive(async () => (await vigil.task(first.id)) ?? first, first, [first.id])
   const title = useRef<HTMLInputElement>(null)
   return (
     <div className="flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_1.5rem_1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
+        {top && <div className="-mt-3 mb-1 flex px-3 @[40rem]/page:px-[4.25rem]">{top}</div>}
         {/* Pushed back three times: the plan's question, once, without a verdict. */}
         {task.reschedules >= 3 && task.status === 'open' && (
           <div className="mx-auto mb-3 flex w-full max-w-[44rem] items-center gap-2 px-12 text-sm text-muted-foreground">
@@ -338,46 +339,12 @@ export function TaskDetail({ task: first, onClose, onOpen }: { task: TaskFull; o
         {/* When you mean to do it is the due date; when it must be done by is this. */}
         <PropLabel>Deadline</PropLabel>
         <DatePicker value={task.deadline} onChange={(deadline) => void vigil.saveTask(task.id, { deadline })} placeholder="No deadline" />
-        <PropLabel>Blocked by</PropLabel>
-        <Input
-          defaultValue={task.blocker ?? ''}
-          placeholder="What is in the way"
-          // Enter keeps it, the way it does in every other field here.
-          onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
-          onBlur={(event) => void vigil.saveTask(task.id, { blocker: event.target.value.trim() || null })}
-          className="h-8 w-auto"
-        />
-        <PropLabel>Estimate</PropLabel>
-        <label className="flex items-center gap-2">
-          <Input
-            type="number"
-            min={0}
-            step={5}
-            defaultValue={task.estimate ?? ''}
-            placeholder="–"
-            onBlur={(event) => void vigil.saveTask(task.id, { estimate: event.target.value ? Number(event.target.value) : null })}
-            className="h-8 w-20 tabular-nums"
-          />
-          <span className="text-xs">minutes</span>
-        </label>
-        <PropLabel>Waiting on</PropLabel>
-        <Input
-          defaultValue={task.waitingOn ?? ''}
-          placeholder="Someone's name"
-          // Enter keeps it, the way it does in every other field here.
-          onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
-          onBlur={(event) => void vigil.saveTask(task.id, { waitingOn: event.target.value.trim() || null })}
-          className="h-8 w-auto"
-        />
-        <PropLabel>Repeats</PropLabel>
-        <Input
-          defaultValue={task.recurrence ?? ''}
-          placeholder="e.g. every week"
-          // Enter keeps it, the way it does in every other field here.
-          onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
-          onBlur={(event) => void vigil.saveTask(task.id, { recurrence: event.target.value.trim() || null })}
-          className="h-8 w-auto"
-        />
+        {/* The rest of what a task can carry, each one row like the rest. */}
+        <PropLabel>Details</PropLabel>
+        <PropInput icon={Ban} value={task.blocker ?? ''} placeholder="Blocked by…" onSave={(blocker) => void vigil.saveTask(task.id, { blocker: blocker || null })} />
+        <PropInput icon={Timer} type="number" value={task.estimate ? String(task.estimate) : ''} placeholder="Estimate" suffix="minutes" onSave={(minutes) => void vigil.saveTask(task.id, { estimate: minutes ? Number(minutes) : null })} />
+        <PropInput icon={Hourglass} value={task.waitingOn ?? ''} placeholder="Waiting on…" onSave={(waitingOn) => void vigil.saveTask(task.id, { waitingOn: waitingOn || null })} />
+        <PropInput icon={Repeat} value={task.recurrence ?? ''} placeholder="Repeats, e.g. every week" onSave={(recurrence) => void vigil.saveTask(task.id, { recurrence: recurrence || null })} />
         <p className="mx-2 mt-1 text-xs leading-relaxed">
           “every” follows the calendar. “every!” counts from when you last did it. Add “until” and a date when you type a task to end the series.
           {task.repeatUntil ? ` This one ends ${when(task.repeatUntil).toLowerCase()}.` : ''}

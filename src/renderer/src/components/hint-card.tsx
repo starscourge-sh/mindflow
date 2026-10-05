@@ -36,6 +36,10 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
   }, [hint?.id, hint?.title]) // eslint-disable-line react-hooks/exhaustive-deps
   // Fixing it where it stands: the words in a field, Enter keeps them.
   const [fixing, setFixing] = useState<string | null>(null)
+  // A long hint shows three lines, never more of the box than that; a click
+  // on it opens the rest, and another closes it. The pencil edits.
+  const [whole, setWhole] = useState(false)
+  useEffect(() => setWhole(false), [hint?.id])
   useEffect(() => setFixing(null), [hint?.id])
   const open = (): void => {
     if (!hint) return
@@ -180,7 +184,10 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
                 className="block w-full resize-none bg-transparent outline-none [field-sizing:content]"
               />
             ) : (
-              <div className="line-clamp-6 cursor-text whitespace-pre-line" onClick={fix}>
+              <div
+                className={`cursor-pointer whitespace-pre-line ${whole ? 'max-h-40 overflow-y-auto' : 'line-clamp-3'}`}
+                onClick={() => (said.length > 160 ? setWhole(!whole) : fix())}
+              >
                 {/* The words roll in when it arrives, a hint being dealt; a
                     long one, which must wrap, simply appears, since rolling
                     text keeps to one line. */}

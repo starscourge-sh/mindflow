@@ -29,7 +29,8 @@ export function AliveIcon({ icon: Icon, size = 16, className }: {
   }, [])
   return (
     <span ref={box} className={`inline-flex shrink-0 [&_svg]:cursor-[inherit] ${className ?? ''}`}>
-      <Icon ref={handle} size={size} strokeWidth={2} />
+      {/* A size class too: a small button's rule shrinks any svg without one. */}
+      <Icon ref={handle} size={size} strokeWidth={2} className={size <= 12 ? 'size-3' : size <= 14 ? 'size-3.5' : 'size-4'} />
     </span>
   )
 }

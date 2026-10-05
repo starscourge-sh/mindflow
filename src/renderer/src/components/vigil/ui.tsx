@@ -2,7 +2,7 @@ import { Children, cloneElement, createContext, useContext, useEffect, useLayout
 import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { SlotText } from 'slot-text/react'
-import { ArrowUp, CircleCheck, CircleX, Volume2, VolumeX, type LucideIcon } from 'lucide-react'
+import { ArrowDown, ArrowUp, CircleCheck, CircleX, Volume2, VolumeX, type LucideIcon } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Coolshape, type shapeTypes } from 'coolshapes-react'
 import Lenis from 'lenis'
@@ -110,6 +110,74 @@ export function Props({ children, className }: { children: ReactNode; className?
 export function PropLabel({ children }: { children: ReactNode }): React.JSX.Element {
   return <div className="mt-3 mb-1 px-2 text-meta font-medium first:mt-0">{children}</div>
 }
+/**
+ * Where an open item sits in its list, and the way to the next and the one
+ * before, the way Linear's issue view has it: "3 / 426 ↓ ↑". ↓ and ↑ step
+ * through the list whenever you are not typing.
+ */
+export function Stepper({ at, total, onStep }: { at: number; total: number; onStep: (to: number) => void }): React.JSX.Element | null {
+  const latest = useRef({ at, total, onStep })
+  latest.current = { at, total, onStep }
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.metaKey || event.ctrlKey || event.altKey || typing() || event.defaultPrevented) return
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
+      const { at, total, onStep } = latest.current
+      const to = at + (event.key === 'ArrowDown' ? 1 : -1)
+      if (to < 0 || to >= total) return
+      event.preventDefault()
+      event.stopPropagation()
+      chime('tap')
+      onStep(to)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
+  if (at < 0 || total < 2) return null
+  const go = (by: 1 | -1): void => {
+    chime('tap')
+    onStep(at + by)
+  }
+  return (
+    <div className="flex items-center gap-1 text-control text-muted-foreground">
+      <span className="mr-1 tabular-nums"><span className="text-foreground"><Rolling text={at + 1} /></span> / {total}</span>
+      <Tip label="Next  ↓"><button type="button" aria-label="Next" disabled={at >= total - 1} onClick={() => go(1)} className="flex size-7 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowDown className="size-4" /></button></Tip>
+      <Tip label="Previous  ↑"><button type="button" aria-label="Previous" disabled={at <= 0} onClick={() => go(-1)} className="flex size-7 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowUp className="size-4" /></button></Tip>
+    </div>
+  )
+}
+
+/**
+ * A property you type into, shaped exactly like a Prop row beside it: an
+ * icon, the words, a hover. No boxes of different shapes down one column.
+ * Enter or leaving keeps it.
+ */
+export function PropInput({ icon: Icon, value, placeholder, onSave, suffix, type = 'text' }: {
+  icon: LucideIcon
+  value: string
+  placeholder: string
+  onSave: (value: string) => void
+  suffix?: string
+  type?: 'text' | 'number'
+}): React.JSX.Element {
+  return (
+    <label className="flex cursor-text items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent focus-within:bg-accent">
+      <Icon className="size-4 shrink-0" />
+      <input
+        type={type}
+        min={type === 'number' ? 0 : undefined}
+        step={type === 'number' ? 5 : undefined}
+        defaultValue={value}
+        placeholder={placeholder}
+        onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
+        onBlur={(event) => onSave(event.target.value.trim())}
+        className="min-w-0 flex-1 bg-transparent text-control text-foreground tabular-nums outline-none placeholder:text-muted-foreground [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+      />
+      {suffix && <span className="shrink-0 text-meta">{suffix}</span>}
+    </label>
+  )
+}
+
 export function Prop({ icon: Icon, children, onClick, active, tint, secret }: {
   icon: LucideIcon
   /** Private: blurred at rest, as in any list. */

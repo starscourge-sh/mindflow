@@ -13,7 +13,7 @@ import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-k
 import { age } from '../capture-list'
 import { findCaptures, follow } from '@/lib/capture-links'
 import { interval, splitTags, taskSaid, useLive, vigil, when, type Item, type ItemFull } from '@/lib/vigil'
-import { Empty, Page, Prop, PropLabel, Props, Tags, refuse, toast, useListKeys, useReadKey, typing, pin, VirtualList } from './ui'
+import { Empty, Page, Prop, PropLabel, Props, Tags, refuse, toast, useListKeys, useReadKey, typing, pin, VirtualList, Stepper } from './ui'
 import { AGES, Display, arrange, period, useView, type Facet } from './display'
 import { RowMenu, copy } from './row-menu'
 import { Lineage } from './lineage'
@@ -198,7 +198,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           }}
         />
       )}
-      {open && <ItemDetail key={open.id} item={open} onOpen={(type, id) => (type === tier ? pick(id) : onOpen?.(type, id))} />}
+      {open && <ItemDetail top={<Stepper at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => pick(items[to].id)} />} key={open.id} item={open} onOpen={(type, id) => (type === tier ? pick(id) : onOpen?.(type, id))} />}
     </>
   )
 }
@@ -242,7 +242,7 @@ function ArticleRow({ item }: { item: Item }): React.JSX.Element {
 }
 
 /** The open nugget or article: its words, its glosses, and down the right how it comes back. */
-export function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
+export function ItemDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: string, id: string) => void; top?: React.ReactNode }): React.JSX.Element {
   const [prompt, setPrompt] = useState(item.prompt ?? '')
   const [gloss, setGloss] = useState('')
   const glossWords = item.glosses.filter((one) => one.author === 'user').reduce((sum, one) => sum + one.body.split(/\s+/).filter(Boolean).length, 0)
@@ -269,6 +269,7 @@ export function ItemDetail({ item, onOpen }: { item: ItemFull; onOpen?: (type: s
   return (
     <div className="flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_1.5rem_1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
+        {top && <div className="-mt-3 mb-1 flex px-3 @[40rem]/page:px-[4.25rem]">{top}</div>}
         {item.tier === 'article' && (
           <input
             className="mx-auto mb-2 block w-full max-w-[44rem] bg-transparent px-12 text-title font-semibold text-balance outline-none placeholder:text-muted-foreground"

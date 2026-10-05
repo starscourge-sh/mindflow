@@ -989,7 +989,8 @@ app.whenReady().then(() => {
     panelShift = open ? bounds.x - next.x : 0
     // Instant: macOS's own resize animation is slow enough to wait on.
     reshape(win, next)
-    if (grew) grew = { ...grew, became: next }
+    // An expanded box remembers where it grew from; the panel moving it moves that too.
+    if (grew) grew = { was: { ...grew.was, x: grew.was.x + (next.x - bounds.x), width: next.width }, became: { ...grew.became, x: next.x, width: next.width } }
     return Boolean(open)
   })
 
