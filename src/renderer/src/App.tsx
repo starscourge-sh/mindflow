@@ -779,7 +779,7 @@ export default function App(): React.JSX.Element {
                 to it stays in view, so a link followed never loses the draft. */}
             {editing && readDraft() && (
               <div className="flex items-center gap-2 px-[4.75rem] pt-2 text-xs text-muted-foreground">
-                <span className="truncate"><Typed delay={500} text={`Your draft “${(firstLine(readDraft()) || 'unfinished').slice(0, 32)}${(firstLine(readDraft()) ?? '').length > 32 ? '…' : ''}” is waiting: ⌘[ takes you back.`} /></span>
+                <span className="truncate"><Typed delay={1000} text={`Your draft “${(firstLine(readDraft()) || 'unfinished').slice(0, 32)}${(firstLine(readDraft()) ?? '').length > 32 ? '…' : ''}” is waiting: ⌘[ takes you back.`} /></span>
               </div>
             )}
             {/* Under the writing: what it is, who said it and where you met it. */}

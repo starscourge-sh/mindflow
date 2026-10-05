@@ -56,7 +56,7 @@ export function Page({ title, count, actions, children, aside = false }: {
  * label (textmotion.dev's word reveal). Typed again when the words change.
  * Plain text when Motion is off.
  */
-export function Typed({ text, className, step = 40, delay = 400 }: { text: string; className?: string; step?: number; delay?: number }): React.JSX.Element {
+export function Typed({ text, className, step = 40, delay = 700 }: { text: string; className?: string; step?: number; delay?: number }): React.JSX.Element {
   const words = text.split(/(\s+)/)
   return (
     <span key={text} className={className} aria-label={text}>
