@@ -690,15 +690,6 @@ function Surface({
           view.dispatch(view.state.tr.setSelection(PMSelection.near(view.state.doc.resolve(head))))
           return true
         }
-        // Ctrl-T starts a tag: a # where the caret is, which opens the tag
-        // menu (a space first when it would run into a word).
-        if (event.ctrlKey && !event.metaKey && !event.altKey && event.key.toLowerCase() === "t" && view.editable) {
-          const { from, $from } = view.state.selection
-          const before = $from.parent.textBetween(Math.max(0, $from.parentOffset - 1), $from.parentOffset)
-          view.dispatch(view.state.tr.insertText(before && !/\s/.test(before) ? " #" : "#", from))
-          event.preventDefault()
-          return true
-        }
         // macOS gives every editable field a set of Emacs keys and Chromium
         // honours them. Ctrl-H is a second Backspace, Ctrl-W eats a word and
         // Ctrl-T swaps two characters - none of which anything here asked for.

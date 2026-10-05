@@ -533,3 +533,7 @@ body:has([data-tone="knock"]:focus) [data-cursor] {
 
 /* The word count, hidden by choice (the app menu's Word count). */
 :root[data-word-count='off'] .tiptap-word-count { display: none; }
+
+/* A field with suggestions (who, where) keeps Chromium's dropdown arrow out of
+   the way: the suggestions open as you type, the arrow only sat on the words. */
+input[list]::-webkit-calendar-picker-indicator { display: none !important; }
