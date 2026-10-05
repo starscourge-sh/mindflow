@@ -530,3 +530,6 @@ body:has([data-tone="knock"]:focus) [data-cursor] {
 }
 :root[data-motion='off'] .mf-typed { animation: none; opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .mf-typed { animation: none; opacity: 1; } }
+
+/* The word count, hidden by choice (the app menu's Word count). */
+:root[data-word-count='off'] .tiptap-word-count { display: none; }

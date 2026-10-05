@@ -247,6 +247,14 @@ export default function App(): React.JSX.Element {
   // Hidden from screen recordings and shares unless let in, for a demo or a
   // Loom; remembered, and put back on every start.
   const appSettings = useLive(vigil.settings, null as Settings | null)
+  // The word count under the note, on unless you would rather not see it.
+  const [counting, setCountingState] = useState(() => localStorage.getItem('word-count') !== 'off')
+  const setCounting = (on: boolean): void => {
+    setCountingState(on)
+    localStorage.setItem('word-count', on ? 'on' : 'off')
+    if (on) delete document.documentElement.dataset.wordCount
+    else document.documentElement.dataset.wordCount = 'off'
+  }
   // Private words shown plainly, for a moment you choose: always back to
   // blurred the next time the box is opened, so it is never left on.
   const [reveal, setRevealState] = useState(false)
@@ -713,7 +721,8 @@ export default function App(): React.JSX.Element {
           options={[
             { label: 'Vim keys', on: vim, keys: '\\', set: setVim },
             { label: 'Show in screen recordings', on: recordable, set: setRecordable },
-            { label: 'Show private titles', on: reveal, set: setReveal }
+            { label: 'Show private titles', on: reveal, set: setReveal },
+            { label: 'Word count', on: counting, set: setCounting }
           ]}
           actions={[{ label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') }]}
         />

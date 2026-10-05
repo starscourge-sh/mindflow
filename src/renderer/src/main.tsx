@@ -60,6 +60,13 @@ const params = new URLSearchParams(window.location.search)
 const drawing = params.get('drawing')
 // The page's own name, not the framework's: the window bar shows it.
 document.title = drawing ? 'Drawing' : 'Vigil'
+// The word count, shown or not: one choice for every window, kept in step.
+const wordCount = (): void => {
+  if (localStorage.getItem('word-count') === 'off') document.documentElement.dataset.wordCount = 'off'
+  else delete document.documentElement.dataset.wordCount
+}
+wordCount()
+window.addEventListener('storage', wordCount)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
