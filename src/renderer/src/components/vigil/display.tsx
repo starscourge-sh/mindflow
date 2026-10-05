@@ -1,10 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Check, ChevronDown, SlidersHorizontal } from 'lucide-react'
+import { Check, ChevronDown } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Rolling, Tip, typing } from './ui'
 import { chime } from '@/lib/sound'
+import SlidersHorizontalIcon from '@/components/ui/sliders-horizontal-icon'
+import { AliveIcon } from '@/components/vigil/alive-icon'
 
 /**
  * Display, the way Todoist and Linear do it: one button on a list that holds
@@ -216,7 +218,7 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
       <Tip label="Display  F">
       <PopoverTrigger asChild>
         <button type="button" className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-control hover:bg-accent hover:text-foreground ${active ? 'text-foreground' : ''}`}>
-          <SlidersHorizontal className="size-3.5" />
+          <AliveIcon icon={SlidersHorizontalIcon} size={14} />
           Display{active ? `: ${active}` : ''}
         </button>
         </PopoverTrigger>

@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { shown } from './rot-cards'
 import { chime } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
-import { Rolling, refuse, toast } from './vigil/ui'
+import { Rolling, refuse, toast, Typed } from './vigil/ui'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -183,7 +183,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
                 {/* The words roll in when it arrives, a hint being dealt; a
                     long one, which must wrap, simply appears, since rolling
                     text keeps to one line. */}
-                {said.length <= 40 && !said.includes('\n') ? <Rolling by="word" text={said} /> : said}
+                {said.length <= 40 && !said.includes('\n') ? <Rolling by="word" text={said} /> : <Typed text={said} step={28} />}
               </div>
             )}
           </RowMenu>

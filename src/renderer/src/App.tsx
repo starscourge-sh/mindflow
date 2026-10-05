@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowLeft, ArrowUpRight, BookOpen, ChevronLeft, ChevronRight, EyeOff, PanelRight, Maximize2, Minimize2, Settings2, X } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Minimize2, Settings2, X } from 'lucide-react'
 import type { Editor, JSONContent } from '@tiptap/core'
 
 import { MindflowEditor, TAGS, currentVim, onVimChange, setVim } from './components/mindflow'
@@ -15,7 +15,7 @@ import { TodayPanel } from './components/vigil/today-panel'
 import { selectionActions } from './components/vigil/selection-actions'
 import { ReviewView } from './components/vigil/review-view'
 import { useAppearance, useLive } from './lib/vigil'
-import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, ask, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode } from './components/vigil/ui'
+import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, Typed, ask, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode } from './components/vigil/ui'
 import { TooltipProvider } from './components/ui/tooltip'
 import { Rolling, Toaster, beam, refuse, toast } from './components/vigil/ui'
 import { Reader } from './components/vigil/reader'
@@ -50,6 +50,10 @@ import {
 import { Tip } from '@/components/vigil/ui'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
+import BookIcon from '@/components/ui/book-icon'
+import ExpandIcon from '@/components/ui/expand-icon'
+import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
+import { AliveIcon } from '@/components/vigil/alive-icon'
 
 
 
@@ -158,7 +162,7 @@ const Header = ({ panel, onPanel, menu, nav }: { panel: boolean; onPanel: () => 
           style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
           onClick={onPanel}
         >
-          <PanelRight />
+          <AliveIcon icon={LayoutSidebarRightIcon} size={14} />
         </button>
         </Tip>
         {/* The strip is the window's drag handle, so the one thing on it that is
@@ -175,7 +179,7 @@ const Header = ({ panel, onPanel, menu, nav }: { panel: boolean; onPanel: () => 
           style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
           onClick={toggle}
         >
-          {expanded ? <Minimize2 /> : <Maximize2 />}
+          {expanded ? <Minimize2 /> : <AliveIcon icon={ExpandIcon} size={14} />}
         </button>
         </Tip>
         {/* The app's own settings, in the corner the way Notion keeps a
@@ -617,7 +621,7 @@ export default function App(): React.JSX.Element {
 
   return (
     <TooltipProvider delayDuration={500}>
-    <div className={`app-container ${pointerIn ? 'pointer-in' : ''} flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-8 color-white`}>
+    <div className={`app-container ${pointerIn ? 'pointer-in' : ''} flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-10 color-white`}>
       {/* Toasts sit above the box's footer here, clear of Create. */}
       {/* Toasts over the note, above its footer: clear of Create and of the panel. */}
       <div className={`contents [--toast-bottom:6.5rem] ${panel ? '[--toast-right:440px]' : ''}`}><Toaster /></div>
@@ -679,13 +683,13 @@ export default function App(): React.JSX.Element {
       <FocusNote />
       <Header panel={panel} onPanel={() => setPanel(!panel)} nav={trail.stack.length > 1 && (
         // Back and forward, joined in one pill as Safari and Raycast do it.
-        <span className="ml-3 flex items-center rounded-full border border-foreground/15">
+        <span className="ml-3 flex items-center self-center rounded-full border border-foreground/15 [&_svg]:size-3">
           {([['Back  ⌘[', -1, ChevronLeft], ['Forward  ⌘]', 1, ChevronRight]] as const).map(([label, by, Icon], index) => (
             <Tip key={label} label={label}>
               <button type="button" tabIndex={-1} aria-label={label} disabled={!trail.stack[trail.at + by] && trail.stack[trail.at + by] !== null}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => travel(trail.at + by)}
-                className={`flex h-6 w-7 items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-35 ${index ? 'border-l border-foreground/15' : ''}`}>
+                className={`flex h-5 w-6 items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-35 ${index ? 'border-l border-foreground/15' : ''}`}>
                 <Icon className="size-3.5" />
               </button>
             </Tip>
@@ -771,7 +775,7 @@ export default function App(): React.JSX.Element {
                 to it stays in view, so a link followed never loses the draft. */}
             {editing && readDraft() && (
               <div className="flex items-center gap-2 px-[4.75rem] pt-2 text-xs text-muted-foreground">
-                <span className="truncate">Your draft “{firstLine(readDraft()) || 'unfinished'}” is waiting: back (⌘[) takes you to it.</span>
+                <span className="truncate"><Typed text={`Your draft “${firstLine(readDraft()) || 'unfinished'}” is waiting: back (⌘[) takes you to it.`} /></span>
               </div>
             )}
             {/* Under the writing: what it is, who said it and where you met it. */}
@@ -808,7 +812,7 @@ export default function App(): React.JSX.Element {
                 </Tip>
               )}
               {ASKS[kind].why && textOf(body).trim().split('\n').filter(Boolean).length < 2 && (
-                <span className="truncate px-1.5 text-xs text-muted-foreground/70">{ASKS[kind].why}</span>
+                <span className="truncate px-1.5 text-xs text-muted-foreground/70"><Typed text={ASKS[kind].why} /></span>
               )}
               {like && (
                 <Tip label={`Open it: ${like.title}`}>
@@ -1298,7 +1302,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                       </Tip>
                       <Tip label="Read through these, one at a time  ⇧⌘R">
                         <Button variant="ghost" size="sm" className="ml-auto" onClick={() => onRead(shown.map((one) => ({ type: 'capture', id: one.id })), Math.max(0, cursor))}>
-                          <BookOpen className="size-3.5" /> Read
+                          <AliveIcon icon={BookIcon} size={14} /> Read
                         </Button>
                       </Tip>
                       <span>{display}</span>

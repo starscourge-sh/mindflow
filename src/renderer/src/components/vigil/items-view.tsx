@@ -23,6 +23,8 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
+import BookIcon from '@/components/ui/book-icon'
+import { AliveIcon } from '@/components/vigil/alive-icon'
 
 const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
 
@@ -114,7 +116,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
                 </Button>
               )}
               <Tip label="Read through these, one at a time  ⇧⌘R">
-                <Button variant="ghost" size="sm" onClick={() => setReadFrom(Math.max(0, cursor))} disabled={!items.length}><BookOpen className="size-3.5" /> Read</Button>
+                <Button variant="ghost" size="sm" onClick={() => setReadFrom(Math.max(0, cursor))} disabled={!items.length}><AliveIcon icon={BookIcon} size={14} /> Read</Button>
               </Tip>
               {display}
             </span>

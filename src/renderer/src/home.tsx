@@ -43,6 +43,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './comp
 import { useAppearance, useLive, vigil, type Item, type Settings, type Task } from './lib/vigil'
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
+import MagnifierIcon from '@/components/ui/magnifier-icon'
+import { AliveIcon } from '@/components/vigil/alive-icon'
 
 type View = { id: string; focus?: string }
 
@@ -234,7 +236,7 @@ export function Home(): React.JSX.Element {
           onClick={() => setSearching(true)}
           className="mb-3 flex items-center gap-2 rounded-lg bg-accent/60 px-2.5 py-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
-          <SearchIcon className="size-4" />
+          <AliveIcon icon={MagnifierIcon} size={16} />
           <span className="flex-1 text-left">Search…</span>
           <Kbd>⌘K</Kbd>
         </button>

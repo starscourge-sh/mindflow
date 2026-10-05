@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { ArrowUpRight, BookOpen, Eye, EyeOff, CheckCircle2, FileText, Hash, Inbox, ListTodo, Merge, Pin, Trash2, X, Laptop, Timer, History } from 'lucide-react'
+import { ArrowUpRight, Eye, EyeOff, CheckCircle2, FileText, Hash, Inbox, ListTodo, Merge, Pin, Trash2, X, Laptop, Timer, History } from 'lucide-react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
@@ -20,6 +20,8 @@ import { ReadThrough } from './read-through'
 import { selectionActions } from './selection-actions'
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
+import BookIcon from '@/components/ui/book-icon'
+import { AliveIcon } from '@/components/vigil/alive-icon'
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
 
@@ -128,7 +130,7 @@ export function CapturesView({ title, keep, focus, onOpen }: {
             <span className="flex items-center gap-2">
               {shown.length > 1 && <span className="hidden text-xs whitespace-nowrap @[48rem]/page:inline">x to select</span>}
               <Tip label="Read through these, one at a time  ⇧⌘R">
-                <Button variant="ghost" size="sm" onClick={() => setReadFrom(Math.max(0, cursor))} disabled={!shown.length}><BookOpen className="size-3.5" /> Read</Button>
+                <Button variant="ghost" size="sm" onClick={() => setReadFrom(Math.max(0, cursor))} disabled={!shown.length}><AliveIcon icon={BookIcon} size={14} /> Read</Button>
               </Tip>
               {display}
             </span>

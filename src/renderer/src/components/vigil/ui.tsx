@@ -49,6 +49,25 @@ export function Page({ title, count, actions, children, aside = false }: {
  * coolshapes, clean rather than grainy, in place of a grey icon: an empty view
  * is the first thing a new feature shows you, and it should not read as an error.
  */
+/**
+ * A sentence that tells you something, typed out a word at a time as it
+ * arrives, so the app reads as if it is talking to you rather than showing a
+ * label (textmotion.dev's word reveal). Typed again when the words change.
+ * Plain text when Motion is off.
+ */
+export function Typed({ text, className, step = 40 }: { text: string; className?: string; step?: number }): React.JSX.Element {
+  const words = text.split(/(\s+)/)
+  return (
+    <span key={text} className={className} aria-label={text}>
+      {words.map((word, index) =>
+        /^\s+$/.test(word) ? word : (
+          <span key={index} aria-hidden className="mf-typed" style={{ animationDelay: `${(index / 2) * step}ms` }}>{word}</span>
+        )
+      )}
+    </span>
+  )
+}
+
 export function Empty({ shape, title, children, action, compact = false }: {
   shape: [shapeTypes, number]
   title: string
@@ -61,7 +80,7 @@ export function Empty({ shape, title, children, action, compact = false }: {
     <div className={`flex max-w-sm flex-col items-start gap-3 ${compact ? 'px-2 py-10' : 'px-5 py-[16vh]'}`}>
       <Coolshape type={shape[0]} index={shape[1]} noise={false} size={compact ? 44 : 56} className="mb-3" />
       <h2 className="text-heading font-semibold">{title}</h2>
-      <p className="leading-relaxed text-muted-foreground">{children}</p>
+      <p className="leading-relaxed text-muted-foreground">{typeof children === 'string' ? <Typed text={children} step={30} /> : children}</p>
       {action}
     </div>
   )

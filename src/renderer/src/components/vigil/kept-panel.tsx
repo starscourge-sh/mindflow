@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BookOpen, Brain, EyeOff, Pin, Plus } from 'lucide-react'
+import { Brain, EyeOff, Pin, Plus } from 'lucide-react'
 import type { Readable } from './read-through'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
@@ -9,6 +9,8 @@ import { RowMenu, copy } from './row-menu'
 import { Empty, ask, pin, toast, typing, useListKeys, useReadKey, VirtualList, Strip } from './ui'
 import { Button } from '@/components/ui/button'
 import { useItemDisplay } from './items-view'
+import BookIcon from '@/components/ui/book-icon'
+import { AliveIcon } from '@/components/vigil/alive-icon'
 
 const TIERS = [{ id: 'nugget', label: 'Nuggets' }, { id: 'article', label: 'Articles' }] as const
 
@@ -53,7 +55,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
       <Strip className="flex h-8 min-w-0 items-center gap-1 px-1">
         <Chips className="shrink-0" options={TIERS} on={(id) => id === tier} pick={(id) => setTier(id as 'nugget' | 'article')} />
         {/* Read only when there is something to read. */}
-        {all.length > 0 && <Button variant="ghost" size="sm" className="ml-auto" onClick={read}><BookOpen className="size-3.5" /> Read</Button>}
+        {all.length > 0 && <Button variant="ghost" size="sm" className="ml-auto" onClick={read}><AliveIcon icon={BookIcon} size={14} /> Read</Button>}
         <span className={all.length ? '' : 'ml-auto'}>{display}</span>
         {tier === 'article' && (
           <Button variant="ghost" size="sm" onClick={() => void vigil.newArticle().then((id) => onOpen('article', id))}><Plus className="size-3.5" /> New article</Button>
