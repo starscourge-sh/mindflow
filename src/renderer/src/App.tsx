@@ -15,7 +15,7 @@ import { TodayPanel } from './components/vigil/today-panel'
 import { selectionActions } from './components/vigil/selection-actions'
 import { ReviewView } from './components/vigil/review-view'
 import { useAppearance, useLive } from './lib/vigil'
-import { BackToTop, Empty, Kbd, Remembered, ask, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode } from './components/vigil/ui'
+import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, ask, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode } from './components/vigil/ui'
 import { TooltipProvider } from './components/ui/tooltip'
 import { Rolling, Toaster, beam, refuse, toast } from './components/vigil/ui'
 import { Reader } from './components/vigil/reader'
@@ -238,6 +238,15 @@ export default function App(): React.JSX.Element {
   // Hidden from screen recordings and shares unless let in, for a demo or a
   // Loom; remembered, and put back on every start.
   const appSettings = useLive(vigil.settings, null as Settings | null)
+  // Private words shown plainly, for a moment you choose: always back to
+  // blurred the next time the box is opened, so it is never left on.
+  const [reveal, setRevealState] = useState(false)
+  const setReveal = (on: boolean): void => {
+    setRevealState(on)
+    if (on) document.documentElement.dataset.reveal = ''
+    else delete document.documentElement.dataset.reveal
+  }
+  useEffect(() => window.api.onShown(() => setReveal(false)), [])
   const [recordable, setRecordableState] = useState(() => localStorage.getItem('recordable') === 'on')
   const setRecordable = (on: boolean): void => {
     setRecordableState(on)
@@ -603,6 +612,7 @@ export default function App(): React.JSX.Element {
             } },
             { label: appSettings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', run: () => void vigil.setSettings({ safeMode: !appSettings?.safeMode }).then(() => toast(appSettings?.safeMode ? 'Safe mode off' : 'Safe mode: nothing will surface unasked')) },
             { label: recordable ? 'Hide from screen recordings' : 'Show in screen recordings', run: () => setRecordable(!recordable) },
+            { label: reveal ? 'Blur private titles again' : 'Show private titles', run: () => setReveal(!reveal) },
             { label: 'Open the main window', run: () => window.api.openInHome('view', 'inbox') },
             { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') }
           ]}
@@ -628,10 +638,11 @@ export default function App(): React.JSX.Element {
           icon={<Settings2 className="size-3.5" />}
           side="bottom"
           align="end"
-          className="size-6"
+          className="size-6 flex-none rounded-full"
           options={[
             { label: 'Vim keys', on: vim, keys: '\\', set: setVim },
-            { label: 'Show in screen recordings', on: recordable, set: setRecordable }
+            { label: 'Show in screen recordings', on: recordable, set: setRecordable },
+            { label: 'Show private titles', on: reveal, set: setReveal }
           ]}
           actions={[{ label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') }]}
         />
@@ -1058,6 +1069,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
     if (tab !== 'inbox') (document.activeElement as HTMLElement | null)?.blur()
   }, [tab])
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null)
+  const [stripSlot, setStripSlot] = useState<HTMLDivElement | null>(null)
   // The same easing as the main window's lists.
   useSmooth(scroller)
   const due = useLive(() => window.api.vigil('review:counts') as Promise<number>, 0)
@@ -1168,13 +1180,16 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
             <RotCards onOpen={onOpen} />
           </div>
         )}
+        {/* Each list's top bar lands here, above the scrolling, never over rows. */}
+        <div ref={setStripSlot} className="shrink-0" />
+        <StripSlot.Provider value={stripSlot}>
         <div ref={setScroller} className="min-h-0 flex-1 overflow-y-auto">
           {/* One child, which is what the easing moves. */}
           <div className="flex min-h-full flex-col">
             {tab === 'inbox' ? (
               <>
-                {/* Stays put while the list scrolls under it: what you are looking at, and what you can do with it. */}
-                <div className="sticky top-0 z-[5] mb-1 flex h-8 shrink-0 items-center gap-1 px-1 backdrop-blur-xl pl-2 text-control text-muted-foreground">
+                {/* Above the list, not over it: what you are looking at, and what you can do with it. */}
+                <Strip className="flex h-8 shrink-0 items-center gap-1 px-1 pl-2 text-control text-muted-foreground">
                   {chosen.length ? (
                     <>
                       <span className="mr-auto">{chosen.length} selected</span>
@@ -1208,7 +1223,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                       <span>{display}</span>
                     </>
                   )}
-                </div>
+                </Strip>
                 {groups.map(([name, list], index) => {
                   const before = groups.slice(0, index).reduce((n, [, one]) => n + one.length, 0)
                   return (
@@ -1237,6 +1252,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
             )}
           </div>
         </div>
+        </StripSlot.Provider>
       </motion.div>
       </AnimatePresence>
       <BackToTop target={scroller} />

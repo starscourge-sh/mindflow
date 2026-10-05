@@ -19,6 +19,7 @@ import {
 import { THEMES, applyTheme, currentTheme, themeName, type Theme } from '@/lib/theme'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
 import { Tip } from './ui'
+import { cn } from '@/lib/cn'
 import { Swatch } from '../theme/theme-picker'
 
 /** One setting the box can have switched on or off. */
@@ -54,7 +55,7 @@ export function OptionsMenu({ options, actions, app = false, label = 'Options', 
             // a click on it leaves the caret where it was.
             tabIndex={-1}
             onMouseDown={(event) => event.preventDefault()}
-            className={`flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground ${className}`}>
+            className={cn('flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground', className)}>
             {icon}
           </button>
         </DropdownMenuTrigger>

@@ -1,4 +1,5 @@
-import { Children, cloneElement, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Children, cloneElement, createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { SlotText } from 'slot-text/react'
 import { ArrowUp, CircleCheck, CircleX, Volume2, VolumeX, type LucideIcon } from 'lucide-react'
@@ -204,13 +205,34 @@ export function useListKeys(count: number, { onOpen, onBack, enabled = true }: {
 
 
 /**
+ * A list's top bar, set above the scrolling area rather than in it: blur
+ * behind a sticky bar does not reach through this window, so rows scrolled
+ * under it showed through. A panel offers the place (StripSlot); without one
+ * the bar sits where it is written.
+ */
+export const StripSlot = createContext<HTMLElement | null>(null)
+export function Strip({ className, children }: { className?: string; children: ReactNode }): React.JSX.Element {
+  const slot = useContext(StripSlot)
+  const bar = <div className={className}>{children}</div>
+  return slot ? createPortal(bar, slot) : bar
+}
+
+/**
  * Say what an action did, briefly, with a way back. The answer to "did that
  * work?" and the plan's undo-everywhere in one: three seconds, then gone.
  */
-export const toast = (text: string, undo?: () => void, tone: 'success' | 'error' = 'success'): void => {
+/** One next step a toast can offer beside its undo, with a key: Q, for a question. */
+export type ToastAction = { label: string; key: string; run: () => void }
+export const toast = (text: string, undo?: () => void, tone: 'success' | 'error' = 'success', action?: ToastAction): void => {
   beam(tone)
-  window.dispatchEvent(new CustomEvent('vigil:toast', { detail: { text, undo, tone } }))
+  window.dispatchEvent(new CustomEvent('vigil:toast', { detail: { text, undo, tone, action } }))
 }
+
+/** Give a nugget its question, so review can test it: asked in place. */
+export const askQuestion = (id: string): Promise<void> =>
+  ask('The question it answers, for review', 'e.g. What does MVCC stand for?').then((prompt) => {
+    if (prompt) void vigil.saveItem(id, { prompt }).then(() => toast('Now tested: it will come up in review'))
+  })
 
 /** Say why something was not done, with the "not allowed" sound. */
 export const refuse = (text: string): void => {
@@ -313,7 +335,7 @@ function Asker(): React.JSX.Element | null {
 }
 
 export function Toaster(): React.JSX.Element | null {
-  const [shown, setShown] = useState<{ text: string; undo?: () => void; tone?: 'success' | 'error'; key: number } | null>(null)
+  const [shown, setShown] = useState<{ text: string; undo?: () => void; tone?: 'success' | 'error'; action?: ToastAction; key: number } | null>(null)
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
     const onToast = (event: Event): void => {
@@ -321,7 +343,7 @@ export function Toaster(): React.JSX.Element | null {
       const detail = (event as CustomEvent).detail
       setShown({ ...detail, key: Date.now() })
       // Longer when it can be taken back, so the undo is there to reach.
-      timer = setTimeout(() => setShown(null), detail.undo ? 6000 : 3200)
+      timer = setTimeout(() => setShown(null), detail.undo || detail.action ? 6000 : 3200)
     }
     // A save that failed on the way to the database says so, rather than the
     // success toast just never coming.
@@ -339,9 +361,15 @@ export function Toaster(): React.JSX.Element | null {
   // ⌘Z takes back what the toast offers, outside a field or the editor, which
   // keep their own undo.
   useEffect(() => {
-    if (!shown?.undo) return
+    if (!shown?.undo && !shown?.action) return
     const onKey = (event: KeyboardEvent): void => {
-      if (!event.metaKey || event.key !== 'z' || event.shiftKey || typing()) return
+      // The toast's next step on its own key, while it is up and you are not writing.
+      if (shown.action && !event.metaKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() === shown.action.key.toLowerCase() && !typing()) {
+        event.preventDefault()
+        setShown(null)
+        return shown.action.run()
+      }
+      if (!shown.undo || !event.metaKey || event.key !== 'z' || event.shiftKey || typing()) return
       event.preventDefault()
       chime('undo')
       shown.undo?.()
@@ -369,6 +397,18 @@ export function Toaster(): React.JSX.Element | null {
         ? <CircleX className="size-4 shrink-0 text-[var(--tt-color-text-red)]" />
         : <CircleCheck className="size-4 shrink-0 text-[var(--tt-brand-color-400)]" />}
       <span>{shown.text}</span>
+      {shown.action && (
+        <button
+          type="button"
+          className="font-medium text-[var(--tt-brand-color-400)] hover:underline"
+          onClick={() => {
+            setShown(null)
+            shown.action?.run()
+          }}
+        >
+          {shown.action.label} <kbd className="ml-0.5 font-sans text-key opacity-70">{shown.action.key}</kbd>
+        </button>
+      )}
       {shown.undo && (
         <button
           type="button"

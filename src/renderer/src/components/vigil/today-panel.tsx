@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'motion/react'
 
 import { chime } from '@/lib/sound'
 import { taskSaid, useLive, vigil, when, type Task } from '@/lib/vigil'
-import { Empty, toast, typing, useListKeys } from './ui'
+import { Empty, toast, typing, useListKeys, Strip } from './ui'
 import { Chips, Display, arrange, useView } from './display'
 import { taskFacets } from './tasks-view'
 import { RowMenu, copy } from './row-menu'
@@ -90,7 +90,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   return (
     <div className="flex flex-col gap-1 text-sm">
       {/* Each list with how many it holds, so a task sent to the backlog is seen landing there. */}
-      <div className="sticky top-0 z-[5] flex h-8 items-center gap-1 px-1 backdrop-blur-xl">
+      <Strip className="flex h-8 items-center gap-1 px-1">
       <Chips
         options={(Object.keys(SCOPES) as Scope[]).map((id) => {
           const n = tasks.filter((task) => task.status === 'open' && SCOPES[id].test(task)).length
@@ -103,7 +103,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
         className="min-w-0 flex-1 flex-nowrap overflow-x-auto pr-6 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] [&>button]:shrink-0"
       />
       <span className="ml-auto"><Display view={view} onChange={setView} facets={facets} sorts={[{ id: 'manual', label: 'Your order' }]} /></span>
-      </div>
+      </Strip>
       <form
         className="mb-2 flex items-center gap-2 rounded-md border px-2 py-1.5 focus-within:border-ring"
         onSubmit={(event) => {

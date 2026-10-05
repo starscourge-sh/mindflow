@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
 import type { JSONContent } from '@tiptap/core'
 
 import { EXITS, captureKey, exit as exitWith, toTask } from '@/lib/capture-links'
 import { wordsOf } from '../../../main/import'
-import { AskWho, Rolling, pin, toast } from './vigil/ui'
+import { AskWho, Rolling, pin, toast, typing } from './vigil/ui'
 import { AnimatePresence, motion } from 'motion/react'
 import { taskSaid } from '@/lib/vigil'
 import { RowMenu, copy } from './vigil/row-menu'
@@ -85,6 +85,25 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
     void exitWith(id, status, back).then(() => window.api.captures.get(id)).then((now) => now?.status !== 'open' && drop(id))
   }
 
+  // The card under the pointer takes P, R, D and W, as the focused one does:
+  // point and press, no click first. Not while you are writing, where those
+  // letters are words. Taken before the list's own keys see them.
+  const pointed = useRef<string | null>(null)
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      const id = pointed.current
+      if (!id || typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
+      if ((event.target as Element | null)?.closest?.('[data-tone="knock"]')) return
+      const picked = EXITS.find((one) => one.key === event.key)
+      if (!picked && event.key !== 'w') return
+      event.preventDefault()
+      if (picked) exit(id, picked.status)
+      else setAsking(id)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  })
+
   if (!cards.length) return null
   return (
     <section className="mb-2">
@@ -104,6 +123,8 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
           animate={{ opacity: 1 }}
           exit={{ opacity: 0, x: 24, transition: { duration: 0.18 } }}
           tabIndex={0}
+          onPointerEnter={() => void (pointed.current = card.id)}
+          onPointerLeave={() => void (pointed.current === card.id && (pointed.current = null))}
           data-tone="knock"
           className="group border-b border-border/60 px-2 py-2 text-sm outline-none last:border-b-0 focus-visible:bg-accent/40"
           onKeyDown={(event) => {
@@ -143,7 +164,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
               <span style={{ color: ageTint(card.capturedAt) }}>{Date.now() - new Date(card.capturedAt).getTime() < 86400000 ? 'from today' : `untouched ${age(card.capturedAt)}`}</span>
             </span>
             {EXITS.map((one) => (
-              <Tip key={one.key} label={<span className="flex items-center gap-2">{one.what}<Kbd>{one.key.toUpperCase()}</Kbd></span>}>
+              <Tip key={one.key} label={<span className="flex items-center gap-2">{one.what}<Kbd>{one.key.toUpperCase()}</Kbd><span className="text-muted-foreground">pointing at the card</span></span>}>
               {/* Quiet at rest, their colour when you reach the card. */}
               <Button variant="ghost" size="sm"
                 // Out of sight until you reach the card: three cards of three buttons

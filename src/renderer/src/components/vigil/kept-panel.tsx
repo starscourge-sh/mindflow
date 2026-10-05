@@ -6,7 +6,7 @@ import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { taskSaid, useLive, vigil, type Item } from '@/lib/vigil'
 import { Chips } from './display'
 import { RowMenu, copy } from './row-menu'
-import { Empty, ask, pin, toast, typing, useListKeys, useReadKey, VirtualList } from './ui'
+import { Empty, ask, pin, toast, typing, useListKeys, useReadKey, VirtualList, Strip } from './ui'
 import { Button } from '@/components/ui/button'
 import { useItemDisplay } from './items-view'
 
@@ -50,7 +50,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     })
   return (
     <div className="flex flex-col gap-1 text-sm">
-      <div className="sticky top-0 z-[5] flex h-8 min-w-0 items-center gap-1 px-1 backdrop-blur-xl">
+      <Strip className="flex h-8 min-w-0 items-center gap-1 px-1">
         <Chips className="shrink-0" options={TIERS} on={(id) => id === tier} pick={(id) => setTier(id as 'nugget' | 'article')} />
         {/* Read only when there is something to read. */}
         {all.length > 0 && <Button variant="ghost" size="sm" className="ml-auto" onClick={read}><BookOpen className="size-3.5" /> Read</Button>}
@@ -58,7 +58,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
         {tier === 'article' && (
           <Button variant="ghost" size="sm" onClick={() => void vigil.newArticle().then((id) => onOpen('article', id))}><Plus className="size-3.5" /> New article</Button>
         )}
-      </div>
+      </Strip>
       {chosen.length > 0 && (
         <div className="flex items-center gap-1 px-1 text-xs text-muted-foreground">
           <span className="mr-auto">{chosen.length} selected</span>

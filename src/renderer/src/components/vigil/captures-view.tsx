@@ -13,7 +13,7 @@ import { EXITS, STATUS_ICON, captureKey, exit, findCaptures, flying, takeExit, t
 import { toMarkdown } from '@/lib/export'
 import { splitTags, taskSaid, vigil, type Made } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
-import { Empty, Kbd, Page, Prop, PropLabel, Props, Remembered, Rolling, ask, refuse, toast, useListKeys, useReadKey, typing, pin } from './ui'
+import { Empty, Kbd, Page, Prop, PropLabel, Props, Remembered, Rolling, ask, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion } from './ui'
 import { RemindMe } from './items-view'
 import { ReadThrough } from './read-through'
 import { selectionActions } from './selection-actions'
@@ -265,7 +265,9 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
                   if (result === 'needs-source') return refuse('A quote needs to say who said it: add a source below first')
                   // The sound once it went through, so a refusal never sounds like success first.
                   chime(exit.label === 'Discard' ? 'away' : exit.label === 'Promote to nugget' ? 'promote' : 'resolve')
-                  toast(exit.said, exit.label === 'Promote to nugget' ? undefined : reopen)
+                  if (exit.label === 'Promote to nugget')
+                    return toast(exit.said, undefined, 'success', typeof result === 'string' ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
+                  toast(exit.said, reopen)
                 })
               }}
             >

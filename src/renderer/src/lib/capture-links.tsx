@@ -1,6 +1,6 @@
 import { CircleArrowUp, CircleCheck, CircleDashed, CircleX } from 'lucide-react'
 
-import { ask, toast } from '@/components/vigil/ui'
+import { ask, askQuestion, toast } from '@/components/vigil/ui'
 import { chime } from '@/lib/sound'
 import { lift, type Home } from '@/lib/fly-home'
 import type { NoteSuggestion } from '@/extensions/note-link'
@@ -36,7 +36,9 @@ export async function exit(id: string, status: string, onUndo?: () => void): Pro
   if (result === 'cancelled' || !one) return
   // After the work, so a cancelled question or a refusal makes no false promise.
   chime(status === 'discarded' ? 'away' : status === 'promoted' ? 'promote' : 'resolve')
-  toast(one.done, status === 'promoted' ? undefined : () => void window.api.captures.save(id, { status: 'open' }).then(() => onUndo?.()))
+  // Kept as a nugget: the question review will test it with is one key away.
+  if (status === 'promoted') return toast(one.done, undefined, 'success', typeof result === 'string' ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
+  toast(one.done, () => void window.api.captures.save(id, { status: 'open' }).then(() => onUndo?.()))
 }
 
 /**
