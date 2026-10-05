@@ -13,7 +13,7 @@ import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-k
 import { age } from '../capture-list'
 import { findCaptures, follow } from '@/lib/capture-links'
 import { interval, splitTags, taskSaid, useLive, vigil, when, type Item, type ItemFull } from '@/lib/vigil'
-import { Empty, Page, Prop, PropLabel, Props, Tags, refuse, toast, useListKeys, useReadKey, typing, pin, VirtualList, Stepper, startAt } from './ui'
+import { Empty, Page, Prop, PropLabel, Props, Tags, refuse, toast, useListKeys, useReadKey, typing, pin, VirtualList, Stepper, startAt, Rolling } from './ui'
 import { AGES, Display, arrange, period, useView, type Facet } from './display'
 import { RowMenu, copy } from './row-menu'
 import { Lineage } from './lineage'
@@ -85,7 +85,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
         actions={
           chosen.length ? (
             <span className="flex items-center gap-2 text-muted-foreground">
-              {chosen.length} selected
+              <Rolling text={chosen.length} /> selected
               <Button variant="secondary" size="sm"
  
  onClick={() => void vigil.article(chosen).then((id) => {
@@ -455,7 +455,7 @@ export function RemindMe({ table, id, at }: { table: 'captures' | 'nuggets'; id:
     setOpen(false)
     setWords('')
     void vigil.remind(table, id, date ? date.toISOString() : null).then(() =>
-      toast(date ? `Will pin itself ${when(date.toISOString(), false).toLowerCase()}` : 'Reminder cleared'))
+      (chime(date ? 'pin' : 'off'), toast(date ? `Will pin itself ${when(date.toISOString(), false).toLowerCase()}` : 'Reminder cleared')))
   }
   return (
     <Popover open={open} onOpenChange={setOpen}>

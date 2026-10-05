@@ -101,7 +101,7 @@ export function CapturesView({ title, keep, focus, onOpen }: {
         actions={
           chosen.length ? (
             <span className="flex items-center gap-1">
-              <span className="mr-1">{chosen.length} selected</span>
+              <span className="mr-1"><Rolling text={chosen.length} /> selected</span>
               <Button variant="ghost" size="sm" onClick={() => bulk('resolved')}>Resolve</Button>
               <Button variant="ghost" size="sm" onClick={() => bulk('discarded')}>Discard</Button>
               {chosen.length > 1 && (
@@ -116,12 +116,12 @@ export function CapturesView({ title, keep, focus, onOpen }: {
                 onKeyDown={(event) => {
                   const tag = event.currentTarget.value.trim()
                   if (event.key !== 'Enter' || !tag) return
-                  void vigil.bulk(chosen, { tag }).then((n) => toast(`Tagged ${n} with #${tag.replace(/^#/, '')}`))
+                  void vigil.bulk(chosen, { tag }).then((n) => (chime('noted'), toast(`Tagged ${n} with #${tag.replace(/^#/, '')}`)))
                   event.currentTarget.value = ''
                 }}
                 className="w-20 rounded-md bg-transparent px-2 py-1 text-xs outline-none placeholder:text-muted-foreground hover:bg-accent focus:bg-accent"
               />
-              <DatePicker value={null} placeholder="Date…" className="text-xs" onChange={(at) => at && void vigil.bulk(chosen, { capturedAt: at }).then((n) => toast(`Dated ${n}`))} />
+              <DatePicker value={null} placeholder="Date…" className="text-xs" onChange={(at) => at && void vigil.bulk(chosen, { capturedAt: at }).then((n) => (chime('noted'), toast(`Dated ${n}`)))} />
               <Tip label="Clear">
               <Button variant="ghost" size="icon-sm" onClick={() => setChosen([])}><X className="size-3.5" /></Button>
               </Tip>
@@ -143,7 +143,7 @@ export function CapturesView({ title, keep, focus, onOpen }: {
               const before = groups.slice(0, index).reduce((n, [, one]) => n + one.length, 0)
               return (
                 <div key={name || 'all'}>
-                  {name && <div className="px-2 pt-4 pb-1 text-xs text-muted-foreground first:pt-1">{name} <span className="tabular-nums">{list.length}</span></div>}
+                  {name && <div className="px-2 pt-4 pb-1 text-xs text-muted-foreground first:pt-1">{name} <span className="tabular-nums"><Rolling text={list.length} /></span></div>}
                   <CaptureList captures={list} selected={open?.id} cursor={cursor - before} chosen={chosen} onPick={pick} />
                 </div>
               )
@@ -305,7 +305,7 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
               const number = Number(event.currentTarget.value.replace(/\D/g, ''))
               if (event.key !== 'Enter' || !number) return
               void vigil.mergeCapture(capture.id, number).then((into) =>
-                into ? toast(`Merged into MF-${number}`, () => void window.api.captures.save(capture.id, { status: 'open' })) : refuse(`No MF-${number} to merge into`)
+                into ? (chime('resolve'), toast(`Merged into MF-${number}`, () => void window.api.captures.save(capture.id, { status: 'open' }))) : refuse(`No MF-${number} to merge into`)
               )
             }}
             className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-muted-foreground"

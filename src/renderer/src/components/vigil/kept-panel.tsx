@@ -7,7 +7,7 @@ import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { taskSaid, useLive, vigil, type Item } from '@/lib/vigil'
 import { Chips } from './display'
 import { RowMenu, copy } from './row-menu'
-import { Empty, ask, pin, toast, typing, useListKeys, useReadKey, VirtualList, Strip, Tip, startAt } from './ui'
+import { Empty, ask, pin, toast, typing, useListKeys, useReadKey, VirtualList, Strip, Tip, startAt, Rolling } from './ui'
 import { Button } from '@/components/ui/button'
 import { useItemDisplay } from './items-view'
 import BookIcon from '@/components/ui/book-icon'
@@ -65,7 +65,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
       </Strip>
       {chosen.length > 0 && (
         <div className="flex items-center gap-1 px-1 text-xs text-muted-foreground">
-          <span className="mr-auto">{chosen.length} selected</span>
+          <span className="mr-auto"><Rolling text={chosen.length} /> selected</span>
           <Button variant="ghost" size="sm" onClick={() => article(chosen)}>Start an article from {chosen.length === 1 ? 'it' : 'these'}</Button>
         </div>
       )}

@@ -1,3 +1,4 @@
+import { chime } from '@/lib/sound'
 import { useState, type ReactNode } from 'react'
 import { CalendarDays } from 'lucide-react'
 
@@ -49,6 +50,7 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
           defaultMonth={date}
           onSelect={(day) => {
             if (!day) return
+            chime('tap')
             onChange(at(day))
             if (!time) setOpen(false)
           }}
@@ -57,11 +59,11 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
           {time && (
             <Input type="time" className="h-8 w-28" value={clock} onChange={(event) => date && event.target.value && onChange(at(date, event.target.value))} />
           )}
-          <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => onChange(at(new Date()))}>
+          <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => (chime('tap'), onChange(at(new Date())))}>
             Today
           </Button>
           {value && (
-            <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground" onClick={() => { onChange(null); setOpen(false) }}>
+            <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground" onClick={() => { chime('off'); onChange(null); setOpen(false) }}>
               Clear
             </Button>
           )}

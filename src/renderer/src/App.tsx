@@ -15,7 +15,7 @@ import { TodayPanel } from './components/vigil/today-panel'
 import { selectionActions } from './components/vigil/selection-actions'
 import { ReviewView } from './components/vigil/review-view'
 import { useAppearance, useLive } from './lib/vigil'
-import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, Typed, ask, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt } from './components/vigil/ui'
+import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, Typed, ask, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt, Rolling } from './components/vigil/ui'
 import { TooltipProvider } from './components/ui/tooltip'
 import { Rolling, Toaster, beam, refuse, toast } from './components/vigil/ui'
 import { Reader } from './components/vigil/reader'
@@ -1303,7 +1303,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                 <Strip className="flex h-8 shrink-0 items-center gap-1 px-1 pl-2 text-control text-muted-foreground">
                   {chosen.length ? (
                     <>
-                      <span className="mr-auto">{chosen.length} selected</span>
+                      <span className="mr-auto"><Rolling text={chosen.length} /> selected</span>
                       <Button variant="ghost" size="sm" onClick={() => bulk('resolved')}>Resolve</Button>
                       <Button variant="ghost" size="sm" onClick={() => bulk('discarded')}>Discard</Button>
                       {chosen.length > 1 && (
@@ -1339,7 +1339,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                   const before = groups.slice(0, index).reduce((n, [, one]) => n + one.length, 0)
                   return (
                     <div key={name || 'all'}>
-                      {name && <div className="px-2 pt-3 pb-1 text-xs text-muted-foreground">{name} <span className="tabular-nums">{list.length}</span></div>}
+                      {name && <div className="px-2 pt-3 pb-1 text-xs text-muted-foreground">{name} <span className="tabular-nums"><Rolling text={list.length} /></span></div>}
                       <CaptureList captures={list} selected={editing} cursor={cursor - before} chosen={chosen} onPick={onOpen} />
                     </div>
                   )

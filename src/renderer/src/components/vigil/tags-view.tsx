@@ -1,5 +1,6 @@
+import { chime, step } from '@/lib/sound'
 import { useEffect, useState } from 'react'
-import { toast, VirtualList } from './ui'
+import { toast, VirtualList, refuse } from './ui'
 import { RowMenu, copy } from './row-menu'
 import { Switch } from '@/components/ui/switch'
 
@@ -71,12 +72,14 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
             {/* A colour, and whether writing this tag makes a task, the way
                 #bug does. Labels, not kinds: a colour and one behaviour. */}
             <span className="flex items-center gap-1">
-              {COLORS.map((one) => (
+              {COLORS.map((one, index) => (
                 <Tip key={one} label={one}>
                 <button
                   type="button"
                 
-                  onClick={() => void vigil.setTag(chosen, { color: one })}
+                  // Each colour its own note, like the themes; picking lands with the chord.
+                  onMouseEnter={() => step(index)}
+                  onClick={() => void vigil.setTag(chosen, { color: one }).then(() => chime('settled'))}
                   className={`size-3.5 rounded-full ${current?.color === one ? 'ring-2 ring-foreground/60 ring-offset-1 ring-offset-background' : ''}`}
                   style={{ background: `var(--tt-color-text-${one})` }}
                 />
@@ -110,7 +113,8 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 const to = event.currentTarget.value.trim()
                 if (event.key !== 'Enter' || !to) return
                 void vigil.renameTag(chosen, to).then((done) => {
-                  if (!done) return toast('A tag is letters, digits and dashes')
+                  if (!done) return refuse('A tag is letters, digits and dashes')
+                  chime('noted')
                   toast(`#${chosen} is now #${done} everywhere`)
                   setChosen(done)
                 })
