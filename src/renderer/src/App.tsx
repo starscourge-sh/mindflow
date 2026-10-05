@@ -125,6 +125,8 @@ const Header = ({ panel, onPanel, menu, nav }: { panel: boolean; onPanel: () => 
   const [expanded, setExpanded] = useState(false)
   const toggle = (): void => {
     setExpanded((was) => {
+      // Growing sounds like it, and so does coming back down.
+      chime(was ? 'fold' : 'slide')
       void window.api.setExpanded(!was)
       return !was
     })

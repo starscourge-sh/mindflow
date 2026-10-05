@@ -20,7 +20,9 @@ export const setVolume = (level: number): void => {
   volume = Math.max(0, Math.min(1, level))
 }
 
-type Note = [frequency: number, delay: number, length?: number, level?: number]
+// `to` glides the pitch there over the note, and `swell` is how long it takes
+// to come in: together, a sound that grows rather than strikes.
+type Note = [frequency: number, delay: number, length?: number, level?: number, to?: number, swell?: number]
 
 const CUES = {
   // A light tick: switching a tab, moving to a section.
@@ -39,8 +41,11 @@ const CUES = {
   // Search: one ping with a long tail, sonar going out.
   search: [[1318, 0, 0.45, 0.04]],
   // The side panel slides out (rising) or folds away (falling), low and soft.
-  slide: [[392, 0, 0.08, 0.04], [523, 0.05, 0.12, 0.04]],
-  fold: [[523, 0, 0.08, 0.035], [392, 0.05, 0.12, 0.035]],
+  // Something opening out (the side panel, a taller box): a warm swell
+  // that rises a fifth as it grows, two voices a fifth apart. Folding away is
+  // the same, falling, and a little quieter.
+  slide: [[196, 0, 0.36, 0.05, 294, 0.09], [294, 0.03, 0.34, 0.03, 440, 0.1]],
+  fold: [[294, 0, 0.3, 0.04, 196, 0.05], [440, 0.02, 0.28, 0.025, 294, 0.06]],
   // A task written down: two light knocks, something noted.
   noted: [[740, 0, 0.06], [740, 0.08, 0.1]],
   // A theme kept: a small major chord, the room settled.
@@ -97,16 +102,24 @@ function play(notes: Note[]): void {
   const sound = PACKS[pack]
   // Square and saw are loud for their level; they are brought down to match.
   const loud = sound.osc === 'square' || sound.osc === 'sawtooth' ? 0.45 : 1
-  for (const [frequency, delay, length = 0.18, peak = 0.07] of notes) {
+  for (const [frequency, delay, length = 0.18, peak = 0.07, to, swell = 0.004] of notes) {
     const at = start + delay
     const tone = context.createOscillator()
     const level = context.createGain()
     tone.type = sound.osc
-    tone.frequency.value = frequency * sound.pitch
-    level.gain.setValueAtTime(0, at)
-    level.gain.linearRampToValueAtTime(Math.max(0.0002, peak * sound.gain * loud * volume), at + 0.004)
+    tone.frequency.setValueAtTime(frequency * sound.pitch, at)
+    if (to) tone.frequency.exponentialRampToValueAtTime(to * sound.pitch, at + length * sound.decay)
+    level.gain.setValueAtTime(0.0001, at)
+    level.gain.linearRampToValueAtTime(Math.max(0.0002, peak * sound.gain * loud * volume), at + swell)
     level.gain.exponentialRampToValueAtTime(0.0001, at + length * sound.decay)
-    tone.connect(level).connect(context.destination)
+    // A glide is kept warm: its brightness taken off above a soft corner.
+    const warm = to ? context.createBiquadFilter() : null
+    if (warm) {
+      warm.type = 'lowpass'
+      warm.frequency.value = 1400
+      warm.Q.value = 0.5
+      tone.connect(warm).connect(level).connect(context.destination)
+    } else tone.connect(level).connect(context.destination)
     tone.start(at)
     tone.stop(at + length * sound.decay + 0.02)
   }
