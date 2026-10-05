@@ -100,7 +100,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
   if (!cards.length) return null
   return (
     <section className="mb-2">
-      <Tip label="Three old captures with no exit yet, a new three each time you open this. A sample, not a list to clear. Click one to read or edit it.">
+      <Tip label="A few old captures with no exit yet, a fresh few each time you open this. A sample, not a list to clear. Click one to read or edit it.">
         <h3 className="w-fit px-2 pb-1 text-xs text-muted-foreground">Waiting on you</h3>
       </Tip>
       {/* A card that takes an exit leaves sideways, the way it was dealt with,

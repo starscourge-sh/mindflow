@@ -67,7 +67,7 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick }:
             capture.status === 'open' && { label: 'Make it a task', run: () => void toTask(capture.id).then((made) => { if (!made) return; chime(made.existed ? 'nope' : 'noted'); toast(taskSaid(made, 'Now a task')) }) },
             'separator',
             { label: capture.pinnedAt ? 'Unpin' : 'Pin to the prompt', run: () => pin('captures', capture.id, !capture.pinnedAt) },
-            { label: capture.private ? 'Let it surface' : 'Make private', run: () => void vigil.setPrivate('captures', capture.id, !capture.private) },
+            { label: capture.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('captures', capture.id, !capture.private) },
             'separator',
             { label: `Copy ${captureKey(capture.number)}`, run: () => copy(captureKey(capture.number), `Copied ${captureKey(capture.number)}`) },
             { label: 'Copy text', run: () => copy(capture.label) }

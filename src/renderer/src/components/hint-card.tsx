@@ -133,7 +133,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
                 // nugget or article in its place.
                 { icon: ArrowUpRight, tip: 'Open it', run: open },
                 { icon: Pencil, tip: 'Fix its words', run: fix },
-                { icon: ThumbsUp, tip: 'Show this more often', keys: '⌃⇧↑', run: () => react('up') },
+                { icon: ThumbsUp, tip: 'More like this: keep it, or see it more often', keys: '⌃⇧↑', run: () => react('up') },
                 { icon: ThumbsDown, tip: 'Show this less often', keys: '⌃⇧↓', run: () => react('down') },
                 { icon: X, tip: 'Not now', run: () => (chime('fold'), setHint(null)) },
                 // Gone for good, but never destroyed: a capture goes to

@@ -110,6 +110,12 @@ export function Props({ children, className }: { children: ReactNode; className?
 export function PropLabel({ children }: { children: ReactNode }): React.JSX.Element {
   return <div className="mt-3 mb-1 px-2 text-meta font-medium first:mt-0">{children}</div>
 }
+/** Where reading a list starts: the note open now, else the keyboard cursor, else the top. */
+export const startAt = (list: { id: string }[], open: string | null | undefined, cursor: number): number => {
+  const at = open ? list.findIndex((one) => one.id === open) : -1
+  return at >= 0 ? at : Math.max(0, cursor)
+}
+
 /**
  * Where an open item sits in its list, and the way to the next and the one
  * before, the way Linear's issue view has it: "3 / 426 ↓ ↑". ↓ and ↑ step

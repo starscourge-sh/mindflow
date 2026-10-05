@@ -13,7 +13,7 @@ import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-k
 import { age } from '../capture-list'
 import { findCaptures, follow } from '@/lib/capture-links'
 import { interval, splitTags, taskSaid, useLive, vigil, when, type Item, type ItemFull } from '@/lib/vigil'
-import { Empty, Page, Prop, PropLabel, Props, Tags, refuse, toast, useListKeys, useReadKey, typing, pin, VirtualList, Stepper } from './ui'
+import { Empty, Page, Prop, PropLabel, Props, Tags, refuse, toast, useListKeys, useReadKey, typing, pin, VirtualList, Stepper, startAt } from './ui'
 import { AGES, Display, arrange, period, useView, type Facet } from './display'
 import { RowMenu, copy } from './row-menu'
 import { Lineage } from './lineage'
@@ -45,7 +45,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   const [cursor] = useListKeys(items.length, { onOpen: (index) => pick(items[index].id), onBack: () => setOpen(null) })
   // Reading through what is shown, one at a time with nothing else on screen.
   const [readFrom, setReadFrom] = useState<number | null>(null)
-  useReadKey(() => setReadFrom(Math.max(0, cursor)), items.length)
+  useReadKey(() => setReadFrom(startAt(items, open?.id, cursor)), items.length)
   // x selects, the way Linear does it; several nuggets make one article.
   const [chosen, setChosen] = useState<string[]>([])
   // The Luhmann move: two unrelated nuggets side by side, for the connection
@@ -120,7 +120,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
                 </Button>
               )}
               <Tip label="Read this list full screen, one note at a time, from the highlighted one (or the first). You can write in each as you go.  ⇧⌘R">
-                <Button variant="ghost" size="sm" onClick={() => setReadFrom(Math.max(0, cursor))} disabled={!items.length}><AliveIcon icon={BookIcon} size={14} /> Read list</Button>
+                <Button variant="ghost" size="sm" onClick={() => setReadFrom(startAt(items, open?.id, cursor))} disabled={!items.length}><AliveIcon icon={BookIcon} size={14} /> Read list</Button>
               </Tip>
               {display}
             </span>
@@ -157,7 +157,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
                 { label: 'Open', keys: '↵', run: () => pick(item.id) },
                 'separator',
                 { label: item.pinnedAt ? 'Unpin' : 'Pin to the prompt', run: () => pin('nuggets', item.id, !item.pinnedAt) },
-                { label: item.private ? 'Let it surface' : 'Make private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
+                { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
                 tier === 'nugget' && { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(item.id) },
                 'separator',
                 { label: 'Copy title', run: () => copy(item.title) }

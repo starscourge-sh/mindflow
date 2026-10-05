@@ -7,7 +7,7 @@ import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { taskSaid, useLive, vigil, type Item } from '@/lib/vigil'
 import { Chips } from './display'
 import { RowMenu, copy } from './row-menu'
-import { Empty, ask, pin, toast, typing, useListKeys, useReadKey, VirtualList, Strip, Tip } from './ui'
+import { Empty, ask, pin, toast, typing, useListKeys, useReadKey, VirtualList, Strip, Tip, startAt } from './ui'
 import { Button } from '@/components/ui/button'
 import { useItemDisplay } from './items-view'
 import BookIcon from '@/components/ui/book-icon'
@@ -42,7 +42,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   })
-  const read = (): void => void (items.length && onRead(items.map((one) => ({ type: tier, id: one.id })), Math.max(0, cursor)))
+  const read = (): void => void (items.length && onRead(items.map((one) => ({ type: tier, id: one.id })), startAt(items, open, cursor)))
   // ⇧⌘R reads through what is shown, from the row under the cursor.
   useReadKey(read, items.length)
   const article = (ids: string[]): void =>
@@ -81,7 +81,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
                 { label: 'Study this', run: () => void ask('When will you study it?', 'e.g. read it again on Thursday').then((when) => { if (when) void vigil.study(item.id, `Study “${item.title}” ${when}`).then((made) => { chime(made.existed ? 'nope' : 'noted'); toast(taskSaid(made, 'A task, with this linked')) }) }) },
                 'separator',
                 { label: item.pinnedAt ? 'Unpin' : 'Pin to the prompt', run: () => pin('nuggets', item.id, !item.pinnedAt) },
-                { label: item.private ? 'Let it surface' : 'Make private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
+                { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
                 'separator',
                 { label: 'Copy title', run: () => copy(item.title) }
               ]}>

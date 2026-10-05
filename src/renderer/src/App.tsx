@@ -15,7 +15,7 @@ import { TodayPanel } from './components/vigil/today-panel'
 import { selectionActions } from './components/vigil/selection-actions'
 import { ReviewView } from './components/vigil/review-view'
 import { useAppearance, useLive } from './lib/vigil'
-import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, Typed, ask, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode } from './components/vigil/ui'
+import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, Typed, ask, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt } from './components/vigil/ui'
 import { TooltipProvider } from './components/ui/tooltip'
 import { Rolling, Toaster, beam, refuse, toast } from './components/vigil/ui'
 import { Reader } from './components/vigil/reader'
@@ -341,6 +341,8 @@ export default function App(): React.JSX.Element {
     if (!reading) return
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return
+      // Reading full screen over it: that Escape is reading's, not this note's.
+      if (document.querySelector('[aria-label="Reading"]')) return
       const target = event.target as HTMLElement
       if (target.closest?.('[data-vim-mode="insert"]')) return
       event.preventDefault()
@@ -455,6 +457,8 @@ export default function App(): React.JSX.Element {
     return () => window.removeEventListener('keydown', onKey)
   })
   const openCapture = (id: string, travelling = false): void => {
+    // A lock is for the note it was set on, not the next one.
+    setLocked(false)
     // The same one again is not a step back to take.
     if (!travelling) setTrail((now) => (now.stack[now.at] === id ? now : { stack: [...now.stack.slice(0, now.at + 1), id], at: now.at + 1 }))
     setReading(null)
@@ -493,6 +497,7 @@ export default function App(): React.JSX.Element {
     return () => window.removeEventListener('keydown', onKey)
   })
   const fresh = (keepDraft = false, travelling = false): void => {
+    setLocked(false)
     if (!travelling) setTrail({ stack: [null], at: 0 })
     if (!keepDraft) localStorage.removeItem('capture-draft')
     // A draft set aside for good takes its pending links with it; a submit
@@ -661,7 +666,7 @@ export default function App(): React.JSX.Element {
               setTab(one)
               if (!panel) setPanel(true)
             } })),
-            { label: 'Read through the inbox', keys: '⇧⌘R', run: () => setReadList({ items: captures.filter((one) => one.status === 'open').map((one) => ({ type: 'capture', id: one.id })), start: 0 }) },
+            { label: 'Read the inbox from the top', run: () => setReadList({ items: captures.filter((one) => one.status === 'open').map((one) => ({ type: 'capture', id: one.id })), start: 0 }) },
             { label: 'Copy this note as Markdown', keys: '⇧⌘C', run: copyMarkdown },
             { label: locked ? 'Unlock this note' : 'Lock this note: read only', cue: locked ? 'off' : 'on', run: () => setLocked(!locked) },
             { label: secret ? 'Make this note not private' : 'Make this note private', cue: editing ? null : secret ? 'off' : 'on', run: () => {
@@ -670,15 +675,15 @@ export default function App(): React.JSX.Element {
             } },
             { label: outline ? 'Hide the outline' : 'Show the outline', cue: outline ? 'off' : 'on', run: () => setOutline(!outline) },
             { label: source ? 'Hide the source' : 'Show the source', keys: '⌘E', cue: null, run: () => setSource(!source) },
-            { label: vim ? 'Turn vim keys off' : 'Turn vim keys on', keys: '\\', cue: vim ? 'off' : 'on', run: () => setVim(!vim) },
+            { label: vim ? 'Turn vim keys off' : 'Turn vim keys on', cue: vim ? 'off' : 'on', run: () => setVim(!vim) },
             { label: appSettings?.sounds ? 'Turn sounds off' : 'Turn sounds on', cue: null, run: () => {
               soundOn(!appSettings?.sounds)
               chime(appSettings?.sounds ? 'off' : 'on')
               void vigil.setSettings({ sounds: !appSettings?.sounds })
             } },
-            { label: appSettings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', cue: appSettings?.safeMode ? 'off' : 'on', run: () => void vigil.setSettings({ safeMode: !appSettings?.safeMode }).then(() => toast(appSettings?.safeMode ? 'Safe mode off' : 'Safe mode: nothing will surface unasked')) },
+            { label: appSettings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', cue: appSettings?.safeMode ? 'off' : 'on', run: () => void vigil.setSettings({ safeMode: !appSettings?.safeMode }).then(() => toast(appSettings?.safeMode ? 'Safe mode off' : 'Safe mode: no hints, rot cards or pins come up')) },
             { label: recordable ? 'Hide from screen recordings' : 'Show in screen recordings', cue: recordable ? 'off' : 'on', run: () => setRecordable(!recordable) },
-            { label: reveal ? 'Blur private titles again' : 'Show private titles', cue: reveal ? 'off' : 'on', run: () => setReveal(!reveal) },
+            { label: reveal ? 'Blur private titles again' : 'Show private titles for now', cue: reveal ? 'off' : 'on', run: () => setReveal(!reveal) },
             { label: 'Open the main window', run: () => window.api.openInHome('view', 'inbox') },
             { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') }
           ]}
@@ -711,7 +716,7 @@ export default function App(): React.JSX.Element {
       )} menu={
         <span className="flex items-center gap-1">
         {/* Safe mode says so here, or the quiet looks like nothing happening. */}
-        {appSettings?.safeMode && <Tip label="Safe mode: nothing private or unasked comes up  ⌥⌘S"><span className="rounded-full bg-accent px-2 py-0.5 text-key text-[var(--tt-brand-color-400)]">Safe</span></Tip>}
+        {appSettings?.safeMode && <Tip label="Safe mode: no hints, rot cards or pins come up  ⌥⌘S"><span className="rounded-full bg-accent px-2 py-0.5 text-key text-[var(--tt-brand-color-400)]">Safe</span></Tip>}
         <OptionsMenu
           app
           label="Vigil"
@@ -720,9 +725,9 @@ export default function App(): React.JSX.Element {
           align="end"
           className="size-6 flex-none rounded-full"
           options={[
-            { label: 'Vim keys', on: vim, keys: '\\', set: setVim },
+            { label: 'Vim keys', on: vim, set: setVim },
             { label: 'Show in screen recordings', on: recordable, set: setRecordable },
-            { label: 'Show private titles', on: reveal, set: setReveal },
+            { label: 'Show private titles for now', on: reveal, set: setReveal },
             { label: 'Word count', on: counting, set: setCounting }
           ]}
           actions={[{ label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') }]}
@@ -838,7 +843,7 @@ export default function App(): React.JSX.Element {
                   className="group/like ml-auto flex max-w-64 cursor-pointer items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--tt-brand-color-400)_35%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_12%,transparent)] px-2.5 py-0.5 text-xs text-foreground animate-in fade-in-0 zoom-in-95 duration-200 hover:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_20%,transparent)]"
                 >
                   <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-[var(--tt-brand-color-400)]" />
-                  <span className="truncate"><Rolling by="word" text={`Written before: MF-${like.number}`} /></span>
+                  <span className="truncate"><Rolling by="word" text={`Similar to MF-${like.number}`} /></span>
                   {/* Says it goes somewhere: an arrow that leans further on hover. */}
                   <ArrowUpRight className="size-3.5 shrink-0 text-[var(--tt-brand-color-400)] transition-transform group-hover/like:translate-x-0.5 group-hover/like:-translate-y-0.5" />
                 </button>
@@ -879,7 +884,7 @@ export default function App(): React.JSX.Element {
                   Create more
                 </label>
               )}
-              <Tip label={createMore && !editing ? 'Save, and a fresh box for the next  ⌘↵' : 'Save and close  ⌘↵ · once with a fresh box after  ⌥⌘↵'}>
+              <Tip label={createMore && !editing ? 'Save, and a fresh box for the next  ⌘↵' : (editing ? 'Back to your draft  ⌘↵ · changes save as you make them' : 'Save and close  ⌘↵ · once with a fresh box after  ⌥⌘↵')}>
               <Button variant="secondary" onClick={() => submit()} className="text-control">
                 {/* Only read, nothing changed: going back, not finishing anything. */}
                 <Rolling text={editing ? (textOf(body).trim() === textOf(editing.body).trim() ? 'Back' : 'Done') : saved ? 'Saved' : 'Create'} /> <kbd className="font-sans text-key opacity-70">⌘↵</kbd>
@@ -1185,7 +1190,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   const openTasks = useLive(
     () => (window.api.vigil('tasks') as Promise<{ status: string; dueAt: string | null; waitingOn: string | null }[]>).then((tasks) => {
       const end = new Date().setHours(24, 0, 0, 0)
-      return tasks.filter((task) => task.status === 'open' && !task.waitingOn && task.dueAt && new Date(task.dueAt).getTime() < end).length
+      return tasks.filter((task) => task.status === 'open' && task.dueAt && new Date(task.dueAt).getTime() < end).length
     }),
     0
   )
@@ -1232,7 +1237,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
     return () => window.removeEventListener('keydown', onKey, true)
   }, [tab, cursor, chosen.length])
   // ⇧⌘R reads through the inbox as it is shown, from the row under the cursor.
-  useReadKey(() => onRead(shownNow.current.map((one) => ({ type: 'capture', id: one.id })), Math.max(0, cursor)), shown.length, tab === 'inbox')
+  useReadKey(() => onRead(shownNow.current.map((one) => ({ type: 'capture', id: one.id })), startAt(shownNow.current, editing, cursor)), shown.length, tab === 'inbox')
   const bulk = (status: string): void => {
     const ids = chosen
     setChosen([])
@@ -1319,10 +1324,10 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                   ) : (
                     <>
                       <Tip label="Every capture with no exit yet; Display's Status shows the rest. x selects several.">
-                        <h3 className="w-fit">{shown.length === open.length ? 'Everything waiting' : `${shown.length} shown`}</h3>
+                        <h3 className="w-fit">{shown.length === open.length ? 'Inbox' : `${shown.length} shown`}</h3>
                       </Tip>
                       <Tip label="Read this list full screen, one note at a time, from the highlighted one (or the first). You can write in each as you go.  ⇧⌘R">
-                        <Button variant="ghost" size="sm" className="ml-auto" onClick={() => onRead(shown.map((one) => ({ type: 'capture', id: one.id })), Math.max(0, cursor))}>
+                        <Button variant="ghost" size="sm" className="ml-auto" onClick={() => onRead(shown.map((one) => ({ type: 'capture', id: one.id })), startAt(shown, editing, cursor))}>
                           <AliveIcon icon={BookIcon} size={14} /> Read list
                         </Button>
                       </Tip>

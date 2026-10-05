@@ -14,7 +14,7 @@ import { EXITS, STATUS_ICON, captureKey, exit, findCaptures, flying, takeExit, t
 import { toMarkdown } from '@/lib/export'
 import { splitTags, taskSaid, vigil, type Made } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
-import { Empty, Page, Prop, PropLabel, Props, Remembered, Rolling, ask, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper } from './ui'
+import { Empty, Page, Prop, PropLabel, Props, Remembered, Rolling, ask, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt } from './ui'
 import { RemindMe } from './items-view'
 import { ReadThrough } from './read-through'
 import { selectionActions } from './selection-actions'
@@ -49,7 +49,7 @@ export function CapturesView({ title, keep, focus, onOpen }: {
   const [cursor] = useListKeys(shown.length, { onOpen: (index) => pick(shown[index].id), onBack: () => setOpen(null) })
   // Reading through what is shown, one at a time with nothing else on screen.
   const [readFrom, setReadFrom] = useState<number | null>(null)
-  useReadKey(() => setReadFrom(Math.max(0, cursor)), shown.length)
+  useReadKey(() => setReadFrom(startAt(shown, open?.id, cursor)), shown.length)
   // x selects, as in Linear, for an exit on many at once.
   const [chosen, setChosen] = useState<string[]>([])
   const lastKey = useRef('')
@@ -130,7 +130,7 @@ export function CapturesView({ title, keep, focus, onOpen }: {
             <span className="flex items-center gap-2">
               {shown.length > 1 && <span className="hidden text-xs whitespace-nowrap @[48rem]/page:inline">x to select</span>}
               <Tip label="Read this list full screen, one note at a time, from the highlighted one (or the first). You can write in each as you go.  ⇧⌘R">
-                <Button variant="ghost" size="sm" onClick={() => setReadFrom(Math.max(0, cursor))} disabled={!shown.length}><AliveIcon icon={BookIcon} size={14} /> Read list</Button>
+                <Button variant="ghost" size="sm" onClick={() => setReadFrom(startAt(shown, open?.id, cursor))} disabled={!shown.length}><AliveIcon icon={BookIcon} size={14} /> Read list</Button>
               </Tip>
               {display}
             </span>

@@ -114,7 +114,7 @@ export function SettingsView(): React.JSX.Element {
             <Slider className="w-40" min={0} max={6} step={1} value={[settings.rotCount]} onValueChange={([rotCount]) => set({ rotCount })} onValueCommit={() => chime('tap')} />
             <span className="w-16 text-right tabular-nums"><Rolling text={settings.rotCount} /></span>
           </Setting>
-          <Setting title="Quiet hours" note="Nothing private, and no capture you have not dealt with yet, comes up unasked. Your pins stay; search and lists still show everything.">
+          <Setting title="Quiet hours" note="Nothing private, and no capture you have not dealt with yet, comes up unasked; pins stay, except private ones and unhandled captures. Search and lists still show everything.">
             <Input type="time" className={field} value={settings.quietStart} onChange={(event) => set({ quietStart: event.target.value })} />
             <span className="text-muted-foreground">to</span>
             <Input type="time" className={field} value={settings.quietEnd} onChange={(event) => set({ quietEnd: event.target.value })} />
@@ -122,7 +122,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Safe mode" note="Nothing comes up unasked at all: no hints, rot cards or pins. For screen shares. ⌥⌘S from anywhere.">
             <Switch checked={settings.safeMode} onCheckedChange={(safeMode) => {
               set({ safeMode })
-              toast(safeMode ? 'Safe mode: nothing will surface unasked' : 'Safe mode off')
+              toast(safeMode ? 'Safe mode: no hints, rot cards or pins come up' : 'Safe mode off')
             }} />
           </Setting>
         </Group>

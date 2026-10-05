@@ -144,7 +144,7 @@ export function Home(): React.JSX.Element {
   const safeMode = (): void => {
     const on = !settings?.safeMode
     chime(on ? 'on' : 'off')
-    void vigil.setSettings({ safeMode: on }).then(() => toast(on ? 'Safe mode: nothing will surface unasked' : 'Safe mode off'))
+    void vigil.setSettings({ safeMode: on }).then(() => toast(on ? 'Safe mode: no hints, rot cards or pins come up' : 'Safe mode off'))
   }
 
   // The keyboard, Linear's way: G then a letter goes somewhere, C captures.
@@ -217,7 +217,7 @@ export function Home(): React.JSX.Element {
               void vigil.setSettings({ sounds: !settings?.sounds })
             } },
             { label: settings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', cue: null, run: safeMode },
-            { label: 'reveal' in document.documentElement.dataset ? 'Blur private titles again' : 'Show private titles', cue: 'reveal' in document.documentElement.dataset ? 'off' : 'on', run: () => {
+            { label: 'reveal' in document.documentElement.dataset ? 'Blur private titles again' : 'Show private titles for now', cue: 'reveal' in document.documentElement.dataset ? 'off' : 'on', run: () => {
               const root = document.documentElement
               if ('reveal' in root.dataset) delete root.dataset.reveal
               else root.dataset.reveal = ''
@@ -334,7 +334,7 @@ export function Home(): React.JSX.Element {
             className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-accent/60 ${settings?.safeMode ? 'text-[var(--tt-brand-color-400)]' : 'text-foreground/80'}`}
           >
             {settings?.safeMode ? <Shield className="size-4" /> : <ShieldOff className="size-4" />}
-            <span className="flex-1 text-left">{settings?.safeMode ? 'Safe mode on' : 'Safe mode'}</span>
+            <span className="flex-1 text-left">{settings?.safeMode ? 'Safe mode: on' : 'Safe mode: off'}</span>
           </button>
           </Tip>
           <Tip label="⌘,">

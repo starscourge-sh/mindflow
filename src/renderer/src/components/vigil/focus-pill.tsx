@@ -90,7 +90,7 @@ export function FocusPill(): React.JSX.Element | null {
             onClick={() => void vigil.endSession(focus.id, '', false).then(() => chime('done'))}
             className="flex items-center gap-1.5 rounded-full bg-accent px-2.5 py-1 hover:bg-accent/70"
           >
-            Complete <Check className="size-3.5" />
+            End session <Check className="size-3.5" />
           </button>
           <button
             type="button"

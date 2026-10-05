@@ -298,9 +298,9 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
               void vigil.saveTask(task.id, { status: 'dropped' }).then(() => {
                 onClose()
                 chime('away')
-                toast('Let go', () => void vigil.saveTask(task.id, { status: 'open' }))
+                toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' }))
               })
-            }>Let it go</Button>
+            }>Close without doing</Button>
           </div>
         )}
         <input
