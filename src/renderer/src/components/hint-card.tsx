@@ -133,8 +133,9 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
                 // nugget or article in its place.
                 { icon: ArrowUpRight, tip: 'Open it', run: open },
                 { icon: Pencil, tip: 'Fix its words', run: fix },
-                { icon: ThumbsUp, tip: 'More like this: keep it, or see it more often', keys: '⌃⇧↑', run: () => react('up') },
-                { icon: ThumbsDown, tip: 'Show this less often', keys: '⌃⇧↓', run: () => react('down') },
+                // Said for what the hint is: a capture is kept, a nugget gets a question.
+                { icon: ThumbsUp, tip: hint.id === hint.captureId ? 'Worth keeping: make it a nugget' : 'Worth knowing: test me on it in review', keys: '⌃⇧↑', run: () => react('up') },
+                { icon: ThumbsDown, tip: 'Not this one: show it less often', keys: '⌃⇧↓', run: () => react('down') },
                 { icon: X, tip: 'Not now', run: () => (chime('fold'), setHint(null)) },
                 // Gone for good, but never destroyed: a capture goes to
                 // Discarded and a nugget stops surfacing; both come back.
@@ -216,7 +217,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
             />
           ) : (
             <div className="mt-2 flex items-center gap-1 text-muted-foreground [&_svg]:size-3.5">
-              <span className="mr-auto text-xs">Hint · {hint.kind}</span>
+              <span className="mr-auto text-xs">{hint.id === hint.captureId ? `From your inbox · a ${hint.kind} with no exit yet` : `Kept · a ${hint.kind} nugget`}</span>
               {/* Open, or let it go: a hint asks nothing else of you. Each
                   button says what it does, since the icons alone do not. */}
               {actions.map(({ icon: Icon, tip, keys, run }) => (

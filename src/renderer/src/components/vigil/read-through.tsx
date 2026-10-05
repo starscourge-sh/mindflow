@@ -89,8 +89,11 @@ export function ReadThrough({ items, start = 0, onClose }: {
       // next page. ⌘Z still takes it back.
       else if (item?.type === 'capture' && 'prdt'.includes(event.key)) {
         const next = (): void => setAt((n) => Math.min(items.length - 1, n + 1))
-        if (event.key === 't') void toTask(item.id).then((made) => made && (chime(made.existed ? 'nope' : 'noted'), toast(taskSaid(made, 'Now a task')), next()))
-        else void exit(item.id, { p: 'promoted', r: 'resolved', d: 'discarded' }[event.key as 'p' | 'r' | 'd']).then(next)
+        // Undone, it is back where you left it: the page you took it from.
+        const here = at
+        const back = (): void => setAt(here)
+        if (event.key === 't') void toTask(item.id).then((made) => made && (chime(made.existed ? 'nope' : 'noted'), toast(taskSaid(made, 'Now a task'), () => void vigil.untask(item.id, made.id, !!made.existed).then(back)), next()))
+        else void exit(item.id, { p: 'promoted', r: 'resolved', d: 'discarded' }[event.key as 'p' | 'r' | 'd'], back).then(next)
       }
     }
     // Taken first, so the lists and the editor underneath never see the keys.
@@ -104,9 +107,9 @@ export function ReadThrough({ items, start = 0, onClose }: {
     const was = document.activeElement as HTMLElement | null
     box.current?.focus()
     // Reading opens out and folds away, like a panel.
-    chime('slide')
+    chime('read')
     return () => {
-      chime('fold')
+      chime('unread')
       was?.focus?.()
     }
   }, [])

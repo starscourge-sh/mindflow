@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { Fragment, useEffect, useRef, useState, type CSSProperties } from 'react'
 import {
   Minimize2,
   ArrowLeft,
@@ -252,7 +252,12 @@ export function Home(): React.JSX.Element {
         </button>
         <nav className="flex flex-col gap-px">
           {SECTIONS.map((section) => (
-            <Tooltip key={section.id}>
+            <Fragment key={section.id}>
+            {/* The same two words as the prompt's tabs: what to do, what you kept. */}
+            {section.id === 'today' && <div className="mt-3 mb-0.5 px-2 text-meta text-muted-foreground">Tasks</div>}
+            {section.id === 'nuggets' && <div className="mt-3 mb-0.5 px-2 text-meta text-muted-foreground">Kept</div>}
+            {section.id === 'tags' && <div className="mt-3" />}
+            <Tooltip>
             <TooltipTrigger asChild>
             <button
               type="button"
@@ -274,6 +279,7 @@ export function Home(): React.JSX.Element {
               {section.label} <Kbd>G</Kbd><Kbd>{section.key.toUpperCase()}</Kbd>
             </TooltipContent>
             </Tooltip>
+            </Fragment>
           ))}
         </nav>
 

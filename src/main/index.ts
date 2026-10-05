@@ -254,6 +254,8 @@ function toggleWindow(): void {
   const win = prompt
   if (!win) {
     createWindow()
+    // Summoned before it existed: shown as soon as it has painted.
+    prompt?.once('ready-to-show', () => prompt && (arrive(prompt), prompt.webContents.send('window:shown')))
     return
   }
 
@@ -599,8 +601,11 @@ function createWindow(): void {
 
   // the ready-to-show event on the BrowserWindow class will be emitted when the renderer process has rendered the page for the first time if the window has not been shown yet.
   // Showing the window after this event will have no visual flash:
+  // Like Raycast: the app starts in the background, ready, and the box shows
+  // only when summoned (the shortcut or the menu bar). A test run, which
+  // drives the window directly, still gets it on screen.
   mainWindow.on('ready-to-show', () => {
-    // still see a view of app before app fully paints, so will wait 1 sec before show.
+    if (!process.env.MINDFLOW_USER_DATA) return
     mainWindow.show()
     recordOpen('prompt')
     mainWindow.webContents.send('window:shown')

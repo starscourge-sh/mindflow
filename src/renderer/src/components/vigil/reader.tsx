@@ -14,6 +14,9 @@ export function Reader({ type, id, onOpen, onClose }: {
 }): React.JSX.Element | null {
   const task = useLive(() => (type === 'task' ? vigil.task(id) : Promise.resolve(null)), null as TaskFull | null, [type, id])
   const item = useLive(() => (type === 'task' ? Promise.resolve(null) : vigil.item(id)), null as ItemFull | null, [type, id])
-  if (type === 'task') return task ? <TaskDetail key={id} task={task} onClose={onClose} onOpen={onOpen} /> : null
-  return item ? <ItemDetail key={id} item={item} onOpen={onOpen} /> : null
+  // Only once the one asked for has loaded: the last one read lingers while
+  // the next loads, and showing it under the new key opened the wrong note,
+  // with its edits going to the wrong place.
+  if (type === 'task') return task?.id === id ? <TaskDetail key={id} task={task} onClose={onClose} onOpen={onOpen} /> : null
+  return item?.id === id ? <ItemDetail key={id} item={item} onOpen={onOpen} /> : null
 }

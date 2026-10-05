@@ -636,6 +636,12 @@ export function registerVigil(): void {
     db.prepare("update captures set status = 'resolved' where id = ?").run(id)
     return write(task)
   })
+  // Made a task by mistake: the task goes, if it was new, and the capture is open again.
+  handle('toTask:undo', (captureId: string, taskId: string, existed: boolean) => {
+    if (!existed) db.prepare('delete from tasks where id = ? and origin_capture_id = ?').run(taskId, captureId)
+    db.prepare("update captures set status = 'open' where id = ?").run(captureId)
+    return write(true)
+  })
 
   // Three open captures, leaning old: the rot sampler. Random, so a sample and
   // never a queue to finish. Gated: nothing in safe mode, no private ones in

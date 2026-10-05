@@ -474,7 +474,9 @@ export function Toaster(): React.JSX.Element | null {
         setShown(null)
         return shown.action.run()
       }
-      if (!shown.undo || !event.metaKey || event.key !== 'z' || event.shiftKey || typing()) return
+      // Reading full screen counts as a list, not as typing, unless writing in it.
+      const reading = !!document.activeElement?.closest?.('[aria-label="Reading"]') && !document.activeElement?.closest?.('[contenteditable="true"]')
+      if (!shown.undo || !event.metaKey || event.key !== 'z' || event.shiftKey || (typing() && !reading)) return
       event.preventDefault()
       chime('undo')
       shown.undo?.()
@@ -490,7 +492,7 @@ export function Toaster(): React.JSX.Element | null {
     <Asker />
     <Beam />
     {/* Centred along the bottom, where the eye drops after acting. */}
-    {shown && <div className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-50 flex justify-center"><div
+    {shown && <div className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex justify-center"><div
       key={shown.key}
       role="status"
       aria-live="polite"
@@ -611,7 +613,9 @@ export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX
             if (lenis) lenis.scrollTo(0, { duration: 0.6 })
             else target.scrollTo({ top: 0, behavior: 'smooth' })
           }}
-          className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,var(--popover))] py-1.5 pr-3.5 pl-2.5 font-sans text-xs font-medium text-[var(--tt-brand-color-400)] border border-dashed border-[color-mix(in_srgb,var(--tt-brand-color-400)_60%,transparent)] shadow-[0_10px_24px_-8px_rgb(0_0_0/0.6)] transition-colors hover:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_32%,var(--popover))]"
+          // Dressed like the app's other floating controls: the popover surface, a
+          // hairline edge, the shared panel shadow, the text size of every control.
+          className="pointer-events-auto flex items-center gap-1.5 rounded-full border bg-popover py-1 pr-3 pl-2.5 text-control text-muted-foreground shadow-(--mf-panel-shadow) transition-colors hover:bg-accent hover:text-foreground"
         >
           <ArrowUp className="size-3.5" /> Top
         </motion.button>

@@ -889,10 +889,10 @@ export default function App(): React.JSX.Element {
                   Create more
                 </label>
               )}
-              <Tip label={createMore && !editing ? 'Save, and a fresh box for the next  ⌘↵' : (editing ? 'Back to your draft  ⌘↵ · changes save as you make them' : 'Save and close  ⌘↵ · once with a fresh box after  ⌥⌘↵')}>
+              <Tip label={createMore && !editing ? 'Save, and a fresh box for the next  ⌘↵' : (editing ? 'Close this note and go back to your draft  ⌘↵ · changes save as you make them' : 'Save and close  ⌘↵ · once with a fresh box after  ⌥⌘↵')}>
               <Button variant="secondary" onClick={() => submit()} className="text-control">
-                {/* Only read, nothing changed: going back, not finishing anything. */}
-                <Rolling text={editing ? (textOf(body).trim() === textOf(editing.body).trim() ? 'Back' : 'Done') : saved ? 'Saved' : 'Create'} /> <kbd className="font-sans text-key opacity-70">⌘↵</kbd>
+                {/* Open on a saved note: closing it, since changes already save. */}
+                <Rolling text={editing ? 'Close note' : saved ? 'Saved' : 'Create'} /> <kbd className="font-sans text-key opacity-70">⌘↵</kbd>
               </Button>
               </Tip>
             </main>

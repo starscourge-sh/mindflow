@@ -78,6 +78,7 @@ export function CaptureKindPicker({ value, onChange, suggested = false }: {
   const [open, setOpen] = useState(false)
   // The row under the cursor, kept here so moving through the list can be heard.
   const [row, setRow] = useState('')
+  const [more, setMore] = useState(true)
   const current = CAPTURE_TYPES.find((Ctype) => Ctype.id === value) ?? CAPTURE_TYPES[0]
 
   // ⌃L, for label; ⌃T is a tag in the editor.
@@ -120,7 +121,15 @@ export function CaptureKindPicker({ value, onChange, suggested = false }: {
           }}
         >
           <CommandInput placeholder="Change type…" shortcut="⌃L" />
-          <CommandList>
+          {/* A soft fade at the foot while there are more types below: excerpt,
+              decision and the rest are a scroll away, and this says so. */}
+          <CommandList
+            onScroll={(event) => {
+              const list = event.currentTarget
+              setMore(list.scrollTop + list.clientHeight < list.scrollHeight - 4)
+            }}
+            className={more ? '[mask-image:linear-gradient(to_bottom,black_75%,transparent)]' : ''}
+          >
             <CommandEmpty>No type</CommandEmpty>
             {CAPTURE_TYPES.map((type, index) => {
               const Mark = type.icon

@@ -128,6 +128,7 @@ export const vigil = {
   pin: (table: 'captures' | 'nuggets', id: string, on: boolean) => call<boolean>('pin', table, id, on),
   pins: () => call<Pin[]>('pins'),
   reviewTuning: () => call<{ cap: number; tuned: boolean; behind: number }>('review:tuning'),
+  untask: (captureId: string, taskId: string, existed: boolean) => call<boolean>('toTask:undo', captureId, taskId, existed),
   promote: (id: string, words?: string) => call<string | null>('promote', id, words),
   unpromote: (captureId: string, nuggetId: string) => call<boolean>('promote:undo', captureId, nuggetId),
   /** What it came from, what it became, and what links to it. */
