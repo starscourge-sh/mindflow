@@ -522,7 +522,7 @@ body:has([data-tone="knock"]:focus) [data-cursor] {
 .mf-typed {
   display: inline-block;
   opacity: 0;
-  animation: mf-typed 260ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: mf-typed 364ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 @keyframes mf-typed {
   from { opacity: 0; filter: blur(4px); transform: translateY(2px); }

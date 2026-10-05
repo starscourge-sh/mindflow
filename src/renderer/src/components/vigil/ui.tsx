@@ -62,7 +62,8 @@ export function Typed({ text, className, step = 40, delay = 400 }: { text: strin
     <span key={text} className={className} aria-label={text}>
       {words.map((word, index) =>
         /^\s+$/.test(word) ? word : (
-          <span key={index} aria-hidden className="mf-typed" style={{ animationDelay: `${delay + (index / 2) * step}ms` }}>{word}</span>
+          <span key={index} aria-hidden className="mf-typed" // 1.4: each word a beat slower than first built, easier to follow.
+          style={{ animationDelay: `${delay + (index / 2) * step * 1.4}ms` }}>{word}</span>
         )
       )}
     </span>
