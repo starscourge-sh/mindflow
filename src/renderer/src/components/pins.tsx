@@ -1,12 +1,12 @@
 import { Pin, X } from 'lucide-react'
 import { chime } from '@/lib/sound'
-import { toTask } from '@/lib/capture-links'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
-import { taskSaid, useLive, vigil, type Pin as Pinned } from '@/lib/vigil'
+import { useLive, vigil, type Pin as Pinned } from '@/lib/vigil'
+import { makeTask } from '@/lib/tasks'
 import { RowMenu } from './vigil/row-menu'
-import { Tip, toast } from '@/components/vigil/ui'
+import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 
 /**
@@ -39,7 +39,7 @@ export function Pins({ onOpen }: { onOpen: (type: string, id: string) => void })
               <kind.icon className="size-3.5 shrink-0" style={{ color: kind.tint }} />
               <RowMenu items={[
                 { label: 'Open', run: () => onOpen(pin.type, pin.id) },
-                pin.type === 'capture' && { label: 'Make it a task', run: () => void toTask(pin.id).then((made) => { if (!made) return; chime(made.existed ? 'nope' : 'noted'); toast(taskSaid(made, 'Now a task')); return vigil.pin(table, pin.id, false) }) },
+                pin.type === 'capture' && { label: 'Make it a task', run: () => void makeTask({ capture: pin.id }).then((made) => made && vigil.pin(table, pin.id, false)) },
                 'separator',
                 { label: 'Unpin', run: () => void vigil.pin(table, pin.id, false).then(() => chime('fold')) }
               ]}>
@@ -52,7 +52,7 @@ export function Pins({ onOpen }: { onOpen: (type: string, id: string) => void })
                   Still relevant?
                   <Button variant="ghost" size="sm" onClick={() => void vigil.pin(table, pin.id, true)}>Keep</Button>
                   {pin.type === 'capture' && (
-                    <Button variant="ghost" size="sm" onClick={() => void toTask(pin.id).then((made) => { if (!made) return; chime(made.existed ? 'nope' : 'noted'); toast(taskSaid(made, 'Now a task')); return vigil.pin(table, pin.id, false) })}>Task</Button>
+                    <Button variant="ghost" size="sm" onClick={() => void makeTask({ capture: pin.id }).then((made) => made && vigil.pin(table, pin.id, false))}>Task</Button>
                   )}
                 </span>
               )}

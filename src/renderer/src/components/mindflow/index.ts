@@ -16,6 +16,15 @@ export {
 /** What the editor asks of the app around it. */
 export { setHost, type MindflowHost, type LinkMetadata } from "@/lib/host"
 
+/** What the editor sounds like: it names the moment, the page picks the sound. */
+export { setCues, type EditorCue } from "@/lib/cues"
+
+/** Math as you type, on or off for every editor on the page. */
+export { setCalc } from "@/extensions/calc"
+
+/** A stored note's headings, for `findHeadings`. */
+export { headingsIn } from "@/components/toc/headings"
+
 /** Tags and anything else worth picking out of the text. */
 export {
   TAGS,

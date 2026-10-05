@@ -3,7 +3,8 @@ import { Gem, Inbox, ListTodo } from 'lucide-react'
 
 import { ToolbarGroup, ToolbarSeparator } from '@/components/tiptap-ui-primitive/toolbar'
 import { chime } from '@/lib/sound'
-import { taskSaid, vigil } from '@/lib/vigil'
+import { vigil } from '@/lib/vigil'
+import { makeTask } from '@/lib/tasks'
 import { refuse, toast } from './ui'
 
 /**
@@ -79,10 +80,7 @@ export function selectionActions(origin: { captureId?: string; attribution?: str
             onClick={() => {
               const text = words()
               if (!text || !once('task', text)) return
-              void vigil.addTask(text, origin.captureId).then((made) => {
-                chime(made.existed ? 'nope' : 'noted')
-                toast(taskSaid(made, 'Added to your tasks'))
-              })
+              void makeTask({ text, origin: origin.captureId }, 'Added to your tasks')
             }}
           >
             <ListTodo /> Task

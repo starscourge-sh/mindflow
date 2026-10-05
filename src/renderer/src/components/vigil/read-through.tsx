@@ -5,10 +5,11 @@ import { toMarkdown } from '@/lib/export'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { MindflowEditor } from '../mindflow'
-import { taskSaid, vigil } from '@/lib/vigil'
-import { Kbd, Rolling, toast } from './ui'
+import { vigil } from '@/lib/vigil'
+import { makeTask } from '@/lib/tasks'
+import { Kbd, Rolling } from './ui'
 import { ArrowDown, ArrowUp } from 'lucide-react'
-import { exit, toTask } from '@/lib/capture-links'
+import { exit } from '@/lib/capture-links'
 
 export type Readable = { type: string; id: string }
 
@@ -92,7 +93,7 @@ export function ReadThrough({ items, start = 0, onClose }: {
         // Undone, it is back where you left it: the page you took it from.
         const here = at
         const back = (): void => setAt(here)
-        if (event.key === 't') void toTask(item.id).then((made) => made && (chime(made.existed ? 'nope' : 'noted'), toast(taskSaid(made, 'Now a task'), () => void vigil.untask(item.id, made.id, !!made.existed).then(back)), next()))
+        if (event.key === 't') void makeTask({ capture: item.id }, 'Now a task', { onUndo: back }).then((made) => made && next())
         else void exit(item.id, { p: 'promoted', r: 'resolved', d: 'discarded' }[event.key as 'p' | 'r' | 'd'], back).then(next)
       }
     }

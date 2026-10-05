@@ -3,6 +3,7 @@ import { tagColors } from '@/extensions/tokens'
 import type { BlockColor } from '@/extensions/block-color'
 import { MotionGlobalConfig } from 'motion/react'
 import { chime, installTicks, setPack, setVolume, soundOn, type PackName } from './sound'
+import { useEditorSetup } from './editor-setup'
 
 /**
  * The main process's `vigil:` channels, typed. One generic bridge in the
@@ -25,6 +26,22 @@ export type Settings = {
   quietEnd: string
   safeMode: boolean
   notify: 'pull' | 'quiet' | 'alerts'
+  /** Math as you type in notes. */
+  calc: boolean
+  /** The note's first line in the top bar once it has scrolled away. */
+  topTitle: boolean
+  /** A key from NOTE_FONTS, or a system font's family name. */
+  noteFont: string
+  /** Text in notes, as a scale: 1 is normal. */
+  textSize: number
+  weeklyReview: boolean
+  /** 0 is Sunday. */
+  weeklyDay: number
+  examNudges: boolean
+  memories: boolean
+  weather: boolean
+  /** A note's first picture at the end of its row. */
+  thumbnails: boolean
 }
 
 /** A nugget or an article: the same row, told apart by `tier`. */
@@ -49,10 +66,31 @@ export type Item = {
   supersededBy: string | null
   /** Sittings in which its words were meaningfully rewritten. */
   revisions: number
+  /** Put out of sight, not deleted; null while in view. */
+  archivedAt: string | null
+  /** Why the answer is so: one line under it in review. */
+  why: string | null
 }
 export type Gloss = { id: string; body: string; author: 'user' | 'ai'; createdAt: string }
 export type ItemFull = Item & { body: unknown; origins: string[]; glosses: Gloss[] }
-export type Due = Item & { body: unknown; intervals: Record<number, string> }
+export type Due = Item & { body: unknown; intervals: Record<number, string>; gloss: string | null; exam: string | null }
+/** How ready a tag with an exam date is. */
+export type Exam = { tag: string; at: string; days: number; total: number; solid: number; learning: number; struggling: number; unseen: number; behind: number; perDay: number }
+/** A month or a year, Wrapped's way. */
+export type Recap = {
+  label: string
+  captures: number
+  words: number
+  busiestDay: { name: string; n: number } | null
+  busiestMonth: { name: string; n: number } | null
+  tags: { name: string; n: number }[]
+  sources: { name: string; n: number }[]
+  kept: number
+  resolved: number
+  discarded: number
+  reviews: number
+  mostReviewed: { title: string; n: number } | null
+}
 
 export type Task = {
   id: string
@@ -79,8 +117,18 @@ export type Task = {
   reschedules: number
   /** This task's own alert level, over the setting; null follows the setting. */
   notify: 'pull' | 'quiet' | 'alerts' | null
+  /** Linear's four: 1 Urgent, 2 High, 3 Medium, 4 Low; 0 for none. High and Urgent are `important`. */
+  priority: number
+  /** A when with no day: "someday", a month ("2026-10") or a year ("2026"). */
+  planFor: string | null
+  /** The note it came from, for grouping by it: in the list, not on one task. */
+  fromId?: string | null
+  fromTitle?: string | null
+  subtasks?: Subtask[]
 }
 export type Subtask = { text: string; done: boolean }
+/** What a task was before it was done, so it can be put back. */
+export type Finished = { dueAt: string | null; doneAt: string; notifiedAt: string | null }
 /** A task made, or the open one with that name already there, which it joined. */
 export type Made = { id: string; number: number; existed: boolean }
 /** What to say after making a task: the usual words, or that it joined one. */
@@ -140,7 +188,7 @@ export const vigil = {
   toTask: (id: string) => call<Made | null>('toTask', id),
   items: (tier: 'nugget' | 'article') => call<Item[]>('items', tier),
   item: (id: string) => call<ItemFull | null>('item', id),
-  saveItem: (id: string, patch: Partial<{ body: unknown; title: string; prompt: string | null; kind: string; suspended: boolean; attribution: string | null; context: string | null; mode: string }>) =>
+  saveItem: (id: string, patch: Partial<{ body: unknown; title: string; prompt: string | null; kind: string; suspended: boolean; attribution: string | null; context: string | null; mode: string; why: string | null }>) =>
     call('item:save', id, patch),
   article: (ids: string[]) => call<string>('article', ids),
   gloss: (id: string, text: string) => call('gloss', id, text),
@@ -151,12 +199,26 @@ export const vigil = {
   task: (id: string) => call<TaskFull | null>('task', id),
   /** `today`: with no date in the words, it is for today. */
   addTask: (text: string, origin?: string, today = false) => call<Made>('task:add', text, origin, today),
-  saveTask: (id: string, patch: Partial<{ title: string; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number; important: number; deadline: string | null; blocker: string | null; reschedules: number; notify: string | null }>) =>
+  saveTask: (id: string, patch: Partial<{ title: string; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number; important: number; deadline: string | null; blocker: string | null; reschedules: number; notify: string | null; priority: number; plan: string | null }>) =>
     call('task:save', id, patch),
-  doneTask: (id: string) => call('task:done', id),
-  tags: () => call<{ tag: string; count: number; color: string | null; action: boolean }[]>('tags'),
+  /** Gives back what it was, for `undoneTask`. */
+  doneTask: (id: string) => call<Finished>('task:done', id),
+  /** Open again on the date it had, and that time done no longer counted: a routine's undo too. */
+  undoneTask: (id: string, was: Finished) => call('task:undone', id, was),
+  /** A task made by mistake: see `makeTask`. */
+  unmakeTask: (id: string, existed: boolean, links: string[], reopen: string[]) => call('task:unmake', id, existed, links, reopen),
+  /** Reviews falling on each of the next `days` days, today with what is late. */
+  reviewLoad: (days: number) => call<number[]>('review:load', days),
+  tags: () => call<{ tag: string; count: number; color: string | null; action: boolean; examAt: string | null }[]>('tags'),
   tagMeta: () => call<{ tag: string; color: string | null; action: number }[]>('tag:meta'),
-  setTag: (tag: string, patch: { color?: string | null; action?: boolean; aliasOf?: string | null }) => call('tag:set', tag, patch),
+  setTag: (tag: string, patch: { color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null }) => call('tag:set', tag, patch),
+  exams: () => call<Exam[]>('exams'),
+  history: (id: string) => call<{ reviews: { at: string; grade: number }[]; dueAt: string | null }>('review:history', id),
+  source: (id: string) => call<{ type: string; id: string; title: string; body: unknown } | null>('review:source', id),
+  nudge: () => call<{ kind: 'exam' | 'weekly'; view: string; label: string; text: string } | null>('nudge'),
+  memory: () => call<{ id: string; captureId: string; kind: string; title: string; body: unknown; event: number; memory: string } | null>('memory'),
+  rotLeft: () => call<number>('rot:left'),
+  recap: (period: 'month' | 'year') => call<Recap>('recap', period),
   supersede: (id: string, truth: string) => call<string>('supersede', id, truth),
   mergeCapture: (id: string, intoNumber: number) => call<string | null>('capture:merge', id, intoNumber),
   hintRate: () => call<{ rate: number; tuned: boolean; shown: number; stopped: number }>('hints:rate'),
@@ -179,6 +241,8 @@ export const vigil = {
   sessions: (taskId: string) => call<Session[]>('sessions', taskId),
   startSession: (taskId: string, goal?: string, plannedMs?: number | null) => call<string>('session:start', taskId, goal, plannedMs),
   focusNow: () => call<Focus | null>('focus:now'),
+  /** A countdown with no task behind it, shown in the floating timer: "5m tea". */
+  startTimer: (goal: string, ms: number) => call<string>('timer:start', goal, ms),
   pauseSession: (id: string) => call('session:pause', id),
   resumeSession: (id: string) => call('session:resume', id),
   cancelSession: (id: string) => call('session:cancel', id),
@@ -213,9 +277,9 @@ export function when(iso: string | null, allDay = true): string {
   return `${date.toLocaleDateString([], { day: 'numeric', month: 'short' })}${time}`
 }
 
-/** How far off a review is: "10m", "1d", "3w". */
-export function interval(iso: string): string {
-  const minutes = Math.max(1, (new Date(iso).getTime() - Date.now()) / 60000)
+/** How far off a review is: "10m", "1d", "3w". From now, or from another moment. */
+export function interval(iso: string, from: string | number = Date.now()): string {
+  const minutes = Math.max(1, (new Date(iso).getTime() - new Date(from).getTime()) / 60000)
   const units: [number, string][] = [[525600, 'y'], [43200, 'mo'], [10080, 'w'], [1440, 'd'], [60, 'h'], [1, 'm']]
   const [size, unit] = units.find(([size]) => minutes >= size) ?? [1, 'm']
   return `${Math.round(minutes / size)}${unit}`
@@ -241,6 +305,8 @@ export function useAppearance(): void {
     for (const row of meta) if (row.color) tagColors.set(row.tag.toLowerCase(), row.color as BlockColor)
   }, [meta])
   useEffect(installTicks, [])
+  // The editor's sounds, math, font and text size.
+  useEditorSetup(settings)
   useEffect(() => {
     if (!settings) return
     document.documentElement.dataset.width = settings.fullWidth ? 'full' : 'page'

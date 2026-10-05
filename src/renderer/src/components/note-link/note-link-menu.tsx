@@ -40,7 +40,7 @@ const NoteList = forwardRef<SuggestionListHandle, SuggestionProps<NoteSuggestion
       <div className="tiptap-slash-menu">
         <div className="tiptap-slash-menu-list">
           {items.map((item, index) => (
-            <Fragment key={item.id}>
+            <Fragment key={`${item.id}#${item.heading ?? ""}`}>
               {item.group && item.group !== items[index - 1]?.group ? (
                 <div className="tiptap-slash-menu-group">{item.group}</div>
               ) : null}
@@ -51,10 +51,11 @@ const NoteList = forwardRef<SuggestionListHandle, SuggestionProps<NoteSuggestion
                 onMouseEnter={() => setSelected(index)}
                 onClick={() => command(item)}
               >
-                {item.icon}
-                {item.key ? <span className="tiptap-note-link-key">{item.key}</span> : null}
+                {/* A heading row is the heading: its note is the group above. */}
+                {item.heading ? null : item.icon}
+                {item.key && !item.heading ? <span className="tiptap-note-link-key">{item.key}</span> : null}
                 <span className="tiptap-slash-menu-title tiptap-note-link-title" style={item.tint ? { color: item.tint } : undefined}>
-                  {item.label || "Untitled"}
+                  {item.heading ? `# ${item.heading}` : item.label || "Untitled"}
                 </span>
                 {/* A tag's name first, how often it is used quietly at the end. */}
                 {item.hint ? <span className="ml-auto pl-3 text-xs tabular-nums text-muted-foreground">{item.hint}</span> : null}

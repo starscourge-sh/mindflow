@@ -11,7 +11,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 
-type Hint = NonNullable<Awaited<ReturnType<typeof window.api.hints.next>>>
+// A memory is a hint that says what it is: this day last year, one source's things.
+type Hint = NonNullable<Awaited<ReturnType<typeof window.api.hints.next>>> & { memory?: string }
+type Nudge = NonNullable<Awaited<ReturnType<typeof vigil.nudge>>>
 
 
 /**
@@ -23,7 +25,10 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
   const [hint, setHint] = useState<Hint | null>(null)
   // Two bells once, when a hint arrives: not on every animation the card
   // runs afterwards, which rang them again as the page moved around it.
-  useEffect(() => void (hint && chime('hint')), [hint?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => void (hint && chime(hint.memory ? 'memory' : 'hint')), [hint?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  // A nudge: the weekly walk through the inbox, or an exam falling behind.
+  const [nudge, setNudge] = useState<Nudge | null>(null)
+  useEffect(() => void (nudge && chime('hint')), [nudge?.kind]) // eslint-disable-line react-hooks/exhaustive-deps
   const shownAt = useRef(0)
   // What the card says, set a beat after it arrives so the words roll in
   // from nothing rather than appearing already there.
@@ -76,10 +81,16 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
   useEffect(
     () =>
       window.api.onShown(async () => {
-        const { rate } = await vigil.hintRate()
         setAsking(false)
+        // A nudge comes at most once a day, so it skips the dice; never in
+        // quiet hours or safe mode, which the main process checks.
+        const nudging = await vigil.nudge()
+        setNudge(nudging)
+        if (nudging) return setHint(null)
+        const { rate } = await vigil.hintRate()
         if (Math.random() < rate) {
-          const next = await window.api.hints.next()
+          // A third of the time, a memory, when there is one to give.
+          const next: Hint | null = (Math.random() < 1 / 3 ? await vigil.memory() : null) ?? (await window.api.hints.next())
           shownAt.current = Date.now()
           setHint(next)
         } else setHint(null)
@@ -149,8 +160,34 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
                       void (capture ? window.api.captures.save(id, { status: 'open' }) : vigil.saveItem(id, { suspended: false }))))
                 } }
 ]
+  // A memory may be something already dealt with, so it is opened, fixed or
+  // shown less, never kept or discarded from here.
+  const offered = hint?.memory ? actions.filter(({ icon }) => icon !== ThumbsUp && icon !== Trash2) : actions
+  const go = (): void => {
+    if (!nudge) return
+    chime('open')
+    window.api.openInHome('view', nudge.view)
+    setNudge(null)
+  }
   return (
     <AnimatePresence>
+      {nudge && !hint && (
+        <motion.div
+          key={nudge.kind}
+          initial={{ opacity: 0, y: -6, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, height: 0, marginBottom: 0, transition: { duration: 0.2 } }}
+          transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+          className="mt-2 mb-3 overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,transparent)] px-3 py-2.5 text-sm"
+        >
+          <Typed text={nudge.text} step={28} delay={120} />
+          <div className="mt-2 flex items-center gap-1 text-muted-foreground">
+            <span className="mr-auto text-xs">{nudge.label}</span>
+            <Button variant="ghost" size="sm" onClick={go}>{nudge.kind === 'weekly' ? 'Walk the inbox' : 'Review now'}</Button>
+            <Button variant="ghost" size="sm" onClick={() => (chime('fold'), setNudge(null))}>Not now</Button>
+          </div>
+        </motion.div>
+      )}
       {hint && (
         <motion.div
           key={hint.id}
@@ -160,7 +197,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
           transition={{ type: 'spring', stiffness: 380, damping: 30 }}
           className="mt-2 mb-3 overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,transparent)] px-3 py-2.5 text-sm"
         >
-          <RowMenu items={actions.map(({ tip, keys, run }) => ({ label: tip, keys, run, danger: tip === 'Discard it' }))}>
+          <RowMenu items={offered.map(({ tip, keys, run }) => ({ label: tip, keys, run, danger: tip === 'Discard it' }))}>
             {fixing !== null ? (
               // Grows with the words and sits where they sat, so a two-line hint
               // stays two lines and the card does not jump.
@@ -217,10 +254,10 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
             />
           ) : (
             <div className="mt-2 flex items-center gap-1 text-muted-foreground [&_svg]:size-3.5">
-              <span className="mr-auto text-xs">{hint.id === hint.captureId ? `From your inbox · a ${hint.kind} with no exit yet` : `Kept · a ${hint.kind} nugget`}</span>
+              <span className={`mr-auto text-xs ${hint.memory ? 'text-[var(--tt-brand-color-400)]' : ''}`}>{hint.memory ?? (hint.id === hint.captureId ? `From your inbox · a ${hint.kind} with no exit yet` : `Kept · a ${hint.kind} nugget`)}</span>
               {/* Open, or let it go: a hint asks nothing else of you. Each
                   button says what it does, since the icons alone do not. */}
-              {actions.map(({ icon: Icon, tip, keys, run }) => (
+              {offered.map(({ icon: Icon, tip, keys, run }) => (
                 <Tooltip key={tip}>
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon-sm" aria-label={tip} onClick={run}>

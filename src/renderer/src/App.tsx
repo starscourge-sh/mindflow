@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Minimize2, Settings2, X } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Plus, Settings2, X } from 'lucide-react'
 import type { Editor, JSONContent } from '@tiptap/core'
 
 import { MindflowEditor, TAGS, currentVim, onVimChange, setVim } from './components/mindflow'
-import { EXITS, exit, findCaptures, follow } from './lib/capture-links'
+import { EXITS, exit, findCaptures, findHeadings, follow } from './lib/capture-links'
 import { toMarkdown } from './lib/export'
 import { CaptureList, useCaptures } from './components/capture-list'
 import { RotCards, textOf } from './components/rot-cards'
@@ -15,20 +15,26 @@ import { TodayPanel } from './components/vigil/today-panel'
 import { selectionActions } from './components/vigil/selection-actions'
 import { ReviewView } from './components/vigil/review-view'
 import { useAppearance, useLive } from './lib/vigil'
-import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, Typed, ask, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt } from './components/vigil/ui'
+import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, ask, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt } from './components/vigil/ui'
 import { TooltipProvider } from './components/ui/tooltip'
 import { Rolling, Toaster, beam, refuse, toast } from './components/vigil/ui'
 import { Reader } from './components/vigil/reader'
 import { OptionsMenu } from './components/vigil/options-menu'
 import { ReadThrough, type Readable } from './components/vigil/read-through'
 import { assetsOf } from './lib/document'
-import { tagsOf } from './extensions/tokens'
+import { tagsOf, type TokenPattern } from './extensions/tokens'
 import { KeptPanel } from './components/vigil/kept-panel'
 import { CaptureProps, useCaptureDisplay } from './components/vigil/captures-view'
 import { Search } from './components/search'
-import { taskSaid, vigil, type Settings } from './lib/vigil'
+import { noteActions } from './lib/notes'
+import { vigil, type Settings } from './lib/vigil'
+import { makeTask, placed } from './lib/tasks'
+import { TaskChips, taskTokens } from './components/vigil/task-input'
+import { readTask } from '../../main/task-words'
 import { chime, soundOn } from './lib/sound'
 import { liftFrom } from './lib/fly-home'
+import { lengthSaid, timerFrom } from './lib/timer'
+import { stickOnDesktop } from './components/vigil/sticky-note'
 import { NotePreview } from './components/vigil/note-preview'
 
 
@@ -51,9 +57,10 @@ import { Tip } from '@/components/vigil/ui'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
-import ExpandIcon from '@/components/ui/expand-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
+import { useStoredFlag } from '@/lib/use-stored-flag'
+import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
 
 
 
@@ -121,7 +128,18 @@ const WindowDots = (): React.JSX.Element => (
   </div>
 )
 
-const Header = ({ panel, onPanel, menu, nav }: { panel: boolean; onPanel: () => void; menu: React.ReactNode; nav?: React.ReactNode }): React.JSX.Element => {
+const Header = ({ panel, onPanel, onNew, menu, nav, title, aside }: {
+  panel: boolean
+  onPanel: () => void
+  onNew: () => void
+  /** The actions menu, handed the window's size and the way to change it. */
+  menu: (expanded: boolean, toggleExpanded: () => void) => React.ReactNode
+  nav?: React.ReactNode
+  /** The note's first line, once it has scrolled out of sight. */
+  title?: string | null
+  /** Said beside the pill, like Safe mode. */
+  aside?: React.ReactNode
+}): React.JSX.Element => {
   const [expanded, setExpanded] = useState(false)
   const toggle = (): void => {
     setExpanded((was) => {
@@ -149,44 +167,52 @@ const Header = ({ panel, onPanel, menu, nav }: { panel: boolean; onPanel: () => 
 
   return (
     <div className="h-fit fixed top-0 right-0 left-0 z-10 flex flex-col items-center py-2 text-xs cursor-pointer" style={{ WebkitAppRegion: 'drag' }}>
-      <div className="flex w-full items-center gap-1" // Over the panel, the icons end where the panel's own edge does.
+      <div className="relative flex w-full items-center gap-1" // Over the panel, the icons end where the panel's own edge does.
         style={{ padding: panel ? '0 0.75rem 0 4.75rem' : '0rem 4.75rem' } as CSSProperties}>
         <WindowDots />
         <span style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>{nav}</span>
         <span className="flex-1" />
-        <Tip label={`${panel ? 'Hide' : 'Show'} Inbox, Tasks, Review and Kept  ⌘\\`}>
-        <button
-          type="button"
-          tabIndex={-1}
-          className="mf-expand"
-          aria-label={panel ? 'Hide the side panel' : 'Show the side panel'}
-          aria-pressed={panel}
+        {/* The note's name, faint and centred, once its first line has
+            scrolled away - so a long note still says what it is. */}
+        <AnimatePresence>
+          {title && (
+            <motion.span
+              key="title"
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+              className="pointer-events-none absolute inset-x-0 truncate px-48 text-center text-control text-muted-foreground/70"
+            >
+              {title}
+            </motion.span>
+          )}
+        </AnimatePresence>
+        {/* One pill for the window's controls, there while the pointer is,
+            the way Raycast Notes keeps them: a new note, the actions, the
+            panel. The strip is the window's drag handle, so the pill has to
+            say it is not, or no click lands. Out of the tab order: these are
+            window controls, not part of the note. Expand is in the actions. */}
+        {aside}
+        <span
+          className="mf-pill flex items-center rounded-full border border-foreground/15 bg-background/60 opacity-0 transition-opacity duration-150 [.pointer-in_&]:opacity-100 has-[[data-state=open]]:opacity-100 [&>*+*]:border-l [&>*+*]:border-foreground/15"
           style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-          onClick={onPanel}
         >
-          <AliveIcon icon={LayoutSidebarRightIcon} size={14} />
-        </button>
-        </Tip>
-        {/* The strip is the window's drag handle, so the one thing on it that is
-          not a handle has to say so, or the click never lands. Out of the tab
-          order for the same reason the close button is: it is a window
-          control, not part of the note. */}
-        <Tip label={`${expanded ? 'Shrink' : 'Expand'} \u2303\u21e7F`}>
-        <button
-          type="button"
-          tabIndex={-1}
-          className="mf-expand"
-          aria-label={expanded ? 'Shrink the window' : 'Expand the window'}
-        
-          style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-          onClick={toggle}
-        >
-          {expanded ? <Minimize2 /> : <AliveIcon icon={ExpandIcon} size={14} />}
-        </button>
-        </Tip>
-        {/* The app's own settings, in the corner the way Notion keeps a
-            page's: apart from the note's, which sit beside the note. */}
-        <span className="ml-1" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>{menu}</span>
+          <Tip label="New capture  ⌘N">
+            <button type="button" tabIndex={-1} aria-label="New capture" className="flex h-6 w-7 items-center justify-center text-muted-foreground hover:text-foreground"
+              onMouseDown={(event) => event.preventDefault()} onClick={onNew}>
+              <Plus className="size-3.5" />
+            </button>
+          </Tip>
+          <span className="flex h-6 w-7 items-center justify-center">{menu(expanded, toggle)}</span>
+          <Tip label={`${panel ? 'Hide' : 'Show'} Inbox, Tasks, Review and Kept  ⌘\\`}>
+            <button type="button" tabIndex={-1} aria-label={panel ? 'Hide the side panel' : 'Show the side panel'} aria-pressed={panel}
+              className="flex h-6 w-7 items-center justify-center text-muted-foreground hover:text-foreground aria-pressed:text-foreground"
+              onMouseDown={(event) => event.preventDefault()} onClick={onPanel}>
+              <AliveIcon icon={LayoutSidebarRightIcon} size={14} />
+            </button>
+          </Tip>
+        </span>
       </div>
       {/* Room under the buttons, so none of them sits on the rule. */}
       <div className="mt-2 w-full shadow-xl px-[4.75rem]">
@@ -219,7 +245,10 @@ export default function App(): React.JSX.Element {
   const [locked, setLocked] = useState(false)
 
   // The heading outline down the right edge. Dimmed button means hidden.
-  const [outline, setOutline] = useState(false)
+  // Remembered, so an outline left open is open on the next launch.
+  const [outline, setOutline] = useStoredFlag('outline')
+  // The note's first line while it is scrolled out of sight, for the top bar.
+  const [topTitle, setTopTitle] = useState<string | null>(null)
   const [source, setSource] = useState(false)
   const [details, setDetails] = useState(false)
   // ⇧⌘D: the open capture's details, in the prompt (⌘I stays italic).
@@ -248,10 +277,9 @@ export default function App(): React.JSX.Element {
   // Loom; remembered, and put back on every start.
   const appSettings = useLive(vigil.settings, null as Settings | null)
   // The word count under the note, on unless you would rather not see it.
-  const [counting, setCountingState] = useState(() => localStorage.getItem('word-count') !== 'off')
+  const [counting, setCountingState] = useStoredFlag('word-count', true)
   const setCounting = (on: boolean): void => {
     setCountingState(on)
-    localStorage.setItem('word-count', on ? 'on' : 'off')
     if (on) delete document.documentElement.dataset.wordCount
     else document.documentElement.dataset.wordCount = 'off'
   }
@@ -264,10 +292,9 @@ export default function App(): React.JSX.Element {
     else delete document.documentElement.dataset.reveal
   }
   useEffect(() => window.api.onShown(() => setReveal(false)), [])
-  const [recordable, setRecordableState] = useState(() => localStorage.getItem('recordable') === 'on')
+  const [recordable, setRecordableState] = useStoredFlag('recordable')
   const setRecordable = (on: boolean): void => {
     setRecordableState(on)
-    localStorage.setItem('recordable', on ? 'on' : 'off')
     void window.api.setRecordable(on)
   }
   useEffect(() => void (recordable && window.api.setRecordable(true)), []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -283,8 +310,7 @@ export default function App(): React.JSX.Element {
   // A focus session left running across a restart brings its timer back.
   useEffect(() => void vigil.focusNow().then((focus) => focus && window.api.showFocus(true)), [])
   // Linear's "Create more": on, a save keeps the box open for the next one.
-  const [createMore, setCreateMore] = useState(() => localStorage.getItem('create-more') === 'on')
-  useEffect(() => localStorage.setItem('create-more', createMore ? 'on' : 'off'), [createMore])
+  const [createMore, setCreateMore] = useStoredFlag('create-more')
   // When the box was opened, for how long a capture took to write.
   const openedAt = useRef(Date.now())
   // Each time the window comes up, the box has the caret, ready to type, not
@@ -305,6 +331,16 @@ export default function App(): React.JSX.Element {
   useEffect(() => setDetails(false), [editing?.id])
 
   const editorRef = useRef<Editor | null>(null)
+  // A todo's first line is read as you type, Todoist's way: its date and
+  // priority words light up. Read through refs, as the editor's patterns are
+  // built once; painted again when the note turns into a todo or out of one.
+  const kindNow = useRef(kind)
+  kindNow.current = kind
+  const [boxTokens] = useState(() => [...TAGS, ...taskTokens(() => (kindNow.current === 'todo' ? (editorRef.current?.state.doc.firstChild?.textContent ?? null) : null))])
+  useEffect(() => {
+    const editor = editorRef.current
+    if (editor && !editor.isDestroyed) editor.view.dispatch(editor.state.tr)
+  }, [kind])
   // What is open now, for a change that arrives late from a box already put
   // down: it must not land on the draft that came back.
   const editingNow = useRef<string | undefined>(undefined)
@@ -358,12 +394,11 @@ export default function App(): React.JSX.Element {
   }, [reading])
   // The box alone until the side panel is asked for: progressive disclosure.
   // Remembered, and the window is sized to match on every start.
-  const [panel, setPanelOpen] = useState(() => localStorage.getItem('panel') === 'open')
+  const [panel, setPanelOpen] = useStoredFlag('panel', false, ['open', 'closed'])
   const [tab, setTab] = useState<Tab>('inbox')
   const setPanel = (open: boolean): void => {
     chime(open ? 'slide' : 'fold')
     setPanelOpen(open)
-    localStorage.setItem('panel', open ? 'open' : 'closed')
     void window.api.setPanel(open)
   }
   useEffect(() => void window.api.setPanel(panel), []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -382,13 +417,13 @@ export default function App(): React.JSX.Element {
         // The cards waiting on you come first, then the list under them.
         if (tab !== 'inbox') return
         // No cards waiting and the panel already open: the list takes ⌃J.
-        if (panel && !document.querySelector('[data-tone="knock"]')) return
+        if (panel && !document.querySelector('[data-card]')) return
         event.preventDefault()
         // Shown as reached by keyboard, controls and all; a panel just opened
         // has a frame or two before its cards are there.
         let tries = 0
         const land = (): void => {
-          const card = document.querySelector<HTMLElement>('[data-tone="knock"]')
+          const card = document.querySelector<HTMLElement>('[data-card]')
           if (card) card.focus({ focusVisible: true } as FocusOptions)
           else if (tries++ < 20) requestAnimationFrame(land)
         }
@@ -557,6 +592,19 @@ export default function App(): React.JSX.Element {
     // picture or a drawing with no words is still something.
     const something = (doc as JSONContent | null)?.content?.some((node) => node.type !== 'paragraph' || node.content?.length)
     if (!text && !something) return chime('nope')
+    // "5m tea", "timer 25m": a countdown in the floating timer, not a capture.
+    const timer = (doc as JSONContent | null)?.content?.length === 1 ? timerFrom(text) : null
+    if (timer) {
+      chime('timer')
+      beam('success')
+      void vigil.startTimer(timer.goal, timer.ms).then((id) => {
+        window.api.showFocus(true)
+        toast(`Timer set: ${lengthSaid(timer.ms)}${timer.goal === 'Timer' ? '' : ` for ${timer.goal}`}`, () => void vigil.cancelSession(id))
+      })
+      fresh()
+      if (!more) window.api.hideWindow()
+      return
+    }
     // What a paste is, when the kind was left alone: a bare link is a link,
     // and where it came from is the site; a long block is an excerpt, the
     // container for what comes out of it later.
@@ -600,7 +648,7 @@ export default function App(): React.JSX.Element {
         // A link shows as its card, filled in once the page answers.
         if (sorted === 'link') void cardUp({ id, kind: sorted, body: hasContent(doc) ? doc : null })
         if (action) {
-          toast(taskSaid(await vigil.toTask(id), 'Added to your tasks'))
+          await makeTask({ capture: id }, 'Added to your tasks')
         }
         if (more) return
         // Let the box finish leaving before it is replaced.
@@ -649,6 +697,7 @@ export default function App(): React.JSX.Element {
       {/* Toasts over the note, above its footer: clear of Create and of the panel. */}
       <div className={`contents [--toast-bottom:6.5rem] ${panel ? '[--toast-right:440px]' : ''}`}><Toaster /></div>
       <NotePreview />
+      <ShortcutSheet />
       {readList && (
         <ReadThrough
           items={readList.items}
@@ -673,6 +722,7 @@ export default function App(): React.JSX.Element {
             } })),
             { label: 'Read the inbox from the top', run: () => setReadList({ items: captures.filter((one) => one.status === 'open').map((one) => ({ type: 'capture', id: one.id })), start: 0 }) },
             { label: 'Copy this note as Markdown', keys: '⇧⌘C', run: copyMarkdown },
+            ...(editing ? [{ label: 'Stick this note on the desktop', cue: null, run: () => stickOnDesktop('capture', editing.id) }] : []),
             { label: locked ? 'Unlock this note' : 'Lock this note: read only', cue: locked ? 'off' : 'on', run: () => setLocked(!locked) },
             { label: secret ? 'Make this note not private' : 'Make this note private', cue: editing ? null : secret ? 'off' : 'on', run: () => {
               setSecret(!secret)
@@ -690,7 +740,12 @@ export default function App(): React.JSX.Element {
             { label: recordable ? 'Hide from screen recordings' : 'Show in screen recordings', cue: recordable ? 'off' : 'on', run: () => setRecordable(!recordable) },
             { label: reveal ? 'Blur private titles again' : 'Show private titles for now', cue: reveal ? 'off' : 'on', run: () => setReveal(!reveal) },
             { label: 'Open the main window', run: () => window.api.openInHome('view', 'inbox') },
-            { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') }
+            ...noteActions(),
+            { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('vigil:shortcuts')) },
+            { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') },
+            // The recap opens in the main window, over Stats.
+            { label: 'Your month, wrapped', run: () => window.api.openInHome('recap', 'month') },
+            { label: 'Your year, wrapped', run: () => window.api.openInHome('recap', 'year') }
           ]}
           onClose={() => {
             setSearching(false)
@@ -718,27 +773,32 @@ export default function App(): React.JSX.Element {
             </Tip>
           ))}
         </span>
-      )} menu={
-        <span className="flex items-center gap-1">
-        {/* Safe mode says so here, or the quiet looks like nothing happening. */}
-        {appSettings?.safeMode && <Tip label="Safe mode: no hints, rot cards or pins come up  ⌥⌘S"><span className="rounded-full bg-accent px-2 py-0.5 text-key text-[var(--tt-brand-color-400)]">Safe</span></Tip>}
+      )} onNew={() => {
+        chime('tap')
+        fresh()
+      }} title={appSettings?.topTitle === false ? null : topTitle}
+      // Safe mode says so beside the pill, or the quiet looks like nothing happening.
+      aside={appSettings?.safeMode && <Tip label="Safe mode: no hints, rot cards or pins come up  ⌥⌘S"><span className="mr-1 rounded-full bg-accent px-2 py-0.5 text-key text-[var(--tt-brand-color-400)]">Safe</span></Tip>}
+      menu={(expanded, toggleExpanded) => (
         <OptionsMenu
           app
-          label="Vigil"
+          label="Actions"
           icon={<Settings2 className="size-3.5" />}
           side="bottom"
           align="end"
-          className="size-6 flex-none rounded-full"
+          className="h-6 w-7 flex-none rounded-none hover:bg-transparent"
           options={[
             { label: 'Vim keys', on: vim, set: setVim },
             { label: 'Show in screen recordings', on: recordable, set: setRecordable },
             { label: 'Show private titles for now', on: reveal, set: setReveal },
             { label: 'Word count', on: counting, set: setCounting }
           ]}
-          actions={[{ label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') }]}
+          actions={[
+            { label: expanded ? 'Shrink the window' : 'Expand the window', keys: '⌃⇧F', run: toggleExpanded },
+            { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') }
+          ]}
         />
-        </span>
-      } />
+      )} />
 
       <ResizablePanelGroup
         orientation="horizontal"
@@ -778,7 +838,9 @@ export default function App(): React.JSX.Element {
               initial={editing?.body ?? readDraft()}
               locked={locked}
               outline={outline}
+              onTitleOut={setTopTitle}
               onReady={(editor) => (editorRef.current = editor)}
+              tokens={boxTokens}
               onOpenNote={(link) => follow(link, openAny)}
               from={editing?.id}
               onSource={() => setSource((open) => !open)}
@@ -799,7 +861,9 @@ export default function App(): React.JSX.Element {
                 to it stays in view, so a link followed never loses the draft. */}
             {editing && readDraft() && (
               <div className="flex items-center gap-2 px-[4.75rem] pt-2 text-xs text-muted-foreground">
-                <span className="truncate"><Typed delay={1000} text={`Your draft “${(firstLine(readDraft()) || 'unfinished').slice(0, 32)}${(firstLine(readDraft()) ?? '').length > 32 ? '…' : ''}” is waiting: ⌘[ takes you back.`} /></span>
+                {/* One line, so it rolls in rather than typing; the key drawn as a key. */}
+                <span className="truncate"><Rolling by="word" text={`Your draft “${(firstLine(readDraft()) || 'unfinished').slice(0, 32)}${(firstLine(readDraft()) ?? '').length > 32 ? '…' : ''}” is waiting:`} /></span>
+                <span className="flex shrink-0 items-center gap-1"><Kbd>⌘[</Kbd> takes you back.</span>
               </div>
             )}
             {/* Under the writing: what it is, who said it and where you met it. */}
@@ -809,6 +873,8 @@ export default function App(): React.JSX.Element {
                 value={kind}
                 onChange={pick}
               />
+              {/* A todo says what it understood of its first line: the day, the deadline, the priority. */}
+              {kind === 'todo' && <TaskChips read={readTask(firstLine(body))} />}
               {/* Only what this kind asks for, unless it already holds something. */}
               {/* Who and where once there is something to say it about, and only
                   what this kind asks for, unless it already holds something. */}
@@ -836,7 +902,7 @@ export default function App(): React.JSX.Element {
                 </Tip>
               )}
               {ASKS[kind].why && textOf(body).trim().split('\n').filter(Boolean).length < 2 && (
-                <span className="truncate px-1.5 text-xs text-muted-foreground/70"><Typed text={ASKS[kind].why} /></span>
+                <span className="truncate px-1.5 text-xs text-muted-foreground/70"><Rolling by="word" text={ASKS[kind].why} /></span>
               )}
               {like && (
                 <Tip label={`Open it: ${like.title}`}>
@@ -1096,9 +1162,15 @@ const CapturePrompt = ({
   onOpenNote,
   from,
   onSource,
-  onTag
+  onTag,
+  onTitleOut,
+  tokens = TAGS
 }: {
   onSource: () => void
+  /** What the editor lights up: tags, and a todo's date and priority words. */
+  tokens?: TokenPattern[]
+  /** The first line went out of sight (its words), or came back (null). */
+  onTitleOut: (title: string | null) => void
   onTag: (tag: string) => void
   /** The capture open in the box, if any: what a selection lifted out of it points back to. */
   from?: string
@@ -1124,7 +1196,7 @@ const CapturePrompt = ({
         shape="document"
         placeholder="Type / for commands…"
         defaultContent={initial}
-        tokens={TAGS}
+        tokens={tokens}
         onTokenClick={(token) => token.name === 'tag' && onTag(token.value)}
         onToggleSource={onSource}
         // documentId={note ? `doc-${note.id}` : null}
@@ -1151,7 +1223,9 @@ const CapturePrompt = ({
         // --- what it tells you ---
         onChange={onChange}
         findNotes={findCaptures}
+        findHeadings={findHeadings}
         onOpenNote={onOpenNote}
+        onTitleOut={onTitleOut}
       />
     </div>
   )
@@ -1193,9 +1267,10 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   // what is due today (as the main window's Today counts it), every nugget
   // and article.
   const openTasks = useLive(
-    () => (window.api.vigil('tasks') as Promise<{ status: string; dueAt: string | null; waitingOn: string | null }[]>).then((tasks) => {
+    () => vigil.tasks().then((tasks) => {
+      // The same count as the Today list: scheduled or due by today.
       const end = new Date().setHours(24, 0, 0, 0)
-      return tasks.filter((task) => task.status === 'open' && task.dueAt && new Date(task.dueAt).getTime() < end).length
+      return tasks.filter((task) => task.status === 'open' && !task.waitingOn && (placed(task) ?? Infinity) < end).length
     }),
     0
   )
@@ -1227,7 +1302,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
     const onKey = (event: KeyboardEvent): void => {
       if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
       // A focused card takes its own P, R and D.
-      if ((event.target as Element | null)?.closest?.('[data-tone="knock"]')) return
+      if ((event.target as Element | null)?.closest?.('[data-card]')) return
       if (event.key === 'Escape' && chosen.length) {
         event.preventDefault()
         return setChosen([])
@@ -1316,10 +1391,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                           if (!text) return
                           const ids = chosen
                           setChosen([])
-                          void vigil.taskFrom(ids, text).then((made) => {
-                            chime('noted')
-                            toast(taskSaid(made, `One task, from ${ids.length} captures`))
-                          })
+                          void makeTask({ captures: ids, text }, `One task, from ${ids.length} captures`)
                         })}>One task</Button>
                       )}
                       <Tip label="Let them go  Esc">

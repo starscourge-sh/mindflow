@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import {
   Minimize2,
   ArrowLeft,
@@ -6,6 +6,8 @@ import {
   BarChart3,
   Brain,
   CalendarDays,
+  CalendarRange,
+  Telescope,
   ChevronRight,
   FileText,
   Gem,
@@ -37,14 +39,21 @@ import { SettingsView } from './components/vigil/settings-view'
 import { StatsView } from './components/vigil/stats-view'
 import { TagsView } from './components/vigil/tags-view'
 import { TasksView } from './components/vigil/tasks-view'
+import { WeekView } from './components/vigil/week-view'
+import { placed } from './lib/tasks'
 import { Kbd, Rolling, Toaster, toast, typing, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import { useAppearance, useLive, vigil, type Item, type Settings, type Task } from './lib/vigil'
-import { Tip } from '@/components/vigil/ui'
+import { Tip, showTopTitle, useTopTitle } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import ExpandIcon from '@/components/ui/expand-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
+import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
+import { Tour } from '@/components/vigil/tour'
+import { DayView } from '@/components/vigil/day-view'
+import { noteActions } from '@/lib/notes'
+import { Archive, NotebookPen } from 'lucide-react'
 
 type View = { id: string; focus?: string }
 
@@ -53,18 +62,34 @@ type View = { id: string; focus?: string }
 const SECTIONS: { id: string; label: string; icon: LucideIcon; key: string; tint: string }[] = [
   { id: 'inbox', label: 'Inbox', icon: Inbox, key: 'i', tint: 'blue' },
   { id: 'review', label: 'Review', icon: Brain, key: 'r', tint: 'purple' },
+  // The daily note: written in, and what the day held.
+  { id: 'day', label: "Today's page", icon: NotebookPen, key: 'p', tint: 'green' },
   { id: 'today', label: 'Today', icon: Sun, key: 't', tint: 'green' },
   { id: 'upcoming', label: 'Upcoming', icon: CalendarDays, key: 'u', tint: 'orange' },
+  { id: 'week', label: 'Week', icon: CalendarRange, key: 'w', tint: 'blue' },
   { id: 'routines', label: 'Routines', icon: Repeat, key: 'o', tint: 'yellow' },
+  // This month, This year and Someday: what has no day yet.
+  { id: 'later', label: 'Later', icon: Telescope, key: 'z', tint: 'purple' },
   { id: 'nuggets', label: 'Nuggets', icon: Gem, key: 'n', tint: 'pink' },
   { id: 'articles', label: 'Articles', icon: FileText, key: 'a', tint: 'brown' },
   { id: 'tags', label: 'Tags', icon: Tag, key: '#', tint: 'red' },
   { id: 'stats', label: 'Stats', icon: BarChart3, key: 's', tint: 'blue' },
   { id: 'all', label: 'All captures', icon: Layers, key: 'l', tint: 'gray' },
-  { id: 'discarded', label: 'Discarded', icon: Trash2, key: 'd', tint: 'gray' }
+  { id: 'discarded', label: 'Discarded', icon: Trash2, key: 'd', tint: 'gray' },
+  // Out of sight, not let go: apart from the exits.
+  { id: 'archived', label: 'Archived', icon: Archive, key: 'v', tint: 'gray' }
 ]
 
 const today = (): number => new Date().setHours(24, 0, 0, 0)
+
+/** Whether the window is under 760px wide, followed as it is resized. */
+const NARROW = '(max-width: 759px)'
+const followNarrow = (change: () => void): (() => void) => {
+  const query = matchMedia(NARROW)
+  query.addEventListener('change', change)
+  return () => query.removeEventListener('change', change)
+}
+const useNarrow = (): boolean => useSyncExternalStore(followNarrow, () => matchMedia(NARROW).matches)
 
 /**
  * The main window: the sections down the left, the one picked filling the
@@ -92,6 +117,9 @@ export function Home(): React.JSX.Element {
       return { views, at: next }
     })
   const [sidebar, setSidebar] = useState(true)
+  // Under 760px wide the sidebar folds down to its icons, each named on hover,
+  // so a window tiled into a corner keeps its page.
+  const narrow = useNarrow()
   // Private titles shown on purpose go back to blurred once the window is put away.
   useEffect(() => {
     const onHide = (): void => void (document.hidden && delete document.documentElement.dataset.reveal)
@@ -132,11 +160,14 @@ export function Home(): React.JSX.Element {
   const nuggets = useLive(() => vigil.items('nugget'), [] as Item[])
   const articles = useLive(() => vigil.items('article'), [] as Item[])
   const settings = useLive(vigil.settings, null as Settings | null)
+  const topTitle = useTopTitle()
+  // A new section has no note scrolled: the last one's name does not follow you there.
+  useEffect(() => showTopTitle(null), [view.id])
 
   const counts: Record<string, number> = {
     inbox: captures.filter((capture) => capture.status === 'open').length,
     review: due,
-    today: tasks.filter((task) => task.status === 'open' && task.dueAt && new Date(task.dueAt).getTime() < today()).length,
+    today: tasks.filter((task) => task.status === 'open' && !task.waitingOn && (placed(task) ?? Infinity) < today()).length,
     nuggets: nuggets.length,
     articles: articles.length
   }
@@ -186,22 +217,25 @@ export function Home(): React.JSX.Element {
   const open = (type: string, id: string): void =>
     setView({ id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id })
   // A view is sent by name (⌘, sends Settings), anything else as one thing to open.
-  useEffect(() => window.api.onSentTo((type, id) => (type === 'view' ? setView({ id }) : type === 'task' ? setView({ id: 'today', focus: id }) : open(type, id))), [])
+  useEffect(() => window.api.onSentTo((type, id) => (type === 'view' ? setView({ id }) : type === 'recap' ? setView({ id: 'stats', focus: id }) : type === 'task' ? setView({ id: 'today', focus: id }) : open(type, id))), [])
 
   const kind = CAPTURE_TYPES.find((type) => `kind:${type.id}` === view.id)
   const keep: Record<string, (capture: CaptureMeta) => boolean> = {
     inbox: (capture) => capture.status === 'open',
     all: (capture) => capture.status !== 'discarded',
     // Nothing is destroyed: a discard lands here, and comes back from here.
-    discarded: (capture) => capture.status === 'discarded'
+    discarded: (capture) => capture.status === 'discarded',
+    archived: (capture) => !!capture.archivedAt
   }
 
   return (
     <TooltipProvider delayDuration={600}>
     <div className="flex h-screen flex-col bg-background text-foreground">
       {/* Centred over the page, not the sidebar beside it. */}
-      <div className={`contents ${sidebar ? '[--toast-left:15rem]' : ''}`}><Toaster /></div>
+      <div className={`contents ${sidebar ? (narrow ? '[--toast-left:4rem]' : '[--toast-left:15rem]') : ''}`}><Toaster /></div>
       <NotePreview />
+      <ShortcutSheet />
+      <Tour firstRun />
       <FocusNote />
       {searching && (
         <Search
@@ -222,7 +256,12 @@ export function Home(): React.JSX.Element {
               if ('reveal' in root.dataset) delete root.dataset.reveal
               else root.dataset.reveal = ''
             } },
-            { label: 'Settings', keys: '⌘,', run: () => setView({ id: 'settings' }) }
+            { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('vigil:shortcuts')) },
+            { label: 'Settings', keys: '⌘,', run: () => setView({ id: 'settings' }) },
+            ...noteActions({ day: false }),
+            // The recap, Wrapped's way, over Stats.
+            { label: 'Your month, wrapped', run: () => setView({ id: 'stats', focus: 'month' }) },
+            { label: 'Your year, wrapped', run: () => setView({ id: 'stats', focus: 'year' }) }
           ]}
           onClose={() => setSearching(false)}
           onOpen={(type, id) => {
@@ -238,36 +277,40 @@ export function Home(): React.JSX.Element {
           on them says it does not. */}
       <div className="flex min-h-0 flex-1 gap-2 p-2">
       {sidebar && (
-      <aside data-chrome className="flex w-56 shrink-0 flex-col overflow-y-auto rounded-xl border bg-accent/20 p-2 pb-3">
+      <aside data-chrome className={`flex shrink-0 flex-col overflow-y-auto rounded-xl border bg-accent/20 p-2 pb-3 ${narrow ? 'w-12' : 'w-56'}`}>
         {/* Room for the traffic lights, and somewhere to hold the window by. */}
         <div className="h-8 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
         <button
           type="button"
+          data-tour="search"
+          aria-label="Search"
           onClick={() => setSearching(true)}
-          className="mb-3 flex items-center gap-2 rounded-lg bg-accent/60 px-2.5 py-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className={`mb-3 flex items-center gap-2 rounded-lg bg-accent/60 py-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${narrow ? 'justify-center px-0' : 'px-2.5'}`}
         >
           <AliveIcon icon={MagnifierIcon} size={16} />
-          <span className="flex-1 text-left">Search…</span>
-          <Kbd>⌘K</Kbd>
+          {!narrow && <span className="flex-1 text-left">Search…</span>}
+          {!narrow && <Kbd>⌘K</Kbd>}
         </button>
         <nav className="flex flex-col gap-px">
           {SECTIONS.map((section) => (
             <Fragment key={section.id}>
             {/* The same two words as the prompt's tabs: what to do, what you kept. */}
-            {section.id === 'today' && <div className="mt-3 mb-0.5 px-2 text-meta text-muted-foreground">Tasks</div>}
-            {section.id === 'nuggets' && <div className="mt-3 mb-0.5 px-2 text-meta text-muted-foreground">Kept</div>}
+            {section.id === 'today' && (narrow ? <div className="mt-3" /> : <div className="mt-3 mb-0.5 px-2 text-meta text-muted-foreground">Tasks</div>)}
+            {section.id === 'nuggets' && (narrow ? <div className="mt-3" /> : <div className="mt-3 mb-0.5 px-2 text-meta text-muted-foreground">Kept</div>)}
             {section.id === 'tags' && <div className="mt-3" />}
             <Tooltip>
             <TooltipTrigger asChild>
             <button
               type="button"
               data-home={section.id === 'nuggets' ? 'nugget' : section.id === 'upcoming' ? 'task' : undefined}
+              data-tour={section.id === 'inbox' ? 'inbox' : undefined}
+              aria-label={section.label}
               onClick={() => setView({ id: section.id })}
-              className={`group relative flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors ${view.id === section.id ? 'bg-accent text-foreground' : 'text-foreground/80 hover:bg-accent/60'}`}
+              className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors ${narrow ? 'justify-center px-0' : 'px-2'} ${view.id === section.id ? 'bg-accent text-foreground' : 'text-foreground/80 hover:bg-accent/60'}`}
             >
               <section.icon className="size-4" style={{ color: `var(--tt-color-text-${section.tint})` }} />
-              <span className="flex-1 text-left">{section.label}</span>
-              {counts[section.id] ? (
+              {!narrow && <span className="flex-1 text-left">{section.label}</span>}
+              {!narrow && counts[section.id] ? (
                 <Rolling
                   text={counts[section.id]}
                   className={`text-xs tabular-nums ${section.id === 'today' ? 'text-[var(--tt-color-text-orange)]' : 'text-muted-foreground'}`}
@@ -283,6 +326,7 @@ export function Home(): React.JSX.Element {
           ))}
         </nav>
 
+        {!narrow && (<>
         <button
           type="button"
           onClick={() => (chime(kindsOpen ? 'fold' : 'slide'), setKindsOpen(!kindsOpen))}
@@ -330,32 +374,37 @@ export function Home(): React.JSX.Element {
               <span className="text-xs text-muted-foreground tabular-nums"><Rolling text={count} /></span>
             </button>
           ))}
+        </>)}
 
         <div className="mt-auto flex flex-col gap-px pt-4">
-          <Tip label="⌥⌘S">
+          <Tip label="Safe mode  ⌥⌘S">
           <button
             type="button"
             onClick={safeMode}
           
-            className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-accent/60 ${settings?.safeMode ? 'text-[var(--tt-brand-color-400)]' : 'text-foreground/80'}`}
+            aria-label={settings?.safeMode ? 'Safe mode: on' : 'Safe mode: off'}
+            className={`flex items-center gap-2.5 rounded-md py-1.5 transition-colors hover:bg-accent/60 ${narrow ? 'justify-center px-0' : 'px-2'} ${settings?.safeMode ? 'text-[var(--tt-brand-color-400)]' : 'text-foreground/80'}`}
           >
             {settings?.safeMode ? <Shield className="size-4" /> : <ShieldOff className="size-4" />}
-            <span className="flex-1 text-left">{settings?.safeMode ? 'Safe mode: on' : 'Safe mode: off'}</span>
+            {!narrow && <span className="flex-1 text-left">{settings?.safeMode ? 'Safe mode: on' : 'Safe mode: off'}</span>}
           </button>
           </Tip>
-          <Tip label="⌘,">
+          <Tip label="Settings  ⌘,">
           <button
             type="button"
+            aria-label="Settings"
             onClick={() => setView({ id: 'settings' })}
-            className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 ${view.id === 'settings' ? 'bg-accent' : 'text-foreground/80 hover:bg-accent/60'}`}
+            className={`flex items-center gap-2.5 rounded-md py-1.5 ${narrow ? 'justify-center px-0' : 'px-2'} ${view.id === 'settings' ? 'bg-accent' : 'text-foreground/80 hover:bg-accent/60'}`}
           >
             <SettingsIcon className="size-4" />
-            <span className="flex-1 text-left">Settings</span>
+            {!narrow && <span className="flex-1 text-left">Settings</span>}
           </button>
           </Tip>
-          <p className="mt-2 px-2 text-xs whitespace-nowrap text-muted-foreground">
-            <Kbd>G</Kbd> jump <span className="mx-1">·</span> <Kbd>C</Kbd> capture
-          </p>
+          {!narrow && (
+            <p className="mt-2 px-2 text-xs whitespace-nowrap text-muted-foreground">
+              <Kbd>G</Kbd> jump <span className="mx-1">·</span> <Kbd>C</Kbd> capture <span className="mx-1">·</span> <Kbd>?</Kbd> keys
+            </p>
+          )}
         </div>
       </aside>
       )}
@@ -390,7 +439,8 @@ export function Home(): React.JSX.Element {
           ))}
         </span>
         <span className="ml-2 truncate font-medium">{SECTIONS.find((section) => section.id === view.id)?.label ?? (kind ? kind.label : view.id === 'settings' ? 'Settings' : '')}</span>
-        <span className="flex-1" />
+        {/* The open note's name, faint, once its first line has scrolled away. */}
+        <span className={`min-w-0 flex-1 truncate px-4 text-center text-muted-foreground transition-opacity duration-200 ${topTitle && settings?.topTitle !== false ? 'opacity-100' : 'opacity-0'}`}>{topTitle}</span>
         <SoundToggle className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-4" />
         <Tip label={`${fill ? 'Back to compact' : 'Fill the screen'}  ⌃⇧F`}>
           <button type="button" aria-label={fill ? 'Back to compact' : 'Fill the screen'} onClick={() => setFill(!fill)}
@@ -418,20 +468,24 @@ export function Home(): React.JSX.Element {
         transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
         className="flex min-w-0 flex-1"
       >
-        {view.id === 'inbox' || view.id === 'all' || view.id === 'discarded' ? (
-          <CapturesView title={SECTIONS.find((section) => section.id === view.id)!.label} keep={keep[view.id]} focus={view.focus} onOpen={open} />
+        {view.id === 'inbox' || view.id === 'all' || view.id === 'discarded' || view.id === 'archived' ? (
+          <CapturesView title={SECTIONS.find((section) => section.id === view.id)!.label} keep={keep[view.id]} focus={view.focus} onOpen={open} archived={view.id === 'archived'} />
+        ) : view.id === 'day' ? (
+          <DayView onOpen={open} />
         ) : kind ? (
           <CapturesView title={kind.label} keep={(capture) => capture.kind === kind.id} onOpen={open} />
         ) : view.id === 'review' ? (
           <ReviewView />
-        ) : view.id === 'today' || view.id === 'upcoming' || view.id === 'routines' ? (
+        ) : view.id === 'today' || view.id === 'upcoming' || view.id === 'routines' || view.id === 'later' ? (
           <TasksView mode={view.id} focus={view.focus} onOpen={open} />
+        ) : view.id === 'week' ? (
+          <WeekView onOpen={open} />
         ) : view.id === 'nuggets' || view.id === 'articles' ? (
           <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} focus={view.focus} onOpen={open} />
         ) : view.id === 'tags' ? (
           <TagsView key={view.focus} onOpen={open} focus={view.focus} />
         ) : view.id === 'stats' ? (
-          <StatsView />
+          <StatsView key={view.focus} recap={view.focus} />
         ) : (
           <SettingsView />
         )}

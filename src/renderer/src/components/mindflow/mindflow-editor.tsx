@@ -6,7 +6,7 @@ import type { JSONContent } from "@tiptap/core"
 import { Fragment, Slice } from "@tiptap/pm/model"
 import { NodeSelection, Selection as PMSelection } from "@tiptap/pm/state"
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model"
-import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
+import { EditorContent, EditorContext, useEditor, useEditorState } from "@tiptap/react"
 
 // --- Tiptap Core Extensions ---
 import { StarterKit } from "@tiptap/starter-kit"
@@ -55,6 +55,7 @@ import { Bookmark } from "@/extensions/bookmark"
 import { Callout } from "@/extensions/callout"
 import { Attachment } from "@/extensions/attachment"
 import { ExcalidrawDiagram } from "@/extensions/excalidraw"
+import { Calc } from "@/extensions/calc"
 
 /** Every mark the editor can register. */
 export type MarkName =
@@ -194,8 +195,9 @@ import { TableControls } from "@/components/table/table-controls"
 import { BlockMenu, type BlockTarget } from "@/components/turn-into/block-menu"
 import { WordCount } from "@/components/count/word-count"
 import { TableOfContents } from "@/components/toc/table-of-contents"
+import { OutlineKeys, goToHeading } from "@/components/toc/headings"
 import { SourceView } from "@/components/source/source-view"
-import { NoteLink, type NoteSuggestion } from "@/extensions/note-link"
+import { NoteLink, takePendingHeading, type NoteSuggestion } from "@/extensions/note-link"
 import { noteLinkRenderer, tagRenderer } from "@/components/note-link/note-link-menu"
 import { ImageMenu } from "@/components/image/image-menu"
 import { CodeBlockView } from "@/components/code/code-block-view"
@@ -258,11 +260,21 @@ export interface MindflowEditorProps {
    */
   slash?: boolean
   /**
-   * The heading outline down the right edge.
+   * The heading outline down the right edge. Off, it is still there for the
+   * keys: ⇧⌘O brings it up to move through, and ⌥⌘↑ and ⌥⌘↓ jump between
+   * headings either way.
    *
    * @default true
    */
   outline?: boolean
+  /**
+   * Math as you type: a line ending in `=` shows its answer, Tab writes it in.
+   * The page's own switch covers every editor at once - see `setCalc`; this
+   * leaves one editor out of it.
+   *
+   * @default true for a document, false for a line
+   */
+  math?: boolean
   /**
    * Find, on Mod-f. Registers a window level key handler while mounted.
    *
@@ -408,8 +420,22 @@ export interface MindflowEditorProps {
    * @default () => [] - the `@` menu finds nothing
    */
   findNotes?: (query: string) => NoteSuggestion[] | Promise<NoteSuggestion[]>
-  /** A note link was clicked. The editor reports; the app navigates. */
-  onOpenNote?: (id: string) => void
+  /**
+   * A note link was clicked. The editor reports; the app navigates. A link to
+   * a heading says which, though the app need do nothing with it: the next
+   * editor to open scrolls there itself.
+   */
+  onOpenNote?: (id: string, heading?: string) => void
+  /**
+   * The headings in another note, for `@Note#` to offer. Without it, `@#`
+   * still offers this note's own.
+   */
+  findHeadings?: (id: string) => string[] | Promise<string[]>
+  /**
+   * The first line has scrolled out of sight (its words), or come back (null):
+   * for a host that shows the title in its top bar once the page has not.
+   */
+  onTitleOut?: (title: string | null) => void
   /**
    * A tag was followed. The editor reports the match; what following one means
    * - a search, a filter, a new view - is the app's.
@@ -476,6 +502,9 @@ function Surface({
   tokens = TAGS,
   findNotes = () => [],
   onOpenNote,
+  findHeadings,
+  onTitleOut,
+  math,
   onTokenClick,
   onChange,
   onReady,
@@ -601,6 +630,7 @@ function Surface({
 
   const finder = useLatest(findNotes)
   const opener = useLatest(onOpenNote)
+  const headingFinder = useLatest(findHeadings)
   // @tiptap/react already routes `onUpdate` to the newest props. The ref is for
   // the teardown effect below, which is keyed on `[editor]` and would otherwise
   // close over the callback from the render that created the editor.
@@ -971,7 +1001,8 @@ function Surface({
       // then. Captured that early, `@` would search an empty list forever.
       NoteLink.configure({
         findNotes: (query) => finder.current(query),
-        onOpenNote: (id) => opener.current?.(id),
+        onOpenNote: (id, heading) => opener.current?.(id, heading),
+        findHeadings: (id) => headingFinder.current?.(id) ?? [],
         render: noteLinkRenderer,
         tagRender: tagRenderer,
       }),
@@ -1018,6 +1049,8 @@ function Surface({
       EmojiSuggestion,
       Mathematics,
       ToggleHeading,
+      ...(shape === "document" ? [OutlineKeys] : []),
+      ...((math ?? shape === "document") ? [Calc] : []),
       ImageDrop,
       BlockColor,
       JoinLists,
@@ -1048,7 +1081,12 @@ function Surface({
     content: defaultContent,
     // A string is Markdown: what an imported note, or one pasted from a file, is.
     contentType: typeof defaultContent === "string" ? "markdown" : "json",
-    onCreate: ({ editor: instance }) => onReady?.(instance),
+    onCreate: ({ editor: instance }) => {
+      onReady?.(instance)
+      // Opened by a link to one of its headings: go there once laid out.
+      const heading = shape === "document" ? takePendingHeading() : null
+      if (heading) requestAnimationFrame(() => goToHeading(instance, heading))
+    },
     onUpdate: ({ editor: instance }) => {
       if (!latest.current) return
       // Serialising a long document on every keystroke is real work; the caller
@@ -1150,6 +1188,30 @@ function Surface({
     return () => dom.removeEventListener("error", missing, true)
   }, [editor])
 
+  // The first line, watched against the window rather than the scroller: in
+  // the box the document scrolls itself, in a page its column does, and only
+  // the window is the same in both. The top 48px are the host's bar.
+  const titleOut = useLatest(onTitleOut)
+  const [titleGone, setTitleGone] = useState(false)
+  const firstLine = useEditorState({
+    editor,
+    selector: ({ editor: instance }) => (onTitleOut && instance ? instance.state.doc.firstChild?.textContent.trim() ?? "" : ""),
+  })
+  useEffect(() => {
+    const first = onTitleOut && editor && !editor.isDestroyed ? editor.view.dom.firstElementChild : null
+    if (!first) return
+    const watch = new IntersectionObserver(([entry]) => setTitleGone(!entry.isIntersecting && entry.boundingClientRect.top < 48), {
+      rootMargin: "-48px 0px 0px 0px",
+    })
+    watch.observe(first)
+    return () => watch.disconnect()
+    // Again when the first block is replaced, as a new heading or a paste does.
+  }, [editor, !onTitleOut, firstLine]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    titleOut.current?.(titleGone && firstLine ? firstLine : null)
+  }, [titleGone, firstLine]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => titleOut.current?.(null), []) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const flush = (): void => {
       if (!pending.current) return
@@ -1245,6 +1307,8 @@ function Surface({
       ]
         .filter(Boolean)
         .join(" ")}
+      // Which editors have a find bar, so ⌘F can pick one when several share a page.
+      data-search={search ? "" : undefined}
       style={style}
     >
       <EditorContext.Provider value={{ editor }}>
@@ -1252,7 +1316,7 @@ function Surface({
 
         <ImageMenu editor={editor} />
 
-        {outline && <TableOfContents editor={editor} />}
+        {shape === "document" && <TableOfContents editor={editor} shown={outline} />}
         <TableControls editor={editor} />
         <TableMenu editor={editor} />
 

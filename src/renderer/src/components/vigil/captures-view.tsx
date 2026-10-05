@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { ArrowUpRight, Eye, EyeOff, CheckCircle2, FileText, Hash, Inbox, ListTodo, Merge, Pin, Trash2, X, Laptop, Timer, History } from 'lucide-react'
+import { ArrowUpRight, Eye, EyeOff, CheckCircle2, FileText, Hash, Inbox, ListTodo, Merge, Pin, Trash2, X, Laptop, Timer, History, CloudSun } from 'lucide-react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
@@ -10,11 +10,12 @@ import { AGES, Display, arrange, period, useView, type Facet, type View } from '
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
 import { Mentions } from './mentions'
-import { EXITS, STATUS_ICON, captureKey, exit, findCaptures, flying, takeExit, toTask, follow } from '@/lib/capture-links'
+import { EXITS, STATUS_ICON, captureKey, exit, findCaptures, findHeadings, flying, takeExit, follow } from '@/lib/capture-links'
 import { toMarkdown } from '@/lib/export'
-import { splitTags, taskSaid, vigil, type Made } from '@/lib/vigil'
+import { splitTags, vigil } from '@/lib/vigil'
+import { makeTask } from '@/lib/tasks'
 import { chime } from '@/lib/sound'
-import { Empty, Page, Prop, PropLabel, Props, Remembered, Rolling, ask, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt } from './ui'
+import { Empty, Page, Prop, PropLabel, Props, Remembered, Rolling, ask, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle } from './ui'
 import { RemindMe } from './items-view'
 import { ReadThrough } from './read-through'
 import { selectionActions } from './selection-actions'
@@ -22,6 +23,9 @@ import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
+import { Archive, ArchiveRestore, Download } from 'lucide-react'
+import { KindFields, LayoutToggle, LocalGraph, NoteCards, Versions, useLayout } from './note-extras'
+import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
 
@@ -30,28 +34,49 @@ type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
  * with its properties and its exits. `focus` opens one straight away, for when
  * search or a tag sent you here.
  */
-export function CapturesView({ title, keep, focus, onOpen }: {
+export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
   title: string
   keep: (capture: CaptureMeta) => boolean
   focus?: string
+  /** The Archived view: what is out of sight, and only that. */
+  archived?: boolean
   /** Go to another thing: a nugget it became, a page that links to it. */
   onOpen?: (type: string, id: string) => void
 }): React.JSX.Element {
-  const all = useCaptures()
+  const all = useCaptures(true)
   const kept = all.filter(keep)
-  const { groups, display } = useCaptureDisplay(`captures:${title}`, kept)
+  const { groups, display, move, moveBy } = useCaptureDisplay(`captures:${title}`, kept, undefined, archived)
   const shown = groups.flatMap(([, list]) => list)
+  const [layout, setLayout] = useLayout(`captures:${title}`)
   const [open, setOpen] = useState<Capture | null>(null)
+  // An earlier version, shown in place of the editor while you look back.
+  const [past, setPast] = useState<{ body: unknown; key: string } | null>(null)
+  // Bumped when the words change under the editor (a version restored), so it
+  // opens again on what is there now.
+  const [rev, setRev] = useState(0)
   // The capture as first written, shown in place of the editor, or null.
   const [first, setFirst] = useState<unknown>(null)
   useEffect(() => setFirst(null), [open?.id])
   const pick = (id: string): void => void window.api.captures.get(id).then(setOpen)
-  const [cursor] = useListKeys(shown.length, { onOpen: (index) => pick(shown[index].id), onBack: () => setOpen(null) })
+  const [cursor, setCursor] = useListKeys(shown.length, { onOpen: (index) => pick(shown[index].id), onBack: () => setOpen(null) })
   // Reading through what is shown, one at a time with nothing else on screen.
   const [readFrom, setReadFrom] = useState<number | null>(null)
   useReadKey(() => setReadFrom(startAt(shown, open?.id, cursor)), shown.length)
   // x selects, as in Linear, for an exit on many at once.
   const [chosen, setChosen] = useState<string[]>([])
+  // ⌥↑ and ⌥↓ (or ⌥K and ⌥J) move the row under the cursor in your own order.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.altKey || event.metaKey || event.ctrlKey || typing()) return
+      const by = event.key === 'ArrowUp' || event.code === 'KeyK' ? -1 : event.key === 'ArrowDown' || event.code === 'KeyJ' ? 1 : 0
+      const row = shown[cursor]
+      if (!by || !row) return
+      event.preventDefault()
+      if (moveBy(shown.map((one) => one.id), row.id, by)) setCursor(cursor + by)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
   const lastKey = useRef('')
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -104,11 +129,12 @@ export function CapturesView({ title, keep, focus, onOpen }: {
               <span className="mr-1"><Rolling text={chosen.length} /> selected</span>
               <Button variant="ghost" size="sm" onClick={() => bulk('resolved')}>Resolve</Button>
               <Button variant="ghost" size="sm" onClick={() => bulk('discarded')}>Discard</Button>
+              <Button variant="ghost" size="sm" onClick={() => void archive('captures', chosen, !archived).then(() => setChosen([]))}>{archived ? 'Unarchive' : 'Archive'}</Button>
               {chosen.length > 1 && (
                 <Button variant="ghost" size="sm" onClick={() => void ask(`One task from these ${chosen.length}. What is it?`, 'e.g. sort out the freight rules by Thursday').then((text) => {
                   if (!text) return
                   const ids = chosen
-                  void vigil.taskFrom(ids, text).then((made) => { chime('noted'); setChosen([]); toast(taskSaid(made, `One task, from ${ids.length} captures`)) })
+                  void makeTask({ captures: ids, text }, `One task, from ${ids.length} captures`).then(() => setChosen([]))
                 })}>One task</Button>
               )}
               <input
@@ -132,19 +158,22 @@ export function CapturesView({ title, keep, focus, onOpen }: {
               <Tip label="Read this list full screen, one note at a time, from the highlighted one (or the first). You can write in each as you go.  ⇧⌘R">
                 <Button variant="ghost" size="sm" onClick={() => setReadFrom(startAt(shown, open?.id, cursor))} disabled={!shown.length}><AliveIcon icon={BookIcon} size={14} /> Read list</Button>
               </Tip>
+              <LayoutToggle layout={layout} onChange={setLayout} />
               {display}
             </span>
           )
         }
       >
-        {shown.length ? (
+        {shown.length && layout === 'cards' ? (
+          <NoteCards table="captures" cards={shown.map((one) => ({ id: one.id, title: one.label, kind: one.kind, type: 'capture', dim: one.status !== 'open' }))} selected={open?.id} cursor={cursor} onPick={pick} />
+        ) : shown.length ? (
           <div className="px-3 py-2">
             {groups.map(([name, list], index) => {
               const before = groups.slice(0, index).reduce((n, [, one]) => n + one.length, 0)
               return (
                 <div key={name || 'all'}>
                   {name && <div className="px-2 pt-4 pb-1 text-xs text-muted-foreground first:pt-1">{name} <span className="tabular-nums"><Rolling text={list.length} /></span></div>}
-                  <CaptureList captures={list} selected={open?.id} cursor={cursor - before} chosen={chosen} onPick={pick} />
+                  <CaptureList captures={list} selected={open?.id} cursor={cursor - before} chosen={chosen} onPick={pick} onMove={(id, target, after) => move(kept.map((one) => one.id), id, target, after)} />
                 </div>
               )
             })}
@@ -152,6 +181,10 @@ export function CapturesView({ title, keep, focus, onOpen }: {
         ) : kept.length ? (
           <Empty shape={['ellipse', 3]} title="Nothing matches">
             {"Display's filters hide everything here. Change them, or clear them."}
+          </Empty>
+        ) : archived ? (
+          <Empty shape={['moon', 1]} title="Nothing archived">
+            {'Archive puts a note out of sight without letting it go. Right-click any note, or ⌘K, to archive it; it waits here.'}
           </Empty>
         ) : (
           <Empty shape={['flower', 2]} title="Nothing waiting">
@@ -189,8 +222,25 @@ export function CapturesView({ title, keep, focus, onOpen }: {
               }>
                 <History className="size-3.5" /> {first !== null ? 'Back to now' : 'As first written'}
               </Button>
+              <Versions table="captures" id={open.id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
+                onRestored={() => void window.api.captures.get(open.id).then((found) => {
+                  setOpen(found)
+                  setRev((n) => n + 1)
+                })} />
             </div>
-            {first !== null ? (
+            {past ? (
+              <MindflowEditor
+                key={`past-${open.id}-${past.key}`}
+                defaultContent={(past.body as JSONContent | string | null) ?? ''}
+                readOnly
+                toolbar={false}
+                handles={false}
+                slash={false}
+                outline={false}
+                search={false}
+                autofocus={false}
+              />
+            ) : first !== null ? (
               <MindflowEditor
                 key={`first-${open.id}`}
                 defaultContent={(first as JSONContent | string | null) ?? ''}
@@ -204,14 +254,16 @@ export function CapturesView({ title, keep, focus, onOpen }: {
               />
             ) : (
             <MindflowEditor
-              key={open.id}
+              key={`${open.id}-${rev}`}
               host={window.api}
               tokens={TAGS}
               onTokenClick={(token) => token.name === 'tag' && onOpen?.('tag', token.value)}
               toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: open.id, from: open.id }) }}
               documentId={`capture-${open.id}`}
+              onTitleOut={showTopTitle}
               defaultContent={(open.body as JSONContent | string | null) ?? ''}
               findNotes={findCaptures}
+              findHeadings={findHeadings}
               onOpenNote={(link) => follow(link, (type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id)))}
               after={<Mentions id={open.id} onOpen={(type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id))} />}
               onChange={(body, editor) =>
@@ -230,6 +282,8 @@ export function CapturesView({ title, keep, focus, onOpen }: {
 /** Status and the exits, then what the capture is, then where it came from. */
 export function CaptureProps({ capture, onOpen, className }: { capture: CaptureMeta; onOpen?: (type: string, id: string) => void; className?: string }): React.JSX.Element {
   const Status = STATUS_ICON[capture.status as keyof typeof STATUS_ICON] ?? STATUS_ICON.open
+  // Whichever window shows these, ⌘K there acts on this capture.
+  useOpenNote({ table: 'captures', type: 'capture', id: capture.id, kind: capture.kind, archived: !!capture.archivedAt })
   const reopen = (): void => void window.api.captures.save(capture.id, { status: 'open' }).then(() => chime('undo'))
   const [who, setWho] = useState(capture.attribution ?? '')
   const [where, setWhere] = useState(capture.medium ?? '')
@@ -239,7 +293,7 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
   }, [capture.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const exits = [
     { icon: ArrowUpRight, tint: 'purple', label: 'Promote to nugget', run: () => flying(capture.id, 'nugget', () => takeExit(capture.id, 'promoted')), said: 'Promoted' },
-    { icon: ListTodo, tint: 'orange', label: 'Make it a task', run: () => toTask(capture.id), said: 'Now a task' },
+    { icon: ListTodo, tint: 'orange', label: 'Make it a task', run: () => makeTask({ capture: capture.id }), said: 'Now a task' },
     { icon: CheckCircle2, tint: 'green', label: 'Resolve', run: () => window.api.captures.save(capture.id, { status: 'resolved' }), said: 'Resolved' },
     { icon: Trash2, tint: 'red', label: 'Discard', run: () => window.api.captures.save(capture.id, { status: 'discarded' }), said: 'Discarded' }
   ]
@@ -260,13 +314,8 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
               onClick={() => {
                 void exit.run().then((result) => {
                   if (result === 'cancelled') return
-                  // A task says what really happened, and has no undo: the task it made stays.
-                  if (exit.label === 'Make it a task') {
-                    const made = result as Made | null
-                    if (!made) return refuse('That capture is gone')
-                    chime(made.existed ? 'nope' : 'noted')
-                    return toast(taskSaid(made, exit.said))
-                  }
+                  // A task was heard, said and made undoable where it was made; only a capture gone is left to say.
+                  if (exit.label === 'Make it a task') return void (result || refuse('That capture is gone'))
                   if (result === 'needs-source') return refuse('A quote needs to say who said it: add a source below first')
                   // The sound once it went through, so a refusal never sounds like success first.
                   chime(exit.label === 'Discard' ? 'away' : exit.label === 'Promote to nugget' ? 'promote' : 'resolve')
@@ -283,8 +332,9 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
 
       <PropLabel>Kind</PropLabel>
       <div>
-        <CaptureKindPicker value={capture.kind as CaptureType} onChange={(kind) => void window.api.captures.save(capture.id, { kind })} />
+        <CaptureKindPicker value={capture.kind as CaptureType} onChange={(kind) => void changeKind('captures', capture.id, capture.kind, kind)} />
       </div>
+      <KindFields table="captures" id={capture.id} kind={capture.kind} />
 
       <PropLabel>Surfacing</PropLabel>
       <Prop icon={capture.private ? EyeOff : Eye} active={!!capture.private} onClick={() => void vigil.setPrivate('captures', capture.id, !capture.private)}>
@@ -294,6 +344,10 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
         {capture.pinnedAt ? 'Pinned' : 'Pin to the prompt'}
       </Prop>
       <RemindMe table="captures" id={capture.id} at={capture.remindAt} />
+      {/* Out of sight, apart from the exits: whatever became of it, it can be put away. */}
+      <Prop icon={capture.archivedAt ? ArchiveRestore : Archive} active={!!capture.archivedAt} onClick={() => void archive('captures', [capture.id], !capture.archivedAt)}>
+        {capture.archivedAt ? 'Archived: bring it back' : 'Archive'}
+      </Prop>
 
       {capture.status === 'open' && (
         <label className="flex items-center gap-2 rounded-md px-2 py-1.5 focus-within:text-foreground hover:bg-accent">
@@ -322,9 +376,12 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
         void vigil.setCapture(capture.id, 'medium', value.trim() || null)
       }} />
       <Lineage id={capture.id} onOpen={onOpen} />
+      <LocalGraph id={capture.id} title={capture.label} onOpen={onOpen} />
+      <Prop icon={Download} onClick={() => void saveAttachments([{ table: 'captures', id: capture.id }])}>Save its pictures and files…</Prop>
       <PropLabel>Details</PropLabel>
       <Prop icon={Hash}>{captureKey(capture.number)}</Prop>
       {capture.device && <Prop icon={Laptop}>{capture.device}</Prop>}
+      {capture.weather && <Prop icon={CloudSun}>{capture.weather}</Prop>}
       {capture.elapsedMs ? <Prop icon={Timer}>Written in {capture.elapsedMs < 60000 ? `${Math.round(capture.elapsedMs / 1000)}s` : `${Math.round(capture.elapsedMs / 60000)} min`}</Prop> : null}
       {capture.source && <Prop icon={FileText}>{capture.source.replace(/\.md$/, '')}</Prop>}
       {/* Editable, because a system you can catch up on beats one you
@@ -339,8 +396,32 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
  * sets them: the same in the main window and the prompt. `name` keeps each
  * list's choice apart.
  */
-export function useCaptureDisplay(name: string, kept: CaptureMeta[], filter?: View['filter']): { groups: [string, CaptureMeta[]][]; display: React.JSX.Element } {
+export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: View['filter'], archived = false): {
+  groups: [string, CaptureMeta[]][]
+  display: React.JSX.Element
+  /** Drop a row before or after another, in your own order. */
+  move: (ids: string[], id: string, target: string, after: boolean) => void
+  /** One step up or down in your own order, from the keyboard; false at an end. */
+  moveBy: (shown: string[], id: string, by: number) => boolean
+} {
   const [view, setView] = useView(name, { sort: 'newest', group: 'none', filter })
+  // Archived ones only in the Archived view, or when Display asks for them.
+  const showArchived = archived || !!view.filter.flags?.includes('archived')
+  const kept = all.filter((one) => !!one.archivedAt === showArchived)
+  const own = useOwnOrder(name)
+  // Moving a row is choosing your own order: the list switches to it.
+  const mine = (): void => void (view.sort !== 'manual' && setView({ ...view, sort: 'manual' }))
+  const move = (ids: string[], id: string, target: string, after: boolean): void => {
+    mine()
+    own.move(ids, id, target, after)
+  }
+  const moveBy = (shown: string[], id: string, by: number): boolean => {
+    const target = shown[shown.indexOf(id) + by]
+    if (!target) return false
+    mine()
+    own.move(kept.map((one) => one.id), id, target, by > 0, true)
+    return true
+  }
   const statuses = [...new Set(kept.map((one) => one.status))]
   const facets: Facet<CaptureMeta>[] = [
     // Whether it has taken an exit: offered when the list holds more than one,
@@ -351,10 +432,11 @@ export function useCaptureDisplay(name: string, kept: CaptureMeta[], filter?: Vi
     { key: 'tag', label: 'Tag', options: [...new Set(kept.flatMap((one) => splitTags(one.label).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}`, tint: `var(--tt-color-text-${tagColors.get(tag) ?? spread(tag)})` })), test: (one, tag) => splitTags(one.label).tags.includes(tag) },
     { key: 'from', label: 'Came from', options: [{ id: 'typed', label: 'Typed here' }, { id: 'imported', label: 'Imported' }], test: (one, from) => (one.source ? 'imported' : 'typed') === from },
     { key: 'who', label: 'Who said it', options: [{ id: 'mine', label: 'My words' }, { id: 'theirs', label: 'Someone else' }], test: (one, who) => (one.attribution ? 'theirs' : 'mine') === who },
-    { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Pinned' }, { id: 'private', label: 'Private' }], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : !!one.private) }
+    { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Pinned' }, { id: 'private', label: 'Private' }, ...(archived ? [] : [{ id: 'archived', label: 'Archived' }])], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : flag === 'archived' ? !!one.archivedAt : !!one.private) }
   ]
   const groups = arrange(kept, view, facets, {
     newest: (a, b) => b.capturedAt.localeCompare(a.capturedAt),
+    manual: (a, b) => own.compare(a.id, b.id) || b.capturedAt.localeCompare(a.capturedAt),
     oldest: (a, b) => a.capturedAt.localeCompare(b.capturedAt),
     name: (a, b) => a.label.localeCompare(b.label),
     kind: (a, b) => a.kind.localeCompare(b.kind)
@@ -369,9 +451,9 @@ export function useCaptureDisplay(name: string, kept: CaptureMeta[], filter?: Vi
       onChange={setView}
       facets={facets}
       defaults={filter ?? {}}
-      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'name', label: 'Name' }, { id: 'kind', label: 'Kind' }]}
+      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'name', label: 'Name' }, { id: 'kind', label: 'Kind' }, { id: 'manual', label: 'Your order' }]}
       groups={[{ id: 'none', label: 'None' }, { id: 'kind', label: 'Kind' }, { id: 'date', label: 'Date' }, { id: 'source', label: 'Where from' }]}
     />
   )
-  return { groups, display }
+  return { groups, display, move, moveBy }
 }

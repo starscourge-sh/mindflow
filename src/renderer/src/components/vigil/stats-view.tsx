@@ -1,16 +1,20 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import { Sparkles } from 'lucide-react'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { useLive, vigil, type Stats } from '@/lib/vigil'
-import { Page } from './ui'
+import { Page, Rolling } from './ui'
 import { Tip } from '@/components/vigil/ui'
+import { Button } from '@/components/ui/button'
+import { chime } from '@/lib/sound'
+import { Recap } from './recap-view'
 
 const percent = (part: number, whole: number): string => (whole ? `${Math.round((part / whole) * 100)}%` : '–')
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`
 
-/** A number inside a sentence, set apart only by weight and even figures. */
+/** A number inside a sentence, set apart only by weight and even figures. It rolls into place. */
 function N({ children }: { children: ReactNode }): React.JSX.Element {
-  return <strong className="font-semibold text-foreground proportional-nums">{children}</strong>
+  return <strong className="font-semibold text-foreground proportional-nums">{typeof children === 'string' || typeof children === 'number' ? <Rolling text={children} /> : children}</strong>
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }): React.JSX.Element {
@@ -29,8 +33,14 @@ function Section({ title, children }: { title: string; children: ReactNode }): R
  * load-bearing are here: days opened, the only one that notices the app being
  * abandoned, and time to first use, which says whether it works at all.
  */
-export function StatsView(): React.JSX.Element {
+export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Element {
   const stats = useLive(vigil.stats, null as Stats | null)
+  // The month or the year, Wrapped's way, over the page; from here or ⌘K.
+  const [recap, setRecap] = useState<'month' | 'year' | null>(asked === 'month' || asked === 'year' ? asked : null)
+  const wrap = (period: 'month' | 'year'): void => {
+    chime('slide')
+    setRecap(period)
+  }
   if (!stats) return <Page title="Stats"><div /></Page>
 
   const by = Object.fromEntries(stats.exits.map((row) => [row.status, row.n]))
@@ -48,7 +58,14 @@ export function StatsView(): React.JSX.Element {
   ]
 
   return (
-    <Page title="Stats">
+    <>
+    {recap && <Recap period={recap} onClose={() => (chime('fold'), setRecap(null))} />}
+    <Page title="Stats" actions={
+      <>
+        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => wrap('month')}><Sparkles className="size-4" /> Your month</Button>
+        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => wrap('year')}>Your year</Button>
+      </>
+    }>
       <div className="px-5 pb-20 [&>section]:max-w-[62ch]">
         <Section title="Today">
           <p>
@@ -63,7 +80,7 @@ export function StatsView(): React.JSX.Element {
         <Section title="This week">
           <p>
             You captured <N>{stats.week}</N> {stats.week === 1 ? 'thing' : 'things'}
-            {change === null ? ', with nothing the week before to set it against.' : <>, {change >= 0 ? 'up' : 'down'} <N>{Math.abs(change)}%</N> on the week before.</>}{' '}
+            {change === null ? ', with nothing the week before to set it against.' : change === 0 ? ', the same as the week before.' : <>, {change > 0 ? 'up' : 'down'} <N>{`${Math.abs(change)}%`}</N> on the week before.</>}{' '}
             You closed <N>{plural(stats.tasksDone, 'task', 'tasks')}</N>
             {stats.reviews.n ? (
               <>
@@ -121,11 +138,14 @@ export function StatsView(): React.JSX.Element {
         </Section>
 
         <Section title="Where captures go">
-          <div className="flex h-2 overflow-hidden rounded-full bg-border/60">
-            {exits.map((exit) => (
-              <div key={exit.status} style={{ width: percent(by[exit.status] ?? 0, total), background: exit.color }} />
-            ))}
-          </div>
+          {/* No bar until something has taken an exit: an empty one reads as a failing grade. */}
+          {exits.some((exit) => by[exit.status]) && (
+            <div className="flex h-2 overflow-hidden rounded-full bg-border/60">
+              {exits.map((exit) => (
+                <div key={exit.status} style={{ width: percent(by[exit.status] ?? 0, total), background: exit.color }} />
+              ))}
+            </div>
+          )}
           <p>
             Of <N>{total}</N> captures,{' '}
             {exits.map((exit, index) => (
@@ -139,13 +159,13 @@ export function StatsView(): React.JSX.Element {
         </Section>
 
         <Section title="Days you opened it">
-          <div className="grid w-fit grid-flow-col grid-rows-7 gap-[3px]">
+          {opened.size > 0 && <div className="grid w-fit grid-flow-col grid-rows-7 gap-[3px]">
             {days.map((day) => (
               <Tip key={day} label={day}>
               <div className={`size-2.5 rounded-[2px] ${opened.has(day) ? 'bg-[var(--tt-brand-color-400)]' : 'bg-border/70'}`} />
               </Tip>
             ))}
-          </div>
+          </div>}
           <p>
             <N>{opened.size}</N> of the last 84 days. This is the one number that notices if the app stops being opened at all, so it is the one to watch.
           </p>
@@ -184,6 +204,7 @@ export function StatsView(): React.JSX.Element {
         </Section>
 
         <Section title="When you capture">
+          {busiest ? <>
           <div className="flex h-14 items-end gap-[3px]">
             {Array.from({ length: 24 }, (_, hour) => {
               const n = stats.hours.find((row) => row.hour === hour)?.n ?? 0
@@ -197,7 +218,8 @@ export function StatsView(): React.JSX.Element {
           <div className="flex justify-between text-xs tabular-nums">
             <span>00</span><span>06</span><span>12</span><span>18</span><span>23</span>
           </div>
-          {busiest && <p>Most of it happens around <N>{busiest.hour}:00</N>.</p>}
+          <p>Most of it happens around <N>{`${busiest.hour}:00`}</N>.</p>
+          </> : <p>Nothing captured yet, so no hours to show.</p>}
         </Section>
 
         <Section title="What you capture">
@@ -219,5 +241,6 @@ export function StatsView(): React.JSX.Element {
         </Section>
       </div>
     </Page>
+    </>
   )
 }

@@ -32,10 +32,14 @@ export interface CaptureMeta {
   /** The machine it was captured on, and how long writing it took. */
   device: string | null
   elapsedMs: number | null
+  /** The weather when it was caught, "12°C, light rain", when that setting is on. */
+  weather: string | null
   /** Where you met it: "YouTube", "book", "meeting". Free text. */
   medium: string | null
   /** When it took an exit; null while open. */
   closedAt: string | null
+  /** Put out of sight, not deleted; null while in view. */
+  archivedAt: string | null
 }
 
 export interface Capture extends CaptureMeta {
@@ -75,9 +79,9 @@ export const database = (): DatabaseSync => db
 /**
  * What a window may send to make or change a capture, checked here rather
  * than trusted: `as CapturePatch` is a hope, this is a check. The kinds are
- * the brief's eight.
+ * the brief's eight, and a book.
  */
-const KINDS = ['note', 'todo', 'quote', 'word', 'link', 'excerpt', 'decision', 'bit'] as const
+const KINDS = ['note', 'todo', 'quote', 'word', 'link', 'excerpt', 'decision', 'bit', 'book'] as const
 const Patch = z.object({
   title: z.string().optional(),
   kind: z.enum(KINDS).optional(),
@@ -102,7 +106,7 @@ export const like = (text: string): string => text.replace(/[\\%_]/g, '\\$&')
  * only the fallback, for an import or a bookmark whose body is plain text.
  */
 export const LABEL = 'label(title, body)'
-export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, attribution, medium, exited_at as closedAt, device, elapsed_ms as elapsedMs`
+export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, attribution, medium, exited_at as closedAt, device, elapsed_ms as elapsedMs, weather, archived_at as archivedAt`
 
 /** Tell every window the list changed, so whichever is showing it reloads. */
 export const changed = (): void => {
@@ -219,9 +223,9 @@ export function registerCaptures(): void {
     const rows = db.prepare(
       `select * from (
          select 'capture' as type, id, number, kind, status, source, attribution, ${LABEL} as label, body, captured_at as capturedAt
-           from captures where status != 'discarded' and ${match(`(${LABEL} || ' ' || body)`)}
+           from captures where status != 'discarded' and ${match(`(${LABEL} || ' ' || body || ' ' || coalesce(medium, '') || ' ' || coalesce(fields, ''))`)}
          union all
-         select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), body, created_at from nuggets where ${match("(title || ' ' || body)")}
+         select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), body, created_at from nuggets where ${match("(title || ' ' || body || ' ' || coalesce(fields, ''))")}
          union all
          select 'task', id, number, 'todo', status, '', null, title, coalesce(notes, 'null'), created_at from tasks where ${match("(title || ' ' || coalesce(notes, ''))")}
        ) ${kind ? 'where kind = ?' : ''} order by capturedAt desc limit 60`

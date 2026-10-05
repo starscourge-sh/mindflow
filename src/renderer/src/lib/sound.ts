@@ -70,13 +70,48 @@ const CUES = {
   away: [[440, 0, 0.12], [330, 0.06, 0.18]],
   // A hint arrives: two soft bells, rare enough to be noticed.
   hint: [[1046, 0, 0.25], [1568, 0.09, 0.35]],
+  // Getting ready to focus: a low note winding up a fourth, a breath in.
+  windup: [[262, 0, 0.22, 0.04, 349, 0.05]],
+  // A timer set from the box: two quick ticks, a clock wound.
+  timer: [[1760, 0, 0.03, 0.04], [1320, 0.09, 0.03, 0.04], [988, 0.18, 0.2, 0.04]],
+  // A session or timer run its course: a slow open chord, the bell at the end of a sit.
+  finish: [[392, 0, 0.9, 0.045], [587, 0.12, 0.9, 0.04], [784, 0.24, 1.2, 0.035]],
+  // Called off: one soft note sinking, nothing to celebrate and nothing wrong.
+  called: [[466, 0, 0.5, 0.04, 349, 0.08]],
+  // A note stuck on the desktop: a light press and a lift; taken down, the press alone.
+  stick: [[988, 0, 0.05, 0.05], [1480, 0.05, 0.16, 0.04]],
+  unstick: [[1480, 0, 0.05, 0.04], [988, 0.05, 0.12, 0.035]],
   // Reveal an answer in review.
   reveal: [[740, 0, 0.12]],
   // The four grades: the further from "again", the higher.
   again: [[311, 0, 0.18]],
   hard: [[440, 0, 0.14]],
   good: [[587, 0, 0.14]],
-  easy: [[784, 0, 0.1], [1175, 0.05, 0.2]]
+  easy: [[784, 0, 0.1], [1175, 0.05, 0.2]],
+  // A row moved in your own order: a short slide of two close notes.
+  shift: [[698, 0, 0.05, 0.04], [784, 0.035, 0.07, 0.04]],
+  // A note changes kind: two notes a fourth apart, a label swapped.
+  retag: [[587, 0, 0.07, 0.05], [784, 0.05, 0.12, 0.05]],
+  // Archived: a soft low lid closing, slower than a discard.
+  shelve: [[392, 0, 0.16, 0.05, 294, 0.02], [262, 0.08, 0.24, 0.04]],
+  // Out of the archive: the same lid lifting.
+  unshelve: [[262, 0, 0.12, 0.04], [392, 0.06, 0.2, 0.05]],
+  // An older version brought back: a rewind with a landing.
+  rewind: [[880, 0, 0.04, 0.04], [740, 0.03, 0.04, 0.04], [587, 0.06, 0.04, 0.04], [784, 0.11, 0.2, 0.05]],
+  // Files saved to a folder: three quick drops.
+  saved: [[1046, 0, 0.04, 0.04], [880, 0.05, 0.04, 0.04], [698, 0.1, 0.1, 0.04]],
+  // A day's page opened: a soft morning fifth.
+  day: [[440, 0, 0.2, 0.04, 466, 0.02], [659, 0.06, 0.3, 0.035]],
+  // A note opened in its own window: a quick rising pop.
+  window: [[784, 0, 0.04, 0.04], [1175, 0.03, 0.1, 0.04]],
+  // Nothing left rotting: an open major chord, rolled slowly, all clear.
+  clear: [[392, 0, 0.5, 0.04], [494, 0.06, 0.5, 0.04], [587, 0.12, 0.55, 0.04], [784, 0.18, 0.7, 0.04]],
+  // A memory arrives: one low bell, then the same an octave up, softly.
+  memory: [[523, 0, 0.4, 0.04], [1046, 0.14, 0.5, 0.03]],
+  // A recap's last page: a rising arpeggio that lands.
+  wrapped: [[523, 0, 0.12], [659, 0.08, 0.12], [784, 0.16, 0.12], [1046, 0.24, 0.4]],
+  // A task put off to a later list: a note drifting down and away, unhurried.
+  later: [[587, 0, 0.18, 0.04, 494, 0.02], [392, 0.1, 0.3, 0.035]]
 } satisfies Record<string, Note[]>
 
 export type Cue = keyof typeof CUES
@@ -96,11 +131,21 @@ export function chime(cue: Cue): void {
   play(CUES[cue] as Note[])
 }
 
-function play(notes: Note[]): void {
-  if (!enabled || !volume) return
+/**
+ * The one way in to the speakers: nothing while sounds are off or the volume
+ * is down, otherwise the page's single audio context, awake.
+ */
+function audio(): AudioContext | null {
+  if (!enabled || !volume) return null
   context ??= new AudioContext()
   // A context made before any click starts suspended; resuming is free after.
   if (context.state === 'suspended') void context.resume()
+  return context
+}
+
+function play(notes: Note[]): void {
+  const context = audio()
+  if (!context) return
   const start = context.currentTime
   const sound = PACKS[pack]
   // Square and saw are loud for their level; they are brought down to match.
@@ -177,9 +222,8 @@ export function withPack(name: PackName, play: () => void): void {
 
 export type ClickName = keyof typeof CLICKS
 export function click(name: ClickName): void {
-  if (!enabled || !volume) return
-  context ??= new AudioContext()
-  if (context.state === 'suspended') void context.resume()
+  const context = audio()
+  if (!context) return
   const tune = CLICKS[name]
   const SOFT = PACKS[pack]
   const t = context.currentTime

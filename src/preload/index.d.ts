@@ -34,8 +34,12 @@ export interface Api {
   onFilled: (listen: (filled: boolean) => void) => () => void
   setRecordable: (on: boolean) => Promise<boolean>
   showFocus: (on: boolean) => void
+  glow: (tone: 'done' | 'cancel') => void
+  onGlow: (listen: (tone: 'done' | 'cancel') => void) => () => void
+  stick: (type: string, id: string, on: boolean) => void
   hideWindow: () => void
   showPrompt: () => void
+  importFrom: (what: 'vault' | 'files') => Promise<void>
   setAppearance: (mode: 'light' | 'dark') => void
   openInHome: (type: string, id: string) => void
   onSentTo: (listen: (type: string, id: string) => void) => () => void

@@ -39,14 +39,17 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import { DrawingWindow } from './components/excalidraw/drawing-window'
 import { Home } from './home'
-import { FocusPill } from './components/vigil/focus-pill'
+import { NoteWindow } from './components/vigil/note-window'
+import { FocusPill, ScreenGlow } from './components/vigil/focus-pill'
+import { StickyNote } from './components/vigil/sticky-note'
 
 // Before the first paint, and before anything renders: the page wears a theme
 // whether or not an editor is on screen.
 applyTheme(currentTheme())
 // Chosen in another window, the prompt or the main one: wear it here too, at
 // once, so the two never disagree.
-window.addEventListener('storage', (event) => event.key === 'theme' && applyTheme(currentTheme()))
+// An imported theme added or taken away there is painted here as well.
+window.addEventListener('storage', (event) => (event.key === 'theme' || event.key === 'custom-themes' || event.key === 'frosted') && applyTheme(currentTheme()))
 // A window you are not in steps back a little, so the one you are in is clear.
 const blurred = (on: boolean) => (): void => void (document.documentElement.dataset.blurred = on ? 'on' : 'off')
 // Checked a moment later: focus moving into an embed (a video in a note)
@@ -70,6 +73,6 @@ window.addEventListener('storage', wordCount)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    {drawing ? <DrawingWindow id={drawing} /> : params.get('view') === 'home' ? <Home /> : params.get('view') === 'focus' ? <FocusPill /> : <App />}
+    {drawing ? <DrawingWindow id={drawing} /> : params.get('note') ? <NoteWindow link={params.get('note')!} /> : params.get('view') === 'home' ? <Home /> : params.get('view') === 'focus' ? <FocusPill /> : params.get('view') === 'glow' ? <ScreenGlow /> : params.get('view') === 'sticky' ? <StickyNote type={params.get('type') ?? 'capture'} id={params.get('id') ?? ''} /> : <App />}
   </StrictMode>
 )

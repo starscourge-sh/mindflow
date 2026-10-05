@@ -16,7 +16,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-import { THEMES, applyTheme, currentTheme, themeName, type Theme } from '@/lib/theme'
+import { allThemes, applyTheme, currentTheme, themeName, type Theme } from '@/lib/theme'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
 import { Tip } from './ui'
 import { cn } from '@/lib/cn'
@@ -99,10 +99,10 @@ export function OptionsMenu({ options, actions, app = false, label = 'Options', 
                 setTheme(next as Theme)
               }}
             >
-              {THEMES.map((one) => (
+              {allThemes().map((one) => (
                 <DropdownMenuRadioItem key={one} value={one} className="gap-2" onFocus={() => {
                   // Each theme has its own note, so passing through them is a scale.
-                  step(THEMES.indexOf(one))
+                  step(allThemes().indexOf(one))
                   applyTheme(one, false)
                 }}>
                   <Swatch theme={one} />

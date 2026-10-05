@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { Check, GripVertical, Pause, Play, X } from 'lucide-react'
+import { GripVertical, Pause, Play, Square, X } from 'lucide-react'
 
+// The theme's colours: this window has no editor, which is what usually brings them.
+import '@/assets/styles/_variables.scss'
 import { chime } from '@/lib/sound'
 import { useAppearance, useLive, vigil, type Focus } from '@/lib/vigil'
 
@@ -17,6 +19,29 @@ export const worked = (focus: Focus, now = Date.now()): number =>
   now - new Date(focus.startedAt).getTime() - focus.pausedMs - (focus.pausedAt ? now - new Date(focus.pausedAt).getTime() : 0)
 
 const DRAG = { WebkitAppRegion: 'drag' } as CSSProperties
+
+/**
+ * A session or timer over: light around the screen's edge and a sound, one
+ * pair for finished and another for called off.
+ */
+export const glowEnd = (tone: 'done' | 'cancel'): void => {
+  chime(tone === 'done' ? 'finish' : 'called')
+  window.api.glow(tone)
+}
+
+/** The glow's own window: the whole screen, see-through, lit at its edge for a moment. */
+export function ScreenGlow(): React.JSX.Element | null {
+  // Motion obeys Settings here too: no fade when it is off.
+  useAppearance()
+  const [glow, setGlow] = useState<{ tone: string; key: number } | null>(null)
+  useEffect(() => {
+    document.documentElement.style.background = 'transparent'
+    document.body.style.background = 'transparent'
+    return window.api.onGlow((tone) => setGlow({ tone, key: Date.now() }))
+  }, [])
+  if (!glow) return null
+  return <div key={glow.key} aria-hidden className={`mf-glow mf-glow-${glow.tone}`} />
+}
 
 /**
  * The focus timer, floating over everything in a window of its own, the way
@@ -48,22 +73,27 @@ export function FocusPill(): React.JSX.Element | null {
   const done = worked(focus, now)
   const left = focus.plannedMs ? focus.plannedMs - done : null
   const over = left !== null && left <= 0
-  // Time is up: two bells, once, and the pill keeps saying so until you act.
+  // Time is up: the screen's edge glows with a bell, once, and the pill keeps saying so until you act.
   if (over && rang.current !== focus.id) {
     rang.current = focus.id
-    chime('hint')
+    glowEnd('done')
   }
   const paused = !!focus.pausedAt
+  // A timer set from the box has no task behind it, and leaves no record.
+  const timer = !focus.taskId
 
   return (
     <div className="flex h-screen items-center justify-center p-2">
       <div
         onPointerEnter={() => setHover(true)}
         onPointerLeave={() => setHover(false)}
-        className={`flex h-11 w-full items-center gap-2 rounded-full border bg-popover p-1.5 pr-1 text-control shadow-(--mf-panel-shadow) ${over ? 'border-[var(--tt-brand-color-400)]' : ''}`}
+        // Solid, whatever the theme: a glass theme's see-through colours let the
+        // window behind show through the pill, lines and text and all.
+        style={{ backgroundImage: 'linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' }}
+        className={`flex h-10 w-full items-center gap-1.5 rounded-full border p-1 pr-1 font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground shadow-(--mf-panel-shadow) ${over ? 'border-[color-mix(in_oklab,var(--tt-brand-color-400)_45%,transparent)]' : ''}`}
       >
         <span
-          className={`rounded-full px-2.5 py-1 font-mono text-xs tabular-nums ${over ? 'bg-[var(--tt-brand-color-400)] text-white' : 'bg-accent text-muted-foreground'} ${paused ? 'animate-pulse' : ''}`}
+          className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 font-mono text-xs tabular-nums ${over ? 'bg-[color-mix(in_oklab,var(--tt-brand-color-400)_18%,transparent)] text-[var(--tt-brand-color-400)]' : 'bg-accent text-muted-foreground'} ${paused ? 'animate-pulse' : ''}`}
         >
           {over ? "Time's up" : clock(left ?? done)}
         </span>
@@ -71,32 +101,35 @@ export function FocusPill(): React.JSX.Element | null {
         {!hover ? (
         <button
           type="button"
-          onClick={() => window.api.openInHome('task', focus.taskId)}
-          className="min-w-0 flex-1 truncate text-left font-medium"
+          onClick={() => !timer && window.api.openInHome('task', focus.taskId)}
+          className="min-w-0 flex-1 truncate pl-0.5 text-left font-medium"
         >
           {focus.goal}
         </button>
         ) : (
-        <span className="flex flex-1 items-center justify-end gap-1">
+        <span className="flex min-w-0 flex-1 items-center justify-end gap-1">
           <button
             type="button"
             onClick={() => void (paused ? vigil.resumeSession(focus.id) : vigil.pauseSession(focus.id)).then(() => chime(paused ? 'on' : 'off'))}
-            className="flex items-center gap-1.5 rounded-full bg-accent px-2.5 py-1 hover:bg-accent/70"
+            className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full bg-accent px-2.5 text-xs font-medium hover:bg-accent/70"
           >
             {paused ? <>Resume <Play className="size-3.5" /></> : <>Pause <Pause className="size-3.5" /></>}
           </button>
+          {(!timer || over) && (
           <button
             type="button"
-            onClick={() => void vigil.endSession(focus.id, '', false).then(() => chime('done'))}
-            className="flex items-center gap-1.5 rounded-full bg-accent px-2.5 py-1 hover:bg-accent/70"
+            // Past its time it has already glowed: ending it is only the tick.
+            onClick={() => void (timer ? vigil.cancelSession(focus.id) : vigil.endSession(focus.id, '', false)).then(() => (over ? chime('done') : glowEnd('done')))}
+            className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full bg-accent px-2.5 text-xs font-medium hover:bg-accent/70"
           >
-            End session <Check className="size-3.5" />
+            {timer ? 'Done' : 'End'} <Square className="size-3 fill-current" />
           </button>
+          )}
           <button
             type="button"
-            aria-label="Cancel the session"
+            aria-label={timer ? 'Cancel the timer' : 'Cancel the session'}
             title="Cancel: no record kept"
-            onClick={() => void vigil.cancelSession(focus.id).then(() => chime('away'))}
+            onClick={() => void vigil.cancelSession(focus.id).then(() => (over ? chime('away') : glowEnd('cancel')))}
             className="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <X className="size-3.5" />

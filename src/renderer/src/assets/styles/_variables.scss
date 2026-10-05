@@ -353,6 +353,27 @@ $mf-themes: (
     "bg": #2e3440, "ink": #eceff4, "accent": #d89178,
     "gray": #7b88a1, "brown": #b5806a, "orange": #d08770, "yellow": #ebcb8b,
     "green": #a3be8c, "blue": #81a1c1, "purple": #b48ead, "pink": #c9a0bd, "red": #bf616a
+  ),
+  /* Rosé Pine, the main variant: rose leads. It names no green or orange, so
+     foam stands in for green and gold, warmed, for orange. */
+  "rose-pine": (
+    "bg": #191724, "ink": #e0def4, "accent": #ebbcba,
+    "gray": #908caa, "brown": #c4a189, "orange": #f2a97a, "yellow": #f6c177,
+    "green": #9ccfd8, "blue": #3e8fb0, "purple": #c4a7e7, "pink": #ebbcba, "red": #eb6f92
+  ),
+  /* Paper: old paper and brown ink, for long reading. Lower contrast than
+     Light on purpose, and every hue pulled toward the page so nothing shouts. */
+  "paper": (
+    "bg": #f3ead7, "ink": #4a4034, "accent": #9a5a2c,
+    "gray": #7d7365, "brown": #85603f, "orange": #a8602a, "yellow": #8a6a1e,
+    "green": #4f6e3c, "blue": #3f6787, "purple": #6f5486, "pink": #94506e, "red": #a2433a
+  ),
+  /* Midnight: true black, for an OLED screen or a dark room. The ink is held
+     back from white so a page of it does not glare. */
+  "midnight": (
+    "bg": #000000, "ink": #d4d4d4, "accent": #8ab4f8,
+    "gray": #8a8a8a, "brown": #b08a6a, "orange": #f0a060, "yellow": #e8c46a,
+    "green": #7cc492, "blue": #8ab4f8, "purple": #b39ddb, "pink": #f08cba, "red": #f2766e
   )
 );
 

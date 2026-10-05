@@ -36,6 +36,7 @@ import icon from '../../resources/icon.png?asset'
 import { captureText, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures } from './captures'
 import { backupDir } from './backup'
 import { activeSession, badge, motionOn, registerVigil, toggleSafeMode } from './vigil'
+import { registerNotes } from './notes'
 
 
 /* The standard electron app file structure:
@@ -432,6 +433,115 @@ function showFocus(on: boolean): void {
   focusPill.once('ready-to-show', () => focusPill?.showInactive())
   guard(focusPill)
   load(focusPill, '?view=focus')
+  // Made now, hidden, so the glow at the end has nothing to load.
+  makeGlow()
+}
+
+/**
+ * The glow at the end of a session or a timer, Raycast's way: light around the
+ * whole edge of the screen for a moment, over everything and never in the
+ * way. One window, see-through and click-through, kept hidden between glows.
+ */
+let glow: BrowserWindow | null = null
+/** A glow asked for before the page could listen: it asks for this once it can. */
+let glowWaiting: string | null = null
+let glowHide: ReturnType<typeof setTimeout> | undefined
+function makeGlow(): BrowserWindow {
+  if (glow && !glow.isDestroyed()) return glow
+  glow = new BrowserWindow({
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: false,
+    focusable: false,
+    skipTaskbar: true,
+    hasShadow: false,
+    enableLargerThanScreen: true,
+    show: false,
+    webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false, backgroundThrottling: false }
+  })
+  glow.setIgnoreMouseEvents(true)
+  // Above the menu bar and full-screen apps too: the edge is the whole screen's.
+  glow.setAlwaysOnTop(true, 'screen-saver')
+  glow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  load(glow, '?view=glow')
+  return glow
+}
+function showGlow(tone: string): void {
+  const win = makeGlow()
+  // The screen you are on: where the pointer is.
+  win.setBounds(screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).bounds)
+  win.showInactive()
+  if (win.webContents.isLoading()) glowWaiting = tone
+  else win.webContents.send('glow', tone)
+  clearTimeout(glowHide)
+  glowHide = setTimeout(() => glow?.hide(), 2200)
+}
+
+/**
+ * A note stuck on the desktop: a small window of its own, over everything,
+ * dragged anywhere and closed with its own button. Remembered, place and all,
+ * so the desktop looks the same after a restart.
+ */
+const stickies = new Map<string, BrowserWindow>()
+const stickyFile = (): string => join(app.getPath('userData'), 'stickies.json')
+type Stuck = { type: string; id: string; bounds?: Electron.Rectangle }
+let stuck: Stuck[] = []
+const keepStuck = (): void => void writeFile(stickyFile(), JSON.stringify(stuck)).catch(() => undefined)
+function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangle): void {
+  const key = `${type}:${id}`
+  const open = stickies.get(key)
+  if (!on) {
+    stuck = stuck.filter((one) => `${one.type}:${one.id}` !== key)
+    keepStuck()
+    if (open && !open.isDestroyed()) open.destroy()
+    return void stickies.delete(key)
+  }
+  if (open && !open.isDestroyed()) return open.showInactive()
+  const { workArea } = screen.getPrimaryDisplay()
+  // A new one lands top right, each a little below the last.
+  const place = bounds ?? { width: 260, height: 180, x: workArea.x + workArea.width - 280, y: workArea.y + 20 + stickies.size * 36 }
+  const win = new BrowserWindow({
+    ...place,
+    minWidth: 180,
+    minHeight: 90,
+    frame: false,
+    transparent: true,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    hasShadow: false,
+    show: false,
+    webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
+  })
+  win.setAlwaysOnTop(true, 'floating')
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  win.once('ready-to-show', () => win.showInactive())
+  // Where you leave it is where it comes back.
+  const remember = (): void => {
+    const one = stuck.find((each) => `${each.type}:${each.id}` === key)
+    if (one && !win.isDestroyed()) one.bounds = win.getBounds()
+    keepStuck()
+  }
+  win.on('moved', remember)
+  win.on('resized', remember)
+  win.on('closed', () => stickies.delete(key))
+  stickies.set(key, win)
+  if (!stuck.some((one) => `${one.type}:${one.id}` === key)) stuck.push({ type, id, bounds: place })
+  keepStuck()
+  guard(win)
+  load(win, `?view=sticky&type=${encodeURIComponent(type)}&id=${encodeURIComponent(id)}`)
+}
+/** The stickies left on the desktop last time, back where they were. */
+async function restoreStickies(): Promise<void> {
+  try {
+    const saved = JSON.parse(await readFile(stickyFile(), 'utf8')) as Stuck[]
+    stuck = saved
+    for (const one of saved) stick(one.type, one.id, true, one.bounds)
+  } catch {
+    // None yet.
+  }
 }
 
 let homePainted = false
@@ -909,6 +1019,7 @@ function updateTray(): void {
 app.whenReady().then(() => {
   registerCaptures()
   registerVigil()
+  registerNotes({ load, guard })
   const first = fromCli(process.argv)
   if (first) captureText(first)
   createTray()
@@ -960,6 +1071,8 @@ app.whenReady().then(() => {
 
   // The main window's "new" button: the same prompt the key brings up.
   ipcMain.on('prompt:show', () => toggleWindow())
+  // The first-run step and Settings import the way the menu bar does.
+  ipcMain.handle('import:run', (_event, what: unknown) => (what === 'vault' ? importVault() : importFiles()))
   // The app's theme decides the frosting behind every window, not the system's.
   ipcMain.on('appearance', (_event, mode: string) => void (nativeTheme.themeSource = mode === 'light' ? 'light' : 'dark'))
   // The prompt sends you to one thing in the main window: a task's notes and
@@ -1001,6 +1114,18 @@ app.whenReady().then(() => {
 
   // Seen by screen recorders and shares, or kept out of them (the default).
   ipcMain.on('focus:show', (_event, on: unknown) => showFocus(Boolean(on)))
+  // The end of a session or timer, said around the edge of the screen.
+  ipcMain.on('glow', (_event, tone: unknown) => showGlow(tone === 'cancel' ? 'cancel' : 'done'))
+  ipcMain.handle('glow:waiting', () => {
+    const was = glowWaiting
+    glowWaiting = null
+    return was
+  })
+  // A note stuck to the desktop, or taken down.
+  ipcMain.on('sticky', (_event, type: unknown, id: unknown, on: unknown) => {
+    if (typeof type === 'string' && typeof id === 'string') stick(type, id, Boolean(on))
+  })
+  void restoreStickies()
 
   ipcMain.handle('window:recordable', (event, on: unknown) => {
     BrowserWindow.fromWebContents(event.sender)?.setContentProtection(!on)

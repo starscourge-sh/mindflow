@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { chime, step } from "@/lib/sound"
 import {
+  BookOpen,
   Check,
   ListTodo,
   NotebookText,
@@ -53,6 +54,7 @@ export const CAPTURE_TYPES = [
   { id: "excerpt", label: "Excerpt", icon: ScrollText, tint: tint("yellow") },
   { id: "decision", label: "Decision", icon: Split, tint: tint("red") },
   { id: "bit", label: "Bit", icon: Sticker, tint: tint("pink") },
+  { id: "book", label: "Book", icon: BookOpen, tint: tint("brown") },
 ] as const
 
 
@@ -175,5 +177,6 @@ export const ASKS: Record<CaptureType, { who?: string; where?: string; why?: str
   link: { who: 'Who made it', where: 'Site', why: 'Why is it worth reading? Say it on the next line.' },
   excerpt: { who: 'Who wrote it', where: 'Where from' },
   decision: { who: 'Decided with', why: 'Why this, and not the others? Say it on the next line.' },
-  bit: { who: 'Whose bit', where: 'Where you heard it' }
+  bit: { who: 'Whose bit', where: 'Where you heard it' },
+  book: { who: 'Who wrote it', where: 'Where you heard of it' }
 }

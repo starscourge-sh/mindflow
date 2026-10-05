@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { vigil } from '@/lib/vigil'
 
 /** The words of a stored body, for a glance: no markup, first lines only. */
-const glance = (body: unknown): string => {
+export const glance = (body: unknown): string => {
   if (typeof body === 'string') return body.replace(/\[\[@[^|\]]+\|([^\]]+)\]\]/g, '$1')
   const walk = (node: { type?: string; text?: string; attrs?: { label?: string }; content?: unknown[] }): string =>
     node.type === 'noteLink' ? `@${node.attrs?.label ?? ''}` :

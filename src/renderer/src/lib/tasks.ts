@@ -1,0 +1,63 @@
+import { chime } from './sound'
+import { taskSaid, vigil, type Made, type Task } from './vigil'
+import { flying } from './capture-links'
+import { toast } from '@/components/vigil/ui'
+import { bucketOf, monthKey } from '../../../main/task-words'
+
+/**
+ * Everything that becomes a task: words typed, a capture, several captures,
+ * a nugget to study, a line picked out of a note.
+ */
+export type TaskSource =
+  | { text: string; today?: boolean; origin?: string }
+  | { capture: string }
+  | { captures: string[]; text: string }
+  | { item: string; text: string }
+
+/**
+ * The one way anything is made a task: the same sound, the same words when
+ * it joined one already there, and the same undo, from every place that
+ * offers it. `said` is what the notice says, worked out from the new task
+ * when it depends on where it landed. Gives back what was made, or null.
+ */
+export async function makeTask(
+  from: TaskSource,
+  said: string | ((made: Made) => string | Promise<string>) = 'Now a task',
+  { onUndo }: { onUndo?: () => void } = {}
+): Promise<Made | null> {
+  const [made, links, reopen] =
+    'capture' in from ? [await flying(from.capture, 'task', () => vigil.toTask(from.capture)), [from.capture], [from.capture]]
+    : 'captures' in from ? [await vigil.taskFrom(from.captures, from.text), from.captures, from.captures]
+    : 'item' in from ? [await vigil.study(from.item, from.text), [from.item], []]
+    : [await vigil.addTask(from.text, from.origin, from.today), from.origin ? [from.origin] : [], []]
+  if (!made) return null
+  chime(made.existed ? 'nope' : 'noted')
+  const words = typeof said === 'function' ? await said(made) : said
+  toast(taskSaid(made, words), () => void vigil.unmakeTask(made.id, made.existed, links, reopen).then(() => onUndo?.()))
+  return made
+}
+
+/**
+ * The day a task shows on: when it is scheduled, or the day it is due by if
+ * that is sooner, so a deadline never hides behind a later plan.
+ */
+export function placed(task: Pick<Task, 'dueAt' | 'deadline'>): number | null {
+  const days = [task.dueAt, task.deadline].filter((one): one is string => !!one).map((one) => new Date(one).getTime())
+  return days.length ? Math.min(...days) : null
+}
+
+/**
+ * Which later list a task is in: This month, This year, Someday, or none once
+ * it is scheduled. One with a due-by date shows on that day as well, so a
+ * deadline never hides in Someday.
+ */
+export const bucket = (task: Pick<Task, 'planFor' | 'dueAt'>): ReturnType<typeof bucketOf> => (task.dueAt ? null : bucketOf(task.planFor))
+
+/** The three later lists, by what each is called. */
+export const BUCKETS = { month: 'This month', year: 'This year', someday: 'Someday' } as const
+
+/** A month or a year key for now, for putting a task in a later list. */
+export function planKey(which: keyof typeof BUCKETS): string {
+  const now = new Date()
+  return which === 'someday' ? 'someday' : which === 'year' ? String(now.getFullYear()) : monthKey(now)
+}

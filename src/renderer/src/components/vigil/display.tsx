@@ -199,6 +199,7 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
   groups?: Choice[]
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
+  const [more, setMore] = useState(false)
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'f' || event.metaKey || event.ctrlKey || event.altKey) return
@@ -235,7 +236,14 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
         // Kept 12px clear of the window's edge, rounded corner and all.
         collisionPadding={12}
         tabIndex={-1}
-        className="max-h-[calc(var(--radix-popover-content-available-height)-12px)] w-80 gap-0 overflow-y-auto p-0 text-control"
+        className={`max-h-[calc(var(--radix-popover-content-available-height)-12px)] w-80 gap-0 overflow-y-auto p-0 text-control ${more ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-3rem),transparent)]' : ''}`}
+        // A soft fade at the foot while there is more below, as the type list
+        // has: in a short window the filters run past the edge, and this says so.
+        ref={(panel) => void (panel && requestAnimationFrame(() => setMore(panel.scrollTop + panel.clientHeight < panel.scrollHeight - 4)))}
+        onScroll={(event) => {
+          const panel = event.currentTarget
+          setMore(panel.scrollTop + panel.clientHeight < panel.scrollHeight - 4)
+        }}
         // A choice in one of its menus is inside Display, not a click away.
         onInteractOutside={(event) => void ((event.target as Element | null)?.closest?.('[data-slot="dropdown-menu-content"]') && event.preventDefault())}
       >

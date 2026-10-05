@@ -11,10 +11,10 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { THEMES, applyTheme, currentTheme, themeName, type Theme } from "@/lib/theme"
+import { allThemes, applyTheme, currentTheme, themeName, type Theme } from "@/lib/theme"
 
 const byName = (label: string): Theme | undefined =>
-  THEMES.find((name) => themeName(name) === label)
+  allThemes().find((name) => themeName(name) === label)
 
 /** Three of a theme's colours, overlapping. The stylesheet paints them. */
 export const Swatch = ({ theme }: { theme: Theme }): React.JSX.Element => (
@@ -54,7 +54,7 @@ export function ThemePicker({ className }: { className?: string }): React.JSX.El
   // Another window, or Settings, chose one: show it here as well.
   useEffect(() => {
     const follow = (event: StorageEvent): void => {
-      if (event.key !== "theme") return
+      if (event.key !== "theme" && event.key !== "custom-themes") return
       chosen.current = currentTheme()
       setTheme(chosen.current)
     }
@@ -86,14 +86,14 @@ export function ThemePicker({ className }: { className?: string }): React.JSX.El
             setRow(label)
             const found = byName(label)
             // Each theme its own note, as in the prompt's menu: a scale as you pass.
-            if (found && label !== row) step(THEMES.indexOf(found))
+            if (found && label !== row) step(allThemes().indexOf(found))
             if (found) applyTheme(found, false)
           }}
         >
           <CommandInput placeholder="Change theme…" />
           <CommandList>
             <CommandEmpty>No theme</CommandEmpty>
-            {THEMES.map((name) => (
+            {allThemes().map((name) => (
               <CommandItem
                 key={name}
                 value={themeName(name)}

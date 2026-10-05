@@ -44,7 +44,15 @@
 }
 
 .tiptap.ProseMirror.mindflow-editor {
-  font-family: "Fraunces Variable", Georgia, serif;
+  // The host's font for notes, if it picked one, and its text size: a scale
+  // rather than a size, so headings and code keep their proportions.
+  font-family: var(--mf-font, "Fraunces Variable", Georgia, serif);
+  font-size: calc(1rem * var(--mf-text-scale, 1));
+
+  p:not(td p):not(th p) {
+    font-size: 1em;
+  }
+
   // The quirk in the g, k and y, and softer terminals. Off unless asked for.
   font-variation-settings:
     "SOFT" 20,
@@ -297,11 +305,11 @@
 }
 
 // Cmd-F. Nothing else styles it, so without this the input and its three
-// buttons render as bare controls over the document.
+// buttons render as bare controls over the document. Replace is a second row.
 .tiptap-find-bar {
   display: flex;
-  align-items: center;
-  gap: 0.25rem;
+  flex-direction: column;
+  gap: 0.125rem;
   padding: 0.25rem;
   // The container is sized by the toolbar beside it, which is hidden but still
   // occupies layout; without this the bar stretches the whole way across.
@@ -326,6 +334,31 @@
       background-color: var(--mf-surface);
     }
   }
+}
+
+.tiptap-find-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+
+  // The replace row's input lines up under the find one, past the arrow.
+  & + & input {
+    margin-left: 1.625rem;
+  }
+
+  button:not(:has(svg)) {
+    font-size: 0.8125rem;
+    color: var(--mf-muted);
+  }
+}
+
+// A worked answer after a line ending in `=`: faint until Tab writes it in.
+.mf-calc-ghost {
+  color: var(--mf-muted);
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  user-select: none;
 }
 
 .tiptap-find-bar-count {
@@ -410,7 +443,9 @@
 
   // Nothing here may change the layout: a size change under the pointer moves
   // the items out from under it and the panel flickers open and shut.
-  &:hover {
+  // Opened by ⇧⌘O it looks the same as hovered.
+  &:hover,
+  &[data-open] {
     border-color: var(--tt-border-color);
     background-color: var(--tt-card-bg-color);
     box-shadow: var(--tt-shadow-elevated-md);
@@ -477,7 +512,8 @@
     opacity: 1;
   }
 
-  .tiptap-toc:hover & {
+  .tiptap-toc:hover &,
+  .tiptap-toc[data-open] & {
     display: none;
   }
 }
@@ -493,11 +529,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
 
-  .tiptap-toc:hover & {
+  .tiptap-toc:hover &,
+  .tiptap-toc[data-open] & {
     display: block;
   }
 
-  .tiptap-toc-item:hover & {
+  .tiptap-toc-item:hover &,
+  .tiptap-toc-item[data-keyed] & {
     background-color: var(--mf-surface);
     border-radius: 0.375rem;
   }
@@ -1767,6 +1805,14 @@ $nested-ul: "ul:not([data-type='taskList'])";
     padding: 0.0625rem 0.375rem;
     border: 1px solid var(--tt-border-color);
     color: inherit;
+  }
+
+  // A [[name]] no note answers to yet: still a link, plainly not a live one.
+  &.is-unresolved {
+    background-color: transparent;
+    color: var(--mf-muted);
+    text-decoration: underline dashed;
+    text-underline-offset: 0.2em;
   }
 }
 

@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
 import type { JSONContent } from '@tiptap/core'
 
-import { EXITS, captureKey, exit as exitWith, toTask } from '@/lib/capture-links'
+import { EXITS, captureKey, exit as exitWith } from '@/lib/capture-links'
 import { wordsOf } from '../../../main/import'
-import { AskWho, Rolling, pin, toast } from './vigil/ui'
+import { AskWho, Rolling, Typed, pin } from './vigil/ui'
 import { AnimatePresence, motion } from 'motion/react'
-import { taskSaid } from '@/lib/vigil'
+import { vigil } from '@/lib/vigil'
+import { makeTask } from '@/lib/tasks'
 import { RowMenu, copy } from './vigil/row-menu'
 import { age, ageTint } from './capture-list'
 import { Kbd, Tip } from '@/components/vigil/ui'
@@ -59,11 +60,23 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
   // moves. Keying the list by the deal keeps a reshuffle from animating as if
   // the cards were being reordered under you.
   const [deal, setDeal] = useState(0)
-  const reload = (): void =>
+  // How many old captures are still open at all: none, and the area says so
+  // with a chord, once, as the line arrives.
+  const [left, setLeft] = useState<number | null>(null)
+  const was = useRef<number | null>(null)
+  const count = (): void =>
+    void vigil.rotLeft().then((n) => {
+      if (n === 0 && was.current !== 0) chime('clear')
+      was.current = n
+      setLeft(n)
+    })
+  const reload = (): void => {
     void window.api.captures.rot().then((next) => {
       setCards([...next].sort(byAge))
       setDeal((n) => n + 1)
     })
+    count()
+  }
   const drop = (id: string): void => setCards((all) => all.filter((one) => one.id !== id))
   useEffect(() => {
     reload()
@@ -81,23 +94,30 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
       if (!card) return
       setCards((all) => (all.some((one) => one.id === id) ? all : [...all, card].sort(byAge)))
       setDeal((n) => n + 1)
+      count()
       // Brought back by keyboard, it has the focus again, so j and k carry on.
-      if (byKeys) requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-tone="knock"][data-id="${CSS.escape(id)}"]`)?.focus({ focusVisible: true } as FocusOptions))
+      if (byKeys) requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-card][data-id="${CSS.escape(id)}"]`)?.focus({ focusVisible: true } as FocusOptions))
     }
     // Worked by keyboard, the next card takes the focus, so j, k and the
     // exits carry on without a click.
-    const all = [...document.querySelectorAll<HTMLElement>('[data-tone="knock"]')]
+    const all = [...document.querySelectorAll<HTMLElement>('[data-card]')]
     const here = all.findIndex((one) => one.dataset.id === id)
     const byKeys = document.activeElement === all[here]
     const after = all[here + 1] ?? all[here - 1]
     void exitWith(id, status, back).then(() => window.api.captures.get(id)).then((now) => {
       if (now?.status === 'open') return
       drop(id)
+      count()
       if (byKeys) after?.focus({ focusVisible: true } as FocusOptions)
     })
   }
 
-  if (!cards.length) return null
+  if (!cards.length)
+    return left === 0 ? (
+      <p className="mb-2 px-2 py-1 text-xs text-muted-foreground">
+        <Typed text="Nothing rotting: every old capture has taken an exit." step={28} delay={200} />
+      </p>
+    ) : null
   return (
     <section className="mb-2">
       <Tip label="A few old captures with no exit yet, a fresh few each time you open this. A sample, not a list to clear. Click one to read or edit it.">
@@ -117,6 +137,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
           exit={{ opacity: 0, x: 24, transition: { duration: 0.18 } }}
           tabIndex={0}
           data-tone="knock"
+          data-card
           className="group border-b border-border/60 px-2 py-2 text-sm outline-none last:border-b-0 focus-visible:bg-accent/40"
           onKeyDown={(event) => {
             if (event.target !== event.currentTarget) return
@@ -124,7 +145,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             if (event.key === 'j' || event.key === 'ArrowDown' || event.key === 'k' || event.key === 'ArrowUp') {
               event.preventDefault()
               event.stopPropagation()
-              const all = [...document.querySelectorAll<HTMLElement>('[data-tone="knock"]')]
+              const all = [...document.querySelectorAll<HTMLElement>('[data-card]')]
               const next = all[all.indexOf(event.currentTarget) + (event.key === 'j' || event.key === 'ArrowDown' ? 1 : -1)]
               if (next) next.focus()
               else if (event.key === 'j' || event.key === 'ArrowDown') event.currentTarget.blur()
@@ -142,7 +163,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             { label: 'Open', run: () => onOpen(card.id) },
             'separator',
             ...EXITS.map((one) => ({ label: one.label, keys: one.key.toUpperCase(), danger: one.status === 'discarded', run: () => exit(card.id, one.status) })),
-            { label: 'Make it a task', run: () => void toTask(card.id).then((made) => { if (!made) return; chime(made.existed ? 'nope' : 'noted'); toast(taskSaid(made, 'Now a task')); drop(card.id) }) },
+            { label: 'Make it a task', run: () => void makeTask({ capture: card.id }).then((made) => made && drop(card.id)) },
             { label: 'Say who said it', keys: 'W', run: () => setAsking(card.id) },
             'separator',
             { label: 'Pin to the prompt', run: () => pin('captures', card.id, true) },

@@ -4,12 +4,14 @@ import { Brain, EyeOff, Pin, Plus } from 'lucide-react'
 import type { Readable } from './read-through'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
-import { taskSaid, useLive, vigil, type Item } from '@/lib/vigil'
+import { useLive, vigil, type Item } from '@/lib/vigil'
+import { makeTask } from '@/lib/tasks'
 import { Chips } from './display'
 import { RowMenu, copy } from './row-menu'
 import { Empty, ask, pin, toast, typing, useListKeys, useReadKey, VirtualList, Strip, Tip, startAt, Rolling } from './ui'
 import { Button } from '@/components/ui/button'
 import { useItemDisplay } from './items-view'
+import { openWindow } from '@/lib/notes'
 import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
 
@@ -78,7 +80,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
                 { label: 'Open', keys: '↵', run: () => onOpen(tier, item.id) },
                 { label: item.prompt ? 'Change the question' : 'Test me on this', run: () => void ask('The question it answers', item.prompt ?? 'e.g. What does MVCC stand for?').then((prompt) => { if (prompt) void vigil.saveItem(item.id, { prompt }).then(() => toast('Now tested: it will come up in review')) }) },
                 ...(tier === 'nugget' ? [{ label: 'Start an article', run: () => article([item.id]) }] : []),
-                { label: 'Study this', run: () => void ask('When will you study it?', 'e.g. read it again on Thursday').then((when) => { if (when) void vigil.study(item.id, `Study “${item.title}” ${when}`).then((made) => { chime(made.existed ? 'nope' : 'noted'); toast(taskSaid(made, 'A task, with this linked')) }) }) },
+                { label: 'Study this', run: () => void ask('When will you study it?', 'e.g. read it again on Thursday').then((when) => { if (when) void makeTask({ item: item.id, text: `Study “${item.title}” ${when}` }, 'A task, with this linked') }) },
                 'separator',
                 { label: item.pinnedAt ? 'Unpin' : 'Pin to the prompt', run: () => pin('nuggets', item.id, !item.pinnedAt) },
                 { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
@@ -91,7 +93,8 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
                   data-cursor={index === cursor || undefined}
                   data-private={item.private ? '' : undefined}
                   data-open={item.id === open ? '' : undefined}
-                  onClick={() => onOpen(tier, item.id)}
+                  // ⌘-click: a window of its own, as in every list.
+                  onClick={(event) => (event.metaKey ? openWindow(tier, item.id) : onOpen(tier, item.id))}
                   className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-accent/50 ${chosen.includes(item.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : item.id === open ? 'bg-accent' : index === cursor ? 'bg-accent/50' : ''}`}
                 >
                   <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />

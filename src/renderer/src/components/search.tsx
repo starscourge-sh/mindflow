@@ -78,7 +78,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[10vh]" onMouseDown={onClose}>
-      <div className={`flex flex-col overflow-hidden rounded-xl border bg-background text-sm shadow-(--mf-panel-shadow) ${compact ? 'max-h-[70vh] w-[min(36rem,calc(100vw-2rem))]' : 'h-[70vh] w-[min(56rem,calc(100vw-2rem))]'}`} onMouseDown={(event) => event.stopPropagation()}>
+      <div className={`@container/search flex flex-col overflow-hidden rounded-xl border bg-background text-sm shadow-(--mf-panel-shadow) ${compact ? 'max-h-[70vh] w-[min(36rem,calc(100vw-2rem))]' : 'h-[70vh] w-[min(56rem,calc(100vw-2rem))]'}`} onMouseDown={(event) => event.stopPropagation()}>
         <label className="flex items-center gap-3 border-b px-4 py-3">
           <span className="text-muted-foreground"><AliveIcon icon={MagnifierIcon} size={16} /></span>
           <input
@@ -111,8 +111,10 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
           <Chips options={[{ id: 'capture', label: 'Captures' }, { id: 'nugget', label: 'Nuggets' }, { id: 'task', label: 'Tasks' }]} on={(id) => types.includes(id)} pick={(id) => setTypes(flip(types, id))} />
           <Chips options={CAPTURE_TYPES} on={(id) => kinds.includes(id)} pick={(id) => setKinds(flip(kinds, id))} />
         </div>
-        <div className="flex min-h-0 flex-1">
-          <div className={`${preview ? 'w-1/2' : 'flex-1'} overflow-y-auto p-2`}>
+        {/* Side by side when there is room; in a narrow window the preview goes
+            under the results instead of squeezing both to nothing. */}
+        <div className="flex min-h-0 flex-1 flex-col @[34rem]/search:flex-row">
+          <div className={`min-h-0 min-w-0 flex-1 overflow-y-auto p-2 ${preview ? '@[34rem]/search:w-1/2 @[34rem]/search:flex-none' : ''}`}>
             {doing.length > 0 && <div className="px-2 pt-1 pb-1 text-xs text-muted-foreground">Actions</div>}
             {doing.map((one, index) => (
               <button
@@ -175,7 +177,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
           {/* The capture as it reads, not its raw text: the same editor, read only,
               and a fresh one for each result. */}
           {pane && current && (
-            <div className="m-3 w-1/2 overflow-y-auto rounded-lg border [--mf-padding:1rem_1.25rem]">
+            <div className="m-3 mt-0 max-h-[45%] min-h-24 shrink-0 overflow-y-auto rounded-lg border [--mf-padding:1rem_1.25rem] @[34rem]/search:mt-3 @[34rem]/search:max-h-none @[34rem]/search:w-1/2 @[34rem]/search:shrink">
               <MindflowEditor
                 key={current.id}
                 defaultContent={(current.body as JSONContent | string | null) ?? ''}

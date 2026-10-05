@@ -10,8 +10,10 @@ import { useLive, vigil } from '@/lib/vigil'
 import { chime, soundOn } from '@/lib/sound'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/cn'
+import { useStoredFlag } from '@/lib/use-stored-flag'
 import { Kbd as ShadKbd, KbdGroup } from '@/components/ui/kbd'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { KindAsker } from './note-extras'
 
 /**
  * The few parts every view is built from, so the views read as one app. The
@@ -490,6 +492,7 @@ export function Toaster(): React.JSX.Element | null {
   return (
     <>
     <Asker />
+    <KindAsker />
     <Beam />
     {/* Centred along the bottom, where the eye drops after acting. */}
     {shown && <div className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex justify-center"><div
@@ -703,22 +706,8 @@ export function Tip({ label, children }: { label: ReactNode; children: React.Rea
  * window keeps its own; the parts that go are marked data-chrome.
  */
 export function useFocusMode(name: string): boolean {
-  const key = `focus:${name}`
-  const [on, setOn] = useState(() => {
-    try {
-      return localStorage.getItem(key) === 'on'
-    } catch {
-      return false
-    }
-  })
-  useEffect(() => {
-    document.documentElement.dataset.focus = on ? 'on' : 'off'
-    try {
-      localStorage.setItem(key, on ? 'on' : 'off')
-    } catch {
-      // Kept for this window only.
-    }
-  }, [on, key])
+  const [on, setOn] = useStoredFlag(`focus:${name}`)
+  useEffect(() => void (document.documentElement.dataset.focus = on ? 'on' : 'off'), [on])
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!event.metaKey || !event.shiftKey || event.code !== 'KeyF') return
@@ -853,4 +842,23 @@ export function useReadKey(read: () => void, rows: number, enabled = true): void
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [rows, enabled])
+}
+
+/**
+ * The open note's first line once it has scrolled out of sight, for the main
+ * window's top bar to show faintly: the box keeps its own.
+ */
+let topTitle: string | null = null
+const topTitleListeners = new Set<(title: string | null) => void>()
+export function showTopTitle(title: string | null): void {
+  topTitle = title
+  for (const listen of topTitleListeners) listen(title)
+}
+export function useTopTitle(): string | null {
+  const [title, setTitle] = useState(topTitle)
+  useEffect(() => {
+    topTitleListeners.add(setTitle)
+    return () => void topTitleListeners.delete(setTitle)
+  }, [])
+  return title
 }

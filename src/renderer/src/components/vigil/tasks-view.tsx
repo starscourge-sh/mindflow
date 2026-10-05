@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import * as chrono from 'chrono-node'
 import type { JSONContent } from '@tiptap/core'
-import { Bell, CalendarDays, Check, FileText, Flag, Gem, Hash, History, Play, Plus, Repeat, Square, Trash2, X, Ban, Timer, Hourglass } from 'lucide-react'
+import { Bell, CalendarClock, CalendarDays, Check, FileText, Gem, Hash, History, ListChecks, Play, Plus, Repeat, Square, Telescope, Trash2, X, Ban, Timer, Hourglass } from 'lucide-react'
 
 
 import { MindflowEditor } from '../mindflow'
-import { chime } from '@/lib/sound'
+import { chime, step } from '@/lib/sound'
 import { captureKey } from '@/lib/capture-links'
-import { splitTags, taskSaid, useLive, vigil, when, type Session, type Task, type TaskFull } from '@/lib/vigil'
-import { Empty, Kbd, Page, Prop, PropInput, PropLabel, Props, Tags, toast, useListKeys, typing, VirtualList, Stepper } from './ui'
+import { splitTags, useLive, vigil, when, type Made, type Session, type Task, type TaskFull } from '@/lib/vigil'
+import { BUCKETS, bucket, makeTask, placed } from '@/lib/tasks'
+import { PRIORITY_NAMES } from '../../../../main/task-words'
+import { PriorityIcon, TaskInput, planFor, setPriority } from './task-input'
+import { Empty, Kbd, Page, Prop, PropInput, PropLabel, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper } from './ui'
 import { Display, arrange, useView, type Facet } from './display'
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
@@ -19,6 +22,8 @@ import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 
 const startOfDay = (offset = 0): number => new Date(new Date().setHours(0, 0, 0, 0) + offset * 86400000).getTime()
+/** The day a task shows on, as a number to compare: never, for one with no day. */
+const dayOf = (task: Task): number => placed(task) ?? Infinity
 
 /** Red if it is late, orange if it is today, quiet otherwise: the Todoist colours. */
 const tone = (task: Task): string | undefined => {
@@ -30,11 +35,46 @@ const tone = (task: Task): string | undefined => {
 }
 
 /** Move a task to a day from now, and say where: one wording for keys, menus and buttons. */
-const moveTo = (id: string, days: number): void =>
+export const moveTo = (id: string, days: number): void =>
   void vigil.saveTask(id, { due: shiftTo(days) }).then(() => {
     chime('tap')
     toast(`Moved to ${when(shiftTo(days))}`)
   })
+
+/**
+ * Done, heard and seen first, then undoable from the notice: a routine goes
+ * back to the date it had and the time it was done is struck off, the same
+ * as a one-off is opened again.
+ */
+export function completeTask(task: Task, last = false): Promise<void> {
+  chime('done')
+  return vigil.doneTask(task.id).then(async (was) => {
+    const back = (): void => void vigil.undoneTask(task.id, was)
+    // A routine says when it is back; the last one for today says the day is done.
+    if (task.recurrence) return toast(`Done · next ${when((await vigil.task(task.id))?.dueAt ?? null)}`, back)
+    toast(last ? 'Done. That is everything for today' : 'Done', back)
+  })
+}
+
+/** The list a new task landed in, said only when it is not the one you are in. */
+export async function landed(made: Made, here: string): Promise<string> {
+  const task = await vigil.task(made.id)
+  const later = task && bucket(task)
+  const day = task && placed(task)
+  const where = !task ? here : task.recurrence ? 'routines' : later ? 'later' : task.waitingOn ? 'waiting' : day === null ? 'backlog' : day < startOfDay(1) ? 'today' : 'upcoming'
+  if (where === here) return 'Task added'
+  if (later) return `Added to ${BUCKETS[later]}`
+  return where === 'routines' ? 'Added to Routines'
+    : where === 'today' ? 'Added to Today'
+    : day !== null && day !== undefined ? `Added to Upcoming, ${when(new Date(day).toISOString()).toLowerCase()}`
+    : 'Added to the backlog in Upcoming: put a day in the words to date it'
+}
+
+/** Open tasks under the note each came from, the ones typed straight in last. */
+const byNote = (list: Task[]): [string, Task[], string][] =>
+  Object.entries(Object.groupBy(list, (task) => task.fromId ?? '') as Record<string, Task[]>)
+    .sort(([a], [b]) => (a ? 0 : 1) - (b ? 0 : 1))
+    .map(([id, tasks]) => [tasks[0].fromTitle || (id ? 'Untitled' : 'Typed here'), tasks, id])
 
 /**
  * Tasks, the way Todoist lists them: Today with what is late on top, Upcoming
@@ -42,7 +82,7 @@ const moveTo = (id: string, days: number): void =>
  * you type. A task is not a note with a tickbox: it has a when, a record of each
  * time it was done, and a way back to the capture it came from.
  */
-export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' | 'routines'; focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
+export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' | 'routines' | 'later'; focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const tasks = useLive(vigil.tasks, [] as Task[])
   const [open, setOpen] = useState<TaskFull | null>(null)
   const [draft, setDraft] = useState('')
@@ -53,37 +93,42 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   // Filtered and ordered first; the view's own groups are cut from what is left.
   const [[, chosenTasks]] = arrange(tasks, view, facets, {
     name: (a, b) => a.title.localeCompare(b.title),
+    priority: (a, b) => (a.priority || 5) - (b.priority || 5),
     due: (a, b) => (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9'),
     deadline: (a, b) => (a.deadline ?? '9').localeCompare(b.deadline ?? '9'),
     added: (a, b) => b.createdAt.localeCompare(a.createdAt)
   })
-  // Routines live in a view of their own, or they flood Today.
-  const live = chosenTasks.filter((task) => task.status === 'open' && !task.waitingOn && (mode === 'routines' ? task.recurrence : !task.recurrence || mode === 'today'))
-  const waiting = chosenTasks.filter((task) => task.status === 'open' && task.waitingOn)
-  const groups: [string, Task[]][] =
+  // Routines live in a view of their own, or they flood Today; what was put
+  // off to a later list waits there, out of the lists with days.
+  const live = chosenTasks.filter((task) => task.status === 'open' && !task.waitingOn && (mode === 'later' ? !!bucket(task) : !bucket(task) || !!task.deadline) && (mode === 'routines' ? task.recurrence : !task.recurrence || mode === 'today'))
+  const waiting = mode === 'upcoming' ? chosenTasks.filter((task) => task.status === 'open' && task.waitingOn) : []
+  const base = mode === 'today' ? live.filter((task) => dayOf(task) < startOfDay(1)) : live
+  const groups: [string, Task[], string?][] =
     view.group === 'none'
-      ? [['', [...live.filter((task) => mode !== 'today' || (task.dueAt && new Date(task.dueAt).getTime() < startOfDay(1))), ...(mode === 'upcoming' ? waiting : [])]]]
+      ? [['', [...base, ...waiting]]]
+      : view.group === 'note'
+      ? byNote([...base, ...waiting])
       : mode === 'routines'
       ? [['Every so often', live]]
+      : mode === 'later'
+      ? (Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => [BUCKETS[which], live.filter((task) => bucket(task) === which)])
       : mode === 'today'
       ? [
-          ['Overdue', live.filter((task) => task.dueAt && new Date(task.dueAt).getTime() < startOfDay())],
-          ['Today', live.filter((task) => task.dueAt && new Date(task.dueAt).getTime() >= startOfDay() && new Date(task.dueAt).getTime() < startOfDay(1))]
+          ['Overdue', base.filter((task) => dayOf(task) < startOfDay())],
+          ['Today', base.filter((task) => dayOf(task) >= startOfDay())]
         ]
       : [
-          ...Object.entries(
-            Object.groupBy(
-              live.filter((task) => task.dueAt && new Date(task.dueAt).getTime() >= startOfDay(1)),
-              (task) => when(task.dueAt)
-            ) as Record<string, Task[]>
-          ),
-          ['Backlog, no date', live.filter((task) => !task.dueAt)],
+          // By day, in the order of the days, whatever the order inside each.
+          ...Object.entries(Object.groupBy(live.filter((task) => dayOf(task) >= startOfDay(1) && dayOf(task) < Infinity), (task) => new Date(dayOf(task)).setHours(0, 0, 0, 0)) as Record<string, Task[]>)
+            .sort(([a], [b]) => Number(a) - Number(b))
+            .map(([day, list]): [string, Task[]] => [when(new Date(Number(day)).toISOString()), list]),
+          ['Backlog, no date', live.filter((task) => dayOf(task) === Infinity)],
           // Chasing is not doing: what you are waiting on gets its own place.
           ['Waiting on someone', waiting]
         ]
   const shown = groups.flatMap(([, list]) => list)
   // One list for the virtual scroller: each group's heading, then its tasks.
-  const rows: (Task | { heading: string; count: number })[] = groups.flatMap(([heading, list]) => (list.length ? [{ heading, count: list.length }, ...list] : []))
+  const rows: (Task | { heading: string; count: number; key: string })[] = groups.flatMap(([heading, list, key]) => (list.length ? [{ heading, count: list.length, key: key ?? heading }, ...list] : []))
   const pick = (id: string): void => void vigil.task(id).then(setOpen)
   // Sent here for one task, from search or a link: open it.
   useEffect(() => {
@@ -92,8 +137,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   const [cursor, setCursor] = useListKeys(shown.length, { onOpen: (index) => pick(shown[index].id), onBack: () => setOpen(null) })
 
   // On the row the keyboard is on: Alt-J and Alt-K move it (dates say what is
-  // due, order says what is next), and T, M and W put it on today, tomorrow
-  // or next week in one press.
+  // due, order says what is next), T, M and W put it on today, tomorrow or
+  // next week in one press, and 1 to 4 give it a priority, 0 none.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (typing() || event.defaultPrevented) return
@@ -102,8 +147,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
       if (event.altKey && (event.code === 'KeyJ' || event.code === 'KeyK')) {
         event.preventDefault()
         const to = cursor + (event.code === 'KeyJ' ? 1 : -1)
-        // Important ones sort first, so a task moves only among its own kind.
-        if (to < 0 || to >= shown.length || shown[to].important !== task.important) return
+        // A higher priority sorts first, so a task moves only among its own level.
+        if (to < 0 || to >= shown.length || shown[to].priority !== task.priority) return
         // Renumber the list as shown, with the two swapped.
         const order = [...shown]
         ;[order[cursor], order[to]] = [order[to], order[cursor]]
@@ -112,6 +157,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
         return
       }
       if (event.metaKey || event.ctrlKey || event.altKey) return
+      if (/^[0-4]$/.test(event.key)) return setPriority(task, Number(event.key))
       // e completes, as in Todoist.
       if (event.key === 'e') return complete(task)
       const days = { t: 0, m: 1, w: 7 }[event.key]
@@ -126,15 +172,12 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   // the list changes under you.
   const complete = (task: Task): void => {
     setLeaving(task.id)
-    chime('done')
-    setTimeout(() => {
-      void vigil.doneTask(task.id).then(async () => {
-        setLeaving(null)
-        // A routine says when it is back; a one-off can be taken back.
-        if (task.recurrence) toast(`Done · next ${when((await vigil.task(task.id))?.dueAt ?? null)}`)
-        else toast('Done', () => void vigil.saveTask(task.id, { status: 'open' }))
-      })
-    }, 280)
+    setTimeout(() => void completeTask(task).then(() => setLeaving(null)), 280)
+  }
+  const tick = (task: Task, at: number): void => {
+    const subtasks = task.subtasks ?? []
+    if (!subtasks[at].done) chime('done')
+    void vigil.saveTask(task.id, { subtasks: subtasks.map((one, index) => (index === at ? { ...one, done: !one.done } : one)) })
   }
 
   return (
@@ -142,13 +185,13 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
       <Page aside={!!open}
  title={mode} count={shown.length} actions={
         <span className="flex items-center gap-2">
-          {shown.length > 0 && <span className="hidden text-xs whitespace-nowrap @[60rem]/page:inline"><Kbd>T</Kbd> <Kbd>M</Kbd> <Kbd>W</Kbd> today, tomorrow, next week · <Kbd>⌥J</Kbd> <Kbd>⌥K</Kbd> reorder</span>}
+          {shown.length > 0 && <span className="hidden text-xs whitespace-nowrap @[60rem]/page:inline"><Kbd>T</Kbd> <Kbd>M</Kbd> <Kbd>W</Kbd> today, tomorrow, next week · <Kbd>1</Kbd>–<Kbd>4</Kbd> priority · <Kbd>⌥J</Kbd> <Kbd>⌥K</Kbd> reorder</span>}
           <Display
             view={view}
             onChange={setView}
             facets={facets}
-            sorts={[{ id: 'manual', label: 'Your order' }, { id: 'name', label: 'Name' }, { id: 'due', label: 'Date' }, { id: 'deadline', label: 'Deadline' }, { id: 'added', label: 'Date added' }]}
-            groups={[{ id: 'when', label: 'By date' }, { id: 'none', label: 'None' }]}
+            sorts={[{ id: 'manual', label: 'Your order' }, { id: 'priority', label: 'Priority' }, { id: 'name', label: 'Name' }, { id: 'due', label: 'Scheduled' }, { id: 'deadline', label: 'Due by' }, { id: 'added', label: 'Date added' }]}
+            groups={[{ id: 'when', label: mode === 'later' ? 'By list' : 'By date' }, { id: 'note', label: 'By note' }, { id: 'none', label: 'None' }]}
           />
         </span>
       }>
@@ -158,30 +201,16 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
           onSubmit={(event) => {
             event.preventDefault()
             if (!draft.trim()) return
-            void vigil.addTask(draft, undefined, mode === 'today').then(async (made) => {
-              chime(made.existed ? 'nope' : 'noted')
-              if (made.existed) return void (setDraft(''), toast(taskSaid(made, '')))
-              const task = await vigil.task(made.id)
-              setDraft('')
-              // Said where it went when that is not the list in front of you.
-              const where = !task ? mode
-                : task.recurrence ? 'routines'
-                : task.dueAt && new Date(task.dueAt).getTime() < startOfDay(1) ? 'today'
-                : 'upcoming'
-              toast(where === mode ? 'Task added'
-                : where === 'routines' ? 'Added to Routines'
-                : where === 'today' ? 'Added to Today'
-                : task?.dueAt ? `Added to Upcoming, ${when(task.dueAt).toLowerCase()}`
-                : 'Added to the backlog in Upcoming: put a day in the words to date it')
-            })
+            const text = draft
+            setDraft('')
+            void makeTask({ text, today: mode === 'today' }, (made) => landed(made, mode))
           }}
         >
           <Plus className="size-4 text-muted-foreground" />
-          <input
+          <TaskInput
             value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder="Add a task: “call the accountant tomorrow 10am”, “water the plants every! 3 days”"
-            className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
+            onChange={setDraft}
+            placeholder={mode === 'later' ? 'Add a task: “learn Welsh someday”, “book the holiday this year”' : 'Add a task: “call the accountant tomorrow 10am”, “file taxes by friday !!”'}
           />
           <Kbd>↵</Kbd>
         </form>
@@ -189,19 +218,21 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
         {shown.length ? (
           <VirtualList
             items={rows}
-            keyOf={(row) => ('id' in row ? row.id : `heading-${row.heading}`)}
+            keyOf={(row) => ('id' in row ? row.id : `heading-${row.key}`)}
             cursor={shown[cursor] ? rows.indexOf(shown[cursor]) : undefined}
             className="mx-3 mb-6"
           >
             {(row) => {
               if (!('id' in row))
                 return row.heading ? (
-                  <h3 className="mt-6 mb-1 border-b px-2 pb-1.5 text-meta font-medium" style={{ color: row.heading === 'Overdue' ? 'var(--tt-color-text-red)' : undefined }}>
-                    {row.heading} <span className="font-normal text-muted-foreground">{row.count}</span>
+                  <h3 className="mt-6 mb-1 truncate border-b px-2 pb-1.5 text-meta font-medium" style={{ color: row.heading === 'Overdue' ? 'var(--tt-color-text-red)' : undefined }}>
+                    {row.heading} <span className="font-normal text-muted-foreground"><Rolling text={row.count} /></span>
                   </h3>
                 ) : <div className="h-3" />
               const task = row
               const index = shown.indexOf(task)
+              const later = bucket(task)
+              const subtasks = task.subtasks ?? []
               return (
                       <RowMenu items={[
                         { label: 'Open', keys: '↵', run: () => pick(task.id) },
@@ -210,8 +241,10 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                         { label: 'Today', keys: 'T', run: () => moveTo(task.id, 0) },
                         { label: 'Tomorrow', keys: 'M', run: () => moveTo(task.id, 1) },
                         { label: 'Next week', keys: 'W', run: () => moveTo(task.id, 7) },
+                        ...(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => ({ label: BUCKETS[which], run: () => planFor(task, which) })),
                         'separator',
-                        { label: task.important ? 'Not important' : 'Mark important', run: () => void vigil.saveTask(task.id, { important: task.important ? 0 : 1 }).then(() => chime(task.important ? 'off' : 'on')) },
+                        ...[1, 2, 3, 4, 0].map((level) => ({ label: PRIORITY_NAMES[level], keys: String(level), run: () => setPriority(task, level) })),
+                        'separator',
                         { label: `Copy T-${task.number}`, run: () => copy(`T-${task.number}`, `Copied T-${task.number}`) },
                         'separator',
                         { label: 'Close without doing', danger: true, run: () => void vigil.saveTask(task.id, { status: 'dropped' }).then(() => (chime('away'), toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' })))) }
@@ -232,42 +265,68 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                           <Check className={`size-3 transition-opacity ${leaving === task.id ? 'opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
                         </button>
                         </Tip>
-                        <button type="button" data-row onClick={() => pick(task.id)} className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left">
+                        <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
+                        <button type="button" data-row onClick={() => pick(task.id)} className="flex w-full min-w-0 flex-col items-start gap-1 text-left">
                           <span className="flex max-w-full items-center gap-2">
+                            {task.priority ? <PriorityIcon level={task.priority} className="size-3.5 shrink-0" /> : null}
                             <span className="truncate">{splitTags(task.title).text}</span>
                             <Tags tags={splitTags(task.title).tags} />
                           </span>
-                          {(task.dueAt || task.recurrence || task.waitingOn || task.important || task.deadline || task.blocker) && (
-                            <span className="flex items-center gap-3 text-xs text-muted-foreground">
-                              {task.important ? <Flag className="size-3 text-[var(--tt-color-text-red)]" /> : null}
+                          {(task.dueAt || task.recurrence || task.waitingOn || task.deadline || task.blocker || later || subtasks.length > 0) && (
+                            <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                               {task.dueAt && (
+                                <Tip label="Scheduled: when you mean to do it">
                                 <span className="flex items-center gap-1" style={{ color: tone(task) }}>
                                   <CalendarDays className="size-3" />
                                   {when(task.dueAt, !!task.allDay)}
                                 </span>
+                                </Tip>
                               )}
+                              {task.deadline && (
+                                <span className="flex items-center gap-1" style={{ color: new Date(task.deadline).getTime() < startOfDay(1) ? 'var(--tt-color-text-red)' : undefined }}>
+                                  <CalendarClock className="size-3" />
+                                  Due by {when(task.deadline).toLowerCase()}
+                                </span>
+                              )}
+                              {later && mode !== 'later' && <span className="flex items-center gap-1"><Telescope className="size-3" />{BUCKETS[later]}</span>}
                               {task.recurrence && <Repeat className="size-3" />}
                               {task.waitingOn && <span>Waiting on {task.waitingOn}</span>}
-                              {task.deadline && (
-                                <span style={{ color: new Date(task.deadline).getTime() < startOfDay(1) ? 'var(--tt-color-text-red)' : undefined }}>
-                                  By {when(task.deadline).toLowerCase()}
-                                </span>
+                              {subtasks.length > 0 && (
+                                <span className="flex items-center gap-1 tabular-nums"><ListChecks className="size-3" /><Rolling text={`${subtasks.filter((one) => one.done).length}/${subtasks.length}`} /></span>
                               )}
                               {task.blocker && <span className="truncate">Blocked: {task.blocker}</span>}
                             </span>
                           )}
                         </button>
+                        {/* Grouped by note, the subtasks show under their task, tickable where they are. */}
+                        {view.group === 'note' && subtasks.length > 0 && (
+                          <ul className="w-full space-y-0.5 pt-0.5">
+                            {subtasks.map((one, at) => (
+                              <li key={at} className="flex items-center gap-2 text-control">
+                                <button type="button" role="checkbox" aria-checked={one.done} aria-label={one.text} onClick={() => tick(task, at)}
+                                  className="flex size-3.5 shrink-0 items-center justify-center rounded border transition-colors"
+                                  style={{ background: one.done ? 'var(--tt-brand-color-400)' : undefined, borderColor: one.done ? 'var(--tt-brand-color-400)' : undefined }}>
+                                  {one.done && <Check className="size-2.5 text-primary-foreground" />}
+                                </button>
+                                <span className={`truncate ${one.done ? 'text-muted-foreground line-through' : ''}`}>{one.text}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        </div>
                       </div>
                       </RowMenu>
               )
             }}
           </VirtualList>
         ) : (
-          <Empty shape={mode === 'today' ? ['star', 6] : mode === 'routines' ? ['flower', 5] : ['ellipse', 4]} title={mode === 'today' ? 'Nothing due today' : mode === 'routines' ? 'No routines' : 'Nothing coming up'}>
+          <Empty shape={mode === 'today' ? ['star', 6] : mode === 'routines' ? ['flower', 5] : mode === 'later' ? ['moon', 3] : ['ellipse', 4]} title={mode === 'today' ? 'Nothing due today' : mode === 'routines' ? 'No routines' : mode === 'later' ? 'Nothing put off' : 'Nothing coming up'}>
             {mode === 'routines'
               ? 'A routine is a task that repeats: “water the plants every! 3 days”, “bins every week”. They live here so they do not crowd Today.'
               : mode === 'today'
               ? 'A clear day. Anything with a date lands here on the day, and anything late stays on top until it is done.'
+              : mode === 'later'
+              ? 'For what has no day yet: say “this month”, “this year” or “someday” in the words, and it waits here, out of the way.'
               : 'Tasks with a date further out show here, grouped by day. Type one above with the date in the words.'}
           </Empty>
         )}
@@ -320,7 +379,8 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
       </div>
       <Props>
         <Sessions taskId={task.id} title={task.title} />
-        <PropLabel>Due</PropLabel>
+        {/* When you mean to do it, Todoist's date: the day it shows on. */}
+        <PropLabel>Scheduled</PropLabel>
         <div className="mb-1 flex gap-1">
           {([['Today', 0], ['Tomorrow', 1], ['Next week', 7]] as const).map(([label, days]) => (
             <Button variant="outline" size="sm" key={label} onClick={() => moveTo(task.id, days)} className="flex-1">
@@ -328,17 +388,33 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
             </Button>
           ))}
         </div>
-        <DatePicker time value={task.dueAt} onChange={(due) => void vigil.saveTask(task.id, { due })} placeholder="No date" />
-        <Prop icon={Flag} active={!!task.important} onClick={() => void vigil.saveTask(task.id, { important: task.important ? 0 : 1 }).then(() => chime(task.important ? 'off' : 'on'))}>
-          {task.important ? 'Important: sorts first' : 'Mark important'}
-        </Prop>
+        <DatePicker time value={task.dueAt} onChange={(due) => void vigil.saveTask(task.id, { due })} placeholder="Not scheduled" />
+        {/* Or no day yet: one of the later lists. */}
+        <div className="mt-1 mb-1 flex gap-1">
+          {(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => (
+            <Button variant={bucket(task) === which ? 'secondary' : 'ghost'} size="sm" key={which} onClick={() => planFor(task, which)} className="flex-1 text-xs">
+              {BUCKETS[which]}
+            </Button>
+          ))}
+        </div>
+        {/* When it must be done by, apart from when you mean to do it: Todoist's deadline. */}
+        <PropLabel>Due by</PropLabel>
+        <DatePicker value={task.deadline} onChange={(deadline) => void vigil.saveTask(task.id, { deadline })} placeholder="No due date" />
+        {/* Linear's four, each with its key; important is High or Urgent. */}
+        <PropLabel>Priority</PropLabel>
+        <div className="mb-1 flex gap-1">
+          {[1, 2, 3, 4, 0].map((level) => (
+            <Tip key={level} label={<>{PRIORITY_NAMES[level]} <Kbd>{level}</Kbd></>}>
+              <Button variant={task.priority === level ? 'secondary' : 'ghost'} size="sm" className="flex-1" onClick={() => setPriority(task, level)} aria-label={PRIORITY_NAMES[level]}>
+                <PriorityIcon level={level} />
+              </Button>
+            </Tip>
+          ))}
+        </div>
         {/* Its own alert level, for the one task that must interrupt you. */}
         <Prop icon={Bell} active={task.notify === 'alerts'} onClick={() => void vigil.saveTask(task.id, { notify: task.notify === 'alerts' ? null : 'alerts' }).then(() => chime(task.notify === 'alerts' ? 'off' : 'on'))}>
           {task.notify === 'alerts' ? 'Alerts you at its time' : 'Alert me at its time'}
         </Prop>
-        {/* When you mean to do it is the due date; when it must be done by is this. */}
-        <PropLabel>Deadline</PropLabel>
-        <DatePicker value={task.deadline} onChange={(deadline) => void vigil.saveTask(task.id, { deadline })} placeholder="No deadline" />
         {/* The rest of what a task can carry, each one row like the rest. */}
         <PropLabel>Details</PropLabel>
         <PropInput icon={Ban} value={task.blocker ?? ''} placeholder="Blocked by…" onSave={(blocker) => void vigil.saveTask(task.id, { blocker: blocker || null })} />
@@ -424,7 +500,12 @@ function StartFocus({ taskId, title }: { taskId: string; title: string }): React
       setOpen(false)
     })
   }
-  if (!open) return <Prop icon={Play} onClick={() => setOpen(true)}>Start a focus session</Prop>
+  // Opening the form winds up; each length has a note of its own, so the
+  // choice is heard as well as seen.
+  if (!open) return <Prop icon={Play} onClick={() => {
+    chime('windup')
+    setOpen(true)
+  }}>Start a focus session</Prop>
   return (
     <form
       className="mx-1 flex flex-col gap-2 rounded-lg border p-2"
@@ -446,8 +527,11 @@ function StartFocus({ taskId, title }: { taskId: string; title: string }): React
         <Input value={length} onChange={(event) => setLength(event.target.value)} placeholder="45 min, 1:30, until 6pm" className={`h-8 text-control ${planned === undefined ? 'border-[var(--tt-color-text-red)]' : ''}`} />
       </label>
       <div className="flex flex-wrap gap-1">
-        {LENGTHS.map((one) => (
-          <button key={one} type="button" onClick={() => setLength(one)} className={`rounded-md px-1.5 py-0.5 text-xs ${length === one ? 'bg-accent text-foreground' : 'hover:bg-accent/60'}`}>{one}</button>
+        {LENGTHS.map((one, index) => (
+          <button key={one} type="button" onClick={() => {
+            step(index)
+            setLength(one)
+          }} className={`rounded-md px-1.5 py-0.5 text-xs ${length === one ? 'bg-accent text-foreground' : 'hover:bg-accent/60'}`}>{one}</button>
         ))}
       </div>
       <Button type="submit" size="sm" variant="secondary" disabled={planned === undefined}>Start <Kbd>↵</Kbd></Button>
@@ -476,12 +560,14 @@ function Sessions({ taskId, title }: { taskId: string; title: string }): React.J
       setRecap('')
       // Every ending is heard: done, or kept as a nugget, or simply finished.
       chime(close ? 'done' : keep && recap.trim() ? 'promote' : 'resolve')
+      // And the edge of the screen lights, as when the floating timer ends one.
+      window.api.glow('done')
       toast(close ? 'Done, with this session as how' : keep && recap.trim() ? 'Session saved, and the recap kept as a nugget' : 'Session saved')
     })
 
   return (
     <>
-      <PropLabel>Sessions {sessions.length ? `· ${sessions.length}` : ''}</PropLabel>
+      <PropLabel>Sessions {sessions.length ? <>· <Rolling text={sessions.length} /></> : ''}</PropLabel>
       {running ? (
         <div className="space-y-2">
           <div className="flex items-center gap-2 px-1 text-foreground">
@@ -551,7 +637,7 @@ function Checklist({ task }: { task: TaskFull }): React.JSX.Element {
         </>
       )}
       <h3 className="mb-2 text-control font-semibold">
-        Subtasks {items.length ? <span className="font-normal text-muted-foreground">{items.filter((one) => one.done).length}/{items.length}</span> : null}
+        Subtasks {items.length ? <span className="font-normal text-muted-foreground tabular-nums"><Rolling text={`${items.filter((one) => one.done).length}/${items.length}`} /></span> : null}
       </h3>
       <ul className="space-y-1">
         {items.map((item, index) => (
@@ -597,8 +683,9 @@ function Checklist({ task }: { task: TaskFull }): React.JSX.Element {
 /** What a task list can be narrowed by: the same in the main window and the prompt. */
 export function taskFacets(tasks: Task[]): Facet<Task>[] {
   return [
-    { key: 'marked', label: 'Marked', options: [{ id: 'important', label: 'Important' }, { id: 'deadline', label: 'Has a deadline' }, { id: 'blocked', label: 'Blocked' }, { id: 'estimate', label: 'Estimated' }],
+    { key: 'marked', label: 'Marked', options: [{ id: 'important', label: 'Urgent or High' }, { id: 'deadline', label: 'Has a deadline' }, { id: 'blocked', label: 'Blocked' }, { id: 'estimate', label: 'Estimated' }],
       test: (task, mark) => (mark === 'important' ? !!task.important : mark === 'deadline' ? !!task.deadline : mark === 'blocked' ? !!task.blocker : task.estimate !== null) },
+    { key: 'priority', label: 'Priority', options: [1, 2, 3, 4, 0].map((level) => ({ id: String(level), label: PRIORITY_NAMES[level] })), test: (task, level) => task.priority === Number(level) },
     { key: 'tag', label: 'Tag', options: [...new Set(tasks.flatMap((task) => splitTags(task.title).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}` })), test: (task, tag) => splitTags(task.title).tags.includes(tag) },
     { key: 'from', label: 'Came from', options: [{ id: 'capture', label: 'A capture' }, { id: 'typed', label: 'Typed here' }], test: (task, from) => (task.captureId ? 'capture' : 'typed') === from }
   ]

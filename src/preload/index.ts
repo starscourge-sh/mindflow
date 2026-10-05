@@ -64,6 +64,17 @@ const api = {
   setRecordable: (on: boolean): Promise<boolean> => ipcRenderer.invoke('window:recordable', on),
   /** The floating focus timer, shown or put away. */
   showFocus: (on: boolean): void => ipcRenderer.send('focus:show', on),
+  /** Light around the edge of the screen: a session or timer finished, or called off. */
+  glow: (tone: 'done' | 'cancel'): void => ipcRenderer.send('glow', tone),
+  /** In the glow's own window: each glow, including one asked for while it loaded. */
+  onGlow: (listen: (tone: 'done' | 'cancel') => void): (() => void) => {
+    const relay = (_event: unknown, tone: 'done' | 'cancel'): void => listen(tone)
+    ipcRenderer.on('glow', relay)
+    void (ipcRenderer.invoke('glow:waiting') as Promise<'done' | 'cancel' | null>).then((tone) => tone && listen(tone))
+    return () => ipcRenderer.off('glow', relay)
+  },
+  /** Stick a note on the desktop in a small window of its own, or take it down. */
+  stick: (type: string, id: string, on: boolean): void => ipcRenderer.send('sticky', type, id, on),
 
   /** Each time the window is about to be put away. */
   onHiding: (listen: () => void): (() => void) => {
@@ -95,6 +106,8 @@ const api = {
 
   /** Bring up the capture prompt, from any window. */
   showPrompt: (): void => ipcRenderer.send('prompt:show'),
+  /** The menu bar's importers, from a window: an Obsidian vault, or files (Readwise, Kindle and the rest). */
+  importFrom: (what: 'vault' | 'files'): Promise<void> => ipcRenderer.invoke('import:run', what),
   /** The frosted backing follows the theme: dark under a dark theme. */
   setAppearance: (mode: 'light' | 'dark'): void => ipcRenderer.send('appearance', mode),
   /** Bring up the main window with one thing open in it. */

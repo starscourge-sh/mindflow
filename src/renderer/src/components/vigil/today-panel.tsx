@@ -1,31 +1,41 @@
 import { useEffect, useRef, useState } from 'react'
-import { CalendarDays, Check, Plus, Repeat } from 'lucide-react'
+import { CalendarClock, CalendarDays, Check, Plus, Repeat } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { chime } from '@/lib/sound'
-import { taskSaid, useLive, vigil, when, type Task } from '@/lib/vigil'
+import { useLive, vigil, when, type Task } from '@/lib/vigil'
+import { BUCKETS, bucket, makeTask, placed } from '@/lib/tasks'
+import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { Empty, toast, typing, useListKeys, Strip } from './ui'
 import { Chips, Display, arrange, useView } from './display'
-import { taskFacets } from './tasks-view'
+import { completeTask, landed, taskFacets } from './tasks-view'
+import { PriorityIcon, TaskInput, planFor, setPriority } from './task-input'
 import { RowMenu, copy } from './row-menu'
 import { Tip } from '@/components/vigil/ui'
 
 const endOfToday = (): number => new Date().setHours(24, 0, 0, 0)
 const startOfToday = (): number => new Date().setHours(0, 0, 0, 0)
 
-type Scope = 'today' | 'upcoming' | 'routines' | 'backlog' | 'waiting'
+type Scope = 'today' | 'upcoming' | 'routines' | keyof typeof BUCKETS | 'backlog' | 'waiting'
 const EMPTY: Record<Scope, { shape: [Parameters<typeof Empty>[0]['shape'][0], number]; title: string; text: string }> = {
   today: { shape: ['star', 6], title: 'Nothing due today', text: 'A clear day. Anything with a date lands here on the day, and anything late stays on top until it is done.' },
   upcoming: { shape: ['ellipse', 4], title: 'Nothing coming up', text: 'Put a day in the words, “friday” or “in 3 days”, and it waits here until then.' },
   routines: { shape: ['flower', 5], title: 'No routines', text: '“every week” follows the calendar; “every! 3 days” counts from when you last did it.' },
+  month: { shape: ['polygon', 4], title: 'Nothing this month', text: 'Say “this month” in the words for something with no day yet that should still happen soon.' },
+  year: { shape: ['flower', 3], title: 'Nothing this year', text: '“this year” or “next month” keeps a task here, without a day, until you give it one.' },
+  someday: { shape: ['moon', 2], title: 'Nothing for someday', text: '“learn Welsh someday”: the things you might do, kept where they do not nag.' },
   backlog: { shape: ['wheel', 2], title: 'Nothing in the backlog', text: 'A task with no date goes here, out of the way until you give it one.' },
   waiting: { shape: ['moon', 3], title: 'Waiting on no one', text: 'Say who a task is waiting on and it comes here, with a day to chase them.' }
 }
+// A task shows on the day it is scheduled, or the day it is due by if that is sooner.
 const SCOPES: Record<Scope, { label: string; test: (task: Task) => boolean }> = {
-  today: { label: 'Today', test: (task) => !task.waitingOn && !!task.dueAt && new Date(task.dueAt).getTime() < endOfToday() },
-  upcoming: { label: 'Upcoming', test: (task) => !task.waitingOn && !task.recurrence && !!task.dueAt && new Date(task.dueAt).getTime() >= endOfToday() },
+  today: { label: 'Today', test: (task) => !task.waitingOn && (placed(task) ?? Infinity) < endOfToday() },
+  upcoming: { label: 'Upcoming', test: (task) => !task.waitingOn && !task.recurrence && (placed(task) ?? -Infinity) >= endOfToday() },
   routines: { label: 'Routines', test: (task) => !!task.recurrence },
-  backlog: { label: 'Backlog', test: (task) => !task.waitingOn && !task.dueAt },
+  month: { label: BUCKETS.month, test: (task) => !task.waitingOn && bucket(task) === 'month' },
+  year: { label: BUCKETS.year, test: (task) => !task.waitingOn && bucket(task) === 'year' },
+  someday: { label: BUCKETS.someday, test: (task) => !task.waitingOn && bucket(task) === 'someday' },
+  backlog: { label: 'Backlog', test: (task) => !task.waitingOn && placed(task) === null && !bucket(task) },
   waiting: { label: 'Waiting', test: (task) => !!task.waitingOn }
 }
 
@@ -33,7 +43,8 @@ const SCOPES: Record<Scope, { label: string; test: (task: Task) => boolean }> = 
  * Today, sized for the prompt: what is due or late, a line to add one, and the
  * circle to tick it off. A task opens here in the prompt, notes and all, so
  * nothing about it needs the main window. The keys: j and k move, Enter opens,
- * e completes, t, m and w move it to today, tomorrow or next week, a adds.
+ * e completes, t, m and w move it to today, tomorrow or next week, 1 to 4
+ * give it a priority and 0 none, a adds.
  */
 export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; open?: string }): React.JSX.Element {
   const tasks = useLive(vigil.tasks, [] as Task[])
@@ -68,7 +79,8 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
       const task = due[cursor]
       if (!task) return
       const days = { t: 0, m: 1, w: 7 }[event.key]
-      if (event.key === 'e') tick(task)
+      if (/^[0-4]$/.test(event.key)) setPriority(task, Number(event.key))
+      else if (event.key === 'e') tick(task)
       else if (days !== undefined) move(task, days)
     }
     window.addEventListener('keydown', onKey)
@@ -77,14 +89,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
 
   const tick = (task: Task): void => {
     setTicking(task.id)
-    chime('done')
-    setTimeout(() => void vigil.doneTask(task.id).then(async () => {
-      setTicking(null)
-      // A routine says when it is back; the last one for today says the day is done.
-      if (task.recurrence) return toast(`Done · next ${when((await vigil.task(task.id))?.dueAt ?? null)}`)
-      const last = scope === 'today' && due.length === 1
-      toast(last ? 'Done. That is everything for today' : 'Done', () => void vigil.saveTask(task.id, { status: 'open' }))
-    }), 260)
+    setTimeout(() => void completeTask(task, scope === 'today' && due.length === 1).then(() => setTicking(null)), 260)
   }
 
   return (
@@ -109,29 +114,28 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
         onSubmit={(event) => {
           event.preventDefault()
           if (!draft.trim()) return
-          void vigil.addTask(draft, undefined, scope === 'today').then(async (made) => {
-            chime(made.existed ? 'nope' : 'noted')
-            if (made.existed) return void (setDraft(''), toast(taskSaid(made, '')))
+          const text = draft
+          setDraft('')
+          // Said where it went when it is not in this list: a later day, a later list, or a routine.
+          void makeTask({ text, today: scope === 'today' }, async (made) => {
             const task = await vigil.task(made.id)
-            setDraft('')
-            // Said where it went when it is not in this list: a later day, or a routine.
-            if (task && !SCOPES[scope].test(task)) toast(task.recurrence ? 'Added to Routines' : task.dueAt ? `Added for ${when(task.dueAt, !!task.allDay)}` : 'Added to the backlog')
+            return task && SCOPES[scope].test(task) ? 'Task added' : landed(made, scope)
           })
         }}
       >
         <Plus className="size-4 text-muted-foreground" />
-        <input
-          ref={add}
+        <TaskInput
+          inputRef={add}
           onKeyDown={(event) => event.key === 'Escape' && (event.preventDefault(), event.currentTarget.blur())}
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={setDraft}
           placeholder="Add a task, with the date in the words"
-          className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
         />
       </form>
       <AnimatePresence initial={false}>
         {due.map((task, index) => {
-          const late = new Date(task.dueAt!).getTime() < startOfToday()
+          const late = (placed(task) ?? Infinity) < startOfToday()
+          const later = bucket(task)
           return (
             <motion.div
               key={task.id}
@@ -165,17 +169,24 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
                 { label: 'Today', keys: 'T', run: () => move(task, 0) },
                 { label: 'Tomorrow', keys: 'M', run: () => move(task, 1) },
                 { label: 'Next week', keys: 'W', run: () => move(task, 7) },
+                ...(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => ({ label: BUCKETS[which], run: () => planFor(task, which) })),
                 'separator',
-                { label: task.important ? 'Not important' : 'Mark important', run: () => void vigil.saveTask(task.id, { important: task.important ? 0 : 1 }).then(() => chime(task.important ? 'off' : 'on')) },
+                ...[1, 2, 3, 4, 0].map((level) => ({ label: PRIORITY_NAMES[level], keys: String(level), run: () => setPriority(task, level) })),
+                'separator',
                 { label: `Copy T-${task.number}`, run: () => copy(`T-${task.number}`, `Copied T-${task.number}`) },
                 'separator',
                 { label: 'Close without doing', danger: true, run: () => void vigil.saveTask(task.id, { status: 'dropped' }).then(() => (chime('away'), toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' })))) }
               ]}>
               <button type="button" data-row data-cursor={index === cursor || undefined} className={`min-w-0 flex-1 text-left ${task.id === open ? 'font-medium' : ''}`} onClick={() => onOpen(task.id)}>
-                <p className="truncate">{task.title}</p>
-                <p className="flex items-center gap-1 text-xs" style={{ color: late ? 'var(--tt-color-text-red)' : 'var(--tt-color-text-orange)' }}>
-                  <CalendarDays className="size-3" /> {when(task.dueAt, !!task.allDay)}
-                  {task.recurrence && <Repeat className="ml-1 size-3 text-muted-foreground" />}
+                <p className="flex items-center gap-1.5">
+                  {task.priority ? <PriorityIcon level={task.priority} className="size-3 shrink-0" /> : null}
+                  <span className="truncate">{task.title}</span>
+                </p>
+                <p className="flex items-center gap-2 text-xs" style={{ color: late ? 'var(--tt-color-text-red)' : scope === 'today' ? 'var(--tt-color-text-orange)' : 'var(--muted-foreground)' }}>
+                  {task.dueAt && <span className="flex items-center gap-1"><CalendarDays className="size-3" /> {when(task.dueAt, !!task.allDay)}</span>}
+                  {task.deadline && <span className="flex items-center gap-1"><CalendarClock className="size-3" /> Due by {when(task.deadline).toLowerCase()}</span>}
+                  {later && !task.dueAt && <span>{BUCKETS[later]}</span>}
+                  {task.recurrence && <Repeat className="size-3 text-muted-foreground" />}
                 </p>
               </button>
               </RowMenu>

@@ -4,7 +4,9 @@ import { ask, askQuestion, toast } from '@/components/vigil/ui'
 import { chime } from '@/lib/sound'
 import { lift, type Home } from '@/lib/fly-home'
 import type { NoteSuggestion } from '@/extensions/note-link'
-import { vigil, type Made } from '@/lib/vigil'
+import { headingsIn } from '@/components/toc/headings'
+import type { JSONContent } from '@tiptap/core'
+import { vigil } from '@/lib/vigil'
 
 /** The short handle a capture goes by, like Linear's `REE-30`. */
 export const captureKey = (number: number): string => `MF-${number}`
@@ -54,9 +56,6 @@ export async function flying<T>(id: string, home: Home, work: () => Promise<T>):
   return result
 }
 
-/** A capture made into a task, flown into Tasks. */
-export const toTask = (id: string): Promise<Made | null> => flying(id, 'task', () => vigil.toTask(id))
-
 /** Take one. Promote makes a nugget as well; the other two only mark the capture. */
 export async function takeExit(id: string, status: string): Promise<unknown> {
   if (status !== 'promoted') return window.api.captures.save(id, { status })
@@ -94,6 +93,13 @@ export async function findCaptures(query: string): Promise<NoteSuggestion[]> {
     key: item.tier === 'article' ? 'Article' : 'Nugget',
     group: 'Nuggets and articles'
   }))]
+}
+
+/** The headings in what an @ link points at, for `@Note#` to offer. */
+export async function findHeadings(link: string): Promise<string[]> {
+  const [type, id] = link.includes(':') ? link.split(':') : ['capture', link]
+  const body = type === 'capture' ? (await window.api.captures.get(id))?.body : (await vigil.item(id))?.body
+  return headingsIn(body as JSONContent | string | null)
 }
 
 /** Follow an @ link: a capture's id alone, or `nugget:` / `article:` and an id. */

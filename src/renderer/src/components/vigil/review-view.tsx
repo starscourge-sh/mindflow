@@ -4,9 +4,11 @@ import type { JSONContent } from '@tiptap/core'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { MindflowEditor } from '../mindflow'
+import { textOf } from '../rot-cards'
 import { chime } from '@/lib/sound'
-import { interval, vigil, type Due, useLive } from '@/lib/vigil'
-import { Empty, Kbd, Page, toast, typing } from './ui'
+import { interval, vigil, when, type Due, type Exam, useLive } from '@/lib/vigil'
+import { Empty, Kbd, Page, Rolling, toast, Typed, typing } from './ui'
+import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
@@ -35,6 +37,14 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   const started = useRef(Date.now())
   useEffect(() => void vigil.queue().then(setQueue), [])
   const card = queue?.[at]
+  // Exams ahead, nearest first, each with how ready it is.
+  const exams = useLive(vigil.exams, [] as Exam[])
+  // The card you just missed, its source open to reread.
+  const [source, setSource] = useState<Source | null>(null)
+  // A cloze's answer, and the question with every other place it appears
+  // blanked too: a title or a line that repeats it gives it away.
+  const answer = card ? answerOf(card.prompt, card.body) : null
+  const asked = card ? masked(card.prompt ?? '', answer) : ''
 
   const reveal = (): void => {
     if (shown) return
@@ -52,7 +62,14 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     chime((['again', 'hard', 'good', 'easy'] as const)[value - 1])
     // Again is not failure, it is a short gap: the card comes round once more
     // before the session ends.
-    if (value === 1) setQueue((cards) => [...(cards ?? []), card])
+    if (value === 1) {
+      setQueue((cards) => [...(cards ?? []), card])
+      // Missed: the place it came from is offered, to read it again in context.
+      const needles = [answer, textOf(card.body).trim().split('\n')[0].slice(0, 40)].filter(Boolean) as string[]
+      void vigil.source(card.id).then((found) => {
+        if (found) toast('Back once more before the end', undefined, 'success', { label: 'Reread the source', key: 'R', run: () => (chime('read'), setSource({ ...found, needles })) })
+      })
+    }
     setShown(false)
     setSaid('')
     setAt((index) => index + 1)
@@ -71,6 +88,14 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
       if (event.metaKey || event.ctrlKey) return
       // Never while typing: in the prompt the editor sits beside the review.
       if (typing()) return
+      if (source) {
+        if (event.key === 'Escape') {
+          event.preventDefault()
+          chime('unread')
+          setSource(null)
+        }
+        return
+      }
       if (event.key === ' ' && card) {
         event.preventDefault()
         reveal()
@@ -83,6 +108,12 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   })
 
   if (!queue) return <Page title="Review"><div /></Page>
+  if (source)
+    return (
+      <Page title="Review">
+        <SourcePanel source={source} onClose={() => (chime('unread'), setSource(null))} />
+      </Page>
+    )
   if (!card)
     return (
       <Page title="Review">
@@ -95,14 +126,19 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
             Review holds only what you chose to be tested on. Open a nugget and write it a question, and it joins the queue tomorrow at the latest.
           </Empty>
         )}
+        <Exams exams={exams} />
       </Page>
     )
 
   return (
     <Page title="Review" count={queue.length - at}>
-      <div className="h-0.5 bg-border">
-        <div className="h-full w-full origin-left bg-[var(--tt-brand-color-400)] transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]" style={{ transform: `scaleX(${at / queue.length})` }} />
-      </div>
+      {/* No empty bar before the first card is done. */}
+      {at > 0 && (
+        <div className="h-0.5 bg-border">
+          <div className="h-full w-full origin-left bg-[var(--tt-brand-color-400)] transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]" style={{ transform: `scaleX(${at / queue.length})` }} />
+        </div>
+      )}
+      {at === 0 && <Exams exams={exams} />}
       <AnimatePresence mode="wait">
       <motion.div
         key={`${card.id}-${at}`}
@@ -112,6 +148,14 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
         transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
         className="flex flex-col gap-6 px-5 py-8"
       >
+        {card.exam && (
+          <p className="-mb-4 text-xs text-muted-foreground">
+            For #{card.exam}{(() => {
+              const exam = exams.find((one) => one.tag === card.exam)
+              return exam ? `, ${exam.days === 0 ? 'today' : exam.days === 1 ? 'tomorrow' : `in ${exam.days} days`}` : ''
+            })()}
+          </p>
+        )}
         {/* The question is editable in place: a card forgotten again and again
             is usually asking the wrong thing, and this is where you notice. */}
         <h2
@@ -126,18 +170,18 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
           }}
           onBlur={(event) => {
             const prompt = event.currentTarget.textContent?.trim()
-            if (!prompt || prompt === card.prompt) return
+            if (!prompt || prompt === card.prompt || prompt === asked) return
             // The card in the queue too, so an Again brings back the new words.
             card.prompt = prompt
             void vigil.saveItem(card.id, { prompt }).then(() => (chime('noted'), toast('Question rewritten')))
           }}
           className="rounded-md text-title font-semibold text-balance outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
-          {card.prompt}
+          {asked}
         </h2>
         {card.lapses >= 4 && (
           <p className="-mt-3 text-sm text-[var(--tt-color-text-orange)]">
-            Forgotten {card.lapses} times. Rewrite the question above rather than drilling it: click it to edit.
+            <Typed text={`Forgotten ${card.lapses} times. Rewrite the question above rather than drilling it: click it to edit.`} step={28} delay={300} />
           </p>
         )}
 
@@ -175,6 +219,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
             {/* Context: what makes the answer learnable, shown only after it, or
                 it would give the prompt away. */}
             {card.context && <p className="-mt-2 text-sm leading-relaxed whitespace-pre-line text-muted-foreground">{card.context}</p>}
+            <Why card={card} />
             {/* Where it came from, which a flashcard app never knows. */}
             <Origin id={card.id} attribution={card.attribution} />
             <div className="grid grid-cols-4 gap-2">
@@ -238,5 +283,189 @@ function Origin({ id, attribution }: { id: string; attribution: string | null })
     <p className="-mt-2 text-xs text-muted-foreground">
       {[attribution && `Said by ${attribution}`, from && `from “${from.title}”`].filter(Boolean).join(', ')}
     </p>
+  )
+}
+
+type Source = { type: string; id: string; title: string; body: unknown; needles: string[] }
+
+/** The words a cloze blanked, found by what stands either side of the blank. */
+function answerOf(prompt: string | null, body: unknown): string | null {
+  if (!prompt?.includes('_____')) return null
+  const flat = (text: string): string => text.replace(/\s+/g, ' ').trim()
+  const text = flat(textOf(body))
+  const [before, after = ''] = flat(prompt).split('_____')
+  const head = before.slice(-30)
+  const start = text.indexOf(head)
+  if (start < 0) return null
+  const from = start + head.length
+  const to = after.trim() ? text.indexOf(after.slice(0, 30).trim(), from) : text.length
+  const found = to < 0 ? '' : text.slice(from, to).trim()
+  return found && found.length <= 200 ? found : null
+}
+
+/** The question with the answer blanked wherever else it appears. */
+function masked(prompt: string, answer: string | null): string {
+  if (!answer || answer.length < 2) return prompt
+  return prompt.replace(new RegExp(answer.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '_____')
+}
+
+/**
+ * Why the answer is so, one line under it: its own, or else your latest
+ * gloss, which often already says it. With neither, a line to write one.
+ */
+function Why({ card }: { card: Due }): React.JSX.Element {
+  const [why, setWhy] = useState(card.why)
+  if (why || card.gloss)
+    return (
+      <p className="-mt-2 text-sm leading-relaxed">
+        <span className="text-muted-foreground">{why ? 'Why: ' : 'Why, in your gloss: '}</span>
+        {why ?? card.gloss}
+      </p>
+    )
+  return (
+    <Input
+      placeholder="Why is it so? One line, shown here next time"
+      className="-mt-2 h-8 text-control"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') return event.currentTarget.blur()
+        const line = event.currentTarget.value.trim()
+        if (event.key !== 'Enter' || !line) return
+        event.preventDefault()
+        card.why = line
+        setWhy(line)
+        chime('noted')
+        void vigil.saveItem(card.id, { why: line }).then(() =>
+          toast('Kept: it shows under the answer', () => {
+            card.why = null
+            setWhy(null)
+            void vigil.saveItem(card.id, { why: null })
+          }))
+        event.currentTarget.blur()
+      }}
+    />
+  )
+}
+
+/**
+ * The place a missed card came from, open to read again: scrolled to the
+ * paragraph that holds it, and that paragraph lit.
+ */
+function SourcePanel({ source, onClose }: { source: Source; onClose: () => void }): React.JSX.Element {
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    let tries = 0
+    let frame = 0
+    // The editor draws its blocks a frame or two after it mounts.
+    const find = (): void => {
+      const blocks = [...(box.current?.querySelectorAll<HTMLElement>('.ProseMirror > *') ?? [])]
+      if (!blocks.length) return void (tries++ < 30 && (frame = requestAnimationFrame(find)))
+      const needles = source.needles.map((one) => one.toLowerCase().replace(/\s+/g, ' ').trim()).filter(Boolean)
+      const flat = (el: HTMLElement): string => (el.textContent ?? '').toLowerCase().replace(/\s+/g, ' ')
+      const hit = needles.map((needle) => blocks.find((el) => flat(el).includes(needle))).find(Boolean) ?? blocks[0]
+      hit.classList.add('rounded-sm', 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_16%,transparent)]', 'ring-4', 'ring-[color-mix(in_srgb,var(--tt-brand-color-400)_16%,transparent)]')
+      hit.scrollIntoView({ block: 'center', behavior: document.documentElement.dataset.motion === 'off' ? 'auto' : 'smooth' })
+    }
+    find()
+    return () => cancelAnimationFrame(frame)
+  }, [source])
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex min-h-0 flex-col gap-3 px-5 py-6">
+      <div className="flex items-center gap-3">
+        <p className="flex-1 text-sm text-muted-foreground">
+          <Typed text={`Where it came from: “${source.title || 'Untitled'}”`} step={28} delay={100} />
+        </p>
+        <Button variant="outline" size="sm" onClick={onClose}>Back to the review <Kbd>Esc</Kbd></Button>
+      </div>
+      <div ref={box} className="max-h-[60vh] overflow-y-auto rounded-lg border">
+        <MindflowEditor
+          defaultContent={(source.body as JSONContent | string | null) ?? ''}
+          readOnly
+          toolbar={false}
+          handles={false}
+          slash={false}
+          outline={false}
+          search={false}
+          autofocus={false}
+        />
+      </div>
+    </motion.div>
+  )
+}
+
+const READY = [
+  { key: 'solid', label: 'solid', color: 'var(--tt-color-text-green)' },
+  { key: 'learning', label: 'learning', color: 'var(--tt-color-text-blue)' },
+  { key: 'struggling', label: 'struggling', color: 'var(--tt-color-text-orange)' },
+  { key: 'unseen', label: 'not seen yet', color: 'var(--tt-color-text-gray)' }
+] as const
+
+/** Every exam ahead, nearest first. */
+function Exams({ exams }: { exams: Exam[] }): React.JSX.Element | null {
+  if (!exams.length) return null
+  return <div className="flex flex-col gap-4 px-5 pt-5">{exams.map((exam) => <Readiness key={exam.tag} exam={exam} />)}</div>
+}
+
+/**
+ * How ready one exam is: solid, learning, struggling and not yet seen, as
+ * one bar. No bar before anything has been seen: a sentence says so instead.
+ */
+export function Readiness({ exam, named = true }: { exam: Exam; named?: boolean }): React.JSX.Element {
+  const seen = exam.total - exam.unseen
+  const day = exam.days === 0 ? 'today' : exam.days === 1 ? 'tomorrow' : `in ${exam.days} days`
+  return (
+    <div className="space-y-1.5 text-xs text-muted-foreground">
+      {named && <p className="text-sm text-foreground">#{exam.tag} <span className="text-muted-foreground">· {day}, {when(exam.at)}</span></p>}
+      {!exam.total ? (
+        <p>No tested cards carry #{exam.tag} yet. Give its nuggets a question and they are paced to be ready in time.</p>
+      ) : !seen ? (
+        <p><Rolling text={exam.total} /> {exam.total === 1 ? 'card' : 'cards'}, none seen yet. About <Rolling text={exam.perDay} /> a day from today has them all met in time.</p>
+      ) : (
+        <>
+          <div className="flex h-1.5 overflow-hidden rounded-full">
+            {READY.map(({ key, color }) => exam[key] > 0 && (
+              <motion.div key={key} initial={{ width: 0 }} animate={{ width: `${(exam[key] / exam.total) * 100}%` }} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }} style={{ background: color }} />
+            ))}
+          </div>
+          <p className="flex flex-wrap gap-x-3">
+            {READY.map(({ key, label, color }) => exam[key] > 0 && (
+              <span key={key}><span style={{ color }}>●</span> <Rolling text={exam[key]} /> {label}</span>
+            ))}
+          </p>
+        </>
+      )}
+      {exam.behind > 0 && (
+        <p className="text-[var(--tt-color-text-orange)]">
+          <Typed text={`${exam.behind} behind. About ${exam.perDay} a day catches you up; no need to do it all at once.`} step={28} delay={200} />
+        </p>
+      )}
+    </div>
+  )
+}
+
+/** A card's own past in review: the dates, the grades, and the gaps it grew through. */
+export function ReviewHistory({ id }: { id: string }): React.JSX.Element | null {
+  const history = useLive(() => vigil.history(id), null as Awaited<ReturnType<typeof vigil.history>> | null, [id])
+  if (!history) return null
+  if (!history.reviews.length) return <p className="text-xs">Not reviewed yet.</p>
+  const { reviews, dueAt } = history
+  // Each gap: from one review to the next, the last to when it is due.
+  const gaps = reviews.map((one, n) => {
+    const next = reviews[n + 1]?.at ?? dueAt
+    return next ? interval(next, one.at) : null
+  })
+  return (
+    <div className="space-y-1 text-xs">
+      <p className="tabular-nums">{gaps.filter(Boolean).join(' → ')}</p>
+      {reviews.map((one, n) => ({ ...one, gap: gaps[n] })).slice(-6).reverse().map((one) => {
+        const grade = GRADES[one.grade - 1]
+        return (
+          <p key={one.at} className="flex gap-2 tabular-nums">
+            <span className="w-24 opacity-70">{when(one.at)}</span>
+            <span className="w-12" style={{ color: grade?.tone }}>{grade?.label}</span>
+            {one.gap && <span className="opacity-70">then {one.gap}</span>}
+          </p>
+        )
+      })}
+    </div>
   )
 }

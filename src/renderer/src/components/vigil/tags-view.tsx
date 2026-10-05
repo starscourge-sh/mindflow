@@ -11,6 +11,9 @@ import { splitTags, useLive, vigil } from '@/lib/vigil'
 import { Empty, Page, useListKeys } from './ui'
 import { Input } from '@/components/ui/input'
 import { Tip } from '@/components/vigil/ui'
+import { DatePicker } from './date-picker'
+import { Readiness } from './review-view'
+import { openWindow } from '@/lib/notes'
 
 const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo }
 
@@ -27,6 +30,16 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
   const [cursor] = useListKeys(tags.length, { onOpen: (index) => setChosen(tags[index].tag), onBack: () => setChosen(null) })
   const top = tags[0]?.count ?? 1
   const current = tags.find((one) => one.tag === chosen)
+  // How ready each tag with an exam date is, for the open tag's bar.
+  const exams = useLive(vigil.exams, [] as Awaited<ReturnType<typeof vigil.exams>>)
+  const exam = exams.find((one) => one.tag === chosen)
+  // An exam date set, moved or cleared, with the way back.
+  const examOn = (tag: string, at: string | null, was: string | null): void => {
+    if (at) chime('pin')
+    void vigil.setTag(tag, { examAt: at }).then(() =>
+      toast(at ? `#${tag}: review now paces it to be ready by ${new Date(at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}` : `#${tag} has no exam date now`,
+        () => void vigil.setTag(tag, { examAt: was }).then(() => chime('undo'))))
+  }
 
   return (
     <>
@@ -35,9 +48,11 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
       <Page title="Tags" count={tags.length}>
         {tags.length ? (
           <VirtualList items={tags} keyOf={(one) => one.tag} cursor={cursor} estimate={36} className="mx-3 my-2">
-            {({ tag, count, color }, index) => (
+            {({ tag, count, color, examAt }, index) => (
               <RowMenu items={[
                 { label: 'Open', keys: '↵', run: () => setChosen(tag) },
+                // The date itself is picked in the open tag's bar.
+                examAt ? { label: 'Clear the exam date', run: () => examOn(tag, null, examAt) } : { label: 'Set an exam date…', run: () => setChosen(tag) },
                 { label: `Copy #${tag}`, run: () => copy(`#${tag}`, `Copied #${tag}`) }
               ]}>
               <button
@@ -90,6 +105,8 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               <Switch checked={!!current?.action} onCheckedChange={(action) => void vigil.setTag(chosen, { action }).then(() => toast(action ? `#${chosen} now makes a task` : `#${chosen} is only a label`))} />
               <span className="whitespace-nowrap">Makes a task</span>
             </label>
+            {/* An exam or deadline: everything with this tag is paced to be ready by then. */}
+            <DatePicker key={`exam-${chosen}`} value={current?.examAt ?? null} placeholder="Exam date" onChange={(at) => examOn(chosen, at, current?.examAt ?? null)} />
             {/* An alias: this tag counts as another without the words changing. */}
             <Input
               key={`alias-${chosen}`}
@@ -121,13 +138,15 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               }}
             />
             </div>
+          {exam && <div className="border-b px-5 py-3"><Readiness exam={exam} named={false} /></div>}
           <VirtualList items={items} keyOf={(item) => `${item.type}-${item.id}`} estimate={36} className="mx-3 my-2">
             {(item) => {
               const Icon = ICON[item.type as keyof typeof ICON] ?? Inbox
               return (
                 <button
                   type="button"
-                  onClick={() => onOpen(item.type, item.id)}
+                  // ⌘-click: a note in a window of its own; a task opens where tasks live.
+                  onClick={(event) => (event.metaKey && item.type !== 'task' ? openWindow(item.type, item.id) : onOpen(item.type, item.id))}
                   className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-accent/60"
                 >
                   <Icon className="size-4 shrink-0 text-muted-foreground" />

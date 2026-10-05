@@ -204,7 +204,10 @@ body {
   transition: background-color 300ms ease-out;
 }
 
-:root.light {
+:root.light,
+:root.paper,
+:root.midnight,
+:root[data-solid] {
   --mf-window-tint: 100%;
 }
 
@@ -514,7 +517,7 @@ body {
 }
 
 /* One highlight at a time: a card reached by keyboard, not also a list row. */
-body:has([data-tone="knock"]:focus) [data-cursor] {
+body:has([data-card]:focus) [data-cursor] {
   background-color: transparent !important;
 }
 
@@ -537,3 +540,30 @@ body:has([data-tone="knock"]:focus) [data-cursor] {
 /* A field with suggestions (who, where) keeps Chromium's dropdown arrow out of
    the way: the suggestions open as you type, the arrow only sat on the words. */
 input[list]::-webkit-calendar-picker-indicator { display: none !important; }
+
+/* The screen glow: the end of a session or timer, lit around the whole edge of
+   the screen and gone again (its own window, see-through and click-through).
+   Finished is green and called off is orange, each from the theme. */
+.mf-glow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 36px color-mix(in srgb, var(--glow) 32%, transparent), inset 0 0 0 1.5px color-mix(in srgb, var(--glow) 55%, transparent);
+  opacity: 0;
+  animation: mf-glow 1.9s ease-in-out forwards;
+}
+.mf-glow-done { --glow: var(--tt-color-text-green, #3c8a5c); }
+.mf-glow-cancel { --glow: var(--tt-color-text-orange, #d9822b); }
+@keyframes mf-glow {
+  0% { opacity: 0; }
+  25% { opacity: 1; }
+  45% { opacity: 1; }
+  100% { opacity: 0; }
+}
+/* No fade with Motion off: on for a moment, then off. */
+@keyframes mf-glow-still {
+  0%, 99% { opacity: 1; }
+  100% { opacity: 0; }
+}
+:root[data-motion='off'] .mf-glow { animation: mf-glow-still 1.4s step-end forwards; }
+@media (prefers-reduced-motion: reduce) { .mf-glow { animation: mf-glow-still 1.4s step-end forwards; } }
