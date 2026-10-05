@@ -62,6 +62,10 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
   }, [at, results.length])
   const current = at >= doing.length ? results[at - doing.length] : undefined
   const total = doing.length + results.length
+  // Opened for something to do, it is Raycast's small list: no filters, no
+  // empty preview half. Typing makes it the full search.
+  const compact = actions.length > 0 && !query.trim()
+  const preview = pane && !!current
   const run = (action: Action): void => {
     onClose()
     action.run()
@@ -69,7 +73,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[10vh]" onMouseDown={onClose}>
-      <div className="flex h-[70vh] w-[min(56rem,90vw)] flex-col overflow-hidden rounded-xl border bg-background text-sm shadow-(--mf-panel-shadow)" onMouseDown={(event) => event.stopPropagation()}>
+      <div className={`flex flex-col overflow-hidden rounded-xl border bg-background text-sm shadow-(--mf-panel-shadow) ${compact ? 'max-h-[70vh] w-[min(36rem,calc(100vw-2rem))]' : 'h-[70vh] w-[min(56rem,calc(100vw-2rem))]'}`} onMouseDown={(event) => event.stopPropagation()}>
         <label className="flex items-center gap-3 border-b px-4 py-3">
           <SearchIcon className="size-4 text-muted-foreground" />
           <input
@@ -92,18 +96,18 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
             }}
           />
           <Tip label="Show highlight pane">
-          <button type="button" className={`rounded p-1 hover:bg-accent ${pane ? 'text-foreground' : 'text-muted-foreground'}`} onClick={() => setPane(!pane)}>
+          <button type="button" className={`rounded p-1 hover:bg-accent ${pane ? 'text-foreground' : 'text-muted-foreground'} ${compact ? 'hidden' : ''}`} onClick={() => setPane(!pane)}>
             <PanelRight className="size-4" />
           </button>
           </Tip>
         </label>
-        <div className="flex flex-wrap items-center gap-3 border-b px-2 py-1.5">
+        <div className={`flex flex-wrap items-center gap-3 border-b px-2 py-1.5 ${compact ? 'hidden' : ''}`}>
           <Chips options={[{ id: 'name', label: 'Name only' }]} on={() => titleOnly} pick={() => setTitleOnly(!titleOnly)} />
           <Chips options={[{ id: 'capture', label: 'Captures' }, { id: 'nugget', label: 'Nuggets' }, { id: 'task', label: 'Tasks' }]} on={(id) => types.includes(id)} pick={(id) => setTypes(flip(types, id))} />
           <Chips options={CAPTURE_TYPES} on={(id) => kinds.includes(id)} pick={(id) => setKinds(flip(kinds, id))} />
         </div>
         <div className="flex min-h-0 flex-1">
-          <div className={`${pane ? 'w-1/2' : 'flex-1'} overflow-y-auto p-2`}>
+          <div className={`${preview ? 'w-1/2' : 'flex-1'} overflow-y-auto p-2`}>
             {doing.length > 0 && <div className="px-2 pt-1 pb-1 text-xs text-muted-foreground">Actions</div>}
             {doing.map((one, index) => (
               <button

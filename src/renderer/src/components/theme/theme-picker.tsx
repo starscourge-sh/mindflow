@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { chime, step } from "@/lib/sound"
 import { Check } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -84,6 +85,8 @@ export function ThemePicker({ className }: { className?: string }): React.JSX.El
           onValueChange={(label) => {
             setRow(label)
             const found = byName(label)
+            // Each theme its own note, as in the prompt's menu: a scale as you pass.
+            if (found && label !== row) step(THEMES.indexOf(found))
             if (found) applyTheme(found, false)
           }}
         >
@@ -95,6 +98,7 @@ export function ThemePicker({ className }: { className?: string }): React.JSX.El
                 key={name}
                 value={themeName(name)}
                 onSelect={() => {
+                  chime('settled')
                   chosen.current = name
                   setTheme(name)
                   applyTheme(name)
