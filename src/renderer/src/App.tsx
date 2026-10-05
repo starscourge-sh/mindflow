@@ -193,7 +193,7 @@ export default function App(): React.JSX.Element {
   const [chosen, setChosen] = useState(false)
   const captures = useCaptures()
   useAppearance()
-  // Focus: only the writing, until ⌘⇧F again.
+  // Focus: only the writing, until ⇧⌘F again.
   const focus = useFocusMode('prompt')
   // Once a launch, a little after it: links still bare become cards, and
   // cards whose pictures live on their sites keep a copy.
@@ -213,7 +213,7 @@ export default function App(): React.JSX.Element {
   const [outline, setOutline] = useState(false)
   const [source, setSource] = useState(false)
   const [details, setDetails] = useState(false)
-  // ⌘⇧D: the open capture's details, in the prompt (⌘I stays italic).
+  // ⇧⌘D: the open capture's details, in the prompt (⌘I stays italic).
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!event.metaKey || !event.shiftKey || event.key.toLowerCase() !== 'd' || !latestEditing.current) return
@@ -369,7 +369,7 @@ export default function App(): React.JSX.Element {
   })
   // Reading through a list, one note at a time with nothing else on screen.
   const [readList, setReadList] = useState<{ items: Readable[]; start: number } | null>(null)
-  // With the panel shut, ⌘⇧R still reads: the inbox, from the top.
+  // With the panel shut, ⇧⌘R still reads: the inbox, from the top.
   useReadKey(() => setReadList({ items: captures.filter((one) => one.status === 'open').map((one) => ({ type: 'capture', id: one.id })), start: 0 }), captures.length, !panel)
   // ⌘K: search everything from the prompt, and open what it finds here.
   const [searching, setSearching] = useState(false)
@@ -580,30 +580,31 @@ export default function App(): React.JSX.Element {
           initial={searchFrom}
           // Everything the box can do, by name and key, as Raycast's ⌘K lists it.
           actions={[
-            { label: 'New capture', keys: '⌘ N', run: () => fresh() },
-            { label: panel ? 'Hide the side panel' : 'Show the side panel', keys: '⌘ \\', run: () => setPanel(!panel) },
-            ...TABS.map((one, index) => ({ label: `Go to ${({ inbox: 'Inbox', today: 'Tasks', review: 'Review', kept: 'Kept' } as Record<string, string>)[one] ?? one}`, keys: `⌃ ${index + 1}`, run: () => {
+            { label: 'New capture', keys: '⌘N', run: () => fresh() },
+            { label: panel ? 'Hide the side panel' : 'Show the side panel', keys: '⌘\\', run: () => setPanel(!panel) },
+            ...TABS.map((one, index) => ({ label: `Go to ${({ inbox: 'Inbox', today: 'Tasks', review: 'Review', kept: 'Kept' } as Record<string, string>)[one] ?? one}`, keys: `⌃${index + 1}`, run: () => {
               setTab(one)
               if (!panel) setPanel(true)
             } })),
-            { label: 'Read through the inbox', keys: '⌘ ⇧ R', run: () => setReadList({ items: captures.filter((one) => one.status === 'open').map((one) => ({ type: 'capture', id: one.id })), start: 0 }) },
-            { label: 'Copy this note as Markdown', keys: '⇧ ⌘ C', run: copyMarkdown },
+            { label: 'Read through the inbox', keys: '⇧⌘R', run: () => setReadList({ items: captures.filter((one) => one.status === 'open').map((one) => ({ type: 'capture', id: one.id })), start: 0 }) },
+            { label: 'Copy this note as Markdown', keys: '⇧⌘C', run: copyMarkdown },
             { label: locked ? 'Unlock this note' : 'Lock this note: read only', run: () => setLocked(!locked) },
             { label: secret ? 'Make this note not private' : 'Make this note private', run: () => {
               setSecret(!secret)
               if (editing) void vigil.setPrivate('captures', editing.id, !secret)
             } },
             { label: outline ? 'Hide the outline' : 'Show the outline', run: () => setOutline(!outline) },
-            { label: source ? 'Hide the source' : 'Show the source', keys: '⌘ ⌥ S', run: () => setSource(!source) },
+            { label: source ? 'Hide the source' : 'Show the source', keys: '⌘E', run: () => setSource(!source) },
             { label: vim ? 'Turn vim keys off' : 'Turn vim keys on', keys: '\\', run: () => setVim(!vim) },
             { label: appSettings?.sounds ? 'Turn sounds off' : 'Turn sounds on', run: () => {
               soundOn(!appSettings?.sounds)
+              chime(appSettings?.sounds ? 'off' : 'on')
               void vigil.setSettings({ sounds: !appSettings?.sounds })
             } },
-            { label: appSettings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥ ⌘ S', run: () => void vigil.setSettings({ safeMode: !appSettings?.safeMode }).then(() => toast(appSettings?.safeMode ? 'Safe mode off' : 'Safe mode: nothing will surface unasked')) },
+            { label: appSettings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', run: () => void vigil.setSettings({ safeMode: !appSettings?.safeMode }).then(() => toast(appSettings?.safeMode ? 'Safe mode off' : 'Safe mode: nothing will surface unasked')) },
             { label: recordable ? 'Hide from screen recordings' : 'Show in screen recordings', run: () => setRecordable(!recordable) },
             { label: 'Open the main window', run: () => window.api.openInHome('view', 'inbox') },
-            { label: 'Settings', keys: '⌘ ,', run: () => window.api.openInHome('view', 'settings') }
+            { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') }
           ]}
           onClose={() => {
             setSearching(false)
@@ -765,8 +766,8 @@ export default function App(): React.JSX.Element {
                 options={[
                   { label: 'Lock: read only', on: locked, set: setLocked },
                   { label: 'Outline', on: outline, set: setOutline },
-                  { label: 'Source', on: source, keys: '⌘⌥S', set: setSource },
-                  ...(editing ? [{ label: 'Details', on: details, keys: '⌘⇧D', set: setDetails }] : []),
+                  { label: 'Source', on: source, keys: '⌘E', set: setSource },
+                  ...(editing ? [{ label: 'Details', on: details, keys: '⇧⌘D', set: setDetails }] : []),
                   { label: 'Private', on: secret, set: (on: boolean) => {
                     setSecret(on)
                     if (editing) void vigil.setPrivate('captures', editing.id, on)
@@ -1089,7 +1090,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
     { id: 'kept', label: 'Kept', count: kept }
   ] as const
   // The same keys as every list: j and k when the editor does not have the
-  // focus, Enter to open. ⌘1 to ⌘3 switch tabs from anywhere in the window.
+  // focus, Enter to open. ⌃1 to ⌃4 switch tabs from anywhere in the window.
   const [cursor] = useListKeys(shown.length, { onOpen: (index) => onOpen(shown[index].id), enabled: tab === 'inbox' })
   // On the row under the cursor: x picks it, and P, R and D take the exit the
   // right-click menu shows them beside.
@@ -1112,14 +1113,14 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [tab, cursor, chosen.length])
-  // ⌘⇧R reads through the inbox as it is shown, from the row under the cursor.
+  // ⇧⌘R reads through the inbox as it is shown, from the row under the cursor.
   useReadKey(() => onRead(shownNow.current.map((one) => ({ type: 'capture', id: one.id })), Math.max(0, cursor)), shown.length, tab === 'inbox')
   const bulk = (status: string): void => {
     const ids = chosen
     setChosen([])
     void Promise.all(ids.map((id) => window.api.captures.save(id, { status }))).then(() => {
       chime(status === 'discarded' ? 'away' : 'resolve')
-      toast(`${ids.length} ${status}`, () => void Promise.all(ids.map((id) => window.api.captures.save(id, { status: 'open' }))))
+      toast(`${status[0].toUpperCase()}${status.slice(1)} ${ids.length}`, () => void Promise.all(ids.map((id) => window.api.captures.save(id, { status: 'open' }))))
     })
   }
 
@@ -1190,13 +1191,16 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                           })
                         })}>One task</Button>
                       )}
+                      <Tip label="Let them go  Esc">
+                      <Button variant="ghost" size="icon-sm" onClick={() => setChosen([])} aria-label="Clear the selection"><X className="size-3.5" /></Button>
+                      </Tip>
                     </>
                   ) : (
                     <>
                       <Tip label="Every capture with no exit yet; Display's Status shows the rest. x selects several.">
                         <h3 className="w-fit">{shown.length === open.length ? 'Everything waiting' : `${shown.length} shown`}</h3>
                       </Tip>
-                      <Tip label="Read through these, one at a time  ⌘⇧R">
+                      <Tip label="Read through these, one at a time  ⇧⌘R">
                         <Button variant="ghost" size="sm" className="ml-auto" onClick={() => onRead(shown.map((one) => ({ type: 'capture', id: one.id })), Math.max(0, cursor))}>
                           <BookOpen className="size-3.5" /> Read
                         </Button>

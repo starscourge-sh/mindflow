@@ -119,7 +119,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
                 onClick={() => run(one)}
               >
                 <span className="min-w-0 flex-1 truncate">{one.label}</span>
-                {one.keys && <span className="flex shrink-0 gap-0.5">{one.keys.split(' ').map((key) => <Kbd key={key}>{key}</Kbd>)}</span>}
+                {one.keys && <span className="flex shrink-0 gap-0.5">{Array.from(one.keys).map((key, n) => <Kbd key={n}>{key}</Kbd>)}</span>}
               </button>
             ))}
             {!query.trim() && !doing.length && (

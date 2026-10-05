@@ -112,7 +112,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
                   <Plus className="size-3.5" /> New article
                 </Button>
               )}
-              <Tip label="Read through these, one at a time  ⌘⇧R">
+              <Tip label="Read through these, one at a time  ⇧⌘R">
                 <Button variant="ghost" size="sm" onClick={() => setReadFrom(Math.max(0, cursor))} disabled={!items.length}><BookOpen className="size-3.5" /> Read</Button>
               </Tip>
               {display}

@@ -29,6 +29,13 @@ const tone = (task: Task): string | undefined => {
   return undefined
 }
 
+/** Move a task to a day from now, and say where: one wording for keys, menus and buttons. */
+const moveTo = (id: string, days: number): void =>
+  void vigil.saveTask(id, { due: shiftTo(days) }).then(() => {
+    chime('tap')
+    toast(`Moved to ${when(shiftTo(days))}`)
+  })
+
 /**
  * Tasks, the way Todoist lists them: Today with what is late on top, Upcoming
  * by day, and a line at the top that reads the date and the repeat out of what
@@ -109,7 +116,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
       if (event.key === 'e') return complete(task)
       const days = { t: 0, m: 1, w: 7 }[event.key]
       if (days === undefined) return
-      void vigil.saveTask(task.id, { due: shiftTo(days) }).then(() => toast(`Moved to ${when(shiftTo(days)).toLowerCase()}`))
+      moveTo(task.id, days)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -124,7 +131,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
       void vigil.doneTask(task.id).then(async () => {
         setLeaving(null)
         // A routine says when it is back; a one-off can be taken back.
-        if (task.recurrence) toast(`Done · next ${when((await vigil.task(task.id))?.dueAt ?? null).toLowerCase()}`)
+        if (task.recurrence) toast(`Done · next ${when((await vigil.task(task.id))?.dueAt ?? null)}`)
         else toast('Done', () => void vigil.saveTask(task.id, { status: 'open' }))
       })
     }, 280)
@@ -152,6 +159,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
             event.preventDefault()
             if (!draft.trim()) return
             void vigil.addTask(draft, undefined, mode === 'today').then(async (made) => {
+              chime(made.existed ? 'nope' : 'noted')
               if (made.existed) return void (setDraft(''), toast(taskSaid(made, '')))
               const task = await vigil.task(made.id)
               setDraft('')
@@ -199,14 +207,14 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                         { label: 'Open', keys: '↵', run: () => pick(task.id) },
                         { label: 'Complete', keys: 'E', run: () => complete(task) },
                         'separator',
-                        { label: 'Today', keys: 'T', run: () => void vigil.saveTask(task.id, { due: shiftTo(0) }) },
-                        { label: 'Tomorrow', keys: 'M', run: () => void vigil.saveTask(task.id, { due: shiftTo(1) }) },
-                        { label: 'Next week', keys: 'W', run: () => void vigil.saveTask(task.id, { due: shiftTo(7) }) },
+                        { label: 'Today', keys: 'T', run: () => moveTo(task.id, 0) },
+                        { label: 'Tomorrow', keys: 'M', run: () => moveTo(task.id, 1) },
+                        { label: 'Next week', keys: 'W', run: () => moveTo(task.id, 7) },
                         'separator',
                         { label: task.important ? 'Not important' : 'Mark important', run: () => void vigil.saveTask(task.id, { important: task.important ? 0 : 1 }) },
                         { label: `Copy T-${task.number}`, run: () => copy(`T-${task.number}`, `Copied T-${task.number}`) },
                         'separator',
-                        { label: 'Close without doing', danger: true, run: () => void vigil.saveTask(task.id, { status: 'dropped' }).then(() => toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' }))) }
+                        { label: 'Close without doing', danger: true, run: () => void vigil.saveTask(task.id, { status: 'dropped' }).then(() => (chime('away'), toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' })))) }
                       ]}>
                       <div
                         data-cursor={index === cursor || undefined}
@@ -313,7 +321,7 @@ export function TaskDetail({ task: first, onClose, onOpen }: { task: TaskFull; o
         <PropLabel>Due</PropLabel>
         <div className="mb-1 flex gap-1">
           {([['Today', 0], ['Tomorrow', 1], ['Next week', 7]] as const).map(([label, days]) => (
-            <Button variant="outline" size="sm" key={label} onClick={() => void vigil.saveTask(task.id, { due: shiftTo(days) })} className="flex-1">
+            <Button variant="outline" size="sm" key={label} onClick={() => moveTo(task.id, days)} className="flex-1">
               {label}
             </Button>
           ))}
@@ -394,6 +402,7 @@ export function TaskDetail({ task: first, onClose, onOpen }: { task: TaskFull; o
           onClick={() =>
             void vigil.saveTask(task.id, { status: 'dropped' }).then(() => {
               onClose()
+              chime('away')
               toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' }))
             })
           }

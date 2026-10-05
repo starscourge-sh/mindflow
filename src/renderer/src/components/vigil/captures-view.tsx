@@ -81,7 +81,7 @@ export function CapturesView({ title, keep, focus, onOpen }: {
     void Promise.all(ids.map((id) => window.api.captures.save(id, { status }))).then(() => {
       chime(status === 'discarded' ? 'away' : 'resolve')
       setChosen([])
-      toast(`${ids.length} ${status}`, () => void Promise.all(ids.map((id) => window.api.captures.save(id, { status: 'open' }))))
+      toast(`${status[0].toUpperCase()}${status.slice(1)} ${ids.length}`, () => void Promise.all(ids.map((id) => window.api.captures.save(id, { status: 'open' }))))
     })
   }
   useEffect(() => {
@@ -126,7 +126,7 @@ export function CapturesView({ title, keep, focus, onOpen }: {
           ) : (
             <span className="flex items-center gap-2">
               {shown.length > 1 && <span className="hidden text-xs whitespace-nowrap @[48rem]/page:inline">x to select</span>}
-              <Tip label="Read through these, one at a time  ⌘⇧R">
+              <Tip label="Read through these, one at a time  ⇧⌘R">
                 <Button variant="ghost" size="sm" onClick={() => setReadFrom(Math.max(0, cursor))} disabled={!shown.length}><BookOpen className="size-3.5" /> Read</Button>
               </Tip>
               {display}
@@ -233,7 +233,7 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
     setWhere(capture.medium ?? '')
   }, [capture.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const exits = [
-    { icon: ArrowUpRight, tint: 'purple', label: 'Promote to nugget', run: () => flying(capture.id, 'nugget', () => takeExit(capture.id, 'promoted')), said: 'Promoted to a nugget' },
+    { icon: ArrowUpRight, tint: 'purple', label: 'Promote to nugget', run: () => flying(capture.id, 'nugget', () => takeExit(capture.id, 'promoted')), said: 'Promoted' },
     { icon: ListTodo, tint: 'orange', label: 'Make it a task', run: () => toTask(capture.id), said: 'Now a task' },
     { icon: CheckCircle2, tint: 'green', label: 'Resolve', run: () => window.api.captures.save(capture.id, { status: 'resolved' }), said: 'Resolved' },
     { icon: Trash2, tint: 'red', label: 'Discard', run: () => window.api.captures.save(capture.id, { status: 'discarded' }), said: 'Discarded' }

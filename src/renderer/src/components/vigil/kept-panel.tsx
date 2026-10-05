@@ -40,7 +40,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     return () => window.removeEventListener('keydown', onKey, true)
   })
   const read = (): void => void (items.length && onRead(items.map((one) => ({ type: tier, id: one.id })), Math.max(0, cursor)))
-  // ⌘⇧R reads through what is shown, from the row under the cursor.
+  // ⇧⌘R reads through what is shown, from the row under the cursor.
   useReadKey(read, items.length)
   const article = (ids: string[]): void =>
     void vigil.article(ids).then((id) => {
@@ -72,7 +72,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
             return (
               <RowMenu items={[
                 { label: 'Open', keys: '↵', run: () => onOpen(tier, item.id) },
-                { label: item.prompt ? 'Change the question' : 'Test me on this', run: () => void ask('The question it answers', item.prompt ?? 'e.g. What does MVCC stand for?').then((prompt) => { if (prompt) void vigil.saveItem(item.id, { prompt }).then(() => toast('Now tested: it joins your review')) }) },
+                { label: item.prompt ? 'Change the question' : 'Test me on this', run: () => void ask('The question it answers', item.prompt ?? 'e.g. What does MVCC stand for?').then((prompt) => { if (prompt) void vigil.saveItem(item.id, { prompt }).then(() => toast('Now tested: it will come up in review')) }) },
                 ...(tier === 'nugget' ? [{ label: 'Start an article', run: () => article([item.id]) }] : []),
                 { label: 'Study this', run: () => void ask('When will you study it?', 'e.g. read it again on Thursday').then((when) => { if (when) void vigil.study(item.id, `Study “${item.title}” ${when}`).then((made) => toast(taskSaid(made, 'A task, with this linked'))) }) },
                 'separator',
@@ -83,6 +83,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
               ]}>
                 <button
                   type="button"
+                  data-row
                   data-cursor={index === cursor || undefined}
                   data-private={item.private ? '' : undefined}
                   data-open={item.id === open ? '' : undefined}

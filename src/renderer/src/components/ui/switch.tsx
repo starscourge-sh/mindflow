@@ -22,8 +22,9 @@ function Switch({
       {...props}
       // Up for on, down for off.
       onCheckedChange={(on) => {
-        chime(on ? "on" : "off")
+        // The change first, then its sound: turning sound on is then heard.
         onCheckedChange?.(on)
+        chime(on ? "on" : "off")
       }}
     >
       <SwitchPrimitive.Thumb

@@ -53,7 +53,10 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
     const at = new Date()
     at.setDate(at.getDate() + days)
     at.setHours(9, 0, 0, 0)
-    void vigil.saveTask(task.id, { due: at.toISOString() }).then(() => toast(`Moved to ${when(at.toISOString())}`))
+    void vigil.saveTask(task.id, { due: at.toISOString() }).then(() => {
+      chime('tap')
+      toast(`Moved to ${when(at.toISOString())}`)
+    })
   }
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -75,11 +78,12 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   const tick = (task: Task): void => {
     setTicking(task.id)
     chime('done')
-    setTimeout(() => void vigil.doneTask(task.id).then(() => {
+    setTimeout(() => void vigil.doneTask(task.id).then(async () => {
       setTicking(null)
-      // The last one for today says so: the day is done, not only the task.
+      // A routine says when it is back; the last one for today says the day is done.
+      if (task.recurrence) return toast(`Done · next ${when((await vigil.task(task.id))?.dueAt ?? null)}`)
       const last = scope === 'today' && due.length === 1
-      toast(last ? 'Done. That is everything for today' : 'Done', task.recurrence ? undefined : () => void vigil.saveTask(task.id, { status: 'open' }))
+      toast(last ? 'Done. That is everything for today' : 'Done', () => void vigil.saveTask(task.id, { status: 'open' }))
     }), 260)
   }
 
@@ -165,9 +169,9 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
                 { label: task.important ? 'Not important' : 'Mark important', run: () => void vigil.saveTask(task.id, { important: task.important ? 0 : 1 }) },
                 { label: `Copy T-${task.number}`, run: () => copy(`T-${task.number}`, `Copied T-${task.number}`) },
                 'separator',
-                { label: 'Close without doing', danger: true, run: () => void vigil.saveTask(task.id, { status: 'dropped' }).then(() => toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' }))) }
+                { label: 'Close without doing', danger: true, run: () => void vigil.saveTask(task.id, { status: 'dropped' }).then(() => (chime('away'), toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' })))) }
               ]}>
-              <button type="button" data-cursor={index === cursor || undefined} className={`min-w-0 flex-1 text-left ${task.id === open ? 'font-medium' : ''}`} onClick={() => onOpen(task.id)}>
+              <button type="button" data-row data-cursor={index === cursor || undefined} className={`min-w-0 flex-1 text-left ${task.id === open ? 'font-medium' : ''}`} onClick={() => onOpen(task.id)}>
                 <p className="truncate">{task.title}</p>
                 <p className="flex items-center gap-1 text-xs" style={{ color: late ? 'var(--tt-color-text-red)' : 'var(--tt-color-text-orange)' }}>
                   <CalendarDays className="size-3" /> {when(task.dueAt, !!task.allDay)}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { chime } from '@/lib/sound'
 import type { JSONContent } from '@tiptap/core'
 
 import { EXITS, captureKey, exit as exitWith, toTask } from '@/lib/capture-links'
@@ -119,7 +120,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             { label: 'Open', run: () => onOpen(card.id) },
             'separator',
             ...EXITS.map((one) => ({ label: one.label, keys: one.key.toUpperCase(), danger: one.status === 'discarded', run: () => exit(card.id, one.status) })),
-            { label: 'Make it a task', run: () => void toTask(card.id).then((made) => { toast(taskSaid(made, 'Now a task')); drop(card.id) }) },
+            { label: 'Make it a task', run: () => void toTask(card.id).then((made) => { if (!made) return; chime(made.existed ? 'nope' : 'noted'); toast(taskSaid(made, 'Now a task')); drop(card.id) }) },
             { label: 'Say who said it', keys: 'W', run: () => setAsking(card.id) },
             'separator',
             { label: 'Pin to the prompt', run: () => pin('captures', card.id, true) },

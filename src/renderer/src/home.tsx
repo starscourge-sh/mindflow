@@ -25,7 +25,7 @@ import {
   type LucideIcon
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { chime } from './lib/sound'
+import { chime, soundOn } from './lib/sound'
 
 import { CAPTURE_TYPES } from './components/capture-kinds/capture-kind-picker'
 import { useCaptures, type CaptureMeta } from './components/capture-list'
@@ -82,7 +82,12 @@ export function Home(): React.JSX.Element {
       return { views: [...trail.views.slice(0, trail.at + 1), next], at: trail.at + 1 }
     })
   const step = (by: -1 | 1): void =>
-    setTrail(({ views, at }) => ({ views, at: Math.max(0, Math.min(views.length - 1, at + by)) }))
+    setTrail(({ views, at }) => {
+      const next = Math.max(0, Math.min(views.length - 1, at + by))
+      // Back and forward sound like any other move between sections.
+      if (next !== at) chime('tap')
+      return { views, at: next }
+    })
   const [sidebar, setSidebar] = useState(true)
   // Compact, beside your work, unless asked to fill the screen; remembered.
   // Filling the screen is the window's own maximize, so the green button, a
@@ -179,6 +184,20 @@ export function Home(): React.JSX.Element {
       <FocusNote />
       {searching && (
         <Search
+          // The same palette as the prompt's: places to go and things to switch.
+          actions={[
+            { label: 'New capture', keys: 'C', run: () => window.api.showPrompt() },
+            ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),
+            { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘\\', run: () => setSidebar(!sidebar) },
+            { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', run: () => void window.api.fillHome(!fill) },
+            { label: settings?.sounds ? 'Turn sounds off' : 'Turn sounds on', run: () => {
+              soundOn(!settings?.sounds)
+              chime(settings?.sounds ? 'off' : 'on')
+              void vigil.setSettings({ sounds: !settings?.sounds })
+            } },
+            { label: settings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', run: safeMode },
+            { label: 'Settings', keys: '⌘,', run: () => setView({ id: 'settings' }) }
+          ]}
           onClose={() => setSearching(false)}
           onOpen={(type, id) => {
             setSearching(false)
@@ -292,6 +311,7 @@ export function Home(): React.JSX.Element {
             <span className="flex-1 text-left">{settings?.safeMode ? 'Safe mode on' : 'Safe mode'}</span>
           </button>
           </Tip>
+          <Tip label="⌘,">
           <button
             type="button"
             onClick={() => setView({ id: 'settings' })}
@@ -300,6 +320,7 @@ export function Home(): React.JSX.Element {
             <SettingsIcon className="size-4" />
             <span className="flex-1 text-left">Settings</span>
           </button>
+          </Tip>
           <p className="mt-2 px-2 text-xs whitespace-nowrap text-muted-foreground">
             <Kbd>G</Kbd> jump <span className="mx-1">·</span> <Kbd>C</Kbd> capture
           </p>

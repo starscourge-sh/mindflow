@@ -1,4 +1,6 @@
 import { Pin, X } from 'lucide-react'
+import { chime } from '@/lib/sound'
+import { toTask } from '@/lib/capture-links'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
@@ -37,9 +39,9 @@ export function Pins({ onOpen }: { onOpen: (type: string, id: string) => void })
               <kind.icon className="size-3.5 shrink-0" style={{ color: kind.tint }} />
               <RowMenu items={[
                 { label: 'Open', run: () => onOpen(pin.type, pin.id) },
-                pin.type === 'capture' && { label: 'Make it a task', run: () => void vigil.toTask(pin.id).then((made) => { toast(taskSaid(made, 'Now a task')); return vigil.pin(table, pin.id, false) }) },
+                pin.type === 'capture' && { label: 'Make it a task', run: () => void toTask(pin.id).then((made) => { if (!made) return; chime(made.existed ? 'nope' : 'noted'); toast(taskSaid(made, 'Now a task')); return vigil.pin(table, pin.id, false) }) },
                 'separator',
-                { label: 'Unpin', run: () => void vigil.pin(table, pin.id, false) }
+                { label: 'Unpin', run: () => void vigil.pin(table, pin.id, false).then(() => chime('fold')) }
               ]}>
                 <button type="button" data-private={pin.private ? '' : undefined} className="flex-1 truncate text-left hover:underline" onClick={() => onOpen(pin.type, pin.id)}>
                   <span className="private-text">{pin.title || 'Untitled'}</span>
@@ -50,7 +52,7 @@ export function Pins({ onOpen }: { onOpen: (type: string, id: string) => void })
                   Still relevant?
                   <Button variant="ghost" size="sm" onClick={() => void vigil.pin(table, pin.id, true)}>Keep</Button>
                   {pin.type === 'capture' && (
-                    <Button variant="ghost" size="sm" onClick={() => void vigil.toTask(pin.id).then((made) => { toast(taskSaid(made, 'Now a task')); return vigil.pin(table, pin.id, false) })}>Task</Button>
+                    <Button variant="ghost" size="sm" onClick={() => void toTask(pin.id).then((made) => { if (!made) return; chime(made.existed ? 'nope' : 'noted'); toast(taskSaid(made, 'Now a task')); return vigil.pin(table, pin.id, false) })}>Task</Button>
                   )}
                 </span>
               )}
@@ -59,7 +61,7 @@ export function Pins({ onOpen }: { onOpen: (type: string, id: string) => void })
                 type="button"
               
                 className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground"
-                onClick={() => void vigil.pin(table, pin.id, false)}
+                onClick={() => void vigil.pin(table, pin.id, false).then(() => chime('fold'))}
               >
                 <X className="size-3.5" />
               </button>

@@ -1,12 +1,12 @@
 import { Children, cloneElement, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { SlotText } from 'slot-text/react'
-import { ArrowUp, CircleCheck, Volume2, VolumeX, type LucideIcon } from 'lucide-react'
+import { ArrowUp, CircleCheck, CircleX, Volume2, VolumeX, type LucideIcon } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Coolshape, type shapeTypes } from 'coolshapes-react'
 import Lenis from 'lenis'
 import { useLive, vigil } from '@/lib/vigil'
-import { chime } from '@/lib/sound'
+import { chime, soundOn } from '@/lib/sound'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/cn'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -313,7 +313,7 @@ function Asker(): React.JSX.Element | null {
 }
 
 export function Toaster(): React.JSX.Element | null {
-  const [shown, setShown] = useState<{ text: string; undo?: () => void; key: number } | null>(null)
+  const [shown, setShown] = useState<{ text: string; undo?: () => void; tone?: 'success' | 'error'; key: number } | null>(null)
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
     const onToast = (event: Event): void => {
@@ -365,7 +365,9 @@ export function Toaster(): React.JSX.Element | null {
       // from the corner of the eye, on any theme.
       className="pointer-events-auto flex items-center gap-2 rounded-md border border-border bg-popover py-1.5 pr-3.5 pl-2.5 text-sm font-medium shadow-[0_8px_24px_-6px_rgb(0_0_0/0.5)] animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]"
     >
-      <CircleCheck className="size-4 shrink-0 text-[var(--tt-brand-color-400)]" />
+      {shown.tone === 'error'
+        ? <CircleX className="size-4 shrink-0 text-[var(--tt-color-text-red)]" />
+        : <CircleCheck className="size-4 shrink-0 text-[var(--tt-brand-color-400)]" />}
       <span>{shown.text}</span>
       {shown.undo && (
         <button
@@ -548,7 +550,7 @@ export function Tip({ label, children }: { label: ReactNode; children: React.Rea
 }
 
 /**
- * Focus: everything but the thing you are on goes, until ⌘⇧F again. Each
+ * Focus: everything but the thing you are on goes, until ⇧⌘F again. Each
  * window keeps its own; the parts that go are marked data-chrome.
  */
 export function useFocusMode(name: string): boolean {
@@ -584,7 +586,7 @@ export function useFocusMode(name: string): boolean {
 export function FocusNote(): React.JSX.Element {
   return (
     <div className="pointer-events-none fixed right-4 bottom-4 z-30 hidden rounded-full bg-popover px-3 py-1 font-sans text-xs text-muted-foreground shadow [[data-focus=on]_&]:block">
-      Focus · ⌘⇧F to come back
+      Focus · ⇧⌘F to come back
     </div>
   )
 }
@@ -652,7 +654,12 @@ export function SoundToggle({ className = '' }: { className?: string }): React.J
         tabIndex={-1}
         aria-label={on ? 'Turn sounds off' : 'Turn sounds on'}
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-        onClick={() => void vigil.setSettings({ sounds: !on })}
+        onClick={() => {
+          // Set first, so the sound of turning it on is heard.
+          soundOn(!on)
+          chime(!on ? 'on' : 'off')
+          void vigil.setSettings({ sounds: !on })
+        }}
         className={className}
       >
         {on ? <Volume2 /> : <VolumeX />}
@@ -681,7 +688,7 @@ export function Rolling({ text, className = '', by = 'character' }: { text: stri
 }
 
 /**
- * ⌘⇧R: read through the list on screen, one note at a time. One handler for
+ * ⇧⌘R: read through the list on screen, one note at a time. One handler for
  * every list that offers it; `read` is called only when it has rows.
  */
 export function useReadKey(read: () => void, rows: number, enabled = true): void {

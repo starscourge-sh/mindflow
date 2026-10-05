@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react'
+import { soundOn } from '@/lib/sound'
 import { Download } from 'lucide-react'
 
 import { Slider } from '@/components/ui/slider'
@@ -66,7 +67,10 @@ export function SettingsView(): React.JSX.Element {
           <Switch checked={settings.motion} onCheckedChange={(motion) => set({ motion })} />
         </Setting>
         <Setting title="Sounds" note="A small click as you point at things and scroll, and a sound when you finish a task, promote a capture or grade a review.">
-          <Switch checked={settings.sounds} onCheckedChange={(sounds) => set({ sounds })} />
+          <Switch checked={settings.sounds} onCheckedChange={(sounds) => {
+            soundOn(sounds)
+            set({ sounds })
+          }} />
         </Setting>
         {settings.sounds && (
           <Setting title="Volume" note="How loud every sound is, from silent to as loud as they were made.">
@@ -118,7 +122,10 @@ export function SettingsView(): React.JSX.Element {
           </div>
         </Setting>
         <Setting title="Safe mode" note="Nothing comes up unasked at all: no hints, rot cards or pins. For screen shares. ⌥⌘S turns it on from anywhere, even with this app in the background.">
-          <Switch checked={settings.safeMode} onCheckedChange={(safeMode) => set({ safeMode })} />
+          <Switch checked={settings.safeMode} onCheckedChange={(safeMode) => {
+            set({ safeMode })
+            toast(safeMode ? 'Safe mode: nothing will surface unasked' : 'Safe mode off')
+          }} />
         </Setting>
         <Setting title="Your data" note="Everything as JSON and Markdown, in a folder you choose. No lock-in: it is all yours to read without this app. Importing is in the menu bar icon.">
           <Button variant="outline" size="lg" onClick={() => void vigil.exportAll().then((folder) => folder && toast(`Exported to ${folder.split('/').slice(-2).join('/')}`))}>

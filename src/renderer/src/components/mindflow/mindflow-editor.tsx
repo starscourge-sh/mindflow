@@ -355,12 +355,12 @@ export interface MindflowEditorProps {
   /** @default "Write, or type / for commands…" */
   placeholder?: string
   /**
-   * Start with the source panel open. It also toggles on Mod-Alt-s.
+   * Start with the source panel open. It also toggles on Mod-e.
    *
    * @default false
    */
   showSource?: boolean
-  /** ⌘⌥S calls this instead of opening the editor's own source panel. */
+  /** ⌘E calls this instead of opening the editor's own source panel. */
   onToggleSource?: () => void
   /**
    * What the editor asks of whatever it is running inside: storing a dropped

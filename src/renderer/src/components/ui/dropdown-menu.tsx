@@ -108,8 +108,9 @@ function DropdownMenuCheckboxItem({
       checked={checked}
       // A switch sounds its direction: up for on, down for off.
       onCheckedChange={(on) => {
-        chime(on ? "on" : "off")
+        // The change first, then its sound: turning sound on is then heard.
         onCheckedChange?.(on)
+        chime(on ? "on" : "off")
       }}
       {...props}
     >

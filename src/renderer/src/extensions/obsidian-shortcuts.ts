@@ -60,7 +60,7 @@ function mathTarget(state: EditorState): {
 }
 
 export interface ObsidianShortcutOptions {
-  /** Mod-Alt-s. The panel belongs to the editor, so it only asks. */
+  /** Mod-e, Obsidian's key for source view (⌥⌘S is safe mode, held system-wide). The panel belongs to the editor, so it only asks. */
   onToggleSource?: () => void
 }
 
@@ -217,7 +217,7 @@ export const ObsidianShortcuts = Extension.create<ObsidianShortcutOptions>({
       "Mod-Alt-0": () => this.editor.commands.insertMathBlock(),
       // Show what the editor is actually holding. The panel belongs to the
       // editor, the same way the find bar does.
-      "Mod-Alt-s": () => {
+      "Mod-e": () => {
         this.options.onToggleSource?.()
         return true
       },
