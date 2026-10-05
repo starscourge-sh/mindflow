@@ -47,12 +47,28 @@ export function OptionsMenu({ options, actions, app = false, label = 'Options', 
     <DropdownMenu modal={false} onOpenChange={(open) => void (open && setTheme(currentTheme()))}>
       <Tip label={label}>
         <DropdownMenuTrigger asChild>
-          <button type="button" aria-label={label} className={`flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground ${className}`}>
+          <button
+            type="button"
+            aria-label={label}
+            // A window control, not part of the note: out of the tab order, and
+            // a click on it leaves the caret where it was.
+            tabIndex={-1}
+            onMouseDown={(event) => event.preventDefault()}
+            className={`flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground ${className}`}>
             {icon}
           </button>
         </DropdownMenuTrigger>
       </Tip>
-      <DropdownMenuContent align={align} side={side} className="w-60 text-control">
+      <DropdownMenuContent
+        align={align}
+        side={side}
+        className="w-60 text-control"
+        // Closed, the keys go back to the writing, not to this button.
+        onCloseAutoFocus={(event) => {
+          event.preventDefault()
+          document.querySelector<HTMLElement>('.tiptap.ProseMirror')?.focus()
+        }}
+      >
         {options.map((one) => (
           <DropdownMenuCheckboxItem key={one.label} checked={one.on} onCheckedChange={one.set} onSelect={(event) => event.preventDefault()}>
             {one.label}
