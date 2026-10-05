@@ -14,6 +14,10 @@ export interface NoteSuggestion {
   icon?: ReactNode
   /** The menu's heading for this row. */
   group?: string
+  /** Quiet, at the end of the row: how often a tag is used. */
+  hint?: string
+  /** The label's own colour, as a tag has. */
+  tint?: string
 }
 
 export interface NoteLinkOptions {
@@ -167,7 +171,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
           return (await tags)
             .filter(({ tag }) => tag.startsWith(query.toLowerCase()))
             .slice(0, 8)
-            .map(({ tag, count }) => ({ id: tag, label: `#${tag}`, key: String(count), group: "Tags" }))
+            .map(({ tag, count, color }) => ({ id: tag, label: `#${tag}`, hint: String(count), tint: color ? `var(--tt-color-text-${color})` : undefined, group: "Tags" }))
         },
         command: ({ editor, range, props }) => {
           editor.chain().focus().insertContentAt(range, `#${props.id} `).run()

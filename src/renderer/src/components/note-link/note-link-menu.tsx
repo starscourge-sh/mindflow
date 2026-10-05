@@ -53,9 +53,11 @@ const NoteList = forwardRef<SuggestionListHandle, SuggestionProps<NoteSuggestion
               >
                 {item.icon}
                 {item.key ? <span className="tiptap-note-link-key">{item.key}</span> : null}
-                <span className="tiptap-slash-menu-title tiptap-note-link-title">
+                <span className="tiptap-slash-menu-title tiptap-note-link-title" style={item.tint ? { color: item.tint } : undefined}>
                   {item.label || "Untitled"}
                 </span>
+                {/* A tag's name first, how often it is used quietly at the end. */}
+                {item.hint ? <span className="ml-auto pl-3 text-xs tabular-nums text-muted-foreground">{item.hint}</span> : null}
               </button>
             </Fragment>
           ))}
