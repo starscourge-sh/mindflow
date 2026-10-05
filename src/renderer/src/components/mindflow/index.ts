@@ -6,7 +6,7 @@
  * of saying so in a file rather than leaving a consumer to guess from paths.
  */
 
-export { MindflowEditor, type MindflowEditorProps } from "@/components/mindflow/mindflow-editor"
+export { MindflowEditor, readMarkdown, type MindflowEditorProps } from "@/components/mindflow/mindflow-editor"
 export {
   CommentEditor,
   DescriptionEditor,

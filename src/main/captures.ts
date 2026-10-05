@@ -3,11 +3,11 @@ import { randomUUID } from 'crypto'
 import { DatabaseSync } from 'node:sqlite'
 import { z } from 'zod'
 import Papa from 'papaparse'
-import { join } from 'path'
+import { join, posix } from 'path'
 import { hostname } from 'os'
 
 import { backUp, writeMarkdown } from './backup'
-import { chunks, createdOf, firstLine, guessKind, kindOf, titleOfMarkdown, unstamp } from './import'
+import { chunks, createdOf, firstLine, guessKind, kindOf, propertiesOf, titleOfMarkdown, unstamp, withoutNotionId } from './import'
 
 /** What the list shows. The body is only read when one is opened. */
 export interface CaptureMeta {
@@ -105,7 +105,9 @@ export const like = (text: string): string => text.replace(/[\\%_]/g, '\\$&')
  * on reading so an edit never leaves a stale name behind. The stored title is
  * only the fallback, for an import or a bookmark whose body is plain text.
  */
-export const LABEL = 'label(title, body)'
+// `named` is 1 for a note that came with a name of its own (a vault note is
+// called by its file name): that name wins over whatever its first line says.
+export const LABEL = 'label(title, body, named)'
 export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, attribution, medium, exited_at as closedAt, device, elapsed_ms as elapsedMs, weather, archived_at as archivedAt`
 
 /** Tell every window the list changed, so whichever is showing it reloads. */
@@ -119,7 +121,8 @@ export function registerCaptures(): void {
   // name, and reading each body again on every change made a big inbox slow.
   // Capped, since a name is a line in a list, not the whole of a long one.
   const names = new Map<string, string>()
-  db.function('label', (title, body) => {
+  db.function('label', { varargs: true }, (title, body, named) => {
+    if (named && title) return String(title)
     const key = `${title}\u0000${body}`
     let name = names.get(key)
     if (name === undefined) {
@@ -185,6 +188,15 @@ export function registerCaptures(): void {
       reaction  text
     );
   `)
+  // A vault note's own name, which wins over its first line; and where an
+  // article came from, so importing the same vault again finds it by path.
+  for (const add of ['alter table captures add column named integer not null default 0', "alter table nuggets add column source text not null default ''"]) {
+    try {
+      db.exec(add)
+    } catch {
+      // Already there.
+    }
+  }
 
   // A copy on every start, and a check each hour so a window left open for
   // days still gets one a day.
@@ -455,52 +467,109 @@ export function importAnki(text: string): number {
   return added
 }
 
+/** The vault note at this path, if it came in before: a capture, or an article. */
+export function alreadyImported(path: string): Imported | null {
+  const row = (db.prepare("select id as link, title from captures where source = ? and named = 1").get(path) ??
+    db.prepare("select 'article:' || id as link, title from nuggets where tier = 'article' and source = ?").get(path)) as { link: string; title: string } | undefined
+  return row ? { ...row, path } : null
+}
+
+/** A vault note once it is here: what links to it are rewritten to point at. */
+export type Imported = { link: string; title: string; path: string }
+
 /**
  * A whole note as one capture: what an Obsidian vault is made of, where each
  * file is a page rather than a list of jottings. A note in a `permanent`
- * folder becomes an article instead. Named after its file, dated
- * by its own `created:` line or the file's, and skipped if already imported.
+ * folder becomes an article instead. Named after its file, dated by its own
+ * `created:` line or the file's, with every property its frontmatter has.
+ * A note already imported from the same path is "already here", whatever
+ * linking has since done to its words; a file with nothing in it is "empty".
  */
-export function importNote(path: string, text: string, modified: Date): { link: string; title: string } | null {
-  const body = text.replace(/^---\n[\s\S]*?\n---\n/, '').trim()
-  if (!body) return null
-  const title = path.split('/').pop()!.replace(/\.md$/, '')
+export function importNote(path: string, text: string, modified: Date): Imported | 'empty' | 'already here' {
+  const front = /^---\n([\s\S]*?)\n---(?:\n|$)/.exec(text)
+  const fields = propertiesOf(front?.[1] ?? '')
+  const title = withoutNotionId(path.split('/').pop()!.replace(/\.md$/, ''))
+  // The name already heads the page; a first heading saying it again is dropped.
+  const body = text.slice(front?.[0].length ?? 0).trim().replace(/^#[ \t]+(.*)(\n|$)/, (line, words: string) =>
+    withoutNotionId(words.trim()).toLowerCase() === title.toLowerCase() ? '' : line).trim()
+  // A note of properties alone still comes in: they show beside it.
+  if (!body && !Object.keys(fields).length) return 'empty'
   const at = createdOf(text) ?? modified.toISOString()
+  const kept = Object.keys(fields).length ? JSON.stringify(fields) : null
   // A Zettelkasten's permanent notes are finished thinking in your own words:
   // they arrive as articles, not as an inbox to triage.
   if (/(^|\/)permanent\//.test(path)) {
-    if (db.prepare("select 1 from nuggets where tier = 'article' and title = ?").get(title)) return null
+    if (db.prepare("select 1 from nuggets where tier = 'article' and source = ?").get(path)) return 'already here'
     const id = randomUUID()
-    db.prepare("insert into nuggets (id, tier, kind, title, body, created_at, updated_at) values (?, 'article', 'note', ?, ?, ?, ?)")
-      .run(id, title, JSON.stringify(body), new Date(at).toISOString(), modified.toISOString())
-    return { link: `article:${id}`, title }
+    db.prepare("insert into nuggets (id, tier, kind, title, body, created_at, updated_at, source, fields) values (?, 'article', 'note', ?, ?, ?, ?, ?, ?)")
+      .run(id, title, JSON.stringify(body), new Date(at).toISOString(), modified.toISOString(), path, kept)
+    return { link: `article:${id}`, title, path }
   }
-  if (db.prepare('select 1 from captures where source = ? and body = ?').get(path, JSON.stringify(body))) return null
+  if (db.prepare('select 1 from captures where source = ? and named = 1').get(path)) return 'already here'
   const { id, number } = insert({ title, kind: 'note', body, source: path }, new Date(at).toISOString())
+  db.prepare('update captures set named = 1, fields = ? where id = ?').run(kept, id)
   void writeMarkdown(number, body)
-  return { link: id, title }
+  return { link: id, title, path }
 }
 
 /**
- * After a vault is in: its `[[Page]]` links become links to what those pages
- * became here, written `[[@link#Heading|shown]]`, which the editor reads as a note
- * link. A page that did not come in stays as the words it was.
+ * After a vault is in: its `[[Page]]` links, `![[Page]]` embeds of notes and
+ * `[words](Page.md)` links become links to what those pages became here,
+ * written `[[@link#Heading|shown]]`, which the editor reads as a note link.
+ * A link may name its page by name, by a path from the vault's top or from
+ * its own folder (`../c++/c++`), or by the end of a path; failing those, by
+ * the name alone. A page that did not come in stays a link by name.
  */
-export function linkImported(made: { link: string }[], byName: Map<string, string>): number {
+export function linkImported(made: Imported[], byName: Map<string, string>, known: Imported[] = []): number {
+  const byPath = new Map([...known, ...made].map((one) => [one.path.replace(/\.md$/i, '').toLowerCase(), one.link]))
+  const paths = [...byPath.keys()]
+  const find = (from: string, target: string): string | undefined => {
+    const page = target.trim().replace(/\\$/, '').replace(/\.md$/i, '').toLowerCase()
+    if (!page.includes('/')) return byName.get(page) ?? byName.get(withoutNotionId(page))
+    const here = posix.normalize(posix.join(posix.dirname(from.toLowerCase()), page))
+    const whole = posix.normalize(page.replace(/^\/+/, ''))
+    const name = page.split('/').pop()!
+    return byPath.get(here) ?? byPath.get(whole) ?? byPath.get(paths.find((one) => one.endsWith(`/${whole}`)) ?? '') ??
+      byName.get(name) ?? byName.get(withoutNotionId(name))
+  }
   let linked = 0
-  for (const { link } of made) {
+  for (const { link, path } of made) {
     const [table, id] = link.startsWith('article:') ? ['nuggets', link.slice(8)] : ['captures', link]
     const row = db.prepare(`select body from ${table} where id = ?`).get(id) as { body: string } | undefined
     const body = row && (JSON.parse(row.body) as unknown)
     if (typeof body !== 'string') continue
-    const next = body.replace(/(?<!!)\[\[([^\]|#]+)(#[^\]|]*)?(?:\|([^\]]+))?\]\]/g, (whole, page: string, heading: string | undefined, shown?: string) => {
-      const to = byName.get(page.trim().toLowerCase())
-      if (!to) return whole
+    const to = (target: string, heading: string | undefined, shown: string, inTable: boolean): string | null => {
+      const found = find(path, target)
+      if (!found) return null
       linked += 1
       // The heading goes along, so the link still lands where it pointed.
-      const at = heading && heading.length > 1 ? `#${heading.slice(1).trim()}` : ''
-      return `[[@${to}${at}|${(shown ?? page).trim()}]]`
-    })
+      // Without brackets of its own ("#Elastic Inference [Deprecated]"), which would end the link early.
+      const at = heading && heading.length > 1 ? `#${heading.slice(1).replace(/\\$/, '').replace(/[[\]]/g, '').trim()}` : ''
+      // In a table row a bare bar would split the cell, so it is escaped.
+      return `[[@${found}${at}${inTable ? '\\|' : '|'}${shown.trim()}]]`
+    }
+    // A link to a file is written with %20 for its spaces, or sometimes not.
+    const decoded = (text: string): string => {
+      try {
+        return decodeURIComponent(text)
+      } catch {
+        return text
+      }
+    }
+    const next = body.split('\n').map((line) => {
+      // A table row, in a callout or not.
+      const inTable = /^\s*(>\s*)*\|/.test(line)
+      return line
+        // Empty brackets link nowhere: the words either side of them are what was meant.
+        .replace(/\[\[\]\]/g, ' ')
+        .replace(/!?\[\[([^\]|#]+)(#(?:[^\]|]|\](?!\]))*)?(?:\\?\|([^\]]+))?\]\]/g, (whole, page: string, heading: string | undefined, shown?: string) => {
+          const name = withoutNotionId(page.replace(/\\$/, '').split('/').pop()!.trim())
+          // A page that did not come in, embedded or not, stays a link to it by its name alone.
+          return to(page, heading, shown ?? name, inTable) ?? (page.includes('/') ? `[[${name}${shown ? `${inTable ? '\\|' : '|'}${shown}` : ''}]]` : whole.replace(/^!/, ''))
+        })
+        .replace(/(?<!!)\[([^\]]*)\]\((?!https?:|mindflow:)([^)]+?\.md)(#[^)]*)?\)/g, (whole, shown: string, page: string, heading?: string) =>
+          to(decoded(page), heading && decoded(heading), shown || decoded(page), inTable) ?? whole)
+    }).join('\n')
     if (next === body) continue
     // Linking is part of coming in, not an edit: the version the database
     // keeps of the words before it is dropped again.
@@ -510,4 +579,31 @@ export function linkImported(made: { link: string }[], byName: Map<string, strin
   }
   if (linked) changed()
   return linked
+}
+
+/**
+ * Imported notes arrive as Markdown, which the editor took seconds to read
+ * on every opening of a long one. A window turns each into the editor's own
+ * document once, here, and hands it back; opening one then reads it as is.
+ */
+let importing = false
+/** An import is under way: its notes are not ready to convert until their links are in. */
+export const setImporting = (on: boolean): void => {
+  importing = on
+}
+
+export function registerImportConversion(): void {
+  ipcMain.handle('vigil:imports:pending', () => importing ? [] : [
+    ...db.prepare("select 'captures' as tbl, id from captures where named = 1 and body like '\"%'").all(),
+    ...db.prepare("select 'nuggets' as tbl, id from nuggets where tier = 'article' and source != '' and body like '\"%'").all()
+  ])
+  ipcMain.handle('vigil:imports:body', (_event, tbl: unknown, id: unknown) =>
+    (db.prepare(`select body from ${tbl === 'nuggets' ? 'nuggets' : 'captures'} where id = ?`).get(String(id)) as { body: string } | undefined)?.body ?? null)
+  // Only over the Markdown it was made from: a note edited meanwhile keeps its edit.
+  ipcMain.handle('vigil:imports:converted', (_event, tbl: unknown, id: unknown, markdown: unknown, doc: unknown) => {
+    const table = tbl === 'nuggets' ? 'nuggets' : 'captures'
+    const last = (db.prepare('select coalesce(max(id), 0) as n from versions').get() as { n: number }).n
+    db.prepare(`update ${table} set body = ? where id = ? and body = ?`).run(JSON.stringify(doc), String(id), JSON.stringify(String(markdown)))
+    db.prepare('delete from versions where item_id = ? and id > ?').run(String(id), last)
+  })
 }

@@ -1,10 +1,13 @@
 import * as React from "react"
 import { cn } from "@/lib/cn"
 import { chime } from "@/lib/sound"
+import { blinkThen } from "./menu-blink"
+import { MenuScroll } from "./context-menu"
 
 // Unfolding makes its own small sound, once, when the panel appears: the
 // wrapper is mounted with every row that has a menu, the panel only on open.
-// Closing is silent, like putting a thing down.
+// Closing is silent, like putting a thing down. It opens at once and only
+// fades going away: a menu is used all day, so it never makes you wait.
 const openCue = (node: HTMLElement | null): void => void (node && chime("open"))
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
 import { CheckIcon, ChevronRightIcon } from "lucide-react"
@@ -36,6 +39,7 @@ function DropdownMenuTrigger({
 
 function DropdownMenuContent({
   className,
+  children,
   align = "start",
   sideOffset = 4,
   ...props
@@ -45,13 +49,16 @@ function DropdownMenuContent({
       <DropdownMenuPrimitive.Content
         ref={openCue}
         data-slot="dropdown-menu-content"
-        // Kept clear of the window's edges, never touching them.
-        collisionPadding={10}
+        // Kept clear of the window's edges, never touching them, and never
+        // taller than most of the window: a long menu scrolls instead.
+        collisionPadding={12}
         sideOffset={sideOffset}
         align={align}
-        className={cn("z-50 max-h-(--radix-dropdown-menu-content-available-height) w-(--radix-dropdown-menu-trigger-width) min-w-32 origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:overflow-hidden data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}
+        className={cn("z-50 flex max-h-[min(var(--radix-dropdown-menu-content-available-height),80vh)] w-(--radix-dropdown-menu-trigger-width) min-w-32 origin-(--radix-dropdown-menu-content-transform-origin) flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 duration-150 data-closed:animate-out data-closed:fade-out-0", className )}
         {...props}
-      />
+      >
+        <MenuScroll>{children}</MenuScroll>
+      </DropdownMenuPrimitive.Content>
     </DropdownMenuPrimitive.Portal>
   )
 }
@@ -68,6 +75,7 @@ function DropdownMenuItem({
   className,
   inset,
   variant = "default",
+  onSelect,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Item> & {
   inset?: boolean
@@ -78,6 +86,7 @@ function DropdownMenuItem({
       data-slot="dropdown-menu-item"
       data-inset={inset}
       data-variant={variant}
+      onSelect={blinkThen(onSelect)}
       className={cn(
         "group/dropdown-menu-item relative flex min-h-7 cursor-default items-center gap-2 rounded-md px-2 py-1 text-control outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-7.5 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 data-[variant=destructive]:*:[svg]:text-destructive",
         className
@@ -252,14 +261,18 @@ function DropdownMenuSubTrigger({
 
 function DropdownMenuSubContent({
   className,
+  children,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.SubContent>) {
   return (
     <DropdownMenuPrimitive.SubContent
+      collisionPadding={12}
       data-slot="dropdown-menu-sub-content"
-      className={cn("z-50 min-w-32 origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-lg bg-popover p-1 text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}
+      className={cn("z-50 flex max-h-[min(var(--radix-dropdown-menu-content-available-height),80vh)] min-w-32 origin-(--radix-dropdown-menu-content-transform-origin) flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 duration-150 data-closed:animate-out data-closed:fade-out-0", className )}
       {...props}
-    />
+    >
+      <MenuScroll>{children}</MenuScroll>
+    </DropdownMenuPrimitive.SubContent>
   )
 }
 

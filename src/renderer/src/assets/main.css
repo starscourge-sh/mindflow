@@ -552,6 +552,24 @@ body {
   mask-image: linear-gradient(to bottom, transparent 0, #000 0.75rem, #000 calc(100% - 2.5rem), transparent 100%);
 }
 
+/* A list that scrolls (a menu, the palette, the shortcut sheet) fades at an
+   edge only while there is more past it, so a row cut in half by the edge
+   reads as "more this way" rather than as a mistake. The scroll position
+   drives the fades itself (a scroll timeline), so no script watches it; a
+   list too short to scroll has no timeline, and no fade. */
+@property --mf-less { syntax: '<length>'; inherits: false; initial-value: 0px; }
+@property --mf-more { syntax: '<length>'; inherits: false; initial-value: 0px; }
+.mf-more {
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--mf-less), #000 calc(100% - var(--mf-more)), transparent 100%);
+  animation: mf-less linear both, mf-more linear both;
+  animation-timeline: scroll(self), scroll(self);
+  animation-range: 0 1.5rem, calc(100% - 2.5rem) 100%;
+}
+@keyframes mf-less { from { --mf-less: 0px; } to { --mf-less: 1.5rem; } }
+@keyframes mf-more { from { --mf-more: 2.5rem; } to { --mf-more: 0px; } }
+/* Not motion, so the Motion setting leaves it on. */
+[data-motion='off'] .mf-more { animation-duration: auto !important; }
+
 /* One highlight at a time: a card reached by keyboard, not also a list row. */
 body:has([data-card]:focus) [data-cursor] {
   background-color: transparent !important;
@@ -586,7 +604,8 @@ input[list]::-webkit-calendar-picker-indicator { display: none !important; }
   /* Rounded like a Mac's built-in screen, whose corners would otherwise cut the light off. */
   border-radius: 12px;
   pointer-events: none;
-  box-shadow: inset 0 0 36px color-mix(in srgb, var(--glow) 32%, transparent), inset 0 0 0 1.5px color-mix(in srgb, var(--glow) 55%, transparent);
+  /* Strong enough to be seen over a busy desktop from the corner of the eye. */
+  box-shadow: inset 0 0 60px color-mix(in srgb, var(--glow) 50%, transparent), inset 0 0 0 2px color-mix(in srgb, var(--glow) 75%, transparent);
   opacity: 0;
   animation: mf-glow 1.9s ease-in-out forwards;
 }
@@ -619,7 +638,8 @@ input[list]::-webkit-calendar-picker-indicator { display: none !important; }
 /* Postcards, a choice in Settings: a picture in a note sits in a white
    border with rounded corners and a soft shadow under it, as a print does on
    a table. White in every theme, the way the paper would be. */
-:root[data-postcards] .tiptap.ProseMirror img:not([data-type='emoji'] img, .ProseMirror-widget img) {
+:root[data-postcards] .tiptap.ProseMirror img:not([data-type='emoji'] img, .ProseMirror-widget img),
+:root[data-postcards] .tiptap.ProseMirror .tiptap-video-frame {
   padding: 0.4rem;
   background: #fff;
   border-radius: 0.75rem;

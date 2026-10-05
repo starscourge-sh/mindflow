@@ -71,9 +71,11 @@ export const CAPTURE_TYPES = [
 export type CaptureType = (typeof CAPTURE_TYPES)[number]["id"]
 
 /** The pill, and the list it opens. */
-export function CaptureKindPicker({ value, onChange, suggested = false }: {
+export function CaptureKindPicker({ value, onChange, suggested = false, flat = false }: {
   value: CaptureType
   onChange: (kind: CaptureType) => void
+  /** A row of a panel's island: flat and filling the row, no box inside the box. */
+  flat?: boolean
   /** Guessed from the wording, not chosen: drawn dashed until you pick. */
   suggested?: boolean
 }): React.JSX.Element {
@@ -93,7 +95,7 @@ export function CaptureKindPicker({ value, onChange, suggested = false }: {
     <Popover open={open} onOpenChange={setOpen}>
       <Tip label={suggested ? 'Suggested from what you typed. ⌃L or ⌘1-9 to choose' : undefined}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className={`gap-1.5 rounded-full cursor-pointer ${suggested ? 'border-dashed' : ''}`}>
+        <Button variant="outline" size="sm" className={`gap-1.5 rounded-full cursor-pointer ${suggested ? 'border-dashed' : ''} ${flat ? 'h-auto w-full justify-start gap-2 rounded-none border-0 bg-transparent px-2 py-1.5 font-normal shadow-none hover:bg-accent dark:bg-transparent dark:hover:bg-accent' : ''}`}>
           <Icon className="size-4" style={{ color: current.tint }} />
           {current.label}
         </Button>

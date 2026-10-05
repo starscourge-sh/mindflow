@@ -149,8 +149,8 @@ export function Stepper({ at, total, onStep }: { at: number; total: number; onSt
     onStep(at + by)
   }
   return (
-    <div className="flex items-center gap-1 text-control text-muted-foreground">
-      <span className="mr-1 tabular-nums"><span className="text-foreground"><Rolling text={at + 1} /></span> / {total}</span>
+    <div className="flex shrink-0 items-center gap-1 text-control text-muted-foreground">
+      <span className="mr-1 shrink-0 whitespace-nowrap tabular-nums"><span className="text-foreground"><Rolling text={at + 1} /></span> / {total}</span>
       <Tip label="Next  ↓"><button type="button" aria-label="Next" disabled={at >= total - 1} onClick={() => go(1)} className="flex size-7 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowDown className="size-4" /></button></Tip>
       <Tip label="Previous  ↑"><button type="button" aria-label="Previous" disabled={at <= 0} onClick={() => go(-1)} className="flex size-7 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowUp className="size-4" /></button></Tip>
     </div>
@@ -171,7 +171,7 @@ export function PropInput({ icon: Icon, value, placeholder, onSave, suffix, type
   type?: 'text' | 'number'
 }): React.JSX.Element {
   return (
-    <label className="flex cursor-text items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent focus-within:bg-accent">
+    <label className="flex w-full cursor-text items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent focus-within:bg-accent">
       <Icon className="size-4 shrink-0" />
       <input
         type={type}
@@ -204,7 +204,7 @@ export function Prop({ icon: Icon, children, onClick, active, tint, secret }: {
       type={onClick ? 'button' : undefined}
       onClick={onClick}
       data-private={secret ? '' : undefined}
-      className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-left ${onClick ? 'hover:bg-accent hover:text-foreground' : ''} ${active ? 'text-foreground' : ''}`}
+      className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left ${onClick ? 'hover:bg-accent hover:text-foreground' : ''} ${active ? 'text-foreground' : ''}`}
     >
       <Icon className="size-4 shrink-0" style={tint ? { color: `var(--tt-color-text-${tint})` } : undefined} />
       <span className={`min-w-0 truncate ${secret ? 'private-text' : ''}`}>{children}</span>
@@ -553,12 +553,13 @@ export function Toaster(): React.JSX.Element | null {
       aria-live="polite"
       // An edge and a mark, with the buttons' corners: it has to be seen
       // from the corner of the eye, on any theme.
-      className="pointer-events-auto mx-4 flex max-w-xl items-center gap-2 rounded-md border border-border bg-popover py-1.5 pr-3.5 pl-2.5 text-sm font-medium shadow-[0_8px_24px_-6px_rgb(0_0_0/0.5)] animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]"
+      className="pointer-events-auto mx-4 flex max-w-[min(36rem,calc(100%-2rem))] min-w-0 items-center gap-2 rounded-md border border-border bg-popover py-1.5 pr-3.5 pl-2.5 text-sm font-medium shadow-[0_8px_24px_-6px_rgb(0_0_0/0.5)] animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]"
     >
       {shown.tone === 'error'
         ? <CircleX className="size-4 shrink-0 text-[var(--tt-color-text-red)]" />
         : <CircleCheck className="size-4 shrink-0 text-[var(--tt-brand-color-400)]" />}
-      <span className="min-w-0 text-pretty wrap-break-word">{shown.text}</span>
+      {/* With a button beside it, one line: a long quoted title ends in an ellipsis rather than pushing Undo onto two lines. */}
+      <span className={`min-w-0 ${shown.undo || shown.action ? 'truncate' : 'text-pretty wrap-break-word'}`} title={shown.undo || shown.action ? shown.text : undefined}>{shown.text}</span>
       {shown.action && (
         <button
           type="button"
@@ -964,7 +965,7 @@ export function Island({ title, actions, children, className, compact }: {
         </div>
       )}
       <div className={cn('mf-island divide-y divide-border/60 overflow-hidden border bg-accent/25', compact
-        ? 'rounded-lg [&>*]:rounded-none [&>textarea]:border-0 [&>textarea]:bg-transparent [&>textarea]:shadow-none [&>textarea]:focus-visible:ring-0 [&>input]:border-0 [&>input]:bg-transparent [&>input]:shadow-none [&>input]:focus-visible:ring-0'
+        ? 'rounded-lg [&>*]:rounded-none [&>button]:w-full [&>textarea]:border-0 [&>textarea]:bg-transparent [&>textarea]:shadow-none [&>textarea]:focus-visible:ring-0 [&>input]:border-0 [&>input]:bg-transparent [&>input]:shadow-none [&>input]:focus-visible:ring-0'
         : 'rounded-xl')}>{children}</div>
     </section>
   )

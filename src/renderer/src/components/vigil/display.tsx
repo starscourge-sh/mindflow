@@ -236,9 +236,10 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
         // Kept 12px clear of the window's edge, rounded corner and all.
         collisionPadding={12}
         tabIndex={-1}
-        className={`max-h-[calc(var(--radix-popover-content-available-height)-12px)] w-80 gap-0 overflow-y-auto p-2 text-control ${more ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-3rem),transparent)]' : ''}`}
+        className="max-h-[min(calc(var(--radix-popover-content-available-height)-12px),calc(100vh-8rem))] w-80 gap-0 overflow-y-auto p-2 text-control"
         // A soft fade at the foot while there is more below, as the type list
         // has: in a short window the filters run past the edge, and this says so.
+        // The rows fade, not the panel: its edge and corners stay solid.
         ref={(panel) => void (panel && requestAnimationFrame(() => setMore(panel.scrollTop + panel.clientHeight < panel.scrollHeight - 4)))}
         onScroll={(event) => {
           const panel = event.currentTarget
@@ -286,6 +287,7 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
             </button>
           </div>
         )}
+        <div aria-hidden className={`pointer-events-none sticky bottom-0 -mx-2 -mt-12 -mb-2 h-12 shrink-0 bg-linear-to-t from-popover to-transparent transition-opacity duration-200 ${more ? 'opacity-100' : 'opacity-0'}`} />
       </PopoverContent>
     </Popover>
   )

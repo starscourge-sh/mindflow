@@ -13,8 +13,9 @@ import { Switch } from '@/components/ui/switch'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
 import { SoundPacks } from './sound-packs'
 import { FontPicker, TextSize } from './font-picker'
-import { BackToTop, Kbd, Rolling, Tip, beaming, refuse, toast, useSmooth } from './ui'
+import { BackToTop, Kbd, Rolling, Tip, refuse, toast, useSmooth } from './ui'
 import { Button } from '@/components/ui/button'
+import { Orb } from './orb'
 
 /**
  * What the search at the top asks for, and whether the island a row sits in
@@ -497,17 +498,11 @@ export function SettingsView(): React.JSX.Element {
 
         <Group section="Your data" title="Export and import">
           <Setting title="Export everything" note="All of it as JSON and Markdown, in a folder you choose: yours to read without this app.">
-            <Button variant="outline" size="sm" onClick={() => void beaming(vigil.exportAll()).then((folder) => {
-              if (!folder) return
-              chime('send')
-              toast(`Exported to ${folder.split('/').slice(-2).join('/')}`)
-            })}>
-              <Download className="size-4" /> Export
-            </Button>
+            <ExportButton />
           </Setting>
           <Setting title="Import" note="Notes from an Obsidian vault; highlights from Readwise or Kindle; Markdown, bookmarks or Anki cards. The menu bar icon has the same.">
-            <Button variant="outline" size="sm" onClick={() => (chime('open'), void window.api.importFrom('vault'))}>Obsidian…</Button>
-            <Button variant="outline" size="sm" onClick={() => (chime('open'), void window.api.importFrom('files'))}>Files…</Button>
+            <ImportButton what="vault">Obsidian…</ImportButton>
+            <ImportButton what="files">Files…</ImportButton>
           </Setting>
         </Group>
 
@@ -619,8 +614,16 @@ function HintTuning(): React.JSX.Element | null {
  * ready in it, a way to take it out (undoable), and one to add another.
  */
 function SceneryFolders({ folders, on, onSave }: { folders: string[]; on: boolean; onSave: (folders: string[]) => void }): React.JSX.Element {
-  const found = useLive(() => (on && folders.length ? vigil.scenery(folders) : Promise.resolve(null)), null as Awaited<ReturnType<typeof vigil.scenery>> | null, [on, JSON.stringify(folders)])
+  // Asked again every second or two while a scan runs, since nothing else
+  // says when it is done: the count climbs and the orb goes when it ends.
+  const [ask, setAsk] = useState(0)
+  const found = useLive(() => (on && folders.length ? vigil.scenery(folders) : Promise.resolve(null)), null as Awaited<ReturnType<typeof vigil.scenery>> | null, [on, JSON.stringify(folders), ask])
   const ready = found?.scenes.length ?? 0
+  useEffect(() => {
+    if (!found?.scanning) return
+    const timer = setTimeout(() => setAsk((n) => n + 1), 1500)
+    return () => clearTimeout(timer)
+  }, [found, ask])
   return (
     <Setting
       title="Folders"
@@ -643,6 +646,8 @@ function SceneryFolders({ folders, on, onSave }: { folders: string[]; on: boolea
         </div>
       )}
     >
+      {/* The first look through a folder makes its small copies: a real wait. */}
+      {on && found?.scanning && <Orb state="searching" label="Making copies of the pictures" />}
       <Button variant="outline" size="sm" onClick={() => void vigil.sceneryFolder().then((folder) => {
         if (!folder) return
         if (folders.includes(folder)) return refuse('That folder is already in the list')
@@ -653,6 +658,37 @@ function SceneryFolders({ folders, on, onSave }: { folders: string[]; on: boolea
         <FolderPlus className="size-4" /> Add a folder…
       </Button>
     </Setting>
+  )
+}
+
+/** Export, with an orb in place of its icon for as long as it takes. */
+function ExportButton(): React.JSX.Element {
+  const [busy, setBusy] = useState(false)
+  return (
+    <Button variant="outline" size="sm" disabled={busy} onClick={() => {
+      setBusy(true)
+      void vigil.exportAll().then((folder) => {
+        if (!folder) return
+        chime('send')
+        toast(`Exported to ${folder.split('/').slice(-2).join('/')}`)
+      }).finally(() => setBusy(false))
+    }}>
+      {busy ? <Orb label="Exporting" /> : <Download className="size-4" />} Export
+    </Button>
+  )
+}
+
+/** An import, its button holding an orb until the notes are in. */
+function ImportButton({ what, children }: { what: 'vault' | 'files'; children: ReactNode }): React.JSX.Element {
+  const [busy, setBusy] = useState(false)
+  return (
+    <Button variant="outline" size="sm" disabled={busy} onClick={() => {
+      chime('open')
+      setBusy(true)
+      void window.api.importFrom(what).finally(() => setBusy(false))
+    }}>
+      {busy && <Orb state="weaving" label="Importing" />}{children}
+    </Button>
   )
 }
 

@@ -38,8 +38,8 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
    * drawn in the focused element - so leaving has to hand focus back, or you
    * end up where you started rather than on the match you stopped at.
    *
-   * Escape only dismisses the box: the term stays live so `n` and `N` keep
-   * working, as they do in vim. The close button is what clears it.
+   * Escape and the close button do the same thing: the bar shuts and its
+   * highlights go with it, so nothing is left lit with no bar to explain it.
    */
   const leave = useCallback(
     (clearTerm: boolean) => {
@@ -92,7 +92,7 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
       if (document.querySelector("[role=menu], [role=listbox], .tiptap-suggestion-popup")) return
       event.preventDefault()
       event.stopPropagation()
-      leave(false)
+      leave(true)
     }
     window.addEventListener("keydown", onEscape, true)
     return () => window.removeEventListener("keydown", onEscape, true)

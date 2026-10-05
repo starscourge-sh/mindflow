@@ -1,5 +1,5 @@
 import { Extension } from "@tiptap/core"
-import { Plugin } from "@tiptap/pm/state"
+import { Plugin, type EditorState, type Transaction } from "@tiptap/pm/state"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 
 /** Obsidian's field names, and what they are called on the card. */
@@ -44,31 +44,41 @@ export function readCardLink(source: string): Record<string, string> | null {
 export const CardLink = Extension.create({
   name: "cardLink",
 
+  // On opening too, not only on a change: a note that arrived with cardlink
+  // blocks in it showed their YAML until it was first edited.
+  onCreate() {
+    const tr = cards(this.editor.state)
+    if (tr) this.editor.view.dispatch(tr.setMeta("addToHistory", false))
+  },
+
   addProseMirrorPlugins() {
     return [
       new Plugin({
-        appendTransaction: (transactions, _oldState, state) => {
-          if (!transactions.some((transaction) => transaction.docChanged)) return null
-
-          const bookmark = state.schema.nodes.bookmark
-          if (!bookmark) return null
-
-          const blocks: { pos: number; node: ProseMirrorNode }[] = []
-          state.doc.descendants((node, pos) => {
-            if (node.type.name !== "codeBlock" || node.attrs.language !== "cardlink") return
-            blocks.push({ pos, node })
-          })
-          if (!blocks.length) return null
-
-          const tr = state.tr
-          for (const { pos, node } of blocks.reverse()) {
-            const card = readCardLink(node.textContent)
-            if (!card) continue
-            tr.replaceWith(pos, pos + node.nodeSize, bookmark.create({ ...card, loading: false }))
-          }
-          return tr.docChanged ? tr : null
-        },
+        appendTransaction: (transactions, _oldState, state) =>
+          transactions.some((transaction) => transaction.docChanged) ? cards(state) : null,
       }),
     ]
   },
 })
+
+/** Every cardlink block in the document made the card it describes, or null if there are none. */
+function cards(state: EditorState): Transaction | null {
+  const bookmark = state.schema.nodes.bookmark
+  if (!bookmark) return null
+
+  const blocks: { pos: number; node: ProseMirrorNode }[] = []
+  // Not into the words of a block: on a long note that walk ran on every keystroke.
+  state.doc.descendants((node, pos) => {
+    if (node.type.name === "codeBlock" && node.attrs.language === "cardlink") blocks.push({ pos, node })
+    return !node.isTextblock
+  })
+  if (!blocks.length) return null
+
+  const tr = state.tr
+  for (const { pos, node } of blocks.reverse()) {
+    const card = readCardLink(node.textContent)
+    if (!card) continue
+    tr.replaceWith(pos, pos + node.nodeSize, bookmark.create({ ...card, loading: false }))
+  }
+  return tr.docChanged ? tr : null
+}

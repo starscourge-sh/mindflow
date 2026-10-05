@@ -4,7 +4,7 @@ import { ArrowUpRight, Eye, EyeOff, CheckCircle2, FileText, Hash, Inbox, ListTod
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
-import { CaptureList, captureMenu, useCaptures, type CaptureMeta } from '../capture-list'
+import { CaptureList, captureMenu, useCaptures, whereFrom, type CaptureMeta } from '../capture-list'
 import { tagColors, spread } from '@/extensions/tokens'
 import { AGES, Display, arrange, period, useView, type Facet, type View } from './display'
 import { DatePicker } from './date-picker'
@@ -226,7 +226,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
                 beside what it has become, never lost to an edit. */}
             <div className="flex items-center justify-between gap-2 px-3 @[40rem]/page:px-[4.25rem]">
               <Stepper at={shown.findIndex((one) => one.id === open.id)} total={shown.length} onStep={(to) => pick(shown[to].id)} />
-              <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() =>
+              <Button variant="ghost" size="sm" className="min-w-0 shrink text-muted-foreground" onClick={() =>
                 first !== null
                   ? // Back from reading: the capture read again, so the editor
                     // opens on its words now and never saves older ones over them.
@@ -236,7 +236,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
                     })
                   : void window.api.captures.get(open.id).then((found) => (found?.original ? setFirst(found.original) : toast('Unchanged since you wrote it')))
               }>
-                <History className="size-3.5" /> {first !== null ? 'Back to now' : 'As first written'}
+                <History className="size-3.5" /> <span className="truncate">{first !== null ? 'Back to now' : 'As first written'}</span>
               </Button>
               <Versions table="captures" id={open.id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
                 onRestored={() => void window.api.captures.get(open.id).then((found) => {
@@ -366,9 +366,7 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
       </Island>
 
       <Island compact title="Kind">
-        <div>
-          <CaptureKindPicker value={capture.kind as CaptureType} onChange={(kind) => void changeKind('captures', capture.id, capture.kind, kind)} />
-        </div>
+        <CaptureKindPicker flat value={capture.kind as CaptureType} onChange={(kind) => void changeKind('captures', capture.id, capture.kind, kind)} />
       </Island>
       <KindFields table="captures" id={capture.id} kind={capture.kind} />
 
@@ -471,7 +469,7 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   }, {
     kind: (one) => CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note',
     date: (one) => period(one.capturedAt),
-    source: (one) => one.source.replace(/\.(md|html?|csv|json|txt)$/i, '') || 'Typed here'
+    source: (one) => (one.source ? whereFrom(one.source) || 'Vault' : 'Typed here')
   })
   const display = (
     <Display

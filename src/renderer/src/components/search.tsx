@@ -3,9 +3,11 @@ import { chime, click, type Cue } from '@/lib/sound'
 import type { JSONContent } from '@tiptap/core'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
+import { whereFrom } from './capture-list'
 import { MindflowEditor } from './mindflow'
 import { AskWho, Kbd, Typed } from './vigil/ui'
 import { AliveIcon } from './vigil/alive-icon'
+import { Orb } from './vigil/orb'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import { Chips } from './vigil/display'
@@ -33,13 +35,16 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
   // Opening search sends out one ping.
   useEffect(() => chime('search'), [])
   const [found, setFound] = useState<Capture[]>([])
+  // A search still out after 300ms: the last words' results go, and the orb
+  // says it is looking. A quick one never shows either.
+  const [slow, setSlow] = useState(false)
   // Notion's chips under the box: names only, one type of thing, one kind.
   const [titleOnly, setTitleOnly] = useState(false)
   const [types, setTypes] = useState<string[]>([])
   const [kinds, setKinds] = useState<string[]>([])
   const flip = (list: string[], id: string): string[] => (list.includes(id) ? list.filter((one) => one !== id) : [...list, id])
   const words = query.toLowerCase().split(/\s+/).filter((word) => word && !word.startsWith('kind:'))
-  const results = found.filter((one) =>
+  const results = (slow ? [] : found).filter((one) =>
     (!titleOnly || words.every((word) => one.label.toLowerCase().includes(word))) &&
     (!types.length || types.includes(one.type === 'article' ? 'nugget' : one.type)) &&
     (!kinds.length || kinds.includes(one.kind)))
@@ -57,13 +62,19 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
   const [searched, setSearched] = useState<string | null>(null)
   useEffect(() => {
     let old = false
+    const late = setTimeout(() => setSlow(true), 300)
     void window.api.captures.find(query).then((list) => {
       if (old) return
+      clearTimeout(late)
+      setSlow(false)
       setFound(list)
       setSearched(query)
       setAt(0)
     })
-    return () => void (old = true)
+    return () => {
+      old = true
+      clearTimeout(late)
+    }
   }, [query])
   // The kinds are many: one Kind chip opens them.
   const [kindsOpen, setKindsOpen] = useState(false)
@@ -115,16 +126,22 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
           </button>
           </Tip>
         </label>
-        <div className={`flex flex-wrap items-center gap-3 border-b px-2 py-1.5 ${compact ? 'hidden' : ''}`}>
+        {/* One gap everywhere; the groups are told apart by a hairline, not by wider gaps. */}
+        <div className={`flex flex-wrap items-center gap-x-1 gap-y-0.5 border-b px-2 py-1.5 ${compact ? 'hidden' : ''}`}>
           <Chips options={[{ id: 'name', label: 'Name only' }]} on={() => titleOnly} pick={() => setTitleOnly(!titleOnly)} />
+          <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />
           <Chips options={[{ id: 'capture', label: 'Captures' }, { id: 'nugget', label: 'Nuggets' }, { id: 'task', label: 'Tasks' }]} on={(id) => types.includes(id)} pick={(id) => setTypes(flip(types, id))} />
+          <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />
           <Chips options={[{ id: 'kind', label: kinds.length ? `Kind · ${kinds.length}` : 'Kind' }]} on={() => kindsOpen || kinds.length > 0} pick={() => setKindsOpen(!kindsOpen)} />
+          {kindsOpen && <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />}
           {kindsOpen && <Chips options={CAPTURE_TYPES} on={(id) => kinds.includes(id)} pick={(id) => setKinds(flip(kinds, id))} />}
         </div>
         {/* Side by side when there is room; in a narrow window the preview goes
             under the results instead of squeezing both to nothing. */}
         <div className="flex min-h-0 flex-1 flex-col @[34rem]/search:flex-row">
-          <div className={`min-h-0 min-w-0 flex-1 overflow-y-auto p-2 ${preview ? '@[34rem]/search:w-1/2 @[34rem]/search:flex-none' : ''}`}>
+          {/* mf-more: faded at an edge while there is more past it; the scroll
+              padding keeps a row the arrows reach clear of that fade. */}
+          <div className={`mf-more min-h-0 min-w-0 flex-1 scroll-pt-8 scroll-pb-12 overflow-y-auto p-2 ${preview ? '@[34rem]/search:w-1/2 @[34rem]/search:flex-none' : ''}`}>
             {doing.length > 0 && <div className="px-2 pt-1 pb-1 text-xs text-muted-foreground">Actions</div>}
             {doing.map((one, index) => (
               <button
@@ -142,8 +159,9 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
             {!query.trim() && !doing.length && (
               <p className="px-2 py-3 text-body text-muted-foreground"><Typed text="Type to search captures, nuggets, articles and tasks. kind:quote narrows to one kind." /></p>
             )}
-            {query.trim() && searched !== query && !results.length && !doing.length && (
-              <p className="px-2 py-3 text-sm text-muted-foreground"><Typed text="Searching…" /></p>
+            {slow && query.trim() && (
+              // The orb only if it is a real wait: a search back at once never shows it.
+              <p className="flex items-center gap-2 px-2 py-3 text-sm text-muted-foreground"><span className="flex animate-in fade-in-0 duration-200"><Orb state="searching" label="Searching" /></span><Typed text="Searching…" /></p>
             )}
             {query.trim() && searched === query && !results.length && !doing.length && (
               <p className="px-2 py-3 text-sm text-muted-foreground">
@@ -171,7 +189,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
                     <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
                     <span className="min-w-0 truncate">{capture.label || 'Untitled'}</span>
                     {capture.type !== 'capture' && <span className="shrink-0 rounded bg-accent px-1.5 text-xs text-muted-foreground capitalize">{capture.type}</span>}
-                    {capture.source && <span className="min-w-0 max-w-[40%] truncate text-xs text-muted-foreground">· {capture.source.replace(/\.md$/, '')}</span>}
+                    {whereFrom(capture.source, capture.label) && <span className="min-w-0 max-w-[40%] truncate text-xs text-muted-foreground">· {whereFrom(capture.source, capture.label)}</span>}
                     {index + doing.length === at && !asking && capture.type === 'capture' && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{capture.attribution ?? 'Tab: who said it'}</span>}
                   </button>
                   {index + doing.length === at && asking && (

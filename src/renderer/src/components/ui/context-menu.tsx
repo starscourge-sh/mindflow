@@ -1,10 +1,12 @@
 import * as React from "react"
 import { cn } from "@/lib/cn"
 import { chime } from "@/lib/sound"
+import { blinkThen } from "./menu-blink"
 
 // Unfolding makes its own small sound, once, when the panel appears: the
 // wrapper is mounted with every row that has a menu, the panel only on open.
-// Closing is silent, like putting a thing down.
+// Closing is silent, like putting a thing down. It opens at once and only
+// fades going away: a menu is used all day, so it never makes you wait.
 const openCue = (node: HTMLElement | null): void => void (node && chime("open"))
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui"
 import { ChevronRightIcon, CheckIcon } from "lucide-react"
@@ -63,6 +65,7 @@ function ContextMenuRadioGroup({
 
 function ContextMenuContent({
   className,
+  children,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
@@ -72,19 +75,33 @@ function ContextMenuContent({
       <ContextMenuPrimitive.Content
         ref={openCue}
         data-slot="context-menu-content"
-        // Kept clear of the window's edges, never touching them.
-        collisionPadding={10}
-        className={cn("z-50 max-h-(--radix-context-menu-content-available-height) min-w-32 origin-(--radix-context-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}
+        // Kept clear of the window's edges, never touching them, and never
+        // taller than most of the window: a long menu scrolls instead.
+        collisionPadding={12}
+        className={cn("z-50 flex max-h-[min(var(--radix-context-menu-content-available-height),80vh)] min-w-32 origin-(--radix-context-menu-content-transform-origin) flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 duration-150 data-closed:animate-out data-closed:fade-out-0", className )}
         {...props}
-      />
+      >
+        <MenuScroll>{children}</MenuScroll>
+      </ContextMenuPrimitive.Content>
     </ContextMenuPrimitive.Portal>
   )
 }
+
+/**
+ * The rows scroll inside the panel, not the panel itself, so the fade that
+ * says there is more (mf-more) dims the rows while the panel's edge and
+ * shadow stay whole. The scroll padding keeps a row reached by the arrows
+ * clear of that fade.
+ */
+export const MenuScroll = ({ children }: { children: React.ReactNode }): React.JSX.Element => (
+  <div className="mf-more min-h-0 scroll-py-8 overflow-x-hidden overflow-y-auto overscroll-contain p-1">{children}</div>
+)
 
 function ContextMenuItem({
   className,
   inset,
   variant = "default",
+  onSelect,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Item> & {
   inset?: boolean
@@ -95,6 +112,7 @@ function ContextMenuItem({
       data-slot="context-menu-item"
       data-inset={inset}
       data-variant={variant}
+      onSelect={blinkThen(onSelect)}
       className={cn(
         "group/context-menu-item relative flex min-h-7 cursor-default items-center gap-2 rounded-md px-2 py-1 text-control outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-7.5 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 data-[variant=destructive]:*:[svg]:text-destructive",
         className
@@ -130,15 +148,18 @@ function ContextMenuSubTrigger({
 
 function ContextMenuSubContent({
   className,
+  children,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.SubContent>) {
   return (
     <ContextMenuPrimitive.SubContent
-      collisionPadding={10}
+      collisionPadding={12}
       data-slot="context-menu-sub-content"
-      className={cn("z-50 min-w-32 origin-(--radix-context-menu-content-transform-origin) overflow-hidden rounded-lg bg-popover p-1 text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}
+      className={cn("z-50 flex max-h-[min(var(--radix-context-menu-content-available-height),80vh)] min-w-32 origin-(--radix-context-menu-content-transform-origin) flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 duration-150 data-closed:animate-out data-closed:fade-out-0", className )}
       {...props}
-    />
+    >
+      <MenuScroll>{children}</MenuScroll>
+    </ContextMenuPrimitive.SubContent>
   )
 }
 

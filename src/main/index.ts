@@ -33,7 +33,8 @@ import { basename, dirname, join, relative } from 'path'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { captureText, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures } from './captures'
+import { alreadyImported, captureText, changed, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
+import { isPrivateFile } from './import'
 import { backupDir } from './backup'
 import { activeSession, badge, motionOn, registerVigil, toggleSafeMode } from './vigil'
 import { registerNotes } from './notes'
@@ -139,7 +140,8 @@ const EXTENSIONS: Record<string, string> = {
 // `secure: true` - says treat it as trustworthy (like https) , without it browser will refuse and not trust files from this scheme
 // needs to run before the app (outside of app.whenReady()) is ready because, the browser engine builds its list of known address types once, as it starts
 protocol.registerSchemesAsPrivileged([
-  { scheme: 'mindflow', privileges: { standard: true, secure: true } }
+  // `stream`, so a stored video or recording can play (and seek) in a note.
+  { scheme: 'mindflow', privileges: { standard: true, secure: true, stream: true } }
 ])
 
 /** The capture box's sizes: the toolbar's expander changes the height, the side panel the width. */
@@ -182,9 +184,9 @@ function hideWindow(win: BrowserWindow): void {
  * type into. A window can be visible and still be behind everything.
  */
 /**
- * The box arrives rather than appears: the whole window, frosted backing and
- * all, fades up over a few frames while the page settles into place (see
- * App's onShown). At once when Motion is off.
+ * The box is summoned many times a day, so it appears at once with the caret
+ * ready, never fading up: the sound alone says it is alive (Rauno: what is
+ * done hundreds of times should barely move). Fades are kept for a resize.
  */
 let arriving: ReturnType<typeof setInterval> | undefined
 /**
@@ -213,13 +215,9 @@ function fadeIn(win: BrowserWindow, length: number, after = 0): void {
   }, 1000 / 120)
 }
 function arrive(win: BrowserWindow): void {
-  if (!motionOn()) {
-    clearInterval(arriving)
-    settle()
-    win.setOpacity(1)
-    return win.show()
-  }
-  fadeIn(win, 140)
+  clearInterval(arriving)
+  settle()
+  win.setOpacity(1)
   win.show()
 }
 
@@ -619,6 +617,9 @@ function makeHome(): BrowserWindow {
   // for this visit only.
   home.on('hide', () => {
     if (!home || home.isDestroyed()) return
+    // Hidden, a page still reads as visible here: told, so its looping
+    // effects (beams, orbs) stop until it is back.
+    home.webContents.send('window:hiding')
     if (home.isMaximized()) home.unmaximize()
     if (home.isFullScreen()) home.setFullScreen(false)
     const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
@@ -834,44 +835,98 @@ app.on('second-instance', (_event, argv) => {
 
 /**
  * A whole Obsidian vault, each note one capture (or an article, from a
- * `permanent` folder). Its settings, its trash and any folder that looks like
- * it holds credentials are left out. What a note's frontmatter says comes
- * with it: its tags as #tags, its date, its aliases as other names to link
- * by. Its pictures come too, into the app's own store, and its [[links]]
- * become links to what those pages became here.
+ * `permanent` folder). Its settings, its trash and files that hold
+ * credentials themselves are left out, and the dialog says which. What a
+ * note's frontmatter says comes with it: every property, its tags as #tags,
+ * its date, its aliases as other names to link by. Its pictures and files come
+ * too, into the app's own store, and its [[links]] become links to what those
+ * pages became here. A note imported before, by the same path, is left as it is.
  */
 async function importVault(given?: string): Promise<void> {
   const root = given ?? (await dialog.showOpenDialog({ title: 'Import an Obsidian vault', properties: ['openDirectory'] })).filePaths[0]
   if (!root) return
+  // Its notes wait to become documents until their links are in; then every
+  // window hears of it, and one of them turns them into documents.
+  setImporting(true)
+  try {
+    await bringVault(root, given !== undefined)
+  } finally {
+    setImporting(false)
+    changed()
+  }
+}
+
+async function bringVault(root: string, quiet: boolean): Promise<void> {
   const notes: string[] = []
-  // Attachments by file name: Obsidian embeds them by name alone, wherever they are.
+  // Attachments by file name: Obsidian embeds them by name alone, wherever
+  // they are; and by their path from the vault's top, for the ones that say it.
   const files = new Map<string, string>()
+  const everyFile = new Set<string>()
+  const kept: string[] = []
   const walk = async (folder: string): Promise<void> => {
     for (const entry of await readdir(folder, { withFileTypes: true })) {
-      if (entry.name.startsWith('.') || /cred|secret|password|private[-_ ]?key/i.test(entry.name)) continue
+      if (entry.name.startsWith('.')) continue
       const path = join(folder, entry.name)
+      if (isPrivateFile(entry.name, entry.isDirectory())) {
+        kept.push(relative(root, path))
+        continue
+      }
       if (entry.isDirectory()) await walk(path)
       else if (entry.name.endsWith('.md')) notes.push(path)
-      else files.set(entry.name.toLowerCase(), path)
+      else {
+        files.set(entry.name.toLowerCase(), path)
+        everyFile.add(path)
+      }
     }
   }
   await walk(root)
+  const fileFor = (note: string, target: string): string | undefined => {
+    const name = target.trim()
+    if (name.includes('/')) {
+      const found = [join(dirname(note), name), join(root, name)].find((one) => everyFile.has(one))
+      if (found) return found
+    }
+    return files.get(name.split('/').pop()!.toLowerCase())
+  }
 
   const IMAGE: Record<string, string> = { png: 'png', jpg: 'jpg', jpeg: 'jpg', gif: 'gif', webp: 'webp', svg: 'svg', avif: 'avif', bmp: 'bmp' }
   let pictures = 0
-  // Stored by the hash of its bytes, as a pasted picture is, so a picture
-  // embedded in ten notes is kept once.
-  const keep = async (path: string): Promise<string | null> => {
-    const extension = IMAGE[path.split('.').pop()?.toLowerCase() ?? '']
-    if (!extension) return null
+  let attached = 0
+  // Stored by the hash of its bytes, as a pasted picture or a dropped file
+  // is, so one embedded in ten notes is kept once.
+  const keep = async (path: string): Promise<{ url: string; size: number; image: boolean } | null> => {
+    const ending = path.split('.').pop()?.toLowerCase() ?? ''
+    const extension = IMAGE[ending] ?? (/^[a-z0-9]{1,12}$/.test(ending) ? ending : 'bin')
     const bytes = await readFile(path).catch(() => null)
     if (!bytes) return null
     const name = `${createHash('sha256').update(bytes).digest('hex')}.${extension}`
     await mkdir(assetsDir(), { recursive: true })
     await stat(join(assetsDir(), name)).catch(() => writeFile(join(assetsDir(), name), bytes))
-    pictures += 1
-    return `mindflow://assets/${name}`
+    if (IMAGE[ending]) pictures += 1
+    else attached += 1
+    return { url: `mindflow://assets/${name}`, size: bytes.byteLength, image: !!IMAGE[ending] }
   }
+  // What a match becomes, worked out one at a time because storing a file waits.
+  const swap = async (text: string, pattern: RegExp, to: (match: RegExpMatchArray) => Promise<string | null>): Promise<string> => {
+    let out = ''
+    let from = 0
+    for (const match of text.matchAll(pattern)) {
+      const next = await to(match)
+      if (next === null) continue
+      out += text.slice(from, match.index) + next
+      from = match.index! + match[0].length
+    }
+    return out + text.slice(from)
+  }
+  /**
+   * A stored file as Markdown: a picture, its width kept the way Obsidian
+   * writes it (`![|300](...)`), or a link the editor turns into a file card.
+   * In a table row the bar is escaped, or it would end the cell.
+   */
+  const shown = (stored: { url: string; size: number; image: boolean }, name: string, width: string | undefined, inTable: boolean): string =>
+    stored.image
+      ? `![${width ? `${inTable ? '\\|' : '|'}${width}` : ''}](${stored.url})`
+      : `[${name.replace(/[[\]]/g, '')}](${stored.url} "${stored.size}")`
   const listed = (front: string, key: string): string[] => {
     const inline = new RegExp(`^${key}:[ \\t]*(.+)$`, 'm').exec(front)?.[1]?.trim()
     if (inline) return inline.replace(/^\[|\]$/g, '').split(/[,\s]+/).map((one) => one.replace(/^["'#]|["']$/g, '')).filter(Boolean)
@@ -879,34 +934,102 @@ async function importVault(given?: string): Promise<void> {
     return [...block.matchAll(/-\s*(.+)/g)].map((match) => match[1].trim().replace(/^["'#]|["']$/g, '')).filter(Boolean)
   }
 
-  const made: { link: string; title: string }[] = []
+  const made: Imported[] = []
   const byName = new Map<string, string>()
+  const known: Imported[] = []
+  let already = 0
+  let empty = 0
   for (const path of notes) {
-    let text = await readFile(path, 'utf8')
+    // Known by its path, so its pictures are not read again; new notes may still link to it.
+    const before = alreadyImported(relative(root, path))
+    if (before) {
+      already += 1
+      known.push(before)
+      if (!byName.has(before.title.toLowerCase())) byName.set(before.title.toLowerCase(), before.link)
+      continue
+    }
+    let text = (await readFile(path, 'utf8')).replace(/\r\n/g, '\n')
     const front = /^---\n([\s\S]*?)\n---\n/.exec(text)?.[1] ?? ''
     const tags = listed(front, 'tags')
-    // Pictures: ![[name.png|300]] by name anywhere in the vault, ![](path) beside the note.
-    for (const match of [...text.matchAll(/!\[\[([^\]|#]+)(?:\|[^\]]*)?\]\]/g)]) {
-      const found = files.get(match[1].trim().split('/').pop()!.toLowerCase())
-      const url = found && (await keep(found))
-      if (url) text = text.replace(match[0], `![](${url})`)
+    // Notion's asides are callouts; the little picture it starts them with is its icon, not content.
+    text = text.replace(/<aside>\s*(?:<img [^>]*>\s*)?([\s\S]*?)\s*<\/aside>/g, (_, inside: string) =>
+      `> [!note]\n${inside.trim().split('\n').map((line) => `> ${line}`.trimEnd()).join('\n')}`)
+    // Line by line, to know when a picture sits in a table row.
+    const lines: string[] = []
+    for (const line of text.split('\n')) {
+      // A table row, in a callout or not.
+      const inTable = /^\s*(>\s*)*\|/.test(line)
+      // ![[name.png|300]], by name anywhere in the vault or by path. Up to the
+      // first ]] not followed by another, so a name holding a ] is whole; a
+      // bar written \| in a table still splits off the width.
+      let next = await swap(line, /!\[\[(.+?)\]\](?!\])/g, async (match) => {
+        const [target, width] = match[1].split(/\\?\|/)
+        // A note, or a part of one, is a link to it: that comes later.
+        if (/#/.test(target) || /\.md$/i.test(target.trim()) || !/\.[a-z0-9]{1,12}$/i.test(target.trim())) return null
+        const found = fileFor(path, target)
+        const stored = found && (await keep(found))
+        const name = target.trim().split('/').pop()!
+        // Not in the vault: its name in words, rather than the syntax that pointed at it.
+        if (!stored) return name
+        return shown(stored, name, /^\d+(x\d+)?$/.test(width?.trim() ?? '') ? width.trim().split('x')[0] : undefined, inTable)
+      })
+      // ![][address]: a video by its address, the way some plugins embed one.
+      next = next.replace(/!\[\]\[\]/g, '').replace(/!\[\]\[(https?:[^\]\s]+)\]/g, (_, href: string) => (/youtu\.?be/.test(href) ? `![](${href})` : `[${href}](${href})`))
+      // ![](path) and [file](path) beside the note, written with %20 for spaces.
+      next = await swap(next, /(!?)\[([^\]]*)\]\((?!https?:|mindflow:|#)([^)\s]+)\)/g, async (match) => {
+        let local = match[3]
+        try {
+          local = decodeURIComponent(local)
+        } catch {
+          // Not encoded after all.
+        }
+        // A note is a link to it, which comes later; an address with no file at the end is left alone.
+        if (/\.md$/i.test(local) || !/\.[a-z0-9]{1,12}$/i.test(local)) return null
+        const found = fileFor(path, local)
+        const stored = found && (await keep(found))
+        if (!stored) return null
+        return stored.image ? `![${match[2]}](${stored.url})` : shown(stored, match[2] || local.split('/').pop()!, undefined, inTable)
+      })
+      // <img src="..." width="40px">, as Notion writes them: a picture with its width.
+      next = await swap(next, /<img\s[^>]*?src="([^"]+)"[^>]*?>/gi, async (match) => {
+        const width = /width="(\d+)/i.exec(match[0])?.[1]
+        let src = match[1]
+        if (!/^https?:/.test(src)) {
+          try {
+            src = decodeURIComponent(src)
+          } catch {
+            // Not encoded after all.
+          }
+          const found = fileFor(path, src)
+          const stored = found && (await keep(found))
+          if (!stored) return ''
+          src = stored.url
+        }
+        return `![${width ? `${inTable ? '\\|' : '|'}${width}` : ''}](${src})`
+      })
+      lines.push(next)
     }
-    for (const match of [...text.matchAll(/!\[([^\]]*)\]\((?!https?:|mindflow:)([^)\s]+)\)/g)]) {
-      const local = decodeURIComponent(match[2])
-      const found = files.get(local.split('/').pop()!.toLowerCase()) ?? join(dirname(path), local)
-      const url = await keep(found)
-      if (url) text = text.replace(match[0], `![${match[1]}](${url})`)
-    }
+    text = lines.join('\n')
     if (tags.length) text = `${text.trimEnd()}\n\n${tags.map((tag) => `#${tag.replace(/\s+/g, '-')}`).join(' ')}\n`
     const one = importNote(relative(root, path), text, (await stat(path)).mtime)
-    if (!one) continue
-    made.push(one)
-    byName.set(one.title.toLowerCase(), one.link)
-    for (const alias of listed(front, 'aliases')) byName.set(alias.toLowerCase(), one.link)
+    if (one === 'already here') already += 1
+    else if (one === 'empty') empty += 1
+    else {
+      made.push(one)
+      byName.set(one.title.toLowerCase(), one.link)
+      for (const alias of listed(front, 'aliases')) byName.set(alias.toLowerCase(), one.link)
+    }
   }
-  const linked = linkImported(made, byName)
-  if (given) return console.log(`imported ${made.length} notes, ${pictures} pictures, ${linked} links`)
-  await dialog.showMessageBox({ message: 'Imported', detail: `${made.length} notes from ${basename(root)}, with ${pictures} pictures and ${linked} links` })
+  const linked = linkImported(made, byName, known)
+  const report = [
+    `${made.length} new ${made.length === 1 ? 'note' : 'notes'} from ${basename(root)}, with ${pictures} pictures, ${attached} files and ${linked} links.`,
+    already ? `${already} ${already === 1 ? 'was' : 'were'} already here, from an earlier import, and ${already === 1 ? 'was' : 'were'} left as ${already === 1 ? 'it was' : 'they were'}.` : '',
+    empty ? `${empty} empty ${empty === 1 ? 'file was' : 'files were'} skipped.` : '',
+    kept.length ? `Left out because ${kept.length === 1 ? 'it looks' : 'they look'} like passwords or keys: ${kept.join(', ')}.` : ''
+  ].filter(Boolean)
+  if (quiet) return console.log(`imported ${made.length} new, ${already} already here, ${empty} empty, ${kept.length} private, ${pictures} pictures, ${attached} files, ${linked} links${kept.length ? ` [${kept.join(', ')}]` : ''}`)
+  // Not waited on: the notes become documents while it is being read.
+  void dialog.showMessageBox({ message: 'Imported', detail: report.join('\n\n') })
 }
 
 /**
@@ -1037,6 +1160,7 @@ function updateTray(): void {
 
 app.whenReady().then(() => {
   registerCaptures()
+  registerImportConversion()
   registerVigil()
   registerNotes({ load, guard })
   registerScenery()

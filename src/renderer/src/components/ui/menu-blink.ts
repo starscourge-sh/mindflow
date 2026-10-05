@@ -1,0 +1,42 @@
+const still = (): boolean =>
+  document.documentElement.dataset.motion === "off" || matchMedia("(prefers-reduced-motion: reduce)").matches
+
+/** Items that have blinked and are now being chosen for real. */
+const chosen = new WeakSet<HTMLElement>()
+/** Items blinking now: a second press meanwhile is the same choice, not another. */
+const blinking = new WeakSet<HTMLElement>()
+
+/**
+ * macOS's way with a menu: the item you picked blinks twice, then the menu
+ * goes, so you know it took. Menus open at once (they are used all day), and
+ * this is the only motion they keep besides a short fade out.
+ *
+ * Radix closes a menu as soon as an item's onSelect returns, so the first
+ * select is held (preventDefault), the row blinks, and then it is clicked
+ * again for real: that second select runs the item's own handler and closes.
+ */
+export function blinkThen<E extends Event>(onSelect?: (event: E) => void): (event: E) => void {
+  return (event) => {
+    const item = event.currentTarget as HTMLElement | null
+    if (!item || chosen.has(item) || still()) {
+      if (item) chosen.delete(item)
+      return onSelect?.(event)
+    }
+    event.preventDefault()
+    if (blinking.has(item)) return
+    blinking.add(item)
+    // Off, on, off, on: about 150ms, as the Finder's menus do it.
+    const steps = [0, 40, 80, 120]
+    steps.forEach((at, index) =>
+      setTimeout(() => {
+        if (index % 2) item.style.removeProperty("background-color")
+        else item.style.setProperty("background-color", "transparent")
+      }, at)
+    )
+    setTimeout(() => {
+      blinking.delete(item)
+      chosen.add(item)
+      item.click()
+    }, 160)
+  }
+}

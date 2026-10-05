@@ -75,7 +75,8 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
             </button>
           </span>
         </div>
-        <p className="private-text min-h-0 flex-1 overflow-y-auto whitespace-pre-line px-3 pt-1 pb-3 text-muted-foreground" style={STILL}>
+        {/* A long note scrolls, and fades out at the bottom as the box does, instead of stopping hard at the edge. */}
+        <p className="private-text min-h-0 flex-1 overflow-y-auto whitespace-pre-line px-3 pt-1 pb-6 text-muted-foreground [mask-image:linear-gradient(to_bottom,#000_calc(100%-1.75rem),transparent)]" style={STILL}>
           {text.startsWith(title) ? text.slice(title.length).trim() : text}
         </p>
       </div>

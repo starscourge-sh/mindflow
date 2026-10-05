@@ -56,6 +56,17 @@ export const Attachment = Node.create({
         rendered: false,
         parseHTML: (element) => Number(element.getAttribute("data-size")) || 0,
       },
+      align: {
+        default: null,
+        parseHTML: (element) => element.getAttribute("data-align"),
+        renderHTML: ({ align }) => (align ? { "data-align": align } : {}),
+      },
+      // A video's width, as a picture's: "60%", or none for the whole column.
+      width: {
+        default: null,
+        parseHTML: (element) => element.getAttribute("data-width"),
+        renderHTML: ({ width }) => (width ? { "data-width": width } : {}),
+      },
     }
   },
 

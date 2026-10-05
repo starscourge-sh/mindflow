@@ -57,6 +57,8 @@ import { Callout } from "@/extensions/callout"
 import { Attachment } from "@/extensions/attachment"
 import { ExcalidrawDiagram } from "@/extensions/excalidraw"
 import { Calc } from "@/extensions/calc"
+import { markdownToDocument } from "@/lib/markdown-doc"
+import { LongDocument } from "@/extensions/long-document"
 
 /** Every mark the editor can register. */
 export type MarkName =
@@ -220,6 +222,22 @@ import "@/components/mindflow/mindflow-editor.scss"
  * made them. Written in an effect rather than during the render, which React
  * treats as a side effect and warns about.
  */
+/** The page's document editors, any of which can read Markdown for `readMarkdown`. */
+const readers = new Set<Editor>()
+
+/**
+ * Markdown as this editor's document, read the way a page opening it would:
+ * for a host that keeps documents, so it can turn Markdown into one once
+ * rather than on every opening. Null until a document editor is on the page.
+ */
+export function readMarkdown(markdown: string): JSONContent | null {
+  for (const reader of readers) {
+    if (reader.isDestroyed) readers.delete(reader)
+    else return markdownToDocument(reader, markdown)
+  }
+  return null
+}
+
 function useLatest<T>(value: T): { readonly current: T } {
   const ref = useRef(value)
   useEffect(() => {
@@ -1084,6 +1102,7 @@ function Surface({
       JoinLists,
       CurrentItem,
       CardLink,
+      LongDocument,
       SelectedNodes,
       ObsidianShortcuts.configure({
         onToggleSource: () => (toggleSource.current ? toggleSource.current() : setSourceRef.current(!sourceOpenRef.current)),
@@ -1106,10 +1125,21 @@ function Surface({
         : []),
       ImagePlaceholder,
     ],
-    content: defaultContent,
-    // A string is Markdown: what an imported note, or one pasted from a file, is.
-    contentType: typeof defaultContent === "string" ? "markdown" : "json",
+    // A string is Markdown: what an imported note, or one pasted from a file,
+    // is. A page's is read once the editor exists, in pieces (see onCreate).
+    content: typeof defaultContent === "string" && shape !== "line" ? "" : defaultContent,
+    contentType: typeof defaultContent === "string" && shape === "line" ? "markdown" : "json",
     onCreate: ({ editor: instance }) => {
+      if (shape === "document") readers.add(instance)
+      if (typeof defaultContent === "string" && shape !== "line" && defaultContent.trim()) {
+        // Not an edit: nothing to undo back to, and nothing to save.
+        try {
+          const doc = instance.schema.nodeFromJSON(markdownToDocument(instance, defaultContent))
+          instance.view.dispatch(instance.state.tr.replaceWith(0, instance.state.doc.content.size, doc.content).setMeta("addToHistory", false).setMeta("preventUpdate", true))
+        } catch {
+          instance.commands.setContent(defaultContent, { contentType: "markdown", emitUpdate: false })
+        }
+      }
       onReady?.(instance)
       // Opened by a link to one of its headings: go there once laid out.
       const heading = shape === "document" ? takePendingHeading() : null

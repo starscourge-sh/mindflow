@@ -5,6 +5,9 @@ import { GripVertical, Pause, Play, Square, X } from 'lucide-react'
 import '@/assets/styles/_variables.scss'
 import { chime } from '@/lib/sound'
 import { useAppearance, useLive, vigil, type Focus } from '@/lib/vigil'
+import { useAlive, useSurface } from '@/lib/use-alive'
+import { BorderBeam } from 'border-beam'
+import { Liquid } from 'liquid-gooey'
 
 /** 59:55, or 1:02:03 past the hour. */
 const clock = (ms: number): string => {
@@ -56,6 +59,25 @@ export function FocusPill(): React.JSX.Element | null {
   const rang = useRef<string | null>(null)
   // Hover told by the pointer itself: a window's drag area never reports it.
   const [hover, setHover] = useState(false)
+  // The beam and the goo run frame loops of their own: only with Motion on
+  // and the pill on screen.
+  const alive = useAlive()
+  const surface = useSurface()
+  // The right-hand end is as wide as what it shows: the time at rest, the
+  // buttons under the pointer. Both are measured, and the end eases between
+  // them, so the goal gets every pixel the time does not need. Each is drawn
+  // at its own full width (w-max), so the slot never squeezes what it measures.
+  const [timeBox, setTimeBox] = useState<HTMLSpanElement | null>(null)
+  const [toolBox, setToolBox] = useState<HTMLSpanElement | null>(null)
+  const [wide, setWide] = useState<{ time: number; tools: number } | null>(null)
+  useEffect(() => {
+    if (!timeBox || !toolBox) return
+    const measure = (): void => setWide({ time: timeBox.offsetWidth, tools: toolBox.offsetWidth })
+    const watch = new ResizeObserver(measure)
+    watch.observe(timeBox)
+    watch.observe(toolBox)
+    return () => watch.disconnect()
+  }, [timeBox, toolBox])
 
   // A see-through window: only the pill is drawn.
   useEffect(() => {
@@ -91,6 +113,12 @@ export function FocusPill(): React.JSX.Element | null {
     // In pixels, not rem: the pill's window is a fixed 340 by 64, and at Large
     // Interface size a rem-sized pill outgrew it and was cut off top and bottom.
     <div className="mf-floating flex h-screen items-center justify-center p-[8px]">
+      {/* While the session runs, a slow mono glow breathes inside the pill's
+          edge: alive, never asking to be looked at. Still when paused or over. */}
+      {/* The mono beam's inks are pale greys in every theme, lost on a light
+          pill: there they are dimmed to graphite and drawn on the edge, with
+          the inner glow kept low, which on a pale pill only smudged it. */}
+      <BorderBeam size="pulse-inner" colorVariant="mono" strength={0.4} brightness={surface === 'light' ? 0.5 : undefined} style={surface === 'light' ? ({ '--beam-stroke-opacity': 9, '--beam-inner-opacity': 0.75 } as CSSProperties) : undefined} duration={3.4} theme={surface} borderRadius={22} active={alive && !paused && !over} className="w-full">
       <div
         onPointerEnter={() => setHover(true)}
         onPointerLeave={() => setHover(false)}
@@ -109,16 +137,20 @@ export function FocusPill(): React.JSX.Element | null {
         >
           {focus.goal || (timer ? 'Timer' : 'Focus')}
         </button>
-        <span className="relative grid h-7 w-[6.25rem] shrink-0 place-items-center">
+        <span className="relative grid h-7 shrink-0 grid-cols-[minmax(0,1fr)] place-items-center transition-[width] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]" style={wide ? { width: hover ? wide.tools : wide.time } : undefined}>
           {/* At rest: the time, in figures that do not jiggle as they count. */}
           <span
+            ref={setTimeBox}
             aria-live="off"
-            className={`col-start-1 row-start-1 justify-self-end pr-1.5 text-[13px] font-semibold tabular-nums transition-opacity duration-150 ${hover ? 'opacity-0' : 'opacity-100'} ${over || last ? 'text-[var(--tt-brand-color-400)]' : paused ? 'text-muted-foreground' : ''}`}
+            className={`col-start-1 row-start-1 w-max justify-self-end pr-1.5 text-[13px] whitespace-nowrap font-semibold tabular-nums transition-opacity duration-150 ${hover ? 'opacity-0' : 'opacity-100'} ${over || last ? 'text-[var(--tt-brand-color-400)]' : paused ? 'text-muted-foreground' : ''}`}
           >
             {over ? "Time's up" : paused ? `Paused · ${clock(left ?? done)}` : clock(left ?? done)}
           </span>
-          {/* Under the pointer: what you would do with it, in the same place. */}
-          <span className={`col-start-1 row-start-1 flex items-center justify-self-end gap-0.5 transition-opacity duration-150 ${hover ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+          {/* Under the pointer: what you would do with it, in the same place.
+              The one rare moment that gets the goo: the time melts into its
+              controls, droplets splitting off from where the figures were. */}
+          <span ref={setToolBox} className={`col-start-1 row-start-1 flex w-max justify-self-end transition-opacity duration-150 ${hover ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+          <Goo on={alive && !over} open={hover} light={surface === 'light'} className="flex items-center gap-0.5">
             {!over && (
               <button
                 type="button"
@@ -151,6 +183,7 @@ export function FocusPill(): React.JSX.Element | null {
             >
               <X className="size-3.5" />
             </button>
+          </Goo>
           </span>
         </span>
         {/* The one place that moves the window, as Raycast's grip does: faint until you reach for it. */}
@@ -158,7 +191,32 @@ export function FocusPill(): React.JSX.Element | null {
           <GripVertical className="size-3.5" />
         </span>
       </div>
+      </BorderBeam>
     </div>
+  )
+}
+
+/**
+ * The pill's controls, each a droplet: gathered at the right-hand end at
+ * rest, they split apart under the pointer and merge back as it leaves. Off,
+ * a plain row.
+ */
+function Goo({ on, open, light, className, children }: { on: boolean; open: boolean; light: boolean; className: string; children: React.ReactNode }): React.JSX.Element {
+  const items = (Array.isArray(children) ? children : [children]).filter(Boolean)
+  if (!on) return <span className={className}>{items}</span>
+  // Each 28px button and an 8px gap, so once split they stand apart as
+  // droplets rather than staying bridged into one bar.
+  const SLOT = 36
+  return (
+    // On a light pill the accent is close to the pill itself: a touch of ink
+    // gives the droplets an edge to read by.
+    <Liquid fill={light ? 'color-mix(in oklab, var(--accent), var(--foreground) 7%)' : 'color-mix(in oklab, var(--accent) 80%, transparent)'} blur={4} className={`${className} gap-2!`}>
+      {items.map((item, index) => (
+        <Liquid.Item key={index} x={open ? 0 : (items.length - 1 - index) * SLOT} scale={open ? 1 : 0.6} transition="snappy" delay={open ? (items.length - 1 - index) * 25 : 0}>
+          {item}
+        </Liquid.Item>
+      ))}
+    </Liquid>
   )
 }
 

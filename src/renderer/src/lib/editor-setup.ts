@@ -28,7 +28,11 @@ const CUES: Record<EditorCue, Cue | 'step'> = {
   math: 'settled',
   // The same as the box's source drawer, which is a sheet.
   source: 'slide',
-  'source-close': 'fold'
+  'source-close': 'fold',
+  fold: 'fold',
+  unfold: 'open',
+  play: 'on',
+  pause: 'off'
 }
 
 /** The fonts a note can be written in, besides any the Mac has. */

@@ -13,6 +13,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { Rest } from './scenery'
+import { BorderBeam } from 'border-beam'
+import { useAlive, useSurface } from '@/lib/use-alive'
 
 /** The four grades, as the plan defines them: how the retrieval felt, not whether it was right. */
 const GRADES = [
@@ -50,6 +52,16 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   // A cloze's answer, and the question with every other place it appears
   // blanked too: a title or a line that repeats it gives it away.
   const answer = card ? answerOf(card.prompt, card.body) : null
+  // Back from rereading a source, the card comes in from the left: the way
+  // you came. Every grade moves on, to the right.
+  const [cameBack, setCameBack] = useState(false)
+  const leaveSource = (): void => {
+    chime('unread')
+    setCameBack(true)
+    setSource(null)
+  }
+  const alive = useAlive()
+  const surface = useSurface()
   const asked = card ? masked(card.prompt ?? '', answer) : ''
 
   const reveal = (): void => {
@@ -101,8 +113,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
         if (event.key === 'Escape') {
           event.preventDefault()
           event.stopPropagation()
-          chime('unread')
-          setSource(null)
+          leaveSource()
         }
         return
       }
@@ -129,7 +140,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   if (source)
     return (
       <Page title="Review">
-        <SourcePanel source={source} onClose={() => (chime('unread'), setSource(null))} />
+        <SourcePanel source={source} onClose={leaveSource} />
       </Page>
     )
   if (!card)
@@ -166,13 +177,16 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
           <Typed text="Missed that one? Reread where it came from:" step={28} delay={100} /> <Kbd>R</Kbd>
         </p>
       )}
-      <AnimatePresence mode="wait">
+      {/* The next card is there at once: grading fast never waits for the
+          last one to finish leaving. */}
+      <AnimatePresence mode="popLayout">
       <motion.div
         key={`${card.id}-${at}`}
-        initial={{ opacity: 0, x: 24 }}
+        initial={{ opacity: 0, x: cameBack ? -24 : 24 }}
         animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -24 }}
-        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+        exit={{ opacity: 0, x: -24, pointerEvents: 'none', transition: { opacity: { duration: 0.08 }, x: { type: 'spring', stiffness: 520, damping: 44 } } }}
+        transition={{ type: 'spring', stiffness: 520, damping: 44, mass: 0.7 }}
+        onAnimationComplete={() => cameBack && setCameBack(false)}
         className="flex flex-col gap-6 px-5 py-8"
       >
         {card.exam && (
@@ -230,6 +244,10 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
                 }>Keep as a gloss</Button>
               </div>
             )}
+            {/* Waiting on your grade: a faint beam goes round the answer. */}
+            {/* On a light page the library draws it at a few percent, and it was
+                lost: there its stroke is drawn stronger, to a soft graphite arc. */}
+            <BorderBeam size="md" colorVariant="mono" strength={0.5} style={surface === 'light' ? ({ '--beam-stroke-opacity': 12 } as React.CSSProperties) : undefined} duration={5} theme={surface} active={alive} borderRadius={8}>
             <motion.div
               initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
@@ -247,6 +265,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
                 autofocus={false}
               />
             </motion.div>
+            </BorderBeam>
             {/* Context: what makes the answer learnable, shown only after it, or
                 it would give the prompt away. */}
             {card.context && <p className="-mt-2 text-sm leading-relaxed whitespace-pre-line text-muted-foreground">{card.context}</p>}

@@ -9,7 +9,8 @@ import { makeTask } from '@/lib/tasks'
 import { Tags, Tip, VirtualList, pin } from './vigil/ui'
 import { RowMenu, copy, type MenuItem } from './vigil/row-menu'
 import { stickOnDesktop } from './vigil/sticky-note'
-import { Thumb, useRowDrag } from './vigil/note-extras'
+import { Thumb } from './vigil/note-extras'
+import { SortableList, SortableRow } from './vigil/sortable'
 import { archive, changeKind, openWindow, saveAttachments } from '@/lib/notes'
 
 export type CaptureMeta = Awaited<ReturnType<typeof window.api.captures.list>>[number]
@@ -37,6 +38,20 @@ export function useCaptures(archived = false): CaptureMeta[] {
 }
 
 /** How long ago, the way Linear writes it: 5m, 3h, 26d, 4mo, 2y. */
+/**
+ * Where a capture came from, short: an imported note's folder ("c++", not
+ * "Unisa/old-modules/…/c++/Header Files.md", and without a Notion export's
+ * id), or the file its jottings came from. Nothing for a note at a vault's
+ * top, whose name already says it, or one typed here.
+ */
+export function whereFrom(source: string, label = ''): string {
+  const strip = (name: string): string => name.replace(/\.(md|html?|csv|json|txt)$/i, '').replace(/\s+[0-9a-f]{32}$/i, '')
+  // A folder named for the note in it ("S3/S3.md") says nothing new: the one above it does.
+  const folders = source.split('/').slice(0, -1).map(strip).filter((name) => name !== label)
+  if (source.includes('/')) return folders.at(-1) ?? ''
+  return strip(source) === label ? '' : strip(source)
+}
+
 export function age(at: string): string {
   const minutes = (Date.now() - new Date(at).getTime()) / 60000
   const units: [number, string][] = [[525600, 'y'], [43200, 'mo'], [1440, 'd'], [60, 'h'], [1, 'm']]
@@ -90,14 +105,15 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick, o
   /** In your own order: a row dragged onto another lands before or after it. */
   onMove?: (id: string, target: string, after: boolean) => void
 }): React.JSX.Element {
-  const { drag, line } = useRowDrag(onMove)
   return (
+    <SortableList items={captures} keyOf={(capture) => capture.id} onMove={onMove}>
+    {(captures) => (
     <VirtualList items={captures} keyOf={(capture) => capture.id} cursor={cursor} estimate={58} className="text-sm">
       {(capture, index) => {
         const kind = CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
         const { text, tags } = splitTags(capture.label)
         return (
-          <div>
+          <SortableRow id={capture.id}>
           <RowMenu items={captureMenu(capture, onPick)}>
           <button
             data-cursor={index === cursor || undefined}
@@ -112,9 +128,7 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick, o
             data-open={capture.id === selected ? '' : undefined}
             // ⌘-click: a window of its own, as a browser opens a tab.
             onClick={(event) => (event.metaKey ? openWindow('capture', capture.id) : onPick?.(capture.id))}
-            {...drag(capture.id)}
           >
-            {line(capture.id)}
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
             <span className="flex items-center gap-2">
               <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
@@ -133,18 +147,20 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick, o
             <span className="min-h-4 truncate pl-6 text-xs text-muted-foreground">
               <span className={index === cursor || capture.id === selected ? '' : 'hidden group-hover/row:inline'}>
                 {captureKey(capture.number)}
-                {capture.source ? ' · ' : ''}
+                {whereFrom(capture.source, capture.label) ? ' · ' : ''}
               </span>
-              {capture.source ? capture.source.replace(/\.md$/, '') : ''}
+              {whereFrom(capture.source, capture.label)}
               {tags.length ? <span className="ml-2"><Tags tags={tags} /></span> : null}
             </span>
             </span>
             <Thumb id={capture.id} />
           </button>
           </RowMenu>
-          </div>
+          </SortableRow>
         )
       }}
     </VirtualList>
+    )}
+    </SortableList>
   )
 }

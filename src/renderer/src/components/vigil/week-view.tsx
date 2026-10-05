@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
-import { motion } from 'motion/react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
+import { DndContext, DragOverlay, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
 import { Brain, CalendarClock, ChevronLeft, ChevronRight, Repeat } from 'lucide-react'
 
 import { chime } from '@/lib/sound'
@@ -8,6 +9,7 @@ import { Kbd, Page, Rolling, Tip, toast, typing } from './ui'
 import { PriorityIcon, setPriority } from './task-input'
 import { TaskDetail, completeTask } from './tasks-view'
 import { Button } from '@/components/ui/button'
+import { Lifted, SETTLE, snapshot } from './sortable'
 
 // Days are counted on the calendar, not in hours, so a clock change never
 // repeats or skips one.
@@ -41,15 +43,15 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
   const load = useLive(() => (from + 7 > 0 ? vigil.reviewLoad(from + 7) : Promise.resolve([])), [] as number[], [from])
   const [at, setAt] = useState<{ col: number; id: string | null }>({ col: 0, id: null })
   const [open, setOpen] = useState<TaskFull | null>(null)
-  // The day a dragged card is over, lit so you can see where it will land;
-  // and whether the press was a drag, so letting go does not also open it.
+  // The day a dragged card is over, lit and opening a gap where it will land;
+  // the card as it looked when picked up, carried under the pointer.
   const [over, setOver] = useState<number | null>(null)
-  const dragged = useRef(false)
-  /** The day under the pointer: the cards follow the pointer, not the browser's drag and drop. */
-  const dayAt = (x: number, y: number): number | null => {
-    const found = document.elementsFromPoint(x - window.scrollX, y - window.scrollY).find((element) => (element as HTMLElement).dataset?.day !== undefined) as HTMLElement | undefined
-    return found ? Number(found.dataset.day) : null
-  }
+  const [shot, setShot] = useState<ReturnType<typeof snapshot>>(null)
+  // A card just dropped on a day, shown there at once while the move saves, so
+  // it settles into its new place rather than jumping back first.
+  const [landing, setLanding] = useState<{ id: string; col: number } | null>(null)
+  useEffect(() => setLanding(null), [tasks])
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   const live = tasks.filter((task) => task.status === 'open')
   const days = Array.from({ length: 7 }, (_, index) => {
@@ -63,6 +65,21 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
     ]
     return { start, cards, reviews: load[from + index] ?? 0 }
   })
+  if (landing) {
+    const at = days.findIndex((day) => day.cards.some((card) => `${card.kind}:${card.task.id}` === landing.id))
+    const card = at >= 0 ? days[at].cards.find((one) => `${one.kind}:${one.task.id}` === landing.id) : undefined
+    if (card && at !== landing.col) {
+      days[at].cards = days[at].cards.filter((one) => one !== card)
+      days[landing.col].cards = [...days[landing.col].cards, card]
+    }
+  }
+  const cardOf = (id: string): { card: Card; col: number } | null => {
+    for (const [col, day] of days.entries()) {
+      const card = day.cards.find((one) => `${one.kind}:${one.task.id}` === id)
+      if (card) return { card, col }
+    }
+    return null
+  }
   const column = days[at.col]?.cards ?? []
   const row = column.findIndex((card) => `${card.kind}:${card.task.id}` === at.id)
   const chosen = row >= 0 ? column[row] : undefined
@@ -146,14 +163,35 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
           </Tip>
         </span>
       }>
+        {/* Picked up and carried by the pointer; let go over a day and it
+            moves there. The days scroll by themselves near the edges. */}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={pointerWithin}
+          onDragStart={({ active }) => {
+            chime('tap')
+            setShot(snapshot(String(active.id)))
+          }}
+          onDragOver={({ over }) => setOver(over ? Number(over.id) : null)}
+          onDragCancel={() => (setShot(null), setOver(null))}
+          onDragEnd={({ active, over }) => {
+            setShot(null)
+            setOver(null)
+            const from = cardOf(String(active.id))
+            const to = over ? Number(over.id) : null
+            if (!from || to === null || to === from.col) return chime('fold')
+            setLanding({ id: String(active.id), col: to })
+            move(from.card, to - from.col)
+          }}
+        >
         <div className="grid min-h-0 flex-1 gap-px overflow-x-auto p-3 [grid-template-columns:repeat(7,minmax(8rem,1fr))]">
           {days.map((day, col) => {
             const date = new Date(day.start)
             const today = day.start === dayStart(0)
             return (
-              <section
+              <Day
                 key={day.start}
-                data-day={col}
+                col={col}
                 className={`flex min-h-[calc(100vh-9rem)] min-w-0 flex-col gap-1 rounded-md p-1.5 transition-colors ${over === col ? 'bg-accent/60 ring-1 ring-ring' : col === at.col ? 'bg-accent/30' : ''}`}
               >
                 <header className="mb-1 flex items-baseline gap-1.5 px-1">
@@ -173,30 +211,12 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
                   const id = `${card.kind}:${card.task.id}`
                   const late = card.kind === 'scheduled' ? new Date(card.task.dueAt!).getTime() < dayStart(0) : new Date(card.task.deadline!).getTime() < dayStart(0)
                   return (
-                    <motion.button
-                      key={id}
+                    <Carried key={id} id={id}>
+                    <button
                       type="button"
-                      // Picked up and carried by the pointer; let go over a day and it moves there.
-                      drag
-                      dragSnapToOrigin
-                      dragMomentum={false}
-                      whileDrag={{ scale: 1.03, zIndex: 50, cursor: 'grabbing' }}
-                      onDragStart={() => {
-                        dragged.current = true
-                        chime('tap')
-                      }}
-                      onDrag={(_, info) => setOver(dayAt(info.point.x, info.point.y))}
-                      onDragEnd={(_, info) => {
-                        const to = dayAt(info.point.x, info.point.y)
-                        setOver(null)
-                        if (to !== null && to !== col) move(card, to - col)
-                        else chime('fold')
-                        // The click that follows letting go is the drag's, not a request to open.
-                        setTimeout(() => (dragged.current = false))
-                      }}
                       data-cursor={at.id === id || undefined}
-                      onClick={() => !dragged.current && (setAt({ col, id }), pick(card.task.id))}
-                      className={`relative flex touch-none flex-col items-start gap-0.5 rounded-md border bg-background px-2 py-1.5 text-left text-control transition-colors hover:bg-accent/60 ${at.id === id && at.col === col ? 'border-ring bg-accent/50' : ''} ${open?.id === card.task.id ? 'bg-accent' : ''}`}
+                      onClick={() => (setAt({ col, id }), pick(card.task.id))}
+                      className={`relative flex w-full touch-none flex-col items-start gap-0.5 rounded-md border bg-background px-2 py-1.5 text-left text-control transition-colors hover:bg-accent/60 ${at.id === id && at.col === col ? 'border-ring bg-accent/50' : ''} ${open?.id === card.task.id ? 'bg-accent' : ''}`}
                     >
                       <span className="flex w-full items-start gap-1.5">
                         {card.task.priority ? <PriorityIcon level={card.task.priority} className="mt-0.5 size-3 shrink-0" /> : null}
@@ -212,15 +232,45 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
                         ) : null}
                         {card.task.recurrence && <Repeat className="size-3" />}
                       </span>
-                    </motion.button>
+                    </button>
+                    </Carried>
                   )
                 })}
-              </section>
+                {/* The day under a carried card opens a gap for it at the end. */}
+                <AnimatePresence initial={false}>
+                  {shot && over === col && cardOf(String(shot.id))?.col !== col && (
+                    <motion.div
+                      key="gap"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: shot.height, opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ type: 'spring', stiffness: 600, damping: 45 }}
+                      className="shrink-0 rounded-md border border-dashed border-ring/60"
+                    />
+                  )}
+                </AnimatePresence>
+              </Day>
             )
           })}
         </div>
+        <DragOverlay dropAnimation={document.documentElement.dataset.motion === 'off' ? null : SETTLE}>
+          <Lifted shot={shot} />
+        </DragOverlay>
+        </DndContext>
       </Page>
       {open && <TaskDetail key={open.id} task={open} onClose={() => setOpen(null)} onOpen={onOpen} />}
     </>
   )
+}
+
+/** A day the cards can be dropped on. */
+function Day({ col, className, children }: { col: number; className: string; children: ReactNode }): React.JSX.Element {
+  const { setNodeRef } = useDroppable({ id: col })
+  return <section ref={setNodeRef} data-day={col} className={className}>{children}</section>
+}
+
+/** A card that can be picked up; the place it left stays, faint, until it lands. */
+function Carried({ id, children }: { id: string; children: ReactNode }): React.JSX.Element {
+  const { setNodeRef, listeners, isDragging } = useDraggable({ id })
+  return <div ref={setNodeRef} data-sortable-id={id} {...listeners} className={isDragging ? 'opacity-30' : undefined}>{children}</div>
 }

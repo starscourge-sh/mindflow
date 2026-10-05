@@ -112,7 +112,8 @@ export function ShortcutSheet(): React.JSX.Element | null {
             }
           }}
         />
-        <div className="overflow-y-auto p-4">
+        {/* Faded at an edge while there is more past it (mf-more). */}
+        <div className="mf-more overflow-y-auto p-4">
           <ShortcutList query={query} columns />
         </div>
       </div>

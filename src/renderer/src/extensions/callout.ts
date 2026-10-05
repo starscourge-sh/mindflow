@@ -56,7 +56,48 @@ export const Callout = Node.create({
         parseHTML: (element) => element.getAttribute("data-accent"),
         renderHTML: ({ color }) => ({ "data-accent": color }),
       },
+      // Obsidian's three: its type ("warning"), the title on its first line,
+      // and whether it folds: "-" folded, "+" open but foldable, "" neither.
+      type: {
+        default: "",
+        parseHTML: (element) => element.getAttribute("data-callout-type") ?? "",
+        renderHTML: ({ type }) => (type ? { "data-callout-type": type } : {}),
+      },
+      title: {
+        default: "",
+        parseHTML: (element) => element.getAttribute("data-title") ?? "",
+        renderHTML: ({ title }) => (title ? { "data-title": title } : {}),
+      },
+      fold: {
+        default: "",
+        parseHTML: (element) => element.getAttribute("data-fold") ?? "",
+        renderHTML: ({ fold }) => (fold ? { "data-fold": fold } : {}),
+      },
     }
+  },
+
+  /**
+   * Obsidian's own callout, `> [!warning]- Title` and its `>` lines, read as
+   * one of these rather than as a quote with the marker in its words.
+   */
+  markdownTokenizer: {
+    name: "callout",
+    level: "block",
+    start: (src: string) => src.search(/^ {0,3}> ?\[![\w-]+\]/m),
+    tokenize: (src, _tokens, lexer) => {
+      const match = /^ {0,3}> ?\[!([\w-]+)\]([+-]?)[ \t]*(.*)(?:\n|$)((?: {0,3}>.*(?:\n|$))*)/.exec(src)
+      if (!match) return undefined
+      const inside = match[4].replace(/\n$/, "").split("\n").map((line) => line.replace(/^ {0,3}> ?/, "")).join("\n")
+      return { type: "callout", raw: match[0], kind: match[1].toLowerCase(), fold: match[2], title: match[3].trim(), tokens: lexer.blockTokens(inside) }
+    },
+  },
+  parseMarkdown: (token, helpers) => {
+    const kind = String(token.kind ?? "note")
+    const [icon, color] = TYPES[kind] ?? TYPES.note
+    const content = helpers.parseChildren(token.tokens ?? [])
+    // With no title of its own, Obsidian heads it with its type.
+    const title = String(token.title ?? "").replace(/[*_`]/g, "") || kind[0].toUpperCase() + kind.slice(1)
+    return helpers.createNode("callout", { icon, color, type: kind, title, fold: token.fold ?? "" }, content.length ? content : [{ type: "paragraph" }])
   },
 
   parseHTML() {
@@ -94,7 +135,10 @@ export const Callout = Node.create({
    * inside it left the document silently.
    */
   renderMarkdown(node, { renderChildren }): string {
-    const body = `${node.attrs?.icon ?? ""} ${renderChildren(node, "\n\n")}`.trim()
+    // One that came from Obsidian goes back the way it came.
+    const { type, fold, title } = (node.attrs ?? {}) as Record<string, string>
+    const head = type ? `[!${type}]${fold ?? ""}${title ? ` ${title}` : ""}\n` : `${node.attrs?.icon ?? ""} `
+    const body = `${head}${renderChildren(node, "\n\n")}`.trim()
     return body
       .split("\n")
       .map((line) => `> ${line}`.trimEnd())

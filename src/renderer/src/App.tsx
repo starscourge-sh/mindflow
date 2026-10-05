@@ -1,10 +1,12 @@
 import { themeActions } from '@/lib/theme'
-import React, { useEffect, useRef, useState, type CSSProperties } from 'react'
+import React, { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
+import { useSwipeBack } from './lib/use-swipe-back'
 import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Plus, Settings2, X } from 'lucide-react'
 import type { Editor, JSONContent } from '@tiptap/core'
 
+import { convertImports } from './lib/convert-imports'
 import { MindflowEditor, TAGS, currentVim, goToHeading, onVimChange, setVim } from './components/mindflow'
 import { EXITS, exit, findCaptures, findHeadings, follow } from './lib/capture-links'
 import { toMarkdown } from './lib/export'
@@ -249,6 +251,13 @@ export default function App(): React.JSX.Element {
   // Once a launch, a little after it: links still bare become cards, and
   // cards whose pictures live on their sites keep a copy.
   useEffect(() => void setTimeout(cardsUp, 5000), [])
+  // Notes just imported as Markdown become documents, read once here so
+  // opening a long one later is quick. Again whenever an import lands.
+  useEffect(() => {
+    const later = setTimeout(convertImports, 1500)
+    const stop = window.api.captures.onChange(convertImports)
+    return () => (clearTimeout(later), stop())
+  }, [])
 
   // The window's controls show while the pointer is over it. Told by the main
   // process rather than read from `:hover`, which goes false over the drag strip.
@@ -316,15 +325,8 @@ export default function App(): React.JSX.Element {
     void window.api.setRecordable(on)
   }
   useEffect(() => void (recordable && window.api.setRecordable(true)), []) // eslint-disable-line react-hooks/exhaustive-deps
-  // Summoned, the box settles into place as the window fades up: a few
-  // pixels and a hair of scale, the way a sheet of paper lands.
-  useEffect(() => window.api.onShown(() => {
-    if (document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    document.querySelector('.app-container')?.animate(
-      [{ transform: 'translateY(-6px) scale(0.985)' }, { transform: 'none' }],
-      { duration: 180, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' }
-    )
-  }), [])
+  // Summoned, the box is simply there: it is called up hundreds of times a
+  // day, and a slide seen for the hundredth time only reads as waiting.
   // A focus session left running across a restart brings its timer back.
   useEffect(() => void vigil.focusNow().then((focus) => focus && window.api.showFocus(true)), [])
   // Linear's "Create more": on, a save keeps the box open for the next one.
@@ -386,6 +388,7 @@ export default function App(): React.JSX.Element {
   const [reading, setReading] = useState<{ type: string; id: string } | null>(null)
   const openAny = (type: string, id: string, travelling = false): void => {
     if (type === 'capture') return openCapture(id, travelling)
+    if (!travelling) cameBy.current = 0
     if (!latestEditing.current && editorRef.current) putDraft(editorRef.current.getJSON())
     // A nugget, article or task is a step in the box's history too: ⌘[ comes back.
     const step = `${type}:${id}`
@@ -496,9 +499,13 @@ export default function App(): React.JSX.Element {
   // Where the box has been, for back and forward the way a browser keeps
   // them: the draft you were writing (null), then each capture opened from it.
   const [trail, setTrail] = useState<{ stack: (string | null)[]; at: number }>({ stack: [null], at: 0 })
+  // Which way the last step went, so the note arrives from that side: back
+  // comes in from the left, forward from the right. A plain open is 0.
+  const cameBy = useRef(0)
   const travel = (to: number): void => {
     const where = trail.stack[to]
     if (to < 0 || to >= trail.stack.length) return
+    cameBy.current = Math.sign(to - trail.at)
     chime('tap')
     setTrail((now) => ({ ...now, at: to }))
     if (where?.includes(':')) return openAny(where.split(':')[0], where.split(':')[1], true)
@@ -506,6 +513,9 @@ export default function App(): React.JSX.Element {
     if (where) openCapture(where, true)
     else fresh(true, true)
   }
+  // Two fingers sideways on the note go back and forward too.
+  const column = useRef<HTMLDivElement>(null)
+  const swipeX = useSwipeBack(column, (by) => trail.stack[trail.at + by] !== undefined, (by) => travel(trail.at + by))
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!event.metaKey || event.shiftKey || event.altKey || event.ctrlKey || (event.key !== '[' && event.key !== ']')) return
@@ -518,6 +528,7 @@ export default function App(): React.JSX.Element {
   const openCapture = (id: string, travelling = false): void => {
     // A lock is for the note it was set on, not the next one.
     setLocked(false)
+    if (!travelling) cameBy.current = 0
     // The same one again is not a step back to take.
     if (!travelling) setTrail((now) => (now.stack[now.at] === id ? now : { stack: [...now.stack.slice(0, now.at + 1), id], at: now.at + 1 }))
     setReading(null)
@@ -571,6 +582,7 @@ export default function App(): React.JSX.Element {
   }, [editing, createMore, setCreateMore])
   const fresh = (keepDraft = false, travelling = false): void => {
     setLocked(false)
+    if (!travelling) cameBy.current = 0
     if (!travelling) setTrail({ stack: [null], at: 0 })
     if (!keepDraft) localStorage.removeItem('capture-draft')
     // A draft set aside for good takes its pending links with it; a submit
@@ -911,9 +923,9 @@ export default function App(): React.JSX.Element {
           minSize={"60%"}
           className="h-full w-full"
         >
-          <div className="h-full w-full flex flex-col">
+          <motion.div ref={column} style={{ x: swipeX }} className="h-full w-full flex flex-col">
             {reading ? (
-              <div className="flex min-h-0 flex-1 flex-col">
+              <motion.div key={reading.id} initial={{ opacity: 0, x: 10 * cameBy.current }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.1, ease: 'easeOut' }} className="flex min-h-0 flex-1 flex-col">
                 <div data-chrome className="flex items-center gap-2 px-[4.25rem] pt-2 text-control text-muted-foreground">
                   <Button variant="ghost" size="sm" onClick={() => setReading(null)}>
                     <ArrowLeft className="size-4" /> Back to your note
@@ -923,7 +935,7 @@ export default function App(): React.JSX.Element {
                 <div className="@container/page flex min-h-0 flex-1">
                   <Reader type={reading.type} id={reading.id} onOpen={openAny} onClose={() => setReading(null)} />
                 </div>
-              </div>
+              </motion.div>
             ) : (
             <>
             {/* Keyed like the editor, so each note that opens, old or fresh,
@@ -931,9 +943,11 @@ export default function App(): React.JSX.Element {
             <motion.div
               key={editing?.id ?? round}
               className="flex min-h-0 flex-1 flex-col"
-              initial={{ opacity: 0, y: 8, filter: 'blur(3px)' }}
-              animate={sending ? { opacity: 0, y: -10, scale: 0.985, filter: 'blur(2px)' } : { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-              transition={{ duration: sending ? 0.18 : 0.22, ease: [0.16, 1, 0.3, 1] }}
+              // A short fade only: notes are opened all day, so nothing blurs,
+              // and it moves only to say which way back or forward went.
+              initial={{ opacity: 0, x: 10 * cameBy.current }}
+              animate={sending ? { opacity: 0, y: -10, scale: 0.985, filter: 'blur(2px)' } : { opacity: 1, x: 0, y: 0, scale: 1, filter: 'blur(0px)' }}
+              transition={{ duration: sending ? 0.18 : 0.1, ease: 'easeOut' }}
             >
             <CapturePrompt
               key={editing?.id ?? round}
@@ -1071,7 +1085,7 @@ export default function App(): React.JSX.Element {
               </Tip>
             </main>
             )}
-          </div>
+          </motion.div>
           <SourceDrawer open={source} doc={body} onOpenChange={setSource} />
           {editing && <DetailsDrawer open={details} id={editing.id} captures={captures} onOpenChange={setDetails} onOpen={openAny} />}
         </ResizablePanel>
@@ -1368,6 +1382,22 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   }, [tab])
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null)
   const [stripSlot, setStripSlot] = useState<HTMLDivElement | null>(null)
+  // The tab going away stays a moment while the new one is already there, so
+  // its slot and scroller let go only if they are still the ones in use.
+  const keep = (set: typeof setScroller) => (node: HTMLDivElement | null) => {
+    set(node)
+    return () => set((now) => (now === node ? null : now))
+  }
+  const holdSlot = useCallback(keep(setStripSlot), []) // eslint-disable-line react-hooks/exhaustive-deps
+  const holdScroller = useCallback(keep(setScroller), []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Which way the lists travel: a tab to the right slides in from the right,
+  // one to the left from the left, the way the tabs sit in their row.
+  const lastTab = useRef(tab)
+  const travel = useRef(1)
+  if (lastTab.current !== tab) {
+    travel.current = Math.sign(TABS.indexOf(tab) - TABS.indexOf(lastTab.current)) || 1
+    lastTab.current = tab
+  }
   // The same easing as the main window's lists.
   useSmooth(scroller)
   const due = useLive(() => window.api.vigil('review:counts') as Promise<number>, 0)
@@ -1463,13 +1493,22 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
           </Tip>
         ))}
       </div>
-      <AnimatePresence mode="wait" initial={false}>
+      {/* Never waits for the old tab to leave: ⌃1 ⌃2 ⌃3 pressed fast lands
+          at once, and a spring turned around mid-way simply heads back. */}
+      <AnimatePresence mode="popLayout" initial={false} custom={travel.current}>
       <motion.div
         key={tab}
-        initial={{ opacity: 0, x: 8 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -8 }}
-        transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
+        custom={travel.current}
+        variants={{
+          from: (by: number) => ({ opacity: 0, x: 12 * by }),
+          here: { opacity: 1, x: 0 },
+          // The old tab gets out of the way fast, so the two barely overlap.
+          gone: (by: number) => ({ opacity: 0, x: -12 * by, pointerEvents: 'none', transition: { opacity: { duration: 0.07 }, x: { type: 'spring', stiffness: 700, damping: 50 } } })
+        }}
+        initial="from"
+        animate="here"
+        exit="gone"
+        transition={{ type: 'spring', stiffness: 700, damping: 50, mass: 0.6 }}
         className="flex min-h-0 flex-1 flex-col"
       >
         {/* Two kinds of thing, two places: what is waiting on you stays put,
@@ -1482,9 +1521,9 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
           </div>
         )}
         {/* Each list's top bar lands here, above the scrolling, never over rows. */}
-        <div ref={setStripSlot} className="shrink-0" />
+        <div ref={holdSlot} className="shrink-0" />
         <StripSlot.Provider value={stripSlot}>
-        <div ref={setScroller} className="min-h-0 flex-1 overflow-y-auto">
+        <div ref={holdScroller} className="min-h-0 flex-1 overflow-y-auto">
           {/* One child, which is what the easing moves. */}
           <div className="flex min-h-full flex-col">
             {tab === 'inbox' ? (

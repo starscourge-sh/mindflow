@@ -1309,6 +1309,17 @@
   white-space: nowrap;
 }
 
+// Room under the last line for the count, so scrolled to the end no words sit
+// beneath it.
+.mindflow-editor-wrapper:has(> .tiptap-word-count) > .mindflow-editor-content {
+  padding-bottom: 2.5rem;
+}
+
+// Find has the bottom while it is open: the count would sit on top of it.
+.mindflow-editor-wrapper:has(.tiptap-find-bar:not([inert])) > .tiptap-word-count {
+  display: none;
+}
+
 // Embedded videos scale to the column rather than their fixed attributes.
 .tiptap.ProseMirror.mindflow-editor div[data-youtube-video] {
   margin: 1.25em 0;
@@ -1654,6 +1665,165 @@ $nested-ul: "ul:not([data-type='taskList'])";
 // of the column the way an embed card does.
 .tiptap-attachment {
   margin: 0.75em 0;
+}
+
+// A video is the block itself: a player as wide as it was set, like a picture,
+// with the editor's own controls over its foot while the pointer is on it.
+.tiptap-attachment.is-video {
+  position: relative;
+  max-width: 100%;
+
+  &[data-align="center"] {
+    margin-inline: auto;
+  }
+
+  &[data-align="right"] {
+    margin-inline-start: auto;
+  }
+
+  &.is-selected .tiptap-video-frame {
+    outline: 2px solid var(--tt-brand-color-500, currentColor);
+    outline-offset: 2px;
+  }
+
+  // Shown while the pointer is over it, and always while it is stopped.
+  &:not(.is-playing) .tiptap-media-controls,
+  .tiptap-video-frame:hover .tiptap-media-controls {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.tiptap-video-frame {
+  position: relative;
+  display: block;
+  border-radius: 0.5rem;
+  overflow: hidden;
+
+  .tiptap-media-controls {
+    position: absolute;
+    inset: auto 0.5rem 0.5rem;
+    opacity: 0;
+    transform: translateY(0.25rem);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+}
+
+.tiptap-attachment-video {
+  display: block;
+  width: 100%;
+  background: #000;
+  cursor: pointer;
+}
+
+// Play, the place in it, the time and sound: a quiet pill in the app's own colours.
+.tiptap-media-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--tt-border-color);
+  border-radius: 0.625rem;
+  background: color-mix(in srgb, var(--tt-card-bg-color) 88%, transparent);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+  color: var(--tt-theme-text);
+  font-size: 0.75rem;
+  user-select: none;
+
+  button {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.375rem;
+    color: var(--mf-muted);
+    cursor: pointer;
+
+    &:hover {
+      background: var(--mf-surface);
+      color: var(--tt-theme-text);
+    }
+  }
+
+  svg {
+    width: 0.95rem;
+    height: 0.95rem;
+  }
+
+  input[type="range"] {
+    flex: 1;
+    min-width: 3rem;
+    height: 0.25rem;
+    border-radius: 999px;
+    appearance: none;
+    background: linear-gradient(to right, var(--tt-brand-color-500, currentColor) var(--done), var(--tt-border-color) var(--done));
+    cursor: pointer;
+
+    &::-webkit-slider-thumb {
+      width: 0.75rem;
+      height: 0.75rem;
+      border-radius: 999px;
+      appearance: none;
+      background: var(--tt-brand-color-500, currentColor);
+      box-shadow: 0 0 0 2px var(--tt-card-bg-color);
+    }
+  }
+}
+
+.tiptap-media-time {
+  flex: none;
+  color: var(--mf-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+// A recording's card carries the controls in its row, no pill of its own.
+.tiptap-attachment.is-audio {
+  position: relative;
+
+  .tiptap-media-controls {
+    flex: 1;
+    max-width: 22rem;
+    margin-inline-start: auto;
+    border: 0;
+    background: none;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+}
+
+// The picture's toolbar, over the top of a selected video or recording.
+.tiptap-media-toolbar {
+  position: absolute;
+  top: -2.75rem;
+  left: 50%;
+  z-index: 40;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.tiptap-media-name {
+  display: inline-flex;
+  flex: none;
+  align-items: baseline;
+  gap: 0.375rem;
+  max-width: 14rem;
+  padding-inline: 0.5rem;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+
+  > :first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.tiptap-media-size {
+  color: var(--mf-muted);
+  font-size: 0.75rem;
 }
 
 .tiptap-attachment-card {
@@ -2168,6 +2338,15 @@ body > div[dir][style*="-10000px"] > .tableWrapper {
   overflow: hidden !important;
 }
 
+// --- Long documents ---------------------------------------------------------
+// Blocks far from the screen are not laid out until they come near it. The
+// size each was last drawn at is remembered, so the scrollbar settles.
+
+.tiptap.ProseMirror.mindflow-editor[data-long] > * {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 2.5em;
+}
+
 // --- Callouts -------------------------------------------------------------
 // An aside. One accent does all the work: the tint and the border are mixed
 // from it, the way Linear's are, so a callout is a whisper of colour rather
@@ -2206,6 +2385,52 @@ body > div[dir][style*="-10000px"] > .tableWrapper {
 
   > .tiptap-callout-body > :last-child {
     margin-bottom: 0;
+  }
+}
+
+// An Obsidian callout's title, over its words, with the fold at its end.
+.tiptap-callout-title {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 1.6em;
+  font-weight: 600;
+  color: var(--callout-accent);
+  user-select: none;
+
+  + .tiptap-callout-body {
+    margin-top: 0.25rem;
+  }
+}
+
+.tiptap-callout-fold {
+  display: grid;
+  place-items: center;
+  width: 1.4em;
+  height: 1.4em;
+  border-radius: 0.25rem;
+  color: inherit;
+
+  &:hover {
+    background-color: var(--callout-border);
+  }
+
+  svg {
+    width: 1em;
+    height: 1em;
+    transform: rotate(90deg);
+    transition: transform 0.15s ease;
+  }
+}
+
+.tiptap-callout[data-folded] {
+  .tiptap-callout-fold svg {
+    transform: none;
+  }
+
+  // Folded: only the title shows, as in Obsidian.
+  > .tiptap-callout-body {
+    display: none;
   }
 }
 

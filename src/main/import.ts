@@ -45,7 +45,16 @@ export function chunks(text: string): string[] {
  * Past a code block's opening fence, or every block of commands is "bash".
  */
 export const titleOfMarkdown = (chunk: string): string =>
-  (chunk.split('\n').find((line) => !line.trim().startsWith('```')) ?? '')
+  // Past the frontmatter, rules, and lines that are only a picture: "---" or
+  // "!" is no name for a note.
+  (chunk.replace(/^---\n[\s\S]*?\n---(\n|$)/, '').split('\n').find((line) => {
+    const words = line.replace(/!\[\[.*?\]\](?!\])|!\[[^\]]*\]\([^)]*\)/g, '').trim()
+    return words && !words.startsWith('```') && !/^([-*_])(\s*\1){2,}$/.test(words)
+  }) ?? '')
+    .replace(/!\[\[.*?\]\](?!\])|!\[[^\]]*\]\([^)]*\)/g, '')
+    // A heading's #s, a quote's >, and a callout's [!type] are marks, not words.
+    .replace(/^\s*#{1,6}\s+/, '')
+    .replace(/^\s*(>\s*)+(\[![\w-]+\][+-]?\s*)?/, '')
     .replace(/^\s*([-*]|\d+\.)\s+(\[[ x]\]\s+)?/, '')
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     // Obsidian's own marks: [[page|shown]], [[page]], $maths$, ==highlight==, ~~struck~~.
@@ -54,6 +63,44 @@ export const titleOfMarkdown = (chunk: string): string =>
     .replace(/==|~~/g, '')
     .replace(/[*_`]/g, '')
     .trim()
+
+/** A file or folder name without the 32-character id a Notion export adds: "Classes e2293dde…" is "Classes". */
+export const withoutNotionId = (name: string): string => name.replace(/\s+[0-9a-f]{32}$/i, '')
+
+/**
+ * A note's frontmatter as plain words: `key: value`, `key: [a, b]`, and a
+ * key with a list of `- a` lines under it, each list joined with commas.
+ * Not a whole YAML reader; Obsidian's properties are only ever these shapes.
+ */
+export function propertiesOf(front: string): Record<string, string> {
+  const unquote = (text: string): string => text.trim().replace(/^(["'])([\s\S]*)\1$/, '$2').trim()
+  const found: Record<string, string> = {}
+  let key = ''
+  for (const line of front.split('\n')) {
+    const item = /^\s*-\s+(.*)$/.exec(line)
+    if (item && key) {
+      found[key] = [found[key], unquote(item[1])].filter(Boolean).join(', ')
+      continue
+    }
+    const pair = /^([^\s:#-][^:]*):(?:\s+(.*))?$/.exec(line)
+    if (!pair) continue
+    key = pair[1].trim()
+    const value = (pair[2] ?? '').trim()
+    found[key] = /^\[.*\]$/.test(value) ? value.slice(1, -1).split(',').map(unquote).filter(Boolean).join(', ') : unquote(value)
+  }
+  return Object.fromEntries(Object.entries(found).filter(([, value]) => value))
+}
+
+/**
+ * A file that holds credentials themselves, not notes about them: `.env`,
+ * `credentials.csv`, `passwords.md`, keys and keychains, and folders named for
+ * them. "Secrets Manager" and "Store credentials in SSM" are study notes and
+ * come in.
+ */
+export const isPrivateFile = (name: string, folder: boolean): boolean =>
+  folder
+    ? /^((r-)?creds?|credentials|secrets|passwords|private[-_ ]?keys?)$/i.test(name)
+    : /^\.env(\..*)?$|(^|[-_ .])(credentials?|passwords?|creds|secrets)(\.\w+)?$|\.(pem|key|p12|pfx|kdbx|keychain)$|^id_(rsa|dsa|ecdsa|ed25519)(\.pub)?$|private[-_ ]?key/i.test(name)
 
 /** When the file says it was made, or nothing. */
 export const createdOf = (text: string): string | null =>

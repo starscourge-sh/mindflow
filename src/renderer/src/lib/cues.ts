@@ -29,6 +29,12 @@ export type EditorCue =
   /** The source panel opened, or closed. */
   | "source"
   | "source-close"
+  /** A callout folded away to its title, or opened again. */
+  | "fold"
+  | "unfold"
+  /** A video or a recording started, or stopped. */
+  | "play"
+  | "pause"
 
 let play: (cue: EditorCue, n?: number) => void = () => {}
 

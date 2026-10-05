@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
 import { Button } from '@/components/ui/button'
 import { Kbd, Rolling, Typed, toast } from './ui'
@@ -53,8 +53,20 @@ export function Tour({ firstRun = false }: { firstRun?: boolean }): React.JSX.El
   const stop = STOPS[at] as Stop | undefined
   // Where the lit part is, measured after layout and again when the window changes size.
   const [rect, setRect] = useState<DOMRect | null>(null)
+  const card = useRef<HTMLDivElement>(null)
+  // The card's own height, followed as its sentence types in, so it can be kept inside the window.
+  const [cardH, setCardH] = useState(200)
+  useLayoutEffect(() => {
+    const el = card.current
+    if (!el) return
+    const watch = new ResizeObserver(() => setCardH(el.offsetHeight))
+    watch.observe(el)
+    return () => watch.disconnect()
+  }, [at])
   useLayoutEffect(() => {
     const measure = (): void => setRect(stop?.at ? document.querySelector(stop.at)?.getBoundingClientRect() ?? null : null)
+    // The lit part may be scrolled out of its list in a small window: bring it into view first.
+    if (stop?.at) document.querySelector(stop.at)?.scrollIntoView({ block: 'nearest' })
     measure()
     window.addEventListener('resize', measure)
     return () => window.removeEventListener('resize', measure)
@@ -92,6 +104,9 @@ export function Tour({ firstRun = false }: { firstRun?: boolean }): React.JSX.El
     void window.api.importFrom(what)
   }
   const pad = 6
+  // The card goes under the lit part, or over it, and never past the window's edges.
+  const fit = (top: number): number => Math.max(16, Math.min(top, window.innerHeight - cardH - 16))
+  const top = !rect ? '30%' : rect.bottom + pad + 10 + cardH + 16 <= window.innerHeight ? rect.bottom + pad + 10 : fit(rect.top - pad - 10 - cardH)
   return (
     <div role="dialog" aria-label="Tour" className="fixed inset-0 z-[60]">
       {/* The dim, with a hole where the lit part is: one shadow, spread wide. */}
@@ -105,8 +120,9 @@ export function Tour({ firstRun = false }: { firstRun?: boolean }): React.JSX.El
       )}
       <div
         key={at}
+        ref={card}
         className="absolute left-1/2 w-[min(26rem,calc(100vw-2rem))] -translate-x-1/2 rounded-xl border bg-background p-4 text-body shadow-(--mf-panel-shadow) animate-in fade-in-0 slide-in-from-bottom-2 duration-200"
-        style={{ top: rect && rect.bottom + 180 < window.innerHeight ? rect.bottom + 16 : rect ? Math.max(16, rect.top - 220) : '30%' }}
+        style={{ top }}
       >
         <div className="mb-1 flex items-center gap-2">
           <span className="font-semibold text-foreground">{stop?.title ?? 'Bring what you have'}</span>

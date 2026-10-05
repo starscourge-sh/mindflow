@@ -49,10 +49,14 @@ export function markdown(value: unknown, nameOf: (id: string) => string | undefi
     nodes.map((node) => {
       if (node.type === 'hardBreak') return '  \n'
       if (node.type === 'noteLink') return link(String(node.attrs?.id ?? ''), String(node.attrs?.label ?? ''))
-      if (node.type === 'image') return `![${node.attrs?.alt ?? ''}](${node.attrs?.src ?? ''})`
+      // A width goes after a bar, the way Obsidian writes one.
+      if (node.type === 'image') return `![${node.attrs?.alt ?? ''}${node.attrs?.width ? `|${parseInt(String(node.attrs.width))}` : ''}](${node.attrs?.src ?? ''})`
+      if (node.type === 'inlineMath') return `$${node.attrs?.latex ?? ''}$`
+      if (node.type === 'emoji') return `:${node.attrs?.name ?? ''}:`
       let text = node.text ?? inline(node.content)
       for (const mark of node.marks ?? []) {
-        if (mark.type === 'bold') text = `**${text}**`
+        if (mark.type === 'highlight') text = `==${text}==`
+        else if (mark.type === 'bold') text = `**${text}**`
         else if (mark.type === 'italic') text = `*${text}*`
         else if (mark.type === 'strike') text = `~~${text}~~`
         else if (mark.type === 'code') text = `\`${text}\``
@@ -69,13 +73,34 @@ export function markdown(value: unknown, nameOf: (id: string) => string | undefi
       case 'codeBlock': return `\`\`\`${node.attrs?.language ?? ''}\n${inline(kids)}\n\`\`\``
       case 'horizontalRule': return '---'
       case 'image': return inline([node])
+      case 'blockMath': return `$$\n${node.attrs?.latex ?? ''}\n$$`
+      case 'youtube': return `![](${node.attrs?.src ?? ''})`
+      case 'attachment': return `[${node.attrs?.name || 'Attachment'}](${node.attrs?.src ?? ''})`
+      // A link card as Obsidian's cardlink block, which is what it came in as.
+      case 'bookmark': return ['```cardlink', ...Object.entries({ url: node.attrs?.href, title: node.attrs?.title, description: node.attrs?.description, host: node.attrs?.site, favicon: node.attrs?.icon, image: node.attrs?.image })
+        .filter(([, value]) => value).map(([key, value]) => `${key}: ${JSON.stringify(value)}`), '```'].join('\n')
+      // A callout as Obsidian writes one: its type, whether it folds, its title, then its lines.
+      case 'callout': {
+        const head = node.attrs?.type ? `[!${node.attrs.type}]${node.attrs.fold ?? ''}${node.attrs.title ? ` ${node.attrs.title}` : ''}` : `[!note] ${node.attrs?.icon ?? ''}`.trimEnd()
+        return [head, ...kids.map((child) => block(child)).join('\n\n').split('\n')].map((line) => `> ${line}`.trimEnd()).join('\n')
+      }
+      // A table as GFM pipes: the first row is its header, and a cell's own
+      // lines and bars are kept as <br> and \| so the row stays one line.
+      case 'table': {
+        const rows = kids.map((row) => (row.content ?? []).map((cell) => (cell.content ?? []).map((child) => block(child)).join('<br>').replace(/\n/g, '<br>').replace(/\|/g, '\\|')))
+        const width = Math.max(...rows.map((row) => row.length))
+        const line = (cells: string[]): string => `${indent}| ${[...cells, ...Array(width - cells.length).fill('')].join(' | ')} |`
+        return [line(rows[0] ?? []), line(Array(width).fill('---')), ...rows.slice(1).map(line)].join('\n')
+      }
       case 'bulletList':
       case 'orderedList':
       case 'taskList':
         return kids.map((item, n) => {
           const mark = node.type === 'orderedList' ? `${n + 1}.` : node.type === 'taskList' ? `- [${item.attrs?.checked ? 'x' : ' '}]` : '-'
           const [first, ...rest] = item.content ?? []
-          return [`${indent}${mark} ${first ? inline(first.content) : ''}`, ...rest.map((child) => block(child, indent + '  '))].join('\n')
+          // An item that starts with something other than words, a rule say, keeps it: "- ---".
+          const lead = !first ? '' : first.type === 'paragraph' ? inline(first.content) : block(first).trim()
+          return [`${indent}${mark} ${lead}`, ...rest.map((child) => block(child, indent + '  '))].join('\n')
         }).join('\n')
       default: return kids.length ? kids.map((child) => block(child, indent)).join('\n\n') : inline([node])
     }
@@ -1508,6 +1533,14 @@ export function registerVigil(): void {
     // folder listing reads like the notes do.
     const front = (fields: Record<string, unknown>): string =>
       `---\n${Object.entries(fields).filter(([, v]) => v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && !v.length)).map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join('\n')}\n---\n\n`
+    // Every property a note has, an imported note's frontmatter among them.
+    const properties = (fields: string | null): Record<string, unknown> => {
+      try {
+        return fields ? (JSON.parse(fields) as Record<string, unknown>) : {}
+      } catch {
+        return {}
+      }
+    }
     const slug = (text: string): string => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50)
     // Pictures point at the assets copied beside the notes, not the app's own store.
     const local = (text: string): string => text.replace(/mindflow:\/\/assets\//g, '../assets/')
@@ -1532,7 +1565,7 @@ export function registerVigil(): void {
     for (const row of captureRows) {
       const body = JSON.parse(row.body ?? 'null')
       await writeFile(join(folder, 'markdown', `${names.get(row.id)}.md`),
-        front({ id: `MF-${row.number}`, kind: row.kind, status: row.status, captured: row.captured_at, who: row.attribution, where: row.medium, tags: tagsIn(plain(body)) }) + local(markdown(body, nameOf)))
+        front({ id: `MF-${row.number}`, kind: row.kind, status: row.status, captured: row.captured_at, who: row.attribution, where: row.medium, ...properties(row.fields), tags: tagsIn(plain(body)) }) + local(markdown(body, nameOf)))
     }
     for (const row of nuggetRows) {
       const body = JSON.parse(row.body ?? 'null')
@@ -1540,7 +1573,7 @@ export function registerVigil(): void {
       // A heading of its own already names it; otherwise the title does.
       const heading = /^#\s/.test(text) ? '' : `# ${row.title}\n\n`
       await writeFile(join(folder, 'markdown', `${names.get(row.id)}.md`),
-        front({ kind: row.tier, created: row.created_at, who: row.attribution, question: row.prompt, tags: tagsIn(plain(body)) }) + heading + text)
+        front({ kind: row.tier, created: row.created_at, updated: row.updated_at, who: row.attribution, question: row.prompt, ...properties(row.fields), tags: tagsIn(plain(body)) }) + heading + text)
     }
     // The pictures and files the notes point at.
     await cp(join(app.getPath('userData'), 'assets'), join(folder, 'assets'), { recursive: true }).catch(() => undefined)

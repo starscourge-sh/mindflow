@@ -34,40 +34,6 @@ export function Thumb({ id, className = 'size-9' }: { id: string; className?: st
   )
 }
 
-// --- dragging rows into your own order
-
-/**
- * What a row needs to be dragged onto another, and the line showing where it
- * would land: above the row or below it, by which half the pointer is over.
- * Nothing at all without `onMove`, so a list not in your own order never drags.
- */
-export function useRowDrag(onMove?: (id: string, target: string, after: boolean) => void): {
-  drag: (id: string) => React.ButtonHTMLAttributes<HTMLButtonElement>
-  line: (id: string) => React.JSX.Element | null
-} {
-  const [over, setOver] = useState<{ id: string; after: boolean } | null>(null)
-  return {
-    drag: (id) => onMove ? {
-      draggable: true,
-      onDragStart: (event) => event.dataTransfer.setData('text/vigil-row', id),
-      onDragOver: (event) => {
-        if (!event.dataTransfer.types.includes('text/vigil-row')) return
-        event.preventDefault()
-        const box = event.currentTarget.getBoundingClientRect()
-        const after = event.clientY > box.top + box.height / 2
-        if (over?.id !== id || over.after !== after) setOver({ id, after })
-      },
-      onDragLeave: () => setOver(null),
-      onDrop: (event) => {
-        const dragged = event.dataTransfer.getData('text/vigil-row')
-        setOver(null)
-        if (dragged) onMove(dragged, id, over?.after ?? false)
-      }
-    } : {},
-    line: (id) => over?.id === id ? <span aria-hidden className={`pointer-events-none absolute right-2 left-2 h-0.5 rounded-full bg-[var(--tt-brand-color-400)] ${over.after ? '-bottom-px' : '-top-px'}`} /> : null
-  }
-}
-
 // --- list or cards
 
 export type Layout = 'list' | 'cards'
@@ -249,12 +215,30 @@ export function KindFields({ table, id, kind }: { table: NoteTable; id: string; 
   // would write that over what is kept.
   const read = useLive(() => notes.fields(table, id).then((values) => ({ of: `${table}:${id}`, values })), { of: '', values: {} as Record<string, string | number> }, [table, id])
   const values = read.values
-  if (!fields.length || read.of !== `${table}:${id}`) return null
+  // Properties a note came with that its kind does not ask for: an imported
+  // note's frontmatter, every key of it, shown and editable as words.
+  const others = Object.keys(values).filter((key) => !fields.some((field) => field.key === key))
+  if ((!fields.length && !others.length) || read.of !== `${table}:${id}`) return null
   const save = (key: string, value: string | number | null): void => {
     if ((values[key] ?? null) === (value === '' ? null : value)) return
     void notes.setField(table, id, key, value === '' ? null : value).then(() => chime('noted'))
   }
+  const properties = others.length ? (
+    <Island compact title="Properties">
+      {others.map((key) => (
+        <div key={`${id}-${key}-${values[key]}`} className="flex items-center gap-1 pl-2">
+          <span className="w-20 shrink-0 truncate text-meta" title={key}>{key}</span>
+          <div className="min-w-0 flex-1">
+            <PropInput icon={Type} value={String(values[key] ?? '')} placeholder={key} onSave={(text) => save(key, text)} />
+          </div>
+        </div>
+      ))}
+    </Island>
+  ) : null
+  if (!fields.length) return properties
   return (
+    <>
+    {properties}
     <Island compact title={`${CAPTURE_TYPES.find((type) => type.id === kind)?.label ?? 'Kind'} details`}>
       {fields.map((field) => {
         const value = values[field.key]
@@ -287,6 +271,7 @@ export function KindFields({ table, id, kind }: { table: NoteTable; id: string; 
         return <PropInput key={`${id}-${field.key}-${value ?? ''}`} icon={Type} value={String(value ?? '')} placeholder={field.placeholder ?? field.label} onSave={(text) => save(field.key, text)} />
       })}
     </Island>
+    </>
   )
 }
 

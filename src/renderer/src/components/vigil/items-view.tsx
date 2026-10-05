@@ -31,7 +31,8 @@ import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
 import { Archive, ArchiveRestore, Download } from 'lucide-react'
-import { KindFields, LayoutToggle, LocalGraph, NoteCards, Thumb, Versions, useLayout, useRowDrag } from './note-extras'
+import { KindFields, LayoutToggle, LocalGraph, NoteCards, Thumb, Versions, useLayout } from './note-extras'
+import { SortableList, SortableRow } from './sortable'
 import { archive, changeKind, openWindow, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 
 const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
@@ -46,7 +47,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   const { groups, display, move, moveBy } = useItemDisplay(tier, all)
   const items = groups.flatMap(([, list]) => list)
   const [layout, setLayout] = useLayout(tier)
-  const { drag, line } = useRowDrag((id, target, after) => move(all.map((one) => one.id), id, target, after))
+  const onMove = (id: string, target: string, after: boolean): void => move(all.map((one) => one.id), id, target, after)
   // Each group's name, on its first row.
   const heads = new Map(groups.map(([name, list]) => [list[0], name]))
   const [open, setOpen] = useState<ItemFull | null>(null)
@@ -198,8 +199,11 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           <NoteCards table="nuggets" cards={items.map((one) => ({ id: one.id, title: one.title, kind: one.kind, type: tier, dim: !!one.suspended, private: !!one.private }))} selected={open?.id} cursor={cursor} onPick={pick}
             menu={(card) => menuFor(items.find((one) => one.id === card.id)!)} />
         ) : items.length ? (
+          <SortableList items={items} keyOf={(item) => item.id} onMove={onMove}>
+          {(items) => (
           <VirtualList items={items} keyOf={(item) => item.id} cursor={cursor} estimate={60} className="mx-3 my-2">
             {(item, index) => (
+              <SortableRow id={item.id}>
               <div className="flex flex-col">
               {heads.get(item) && <div className={`px-2 pb-1 text-xs text-muted-foreground ${index === 0 ? 'pt-1' : 'pt-4'}`}>{heads.get(item)}</div>}
               <RowMenu items={menuFor(item)}>
@@ -211,16 +215,17 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
                 data-row
                 // ⌘-click: a window of its own, as in every other list; shift-click selects.
                 onClick={(event) => (event.metaKey ? openWindow(tier, item.id) : event.shiftKey ? toggle(item.id) : pick(item.id))}
-                {...drag(item.id)}
                 className={`relative rounded-sm px-2 py-1.5 text-left transition-colors ${chosen.includes(item.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : item.id === open?.id ? 'bg-accent' : index === cursor ? 'bg-accent/50' : 'hover:bg-accent/50'} ${item.suspended ? 'opacity-50' : ''}`}
               >
-                {line(item.id)}
                 {tier === 'nugget' ? <NuggetRow item={item} /> : <ArticleRow item={item} />}
               </button>
               </RowMenu>
               </div>
+              </SortableRow>
             )}
           </VirtualList>
+          )}
+          </SortableList>
         ) : tier === 'nugget' ? (
           <Empty shape={['star', 3]} title="Nothing kept yet">
             A nugget is a capture worth keeping, cleaned up so it reads cold. Promote one from the inbox or a rot card and it lands here, ready to come back to you.
@@ -393,9 +398,7 @@ export function ItemDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (ty
         {item.tier === 'nugget' && (
           <>
             <Island compact title="Kind">
-              <div>
-                <CaptureKindPicker value={item.kind as CaptureType} onChange={(kind) => void changeKind('nuggets', item.id, item.kind, kind)} />
-              </div>
+              <CaptureKindPicker flat value={item.kind as CaptureType} onChange={(kind) => void changeKind('nuggets', item.id, item.kind, kind)} />
             </Island>
             <KindFields table="nuggets" id={item.id} kind={item.kind} />
           </>

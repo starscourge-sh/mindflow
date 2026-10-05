@@ -27,6 +27,8 @@ const parse = (text: string | null | undefined): unknown => {
 const assets = (): string => join(app.getPath('userData'), 'assets')
 /** A stored picture's address: the first one in a body is its thumbnail. */
 const PICTURE = /mindflow:\/\/assets\/[a-f0-9]{64}\.(?:png|jpe?g|gif|webp|avif|bmp|heic|svg)/
+/** A stored video: a note with no picture shows its first frame instead. */
+const VIDEO = /mindflow:\/\/assets\/[a-f0-9]{64}\.(?:mp4|m4v|mov|webm)/
 
 type Doc = { type?: string; text?: string; attrs?: Record<string, unknown>; content?: Doc[] }
 
@@ -97,15 +99,22 @@ export function registerNotes({ load, guard }: Windows): void {
   const firsts: Kept<string> = new Map()
   handle('notes:thumbs', () => {
     const rows = db.prepare(`select id, body from captures where body like '%mindflow://assets/%' union all select id, body from nuggets where body like '%mindflow://assets/%'`).all() as { id: string; body: string }[]
-    return Object.fromEntries(rows.map((row) => [row.id, remember(firsts, row.id, row.body, () => PICTURE.exec(row.body)?.[0] ?? '')]).filter(([, src]) => src))
+    return Object.fromEntries(rows.map((row) => [row.id, remember(firsts, row.id, row.body, () => PICTURE.exec(row.body)?.[0] ?? VIDEO.exec(row.body)?.[0] ?? '')]).filter(([, src]) => src))
   })
   // Small and kept: a list shows dozens at once, and the full picture is
   // often megabytes. Made once per picture per run.
   const small = new Map<string, string>()
-  handle('notes:thumb', (src: string) => {
-    if (!PICTURE.test(String(src))) return ''
+  handle('notes:thumb', async (src: string) => {
     const cached = small.get(src)
     if (cached !== undefined) return cached
+    // A video's first frame, as Finder's Quick Look draws it: no player needed.
+    if (VIDEO.test(String(src))) {
+      const frame = await nativeImage.createThumbnailFromPath(join(assets(), src.replace('mindflow://assets/', '')), { width: 192, height: 192 }).catch(() => null)
+      const made = frame && !frame.isEmpty() ? `data:image/jpeg;base64,${frame.toJPEG(72).toString('base64')}` : ''
+      small.set(src, made)
+      return made
+    }
+    if (!PICTURE.test(String(src))) return ''
     const image = nativeImage.createFromPath(join(assets(), src.replace('mindflow://assets/', '')))
     // A picture the system cannot read (an SVG) is shown as it is.
     const made = image.isEmpty() ? src : `data:image/jpeg;base64,${image.resize({ height: 96, quality: 'good' }).toJPEG(72).toString('base64')}`
