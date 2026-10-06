@@ -87,13 +87,15 @@ function useTooltip({
     onOpenChange: setOpen,
     whileElementsMounted: autoUpdate,
     middleware: [
-      offset(4),
+      // Clear of the button it names, and of the window's edges: the same
+      // breathing room as the app's own tooltips.
+      offset(8),
       flip({
         crossAxis: placement.includes("-"),
         fallbackAxisSideDirection: "start",
-        padding: 4,
+        padding: 10,
       }),
-      shift({ padding: 4 }),
+      shift({ padding: 10 }),
     ],
   })
 
