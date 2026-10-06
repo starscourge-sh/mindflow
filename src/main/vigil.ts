@@ -2195,7 +2195,14 @@ export function registerHome(): void {
         let text = raw
         try { text = plain(JSON.parse(raw)) } catch { /* Markdown, as it is */ }
         const lines = text.split('\n').map((line) => line.replace(/^[#>*\-\s]+/, '').trim()).filter(Boolean)
-        excerpts.set(card.id, (lines[0]?.startsWith(card.title.slice(0, 20)) ? lines.slice(1) : lines).join(' ').slice(0, 220))
+        // Never the title again: drop the lines the title already says (a
+        // name can be made from the first line or two), then any of its words.
+        const flat = (words: string): string => words.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
+        const name = flat(card.title)
+        while (lines.length && name.includes(flat(lines[0]))) lines.shift()
+        let rest = lines.join(' ')
+        if (name && flat(rest).startsWith(name)) rest = rest.slice(card.title.length).trim()
+        excerpts.set(card.id, rest.slice(0, 220))
       }
       return { ...card, excerpt: card.private ? '' : excerpts.get(card.id)! }
     }
