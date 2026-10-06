@@ -1,7 +1,7 @@
-import { ipcMain, type WebContents } from 'electron'
+import { dialog, ipcMain, type WebContents } from 'electron'
 import { createHash } from 'crypto'
 import { readdir, stat } from 'fs/promises'
-import { extname, isAbsolute, join } from 'path'
+import { basename, extname, isAbsolute, join } from 'path'
 import { database } from './captures'
 import { dayKey, dayjs, startOfDay } from './dates'
 import { celebrationPrefs, gate } from './vigil'
@@ -13,8 +13,11 @@ import { celebrationPrefs, gate } from './vigil'
  * GIFs are served as they are, so they keep moving; nothing is copied.
  */
 
+/** The kinds of milestone, each of which can have a file of its own to play. */
+export const MOMENTS = ['kept', 'streak', 'inbox', 'tasks', 'year', 'answered'] as const
+export type MomentKind = (typeof MOMENTS)[number]
 /** A milestone, as the window shows it. `rank` decides between two at once. */
-export type Moment = { id: string; rank: number; headline: string; line?: string; mark: string; tint: string }
+export type Moment = { id: string; kind: MomentKind; rank: number; headline: string; line?: string; mark: string; tint: string }
 export type Media = { url: string; video: boolean; name: string }
 
 const KINDS: Record<string, 'image' | 'video'> = {
@@ -27,8 +30,10 @@ const LARGEST = 25 * 1024 * 1024
 const APART = 10 * 60000
 
 // What the windows may load, by the name they ask for: only files found in
-// the chosen folder ever get a name, so nothing else on the disk can be read.
+// the chosen folder, and the files picked for a moment, ever get a name, so
+// nothing else on the disk can be read.
 let served = new Map<string, string>()
+let picked = new Map<string, string>()
 let listed: { folder: string; at: number; items: Media[] } | null = null
 
 /** The usable files in the folder, looked at again after a minute. */
@@ -43,7 +48,7 @@ async function media(folder: string): Promise<Media[]> {
     const path = join(folder, entry.name)
     const facts = await stat(path).catch(() => null)
     if (!facts?.size || facts.size > LARGEST) continue
-    const name = `${createHash('sha1').update(path).digest('hex').slice(0, 32)}${ext}`
+    const name = nameFor(path)
     names.set(name, path)
     items.push({ url: `mindflow://celebrate/${name}`, video: KINDS[ext] === 'video', name: entry.name })
   }
@@ -52,8 +57,30 @@ async function media(folder: string): Promise<Media[]> {
   return items
 }
 
-/** Where a name the protocol was asked for lives, if it came from the folder. */
-export const celebrationFile = (name: string): string | null => served.get(name) ?? null
+/** The name a file is asked for by: a hash of where it is, and its kind of file. */
+const nameFor = (path: string): string => `${createHash('sha1').update(path).digest('hex').slice(0, 32)}${extname(path).toLowerCase()}`
+
+/** The file picked for each moment, where it is still there and still playable. */
+async function picks(): Promise<Partial<Record<MomentKind, Media>>> {
+  const chosen = celebrationPrefs().picks
+  const out: Partial<Record<MomentKind, Media>> = {}
+  const names = new Map<string, string>()
+  for (const kind of MOMENTS) {
+    const path = chosen[kind]
+    const ext = typeof path === 'string' ? extname(path).toLowerCase() : ''
+    if (!path || !isAbsolute(path) || !KINDS[ext]) continue
+    const facts = await stat(path).catch(() => null)
+    if (!facts?.isFile() || !facts.size || facts.size > LARGEST) continue
+    const name = nameFor(path)
+    names.set(name, path)
+    out[kind] = { url: `mindflow://celebrate/${name}`, video: KINDS[ext] === 'video', name: basename(path) }
+  }
+  picked = names
+  return out
+}
+
+/** Where a name the protocol was asked for lives, if it came from the folder or a pick. */
+export const celebrationFile = (name: string): string | null => served.get(name) ?? picked.get(name) ?? null
 
 // The windows that can show one: the box and the main window. A milestone
 // reached anywhere else (a note in its own window, a sticky) waits for one of
@@ -75,8 +102,8 @@ function kept(): Moment | null {
   const rank = ({ 1: 10, 10: 20, 100: 60, 500: 80, 1000: 100 } as Record<number, number>)[n]
   if (!rank || fired(`kept:${n}`)) return null
   return n === 1
-    ? { id: 'kept:1', rank, headline: 'Your first capture', line: 'Out of your head, and kept.', mark: '1', tint: TINT.blue }
-    : { id: `kept:${n}`, rank, headline: `${n.toLocaleString('en')} captures kept`, line: 'Each one out of your head.', mark: n.toLocaleString('en'), tint: TINT.blue }
+    ? { id: 'kept:1', kind: 'kept', rank, headline: 'Your first capture', line: 'Out of your head, and kept.', mark: '1', tint: TINT.blue }
+    : { id: `kept:${n}`, kind: 'kept', rank, headline: `${n.toLocaleString('en')} captures kept`, line: 'Each one out of your head.', mark: n.toLocaleString('en'), tint: TINT.blue }
 }
 
 /** Capturing 7, 30 or 100 days in a row, counted back from today. */
@@ -87,7 +114,7 @@ function streak(): Moment | null {
   const rank = ({ 7: 30, 30: 65, 100: 90 } as Record<number, number>)[n]
   if (!rank || fired(`streak:${n}`)) return null
   const line = { 7: 'Something kept every day for a week.', 30: 'Something kept every day for a month.', 100: 'A hundred days without missing one.' }[n as 7 | 30 | 100]
-  return { id: `streak:${n}`, rank, headline: `${n} days in a row`, line, mark: `${n}`, tint: TINT.orange }
+  return { id: `streak:${n}`, kind: 'streak', rank, headline: `${n} days in a row`, line, mark: `${n}`, tint: TINT.orange }
 }
 
 /** The inbox emptied, on a day it held five or more: once a day. */
@@ -96,7 +123,7 @@ function emptied(): Moment | null {
   if (fired(id) || count("select count(*) as n from captures where status = 'open' and archived_at is null")) return null
   const cleared = count('select count(*) as n from captures where exited_at >= ?', today())
   if (cleared < 5) return null
-  return { id, rank: 40, headline: 'Inbox empty', line: `${cleared} captures dealt with today.`, mark: '0', tint: TINT.green }
+  return { id, kind: 'inbox', rank: 40, headline: 'Inbox empty', line: `${cleared} captures dealt with today.`, mark: '0', tint: TINT.green }
 }
 
 /** Every task due today done, on a day with three or more done: once a day. */
@@ -109,7 +136,7 @@ function finished(): Moment | null {
   const due = count('select count(*) as n from tasks where due_at >= ? and due_at < ?', today(), end) +
     count("select count(*) as n from tasks t join task_done d on d.task_id = t.id where d.done_at >= ? and t.recurrence is not null", today())
   if (done < 3 || !due) return null
-  return { id, rank: 35, headline: "Today's tasks, all done", line: `${done} done today.`, mark: `${done}`, tint: TINT.green }
+  return { id, kind: 'tasks', rank: 35, headline: "Today's tasks, all done", line: `${done} done today.`, mark: `${done}`, tint: TINT.green }
 }
 
 /** A note back in review that was kept a year or more ago: once a note, once a day. */
@@ -123,7 +150,7 @@ function longAgo(itemId: unknown): Moment | null {
   const onTheDay = dayjs(row.createdAt).format('MM-DD') === dayjs().format('MM-DD')
   const headline = onTheDay ? `${years === 1 ? 'A year' : `${years} years`} ago today you kept this` : `Kept ${years === 1 ? 'a year' : `${years} years`} ago`
   // A private note is never named on a card that might be on a shared screen.
-  return { id: `year:${itemId}`, rank: 55, headline, line: row.private || gate().hidePrivate ? undefined : row.title, mark: `${years}y`, tint: TINT.purple }
+  return { id: `year:${itemId}`, kind: 'year', rank: 55, headline, line: row.private || gate().hidePrivate ? undefined : row.title, mark: `${years}y`, tint: TINT.purple }
 }
 
 /** A question answered: the first, then every tenth. */
@@ -132,7 +159,7 @@ function answered(id: unknown): Moment | null {
   if (!(n === 1 || n % 10 === 0) || fired(`answered:${n}`)) return null
   const row = typeof id === 'string' ? (database().prepare('select title, private from nuggets where id = ?').get(id) as { title: string; private: number } | undefined) : undefined
   return {
-    id: `answered:${n}`, rank: n === 1 ? 45 : 50,
+    id: `answered:${n}`, kind: 'answered', rank: n === 1 ? 45 : 50,
     headline: n === 1 ? 'Your first question answered' : `${n} questions answered`,
     line: row && !row.private && !gate().hidePrivate ? row.title : undefined, mark: `${n}`, tint: TINT.yellow
   }
@@ -189,4 +216,15 @@ export function registerCelebrations(): void {
   // The files in a folder: the one asked about (Settings' count), or the chosen one.
   ipcMain.handle('vigil:celebrations', (_event, folder?: unknown) =>
     media(typeof folder === 'string' ? folder : celebrationPrefs().folder))
+  // The file picked for each moment, from Settings only: never a path the window names.
+  ipcMain.handle('vigil:celebrations:picks', () => picks())
+  ipcMain.handle('vigil:celebrations:choose', async () => {
+    const { filePaths } = await dialog.showOpenDialog({
+      title: 'Choose what plays',
+      buttonLabel: 'Use this',
+      properties: ['openFile'],
+      filters: [{ name: 'GIFs, pictures and clips', extensions: Object.keys(KINDS).map((ext) => ext.slice(1)) }]
+    })
+    return filePaths[0] ?? null
+  })
 }

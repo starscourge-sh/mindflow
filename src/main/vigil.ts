@@ -10,7 +10,7 @@ import { LABEL, LIST, atomically, changed, database, like, movedOn, type Change 
 import { advance, readTask } from './task-words'
 import { dayKey, dayMonth, dayjs, daysFromToday, monthName, num, startOfDay } from './dates'
 import { backupDir, checkMarkdown } from './backup'
-import { celebrateAfter, watches } from './celebrate'
+import { celebrateAfter, watches, type MomentKind } from './celebrate'
 
 /**
  * Everything past the capture: nuggets and articles, the review queue, tasks,
@@ -133,6 +133,19 @@ function devFolder(path: string): string {
   return !app.isPackaged && existsSync(full) ? full : ''
 }
 
+/** The developer's own file for each moment, under the same rule as devFolder. */
+function devPicks(): Partial<Record<MomentKind, string>> {
+  const files: Record<MomentKind, string> = {
+    kept: '467097809_1166086144860069_741815299916840190_n.gif',
+    streak: '467097809_1166086144860069_741815299916840190_n.gif',
+    inbox: '732863253_842536828689706_5251082396523319902_n.gif',
+    tasks: 'stewie-stewie-griffin.gif',
+    year: 'HQn0GA4XcAAXmEH.jpeg',
+    answered: 'example_You can now Rick roll in 4K, thanks to machine learning_2021-02-20_190500_4272.mp4'
+  }
+  return Object.fromEntries(Object.entries(files).map(([kind, file]) => [kind, devFolder(`Downloads/memes/${file}`)]).filter(([, path]) => path))
+}
+
 const DEFAULTS = {
   // Pages sit in a centred column, as Notion lays them out, unless this is on.
   fullWidth: false,
@@ -214,6 +227,9 @@ const DEFAULTS = {
   // folder (a GIF, a picture, a short clip). Empty is none: a grainy cover.
   celebrate: true,
   celebrationsFolder: devFolder('Downloads/memes'),
+  // A file of its own for each kind of milestone, played in place of one at
+  // random from the folder. A file no longer there falls back to the folder.
+  celebrationPicks: devPicks(),
   // A question you are holding comes back now and then as a hint card: still
   // open, how long, how many clues. Off in Settings.
   questionsBack: true,
@@ -303,8 +319,11 @@ function spellingLanguages(): string[] {
   return [...new Set(picked.length ? picked : mac)].filter((one) => known.has(one))
 }
 
-/** Whether milestones are celebrated, and from which folder. */
-export const celebrationPrefs = (): { on: boolean; folder: string } => ({ on: settings().celebrate !== false, folder: settings().celebrationsFolder || '' })
+/** Whether milestones are celebrated, from which folder, and the file picked for each kind. */
+export const celebrationPrefs = (): { on: boolean; folder: string; picks: Partial<Record<MomentKind, string>> } => {
+  const now = settings()
+  return { on: now.celebrate !== false, folder: now.celebrationsFolder || '', picks: now.celebrationPicks ?? {} }
+}
 
 /** The Motion setting, for the window's own arrival. */
 export const motionOn = (): boolean => settings().motion

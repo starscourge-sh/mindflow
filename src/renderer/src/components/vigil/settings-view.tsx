@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { PACKS, chime, click, soundOn, step } from '@/lib/sound'
 import { NOTE_FONTS } from '@/lib/editor-setup'
-import { FolderPlus, Keyboard, type LucideIcon } from 'lucide-react'
+import { FolderPlus, Keyboard, Shuffle, type LucideIcon } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
 import SaveIcon from '@/components/ui/save-icon'
@@ -23,7 +23,7 @@ import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
 import { ThemePicker } from '../theme/theme-picker'
 import { Switch } from '@/components/ui/switch'
-import { useLive, vigil, type Settings } from '@/lib/vigil'
+import { useLive, vigil, type MomentKind, type Settings } from '@/lib/vigil'
 import { SoundPacks } from './sound-packs'
 import { FontPicker, TextSize } from './font-picker'
 import { BackToTop, Kbd, Rolling, Tip, refuse, toast, useSmooth } from './ui'
@@ -410,10 +410,11 @@ export function SettingsView(): React.JSX.Element {
         </Group>
         <Group section="Scenery" title="Celebrations">
           <Setting title="Celebrate milestones" note="A small card on the rare days worth marking: your 100th capture, an inbox emptied, a week of capturing in a row. Never for an everyday save or tick, and never more than one in ten minutes." keywords="celebrate celebration milestone gif meme party confetti fun">
-            <Button variant="outline" size="sm" onClick={tryCelebration}>Try a celebration</Button>
+            <Button variant="outline" size="sm" onClick={() => tryCelebration()}>Try a celebration</Button>
             <Switch checked={settings.celebrate !== false} onCheckedChange={(celebrate) => set({ celebrate })} />
           </Setting>
           <CelebrationsFolder folder={settings.celebrationsFolder ?? ''} on={settings.celebrate !== false} onSave={(celebrationsFolder) => set({ celebrationsFolder })} />
+          <CelebrationPicks picks={settings.celebrationPicks ?? {}} on={settings.celebrate !== false} onSave={(celebrationPicks) => set({ celebrationPicks })} />
         </Group>
         <Group section="Scenery" title="Where they show">
           {([
@@ -825,6 +826,82 @@ function CelebrationsFolder({ folder, on, onSave }: { folder: string; on: boolea
         <FolderPlus className="size-4" /> {folder ? 'Choose another…' : 'Choose a folder…'}
       </Button>
     </Setting>
+  )
+}
+
+const MOMENT_NAMES: [MomentKind, string][] = [
+  ['kept', '100th capture and other counts'],
+  ['streak', 'Days in a row'],
+  ['inbox', 'Inbox empty'],
+  ['tasks', "Today's tasks done"],
+  ['year', 'A note from a year ago'],
+  ['answered', 'A question answered']
+]
+
+/**
+ * A file of its own for each kind of milestone: its picture small (click it
+ * to see that celebration), its name, a way to choose another and one to go
+ * back to any from the folder (undoable).
+ */
+function CelebrationPicks({ picks, on, onSave }: { picks: Partial<Record<MomentKind, string>>; on: boolean; onSave: (picks: Partial<Record<MomentKind, string>>) => void }): React.JSX.Element {
+  const found = useLive(() => vigil.celebrationPicks(), {} as Awaited<ReturnType<typeof vigil.celebrationPicks>>, [JSON.stringify(picks)])
+  return (
+    <Setting
+      title="What plays for each"
+      note="A file of its own for each kind of milestone, played in place of one at random. Click a picture to see that one. A file that has moved or gone falls back to the folder."
+      keywords="celebrations celebrate pick choose file gif meme clip per moment milestone"
+      below={
+        <div className="mt-2 flex flex-col gap-1">
+          {MOMENT_NAMES.map(([kind, label]) => {
+            const path = picks[kind]
+            const media = found[kind]
+            return (
+              <div key={kind} className="flex items-center gap-2.5 rounded-md border py-1 pr-1 pl-1 text-control">
+                <Tip label="See this one">
+                  <button type="button" aria-label={`See ${label}`} disabled={!on} onClick={() => tryCelebration(kind)} className="relative size-9 shrink-0 overflow-hidden rounded-[5px] bg-muted text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 enabled:hover:opacity-85">
+                    {media ? (
+                      media.video ? (
+                        <video src={`${media.url}#t=0.1`} muted playsInline preload="metadata" className="absolute inset-0 size-full object-cover" />
+                      ) : (
+                        <img src={media.url} alt="" draggable={false} className="absolute inset-0 size-full object-cover" />
+                      )
+                    ) : (
+                      <Shuffle className="absolute inset-0 m-auto size-3.5" />
+                    )}
+                  </button>
+                </Tip>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-foreground">{label}</span>
+                  <span className="block truncate text-meta text-muted-foreground" title={path}>
+                    {media ? media.name : path ? 'Not found, so any from the folder' : 'Any from the folder'}
+                  </span>
+                </span>
+                {path && (
+                  <button type="button" aria-label={`Clear ${label}`} className="rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => {
+                    const rest = { ...picks }
+                    delete rest[kind]
+                    onSave(rest)
+                    chime('away')
+                    toast(`${label}: any from the folder`, () => onSave(picks))
+                  }}>
+                    <X className="size-3" />
+                  </button>
+                )}
+                <Button variant="outline" size="sm" disabled={!on} onClick={() => void vigil.celebrationFile().then((chosen) => {
+                  if (!chosen) return
+                  if (chosen === path) return refuse('That file is already chosen')
+                  onSave({ ...picks, [kind]: chosen })
+                  chime('settled')
+                  toast(`${label}: ${chosen.split('/').pop()}`, () => onSave(picks))
+                })}>
+                  Choose…
+                </Button>
+              </div>
+            )
+          })}
+        </div>
+      }
+    />
   )
 }
 

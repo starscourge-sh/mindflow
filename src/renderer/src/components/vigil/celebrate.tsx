@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Volume2, VolumeX, X } from 'lucide-react'
-import { vigil } from '@/lib/vigil'
+import { vigil, type MomentKind } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
 import { EASE } from '@/lib/motion'
 import { GrainFill, NOISE, useCover } from './grain'
@@ -15,18 +15,25 @@ import { Tip } from './ui'
  * focus, so typing carries on under it.
  */
 
-export type Moment = { id: string; rank: number; headline: string; line?: string; mark: string; tint: string }
+export type Moment = { id: string; kind: MomentKind; rank: number; headline: string; line?: string; mark: string; tint: string }
 type Media = { url: string; video: boolean; name: string }
 
 const PREVIEW = 'A preview. The real ones come on their own, on milestones like this.'
-const SAMPLES: Moment[] = [
-  { id: 'try:kept', rank: 0, headline: '100 captures kept', line: PREVIEW, mark: '100', tint: 'var(--tt-color-text-blue)' },
-  { id: 'try:inbox', rank: 0, headline: 'Inbox empty', line: PREVIEW, mark: '0', tint: 'var(--tt-color-text-green)' },
-  { id: 'try:streak', rank: 0, headline: '7 days in a row', line: PREVIEW, mark: '7', tint: 'var(--tt-color-text-orange)' }
-]
-/** One now, in this window, to see what they look like: nothing is counted. */
-export const tryCelebration = (): void =>
-  void window.dispatchEvent(new CustomEvent('vigil:celebrate', { detail: SAMPLES[Math.floor(Math.random() * SAMPLES.length)] }))
+const SAMPLES: Record<MomentKind, Omit<Moment, 'id' | 'kind' | 'rank' | 'line'>> = {
+  kept: { headline: '100 captures kept', mark: '100', tint: 'var(--tt-color-text-blue)' },
+  streak: { headline: '7 days in a row', mark: '7', tint: 'var(--tt-color-text-orange)' },
+  inbox: { headline: 'Inbox empty', mark: '0', tint: 'var(--tt-color-text-green)' },
+  tasks: { headline: "Today's tasks, all done", mark: '3', tint: 'var(--tt-color-text-green)' },
+  year: { headline: 'Kept a year ago', mark: '1y', tint: 'var(--tt-color-text-purple)' },
+  answered: { headline: 'Your first question answered', mark: '1', tint: 'var(--tt-color-text-yellow)' }
+}
+/** One now, in this window, to see what they look like: nothing is counted. Any kind, unless one is named. */
+export function tryCelebration(kind?: MomentKind): void {
+  const kinds = Object.keys(SAMPLES) as MomentKind[]
+  const one = kind ?? kinds[Math.floor(Math.random() * kinds.length)]
+  const detail: Moment = { id: `try:${one}`, kind: one, rank: 0, line: PREVIEW, ...SAMPLES[one] }
+  window.dispatchEvent(new CustomEvent('vigil:celebrate', { detail }))
+}
 
 /** Clips found to run past 20 seconds: passed over from then on. */
 const LONG = new Set<string>()
@@ -68,9 +75,11 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
 
   useEffect(() => {
     const show = async (moment: Moment): Promise<void> => {
-      items.current = await vigil.celebrations().catch(() => [])
+      const [all, picks] = await Promise.all([vigil.celebrations().catch(() => []), vigil.celebrationPicks().catch(() => ({}))])
+      items.current = all
       shownAt.current = Date.now()
-      setShown({ moment, media: pick(items.current), key: Date.now() })
+      // The file picked for this kind of moment, or else one from the folder.
+      setShown({ moment, media: (picks as Partial<Record<MomentKind, Media>>)[moment.kind] ?? pick(items.current), key: Date.now() })
       chime('cheer')
     }
     const arrive = (moment: Moment): void => {

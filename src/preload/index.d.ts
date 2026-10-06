@@ -1,7 +1,7 @@
 import type { Capture, CaptureMeta, CapturePatch, Change, SaveResult } from '../main/captures'
 
 /** A milestone to celebrate, as src/main/celebrate.ts describes it. */
-export type Moment = { id: string; rank: number; headline: string; line?: string; mark: string; tint: string }
+export type Moment = { id: string; kind: 'kept' | 'streak' | 'inbox' | 'tasks' | 'year' | 'answered'; rank: number; headline: string; line?: string; mark: string; tint: string }
 
 export interface LinkMetadata {
   href: string
