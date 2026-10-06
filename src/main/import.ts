@@ -102,6 +102,18 @@ export const isPrivateFile = (name: string, folder: boolean): boolean =>
     ? /^((r-)?creds?|credentials|secrets|passwords|private[-_ ]?keys?)$/i.test(name)
     : /^\.env(\..*)?$|(^|[-_ .])(credentials?|passwords?|creds|secrets)(\.\w+)?$|\.(pem|key|p12|pfx|kdbx|keychain)$|^id_(rsa|dsa|ecdsa|ed25519)(\.pub)?$|private[-_ ]?key/i.test(name)
 
+/**
+ * A name that is about passwords and logins without being a key file: a note
+ * called "Passwords 2024", "Recovery codes" or "AWS logins", or anything in a
+ * folder called that, or "Private" or "Keys". It comes in, marked private,
+ * rather than being left behind. "Secrets Manager" is a study note and comes in as it is.
+ */
+export const looksPrivate = (path: string): boolean =>
+  path.split(/[/\\]/).some((part, at, all) =>
+    /(?<![a-z])(passwords?|credentials?|creds|recovery[-_ ]?codes?|api[-_ ]?keys?|logins?)(?![a-z])/i.test(part) ||
+    (at < all.length - 1 && /^(private|keys)$/i.test(part)) ||
+    isPrivateFile(part, at < all.length - 1))
+
 /** When the file says it was made, or nothing. */
 export const createdOf = (text: string): string | null =>
   /^created:\s*(\S+)/m.exec(text)?.[1] ?? null
@@ -139,7 +151,10 @@ export function kindOf(line: string): string | null {
   const text = line.trim()
   if (/^https?:\/\/\S+$/.test(text)) return 'link'
   // Starts with something to do, or to tell someone: "tell rory to", "ping Sam".
-  if (/^(todo|to do|fix|add|buy|call|phone|ring|book|email|mail|ask|tell|ping|text|message|reply|respond|chase|follow up|check|look into|look up|find|remind|cancel|pay|get|send|order|renew|schedule|arrange|organise|organize|plan|prepare|return|pick up|drop off|collect|finish|start|sort out|set up|install|update|clean|tidy|move|write|read|watch|try|visit|meet|contact|confirm|sign|submit|file|need to|have to|must|should|remember to|don'?t forget)\b/i.test(text) && !/\?\s*$/.test(text)) return 'todo'
+  if (/^(todo|to do|fix|add|buy|call|phone|ring|book|email|mail|ask|tell|ping|text|message|reply|respond|chase|follow up|check|look into|look up|find|remind|cancel|pay|get|send|order|renew|schedule|arrange|organise|organize|plan|prepare|return|pick up|drop off|collect|finish|start|sort out|set up|install|update|clean|tidy|move|write|read|watch|try|visit|meet|contact|confirm|sign|submit|file|need to|have to|must|should|remember to|don'?t forget)\b(?!\s*:)/i.test(text) && !/\?\s*$/.test(text)) return 'todo'
+  // "Book: Thinking, Fast and Slow" is a label, not something to do; but
+  // anything that comes round again ("water the plants every 3 days") is.
+  if (/\b(every (other )?(\d+ )?(day|week|month|year|morning|evening|night|weekday|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday)s?|daily|weekly|fortnightly|monthly|yearly)\b/i.test(text) && !/\?\s*$/.test(text)) return 'todo'
   if (/^(decided|decision|going with|chose|we('ll| will) go with)\b/i.test(text)) return 'decision'
   if (/^(joke|bit)\b/i.test(text)) return 'bit'
   // A question is a question, not a todo; "Name: words" is a quote only when

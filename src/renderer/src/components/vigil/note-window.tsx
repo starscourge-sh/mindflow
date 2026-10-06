@@ -13,6 +13,7 @@ import { Versions } from './note-extras'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { findCaptures, findHeadings, follow, headingIn } from '@/lib/capture-links'
 import { toMarkdown } from '@/lib/export'
+import { useSameWords } from '@/lib/same-words'
 import { useAppearance, vigil, type ItemFull } from '@/lib/vigil'
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
@@ -49,7 +50,11 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
   const [past, setPast] = useState<{ body: unknown; key: string } | null>(null)
   const [rev, setRev] = useState(0)
   useEffect(() => void window.api.captures.get(id).then(setCapture), [id])
-  useEffect(() => void (document.title = meta?.label || 'Note'), [meta?.label])
+  // Saved only over the words it was opened on: another window's never lost.
+  const words = useSameWords('captures', capture?.id, capture?.body, (at, body, base, editor) =>
+    window.api.captures.save(at, { body, base, ...(editor ? { markdown: toMarkdown(editor) } : {}) }))
+  // A private note's words never become its window's name: titles show in a screen share.
+  useEffect(() => void (document.title = (!meta?.private && meta?.label) || 'Note'), [meta?.label, meta?.private])
   if (!capture || !meta) return null
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-y-auto [--mf-padding:1rem_1.5rem_1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem]">
@@ -75,7 +80,8 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
           findHeadings={findHeadings}
           onOpenNote={(to, heading) => (to === id && heading ? headingIn('capture', id, heading) : follow(to, (type, at) => elsewhere(type, at, heading)))}
           after={<Mentions id={id} onOpen={elsewhere} />}
-          onChange={(body, editor) => window.api.captures.save(id, { body, markdown: toMarkdown(editor) })}
+          onReady={words.ready}
+          onChange={words.save}
         />
         )}
       </div>
@@ -92,6 +98,6 @@ function ItemWindow({ id }: { id: string }): React.JSX.Element | null {
     load()
     return window.api.captures.onChange(load)
   }, [id])
-  useEffect(() => void (document.title = item?.title || 'Note'), [item?.title])
+  useEffect(() => void (document.title = (!item?.private && item?.title) || 'Note'), [item?.title, item?.private])
   return item ? <ItemDetail key={id} item={item} onOpen={elsewhere} /> : null
 }

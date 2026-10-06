@@ -7,7 +7,7 @@
  * Call `lift` before the change, while the source is still on screen; it
  * returns a `land` to call once the change is made, or nothing to call.
  */
-export type Home = 'nugget' | 'task' | 'capture'
+export type Home = 'nugget' | 'task' | 'capture' | 'question'
 
 const still = (): boolean =>
   document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -39,7 +39,7 @@ export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | u
   return () => {
     // The nearest place it lives that is on screen now: the prompt's tab, or
     // the main window's sidebar.
-    const to = [...document.querySelectorAll<HTMLElement>(`[data-home="${home}"]`)].find((el) => el.offsetParent !== null)
+    const to = [...document.querySelectorAll<HTMLElement>(`[data-home~="${home}"]`)].find((el) => el.offsetParent !== null)
     if (!to) return
     const end = to.getBoundingClientRect()
     document.body.append(card)

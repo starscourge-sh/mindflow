@@ -6,7 +6,7 @@ import Papa from 'papaparse'
 import { join, posix } from 'path'
 import { hostname } from 'os'
 
-import { backUp, writeMarkdown } from './backup'
+import { backUp, checkMarkdown, writeMarkdown } from './backup'
 import { chunks, createdOf, firstLine, guessKind, kindOf, propertiesOf, titleOfMarkdown, unstamp, withoutNotionId } from './import'
 
 /** What the list shows. The body is only read when one is opened. */
@@ -40,6 +40,8 @@ export interface CaptureMeta {
   closedAt: string | null
   /** Put out of sight, not deleted; null while in view. */
   archivedAt: string | null
+  /** When it came in by an import; its age is counted from thirty days after. */
+  importedAt: string | null
 }
 
 export interface Capture extends CaptureMeta {
@@ -63,6 +65,21 @@ export type CapturePatch = Partial<Pick<Capture, 'title' | 'kind' | 'status' | '
   private?: boolean
   /** Filled in by the app (a link's card), not by you: not an edit to remember. */
   fetched?: boolean
+  /** The body this one was made from: the words land only if they are still what is stored. */
+  base?: unknown
+}
+
+/**
+ * What a save did. `was` is the status before it, for an undo to put back
+ * exactly; `refused` is an exit asked of a capture that is no longer open;
+ * `conflict` means the words were changed elsewhere since `base`, so none
+ * were written, and `body` is what is stored now.
+ */
+export interface SaveResult {
+  was?: string
+  refused?: boolean
+  conflict?: boolean
+  body?: unknown
 }
 
 /**
@@ -94,8 +111,26 @@ const Patch = z.object({
   attribution: z.string().optional(),
   medium: z.string().optional(),
   private: z.boolean().optional(),
-  fetched: z.boolean().optional()
+  fetched: z.boolean().optional(),
+  base: z.unknown().optional()
 })
+
+/**
+ * The words stored now, when they are no longer the `base` a save was made
+ * from: another window, a merge or a renamed tag wrote them since. Null when
+ * the save may land. Compared as parsed JSON, so spacing never counts.
+ */
+export function movedOn(table: 'captures' | 'nuggets', id: string, base: unknown): { body: unknown } | null {
+  const row = db.prepare(`select body from ${table} where id = ?`).get(id) as { body: string | null } | undefined
+  if (!row) return null
+  let now: unknown
+  try {
+    now = JSON.parse(row.body ?? 'null')
+  } catch {
+    now = row.body
+  }
+  return JSON.stringify(now ?? null) === JSON.stringify(base ?? null) ? null : { body: now }
+}
 
 /** Text matched literally by `like … escape '\\'`: its own % and _ escaped. */
 export const like = (text: string): string => text.replace(/[\\%_]/g, '\\$&')
@@ -108,7 +143,7 @@ export const like = (text: string): string => text.replace(/[\\%_]/g, '\\$&')
 // `named` is 1 for a note that came with a name of its own (a vault note is
 // called by its file name): that name wins over whatever its first line says.
 export const LABEL = 'label(title, body, named)'
-export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, attribution, medium, exited_at as closedAt, device, elapsed_ms as elapsedMs, weather, archived_at as archivedAt`
+export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, attribution, medium, exited_at as closedAt, device, elapsed_ms as elapsedMs, weather, archived_at as archivedAt, imported_at as importedAt`
 
 /** Tell every window the list changed, so whichever is showing it reloads. */
 export const changed = (): void => {
@@ -190,7 +225,10 @@ export function registerCaptures(): void {
   `)
   // A vault note's own name, which wins over its first line; and where an
   // article came from, so importing the same vault again finds it by path.
-  for (const add of ['alter table captures add column named integer not null default 0', "alter table nuggets add column source text not null default ''"]) {
+  // When an imported capture came in: its own date is kept and shown, but its
+  // age, for rot cards, hints and the weekly nudge, counts from here, so a vault
+  // of old notes does not all arrive rotting.
+  for (const add of ['alter table captures add column named integer not null default 0', "alter table nuggets add column source text not null default ''", 'alter table captures add column imported_at text']) {
     try {
       db.exec(add)
     } catch {
@@ -258,9 +296,17 @@ export function registerCaptures(): void {
     return row ? { ...row, body: JSON.parse(row.body as string), original: row.original ? JSON.parse(row.original as string) : null } : null
   })
 
-  ipcMain.handle('captures:cards', () =>
-    (db.prepare(`select id, kind, body from captures where kind = 'link' or body like '%"bookmark"%'`).all() as { id: string; kind: string; body: string }[])
-      .map((row) => ({ ...row, body: JSON.parse(row.body ?? 'null') })))
+  // Each card is looked up once per wording: a site whose picture cannot be
+  // kept is not asked again every launch. None at all in safe mode.
+  db.exec('create table if not exists card_tries (id text primary key, body text)')
+  ipcMain.handle('captures:cards', () => {
+    if (JSON.parse((db.prepare("select value from settings where key = 'safeMode'").get() as { value: string } | undefined)?.value ?? 'false')) return []
+    const rows = db.prepare(`select id, kind, body from captures where (kind = 'link' or body like '%"bookmark"%')
+      and not exists (select 1 from card_tries t where t.id = captures.id and t.body = captures.body)`).all() as { id: string; kind: string; body: string }[]
+    const tried = db.prepare('insert or replace into card_tries (id, body) values (?, ?)')
+    for (const row of rows) tried.run(row.id, row.body)
+    return rows.map((row) => ({ ...row, body: JSON.parse(row.body ?? 'null') }))
+  })
 
   ipcMain.handle('captures:create', (_event, raw: unknown) => {
     const patch = Patch.parse(raw)
@@ -280,8 +326,21 @@ export function registerCaptures(): void {
   })
 
   // Only the fields passed are written. `coalesce` keeps the rest as they were.
-  ipcMain.handle('captures:save', (_event, id: unknown, raw: unknown) => {
+  ipcMain.handle('captures:save', (_event, id: unknown, raw: unknown): SaveResult => {
     const patch = Patch.parse(raw)
+    // Two editors on one note, or an editor and a merge: words written since
+    // this editor last looked are never written over. It is told what is
+    // there now, and folds its own words in.
+    const moved = patch.body !== undefined && patch.base !== undefined ? movedOn('captures', String(id), patch.base) : null
+    if (moved) {
+      patch.body = undefined
+      patch.markdown = undefined
+    }
+    // An exit is taken from the inbox only: a promoted capture resolved, or a
+    // resolved one discarded, would leave its undo nothing true to go back to.
+    const was = (db.prepare('select status from captures where id = ?').get(String(id)) as { status: string } | undefined)?.status
+    const refused = !!patch.status && patch.status !== 'open' && was !== 'open'
+    if (refused) patch.status = undefined
     // The words as first written, kept the first time you change them: a
     // capture edited and then promoted still has what you actually caught.
     // Only your edits count; a link's card or a tag added in bulk do not.
@@ -305,7 +364,9 @@ export function registerCaptures(): void {
     // When an exit was taken, for the lead measures: "did you take an exit
     // this week" needs the day, not only the state.
     if (row && patch.markdown !== undefined) void writeMarkdown(row.number as number, patch.markdown)
+    else if (patch.status) checkMarkdown(String(id))
     changed()
+    return { was, refused, ...(moved ? { conflict: true, body: moved.body } : {}) }
   })
 }
 
@@ -315,11 +376,12 @@ function insert(patch: CapturePatch & { source?: string }, capturedAt: string): 
   const { number } = db
     .prepare(
       // A bit starts private: the one kind where a screen share is the risk.
-      `insert into captures (id, number, title, kind, body, captured_at, source, private)
-       values (?, (select coalesce(max(number), 0) + 1 from captures), ?, ?, ?, ?, ?, ?)
+      `insert into captures (id, number, title, kind, body, captured_at, source, private, imported_at)
+       values (?, (select coalesce(max(number), 0) + 1 from captures), ?, ?, ?, ?, ?, ?, ?)
        returning number`
     )
-    .get(id, patch.title ?? '', patch.kind ?? 'note', JSON.stringify(patch.body ?? null), capturedAt, patch.source ?? '', patch.kind === 'bit' ? 1 : 0) as { number: number }
+    .get(id, patch.title ?? '', patch.kind ?? 'note', JSON.stringify(patch.body ?? null), capturedAt, patch.source ?? '', patch.kind === 'bit' ? 1 : 0,
+      patch.source ? new Date().toISOString() : null) as { number: number }
   return { id, number }
 }
 
@@ -475,7 +537,7 @@ export function alreadyImported(path: string): Imported | null {
 }
 
 /** A vault note once it is here: what links to it are rewritten to point at. */
-export type Imported = { link: string; title: string; path: string }
+export type Imported = { link: string; title: string; path: string; private?: boolean }
 
 /**
  * A whole note as one capture: what an Obsidian vault is made of, where each
@@ -485,9 +547,12 @@ export type Imported = { link: string; title: string; path: string }
  * A note already imported from the same path is "already here", whatever
  * linking has since done to its words; a file with nothing in it is "empty".
  */
-export function importNote(path: string, text: string, modified: Date): Imported | 'empty' | 'already here' {
+export function importNote(path: string, text: string, modified: Date, hidden = false): Imported | 'empty' | 'already here' {
   const front = /^---\n([\s\S]*?)\n---(?:\n|$)/.exec(text)
   const fields = propertiesOf(front?.[1] ?? '')
+  // Private by its name, or because an export from here said so.
+  const secret = hidden || fields.private === 'true'
+  delete fields.private
   const title = withoutNotionId(path.split('/').pop()!.replace(/\.md$/, ''))
   // The name already heads the page; a first heading saying it again is dropped.
   const body = text.slice(front?.[0].length ?? 0).trim().replace(/^#[ \t]+(.*)(\n|$)/, (line, words: string) =>
@@ -501,15 +566,15 @@ export function importNote(path: string, text: string, modified: Date): Imported
   if (/(^|\/)permanent\//.test(path)) {
     if (db.prepare("select 1 from nuggets where tier = 'article' and source = ?").get(path)) return 'already here'
     const id = randomUUID()
-    db.prepare("insert into nuggets (id, tier, kind, title, body, created_at, updated_at, source, fields) values (?, 'article', 'note', ?, ?, ?, ?, ?, ?)")
-      .run(id, title, JSON.stringify(body), new Date(at).toISOString(), modified.toISOString(), path, kept)
-    return { link: `article:${id}`, title, path }
+    db.prepare("insert into nuggets (id, tier, kind, title, body, created_at, updated_at, source, fields, private) values (?, 'article', 'note', ?, ?, ?, ?, ?, ?, ?)")
+      .run(id, title, JSON.stringify(body), new Date(at).toISOString(), modified.toISOString(), path, kept, secret ? 1 : 0)
+    return { link: `article:${id}`, title, path, private: secret }
   }
   if (db.prepare('select 1 from captures where source = ? and named = 1').get(path)) return 'already here'
   const { id, number } = insert({ title, kind: 'note', body, source: path }, new Date(at).toISOString())
-  db.prepare('update captures set named = 1, fields = ? where id = ?').run(kept, id)
+  db.prepare('update captures set named = 1, fields = ?, private = max(private, ?) where id = ?').run(kept, secret ? 1 : 0, id)
   void writeMarkdown(number, body)
-  return { link: id, title, path }
+  return { link: id, title, path, private: secret }
 }
 
 /**

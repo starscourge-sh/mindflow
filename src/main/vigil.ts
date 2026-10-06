@@ -5,8 +5,9 @@ import { join } from 'path'
 import { homedir } from 'os'
 import { createEmptyCard, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
 
-import { LABEL, LIST, changed, database, like } from './captures'
+import { LABEL, LIST, changed, database, like, movedOn } from './captures'
 import { advance, readTask } from './task-words'
+import { backupDir, checkMarkdown } from './backup'
 
 /**
  * Everything past the capture: nuggets and articles, the review queue, tasks,
@@ -146,13 +147,16 @@ const DEFAULTS = {
   // top bar once scrolled away; the font notes are written in, and its size.
   calc: true,
   topTitle: true,
-  noteFont: 'default' as string,
+  noteFont: 'system' as string,
   // The font is the whole app's unless this says it is only for notes.
   fontNotesOnly: false,
   // Headings in a font of their own, the way Dia sets a serif over plain text; 'same' follows the text.
-  headingFont: 'same' as string,
+  headingFont: 'default' as string,
   // Pictures in notes framed like a postcard: a white border and a soft shadow.
   postcards: false,
+  // Blurring: private words blurred in lists, the window dimmed when you leave
+  // it, words arriving from a soft blur. One switch turns all of it off.
+  blur: true,
   // How big the whole interface is, Raycast's way: small, medium or large.
   interfaceSize: 'medium' as 'small' | 'medium' | 'large',
   textSize: 1,
@@ -180,7 +184,12 @@ const DEFAULTS = {
   sceneryFocus: true,
   sceneryTime: true,
   sceneryDim: 0.5,
-  sceneryShuffle: 0
+  sceneryShuffle: 0,
+  // A question you are holding comes back now and then as a hint card: still
+  // open, how long, how many clues. Off in Settings.
+  questionsBack: true,
+  // A plain-text copy of each capture beside the backups (never a private one).
+  markdownCopies: true
 }
 export type Settings = typeof DEFAULTS
 
@@ -204,6 +213,10 @@ async function weatherNow(): Promise<string | null> {
     return null
   }
 }
+
+/** Told when safe mode goes on or off, however it was flipped: the windows follow it. */
+let safeModeTold: (on: boolean) => void = () => undefined
+export const whenSafeMode = (tell: (on: boolean) => void): void => void (safeModeTold = tell)
 
 /** The Motion setting, for the window's own arrival. */
 export const motionOn = (): boolean => settings().motion
@@ -394,8 +407,22 @@ export function registerVigil(): void {
   column('tag_meta', 'exam_at text')
   // Why the answer is so, one line under it in review.
   column('nuggets', 'why text')
+  // A question held open: when it was settled, and how ('answered' or 'let go').
+  // Open while both are empty, for years if that is what it takes.
+  column('nuggets', 'closed_at text')
+  column('nuggets', 'closed_how text')
+  // A clue that came from a capture keeps which, so taking it back reopens it.
+  column('glosses', 'source_id text')
   // Which day each gentle nudge was last given, so none comes twice in a day.
   db.exec('create table if not exists nudges (key text primary key, day text not null)')
+  // When a capture's age starts counting: when it was written, or for one
+  // imported, thirty days after it came in, so a vault does not arrive rotting.
+  const AGED = "max(captured_at, coalesce(strftime('%Y-%m-%dT%H:%M:%fZ', imported_at, '+30 days'), ''))"
+  // Promote once read "Book:" or "Shopping list:" at the start of any note as
+  // the person who said it, and saved it without asking. Those guesses go, so
+  // they never reach the Who autocomplete, recaps or memories. Safe every start.
+  db.exec(`update captures set attribution = null where kind != 'quote' and attribution is not null and substr(${LABEL}, 1, length(attribution) + 1) = attribution || ':';
+    update nuggets set attribution = null where kind != 'quote' and attribution is not null and substr(title, 1, length(attribution) + 1) = attribution || ':'`)
 
   // One-time changes, counted in the file itself. Bits default private: the
   // plan's one fail-safe kind, where the screen-share risk actually lives.
@@ -422,13 +449,20 @@ export function registerVigil(): void {
   // --- settings and privacy
   handle('settings', () => settings())
   handle('settings:set', (patch: Partial<Settings>) => {
+    const wasSafe = settings().safeMode
     for (const [key, value] of Object.entries(patch))
       db.prepare('insert or replace into settings (key, value) values (?, ?)').run(key, JSON.stringify(value))
+    if (patch.safeMode !== undefined && patch.safeMode !== wasSafe) safeModeTold(patch.safeMode)
     return write(settings())
   })
-  handle('private', (table: 'captures' | 'nuggets', id: string, on: boolean) =>
-    write(db.prepare(`update ${table === 'nuggets' ? 'nuggets' : 'captures'} set private = ? where id = ?`).run(on ? 1 : 0, id))
-  )
+  handle('private', (table: 'captures' | 'nuggets', id: string, on: boolean) => {
+    const result = db.prepare(`update ${table === 'nuggets' ? 'nuggets' : 'captures'} set private = ? where id = ?`).run(on ? 1 : 0, id)
+    // Made private, its plain-text backup copy goes at once.
+    if (table !== 'nuggets') checkMarkdown(id)
+    return write(result)
+  })
+  // Where the backups go, for Settings to say plainly.
+  handle('backups:where', () => backupDir().replace(homedir(), '~'))
 
   // A few capture fields set one at a time from the properties column.
   const CAPTURE_FIELDS = { attribution: 'attribution', medium: 'medium', capturedAt: 'captured_at', origin: 'origin_id' } as const
@@ -460,13 +494,18 @@ export function registerVigil(): void {
   })
   // One task from several captures: each is linked from it, so the task can
   // say why it exists, and each has taken its exit.
+  // Only captures still in the inbox take it: one already promoted, resolved
+  // or let go keeps the exit it took, and `resolved` says which did, so the
+  // undo opens those and no others.
   handle('tasks:from', (ids: string[], text: string) => {
-    const task = addTask(String(text), ids[0] ?? null)
-    for (const id of ids) {
+    const open = ids.filter((id) => (db.prepare('select status from captures where id = ?').get(id) as { status: string } | undefined)?.status === 'open')
+    if (!open.length) return null
+    const task = addTask(String(text), open[0])
+    for (const id of open) {
       db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(task.id, id)
       db.prepare("update captures set status = 'resolved' where id = ?").run(id)
     }
-    return write(task)
+    return write({ ...task, resolved: open })
   })
   handle('capture:set', (id: string, field: keyof typeof CAPTURE_FIELDS, value: string | number | null) => {
     const column = CAPTURE_FIELDS[field]
@@ -493,28 +532,49 @@ export function registerVigil(): void {
   // --- the capture exits
   // Promote: a nugget made from the capture, which stays as it was. A word
   // comes with its prompt, the one kind with a natural question and answer.
-  const promote = (id: string, words?: string): string | null => {
-    const capture = db.prepare(`select kind, body, private, attribution, ${LABEL} as title from captures where id = ? and status != 'promoted'`).get(id) as Record<string, string> | undefined
+  const promote = (id: string, line?: string): string | null => {
+    const capture = db.prepare(`select kind, body, private, attribution, status, ${LABEL} as title from captures where id = ?`).get(id) as Record<string, string> | undefined
     if (!capture) return null
+    // An exit is taken from the inbox only: promoted twice is two nuggets.
+    if (capture.status !== 'open') return 'not-open'
     // A quote's whole claim is "someone said this", so it does not become a
-    // nugget until it says who.
-    // Said in the words already: "…" - Alan Kay, or Alan Kay: "…".
-    capture.attribution ||= /["”']\s*[-—–]\s*([^"“”]{2,60})$/.exec(capture.title)?.[1]?.trim() ?? /^([^:"“]{2,40}):/.exec(capture.title)?.[1]?.trim() ?? ''
+    // nugget until it says who. A name in its words ("…" - Alan Kay) is only
+    // offered as the answer when asked, never saved without asking.
     if (capture.kind === 'quote' && !capture.attribution) return 'needs-source'
     // Nor until it says something in your own words: someone else's sentence
     // kept with nothing of yours beside it is a quote you collected, not one
     // you understood. Those words become its first gloss.
-    if (capture.kind === 'quote' && !words?.trim()) return 'needs-words'
+    if (capture.kind === 'quote' && !line?.trim()) return 'needs-words'
+    // A word is tested on its meaning, so it needs one: after a dash or colon
+    // on its first line, or on the lines below. Without it, asked for here,
+    // and the answer is written under the word.
+    let body = capture.body
+    let prompt: string | null = null
+    if (capture.kind === 'word') {
+      let parsed: unknown = ''
+      try { parsed = JSON.parse(capture.body) } catch { parsed = capture.body }
+      const [first = '', ...rest] = words(parsed).trim().split('\n')
+      const [, term = first, after = ''] = /^(.+?)\s+[-—–:]\s+(.+)$/.exec(first) ?? /^(.+?):\s*(.+)$/.exec(first) ?? []
+      const meaning = [after, ...rest].join(' ').trim()
+      if (!meaning && !line?.trim()) return 'needs-meaning'
+      if (!meaning && line?.trim()) {
+        const more = line.trim()
+        body = JSON.stringify(typeof parsed === 'string' || !parsed
+          ? `${String(parsed ?? '').trim()}\n\n${more}`
+          : { ...(parsed as Doc), content: [...((parsed as Doc).content ?? []), { type: 'paragraph', content: [{ type: 'text', text: more }] }] })
+      }
+      prompt = `What does "${term.trim()}" mean?`
+    }
     const nugget = randomUUID()
     db.prepare(
       `insert into nuggets (id, capture_id, kind, title, body, prompt, private, attribution, mode, created_at, updated_at)
        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(nugget, id, capture.kind, capture.title, capture.body, capture.kind === 'word' ? `What does "${capture.title}" mean?` : null,
+    ).run(nugget, id, capture.kind, capture.title, body, prompt,
       capture.private, capture.attribution || null, 'encounter', now(), now())
-    if (capture.attribution) db.prepare('update captures set attribution = coalesce(attribution, ?) where id = ?').run(capture.attribution, id)
     // A kind's own fields (a book's rating, a word's language) travel with it.
     db.prepare('update nuggets set fields = (select fields from captures where id = ?) where id = ?').run(id, nugget)
-    if (words?.trim()) db.prepare('insert into glosses (id, item_id, body, created_at) values (?, ?, ?, ?)').run(randomUUID(), nugget, words.trim(), now())
+    // A word's line was its meaning, written into it above; anything else's is a gloss.
+    if (line?.trim() && capture.kind !== 'word') db.prepare('insert into glosses (id, item_id, body, created_at) values (?, ?, ?, ?)').run(randomUUID(), nugget, line.trim(), now())
     // The capture is kept as it was, only marked: the nugget is a copy, edited
     // on its own, and each points at the other.
     db.prepare("update captures set status = 'promoted' where id = ?").run(id)
@@ -523,10 +583,12 @@ export function registerVigil(): void {
   handle('promote', promote)
   // Promotion taken back: the nugget it made goes (with its glosses), and the
   // capture is open again, as if it had never been kept.
-  handle('promote:undo', (captureId: string, nuggetId: string) => {
+  // A source asked for only to promote it (`forgetWho`) goes too: it had none before.
+  handle('promote:undo', (captureId: string, nuggetId: string, forgetWho = false) => {
     db.prepare('delete from glosses where item_id = ?').run(nuggetId)
     db.prepare('delete from nuggets where id = ? and capture_id = ?').run(nuggetId, captureId)
     db.prepare("update captures set status = 'open' where id = ?").run(captureId)
+    if (forgetWho) db.prepare('update captures set attribution = null where id = ?').run(captureId)
     return write(true)
   })
   // Where something came from, what it became, and what links to it: the
@@ -546,7 +608,9 @@ export function registerVigil(): void {
       became: [
         ...(db.prepare("select tier as type, id, title, private from nuggets where capture_id = ? or origins like ?").all(id, `%"${id}"%`) as never[]),
         ...(db.prepare("select 'task' as type, id, title, 0 as private from tasks where origin_capture_id = ?").all(id) as never[]),
-        ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title, private from captures where origin_id = ?`).all(id) as never[])
+        ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title, private from captures where origin_id = ?`).all(id) as never[]),
+        // Kept as a clue in a question someone is holding.
+        ...(db.prepare('select tier as type, id, title, private from nuggets where id in (select item_id from glosses where source_id = ?)').all(id) as never[])
       ],
       linked: [...links('captures', LABEL), ...links('nuggets', 'title')].filter((row) => row.id !== id)
     }
@@ -661,11 +725,13 @@ export function registerVigil(): void {
   })
   // Resolve elsewhere: the capture becomes a task, and remembers it did.
   handle('toTask', (id: string) => {
-    const capture = db.prepare(`select ${LABEL} as title from captures where id = ?`).get(id) as { title: string } | undefined
+    const capture = db.prepare(`select ${LABEL} as title, status from captures where id = ?`).get(id) as { title: string; status: string } | undefined
     if (!capture) return null
+    // From the inbox only: a capture that took another exit keeps it.
+    if (capture.status !== 'open') return 'not-open'
     const task = addTask(capture.title, id)
     db.prepare("update captures set status = 'resolved' where id = ?").run(id)
-    return write(task)
+    return write({ ...task, resolved: [id] })
   })
 
   // Three open captures, leaning old: the rot sampler. Random, so a sample and
@@ -678,9 +744,9 @@ export function registerVigil(): void {
     // other way: the same thing twice in a row is a nag, not a surprise.
     const rot = db
       .prepare(
-        `select ${LIST}, body from captures where status = 'open' and archived_at is null and captured_at < ? ${hidePrivate ? 'and 0' : ''}
+        `select ${LIST}, body from captures where status = 'open' and archived_at is null and ${AGED} < ? ${hidePrivate ? 'and 0' : ''}
          and id not in (select nugget_id from hint_events where shown_at >= ? union select capture_id from nuggets where capture_id is not null and id in (select nugget_id from hint_events where shown_at >= ?))
-         order by (julianday('now') - julianday(captured_at) + 1) * (abs(random()) % 1000) desc limit ${Math.max(0, Math.min(10, settings().rotCount))}`
+         order by (julianday('now') - julianday(${AGED}) + 1) * (abs(random()) % 1000) desc limit ${Math.max(0, Math.min(10, settings().rotCount))}`
       )
       // Only what has sat a day: anything newer is in the list right below,
       // and a card for it would only say the same thing twice.
@@ -699,7 +765,7 @@ export function registerVigil(): void {
     // A third of the time, a note-to-self on rotation: the one that has gone
     // longest unseen, unconditionally. Otherwise a weighted random encounter.
     const pushed = Math.random() < 1 / 3
-      ? (db.prepare(`select id, capture_id as captureId, kind, tier, title, body from nuggets where mode = 'pushed' and suspended = 0 and archived_at is null and coalesce(capture_id, '') not in (select id from captures where surfaced_at >= ?) and private = 0
+      ? (db.prepare(`select id, capture_id as captureId, kind, tier, title, body from nuggets where mode = 'pushed' and tier != 'question' and suspended = 0 and archived_at is null and coalesce(capture_id, '') not in (select id from captures where surfaced_at >= ?) and private = 0
           order by coalesce(last_visited_at, '') limit 1`).get(ago(3)) as Record<string, string> | undefined)
       : undefined
     // Half the time, or always while there are few nuggets, an old capture
@@ -710,7 +776,7 @@ export function registerVigil(): void {
     // then one of its captures, so three hundred bits do not crowd out the
     // dozen links and words. Within a kind, older and voted-up come first.
     const candidates = `from captures where status = 'open' and archived_at is null and coalesce(surfaced_at, '') < ?
-      and captured_at < ? and private = 0 ${hidePrivate ? 'and 0' : ''}
+      and ${AGED} < ? and private = 0 ${hidePrivate ? 'and 0' : ''}
       and id not in (select nugget_id from hint_events where shown_at >= ?)
       and ${LABEL} not like 'http%'`
     // A bare address says nothing at a glance: a link comes up as a hint once
@@ -719,11 +785,11 @@ export function registerVigil(): void {
     const kind = kinds[Math.floor(Math.random() * kinds.length)]
     const old = !pushed && kind && (few || Math.random() < 0.5)
       ? (db.prepare(`select id, id as captureId, kind, title, body ${candidates} and kind = ?
-          order by (julianday('now') - julianday(captured_at)) * surfacing_weight * (abs(random()) % 1000) desc limit 1`).get(ago(3), ago(7), ago(3), kind) as Record<string, string> | undefined)
+          order by (julianday('now') - julianday(${AGED})) * surfacing_weight * (abs(random()) % 1000) desc limit 1`).get(ago(3), ago(7), ago(3), kind) as Record<string, string> | undefined)
       : undefined
     const hint = pushed ?? old ?? db
       .prepare(
-        `select id, capture_id as captureId, kind, tier, title, body from nuggets where suspended = 0 and archived_at is null and mode != 'pushed' and coalesce(capture_id, '') not in (select id from captures where surfaced_at >= ?) and private = 0
+        `select id, capture_id as captureId, kind, tier, title, body from nuggets where suspended = 0 and archived_at is null and mode != 'pushed' and tier != 'question' and coalesce(capture_id, '') not in (select id from captures where surfaced_at >= ?) and private = 0
          order by (julianday('now') - julianday(coalesce(last_visited_at, '2000-01-01'))) * surfacing_weight * (abs(random()) % 1000) desc
          limit 1`
       )
@@ -736,7 +802,7 @@ export function registerVigil(): void {
   })
   // The Luhmann move: two unrelated things side by side, for the connection
   // you would never have gone looking for.
-  handle('random', () => db.prepare('select id, kind, title, body from nuggets where archived_at is null and superseded_by is null and private = 0 order by random() limit 2').all().map(body))
+  handle('random', () => db.prepare("select id, kind, title, body from nuggets where archived_at is null and superseded_by is null and private = 0 and tier != 'question' order by random() limit 2").all().map(body))
   // Dwell: how long the hint was in front of you before the window went. The
   // signal every hint produces, where a vote is the rare one.
   ipcMain.handle('hints:dwell', (_event, event: number, ms: number) =>
@@ -765,7 +831,8 @@ export function registerVigil(): void {
   // A nugget with no name of its own is named from its words, or for what it holds.
   const ITEM = `id, tier, kind, coalesce(nullif(title, ''), label('', body)) as title, prompt, private, pinned_at as pinnedAt, due_at as dueAt, suspended,
     state is not null as reviewed, created_at as createdAt, capture_id as captureId, remind_at as remindAt,
-    (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses, attribution, context, mode, superseded_by as supersededBy, archived_at as archivedAt, revisions, why`
+    (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses, attribution, context, mode, superseded_by as supersededBy, archived_at as archivedAt, revisions, why,
+    closed_at as closedAt, closed_how as closedHow, (select count(*) from glosses where item_id = nuggets.id) as clues`
   handle('items', (tier: string) =>
     db.prepare(`select ${ITEM} from nuggets where tier = ? order by created_at desc`).all(tier)
   )
@@ -774,10 +841,15 @@ export function registerVigil(): void {
     // box stays empty rather than showing its first line as if it were set.
     const row = db.prepare(`select ${ITEM}, title as own, body, origins from nuggets where id = ?`).get(id) as Record<string, unknown> | undefined
     if (!row) return null
-    const glosses = db.prepare('select id, body, author, created_at as createdAt from glosses where item_id = ? order by created_at').all(id)
+    const glosses = db.prepare(`select id, body, author, created_at as createdAt, source_id as sourceId,
+      (select 'MF-' || number from captures where id = glosses.source_id) as sourceKey from glosses where item_id = ? order by created_at`).all(id)
     return { ...body(row), title: row.own, origins: JSON.parse((row.origins as string) ?? '[]'), glosses }
   })
-  handle('item:save', (id: string, patch: { body?: unknown; title?: string; prompt?: string | null; kind?: string; suspended?: boolean; attribution?: string | null; context?: string | null; mode?: string; why?: string | null }) => {
+  handle('item:save', (id: string, patch: { body?: unknown; base?: unknown; title?: string; prompt?: string | null; kind?: string; suspended?: boolean; attribution?: string | null; context?: string | null; mode?: string; why?: string | null }) => {
+    // Words written since this editor last looked are never written over: it
+    // is told what is there now, as a capture's editor is.
+    const moved = patch.body !== undefined && patch.base !== undefined ? movedOn('nuggets', id, patch.base) : null
+    if (moved) patch = { ...patch, body: undefined }
     const allowed = ['body', 'title', 'prompt', 'kind', 'suspended', 'attribution', 'context', 'mode', 'why']
     const sets = Object.entries(patch).filter(([key, value]) => value !== undefined && allowed.includes(key))
     // A meaningful change to something you are tested on brings it back sooner,
@@ -809,7 +881,7 @@ export function registerVigil(): void {
       const stored = key === 'body' ? JSON.stringify(value) : key === 'suspended' ? (value ? 1 : 0) : value
       db.prepare(`update nuggets set ${key} = ?, updated_at = ? where id = ?`).run(stored as string, now(), id)
     }
-    return write(true)
+    return write(moved ? { conflict: true, body: moved.body } : true)
   })
   // An article from nuggets: their bodies in order, the first one's title, and
   // the derivation edge kept so the article knows what it was made from.
@@ -850,8 +922,10 @@ export function registerVigil(): void {
   })
   // Two captures that are the same thought: this one's words join the other's,
   // and this one is discarded, so it is still there to restore.
+  // Gives back what its undo needs: the other's words as they were before,
+  // and as they were made, and this one's status.
   handle('capture:merge', (id: string, intoNumber: number) => {
-    const from = db.prepare('select body from captures where id = ?').get(id) as { body: string } | undefined
+    const from = db.prepare('select body, status from captures where id = ?').get(id) as { body: string; status: string } | undefined
     const into = db.prepare('select id, body from captures where number = ?').get(intoNumber) as { id: string; body: string } | undefined
     if (!from || !into || into.id === id) return null
     const a = JSON.parse(into.body ?? 'null'), b = JSON.parse(from.body ?? 'null')
@@ -860,12 +934,121 @@ export function registerVigil(): void {
       : `${plain(a)}\n\n${plain(b)}`
     db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(joined), into.id)
     db.prepare("update captures set status = 'discarded' where id = ?").run(id)
-    return write(into.id)
+    checkMarkdown(id)
+    return write({ into: into.id, was: a, joined, status: from.status })
+  })
+  // A merge taken back: the other's words as they were, unless they were
+  // written in since (then nothing of theirs is lost: they stay as they are),
+  // and this one back to the status it had.
+  handle('capture:merge:undo', (id: string, merged: { into: string; was: unknown; joined: unknown; status: string }) => {
+    if (!movedOn('captures', merged.into, merged.joined)) db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(merged.was), merged.into)
+    db.prepare('update captures set status = ? where id = ?').run(merged.status, id)
+    checkMarkdown(id)
+    return write(true)
   })
   // A gloss is a row, never an edit: past-you stays readable beside present-you.
-  handle('gloss', (itemId: string, text: string) =>
-    write(db.prepare('insert into glosses (id, item_id, body, created_at) values (?, ?, ?, ?)').run(randomUUID(), itemId, text, now()))
+  // Any item's: a nugget, an article or a capture, so its id is all it needs.
+  // Gives back the new row's id, so the toast can take it back.
+  handle('gloss', (itemId: string, text: string) => {
+    const id = randomUUID()
+    db.prepare('insert into glosses (id, item_id, body, created_at) values (?, ?, ?, ?)').run(id, itemId, text, now())
+    return write(id)
+  })
+  // The timeline of what you thought of it, newest first: what every surface
+  // shows the latest of, and a detail panel shows whole.
+  handle('glosses', (itemId: string) =>
+    db.prepare('select id, body, author, created_at as createdAt from glosses where item_id = ? order by created_at desc').all(itemId)
   )
+
+  // --- questions: what you keep circling and cannot name yet. Held open on
+  // purpose, for years if need be: no prompt, no review, no rot, no exit
+  // asked of them. Each holds clues, dated, a gloss row each, so past-you
+  // stays readable beside present-you. They end when you have got it (an
+  // article, seeded with the clues) or let them go; both stay readable.
+  const capturedWords = (id: string): { title: string; text: string; private: number } | undefined => {
+    const row = db.prepare(`select ${LABEL} as title, body, private from captures where id = ?`).get(id) as { title: string; body: string; private: number } | undefined
+    return row && { title: row.title, text: plain(JSON.parse(row.body ?? 'null')).trim() || row.title, private: row.private }
+  }
+  // A new question, from nothing or from a capture whose words become its first clue.
+  handle('question:new', (title: string, captureId?: string) => {
+    // Held from the inbox only, like every exit.
+    if (captureId && (db.prepare('select status from captures where id = ?').get(captureId) as { status: string } | undefined)?.status !== 'open') return null
+    const from = captureId ? capturedWords(captureId) : undefined
+    const id = randomUUID()
+    db.prepare("insert into nuggets (id, tier, kind, title, body, capture_id, private, created_at, updated_at) values (?, 'question', 'note', ?, 'null', ?, ?, ?, ?)")
+      .run(id, (title || from?.title || 'Untitled').trim().slice(0, 300), captureId ?? null, from?.private ?? 0, now(), now())
+    if (from && captureId) {
+      db.prepare('insert into glosses (id, item_id, body, created_at, source_id) values (?, ?, ?, ?, ?)').run(randomUUID(), id, from.text, now(), captureId)
+      db.prepare("update captures set status = 'promoted' where id = ?").run(captureId)
+    }
+    return write(id)
+  })
+  // Taken back: the question and its clues go, and a capture it came from is open again.
+  handle('question:drop', (id: string) => {
+    const row = db.prepare("select capture_id from nuggets where id = ? and tier = 'question'").get(id) as { capture_id: string | null } | undefined
+    if (!row) return write(false)
+    for (const clue of db.prepare('select source_id from glosses where item_id = ? and source_id is not null').all(id) as { source_id: string }[])
+      db.prepare("update captures set status = 'open' where id = ?").run(clue.source_id)
+    if (row.capture_id) db.prepare("update captures set status = 'open' where id = ?").run(row.capture_id)
+    db.prepare('delete from glosses where item_id = ?').run(id)
+    db.prepare('delete from nuggets where id = ?').run(id)
+    return write(true)
+  })
+  // A clue: your words, or a capture's, dated. A capture given as a clue has
+  // taken its exit, kept in the question.
+  handle('clue', (id: string, text: string, sourceId?: string) => {
+    const words = sourceId ? capturedWords(sourceId)?.text : String(text ?? '').trim()
+    if (!words) return null
+    const clue = randomUUID()
+    db.prepare('insert into glosses (id, item_id, body, created_at, source_id) values (?, ?, ?, ?, ?)').run(clue, id, words, now(), sourceId ?? null)
+    db.prepare('update nuggets set updated_at = ? where id = ?').run(now(), id)
+    if (sourceId) db.prepare("update captures set status = 'promoted' where id = ?").run(sourceId)
+    return write(clue)
+  })
+  handle('clue:drop', (clue: string) => {
+    const row = db.prepare('select source_id from glosses where id = ?').get(clue) as { source_id: string | null } | undefined
+    if (row?.source_id) db.prepare("update captures set status = 'open' where id = ?").run(row.source_id)
+    return write(db.prepare('delete from glosses where id = ?').run(clue))
+  })
+  // Got it: an article seeded with the question, what you wrote in it and
+  // every clue, oldest first so it reads as it happened, made from the
+  // question so each points at the other. Or let go, with no article.
+  // `again` is an undo putting back how it was settled: no second article.
+  handle('question:close', (id: string, how: 'answered' | 'let go', again = false) => {
+    const question = db.prepare("select title, body from nuggets where id = ? and tier = 'question'").get(id) as { title: string; body: string } | undefined
+    if (!question) return null
+    let article: string | null = null
+    if (how === 'answered' && !again) {
+      const clues = db.prepare('select body, created_at from glosses where item_id = ? order by created_at').all(id) as { body: string; created_at: string }[]
+      const day = (at: string): string => new Date(at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+      const own = plain(JSON.parse(question.body ?? 'null')).trim()
+      const text = [`> ${question.title}`, own, clues.length ? '## Clues' : '', ...clues.map((clue) => `- **${day(clue.created_at)}** · ${clue.body.replace(/\n+/g, ' ')}`)]
+        .filter(Boolean).join('\n\n')
+      article = randomUUID()
+      db.prepare("insert into nuggets (id, tier, kind, title, body, origins, created_at, updated_at) values (?, 'article', 'note', ?, ?, ?, ?, ?)")
+        .run(article, question.title, JSON.stringify(text), JSON.stringify([id]), now(), now())
+    }
+    db.prepare('update nuggets set closed_at = ?, closed_how = ? where id = ?').run(now(), how, id)
+    return write({ article })
+  })
+  // Held again: open once more, and an article it had just started goes.
+  handle('question:reopen', (id: string, article?: string | null) => {
+    if (article) db.prepare("delete from nuggets where id = ? and tier = 'article' and origins = ?").run(article, JSON.stringify([id]))
+    return write(db.prepare('update nuggets set closed_at = null, closed_how = null where id = ?').run(id))
+  })
+  // Now and then, a question still open comes back: things come back to you.
+  // Gated like a nudge (never in quiet hours or safe mode), off in Settings,
+  // at most one a day, and never the same one twice in a fortnight.
+  handle('question:back', () => {
+    const { blackout, hidePrivate } = gate()
+    if (blackout || hidePrivate || !settings().questionsBack) return null
+    const row = db.prepare(`select id, title, created_at as createdAt, (select count(*) from glosses where item_id = nuggets.id) as clues from nuggets
+      where tier = 'question' and closed_at is null and archived_at is null and private = 0 and id not in (select nugget_id from hint_events where shown_at >= ?)
+      order by random() limit 1`).get(ago(14)) as { id: string; title: string; createdAt: string; clues: number } | undefined
+    if (!row || nudgedToday('question')) return null
+    const { lastInsertRowid } = db.prepare('insert into hint_events (nugget_id, shown_at) values (?, ?)').run(row.id, now())
+    return { ...row, event: Number(lastInsertRowid) }
+  })
 
   // --- review
   // Due items with a prompt, most at risk first, inside the day's two limits so
@@ -1044,7 +1227,8 @@ export function registerVigil(): void {
           return { kind: 'exam', view: 'review', label: `Exam · #${exam.tag}`,
             text: `#${exam.tag} is ${exam.days === 0 ? 'today' : exam.days === 1 ? 'tomorrow' : `in ${exam.days} days`}, and ${exam.behind} ${exam.behind === 1 ? 'card is' : 'cards are'} behind. About ${exam.perDay} a day catches you up.` }
     if (weeklyReview && new Date().getDay() === weeklyDay) {
-      const open = (db.prepare("select count(*) n from captures where status = 'open' and archived_at is null").get() as { n: number }).n
+      // Not an import still in its first thirty days: it is not waiting on you yet.
+      const open = (db.prepare(`select count(*) n from captures where status = 'open' and archived_at is null and ${AGED} <= ?`).get(now()) as { n: number }).n
       if (open && !nudgedToday('weekly'))
         return { kind: 'weekly', view: 'inbox', label: 'Weekly review',
           text: `A good day to walk the inbox: ${open} ${open === 1 ? 'capture is' : 'captures are'} waiting for an exit. Keep, deal with or let go of each.` }
@@ -1102,7 +1286,13 @@ export function registerVigil(): void {
   })
 
   // Whether any capture is still old enough to rot: none, and the rot area says so.
-  handle('rot:left', () => (db.prepare("select count(*) n from captures where status = 'open' and archived_at is null and captured_at < ?").get(ago(1)) as { n: number }).n)
+  handle('rot:left', () => (db.prepare(`select count(*) n from captures where status = 'open' and archived_at is null and ${AGED} < ?`).get(ago(1)) as { n: number }).n)
+  // How many rot cards would come up now: none in safe mode or quiet hours,
+  // when the cards themselves hold back. For the box's "3 old" chip.
+  handle('rot:waiting', () => {
+    const { blackout, hidePrivate } = gate()
+    return blackout || hidePrivate ? 0 : Math.min(settings().rotCount, (db.prepare(`select count(*) n from captures where status = 'open' and archived_at is null and ${AGED} < ?`).get(ago(1)) as { n: number }).n)
+  })
 
   // --- the recap, Wrapped's way: a month or a year in what you did here
   handle('recap', (period: 'month' | 'year') => {
@@ -1183,7 +1373,10 @@ export function registerVigil(): void {
     return write(task)
   })
   const TASK_COLUMNS = { title: 'title', recurrence: 'recurrence', waitingOn: 'waiting_on', estimate: 'estimate', sortOrder: 'sort_order', important: 'important', deadline: 'deadline_at', blocker: 'blocker', reschedules: 'reschedules', notify: 'notify', priority: 'priority', plan: 'plan_for' } as const
-  handle('task:save', (id: string, patch: { title?: string; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null; subtasks?: unknown; estimate?: number | null; sortOrder?: number; important?: number; deadline?: string | null; blocker?: string | null; reschedules?: number; notify?: string | null; priority?: number; plan?: string | null }) => {
+  handle('task:save', (id: string, patch: { title?: string; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null; subtasks?: unknown; estimate?: number | null; sortOrder?: number; important?: number; deadline?: string | null; blocker?: string | null; reschedules?: number; notify?: string | null; priority?: number; plan?: string | null; notifiedAt?: string | null }) => {
+    // What a move changes on its own (the reschedule count, whether it was told
+    // about), given back so its undo can put both back exactly.
+    const before = db.prepare('select reschedules, notified_at as notifiedAt from tasks where id = ?').get(id) as { reschedules: number; notifiedAt: string | null } | undefined
     // A deadline moved by whole days keeps its time; one picked as a day has none.
     const clock = (iso: string | null | undefined): string => (iso ? new Date(iso).toTimeString().slice(0, 5) : '')
     if (patch.deadline !== undefined) {
@@ -1210,13 +1403,15 @@ export function registerVigil(): void {
       // Pushed later is a reschedule, counted: after three the task asks to be
       // made smaller or dropped. A new time is also a new moment to be told about.
       const was = (db.prepare('select due_at from tasks where id = ?').get(id) as { due_at: string | null }).due_at
-      const later = was && patch.due && patch.due > was ? 1 : 0
+      // An undo says the count itself; it is not one more reschedule.
+      const later = patch.reschedules === undefined && was && patch.due && patch.due > was ? 1 : 0
       db.prepare('update tasks set due_at = ?, notified_at = null, reschedules = reschedules + ? where id = ?').run(patch.due, later, id)
     }
     // A new due-by date is a new moment to be told about, as a new day is.
     if (patch.deadline !== undefined && patch.deadline !== deadlineWas) db.prepare('update tasks set notified_at = null where id = ?').run(id)
     if (patch.status !== undefined) db.prepare('update tasks set status = ?, completed_at = ? where id = ?').run(patch.status, patch.status === 'done' ? now() : null, id)
-    return write(true)
+    if (patch.notifiedAt !== undefined) db.prepare('update tasks set notified_at = ? where id = ?').run(patch.notifiedAt, id)
+    return write(before ?? true)
   })
   // Done. A routine moves to its next date instead: from the due date when the
   // calendar matters, from today when only the gap does ("every!"), and never
@@ -1263,7 +1458,8 @@ export function registerVigil(): void {
   handle('task:unmake', (id: string, existed: boolean, links: string[], reopen: string[]) => {
     if (existed) for (const item of links) db.prepare('delete from task_links where task_id = ? and item_id = ?').run(id, item)
     else for (const table of ['tasks where id', 'task_links where task_id', 'task_done where task_id']) db.prepare(`delete from ${table} = ?`).run(id)
-    for (const capture of reopen) db.prepare("update captures set status = 'open' where id = ?").run(capture)
+    // Only what is still resolved: one taken elsewhere since keeps that.
+    for (const capture of reopen) db.prepare("update captures set status = 'open' where id = ? and status = 'resolved'").run(capture)
     return write(true)
   })
   // How many reviews fall on each of the days ahead, today with what is
@@ -1393,6 +1589,22 @@ export function registerVigil(): void {
   column('sessions', 'planned_ms integer')
   column('sessions', 'paused_ms integer not null default 0')
   column('sessions', 'paused_at text')
+  // A timer still running when Vigil quit would ring "Time's up" days later.
+  // One already past its length ends quietly at start: a timer goes, as it
+  // always does, and a focus session is kept, ended when its plan ran out.
+  // Said once, the first time a window asks.
+  let missed: string | null = null
+  for (const row of db.prepare(`select id, task_id, started_at, paused_ms, planned_ms from sessions where ended_at is null and paused_at is null and planned_ms > 0
+      and (julianday('now') - julianday(started_at)) * 86400000 - paused_ms > planned_ms`).all() as { id: string; task_id: string; started_at: string; paused_ms: number; planned_ms: number }[]) {
+    if (row.task_id === '') db.prepare('delete from sessions where id = ?').run(row.id)
+    else db.prepare('update sessions set ended_at = ? where id = ?').run(new Date(new Date(row.started_at).getTime() + row.paused_ms + row.planned_ms).toISOString(), row.id)
+    missed = `Your ${Math.max(1, Math.round(row.planned_ms / 60000))}-minute ${row.task_id === '' ? 'timer' : 'focus session'} ended while Vigil was closed`
+  }
+  handle('focus:missed', () => {
+    const said = missed
+    missed = null
+    return said
+  })
   // One at a time: starting another ends the one running, recap and all kept.
   handle('session:start', (taskId: string, goal?: string, plannedMs?: number | null) => {
     // A timer from the box keeps running underneath: only a focus session ends.
@@ -1442,7 +1654,10 @@ export function registerVigil(): void {
   // Pull: it is already first in Today. Quiet: the menu bar counts it. Alerts:
   // a notification, once per due time. All-day tasks never alert.
   setInterval(() => {
-    if (!Notification.isSupported()) return
+    // Not over a shared screen, nor in quiet hours: held, and shown once they
+    // end if the time is still within the hour.
+    const { blackout, hidePrivate } = gate()
+    if (!Notification.isSupported() || blackout || hidePrivate) return
     // A task's own level wins over the setting: most never set one.
     const due = db.prepare(
       `select id, title from tasks where status = 'open' and ${ALERT_AT} <= ? and ${ALERT_AT} > ? and notified_at is null and coalesce(notify, ?) = 'alerts'`
@@ -1476,7 +1691,8 @@ export function registerVigil(): void {
       // Wrapped: what the week was, in the work itself.
       sessions: one<{ n: number; minutes: number | null }>(
         "select count(*) n, sum((julianday(ended_at) - julianday(started_at)) * 1440 - paused_ms / 60000.0) minutes from sessions where ended_at is not null and started_at >= ?", ago(7)),
-      tagsWeek: (db.prepare('select title, body from captures where captured_at >= ?').all(ago(7)) as { title: string; body: string }[])
+      // Private notes' tags are not counted: a tag can say as much as a title.
+      tagsWeek: (db.prepare('select title, body from captures where captured_at >= ? and private = 0').all(ago(7)) as { title: string; body: string }[])
         .flatMap((row) => tagsIn(`${row.title} ${plain(JSON.parse(row.body ?? 'null'))}`))
         .reduce<Record<string, number>>((counts, tag) => ({ ...counts, [tag]: (counts[tag] ?? 0) + 1 }), {}),
       retention: settings().retention,
@@ -1509,8 +1725,9 @@ export function registerVigil(): void {
         }
       })(),
       // Leeches, named: a card forgotten four times wants rewriting, not hiding.
-      leeches: all<{ title: string }>(
-        "select title from nuggets where (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) >= 4").map((row) => row.title),
+      // Private cards never by name, and none at all in safe mode or quiet hours, as the recap.
+      leeches: gate().hidePrivate ? [] : all<{ title: string }>(
+        "select title from nuggets where private = 0 and (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) >= 4").map((row) => row.title),
       // A hint "stopped you" if you voted it up, or it stayed on screen four
       // seconds or more: the rare signal and the universal one together.
       stopped: one<{ n: number }>("select count(*) n from hint_events where shown_at >= ? and (reaction = 'up' or dwell_ms >= 4000)", ago(30)).n,
@@ -1565,7 +1782,7 @@ export function registerVigil(): void {
     for (const row of captureRows) {
       const body = JSON.parse(row.body ?? 'null')
       await writeFile(join(folder, 'markdown', `${names.get(row.id)}.md`),
-        front({ id: `MF-${row.number}`, kind: row.kind, status: row.status, captured: row.captured_at, who: row.attribution, where: row.medium, ...properties(row.fields), tags: tagsIn(plain(body)) }) + local(markdown(body, nameOf)))
+        front({ id: `MF-${row.number}`, private: row.private ? true : null, kind: row.kind, status: row.status, captured: row.captured_at, who: row.attribution, where: row.medium, ...properties(row.fields), tags: tagsIn(plain(body)) }) + local(markdown(body, nameOf)))
     }
     for (const row of nuggetRows) {
       const body = JSON.parse(row.body ?? 'null')
@@ -1573,7 +1790,7 @@ export function registerVigil(): void {
       // A heading of its own already names it; otherwise the title does.
       const heading = /^#\s/.test(text) ? '' : `# ${row.title}\n\n`
       await writeFile(join(folder, 'markdown', `${names.get(row.id)}.md`),
-        front({ kind: row.tier, created: row.created_at, updated: row.updated_at, who: row.attribution, question: row.prompt, ...properties(row.fields), tags: tagsIn(plain(body)) }) + heading + text)
+        front({ kind: row.tier, private: row.private ? true : null, created: row.created_at, updated: row.updated_at, who: row.attribution, question: row.prompt, ...properties(row.fields), tags: tagsIn(plain(body)) }) + heading + text)
     }
     // The pictures and files the notes point at.
     await cp(join(app.getPath('userData'), 'assets'), join(folder, 'assets'), { recursive: true }).catch(() => undefined)
@@ -1601,6 +1818,7 @@ export function badge(): { due: number; tasks: number; safe: boolean } {
 export function toggleSafeMode(): boolean {
   const on = !settings().safeMode
   database().prepare("insert or replace into settings (key, value) values ('safeMode', ?)").run(JSON.stringify(on))
+  safeModeTold(on)
   changed()
   return on
 }

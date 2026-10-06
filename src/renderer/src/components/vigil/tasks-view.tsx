@@ -39,13 +39,17 @@ const tone = (task: Task): string | undefined => {
   return undefined
 }
 
+/** The Scheduled island's buttons: one size, and a faint fill so each reads as a button on a light page too. */
+const plan = 'min-w-0 truncate bg-foreground/[0.04] px-1 text-control hover:bg-accent data-[variant=secondary]:bg-secondary'
+
 /** Move a task to a day from now, and say where: one wording for keys, menus and buttons. */
 export const moveTo = (task: Pick<Task, 'id' | 'dueAt' | 'allDay' | 'planFor'>, days: number): void => {
   const due = shiftTo(days, task.dueAt)
   const was = { due: task.dueAt, plan: task.planFor }
-  void vigil.saveTask(task.id, { due }).then(() => {
+  // Undone, the reschedule it counted and the reminder it reset go back too.
+  void vigil.saveTask(task.id, { due }).then((before) => {
     chime('tap')
-    toast(`Moved to ${whenInLine(due, !task.dueAt || !!task.allDay)}`, () => void vigil.saveTask(task.id, was))
+    toast(`Moved to ${whenInLine(due, !task.dueAt || !!task.allDay)}`, () => void vigil.saveTask(task.id, { ...was, ...(before === true ? {} : before) }))
   })
 }
 
@@ -417,19 +421,20 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
         <Sessions taskId={task.id} title={task.title} />
         {/* When you mean to do it, Todoist's date: the day it shows on. */}
         <Island compact title="Scheduled">
-          {/* Equal columns that may shrink: a narrow panel squeezes the words rather than pushing a button past its edge. */}
+          {/* Equal columns that may shrink: a narrow panel squeezes the words rather than pushing a button past its edge.
+              One look for every choice here, a day or a later list; the one it is on now is lit. */}
           <div className="grid grid-cols-3 gap-1 p-1">
             {([['Today', 0], ['Tomorrow', 1], ['Next week', 7]] as const).map(([label, days]) => (
-              <Button variant="outline" size="sm" key={label} onClick={() => moveTo(task, days)} className="min-w-0 truncate px-1">
+              <Button variant={days < 7 && when(task.dueAt) === label ? 'secondary' : 'ghost'} size="sm" key={label} onClick={() => moveTo(task, days)} className={plan}>
                 {label}
               </Button>
             ))}
           </div>
           <DatePicker time value={task.dueAt} onChange={(due) => void vigil.saveTask(task.id, { due })} placeholder="Not scheduled" />
-          {/* Or no day yet: one of the later lists. */}
-          <div className="grid grid-cols-3 gap-1 p-1">
+          {/* Or no day yet: one of the later lists, two by two. */}
+          <div className="grid grid-cols-2 gap-1 p-1">
             {(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => (
-              <Button variant={bucket(task) === which ? 'secondary' : 'ghost'} size="sm" key={which} onClick={() => planFor(task, which)} className="min-w-0 truncate px-1 text-xs">
+              <Button variant={bucket(task) === which ? 'secondary' : 'ghost'} size="sm" key={which} onClick={() => planFor(task, which)} className={plan}>
                 {BUCKETS[which]}
               </Button>
             ))}

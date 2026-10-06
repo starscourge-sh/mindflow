@@ -285,7 +285,8 @@ const whenSaved = (iso: string): string => new Date(iso).toLocaleString(undefine
  * `onShow` gets the words to show (and a key for them), or null for now.
  */
 export function Versions({ table, id, onShow, onRestored }: {
-  table: NoteTable
+  /** `day`, with `day:` and its date as the id, for a day's page. */
+  table: NoteTable | 'day'
   id: string
   onShow: (body: unknown | null, key?: string) => void
   onRestored: () => void

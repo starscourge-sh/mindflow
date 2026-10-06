@@ -12,6 +12,7 @@ import { stickOnDesktop } from './vigil/sticky-note'
 import { Thumb } from './vigil/note-extras'
 import { SortableList, SortableRow } from './vigil/sortable'
 import { archive, changeKind, openWindow, saveAttachments } from '@/lib/notes'
+import { addToQuestion } from './vigil/questions-view'
 
 export type CaptureMeta = Awaited<ReturnType<typeof window.api.captures.list>>[number]
 
@@ -63,8 +64,9 @@ export function age(at: string): string {
  * The colour of an age: the thesis made visible. Fresh is quiet; a month
  * untouched starts to warm, half a year is plainly rotting.
  */
-export function ageTint(at: string): string | undefined {
-  const days = (Date.now() - new Date(at).getTime()) / 86400000
+export function ageTint(at: string, importedAt?: string | null): string | undefined {
+  // An import is given thirty days before its age shows: its date is old, but it is new here.
+  const days = Math.min((Date.now() - new Date(at).getTime()) / 86400000, importedAt ? (Date.now() - new Date(importedAt).getTime()) / 86400000 - 30 : Infinity)
   return days < 30 ? undefined : days < 180 ? 'color-mix(in srgb, var(--tt-color-text-orange) 60%, var(--muted-foreground))' : 'var(--tt-color-text-orange)'
 }
 
@@ -76,6 +78,7 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
     ? EXITS.map((one) => ({ label: one.label, keys: one.key.toUpperCase(), danger: one.status === 'discarded', run: () => void exit(capture.id, one.status) }))
     : [{ label: 'Back to the inbox', run: () => void window.api.captures.save(capture.id, { status: 'open' }).then(() => chime('undo')) }]),
   capture.status === 'open' && { label: 'Make it a task', run: () => void makeTask({ capture: capture.id }) },
+  capture.status === 'open' && { label: 'Add to a question…', run: () => void addToQuestion(capture.id) },
   'separator',
   { label: capture.pinnedAt ? 'Unpin' : 'Pin to the prompt', run: () => pin('captures', capture.id, !capture.pinnedAt) },
   { label: capture.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('captures', capture.id, !capture.private) },
@@ -139,7 +142,7 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick, o
                   <EyeOff className="size-3 shrink-0 text-muted-foreground" />
                 </Tip>
               ) : null}
-              <span className="shrink-0 text-xs text-muted-foreground tabular-nums" style={{ color: capture.status === 'open' ? ageTint(capture.capturedAt) : undefined }}>{age(capture.capturedAt)}</span>
+              <span className="shrink-0 text-xs text-muted-foreground tabular-nums" style={{ color: capture.status === 'open' ? ageTint(capture.capturedAt, capture.importedAt) : undefined }}>{age(capture.capturedAt)}</span>
             </span>
             {/* The MF number is for copying and linking, not reading: it shows
                 on the row under the pointer or the cursor. The line keeps its

@@ -115,7 +115,7 @@ export function SoundPacks({ chosen }: { chosen: PackName }): React.JSX.Element 
               ['undo', 'Undo'], ['copy', 'Copy'], ['pin', 'Pin'], ['search', 'Search'],
               ['open', 'A menu opens'], ['on', 'Switch on'], ['off', 'Switch off'],
               ['slide', 'Panel out'], ['fold', 'Panel away'], ['page', 'Turn a page'], ['read', 'Start reading'],
-              ['settled', 'Keep a theme'], ['nope', 'Not allowed']
+              ['settled', 'Keep a theme'], ['hold', 'Hold a question'], ['clue', 'Add a clue'], ['answered', 'Got it'], ['release', 'Let it go'], ['nope', 'Not allowed']
             ] as const).map(([cue, label]) => (
               <Button variant="outline" size="lg" key={cue} onClick={() => play(() => chime(cue))}>{label}</Button>
             ))}

@@ -305,6 +305,9 @@ export function SettingsView(): React.JSX.Element {
               ))}
             </span>
           </Setting>
+          <Setting title="Blurring" note="Private words blurred in lists until you point at them, a window dimmed when you leave it, and words that arrive out of a soft blur. Off, everything is plain and sharp." keywords="blur private dim focus soft">
+            <Switch checked={settings.blur !== false} onCheckedChange={(blur) => (set({ blur }), chime(blur ? 'on' : 'off'))} />
+          </Setting>
           <Setting title="Postcards" note="Pictures in notes sit in a white border with rounded corners and a soft shadow, like a print laid on the desk." keywords="images pictures photos border frame white">
             <Switch checked={!!settings.postcards} onCheckedChange={(postcards) => (set({ postcards }), chime(postcards ? 'on' : 'off'))} />
           </Setting>
@@ -313,7 +316,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="Appearance" title="Text">
-          <Setting title="Font" note="What the whole app is written in, notes, lists and menus: Fraunces, a few others, or any font on this Mac. OpenDyslexic is easier for some to read." below={<Sample />} keywords={`note font ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
+          <Setting title="Font" note="What the whole app is written in, notes, lists and menus: the Mac's own font to start, Fraunces, a few others, or any font on this Mac. OpenDyslexic is easier for some to read." below={<Sample />} keywords={`note font ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
             <FontPicker value={settings.noteFont} />
           </Setting>
           <Setting title="Heading font" note="Headings in a font of their own, in notes and on these pages: a characterful serif over plain text reads well, the way Dia pairs them. Or the same as the text." keywords={`headings titles ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
@@ -403,6 +406,9 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
           <Setting title="Memories" note="Some hints are memories, the way Photos brings them: a year ago today, this week in an earlier year, more from one source. Each says which it is.">
             <Switch checked={settings.memories} onCheckedChange={(memories) => set({ memories })} />
+          </Setting>
+          <Setting title="Questions come back" note="Now and then, a question you are holding comes back as a hint: still open, how long, how many clues, with a way to add one. Rare, never in quiet hours.">
+            <Switch checked={settings.questionsBack} onCheckedChange={(questionsBack) => set({ questionsBack })} />
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Once a week">
@@ -504,6 +510,9 @@ export function SettingsView(): React.JSX.Element {
             <ImportButton what="vault">Obsidian…</ImportButton>
             <ImportButton what="files">Files…</ImportButton>
           </Setting>
+          <Setting title="Backups" note="Every day a full copy of everything, private notes included, goes to the folder below, the last 30 kept: it is your own backup. With this on, each capture is also kept there as a plain Markdown file, never a private or discarded one. Off removes those files within the hour." below={<BackupPlace />} keywords="backup icloud markdown copies">
+            <Switch checked={settings.markdownCopies !== false} onCheckedChange={(markdownCopies) => set({ markdownCopies })} />
+          </Setting>
         </Group>
 
         <Group section="Shortcuts" title="Every shortcut">
@@ -517,6 +526,13 @@ export function SettingsView(): React.JSX.Element {
       </div>
     </section>
   )
+}
+
+/** Where the backups go: iCloud Drive when there is one, otherwise beside the app's data. */
+function BackupPlace(): React.JSX.Element {
+  const [where, setWhere] = useState('')
+  useEffect(() => void vigil.backupsWhere().then(setWhere), [])
+  return <p className="text-xs text-muted-foreground">Backups go to <span className="font-mono text-foreground/80">{where.includes('CloudDocs') ? 'iCloud Drive › mindflow' : where || '…'}</span></p>
 }
 
 /** The shortcuts, as an island: those matching the search, or all of them. */

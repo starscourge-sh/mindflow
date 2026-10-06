@@ -3,13 +3,14 @@ import React, { useCallback, useEffect, useRef, useState, type CSSProperties } f
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
 import { useSwipeBack } from './lib/use-swipe-back'
-import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Plus, Settings2, X } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Orbit, Plus, Settings2, X } from 'lucide-react'
 import type { Editor, JSONContent } from '@tiptap/core'
 
 import { convertImports } from './lib/convert-imports'
 import { MindflowEditor, TAGS, currentVim, goToHeading, onVimChange, setVim } from './components/mindflow'
 import { EXITS, exit, findCaptures, findHeadings, follow } from './lib/capture-links'
 import { toMarkdown } from './lib/export'
+import { useSameWords } from './lib/same-words'
 import { CaptureList, useCaptures } from './components/capture-list'
 import { RotCards, textOf } from './components/rot-cards'
 import { HintCard } from './components/hint-card'
@@ -27,10 +28,11 @@ import { ReadThrough, type Readable } from './components/vigil/read-through'
 import { assetsOf } from './lib/document'
 import { firstLineOf, tagsOf, type TokenPattern } from './extensions/tokens'
 import { KeptPanel } from './components/vigil/kept-panel'
+import { clueTarget, startQuestion } from './components/vigil/questions-view'
 import { CaptureProps, useCaptureDisplay } from './components/vigil/captures-view'
 import { Search } from './components/search'
 import { noteActions, useOpenNote } from './lib/notes'
-import { vigil, type Settings } from './lib/vigil'
+import { vigil, type Item, type Settings } from './lib/vigil'
 import { makeTask, placed } from './lib/tasks'
 import { TaskChips, taskTokens } from './components/vigil/task-input'
 import { readTask } from '../../main/task-words'
@@ -303,6 +305,10 @@ export default function App(): React.JSX.Element {
   // Hidden from screen recordings and shares unless let in, for a demo or a
   // Loom; remembered, and put back on every start.
   const appSettings = useLive(vigil.settings, null as Settings | null)
+  // What the side panel's Inbox has waiting on you: rot cards (as many as it
+  // would show) and pins, for the chip at the top while the panel is shut.
+  const oldCount = useLive(vigil.rotWaiting, 0)
+  const pinned = useLive(vigil.pins, [] as Awaited<ReturnType<typeof vigil.pins>>)
   // The word count under the note, on unless you would rather not see it.
   const [counting, setCountingState] = useStoredFlag('word-count', true)
   const setCounting = (on: boolean): void => {
@@ -329,6 +335,13 @@ export default function App(): React.JSX.Element {
   // day, and a slide seen for the hundredth time only reads as waiting.
   // A focus session left running across a restart brings its timer back.
   useEffect(() => void vigil.focusNow().then((focus) => focus && window.api.showFocus(true)), [])
+  // One that ran out while Vigil was closed was ended quietly at start: said
+  // once, the first time the box is on screen, rather than ringing late.
+  useEffect(() => {
+    const tell = (): void => void vigil.focusMissed().then((said) => said && toast(said))
+    if (document.visibilityState === 'visible') tell()
+    return window.api.onShown(tell)
+  }, [])
   // Linear's "Create more": on, a save keeps the box open for the next one.
   const [createMore, setCreateMore] = useStoredFlag('create-more')
   // When the box was opened, for how long a capture took to write.
@@ -381,6 +394,11 @@ export default function App(): React.JSX.Element {
     if (editing || !first) return setLike(null)
     void vigil.similar(first).then(setLike)
   }, [first, editing])
+
+  // "+name" on the first line: a clue for a question you are holding, not a
+  // capture. The open questions, to find which one the name means.
+  const held = useLive(() => vigil.items('question').then((list) => list.filter((one) => !one.closedAt && !one.archivedAt)), [] as Item[])
+  const plus = editing ? null : clueTarget(first, held)
 
   // A task, nugget or article open in the prompt, in place of the box: read
   // and changed here, never by switching to the main window. The note you were
@@ -661,6 +679,10 @@ export default function App(): React.JSX.Element {
   const saveField = (patch: Parameters<typeof window.api.captures.save>[1]): void => {
     if (editing) void window.api.captures.save(editing.id, patch)
   }
+  // An open capture's words, saved only over what it was opened on: the same
+  // note open in the main window, or a merge into it, is never written over.
+  const words = useSameWords('captures', editing?.id, editing?.body, (id, body, base, editor) =>
+    window.api.captures.save(id, { body, base, ...(editor ? { markdown: toMarkdown(editor) } : {}) }))
 
   // Save. Never fails, and no field can block it: an empty box is the only
   // thing it refuses, because there is nothing there to keep.
@@ -677,6 +699,24 @@ export default function App(): React.JSX.Element {
     // picture or a drawing with no words is still something.
     const something = (doc as JSONContent | null)?.content?.some((node) => node.type !== 'paragraph' || node.content?.length)
     if (!text && !something) return chime('nope')
+    // "+name: …": a dated clue in that question, and nothing is captured. A
+    // name that matches no question is kept as a capture, as the chip warned.
+    const clueFor = clueTarget(firstLine(doc), held)
+    if (clueFor?.question) {
+      const question = clueFor.question
+      const clue = [clueFor.rest, textOf(doc).split('\n').slice(1).join('\n').trim()].filter(Boolean).join('\n')
+      if (!clue) return refuse('Write the clue after a colon, or on the lines under the question’s name')
+      chime('clue')
+      beam('success')
+      void vigil.addClue(question.id, clue).then((id) => toast(`A clue in “${question.title.length > 36 ? `${question.title.slice(0, 36)}…` : question.title}”`, () => {
+        if (id) void vigil.dropClue(id)
+        putDraft(doc)
+        fresh(true)
+      }))
+      fresh()
+      if (!more) window.api.hideWindow()
+      return
+    }
     // "5m tea", "timer 25m": a countdown in the floating timer, not a capture.
     // Not when a kind was picked or it is a todo, nor when the rest has a date,
     // a repeat or a tag: "10 min walk every day #health" is a task to keep.
@@ -827,6 +867,7 @@ export default function App(): React.JSX.Element {
           // Everything the box can do, by name and key, as Raycast's ⌘K lists it.
           actions={[
             { label: 'New capture', keys: '⌘N', run: () => startOver() },
+            { label: 'New question', cue: null, run: () => void startQuestion(openAny) },
             { label: panel ? 'Hide the side panel' : 'Show the side panel', keys: '⌘\\', cue: null, run: () => setPanel(!panel) },
             ...TABS.map((one, index) => ({ label: `Go to ${({ inbox: 'Inbox', today: 'Tasks', review: 'Review', kept: 'Kept' } as Record<string, string>)[one] ?? one}`, keys: `⌃${index + 1}`, run: () => {
               setTab(one)
@@ -855,6 +896,7 @@ export default function App(): React.JSX.Element {
             ...noteActions(),
             { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('vigil:shortcuts')) },
             ...themeActions((text) => toast(text)),
+            { label: appSettings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', cue: appSettings?.blur === false ? 'on' : 'off', run: () => void vigil.setSettings({ blur: appSettings?.blur === false }) },
             { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') },
             // The recap opens in the main window, over Stats.
             { label: 'Your month, wrapped', run: () => window.api.openInHome('recap', 'month') },
@@ -892,7 +934,24 @@ export default function App(): React.JSX.Element {
         startOver()
       }} title={appSettings?.topTitle === false ? null : topTitle}
       // Safe mode says so beside the pill, or the quiet looks like nothing happening.
-      aside={appSettings?.safeMode && <Tip label="Safe mode: no hints, rot cards or pins come up  ⌥⌘S"><span className="mr-1 flex h-5 items-center rounded-full bg-accent px-2 text-key leading-none text-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,var(--foreground))]">Safe</span></Tip>}
+      aside={appSettings?.safeMode ? <Tip label="Safe mode: no hints, rot cards or pins come up  ⌥⌘S"><span className="mr-1 flex h-5 items-center rounded-full bg-accent px-2 text-key leading-none text-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,var(--foreground))]">Safe</span></Tip>
+        // Rot cards and reminder pins live in the side panel's Inbox; with the
+        // panel shut, a chip up here says they are there, and opens it on them.
+        : !panel && (oldCount || pinned.length) ? (
+          <Tip label={'Open the Inbox in the side panel  ⌘\\'}>
+            <button type="button" data-waiting style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                setTab('inbox')
+                setPanel(true)
+              }}
+              className="mr-1 flex h-5 items-center gap-1 rounded-full bg-accent px-2 text-key leading-none text-muted-foreground hover:text-foreground">
+              {oldCount > 0 && <span><Rolling text={oldCount} /> old</span>}
+              {oldCount > 0 && pinned.length > 0 && <span>·</span>}
+              {pinned.length > 0 && <span><Rolling text={pinned.length} /> waiting</span>}
+            </button>
+          </Tip>
+        ) : null}
       menu={(expanded, toggleExpanded) => (
         <OptionsMenu
           app
@@ -955,7 +1014,10 @@ export default function App(): React.JSX.Element {
               locked={locked}
               outline={outline}
               onTitleOut={setTopTitle}
-              onReady={(editor) => (editorRef.current = editor)}
+              onReady={(editor) => {
+                editorRef.current = editor
+                words.ready(editor)
+              }}
               tokens={boxTokens}
               // A heading in the note already open is gone to here; anywhere else, once it opens.
               onOpenNote={(link, heading) => (heading && link === editing?.id && editorRef.current ? void goToHeading(editorRef.current, heading) : follow(link, (type, id) => openAny(type, id), heading))}
@@ -967,13 +1029,13 @@ export default function App(): React.JSX.Element {
                 setSearching(true)
               }}
               onChange={(doc, editor) => {
-                if (editing?.id !== editingNow.current) return saveField({ body: doc, markdown: toMarkdown(editor) })
+                if (editing?.id !== editingNow.current) return words.save(doc, editor)
                 setBody(doc)
                 // The kind follows the wording of the first line until you choose one.
                 if (!chosen && !editing) setKind((kindOf(firstLine(doc)) ?? 'note') as CaptureType)
                 // Only a capture already kept is written as you type; a new note's
                 // Markdown is made once, when it is saved, not on every pause.
-                if (editing) saveField({ body: doc, markdown: toMarkdown(editor) })
+                if (editing) words.save(doc, editor)
               }}
             />
             {/* Reading another capture with a note half written: the way back
@@ -1023,7 +1085,14 @@ export default function App(): React.JSX.Element {
               {ASKS[kind].why && textOf(body).trim().split('\n').filter(Boolean).length < 2 && (
                 <span className="truncate px-1.5 text-xs text-muted-foreground/70"><Typed text={ASKS[kind].why} /></span>
               )}
-              {like && (
+              {/* "+name": which question the clue will go into, said before you send. */}
+              {plus && (
+                <span className="ml-auto flex max-w-72 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground animate-in fade-in-0 zoom-in-95 duration-200">
+                  <Orbit className="size-3.5 shrink-0" />
+                  <span className="truncate"><Rolling by="word" text={plus.question ? `A clue for “${plus.question.title}”` : held.length ? `No question matches “${plus.name}”: it will be a capture` : 'No questions held yet: it will be a capture'} /></span>
+                </span>
+              )}
+              {like && !plus && (
                 <Tip label={`Open it: ${like.title}`}>
                 <button
                   type="button"
@@ -1080,7 +1149,7 @@ export default function App(): React.JSX.Element {
               <Tip label={createMore && !editing ? 'Save, and a fresh box for the next  ⌘↵' : (editing ? 'Close this note and go back to your draft  ⌘↵ · changes save as you make them' : 'Save and close  ⌘↵ · once with a fresh box after  ⌥⌘↵')}>
               <Button variant="secondary" onClick={() => submit()} className="text-control">
                 {/* Open on a saved note: closing it, since changes already save. */}
-                <Rolling text={editing ? 'Close note' : saved ? 'Saved' : 'Create'} /> <kbd className="font-sans text-key opacity-70">⌘↵</kbd>
+                <Rolling text={editing ? 'Close note' : saved ? 'Saved' : plus?.question ? 'Add clue' : 'Create'} /> <kbd className="font-sans text-key opacity-70">⌘↵</kbd>
               </Button>
               </Tip>
             </main>
@@ -1413,7 +1482,8 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
     0
   )
   // Archived ones are out of sight, so not counted.
-  const kept = useLive(() => Promise.all([vigil.items('nugget'), vigil.items('article')]).then((both) => both.flat().filter((one) => !one.archivedAt).length), 0)
+  // Questions held open count as kept too; settled ones do not.
+  const kept = useLive(() => Promise.all([vigil.items('nugget'), vigil.items('article'), vigil.items('question')]).then((all) => all.flat().filter((one) => !one.archivedAt && !one.closedAt).length), 0)
   // The inbox is what has no exit yet; what is handled lives in All captures.
   const open = captures.filter((capture) => capture.status === 'open' && !capture.archivedAt)
   // The same Display menu as the main window's inbox: filter, sort, group.
@@ -1461,9 +1531,13 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   const bulk = (status: string): void => {
     const ids = chosen
     setChosen([])
-    void Promise.all(ids.map((id) => window.api.captures.save(id, { status }))).then(() => {
+    void Promise.all(ids.map((id) => window.api.captures.save(id, { status }))).then((results) => {
+      // Only captures still in the inbox take an exit; the undo puts back only
+      // what this changed, each to the status it had.
+      const moved = ids.flatMap((id, at) => (results[at]?.refused ? [] : [{ id, was: (results[at]?.was ?? 'open') as 'open' }]))
+      if (!moved.length) return refuse('Nothing changed: none of the picked captures is still in the inbox')
       chime(status === 'discarded' ? 'away' : 'resolve')
-      toast(`${status[0].toUpperCase()}${status.slice(1)} ${ids.length}`, () => void Promise.all(ids.map((id) => window.api.captures.save(id, { status: 'open' }))))
+      toast(`${status[0].toUpperCase()}${status.slice(1)} ${moved.length}`, () => void Promise.all(moved.map((one) => window.api.captures.save(one.id, { status: one.was }))))
     })
   }
 
@@ -1475,7 +1549,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
           <button
             type="button"
             // Where a promoted capture or a new task flies to.
-            data-home={one.id === 'kept' ? 'nugget' : one.id === 'today' ? 'task' : one.id === 'inbox' ? 'capture' : undefined}
+            data-home={one.id === 'kept' ? 'nugget question' : one.id === 'today' ? 'task' : one.id === 'inbox' ? 'capture' : undefined}
             onClick={() => {
               if (tab !== one.id) chime('tap')
               setTab(one.id)
@@ -1574,7 +1648,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                   open.length ? (
                     <Empty compact shape={['ellipse', 3]} title="Nothing matches">Display's filters hide everything here. Change them, or clear them.</Empty>
                   ) : (
-                    <Rest compact seed="inbox"><Empty compact shape={['flower', 2]} title="Nothing waiting">Every capture has taken its exit. Write the next thought on the left.</Empty></Rest>
+                    <Rest compact seed="inbox"><Empty compact shape={['flower', 2]} title={captures.length ? 'Nothing waiting' : 'Nothing caught yet'}>{captures.length ? 'Every capture has taken its exit. Write the next thought on the left.' : 'Write a thought on the left and press Enter: it waits here.'}</Empty></Rest>
                   )
                 )}
               </>

@@ -13,6 +13,7 @@ import { age, ageTint } from './capture-list'
 import { Kbd, Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { Rest } from './vigil/scenery'
+import { GlossLine, openGloss } from './vigil/gloss-line'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.rot>>[number]
 
@@ -146,7 +147,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
           tabIndex={0}
           data-tone="knock"
           data-card
-          className="group border-b border-border/60 px-2 py-2 text-sm outline-none last:border-b-0 focus-visible:bg-accent/40"
+          className="group group/item border-b border-border/60 px-2 py-2 text-sm outline-none last:border-b-0 focus-visible:bg-accent/40"
           onKeyDown={(event) => {
             if (event.target !== event.currentTarget) return
             // j and k move between the cards; past the last, on into the list.
@@ -165,6 +166,10 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
               event.preventDefault()
               setAsking(card.id)
             }
+            else if (event.key === ';') {
+              event.preventDefault()
+              openGloss(card.id)
+            }
           }}
         >
           <RowMenu items={[
@@ -174,6 +179,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             // Undone, the task goes and the card comes back to its place.
             { label: 'Make it a task', run: () => void makeTask({ capture: card.id }, undefined, { onUndo: () => setCards((all) => (all.some((one) => one.id === card.id) ? all : [...all, card].sort(byAge))) }).then((made) => made && drop(card.id)) },
             { label: 'Say who said it', keys: 'W', run: () => setAsking(card.id) },
+            { label: 'Add a thought', keys: ';', run: () => openGloss(card.id) },
             'separator',
             { label: 'Pin to the prompt', run: () => pin('captures', card.id, true) },
             { label: `Copy ${captureKey(card.number)}`, run: () => copy(captureKey(card.number)) }
@@ -183,16 +189,19 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
               {shown(card.title, card.body)}
             </button>
           </RowMenu>
+          {/* A thought on it right here: the moment it stops you. */}
+          {asking !== card.id && <GlossLine id={card.id} quiet className="mt-0.5" />}
           {asking === card.id ? (
             <div className="mt-1"><AskWho id={card.id} initial={card.attribution ?? ''} onDone={(who) => {
               setAsking(null)
               if (who !== undefined) setCards((all) => all.map((one) => (one.id === card.id ? { ...one, attribution: who || null } : one)))
             }} /></div>
           ) : (
-          <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-            {/* How long it has gone untouched, warming with age: the rot itself. */}
-            <span className="mr-auto truncate">
-              <span style={{ color: ageTint(card.capturedAt) }}>{Date.now() - new Date(card.capturedAt).getTime() < 86400000 ? 'from today' : `untouched ${age(card.capturedAt)}`}</span>
+          <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+            {/* How long it has gone untouched, warming with age: the rot itself.
+                Never cut short: in a narrow panel the buttons wrap under it instead. */}
+            <span className="mr-auto shrink-0 whitespace-nowrap">
+              <span style={{ color: ageTint(card.capturedAt, card.importedAt) }}>{Date.now() - new Date(card.capturedAt).getTime() < 86400000 ? 'from today' : `untouched ${age(card.capturedAt)}`}</span>
             </span>
             {EXITS.map((one) => (
               <Tip key={one.key} label={one.what}>

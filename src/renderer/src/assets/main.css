@@ -595,6 +595,22 @@ body:has([data-card]:focus) [data-cursor] {
    the way: the suggestions open as you type, the arrow only sat on the words. */
 input[list]::-webkit-calendar-picker-indicator { display: none !important; }
 
+/* Time fields in the app's own colours: the system's clock icon goes (typing
+   or the arrow keys set the time), and the system blue on the hour or minute
+   being changed is drained to a neutral tint. Chromium gives no hook to
+   colour that one segment itself, so the filter is the only way at it. */
+:root { color-scheme: dark; }
+:root.light, :root.paper, :root[data-light] { color-scheme: light; }
+input[type='time']::-webkit-calendar-picker-indicator { display: none; }
+input[type='time']:focus::-webkit-datetime-edit { filter: grayscale(1); }
+
+/* No stock spinner arrows on number fields; the up and down keys still step. */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /* The screen glow: the end of a session or timer, lit around the whole edge of
    the screen and gone again (its own window, see-through and click-through).
    Finished is green and called off is orange, each from the theme. */
@@ -668,4 +684,15 @@ input[list]::-webkit-calendar-picker-indicator { display: none !important; }
   box-shadow:
     inset 0 1px 0 color-mix(in oklab, white 60%, transparent),
     0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 5%, transparent);
+}
+
+/* Blurring off, a choice in Settings: private words show plainly, a window
+   you have left keeps its full strength, and hint words arrive by fading
+   alone. */
+:root[data-noblur] [data-private] .private-text { filter: none; }
+:root[data-noblur][data-blurred='on'] body { opacity: 1; }
+:root[data-noblur] .mf-typed { animation-name: mf-typed-plain; }
+@keyframes mf-typed-plain {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: none; }
 }

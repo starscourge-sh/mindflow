@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { Rest } from './scenery'
+import { GlossLine, keepGloss, openGloss } from './gloss-line'
 import { BorderBeam } from 'border-beam'
 import { useAlive, useSurface } from '@/lib/use-alive'
 
@@ -131,6 +132,11 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
       }
       if (['1', '2', '3', '4'].includes(event.key)) grade(Number(event.key) as 1 | 2 | 3 | 4)
       if (event.key === 'b') bury()
+      // ; once the answer shows: a thought on it, without leaving the card.
+      if (event.key === ';' && card && shown) {
+        event.preventDefault()
+        openGloss(card.id)
+      }
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
@@ -236,11 +242,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
               <div className="-mb-2 flex items-start gap-3 text-sm text-muted-foreground">
                 <p className="flex-1 whitespace-pre-line">You said: {said}</p>
                 <Button variant="ghost" size="sm" className="shrink-0" onClick={() =>
-                  void vigil.gloss(card.id, said.trim()).then(() => {
-                    setSaid('')
-                    chime('noted')
-                    toast('Kept as a gloss')
-                  })
+                  void keepGloss(card.id, said).then(() => setSaid(''))
                 }>Keep as a gloss</Button>
               </div>
             )}
@@ -272,6 +274,9 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
             <Why card={card} />
             {/* Where it came from, which a flashcard app never knows. */}
             <Origin id={card.id} attribution={card.attribution} />
+            {/* A thought on it now, while it is in front of you: the latest is
+                shown above already when it stands in for the why. */}
+            <GlossLine id={card.id} latest={!!card.why} className="-mt-3" />
             <div className="grid grid-cols-4 gap-2">
               {GRADES.map(({ grade: value, label, hint, tone }) => (
                 <Tip key={value} label={hint}>
@@ -334,7 +339,7 @@ function Origin({ id, attribution }: { id: string; attribution: string | null })
   if (!from && !attribution) return null
   return (
     <p className="-mt-2 text-xs text-muted-foreground">
-      {[attribution && `Said by ${attribution}`, from && `from “${from.title}”`].filter(Boolean).join(', ')}
+      {[attribution && `Said by ${attribution}`, from && `from ${/^["“‘'«]/.test(from.title) ? from.title : `“${from.title}”`}`].filter(Boolean).join(', ')}
     </p>
   )
 }

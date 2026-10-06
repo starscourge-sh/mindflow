@@ -10,6 +10,8 @@ import { Rolling, refuse, toast, Typed } from './vigil/ui'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { QuestionBack } from './vigil/questions-view'
+import { GlossLine, useGlossKey } from './vigil/gloss-line'
 
 // A memory is a hint that says what it is: this day last year, one source's things.
 type Hint = NonNullable<Awaited<ReturnType<typeof window.api.hints.next>>> & { memory?: string }
@@ -29,6 +31,9 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
   // A nudge: the weekly walk through the inbox, or an exam falling behind.
   const [nudge, setNudge] = useState<Nudge | null>(null)
   useEffect(() => void (nudge && chime('hint')), [nudge?.kind]) // eslint-disable-line react-hooks/exhaustive-deps
+  // A question you are holding, come back: "Still open: …".
+  const [back, setBack] = useState<Awaited<ReturnType<typeof vigil.questionBack>>>(null)
+  useEffect(() => void (back && chime('memory')), [back?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const shownAt = useRef(0)
   // What the card says, set a beat after it arrives so the words roll in
   // from nothing rather than appearing already there.
@@ -82,6 +87,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
     () =>
       window.api.onShown(async () => {
         setAsking(false)
+        setBack(null)
         // A nudge comes at most once a day, so it skips the dice; never in
         // quiet hours or safe mode, which the main process checks.
         const nudging = await vigil.nudge()
@@ -89,6 +95,10 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
         if (nudging) return setHint(null)
         const { rate } = await vigil.hintRate()
         if (Math.random() < rate) {
+          // Now and then, a question still held instead: low weight, at most
+          // once a day, gated and switched off in Settings by the main process.
+          const question = Math.random() < 1 / 4 ? await vigil.questionBack() : null
+          if (question) return (setHint(null), setBack(question))
           // A third of the time, a memory, when there is one to give.
           const next: Hint | null = (Math.random() < 1 / 3 ? await vigil.memory() : null) ?? (await window.api.hints.next())
           shownAt.current = Date.now()
@@ -141,6 +151,9 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
     return () => window.removeEventListener('keydown', onKey)
   })
 
+  // ⌘; from the box, ; from anywhere else: a gloss on the hint in front of you.
+  useGlossKey(hint && !asking && fixing === null ? hint.id : null)
+
   // What a hint offers, as buttons and as its right-click menu alike.
   const actions: { icon: typeof X; tip: string; keys?: string; run: () => void }[] = !hint ? [] : [
                 // Opened right here in the prompt: the capture in the box, a
@@ -174,6 +187,19 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
   }
   return (
     <AnimatePresence>
+      {back && !nudge && !hint && (
+        <motion.div
+          key={`back-${back.id}`}
+          initial={{ opacity: 0, y: -6, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, height: 0, marginBottom: 0, transition: { duration: 0.2 } }}
+          transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+          // Grey, not the brand tint: held, never owed.
+          className="mt-2 mb-3 overflow-hidden rounded-lg border bg-accent/40 px-3 py-2.5 text-sm"
+        >
+          <QuestionBack back={back} onOpen={onOpen} onDone={() => setBack(null)} />
+        </motion.div>
+      )}
       {nudge && !hint && (
         <motion.div
           key={nudge.kind}
@@ -236,6 +262,8 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
               </div>
             )}
           </RowMenu>
+          {/* A thought on it, the moment it stops you: no trip to its page. */}
+          {fixing === null && !asking && <GlossLine id={hint.id} className="mt-1.5" keys="⌘;" />}
           {asking ? (
             <Input
               autoFocus
@@ -249,7 +277,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
                 if (event.key !== 'Enter' || !event.currentTarget.value.trim()) return
                 const line = event.currentTarget.value.trim()
                 void (hint.id === hint.captureId
-                  ? vigil.promote(hint.id, line).then((result) => (result === 'needs-source' ? refuse('A quote needs to say who said it first') : toast('Kept as a nugget, with your line beside it')))
+                  ? vigil.promote(hint.id, line).then((result) => (result === 'needs-source' ? refuse('A quote needs to say who said it first') : result === 'not-open' ? refuse('That capture already took an exit, so it is not kept again') : toast('Kept as a nugget, with your line beside it')))
                   : vigil.saveItem(hint.id, { prompt: line }).then(() => toast('Now tested: it will come up in review'))
                 ).then(() => setHint(null))
               }}

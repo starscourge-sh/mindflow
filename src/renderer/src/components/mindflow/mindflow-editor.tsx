@@ -1061,7 +1061,8 @@ function Surface({
         enableTabIndentation: true,
         tabSize: 2,
       }),
-      Youtube.configure({ width: 640, height: 360 }),
+      // The no-cookie address: a video in a note does not tell YouTube who you are.
+      Youtube.configure({ width: 640, height: 360, nocookie: true }),
       // Collapsible sections. `persist` writes the open state into the
       // document, so a section left folded is still folded when it reopens.
       Details.configure({ persist: true }),

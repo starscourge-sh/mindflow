@@ -11,6 +11,7 @@ import { Kbd, Rolling } from './ui'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { exit } from '@/lib/capture-links'
 import { Scenery } from './scenery'
+import { GlossLine, openGloss } from './gloss-line'
 
 export type Readable = { type: string; id: string }
 
@@ -79,6 +80,8 @@ export function ReadThrough({ items, start = 0, onClose }: {
         }
         return
       }
+      // A thought being written on the page has the keys, Escape too.
+      if (document.activeElement?.closest('[data-gloss]')) return
       if (event.metaKey || event.ctrlKey || event.altKey) return
       // A question asked over the page (who said it?) has the keys.
       if (document.querySelector('[role="dialog"]:not([aria-label="Reading"])')) return
@@ -95,6 +98,8 @@ export function ReadThrough({ items, start = 0, onClose }: {
       if (next) setAt((n) => Math.min(items.length - 1, n + 1))
       else if (back) setAt((n) => Math.max(0, n - 1))
       else if (event.key === 'Escape') onClose()
+      // ; a thought on the page in front of you, kept beside it, dated.
+      else if (event.key === ';' && item) openGloss(item.id)
       else if ((event.key === 'e' || event.key === 'Enter') && item) {
         event.preventDefault()
         chime('on')
@@ -102,13 +107,13 @@ export function ReadThrough({ items, start = 0, onClose }: {
       }
       // Deal with it while it is in front of you: an exit or a task, then the
       // next page. ⌘Z still takes it back.
-      else if (item?.type === 'capture' && 'prdt'.includes(event.key)) {
+      else if (item?.type === 'capture' && 'prdth'.includes(event.key)) {
         const next = (): void => setAt((n) => Math.min(items.length - 1, n + 1))
         // Undone, it is back where you left it: the page you took it from.
         const here = at
         const back = (): void => setAt(here)
         if (event.key === 't') void makeTask({ capture: item.id }, 'Now a task', { onUndo: back }).then((made) => made && next())
-        else void exit(item.id, { p: 'promoted', r: 'resolved', d: 'discarded' }[event.key as 'p' | 'r' | 'd'], back).then(next)
+        else void exit(item.id, { p: 'promoted', r: 'resolved', d: 'discarded', h: 'question' }[event.key as 'p' | 'r' | 'd' | 'h'], back).then(next)
       }
     }
     // Taken first, so the lists and the editor underneath never see the keys.
@@ -169,6 +174,7 @@ export function ReadThrough({ items, start = 0, onClose }: {
             />
             </div>
           )}
+          {page && page.id === item.id && !writing && <GlossLine id={item.id} className="mt-8 text-control" />}
         </motion.article>
       </AnimatePresence>
       {/* The only furniture: where you are, and how to move. */}
@@ -185,6 +191,7 @@ export function ReadThrough({ items, start = 0, onClose }: {
           <>
             <span><Kbd>↓</Kbd> <Kbd>J</Kbd> next · <Kbd>↑</Kbd> <Kbd>K</Kbd> back</span>
             <span><Kbd>E</Kbd> write in it</span>
+            <span><Kbd>;</Kbd> a thought</span>
             {item.type === 'capture' && <span><Kbd>P</Kbd> <Kbd>R</Kbd> <Kbd>D</Kbd> exits · <Kbd>T</Kbd> task</span>}
             <span><Kbd>Esc</Kbd> close</span>
           </>

@@ -15,6 +15,7 @@ import { age } from '../capture-list'
 import { findCaptures, findHeadings, follow } from '@/lib/capture-links'
 import { interval, splitTags, useLive, vigil, when, whenInLine, type Item, type ItemFull } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
+import { useSameWords } from '@/lib/same-words'
 import { Empty, Island, Page, Prop, Props, Tags, refuse, toast, useListKeys, useReadKey, typing, pin, VirtualList, Stepper, startAt, Rolling, Typed, showTopTitle } from './ui'
 import { AGES, Display, arrange, period, useView, type Facet } from './display'
 import { RowMenu, copy, type MenuItem } from './row-menu'
@@ -26,7 +27,7 @@ import * as chrono from 'chrono-node'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Tip } from '@/components/vigil/ui'
+import { Kbd, Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
@@ -34,6 +35,8 @@ import { Archive, ArchiveRestore, Download } from 'lucide-react'
 import { KindFields, LayoutToggle, LocalGraph, NoteCards, Thumb, Versions, useLayout } from './note-extras'
 import { SortableList, SortableRow } from './sortable'
 import { archive, changeKind, openWindow, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
+import { QuestionDetail } from './questions-view'
+import { GlossTimeline } from './gloss-line'
 
 const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
 
@@ -154,7 +157,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
             <span className="flex items-center gap-2 text-xs">
               {tier === 'nugget' && items.length > 1 && (
                 <>
-                  x to select
+                  <span className="whitespace-nowrap"><Kbd>x</Kbd> to select</span>
                   <Button variant="ghost" size="sm" onClick={() => void vigil.random().then(setPair)}>
                     Two at random
                   </Button>
@@ -295,10 +298,14 @@ function ArticleRow({ item }: { item: Item }): React.JSX.Element {
   )
 }
 
+/** The open nugget, article or question, wherever it is opened: a question is drawn its own way. */
+export function ItemDetail(props: { item: ItemFull; onOpen?: (type: string, id: string) => void; top?: React.ReactNode }): React.JSX.Element {
+  return props.item.tier === 'question' ? <QuestionDetail {...props} /> : <NuggetDetail {...props} />
+}
+
 /** The open nugget or article: its words, its glosses, and down the right how it comes back. */
-export function ItemDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: string, id: string) => void; top?: React.ReactNode }): React.JSX.Element {
+function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: string, id: string) => void; top?: React.ReactNode }): React.JSX.Element {
   const [prompt, setPrompt] = useState(item.prompt ?? '')
-  const [gloss, setGloss] = useState('')
   const glossWords = item.glosses.filter((one) => one.author === 'user').reduce((sum, one) => sum + one.body.split(/\s+/).filter(Boolean).length, 0)
   const editor = useRef<Editor | null>(null)
   // The words as opened or last saved, to tell a real edit from the editor settling.
@@ -308,6 +315,8 @@ export function ItemDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (ty
   // opens on them.
   const [past, setPast] = useState<{ body: unknown; key: string } | null>(null)
   const [restored, setRestored] = useState<{ body: unknown; rev: number } | null>(null)
+  // Saved only over the words it was opened on: another window's never lost.
+  const words = useSameWords('nuggets', item.id, restored ? restored.body : item.body, (id, body, base) => vigil.saveItem(id, { body, base }))
   useOpenNote({ table: 'nuggets', type: item.tier, id: item.id, kind: item.kind, archived: !!item.archivedAt })
   // A cloze: the words you selected, blanked. Two keystrokes and no writing,
   // the cheapest way to make something testable, and right for a name or a
@@ -376,7 +385,10 @@ export function ItemDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (ty
           findHeadings={findHeadings}
           onOpenNote={(link, heading) => onOpen && follow(link, onOpen, heading)}
           after={<Mentions id={item.id} onOpen={onOpen} />}
-          onReady={(instance) => { seen.current = { body: JSON.stringify(instance.getJSON()), line: firstLineOf(instance.state.doc)?.text ?? '' } }}
+          onReady={(instance) => {
+            seen.current = { body: JSON.stringify(instance.getJSON()), line: firstLineOf(instance.state.doc)?.text ?? '' }
+            words.ready(instance)
+          }}
           onChange={(body, instance) => {
             editor.current = instance
             // The editor can tidy a document as it opens (a list first, say);
@@ -387,7 +399,8 @@ export function ItemDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (ty
             // changed: a blank one, or one the title never came from, keeps it.
             const title = item.tier === 'nugget' && now.line && now.line !== seen.current?.line ? now.line : undefined
             seen.current = now
-            void vigil.saveItem(item.id, { body, ...(title ? { title } : {}) })
+            words.save(body, instance)
+            if (title) void vigil.saveItem(item.id, { title })
           }}
         />
         )}
@@ -523,26 +536,7 @@ export function ItemDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (ty
 
         {/* Glosses: present-you beside the material, one row each and never an
             edit, so the history of your thinking about it stays readable. */}
-        <Island compact title="Glosses">
-          {item.glosses.map((one) => (
-            <div key={one.id} className="px-2 py-1.5 text-foreground">
-              <p className="whitespace-pre-line">{one.body}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{when(one.createdAt)}{one.author === 'ai' ? ' · AI' : ''}</p>
-            </div>
-          ))}
-          <Textarea
-            value={gloss}
-            onChange={(event) => setGloss(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== 'Enter' || event.shiftKey || !gloss.trim()) return
-              event.preventDefault()
-              void vigil.gloss(item.id, gloss.trim()).then(() => (chime('noted'), setGloss('')))
-            }}
-            rows={2}
-            placeholder="Why you kept it, or where you disagree"
-            className="resize-none text-control"
-          />
-        </Island>
+        <GlossTimeline id={item.id} />
       </Props>
     </div>
   )
@@ -569,7 +563,7 @@ export function RemindMe({ table, id, at }: { table: 'captures' | 'nuggets'; id:
     setOpen(false)
     setWords('')
     void vigil.remind(table, id, date ? date.toISOString() : null).then(() =>
-      (chime(date ? 'pin' : 'off'), toast(date ? `Will pin itself ${whenInLine(date.toISOString(), false)}` : 'Reminder cleared')))
+      (chime(date ? 'pin' : 'off'), toast(date ? `Pins itself in the box's Inbox ${whenInLine(date.toISOString(), false)}, with a "waiting" chip at the top of the box` : 'Reminder cleared')))
   }
   return (
     <Popover open={open} onOpenChange={setOpen}>

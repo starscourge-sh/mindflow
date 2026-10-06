@@ -96,3 +96,8 @@
     }
   }
 }
+
+// Too wide for its editor: buttons that have an icon keep just the icon.
+.tiptap-toolbar[data-tight] button:has(svg) .tiptap-button-text {
+  display: none;
+}

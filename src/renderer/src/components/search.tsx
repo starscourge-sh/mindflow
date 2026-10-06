@@ -12,12 +12,16 @@ import MagnifierIcon from '@/components/ui/magnifier-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import { Chips } from './vigil/display'
 import { Tip } from '@/components/vigil/ui'
+import { vigil, when, type TaskFull } from '@/lib/vigil'
+import { BUCKETS, bucket } from '@/lib/tasks'
+import { PRIORITY_NAMES } from '../../../main/task-words'
+import { GlossLine, openGloss } from './vigil/gloss-line'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 
 /** Something to do from the palette, with the key that does it anywhere. */
 /** `cue` is its sound, on/off for a switch; a tap when it says nothing. */
-export type Action = { label: string; keys?: string; run: () => void; cue?: Cue | null }
+export type Action = { label: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean }
 
 /** Which of Notion's three groups a date falls in. */
 const groupOf = (at: string): string => {
@@ -46,11 +50,14 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
   const words = query.toLowerCase().split(/\s+/).filter((word) => word && !word.startsWith('kind:'))
   const results = (slow ? [] : found).filter((one) =>
     (!titleOnly || words.every((word) => one.label.toLowerCase().includes(word))) &&
-    (!types.length || types.includes(one.type === 'article' ? 'nugget' : one.type)) &&
+    (!types.length || types.includes(one.type === 'article' || one.type === 'question' ? 'nugget' : one.type)) &&
     (!kinds.length || kinds.includes(one.kind)))
   // Raycast's ⌘K: what you can do comes first, matched by the same words,
   // then what you have written. One list, one cursor.
-  const doing = actions.filter((one) => words.every((word) => one.label.toLowerCase().includes(word))).slice(0, query.trim() ? 4 : 12)
+  // Typed, the open note's own actions come before places to go: "Archive"
+  // with a note open means archive it, not the Archived list.
+  const doing = actions.filter((one) => words.every((word) => one.label.toLowerCase().includes(word)))
+    .sort((a, b) => (query.trim() ? Number(!!b.own) - Number(!!a.own) : 0)).slice(0, query.trim() ? 4 : 12)
   const [at, setAt] = useState(0)
   // Tab on a result asks who said it, without leaving search.
   const [asking, setAsking] = useState(false)
@@ -89,6 +96,12 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
   // empty preview half. Typing makes it the full search.
   const compact = actions.length > 0 && !query.trim()
   const preview = pane && !!current
+  // A gloss goes on what you have written, not on a task.
+  const glossable = !!current && current.type !== 'task'
+  // ⌘; pressed with the preview put away: the line opens under the row instead.
+  const [glossing, setGlossing] = useState(false)
+  useEffect(() => setGlossing(false), [current?.id])
+  const backToBox = (): void => (setGlossing(false), box.current?.focus())
   const run = (action: Action): void => {
     // null: the action sounds for itself (the sound switch, the panel).
     if (action.cue !== null) chime(action.cue ?? 'tap')
@@ -113,6 +126,9 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
               else if (event.key === 'Enter' && at < doing.length) run(doing[at])
               else if (event.key === 'Enter' && current) onOpen(current.type, current.id)
               else if (event.key === 'Tab' && current?.type === 'capture') setAsking(true)
+              // ⌘; a thought on the highlighted one, without opening it.
+              // Taken even on an action, so it never reaches a hint card behind search.
+              else if (event.metaKey && event.key === ';') { if (glossable) { chime('tap'); setGlossing(true); if (preview) openGloss(current.id) } }
               // The arrows, or Ctrl-J and Ctrl-K: the editor's vim, carried into the box.
               else if (event.key === 'ArrowDown' || (event.ctrlKey && event.key === 'j')) { click('soft'); setAt((n) => Math.min(n + 1, total - 1)) }
               else if (event.key === 'ArrowUp' || (event.ctrlKey && event.key === 'k')) { click('soft'); setAt((n) => Math.max(n - 1, 0)) }
@@ -192,6 +208,9 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
                     {whereFrom(capture.source, capture.label) && <span className="min-w-0 max-w-[40%] truncate text-xs text-muted-foreground">· {whereFrom(capture.source, capture.label)}</span>}
                     {index + doing.length === at && !asking && capture.type === 'capture' && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{capture.attribution ?? 'Tab: who said it'}</span>}
                   </button>
+                  {index + doing.length === at && glossing && !preview && glossable && (
+                    <div className="px-8 pb-1"><GlossLine id={capture.id} open onDone={backToBox} /></div>
+                  )}
                   {index + doing.length === at && asking && (
                     <div className="px-8 pb-1">
                       <AskWho id={capture.id} onDone={() => {
@@ -208,8 +227,9 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
           {/* The capture as it reads, not its raw text: the same editor, read only,
               and a fresh one for each result. */}
           {pane && current && (
-            <div className="m-3 mt-0 max-h-[45%] min-h-24 shrink-0 overflow-y-auto rounded-lg border [--mf-padding:1rem_1.25rem] @[34rem]/search:mt-3 @[34rem]/search:max-h-none @[34rem]/search:w-1/2 @[34rem]/search:shrink">
-              <MindflowEditor
+            <div className="m-3 mt-0 flex max-h-[45%] min-h-24 shrink-0 flex-col overflow-hidden rounded-lg border @[34rem]/search:mt-3 @[34rem]/search:max-h-none @[34rem]/search:w-1/2 @[34rem]/search:shrink">
+              <div className="min-h-0 flex-1 overflow-y-auto [--mf-padding:1rem_1.25rem]">
+              {current.type === 'task' ? <TaskPreview key={current.id} id={current.id} /> : <MindflowEditor
                 key={current.id}
                 defaultContent={(current.body as JSONContent | string | null) ?? ''}
                 readOnly
@@ -219,11 +239,60 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
                 outline={false}
                 search={false}
                 autofocus={false}
-              />
+              />}
+              </div>
+              {/* A thought on it right from the results: ⌘; or a click. */}
+              {glossable && (
+                <div className="shrink-0 border-t bg-accent/25 px-3 py-1.5">
+                  <GlossLine key={current.id} id={current.id} open={glossing} onDone={backToBox} keys="⌘;" />
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * A task as the preview shows it: its name, when it is planned and due, how
+ * much it matters, its steps and its notes. A task's notes alone were often
+ * empty, which left the preview an empty frame.
+ */
+function TaskPreview({ id }: { id: string }): React.JSX.Element | null {
+  const [task, setTask] = useState<TaskFull | null>(null)
+  useEffect(() => void vigil.task(id).then(setTask), [id])
+  if (!task) return null
+  const later = bucket(task)
+  const facts = [
+    task.dueAt ? `Scheduled ${when(task.dueAt, !!task.allDay)}` : later ? BUCKETS[later] : 'Not scheduled',
+    task.deadline && `Due ${when(task.deadline, !task.deadlineTimed)}`,
+    task.priority ? PRIORITY_NAMES[task.priority] : null,
+    task.status !== 'open' && (task.status === 'done' ? 'Done' : 'Dropped')
+  ].filter(Boolean)
+  const notes = /"text":|"src":/.test(JSON.stringify(task.notes ?? null))
+  return (
+    <div className="flex flex-col gap-3 p-4 text-body">
+      <div>
+        <p className="text-base font-medium text-foreground">{task.title || 'Untitled task'}</p>
+        <p className="mt-1 text-muted-foreground">{facts.join(' · ')}</p>
+      </div>
+      {task.subtasks.length > 0 && (
+        <ul className="flex flex-col gap-1">
+          {task.subtasks.map((one, index) => (
+            <li key={index} className={`flex items-baseline gap-2 ${one.done ? 'text-muted-foreground line-through' : ''}`}>
+              <span aria-hidden className="shrink-0">{one.done ? '☑' : '☐'}</span>
+              <span className="min-w-0">{one.text}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {notes && (
+        <div className="-mx-4 border-t pt-1">
+          <MindflowEditor defaultContent={task.notes as JSONContent} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
+        </div>
+      )}
     </div>
   )
 }

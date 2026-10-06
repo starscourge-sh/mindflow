@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { DndContext, DragOverlay, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
 import { Brain, CalendarClock, ChevronLeft, ChevronRight, Repeat } from 'lucide-react'
@@ -51,6 +51,23 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
   // it settles into its new place rather than jumping back first.
   const [landing, setLanding] = useState<{ id: string; col: number } | null>(null)
   useEffect(() => setLanding(null), [tasks])
+  // In a narrow window the seven days scroll sideways: the edge with more days
+  // past it fades, so it is plain there is more, and the day the keys are on
+  // is always brought into view.
+  const strip = useRef<HTMLDivElement>(null)
+  const [edges, setEdges] = useState({ left: false, right: false })
+  const measure = (): void => {
+    const el = strip.current
+    if (el) setEdges({ left: el.scrollLeft > 2, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 2 })
+  }
+  useEffect(() => {
+    measure()
+    addEventListener('resize', measure)
+    return () => removeEventListener('resize', measure)
+  }, [])
+  useEffect(() => {
+    strip.current?.querySelector(`[data-day="${at.col}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [at.col, from])
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   const live = tasks.filter((task) => task.status === 'open')
@@ -95,9 +112,10 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
     const base = new Date(was).getTime() < dayStart(0) ? new Date(new Date(was).setFullYear(now.getFullYear(), now.getMonth(), now.getDate())).toISOString() : was
     const to = shifted(base, by)
     if (new Date(to).setHours(0, 0, 0, 0) === new Date(was).setHours(0, 0, 0, 0)) return chime('nope')
-    void vigil.saveTask(card.task.id, { [field]: to }).then(() => {
+    // Undone, the reschedule it counted and the reminder it reset go back too.
+    void vigil.saveTask(card.task.id, { [field]: to }).then((before) => {
       chime('shift')
-      toast(`${card.kind === 'scheduled' ? 'Moved to' : 'Due by'} ${whenInLine(to, card.kind === 'scheduled' ? !!card.task.allDay : !card.task.deadlineTimed)}`, () => void vigil.saveTask(card.task.id, { [field]: was }))
+      toast(`${card.kind === 'scheduled' ? 'Moved to' : 'Due by'} ${whenInLine(to, card.kind === 'scheduled' ? !!card.task.allDay : !card.task.deadlineTimed)}`, () => void vigil.saveTask(card.task.id, { [field]: was, ...(before === true ? {} : before) }))
     })
   }
   const go = (col: number): void => {
@@ -184,7 +202,9 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
             move(from.card, to - from.col)
           }}
         >
-        <div className="grid min-h-0 flex-1 gap-px overflow-x-auto p-3 [grid-template-columns:repeat(7,minmax(8rem,1fr))]">
+        <div ref={strip} onScroll={measure}
+          style={{ maskImage: edges.left || edges.right ? `linear-gradient(to right, ${edges.left ? 'transparent, black 3rem' : 'black'}, ${edges.right ? 'black calc(100% - 3rem), transparent' : 'black'})` : undefined }}
+          className="grid min-h-0 flex-1 gap-px overflow-x-auto p-3 [grid-template-columns:repeat(7,minmax(8rem,1fr))]">
           {days.map((day, col) => {
             const date = new Date(day.start)
             const today = day.start === dayStart(0)

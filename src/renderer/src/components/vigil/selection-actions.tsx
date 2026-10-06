@@ -43,6 +43,7 @@ export function selectionActions(origin: { captureId?: string; attribution?: str
           <button
             type="button"
             className={button}
+            aria-label="Capture"
             onClick={() => {
               const text = words()
               if (!text || !once('capture', text)) return
@@ -55,11 +56,12 @@ export function selectionActions(origin: { captureId?: string; attribution?: str
                 })
             }}
           >
-            <Inbox /> Capture
+            <Inbox /> <span className="tiptap-button-text">Capture</span>
           </button>
           <button
             type="button"
             className={button}
+            aria-label="Nugget"
             onClick={() => {
               const text = words()
               if (!text || !once('nugget', text)) return
@@ -72,18 +74,19 @@ export function selectionActions(origin: { captureId?: string; attribution?: str
                 .catch(() => lifted.delete(`nugget\n${text}`))
             }}
           >
-            <Gem /> Nugget
+            <Gem /> <span className="tiptap-button-text">Nugget</span>
           </button>
           <button
             type="button"
             className={button}
+            aria-label="Task"
             onClick={() => {
               const text = words()
               if (!text || !once('task', text)) return
               void makeTask({ text, origin: origin.captureId }, 'Added to your tasks')
             }}
           >
-            <ListTodo /> Task
+            <ListTodo /> <span className="tiptap-button-text">Task</span>
           </button>
         </ToolbarGroup>
       </>

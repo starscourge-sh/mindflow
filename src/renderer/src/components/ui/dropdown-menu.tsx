@@ -1,4 +1,5 @@
 import * as React from "react"
+import { quietClose } from "@/lib/quiet-focus"
 import { cn } from "@/lib/cn"
 import { chime } from "@/lib/sound"
 import { blinkThen } from "./menu-blink"
@@ -56,6 +57,7 @@ function DropdownMenuContent({
         align={align}
         className={cn("z-50 flex max-h-[min(var(--radix-dropdown-menu-content-available-height),80vh)] w-(--radix-dropdown-menu-trigger-width) min-w-32 origin-(--radix-dropdown-menu-content-transform-origin) flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 duration-150 data-closed:animate-out data-closed:fade-out-0", className )}
         {...props}
+        onCloseAutoFocus={quietClose(props.onCloseAutoFocus)}
       >
         <MenuScroll>{children}</MenuScroll>
       </DropdownMenuPrimitive.Content>

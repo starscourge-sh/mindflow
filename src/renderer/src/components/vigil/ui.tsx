@@ -14,6 +14,7 @@ import { useStoredFlag } from '@/lib/use-stored-flag'
 import { Kbd as ShadKbd, KbdGroup } from '@/components/ui/kbd'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { KindAsker } from './note-extras'
+import { QuestionAsker } from './questions-view'
 
 /**
  * The few parts every view is built from, so the views read as one app. The
@@ -150,7 +151,7 @@ export function Stepper({ at, total, onStep }: { at: number; total: number; onSt
   }
   return (
     <div className="flex shrink-0 items-center gap-1 text-control text-muted-foreground">
-      <span className="mr-1 shrink-0 whitespace-nowrap tabular-nums"><span className="text-foreground"><Rolling text={at + 1} /></span> / {total}</span>
+      <span className="mr-1 shrink-0 whitespace-nowrap tabular-nums"><span className="text-foreground"><Rolling text={at + 1} /></span> / <Rolling text={total} /></span>
       <Tip label="Next  ↓"><button type="button" aria-label="Next" disabled={at >= total - 1} onClick={() => go(1)} className="flex size-7 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowDown className="size-4" /></button></Tip>
       <Tip label="Previous  ↑"><button type="button" aria-label="Previous" disabled={at <= 0} onClick={() => go(-1)} className="flex size-7 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowUp className="size-4" /></button></Tip>
     </div>
@@ -296,7 +297,11 @@ export function useListKeys(count: number, { onOpen, onBack, enabled = true }: {
       // A finished G G starts over, so a third g is the start of the next pair.
       if (event.key === 'g' && last.current === 'g') return void ((last.current = ''), move(0))
       last.current = event.key
-      if (event.key === 'Enter' && onOpen && at >= 0 && at < count) {
+      // Enter on a button or field reached with Tab is that control's own,
+      // unless it is one of the rows.
+      const held = document.activeElement
+      const control = held instanceof HTMLElement && held.matches('button, a[href], input, textarea, select, [role="button"], [contenteditable="true"]') && !held.closest('[data-row], [data-cursor]')
+      if (event.key === 'Enter' && onOpen && at >= 0 && at < count && !control) {
         event.preventDefault()
         onOpen(at)
       }
@@ -402,8 +407,8 @@ export function Beam(): React.JSX.Element | null {
  * A question that needs a line from you before something can go on, asked in
  * place: Enter answers, Escape lets it go. Resolves to the words, or null.
  */
-export const ask = (question: string, placeholder = '', field?: 'attribution' | 'medium'): Promise<string | null> =>
-  new Promise((answer) => void window.dispatchEvent(new CustomEvent('vigil:ask', { detail: { question, placeholder, field, answer } })))
+export const ask = (question: string, placeholder = '', field?: 'attribution' | 'medium', initial = ''): Promise<string | null> =>
+  new Promise((answer) => void window.dispatchEvent(new CustomEvent('vigil:ask', { detail: { question, placeholder, field, initial, answer } })))
 
 /** The names typed before in a field, offered as you type: the list behind `list=`. */
 function Suggest({ field }: { field: 'attribution' | 'medium' }): React.JSX.Element {
@@ -412,7 +417,7 @@ function Suggest({ field }: { field: 'attribution' | 'medium' }): React.JSX.Elem
 }
 
 function Asker(): React.JSX.Element | null {
-  const [asked, setAsked] = useState<{ question: string; placeholder: string; field?: 'attribution' | 'medium'; answer: (words: string | null) => void } | null>(null)
+  const [asked, setAsked] = useState<{ question: string; placeholder: string; field?: 'attribution' | 'medium'; initial?: string; answer: (words: string | null) => void } | null>(null)
   useEffect(() => {
     const onAsk = (event: Event): void => {
       chime('open')
@@ -442,6 +447,8 @@ function Asker(): React.JSX.Element | null {
           // its row as it closes, after autofocus has already run.
           ref={(input) => void (input && setTimeout(() => input.focus(), 30))}
           placeholder={asked.placeholder}
+          // A guess (a name already in the words) is offered, never kept unasked.
+          defaultValue={asked.initial}
           // Who said it before, offered as you type: it gets quicker with use.
           list={asked.field ? `remembered-${asked.field}` : undefined}
           onKeyDown={(event) => {
@@ -545,6 +552,7 @@ export function Toaster(): React.JSX.Element | null {
     <>
     <Asker />
     <KindAsker />
+    <QuestionAsker />
     <Beam />
     {/* Centred along the bottom, where the eye drops after acting. */}
     {shown && <div className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex justify-center"><div

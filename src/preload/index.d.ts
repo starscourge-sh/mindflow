@@ -1,4 +1,4 @@
-import type { Capture, CaptureMeta, CapturePatch } from '../main/captures'
+import type { Capture, CaptureMeta, CapturePatch, SaveResult } from '../main/captures'
 
 export interface LinkMetadata {
   href: string
@@ -64,9 +64,9 @@ export interface Api {
     cards: () => Promise<{ id: string; kind: string; body: unknown }[]>
     search: (query: string) => Promise<CaptureMeta[]>
     rot: () => Promise<Capture[]>
-    find: (query: string) => Promise<{ type: 'capture' | 'nugget' | 'article' | 'task'; id: string; number: number | null; kind: string; status: string; source: string; attribution: string | null; label: string; body: unknown; capturedAt: string }[]>
+    find: (query: string) => Promise<{ type: 'capture' | 'nugget' | 'article' | 'question' | 'task'; id: string; number: number | null; kind: string; status: string; source: string; attribution: string | null; label: string; body: unknown; capturedAt: string }[]>
     create: (patch: CapturePatch) => Promise<string>
-    save: (id: string, patch: CapturePatch) => Promise<void>
+    save: (id: string, patch: CapturePatch) => Promise<SaveResult>
     onChange: (listen: () => void) => () => void
   }
 }

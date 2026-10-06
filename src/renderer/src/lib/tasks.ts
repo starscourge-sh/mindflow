@@ -1,7 +1,7 @@
 import { chime } from './sound'
 import { taskSaid, vigil, type Made, type Task } from './vigil'
 import { flying } from './capture-links'
-import { toast } from '@/components/vigil/ui'
+import { refuse, toast } from '@/components/vigil/ui'
 import { bucketOf, monthKey } from '../../../main/task-words'
 
 /**
@@ -25,12 +25,20 @@ export async function makeTask(
   said: string | ((made: Made) => string | Promise<string>) = 'Now a task',
   { onUndo }: { onUndo?: () => void } = {}
 ): Promise<Made | null> {
-  const [made, links, reopen] =
-    'capture' in from ? [await flying(from.capture, 'task', () => vigil.toTask(from.capture)), [from.capture], [from.capture]]
-    : 'captures' in from ? [await vigil.taskFrom(from.captures, from.text), from.captures, from.captures]
-    : 'item' in from ? [await vigil.study(from.item, from.text), [from.item], []]
-    : [await vigil.addTask(from.text, from.origin, from.today), from.origin ? [from.origin] : [], []]
+  const [got, links] =
+    'capture' in from ? [await flying(from.capture, 'task', () => vigil.toTask(from.capture)), [from.capture]]
+    : 'captures' in from ? [await vigil.taskFrom(from.captures, from.text), from.captures]
+    : 'item' in from ? [await vigil.study(from.item, from.text), [from.item]]
+    : [await vigil.addTask(from.text, from.origin, from.today), from.origin ? [from.origin] : []]
+  // A capture that already took an exit (promoted, resolved, let go) keeps it.
+  if (got === 'not-open' || (!got && 'captures' in from)) {
+    refuse(got === 'not-open' ? 'Only a capture still in the inbox can become a task' : 'None of those is still in the inbox, so there is nothing to make a task from')
+    return null
+  }
+  const made = got
   if (!made) return null
+  // Only what this took out of the inbox goes back there on undo.
+  const reopen = made.resolved ?? []
   chime(made.existed ? 'nope' : 'noted')
   const words = typeof said === 'function' ? await said(made) : said
   toast(taskSaid(made, words), () => void vigil.unmakeTask(made.id, made.existed, links, reopen).then(() => onUndo?.()))

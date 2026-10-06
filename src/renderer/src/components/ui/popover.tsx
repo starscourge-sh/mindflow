@@ -1,4 +1,5 @@
 import * as React from "react"
+import { quietClose } from "@/lib/quiet-focus"
 import { cn } from "@/lib/cn"
 import { chime } from "@/lib/sound"
 
@@ -42,6 +43,7 @@ function PopoverContent({
           className
         )}
         {...props}
+        onCloseAutoFocus={quietClose(props.onCloseAutoFocus)}
       />
     </PopoverPrimitive.Portal>
   )

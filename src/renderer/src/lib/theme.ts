@@ -100,6 +100,9 @@ export function applyTheme(theme: Theme, remember = true): void {
   // the window solid, so it says so here.
   if ((theme.startsWith("custom-") && isLight(theme)) || !frosted()) document.documentElement.dataset.solid = ""
   else delete document.documentElement.dataset.solid
+  // Native bits (a time field, a scrollbar) follow light or dark, imported themes included.
+  if (isLight(theme)) document.documentElement.dataset.light = ""
+  else delete document.documentElement.dataset.light
   // A preview is worn, not kept, so the other window does not follow it.
   if (remember) localStorage.setItem("theme", theme)
   // The window is see-through over macOS's frosted backing: it has to be
@@ -235,7 +238,10 @@ export function paintCustom(): void {
   }
   tag.textContent = customThemes()
     .map(({ id, vars }) => {
-      const body = Object.entries(vars).map(([key, value]) => `${key}: ${value.replace(/[;{}<]/g, "")};`).join(" ")
+      // A theme file is someone else's: only plain variable names, and no
+      // value that points the page at a file or an address (url()).
+      const body = Object.entries(vars).filter(([key, value]) => /^--[\w-]+$/.test(key) && !/url\s*\(|\\/i.test(String(value)))
+        .map(([key, value]) => `${key}: ${String(value).replace(/[;{}<]/g, "")};`).join(" ")
       const dot = (n: number, colour?: string): string => (colour ? `.mf-swatch-${id} i:nth-child(${n}) { background: ${colour.replace(/[;{}<]/g, "")}; }` : "")
       return `:root.${id} { ${body} } ${dot(1, vars["--tt-brand-color-400"])} ${dot(2, vars["--tt-color-text-yellow"])} ${dot(3, vars["--tt-color-text-green"])}`
     })

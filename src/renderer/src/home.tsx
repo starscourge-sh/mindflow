@@ -16,6 +16,7 @@ import {
   Repeat,
   Trash2,
   Layers,
+  Orbit,
   PanelLeft,
   Search as SearchIcon,
   Settings as SettingsIcon,
@@ -35,6 +36,7 @@ import { useCaptures, type CaptureMeta } from './components/capture-list'
 import { Search } from './components/search'
 import { CapturesView } from './components/vigil/captures-view'
 import { ItemsView } from './components/vigil/items-view'
+import { QuestionsView, startQuestion } from './components/vigil/questions-view'
 import { ReviewView } from './components/vigil/review-view'
 import { SettingsView } from './components/vigil/settings-view'
 import { StatsView } from './components/vigil/stats-view'
@@ -56,7 +58,7 @@ import { Tour } from '@/components/vigil/tour'
 import { DayView } from '@/components/vigil/day-view'
 import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
-import { Archive, Ellipsis, NotebookPen } from 'lucide-react'
+import { Archive, Ellipsis, Eye, EyeOff, NotebookPen } from 'lucide-react'
 
 // A nonce makes asking again a fresh visit: the recap reopens each time.
 type View = { id: string; focus?: string; nonce?: number }
@@ -77,6 +79,8 @@ const SECTIONS: { id: string; label: string; icon: LucideIcon; key: string; tint
   { id: 'later', label: 'Later', icon: Telescope, key: 'z', tint: 'purple' },
   { id: 'nuggets', label: 'Nuggets', icon: Gem, key: 'n', tint: 'pink' },
   { id: 'articles', label: 'Articles', icon: FileText, key: 'a', tint: 'brown' },
+  // Questions you are holding open: what you keep circling and cannot name yet.
+  { id: 'questions', label: 'Holding', icon: Orbit, key: 'h', tint: 'gray' },
   { id: 'tags', label: 'Tags', icon: Tag, key: '#', tint: 'red' },
   { id: 'stats', label: 'Stats', icon: BarChart3, key: 's', tint: 'blue' },
   { id: 'all', label: 'All captures', icon: Layers, key: 'l', tint: 'gray' },
@@ -188,6 +192,7 @@ export function Home(): React.JSX.Element {
   const tasks = useLive(vigil.tasks, [] as Task[])
   const nuggets = useLive(() => vigil.items('nugget'), [] as Item[])
   const articles = useLive(() => vigil.items('article'), [] as Item[])
+  const questions = useLive(() => vigil.items('question'), [] as Item[])
   const settings = useLive(vigil.settings, null as Settings | null)
   const topTitle = useTopTitle()
   // A new section has no note scrolled: the last one's name does not follow you there.
@@ -199,13 +204,23 @@ export function Home(): React.JSX.Element {
     review: due,
     today: tasks.filter((task) => task.status === 'open' && !task.waitingOn && (placed(task) ?? Infinity) < today()).length,
     nuggets: nuggets.filter((one) => !one.archivedAt).length,
-    articles: articles.filter((one) => !one.archivedAt).length
+    articles: articles.filter((one) => !one.archivedAt).length,
+    // Held, not owed: counted in the same quiet grey, never as behind.
+    questions: questions.filter((one) => !one.archivedAt && !one.closedAt).length
   }
 
   const safeMode = (): void => {
     const on = !settings?.safeMode
     chime(on ? 'on' : 'off')
     void vigil.setSettings({ safeMode: on }).then(() => toast(on ? 'Safe mode: no hints, rot cards or pins come up' : 'Safe mode off'))
+  }
+
+  // Blurring, beside Safe mode: private words blurred, the dim when you leave
+  // the window, words arriving from a soft blur. One switch for all of it.
+  const blurring = (): void => {
+    const on = settings?.blur === false
+    chime(on ? 'on' : 'off')
+    void vigil.setSettings({ blur: on }).then(() => toast(on ? 'Blurring on: private words are blurred until you point at them' : 'Blurring off: everything plain and sharp'))
   }
 
   // The keyboard, Linear's way: G then a letter goes somewhere, C captures.
@@ -288,6 +303,7 @@ export function Home(): React.JSX.Element {
           // The same palette as the prompt's: places to go and things to switch.
           actions={[
             { label: 'New capture', keys: 'C', run: () => window.api.showPrompt() },
+            { label: 'New question', cue: null, run: () => void startQuestion(open) },
             ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),
             { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘\\', cue: sidebar ? 'fold' : 'slide', run: () => setSidebar(!sidebar) },
             { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', cue: null, run: () => setFill(!fill) },
@@ -304,6 +320,7 @@ export function Home(): React.JSX.Element {
             } },
             { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('vigil:shortcuts')) },
             ...themeActions((text) => toast(text)),
+            { label: settings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', cue: settings?.blur === false ? 'on' : 'off', run: () => void vigil.setSettings({ blur: settings?.blur === false }) },
             { label: 'Settings', keys: '⌘,', run: () => setView({ id: 'settings' }) },
             ...noteActions({ day: false }),
             // The recap, Wrapped's way, over Stats.
@@ -362,7 +379,7 @@ export function Home(): React.JSX.Element {
             <TooltipTrigger asChild>
             <button
               type="button"
-              data-home={section.id === 'nuggets' ? 'nugget' : section.id === 'upcoming' ? 'task' : undefined}
+              data-home={section.id === 'nuggets' ? 'nugget' : section.id === 'upcoming' ? 'task' : section.id === 'questions' ? 'question' : undefined}
               data-tour={section.id === 'inbox' ? 'inbox' : undefined}
               aria-label={section.label}
               onClick={() => setView({ id: section.id })}
@@ -453,6 +470,17 @@ export function Home(): React.JSX.Element {
           >
             {settings?.safeMode ? <Shield className="size-4" /> : <ShieldOff className="size-4" />}
             {!narrow && <span className="flex-1 text-left">{settings?.safeMode ? 'Safe mode: on' : 'Safe mode: off'}</span>}
+          </button>
+          </Tip>
+          <Tip label="Blurring: private words, the dim, soft arrivals">
+          <button
+            type="button"
+            onClick={blurring}
+            aria-label={settings?.blur === false ? 'Blurring: off' : 'Blurring: on'}
+            className={`flex items-center gap-2.5 rounded-md py-1.5 text-foreground/80 transition-colors hover:bg-accent/60 ${narrow ? 'justify-center px-0' : 'px-2'}`}
+          >
+            {settings?.blur === false ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+            {!narrow && <span className="flex-1 text-left">{settings?.blur === false ? 'Blurring: off' : 'Blurring: on'}</span>}
           </button>
           </Tip>
           <Tip label="Settings  ⌘,">
@@ -549,6 +577,8 @@ export function Home(): React.JSX.Element {
           <WeekView onOpen={open} />
         ) : view.id === 'nuggets' || view.id === 'articles' ? (
           <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} focus={view.focus} onOpen={open} />
+        ) : view.id === 'questions' ? (
+          <QuestionsView focus={view.focus} onOpen={open} />
         ) : view.id === 'tags' ? (
           <TagsView key={view.focus} onOpen={open} focus={view.focus} />
         ) : view.id === 'stats' ? (

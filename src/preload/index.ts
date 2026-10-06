@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { LinkMetadata } from './index.d'
-import type { Capture, CaptureMeta, CapturePatch } from '../main/captures'
+import type { Capture, CaptureMeta, CapturePatch, SaveResult } from '../main/captures'
 
 // Every live view listens for changes; one IPC listener tells them all,
 // rather than one each past Node's limit of ten.
@@ -167,13 +167,13 @@ const api = {
     /** Links and captures holding a card, to tidy: read without counting as an open. */
     cards: (): Promise<{ id: string; kind: string; body: unknown }[]> => ipcRenderer.invoke('captures:cards'),
     /** Search the titles and bodies, newest first. */
-    find: (query: string): Promise<{ type: 'capture' | 'nugget' | 'article' | 'task'; id: string; number: number | null; kind: string; status: string; source: string; attribution: string | null; label: string; body: unknown; capturedAt: string }[]> => ipcRenderer.invoke('captures:find', query),
+    find: (query: string): Promise<{ type: 'capture' | 'nugget' | 'article' | 'question' | 'task'; id: string; number: number | null; kind: string; status: string; source: string; attribution: string | null; label: string; body: unknown; capturedAt: string }[]> => ipcRenderer.invoke('captures:find', query),
     /** Three open captures, leaning old: the rot sampler. */
     rot: (): Promise<Capture[]> => ipcRenderer.invoke('captures:rot'),
     /** What `@` offers for the text typed after it. */
     search: (query: string): Promise<CaptureMeta[]> => ipcRenderer.invoke('captures:search', query),
     create: (patch: CapturePatch): Promise<string> => ipcRenderer.invoke('captures:create', patch),
-    save: (id: string, patch: CapturePatch): Promise<void> =>
+    save: (id: string, patch: CapturePatch): Promise<SaveResult> =>
       ipcRenderer.invoke('captures:save', id, patch),
     /** Any window's write, as it happens. */
     onChange: (listen: () => void): (() => void) => {

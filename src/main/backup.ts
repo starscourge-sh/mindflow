@@ -5,13 +5,16 @@ import type { DatabaseSync } from 'node:sqlite'
 import { homedir } from 'os'
 import { join } from 'path'
 
+import { database } from './captures'
+
 /**
  * Where copies of everything go: iCloud Drive when there is one, so the copies
  * leave this machine, and beside the app's data when there is not.
  *
  *   database/   a full copy of mindflow.db per day, the last 30 kept
  *   assets/     every picture and file, copied once and never removed
- *   captures/   every capture as Markdown, readable without the app
+ *   captures/   every capture as Markdown, readable without the app; never
+ *               a private or discarded one, and off in Settings
  */
 const ICLOUD = join(homedir(), 'Library/Mobile Documents/com~apple~CloudDocs')
 export const backupDir = (): string =>
@@ -38,6 +41,9 @@ export async function backUp(db: DatabaseSync): Promise<void> {
   for (const name of copies.sort().slice(0, -KEEP)) await rm(join(dir, name))
 
   // Named by their contents, so a name already there is the same file.
+  // A test run (its own data folder) keeps no copy of the pictures: each run
+  // would otherwise copy the whole picture store, gigabytes, all over again.
+  if (process.env.MINDFLOW_USER_DATA) return
   const from = join(app.getPath('userData'), 'assets')
   const to = join(backupDir(), 'assets')
   await mkdir(to, { recursive: true })
@@ -45,11 +51,36 @@ export async function backUp(db: DatabaseSync): Promise<void> {
   for (const name of existsSync(from) ? await readdir(from) : []) {
     if (!have.has(name)) await copyFile(join(from, name), join(to, name))
   }
+
+  // A Markdown copy whose capture has since gone private, been discarded or
+  // gone altogether is taken away: copies made before this rule go too.
+  const captures = join(backupDir(), 'captures')
+  for (const name of existsSync(captures) ? await readdir(captures) : []) {
+    const number = /^MF-(\d+)\.md$/.exec(name)?.[1]
+    if (number && !mayCopy(Number(number))) await rm(join(captures, name), { force: true })
+  }
 }
+
+/** Plain-text copies are a setting, on unless you turned them off. */
+const copiesOn = (): boolean => {
+  const row = database().prepare("select value from settings where key = 'markdownCopies'").get() as { value: string } | undefined
+  return row ? JSON.parse(row.value) !== false : true
+}
+/** Whether a capture may have a Markdown copy: never a private or discarded one. */
+const mayCopy = (number: number): boolean =>
+  copiesOn() && !!database().prepare("select 1 from captures where number = ? and private = 0 and status != 'discarded'").get(number)
+const fileOf = (number: number): string => join(backupDir(), 'captures', `MF-${number}.md`)
 
 /** A capture as Markdown, under its handle, replacing the last version of it. */
 export async function writeMarkdown(number: number, markdown: string): Promise<void> {
-  const dir = join(backupDir(), 'captures')
-  await mkdir(dir, { recursive: true })
-  await writeFile(join(dir, `MF-${number}.md`), markdown)
+  // Asked before anything waits, so a capture made private in the same breath is never written.
+  if (!mayCopy(number)) return void (await rm(fileOf(number), { force: true }).catch(() => undefined))
+  await mkdir(join(backupDir(), 'captures'), { recursive: true })
+  await writeFile(fileOf(number), markdown)
+}
+
+/** A capture just made private or discarded loses its copy now, not at the next hourly pass. */
+export function checkMarkdown(id: string): void {
+  const row = database().prepare('select number from captures where id = ?').get(id) as { number: number } | undefined
+  if (row && !mayCopy(row.number)) void rm(fileOf(row.number), { force: true }).catch(() => undefined)
 }

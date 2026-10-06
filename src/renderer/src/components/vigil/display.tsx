@@ -236,6 +236,12 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
         // Kept 12px clear of the window's edge, rounded corner and all.
         collisionPadding={12}
         tabIndex={-1}
+        // Opened, the panel holds the keys, not its first control: a ring on
+        // Grouping before you have pressed anything reads as a mistake.
+        onOpenAutoFocus={(event) => {
+          event.preventDefault()
+          ;(event.currentTarget as HTMLElement | null)?.focus()
+        }}
         className="max-h-[min(calc(var(--radix-popover-content-available-height)-12px),calc(100vh-8rem))] w-80 gap-0 overflow-y-auto p-2 text-control"
         // A soft fade at the foot while there is more below, as the type list
         // has: in a short window the filters run past the edge, and this says so.

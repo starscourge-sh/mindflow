@@ -6,6 +6,7 @@ import { beaming, refuse, toast } from '@/components/vigil/ui'
 import type { Action } from '@/components/search'
 import { chime } from '@/lib/sound'
 import { useLive, vigil } from '@/lib/vigil'
+import { addToQuestion } from '@/components/vigil/questions-view'
 
 /**
  * The main process's `notes:` channels, typed, and the actions built on them
@@ -31,7 +32,11 @@ export const notes = {
   setField: (table: NoteTable, id: string, key: string, value: string | number | null) => call('notes:fields:set', table, id, key, value),
   versions: (id: string) => call<Version[]>('notes:versions', id),
   version: (id: number) => call<unknown>('notes:version', id),
-  restore: (table: NoteTable, id: string, version: number) => call<number | null>('notes:version:restore', table, id, version),
+  restore: (table: NoteTable | 'day', id: string, version: number) => call<number | null>('notes:version:restore', table, id, version),
+  /** Words that could not land, kept as a version: its id, for a Restore. */
+  keep: (id: string, body: unknown) => call<number>('notes:version:keep', id, body),
+  /** A note's words as stored now, without counting as an open. */
+  body: (table: NoteTable, id: string) => call<unknown>('notes:body', table, id),
   graph: (id: string) => call<{ out: GraphNode[]; in: GraphNode[] }>('notes:graph', id),
   day: (day: string) => call<Day>('notes:day', day),
   saveDay: (day: string, patch: { body?: unknown; reviewed?: boolean }) => call('notes:day:save', day, patch)
@@ -185,13 +190,17 @@ export function noteActions({ day = true }: { day?: boolean } = {}): Action[] {
   const page: Action[] = day ? [{ label: "Today's page", cue: null, run: openToday }] : []
   const all: Action = { label: 'Save every picture and file to a folder', cue: null, run: () => void saveAttachments() }
   if (!note) return [...page, all]
+  // Marked as this note's own, so search ranks them above going somewhere.
   return [
     ...page,
-    { label: 'Change kind…', cue: null, run: () => void changeKind(note.table, note.id, note.kind) },
-    { label: note.archived ? 'Unarchive this note' : 'Archive this note', cue: null, run: () => void archive(note.table, [note.id], !note.archived) },
-    { label: 'Open this note in a new window', cue: null, run: () => openWindow(note.type, note.id) },
-    { label: 'Version history of this note', cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:versions', { detail: note.id })) },
-    { label: "Save this note's pictures and files", cue: null, run: () => void saveAttachments([{ table: note.table, id: note.id }]) },
+    ...([
+      ...(note.type === 'capture' ? [{ label: 'Add to a question…', cue: null, run: () => void addToQuestion(note.id) }] : []),
+      { label: 'Change kind…', cue: null, run: () => void changeKind(note.table, note.id, note.kind) },
+      { label: note.archived ? 'Unarchive this note' : 'Archive this note', cue: null, run: () => void archive(note.table, [note.id], !note.archived) },
+      { label: 'Open this note in a new window', cue: null, run: () => openWindow(note.type, note.id) },
+      { label: 'Version history of this note', cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:versions', { detail: note.id })) },
+      { label: "Save this note's pictures and files", cue: null, run: () => void saveAttachments([{ table: note.table, id: note.id }]) },
+    ] as Action[]).map((one) => ({ ...one, own: true })),
     all
   ]
 }

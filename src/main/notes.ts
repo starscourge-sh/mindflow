@@ -3,7 +3,7 @@ import { copyFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 
 import { LABEL, changed, database } from './captures'
-import { plain } from './vigil'
+import { gate, plain } from './vigil'
 
 /**
  * What a note carries beyond its words, for captures and nuggets alike: its
@@ -29,6 +29,14 @@ const assets = (): string => join(app.getPath('userData'), 'assets')
 const PICTURE = /mindflow:\/\/assets\/[a-f0-9]{64}\.(?:png|jpe?g|gif|webp|avif|bmp|heic|svg)/
 /** A stored video: a note with no picture shows its first frame instead. */
 const VIDEO = /mindflow:\/\/assets\/[a-f0-9]{64}\.(?:mp4|m4v|mov|webm)/
+/**
+ * A stored file's name in the store, from its address, or null: only a bare
+ * hash and extension, so an address cannot lead anywhere outside the store.
+ */
+const stored = (src: unknown): string | null => {
+  const name = String(src ?? '').replace(/^mindflow:\/\/assets\//, '')
+  return /^[a-f0-9]{64}\.[a-z0-9]+$/.test(name) ? name : null
+}
 
 type Doc = { type?: string; text?: string; attrs?: Record<string, unknown>; content?: Doc[] }
 
@@ -68,20 +76,36 @@ export function registerNotes({ load, guard }: Windows): void {
   // A version is the words as they were before a sitting's edits: kept by the
   // database, so every way a body changes is covered, and at most one every
   // ten minutes, so autosave does not keep a copy per keystroke. Fifty a note.
+  // Except when a lot goes at once (under 60% of what it was, or a paragraph
+  // or more cut, a paste over the lot, say): that is kept whatever the clock
+  // says, or the words written since the last version would be gone for good.
+  // A day's page keeps them too, as `day:` and its date.
   const stamp = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
-  for (const name of ['captures', 'nuggets'])
-    db.exec(`create trigger if not exists ${name}_versions before update of body on ${name}
+  const keep = (key: string): string => `
       when old.body is not new.body and old.body is not null and old.body not in ('null', '""')
-        and coalesce((select max(saved_at) from versions where item_id = old.id), '') < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-10 minutes')
+        and (coalesce((select max(saved_at) from versions where item_id = ${key}), '') < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-10 minutes')
+          or coalesce(length(new.body), 0) < length(old.body) * 0.6
+          or length(old.body) - coalesce(length(new.body), 0) > 240)
       begin
-        insert into versions (item_id, body, saved_at) values (old.id, old.body, ${stamp});
-        delete from versions where item_id = old.id and id not in (select id from versions where item_id = old.id order by id desc limit 50);
-      end;`)
+        insert into versions (item_id, body, saved_at) values (${key}, old.body, ${stamp});
+        delete from versions where item_id = ${key} and id not in (select id from versions where item_id = ${key} order by id desc limit 50);
+      end;`
+  // Made again each start, so a change to when they keep one reaches files made before it.
+  for (const name of ['captures', 'nuggets']) {
+    db.exec(`drop trigger if exists ${name}_versions`)
+    db.exec(`create trigger ${name}_versions before update of body on ${name} ${keep('old.id')}`)
+  }
+  db.exec('drop trigger if exists day_pages_versions')
+  db.exec(`create trigger day_pages_versions before update of body on day_pages ${keep("'day:' || old.day")}`)
+  // A day's page emptied goes, but never without its words kept first.
+  db.exec(`create trigger if not exists day_pages_versions_gone before delete on day_pages
+    when old.body is not null and old.body not in ('null', '""')
+    begin insert into versions (item_id, body, saved_at) values ('day:' || old.day, old.body, ${stamp}); end;`)
   // A note deleted for good takes its versions with it; and any left behind
   // by notes deleted before this was here go now.
   for (const name of ['captures', 'nuggets'])
     db.exec(`create trigger if not exists ${name}_versions_gone after delete on ${name} begin delete from versions where item_id = old.id; end;`)
-  db.exec('delete from versions where item_id not in (select id from captures union all select id from nuggets)')
+  db.exec("delete from versions where item_id not like 'day:%' and item_id not in (select id from captures union all select id from nuggets)")
 
   // What a note's words work out to, kept per note (not per wording, which
   // would keep one more with every autosave), and worked out again when they change.
@@ -107,15 +131,17 @@ export function registerNotes({ load, guard }: Windows): void {
   handle('notes:thumb', async (src: string) => {
     const cached = small.get(src)
     if (cached !== undefined) return cached
+    const name = stored(src)
+    if (!name) return ''
     // A video's first frame, as Finder's Quick Look draws it: no player needed.
-    if (VIDEO.test(String(src))) {
-      const frame = await nativeImage.createThumbnailFromPath(join(assets(), src.replace('mindflow://assets/', '')), { width: 192, height: 192 }).catch(() => null)
+    if (/\.(mp4|m4v|mov|webm)$/.test(name)) {
+      const frame = await nativeImage.createThumbnailFromPath(join(assets(), name), { width: 192, height: 192 }).catch(() => null)
       const made = frame && !frame.isEmpty() ? `data:image/jpeg;base64,${frame.toJPEG(72).toString('base64')}` : ''
       small.set(src, made)
       return made
     }
-    if (!PICTURE.test(String(src))) return ''
-    const image = nativeImage.createFromPath(join(assets(), src.replace('mindflow://assets/', '')))
+    if (!/\.(png|jpe?g|gif|webp|avif|bmp|heic|svg)$/.test(name)) return ''
+    const image = nativeImage.createFromPath(join(assets(), name))
     // A picture the system cannot read (an SVG) is shown as it is.
     const made = image.isEmpty() ? src : `data:image/jpeg;base64,${image.resize({ height: 96, quality: 'good' }).toJPEG(72).toString('base64')}`
     small.set(src, made)
@@ -203,13 +229,28 @@ export function registerNotes({ load, guard }: Windows): void {
   // the undo.
   handle('notes:version:restore', (name: string, id: string, version: number) => {
     const old = db.prepare('select body from versions where id = ? and item_id = ?').get(version, id) as { body: string } | undefined
-    const current = db.prepare(`select body from ${table(name)} where id = ?`).get(id) as { body: string } | undefined
+    // A day's page is `day:` and its date; emptied, its row is gone, and a restore makes it again.
+    const day = name === 'day' ? id.replace(/^day:/, '') : null
+    const current = (day
+      ? db.prepare('select body from day_pages where day = ?').get(day) ?? { body: 'null' }
+      : db.prepare(`select body from ${table(name)} where id = ?`).get(id)) as { body: string } | undefined
     if (!old || !current) return null
     const { lastInsertRowid } = db.prepare('insert into versions (item_id, body, saved_at) values (?, ?, ?)').run(id, current.body, now())
-    db.prepare(`update ${table(name)} set body = ? where id = ?`).run(old.body, id)
+    if (day) db.prepare('insert into day_pages (day, body, updated_at) values (?, ?, ?) on conflict (day) do update set body = excluded.body, updated_at = excluded.updated_at').run(day, old.body, now())
+    else db.prepare(`update ${table(name)} set body = ? where id = ?`).run(old.body, id)
     changed()
     return Number(lastInsertRowid)
   })
+  // Words that could not land because the note changed elsewhere first: kept
+  // as a version, so the editor can show what is there now and lose nothing.
+  handle('notes:version:keep', (id: string, body: unknown) => {
+    const { lastInsertRowid } = db.prepare('insert into versions (item_id, body, saved_at) values (?, ?, ?)').run(id, JSON.stringify(body ?? null), now())
+    return Number(lastInsertRowid)
+  })
+  // A note's words as stored, read without counting as an open: what an
+  // editor checks when something else may have written them.
+  handle('notes:body', (name: string, id: string) =>
+    parse((db.prepare(`select body from ${table(name)} where id = ?`).get(id) as { body: string } | undefined)?.body))
 
   // --- the map of a note's links, one step each way
   type Node = { type: string; id: string; title: string; private: number }
@@ -284,15 +325,17 @@ export function registerNotes({ load, guard }: Windows): void {
       await mkdir(folder, { recursive: true })
       const taken = new Set<string>()
       for (const [n, { src, name }] of found.entries()) {
-        const stored = src.replace('mindflow://assets/', '')
-        const extension = stored.split('.').pop()!
+        // An address that does not name a file in the store is not followed.
+        const file = stored(src)
+        if (!file) continue
+        const extension = file.split('.').pop()!
         const given = safe(name)
         const base = given ? (given.includes('.') ? given : `${given}.${extension}`) : `${n + 1}.${extension}`
         // Two files with one name each keep their own: "photo 2.jpg".
         let one = base
         for (let k = 2; taken.has(one.toLowerCase()); k++) one = base.replace(/(\.[^.]+)?$/, ` ${k}$1`)
         taken.add(one.toLowerCase())
-        await copyFile(join(assets(), stored), join(folder, one)).then(() => saved++, () => undefined)
+        await copyFile(join(assets(), file), join(folder, one)).then(() => saved++, () => undefined)
       }
     }
     // What was written, out of how many: a file missing from the store is told, not counted.
@@ -328,7 +371,9 @@ export function registerNotes({ load, guard }: Windows): void {
     const empty = !doc || (typeof doc === 'string' ? !doc.trim() : (doc.content ?? []).every((node) =>
       node.type === 'paragraph' && (node.content ?? []).every((part) => part.type === 'text' && !part.text?.trim())))
     if (empty && !reviewed) db.prepare('delete from day_pages where day = ?').run(day)
-    else db.prepare('insert or replace into day_pages (day, body, reviewed, updated_at) values (?, ?, ?, ?)').run(day, body, reviewed, now())
+    // An update, not a replace, so the page's version trigger sees it.
+    else db.prepare(`insert into day_pages (day, body, reviewed, updated_at) values (?, ?, ?, ?)
+      on conflict (day) do update set body = excluded.body, reviewed = excluded.reviewed, updated_at = excluded.updated_at`).run(day, body, reviewed, now())
     changed()
     return true
   })
@@ -338,7 +383,7 @@ export function registerNotes({ load, guard }: Windows): void {
   handle('notes:window', (type: string, id: string) => {
     const link = `${type}:${id}`
     const was = open.get(link)
-    if (was && !was.isDestroyed()) return void was.focus()
+    if (was && !was.isDestroyed()) return void (gate().blackout || was.focus())
     const win = new BrowserWindow({
       width: 720,
       height: 640,
@@ -354,7 +399,8 @@ export function registerNotes({ load, guard }: Windows): void {
     // Closed wherever else it is open: the box, the main window, the other.
     for (const other of BrowserWindow.getAllWindows()) if (other !== win) other.webContents.send('notes:opened-apart', id)
     win.on('closed', () => open.delete(link))
-    win.once('ready-to-show', () => win.show())
+    // Made in safe mode, it waits hidden until safe mode ends.
+    win.once('ready-to-show', () => gate().blackout || win.show())
     // ⌘W closes it: an accessory app has no menu to bind it.
     win.webContents.on('before-input-event', (event, input) => {
       if (input.type === 'keyDown' && input.meta && !input.shift && !input.alt && input.key.toLowerCase() === 'w') {

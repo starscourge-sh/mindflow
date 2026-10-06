@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { FileText, Gem, Inbox, ListTodo } from 'lucide-react'
+import { FileText, Gem, Inbox, ListTodo, Orbit } from 'lucide-react'
 
 import { vigil } from '@/lib/vigil'
 import { Island, Prop } from './ui'
 
-const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo }
+const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo, question: Orbit }
 
 /**
  * Where a thing came from, what it became, and what links to it. A promoted

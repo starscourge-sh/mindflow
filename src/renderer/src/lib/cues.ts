@@ -35,6 +35,17 @@ export type EditorCue =
   /** A video or a recording started, or stopped. */
   | "play"
   | "pause"
+  /** The first play of one, from the start: a little more than a plain play. */
+  | "media-start"
+  /** It played to its end. */
+  | "media-end"
+  /** From the end, back to the start and playing. */
+  | "media-replay"
+  /** The speed changed; `n` is which step (0 is normal). */
+  | "media-speed"
+  /** Out into its own window or full screen, or back. */
+  | "media-window"
+  | "media-window-close"
 
 let play: (cue: EditorCue, n?: number) => void = () => {}
 

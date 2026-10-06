@@ -34,9 +34,10 @@ import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { alreadyImported, captureText, changed, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
-import { isPrivateFile } from './import'
+import { isPrivateFile, looksPrivate } from './import'
 import { backupDir } from './backup'
-import { activeSession, badge, motionOn, registerVigil, toggleSafeMode } from './vigil'
+import { activeSession, badge, gate, motionOn, registerVigil, toggleSafeMode, whenSafeMode } from './vigil'
+import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
 import { registerScenery, sceneryDir } from './scenery'
 
@@ -119,6 +120,8 @@ const assetsDir = (): string => join(app.getPath('userData'), 'assets')
 const EXTENSIONS: Record<string, string> = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
+  // Not a registered type, but common: plenty of servers send it.
+  'image/jpg': 'jpg',
   'image/gif': 'gif',
   'image/webp': 'webp',
   'image/svg+xml': 'svg',
@@ -347,6 +350,12 @@ function openDrawing(id: string, scene: unknown, note: Electron.WebContents): vo
  */
 function guard(win: BrowserWindow): void {
   const page = win.webContents
+  // In safe mode no window is named after a note: a shared screen shows titles.
+  page.on('page-title-updated', (event) => {
+    if (!gate().blackout) return
+    event.preventDefault()
+    win.setTitle(page.getURL().includes('note=') ? 'Note' : 'Vigil')
+  })
   // A file dropped outside the editable would otherwise navigate the window to
   // it, and nothing here is saved.
   page.on('will-navigate', (event, url) => {
@@ -407,9 +416,12 @@ function sendHome(type: string, id: string, heading?: string): void {
  * Focus shows one, until the session ends. Dragged anywhere; remembered.
  */
 let focusPill: BrowserWindow | null = null
+/** Whether a session wants the pill up: safe mode hides it without forgetting. */
+let focusWanted = false
 function showFocus(on: boolean): void {
+  focusWanted = on
   if (!on) return void focusPill?.hide()
-  if (focusPill && !focusPill.isDestroyed()) return focusPill.showInactive()
+  if (focusPill && !focusPill.isDestroyed()) return void (gate().blackout || focusPill.showInactive())
   const { workArea } = screen.getPrimaryDisplay()
   focusPill = new BrowserWindow({
     width: 340,
@@ -431,7 +443,7 @@ function showFocus(on: boolean): void {
   })
   focusPill.setAlwaysOnTop(true, 'floating')
   focusPill.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-  focusPill.once('ready-to-show', () => focusPill?.showInactive())
+  focusPill.once('ready-to-show', () => gate().blackout || focusPill?.showInactive())
   guard(focusPill)
   load(focusPill, '?view=focus')
   // Made now, hidden, so the glow at the end has nothing to load.
@@ -498,7 +510,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     if (open && !open.isDestroyed()) open.destroy()
     return void stickies.delete(key)
   }
-  if (open && !open.isDestroyed()) return open.showInactive()
+  if (open && !open.isDestroyed()) return void (gate().blackout || open.showInactive())
   const { workArea } = screen.getPrimaryDisplay()
   // A new one lands top right, each a little below the last.
   const place = bounds ?? { width: 260, height: 180, x: workArea.x + workArea.width - 280, y: workArea.y + 20 + stickies.size * 36 }
@@ -518,7 +530,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   })
   win.setAlwaysOnTop(true, 'floating')
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-  win.once('ready-to-show', () => win.showInactive())
+  win.once('ready-to-show', () => gate().blackout || win.showInactive())
   // Where you leave it is where it comes back.
   const remember = (): void => {
     const one = stuck.find((each) => `${each.type}:${each.id}` === key)
@@ -550,6 +562,32 @@ async function restoreStickies(): Promise<void> {
     // None yet.
   }
 }
+
+/**
+ * Safe mode puts away every window that floats a note over your screen: the
+ * stickies, the focus pill, notes in windows of their own. They come back as
+ * they were when it ends. Their titles go plain too, in case anything lists them.
+ */
+function safeWindows(on: boolean): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    const url = win.webContents.getURL()
+    if (win !== focusPill && !/[?&](view=sticky|note=)/.test(url)) continue
+    if (on) {
+      win.hide()
+      if (url.includes('note=')) win.setTitle('Note')
+    } else if (win !== focusPill || focusWanted) {
+      win.setTitle(win.webContents.getTitle())
+      win.showInactive()
+    }
+  }
+}
+
+/**
+ * Seen by screen recorders and shares, or kept out of them (the default):
+ * every window alike, from the moment it is made, not only the box.
+ */
+let recordable = false
+app.on('browser-window-created', (_event, win) => win.setContentProtection(!recordable))
 
 let homePainted = false
 /** What the main window was sent to while it was not yet listening. */
@@ -727,7 +765,7 @@ function createWindow(): void {
   // Kept out of screen shares and recordings, so a call never shows what you
   // are jotting. Honoured by older capture; recorders on Apple's newer
   // ScreenCaptureKit may still see it.
-  mainWindow.setContentProtection(true)
+  mainWindow.setContentProtection(!recordable)
 
   // the ready-to-show event on the BrowserWindow class will be emitted when the renderer process has rendered the page for the first time if the window has not been shown yet.
   // Showing the window after this event will have no visual flash:
@@ -867,11 +905,14 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
     for (const entry of await readdir(folder, { withFileTypes: true })) {
       if (entry.name.startsWith('.')) continue
       const path = join(folder, entry.name)
-      if (isPrivateFile(entry.name, entry.isDirectory())) {
+      // Key files themselves stay behind; a note or folder only named like
+      // one comes in, marked private (see `looksPrivate`).
+      if (entry.isFile() && !entry.name.endsWith('.md') && isPrivateFile(entry.name, false)) {
         kept.push(relative(root, path))
         continue
       }
       if (entry.isDirectory()) await walk(path)
+      else if (!entry.isFile()) continue
       else if (entry.name.endsWith('.md')) notes.push(path)
       else {
         files.set(entry.name.toLowerCase(), path)
@@ -939,6 +980,7 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
   const known: Imported[] = []
   let already = 0
   let empty = 0
+  let marked = 0
   for (const path of notes) {
     // Known by its path, so its pictures are not read again; new notes may still link to it.
     const before = alreadyImported(relative(root, path))
@@ -1011,23 +1053,29 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
     }
     text = lines.join('\n')
     if (tags.length) text = `${text.trimEnd()}\n\n${tags.map((tag) => `#${tag.replace(/\s+/g, '-')}`).join(' ')}\n`
-    const one = importNote(relative(root, path), text, (await stat(path)).mtime)
+    const hidden = looksPrivate(relative(root, path))
+    const one = importNote(relative(root, path), text, (await stat(path)).mtime, hidden)
     if (one === 'already here') already += 1
     else if (one === 'empty') empty += 1
     else {
       made.push(one)
+      if (one.private) marked += 1
       byName.set(one.title.toLowerCase(), one.link)
       for (const alias of listed(front, 'aliases')) byName.set(alias.toLowerCase(), one.link)
     }
   }
   const linked = linkImported(made, byName, known)
+  const inbox = made.filter((one) => !one.link.startsWith('article:')).length
   const report = [
     `${made.length} new ${made.length === 1 ? 'note' : 'notes'} from ${basename(root)}, with ${pictures} pictures, ${attached} files and ${linked} links.`,
+    // Where they went, said plainly: the Inbox, with time to sort it.
+    inbox ? `${inbox} ${inbox === 1 ? 'note is' : 'notes are'} in your Inbox to sort through; ${inbox === 1 ? "it won't" : "they won't"} count as rotting for 30 days.` : '',
     already ? `${already} ${already === 1 ? 'was' : 'were'} already here, from an earlier import, and ${already === 1 ? 'was' : 'were'} left as ${already === 1 ? 'it was' : 'they were'}.` : '',
     empty ? `${empty} empty ${empty === 1 ? 'file was' : 'files were'} skipped.` : '',
+    marked ? `${marked} ${marked === 1 ? 'note came' : 'notes came'} in marked private: ${marked === 1 ? 'its name sounds' : 'their names sound'} like passwords or logins.` : '',
     kept.length ? `Left out because ${kept.length === 1 ? 'it looks' : 'they look'} like passwords or keys: ${kept.join(', ')}.` : ''
   ].filter(Boolean)
-  if (quiet) return console.log(`imported ${made.length} new, ${already} already here, ${empty} empty, ${kept.length} private, ${pictures} pictures, ${attached} files, ${linked} links${kept.length ? ` [${kept.join(', ')}]` : ''}`)
+  if (quiet) return console.log(`imported ${made.length} new, ${already} already here, ${empty} empty, ${kept.length} left out, ${marked} marked private, ${pictures} pictures, ${attached} files, ${linked} links${kept.length ? ` [${kept.join(', ')}]` : ''}`)
   // Not waited on: the notes become documents while it is being read.
   void dialog.showMessageBox({ message: 'Imported', detail: report.join('\n\n') })
 }
@@ -1281,9 +1329,14 @@ app.whenReady().then(() => {
   })
   void restoreStickies()
 
-  ipcMain.handle('window:recordable', (event, on: unknown) => {
-    BrowserWindow.fromWebContents(event.sender)?.setContentProtection(!on)
-    return Boolean(on)
+  ipcMain.handle('window:recordable', (_event, on: unknown) => {
+    recordable = Boolean(on)
+    for (const win of BrowserWindow.getAllWindows()) win.setContentProtection(!recordable)
+    return recordable
+  })
+  whenSafeMode((on) => {
+    safeWindows(on)
+    updateTray()
   })
 
   // The main window fills the screen, or goes back to where it was: the
@@ -1471,7 +1524,7 @@ app.whenReady().then(() => {
     if (typeof href !== 'string' || !/^https?:\/\//i.test(href)) return null
 
     try {
-      const response = await net.fetch(href)
+      const response = await fetchOutside(href, { signal: AbortSignal.timeout(8000) })
       const mime = (response.headers.get('content-type') ?? '').split(';')[0].trim()
       if (!response.ok || !EXTENSIONS[mime]) return null
 
@@ -1540,7 +1593,8 @@ app.whenReady().then(() => {
     }
 
     try {
-      const response = await fetch(target, {
+      // Never somewhere on this machine or its network, however it redirects.
+      const response = await fetchOutside(target, {
         headers: { 'user-agent': app.userAgentFallback },
         signal: AbortSignal.timeout(8000)
       })
@@ -1638,8 +1692,10 @@ app.whenReady().then(() => {
   // as it did. Either one that cannot be fetched stays a link to the site.
   const keep = async (src: string): Promise<string> => {
     if (!/^https?:/.test(src)) return src
+    // A picture on this machine or its network is not one to show, either.
+    if (!(await isOutside(new URL(src)).catch(() => false))) return ''
     try {
-      const response = await net.fetch(src, { signal: AbortSignal.timeout(8000) })
+      const response = await fetchOutside(src, { signal: AbortSignal.timeout(8000) })
       const mime = (response.headers.get('content-type') ?? '').split(';')[0].trim()
       return (response.ok && (await storeImage(mime, new Uint8Array(await response.arrayBuffer())))) || src
     } catch {

@@ -71,6 +71,9 @@ export async function cardUp(capture: { id: string; kind: string; body: unknown 
   const look = host().fetchLinkMetadata
   const { id } = capture
   if (!look || !capture.body) return
+  // The words as they were before the page was asked: the card lands only if
+  // they still are, so a note typed while the page loads is never wiped.
+  const base = structuredClone(capture.body)
   const body = capture.body as Node | string
   const text = (typeof body === 'string' ? body : words(body)).trim()
   if (capture.kind === 'link' && /^https?:\/\/\S+$/.test(text)) {
@@ -80,7 +83,8 @@ export async function cardUp(capture: { id: string; kind: string; body: unknown 
       title: card.title,
       body: { type: 'doc', content: [{ type: 'bookmark', attrs: { ...card, id: crypto.randomUUID(), loading: false } }] },
       markdown: `[${card.title}](${card.href})`,
-      fetched: true
+      fetched: true,
+      base
     })
     return
   }
@@ -102,7 +106,7 @@ export async function cardUp(capture: { id: string; kind: string; body: unknown 
     for (const child of node.content ?? []) await visit(child)
   }
   await visit(body)
-  if (changed) await window.api.captures.save(id, { body, fetched: true })
+  if (changed) await window.api.captures.save(id, { body, fetched: true, base })
 }
 
 /** Every link and card once, one at a time, in the background. */

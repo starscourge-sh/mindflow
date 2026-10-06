@@ -1725,8 +1725,7 @@ $nested-ul: "ul:not([data-type='taskList'])";
   padding: 0.25rem 0.5rem;
   border: 1px solid var(--tt-border-color);
   border-radius: 0.625rem;
-  background: color-mix(in srgb, var(--tt-card-bg-color) 88%, transparent);
-  backdrop-filter: blur(8px);
+  background: var(--tt-card-bg-color);
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
   color: var(--tt-theme-text);
   font-size: 0.75rem;
@@ -1769,7 +1768,220 @@ $nested-ul: "ul:not([data-type='taskList'])";
       appearance: none;
       background: var(--tt-brand-color-500, currentColor);
       box-shadow: 0 0 0 2px var(--tt-card-bg-color);
+      transition: transform 0.15s ease;
     }
+  }
+}
+
+// The player's few moments of life. Play, pause and a seek answer at once:
+// the morph is a glance, never a wait. The first play lights the frame with
+// the app's beam and a soft glow that stays while it plays; the end lands the
+// controls back with a replay in place of play.
+$media-brand: var(--tt-brand-color-500, currentColor);
+
+.tiptap-media-play {
+  svg {
+    grid-area: 1 / 1;
+    opacity: 0;
+    transform: scale(0.5) rotate(-60deg);
+    transition: opacity 0.1s ease, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  &[data-state="paused"] [data-icon="paused"],
+  &[data-state="playing"] [data-icon="playing"],
+  &[data-state="ended"] [data-icon="ended"] {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+// The scrubber thickens under the pointer, a bubble says the time there, and
+// the thumb springs back to size when let go.
+.tiptap-media-scrub {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 3rem;
+  height: 1.25rem;
+
+  input[type="range"] {
+    width: 100%;
+    transition: height 0.15s ease;
+
+    &:hover {
+      height: 0.4rem;
+
+      &::-webkit-slider-thumb {
+        transform: scale(1.25);
+      }
+    }
+
+    &.is-settling::-webkit-slider-thumb {
+      animation: mf-media-settle 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+  }
+}
+
+.tiptap-media-bubble {
+  position: absolute;
+  bottom: calc(100% + 0.25rem);
+  padding: 0.0625rem 0.375rem;
+  border-radius: 0.375rem;
+  background: var(--tt-theme-text);
+  color: var(--tt-card-bg-color);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+  animation: mf-media-bubble 0.12s ease-out;
+}
+
+.tiptap-media-controls .tiptap-media-speed {
+  width: auto;
+  min-width: 2.25rem;
+  height: 1.375rem;
+  padding-inline: 0.375rem;
+  border: 1px solid var(--tt-border-color);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+// While it plays: a quiet edge of the brand colour, breathing slowly.
+.tiptap-attachment.is-video .tiptap-video-frame,
+.tiptap-attachment.is-audio .tiptap-attachment-card {
+  position: relative;
+  transition: box-shadow 0.6s ease, border-color 0.6s ease;
+
+  // The beam, as the app draws it: light along the top edge, in and gone.
+  &::after {
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 1;
+    height: 2px;
+    border-radius: 999px;
+    background: radial-gradient(closest-side, $media-brand 0%, color-mix(in srgb, $media-brand 40%, transparent) 60%, transparent 100%);
+    content: "";
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+.tiptap-attachment.is-video.is-playing .tiptap-video-frame {
+  box-shadow: 0 0 0 1px color-mix(in srgb, $media-brand 35%, transparent), 0 6px 24px -8px color-mix(in srgb, $media-brand 50%, transparent);
+  animation: mf-media-breathe 3.4s ease-in-out infinite;
+}
+
+.tiptap-attachment.is-audio.is-playing .tiptap-attachment-card {
+  border-color: color-mix(in srgb, $media-brand 45%, transparent);
+  box-shadow: 0 4px 16px -8px color-mix(in srgb, $media-brand 50%, transparent);
+}
+
+.tiptap-attachment[data-state~="is-first"] {
+  .tiptap-video-frame {
+    animation: mf-media-bloom 1.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .tiptap-video-frame::after,
+  .tiptap-attachment-card::after {
+    animation: mf-media-beam 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+}
+
+.tiptap-attachment[data-state~="is-ended"] {
+  .tiptap-media-controls {
+    animation: mf-media-land 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .tiptap-video-frame::after,
+  .tiptap-attachment-card::after {
+    animation: mf-media-beam 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+}
+
+// A small video keeps play, place, time and speed; its own window and full
+// screen wait for a wider one.
+.tiptap-video-frame {
+  container: media / inline-size;
+}
+
+@container media (max-width: 24rem) {
+  .tiptap-media-window {
+    display: none !important;
+  }
+}
+
+@container media (max-width: 17rem) {
+  .tiptap-media-total,
+  .tiptap-media-speed {
+    display: none !important;
+  }
+}
+
+// Full screen is the frame, so the controls come along.
+.tiptap-video-frame:fullscreen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+  background: #000;
+
+  .tiptap-attachment-video {
+    height: 100%;
+    object-fit: contain;
+  }
+}
+
+@keyframes mf-media-settle {
+  0% { transform: scale(1.6); }
+  60% { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+
+@keyframes mf-media-bubble {
+  from { opacity: 0; transform: translate(-50%, 0.125rem); }
+}
+
+@keyframes mf-media-breathe {
+  50% { box-shadow: 0 0 0 1px color-mix(in srgb, $media-brand 22%, transparent), 0 6px 18px -10px color-mix(in srgb, $media-brand 35%, transparent); }
+}
+
+@keyframes mf-media-bloom {
+  0% { box-shadow: 0 0 0 0 transparent; }
+  25% { box-shadow: 0 0 0 2px color-mix(in srgb, $media-brand 55%, transparent), 0 10px 40px -6px color-mix(in srgb, $media-brand 65%, transparent); }
+}
+
+@keyframes mf-media-beam {
+  0% { opacity: 0; transform: scaleX(0.2); }
+  20% { opacity: 1; transform: scaleX(1); }
+  100% { opacity: 0; transform: scaleX(1); }
+}
+
+@keyframes mf-media-land {
+  from { transform: translateY(0.5rem); }
+}
+
+// Motion off: every state still shows, only without the travel.
+:root[data-motion="off"] .tiptap-attachment,
+:root[data-motion="off"] .tiptap-attachment * {
+  animation: none !important;
+  transition: none !important;
+}
+
+:root[data-motion="off"] .tiptap-attachment input[type="range"]::-webkit-slider-thumb {
+  animation: none !important;
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tiptap-attachment,
+  .tiptap-attachment *,
+  .tiptap-attachment input[type="range"]::-webkit-slider-thumb {
+    animation: none !important;
+    transition: none !important;
   }
 }
 
@@ -1783,14 +1995,19 @@ $nested-ul: "ul:not([data-type='taskList'])";
 .tiptap-attachment.is-audio {
   position: relative;
 
+  // Beside the name when there is room, on a line of its own when not.
+  .tiptap-attachment-card {
+    flex-wrap: wrap;
+    container: media / inline-size;
+  }
+
   .tiptap-media-controls {
-    flex: 1;
-    max-width: 22rem;
+    flex: 1 1 15rem;
+    max-width: 24rem;
     margin-inline-start: auto;
     border: 0;
     background: none;
     box-shadow: none;
-    backdrop-filter: none;
   }
 }
 
@@ -1802,6 +2019,14 @@ $nested-ul: "ul:not([data-type='taskList'])";
   z-index: 40;
   transform: translateX(-50%);
   white-space: nowrap;
+
+  &.is-below {
+    top: calc(100% + 0.5rem);
+  }
+
+  &.is-tight .tiptap-media-name {
+    display: none;
+  }
 }
 
 .tiptap-media-name {

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { useEditorState, type Editor } from "@tiptap/react"
 
 import { cue } from "@/lib/cues"
+import { Roll } from "@/lib/roll"
 
 /**
  * A small find bar: term, match count, prev/next, close, and replace folded
@@ -178,7 +179,7 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
           }}
         />
         <span className="tiptap-find-bar-count">
-          {counts?.total ? `${(counts.index ?? 0) + 1}/${counts.total}` : "0/0"}
+          <Roll text={counts?.total ? (counts.index ?? 0) + 1 : 0} />/<Roll text={counts?.total ?? 0} />
         </span>
         <button type="button" onClick={() => step(true)} aria-label="Previous match" title="Previous  ⇧↵">
           <ChevronUp className="size-3.5" />

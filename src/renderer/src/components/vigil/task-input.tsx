@@ -63,9 +63,9 @@ export function setPriority(task: Pick<Task, 'id' | 'priority'>, level: number):
 export function planFor(task: Pick<Task, 'id' | 'dueAt' | 'deadline' | 'planFor'>, which: keyof typeof BUCKETS): void {
   if (bucket(task) === which) return chime('nope')
   const was = { due: task.dueAt, plan: task.planFor }
-  void vigil.saveTask(task.id, { plan: planKey(which) }).then(() => {
+  void vigil.saveTask(task.id, { plan: planKey(which) }).then((before) => {
     chime('later')
-    toast(`Moved to ${BUCKETS[which]}`, () => void vigil.saveTask(task.id, was.due ? { due: was.due } : { plan: was.plan }))
+    toast(`Moved to ${BUCKETS[which]}`, () => void vigil.saveTask(task.id, { ...(was.due ? { due: was.due } : { plan: was.plan }), ...(before === true ? {} : before) }))
   })
 }
 

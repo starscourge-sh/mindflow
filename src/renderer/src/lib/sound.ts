@@ -116,7 +116,16 @@ const CUES = {
   scene: [[392, 0, 0.6, 0.03, undefined, 0.12], [587, 0.12, 0.7, 0.025, undefined, 0.14]],
   // The day's review queue finished: the last grade answered by a soft
   // descending third and its root, a book closed rather than a bell rung.
-  reviewed: [[784, 0, 0.3, 0.035], [659, 0.1, 0.35, 0.035], [523, 0.2, 0.7, 0.04]]
+  reviewed: [[784, 0, 0.3, 0.035], [659, 0.1, 0.35, 0.035], [523, 0.2, 0.7, 0.04]],
+  // Held as a question: an open fourth that swells in and is left unresolved,
+  // a thing set down to be carried rather than finished.
+  hold: [[392, 0, 0.5, 0.04, undefined, 0.06], [523, 0.08, 0.6, 0.035, undefined, 0.08]],
+  // A clue dropped in: one small high note, like a pebble into a jar.
+  clue: [[1175, 0, 0.06, 0.04], [1568, 0.04, 0.12, 0.03]],
+  // Got it: the held fourth finally resolves, up to the octave.
+  answered: [[392, 0, 0.18, 0.04], [523, 0.07, 0.18, 0.04], [784, 0.14, 0.5, 0.045]],
+  // Let go: the same fourth, sinking softly away.
+  release: [[523, 0, 0.3, 0.035, 440, 0.03], [392, 0.1, 0.5, 0.03, 330, 0.04]]
 } satisfies Record<string, Note[]>
 
 export type Cue = keyof typeof CUES

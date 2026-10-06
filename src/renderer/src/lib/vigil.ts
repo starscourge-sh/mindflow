@@ -35,6 +35,7 @@ export type Settings = {
   fontNotesOnly: boolean
   headingFont: string
   postcards: boolean
+  blur: boolean
   interfaceSize: 'small' | 'medium' | 'large'
   /** Text in notes, as a scale: 1 is normal. */
   textSize: number
@@ -59,6 +60,10 @@ export type Settings = {
   sceneryDim: number
   /** Turned over by "Show another", so every scene changes at once. */
   sceneryShuffle: number
+  /** A question you are holding comes back now and then as a hint card. */
+  questionsBack: boolean
+  /** A plain Markdown copy of each capture beside the backups; never a private one. */
+  markdownCopies: boolean
 }
 
 /** A picture from the Scenery folders, as the main process describes its smaller copy. */
@@ -68,7 +73,7 @@ export type Scene = { id: string; url: string; mood: Mood; width: number; height
 /** A nugget or an article: the same row, told apart by `tier`. */
 export type Item = {
   id: string
-  tier: 'nugget' | 'article'
+  tier: 'nugget' | 'article' | 'question'
   kind: string
   title: string
   prompt: string | null
@@ -91,8 +96,14 @@ export type Item = {
   archivedAt: string | null
   /** Why the answer is so: one line under it in review. */
   why: string | null
+  /** A question: when it was settled, and how; both null while it is held. */
+  closedAt: string | null
+  closedHow: 'answered' | 'let go' | null
+  /** Its glosses, which on a question are its clues. */
+  clues: number
 }
-export type Gloss = { id: string; body: string; author: 'user' | 'ai'; createdAt: string }
+/** On a question, a gloss is a clue; one kept from a capture says which (`MF-12`). */
+export type Gloss = { id: string; body: string; author: 'user' | 'ai'; createdAt: string; sourceId?: string | null; sourceKey?: string | null }
 export type ItemFull = Item & { body: unknown; origins: string[]; glosses: Gloss[] }
 export type Due = Item & { body: unknown; intervals: Record<number, string>; gloss: string | null; exam: string | null }
 /** How ready a tag with an exam date is. */
@@ -152,9 +163,14 @@ export type Task = {
 }
 export type Subtask = { text: string; done: boolean }
 /** What a task was before it was done, so it can be put back. */
+/** What a save changed on its own, for an undo to put back: the reschedule count and when it was last told about. */
+export type TaskWas = { reschedules: number; notifiedAt: string | null }
 export type Finished = { dueAt: string | null; doneAt: string; notifiedAt: string | null; deadlineAt?: string | null }
 /** A task made, or the open one with that name already there, which it joined. */
-export type Made = { id: string; number: number; existed: boolean }
+/** What a merge changed, for its undo: the other capture, its words before and after, and this one's status. */
+export type Merged = { into: string; was: unknown; joined: unknown; status: string }
+/** `resolved`: the captures this took out of the inbox, for its undo to open again. */
+export type Made = { id: string; number: number; existed: boolean; resolved?: string[] }
 /** What to say after making a task: the usual words, or that it joined one. */
 export const taskSaid = (made: Made | null | undefined, fresh: string): string =>
   made?.existed ? `Already a task: T-${made.number}. Linked to it, not added twice` : fresh
@@ -194,6 +210,7 @@ export type Stats = {
 export const vigil = {
   settings: () => call<Settings>('settings'),
   setSettings: (patch: Partial<Settings>) => call<Settings>('settings:set', patch),
+  backupsWhere: () => call<string>('backups:where'),
   /** The scenes in these folders so far; copies of new pictures are made in the background. */
   scenery: (folders: string[]) => call<{ scenes: Scene[]; scanning: boolean }>('scenery', folders),
   /** A folder of pictures, picked in the system's own chooser. */
@@ -205,20 +222,36 @@ export const vigil = {
   pins: () => call<Pin[]>('pins'),
   reviewTuning: () => call<{ cap: number; tuned: boolean; behind: number }>('review:tuning'),
   promote: (id: string, words?: string) => call<string | null>('promote', id, words),
-  unpromote: (captureId: string, nuggetId: string) => call<boolean>('promote:undo', captureId, nuggetId),
+  /** `forgetWho`: the source was asked for while promoting, so it goes too. */
+  unpromote: (captureId: string, nuggetId: string, forgetWho = false) => call<boolean>('promote:undo', captureId, nuggetId, forgetWho),
   /** What it came from, what it became, and what links to it. */
   mentions: (id: string) => call<Record<'linked' | 'unlinked', { type: string; id: string; title: string; snippet: string; private?: number }[]>>('mentions', id),
   linkMention: (sourceType: string, sourceId: string, targetId: string) => call<boolean>('mention:link', sourceType, sourceId, targetId),
   lineage: (id: string) => call<Record<'from' | 'became' | 'linked', { type: string; id: string; title: string; private?: number }[]>>('lineage', id),
   newArticle: () => call<string>('article:new'),
-  findItems: (query: string) => call<{ id: string; tier: 'nugget' | 'article'; title: string }[]>('items:find', query),
-  toTask: (id: string) => call<Made | null>('toTask', id),
-  items: (tier: 'nugget' | 'article') => call<Item[]>('items', tier),
+  findItems: (query: string) => call<{ id: string; tier: 'nugget' | 'article' | 'question'; title: string }[]>('items:find', query),
+  toTask: (id: string) => call<Made | null | 'not-open'>('toTask', id),
+  items: (tier: 'nugget' | 'article' | 'question') => call<Item[]>('items', tier),
+  /** A question, from nothing or from a capture whose words become its first clue; `dropQuestion` takes it back. */
+  newQuestion: (title: string, captureId?: string) => call<string>('question:new', title, captureId),
+  dropQuestion: (id: string) => call<boolean>('question:drop', id),
+  /** A dated clue: your words, or a capture's (which then leaves the inbox). Gives back its id, for `dropClue`. */
+  addClue: (id: string, text: string, sourceId?: string) => call<string | null>('clue', id, text, sourceId),
+  dropClue: (clue: string) => call('clue:drop', clue),
+  /** Got it (an article, seeded and linked) or let go; `reopenQuestion` holds it again. */
+  closeQuestion: (id: string, how: 'answered' | 'let go', again = false) => call<{ article: string | null } | null>('question:close', id, how, again),
+  reopenQuestion: (id: string, article?: string | null) => call('question:reopen', id, article),
+  /** A question still open, come back as a hint; null most of the time. */
+  questionBack: () => call<{ id: string; title: string; createdAt: string; clues: number; event: number } | null>('question:back'),
   item: (id: string) => call<ItemFull | null>('item', id),
-  saveItem: (id: string, patch: Partial<{ body: unknown; title: string; prompt: string | null; kind: string; suspended: boolean; attribution: string | null; context: string | null; mode: string; why: string | null }>) =>
+  saveItem: (id: string, patch: Partial<{ body: unknown; base: unknown; title: string; prompt: string | null; kind: string; suspended: boolean; attribution: string | null; context: string | null; mode: string; why: string | null }>) =>
     call('item:save', id, patch),
   article: (ids: string[]) => call<string>('article', ids),
-  gloss: (id: string, text: string) => call('gloss', id, text),
+  /** A dated thought on any item or capture; gives back its id, for `dropGloss`. */
+  gloss: (id: string, text: string) => call<string>('gloss', id, text),
+  dropGloss: (gloss: string) => call('clue:drop', gloss),
+  /** Every gloss on it, newest first. */
+  glosses: (id: string) => call<Gloss[]>('glosses', id),
   queue: () => call<Due[]>('review:queue'),
   dueCount: () => call<number>('review:counts'),
   grade: (id: string, grade: 1 | 2 | 3 | 4, ms: number) => call<string>('review:grade', id, grade, ms),
@@ -226,8 +259,8 @@ export const vigil = {
   task: (id: string) => call<TaskFull | null>('task', id),
   /** `today`: with no date in the words, it is for today. */
   addTask: (text: string, origin?: string, today = false) => call<Made>('task:add', text, origin, today),
-  saveTask: (id: string, patch: Partial<{ title: string; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number; important: number; deadline: string | null; blocker: string | null; reschedules: number; notify: string | null; priority: number; plan: string | null }>) =>
-    call('task:save', id, patch),
+  saveTask: (id: string, patch: Partial<{ title: string; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number; important: number; deadline: string | null; blocker: string | null; reschedules: number; notify: string | null; priority: number; plan: string | null; notifiedAt: string | null }>) =>
+    call<TaskWas | true>('task:save', id, patch),
   /** Gives back what it was, for `undoneTask`. */
   doneTask: (id: string) => call<Finished>('task:done', id),
   /** Open again on the date it had, and that time done no longer counted: a routine's undo too. */
@@ -245,15 +278,18 @@ export const vigil = {
   nudge: () => call<{ kind: 'exam' | 'weekly'; view: string; label: string; text: string } | null>('nudge'),
   memory: () => call<{ id: string; captureId: string; kind: string; title: string; body: unknown; event: number; memory: string } | null>('memory'),
   rotLeft: () => call<number>('rot:left'),
+  rotWaiting: () => call<number>('rot:waiting'),
   recap: (period: 'month' | 'year') => call<Recap>('recap', period),
   supersede: (id: string, truth: string) => call<string>('supersede', id, truth),
-  mergeCapture: (id: string, intoNumber: number) => call<string | null>('capture:merge', id, intoNumber),
+  mergeCapture: (id: string, intoNumber: number) => call<Merged | null>('capture:merge', id, intoNumber),
+  /** A merge taken back: the other's words as they were, and this one back where it was. */
+  unmerge: (id: string, merged: Merged) => call<boolean>('capture:merge:undo', id, merged),
   hintRate: () => call<{ rate: number; tuned: boolean; shown: number; stopped: number }>('hints:rate'),
   tag: (tag: string) => call<{ tag: string; id: string; type: string; title: string; private: boolean }[]>('tag', tag),
   stats: () => call<Stats>('stats'),
   exportAll: () => call<string | null>('export'),
   bury: (id: string) => call('review:bury', id),
-  taskFrom: (ids: string[], text: string) => call<Made>('tasks:from', ids, text),
+  taskFrom: (ids: string[], text: string) => call<Made | null>('tasks:from', ids, text),
   bulk: (ids: string[], change: { tag?: string; capturedAt?: string }) => call<number>('captures:bulk', ids, change),
   setCapture: (id: string, field: 'attribution' | 'medium' | 'capturedAt' | 'origin', value: string | number | null) => call('capture:set', id, field, value),
   linkSession: (id: string) => call('capture:session', id),
@@ -268,6 +304,8 @@ export const vigil = {
   sessions: (taskId: string) => call<Session[]>('sessions', taskId),
   startSession: (taskId: string, goal?: string, plannedMs?: number | null) => call<string>('session:start', taskId, goal, plannedMs),
   focusNow: () => call<Focus | null>('focus:now'),
+  // A timer that ran out while Vigil was closed, said once.
+  focusMissed: () => call<string | null>('focus:missed'),
   /** A countdown with no task behind it, shown in the floating timer: "5m tea". */
   startTimer: (goal: string, ms: number) => call<string>('timer:start', goal, ms),
   pauseSession: (id: string) => call('session:pause', id),
@@ -353,6 +391,7 @@ export function useAppearance(): void {
     document.documentElement.dataset.width = settings.fullWidth ? 'full' : 'page'
     document.documentElement.dataset.motion = settings.motion ? 'on' : 'off'
     document.documentElement.toggleAttribute('data-postcards', !!settings.postcards)
+    document.documentElement.toggleAttribute('data-noblur', settings.blur === false)
     // Every size in the app is in rem, so the root's size scales all of it at once.
     document.documentElement.style.fontSize = `${INTERFACE_SIZES[settings.interfaceSize] ?? INTERFACE_SIZES.medium}px`
     // The system's Reduce motion is honoured too: things still appear and
@@ -361,5 +400,5 @@ export function useAppearance(): void {
     soundOn(settings.sounds)
     setVolume(settings.volume)
     setPack(settings.soundPack)
-  }, [settings?.fullWidth, settings?.motion, settings?.postcards, settings?.interfaceSize, settings?.sounds, settings?.volume, settings?.soundPack])
+  }, [settings?.fullWidth, settings?.motion, settings?.postcards, settings?.blur, settings?.interfaceSize, settings?.sounds, settings?.volume, settings?.soundPack])
 }

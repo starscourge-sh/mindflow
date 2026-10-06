@@ -32,7 +32,13 @@ const CUES: Record<EditorCue, Cue | 'step'> = {
   fold: 'fold',
   unfold: 'open',
   play: 'on',
-  pause: 'off'
+  pause: 'off',
+  'media-start': 'unshelve',
+  'media-end': 'settled',
+  'media-replay': 'rewind',
+  'media-speed': 'step',
+  'media-window': 'window',
+  'media-window-close': 'fold'
 }
 
 /** The fonts a note can be written in, besides any the Mac has. */

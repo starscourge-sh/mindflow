@@ -1,7 +1,7 @@
 import { app, dialog, ipcMain, nativeImage } from 'electron'
 import { createHash } from 'crypto'
 import { mkdir, readFile, readdir, rm, stat, writeFile } from 'fs/promises'
-import { extname, join } from 'path'
+import { extname, isAbsolute, join } from 'path'
 import { changed } from './captures'
 
 /**
@@ -207,7 +207,8 @@ async function list(folders: string[]): Promise<{ scenes: Scene[]; scanning: boo
 
 export function registerScenery(): void {
   ipcMain.handle('vigil:scenery', (_event, folders: unknown) =>
-    list(Array.isArray(folders) ? folders.filter((one): one is string => typeof one === 'string') : []))
+    // Whole folders only, named from the top of the disk: nothing relative to wherever the app runs.
+    list(Array.isArray(folders) ? folders.filter((one): one is string => typeof one === 'string' && isAbsolute(one)) : []))
   ipcMain.handle('vigil:scenery:folder', async () => {
     const { filePaths } = await dialog.showOpenDialog({ title: 'Choose a folder of pictures', buttonLabel: 'Use this folder', properties: ['openDirectory'] })
     return filePaths[0] ?? null

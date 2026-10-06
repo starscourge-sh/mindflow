@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { ArrowUpRight, Eye, EyeOff, CheckCircle2, FileText, Hash, Inbox, ListTodo, Merge, Pin, Trash2, X, Laptop, Timer, History, CloudSun } from 'lucide-react'
+import { ArrowUpRight, Eye, EyeOff, CheckCircle2, FileText, Hash, Inbox, ListTodo, Merge, Orbit, Pin, Trash2, X, Laptop, Timer, History, CloudSun } from 'lucide-react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
@@ -10,16 +10,20 @@ import { AGES, Display, arrange, period, useView, type Facet, type View } from '
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
 import { Mentions } from './mentions'
-import { EXITS, STATUS_ICON, captureKey, exit, findCaptures, findHeadings, flying, takeExit, follow } from '@/lib/capture-links'
+import { EXITS, NOT_OPEN, STATUS_ICON, captureKey, exit, findCaptures, findHeadings, flying, takeExit, follow, unpromote } from '@/lib/capture-links'
+import type { SaveResult } from '../../../../main/captures'
 import { toMarkdown } from '@/lib/export'
 import { splitTags, vigil } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
+import { useSameWords } from '@/lib/same-words'
 import { chime } from '@/lib/sound'
 import { Empty, Island, Page, Prop, Props, Remembered, Rolling, ask, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle } from './ui'
+import { GlossTimeline } from './gloss-line'
 import { RemindMe } from './items-view'
+import { addToQuestion } from './questions-view'
 import { ReadThrough } from './read-through'
 import { selectionActions } from './selection-actions'
-import { Tip } from '@/components/vigil/ui'
+import { Kbd, Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
@@ -59,6 +63,9 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
   const [first, setFirst] = useState<unknown>(null)
   useEffect(() => setFirst(null), [open?.id])
   const pick = (id: string): void => void window.api.captures.get(id).then(setOpen)
+  // Saved only over the words it was opened on: another window's never lost.
+  const words = useSameWords('captures', open?.id, open?.body, (id, body, base, editor) =>
+    window.api.captures.save(id, { body, base, ...(editor ? { markdown: toMarkdown(editor) } : {}) }))
   // Opened in a window of its own: closed here, so only one editor saves it.
   useEffect(() => {
     const onApart = (event: Event): void => setOpen((was) => (was?.id === (event as CustomEvent).detail ? null : was))
@@ -119,10 +126,12 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
     // would lose where it went.
     const ids = chosen.filter((id) => all.find((capture) => capture.id === id)?.status === 'open')
     if (!ids.length) return refuse('Nothing changed: none of the picked captures is still in the inbox')
-    void Promise.all(ids.map((id) => window.api.captures.save(id, { status }))).then(() => {
+    void Promise.all(ids.map((id) => window.api.captures.save(id, { status }))).then((results) => {
+      // The undo puts back only what this changed, each to the status it had.
+      const moved = ids.flatMap((id, at) => (results[at]?.refused ? [] : [{ id, was: (results[at]?.was ?? 'open') as 'open' }]))
       chime(status === 'discarded' ? 'away' : 'resolve')
       setChosen([])
-      toast(`${status[0].toUpperCase()}${status.slice(1)} ${ids.length}`, () => void Promise.all(ids.map((id) => window.api.captures.save(id, { status: 'open' }))))
+      toast(`${status[0].toUpperCase()}${status.slice(1)} ${moved.length}`, () => void Promise.all(moved.map((one) => window.api.captures.save(one.id, { status: one.was }))))
     })
   }
   useEffect(() => {
@@ -167,7 +176,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
             </span>
           ) : (
             <span className="flex items-center gap-2">
-              {shown.length > 1 && <span className="hidden text-xs whitespace-nowrap @[48rem]/page:inline">x to select</span>}
+              {shown.length > 1 && <span className="hidden text-xs whitespace-nowrap @[48rem]/page:inline"><Kbd>x</Kbd> to select</span>}
               <Tip label="Read this list full screen, one note at a time, from the highlighted one (or the first). You can write in each as you go.  ⇧⌘R">
                 <Button variant="ghost" size="sm" onClick={() => setReadFrom(startAt(shown, open?.id, cursor))} disabled={!shown.length}><AliveIcon icon={BookIcon} size={14} /> Read list</Button>
               </Tip>
@@ -202,8 +211,9 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
           </Empty>
         ) : (
           <Rest seed="inbox">
-            <Empty shape={['flower', 2]} title="Nothing waiting">
-              {'Every capture has taken its exit. ⌘. catches the next thought, from anywhere.'}
+            {/* A new install has nothing that could have left yet. */}
+            <Empty shape={['flower', 2]} title={all.length ? 'Nothing waiting' : 'Your Inbox'}>
+              {all.length ? 'Every capture has taken its exit. ⌘. catches the next thought, from anywhere.' : 'What you catch lands here. Press ⌘. anywhere, write a thought, and press Enter.'}
             </Empty>
           </Rest>
         )}
@@ -226,18 +236,26 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
                 beside what it has become, never lost to an edit. */}
             <div className="flex items-center justify-between gap-2 px-3 @[40rem]/page:px-[4.25rem]">
               <Stepper at={shown.findIndex((one) => one.id === open.id)} total={shown.length} onStep={(to) => pick(shown[to].id)} />
-              <Button variant="ghost" size="sm" className="min-w-0 shrink text-muted-foreground" onClick={() =>
+              {/* A short word that fits beside Versions at any width; the tip says it in full. */}
+              <Tip label={first !== null ? 'Back to now' : 'As first written'}>
+              <Button variant="ghost" size="sm" className="shrink-0 text-muted-foreground" onClick={() =>
                 first !== null
                   ? // Back from reading: the capture read again, so the editor
                     // opens on its words now and never saves older ones over them.
                     void window.api.captures.get(open.id).then((found) => {
+                      chime('fold')
                       setOpen(found)
                       setFirst(null)
                     })
-                  : void window.api.captures.get(open.id).then((found) => (found?.original ? setFirst(found.original) : toast('Unchanged since you wrote it')))
+                  : void window.api.captures.get(open.id).then((found) => {
+                      if (!found?.original) return (chime('nope'), toast('Unchanged since you wrote it'))
+                      chime('rewind')
+                      setFirst(found.original)
+                    })
               }>
-                <History className="size-3.5" /> <span className="truncate">{first !== null ? 'Back to now' : 'As first written'}</span>
+                <History className="size-3.5" /> {first !== null ? 'Now' : 'Original'}
               </Button>
+              </Tip>
               <Versions table="captures" id={open.id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
                 onRestored={() => void window.api.captures.get(open.id).then((found) => {
                   setOpen(found)
@@ -282,9 +300,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
               findHeadings={findHeadings}
               onOpenNote={(link, heading) => follow(link, (type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id)), heading)}
               after={<Mentions id={open.id} onOpen={(type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id))} />}
-              onChange={(body, editor) =>
-                window.api.captures.save(open.id, { body, markdown: toMarkdown(editor) })
-              }
+              onReady={words.ready}
+              onChange={words.save}
             />
             )}
           </div>
@@ -333,18 +350,31 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
                     // A task was heard, said and made undoable where it was made; only a capture gone is left to say.
                     if (exit.label === 'Make it a task') return void (result || refuse('That capture no longer exists, so it cannot become a task'))
                     if (result === 'needs-source') return refuse('A quote needs to say who said it: add a source below first')
+                    // Taken elsewhere a moment ago (the other window, a read-through): it keeps that exit.
+                    if (result === 'not-open' || (result as SaveResult | null)?.refused) return refuse(NOT_OPEN)
                     // The sound once it went through, so a refusal never sounds like success first.
                     chime(exit.label === 'Discard' ? 'away' : exit.label === 'Promote to nugget' ? 'promote' : 'resolve')
                     if (exit.label === 'Promote to nugget')
-                      return toast(exit.said, typeof result === 'string' ? () => void vigil.unpromote(capture.id, result) : undefined, 'success', typeof result === 'string' ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
-                    toast(exit.said, reopen)
+                      return toast(exit.said, typeof result === 'string' ? () => void unpromote(capture.id, result) : undefined, 'success', typeof result === 'string' ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
+                    // Back to exactly the status it had.
+                    const was = ((result as SaveResult | null)?.was ?? 'open') as 'open'
+                    toast(exit.said, () => void window.api.captures.save(capture.id, { status: was }).then(() => chime('undo')))
                   })
                 }}
               >
                 {exit.label}
               </Prop>
             ))
-          : <Prop icon={Inbox} onClick={reopen}>Back to the inbox</Prop>}
+          // A promoted capture stays out: its nugget is where it lives now, and
+          // back in the inbox it could be promoted again, into a second one.
+          : capture.status !== 'promoted' && <Prop icon={Inbox} onClick={reopen}>Back to the inbox</Prop>}
+        {/* The question routes: a new one held from it, or a clue in one you are holding. */}
+        {capture.status === 'open' && (
+          <>
+            <Prop icon={Orbit} onClick={() => void exit(capture.id, 'question')}>Hold as a question</Prop>
+            <Prop icon={Orbit} onClick={() => void addToQuestion(capture.id)}>Add to a question…</Prop>
+          </>
+        )}
         {capture.status === 'open' && (
           <label className="flex items-center gap-2 px-2 py-1.5 focus-within:text-foreground hover:bg-accent">
             <Merge className="size-4 shrink-0" />
@@ -355,8 +385,9 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
                 const number = Number(event.currentTarget.value.replace(/\D/g, ''))
                 if (event.key !== 'Enter' || !number) return
                 if (number === capture.number) return refuse('A capture cannot be merged into itself. Type the number of another one')
-                void vigil.mergeCapture(capture.id, number).then((into) =>
-                  into ? (chime('resolve'), toast(`Merged into MF-${number}`, () => void window.api.captures.save(capture.id, { status: 'open' }))) : refuse(`There is no MF-${number}. Check the number and try again`)
+                // Undone, the other's words are as they were and this one is back: never in both.
+                void vigil.mergeCapture(capture.id, number).then((merged) =>
+                  merged ? (chime('resolve'), toast(`Merged into MF-${number}`, () => void vigil.unmerge(capture.id, merged).then(() => chime('undo')))) : refuse(`There is no MF-${number}. Check the number and try again`)
                 )
               }}
               className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-foreground/70"
@@ -399,6 +430,8 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
           }} />
         </div>
       </Island>
+      {/* What it means to you, dated: a capture takes glosses as a nugget does. */}
+      <GlossTimeline id={capture.id} />
       <Lineage id={capture.id} onOpen={onOpen} />
       <LocalGraph id={capture.id} title={capture.label} onOpen={onOpen} />
       <Island compact title="Details">
