@@ -873,6 +873,27 @@ if (process.platform === 'darwin') app.setActivationPolicy('accessory')
 // like losing everything.
 app.setName('Vigil')
 app.setPath('userData', process.env.MINDFLOW_USER_DATA ?? join(app.getPath('appData'), 'mindflow'))
+// Test runs only: every window sits past the screen's right edge, unseen,
+// unclickable and never focused, so a run never lands on top of anyone's work.
+if (process.env.MINDFLOW_USER_DATA && process.env.MINDFLOW_QA_AWAY) {
+  const away = (win: BrowserWindow): void => {
+    const { bounds } = screen.getPrimaryDisplay()
+    const [width, height] = win.getSize()
+    setBounds.call(win, { x: bounds.x + bounds.width - 6, y: bounds.y + 40, width, height })
+    // Where the screen will not let it go past the edge, unseen and unclickable all the same.
+    win.setOpacity(0)
+    win.setIgnoreMouseEvents(true)
+  }
+  const proto = BrowserWindow.prototype
+  const setBounds = proto.setBounds
+  proto.show = function (this: BrowserWindow) { away(this); this.showInactive() }
+  proto.focus = function () {}
+  proto.setBounds = function (this: BrowserWindow, next: Partial<Electron.Rectangle>) { setBounds.call(this, next); away(this) }
+  proto.setPosition = function (this: BrowserWindow) { away(this) }
+  proto.center = function (this: BrowserWindow) { away(this) }
+  app.focus = () => {}
+  app.on('browser-window-created', (_, win) => away(win))
+}
 
 // From a terminal, without the window: `open -n -a mindflow --args --capture "buy milk"`,
 // or the binary itself with the same flags. One copy of the app runs; a second

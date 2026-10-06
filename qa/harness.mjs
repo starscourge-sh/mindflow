@@ -9,6 +9,7 @@
  *   npm run build && node qa/harness.mjs
  */
 import { mkdtempSync } from 'fs'
+import { execFile } from 'child_process'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { _electron as electron } from 'playwright'
@@ -23,11 +24,29 @@ export async function open() {
   const data = process.env.QA_DATA ?? mkdtempSync(join(tmpdir(), 'mindflow-qa-'))
   // QA_ENTRY runs a build kept apart from out/, so one test's build does not
   // pull the app out from under another test running at the same time.
-  const app = await electron.launch({ args: [process.env.QA_ENTRY ?? '.'], env: { ...process.env, MINDFLOW_USER_DATA: data } })
+  const app = await electron.launch({ args: [process.env.QA_ENTRY ?? '.'], env: { MINDFLOW_QA_AWAY: '1', ...process.env, MINDFLOW_USER_DATA: data } })
   // Never left running: the app keeps its windows when asked to close (a
   // window put away, not quit), so a plain kill can leave it stuck exiting.
   // However the run ends (done, failed, interrupted), it is killed outright.
   const child = app.process()
+  // A tiling window manager (AeroSpace) would tile the test windows into the
+  // workspace in use: float each of this run's windows as it appears, so the
+  // app can park it past the screen's edge.
+  if (process.env.MINDFLOW_QA_AWAY !== '0') {
+    const floated = new Set()
+    const float = setInterval(() => {
+      execFile('aerospace', ['list-windows', '--all', '--format', '%{window-id}|%{app-pid}'], (error, out) => {
+        if (error) return clearInterval(float)
+        for (const line of out.split('\n')) {
+          const [id, pid] = line.split('|')
+          if (Number(pid) !== child.pid || floated.has(id)) continue
+          floated.add(id)
+          execFile('aerospace', ['layout', '--window-id', id, 'floating'], () => {})
+        }
+      })
+    }, 250)
+    float.unref()
+  }
   const end = () => { try { child.kill('SIGKILL') } catch {} }
   process.on('exit', end)
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => { end(); process.exit(1) })
