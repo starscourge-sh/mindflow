@@ -36,7 +36,7 @@ import icon from '../../resources/icon.png?asset'
 import { alreadyImported, captureText, changed, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { backupDir } from './backup'
-import { activeSession, badge, blurOn, gate, motionOn, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenStickies } from './vigil'
+import { activeSession, atLogin, badge, blurOn, gate, motionOn, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenStickies } from './vigil'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
 import { registerPeriods } from './periods'
@@ -1369,6 +1369,7 @@ app.whenReady().then(() => {
   registerCaptures()
   registerImportConversion()
   registerVigil()
+  atLogin()
   registerHome()
   registerNotes({ load, guard })
   registerPeriods()

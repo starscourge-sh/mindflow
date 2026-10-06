@@ -523,6 +523,9 @@ export function SettingsView(): React.JSX.Element {
               toast(safeMode ? 'Safe mode: no hints, rot cards or pins come up' : 'Safe mode off')
             }} />
           </Setting>
+          <Setting title="Open at login" note="Vigil starts with your Mac, quietly in the menu bar, so ⌘. works straight away and your sticky notes are back where you left them.">
+            <Switch checked={settings.openAtLogin !== false} onCheckedChange={(openAtLogin) => set({ openAtLogin })} />
+          </Setting>
           <Setting title="Show sticky notes" note="Every note stuck on the desktop, or all of them put away; they keep their places. ⌃⌥⌘N from anywhere.">
             <Switch checked={settings.stickiesShown} onCheckedChange={(stickiesShown) => set({ stickiesShown })} />
           </Setting>

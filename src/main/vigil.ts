@@ -216,6 +216,8 @@ const DEFAULTS = {
   // Sticky notes on the desktop: shown or all put away (⌃⌥⌘N), and kept out of
   // screen shares and recordings while still there for you.
   stickiesShown: true,
+  // A capture box and sticky notes are only any use if they are there after a restart.
+  openAtLogin: true,
   stickiesUnshared: true,
   // Keys you changed: { the keys it came with: yours, or null for none }.
   keys: {} as Record<string, string | null>
@@ -250,6 +252,10 @@ export const whenSafeMode = (tell: (on: boolean) => void): void => void (safeMod
 /** Told when the stickies are shown or put away, or kept in or out of screen shares. */
 let stickiesTold: () => void = () => undefined
 export const whenStickies = (tell: () => void): void => void (stickiesTold = tell)
+/** Open at login, as the setting says. Only the installed app: in development it would register Electron itself. */
+export function atLogin(): void {
+  if (process.platform === 'darwin' && app.isPackaged) app.setLoginItemSettings({ openAtLogin: settings().openAtLogin !== false })
+}
 export const stickyPrefs = (): { shown: boolean; unshared: boolean } => ({ shown: settings().stickiesShown, unshared: settings().stickiesUnshared })
 /** Every sticky shown or put away at once; they keep their places. */
 export function showStickies(on = !settings().stickiesShown): boolean {
@@ -542,6 +548,7 @@ export function registerVigil(): void {
     if (patch.keys) keysTold(patch.keys)
     if ('stickiesShown' in patch || 'stickiesUnshared' in patch) stickiesTold()
     if ('spellcheck' in patch || 'spellLanguages' in patch) spelling()
+    if ('openAtLogin' in patch) atLogin()
     return write(settings())
   })
   // Spelling: the languages there are and the ones in use, and a word kept as

@@ -79,6 +79,7 @@ export type Settings = {
   /** The sections the main window's sidebar lists; the rest sit under More. */
   /** Every sticky note on the desktop shown, or all put away; ⌃⌥⌘N from anywhere. */
   stickiesShown: boolean
+  openAtLogin: boolean
   /** Stickies kept out of screen shares and recordings, still seen by you. */
   stickiesUnshared: boolean
   sidebarShown: string[]
