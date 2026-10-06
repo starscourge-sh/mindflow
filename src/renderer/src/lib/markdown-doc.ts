@@ -1,6 +1,7 @@
 import type { Editor, JSONContent } from "@tiptap/core"
 
 import { readCardLink } from "@/extensions/card-link"
+import { absorbCaptions } from "@/extensions/caption"
 
 /**
  * Long Markdown, cut where a new block has to start anyway: at a heading, or
@@ -38,8 +39,9 @@ export function markdownPieces(markdown: string, size = 16000): string[] {
     if (line.trim() === "$$") maths = !maths
     if (line.includes("<!--") && !line.includes("-->")) comment = true
     else if (comment && line.includes("-->")) comment = false
-    if (/^:::\w/.test(line)) folded += 1
-    else if (line.trim() === ":::" && folded) folded -= 1
+    // Columns too: their marks only mean something read together.
+    if (/^:::\w/.test(line) || line.trim() === "<!-- columns -->") folded += 1
+    else if ((line.trim() === ":::" || line.trim() === "<!-- /columns -->") && folded) folded -= 1
     const next = lines[at + 1]
     if (next === undefined || maths || comment || folded || length < size) continue
     const starts = /^#{1,6}\s/.test(next) || (!line.trim() && /^[^\s>|\-*+\d:<[!$`~=]/.test(next))
@@ -151,12 +153,25 @@ export function tidyDocument(node: JSONContent, inText = false): JSONContent {
     if (tidied.type === "files") return [...lead, ...(tidied.content ?? [])]
     return /^(paragraph|heading)$/.test(child.type ?? "") && tidied.type === "attachment" ? [...lead, tidied] : [tidied]
   })
-  return { ...node, content: inline ? marked(content) : content }
+  return { ...node, content: inline ? marked(content) : absorbCaptions(content) }
+}
+
+/**
+ * Tabs that indent a line as four spaces each. The list reader nests by
+ * spaces only, and Obsidian indents with tabs: its sub-tasks came in as
+ * "[ ] words". Not inside a code block at the margin, whose tabs are its own.
+ */
+function untab(markdown: string): string {
+  let fenced = false
+  return markdown.split("\n").map((line) => {
+    if (/^(```|~~~)/.test(line)) fenced = !fenced
+    return fenced ? line : line.replace(/^[ \t]+/, (lead) => lead.replace(/\t/g, "    "))
+  }).join("\n")
 }
 
 /** Markdown as the editor's document, read in pieces and tidied. */
 export function markdownToDocument(editor: Editor, markdown: string): JSONContent {
   const manager = editor.markdown
-  const content = manager ? markdownPieces(markdown).flatMap((piece) => manager.parse(piece).content ?? []) : []
+  const content = manager ? markdownPieces(untab(markdown)).flatMap((piece) => manager.parse(piece).content ?? []) : []
   return tidyDocument({ type: "doc", content: content.length ? content : [{ type: "paragraph" }] })
 }

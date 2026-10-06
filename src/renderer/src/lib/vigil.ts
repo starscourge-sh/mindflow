@@ -30,6 +30,10 @@ export type Settings = {
   calc: boolean
   /** The note's first line in the top bar once it has scrolled away. */
   topTitle: boolean
+  /** Misspelt words underlined as you write. */
+  spellcheck: boolean
+  /** The spellchecker's languages; none means the system's. */
+  spellLanguages: string[]
   /** A key from NOTE_FONTS, or a system font's family name. */
   noteFont: string
   fontNotesOnly: boolean
@@ -70,10 +74,14 @@ export type Settings = {
   recentDays: number
   /** The questions kept in view, shown small while you capture and tidy. */
   pinnedQuestions: boolean
+  /** A heading folds away what is under it; only how the note is shown. */
+  foldHeadings: boolean
   /** The sections the main window's sidebar lists; the rest sit under More. */
   sidebarShown: string[]
   /** The box's tabs, of inbox, today, review, kept and recent. */
   boxTabs: string[]
+  /** Keys you changed, by the keys each came with; null is none. See lib/keys.ts. */
+  keys: Record<string, string | null>
 }
 
 /** Something made in the last few days, for the Recent panel. */
@@ -248,6 +256,8 @@ export const vigil = {
   unmakeCapture: (id: string, origin: string) => call('capture:unmake', id, origin),
   settings: () => call<Settings>('settings'),
   setSettings: (patch: Partial<Settings>) => call<Settings>('settings:set', patch),
+  /** Every language the spellchecker knows, and the ones it is using. */
+  spellingLanguages: () => call<{ all: string[]; on: string[] }>('spelling:languages'),
   backupsWhere: () => call<string>('backups:where'),
   /** The scenes in these folders so far; copies of new pictures are made in the background. */
   scenery: (folders: string[]) => call<{ scenes: Scene[]; scanning: boolean }>('scenery', folders),
@@ -341,6 +351,9 @@ export const vigil = {
   passTag: (id: string, tag: string, on: boolean) => call<unknown>('pass:tag', id, tag, on),
   stats: () => call<Stats>('stats'),
   exportAll: () => call<string | null>('export'),
+  /** Stored pictures and files no note points at; `extra` is text only a window holds, like the box's draft. */
+  unusedFind: (extra: string[]) => call<{ name: string; size: number; image: boolean }[] | { error: string }>('unused:find', extra),
+  unusedBin: (names: string[], extra: string[]) => call<{ moved: number; size: number }>('unused:bin', names, extra),
   bury: (id: string) => call('review:bury', id),
   taskFrom: (ids: string[], text: string) => call<Made | null>('tasks:from', ids, text),
   bulk: (ids: string[], change: { tag?: string; capturedAt?: string }) => call<number>('captures:bulk', ids, change),
@@ -427,6 +440,9 @@ export function useAppearance(): void {
     document.documentElement.dataset.motion = settings.motion ? 'on' : 'off'
     document.documentElement.toggleAttribute('data-postcards', !!settings.postcards)
     document.documentElement.toggleAttribute('data-noblur', settings.blur === false)
+    // Inherited by every editor and field below; on, each keeps its own say.
+    if (settings.spellcheck === false) document.documentElement.spellcheck = false
+    else document.documentElement.removeAttribute('spellcheck')
     // Every size in the app is in rem, so the root's size scales all of it at once.
     document.documentElement.style.fontSize = `${INTERFACE_SIZES[settings.interfaceSize] ?? INTERFACE_SIZES.medium}px`
     // The system's Reduce motion is honoured too: things still appear and
@@ -435,5 +451,5 @@ export function useAppearance(): void {
     soundOn(settings.sounds)
     setVolume(settings.volume)
     setPack(settings.soundPack)
-  }, [settings?.fullWidth, settings?.motion, settings?.postcards, settings?.blur, settings?.interfaceSize, settings?.sounds, settings?.volume, settings?.soundPack])
+  }, [settings?.fullWidth, settings?.motion, settings?.postcards, settings?.blur, settings?.spellcheck, settings?.interfaceSize, settings?.sounds, settings?.volume, settings?.soundPack])
 }

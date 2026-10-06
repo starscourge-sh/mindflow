@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, net, protocol, screen, Tray } from 'electron'
+import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, net, protocol, screen, session, Tray } from 'electron'
 /*
  * app - Control your application's event lifecycle.
  *     - app.on('window-all-closed', () => { app.quit() })
@@ -36,13 +36,14 @@ import icon from '../../resources/icon.png?asset'
 import { alreadyImported, captureText, changed, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { backupDir } from './backup'
-import { activeSession, badge, gate, motionOn, registerVigil, toggleSafeMode, whenSafeMode } from './vigil'
+import { activeSession, badge, gate, motionOn, registerVigil, toggleSafeMode, whenKeys, whenSafeMode } from './vigil'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
 import { registerPeriods } from './periods'
 import { registerIssues } from './issues'
 import { num } from './dates'
 import { registerScenery, sceneryDir } from './scenery'
+import { registerUnused } from './unused'
 
 
 /* The standard electron app file structure:
@@ -161,6 +162,16 @@ const SIZES = {
 
 /** What summons the window. */
 const SUMMON = 'Command+.'
+
+/** Keys as Settings writes them (⌥⌘S) in Electron's words (Alt+Command+S); null for none, or two in a row. */
+function accelerator(keys: string | null | undefined): string | null {
+  if (!keys || keys.includes(' ')) return null
+  const base = keys.replace(/^[⌃⌥⇧⌘]+/, '')
+  const mods = keys.slice(0, keys.length - base.length)
+  const names: Record<string, string> = { '↵': 'Return', Esc: 'Escape', '⇥': 'Tab', '⌫': 'Backspace', '↑': 'Up', '↓': 'Down', '←': 'Left', '→': 'Right', '+': 'Plus', '−': '-', '?': 'Shift+/', '#': 'Shift+3' }
+  const words = [['⌃', 'Control'], ['⌥', 'Alt'], ['⇧', 'Shift'], ['⌘', 'Command']].filter(([glyph]) => mods.includes(glyph)).map(([, word]) => word)
+  return [...words, names[base] ?? base].join('+')
+}
 
 /**
  * Where the window was when it was last put away.
@@ -1218,6 +1229,10 @@ function updateTray(): void {
 }
 
 app.whenReady().then(() => {
+  // YouTube will not play an embed that comes from no page at all (its
+  // "Error 153"), and Vigil's pages are files. Say where it is shown from.
+  session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['https://www.youtube-nocookie.com/*', 'https://www.youtube.com/embed/*'] }, (details, done) =>
+    done({ requestHeaders: { ...details.requestHeaders, Referer: 'https://vigil.app/' } }))
   registerCaptures()
   registerImportConversion()
   registerVigil()
@@ -1225,6 +1240,7 @@ app.whenReady().then(() => {
   registerPeriods()
   registerIssues()
   registerScenery()
+  registerUnused()
   const first = fromCli(process.argv)
   if (first) captureText(first)
   createTray()
@@ -1737,16 +1753,19 @@ app.whenReady().then(() => {
    * Registering can fail - another app may already hold the chord - and it
    * fails quietly, so it says so rather than leaving you pressing a dead key.
    */
-  if (!globalShortcut.register(SUMMON, toggleWindow)) {
-    console.error(`Could not register ${SUMMON}: something else already has it`)
-  }
   // Safe mode from anywhere, before a screen share, with no window to open:
-  // the menu bar says it took.
-  const safeKey = globalShortcut.register('Alt+Command+S', () => {
-    toggleSafeMode()
-    updateTray()
-  })
-  if (!safeKey) console.error('Could not register Alt+Command+S for safe mode: something else already has it')
+  // the menu bar says it took. Both keys can be changed in Settings, so they
+  // are taken again whenever the keys change.
+  const anywhere = (keys: Record<string, string | null>): void => {
+    globalShortcut.unregisterAll()
+    const take = (made: string, run: () => void): void => {
+      const chord = accelerator(made in keys ? keys[made] : made)
+      if (chord && !globalShortcut.register(chord, run)) console.error(`Could not register ${chord}: something else already has it`)
+    }
+    take('⌘.', toggleWindow)
+    take('⌥⌘S', () => (toggleSafeMode(), updateTray()))
+  }
+  anywhere(whenKeys(anywhere))
 
   app.on('activate', function() {
     // On macOS it's common to re-create a window in the app when the

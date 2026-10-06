@@ -1,9 +1,14 @@
 import { BubbleMenu, type BubbleMenuProps } from "@tiptap/react/menus"
 import { NodeSelection } from "@tiptap/pm/state"
 import { EditorContext, useEditorState, type Editor } from "@tiptap/react"
-import { AlignCenter, AlignLeft, AlignRight } from "lucide-react"
+import { AlignCenter, AlignLeft, AlignRight, Captions } from "lucide-react"
 import { AliveIcon } from "@/components/ui/alive-icon"
 import TrashIcon from "@/components/ui/trash-icon"
+import DownloadIcon from "@/components/ui/download-icon"
+import { startCaption } from "@/extensions/caption"
+import { host } from "@/lib/host"
+import MagnifierIcon from "@/components/ui/magnifier-icon"
+import { lookAtSelected } from "@/components/image/image-look"
 
 import { Toolbar, ToolbarGroup, ToolbarSeparator } from "@/components/tiptap-ui-primitive/toolbar"
 import { Button } from "@/components/tiptap-ui-primitive/button"
@@ -44,6 +49,9 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
     selector: ({ editor: instance }) => ({
       width: instance?.getAttributes("image").width ?? null,
       align: instance?.getAttributes("image").align ?? null,
+      caption: Boolean(instance?.getAttributes("image").caption),
+      src: String(instance?.getAttributes("image").src ?? ""),
+      alt: String(instance?.getAttributes("image").alt ?? ""),
     }),
   })
 
@@ -104,6 +112,29 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
           <ToolbarSeparator />
 
           <ToolbarGroup>
+            <Button
+              data-style="ghost"
+              tooltip="Caption"
+              data-active-state={attrs.caption ? "on" : "off"}
+              aria-label="Caption"
+              onClick={() => startCaption(editor, editor.state.selection.from)}
+            >
+              <Captions className="tiptap-button-icon" />
+            </Button>
+            {/* Only a picture kept in the note's own store has a file to copy. */}
+            {attrs.src.startsWith("mindflow://assets/") && host().saveFileAs && (
+              <Button
+                data-style="ghost"
+                tooltip="Download"
+                aria-label="Download"
+                onClick={() => void host().saveFileAs?.(attrs.src, attrs.alt ? `${attrs.alt}.${attrs.src.split(".").pop()}` : attrs.src.split("/").pop() ?? "Picture")}
+              >
+                <AliveIcon icon={DownloadIcon} size={16} className="tiptap-button-icon" />
+              </Button>
+            )}
+            <Button data-style="ghost" tooltip="Look" shortcutKeys="Space" aria-label="Look" onClick={() => lookAtSelected(editor)}>
+              <AliveIcon icon={MagnifierIcon} size={16} className="tiptap-button-icon" />
+            </Button>
             <Button
               data-style="ghost"
               aria-label="Delete image"

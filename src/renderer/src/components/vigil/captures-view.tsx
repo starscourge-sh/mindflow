@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import type { JSONContent } from '@tiptap/core'
-import { ArrowUpRight, Eye, EyeOff, CheckCircle2, FileText, Hash, Inbox, ListTodo, Merge, Orbit, Pin, Trash2, X, Laptop, Timer, CloudSun } from 'lucide-react'
+import type { Editor, JSONContent } from '@tiptap/core'
+import { ArrowUpRight, Eye, EyeOff, CheckCircle2, FileText, Hash, Inbox, ListTodo, Merge, Orbit, Pin, Trash2, X, Laptop, Timer, CloudSun, PanelLeftOpen } from 'lucide-react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
@@ -35,6 +35,7 @@ import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '
 import { Rest } from './scenery'
 import type { MenuItem } from './row-menu'
 import { PinnedQuestions, clueInto } from './pinned-questions'
+import { Board, useBoard } from './board-view'
 import { num } from '../../../../main/dates'
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
@@ -71,6 +72,30 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
   // Saved only over the words it was opened on: another window's never lost.
   const words = useSameWords('captures', open?.id, open?.body, (id, body, base, editor) =>
     window.api.captures.save(id, { body, base, ...(editor ? { markdown: toMarkdown(editor) } : {}) }))
+  // The open note's editor, which its board, when shown, edits in its place.
+  const [editor, setEditor] = useState<Editor | null>(null)
+  const board = useBoard('captures', open?.id, editor)
+  const boardShown = board.on && !past && first === null && !!editor && !editor.isDestroyed
+  // A board needs the room: the list and the properties step aside while it
+  // shows, each a click away, and come back with the note.
+  const [listOut, setListOut] = useState(false)
+  const [propsOut, setPropsOut] = useState(false)
+  const [tools, setTools] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    setListOut(false)
+    setPropsOut(false)
+  }, [boardShown])
+  // The note's name over the page, not its first heading, which the hidden note reports.
+  const onBoard = useRef(false)
+  onBoard.current = boardShown
+  // Never a private note's: titles show in a screen share.
+  const opened = all.find((one) => one.id === open?.id)
+  const label = opened && !opened.private ? opened.label : null
+  useEffect(() => {
+    if (!boardShown) return
+    showTopTitle(label)
+    return () => showTopTitle(null)
+  }, [boardShown, label])
   // Opened in a window of its own: closed here, so only one editor saves it.
   useEffect(() => {
     const onApart = (event: Event): void => setOpen((was) => (was?.id === (event as CustomEvent).detail ? null : was))
@@ -147,6 +172,13 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
 
   return (
     <>
+      {boardShown && !listOut ? (
+        <div data-chrome className="hidden w-11 shrink-0 flex-col items-center pt-3 @[56rem]/page:flex">
+          <Tip label="Show the list">
+            <Button variant="ghost" size="icon-sm" onClick={() => (chime('slide'), setListOut(true))}><PanelLeftOpen className="size-4" /></Button>
+          </Tip>
+        </div>
+      ) : (
       <Page aside={!!open}
         title={title}
         // The Inbox is a place to set things down, never a queue with a number on it.
@@ -225,6 +257,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
           </Rest>
         )}
       </Page>
+      )}
       {readFrom !== null && (
         <ReadThrough
           items={shown.map((one) => ({ type: 'capture', id: one.id }))}
@@ -238,11 +271,13 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
       )}
       {open && meta ? (
         <div className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_1.5rem_1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
+          {/* A board stands as tall as the window, even above the properties in a narrow one. */}
+          <div className={`flex min-h-0 min-w-0 flex-1 flex-col pt-6 ${boardShown ? '!min-h-[calc(100vh-5rem)]' : ''}`}>
             {/* What you first caught, kept from the first edit on: read it
                 beside what it has become, never lost to an edit. One click
                 into the dots, so the row stays quiet. */}
             <NoteHeader table="captures" id={open.id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
+              board={board.fits || board.on ? board : undefined}
               onRestored={() => void window.api.captures.get(open.id).then((found) => {
                 setOpen(found)
                 setRev((n) => n + 1)
@@ -252,8 +287,15 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
               pinned={!!meta.pinnedAt} onPin={() => pin('captures', meta.id, !meta.pinnedAt)} copyKey={captureKey(meta.number)}
               menu={[
                 open.original ? { label: 'As first written', run: () => (chime('rewind'), setFirst(open.original)) } : null,
+                ...(boardShown ? [
+                  'separator' as const,
+                  { label: listOut ? 'Hide the list' : 'Show the list', run: () => (chime(listOut ? 'fold' : 'slide'), setListOut(!listOut)) },
+                  { label: propsOut ? 'Hide properties' : 'Show properties', run: () => (chime(propsOut ? 'fold' : 'slide'), setPropsOut(!propsOut)) },
+                  'separator' as const
+                ] : []),
                 ...captureDots(meta)
               ]}
+              tools={boardShown ? <span ref={setTools} className="contents" /> : undefined}
               looking={first !== null ? (
                 <span className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
                   As first written
@@ -292,6 +334,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
                 autofocus={false}
               />
             ) : (
+            <div className={boardShown ? 'hidden' : 'contents'}>
             <MindflowEditor
               key={`${open.id}-${rev}`}
               host={window.api}
@@ -299,18 +342,20 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
               onTokenClick={(token) => token.name === 'tag' && onOpen?.('tag', token.value)}
               toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: open.id, from: open.id }) }}
               documentId={`capture-${open.id}`}
-              onTitleOut={showTopTitle}
+              onTitleOut={(title) => !onBoard.current && showTopTitle(title)}
               defaultContent={(open.body as JSONContent | string | null) ?? ''}
               findNotes={findCaptures}
               findHeadings={findHeadings}
               onOpenNote={(link, heading) => follow(link, (type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id)), heading)}
               after={<Mentions id={open.id} onOpen={(type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id))} />}
-              onReady={words.ready}
+              onReady={(ready) => (words.ready(ready), setEditor(ready))}
               onChange={words.save}
             />
+            </div>
             )}
+            {boardShown && <Board key={`${open.id}-${rev}`} editor={editor} id={open.id} tools={tools} />}
           </div>
-          <CaptureProps capture={meta} onOpen={onOpen} />
+          {(!boardShown || propsOut) && <CaptureProps capture={meta} onOpen={onOpen} />}
         </div>
       ) : null}
     </>

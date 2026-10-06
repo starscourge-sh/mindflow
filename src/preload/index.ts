@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webFrame } from 'electron'
 import type { LinkMetadata } from './index.d'
 import type { Capture, CaptureMeta, CapturePatch, Change, SaveResult } from '../main/captures'
 
@@ -59,6 +59,11 @@ const api = {
 
   /** Put a stored image on the system clipboard. */
   copyImage: (src: string): Promise<boolean> => ipcRenderer.invoke('copy-image', src),
+
+  /** Asked of the page's own spellchecker, which already drew the squiggle. */
+  misspelt: (word: string): string[] | null => (webFrame.isWordMisspelled(word) ? webFrame.getWordSuggestions(word) : null),
+  /** Keep a word as spelt right, in the Mac's own dictionary too. */
+  learnWord: (word: string): Promise<boolean> => ipcRenderer.invoke('vigil:spelling:learn', word),
 
   /** Read a linked image, which the renderer's own content policy forbids. */
   fetchImage: (href: string): Promise<{ mime: string; bytes: Uint8Array } | null> =>

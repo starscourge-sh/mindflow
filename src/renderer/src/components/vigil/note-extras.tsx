@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { AlignLeft, Check, ChevronRight, LayoutGrid, Link2, List, ListChecks, Lock, Plus, Split, Star, Tags, Type, X } from 'lucide-react'
+import { AlignLeft, Check, ChevronRight, Columns3, LayoutGrid, Link2, List, ListChecks, Lock, Plus, Split, Star, Tags, Type, X } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import ClockIcon from '@/components/ui/clock-icon'
 import PenIcon from '@/components/ui/pen-icon'
@@ -597,7 +597,7 @@ const TOOL = 'flex size-7 shrink-0 items-center justify-center rounded-md text-m
  * right, quietly, when it last changed (a click goes back through its
  * versions), a book to read it, and everything else behind the dots. `looking` takes the right side while an older text is shown.
  */
-export function NoteHeader({ left, type = 'capture', edited, captured, made = 'Captured', pinned, onPin, copyKey, menu, looking, className = '', ...versions }: {
+export function NoteHeader({ left, type = 'capture', edited, captured, made = 'Captured', pinned, onPin, copyKey, menu, looking, board, tools, className = '', ...versions }: {
   left?: React.ReactNode
   /** What it is, for reading it: capture, nugget, article, question. */
   type?: string
@@ -611,6 +611,10 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
   copyKey?: string
   menu: MenuItem[]
   looking?: React.ReactNode
+  /** The switch between the note and its board, for a note that reads as one. */
+  board?: { on: boolean; toggle: () => void }
+  /** A view's own tools, in the same row before the switch: the board's find, archive and new list. */
+  tools?: React.ReactNode
   className?: string
 } & Parameters<typeof Versions>[0]): React.JSX.Element {
   const at = edited && edited > captured ? edited : captured
@@ -631,6 +635,12 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
                 {said}
               </button>
             </Tip>
+            {tools}
+            {board && (
+              <Tip label={board.on ? 'Note  ⌥⌘B' : 'Board  ⌥⌘B'}>
+                <button type="button" aria-pressed={board.on} onClick={board.toggle} className={`${TOOL} ${board.on ? 'bg-accent text-foreground' : ''}`}><Columns3 /></button>
+              </Tip>
+            )}
             <Tip label="Read">
               <button type="button" aria-label="Read" onClick={() => (chime('open'), setReading(true))} className={TOOL}><AliveIcon icon={BookIcon} size={16} /></button>
             </Tip>

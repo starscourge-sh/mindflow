@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react"
-import { AlignCenter, AlignLeft, AlignRight, AudioLines, File, FileText, Maximize, Pause, PictureInPicture2, Play, RotateCcw, Volume2, VolumeX } from "lucide-react"
+import { AlignCenter, AlignLeft, AlignRight, AudioLines, Captions, File, FileText, Maximize, Pause, PictureInPicture2, Play, RotateCcw, Volume2, VolumeX } from "lucide-react"
 import { AliveIcon } from "@/components/ui/alive-icon"
 import DownloadIcon from "@/components/ui/download-icon"
 import ExternalLinkIcon from "@/components/ui/external-link-icon"
@@ -13,6 +13,7 @@ import { Roll } from "@/lib/roll"
 
 import { host } from "@/lib/host"
 import { isNodeSelected } from "@/extensions/selected-nodes"
+import { startCaption } from "@/extensions/caption"
 
 /** 57.3 KB, not 58624. Binary units, because that is what a file manager shows. */
 function readableSize(bytes: number): string {
@@ -293,6 +294,9 @@ function MediaToolbar({ props, sized }: { props: NodeViewProps; sized: boolean }
           {size ? <span className="tiptap-media-size">{readableSize(size)}</span> : null}
         </span>
         <ToolbarGroup>
+          <Button data-style="ghost" aria-label="Caption" data-active-state={props.node.attrs.caption ? "on" : "off"} onClick={() => { const at = props.getPos(); if (at != null) startCaption(props.editor, at) }}>
+            <Captions className="tiptap-button-icon" />
+          </Button>
           <Button data-style="ghost" aria-label={`Open ${name}`} onClick={() => void host().openFile?.(src)}>
             <AliveIcon icon={ExternalLinkIcon} size={16} className="tiptap-button-icon" />
           </Button>

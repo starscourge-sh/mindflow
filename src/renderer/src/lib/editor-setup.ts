@@ -6,6 +6,7 @@ import '@fontsource/opendyslexic/700.css'
 // whole editor into everything that reads the settings.
 import { setCues, type EditorCue } from '@/lib/cues'
 import { setCalc } from '@/extensions/calc'
+import { setFoldHeadings } from '@/extensions/heading-fold'
 import { setTagSource } from '@/extensions/note-link'
 import { chime, step, type Cue } from './sound'
 import { vigil, type Settings } from './vigil'
@@ -97,6 +98,7 @@ export function useEditorSetup(settings: Settings | null): void {
   useEffect(() => {
     if (!settings) return
     setCalc(settings.calc)
+    setFoldHeadings(settings.foldHeadings !== false)
     const root = document.documentElement.style
     root.setProperty('--mf-font', familyOf(settings.noteFont))
     // The menus, lists and labels too, unless the font is for notes only.
@@ -106,7 +108,7 @@ export function useEditorSetup(settings: Settings | null): void {
     if (!settings.headingFont || settings.headingFont === 'same') root.removeProperty('--mf-heading-font')
     else root.setProperty('--mf-heading-font', familyOf(settings.headingFont))
     root.setProperty('--mf-text-scale', String(settings.textSize))
-  }, [settings?.calc, settings?.noteFont, settings?.fontNotesOnly, settings?.headingFont, settings?.textSize]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [settings?.calc, settings?.foldHeadings, settings?.noteFont, settings?.fontNotesOnly, settings?.headingFont, settings?.textSize]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ⌘+ and ⌘− step the text size, ⌘0 puts it back. Taken before Chromium's
   // own page zoom, which would grow the whole window instead.

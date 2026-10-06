@@ -25,6 +25,10 @@ export interface Api {
   openFile: (src: string) => Promise<boolean>
   /** Put a stored image on the system clipboard. */
   copyImage: (src: string) => Promise<boolean>
+  /** A word's spelling suggestions when it is misspelt, null when it is not. */
+  misspelt: (word: string) => string[] | null
+  /** Keep a word as spelt right, in the Mac's own dictionary too. */
+  learnWord: (word: string) => Promise<boolean>
   /** Read a linked image, which the renderer's own content policy forbids. */
   fetchImage: (href: string) => Promise<{ mime: string; bytes: Uint8Array } | null>
   /** Swap the window between the capture size and the roomier one. */

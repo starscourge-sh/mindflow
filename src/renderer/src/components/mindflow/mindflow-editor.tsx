@@ -44,6 +44,7 @@ import { VimMode } from "@/extensions/vim-mode"
 import { TAGS, Tokens, type TokenMatch, type TokenPattern } from "@/extensions/tokens"
 import { SlashCommand } from "@/extensions/slash-command"
 import { ToggleHeading, headingRank } from "@/extensions/toggle-heading"
+import { HeadingFold } from "@/extensions/heading-fold"
 import { ImageDrop } from "@/extensions/image-drop"
 import { ImagePlaceholder } from "@/extensions/image-placeholder"
 import { BlockColor } from "@/extensions/block-color"
@@ -55,6 +56,8 @@ import { CardLink } from "@/extensions/card-link"
 import { SelectedNodes } from "@/extensions/selected-nodes"
 import { Bookmark } from "@/extensions/bookmark"
 import { Callout } from "@/extensions/callout"
+import { Caption, captioned } from "@/extensions/caption"
+import { Column, Columns } from "@/extensions/columns"
 import { Attachment } from "@/extensions/attachment"
 import { ExcalidrawDiagram } from "@/extensions/excalidraw"
 import { Calc } from "@/extensions/calc"
@@ -197,6 +200,7 @@ import { SearchBar } from "@/components/search/search-bar"
 import { TableMenu } from "@/components/table/table-menu"
 import { TableControls } from "@/components/table/table-controls"
 import { BlockMenu, type BlockTarget } from "@/components/turn-into/block-menu"
+import { SpellingMenu, misspeltAt, type Misspelling } from "@/components/turn-into/spelling"
 import { WordCount } from "@/components/count/word-count"
 import { TableOfContents } from "@/components/toc/table-of-contents"
 import { OutlineKeys, goToHeading } from "@/components/toc/headings"
@@ -204,6 +208,7 @@ import { SourceView } from "@/components/source/source-view"
 import { NoteLink, showingDocument, takePendingHeading, type NoteSuggestion } from "@/extensions/note-link"
 import { noteLinkRenderer, tagRenderer } from "@/components/note-link/note-link-menu"
 import { ImageMenu } from "@/components/image/image-menu"
+import { ImageLook } from "@/components/image/image-look"
 import { CodeBlockView } from "@/components/code/code-block-view"
 import { slashRenderer } from "@/components/slash/slash-menu"
 import { slashItems } from "@/components/slash/slash-items"
@@ -419,6 +424,13 @@ export interface MindflowEditorProps {
    */
   documentId?: string | number | null
   /**
+   * What the folded headings are remembered under, for an editor with no
+   * `documentId`. Folding never changes the document, so this is all there is.
+   *
+   * @default `documentId`, or not remembered
+   */
+  foldKey?: string
+  /**
    * Read only, the way an input is: the caret still moves and the text can
    * still be selected and copied, but nothing can change it, and the menus
    * that would change it stop offering.
@@ -499,6 +511,7 @@ export function MindflowEditor({
 
 function Surface({
   documentId,
+  foldKey,
   defaultContent = "",
   placeholder = "Write, or type / for commands…",
   showSource = false,
@@ -673,9 +686,11 @@ function Surface({
       for (let depth = $at?.depth ?? 0; depth > 0; depth -= 1) {
         if ($at?.node(depth).type.name === "table") table = true
       }
-      editor.view.dom.parentElement
-        ?.querySelector(".tiptap-drag-handle")
-        ?.classList.toggle("is-hidden", table)
+      const handle = editor.view.dom.parentElement?.querySelector(".tiptap-drag-handle")
+      handle?.classList.toggle("is-hidden", table)
+      // A heading's grip shows its level instead of the dots, Obsidian's "H2".
+      if (node?.type.name === "heading") handle?.setAttribute("data-level", String(node.attrs.level))
+      else handle?.removeAttribute("data-level")
     },
     []
   )
@@ -709,6 +724,8 @@ function Surface({
   const [menuOpen, setMenuOpen] = useState(false)
   // A right-click's spot, so its menu opens under the pointer; the grip's opens at the grip.
   const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null)
+  // A right-click on a misspelt word, whose suggestions head that menu.
+  const [spelling, setSpelling] = useState<Misspelling | null>(null)
   // The plugin hides its handle by writing inline `visibility`, instantly, from
   // several different paths. Watching that one attribute catches all of them -
   // listening to `onNodeChange` alone left the handle stuck on screen. We turn
@@ -1034,6 +1051,9 @@ function Surface({
             },
           }
         },
+        // The extension's own way of writing it, then the caption under it.
+        renderMarkdown: (node) =>
+          captioned(`![${node.attrs?.alt ?? ""}](${node.attrs?.src ?? ""}${node.attrs?.title ? ` "${node.attrs.title}"` : ""})`, node),
       }),
       Typography,
       ...(has("superscript") ? [Superscript] : []),
@@ -1046,6 +1066,9 @@ function Surface({
       OutdentLists,
       Bookmark,
       Callout,
+      Caption,
+      Columns,
+      Column,
       Attachment,
       ExcalidrawDiagram,
       // Gives the editor `storage.markdown.getMarkdown()`, used by Export.
@@ -1073,7 +1096,8 @@ function Surface({
         tabSize: 2,
       }),
       // The no-cookie address: a video in a note does not tell YouTube who you are.
-      Youtube.configure({ width: 640, height: 360, nocookie: true }),
+      // Written as a picture of its address, which the reader turns back into a video.
+      Youtube.extend({ renderMarkdown: (node) => captioned(`![](${node.attrs?.src ?? ""})`, node) }).configure({ width: 640, height: 360, nocookie: true }),
       // Collapsible sections. `persist` writes the open state into the
       // document, so a section left folded is still folded when it reopens.
       Details.configure({ persist: true }),
@@ -1107,6 +1131,7 @@ function Surface({
       EmojiSuggestion,
       Mathematics,
       ToggleHeading,
+      ...(shape === "document" ? [HeadingFold.configure({ id: foldKey ?? (documentId != null ? String(documentId) : null) })] : []),
       ...(shape === "document" ? [OutlineKeys] : []),
       ...((math ?? shape === "document") ? [Calc] : []),
       ImageDrop,
@@ -1220,6 +1245,7 @@ function Surface({
       event.preventDefault()
       blockTarget.current = { pos, name: node.type.name, level: headingRank(node) ?? undefined }
       setMenuAt({ x: event.clientX, y: event.clientY })
+      setSpelling(misspeltAt(editor, event.clientX, event.clientY))
       setTimeout(() => setMenuOpen(true))
     }
     // Capture, so this runs before the handle's own listener further down.
@@ -1229,6 +1255,21 @@ function Surface({
       dom.removeEventListener("mousemove", onMove, true)
       dom.removeEventListener("contextmenu", onContext)
     }
+  }, [editor, handles])
+
+  // Without handles there is no block menu, so a misspelt word gets one of
+  // its own; anywhere else the right-click is left alone.
+  useEffect(() => {
+    if (!editor || handles) return
+    const onContext = (event: MouseEvent): void => {
+      const found = misspeltAt(editor, event.clientX, event.clientY)
+      if (!found) return
+      event.preventDefault()
+      setMenuAt({ x: event.clientX, y: event.clientY })
+      setSpelling(found)
+    }
+    editor.view.dom.addEventListener("contextmenu", onContext)
+    return () => editor.view.dom.removeEventListener("contextmenu", onContext)
   }, [editor, handles])
 
   // Only when the switch actually moves. The extension is built with `vimOn`
@@ -1395,6 +1436,7 @@ function Surface({
         // A line hugs its text. Only a document needs to fill what holds it.
         shape === "line" ? "is-line" : "",
         sourceOpen ? "has-source" : "",
+        handles ? "has-handles" : "",
         className
       ]
         .filter(Boolean)
@@ -1407,6 +1449,7 @@ function Surface({
         {sourceOpen ? <SourceView editor={editor} /> : null}
 
         <ImageMenu editor={editor} />
+        <ImageLook editor={editor} />
 
         {shape === "document" && <TableOfContents editor={editor} shown={outline} />}
         <TableControls editor={editor} />
@@ -1489,6 +1532,7 @@ function Surface({
               aria-label="Block actions"
               onClick={() => {
                 setMenuAt(null)
+                setSpelling(null)
                 setMenuOpen(true)
               }}
             >
@@ -1498,6 +1542,7 @@ function Surface({
             <BlockMenu
               editor={editor}
               targetRef={blockTarget}
+              spelling={spelling}
               at={menuAt}
               open={menuOpen}
               onOpenChange={setMenuOpen}
@@ -1526,6 +1571,7 @@ function Surface({
         {after && afterBox && createPortal(after, afterBox)}
 
         <LinkPreview editor={editor} />
+        {!handles && editor && <SpellingMenu editor={editor} spelling={spelling} at={menuAt} onClose={() => setSpelling(null)} />}
 
         {/* How much is written, quietly in the corner of a document. */}
         {shape === "document" && !readOnly && <WordCount editor={editor} />}

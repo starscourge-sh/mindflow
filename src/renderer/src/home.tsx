@@ -4,6 +4,7 @@ import { Minimize2, ArrowLeft, ArrowRight, ChevronDown, ChevronRight, CircleHelp
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AnimatePresence, motion } from 'motion/react'
 import { chime, soundOn } from './lib/sound'
+import { foldEverything } from './extensions/heading-fold'
 import { NotePreview } from './components/vigil/note-preview'
 
 import { CAPTURE_TYPES } from './components/capture-kinds/capture-kind-picker'
@@ -30,6 +31,7 @@ import GearIcon from '@/components/ui/gear-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
 import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
+import { UnusedFiles } from '@/components/vigil/unused-files'
 import { Tour } from '@/components/vigil/tour'
 import { DayView } from '@/components/vigil/day-view'
 import { MonthPage, SCALE_VIEW, WeekPage, YearPage, type Scale } from '@/components/vigil/periods-view'
@@ -287,6 +289,7 @@ export function Home(): React.JSX.Element {
       <div className={`contents ${sidebar ? (narrow ? '[--toast-left:4rem]' : '[--toast-left:15rem]') : ''}`}><Toaster /></div>
       <NotePreview />
       <ShortcutSheet />
+      <UnusedFiles />
       <Passes onOpen={(type, id) => open(type, id)} />
       <Tour firstRun />
       <FocusNote />
@@ -302,6 +305,8 @@ export function Home(): React.JSX.Element {
             ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),
             { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘\\', cue: sidebar ? 'fold' : 'slide', run: () => setSidebar(!sidebar) },
             { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', cue: null, run: () => setFill(!fill) },
+            { label: 'Fold every heading', cue: null, run: () => void (foldEverything(true) || chime('nope')) },
+            { label: 'Unfold every heading', cue: null, run: () => void (foldEverything(false) || chime('nope')) },
             { label: settings?.sounds ? 'Turn sounds off' : 'Turn sounds on', cue: null, run: () => {
               soundOn(!settings?.sounds)
               chime(settings?.sounds ? 'off' : 'on')
@@ -314,6 +319,7 @@ export function Home(): React.JSX.Element {
               else root.dataset.reveal = ''
             } },
             { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('vigil:shortcuts')) },
+            { label: 'Clear unused pictures…', run: () => window.dispatchEvent(new CustomEvent('vigil:unused')) },
             ...themeActions((text) => toast(text)),
             { label: settings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', cue: settings?.blur === false ? 'on' : 'off', run: () => void vigil.setSettings({ blur: settings?.blur === false }) },
             { label: 'Settings', keys: '⌘,', run: () => setView({ id: 'settings' }) },

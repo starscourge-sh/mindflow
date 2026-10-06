@@ -1,6 +1,7 @@
 import { Node, mergeAttributes } from "@tiptap/core"
 import { ReactNodeViewRenderer } from "@tiptap/react"
 import { AttachmentView } from "@/components/attachment/attachment-view"
+import { captioned } from "@/extensions/caption"
 
 export interface AttachmentAttributes {
   /** A `mindflow://` URL into the asset store. */
@@ -98,7 +99,7 @@ export const Attachment = Node.create({
   /** A link to the stored file, under the name it arrived with. */
   renderMarkdown(node): string {
     const { name, src } = (node.attrs ?? {}) as Partial<AttachmentAttributes>
-    return `[${name || "Attachment"}](${src})`
+    return captioned(`[${name || "Attachment"}](${src})`, node)
   },
 
   addCommands() {

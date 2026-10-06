@@ -3,7 +3,8 @@ import { PACKS, chime, click, soundOn, step } from '@/lib/sound'
 import { NOTE_FONTS } from '@/lib/editor-setup'
 import { Brain, FolderPlus, HardDrive, Inbox, Keyboard, LifeBuoy, ListChecks, Mountain, Palette, PenLine, Search as SearchIcon, Sparkles, Volume2, X, type LucideIcon } from 'lucide-react'
 import { allThemes, applyTheme, customThemes, frosted, importTheme, removeTheme, restoreTheme, setFrosted, themeName } from '@/lib/theme'
-import { Marked, ShortcutList } from './shortcut-sheet'
+import { KeysEditor, Marked } from './shortcut-sheet'
+import { keyFor } from '@/lib/keys'
 import { Swatch } from '../theme/theme-picker'
 
 import { Slider } from '@/components/ui/slider'
@@ -21,6 +22,9 @@ import DownloadIcon from '@/components/ui/download-icon'
 import UploadIcon from '@/components/ui/upload-icon'
 import { weekdayName } from '../../../../main/dates'
 import { BOX_TABS, SECTIONS as PLACES, ShowList } from './places'
+import { SpellLanguages } from './spell-languages'
+import { isMac } from '@/lib/tiptap-utils'
+import { currentVim, onVimChange, setVim } from '@/lib/vim'
 
 /**
  * What the search at the top asks for, and whether the island a row sits in
@@ -78,7 +82,7 @@ const SECTIONS: { title: string; icon: LucideIcon; tint: string }[] = [
   { title: 'Sound', icon: Volume2, tint: 'red' },
   { title: 'Your data', icon: HardDrive, tint: 'gray' },
   { title: 'Help', icon: LifeBuoy, tint: 'blue' },
-  { title: 'Shortcuts', icon: Keyboard, tint: 'purple' }
+  { title: 'Keys', icon: Keyboard, tint: 'purple' }
 ]
 /** The section on show, unless a search shows every section's matches. */
 const Shown = createContext('')
@@ -210,6 +214,9 @@ export function SettingsView(): React.JSX.Element {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+  // Vim keys live with the editors, not here, so the box's menu and this switch move together.
+  const [vim, setVimOn] = useState(currentVim)
+  useEffect(() => onVimChange(setVimOn), [])
   if (!settings) return <section className="flex-1" />
   const set = (patch: Partial<Settings>): void => void vigil.setSettings(patch)
   const searching = !!query.trim()
@@ -383,8 +390,19 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Math as you type" note="End a line with = and its answer shows after it; Tab writes it in. lunch = 25 names a number for the lines below. Units and money work too: 5 km in mi, $40 * 3 in EUR.">
             <Switch checked={settings.calc} onCheckedChange={(calc) => set({ calc })} />
           </Setting>
+          <Setting title="Fold headings" note="Point at a heading and click the arrow beside it to fold away everything under it, up to the next heading as big. Only how the note looks: nothing in it changes. ⌥⌘[ folds the one you are in." keywords="fold collapse heading section outline hide">
+            <Switch checked={settings.foldHeadings !== false} onCheckedChange={(foldHeadings) => set({ foldHeadings })} />
+          </Setting>
           <Setting title="Title in the top bar" note="Once a note's first line scrolls out of sight, it shows faintly at the top of the box, so you know what you are reading.">
             <Switch checked={settings.topTitle} onCheckedChange={(topTitle) => set({ topTitle })} />
+          </Setting>
+          <Setting title="Spellcheck" note={`Underline misspelt words as you write. Right-click one for what it might be.${isMac() ? ' The Mac picks the language from what you type.' : ' The gear picks the languages.'}`} keywords="spelling spell check dictionary language typo">
+            {/* On a Mac the system checks in whatever language you type, and ignores a list. */}
+            {!isMac() && <SpellLanguages picked={settings.spellLanguages ?? []} disabled={settings.spellcheck === false} />}
+            <Switch checked={settings.spellcheck !== false} onCheckedChange={(spellcheck) => set({ spellcheck })} />
+          </Setting>
+          <Setting title="Vim keys" note="Move and edit with Vim's keys in every note." keywords="vim keys keyboard bindings modal normal insert">
+            <Switch checked={vim} onCheckedChange={setVim} />
           </Setting>
         </Group>
 
@@ -523,7 +541,7 @@ export function SettingsView(): React.JSX.Element {
             <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('vigil:tour'))}>Play it again</Button>
           </Setting>
           <Setting title="Shortcut sheet" note="Every shortcut over the window you are in, whenever you are not typing.">
-            <Kbd>?</Kbd>
+            <Kbd>{keyFor('?') || 'None'}</Kbd>
           </Setting>
         </Group>
 
@@ -538,9 +556,12 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Backups" note="Every day a full copy of everything, private notes included, goes to the folder below, the last 30 kept: it is your own backup. With this on, each capture is also kept there as a plain Markdown file, never a private or discarded one. Off removes those files within the hour." below={<BackupPlace />} keywords="backup icloud markdown copies">
             <Switch checked={settings.markdownCopies !== false} onCheckedChange={(markdownCopies) => set({ markdownCopies })} />
           </Setting>
+          <Setting title="Unused pictures and files" note="Ones no note, old version or page points at any more. You see them first and keep any you like; the rest go to the Mac's Bin, never deleted outright." keywords="clear clean space disk images attachments trash bin">
+            <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('vigil:unused'))}>Find them</Button>
+          </Setting>
         </Group>
 
-        <Group section="Shortcuts" title="Every shortcut">
+        <Group section="Keys" title="Every key">
           <ShortcutRows />
         </Group>
       </div>
@@ -560,10 +581,10 @@ function BackupPlace(): React.JSX.Element {
   return <p className="text-xs text-muted-foreground">Backups go to <span className="font-mono text-foreground/80">{where.includes('CloudDocs') ? 'iCloud Drive › mindflow' : where || '…'}</span></p>
 }
 
-/** The shortcuts, as an island: those matching the search, or all of them. */
-function ShortcutRows(): React.JSX.Element {
+/** The keys, as an island, each changeable: those matching the search, or all of them with their own filter. */
+function ShortcutRows(): React.JSX.Element | null {
   const { query, all } = useContext(Query)
-  return <div className="px-3 pt-3"><ShortcutList query={all ? '' : query} quiet /></div>
+  return <KeysEditor search={all ? '' : query} />
 }
 
 /**

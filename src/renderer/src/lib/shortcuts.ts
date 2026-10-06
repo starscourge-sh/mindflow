@@ -1,7 +1,8 @@
 /**
- * Every shortcut in the app, in one list: what Settings shows under Shortcuts
- * and what ? opens over either window. Only a list - each key is still handled
- * where it works - so a key added anywhere is added here too, or nobody finds it.
+ * Every shortcut in the app, in one list: what Settings shows under Keys and
+ * what ? opens over either window. Only a list - each key is still handled
+ * where it works, as written here, and lib/keys.ts turns the keys you chose
+ * into these - so a key added anywhere is added here too, or nobody finds it.
  *
  * `keys` is written the way it is drawn: one cap per character, and a space
  * between keys pressed one after the other (G then I is "G I").
@@ -87,7 +88,8 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Writing', keys: '⌥⌘4', does: 'To-do list, or tick the box', where: 'Writing' },
   { group: 'Writing', keys: '⌥⌘5', does: 'Bulleted list', where: 'Writing' },
   { group: 'Writing', keys: '⌥⌘6', does: 'Numbered list', where: 'Writing' },
-  { group: 'Writing', keys: '⌥⌘7', does: 'Fold under a heading (a toggle)', where: 'Writing' },
+  { group: 'Writing', keys: '⌥⌘7', does: 'Turn into a toggle: what is under a heading goes inside it', where: 'Writing' },
+  { group: 'Writing', keys: '⌥⌘[', does: 'Fold or unfold the heading you are in', where: 'Writing' },
   { group: 'Writing', keys: '⌥⌘8', does: 'Code, in the line', where: 'Writing' },
   { group: 'Writing', keys: '⌥⌘9', does: 'Math, in the line', where: 'Writing' },
   { group: 'Writing', keys: '⌥⌘0', does: 'Math block', where: 'Writing' },
@@ -143,6 +145,16 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Week', keys: 'M', does: 'Move the task to tomorrow', where: 'Main window' },
   { group: 'Week', keys: 'W', does: 'Move the task to a week from today', where: 'Main window' },
   { group: 'Week', keys: '1', does: 'Task priority: Urgent, High, Medium, Low (1 to 4; 0 for none)', where: 'Main window' },
+
+  { group: 'Board', keys: '⌥⌘B', does: 'Show a note of headings and lists as a board, or back', where: 'Both windows' },
+  { group: 'Board', keys: 'H', does: 'List to the left (L to the right)', where: 'Main window' },
+  { group: 'Board', keys: 'J', does: 'Next card (K the one before)', where: 'Main window' },
+  { group: 'Board', keys: 'X', does: 'Tick the card', where: 'Main window' },
+  { group: 'Board', keys: '↵', does: 'Edit the card', where: 'Main window' },
+  { group: 'Board', keys: 'N', does: 'Add a card to the list', where: 'Main window' },
+  { group: 'Board', keys: '⌥J', does: 'Carry the card down (⌥K up, ⌥H ⌥L to the next list)', where: 'Main window' },
+  { group: 'Board', keys: '⌫', does: 'Delete the card', where: 'Main window' },
+
   { group: 'Lists', keys: '⌃⇧↑', does: 'A hint is worth keeping', where: 'The box' },
   { group: 'Lists', keys: '⌃⇧↓', does: 'A hint is not for you: show it less', where: 'The box' },
 
@@ -204,9 +216,9 @@ export function grouped(list: Shortcut[] = SHORTCUTS): [string, Shortcut[]][] {
   return [...groups]
 }
 
-/** The ones that match what was typed, by what they do, the keys, or where. */
-export function findShortcuts(query: string): Shortcut[] {
+/** The ones that match what was typed, by what they do, the keys (as you press them now: `keysOf`), or where. */
+export function findShortcuts(query: string, keysOf = (keys: string): string => keys, list = SHORTCUTS): Shortcut[] {
   const q = query.trim().toLowerCase()
-  if (!q) return SHORTCUTS
-  return SHORTCUTS.filter((one) => `${one.does} ${one.keys} ${one.where} ${one.group}`.toLowerCase().includes(q))
+  if (!q) return list
+  return list.filter((one) => `${one.does} ${keysOf(one.keys)} ${one.where} ${one.group}`.toLowerCase().includes(q))
 }

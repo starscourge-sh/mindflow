@@ -19,6 +19,7 @@ import { BLOCK_COLORS, COLORABLE } from "@/extensions/block-color"
 import { host } from "@/lib/host"
 import { listDirection } from "@/lib/menu-keys"
 import { fitToWidth } from "@/lib/table"
+import { SpellingRows, type Misspelling } from "./spelling"
 
 /**
  * What belongs to the whole table rather than to a row or a column.
@@ -57,6 +58,7 @@ export function BlockMenu({
   open,
   onOpenChange,
   at: point,
+  spelling,
 }: {
   editor: Editor
   /** A ref, so tracking the pointer does not re-render the editor. */
@@ -65,6 +67,8 @@ export function BlockMenu({
   onOpenChange: (open: boolean) => void
   /** Where a right-click happened: the menu opens there, not at the grip. */
   at?: { x: number; y: number } | null
+  /** A right-click on a misspelt word: its suggestions come first. */
+  spelling?: Misspelling | null
 }) {
   // The handle keeps following the pointer, so read it once, on open, and hold
   // that - otherwise the target drifts out from under the menu.
@@ -318,6 +322,8 @@ export function BlockMenu({
         />
 
         <div className="tiptap-block-menu-list">
+        {spelling && !term ? <SpellingRows editor={editor} spelling={spelling} /> : null}
+
         {convertible && !term ? (
           <div className="tiptap-slash-menu-group">Turn into</div>
         ) : null}

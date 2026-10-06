@@ -7,7 +7,7 @@ import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Orbit, Plus
 import type { Editor, JSONContent } from '@tiptap/core'
 
 import { convertImports } from './lib/convert-imports'
-import { MindflowEditor, TAGS, currentVim, goToHeading, onVimChange, setVim } from './components/mindflow'
+import { MindflowEditor, TAGS, currentVim, foldEverything, goToHeading, onVimChange, setVim } from './components/mindflow'
 import { EXITS, exit, findCaptures, findHeadings, follow } from './lib/capture-links'
 import { toMarkdown } from './lib/export'
 import { useSameWords } from './lib/same-words'
@@ -919,6 +919,8 @@ export default function App(): React.JSX.Element {
               if (editing) void vigil.setPrivate('captures', editing.id, !secret)
             } },
             { label: outline ? 'Hide the outline' : 'Show the outline', cue: outline ? 'off' : 'on', run: () => setOutline(!outline) },
+            { label: 'Fold every heading', cue: null, run: () => void (foldEverything(true) || chime('nope')) },
+            { label: 'Unfold every heading', cue: null, run: () => void (foldEverything(false) || chime('nope')) },
             { label: source ? 'Hide the source' : 'Show the source', keys: '⌘E', cue: null, run: () => setSource(!source) },
             { label: vim ? 'Turn vim keys off' : 'Turn vim keys on', cue: vim ? 'off' : 'on', run: () => setVim(!vim) },
             { label: appSettings?.sounds ? 'Turn sounds off' : 'Turn sounds on', cue: null, run: () => {
@@ -1089,10 +1091,19 @@ export default function App(): React.JSX.Element {
             )}
             {/* Under the writing: what it is, who said it and where you met it. */}
             <div data-chrome className="flex items-center gap-1 px-[4.75rem] py-2">
-              <CaptureKindPicker
-                suggested={!chosen && kind !== 'note'}
-                value={kind}
-                onChange={pick}
+              <OptionsMenu
+                label="This note"
+                options={[
+                  { label: 'Lock: read only', on: locked, set: setLocked },
+                  { label: 'Outline', on: outline, set: setOutline },
+                  { label: 'Source', on: source, keys: '⌘E', set: setSource },
+                  ...(editing ? [{ label: 'Details', on: details, keys: '⇧⌘D', set: setDetails }] : []),
+                  { label: 'Private', on: secret, set: (on: boolean) => {
+                    setSecret(on)
+                    if (editing) void vigil.setPrivate('captures', editing.id, on, true)
+                  } }
+                ]}
+                actions={[{ label: 'New capture', keys: '⌘N', run: () => fresh() }]}
               />
               {/* A todo says what it understood of its first line: the day, the deadline, the priority. */}
               {kind === 'todo' && <TaskChips read={readTask(firstLine(body))} />}
@@ -1164,19 +1175,10 @@ export default function App(): React.JSX.Element {
             <main data-chrome className="flex items-center gap-1 pt-2 pb-3 px-[4.75rem] bg-linear-to-t from-[var(--accent)]/40">
               {/* What matters first is the writing and Create; every other
                   switch is in here, each keeping its own key. */}
-              <OptionsMenu
-                label="This note"
-                options={[
-                  { label: 'Lock: read only', on: locked, set: setLocked },
-                  { label: 'Outline', on: outline, set: setOutline },
-                  { label: 'Source', on: source, keys: '⌘E', set: setSource },
-                  ...(editing ? [{ label: 'Details', on: details, keys: '⇧⌘D', set: setDetails }] : []),
-                  { label: 'Private', on: secret, set: (on: boolean) => {
-                    setSecret(on)
-                    if (editing) void vigil.setPrivate('captures', editing.id, on, true)
-                  } }
-                ]}
-                actions={[{ label: 'New capture', keys: '⌘N', run: () => fresh() }]}
+              <CaptureKindPicker
+                suggested={!chosen && kind !== 'note'}
+                value={kind}
+                onChange={pick}
               />
               <span className="flex-1" />
               {/* Beside Create, as in Linear: on, a save keeps the box open for the next one. */}
@@ -1434,6 +1436,7 @@ const CapturePrompt = ({
         onTokenClick={(token) => token.name === 'tag' && onTag(token.value)}
         onToggleSource={onSource}
         // documentId={note ? `doc-${note.id}` : null}
+        foldKey={from ? `capture-${from}` : undefined}
 
         // --- what is switched on ---
         // No fixed toolbar: the dock would sit over the capture prompt. The

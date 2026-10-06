@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react'
-import type { JSONContent } from '@tiptap/core'
+import type { Editor, JSONContent } from '@tiptap/core'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { useCaptures } from '../capture-list'
@@ -10,6 +10,7 @@ import { Mentions } from './mentions'
 import { selectionActions } from './selection-actions'
 import { Toaster, pin } from './ui'
 import { NoteHeader } from './note-extras'
+import { Board, useBoard } from './board-view'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { captureKey, findCaptures, findHeadings, follow, headingIn } from '@/lib/capture-links'
 import { toMarkdown } from '@/lib/export'
@@ -53,6 +54,13 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
   // Saved only over the words it was opened on: another window's never lost.
   const words = useSameWords('captures', capture?.id, capture?.body, (at, body, base, editor) =>
     window.api.captures.save(at, { body, base, ...(editor ? { markdown: toMarkdown(editor) } : {}) }))
+  const [editor, setEditor] = useState<Editor | null>(null)
+  const board = useBoard('captures', capture?.id, editor)
+  const boardShown = board.on && !past && !!editor && !editor.isDestroyed
+  // A board takes the room its properties had, until asked for them.
+  const [propsOut, setPropsOut] = useState(false)
+  const [tools, setTools] = useState<HTMLElement | null>(null)
+  useEffect(() => setPropsOut(false), [boardShown])
   // A private note's words never become its window's name: titles show in a screen share.
   useEffect(() => void (document.title = (!meta?.private && meta?.label) || 'Note'), [meta?.label, meta?.private])
   if (!capture || !meta) return null
@@ -64,10 +72,13 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
             setRev((n) => n + 1)
           })}
           edited={meta.editedAt} captured={meta.capturedAt} pinned={!!meta.pinnedAt} onPin={() => pin('captures', id, !meta.pinnedAt)}
-          copyKey={captureKey(meta.number)} menu={captureDots(meta)} />
+          copyKey={captureKey(meta.number)} board={board.fits || board.on ? board : undefined}
+          menu={[...(boardShown ? [{ label: propsOut ? 'Hide properties' : 'Show properties', run: () => setPropsOut(!propsOut) }, 'separator' as const] : []), ...captureDots(meta)]}
+          tools={boardShown ? <span ref={setTools} className="contents" /> : undefined} />
         {past ? (
           <MindflowEditor key={`past-${past.key}`} defaultContent={(past.body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
         ) : (
+        <div className={boardShown ? 'hidden' : 'contents'}>
         <MindflowEditor
           key={`${id}-${rev}`}
           host={window.api}
@@ -80,12 +91,14 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
           findHeadings={findHeadings}
           onOpenNote={(to, heading) => (to === id && heading ? headingIn('capture', id, heading) : follow(to, (type, at) => elsewhere(type, at, heading)))}
           after={<Mentions id={id} onOpen={elsewhere} />}
-          onReady={words.ready}
+          onReady={(ready) => (words.ready(ready), setEditor(ready))}
           onChange={words.save}
         />
+        </div>
         )}
+        {boardShown && <Board key={`${id}-${rev}`} editor={editor} id={id} tools={tools} />}
       </div>
-      <CaptureProps capture={meta} onOpen={elsewhere} />
+      {(!boardShown || propsOut) && <CaptureProps capture={meta} onOpen={elsewhere} />}
     </div>
   )
 }

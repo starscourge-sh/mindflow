@@ -28,6 +28,10 @@ export interface MindflowHost {
   openFile?: (src: string) => Promise<boolean>
   /** Put a stored image on the system clipboard. */
   copyImage?: (src: string) => Promise<boolean>
+  /** A word's spelling suggestions when it is misspelt, null when it is not. */
+  misspelt?: (word: string) => string[] | null
+  /** Keep a word as spelt right from now on. */
+  learnWord?: (word: string) => Promise<boolean>
   /**
    * Open a drawing in a window of its own, and keep it in step.
    *
@@ -127,7 +131,9 @@ let current: MindflowHost = BROWSER
  * every app has had so far.
  */
 export function setHost(host: MindflowHost | undefined): void {
-  current = { ...BROWSER, ...host }
+  // An editor that names none keeps the page's: otherwise the last plain one
+  // drawn would take spelling and the rest from every editor beside it.
+  if (host) current = { ...BROWSER, ...host }
 }
 
 /** What the host offers. A missing member means that feature is off. */

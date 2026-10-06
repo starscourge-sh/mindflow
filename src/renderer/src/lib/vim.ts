@@ -27,3 +27,8 @@ export function onVimChange(listener: (on: boolean) => void): () => void {
   listeners.add(listener)
   return () => listeners.delete(listener)
 }
+
+// Turned in another window, the box's menu or Settings: this one follows too.
+window.addEventListener("storage", (event) => {
+  if (event.key === "vim") for (const listener of listeners) listener(event.newValue !== "off")
+})

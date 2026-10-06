@@ -66,6 +66,9 @@ export function markdown(value: unknown, nameOf: (id: string) => string | undefi
       }
       return text
     }).join('')
+  // A caption is the italic line under its picture or video, as it is written by hand.
+  const captioned = (text: string, node: Doc): string =>
+    node.attrs?.caption ? `${text}\n\n*${String(node.attrs.caption).replace(/([*_])/g, '\\$1')}*` : text
   const block = (node: Doc, indent = ''): string => {
     const kids = node.content ?? []
     switch (node.type) {
@@ -74,10 +77,12 @@ export function markdown(value: unknown, nameOf: (id: string) => string | undefi
       case 'blockquote': return kids.map((child) => block(child)).join('\n\n').split('\n').map((line) => `> ${line}`).join('\n')
       case 'codeBlock': return `\`\`\`${node.attrs?.language ?? ''}\n${inline(kids)}\n\`\`\``
       case 'horizontalRule': return '---'
-      case 'image': return inline([node])
+      case 'image': return captioned(inline([node]), node)
       case 'blockMath': return `$$\n${node.attrs?.latex ?? ''}\n$$`
-      case 'youtube': return `![](${node.attrs?.src ?? ''})`
-      case 'attachment': return `[${node.attrs?.name || 'Attachment'}](${node.attrs?.src ?? ''})`
+      case 'youtube': return captioned(`![](${node.attrs?.src ?? ''})`, node)
+      case 'attachment': return captioned(`[${node.attrs?.name || 'Attachment'}](${node.attrs?.src ?? ''})`, node)
+      // Markdown has no columns: each one's blocks in turn, between marks Vigil reads back.
+      case 'columns': return ['<!-- columns -->', kids.map((column) => block(column)).join('\n\n<!-- column -->\n\n'), '<!-- /columns -->'].join('\n\n')
       // A link card as Obsidian's cardlink block, which is what it came in as.
       case 'bookmark': return ['```cardlink', ...Object.entries({ url: node.attrs?.href, title: node.attrs?.title, description: node.attrs?.description, host: node.attrs?.site, favicon: node.attrs?.icon, image: node.attrs?.image })
         .filter(([, value]) => value).map(([key, value]) => `${key}: ${JSON.stringify(value)}`), '```'].join('\n')
@@ -202,10 +207,14 @@ const DEFAULTS = {
   recentDays: 7,
   // The questions you keep in view, shown small while you capture and tidy.
   pinnedQuestions: true,
+  // Headings fold away what is under them, as a view: the note never changes.
+  foldHeadings: true,
   // What the main window's sidebar lists; the rest wait under More, a G away.
   sidebarShown: ['inbox', 'review', 'day', 'today', 'week', 'nuggets', 'articles', 'questions'] as string[],
   // The box's tabs; Recent is a ⇧⌘Y or ⌘K away until shown.
-  boxTabs: ['inbox', 'today', 'review', 'kept'] as string[]
+  boxTabs: ['inbox', 'today', 'review', 'kept'] as string[],
+  // Keys you changed: { the keys it came with: yours, or null for none }.
+  keys: {} as Record<string, string | null>
 }
 export type Settings = typeof DEFAULTS
 
@@ -234,17 +243,26 @@ async function weatherNow(): Promise<string | null> {
 let safeModeTold: (on: boolean) => void = () => undefined
 export const whenSafeMode = (tell: (on: boolean) => void): void => void (safeModeTold = tell)
 
+/** Told when the keys change, so the two that work from anywhere are taken again. */
+let keysTold: (keys: Settings['keys']) => void = () => undefined
+export const whenKeys = (tell: (keys: Settings['keys']) => void): Settings['keys'] => ((keysTold = tell), settings().keys)
+
 /**
  * The spellchecker on or off, in the languages picked. Only those this build
  * knows are passed on; the Mac ignores the list and picks its own languages
  * as you type, so there the picks only matter on another system.
  */
 function spelling(): void {
-  const { spellcheck, spellLanguages } = settings()
-  const known = new Set(session.defaultSession.availableSpellCheckerLanguages)
-  session.defaultSession.setSpellCheckerEnabled(spellcheck)
-  const picked = spellLanguages.filter((one) => known.has(one))
+  session.defaultSession.setSpellCheckerEnabled(settings().spellcheck)
+  const picked = spellingLanguages()
   if (picked.length) session.defaultSession.setSpellCheckerLanguages(picked)
+}
+/** The languages picked, or with none picked the system's, each as this build names it ("en" for "en-ZA"). */
+function spellingLanguages(): string[] {
+  const known = new Set(session.defaultSession.availableSpellCheckerLanguages)
+  const picked = settings().spellLanguages
+  const mac = app.getPreferredSystemLanguages().map((one) => (known.has(one) ? one : one.split('-')[0]))
+  return [...new Set(picked.length ? picked : mac)].filter((one) => known.has(one))
 }
 
 /** The Motion setting, for the window's own arrival. */
@@ -493,13 +511,14 @@ export function registerVigil(): void {
     for (const [key, value] of Object.entries(patch))
       db.prepare('insert or replace into settings (key, value) values (?, ?)').run(key, JSON.stringify(value))
     if (patch.safeMode !== undefined && patch.safeMode !== wasSafe) safeModeTold(patch.safeMode)
+    if (patch.keys) keysTold(patch.keys)
     if ('spellcheck' in patch || 'spellLanguages' in patch) spelling()
     return write(settings())
   })
   // Spelling: the languages there are and the ones in use, and a word kept as
   // spelt right. One session serves every window, so it is set once.
   spelling()
-  handle('spelling:languages', () => ({ all: session.defaultSession.availableSpellCheckerLanguages, on: session.defaultSession.getSpellCheckerLanguages() }))
+  handle('spelling:languages', () => ({ all: session.defaultSession.availableSpellCheckerLanguages, on: spellingLanguages() }))
   handle('spelling:learn', (word: string) => session.defaultSession.addWordToSpellCheckerDictionary(word))
   handle('private', (table: 'captures' | 'nuggets', id: string, on: boolean) => {
     const result = db.prepare(`update ${table === 'nuggets' ? 'nuggets' : 'captures'} set private = ? where id = ?`).run(on ? 1 : 0, id)

@@ -11,6 +11,7 @@ import { chime, soundOn } from '@/lib/sound'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/cn'
 import { useStoredFlag } from '@/lib/use-stored-flag'
+import { withKeys } from '@/lib/keys'
 import { Kbd as ShadKbd, KbdGroup } from '@/components/ui/kbd'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { KindAsker } from './note-extras'
@@ -804,7 +805,9 @@ export function AskWho({ id, initial = '', onDone }: { id: string; initial?: str
  * A label on hover, shadcn's tooltip rather than the system's: says what a
  * button does, and its key if it has one.
  */
-export function Tip({ label, children }: { label: ReactNode; children: React.ReactElement<{ 'aria-label'?: string; children?: ReactNode }> }): React.JSX.Element {
+export function Tip({ label: given, children }: { label: ReactNode; children: React.ReactElement<{ 'aria-label'?: string; children?: ReactNode }> }): React.JSX.Element {
+  // Its keys as you press them now, if you changed them in Settings.
+  const label = typeof given === 'string' ? withKeys(given) : given
   if (!label) return children
   // A plain-text tip names an icon-only button, so it can be read out, not
   // only hovered. A button with words of its own keeps them as its name.

@@ -1,5 +1,7 @@
 import {
   Bookmark as BookmarkIcon,
+  Columns2,
+  Columns3,
   ChevronRight as ToggleIcon,
   Minus as DividerIcon,
   Table as TableIcon,
@@ -23,6 +25,7 @@ import { fitToWidth } from '@/lib/table'
 import type { SlashItem } from '@/extensions/slash-command'
 import { retypeList } from '@/lib/retype-list'
 import { linkCard } from '@/lib/link-card'
+import { emptyColumns } from '@/extensions/columns'
 
 // --- Icons ---
 import { HeadingOneIcon } from '@/components/tiptap-icons/heading-one-icon'
@@ -149,6 +152,23 @@ export const slashItems: SlashItem[] = [
     icon: <CalloutIcon />,
     run: (editor) => editor.chain().focus().toggleCallout().run()
   },
+  // Side by side, each column any blocks. Not inside another row: Markdown
+  // could not tell where the inner one ends.
+  ...([2, 3] as const).map((count) => ({
+    title: `${count === 2 ? 'Two' : 'Three'} columns`,
+    group: 'Basic blocks',
+    hint: 'side by side',
+    keywords: ['columns', 'layout'],
+    icon: count === 2 ? <Columns2 /> : <Columns3 />,
+    when: (editor: Editor) => !editor.isActive('column'),
+    run: (editor: Editor) => {
+      const { $from } = editor.state.selection
+      // On an empty line the row takes its place; otherwise it goes under it.
+      const range = $from.parent.content.size ? $from.after() : { from: $from.before(), to: $from.after() }
+      const at = typeof range === 'number' ? range : range.from
+      editor.chain().focus().insertContentAt(range, emptyColumns(count)).setTextSelection(at + 3).run()
+    }
+  })),
   {
     title: 'Table',
     group: 'Media',

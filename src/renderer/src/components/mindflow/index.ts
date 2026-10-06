@@ -21,6 +21,7 @@ export { setCues, type EditorCue } from "@/lib/cues"
 
 /** Math as you type, on or off for every editor on the page. */
 export { setCalc } from "@/extensions/calc"
+export { foldEverything } from "@/extensions/heading-fold"
 
 /** Land on a heading in a document just opened, by its `documentId`; and where `#` finds its tags. */
 export { showHeading, setTagSource, type TagSuggestion } from "@/extensions/note-link"
