@@ -3,7 +3,7 @@ import { createPortal } from "react-dom"
 import { createRoot } from "react-dom/client"
 import { NodeSelection } from "@tiptap/pm/state"
 import { useEditorState, type Editor } from "@tiptap/react"
-import { animate, motion } from "motion/react"
+import { animate, motion, useMotionValue, useSpring } from "motion/react"
 import { FolderOpen } from "lucide-react"
 import { alive } from "@/components/ui/alive-icon"
 import RightChevronIcon from "@/components/ui/right-chevron"
@@ -376,6 +376,22 @@ function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: numb
 
   useEffect(() => void chime("open"), [])
 
+  // At rest the picture leans away from the pointer, the way a print tilts
+  // when you press near one edge: a few degrees, on a soft spring. Not while
+  // zoomed (panning has the pointer) and not with Motion off.
+  const leanX = useSpring(useMotionValue(0), { stiffness: 220, damping: 22 })
+  const leanY = useSpring(useMotionValue(0), { stiffness: 220, damping: 22 })
+  const lean = (event: React.PointerEvent): void => {
+    if (still() || view.zoom > 1) return
+    const box = event.currentTarget.getBoundingClientRect()
+    const nx = (event.clientX - box.left) / box.width - 0.5
+    const ny = (event.clientY - box.top) / box.height - 0.5
+    leanY.set(-nx * 8)
+    leanX.set(ny * 8)
+  }
+  const unlean = (): void => (leanX.set(0), leanY.set(0))
+  useEffect(() => void (view.zoom > 1 && unlean()), [view.zoom]) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="mf-look" role="dialog" aria-label="Look" aria-modal="true" onWheel={onWheel}>
       <motion.div
@@ -395,6 +411,7 @@ function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: numb
         animate={{ x: 0, y: 0, scale: 1, rotateX: 0, rotateY: 0, opacity: 1 }}
         transition={lifting ? SPRING : { duration: 0.22, ease: EASE }}
       >
+        <motion.div className="mf-look-lean" style={{ rotateX: leanX, rotateY: leanY }} onPointerMove={lean} onPointerLeave={unlean}>
         <img
           src={src}
           alt={caption}
@@ -410,6 +427,7 @@ function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: numb
           onPointerUp={() => void (drag.current = null)}
           onDoubleClick={onDouble}
         />
+        </motion.div>
       </motion.div>
       <motion.div
         ref={foot}
