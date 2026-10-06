@@ -1,7 +1,19 @@
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { PACKS, chime, click, soundOn, step } from '@/lib/sound'
 import { NOTE_FONTS } from '@/lib/editor-setup'
-import { Brain, FolderPlus, HardDrive, Keyboard, LifeBuoy, ListChecks, Mountain, Palette, PenLine, Search as SearchIcon, Sparkles, Volume2, X, type LucideIcon } from 'lucide-react'
+import { FolderPlus, Keyboard, type LucideIcon } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
+import SaveIcon from '@/components/ui/save-icon'
+import InfoCircleIcon from '@/components/ui/info-circle-icon'
+import CheckedIcon from '@/components/ui/checked-icon'
+import CameraIcon from '@/components/ui/camera-icon'
+import PaintIcon from '@/components/ui/paint-icon'
+import PenIcon from '@/components/ui/pen-icon'
+import MagnifierIcon from '@/components/ui/magnifier-icon'
+import SparklesIcon from '@/components/ui/sparkles-icon'
+import Volume2Icon from '@/components/ui/volume-2-icon'
+import XIcon from '@/components/ui/x-icon'
 import { allThemes, applyTheme, customThemes, frosted, importTheme, removeTheme, restoreTheme, setFrosted, themeName } from '@/lib/theme'
 import { KeysEditor, Marked } from './shortcut-sheet'
 import { keyFor } from '@/lib/keys'
@@ -25,6 +37,19 @@ import { BOX_TABS, SECTIONS as PLACES, ShowList } from './places'
 import { SpellLanguages } from './spell-languages'
 import { isMac } from '@/lib/tiptap-utils'
 import { currentVim, onVimChange, setVim } from '@/lib/vim'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const Brain = alive(BrainCircuitIcon)
+const HardDrive = alive(SaveIcon)
+const LifeBuoy = alive(InfoCircleIcon)
+const ListChecks = alive(CheckedIcon)
+const Mountain = alive(CameraIcon)
+const Palette = alive(PaintIcon)
+const PenLine = alive(PenIcon)
+const SearchIcon = alive(MagnifierIcon)
+const Sparkles = alive(SparklesIcon)
+const Volume2 = alive(Volume2Icon)
+const X = alive(XIcon)
 
 /**
  * What the search at the top asks for, and whether the island a row sits in
@@ -709,8 +734,9 @@ function SceneryFolders({ folders, on, onSave }: { folders: string[]; on: boolea
         </div>
       )}
     >
-      {/* The first look through a folder makes its small copies: a real wait. */}
-      {on && found?.scanning && <Orb state="searching" label="Making copies…" />}
+      {/* The first look through a folder makes its small copies: a real wait,
+          said by the bare orb beside the button; the words are in the note. */}
+      {on && found?.scanning && <Tip label="Making smaller copies of new pictures"><span role="status" aria-label="Making copies" className="flex size-7 items-center justify-center"><Orb state="searching" /></span></Tip>}
       <Button variant="outline" size="sm" onClick={() => void vigil.sceneryFolder().then((folder) => {
         if (!folder) return
         if (folders.includes(folder)) return refuse('That folder is already in the list')
