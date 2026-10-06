@@ -44,13 +44,14 @@ function choose(scenes: Scene[], seed: string, moods: Mood[] | null, wide: boole
 /** The settings and the scenes in your folders, while Scenery is on. */
 function useScenery(): { settings: Settings | null; scenes: Scene[] } {
   const settings = useLive(vigil.settings, null as Settings | null)
-  const folders = settings?.scenery ? settings.sceneryFolders : null
+  // Off is asked too, with no folders, so the main process stops copying them; only not yet known is not.
+  const folders = settings ? (settings.scenery ? settings.sceneryFolders : []) : null
   const found = useLive(
-    () => (folders?.length ? vigil.scenery(folders) : Promise.resolve({ scenes: [] as Scene[], scanning: false })),
+    () => (folders ? vigil.scenery(folders) : Promise.resolve({ scenes: [] as Scene[], scanning: false })),
     { scenes: [] as Scene[], scanning: false },
     [JSON.stringify(folders)]
   )
-  return { settings, scenes: folders ? found.scenes : [] }
+  return { settings, scenes: folders?.length ? found.scenes : [] }
 }
 
 /** sRGB colour of any CSS colour, through a canvas, which understands them all. */

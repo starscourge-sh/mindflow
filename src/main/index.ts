@@ -1213,18 +1213,33 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
       for (const alias of listed(front, 'aliases')) byName.set(alias.toLowerCase(), one.link)
     }
   }
-  // A folder of pictures and no notes: each picture is a note of its own, named after its file.
-  if (!notes.length) {
+  // A folder of pictures whose notes show none (none at all, or a stray
+  // README): each picture is a note of its own, named after its file. In a
+  // vault whose notes show pictures, the loose ones stay attachments.
+  let showsPictures = false
+  for (const path of notes)
+    if (/\.(png|jpe?g|gif|webp|svg|avif|bmp|heic|heif|tiff?)\b/i.test(await readFile(path, 'utf8').catch(() => ''))) {
+      showsPictures = true
+      break
+    }
+  // iPhone and scanner pictures the windows cannot show: counted, and said in the report.
+  let unshown = 0
+  if (!showsPictures) {
     for (const path of everyFile) {
-      if (!IMAGE[path.split('.').pop()?.toLowerCase() ?? '']) continue
-      const name = relative(root, path)
-      if (alreadyImported(name)) {
-        already += 1
-        continue
-      }
+      const ending = path.split('.').pop()?.toLowerCase() ?? ''
+      if (/^(heic|heif|tiff?)$/.test(ending)) unshown += 1
+      if (!IMAGE[ending]) continue
       const stored = await keep(path)
       if (!stored) continue
-      const one = importNote(name, shown(stored, basename(path), undefined, false), (await stat(path)).mtime, looksPrivate(name))
+      // Known by the picture's own bytes and name, not its place in this folder:
+      // IMG_0001.jpg from two folders is two notes, the same one brought twice is one.
+      const name = `pictures/${stored.url.split('/').pop()!.split('.')[0]}/${basename(path)}`
+      if (alreadyImported(name)) {
+        already += 1
+        pictures -= 1
+        continue
+      }
+      const one = importNote(name, shown(stored, basename(path), undefined, false), (await stat(path)).mtime, looksPrivate(relative(root, path)))
       if (one === 'already here') already += 1
       else if (one !== 'empty') made.push(one)
     }
@@ -1237,11 +1252,12 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
     inbox ? `${num(inbox)} ${inbox === 1 ? 'note is' : 'notes are'} in your Inbox to sort through; ${inbox === 1 ? "it won't" : "they won't"} count as rotting for 30 days.` : '',
     already ? `${num(already)} ${already === 1 ? 'was' : 'were'} already here, from an earlier import, and ${already === 1 ? 'was' : 'were'} left as ${already === 1 ? 'it was' : 'they were'}.` : '',
     empty ? `${num(empty)} empty ${empty === 1 ? 'file was' : 'files were'} skipped.` : '',
+    unshown ? `${num(unshown)} ${unshown === 1 ? 'picture was' : 'pictures were'} skipped: HEIC and TIFF cannot be shown here yet. Export them as JPEG to bring them in.` : '',
     marked ? `${num(marked)} ${marked === 1 ? 'note came' : 'notes came'} in marked private: ${marked === 1 ? 'its name sounds' : 'their names sound'} like passwords or logins.` : '',
     kept.length ? `Left out because ${kept.length === 1 ? 'it looks' : 'they look'} like passwords or keys: ${kept.join(', ')}.` : '',
     unread.length ? `Left out because ${unread.length === 1 ? 'it could not be read as text' : 'they could not be read as text'}: ${unread.join(', ')}.` : ''
   ].filter(Boolean)
-  if (quiet) return console.log(`imported ${made.length} new, ${already} already here, ${empty} empty, ${kept.length} left out, ${marked} marked private, ${pictures} pictures, ${attached} files, ${linked} links${kept.length ? ` [${kept.join(', ')}]` : ''}`)
+  if (quiet) return console.log(`imported ${made.length} new, ${already} already here, ${empty} empty, ${kept.length} left out, ${unshown} pictures of other types skipped, ${marked} marked private, ${pictures} pictures, ${attached} files, ${linked} links${kept.length ? ` [${kept.join(', ')}]` : ''}`)
   // Not waited on: the notes become documents while it is being read.
   void dialog.showMessageBox({ message: 'Imported', detail: report.join('\n\n') })
 }

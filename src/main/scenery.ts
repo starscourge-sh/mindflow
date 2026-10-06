@@ -126,30 +126,47 @@ function blocky(image: Electron.NativeImage, path: string): boolean {
   return runs > 12 && short / runs < 0.1 && soft / runs < 0.5
 }
 
+/** Whether any of it is see-through, from a small copy. */
+function seeThrough(image: Electron.NativeImage): boolean {
+  const bytes = image.resize({ width: 64, quality: 'good' }).toBitmap() // BGRA
+  for (let i = 3; i < bytes.length; i += 4) if (bytes[i] < 250) return true
+  return false
+}
+
 /** The copy for one picture, made if it is new or has changed since. */
 async function prepare(path: string): Promise<Entry | null> {
   const facts = await stat(path)
-  const key = createHash('sha1').update(`3\0${path}\0${facts.mtimeMs}\0${facts.size}`).digest('hex').slice(0, 32)
+  const key = createHash('sha1').update(`4\0${path}\0${facts.mtimeMs}\0${facts.size}`).digest('hex').slice(0, 32)
   const kept = known.get(key)
-  if (kept) return kept
+  // Kept only while both its copies are still on disk; a lost one is made again.
+  const onDisk = (url = ''): Promise<boolean> => stat(join(sceneryDir(), url.split('/').pop() ?? '')).then(() => true, () => false)
+  if (kept && (await onDisk(kept.url)) && (await onDisk(kept.small))) return kept
   const image = nativeImage.createFromPath(path)
   if (image.isEmpty()) return null
   const { width } = image.getSize()
+  // A picture with see-through parts stays a PNG: a JPEG would fill them black.
+  const clear = /\.(png|webp)$/i.test(path) && seeThrough(image)
   // A small copy too, for covers in lists.
-  const small = `mindflow://scenery/${key}-s.jpg`
-  await writeFile(join(sceneryDir(), `${key}-s.jpg`), (width > SMALL ? image.resize({ width: SMALL, quality: 'good' }) : image).toJPEG(82))
+  const tiny = clear ? 'png' : 'jpg'
+  const small = `mindflow://scenery/${key}-s.${tiny}`
+  const shrunk = width > SMALL ? image.resize({ width: SMALL, quality: 'good' }) : image
+  await writeFile(join(sceneryDir(), `${key}-s.${tiny}`), clear ? shrunk.toPNG() : shrunk.toJPEG(82))
   const pixel = blocky(image, path)
   // Pixel art is kept whole, as a PNG: shrinking it smears the squares, and
   // squares compress to almost nothing anyway.
   const copy = pixel ? image : width > WIDTH ? image.resize({ width: WIDTH, quality: 'good' }) : image
-  const ext = pixel ? 'png' : 'jpg'
-  await writeFile(join(sceneryDir(), `${key}.${ext}`), pixel ? copy.toPNG() : copy.toJPEG(80))
+  const ext = pixel || clear ? 'png' : 'jpg'
+  await writeFile(join(sceneryDir(), `${key}.${ext}`), ext === 'png' ? copy.toPNG() : copy.toJPEG(80))
   const size = copy.getSize()
   return { id: key, key, path, url: `mindflow://scenery/${key}.${ext}`, small, width: size.width, height: size.height, pixel, ...read(copy) }
 }
 
-/** Every picture in the folders, one level down too, copied where needed. */
-async function scan(folders: string[]): Promise<void> {
+/**
+ * Every picture in the folders, one level down too, copied where needed.
+ * `whole` says these are all the folders every use wants; until then, what
+ * other folders hold is kept as it is.
+ */
+async function scan(folders: string[], whole: boolean): Promise<void> {
   await loading()
   const paths: string[] = []
   for (const folder of folders) {
@@ -171,13 +188,13 @@ async function scan(folders: string[]): Promise<void> {
     try {
       const entry = await prepare(path)
       if (entry) next.set(entry.key, entry)
-      if (entry && !known.has(entry.key)) {
+      if (entry && known.get(entry.key) !== entry) {
         known.set(entry.key, entry)
         fresh++
         await breathe()
         // The first few made: enough to show something while the rest follow.
         if (fresh === 6) {
-          await save(next)
+          await save(known)
           changed()
         }
       }
@@ -185,6 +202,10 @@ async function scan(folders: string[]): Promise<void> {
       // An unreadable picture is skipped, never the whole folder.
     }
   }
+  // Pictures in folders not looked at this time stay, unless this was every
+  // folder in use: Covers' copies are never cleared by a look at Scenery's.
+  const inScan = (path: string): boolean => folders.some((folder) => path.startsWith(folder.endsWith('/') ? folder : `${folder}/`))
+  if (!whole) for (const one of known.values()) if (!inScan(one.path) && !next.has(one.key)) next.set(one.key, one)
   known = next
   await save(next)
   // Copies of pictures no longer in any folder go, so the cache never grows
@@ -202,21 +223,23 @@ const save = (entries: Map<string, Entry>): Promise<void> => writeFile(indexFile
  * cache serve them all, so neither clears away the other's copies.
  */
 const uses = new Map<string, string[]>()
+const everyFolder = (): string => JSON.stringify([...new Set([...uses.values()].flat())].sort())
 
 /** The scenes in the folders, as far as they are known now; a scan starts if the folders changed. */
 async function list(folders: string[], use = 'scenery'): Promise<{ scenes: Scene[]; scanning: boolean }> {
+  // An empty list is an answer too: that use wants nothing now, so its folders stop being copied.
   uses.set(use, folders)
-  const wanted = JSON.stringify([...new Set([...uses.values()].flat())].sort())
+  const wanted = everyFolder()
   // Looked at again now and then too, so a picture dropped into a folder turns up.
   if ((wanted !== scanned || Date.now() - scannedAt > 10 * 60000) && !scanning) {
     scanned = wanted
     scannedAt = Date.now()
-    scanning = scan(JSON.parse(wanted) as string[]).catch(() => undefined).finally(() => {
+    scanning = scan(JSON.parse(wanted) as string[], uses.has('scenery') && uses.has('covers')).catch(() => undefined).finally(() => {
       scanning = null
-      // The folders changed again while that ran: go round once more.
-      if (scanned !== wanted) void list(folders, use)
+      // The folders changed while that ran: go round once more.
+      if (everyFolder() !== wanted) void list(uses.get(use) ?? folders, use)
     })
-  } else if (wanted !== scanned) scanned = wanted
+  }
   await loading()
   const inFolders = (path: string): boolean => folders.some((folder) => path.startsWith(folder.endsWith('/') ? folder : `${folder}/`))
   // Only what the windows need: where a picture lives on disk stays here.

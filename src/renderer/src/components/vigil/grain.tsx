@@ -1,4 +1,4 @@
-import { useSyncExternalStore, type CSSProperties } from 'react'
+import { useState, useSyncExternalStore, type CSSProperties } from 'react'
 import { vigil, type Scene } from '@/lib/vigil'
 
 /**
@@ -21,7 +21,8 @@ function start(): void {
   started = true
   const load = async (): Promise<void> => {
     const folder = (await vigil.settings()).coversFolder || ''
-    const found = folder ? (await vigil.scenery([folder], 'covers')).scenes.filter((one) => one.small) : []
+    // Asked even with no folder, so the main process stops copying a cleared one.
+    const found = (await vigil.scenery(folder ? [folder] : [], 'covers')).scenes.filter((one) => one.small)
     // In name order, so the same thing keeps the same cover from one start to the next.
     found.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '') || a.id.localeCompare(b.id))
     if (found.map((one) => one.small).join() === covers.map((one) => one.small).join()) return
@@ -70,9 +71,12 @@ export function GrainFill({ cover, tint, large = false, shade = 'foot', classNam
   className?: string
   style?: CSSProperties
 }): React.JSX.Element {
+  // A copy that failed to load is tried again a little later, a few times: it may be being made again.
+  const [tries, setTries] = useState(0)
   return (
     <span aria-hidden className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`} style={{ background: cover.color, ...style }}>
-      <img src={large ? cover.url : cover.small} alt="" decoding="async" draggable={false} className="absolute inset-0 size-full object-cover" />
+      <img key={tries} src={large ? cover.url : cover.small} alt="" decoding="async" draggable={false} className="absolute inset-0 size-full object-cover"
+        onError={() => tries < 4 && setTimeout(() => setTries(tries + 1), 3000 * (tries + 1))} />
       {tint && (
         <>
           {/* Soft light keeps the picture's glow; a touch of plain colour says whose it is. */}
