@@ -41,6 +41,7 @@ export interface Api {
   glow: (tone: 'done' | 'cancel') => void
   onGlow: (listen: (tone: 'done' | 'cancel') => void) => () => void
   stick: (type: string, id: string, on: boolean) => void
+  gatherStickies: () => void
   look: (src: string) => void
   hideSticky: (type: string, id: string) => void
   resizeSticky: (width: number, height: number) => void

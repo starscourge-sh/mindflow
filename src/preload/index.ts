@@ -100,6 +100,8 @@ const api = {
   },
   /** Stick a note on the desktop in a small window of its own, or take it down. */
   stick: (type: string, id: string, on: boolean): void => ipcRenderer.send('sticky', type, id, on),
+  /** Every sticky to the screen in front of you: the way back for one lost off an edge. */
+  gatherStickies: (): void => ipcRenderer.send('stickies:gather'),
   /** A picture in the Mac's own Quick Look, over everything rather than inside a small window. */
   look: (src: string): void => ipcRenderer.send('look', src),
   /** A sticky's own: put just this one away, or size it from its corner grip. */

@@ -553,7 +553,9 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   const { workArea } = screen.getPrimaryDisplay()
   // A new one lands top right, each fanned a little down and to the side of the last.
   // The window is the note plus room for its lean and shadow.
-  const place = bounds ?? {
+  // A saved place is brought back onto a screen that exists now: a display
+  // unplugged, or a note dragged past an edge, never leaves it out of reach.
+  const place = bounds ? onScreen(bounds) : {
     width: 300,
     height: 220,
     x: workArea.x + workArea.width - 300 - (stickies.size % 2) * 24,
@@ -592,7 +594,14 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     if (one && !win.isDestroyed()) one.bounds = win.getBounds()
     keepStuck()
   }
-  win.on('moved', remember)
+  // Let go with most of it past an edge, it slides back until it is all in view.
+  win.on('moved', () => {
+    if (win.isDestroyed()) return
+    const now = win.getBounds()
+    const safe = onScreen(now)
+    if (safe.x !== now.x || safe.y !== now.y) win.setBounds(safe)
+    remember()
+  })
   win.on('resized', remember)
   // Closed any way but quitting is taken down, so it stays down after a restart.
   win.on('closed', () => {
@@ -771,6 +780,23 @@ let grew: { was: Electron.Rectangle; became: Electron.Rectangle } | null = null
  * of the work area if it is somehow bigger than the screen, which is the half
  * worth keeping.
  */
+/** Every sticky to the screen the pointer is on, fanned from its top right: the way back for one lost off an edge. */
+function gatherStickies(): void {
+  const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+  let n = 0
+  for (const [key, win] of stickies) {
+    if (win.isDestroyed()) continue
+    const { width, height } = win.getBounds()
+    const bounds = onScreen({ width, height, x: workArea.x + workArea.width - width - (n % 2) * 24, y: workArea.y + n * 64 })
+    win.setBounds(bounds)
+    const one = stuckAs(key)
+    if (one) one.bounds = bounds
+    if (!win.isVisible()) win.showInactive()
+    n += 1
+  }
+  keepStuck()
+}
+
 function onScreen(bounds: Electron.Rectangle): Electron.Rectangle {
   const { workArea } = screen.getDisplayMatching(bounds)
   return {
@@ -1320,6 +1346,7 @@ function updateTray(): void {
       { type: 'separator' },
       { label: 'Safe mode', type: 'checkbox', checked: safe, click: () => (toggleSafeMode(), updateTray()) },
       { label: 'Show sticky notes', type: 'checkbox', checked: stickyPrefs().shown, click: () => showStickies() },
+      { label: 'Bring sticky notes here', enabled: stickies.size > 0, click: () => gatherStickies() },
       { type: 'separator' },
       { label: 'Quit Vigil', accelerator: 'Command+Q', click: quit }
     ])
@@ -1452,6 +1479,7 @@ app.whenReady().then(() => {
     return was
   })
   // A note stuck to the desktop, or taken down.
+  ipcMain.on('stickies:gather', () => gatherStickies())
   ipcMain.on('sticky', (_event, type: unknown, id: unknown, on: unknown) => {
     if (typeof type === 'string' && typeof id === 'string') stick(type, id, Boolean(on))
   })

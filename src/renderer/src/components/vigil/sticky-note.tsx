@@ -392,6 +392,8 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
         </div>
         {/* A long note scrolls, and fades out at the bottom as the box does, instead of stopping hard at the edge. */}
         <div ref={area} data-hide-first={(editing && hideFirst) || undefined}
+          // Scrolled down, the top fades as the bottom does (see sticky-note.scss), so nothing is cut flat.
+          onScroll={(event) => event.currentTarget.toggleAttribute('data-scrolled', event.currentTarget.scrollTop > 0)}
           onDoubleClick={(event) => !(event.target as Element).closest('input, img') && edit(spot(event.clientX, event.clientY))}
           // A picture opens in Quick Look, the system's own, edited or not.
           onClick={(event) => event.target instanceof HTMLImageElement && window.api.look(event.target.src)}

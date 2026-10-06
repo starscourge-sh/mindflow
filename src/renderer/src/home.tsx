@@ -348,6 +348,7 @@ export function Home(): React.JSX.Element {
             } },
             { label: settings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', cue: null, run: safeMode },
             { label: settings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', keys: '⌃⌥⌘N', cue: null, run: () => void vigil.setSettings({ stickiesShown: settings?.stickiesShown === false }) },
+            { label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() },
             { label: 'reveal' in document.documentElement.dataset ? 'Blur private titles again' : 'Show private titles for now', cue: 'reveal' in document.documentElement.dataset ? 'off' : 'on', run: () => {
               const root = document.documentElement
               if ('reveal' in root.dataset) delete root.dataset.reveal

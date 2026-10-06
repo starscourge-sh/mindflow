@@ -959,6 +959,7 @@ export default function App(): React.JSX.Element {
             { label: appSettings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', cue: appSettings?.safeMode ? 'off' : 'on', run: () => void vigil.setSettings({ safeMode: !appSettings?.safeMode }).then(() => toast(appSettings?.safeMode ? 'Safe mode off' : 'Safe mode: no hints, rot cards or pins come up')) },
             { label: recordable ? 'Hide from screen recordings' : 'Show in screen recordings', cue: recordable ? 'off' : 'on', run: () => setRecordable(!recordable) },
             { label: appSettings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', keys: '⌃⌥⌘N', cue: null, run: () => void vigil.setSettings({ stickiesShown: appSettings?.stickiesShown === false }) },
+            { label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() },
             { label: reveal ? 'Blur private titles again' : 'Show private titles for now', cue: reveal ? 'off' : 'on', run: () => setReveal(!reveal) },
             { label: 'Open the main window', run: () => window.api.openInHome('view', 'inbox') },
             { label: "Open the week's page", cue: 'season', run: () => window.api.openInHome('view', 'weekpage') },
