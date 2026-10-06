@@ -50,15 +50,25 @@ export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | u
     const cy = box.top + box.height / 2
     const fade = picture.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 110, easing: 'linear', fill: 'forwards' })
     void fade.finished
-      .then(() =>
-        card.animate(
+      .then(() => {
+        // As it folds, the square takes the accent colour: a plain card on a
+        // dark page blended in, and the eye lost it on the way.
+        // Each place has its colour, so where it went reads at a glance: a
+        // nugget purple, a task green, back to the Inbox blue, a question in the accent.
+        const root = getComputedStyle(document.documentElement)
+        const hue = { nugget: '--tt-color-text-purple', task: '--tt-color-text-green', capture: '--tt-color-text-blue', question: '--tt-brand-color-400' }[home]
+        const accent = root.getPropertyValue(hue).trim() || root.getPropertyValue('--tt-brand-color-400').trim() || 'var(--primary)'
+        card.style.backgroundImage = 'none'
+        card.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--popover').trim() || 'Canvas'
+        card.animate([{ backgroundColor: card.style.backgroundColor, borderColor: 'var(--border)' }, { backgroundColor: accent, borderColor: accent }], { duration: 200, easing: 'ease-out', fill: 'forwards' })
+        return card.animate(
           [
             { left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`, borderRadius: '8px' },
             { left: `${cx - SQUARE / 2}px`, top: `${cy - SQUARE / 2}px`, width: `${SQUARE}px`, height: `${SQUARE}px`, borderRadius: '7px' }
           ],
           { duration: 200, easing: 'cubic-bezier(0.32, 0.72, 0, 1)', fill: 'forwards' }
         ).finished
-      )
+      })
       .then(() => {
         const dx = end.left + end.width / 2 - cx
         const dy = end.top + end.height / 2 - cy
