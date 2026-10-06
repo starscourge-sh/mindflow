@@ -226,7 +226,7 @@ export function ReadThrough({ items, start = 0, onClose }: {
                     // Room between paragraphs, as a page of reading has.
                     '[&_.tiptap.ProseMirror>:first-child]:mt-0! [&_.tiptap.ProseMirror>p+p]:mt-[0.75em]!',
                     leads(shown) && '[&_.tiptap.ProseMirror>p:first-child]:text-[1.375rem]! [&_.tiptap.ProseMirror>p:first-child]:leading-snug! [&_.tiptap.ProseMirror>p:first-child]:font-medium! [&_.tiptap.ProseMirror>p:first-child]:tracking-tight',
-                    writing ? 'bg-card shadow-sm ring-foreground/25' : own && 'cursor-text hover:bg-accent/40 hover:ring-border [&_.tiptap.ProseMirror]:cursor-text'
+                    writing ? 'bg-card shadow-sm ring-foreground/25' : own && 'cursor-text hover:bg-accent/40 hover:ring-border'
                   )}
                 >
                   <MindflowEditor

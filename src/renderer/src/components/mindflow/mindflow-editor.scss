@@ -3256,3 +3256,12 @@ html[data-motion="off"] .mf-column-drop {
     transition: none;
   }
 }
+
+// A picture, a video or a file card is an object, not text: no I-beam over
+// it. Its caption is text, and keeps the caret's cursor.
+.tiptap.ProseMirror.mindflow-editor :is(img, video, iframe, [data-type="image"], [data-type="youtube"], [data-type="attachment"], .tiptap-bookmark) {
+  cursor: default;
+}
+.tiptap.ProseMirror.mindflow-editor .mf-caption-text {
+  cursor: text;
+}
