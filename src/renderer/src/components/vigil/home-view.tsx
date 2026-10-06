@@ -249,9 +249,13 @@ function Heading({ title, onAll }: { title: ReactNode; onAll?: () => void }): Re
 function Row({ title, onAll, children }: { title: ReactNode; onAll?: () => void; children: ReactNode }): React.JSX.Element {
   const scroller = useRef<HTMLDivElement>(null)
   const [edges, setEdges] = useState({ left: false, right: false })
+  // Where the row is, for the dot track under it: what share is in view, and from where.
+  const [span, setSpan] = useState({ from: 0, to: 1 })
   const measure = (): void => {
     const box = scroller.current
-    if (box) setEdges({ left: box.scrollLeft > 2, right: box.scrollLeft + box.clientWidth < box.scrollWidth - 2 })
+    if (!box) return
+    setEdges({ left: box.scrollLeft > 2, right: box.scrollLeft + box.clientWidth < box.scrollWidth - 2 })
+    setSpan({ from: box.scrollLeft / box.scrollWidth, to: (box.scrollLeft + box.clientWidth) / box.scrollWidth })
   }
   useLayoutEffect(() => {
     measure()
@@ -285,7 +289,36 @@ function Row({ title, onAll, children }: { title: ReactNode; onAll?: () => void;
           </Tip>
         ))}
       </div>
+      {(edges.left || edges.right) && <DotTrack from={span.from} to={span.to} onPick={(at) => {
+        const box = scroller.current
+        if (!box) return
+        chime('shift')
+        box.scrollTo({ left: at * box.scrollWidth - box.clientWidth / 2, behavior: motionOff() ? 'auto' : 'smooth' })
+      }} />}
     </section>
+  )
+}
+
+/**
+ * Home's own way of saying where a row is, found nowhere else in the app: a
+ * line of dots like the focus timer's dot-matrix figures, the ones in view
+ * lit and the rest faint. A dot is also a place: click one to go there.
+ */
+function DotTrack({ from, to, onPick }: { from: number; to: number; onPick: (at: number) => void }): React.JSX.Element {
+  const DOTS = 16
+  return (
+    <div aria-hidden className="flex justify-center gap-[3px] pt-1.5">
+      {Array.from({ length: DOTS }, (_, n) => {
+        const at = (n + 0.5) / DOTS
+        const lit = at >= from && at <= to
+        return (
+          <button key={n} type="button" tabIndex={-1} onClick={() => onPick(at)}
+            className="group/dot flex size-3 items-center justify-center">
+            <span className={`size-[3px] rounded-full transition-[background-color,scale] duration-200 group-hover/dot:scale-150 ${lit ? 'bg-foreground/70' : 'bg-foreground/15 group-hover/dot:bg-foreground/40'}`} />
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
