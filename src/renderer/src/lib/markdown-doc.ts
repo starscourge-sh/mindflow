@@ -170,7 +170,7 @@ function untab(markdown: string): string {
     // An empty task, `- [ ]` with nothing after it: the task reader wants a
     // space after the box, which editors trim, and it came in as a bullet
     // reading "[ ]".
-    return line.replace(/^[ \t]+/, (lead) => lead.replace(/\t/g, "    ")).replace(/^(\s*[-+*]\s+\[[ xX]\])$/, "$1 ")
+    return line.replace(/^[ \t]+/, (lead) => lead.replace(/\t/g, "    ")).replace(/^((?:\s*>)*\s*[-+*]\s+\[[ xX]\])$/, "$1 ")
   }).join("\n")
 }
 

@@ -932,8 +932,7 @@ function Surface({
       clipboardTextParser: (text, $context, plain, view) => {
         const editor = (view.dom as HTMLElement & { editor?: Editor }).editor
         if (plain || !editor || $context.parent.type.spec.code || !MARKDOWN_SIGNS.test(text)) return null as unknown as Slice
-        const doc = view.state.schema.nodeFromJSON(markdownToDocument(editor, text))
-        return Slice.maxOpen(doc.content)
+        return new Slice(view.state.schema.nodeFromJSON(markdownToDocument(editor, text)).content, 0, 0)
       },
       // A heading gets a blank line above it, if it did not arrive with one.
       //
@@ -945,7 +944,7 @@ function Surface({
       // On the paste rather than on every change: a line you can delete is the
       // whole difference between help and a fight. And only where there is not
       // one already, so pasting the same text twice does not stack them up.
-      transformPasted: (slice, view) => {
+      transformPasted: (slice, view, plain) => {
         const blocks: ProseMirrorNode[] = []
 
         slice.content.forEach((node) => {
@@ -963,7 +962,15 @@ function Surface({
         const last = blocks[blocks.length - 1]
         if (blocks.length > 1 && last.type.name === "paragraph" && last.childCount && last.content.content.every((part) => part.type.name === "hardBreak")) blocks.pop()
 
-        return new Slice(Fragment.fromArray(blocks), slice.openStart, slice.openEnd)
+        // Text opens only at a line of words, which joins the line it lands
+        // in. ProseMirror opens it all the way down, and a callout or a list
+        // read from Markdown dissolved into its insides.
+        const content = Fragment.fromArray(blocks)
+        if (plain && slice.openStart > 1 && content.firstChild && !content.firstChild.isTextblock) {
+          const open = (node: ProseMirrorNode | null): number => (node?.isTextblock ? 1 : 0)
+          return new Slice(content, open(content.firstChild), open(content.lastChild))
+        }
+        return new Slice(content, slice.openStart, slice.openEnd)
       },
       // Mod-click opens a link. A plain click belongs to the caret, because
       // the text is there to be edited - the same rule a tag follows.
