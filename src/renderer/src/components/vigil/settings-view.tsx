@@ -375,7 +375,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Heading font" note="A note's headings in a font of their own, and the titles of pages here: Fraunces over the Mac's font to start, the way Dia pairs a characterful serif with plain text. Or the same as the text." below={<Sample />} keywords={`headings titles pairing ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
             <FontPicker value={settings.headingFont} setting="headingFont" same="Same as text" />
           </Setting>
-          <Setting title="Notes only" note="On, the font above is used only for what you write, and the app's own lists, menus and labels keep the Mac's font.">
+          <Setting title="Notes only" note="On, the font above is used only for what you write, and the app's own lists, menus and labels stay in Fraunces.">
             <Switch checked={!!settings.fontNotesOnly} onCheckedChange={(fontNotesOnly) => set({ fontNotesOnly })} />
           </Setting>
           <Setting title="Text size" note="How big the words in notes are. ⌘+ and ⌘− change it from any note, ⌘0 puts it back." below={<Sample text />}>
