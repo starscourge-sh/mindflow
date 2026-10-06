@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { DndContext, DragOverlay, MeasuringStrategy, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
-import { Brain, CalendarClock, ChevronLeft, ChevronRight, Repeat } from 'lucide-react'
+import { DndContext, MeasuringStrategy, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
+import { alive } from '@/components/ui/alive-icon'
+import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
+import ClockIcon from '@/components/ui/clock-icon'
+import RightChevronIcon from '@/components/ui/right-chevron'
+import RefreshIcon from '@/components/ui/refresh-icon'
 
 import { chime } from '@/lib/sound'
 import { useLive, vigil, when, whenInLine, type Task, type TaskFull } from '@/lib/vigil'
@@ -9,9 +13,16 @@ import { Page, Rolling, Tip, toast, typing, Pressed } from './ui'
 import { PriorityIcon, setPriority } from './task-input'
 import { TaskDetail, completeTask } from './tasks-view'
 import { Button } from '@/components/ui/button'
-import { SETTLE, snapshot } from './sortable'
+import { Overlay, SETTLE, snapshot, underPointer } from './sortable'
 import { GlossButton, GlossLine } from './gloss-line'
 import { clock, dayMonth, dayjs, startOfDay } from '../../../../main/dates'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const Brain = alive(BrainCircuitIcon)
+const CalendarClock = alive(ClockIcon)
+const ChevronLeft = alive(RightChevronIcon, 'rotate-180')
+const ChevronRight = alive(RightChevronIcon)
+const Repeat = alive(RefreshIcon)
 
 // Days are counted on the calendar, not in hours, so a clock change never
 // repeats or skips one.
@@ -290,9 +301,9 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
         </div>
         {/* Settling back is shown only when it goes back: one let go over
             another day lands there at once, where its card fades in. */}
-        <DragOverlay dropAnimation={document.documentElement.dataset.motion === 'off' || landing ? null : SETTLE}>
+        <Overlay modifiers={[underPointer]} dropAnimation={document.documentElement.dataset.motion === 'off' || landing ? null : SETTLE}>
           {shot && cardOf(String(shot.id)) ? <Chip card={cardOf(String(shot.id))!.card} width={shot.width} /> : null}
-        </DragOverlay>
+        </Overlay>
         </DndContext>
       </Page>
       {open && <TaskDetail key={open.id} task={open} onClose={() => setOpen(null)} onOpen={onOpen} />}

@@ -3,9 +3,17 @@ import { createPortal } from 'react-dom'
 import type { Editor, JSONContent } from '@tiptap/core'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { redo, undo } from '@tiptap/pm/history'
-import { DndContext, DragOverlay, MeasuringStrategy, PointerSensor, closestCorners, useDroppable, useSensor, useSensors, type DragOverEvent, type DragEndEvent } from '@dnd-kit/core'
+import { DndContext, MeasuringStrategy, PointerSensor, closestCorners, useDroppable, useSensor, useSensors, type DragOverEvent, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { Archive, Check, ChevronDown, ChevronRight, GripVertical, Plus, Search, X } from 'lucide-react'
+import { Plus } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import Stack3Icon from '@/components/ui/stack-3-icon'
+import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
+import DownChevronIcon from '@/components/ui/down-chevron'
+import RightChevronIcon from '@/components/ui/right-chevron'
+import DotsVerticalIcon from '@/components/ui/dots-vertical-icon'
+import MagnifierIcon from '@/components/ui/magnifier-icon'
+import XIcon from '@/components/ui/x-icon'
 
 import { MindflowEditor, TAGS, readMarkdown } from '../mindflow'
 import { Calendar } from '@/components/ui/calendar'
@@ -17,8 +25,17 @@ import { notes, type NoteTable } from '@/lib/notes'
 import { taskSaid, vigil } from '@/lib/vigil'
 import { keyFor } from '@/lib/keys'
 import { dayMonth } from '../../../../main/dates'
-import { SETTLE, snapshot } from './sortable'
+import { Overlay, SETTLE, snapshot } from './sortable'
 import { Rolling, Tip, toast, untoast } from './ui'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const Archive = alive(Stack3Icon)
+const Check = alive(SimpleCheckedIcon)
+const ChevronDown = alive(DownChevronIcon)
+const ChevronRight = alive(RightChevronIcon)
+const GripVertical = alive(DotsVerticalIcon)
+const Search = alive(MagnifierIcon)
+const X = alive(XIcon)
 
 /**
  * A note seen as a board: each heading a list, side by side, each item under
@@ -495,7 +512,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
         <DropdownMenuItem disabled={at === last} onSelect={() => (chime('settled'), move([lane, at], [lane, last]))}>Move to bottom</DropdownMenuItem>
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>Move to list</DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="max-h-80 overflow-y-auto">
+          <DropdownMenuSubContent>
             {shape.lanes.map((other, to) => (
               <DropdownMenuItem key={to} disabled={to === lane} onSelect={() => (chime('settled'), move([lane, at], [to, other.cards.length]))}>{other.title || 'Untitled'}</DropdownMenuItem>
             ))}
@@ -613,13 +630,13 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
             )}
           </div>
         </SortableContext>
-        <DragOverlay dropAnimation={still() ? null : SETTLE}>
+        <Overlay dropAnimation={still() ? null : SETTLE}>
           {/* The card or list as it was, lifted off the board a little. */}
           {lifted && (
             <div style={{ width: lifted.width }} dangerouslySetInnerHTML={{ __html: lifted.html }}
               className={`flex cursor-grabbing items-start gap-2 border bg-background shadow-[0_10px_24px_-8px_color-mix(in_oklab,var(--mf-shadow-ink,black)_45%,transparent),0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink,black)_18%,transparent)] ${lifted.id.startsWith('lane:') ? 'flex-col rounded-xl' : '-rotate-1 rounded-lg px-2.5 py-2 text-control'}`} />
           )}
-        </DragOverlay>
+        </Overlay>
       </DndContext>
     </div>
   )

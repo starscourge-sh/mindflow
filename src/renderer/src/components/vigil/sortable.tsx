@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, type ComponentProps, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { DndContext, DragOverlay, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragStartEvent, type DropAnimation, type Modifier } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { chime } from '@/lib/sound'
@@ -15,6 +16,31 @@ const upDown: Modifier = ({ transform }) => ({ ...transform, x: 0 })
 
 /** Settles with a small overshoot, a spring's shape in one curve. */
 export const SETTLE: DropAnimation = { duration: 280, easing: 'cubic-bezier(0.2, 1.25, 0.4, 1)' }
+
+/**
+ * The lifted thing, drawn at the page's top level. Inside an ancestor that is
+ * moved or eased in (a view sliding up), `fixed` counts from that ancestor
+ * rather than the window, and the lifted thing floated off from the pointer.
+ */
+export function Overlay(props: ComponentProps<typeof DragOverlay>): React.JSX.Element {
+  return createPortal(<DragOverlay {...props} />, document.body)
+}
+
+/**
+ * For a lifted picture smaller than what was picked up: the point you grabbed
+ * stays where it was on it, pulled in only as far as it takes to keep the
+ * pointer on the picture.
+ */
+export const underPointer: Modifier = ({ transform, activatorEvent, activeNodeRect, overlayNodeRect }) => {
+  if (!activeNodeRect || !overlayNodeRect || !(activatorEvent instanceof PointerEvent)) return transform
+  const x = activatorEvent.clientX - activeNodeRect.left
+  const y = activatorEvent.clientY - activeNodeRect.top
+  return {
+    ...transform,
+    x: transform.x + Math.max(0, x - (overlayNodeRect.width - 12)),
+    y: transform.y + Math.max(0, y - overlayNodeRect.height / 2)
+  }
+}
 
 const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -81,9 +107,9 @@ export function SortableList<T>({ items, keyOf, onMove, children }: {
       <SortableContext items={shown.map(keyOf)} strategy={verticalListSortingStrategy}>
         <On.Provider value>{children(shown)}</On.Provider>
       </SortableContext>
-      <DragOverlay dropAnimation={still() ? null : SETTLE}>
+      <Overlay dropAnimation={still() ? null : SETTLE}>
         <Lifted shot={shot} />
-      </DragOverlay>
+      </Overlay>
     </DndContext>
   )
 }
