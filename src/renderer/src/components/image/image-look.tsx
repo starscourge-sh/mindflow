@@ -31,7 +31,6 @@ const still = (): boolean => document.documentElement.dataset.motion === "off" |
 const EASE = [0.16, 1, 0.3, 1] as const
 // The lift and the drop: a spring, so Escape mid-flight turns it round from
 // where it is rather than starting over.
-const SPRING = { type: "spring", visualDuration: 0.42, bounce: 0.12 } as const
 // Room kept round the picture: the window's own bar on top, the viewer's below.
 const TOP = 48
 const FOOT = 76
@@ -234,9 +233,9 @@ function fitOf(picture: Picture): { left: number; top: number; width: number; he
 function from(rect: DOMRect, fit: ReturnType<typeof fitOf>): { x: number; y: number; scale: number; rotateX: number; rotateY: number } {
   const dx = rect.left + rect.width / 2 - (fit.left + fit.width / 2)
   const dy = rect.top + rect.height / 2 - (fit.top + fit.height / 2)
-  // Tipped back a little whatever the way, and more toward the side it comes from.
-  const tilt = (by: number, span: number, base = 0): number => Math.max(-8, Math.min(8, base + (by / span) * 14))
-  return { x: dx, y: dy, scale: rect.width / fit.width, rotateY: -tilt(dx, innerWidth), rotateX: tilt(dy, innerHeight, 4) }
+  // Flat, straight out of its place and straight back: the first way it
+  // grew, which reads calmer than a tilt in flight.
+  return { x: dx, y: dy, scale: rect.width / fit.width, rotateY: 0, rotateX: 0 }
 }
 
 function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: number; onClose: () => void }): React.JSX.Element {
@@ -292,7 +291,7 @@ function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: numb
   const close = useCallback(async () => {
     if (leaving.current) return
     leaving.current = true
-    chime("unstick")
+    chime("unlook")
     if (still() || !frame.current) return onClose()
     // Back to where it sits now: the note may have scrolled while it was out.
     // With nowhere to go back to, it settles away where it is.
@@ -311,7 +310,7 @@ function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: numb
     const home = place && shown(place) ? place : null
     setView({ zoom: 1, x: 0, y: 0, smooth: true })
     await Promise.all([
-      home ? animate(frame.current, from(home, fit), SPRING) : animate(frame.current, { scale: 0.96, opacity: 0 }, { duration: 0.18, ease: EASE }),
+      home ? animate(frame.current, from(home, fit), { duration: 0.32, ease: EASE }) : animate(frame.current, { scale: 0.96, opacity: 0 }, { duration: 0.18, ease: EASE }),
       backdrop.current && animate(backdrop.current, { opacity: 0 }, { duration: 0.28, ease: EASE }),
       foot.current && animate(foot.current, { opacity: 0 }, { duration: 0.12 }),
     ])
@@ -375,7 +374,7 @@ function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: numb
   const onClickImage = (event: React.MouseEvent): void => {
     if (drag.current?.moved) return void (drag.current = null)
     drag.current = null
-    chime("tap")
+    chime(view.zoom > 1 ? "zoomout" : "zoomin")
     zoomTo(view.zoom > 1 ? 1 : fit.scale < 1 ? 1 / fit.scale : 2, event.clientX, event.clientY)
   }
 
@@ -389,7 +388,7 @@ function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: numb
       ? place ? { ...from(place, fit), opacity: 1 } : { x: 0, y: 0, scale: 0.96, rotateX: 0, rotateY: 0, opacity: 0 }
       : { x: went.current * 28, y: 0, scale: 1, rotateX: 0, rotateY: 0, opacity: 0 }
 
-  useEffect(() => void chime("open"), [])
+  useEffect(() => void chime("look"), [])
 
   // At rest the picture leans away from the pointer, the way a print tilts
   // when you press near one edge: a few degrees, on a soft spring. Not while
@@ -424,7 +423,7 @@ function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: numb
         style={{ left: fit.left, top: fit.top, width: fit.width, height: fit.height }}
         initial={initial}
         animate={{ x: 0, y: 0, scale: 1, rotateX: 0, rotateY: 0, opacity: 1 }}
-        transition={lifting ? SPRING : { duration: 0.22, ease: EASE }}
+        transition={{ duration: lifting ? 0.44 : 0.22, ease: EASE }}
       >
         <motion.div className="mf-look-lean" style={{ rotateX: leanX, rotateY: leanY }} onPointerMove={lean} onPointerLeave={unlean}>
         <img
