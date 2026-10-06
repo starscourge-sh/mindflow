@@ -11,6 +11,7 @@ import { EditorContent, EditorContext, useEditor, useEditorState } from "@tiptap
 // --- Tiptap Core Extensions ---
 import { StarterKit } from "@tiptap/starter-kit"
 import { Markdown } from "@tiptap/markdown"
+import { Marked, type marked } from "marked"
 import { Image } from "@tiptap/extension-image"
 import { ListItem, TaskItem, TaskList } from "@tiptap/extension-list"
 import { TextAlign } from "@tiptap/extension-text-align"
@@ -604,8 +605,13 @@ function Surface({
     }
   }, [])
   // Stable, so the content box is set once, not on every render.
+  // The last box's listeners undone when it goes (called with null): left,
+  // the document held every editor ever shown, a search preview's included.
+  // Kept here, since EditorContent's ref merging drops a returned cleanup.
+  const undoDrag = useRef<(() => void) | undefined>(undefined)
   const contentRef = useCallback((box: HTMLDivElement | null) => {
-    dragScroll(box)
+    undoDrag.current?.()
+    undoDrag.current = dragScroll(box)
     setContentBox(box)
   }, [dragScroll])
 
@@ -1041,7 +1047,10 @@ function Surface({
       Attachment,
       ExcalidrawDiagram,
       // Gives the editor `storage.markdown.getMarkdown()`, used by Export.
-      Markdown,
+      // A Markdown reader of its own: on the shared one, each editor added its
+      // rules for good, and they kept every editor ever opened in memory.
+      // The option is typed as the shared one; an instance does all it is asked.
+      Markdown.configure({ marked: new Marked() as unknown as typeof marked }),
       // Through refs, not the props directly: extensions are configured once,
       // when the editor is built, and the note list is usually still loading
       // then. Captured that early, `@` would search an empty list forever.

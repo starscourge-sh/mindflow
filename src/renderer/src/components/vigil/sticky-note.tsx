@@ -1,5 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react'
-import { ArrowUpRight, X } from 'lucide-react'
+import { X } from 'lucide-react'
+import { AliveIcon } from '@/components/ui/alive-icon'
+import ExternalLinkIcon from '@/components/ui/external-link-icon'
 
 import '@/assets/styles/_variables.scss'
 import { glance } from './note-preview'
@@ -61,7 +63,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
           {/* Shown on hover, so at rest it is only the note. */}
           <span className={`flex items-center transition-opacity group-hover:opacity-100 ${asking ? 'opacity-100' : 'opacity-0'}`} style={STILL}>
             <button type="button" title="Open it" aria-label="Open it" onClick={() => window.api.openInHome(note.tier, id)} className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
-              <ArrowUpRight className="size-3.5" />
+              <AliveIcon icon={ExternalLinkIcon} size={14} />
             </button>
             <button type="button" title="Take it off the desktop" aria-label="Take it off the desktop"
               onClick={() => {

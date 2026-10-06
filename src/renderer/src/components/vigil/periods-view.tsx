@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { ArrowLeft, ArrowRight, History } from 'lucide-react'
+import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { AliveIcon } from '@/components/ui/alive-icon'
+import HistoryCircleIcon from '@/components/ui/history-circle-icon'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { Button } from '@/components/ui/button'
@@ -164,7 +166,7 @@ export function WeekPage({ onOpen, onScale, onRecent, recentOpen }: {
             <Tip label="Everything made this week, beside the page  ⇧⌘Y">
               <Button variant={recentOpen ? 'secondary' : 'ghost'} size="sm" aria-pressed={!!recentOpen}
                 onClick={() => (chime(recentOpen ? 'fold' : 'slide'), onRecent(recentOpen ? 'close' : current ? null : new Date(end).toISOString()))}>
-                <History className="size-3.5" /> Recent
+                <AliveIcon icon={HistoryCircleIcon} size={14} /> Recent
               </Button>
             </Tip>
           )}

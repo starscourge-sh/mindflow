@@ -1,7 +1,7 @@
 import { chime } from '@/lib/sound'
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { AlarmClock, BookOpen, Brain, Calendar, Eye, EyeOff, FileText, History, Layers, Pause, Pin, Play, Plus, Quote, RefreshCw, SquareDashed, TriangleAlert, X } from 'lucide-react'
+import { BookOpen, Brain, Calendar, Eye, EyeOff, FileText, History, Layers, Pause, Pin, Play, Plus, Quote, RefreshCw, SquareDashed, TriangleAlert, X } from 'lucide-react'
 
 import { AnimatePresence, motion } from 'motion/react'
 
@@ -31,6 +31,7 @@ import { Kbd, Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
+import AlarmClockPlusIcon from '@/components/ui/alarm-clock-plus-icon'
 import { Archive, ArchiveRestore, Download } from 'lucide-react'
 import { Aliases, KindFields, LayoutToggle, LocalGraph, NoteCards, Thumb, Versions, useLayout } from './note-extras'
 import { SortableList, SortableRow } from './sortable'
@@ -571,7 +572,7 @@ export function RemindMe({ table, id, at }: { table: 'captures' | 'nuggets'; id:
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button type="button" className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent hover:text-foreground">
-          <AlarmClock className="size-4 shrink-0" />
+          <AliveIcon icon={AlarmClockPlusIcon} size={16} />
           <span className="text-control">{at ? `Reminds ${whenInLine(at, false)}` : 'Remind me…'}</span>
         </button>
       </PopoverTrigger>

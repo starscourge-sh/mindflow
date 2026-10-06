@@ -1,6 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { AlignLeft, Check, ChevronRight, Clock3, LayoutGrid, Link2, List, ListChecks, Lock, Pencil, Plus, Split, Star, Tags, Type, X } from 'lucide-react'
+import { AlignLeft, Check, ChevronRight, LayoutGrid, Link2, List, ListChecks, Lock, Plus, Split, Star, Tags, Type, X } from 'lucide-react'
+import { AliveIcon } from '@/components/ui/alive-icon'
+import ClockIcon from '@/components/ui/clock-icon'
+import PenIcon from '@/components/ui/pen-icon'
+import UnlinkIcon from '@/components/ui/unlink-icon'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
@@ -411,10 +415,10 @@ function LinkField({ label, placeholder, value, onSave, onOpen }: {
       {value && (
         <span className="flex shrink-0 items-center opacity-0 transition-opacity group-hover/link:opacity-100 group-focus-within/link:opacity-100">
           <Tip label="Link something else">
-            <button type="button" aria-label="Link something else" onClick={() => (chime('open'), setPicking(true))} className="rounded p-0.5 text-muted-foreground hover:text-foreground"><Pencil className="size-3.5" /></button>
+            <button type="button" aria-label="Link something else" onClick={() => (chime('open'), setPicking(true))} className="rounded p-0.5 text-muted-foreground hover:text-foreground"><AliveIcon icon={PenIcon} size={14} /></button>
           </Tip>
           <Tip label="Take the link off">
-            <button type="button" aria-label="Take the link off" onClick={() => onSave(null)} className="rounded p-0.5 text-muted-foreground hover:text-foreground"><X className="size-3.5" /></button>
+            <button type="button" aria-label="Take the link off" onClick={() => onSave(null)} className="rounded p-0.5 text-muted-foreground hover:text-foreground"><AliveIcon icon={UnlinkIcon} size={14} /></button>
           </Tip>
         </span>
       )}
@@ -550,7 +554,7 @@ export function Versions({ table, id, onShow, onRestored }: {
   if (!list)
     return (
       <Tip label="Earlier versions of this note, to read or bring back">
-        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={open}><Clock3 className="size-3.5" /> Versions</Button>
+        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={open}><AliveIcon icon={ClockIcon} size={14} /> Versions</Button>
       </Tip>
     )
   const version = list[at]

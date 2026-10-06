@@ -696,3 +696,52 @@ input[type='number']::-webkit-outer-spin-button {
   from { opacity: 0; transform: translateY(2px); }
   to { opacity: 1; transform: none; }
 }
+
+/* An orb with words for a real wait, in a chip (the libraries.dev orbs
+   pill). The words shimmer: a copy of them laid on top, painted with a
+   band of the page's ink that sweeps across the muted letters
+   (transitions.dev's t-shimmer). Both colours are the theme's, so it reads
+   in light and dark alike; still with Motion off. */
+/* In the components layer, so a class where it is used (a toast's surface)
+   can change it. */
+@layer components {
+.mf-orb-pill {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px 0 8px;
+  border-radius: 999px;
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--border);
+  font-size: 13px;
+  line-height: 14px;
+  white-space: nowrap;
+}
+}
+.mf-shimmer {
+  position: relative;
+  display: inline-block;
+  color: var(--muted-foreground);
+}
+.mf-shimmer::before {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(90deg, transparent 0%, transparent 40%, var(--foreground) 50%, transparent 60%, transparent 100%);
+  background-size: 400% 100%;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: mf-shimmer 2s linear infinite;
+}
+@keyframes mf-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: 0% 0; }
+}
+:root[data-motion='off'] .mf-shimmer::before { animation: none; }
+@media (prefers-reduced-motion: reduce) { .mf-shimmer::before { animation: none; } }

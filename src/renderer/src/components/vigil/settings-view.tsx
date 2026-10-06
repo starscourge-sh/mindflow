@@ -1,7 +1,7 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { PACKS, chime, click, soundOn, step } from '@/lib/sound'
 import { NOTE_FONTS } from '@/lib/editor-setup'
-import { Brain, Download, FolderPlus, HardDrive, Inbox, Keyboard, LifeBuoy, ListChecks, Mountain, Palette, PenLine, Search as SearchIcon, Sparkles, Volume2, X, type LucideIcon } from 'lucide-react'
+import { Brain, FolderPlus, HardDrive, Inbox, Keyboard, LifeBuoy, ListChecks, Mountain, Palette, PenLine, Search as SearchIcon, Sparkles, Volume2, X, type LucideIcon } from 'lucide-react'
 import { allThemes, applyTheme, customThemes, frosted, importTheme, removeTheme, restoreTheme, setFrosted, themeName } from '@/lib/theme'
 import { Marked, ShortcutList } from './shortcut-sheet'
 import { Swatch } from '../theme/theme-picker'
@@ -16,6 +16,9 @@ import { FontPicker, TextSize } from './font-picker'
 import { BackToTop, Kbd, Rolling, Tip, refuse, toast, useSmooth } from './ui'
 import { Button } from '@/components/ui/button'
 import { Orb } from './orb'
+import { AliveIcon } from '@/components/ui/alive-icon'
+import DownloadIcon from '@/components/ui/download-icon'
+import UploadIcon from '@/components/ui/upload-icon'
 import { weekdayName } from '../../../../main/dates'
 
 /**
@@ -57,23 +60,24 @@ function Setting({ title, children, note, below, keywords = '' }: {
 }
 
 /**
- * The sections down the left, the way Raycast's settings list them: a small
- * coloured tile each, one section on the right at a time. A Group names its
+ * The sections down the left, the way Raycast's settings list them, one on
+ * the right at a time. Each icon is drawn like the main sidebar's: the
+ * theme's own hue, softened until it is the one you are on. A Group names its
  * section; one whose section is not listed here would never show, so a new
  * section goes in this list too.
  */
-const SECTIONS: { title: string; icon: LucideIcon; tile: string }[] = [
-  { title: 'Appearance', icon: Palette, tile: 'bg-violet-500' },
-  { title: 'Scenery', icon: Mountain, tile: 'bg-lime-600' },
-  { title: 'Writing', icon: PenLine, tile: 'bg-orange-500' },
-  { title: 'Capturing', icon: Inbox, tile: 'bg-sky-500' },
-  { title: 'What comes back to you', icon: Sparkles, tile: 'bg-amber-500' },
-  { title: 'Review', icon: Brain, tile: 'bg-pink-500' },
-  { title: 'Tasks', icon: ListChecks, tile: 'bg-emerald-500' },
-  { title: 'Sound', icon: Volume2, tile: 'bg-red-500' },
-  { title: 'Your data', icon: HardDrive, tile: 'bg-slate-500' },
-  { title: 'Help', icon: LifeBuoy, tile: 'bg-teal-500' },
-  { title: 'Shortcuts', icon: Keyboard, tile: 'bg-indigo-500' }
+const SECTIONS: { title: string; icon: LucideIcon; tint: string }[] = [
+  { title: 'Appearance', icon: Palette, tint: 'purple' },
+  { title: 'Scenery', icon: Mountain, tint: 'green' },
+  { title: 'Writing', icon: PenLine, tint: 'orange' },
+  { title: 'Capturing', icon: Inbox, tint: 'blue' },
+  { title: 'What comes back to you', icon: Sparkles, tint: 'yellow' },
+  { title: 'Review', icon: Brain, tint: 'pink' },
+  { title: 'Tasks', icon: ListChecks, tint: 'green' },
+  { title: 'Sound', icon: Volume2, tint: 'red' },
+  { title: 'Your data', icon: HardDrive, tint: 'gray' },
+  { title: 'Help', icon: LifeBuoy, tint: 'blue' },
+  { title: 'Shortcuts', icon: Keyboard, tint: 'purple' }
 ]
 /** The section on show, unless a search shows every section's matches. */
 const Shown = createContext('')
@@ -239,9 +243,12 @@ export function SettingsView(): React.JSX.Element {
                 setSection(one.title)
                 if (searching) (chime('fold'), setQuery(''))
               }}
-              className={`flex items-center justify-center gap-2.5 rounded-md p-1.5 text-left text-body transition-colors @[44rem]/page:justify-start @[44rem]/page:px-2 ${!searching && section === one.title ? 'bg-accent text-foreground' : 'text-foreground/80 hover:bg-accent/60'}`}
+              className={`group flex items-center justify-center gap-2.5 rounded-md p-1.5 text-left text-body transition-colors @[44rem]/page:justify-start @[44rem]/page:px-2 ${!searching && section === one.title ? 'bg-accent text-foreground' : 'text-foreground/80 hover:bg-accent/60'}`}
             >
-              <span className={`flex size-5 shrink-0 items-center justify-center rounded-md text-white ${one.tile}`}><one.icon className="size-3.5" /></span>
+              <one.icon
+                className={`size-4 shrink-0 transition-colors ${!searching && section === one.title ? 'text-[var(--tint)]' : 'text-[color-mix(in_oklab,var(--tint)_55%,var(--muted-foreground))] group-hover:text-[var(--tint)]'}`}
+                style={{ '--tint': `var(--tt-color-text-${one.tint})` } as CSSProperties}
+              />
               <span className={`hidden truncate @[44rem]/page:inline`}>{one.title}</span>
             </button>
           </Tip>
@@ -676,7 +683,7 @@ function SceneryFolders({ folders, on, onSave }: { folders: string[]; on: boolea
       )}
     >
       {/* The first look through a folder makes its small copies: a real wait. */}
-      {on && found?.scanning && <Orb state="searching" label="Making copies of the pictures" />}
+      {on && found?.scanning && <Orb state="searching" label="Making copies…" />}
       <Button variant="outline" size="sm" onClick={() => void vigil.sceneryFolder().then((folder) => {
         if (!folder) return
         if (folders.includes(folder)) return refuse('That folder is already in the list')
@@ -690,11 +697,12 @@ function SceneryFolders({ folders, on, onSave }: { folders: string[]; on: boolea
   )
 }
 
-/** Export, with an orb in place of its icon for as long as it takes. */
+/** Export, an orb saying so in its place for as long as it takes. */
 function ExportButton(): React.JSX.Element {
   const [busy, setBusy] = useState(false)
+  if (busy) return <Orb label="Exporting…" />
   return (
-    <Button variant="outline" size="sm" disabled={busy} onClick={() => {
+    <Button variant="outline" size="sm" onClick={() => {
       setBusy(true)
       void vigil.exportAll().then((folder) => {
         if (!folder) return
@@ -702,21 +710,22 @@ function ExportButton(): React.JSX.Element {
         toast(`Exported to ${folder.split('/').slice(-2).join('/')}`)
       }).finally(() => setBusy(false))
     }}>
-      {busy ? <Orb label="Exporting" /> : <Download className="size-4" />} Export
+      <AliveIcon icon={DownloadIcon} size={16} /> Export
     </Button>
   )
 }
 
-/** An import, its button holding an orb until the notes are in. */
+/** An import, an orb saying so in its button's place until the notes are in. */
 function ImportButton({ what, children }: { what: 'vault' | 'files'; children: ReactNode }): React.JSX.Element {
   const [busy, setBusy] = useState(false)
+  if (busy) return <Orb state="weaving" label="Importing…" />
   return (
-    <Button variant="outline" size="sm" disabled={busy} onClick={() => {
+    <Button variant="outline" size="sm" onClick={() => {
       chime('open')
       setBusy(true)
       void window.api.importFrom(what).finally(() => setBusy(false))
     }}>
-      {busy && <Orb state="weaving" label="Importing" />}{children}
+      <AliveIcon icon={UploadIcon} size={16} />{children}
     </Button>
   )
 }

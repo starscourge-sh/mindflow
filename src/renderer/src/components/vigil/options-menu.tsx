@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { chime, soundOn, step } from '@/lib/sound'
-import { Ellipsis } from 'lucide-react'
+import { AliveIcon } from '@/components/ui/alive-icon'
+import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 
 import {
   DropdownMenu,
@@ -30,7 +31,7 @@ export type Option = { label: string; on: boolean; keys?: string; set: (on: bool
  * matters first (the words, their kind, Create) stays in view, the rest is a
  * click or its own key away. Each switch keeps its shortcut, shown here.
  */
-export function OptionsMenu({ options, actions, app = false, label = 'Options', icon = <Ellipsis className="size-4" />, side = 'top', align = 'start', className = '' }: {
+export function OptionsMenu({ options, actions, app = false, label = 'Options', icon = <AliveIcon icon={DotsHorizontalIcon} size={16} />, side = 'top', align = 'start', className = '' }: {
   options: Option[]
   /** Things to do rather than switch: a new box, a bigger window. */
   actions: { label: string; keys?: string; run: () => void }[]

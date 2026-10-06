@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useRef, useState, type CSSProperties } f
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
 import { useSwipeBack } from './lib/use-swipe-back'
-import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Orbit, Plus, Settings2, X } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Orbit, Plus, X } from 'lucide-react'
 import type { Editor, JSONContent } from '@tiptap/core'
 
 import { convertImports } from './lib/convert-imports'
@@ -66,6 +66,7 @@ import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
+import GearIcon from '@/components/ui/gear-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
 import { useStoredFlag } from '@/lib/use-stored-flag'
 import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
@@ -988,7 +989,7 @@ export default function App(): React.JSX.Element {
         <OptionsMenu
           app
           label="Actions"
-          icon={<Settings2 className="size-3.5" />}
+          icon={<AliveIcon icon={GearIcon} size={14} />}
           side="bottom"
           align="end"
           className="h-6 w-7 flex-none rounded-none hover:bg-transparent"

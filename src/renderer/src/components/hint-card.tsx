@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button'
 import { QuestionBack } from './vigil/questions-view'
 import { GlossLine, useGlossKey } from './vigil/gloss-line'
 import { openPass } from './vigil/pass'
+import { AliveIcon } from '@/components/ui/alive-icon'
+import TrashIcon from '@/components/ui/trash-icon'
 
 // A memory is a hint that says what it is: this day last year, one source's things.
 type Hint = NonNullable<Awaited<ReturnType<typeof window.api.hints.next>>> & { memory?: string }
@@ -295,7 +297,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
                 <Tooltip key={tip}>
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon-sm" aria-label={tip} onClick={run}>
-                      <Icon />
+                      {Icon === Trash2 ? <AliveIcon icon={TrashIcon} size={14} /> : <Icon />}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>

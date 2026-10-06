@@ -2,7 +2,7 @@ import { Children, cloneElement, createContext, useContext, useEffect, useLayout
 import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { SlotText } from 'slot-text/react'
-import { ArrowDown, ArrowUp, CircleCheck, CircleX, Volume2, VolumeX, type LucideIcon } from 'lucide-react'
+import { ArrowDown, ArrowUp, CircleCheck, CircleX, type LucideIcon } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Coolshape, type shapeTypes } from 'coolshapes-react'
 import Lenis from 'lenis'
@@ -16,6 +16,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { KindAsker } from './note-extras'
 import { QuestionAsker } from './questions-view'
 import { num } from '../../../../main/dates'
+import { AliveIcon } from '@/components/ui/alive-icon'
+import type { OrbState } from 'thinking-orbs'
+import { Orb } from './orb'
+import type { AnimatedIconHandle, AnimatedIconProps } from '@/components/ui/types'
+import Volume2Icon from '@/components/ui/volume-2-icon'
+import VolumeXIcon from '@/components/ui/volume-x-icon'
 
 /**
  * The few parts every view is built from, so the views read as one app. The
@@ -190,8 +196,10 @@ export function PropInput({ icon: Icon, value, placeholder, onSave, suffix, type
   )
 }
 
-export function Prop({ icon: Icon, children, onClick, active, tint, secret }: {
-  icon: LucideIcon
+export function Prop({ icon: Icon, alive, children, onClick, active, tint, secret }: {
+  icon?: LucideIcon
+  /** One of itshover's animated icons instead, for a Prop that is a button. */
+  alive?: React.ComponentType<AnimatedIconProps & React.RefAttributes<AnimatedIconHandle>>
   /** Private: blurred at rest, as in any list. */
   secret?: boolean
   /** A theme colour for the icon, where the colour means something. */
@@ -208,7 +216,9 @@ export function Prop({ icon: Icon, children, onClick, active, tint, secret }: {
       data-private={secret ? '' : undefined}
       className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left ${onClick ? 'hover:bg-accent hover:text-foreground' : ''} ${active ? 'text-foreground' : ''}`}
     >
-      <Icon className="size-4 shrink-0" style={tint ? { color: `var(--tt-color-text-${tint})` } : undefined} />
+      {alive
+        ? <AliveIcon icon={alive} size={16} style={tint ? { color: `var(--tt-color-text-${tint})` } : undefined} />
+        : Icon && <Icon className="size-4 shrink-0" style={tint ? { color: `var(--tt-color-text-${tint})` } : undefined} />}
       <span className={`min-w-0 truncate ${secret ? 'private-text' : ''}`}>{children}</span>
     </Tag>
   )
@@ -348,6 +358,19 @@ export const toast = (text: string, undo?: () => void, tone: 'success' | 'error'
   window.dispatchEvent(new CustomEvent('vigil:toast', { detail: { text, undo, tone, action } }))
 }
 
+/**
+ * A real wait said in words: an orb chip where toasts come up, for as long as
+ * the work takes. For work started from a menu, with no button to hold it.
+ */
+export async function waiting<T>(label: string, state: OrbState, work: Promise<T>): Promise<T> {
+  window.dispatchEvent(new CustomEvent('vigil:wait', { detail: { label, state } }))
+  try {
+    return await work
+  } finally {
+    window.dispatchEvent(new CustomEvent('vigil:wait', { detail: null }))
+  }
+}
+
 /** Give a nugget its question, so review can test it: asked in place. */
 export const askQuestion = (id: string): Promise<void> =>
   ask('The question it answers, for review', 'e.g. What does MVCC stand for?').then((prompt) => {
@@ -478,6 +501,12 @@ let lastEdit = 0
 
 export function Toaster(): React.JSX.Element | null {
   const [shown, setShown] = useState<{ text: string; undo?: () => void; tone?: 'success' | 'error'; action?: ToastAction; key: number } | null>(null)
+  const [wait, setWait] = useState<{ label: string; state: OrbState } | null>(null)
+  useEffect(() => {
+    const onWait = (event: Event): void => setWait((event as CustomEvent).detail)
+    window.addEventListener('vigil:wait', onWait)
+    return () => window.removeEventListener('vigil:wait', onWait)
+  }, [])
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
     const onToast = (event: Event): void => {
@@ -563,6 +592,9 @@ export function Toaster(): React.JSX.Element | null {
     <KindAsker />
     <QuestionAsker />
     <Beam />
+    {wait && !shown && <div className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex justify-center">
+      <Orb state={wait.state} label={wait.label} className="bg-popover shadow-[0_8px_24px_-6px_rgb(0_0_0/0.5)] animate-in fade-in-0 slide-in-from-bottom-2 duration-200" />
+    </div>}
     {/* Centred along the bottom, where the eye drops after acting. */}
     {shown && <div className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex justify-center"><div
       key={shown.key}
@@ -893,7 +925,7 @@ export function SoundToggle({ className = '' }: { className?: string }): React.J
         }}
         className={className}
       >
-        {on ? <Volume2 /> : <VolumeX />}
+        <AliveIcon icon={on ? Volume2Icon : VolumeXIcon} size={16} />
       </button>
     </Tip>
   )

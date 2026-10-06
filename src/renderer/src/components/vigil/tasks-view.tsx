@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as chrono from 'chrono-node'
 import type { JSONContent } from '@tiptap/core'
-import { Bell, CalendarClock, CalendarDays, Check, FileText, Gem, Hash, History, ListChecks, Play, Plus, Repeat, Square, Telescope, Trash2, X, Ban, Timer, Hourglass } from 'lucide-react'
+import { Bell, CalendarClock, CalendarDays, Check, FileText, Gem, Hash, History, ListChecks, Play, Plus, Repeat, Square, Telescope, X, Ban, Timer, Hourglass } from 'lucide-react'
 
 
 import { MindflowEditor } from '../mindflow'
@@ -24,6 +24,7 @@ import { Rest } from './scenery'
 import { TaskLog } from './task-log'
 import { GlossButton, GlossLine } from './gloss-line'
 import { dayjs, startOfDay } from '../../../../main/dates'
+import TrashIcon from '@/components/ui/trash-icon'
 
 // Counted on the calendar, so a clock change never moves a day by an hour.
 /** The day a task shows on, as a number to compare: never, for one with no day. */
@@ -495,7 +496,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
         <Island compact title="Task">
           <Prop icon={Hash}>{captureKey(task.number).replace('MF', 'T')}</Prop>
           <Prop
-            icon={Trash2}
+            alive={TrashIcon}
             onClick={() =>
               void vigil.saveTask(task.id, { status: 'dropped' }).then(() => {
                 onClose()

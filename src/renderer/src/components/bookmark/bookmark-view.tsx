@@ -56,8 +56,7 @@ export function BookmarkView(props: NodeViewProps): React.JSX.Element {
         {description && <span className="tiptap-bookmark-description">{description}</span>}
         <span className="tiptap-bookmark-site">
           {icon && !loading && <img className="tiptap-bookmark-icon" src={icon} alt="" />}
-          {loading && <Fetching />}
-          <span>{loading ? "Loading…" : site}</span>
+          {loading ? <Fetching /> : <span>{site}</span>}
         </span>
       </span>
 
@@ -82,23 +81,26 @@ export function BookmarkView(props: NodeViewProps): React.JSX.Element {
 }
 
 /**
- * A small orb while the preview is on its way: a real wait, often a second
- * or two. Its ink is read off the card's own text colour, light on a dark
- * page and dark on a light one, and it holds still with Motion off.
+ * A small orb in a chip while the preview is on its way: a real wait, often
+ * a second or two, the words shimmering while it lasts. Its ink is read off
+ * the chip's own text colour, light on a dark page and dark on a light one,
+ * and it holds still with Motion off.
  */
 function Fetching(): React.JSX.Element {
   const [theme, setTheme] = useState<"dark" | "light">("dark")
   const still = document.documentElement.dataset.motion === "off"
   return (
     <span
-      className="tiptap-bookmark-icon"
+      className="tiptap-bookmark-fetching"
+      role="status"
       ref={(node) => {
         if (!node) return
         const [r, g, b] = (getComputedStyle(node).color.match(/[\d.]+/g) ?? []).map(Number)
         setTheme(0.2126 * r + 0.7152 * g + 0.0722 * b > 128 ? "dark" : "light")
       }}
     >
-      <ThinkingOrb size={20} state="connecting" theme={theme} paused={still} aria-label="Loading the preview" style={{ width: "100%", height: "100%" }} />
+      <ThinkingOrb size={20} state="connecting" theme={theme} paused={still} aria-hidden />
+      <span className="tiptap-shimmer" data-text="Fetching preview…">Fetching preview…</span>
     </span>
   )
 }

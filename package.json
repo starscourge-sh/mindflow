@@ -76,6 +76,7 @@
     "liquid-gooey": "^0.2.2",
     "lowlight": "^3.3.0",
     "lucide-react": "^1.33.0",
+    "marked": "^17.0.6",
     "mathjs": "^15.2.0",
     "motion": "^14.0.0",
     "papaparse": "^5.7.0",

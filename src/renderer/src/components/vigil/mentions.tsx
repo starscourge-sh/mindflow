@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
-import { ChevronRight, Link2 } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
+import { AliveIcon } from '@/components/ui/alive-icon'
+import LinkIcon from '@/components/ui/link-icon'
 
 import { chime } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
@@ -51,7 +53,7 @@ export function Mentions({ id, onOpen }: { id: string; onOpen?: (type: string, i
               toast('Linked')
             })}
           >
-            <Link2 className="size-3.5" /> Link
+            <AliveIcon icon={LinkIcon} size={14} /> Link
           </button>
         </Tip>
       )}

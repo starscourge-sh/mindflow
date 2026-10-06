@@ -179,7 +179,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
             )}
             {slow && query.trim() && (
               // The orb only if it is a real wait: a search back at once never shows it.
-              <p className="flex items-center gap-2 px-2 py-3 text-sm text-muted-foreground"><span className="flex animate-in fade-in-0 duration-200"><Orb state="searching" label="Searching" /></span><Typed text="Searching…" /></p>
+              <p className="flex px-2 py-2"><Orb state="searching" label="Searching…" className="animate-in fade-in-0 duration-200" /></p>
             )}
             {query.trim() && searched === query && !results.length && !doing.length && (
               <p className="px-2 py-3 text-sm text-muted-foreground">
@@ -248,18 +248,15 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
 }
 
 /**
- * A note as the preview shows it: its start, read only, fetched once the
- * arrows rest on it rather than for every row they pass.
+ * A note as the preview shows it: its start, read only, fetched for the one
+ * highlighted rather than sent along with every result.
  */
 function NotePreview({ type, id }: { type: string; id: string }): React.JSX.Element | null {
   const [body, setBody] = useState<unknown>(undefined)
   useEffect(() => {
     let old = false
-    const ask = setTimeout(() => void window.api.captures.peek(type, id).then((found) => !old && setBody(found)), 80)
-    return () => {
-      old = true
-      clearTimeout(ask)
-    }
+    void window.api.captures.peek(type, id).then((found) => !old && setBody(found))
+    return () => void (old = true)
   }, [type, id])
   if (body === undefined) return null
   return <MindflowEditor defaultContent={(body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />

@@ -1,6 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react"
-import { AlignCenter, AlignLeft, AlignRight, AudioLines, Download, ExternalLink, File, FileText, Maximize, Pause, PictureInPicture2, Play, RotateCcw, Trash2, Volume2, VolumeX } from "lucide-react"
+import { AlignCenter, AlignLeft, AlignRight, AudioLines, File, FileText, Maximize, Pause, PictureInPicture2, Play, RotateCcw, Volume2, VolumeX } from "lucide-react"
+import { AliveIcon } from "@/components/ui/alive-icon"
+import DownloadIcon from "@/components/ui/download-icon"
+import ExternalLinkIcon from "@/components/ui/external-link-icon"
+import TrashIcon from "@/components/ui/trash-icon"
 
 import { Toolbar, ToolbarGroup, ToolbarSeparator } from "@/components/tiptap-ui-primitive/toolbar"
 import { Button } from "@/components/tiptap-ui-primitive/button"
@@ -290,13 +294,13 @@ function MediaToolbar({ props, sized }: { props: NodeViewProps; sized: boolean }
         </span>
         <ToolbarGroup>
           <Button data-style="ghost" aria-label={`Open ${name}`} onClick={() => void host().openFile?.(src)}>
-            <ExternalLink className="tiptap-button-icon" />
+            <AliveIcon icon={ExternalLinkIcon} size={16} className="tiptap-button-icon" />
           </Button>
           <Button data-style="ghost" aria-label={`Save ${name}`} onClick={() => void host().saveFileAs?.(src, name)}>
-            <Download className="tiptap-button-icon" />
+            <AliveIcon icon={DownloadIcon} size={16} className="tiptap-button-icon" />
           </Button>
           <Button data-style="ghost" aria-label={`Delete ${name}`} onClick={() => props.deleteNode()}>
-            <Trash2 className="tiptap-button-icon" />
+            <AliveIcon icon={TrashIcon} size={16} className="tiptap-button-icon" />
           </Button>
         </ToolbarGroup>
       </Toolbar>
@@ -379,7 +383,7 @@ export function AttachmentView(props: NodeViewProps): React.JSX.Element {
             void host().openFile?.(src)
           }}
         >
-          <ExternalLink />
+          <AliveIcon icon={ExternalLinkIcon} size={16} />
         </button>
         <button
           type="button"
@@ -391,7 +395,7 @@ export function AttachmentView(props: NodeViewProps): React.JSX.Element {
             void host().saveFileAs?.(src, name)
           }}
         >
-          <Download />
+          <AliveIcon icon={DownloadIcon} size={16} />
         </button>
       </div>
     </NodeViewWrapper>

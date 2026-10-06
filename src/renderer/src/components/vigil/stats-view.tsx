@@ -1,5 +1,6 @@
 import { Children, useState, type ReactNode } from 'react'
-import { Sparkles } from 'lucide-react'
+import { AliveIcon } from '@/components/ui/alive-icon'
+import SparklesIcon from '@/components/ui/sparkles-icon'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { useLive, vigil, type Stats } from '@/lib/vigil'
@@ -65,7 +66,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
     {recap && <Recap period={recap} onClose={() => (chime('fold'), setRecap(null))} />}
     <Page title="Stats" actions={
       <>
-        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => wrap('month')}><Sparkles className="size-4" /> Your month</Button>
+        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => wrap('month')}><AliveIcon icon={SparklesIcon} size={16} /> Your month</Button>
         <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => wrap('year')}>Your year</Button>
       </>
     }>

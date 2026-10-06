@@ -2,7 +2,7 @@ import { useEffect, useSyncExternalStore } from 'react'
 
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { fieldKeys } from '@/components/capture-kinds/kind-fields'
-import { beaming, refuse, toast } from '@/components/vigil/ui'
+import { beaming, refuse, toast, waiting } from '@/components/vigil/ui'
 import type { Action } from '@/components/search'
 import { chime } from '@/lib/sound'
 import { useLive, vigil } from '@/lib/vigil'
@@ -156,7 +156,7 @@ export async function archive(table: NoteTable, ids: string[], on: boolean, quie
 
 /** Every picture and file in these notes (or every note), under its own name, to a folder. */
 export async function saveAttachments(list?: { table: NoteTable; id: string }[]): Promise<void> {
-  const done = await beaming(call<{ saved: number; total: number } | 0 | null>('notes:attachments', list))
+  const done = await beaming(waiting('Saving files…', 'working', call<{ saved: number; total: number } | 0 | null>('notes:attachments', list)))
   if (done === null) return
   if (!done) return refuse(list ? 'No pictures or files in this note' : 'No pictures or files anywhere yet')
   const { saved, total } = done

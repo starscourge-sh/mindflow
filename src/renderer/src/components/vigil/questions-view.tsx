@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { Archive, ArchiveRestore, Calendar, Download, EyeOff, Eye, Lightbulb, Orbit, Pin, PinOff, Plus, RotateCcw, Wind } from 'lucide-react'
+import { Archive, ArchiveRestore, Calendar, Download, EyeOff, Eye, Orbit, Pin, PinOff, Plus, RotateCcw, Wind } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
@@ -19,6 +19,7 @@ import { Aliases, LocalGraph, Versions } from './note-extras'
 import { RowMenu, copy, type MenuItem } from './row-menu'
 import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Tip, Typed, VirtualList, ask, refuse, showTopTitle, toast, useListKeys } from './ui'
 import { dayMonth, dayjs, heldFor, num } from '../../../../main/dates'
+import BulbSvg from '@/components/ui/bulb-svg'
 
 /**
  * Questions: what you keep circling and cannot name yet. The tier between a
@@ -348,7 +349,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
             <Prop icon={RotateCcw} onClick={holdAgain}>Hold it again</Prop>
           ) : (
             <>
-              <Prop icon={Lightbulb} onClick={gotIt}>I've got it: start the article</Prop>
+              <Prop alive={BulbSvg} onClick={gotIt}>I've got it: start the article</Prop>
               <Prop icon={Wind} onClick={letGo}>Let it go</Prop>
             </>
           )}

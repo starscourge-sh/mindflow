@@ -19,7 +19,6 @@ import {
   Orbit,
   PanelLeft,
   Search as SearchIcon,
-  Settings as SettingsIcon,
   Shield,
   ShieldOff,
   SquarePen,
@@ -52,6 +51,10 @@ import { Tip, showTopTitle, useTopTitle } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import ExpandIcon from '@/components/ui/expand-icon'
+import GearIcon from '@/components/ui/gear-icon'
+import EyeIcon from '@/components/ui/eye-icon'
+import EyeOffIcon from '@/components/ui/eye-off-icon'
+import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
 import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
 import { Tour } from '@/components/vigil/tour'
@@ -61,7 +64,7 @@ import { RecentPanel } from '@/components/vigil/recent-panel'
 import { Passes, openPass } from '@/components/vigil/pass'
 import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
-import { Archive, CalendarFold, Ellipsis, Eye, EyeOff, NotebookPen, Sprout } from 'lucide-react'
+import { Archive, CalendarFold, NotebookPen, Sprout } from 'lucide-react'
 import { openWindow } from '@/lib/notes'
 
 // A nonce makes asking again a fresh visit: the recap reopens each time.
@@ -408,7 +411,7 @@ export function Home(): React.JSX.Element {
                 onClick={() => (chime(moreOpen ? 'fold' : 'slide'), setMoreOpen(!moreOpen))}
                 className={`mt-3 flex items-center gap-1 py-1 text-xs text-muted-foreground hover:text-foreground ${narrow ? 'justify-center' : 'px-2'}`}
               >
-                {narrow ? <Ellipsis className="size-4" /> : <>More <ChevronRight className={`size-3 transition-transform ${moreOpen ? 'rotate-90' : ''}`} /></>}
+                {narrow ? <AliveIcon icon={DotsHorizontalIcon} size={16} /> : <>More <ChevronRight className={`size-3 transition-transform ${moreOpen ? 'rotate-90' : ''}`} /></>}
               </button>
             )}
             {(!MORE.includes(section.id) || moreOpen || view.id === section.id) && (
@@ -516,7 +519,7 @@ export function Home(): React.JSX.Element {
             aria-label={settings?.blur === false ? 'Blurring: off' : 'Blurring: on'}
             className={`flex items-center gap-2.5 rounded-md py-1.5 text-foreground/80 transition-colors hover:bg-accent/60 ${narrow ? 'justify-center px-0' : 'px-2'}`}
           >
-            {settings?.blur === false ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+            <AliveIcon icon={settings?.blur === false ? EyeIcon : EyeOffIcon} size={16} />
             {!narrow && <span className="flex-1 text-left">{settings?.blur === false ? 'Blurring: off' : 'Blurring: on'}</span>}
           </button>
           </Tip>
@@ -527,7 +530,7 @@ export function Home(): React.JSX.Element {
             onClick={() => setView({ id: 'settings' })}
             className={`flex items-center gap-2.5 rounded-md py-1.5 ${narrow ? 'justify-center px-0' : 'px-2'} ${view.id === 'settings' ? 'bg-accent' : 'text-foreground/80 hover:bg-accent/60'}`}
           >
-            <SettingsIcon className="size-4" />
+            <AliveIcon icon={GearIcon} size={16} />
             {!narrow && <span className="flex-1 text-left">Settings</span>}
           </button>
           </Tip>

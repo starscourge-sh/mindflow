@@ -28,6 +28,7 @@ import { Kbd, Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
+import TrashIcon from '@/components/ui/trash-icon'
 import { Archive, ArchiveRestore, Download } from 'lucide-react'
 import { Aliases, KindFields, LayoutToggle, LocalGraph, NoteCards, Versions, useLayout } from './note-extras'
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
@@ -332,7 +333,7 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
     { icon: ArrowUpRight, tint: 'purple', label: 'Promote to nugget', run: () => flying(capture.id, 'nugget', () => takeExit(capture.id, 'promoted')), said: 'Promoted' },
     { icon: ListTodo, tint: 'orange', label: 'Make it a task', run: () => makeTask({ capture: capture.id }), said: 'Now a task' },
     { icon: CheckCircle2, tint: 'green', label: 'Resolve', run: () => window.api.captures.save(capture.id, { status: 'resolved' }), said: 'Resolved' },
-    { icon: Trash2, tint: 'red', label: 'Discard', run: () => window.api.captures.save(capture.id, { status: 'discarded' }), said: 'Discarded' }
+    { icon: Trash2, alive: TrashIcon, tint: 'red', label: 'Discard', run: () => window.api.captures.save(capture.id, { status: 'discarded' }), said: 'Discarded' }
   ]
 
   return (
@@ -347,6 +348,7 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
               <Prop
                 key={exit.label}
                 icon={exit.icon}
+                alive={exit.alive}
                 tint={exit.tint}
                 onClick={() => {
                   void exit.run().then((result) => {

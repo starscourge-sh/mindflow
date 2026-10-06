@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { ArrowLeft, ArrowRight, Check, CheckCircle2, Gem, Inbox, ListTodo, Brain } from 'lucide-react'
+import { ArrowLeft, ArrowRight, CheckCircle2, Gem, Inbox, ListTodo, Brain } from 'lucide-react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
@@ -15,6 +15,8 @@ import { GlossButton, GlossLine } from './gloss-line'
 import { Versions } from './note-extras'
 import { ScaleSwitch, type Scale } from './periods-view'
 import { dayKey, dayName, noon } from '../../../../main/dates'
+import { AliveIcon } from '@/components/ui/alive-icon'
+import CheckedIcon from '@/components/ui/checked-icon'
 
 /** A day's date, as you would say it: "Monday 5 October". */
 const named = (day: string): string => dayName(noon(day))
@@ -82,7 +84,7 @@ export function DayView({ onOpen, start, onScale }: {
           </Tip>
           {day !== today && <Button variant="ghost" size="sm" onClick={() => go(today)}>Today <Kbd>T</Kbd></Button>}
           <Button variant={data?.reviewed ? 'secondary' : 'ghost'} size="sm" aria-pressed={!!data?.reviewed} onClick={tick}>
-            <Check className="size-3.5" /> <Rolling text={data?.reviewed ? 'Reviewed' : 'Mark reviewed'} by="word" />
+            <AliveIcon icon={CheckedIcon} size={14} /> <Rolling text={data?.reviewed ? 'Reviewed' : 'Mark reviewed'} by="word" />
           </Button>
         </span>
       }

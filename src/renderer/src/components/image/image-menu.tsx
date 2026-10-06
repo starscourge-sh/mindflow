@@ -1,7 +1,9 @@
 import { BubbleMenu, type BubbleMenuProps } from "@tiptap/react/menus"
 import { NodeSelection } from "@tiptap/pm/state"
 import { EditorContext, useEditorState, type Editor } from "@tiptap/react"
-import { AlignCenter, AlignLeft, AlignRight, Trash2 } from "lucide-react"
+import { AlignCenter, AlignLeft, AlignRight } from "lucide-react"
+import { AliveIcon } from "@/components/ui/alive-icon"
+import TrashIcon from "@/components/ui/trash-icon"
 
 import { Toolbar, ToolbarGroup, ToolbarSeparator } from "@/components/tiptap-ui-primitive/toolbar"
 import { Button } from "@/components/tiptap-ui-primitive/button"
@@ -97,7 +99,7 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
               aria-label="Delete image"
               onClick={() => editor.chain().focus().deleteSelection().run()}
             >
-              <Trash2 className="tiptap-button-icon" />
+              <AliveIcon icon={TrashIcon} size={16} className="tiptap-button-icon" />
             </Button>
           </ToolbarGroup>
         </Toolbar>

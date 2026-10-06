@@ -1,9 +1,10 @@
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { NodeViewWrapper, useEditorState, type NodeViewProps } from '@tiptap/react'
-import { Check, ExternalLink, Minimize2, PencilRuler } from 'lucide-react'
+import { Check, Minimize2, PencilRuler } from 'lucide-react'
 import { chime } from '@/lib/sound'
-import { AliveIcon } from '@/components/vigil/alive-icon'
+import { AliveIcon } from '@/components/ui/alive-icon'
+import ExternalLinkIcon from '@/components/ui/external-link-icon'
 import ExpandIcon from '@/components/ui/expand-icon'
 
 import type { DiagramScene } from '@/extensions/excalidraw'
@@ -300,7 +301,7 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
               aria-label={elsewhere ? 'Bring its window forward' : 'Open in its own window'}
               onClick={openInWindow}
             >
-              <ExternalLink />
+              <AliveIcon icon={ExternalLinkIcon} size={14} />
             </button>
           )}
 
