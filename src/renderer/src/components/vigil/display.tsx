@@ -291,6 +291,23 @@ const Row = ({ label, changed, children }: { label: string; changed: boolean; ch
  * the list holds sit beside them a click away. Defaults a list starts with
  * are not shown: they are where it is, not a filter you chose.
  */
+/**
+ * A filter chip that says plainly whether it is on: off, a hairline outline
+ * on the page; on, filled in the accent with a tick, the outline darkened.
+ * Borders on both, since the fills alone are too faint to tell apart.
+ */
+function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }): React.JSX.Element {
+  return (
+    <button type="button" aria-pressed={on} onClick={(event) => (onClick(), event.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' }))}
+      className={`flex h-6 shrink-0 items-center gap-1.5 rounded-full border px-2.5 transition-[background-color,border-color,color] duration-150 ${on
+        ? 'border-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_18%,transparent)] text-foreground'
+        : 'border-border bg-transparent text-muted-foreground hover:border-foreground/25 hover:text-foreground'}`}>
+      {on && <Check className="-ml-0.5 size-3 text-[var(--tt-brand-color-400)]" />}
+      {children}
+    </button>
+  )
+}
+
 export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 'kind', className = '' }: {
   view: View
   onChange: (view: View) => void
@@ -305,8 +322,7 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
   )
   const row = useSideways()
   const offered = facets.find((facet) => facet.key === quick)
-  const more = offered && offered.options.length > 1 ? offered.options.filter((one) => !(view.filter[offered.key] ?? []).includes(one.id)) : []
-  if (!set.length && !more.length) return null
+  if (!set.length && !(offered && offered.options.length > 1)) return null
   const toggle = (key: string, id: string): void => {
     const list = view.filter[key] ?? []
     chime(list.includes(id) ? 'off' : 'on')
@@ -316,33 +332,33 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
   return (
     // One line that scrolls sideways, fading where there is more, never wrapping under itself.
     <div data-hover-quiet ref={row.ref} style={row.style} className={`flex min-w-0 items-center gap-1 text-xs ${row.className} ${className}`}>
-      {set.length > 0 && (
+      {/* Always there, only faded out when nothing is chosen: appearing, it pushed every chip along. */}
+      {(
         <Tip label="Clear the filters">
           <button
             type="button"
+            disabled={!set.length}
+            aria-hidden={!set.length}
+            tabIndex={set.length ? 0 : -1}
             onClick={() => {
               chime('undo')
               onChange({ ...view, filter: { ...defaults } })
             }}
-            className="flex size-6 items-center justify-center rounded-full bg-accent text-muted-foreground hover:text-foreground"
+            className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground transition-opacity duration-150 hover:text-foreground disabled:pointer-events-none disabled:opacity-0"
           >
             <X className="size-3.5" />
           </button>
         </Tip>
       )}
-      {set.map(({ facet, option }) => (
-        <button key={`${facet.key}:${option.id}`} type="button" aria-pressed onClick={() => toggle(facet.key, option.id)}
-          className="flex h-6 items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--tt-brand-color-400)_18%,transparent)] px-2.5 text-foreground">
-          {icon(option)}
-          {option.label}
-        </button>
+      {/* Chosen filters from other facets first; the quick facet's options
+          stay in their own order whether on or off, so a click never moves
+          the chip out from under the pointer. */}
+      {set.filter(({ facet }) => facet.key !== offered?.key).map(({ facet, option }) => (
+        <Chip key={`${facet.key}:${option.id}`} on onClick={() => toggle(facet.key, option.id)}>{icon(option)}{option.label}</Chip>
       ))}
-      {more.map((option) => (
-        <button key={option.id} type="button" aria-pressed={false} onClick={() => toggle(offered!.key, option.id)}
-          className="flex h-6 items-center gap-1.5 rounded-full bg-accent/60 px-2.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
-          {icon(option)}
-          {option.label}
-        </button>
+      {offered && offered.options.length > 1 && offered.options.map((option) => (
+        <Chip key={option.id} on={(view.filter[offered.key] ?? []).includes(option.id) && !(defaults[offered.key] ?? []).includes(option.id)}
+          onClick={() => toggle(offered.key, option.id)}>{icon(option)}{option.label}</Chip>
       ))}
     </div>
   )
