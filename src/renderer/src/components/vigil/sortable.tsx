@@ -90,12 +90,12 @@ export function SortableList<T>({ items, keyOf, onMove, children }: {
   const byId = new Map(items.map((item) => [keyOf(item), item]))
   const shown = held ? held.map((id) => byId.get(id)).filter((one): one is T => !!one) : items
   const onDragStart = ({ active }: DragStartEvent): void => {
-    chime('tap')
+    chime('lift')
     setShot(snapshot(String(active.id)))
   }
   const onDragEnd = ({ active, over }: DragEndEvent): void => {
     setShot(null)
-    if (!over || over.id === active.id) return chime('fold')
+    if (!over || over.id === active.id) return chime('stay')
     const order = shown.map(keyOf)
     const from = order.indexOf(String(active.id))
     const to = order.indexOf(String(over.id))

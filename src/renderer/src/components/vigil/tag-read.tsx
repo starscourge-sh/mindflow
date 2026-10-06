@@ -63,7 +63,7 @@ export function usePinnedTags(): [string[], (tag: string, on: boolean) => void] 
     } catch {
       // Applied, not kept.
     }
-    chime(on ? 'pin' : 'fold')
+    chime(on ? 'pin' : 'unpin')
     window.dispatchEvent(new Event('vigil:tag-pins'))
   }]
 }
@@ -164,7 +164,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
     if (!to || to.replace(/^#/, '') === tag) return
     const done = await vigil.renameTag(tag, to)
     if (!done) return refuse('Not renamed: a tag starts with a letter and uses only letters, numbers, dashes and underscores')
-    chime('noted')
+    chime('retag')
     toast(`#${tag} is now #${done} everywhere`)
     onTag(done)
   }

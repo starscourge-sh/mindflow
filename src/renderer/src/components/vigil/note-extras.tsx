@@ -184,7 +184,7 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
     const text = outcome ? `Decide: ${outcome}` : `Decide, after: ${self?.title || 'the experiment'}`
     const made = await window.api.captures.create({ kind: 'decision', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] }, origin: id })
     await notes.setField('captures', made, 'state', 'Open')
-    chime('decided')
+    chime('promote')
     toast('A decision, started from this experiment', () => void vigil.unmakeCapture(made, id).then(() => chime('undo')))
     onOpen?.('capture', made)
   }

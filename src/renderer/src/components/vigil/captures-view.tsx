@@ -262,7 +262,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
                 onKeyDown={(event) => {
                   const tag = event.currentTarget.value.trim()
                   if (event.key !== 'Enter' || !tag) return
-                  void vigil.bulk(chosen, { tag }).then((n) => (chime('noted'), toast(`Tagged ${num(n)} with #${tag.replace(/^#/, '')}`)))
+                  void vigil.bulk(chosen, { tag }).then((n) => (chime('tag'), toast(`Tagged ${num(n)} with #${tag.replace(/^#/, '')}`)))
                   event.currentTarget.value = ''
                 }}
                 className="w-20 rounded-md bg-transparent px-2 py-1 text-xs outline-none placeholder:text-foreground/70 hover:bg-accent focus:bg-accent"

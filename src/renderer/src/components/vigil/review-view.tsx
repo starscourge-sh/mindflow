@@ -102,7 +102,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   const bury = (): void => {
     if (!card) return
     setMissed(null)
-    void vigil.bury(card.id).then(() => (chime('away'), toast('Buried until tomorrow')))
+    void vigil.bury(card.id).then(() => (chime('later'), toast('Buried until tomorrow')))
     setShown(false)
     setSaid('')
     setAt((index) => index + 1)

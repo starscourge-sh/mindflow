@@ -48,7 +48,7 @@ export function Pins({ onOpen }: { onOpen: (type: string, id: string) => void })
                 { label: 'Open', run: () => onOpen(pin.type, pin.id) },
                 pin.type === 'capture' && { label: 'Make it a task', run: () => void makeTask({ capture: pin.id }, undefined, { onUndo: () => void vigil.pin(table, pin.id, true) }).then((made) => made && vigil.pin(table, pin.id, false)) },
                 'separator',
-                { label: 'Unpin', run: () => void vigil.pin(table, pin.id, false).then(() => chime('fold')) }
+                { label: 'Unpin', run: () => void vigil.pin(table, pin.id, false).then(() => chime('unpin')) }
               ]}>
                 <button type="button" data-private={pin.private ? '' : undefined} className="flex-1 truncate text-left hover:underline" onClick={() => onOpen(pin.type, pin.id)}>
                   <span className="private-text">{pin.title || 'Untitled'}</span>
@@ -68,7 +68,7 @@ export function Pins({ onOpen }: { onOpen: (type: string, id: string) => void })
                 type="button"
               
                 className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground"
-                onClick={() => void vigil.pin(table, pin.id, false).then(() => chime('fold'))}
+                onClick={() => void vigil.pin(table, pin.id, false).then(() => chime('unpin'))}
               >
                 <X className="size-3.5" />
               </button>

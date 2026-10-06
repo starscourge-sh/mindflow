@@ -475,7 +475,7 @@ export function Home(): React.JSX.Element {
                     <RowMenu key={pin.id} items={[
                       { label: 'Open', run: () => open(pin.type, pin.id) },
                       'separator',
-                      { label: 'Unpin', run: () => void vigil.pin(table, pin.id, false).then(() => chime('fold')) }
+                      { label: 'Unpin', run: () => void vigil.pin(table, pin.id, false).then(() => chime('unpin')) }
                     ]}>
                       <span className="flex min-w-0">
                       <Tip label={narrow ? pin.title || 'Untitled' : ''}>

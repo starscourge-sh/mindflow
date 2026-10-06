@@ -204,7 +204,7 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
           autoScroll={{ threshold: { x: 0.06, y: 0.1 }, acceleration: 4 }}
           measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
           onDragStart={({ active }) => {
-            chime('tap')
+            chime('lift')
             setLanding(null)
             setShot(snapshot(String(active.id)))
           }}
@@ -215,7 +215,7 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
             setOver(null)
             const from = cardOf(String(active.id))
             const to = over ? Number(over.id) : null
-            if (!from || to === null || to === from.col) return chime('fold')
+            if (!from || to === null || to === from.col) return chime('stay')
             setLanding({ id: String(active.id), col: to })
             move(from.card, to - from.col)
           }}

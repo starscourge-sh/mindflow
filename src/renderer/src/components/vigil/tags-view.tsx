@@ -171,7 +171,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 if (event.key !== 'Enter' || !to) return
                 void vigil.renameTag(chosen, to).then((done) => {
                   if (!done) return refuse('Not renamed: a tag starts with a letter and uses only letters, numbers, dashes and underscores')
-                  chime('noted')
+                  chime('retag')
                   toast(`#${chosen} is now #${done} everywhere`)
                   setChosen(done)
                 })

@@ -117,7 +117,8 @@ export function SoundPacks({ chosen }: { chosen: PackName }): React.JSX.Element 
           <div className="flex flex-wrap gap-2">
             {([
               ['resolve', 'Resolve'], ['away', 'Discard'], ['promote', 'Promote'], ['noted', 'Add a task'],
-              ['undo', 'Undo'], ['copy', 'Copy'], ['pin', 'Pin'], ['search', 'Search'],
+              ['undo', 'Undo'], ['copy', 'Copy'], ['pin', 'Pin'], ['unpin', 'Unpin'], ['tag', 'Add a tag'], ['untag', 'Take a tag off'], ['search', 'Search'],
+              ['lift', 'Pick up to drag'], ['move', 'Move a card across'], ['tuck', 'Fold a heading'], ['look', 'Quick Look'],
               ['open', 'A menu opens'], ['on', 'Switch on'], ['off', 'Switch off'],
               ['slide', 'Panel out'], ['fold', 'Panel away'], ['page', 'Turn a page'], ['read', 'Start reading'],
               ['settled', 'Keep a theme'], ['hold', 'Hold a question'], ['clue', 'Add a clue'], ['answered', 'Got it'], ['release', 'Let it go'], ['nope', 'Not allowed']

@@ -25,8 +25,9 @@ export const setVolume = (level: number): void => {
 type Note = [frequency: number, delay: number, length?: number, level?: number, to?: number, swell?: number]
 
 const CUES = {
-  // A light tick: switching a tab, moving to a section.
-  tap: [[1320, 0, 0.05]],
+  // A light tick: switching a tab, moving to a section. Heard more than
+  // anything else, so the quietest note here: low, short and soft.
+  tap: [[1046, 0, 0.035, 0.03]],
   // A menu or panel unfolds: a quick upward flick, quieter than anything you do.
   open: [[988, 0, 0.04, 0.035], [1318, 0.025, 0.06, 0.035]],
   // A switch turned on climbs a fifth; turned off, it comes back down.
@@ -38,6 +39,8 @@ const CUES = {
   copy: [[1568, 0, 0.04, 0.045], [1568, 0.06, 0.05, 0.045]],
   // Pin: a note pressed down and held, a clip closing.
   pin: [[1175, 0, 0.04], [880, 0.03, 0.14]],
+  // Unpinned: the clip let go, the same two notes the other way up, quieter.
+  unpin: [[880, 0, 0.04, 0.035], [1175, 0.03, 0.07, 0.03]],
   // Search: one ping with a long tail, sonar going out.
   search: [[1318, 0, 0.45, 0.04]],
   // The side panel slides out (rising) or folds away (falling), low and soft.
@@ -55,7 +58,7 @@ const CUES = {
   // Home's rows, and only them: a short airy flick that slides up, like a
   // card riffled past the thumb. Each dot the row passes is a softer one.
   riffle: [[880, 0, 0.06, 0.035, 1320], [1175, 0.04, 0.05, 0.025, 1568]],
-  bead: [[1568, 0, 0.025, 0.012]],
+  bead: [[1318, 0, 0.02, 0.008]],
   // Into reading: a book opened, three soft notes stepping up; out of it, down.
   read: [[440, 0, 0.16, 0.035], [554, 0.07, 0.16, 0.035], [659, 0.14, 0.26, 0.035]],
   unread: [[659, 0, 0.12, 0.03], [554, 0.06, 0.12, 0.03], [440, 0.12, 0.2, 0.03]],
@@ -87,13 +90,34 @@ const CUES = {
   unstick: [[1480, 0, 0.05, 0.04], [988, 0.05, 0.12, 0.035]],
   // Reveal an answer in review.
   reveal: [[740, 0, 0.12]],
-  // The four grades: the further from "again", the higher.
-  again: [[311, 0, 0.18]],
-  hard: [[440, 0, 0.14]],
-  good: [[587, 0, 0.14]],
-  easy: [[784, 0, 0.1], [1175, 0.05, 0.2]],
+  // The four grades, a little scale: "again" sinks, "hard" is one low note,
+  // "good" steps up, "easy" runs up three.
+  again: [[349, 0, 0.14, 0.045, 294, 0.01]],
+  hard: [[440, 0, 0.1, 0.045]],
+  good: [[523, 0, 0.06, 0.045], [659, 0.045, 0.1, 0.04]],
+  easy: [[587, 0, 0.05, 0.04], [784, 0.04, 0.05, 0.04], [1046, 0.08, 0.14, 0.035]],
   // A row moved in your own order: a short slide of two close notes.
   shift: [[698, 0, 0.05, 0.04], [784, 0.035, 0.07, 0.04]],
+  // Picked up to drag: one small note lifting. Let go where it was: one soft
+  // low note, nothing changed.
+  lift: [[587, 0, 0.05, 0.03, 784, 0.01]],
+  stay: [[392, 0, 0.07, 0.03]],
+  // A card carried to another column: a warm glide across, then the landing.
+  move: [[523, 0, 0.07, 0.04, 698, 0.01], [784, 0.06, 0.1, 0.035]],
+  // A tag put on: a small rising third, a label pressed on. Taken off: the
+  // same third falling, softer.
+  tag: [[659, 0, 0.045, 0.04], [831, 0.035, 0.08, 0.035]],
+  untag: [[831, 0, 0.045, 0.03], [659, 0.035, 0.07, 0.025]],
+  // A heading folded under its title: two notes stepping down, a page tucked
+  // in. Unfolded: stepping up. Shorter than a panel, which is a bigger thing.
+  tuck: [[659, 0, 0.04, 0.03], [494, 0.03, 0.06, 0.025]],
+  untuck: [[494, 0, 0.04, 0.025], [659, 0.03, 0.06, 0.03]],
+  // Quick Look: a picture lifted up close with a soft glide up, set back with
+  // the glide down. A click to zoom is a short glide in or out.
+  look: [[440, 0, 0.12, 0.035, 659, 0.02], [880, 0.06, 0.1, 0.02]],
+  unlook: [[659, 0, 0.1, 0.03, 440, 0.01]],
+  zoomin: [[587, 0, 0.06, 0.03, 880, 0.005]],
+  zoomout: [[880, 0, 0.06, 0.03, 587, 0.005]],
   // A note changes kind: two notes a fourth apart, a label swapped.
   retag: [[587, 0, 0.07, 0.05], [784, 0.05, 0.12, 0.05]],
   // Archived: a soft low lid closing, slower than a discard.
@@ -137,10 +161,16 @@ const CUES = {
   tidy: [[880, 0, 0.05, 0.035], [1175, 0.035, 0.09, 0.03]],
   // Set aside for deciding day: a soft low note and its fifth, put down to pick up later.
   back: [[440, 0, 0.14, 0.04, undefined, 0.01], [659, 0.06, 0.24, 0.035]],
+  // The tidy pass begun: a light brush upward, sleeves rolled.
+  sweep: [[659, 0, 0.1, 0.03, 988, 0.02], [1318, 0.07, 0.12, 0.02]],
   // The tidy pass finished: a small rising triad, all in order.
   tidied: [[659, 0, 0.18, 0.035], [784, 0.07, 0.2, 0.035], [988, 0.14, 0.4, 0.035]],
   // Weighing it up: two notes a step apart, back and forth, undecided.
   weigh: [[587, 0, 0.08, 0.04], [659, 0.07, 0.08, 0.04], [587, 0.14, 0.14, 0.035]],
+  // The decide pass begun: two low notes a fourth apart, a breath before choosing.
+  sift: [[294, 0, 0.12, 0.04], [392, 0.08, 0.18, 0.035]],
+  // The decide pass finished: the same low notes, landing on their octave.
+  sifted: [[294, 0, 0.12, 0.04], [392, 0.07, 0.12, 0.04], [587, 0.14, 0.36, 0.035]],
   // Decided: a low fifth set down firmly, a gavel rather than a bell.
   decided: [[196, 0, 0.12, 0.05], [294, 0.05, 0.35, 0.05]],
   // An experiment started: a bubble rising, two quick notes going up.
@@ -163,13 +193,45 @@ export type Cue = keyof typeof CUES
  * like they belong together.
  */
 export function step(n: number): void {
+  if (!often()) return
   const SCALE = [523, 587, 659, 784, 880]
   const octave = Math.floor(n / SCALE.length)
   play([[SCALE[((n % SCALE.length) + SCALE.length) % SCALE.length] * 2 ** octave, 0, 0.12, 0.035]])
 }
 
+// The sounds heard all the time: a tab, a page, a dot, a step. The clicks are too.
+const OFTEN = new Set<Cue>(['tap', 'page', 'bead'])
+
 export function chime(cue: Cue): void {
+  if (held() || (OFTEN.has(cue) && !often())) return
   play(CUES[cue] as Note[])
+}
+
+/** A key held down and repeating: one sound for the press, none for the repeats. */
+function held(): boolean {
+  const event = window.event
+  return event instanceof KeyboardEvent && event.type === 'keydown' && event.repeat
+}
+
+let oftenAt = -Infinity
+let keysAt = -Infinity
+/**
+ * Whether an everyday sound may play now: never two within 70ms, never while
+ * a key repeats, and from a run of quick key presses (j j j down a list) only
+ * the first, until the keys rest for a quarter of a second.
+ */
+function often(): boolean {
+  if (held()) return false
+  const now = performance.now()
+  const event = window.event
+  if (event instanceof KeyboardEvent && event.type === 'keydown') {
+    const burst = now - keysAt < 250
+    keysAt = now
+    if (burst) return false
+  }
+  if (now - oftenAt < 70) return false
+  oftenAt = now
+  return true
 }
 
 /**
@@ -219,15 +281,17 @@ function play(notes: Note[]): void {
  * with an exponential decay, through a bandpass, under a quiet tone at the
  * same pitch, all bent by the chosen pack.
  */
+// Heard dozens of times a minute, so kept low, dark and short: felt more
+// than heard, like a key's travel rather than a bell.
 const CLICKS = {
   // Hovering a row: sensory-ui's "subtle", the gentlest of the three.
-  soft: { duration: 0.008, frequency: 3600, q: 3.5, volume: 0.25, decay: 25 },
+  soft: { duration: 0.006, frequency: 2200, q: 2, volume: 0.1, decay: 16 },
   // Scrolling: its "tap", the "tock" in its button demo.
-  tock: { duration: 0.008, frequency: 3800, q: 2.5, volume: 0.28, decay: 35 },
+  tock: { duration: 0.006, frequency: 2000, q: 2, volume: 0.09, decay: 18 },
   // Hovering a rot card, something asking for you: lower and rounder, a knock.
-  knock: { duration: 0.016, frequency: 1700, q: 2, volume: 0.3, decay: 70 },
-  // Opening a note: its "confirm", the brighter "tick".
-  tick: { duration: 0.012, frequency: 5500, q: 4, volume: 0.3, decay: 40 }
+  knock: { duration: 0.012, frequency: 1100, q: 2, volume: 0.16, decay: 45 },
+  // Opening a note: its "confirm", a little brighter than the hover.
+  tick: { duration: 0.008, frequency: 2800, q: 3, volume: 0.14, decay: 24 }
 }
 /**
  * sensory-ui's nine packs, from its published table: the waveform under each
@@ -263,6 +327,7 @@ export function withPack(name: PackName, play: () => void): void {
 
 export type ClickName = keyof typeof CLICKS
 export function click(name: ClickName): void {
+  if (!enabled || !volume || !often()) return
   const context = audio()
   if (!context) return
   const tune = CLICKS[name]
@@ -302,9 +367,10 @@ export function click(name: ClickName): void {
 
 /**
  * The tick everywhere, from two listeners on the whole page rather than one
- * per list: once each time the pointer arrives on something you can press,
- * and once for every 40 or so pixels any scrolling area travels, like the
- * detents of a wheel. Installed once per window.
+ * per list: once each time the pointer arrives on a row or a card that names
+ * its own sound, and once for every 60 or so pixels any scrolling area
+ * travels, like the detents of a wheel. Plain buttons are quiet to pass over:
+ * they speak when pressed. Installed once per window.
  */
 export function installTicks(): () => void {
   let over: Element | null = null
@@ -337,16 +403,15 @@ export function installTicks(): () => void {
       over = null
       return
     }
-    // The outermost thing you can press: a card and the buttons on it are one
-    // sound, made on arriving at the card, not one more for each button.
-    // Named, not guessed from tabindex: a focusable editor or canvas is not
-    // a button. A card that knocks says so with its own data-tone.
-    const PRESSABLE = 'button, [role="button"], [role="tab"], a[href], [data-tone]'
-    let target = at.closest(PRESSABLE)
-    for (let outer = target?.parentElement?.closest(PRESSABLE); outer; outer = outer.parentElement?.closest(PRESSABLE)) target = outer
+    // Only rows and cards that name a sound tick when passed over, and the
+    // outermost one: a card and the buttons on it are one sound, not one more
+    // for each button. Every button on the page ticking made a rattle.
+    const PASSED = '[data-row], [data-tone]'
+    let target = at.closest(PASSED)
+    for (let outer = target?.parentElement?.closest(PASSED); outer; outer = outer.parentElement?.closest(PASSED)) target = outer
     if (target === over) return
     over = target
-    // A row can name its own sound; anything else gets the soft click.
+    // A card can name its own sound; a row gets the soft click.
     const tone = target?.closest('[data-tone]')?.getAttribute('data-tone') as keyof typeof CLICKS | null
     if (target && !(target as HTMLButtonElement).disabled) click(tone && tone in CLICKS ? tone : 'soft')
   }
@@ -356,8 +421,8 @@ export function installTicks(): () => void {
     if (!box || box.closest('[data-silent]')) return
     const last = travelled.get(box)
     if (last === undefined) return void travelled.set(box, box.scrollTop)
-    // A detent every 40px, like the notches of a wheel: no limit on how often.
-    if (Math.abs(box.scrollTop - last) < 40) return
+    // A detent every 60px, like the notches of a wheel.
+    if (Math.abs(box.scrollTop - last) < 60) return
     travelled.set(box, box.scrollTop)
     // Smooth scrolling coasts on after the wheel stops; a moment's grace
     // keeps the last few detents, anything later moved by itself.

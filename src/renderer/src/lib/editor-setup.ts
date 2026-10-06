@@ -30,8 +30,8 @@ const CUES: Record<EditorCue, Cue | 'step'> = {
   // The same as the box's source drawer, which is a sheet.
   source: 'slide',
   'source-close': 'fold',
-  fold: 'fold',
-  unfold: 'open',
+  fold: 'tuck',
+  unfold: 'untuck',
   play: 'on',
   pause: 'off',
   'media-start': 'unshelve',

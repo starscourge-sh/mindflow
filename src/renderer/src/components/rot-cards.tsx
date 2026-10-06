@@ -130,7 +130,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
       if (body === null) return chime('nope')
       setCards((all) => all.map((one) => (one.id === card.id ? { ...one, body } : one)))
       if (quiet) return
-      chime(on ? 'retag' : 'off')
+      chime(on ? 'tag' : 'untag')
       toast(on ? `Tagged #${name}` : `#${name} taken off`, () => retag({ ...card, body }, name, !on, true))
     })
   const tagsOf = (card: Capture): string[] => [...new Set([...textOf(card.body).matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase()))]

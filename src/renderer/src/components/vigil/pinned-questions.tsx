@@ -19,7 +19,7 @@ const short = (text: string, n = 36): string => (text.length > n ? `${text.slice
 export async function pinQuestion(id: string, title: string, on: boolean, quiet = false): Promise<void> {
   const done = await vigil.pinQuestion(id, on)
   if (!done) return refuse('Twelve questions are in view already. Take one out of view first')
-  chime(on ? 'watch' : 'off')
+  chime(on ? 'watch' : 'unpin')
   if (!quiet) toast(on ? `In view: “${short(title)}” shows while you capture` : 'Out of view', () => void pinQuestion(id, title, !on, true))
 }
 

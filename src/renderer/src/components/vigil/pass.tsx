@@ -141,7 +141,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
     void flush()
     // Moving on is what tidied means: it is findable now, nothing more.
     if (item && to > at) void (tidy ? vigil.tidied(item.id) : !became[item.id] && vigil.passSeen(item.id))
-    chime(to === items.length ? (tidy ? 'tidied' : 'settled') : tidy && to > at ? 'tidy' : 'page')
+    chime(to === items.length ? (tidy ? 'tidied' : 'sifted') : tidy && to > at ? 'tidy' : 'page')
     setAt(to)
   }
 
@@ -152,7 +152,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
     if (doc === null) return void chime('nope')
     setPage((now) => (now && now.id === id ? { ...now, body: doc as JSONContent, rev: now.rev + 1 } : now))
     if (quiet) return
-    chime(on ? 'retag' : 'off')
+    chime(on ? 'tag' : 'untag')
     toast(on ? `Tagged #${name}` : `#${name} taken off`, () => void tag(id, name, !on, true).then(() => chime('undo')))
   }
   // Set aside for deciding day: a soft mark, said once, taken back the same way.
@@ -273,7 +273,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
   }, [tidy, page?.id])
 
   useEffect(() => {
-    chime('read')
+    chime(tidy ? 'sweep' : 'sift')
     return () => chime('unread')
   }, [])
 

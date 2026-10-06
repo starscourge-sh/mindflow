@@ -345,13 +345,13 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
           const to = open[next].at
           const index = Math.min(cursor.card, shown(to))
           move([cursor.lane, cursor.card], [to, index])
-          chime('settled')
+          chime('move')
           return setCursor({ lane: to, card: index })
         }
         const index = cursor.card + by[1]
         if (index < 0 || index >= shown(cursor.lane)) return chime('nope')
         move([cursor.lane, cursor.card], [cursor.lane, index])
-        chime('settled')
+        chime('shift')
         return setCursor({ lane: cursor.lane, card: index })
       }
       if (down || up) {
@@ -426,8 +426,8 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
       setDraft(null)
       const a = Number(from.slice(5))
       const b = to ? laneOf(to) : -1
-      if (b < 0 || a === b) return chime('fold')
-      chime('settled')
+      if (b < 0 || a === b) return chime('stay')
+      chime('shift')
       return edit(editor, (model) => void (model.lanes = arrayMove(model.lanes, a, b)))
     }
     const next = order.map((ids) => [...ids])
@@ -439,8 +439,8 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
     setDraft(null)
     const [, l, i] = from.split(':').map(Number)
     const at = next[lane].indexOf(from)
-    if (lane < 0 || (lane === l && at === i)) return chime('fold')
-    chime('settled')
+    if (lane < 0 || (lane === l && at === i)) return chime('stay')
+    chime(lane === l ? 'shift' : 'move')
     move([l, i], [lane, at])
   }
 
@@ -508,13 +508,13 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
           </DropdownMenuSubContent>
         </DropdownMenuSub>
         <DropdownMenuSeparator />
-        <DropdownMenuItem disabled={at === 0} onSelect={() => (chime('settled'), move([lane, at], [lane, 0]))}>Move to top</DropdownMenuItem>
-        <DropdownMenuItem disabled={at === last} onSelect={() => (chime('settled'), move([lane, at], [lane, last]))}>Move to bottom</DropdownMenuItem>
+        <DropdownMenuItem disabled={at === 0} onSelect={() => (chime('shift'), move([lane, at], [lane, 0]))}>Move to top</DropdownMenuItem>
+        <DropdownMenuItem disabled={at === last} onSelect={() => (chime('shift'), move([lane, at], [lane, last]))}>Move to bottom</DropdownMenuItem>
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>Move to list</DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
             {shape.lanes.map((other, to) => (
-              <DropdownMenuItem key={to} disabled={to === lane} onSelect={() => (chime('settled'), move([lane, at], [to, other.cards.length]))}>{other.title || 'Untitled'}</DropdownMenuItem>
+              <DropdownMenuItem key={to} disabled={to === lane} onSelect={() => (chime('move'), move([lane, at], [to, other.cards.length]))}>{other.title || 'Untitled'}</DropdownMenuItem>
             ))}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
@@ -561,7 +561,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
       )}
       <DndContext sensors={sensors} collisionDetection={closestCorners} measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
         autoScroll={{ threshold: { x: 0.08, y: 0.12 }, acceleration: 6 }}
-        onDragStart={({ active }) => (chime('tap'), setLifted(snapshot(String(active.id))))}
+        onDragStart={({ active }) => (chime('lift'), setLifted(snapshot(String(active.id))))}
         onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => (setDraft(null), setLifted(null))}>
         <SortableContext items={shape.lanes.map((_, at) => laneId(at))} strategy={horizontalListSortingStrategy}>
           <div className="flex min-h-0 flex-1 items-start gap-3 overflow-x-auto px-3 pt-2 pb-4 @[40rem]/page:px-6">

@@ -136,7 +136,7 @@ export function Cover({ src, colour, children, caption = '' }: { src?: string | 
     const picture = <img src={src} alt="" draggable={false} onError={() => setBroken(true)} className="size-full object-cover" />
     return (
       <Tip label="Look at it">
-        <button type="button" onClick={(event) => (chime('stick'), void openLook(src, event.currentTarget.querySelector('img'), caption))} className={`${box} cursor-zoom-in transition-transform duration-150 ease-out active:scale-[0.98]`}>{picture}</button>
+        <button type="button" onClick={(event) => (chime('look'), void openLook(src, event.currentTarget.querySelector('img'), caption))} className={`${box} cursor-zoom-in transition-transform duration-150 ease-out active:scale-[0.98]`}>{picture}</button>
       </Tip>
     )
   }
