@@ -3286,3 +3286,11 @@ html[data-motion="off"] .mf-column-drop {
 .tiptap.ProseMirror.mindflow-editor .mf-caption-text {
   cursor: text;
 }
+
+// A picture squeezed narrower than the size it was given (a small window, a
+// table cell, a column) keeps its shape, centred in its box, instead of being
+// stretched or cut at one side.
+.tiptap.ProseMirror.mindflow-editor img:not([data-type="emoji"] img) {
+  object-fit: contain;
+  object-position: center;
+}
