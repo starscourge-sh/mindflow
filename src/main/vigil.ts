@@ -283,6 +283,7 @@ function spellingLanguages(): string[] {
 
 /** The Motion setting, for the window's own arrival. */
 export const motionOn = (): boolean => settings().motion
+export const blurOn = (): boolean => settings().blur !== false
 
 function settings(): Settings {
   const rows = database().prepare('select key, value from settings').all() as { key: string; value: string }[]

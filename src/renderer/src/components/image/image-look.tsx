@@ -245,7 +245,13 @@ function from(rect: DOMRect, fit: ReturnType<typeof fitOf>): { transform: string
   return { transform: `translate(${dx}px, ${dy}px) scale(${rect.width / fit.width})` }
 }
 
-export function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: number; onClose: () => void }): React.JSX.Element {
+export function Viewer({ pictures, start, onClose, awayRef }: {
+  pictures: Picture[]
+  start: number
+  onClose: () => void
+  /** Filled with a quick, quiet close, for a host that must put it away (its window left for another app). */
+  awayRef?: React.RefObject<(() => void) | null>
+}): React.JSX.Element {
   const [at, setAt] = useState(start)
   const [, setSize] = useState(0)
   const [view, setView] = useState({ zoom: 1, x: 0, y: 0, smooth: true })
@@ -295,10 +301,12 @@ export function Viewer({ pictures, start, onClose }: { pictures: Picture[]; star
     [fit.height, fit.top, fit.width, most]
   )
 
-  const close = useCallback(async () => {
+  const close = useCallback(async (quick = false) => {
     if (leaving.current) return
     leaving.current = true
-    chime("unlook")
+    if (!quick) chime("unlook")
+    // Quick: the same way back in under 150ms.
+    const pace = quick ? 0.45 : 1
     if (still() || !frame.current) return onClose()
     // Back to where it sits now: the note may have scrolled while it was out.
     // With nowhere to go back to, it settles away where it is.
@@ -317,12 +325,17 @@ export function Viewer({ pictures, start, onClose }: { pictures: Picture[]; star
     const home = place ? (shown(place) ? place : null) : picture.rect ?? null
     setView({ zoom: 1, x: 0, y: 0, smooth: true })
     await Promise.all([
-      home ? animate(frame.current, from(home, fit), { duration: 0.32, ease: EASE }) : animate(frame.current, { transform: "translate(0px, 0px) scale(0.96)", opacity: 0 }, { duration: 0.18, ease: EASE }),
-      backdrop.current && animate(backdrop.current, { opacity: 0 }, { duration: 0.28, ease: EASE }),
-      foot.current && animate(foot.current, { opacity: 0 }, { duration: 0.12 }),
+      home ? animate(frame.current, from(home, fit), { duration: 0.32 * pace, ease: EASE }) : animate(frame.current, { transform: "translate(0px, 0px) scale(0.96)", opacity: 0 }, { duration: 0.18 * pace, ease: EASE }),
+      backdrop.current && animate(backdrop.current, { opacity: 0 }, { duration: 0.28 * pace, ease: EASE }),
+      foot.current && animate(foot.current, { opacity: 0 }, { duration: 0.12 * pace }),
     ])
     onClose()
   }, [fit, img, onClose, picture.rect])
+  useEffect(() => {
+    if (!awayRef) return
+    awayRef.current = () => void close(true)
+    return () => void (awayRef.current = null)
+  }, [awayRef, close])
 
   const stepBy = useCallback(
     (by: number, keyed = false) => {

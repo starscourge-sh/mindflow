@@ -36,7 +36,7 @@ import icon from '../../resources/icon.png?asset'
 import { alreadyImported, captureText, changed, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { backupDir } from './backup'
-import { activeSession, badge, gate, motionOn, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenStickies } from './vigil'
+import { activeSession, badge, blurOn, gate, motionOn, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenStickies } from './vigil'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
 import { registerPeriods } from './periods'
@@ -1542,6 +1542,9 @@ app.whenReady().then(() => {
       skipTaskbar: true,
       hasShadow: false,
       enableLargerThanScreen: true,
+      // Blurring on, the desktop behind goes soft, as a note's page does behind
+      // the viewer in a window; the page's own dim lies over it either way.
+      ...(blurOn() ? { vibrancy: 'fullscreen-ui' as const, visualEffectState: 'active' as const } : {}),
       show: false,
       webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
     })
@@ -1560,12 +1563,24 @@ app.whenReady().then(() => {
     looks.set(id, { pictures: shown, at })
     // Put away (Escape, a click, or the window left for another app): the
     // sticky shows its picture again, and has the keys back if it had them.
+    // The desktop's blur is the window's, not the page's, so it can't fade
+    // with the dim: the whole window fades out over ~70ms instead of the
+    // blur vanishing in one frame.
     const done = (): void => {
       if (win.isDestroyed()) return
       const refocus = win.isFocused()
-      win.destroy()
-      if (sticky.isDestroyed()) return
-      if (refocus) sticky.focus()
+      const finish = (): void => {
+        if (win.isDestroyed()) return
+        win.destroy()
+        if (!sticky.isDestroyed() && refocus) sticky.focus()
+      }
+      if (!motionOn()) return finish()
+      let step = 0
+      const fade = setInterval(() => {
+        step += 1
+        if (win.isDestroyed() || step >= 5) return (clearInterval(fade), finish())
+        win.setOpacity(1 - step / 5)
+      }, 14)
     }
     lookDone.set(id, done)
     win.on('closed', () => {

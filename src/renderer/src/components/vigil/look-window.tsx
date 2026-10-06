@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Viewer, type Picture } from '@/components/image/image-look'
 import { useAppearance } from '@/lib/vigil'
 import '@/assets/styles/_variables.scss'
@@ -24,12 +24,14 @@ export function LookWindow(): React.JSX.Element | null {
     })
   }, [])
 
-  // Left for another app or screen: put away at once, the way a click outside does.
+  // Left for another app or screen: back into the sticky quickly, then gone
+  // (at once with Motion off, which the viewer's close already knows).
+  const putAway = useRef<(() => void) | null>(null)
   useEffect(() => {
-    const away = (): void => window.api.lookDone()
+    const away = (): void => (putAway.current ? putAway.current() : window.api.lookDone())
     window.addEventListener('blur', away)
     return () => window.removeEventListener('blur', away)
   }, [])
 
-  return shown && <Viewer pictures={shown.pictures} start={shown.at} onClose={() => window.api.lookDone()} />
+  return shown && <Viewer pictures={shown.pictures} start={shown.at} awayRef={putAway} onClose={() => window.api.lookDone()} />
 }
