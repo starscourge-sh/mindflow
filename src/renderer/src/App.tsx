@@ -25,14 +25,17 @@ import { Rolling, Toaster, Typed, beam, refuse, toast, whyFailed } from './compo
 import { Reader } from './components/vigil/reader'
 import { OptionsMenu } from './components/vigil/options-menu'
 import { ReadThrough, type Readable } from './components/vigil/read-through'
+import { PassLinks, Passes, openPass } from './components/vigil/pass'
 import { assetsOf } from './lib/document'
 import { firstLineOf, tagsOf, type TokenPattern } from './extensions/tokens'
 import { KeptPanel } from './components/vigil/kept-panel'
 import { clueTarget, startQuestion } from './components/vigil/questions-view'
+import { PinnedQuestions, clueInto } from './components/vigil/pinned-questions'
+import { RecentPanel } from './components/vigil/recent-panel'
 import { CaptureProps, useCaptureDisplay } from './components/vigil/captures-view'
 import { Search } from './components/search'
 import { noteActions, useOpenNote } from './lib/notes'
-import { vigil, type Item, type Settings } from './lib/vigil'
+import { vigil, type Item, type PinnedQuestion, type Settings } from './lib/vigil'
 import { makeTask, placed } from './lib/tasks'
 import { TaskChips, taskTokens } from './components/vigil/task-input'
 import { readTask } from '../../main/task-words'
@@ -399,6 +402,17 @@ export default function App(): React.JSX.Element {
   // capture. The open questions, to find which one the name means.
   const held = useLive(() => vigil.items('question').then((list) => list.filter((one) => !one.closedAt && !one.archivedAt)), [] as Item[])
   const plus = editing ? null : clueTarget(first, held)
+  // A question kept in view, picked under the writing: the words go into it
+  // as a clue and nothing is captured; an open capture moves into it.
+  const clueToPinned = (question: PinnedQuestion): void => {
+    if (editing) return void clueInto(question, { captureId: editing.id })
+    const doc = editorRef.current?.getJSON() ?? body
+    const text = textOf(doc).trim()
+    if (!text) return refuse('Write something first: it goes into the question as a clue')
+    beam('success')
+    void clueInto(question, { text }, () => (putDraft(doc), fresh(true)))
+    fresh()
+  }
 
   // A task, nugget or article open in the prompt, in place of the box: read
   // and changed here, never by switching to the main window. The note you were
@@ -406,6 +420,8 @@ export default function App(): React.JSX.Element {
   const [reading, setReading] = useState<{ type: string; id: string } | null>(null)
   const openAny = (type: string, id: string, travelling = false): void => {
     if (type === 'capture') return openCapture(id, travelling)
+    // A day's page lives in the main window.
+    if (type === 'day') return void (chime('day'), window.api.openInHome('day', id))
     if (!travelling) cameBy.current = 0
     if (!latestEditing.current && editorRef.current) putDraft(editorRef.current.getJSON())
     // A nugget, article or task is a step in the box's history too: ⌘[ comes back.
@@ -477,9 +493,18 @@ export default function App(): React.JSX.Element {
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   })
-  // ⌘\ shows or hides the panel; ⌃1 to ⌃4 open it on Inbox, Tasks, Review or Kept.
+  // ⌘\ shows or hides the panel; ⌃1 to ⌃5 open it on Inbox, Tasks, Review, Kept or Recent.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      // ⇧⌘Y: Recent in the panel, or the panel away again from there.
+      if (event.metaKey && event.shiftKey && event.key.toLowerCase() === 'y') {
+        event.preventDefault()
+        if (panel && tab === 'recent') return setPanel(false)
+        if (tab !== 'recent') chime('tap')
+        setTab('recent')
+        if (!panel) setPanel(true)
+        return
+      }
       if (event.metaKey && !event.ctrlKey && event.key === '\\') {
         event.preventDefault()
         return setPanel(!panel)
@@ -850,6 +875,7 @@ export default function App(): React.JSX.Element {
       <div className={`contents [--toast-bottom:6.5rem] ${panel ? '[--toast-right:440px]' : ''}`}><Toaster /></div>
       <NotePreview />
       <ShortcutSheet />
+      <Passes onOpen={(type, id) => openAny(type, id)} />
       {readList && (
         <ReadThrough
           items={readList.items}
@@ -869,10 +895,12 @@ export default function App(): React.JSX.Element {
             { label: 'New capture', keys: '⌘N', run: () => startOver() },
             { label: 'New question', cue: null, run: () => void startQuestion(openAny) },
             { label: panel ? 'Hide the side panel' : 'Show the side panel', keys: '⌘\\', cue: null, run: () => setPanel(!panel) },
-            ...TABS.map((one, index) => ({ label: `Go to ${({ inbox: 'Inbox', today: 'Tasks', review: 'Review', kept: 'Kept' } as Record<string, string>)[one] ?? one}`, keys: `⌃${index + 1}`, run: () => {
+            ...TABS.map((one, index) => ({ label: `Go to ${({ inbox: 'Inbox', today: 'Tasks', review: 'Review', kept: 'Kept', recent: 'Recent' } as Record<string, string>)[one] ?? one}`, keys: `⌃${index + 1}`, run: () => {
               setTab(one)
               if (!panel) setPanel(true)
             } })),
+            { label: 'Tidy the last few days: tags and formatting, nothing to decide', run: () => openPass('tidy') },
+            { label: 'Decide: the weekly pass over what you set aside', run: () => openPass('decide') },
             { label: 'Read the inbox from the top', run: () => setReadList({ items: captures.filter((one) => one.status === 'open' && !one.archivedAt).map((one) => ({ type: 'capture', id: one.id })), start: 0 }) },
             { label: 'Copy this note as Markdown', keys: '⇧⌘C', run: copyMarkdown },
             ...(editing ? [{ label: 'Stick this note on the desktop', cue: null, run: () => stickOnDesktop('capture', editing.id) }] : []),
@@ -893,6 +921,9 @@ export default function App(): React.JSX.Element {
             { label: recordable ? 'Hide from screen recordings' : 'Show in screen recordings', cue: recordable ? 'off' : 'on', run: () => setRecordable(!recordable) },
             { label: reveal ? 'Blur private titles again' : 'Show private titles for now', cue: reveal ? 'off' : 'on', run: () => setReveal(!reveal) },
             { label: 'Open the main window', run: () => window.api.openInHome('view', 'inbox') },
+            { label: "Week's page", cue: 'season', run: () => window.api.openInHome('view', 'weekpage') },
+            { label: "Month's page", cue: 'season', run: () => window.api.openInHome('view', 'monthpage') },
+            { label: 'Year: your seasons of life, month by month', cue: 'season', run: () => window.api.openInHome('view', 'yearpage') },
             ...noteActions(),
             { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('vigil:shortcuts')) },
             ...themeActions((text) => toast(text)),
@@ -1110,6 +1141,8 @@ export default function App(): React.JSX.Element {
                 </Tip>
               )}
             </div>
+            {/* The questions kept in view, once there is something to match against them. */}
+            {started && !plus && !focus && <div data-chrome className="px-[4.75rem] pb-1"><PinnedQuestions onPick={clueToPinned} /></div>}
             {/* A hint sits at the foot of the box: a glance at something you
                 wrote once, while you are here to write. Usually empty. */}
             <div data-chrome className="px-[4.75rem]">
@@ -1428,8 +1461,8 @@ const CapturePrompt = ({
  * and the review queue, a tab each. The main window has the same things with
  * room to spread out; this is them at the size you actually keep open.
  */
-type Tab = 'inbox' | 'today' | 'review' | 'kept'
-const TABS: Tab[] = ['inbox', 'today', 'review', 'kept']
+type Tab = 'inbox' | 'today' | 'review' | 'kept' | 'recent'
+const TABS: Tab[] = ['inbox', 'today', 'review', 'kept', 'recent']
 
 function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab, setTab }: {
   tab: Tab
@@ -1499,7 +1532,8 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
     { id: 'inbox', label: 'Inbox', count: open.length },
     { id: 'today', label: 'Tasks', count: openTasks },
     { id: 'review', label: 'Review', count: due },
-    { id: 'kept', label: 'Kept', count: kept }
+    { id: 'kept', label: 'Kept', count: kept },
+    { id: 'recent', label: 'Recent', count: 0 }
   ] as const
   // The same keys as every list: j and k when the editor does not have the
   // focus, Enter to open. ⌃1 to ⌃4 switch tabs from anywhere in the window.
@@ -1591,6 +1625,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
         {tab === 'inbox' && (
           <div className="relative z-10 shrink-0 shadow-xl [clip-path:inset(0_0_-3rem_0)]">
             <Pins onOpen={onOpenAny} />
+            <PassLinks className="px-1 pb-1" />
             <RotCards onOpen={onOpen} />
           </div>
         )}
@@ -1656,6 +1691,8 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
               <TodayPanel onOpen={(id) => onOpenAny('task', id)} open={reading} />
             ) : tab === 'kept' ? (
               <KeptPanel onOpen={onOpenAny} open={reading} onRead={onRead} />
+            ) : tab === 'recent' ? (
+              <RecentPanel className="flex-1 [&>header]:h-8 [&>header]:border-0 [&>header]:px-2" onOpen={onOpenAny} />
             ) : (
               <div className="flex flex-1 [&_header]:hidden">
                 <ReviewView compact />

@@ -215,14 +215,22 @@ export function Prop({ icon: Icon, children, onClick, active, tint, secret }: {
 
 
 /** Tags as Todoist draws them: a small tag glyph and the word, in a quiet colour. */
-export function Tags({ tags }: { tags: string[] }): React.JSX.Element | null {
+// A thought can carry six routes back to it: a row shows the first few and
+// counts the rest, "+3", named in full on hover.
+export function Tags({ tags, max = 3 }: { tags: string[]; max?: number }): React.JSX.Element | null {
   const colors = useTagColors()
   if (!tags.length) return null
+  const rest = tags.slice(max)
   return (
     <span className="flex shrink-0 items-center gap-2 text-xs">
-      {tags.map((tag) => (
+      {tags.slice(0, max).map((tag) => (
         <span key={tag} style={{ color: `var(--tt-color-text-${colors[tag] ?? 'blue'})` }}>#{tag}</span>
       ))}
+      {rest.length > 0 && (
+        <Tip label={rest.map((tag) => `#${tag}`).join('  ')}>
+          <span className="rounded-full bg-accent px-1.5 tabular-nums text-muted-foreground">+{rest.length}</span>
+        </Tip>
+      )}
     </span>
   )
 }

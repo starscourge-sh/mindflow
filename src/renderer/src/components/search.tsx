@@ -34,7 +34,7 @@ const groupOf = (at: string): string => {
  * they were captured, with the one under the cursor previewed on the right.
  * Arrows move, Enter opens, Escape closes.
  */
-export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen: (type: string, id: string) => void; onClose: () => void; initial?: string; actions?: Action[] }): React.JSX.Element {
+export function Search({ onOpen, onClose, initial = '', actions = [], placeholder }: { onOpen: (type: string, id: string) => void; onClose: () => void; initial?: string; actions?: Action[]; placeholder?: string }): React.JSX.Element {
   const [query, setQuery] = useState(initial)
   // Opening search sends out one ping.
   useEffect(() => chime('search'), [])
@@ -96,8 +96,8 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
   // empty preview half. Typing makes it the full search.
   const compact = actions.length > 0 && !query.trim()
   const preview = pane && !!current
-  // A gloss goes on what you have written, not on a task.
-  const glossable = !!current && current.type !== 'task'
+  // A gloss on anything found, a task included: there it lands in the task's log.
+  const glossable = !!current
   // ⌘; pressed with the preview put away: the line opens under the row instead.
   const [glossing, setGlossing] = useState(false)
   useEffect(() => setGlossing(false), [current?.id])
@@ -118,7 +118,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [] }: { onOpen
             ref={box}
             autoFocus
             className="flex-1 bg-transparent text-heading outline-none"
-            placeholder={actions.length ? 'Do something, or search everything…' : 'Search everything… kind:quote to narrow'}
+            placeholder={placeholder ?? (actions.length ? 'Do something, or search everything…' : 'Search everything… kind:quote to narrow')}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {

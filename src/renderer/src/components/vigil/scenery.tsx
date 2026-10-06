@@ -79,18 +79,19 @@ const contrast = (a: number[], b: number[]): number => {
  * either could be, aiming a little higher for the buttons that tint it too.
  * Worked out again when the theme changes.
  */
-function useReadable(): number {
+function useReadable(target = 4.8): number {
   const work = (): number => {
     const style = getComputedStyle(document.documentElement)
     const page = rgb(style.getPropertyValue('--background'))
     const inks = [rgb(style.getPropertyValue('--foreground')), rgb(style.getPropertyValue('--muted-foreground'))]
     for (let dim = 0.5; dim < 1; dim += 0.01) {
       const worst = [0, 255].map((v) => page.map((c) => dim * c + (1 - dim) * v))
-      if (worst.every((under) => inks.every((ink) => contrast(ink, under) >= 4.8))) return Math.round(dim * 100) / 100
+      if (worst.every((under) => inks.every((ink) => contrast(ink, under) >= target))) return Math.round(dim * 100) / 100
     }
     return 1
   }
   const [floor, setFloor] = useState(work)
+  useEffect(() => setFloor(work()), [target]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const watch = new MutationObserver(() => setFloor(work()))
     watch.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-solid'] })
@@ -127,7 +128,15 @@ export function Scenery({ place, seed, mood, text = 'none', fade = false, wide =
   rounded?: string
 }): React.JSX.Element | null {
   const { settings, scenes } = useScenery()
-  const floor = useReadable()
+  // Where words sit over the picture itself (focus, reading), a busy painting
+  // still fights them at an average contrast that passes: aim higher there,
+  // and soften the picture so no sharp bright edge sits behind a letter.
+  const covered = text === 'all' || text === 'middle' || text === 'left'
+  const floor = useReadable(covered ? 7 : 4.8)
+  const lightPage = (() => {
+    const [r, g, b] = rgb(getComputedStyle(document.documentElement).getPropertyValue('--background'))
+    return (r * 299 + g * 587 + b * 114) / 1000 > 140
+  })()
   const on = !!settings?.scenery && settings[SWITCH[place]] !== false
   const moods = mood ?? (settings?.sceneryTime ? moodsNow() : null)
   const scene = on ? choose(scenes, `${seed}:${settings?.sceneryShuffle ?? 0}`, moods, wide) : null
@@ -171,7 +180,14 @@ export function Scenery({ place, seed, mood, text = 'none', fade = false, wide =
             className={`absolute inset-0 size-full object-cover ${rounded}`}
             // Most of these are landscapes with the sky above and the subject
             // a little over the middle; a tall portrait's face sits higher.
-            style={{ objectPosition: shown.height > shown.width ? 'center 30%' : 'center 42%', imageRendering: shown.pixel ? 'pixelated' : undefined }}
+            style={{
+              objectPosition: shown.height > shown.width ? 'center 30%' : 'center 42%',
+              imageRendering: shown.pixel ? 'pixelated' : undefined,
+              // Blurred, and pulled toward the page: darker under a dark theme,
+              // lighter under a light one. Scaled a touch so the blur's soft
+              // edge stays outside the frame instead of greying its border.
+              ...(covered ? { filter: `blur(14px) brightness(${lightPage ? 1.15 : 0.7}) saturate(0.85)`, transform: 'scale(1.06)' } : {})
+            }}
           />
         )}
       </AnimatePresence>

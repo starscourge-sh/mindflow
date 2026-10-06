@@ -125,7 +125,30 @@ const CUES = {
   // Got it: the held fourth finally resolves, up to the octave.
   answered: [[392, 0, 0.18, 0.04], [523, 0.07, 0.18, 0.04], [784, 0.14, 0.5, 0.045]],
   // Let go: the same fourth, sinking softly away.
-  release: [[523, 0, 0.3, 0.035, 440, 0.03], [392, 0.1, 0.5, 0.03, 330, 0.04]]
+  release: [[523, 0, 0.3, 0.035, 440, 0.03], [392, 0.1, 0.5, 0.03, 330, 0.04]],
+  // A session's recap written into the task's log: a soft low knock and the
+  // note above it, a line added at the bottom of a ledger.
+  logged: [[440, 0, 0.08, 0.045], [587, 0.06, 0.18, 0.04]],
+  // A capture tidied and left behind: a light upward brush, a page smoothed flat.
+  tidy: [[880, 0, 0.05, 0.035], [1175, 0.035, 0.09, 0.03]],
+  // Set aside for deciding day: a soft low note and its fifth, put down to pick up later.
+  back: [[440, 0, 0.14, 0.04, undefined, 0.01], [659, 0.06, 0.24, 0.035]],
+  // The tidy pass finished: a small rising triad, all in order.
+  tidied: [[659, 0, 0.18, 0.035], [784, 0.07, 0.2, 0.035], [988, 0.14, 0.4, 0.035]],
+  // Weighing it up: two notes a step apart, back and forth, undecided.
+  weigh: [[587, 0, 0.08, 0.04], [659, 0.07, 0.08, 0.04], [587, 0.14, 0.14, 0.035]],
+  // Decided: a low fifth set down firmly, a gavel rather than a bell.
+  decided: [[196, 0, 0.12, 0.05], [294, 0.05, 0.35, 0.05]],
+  // An experiment started: a bubble rising, two quick notes going up.
+  trial: [[659, 0, 0.05, 0.04, 880, 0.04], [988, 0.05, 0.12, 0.035]],
+  // A finding written down: three notes landing on a sixth, open but settled.
+  finding: [[523, 0, 0.1, 0.04], [659, 0.06, 0.1, 0.04], [880, 0.12, 0.3, 0.04]],
+  // Another name for a note: a soft echo of one note an octave up.
+  alias: [[784, 0, 0.06, 0.035], [1568, 0.05, 0.1, 0.025]],
+  // Kept in view: a pin's two notes, softer and lower, for a question.
+  watch: [[880, 0, 0.05, 0.035], [659, 0.04, 0.16, 0.035]],
+  // A week or a month turned over: a page, slower and lower than a day's.
+  season: [[330, 0, 0.3, 0.035, 349, 0.03], [494, 0.08, 0.4, 0.03]]
 } satisfies Record<string, Note[]>
 
 export type Cue = keyof typeof CUES

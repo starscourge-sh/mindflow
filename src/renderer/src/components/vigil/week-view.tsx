@@ -10,6 +10,7 @@ import { PriorityIcon, setPriority } from './task-input'
 import { TaskDetail, completeTask } from './tasks-view'
 import { Button } from '@/components/ui/button'
 import { Lifted, SETTLE, snapshot } from './sortable'
+import { GlossButton, GlossLine } from './gloss-line'
 
 // Days are counted on the calendar, not in hours, so a clock change never
 // repeats or skips one.
@@ -43,6 +44,8 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
   const load = useLive(() => (from + 7 > 0 ? vigil.reviewLoad(from + 7) : Promise.resolve([])), [] as number[], [from])
   const [at, setAt] = useState<{ col: number; id: string | null }>({ col: 0, id: null })
   const [open, setOpen] = useState<TaskFull | null>(null)
+  // The card a thought is being written under, without opening the task.
+  const [glossing, setGlossing] = useState<string | null>(null)
   // The day a dragged card is over, lit and opening a gap where it will land;
   // the card as it looked when picked up, carried under the pointer.
   const [over, setOver] = useState<number | null>(null)
@@ -151,6 +154,8 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
       if (!chosen) return
       if (key === 'Enter') return take(() => pick(chosen.task.id))
       if (key === 'e') return take(() => void completeTask(chosen.task))
+      // ; a thought on the card, into the task's log; with the task open, its log takes the key.
+      if (key === ';' && !open) return take(() => (chime('tap'), setGlossing(at.id)))
       if (/^[0-4]$/.test(key)) return take(() => setPriority(chosen.task, Number(key)))
       // T, M and W as in the lists: today, tomorrow, a week from today.
       const to = { t: 0, m: 1, w: 7 }[key]
@@ -231,7 +236,8 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
                   const id = `${card.kind}:${card.task.id}`
                   const late = card.kind === 'scheduled' ? new Date(card.task.dueAt!).getTime() < dayStart(0) : new Date(card.task.deadline!).getTime() < dayStart(0)
                   return (
-                    <Carried key={id} id={id}>
+                    <div key={id} className="group/item relative">
+                    <Carried id={id}>
                     <button
                       type="button"
                       data-cursor={at.id === id || undefined}
@@ -240,7 +246,7 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
                     >
                       <span className="flex w-full items-start gap-1.5">
                         {card.task.priority ? <PriorityIcon level={card.task.priority} className="mt-0.5 size-3 shrink-0" /> : null}
-                        <span className="line-clamp-2 min-w-0">{card.task.title}</span>
+                        <span className="line-clamp-2 min-w-0 pr-4">{card.task.title}</span>
                       </span>
                       <span className="flex items-center gap-1.5 text-xs text-muted-foreground" style={{ color: late ? 'var(--tt-color-text-red)' : undefined }}>
                         {card.kind === 'deadline' ? (
@@ -254,6 +260,10 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
                       </span>
                     </button>
                     </Carried>
+                    {/* A thought without opening it: on hover, top right, or ; on the card. */}
+                    <GlossButton className="top-0.5 right-0.5 bg-background" onClick={() => setGlossing(id)} />
+                    {glossing === id && <GlossLine id={card.task.id} open onDone={() => setGlossing(null)} placeholder="A thought, kept in its log" className="pt-1" />}
+                    </div>
                   )
                 })}
                 {/* The day under a carried card opens a gap for it at the end. */}

@@ -10,7 +10,7 @@ export type Shortcut = {
   keys: string
   /** What it does, in a few plain words. */
   does: string
-  /** Where it works: Anywhere, Both windows, The box, Main window, Lists, Writing, Review or Reading. */
+  /** Where it works: Anywhere, Both windows, The box, Main window, Lists, Writing, Review, Reading, Tidy or Deciding. */
   where: string
   group: string
 }
@@ -45,12 +45,16 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: 'G L', does: 'Go to All captures', where: 'Main window' },
   { group: 'Getting around', keys: 'G D', does: 'Go to Discarded', where: 'Main window' },
   { group: 'Getting around', keys: 'G P', does: "Go to today's page", where: 'Main window' },
+  { group: 'Getting around', keys: 'G K', does: "Go to the week's page", where: 'Main window' },
+  { group: 'Getting around', keys: 'G M', does: "Go to the month's page", where: 'Main window' },
+  { group: 'Getting around', keys: '⇧⌘Y', does: 'Recent: everything made lately, beside the page', where: 'Both windows' },
   { group: 'Getting around', keys: 'G V', does: 'Go to Archived', where: 'Main window' },
   { group: 'Getting around', keys: 'C', does: 'New capture in the box', where: 'Main window' },
   { group: 'Getting around', keys: '⌃1', does: 'Side panel: Inbox', where: 'The box' },
   { group: 'Getting around', keys: '⌃2', does: 'Side panel: Tasks', where: 'The box' },
   { group: 'Getting around', keys: '⌃3', does: 'Side panel: Review', where: 'The box' },
   { group: 'Getting around', keys: '⌃4', does: 'Side panel: Kept', where: 'The box' },
+  { group: 'Getting around', keys: '⌃5', does: 'Side panel: Recent', where: 'The box' },
   { group: 'Getting around', keys: '⌃J', does: 'From the note to the list beside it', where: 'The box' },
   { group: 'Getting around', keys: 'I', does: 'From the list back to the note', where: 'The box' },
   { group: 'Getting around', keys: 'Esc', does: 'Hide the box', where: 'The box' },
@@ -104,7 +108,11 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Lists', keys: 'D', does: 'Discard: let it go', where: 'Lists' },
   { group: 'Lists', keys: 'H', does: 'On a capture: hold it as a question, its words the first clue', where: 'Lists' },
   { group: 'Lists', keys: 'W', does: 'On a rot card: say who said it', where: 'Lists' },
-  { group: 'Lists', keys: ';', does: 'Add a thought (a dated gloss) on the row, card or page in front of you', where: 'Lists' },
+  { group: 'Lists', keys: 'T', does: 'On a rot card: add a tag', where: 'The box' },
+  { group: 'Lists', keys: 'F', does: 'On a rot card: tidy it (bold, fold, cross off)', where: 'The box' },
+  { group: 'Lists', keys: 'C', does: 'On a rot card: come back to it on deciding day', where: 'The box' },
+  { group: 'Lists', keys: ';', does: 'Add a thought (a dated gloss) on the row, card or page in front of you; on a task it goes in its log', where: 'Lists' },
+  { group: 'Lists', keys: 'Esc', does: 'After a focus session: skip "How did it go?" (↵ keeps it as the recap)', where: 'Anywhere' },
   { group: 'Lists', keys: '⌘;', does: 'Add a thought while a field has the keys: the hint card, or the highlighted search result', where: 'Both windows' },
   { group: 'Lists', keys: 'E', does: 'Complete the task', where: 'Lists' },
   { group: 'Lists', keys: 'T', does: 'Move the task to today', where: 'Lists' },
@@ -119,6 +127,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Lists', keys: '←', does: "The day before, on a day's page", where: 'Main window' },
   { group: 'Lists', keys: '→', does: "The day after, on a day's page", where: 'Main window' },
   { group: 'Lists', keys: 'T', does: "Back to today, on a day's page", where: 'Main window' },
+  { group: 'Lists', keys: '← →', does: "The week, month or year before or after, on its page (T for now)", where: 'Main window' },
   { group: 'Lists', keys: '1', does: 'Task priority: Urgent, High, Medium, Low (1 to 4)', where: 'Lists' },
   { group: 'Lists', keys: '0', does: 'Task priority: none', where: 'Lists' },
   { group: 'Week', keys: 'H', does: 'Day before (L for the day after)', where: 'Main window' },
@@ -161,6 +170,25 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Reading', keys: 'H', does: 'Hold as a question', where: 'Reading' },
   { group: 'Reading', keys: ';', does: 'Add a thought on the page', where: 'Reading' },
   { group: 'Reading', keys: 'Esc', does: 'Stop reading', where: 'Reading' },
+
+  { group: 'Tidy', keys: 'T', does: 'Add a tag (or #); ⌫ in the empty field takes the last off', where: 'Tidy' },
+  { group: 'Tidy', keys: 'B', does: 'Bold the line the caret is on', where: 'Tidy' },
+  { group: 'Tidy', keys: 'F', does: 'Fold what is under the line into a toggle', where: 'Tidy' },
+  { group: 'Tidy', keys: 'X', does: 'Cross off a done item: ticked, or struck through', where: 'Tidy' },
+  { group: 'Tidy', keys: 'C', does: 'Come back to it on deciding day (press again to take it off)', where: 'Tidy' },
+  { group: 'Tidy', keys: 'J', does: 'Tidied: on to the next (↵ too)', where: 'Tidy' },
+  { group: 'Tidy', keys: 'K', does: 'Back to the one before', where: 'Tidy' },
+  { group: 'Tidy', keys: 'Esc', does: 'Stop for now', where: 'Tidy' },
+  { group: 'Deciding', keys: 'P', does: 'Promote: keep it as a nugget', where: 'Deciding' },
+  { group: 'Deciding', keys: 'R', does: 'Resolve: done with it', where: 'Deciding' },
+  { group: 'Deciding', keys: 'D', does: 'Discard: let it go', where: 'Deciding' },
+  { group: 'Deciding', keys: 'H', does: 'Hold it as a question', where: 'Deciding' },
+  { group: 'Deciding', keys: 'T', does: 'Make it a task', where: 'Deciding' },
+  { group: 'Deciding', keys: 'A', does: 'Archive: out of sight, not let go', where: 'Deciding' },
+  { group: 'Deciding', keys: 'O', does: 'Leave it open: findable is enough', where: 'Deciding' },
+  { group: 'Deciding', keys: 'C', does: 'Not this week: it comes round again next week', where: 'Deciding' },
+  { group: 'Deciding', keys: 'E', does: 'Open it', where: 'Deciding' },
+  { group: 'Deciding', keys: 'J', does: 'Next (↓, → or Space too); K for the one before', where: 'Deciding' },
 
   { group: 'Settings', keys: 'J', does: 'Next setting', where: 'Main window' },
   { group: 'Settings', keys: 'K', does: 'Setting before', where: 'Main window' },

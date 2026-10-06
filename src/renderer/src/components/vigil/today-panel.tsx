@@ -13,6 +13,7 @@ import { PriorityIcon, TaskInput, planFor, setPriority } from './task-input'
 import { RowMenu, copy } from './row-menu'
 import { Tip } from '@/components/vigil/ui'
 import { Rest } from './scenery'
+import { GlossButton, GlossLine } from './gloss-line'
 
 const endOfToday = (): number => new Date().setHours(24, 0, 0, 0)
 const startOfToday = (): number => new Date().setHours(0, 0, 0, 0)
@@ -53,6 +54,8 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   const tasks = useLive(vigil.tasks, [] as Task[])
   const [draft, setDraft] = useState('')
   const [ticking, setTicking] = useState<string | null>(null)
+  // The row a thought is being written under, without opening the task.
+  const [glossing, setGlossing] = useState<string | null>(null)
   // Every task list, not only today's: the same cuts as the main window.
   const [scope, setScope] = useState<Scope>('today')
   // Narrowed as in the main window: marked, tag, where it came from.
@@ -76,6 +79,8 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
       if (!task) return
       const days = { t: 0, m: 1, w: 7 }[event.key]
       if (/^[0-4]$/.test(event.key)) setPriority(task, Number(event.key))
+      // ; a thought on the row, into the task's log; with the task open, its log takes the key.
+      else if (event.key === ';' && !open) (event.preventDefault(), chime('tap'), setGlossing(task.id))
       else if (event.key === 'e') tick(task)
       else if (days !== undefined) move(task, days)
     }
@@ -139,7 +144,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, x: 16, transition: { duration: 0.18 } }}
-              className={`group flex items-start gap-2 rounded-sm px-2 py-1.5 hover:bg-accent/50 ${index === cursor ? "bg-accent/50" : ""}`}
+              className={`group group/item relative flex flex-wrap items-start gap-2 rounded-sm px-2 py-1.5 pr-8 hover:bg-accent/50 ${index === cursor ? "bg-accent/50" : ""}`}
             >
               <Tip label="Complete">
               <button
@@ -186,6 +191,9 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
                 </p>
               </button>
               </RowMenu>
+              {/* A thought without opening it: on hover, top right, or ; on the row. */}
+              <GlossButton onClick={() => setGlossing(task.id)} />
+              {glossing === task.id && <GlossLine id={task.id} open onDone={() => setGlossing(null)} placeholder="A thought on it, kept in its log" className="basis-full pl-6" />}
             </motion.div>
           )
         })}

@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react'
 import { toast, VirtualList, refuse } from './ui'
 import { RowMenu, copy } from './row-menu'
 import { Switch } from '@/components/ui/switch'
+import { Button } from '@/components/ui/button'
 
 const COLORS = ['gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const
-import { FileText, Gem, Inbox, ListTodo, Tag } from 'lucide-react'
+import { ArrowLeft, FileText, Gem, Inbox, ListTodo, Tag } from 'lucide-react'
 
 import { splitTags, useLive, vigil } from '@/lib/vigil'
 import { Empty, Page, useListKeys } from './ui'
@@ -14,6 +15,8 @@ import { Tip } from '@/components/vigil/ui'
 import { DatePicker } from './date-picker'
 import { Readiness } from './review-view'
 import { openWindow } from '@/lib/notes'
+import { TagStream } from './tag-read'
+import { motion } from 'motion/react'
 
 const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo }
 
@@ -25,6 +28,8 @@ const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo }
 export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string) => void; focus?: string }): React.JSX.Element {
   const tags = useLive(vigil.tags, [] as Awaited<ReturnType<typeof vigil.tags>>)
   const [chosen, setChosen] = useState<string | null>(focus ?? null)
+  // A tag opens to be read; looking after it (colour, alias, exam date) is the other tab.
+  const [tab, setTab] = useState<'read' | 'manage'>('read')
   useEffect(() => setChosen(focus ?? null), [focus])
   const items = useLive(() => (chosen ? vigil.tag(chosen) : Promise.resolve([])), [], [chosen])
   const [cursor] = useListKeys(tags.length, { onOpen: (index) => setChosen(tags[index].tag), onBack: () => setChosen(null) })
@@ -44,7 +49,8 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
   return (
     <>
       {/* With a tag open, the list narrows to a column and the tag takes the rest. */}
-      <div className={chosen ? 'flex w-72 shrink-0 border-r' : 'contents'}>
+      {/* Narrow, the tag being read takes the whole page; the list is a step back. */}
+      <div className={chosen ? 'hidden w-72 shrink-0 border-r @[56rem]/page:flex' : 'contents'}>
       <Page title="Tags" count={tags.length}>
         {tags.length ? (
           <VirtualList items={tags} keyOf={(one) => one.tag} cursor={cursor} estimate={36} className="mx-3 my-2">
@@ -82,7 +88,25 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
       </Page>
       </div>
       {chosen && (
-        <Page title={`#${chosen}`} count={items.length}>
+        <Page title={`#${chosen}`} count={current?.count ?? items.length} actions={
+          // Reading the tag, or looking after it: two jobs, a tab each.
+          <span className="flex items-center gap-1">
+          <Tip label="All tags">
+            <Button variant="ghost" size="icon-sm" aria-label="All tags" className="@[56rem]/page:hidden" onClick={() => (chime('tap'), setChosen(null))}><ArrowLeft className="size-3.5" /></Button>
+          </Tip>
+          <span role="tablist" className="flex rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
+            {(['read', 'manage'] as const).map((one) => (
+              <button key={one} type="button" role="tab" aria-selected={tab === one}
+                onClick={() => void (tab !== one && (chime('tap'), setTab(one)))}
+                className={`relative rounded-md px-2.5 py-0.5 transition-colors ${tab === one ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                {tab === one && <motion.span layoutId="tag-tab" className="absolute inset-0 -z-10 rounded-md border border-foreground/15 bg-background shadow-sm" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />}
+                {one === 'read' ? 'Read' : 'Manage'}
+              </button>
+            ))}
+          </span>
+          </span>
+        }>
+          {tab === 'read' ? <TagStream tag={chosen} onOpen={onOpen} /> : (<>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-5 py-3">
             {/* A colour, and whether writing this tag makes a task, the way
                 #bug does. Labels, not kinds: a colour and one behaviour. */}
@@ -157,6 +181,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               )
             }}
           </VirtualList>
+          </>)}
         </Page>
       )}
     </>

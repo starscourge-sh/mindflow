@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { QuestionBack } from './vigil/questions-view'
 import { GlossLine, useGlossKey } from './vigil/gloss-line'
+import { openPass } from './vigil/pass'
 
 // A memory is a hint that says what it is: this day last year, one source's things.
 type Hint = NonNullable<Awaited<ReturnType<typeof window.api.hints.next>>> & { memory?: string }
@@ -182,7 +183,9 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
   const go = (): void => {
     if (!nudge) return
     chime('open')
-    window.api.openInHome('view', nudge.view)
+    // The passes open right here in the box, where the day is spent.
+    if (nudge.view === 'tidy' || nudge.view === 'decide') openPass(nudge.view)
+    else window.api.openInHome('view', nudge.view)
     setNudge(null)
   }
   return (
@@ -212,7 +215,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
           <Typed text={nudge.text} step={28} delay={120} />
           <div className="mt-2 flex items-center gap-1 text-muted-foreground">
             <span className="mr-auto text-xs">{nudge.label}</span>
-            <Button variant="ghost" size="sm" onClick={go}>{nudge.kind === 'weekly' ? 'Walk the inbox' : 'Review now'}</Button>
+            <Button variant="ghost" size="sm" onClick={go}>{nudge.kind === 'weekly' ? 'Decide now' : nudge.kind === 'tidy' ? 'Tidy now' : 'Review now'}</Button>
             <Button variant="ghost" size="sm" onClick={() => (chime('fold'), setNudge(null))}>Not now</Button>
           </div>
         </motion.div>

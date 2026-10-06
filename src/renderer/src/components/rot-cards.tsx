@@ -1,13 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
 import type { JSONContent } from '@tiptap/core'
 
-import { EXITS, captureKey, exit as exitWith } from '@/lib/capture-links'
+import { captureKey } from '@/lib/capture-links'
+import { TagRow, decideDay, openPass } from './vigil/pass'
+import { PinnedQuestions, clueInto } from './vigil/pinned-questions'
 import { wordsOf } from '../../../main/import'
-import { AskWho, Rolling, Typed, pin } from './vigil/ui'
+import { AskWho, Rolling, Typed, pin, toast } from './vigil/ui'
 import { AnimatePresence, motion } from 'motion/react'
 import { useLive, vigil } from '@/lib/vigil'
-import { makeTask } from '@/lib/tasks'
 import { RowMenu, copy } from './vigil/row-menu'
 import { age, ageTint } from './capture-list'
 import { Kbd, Tip } from '@/components/vigil/ui'
@@ -48,9 +49,11 @@ export const shown = (title: string, body: unknown): string => {
 }
 
 /**
- * The rot sampler: three captures nobody has done anything with, leaning old,
- * each with its three exits right there. A sample, never a queue - it does not
- * empty, and nothing says it should.
+ * The rot sampler: three captures nobody has done anything with, leaning old.
+ * A sample, never a queue - it does not empty, and nothing says it should.
+ * It asks only for a tidy (a tag, a format, set aside for deciding day):
+ * deciding what each becomes is the weekly pass's job, or the note's own,
+ * not something to be asked every time the box opens.
  *
  * Drawn each time the window is brought up and after an exit, not on every
  * change elsewhere, or the cards would shuffle under you while you type.
@@ -90,34 +93,40 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
     return window.api.onShown(reload)
   }, [])
 
-  const exit = (id: string, status: string): void => {
-    // Only that card goes: the others stay put, and a fresh three comes the
-    // next time the prompt opens.
-    // Undone, it comes back to its place among the cards.
-    const card = cards.find((one) => one.id === id)
-    // Dealt again rather than slotted in: a card still on its way out would
-    // otherwise come back at the end.
-    const back = (): void => {
-      if (!card) return
-      setCards((all) => (all.some((one) => one.id === id) ? all : [...all, card].sort(byAge)))
-      setDeal((n) => n + 1)
-      count()
-      // Brought back by keyboard, it has the focus again, so j and k carry on.
-      if (byKeys) requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-card][data-id="${CSS.escape(id)}"]`)?.focus({ focusVisible: true } as FocusOptions))
-    }
-    // Worked by keyboard, the next card takes the focus, so j, k and the
-    // exits carry on without a click.
+  // The card whose tags are being changed, from its t key.
+  const [tagging, setTagging] = useState<string | null>(null)
+  const field = useRef<HTMLInputElement | null>(null)
+  const day = decideDay(useLive(vigil.settings, null as Awaited<ReturnType<typeof vigil.settings>> | null))
+  // Brought back by an undo, a card is dealt again rather than slotted in: one
+  // still on its way out would otherwise come back at the end.
+  const putBack = (card: Capture): void => {
+    setCards((all) => (all.some((one) => one.id === card.id) ? all : [...all, card].sort(byAge)))
+    setDeal((n) => n + 1)
+    count()
+  }
+  // Set aside for deciding day: the card goes, and it waits for that pass.
+  // Worked by keyboard, the next card takes the focus, so j and k carry on.
+  const setAside = (card: Capture): void => {
     const all = [...document.querySelectorAll<HTMLElement>('[data-card]')]
-    const here = all.findIndex((one) => one.dataset.id === id)
-    const byKeys = document.activeElement === all[here]
-    const after = all[here + 1] ?? all[here - 1]
-    void exitWith(id, status, back).then(() => window.api.captures.get(id)).then((now) => {
-      if (now?.status === 'open') return
-      drop(id)
-      count()
-      if (byKeys) after?.focus({ focusVisible: true } as FocusOptions)
+    const here = all.findIndex((one) => one.dataset.id === card.id)
+    const after = document.activeElement === all[here] ? all[here + 1] ?? all[here - 1] : null
+    chime('back')
+    void vigil.comeBack(card.id, true).then(() => {
+      drop(card.id)
+      after?.focus({ focusVisible: true } as FocusOptions)
+      toast(`Set aside for ${day}`, () => void vigil.comeBack(card.id, false).then(() => (chime('undo'), putBack(card))))
     })
   }
+  // A tag on or off, in its words; the card shows them at once.
+  const retag = (card: Capture, name: string, on: boolean, quiet = false): void =>
+    void vigil.passTag(card.id, name, on).then((body) => {
+      if (body === null) return chime('nope')
+      setCards((all) => all.map((one) => (one.id === card.id ? { ...one, body } : one)))
+      if (quiet) return
+      chime(on ? 'retag' : 'off')
+      toast(on ? `Tagged #${name}` : `#${name} taken off`, () => retag({ ...card, body }, name, !on, true))
+    })
+  const tagsOf = (card: Capture): string[] => [...new Set([...textOf(card.body).matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase()))]
 
   if (!cards.length)
     return left === 0 && !off ? (
@@ -129,8 +138,8 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
     ) : null
   return (
     <section className="mb-2">
-      <Tip label="A few old captures with no exit yet, a fresh few each time you open this. A sample, not a list to clear. Click one to read or edit it.">
-        <h3 className="w-fit px-2 pb-1 text-xs text-muted-foreground">Waiting on you</h3>
+      <Tip label={`A few old captures, a fresh few each time you open this. A sample, not a list to clear: tag one, tidy it, or set it aside for ${day}. Deciding what each becomes waits for that day.`}>
+        <h3 className="w-fit px-2 pb-1 text-xs text-muted-foreground">Worth a tidy</h3>
       </Tip>
       {/* A card that takes an exit leaves sideways, the way it was dealt with,
           and the next one fades into its place. */}
@@ -160,8 +169,13 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
               else if (event.key === 'j' || event.key === 'ArrowDown') event.currentTarget.blur()
               return
             }
-            const picked = EXITS.find((one) => one.key === event.key)
-            if (picked) exit(card.id, picked.status)
+            // A tidy, never an exit: a tag, a format, or set aside for deciding day.
+            if (event.key === 't' || event.key === '#') {
+              event.preventDefault()
+              setTagging(card.id)
+            }
+            else if (event.key === 'c') setAside(card)
+            else if (event.key === 'f') openPass('tidy', [card.id])
             else if (event.key === 'w') {
               event.preventDefault()
               setAsking(card.id)
@@ -175,9 +189,9 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
           <RowMenu items={[
             { label: 'Open', run: () => onOpen(card.id) },
             'separator',
-            ...EXITS.map((one) => ({ label: one.label, keys: one.key.toUpperCase(), danger: one.status === 'discarded', run: () => exit(card.id, one.status) })),
-            // Undone, the task goes and the card comes back to its place.
-            { label: 'Make it a task', run: () => void makeTask({ capture: card.id }, undefined, { onUndo: () => setCards((all) => (all.some((one) => one.id === card.id) ? all : [...all, card].sort(byAge))) }).then((made) => made && drop(card.id)) },
+            { label: 'Tag it', keys: 'T', run: () => setTagging(card.id) },
+            { label: 'Tidy it: bold, fold, cross off', keys: 'F', run: () => openPass('tidy', [card.id]) },
+            { label: `Come back to it on ${day}`, keys: 'C', run: () => setAside(card) },
             { label: 'Say who said it', keys: 'W', run: () => setAsking(card.id) },
             { label: 'Add a thought', keys: ';', run: () => openGloss(card.id) },
             'separator',
@@ -189,9 +203,18 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
               {shown(card.title, card.body)}
             </button>
           </RowMenu>
+          {/* One of the questions you keep in view, when this is a clue to it; undone, the card is back. */}
+          {tagging !== card.id && <PinnedQuestions className="mt-1 hidden group-hover:flex group-focus-within:flex group-focus-visible:flex" onPick={(question) =>
+            void clueInto(question, { captureId: card.id }, () => putBack(card)).then((ok) => ok && (drop(card.id), count()))} />}
           {/* A thought on it right here: the moment it stops you. */}
           {asking !== card.id && <GlossLine id={card.id} quiet className="mt-0.5" />}
-          {asking === card.id ? (
+          {tagging === card.id ? (
+            <div className="mt-1.5"><TagRow autoFocus tags={tagsOf(card)} field={field} onAdd={(name) => retag(card, name, true)} onRemove={(name) => retag(card, name, false)}
+              onDone={() => {
+                setTagging(null)
+                document.querySelector<HTMLElement>(`[data-card][data-id="${CSS.escape(card.id)}"]`)?.focus({ focusVisible: true } as FocusOptions)
+              }} /></div>
+          ) : asking === card.id ? (
             <div className="mt-1"><AskWho id={card.id} initial={card.attribution ?? ''} onDone={(who) => {
               setAsking(null)
               if (who !== undefined) setCards((all) => all.map((one) => (one.id === card.id ? { ...one, attribution: who || null } : one)))
@@ -203,7 +226,11 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             <span className="mr-auto shrink-0 whitespace-nowrap">
               <span style={{ color: ageTint(card.capturedAt, card.importedAt) }}>{Date.now() - new Date(card.capturedAt).getTime() < 86400000 ? 'from today' : `untouched ${age(card.capturedAt)}`}</span>
             </span>
-            {EXITS.map((one) => (
+            {[
+              { label: 'Tag', key: 'T', tint: 'blue', what: 'Add a tag, so it turns up on that tag\'s page', run: () => setTagging(card.id) },
+              { label: 'Tidy', key: 'F', tint: 'green', what: 'Bold the line that matters, fold the rest, cross off what is done', run: () => openPass('tidy', [card.id]) },
+              { label: `Come back ${day}`, key: 'C', tint: 'orange', what: `Set it aside for ${day}'s deciding pass, and let it go until then`, run: () => setAside(card) }
+            ].map((one) => (
               <Tip key={one.key} label={one.what}>
               {/* Quiet at rest, their colour when you reach the card. */}
               <Button variant="ghost" size="sm"
@@ -211,11 +238,11 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
                 // each was a wall of controls over the list.
                 className="text-muted-foreground opacity-0 transition-[color,opacity] group-hover:text-[var(--tint)] group-hover:opacity-100 group-focus-visible:text-[var(--tint)] group-focus-visible:opacity-100 focus-visible:text-[var(--tint)] focus-visible:opacity-100"
                 style={{ '--tint': `var(--tt-color-text-${one.tint})` } as React.CSSProperties}
-                onClick={() => exit(card.id, one.status)}
+                onClick={one.run}
               >
                 {one.label}
                 {/* The key, shown only when the card was reached by keyboard: where it is usable. */}
-                <Kbd className="ml-1 hidden group-focus-visible:inline-flex">{one.key.toUpperCase()}</Kbd>
+                <Kbd className="ml-1 hidden group-focus-visible:inline-flex">{one.key}</Kbd>
               </Button>
               </Tip>
             ))}

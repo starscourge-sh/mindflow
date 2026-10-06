@@ -56,9 +56,13 @@ import { AliveIcon } from '@/components/vigil/alive-icon'
 import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
 import { Tour } from '@/components/vigil/tour'
 import { DayView } from '@/components/vigil/day-view'
+import { MonthPage, SCALE_VIEW, WeekPage, YearPage, type Scale } from '@/components/vigil/periods-view'
+import { RecentPanel } from '@/components/vigil/recent-panel'
+import { Passes, openPass } from '@/components/vigil/pass'
 import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
-import { Archive, Ellipsis, Eye, EyeOff, NotebookPen } from 'lucide-react'
+import { Archive, CalendarFold, Ellipsis, Eye, EyeOff, NotebookPen, Sprout } from 'lucide-react'
+import { openWindow } from '@/lib/notes'
 
 // A nonce makes asking again a fresh visit: the recap reopens each time.
 type View = { id: string; focus?: string; nonce?: number }
@@ -71,6 +75,9 @@ const SECTIONS: { id: string; label: string; icon: LucideIcon; key: string; tint
   // The daily note: written in, and what the day held.
   // Its own colour, not Today's green: the two sit next to each other.
   { id: 'day', label: "Today's page", icon: NotebookPen, key: 'p', tint: 'yellow' },
+  // Wider stretches, less detail each: a week in a few lines, a month in two.
+  { id: 'weekpage', label: "Week's page", icon: CalendarFold, key: 'k', tint: 'yellow' },
+  { id: 'monthpage', label: "Month's page", icon: Sprout, key: 'm', tint: 'yellow' },
   { id: 'today', label: 'Today', icon: Sun, key: 't', tint: 'green' },
   { id: 'upcoming', label: 'Upcoming', icon: CalendarDays, key: 'u', tint: 'orange' },
   { id: 'week', label: 'Week', icon: CalendarRange, key: 'w', tint: 'blue' },
@@ -121,6 +128,14 @@ const followNarrow = (change: () => void): (() => void) => {
   return () => query.removeEventListener('change', change)
 }
 const useNarrow = (): boolean => useSyncExternalStore(followNarrow, () => matchMedia(NARROW).matches)
+/** Under 1000px wide, Recent lies over the page's right edge rather than squeezing it. */
+const CRAMPED = '(max-width: 999px)'
+const followCramped = (change: () => void): (() => void) => {
+  const query = matchMedia(CRAMPED)
+  query.addEventListener('change', change)
+  return () => query.removeEventListener('change', change)
+}
+const useCramped = (): boolean => useSyncExternalStore(followCramped, () => matchMedia(CRAMPED).matches)
 
 /**
  * The main window: the sections down the left, the one picked filling the
@@ -151,6 +166,7 @@ export function Home(): React.JSX.Element {
   // Under 760px wide the sidebar folds down to its icons, each named on hover,
   // so a window tiled into a corner keeps its page.
   const narrow = useNarrow()
+  const cramped = useCramped()
   // Private titles shown on purpose go back to blurred once the window is put away.
   useEffect(() => {
     const onHide = (): void => void (document.hidden && delete document.documentElement.dataset.reveal)
@@ -182,6 +198,14 @@ export function Home(): React.JSX.Element {
   useAppearance()
   useFocusMode('home')
   const [searching, setSearching] = useState(false)
+  // Recent beside the page: everything made lately, or in the week a week's
+  // page shows. `until` null reaches back from now.
+  const [recent, setRecentState] = useState<{ until: string | null } | null>(null)
+  const setRecent = (until: string | null | 'close'): void => setRecentState(until === 'close' ? null : { until })
+  const toggleRecent = (): void => {
+    chime(recent ? 'fold' : 'slide')
+    setRecentState(recent ? null : { until: null })
+  }
   const [kindsOpen, setKindsOpen] = useState(false)
   // Folded away unless you open them, and kept the way you left them.
   const [tagsOpen, setTagsOpen] = useRemembered('sidebar:tags')
@@ -234,6 +258,11 @@ export function Home(): React.JSX.Element {
         event.preventDefault()
         return setSearching(true)
       }
+      // ⇧⌘Y: Recent beside the page, or away again.
+      if (event.metaKey && event.shiftKey && event.key.toLowerCase() === 'y') {
+        event.preventDefault()
+        return toggleRecent()
+      }
       if (event.metaKey && event.key === '[') return step(-1)
       if (event.metaKey && event.key === ']') return step(1)
       if (event.metaKey && event.key === '\\') {
@@ -263,11 +292,14 @@ export function Home(): React.JSX.Element {
 
   // Somewhere else sent you to one thing: open its section with it open.
   const open = (type: string, id: string): void =>
-    setView({ id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id })
+    setView(type === 'day' ? { id: 'day', focus: id } : { id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id })
+  const toScale = (scale: Scale): void => (chime('season'), setView({ id: SCALE_VIEW[scale] }))
   // A view is sent by name (⌘, sends Settings), anything else as one thing to open.
   // A heading link from a note window lands on its heading once the note is open.
   useEffect(() => window.api.onSentTo((type, id, heading) => {
-    if (type === 'view') setView({ id })
+    // The passes lay themselves over whatever is open, rather than being a place.
+    if (type === 'view' && (id === 'tidy' || id === 'decide')) openPass(id)
+    else if (type === 'view') setView({ id })
     else if (type === 'recap') setView({ id: 'stats', focus: id, nonce: Date.now() })
     else if (type === 'task') setView({ id: 'today', focus: id })
     // A capture's version history, asked for in the box: opened, then once
@@ -295,6 +327,7 @@ export function Home(): React.JSX.Element {
       <div className={`contents ${sidebar ? (narrow ? '[--toast-left:4rem]' : '[--toast-left:15rem]') : ''}`}><Toaster /></div>
       <NotePreview />
       <ShortcutSheet />
+      <Passes onOpen={(type, id) => open(type, id)} />
       <Tour firstRun />
       <FocusNote />
       <FocusScenery />
@@ -304,6 +337,8 @@ export function Home(): React.JSX.Element {
           actions={[
             { label: 'New capture', keys: 'C', run: () => window.api.showPrompt() },
             { label: 'New question', cue: null, run: () => void startQuestion(open) },
+            { label: 'Tidy the last few days: tags and formatting, nothing to decide', run: () => openPass('tidy') },
+            { label: 'Decide: the weekly pass over what you set aside', run: () => openPass('decide') },
             ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),
             { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘\\', cue: sidebar ? 'fold' : 'slide', run: () => setSidebar(!sidebar) },
             { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', cue: null, run: () => setFill(!fill) },
@@ -322,6 +357,8 @@ export function Home(): React.JSX.Element {
             ...themeActions((text) => toast(text)),
             { label: settings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', cue: settings?.blur === false ? 'on' : 'off', run: () => void vigil.setSettings({ blur: settings?.blur === false }) },
             { label: 'Settings', keys: '⌘,', run: () => setView({ id: 'settings' }) },
+            { label: recent ? 'Hide Recent' : 'Recent: everything made lately, beside the page', keys: '⇧⌘Y', cue: null, run: toggleRecent },
+            { label: 'Year: your seasons of life, month by month', cue: 'season', run: () => setView({ id: 'yearpage' }) },
             ...noteActions({ day: false }),
             // The recap, Wrapped's way, over Stats.
             { label: 'Your month, wrapped', run: () => setView({ id: 'stats', focus: 'month', nonce: Date.now() }) },
@@ -533,7 +570,7 @@ export function Home(): React.JSX.Element {
             </Tip>
           ))}
         </span>
-        <h1 className="ml-2 truncate font-medium">{SECTIONS.find((section) => section.id === view.id)?.label ?? (kind ? kind.label : view.id === 'settings' ? 'Settings' : '')}</h1>
+        <h1 className="ml-2 truncate font-medium">{SECTIONS.find((section) => section.id === view.id)?.label ?? (kind ? kind.label : view.id === 'settings' ? 'Settings' : view.id === 'yearpage' ? 'Year' : '')}</h1>
         {/* The open note's name, faint, once its first line has scrolled away. */}
         <span className={`min-w-0 flex-1 truncate px-4 text-center text-muted-foreground transition-opacity duration-200 ${topTitle && settings?.topTitle !== false ? 'opacity-100' : 'opacity-0'}`}>{topTitle}</span>
         <SoundToggle className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-4" />
@@ -553,7 +590,8 @@ export function Home(): React.JSX.Element {
         </Tip>
       </header>
       {/* The page itself, a card like the sidebar's. */}
-      <div className="@container/page relative flex min-h-0 flex-1 overflow-hidden rounded-xl border">
+      <div className="relative flex min-h-0 flex-1 gap-2">
+      <div className="@container/page relative flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border">
       <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={view.id}
@@ -566,7 +604,13 @@ export function Home(): React.JSX.Element {
         {view.id === 'inbox' || view.id === 'all' || view.id === 'discarded' || view.id === 'archived' ? (
           <CapturesView title={SECTIONS.find((section) => section.id === view.id)!.label} keep={keep[view.id]} focus={view.focus} onOpen={open} archived={view.id === 'archived'} />
         ) : view.id === 'day' ? (
-          <DayView onOpen={open} />
+          <DayView key={view.focus} start={view.focus} onOpen={open} onScale={toScale} />
+        ) : view.id === 'weekpage' ? (
+          <WeekPage onOpen={open} onScale={toScale} onRecent={setRecent} recentOpen={!!recent} />
+        ) : view.id === 'monthpage' ? (
+          <MonthPage key={view.focus} start={view.focus} onScale={toScale} />
+        ) : view.id === 'yearpage' ? (
+          <YearPage onScale={toScale} onMonth={(month) => setView({ id: 'monthpage', focus: month })} />
         ) : kind ? (
           <CapturesView title={kind.label} keep={(capture) => capture.kind === kind.id} onOpen={open} />
         ) : view.id === 'review' ? (
@@ -587,6 +631,24 @@ export function Home(): React.JSX.Element {
           <SettingsView />
         )}
       </motion.div>
+      </AnimatePresence>
+      </div>
+      {/* Beside the page, not over it, while there is room; over its right edge in a narrow window. */}
+      <AnimatePresence>
+        {recent && (
+          <motion.div
+            key="recent"
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 16 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className={`flex min-h-0 overflow-hidden rounded-xl border bg-background ${cramped ? 'absolute inset-y-0 right-0 z-20 w-72 shadow-(--mf-panel-shadow)' : 'w-72 shrink-0'}`}
+          >
+            <RecentPanel className="flex-1" until={recent.until ?? undefined} onClose={() => setRecentState(null)}
+              // Beside a week's page, a note opens in its own window so the page stays.
+              onOpen={(type, id) => (view.id === 'weekpage' && type !== 'task' ? openWindow(type, id) : open(type, id))} />
+          </motion.div>
+        )}
       </AnimatePresence>
       </div>
       </div>

@@ -21,6 +21,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { Rest } from './scenery'
+import { TaskLog } from './task-log'
+import { GlossButton, GlossLine } from './gloss-line'
 
 // Counted on the calendar, so a clock change never moves a day by an hour.
 const startOfDay = (offset = 0): number => {
@@ -99,6 +101,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   const [open, setOpen] = useState<TaskFull | null>(null)
   const [draft, setDraft] = useState('')
   const [leaving, setLeaving] = useState<string | null>(null)
+  // The row a thought is being written under, without opening the task.
+  const [glossing, setGlossing] = useState<string | null>(null)
 
   const [view, setView] = useView(`tasks:${mode}`, { sort: 'manual', group: 'when' })
   const facets = taskFacets(tasks)
@@ -192,6 +196,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
       }
       if (event.metaKey || event.ctrlKey || event.altKey) return
       if (/^[0-4]$/.test(event.key)) return setPriority(task, Number(event.key))
+      // ; a thought on the row, into the task's log; with the task open, its log takes the key.
+      if (event.key === ';' && !open) return (event.preventDefault(), chime('tap'), setGlossing(task.id))
       // e completes, as in Todoist.
       if (event.key === 'e') return complete(task)
       const days = { t: 0, m: 1, w: 7 }[event.key]
@@ -288,7 +294,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                       ]}>
                       <div
                         data-cursor={index === cursor || undefined}
-                        className={`group flex items-start gap-3 rounded-md px-2 py-2 transition-colors ${task.id === open?.id ? 'bg-accent' : index === cursor ? 'bg-accent/40' : 'hover:bg-accent/50'}`}
+                        className={`group group/item relative flex items-start gap-3 rounded-md px-2 py-2 transition-colors ${task.id === open?.id ? 'bg-accent' : index === cursor ? 'bg-accent/40' : 'hover:bg-accent/50'}`}
                       >
                         <Tip label="Complete">
                         <button
@@ -302,7 +308,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                           <Check className={`size-3 transition-opacity ${leaving === task.id ? 'opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
                         </button>
                         </Tip>
-                        <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
+                        <div className="flex min-w-0 flex-1 flex-col items-start gap-1 pr-5">
                         <button type="button" data-row onClick={() => pick(task.id)} className="flex w-full min-w-0 flex-col items-start gap-1 text-left">
                           <span className="flex max-w-full items-center gap-2">
                             {task.priority ? <PriorityIcon level={task.priority} className="size-3.5 shrink-0" /> : null}
@@ -350,7 +356,10 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                             ))}
                           </ul>
                         )}
+                        {glossing === task.id && <GlossLine id={task.id} open onDone={() => setGlossing(null)} placeholder="A thought on it, kept in its log" className="w-full" />}
                         </div>
+                        {/* A thought without opening it: on hover, top right. */}
+                        <GlossButton className="top-1.5 right-1.5" onClick={() => setGlossing(task.id)} />
                       </div>
                       </RowMenu>
               )
@@ -419,6 +428,8 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
       </div>
       <Props>
         <Sessions taskId={task.id} title={task.title} />
+        {/* What happened to it, session by session and thought by thought: never written over. */}
+        <TaskLog taskId={task.id} />
         {/* When you mean to do it, Todoist's date: the day it shows on. */}
         <Island compact title="Scheduled">
           {/* Equal columns that may shrink: a narrow panel squeezes the words rather than pushing a button past its edge.
@@ -634,14 +645,7 @@ function Sessions({ taskId, title }: { taskId: string; title: string }): React.J
       ) : (
         <StartFocus taskId={taskId} title={title} />
       )}
-      {sessions.filter((session) => session.endedAt).slice(0, 4).map((session) => (
-        <div key={session.id} className="px-2 py-1.5">
-          <p className="text-xs tabular-nums">
-            {when(session.startedAt, false)} · {clock(new Date(session.endedAt!).getTime() - new Date(session.startedAt).getTime() - session.pausedMs)}
-          </p>
-          {session.recap && <p className="mt-0.5 line-clamp-3 text-control text-foreground">{session.recap}</p>}
-        </div>
-      ))}
+      {/* The ended ones, recaps and all, are in the Log just below. */}
     </Island>
   )
 }

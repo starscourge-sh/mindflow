@@ -98,7 +98,7 @@ export const database = (): DatabaseSync => db
  * than trusted: `as CapturePatch` is a hope, this is a check. The kinds are
  * the brief's eight, and a book.
  */
-const KINDS = ['note', 'todo', 'quote', 'word', 'link', 'excerpt', 'decision', 'bit', 'book'] as const
+const KINDS = ['note', 'todo', 'quote', 'word', 'link', 'excerpt', 'decision', 'bit', 'book', 'experiment'] as const
 const Patch = z.object({
   title: z.string().optional(),
   kind: z.enum(KINDS).optional(),
@@ -252,10 +252,10 @@ export function registerCaptures(): void {
     db
       .prepare(
         `select ${LIST} from captures
-         where ${LABEL} like ? escape '\\' or ('MF-' || number) like ?
+         where ${LABEL} like ? escape '\\' or ('MF-' || number) like ? or coalesce(aliases, '') like ? escape '\\'
          order by captured_at desc limit 8`
       )
-      .all(`%${like(String(query))}%`, `${query}%`)
+      .all(`%${like(String(query))}%`, `${query}%`, `%${like(String(query))}%`)
   )
 
   // Search: the words anywhere in the title or the body, newest first, with the
@@ -273,9 +273,9 @@ export function registerCaptures(): void {
     const rows = db.prepare(
       `select * from (
          select 'capture' as type, id, number, kind, status, source, attribution, ${LABEL} as label, body, captured_at as capturedAt
-           from captures where status != 'discarded' and ${match(`(${LABEL} || ' ' || body || ' ' || coalesce(medium, '') || ' ' || coalesce(fields, ''))`)}
+           from captures where status != 'discarded' and ${match(`(${LABEL} || ' ' || body || ' ' || coalesce(medium, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, ''))`)}
          union all
-         select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), body, created_at from nuggets where ${match("(title || ' ' || body || ' ' || coalesce(fields, ''))")}
+         select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), body, created_at from nuggets where ${match("(title || ' ' || body || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, ''))")}
          union all
          select 'task', id, number, 'todo', status, '', null, title, coalesce(notes, 'null'), created_at from tasks where ${match("(title || ' ' || coalesce(notes, ''))")}
        ) ${kind ? 'where kind = ?' : ''} order by capturedAt desc limit 60`

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { GripVertical, Pause, Play, Square, X } from 'lucide-react'
+import { Check, GripVertical, Pause, Play, Square, X } from 'lucide-react'
 
 // The theme's colours: this window has no editor, which is what usually brings them.
 import '@/assets/styles/_variables.scss'
@@ -8,6 +8,7 @@ import { useAppearance, useLive, vigil, type Focus } from '@/lib/vigil'
 import { useAlive, useSurface } from '@/lib/use-alive'
 import { BorderBeam } from 'border-beam'
 import { Liquid } from 'liquid-gooey'
+import { Typed } from './ui'
 
 /** 59:55, or 1:02:03 past the hour. */
 const clock = (ms: number): string => {
@@ -88,9 +89,14 @@ export function FocusPill(): React.JSX.Element | null {
     const timer = setInterval(() => setNow(Date.now()), 500)
     return () => clearInterval(timer)
   }, [])
-  // Nothing running: the pill goes away.
-  useEffect(() => void (focus === null && window.api.showFocus(false)), [focus])
+  // A session just ended: the pill stays a moment to ask how it went.
+  const [asked, setAsked] = useState<string | null>(null)
+  // Another session started meanwhile: that question has gone by.
+  useEffect(() => void (focus && focus.id !== asked && setAsked(null)), [focus]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Nothing running and nothing asked: the pill goes away.
+  useEffect(() => void (focus === null && !asked && window.api.showFocus(false)), [focus, asked])
 
+  if (asked) return <HowDidItGo id={asked} onDone={() => setAsked(null)} />
   if (!focus) return null
   const done = worked(focus, now)
   const left = focus.plannedMs ? focus.plannedMs - done : null
@@ -168,7 +174,8 @@ export function FocusPill(): React.JSX.Element | null {
                 aria-label={timer ? 'Done' : 'End the session'}
                 title={timer ? 'Done' : 'End the session, and keep it'}
                 // Past its time it has already glowed: ending it is only the tick.
-                onClick={() => void (timer ? vigil.cancelSession(focus.id) : vigil.endSession(focus.id, '', false)).then(() => (over ? chime('done') : glowEnd('done')))}
+                // A session asks how it went before the pill goes; a timer just goes.
+                onClick={() => void (timer ? vigil.cancelSession(focus.id) : vigil.endSession(focus.id, '', false)).then(() => (over ? chime('done') : glowEnd('done'), timer || setAsked(focus.id)))}
                 className={over ? 'flex h-7 items-center rounded-full bg-[var(--tt-brand-color-400)] px-3 text-[12px] font-semibold text-white transition-[filter] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tt-brand-color-400)]' : icon}
               >
                 {over ? 'Done' : <Square className="size-3 fill-current" />}
@@ -192,6 +199,74 @@ export function FocusPill(): React.JSX.Element | null {
         </span>
       </div>
       </BorderBeam>
+    </div>
+  )
+}
+
+/**
+ * "How did it go?": the pill, just after a session ends, turned into one line
+ * whose answer is the session's recap, kept in the task's log. Never in the
+ * way: Escape or the cross skips it, and left alone it lets itself go.
+ * Kept, it says so with a way back, then goes.
+ */
+function HowDidItGo({ id, onDone }: { id: string; onDone: () => void }): React.JSX.Element {
+  const [words, setWords] = useState('')
+  const [kept, setKept] = useState<string | null>(null)
+  // Untouched for a minute, it is skipped; once kept, it says so for a few seconds.
+  useEffect(() => {
+    if (words && kept === null) return
+    const gone = setTimeout(onDone, kept === null ? 60_000 : 4_000)
+    return () => clearTimeout(gone)
+  }, [words, kept]) // eslint-disable-line react-hooks/exhaustive-deps
+  const skip = (): void => (chime('fold'), onDone())
+  const keep = (): void => {
+    if (!words.trim()) return skip()
+    void vigil.recapSession(id, words.trim()).then((was) => (chime('logged'), setKept(was)))
+  }
+  const icon = 'flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)]'
+  return (
+    <div className="mf-floating flex h-screen items-center justify-center p-[8px]">
+      <div
+        style={{ backgroundImage: 'linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' }}
+        className="flex h-[44px] w-full items-center gap-2.5 rounded-full border pr-1.5 pl-2 font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_3px_8px_-2px_rgb(0_0_0/0.12)]"
+      >
+        <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-[var(--tt-brand-color-400)] text-white">
+          <Check className="size-3" strokeWidth={3} />
+        </span>
+        {kept === null ? (
+          <>
+            <label className="relative min-w-0 flex-1">
+              {/* The question types itself in, standing in for the placeholder. */}
+              {!words && <span aria-hidden className="pointer-events-none absolute inset-0 truncate text-muted-foreground"><Typed text="How did it go?" step={45} delay={250} /></span>}
+              <input
+                autoFocus
+                value={words}
+                aria-label="How did it go?"
+                onChange={(event) => setWords(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') (event.preventDefault(), keep())
+                  if (event.key === 'Escape') (event.preventDefault(), skip())
+                }}
+                className="w-full bg-transparent font-medium outline-none"
+              />
+            </label>
+            <button type="button" aria-label="Skip" title="Skip: no recap" onClick={skip} className={icon}>
+              <X className="size-3.5" />
+            </button>
+          </>
+        ) : (
+          <>
+            <span className="min-w-0 flex-1 truncate font-medium"><Typed text="Kept in the task’s log" step={35} delay={0} /></span>
+            <button
+              type="button"
+              onClick={() => void vigil.recapSession(id, kept).then(() => (chime('undo'), onDone()))}
+              className="flex h-7 shrink-0 items-center rounded-full px-3 text-[12px] font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)]"
+            >
+              Undo
+            </button>
+          </>
+        )}
+      </div>
     </div>
   )
 }

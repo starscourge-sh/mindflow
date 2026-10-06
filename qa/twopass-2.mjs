@@ -1,0 +1,18 @@
+import { start, done } from './qa-visual-lib.mjs'
+const c = await start()
+const { page } = c
+const log = (...a) => console.log(...a)
+const doc = (...blocks) => ({ type: 'doc', content: blocks })
+const p = (text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
+const id = await page.evaluate((b) => window.api.captures.create({ kind: 'note', body: b }), doc(p('Groceries again'), { type: 'taskList', content: [{ type: 'taskItem', attrs: { checked: false }, content: [p('oat milk')] }] }))
+await page.evaluate((id) => window.dispatchEvent(new CustomEvent('vigil:pass', { detail: { mode: 'tidy', ids: [id] } })), id)
+await page.waitForTimeout(1500)
+log('active', await page.evaluate(() => document.activeElement?.className?.slice?.(0, 60)))
+await page.keyboard.press('ArrowDown'); await page.waitForTimeout(200)
+log('sel parent', await page.evaluate(() => getSelection()?.anchorNode?.parentElement?.closest('li')?.outerHTML?.slice(0, 120)))
+await page.keyboard.press('x'); await page.waitForTimeout(900)
+log('ticked', JSON.stringify((await page.evaluate((id) => window.api.captures.get(id), id)).body).includes('"checked":true'))
+await page.keyboard.press('ArrowUp'); await page.keyboard.press('b'); await page.waitForTimeout(900)
+log('bold', JSON.stringify((await page.evaluate((id) => window.api.captures.get(id), id)).body).includes('"bold"'))
+await c.shot(page, 'tp-groc')
+done(c)

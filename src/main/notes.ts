@@ -353,7 +353,8 @@ export function registerNotes({ load, guard }: Windows): void {
       exists: !!page,
       body: parse(page?.body),
       reviewed: !!page?.reviewed,
-      captured: db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, private from captures where archived_at is null and status != 'discarded' and ${on('captured_at')} order by captured_at`).all(day),
+      // Everything caught that day stays listed, let go or not: the page shows it struck through.
+      captured: db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, status, private from captures where archived_at is null and ${on('captured_at')} order by captured_at`).all(day),
       resolved: db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, status, private from captures where status != 'open' and archived_at is null and ${on('exited_at')} order by exited_at`).all(day),
       studied: db.prepare(`select distinct n.tier as type, n.id, coalesce(nullif(n.title, ''), label('', n.body)) as title, n.kind, n.private from review_log r join nuggets n on n.id = r.item_id where n.archived_at is null and ${on('r.reviewed_at')}`).all(day),
       done: db.prepare(`select distinct 'task' as type, t.id, t.title, 0 as private from task_done d join tasks t on t.id = d.task_id where ${on('d.done_at')}`).all(day)

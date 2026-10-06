@@ -32,7 +32,7 @@ import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
 import { Archive, ArchiveRestore, Download } from 'lucide-react'
-import { KindFields, LayoutToggle, LocalGraph, NoteCards, Thumb, Versions, useLayout } from './note-extras'
+import { Aliases, KindFields, LayoutToggle, LocalGraph, NoteCards, Thumb, Versions, useLayout } from './note-extras'
 import { SortableList, SortableRow } from './sortable'
 import { archive, changeKind, openWindow, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { QuestionDetail } from './questions-view'
@@ -413,9 +413,10 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
             <Island compact title="Kind">
               <CaptureKindPicker flat value={item.kind as CaptureType} onChange={(kind) => void changeKind('nuggets', item.id, item.kind, kind)} />
             </Island>
-            <KindFields table="nuggets" id={item.id} kind={item.kind} />
+            <KindFields table="nuggets" id={item.id} kind={item.kind} onOpen={onOpen} />
           </>
         )}
+        <Aliases table="nuggets" id={item.id} />
 
         <Island compact title="Review">
           <Prop icon={item.prompt ? Brain : item.mode === 'pushed' ? RefreshCw : Eye} active>

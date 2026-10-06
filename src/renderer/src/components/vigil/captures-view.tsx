@@ -22,15 +22,17 @@ import { GlossTimeline } from './gloss-line'
 import { RemindMe } from './items-view'
 import { addToQuestion } from './questions-view'
 import { ReadThrough } from './read-through'
+import { PassLinks } from './pass'
 import { selectionActions } from './selection-actions'
 import { Kbd, Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
 import { Archive, ArchiveRestore, Download } from 'lucide-react'
-import { KindFields, LayoutToggle, LocalGraph, NoteCards, Versions, useLayout } from './note-extras'
+import { Aliases, KindFields, LayoutToggle, LocalGraph, NoteCards, Versions, useLayout } from './note-extras'
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { Rest } from './scenery'
+import { PinnedQuestions, clueInto } from './pinned-questions'
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
 
@@ -177,6 +179,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
           ) : (
             <span className="flex items-center gap-2">
               {shown.length > 1 && <span className="hidden text-xs whitespace-nowrap @[48rem]/page:inline"><Kbd>x</Kbd> to select</span>}
+              {title === 'Inbox' && <PassLinks />}
               <Tip label="Read this list full screen, one note at a time, from the highlighted one (or the first). You can write in each as you go.  ⇧⌘R">
                 <Button variant="ghost" size="sm" onClick={() => setReadFrom(startAt(shown, open?.id, cursor))} disabled={!shown.length}><AliveIcon icon={BookIcon} size={14} /> Read list</Button>
               </Tip>
@@ -373,6 +376,8 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
           <>
             <Prop icon={Orbit} onClick={() => void exit(capture.id, 'question')}>Hold as a question</Prop>
             <Prop icon={Orbit} onClick={() => void addToQuestion(capture.id)}>Add to a question…</Prop>
+            {/* The questions kept in view, one click each, while you tidy. */}
+            <PinnedQuestions className="px-2 py-1.5" onPick={(question) => void clueInto(question, { captureId: capture.id })} />
           </>
         )}
         {capture.status === 'open' && (
@@ -399,7 +404,8 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
       <Island compact title="Kind">
         <CaptureKindPicker flat value={capture.kind as CaptureType} onChange={(kind) => void changeKind('captures', capture.id, capture.kind, kind)} />
       </Island>
-      <KindFields table="captures" id={capture.id} kind={capture.kind} />
+      <KindFields table="captures" id={capture.id} kind={capture.kind} onOpen={onOpen} />
+      <Aliases table="captures" id={capture.id} />
 
       <Island compact title="Surfacing">
         <Prop icon={capture.private ? EyeOff : Eye} active={!!capture.private} onClick={() => void vigil.setPrivate('captures', capture.id, !capture.private)}>

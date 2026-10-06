@@ -39,6 +39,7 @@ import { backupDir } from './backup'
 import { activeSession, badge, gate, motionOn, registerVigil, toggleSafeMode, whenSafeMode } from './vigil'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
+import { registerPeriods } from './periods'
 import { registerScenery, sceneryDir } from './scenery'
 
 
@@ -1211,6 +1212,7 @@ app.whenReady().then(() => {
   registerImportConversion()
   registerVigil()
   registerNotes({ load, guard })
+  registerPeriods()
   registerScenery()
   const first = fromCli(process.argv)
   if (first) captureText(first)

@@ -164,6 +164,9 @@ const DEFAULTS = {
   // inbox through its exits.
   weeklyReview: true,
   weeklyDay: 4,
+  // Once a day the box offers a few minutes' tidy of the last days' captures:
+  // tags and formatting only, nothing decided.
+  dailyTidy: true,
   // A tag with an exam date says so in the box when its cards fall behind.
   examNudges: true,
   // Hints can be memories: this day last year, things from one source.
@@ -189,7 +192,11 @@ const DEFAULTS = {
   // open, how long, how many clues. Off in Settings.
   questionsBack: true,
   // A plain-text copy of each capture beside the backups (never a private one).
-  markdownCopies: true
+  markdownCopies: true,
+  // How far back the Recent panel reaches, in days.
+  recentDays: 7,
+  // The questions you keep in view, shown small while you capture and tidy.
+  pinnedQuestions: true
 }
 export type Settings = typeof DEFAULTS
 
@@ -715,7 +722,7 @@ export function registerVigil(): void {
 
   // What @ offers besides captures: nuggets and articles by name.
   handle('items:find', (query: unknown) =>
-    db.prepare("select id, tier, coalesce(nullif(title, ''), label('', body)) as name, coalesce(nullif(title, ''), label('', body)) as title from nuggets where name like ? escape '\\' and superseded_by is null order by updated_at desc limit 6").all(`%${like(String(query))}%`))
+    db.prepare("select id, tier, coalesce(nullif(title, ''), label('', body)) as name, coalesce(nullif(title, ''), label('', body)) as title from nuggets where (name like ? escape '\\' or coalesce(aliases, '') like ? escape '\\') and superseded_by is null order by updated_at desc limit 6").all(`%${like(String(query))}%`, `%${like(String(query))}%`))
   // A page of your own from nothing: notes on linear algebra, say. An article
   // with no nuggets behind it, there to be written in.
   handle('article:new', () => {
@@ -744,7 +751,7 @@ export function registerVigil(): void {
     // other way: the same thing twice in a row is a nag, not a surprise.
     const rot = db
       .prepare(
-        `select ${LIST}, body from captures where status = 'open' and archived_at is null and ${AGED} < ? ${hidePrivate ? 'and 0' : ''}
+        `select ${LIST}, body, back_at as backAt from captures where status = 'open' and archived_at is null and back_at is null and ${AGED} < ? ${hidePrivate ? 'and 0' : ''}
          and id not in (select nugget_id from hint_events where shown_at >= ? union select capture_id from nuggets where capture_id is not null and id in (select nugget_id from hint_events where shown_at >= ?))
          order by (julianday('now') - julianday(${AGED}) + 1) * (abs(random()) % 1000) desc limit ${Math.max(0, Math.min(10, settings().rotCount))}`
       )
@@ -1220,19 +1227,23 @@ export function registerVigil(): void {
   handle('nudge', () => {
     const { blackout, hidePrivate } = gate()
     if (blackout || hidePrivate) return null
-    const { examNudges, weeklyReview, weeklyDay } = settings()
+    const { examNudges, weeklyReview, weeklyDay, dailyTidy } = settings()
     if (examNudges)
       for (const exam of readiness())
         if (exam.behind > 0 && !nudgedToday(`exam:${exam.tag}`))
           return { kind: 'exam', view: 'review', label: `Exam · #${exam.tag}`,
             text: `#${exam.tag} is ${exam.days === 0 ? 'today' : exam.days === 1 ? 'tomorrow' : `in ${exam.days} days`}, and ${exam.behind} ${exam.behind === 1 ? 'card is' : 'cards are'} behind. About ${exam.perDay} a day catches you up.` }
+    // The deciding pass, on its day. No count: what it holds is what you set
+    // aside, and the point of setting it aside was to stop carrying it.
     if (weeklyReview && new Date().getDay() === weeklyDay) {
-      // Not an import still in its first thirty days: it is not waiting on you yet.
-      const open = (db.prepare(`select count(*) n from captures where status = 'open' and archived_at is null and ${AGED} <= ?`).get(now()) as { n: number }).n
-      if (open && !nudgedToday('weekly'))
-        return { kind: 'weekly', view: 'inbox', label: 'Weekly review',
-          text: `A good day to walk the inbox: ${open} ${open === 1 ? 'capture is' : 'captures are'} waiting for an exit. Keep, deal with or let go of each.` }
+      if (decideList().length && !nudgedToday('weekly'))
+        return { kind: 'weekly', view: 'decide', label: 'Deciding day',
+          text: 'Deciding day. What you said you would come back to is here, with a few that have waited longest. Keep, act on or let go of each.' }
     }
+    // The tidy pass, most mornings: only once there is something from before today.
+    if (dailyTidy && tidyList().some((one) => (one.capturedAt as string) < new Date(new Date().setHours(0, 0, 0, 0)).toISOString()) && !nudgedToday('tidy'))
+      return { kind: 'tidy', view: 'tidy', label: 'Daily tidy',
+        text: 'A few minutes to tidy the last few days: a tag here, a bold line there. Nothing to decide.' }
     return null
   })
 
@@ -1292,6 +1303,81 @@ export function registerVigil(): void {
   handle('rot:waiting', () => {
     const { blackout, hidePrivate } = gate()
     return blackout || hidePrivate ? 0 : Math.min(settings().rotCount, (db.prepare(`select count(*) n from captures where status = 'open' and archived_at is null and ${AGED} < ?`).get(ago(1)) as { n: number }).n)
+  })
+
+  // --- the two passes: a daily tidy that only makes things findable, and a
+  // weekly one that decides. Tidied is when the tidy pass last moved on from
+  // it; back is the soft "come back to this" mark, a date and never a count;
+  // passed is when the deciding pass last showed it and you left it open.
+  column('captures', 'tidied_at text')
+  column('captures', 'back_at text')
+  column('captures', 'passed_at text')
+  // The last week's captures not yet tidied, oldest first, the way they were
+  // written. Not an import: a vault arriving is not something you caught.
+  const tidyList = (): Record<string, unknown>[] =>
+    db.prepare(`select ${LIST}, body, back_at as backAt from captures where status = 'open' and archived_at is null and tidied_at is null
+      and imported_at is null and captured_at >= ? order by captured_at`).all(ago(7)).map(body)
+  // What deciding walks: everything marked to come back to; anything never
+  // tidied, a week on; and, so nothing rots unseen, the few tidied ones open
+  // longest that it has not shown for two months. A dozen of each at most.
+  const decideList = (): Record<string, unknown>[] => {
+    const rows = [
+      ...db.prepare(`select ${LIST}, body, back_at as backAt, 'back' as why from captures where status = 'open' and archived_at is null and back_at is not null order by back_at`).all(),
+      ...db.prepare(`select ${LIST}, body, back_at as backAt, 'untidied' as why from captures where status = 'open' and archived_at is null and back_at is null and tidied_at is null
+        and ${AGED} < ? and coalesce(passed_at, '') < ? order by captured_at limit 12`).all(ago(7), ago(21)),
+      ...db.prepare(`select ${LIST}, body, back_at as backAt, 'longest' as why from captures where status = 'open' and archived_at is null and back_at is null and tidied_at is not null
+        and ${AGED} < ? and coalesce(passed_at, '') < ? order by captured_at limit 5`).all(ago(30), ago(60))
+    ] as Record<string, unknown>[]
+    return rows.map(body)
+  }
+  handle('pass:tidy', tidyList)
+  handle('pass:decide', decideList)
+  // How many each would walk, for whether to offer it at all; never shown as a number to clear.
+  handle('pass:waiting', () => ({ tidy: tidyList().length, decide: decideList().length }))
+  // Moved on from in the tidy pass: findable now. Not a change to undo.
+  handle('pass:tidied', (id: string) => write(db.prepare('update captures set tidied_at = ? where id = ? and tidied_at is null').run(now(), id)))
+  // Come back to this on deciding day, or not after all; `at` puts back what it was.
+  handle('pass:back', (id: string, on: boolean, at?: string | null) =>
+    write(db.prepare('update captures set back_at = ? where id = ?').run(on ? at ?? now() : null, id)))
+  // Left open on purpose in the deciding pass: findable is enough. It stops
+  // asking to be come back to, and is not shown again for two months.
+  handle('pass:keep', (id: string) =>
+    write(db.prepare('update captures set back_at = null, tidied_at = coalesce(tidied_at, ?), passed_at = ? where id = ? returning 1').get(now(), now(), id)))
+  handle('pass:unkeep', (id: string, was: { backAt: string | null; tidiedAt: string | null; passedAt: string | null }) =>
+    write(db.prepare('update captures set back_at = ?, tidied_at = ?, passed_at = ? where id = ?').run(was.backAt, was.tidiedAt, was.passedAt, id)))
+  // Shown and stepped past: it waits its turn again rather than leading every week.
+  handle('pass:seen', (id: string) => write(db.prepare('update captures set passed_at = ? where id = ? and back_at is null').run(now(), id)))
+  handle('pass:state', (id: string) =>
+    db.prepare('select back_at as backAt, tidied_at as tidiedAt, passed_at as passedAt from captures where id = ?').get(id) ?? null)
+  // A tag put on or taken off one capture, in its words, since that is where
+  // tags live: added at the end of its first line, where its row reads them;
+  // taken off wherever it is written. Gives the words as they now are.
+  handle('pass:tag', (id: string, raw: string, on: boolean) => {
+    const tag = String(raw).replace(/^#/, '').toLowerCase()
+    if (!/^[a-z][\w-]*$/.test(tag)) return null
+    const row = db.prepare('select body from captures where id = ?').get(id) as { body: string } | undefined
+    if (!row) return null
+    let doc = JSON.parse(row.body ?? 'null')
+    const written = new RegExp(`(^|\\s)#${tag.replace(/-/g, '\\-')}(?![\\w-])`, 'gi')
+    type Node = { type?: string; text?: string; content?: Node[] }
+    if (on) {
+      if (tagsIn(`${plain(doc)}`).includes(tag)) return doc
+      const first = (doc?.content ?? []).findIndex((block: Node) => ['paragraph', 'heading'].includes(block.type ?? '') && block.content?.length)
+      doc = doc && typeof doc === 'object'
+        ? first >= 0
+          ? { ...doc, content: doc.content.map((block: Node, index: number) => (index === first ? { ...block, content: [...(block.content ?? []), { type: 'text', text: ` #${tag}` }] } : block)) }
+          : { ...doc, content: [{ type: 'paragraph', content: [{ type: 'text', text: `#${tag}` }] }, ...(doc.content ?? [])] }
+        : String(doc ?? '').replace(/^([^\n]*)/, (line) => `${line} #${tag}`.trim())
+    } else {
+      const strip = (node: Node): Node => ({
+        ...node,
+        ...(node.text !== undefined ? { text: node.text.replace(written, '') } : {}),
+        ...(node.content ? { content: node.content.map(strip).filter((one) => one.text !== '') } : {})
+      })
+      doc = doc && typeof doc === 'object' ? strip(doc) : String(doc ?? '').replace(written, '')
+    }
+    db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(doc), id)
+    return write(doc)
   })
 
   // --- the recap, Wrapped's way: a month or a year in what you did here
@@ -1508,6 +1594,21 @@ export function registerVigil(): void {
     return write(true)
   })
   handle('tag', (tag: string) => tagged().filter((row) => row.tag === tag))
+  // A tag as something to read: the whole of everything carrying it, newest
+  // first, each with its other tags. Captures and kept things; a task's notes
+  // are not reading.
+  handle('tag:read', (tag: string) => {
+    const alias = new Map((db.prepare('select tag, alias_of from tag_meta where alias_of is not null').all() as { tag: string; alias_of: string }[]).map((row) => [row.tag, row.alias_of]))
+    const rows = [
+      ...db.prepare(`select id, 'capture' as type, kind, status, '' as title, ${LABEL} as label, body, private, captured_at as at from captures where status != 'discarded' and archived_at is null`).all(),
+      ...db.prepare("select id, tier as type, kind, 'open' as status, title, label('', body) as label, body, private, created_at as at from nuggets where archived_at is null and superseded_by is null").all()
+    ] as Record<string, string>[]
+    return rows.flatMap((row) => {
+      const parsed = JSON.parse(row.body ?? 'null')
+      const tags = [...new Set(tagsIn(`${row.title} ${plain(parsed)}`).map((one) => alias.get(one) ?? one))]
+      return tags.includes(tag) ? [{ ...row, at: row.at, body: parsed, private: !!Number(row.private), tags: tags.filter((one) => one !== tag) }] : []
+    }).sort((a, b) => String(b.at).localeCompare(String(a.at)))
+  })
   // Rename everywhere at once; renaming onto a tag that exists is a merge. The
   // words themselves change, since the words are where tags live.
   handle('tag:rename', (from: string, to: string) => {
@@ -1582,7 +1683,7 @@ export function registerVigil(): void {
   // --- sessions: effort against a task, with a recap of what actually happened
   db.exec('create table if not exists sessions (id text primary key, task_id text not null, started_at text not null, ended_at text, recap text)')
   handle('sessions', (taskId: string) =>
-    db.prepare('select id, started_at as startedAt, ended_at as endedAt, recap, paused_ms as pausedMs, paused_at as pausedAt from sessions where task_id = ? order by started_at desc').all(taskId)
+    db.prepare('select id, started_at as startedAt, ended_at as endedAt, recap, goal, paused_ms as pausedMs, paused_at as pausedAt from sessions where task_id = ? order by started_at desc').all(taskId)
   )
   // A focus session: a goal, an optional length, and pauses that do not count.
   column('sessions', 'goal text')
@@ -1648,6 +1749,14 @@ export function registerVigil(): void {
       db.prepare("insert into nuggets (id, kind, title, body, created_at, updated_at) values (?, 'note', ?, ?, ?, ?)").run(
         randomUUID(), recap.split('\n')[0].slice(0, 120), JSON.stringify(recap), now(), now())
     return write(true)
+  })
+  // "How did it go?", answered after the session has already ended (from the
+  // pill, or the task's log): the recap set on its own. Gives back the one it
+  // had, so the toast can put it back.
+  handle('session:recap', (id: string, recap: string) => {
+    const was = (db.prepare('select recap from sessions where id = ?').get(id) as { recap: string | null } | undefined)?.recap ?? ''
+    db.prepare('update sessions set recap = ? where id = ?').run(recap, id)
+    return write(was)
   })
 
   // --- a time of day means something happens at that time

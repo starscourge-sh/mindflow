@@ -13,6 +13,7 @@ import { Island, Kbd, Page, Rolling, Tip, Typed, toast, typing } from './ui'
 import { DayBanner } from './scenery'
 import { GlossButton, GlossLine } from './gloss-line'
 import { Versions } from './note-extras'
+import { ScaleSwitch, type Scale } from './periods-view'
 
 /** A day's date, as you would say it: "Monday 5 October". */
 const named = (day: string): string =>
@@ -29,8 +30,13 @@ const shift = (day: string, by: number): string => {
  * only once you write in it (or tick it reviewed); every day still shows what
  * happened. ← and → step through the days.
  */
-export function DayView({ onOpen }: { onOpen?: (type: string, id: string) => void }): React.JSX.Element {
-  const [day, setDay] = useState(dayOf())
+export function DayView({ onOpen, start, onScale }: {
+  onOpen?: (type: string, id: string) => void
+  /** The day to open on, from a link to its page; today if not given. */
+  start?: string
+  onScale?: (scale: Scale) => void
+}): React.JSX.Element {
+  const [day, setDay] = useState(start && /^\d{4}-\d{2}-\d{2}$/.test(start) && start <= dayOf() ? start : dayOf())
   const data = useLive(() => notes.day(day), null as Day | null, [day])
   const today = dayOf()
   // The row a thought is being written under: one at a time, by its section,
@@ -70,6 +76,8 @@ export function DayView({ onOpen }: { onOpen?: (type: string, id: string) => voi
       title="Today's page"
       actions={
         <span className="flex items-center gap-1">
+          <ScaleSwitch scale="day" onScale={onScale} />
+          {onScale && <span aria-hidden className="mx-1 h-4 w-px bg-border" />}
           <Tip label="The day before  ←">
             <Button variant="ghost" size="icon-sm" aria-label="The day before" onClick={() => go(shift(day, -1))}><ArrowLeft className="size-3.5" /></Button>
           </Tip>
@@ -137,8 +145,9 @@ export function DayView({ onOpen }: { onOpen?: (type: string, id: string) => voi
                   onClick={() => onOpen?.(entry.type, entry.id)}
                   className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-accent/50">
                   <Mark className="size-4 shrink-0" style={kind && entry.type === 'capture' ? { color: kind.tint } : undefined} />
-                  <span className="private-text flex-1 truncate">{entry.title || 'Untitled'}</span>
-                  {entry.status && <span className="text-xs text-muted-foreground">{entry.status}</span>}
+                  {/* Dealt with, it stays where it was made, struck through: the page keeps what you meant to do and that you did it. */}
+                  <span className={`private-text flex-1 truncate ${title === 'Captured' && entry.status && entry.status !== 'open' ? 'text-muted-foreground line-through decoration-foreground/40' : ''}`}>{entry.title || 'Untitled'}</span>
+                  {entry.status && title !== 'Captured' && <span className="text-xs text-muted-foreground">{entry.status}</span>}
                   {glossable && <span aria-hidden className="w-6 shrink-0" />}
                 </button>
                 {glossable && <GlossButton className="top-1.5 right-2" onClick={() => setGlossing(`${title}-${entry.id}`)} />}

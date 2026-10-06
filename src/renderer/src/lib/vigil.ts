@@ -42,6 +42,8 @@ export type Settings = {
   weeklyReview: boolean
   /** 0 is Sunday. */
   weeklyDay: number
+  /** A few minutes' tidy of the last days' captures, offered once a day. */
+  dailyTidy: boolean
   examNudges: boolean
   memories: boolean
   weather: boolean
@@ -64,7 +66,17 @@ export type Settings = {
   questionsBack: boolean
   /** A plain Markdown copy of each capture beside the backups; never a private one. */
   markdownCopies: boolean
+  /** How far back the Recent panel reaches, in days. */
+  recentDays: number
+  /** The questions kept in view, shown small while you capture and tidy. */
+  pinnedQuestions: boolean
 }
+
+/** Something made in the last few days, for the Recent panel. */
+export type Recent = { type: string; id: string; title: string; kind: string; status: string; private: number; at: string }
+/** A page a week (`week:` and its Monday) or a month (`month:2026-10`). */
+export type PeriodPage = { period: string; exists: boolean; fields: Record<string, string>; body: unknown }
+export type PinnedQuestion = { id: string; title: string; pinnedAt: string; clues: number }
 
 /** A picture from the Scenery folders, as the main process describes its smaller copy. */
 export type Mood = 'day' | 'dusk' | 'night' | 'interior'
@@ -108,6 +120,11 @@ export type ItemFull = Item & { body: unknown; origins: string[]; glosses: Gloss
 export type Due = Item & { body: unknown; intervals: Record<number, string>; gloss: string | null; exam: string | null }
 /** How ready a tag with an exam date is. */
 export type Exam = { tag: string; at: string; days: number; total: number; solid: number; learning: number; struggling: number; unseen: number; behind: number; perDay: number }
+/** A tagged thing read whole on its tag's page. */
+export type TagRead = { id: string; type: string; kind: string; status: string; title: string; label: string; body: unknown; private: boolean; at: string; tags: string[] }
+/** A capture in one of the two passes; `why` says how it got into the deciding one. */
+export type PassItem = { id: string; number: number; label: string; kind: string; status: string; private: number; capturedAt: string; attribution: string | null; body: unknown; backAt: string | null; why?: 'back' | 'untidied' | 'longest' }
+export type PassState = { backAt: string | null; tidiedAt: string | null; passedAt: string | null }
 /** A month or a year, Wrapped's way. */
 export type Recap = {
   label: string
@@ -176,7 +193,7 @@ export const taskSaid = (made: Made | null | undefined, fresh: string): string =
   made?.existed ? `Already a task: T-${made.number}. Linked to it, not added twice` : fresh
 export type TaskFull = Task & { notes: unknown; done: { at: string; recap: string | null }[]; subtasks: Subtask[]; linked: { id: string; tier: string; kind: string; title: string }[] }
 
-export type Session = { id: string; startedAt: string; endedAt: string | null; recap: string | null; pausedMs: number; pausedAt: string | null }
+export type Session = { id: string; startedAt: string; endedAt: string | null; recap: string | null; goal?: string | null; pausedMs: number; pausedAt: string | null }
 /** The session running now, as the floating timer shows it. */
 export type Focus = { id: string; taskId: string; goal: string; startedAt: string; plannedMs: number | null; pausedMs: number; pausedAt: string | null }
 
@@ -208,6 +225,21 @@ export type Stats = {
 }
 
 export const vigil = {
+  /** Other names a note goes by; `setAliases` gives back the list it had, for an undo. */
+  aliases: (table: 'captures' | 'nuggets', id: string) => call<string[]>('aliases', table, id),
+  setAliases: (table: 'captures' | 'nuggets', id: string, list: string[]) => call<string[] | null>('aliases:set', table, id, list),
+  /** Everything made in the `days` before `until` (now), newest first. */
+  recent: (days: number, until?: string | null) => call<Recent[]>('recent', days, until),
+  period: (period: string) => call<PeriodPage>('period', period),
+  savePeriod: (period: string, patch: { fields?: Record<string, string | null>; body?: unknown }) => call('period:save', period, patch),
+  /** A year's months, each with what its page says. */
+  year: (year: string) => call<({ month: string } & Record<string, string>)[]>('periods:year', year),
+  pinnedQuestions: () => call<PinnedQuestion[]>('questions:pinned'),
+  /** False when twelve are kept in view already. */
+  pinQuestion: (id: string, on: boolean) => call<boolean>('question:pin', id, on),
+  /** Where a link held in a field leads: `day:2026-10-05`, `nugget:…`, or a capture's id. */
+  linkTitle: (link: string) => call<{ type: string; id: string; title: string; kind: string; private?: number } | null>('link:title', link),
+  unmakeCapture: (id: string, origin: string) => call('capture:unmake', id, origin),
   settings: () => call<Settings>('settings'),
   setSettings: (patch: Partial<Settings>) => call<Settings>('settings:set', patch),
   backupsWhere: () => call<string>('backups:where'),
@@ -275,7 +307,7 @@ export const vigil = {
   exams: () => call<Exam[]>('exams'),
   history: (id: string) => call<{ reviews: { at: string; grade: number }[]; dueAt: string | null }>('review:history', id),
   source: (id: string) => call<{ type: string; id: string; title: string; body: unknown } | null>('review:source', id),
-  nudge: () => call<{ kind: 'exam' | 'weekly'; view: string; label: string; text: string } | null>('nudge'),
+  nudge: () => call<{ kind: 'exam' | 'weekly' | 'tidy'; view: string; label: string; text: string } | null>('nudge'),
   memory: () => call<{ id: string; captureId: string; kind: string; title: string; body: unknown; event: number; memory: string } | null>('memory'),
   rotLeft: () => call<number>('rot:left'),
   rotWaiting: () => call<number>('rot:waiting'),
@@ -286,6 +318,21 @@ export const vigil = {
   unmerge: (id: string, merged: Merged) => call<boolean>('capture:merge:undo', id, merged),
   hintRate: () => call<{ rate: number; tuned: boolean; shown: number; stopped: number }>('hints:rate'),
   tag: (tag: string) => call<{ tag: string; id: string; type: string; title: string; private: boolean }[]>('tag', tag),
+  /** Everything carrying a tag, whole, newest first, each with its other tags. */
+  tagRead: (tag: string) => call<TagRead[]>('tag:read', tag),
+  /** The daily tidy pass and the weekly deciding pass: what each walks. */
+  tidyList: () => call<PassItem[]>('pass:tidy'),
+  decideList: () => call<PassItem[]>('pass:decide'),
+  passWaiting: () => call<{ tidy: number; decide: number }>('pass:waiting'),
+  tidied: (id: string) => call('pass:tidied', id),
+  /** Come back to this on deciding day; `at` puts back the mark it had. */
+  comeBack: (id: string, on: boolean, at?: string | null) => call('pass:back', id, on, at),
+  keepOpen: (id: string) => call('pass:keep', id),
+  unkeepOpen: (id: string, was: PassState) => call('pass:unkeep', id, was),
+  passSeen: (id: string) => call('pass:seen', id),
+  passState: (id: string) => call<PassState | null>('pass:state', id),
+  /** A tag put on or taken off a capture's words; gives the words back, or null for a tag that cannot be one. */
+  passTag: (id: string, tag: string, on: boolean) => call<unknown>('pass:tag', id, tag, on),
   stats: () => call<Stats>('stats'),
   exportAll: () => call<string | null>('export'),
   bury: (id: string) => call('review:bury', id),
@@ -311,7 +358,9 @@ export const vigil = {
   pauseSession: (id: string) => call('session:pause', id),
   resumeSession: (id: string) => call('session:resume', id),
   cancelSession: (id: string) => call('session:cancel', id),
-  endSession: (id: string, recap: string, keep: boolean, close = false) => call('session:end', id, recap, keep, close)
+  endSession: (id: string, recap: string, keep: boolean, close = false) => call('session:end', id, recap, keep, close),
+  /** The recap of a session already ended; gives back the one it had, for undo. */
+  recapSession: (id: string, recap: string) => call<string>('session:recap', id, recap)
 }
 
 /**

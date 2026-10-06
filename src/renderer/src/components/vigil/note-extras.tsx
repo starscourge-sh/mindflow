@@ -1,19 +1,21 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { AlignLeft, Check, Clock3, LayoutGrid, List, ListChecks, Star, Type, X } from 'lucide-react'
-import { motion } from 'motion/react'
+import { createPortal } from 'react-dom'
+import { AlignLeft, Check, ChevronRight, Clock3, LayoutGrid, Link2, List, ListChecks, Lock, Pencil, Plus, Split, Star, Tags, Type, X } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
-import { KIND_FIELDS } from '../capture-kinds/kind-fields'
+import { KIND_FIELDS, type Field } from '../capture-kinds/kind-fields'
+import { Search } from '../search'
 import { Command, CommandInput, CommandItem, CommandList, CommandShortcut } from '@/components/ui/command'
 import { Slider } from '@/components/ui/slider'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
-import { chime, step } from '@/lib/sound'
-import { notes, openWindow, smallPicture, useThumb, type GraphNode, type NoteTable, type Version } from '@/lib/notes'
-import { splitTags, useLive } from '@/lib/vigil'
+import { chime, step, type Cue } from '@/lib/sound'
+import { dayOf, notes, openWindow, smallPicture, useThumb, type GraphNode, type NoteTable, type Version } from '@/lib/notes'
+import { splitTags, useLive, vigil } from '@/lib/vigil'
 import { Chips } from './display'
 import { RowMenu, type MenuItem } from './row-menu'
-import { Island, PropInput, Rolling, Tip, Typed, VirtualList, toast } from './ui'
+import { Island, PropInput, Rolling, Tip, Typed, VirtualList, refuse, toast } from './ui'
 
 // --- a note's first picture, small
 
@@ -207,14 +209,37 @@ export function KindAsker(): React.JSX.Element | null {
 
 // --- the fields a kind asks for
 
-/** The fields this note's kind asks for, in the properties column. Nothing for a kind that asks for none. */
-export function KindFields({ table, id, kind }: { table: NoteTable; id: string; kind: string }): React.JSX.Element | null {
+/** A date the way a quiet line says it: "6 Oct", with the year once it is not this one. */
+const dated = (iso: string): string => {
+  const date = new Date(iso)
+  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', ...(date.getFullYear() !== new Date().getFullYear() ? { year: 'numeric' } : {}) })
+}
+
+/** What a status says when it is picked, and how it sounds. */
+const STATUS: Record<string, { said: string; cue: Cue }> = {
+  Open: { said: 'Open: not decided yet', cue: 'tap' },
+  Deciding: { said: 'Deciding: weigh it up under Working out', cue: 'weigh' },
+  Decided: { said: "Decided. Don't reopen it without a new reason", cue: 'decided' },
+  Running: { said: 'Running: say what came of it when it ends', cue: 'trial' },
+  Finished: { said: 'Finished: write the outcome so it skims later', cue: 'finding' }
+}
+
+/**
+ * The fields this note's kind asks for, in the properties column. Nothing for
+ * a kind that asks for none, and nothing is ever required: a field is there
+ * for when you want it. A decision folds its working out away and, once
+ * decided, says so quietly; an experiment can start a decision from itself.
+ */
+export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: string; kind: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element | null {
   const fields = KIND_FIELDS[kind] ?? []
   // Tagged with the note they belong to: until this note's own have come in,
   // a field would start from nothing (or the last note's words) and a blur
   // would write that over what is kept.
   const read = useLive(() => notes.fields(table, id).then((values) => ({ of: `${table}:${id}`, values })), { of: '', values: {} as Record<string, string | number> }, [table, id])
   const values = read.values
+  // The working out: open while deciding unless shut by hand, folded after.
+  const [working, setWorking] = useState<boolean | null>(null)
+  useEffect(() => setWorking(null), [id])
   // Properties a note came with that its kind does not ask for: an imported
   // note's frontmatter, every key of it, shown and editable as words.
   const others = Object.keys(values).filter((key) => !fields.some((field) => field.key === key))
@@ -222,6 +247,34 @@ export function KindFields({ table, id, kind }: { table: NoteTable; id: string; 
   const save = (key: string, value: string | number | null): void => {
     if ((values[key] ?? null) === (value === '' ? null : value)) return
     void notes.setField(table, id, key, value === '' ? null : value).then(() => chime('noted'))
+  }
+  const saveAll = (patch: Record<string, string | number | null>): Promise<unknown> =>
+    Promise.all(Object.entries(patch).map(([key, value]) => notes.setField(table, id, key, value)))
+  // A status picked (or picked again, to clear it), dated when a decision is
+  // made, and taken back whole by the undo.
+  const pick = (key: string, option: string): void => {
+    const next = values[key] === option ? null : option
+    const dates = kind === 'decision' && key === 'state'
+    const was = { [key]: values[key] ?? null, ...(dates ? { decidedAt: values.decidedAt ?? null } : {}) }
+    const patch = { [key]: next, ...(dates ? { decidedAt: next === 'Decided' ? (values.decidedAt && values[key] === 'Decided' ? values.decidedAt : new Date().toISOString()) : null } : {}) }
+    // Weighing it up opens the working out; deciding folds it away, kept.
+    if (dates) setWorking(next === 'Deciding' ? true : next === 'Decided' ? false : null)
+    void saveAll(patch).then(() => {
+      chime(next ? STATUS[next]?.cue ?? 'tap' : 'off')
+      toast(next ? STATUS[next]?.said ?? next : 'No status', () => void saveAll(was).then(() => chime('undo')))
+    })
+  }
+  // An experiment's finding becomes a decision: made from it, so each shows
+  // the other under Came from and Became.
+  const decide = async (): Promise<void> => {
+    const self = await vigil.linkTitle(table === 'captures' ? id : `nugget:${id}`)
+    const outcome = String(values.outcome ?? '').split('\n')[0].trim()
+    const text = outcome ? `Decide: ${outcome}` : `Decide, after: ${self?.title || 'the experiment'}`
+    const made = await window.api.captures.create({ kind: 'decision', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] }, origin: id })
+    await notes.setField('captures', made, 'state', 'Open')
+    chime('decided')
+    toast('A decision, started from this experiment', () => void vigil.unmakeCapture(made, id).then(() => chime('undo')))
+    onOpen?.('capture', made)
   }
   const properties = others.length ? (
     <Island compact title="Properties">
@@ -236,19 +289,70 @@ export function KindFields({ table, id, kind }: { table: NoteTable; id: string; 
     </Island>
   ) : null
   if (!fields.length) return properties
+  const state = String(values.state ?? '')
+  const longField = (field: Field, value: string | number | undefined): React.JSX.Element => (
+    <label key={`${id}-${field.key}-${value ?? ''}`} className="flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-accent focus-within:bg-accent">
+      <AlignLeft className="mt-1 size-4 shrink-0" />
+      <Textarea rows={2} defaultValue={String(value ?? '')} placeholder={field.placeholder ?? field.label} aria-label={field.label} onBlur={(event) => save(field.key, event.target.value.trim())}
+        className="min-h-0 resize-none border-0 bg-transparent p-0 text-control text-foreground shadow-none focus-visible:ring-0" />
+    </label>
+  )
   return (
     <>
     {properties}
     <Island compact title={`${CAPTURE_TYPES.find((type) => type.id === kind)?.label ?? 'Kind'} details`}>
       {fields.map((field) => {
         const value = values[field.key]
+        if (field.type === 'hidden') return null
         if (field.type === 'choice')
           return (
-            <div key={field.key} className="flex items-center gap-2 px-2 py-1">
-              <ListChecks className="size-4 shrink-0" />
-              <Chips options={(field.options ?? []).map((option) => ({ id: option, label: option }))} on={(option) => value === option} pick={(option) => save(field.key, value === option ? null : option)} />
+            <div key={field.key} className="px-2 py-1">
+              <div className="flex items-center gap-2">
+                <ListChecks className="size-4 shrink-0" />
+                <Chips options={(field.options ?? []).map((option) => ({ id: option, label: option }))} on={(option) => value === option} pick={(option) => pick(field.key, option)} />
+              </div>
+              {/* Proof you already thought it through: quiet, and only once it is settled. */}
+              {kind === 'decision' && value === 'Decided' && (
+                <p className="flex items-center gap-1.5 pt-1 pb-0.5 pl-6 text-xs text-muted-foreground">
+                  <Lock className="size-3 shrink-0" />
+                  <Typed text={`Decided${values.decidedAt ? ` ${dated(String(values.decidedAt))}` : ''} — don't reopen without a reason`} step={24} delay={150} />
+                </p>
+              )}
             </div>
           )
+        // The working out folds away: open while deciding, shut once decided,
+        // and out of sight altogether until there is something to weigh.
+        if (kind === 'decision' && field.key === 'working') {
+          if (state !== 'Deciding' && !value) return null
+          const open = working ?? state === 'Deciding'
+          return (
+            <div key={field.key}>
+              <button type="button" aria-expanded={open} onClick={() => (chime(open ? 'fold' : 'slide'), setWorking(!open))}
+                className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-control hover:bg-accent">
+                <ChevronRight className={`size-4 shrink-0 transition-transform duration-200 ${open ? 'rotate-90' : ''}`} />
+                <span className="flex-1">{field.label}</span>
+                {!open && value ? <span className="text-xs text-muted-foreground"><Rolling text={`${String(value).split(/\s+/).length} words`} by="word" /></span> : null}
+              </button>
+              <AnimatePresence initial={false}>
+                {open && (
+                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }} className="overflow-hidden">
+                    <Textarea rows={4} defaultValue={String(value ?? '')} placeholder={field.placeholder} aria-label={field.label} onBlur={(event) => save(field.key, event.target.value.trim())}
+                      className="min-h-0 resize-none rounded-none border-0 bg-transparent px-8 pt-0 pb-2 text-control text-foreground shadow-none focus-visible:ring-0" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )
+        }
+        if (field.type === 'link')
+          return <LinkField key={field.key} label={field.label} placeholder={field.placeholder ?? field.label} value={value ? String(value) : null} onOpen={onOpen}
+            onSave={(link) => {
+              const was = value ?? null
+              void notes.setField(table, id, field.key, link).then(() => {
+                chime(link ? 'noted' : 'off')
+                toast(link ? `${field.label}: linked` : 'Link taken off', () => void notes.setField(table, id, field.key, was).then(() => chime('undo')))
+              })
+            }} />
         if (field.type === 'rating')
           return (
             <div key={field.key} className="flex items-center gap-2 px-2 py-1.5" aria-label={`${field.label}: ${value ?? 'none'} of 5`}>
@@ -260,18 +364,130 @@ export function KindFields({ table, id, kind }: { table: NoteTable; id: string; 
               ))}
             </div>
           )
-        if (field.type === 'long')
-          return (
-            <label key={`${id}-${field.key}-${value ?? ''}`} className="flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-accent focus-within:bg-accent">
-              <AlignLeft className="mt-1 size-4 shrink-0" />
-              <Textarea rows={2} defaultValue={String(value ?? '')} placeholder={field.placeholder ?? field.label} onBlur={(event) => save(field.key, event.target.value.trim())}
-                className="min-h-0 resize-none border-0 bg-transparent p-0 text-control text-foreground shadow-none focus-visible:ring-0" />
-            </label>
-          )
+        if (field.type === 'long') return longField(field, value)
         return <PropInput key={`${id}-${field.key}-${value ?? ''}`} icon={Type} value={String(value ?? '')} placeholder={field.placeholder ?? field.label} onSave={(text) => save(field.key, text)} />
       })}
+      {kind === 'experiment' && (
+        <Tip label="Make a decision from what this found: each links to the other">
+          <button type="button" onClick={() => void decide()} className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-control hover:bg-accent hover:text-foreground">
+            <Split className="size-4 shrink-0" style={{ color: 'var(--tt-color-text-red)' }} /> Decide from this
+          </button>
+        </Tip>
+      )}
     </Island>
     </>
+  )
+}
+
+/** A day's page, by its date: "Mon 5 Oct". */
+const dayPage = (day: string): string => new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
+
+/**
+ * A field that holds a link to another note or a day's page: its name, which
+ * opens it, and search to pick or change it. Days are offered first, since a
+ * day is what most often starts something.
+ */
+function LinkField({ label, placeholder, value, onSave, onOpen }: {
+  label: string
+  placeholder: string
+  value: string | null
+  onSave: (link: string | null) => void
+  onOpen?: (type: string, id: string) => void
+}): React.JSX.Element {
+  const [picking, setPicking] = useState(false)
+  const target = useLive(() => (value ? vigil.linkTitle(value) : Promise.resolve(null)), null as Awaited<ReturnType<typeof vigil.linkTitle>>, [value])
+  const name = target ? (target.type === 'day' ? dayPage(target.id) : target.title || 'Untitled') : value ? 'Gone: pick again' : null
+  const days = [0, 1, 2].map((back) => {
+    const date = new Date()
+    date.setDate(date.getDate() - back)
+    return dayOf(date)
+  })
+  return (
+    <div className="group/link flex items-center gap-2 px-2 py-1.5 hover:bg-accent">
+      <Link2 className="size-4 shrink-0" />
+      <span className="w-16 shrink-0 truncate text-meta">{label}</span>
+      {value ? (
+        <button type="button" data-private={target?.private ? '' : undefined} onClick={() => target && onOpen && (chime('tap'), onOpen(target.type, target.id))}
+          className="private-text min-w-0 flex-1 truncate text-left text-control text-foreground underline decoration-foreground/25 underline-offset-2 hover:decoration-foreground">
+          {name}
+        </button>
+      ) : (
+        <button type="button" onClick={() => (chime('open'), setPicking(true))} className="min-w-0 flex-1 truncate text-left text-control text-foreground/70 hover:text-foreground">{placeholder}</button>
+      )}
+      {value && (
+        <span className="flex shrink-0 items-center opacity-0 transition-opacity group-hover/link:opacity-100 group-focus-within/link:opacity-100">
+          <Tip label="Link something else">
+            <button type="button" aria-label="Link something else" onClick={() => (chime('open'), setPicking(true))} className="rounded p-0.5 text-muted-foreground hover:text-foreground"><Pencil className="size-3.5" /></button>
+          </Tip>
+          <Tip label="Take the link off">
+            <button type="button" aria-label="Take the link off" onClick={() => onSave(null)} className="rounded p-0.5 text-muted-foreground hover:text-foreground"><X className="size-3.5" /></button>
+          </Tip>
+        </span>
+      )}
+      {picking && createPortal(
+        <Search
+          placeholder="Link a day, a decision, an experiment, any note…"
+          actions={days.map((day, back) => ({ label: back === 0 ? "Today's page" : back === 1 ? "Yesterday's page" : `${dayPage(day)}'s page`, run: () => onSave(`day:${day}`) }))}
+          onClose={() => setPicking(false)}
+          onOpen={(type, id) => {
+            setPicking(false)
+            if (type === 'task') return refuse('A task cannot start an experiment here. Pick a day or a note')
+            onSave(type === 'capture' ? id : `${type}:${id}`)
+          }}
+        />,
+        document.body
+      )}
+    </div>
+  )
+}
+
+// --- other names
+
+/**
+ * Other names a note goes by: the word you think in, not the one you titled
+ * it with. Search, ⌘K, @ links and [[links]] all find the note by them.
+ */
+export function Aliases({ table, id }: { table: NoteTable; id: string }): React.JSX.Element {
+  const read = useLive(() => vigil.aliases(table, id).then((list) => ({ of: id, list })), { of: '', list: [] as string[] }, [table, id])
+  const list = read.of === id ? read.list : []
+  const set = (next: string[], said: string, cue: Cue): void =>
+    void vigil.setAliases(table, id, next).then((was) => {
+      if (!was) return refuse('That note no longer exists, so nothing was changed')
+      chime(cue)
+      toast(said, () => void vigil.setAliases(table, id, was).then(() => chime('undo')))
+    })
+  return (
+    <Island compact title="Also called">
+      {list.map((name) => (
+        <div key={name} className="group/alias flex items-center gap-2 px-2 py-1.5">
+          <Tags className="size-4 shrink-0" />
+          <span className="min-w-0 flex-1 truncate text-control text-foreground">{name}</span>
+          <Tip label="Forget this name">
+            <button type="button" aria-label={`Forget the name ${name}`} onClick={() => set(list.filter((one) => one !== name), `No longer called “${name}”`, 'off')}
+              className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover/alias:opacity-100 focus-visible:opacity-100 hover:text-foreground">
+              <X className="size-3.5" />
+            </button>
+          </Tip>
+        </div>
+      ))}
+      <label className="flex cursor-text items-center gap-2 px-2 py-1.5 hover:bg-accent focus-within:bg-accent">
+        <Plus className="size-4 shrink-0" />
+        <input
+          key={`${id}-${list.length}`}
+          placeholder={list.length ? 'Another name…' : 'Another name you might search for'}
+          aria-label="Another name for this note"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') return event.currentTarget.blur()
+            if (event.key !== 'Enter') return
+            const name = event.currentTarget.value.trim()
+            if (!name) return
+            if (list.some((one) => one.toLowerCase() === name.toLowerCase())) return refuse(`Already called “${name}”`)
+            set([...list, name], `Also called “${name}”: search finds it by that now`, 'alias')
+          }}
+          className="min-w-0 flex-1 bg-transparent text-control text-foreground outline-none placeholder:text-foreground/70"
+        />
+      </label>
+    </Island>
   )
 }
 

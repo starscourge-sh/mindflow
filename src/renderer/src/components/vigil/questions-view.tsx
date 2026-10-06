@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { Archive, ArchiveRestore, Calendar, Download, EyeOff, Eye, Lightbulb, Orbit, Plus, RotateCcw, Wind } from 'lucide-react'
+import { Archive, ArchiveRestore, Calendar, Download, EyeOff, Eye, Lightbulb, Orbit, Pin, PinOff, Plus, RotateCcw, Wind } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
@@ -13,8 +13,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Chips } from './display'
 import { Lineage } from './lineage'
+import { pinQuestion } from './pinned-questions'
 import { Mentions } from './mentions'
-import { LocalGraph, Versions } from './note-extras'
+import { Aliases, LocalGraph, Versions } from './note-extras'
 import { RowMenu, copy, type MenuItem } from './row-menu'
 import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Tip, Typed, VirtualList, ask, refuse, showTopTitle, toast, useListKeys } from './ui'
 
@@ -150,6 +151,7 @@ export function QuestionAsker(): React.JSX.Element | null {
  */
 export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const all = useLive(() => vigil.items('question'), [] as Item[])
+  const inView = new Set(useLive(vigil.pinnedQuestions, [] as Awaited<ReturnType<typeof vigil.pinnedQuestions>>).map((one) => one.id))
   const [show, setShow] = useState<'open' | 'answered'>('open')
   const items = all
     .filter((one) => !one.archivedAt && (show === 'open' ? !one.closedAt : !!one.closedAt))
@@ -174,6 +176,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
     { label: 'Open', keys: '↵', run: () => pick(item.id) },
     { label: 'Open in a new window', keys: '⌘-click', run: () => openWindow('question', item.id) },
     'separator',
+    ...(item.closedAt ? [] : [{ label: inView.has(item.id) ? 'Out of view' : 'Keep in view while capturing', run: () => void pinQuestion(item.id, item.title, !inView.has(item.id)) }]),
     { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
     { label: item.archivedAt ? 'Unarchive' : 'Archive', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
     'separator',
@@ -203,7 +206,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
                   onClick={(event) => (event.metaKey ? openWindow('question', item.id) : pick(item.id))}
                   className={`flex w-full flex-col rounded-sm px-2 py-1.5 text-left transition-colors ${item.id === open?.id ? 'bg-accent' : index === cursor ? 'bg-accent/50' : 'hover:bg-accent/50'}`}
                 >
-                  <QuestionRow item={item} />
+                  <QuestionRow item={item} inView={inView.has(item.id)} />
                 </button>
               </RowMenu>
             )}
@@ -225,13 +228,14 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
 }
 
 /** A question's line: the words, then how long it has been held and its clues, in a calm grey. */
-export function QuestionRow({ item, compact = false }: { item: Item; compact?: boolean }): React.JSX.Element {
+export function QuestionRow({ item, compact = false, inView = false }: { item: Item; compact?: boolean; inView?: boolean }): React.JSX.Element {
   const meta = item.closedAt ? `${item.closedHow === 'let go' ? 'let go' : 'answered'} ${when(item.closedAt).toLowerCase()} · ${cluesSaid(item.clues)}` : `${heldFor(item.createdAt)} · ${cluesSaid(item.clues)}`
   return (
     <>
       <span className="flex items-start gap-2">
         <Orbit className={`mt-0.5 size-4 shrink-0 ${item.closedAt ? 'text-muted-foreground/60' : 'text-muted-foreground'}`} />
         <span className={`private-text flex-1 ${compact ? 'truncate' : 'line-clamp-2'} ${item.closedAt ? 'text-muted-foreground' : ''}`}>{item.title || 'Untitled'}</span>
+        {inView ? <Pin className="mt-1 size-3 shrink-0 text-muted-foreground" aria-label="Kept in view" /> : null}
         {item.private ? <EyeOff className="mt-1 size-3 shrink-0 text-muted-foreground" aria-label="Private" /> : null}
       </span>
       {!compact && (
@@ -253,6 +257,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
   const seen = useRef<string | null>(null)
   const [past, setPast] = useState<{ body: unknown; key: string } | null>(null)
   const [restored, setRestored] = useState<{ body: unknown; rev: number } | null>(null)
+  const inView = useLive(vigil.pinnedQuestions, [] as Awaited<ReturnType<typeof vigil.pinnedQuestions>>).some((one) => one.id === item.id)
   const settled = item.closedAt ? `${item.closedHow === 'let go' ? 'Let go' : 'Answered'} ${whenLower(item.closedAt)}` : null
   const gotIt = (): void => void vigil.closeQuestion(item.id, 'answered').then((done) => {
     if (!done?.article) return
@@ -335,6 +340,11 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
       <Props>
         <Island compact title="Holding">
           <Prop icon={Orbit} active>{settled ?? <Rolling by="word" text={heldFor(item.createdAt).replace(/^h/, 'H')} />}</Prop>
+          {!item.closedAt && (
+            <Prop icon={inView ? Pin : PinOff} active={inView} onClick={() => void pinQuestion(item.id, item.title, !inView)}>
+              {inView ? 'In view: shows while you capture' : 'Keep in view while capturing'}
+            </Prop>
+          )}
           <Prop icon={Calendar}>Since {when(item.createdAt)}{new Date(item.createdAt).getFullYear() !== new Date().getFullYear() ? ` ${new Date(item.createdAt).getFullYear()}` : ''}</Prop>
         </Island>
         <Island compact title={item.closedAt ? 'Settled' : 'When it comes clear'}>
@@ -355,6 +365,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
             {item.archivedAt ? 'Archived: bring it back' : 'Archive'}
           </Prop>
         </Island>
+        <Aliases table="nuggets" id={item.id} />
         <Lineage id={item.id} onOpen={onOpen} />
         <LocalGraph id={item.id} title={item.title} onOpen={onOpen} />
         <Island compact title="Details">

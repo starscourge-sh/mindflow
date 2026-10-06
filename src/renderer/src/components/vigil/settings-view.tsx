@@ -410,9 +410,21 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Questions come back" note="Now and then, a question you are holding comes back as a hint: still open, how long, how many clues, with a way to add one. Rare, never in quiet hours.">
             <Switch checked={settings.questionsBack} onCheckedChange={(questionsBack) => set({ questionsBack })} />
           </Setting>
+          <Setting title="Questions in view" note="The questions you keep in view (up to twelve, from Holding) show small while you capture and tidy, so something new can go straight in as a clue.">
+            <Switch checked={settings.pinnedQuestions !== false} onCheckedChange={(pinnedQuestions) => (set({ pinnedQuestions }), chime(pinnedQuestions ? 'on' : 'off'))} />
+          </Setting>
+          <Setting title="Recent reaches back" note="How many days the Recent panel lists, newest first, every kind of thing. ⇧⌘Y opens it beside any page.">
+            <SettingSlider min={1} max={30} step={1} value={settings.recentDays ?? 7} onSave={(recentDays) => set({ recentDays })} />
+            <span className="w-16 text-right tabular-nums"><Rolling text={(settings.recentDays ?? 7) === 1 ? '1 day' : `${settings.recentDays ?? 7} days`} /></span>
+          </Setting>
+        </Group>
+        <Group section="What comes back to you" title="Every day">
+          <Setting title="Daily tidy" note="Once a day the prompt offers a few minutes over the last days' captures: add tags, bold a line, fold a section, cross off what is done. Nothing is decided there. Never in quiet hours.">
+            <Switch checked={settings.dailyTidy} onCheckedChange={(dailyTidy) => set({ dailyTidy })} />
+          </Setting>
         </Group>
         <Group section="What comes back to you" title="Once a week">
-          <Setting title="Weekly review" note="Once a week, on the day you pick, the prompt suggests walking the inbox through its exits. Never in quiet hours.">
+          <Setting title="Weekly review" note="On the day you pick, the prompt offers the deciding pass: what you set aside to come back to, and what has waited longest, each with its exits. Rot cards only ask for a tidy; deciding happens here. Never in quiet hours.">
             {settings.weeklyReview && (
               <div className="flex rounded-md border p-0.5">
                 {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((letter, day) => (
