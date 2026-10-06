@@ -36,7 +36,7 @@ import icon from '../../resources/icon.png?asset'
 import { alreadyImported, captureText, changed, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { backupDir } from './backup'
-import { activeSession, badge, gate, motionOn, registerHome, registerVigil, toggleSafeMode, whenKeys, whenSafeMode } from './vigil'
+import { activeSession, badge, gate, motionOn, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenStickies } from './vigil'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
 import { registerPeriods } from './periods'
@@ -516,9 +516,24 @@ function showGlow(tone: string): void {
  */
 const stickies = new Map<string, BrowserWindow>()
 const stickyFile = (): string => join(app.getPath('userData'), 'stickies.json')
-type Stuck = { type: string; id: string; bounds?: Electron.Rectangle }
+// Hidden: put away on its own ("Hide this one") until the stickies are next shown.
+type Stuck = { type: string; id: string; bounds?: Electron.Rectangle; hidden?: boolean }
 let stuck: Stuck[] = []
 const keepStuck = (): void => void writeFile(stickyFile(), JSON.stringify(stuck)).catch(() => undefined)
+const stuckAs = (key: string): Stuck | undefined => stuck.find((one) => `${one.type}:${one.id}` === key)
+/** Whether a sticky is on the desktop now: not in safe mode, the stickies shown, and not put away on its own. */
+const stickyUp = (key: string): boolean => !gate().blackout && stickyPrefs().shown && !stuckAs(key)?.hidden
+/** Kept out of screen shares and recordings when either setting says so. */
+const shield = (win: BrowserWindow): void => win.setContentProtection(!recordable || stickyPrefs().unshared)
+/** Every sticky as the settings say now: shown or away, shared or not. */
+function applyStickies(): void {
+  for (const [key, win] of stickies) {
+    if (win.isDestroyed()) continue
+    shield(win)
+    if (stickyUp(key)) win.showInactive()
+    else win.hide()
+  }
+}
 function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangle): void {
   const key = `${type}:${id}`
   const open = stickies.get(key)
@@ -528,7 +543,13 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     if (open && !open.isDestroyed()) open.destroy()
     return void stickies.delete(key)
   }
-  if (open && !open.isDestroyed()) return void (gate().blackout || open.showInactive())
+  if (open && !open.isDestroyed()) {
+    // Stuck again while put away: it comes back, and with the rest put away, they all do.
+    const one = stuckAs(key)
+    if (one?.hidden) (one.hidden = false), keepStuck()
+    if (!stickyPrefs().shown) return void showStickies(true)
+    return void (gate().blackout || open.showInactive())
+  }
   const { workArea } = screen.getPrimaryDisplay()
   // A new one lands top right, each fanned a little down and to the side of the last.
   // The window is the note plus room for its lean and shadow.
@@ -547,6 +568,10 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     // Its own X takes it down; quitting makes it closable first.
     title: 'Vigil',
     closable: false,
+    // Not resizable either: a resizable window keeps its zoom button in the
+    // style mask, and while any window button is left AeroSpace counts it as
+    // a real window, files it under one workspace and hides it on the others.
+    resizable: false,
     frame: false,
     transparent: true,
     minimizable: false,
@@ -559,7 +584,8 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   })
   win.setAlwaysOnTop(true, 'floating')
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-  win.once('ready-to-show', () => gate().blackout || win.showInactive())
+  shield(win)
+  win.once('ready-to-show', () => stickyUp(key) && win.showInactive())
   // Where you leave it is where it comes back.
   const remember = (): void => {
     const one = stuck.find((each) => `${each.type}:${each.id}` === key)
@@ -616,7 +642,7 @@ function safeWindows(on: boolean): void {
     if (on) {
       win.hide()
       if (url.includes('note=')) win.setTitle('Note')
-    } else if (win !== focusPill || focusWanted) {
+    } else if ((win !== focusPill || focusWanted) && (!url.includes('view=sticky') || [...stickies].some(([key, one]) => one === win && stickyUp(key)))) {
       win.setTitle(win.webContents.getTitle())
       win.showInactive()
     }
@@ -1293,6 +1319,7 @@ function updateTray(): void {
       { label: 'Restore from a backup…', click: () => void restore() },
       { type: 'separator' },
       { label: 'Safe mode', type: 'checkbox', checked: safe, click: () => (toggleSafeMode(), updateTray()) },
+      { label: 'Show sticky notes', type: 'checkbox', checked: stickyPrefs().shown, click: () => showStickies() },
       { type: 'separator' },
       { label: 'Quit Vigil', accelerator: 'Command+Q', click: quit }
     ])
@@ -1429,10 +1456,56 @@ app.whenReady().then(() => {
     if (typeof type === 'string' && typeof id === 'string') stick(type, id, Boolean(on))
   })
   void restoreStickies()
+  // Shown again, every sticky comes back, those put away on their own too. A quiet
+  // sound from one of them, whichever way it went (they play while hidden).
+  let stickiesShown = stickyPrefs().shown
+  whenStickies(() => {
+    const { shown } = stickyPrefs()
+    if (shown && stuck.some((one) => one.hidden)) stuck.forEach((one) => delete one.hidden), keepStuck()
+    if (shown !== stickiesShown) [...stickies.values()][0]?.webContents.send('stickies:shown', shown)
+    stickiesShown = shown
+    applyStickies()
+    updateTray()
+  })
+  // "Hide this one", from its own hover controls.
+  ipcMain.on('sticky:hide', (_event, type: unknown, id: unknown) => {
+    const key = `${type}:${id}`
+    const one = stuckAs(key)
+    if (!one) return
+    one.hidden = true
+    keepStuck()
+    stickies.get(key)?.hide()
+  })
+  // Its corner grip: the window is not resizable (see stick), so the size is set here, no smaller than its least.
+  ipcMain.on('sticky:resize', (event, width: unknown, height: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const key = [...stickies].find(([, one]) => one === win)?.[0]
+    if (!win || !key || typeof width !== 'number' || typeof height !== 'number') return
+    win.setBounds({ ...win.getBounds(), width: Math.max(220, Math.round(width)), height: Math.max(130, Math.round(height)) })
+    const one = stuckAs(key)
+    if (one) (one.bounds = win.getBounds()), keepStuck()
+  })
+  // A picture in the Mac's own Quick Look: a stored one read where it lies, any other fetched to a file first.
+  ipcMain.on('look', async (event, src: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (typeof src !== 'string' || !win || !URL.canParse(src)) return
+    const { protocol: scheme, host, pathname } = new URL(src)
+    const name = pathname.replace(/^\/+/, '')
+    if (scheme === 'mindflow:' && host === 'assets' && /^[a-f0-9]{64}\.[a-z0-9]+$/.test(name)) return win.previewFile(join(assetsDir(), name))
+    try {
+      const answer = await net.fetch(src)
+      const file = join(app.getPath('temp'), `vigil-look-${createHash('sha1').update(src).digest('hex').slice(0, 16)}.${(answer.headers.get('content-type') ?? 'image/png').split('/')[1].split(/[+;]/)[0]}`)
+      await writeFile(file, Buffer.from(await answer.arrayBuffer()))
+      if (!win.isDestroyed()) win.previewFile(file)
+    } catch {
+      // Unreadable: nothing to look at.
+    }
+  })
 
   ipcMain.handle('window:recordable', (_event, on: unknown) => {
     recordable = Boolean(on)
     for (const win of BrowserWindow.getAllWindows()) win.setContentProtection(!recordable)
+    applyStickies()
     return recordable
   })
   whenSafeMode((on) => {
@@ -1844,6 +1917,7 @@ app.whenReady().then(() => {
     }
     take('⌘.', toggleWindow)
     take('⌥⌘S', () => (toggleSafeMode(), updateTray()))
+    take('⌥⌘N', () => showStickies())
   }
   anywhere(whenKeys(anywhere))
 

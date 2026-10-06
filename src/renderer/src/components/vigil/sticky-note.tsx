@@ -1,13 +1,16 @@
 import { Suspense, lazy, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { JSONContent } from '@tiptap/core'
+import { Plugin } from '@tiptap/pm/state'
 import { alive } from '@/components/ui/alive-icon'
 import XIcon from '@/components/ui/x-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
+import EyeOffIcon from '@/components/ui/eye-off-icon'
 
 import '@/assets/styles/_variables.scss'
 // The checkbox a to-do has in a note, so a ticked box looks the same here.
 import '@/components/tiptap-node/list-node/list-node.scss'
+import './sticky-note.scss'
 import { glance } from './note-preview'
 import { Rolling, toast } from './ui'
 import { chime } from '@/lib/sound'
@@ -132,7 +135,8 @@ function Body({ node, path, tick }: { node: Node; path: number[]; tick: (at: num
     case 'blockquote': return <blockquote className="my-1 border-l-2 pl-2">{kids}</blockquote>
     case 'codeBlock': return <pre className="my-1 overflow-x-auto rounded bg-accent px-2 py-1 font-mono text-xs">{words(node)}</pre>
     case 'horizontalRule': return <hr className="my-2" />
-    case 'image': return null
+    // Clicked, it opens in Quick Look (see the scroller's click).
+    case 'image': return typeof node.attrs?.src === 'string' ? <img src={node.attrs.src} alt={String(node.attrs.alt ?? '')} draggable={false} /> : null
     // The class the editor's checkbox styles hang from; nothing else of the editor comes with it.
     case 'taskList': return <div className="tiptap ProseMirror my-1"><ul data-type="taskList">{kids}</ul></div>
     case 'taskItem': {
@@ -189,6 +193,8 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   useEffect(() => {
     document.documentElement.style.background = 'transparent'
     document.body.style.background = 'transparent'
+    // For the styles that keep the editor's picture controls out of a card this small.
+    document.body.dataset.sticky = ''
   }, [])
   // Taking it down closes this window, so no toast here could undo it: the
   // first press asks, the second takes it down. Moving away lets the question go.
@@ -204,6 +210,8 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [type, id])
+  // Every sticky shown or put away at once (⌥⌘N, the menu bar, ⌘K, Settings): one of them says so, quietly.
+  useEffect(() => window.api.onStickiesShown((shown) => chime(shown ? 'untuck' : 'tuck')), [])
   // Deleted since it was stuck: nothing left to show, so it comes down.
   useEffect(() => void (note === null && window.api.stick(type, id, false)), [note, type, id])
   // A box ticked here shows at once; the stored note takes over when it comes back.
@@ -215,12 +223,19 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   // The words it opened on, held, so a save elsewhere does not rebuild the editor under the caret.
   const [editing, setEditing] = useState<{ body: unknown; at?: { left: number; top: number; line: string; offset: number } } | null>(null)
   const area = useRef<HTMLDivElement>(null)
+  // While editing, the first line stays hidden as long as it only repeats the title and the caret is elsewhere.
+  const [hideFirst, setHideFirst] = useState(false)
+  const titled = useRef('')
   const typed = useSameWords(type === 'capture' ? 'captures' : 'nuggets', editing ? id : undefined, editing?.body, (at, next, base, editor) =>
     type === 'capture'
       ? window.api.captures.save(at, { body: next as never, base, ...(editor ? { markdown: toMarkdown(editor) } : {}) })
       : vigil.saveItem(at, { body: next, base }))
   // A double-click says where: the caret goes there. E starts at the end.
-  const edit = (at?: { left: number; top: number; line: string; offset: number }): void => void (note && !editing && setEditing({ body: note.body, at }))
+  const edit = (at?: { left: number; top: number; line: string; offset: number }): void => {
+    if (!note || editing) return
+    setHideFirst(twice)
+    setEditing({ body: note.body, at })
+  }
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.metaKey || event.ctrlKey || event.altKey) return
@@ -247,6 +262,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   // The title is not said twice: a first line that is the title is left out below it.
   const first = doc.content?.[0]
   const twice = !!first && words(first).trim() === title
+  titled.current = title
 
   // Saved as the main window saves: only over the words it was drawn from.
   // Changed elsewhere first, the tick is made again on what is there now.
@@ -290,19 +306,29 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
         {/* A strip of tape holding it up. */}
         <span aria-hidden className="pointer-events-none absolute -top-2 left-1/2 h-4 w-14 -translate-x-1/2 -rotate-2 rounded-[2px] bg-[color-mix(in_oklab,var(--foreground)_10%,transparent)] backdrop-blur-[1px]" />
         <div className="flex items-center gap-1 px-3 pt-2">
-          <p className="private-text min-w-0 flex-1 truncate font-medium">{title}</p>
-          {/* How far through its to-dos: green once all are done, settling rather than celebrating. */}
-          {todos.length > 0 && (
-            <span className={`shrink-0 text-xs tabular-nums transition-colors duration-500 ${left ? 'text-muted-foreground' : 'text-(--tt-color-text-green)'}`}
-              aria-label={left ? `${todos.length - left} of ${todos.length} done` : 'All done'}>
-              <Rolling text={left ? `${todos.length - left}/${todos.length}` : 'All done'} by="word" />
+          <p className="private-text min-w-0 grow truncate font-medium">{title}</p>
+          {/* How far through its to-dos: green once all are done, settling rather than celebrating.
+              "All done" gives way first when the title needs the room, down to a ✓. */}
+          {todos.length > 0 && (left ? (
+            <span className="shrink-0 pl-1 text-xs text-muted-foreground tabular-nums" aria-label={`${todos.length - left} of ${todos.length} done`}>
+              <Rolling text={`${todos.length - left}/${todos.length}`} by="word" />
             </span>
-          )}
+          ) : (
+            <span className="@container flex min-w-4 shrink-[1000] basis-15 justify-end pl-1 text-xs whitespace-nowrap text-(--tt-color-text-green)" aria-label="All done">
+              <span className="hidden @min-[3.25rem]:inline"><Rolling text="All done" by="word" /></span>
+              <span className="@min-[3.25rem]:hidden">✓</span>
+            </span>
+          ))}
           {/* Shown on hover, so at rest it is only the note; folded away till then, so the count sits at the edge. */}
           <span className={`grid transition-[grid-template-columns,opacity] duration-300 ease-(--mf-ease) group-hover:grid-cols-[1fr] group-hover:opacity-100 ${asking ? 'grid-cols-[1fr] opacity-100' : 'grid-cols-[0fr] opacity-0'}`} style={STILL}>
           <span className="flex min-w-0 items-center justify-end overflow-hidden">
             <button type="button" title="Open it" aria-label="Open it" onClick={() => window.api.openInHome(note.tier, id)} className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
               <AliveIcon icon={ExternalLinkIcon} size={14} />
+            </button>
+            <button type="button" title="Hide this one till sticky notes are next shown  ⌥⌘N" aria-label="Hide this one"
+              onClick={() => (chime('tuck'), window.api.hideSticky(type, id))}
+              className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
+              <AliveIcon icon={EyeOffIcon} size={14} />
             </button>
             <button type="button" title="Take it off the desktop" aria-label="Take it off the desktop"
               onClick={() => {
@@ -318,16 +344,45 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
           </span>
         </div>
         {/* A long note scrolls, and fades out at the bottom as the box does, instead of stopping hard at the edge. */}
-        <div ref={area} onDoubleClick={(event) => !(event.target as Element).closest('input') && edit(spot(event.clientX, event.clientY))}
-          className="private-text min-h-0 flex-1 overflow-y-auto px-3 pt-1 pb-6 text-muted-foreground [mask-image:linear-gradient(to_bottom,#000_calc(100%-1.75rem),transparent)]" style={STILL}>
+        <div ref={area} data-hide-first={(editing && hideFirst) || undefined}
+          onDoubleClick={(event) => !(event.target as Element).closest('input, img') && edit(spot(event.clientX, event.clientY))}
+          // A picture opens in Quick Look, the system's own, edited or not.
+          onClick={(event) => event.target instanceof HTMLImageElement && window.api.look(event.target.src)}
+          // The editor's own double-click and Space would open its viewer inside this small window instead.
+          onDoubleClickCapture={(event) => event.target instanceof HTMLImageElement && event.stopPropagation()}
+          onKeyDownCapture={(event) => {
+            const picked = area.current?.querySelector('img.ProseMirror-selectednode')
+            if (event.key !== ' ' || !(picked instanceof HTMLImageElement)) return
+            event.preventDefault()
+            event.stopPropagation()
+            window.api.look(picked.src)
+          }}
+          className="sticky-text private-text min-h-0 flex-1 overflow-y-auto px-3 pt-1 pb-6 text-muted-foreground [mask-image:linear-gradient(to_bottom,#000_calc(100%-1.75rem),transparent)]" style={STILL}>
           {editing ? (
             // The note's own editor, small and bare: no handles, toolbar or slash menu, saving as you type.
             <Suspense fallback={drawn}>
-              <div style={{ '--mf-padding': '0' } as CSSProperties} className="text-foreground [zoom:0.8125] [&_.tiptap-word-count]:hidden">
-                <MindflowEditor defaultContent={(editing.body as JSONContent | string | null) ?? ''} host={window.api}
-                  toolbar={false} handles={false} slash={false} outline={false} search={false} vim={false} autofocus={editing.at ? false : 'end'}
+              <div className="text-foreground [&_.tiptap-word-count]:hidden">
+                <MindflowEditor defaultContent={(editing.body as JSONContent | string | null) ?? ''} host={window.api} placeholder="Write…"
+                  toolbar={false} handles={false} slash={false} outline={false} search={false} vim={false} smoothScroll={false} autofocus={editing.at ? false : 'end'}
                   onReady={(editor) => {
                     typed.ready(editor)
+                    // The page keeps a third of the window clear round the caret, more than this card has:
+                    // every key scrolled it one way, then the other. Here it moves only as far as keeps the caret in sight, above the fade.
+                    editor.registerPlugin(new Plugin({ props: { handleScrollToSelection: (view) => {
+                      const box = area.current
+                      if (!box) return false
+                      const caret = view.coordsAtPos(view.state.selection.head)
+                      const { top, bottom } = box.getBoundingClientRect()
+                      if (caret.top < top + 8) box.scrollTop -= top + 8 - caret.top
+                      else if (caret.bottom > bottom - 32) box.scrollTop += caret.bottom - bottom + 32
+                      return true
+                    } } }))
+                    const hide = (): void => {
+                      const { doc, selection } = editor.state
+                      setHideFirst(doc.childCount > 1 && doc.firstChild!.textContent.trim() === titled.current && selection.$from.index(0) > 0)
+                    }
+                    hide()
+                    editor.on('transaction', hide)
                     const at = editing.at
                     // Once laid out, the spot clicked on the drawing, in the editor; the end when it lands on nothing.
                     // The drawing hides a first line that repeats the title, so the same words are looked for
@@ -346,6 +401,16 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
             </Suspense>
           ) : drawn}
         </div>
+        {/* Its size, from the corner: shown on hover. The window cannot be resized by the system (see stick in main). */}
+        <span aria-hidden style={STILL} onPointerDown={(event) => {
+          const from = { x: event.clientX, y: event.clientY, width: window.innerWidth, height: window.innerHeight }
+          event.currentTarget.setPointerCapture(event.pointerId)
+          event.currentTarget.onpointermove = (move) => window.api.resizeSticky(from.width + move.clientX - from.x, from.height + move.clientY - from.y)
+          event.currentTarget.onpointerup = (up) => void ((up.currentTarget as HTMLElement).onpointermove = null)
+        }}
+          className="absolute right-0.5 bottom-0.5 flex size-4 cursor-nwse-resize items-end justify-end p-0.5 text-muted-foreground/60 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+          <svg viewBox="0 0 8 8" className="size-2"><path d="M7 1 1 7M7 4 4 7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none" /></svg>
+        </span>
       </div>
     </div>
   )
