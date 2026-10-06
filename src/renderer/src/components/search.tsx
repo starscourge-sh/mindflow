@@ -1,11 +1,13 @@
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { chime, click, type Cue } from '@/lib/sound'
+import { chime, click, step, type Cue } from '@/lib/sound'
+import { allThemes, applyTheme, currentTheme, themeName, type Theme } from '@/lib/theme'
+import { Swatch } from './theme/theme-picker'
 import type { JSONContent } from '@tiptap/core'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { whereFrom } from './capture-list'
 import { MindflowEditor } from './mindflow'
-import { AskWho, Kbd, Typed } from './vigil/ui'
+import { AskWho, Kbd, Rolling, Typed } from './vigil/ui'
 import { AliveIcon } from './vigil/alive-icon'
 import { Orb } from './vigil/orb'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
@@ -22,7 +24,8 @@ type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 
 /** Something to do from the palette, with the key that does it anywhere. */
 /** `cue` is its sound, on/off for a switch; a tap when it says nothing. */
-export type Action = { label: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean }
+/** `typed`: kept out of the list until something is typed. `themes`: opens the theme list in place, and is handed the one kept. */
+export type Action = { label: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean; typed?: boolean; themes?: (theme: Theme) => void }
 
 /** Room for the preview beside the list: the box's 640px window has none, so there it never shows. */
 const ROOMY = '(min-width: 700px)'
@@ -64,7 +67,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
   // then what you have written. One list, one cursor.
   // Typed, the open note's own actions come before places to go: "Archive"
   // with a note open means archive it, not the Archived list.
-  const doing = actions.filter((one) => words.every((word) => one.label.toLowerCase().includes(word)))
+  const doing = actions.filter((one) => (!one.typed || query.trim()) && words.every((word) => one.label.toLowerCase().includes(word)))
     .sort((a, b) => (query.trim() ? Number(!!b.own) - Number(!!a.own) : 0)).slice(0, query.trim() ? 4 : 12)
   const [at, setAt] = useState(0)
   // Tab on a result asks who said it, without leaving search.
@@ -115,7 +118,49 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
   const [glossing, setGlossing] = useState(false)
   useEffect(() => setGlossing(false), [current?.id])
   const backToBox = (): void => (setGlossing(false), box.current?.focus())
+  // "Change theme…" turns the palette into the themes, each worn as the
+  // highlight passes it; Enter keeps one, Escape puts the old one back.
+  const [picking, setPicking] = useState<Action | null>(null)
+  const [themeQuery, setThemeQuery] = useState('')
+  const [themeAt, setThemeAt] = useState(0)
+  // The theme worn before the list opened; cleared once one is kept.
+  const before = useRef<Theme | null>(null)
+  const worn = useRef<Theme | null>(null)
+  const themes = picking ? allThemes().filter((one) => themeName(one).toLowerCase().includes(themeQuery.trim().toLowerCase())) : []
+  const theme = themes[themeAt] as Theme | undefined
+  useEffect(() => {
+    if (!picking || !theme || theme === worn.current) return
+    worn.current = theme
+    // Each theme its own note, as in the options menu: passing them is a scale.
+    step(allThemes().indexOf(theme))
+    applyTheme(theme, false)
+  }, [picking, theme])
+  useEffect(() => {
+    document.querySelector('[data-theme-at]')?.scrollIntoView({ block: 'nearest' })
+  }, [themeAt, picking])
+  // Closed mid-way (a click outside), the old theme comes back too.
+  useEffect(() => () => void (before.current && applyTheme(before.current, false)), [])
+  const pickTheme = (action: Action): void => {
+    chime('slide')
+    before.current = worn.current = currentTheme()
+    setThemeQuery('')
+    setThemeAt(Math.max(allThemes().indexOf(before.current), 0))
+    setPicking(action)
+  }
+  const unpick = (): void => {
+    chime('fold')
+    if (before.current) applyTheme(before.current, false)
+    before.current = null
+    setPicking(null)
+  }
+  const keep = (one: Theme): void => {
+    before.current = null
+    chime('settled')
+    onClose()
+    picking?.themes?.(one)
+  }
   const run = (action: Action): void => {
+    if (action.themes) return pickTheme(action)
     // null: the action sounds for itself (the sound switch, the panel).
     if (action.cue !== null) chime(action.cue ?? 'tap')
     onClose()
@@ -131,11 +176,19 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
             ref={box}
             autoFocus
             className="flex-1 bg-transparent text-heading outline-none"
-            placeholder={placeholder ?? (actions.length ? 'Do something, or search everything…' : 'Search everything… kind:quote to narrow')}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            placeholder={picking ? 'Pick a theme…' : placeholder ?? (actions.length ? 'Do something, or search everything…' : 'Search everything… kind:quote to narrow')}
+            value={picking ? themeQuery : query}
+            onChange={(event) => picking ? (setThemeQuery(event.target.value), setThemeAt(0)) : setQuery(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === 'Escape') { event.preventDefault(); chime('fold'); onClose() }
+              if (picking) {
+                if (event.key === 'Escape' || (event.key === 'Backspace' && !themeQuery)) unpick()
+                else if (event.key === 'Enter') { if (theme) keep(theme) }
+                else if (event.key === 'ArrowDown' || (event.ctrlKey && event.key === 'j')) setThemeAt((n) => Math.min(n + 1, themes.length - 1))
+                else if (event.key === 'ArrowUp' || (event.ctrlKey && event.key === 'k')) setThemeAt((n) => Math.max(n - 1, 0))
+                else return
+                event.preventDefault()
+              }
+              else if (event.key === 'Escape') { event.preventDefault(); chime('fold'); onClose() }
               else if (event.key === 'Enter' && at < doing.length) run(doing[at])
               else if (event.key === 'Enter' && current) onOpen(current.type, current.id)
               else if (event.key === 'Tab' && current?.type === 'capture') setAsking(true)
@@ -157,6 +210,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
         </label>
         {/* One gap everywhere; the groups are told apart by a hairline, not by wider gaps. */}
         <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5 border-b px-2 py-1.5">
+          {picking ? <span className="px-2 py-0.5 text-xs text-muted-foreground">Each one is worn as you pass it</span> : <>
           <Chips options={[{ id: 'name', label: 'Name only' }]} on={() => titleOnly} pick={() => setTitleOnly(!titleOnly)} />
           <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />
           <Chips options={[{ id: 'capture', label: 'Captures' }, { id: 'nugget', label: 'Nuggets' }, { id: 'task', label: 'Tasks' }]} on={(id) => types.includes(id)} pick={(id) => setTypes(flip(types, id))} />
@@ -164,11 +218,31 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
           <Chips options={[{ id: 'kind', label: kinds.length ? `Kind · ${kinds.length}` : 'Kind' }]} on={() => kindsOpen || kinds.length > 0} pick={() => setKindsOpen(!kindsOpen)} />
           {kindsOpen && <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />}
           {kindsOpen && <Chips options={CAPTURE_TYPES} on={(id) => kinds.includes(id)} pick={(id) => setKinds(flip(kinds, id))} />}
+          </>}
         </div>
         <div className="flex min-h-0 flex-1">
           {/* mf-more: faded at an edge while there is more past it; the scroll
               padding keeps a row the arrows reach clear of that fade. */}
           <div className={`mf-more min-h-0 min-w-0 flex-1 scroll-pt-8 scroll-pb-12 overflow-y-auto p-2 ${shown ? 'w-1/2 flex-none' : ''}`}>
+            {picking ? <>
+              {themes.map((one, index) => (
+                <button
+                  key={one}
+                  type="button"
+                  className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left ${index === themeAt ? 'bg-accent' : ''}`}
+                  data-theme-at={index === themeAt || undefined}
+                  // Only a mouse that really moves: a repaint under a resting
+                  // cursor would otherwise pull the highlight back to it.
+                  onMouseMove={(event) => (event.movementX || event.movementY) && setThemeAt(index)}
+                  onClick={() => keep(one)}
+                >
+                  <Swatch theme={one} />
+                  <span className="min-w-0 flex-1 truncate">{themeName(one)}</span>
+                  {one === before.current && <span aria-label="Current" className="shrink-0 text-muted-foreground">✓</span>}
+                </button>
+              ))}
+              {!themes.length && <p className="px-2 py-3 text-sm text-muted-foreground"><Typed text="No theme by that name." /></p>}
+            </> : <>
             {doing.length > 0 && <div className="px-2 pt-1 pb-1 text-xs text-muted-foreground">Actions</div>}
             {doing.map((one, index) => (
               <button
@@ -234,6 +308,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
                 </Fragment>
               )
             })}
+            </>}
           </div>
           {/* The capture as it reads, not its raw text: the same editor, read
               only. An action shows what it does and its keys instead, so the
@@ -241,7 +316,17 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
           {shown && (
             <div className="m-3 ml-0 flex w-1/2 min-w-0 flex-col overflow-hidden rounded-lg border">
               <div className="min-h-0 flex-1 overflow-y-auto [--mf-padding:1rem_1.25rem]">
-                {current
+                {picking
+                  ? theme && (
+                    // A small page in the theme: the whole window wears it behind, this says which.
+                    <div key={theme} className="animate-in fade-in-0 flex flex-col gap-2 p-4 duration-150">
+                      <p className="font-heading text-xl font-semibold text-heading">{themeName(theme)}</p>
+                      <p className="text-body text-foreground">The quick brown fox jumps over the lazy dog.</p>
+                      <p className="text-body text-muted-foreground">Quieter words, for dates and asides.</p>
+                      <p className="text-body"><span className="text-(--mf-accent-ink) underline underline-offset-2">A link</span> <span className="ml-2 rounded bg-accent px-1.5 py-0.5 text-xs">a chip</span></p>
+                    </div>
+                  )
+                  : current
                   ? current.type === 'task' ? <TaskPreview id={current.id} /> : <NotePreview type={current.type} id={current.id} />
                   : action
                     ? <p key={action.label} className="animate-in fade-in-0 p-4 text-base font-medium text-pretty text-foreground duration-150">{action.label}</p>
@@ -250,7 +335,9 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
               {/* One bar under every item: a thought on a result (⌘; or a click),
                   or how to do an action. */}
               <div className="flex min-h-9 shrink-0 items-center gap-3 border-t bg-accent/25 px-3 py-1.5 text-xs text-muted-foreground">
-                {current ? (
+                {picking ? (
+                  before.current && <span className="flex items-center gap-1.5"><Swatch theme={before.current} /> Was {themeName(before.current)}</span>
+                ) : current ? (
                   <>
                     <div className="min-w-0 flex-1"><GlossLine key={current.id} id={current.id} open={glossing} onDone={backToBox} keys="⌘;" /></div>
                     {current.type === 'capture' && !glossing && !asking && (
@@ -259,13 +346,18 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
                   </>
                 ) : action && (
                   <>
-                    <span className="flex items-center gap-1.5"><Kbd>↵</Kbd> does it</span>
                     {action.keys && <span className="flex items-center gap-1.5"><span className="flex gap-0.5">{Array.from(action.keys).map((key, n) => <Kbd key={n}>{key}</Kbd>)}</span> any time</span>}
                   </>
                 )}
               </div>
             </div>
           )}
+        </div>
+        {/* How to drive it, always there; the Enter word follows what is highlighted. */}
+        <div className="flex shrink-0 items-center gap-4 border-t px-4 py-1.5 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5"><span className="flex gap-0.5"><Kbd>↑</Kbd><Kbd>↓</Kbd></span> navigate</span>
+          <span className="flex items-center gap-1.5"><Kbd>↵</Kbd> <Rolling text={picking ? 'keep' : action ? 'use' : 'open'} /></span>
+          <span className="flex items-center gap-1.5"><Kbd>esc</Kbd> <Rolling text={picking ? 'back' : 'close'} /></span>
         </div>
       </div>
     </div>

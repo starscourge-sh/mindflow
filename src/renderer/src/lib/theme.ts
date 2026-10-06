@@ -249,17 +249,20 @@ export function paintCustom(): void {
 }
 
 /**
- * The themes as things to do from ⌘K: "Theme: Rosé Pine" puts it on, and
- * "Next theme" steps through them, so a change is two keys and a word away.
+ * The themes as things to do from ⌘K: one "Change theme…" that turns the
+ * palette into the list of them, worn as you pass. Each theme's own name is
+ * still there for typing ("drac"), but kept out of the list until typed, so
+ * fourteen of them do not flood it.
  */
-export function themeActions(said: (text: string) => void): { label: string; run: () => void }[] {
+export function themeActions(said: (text: string) => void): { label: string; run: () => void; themes?: (theme: Theme) => void; typed?: boolean }[] {
   const wear = (theme: Theme): void => {
     applyTheme(theme)
     said(`Wearing ${themeName(theme)}`)
   }
   const all = allThemes()
   return [
-    { label: 'Next theme', run: () => wear(all[(all.indexOf(currentTheme()) + 1) % all.length]) },
-    ...all.map((theme) => ({ label: `Theme: ${themeName(theme)}`, run: () => wear(theme) }))
+    { label: 'Change theme…', run: () => {}, themes: wear },
+    { label: 'Next theme', typed: true, run: () => wear(all[(all.indexOf(currentTheme()) + 1) % all.length]) },
+    ...all.map((theme) => ({ label: `Theme: ${themeName(theme)}`, typed: true, run: () => wear(theme) }))
   ]
 }
