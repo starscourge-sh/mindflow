@@ -11,11 +11,12 @@ import { Slider } from '@/components/ui/slider'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { chime, step, type Cue } from '@/lib/sound'
-import { dayOf, notes, openWindow, smallPicture, useThumb, type GraphNode, type NoteTable, type Version } from '@/lib/notes'
+import { notes, openWindow, smallPicture, useThumb, type GraphNode, type NoteTable, type Version } from '@/lib/notes'
 import { splitTags, useLive, vigil } from '@/lib/vigil'
 import { Chips } from './display'
 import { RowMenu, type MenuItem } from './row-menu'
 import { Island, PropInput, Rolling, Tip, Typed, VirtualList, refuse, toast } from './ui'
+import { dayKey, dayMonth, dayjs, moment, noon, num } from '../../../../main/dates'
 
 // --- a note's first picture, small
 
@@ -210,10 +211,7 @@ export function KindAsker(): React.JSX.Element | null {
 // --- the fields a kind asks for
 
 /** A date the way a quiet line says it: "6 Oct", with the year once it is not this one. */
-const dated = (iso: string): string => {
-  const date = new Date(iso)
-  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', ...(date.getFullYear() !== new Date().getFullYear() ? { year: 'numeric' } : {}) })
-}
+const dated = (iso: string): string => dayMonth(iso)
 
 /** What a status says when it is picked, and how it sounds. */
 const STATUS: Record<string, { said: string; cue: Cue }> = {
@@ -331,7 +329,7 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
                 className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-control hover:bg-accent">
                 <ChevronRight className={`size-4 shrink-0 transition-transform duration-200 ${open ? 'rotate-90' : ''}`} />
                 <span className="flex-1">{field.label}</span>
-                {!open && value ? <span className="text-xs text-muted-foreground"><Rolling text={`${String(value).split(/\s+/).length} words`} by="word" /></span> : null}
+                {!open && value ? <span className="text-xs text-muted-foreground"><Rolling text={`${num(String(value).split(/\s+/).length)} words`} by="word" /></span> : null}
               </button>
               <AnimatePresence initial={false}>
                 {open && (
@@ -380,7 +378,7 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
 }
 
 /** A day's page, by its date: "Mon 5 Oct". */
-const dayPage = (day: string): string => new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
+const dayPage = (day: string): string => noon(day).format('ddd D MMM')
 
 /**
  * A field that holds a link to another note or a day's page: its name, which
@@ -397,11 +395,7 @@ function LinkField({ label, placeholder, value, onSave, onOpen }: {
   const [picking, setPicking] = useState(false)
   const target = useLive(() => (value ? vigil.linkTitle(value) : Promise.resolve(null)), null as Awaited<ReturnType<typeof vigil.linkTitle>>, [value])
   const name = target ? (target.type === 'day' ? dayPage(target.id) : target.title || 'Untitled') : value ? 'Gone: pick again' : null
-  const days = [0, 1, 2].map((back) => {
-    const date = new Date()
-    date.setDate(date.getDate() - back)
-    return dayOf(date)
-  })
+  const days = [0, 1, 2].map((back) => dayKey(dayjs().subtract(back, 'day')))
   return (
     <div className="group/link flex items-center gap-2 px-2 py-1.5 hover:bg-accent">
       <Link2 className="size-4 shrink-0" />
@@ -493,7 +487,7 @@ export function Aliases({ table, id }: { table: NoteTable; id: string }): React.
 
 // --- versions
 
-const whenSaved = (iso: string): string => new Date(iso).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+const whenSaved = (iso: string): string => moment(iso)
 
 /**
  * The versions a note has been, on a slider: drag back through them, read

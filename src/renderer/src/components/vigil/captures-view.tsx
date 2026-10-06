@@ -33,6 +33,7 @@ import { Aliases, KindFields, LayoutToggle, LocalGraph, NoteCards, Versions, use
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { Rest } from './scenery'
 import { PinnedQuestions, clueInto } from './pinned-questions'
+import { num } from '../../../../main/dates'
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
 
@@ -133,7 +134,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
       const moved = ids.flatMap((id, at) => (results[at]?.refused ? [] : [{ id, was: (results[at]?.was ?? 'open') as 'open' }]))
       chime(status === 'discarded' ? 'away' : 'resolve')
       setChosen([])
-      toast(`${status[0].toUpperCase()}${status.slice(1)} ${moved.length}`, () => void Promise.all(moved.map((one) => window.api.captures.save(one.id, { status: one.was }))))
+      toast(`${status[0].toUpperCase()}${status.slice(1)} ${num(moved.length)}`, () => void Promise.all(moved.map((one) => window.api.captures.save(one.id, { status: one.was }))))
     })
   }
   useEffect(() => {
@@ -155,10 +156,10 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
               <Button variant="ghost" size="sm" onClick={() => bulk('discarded')}>Discard</Button>
               <Button variant="ghost" size="sm" onClick={() => void archive('captures', chosen, !archived).then(() => setChosen([]))}>{archived ? 'Unarchive' : 'Archive'}</Button>
               {chosen.length > 1 && (
-                <Button variant="ghost" size="sm" onClick={() => void ask(`One task from these ${chosen.length}. What is it?`, 'e.g. sort out the freight rules by Thursday').then((text) => {
+                <Button variant="ghost" size="sm" onClick={() => void ask(`One task from these ${num(chosen.length)}. What is it?`, 'e.g. sort out the freight rules by Thursday').then((text) => {
                   if (!text) return
                   const ids = chosen
-                  void makeTask({ captures: ids, text }, `One task, from ${ids.length} captures`).then(() => setChosen([]))
+                  void makeTask({ captures: ids, text }, `One task, from ${num(ids.length)} captures`).then(() => setChosen([]))
                 })}>One task</Button>
               )}
               <input
@@ -166,12 +167,12 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
                 onKeyDown={(event) => {
                   const tag = event.currentTarget.value.trim()
                   if (event.key !== 'Enter' || !tag) return
-                  void vigil.bulk(chosen, { tag }).then((n) => (chime('noted'), toast(`Tagged ${n} with #${tag.replace(/^#/, '')}`)))
+                  void vigil.bulk(chosen, { tag }).then((n) => (chime('noted'), toast(`Tagged ${num(n)} with #${tag.replace(/^#/, '')}`)))
                   event.currentTarget.value = ''
                 }}
                 className="w-20 rounded-md bg-transparent px-2 py-1 text-xs outline-none placeholder:text-foreground/70 hover:bg-accent focus:bg-accent"
               />
-              <DatePicker value={null} placeholder="Date…" className="text-xs" onChange={(at) => at && void vigil.bulk(chosen, { capturedAt: at }).then((n) => (chime('noted'), toast(`Dated ${n}`)))} />
+              <DatePicker value={null} placeholder="Date…" className="text-xs" onChange={(at) => at && void vigil.bulk(chosen, { capturedAt: at }).then((n) => (chime('noted'), toast(`Dated ${num(n)}`)))} />
               <Tip label="Clear">
               <Button variant="ghost" size="icon-sm" onClick={() => setChosen([])}><X className="size-3.5" /></Button>
               </Tip>

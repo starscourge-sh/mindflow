@@ -9,14 +9,9 @@ import { PRIORITY_NAMES, bucketOf, readTask, type ReadTask, type Span } from '..
 import { Rolling, toast } from './ui'
 import type { TokenPattern } from '@/extensions/tokens'
 import type { BlockColor } from '@/extensions/block-color'
+import { short } from '../../../../main/dates'
 
-/** A date the way a chip says it: "Today 15:00", "Tue", "15 Oct". */
-export function short(iso: string, allDay: boolean): string {
-  const date = new Date(iso)
-  const days = Math.round((new Date(date).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86400000)
-  const day = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : days > 1 && days < 7 ? date.toLocaleDateString([], { weekday: 'short' }) : date.toLocaleDateString([], { day: 'numeric', month: 'short' })
-  return allDay ? day : `${day} ${date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
-}
+export { short }
 
 /**
  * Linear's priority icons, drawn as Linear draws them: three bars filled to

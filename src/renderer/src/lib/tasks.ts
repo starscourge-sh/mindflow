@@ -3,6 +3,7 @@ import { taskSaid, vigil, type Made, type Task } from './vigil'
 import { flying } from './capture-links'
 import { refuse, toast } from '@/components/vigil/ui'
 import { bucketOf, monthKey } from '../../../main/task-words'
+import { dayjs } from '../../../main/dates'
 
 /**
  * Everything that becomes a task: words typed, a capture, several captures,
@@ -66,6 +67,6 @@ export const BUCKETS = { month: 'This month', year: 'This year', next: 'Next yea
 
 /** A month or a year key for now, for putting a task in a later list. */
 export function planKey(which: keyof typeof BUCKETS): string {
-  const now = new Date()
-  return which === 'someday' ? 'someday' : which === 'year' ? String(now.getFullYear()) : which === 'next' ? String(now.getFullYear() + 1) : monthKey(now)
+  const now = dayjs()
+  return which === 'someday' ? 'someday' : which === 'year' ? String(now.year()) : which === 'next' ? String(now.year() + 1) : monthKey(now.toDate())
 }

@@ -37,6 +37,7 @@ import { SortableList, SortableRow } from './sortable'
 import { archive, changeKind, openWindow, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { QuestionDetail } from './questions-view'
 import { GlossTimeline } from './gloss-line'
+import { dayjs, moment, num } from '../../../../main/dates'
 
 const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
 
@@ -46,7 +47,7 @@ const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.fin
  * document. Same row underneath, so one view, drawn two ways.
  */
 export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article'; focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
-  const all = useLive(() => vigil.items(tier), [] as Item[], [tier])
+  const all = useLive(() => vigil.items(tier), [] as Item[], [tier], ['item'])
   const { groups, display, move, moveBy } = useItemDisplay(tier, all)
   const items = groups.flatMap(([, list]) => list)
   const [layout, setLayout] = useLayout(tier)
@@ -140,7 +141,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
  onClick={() => void vigil.article(chosen).then((id) => {
  // The same words and the same landing as the prompt's: the article opens.
  chime('promote')
- toast(chosen.length > 1 ? `An article, from ${chosen.length} nuggets` : 'An article, from this nugget')
+ toast(chosen.length > 1 ? `An article, from ${num(chosen.length)} nuggets` : 'An article, from this nugget')
  setChosen([])
  pick(id)
  })}
@@ -495,7 +496,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
                   without noticing: said, never automated. */}
               {glossWords >= 200 && (
                 <p className="px-2 py-1.5 text-xs leading-relaxed text-[var(--tt-color-text-purple)]">
-                  Your glosses here run to {glossWords} words: that is an article already. Start one and they come with it.
+                  Your glosses here run to {num(glossWords)} words: that is an article already. Start one and they come with it.
                 </p>
               )}
               <Prop icon={Plus} onClick={() => void vigil.article([item.id]).then((id) => { chime('promote'); toast('An article, from this nugget'); onOpen?.('article', id) })}>
@@ -506,7 +507,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
           </>
         ) : (
           <Island compact title="Made from">
-            <Prop icon={Layers}>{item.origins.length ? `${item.origins.length} nugget${item.origins.length === 1 ? '' : 's'}` : 'Written from scratch'}</Prop>
+            <Prop icon={Layers}>{item.origins.length ? `${num(item.origins.length)} nugget${item.origins.length === 1 ? '' : 's'}` : 'Written from scratch'}</Prop>
           </Island>
         )}
         <Lineage id={item.id} onOpen={onOpen} />
@@ -552,12 +553,12 @@ export function RemindMe({ table, id, at }: { table: 'captures' | 'nuggets'; id:
   // date it lands on.
   const [open, setOpen] = useState(false)
   const [words, setWords] = useState('')
-  const hour = 3600000
+  const nine = (days: number): Date => dayjs().add(days, 'day').hour(9).startOf('hour').toDate()
   const presets: [string, Date][] = [
-    ['An hour from now', new Date(Date.now() + hour)],
-    ['Tomorrow', new Date(new Date(Date.now() + 24 * hour).setHours(9, 0, 0, 0))],
-    ['Next week', new Date(new Date(Date.now() + 7 * 24 * hour).setHours(9, 0, 0, 0))],
-    ['A month from now', new Date(new Date(Date.now() + 30 * 24 * hour).setHours(9, 0, 0, 0))]
+    ['An hour from now', dayjs().add(1, 'hour').toDate()],
+    ['Tomorrow', nine(1)],
+    ['Next week', nine(7)],
+    ['A month from now', nine(30)]
   ]
   const typed = words.trim() ? chrono.parseDate(/^\d+ \w+$/.test(words.trim()) ? `in ${words}` : words, new Date(), { forwardDate: true }) : null
   const set = (date: Date | null): void => {
@@ -586,7 +587,7 @@ export function RemindMe({ table, id, at }: { table: 'captures' | 'nuggets'; id:
         {(typed ? [[words, typed] as [string, Date]] : presets).map(([label, date]) => (
           <button key={label} type="button" onClick={() => set(date)} className="flex w-full items-center justify-between rounded-md px-2 py-1.5 hover:bg-accent">
             <span>{label}</span>
-            <span className="text-xs text-muted-foreground">{date.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</span>
+            <span className="text-xs text-muted-foreground">{moment(date)}</span>
           </button>
         ))}
         {at && <button type="button" onClick={() => set(null)} className="w-full rounded-md px-2 py-1.5 text-left text-muted-foreground hover:bg-accent">Clear the reminder</button>}

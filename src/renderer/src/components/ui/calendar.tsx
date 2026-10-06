@@ -9,6 +9,7 @@ import {
 
 import { Button, buttonVariants } from "@/components/ui/button"
 import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from "lucide-react"
+import { dayjs } from '../../../../main/dates'
 
 function Calendar({
   className,
@@ -38,7 +39,7 @@ function Calendar({
       locale={locale}
       formatters={{
         formatMonthDropdown: (date) =>
-          date.toLocaleString(locale?.code, { month: "short" }),
+          dayjs(date).format("MMM"),
         ...formatters,
       }}
       classNames={{

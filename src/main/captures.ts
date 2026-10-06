@@ -145,9 +145,54 @@ export const like = (text: string): string => text.replace(/[\\%_]/g, '\\$&')
 export const LABEL = 'label(title, body, named)'
 export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, attribution, medium, exited_at as closedAt, device, elapsed_ms as elapsedMs, weather, archived_at as archivedAt, imported_at as importedAt`
 
-/** Tell every window the list changed, so whichever is showing it reloads. */
-export const changed = (): void => {
-  for (const win of BrowserWindow.getAllWindows()) win.webContents.send('captures:changed')
+/** One note whose words or fields were saved: what a change can say it was. */
+export interface Change {
+  kind: 'capture' | 'item'
+  id: string
+}
+
+// The list every window asks for after each write, kept between writes: a
+// save of one note puts that one row right rather than reading every body
+// again for every window. Kept only while nothing else wrote since. Its
+// version lets a window that already has this list be told so, rather than
+// sent 4 MB it holds already.
+let listed: { rows: Record<string, unknown>[]; at: number; version: number } | null = null
+let versions = 0
+const writes = (): number => (db.prepare('select total_changes() as n').get() as { n: number }).n
+
+// Hidden windows are told once, when they show, rather than reloading every
+// list on every autosave while nobody sees them.
+const untold = new WeakMap<BrowserWindow, Change[] | null>()
+
+/**
+ * Tell every window the list changed, so whichever is showing it reloads.
+ * `what` says which note it was, so a list that does not show that kind of
+ * thing stays as it is; nothing means anything may have changed.
+ */
+export const changed = (what?: Change): void => {
+  if (listed && what?.kind === 'capture') {
+    const at = listed.rows.findIndex((row) => row.id === what.id)
+    const row = db.prepare(`select ${LIST} from captures where id = ?`).get(what.id)
+    // Typing past a note's first line changes nothing a list shows.
+    const same = at >= 0 && JSON.stringify(row) === JSON.stringify(listed.rows[at])
+    if (at >= 0 && row) listed = { rows: same ? listed.rows : listed.rows.with(at, row), at: writes(), version: same ? listed.version : ++versions }
+    else listed = null
+  } else if (what?.kind === 'item') {
+    if (listed) listed = { ...listed, at: writes() }
+  } else listed = null
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win.isVisible()) {
+      win.webContents.send('captures:changed', what ? [what] : null)
+      continue
+    }
+    const was = untold.get(win)
+    if (was === undefined) win.once('show', () => {
+      const told = untold.get(win)
+      untold.delete(win)
+      if (told !== undefined && !win.isDestroyed()) win.webContents.send('captures:changed', told)
+    })
+    untold.set(win, was === null || !what ? null : [...(was ?? []), what].slice(-50))
+  }
 }
 
 export function registerCaptures(): void {
@@ -155,23 +200,33 @@ export function registerCaptures(): void {
   // Worked out once per wording and remembered: every list asks for every
   // name, and reading each body again on every change made a big inbox slow.
   // Capped, since a name is a line in a list, not the whole of a long one.
+  // A long note is remembered by its start and its length, not its whole
+  // wording: keyed by every word, each autosave of a 1 MB note kept another
+  // megabyte. Its name is a first line, so the start decides it, and a name
+  // found further in than that is worked out each time instead.
   const names = new Map<string, string>()
+  let kept = 0
+  const HEAD = 8192
   db.function('label', { varargs: true }, (title, body, named) => {
     if (named && title) return String(title)
-    const key = `${title}\u0000${body}`
+    const raw = String(body ?? '')
+    const long = raw.length > HEAD
+    const key = long ? `${title}\u0000${raw.length}\u0000${raw.slice(0, HEAD)}` : `${title}\u0000${raw}`
     let name = names.get(key)
     if (name === undefined) {
       try {
         // With no words at all, named for what it holds rather than "Untitled".
-        const raw = String(body ?? '')
         name = firstLine(JSON.parse(raw || 'null')) || String(title ?? '') ||
           (/"type":"image"/.test(raw) ? 'Picture' : /"type":"excalidraw"/.test(raw) ? 'Drawing' : /"type":"attachment"/.test(raw) ? 'File' : '')
       } catch {
         name = String(title ?? '')
       }
       name = name.slice(0, 300)
-      if (names.size > 20000) names.clear()
+      const near = (at: number): boolean => at >= 0 && at < HEAD / 2
+      if (long && !(name && near(raw.indexOf(JSON.stringify(name.split(/\s/)[0].slice(0, 12)).slice(1, -1))))) return name
+      if (names.size > 20000 || kept > 8_000_000) (names.clear(), (kept = 0))
       names.set(key, name)
+      kept += key.length
     }
     return name
   })
@@ -242,9 +297,11 @@ export function registerCaptures(): void {
   backUpNow()
   setInterval(backUpNow, 60 * 60 * 1000)
 
-  ipcMain.handle('captures:list', () =>
-    db.prepare(`select ${LIST} from captures order by captured_at desc`).all()
-  )
+  // Null when the window's copy, `held`, is this one still.
+  ipcMain.handle('captures:list', (_event, held?: number) => {
+    if (!listed || listed.at !== writes()) listed = { rows: db.prepare(`select ${LIST} from captures order by captured_at desc`).all() as Record<string, unknown>[], at: writes(), version: ++versions }
+    return listed.version === held ? null : { rows: listed.rows, version: listed.version }
+  })
 
   // What `@` offers: a title containing the text, or a handle starting with it,
   // so `@login` and `@mf-3` both find things. Newest first, a handful at most.
@@ -258,8 +315,9 @@ export function registerCaptures(): void {
       .all(`%${like(String(query))}%`, `${query}%`, `%${like(String(query))}%`)
   )
 
-  // Search: the words anywhere in the title or the body, newest first, with the
-  // body for the preview. Nothing typed gives the most recent.
+  // Search: the words anywhere in the title or the body, newest first. Names
+  // only: the preview asks for its one note (captures:peek), so a keystroke
+  // no longer carries sixty whole notes across. Nothing typed gives the most recent.
   // Search: every word you type must appear, in any order, in the name or the
   // words; `kind:quote` narrows to one kind. Captures, nuggets and tasks alike,
   // newest first, each saying what it is.
@@ -270,23 +328,31 @@ export function registerCaptures(): void {
     const terms = words.filter((word) => !word.startsWith('kind:')).map((word) => `%${like(word)}%`)
     const match = (text: string): string => terms.map(() => `${text} like ? escape '\\'`).join(' and ') || '1'
     const args = (n: number): string[] => [...Array(n)].flatMap(() => terms)
-    const rows = db.prepare(
+    return db.prepare(
       `select * from (
-         select 'capture' as type, id, number, kind, status, source, attribution, ${LABEL} as label, body, captured_at as capturedAt
+         select 'capture' as type, id, number, kind, status, source, attribution, ${LABEL} as label, captured_at as capturedAt
            from captures where status != 'discarded' and ${match(`(${LABEL} || ' ' || body || ' ' || coalesce(medium, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, ''))`)}
          union all
-         select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), body, created_at from nuggets where ${match("(title || ' ' || body || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, ''))")}
+         select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), created_at from nuggets where ${match("(title || ' ' || body || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, ''))")}
          union all
-         select 'task', id, number, 'todo', status, '', null, title, coalesce(notes, 'null'), created_at from tasks where ${match("(title || ' ' || coalesce(notes, ''))")}
+         select 'task', id, number, 'todo', status, '', null, title, created_at from tasks where ${match("(title || ' ' || coalesce(notes, ''))")}
        ) ${kind ? 'where kind = ?' : ''} order by capturedAt desc limit 60`
-    ).all(...args(3), ...(kind ? [kind] : [])) as Record<string, unknown>[]
-    return rows.map((row) => {
-      try {
-        return { ...row, body: JSON.parse(row.body as string) }
-      } catch {
-        return { ...row, body: row.body }
-      }
-    })
+    ).all(...args(3), ...(kind ? [kind] : []))
+  })
+
+  // What search previews: the start of one note, the first 30 blocks, which
+  // fill the pane; a 2 MB note whole took longer to draw than to read.
+  ipcMain.handle('captures:peek', (_event, type: unknown, id: unknown) => {
+    const row = db.prepare(`select body from ${type === 'capture' ? 'captures' : 'nuggets'} where id = ?`).get(String(id)) as { body: string | null } | undefined
+    let body: unknown
+    try {
+      body = JSON.parse(row?.body ?? 'null')
+    } catch {
+      body = row?.body ?? null
+    }
+    if (typeof body === 'string') return body.slice(0, 6000)
+    const doc = body as { content?: unknown[] } | null
+    return Array.isArray(doc?.content) && doc.content.length > 30 ? { ...doc, content: doc.content.slice(0, 30) } : body
   })
 
   ipcMain.handle('captures:get', (_event, id: unknown) => {
@@ -365,7 +431,7 @@ export function registerCaptures(): void {
     // this week" needs the day, not only the state.
     if (row && patch.markdown !== undefined) void writeMarkdown(row.number as number, patch.markdown)
     else if (patch.status) checkMarkdown(String(id))
-    changed()
+    changed({ kind: 'capture', id: String(id) })
     return { was, refused, ...(moved ? { conflict: true, body: moved.body } : {}) }
   })
 }

@@ -15,6 +15,7 @@ import { Kbd as ShadKbd, KbdGroup } from '@/components/ui/kbd'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { KindAsker } from './note-extras'
 import { QuestionAsker } from './questions-view'
+import { num } from '../../../../main/dates'
 
 /**
  * The few parts every view is built from, so the views read as one app. The
@@ -910,7 +911,7 @@ export function Rolling({ text, className = '', by = 'character' }: { text: stri
   const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
   return (
     <SlotText
-      text={String(text)}
+      text={typeof text === 'number' ? num(text) : text}
       className={className}
       options={{ direction: up ? 'up' : 'down', rollBy: by, duration: still ? 0 : 260, stagger: still ? 0 : by === 'word' ? 22 : 35, exitOffset: still ? 0 : 40 }}
     />

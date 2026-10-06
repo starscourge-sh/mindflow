@@ -11,23 +11,17 @@ import { TaskDetail, completeTask } from './tasks-view'
 import { Button } from '@/components/ui/button'
 import { Lifted, SETTLE, snapshot } from './sortable'
 import { GlossButton, GlossLine } from './gloss-line'
+import { clock, dayMonth, dayjs, startOfDay } from '../../../../main/dates'
 
 // Days are counted on the calendar, not in hours, so a clock change never
 // repeats or skips one.
-const dayStart = (offset: number): number => {
-  const now = new Date()
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset).getTime()
-}
+const dayStart = (offset: number): number => startOfDay(offset)
 
 /** One card in a day: a task on the day it is scheduled, or on the day it is due by. */
 type Card = { task: Task; kind: 'scheduled' | 'deadline' }
 
 /** The same moment, `by` days over: a task keeps its time of day when it moves. */
-const shifted = (iso: string, by: number): string => {
-  const date = new Date(iso)
-  date.setDate(date.getDate() + by)
-  return date.toISOString()
-}
+const shifted = (iso: string, by: number): string => dayjs(iso).add(by, 'day').toISOString()
 
 /**
  * A week at a glance: seven days side by side, each with what is scheduled,
@@ -111,10 +105,10 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
     const was = card.kind === 'scheduled' ? card.task.dueAt : card.task.deadline
     if (!was) return
     // Something late moves from today, not from the day it was missed.
-    const now = new Date()
-    const base = new Date(was).getTime() < dayStart(0) ? new Date(new Date(was).setFullYear(now.getFullYear(), now.getMonth(), now.getDate())).toISOString() : was
+    const now = dayjs()
+    const base = new Date(was).getTime() < dayStart(0) ? dayjs(was).year(now.year()).month(now.month()).date(now.date()).toISOString() : was
     const to = shifted(base, by)
-    if (new Date(to).setHours(0, 0, 0, 0) === new Date(was).setHours(0, 0, 0, 0)) return chime('nope')
+    if (dayjs(to).isSame(was, 'day')) return chime('nope')
     // Undone, the reschedule it counted and the reminder it reset go back too.
     void vigil.saveTask(card.task.id, { [field]: to }).then((before) => {
       chime('shift')
@@ -178,7 +172,7 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
           {/* The dates, which take you back to this week from any other. */}
           <Tip label="Back to this week">
             <button type="button" onClick={() => (chime('tap'), setFrom(0))} className="rounded px-1 text-foreground hover:bg-accent">
-              <Rolling by="word" className="whitespace-nowrap" text={`${first.toLocaleDateString([], { day: 'numeric', month: 'short' })} to ${last.toLocaleDateString([], { day: 'numeric', month: 'short' })}`} />
+              <Rolling by="word" className="whitespace-nowrap" text={`${dayMonth(first, 'never')} to ${dayMonth(last, 'never')}`} />
             </button>
           </Tip>
           <Tip label="Week after  ]">
@@ -220,7 +214,7 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
                 className={`flex min-h-[calc(100vh-9rem)] min-w-0 flex-col gap-1 rounded-md p-1.5 transition-colors ${over === col ? 'bg-accent/60 ring-1 ring-ring' : col === at.col ? 'bg-accent/30' : ''}`}
               >
                 <header className="mb-1 flex items-baseline gap-1.5 px-1">
-                  <span className={`text-meta font-medium ${today ? 'text-[var(--tt-color-text-orange)]' : ''}`}>{date.toLocaleDateString([], { weekday: 'short' })}</span>
+                  <span className={`text-meta font-medium ${today ? 'text-[var(--tt-color-text-orange)]' : ''}`}>{dayjs(date).format('ddd')}</span>
                   <span className="text-xs text-muted-foreground tabular-nums">{date.getDate()}</span>
                   {/* How much reviewing falls on the day: a heavy one is a light day for tasks. */}
                   {day.reviews > 0 && (
@@ -250,11 +244,11 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
                       </span>
                       <span className="flex items-center gap-1.5 text-xs text-muted-foreground" style={{ color: late ? 'var(--tt-color-text-red)' : undefined }}>
                         {card.kind === 'deadline' ? (
-                          <span className="flex items-center gap-1" style={{ color: 'var(--tt-color-text-red)' }}><CalendarClock className="size-3" /> Due by{card.task.deadlineTimed ? ` ${new Date(card.task.deadline!).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}</span>
+                          <span className="flex items-center gap-1" style={{ color: 'var(--tt-color-text-red)' }}><CalendarClock className="size-3" /> Due by{card.task.deadlineTimed ? ` ${clock(card.task.deadline!)}` : ''}</span>
                         ) : late ? (
                           when(card.task.dueAt, !!card.task.allDay)
                         ) : !card.task.allDay ? (
-                          new Date(card.task.dueAt!).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+                          clock(card.task.dueAt!)
                         ) : null}
                         {card.task.recurrence && <Repeat className="size-3" />}
                       </span>

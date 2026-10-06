@@ -15,6 +15,7 @@ import { Kbd, Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { Rest } from './vigil/scenery'
 import { GlossLine, openGloss } from './vigil/gloss-line'
+import { daysSince } from '../../../main/dates'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.rot>>[number]
 
@@ -224,7 +225,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             {/* How long it has gone untouched, warming with age: the rot itself.
                 Never cut short: in a narrow panel the buttons wrap under it instead. */}
             <span className="mr-auto shrink-0 whitespace-nowrap">
-              <span style={{ color: ageTint(card.capturedAt, card.importedAt) }}>{Date.now() - new Date(card.capturedAt).getTime() < 86400000 ? 'from today' : `untouched ${age(card.capturedAt)}`}</span>
+              <span style={{ color: ageTint(card.capturedAt, card.importedAt) }}>{daysSince(card.capturedAt) < 1 ? 'from today' : `untouched ${age(card.capturedAt)}`}</span>
             </span>
             {[
               { label: 'Tag', key: 'T', tint: 'blue', what: 'Add a tag, so it turns up on that tag\'s page', run: () => setTagging(card.id) },

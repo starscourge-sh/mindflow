@@ -8,9 +8,10 @@ import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
 import { Recap } from './recap-view'
+import { dayjs, monthName, num } from '../../../../main/dates'
 
 const percent = (part: number, whole: number): string => (whole ? `${Math.round((part / whole) * 100)}%` : 'none')
-const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`
+const plural = (n: number, one: string, many: string): string => `${num(n)} ${n === 1 ? one : many}`
 
 /** A number inside a sentence, set apart only by weight and even figures. It rolls into place. */
 function N({ children }: { children: ReactNode }): React.JSX.Element {
@@ -52,7 +53,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
   const maxHour = Math.max(1, ...stats.hours.map((row) => row.n))
   const opened = new Set(stats.days)
   // Twelve weeks of days, oldest first, ending today: the heatmap's cells.
-  const days = Array.from({ length: 84 }, (_, index) => new Date(Date.now() - (83 - index) * 86400000).toISOString().slice(0, 10))
+  const days = Array.from({ length: 84 }, (_, index) => dayjs().subtract(83 - index, 'day').toISOString().slice(0, 10))
   const exits = [
     { status: 'promoted', label: 'became nuggets', color: 'var(--tt-color-text-purple)' },
     { status: 'resolved', label: 'dealt with elsewhere', color: 'var(--tt-color-text-green)' },
@@ -117,7 +118,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           )}
           {stats.estimates.estimated ? (
             <p>
-              Tasks you estimated at <N>{stats.estimates.estimated} minutes</N> took <N>{Math.round(stats.estimates.spent ?? 0)}</N> in sessions.
+              Tasks you estimated at <N>{`${num(stats.estimates.estimated)} minutes`}</N> took <N>{Math.round(stats.estimates.spent ?? 0)}</N> in sessions.
             </p>
           ) : null}
         </Section>
@@ -196,11 +197,11 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           </p>
         </Section>
 
-        <Section title={`${new Date().getFullYear()} so far`}>
+        <Section title={`${dayjs().year()} so far`}>
           <p>
             <N>{plural(stats.year.captured, 'capture', 'captures')}</N>, <N>{plural(stats.year.nuggets, 'nugget', 'nuggets')}</N> kept and{' '}
             <N>{plural(stats.year.articles, 'article', 'articles')}</N> written.
-            {stats.year.month && <> Your busiest month was <N>{new Date(2000, Number(stats.year.month) - 1).toLocaleString('en', { month: 'long' })}</N>.</>}
+            {stats.year.month && <> Your busiest month was <N>{monthName(Number(stats.year.month) - 1)}</N>.</>}
           </p>
         </Section>
 

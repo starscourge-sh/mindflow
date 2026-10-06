@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react"
 import { useEditorState, type Editor } from "@tiptap/react"
+import { num } from '../../../../main/dates'
 
 /**
  * Words and characters for the whole document.
@@ -15,18 +17,27 @@ export function WordCount({ editor }: { editor: Editor | null }) {
     equalityFn: Object.is,
   })
 
-  if (!editor || !doc) return null
+  // Counted once the typing pauses in a long note: each count reads the whole
+  // document, which in a 1 MB note was most of every keystroke.
+  const [counts, setCounts] = useState<{ words: number; characters: number } | null>(null)
+  useEffect(() => {
+    if (!editor || !doc) return
+    const count = (): void => setCounts({ words: editor.storage.characterCount.words(), characters: editor.storage.characterCount.characters() })
+    if (doc.content.size < 20000) return count()
+    const later = setTimeout(count, 500)
+    return () => clearTimeout(later)
+  }, [editor, doc])
 
-  const words = editor.storage.characterCount.words()
+  if (!editor || !doc || !counts) return null
+  const { words, characters } = counts
   // Nothing to count says nothing: an empty box stays empty.
   if (!words) return null
-  const characters = editor.storage.characterCount.characters()
 
   return (
     <span // Centred under the page on a soft pill, the way Raycast Notes shows it, so a
     // line of text running under it stays readable.
     className="tiptap-word-count pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-background px-2 py-0.5 text-xs whitespace-nowrap text-foreground/70 tabular-nums">
-      {words} {words === 1 ? "word" : "words"} · {characters} {characters === 1 ? "character" : "characters"}
+      {num(words)} {words === 1 ? "word" : "words"} · {num(characters)} {characters === 1 ? "character" : "characters"}
     </span>
   )
 }

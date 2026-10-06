@@ -7,13 +7,13 @@ import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { useLive, vigil, type TagRead } from '@/lib/vigil'
 import { openWindow } from '@/lib/notes'
 import { Empty, Tags, Typed } from './ui'
+import { dayKey, dayName, noon } from '../../../../main/dates'
 
 const ICON = { nugget: Gem, article: FileText, question: Orbit }
 const NAME: Record<string, string> = { capture: 'Capture', nugget: 'Nugget', article: 'Article', question: 'Question' }
 
 /** A day as you would say it: "Friday 4 September", with the year once it is not this one. */
-const named = (day: string): string =>
-  new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: day.slice(0, 4) === String(new Date().getFullYear()) ? undefined : 'numeric' })
+const named = (day: string): string => dayName(noon(day))
 
 /** How many are drawn at a time: each is a whole note, and the rest arrive as you scroll. */
 const BATCH = 12
@@ -42,7 +42,7 @@ export function TagStream({ tag, onOpen }: { tag: string; onOpen: (type: string,
     return <Empty shape={['polygon', 3]} title={`Nothing carries #${tag} now`}>Whatever had it was let go or archived, or the tag was taken off. Write it into anything and it reads here.</Empty>
   const days: [string, TagRead[]][] = []
   for (const item of items.slice(0, count)) {
-    const day = new Date(item.at).toLocaleDateString('en-CA')
+    const day = dayKey(item.at)
     const last = days[days.length - 1]
     if (last?.[0] === day) last[1].push(item)
     else days.push([day, [item]])

@@ -6,6 +6,7 @@ import { chime } from '@/lib/sound'
 import { useLive, vigil, when, type Gloss } from '@/lib/vigil'
 import { cn } from '@/lib/cn'
 import { Island, Kbd, Rolling, Tip, toast, Typed, typing } from './ui'
+import { ago } from '../../../../main/dates'
 
 /**
  * A gloss: what an item means to you, written the moment you bump into it.
@@ -16,14 +17,7 @@ import { Island, Kbd, Rolling, Tip, toast, Typed, typing } from './ui'
  * view is a thought lost.
  */
 
-/** "today", "3 days ago", "6 months ago": how long ago, the way you would say it. */
-export function ago(at: string): string {
-  const days = Math.floor((Date.now() - new Date(at).getTime()) / 86400000)
-  if (days < 1) return 'today'
-  if (days < 2) return 'yesterday'
-  const [n, unit] = days >= 365 ? [Math.floor(days / 365), 'year'] : days >= 60 ? [Math.floor(days / 30.4), 'month'] : days >= 14 ? [Math.floor(days / 7), 'week'] : [days, 'day']
-  return `${n} ${unit}${n === 1 ? '' : 's'} ago`
-}
+export { ago }
 
 const said = (one: Gloss): string => `${one.author === 'ai' ? 'AI note' : 'Your note'}, ${ago(one.createdAt)}:`
 

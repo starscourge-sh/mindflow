@@ -23,12 +23,9 @@ import { Button } from '@/components/ui/button'
 import { Rest } from './scenery'
 import { TaskLog } from './task-log'
 import { GlossButton, GlossLine } from './gloss-line'
+import { dayjs, startOfDay } from '../../../../main/dates'
 
 // Counted on the calendar, so a clock change never moves a day by an hour.
-const startOfDay = (offset = 0): number => {
-  const now = new Date()
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset).getTime()
-}
 /** The day a task shows on, as a number to compare: never, for one with no day. */
 const dayOf = (task: Task): number => placed(task) ?? Infinity
 
@@ -147,7 +144,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
         ]
       : [
           // By day, in the order of the days, whatever the order inside each.
-          ...Object.entries(Object.groupBy(live.filter((task) => dayOf(task) >= startOfDay(1) && dayOf(task) < Infinity), (task) => new Date(dayOf(task)).setHours(0, 0, 0, 0)) as Record<string, Task[]>)
+          ...Object.entries(Object.groupBy(live.filter((task) => dayOf(task) >= startOfDay(1) && dayOf(task) < Infinity), (task) => startOfDay(0, dayOf(task))) as Record<string, Task[]>)
             .sort(([a], [b]) => Number(a) - Number(b))
             .map(([day, list]): [string, Task[]] => [when(new Date(Number(day)).toISOString()), list]),
           ['Backlog, no date', live.filter((task) => dayOf(task) === Infinity)],
@@ -652,11 +649,8 @@ function Sessions({ taskId, title }: { taskId: string; title: string }): React.J
 
 /** A date that many days from today, at the time it had, or nine with none. */
 function shiftTo(days: number, from?: string | null): string {
-  const date = new Date()
-  date.setDate(date.getDate() + days)
-  const time = from ? new Date(from) : null
-  date.setHours(time ? time.getHours() : 9, time ? time.getMinutes() : 0, 0, 0)
-  return date.toISOString()
+  const time = from ? dayjs(from) : null
+  return dayjs().add(days, 'day').hour(time ? time.hour() : 9).minute(time ? time.minute() : 0).startOf('minute').toISOString()
 }
 
 /**

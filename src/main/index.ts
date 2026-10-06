@@ -40,6 +40,7 @@ import { activeSession, badge, gate, motionOn, registerVigil, toggleSafeMode, wh
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
 import { registerPeriods } from './periods'
+import { num } from './dates'
 import { registerScenery, sceneryDir } from './scenery'
 
 
@@ -1068,12 +1069,12 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
   const linked = linkImported(made, byName, known)
   const inbox = made.filter((one) => !one.link.startsWith('article:')).length
   const report = [
-    `${made.length} new ${made.length === 1 ? 'note' : 'notes'} from ${basename(root)}, with ${pictures} pictures, ${attached} files and ${linked} links.`,
+    `${num(made.length)} new ${made.length === 1 ? 'note' : 'notes'} from ${basename(root)}, with ${num(pictures)} pictures, ${num(attached)} files and ${num(linked)} links.`,
     // Where they went, said plainly: the Inbox, with time to sort it.
-    inbox ? `${inbox} ${inbox === 1 ? 'note is' : 'notes are'} in your Inbox to sort through; ${inbox === 1 ? "it won't" : "they won't"} count as rotting for 30 days.` : '',
-    already ? `${already} ${already === 1 ? 'was' : 'were'} already here, from an earlier import, and ${already === 1 ? 'was' : 'were'} left as ${already === 1 ? 'it was' : 'they were'}.` : '',
-    empty ? `${empty} empty ${empty === 1 ? 'file was' : 'files were'} skipped.` : '',
-    marked ? `${marked} ${marked === 1 ? 'note came' : 'notes came'} in marked private: ${marked === 1 ? 'its name sounds' : 'their names sound'} like passwords or logins.` : '',
+    inbox ? `${num(inbox)} ${inbox === 1 ? 'note is' : 'notes are'} in your Inbox to sort through; ${inbox === 1 ? "it won't" : "they won't"} count as rotting for 30 days.` : '',
+    already ? `${num(already)} ${already === 1 ? 'was' : 'were'} already here, from an earlier import, and ${already === 1 ? 'was' : 'were'} left as ${already === 1 ? 'it was' : 'they were'}.` : '',
+    empty ? `${num(empty)} empty ${empty === 1 ? 'file was' : 'files were'} skipped.` : '',
+    marked ? `${num(marked)} ${marked === 1 ? 'note came' : 'notes came'} in marked private: ${marked === 1 ? 'its name sounds' : 'their names sound'} like passwords or logins.` : '',
     kept.length ? `Left out because ${kept.length === 1 ? 'it looks' : 'they look'} like passwords or keys: ${kept.join(', ')}.` : ''
   ].filter(Boolean)
   if (quiet) return console.log(`imported ${made.length} new, ${already} already here, ${empty} empty, ${kept.length} left out, ${marked} marked private, ${pictures} pictures, ${attached} files, ${linked} links${kept.length ? ` [${kept.join(', ')}]` : ''}`)
@@ -1136,7 +1137,7 @@ async function importFiles(): Promise<void> {
         : /\.txt$/i.test(name)
           ? importAnki(text)
           : importMarkdown(name, text, /joke|bit/i.test(name) ? 'bit' : 'note')
-    lines.push(`${name}: ${added} new`)
+    lines.push(`${name}: ${num(added)} new`)
   }
   if (lines.length) await dialog.showMessageBox({ message: 'Imported', detail: lines.join('\n') })
 }

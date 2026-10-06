@@ -1,6 +1,7 @@
 import { useEditorState, type Editor } from "@tiptap/react"
 
 import { assetsOf } from "@/lib/document"
+import { num } from '../../../../main/dates'
 
 /**
  * What the editor is actually holding, as it would be saved.
@@ -32,9 +33,9 @@ export function SourceView({
   return (
     <aside className="mindflow-source" aria-label="Document source">
       <header className="mindflow-source-head">
-        <span>{state.characters} characters</span>
+        <span>{num(state.characters)} characters</span>
         <span>
-          {state.assets.length} asset{state.assets.length === 1 ? "" : "s"}
+          {num(state.assets.length)} asset{state.assets.length === 1 ? "" : "s"}
         </span>
       </header>
 

@@ -1,4 +1,4 @@
-import { BubbleMenu } from '@tiptap/react/menus'
+import { BubbleMenu, type BubbleMenuProps } from '@tiptap/react/menus'
 import { CellSelection } from '@tiptap/pm/tables'
 import { useEffect, useReducer } from 'react'
 import type { Editor } from '@tiptap/react'
@@ -104,6 +104,14 @@ function entries(editor: Editor): Entry[] {
   return [['Merge or split cells', () => chain().mergeOrSplit().run()]]
 }
 
+// Only once a grip has been used, or cells dragged across. A cursor resting
+// in a cell is someone typing, not someone asking for a menu. Not while the
+// table is being dragged: the drag starts from a cell selection and leaves it
+// in place, so the menu floated over the drag. One function for good: a new
+// one each render made the menu reconfigure on every keystroke.
+const showForCells: BubbleMenuProps['shouldShow'] = ({ editor: view, state }) =>
+  state.selection instanceof CellSelection && !view.view.dragging
+
 export function TableMenu({ editor }: { editor: Editor | null }): React.JSX.Element | null {
   // The bubble re-renders when it is shown or hidden, not when the selection
   // moves inside it, so picking a different column left the old column's
@@ -126,13 +134,7 @@ export function TableMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
       editor={editor}
       // Shares the default key with the selection menu otherwise.
       pluginKey="tableMenu"
-      // Only once a grip has been used, or cells dragged across. A cursor
-      // resting in a cell is someone typing, not someone asking for a menu.
-      // Not while the table is being dragged: the drag starts from a cell
-      // selection and leaves it in place, so the menu floated over the drag.
-      shouldShow={({ editor: view, state }) =>
-        state.selection instanceof CellSelection && !view.view.dragging
-      }
+      shouldShow={showForCells}
       options={POSITION}
       className="tiptap-table-menu"
     >

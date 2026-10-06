@@ -1,4 +1,5 @@
 import * as chrono from 'chrono-node'
+import dayjs from 'dayjs'
 
 /**
  * Reading a task out of one line of words, Todoist's way. Shared: the main
@@ -16,24 +17,26 @@ const namedDays = (unit: string): number[] =>
 
 /** The next date in a series, from `from`. `every 3 days`, `every weekday`, `every mon, wed`. */
 export function advance(from: Date, rule: string): Date {
-  const next = new Date(from)
+  let next = dayjs(from)
   const [, , unit] = RECURRENCE.exec(rule) ?? []
   const count = Number(/\d+/.exec(unit ?? '')?.[0] ?? 1)
   const named = namedDays(unit ?? '')
-  if (named.length) do next.setDate(next.getDate() + 1); while (!named.includes(next.getDay()))
-  else if (/day/.test(unit) && !/weekday/.test(unit)) next.setDate(next.getDate() + count)
-  else if (/weekday/.test(unit)) do next.setDate(next.getDate() + 1); while ([0, 6].includes(next.getDay()))
-  else if (/week/.test(unit)) next.setDate(next.getDate() + 7 * count)
-  else if (/month/.test(unit)) next.setMonth(next.getMonth() + count)
-  else if (/year/.test(unit)) next.setFullYear(next.getFullYear() + 1)
-  return next
+  // Days, weeks, months and years on the calendar: a clock change keeps the
+  // time of day, and a month too short for the day takes its last one.
+  if (named.length) do next = next.add(1, 'day'); while (!named.includes(next.day()))
+  else if (/day/.test(unit) && !/weekday/.test(unit)) next = next.add(count, 'day')
+  else if (/weekday/.test(unit)) do next = next.add(1, 'day'); while ([0, 6].includes(next.day()))
+  else if (/week/.test(unit)) next = next.add(count, 'week')
+  else if (/month/.test(unit)) next = next.add(count, 'month')
+  else if (/year/.test(unit)) next = next.add(1, 'year')
+  return next.toDate()
 }
 
 /** Linear's four, by number: 1 is Urgent, 4 is Low, 0 is none. */
 export const PRIORITY_NAMES = ['No priority', 'Urgent', 'High', 'Medium', 'Low'] as const
 
 /** "2026-10" for a month, "2026" for a year, or "someday": a when without a day. */
-export const monthKey = (date: Date): string => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+export const monthKey = (date: Date): string => dayjs(date).format('YYYY-MM')
 
 /**
  * Which of the later lists a plan sits in today. A month gone by is still this
@@ -43,7 +46,7 @@ export const monthKey = (date: Date): string => `${date.getFullYear()}-${String(
 export function bucketOf(plan: string | null, at = new Date()): 'month' | 'year' | 'next' | 'someday' | null {
   if (!plan) return null
   if (plan === 'someday') return 'someday'
-  if (Number(plan.slice(0, 4)) > at.getFullYear()) return 'next'
+  if (Number(plan.slice(0, 4)) > dayjs(at).year()) return 'next'
   if (plan.length === 7) return plan <= monthKey(at) ? 'month' : 'year'
   return 'year'
 }
@@ -120,8 +123,8 @@ export function readTask(text: string, at = new Date()): ReadTask {
   const later = find(/\b(someday|some day|this month|next month|this year|next year)\b/i)
   if (later) {
     const word = later[1].toLowerCase()
-    const next = new Date(at.getFullYear(), at.getMonth() + (word === 'next month' ? 1 : 0), 1)
-    plan = word.endsWith('day') ? 'someday' : word.endsWith('month') ? monthKey(next) : String(at.getFullYear() + (word === 'next year' ? 1 : 0))
+    const next = dayjs(at).add(word === 'next month' ? 1 : 0, 'month')
+    plan = word.endsWith('day') ? 'someday' : word.endsWith('month') ? monthKey(next.toDate()) : String(dayjs(at).add(word === 'next year' ? 1 : 0, 'year').year())
     take(later.index, later.index + later[0].length, 'plan')
   }
 
@@ -152,9 +155,8 @@ export function readTask(text: string, at = new Date()): ReadTask {
     const day = Number(ordinal[1])
     // A month too short for the day takes its last one: the 31st in
     // November is the 30th, the 30th in February the 28th, never March.
-    const month = at.getMonth() + (at.getDate() > day ? 1 : 0)
-    const last = new Date(at.getFullYear(), month + 1, 0).getDate()
-    add(ordinal.index, ordinal[0].length, new Date(at.getFullYear(), month, Math.min(day, last)), false)
+    const month = dayjs(at).startOf('month').add(dayjs(at).date() > day ? 1 : 0, 'month')
+    add(ordinal.index, ordinal[0].length, month.date(Math.min(day, month.daysInMonth())).toDate(), false)
     onDay = dates[dates.length - 1]
   }
   for (const found of chrono.parse(rest, at, { forwardDate: true }).slice(0, 2)) {
@@ -173,8 +175,9 @@ export function readTask(text: string, at = new Date()): ReadTask {
   // A series of named days starts on the first of them, today included.
   const named = namedDays(recurrence ? (RECURRENCE.exec(recurrence)?.[2] ?? '') : '')
   if (!due && named.length) {
-    due = new Date(at)
-    while (!named.includes(due.getDay())) due.setDate(due.getDate() + 1)
+    let day = dayjs(at)
+    while (!named.includes(day.day())) day = day.add(1, 'day')
+    due = day.toDate()
   }
   if (!due && recurrence) due = new Date(at)
   const allDay = !!due && !scheduled?.timed
@@ -182,7 +185,10 @@ export function readTask(text: string, at = new Date()): ReadTask {
   const deadline = deadlineAt ? new Date(deadlineAt.date) : null
   if (deadline && !deadlineAt?.timed) deadline.setHours(9, 0, 0, 0)
   // "call mom tomorrow by 5pm": a time alone is on the day it is scheduled.
-  if (deadline && deadlineAt?.timeOnly && scheduled) deadline.setFullYear(scheduled.date.getFullYear(), scheduled.date.getMonth(), scheduled.date.getDate())
+  if (deadline && deadlineAt?.timeOnly && scheduled) {
+    const on = dayjs(scheduled.date)
+    deadline.setTime(dayjs(deadline).year(on.year()).month(on.month()).date(on.date()).valueOf())
+  }
 
   // A word left hanging where a date was taken out: "email Sam on". Only
   // then, so "sign up for" keeps its "for".

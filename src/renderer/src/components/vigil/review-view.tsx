@@ -16,6 +16,7 @@ import { Rest } from './scenery'
 import { GlossLine, keepGloss, openGloss } from './gloss-line'
 import { BorderBeam } from 'border-beam'
 import { useAlive, useSurface } from '@/lib/use-alive'
+import { num } from '../../../../main/dates'
 
 /** The four grades, as the plan defines them: how the retrieval felt, not whether it was right. */
 const GRADES = [
@@ -199,7 +200,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
           <p className="-mb-4 text-xs text-muted-foreground">
             For #{card.exam}{(() => {
               const exam = exams.find((one) => one.tag === card.exam)
-              return exam ? `, ${exam.days === 0 ? 'today' : exam.days === 1 ? 'tomorrow' : `in ${exam.days} days`}` : ''
+              return exam ? `, ${exam.days === 0 ? 'today' : exam.days === 1 ? 'tomorrow' : `in ${num(exam.days)} days`}` : ''
             })()}
           </p>
         )}
@@ -469,7 +470,7 @@ function Exams({ exams }: { exams: Exam[] }): React.JSX.Element | null {
  */
 export function Readiness({ exam, named = true }: { exam: Exam; named?: boolean }): React.JSX.Element {
   const seen = exam.total - exam.unseen
-  const day = exam.days === 0 ? 'today' : exam.days === 1 ? 'tomorrow' : `in ${exam.days} days`
+  const day = exam.days === 0 ? 'today' : exam.days === 1 ? 'tomorrow' : `in ${num(exam.days)} days`
   return (
     <div className="space-y-1.5 text-xs text-muted-foreground">
       {named && <p className="text-sm text-foreground">#{exam.tag} <span className="text-muted-foreground">· {day}, {when(exam.at)}</span></p>}

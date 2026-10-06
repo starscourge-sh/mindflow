@@ -21,7 +21,9 @@ export function Lineage({ id, onOpen }: { id: string; onOpen?: (type: string, id
     // Again once things settle after a change (a capture lifted out of this
     // one, say), but not on every keystroke of an autosave.
     let timer: ReturnType<typeof setTimeout> | undefined
-    const stop = window.api.captures.onChange(() => {
+    // Its own autosaves change what it links to, never what links to it.
+    const stop = window.api.captures.onChange((what) => {
+      if (what?.every((one) => one.id === id)) return
       clearTimeout(timer)
       timer = setTimeout(load, 1500)
     })

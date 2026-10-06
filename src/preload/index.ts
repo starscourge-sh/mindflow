@@ -1,16 +1,28 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { LinkMetadata } from './index.d'
-import type { Capture, CaptureMeta, CapturePatch, SaveResult } from '../main/captures'
+import type { Capture, CaptureMeta, CapturePatch, Change, SaveResult } from '../main/captures'
 
 // Every live view listens for changes; one IPC listener tells them all,
 // rather than one each past Node's limit of ten.
-const changes = new Set<() => void>()
-// A burst of changes, an import or several saves in a row, is told once.
+// Each says which kinds of note it shows; none means everything.
+const changes = new Map<(what: Change[] | null) => void, Change['kind'][] | undefined>()
+// A burst of changes, an import or several saves in a row, is told once,
+// with every note it touched (null: anything may have changed).
 let telling: ReturnType<typeof setTimeout> | undefined
-ipcRenderer.on('captures:changed', () => {
+let told: Change[] | null | undefined
+ipcRenderer.on('captures:changed', (_event, what: Change[] | null) => {
+  told = told === null || !what ? null : [...(told ?? []), ...what]
   clearTimeout(telling)
-  telling = setTimeout(() => changes.forEach((listen) => listen()), 60)
+  telling = setTimeout(() => {
+    const now = told ?? null
+    told = undefined
+    changes.forEach((kinds, listen) => {
+      if (!now || !kinds || now.some((one) => kinds.includes(one.kind))) listen(now)
+    })
+  }, 60)
 })
+
+let listed: { rows: CaptureMeta[]; version: number } | null = null
 
 // A note opened in a window of its own, told by the main process to every
 // other window, which closes it there: two editors on one note would each
@@ -162,22 +174,33 @@ const api = {
 
   /** Every capture, kept by the main process. */
   captures: {
-    list: (): Promise<CaptureMeta[]> => ipcRenderer.invoke('captures:list'),
+    // The list as this window last had it: asked again, the main process says
+    // only whether it changed, and sends it whole only when it did.
+    list: async (): Promise<CaptureMeta[]> => {
+      const got = (await ipcRenderer.invoke('captures:list', listed?.version)) as typeof listed
+      if (got) listed = got
+      return listed!.rows
+    },
     get: (id: string): Promise<Capture | null> => ipcRenderer.invoke('captures:get', id),
     /** Links and captures holding a card, to tidy: read without counting as an open. */
     cards: (): Promise<{ id: string; kind: string; body: unknown }[]> => ipcRenderer.invoke('captures:cards'),
     /** Search the titles and bodies, newest first. */
-    find: (query: string): Promise<{ type: 'capture' | 'nugget' | 'article' | 'question' | 'task'; id: string; number: number | null; kind: string; status: string; source: string; attribution: string | null; label: string; body: unknown; capturedAt: string }[]> => ipcRenderer.invoke('captures:find', query),
+    find: (query: string): Promise<{ type: 'capture' | 'nugget' | 'article' | 'question' | 'task'; id: string; number: number | null; kind: string; status: string; source: string; attribution: string | null; label: string; capturedAt: string }[]> => ipcRenderer.invoke('captures:find', query),
     /** Three open captures, leaning old: the rot sampler. */
     rot: (): Promise<Capture[]> => ipcRenderer.invoke('captures:rot'),
     /** What `@` offers for the text typed after it. */
     search: (query: string): Promise<CaptureMeta[]> => ipcRenderer.invoke('captures:search', query),
+    /** The start of one note, for search's preview. */
+    peek: (type: string, id: string): Promise<unknown> => ipcRenderer.invoke('captures:peek', type, id),
     create: (patch: CapturePatch): Promise<string> => ipcRenderer.invoke('captures:create', patch),
     save: (id: string, patch: CapturePatch): Promise<SaveResult> =>
       ipcRenderer.invoke('captures:save', id, patch),
-    /** Any window's write, as it happens. */
-    onChange: (listen: () => void): (() => void) => {
-      changes.add(listen)
+    /**
+     * Any window's write, as it happens: told which notes, or null for
+     * anything. With `kinds`, only writes that could touch those.
+     */
+    onChange: (listen: (what: Change[] | null) => void, kinds?: Change['kind'][]): (() => void) => {
+      changes.set(listen, kinds)
       return () => void changes.delete(listen)
     }
   }

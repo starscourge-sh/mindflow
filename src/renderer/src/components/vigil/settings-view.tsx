@@ -16,6 +16,7 @@ import { FontPicker, TextSize } from './font-picker'
 import { BackToTop, Kbd, Rolling, Tip, refuse, toast, useSmooth } from './ui'
 import { Button } from '@/components/ui/button'
 import { Orb } from './orb'
+import { weekdayName } from '../../../../main/dates'
 
 /**
  * What the search at the top asks for, and whether the island a row sits in
@@ -431,7 +432,7 @@ export function SettingsView(): React.JSX.Element {
                   <button
                     key={day}
                     type="button"
-                    aria-label={new Date(2023, 0, 1 + day).toLocaleDateString('en', { weekday: 'long' })}
+                    aria-label={weekdayName(day)}
                     onMouseEnter={() => step(day)}
                     onClick={() => {
                       chime('settled')

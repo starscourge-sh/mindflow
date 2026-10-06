@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 
 import { LABEL, changed, database } from './captures'
+import { dayjs } from './dates'
 
 /**
  * Looking back over stretches of time, and the small things that make a note
@@ -72,9 +73,8 @@ export function registerPeriods(): void {
   // --- everything made lately, newest first, every kind of thing
   // `until` is the end of the window (a week's Sunday night), now if not given.
   handle('recent', (days: number, until?: string | null) => {
-    const end = until ? new Date(until) : new Date()
-    const start = new Date(end)
-    start.setDate(start.getDate() - Math.max(1, Math.min(365, Math.round(days) || 7)))
+    const end = dayjs(until ?? undefined)
+    const start = end.subtract(Math.max(1, Math.min(365, Math.round(days) || 7)), 'day')
     const range = [start.toISOString(), end.toISOString()]
     return db.prepare(`select * from (
         select 'capture' as type, id, ${LABEL} as title, kind, status, private, captured_at as at from captures

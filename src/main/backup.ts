@@ -6,6 +6,7 @@ import { homedir } from 'os'
 import { join } from 'path'
 
 import { database } from './captures'
+import { dayKey } from './dates'
 
 /**
  * Where copies of everything go: iCloud Drive when there is one, so the copies
@@ -32,8 +33,8 @@ export async function backUp(db: DatabaseSync): Promise<void> {
 
   // `vacuum into` writes a clean, complete copy even while the app is using
   // the file, which copying the file itself does not promise. Local date, so a
-  // day is the day you lived. `sv` is the locale that writes it as 2026-10-02.
-  const today = join(dir, `mindflow-${new Date().toLocaleDateString('sv')}.db`)
+  // day is the day you lived: 2026-10-02.
+  const today = join(dir, `mindflow-${dayKey()}.db`)
   if (!existsSync(today)) db.prepare('vacuum into ?').run(today)
 
   // Only copies this made, oldest first, past the newest 30.

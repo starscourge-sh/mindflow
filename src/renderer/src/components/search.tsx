@@ -16,6 +16,7 @@ import { vigil, when, type TaskFull } from '@/lib/vigil'
 import { BUCKETS, bucket } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../main/task-words'
 import { GlossLine, openGloss } from './vigil/gloss-line'
+import { dayjs, daysSince } from '../../../main/dates'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 
@@ -25,8 +26,7 @@ export type Action = { label: string; keys?: string; run: () => void; cue?: Cue 
 
 /** Which of Notion's three groups a date falls in. */
 const groupOf = (at: string): string => {
-  const days = (Date.now() - new Date(at).getTime()) / 86400000
-  return new Date(at).toDateString() === new Date().toDateString() ? 'Today' : days <= 30 ? 'Past 30 days' : 'Older'
+  return dayjs(at).isSame(dayjs(), 'day') ? 'Today' : daysSince(at) <= 30 ? 'Past 30 days' : 'Older'
 }
 
 /**
@@ -70,17 +70,19 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
   useEffect(() => {
     let old = false
     const late = setTimeout(() => setSlow(true), 300)
-    void window.api.captures.find(query).then((list) => {
+    // Asked once the typing pauses, not for every letter of a word on the way.
+    const ask = setTimeout(() => void window.api.captures.find(query).then((list) => {
       if (old) return
       clearTimeout(late)
       setSlow(false)
       setFound(list)
       setSearched(query)
       setAt(0)
-    })
+    }), 80)
     return () => {
       old = true
       clearTimeout(late)
+      clearTimeout(ask)
     }
   }, [query])
   // The kinds are many: one Kind chip opens them.
@@ -229,17 +231,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
           {pane && current && (
             <div className="m-3 mt-0 flex max-h-[45%] min-h-24 shrink-0 flex-col overflow-hidden rounded-lg border @[34rem]/search:mt-3 @[34rem]/search:max-h-none @[34rem]/search:w-1/2 @[34rem]/search:shrink">
               <div className="min-h-0 flex-1 overflow-y-auto [--mf-padding:1rem_1.25rem]">
-              {current.type === 'task' ? <TaskPreview key={current.id} id={current.id} /> : <MindflowEditor
-                key={current.id}
-                defaultContent={(current.body as JSONContent | string | null) ?? ''}
-                readOnly
-                toolbar={false}
-                handles={false}
-                slash={false}
-                outline={false}
-                search={false}
-                autofocus={false}
-              />}
+              {current.type === 'task' ? <TaskPreview key={current.id} id={current.id} /> : <NotePreview key={current.id} type={current.type} id={current.id} />}
               </div>
               {/* A thought on it right from the results: ⌘; or a click. */}
               {glossable && (
@@ -253,6 +245,24 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
       </div>
     </div>
   )
+}
+
+/**
+ * A note as the preview shows it: its start, read only, fetched once the
+ * arrows rest on it rather than for every row they pass.
+ */
+function NotePreview({ type, id }: { type: string; id: string }): React.JSX.Element | null {
+  const [body, setBody] = useState<unknown>(undefined)
+  useEffect(() => {
+    let old = false
+    const ask = setTimeout(() => void window.api.captures.peek(type, id).then((found) => !old && setBody(found)), 80)
+    return () => {
+      old = true
+      clearTimeout(ask)
+    }
+  }, [type, id])
+  if (body === undefined) return null
+  return <MindflowEditor defaultContent={(body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
 }
 
 /**

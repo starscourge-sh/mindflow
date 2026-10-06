@@ -18,6 +18,7 @@ import { Mentions } from './mentions'
 import { Aliases, LocalGraph, Versions } from './note-extras'
 import { RowMenu, copy, type MenuItem } from './row-menu'
 import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Tip, Typed, VirtualList, ask, refuse, showTopTitle, toast, useListKeys } from './ui'
+import { dayMonth, dayjs, heldFor, num } from '../../../../main/dates'
 
 /**
  * Questions: what you keep circling and cannot name yet. The tier between a
@@ -29,13 +30,8 @@ import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Tip, Typed, Vi
  */
 
 /** How long it has been held, in plain words and a calm colour: "held 2 years". */
-export function heldFor(at: string): string {
-  const days = Math.floor((Date.now() - new Date(at).getTime()) / 86400000)
-  if (days < 1) return 'held since today'
-  const [n, unit] = days >= 365 ? [Math.floor(days / 365), 'year'] : days >= 60 ? [Math.floor(days / 30.4), 'month'] : days >= 14 ? [Math.floor(days / 7), 'week'] : [days, 'day']
-  return `held ${n} ${unit}${n === 1 ? '' : 's'}`
-}
-export const cluesSaid = (n: number): string => (n ? `${n} ${n === 1 ? 'clue' : 'clues'}` : 'no clues yet')
+export { heldFor }
+export const cluesSaid = (n: number): string => (n ? `${num(n)} ${n === 1 ? 'clue' : 'clues'}` : 'no clues yet')
 
 /** A new question, asked for in your own words, then opened to write in. Undoable. */
 export async function startQuestion(open: (type: string, id: string) => void): Promise<void> {
@@ -97,7 +93,7 @@ export async function addToQuestion(captureId: string, onUndo?: () => void): Pro
 export function QuestionAsker(): React.JSX.Element | null {
   const [asked, setAsked] = useState<{ answer: (picked: Picked | null) => void } | null>(null)
   const [typed, setTyped] = useState('')
-  const open = useLive(() => (asked ? vigil.items('question') : Promise.resolve([] as Item[])), [] as Item[], [!!asked])
+  const open = useLive(() => (asked ? vigil.items('question') : Promise.resolve([] as Item[])), [] as Item[], [!!asked], ['item'])
   useEffect(() => {
     const onAsk = (event: Event): void => {
       chime('open')
@@ -150,7 +146,7 @@ export function QuestionAsker(): React.JSX.Element | null {
  * Answered, still readable.
  */
 export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
-  const all = useLive(() => vigil.items('question'), [] as Item[])
+  const all = useLive(() => vigil.items('question'), [] as Item[], [], ['item'])
   const inView = new Set(useLive(vigil.pinnedQuestions, [] as Awaited<ReturnType<typeof vigil.pinnedQuestions>>).map((one) => one.id))
   const [show, setShow] = useState<'open' | 'answered'>('open')
   const items = all
@@ -345,7 +341,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
               {inView ? 'In view: shows while you capture' : 'Keep in view while capturing'}
             </Prop>
           )}
-          <Prop icon={Calendar}>Since {when(item.createdAt)}{new Date(item.createdAt).getFullYear() !== new Date().getFullYear() ? ` ${new Date(item.createdAt).getFullYear()}` : ''}</Prop>
+          <Prop icon={Calendar}>Since {when(item.createdAt)}{dayjs(item.createdAt).year() !== dayjs().year() ? ` ${dayjs(item.createdAt).year()}` : ''}</Prop>
         </Island>
         <Island compact title={item.closedAt ? 'Settled' : 'When it comes clear'}>
           {item.closedAt ? (
@@ -453,10 +449,7 @@ function Clues({ item }: { item: ItemFull }): React.JSX.Element {
 }
 
 /** A clue's date: the day, and the year once it is not this one. */
-const clueDate = (at: string): string => {
-  const date = new Date(at)
-  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', ...(date.getFullYear() !== new Date().getFullYear() ? { year: 'numeric' } : {}) })
-}
+const clueDate = (at: string): string => dayMonth(at)
 
 /**
  * A question still open, come back as a hint: things come back to you. Open

@@ -14,9 +14,10 @@ import { RowMenu, copy } from './row-menu'
 import { Tip } from '@/components/vigil/ui'
 import { Rest } from './scenery'
 import { GlossButton, GlossLine } from './gloss-line'
+import { startOfDay } from '../../../../main/dates'
 
-const endOfToday = (): number => new Date().setHours(24, 0, 0, 0)
-const startOfToday = (): number => new Date().setHours(0, 0, 0, 0)
+const endOfToday = (): number => startOfDay(1)
+const startOfToday = (): number => startOfDay()
 
 type Scope = 'today' | 'upcoming' | 'routines' | keyof typeof BUCKETS | 'backlog' | 'waiting'
 const EMPTY: Record<Scope, { shape: [Parameters<typeof Empty>[0]['shape'][0], number]; title: string; text: string }> = {

@@ -11,6 +11,7 @@ import { useLive, vigil, type PeriodPage } from '@/lib/vigil'
 import { Chips } from './display'
 import { DayBanner } from './scenery'
 import { Island, Kbd, Page, Rolling, Tip, Typed, typing } from './ui'
+import { dayjs, noon } from '../../../../main/dates'
 
 /**
  * Pages for wider stretches of time, each asking for less the wider it gets,
@@ -35,34 +36,18 @@ export function ScaleSwitch({ scale, onScale }: { scale: Scale; onScale?: (scale
 
 // --- dates
 
-const noon = (day: string): Date => new Date(`${day}T12:00:00`)
 /** The Monday a week starts on, as a day. */
-export const mondayOf = (date = new Date()): string => {
-  const at = new Date(date)
-  at.setDate(at.getDate() - ((at.getDay() + 6) % 7))
-  return dayOf(at)
-}
-const addDays = (day: string, by: number): string => {
-  const at = noon(day)
-  at.setDate(at.getDate() + by)
-  return dayOf(at)
-}
-const monthOf = (date = new Date()): string => dayOf(date).slice(0, 7)
-const addMonths = (month: string, by: number): string => {
-  const at = new Date(`${month}-15T12:00:00`)
-  at.setMonth(at.getMonth() + by)
-  return monthOf(at)
-}
-const monthName = (month: string, year = true): string =>
-  new Date(`${month}-15T12:00:00`).toLocaleDateString(undefined, { month: 'long', ...(year ? { year: 'numeric' } : {}) })
+export const mondayOf = (date = new Date()): string => dayOf(dayjs(date).startOf('week').toDate())
+const addDays = (day: string, by: number): string => dayOf(noon(day).add(by, 'day').toDate())
+const monthOf = (date = new Date()): string => dayjs(date).format('YYYY-MM')
+const addMonths = (month: string, by: number): string => monthOf(dayjs(`${month}-01`).add(by, 'month').toDate())
+const monthName = (month: string, year = true): string => dayjs(`${month}-01`).format(year ? 'MMMM YYYY' : 'MMMM')
 /** "5 – 11 October", or "29 September – 5 October" across a month. */
 const weekName = (monday: string): string => {
   const start = noon(monday)
-  const end = noon(addDays(monday, 6))
-  const same = start.getMonth() === end.getMonth()
-  const first = start.toLocaleDateString(undefined, same ? { day: 'numeric' } : { day: 'numeric', month: 'long' })
-  const last = end.toLocaleDateString(undefined, { day: 'numeric', month: 'long', ...(end.getFullYear() !== new Date().getFullYear() ? { year: 'numeric' } : {}) })
-  return `${first} – ${last}`
+  const end = start.add(6, 'day')
+  const last = end.format(end.year() !== dayjs().year() ? 'D MMMM YYYY' : 'D MMMM')
+  return `${start.format(start.month() === end.month() ? 'D' : 'D MMMM')} – ${last}`
 }
 
 // --- the pieces
@@ -284,7 +269,7 @@ export function MonthPage({ onScale, start }: { onScale?: (scale: Scale) => void
  * to bottom. Each month opens its page.
  */
 export function YearPage({ onScale, onMonth }: { onScale?: (scale: Scale) => void; onMonth: (month: string) => void }): React.JSX.Element {
-  const thisYear = String(new Date().getFullYear())
+  const thisYear = String(dayjs().year())
   const [year, setYear] = useState(thisYear)
   const months = useLive(() => vigil.year(year), [] as Awaited<ReturnType<typeof vigil.year>>, [year])
   const current = year === thisYear
@@ -296,7 +281,7 @@ export function YearPage({ onScale, onMonth }: { onScale?: (scale: Scale) => voi
   }
   useSteps(go)
   // Every month so far this year; a year gone by has all twelve.
-  const last = current ? new Date().getMonth() + 1 : 12
+  const last = current ? dayjs().month() + 1 : 12
   const all = Array.from({ length: last }, (_, at) => `${year}-${String(at + 1).padStart(2, '0')}`)
   const named = months.filter((one) => one.season).length
   return (

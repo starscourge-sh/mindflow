@@ -1,5 +1,5 @@
 import { Extension } from "@tiptap/core"
-import { Plugin } from "@tiptap/pm/state"
+import { Plugin, PluginKey, type Transaction } from "@tiptap/pm/state"
 import { Decoration, DecorationSet } from "@tiptap/pm/view"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import type { Editor, JSONContent } from "@tiptap/core"
@@ -98,7 +98,7 @@ export interface TokenMatch {
  * the middle of a token does not cut the match in half. Leaf inline nodes keep
  * one placeholder character so offsets still line up with positions.
  */
-function scan(doc: ProseMirrorNode, patterns: TokenPattern[]): TokenMatch[] {
+function scan(doc: ProseMirrorNode, patterns: TokenPattern[], from = 0, to = doc.content.size): TokenMatch[] {
   if (!patterns.length) return []
   const found: TokenMatch[] = []
 
@@ -111,11 +111,13 @@ function scan(doc: ProseMirrorNode, patterns: TokenPattern[]): TokenMatch[] {
     .filter(Boolean)
 
   const first = patterns.some((token) => token.firstBlockOnly) ? firstLineOf(doc)?.pos : undefined
-  doc.descendants((node, pos) => {
+  doc.nodesBetween(from, to, (node, pos) => {
     if (!node.isTextblock) return true
 
     const text = node.textBetween(0, node.content.size, undefined, "￼")
     const start = pos + 1
+    // Only this block's own matches can overlap one another.
+    const mine = found.length
 
     for (const token of patterns) {
       const { name, pattern } = token
@@ -134,7 +136,7 @@ function scan(doc: ProseMirrorNode, patterns: TokenPattern[]): TokenMatch[] {
 
         // Earlier patterns win an overlap, so two highlights never fight over
         // the same characters.
-        if (found.some((other) => from < other.to && to > other.from)) continue
+        if (found.some((other, at) => at >= mine && from < other.to && to > other.from)) continue
         if (inert.some((mark) => doc.rangeHasMark(from, to, mark))) continue
 
         const value = match[1] ?? match[0]
@@ -235,20 +237,60 @@ export const Tokens = Extension.create<{
   addProseMirrorPlugins() {
     const { patterns, onClick } = this.options
 
+    const paint = (tokens: TokenMatch[]): Decoration[] =>
+      tokens.map((token) =>
+        Decoration.inline(token.from, token.to, {
+          class: "tiptap-token",
+          "data-token": token.name,
+          "data-token-color": token.color,
+        })
+      )
+    // Tag colours chosen elsewhere: a new choice repaints the whole note.
+    const colors = (): string => JSON.stringify([...tagColors])
+    const titled = patterns.some((token) => token.firstBlockOnly)
+    type Painted = { set: DecorationSet; colors: string; first: number | undefined }
+    const whole = (doc: ProseMirrorNode): Painted => ({
+      set: DecorationSet.create(doc, paint(scan(doc, patterns))),
+      colors: colors(),
+      first: titled ? firstLineOf(doc)?.pos : undefined,
+    })
+    const key = new PluginKey<Painted>("tokens")
+
     return [
-      new Plugin({
-        props: {
-          decorations: (state) =>
-            DecorationSet.create(
-              state.doc,
-              scan(state.doc, patterns).map((token) =>
-                Decoration.inline(token.from, token.to, {
-                  class: "tiptap-token",
-                  "data-token": token.name,
-                  "data-token-color": token.color,
+      new Plugin<Painted>({
+        key,
+        // Kept between transactions and moved with the text: a caret move
+        // costs nothing, and an edit reads again only the blocks it touched.
+        // Read whole on every update, a 1 MB note took 100 ms a key.
+        state: {
+          init: (_, state) => whole(state.doc),
+          apply: (tr: Transaction, was: Painted): Painted => {
+            if (!tr.docChanged) return was
+            const doc = tr.doc
+            const first = titled ? firstLineOf(doc)?.pos : undefined
+            if (colors() !== was.colors || (titled && first !== (was.first === undefined ? undefined : tr.mapping.map(was.first)))) return whole(doc)
+            let set = was.set.map(tr.mapping, doc)
+            const blocks = new Map<number, number>()
+            tr.mapping.maps.forEach((map, index) => {
+              const after = tr.mapping.slice(index + 1)
+              map.forEach((_from, _to, from, to) => {
+                const start = Math.max(0, after.map(from, -1) - 1)
+                const end = Math.min(doc.content.size, after.map(to, 1) + 1)
+                doc.nodesBetween(start, end, (node, pos) => {
+                  if (!node.isTextblock) return true
+                  blocks.set(pos, pos + node.nodeSize)
+                  return false
                 })
-              )
-            ),
+              })
+            })
+            for (const [from, to] of blocks) {
+              set = set.remove(set.find(from, to)).add(doc, paint(scan(doc, patterns, from, to)))
+            }
+            return { set, colors: was.colors, first }
+          },
+        },
+        props: {
+          decorations: (state) => key.getState(state)?.set,
 
           /**
            * Following a tag.
@@ -264,7 +306,7 @@ export const Tokens = Extension.create<{
             if (!onClick) return false
             if (view.editable && !(event.metaKey || event.ctrlKey)) return false
 
-            const hit = scan(view.state.doc, patterns).find(
+            const hit = scan(view.state.doc, patterns, pos, pos).find(
               (token) => pos >= token.from && pos < token.to
             )
             if (!hit) return false

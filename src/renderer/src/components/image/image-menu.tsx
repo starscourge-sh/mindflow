@@ -1,4 +1,4 @@
-import { BubbleMenu } from "@tiptap/react/menus"
+import { BubbleMenu, type BubbleMenuProps } from "@tiptap/react/menus"
 import { NodeSelection } from "@tiptap/pm/state"
 import { EditorContext, useEditorState, type Editor } from "@tiptap/react"
 import { AlignCenter, AlignLeft, AlignRight, Trash2 } from "lucide-react"
@@ -18,6 +18,13 @@ const ALIGNS = [
   { value: "center", icon: <AlignCenter className="tiptap-button-icon" /> },
   { value: "right", icon: <AlignRight className="tiptap-button-icon" /> },
 ]
+
+// Nothing to resize or delete in a page only being read. One function for
+// good: a new one each render made the menu reconfigure on every keystroke.
+const showForImage: BubbleMenuProps["shouldShow"] = ({ state, editor }) =>
+  editor.isEditable &&
+  state.selection instanceof NodeSelection &&
+  state.selection.node.type.name === "image"
 
 /**
  * What you can do to the picture you just clicked.
@@ -48,12 +55,7 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
       editor={editor}
       pluginKey="imageMenu"
       style={{ zIndex: 40 }}
-      // Nothing to resize or delete in a page only being read.
-      shouldShow={({ state, editor }) =>
-        editor.isEditable &&
-        state.selection instanceof NodeSelection &&
-        state.selection.node.type.name === "image"
-      }
+      shouldShow={showForImage}
     >
       <EditorContext.Provider value={{ editor }}>
         <Toolbar variant="floating">

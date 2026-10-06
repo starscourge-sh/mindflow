@@ -20,7 +20,9 @@ export function Mentions({ id, onOpen }: { id: string; onOpen?: (type: string, i
     load()
     // Again once things settle, not on every keystroke of an autosave.
     let timer: ReturnType<typeof setTimeout> | undefined
-    const stop = window.api.captures.onChange(() => {
+    // Its own autosaves change what it links to, never what links to it.
+    const stop = window.api.captures.onChange((what) => {
+      if (what?.every((one) => one.id === id)) return
       clearTimeout(timer)
       timer = setTimeout(load, 1500)
     })

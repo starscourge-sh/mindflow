@@ -7,6 +7,7 @@ import { vigil, type Mood, type Recap as Data } from '@/lib/vigil'
 import { Kbd, Rolling, Typed } from './ui'
 import { Button } from '@/components/ui/button'
 import { Scenery } from './scenery'
+import { dayName, noon, num } from '../../../../main/dates'
 
 /** The light each page sits in: the year opens at dawn and closes at night. */
 const RECAP_MOODS: Record<string, Mood> = { intro: 'day', captures: 'day', busiest: 'day', tags: 'dusk', sources: 'dusk', exits: 'interior', reviewed: 'night', outro: 'night', none: 'night' }
@@ -17,7 +18,7 @@ const PAGE_MOTION: Variants = {
   leave: (dir: number) => ({ opacity: 0, x: -20 * dir, transition: { duration: 0.14, ease: [0.4, 0, 1, 1] } })
 }
 
-const plural = (n: number, one: string, many: string): string => `${n.toLocaleString()} ${n === 1 ? one : many}`
+const plural = (n: number, one: string, many: string): string => `${num(n)} ${n === 1 ? one : many}`
 
 /**
  * A number counted up from nothing as its page arrives, fast at first and
@@ -27,12 +28,12 @@ const plural = (n: number, one: string, many: string): string => `${n.toLocaleSt
  */
 function CountUp({ n }: { n: number }): React.JSX.Element {
   const value = useMotionValue(0)
-  const shown = useTransform(value, (at) => Math.round(at).toLocaleString())
+  const shown = useTransform(value, (at) => num(Math.round(at)))
   useEffect(() => {
     const run = animate(value, n, { duration: Math.min(1.6, 0.6 + Math.log10(n + 1) * 0.3), delay: 0.25, ease: [0.16, 1, 0.3, 1] })
     return () => run.stop()
   }, [n, value])
-  return <motion.span aria-label={n.toLocaleString()}>{shown}</motion.span>
+  return <motion.span aria-label={num(n)}>{shown}</motion.span>
 }
 
 /** A big number that counts up into place, with what it counts under it. */
@@ -88,7 +89,7 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
     data.busiestDay && (
       <div key="busiest" className="space-y-4 text-title">
         {data.busiestMonth && <p><Typed text={`Your busiest month was ${data.busiestMonth.name}, with ${plural(data.busiestMonth.n, 'capture', 'captures')}.`} /></p>}
-        <p><Typed delay={data.busiestMonth ? 1800 : 700} text={`Your busiest day was ${new Date(`${data.busiestDay.name}T12:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}: ${plural(data.busiestDay.n, 'capture', 'captures')}.`} /></p>
+        <p><Typed delay={data.busiestMonth ? 1800 : 700} text={`Your busiest day was ${dayName(noon(data.busiestDay.name), 'never')}: ${plural(data.busiestDay.n, 'capture', 'captures')}.`} /></p>
       </div>
     ),
     data.tags.length > 0 && (

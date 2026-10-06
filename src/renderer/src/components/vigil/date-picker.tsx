@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import { Island, IslandRow } from './ui'
+import { dayMonth, dayjs } from '../../../../main/dates'
 
 /**
  * A date, picked from shadcn's calendar in a popover rather than the
@@ -24,14 +25,12 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const date = value ? new Date(value) : undefined
-  const clock = date ? `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}` : '09:00'
+  const clock = date ? dayjs(date).format('HH:mm') : '09:00'
   const at = (day: Date, hhmm = clock): string => {
     const [hours, minutes] = hhmm.split(':').map(Number)
-    return new Date(day.getFullYear(), day.getMonth(), day.getDate(), time ? hours : 12, time ? minutes : 0).toISOString()
+    return dayjs(day).startOf('day').hour(time ? hours : 12).minute(time ? minutes : 0).toISOString()
   }
-  const shown = date
-    ? date.toLocaleString(undefined, { day: 'numeric', month: 'short', year: date.getFullYear() === new Date().getFullYear() ? undefined : 'numeric', ...(time ? { hour: 'numeric', minute: '2-digit' } : {}) })
-    : placeholder
+  const shown = date ? `${dayMonth(date)}${time ? `, ${dayjs(date).format('H:mm')}` : ''}` : placeholder
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>

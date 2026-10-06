@@ -120,11 +120,13 @@ export function FocusPill(): React.JSX.Element | null {
     // Interface size a rem-sized pill outgrew it and was cut off top and bottom.
     <div className="mf-floating flex h-screen items-center justify-center p-[8px]">
       {/* While the session runs, a slow mono glow breathes inside the pill's
-          edge: alive, never asking to be looked at. Still when paused or over. */}
+          edge: alive, never asking to be looked at. Still when paused or over,
+          and between times: it runs for its first moments, under the pointer
+          and in the last minute, since a beam all session kept a core busy. */}
       {/* The mono beam's inks are pale greys in every theme, lost on a light
           pill: there they are dimmed to graphite and drawn on the edge, with
           the inner glow kept low, which on a pale pill only smudged it. */}
-      <BorderBeam size="pulse-inner" colorVariant="mono" strength={0.4} brightness={surface === 'light' ? 0.5 : undefined} style={surface === 'light' ? ({ '--beam-stroke-opacity': 9, '--beam-inner-opacity': 0.75 } as CSSProperties) : undefined} duration={3.4} theme={surface} borderRadius={22} active={alive && !paused && !over} className="w-full">
+      <BorderBeam size="pulse-inner" colorVariant="mono" strength={0.4} brightness={surface === 'light' ? 0.5 : undefined} style={surface === 'light' ? ({ '--beam-stroke-opacity': 9, '--beam-inner-opacity': 0.75 } as CSSProperties) : undefined} duration={3.4} theme={surface} borderRadius={22} active={alive && !paused && !over && (hover || done < 8000 || last)} className="w-full">
       <div
         onPointerEnter={() => setHover(true)}
         onPointerLeave={() => setHover(false)}
@@ -314,7 +316,8 @@ function Ring({ share, over, paused }: { share: number | null; over: boolean; pa
           cx="11" cy="11" r={r} fill="none" stroke={tone} strokeWidth="2.5" strokeLinecap="round"
           strokeDasharray={around} strokeDashoffset={around * (1 - share)}
           opacity={paused ? 0.4 : over ? 1 : 0.8}
-          className="transition-[stroke-dashoffset] duration-500 ease-linear"
+          // No easing between ticks: a step is a fraction of a pixel, and a
+          // transition restarted twice a second redrew the pill every frame.
         />
       )}
     </svg>

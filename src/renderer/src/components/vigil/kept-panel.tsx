@@ -16,6 +16,7 @@ import { openWindow } from '@/lib/notes'
 import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
 import { QuestionRow, startQuestion } from './questions-view'
+import { num } from '../../../../main/dates'
 
 const TIERS = [{ id: 'nugget', label: 'Nuggets' }, { id: 'article', label: 'Articles' }, { id: 'question', label: 'Questions' }] as const
 
@@ -26,7 +27,7 @@ const TIERS = [{ id: 'nugget', label: 'Nuggets' }, { id: 'article', label: 'Arti
  */
 export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id: string) => void; open?: string; onRead: (items: Readable[], start: number) => void }): React.JSX.Element {
   const [tier, setTier] = useState<'nugget' | 'article' | 'question'>('nugget')
-  const all = useLive(() => vigil.items(tier).then((list) => (tier === 'question' ? list.filter((one) => !one.closedAt) : list)), [] as Item[], [tier])
+  const all = useLive(() => vigil.items(tier).then((list) => (tier === 'question' ? list.filter((one) => !one.closedAt) : list)), [] as Item[], [tier], ['item'])
   // The same filters as the main window's list, kept apart per tier.
   const { groups, display } = useItemDisplay(`prompt:${tier}`, all)
   const items = groups.flatMap(([, list]) => list)
@@ -64,7 +65,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     void vigil.article(ids).then((id) => {
       chime('promote')
       setChosen([])
-      toast(ids.length > 1 ? `An article, from ${ids.length} nuggets` : 'An article, from this nugget')
+      toast(ids.length > 1 ? `An article, from ${num(ids.length)} nuggets` : 'An article, from this nugget')
       onOpen('article', id)
     })
   return (

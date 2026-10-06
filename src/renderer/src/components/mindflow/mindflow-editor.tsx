@@ -1131,7 +1131,8 @@ function Surface({
     content: typeof defaultContent === "string" && shape !== "line" ? "" : defaultContent,
     contentType: typeof defaultContent === "string" && shape === "line" ? "markdown" : "json",
     onCreate: ({ editor: instance }) => {
-      if (shape === "document") readers.add(instance)
+      // Let go of when it goes, or every editor ever opened stays in memory.
+      if (shape === "document") (readers.add(instance), instance.on("destroy", () => readers.delete(instance)))
       if (typeof defaultContent === "string" && shape !== "line" && defaultContent.trim()) {
         // Not an edit: nothing to undo back to, and nothing to save.
         try {

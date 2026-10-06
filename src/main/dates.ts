@@ -1,0 +1,116 @@
+import dayjs, { type ConfigType, type Dayjs, type OpUnitType } from 'dayjs'
+import updateLocale from 'dayjs/plugin/updateLocale.js'
+
+/**
+ * Every date the app says or counts, in one place, on Day.js: shared by the
+ * main process and the windows, so "4mo", "Today 15:00", "Tue 15:00" and
+ * "13 Oct" read the same everywhere. Days are counted on the calendar, never
+ * as 24 hours, so a clock change never repeats or skips one. (Reading dates
+ * out of typed words is chrono's job, in task-words.ts.)
+ */
+
+dayjs.extend(updateLocale)
+// Weeks start on Monday, and the months are said the British way the app
+// has always shown them ("5 Sept"), whatever the machine's own language.
+dayjs.updateLocale('en', { weekStart: 1, monthsShort: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'] })
+
+export { dayjs }
+export type { Dayjs }
+
+/** A time of day: "15:00", "9:05". */
+export const clock = (date: ConfigType): string => dayjs(date).format('H:mm')
+/** "2026-10-05": a day as the database files it, the local calendar's date. */
+export const dayKey = (date?: ConfigType): string => dayjs(date).format('YYYY-MM-DD')
+/** A "2026-10-05" day as a moment: its noon, safe from any clock change at midnight. */
+export const noon = (day: string): Dayjs => dayjs(day).hour(12)
+/** Midnight, `offset` days from today (or from `from`), as a number to compare. */
+export const startOfDay = (offset = 0, from?: ConfigType): number => dayjs(from).startOf('day').add(offset, 'day').valueOf()
+/** Whole calendar days from today to a date: 0 today, 1 tomorrow, -1 yesterday. */
+export const daysFromToday = (date: ConfigType): number => dayjs(date).startOf('day').diff(dayjs().startOf('day'), 'day')
+const thisYear = (date: Dayjs): boolean => date.year() === dayjs().year()
+
+/** "13 Oct", with the year once it is not this one: "13 Oct 2025". */
+export const dayMonth = (date: ConfigType, year: 'auto' | 'never' | 'always' = 'auto'): string => {
+  const at = dayjs(date)
+  return at.format(year === 'always' || (year === 'auto' && !thisYear(at)) ? 'D MMM YYYY' : 'D MMM')
+}
+/** "Monday 5 October", and "Monday, 5 October 2025" once it is not this year. */
+export const dayName = (date: ConfigType, year: 'auto' | 'never' = 'auto'): string => {
+  const at = dayjs(date)
+  return at.format(year === 'auto' && !thisYear(at) ? 'dddd, D MMMM YYYY' : 'dddd D MMMM')
+}
+/** "Mon 5 Oct, 15:00": a moment in a list of moments. */
+export const moment = (date: ConfigType, weekday: 'ddd' | 'dddd' = 'ddd'): string => dayjs(date).format(`${weekday} D MMM, H:mm`)
+/** A day of the week by its number, 0 for Sunday: "Thursday". */
+export const weekdayName = (day: number): string => dayjs().day(day).format('dddd')
+/** A month by its number, 0 for January: "October". */
+export const monthName = (month: number): string => dayjs().month(month).format('MMMM')
+
+/** "today", "tomorrow", "Monday", "6 Oct", with " 15:00" unless all day: a date the way a list says it. */
+export function when(iso: string | null, allDay = true): string {
+  if (!iso) return ''
+  const days = daysFromToday(iso)
+  const time = allDay ? '' : ` ${clock(iso)}`
+  if (days === 0) return `Today${time}`
+  if (days === 1) return `Tomorrow${time}`
+  if (days === -1) return `Yesterday${time}`
+  if (days > 1 && days < 7) return `${dayjs(iso).format('dddd')}${time}`
+  return `${dayjs(iso).format('D MMM')}${time}`
+}
+/** `when` inside a sentence: "moved to tomorrow", but "moved to Saturday" and "6 Oct" keep their capitals. */
+export const whenInLine = (iso: string | null, allDay = true): string => when(iso, allDay).replace(/^(Today|Tomorrow|Yesterday)/, (word) => word.toLowerCase())
+/** A date the way a chip says it, shorter still: "Today 15:00", "Tue", "15 Oct". */
+export function short(iso: string, allDay: boolean): string {
+  const days = daysFromToday(iso)
+  const day = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : days > 1 && days < 7 ? dayjs(iso).format('ddd') : dayjs(iso).format('D MMM')
+  return allDay ? day : `${day} ${clock(iso)}`
+}
+
+const UNIT = { year: 'y', month: 'mo', week: 'w', day: 'd', hour: 'h', minute: 'm' } as const
+/**
+ * How many of a unit lie between two moments. Months and years go by the
+ * calendar ("1mo" is the same date a month on, however long the month); days
+ * and weeks are time gone by, so a clock change never makes "23h" read "1d".
+ */
+const span = (from: Dayjs, to: Dayjs, unit: keyof typeof UNIT): number =>
+  unit === 'day' || unit === 'week' ? to.diff(from, 'hour', true) / (unit === 'day' ? 24 : 168) : to.diff(from, unit as OpUnitType, true)
+/** The biggest of `units` that fits whole between two moments, and how many of it. */
+const fits = (from: Dayjs, to: Dayjs, units: (keyof typeof UNIT)[]): [number, keyof typeof UNIT] | null => {
+  for (const unit of units) if (span(from, to, unit) >= 1) return [span(from, to, unit), unit]
+  return null
+}
+/** How long since: "4mo", "3d", "12m". Whole units, rounded down. */
+export function age(at: ConfigType): string {
+  const found = fits(dayjs(at), dayjs(), ['year', 'month', 'day', 'hour', 'minute'])
+  return found ? `${Math.floor(found[0])}${UNIT[found[1]]}` : `${dayjs().diff(at, 'minute')}m`
+}
+/** How far off a review is: "10m", "1d", "3w". From now, or from another moment. Rounded. */
+export function interval(iso: string, from: ConfigType = Date.now()): string {
+  const found = fits(dayjs(from), dayjs(iso), ['year', 'month', 'week', 'day', 'hour', 'minute'])
+  return found ? `${Math.round(found[0])}${UNIT[found[1]]}` : '1m'
+}
+/** Days since a moment, with the fraction: for thresholds like "older than a month". */
+export const daysSince = (at: ConfigType): number => span(dayjs(at), dayjs(), 'day')
+/** "3 days", "2 weeks", "6 months", "2 years": how long since, said in words, or null under a day. */
+function spoken(at: ConfigType): { n: number; unit: string } | null {
+  const days = Math.floor(daysSince(at))
+  if (days < 1) return null
+  const [n, unit] = dayjs().diff(at, 'year') >= 1 ? [dayjs().diff(at, 'year'), 'year'] : days >= 60 ? [dayjs().diff(at, 'month'), 'month'] : days >= 14 ? [Math.floor(days / 7), 'week'] : [days, 'day']
+  return { n, unit: `${unit}${n === 1 ? '' : 's'}` }
+}
+/** "today", "yesterday", "3 days ago", "6 months ago": how long ago, the way you would say it. */
+export function ago(at: ConfigType): string {
+  const said = spoken(at)
+  if (!said) return 'today'
+  if (said.unit === 'day') return 'yesterday'
+  return `${said.n} ${said.unit} ago`
+}
+/** How long a question has been held: "held 2 years", "held since today". */
+export function heldFor(at: ConfigType): string {
+  const said = spoken(at)
+  return said ? `held ${said.n} ${said.unit}` : 'held since today'
+}
+
+const NUMBER = new Intl.NumberFormat('en')
+/** A number with its thousands marked: "27,029". Never for a year or an ID like MF-560. */
+export const num = (n: number): string => NUMBER.format(n)

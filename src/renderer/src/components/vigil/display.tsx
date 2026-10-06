@@ -7,6 +7,7 @@ import { Island, Rolling, Tip, typing } from './ui'
 import { chime } from '@/lib/sound'
 import SlidersHorizontalIcon from '@/components/ui/sliders-horizontal-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
+import { dayjs, daysSince } from '../../../../main/dates'
 
 /**
  * Display, the way Todoist and Linear do it: one button on a list that holds
@@ -77,8 +78,8 @@ export function arrange<T>(
 /** When a date falls, in the words the date filters and groups use. */
 export function period(iso: string | null): string {
   if (!iso) return 'No date'
-  const days = (Date.now() - new Date(iso).getTime()) / 86400000
-  if (new Date(iso).toDateString() === new Date().toDateString()) return 'Today'
+  const days = daysSince(iso)
+  if (dayjs(iso).isSame(dayjs(), 'day')) return 'Today'
   return days <= 7 ? 'This week' : days <= 30 ? 'This month' : days <= 365 ? 'This year' : 'Older'
 }
 export const AGES: Choice[] = ['Today', 'This week', 'This month', 'This year', 'Older'].map((id) => ({ id, label: id }))

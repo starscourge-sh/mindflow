@@ -14,15 +14,11 @@ import { DayBanner } from './scenery'
 import { GlossButton, GlossLine } from './gloss-line'
 import { Versions } from './note-extras'
 import { ScaleSwitch, type Scale } from './periods-view'
+import { dayKey, dayName, noon } from '../../../../main/dates'
 
 /** A day's date, as you would say it: "Monday 5 October". */
-const named = (day: string): string =>
-  new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: day.slice(0, 4) === String(new Date().getFullYear()) ? undefined : 'numeric' })
-const shift = (day: string, by: number): string => {
-  const date = new Date(`${day}T12:00:00`)
-  date.setDate(date.getDate() + by)
-  return dayOf(date)
-}
+const named = (day: string): string => dayName(noon(day))
+const shift = (day: string, by: number): string => dayKey(noon(day).add(by, 'day'))
 
 /**
  * A page a day, the daily note: somewhere to write about the day, and below

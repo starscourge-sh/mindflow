@@ -7,6 +7,7 @@ import type { Action } from '@/components/search'
 import { chime } from '@/lib/sound'
 import { useLive, vigil } from '@/lib/vigil'
 import { addToQuestion } from '@/components/vigil/questions-view'
+import { dayKey } from '../../../main/dates'
 
 /**
  * The main process's `notes:` channels, typed, and the actions built on them
@@ -43,8 +44,7 @@ export const notes = {
 }
 
 /** A day as the database files it: the local calendar's date. */
-export const dayOf = (date = new Date()): string =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+export const dayOf = (date = new Date()): string => dayKey(date)
 
 // --- pictures in lists, shared by every row: one read, not one per row
 

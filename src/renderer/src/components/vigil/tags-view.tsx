@@ -17,6 +17,7 @@ import { Readiness } from './review-view'
 import { openWindow } from '@/lib/notes'
 import { TagStream } from './tag-read'
 import { motion } from 'motion/react'
+import { dayMonth } from '../../../../main/dates'
 
 const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo }
 
@@ -42,7 +43,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
   const examOn = (tag: string, at: string | null, was: string | null): void => {
     if (at) chime('pin')
     void vigil.setTag(tag, { examAt: at }).then(() =>
-      toast(at ? `#${tag}: review now paces it to be ready by ${new Date(at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}` : `#${tag} has no exam date now`,
+      toast(at ? `#${tag}: review now paces it to be ready by ${dayMonth(at, 'never')}` : `#${tag} has no exam date now`,
         () => void vigil.setTag(tag, { examAt: was }).then(() => chime('undo'))))
   }
 

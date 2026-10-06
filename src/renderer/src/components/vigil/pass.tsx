@@ -15,6 +15,7 @@ import { Kbd, Rolling, Tip, Typed, toast } from './ui'
 import { Scenery } from './scenery'
 import { textOf } from '../rot-cards'
 import { PinnedQuestions, clueInto } from './pinned-questions'
+import { dayjs, moment, weekdayName } from '../../../../main/dates'
 
 export type PassMode = 'tidy' | 'decide'
 
@@ -24,7 +25,7 @@ export const openPass = (mode: PassMode, ids?: string[]): void =>
 
 /** The weekly day by name, "Thursday": what "come back to this" means. */
 export const decideDay = (settings: Pick<Settings, 'weeklyDay'> | null): string =>
-  new Date(2023, 0, 1 + (settings?.weeklyDay ?? 4)).toLocaleDateString('en', { weekday: 'long' })
+  weekdayName(settings?.weeklyDay ?? 4)
 
 /** `#tags` in some words, lower-cased, once each. */
 const tagsIn = (text: string): string[] => [...new Set([...text.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase()))]
@@ -312,7 +313,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
           ) : item && (
             <>
               <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                <span>{new Date(item.capturedAt).toLocaleString(undefined, { weekday: 'long', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</span>
+                <span>{moment(item.capturedAt, 'dddd')}</span>
                 <span className="tabular-nums">{captureKey(item.number)}</span>
                 {why && <span className="text-[var(--tt-color-text-purple)]">{why}</span>}
                 {became[item.id] && <span className="rounded-full bg-accent px-2 py-0.5 text-foreground"><Rolling text={became[item.id]} by="word" /></span>}
@@ -507,7 +508,7 @@ export function PassLinks({ className = '' }: { className?: string }): React.JSX
   const waiting = useLive(vigil.passWaiting, { tidy: 0, decide: 0 })
   const settings = useLive(vigil.settings, null as Settings | null)
   if (!waiting.tidy && !waiting.decide) return null
-  const today = settings?.weeklyReview !== false && new Date().getDay() === settings?.weeklyDay
+  const today = settings?.weeklyReview !== false && dayjs().day() === settings?.weeklyDay
   return (
     <div className={`flex flex-wrap items-center gap-1 text-xs text-muted-foreground ${className}`}>
       {waiting.tidy > 0 && (

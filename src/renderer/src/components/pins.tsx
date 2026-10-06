@@ -8,6 +8,7 @@ import { makeTask } from '@/lib/tasks'
 import { RowMenu } from './vigil/row-menu'
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
+import { daysSince } from '../../../main/dates'
 
 /**
  * Pinned: what you parked to see again soon, "mention the freight change at
@@ -25,7 +26,7 @@ export function Pins({ onOpen }: { onOpen: (type: string, id: string) => void })
           const table = pin.type === 'capture' ? 'captures' : 'nuggets'
           // A pin stays only while it matters. After three days it asks, with
           // the three answers right there, or it turns into wallpaper.
-          const stale = Date.now() - new Date(pin.pinnedAt).getTime() > 3 * 86400000
+          const stale = daysSince(pin.pinnedAt) > 3
           return (
             <motion.div
               key={pin.id}

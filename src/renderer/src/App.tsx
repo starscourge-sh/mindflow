@@ -70,6 +70,7 @@ import { AliveIcon } from '@/components/vigil/alive-icon'
 import { useStoredFlag } from '@/lib/use-stored-flag'
 import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
 import { FocusScenery, Rest } from './components/vigil/scenery'
+import { num } from '../../main/dates'
 
 
 
@@ -400,7 +401,7 @@ export default function App(): React.JSX.Element {
 
   // "+name" on the first line: a clue for a question you are holding, not a
   // capture. The open questions, to find which one the name means.
-  const held = useLive(() => vigil.items('question').then((list) => list.filter((one) => !one.closedAt && !one.archivedAt)), [] as Item[])
+  const held = useLive(() => vigil.items('question').then((list) => list.filter((one) => !one.closedAt && !one.archivedAt)), [] as Item[], [], ['item'])
   const plus = editing ? null : clueTarget(first, held)
   // A question kept in view, picked under the writing: the words go into it
   // as a clue and nothing is captured; an open capture moves into it.
@@ -1502,7 +1503,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   }
   // The same easing as the main window's lists.
   useSmooth(scroller)
-  const due = useLive(() => window.api.vigil('review:counts') as Promise<number>, 0)
+  const due = useLive(() => window.api.vigil('review:counts') as Promise<number>, 0, [], ['item'])
   // Each tab counts what it holds, so a thing sent there visibly arrives:
   // what is due today (as the main window's Today counts it), every nugget
   // and article.
@@ -1516,7 +1517,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   )
   // Archived ones are out of sight, so not counted.
   // Questions held open count as kept too; settled ones do not.
-  const kept = useLive(() => Promise.all([vigil.items('nugget'), vigil.items('article'), vigil.items('question')]).then((all) => all.flat().filter((one) => !one.archivedAt && !one.closedAt).length), 0)
+  const kept = useLive(() => Promise.all([vigil.items('nugget'), vigil.items('article'), vigil.items('question')]).then((all) => all.flat().filter((one) => !one.archivedAt && !one.closedAt).length), 0, [], ['item'])
   // The inbox is what has no exit yet; what is handled lives in All captures.
   const open = captures.filter((capture) => capture.status === 'open' && !capture.archivedAt)
   // The same Display menu as the main window's inbox: filter, sort, group.
@@ -1571,7 +1572,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
       const moved = ids.flatMap((id, at) => (results[at]?.refused ? [] : [{ id, was: (results[at]?.was ?? 'open') as 'open' }]))
       if (!moved.length) return refuse('Nothing changed: none of the picked captures is still in the inbox')
       chime(status === 'discarded' ? 'away' : 'resolve')
-      toast(`${status[0].toUpperCase()}${status.slice(1)} ${moved.length}`, () => void Promise.all(moved.map((one) => window.api.captures.save(one.id, { status: one.was }))))
+      toast(`${status[0].toUpperCase()}${status.slice(1)} ${num(moved.length)}`, () => void Promise.all(moved.map((one) => window.api.captures.save(one.id, { status: one.was }))))
     })
   }
 
@@ -1645,11 +1646,11 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                       <Button variant="ghost" size="sm" onClick={() => bulk('resolved')}>Resolve</Button>
                       <Button variant="ghost" size="sm" onClick={() => bulk('discarded')}>Discard</Button>
                       {chosen.length > 1 && (
-                        <Button variant="ghost" size="sm" onClick={() => void ask(`One task from these ${chosen.length}. What is it?`, 'e.g. sort out the freight rules by Thursday').then((text) => {
+                        <Button variant="ghost" size="sm" onClick={() => void ask(`One task from these ${num(chosen.length)}. What is it?`, 'e.g. sort out the freight rules by Thursday').then((text) => {
                           if (!text) return
                           const ids = chosen
                           setChosen([])
-                          void makeTask({ captures: ids, text }, `One task, from ${ids.length} captures`)
+                          void makeTask({ captures: ids, text }, `One task, from ${num(ids.length)} captures`)
                         })}>One task</Button>
                       )}
                       <Tip label="Let them go  Esc">
@@ -1659,7 +1660,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                   ) : (
                     <>
                       <Tip label="Every capture with no exit yet; Display's Status shows the rest. x selects several.">
-                        <h3 className="w-fit">{shown.length === open.length ? 'Inbox' : `${shown.length} shown`}</h3>
+                        <h3 className="w-fit">{shown.length === open.length ? 'Inbox' : `${num(shown.length)} shown`}</h3>
                       </Tip>
                       <Tip label="Read this list full screen, one note at a time, from the highlighted one (or the first). You can write in each as you go.  ⇧⌘R">
                         <Button variant="ghost" size="sm" className="ml-auto" onClick={() => onRead(shown.map((one) => ({ type: 'capture', id: one.id })), startAt(shown, editing, cursor))}>

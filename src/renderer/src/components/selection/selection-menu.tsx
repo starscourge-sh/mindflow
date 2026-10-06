@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { BubbleMenu } from '@tiptap/react/menus'
+import { BubbleMenu, type BubbleMenuProps } from '@tiptap/react/menus'
 import { TextSelection } from '@tiptap/pm/state'
 import { EditorContext, type Editor } from '@tiptap/react'
 
@@ -42,6 +42,16 @@ function useFit(editor: Editor | null) {
   return { bar, tight, options }
 }
 
+// One function for good: a new one each render made the menu reconfigure its
+// plugin on every keystroke.
+// A node selection - an image, a rule, a card - is not text to format,
+// and a code block takes no marks.
+const showForText: BubbleMenuProps['shouldShow'] = ({ editor: instance, state }) =>
+  state.selection instanceof TextSelection &&
+  !state.selection.empty &&
+  instance.isEditable &&
+  !instance.isActive('codeBlock')
+
 /**
  * The toolbar again, at the selection.
  *
@@ -74,14 +84,7 @@ export function SelectionMenu({
       // editor's stylesheet, and this is the menu's only styling.
       style={{ zIndex: 40 }}
       options={options}
-      shouldShow={({ editor: instance, state }) =>
-        // A node selection - an image, a rule, a card - is not text to format,
-        // and a code block takes no marks.
-        state.selection instanceof TextSelection &&
-        !state.selection.empty &&
-        instance.isEditable &&
-        !instance.isActive('codeBlock')
-      }
+      shouldShow={showForText}
     >
       <EditorContext.Provider value={{ editor }}>
         <Toolbar

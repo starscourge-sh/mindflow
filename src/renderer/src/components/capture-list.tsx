@@ -13,6 +13,7 @@ import { Thumb } from './vigil/note-extras'
 import { SortableList, SortableRow } from './vigil/sortable'
 import { archive, changeKind, openWindow, saveAttachments } from '@/lib/notes'
 import { addToQuestion } from './vigil/questions-view'
+import { age, daysSince } from '../../../main/dates'
 
 export type CaptureMeta = Awaited<ReturnType<typeof window.api.captures.list>>[number]
 
@@ -26,14 +27,19 @@ export function useCaptures(archived = false): CaptureMeta[] {
     // The same list as last time (typing past a note's first line) keeps the
     // old one, so the lists holding it do not redraw on every pause.
     let last: string | undefined
+    let held: CaptureMeta[] | undefined
     const reload = (): void => void window.api.captures.list().then((all) => {
+      // The very list held already: the main process said nothing changed.
+      if (all === held) return
+      held = all
       const now = JSON.stringify(all)
       if (now === last) return
       last = now
-      setCaptures(archived ? all : all.filter((one) => !one.archivedAt))
+      setCaptures(archived ? [...all] : all.filter((one) => !one.archivedAt))
     })
     reload()
-    return window.api.captures.onChange(reload)
+    // Captures only: a nugget or an article saved leaves this list as it is.
+    return window.api.captures.onChange(reload, ['capture'])
   }, [archived])
   return captures
 }
@@ -53,12 +59,7 @@ export function whereFrom(source: string, label = ''): string {
   return strip(source) === label ? '' : strip(source)
 }
 
-export function age(at: string): string {
-  const minutes = (Date.now() - new Date(at).getTime()) / 60000
-  const units: [number, string][] = [[525600, 'y'], [43200, 'mo'], [1440, 'd'], [60, 'h'], [1, 'm']]
-  const [size, unit] = units.find(([size]) => minutes >= size) ?? [1, 'm']
-  return `${Math.floor(minutes / size)}${unit}`
-}
+export { age }
 
 /**
  * The colour of an age: the thesis made visible. Fresh is quiet; a month
@@ -66,7 +67,7 @@ export function age(at: string): string {
  */
 export function ageTint(at: string, importedAt?: string | null): string | undefined {
   // An import is given thirty days before its age shows: its date is old, but it is new here.
-  const days = Math.min((Date.now() - new Date(at).getTime()) / 86400000, importedAt ? (Date.now() - new Date(importedAt).getTime()) / 86400000 - 30 : Infinity)
+  const days = Math.min(daysSince(at), importedAt ? daysSince(importedAt) - 30 : Infinity)
   return days < 30 ? undefined : days < 180 ? 'color-mix(in srgb, var(--tt-color-text-orange) 60%, var(--muted-foreground))' : 'var(--tt-color-text-orange)'
 }
 

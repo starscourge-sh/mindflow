@@ -165,11 +165,30 @@ function evaluate(text: string, scope: Map<string, unknown>): string | null {
 /** A name being given a value, at the start of a line: `lunch = 25`. */
 const NAMING = /^\s*[A-Za-z_]\w*\s*=[^=]/
 
+// Whether a top-level block has an `=` in it outside code. Kept per node: a
+// block an edit did not touch is the same object after it, so a long note
+// reads again only what changed, not every line on every key.
+const equals = new WeakMap<ProseMirrorNode, boolean>()
+function hasEquals(block: ProseMirrorNode): boolean {
+  let known = equals.get(block)
+  if (known !== undefined) return known
+  known = false
+  const look = (node: ProseMirrorNode): boolean => {
+    if (known) return false
+    if (!node.isTextblock) return true
+    if (!node.type.spec.code && node.textContent.includes("=")) known = true
+    return false
+  }
+  if (look(block)) block.descendants(look)
+  equals.set(block, known)
+  return known
+}
+
 function answers(doc: ProseMirrorNode): DecorationSet {
   if (!on) return DecorationSet.empty
   const found: Decoration[] = []
   const scope = new Map<string, unknown>()
-  doc.descendants((node, pos) => {
+  const each = (node: ProseMirrorNode, pos: number): boolean => {
     if (!node.isTextblock) return true
     // Code is code: an `=` there is an assignment in some other language.
     if (node.type.spec.code) return false
@@ -203,6 +222,9 @@ function answers(doc: ProseMirrorNode): DecorationSet {
       evaluate(second < 0 ? text : text.slice(0, second), scope)
     }
     return false
+  }
+  doc.forEach((block, offset) => {
+    if (hasEquals(block) && each(block, offset)) block.descendants((node, pos) => each(node, offset + 1 + pos))
   })
   return DecorationSet.create(doc, found)
 }

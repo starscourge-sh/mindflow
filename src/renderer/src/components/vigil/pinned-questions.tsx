@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type PinnedQuestion, type Settings } from '@/lib/vigil'
 import { Tip, Typed, refuse, toast } from './ui'
+import { num } from '../../../../main/dates'
 
 const short = (text: string, n = 36): string => (text.length > n ? `${text.slice(0, n)}…` : text) || 'Untitled'
 
@@ -54,7 +55,7 @@ export function PinnedQuestions({ onPick, className = '' }: { onPick: (question:
         {pinned.map((question, index) => (
           <motion.span key={question.id} layout initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.92 }}
             transition={{ duration: 0.18, delay: index * 0.025, ease: [0.16, 1, 0.3, 1] }}>
-            <Tip label={`${question.title} · ${question.clues === 1 ? '1 clue' : `${question.clues} clues`}`}>
+            <Tip label={`${question.title} · ${question.clues === 1 ? '1 clue' : `${num(question.clues)} clues`}`}>
               <button type="button" onClick={() => onPick(question)}
                 className="max-w-48 truncate rounded-full border px-2 py-0.5 text-foreground/80 transition-colors hover:border-foreground/30 hover:bg-accent hover:text-foreground">
                 {short(question.title, 40)}

@@ -7,19 +7,19 @@ import { openWindow } from '@/lib/notes'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type Recent, type Settings } from '@/lib/vigil'
 import { Rolling, Tip, Typed } from './ui'
+import { clock, dayKey as dayOf, dayName, daysFromToday } from '../../../../main/dates'
 
 const TIER = { nugget: Gem, article: FileText, question: Orbit, task: ListTodo } as const
 
 /** A day header in the list: "Today", "Yesterday", "Monday 5 October". */
 const dayHeader = (iso: string): string => {
-  const date = new Date(iso)
-  const days = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(date).setHours(0, 0, 0, 0)) / 86400000)
+  const days = daysFromToday(iso)
   if (days === 0) return 'Today'
-  if (days === 1) return 'Yesterday'
-  return date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
+  if (days === -1) return 'Yesterday'
+  return dayName(iso, 'never')
 }
-const dayKey = (iso: string): string => new Date(iso).toDateString()
-const time = (iso: string): string => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+const dayKey = (iso: string): string => dayOf(iso)
+const time = clock
 
 /** Done, let go or settled: still listed where it was made, struck through. */
 const closed = (one: Recent): boolean => ['resolved', 'discarded', 'done', 'dropped', 'closed'].includes(one.status)

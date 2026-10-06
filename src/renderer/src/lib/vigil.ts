@@ -367,7 +367,7 @@ export const vigil = {
  * Something read from the main process, read again whenever any window writes.
  * The one way every view stays current without each one wiring it up.
  */
-export function useLive<T>(read: () => Promise<T>, initial: T, deps: unknown[] = []): T {
+export function useLive<T>(read: () => Promise<T>, initial: T, deps: unknown[] = [], kinds?: ('capture' | 'item')[]): T {
   const [value, setValue] = useState<T>(initial)
   useEffect(() => {
     // Every write anywhere reloads every list, a note being typed in included:
@@ -380,35 +380,15 @@ export function useLive<T>(read: () => Promise<T>, initial: T, deps: unknown[] =
       setValue(next)
     })
     load()
-    return window.api.captures.onChange(load)
+    // `kinds`: what it shows, so a save of something else leaves it be.
+    return window.api.captures.onChange(load, kinds)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps)
   return value
 }
 
-/** "today", "tomorrow", "Mon 6 Oct", "3d ago": a date the way a list says it. */
-export function when(iso: string | null, allDay = true): string {
-  if (!iso) return ''
-  const date = new Date(iso)
-  const days = Math.round((new Date(date).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86400000)
-  const time = allDay ? '' : ` ${date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
-  if (days === 0) return `Today${time}`
-  if (days === 1) return `Tomorrow${time}`
-  if (days === -1) return `Yesterday${time}`
-  if (days > 1 && days < 7) return `${date.toLocaleDateString([], { weekday: 'long' })}${time}`
-  return `${date.toLocaleDateString([], { day: 'numeric', month: 'short' })}${time}`
-}
-
-/** `when` inside a sentence: "moved to tomorrow", but "moved to Saturday" and "6 Oct" keep their capitals. */
-export const whenInLine = (iso: string | null, allDay = true): string => when(iso, allDay).replace(/^(Today|Tomorrow|Yesterday)/, (word) => word.toLowerCase())
-
-/** How far off a review is: "10m", "1d", "3w". From now, or from another moment. */
-export function interval(iso: string, from: string | number = Date.now()): string {
-  const minutes = Math.max(1, (new Date(iso).getTime() - new Date(from).getTime()) / 60000)
-  const units: [number, string][] = [[525600, 'y'], [43200, 'mo'], [10080, 'w'], [1440, 'd'], [60, 'h'], [1, 'm']]
-  const [size, unit] = units.find(([size]) => minutes >= size) ?? [1, 'm']
-  return `${Math.round(minutes / size)}${unit}`
-}
+// Dates are said the same way everywhere: the helpers live with Day.js, shared with the main process.
+export { when, whenInLine, interval } from '../../../main/dates'
 
 /** A title without its `#tags`, and the tags: so a row can show them as pills. */
 export function splitTags(text: string): { text: string; tags: string[] } {

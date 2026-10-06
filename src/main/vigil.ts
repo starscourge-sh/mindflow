@@ -5,8 +5,9 @@ import { join } from 'path'
 import { homedir } from 'os'
 import { createEmptyCard, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
 
-import { LABEL, LIST, changed, database, like, movedOn } from './captures'
+import { LABEL, LIST, changed, database, like, movedOn, type Change } from './captures'
 import { advance, readTask } from './task-words'
+import { dayKey, dayMonth, dayjs, daysFromToday, monthName, num, startOfDay } from './dates'
 import { backupDir, checkMarkdown } from './backup'
 
 /**
@@ -20,7 +21,7 @@ import { backupDir, checkMarkdown } from './backup'
  */
 
 const now = (): string => new Date().toISOString()
-const ago = (days: number): string => new Date(Date.now() - days * 86400000).toISOString()
+const ago = (days: number): string => dayjs().subtract(days, 'day').toISOString()
 const body = <T extends { body?: unknown }>(row: T): T => ({ ...row, body: JSON.parse((row.body as string) ?? 'null') })
 
 /** A document's words, whether it is Markdown or the editor's JSON. */
@@ -295,7 +296,7 @@ function addTask(text: string, origin: string | null = null, today = false): Mad
   const id = randomUUID()
   // Typed into Today with no date, it is for today, as in Todoist: all day,
   // not dropped into a backlog the list you typed it in does not show.
-  if (today && !task.due && !task.plan) Object.assign(task, { due: new Date(new Date().setHours(9, 0, 0, 0)).toISOString(), allDay: true })
+  if (today && !task.due && !task.plan) Object.assign(task, { due: dayjs().hour(9).startOf('hour').toISOString(), allDay: true })
   const { number } = db
     .prepare(
       `insert into tasks (id, number, title, due_at, all_day, recurrence, repeat_until, origin_capture_id, created_at, deadline_at, priority, important, plan_for, deadline_timed)
@@ -403,6 +404,12 @@ export function registerVigil(): void {
   column('nuggets', 'edited_since_review integer not null default 0')
   // What lineage looks up on every change: where each nugget and task came from.
   db.exec('create index if not exists nuggets_by_capture on nuggets(capture_id); create index if not exists tasks_by_capture on tasks(origin_capture_id); create index if not exists captures_by_origin on captures(origin_id)')
+  // Every list of nuggets counts each one's lapses and clues, and review counts
+  // today's grades: without these each count read the whole log, 100 ms a list.
+  db.exec(`create index if not exists review_log_by_item on review_log(item_id);
+    create index if not exists review_log_by_time on review_log(reviewed_at);
+    create index if not exists glosses_by_item on glosses(item_id, created_at);
+    create index if not exists hint_events_by_time on hint_events(shown_at)`)
   db.exec('create table if not exists task_links (task_id text not null, item_id text not null, primary key (task_id, item_id))')
   // A tag's colour, and whether it makes a task: the plan's labels, a colour
   // and a string with one behaviour you choose. Seeded with the four labels
@@ -451,7 +458,7 @@ export function registerVigil(): void {
 
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
     void ipcMain.handle(`vigil:${channel}`, (_event, ...args) => run(...(args as never[])))
-  const write = <T>(result: T): T => (changed(), result)
+  const write = <T>(result: T, what?: Change): T => (changed(what), result)
 
   // --- settings and privacy
   handle('settings', () => settings())
@@ -821,7 +828,7 @@ export function registerVigil(): void {
     const { hintRate } = settings()
     const { shown, stopped } = db.prepare(
       "select count(*) shown, sum(reaction = 'up' or dwell_ms >= 4000) stopped from hint_events where shown_at >= ?"
-    ).get(new Date(Date.now() - 30 * 86400000).toISOString()) as { shown: number; stopped: number | null }
+    ).get(ago(30)) as { shown: number; stopped: number | null }
     const low = shown >= 20 && (stopped ?? 0) / shown < 0.1
     return { rate: low ? hintRate / 2 : hintRate, tuned: low, shown, stopped: stopped ?? 0 }
   })
@@ -888,7 +895,8 @@ export function registerVigil(): void {
       const stored = key === 'body' ? JSON.stringify(value) : key === 'suspended' ? (value ? 1 : 0) : value
       db.prepare(`update nuggets set ${key} = ?, updated_at = ? where id = ?`).run(stored as string, now(), id)
     }
-    return write(moved ? { conflict: true, body: moved.body } : true)
+    // Said to be this item, so lists of captures do not read every body again.
+    return write(moved ? { conflict: true, body: moved.body } : true, { kind: 'item', id })
   })
   // An article from nuggets: their bodies in order, the first one's title, and
   // the derivation edge kept so the article knows what it was made from.
@@ -1027,7 +1035,7 @@ export function registerVigil(): void {
     let article: string | null = null
     if (how === 'answered' && !again) {
       const clues = db.prepare('select body, created_at from glosses where item_id = ? order by created_at').all(id) as { body: string; created_at: string }[]
-      const day = (at: string): string => new Date(at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+      const day = (at: string): string => dayMonth(at, 'always')
       const own = plain(JSON.parse(question.body ?? 'null')).trim()
       const text = [`> ${question.title}`, own, clues.length ? '## Clues' : '', ...clues.map((clue) => `- **${day(clue.created_at)}** · ${clue.body.replace(/\n+/g, ' ')}`)]
         .filter(Boolean).join('\n\n')
@@ -1066,7 +1074,7 @@ export function registerVigil(): void {
   const newCap = (): { cap: number; tuned: boolean; behind: number } => {
     const { newPerDay, reviewsPerDay } = settings()
     const behind = (db.prepare(`select count(*) n from nuggets where coalesce(prompt, '') != '' and suspended = 0 and archived_at is null and state is not null and due_at <= ?`)
-      .get(new Date(Date.now() - 86400000).toISOString()) as { n: number }).n
+      .get(ago(1)) as { n: number }).n
     const tuned = behind > reviewsPerDay
     return { cap: tuned ? Math.floor(newPerDay / 2) : newPerDay, tuned, behind }
   }
@@ -1092,7 +1100,7 @@ export function registerVigil(): void {
       // A card buried today waits for tomorrow, which falls before the exam
       // ends; only one whose own day would come after it is called in early.
       const due = row.dueAt ? new Date(String(row.dueAt)).getTime() : 0
-      return (!last || last.getTime() < exam.sweep) && (due <= Date.now() || due > exam.day + DAY_MS)
+      return (!last || last.getTime() < exam.sweep) && (due <= Date.now() || due > startOfDay(1, exam.day))
     }
     const nearest = (a: { exam: Exam | null }, b: { exam: Exam | null }): number => (a.exam?.day ?? Infinity) - (b.exam?.day ?? Infinity)
     const due = tested
@@ -1113,7 +1121,7 @@ export function registerVigil(): void {
       if (!mine.length) return []
       const one = mine[0].exam!
       const met = tested.filter((other) => other.exam?.tag === tag && metToday.has(other.row.id as string)).length
-      const days = Math.max(1, Math.ceil((one.sweep - Date.now()) / DAY_MS))
+      const days = Math.max(1, Math.ceil(dayjs(one.sweep).diff(dayjs(), 'day', true)))
       return mine.slice(0, Math.max(0, Math.ceil((mine.length + met) / days) - met))
     })
     const fresh = unseen.filter((one) => !one.exam).slice(0, Math.max(0, newPerDay - (done.fresh ?? 0)))
@@ -1125,7 +1133,7 @@ export function registerVigil(): void {
   // Bury: not today. The timing is wrong, the item is fine, and the schedule is
   // left as it was; it is simply back tomorrow.
   handle('review:bury', (id: string) => {
-    const tomorrow = new Date(new Date().setHours(24, 0, 0, 0)).toISOString()
+    const tomorrow = new Date(startOfDay(1)).toISOString()
     return write(db.prepare('update nuggets set due_at = ? where id = ?').run(tomorrow, id))
   })
   // The same cards a session would start with, exam sweep and limits included.
@@ -1159,17 +1167,16 @@ export function registerVigil(): void {
   // --- exams: a date on a tag. Intervals are capped so nothing falls past
   // it, new cards are paced to all be met in time, and the last few days are
   // a sweep that brings every card round once more.
-  const DAY_MS = 86400000
   const SWEEP_DAYS = 3
   type Exam = { tag: string; day: number; sweep: number }
   /** Tags with a date not yet over, nearest first. The day counts from its midnight. */
   const examDates = (): Exam[] =>
     (db.prepare('select tag, exam_at from tag_meta where exam_at is not null').all() as { tag: string; exam_at: string }[])
       .map((row) => {
-        const day = new Date(row.exam_at).setHours(0, 0, 0, 0)
-        return { tag: row.tag, day, sweep: day - SWEEP_DAYS * DAY_MS }
+        const day = startOfDay(0, row.exam_at)
+        return { tag: row.tag, day, sweep: startOfDay(-SWEEP_DAYS, row.exam_at) }
       })
-      .filter((one) => one.day + DAY_MS > Date.now())
+      .filter((one) => startOfDay(1, one.day) > Date.now())
       .sort((a, b) => a.day - b.day)
   /** A reader of which exam, if any, a nugget is for: the nearest among its tags. */
   const examOf = (): ((row: Record<string, unknown>) => Exam | null) => {
@@ -1198,7 +1205,7 @@ export function registerVigil(): void {
     const rows = (db.prepare(`select ${ITEM}, body, state, (select grade from review_log where item_id = nuggets.id order by reviewed_at desc limit 1) as last
       from nuggets where coalesce(prompt, '') != '' and suspended = 0 and archived_at is null`).all() as Record<string, unknown>[])
       .map((row) => ({ row, exam: exam(row) }))
-    const startOfToday = new Date().setHours(0, 0, 0, 0)
+    const startOfToday = startOfDay()
     const risk = scheduler()
     return exams.map(({ tag, day, sweep }) => {
       const mine = rows.filter((one) => one.exam?.tag === tag).map(({ row }) => row)
@@ -1209,9 +1216,9 @@ export function registerVigil(): void {
       // Behind: reviews left from before today, and in the sweep, anything still unseen.
       const late = mine.filter((row) => row.state && row.dueAt && new Date(String(row.dueAt)).getTime() < startOfToday).length
       const behind = late + (Date.now() >= sweep ? unseen : 0)
-      const days = Math.max(0, Math.ceil((day - startOfToday) / DAY_MS))
+      const days = Math.max(0, daysFromToday(day))
       // Paced like the queue: everything met by the sweep, then within the days left.
-      const pace = Date.now() < sweep ? Math.ceil((sweep - Date.now()) / DAY_MS) : days
+      const pace = Date.now() < sweep ? Math.ceil(dayjs(sweep).diff(dayjs(), 'day', true)) : days
       return { tag, at: new Date(day).toISOString(), days, total: mine.length, solid, learning: mine.length - unseen - struggling - solid, struggling, unseen, behind, perDay: Math.ceil((late + unseen) / Math.max(1, pace)) }
     })
   }
@@ -1219,7 +1226,7 @@ export function registerVigil(): void {
 
   // --- gentle nudges, at most one of each a day, never in quiet hours or safe mode
   const nudgedToday = (key: string): boolean => {
-    const day = new Date().toLocaleDateString('en-CA')
+    const day = dayKey()
     if ((db.prepare('select day from nudges where key = ?').get(key) as { day: string } | undefined)?.day === day) return true
     db.prepare('insert or replace into nudges (key, day) values (?, ?)').run(key, day)
     return false
@@ -1232,16 +1239,16 @@ export function registerVigil(): void {
       for (const exam of readiness())
         if (exam.behind > 0 && !nudgedToday(`exam:${exam.tag}`))
           return { kind: 'exam', view: 'review', label: `Exam · #${exam.tag}`,
-            text: `#${exam.tag} is ${exam.days === 0 ? 'today' : exam.days === 1 ? 'tomorrow' : `in ${exam.days} days`}, and ${exam.behind} ${exam.behind === 1 ? 'card is' : 'cards are'} behind. About ${exam.perDay} a day catches you up.` }
+            text: `#${exam.tag} is ${exam.days === 0 ? 'today' : exam.days === 1 ? 'tomorrow' : `in ${num(exam.days)} days`}, and ${num(exam.behind)} ${exam.behind === 1 ? 'card is' : 'cards are'} behind. About ${exam.perDay} a day catches you up.` }
     // The deciding pass, on its day. No count: what it holds is what you set
     // aside, and the point of setting it aside was to stop carrying it.
-    if (weeklyReview && new Date().getDay() === weeklyDay) {
+    if (weeklyReview && dayjs().day() === weeklyDay) {
       if (decideList().length && !nudgedToday('weekly'))
         return { kind: 'weekly', view: 'decide', label: 'Deciding day',
           text: 'Deciding day. What you said you would come back to is here, with a few that have waited longest. Keep, act on or let go of each.' }
     }
     // The tidy pass, most mornings: only once there is something from before today.
-    if (dailyTidy && tidyList().some((one) => (one.capturedAt as string) < new Date(new Date().setHours(0, 0, 0, 0)).toISOString()) && !nudgedToday('tidy'))
+    if (dailyTidy && tidyList().some((one) => (one.capturedAt as string) < dayjs().startOf('day').toISOString()) && !nudgedToday('tidy'))
       return { kind: 'tidy', view: 'tidy', label: 'Daily tidy',
         text: 'A few minutes to tidy the last few days: a tag here, a bold line there. Nothing to decide.' }
     return null
@@ -1252,8 +1259,8 @@ export function registerVigil(): void {
   handle('memory', () => {
     const { blackout, hidePrivate } = gate()
     if (blackout || !settings().memories) return null
-    const year = new Date().getFullYear()
-    const today = new Date().toLocaleDateString('en-CA')
+    const year = dayjs().year()
+    const today = dayKey()
     const lastYear = `${year - 1}${today.slice(4)}`
     // Never a private one, and in quiet hours nothing you have not dealt with.
     const from = `select id, id as captureId, kind, ${LABEL} as title, body, captured_at as at, attribution, surfacing_weight as weight from captures
@@ -1264,7 +1271,7 @@ export function registerVigil(): void {
       let left = Math.random() * rows.reduce((sum, row) => sum + weight(row), 0)
       return rows.find((row) => (left -= weight(row)) < 0) ?? rows[rows.length - 1]
     }
-    const age = (at: string): number => year - Number(new Date(at).getFullYear())
+    const age = (at: string): number => year - dayjs(at).year()
     const kinds: (() => (Record<string, unknown> & { body?: unknown; memory: string }) | undefined)[] = [
       () => {
         const row = pick(db.prepare(`${from} and strftime('%m-%d', captured_at, 'localtime') = ? and strftime('%Y', captured_at, 'localtime') < ?`).all(ago(30), today.slice(5), String(year)) as Record<string, string>[])
@@ -1276,13 +1283,13 @@ export function registerVigil(): void {
       },
       () => {
         const row = pick(db.prepare(`${from} and strftime('%W', captured_at, 'localtime') = strftime('%W', 'now', 'localtime') and cast(strftime('%Y', captured_at, 'localtime') as integer) <= ?`).all(ago(30), year - 2) as Record<string, string>[])
-        return row && { ...row, memory: `This week in ${new Date(row.at).getFullYear()}` }
+        return row && { ...row, memory: `This week in ${dayjs(row.at).year()}` }
       },
       () => {
         const source = pick(db.prepare("select attribution from captures where status != 'discarded' and archived_at is null and private = 0 and coalesce(attribution, '') != '' group by attribution having count(*) >= 2").all() as { attribution: string }[])
         const rows = source ? (db.prepare(`${from} and attribution = ?`).all(ago(30), source.attribution) as Record<string, string>[]) : []
         const row = pick(rows)
-        return row && { ...row, memory: `From ${row.attribution}${rows.length > 1 ? `, one of ${rows.length}` : ''}` }
+        return row && { ...row, memory: `From ${row.attribution}${rows.length > 1 ? `, one of ${num(rows.length)}` : ''}` }
       }
     ]
     // Each kind in a random order, the first that has one.
@@ -1382,19 +1389,16 @@ export function registerVigil(): void {
 
   // --- the recap, Wrapped's way: a month or a year in what you did here
   handle('recap', (period: 'month' | 'year') => {
-    const start = new Date()
-    if (period === 'year') start.setMonth(0, 1)
-    else start.setDate(1)
-    start.setHours(0, 0, 0, 0)
-    let end = new Date()
+    let start = dayjs().startOf(period)
+    let end = dayjs()
     let finished = false
     // Early in a month there is little to say yet: the month before, whole,
     // if anything was caught in it; otherwise this month so far.
-    if (period === 'month' && end.getDate() < 7) {
-      const before = new Date(start.getFullYear(), start.getMonth() - 1, 1)
+    if (period === 'month' && end.date() < 7) {
+      const before = start.subtract(1, 'month')
       if ((db.prepare('select count(*) n from captures where captured_at >= ? and captured_at < ?').get(before.toISOString(), start.toISOString()) as { n: number }).n) {
-        end = new Date(start)
-        start.setTime(before.getTime())
+        end = start
+        start = before
         finished = true
       }
     }
@@ -1405,20 +1409,19 @@ export function registerVigil(): void {
     const top = (values: string[], limit = 5): { name: string; n: number }[] =>
       [...values.reduce((counts, value) => counts.set(value, (counts.get(value) ?? 0) + 1), new Map<string, number>())]
         .sort((a, b) => b[1] - a[1]).slice(0, limit).map(([name, n]) => ({ name, n }))
-    const local = (at: string): Date => new Date(at)
-    const busiestDay = top(rows.map((row) => local(row.at).toLocaleDateString('en-CA')), 1)[0] ?? null
-    const busiestMonth = period === 'year' ? top(rows.map((row) => String(local(row.at).getMonth())), 1)[0] ?? null : null
+    const busiestDay = top(rows.map((row) => dayKey(row.at)), 1)[0] ?? null
+    const busiestMonth = period === 'year' ? top(rows.map((row) => String(dayjs(row.at).month())), 1)[0] ?? null : null
     const reviewed = db.prepare(`select coalesce(nullif(n.title, ''), label('', n.body)) as title, count(*) n from review_log r join nuggets n on n.id = r.item_id
       where r.reviewed_at >= ? and r.reviewed_at < ? and n.private = 0
       group by r.item_id order by n desc limit 1`).get(since, until) as { title: string; n: number } | undefined
     return {
-      label: period === 'year' ? String(start.getFullYear()) : start.toLocaleDateString('en', { month: 'long', year: 'numeric' }),
+      label: start.format(period === 'year' ? 'YYYY' : 'MMMM YYYY'),
       // A month already over has no "yet" about it.
       finished,
       captures: rows.length,
       words: rows.reduce((sum, row) => sum + plain(JSON.parse(row.body ?? 'null')).split(/\s+/).filter(Boolean).length, 0),
       busiestDay,
-      busiestMonth: busiestMonth && { name: new Date(2000, Number(busiestMonth.name)).toLocaleString('en', { month: 'long' }), n: busiestMonth.n },
+      busiestMonth: busiestMonth && { name: monthName(Number(busiestMonth.name)), n: busiestMonth.n },
       tags: top(open.flatMap((row) => tagsIn(`${row.title} ${plain(JSON.parse(row.body ?? 'null'))}`))),
       sources: top(open.map((row) => row.attribution ?? '').filter(Boolean)),
       kept: rows.filter((row) => row.status === 'promoted').length,
@@ -1482,7 +1485,7 @@ export function registerVigil(): void {
     if (patch.due) db.prepare('update tasks set plan_for = null where id = ?').run(id)
     // Waiting on someone needs a day to chase them, or it becomes a second
     // rot pool: three days out, if it has no date of its own.
-    if (patch.waitingOn) db.prepare('update tasks set due_at = ? where id = ? and due_at is null').run(new Date(Date.now() + 3 * 86400000).toISOString(), id)
+    if (patch.waitingOn) db.prepare('update tasks set due_at = ? where id = ? and due_at is null').run(dayjs().add(3, 'day').toISOString(), id)
     if (patch.subtasks !== undefined) db.prepare('update tasks set subtasks = ? where id = ?').run(JSON.stringify(patch.subtasks), id)
     if (patch.notes !== undefined) db.prepare('update tasks set notes = ? where id = ?').run(JSON.stringify(patch.notes), id)
     if (patch.due !== undefined) {
@@ -1515,11 +1518,8 @@ export function registerVigil(): void {
     const fromToday = task.recurrence.includes('!') || !task.due_at
     // Counted from today, but at the time of day it had: "every! 3 days" at
     // 9 stays at 9, rather than taking the minute it was ticked.
-    const base = new Date()
-    if (fromToday && task.due_at) {
-      const at = new Date(task.due_at)
-      base.setHours(at.getHours(), at.getMinutes(), 0, 0)
-    }
+    const at = dayjs(task.due_at ?? undefined)
+    const base = fromToday && task.due_at ? dayjs().hour(at.hour()).minute(at.minute()).startOf('minute').toDate() : new Date()
     let next = advance(fromToday ? base : new Date(task.due_at!), task.recurrence)
     while (next.getTime() < Date.now()) next = advance(next, task.recurrence)
     // Past its end, the series is over: this one was the last.
@@ -1551,13 +1551,11 @@ export function registerVigil(): void {
   // How many reviews fall on each of the days ahead, today with what is
   // late, so a week of tasks can be planned around the reviewing.
   handle('review:load', (days: number) => {
-    const today = new Date()
-    const start = today.setHours(0, 0, 0, 0)
     const load = Array<number>(days).fill(0)
     const rows = db.prepare(`select due_at from nuggets where coalesce(prompt, '') != '' and suspended = 0 and archived_at is null and superseded_by is null and (due_at is null or due_at < ?)`)
-      .all(new Date(today.getFullYear(), today.getMonth(), today.getDate() + days).toISOString()) as { due_at: string | null }[]
-    // Rounded, not floored: a day across a clock change is 23 or 25 hours.
-    for (const { due_at } of rows) load[Math.max(0, Math.round((new Date(due_at ?? 0).setHours(0, 0, 0, 0) - start) / 86400000))] += 1
+      .all(new Date(startOfDay(days)).toISOString()) as { due_at: string | null }[]
+    // Counted in calendar days, so a clock change never moves one.
+    for (const { due_at } of rows) load[Math.max(0, daysFromToday(due_at ?? 0))] += 1
     // Today is what a session would really ask, with the daily limits, not
     // every card never seen.
     if (days > 0) load[0] = reviewQueue().length
@@ -1565,6 +1563,7 @@ export function registerVigil(): void {
   })
 
   // --- tags, worked out from the words every time so they cannot go stale
+  let tagsOf = new Map<string, { title: string; body: string; tags: string[] }>()
   const tagged = (): { tag: string; id: string; type: string; title: string; private: boolean }[] => {
     const rows = [
       ...(db.prepare(`select id, 'capture' as type, ${LABEL} as title, body, private from captures where status != 'discarded' and archived_at is null`).all() as Record<string, string>[]),
@@ -1573,7 +1572,18 @@ export function registerVigil(): void {
     ]
     // An alias counts as the tag it stands for, without the words changing.
     const alias = new Map((db.prepare('select tag, alias_of from tag_meta where alias_of is not null').all() as { tag: string; alias_of: string }[]).map((row) => [row.tag, row.alias_of]))
-    return rows.flatMap((row) => [...new Set(tagsIn(`${row.title} ${plain(JSON.parse(row.body ?? 'null'))}`).map((tag) => alias.get(tag) ?? tag))].map((tag) => ({ tag, id: row.id, type: row.type, title: row.title, private: !!Number(row.private) })))
+    // Each note's tags kept with the words they came from, per note: an
+    // autosave reads one body again, not every body there is.
+    const was = tagsOf
+    tagsOf = new Map()
+    return rows.flatMap((row) => {
+      const key = `${row.type}:${row.id}`
+      let kept = was.get(key)
+      if (kept?.title !== row.title || kept.body !== row.body)
+        kept = { title: row.title, body: row.body, tags: tagsIn(`${row.title} ${plain(JSON.parse(row.body ?? 'null'))}`) }
+      tagsOf.set(key, kept)
+      return [...new Set(kept.tags.map((tag) => alias.get(tag) ?? tag))].map((tag) => ({ tag, id: row.id, type: row.type, title: row.title, private: !!Number(row.private) }))
+    })
   }
   handle('tags', () => {
     const counts = new Map<string, number>()
@@ -1817,13 +1827,13 @@ export function registerVigil(): void {
       },
       // Wrapped, for the day and for the year: what happened, set down plainly.
       day: (() => {
-        const since = new Date(new Date().setHours(0, 0, 0, 0)).toISOString()
+        const since = dayjs().startOf('day').toISOString()
         return one<{ captured: number; exits: number; reviews: number }>(
           `select (select count(*) from captures where captured_at >= ?) captured, (select count(*) from captures where exited_at >= ?) exits,
             (select count(*) from review_log where reviewed_at >= ?) reviews`, since, since, since)
       })(),
       year: (() => {
-        const since = new Date(new Date().getFullYear(), 0, 1).toISOString()
+        const since = dayjs().startOf('year').toISOString()
         return {
           ...one<{ captured: number; nuggets: number; articles: number }>(
             `select (select count(*) from captures where captured_at >= ?) captured,
