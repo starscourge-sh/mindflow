@@ -218,7 +218,7 @@ const Header = ({ panel, onPanel, onNew, menu, nav, title, aside }: {
             a long note still says what it is: centred over the writing, a
             short line at most, never over the side panel or the window dots. */}
         <span className="flex-1" />
-        <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center justify-center px-32" style={{ right: panel ? 440 : 0 }}>
+        <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center justify-center px-40" style={{ right: panel ? 440 : 0 }}>
         <AnimatePresence>
           {title && (
             <motion.span
