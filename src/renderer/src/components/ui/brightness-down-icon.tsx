@@ -13,12 +13,12 @@ const BrightnessDownIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
       animate(
         ".sun-center",
         { scale: [1, 0.8, 1] },
-        { duration: 0.4, ease: "easeInOut" },
+        { duration: 0.3, ease: "easeInOut" },
       );
       animate(
         ".sun-rays",
         { opacity: [1, 0.4, 1] },
-        { duration: 0.5, ease: "easeInOut" },
+        { duration: 0.3, ease: "easeInOut" },
       );
     };
 

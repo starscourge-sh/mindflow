@@ -13,7 +13,7 @@ const HomeIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
       animate(
         ".roof",
         { y: [-2, 0], opacity: [0.6, 1] },
-        { duration: 0.4, ease: "easeOut" },
+        { duration: 0.3, ease: "easeOut" },
       );
       await animate(
         ".house",

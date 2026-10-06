@@ -20,6 +20,7 @@ export const SHORTCUTS: Shortcut[] = [
   // From anywhere on the Mac, Vigil in front or not.
   { group: 'Anywhere', keys: '⌘.', does: 'Open or hide the box', where: 'Anywhere' },
   { group: 'Anywhere', keys: '⌥⌘S', does: 'Safe mode on or off: no hints, rot cards or pins', where: 'Anywhere' },
+  { group: 'Anywhere', keys: '⌥⌘N', does: 'Show or hide every sticky note on the desktop', where: 'Anywhere' },
 
   { group: 'Getting around', keys: '⌘K', does: 'Search everything, and every action', where: 'Both windows' },
   { group: 'Getting around', keys: '⌘P', does: 'Open a note by name: search only, no actions', where: 'Both windows' },

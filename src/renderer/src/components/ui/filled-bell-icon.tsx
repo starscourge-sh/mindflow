@@ -13,7 +13,7 @@ const FilledBellIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           rotate: [0, -8, 6, -4, 2, 0],
         },
         {
-          duration: 0.6,
+          duration: 0.3,
           ease: "easeInOut",
         },
       );
@@ -23,7 +23,7 @@ const FilledBellIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           rotate: [0, 20, -18, 12, -6, 0],
         },
         {
-          duration: 0.6,
+          duration: 0.3,
           ease: "easeInOut",
           delay: 0.05,
         },

@@ -17,7 +17,7 @@ const ClockIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           rotate: 360,
         },
         {
-          duration: 1,
+          duration: 0.3,
           ease: "easeInOut",
         },
       );
@@ -30,7 +30,7 @@ const ClockIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           rotate: 0,
         },
         {
-          duration: 1,
+          duration: 0.3,
           ease: "easeInOut",
         },
       );

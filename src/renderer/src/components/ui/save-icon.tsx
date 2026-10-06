@@ -14,14 +14,14 @@ const SaveIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
       animate(
         scope.current,
         { y: [0, -1, 0] },
-        { duration: 0.4, ease: "easeInOut" },
+        { duration: 0.3, ease: "easeInOut" },
       );
 
       // 2. Coordinated Label Pulse (The "Write success" flash)
       animate(
         ".save-label",
         { opacity: [1, 0.4, 1] },
-        { duration: 0.4, ease: "easeInOut" },
+        { duration: 0.3, ease: "easeInOut" },
       );
     }, [animate, scope]);
 

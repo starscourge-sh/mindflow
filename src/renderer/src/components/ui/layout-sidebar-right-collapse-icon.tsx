@@ -16,9 +16,9 @@ const LayoutSidebarRightCollapseIcon = forwardRef<
       animate(
         ".chevron",
         { x: [0, 2, 0], opacity: [1, 0.7, 1] },
-        { duration: 1.5 },
+        { duration: 0.3 },
       );
-      animate(".sidebar", { x: [0, 2, 0] }, { duration: 2 });
+      animate(".sidebar", { x: [0, 2, 0] }, { duration: 0.3 });
     };
 
     const stop = () => {

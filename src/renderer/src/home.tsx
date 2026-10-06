@@ -136,6 +136,15 @@ export function Home(): React.JSX.Element {
       if (next !== at) chime('tap')
       return { views, at: next }
     })
+  // Whether the last thing done was a key press or a pointer: views reached by keys don't animate.
+  const byKeys = useRef(false)
+  useEffect(() => {
+    const keys = (): void => void (byKeys.current = true)
+    const pointer = (): void => void (byKeys.current = false)
+    window.addEventListener('keydown', keys, true)
+    window.addEventListener('pointerdown', pointer, true)
+    return () => (window.removeEventListener('keydown', keys, true), window.removeEventListener('pointerdown', pointer, true))
+  }, [])
   const [sidebar, setSidebar] = useState(true)
   // Under 760px wide the sidebar folds down to its icons, each named on hover,
   // so a window tiled into a corner keeps its page.
@@ -313,7 +322,7 @@ export function Home(): React.JSX.Element {
   }
 
   return (
-    <TooltipProvider delayDuration={600}>
+    <TooltipProvider delayDuration={600} skipDelayDuration={400}>
     <div className="isolate flex h-screen flex-col bg-background text-foreground">
       {/* Centred over the page, not the sidebar beside it. */}
       <div className={`contents ${sidebar ? (narrow ? '[--toast-left:4rem]' : '[--toast-left:15rem]') : ''}`}><Toaster /></div>
@@ -346,6 +355,7 @@ export function Home(): React.JSX.Element {
               void vigil.setSettings({ sounds: !settings?.sounds })
             } },
             { label: settings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', cue: null, run: safeMode },
+            { label: settings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', keys: '⌥⌘N', cue: null, run: () => void vigil.setSettings({ stickiesShown: settings?.stickiesShown === false }) },
             { label: 'reveal' in document.documentElement.dataset ? 'Blur private titles again' : 'Show private titles for now', cue: 'reveal' in document.documentElement.dataset ? 'off' : 'on', run: () => {
               const root = document.documentElement
               if ('reveal' in root.dataset) delete root.dataset.reveal
@@ -684,7 +694,8 @@ export function Home(): React.JSX.Element {
           transform string, so it stays smooth while the view mounts. */}
       <motion.div
         key={view.id}
-        initial={{ opacity: 0, transform: 'translateY(4px)' }}
+        // Keyboard travel (G and a letter, ⌘[ and ⌘]) is done hundreds of times a day: no settle then.
+        initial={byKeys.current ? false : { opacity: 0, transform: 'translateY(4px)' }}
         animate={{ opacity: 1, transform: 'translateY(0px)' }}
         transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
         className="flex min-w-0 flex-1"

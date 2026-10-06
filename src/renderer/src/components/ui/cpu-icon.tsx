@@ -13,17 +13,17 @@ const CpuIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
       animate(
         ".pins",
         { scale: [1, 1.15, 1] },
-        { duration: 0.5, ease: "easeInOut" },
+        { duration: 0.3, ease: "easeInOut" },
       );
       animate(
         ".inner",
         { scale: [1, 0.9, 1] },
-        { duration: 0.5, ease: "easeInOut" },
+        { duration: 0.3, ease: "easeInOut" },
       );
       animate(
         ".outer",
         { scale: [1, 1.05, 1] },
-        { duration: 0.5, ease: "easeInOut" },
+        { duration: 0.3, ease: "easeInOut" },
       );
     };
 

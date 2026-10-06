@@ -27,7 +27,7 @@ const VolumeXIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           scale: [1, 1.15, 1],
         },
         {
-          duration: 0.4,
+          duration: 0.3,
           ease: "easeOut",
         },
       );

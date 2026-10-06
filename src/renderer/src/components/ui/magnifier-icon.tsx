@@ -18,7 +18,7 @@ const MagnifierIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           y: [0, -1, -2, -1, 0],
           rotate: [0, -5, 5, -5, 0],
         },
-        { duration: 1, ease: "easeInOut" },
+        { duration: 0.3, ease: "easeInOut" },
       );
     };
 

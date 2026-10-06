@@ -14,51 +14,51 @@ const SlidersHorizontalIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
       animate(
         ".slider-1",
         { x: [0, -4, 0] },
-        { duration: 2, repeat: Infinity, ease: "easeInOut" },
+        { duration: 0.3, repeat: 0, ease: "easeInOut" },
       );
       animate(
         ".path-1-left",
         { x2: [10, 6, 10] },
-        { duration: 2, repeat: Infinity, ease: "easeInOut" },
+        { duration: 0.3, repeat: 0, ease: "easeInOut" },
       );
       animate(
         ".path-1-right",
         { x1: [14, 10, 14] },
-        { duration: 2, repeat: Infinity, ease: "easeInOut" },
+        { duration: 0.3, repeat: 0, ease: "easeInOut" },
       );
 
       // Row 2: Slider at x=8
       animate(
         ".slider-2",
         { x: [0, 4, 0] },
-        { duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.2 },
+        { duration: 0.3, repeat: 0, ease: "easeInOut", delay: 0.2 },
       );
       animate(
         ".path-2-left",
         { x2: [8, 12, 8] },
-        { duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.2 },
+        { duration: 0.3, repeat: 0, ease: "easeInOut", delay: 0.2 },
       );
       animate(
         ".path-2-right",
         { x1: [12, 16, 12] },
-        { duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.2 },
+        { duration: 0.3, repeat: 0, ease: "easeInOut", delay: 0.2 },
       );
 
       // Row 3: Slider at x=16
       animate(
         ".slider-3",
         { x: [0, -4, 0] },
-        { duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.4 },
+        { duration: 0.3, repeat: 0, ease: "easeInOut", delay: 0.4 },
       );
       animate(
         ".path-3-left",
         { x2: [12, 8, 12] },
-        { duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.4 },
+        { duration: 0.3, repeat: 0, ease: "easeInOut", delay: 0.4 },
       );
       animate(
         ".path-3-right",
         { x1: [16, 12, 16] },
-        { duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.4 },
+        { duration: 0.3, repeat: 0, ease: "easeInOut", delay: 0.4 },
       );
     }, [animate]);
 

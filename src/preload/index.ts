@@ -100,6 +100,17 @@ const api = {
   },
   /** Stick a note on the desktop in a small window of its own, or take it down. */
   stick: (type: string, id: string, on: boolean): void => ipcRenderer.send('sticky', type, id, on),
+  /** A picture in the Mac's own Quick Look, over everything rather than inside a small window. */
+  look: (src: string): void => ipcRenderer.send('look', src),
+  /** A sticky's own: put just this one away, or size it from its corner grip. */
+  hideSticky: (type: string, id: string): void => ipcRenderer.send('sticky:hide', type, id),
+  resizeSticky: (width: number, height: number): void => ipcRenderer.send('sticky:resize', width, height),
+  /** Told when every sticky is shown or put away, for its sound. */
+  onStickiesShown: (listen: (shown: boolean) => void): (() => void) => {
+    const relay = (_event: unknown, shown: boolean): void => listen(shown)
+    ipcRenderer.on('stickies:shown', relay)
+    return () => ipcRenderer.off('stickies:shown', relay)
+  },
 
   /** Each time the window is about to be put away. */
   onHiding: (listen: () => void): (() => void) => {

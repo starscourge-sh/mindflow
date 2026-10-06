@@ -20,7 +20,7 @@ const DownloadIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           ".arrow-head",
           { y: [0, 8, 8, -8, 0], opacity: [1, 0, 0, 0, 1] },
           {
-            duration: 1,
+            duration: 0.3,
             times: [0, 0.4, 0.5, 0.6, 1],
             ease: "easeInOut",
           },
@@ -30,7 +30,7 @@ const DownloadIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           ".arrow-stem",
           { y: [0, 8, 8, -8, 0], opacity: [1, 0, 0, 0, 1] },
           {
-            duration: 1,
+            duration: 0.3,
             times: [0, 0.3, 0.4, 0.5, 1],
             ease: "easeInOut",
           },

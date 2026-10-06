@@ -27,7 +27,7 @@ const InfoCircleIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           pathLength: [0, 1],
         },
         {
-          duration: 0.4,
+          duration: 0.3,
           ease: "easeOut",
         },
       );

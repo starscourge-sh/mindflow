@@ -21,23 +21,23 @@ const BulbSvg = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
         animate(
           ".ray-left",
           { opacity: 1 },
-          { duration: 0.4, ease: "easeOut" },
+          { duration: 0.3, ease: "easeOut" },
         ),
-        animate(".ray-top", { opacity: 1 }, { duration: 0.4, ease: "easeOut" }),
+        animate(".ray-top", { opacity: 1 }, { duration: 0.3, ease: "easeOut" }),
         animate(
           ".ray-right",
           { opacity: 1 },
-          { duration: 0.4, ease: "easeOut" },
+          { duration: 0.3, ease: "easeOut" },
         ),
         animate(
           ".ray-top-left",
           { opacity: 1 },
-          { duration: 0.4, ease: "easeOut" },
+          { duration: 0.3, ease: "easeOut" },
         ),
         animate(
           ".ray-top-right",
           { opacity: 1 },
-          { duration: 0.4, ease: "easeOut" },
+          { duration: 0.3, ease: "easeOut" },
         ),
       ]);
     };

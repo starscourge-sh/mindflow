@@ -18,7 +18,7 @@ const HistoryCircleIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           pathLength: [1, 0.75],
         },
         {
-          duration: 0.35,
+          duration: 0.3,
           ease: "easeOut",
         },
       );

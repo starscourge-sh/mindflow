@@ -13,7 +13,7 @@ const RefreshIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
       await animate(
         scope.current,
         { rotate: 180 },
-        { duration: 0.4, ease: "easeInOut" },
+        { duration: 0.3, ease: "easeInOut" },
       );
     };
 
@@ -21,7 +21,7 @@ const RefreshIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
       await animate(
         scope.current,
         { rotate: 0 },
-        { duration: 0.4, ease: "easeInOut" },
+        { duration: 0.3, ease: "easeInOut" },
       );
     };
 

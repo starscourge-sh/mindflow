@@ -13,7 +13,7 @@ const ArrowNarrowUpIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
       await animate(
         ".arrow-group",
         { y: [0, -4, 0] },
-        { duration: 0.5, ease: "easeInOut" },
+        { duration: 0.3, ease: "easeInOut" },
       );
     };
 

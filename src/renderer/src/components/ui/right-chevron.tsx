@@ -14,7 +14,7 @@ const RightChevron = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
         ".chevron",
         { x: [0, 6, 0] },
         {
-          duration: 0.8,
+          duration: 0.3,
           ease: "easeInOut",
         },
       );

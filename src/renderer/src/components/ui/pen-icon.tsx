@@ -18,7 +18,7 @@ const PenIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           y: [0, -2, -4, -6, -8, -10],
           rotate: [0, -6, -4, -6, -4, 0],
         },
-        { duration: 0.8, ease: "easeInOut" },
+        { duration: 0.3, ease: "easeInOut" },
       );
 
       await animate(

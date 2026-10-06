@@ -16,14 +16,14 @@ const BrainCircuitIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
       animate(
         ".brain-outline",
         { opacity: [1, 0.7, 1] },
-        { duration: 2, repeat: Infinity, ease: "easeInOut" },
+        { duration: 0.3, repeat: 0, ease: "easeInOut" },
       );
 
       // Circuit lines drawing
       animate(
         ".circuit-line",
         { pathLength: [0, 1], opacity: [0, 1] },
-        { duration: 0.6, ease: "easeOut" },
+        { duration: 0.3, ease: "easeOut" },
       );
 
       // Synaptic terminals pulsing in sequence
@@ -38,9 +38,9 @@ const BrainCircuitIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           selector,
           { scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5] },
           {
-            duration: 0.8,
+            duration: 0.3,
             delay: 0.2 + index * 0.15,
-            repeat: Infinity,
+            repeat: 0,
             repeatDelay: 1,
             ease: "easeInOut",
           },

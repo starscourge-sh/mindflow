@@ -17,7 +17,7 @@ const PaintIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           rotate: [0, 12],
         },
         {
-          duration: 0.35,
+          duration: 0.3,
           ease: "easeOut",
         },
       );
@@ -29,7 +29,7 @@ const PaintIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           opacity: [0, 1],
         },
         {
-          duration: 0.35,
+          duration: 0.3,
           ease: "easeOut",
         },
       );

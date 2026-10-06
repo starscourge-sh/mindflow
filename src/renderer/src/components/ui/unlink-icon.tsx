@@ -41,7 +41,7 @@ const UnlinkIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           opacity: [1, 0.6, 1],
         },
         {
-          duration: 0.4,
+          duration: 0.3,
           ease: "easeInOut",
         },
       );
@@ -54,7 +54,7 @@ const UnlinkIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
         },
         {
           duration: 0.3,
-          ease: "easeIn",
+          ease: "easeOut",
         },
       );
 
@@ -66,7 +66,7 @@ const UnlinkIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
         },
         {
           duration: 0.3,
-          ease: "easeIn",
+          ease: "easeOut",
         },
       );
     }, [animate]);

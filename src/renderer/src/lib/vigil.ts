@@ -77,6 +77,10 @@ export type Settings = {
   /** A heading folds away what is under it; only how the note is shown. */
   foldHeadings: boolean
   /** The sections the main window's sidebar lists; the rest sit under More. */
+  /** Every sticky note on the desktop shown, or all put away; ⌥⌘N from anywhere. */
+  stickiesShown: boolean
+  /** Stickies kept out of screen shares and recordings, still seen by you. */
+  stickiesUnshared: boolean
   sidebarShown: string[]
   /** The box's tabs, of inbox, today, review, kept and recent. */
   boxTabs: string[]

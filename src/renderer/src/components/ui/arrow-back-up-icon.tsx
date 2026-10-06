@@ -13,7 +13,7 @@ const ArrowBackUpIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
       await animate(
         ".arrow-group",
         { x: [0, -3, 0] },
-        { duration: 0.4, ease: "easeInOut" },
+        { duration: 0.3, ease: "easeInOut" },
       );
     };
 

@@ -13,7 +13,7 @@ const LayersIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
       await animate(
         ".top-block",
         { x: -20 },
-        { duration: 0.4, ease: [0.4, 0, 0.2, 1] },
+        { duration: 0.3, ease: [0.4, 0, 0.2, 1] },
       );
     };
 
@@ -21,7 +21,7 @@ const LayersIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
       await animate(
         ".top-block",
         { x: 0 },
-        { duration: 0.4, ease: [0.4, 0, 0.2, 1] },
+        { duration: 0.3, ease: [0.4, 0, 0.2, 1] },
       );
     };
 

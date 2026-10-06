@@ -213,6 +213,10 @@ const DEFAULTS = {
   sidebarShown: ['inbox', 'review', 'day', 'today', 'week', 'nuggets', 'articles', 'questions'] as string[],
   // The box's tabs; Recent is a ⇧⌘Y or ⌘K away until shown.
   boxTabs: ['inbox', 'today', 'review', 'kept'] as string[],
+  // Sticky notes on the desktop: shown or all put away (⌥⌘N), and kept out of
+  // screen shares and recordings while still there for you.
+  stickiesShown: true,
+  stickiesUnshared: true,
   // Keys you changed: { the keys it came with: yours, or null for none }.
   keys: {} as Record<string, string | null>
 }
@@ -242,6 +246,18 @@ async function weatherNow(): Promise<string | null> {
 /** Told when safe mode goes on or off, however it was flipped: the windows follow it. */
 let safeModeTold: (on: boolean) => void = () => undefined
 export const whenSafeMode = (tell: (on: boolean) => void): void => void (safeModeTold = tell)
+
+/** Told when the stickies are shown or put away, or kept in or out of screen shares. */
+let stickiesTold: () => void = () => undefined
+export const whenStickies = (tell: () => void): void => void (stickiesTold = tell)
+export const stickyPrefs = (): { shown: boolean; unshared: boolean } => ({ shown: settings().stickiesShown, unshared: settings().stickiesUnshared })
+/** Every sticky shown or put away at once; they keep their places. */
+export function showStickies(on = !settings().stickiesShown): boolean {
+  database().prepare("insert or replace into settings (key, value) values ('stickiesShown', ?)").run(JSON.stringify(on))
+  stickiesTold()
+  changed()
+  return on
+}
 
 /** Told when the keys change, so the two that work from anywhere are taken again. */
 let keysTold: (keys: Settings['keys']) => void = () => undefined
@@ -523,6 +539,7 @@ export function registerVigil(): void {
       db.prepare('insert or replace into settings (key, value) values (?, ?)').run(key, JSON.stringify(value))
     if (patch.safeMode !== undefined && patch.safeMode !== wasSafe) safeModeTold(patch.safeMode)
     if (patch.keys) keysTold(patch.keys)
+    if ('stickiesShown' in patch || 'stickiesUnshared' in patch) stickiesTold()
     if ('spellcheck' in patch || 'spellLanguages' in patch) spelling()
     return write(settings())
   })

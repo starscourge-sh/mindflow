@@ -24,7 +24,7 @@ const ChartBarIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
       animate(
         ".base-line",
         { scaleX: [1, 1.05, 1] },
-        { duration: 0.4, ease: "easeInOut" },
+        { duration: 0.3, ease: "easeInOut" },
       );
     }, [animate]);
 

@@ -53,7 +53,7 @@ const UnorderedListIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           scale: [1, 1.3, 1],
         },
         {
-          duration: 0.4,
+          duration: 0.3,
           ease: "easeInOut",
         },
       );

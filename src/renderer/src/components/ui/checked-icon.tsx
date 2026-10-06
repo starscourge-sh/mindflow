@@ -36,7 +36,7 @@ const CheckedIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           pathLength: 1,
         },
         {
-          duration: 0.4,
+          duration: 0.3,
           ease: "easeInOut",
         },
       );

@@ -16,7 +16,7 @@ const MessageCircleIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
       await animate(
         ".message-path",
         { pathLength: [0, 1], opacity: [0, 1] },
-        { duration: 0.6, ease: "easeInOut" },
+        { duration: 0.3, ease: "easeInOut" },
       );
 
       animate(

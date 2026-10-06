@@ -18,7 +18,7 @@ const DoubleCheckIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           opacity: [0, 1],
         },
         {
-          duration: 0.5,
+          duration: 0.3,
           ease: "easeInOut",
         },
       );
@@ -30,7 +30,7 @@ const DoubleCheckIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           opacity: [0, 1],
         },
         {
-          duration: 0.5,
+          duration: 0.3,
           ease: "easeInOut",
         },
       );

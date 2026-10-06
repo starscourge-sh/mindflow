@@ -18,7 +18,7 @@ const SimpleCheckedIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
       await animate(
         ".check-path",
         { pathLength: 1 },
-        { duration: 0.4, ease: "easeInOut" },
+        { duration: 0.3, ease: "easeInOut" },
       );
     }, [animate]);
 

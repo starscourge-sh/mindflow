@@ -17,7 +17,7 @@ const LikeIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           rotate: [0, 8, -5, 0],
           y: [0, 2, -2, 0],
         },
-        { duration: 0.6, ease: "easeInOut" },
+        { duration: 0.3, ease: "easeInOut" },
       );
     };
 

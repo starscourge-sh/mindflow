@@ -14,7 +14,7 @@ const LetterTIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
       await animate(
         ".t-shape",
         { rotate: [0, -15, 5, -2, 0], y: [0, -2, 3, 0] },
-        { duration: 0.4, ease: "easeOut" },
+        { duration: 0.3, ease: "easeOut" },
       );
     };
 

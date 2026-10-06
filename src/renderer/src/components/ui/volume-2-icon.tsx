@@ -17,7 +17,7 @@ const Volume2Icon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           opacity: [1, 0.6, 1],
         },
         {
-          duration: 0.6,
+          duration: 0.3,
           ease: "easeInOut",
         },
       );
@@ -29,7 +29,7 @@ const Volume2Icon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           opacity: [1, 0.4, 1],
         },
         {
-          duration: 0.7,
+          duration: 0.3,
           ease: "easeInOut",
           delay: 0.1,
         },

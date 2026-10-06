@@ -13,7 +13,7 @@ const ShieldCheck = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
       animate(
         ".shield-body",
         { scale: [1, 1.05, 1] },
-        { duration: 0.35, ease: "easeOut" },
+        { duration: 0.3, ease: "easeOut" },
       );
 
       await animate(

@@ -514,6 +514,12 @@ export function SettingsView(): React.JSX.Element {
               toast(safeMode ? 'Safe mode: no hints, rot cards or pins come up' : 'Safe mode off')
             }} />
           </Setting>
+          <Setting title="Show sticky notes" note="Every note stuck on the desktop, or all of them put away; they keep their places. ⌥⌘N from anywhere.">
+            <Switch checked={settings.stickiesShown} onCheckedChange={(stickiesShown) => set({ stickiesShown })} />
+          </Setting>
+          <Setting title="Keep sticky notes out of screen shares" note="They stay on your screen but never show in a shared screen or a recording.">
+            <Switch checked={settings.stickiesUnshared} onCheckedChange={(stickiesUnshared) => set({ stickiesUnshared })} />
+          </Setting>
         </Group>
 
         <Group section="Review" title="Remembering">

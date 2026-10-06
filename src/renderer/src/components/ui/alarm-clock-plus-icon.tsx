@@ -54,7 +54,7 @@ const AlarmClockPlusIcon = forwardRef<
               stiffness: stiffness,
               damping: damping,
             },
-            x: { duration: durationX, repeat: Infinity, ease: ease },
+            x: { duration: durationX, repeat: 0, ease: ease },
           },
         ),
       );
@@ -73,7 +73,7 @@ const AlarmClockPlusIcon = forwardRef<
               stiffness: stiffness,
               damping: damping,
             },
-            x: { duration: durationX, repeat: Infinity, ease: ease },
+            x: { duration: durationX, repeat: 0, ease: ease },
           },
         ),
       );

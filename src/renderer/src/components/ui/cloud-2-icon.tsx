@@ -13,7 +13,7 @@ const Cloud2Icon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
       animate(
         "path.cloud-path",
         { y: [0, -1, 0, 1, 0], x: [0, 0.5, 0, -0.5, 0] },
-        { duration: 3, repeat: Infinity, ease: "easeInOut" },
+        { duration: 0.3, repeat: 0, ease: "easeInOut" },
       );
 
       animate(
@@ -24,8 +24,8 @@ const Cloud2Icon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           opacity: [0, 1, 0],
         },
         {
-          duration: 0.6,
-          repeat: Infinity,
+          duration: 0.3,
+          repeat: 0,
           ease: "linear",
           delay: (i: number) => i * 0.15,
         },

@@ -13,7 +13,7 @@ const QuestionMark = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
       await animate(
         ".question-mark",
         { pathLength: [0, 1] },
-        { duration: 0.4, ease: "easeInOut" },
+        { duration: 0.3, ease: "easeInOut" },
       );
 
       await animate(
