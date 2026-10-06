@@ -288,6 +288,14 @@ export function BlockMenu({
         align="start"
         side="right"
         className="tiptap-block-menu"
+        // Closing hands focus back to the anchor by default, which took it
+        // straight out of a caption just opened from here (an empty caption
+        // goes when it loses focus). The action that ran keeps its focus.
+        onCloseAutoFocus={(event) => {
+          event.preventDefault()
+          // Closed without an action (Escape, a click away): back to the note.
+          if (!document.activeElement || document.activeElement === document.body) editor.commands.focus()
+        }}
       >
         <input
           ref={input}
