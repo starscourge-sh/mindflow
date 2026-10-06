@@ -7,6 +7,7 @@ import { alive } from '@/components/ui/alive-icon'
 import ArrowNarrowDownIcon from '@/components/ui/arrow-narrow-down-icon'
 import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
 import { AnimatePresence, motion } from 'motion/react'
+import { EASE, shift } from '@/lib/motion'
 import { Coolshape, type shapeTypes } from 'coolshapes-react'
 import Lenis from 'lenis'
 import { useLive, vigil } from '@/lib/vigil'
@@ -814,10 +815,13 @@ export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX
           type="button"
           aria-label="Back to top"
         
-          initial={{ opacity: 0, y: 8, scale: 0.9 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 8, scale: 0.9 }}
-          transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+          // It shows mid-scroll, so the whole transform is animated, off the
+          // main thread; it grows from its own corner, and goes quicker than it came.
+          initial={{ opacity: 0, transform: shift('translateY(8px) scale(0.95)') }}
+          animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
+          exit={{ opacity: 0, transform: shift('translateY(8px) scale(0.95)'), transition: { duration: 0.14, ease: EASE } }}
+          transition={{ duration: 0.22, ease: EASE }}
+          style={{ transformOrigin: 'bottom right' }}
           onClick={() => {
             // From far down, jump most of the way and glide the last stretch:
             // a glide over a few hundred rows is a wait, not a motion.
@@ -1066,7 +1070,9 @@ export function Rolling({ text, className = '', by = 'character' }: { text: stri
     <SlotText
       text={typeof text === 'number' ? num(text) : text}
       className={className}
-      options={{ direction: up ? 'up' : 'down', rollBy: by, duration: still ? 0 : 260, stagger: still ? 0 : by === 'word' ? 22 : 35, exitOffset: still ? 0 : 40 }}
+      // On the app's own curve with only a trace of overshoot: the library's
+      // springy default read as bouncy beside everything else, which settles.
+      options={{ direction: up ? 'up' : 'down', rollBy: by, duration: still ? 0 : 260, stagger: still ? 0 : by === 'word' ? 22 : 35, exitOffset: still ? 0 : 40, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', bounce: 0.2 }}
     />
   )
 }

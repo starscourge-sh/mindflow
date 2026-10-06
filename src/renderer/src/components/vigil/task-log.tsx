@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
+import { EASE, shift } from '@/lib/motion'
 import { alive } from '@/components/ui/alive-icon'
 import MessageCircleIcon from '@/components/ui/message-circle-icon'
 import ClockIcon from '@/components/ui/clock-icon'
@@ -53,9 +54,9 @@ export function RecapLine({ id, focus = true, onDone, className }: { id: string;
   }
   return (
     <motion.label
-      initial={{ opacity: 0, y: -2 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+      initial={{ opacity: 0, transform: shift('translateY(-2px)') }}
+      animate={{ opacity: 1, transform: shift('translateY(0px)') }}
+      transition={{ duration: 0.16, ease: EASE }}
       onClick={(event) => event.stopPropagation()}
       className={cn('flex items-start gap-2 rounded-lg border bg-accent/30 px-2.5 py-1.5 text-xs focus-within:border-foreground/25', className)}
     >
@@ -142,8 +143,8 @@ export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
             layout="position"
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            exit={{ opacity: 0, transition: { duration: 0.12 } }}
+            transition={{ duration: 0.18, ease: EASE }}
             className="px-2 py-1.5"
           >
             {one.text ? (

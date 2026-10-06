@@ -180,6 +180,34 @@ const TILE = { small: 92, grid: 184 }
  * a grid ← and → step along a row and ↑ ↓ j k move by rows. The ring of the
  * keyboard sits inside each tile's padding, so the list's edge never cuts it.
  */
+/**
+ * Which rows just turned up: a few ids new since the list first drew, joining
+ * rows that were already there, for a moment, so a capture just sent or one
+ * put back by Undo eases into the rows instead of popping in. A whole new set
+ * at once (a filter, another view) is a different list, and is simply drawn.
+ */
+export function useArrivals(ids: string[], scope = ''): (id: string) => boolean {
+  const seen = useRef<Map<string, number> | null>(null)
+  // Another list in the same place (Today to Upcoming) starts afresh.
+  const was = useRef(scope)
+  if (was.current !== scope) {
+    was.current = scope
+    seen.current = null
+  }
+  const now = performance.now()
+  if (!seen.current) {
+    if (ids.length) seen.current = new Map(ids.map((id) => [id, 0]))
+    return () => false
+  }
+  const fresh = ids.filter((id) => !seen.current!.has(id))
+  // Arriving means joining rows already here; none of them left is another list.
+  const joining = fresh.length <= 3 && fresh.length < ids.length
+  for (const id of fresh) seen.current.set(id, joining ? now : 0)
+  // Asked as each row draws, which can be later than this list drew (a scroll):
+  // the moment is over by then, and a row scrolled back into view stays still.
+  return (id) => performance.now() - (seen.current!.get(id) ?? 0) < 400
+}
+
 export function NoteList({
   groups,
   density,
@@ -218,6 +246,7 @@ export function NoteList({
   className?: string
 }): React.JSX.Element {
   const grid = density === 'small' || density === 'grid'
+  const arrived = useArrivals(groups.flatMap(([, list]) => list.map((one) => one.id)))
   const box = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
   useLayoutEffect(() => {
@@ -297,13 +326,13 @@ export function NoteList({
                   }}
                 >
                   {one.entries.map((entry, at) => (
-                    <div key={entry.id}>{face(entry, one.start + at, glance[entry.id])}</div>
+                    <div key={entry.id} className={arrived(entry.id) ? 'mf-arrive' : undefined}>{face(entry, one.start + at, glance[entry.id])}</div>
                   ))}
                 </div>
               ) : (
                 one.entries.map((entry) => (
                   <SortableRow key={entry.id} id={entry.id}>
-                    <div className="group/item relative">
+                    <div className={`group/item relative ${arrived(entry.id) ? 'mf-arrive' : ''}`}>
                       {face(entry, one.start)}
                       {after?.(entry)}
                     </div>

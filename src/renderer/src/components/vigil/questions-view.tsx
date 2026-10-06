@@ -11,6 +11,7 @@ import QuestionMarkIcon from '@/components/ui/question-mark'
 import BookmarkIcon from '@/components/ui/bookmark-icon'
 import PlayerIcon from '@/components/ui/player-icon'
 import { AnimatePresence, motion } from 'motion/react'
+import { EASE } from '@/lib/motion'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { chime } from '@/lib/sound'
@@ -516,8 +517,8 @@ function Clues({ item, onRead }: { item: ItemFull; onRead: (from: number) => voi
                     layout
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                    exit={{ opacity: 0, transition: { duration: 0.12 } }}
+                    transition={{ duration: 0.18, ease: EASE }}
                     // Pointed at, its number becomes a play mark (read from here) and its ··· shows, as in the tag's list.
                     className="group/track relative grid grid-cols-[1.25rem_4.25rem_1fr] items-start gap-2.5 rounded-md px-2 py-1.5 pr-9 hover:bg-foreground/[0.055] has-[[data-state=open]]:bg-foreground/[0.055]"
                   >

@@ -7,6 +7,7 @@ import PenIcon from '@/components/ui/pen-icon'
 import LikeIcon from '@/components/ui/like-icon'
 import XIcon from '@/components/ui/x-icon'
 import { AnimatePresence, motion } from 'motion/react'
+import { EASE, shift } from '@/lib/motion'
 
 import { shown } from './rot-cards'
 import { chime } from '@/lib/sound'
@@ -214,10 +215,10 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
       {back && !nudge && !hint && (
         <motion.div
           key={`back-${back.id}`}
-          initial={{ opacity: 0, y: -6, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, height: 0, marginBottom: 0, transition: { duration: 0.2 } }}
-          transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+          initial={{ opacity: 0, transform: shift('translateY(-6px) scale(0.98)') }}
+          animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
+          exit={{ opacity: 0, height: 0, marginBottom: 0, transition: { duration: 0.16, ease: EASE } }}
+          transition={{ duration: 0.24, ease: EASE }}
           // Grey, not the brand tint: held, never owed.
           className="mt-2 mb-3 overflow-hidden rounded-lg border bg-accent/40 px-3 py-2.5 text-sm"
         >
@@ -227,10 +228,10 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
       {nudge && !hint && (
         <motion.div
           key={nudge.kind}
-          initial={{ opacity: 0, y: -6, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, height: 0, marginBottom: 0, transition: { duration: 0.2 } }}
-          transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+          initial={{ opacity: 0, transform: shift('translateY(-6px) scale(0.98)') }}
+          animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
+          exit={{ opacity: 0, height: 0, marginBottom: 0, transition: { duration: 0.16, ease: EASE } }}
+          transition={{ duration: 0.24, ease: EASE }}
           className="mt-2 mb-3 overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,transparent)] px-3 py-2.5 text-sm"
         >
           <Typed text={nudge.text} step={28} delay={120} />
@@ -244,10 +245,10 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
       {hint && (
         <motion.div
           key={hint.id}
-          initial={{ opacity: 0, y: -6, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, height: 0, marginBottom: 0, transition: { duration: 0.2 } }}
-          transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+          initial={{ opacity: 0, transform: shift('translateY(-6px) scale(0.98)') }}
+          animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
+          exit={{ opacity: 0, height: 0, marginBottom: 0, transition: { duration: 0.16, ease: EASE } }}
+          transition={{ duration: 0.24, ease: EASE }}
           className={postcard ? 'mt-2 mb-3 text-sm' : 'mt-2 mb-3 overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,transparent)] px-3 py-2.5 text-sm'}
         >
           {/* A memory, with Postcards on, comes as a postcard: the same card inside. */}

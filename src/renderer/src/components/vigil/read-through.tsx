@@ -3,6 +3,7 @@ import { chime } from '@/lib/sound'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { toMarkdown } from '@/lib/export'
 import { AnimatePresence, motion } from 'motion/react'
+import { EASE, TURN, byKeys, shift } from '@/lib/motion'
 
 import { MindflowEditor } from '../mindflow'
 import { vigil, when } from '@/lib/vigil'
@@ -196,13 +197,17 @@ export function ReadThrough({ items, start = 0, onClose }: {
     <div ref={box} tabIndex={-1} className="fixed inset-0 z-[55] isolate flex flex-col bg-background outline-none" role="dialog" aria-label="Reading">
       <Scenery place="focus" seed={`read:${new Date().toDateString()}`} text="middle" className="absolute inset-0 -z-10" />
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <AnimatePresence mode="wait" initial={false}>
+        {/* j and k turn the page hundreds of times: by key the next one is
+            simply there; by the arrows it rises in. */}
+        <AnimatePresence mode="wait" initial={false} custom={byKeys()}>
           <motion.article
             key={item.id}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+            custom={byKeys()}
+            variants={TURN}
+            initial={byKeys() ? false : 'from'}
+            animate="here"
+            exit="gone"
+            transition={{ duration: 0.16, ease: EASE }}
             // A reading column: a short note sits in the upper third, not lost
             // in the middle of an empty page.
             className="mx-auto flex w-full max-w-[40rem] flex-col px-6 pt-[clamp(2.5rem,12vh,7rem)] pb-16 sm:px-8"
@@ -267,13 +272,20 @@ export function ReadThrough({ items, start = 0, onClose }: {
       </div>
       {/* The only furniture: where you are, how to move, and the rest of the keys when asked. */}
       <footer className="relative flex shrink-0 items-center justify-center gap-4 pt-2 pb-3 text-meta text-muted-foreground">
-        <AnimatePresence>
+        {/* Asked for with ?, so there at once; from its button it grows up out of the footer. */}
+        <AnimatePresence custom={byKeys()}>
           {keysOpen && (
             <motion.div
-              initial={{ opacity: 0, y: 4, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 4, scale: 0.98 }}
-              transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
+              custom={byKeys()}
+              variants={{
+                from: () => ({ opacity: 0, transform: shift('translateY(4px) scale(0.98)') }),
+                here: () => ({ opacity: 1, transform: shift('translateY(0px) scale(1)') }),
+                gone: (keyed: boolean) => (keyed ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, transform: shift('translateY(4px) scale(0.98)'), transition: { duration: 0.1, ease: EASE } })
+              }}
+              initial={byKeys() ? false : 'from'}
+              animate="here"
+              exit="gone"
+              transition={{ duration: 0.14, ease: EASE }}
               className="absolute bottom-full mb-1 flex w-72 origin-bottom flex-col gap-0.5 rounded-xl border bg-popover p-2 text-control text-popover-foreground shadow-xl"
               role="list"
               aria-label="Keys"

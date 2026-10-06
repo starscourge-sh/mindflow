@@ -23,6 +23,7 @@ import { RowMenu, type MenuItem } from './row-menu'
 import { tagColour } from './tag-read'
 import { completeTask } from './tasks-view'
 import { Empty, Pressed, Tip } from './ui'
+import { byKeys } from '@/lib/motion'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowRight = alive(ArrowNarrowRightIcon)
@@ -452,6 +453,9 @@ function Quotes({ title, onAll, cards, actions }: { title: ReactNode; onAll?: ()
 
 export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string) => void; onView: (id: string, focus?: string) => void }): React.JSX.Element {
   const data = useLive(home, NONE, [], ['capture', 'item'])
+  // Opened by pointer, the shelves come in top down, 40ms apart; by G H they
+  // are simply there. Decided once, as the page opens.
+  const [enter] = useState(() => !byKeys())
   const pins = useLive(vigil.pins, [] as Pinned[])
   const tasks = useLive(vigil.tasks, [] as Task[])
   const settings = useLive(vigil.settings, null as Settings | null)
@@ -593,7 +597,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
           </Empty>
         </div>
       ) : (
-        <div className="page-column relative flex flex-col gap-8 pt-4 pb-10 @[44rem]/page:pt-5">
+        <div className={`page-column relative flex flex-col gap-8 pt-4 pb-10 @[44rem]/page:pt-5 ${enter ? 'mf-stagger' : ''}`}>
           <div className="flex flex-col gap-4">
             {/* What the page holds. */}
             <div role="tablist" aria-label="Show" className="flex flex-wrap gap-1.5 px-5 @[44rem]/page:px-8">

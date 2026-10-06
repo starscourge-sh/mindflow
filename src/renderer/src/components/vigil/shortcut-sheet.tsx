@@ -314,12 +314,13 @@ export function ShortcutSheet(): React.JSX.Element | null {
     return () => window.removeEventListener('keydown', onEscape, true)
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!open) return null
+  // Asked for with ? all day: there at once, the way Raycast's own is.
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[8vh] animate-in fade-in-0 duration-150" onMouseDown={close}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[8vh]" onMouseDown={close}>
       <div
         role="dialog"
         aria-label="Keyboard shortcuts"
-        className="flex max-h-[80vh] w-[min(44rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow) animate-in zoom-in-95 duration-150"
+        className="flex max-h-[80vh] w-[min(44rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow)"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <input

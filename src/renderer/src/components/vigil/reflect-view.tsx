@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
+import { shift } from '@/lib/motion'
 import { alive } from '@/components/ui/alive-icon'
 import ArrowNarrowLeftIcon from '@/components/ui/arrow-narrow-left-icon'
 import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
@@ -167,14 +168,15 @@ function About({ told }: { told: MonthTold }): React.JSX.Element | null {
   return (
     <section className="mt-10">
       <Label rule>What it was about</Label>
-      <div className="mt-4 flex h-2.5 gap-[2px]">
-        {parts.map((part, index) => (
+      {/* Laid out at its shares once, then wiped in from the left: a clip
+          rather than growing each part, so nothing is laid out again. */}
+      <motion.div className="mt-4 flex h-2.5 gap-[2px]" initial={{ clipPath: 'inset(0 100% 0 0)' }} animate={{ clipPath: 'inset(0 0% 0 0)' }} transition={{ delay: 0.3, duration: 0.8, ease: EASE }}>
+        {parts.map((part) => (
           <Tip key={part.name} label={`${part.name} · ${percent(part.share)}`}>
-            <motion.span className="h-full first:rounded-l-full last:rounded-r-full" style={{ background: part.color }}
-              initial={{ flexGrow: 0 }} animate={{ flexGrow: part.share }} transition={{ delay: 0.3 + index * 0.05, duration: 0.8, ease: EASE }} />
+            <span className="h-full first:rounded-l-full last:rounded-r-full" style={{ background: part.color, flexGrow: part.share }} />
           </Tip>
         ))}
-      </div>
+      </motion.div>
       <ul className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
         {parts.map((part) => (
           <li key={part.name} className="flex min-w-0 items-baseline gap-2 text-body">
@@ -238,7 +240,7 @@ export function MonthReflect({ start, onClose }: { start?: string; onClose: () =
             {issue !== null && <Odometer n={issue} />}
           </div>
           {ready && (
-            <motion.div key={month} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: EASE }}>
+            <motion.div key={month} initial={{ opacity: 0, transform: shift('translateY(6px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ duration: 0.3, ease: EASE }}>
               <h1 className={`mt-6 ${SERIF} text-[clamp(1.5rem,3.4vw,2.125rem)] leading-[1.15] font-medium tracking-[-0.015em] text-balance text-foreground`}>
                 <Typed text={headline(ready, name)} step={18} delay={80} />
               </h1>

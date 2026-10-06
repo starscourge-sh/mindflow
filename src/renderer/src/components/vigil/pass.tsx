@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { AnimatePresence, motion } from 'motion/react'
+import { EASE, TURN, byKeys } from '@/lib/motion'
 import { Scale } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import PaintIcon from '@/components/ui/paint-icon'
@@ -298,13 +299,17 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
         </Tip>
       </header>
 
-      <AnimatePresence mode="wait" initial={false}>
+      {/* Each capture taken with its key (K, A, D...) gives way to the next at
+          once; with a click, the next one rises into its place. */}
+      <AnimatePresence mode="wait" initial={false} custom={byKeys()}>
         <motion.article
           key={finished ? 'end' : item?.id ?? 'none'}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+          custom={byKeys()}
+          variants={TURN}
+          initial={byKeys() ? false : 'from'}
+          animate="here"
+          exit="gone"
+          transition={{ duration: 0.16, ease: EASE }}
           className="mx-auto flex min-h-0 w-full max-w-[40rem] flex-1 flex-col overflow-y-auto px-8 pt-8 pb-6 [--mf-padding:0] [&_.tiptap-word-count]:hidden [&_.tiptap.ProseMirror]:text-[1.1rem] [&_.tiptap.ProseMirror]:leading-[1.65]"
         >
           {items && (finished || !items.length) ? (

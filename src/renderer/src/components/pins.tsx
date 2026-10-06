@@ -3,6 +3,7 @@ import BookmarkIcon from '@/components/ui/bookmark-icon'
 import XIcon from '@/components/ui/x-icon'
 import { chime } from '@/lib/sound'
 import { AnimatePresence, motion } from 'motion/react'
+import { EASE } from '@/lib/motion'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { useLive, vigil, type Pin as Pinned } from '@/lib/vigil'
@@ -39,7 +40,7 @@ export function Pins({ onOpen }: { onOpen: (type: string, id: string) => void })
               layout
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, height: 0 }}
+              exit={{ opacity: 0, height: 0, transition: { duration: 0.14, ease: EASE } }}
               className="group flex items-center gap-2 px-2 py-1.5 text-sm"
             >
               <Pin className="size-3.5 shrink-0 text-[var(--tt-brand-color-400)]" />

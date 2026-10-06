@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useRef, useState, type CSSProperties } f
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
 import { useSwipeBack } from './lib/use-swipe-back'
+import { EASE, byKeys, shift } from './lib/motion'
 import { alive } from '@/components/ui/alive-icon'
 import ArrowNarrowLeftIcon from '@/components/ui/arrow-narrow-left-icon'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
@@ -220,10 +221,11 @@ const Header = ({ panel, onPanel, onNew, menu, nav, title, aside }: {
           {title && (
             <motion.span
               key="title"
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+              initial={{ opacity: 0, transform: shift('translateY(4px)') }}
+              animate={{ opacity: 1, transform: shift('translateY(0px)') }}
+              // Out quicker than in: it gets out of the way of the line coming back.
+              exit={{ opacity: 0, transform: shift('translateY(-4px)'), transition: { duration: 0.1, ease: EASE } }}
+              transition={{ duration: 0.16, ease: EASE }}
               className="pointer-events-none absolute inset-x-0 truncate px-56 text-center text-control text-muted-foreground/70"
             >
               {title}
@@ -1058,7 +1060,7 @@ export default function App(): React.JSX.Element {
         >
           <motion.div ref={column} style={{ x: swipeX }} className="h-full w-full flex flex-col">
             {reading ? (
-              <motion.div key={reading.id} initial={{ opacity: 0, x: 10 * cameBy.current }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.1, ease: 'easeOut' }} className="flex min-h-0 flex-1 flex-col">
+              <motion.div key={reading.id} initial={byKeys() ? false : { opacity: 0, transform: shift(`translateX(${10 * cameBy.current}px)`) }} animate={{ opacity: 1, transform: shift('translateX(0px)') }} transition={{ duration: 0.1, ease: EASE }} className="flex min-h-0 flex-1 flex-col">
                 <div data-chrome className="flex items-center gap-2 px-[4.25rem] pt-2 text-control text-muted-foreground">
                   <Button variant="ghost" size="sm" onClick={() => setReading(null)}>
                     <ArrowLeft className="size-4" /> Back to your note
@@ -1077,10 +1079,12 @@ export default function App(): React.JSX.Element {
               key={editing?.id ?? round}
               className="flex min-h-0 flex-1 flex-col"
               // A short fade only: notes are opened all day, so nothing blurs,
-              // and it moves only to say which way back or forward went.
-              initial={{ opacity: 0, x: 10 * cameBy.current }}
-              animate={sending ? { opacity: 0, y: -10, scale: 0.985, filter: 'blur(2px)' } : { opacity: 1, x: 0, y: 0, scale: 1, filter: 'blur(0px)' }}
-              transition={{ duration: sending ? 0.18 : 0.1, ease: 'easeOut' }}
+              // and it moves only to say which way back or forward went. Reached
+              // by keys (⌘[, ⌘], a fresh page after ⌘↵) it is simply there.
+              // Whole transform strings: the send runs while the note saves.
+              initial={byKeys() ? false : { opacity: 0, transform: shift(`translate(${10 * cameBy.current}px, 0px) scale(1)`) }}
+              animate={sending ? { opacity: 0, transform: shift('translate(0px, -10px) scale(0.985)'), filter: 'blur(2px)' } : { opacity: 1, transform: shift('translate(0px, 0px) scale(1)'), filter: 'blur(0px)' }}
+              transition={{ duration: sending ? 0.18 : 0.1, ease: EASE }}
             >
             <CapturePrompt
               key={editing?.id ?? round}
@@ -1649,7 +1653,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
           >
             {/* One pill that slides between tabs rather than three that blink. */}
             {tab === one.id && (
-              <motion.span layoutId="prompt-tab" className="absolute inset-0 -z-10 rounded-md border border-foreground/15 bg-background shadow-sm" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />
+              <motion.span layoutId="prompt-tab" className="absolute inset-0 -z-10 rounded-md border border-foreground/15 bg-background shadow-sm" transition={byKeys() ? { duration: 0 } : { type: 'spring', stiffness: 500, damping: 38 }} />
             )}
             {one.label}
             {counts[one.id] ? <span className="text-xs tabular-nums text-muted-foreground"><Rolling text={counts[one.id]!} /></span> : null}
@@ -1658,22 +1662,25 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
         ))}
       </div>
       </RowMenu>
-      {/* Never waits for the old tab to leave: ⌃1 ⌃2 ⌃3 pressed fast lands
-          at once, and a spring turned around mid-way simply heads back. */}
+      {/* Never waits for the old tab to leave. ⌃1 ⌃2 ⌃3 are pressed all day,
+          so a tab reached by its key is simply there; a click slides it in
+          from the side its tab sits on. */}
       <AnimatePresence mode="popLayout" initial={false} custom={travel.current}>
       <motion.div
         key={tab}
         custom={travel.current}
         variants={{
-          from: (by: number) => ({ opacity: 0, x: 12 * by }),
-          here: { opacity: 1, x: 0 },
+          from: (by: number) => ({ opacity: 0, transform: shift(`translateX(${12 * by}px)`) }),
+          here: { opacity: 1, transform: shift('translateX(0px)') },
           // The old tab gets out of the way fast, so the two barely overlap.
-          gone: (by: number) => ({ opacity: 0, x: -12 * by, pointerEvents: 'none', transition: { opacity: { duration: 0.07 }, x: { type: 'spring', stiffness: 700, damping: 50 } } })
+          gone: (by: number) => byKeys()
+            ? { opacity: 0, pointerEvents: 'none', transition: { duration: 0 } }
+            : { opacity: 0, transform: shift(`translateX(${-12 * by}px)`), pointerEvents: 'none', transition: { opacity: { duration: 0.07 }, transform: { duration: 0.14, ease: EASE } } }
         }}
-        initial="from"
+        initial={byKeys() ? false : 'from'}
         animate="here"
         exit="gone"
-        transition={{ type: 'spring', stiffness: 700, damping: 50, mass: 0.6 }}
+        transition={{ duration: 0.2, ease: EASE }}
         className="flex min-h-0 flex-1 flex-col"
       >
         {/* Two kinds of thing, two places: what is waiting on you stays put,

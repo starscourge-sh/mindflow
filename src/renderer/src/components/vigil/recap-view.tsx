@@ -8,6 +8,7 @@ import { vigil, type Mood, type Recap as Data } from '@/lib/vigil'
 import { Kbd, Rolling, Typed } from './ui'
 import { Button } from '@/components/ui/button'
 import { Scenery } from './scenery'
+import { EASE, shift } from '@/lib/motion'
 import { dayName, noon, num } from '../../../../main/dates'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -17,9 +18,13 @@ const X = alive(XIcon)
 const RECAP_MOODS: Record<string, Mood> = { intro: 'day', captures: 'day', busiest: 'day', tags: 'dusk', sources: 'dusk', exits: 'interior', reviewed: 'night', outro: 'night', none: 'night' }
 
 const PAGE_MOTION: Variants = {
-  enter: (dir: number) => ({ opacity: 0, x: 28 * dir }),
-  show: { opacity: 1, x: 0, transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] } },
-  leave: (dir: number) => ({ opacity: 0, x: -20 * dir, transition: { duration: 0.14, ease: [0.4, 0, 1, 1] } })
+  // Whole transforms: each page counts and types as it lands, and a slide
+  // left to the main thread would stutter under that.
+  enter: (dir: number) => ({ opacity: 0, transform: shift(`translateX(${28 * dir}px)`) }),
+  show: () => ({ opacity: 1, transform: shift('translateX(0px)'), transition: { duration: 0.35, ease: EASE } }),
+  // Out on the same quick-to-answer curve: an ease-in held the old page back
+  // at the very moment the arrow was pressed.
+  leave: (dir: number) => ({ opacity: 0, transform: shift(`translateX(${-20 * dir}px)`), transition: { duration: 0.14, ease: EASE } })
 }
 
 const plural = (n: number, one: string, many: string): string => `${num(n)} ${n === 1 ? one : many}`
@@ -55,7 +60,7 @@ function Ranked({ rows, prefix = '' }: { rows: { name: string; n: number }[]; pr
   return (
     <ol className="space-y-2">
       {rows.map((row, index) => (
-        <motion.li key={row.name} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 + index * 0.05 }}
+        <motion.li key={row.name} initial={{ opacity: 0, transform: shift('translateX(-12px)') }} animate={{ opacity: 1, transform: shift('translateX(0px)') }} transition={{ delay: 0.4 + index * 0.05, ease: EASE }}
           className="flex items-baseline gap-3 text-heading">
           <span className="w-6 text-muted-foreground tabular-nums">{index + 1}</span>
           <span className="flex-1 truncate text-foreground">{prefix}{row.name}</span>
@@ -111,11 +116,12 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
     data.kept + data.resolved + data.discarded > 0 && (
       <div key="exits" className="space-y-6">
         <p className="text-title"><Typed text={`You kept ${data.kept}, dealt with ${data.resolved} elsewhere and let go of ${data.discarded}.`} /></p>
-        <div className="flex h-3 overflow-hidden rounded-full">
+        {/* Drawn at its widths and wiped in from the left: a clip, not widths, so nothing is laid out again. */}
+        <motion.div initial={{ clipPath: 'inset(0 100% 0 0)' }} animate={{ clipPath: 'inset(0 0% 0 0)' }} transition={{ delay: 0.6, duration: 0.7, ease: EASE }} className="flex h-3 overflow-hidden rounded-full">
           {[[data.kept, 'var(--tt-color-text-purple)'], [data.resolved, 'var(--tt-color-text-green)'], [data.discarded, 'var(--tt-color-text-gray)']].map(([n, color], index) => Number(n) > 0 && (
-            <motion.div key={index} initial={{ width: 0 }} animate={{ width: `${(Number(n) / (data.kept + data.resolved + data.discarded)) * 100}%` }} transition={{ delay: 0.6, duration: 0.7, ease: [0.16, 1, 0.3, 1] }} style={{ background: String(color) }} />
+            <div key={index} style={{ width: `${(Number(n) / (data.kept + data.resolved + data.discarded)) * 100}%`, background: String(color) }} />
           ))}
-        </div>
+        </motion.div>
         <p className="text-muted-foreground">A discard keeps the promise as well as a keep does.</p>
       </div>
     ),

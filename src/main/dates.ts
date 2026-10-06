@@ -79,10 +79,10 @@ const fits = (from: Dayjs, to: Dayjs, units: (keyof typeof UNIT)[]): [number, ke
   for (const unit of units) if (span(from, to, unit) >= 1) return [span(from, to, unit), unit]
   return null
 }
-/** How long since: "4mo", "3d", "12m". Whole units, rounded down. */
+/** How long since: "4mo", "3d", "12m", or "now" inside the first minute. Whole units, rounded down. */
 export function age(at: ConfigType): string {
   const found = fits(dayjs(at), dayjs(), ['year', 'month', 'day', 'hour', 'minute'])
-  return found ? `${Math.floor(found[0])}${UNIT[found[1]]}` : `${dayjs().diff(at, 'minute')}m`
+  return found ? `${Math.floor(found[0])}${UNIT[found[1]]}` : 'now'
 }
 /** How far off a review is: "10m", "1d", "3w". From now, or from another moment. Rounded. */
 export function interval(iso: string, from: ConfigType = Date.now()): string {

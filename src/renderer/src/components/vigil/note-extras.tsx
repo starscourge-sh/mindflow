@@ -526,9 +526,9 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
   const at = edited && edited > captured ? edited : captured
   const old = age(at)
   const verb = edited && edited > captured ? 'Edited' : made
-  const said = `${verb} ${old === '0m' ? 'just now' : `${old} ago`}`
+  const said = `${verb} ${old === 'now' ? 'just now' : `${old} ago`}`
   // In a narrow pane, "Edited 2m": shorter, never cut off mid-word.
-  const short = `${verb} ${old === '0m' ? 'now' : old}`
+  const short = `${verb} ${old === 'now' ? 'now' : old}`
   const items = menu.filter(Boolean) as Exclude<MenuItem, false | null | undefined>[]
   const [reading, setReading] = useState(false)
   return (

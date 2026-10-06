@@ -14,5 +14,5 @@ export function Roll({ text, className }: { text: string | number; className?: s
   const up = typeof text === "number" && typeof last.current === "number" ? text >= last.current : true
   useEffect(() => void (last.current = text), [text])
   const off = still()
-  return <SlotText text={String(text)} className={className} options={{ direction: up ? "up" : "down", duration: off ? 0 : 260, stagger: off ? 0 : 35, exitOffset: off ? 0 : 40 }} />
+  return <SlotText text={String(text)} className={className} options={{ direction: up ? "up" : "down", duration: off ? 0 : 260, stagger: off ? 0 : 35, exitOffset: off ? 0 : 40, easing: "cubic-bezier(0.16, 1, 0.3, 1)", bounce: 0.2 }} />
 }

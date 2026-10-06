@@ -8,6 +8,7 @@ import CheckedIcon from '@/components/ui/checked-icon'
 import QuestionMarkIcon from '@/components/ui/question-mark'
 import XIcon from '@/components/ui/x-icon'
 import { AnimatePresence, motion } from 'motion/react'
+import { EASE } from '@/lib/motion'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { openWindow } from '@/lib/notes'
@@ -104,8 +105,8 @@ export function RecentPanel({ until, onOpen, onClose, className = '' }: {
                   layout="position"
                   initial={{ opacity: 0, y: -3 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                  exit={{ opacity: 0, transition: { duration: 0.1 } }}
+                  transition={{ duration: 0.16, ease: EASE }}
                   type="button"
                   data-private={one.private ? '' : undefined}
                   onClick={(event) => {

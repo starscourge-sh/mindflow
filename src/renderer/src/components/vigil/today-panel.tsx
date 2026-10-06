@@ -5,6 +5,7 @@ import ClockIcon from '@/components/ui/clock-icon'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 import RefreshIcon from '@/components/ui/refresh-icon'
 import { AnimatePresence, motion } from 'motion/react'
+import { EASE } from '@/lib/motion'
 
 import { chime } from '@/lib/sound'
 import { useLive, vigil, when, whenInLine, type Task } from '@/lib/vigil'
@@ -18,7 +19,7 @@ import { RowMenu, copy } from './row-menu'
 import { Tip } from '@/components/vigil/ui'
 import { Rest } from './scenery'
 import { GlossButton, GlossLine } from './gloss-line'
-import { startOfDay } from '../../../../main/dates'
+import { num, startOfDay } from '../../../../main/dates'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const CalendarClock = alive(ClockIcon)
@@ -110,7 +111,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
       <Chips
         options={(Object.keys(SCOPES) as Scope[]).map((id) => {
           const n = tasks.filter((task) => task.status === 'open' && SCOPES[id].test(task)).length
-          return { id, label: n ? `${SCOPES[id].label} ${n}` : SCOPES[id].label }
+          return { id, label: n ? `${SCOPES[id].label} ${num(n)}` : SCOPES[id].label }
         })}
         on={(id) => id === scope}
         pick={(id) => setScope(id as Scope)}
@@ -153,7 +154,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
               layout="position"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0, x: 16, transition: { duration: 0.18 } }}
+              exit={{ opacity: 0, x: 16, transition: { duration: 0.16, ease: EASE } }}
               className={`group group/item relative flex flex-wrap items-start gap-2 rounded-sm px-2 py-1.5 pr-8 hover:bg-accent/50 ${index === cursor ? "bg-accent/50" : ""}`}
             >
               <Tip label="Complete">

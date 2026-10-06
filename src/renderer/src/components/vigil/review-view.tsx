@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
 
 import { AnimatePresence, motion } from 'motion/react'
+import { EASE, byKeys, shift } from '@/lib/motion'
 
 import { MindflowEditor } from '../mindflow'
 import { textOf } from '../rot-cards'
@@ -95,6 +96,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     }
     setShown(false)
     setSaid('')
+    setCameBack(false)
     setAt((index) => index + 1)
     started.current = Date.now()
   }
@@ -105,6 +107,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     void vigil.bury(card.id).then(() => (chime('later'), toast('Buried until tomorrow')))
     setShown(false)
     setSaid('')
+    setCameBack(false)
     setAt((index) => index + 1)
   }
   useEffect(() => {
@@ -185,15 +188,23 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
         </p>
       )}
       {/* The next card is there at once: grading fast never waits for the
-          last one to finish leaving. */}
-      <AnimatePresence mode="popLayout">
+          last one to finish leaving. Graded with 1 to 4, all session long,
+          it simply swaps; graded with a click it slides in from the right. */}
+      <AnimatePresence mode="popLayout" custom={byKeys()}>
       <motion.div
         key={`${card.id}-${at}`}
-        initial={{ opacity: 0, x: cameBack ? -24 : 24 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -24, pointerEvents: 'none', transition: { opacity: { duration: 0.08 }, x: { type: 'spring', stiffness: 520, damping: 44 } } }}
-        transition={{ type: 'spring', stiffness: 520, damping: 44, mass: 0.7 }}
-        onAnimationComplete={() => cameBack && setCameBack(false)}
+        custom={byKeys()}
+        variants={{
+          from: { opacity: 0, transform: shift(`translateX(${cameBack ? -24 : 24}px)`) },
+          here: { opacity: 1, transform: shift('translateX(0px)') },
+          gone: (keyed: boolean) => keyed
+            ? { opacity: 0, pointerEvents: 'none', transition: { duration: 0 } }
+            : { opacity: 0, transform: shift('translateX(-24px)'), pointerEvents: 'none', transition: { opacity: { duration: 0.08 }, transform: { duration: 0.16, ease: EASE } } }
+        }}
+        initial={byKeys() ? false : 'from'}
+        animate="here"
+        exit="gone"
+        transition={{ duration: 0.22, ease: EASE }}
         className="flex flex-col gap-6 px-5 py-8"
       >
         {card.exam && (
@@ -251,10 +262,12 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
             {/* On a light page the library draws it at a few percent, and it was
                 lost: there its stroke is drawn stronger, to a soft graphite arc. */}
             <BorderBeam size="md" colorVariant="mono" strength={0.5} style={surface === 'light' ? ({ '--beam-stroke-opacity': 12 } as React.CSSProperties) : undefined} duration={5} theme={surface} active={alive} borderRadius={8}>
+            {/* Space shows it on every card: a quick fade out of a slight blur,
+                nothing that travels, so reading starts at once. */}
             <motion.div
-              initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+              initial={{ opacity: 0, filter: 'blur(2px)' }}
+              animate={{ opacity: 1, filter: 'blur(0px)' }}
+              transition={{ duration: 0.16, ease: EASE }}
               // The answer sits at the box's edge, not in a page's wide margins.
               className="rounded-lg border bg-accent/30 [--mf-padding:0.625rem_1rem_0.625rem_1.25rem] [&_.tiptap-word-count]:hidden"
             >
@@ -440,7 +453,7 @@ function SourcePanel({ source, onClose }: { source: Source; onClose: () => void 
     return () => cancelAnimationFrame(frame)
   }, [source])
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex min-h-0 flex-col gap-3 px-5 py-6">
+    <motion.div initial={{ opacity: 0, transform: shift('translateY(8px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} className="flex min-h-0 flex-col gap-3 px-5 py-6">
       <div className="flex items-center gap-3">
         <p className="flex-1 text-sm text-muted-foreground">
           <Typed text={`Where it came from: “${source.title || 'Untitled'}”`} step={28} delay={100} />
@@ -472,8 +485,11 @@ const READY = [
 
 /** Every exam ahead, nearest first. */
 function Exams({ exams }: { exams: Exam[] }): React.JSX.Element | null {
+  // A few exams at the top of the session come in one after another, once:
+  // decided as it opens, so a later render never plays it again.
+  const [enter] = useState(() => !byKeys())
   if (!exams.length) return null
-  return <div className="flex flex-col gap-4 px-5 pt-5">{exams.map((exam) => <Readiness key={exam.tag} exam={exam} />)}</div>
+  return <div className={`flex flex-col gap-4 px-5 pt-5 ${enter ? 'mf-stagger' : ''}`}>{exams.map((exam) => <Readiness key={exam.tag} exam={exam} />)}</div>
 }
 
 /**
@@ -492,11 +508,13 @@ export function Readiness({ exam, named = true }: { exam: Exam; named?: boolean 
         <p><Rolling text={exam.total} /> {exam.total === 1 ? 'card' : 'cards'}, none seen yet. About <Rolling text={exam.perDay} /> a day from today has them all met in time.</p>
       ) : (
         <>
-          <div className="flex h-1.5 overflow-hidden rounded-full">
+          {/* Drawn at its widths and wiped in from the left: a clip, not a
+              width, so nothing is laid out again while it moves. */}
+          <motion.div initial={{ clipPath: 'inset(0 100% 0 0)' }} animate={{ clipPath: 'inset(0 0% 0 0)' }} transition={{ duration: 0.3, ease: EASE }} className="flex h-1.5 overflow-hidden rounded-full">
             {READY.map(({ key, color }) => exam[key] > 0 && (
-              <motion.div key={key} initial={{ width: 0 }} animate={{ width: `${(exam[key] / exam.total) * 100}%` }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} style={{ background: color }} />
+              <div key={key} style={{ width: `${(exam[key] / exam.total) * 100}%`, background: color }} />
             ))}
-          </div>
+          </motion.div>
           <p className="flex flex-wrap gap-x-3">
             {READY.map(({ key, label, color }) => exam[key] > 0 && (
               <span key={key}><span style={{ color }}>●</span> <Rolling text={exam[key]} /> {label}</span>

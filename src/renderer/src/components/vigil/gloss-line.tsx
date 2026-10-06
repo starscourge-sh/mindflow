@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
+import { EASE, shift } from '@/lib/motion'
 import { alive } from '@/components/ui/alive-icon'
 import MessageCircleIcon from '@/components/ui/message-circle-icon'
 import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
@@ -132,14 +133,17 @@ export function GlossLine({ id, className, placeholder = 'A thought on it, in yo
     // Keys typed here are the field's, never the list's or the window's.
     // Quiet and empty: no line at all, not an invisible one holding a gap open.
     <div ref={root} data-gloss className={cn('min-w-0 text-xs', quiet && !last && !writing && 'hidden', className)} onKeyDown={(event) => writing && event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
+      {/* ; opens the field and you type straight away, so the line gives way
+          at once: waiting on its fade made the field turn up late and the
+          first letters went missing. */}
       <AnimatePresence mode="wait" initial={false}>
         {writing ? (
           <motion.label
             key="writing"
-            initial={{ opacity: 0, y: -2 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+            initial={{ opacity: 0, transform: shift('translateY(-2px)') }}
+            animate={{ opacity: 1, transform: shift('translateY(0px)') }}
+            exit={{ opacity: 0, transition: { duration: 0.08 } }}
+            transition={{ duration: 0.16, ease: EASE }}
             className="flex items-start gap-2 rounded-lg border bg-accent/30 px-2.5 py-1.5 focus-within:border-foreground/25"
           >
             <MessageSquareText className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
@@ -175,7 +179,7 @@ export function GlossLine({ id, className, placeholder = 'A thought on it, in yo
             type="button"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            exit={{ opacity: 0, transition: { duration: 0 } }}
             transition={{ duration: 0.12 }}
             onClick={() => (chime('tap'), setWriting(true))}
             title={last ? `${said(last)} ${last.body}` : undefined}
@@ -219,8 +223,8 @@ export function GlossTimeline({ id }: { id: string }): React.JSX.Element {
             layout
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            exit={{ opacity: 0, transition: { duration: 0.12 } }}
+            transition={{ duration: 0.18, ease: EASE }}
             className="px-2 py-1.5 text-foreground"
           >
             <p className="private-text whitespace-pre-line wrap-break-word">{one.body}</p>
@@ -279,8 +283,8 @@ export function GlossComposer({ id, keys = ';', className }: { id: string; keys?
                 layout
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                exit={{ opacity: 0, transition: { duration: 0.12 } }}
+                transition={{ duration: 0.18, ease: EASE }}
                 className="flex gap-3"
               >
                 <MessageSquareText className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />

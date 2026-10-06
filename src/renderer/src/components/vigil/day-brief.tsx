@@ -226,7 +226,7 @@ function NextCard({ next }: { next: Next }): React.JSX.Element {
             onClick={go}
             initial={{ rotate: -9 }}
             whileHover={{ rotate: -3, scale: 1.05 }}
-            whileTap={{ scale: 0.9, rotate: -6 }}
+            whileTap={{ scale: 0.95, rotate: -6 }}
             transition={{ type: 'spring', stiffness: 520, damping: 17, mass: 0.7 }}
             className="relative grid size-[5.25rem] shrink-0 place-items-center rounded-full text-primary-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >

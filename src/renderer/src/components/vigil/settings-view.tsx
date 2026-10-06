@@ -29,6 +29,7 @@ import { FontPicker, TextSize } from './font-picker'
 import { BackToTop, Kbd, Rolling, Tip, refuse, toast, useSmooth } from './ui'
 import { Button } from '@/components/ui/button'
 import { Orb } from './orb'
+import { byKeys } from '@/lib/motion'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DownloadIcon from '@/components/ui/download-icon'
 import UploadIcon from '@/components/ui/upload-icon'
@@ -118,12 +119,20 @@ function Group({ title, section = title, children }: { title: string; section?: 
   if (!query.trim() && section !== shown) return null
   return (
     <Query.Provider value={{ query, all: !!query.trim() && matches(query, title, section) }}>
-      <section className="mt-6 first:mt-0 [&:not(:has([data-setting]))]:hidden">
-        {/* Searching, rows from every section show at once, so each island says whose it is. */}
-        <h2 className="mb-2 px-1 text-body font-semibold text-foreground">{query.trim() && <span className="font-normal text-muted-foreground">{section} · </span>}<Marked text={title} query={query} /></h2>
-        <div className="mf-island divide-y divide-border/60 overflow-hidden rounded-xl border bg-accent/25">{children}</div>
-      </section>
+      <GroupIsland title={title} section={section} query={query}>{children}</GroupIsland>
     </Query.Provider>
+  )
+}
+
+/** A group as it appears: a section picked with a click brings its groups in one after another; one reached by keys or a search is simply there. */
+function GroupIsland({ title, section, query, children }: { title: string; section: string; query: string; children: ReactNode }): React.JSX.Element {
+  const [enter] = useState(() => !byKeys())
+  return (
+    <section className={`mt-6 first:mt-0 [&:not(:has([data-setting]))]:hidden ${enter ? 'mf-rise' : ''}`}>
+      {/* Searching, rows from every section show at once, so each island says whose it is. */}
+      <h2 className="mb-2 px-1 text-body font-semibold text-foreground">{query.trim() && <span className="font-normal text-muted-foreground">{section} · </span>}<Marked text={title} query={query} /></h2>
+      <div className="mf-island divide-y divide-border/60 overflow-hidden rounded-xl border bg-accent/25">{children}</div>
+    </section>
   )
 }
 

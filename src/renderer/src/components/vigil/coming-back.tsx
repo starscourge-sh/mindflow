@@ -1,4 +1,5 @@
 import { motion } from 'motion/react'
+import { EASE, shift } from '@/lib/motion'
 import { alive } from '@/components/ui/alive-icon'
 import RefreshIcon from '@/components/ui/refresh-icon'
 
@@ -33,7 +34,7 @@ export function ComingBack({ id, className = '' }: { id: string; className?: str
   }
   // One run of words that wraps as a sentence does, the count and the way out inline with it.
   return (
-    <motion.p initial={{ opacity: 0, y: -2 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+    <motion.p initial={{ opacity: 0, transform: shift('translateY(-2px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ duration: 0.24, ease: EASE }}
       className={`text-xs leading-relaxed text-pretty text-muted-foreground ${className}`}>
       <Tip label={<span className="flex flex-col gap-0.5">{found.ids.slice(0, 6).map((one) => <span key={one.id} className="max-w-64 truncate"><span className="font-mono text-muted-foreground">MF-{one.number}</span> {one.title}</span>)}{found.n > 6 && <span>and {num(found.n - 6)} more</span>}</span>}>
         <span className="mr-1.5 inline-flex translate-y-[-1px] items-center gap-1 rounded-full bg-accent px-1.5 align-middle font-mono text-[0.6875rem] leading-[1.125rem] text-foreground/80 tabular-nums">

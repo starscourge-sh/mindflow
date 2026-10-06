@@ -27,6 +27,8 @@ const X = alive(XIcon)
 const LOOK = "mf-look"
 export const lookAtSelected = (editor: Editor): void => void editor.view.dom.dispatchEvent(new Event(LOOK))
 
+/** A step taken with an arrow key, marked on `went` so the picture skips its slide. */
+const KEYED = 2
 const still = (): boolean => document.documentElement.dataset.motion === "off" || matchMedia("(prefers-reduced-motion: reduce)").matches
 const EASE = [0.16, 1, 0.3, 1] as const
 // The lift and the drop: a spring, so Escape mid-flight turns it round from
@@ -230,12 +232,13 @@ function fitOf(picture: Picture): { left: number; top: number; width: number; he
  * scaled about its centre, and tipped a few degrees toward where it is going,
  * the way a card turns as it is lifted, settling flat once there.
  */
-function from(rect: DOMRect, fit: ReturnType<typeof fitOf>): { x: number; y: number; scale: number; rotateX: number; rotateY: number } {
+function from(rect: DOMRect, fit: ReturnType<typeof fitOf>): { transform: string } {
   const dx = rect.left + rect.width / 2 - (fit.left + fit.width / 2)
   const dy = rect.top + rect.height / 2 - (fit.top + fit.height / 2)
   // Flat, straight out of its place and straight back: the first way it
-  // grew, which reads calmer than a tilt in flight.
-  return { x: dx, y: dy, scale: rect.width / fit.width, rotateY: 0, rotateX: 0 }
+  // grew, which reads calmer than a tilt in flight. One transform string, so
+  // the lift stays on the compositor while the full-size picture decodes.
+  return { transform: `translate(${dx}px, ${dy}px) scale(${rect.width / fit.width})` }
 }
 
 function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: number; onClose: () => void }): React.JSX.Element {
@@ -310,7 +313,7 @@ function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: numb
     const home = place && shown(place) ? place : null
     setView({ zoom: 1, x: 0, y: 0, smooth: true })
     await Promise.all([
-      home ? animate(frame.current, from(home, fit), { duration: 0.32, ease: EASE }) : animate(frame.current, { scale: 0.96, opacity: 0 }, { duration: 0.18, ease: EASE }),
+      home ? animate(frame.current, from(home, fit), { duration: 0.32, ease: EASE }) : animate(frame.current, { transform: "translate(0px, 0px) scale(0.96)", opacity: 0 }, { duration: 0.18, ease: EASE }),
       backdrop.current && animate(backdrop.current, { opacity: 0 }, { duration: 0.28, ease: EASE }),
       foot.current && animate(foot.current, { opacity: 0 }, { duration: 0.12 }),
     ])
@@ -318,10 +321,10 @@ function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: numb
   }, [fit, img, onClose])
 
   const stepBy = useCallback(
-    (by: number) => {
+    (by: number, keyed = false) => {
       const next = at + by
       if (next < 0 || next >= pictures.length) return chime("nope")
-      went.current = by
+      went.current = keyed ? by * KEYED : by
       chime("page")
       setView({ zoom: 1, x: 0, y: 0, smooth: false })
       setAt(next)
@@ -337,7 +340,7 @@ function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: numb
       if (leaving.current) return true
       const key = event.key
       if (key === "Escape" || (key === " " && !event.metaKey)) void close()
-      else if (key === "ArrowLeft" || key === "ArrowRight") stepBy(key === "ArrowLeft" ? -1 : 1)
+      else if (key === "ArrowLeft" || key === "ArrowRight") stepBy(key === "ArrowLeft" ? -1 : 1, true)
       else if (key === "+" || key === "=") zoomTo(view.zoom * 1.4)
       else if (key === "-") zoomTo(view.zoom / 1.4)
       else if (key === "0") zoomTo(1)
@@ -385,8 +388,10 @@ function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: numb
   const initial = still()
     ? false
     : lifting
-      ? place ? { ...from(place, fit), opacity: 1 } : { x: 0, y: 0, scale: 0.96, rotateX: 0, rotateY: 0, opacity: 0 }
-      : { x: went.current * 28, y: 0, scale: 1, rotateX: 0, rotateY: 0, opacity: 0 }
+      ? place ? { ...from(place, fit), opacity: 1 } : { transform: "translate(0px, 0px) scale(0.96)", opacity: 0 }
+      // Stepped with the arrow keys, the next one is simply there, the way
+      // the system's Quick Look pages; by the buttons it comes in from its side.
+      : Math.abs(went.current) === KEYED ? false : { transform: `translate(${went.current * 16}px, 0px) scale(1)`, opacity: 0 }
 
   useEffect(() => void chime("look"), [])
 
@@ -422,8 +427,8 @@ function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: numb
         className="mf-look-frame"
         style={{ left: fit.left, top: fit.top, width: fit.width, height: fit.height }}
         initial={initial}
-        animate={{ x: 0, y: 0, scale: 1, rotateX: 0, rotateY: 0, opacity: 1 }}
-        transition={{ duration: lifting ? 0.44 : 0.22, ease: EASE }}
+        animate={{ transform: "translate(0px, 0px) scale(1)", opacity: 1 }}
+        transition={{ duration: lifting ? 0.44 : 0.18, ease: EASE }}
       >
         <motion.div className="mf-look-lean" style={{ rotateX: leanX, rotateY: leanY }} onPointerMove={lean} onPointerLeave={unlean}>
         <img
@@ -445,8 +450,8 @@ function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: numb
       <motion.div
         ref={foot}
         className="mf-look-foot"
-        initial={still() ? false : { opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={still() ? false : { opacity: 0, transform: "translateY(6px)" }}
+        animate={{ opacity: 1, transform: "translateY(0px)" }}
         transition={{ duration: 0.24, delay: still() ? 0 : 0.14, ease: EASE }}
       >
         <Toolbar variant="floating">

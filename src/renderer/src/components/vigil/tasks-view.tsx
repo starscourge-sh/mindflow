@@ -24,6 +24,7 @@ import { splitTags, useLive, vigil, when, whenInLine, type Made, type Session, t
 import { BUCKETS, bucket, makeTask, placed } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, TaskInput, planFor, setPriority } from './task-input'
+import { useArrivals } from './note-list'
 import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper, Pressed } from './ui'
 import { Display, arrange, useView, type Facet } from './display'
 import { DatePicker } from './date-picker'
@@ -181,6 +182,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
           ['Waiting on someone', waiting]
         ]
   const shown = groups.flatMap(([, list]) => list)
+  // A task just added (or put back by Undo) eases into its row.
+  const arrived = useArrivals(shown.map((task) => task.id), mode)
   // One list for the virtual scroller: each group's heading, then its tasks.
   const rows: (Task | { heading: string; count: number; key: string })[] = groups.flatMap(([heading, list, key]) => (list.length ? [{ heading, count: list.length, key: key ?? heading }, ...list] : []))
   const pick = (id: string): void => void vigil.task(id).then(setOpen)
@@ -324,7 +327,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                       ]}>
                       <div
                         data-cursor={index === cursor || undefined}
-                        className={`group group/item relative flex items-start gap-3 rounded-md px-2 py-2 transition-colors ${task.id === open?.id ? 'bg-accent' : index === cursor ? 'bg-accent/40' : 'hover:bg-accent/50'}`}
+                        className={`group group/item relative flex items-start gap-3 rounded-md px-2 py-2 transition-colors ${task.id === open?.id ? 'bg-accent' : index === cursor ? 'bg-accent/40' : 'hover:bg-accent/50'} ${arrived(task.id) ? 'mf-arrive' : ''}`}
                       >
                         <Tip label="Complete">
                         <button

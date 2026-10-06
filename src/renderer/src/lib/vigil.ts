@@ -455,9 +455,9 @@ export function useAppearance(): void {
     else document.documentElement.removeAttribute('spellcheck')
     // Every size in the app is in rem, so the root's size scales all of it at once.
     document.documentElement.style.fontSize = `${INTERFACE_SIZES[settings.interfaceSize] ?? INTERFACE_SIZES.medium}px`
-    // The system's Reduce motion is honoured too: things still appear and
-    // fade, but nothing slides or springs.
-    MotionGlobalConfig.skipAnimations = !settings.motion || matchMedia('(prefers-reduced-motion: reduce)').matches
+    // Off, nothing animates. The system's Reduce motion is the MotionConfig's
+    // (main.tsx): things still fade there, but nothing slides or springs.
+    MotionGlobalConfig.skipAnimations = !settings.motion
     soundOn(settings.sounds)
     setVolume(settings.volume)
     setPack(settings.soundPack)

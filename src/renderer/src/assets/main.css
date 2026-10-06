@@ -7,6 +7,15 @@
 @import '@fontsource-variable/fraunces/full.css';
 
 @custom-variant dark (&:is(.dark *));
+/* Hover answers a real pointer only: a touch screen fires a hover on tap and
+   leaves it stuck. `group-hover` and `peer-hover` follow this too. */
+@custom-variant hover {
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      @slot;
+    }
+  }
+}
 
 :root {
   --radius: 0.625rem;
@@ -215,10 +224,28 @@ body {
     var(--background) var(--mf-window-tint, 20%),
     transparent
   );
-  /* The only surface painting the page colour, so this is the only place a
-     theme change is visible. Variables cannot be transitioned; the property
-     reading them can, so the swap fades instead of snapping. */
-  transition: background-color 300ms var(--mf-ease);
+  /* No fade of its own: a theme changed by pointer crosses over as one
+     picture (below), and one changed by keys is simply there. */
+}
+
+/* A theme turning over: the old window and the new one crossfade as whole
+   pictures, quick, with a slight blur at the crossing so the two read as one
+   change rather than two pages stacked. */
+/* Pointing goes on through it, so sweeping across the swatches keeps trying them. */
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-old(root) {
+  animation: mf-theme-out 220ms var(--mf-ease) both;
+}
+::view-transition-new(root) {
+  animation: mf-theme-in 220ms var(--mf-ease) both;
+}
+@keyframes mf-theme-out {
+  to { opacity: 0; filter: blur(2px); }
+}
+@keyframes mf-theme-in {
+  from { opacity: 0; filter: blur(2px); }
 }
 
 :root.light,
@@ -396,6 +423,11 @@ button:not(:disabled):not(.tiptap-drag-handle *) {
 button:not(:disabled):not(.tiptap-drag-handle *):active {
   transform: scale(0.97);
 }
+@media (prefers-reduced-motion: reduce) {
+  button:not(:disabled):not(.tiptap-drag-handle *):active {
+    transform: none;
+  }
+}
 
 /* Tailwind's reset gives buttons the arrow. Anything you can press shows the
    hand, so you never have to hover to find out. The window's own dots keep
@@ -474,6 +506,13 @@ html[data-width='full'] .note-pane {
       --tw-exit-translate-y: 0 !important;
       --tw-exit-scale: 1 !important;
     }
+  }
+  /* A cut-short title takes its direction from its own first letter: an
+     Arabic or Hebrew one is cut at its end and keeps its punctuation where
+     it belongs, instead of losing its first words off the right edge. */
+  .truncate,
+  [class*='line-clamp'] {
+    unicode-bidi: plaintext;
   }
   /* A paragraph that wraps never leaves one word alone on its last line. */
   p {
@@ -608,7 +647,53 @@ body:has([data-card]:focus) [data-cursor] {
   to { opacity: 1; filter: none; transform: none; }
 }
 :root[data-motion='off'] .mf-typed { animation: none; opacity: 1; }
-@media (prefers-reduced-motion: reduce) { .mf-typed { animation: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .mf-typed { animation-name: mf-fade; } }
+@keyframes mf-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* A page's groups arriving together come in one after another, 40ms apart,
+   so the eye reads them top down instead of taking one flash. Opacity and a
+   short rise only, on the compositor; nothing waits on it, so a click lands
+   at once. Put on when a page opens by pointer, never by keys. */
+.mf-stagger > *,
+.mf-rise {
+  animation: mf-rise 280ms var(--mf-ease) both;
+}
+.mf-stagger > :nth-child(2), .mf-rise:nth-of-type(2) { animation-delay: 40ms; }
+.mf-stagger > :nth-child(3), .mf-rise:nth-of-type(3) { animation-delay: 80ms; }
+.mf-stagger > :nth-child(4), .mf-rise:nth-of-type(4) { animation-delay: 120ms; }
+.mf-stagger > :nth-child(5), .mf-rise:nth-of-type(5) { animation-delay: 160ms; }
+.mf-stagger > :nth-child(n + 6), .mf-rise:nth-of-type(n + 6) { animation-delay: 200ms; }
+@keyframes mf-rise {
+  from { opacity: 0; transform: translateY(6px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mf-stagger > *, .mf-rise { animation-name: mf-fade; }
+}
+/* Off, at once: a zero length alone would still keep each one back for its delay. */
+:root[data-motion='off'] :is(.mf-stagger > *, .mf-rise) { animation: none; }
+
+/* A row that just arrived in a list (a capture sent, one put back by Undo)
+   eases down into its place instead of popping in. */
+.mf-arrive {
+  animation: mf-arrive 220ms var(--mf-ease) both;
+}
+@keyframes mf-arrive {
+  from { opacity: 0; transform: translateY(-4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mf-arrive { animation-name: mf-fade; }
+}
+:root[data-motion='off'] .mf-arrive { animation: none; }
+
+/* A rolling number's old and new digits pass each other in their slot: a
+   breath of blur while they do makes it read as one digit turning over,
+   not two stacked. Only while both are there; at rest it is sharp. */
+.char-slot:has(> .char-face + .char-face) > .char-face {
+  animation: mf-roll-blur 240ms var(--mf-ease);
+}
+@keyframes mf-roll-blur {
+  40% { filter: blur(1.5px); }
+}
 
 /* The word count, hidden by choice (the app menu's Word count). */
 :root[data-word-count='off'] .tiptap-word-count { display: none; }
