@@ -11,7 +11,7 @@ import CopyIcon from "@/components/ui/copy-icon"
 import XIcon from "@/components/ui/x-icon"
 import { AliveIcon } from "@/components/ui/alive-icon"
 import MagnifierIcon from "@/components/ui/magnifier-icon"
-import ExternalLinkIcon from "@/components/ui/external-link-icon"
+import ExpandIcon from "@/components/ui/expand-icon"
 import { Toolbar, ToolbarGroup, ToolbarSeparator } from "@/components/tiptap-ui-primitive/toolbar"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { host } from "@/lib/host"
@@ -41,8 +41,12 @@ const SIDE = 32
 /** Drawn, and really there: a missing file's dashed note has nothing to look at. */
 const whole = (img: HTMLImageElement): boolean => !img.dataset.missing && img.naturalWidth > 0
 
-/** A picture as the viewer needs it: where to read it, how big it really is, and where it sits on the page, if anywhere. */
-type Picture = { src: string; width: number; height: number; caption: string; el: Element | null }
+/**
+ * A picture as the viewer needs it: where to read it, how big it really is,
+ * and where it sits on the page, if anywhere: its element, or for a picture
+ * shown from another window, only its place.
+ */
+export type Picture = { src: string; width: number; height: number; caption: string; el: Element | null; rect?: DOMRect | null }
 const pictureOf = (img: HTMLImageElement): Picture => ({ src: img.currentSrc || img.src, width: img.naturalWidth, height: img.naturalHeight, caption: captionOf(img), el: img })
 
 /**
@@ -77,7 +81,7 @@ function picturesOf(editor: Editor): HTMLImageElement[] {
 }
 
 /** The italic line under it if it has one, else its name, else nothing worth saying. */
-function captionOf(img: HTMLImageElement): string {
+export function captionOf(img: HTMLImageElement): string {
   const next = img.nextElementSibling
   if (next?.tagName === "P" && next.children.length === 1 && next.firstElementChild?.tagName === "EM") return next.textContent?.trim() ?? ""
   if (img.alt) return img.alt
@@ -241,7 +245,7 @@ function from(rect: DOMRect, fit: ReturnType<typeof fitOf>): { transform: string
   return { transform: `translate(${dx}px, ${dy}px) scale(${rect.width / fit.width})` }
 }
 
-function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: number; onClose: () => void }): React.JSX.Element {
+export function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: number; onClose: () => void }): React.JSX.Element {
   const [at, setAt] = useState(start)
   const [, setSize] = useState(0)
   const [view, setView] = useState({ zoom: 1, x: 0, y: 0, smooth: true })
@@ -310,7 +314,7 @@ function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: numb
       return rect.top >= 0 && rect.bottom <= innerHeight
     }
     const place = img?.isConnected ? img.getBoundingClientRect() : null
-    const home = place && shown(place) ? place : null
+    const home = place ? (shown(place) ? place : null) : picture.rect ?? null
     setView({ zoom: 1, x: 0, y: 0, smooth: true })
     await Promise.all([
       home ? animate(frame.current, from(home, fit), { duration: 0.32, ease: EASE }) : animate(frame.current, { transform: "translate(0px, 0px) scale(0.96)", opacity: 0 }, { duration: 0.18, ease: EASE }),
@@ -318,7 +322,7 @@ function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: numb
       foot.current && animate(foot.current, { opacity: 0 }, { duration: 0.12 }),
     ])
     onClose()
-  }, [fit, img, onClose])
+  }, [fit, img, onClose, picture.rect])
 
   const stepBy = useCallback(
     (by: number, keyed = false) => {
@@ -332,7 +336,9 @@ function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: numb
     [at, pictures.length]
   )
 
-  const openIt = (): void => void (stored ? host().openFile?.(src) : window.open(src, "_blank", "noopener"))
+  // Its own pixels, here rather than handed to another app: shrunk to fit,
+  // one click shows it at full size, centred, and another fits it again.
+  const fullSize = (): void => (chime(view.zoom > 1 ? "zoomout" : "zoomin"), zoomTo(view.zoom > 1 ? 1 : 1 / fit.scale))
   const copyIt = async (): Promise<void> => chime((await host().copyImage?.(src)) ? "copy" : "nope")
 
   useEffect(() => {
@@ -384,7 +390,7 @@ function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: numb
   // The first frame grows out of the picture's place in the note; a step
   // after that slides in from the side it came from.
   const lifting = went.current === 0
-  const place = img?.isConnected ? img.getBoundingClientRect() : null
+  const place = img?.isConnected ? img.getBoundingClientRect() : picture.rect ?? null
   const initial = still()
     ? false
     : lifting
@@ -471,9 +477,9 @@ function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: numb
           )}
           {(caption || pictures.length > 1) && <ToolbarSeparator />}
           <ToolbarGroup>
-            {!src.startsWith("data:") && (
-              <Button data-style="ghost" tooltip={stored ? "Open in Preview" : "Open in browser"} aria-label={stored ? "Open in Preview" : "Open in browser"} onClick={openIt}>
-                <AliveIcon icon={ExternalLinkIcon} size={16} className="tiptap-button-icon" />
+            {fit.scale < 1 && (
+              <Button data-style="ghost" tooltip={view.zoom > 1 ? "Fit to window" : "Full size"} aria-label={view.zoom > 1 ? "Fit to window" : "Full size"} onClick={fullSize}>
+                <AliveIcon icon={ExpandIcon} size={16} className="tiptap-button-icon" />
               </Button>
             )}
             {stored && host().showFile && (

@@ -9,6 +9,15 @@ export interface LinkMetadata {
   site: string
 }
 
+/** A picture as the look window shows it; `rect` is where it sits on screen, if it is in view. */
+export interface LookPicture {
+  src: string
+  width: number
+  height: number
+  caption: string
+  rect?: { x: number; y: number; width: number; height: number }
+}
+
 export interface Api {
   fetchLinkMetadata: (url: string) => Promise<LinkMetadata>
   /** Store image bytes and get back the URL that reads them again. */
@@ -42,7 +51,10 @@ export interface Api {
   onGlow: (listen: (tone: 'done' | 'cancel') => void) => () => void
   stick: (type: string, id: string, on: boolean) => void
   gatherStickies: () => void
-  look: (src: string) => void
+  look: (pictures: LookPicture[], at: number) => void
+  lookWhat: () => Promise<{ pictures: LookPicture[]; at: number } | null>
+  lookDone: () => void
+  onLookOver: (listen: () => void) => () => void
   hideSticky: (type: string, id: string) => void
   resizeSticky: (width: number, height: number) => void
   onStickiesShown: (listen: (shown: boolean) => void) => () => void

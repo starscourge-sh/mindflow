@@ -13,6 +13,7 @@ import '@/assets/styles/_variables.scss'
 import '@/components/tiptap-node/list-node/list-node.scss'
 import './sticky-note.scss'
 import { glance } from './note-preview'
+import { captionOf } from '@/components/image/image-look'
 import { Rolling, toast } from './ui'
 import { chime } from '@/lib/sound'
 import { useAppearance, useLive, vigil } from '@/lib/vigil'
@@ -246,6 +247,30 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   // The words it opened on, held, so a save elsewhere does not rebuild the editor under the caret.
   const [editing, setEditing] = useState<{ body: unknown; at?: { left: number; top: number; line: string; offset: number } } | null>(null)
   const area = useRef<HTMLDivElement>(null)
+  // The picture out in the look window: its place here stands empty till it comes back.
+  const out = useRef<HTMLImageElement | null>(null)
+  useEffect(() => window.api.onLookOver(() => {
+    if (out.current) out.current.style.visibility = ''
+    out.current = null
+  }), [])
+  /** The note's pictures to the look window, each with its place on screen when all of it is in view. */
+  const lookFrom = (img: HTMLImageElement): void => {
+    const box = area.current
+    if (!box || out.current) return
+    const all = [...box.querySelectorAll('img')].filter((one) => one.naturalWidth > 0 && !one.dataset.missing && !one.closest("[data-type='emoji'], .tiptap-bookmark-image"))
+    const at = all.indexOf(img)
+    if (at < 0) return
+    const view = box.getBoundingClientRect()
+    const pictures = all.map((one) => {
+      const r = one.getBoundingClientRect()
+      const seen = r.width > 0 && r.top >= view.top - 1 && r.bottom <= view.bottom + 1
+      return { src: one.currentSrc || one.src, width: one.naturalWidth, height: one.naturalHeight, caption: captionOf(one),
+        rect: seen ? { x: window.screenX + r.left, y: window.screenY + r.top, width: r.width, height: r.height } : undefined }
+    })
+    out.current = img
+    img.style.visibility = 'hidden'
+    window.api.look(pictures, at)
+  }
   // The first line in sight as editing starts or ends, so the same words stay at the top after the swap.
   const held = useRef<{ text: string; top: number } | null>(null)
   const hold = (): void => void (held.current = firstInSight(area.current))
@@ -395,8 +420,8 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
           // Scrolled down, the top fades as the bottom does (see sticky-note.scss), so nothing is cut flat.
           onScroll={(event) => event.currentTarget.toggleAttribute('data-scrolled', event.currentTarget.scrollTop > 0)}
           onDoubleClick={(event) => !(event.target as Element).closest('input, img') && edit(spot(event.clientX, event.clientY))}
-          // A picture opens in Quick Look, the system's own, edited or not.
-          onClick={(event) => event.target instanceof HTMLImageElement && window.api.look(event.target.src)}
+          // A picture opens in Vigil's Quick Look, over the whole screen, edited or not.
+          onClick={(event) => event.target instanceof HTMLImageElement && lookFrom(event.target)}
           // The editor's own double-click and Space would open its viewer inside this small window instead.
           onDoubleClickCapture={(event) => event.target instanceof HTMLImageElement && event.stopPropagation()}
           onKeyDownCapture={(event) => {
@@ -404,7 +429,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
             if (event.key !== ' ' || !(picked instanceof HTMLImageElement)) return
             event.preventDefault()
             event.stopPropagation()
-            window.api.look(picked.src)
+            lookFrom(picked)
           }}
           className="sticky-text private-text min-h-0 flex-1 overflow-y-auto px-3 pt-1 pb-6 text-muted-foreground [mask-image:linear-gradient(to_bottom,#000_calc(100%-1.75rem),transparent)]" style={STILL}>
           {editing ? (

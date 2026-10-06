@@ -1515,22 +1515,69 @@ app.whenReady().then(() => {
     const one = stuckAs(key)
     if (one) (one.bounds = win.getBounds()), keepStuck()
   })
-  // A picture in the Mac's own Quick Look: a stored one read where it lies, any other fetched to a file first.
-  ipcMain.on('look', async (event, src: unknown) => {
-    const win = BrowserWindow.fromWebContents(event.sender)
-    if (typeof src !== 'string' || !win || !URL.canParse(src)) return
-    const { protocol: scheme, host, pathname } = new URL(src)
-    const name = pathname.replace(/^\/+/, '')
-    if (scheme === 'mindflow:' && host === 'assets' && /^[a-f0-9]{64}\.[a-z0-9]+$/.test(name)) return win.previewFile(join(assetsDir(), name))
-    try {
-      const answer = await net.fetch(src)
-      const file = join(app.getPath('temp'), `vigil-look-${createHash('sha1').update(src).digest('hex').slice(0, 16)}.${(answer.headers.get('content-type') ?? 'image/png').split('/')[1].split(/[+;]/)[0]}`)
-      await writeFile(file, Buffer.from(await answer.arrayBuffer()))
-      if (!win.isDestroyed()) win.previewFile(file)
-    } catch {
-      // Unreadable: nothing to look at.
+  // A sticky's picture in Vigil's own Quick Look: a see-through window over the
+  // sticky's screen, there only while it is looked at. The window asks for what
+  // it shows, the note's pictures with each one's place given in its own terms.
+  type Rect = { x: number; y: number; width: number; height: number }
+  type Shown = { src: string; width: number; height: number; caption: string; rect?: Rect }
+  const looks = new Map<number, { pictures: Shown[]; at: number }>()
+  const lookDone = new Map<number, () => void>()
+  ipcMain.on('look', (event, pictures: unknown, at: unknown) => {
+    const sticky = BrowserWindow.fromWebContents(event.sender)
+    if (!sticky || !Array.isArray(pictures) || !pictures.length || typeof at !== 'number') return
+    const { workArea } = screen.getDisplayMatching(sticky.getBounds())
+    const win = new BrowserWindow({
+      ...workArea,
+      // As a sticky is: named for AeroSpace's floating rule, with no window
+      // buttons at all, so it is never tiled or filed under one workspace.
+      title: 'Vigil',
+      closable: false,
+      resizable: false,
+      movable: false,
+      frame: false,
+      transparent: true,
+      minimizable: false,
+      maximizable: false,
+      fullscreenable: false,
+      skipTaskbar: true,
+      hasShadow: false,
+      enableLargerThanScreen: true,
+      show: false,
+      webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
+    })
+    win.setAlwaysOnTop(true, 'pop-up-menu')
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+    shield(win)
+    guard(win)
+    const shown = (pictures as Shown[]).map((one) => ({
+      src: String(one.src),
+      width: Number(one.width),
+      height: Number(one.height),
+      caption: String(one.caption ?? ''),
+      rect: one.rect && { ...one.rect, x: one.rect.x - workArea.x, y: one.rect.y - workArea.y }
+    }))
+    const id = win.webContents.id
+    looks.set(id, { pictures: shown, at })
+    // Put away (Escape, a click, or the window left for another app): the
+    // sticky shows its picture again, and has the keys back if it had them.
+    const done = (): void => {
+      if (win.isDestroyed()) return
+      const refocus = win.isFocused()
+      win.destroy()
+      if (sticky.isDestroyed()) return
+      if (refocus) sticky.focus()
     }
+    lookDone.set(id, done)
+    win.on('closed', () => {
+      looks.delete(id)
+      lookDone.delete(id)
+      if (!sticky.isDestroyed()) sticky.webContents.send('look:over')
+    })
+    win.once('ready-to-show', () => (win.show(), win.focus()))
+    load(win, '?view=look')
   })
+  ipcMain.handle('look:what', (event) => looks.get(event.sender.id) ?? null)
+  ipcMain.on('look:done', (event) => lookDone.get(event.sender.id)?.())
 
   ipcMain.handle('window:recordable', (_event, on: unknown) => {
     recordable = Boolean(on)

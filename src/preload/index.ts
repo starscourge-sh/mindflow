@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webFrame } from 'electron'
-import type { LinkMetadata } from './index.d'
+import type { LinkMetadata, LookPicture } from './index.d'
 import type { Capture, CaptureMeta, CapturePatch, Change, SaveResult } from '../main/captures'
 
 // Every live view listens for changes; one IPC listener tells them all,
@@ -102,8 +102,17 @@ const api = {
   stick: (type: string, id: string, on: boolean): void => ipcRenderer.send('sticky', type, id, on),
   /** Every sticky to the screen in front of you: the way back for one lost off an edge. */
   gatherStickies: (): void => ipcRenderer.send('stickies:gather'),
-  /** A picture in the Mac's own Quick Look, over everything rather than inside a small window. */
-  look: (src: string): void => ipcRenderer.send('look', src),
+  /** A sticky's pictures in Vigil's own Quick Look, in a window over its screen rather than inside the small one. */
+  look: (pictures: LookPicture[], at: number): void => ipcRenderer.send('look', pictures, at),
+  /** The look window's own: what to show, and that it is done. */
+  lookWhat: (): Promise<{ pictures: LookPicture[]; at: number } | null> => ipcRenderer.invoke('look:what'),
+  lookDone: (): void => ipcRenderer.send('look:done'),
+  /** The sticky's: its picture is back from the look window. */
+  onLookOver: (listen: () => void): (() => void) => {
+    const relay = (): void => listen()
+    ipcRenderer.on('look:over', relay)
+    return () => ipcRenderer.off('look:over', relay)
+  },
   /** A sticky's own: put just this one away, or size it from its corner grip. */
   hideSticky: (type: string, id: string): void => ipcRenderer.send('sticky:hide', type, id),
   resizeSticky: (width: number, height: number): void => ipcRenderer.send('sticky:resize', width, height),
