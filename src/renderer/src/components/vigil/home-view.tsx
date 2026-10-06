@@ -89,13 +89,14 @@ function usePicture(card: Pick<Card, 'id' | 'private' | 'type'>): string | undef
   const video = !!src && /\.(mp4|m4v|mov|webm)$/i.test(src)
   const [frame, setFrame] = useState<string>()
   useEffect(() => void (video && src && smallPicture(src).then((made) => setFrame(made || undefined))), [src, video])
-  if (!src || card.private) return undefined
+  // A private note keeps its picture, blurred like its name until you point at it, as lists do.
+  if (!src) return undefined
   return video ? frame : src
 }
 
 /** A picture that steps aside when it cannot load, so the card falls back to words. */
 function Picture({ src, className = '', onBroken }: { src: string; className?: string; onBroken: () => void }): React.JSX.Element {
-  return <img src={src} alt="" loading="lazy" decoding="async" draggable={false} onError={onBroken} className={`size-full object-cover ${className}`} />
+  return <img src={src} alt="" loading="lazy" decoding="async" draggable={false} onError={onBroken} className={`private-text size-full object-cover ${className}`} />
 }
 
 /** The kind's icon on a soft square of its colour: what a tile shows with no picture. */
