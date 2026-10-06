@@ -59,6 +59,8 @@ const tintOf = (card: Pick<Card, 'type' | 'kind'>): string =>
 const kindLabel = (card: Card): string => (card.type === 'capture' ? kindOf(card).label : KIND_NAME[card.type])
 /** A card's name without its `#tags`: the heading over it says those. */
 const nameOf = (card: Pick<Card, 'title'>): string => splitTags(card.title).text || card.title || 'Untitled'
+/** A few words after the name, tags out: they are said elsewhere. */
+const wordsOf = (text?: string): string => (text ? splitTags(text).text : '')
 const readable = (card: Card): boolean => card.type !== 'task'
 const motionOff = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -182,7 +184,7 @@ function RowCard({ card, list, at, actions, tag }: { card: Card; list: Card[]; a
                 {tag && <span className="ml-auto truncate font-medium" style={{ color: tag.colour }}>{tag.name}</span>}
               </span>
               <span className="private-text line-clamp-3 text-[0.9375rem] leading-snug font-semibold text-foreground">{nameOf(card)}</span>
-              {card.excerpt && <span className="private-text line-clamp-3 text-xs leading-relaxed text-muted-foreground">{card.excerpt}</span>}
+              {wordsOf(card.excerpt) && <span className="private-text line-clamp-3 text-xs leading-relaxed text-muted-foreground">{wordsOf(card.excerpt)}</span>}
               {card.sub && <span className="mt-auto pt-1 text-xs text-muted-foreground/80">{card.sub}</span>}
             </>
           )}
@@ -325,7 +327,7 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <span className="text-xs font-medium text-foreground/80">{line}</span>
             <h2 className="private-text line-clamp-2 font-heading text-[1.25rem] leading-[1.15] font-semibold tracking-[-0.02em] text-balance text-foreground @[44rem]/page:text-[1.5rem]">{nameOf(card)}</h2>
-            {!picture && card.excerpt && <p className="private-text line-clamp-2 max-w-[60ch] text-control text-muted-foreground">{card.excerpt}</p>}
+            {!picture && wordsOf(card.excerpt) && <p className="private-text line-clamp-2 max-w-[60ch] text-control text-muted-foreground">{wordsOf(card.excerpt)}</p>}
             <div className="mt-2 flex items-center gap-1.5">
               <button type="button" data-nav onClick={() => actions.open(card)}
                 className="flex h-8 items-center gap-1.5 rounded-full bg-primary px-3.5 text-control font-semibold text-primary-foreground shadow-[0_6px_16px_-8px_rgb(0_0_0/0.5)] outline-none transition-transform duration-150 hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97]">
@@ -354,14 +356,14 @@ function Quotes({ title, onAll, cards, actions }: { title: ReactNode; onAll?: ()
   return (
     <section className="flex flex-col gap-2 px-5 @[44rem]/page:px-8">
       <Heading title={title} onAll={onAll} />
-      <div className="columns-1 gap-2 @[30rem]/page:columns-2 @[60rem]/page:columns-3">
+      <div className="columns-1 gap-2 @[24rem]/page:columns-2 @[60rem]/page:columns-3">
         {cards.map((card, at) => (
           <RowMenu key={card.id} items={menuFor(card, actions, cards, at)}>
             <div className="group/card relative mb-2 break-inside-avoid">
               <button type="button" data-nav data-private={card.private ? '' : undefined} onClick={() => actions.open(card)}
                 className="flex w-full flex-col gap-2 rounded-xl bg-foreground/[0.04] p-4 text-left outline-none transition-colors duration-150 hover:bg-foreground/[0.07] focus-visible:ring-2 focus-visible:ring-ring/50">
                 <span className="private-text font-heading text-[1.0625rem] leading-snug text-foreground">{nameOf(card)}</span>
-                {card.excerpt && <span className="private-text line-clamp-3 text-xs leading-relaxed text-muted-foreground">{card.excerpt}</span>}
+                {wordsOf(card.excerpt) && <span className="private-text line-clamp-3 text-xs leading-relaxed text-muted-foreground">{wordsOf(card.excerpt)}</span>}
                 <span className="flex items-center gap-1.5 text-xs text-muted-foreground/80">
                   <KindMark card={card} className="size-4 rounded-[4px] [&_svg]:size-2.5" />{card.sub}
                 </span>
@@ -439,7 +441,9 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
 
   const dated = (card: Card): Card => ({ ...card, sub: card.sub ?? whenInLine(card.at) })
   const only = (cards: Card[]): Card[] => cards.filter((card) => keep(card.type) && card.id !== feature?.card.id)
-  const jump = only((data.opened.length ? data.opened : data.edited).map(dated))
+  // Not what the tiles already show: further back in what you had open or changed.
+  const jumpSeen = new Set(tiles.slice(0, 8).map((card) => card.id))
+  const jump = only([...data.opened, ...data.edited].filter((card) => !jumpSeen.has(card.id) && (jumpSeen.add(card.id), true)).map(dated)).slice(0, 12)
   const back = only([...data.due.map((card) => ({ ...card, sub: 'Due for review' })), ...data.unseen.map((card) => ({ ...card, sub: 'Not seen in a while' }))]).slice(0, 6)
   const questions = only(data.questions).slice(0, chip === 'questions' ? 12 : 4)
   const tidy = only(rot)
