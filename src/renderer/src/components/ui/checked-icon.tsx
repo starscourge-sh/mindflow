@@ -78,6 +78,7 @@ const CheckedIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
         ref={scope}
         onHoverStart={handleHoverStart}
         onHoverEnd={handleHoverEnd}
+        className="contents"
       >
         <motion.svg
           xmlns="http://www.w3.org/2000/svg"

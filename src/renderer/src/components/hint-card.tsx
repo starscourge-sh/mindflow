@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { RowMenu } from './vigil/row-menu'
-import { ArrowUpRight, EyeOff, Pencil, ThumbsDown, ThumbsUp, Trash2, X } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import ExternalLinkIcon from '@/components/ui/external-link-icon'
+import EyeOffIcon from '@/components/ui/eye-off-icon'
+import PenIcon from '@/components/ui/pen-icon'
+import LikeIcon from '@/components/ui/like-icon'
+import XIcon from '@/components/ui/x-icon'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { shown } from './rot-cards'
@@ -17,6 +22,15 @@ import { Postcarded, usePostcard } from './vigil/memory-postcard'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import TrashIcon from '@/components/ui/trash-icon'
 import { keyFor } from '@/lib/keys'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const ArrowUpRight = alive(ExternalLinkIcon)
+const EyeOff = alive(EyeOffIcon)
+const Pencil = alive(PenIcon)
+const ThumbsDown = alive(LikeIcon, '-scale-y-100')
+const ThumbsUp = alive(LikeIcon)
+const Trash2 = alive(TrashIcon)
+const X = alive(XIcon)
 
 // A memory is a hint that says what it is: this day last year, one source's things.
 type Hint = NonNullable<Awaited<ReturnType<typeof window.api.hints.next>>> & { memory?: string }

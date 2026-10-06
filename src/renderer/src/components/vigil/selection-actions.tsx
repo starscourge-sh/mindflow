@@ -1,11 +1,19 @@
 import type { Editor } from '@tiptap/core'
-import { Gem, Inbox, ListTodo } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import LibraryIcon from '@/components/ui/library-icon'
+import StackIcon from '@/components/ui/stack-icon'
+import CheckedIcon from '@/components/ui/checked-icon'
 
 import { ToolbarGroup, ToolbarSeparator } from '@/components/tiptap-ui-primitive/toolbar'
 import { chime } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
 import { refuse, toast } from './ui'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const Gem = alive(LibraryIcon)
+const Inbox = alive(StackIcon)
+const ListTodo = alive(CheckedIcon)
 
 /**
  * What has already been lifted, by kind and words, so a second click on the

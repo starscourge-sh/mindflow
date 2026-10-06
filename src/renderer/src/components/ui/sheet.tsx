@@ -2,7 +2,11 @@ import * as React from "react"
 import { cn } from "@/lib/cn"
 import { chime } from "@/lib/sound"
 import { Dialog as SheetPrimitive } from "radix-ui"
-import { XIcon } from "lucide-react"
+import { alive } from "@/components/ui/alive-icon"
+import XIconDrawing from "@/components/ui/x-icon"
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const XIcon = alive(XIconDrawing)
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   // A drawer slides out and folds away with the panel's sounds, however it
@@ -65,7 +69,7 @@ function SheetContent({
           panel.current?.focus()
         }}
         className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 shadow-(--mf-panel-shadow) transition ease-[cubic-bezier(0.16,1,0.3,1)] data-[state=closed]:duration-150 data-[state=open]:duration-200",
+          "bg-background outline-hidden data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 shadow-(--mf-panel-shadow) transition ease-[cubic-bezier(0.16,1,0.3,1)] data-[state=closed]:duration-150 data-[state=open]:duration-200",
           side === "right" &&
             "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm",
           side === "left" &&

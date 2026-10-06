@@ -212,6 +212,11 @@ export function readTask(text: string, at = new Date()): ReadTask {
   // Punctuation that only joined a taken word to the rest: "Someday: learn
   // Welsh", "call Sam, tomorrow".
   title = title.replace(/^(?:[:;,]|[-–—](?=\s))\s*/, '').replace(/\s*[:;,]$/, '').trim()
+  // A date word taken from the front leaves the next word starting the
+  // title: "every monday water plants" is "Water plants". Words typed in
+  // lowercase anywhere else are left as typed.
+  const start = text.search(/\S/)
+  if (start >= 0 && rest[start] === ' ') title = title.charAt(0).toUpperCase() + title.slice(1)
   return {
     title,
     due: due?.toISOString() ?? null,

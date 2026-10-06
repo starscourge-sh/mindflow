@@ -207,14 +207,19 @@ export function ReadThrough({ items, start = 0, onClose }: {
             // in the middle of an empty page.
             className="mx-auto flex w-full max-w-[40rem] flex-col px-6 pt-[clamp(2.5rem,12vh,7rem)] pb-16 sm:px-8"
           >
-            {shown?.title && <h1 data-private={hidden} className="private-text mb-5 text-3xl font-semibold tracking-tight text-balance">{shown.title}</h1>}
+            {shown?.title && <h1 data-private={hidden} className={cn('private-text text-3xl font-semibold tracking-tight text-balance', shown.meta?.length ? 'mb-1.5' : 'mb-5')}>{shown.title}</h1>}
+            {/* What it is, when, and from where: under the title, never after the last paragraph. */}
+            {shown?.title && !!shown.meta?.length && <p className="mb-5 truncate text-meta text-muted-foreground">{shown.meta.join(' · ')}</p>}
             {shown && (
               <div data-private={hidden} className="group/body">
                 {/* The words, at reading size, a step up from writing. Pointed at,
                     the area shows it can be written in; writing, it looks like a field. */}
                 <div
                   onClick={write}
+                  // With no title, the first line is the title: the meta line goes right under it.
+                  style={!shown.title && !writing && shown.meta?.length ? ({ '--meta': JSON.stringify(shown.meta.join(' · ')) } as React.CSSProperties) : undefined}
                   className={cn(
+                    !shown.title && !writing && !!shown.meta?.length && '[&_.tiptap.ProseMirror>:first-child]:after:mt-1.5 [&_.tiptap.ProseMirror>:first-child]:after:mb-1 [&_.tiptap.ProseMirror>:first-child]:after:block [&_.tiptap.ProseMirror>:first-child]:after:text-meta [&_.tiptap.ProseMirror>:first-child]:after:font-normal [&_.tiptap.ProseMirror>:first-child]:after:tracking-normal [&_.tiptap.ProseMirror>:first-child]:after:text-muted-foreground [&_.tiptap.ProseMirror>:first-child]:after:content-[var(--meta)]',
                     'private-text -mx-4 rounded-xl px-4 py-3 ring-1 ring-transparent transition-[background-color,box-shadow] duration-150',
                     // The column sets the margins, not the editor's own gutter.
                     '[--mf-padding:0] [&_.mindflow-editor-content]:p-0 [&_.tiptap.ProseMirror]:text-[1.125rem] [&_.tiptap.ProseMirror]:leading-[1.7] [&_.ProseMirror>p:last-child:has(>br:only-child)]:hidden',
@@ -246,9 +251,8 @@ export function ReadThrough({ items, start = 0, onClose }: {
                     search={false}
                   />
                 </div>
-                {/* What it is, when, and from where; and how to write in it. */}
-                <div className="mt-2 flex min-h-5 items-center gap-3 text-meta text-muted-foreground">
-                  <span className="min-w-0 flex-1 truncate">{shown.meta?.join(' · ')}</span>
+                {/* How to write in it. */}
+                <div className="mt-2 flex min-h-5 items-center justify-end gap-3 text-meta text-muted-foreground">
                   {writing ? (
                     <span className="flex shrink-0 items-center gap-1.5"><span><span className="text-foreground">Writing</span>, saved as you go ·</span><Kbd>Esc</Kbd><span>done</span></span>
                   ) : own && (

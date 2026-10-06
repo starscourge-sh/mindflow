@@ -1,8 +1,23 @@
-import { useEffect, useRef, useState } from "react"
-import { useEditorState, type Editor } from "@tiptap/react"
+import { memo, useEffect, useRef, useState } from "react"
+import type { Editor } from "@tiptap/react"
 
 import { OPEN, headingsOf, land, type Heading } from "@/components/toc/headings"
 import { cue } from "@/lib/cues"
+
+type Outline = { headings: { level: number; text: string }[]; active: number }
+
+function outlineOf(editor: Editor): Outline {
+  const found = headingsOf(editor)
+  const caret = editor.state.selection.from
+  return {
+    headings: found.map(({ level, text }) => ({ level, text })),
+    // Which heading the caret sits under: the last one at or before it.
+    active: found.findLastIndex((h) => h.pos <= caret),
+  }
+}
+
+const same = (a: Outline, b: Outline): boolean =>
+  a.active === b.active && a.headings.length === b.headings.length && a.headings.every((one, i) => one.level === b.headings[i].level && one.text === b.headings[i].text)
 
 /**
  * The document outline, parked against the right edge.
@@ -19,18 +34,35 @@ export function TableOfContents({ editor, shown = true }: { editor: Editor | nul
   // The row the keys are on while the outline has them; null when it does not.
   const [keyed, setKeyed] = useState<number | null>(null)
   const wantsFocus = useRef(false)
-  const state = useEditorState({
-    editor,
-    selector: ({ editor: instance }) =>
-      instance && {
-        headings: headingsOf(instance),
-        // Which heading the caret sits under: the last one at or before it.
-        caret: instance.state.selection.from,
-      },
-  })
+  const goRef = useRef<(index: number) => void>(() => {})
+  // Words and levels only, and which heading the caret is under: typing moves
+  // every heading after it, and redrawing thousands of rows for that was most
+  // of what a key cost in a long note. Where each one is, is read on the way
+  // there. In a long note the words catch up once the typing pauses: any redraw
+  // while typing there costs a pass over the whole page.
+  const [state, setState] = useState<Outline | null>(null)
+  useEffect(() => {
+    if (!editor) return setState(null)
+    let later: ReturnType<typeof setTimeout> | undefined
+    const update = (): void => setState((now) => {
+      const next = outlineOf(editor)
+      return now && same(now, next) ? now : next
+    })
+    const changed = ({ transaction }: { transaction: { docChanged: boolean; selectionSet: boolean } }): void => {
+      clearTimeout(later)
+      if (transaction.docChanged && editor.state.doc.content.size > 20000) later = setTimeout(update, 400)
+      else if (transaction.docChanged || transaction.selectionSet) update()
+    }
+    update()
+    editor.on("transaction", changed)
+    return () => {
+      clearTimeout(later)
+      editor.off("transaction", changed)
+    }
+  }, [editor])
 
   const headings = state?.headings ?? []
-  const active = headings.findLastIndex((h) => h.pos <= (state?.caret ?? 0))
+  const active = state?.active ?? -1
   const lit = keyed ?? active
 
   // ⇧⌘O in this editor: the outline takes the keys, on the heading you are under.
@@ -67,10 +99,13 @@ export function TableOfContents({ editor, shown = true }: { editor: Editor | nul
   if (!editor || headings.length < (keyed === null ? 2 : 1)) return null
   if (!shown && keyed === null) return null
 
-  const go = (heading: Heading): void => {
+  const go = (index: number): void => {
     setKeyed(null)
-    land(editor, heading)
+    const heading: Heading | undefined = headingsOf(editor)[index]
+    if (heading) land(editor, heading)
   }
+
+  goRef.current = go
 
   const leave = (): void => {
     setKeyed(null)
@@ -101,7 +136,7 @@ export function TableOfContents({ editor, shown = true }: { editor: Editor | nul
           setKeyed(next)
         } else if (event.key === "Enter") {
           event.preventDefault()
-          go(headings[keyed])
+          go(keyed)
         } else if (event.key === "Escape") {
           // Spent here, so it does not go on to hide the window.
           event.preventDefault()
@@ -111,27 +146,50 @@ export function TableOfContents({ editor, shown = true }: { editor: Editor | nul
       }}
     >
       {headings.map((heading, index) => (
-        <button
-          key={`${heading.pos}-${heading.text}`}
-          id={`toc-${index}`}
-          type="button"
-          ref={index === lit ? activeRef : undefined}
-          // Pointer-only: the panel expands on hover, so a focused entry would
-          // be an invisible tab stop - and there is one per heading. The keys
-          // move a highlight instead, with the panel itself holding the focus.
-          tabIndex={-1}
-          className="tiptap-toc-item"
-          data-level={Math.min(heading.level, 3)}
-          data-active={index === active ? "true" : undefined}
-          data-keyed={index === keyed ? "true" : undefined}
-          title={heading.text}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => go(heading)}
-        >
-          <span className="tiptap-toc-rule" />
-          <span className="tiptap-toc-text">{heading.text}</span>
-        </button>
+        <Entry
+          key={index}
+          index={index}
+          level={heading.level}
+          text={heading.text}
+          active={index === active}
+          keyed={index === keyed}
+          lit={index === lit ? activeRef : undefined}
+          onGo={goRef}
+        />
       ))}
     </nav>
   )
 }
+
+/** One heading in the outline: redrawn only when its own words or highlight change. */
+const Entry = memo(function Entry({ index, level, text, active, keyed, lit, onGo }: {
+  index: number
+  level: number
+  text: string
+  active: boolean
+  keyed: boolean
+  lit: React.RefObject<HTMLButtonElement | null> | undefined
+  onGo: React.RefObject<(index: number) => void>
+}): React.JSX.Element {
+  return (
+    <button
+      id={`toc-${index}`}
+      type="button"
+      ref={lit}
+      // Pointer-only: the panel expands on hover, so a focused entry would
+      // be an invisible tab stop - and there is one per heading. The keys
+      // move a highlight instead, with the panel itself holding the focus.
+      tabIndex={-1}
+      className="tiptap-toc-item"
+      data-level={Math.min(level, 3)}
+      data-active={active ? "true" : undefined}
+      data-keyed={keyed ? "true" : undefined}
+      title={text}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={() => onGo.current(index)}
+    >
+      <span className="tiptap-toc-rule" />
+      <span className="tiptap-toc-text">{text}</span>
+    </button>
+  )
+})

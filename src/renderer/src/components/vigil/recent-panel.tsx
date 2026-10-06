@@ -1,5 +1,12 @@
 import { Fragment } from 'react'
-import { FileText, Gem, History, ListTodo, Minus, Orbit, Plus, X } from 'lucide-react'
+import { Minus, Plus } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import FileDescriptionIcon from '@/components/ui/file-description-icon'
+import LibraryIcon from '@/components/ui/library-icon'
+import HistoryCircleIcon from '@/components/ui/history-circle-icon'
+import CheckedIcon from '@/components/ui/checked-icon'
+import QuestionMarkIcon from '@/components/ui/question-mark'
+import XIcon from '@/components/ui/x-icon'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
@@ -8,6 +15,14 @@ import { chime } from '@/lib/sound'
 import { useLive, vigil, type Recent, type Settings } from '@/lib/vigil'
 import { Rolling, Tip, Typed } from './ui'
 import { clock, dayKey as dayOf, dayName, daysFromToday } from '../../../../main/dates'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const FileText = alive(FileDescriptionIcon)
+const Gem = alive(LibraryIcon)
+const History = alive(HistoryCircleIcon)
+const ListTodo = alive(CheckedIcon)
+const Orbit = alive(QuestionMarkIcon)
+const X = alive(XIcon)
 
 const TIER = { nugget: Gem, article: FileText, question: Orbit, task: ListTodo } as const
 

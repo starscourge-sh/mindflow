@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { AlignLeft, Check, ChevronRight, Columns3, Link2, ListChecks, Lock, Plus, Split, Star, Tags, Type, X } from 'lucide-react'
+import { AlignLeft, Columns3, Plus, Split, Star } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
+import RightChevronIcon from '@/components/ui/right-chevron'
+import LinkIcon from '@/components/ui/link-icon'
+import CheckedIcon from '@/components/ui/checked-icon'
+import LockIcon from '@/components/ui/lock-icon'
+import HashtagIcon from '@/components/ui/hashtag-icon'
+import LetterTIcon from '@/components/ui/letter-t-icon'
+import XIcon from '@/components/ui/x-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import ClockIcon from '@/components/ui/clock-icon'
 import PenIcon from '@/components/ui/pen-icon'
@@ -26,6 +35,16 @@ import { ReadThrough } from './read-through'
 import { Island, PropInput, Rolling, Tip, Typed, refuse, toast } from './ui'
 import { age, dayKey, dayMonth, dayjs, moment, noon, num } from '../../../../main/dates'
 import { keyFor } from '@/lib/keys'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const Check = alive(SimpleCheckedIcon)
+const ChevronRight = alive(RightChevronIcon)
+const Link2 = alive(LinkIcon)
+const ListChecks = alive(CheckedIcon)
+const Lock = alive(LockIcon)
+const Tags = alive(HashtagIcon)
+const Type = alive(LetterTIcon)
+const X = alive(XIcon)
 
 // --- a note's first picture, small
 
@@ -363,7 +382,7 @@ export function Aliases({ table, id }: { table: NoteTable; id: string }): React.
         <Plus className="size-4 shrink-0" />
         <input
           key={`${id}-${list.length}`}
-          placeholder={list.length ? 'Another name…' : 'Another name you might search for'}
+          placeholder={list.length ? 'Another name…' : 'A name you might search for'}
           aria-label="Another name for this note"
           onKeyDown={(event) => {
             if (event.key === 'Escape') return event.currentTarget.blur()
@@ -373,7 +392,7 @@ export function Aliases({ table, id }: { table: NoteTable; id: string }): React.
             if (list.some((one) => one.toLowerCase() === name.toLowerCase())) return refuse(`Already called “${name}”`)
             set([...list, name], `Also called “${name}”: search finds it by that now`, 'alias')
           }}
-          className="min-w-0 flex-1 bg-transparent text-control text-foreground outline-none placeholder:text-foreground/70"
+          className="min-w-0 flex-1 bg-transparent text-control text-ellipsis text-foreground outline-none placeholder:text-foreground/70"
         />
       </label>
     </Island>

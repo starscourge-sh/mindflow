@@ -1,5 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Orbit, Pin, Repeat2 } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
+import BookIcon from '@/components/ui/book-icon'
+import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
+import RightChevronIcon from '@/components/ui/right-chevron'
+import QuestionMarkIcon from '@/components/ui/question-mark'
+import BookmarkIcon from '@/components/ui/bookmark-icon'
+import RefreshIcon from '@/components/ui/refresh-icon'
 
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { useCaptures } from '@/components/capture-list'
@@ -15,6 +22,16 @@ import { RowMenu, type MenuItem } from './row-menu'
 import { tagColour } from './tag-read'
 import { completeTask } from './tasks-view'
 import { Empty, Pressed, Tip } from './ui'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const ArrowRight = alive(ArrowNarrowRightIcon)
+const BookOpen = alive(BookIcon)
+const Check = alive(SimpleCheckedIcon)
+const ChevronLeft = alive(RightChevronIcon, 'rotate-180')
+const ChevronRight = alive(RightChevronIcon)
+const Orbit = alive(QuestionMarkIcon)
+const Pin = alive(BookmarkIcon)
+const Repeat2 = alive(RefreshIcon)
 
 /**
  * Home: where things come back to you. Laid out the way a music app's home
@@ -90,17 +107,17 @@ function KindMark({ card, className = '' }: { card: Card; className?: string }):
   )
 }
 
-/** Read, as a round button: what a card or tile offers on hover. */
+/** Read, as a round button: what a card or tile offers on hover. 30px, its tip kept clear of it. */
 function RoundRead({ onRead, className = '' }: { onRead: () => void; className?: string }): React.JSX.Element {
   return (
-    <Tip label="Read">
+    <Tip label="Read" offset={6}>
       <button
         type="button"
         tabIndex={-1}
         onClick={(event) => (event.stopPropagation(), onRead())}
-        className={`flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_8px_18px_-6px_rgb(0_0_0/0.45)] transition-[opacity,translate,scale] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:scale-[1.06] active:scale-[0.95] ${className}`}
+        className={`flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_6px_14px_-6px_rgb(0_0_0/0.45)] transition-[opacity,translate,scale] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:scale-[1.04] active:scale-[0.95] ${className}`}
       >
-        <BookOpen className="size-4" />
+        <BookOpen className="size-3.5" />
       </button>
     </Tip>
   )
@@ -133,12 +150,12 @@ function Tile({ card, pinned, actions, onHover }: { card: Card; pinned: boolean;
           {src && !broken
             ? <span className="aspect-square h-full shrink-0 overflow-hidden shadow-[2px_0_10px_-4px_rgb(0_0_0/0.3)]"><Picture src={src} onBroken={() => setBroken(true)} /></span>
             : <KindMark card={card} className="aspect-square h-full shrink-0" />}
-          <span className="private-text line-clamp-2 min-w-0 flex-1 text-control leading-tight font-medium text-foreground">{nameOf(card)}</span>
+          <span className="private-text line-clamp-2 min-w-0 flex-1 text-control leading-tight font-medium [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
           {pinned && <Pin className="absolute right-3 size-3.5 rotate-45 text-muted-foreground transition-opacity group-focus-within/tile:opacity-0 group-hover/tile:opacity-0" aria-label="Pinned" />}
         </button>
         {readable(card) && (
           <RoundRead onRead={() => actions.read([card], 0)}
-            className="absolute top-1/2 right-2 size-8 -translate-y-1/2 translate-x-1 opacity-0 group-focus-within/tile:translate-x-0 group-focus-within/tile:opacity-100 group-hover/tile:translate-x-0 group-hover/tile:opacity-100" />
+            className="absolute top-1/2 right-2.5 -translate-y-1/2 translate-x-1 opacity-0 group-focus-within/tile:translate-x-0 group-focus-within/tile:opacity-100 group-hover/tile:translate-x-0 group-hover/tile:opacity-100" />
         )}
       </div>
     </RowMenu>
@@ -148,7 +165,8 @@ function Tile({ card, pinned, actions, onHover }: { card: Card; pinned: boolean;
 /**
  * A card on a sideways row. With a picture, the picture is the card and the
  * name sits under it; without one, the words are the card: the first line
- * set larger, a few words after it, the date small. Never both.
+ * set larger, a few words after it, the date small. Never both. Every card
+ * in a row is as tall as the tallest, its date at the foot, so dates line up.
  */
 function RowCard({ card, list, at, actions, tag }: { card: Card; list: Card[]; at: number; actions: Actions; tag?: { name: string; colour: string } }): React.JSX.Element {
   const src = usePicture(card)
@@ -156,13 +174,13 @@ function RowCard({ card, list, at, actions, tag }: { card: Card; list: Card[]; a
   const picture = !!src && !broken
   return (
     <RowMenu items={menuFor(card, actions, list, at)}>
-      <div className="group/card relative w-(--card) shrink-0 snap-start">
+      <div className="group/card relative flex w-(--card) shrink-0 snap-start">
         <button
           type="button"
           data-nav
           data-private={card.private ? '' : undefined}
           onClick={() => actions.open(card)}
-          className={`flex w-full flex-col text-left outline-none transition-[background-color,scale] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.985] ${picture ? 'gap-2 rounded-xl p-1.5 hover:bg-foreground/[0.05]' : 'min-h-[7.5rem] gap-1.5 rounded-xl bg-foreground/[0.04] p-3.5 hover:bg-foreground/[0.07]'}`}
+          className={`flex w-full flex-col text-left outline-none transition-[background-color,scale] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.985] ${picture ? 'gap-2 rounded-xl p-1.5 hover:bg-foreground/[0.05]' : 'min-h-[7.5rem] gap-1.5 overflow-hidden rounded-xl bg-foreground/[0.04] p-3.5 hover:bg-foreground/[0.07]'}`}
         >
           {picture ? (
             <>
@@ -171,28 +189,35 @@ function RowCard({ card, list, at, actions, tag }: { card: Card; list: Card[]; a
                 {/* A mix's name bar, the way a music app labels its mixes: the tag, in its colour. */}
                 {tag && <span className="absolute inset-x-0 bottom-0 truncate px-2.5 py-1 text-xs font-semibold text-white" style={{ background: tag.colour }}>{tag.name}</span>}
               </span>
-              <span className="flex min-w-0 flex-col gap-0.5 px-1 pb-1">
-                <span className="private-text line-clamp-2 text-control leading-snug font-medium text-foreground">{nameOf(card)}</span>
-                {card.sub && <span className="truncate text-xs text-muted-foreground">{card.sub}</span>}
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5 px-2 pb-2">
+                <span className="private-text line-clamp-2 text-control leading-snug font-medium [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
+                {card.sub && <span className="mt-auto truncate pt-1 text-xs text-muted-foreground">{card.sub}</span>}
               </span>
             </>
           ) : (
             <>
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              {/* Its right end left free for Read, which sits level with it. */}
+              <span className="flex min-w-0 items-center gap-1.5 pr-8 text-xs text-muted-foreground">
                 <KindMark card={card} className="size-5 rounded-[5px] [&_svg]:size-3" />
                 {kindLabel(card)}
-                {tag && <span className="ml-auto truncate font-medium" style={{ color: tag.colour }}>{tag.name}</span>}
               </span>
-              <span className="private-text line-clamp-3 text-[0.9375rem] leading-snug font-semibold text-foreground">{nameOf(card)}</span>
-              {wordsOf(card.excerpt) && <span className="private-text line-clamp-3 text-xs leading-relaxed text-muted-foreground">{wordsOf(card.excerpt)}</span>}
-              {card.sub && <span className="mt-auto pt-1 text-xs text-muted-foreground/80">{card.sub}</span>}
+              <span className="private-text line-clamp-3 text-[0.9375rem] leading-snug font-semibold [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
+              {wordsOf(card.excerpt) && <span className="private-text line-clamp-3 text-xs [overflow-wrap:anywhere] leading-relaxed text-muted-foreground">{wordsOf(card.excerpt)}</span>}
+              {/* The date at the foot, the tag at its end: down here Read never covers it. */}
+              {(card.sub || tag) && (
+                <span className="mt-auto flex min-w-0 items-center gap-2 pt-1 text-xs text-muted-foreground/80">
+                  <span className="truncate">{card.sub}</span>
+                  {tag && <span className="ml-auto max-w-[60%] shrink-0 truncate font-medium" style={{ color: tag.colour }}>{tag.name}</span>}
+                </span>
+              )}
             </>
           )}
         </button>
         {readable(card) && (
-          <span className={`pointer-events-none absolute flex justify-end ${picture ? 'inset-x-1.5 top-1.5 aspect-square items-end p-2' : 'top-2.5 right-2.5'}`}>
+          // Over the picture's corner, 8px in from both edges and above the tag's bar; on words, level with the kind.
+          <span className={`pointer-events-none absolute flex justify-end ${picture ? `inset-x-1.5 top-1.5 aspect-square items-end p-2 ${tag ? 'pb-8' : ''}` : 'top-[9px] right-[9px]'}`}>
             <RoundRead onRead={() => actions.read(list, at)}
-              className={`pointer-events-auto opacity-0 group-focus-within/card:translate-y-0 group-focus-within/card:opacity-100 group-hover/card:translate-y-0 group-hover/card:opacity-100 ${picture ? 'translate-y-2' : 'size-7 translate-y-1 [&_svg]:size-3.5'}`} />
+              className="pointer-events-auto translate-y-1 opacity-0 group-focus-within/card:translate-y-0 group-focus-within/card:opacity-100 group-hover/card:translate-y-0 group-hover/card:opacity-100" />
           </span>
         )}
       </div>
@@ -239,17 +264,17 @@ function Row({ title, onAll, children }: { title: ReactNode; onAll?: () => void;
   }
   const mask = `linear-gradient(to right, ${edges.left ? 'transparent 0, black 2rem' : 'black 0'}, ${edges.right ? 'black calc(100% - 3rem), transparent 100%' : 'black 100%'})`
   return (
-    <section className="group/shelf flex flex-col gap-2 [--card:9rem] @[44rem]/page:[--card:10.5rem]">
+    <section className="group/shelf flex flex-col gap-1 [--card:9rem] @[44rem]/page:[--card:10.5rem]">
       <div className="px-5 @[44rem]/page:px-8"><Heading title={title} onAll={onAll} /></div>
       <div className="relative">
-        <div ref={scroller} onScroll={measure} className="flex snap-x scroll-px-3.5 items-start gap-2 overflow-x-auto px-3.5 pb-1 [scrollbar-width:none] @[44rem]/page:scroll-px-6.5 @[44rem]/page:px-6.5 [&::-webkit-scrollbar]:hidden"
+        <div ref={scroller} onScroll={measure} className="flex snap-x scroll-px-3.5 items-stretch gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain px-3.5 py-1 [scrollbar-width:none] @[44rem]/page:scroll-px-6.5 @[44rem]/page:px-6.5 [&::-webkit-scrollbar]:hidden"
           style={{ maskImage: mask, WebkitMaskImage: mask }}>
           {children}
         </div>
         {(['left', 'right'] as const).map((side) => edges[side] && (
           <Tip key={side} label={side === 'left' ? 'Back' : 'More'}>
             <button type="button" tabIndex={-1} onClick={() => page(side === 'left' ? -1 : 1)}
-              className={`absolute top-[calc((var(--card)-2rem)/2)] flex size-8 items-center justify-center rounded-full bg-background text-foreground shadow-[0_6px_16px_-6px_rgb(0_0_0/0.4),0_0_0_1px_var(--border)] transition-[opacity,scale] duration-150 hover:scale-105 active:scale-95 ${side === 'left' ? 'left-2' : 'right-2'} opacity-0 group-focus-within/shelf:opacity-100 group-hover/shelf:opacity-100`}>
+              className={`absolute top-[calc((var(--card)-1.5rem)/2)] flex size-8 items-center justify-center rounded-full bg-background text-foreground shadow-[0_6px_16px_-6px_rgb(0_0_0/0.4),0_0_0_1px_var(--border)] transition-[opacity,scale] duration-150 hover:scale-105 active:scale-95 ${side === 'left' ? 'left-2' : 'right-2'} opacity-0 group-focus-within/shelf:opacity-100 group-hover/shelf:opacity-100`}>
               {side === 'left' ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
             </button>
           </Tip>
@@ -300,7 +325,7 @@ function TaskRow({ task, actions }: { task: Task; actions: Actions }): React.JSX
         </button>
       </Tip>
     } aside={at ? <span className="mt-0.5 shrink-0 rounded-full bg-foreground/[0.06] px-2 py-0.5 text-xs text-muted-foreground">{whenInLine(new Date(at).toISOString(), !!task.allDay)}</span> : undefined}>
-      <span className={`line-clamp-2 transition-colors ${done ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{nameOf(card)}</span>
+      <span className={`line-clamp-2 [overflow-wrap:anywhere] transition-colors ${done ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{nameOf(card)}</span>
     </ListRow>
   )
 }
@@ -362,15 +387,15 @@ function Quotes({ title, onAll, cards, actions }: { title: ReactNode; onAll?: ()
             <div className="group/card relative mb-2 break-inside-avoid">
               <button type="button" data-nav data-private={card.private ? '' : undefined} onClick={() => actions.open(card)}
                 className="flex w-full flex-col gap-2 rounded-xl bg-foreground/[0.04] p-4 text-left outline-none transition-colors duration-150 hover:bg-foreground/[0.07] focus-visible:ring-2 focus-visible:ring-ring/50">
-                <span className="private-text font-heading text-[1.0625rem] leading-snug text-foreground">{nameOf(card)}</span>
+                <span className="private-text pr-7 font-heading text-[1.0625rem] leading-snug [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
                 {wordsOf(card.excerpt) && <span className="private-text line-clamp-3 text-xs leading-relaxed text-muted-foreground">{wordsOf(card.excerpt)}</span>}
                 <span className="flex items-center gap-1.5 text-xs text-muted-foreground/80">
                   <KindMark card={card} className="size-4 rounded-[4px] [&_svg]:size-2.5" />{card.sub}
                 </span>
               </button>
-              <span className="pointer-events-none absolute top-2.5 right-2.5">
+              <span className="pointer-events-none absolute top-2 right-2">
                 <RoundRead onRead={() => actions.read(cards, at)}
-                  className="pointer-events-auto size-7 translate-y-1 opacity-0 group-focus-within/card:translate-y-0 group-focus-within/card:opacity-100 group-hover/card:translate-y-0 group-hover/card:opacity-100 [&_svg]:size-3.5" />
+                  className="pointer-events-auto translate-y-1 opacity-0 group-focus-within/card:translate-y-0 group-focus-within/card:opacity-100 group-hover/card:translate-y-0 group-hover/card:opacity-100" />
               </span>
             </div>
           </RowMenu>
@@ -555,7 +580,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
                 <List title="Questions you're holding" onAll={() => onView('questions')}>
                   {questions.map((card) => (
                     <ListRow key={card.id} card={card} actions={actions} lead={<Orbit className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}>
-                      <span className="private-text line-clamp-2 text-foreground">{nameOf(card)}</span>
+                      <span className="private-text line-clamp-2 [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
                       <span className="line-clamp-1 text-xs text-muted-foreground">{card.clue ? `“${card.clue.replace(/\s+/g, ' ')}”` : 'No clues yet'}</span>
                     </ListRow>
                   ))}
@@ -579,7 +604,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
                   {tidy.map((card) => (
                     <ListRow key={card.id} card={card} actions={actions} lead={<KindMark card={card} className="mt-px size-5 shrink-0 rounded-[5px] [&_svg]:size-3" />}
                       aside={<span className="mt-0.5 shrink-0 text-xs text-muted-foreground">{whenInLine(card.at)}</span>}>
-                      <span className="private-text line-clamp-2 text-foreground">{nameOf(card)}</span>
+                      <span className="private-text line-clamp-2 [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
                     </ListRow>
                   ))}
                 </List>
@@ -589,7 +614,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
                   {again.map((card) => (
                     <ListRow key={card.id} card={card} actions={actions} lead={<Repeat2 className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
                       aside={<span className="mt-0.5 shrink-0 rounded-full bg-foreground/[0.06] px-2 py-0.5 text-xs text-muted-foreground tabular-nums">{card.count}×</span>}>
-                      <span className="private-text line-clamp-2 text-foreground">{nameOf(card)}</span>
+                      <span className="private-text line-clamp-2 [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
                       {card.sub && <span className="text-xs text-muted-foreground">{card.sub}</span>}
                     </ListRow>
                   ))}

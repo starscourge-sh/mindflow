@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { Check, GripVertical, Pause, Play, Square, X } from 'lucide-react'
+import { Pause, Square } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
+import DotsVerticalIcon from '@/components/ui/dots-vertical-icon'
+import PlayerIcon from '@/components/ui/player-icon'
+import XIcon from '@/components/ui/x-icon'
 
 // The theme's colours: this window has no editor, which is what usually brings them.
 import '@/assets/styles/_variables.scss'
@@ -10,6 +15,12 @@ import { BorderBeam } from 'border-beam'
 import { Liquid } from 'liquid-gooey'
 import { Typed } from './ui'
 import { DotMatrix } from './dot-matrix'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const Check = alive(SimpleCheckedIcon)
+const GripVertical = alive(DotsVerticalIcon)
+const Play = alive(PlayerIcon)
+const X = alive(XIcon)
 
 /** 59:55, or 1:02:03 past the hour. */
 const clock = (ms: number): string => {

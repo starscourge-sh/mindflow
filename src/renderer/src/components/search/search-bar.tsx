@@ -1,9 +1,18 @@
-import { ChevronDown, ChevronRight, ChevronUp, X } from "lucide-react"
+import { alive } from "@/components/ui/alive-icon"
+import DownChevronIcon from "@/components/ui/down-chevron"
+import RightChevronIcon from "@/components/ui/right-chevron"
+import XIcon from "@/components/ui/x-icon"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useEditorState, type Editor } from "@tiptap/react"
 
 import { cue } from "@/lib/cues"
 import { Roll } from "@/lib/roll"
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const ChevronDown = alive(DownChevronIcon)
+const ChevronRight = alive(RightChevronIcon)
+const ChevronUp = alive(DownChevronIcon, 'rotate-180')
+const X = alive(XIcon)
 
 /**
  * A small find bar: term, match count, prev/next, close, and replace folded

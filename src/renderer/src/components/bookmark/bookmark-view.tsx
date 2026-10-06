@@ -1,9 +1,15 @@
 import { useState } from "react"
 import { NodeViewWrapper, useEditorState, type NodeViewProps } from "@tiptap/react"
-import { Check, Copy } from "lucide-react"
+import { alive } from "@/components/ui/alive-icon"
+import SimpleCheckedIcon from "@/components/ui/simple-checked-icon"
+import CopyIcon from "@/components/ui/copy-icon"
 
 import type { BookmarkAttributes } from "@/extensions/bookmark"
 import { Orb } from "@/components/vigil/orb"
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const Check = alive(SimpleCheckedIcon)
+const Copy = alive(CopyIcon)
 
 /**
  * The link preview card.

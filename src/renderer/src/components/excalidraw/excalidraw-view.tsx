@@ -1,7 +1,10 @@
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { NodeViewWrapper, useEditorState, type NodeViewProps } from '@tiptap/react'
-import { Check, Minimize2, PencilRuler } from 'lucide-react'
+import { Minimize2 } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
+import PenIcon from '@/components/ui/pen-icon'
 import { chime } from '@/lib/sound'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
@@ -10,6 +13,10 @@ import ExpandIcon from '@/components/ui/expand-icon'
 import type { DiagramScene } from '@/extensions/excalidraw'
 import { host } from '@/lib/host'
 import type { ExcalidrawElement, NonDeleted } from '@excalidraw/excalidraw/element/types'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const Check = alive(SimpleCheckedIcon)
+const PencilRuler = alive(PenIcon)
 
 const ExcalidrawCanvas = lazy(() => import('@/components/excalidraw/excalidraw-canvas'))
 

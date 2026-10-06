@@ -15,16 +15,67 @@ function TooltipProvider({
   )
 }
 
+// Something opened (a menu, a popover, a sheet, a dialog) is what you are
+// looking at: no tip draws over it. Only the tips of its own controls show
+// while it is open, and a tip already showing goes when one opens.
+const OPENED = '[data-state="open"]:is([role="menu"],[role="dialog"],[role="alertdialog"],[role="listbox"],[data-slot="popover-content"],[data-slot="sheet-content"])'
+const covered = (trigger: Element | null): boolean => [...document.querySelectorAll(OPENED)].some((one) => !trigger || !one.contains(trigger))
+let watching = false
+const watchOpened = (): void => {
+  if (watching) return
+  watching = true
+  new MutationObserver(() => {
+    if (document.querySelector(OPENED)) window.dispatchEvent(new Event("vigil:opened"))
+  }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-state"] })
+}
+const TriggerRef = React.createContext<React.RefObject<HTMLElement | null> | null>(null)
+
 function Tooltip({
+  open: given,
+  defaultOpen = false,
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
-  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />
+  const trigger = React.useRef<HTMLElement | null>(null)
+  const [own, setOwn] = React.useState(defaultOpen)
+  const open = given ?? own
+  const change = (next: boolean): void => {
+    if (next && covered(trigger.current)) return
+    setOwn(next)
+    onOpenChange?.(next)
+  }
+  const changeNow = React.useRef(change)
+  changeNow.current = change
+  React.useEffect(() => {
+    if (!open) return
+    watchOpened()
+    const shut = (): void => void (covered(trigger.current) && changeNow.current(false))
+    window.addEventListener("vigil:opened", shut)
+    return () => window.removeEventListener("vigil:opened", shut)
+  }, [open])
+  return (
+    <TriggerRef.Provider value={trigger}>
+      <TooltipPrimitive.Root data-slot="tooltip" open={open} onOpenChange={change} {...props} />
+    </TriggerRef.Provider>
+  )
 }
 
 function TooltipTrigger({
+  ref,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />
+  const trigger = React.useContext(TriggerRef)
+  return (
+    <TooltipPrimitive.Trigger
+      data-slot="tooltip-trigger"
+      ref={(node) => {
+        if (trigger) trigger.current = node
+        if (typeof ref === "function") ref(node)
+        else if (ref) ref.current = node
+      }}
+      {...props}
+    />
+  )
 }
 
 function TooltipContent({

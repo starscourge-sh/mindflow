@@ -8,8 +8,15 @@ import {
 } from "react-day-picker"
 
 import { Button, buttonVariants } from "@/components/ui/button"
-import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from "lucide-react"
+import { alive } from "@/components/ui/alive-icon"
+import RightChevronIcon from "@/components/ui/right-chevron"
+import DownChevronIcon from "@/components/ui/down-chevron"
 import { dayjs } from '../../../../main/dates'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const ChevronLeftIcon = alive(RightChevronIcon, 'rotate-180')
+const ChevronRightIcon = alive(RightChevronIcon)
+const ChevronDownIcon = alive(DownChevronIcon)
 
 function Calendar({
   className,

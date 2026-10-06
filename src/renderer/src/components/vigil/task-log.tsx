@@ -1,12 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { MessageSquareText, Timer } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import MessageCircleIcon from '@/components/ui/message-circle-icon'
+import ClockIcon from '@/components/ui/clock-icon'
 
 import { chime } from '@/lib/sound'
 import { useLive, vigil, when, type Gloss, type Session } from '@/lib/vigil'
 import { cn } from '@/lib/cn'
 import { GlossLine, useGlossKey } from './gloss-line'
 import { Island, Kbd, Rolling, toast, Typed } from './ui'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const MessageSquareText = alive(MessageCircleIcon)
+const Timer = alive(ClockIcon)
 
 /**
  * A task's running log: what each work session came to, and every thought

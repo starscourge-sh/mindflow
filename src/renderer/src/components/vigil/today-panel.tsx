@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { CalendarClock, CalendarDays, Check, Plus, Repeat } from 'lucide-react'
+import { CalendarDays, Plus } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import ClockIcon from '@/components/ui/clock-icon'
+import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
+import RefreshIcon from '@/components/ui/refresh-icon'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { chime } from '@/lib/sound'
@@ -15,6 +19,11 @@ import { Tip } from '@/components/vigil/ui'
 import { Rest } from './scenery'
 import { GlossButton, GlossLine } from './gloss-line'
 import { startOfDay } from '../../../../main/dates'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const CalendarClock = alive(ClockIcon)
+const Check = alive(SimpleCheckedIcon)
+const Repeat = alive(RefreshIcon)
 
 const endOfToday = (): number => startOfDay(1)
 const startOfToday = (): number => startOfDay()
@@ -105,9 +114,9 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
         })}
         on={(id) => id === scope}
         pick={(id) => setScope(id as Scope)}
-        // One line that scrolls sideways, never wrapping under itself.
-        // and fading at its end, so a cut-off chip reads as more to scroll to.
-        className="min-w-0 flex-1 flex-nowrap overflow-x-auto pr-6 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] [&>button]:shrink-0"
+        // One line that scrolls sideways, faded where there is more, the chosen list always whole.
+        sideways
+        className="min-w-0 flex-1"
       />
       <span className="ml-auto shrink-0"><Display compact view={view} onChange={setView} facets={facets} sorts={[{ id: 'manual', label: 'Your order' }]} /></span>
       </Strip>

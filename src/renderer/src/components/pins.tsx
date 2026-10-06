@@ -1,4 +1,6 @@
-import { Pin, X } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import BookmarkIcon from '@/components/ui/bookmark-icon'
+import XIcon from '@/components/ui/x-icon'
 import { chime } from '@/lib/sound'
 import { AnimatePresence, motion } from 'motion/react'
 
@@ -9,6 +11,10 @@ import { RowMenu } from './vigil/row-menu'
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { daysSince } from '../../../main/dates'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const Pin = alive(BookmarkIcon)
+const X = alive(XIcon)
 
 /**
  * Pinned: what you parked to see again soon, "mention the freight change at

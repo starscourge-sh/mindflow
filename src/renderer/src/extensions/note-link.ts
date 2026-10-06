@@ -366,8 +366,8 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       new Plugin({
         view: (first) => {
           const tried = new Set<string>()
-          const resolve = (view: EditorView): void => {
-            view.state.doc.descendants((node) => {
+          const resolve = (view: EditorView, from = 0, to = view.state.doc.content.size): void => {
+            view.state.doc.nodesBetween(from, to, (node) => {
               const { id, label } = node.attrs
               if (node.type.name !== "noteLink" || id || !label || tried.has(label)) return
               tried.add(label)
@@ -385,7 +385,17 @@ export const NoteLink = Node.create<NoteLinkOptions>({
             })
           }
           resolve(first)
-          return { update: resolve }
+          // Only what changed is looked through: walking a long note on every key was slow.
+          return {
+            update: (view, previous) => {
+              const before = previous.doc.content
+              const now = view.state.doc.content
+              const start = before.findDiffStart(now)
+              if (start == null) return
+              const end = before.findDiffEnd(now)?.b ?? now.size
+              resolve(view, start, Math.min(now.size, Math.max(start + 1, end)))
+            },
+          }
         },
       }),
     ]

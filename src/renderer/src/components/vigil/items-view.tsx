@@ -1,7 +1,23 @@
 import { chime } from '@/lib/sound'
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { BookOpen, Brain, Calendar, Eye, EyeOff, FileText, History, Layers, Pause, Pin, Play, Plus, Quote, RefreshCw, SquareDashed, TriangleAlert, X } from 'lucide-react'
+import { Calendar, Pause, Plus, SquareDashed } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
+import EyeIcon from '@/components/ui/eye-icon'
+import EyeOffIcon from '@/components/ui/eye-off-icon'
+import FileDescriptionIcon from '@/components/ui/file-description-icon'
+import HistoryCircleIcon from '@/components/ui/history-circle-icon'
+import LayersIcon from '@/components/ui/layers-icon'
+import BookmarkIcon from '@/components/ui/bookmark-icon'
+import PlayerIcon from '@/components/ui/player-icon'
+import MessageCircleIcon from '@/components/ui/message-circle-icon'
+import RefreshIcon from '@/components/ui/refresh-icon'
+import TriangleAlertIcon from '@/components/ui/triangle-alert-icon'
+import XIcon from '@/components/ui/x-icon'
+import Stack3Icon from '@/components/ui/stack-3-icon'
+import ArrowBackUpIcon from '@/components/ui/arrow-back-up-icon'
+import DownloadIcon from '@/components/ui/download-icon'
 
 import { AnimatePresence, motion } from 'motion/react'
 
@@ -32,13 +48,30 @@ import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
 import AlarmClockPlusIcon from '@/components/ui/alarm-clock-plus-icon'
-import { Archive, ArchiveRestore, Download } from 'lucide-react'
 import { Aliases, KindFields, LocalGraph, NoteHeader } from './note-extras'
 import { ListSearch, NoteList, NoteRail, PaneButtons, Peek, matches, type Entry } from './note-list'
 import { archive, changeKind, openWindow, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { QuestionDetail } from './questions-view'
 import { GlossTimeline } from './gloss-line'
 import { dayjs, moment, num } from '../../../../main/dates'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const BookOpen = alive(BookIcon)
+const Brain = alive(BrainCircuitIcon)
+const Eye = alive(EyeIcon)
+const EyeOff = alive(EyeOffIcon)
+const FileText = alive(FileDescriptionIcon)
+const History = alive(HistoryCircleIcon)
+const Layers = alive(LayersIcon)
+const Pin = alive(BookmarkIcon)
+const Play = alive(PlayerIcon)
+const Quote = alive(MessageCircleIcon)
+const RefreshCw = alive(RefreshIcon)
+const TriangleAlert = alive(TriangleAlertIcon)
+const X = alive(XIcon)
+const Archive = alive(Stack3Icon)
+const ArchiveRestore = alive(ArrowBackUpIcon)
+const Download = alive(DownloadIcon)
 
 const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
 
@@ -219,7 +252,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
               {spread && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder={`Search in ${tier === 'nugget' ? 'Nuggets' : 'Articles'}`} />}
               {tier === 'nugget' && items.length > 1 && !spread && !open && (
                 <>
-                  <span className="whitespace-nowrap"><Pressed keys="X" /> to select</span>
+                  <span className="hidden whitespace-nowrap @[48rem]/page:inline"><Pressed keys="X" /> to select</span>
                   <Button variant="ghost" size="sm" onClick={() => void vigil.random().then(setPair)}>
                     Two at random
                   </Button>
@@ -670,17 +703,23 @@ export function useItemDisplay(name: string, every: Item[]): {
   const all = every.filter((one) => !!one.archivedAt === !!view.filter.flags?.includes('archived'))
   const own = useOwnOrder(name)
   // Moving a row is choosing your own order: the list switches to it.
-  const mine = (): void => void (view.sort !== 'manual' && setView({ ...view, sort: 'manual' }))
+  // Gives back the way to undo that, when it did switch.
+  const mine = (): (() => void) | undefined => {
+    if (view.sort === 'manual') return undefined
+    const was = view
+    setView({ ...view, sort: 'manual' })
+    return () => setView(was)
+  }
   const move = (ids: string[], id: string, target: string, after: boolean): void => {
-    mine()
+    const unsort = mine()
     // From another sort, the order you see is the one the move starts from.
-    own.move(ids, id, target, after, false, view.sort !== 'manual' ? groups.flatMap(([, list]) => list.map((one) => one.id)) : undefined)
+    own.move(ids, id, target, after, false, view.sort !== 'manual' ? groups.flatMap(([, list]) => list.map((one) => one.id)) : undefined, unsort)
   }
   const moveBy = (shown: string[], id: string, by: number): boolean => {
     const target = shown[shown.indexOf(id) + by]
     if (!target) return false
-    mine()
-    own.move(every.map((one) => one.id), id, target, by > 0, true, view.sort !== 'manual' ? shown : undefined)
+    const unsort = mine()
+    own.move(every.map((one) => one.id), id, target, by > 0, true, view.sort !== 'manual' ? shown : undefined, unsort)
     return true
   }
   const facets: Facet<Item>[] = [

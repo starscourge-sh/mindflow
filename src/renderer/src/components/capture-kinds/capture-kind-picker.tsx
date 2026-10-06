@@ -1,18 +1,14 @@
 import { useEffect, useState } from "react"
 import { chime, step } from "@/lib/sound"
-import {
-  BookOpen,
-  Check,
-  FlaskConical,
-  ListTodo,
-  NotebookText,
-  Quote,
-  Bookmark,
-  Link,
-  ScrollText,
-  Split,
-  Sticker,
-} from "lucide-react"
+import { FlaskConical, ScrollText, Split, Sticker } from "lucide-react"
+import { alive } from "@/components/ui/alive-icon"
+import BookIcon from "@/components/ui/book-icon"
+import SimpleCheckedIcon from "@/components/ui/simple-checked-icon"
+import CheckedIcon from "@/components/ui/checked-icon"
+import PenIcon from "@/components/ui/pen-icon"
+import MessageCircleIcon from "@/components/ui/message-circle-icon"
+import BookmarkIcon from "@/components/ui/bookmark-icon"
+import LinkIcon from "@/components/ui/link-icon"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -28,6 +24,15 @@ import { useShortcut } from "@/lib/use-shortcut"
 
 import type { BlockColor } from "@/extensions/block-color"
 import { Tip } from '@/components/vigil/ui'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const BookOpen = alive(BookIcon)
+const Check = alive(SimpleCheckedIcon)
+const ListTodo = alive(CheckedIcon)
+const NotebookText = alive(PenIcon)
+const Quote = alive(MessageCircleIcon)
+const Bookmark = alive(BookmarkIcon)
+const Link = alive(LinkIcon)
 
 /**
  * One of the nine the themes already tune for contrast, rather than a Tailwind

@@ -6,7 +6,13 @@ import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 
 const COLORS = ['gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const
-import { ArrowLeft, FileText, Gem, Inbox, ListTodo, Tag } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import ArrowNarrowLeftIcon from '@/components/ui/arrow-narrow-left-icon'
+import FileDescriptionIcon from '@/components/ui/file-description-icon'
+import LibraryIcon from '@/components/ui/library-icon'
+import StackIcon from '@/components/ui/stack-icon'
+import CheckedIcon from '@/components/ui/checked-icon'
+import HashtagIcon from '@/components/ui/hashtag-icon'
 
 import { splitTags, useLive, vigil } from '@/lib/vigil'
 import { Empty, Page, useListKeys } from './ui'
@@ -18,6 +24,14 @@ import { openWindow } from '@/lib/notes'
 import { TagStream } from './tag-read'
 import { motion } from 'motion/react'
 import { dayMonth } from '../../../../main/dates'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const ArrowLeft = alive(ArrowNarrowLeftIcon)
+const FileText = alive(FileDescriptionIcon)
+const Gem = alive(LibraryIcon)
+const Inbox = alive(StackIcon)
+const ListTodo = alive(CheckedIcon)
+const Tag = alive(HashtagIcon)
 
 const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo }
 
@@ -52,7 +66,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
       {/* With a tag open, the list narrows to a column and the tag takes the rest. */}
       {/* Narrow, the tag being read takes the whole page; the list is a step back. */}
       <div className={chosen ? 'hidden w-72 shrink-0 border-r @[56rem]/page:flex' : 'contents'}>
-      <Page title="Tags" count={tags.length}>
+      <Page title="Tags" count={tags.length} unit={['tag', 'tags']}>
         {tags.length ? (
           <VirtualList items={tags} keyOf={(one) => one.tag} cursor={cursor} estimate={36} className="mx-3 my-2">
             {({ tag, count, color, examAt }, index) => (

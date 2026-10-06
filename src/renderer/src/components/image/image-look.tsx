@@ -4,7 +4,11 @@ import { createRoot } from "react-dom/client"
 import { NodeSelection } from "@tiptap/pm/state"
 import { useEditorState, type Editor } from "@tiptap/react"
 import { animate, motion } from "motion/react"
-import { ChevronLeft, ChevronRight, Copy, FolderOpen, X } from "lucide-react"
+import { FolderOpen } from "lucide-react"
+import { alive } from "@/components/ui/alive-icon"
+import RightChevronIcon from "@/components/ui/right-chevron"
+import CopyIcon from "@/components/ui/copy-icon"
+import XIcon from "@/components/ui/x-icon"
 import { AliveIcon } from "@/components/ui/alive-icon"
 import MagnifierIcon from "@/components/ui/magnifier-icon"
 import ExternalLinkIcon from "@/components/ui/external-link-icon"
@@ -12,6 +16,12 @@ import { Toolbar, ToolbarGroup, ToolbarSeparator } from "@/components/tiptap-ui-
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { host } from "@/lib/host"
 import { chime } from "@/lib/sound"
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const ChevronLeft = alive(RightChevronIcon, 'rotate-180')
+const ChevronRight = alive(RightChevronIcon)
+const Copy = alive(CopyIcon)
+const X = alive(XIcon)
 
 /** Asked for by the image menu's own Look button. */
 const LOOK = "mf-look"

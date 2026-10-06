@@ -3,7 +3,13 @@ import React, { useCallback, useEffect, useRef, useState, type CSSProperties } f
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
 import { useSwipeBack } from './lib/use-swipe-back'
-import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Orbit, X } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import ArrowNarrowLeftIcon from '@/components/ui/arrow-narrow-left-icon'
+import ExternalLinkIcon from '@/components/ui/external-link-icon'
+import RightChevronIcon from '@/components/ui/right-chevron'
+import EyeOffIcon from '@/components/ui/eye-off-icon'
+import QuestionMarkIcon from '@/components/ui/question-mark'
+import XIcon from '@/components/ui/x-icon'
 import type { Editor, JSONContent } from '@tiptap/core'
 
 import { convertImports } from './lib/convert-imports'
@@ -64,6 +70,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
 import { Tip, Pressed } from '@/components/vigil/ui'
+import { Mentions } from '@/components/vigil/mentions'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
@@ -75,6 +82,15 @@ import { useStoredFlag } from '@/lib/use-stored-flag'
 import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
 import { FocusScenery, Rest } from './components/vigil/scenery'
 import { num } from '../../main/dates'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const ArrowLeft = alive(ArrowNarrowLeftIcon)
+const ArrowUpRight = alive(ExternalLinkIcon)
+const ChevronLeft = alive(RightChevronIcon, 'rotate-180')
+const ChevronRight = alive(RightChevronIcon)
+const EyeOff = alive(EyeOffIcon)
+const Orbit = alive(QuestionMarkIcon)
+const X = alive(XIcon)
 
 
 
@@ -208,7 +224,7 @@ const Header = ({ panel, onPanel, onNew, menu, nav, title, aside }: {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-              className="pointer-events-none absolute inset-x-0 truncate px-48 text-center text-control text-muted-foreground/70"
+              className="pointer-events-none absolute inset-x-0 truncate px-56 text-center text-control text-muted-foreground/70"
             >
               {title}
             </motion.span>
@@ -222,8 +238,8 @@ const Header = ({ panel, onPanel, onNew, menu, nav, title, aside }: {
         {/* The chip sits where the pill will be while the pill is away, and
             steps aside for it when the pointer comes in, so it never floats
             beside an empty space. */}
-        <span className="group/top relative flex items-center">
-        {aside && <span className="transition-[margin] duration-150 group-has-[[data-state=open]]/top:mr-[calc(5.5rem+0.25rem)] [.pointer-in_&]:mr-[calc(5.5rem+0.25rem)]">{aside}</span>}
+        <span className="mf-top relative flex items-center">
+        {aside && <span className="transition-[margin] duration-150 [.mf-top:has([data-state=open])_&]:mr-[calc(5.5rem+0.25rem)] [.pointer-in_&]:mr-[calc(5.5rem+0.25rem)]">{aside}</span>}
         <span
           className="mf-pill absolute right-0 flex items-center overflow-hidden rounded-full border border-foreground/15 bg-background/60 opacity-0 transition-opacity duration-150 [.pointer-in_&]:opacity-100 has-[[data-state=open]]:opacity-100 [&>*+*]:border-l [&>*+*]:border-foreground/15"
           style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
@@ -1078,6 +1094,8 @@ export default function App(): React.JSX.Element {
               // A heading in the note already open is gone to here; anywhere else, once it opens.
               onOpenNote={(link, heading) => (heading && link === editing?.id && editorRef.current ? void goToHeading(editorRef.current, heading) : follow(link, (type, id) => openAny(type, id), heading))}
               from={editing?.id}
+              // A kept note's mentions under it; a new draft has none yet.
+              after={editing ? <Mentions id={editing.id} compact onOpen={(type, id) => openAny(type, id)} /> : undefined}
               onSource={() => setSource((open) => !open)}
               // A tag opens everything carrying it, in search.
               onTag={(tag) => {
@@ -1414,8 +1432,11 @@ const CapturePrompt = ({
   onSource,
   onTag,
   onTitleOut,
+  after,
   tokens = TAGS
 }: {
+  /** Under the words, inside their scroll: the note's mentions, for one already kept. */
+  after?: React.ReactNode
   onSource: () => void
   /** What the editor lights up: tags, and a todo's date and priority words. */
   tokens?: TokenPattern[]
@@ -1477,6 +1498,7 @@ const CapturePrompt = ({
         findHeadings={findHeadings}
         onOpenNote={onOpenNote}
         onTitleOut={onTitleOut}
+        after={after}
       />
     </div>
   )

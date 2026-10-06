@@ -1,10 +1,15 @@
 import { useState } from 'react'
-import { Check, CircleDashed } from 'lucide-react'
+import { CircleDashed } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { PACKS, chime, click, withPack, type ClickName, type PackName } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
 import { Button } from '@/components/ui/button'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const Check = alive(SimpleCheckedIcon)
 
 /**
  * The sound pack, chosen by ear: the nine packs down the left, and on the right

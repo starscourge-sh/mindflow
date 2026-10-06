@@ -4,9 +4,10 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Reac
 import { createPortal } from "react-dom"
 import type { JSONContent } from "@tiptap/core"
 import { Fragment, Slice } from "@tiptap/pm/model"
-import { NodeSelection, Selection as PMSelection } from "@tiptap/pm/state"
+import { NodeSelection, Selection as PMSelection, type EditorState, type Transaction } from "@tiptap/pm/state"
+import { onlyWordsChanged } from "@/lib/tiptap-utils"
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model"
-import { EditorContent, EditorContext, useEditor, useEditorState } from "@tiptap/react"
+import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
 
 // --- Tiptap Core Extensions ---
 import { StarterKit } from "@tiptap/starter-kit"
@@ -28,7 +29,8 @@ import { TableKit } from "@tiptap/extension-table"
 import { Youtube } from "@tiptap/extension-youtube"
 import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details"
 import { DragHandle } from "@tiptap/extension-drag-handle-react"
-import { GripVertical } from "lucide-react"
+import { alive } from "@/components/ui/alive-icon"
+import DotsVerticalIcon from "@/components/ui/dots-vertical-icon"
 import { offset } from "@floating-ui/react"
 import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight"
 import { ReactNodeViewRenderer, type Editor } from "@tiptap/react"
@@ -225,6 +227,9 @@ import { EmojiSuggestion } from "@/components/emoji/emoji-suggestion"
 import "@/assets/styles/_variables.scss"
 import "@/assets/styles/_keyframe-animations.scss"
 import "@/components/mindflow/mindflow-editor.scss"
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const GripVertical = alive(DotsVerticalIcon)
 
 
 /**
@@ -505,6 +510,9 @@ export interface MindflowEditorProps {
  * nothing is rendered until it is. Leaving it out keeps a single editor that
  * never remounts, so nobody who never had an id is caught by this.
  */
+/** Each editor's drag handle, once found. */
+const gripOf = new WeakMap<Editor, HTMLElement>()
+
 export function MindflowEditor({
   documentId,
   ...props
@@ -690,7 +698,12 @@ function Surface({
       for (let depth = $at?.depth ?? 0; depth > 0; depth -= 1) {
         if ($at?.node(depth).type.name === "table") table = true
       }
-      const handle = editor.view.dom.parentElement?.querySelector(".tiptap-drag-handle")
+      // Kept once found: looking it up searched the whole note on every key.
+      let handle = gripOf.get(editor)
+      if (!handle?.isConnected) {
+        handle = editor.view.dom.parentElement?.querySelector<HTMLElement>(".tiptap-drag-handle") ?? undefined
+        if (handle) gripOf.set(editor, handle)
+      }
       handle?.classList.toggle("is-hidden", table)
       // A heading's grip shows its level instead of the dots, Obsidian's "H2".
       if (node?.type.name === "heading") handle?.setAttribute("data-level", String(node.attrs.level))
@@ -1142,6 +1155,22 @@ function Surface({
       // every selected line, where a hand-rolled insert replaces the selection.
       CodeBlockLowlight.extend({
         addNodeView: () => ReactNodeViewRenderer(CodeBlockView),
+        // Named here or the extended copy adds its highlighter on top of the
+        // parent's: every code block was coloured twice on every key.
+        // The highlighter also walked the whole note twice on every change,
+        // even a caret move: words typed outside code only move its colours.
+        addProseMirrorPlugins() {
+          const plugins = this.parent?.() ?? []
+          const inCode = (state: EditorState): boolean => state.selection.$head.parent.type.name === this.name
+          for (const plugin of plugins) {
+            const field = plugin.spec.state
+            if (!field || !(plugin as unknown as { key: string }).key.startsWith("lowlight")) continue
+            const apply = field.apply
+            field.apply = (tr: Transaction, set, old, state) =>
+              !tr.docChanged ? set : !inCode(old) && !inCode(state) && onlyWordsChanged(tr) && !tr.steps.some((_, i) => tr.docs[i].resolve((tr.steps[i] as unknown as { from: number }).from).parent.type.name === this.name) ? set.map(tr.mapping, tr.doc) : apply.call(plugin, tr, set, old, state)
+          }
+          return plugins
+        },
       }).configure({
         lowlight,
         enableTabIndentation: true,
@@ -1370,30 +1399,52 @@ function Surface({
   // the box the document scrolls itself, in a page its column does, and only
   // the window is the same in both. The top 48px are the host's bar.
   const titleOut = useLatest(onTitleOut)
-  const [titleGone, setTitleGone] = useState(false)
-  const firstLine = useEditorState({
-    editor,
-    selector: ({ editor: instance }) => (onTitleOut && instance ? instance.state.doc.firstChild?.textContent.trim() ?? "" : ""),
-  })
-  // Its kind too: turning the line into a heading swaps its element for a new
-  // one with the same words, and the watcher would stay on the old one.
-  const firstType = useEditorState({
-    editor,
-    selector: ({ editor: instance }) => (onTitleOut && instance ? `${instance.state.doc.firstChild?.type.name}:${instance.state.doc.firstChild?.attrs.level ?? ""}` : ""),
-  })
+  // Kept out of React: a redraw of the whole editor on every key typed in
+  // the first line was most of what those keys cost in a long note.
   useEffect(() => {
-    const first = onTitleOut && editor && !editor.isDestroyed ? editor.view.dom.firstElementChild : null
-    if (!first) return
-    const watch = new IntersectionObserver(([entry]) => setTitleGone(!entry.isIntersecting && entry.boundingClientRect.top < 48), {
-      rootMargin: "-48px 0px 0px 0px",
-    })
-    watch.observe(first)
-    return () => watch.disconnect()
-    // Again when the first block is replaced, as a new heading or a paste does.
-  }, [editor, !onTitleOut, firstLine, firstType]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    titleOut.current?.(titleGone && firstLine ? firstLine : null)
-  }, [titleGone, firstLine]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!onTitleOut || !editor) return
+    let watched: Element | null = null
+    let gone = false
+    let told: string | null = null
+    const tell = (): void => {
+      let line = gone ? editor.state.doc.firstChild?.textContent.trim() || null : null
+      if (line === told) return
+      // Asked again before the words change: the watcher can miss the line
+      // coming back (a long note is drawn off the page and put back).
+      if (line && watched) {
+        const box = watched.getBoundingClientRect()
+        gone = box.bottom <= 48 || !box.height
+        if (!gone) line = null
+        if (line === told) return
+      }
+      told = line
+      titleOut.current?.(line)
+    }
+    const watch = new IntersectionObserver(
+      ([entry]) => {
+        gone = !entry.isIntersecting && entry.boundingClientRect.top < 48
+        tell()
+      },
+      { rootMargin: "-48px 0px 0px 0px" }
+    )
+    // Again when the first block is replaced: a new heading or a paste swaps
+    // its element for a new one with the same words.
+    const check = (): void => {
+      const first = editor.isDestroyed ? null : editor.view.dom.firstElementChild
+      if (first !== watched) {
+        if (watched) watch.unobserve(watched)
+        watched = first
+        if (first) watch.observe(first)
+      }
+      if (gone) tell()
+    }
+    check()
+    editor.on("transaction", check)
+    return () => {
+      editor.off("transaction", check)
+      watch.disconnect()
+    }
+  }, [editor, !onTitleOut]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => titleOut.current?.(null), []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {

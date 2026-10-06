@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { ChevronDown, Minus, Plus } from 'lucide-react'
+import { Minus, Plus } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import DownChevronIcon from '@/components/ui/down-chevron'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -15,6 +17,9 @@ import { NOTE_FONTS, TEXT_SIZES, familyOf, systemFonts } from '@/lib/editor-setu
 import { chime, step } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
 import { Rolling, Pressed } from './ui'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const ChevronDown = alive(DownChevronIcon)
 
 /**
  * The font notes are written in: ours first, then every family on this Mac,
@@ -37,7 +42,7 @@ export function FontPicker({ value, setting = 'noteFont', same }: {
           <span className="truncate"><Rolling text={name} /></span> <ChevronDown className="size-3.5 opacity-60" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="max-h-80 w-56 overflow-y-auto">
+      <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuRadioGroup value={value || 'same'} onValueChange={(font) => {
           chime('settled')
           void vigil.setSettings({ [setting]: font })

@@ -1,6 +1,24 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { ArrowUpRight, Eye, EyeOff, CheckCircle2, FileText, Hash, Inbox, ListTodo, Merge, Orbit, Pin, Trash2, X, Laptop, Timer, CloudSun } from 'lucide-react'
+import { Merge } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import ExternalLinkIcon from '@/components/ui/external-link-icon'
+import EyeIcon from '@/components/ui/eye-icon'
+import EyeOffIcon from '@/components/ui/eye-off-icon'
+import DoubleCheckIcon from '@/components/ui/double-check-icon'
+import FileDescriptionIcon from '@/components/ui/file-description-icon'
+import HashtagIcon from '@/components/ui/hashtag-icon'
+import StackIcon from '@/components/ui/stack-icon'
+import CheckedIcon from '@/components/ui/checked-icon'
+import QuestionMarkIcon from '@/components/ui/question-mark'
+import BookmarkIcon from '@/components/ui/bookmark-icon'
+import XIcon from '@/components/ui/x-icon'
+import CpuIcon from '@/components/ui/cpu-icon'
+import ClockIcon from '@/components/ui/clock-icon'
+import Cloud2Icon from '@/components/ui/cloud-2-icon'
+import Stack3Icon from '@/components/ui/stack-3-icon'
+import ArrowBackUpIcon from '@/components/ui/arrow-back-up-icon'
+import DownloadIcon from '@/components/ui/download-icon'
 import { motion } from 'motion/react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
@@ -30,7 +48,6 @@ import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
 import TrashIcon from '@/components/ui/trash-icon'
-import { Archive, ArchiveRestore, Download } from 'lucide-react'
 import { Aliases, KindFields, LocalGraph, NoteHeader } from './note-extras'
 import { ListSearch, NoteRail, PaneButtons, Peek, matches, still } from './note-list'
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
@@ -39,6 +56,26 @@ import type { MenuItem } from './row-menu'
 import { PinnedQuestions, clueInto } from './pinned-questions'
 import { Board, useBoard } from './board-view'
 import { dayjs, num } from '../../../../main/dates'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const ArrowUpRight = alive(ExternalLinkIcon)
+const Eye = alive(EyeIcon)
+const EyeOff = alive(EyeOffIcon)
+const CheckCircle2 = alive(DoubleCheckIcon)
+const FileText = alive(FileDescriptionIcon)
+const Hash = alive(HashtagIcon)
+const Inbox = alive(StackIcon)
+const ListTodo = alive(CheckedIcon)
+const Orbit = alive(QuestionMarkIcon)
+const Pin = alive(BookmarkIcon)
+const Trash2 = alive(TrashIcon)
+const X = alive(XIcon)
+const Laptop = alive(CpuIcon)
+const Timer = alive(ClockIcon)
+const CloudSun = alive(Cloud2Icon)
+const Archive = alive(Stack3Icon)
+const ArchiveRestore = alive(ArrowBackUpIcon)
+const Download = alive(DownloadIcon)
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
 
@@ -569,17 +606,23 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   const kept = all.filter((one) => !!one.archivedAt === showArchived)
   const own = useOwnOrder(name)
   // Moving a row is choosing your own order: the list switches to it.
-  const mine = (): void => void (view.sort !== 'manual' && setView({ ...view, sort: 'manual' }))
+  // Gives back the way to undo that, when it did switch.
+  const mine = (): (() => void) | undefined => {
+    if (view.sort === 'manual') return undefined
+    const was = view
+    setView({ ...view, sort: 'manual' })
+    return () => setView(was)
+  }
   const move = (ids: string[], id: string, target: string, after: boolean): void => {
-    mine()
+    const unsort = mine()
     // From another sort, the order you see is the one the move starts from.
-    own.move(ids, id, target, after, false, view.sort !== 'manual' ? groups.flatMap(([, list]) => list.map((one) => one.id)) : undefined)
+    own.move(ids, id, target, after, false, view.sort !== 'manual' ? groups.flatMap(([, list]) => list.map((one) => one.id)) : undefined, unsort)
   }
   const moveBy = (shown: string[], id: string, by: number): boolean => {
     const target = shown[shown.indexOf(id) + by]
     if (!target) return false
-    mine()
-    own.move(kept.map((one) => one.id), id, target, by > 0, true, view.sort !== 'manual' ? shown : undefined)
+    const unsort = mine()
+    own.move(kept.map((one) => one.id), id, target, by > 0, true, view.sort !== 'manual' ? shown : undefined, unsort)
     return true
   }
   const statuses = [...new Set(kept.map((one) => one.status))]

@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react'
-import { X } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import XIcon from '@/components/ui/x-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
 
@@ -8,6 +9,9 @@ import { glance } from './note-preview'
 import { Rolling, toast } from './ui'
 import { chime } from '@/lib/sound'
 import { useAppearance, useLive, vigil } from '@/lib/vigil'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const X = alive(XIcon)
 
 const DRAG = { WebkitAppRegion: 'drag' } as CSSProperties
 const STILL = { WebkitAppRegion: 'no-drag' } as CSSProperties

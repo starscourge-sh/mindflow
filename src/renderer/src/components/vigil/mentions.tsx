@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import RightChevronIcon from '@/components/ui/right-chevron'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import LinkIcon from '@/components/ui/link-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
@@ -12,6 +13,10 @@ import { vigil } from '@/lib/vigil'
 import { Thumb } from './note-extras'
 import { Tip, refuse, toast } from './ui'
 
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const ChevronLeft = alive(RightChevronIcon, 'rotate-180')
+const ChevronRight = alive(RightChevronIcon)
+
 type Found = Awaited<ReturnType<typeof vigil.mentions>>
 type Related = Awaited<ReturnType<typeof vigil.related>>
 
@@ -20,11 +25,32 @@ type Related = Awaited<ReturnType<typeof vigil.related>>
  * the line it does it in, and every note that names this one without a link
  * yet. One press makes that mention a link. Unlinked ones start folded.
  */
-export function Mentions({ id, onOpen }: { id: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element | null {
+export function Mentions({ id, onOpen, compact = false }: {
+  id: string
+  onOpen?: (type: string, id: string) => void
+  /** Under the box's editor: a single folded line until it is opened, so the writing keeps the room. */
+  compact?: boolean
+}): React.JSX.Element | null {
   const [found, setFound] = useState<Found | null>(null)
   const [unfolded, setUnfolded] = useState(false)
   const [namedOpen, setNamedOpen] = useState(false)
   const [related, setRelated] = useState<Related>([])
+  const [shown, setShown] = useState(() => {
+    try {
+      return localStorage.getItem('mf-box-mentions') === 'open'
+    } catch {
+      return false
+    }
+  })
+  const show = (open: boolean): void => {
+    chime(open ? 'slide' : 'fold')
+    setShown(open)
+    try {
+      localStorage.setItem('mf-box-mentions', open ? 'open' : 'shut')
+    } catch {
+      // Folded again next time; it still opens now.
+    }
+  }
   useEffect(() => {
     const load = (): void => {
       void vigil.mentions(id).then(setFound)
@@ -72,8 +98,32 @@ export function Mentions({ id, onOpen }: { id: string; onOpen?: (type: string, i
     </div>
   )
 
+  // What is here, in a few words, for the folded line.
+  const counts = [
+    found.linked.length && `${found.linked.length} linked`,
+    found.out.length && `${found.out.length} out`,
+    found.unlinked.length && `${found.unlinked.length} unlinked`,
+    related.length && `${related.length} related`,
+  ].filter(Boolean).join(' · ')
+  if (compact && !shown) {
+    return (
+      <section data-chrome className="page-narrow mx-auto mt-4 mb-6 w-full border-t px-[4.5rem] pt-2 text-body">
+        <button type="button" onClick={() => show(true)} className="flex items-center gap-1 rounded-md px-2 py-1 text-meta text-muted-foreground hover:bg-accent/50 hover:text-foreground">
+          <ChevronRight className="size-3" />
+          Mentions <span className="tabular-nums opacity-70">{counts}</span>
+        </button>
+      </section>
+    )
+  }
+
   return (
-    <section data-chrome className="page-narrow mx-auto mt-6 mb-16 w-full border-t px-10 pt-4 text-body">
+    <section data-chrome className={`page-narrow mx-auto w-full border-t text-body ${compact ? 'mt-4 mb-6 px-[4.5rem] pt-2' : 'mt-6 mb-16 px-10 pt-4'}`}>
+      {compact && (
+        <button type="button" onClick={() => show(false)} className="mb-1 flex items-center gap-1 rounded-md px-2 py-1 text-meta text-muted-foreground hover:bg-accent/50 hover:text-foreground">
+          <ChevronRight className="size-3 rotate-90" />
+          Mentions <span className="tabular-nums opacity-70">{counts}</span>
+        </button>
+      )}
       {found.linked.length > 0 && (
         <>
           <h3 className="mb-1 px-2 text-meta text-muted-foreground">{found.linked.length} linked {found.linked.length === 1 ? 'mention' : 'mentions'}</h3>

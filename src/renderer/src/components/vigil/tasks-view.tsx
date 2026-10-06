@@ -1,7 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import * as chrono from 'chrono-node'
 import type { JSONContent } from '@tiptap/core'
-import { Bell, CalendarClock, CalendarDays, Check, CircleX, FileText, Gem, Hash, History, ListChecks, Play, Plus, Repeat, Square, Telescope, X, Ban, Timer, Hourglass } from 'lucide-react'
+import { CalendarDays, CircleX, Plus, Square, Ban } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import FilledBellIcon from '@/components/ui/filled-bell-icon'
+import ClockIcon from '@/components/ui/clock-icon'
+import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
+import FileDescriptionIcon from '@/components/ui/file-description-icon'
+import LibraryIcon from '@/components/ui/library-icon'
+import HashtagIcon from '@/components/ui/hashtag-icon'
+import HistoryCircleIcon from '@/components/ui/history-circle-icon'
+import CheckedIcon from '@/components/ui/checked-icon'
+import PlayerIcon from '@/components/ui/player-icon'
+import RefreshIcon from '@/components/ui/refresh-icon'
+import BookmarkIcon from '@/components/ui/bookmark-icon'
+import XIcon from '@/components/ui/x-icon'
 
 
 import { MindflowEditor } from '../mindflow'
@@ -24,6 +37,22 @@ import { Rest } from './scenery'
 import { TaskLog } from './task-log'
 import { GlossButton, GlossLine } from './gloss-line'
 import { dayjs, startOfDay } from '../../../../main/dates'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const Bell = alive(FilledBellIcon)
+const CalendarClock = alive(ClockIcon)
+const Check = alive(SimpleCheckedIcon)
+const FileText = alive(FileDescriptionIcon)
+const Gem = alive(LibraryIcon)
+const Hash = alive(HashtagIcon)
+const History = alive(HistoryCircleIcon)
+const ListChecks = alive(CheckedIcon)
+const Play = alive(PlayerIcon)
+const Repeat = alive(RefreshIcon)
+const Telescope = alive(BookmarkIcon)
+const X = alive(XIcon)
+const Timer = alive(ClockIcon)
+const Hourglass = alive(ClockIcon)
 
 // Counted on the calendar, so a clock change never moves a day by an hour.
 /** The day a task shows on, as a number to compare: never, for one with no day. */
@@ -185,9 +214,13 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
         ;[order[cursor], order[to]] = [order[to], order[cursor]]
         // Moving a row is choosing your own order, as in captures and nuggets:
         // the list switches to it, numbered as you saw it.
+        const was = view
         if (view.sort !== 'manual') setView({ ...view, sort: 'manual' })
         chime('shift')
-        void Promise.all(order.map((one, index) => vigil.saveTask(one.id, { sortOrder: index })))
+        void Promise.all(order.map((one, index) => vigil.saveTask(one.id, { sortOrder: index }))).then(() => {
+          // Said once it switches, so the sort's label never lies; Undo puts both back.
+          if (was.sort !== 'manual') toast('Now in your own order', () => (setView(was), void Promise.all(shown.map((one) => vigil.saveTask(one.id, { sortOrder: one.sortOrder })))))
+        })
         setCursor(to)
         return
       }
@@ -305,7 +338,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                           <Check className={`size-3 transition-opacity ${leaving === task.id ? 'opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
                         </button>
                         </Tip>
-                        <div className="flex min-w-0 flex-1 flex-col items-start gap-1 pr-5">
+                        <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
                         <button type="button" data-row onClick={() => pick(task.id)} className="flex w-full min-w-0 flex-col items-start gap-1 text-left">
                           <span className="flex max-w-full items-center gap-2">
                             {task.priority ? <PriorityIcon level={task.priority} className="size-3.5 shrink-0" /> : null}
@@ -355,8 +388,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                         )}
                         {glossing === task.id && <GlossLine id={task.id} open onDone={() => setGlossing(null)} placeholder="A thought on it, kept in its log" className="w-full" />}
                         </div>
-                        {/* A thought without opening it: on hover, top right. */}
-                        <GlossButton className="top-1.5 right-1.5" onClick={() => setGlossing(task.id)} />
+                        {/* A thought without opening it: on hover, in the row's own line, so it never lands on the title. */}
+                        <GlossButton className="static -mt-0.5 shrink-0" onClick={() => setGlossing(task.id)} />
                       </div>
                       </RowMenu>
               )

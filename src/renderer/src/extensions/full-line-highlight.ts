@@ -1,8 +1,10 @@
 import { Extension } from "@tiptap/core"
-import { Plugin } from "@tiptap/pm/state"
+import { Plugin, PluginKey } from "@tiptap/pm/state"
 import { Decoration, DecorationSet } from "@tiptap/pm/view"
 
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
+
+import { onlyWordsChanged } from "@/lib/tiptap-utils"
 
 /**
  * A highlight covering a whole line is drawn as a band across it.
@@ -17,59 +19,74 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
  * asks "is the rest of this block marked too". So the check happens here, and
  * the block gets a class the stylesheet can paint.
  */
+/** The band for one line, when the whole of it wears one highlight. */
+function band(node: ProseMirrorNode, pos: number): Decoration | null {
+  const highlight = node.type.schema.marks.highlight
+  if (!highlight || !node.isTextblock || node.content.size === 0) return null
+  // Every piece of it, in one colour. A half-marked line is a highlight of
+  // some words, and an empty inline - an image, a card - is not text to mark.
+  let colour: string | null | undefined
+  let all = true
+  node.forEach((child) => {
+    const mark = highlight.isInSet(child.marks)
+    if (!child.isText || !mark) all = false
+    else if (colour === undefined) colour = mark.attrs.color
+    else if (colour !== mark.attrs.color) all = false
+  })
+  if (!all) return null
+  return Decoration.node(pos, pos + node.nodeSize, {
+    class: "mf-line-highlight",
+    // The mark's own colour, or nothing - the stylesheet falls back to the
+    // same default an unpainted `mark` wears.
+    ...(colour ? { style: `--mf-line-highlight: ${colour}` } : {}),
+  })
+}
+
+function bands(doc: ProseMirrorNode): DecorationSet {
+  const decorations: Decoration[] = []
+  doc.descendants((node, pos) => {
+    if (!node.isTextblock) return true
+    const one = band(node, pos)
+    if (one) decorations.push(one)
+    return false
+  })
+  return DecorationSet.create(doc, decorations)
+}
+
 export const FullLineHighlight = Extension.create({
   name: "fullLineHighlight",
 
   addProseMirrorPlugins() {
-    // Answering from the last walk while the document stands still. This runs
-    // on every state change, including every arrow key, and the walk is the
-    // length of the note - which on a long one is the whole note, per press.
-    // Per editor rather than per module, so two on a page keep their own.
-    let lastDoc: ProseMirrorNode | null = null
-    let lastSet: DecorationSet | null = null
-
+    const key = new PluginKey<DecorationSet>("fullLineHighlight")
     return [
       new Plugin({
-        props: {
-          decorations: (state) => {
-            if (state.doc === lastDoc) return lastSet
-            lastDoc = state.doc
-
-            const highlight = state.schema.marks.highlight
-            if (!highlight) return (lastSet = null)
-
-            const decorations: Decoration[] = []
-            state.doc.descendants((node: ProseMirrorNode, pos) => {
-              if (!node.isTextblock || node.content.size === 0) return true
-
-              // Every piece of it, in one colour. A half-marked line is a
-              // highlight of some words, and an empty inline - an image, a
-              // card - is not text to mark.
-              let colour: string | null | undefined
-              let all = true
-              node.forEach((child) => {
-                const mark = highlight.isInSet(child.marks)
-                if (!child.isText || !mark) all = false
-                else if (colour === undefined) colour = mark.attrs.color
-                else if (colour !== mark.attrs.color) all = false
+        key,
+        state: {
+          init: (_, state) => bands(state.doc),
+          // Words typed in a line: only that line is looked at again. Walking
+          // the whole note on every key was slow in a long one.
+          apply: (tr, set) => {
+            if (!tr.docChanged) return set
+            if (!onlyWordsChanged(tr)) return bands(tr.doc)
+            let next = set.map(tr.mapping, tr.doc)
+            tr.mapping.maps.forEach((map, index) => {
+              const after = tr.mapping.slice(index + 1)
+              map.forEach((_from, _to, start, end) => {
+                for (const at of [after.map(start, -1), after.map(end, 1)]) {
+                  const $at = tr.doc.resolve(Math.min(at, tr.doc.content.size))
+                  if (!$at.parent.isTextblock || !$at.depth) continue
+                  const from = $at.before()
+                  next = next.remove(next.find(from, $at.after(), undefined).filter((one) => one.from === from))
+                  const one = band($at.parent, from)
+                  if (one) next = next.add(tr.doc, [one])
+                }
               })
-              if (!all) return false
-
-              decorations.push(
-                Decoration.node(pos, pos + node.nodeSize, {
-                  class: "mf-line-highlight",
-                  // The mark's own colour, or nothing - the stylesheet falls
-                  // back to the same default an unpainted `mark` wears.
-                  ...(colour ? { style: `--mf-line-highlight: ${colour}` } : {}),
-                })
-              )
-              return false
             })
-
-            return (lastSet = decorations.length
-              ? DecorationSet.create(state.doc, decorations)
-              : null)
+            return next
           },
+        },
+        props: {
+          decorations: (state) => key.getState(state),
         },
       }),
     ]

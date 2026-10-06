@@ -91,13 +91,14 @@ export function useOwnOrder(list: string): {
   /**
    * Move a row to just before (or after) another, among every row in `all`.
    * `shown`: the ids as on screen, passed when the list is sorted some other way.
+   * `unsort`: given when the move switched the list to your own order; Undo puts the old sort back too.
    */
-  move: (all: string[], id: string, target: string, after: boolean, quiet?: boolean, shown?: string[]) => void
+  move: (all: string[], id: string, target: string, after: boolean, quiet?: boolean, shown?: string[], unsort?: () => void) => void
 } {
   const order = useLive(() => notes.order(list), [] as string[], [list])
   const rank = new Map(order.map((id, at) => [id, at]))
   const compare = (a: string, b: string): number => (rank.get(a) ?? -1) - (rank.get(b) ?? -1)
-  const move = (all: string[], id: string, target: string, after: boolean, quiet = false, shown?: string[]): void => {
+  const move = (all: string[], id: string, target: string, after: boolean, quiet = false, shown?: string[], unsort?: () => void): void => {
     if (id === target) return
     // Dragged while sorted some other way, the rows start from where you see
     // them (the rest after), not from an order you cannot see.
@@ -110,7 +111,9 @@ export function useOwnOrder(list: string): {
     const was = order
     chime('shift')
     void notes.setOrder(list, next).then(() => {
-      if (!quiet) toast('Moved', () => void notes.setOrder(list, was))
+      // A list that was sorted some other way says so, even from the keyboard, so its label never lies.
+      if (unsort) toast('Now in your own order', () => (unsort(), void notes.setOrder(list, was)))
+      else if (!quiet) toast('Moved', () => void notes.setOrder(list, was))
     })
   }
   return { compare, move }

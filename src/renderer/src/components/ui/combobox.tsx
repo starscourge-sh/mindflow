@@ -11,7 +11,15 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group"
-import { ChevronDownIcon, XIcon, CheckIcon } from "lucide-react"
+import { alive } from "@/components/ui/alive-icon"
+import DownChevronIcon from "@/components/ui/down-chevron"
+import XIconDrawing from "@/components/ui/x-icon"
+import SimpleCheckedIcon from "@/components/ui/simple-checked-icon"
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const ChevronDownIcon = alive(DownChevronIcon)
+const XIcon = alive(XIconDrawing)
+const CheckIcon = alive(SimpleCheckedIcon)
 
 const Combobox = ComboboxPrimitive.Root
 
@@ -73,7 +81,7 @@ function ComboboxInput({
             variant="ghost"
             asChild
             data-slot="input-group-button"
-            className="group-has-data-[slot=combobox-clear]/input-group:hidden data-pressed:bg-transparent"
+            className="[[data-slot=input-group]:has([data-slot=combobox-clear])_&]:hidden data-pressed:bg-transparent"
             disabled={disabled}
           >
             <ComboboxTrigger />

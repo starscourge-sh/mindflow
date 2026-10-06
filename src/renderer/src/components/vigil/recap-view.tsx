@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactElement, type ReactNode } from 'react'
 import { AnimatePresence, animate, motion, useMotionValue, useTransform, type Variants } from 'motion/react'
-import { X } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import XIcon from '@/components/ui/x-icon'
 
 import { chime } from '@/lib/sound'
 import { vigil, type Mood, type Recap as Data } from '@/lib/vigil'
@@ -8,6 +9,9 @@ import { Kbd, Rolling, Typed } from './ui'
 import { Button } from '@/components/ui/button'
 import { Scenery } from './scenery'
 import { dayName, noon, num } from '../../../../main/dates'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const X = alive(XIcon)
 
 /** The light each page sits in: the year opens at dawn and closes at night. */
 const RECAP_MOODS: Record<string, Mood> = { intro: 'day', captures: 'day', busiest: 'day', tags: 'dusk', sources: 'dusk', exits: 'interior', reviewed: 'night', outro: 'night', none: 'night' }

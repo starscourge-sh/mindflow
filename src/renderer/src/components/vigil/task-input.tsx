@@ -1,6 +1,10 @@
 import { useMemo, useRef } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { CalendarClock, CalendarDays, Repeat, Telescope } from 'lucide-react'
+import { CalendarDays } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import ClockIcon from '@/components/ui/clock-icon'
+import RefreshIcon from '@/components/ui/refresh-icon'
+import BookmarkIcon from '@/components/ui/bookmark-icon'
 
 import { chime, step } from '@/lib/sound'
 import { vigil, type Task } from '@/lib/vigil'
@@ -10,6 +14,11 @@ import { Rolling, toast } from './ui'
 import type { TokenPattern } from '@/extensions/tokens'
 import type { BlockColor } from '@/extensions/block-color'
 import { short } from '../../../../main/dates'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const CalendarClock = alive(ClockIcon)
+const Repeat = alive(RefreshIcon)
+const Telescope = alive(BookmarkIcon)
 
 export { short }
 
@@ -166,7 +175,7 @@ export function TaskInput({ value, onChange, inputRef, placeholder, className = 
           onSelect={follow}
           onKeyDown={onKeyDown}
           placeholder={placeholder}
-          className="relative w-full bg-transparent text-transparent caret-foreground outline-none placeholder:text-foreground/70"
+          className="relative w-full bg-transparent text-transparent caret-foreground outline-none placeholder:text-foreground/70 placeholder-shown:text-ellipsis"
         />
       </span>
       <TaskChips read={read} />

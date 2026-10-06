@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { AnimatePresence, motion } from 'motion/react'
-import { Brush, Scale, X } from 'lucide-react'
+import { Scale } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import PaintIcon from '@/components/ui/paint-icon'
+import XIcon from '@/components/ui/x-icon'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { chime, type Cue } from '@/lib/sound'
@@ -16,6 +19,10 @@ import { Scenery } from './scenery'
 import { textOf } from '../rot-cards'
 import { PinnedQuestions, clueInto } from './pinned-questions'
 import { dayjs, moment, weekdayName } from '../../../../main/dates'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const Brush = alive(PaintIcon)
+const X = alive(XIcon)
 
 export type PassMode = 'tidy' | 'decide'
 

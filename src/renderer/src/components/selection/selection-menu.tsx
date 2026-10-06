@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { BubbleMenu, type BubbleMenuProps } from '@tiptap/react/menus'
 import { TextSelection } from '@tiptap/pm/state'
-import { EditorContext, type Editor } from '@tiptap/react'
+import { EditorContext, useEditorState, type Editor } from '@tiptap/react'
 
 import { Toolbar } from '@/components/tiptap-ui-primitive/toolbar'
 
@@ -73,6 +73,10 @@ export function SelectionMenu({
   children: ReactNode
 }) {
   const { bar, tight, options } = useFit(editor)
+  // Its controls are drawn only while words are selected. Mounted all along
+  // they redrew on every key, and each redraw while typing made React measure
+  // the caret through the whole note.
+  const selecting = useEditorState({ editor, selector: ({ editor: instance }) => !!instance && !instance.state.selection.empty })
   if (!editor) return null
 
   return (
@@ -97,7 +101,7 @@ export function SelectionMenu({
           // Mixed back towards the page it keeps the hue and loses the glare.
           style={{ background: "color-mix(in srgb, var(--accent) 55%, var(--background))" }}
         >
-          {children}
+          {selecting && children}
         </Toolbar>
       </EditorContext.Provider>
     </BubbleMenu>

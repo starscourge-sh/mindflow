@@ -1,11 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Check, FileText } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
+import FileDescriptionIcon from '@/components/ui/file-description-icon'
 import { chime, click } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
 import { Button } from '@/components/ui/button'
 import { dayMonth, num } from '../../../../main/dates'
 import { Kbd, Rolling, Typed, refuse, toast } from './ui'
 import { Orb } from './orb'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const Check = alive(SimpleCheckedIcon)
+const FileText = alive(FileDescriptionIcon)
 
 type Found = { name: string; size: number; image: boolean; at: number }
 

@@ -48,7 +48,7 @@ const DownChevron = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="chevron-down"
+          className="chevron-down size-[inherit]"
         >
           <path stroke="none" d="M0 0h24v24H0z" fill="none" />
           <path d="M6 9l6 6l6 -6" />

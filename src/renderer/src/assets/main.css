@@ -360,11 +360,15 @@ body {
 ::selection {
   background: color-mix(in srgb, var(--tt-brand-color-400) 30%, transparent);
 }
-* {
-  caret-color: var(--tt-brand-color-400);
-  accent-color: var(--tt-brand-color-400);
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--foreground) 18%, transparent) transparent;
+/* In the base layer, so a row's own [scrollbar-width:none] wins: outside
+   it, this beat every utility and sideways rows grew scrollbars. */
+@layer base {
+  * {
+    caret-color: var(--tt-brand-color-400);
+    accent-color: var(--tt-brand-color-400);
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--foreground) 18%, transparent) transparent;
+  }
 }
 :focus-visible:not(input, textarea, select, [contenteditable], [tabindex="-1"]) {
   outline: 1.5px solid color-mix(in srgb, var(--tt-brand-color-400) 70%, transparent);

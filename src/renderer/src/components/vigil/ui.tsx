@@ -2,7 +2,10 @@ import { Children, cloneElement, createContext, useContext, useEffect, useLayout
 import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { SlotText } from 'slot-text/react'
-import { ArrowDown, ArrowUp, CircleX, type LucideIcon } from 'lucide-react'
+import { CircleX, type LucideIcon } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import ArrowNarrowDownIcon from '@/components/ui/arrow-narrow-down-icon'
+import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
 import { AnimatePresence, motion } from 'motion/react'
 import { Coolshape, type shapeTypes } from 'coolshapes-react'
 import Lenis from 'lenis'
@@ -27,6 +30,10 @@ import CheckedIcon from '@/components/ui/checked-icon'
 import InfoCircleIcon from '@/components/ui/info-circle-icon'
 import TriangleAlertIcon from '@/components/ui/triangle-alert-icon'
 
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const ArrowDown = alive(ArrowNarrowDownIcon)
+const ArrowUp = alive(ArrowNarrowUpIcon)
+
 /**
  * The few parts every view is built from, so the views read as one app. The
  * look follows Linear and Todoist: a quiet header with a count, rows that are
@@ -35,8 +42,10 @@ import TriangleAlertIcon from '@/components/ui/triangle-alert-icon'
  */
 
 /** A view's frame: title, a muted count, actions on the right, then the body. */
-export function Page({ title, count, actions, children, aside = false }: {
+export function Page({ title, count, unit = ['item', 'items'], actions, children, aside = false }: {
   title: ReactNode
+  /** What the count counts, one and many. */
+  unit?: [string, string]
   /** A list beside an open item: in focus it goes, and the item has the window. */
   aside?: boolean
   count?: number
@@ -50,7 +59,7 @@ export function Page({ title, count, actions, children, aside = false }: {
       {(count !== undefined || actions) && (
         <header data-chrome={aside || undefined} className="page-column flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground">
           {typeof title === 'string' && title.startsWith('#') ? <span className="font-medium text-foreground">{title}</span> : null}
-          {count ? <span className="whitespace-nowrap tabular-nums"><Rolling text={count} /> {count === 1 ? 'item' : 'items'}</span> : null}
+          {count ? <span className="whitespace-nowrap tabular-nums"><Rolling text={count} /> {count === 1 ? unit[0] : unit[1]}</span> : null}
           <div className="ml-auto flex min-w-0 items-center gap-1">{actions}</div>
         </header>
       )}
@@ -516,6 +525,56 @@ function Asker(): React.JSX.Element | null {
 /** When anything was last typed into a field or the editor. */
 let lastEdit = 0
 
+// What a toast must never cover: an open dialog, sheet or menu, and the
+// footer (and its Keys panel) of a view that fills the window, like Read through.
+const PANELS = '[role="dialog"],[role="alertdialog"],[role="menu"],[data-slot="sheet-content"],[data-slot="popover-content"]'
+
+/**
+ * Where the toast goes, clear of open panels: its usual place at the bottom
+ * when that is free, else just under them, else just above them, else at the top.
+ * Checked while something is shown, so a panel opening under it moves it.
+ */
+function useClearSpot(on: boolean, lane: React.RefObject<HTMLDivElement | null>): React.CSSProperties | undefined {
+  const [spot, setSpot] = useState<React.CSSProperties>()
+  useEffect(() => {
+    if (!on) return setSpot(undefined)
+    const check = (): void => {
+      const { innerWidth: width, innerHeight: height } = window
+      const boxes: DOMRect[] = []
+      for (const one of document.querySelectorAll<HTMLElement>(PANELS)) {
+        const at = one.getBoundingClientRect()
+        if (!at.width || !at.height) continue
+        // Read through is the page itself while it is up: only its footer and Keys count.
+        if (one.getAttribute('aria-label') === 'Reading') {
+          for (const part of one.querySelectorAll<HTMLElement>('footer, [aria-label="Keys"]')) boxes.push(part.getBoundingClientRect())
+        } else boxes.push(at)
+      }
+      // The toast's lane: the middle of the window, as wide as a toast gets.
+      const strip = lane.current?.getBoundingClientRect()
+      const middle = strip ? (strip.left + strip.right) / 2 : width / 2
+      const half = Math.min(576, (strip?.width ?? width) - 32) / 2
+      const hit = boxes.filter((at) => at.height && at.right > middle - half && at.left < middle + half)
+      // Its usual height off the bottom, as the window sets it (the box lifts it over its own footer).
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize)
+      const given = lane.current ? getComputedStyle(lane.current).getPropertyValue('--toast-bottom').trim() : ''
+      const usual = given ? parseFloat(given) * (given.endsWith('rem') ? rem : 1) : rem * 1.25
+      const tall = 48
+      const free = (bottom: number): boolean => hit.every((at) => height - bottom < at.top - 4 || height - bottom - tall > at.bottom + 4)
+      const below = hit.length ? height - Math.max(...hit.map((at) => at.bottom)) : height
+      const above = hit.length ? Math.min(...hit.map((at) => at.top)) : 0
+      const next: React.CSSProperties | undefined = free(usual) ? undefined
+        : below >= tall + 16 ? { bottom: Math.min(usual, below - tall - 8) }
+        : above >= tall + 16 ? { bottom: height - above + 8 }
+        : { top: 12, bottom: 'auto' }
+      setSpot((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next))
+    }
+    check()
+    const timer = setInterval(check, 150)
+    return () => clearInterval(timer)
+  }, [on])
+  return spot
+}
+
 export function Toaster(): React.JSX.Element | null {
   const [shown, setShown] = useState<{ text: string; undo?: () => void; tone?: ToastTone; action?: ToastAction; key: number } | null>(null)
   const [wait, setWait] = useState<{ label: string; state: OrbState } | null>(null)
@@ -604,6 +663,8 @@ export function Toaster(): React.JSX.Element | null {
       for (const kind of ['input', 'paste', 'drop']) window.removeEventListener(kind, onEdit, true)
     }
   }, [])
+  const lane = useRef<HTMLDivElement>(null)
+  const spot = useClearSpot(!!shown || !!wait, lane)
   // Asker always in the same place, so a toast coming or going never
   // remounts it and loses a question being answered.
   return (
@@ -612,12 +673,12 @@ export function Toaster(): React.JSX.Element | null {
     <KindAsker />
     <QuestionAsker />
     <Beam />
-    {wait && !shown && <div className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex justify-center">
+    {wait && !shown && <div style={spot} className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex justify-center">
       <Orb state={wait.state} label={wait.label} className="bg-popover shadow-(--mf-panel-shadow) animate-in fade-in-0 slide-in-from-bottom-2 duration-200" />
     </div>}
     {/* Centred along the bottom, where the eye drops after acting. It
         leaves the way it came, and a new one takes its place at once. */}
-    <div className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex justify-center">
+    <div ref={lane} style={spot} className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex justify-center">
     <AnimatePresence mode="popLayout" initial={false}>
     {shown && <motion.div
       key={shown.key}
@@ -840,7 +901,7 @@ export function AskWho({ id, initial = '', onDone }: { id: string; initial?: str
  * A label on hover, shadcn's tooltip rather than the system's: says what a
  * button does, and its key if it has one.
  */
-export function Tip({ label: given, children }: { label: ReactNode; children: React.ReactElement<{ 'aria-label'?: string; children?: ReactNode }> }): React.JSX.Element {
+export function Tip({ label: given, offset, children }: { label: ReactNode; /** Space between the tip and its control, for a control that grows on hover. */ offset?: number; children: React.ReactElement<{ 'aria-label'?: string; children?: ReactNode }> }): React.JSX.Element {
   // Its keys as you press them now, if you changed them in Settings.
   useKeyChanges()
   const label = typeof given === 'string' ? withKeys(given) : given
@@ -849,7 +910,7 @@ export function Tip({ label: given, children }: { label: ReactNode; children: Re
   // only hovered. A button with words of its own keeps them as its name.
   const worded = Children.toArray(children.props.children).some((child) => typeof child === 'string' || typeof child === 'number')
   const named = typeof label === 'string' && !worded && !children.props['aria-label'] ? cloneElement(children, { 'aria-label': label }) : children
-  return <Tipped label={label}>{named}</Tipped>
+  return <Tipped label={label} offset={offset}>{named}</Tipped>
 }
 
 /**
@@ -858,7 +919,7 @@ export function Tip({ label: given, children }: { label: ReactNode; children: Re
  * Settings shows only ⌘,. Checked on opening, so a row that is an icon at one
  * width and words at another gets its tip only when it needs one.
  */
-function Tipped({ label, children }: { label: ReactNode; children: React.ReactElement }): React.JSX.Element {
+function Tipped({ label, offset, children }: { label: ReactNode; offset?: number; children: React.ReactElement }): React.JSX.Element {
   const trigger = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
   // Kept as it closes, so the tip fades out with its words still in it.
@@ -875,7 +936,7 @@ function Tipped({ label, children }: { label: ReactNode; children: React.ReactEl
   return (
     <Tooltip open={open} onOpenChange={onOpenChange}>
       <TooltipTrigger asChild ref={trigger}>{children}</TooltipTrigger>
-      <TooltipContent>{shown}</TooltipContent>
+      <TooltipContent sideOffset={offset}>{shown}</TooltipContent>
     </Tooltip>
   )
 }

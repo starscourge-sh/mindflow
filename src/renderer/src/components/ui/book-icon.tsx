@@ -60,9 +60,10 @@ const BookIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
         ref={scope}
         onHoverStart={handleHoverStart}
         onHoverEnd={handleHoverEnd}
-        className={`inline-flex cursor-pointer ${className}`}
+        className={`inline-flex cursor-pointer items-center justify-center ${className}`}
       >
         <svg
+          className="size-[inherit]"
           xmlns="http://www.w3.org/2000/svg"
           width={size}
           height={size}
@@ -71,7 +72,7 @@ const BookIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           stroke={color}
           strokeWidth={scaledStrokeWidth(strokeWidth, 48)}
           strokeMiterlimit="10"
-          strokeLinecap="square"
+          strokeLinecap="round"
         >
           <motion.path className="book-spine" d="M24 40.5V41L24 10V10.5" />
 

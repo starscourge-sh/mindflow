@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Play } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import PlayerIcon from '@/components/ui/player-icon'
 
 import { chime } from '@/lib/sound'
 import { keyFor } from '@/lib/keys'
@@ -10,6 +11,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { openLook } from '@/components/image/image-look'
 import { RowMenu, type MenuItem } from './row-menu'
 import { Tip } from './ui'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const Play = alive(PlayerIcon)
 
 /**
  * A collection read as a page, the way a music app shows an album: a band

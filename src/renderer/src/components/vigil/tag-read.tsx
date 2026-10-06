@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { AlignJustify, FileText, Gem, Inbox, List, Orbit, Pin, PinOff, Plus, Shuffle } from 'lucide-react'
+import { AlignJustify, Plus, Shuffle } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import FileDescriptionIcon from '@/components/ui/file-description-icon'
+import LibraryIcon from '@/components/ui/library-icon'
+import StackIcon from '@/components/ui/stack-icon'
+import UnorderedListIcon from '@/components/ui/unordered-list-icon'
+import QuestionMarkIcon from '@/components/ui/question-mark'
+import BookmarkIcon from '@/components/ui/bookmark-icon'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
@@ -13,6 +20,15 @@ import { ReadThrough, type Readable } from './read-through'
 import { addToQuestion } from './questions-view'
 import { CollectionHeader, Cover, MenuButton, PlayButton, QuietAction, TrackList, ViewSwitch, pictureIn, useTint, wordsIn, type Track } from './collection-header'
 import { ago, dayKey, dayMonth, dayName, dayjs, noon, num } from '../../../../main/dates'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const FileText = alive(FileDescriptionIcon)
+const Gem = alive(LibraryIcon)
+const Inbox = alive(StackIcon)
+const List = alive(UnorderedListIcon)
+const Orbit = alive(QuestionMarkIcon)
+const Pin = alive(BookmarkIcon)
+const PinOff = alive(BookmarkIcon)
 
 const ICON = { nugget: Gem, article: FileText, question: Orbit }
 const NAME: Record<string, string> = { capture: 'Capture', nugget: 'Nugget', article: 'Article', question: 'Question' }

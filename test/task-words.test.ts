@@ -69,7 +69,13 @@ test('"weekly" saying when is still a repeat', () => {
 
 test('a leading "Someday:" takes its colon with it', () => {
   const read = readTask('Someday: learn to bind books', at)
-  assert.equal(read.title, 'learn to bind books')
+  assert.equal(read.title, 'Learn to bind books')
   assert.equal(read.plan, 'someday')
-  assert.equal(readTask('Tomorrow: call Sam', at).title, 'call Sam')
+  assert.equal(readTask('Tomorrow: call Sam', at).title, 'Call Sam')
+})
+
+test('a date word taken from the front leaves a capital, and nothing else changes case', () => {
+  assert.equal(readTask('every monday water plants', at).title, 'Water plants')
+  assert.equal(readTask('call mom tonight', at).title, 'call mom')
+  assert.equal(readTask('review the garden weekly', at).title, 'review the garden')
 })

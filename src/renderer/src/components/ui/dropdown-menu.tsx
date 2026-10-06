@@ -11,7 +11,13 @@ import { MenuScroll } from "./context-menu"
 // fades going away: a menu is used all day, so it never makes you wait.
 const openCue = (node: HTMLElement | null): void => void (node && chime("open"))
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
-import { CheckIcon, ChevronRightIcon } from "lucide-react"
+import { alive } from "@/components/ui/alive-icon"
+import SimpleCheckedIcon from "@/components/ui/simple-checked-icon"
+import RightChevronIcon from "@/components/ui/right-chevron"
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const CheckIcon = alive(SimpleCheckedIcon)
+const ChevronRightIcon = alive(RightChevronIcon)
 
 function DropdownMenu({
   ...props
@@ -51,11 +57,11 @@ function DropdownMenuContent({
         ref={openCue}
         data-slot="dropdown-menu-content"
         // Kept clear of the window's edges, never touching them, and never
-        // taller than most of the window: a long menu scrolls instead.
+        // taller than the room it has: only a menu that cannot fit scrolls.
         collisionPadding={12}
         sideOffset={sideOffset}
         align={align}
-        className={cn("z-50 flex max-h-[min(var(--radix-dropdown-menu-content-available-height),80vh)] w-(--radix-dropdown-menu-trigger-width) min-w-32 origin-(--radix-dropdown-menu-content-transform-origin) flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 duration-150 data-closed:animate-out data-closed:fade-out-0", className )}
+        className={cn("z-50 flex max-h-(--radix-dropdown-menu-content-available-height) w-(--radix-dropdown-menu-trigger-width) min-w-32 origin-(--radix-dropdown-menu-content-transform-origin) flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 duration-150 data-closed:animate-out data-closed:fade-out-0", className )}
         {...props}
         onCloseAutoFocus={quietClose(props.onCloseAutoFocus)}
       >
@@ -273,7 +279,7 @@ function DropdownMenuSubContent({
     <DropdownMenuPrimitive.SubContent
       collisionPadding={12}
       data-slot="dropdown-menu-sub-content"
-      className={cn("z-50 flex max-h-[min(var(--radix-dropdown-menu-content-available-height),80vh)] min-w-32 origin-(--radix-dropdown-menu-content-transform-origin) flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 duration-150 data-closed:animate-out data-closed:fade-out-0", className )}
+      className={cn("z-50 flex max-h-(--radix-dropdown-menu-content-available-height) min-w-32 origin-(--radix-dropdown-menu-content-transform-origin) flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 duration-150 data-closed:animate-out data-closed:fade-out-0", className )}
       {...props}
     >
       <MenuScroll>{children}</MenuScroll>

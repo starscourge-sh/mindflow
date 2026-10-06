@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { Archive, ArchiveRestore, Calendar, Download, EyeOff, Eye, Orbit, Pin, PinOff, Play, Plus, RotateCcw, Wind } from 'lucide-react'
+import { Calendar, Plus, Wind } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import Stack3Icon from '@/components/ui/stack-3-icon'
+import ArrowBackUpIcon from '@/components/ui/arrow-back-up-icon'
+import DownloadIcon from '@/components/ui/download-icon'
+import EyeOffIcon from '@/components/ui/eye-off-icon'
+import EyeIcon from '@/components/ui/eye-icon'
+import QuestionMarkIcon from '@/components/ui/question-mark'
+import BookmarkIcon from '@/components/ui/bookmark-icon'
+import PlayerIcon from '@/components/ui/player-icon'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
@@ -23,6 +32,18 @@ import { ago, dayMonth, dayName, dayjs, heldFor, num } from '../../../../main/da
 import { ReadThrough } from './read-through'
 import { CollectionHeader, Cover, MenuButton, PlayButton, QuietAction, pictureIn, useTint } from './collection-header'
 import BulbSvg from '@/components/ui/bulb-svg'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const Archive = alive(Stack3Icon)
+const ArchiveRestore = alive(ArrowBackUpIcon)
+const Download = alive(DownloadIcon)
+const EyeOff = alive(EyeOffIcon)
+const Eye = alive(EyeIcon)
+const Orbit = alive(QuestionMarkIcon)
+const Pin = alive(BookmarkIcon)
+const PinOff = alive(BookmarkIcon)
+const Play = alive(PlayerIcon)
+const RotateCcw = alive(ArrowBackUpIcon)
 
 /**
  * Questions: what you keep circling and cannot name yet. The tier between a
@@ -212,7 +233,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
       {open && pane === 'rail' ? (
         <NoteRail entries={entries} cursor={cursor} selected={open.id} onPick={pick} onShow={() => setPane('list')} />
       ) : (
-      <Page aside={!!open} title="Holding" count={items.length}
+      <Page aside={!!open} title="Holding" count={items.length} unit={['question', 'questions']}
         actions={
           <span className="flex items-center gap-2">
             {spread && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder="Search in Holding" />}

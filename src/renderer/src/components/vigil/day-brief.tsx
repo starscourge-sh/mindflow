@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
-import { ArrowRight } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
 
 import { chime } from '@/lib/sound'
 import { issues, type Repeat } from '@/lib/issues'
@@ -9,6 +10,9 @@ import { Typed, toast } from './ui'
 import { Scenery, useDayScene } from './scenery'
 import { openPass } from './pass'
 import { ago, clock, dayjs, dayKey, num } from '../../../../main/dates'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const ArrowRight = alive(ArrowNarrowRightIcon)
 
 /**
  * The top of today's page, read like a morning paper: the day's picture with
@@ -20,8 +24,8 @@ import { ago, clock, dayjs, dayKey, num } from '../../../../main/dates'
 const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine']
 const say = (n: number): string => WORDS[n] ?? 'several'
 const cap = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1)
-/** "a, b and c". */
-const list = (parts: string[]): string => parts.length < 2 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
+/** "a, b and c"; "a, at noon, and b" when a part has its own comma. */
+const list = (parts: string[]): string => parts.length < 2 ? parts.join('') : `${parts.slice(0, -1).join(', ')}${parts.some((part) => part.includes(',')) ? ',' : ''} and ${parts[parts.length - 1]}`
 
 /** Words fit to print: not a camera's counter, a hash or a random upload name. */
 const readable = (raw?: string): string | null => {

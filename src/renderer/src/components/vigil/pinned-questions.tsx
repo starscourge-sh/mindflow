@@ -1,10 +1,14 @@
-import { Orbit } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import QuestionMarkIcon from '@/components/ui/question-mark'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type PinnedQuestion, type Settings } from '@/lib/vigil'
 import { Tip, Typed, refuse, toast } from './ui'
 import { num } from '../../../../main/dates'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const Orbit = alive(QuestionMarkIcon)
 
 const short = (text: string, n = 36): string => (text.length > n ? `${text.slice(0, n)}…` : text) || 'Untitled'
 

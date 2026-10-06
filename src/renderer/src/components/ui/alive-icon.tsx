@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ComponentType, type CSSProperties, type RefAttributes } from 'react'
+import type { LucideIcon, LucideProps } from 'lucide-react'
 
 import type { AnimatedIconHandle, AnimatedIconProps } from '@/components/ui/types'
 
@@ -42,4 +43,47 @@ export function AliveIcon({ icon: Icon, size = 16, className, style, play = fals
       <Icon ref={handle} size={size} strokeWidth={2} className={size <= 12 ? 'size-3' : size <= 14 ? 'size-3.5' : 'size-4'} />
     </span>
   )
+}
+
+type Drawing = ComponentType<AnimatedIconProps & RefAttributes<AnimatedIconHandle>>
+
+/** Starts a drawing when the control it sits in is pointed at; still with Motion off. */
+function useAlive(box: React.RefObject<HTMLElement | null>, handle: React.RefObject<AnimatedIconHandle | null>): void {
+  useEffect(() => {
+    const host = box.current?.closest('button, a, [role="button"], [role="menuitem"], [role="tab"], label') ?? box.current?.parentElement
+    if (!host) return
+    const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+    const start = (): void => void (!still() && handle.current?.startAnimation())
+    const stop = (): void => handle.current?.stopAnimation()
+    host.addEventListener('pointerenter', start)
+    host.addEventListener('pointerleave', stop)
+    return () => {
+      host.removeEventListener('pointerenter', start)
+      host.removeEventListener('pointerleave', stop)
+    }
+  }, [])
+}
+
+/**
+ * An itshover drawing that stands in for a lucide icon: same props, so a file
+ * swaps its import and nothing else. The wrapper takes no box of its own, so
+ * the drawing's classes lay out just as lucide's did. `turn` faces it another
+ * way, as a left chevron from the right one. Some drawings sit in a box of
+ * their own; their svg takes its size, so a size class sizes the drawing.
+ */
+export function alive(Icon: Drawing, turn = ''): LucideIcon {
+  function Alive({ className, size, style, strokeWidth, color, 'aria-label': label }: LucideProps): React.JSX.Element {
+    const handle = useRef<AnimatedIconHandle>(null)
+    const box = useRef<HTMLSpanElement>(null)
+    useAlive(box, handle)
+    return (
+      // The drawings take no style of their own; a colour set here still reaches them.
+      <span ref={box} style={style} className="contents [&_*]:pointer-events-none">
+        <Icon ref={handle} size={size ?? 24} strokeWidth={Number(strokeWidth ?? 2)} color={color} className={`shrink-0 align-middle ${turn} ${className ?? ''}`} aria-hidden />
+        {label && <span className="sr-only">{label}</span>}
+      </span>
+    )
+  }
+  Alive.displayName = `Alive(${Icon.displayName ?? 'Icon'})`
+  return Alive as unknown as LucideIcon
 }

@@ -1,11 +1,15 @@
 import { motion } from 'motion/react'
-import { Repeat2 } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import RefreshIcon from '@/components/ui/refresh-icon'
 
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/vigil'
 import { issues, type Repeat } from '@/lib/issues'
 import { Tip, toast } from './ui'
 import { num } from '../../../../main/dates'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const Repeat2 = alive(RefreshIcon)
 
 /**
  * The same idea caught three times or more says it is unfinished, not that

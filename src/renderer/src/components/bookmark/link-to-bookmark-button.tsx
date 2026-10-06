@@ -1,8 +1,12 @@
-import { BookmarkPlus } from "lucide-react"
+import { alive } from "@/components/ui/alive-icon"
+import BookmarkIcon from "@/components/ui/bookmark-icon"
 import { useEditorState, type Editor } from "@tiptap/react"
 
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { linkCard } from "@/lib/link-card"
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const BookmarkPlus = alive(BookmarkIcon)
 
 /**
  * Turn the link the caret is in into a card.

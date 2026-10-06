@@ -86,10 +86,17 @@ const MARGIN = 24
 export function TableControls({ editor }: { editor: Editor | null }): React.JSX.Element | null {
   const [geometry, setGeometry] = useState<Geometry | null>(null)
 
-  // Re-measure on any transaction: typing in a cell resizes it.
+  // Re-measure on any transaction while in a table: typing in a cell resizes
+  // it. Elsewhere once, on the way out: redrawing on every key typed outside
+  // a table cost a long note a measure of the whole page each time.
   const version = useEditorState({
     editor,
-    selector: ({ transactionNumber }) => transactionNumber
+    selector: ({ editor: instance, transactionNumber }) => {
+      const $from = instance?.state.selection.$from
+      if (!$from) return -1
+      for (let depth = $from.depth; depth > 0; depth--) if ($from.node(depth).type.name === 'table') return transactionNumber
+      return -1
+    }
   })
 
   useLayoutEffect(() => {

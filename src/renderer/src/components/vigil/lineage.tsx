@@ -1,8 +1,20 @@
 import { useEffect, useState } from 'react'
-import { FileText, Gem, Inbox, ListTodo, Orbit } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import FileDescriptionIcon from '@/components/ui/file-description-icon'
+import LibraryIcon from '@/components/ui/library-icon'
+import StackIcon from '@/components/ui/stack-icon'
+import CheckedIcon from '@/components/ui/checked-icon'
+import QuestionMarkIcon from '@/components/ui/question-mark'
 
 import { vigil } from '@/lib/vigil'
 import { Island, Prop } from './ui'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const FileText = alive(FileDescriptionIcon)
+const Gem = alive(LibraryIcon)
+const Inbox = alive(StackIcon)
+const ListTodo = alive(CheckedIcon)
+const Orbit = alive(QuestionMarkIcon)
 
 const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo, question: Orbit }
 

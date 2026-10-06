@@ -121,9 +121,17 @@ export function TableMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
   const [, recompute] = useReducer((count: number) => count + 1, 0)
   useEffect(() => {
     if (!editor) return
-    editor.on('selectionUpdate', recompute)
+    // Only while cells are picked, or just were: redrawing on every key typed
+    // anywhere else cost a long note a measure of the whole page each time.
+    let was = false
+    const moved = (): void => {
+      const cells = editor.state.selection instanceof CellSelection
+      if (cells || was) recompute()
+      was = cells
+    }
+    editor.on('selectionUpdate', moved)
     return () => {
-      editor.off('selectionUpdate', recompute)
+      editor.off('selectionUpdate', moved)
     }
   }, [editor])
 

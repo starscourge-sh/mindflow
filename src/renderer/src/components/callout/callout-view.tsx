@@ -1,10 +1,14 @@
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from "@tiptap/react"
-import { ChevronRight } from "lucide-react"
+import { alive } from "@/components/ui/alive-icon"
+import RightChevronIcon from "@/components/ui/right-chevron"
 
 import { EmojiButton } from "@/components/emoji/emoji-button"
 import { cue } from "@/lib/cues"
 
 import type { BlockColor } from "@/extensions/block-color"
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const ChevronRight = alive(RightChevronIcon)
 
 /**
  * A tinted box with an icon you can change, and anything you like inside.

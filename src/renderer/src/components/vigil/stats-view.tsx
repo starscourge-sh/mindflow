@@ -79,7 +79,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           <p>
             {stats.day.captured + stats.day.exits + stats.day.reviews ? (
               <>
-                You caught <span className="whitespace-nowrap"><N>{plural(stats.day.captured, 'thing', 'things')}</N>,</span> saw <N>{stats.day.exits}</N> through to an exit and reviewed <span className="whitespace-nowrap"><N>{stats.day.reviews}</N>.</span>
+                You caught <span className="whitespace-nowrap"><N>{plural(stats.day.captured, 'thing', 'things')}</N>,</span> saw <N>{stats.day.exits}</N> through to an exit and reviewed <span className="whitespace-nowrap">{stats.day.reviews ? <N>{plural(stats.day.reviews, 'card', 'cards')}</N> : 'nothing'}.</span>
               </>
             ) : 'A quiet day here. That is allowed.'}
           </p>

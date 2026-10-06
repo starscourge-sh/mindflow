@@ -1,17 +1,11 @@
-import {
-  Bookmark as BookmarkIcon,
-  Columns2,
-  Columns3,
-  ChevronRight as ToggleIcon,
-  Minus as DividerIcon,
-  Table as TableIcon,
-  Download,
-  Lightbulb as CalloutIcon,
-  Paperclip,
-  PencilRuler as DrawingIcon,
-  SquarePlay as VideoIcon,
-  Type as TextIcon
-} from 'lucide-react'
+import { Columns2, Columns3, Minus as DividerIcon, Table as TableIcon, Paperclip, SquarePlay as VideoIcon } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import BookmarkIconDrawing from '@/components/ui/bookmark-icon'
+import RightChevronIcon from '@/components/ui/right-chevron'
+import DownloadIcon from '@/components/ui/download-icon'
+import BulbSvgIcon from '@/components/ui/bulb-svg'
+import PenIcon from '@/components/ui/pen-icon'
+import LetterTIcon from '@/components/ui/letter-t-icon'
 
 import type { Editor } from '@tiptap/core'
 import { isInTable } from '@tiptap/pm/tables'
@@ -37,6 +31,14 @@ import { ListTodoIcon } from '@/components/tiptap-icons/list-todo-icon'
 import { BlockquoteIcon } from '@/components/tiptap-icons/blockquote-icon'
 import { CodeBlockIcon } from '@/components/tiptap-icons/code-block-icon'
 import { ImagePlusIcon } from '@/components/tiptap-icons/image-plus-icon'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const BookmarkIcon = alive(BookmarkIconDrawing)
+const ToggleIcon = alive(RightChevronIcon)
+const Download = alive(DownloadIcon)
+const CalloutIcon = alive(BulbSvgIcon)
+const DrawingIcon = alive(PenIcon)
+const TextIcon = alive(LetterTIcon)
 
 /**
  * What `/` offers. The hints are the markdown shortcuts that already work, so

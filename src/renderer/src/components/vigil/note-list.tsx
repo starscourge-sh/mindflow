@@ -7,14 +7,13 @@ import {
   type CSSProperties,
   type ReactNode
 } from 'react'
-import {
-  Maximize2,
-  Minimize2,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Search as SearchIcon,
-  X
-} from 'lucide-react'
+import { Minimize2 } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import ExpandIcon from '@/components/ui/expand-icon'
+import LayoutSidebarRightCollapseIcon from '@/components/ui/layout-sidebar-right-collapse-icon'
+import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
+import MagnifierIcon from '@/components/ui/magnifier-icon'
+import XIcon from '@/components/ui/x-icon'
 
 import { notes, openWindow, smallPicture, useThumb, type NoteTable } from '@/lib/notes'
 import { useLive } from '@/lib/vigil'
@@ -24,6 +23,13 @@ import { SortableList, SortableRow } from './sortable'
 import { Tags, Tip, VirtualList, typing } from './ui'
 import { Button } from '@/components/ui/button'
 import type { Density, Pane } from './display'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const Maximize2 = alive(ExpandIcon)
+const PanelLeftClose = alive(LayoutSidebarRightCollapseIcon, '-scale-x-100')
+const PanelLeftOpen = alive(LayoutSidebarRightIcon, '-scale-x-100')
+const SearchIcon = alive(MagnifierIcon)
+const X = alive(XIcon)
 
 /**
  * One note in a list, whatever it is: a capture, a nugget, an article or a
@@ -428,7 +434,7 @@ function ListRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Elem
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="flex items-center gap-2">
           <span
-            className={`private-text min-w-0 flex-1 ${entry.wrap ? 'line-clamp-2' : 'truncate'}`}
+            className={`private-text min-w-0 flex-1 ${entry.wrap ? 'line-clamp-2 [overflow-wrap:anywhere]' : 'truncate'}`}
           >
             {entry.title || 'Untitled'}
           </span>

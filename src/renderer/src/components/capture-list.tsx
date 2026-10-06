@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { chime } from '@/lib/sound'
-import { EyeOff, Pin } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import EyeOffIcon from '@/components/ui/eye-off-icon'
+import BookmarkIcon from '@/components/ui/bookmark-icon'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { EXITS, captureKey, exit } from '@/lib/capture-links'
@@ -14,6 +16,10 @@ import type { Density } from './vigil/display'
 import { archive, changeKind, openWindow, saveAttachments } from '@/lib/notes'
 import { addToQuestion } from './vigil/questions-view'
 import { age, daysSince } from '../../../main/dates'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const EyeOff = alive(EyeOffIcon)
+const Pin = alive(BookmarkIcon)
 
 export type CaptureMeta = Awaited<ReturnType<typeof window.api.captures.list>>[number]
 

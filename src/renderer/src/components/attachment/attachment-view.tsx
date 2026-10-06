@@ -1,6 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react"
-import { AlignCenter, AlignLeft, AlignRight, AudioLines, Captions, File, FileText, Maximize, Pause, PictureInPicture2, Play, RotateCcw, Volume2, VolumeX } from "lucide-react"
+import { AlignCenter, AlignLeft, AlignRight, AudioLines, Captions, Pause, PictureInPicture2, Play, RotateCcw } from "lucide-react"
+import { alive } from "@/components/ui/alive-icon"
+import FileDescriptionIcon from "@/components/ui/file-description-icon"
+import ExpandIcon from "@/components/ui/expand-icon"
+import Volume2Icon from "@/components/ui/volume-2-icon"
+import VolumeXIcon from "@/components/ui/volume-x-icon"
 import { AliveIcon } from "@/components/ui/alive-icon"
 import DownloadIcon from "@/components/ui/download-icon"
 import ExternalLinkIcon from "@/components/ui/external-link-icon"
@@ -14,6 +19,13 @@ import { Roll } from "@/lib/roll"
 import { host } from "@/lib/host"
 import { isNodeSelected } from "@/extensions/selected-nodes"
 import { startCaption } from "@/extensions/caption"
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const File = alive(FileDescriptionIcon)
+const FileText = alive(FileDescriptionIcon)
+const Maximize = alive(ExpandIcon)
+const Volume2 = alive(Volume2Icon)
+const VolumeX = alive(VolumeXIcon)
 
 /** 57.3 KB, not 58624. Binary units, because that is what a file manager shows. */
 function readableSize(bytes: number): string {
