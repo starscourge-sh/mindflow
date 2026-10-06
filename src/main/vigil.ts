@@ -1,4 +1,4 @@
-import { Notification, app, dialog, ipcMain, net } from 'electron'
+import { Notification, app, dialog, ipcMain, net, session } from 'electron'
 import { randomUUID } from 'crypto'
 import { cp, mkdir, writeFile } from 'fs/promises'
 import { join } from 'path'
@@ -148,6 +148,10 @@ const DEFAULTS = {
   // top bar once scrolled away; the font notes are written in, and its size.
   calc: true,
   topTitle: true,
+  // Misspelt words underlined as you write, in the languages picked; none
+  // picked means the Mac's own.
+  spellcheck: true,
+  spellLanguages: [] as string[],
   noteFont: 'system' as string,
   // The font is the whole app's unless this says it is only for notes.
   fontNotesOnly: false,
@@ -229,6 +233,19 @@ async function weatherNow(): Promise<string | null> {
 /** Told when safe mode goes on or off, however it was flipped: the windows follow it. */
 let safeModeTold: (on: boolean) => void = () => undefined
 export const whenSafeMode = (tell: (on: boolean) => void): void => void (safeModeTold = tell)
+
+/**
+ * The spellchecker on or off, in the languages picked. Only those this build
+ * knows are passed on; the Mac ignores the list and picks its own languages
+ * as you type, so there the picks only matter on another system.
+ */
+function spelling(): void {
+  const { spellcheck, spellLanguages } = settings()
+  const known = new Set(session.defaultSession.availableSpellCheckerLanguages)
+  session.defaultSession.setSpellCheckerEnabled(spellcheck)
+  const picked = spellLanguages.filter((one) => known.has(one))
+  if (picked.length) session.defaultSession.setSpellCheckerLanguages(picked)
+}
 
 /** The Motion setting, for the window's own arrival. */
 export const motionOn = (): boolean => settings().motion
@@ -476,8 +493,14 @@ export function registerVigil(): void {
     for (const [key, value] of Object.entries(patch))
       db.prepare('insert or replace into settings (key, value) values (?, ?)').run(key, JSON.stringify(value))
     if (patch.safeMode !== undefined && patch.safeMode !== wasSafe) safeModeTold(patch.safeMode)
+    if ('spellcheck' in patch || 'spellLanguages' in patch) spelling()
     return write(settings())
   })
+  // Spelling: the languages there are and the ones in use, and a word kept as
+  // spelt right. One session serves every window, so it is set once.
+  spelling()
+  handle('spelling:languages', () => ({ all: session.defaultSession.availableSpellCheckerLanguages, on: session.defaultSession.getSpellCheckerLanguages() }))
+  handle('spelling:learn', (word: string) => session.defaultSession.addWordToSpellCheckerDictionary(word))
   handle('private', (table: 'captures' | 'nuggets', id: string, on: boolean) => {
     const result = db.prepare(`update ${table === 'nuggets' ? 'nuggets' : 'captures'} set private = ? where id = ?`).run(on ? 1 : 0, id)
     // Made private, its plain-text backup copy goes at once.
@@ -691,7 +714,26 @@ export function registerVigil(): void {
       const hit = pattern?.exec(text)
       if (hit) unlinked.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: around(text, hit.index, hit[0].length) })
     }
-    return { linked, unlinked: unlinked.slice(0, 20) }
+    // And the other way, as Obsidian's Outgoing links has it: what this note
+    // links to, and the notes it names without linking them yet.
+    const all = everything()
+    const mine = all.find((row) => row.id === id)
+    const body = mine?.body ?? ''
+    const text = body ? words(JSON.parse(body)) : ''
+    const out: Mention[] = []
+    const named: Mention[] = []
+    for (const row of all) {
+      if (row.id === id) continue
+      if (new RegExp(`"id":"(?:[a-z]+:)?${row.id}"|\\[\\[@(?:[a-z]+:)?${row.id}\\|`).test(body)) {
+        out.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: '' })
+        continue
+      }
+      const title = row.title?.trim() ?? ''
+      if (named.length >= 20 || title.length < 4 || /^untitled$/i.test(title)) continue
+      const hit = new RegExp(`(?<![\\w])${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w])`, 'i').exec(text)
+      if (hit) named.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: around(text, hit.index, hit[0].length) })
+    }
+    return { linked, unlinked: unlinked.slice(0, 20), out, named, me: mine?.type ?? 'capture' }
   })
   // Turn the first plain mention of a note in another into a real link.
   handle('mention:link', (sourceType: string, sourceId: string, targetId: string) => {

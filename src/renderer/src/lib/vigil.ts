@@ -263,7 +263,7 @@ export const vigil = {
   /** `forgetWho`: the source was asked for while promoting, so it goes too. */
   unpromote: (captureId: string, nuggetId: string, forgetWho = false) => call<boolean>('promote:undo', captureId, nuggetId, forgetWho),
   /** What it came from, what it became, and what links to it. */
-  mentions: (id: string) => call<Record<'linked' | 'unlinked', { type: string; id: string; title: string; snippet: string; private?: number }[]>>('mentions', id),
+  mentions: (id: string) => call<Record<'linked' | 'unlinked' | 'out' | 'named', { type: string; id: string; title: string; snippet: string; private?: number }[]> & { me: string }>('mentions', id),
   linkMention: (sourceType: string, sourceId: string, targetId: string) => call<boolean>('mention:link', sourceType, sourceId, targetId),
   lineage: (id: string) => call<Record<'from' | 'became' | 'linked', { type: string; id: string; title: string; private?: number }[]>>('lineage', id),
   newArticle: () => call<string>('article:new'),
