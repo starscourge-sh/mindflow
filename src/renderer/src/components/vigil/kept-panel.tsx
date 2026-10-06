@@ -75,6 +75,9 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     'separator',
     { label: 'Copy the question', run: () => copy(item.title) }
   ]
+  // The thought button sits in the row's own line, after its marks, so it
+  // never lands on the title or on the private mark.
+  const withThought = (entry: Entry): Entry => ({ ...entry, marks: <>{entry.marks}<GlossButton onClick={() => setGlossing(entry.id)} className="static opacity-0 group-hover/row:opacity-100 group-data-[cursor]/row:opacity-100" /></> })
   const menuFor = (item: Item): MenuItem[] => [
     { label: 'Open', keys: '↵', run: () => onOpen(tier, item.id) },
     { label: 'Add a thought', keys: ';', run: () => setGlossing(item.id) },
@@ -110,7 +113,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
       {tier !== 'question' && <div className="px-1 empty:hidden">{chips}</div>}
       {items.length ? (
         <NoteList
-          groups={groups.map(([name, list]) => [name, list.map((item) => (tier === 'question' ? questionEntry(item, false, questionItems(item)) : itemEntry(item, menuFor(item))))] as [string, Entry[]])}
+          groups={groups.map(([name, list]) => [name, list.map((item) => (tier === 'question' ? questionEntry(item, false, questionItems(item)) : withThought(itemEntry(item, menuFor(item)))))] as [string, Entry[]])}
           density={tier === 'question' ? 'list' : density}
           table="nuggets"
           cursor={cursor}
@@ -122,7 +125,6 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
           // A thought without opening it: on hover, beside the row, and written under it in place.
           after={tier === 'question' ? undefined : (entry) => (
             <>
-              <GlossButton onClick={() => setGlossing(entry.id)} className="top-2" />
               {glossing === entry.id && <GlossLine id={entry.id} open onDone={() => setGlossing(null)} className="px-2 pt-0.5 pb-1" />}
             </>
           )}
