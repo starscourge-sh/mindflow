@@ -153,7 +153,9 @@ function ContextMenuSubContent({
   children,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.SubContent>) {
+  // In a portal, so the menu's own clipping never cuts it off.
   return (
+    <ContextMenuPrimitive.Portal>
     <ContextMenuPrimitive.SubContent
       collisionPadding={12}
       data-slot="context-menu-sub-content"
@@ -162,6 +164,7 @@ function ContextMenuSubContent({
     >
       <MenuScroll>{children}</MenuScroll>
     </ContextMenuPrimitive.SubContent>
+    </ContextMenuPrimitive.Portal>
   )
 }
 

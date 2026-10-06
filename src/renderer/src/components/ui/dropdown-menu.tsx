@@ -266,7 +266,10 @@ function DropdownMenuSubContent({
   children,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.SubContent>) {
+  // In a portal, like the menu it opens from: inside it, the menu's own
+  // clipping cut the submenu off at the menu's edge.
   return (
+    <DropdownMenuPrimitive.Portal>
     <DropdownMenuPrimitive.SubContent
       collisionPadding={12}
       data-slot="dropdown-menu-sub-content"
@@ -275,6 +278,7 @@ function DropdownMenuSubContent({
     >
       <MenuScroll>{children}</MenuScroll>
     </DropdownMenuPrimitive.SubContent>
+    </DropdownMenuPrimitive.Portal>
   )
 }
 
