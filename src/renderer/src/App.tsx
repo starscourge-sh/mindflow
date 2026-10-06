@@ -214,11 +214,11 @@ const Header = ({ panel, onPanel, onNew, menu, nav, title, aside }: {
         style={{ padding: panel ? '0 0.75rem 0 4.75rem' : '0rem 4.75rem' } as CSSProperties}>
         <WindowDots />
         <span style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>{nav}</span>
-        {/* The note's name, faint and centred, once its first line has
-            scrolled away - so a long note still says what it is. It takes
-            only the room between the back arrows and the chips on the
-            right, so it can never run under them. */}
-        <span className="relative flex min-w-0 flex-1 justify-center px-3">
+        {/* The note's name, faint, once its first line has scrolled away, so
+            a long note still says what it is: beside the back arrows like a
+            breadcrumb, a short line at most, never over the side panel or
+            under the chips on the right. */}
+        <span className="relative flex min-w-0 flex-1 justify-start px-3">
         <AnimatePresence>
           {title && (
             <motion.span
@@ -228,7 +228,7 @@ const Header = ({ panel, onPanel, onNew, menu, nav, title, aside }: {
               // Out quicker than in: it gets out of the way of the line coming back.
               exit={{ opacity: 0, transform: shift('translateY(-4px)'), transition: { duration: 0.1, ease: EASE } }}
               transition={{ duration: 0.16, ease: EASE }}
-              className="pointer-events-none min-w-0 truncate text-center text-control text-muted-foreground/70"
+              className="pointer-events-none min-w-0 max-w-[34ch] truncate text-control text-muted-foreground/70"
             >
               {title}
             </motion.span>
