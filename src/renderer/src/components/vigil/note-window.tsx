@@ -3,15 +3,15 @@ import type { JSONContent } from '@tiptap/core'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { useCaptures } from '../capture-list'
-import { CaptureProps } from './captures-view'
+import { CaptureProps, captureDots } from './captures-view'
 import { ItemDetail } from './items-view'
 import { NotePreview } from './note-preview'
 import { Mentions } from './mentions'
 import { selectionActions } from './selection-actions'
-import { Toaster } from './ui'
-import { Versions } from './note-extras'
+import { Toaster, pin } from './ui'
+import { NoteHeader } from './note-extras'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { findCaptures, findHeadings, follow, headingIn } from '@/lib/capture-links'
+import { captureKey, findCaptures, findHeadings, follow, headingIn } from '@/lib/capture-links'
 import { toMarkdown } from '@/lib/export'
 import { useSameWords } from '@/lib/same-words'
 import { useAppearance, vigil, type ItemFull } from '@/lib/vigil'
@@ -59,12 +59,12 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-y-auto [--mf-padding:1rem_1.5rem_1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem]">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div className="flex justify-end px-3">
-          <Versions table="captures" id={id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })} onRestored={() => void window.api.captures.get(id).then((found) => {
+        <NoteHeader table="captures" id={id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })} onRestored={() => void window.api.captures.get(id).then((found) => {
             setCapture(found)
             setRev((n) => n + 1)
-          })} />
-        </div>
+          })}
+          edited={meta.editedAt} captured={meta.capturedAt} pinned={!!meta.pinnedAt} onPin={() => pin('captures', id, !meta.pinnedAt)}
+          copyKey={captureKey(meta.number)} menu={captureDots(meta)} />
         {past ? (
           <MindflowEditor key={`past-${past.key}`} defaultContent={(past.body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
         ) : (

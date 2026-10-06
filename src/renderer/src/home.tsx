@@ -438,16 +438,16 @@ export function Home(): React.JSX.Element {
                       'separator',
                       { label: 'Unpin', run: () => void vigil.pin(table, pin.id, false).then(() => chime('fold')) }
                     ]}>
-                      <span className="flex">
+                      <span className="flex min-w-0">
                       <Tip label={narrow ? pin.title || 'Untitled' : ''}>
                       <button
                         type="button"
                         data-private={pin.private ? '' : undefined}
                         onClick={() => open(pin.type, pin.id)}
-                        className={`flex flex-1 items-center gap-2.5 rounded-md py-1.5 text-foreground/80 transition-colors hover:bg-accent/60 ${narrow ? 'justify-center px-0' : 'px-2'}`}
+                        className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1.5 text-foreground/80 transition-colors hover:bg-accent/60 ${narrow ? 'justify-center px-0' : 'px-2'}`}
                       >
                         <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
-                        {!narrow && <span className="private-text flex-1 truncate text-left">{pin.title || 'Untitled'}</span>}
+                        {!narrow && <span className="private-text min-w-0 flex-1 truncate text-left">{pin.title || 'Untitled'}</span>}
                       </button>
                       </Tip>
                       </span>

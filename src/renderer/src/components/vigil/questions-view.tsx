@@ -15,7 +15,7 @@ import { Chips } from './display'
 import { Lineage } from './lineage'
 import { pinQuestion } from './pinned-questions'
 import { Mentions } from './mentions'
-import { Aliases, LocalGraph, Versions } from './note-extras'
+import { Aliases, LocalGraph, NoteHeader } from './note-extras'
 import { RowMenu, copy, type MenuItem } from './row-menu'
 import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Typed, VirtualList, ask, refuse, showTopTitle, toast, useListKeys } from './ui'
 import { dayMonth, dayjs, heldFor, num } from '../../../../main/dates'
@@ -171,13 +171,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
   const go = (type: string, id: string): void => (type === 'question' ? pick(id) : onOpen?.(type, id))
   const menuFor = (item: Item): MenuItem[] => [
     { label: 'Open', keys: '↵', run: () => pick(item.id) },
-    { label: 'Open in a new window', keys: '⌘-click', run: () => openWindow('question', item.id) },
-    'separator',
-    ...(item.closedAt ? [] : [{ label: inView.has(item.id) ? 'Out of view' : 'Keep in view while capturing', run: () => void pinQuestion(item.id, item.title, !inView.has(item.id)) }]),
-    { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
-    { label: item.archivedAt ? 'Unarchive' : 'Archive', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
-    'separator',
-    { label: 'Copy the question', run: () => copy(item.title) }
+    ...questionMenu(item, inView.has(item.id))
   ]
   return (
     <>
@@ -249,6 +243,17 @@ export function QuestionRow({ item, compact = false, inView = false }: { item: I
  * however it asks to be written, and its clues, newest first. Down the right,
  * how long it has been held and the two ways it can end.
  */
+/** What a question offers besides opening it: its row menu and its note's dots share it. */
+const questionMenu = (item: Item, shown: boolean): MenuItem[] => [
+  { label: 'Open in a new window', keys: '⌘-click', run: () => openWindow('question', item.id) },
+  'separator',
+  ...(item.closedAt ? [] : [{ label: shown ? 'Out of view' : 'Keep in view while capturing', run: () => void pinQuestion(item.id, item.title, !shown) }]),
+  { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
+  { label: item.archivedAt ? 'Unarchive' : 'Archive', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
+  'separator',
+  { label: 'Copy the question', run: () => copy(item.title) }
+]
+
 export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: string, id: string) => void; top?: React.ReactNode }): React.JSX.Element {
   useOpenNote({ table: 'nuggets', type: 'question', id: item.id, kind: item.kind, archived: !!item.archivedAt })
   const seen = useRef<string | null>(null)
@@ -277,11 +282,9 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
   return (
     <div className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_1.5rem_1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
-        <div className="-mt-3 mb-1 flex items-center justify-between gap-2 px-3 @[40rem]/page:px-[4.25rem]">
-          {top ?? <span />}
-          <Versions table="nuggets" id={item.id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
-            onRestored={() => void vigil.item(item.id).then((fresh) => fresh && setRestored((was) => ({ body: fresh.body, rev: (was?.rev ?? 0) + 1 })))} />
-        </div>
+        <NoteHeader className="-mt-3 mb-1" left={top} type={item.tier} table="nuggets" id={item.id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
+          onRestored={() => void vigil.item(item.id).then((fresh) => fresh && setRestored((was) => ({ body: fresh.body, rev: (was?.rev ?? 0) + 1 })))}
+          edited={item.updatedAt} captured={item.createdAt} made="Asked" menu={questionMenu(item, inView)} />
         <div className="page-narrow mx-auto w-full px-12">
           {/* The question itself, in your words: it can take a few lines. */}
           <textarea

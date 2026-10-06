@@ -99,6 +99,8 @@ export type Item = {
   suspended: number
   reviewed: number
   createdAt: string
+  /** When it was last changed; null or its creation time if never. */
+  updatedAt: string | null
   captureId: string | null
   remindAt: string | null
   lapses: number

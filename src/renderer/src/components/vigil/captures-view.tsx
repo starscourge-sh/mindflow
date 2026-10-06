@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { ArrowUpRight, Eye, EyeOff, CheckCircle2, FileText, Hash, Inbox, ListTodo, Merge, Orbit, Pin, Trash2, X, Laptop, Timer, History, CloudSun } from 'lucide-react'
+import { ArrowUpRight, Eye, EyeOff, CheckCircle2, FileText, Hash, Inbox, ListTodo, Merge, Orbit, Pin, Trash2, X, Laptop, Timer, CloudSun } from 'lucide-react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
@@ -30,9 +30,10 @@ import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
 import TrashIcon from '@/components/ui/trash-icon'
 import { Archive, ArchiveRestore, Download } from 'lucide-react'
-import { Aliases, KindFields, LayoutToggle, LocalGraph, NoteCards, Versions, useLayout } from './note-extras'
+import { Aliases, KindFields, LayoutToggle, LocalGraph, NoteCards, NoteHeader, useLayout } from './note-extras'
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { Rest } from './scenery'
+import type { MenuItem } from './row-menu'
 import { PinnedQuestions, clueInto } from './pinned-questions'
 import { num } from '../../../../main/dates'
 
@@ -239,35 +240,33 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
         <div className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_1.5rem_1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
             {/* What you first caught, kept from the first edit on: read it
-                beside what it has become, never lost to an edit. */}
-            <div className="flex items-center justify-between gap-2 px-3 @[40rem]/page:px-[4.25rem]">
-              <Stepper at={shown.findIndex((one) => one.id === open.id)} total={shown.length} onStep={(to) => pick(shown[to].id)} />
-              {/* A short word that fits beside Versions at any width; the tip says it in full. */}
-              <Tip label={first !== null ? 'Back to now' : 'As first written'}>
-              <Button variant="ghost" size="sm" className="shrink-0 text-muted-foreground" onClick={() =>
-                first !== null
-                  ? // Back from reading: the capture read again, so the editor
-                    // opens on its words now and never saves older ones over them.
-                    void window.api.captures.get(open.id).then((found) => {
+                beside what it has become, never lost to an edit. One click
+                into the dots, so the row stays quiet. */}
+            <NoteHeader table="captures" id={open.id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
+              onRestored={() => void window.api.captures.get(open.id).then((found) => {
+                setOpen(found)
+                setRev((n) => n + 1)
+              })}
+              left={<Stepper at={shown.findIndex((one) => one.id === open.id)} total={shown.length} onStep={(to) => pick(shown[to].id)} />}
+              edited={meta.editedAt} captured={meta.capturedAt}
+              pinned={!!meta.pinnedAt} onPin={() => pin('captures', meta.id, !meta.pinnedAt)} copyKey={captureKey(meta.number)}
+              menu={[
+                open.original ? { label: 'As first written', run: () => (chime('rewind'), setFirst(open.original)) } : null,
+                ...captureDots(meta)
+              ]}
+              looking={first !== null ? (
+                <span className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
+                  As first written
+                  <Tip label="Back to now">
+                    {/* Read again, so the editor opens on its words now and never saves older ones over them. */}
+                    <Button variant="ghost" size="icon-sm" aria-label="Back to now" onClick={() => void window.api.captures.get(open.id).then((found) => {
                       chime('fold')
                       setOpen(found)
                       setFirst(null)
-                    })
-                  : void window.api.captures.get(open.id).then((found) => {
-                      if (!found?.original) return (chime('nope'), toast('Unchanged since you wrote it', undefined, 'info'))
-                      chime('rewind')
-                      setFirst(found.original)
-                    })
-              }>
-                <History className="size-3.5" /> {first !== null ? 'Now' : 'Original'}
-              </Button>
-              </Tip>
-              <Versions table="captures" id={open.id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
-                onRestored={() => void window.api.captures.get(open.id).then((found) => {
-                  setOpen(found)
-                  setRev((n) => n + 1)
-                })} />
-            </div>
+                    })}><X className="size-3.5" /></Button>
+                  </Tip>
+                </span>
+              ) : undefined} />
             {past ? (
               <MindflowEditor
                 key={`past-${open.id}-${past.key}`}
@@ -317,6 +316,10 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
     </>
   )
 }
+
+/** A capture's row menu in its note's dots, less what the row over it already shows: opening, the star, the link. */
+export const captureDots = (capture: CaptureMeta): MenuItem[] =>
+  captureMenu(capture).filter((item) => !item || item === 'separator' || !['Open', 'Unpin', 'Pin to the prompt', `Copy ${captureKey(capture.number)}`].includes(item.label))
 
 /** Status and the exits, then what the capture is, then where it came from. */
 export function CaptureProps({ capture, onOpen, className }: { capture: CaptureMeta; onOpen?: (type: string, id: string) => void; className?: string }): React.JSX.Element {

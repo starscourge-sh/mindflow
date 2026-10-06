@@ -27,6 +27,8 @@ export interface CaptureMeta {
   /** When it will pin itself, if a reminder is set. */
   remindAt: string | null
   capturedAt: string
+  /** When you last changed its words; null while they are as caught. */
+  editedAt: string | null
   /** Who said it: "George Orwell", "Kayla". Null means the words are yours. */
   attribution: string | null
   /** The machine it was captured on, and how long writing it took. */
@@ -143,7 +145,7 @@ export const like = (text: string): string => text.replace(/[\\%_]/g, '\\$&')
 // `named` is 1 for a note that came with a name of its own (a vault note is
 // called by its file name): that name wins over whatever its first line says.
 export const LABEL = 'label(title, body, named)'
-export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, attribution, medium, exited_at as closedAt, device, elapsed_ms as elapsedMs, weather, archived_at as archivedAt, imported_at as importedAt`
+export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, edited_at as editedAt, attribution, medium, exited_at as closedAt, device, elapsed_ms as elapsedMs, weather, archived_at as archivedAt, imported_at as importedAt`
 
 /** One note whose words or fields were saved: what a change can say it was. */
 export interface Change {
@@ -283,7 +285,7 @@ export function registerCaptures(): void {
   // When an imported capture came in: its own date is kept and shown, but its
   // age, for rot cards, hints and the weekly nudge, counts from here, so a vault
   // of old notes does not all arrive rotting.
-  for (const add of ['alter table captures add column named integer not null default 0', "alter table nuggets add column source text not null default ''", 'alter table captures add column imported_at text']) {
+  for (const add of ['alter table captures add column named integer not null default 0', "alter table nuggets add column source text not null default ''", 'alter table captures add column imported_at text', 'alter table captures add column edited_at text']) {
     try {
       db.exec(add)
     } catch {
@@ -410,8 +412,9 @@ export function registerCaptures(): void {
     // The words as first written, kept the first time you change them: a
     // capture edited and then promoted still has what you actually caught.
     // Only your edits count; a link's card or a tag added in bulk do not.
+    // And when, for the note's "Edited 2h ago".
     if (patch.body !== undefined && !patch.fetched)
-      db.prepare('update captures set original_body = body where id = ? and original_body is null and body is not ?').run(String(id), JSON.stringify(patch.body))
+      db.prepare("update captures set original_body = coalesce(original_body, body), edited_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') where id = ? and body is not ?").run(String(id), JSON.stringify(patch.body))
     const row = db.prepare(
       `update captures set
          title  = coalesce(?, title),

@@ -33,7 +33,7 @@ import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
 import AlarmClockPlusIcon from '@/components/ui/alarm-clock-plus-icon'
 import { Archive, ArchiveRestore, Download } from 'lucide-react'
-import { Aliases, KindFields, LayoutToggle, LocalGraph, NoteCards, Thumb, Versions, useLayout } from './note-extras'
+import { Aliases, KindFields, LayoutToggle, LocalGraph, NoteCards, NoteHeader, Thumb, useLayout } from './note-extras'
 import { SortableList, SortableRow } from './sortable'
 import { archive, changeKind, openWindow, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { QuestionDetail } from './questions-view'
@@ -116,13 +116,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
     { label: 'Open', keys: '↵', run: () => pick(item.id) },
     'separator',
     { label: item.pinnedAt ? 'Unpin' : 'Pin to the prompt', run: () => pin('nuggets', item.id, !item.pinnedAt) },
-    { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
-    { label: 'Stick on the desktop', run: () => stickOnDesktop('nugget', item.id) },
-    { label: 'Open in a new window', keys: '⌘-click', run: () => openWindow(tier, item.id) },
-    'separator',
-    tier === 'nugget' && { label: 'Change kind…', run: () => void changeKind('nuggets', item.id, item.kind) },
-    { label: item.archivedAt ? 'Unarchive' : 'Archive', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
-    { label: 'Save its pictures and files…', run: () => void saveAttachments([{ table: 'nuggets', id: item.id }]) },
+    ...itemMenu(item),
     tier === 'nugget' && { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(item.id) },
     'separator',
     { label: 'Copy title', run: () => copy(item.title) }
@@ -301,6 +295,17 @@ function ArticleRow({ item }: { item: Item }): React.JSX.Element {
 }
 
 /** The open nugget, article or question, wherever it is opened: a question is drawn its own way. */
+/** What a nugget or an article offers besides opening and pinning: its row menu and its note's dots share it. */
+const itemMenu = (item: Item): MenuItem[] => [
+  { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
+  { label: 'Stick on the desktop', run: () => stickOnDesktop('nugget', item.id) },
+  { label: 'Open in a new window', keys: '⌘-click', run: () => openWindow(item.tier, item.id) },
+  'separator',
+  item.tier === 'nugget' && { label: 'Change kind…', run: () => void changeKind('nuggets', item.id, item.kind) },
+  { label: item.archivedAt ? 'Unarchive' : 'Archive', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
+  { label: 'Save its pictures and files…', run: () => void saveAttachments([{ table: 'nuggets', id: item.id }]) }
+]
+
 export function ItemDetail(props: { item: ItemFull; onOpen?: (type: string, id: string) => void; top?: React.ReactNode }): React.JSX.Element {
   return props.item.tier === 'question' ? <QuestionDetail {...props} /> : <NuggetDetail {...props} />
 }
@@ -342,11 +347,11 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
   return (
     <div className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_1.5rem_1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
-        <div className="-mt-3 mb-1 flex items-center justify-between gap-2 px-3 @[40rem]/page:px-[4.25rem]">
-          {top ?? <span />}
-          <Versions table="nuggets" id={item.id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
-            onRestored={() => void vigil.item(item.id).then((fresh) => fresh && setRestored((was) => ({ body: fresh.body, rev: (was?.rev ?? 0) + 1 })))} />
-        </div>
+        <NoteHeader className="-mt-3 mb-1" left={top} type={item.tier} table="nuggets" id={item.id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
+          onRestored={() => void vigil.item(item.id).then((fresh) => fresh && setRestored((was) => ({ body: fresh.body, rev: (was?.rev ?? 0) + 1 })))}
+          edited={item.updatedAt} captured={item.createdAt} made={item.tier === 'article' ? 'Started' : 'Kept'}
+          pinned={!!item.pinnedAt} onPin={() => pin('nuggets', item.id, !item.pinnedAt)}
+          menu={[...itemMenu(item), 'separator', { label: 'Copy title', run: () => copy(item.title) }]} />
         {item.tier === 'article' && (
           <input
             className="page-narrow mx-auto mb-2 block w-full bg-transparent px-12 font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none placeholder:text-foreground/70"

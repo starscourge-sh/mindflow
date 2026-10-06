@@ -18,9 +18,13 @@ import { chime, step, type Cue } from '@/lib/sound'
 import { notes, openWindow, smallPicture, useThumb, type GraphNode, type NoteTable, type Version } from '@/lib/notes'
 import { splitTags, useLive, vigil } from '@/lib/vigil'
 import { Chips } from './display'
-import { RowMenu, type MenuItem } from './row-menu'
+import { RowMenu, copy, type MenuItem } from './row-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
+import BookIcon from '@/components/ui/book-icon'
+import { ReadThrough } from './read-through'
 import { Island, PropInput, Rolling, Tip, Typed, VirtualList, refuse, toast } from './ui'
-import { dayKey, dayMonth, dayjs, moment, noon, num } from '../../../../main/dates'
+import { age, dayKey, dayMonth, dayjs, moment, noon, num } from '../../../../main/dates'
 
 // --- a note's first picture, small
 
@@ -498,12 +502,14 @@ const whenSaved = (iso: string): string => moment(iso)
  * the one you are on in place of the note, and bring it back if you want it.
  * `onShow` gets the words to show (and a key for them), or null for now.
  */
-export function Versions({ table, id, onShow, onRestored }: {
+export function Versions({ table, id, onShow, onRestored, trigger }: {
   /** `day`, with `day:` and its date as the id, for a day's page. */
   table: NoteTable | 'day'
   id: string
   onShow: (body: unknown | null, key?: string) => void
   onRestored: () => void
+  /** What stands in for the Versions button, given the way to open them. */
+  trigger?: (open: () => void) => React.ReactNode
 }): React.JSX.Element {
   const [list, setList] = useState<Version[] | null>(null)
   const [at, setAt] = useState(0)
@@ -551,6 +557,7 @@ export function Versions({ table, id, onShow, onRestored }: {
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   })
+  if (!list && trigger) return <>{trigger(open)}</>
   if (!list)
     return (
       <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={open}><AliveIcon icon={ClockIcon} size={14} /> Versions</Button>
@@ -577,6 +584,81 @@ export function Versions({ table, id, onShow, onRestored }: {
       <Tip label="Back to now  Esc">
         <Button variant="ghost" size="icon-sm" aria-label="Back to now" onClick={() => (chime('fold'), back())}><X className="size-3.5" /></Button>
       </Tip>
+    </div>
+  )
+}
+
+// --- a note's header
+
+const TOOL = 'flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground [&_svg]:size-4'
+
+/**
+ * The row over an open note: where it sits in the list on the left; on the
+ * right, quietly, when it last changed (a click goes back through its
+ * versions), a book to read it, and everything else behind the dots. `looking` takes the right side while an older text is shown.
+ */
+export function NoteHeader({ left, type = 'capture', edited, captured, made = 'Captured', pinned, onPin, copyKey, menu, looking, className = '', ...versions }: {
+  left?: React.ReactNode
+  /** What it is, for reading it: capture, nugget, article, question. */
+  type?: string
+  /** When its words last changed, or null if never since it was made. */
+  edited: string | null
+  captured: string
+  made?: string
+  pinned?: boolean
+  onPin?: () => void
+  /** Its short handle, MF-123, to copy. */
+  copyKey?: string
+  menu: MenuItem[]
+  looking?: React.ReactNode
+  className?: string
+} & Parameters<typeof Versions>[0]): React.JSX.Element {
+  const at = edited && edited > captured ? edited : captured
+  const old = age(at)
+  const said = `${edited && edited > captured ? 'Edited' : made} ${old === '0m' ? 'just now' : `${old} ago`}`
+  const items = menu.filter(Boolean) as Exclude<MenuItem, false | null | undefined>[]
+  const [reading, setReading] = useState(false)
+  return (
+    <div className={`flex min-h-7 items-center justify-between gap-2 px-3 @[40rem]/page:px-[4.25rem] ${className}`}>
+      {reading && <ReadThrough items={[{ type, id: versions.id }]} onClose={() => setReading(false)} />}
+      {left ?? <span />}
+      {looking ?? (
+        <Versions {...versions} trigger={(open) => (
+          // On the right even when there is no list position to its left.
+          <div className="ml-auto flex min-w-0 items-center gap-0.5">
+            <Tip label={moment(at, 'dddd')}>
+              <button type="button" onClick={open} className="mr-1 truncate rounded-md px-1.5 py-1 text-xs whitespace-nowrap text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+                {said}
+              </button>
+            </Tip>
+            <Tip label="Read">
+              <button type="button" aria-label="Read" onClick={() => (chime('open'), setReading(true))} className={TOOL}><AliveIcon icon={BookIcon} size={16} /></button>
+            </Tip>
+            <DropdownMenu modal={false}>
+              <Tip label="More">
+                <DropdownMenuTrigger asChild>
+                  <button type="button" aria-label="More" className={TOOL}><AliveIcon icon={DotsHorizontalIcon} size={16} /></button>
+                </DropdownMenuTrigger>
+              </Tip>
+              <DropdownMenuContent align="end" className="w-56">
+                {onPin && <DropdownMenuItem onSelect={onPin}>{pinned ? 'Unpin' : 'Pin'}</DropdownMenuItem>}
+                {copyKey && <DropdownMenuItem onSelect={() => copy(copyKey, `Copied ${copyKey}`)}>Copy {copyKey}</DropdownMenuItem>}
+                <DropdownMenuItem onSelect={open}>Version history</DropdownMenuItem>
+                {items.map((item, index) =>
+                  item === 'separator' ? (
+                    items[index - 1] !== 'separator' && index < items.length - 1 && <DropdownMenuSeparator key={`separator-${index}`} />
+                  ) : (
+                    <DropdownMenuItem key={item.label} variant={item.danger ? 'destructive' : 'default'} onSelect={item.run}>
+                      {item.label}
+                      {item.keys && <DropdownMenuShortcut>{item.keys}</DropdownMenuShortcut>}
+                    </DropdownMenuItem>
+                  )
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )} />
+      )}
     </div>
   )
 }
