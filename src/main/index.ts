@@ -530,12 +530,23 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   }
   if (open && !open.isDestroyed()) return void (gate().blackout || open.showInactive())
   const { workArea } = screen.getPrimaryDisplay()
-  // A new one lands top right, each a little below the last.
-  const place = bounds ?? { width: 260, height: 180, x: workArea.x + workArea.width - 280, y: workArea.y + 20 + stickies.size * 36 }
+  // A new one lands top right, each fanned a little down and to the side of the last.
+  // The window is the note plus room for its lean and shadow.
+  const place = bounds ?? {
+    width: 300,
+    height: 220,
+    x: workArea.x + workArea.width - 300 - (stickies.size % 2) * 24,
+    y: workArea.y + stickies.size * 64
+  }
   const win = new BrowserWindow({
     ...place,
-    minWidth: 180,
-    minHeight: 90,
+    minWidth: 220,
+    minHeight: 130,
+    // Named for AeroSpace's floating rule, and with no close button, like the
+    // box: a window of an accessory app without one is never tiled at all.
+    // Its own X takes it down; quitting makes it closable first.
+    title: 'Vigil',
+    closable: false,
     frame: false,
     transparent: true,
     minimizable: false,
@@ -557,7 +568,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   }
   win.on('moved', remember)
   win.on('resized', remember)
-  // Closed any way but quitting (⌘W too) is taken down, so it stays down after a restart.
+  // Closed any way but quitting is taken down, so it stays down after a restart.
   win.on('closed', () => {
     stickies.delete(key)
     if (quitting) return
@@ -568,13 +579,25 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   if (!stuck.some((one) => `${one.type}:${one.id}` === key)) stuck.push({ type, id, bounds: place })
   keepStuck()
   guard(win)
-  load(win, `?view=sticky&type=${encodeURIComponent(type)}&id=${encodeURIComponent(id)}`)
+  // Its place in line, so neighbours lean opposite ways.
+  const nth = stuck.findIndex((one) => `${one.type}:${one.id}` === key)
+  load(win, `?view=sticky&type=${encodeURIComponent(type)}&id=${encodeURIComponent(id)}&nth=${nth}`)
 }
 /** The stickies left on the desktop last time, back where they were. */
 async function restoreStickies(): Promise<void> {
   try {
     const saved = JSON.parse(await readFile(stickyFile(), 'utf8')) as Stuck[]
     stuck = saved
+    // One that covers more than half of an earlier one is fanned out from it, and kept there.
+    const covers = (a: Electron.Rectangle, b: Electron.Rectangle): boolean =>
+      Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)) *
+        Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y)) >
+      (a.width * a.height) / 2
+    saved.forEach((one, i) => {
+      const { bounds } = one
+      if (bounds && saved.slice(0, i).some((before) => before.bounds && covers(bounds, before.bounds)))
+        one.bounds = onScreen({ ...bounds, x: bounds.x + 24, y: bounds.y + 64 })
+    })
     for (const one of saved) stick(one.type, one.id, true, one.bounds)
   } catch {
     // None yet.
