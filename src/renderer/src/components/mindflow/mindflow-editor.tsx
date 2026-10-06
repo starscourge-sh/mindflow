@@ -1469,10 +1469,11 @@ function Surface({
   // block, and the handle beside that block already offers it.
   const defaultSelection = (
     <>
+          {/* The four text marks behind one button, as Linear keeps them, with
+              their keys beside each; code stays out on its own. */}
           <ToolbarGroup>
-            {(["bold", "italic", "underline", "strike", "code"] as const).map((type) => (
-              <MarkButton key={type} type={type} showTooltip={false} />
-            ))}
+            <MarkDropdownMenu modal={false} types={["bold", "italic", "strike", "underline"]} showTooltip={false} />
+            <MarkButton type="code" showTooltip={false} />
           </ToolbarGroup>
           <ToolbarSeparator />
           <ToolbarGroup>
