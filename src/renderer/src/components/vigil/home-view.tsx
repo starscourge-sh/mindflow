@@ -1,3 +1,4 @@
+import { Lean } from './lean'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { alive } from '@/components/ui/alive-icon'
 import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
@@ -138,6 +139,7 @@ function Tile({ card, pinned, actions, onHover }: { card: Card; pinned: boolean;
   return (
     <RowMenu items={menuFor(card, actions, [card], 0)}>
       <div className="group/tile relative min-w-0" onPointerEnter={() => onHover(look)} onPointerLeave={() => onHover(null)}>
+        <Lean by={3}>
         <button
           type="button"
           data-nav
@@ -157,6 +159,7 @@ function Tile({ card, pinned, actions, onHover }: { card: Card; pinned: boolean;
           <RoundRead onRead={() => actions.read([card], 0)}
             className="absolute top-1/2 right-2.5 -translate-y-1/2 translate-x-1 opacity-0 group-focus-within/tile:translate-x-0 group-focus-within/tile:opacity-100 group-hover/tile:translate-x-0 group-hover/tile:opacity-100" />
         )}
+        </Lean>
       </div>
     </RowMenu>
   )
@@ -175,6 +178,7 @@ function RowCard({ card, list, at, actions, tag }: { card: Card; list: Card[]; a
   return (
     <RowMenu items={menuFor(card, actions, list, at)}>
       <div className="group/card relative flex w-(--card) shrink-0 snap-start">
+        <Lean className="flex w-full" inner="flex">
         <button
           type="button"
           data-nav
@@ -220,6 +224,7 @@ function RowCard({ card, list, at, actions, tag }: { card: Card; list: Card[]; a
               className="pointer-events-auto translate-y-1 opacity-0 group-focus-within/card:translate-y-0 group-focus-within/card:opacity-100 group-hover/card:translate-y-0 group-hover/card:opacity-100" />
           </span>
         )}
+        </Lean>
       </div>
     </RowMenu>
   )
@@ -385,6 +390,7 @@ function Quotes({ title, onAll, cards, actions }: { title: ReactNode; onAll?: ()
         {cards.map((card, at) => (
           <RowMenu key={card.id} items={menuFor(card, actions, cards, at)}>
             <div className="group/card relative mb-2 break-inside-avoid">
+              <Lean by={4}>
               <button type="button" data-nav data-private={card.private ? '' : undefined} onClick={() => actions.open(card)}
                 className="flex w-full flex-col gap-2 rounded-xl bg-foreground/[0.04] p-4 text-left outline-none transition-colors duration-150 hover:bg-foreground/[0.07] focus-visible:ring-2 focus-visible:ring-ring/50">
                 <span className="private-text pr-7 font-heading text-[1.0625rem] leading-snug [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
@@ -397,6 +403,7 @@ function Quotes({ title, onAll, cards, actions }: { title: ReactNode; onAll?: ()
                 <RoundRead onRead={() => actions.read(cards, at)}
                   className="pointer-events-auto translate-y-1 opacity-0 group-focus-within/card:translate-y-0 group-focus-within/card:opacity-100 group-hover/card:translate-y-0 group-hover/card:opacity-100" />
               </span>
+              </Lean>
             </div>
           </RowMenu>
         ))}

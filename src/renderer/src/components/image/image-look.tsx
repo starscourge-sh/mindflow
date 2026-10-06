@@ -297,7 +297,18 @@ function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: numb
     // Back to where it sits now: the note may have scrolled while it was out.
     // With nowhere to go back to, it settles away where it is.
     img?.scrollIntoView({ block: "nearest" })
-    const home = img?.isConnected ? img.getBoundingClientRect() : null
+    // Only back into its place when all of it is in view: a picture partly
+    // under the note's edge would land over the footer for a moment.
+    const shown = (rect: DOMRect): boolean => {
+      for (let up = img?.parentElement; up; up = up.parentElement) {
+        if (!/(auto|scroll|hidden)/.test(getComputedStyle(up).overflowY)) continue
+        const view = up.getBoundingClientRect()
+        if (rect.top < view.top - 1 || rect.bottom > view.bottom + 1) return false
+      }
+      return rect.top >= 0 && rect.bottom <= innerHeight
+    }
+    const place = img?.isConnected ? img.getBoundingClientRect() : null
+    const home = place && shown(place) ? place : null
     setView({ zoom: 1, x: 0, y: 0, smooth: true })
     await Promise.all([
       home ? animate(frame.current, from(home, fit), SPRING) : animate(frame.current, { scale: 0.96, opacity: 0 }, { duration: 0.18, ease: EASE }),
