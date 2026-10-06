@@ -1,4 +1,5 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import type { JSONContent } from '@tiptap/core'
 import { alive } from '@/components/ui/alive-icon'
 import XIcon from '@/components/ui/x-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
@@ -11,12 +12,18 @@ import { glance } from './note-preview'
 import { Rolling, toast } from './ui'
 import { chime } from '@/lib/sound'
 import { useAppearance, useLive, vigil } from '@/lib/vigil'
+import { toMarkdown } from '@/lib/export'
+import { useSameWords } from '@/lib/same-words'
+
+// The editor only once you edit: at rest a sticky is just the light drawing below.
+const MindflowEditor = lazy(() => import('@/components/mindflow').then((one) => ({ default: one.MindflowEditor })))
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const X = alive(XIcon)
 
 const DRAG = { WebkitAppRegion: 'drag' } as CSSProperties
 const STILL = { WebkitAppRegion: 'no-drag' } as CSSProperties
+const LIST: CSSProperties = { marginBlock: '0.25rem', paddingLeft: '1rem' }
 
 /**
  * Each note's own lean, 1.2 to 3 degrees, sized from its id so it is the same
@@ -117,9 +124,11 @@ function Body({ node, path, tick }: { node: Node; path: number[]; tick: (at: num
     // Divs, not <p>: the editor's own paragraph sizes would reach in under its class.
     case 'paragraph': return node.content?.length ? <div data-line className="my-1">{node.content.map(inline)}</div> : null
     case 'heading': return <div className="mt-2.5 mb-1 font-medium text-foreground first:mt-0">{(node.content ?? []).map(inline)}</div>
-    case 'bulletList': return <ul className="my-1 list-disc pl-4 marker:text-muted-foreground/60">{kids}</ul>
-    case 'orderedList': return <ol start={Number(node.attrs?.start) || 1} className="my-1 list-decimal pl-4 marker:text-muted-foreground/60">{kids}</ol>
-    case 'listItem': return <li className="[&>[data-line]]:my-0">{kids}</li>
+    // Spacing inline: under a to-do these sit inside the editor's class, whose list margins would otherwise win.
+    case 'bulletList': return <ul style={LIST} className="list-disc marker:text-muted-foreground/60">{kids}</ul>
+    case 'orderedList': return <ol style={LIST} start={Number(node.attrs?.start) || 1} className="list-decimal marker:text-muted-foreground/60">{kids}</ol>
+    // A plain item again, under a to-do: the checklist's own rules make every item below it a flex row with no marker.
+    case 'listItem': return <li style={{ display: 'list-item', listStyleType: 'inherit' }} className="[&>[data-line]]:my-0">{kids}</li>
     case 'blockquote': return <blockquote className="my-1 border-l-2 pl-2">{kids}</blockquote>
     case 'codeBlock': return <pre className="my-1 overflow-x-auto rounded bg-accent px-2 py-1 font-mono text-xs">{words(node)}</pre>
     case 'horizontalRule': return <hr className="my-2" />
@@ -191,6 +200,33 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   const [ticked, setTicked] = useState<{ on: unknown; body: unknown }>()
   const body = ticked && ticked.on === note?.body ? ticked.body : note?.body
   const doc: Node = typeof body === 'string' ? fromMarkdown(body) : ((body as Node) ?? { type: 'doc' })
+  // Double-click or E edits it in place; Esc or clicking away puts it back.
+  // The words it opened on, held, so a save elsewhere does not rebuild the editor under the caret.
+  const [editing, setEditing] = useState<{ body: unknown } | null>(null)
+  const area = useRef<HTMLDivElement>(null)
+  const typed = useSameWords(type === 'capture' ? 'captures' : 'nuggets', editing ? id : undefined, editing?.body, (at, next, base, editor) =>
+    type === 'capture'
+      ? window.api.captures.save(at, { body: next as never, base, ...(editor ? { markdown: toMarkdown(editor) } : {}) })
+      : vigil.saveItem(at, { body: next, base }))
+  const edit = (): void => void (note && !editing && setEditing({ body: note.body }))
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return
+      if (editing && event.key === 'Escape') return (event.preventDefault(), setEditing(null))
+      if (!editing && event.key.toLowerCase() === 'e' && !(event.target as Element | null)?.closest?.('textarea, input:not([type=checkbox]), [contenteditable="true"]'))
+        return (event.preventDefault(), edit())
+    }
+    const onDown = (event: PointerEvent): void => void (editing && !area.current?.contains(event.target as globalThis.Node) && setEditing(null))
+    const away = (): void => setEditing(null)
+    window.addEventListener('keydown', onKey, true)
+    window.addEventListener('pointerdown', onDown, true)
+    window.addEventListener('blur', away)
+    return () => {
+      window.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('pointerdown', onDown, true)
+      window.removeEventListener('blur', away)
+    }
+  })
   const todos = todosOf(doc)
   const left = todos.filter((todo) => !todo.done).length
   if (!note) return null
@@ -220,6 +256,8 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
       void save(answer.body, again)
     })
   }
+
+  const drawn = (doc.content ?? []).map((child, at) => (at || !twice) && <Body key={at} node={child} path={[at]} tick={tick} />)
 
   return (
     // Room all round for the lean, the lift and the shadow, so none of it is cut off at the window's edge.
@@ -268,8 +306,18 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
           </span>
         </div>
         {/* A long note scrolls, and fades out at the bottom as the box does, instead of stopping hard at the edge. */}
-        <div className="private-text min-h-0 flex-1 overflow-y-auto px-3 pt-1 pb-6 text-muted-foreground [mask-image:linear-gradient(to_bottom,#000_calc(100%-1.75rem),transparent)]" style={STILL}>
-          {(doc.content ?? []).map((child, at) => (at || !twice) && <Body key={at} node={child} path={[at]} tick={tick} />)}
+        <div ref={area} onDoubleClick={(event) => !(event.target as Element).closest('input') && edit()}
+          className="private-text min-h-0 flex-1 overflow-y-auto px-3 pt-1 pb-6 text-muted-foreground [mask-image:linear-gradient(to_bottom,#000_calc(100%-1.75rem),transparent)]" style={STILL}>
+          {editing ? (
+            // The note's own editor, small and bare: no handles, toolbar or slash menu, saving as you type.
+            <Suspense fallback={drawn}>
+              <div style={{ '--mf-padding': '0' } as CSSProperties} className="text-foreground [zoom:0.8125] [&_.tiptap-word-count]:hidden">
+                <MindflowEditor defaultContent={(editing.body as JSONContent | string | null) ?? ''} host={window.api}
+                  toolbar={false} handles={false} slash={false} outline={false} search={false} vim={false} autofocus="end"
+                  onReady={typed.ready} onChange={typed.save} />
+              </div>
+            </Suspense>
+          ) : drawn}
         </div>
       </div>
     </div>

@@ -7,6 +7,7 @@ import { join, posix } from 'path'
 import { hostname } from 'os'
 
 import { backUp, checkMarkdown, writeMarkdown } from './backup'
+import { markdown } from './vigil'
 import { chunks, createdOf, firstLine, guessKind, kindOf, propertiesOf, titleOfMarkdown, unstamp, withoutNotionId } from './import'
 
 /** What the list shows. The body is only read when one is opened. */
@@ -484,7 +485,8 @@ export function registerCaptures(): void {
     )
     // When an exit was taken, for the lead measures: "did you take an exit
     // this week" needs the day, not only the state.
-    if (row && patch.markdown !== undefined) void writeMarkdown(row.number as number, patch.markdown)
+    // Words saved without their Markdown (a sticky's tick) are turned into it here, so the copy never lags.
+    if (row && (patch.markdown !== undefined || patch.body !== undefined)) void writeMarkdown(row.number as number, patch.markdown ?? markdown(patch.body))
     else if (patch.status) checkMarkdown(String(id))
     changed({ kind: 'capture', id: String(id) })
     return { was, refused, ...(moved ? { conflict: true, body: moved.body } : {}) }
