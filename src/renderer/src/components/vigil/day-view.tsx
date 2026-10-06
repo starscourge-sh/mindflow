@@ -60,6 +60,8 @@ export function DayView({ onOpen, start, onScale }: {
   // after one is restored, with a new key so the editor opens on them.
   const [past, setPast] = useState<{ body: unknown; key: string } | null>(null)
   const [restored, setRestored] = useState<{ day: string; body: unknown; rev: number } | null>(null)
+  // The tasks today's brief lists, done or not: the Done list below leaves them to it.
+  const [listed, setListed] = useState<string[]>([])
   const go = (to: string): void => {
     if (to > today || to === day) return
     chime('page')
@@ -82,7 +84,8 @@ export function DayView({ onOpen, start, onScale }: {
       toast(on ? 'Day reviewed' : 'Not reviewed after all', () => void notes.saveDay(day, { reviewed: !on })))
   }
   const sections: [string, typeof Inbox, DayEntry[]][] = data
-    ? [['Captured', Inbox, data.captured], ['Dealt with', CheckCircle2, data.resolved], ['Reviewed', Brain, data.studied], ['Done', ListTodo, data.done]]
+    ? [['Captured', Inbox, data.captured], ['Dealt with', CheckCircle2, data.resolved], ['Reviewed', Brain, data.studied],
+      ['Done', ListTodo, day === today ? data.done.filter((entry) => !(entry.type === 'task' && listed.includes(entry.id))) : data.done]]
     : []
 
   return (
@@ -106,9 +109,12 @@ export function DayView({ onOpen, start, onScale }: {
       }
     >
       {/* Today opens as a brief: the day's picture and name, a line on what
-          it holds, and the one thing worth doing next. Other days keep their strip. */}
-      {day === today && <DayBrief day={day} onOpen={onOpen} />}
-      <div className="page-narrow mx-auto w-full px-5 pt-6 pb-16 [--mf-padding:0.5rem_0]">
+          it holds, and its to-dos. The brief and the page under it share one
+          centred column, so they read as one sheet; the margins either side
+          hold the brief's date and time. Other days keep their strip. */}
+      <div className={day === today ? 'mx-auto w-full max-w-[54rem] px-5' : undefined}>
+      {day === today && <DayBrief day={day} onOpen={onOpen} onListed={setListed} />}
+      <div className={`${day === today ? '' : 'page-narrow mx-auto w-full px-5'} pt-6 pb-16 [--mf-padding:0.5rem_0]`}>
         {day !== today && <DayBanner day={day} />}
         {/* Today, the brief says the date (on its spine, or a line when narrow): this stays for screen readers. */}
         <h1 className={`text-title font-semibold ${day === today ? 'sr-only' : ''}`}><Rolling text={day === today ? `Today, ${named(day)}` : named(day)} by="word" /></h1>
@@ -175,6 +181,7 @@ export function DayView({ onOpen, start, onScale }: {
             }) : <p className="px-4 py-2 text-xs text-muted-foreground">Nothing</p>}
           </Island>
         ))}
+      </div>
       </div>
     </Page>
   )
