@@ -355,6 +355,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
           tint={tint}
           cover={<Cover src={cover} colour="var(--primary)" seed={item.id}><Orbit className="size-[42cqi]" strokeWidth={1.6} /></Cover>}
           label="Question"
+          length={item.title.length}
           meta={[
             cluesSaid(clues.length).replace(/^n/, 'N'),
             settled ?? `held since ${dayMonth(item.createdAt)}`,
