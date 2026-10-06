@@ -1,3 +1,4 @@
+import { currentVim, onVimChange } from '@/lib/vim'
 import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { JSONContent } from '@tiptap/core'
 import { Plugin } from '@tiptap/pm/state'
@@ -201,6 +202,9 @@ export const stickOnDesktop = (type: string, id: string, on = true): void => {
  * follow every edit, since it reads the note live.
  */
 export function StickyNote({ type, id }: { type: string; id: string }): React.JSX.Element | null {
+  // Vim keys while editing, when they are on everywhere else.
+  const [vimOn, setVimOn] = useState(currentVim)
+  useEffect(() => onVimChange(setVimOn), [])
   // Sounds, Motion and tag colours obey Settings here as in any window.
   useAppearance()
   const note = useLive(
@@ -276,7 +280,13 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.metaKey || event.ctrlKey || event.altKey) return
-      if (editing && event.key === 'Escape') return (event.preventDefault(), leave())
+      if (editing && event.key === 'Escape') {
+        // With Vim keys, the first Escape is Vim's (back to normal mode); one
+        // more from normal mode leaves editing, as Escape does without Vim.
+        const mode = document.querySelector('.tiptap.ProseMirror[data-vim-mode]')?.getAttribute('data-vim-mode')
+        if (mode && mode !== 'normal') return
+        return (event.preventDefault(), leave())
+      }
       if (!editing && event.key.toLowerCase() === 'e' && !(event.target as Element | null)?.closest?.('textarea, input:not([type=checkbox]), [contenteditable="true"]'))
         return (event.preventDefault(), edit())
     }
@@ -400,7 +410,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
             <Suspense fallback={drawn}>
               <div className="[&_.tiptap-word-count]:hidden">
                 <MindflowEditor defaultContent={(editing.body as JSONContent | string | null) ?? ''} host={window.api} placeholder="Write…"
-                  toolbar={false} handles={false} slash={false} outline={false} search={false} vim={false} smoothScroll={false} autofocus={editing.at ? false : 'end'}
+                  toolbar={false} handles={false} slash={false} outline={false} search={false} vim={vimOn} smoothScroll={false} autofocus={editing.at ? false : 'end'}
                   onReady={(editor) => {
                     typed.ready(editor)
                     writing.current = { get destroyed() { return editor.isDestroyed }, doc: () => editor.getJSON() }

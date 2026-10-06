@@ -8,6 +8,7 @@ import BookmarkIcon from '@/components/ui/bookmark-icon'
 import HashtagIcon from '@/components/ui/hashtag-icon'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AnimatePresence, motion } from 'motion/react'
+import { EASE, byKeys, shift } from './lib/motion'
 import { chime, soundOn } from './lib/sound'
 import { foldEverything } from './extensions/heading-fold'
 import { NotePreview } from './components/vigil/note-preview'
@@ -136,15 +137,6 @@ export function Home(): React.JSX.Element {
       if (next !== at) chime('tap')
       return { views, at: next }
     })
-  // Whether the last thing done was a key press or a pointer: views reached by keys don't animate.
-  const byKeys = useRef(false)
-  useEffect(() => {
-    const keys = (): void => void (byKeys.current = true)
-    const pointer = (): void => void (byKeys.current = false)
-    window.addEventListener('keydown', keys, true)
-    window.addEventListener('pointerdown', pointer, true)
-    return () => (window.removeEventListener('keydown', keys, true), window.removeEventListener('pointerdown', pointer, true))
-  }, [])
   const [sidebar, setSidebar] = useState(true)
   // Under 760px wide the sidebar folds down to its icons, each named on hover,
   // so a window tiled into a corner keeps its page.
@@ -634,7 +626,7 @@ export function Home(): React.JSX.Element {
 
       <div className="flex min-w-0 flex-1 flex-col gap-2">
       {/* Clear of the traffic lights whatever sits to the left: nothing, or the folded rail. */}
-      <header className={`flex h-8 shrink-0 items-center gap-1 ${!sidebar ? 'pl-[68px]' : narrow ? 'pl-3' : ''}`} style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
+      <header className={`flex h-8 shrink-0 items-center gap-1 ${!sidebar ? 'pl-[84px]' : narrow ? 'pl-3' : ''}`} style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
         {[
           { icon: LayoutSidebarRightIcon, flip: true, label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘\\', run: () => (chime(sidebar ? 'fold' : 'slide'), setSidebar(!sidebar)) },
           // With the sidebar away, its search field comes up here as a button.
@@ -695,9 +687,9 @@ export function Home(): React.JSX.Element {
       <motion.div
         key={view.id}
         // Keyboard travel (G and a letter, ⌘[ and ⌘]) is done hundreds of times a day: no settle then.
-        initial={byKeys.current ? false : { opacity: 0, transform: 'translateY(4px)' }}
-        animate={{ opacity: 1, transform: 'translateY(0px)' }}
-        transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
+        initial={byKeys() ? false : { opacity: 0, transform: shift('translateY(4px)') }}
+        animate={{ opacity: 1, transform: shift('translateY(0px)') }}
+        transition={{ duration: 0.14, ease: EASE }}
         className="flex min-w-0 flex-1"
       >
         {view.id === 'home' ? (
@@ -738,10 +730,11 @@ export function Home(): React.JSX.Element {
         {recent && (
           <motion.div
             key="recent"
-            initial={{ opacity: 0, x: 16 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 16 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            initial={{ opacity: 0, transform: shift('translateX(16px)') }}
+            animate={{ opacity: 1, transform: shift('translateX(0px)') }}
+            // Put away quicker than it came: closing is the answer, not a show.
+            exit={{ opacity: 0, transform: shift('translateX(16px)'), transition: { duration: 0.14, ease: EASE } }}
+            transition={{ duration: 0.2, ease: EASE }}
             className={`flex min-h-0 overflow-hidden rounded-xl border bg-background ${cramped ? 'absolute inset-y-0 right-0 z-20 w-72 shadow-(--mf-panel-shadow)' : 'w-72 shrink-0'}`}
           >
             <RecentPanel className="flex-1" until={recent.until ?? undefined} onClose={() => setRecentState(null)}
