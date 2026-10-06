@@ -70,6 +70,10 @@ export type Settings = {
   recentDays: number
   /** The questions kept in view, shown small while you capture and tidy. */
   pinnedQuestions: boolean
+  /** The sections the main window's sidebar lists; the rest sit under More. */
+  sidebarShown: string[]
+  /** The box's tabs, of inbox, today, review, kept and recent. */
+  boxTabs: string[]
 }
 
 /** Something made in the last few days, for the Recent panel. */

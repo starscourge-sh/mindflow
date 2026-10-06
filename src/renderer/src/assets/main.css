@@ -662,14 +662,16 @@ input[type='number']::-webkit-outer-spin-button {
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.14), 0 10px 28px -10px rgb(0 0 0 / 0.35);
 }
 
-/* The focus pill at time up: two rings of the accent leave its edge, with the
-   screen glow and the bell, then it holds still and waits for you. */
+/* The focus pill at time up: the accent washes in from its edge twice, with
+   the screen glow and the bell, then it holds still and waits for you. Drawn
+   inside the pill: a ring spreading outside it was cut square by the pill's
+   own window and read as a second box around it. */
 .mf-timeup {
   animation: mf-timeup 1.1s cubic-bezier(0.16, 1, 0.3, 1) 2;
 }
 @keyframes mf-timeup {
-  from { box-shadow: 0 1px 2px rgb(0 0 0 / 0.14), 0 0 0 0 color-mix(in oklab, var(--tt-brand-color-400) 55%, transparent); }
-  to { box-shadow: 0 1px 2px rgb(0 0 0 / 0.14), 0 0 0 8px color-mix(in oklab, var(--tt-brand-color-400) 0%, transparent); }
+  from { box-shadow: 0 1px 2px rgb(0 0 0 / 0.14), 0 3px 8px -2px rgb(0 0 0 / 0.12), inset 0 0 0 1px color-mix(in oklab, var(--tt-brand-color-400) 60%, transparent), inset 0 0 14px 2px color-mix(in oklab, var(--tt-brand-color-400) 45%, transparent); }
+  to { box-shadow: 0 1px 2px rgb(0 0 0 / 0.14), 0 3px 8px -2px rgb(0 0 0 / 0.12), inset 0 0 0 1px transparent, inset 0 0 14px 2px transparent; }
 }
 @media (prefers-reduced-motion: reduce) { .mf-timeup { animation: none; } }
 

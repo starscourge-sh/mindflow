@@ -58,6 +58,16 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
       pluginKey="imageMenu"
       style={{ zIndex: 40 }}
       shouldShow={showForImage}
+      // Inside the picture's own top corner, not over the words above it. Only
+      // a picture too short to hold it gets it just beneath.
+      options={{
+        placement: "top-start",
+        flip: false,
+        offset: ({ rects }) =>
+          rects.reference.height >= rects.floating.height + 12
+            ? { mainAxis: -rects.floating.height - 8, crossAxis: 8 }
+            : { mainAxis: -rects.reference.height - rects.floating.height - 8 },
+      }}
     >
       <EditorContext.Provider value={{ editor }}>
         <Toolbar variant="floating">

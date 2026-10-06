@@ -197,7 +197,11 @@ const DEFAULTS = {
   // How far back the Recent panel reaches, in days.
   recentDays: 7,
   // The questions you keep in view, shown small while you capture and tidy.
-  pinnedQuestions: true
+  pinnedQuestions: true,
+  // What the main window's sidebar lists; the rest wait under More, a G away.
+  sidebarShown: ['inbox', 'review', 'day', 'today', 'week', 'nuggets', 'articles', 'questions'] as string[],
+  // The box's tabs; Recent is a ⇧⌘Y or ⌘K away until shown.
+  boxTabs: ['inbox', 'today', 'review', 'kept'] as string[]
 }
 export type Settings = typeof DEFAULTS
 

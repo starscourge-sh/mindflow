@@ -9,6 +9,7 @@ import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
 import { Recap } from './recap-view'
+import { MonthReflect } from './reflect-view'
 import { dayjs, monthName, num } from '../../../../main/dates'
 
 const percent = (part: number, whole: number): string => (whole ? `${Math.round((part / whole) * 100)}%` : 'none')
@@ -63,7 +64,9 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
 
   return (
     <>
-    {recap && <Recap period={recap} onClose={() => (chime('fold'), setRecap(null))} />}
+    {/* The month is told back in sentences; the year keeps its pages, Wrapped's way. */}
+    {recap === 'month' && <MonthReflect onClose={() => (chime('fold'), setRecap(null))} />}
+    {recap === 'year' && <Recap period={recap} onClose={() => (chime('fold'), setRecap(null))} />}
     <Page title="Stats" actions={
       <>
         <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => wrap('month')}><AliveIcon icon={SparklesIcon} size={16} /> Your month</Button>

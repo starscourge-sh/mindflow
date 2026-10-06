@@ -255,7 +255,8 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
               initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
               transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-              className="rounded-lg border bg-accent/30"
+              // The answer sits at the box's edge, not in a page's wide margins.
+              className="rounded-lg border bg-accent/30 [--mf-padding:0.625rem_1rem_0.625rem_1.25rem] [&_.tiptap-word-count]:hidden"
             >
               <MindflowEditor
                 defaultContent={(card.body as JSONContent | string | null) ?? ''}
@@ -274,26 +275,25 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
             {card.context && <p className="-mt-2 text-sm leading-relaxed whitespace-pre-line text-muted-foreground">{card.context}</p>}
             <Why card={card} />
             {/* Where it came from, which a flashcard app never knows. */}
-            <Origin id={card.id} attribution={card.attribution} />
+            <Origin id={card.id} attribution={card.attribution} said={`${card.prompt ?? ''}\n${textOf(card.body)}`} />
             {/* A thought on it now, while it is in front of you: the latest is
                 shown above already when it stands in for the why. */}
             <GlossLine id={card.id} latest={!!card.why} className="-mt-3" />
-            <div className="grid grid-cols-4 gap-2">
+            {/* The key shows where there is room for it; in a narrow panel the time comes first. */}
+            <div className="@container grid grid-cols-4 gap-2">
               {GRADES.map(({ grade: value, label, hint, tone }) => (
                 <Tip key={value} label={hint}>
                 <button
                   type="button"
-                
                   onClick={() => grade(value)}
                   // Under the pointer the grade takes on its own colour, edge and wash,
                   // so the four read as four answers rather than four grey boxes.
                   style={{ '--tone': tone } as React.CSSProperties}
-                  className="flex flex-col items-center gap-1 rounded-md border px-3 py-2.5 transition-colors hover:border-[color-mix(in_srgb,var(--tone)_45%,var(--border))] hover:bg-[color-mix(in_srgb,var(--tone)_10%,transparent)]"
+                  className="flex h-9 min-w-0 items-center justify-center gap-2 rounded-md border px-2 text-control transition-colors hover:border-[color-mix(in_srgb,var(--tone)_45%,var(--border))] hover:bg-[color-mix(in_srgb,var(--tone)_10%,transparent)]"
                 >
                   <span className="font-medium" style={{ color: tone }}>{label}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums">
-                    {interval(card.intervals[value])} · <Kbd>{value}</Kbd>
-                  </span>
+                  <span className="text-xs whitespace-nowrap text-muted-foreground tabular-nums">{interval(card.intervals[value])}</span>
+                  <Kbd className="hidden @lg:inline-flex">{value}</Kbd>
                 </button>
                 </Tip>
               ))}
@@ -333,14 +333,25 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   )
 }
 
-/** Who said it and the capture it began as, under the answer. */
-function Origin({ id, attribution }: { id: string; attribution: string | null }): React.JSX.Element | null {
+/** Words compared as words: case, quotes and stops aside. */
+const plain = (text: string): string => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
+
+/**
+ * Who said it and the capture it began as, under the answer. Either is left
+ * out when the card already says it: a card made from a capture's own words
+ * only repeated them here.
+ */
+function Origin({ id, attribution, said }: { id: string; attribution: string | null; said: string }): React.JSX.Element | null {
   const lineage = useLive(() => vigil.lineage(id), null, [id])
-  const from = lineage?.from[0]
-  if (!from && !attribution) return null
+  const card = plain(said)
+  const fresh = (text: string | null | undefined): text is string => !!text && !card.includes(plain(text))
+  const who = fresh(attribution) ? attribution : null
+  const from = lineage?.from[0]?.title
+  const source = fresh(from) && plain(from) !== plain(attribution ?? '') ? from : null
+  if (!who && !source) return null
   return (
     <p className="-mt-2 text-xs text-muted-foreground">
-      {[attribution && `Said by ${attribution}`, from && `from ${/^["“‘'«]/.test(from.title) ? from.title : `“${from.title}”`}`].filter(Boolean).join(', ')}
+      {[who && `Said by ${who}`, source && `from ${/^["“‘'«]/.test(source) ? source : `“${source}”`}`].filter(Boolean).join(', ')}
     </p>
   )
 }
@@ -384,7 +395,8 @@ function Why({ card }: { card: Due }): React.JSX.Element {
   return (
     <Input
       placeholder="Why is it so? One line, shown here next time"
-      className="-mt-2 h-8 text-control"
+      // A line to write on, not another box under the answer's box.
+      className="-mt-3 h-7 border-transparent bg-transparent px-0 text-control shadow-none focus-visible:border-transparent focus-visible:ring-0 placeholder:text-muted-foreground dark:bg-transparent"
       onKeyDown={(event) => {
         if (event.key === 'Escape') return event.currentTarget.blur()
         const line = event.currentTarget.value.trim()

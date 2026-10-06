@@ -13,7 +13,7 @@ type Stop = { title: string; text: string; keys?: string[]; at?: string }
 const STOPS: Stop[] = [
   { title: 'The box', keys: ['⌘.'], text: 'Press ⌘. from any app and a small box comes up. Write the thought down, press ⌘↵, and you are back where you were.' },
   { title: 'The inbox', at: '[data-tour="inbox"]', keys: ['P', 'R', 'D'], text: 'Everything you write lands in the Inbox. Each capture leaves by one of three exits: Promote keeps it, Resolve says it is done, Discard lets it go.' },
-  { title: 'Rot cards', text: 'Nothing is left to rot. A few captures you have not dealt with come back as cards in the Inbox of the box\'s side panel. With the panel shut, a chip at the top of the box says how many ("3 old"); click it to see them.' },
+  { title: 'Rot cards', text: 'Nothing is left to rot. A few captures you have not dealt with come back as cards in the Inbox of the box\'s side panel. With the panel shut, a chip at the top of the box says how many ("3 to revisit"); click it to see them.' },
   { title: 'Hints', keys: ['⌃⇧↑', '⌃⇧↓'], text: 'Now and then the box shows you something you kept, so it comes back to you. Thumbs up or down, and the next hints follow what you liked.' },
   { title: 'Finding things', at: '[data-tour="search"]', keys: ['⌘K', '?'], text: '⌘K searches everything and does anything. ? shows every shortcut, whenever you are not typing.' }
 ]

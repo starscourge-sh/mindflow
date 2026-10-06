@@ -20,6 +20,7 @@ import { AliveIcon } from '@/components/ui/alive-icon'
 import DownloadIcon from '@/components/ui/download-icon'
 import UploadIcon from '@/components/ui/upload-icon'
 import { weekdayName } from '../../../../main/dates'
+import { BOX_TABS, SECTIONS as PLACES, ShowList } from './places'
 
 /**
  * What the search at the top asks for, and whether the island a row sits in
@@ -314,14 +315,18 @@ export function SettingsView(): React.JSX.Element {
             </span>
           </Setting>
           <Setting title="Blurring" note="Private words blurred in lists until you point at them, a window dimmed when you leave it, and words that arrive out of a soft blur. Off, everything is plain and sharp." keywords="blur private dim focus soft">
-            <Switch checked={settings.blur !== false} onCheckedChange={(blur) => (set({ blur }), chime(blur ? 'on' : 'off'))} />
+            <Switch checked={settings.blur !== false} onCheckedChange={(blur) => set({ blur })} />
           </Setting>
           <Setting title="Postcards" note="Pictures in notes sit in a white border with rounded corners and a soft shadow, like a print laid on the desk." keywords="images pictures photos border frame white">
-            <Switch checked={!!settings.postcards} onCheckedChange={(postcards) => (set({ postcards }), chime(postcards ? 'on' : 'off'))} />
+            <Switch checked={!!settings.postcards} onCheckedChange={(postcards) => set({ postcards })} />
           </Setting>
           <Setting title="Pictures in lists" note="A note with a picture in it shows the first one, small, at the end of its row and on its card.">
             <Switch checked={settings.thumbnails !== false} onCheckedChange={(thumbnails) => set({ thumbnails })} />
           </Setting>
+        </Group>
+        <Group section="Appearance" title="Sidebar and tabs">
+          <Setting title="Sidebar" note="The sections the main window lists. The rest wait under More, and G with their letter still goes to them." keywords="customize sections menu more hide show" below={<div className="-mx-2 mt-2"><ShowList places={PLACES} setting="sidebarShown" /></div>} />
+          <Setting title="Box tabs" note="The tabs beside the box. A hidden one is still a key away, ⌃ and its number, and shows while it is open." keywords="prompt panel inbox tasks review kept recent hide show" below={<div className="-mx-2 mt-2"><ShowList places={BOX_TABS} setting="boxTabs" /></div>} />
         </Group>
         <Group section="Appearance" title="Text">
           <Setting title="Font" note="What the whole app is written in, notes, lists and menus: the Mac's own font to start, Fraunces, a few others, or any font on this Mac. OpenDyslexic is easier for some to read." below={<Sample />} keywords={`note font ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
@@ -331,7 +336,7 @@ export function SettingsView(): React.JSX.Element {
             <FontPicker value={settings.headingFont} setting="headingFont" same="Same as text" />
           </Setting>
           <Setting title="Notes only" note="On, the font above is used only for what you write, and the app's own lists, menus and labels stay in Fraunces.">
-            <Switch checked={!!settings.fontNotesOnly} onCheckedChange={(fontNotesOnly) => (set({ fontNotesOnly }), chime(fontNotesOnly ? 'on' : 'off'))} />
+            <Switch checked={!!settings.fontNotesOnly} onCheckedChange={(fontNotesOnly) => set({ fontNotesOnly })} />
           </Setting>
           <Setting title="Text size" note="How big the words in notes are. ⌘+ and ⌘− change it from any note, ⌘0 puts it back." below={<Sample />}>
             <TextSize value={settings.textSize} />
@@ -340,7 +345,7 @@ export function SettingsView(): React.JSX.Element {
 
         <Group section="Scenery" title="Pictures at rest">
           <Setting title="Scenery" note="Pictures from your own folders at the quiet moments: an empty inbox, a finished review, the top of today's page. Only where you rest, never behind your work." keywords="pictures images photos wallpaper background landscape scenes art">
-            <Switch checked={settings.scenery} onCheckedChange={(scenery) => (set({ scenery }), chime(scenery ? 'on' : 'off'))} />
+            <Switch checked={settings.scenery} onCheckedChange={(scenery) => set({ scenery })} />
           </Setting>
           <SceneryFolders folders={settings.sceneryFolders} on={settings.scenery} onSave={(sceneryFolders) => set({ sceneryFolders })} />
           <Setting title="Show another" note="A different picture in every place at once. The ones you see stay put otherwise: one a day, the same all day." keywords="shuffle next change picture random">
@@ -360,13 +365,13 @@ export function SettingsView(): React.JSX.Element {
             ['sceneryFocus', 'Reading and Focus', 'Behind Read mode and ⇧⌘F Focus, dimmed far enough that the words read as well as on a plain page.', 'read mode focus backdrop']
           ] as const).map(([key, title, note, keywords]) => (
             <Setting key={key} title={title} note={note} keywords={`scenery pictures ${keywords}`}>
-              <Switch disabled={!settings.scenery} checked={settings[key] !== false} onCheckedChange={(on) => (set({ [key]: on }), chime(on ? 'on' : 'off'))} />
+              <Switch disabled={!settings.scenery} checked={settings[key] !== false} onCheckedChange={(on) => set({ [key]: on })} />
             </Setting>
           ))}
         </Group>
         <Group section="Scenery" title="How they look">
           <Setting title="Match the time of day" note="Golden scenes in the morning and afternoon, dusk in the evening, night and candlelight after dark. Off, any picture at any hour." keywords="scenery morning evening night dusk golden hour mood">
-            <Switch disabled={!settings.scenery} checked={settings.sceneryTime} onCheckedChange={(sceneryTime) => (set({ sceneryTime }), chime(sceneryTime ? 'on' : 'off'))} />
+            <Switch disabled={!settings.scenery} checked={settings.sceneryTime} onCheckedChange={(sceneryTime) => set({ sceneryTime })} />
           </Setting>
           <Setting title="Dimness" note="How far the pictures fade toward the page colour. Wherever words sit over one, it is dimmed further still, so they always read clearly." keywords="scenery dim darken fade brightness opacity">
             <SettingSlider disabled={!settings.scenery} min={0} max={0.9} step={0.05} value={settings.sceneryDim} onSave={(sceneryDim) => set({ sceneryDim })} />
@@ -419,7 +424,7 @@ export function SettingsView(): React.JSX.Element {
             <Switch checked={settings.questionsBack} onCheckedChange={(questionsBack) => set({ questionsBack })} />
           </Setting>
           <Setting title="Questions in view" note="The questions you keep in view (up to twelve, from Holding) show small while you capture and tidy, so something new can go straight in as a clue.">
-            <Switch checked={settings.pinnedQuestions !== false} onCheckedChange={(pinnedQuestions) => (set({ pinnedQuestions }), chime(pinnedQuestions ? 'on' : 'off'))} />
+            <Switch checked={settings.pinnedQuestions !== false} onCheckedChange={(pinnedQuestions) => set({ pinnedQuestions })} />
           </Setting>
           <Setting title="Recent reaches back" note="How many days the Recent panel lists, newest first, every kind of thing. ⇧⌘Y opens it beside any page.">
             <SettingSlider min={1} max={30} step={1} value={settings.recentDays ?? 7} onSave={(recentDays) => set({ recentDays })} />

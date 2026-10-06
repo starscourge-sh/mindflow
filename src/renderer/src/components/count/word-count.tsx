@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useEditorState, type Editor } from "@tiptap/react"
 import { num } from '../../../../main/dates'
 
@@ -28,15 +28,45 @@ export function WordCount({ editor }: { editor: Editor | null }) {
     return () => clearTimeout(later)
   }, [editor, doc])
 
+  // Shown only where nothing is under it: past the last line, which is the
+  // end of a long note scrolled down, or anywhere in a short one. Over words
+  // or a picture it steps aside.
+  const pill = useRef<HTMLSpanElement>(null)
+  const [clear, setClear] = useState(false)
+  useEffect(() => {
+    const dom = editor?.view.dom
+    if (!dom || !counts) return
+    let frame = 0
+    const check = (): void => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const top = pill.current?.getBoundingClientRect().top
+        const end = dom.getBoundingClientRect().bottom - parseFloat(getComputedStyle(dom).paddingBottom || "0")
+        setClear(top !== undefined && end <= top - 4)
+      })
+    }
+    check()
+    // Any scroller on the way up may be the one that moves the words under it.
+    document.addEventListener("scroll", check, { capture: true, passive: true })
+    window.addEventListener("resize", check)
+    return () => {
+      cancelAnimationFrame(frame)
+      document.removeEventListener("scroll", check, { capture: true })
+      window.removeEventListener("resize", check)
+    }
+  }, [editor, counts, doc])
+
   if (!editor || !doc || !counts) return null
   const { words, characters } = counts
   // Nothing to count says nothing: an empty box stays empty.
   if (!words) return null
 
   return (
-    <span // Centred under the page on a soft pill, the way Raycast Notes shows it, so a
-    // line of text running under it stays readable.
-    className="tiptap-word-count pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-background px-2 py-0.5 text-xs whitespace-nowrap text-foreground/70 tabular-nums">
+    <span
+      ref={pill}
+      data-clear={clear || undefined}
+      // Centred under the page on a soft pill, the way Raycast Notes shows it.
+      className="tiptap-word-count pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-background px-2 py-0.5 text-xs whitespace-nowrap text-foreground/70 tabular-nums opacity-0 transition-opacity duration-200 data-clear:opacity-100">
       {num(words)} {words === 1 ? "word" : "words"} · {num(characters)} {characters === 1 ? "character" : "characters"}
     </span>
   )

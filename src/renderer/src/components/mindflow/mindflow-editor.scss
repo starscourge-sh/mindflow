@@ -94,11 +94,14 @@
   // vendored one on its own.
   padding: var(--mf-padding, 1rem 4.75rem);
 
-  // So the cursor line below can run past the text column without the editor
-  // growing a horizontal scrollbar. `clip` rather than `hidden` because it
-  // makes no scroll container, which leaves `overflow-y` visible - a scrolling
-  // box here would trap the toolbars that sit over the document.
-  overflow-x: clip;
+}
+
+// So the cursor line below runs past the text column to the edges of the box
+// that holds it, not stopping short at the column's own edge, and grows no
+// horizontal scrollbar. Clipped here, at the scrolling box, rather than on the
+// document, whose centred column is narrower than what holds it.
+.mindflow-editor-content {
+  overflow-x: hidden;
 }
 
 // Only where the caret actually is. Decorations are drawn whether the editor
@@ -123,7 +126,7 @@
   z-index: -1;
   top: 0;
   bottom: 0;
-  // More than any indent; the editor's own `overflow-x: clip` takes the rest.
+  // More than any indent; the scrolling box's `overflow-x: hidden` takes the rest.
   left: -50rem;
   right: -50rem;
   background-color: var(--mf-cursor-line, color-mix(in srgb, currentColor 7%, transparent));
@@ -373,9 +376,39 @@
 // Resizable tables are rendered inside this wrapper, and the column widths
 // live in a <colgroup>. Forcing the table to 100% would fight those widths, so
 // let it size itself and let the wrapper scroll when it outgrows the page.
+// A table wider than the page scrolls sideways in its own box. The Mac hides
+// a scrollbar until you scroll, so the edge that has more past it fades out,
+// driven by the box's own scroll position: no fade when it all fits.
+@property --mf-table-fade-start {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --mf-table-fade-end {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@keyframes mf-table-fade {
+  from { --mf-table-fade-start: 0px; --mf-table-fade-end: 2.5rem; }
+  4% { --mf-table-fade-start: 2.5rem; }
+  96% { --mf-table-fade-end: 2.5rem; }
+  to { --mf-table-fade-start: 2.5rem; --mf-table-fade-end: 0px; }
+}
+
 .tiptap.ProseMirror.mindflow-editor .tableWrapper {
   margin: 1.5em 0;
   overflow-x: auto;
+  overflow-y: hidden;
+  // Room for the outer borders, which the scrolling box would cut in half,
+  // and for the thin scrollbar under the last row.
+  padding: 1px 1px 0.5rem;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--tt-scrollbar-color) transparent;
+  animation: mf-table-fade linear both;
+  animation-timeline: scroll(self inline);
+  mask-image: linear-gradient(to right, transparent, #000 var(--mf-table-fade-start), #000 calc(100% - var(--mf-table-fade-end)), transparent);
 }
 
 .tiptap.ProseMirror.mindflow-editor table {
@@ -389,6 +422,15 @@
     padding: 0.375rem 0.5rem;
     border: 1px solid var(--tt-border-color);
     vertical-align: top;
+    // A long path or address breaks inside its cell rather than running
+    // under the next one.
+    overflow-wrap: anywhere;
+  }
+
+  // A picture fills its cell at most, whatever width it was given.
+  td img,
+  th img {
+    max-width: 100% !important;
   }
 
   th {
@@ -1392,6 +1434,28 @@
   }
 }
 
+// A line in italics straight under a picture or a video is its caption, the
+// way Obsidian notes write one: smaller, quieter, and close to what it names.
+// Nothing new is stored, so it reads the same anywhere the Markdown goes.
+.tiptap.ProseMirror.mindflow-editor > :is(img, div[data-youtube-video]) + p:has(> em:only-child) {
+  margin-top: -1.25rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.875em;
+  color: var(--mf-muted);
+}
+
+.tiptap.ProseMirror.mindflow-editor > div[data-youtube-video] + p:has(> em:only-child) {
+  margin-top: -0.75rem;
+}
+
+.tiptap.ProseMirror.mindflow-editor > img[data-align="center"] + p:has(> em:only-child) {
+  text-align: center;
+}
+
+.tiptap.ProseMirror.mindflow-editor > img[data-align="right"] + p:has(> em:only-child) {
+  text-align: right;
+}
+
 // Code block controls, docked in the corner of the block itself. The node view
 // wraps the <pre>, so the spacing code-block-node.scss puts on the <pre> has to
 // move out here - the <pre> itself is the scroller, which keeps the controls
@@ -1717,6 +1781,14 @@ $nested-ul: "ul:not([data-type='taskList'])";
 .tiptap.ProseMirror.mindflow-editor img[data-align="right"] {
   margin-inline-start: auto;
   margin-inline-end: 0;
+}
+
+// A picture whose file is gone is drawn at its note's own size, not stretched
+// to the width the picture had.
+.tiptap.ProseMirror.mindflow-editor img[data-missing] {
+  width: auto !important;
+  max-width: 100%;
+  height: auto;
 }
 
 // A file the note carries. The card is the whole block, so it takes the width

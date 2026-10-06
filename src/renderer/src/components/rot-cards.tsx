@@ -4,17 +4,18 @@ import type { JSONContent } from '@tiptap/core'
 
 import { captureKey } from '@/lib/capture-links'
 import { TagRow, decideDay, openPass } from './vigil/pass'
-import { PinnedQuestions, clueInto } from './vigil/pinned-questions'
+import { clueInto } from './vigil/pinned-questions'
 import { wordsOf } from '../../../main/import'
 import { AskWho, Rolling, Typed, pin, toast } from './vigil/ui'
 import { AnimatePresence, motion } from 'motion/react'
-import { useLive, vigil } from '@/lib/vigil'
+import { useLive, vigil, type PinnedQuestion } from '@/lib/vigil'
 import { RowMenu, copy } from './vigil/row-menu'
 import { age, ageTint } from './capture-list'
 import { Kbd, Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { Rest } from './vigil/scenery'
-import { GlossLine, openGloss } from './vigil/gloss-line'
+import { ComingBack } from './vigil/coming-back'
+import { GlossButton, GlossLine, openGloss } from './vigil/gloss-line'
 import { daysSince } from '../../../main/dates'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.rot>>[number]
@@ -74,7 +75,12 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
   // with a chord, once, as the line arrives.
   const [left, setLeft] = useState<number | null>(null)
   // Cards turned off in Settings: no area, so no all-clear either.
-  const off = useLive(vigil.settings, null as Awaited<ReturnType<typeof vigil.settings>> | null)?.rotCount === 0
+  const settings = useLive(vigil.settings, null as Awaited<ReturnType<typeof vigil.settings>> | null)
+  const off = settings?.rotCount === 0
+  // The questions kept in view, offered in each card's menu: a row of them
+  // on every card only pushed the cards apart.
+  const pinned = useLive(vigil.pinnedQuestions, [] as PinnedQuestion[])
+  const clues = settings?.pinnedQuestions === false ? [] : pinned
   const count = (): void =>
     void vigil.rotLeft().then((n) => {
       if (n === 0 && was !== 0 && !off) chime('clear')
@@ -97,7 +103,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
   // The card whose tags are being changed, from its t key.
   const [tagging, setTagging] = useState<string | null>(null)
   const field = useRef<HTMLInputElement | null>(null)
-  const day = decideDay(useLive(vigil.settings, null as Awaited<ReturnType<typeof vigil.settings>> | null))
+  const day = decideDay(settings)
   // Brought back by an undo, a card is dealt again rather than slotted in: one
   // still on its way out would otherwise come back at the end.
   const putBack = (card: Capture): void => {
@@ -195,6 +201,10 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             { label: `Come back to it on ${day}`, keys: 'C', run: () => setAside(card) },
             { label: 'Say who said it', keys: 'W', run: () => setAsking(card.id) },
             { label: 'Add a thought', keys: ';', run: () => openGloss(card.id) },
+            // A clue to one of the questions in view; undone, the card is back.
+            clues.length > 0 && 'separator',
+            ...clues.map((question) => ({ label: `A clue to “${question.title.length > 32 ? `${question.title.slice(0, 32)}…` : question.title}”`, run: () =>
+              void clueInto(question, { captureId: card.id }, () => putBack(card)).then((ok) => ok && (drop(card.id), count())) })),
             'separator',
             { label: 'Pin to the prompt', run: () => pin('captures', card.id, true) },
             { label: `Copy ${captureKey(card.number)}`, run: () => copy(captureKey(card.number)) }
@@ -204,10 +214,10 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
               {shown(card.title, card.body)}
             </button>
           </RowMenu>
-          {/* One of the questions you keep in view, when this is a clue to it; undone, the card is back. */}
-          {tagging !== card.id && <PinnedQuestions className="mt-1 hidden group-hover:flex group-focus-within:flex group-focus-visible:flex" onPick={(question) =>
-            void clueInto(question, { captureId: card.id }, () => putBack(card)).then((ok) => ok && (drop(card.id), count()))} />}
-          {/* A thought on it right here: the moment it stops you. */}
+          {/* Caught three times or more: unfinished, and it says so. */}
+          {!card.private && <ComingBack id={card.id} className="mt-1" />}
+          {/* A thought on it right here: the moment it stops you. Only there
+              once it has one, or ; (or the button below) opens it. */}
           {asking !== card.id && <GlossLine id={card.id} quiet className="mt-0.5" />}
           {tagging === card.id ? (
             <div className="mt-1.5"><TagRow autoFocus tags={tagsOf(card)} field={field} onAdd={(name) => retag(card, name, true)} onRemove={(name) => retag(card, name, false)}
@@ -232,7 +242,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
               { label: 'Tidy', key: 'F', tint: 'green', what: 'Bold the line that matters, fold the rest, cross off what is done', run: () => openPass('tidy', [card.id]) },
               { label: `Come back ${day}`, key: 'C', tint: 'orange', what: `Set it aside for ${day}'s deciding pass, and let it go until then`, run: () => setAside(card) }
             ].map((one) => (
-              <Tip key={one.key} label={one.what}>
+              <Tip key={one.key} label={<span className="flex items-center gap-2">{one.what}<Kbd>{one.key}</Kbd></span>}>
               {/* Quiet at rest, their colour when you reach the card. */}
               <Button variant="ghost" size="sm"
                 // Out of sight until you reach the card: three cards of three buttons
@@ -241,9 +251,9 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
                 style={{ '--tint': `var(--tt-color-text-${one.tint})` } as React.CSSProperties}
                 onClick={one.run}
               >
+                {/* Its key is in the tip: shown on the button, it widened the row
+                    as the card was reached, and the buttons wrapped. */}
                 {one.label}
-                {/* The key, shown only when the card was reached by keyboard: where it is usable. */}
-                <Kbd className="ml-1 hidden group-focus-visible:inline-flex">{one.key}</Kbd>
               </Button>
               </Tip>
             ))}
@@ -255,6 +265,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             </Button>
             </Tip>
             )}
+            <GlossButton className="static group-focus-visible:opacity-100" onClick={() => openGloss(card.id)} />
           </div>
           )}
         </motion.div>

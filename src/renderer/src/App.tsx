@@ -32,6 +32,8 @@ import { KeptPanel } from './components/vigil/kept-panel'
 import { clueTarget, startQuestion } from './components/vigil/questions-view'
 import { PinnedQuestions, clueInto } from './components/vigil/pinned-questions'
 import { RecentPanel } from './components/vigil/recent-panel'
+import { BOX_TABS, useShown, type Place } from './components/vigil/places'
+import { RowMenu } from './components/vigil/row-menu'
 import { CaptureProps, useCaptureDisplay } from './components/vigil/captures-view'
 import { Search } from './components/search'
 import { noteActions, useOpenNote } from './lib/notes'
@@ -216,9 +218,13 @@ const Header = ({ panel, onPanel, onNew, menu, nav, title, aside }: {
             panel. The strip is the window's drag handle, so the pill has to
             say it is not, or no click lands. Out of the tab order: these are
             window controls, not part of the note. Expand is in the actions. */}
-        {aside}
+        {/* The chip sits where the pill will be while the pill is away, and
+            steps aside for it when the pointer comes in, so it never floats
+            beside an empty space. */}
+        <span className="group/top relative flex items-center">
+        {aside && <span className="transition-[margin] duration-150 group-has-[[data-state=open]]/top:mr-[calc(5.5rem+0.25rem)] [.pointer-in_&]:mr-[calc(5.5rem+0.25rem)]">{aside}</span>}
         <span
-          className="mf-pill flex items-center rounded-full border border-foreground/15 bg-background/60 opacity-0 transition-opacity duration-150 [.pointer-in_&]:opacity-100 has-[[data-state=open]]:opacity-100 [&>*+*]:border-l [&>*+*]:border-foreground/15"
+          className="mf-pill absolute right-0 flex items-center rounded-full border border-foreground/15 bg-background/60 opacity-0 transition-opacity duration-150 [.pointer-in_&]:opacity-100 has-[[data-state=open]]:opacity-100 [&>*+*]:border-l [&>*+*]:border-foreground/15"
           style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
         >
           <Tip label="New capture  ⌘N">
@@ -235,6 +241,7 @@ const Header = ({ panel, onPanel, onNew, menu, nav, title, aside }: {
               <AliveIcon icon={LayoutSidebarRightIcon} size={14} />
             </button>
           </Tip>
+        </span>
         </span>
       </div>
       {/* Room under the buttons, so none of them sits on the rule. */}
@@ -967,7 +974,7 @@ export default function App(): React.JSX.Element {
         startOver()
       }} title={appSettings?.topTitle === false ? null : topTitle}
       // Safe mode says so beside the pill, or the quiet looks like nothing happening.
-      aside={appSettings?.safeMode ? <Tip label="Safe mode: no hints, rot cards or pins come up  ⌥⌘S"><span className="mr-1 flex h-5 items-center rounded-full bg-accent px-2 text-key leading-none text-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,var(--foreground))]">Safe</span></Tip>
+      aside={appSettings?.safeMode ? <Tip label="Safe mode: no hints, rot cards or pins come up  ⌥⌘S"><span className="flex h-5 items-center rounded-full bg-accent px-2 text-key leading-none text-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,var(--foreground))]">Safe</span></Tip>
         // Rot cards and reminder pins live in the side panel's Inbox; with the
         // panel shut, a chip up here says they are there, and opens it on them.
         : !panel && (oldCount || pinned.length) ? (
@@ -978,8 +985,8 @@ export default function App(): React.JSX.Element {
                 setTab('inbox')
                 setPanel(true)
               }}
-              className="mr-1 flex h-5 items-center gap-1 rounded-full bg-accent px-2 text-key leading-none text-muted-foreground hover:text-foreground">
-              {oldCount > 0 && <span><Rolling text={oldCount} /> old</span>}
+              className="flex h-5 items-center gap-1 rounded-full bg-accent px-2 text-key leading-none text-muted-foreground hover:text-foreground">
+              {oldCount > 0 && <span><Rolling text={oldCount} /> to revisit</span>}
               {oldCount > 0 && pinned.length > 0 && <span>·</span>}
               {pinned.length > 0 && <span><Rolling text={pinned.length} /> waiting</span>}
             </button>
@@ -1530,13 +1537,13 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   const [chosen, setChosen] = useState<string[]>([])
   const shownNow = useRef(shown)
   shownNow.current = shown
-  const tabs = [
-    { id: 'inbox', label: 'Inbox', count: open.length },
-    { id: 'today', label: 'Tasks', count: openTasks },
-    { id: 'review', label: 'Review', count: due },
-    { id: 'kept', label: 'Kept', count: kept },
-    { id: 'recent', label: 'Recent', count: 0 }
-  ] as const
+  // Only what is waiting on you is counted: the inbox is somewhere to set
+  // things down, reassurance, never a queue with a number on it.
+  const counts: Partial<Record<Tab, number>> = { today: openTasks, review: due, kept }
+  // The tabs you keep (Settings, or a right click on the row); one reached by
+  // its key or ⌘K shows while it is open.
+  const shownTabs = useShown('boxTabs')
+  const tabs = BOX_TABS.filter((one) => shownTabs.includes(one.id) || one.id === tab) as (Place & { id: Tab })[]
   // The same keys as every list: j and k when the editor does not have the
   // focus, Enter to open. ⌃1 to ⌃4 switch tabs from anywhere in the window.
   const [cursor] = useListKeys(shown.length, { onOpen: (index) => onOpen(shown[index].id), enabled: tab === 'inbox' })
@@ -1579,9 +1586,14 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
 
   return (
     <div className="relative flex h-full w-full flex-col p-2">
+      {/* Right click the row to show or hide a tab; the last one stays. */}
+      <RowMenu items={BOX_TABS.filter((one) => !(shownTabs.length === 1 && shownTabs[0] === one.id)).map((one) => {
+        const on = shownTabs.includes(one.id)
+        return { label: `${on ? 'Hide' : 'Show'} ${one.label}`, run: () => void vigil.setSettings({ boxTabs: on ? shownTabs.filter((id) => id !== one.id) : [...shownTabs, one.id] }).then(() => chime(on ? 'off' : 'on')) }
+      })}>
       <div data-hover-quiet className="mb-2 flex gap-1 rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-sm">
         {tabs.map((one) => (
-          <Tip key={one.id} label={`⌃${tabs.indexOf(one) + 1}`}>
+          <Tip key={one.id} label={`⌃${TABS.indexOf(one.id) + 1}`}>
           <button
             type="button"
             // Where a promoted capture or a new task flies to.
@@ -1598,11 +1610,12 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
               <motion.span layoutId="prompt-tab" className="absolute inset-0 -z-10 rounded-md border border-foreground/15 bg-background shadow-sm" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />
             )}
             {one.label}
-            {one.count ? <span className="text-xs tabular-nums text-muted-foreground"><Rolling text={one.count} /></span> : null}
+            {counts[one.id] ? <span className="text-xs tabular-nums text-muted-foreground"><Rolling text={counts[one.id]!} /></span> : null}
           </button>
           </Tip>
         ))}
       </div>
+      </RowMenu>
       {/* Never waits for the old tab to leave: ⌃1 ⌃2 ⌃3 pressed fast lands
           at once, and a spring turned around mid-way simply heads back. */}
       <AnimatePresence mode="popLayout" initial={false} custom={travel.current}>
@@ -1634,7 +1647,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
         {/* Each list's top bar lands here, above the scrolling, never over rows. */}
         <div ref={holdSlot} className="shrink-0" />
         <StripSlot.Provider value={stripSlot}>
-        <div ref={holdScroller} className="min-h-0 flex-1 overflow-y-auto">
+        <div ref={holdScroller} className="min-h-0 flex-1 overflow-y-auto pr-1">
           {/* One child, which is what the easing moves. */}
           <div className="flex min-h-full flex-col">
             {tab === 'inbox' ? (

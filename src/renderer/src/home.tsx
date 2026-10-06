@@ -1,31 +1,6 @@
 import { themeActions } from '@/lib/theme'
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
-import {
-  Minimize2,
-  ArrowLeft,
-  ArrowRight,
-  BarChart3,
-  Brain,
-  CalendarDays,
-  CalendarRange,
-  Telescope,
-  ChevronRight,
-  FileText,
-  Gem,
-  Inbox,
-  Repeat,
-  Trash2,
-  Layers,
-  Orbit,
-  PanelLeft,
-  Search as SearchIcon,
-  Shield,
-  ShieldOff,
-  SquarePen,
-  Sun,
-  Tag,
-  type LucideIcon
-} from 'lucide-react'
+import { Minimize2, ArrowLeft, ArrowRight, ChevronRight, PanelLeft, Search as SearchIcon, Shield, ShieldOff, SquarePen, Tag } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { chime, soundOn } from './lib/sound'
 import { NotePreview } from './components/vigil/note-preview'
@@ -46,9 +21,8 @@ import { placed } from './lib/tasks'
 import { Kbd, Rolling, Toaster, toast, typing, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
 import { FocusScenery } from './components/vigil/scenery'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
-import { useAppearance, useLive, vigil, type Item, type Settings, type Task } from './lib/vigil'
+import { useAppearance, useLive, vigil, type Item, type Pin, type Settings, type Task } from './lib/vigil'
 import { Tip, showTopTitle, useTopTitle } from '@/components/vigil/ui'
-import { Button } from '@/components/ui/button'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import ExpandIcon from '@/components/ui/expand-icon'
 import GearIcon from '@/components/ui/gear-icon'
@@ -64,51 +38,23 @@ import { RecentPanel } from '@/components/vigil/recent-panel'
 import { Passes, openPass } from '@/components/vigil/pass'
 import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
-import { Archive, CalendarFold, NotebookPen, Sprout } from 'lucide-react'
 import { openWindow } from '@/lib/notes'
+import { PlaceIcon, SECTIONS, ShowList, useShown } from '@/components/vigil/places'
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
+import { RowMenu } from '@/components/vigil/row-menu'
+import SlidersHorizontalIcon from '@/components/ui/sliders-horizontal-icon'
 
 // A nonce makes asking again a fresh visit: the recap reopens each time.
 type View = { id: string; focus?: string; nonce?: number }
 
-/** The sections down the side, each with the key that jumps to it after G. */
-/** Each has its own colour from the theme, as Todoist gives Inbox, Today and Upcoming theirs. */
-const SECTIONS: { id: string; label: string; icon: LucideIcon; key: string; tint: string }[] = [
-  { id: 'inbox', label: 'Inbox', icon: Inbox, key: 'i', tint: 'blue' },
-  { id: 'review', label: 'Review', icon: Brain, key: 'r', tint: 'purple' },
-  // The daily note: written in, and what the day held.
-  // Its own colour, not Today's green: the two sit next to each other.
-  { id: 'day', label: "Today's page", icon: NotebookPen, key: 'p', tint: 'yellow' },
-  // Wider stretches, less detail each: a week in a few lines, a month in two.
-  { id: 'weekpage', label: "Week's page", icon: CalendarFold, key: 'k', tint: 'yellow' },
-  { id: 'monthpage', label: "Month's page", icon: Sprout, key: 'm', tint: 'yellow' },
-  { id: 'today', label: 'Today', icon: Sun, key: 't', tint: 'green' },
-  { id: 'upcoming', label: 'Upcoming', icon: CalendarDays, key: 'u', tint: 'orange' },
-  { id: 'week', label: 'Week', icon: CalendarRange, key: 'w', tint: 'blue' },
-  { id: 'routines', label: 'Routines', icon: Repeat, key: 'o', tint: 'yellow' },
-  // This month, This year and Someday: what has no day yet.
-  { id: 'later', label: 'Later', icon: Telescope, key: 'z', tint: 'purple' },
-  { id: 'nuggets', label: 'Nuggets', icon: Gem, key: 'n', tint: 'pink' },
-  { id: 'articles', label: 'Articles', icon: FileText, key: 'a', tint: 'brown' },
-  // Questions you are holding open: what you keep circling and cannot name yet.
-  { id: 'questions', label: 'Holding', icon: Orbit, key: 'h', tint: 'gray' },
-  { id: 'tags', label: 'Tags', icon: Tag, key: '#', tint: 'red' },
-  { id: 'stats', label: 'Stats', icon: BarChart3, key: 's', tint: 'blue' },
-  { id: 'all', label: 'All captures', icon: Layers, key: 'l', tint: 'gray' },
-  { id: 'discarded', label: 'Discarded', icon: Trash2, key: 'd', tint: 'gray' },
-  // Out of sight, not let go: apart from the exits.
-  { id: 'archived', label: 'Archived', icon: Archive, key: 'v', tint: 'gray' }
-]
-
-/** The sections folded under More in the sidebar. G and their letter still reach them. */
-const MORE = ['all', 'discarded', 'archived']
-
-/** An open-or-shut fold in the sidebar, remembered across launches; shut to start. */
-function useRemembered(key: string): [boolean, (open: boolean) => void] {
+/** An open-or-shut fold in the sidebar, remembered across launches; shut to start unless said. */
+function useRemembered(key: string, start = false): [boolean, (open: boolean) => void] {
   const [open, setOpen] = useState(() => {
     try {
-      return localStorage.getItem(key) === 'open'
+      const kept = localStorage.getItem(key)
+      return kept ? kept === 'open' : start
     } catch {
-      return false
+      return start
     }
   })
   return [open, (next) => {
@@ -122,6 +68,10 @@ function useRemembered(key: string): [boolean, (open: boolean) => void] {
 }
 
 const today = (): number => new Date().setHours(24, 0, 0, 0)
+
+/** The top bar's buttons, one size and one look, each named with its key on hover. */
+const TOOL = 'flex h-7 min-w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4'
+const keyed = (label: string, keys: string): React.JSX.Element => <span className="flex items-center gap-1.5">{label} <Kbd>{keys}</Kbd></span>
 
 /** Whether the window is under 760px wide, followed as it is resized. */
 const NARROW = '(max-width: 759px)'
@@ -213,6 +163,14 @@ export function Home(): React.JSX.Element {
   // Folded away unless you open them, and kept the way you left them.
   const [tagsOpen, setTagsOpen] = useRemembered('sidebar:tags')
   const [moreOpen, setMoreOpen] = useRemembered('sidebar:more')
+  // The groups fold too, Notion's way, and start open.
+  const [pinsOpen, setPinsOpen] = useRemembered('sidebar:pinned', true)
+  const [tasksOpen, setTasksOpen] = useRemembered('sidebar:tasks', true)
+  const [keptOpen, setKeptOpen] = useRemembered('sidebar:kept', true)
+  const [customizing, setCustomizing] = useState(false)
+  // A calm sidebar: what serves capturing and coming back; the rest under More.
+  const shown = useShown('sidebarShown')
+  const pins = useLive(vigil.pins, [] as Pin[])
   const tags = useLive(vigil.tags, [] as Awaited<ReturnType<typeof vigil.tags>>)
   const captures = useCaptures()
   const due = useLive(vigil.dueCount, 0, [], ['item'])
@@ -225,9 +183,9 @@ export function Home(): React.JSX.Element {
   // A new section has no note scrolled: the last one's name does not follow you there.
   useEffect(() => showTopTitle(null), [view.id])
 
+  // No Inbox count: the inbox is a place to set things down, never a queue to clear.
+  // Archived ones are out of sight in their lists, so out of the counts too.
   const counts: Record<string, number> = {
-    // Archived ones are out of sight in their lists, so out of the counts too.
-    inbox: captures.filter((capture) => capture.status === 'open' && !capture.archivedAt).length,
     review: due,
     today: tasks.filter((task) => task.status === 'open' && !task.waitingOn && (placed(task) ?? Infinity) < today()).length,
     nuggets: nuggets.filter((one) => !one.archivedAt).length,
@@ -381,79 +339,145 @@ export function Home(): React.JSX.Element {
           on them says it does not. */}
       <div className="flex min-h-0 flex-1 gap-2 p-2">
       {sidebar && (
-      <aside data-chrome className={`group/side flex shrink-0 flex-col overflow-y-auto rounded-xl border bg-accent/20 p-2 pb-3 ${narrow ? 'w-12' : 'w-56'}`}>
-        {/* Room for the traffic lights, and somewhere to hold the window by. */}
-        <div className="h-8 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
-        <button
-          type="button"
-          data-tour="search"
-          aria-label="Search"
-          onClick={() => setSearching(true)}
-          className={`mb-3 flex items-center gap-2 rounded-lg bg-accent/60 py-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${narrow ? 'justify-center px-0' : 'px-2.5'}`}
-        >
-          <AliveIcon icon={MagnifierIcon} size={16} />
-          {!narrow && <span className="flex-1 text-left">Search…</span>}
-          {!narrow && <Kbd>⌘K</Kbd>}
-        </button>
+      // Customize opens beside the whole sidebar, from its top, so it never runs off the window.
+      <Popover open={customizing} onOpenChange={setCustomizing}>
+      <PopoverAnchor asChild>
+      <aside data-chrome className={`group/side flex shrink-0 flex-col overflow-hidden rounded-xl border bg-accent/20 ${narrow ? 'w-12' : 'w-56'}`}>
+        {/* Room for the traffic lights, and somewhere to hold the window by.
+            It stays put: only the list under the search scrolls, so nothing
+            ever slides under the window's buttons. */}
+        <div className="h-10 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
+        <div className="shrink-0 px-2 pb-2">
+          <button
+            type="button"
+            data-tour="search"
+            aria-label="Search"
+            onClick={() => setSearching(true)}
+            className={`flex w-full items-center gap-2 rounded-lg bg-accent/60 py-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${narrow ? 'justify-center px-0' : 'px-2.5'}`}
+          >
+            <AliveIcon icon={MagnifierIcon} size={16} />
+            {!narrow && <span className="flex-1 text-left">Search…</span>}
+            {!narrow && <Kbd>⌘K</Kbd>}
+          </button>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pt-1 pb-3">
         <nav className="flex flex-col gap-px">
-          {SECTIONS.map((section) => (
-            <Fragment key={section.id}>
-            {/* The same two words as the prompt's tabs: what to do, what you kept. */}
-            {section.id === 'today' && (narrow ? <div className="mt-3" /> : <div className="mt-3 mb-0.5 px-2 text-meta text-muted-foreground">Tasks</div>)}
-            {section.id === 'nuggets' && (narrow ? <div className="mt-3" /> : <div className="mt-3 mb-0.5 px-2 text-meta text-muted-foreground">Kept</div>)}
-            {section.id === 'tags' && <div className="mt-3" />}
-            {/* All, Discarded and Archived are visited rarely: one fold for the three. */}
-            {section.id === 'all' && (
+          {(() => {
+            const row = (section: (typeof SECTIONS)[number]): React.JSX.Element => (
+              <Tooltip key={section.id}>
+              <TooltipTrigger asChild>
               <button
                 type="button"
-                aria-expanded={moreOpen}
-                aria-label="More"
-                onClick={() => (chime(moreOpen ? 'fold' : 'slide'), setMoreOpen(!moreOpen))}
-                className={`mt-3 flex items-center gap-1 py-1 text-xs text-muted-foreground hover:text-foreground ${narrow ? 'justify-center' : 'px-2'}`}
+                data-home={section.id === 'nuggets' ? 'nugget' : section.id === 'upcoming' ? 'task' : section.id === 'questions' ? 'question' : undefined}
+                data-tour={section.id === 'inbox' ? 'inbox' : undefined}
+                aria-label={section.label}
+                onClick={() => setView({ id: section.id })}
+                className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors ${narrow ? 'justify-center px-0' : 'px-2'} ${view.id === section.id ? 'bg-accent text-foreground' : 'text-foreground/80 hover:bg-accent/60'}`}
               >
-                {narrow ? <AliveIcon icon={DotsHorizontalIcon} size={16} /> : <>More <ChevronRight className={`size-3 transition-transform ${moreOpen ? 'rotate-90' : ''}`} /></>}
+                {/* Each icon keeps its colour, softened while at rest so the hues do not
+                    shout at once; the one you are on, or reaching for, is in full. */}
+                <PlaceIcon place={section} full={view.id === section.id} />
+                {!narrow && <span className="flex-1 truncate text-left">{section.label}</span>}
+                {!narrow && counts[section.id] ? (
+                  <Rolling
+                    text={counts[section.id]}
+                    className={`text-xs tabular-nums ${section.id === 'today' ? 'text-[var(--tt-color-text-orange)]' : 'text-muted-foreground'}`}
+                  />
+                ) : null}
               </button>
-            )}
-            {(!MORE.includes(section.id) || moreOpen || view.id === section.id) && (
-            <Tooltip>
-            <TooltipTrigger asChild>
-            <button
-              type="button"
-              data-home={section.id === 'nuggets' ? 'nugget' : section.id === 'upcoming' ? 'task' : section.id === 'questions' ? 'question' : undefined}
-              data-tour={section.id === 'inbox' ? 'inbox' : undefined}
-              aria-label={section.label}
-              onClick={() => setView({ id: section.id })}
-              className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors ${narrow ? 'justify-center px-0' : 'px-2'} ${view.id === section.id ? 'bg-accent text-foreground' : 'text-foreground/80 hover:bg-accent/60'}`}
-            >
-              {/* Each icon keeps its colour, softened while at rest so eleven hues do not
-                  shout at once; the one you are on, or reaching for, is in full. */}
-              <section.icon
-                className={`size-4 transition-colors ${view.id === section.id ? 'text-[var(--tint)]' : 'text-[color-mix(in_oklab,var(--tint)_55%,var(--muted-foreground))] group-hover:text-[var(--tint)]'}`}
-                style={{ '--tint': `var(--tt-color-text-${section.tint})` } as CSSProperties}
-              />
-              {!narrow && <span className="flex-1 text-left">{section.label}</span>}
-              {!narrow && counts[section.id] ? (
-                <Rolling
-                  text={counts[section.id]}
-                  className={`text-xs tabular-nums ${section.id === 'today' ? 'text-[var(--tt-color-text-orange)]' : 'text-muted-foreground'}`}
-                />
-              ) : null}
-            </button>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="flex items-center gap-1.5">
-              {section.label} <Kbd>G</Kbd><Kbd>{section.key.toUpperCase()}</Kbd>
-            </TooltipContent>
-            </Tooltip>
-            )}
-            </Fragment>
-          ))}
+              </TooltipTrigger>
+              <TooltipContent side="right" className="flex items-center gap-1.5">
+                {section.label} <Kbd>G</Kbd><Kbd>{section.key.toUpperCase()}</Kbd>
+              </TooltipContent>
+              </Tooltip>
+            )
+            // A group's name, small: click folds it; pointed at, it offers Customize.
+            const heading = (label: string, open: boolean, fold: (open: boolean) => void, customize = true): React.JSX.Element =>
+              narrow ? <div key={label} className="mt-3" /> : (
+                <div key={label} className="group/head mt-3 mb-0.5 flex items-center">
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    onClick={() => (chime(open ? 'fold' : 'slide'), fold(!open))}
+                    className="flex flex-1 items-center gap-1 rounded-md px-2 py-0.5 text-left text-meta text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    {label}
+                    <ChevronRight className={`size-3 transition-[rotate,opacity] ${open ? 'rotate-90 opacity-0 group-hover/head:opacity-100' : ''}`} />
+                  </button>
+                  {customize && (
+                    <Tip label="Customize sidebar">
+                      <button type="button" onClick={() => setCustomizing(true)}
+                        className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover/head:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
+                        <AliveIcon icon={DotsHorizontalIcon} size={14} />
+                      </button>
+                    </Tip>
+                  )}
+                </div>
+              )
+            const visible = SECTIONS.filter((section) => shown.includes(section.id))
+            const hidden = SECTIONS.filter((section) => !shown.includes(section.id))
+            const first = SECTIONS.findIndex((section) => section.group)
+            const loose = (after: boolean): typeof SECTIONS => visible.filter((section) => !section.group && SECTIONS.indexOf(section) > first === after)
+            const group = (name: string, open: boolean, fold: (open: boolean) => void): React.JSX.Element | null => {
+              const list = visible.filter((section) => section.group === name)
+              if (!list.length) return null
+              // Folded, the one you are on still shows, so you never lose your place.
+              return <Fragment key={name}>{heading(name, open, fold)}{list.filter((section) => open || narrow || view.id === section.id).map(row)}</Fragment>
+            }
+            return (<>
+              {loose(false).map(row)}
+              {/* Pinned, Notion's Favourites: only there while something is. */}
+              {pins.length > 0 && (<>
+                {heading('Pinned', pinsOpen, setPinsOpen, false)}
+                {(pinsOpen || narrow) && pins.map((pin) => {
+                  const kind = CAPTURE_TYPES.find((type) => type.id === pin.kind) ?? CAPTURE_TYPES[0]
+                  const table = pin.type === 'capture' ? 'captures' : 'nuggets'
+                  return (
+                    <RowMenu key={pin.id} items={[
+                      { label: 'Open', run: () => open(pin.type, pin.id) },
+                      'separator',
+                      { label: 'Unpin', run: () => void vigil.pin(table, pin.id, false).then(() => chime('fold')) }
+                    ]}>
+                      <span className="flex">
+                      <Tip label={narrow ? pin.title || 'Untitled' : ''}>
+                      <button
+                        type="button"
+                        data-private={pin.private ? '' : undefined}
+                        onClick={() => open(pin.type, pin.id)}
+                        className={`flex flex-1 items-center gap-2.5 rounded-md py-1.5 text-foreground/80 transition-colors hover:bg-accent/60 ${narrow ? 'justify-center px-0' : 'px-2'}`}
+                      >
+                        <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
+                        {!narrow && <span className="private-text flex-1 truncate text-left">{pin.title || 'Untitled'}</span>}
+                      </button>
+                      </Tip>
+                      </span>
+                    </RowMenu>
+                  )
+                })}
+              </>)}
+              {group('Tasks', tasksOpen, setTasksOpen)}
+              {group('Kept', keptOpen, setKeptOpen)}
+              {loose(true).length > 0 && <div className="mt-3" />}
+              {loose(true).map(row)}
+              {/* Everything not shown, one fold away; G and a letter reach it anyway. */}
+              {hidden.length > 0 && (narrow ? (
+                <Tip label="More">
+                  <button type="button" aria-expanded={moreOpen} aria-label="More" onClick={() => (chime(moreOpen ? 'fold' : 'slide'), setMoreOpen(!moreOpen))}
+                    className="mt-3 flex justify-center rounded-md py-1 text-muted-foreground hover:text-foreground">
+                    <AliveIcon icon={DotsHorizontalIcon} size={16} />
+                  </button>
+                </Tip>
+              ) : heading('More', moreOpen, setMoreOpen))}
+              {hidden.filter((section) => moreOpen || view.id === section.id).map(row)}
+            </>)
+          })()}
         </nav>
 
         {!narrow && (<>
         <button
           type="button"
           onClick={() => (chime(kindsOpen ? 'fold' : 'slide'), setKindsOpen(!kindsOpen))}
-          className="mt-4 mb-1 flex items-center gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+          className="mt-3 mb-0.5 flex items-center gap-1 rounded-md px-2 py-0.5 text-meta text-muted-foreground transition-colors hover:text-foreground"
         >
           Kinds <ChevronRight className={`size-3 transition-transform ${kindsOpen ? 'rotate-90' : ''}`} />
         </button>
@@ -479,7 +503,7 @@ export function Home(): React.JSX.Element {
           <button
             type="button"
             onClick={() => (chime(tagsOpen ? 'fold' : 'slide'), setTagsOpen(!tagsOpen))}
-            className="mt-4 mb-1 flex items-center gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+            className="mt-3 mb-0.5 flex items-center gap-1 rounded-md px-2 py-0.5 text-meta text-muted-foreground transition-colors hover:text-foreground"
           >
             Tags <ChevronRight className={`size-3 transition-transform ${tagsOpen ? 'rotate-90' : ''}`} />
           </button>
@@ -534,39 +558,62 @@ export function Home(): React.JSX.Element {
             {!narrow && <span className="flex-1 text-left">Settings</span>}
           </button>
           </Tip>
+          {/* Notion's quiet last row: which sections the sidebar lists. Settings has the same switches. */}
+          <Tip label={narrow ? 'Customize sidebar' : ''}>
+          <button
+            type="button"
+            data-customize
+            aria-label="Customize sidebar"
+            aria-expanded={customizing}
+            onClick={() => setCustomizing(!customizing)}
+            className={`flex items-center gap-2.5 rounded-md py-1.5 text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground aria-expanded:bg-accent/60 ${narrow ? 'justify-center px-0' : 'px-2'}`}
+          >
+            <AliveIcon icon={SlidersHorizontalIcon} size={16} />
+            {!narrow && <span className="flex-1 text-left">Customize sidebar</span>}
+          </button>
+          </Tip>
           {/* Faint until the pointer comes to the sidebar: read once, then out of the way. */}
           {!narrow && (
-            <p className="mt-2 px-2 text-xs whitespace-nowrap text-muted-foreground opacity-60 transition-opacity duration-200 group-hover/side:opacity-100">
-              <Kbd>G</Kbd> jump <span className="mx-1">·</span> <Kbd>C</Kbd> capture <span className="mx-1">·</span> <Kbd>?</Kbd> keys
+            <p className="mt-2 flex flex-wrap gap-x-2.5 px-2 text-xs whitespace-nowrap text-muted-foreground opacity-60 transition-opacity duration-200 group-hover/side:opacity-100">
+              <span><Kbd>G</Kbd> jump</span> <span><Kbd>C</Kbd> capture</span> <span><Kbd>?</Kbd> keys</span>
             </p>
           )}
         </div>
+        </div>
       </aside>
+      </PopoverAnchor>
+      <PopoverContent side="right" align="start" sideOffset={8}
+        // Its own row toggles it: a click there is not a click away.
+        onInteractOutside={(event) => (event.target as Element | null)?.closest?.('[data-customize]') && event.preventDefault()}
+        className="max-h-[calc(var(--radix-popover-content-available-height)-8px)] w-72 gap-1 overflow-y-auto p-1.5">
+        <p className="px-2 pt-1 pb-1.5 text-meta text-muted-foreground">Shown in the sidebar. The rest wait under More, and G with their letter still goes to them.</p>
+        <ShowList places={SECTIONS} setting="sidebarShown" />
+      </PopoverContent>
+      </Popover>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col gap-2">
-      <header className={`flex h-8 shrink-0 items-center gap-1 ${sidebar ? '' : 'pl-[68px]'}`} style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
+      {/* Clear of the traffic lights whatever sits to the left: nothing, or the folded rail. */}
+      <header className={`flex h-8 shrink-0 items-center gap-1 ${!sidebar ? 'pl-[68px]' : narrow ? 'pl-3' : ''}`} style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
         {[
-          { icon: PanelLeft, title: 'Sidebar ⌘\\', run: () => (chime(sidebar ? 'fold' : 'slide'), setSidebar(!sidebar)) },
+          { icon: PanelLeft, label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘\\', run: () => (chime(sidebar ? 'fold' : 'slide'), setSidebar(!sidebar)) },
           // With the sidebar away, its search field comes up here as a button.
-          ...(sidebar ? [] : [{ icon: SearchIcon, title: 'Search ⌘K', run: () => setSearching(true) }])
-        ].map(({ icon: Icon, title, run }) => (
-          <Tip key={title} label={title}>
-            <span style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
-              <Button variant="ghost" size="icon" aria-label={title} onClick={run} className="text-muted-foreground">
-                <Icon className="size-4" />
-              </Button>
-            </span>
+          ...(sidebar ? [] : [{ icon: SearchIcon, label: 'Search', keys: '⌘K', run: () => setSearching(true) }])
+        ].map(({ icon: Icon, label, keys, run }) => (
+          <Tip key={keys} label={keyed(label, keys)}>
+            <button type="button" aria-label={label} onClick={run} className={TOOL} style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
+              <Icon />
+            </button>
           </Tip>
         ))}
         {/* Back and forward as one pill, the way Raycast and Safari join them. */}
         <span className="flex items-center rounded-full border" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
           {[
-            { icon: ArrowLeft, title: 'Back ⌘[', run: () => step(-1), off: trail.at === 0 },
-            { icon: ArrowRight, title: 'Forward ⌘]', run: () => step(1), off: trail.at === trail.views.length - 1 }
-          ].map(({ icon: Icon, title, run, off }, index) => (
-            <Tip key={title} label={title}>
-              <button type="button" aria-label={title} disabled={off} onClick={run}
+            { icon: ArrowLeft, label: 'Back', keys: '⌘[', run: () => step(-1), off: trail.at === 0 },
+            { icon: ArrowRight, label: 'Forward', keys: '⌘]', run: () => step(1), off: trail.at === trail.views.length - 1 }
+          ].map(({ icon: Icon, label, keys, run, off }, index) => (
+            <Tip key={label} label={keyed(label, keys)}>
+              <button type="button" aria-label={label} disabled={off} onClick={run}
                 className={`flex h-7 w-8 items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-40 ${index ? 'border-l' : ''}`}>
                 <Icon className="size-3.5" />
               </button>
@@ -576,20 +623,20 @@ export function Home(): React.JSX.Element {
         <h1 className="ml-2 truncate font-medium">{SECTIONS.find((section) => section.id === view.id)?.label ?? (kind ? kind.label : view.id === 'settings' ? 'Settings' : view.id === 'yearpage' ? 'Year' : '')}</h1>
         {/* The open note's name, faint, once its first line has scrolled away. */}
         <span className={`min-w-0 flex-1 truncate px-4 text-center text-muted-foreground transition-opacity duration-200 ${topTitle && settings?.topTitle !== false ? 'opacity-100' : 'opacity-0'}`}>{topTitle}</span>
-        <SoundToggle className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-4" />
-        <Tip label={`${fill ? 'Back to compact' : 'Fill the screen'}  ⌃⇧F`}>
+        <SoundToggle className={TOOL} />
+        <Tip label={keyed(fill ? 'Back to compact' : 'Fill the screen', '⌃⇧F')}>
           <button type="button" aria-label={fill ? 'Back to compact' : 'Fill the screen'} onClick={() => setFill(!fill)}
             style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground">
-            {fill ? <Minimize2 className="size-4" /> : <AliveIcon icon={ExpandIcon} size={16} />}
+            className={TOOL}>
+            {fill ? <Minimize2 /> : <AliveIcon icon={ExpandIcon} size={16} />}
           </button>
         </Tip>
-        <Tip label="New capture  C">
-          <Button variant="ghost" size="sm" onClick={() => (chime('open'), window.api.showPrompt())}
+        <Tip label={keyed('New capture', 'C')}>
+          <button type="button" onClick={() => (chime('open'), window.api.showPrompt())}
             style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-            className="flex items-center gap-1.5 text-muted-foreground">
-            <SquarePen className="size-4" /> New
-          </Button>
+            className={`${TOOL} gap-1.5 px-2`}>
+            <SquarePen /> New
+          </button>
         </Tip>
       </header>
       {/* The page itself, a card like the sidebar's. */}

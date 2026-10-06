@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { QuestionBack } from './vigil/questions-view'
 import { GlossLine, useGlossKey } from './vigil/gloss-line'
 import { openPass } from './vigil/pass'
+import { Postcarded, usePostcard } from './vigil/memory-postcard'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import TrashIcon from '@/components/ui/trash-icon'
 
@@ -28,6 +29,7 @@ type Nudge = NonNullable<Awaited<ReturnType<typeof vigil.nudge>>>
  */
 export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element | null {
   const [hint, setHint] = useState<Hint | null>(null)
+  const postcard = usePostcard(!!hint?.memory)
   // Two bells once, when a hint arrives: not on every animation the card
   // runs afterwards, which rang them again as the page moved around it.
   useEffect(() => void (hint && chime(hint.memory ? 'memory' : 'hint')), [hint?.id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -229,8 +231,10 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, height: 0, marginBottom: 0, transition: { duration: 0.2 } }}
           transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-          className="mt-2 mb-3 overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,transparent)] px-3 py-2.5 text-sm"
+          className={postcard ? 'mt-2 mb-3 text-sm' : 'mt-2 mb-3 overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,transparent)] px-3 py-2.5 text-sm'}
         >
+          {/* A memory, with Postcards on, comes as a postcard: the same card inside. */}
+          <Postcarded on={postcard} at={(hint as { at?: string }).at} seed={hint.id}>
           <RowMenu items={offered.map(({ tip, keys, run }) => ({ label: tip, keys, run, danger: tip === 'Discard it' }))}>
             {fixing !== null ? (
               // Grows with the words and sits where they sat, so a two-line hint
@@ -308,6 +312,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
               ))}
             </div>
           )}
+          </Postcarded>
         </motion.div>
       )}
     </AnimatePresence>

@@ -512,9 +512,9 @@ export function PassLinks({ className = '' }: { className?: string }): React.JSX
   return (
     <div className={`flex flex-wrap items-center gap-1 text-xs text-muted-foreground ${className}`}>
       {waiting.tidy > 0 && (
-        <Tip label="A few minutes over the last days' captures: tags and formatting, nothing to decide">
+        <Tip label="Tidy the last few days: tags and formatting, nothing to decide">
           <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-[var(--tt-color-text-green)]" onClick={() => openPass('tidy')}>
-            <Brush className="size-3.5" /> Tidy the last few days
+            <Brush className="size-3.5" /> Tidy
           </Button>
         </Tip>
       )}

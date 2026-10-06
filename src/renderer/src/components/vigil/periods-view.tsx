@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BookOpenText } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import HistoryCircleIcon from '@/components/ui/history-circle-icon'
 
@@ -12,6 +12,8 @@ import { chime } from '@/lib/sound'
 import { useLive, vigil, type PeriodPage } from '@/lib/vigil'
 import { Chips } from './display'
 import { DayBanner } from './scenery'
+import { MonthReflect } from './reflect-view'
+import { IssueLine, Odometer, PastIssues, SERIF, useIssue, weekOfYear, weekSpan } from './issue'
 import { Island, Kbd, Page, Rolling, Tip, Typed, typing } from './ui'
 import { dayjs, noon } from '../../../../main/dates'
 
@@ -121,6 +123,25 @@ const usePeriod = (period: string): PeriodPage | null => {
 const saveField = (period: string, key: string, text: string): void =>
   void vigil.savePeriod(period, { fields: { [key]: text || null } }).then(() => chime('noted'))
 
+/**
+ * The top of an issue: its facts in a line with its number at the end, then
+ * the headline, in the heading face. Until you name the stretch, its dates
+ * stand in, quieter.
+ */
+function Masthead({ parts, issue, headline, named }: { parts: React.ReactNode[]; issue: number | null; headline: string; named: boolean }): React.JSX.Element {
+  return (
+    <header>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-b border-border/60 pb-2">
+        <IssueLine parts={parts} />
+        {issue !== null && <Odometer n={issue} />}
+      </div>
+      <h1 className={`mt-5 ${SERIF} text-[clamp(1.625rem,3.6vw,2.25rem)] leading-[1.15] font-medium tracking-[-0.015em] text-balance ${named ? 'text-foreground' : 'text-foreground/80'}`}>
+        <Typed key={headline} text={headline} step={18} delay={60} />
+      </h1>
+    </header>
+  )
+}
+
 // --- a week's page
 
 /**
@@ -141,6 +162,7 @@ export function WeekPage({ onOpen, onScale, onRecent, recentOpen }: {
   const key = `week:${monday}`
   const page = usePeriod(key)
   const current = monday === thisWeek
+  const issue = useIssue(monday, 'week')
   const go = (by: -1 | 1 | 0): void => {
     const to = by === 0 ? thisWeek : addDays(monday, by * 7)
     if (to > thisWeek || to === monday) return
@@ -175,8 +197,9 @@ export function WeekPage({ onOpen, onScale, onRecent, recentOpen }: {
     >
       <div className="page-narrow mx-auto w-full px-5 pt-6 pb-16 [--mf-padding:0.5rem_0]">
         <DayBanner day={monday} />
-        <h1 className="text-title font-semibold text-balance"><Rolling text={weekName(monday)} by="word" /></h1>
-        <p className="mt-1 text-meta text-muted-foreground">
+        <Masthead parts={[`Week ${weekOfYear(monday)}`, weekSpan(monday), current && 'This week']} issue={issue}
+          headline={fields.theme || fields.summary?.split(/(?<=[.!?])\s|\n/)[0] || weekName(monday)} named={!!(fields.theme || fields.summary)} />
+        <p className="mt-2 text-meta text-muted-foreground">
           <Typed key={key} text={`${current ? 'This week. ' : ''}${page?.exists ? 'High level only: what you would still say about it in a month.' : 'No page for it yet: a few words in any field keeps one.'}`} step={28} />
         </p>
         {page && (
@@ -209,6 +232,7 @@ export function WeekPage({ onOpen, onScale, onRecent, recentOpen }: {
             />
           </div>
         )}
+        <PastIssues scale="week" current={monday} onPick={(start) => setMonday(start)} />
       </div>
     </Page>
   )
@@ -226,6 +250,9 @@ export function MonthPage({ onScale, start }: { onScale?: (scale: Scale) => void
   const key = `month:${month}`
   const page = usePeriod(key)
   const current = month === thisMonth
+  const issue = useIssue(`${month}-01`, 'month')
+  // Its numbers, told back over the page: kept off the page itself, which asks for none.
+  const [reflect, setReflect] = useState(false)
   const go = (by: -1 | 1 | 0): void => {
     const to = by === 0 ? thisMonth : addMonths(month, by)
     if (to > thisMonth || to === month) return
@@ -235,6 +262,9 @@ export function MonthPage({ onScale, start }: { onScale?: (scale: Scale) => void
   useSteps(go)
   const fields = page?.fields ?? {}
   return (
+    <>
+    {/* Over the whole view, its own bar in place of the page's. */}
+    {reflect && <MonthReflect start={month} onClose={() => (chime('fold'), setReflect(false))} />}
     <Page
       title="Month's page"
       actions={
@@ -242,13 +272,17 @@ export function MonthPage({ onScale, start }: { onScale?: (scale: Scale) => void
           <ScaleSwitch scale="month" onScale={onScale} />
           <span aria-hidden className="mx-1 h-4 w-px bg-border" />
           <Steps name="month" now="This month" atNow={current} go={go} />
+          <Tip label="Read it back: the month told from what you caught in it">
+            <Button variant="ghost" size="icon-sm" aria-label="Read the month back" onClick={() => (chime('slide'), setReflect(true))}><BookOpenText className="size-3.5" /></Button>
+          </Tip>
         </span>
       }
     >
       <div className="page-narrow mx-auto w-full px-5 pt-6 pb-16">
         <DayBanner day={`${month}-01`} />
-        <h1 className="text-title font-semibold"><Rolling text={monthName(month)} by="word" /></h1>
-        <p className="mt-1 text-meta text-muted-foreground">
+        <Masthead parts={[dayjs(`${month}-01`).format("MMMM 'YY"), `${dayjs(`${month}-01`).daysInMonth()} days`, current && 'This month']} issue={issue}
+          headline={fields.season || monthName(month)} named={!!fields.season} />
+        <p className="mt-2 text-meta text-muted-foreground">
           <Typed key={key} text="Two fields, no numbers: a name for this stretch of time." step={28} />
         </p>
         {page && (
@@ -259,8 +293,10 @@ export function MonthPage({ onScale, start }: { onScale?: (scale: Scale) => void
               placeholder="e.g. The month I stopped waiting for permission" onSave={(text) => saveField(key, 'season', text)} />
           </Island>
         )}
+        <PastIssues scale="month" current={month} onPick={(start) => setMonth(start.slice(0, 7))} />
       </div>
     </Page>
+    </>
   )
 }
 

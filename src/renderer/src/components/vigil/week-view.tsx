@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { DndContext, DragOverlay, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
+import { DndContext, DragOverlay, MeasuringStrategy, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
 import { Brain, CalendarClock, ChevronLeft, ChevronRight, Repeat } from 'lucide-react'
 
 import { chime } from '@/lib/sound'
@@ -9,7 +9,7 @@ import { Kbd, Page, Rolling, Tip, toast, typing } from './ui'
 import { PriorityIcon, setPriority } from './task-input'
 import { TaskDetail, completeTask } from './tasks-view'
 import { Button } from '@/components/ui/button'
-import { Lifted, SETTLE, snapshot } from './sortable'
+import { SETTLE, snapshot } from './sortable'
 import { GlossButton, GlossLine } from './gloss-line'
 import { clock, dayMonth, dayjs, startOfDay } from '../../../../main/dates'
 
@@ -84,7 +84,9 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
     const card = at >= 0 ? days[at].cards.find((one) => `${one.kind}:${one.task.id}` === landing.id) : undefined
     if (card && at !== landing.col) {
       days[at].cards = days[at].cards.filter((one) => one !== card)
-      days[landing.col].cards = [...days[landing.col].cards, card]
+      // In the place it will have once saved, so nothing shuffles when the save comes back.
+      const rank = (one: Card): number => (one.kind === 'deadline' ? live.length : 0) + live.indexOf(one.task)
+      days[landing.col].cards = [...days[landing.col].cards, card].sort((x, y) => rank(x) - rank(y))
     }
   }
   const cardOf = (id: string): { card: Card; col: number } | null => {
@@ -185,8 +187,14 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
         <DndContext
           sensors={sensors}
           collisionDetection={pointerWithin}
+          // Scroll only right at the edges, gently, so a day near the edge can
+          // still be dropped on; and the days are measured again as they scroll,
+          // or a drop after scrolling lands nowhere.
+          autoScroll={{ threshold: { x: 0.06, y: 0.1 }, acceleration: 4 }}
+          measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
           onDragStart={({ active }) => {
             chime('tap')
+            setLanding(null)
             setShot(snapshot(String(active.id)))
           }}
           onDragOver={({ over }) => setOver(over ? Number(over.id) : null)}
@@ -230,7 +238,10 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
                   const id = `${card.kind}:${card.task.id}`
                   const late = card.kind === 'scheduled' ? new Date(card.task.dueAt!).getTime() < dayStart(0) : new Date(card.task.deadline!).getTime() < dayStart(0)
                   return (
-                    <div key={id} className="group/item relative">
+                    <motion.div key={id} className="group/item relative"
+                      // Just dropped here from another day: it settles in from the chip's tilt.
+                      initial={landing?.id === id && landing.col === col ? { opacity: 0.4, scale: 0.97, rotate: -1.5 } : false}
+                      animate={{ opacity: 1, scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 520, damping: 34 }}>
                     <Carried id={id}>
                     <button
                       type="button"
@@ -257,7 +268,7 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
                     {/* A thought without opening it: on hover, top right, or ; on the card. */}
                     <GlossButton className="top-0.5 right-0.5 bg-background" onClick={() => setGlossing(id)} />
                     {glossing === id && <GlossLine id={card.task.id} open onDone={() => setGlossing(null)} placeholder="A thought, kept in its log" className="pt-1" />}
-                    </div>
+                    </motion.div>
                   )
                 })}
                 {/* The day under a carried card opens a gap for it at the end. */}
@@ -277,8 +288,10 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
             )
           })}
         </div>
-        <DragOverlay dropAnimation={document.documentElement.dataset.motion === 'off' ? null : SETTLE}>
-          <Lifted shot={shot} />
+        {/* Settling back is shown only when it goes back: one let go over
+            another day lands there at once, where its card fades in. */}
+        <DragOverlay dropAnimation={document.documentElement.dataset.motion === 'off' || landing ? null : SETTLE}>
+          {shot && cardOf(String(shot.id)) ? <Chip card={cardOf(String(shot.id))!.card} width={shot.width} /> : null}
         </DragOverlay>
         </DndContext>
       </Page>
@@ -297,4 +310,27 @@ function Day({ col, className, children }: { col: number; className: string; chi
 function Carried({ id, children }: { id: string; children: ReactNode }): React.JSX.Element {
   const { setNodeRef, listeners, isDragging } = useDraggable({ id })
   return <div ref={setNodeRef} data-sortable-id={id} {...listeners} className={isDragging ? 'opacity-30' : undefined}>{children}</div>
+}
+
+/**
+ * What the pointer carries: the card made small, one line with its colour
+ * down the side (red for a deadline, orange when urgent, the accent
+ * otherwise), tilted a little as a card is when lifted off a table.
+ */
+function Chip({ card, width }: { card: Card; width: number }): React.JSX.Element {
+  const color = card.kind === 'deadline' ? 'var(--tt-color-text-red)' : card.task.priority === 1 ? 'var(--tt-color-text-orange)' : 'var(--tt-brand-color-400)'
+  const time = card.kind === 'deadline' ? (card.task.deadlineTimed ? clock(card.task.deadline!) : 'Due') : !card.task.allDay && card.task.dueAt ? clock(card.task.dueAt) : ''
+  return (
+    <motion.div
+      initial={{ rotate: 0, scale: 1 }}
+      animate={{ rotate: -2.5, scale: 1.03 }}
+      transition={{ type: 'spring', stiffness: 600, damping: 30 }}
+      style={{ width: Math.min(width, 224) }}
+      className="flex cursor-grabbing items-center gap-2 rounded-md border bg-background py-1 pr-2.5 pl-1.5 text-control shadow-[0_10px_24px_-8px_color-mix(in_oklab,var(--mf-shadow-ink,black)_45%,transparent),0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink,black)_18%,transparent)]"
+    >
+      <span aria-hidden className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: color }} />
+      <span className="min-w-0 flex-1 truncate">{card.task.title}</span>
+      {time && <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{time}</span>}
+    </motion.div>
+  )
 }

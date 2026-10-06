@@ -40,6 +40,7 @@ import { activeSession, badge, gate, motionOn, registerVigil, toggleSafeMode, wh
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
 import { registerPeriods } from './periods'
+import { registerIssues } from './issues'
 import { num } from './dates'
 import { registerScenery, sceneryDir } from './scenery'
 
@@ -432,6 +433,10 @@ function showFocus(on: boolean): void {
     y: workArea.y + 12,
     frame: false,
     transparent: true,
+    // Nothing of the window's own around the pill: no backing colour, and no
+    // rounded window shape for macOS to draw a second box with.
+    backgroundColor: '#00000000',
+    roundedCorners: false,
     resizable: false,
     minimizable: false,
     maximizable: false,
@@ -998,6 +1003,10 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
     // Notion's asides are callouts; the little picture it starts them with is its icon, not content.
     text = text.replace(/<aside>\s*(?:<img [^>]*>\s*)?([\s\S]*?)\s*<\/aside>/g, (_, inside: string) =>
       `> [!note]\n${inside.trim().split('\n').map((line) => `> ${line}`.trimEnd()).join('\n')}`)
+    // %%comments%% are hidden in Obsidian, so they are left behind; code is
+    // stepped over, where %% is just a printf's percent sign.
+    text = text.split(/(^ {0,3}(?:`{3,}|~{3,})[^\n]*\n[\s\S]*?\n {0,3}(?:`{3,}|~{3,})[ \t]*$|`[^`\n]+`)/m)
+      .map((part, at) => (at % 2 ? part : part.replace(/%%[\s\S]*?%%[ \t]*/g, ''))).join('')
     // Line by line, to know when a picture sits in a table row.
     const lines: string[] = []
     for (const line of text.split('\n')) {
@@ -1214,6 +1223,7 @@ app.whenReady().then(() => {
   registerVigil()
   registerNotes({ load, guard })
   registerPeriods()
+  registerIssues()
   registerScenery()
   const first = fromCli(process.argv)
   if (first) captureText(first)

@@ -143,19 +143,19 @@ export function CaptureList({ captures, selected, cursor, chosen = [], onPick, o
                   <EyeOff className="size-3 shrink-0 text-muted-foreground" />
                 </Tip>
               ) : null}
+              {/* The MF number is for copying and linking, not reading: it shows
+                  beside the age on the row under the pointer or the cursor, in
+                  room the title gives up, so no row changes height. */}
+              <span className={`shrink-0 text-xs text-muted-foreground tabular-nums ${index === cursor || capture.id === selected ? '' : 'hidden group-hover/row:inline'}`}>{captureKey(capture.number)}</span>
               <span className="shrink-0 text-xs text-muted-foreground tabular-nums" style={{ color: capture.status === 'open' ? ageTint(capture.capturedAt, capture.importedAt) : undefined }}>{age(capture.capturedAt)}</span>
             </span>
-            {/* The MF number is for copying and linking, not reading: it shows
-                on the row under the pointer or the cursor. The line keeps its
-                height either way, so rows do not jump. */}
-            <span className="min-h-4 truncate pl-6 text-xs text-muted-foreground">
-              <span className={index === cursor || capture.id === selected ? '' : 'hidden group-hover/row:inline'}>
-                {captureKey(capture.number)}
-                {whereFrom(capture.source, capture.label) ? ' · ' : ''}
+            {/* A second line only with something on it: an empty one held a gap open under every row. */}
+            {(whereFrom(capture.source, capture.label) || tags.length > 0) && (
+              <span className="truncate pl-6 text-xs text-muted-foreground">
+                {whereFrom(capture.source, capture.label)}
+                {tags.length ? <span className={whereFrom(capture.source, capture.label) ? 'ml-2' : ''}><Tags tags={tags} /></span> : null}
               </span>
-              {whereFrom(capture.source, capture.label)}
-              {tags.length ? <span className="ml-2"><Tags tags={tags} /></span> : null}
-            </span>
+            )}
             </span>
             <Thumb id={capture.id} />
           </button>

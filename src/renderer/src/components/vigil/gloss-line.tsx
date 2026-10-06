@@ -75,7 +75,7 @@ export async function keepGloss(id: string, text: string): Promise<void> {
  */
 export function GlossLine({ id, className, placeholder = 'A thought on it, in your own words', latest = true, quiet = false, open = false, onDone, keys = ';' }: {
   id: string
-  /** In a row marked `group/item`: "Add a thought…" only shows on hover or focus there; a gloss always shows. */
+  /** Takes no room until there is something to show: a gloss, or the field once ; or the row's menu opens it. */
   quiet?: boolean
   className?: string
   placeholder?: string
@@ -124,8 +124,8 @@ export function GlossLine({ id, className, placeholder = 'A thought on it, in yo
 
   return (
     // Keys typed here are the field's, never the list's or the window's.
-    // Quiet: faded on the wrapper, since the button's own fade-in sets its opacity inline.
-    <div ref={root} data-gloss className={cn('min-w-0 text-xs', quiet && !last && !writing && 'opacity-0 transition-opacity group-hover/item:opacity-100 group-focus-visible/item:opacity-100 focus-within:opacity-100', className)} onKeyDown={(event) => writing && event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
+    // Quiet and empty: no line at all, not an invisible one holding a gap open.
+    <div ref={root} data-gloss className={cn('min-w-0 text-xs', quiet && !last && !writing && 'hidden', className)} onKeyDown={(event) => writing && event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
       <AnimatePresence mode="wait" initial={false}>
         {writing ? (
           <motion.label

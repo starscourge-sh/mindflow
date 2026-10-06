@@ -54,15 +54,44 @@ export function markdownPieces(markdown: string, size = 16000): string[] {
 
 /** Text that is only pictures, `![](...)` and nothing else. */
 const PICTURES = /^(\s*!\[[^\]]*\]\([^)\s]+\)\s*)+$/
-/** `==marked==`, but not a row of equals signs. */
-const MARKED = /==([^=\s](?:[^\n]*?[^=\s])?)==/g
-
 const plainText = (node: JSONContent): node is JSONContent & { text: string } =>
   node.type === "text" && !!node.text && !node.marks?.some((mark) => mark.type === "code")
 const pictures = (text: string): JSONContent[] =>
   [...text.matchAll(/!\[([^\]]*)\]\(([^)\s]+)\)/g)].map((match) => tidyDocument({ type: "image", attrs: { src: match[2], alt: match[1] } }))
-const marked = (node: JSONContent & { text: string }): JSONContent[] =>
-  node.text.split(MARKED).map((text, at) => ({ ...node, text, marks: at % 2 ? [...(node.marks ?? []), { type: "highlight" }] : node.marks })).filter((part) => part.text)
+/**
+ * `==marked==` across a line of words, also when bold or code sits between
+ * the marks and the reader split them into several runs. An opening mark has
+ * words straight after it and a closing one straight before it, so `a == b`
+ * and a row of equals signs stay as they are.
+ */
+const marked = (content: JSONContent[]): JSONContent[] => {
+  const marks = content.flatMap((node, at) =>
+    plainText(node) ? [...node.text.matchAll(/(?<!=)==(?!=)/g)].map((match) => ({ at, index: match.index, text: node.text })) : [])
+  const used = new Set<string>()
+  for (let open = 0; open < marks.length; open += 1) {
+    const { text, index } = marks[open]
+    if (/\s/.test(text[index + 2] ?? "")) continue
+    const close = marks.findIndex((one, n) => n > open && (one.at > marks[open].at || one.index > index + 2) && !/\s/.test(one.text[one.index - 1] ?? ""))
+    if (close < 0) break
+    used.add(`${marks[open].at}:${index}`).add(`${marks[close].at}:${marks[close].index}`)
+    open = close
+  }
+  if (!used.size) return content
+  let on = false
+  const lit = (node: JSONContent): JSONContent => (on ? { ...node, marks: [...(node.marks ?? []), { type: "highlight" }] } : node)
+  return content.flatMap((node, at) => {
+    if (!plainText(node)) return [node.type === "text" ? lit(node) : node]
+    const parts: JSONContent[] = []
+    let from = 0
+    for (const { index } of marks.filter((one) => one.at === at && used.has(`${at}:${one.index}`))) {
+      parts.push(lit({ ...node, text: node.text.slice(from, index) }))
+      on = !on
+      from = index + 2
+    }
+    parts.push(lit({ ...node, text: node.text.slice(from) }))
+    return parts.filter((part) => part.text)
+  })
+}
 
 const FILE_LINK = /^mindflow:\/\/assets\/[a-f0-9]{64}\.(?!png|jpe?g|gif|webp|svg|avif|bmp)[a-z0-9]+$/
 
@@ -83,6 +112,15 @@ export function tidyDocument(node: JSONContent, inText = false): JSONContent {
     return inText
       ? { type: "text", text: String(node.attrs?.alt || node.attrs?.src), marks: [{ type: "link", attrs: { href: node.attrs?.src } }] }
       : { type: "youtube", attrs: { src: node.attrs?.src } }
+  // A callout's title is plain words: a picture in it goes to the top of its body.
+  if (node.type === "callout" && /!\[[^\]]*\]\([^)\s]+\)/.test(String(node.attrs?.title ?? ""))) {
+    const title = String(node.attrs?.title)
+    return tidyDocument({
+      ...node,
+      attrs: { ...node.attrs, title: title.replace(/!\[[^\]]*\]\([^)\s]+\)/g, "").replace(/\s+/g, " ").trim() },
+      content: [{ type: "paragraph", content: pictures(title) }, ...(node.content ?? [])],
+    }, inText)
+  }
   if (node.type === "image") {
     const sized = /^(.*?)\|(\d+)(?:x\d+)?$/.exec(String(node.attrs?.alt ?? ""))
     if (sized) return { ...node, attrs: { ...node.attrs, alt: sized[1].trim(), width: `${sized[2]}px` } }
@@ -103,20 +141,17 @@ export function tidyDocument(node: JSONContent, inText = false): JSONContent {
   // What the list reader leaves as words: a picture indented under an item,
   // and a highlight with an = inside it.
   const inline = node.type === "paragraph" || node.type === "heading"
-  return {
-    ...node,
-    content: node.content.flatMap((child, at): JSONContent[] => {
-      const only = child.type === "paragraph" && child.content?.length === 1 ? child.content[0] : null
-      // A list item starts with a line of words, even an empty one.
-      const lead = at === 0 && /^(listItem|taskItem)$/.test(node.type ?? "") ? [{ type: "paragraph" }] : []
-      if (only && plainText(only) && PICTURES.test(only.text)) return [...lead, ...pictures(only.text)]
-      if (!inline && plainText(child) && PICTURES.test(child.text)) return [...lead, ...pictures(child.text)]
-      if (plainText(child) && child.text.includes("==")) return marked(child)
-      const tidied = tidyDocument(child, inline)
-      if (tidied.type === "files") return [...lead, ...(tidied.content ?? [])]
-      return /^(paragraph|heading)$/.test(child.type ?? "") && tidied.type === "attachment" ? [...lead, tidied] : [tidied]
-    }),
-  }
+  const content = node.content.flatMap((child, at): JSONContent[] => {
+    const only = child.type === "paragraph" && child.content?.length === 1 ? child.content[0] : null
+    // A list item starts with a line of words, even an empty one.
+    const lead = at === 0 && /^(listItem|taskItem)$/.test(node.type ?? "") ? [{ type: "paragraph" }] : []
+    if (only && plainText(only) && PICTURES.test(only.text)) return [...lead, ...pictures(only.text)]
+    if (!inline && plainText(child) && PICTURES.test(child.text)) return [...lead, ...pictures(child.text)]
+    const tidied = tidyDocument(child, inline)
+    if (tidied.type === "files") return [...lead, ...(tidied.content ?? [])]
+    return /^(paragraph|heading)$/.test(child.type ?? "") && tidied.type === "attachment" ? [...lead, tidied] : [tidied]
+  })
+  return { ...node, content: inline ? marked(content) : content }
 }
 
 /** Markdown as the editor's document, read in pieces and tidied. */

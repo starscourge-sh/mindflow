@@ -1040,7 +1040,9 @@ function Surface({
       ...(has("subscript") ? [Subscript] : []),
       Selection,
       ...(search ? [FindAndReplace.configure({ injectCSS: false })] : []),
-      TableKit.configure({ table: { resizable: true, cellMinWidth: 64 } }),
+      // Columns never narrower than a few words: a table with many of them
+      // grows past the page and scrolls sideways, rather than crushing each.
+      TableKit.configure({ table: { resizable: true, cellMinWidth: 128 } }),
       OutdentLists,
       Bookmark,
       Callout,
@@ -1246,15 +1248,25 @@ function Surface({
   useEffect(() => {
     const dom = editor?.view.dom
     if (!dom) return
-    const missing = (event: Event): void => {
-      const img = event.target
-      if (!(img instanceof HTMLImageElement) || img.dataset.missing) return
+    // Named by what it was called, or the end of its address; a stored file's
+    // address is only a hash, which says nothing.
+    const missing = (img: HTMLImageElement): void => {
+      if (img.dataset.missing || img.src.startsWith("data:")) return
+      const end = decodeURIComponent(img.src.split(/[?#]/)[0].split("/").pop() ?? "")
+      const name = img.alt || (/^[a-f0-9]{64}\./.test(end) || !end ? "A picture" : end)
+      const label = `${name.length > 48 ? `${name.slice(0, 47)}…` : name} isn’t here`
+      const width = Math.min(520, Math.max(220, label.length * 7 + 56))
+      const text = label.replace(/[<&>"]/g, (one) => `&#${one.charCodeAt(0)};`)
       img.dataset.missing = "1"
-      img.alt = "Image not found"
-      img.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="56"><rect width="100%" height="100%" rx="8" fill="none" stroke="#888" stroke-opacity=".4" stroke-dasharray="4 4"/><text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" font-family="system-ui" font-size="13" fill="#888">Image not found</text></svg>')}`
+      img.alt = label
+      // Grey at part strength reads calmly on a light page and a dark one.
+      img.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="64"><rect x=".5" y=".5" width="${width - 1}" height="63" rx="10" fill="#888" fill-opacity=".06" stroke="#888" stroke-opacity=".35" stroke-dasharray="4 4"/><g fill="none" stroke="#888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" transform="translate(18 23)"><rect width="18" height="18" rx="3"/><circle cx="6" cy="6" r="1.5"/><path d="m18 12-4-4-9 9"/></g><text x="48" y="33" dominant-baseline="middle" font-family="-apple-system, system-ui" font-size="13" fill="#888">${text}</text></svg>`)}`
     }
-    dom.addEventListener("error", missing, true)
-    return () => dom.removeEventListener("error", missing, true)
+    const onError = (event: Event): void => void (event.target instanceof HTMLImageElement && missing(event.target))
+    dom.addEventListener("error", onError, true)
+    // Any that failed before this was listening.
+    dom.querySelectorAll("img").forEach((img) => img.complete && !img.naturalWidth && img.src && missing(img))
+    return () => dom.removeEventListener("error", onError, true)
   }, [editor])
 
   // Known by its id while open, so a heading link to this same document lands
