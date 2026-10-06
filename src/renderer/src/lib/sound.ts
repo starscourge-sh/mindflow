@@ -52,6 +52,10 @@ const CUES = {
   settled: [[523, 0, 0.3, 0.045], [659, 0.03, 0.3, 0.045], [784, 0.06, 0.4, 0.045]],
   // Reading: a page turned.
   page: [[660, 0, 0.05, 0.03]],
+  // Home's rows, and only them: a short airy flick that slides up, like a
+  // card riffled past the thumb. Each dot the row passes is a softer one.
+  riffle: [[880, 0, 0.06, 0.035, 1320], [1175, 0.04, 0.05, 0.025, 1568]],
+  bead: [[1568, 0, 0.025, 0.012]],
   // Into reading: a book opened, three soft notes stepping up; out of it, down.
   read: [[440, 0, 0.16, 0.035], [554, 0.07, 0.16, 0.035], [659, 0.14, 0.26, 0.035]],
   unread: [[659, 0, 0.12, 0.03], [554, 0.06, 0.12, 0.03], [440, 0.12, 0.2, 0.03]],

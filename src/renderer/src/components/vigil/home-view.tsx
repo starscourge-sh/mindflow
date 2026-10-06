@@ -251,9 +251,14 @@ function Row({ title, onAll, children }: { title: ReactNode; onAll?: () => void;
   const [edges, setEdges] = useState({ left: false, right: false })
   // Where the row is, for the dot track under it: what share is in view, and from where.
   const [span, setSpan] = useState({ from: 0, to: 1 })
+  // As the row slides, each dot it lights is a bead of sound; never more than one a frame.
+  const lastLit = useRef(-1)
   const measure = (): void => {
     const box = scroller.current
     if (!box) return
+    const lit = Math.round((box.scrollLeft / Math.max(1, box.scrollWidth - box.clientWidth)) * 15)
+    if (lastLit.current >= 0 && lit !== lastLit.current) chime('bead')
+    lastLit.current = lit
     setEdges({ left: box.scrollLeft > 2, right: box.scrollLeft + box.clientWidth < box.scrollWidth - 2 })
     setSpan({ from: box.scrollLeft / box.scrollWidth, to: (box.scrollLeft + box.clientWidth) / box.scrollWidth })
   }
@@ -268,7 +273,7 @@ function Row({ title, onAll, children }: { title: ReactNode; onAll?: () => void;
   const page = (by: -1 | 1): void => {
     const box = scroller.current
     if (!box) return
-    chime('shift')
+    chime('riffle')
     box.scrollBy({ left: by * box.clientWidth * 0.8, behavior: motionOff() ? 'auto' : 'smooth' })
   }
   const mask = `linear-gradient(to right, ${edges.left ? 'transparent 0, black 2rem' : 'black 0'}, ${edges.right ? 'black calc(100% - 3rem), transparent 100%' : 'black 100%'})`
@@ -292,7 +297,7 @@ function Row({ title, onAll, children }: { title: ReactNode; onAll?: () => void;
       {(edges.left || edges.right) && <DotTrack from={span.from} to={span.to} onPick={(at) => {
         const box = scroller.current
         if (!box) return
-        chime('shift')
+        chime('riffle')
         box.scrollTo({ left: at * box.scrollWidth - box.clientWidth / 2, behavior: motionOff() ? 'auto' : 'smooth' })
       }} />}
     </section>
