@@ -82,15 +82,28 @@
   }
 
   // Pictures fit the card: its width, never taller than a glance, opening in Quick Look.
+  // In from each side by the selection ring's width, since the editor's wrapper clips
+  // flush at the column: the round corners and the ring show whole, drawn or edited.
   img:not([data-type="emoji"] img) {
     display: block;
-    width: 100% !important;
+    width: calc(100% - 4px) !important;
     height: auto;
     max-height: 96px;
     object-fit: cover;
-    border-radius: 6px;
-    margin: 0.25rem 0 !important;
+    border-radius: 6px !important;
+    outline-offset: 0;
+    margin: 0.25rem 2px !important;
     cursor: zoom-in;
+  }
+
+  // A picture's node wrapper, where the editor gives it one, rounds with it.
+  .ProseMirror :is([data-node-view-wrapper], .react-renderer):has(> img) {
+    border-radius: 6px;
+  }
+
+  // The editor's band on the caret's line (Vim's cursor line): too loud on a card this small.
+  .vim-cursor-line::before {
+    display: none;
   }
 }
 
