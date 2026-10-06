@@ -1,13 +1,19 @@
-import { useEffect, useState } from 'react'
-import { ChevronRight } from 'lucide-react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import LinkIcon from '@/components/ui/link-icon'
+import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { tagColors, spread } from '@/extensions/tokens'
 
 import { chime } from '@/lib/sound'
+import { openWindow, useThumb } from '@/lib/notes'
 import { vigil } from '@/lib/vigil'
+import { Thumb } from './note-extras'
 import { Tip, refuse, toast } from './ui'
 
 type Found = Awaited<ReturnType<typeof vigil.mentions>>
+type Related = Awaited<ReturnType<typeof vigil.related>>
 
 /**
  * Under the note, as Obsidian keeps them: every note that links here, with
@@ -18,23 +24,27 @@ export function Mentions({ id, onOpen }: { id: string; onOpen?: (type: string, i
   const [found, setFound] = useState<Found | null>(null)
   const [unfolded, setUnfolded] = useState(false)
   const [namedOpen, setNamedOpen] = useState(false)
+  const [related, setRelated] = useState<Related>([])
   useEffect(() => {
-    const load = (): void => void vigil.mentions(id).then(setFound)
+    const load = (): void => {
+      void vigil.mentions(id).then(setFound)
+      void vigil.related(id).then(setRelated)
+    }
     load()
     // Again once things settle, not on every keystroke of an autosave.
     let timer: ReturnType<typeof setTimeout> | undefined
-    // Its own autosaves change what it links to, never what links to it.
+    // Its own autosaves change what it links to and names, so they count
+    // too, once the typing has paused a little longer.
     const stop = window.api.captures.onChange((what) => {
-      if (what?.every((one) => one.id === id)) return
       clearTimeout(timer)
-      timer = setTimeout(load, 1500)
+      timer = setTimeout(load, what?.every((one) => one.id === id) ? 2500 : 1500)
     })
     return () => {
       clearTimeout(timer)
       stop()
     }
   }, [id])
-  if (!found || !(found.linked.length || found.unlinked.length || found.out.length || found.named.length)) return null
+  if (!found || !(found.linked.length || found.unlinked.length || found.out.length || found.named.length || related.length)) return null
 
   // `link` makes the plain mention a link: in the other note, or in this one.
   const row = (one: Found['linked'][number], link?: () => Promise<boolean>): React.JSX.Element => (
@@ -98,6 +108,114 @@ export function Mentions({ id, onOpen }: { id: string; onOpen?: (type: string, i
           {namedOpen && found.named.map((one) => row(one))}
         </>
       )}
+      {related.length > 0 && <RelatedRow cards={related} onOpen={onOpen} />}
     </section>
+  )
+}
+
+/**
+ * Notes that share tags with this one, as a row of small cards: its first
+ * picture or a few of its words, its name, and the tags they share. The row
+ * scrolls sideways; the round arrows page it when it runs past the edge.
+ */
+function RelatedRow({ cards, onOpen }: { cards: Related; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
+  const strip = useRef<HTMLDivElement>(null)
+  const [ends, setEnds] = useState({ start: true, end: true })
+  useLayoutEffect(() => {
+    const element = strip.current
+    if (!element) return
+    const measure = (): void => setEnds({ start: element.scrollLeft < 2, end: element.scrollLeft + element.clientWidth > element.scrollWidth - 2 })
+    measure()
+    element.addEventListener('scroll', measure, { passive: true })
+    const watch = new ResizeObserver(measure)
+    watch.observe(element)
+    return () => (element.removeEventListener('scroll', measure), watch.disconnect())
+  }, [cards])
+  const page = (way: 1 | -1): void => {
+    const element = strip.current
+    if (!element) return
+    chime('slide')
+    const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+    element.scrollBy({ left: way * element.clientWidth * 0.8, behavior: still ? 'auto' : 'smooth' })
+  }
+  // Faded only on a side with more past it, so a row that fits has hard edges.
+  const fade = `linear-gradient(to right, ${ends.start ? '#000' : 'transparent'}, #000 2rem, #000 calc(100% - 2rem), ${ends.end ? '#000' : 'transparent'})`
+  const arrow = (way: 1 | -1, hidden: boolean): React.JSX.Element => (
+    <Tip label={way > 0 ? 'More' : 'Back'}>
+      <button
+        type="button"
+        tabIndex={-1}
+        onClick={() => page(way)}
+        className={`absolute top-12 z-10 flex size-7 -translate-y-1/2 items-center justify-center rounded-full border bg-popover text-foreground shadow-sm transition-[opacity,scale] duration-150 ease-out hover:bg-accent active:scale-95 ${way > 0 ? '-right-3' : '-left-3'} ${hidden ? 'pointer-events-none opacity-0' : 'opacity-100'}`}
+      >
+        {way > 0 ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
+      </button>
+    </Tip>
+  )
+  return (
+    <div className="mt-5">
+      <h3 className="mb-1.5 px-2 text-meta text-muted-foreground">
+        Related, by shared tags <span className="ml-1 tabular-nums opacity-60">{cards.length}</span>
+      </h3>
+      <div className="relative">
+        {arrow(-1, ends.start)}
+        <div
+          ref={strip}
+          className="flex snap-x snap-proximity scroll-px-2 gap-3 overflow-x-auto px-2 pt-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          style={{ maskImage: fade }}
+        >
+          {cards.map((card) => <RelatedCard key={card.id} card={card} onOpen={onOpen} />)}
+        </div>
+        {arrow(1, ends.end)}
+      </div>
+    </div>
+  )
+}
+
+function RelatedCard({ card, onOpen }: { card: Related[number]; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
+  const picture = useThumb(card.id)
+  return (
+    <div data-private={card.private ? '' : undefined} className="group/card relative w-40 shrink-0 snap-start transition-transform duration-200 ease-out motion-safe:hover:-translate-y-0.5 motion-safe:focus-within:-translate-y-0.5">
+      <button
+        type="button"
+        data-row
+        onClick={(event) => (event.metaKey ? openWindow(card.type, card.id) : onOpen?.(card.type, card.id))}
+        className="block w-full rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98] transition-transform duration-150 ease-out"
+      >
+        <span className="block h-24 overflow-hidden rounded-lg border bg-muted/50 transition-colors group-hover/card:border-foreground/20">
+          {picture ? (
+            <Thumb id={card.id} className="size-full rounded-none border-0" />
+          ) : (
+            <span className="private-text line-clamp-4 pt-2 pr-8 pl-2.5 text-xs leading-relaxed text-muted-foreground">{card.excerpt || ' '}</span>
+          )}
+        </span>
+        <span className="private-text mt-1.5 block truncate px-0.5 text-sm font-medium text-foreground">{card.title || 'Untitled'}</span>
+        <span className="private-text block truncate px-0.5 text-xs">
+          {card.shared.map((tag, at) => (
+            <span key={tag}>
+              {at > 0 && <span className="text-muted-foreground"> · </span>}
+              <span style={{ color: `var(--tt-color-text-${tagColors.get(tag) ?? spread(tag)})` }}>#{tag}</span>
+            </span>
+          ))}
+        </span>
+      </button>
+      <DropdownMenu modal={false}>
+        <Tip label="More">
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="More"
+              className="absolute top-1.5 right-1.5 flex size-6 items-center justify-center rounded-full border bg-popover text-muted-foreground opacity-0 shadow-sm transition-opacity duration-150 group-hover/card:opacity-100 hover:text-foreground focus-visible:opacity-100 data-[state=open]:opacity-100"
+            >
+              <AliveIcon icon={DotsHorizontalIcon} size={14} />
+            </button>
+          </DropdownMenuTrigger>
+        </Tip>
+        <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuItem onSelect={() => onOpen?.(card.type, card.id)}>Open</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => openWindow(card.type, card.id)}>Open in a new window</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   )
 }

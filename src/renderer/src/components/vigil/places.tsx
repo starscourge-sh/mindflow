@@ -1,9 +1,9 @@
 import type { CSSProperties } from 'react'
-import { Archive, BarChart3, Brain, CalendarDays, CalendarFold, CalendarRange, FileText, Gem, History, Inbox, Layers, ListChecks, NotebookPen, Orbit, Repeat, Sprout, Sun, Tag, Telescope, Trash2, type LucideIcon } from 'lucide-react'
+import { Archive, BarChart3, Brain, CalendarDays, CalendarFold, CalendarRange, FileText, Gem, History, House, Inbox, Layers, ListChecks, NotebookPen, Orbit, Repeat, Sprout, Sun, Tag, Telescope, Trash2, type LucideIcon } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
-import { Kbd } from './ui'
+import { Pressed } from './ui'
 
 /** A place the main window's sidebar or the box's tabs can show. */
 export type Place = { id: string; label: string; icon: LucideIcon; tint: string; key?: string; group?: 'Tasks' | 'Kept' }
@@ -15,6 +15,8 @@ export type Place = { id: string; label: string; icon: LucideIcon; tint: string;
  * setting (`sidebarShown`); the rest sit under More and are still a G away.
  */
 export const SECTIONS: (Place & { key: string })[] = [
+  // Where things come back to you; the window opens here. Always shown.
+  { id: 'home', label: 'Home', icon: House, key: 'y', tint: 'orange' },
   { id: 'inbox', label: 'Inbox', icon: Inbox, key: 'i', tint: 'blue' },
   { id: 'review', label: 'Review', icon: Brain, key: 'r', tint: 'purple' },
   // The daily note: written in, and what the day held.
@@ -89,8 +91,8 @@ export function ShowList({ places, setting }: { places: Place[]; setting: Shown 
           <label key={place.id} className="group flex cursor-default items-center gap-2.5 rounded-md px-2 py-1.5 text-control text-foreground/80 hover:bg-accent/60">
             <PlaceIcon place={place} full={on} />
             <span className="flex-1 truncate">{place.label}</span>
-            {place.key && <span className="flex gap-0.5 opacity-60"><Kbd>G</Kbd><Kbd>{place.key.toUpperCase()}</Kbd></span>}
-            <Switch checked={on} disabled={on && shown.length === 1} onCheckedChange={(next) => void flip(place.id, next)} aria-label={`Show ${place.label}`} />
+            {place.key && <span className="flex gap-0.5 opacity-60"><Pressed keys={`G ${place.key.toUpperCase()}`} /></span>}
+            <Switch checked={on} disabled={(on && shown.length === 1) || (setting === 'sidebarShown' && place.id === 'home')} onCheckedChange={(next) => void flip(place.id, next)} aria-label={`Show ${place.label}`} />
           </label>
         )
       })}
@@ -101,5 +103,6 @@ export function ShowList({ places, setting }: { places: Place[]; setting: Shown 
 /** Which places a setting shows, the default until it has been changed. */
 export function useShown(setting: Shown): string[] {
   const settings = useLive(vigil.settings, null as Settings | null)
-  return settings?.[setting] ?? SHOWN[setting]
+  const list = settings?.[setting] ?? SHOWN[setting]
+  return setting === 'sidebarShown' && !list.includes('home') ? ['home', ...list] : list
 }

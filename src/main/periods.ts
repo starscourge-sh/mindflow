@@ -101,7 +101,12 @@ export function registerPeriods(): void {
       else fields[key] = String(value)
     }
     const body = patch.body !== undefined ? JSON.stringify(patch.body) : row?.body ?? null
-    const words = /"text":"[^"]*\S/.test(body ?? '') || /"type":"(image|excalidraw|attachment)"/.test(body ?? '')
+    // Empty is nothing but blank paragraphs, as a day's page: a link, a sum or
+    // a picture alone is something, and keeps the page.
+    type Doc = { type?: string; text?: string; content?: Doc[] }
+    const doc = parse<Doc | string | null>(body, null)
+    const words = !!doc && (typeof doc === 'string' ? !!doc.trim() : (doc.content ?? []).some((node) =>
+      node.type !== 'paragraph' || (node.content ?? []).some((part) => part.type !== 'text' || !!part.text?.trim())))
     if (!Object.keys(fields).length && !words) db.prepare('delete from period_pages where period = ?').run(period)
     else db.prepare(`insert into period_pages (period, fields, body, updated_at) values (?, ?, ?, ?)
       on conflict (period) do update set fields = excluded.fields, body = excluded.body, updated_at = excluded.updated_at`)

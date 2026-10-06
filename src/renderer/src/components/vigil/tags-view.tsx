@@ -89,7 +89,8 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
       </Page>
       </div>
       {chosen && (
-        <Page title={`#${chosen}`} count={current?.count ?? items.length} actions={
+        // Reading, the band under it names the tag and counts; the bar keeps only the way back and the tabs.
+        <Page title={tab === 'read' ? 'Tag' : `#${chosen}`} count={tab === 'read' ? undefined : current?.count ?? items.length} actions={
           // Reading the tag, or looking after it: two jobs, a tab each.
           <span className="flex items-center gap-1">
           <Tip label="All tags">
@@ -107,7 +108,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
           </span>
           </span>
         }>
-          {tab === 'read' ? <TagStream tag={chosen} onOpen={onOpen} /> : (<>
+          {tab === 'read' ? <TagStream tag={chosen} color={current?.color} onOpen={onOpen} onTag={setChosen} onManage={() => (chime('tap'), setTab('manage'))} /> : (<>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-5 py-3">
             {/* A colour, and whether writing this tag makes a task, the way
                 #bug does. Labels, not kinds: a colour and one behaviour. */}

@@ -11,7 +11,7 @@ import { chime, soundOn } from '@/lib/sound'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/cn'
 import { useStoredFlag } from '@/lib/use-stored-flag'
-import { withKeys } from '@/lib/keys'
+import { keyFor, useKeyChanges, withKeys } from '@/lib/keys'
 import { Kbd as ShadKbd, KbdGroup } from '@/components/ui/kbd'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { KindAsker } from './note-extras'
@@ -78,7 +78,11 @@ export function Typed({ text, className, step = 40, delay = 700 }: { text: strin
           style={{ animationDelay: `${delay + (index / 2) * step * 1.4}ms` }}>
             {/* A shortcut in a sentence is drawn as keys, one cap each. */}
             {/[⌃⌥⇧⌘]/.test(word)
-              ? <KbdGroup className="translate-y-[-1px] align-middle">{Array.from(word).map((key, n) => <Kbd key={n}>{key}</Kbd>)}</KbdGroup>
+              ? (() => {
+                  // "⌘↵," ends a clause: the comma is the sentence's, not a key. "⌘," stays a key.
+                  const [, keys, mark = ''] = word.match(/^(.*[⌃⌥⇧⌘].*[^⌃⌥⇧⌘])([.,;:])$/) ?? [, word]
+                  return <><KbdGroup className="translate-y-[-1px] align-middle">{Array.from(keys!).map((key, n) => <Kbd key={n}>{key}</Kbd>)}</KbdGroup>{mark}</>
+                })()
               : word}
           </span>
         )
@@ -111,6 +115,19 @@ export function Empty({ shape, title, children, action, compact = false }: {
 /** A key, as shadcn draws one, with a hairline edge so it reads as a cap. */
 export function Kbd({ children, className }: { children: ReactNode; className?: string }): React.JSX.Element {
   return <ShadKbd className={cn('rounded border border-border/80 text-key', className)}>{children}</ShadKbd>
+}
+
+/**
+ * A shortcut's keys as you press them now: changed in Settings, the new keys;
+ * cleared, nothing. One cap per step (G I is two), or with `each` one per key
+ * (⌘ and K apart).
+ */
+export function Pressed({ keys, each = false, className }: { keys: string; each?: boolean; className?: string }): React.JSX.Element | null {
+  useKeyChanges()
+  const now = keyFor(keys)
+  if (!now) return null
+  const caps = now.split(' ').flatMap((step) => (each ? (step.match(/[⌃⌥⇧⌘]|[^⌃⌥⇧⌘]+/g) ?? [step]) : [step]))
+  return <>{caps.map((key, n) => <Kbd key={n} className={className}>{key}</Kbd>)}</>
 }
 
 /** A labelled run of properties, the right-hand column of an open item. */
@@ -361,6 +378,9 @@ export const toast = (text: string, undo?: () => void, tone: ToastTone = 'succes
   window.dispatchEvent(new CustomEvent('vigil:toast', { detail: { text, undo, tone, action } }))
 }
 
+/** The toast up now goes: what it offered to take back was taken back another way. */
+export const untoast = (): void => void window.dispatchEvent(new CustomEvent('vigil:untoast'))
+
 /**
  * A real wait said in words: an orb chip where toasts come up, for as long as
  * the work takes. For work started from a menu, with no button to hold it.
@@ -517,9 +537,12 @@ export function Toaster(): React.JSX.Element | null {
       const message = String(event.reason?.message ?? event.reason ?? '')
       if (message.includes('Error invoking remote method')) refuse(`Not saved: ${whyFailed(event.reason)}.`, 'error')
     }
+    const onGone = (): void => (clearTimeout(timer), setShown(null))
     window.addEventListener('vigil:toast', onToast)
+    window.addEventListener('vigil:untoast', onGone)
     window.addEventListener('unhandledrejection', onFail)
     return () => {
+      window.removeEventListener('vigil:untoast', onGone)
       window.removeEventListener('vigil:toast', onToast)
       window.removeEventListener('unhandledrejection', onFail)
     }
@@ -587,16 +610,22 @@ export function Toaster(): React.JSX.Element | null {
     <QuestionAsker />
     <Beam />
     {wait && !shown && <div className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex justify-center">
-      <Orb state={wait.state} label={wait.label} className="bg-popover shadow-[0_8px_24px_-6px_rgb(0_0_0/0.5)] animate-in fade-in-0 slide-in-from-bottom-2 duration-200" />
+      <Orb state={wait.state} label={wait.label} className="bg-popover shadow-(--mf-panel-shadow) animate-in fade-in-0 slide-in-from-bottom-2 duration-200" />
     </div>}
-    {/* Centred along the bottom, where the eye drops after acting. */}
-    {shown && <div className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex justify-center"><div
+    {/* Centred along the bottom, where the eye drops after acting. It
+        leaves the way it came, and a new one takes its place at once. */}
+    <div className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex justify-center">
+    <AnimatePresence mode="popLayout" initial={false}>
+    {shown && <motion.div
       key={shown.key}
       role="status"
       aria-live="polite"
+      initial={{ opacity: 0, transform: 'translateY(8px)' }}
+      animate={{ opacity: 1, transform: 'translateY(0px)' }}
+      exit={{ opacity: 0, transform: 'translateY(8px)', transition: { duration: 0.15 } }}
       // An edge and a mark, with the buttons' corners: it has to be seen
       // from the corner of the eye, on any theme.
-      className="pointer-events-auto mx-4 flex max-w-[min(36rem,calc(100%-2rem))] min-w-0 items-center gap-2 rounded-md border border-border bg-popover py-1.5 pr-3.5 pl-2.5 text-sm font-medium shadow-[0_8px_24px_-6px_rgb(0_0_0/0.5)] animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]"
+      className="pointer-events-auto mx-4 flex max-w-[min(36rem,calc(100%-2rem))] min-w-0 items-center gap-2 rounded-md border border-border bg-popover py-1.5 pr-3.5 pl-2.5 text-sm font-medium shadow-(--mf-panel-shadow)"
     >
       {/* The mark says what kind of news it is: a tick only for something done. */}
       {shown.tone === 'error'
@@ -633,7 +662,9 @@ export function Toaster(): React.JSX.Element | null {
           Undo <kbd className="ml-0.5 font-sans text-key opacity-70">⌘Z</kbd>
         </button>
       )}
-    </div></div>}
+    </motion.div>}
+    </AnimatePresence>
+    </div>
     </>
   )
 }
@@ -807,6 +838,7 @@ export function AskWho({ id, initial = '', onDone }: { id: string; initial?: str
  */
 export function Tip({ label: given, children }: { label: ReactNode; children: React.ReactElement<{ 'aria-label'?: string; children?: ReactNode }> }): React.JSX.Element {
   // Its keys as you press them now, if you changed them in Settings.
+  useKeyChanges()
   const label = typeof given === 'string' ? withKeys(given) : given
   if (!label) return children
   // A plain-text tip names an icon-only button, so it can be read out, not

@@ -25,7 +25,7 @@ export type Day = { day: string; exists: boolean; body: unknown; reviewed: boole
 
 export const notes = {
   thumbs: () => call<Record<string, string>>('notes:thumbs'),
-  thumb: (src: string) => call<string>('notes:thumb', src),
+  thumb: (src: string, height?: number) => call<string>('notes:thumb', src, height),
   glance: (table: NoteTable) => call<Record<string, string>>('notes:glance', table),
   order: (list: string) => call<string[]>('notes:order', list),
   setOrder: (list: string, ids: string[]) => call('notes:order:set', list, ids),
@@ -73,9 +73,10 @@ export const useThumb = (id: string): string | undefined =>
 
 // Each picture made small once, by the main process, then kept here.
 const small = new Map<string, Promise<string>>()
-export const smallPicture = (src: string): Promise<string> => {
-  let made = small.get(src)
-  if (!made) small.set(src, (made = notes.thumb(src)))
+export const smallPicture = (src: string, large = false): Promise<string> => {
+  const key = `${large}:${src}`
+  let made = small.get(key)
+  if (!made) small.set(key, (made = notes.thumb(src, large ? 320 : 96)))
   return made
 }
 
@@ -123,6 +124,8 @@ let current: OpenNote | null = null
 export function useOpenNote(note: OpenNote | null): void {
   useEffect(() => {
     current = note
+    // Home's "Jump back in" reads these.
+    if (note) void call('home:opened', note.type, note.id)
     return () => void (current === note && (current = null))
   }, [note?.id, note?.kind, note?.archived]) // eslint-disable-line react-hooks/exhaustive-deps
 }

@@ -57,7 +57,7 @@ import { SelectedNodes } from "@/extensions/selected-nodes"
 import { Bookmark } from "@/extensions/bookmark"
 import { Callout } from "@/extensions/callout"
 import { Caption, captioned } from "@/extensions/caption"
-import { Column, Columns } from "@/extensions/columns"
+import { Column, Columns, draggedOf, dropBeside, moveOutOfColumn } from "@/extensions/columns"
 import { Attachment } from "@/extensions/attachment"
 import { ExcalidrawDiagram } from "@/extensions/excalidraw"
 import { Calc } from "@/extensions/calc"
@@ -126,8 +126,9 @@ const HANDLE_NESTING = {
   rules: [
     {
       id: "detailsParts",
+      // A column is only ever moved by what is in it.
       evaluate: ({ node }: { node: { type: { name: string } } }) =>
-        ["detailsSummary", "detailsContent"].includes(node.type.name) ? 1000 : 0,
+        ["detailsSummary", "detailsContent", "column"].includes(node.type.name) ? 1000 : 0,
     },
     {
       // A table carries its own row and column grips, and a cell's paragraph
@@ -152,6 +153,9 @@ const HANDLE_NESTING = {
   // child's left edge, which is exactly the way to that child's handle.
   edgeDetection: "none" as const,
 }
+
+/** Text that says it is Markdown: a heading, a list, a quote, a fence, a table, a rule, maths, a link, bold. */
+const MARKDOWN_SIGNS = /^(#{1,6} |\s*[-*+] |\s*\d+[.)] |> ?|```|~~~|\|.*\|\s*$|(---|\*\*\*|___)\s*$|\$\$|:::\w|<!-- columns -->)|\[\[|\*\*\S|\]\(|!\[/m
 
 const HANDLE_POSITION = { middleware: [offset({ mainAxis: 24, crossAxis: 2 })] }
 
@@ -206,7 +210,7 @@ import { TableOfContents } from "@/components/toc/table-of-contents"
 import { OutlineKeys, goToHeading } from "@/components/toc/headings"
 import { SourceView } from "@/components/source/source-view"
 import { NoteLink, showingDocument, takePendingHeading, type NoteSuggestion } from "@/extensions/note-link"
-import { noteLinkRenderer, tagRenderer } from "@/components/note-link/note-link-menu"
+import { noteLinkRenderer, tagRenderer, wikiRenderer } from "@/components/note-link/note-link-menu"
 import { ImageMenu } from "@/components/image/image-menu"
 import { ImageLook } from "@/components/image/image-look"
 import { CodeBlockView } from "@/components/code/code-block-view"
@@ -851,20 +855,32 @@ function Surface({
         // Only a move. A copy - Alt held - is ProseMirror's own business, and
         // taking it over here mangled the block it was copied from.
         if (!moved) return false
+        // Beside a block rather than above or below it: a row of columns.
+        if (dropBeside(view, moved)) {
+          event.preventDefault()
+          view.focus()
+          return true
+        }
 
         const at = view.posAtCoords({ left: event.clientX, top: event.clientY })
         if (!at) return false
+        // What lands is that block itself: the handle can hand over a slice
+        // measured from a stale position, which would put back more than left.
+        const dragged = draggedOf(view)
+        const content = dragged ? Fragment.from(dragged.node) : slice.content
+        // Several blocks at once: the range the handle selected is what moves.
+        const range = dragged ?? (view.dragging ? view.state.selection : null)
 
         // The block under the pointer at the dragged block's own level, and the
         // edges it sits between: a top-level block lands between top-level
         // blocks, a list item inside a callout between the items around it.
         // Stepping out only as far as needed for what is dropped to fit there.
         const $at = view.state.doc.resolve(at.pos)
-        const $from = (view.dragging as { node?: NodeSelection } | null)?.node?.$from ?? view.state.selection.$from
+        const $from = dragged?.$from ?? view.state.selection.$from
         let depth = Math.min($at.depth, $from.depth + 1)
         while (depth > 1) {
           const index = $at.index(depth - 1)
-          if ($at.node(depth - 1).canReplace(index, index, slice.content)) break
+          if ($at.node(depth - 1).canReplace(index, index, content)) break
           depth -= 1
         }
 
@@ -881,13 +897,22 @@ function Surface({
 
         // Take it out first when it is a move, and map the target through that
         // removal - the block being dropped may sit before the place it lands.
-        // `node` is the handle's own doing; ProseMirror's type does not know it.
-        const dragged = (view.dragging as { node?: NodeSelection } | null)?.node
-        if (moved && dragged) tr.delete(dragged.from, dragged.to)
-        tr.insert(tr.mapping.map(target), slice.content)
+        // Out of a column, the column it empties goes too.
+        if (!(dragged && moveOutOfColumn(tr, dragged, target, content))) {
+          if (range) {
+            // Into itself: nowhere to go, and nothing to lose.
+            if (target > range.from && target < range.to) return true
+            tr.delete(range.from, range.to)
+          }
+          tr.insert(tr.mapping.map(target), content)
+        }
 
-        view.dispatch(tr.scrollIntoView())
+        // The handle forgets the block it was on: left alone it keeps a
+        // position from before the move, and the next drag starts from there.
+        view.dispatch(tr.setMeta("hideDragHandle", true).scrollIntoView())
         event.preventDefault()
+        // Back to the text, not the grip it was carried by: ⌘Z undoes the move.
+        view.focus()
         return true
       },
       // Alt and a drag leaves the block where it was and drops a copy, the way
@@ -900,6 +925,16 @@ function Surface({
       // once it has, so edits never happen just out of sight.
       scrollThreshold: CARET_MARGIN,
       scrollMargin: CARET_MARGIN,
+      // Plain text that is written in Markdown - a note copied out of
+      // Obsidian, a README - reads as the blocks it describes, the same way a
+      // Markdown file opens. Plain text with none of its marks stays plain
+      // lines, and Shift pastes anything as it is.
+      clipboardTextParser: (text, $context, plain, view) => {
+        const editor = (view.dom as HTMLElement & { editor?: Editor }).editor
+        if (plain || !editor || $context.parent.type.spec.code || !MARKDOWN_SIGNS.test(text)) return null as unknown as Slice
+        const doc = view.state.schema.nodeFromJSON(markdownToDocument(editor, text))
+        return Slice.maxOpen(doc.content)
+      },
       // A heading gets a blank line above it, if it did not arrive with one.
       //
       // Markdown has no empty paragraph - a blank line there separates blocks
@@ -923,6 +958,10 @@ function Surface({
           }
           blocks.push(node)
         })
+
+        // Google Docs ends every copy with a <br>: a line of nothing under it.
+        const last = blocks[blocks.length - 1]
+        if (blocks.length > 1 && last.type.name === "paragraph" && last.childCount && last.content.content.every((part) => part.type.name === "hardBreak")) blocks.pop()
 
         return new Slice(Fragment.fromArray(blocks), slice.openStart, slice.openEnd)
       },
@@ -1051,6 +1090,11 @@ function Surface({
             },
           }
         },
+        // A <figcaption> with a picture beside it is that picture's caption
+        // (see Caption), so it is not read a second time as a line of text.
+        parseHTML() {
+          return [...(this.parent?.() ?? []), { tag: "figcaption", ignore: true, getAttrs: (element) => (element.parentElement?.querySelector("img") ? null : false) }]
+        },
         // The extension's own way of writing it, then the caption under it.
         renderMarkdown: (node) =>
           captioned(`![${node.attrs?.alt ?? ""}](${node.attrs?.src ?? ""}${node.attrs?.title ? ` "${node.attrs.title}"` : ""})`, node),
@@ -1085,6 +1129,7 @@ function Surface({
         findHeadings: (id) => headingFinder.current?.(id) ?? [],
         render: noteLinkRenderer,
         tagRender: tagRenderer,
+        wikiRender: wikiRenderer,
       }),
       // `enableTabIndentation` is the extension's own Tab handling: it indents
       // every selected line, where a hand-rolled insert replaces the selection.

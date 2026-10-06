@@ -97,10 +97,13 @@ export interface NoteLinkOptions {
   render: NonNullable<SuggestionOptions<NoteSuggestion>["render"]>
   /** The same for the `#` menu, which needs its own, or Escape closes the wrong one. */
   tagRender?: SuggestionOptions<NoteSuggestion>["render"]
+  /** The same for the `[[` menu, for the same reason. */
+  wikiRender?: SuggestionOptions<NoteSuggestion>["render"]
 }
 
 export const noteLinkPluginKey = new PluginKey("noteLink")
 export const tagPluginKey = new PluginKey("tagSuggest")
+export const wikiPluginKey = new PluginKey("wikiSuggest")
 
 /**
  * A link to another note, typed with `@`.
@@ -247,7 +250,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
   },
 
   addProseMirrorPlugins() {
-    const { findNotes, onOpenNote, findHeadings, render, tagRender } = this.options
+    const { findNotes, onOpenNote, findHeadings, render, tagRender, wikiRender } = this.options
     const editor = this.editor
 
     /**
@@ -264,6 +267,18 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         .slice(0, 12)
         .map((heading) => ({ ...note, heading, group: note.label ? `Headings in ${note.label}` : "Headings in this note" }))
     }
+    const noteItems = ({ query }: { query: string }) => (query.includes("#") ? headingItems(query) : findNotes(query))
+    const insertLink: SuggestionOptions<NoteSuggestion>["command"] = ({ editor, range, props }) => {
+      editor
+        .chain()
+        .focus()
+        .insertContentAt(range, [
+          { type: "noteLink", attrs: { id: props.id, label: props.label, key: props.key ?? "", heading: props.heading ?? "" } },
+          { type: "text", text: " " },
+        ])
+        .run()
+    }
+
     // The tags are read once as the `#` menu opens, then narrowed as you type.
     let tags: Promise<TagSuggestion[]> = Promise.resolve([])
 
@@ -272,18 +287,32 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         editor: this.editor,
         char: "@",
         pluginKey: noteLinkPluginKey,
-        items: ({ query }) => (query.includes("#") ? headingItems(query) : findNotes(query)),
-        command: ({ editor, range, props }) => {
-          editor
-            .chain()
-            .focus()
-            .insertContentAt(range, [
-              { type: "noteLink", attrs: { id: props.id, label: props.label, key: props.key ?? "", heading: props.heading ?? "" } },
-              { type: "text", text: " " },
-            ])
-            .run()
-        },
+        items: noteItems,
+        command: insertLink,
         render,
+      }),
+
+      // `[[`, the way Obsidian starts a link: the same menu as `@`, with
+      // spaces in the name, since titles have them. `]]` typed out instead
+      // still makes the link through the input rule above.
+      Suggestion<NoteSuggestion>({
+        editor: this.editor,
+        char: "[[",
+        pluginKey: wikiPluginKey,
+        allowSpaces: true,
+        allowedPrefixes: null,
+        // Not an embed, `![[picture.png]]`, nor a link already closed.
+        allow: ({ state, range }) =>
+          state.doc.textBetween(Math.max(0, range.from - 1), range.from, "", "") !== "!" && !state.doc.textBetween(range.from, range.to, "", "").includes("]]"),
+        // Nothing by that name yet: a link to it all the same, which finds its
+        // note once there is one, as a typed `[[name]]` does.
+        items: async ({ query }) => {
+          const found = await noteItems({ query })
+          const name = query.trim()
+          return found.length || !name || name.includes("#") ? found : [{ id: "", label: name, group: "New link" }]
+        },
+        command: insertLink,
+        render: wikiRender ?? render,
       }),
 
       // `#` offers the tags already in use, most used first, so one is reused

@@ -9,6 +9,7 @@ import { useAlive, useSurface } from '@/lib/use-alive'
 import { BorderBeam } from 'border-beam'
 import { Liquid } from 'liquid-gooey'
 import { Typed } from './ui'
+import { DotMatrix } from './dot-matrix'
 
 /** 59:55, or 1:02:03 past the hour. */
 const clock = (ms: number): string => {
@@ -150,9 +151,10 @@ export function FocusPill(): React.JSX.Element | null {
           <span
             ref={setTimeBox}
             aria-live="off"
-            className={`col-start-1 row-start-1 w-max justify-self-end pr-1.5 text-[13px] whitespace-nowrap font-semibold tabular-nums transition-opacity duration-150 ${hover ? 'opacity-0' : 'opacity-100'} ${over || last ? 'text-[var(--tt-brand-color-400)]' : paused ? 'text-muted-foreground' : ''}`}
+            className={`col-start-1 row-start-1 flex w-max items-center gap-1.5 justify-self-end pr-1.5 text-[13px] whitespace-nowrap font-semibold transition-opacity duration-150 ${hover ? 'opacity-0' : 'opacity-100'} ${over || last ? 'text-[var(--tt-brand-color-400)]' : paused ? 'text-muted-foreground' : ''}`}
           >
-            {over ? "Time's up" : paused ? `Paused · ${clock(left ?? done)}` : clock(left ?? done)}
+            {/* The time on a clock's dot grid, the one figure in the app that ticks. */}
+            {over ? "Time's up" : <>{paused && 'Paused ·'}<DotMatrix text={clock(left ?? done)} className="h-[13px]" /></>}
           </span>
           {/* Under the pointer: what you would do with it, in the same place.
               The one rare moment that gets the goo: the time melts into its

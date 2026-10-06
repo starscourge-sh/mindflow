@@ -5,7 +5,7 @@ import { Brain, CalendarClock, ChevronLeft, ChevronRight, Repeat } from 'lucide-
 
 import { chime } from '@/lib/sound'
 import { useLive, vigil, when, whenInLine, type Task, type TaskFull } from '@/lib/vigil'
-import { Kbd, Page, Rolling, Tip, toast, typing } from './ui'
+import { Page, Rolling, Tip, toast, typing, Pressed } from './ui'
 import { PriorityIcon, setPriority } from './task-input'
 import { TaskDetail, completeTask } from './tasks-view'
 import { Button } from '@/components/ui/button'
@@ -167,7 +167,7 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
     <>
       <Page aside={!!open} title="week" actions={
         <span className="flex items-center gap-2 text-xs">
-          <span className="hidden whitespace-nowrap @[60rem]/page:inline"><Kbd>H</Kbd> <Kbd>L</Kbd> days · <Kbd>⇧H</Kbd> <Kbd>⇧L</Kbd> move a day · <Kbd>[</Kbd> <Kbd>]</Kbd> week</span>
+          <span className="hidden whitespace-nowrap @[60rem]/page:inline"><Pressed keys="H" /> <Pressed keys="L" /> days · <Pressed keys="⇧H" /> <Pressed keys="⇧L" /> move a day · <Pressed keys="[" /> <Pressed keys="]" /> week</span>
           <Tip label="Week before  [">
             <Button variant="ghost" size="icon-sm" onClick={() => (chime('page'), setFrom(from - 7))} aria-label="Week before"><ChevronLeft className="size-4" /></Button>
           </Tip>

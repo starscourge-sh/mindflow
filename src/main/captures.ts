@@ -134,6 +134,33 @@ export function movedOn(table: 'captures' | 'nuggets', id: string, base: unknown
   return JSON.stringify(now ?? null) === JSON.stringify(base ?? null) ? null : { body: now }
 }
 
+/**
+ * Several writes as one: all of them land, or none do. A failure part way
+ * rolls back, rather than leaving the file in a write that never ends, where
+ * every later change waits uncommitted and is gone on quit.
+ */
+export function atomically<T>(run: () => T): T {
+  db.exec('begin')
+  try {
+    const result = run()
+    db.exec('commit')
+    return result
+  } catch (error) {
+    db.exec('rollback')
+    throw error
+  }
+}
+
+/** One setting as stored, or `fallback` when it is not there or no longer reads. */
+export function setting<T>(key: string, fallback: T): T {
+  try {
+    const row = db.prepare('select value from settings where key = ?').get(key) as { value: string } | undefined
+    return row ? (JSON.parse(row.value) as T) : fallback
+  } catch {
+    return fallback
+  }
+}
+
 /** Text matched literally by `like … escape '\\'`: its own % and _ escaped. */
 export const like = (text: string): string => text.replace(/[\\%_]/g, '\\$&')
 
@@ -232,6 +259,31 @@ export function registerCaptures(): void {
     }
     return name
   })
+  // What search reads of a note: its words, and the addresses and names its
+  // links and cards hold; never the editor's own JSON ("paragraph", "type",
+  // "content"), which every note has. Remembered per note until it changes.
+  const read = new Map<string, { body: string; words: string }>()
+  const SAID = ['href', 'url', 'title', 'description', 'label', 'latex', 'alt', 'caption', 'language']
+  type Part = { type?: string; text?: string; attrs?: Record<string, unknown>; marks?: Part[]; content?: Part[] }
+  const wordsIn = (node: Part): string => [
+    node.text,
+    ...[node, ...(node.marks ?? [])].flatMap((one) => SAID.map((key) => one.attrs?.[key]).filter((value) => typeof value === 'string')),
+    (node.content ?? []).map(wordsIn).join(node.type === 'paragraph' || node.type === 'heading' ? '' : '\n')
+  ].filter(Boolean).join(' ')
+  db.function('words', (id, body) => {
+    const raw = String(body ?? '')
+    const was = read.get(String(id))
+    if (was?.body === raw) return was.words
+    let words: string
+    try {
+      const doc = JSON.parse(raw || 'null') as unknown
+      words = typeof doc === 'string' ? doc : doc && typeof doc === 'object' ? wordsIn(doc as Part) : ''
+    } catch {
+      words = raw
+    }
+    read.set(String(id), { body: raw, words })
+    return words
+  })
   db.exec(`
     create table if not exists captures (
       id          text primary key,
@@ -311,10 +363,10 @@ export function registerCaptures(): void {
     db
       .prepare(
         `select ${LIST} from captures
-         where ${LABEL} like ? escape '\\' or ('MF-' || number) like ? or coalesce(aliases, '') like ? escape '\\'
+         where ${LABEL} like ? escape '\\' or ('MF-' || number) like ? escape '\\' or coalesce(aliases, '') like ? escape '\\'
          order by captured_at desc limit 8`
       )
-      .all(`%${like(String(query))}%`, `${query}%`, `%${like(String(query))}%`)
+      .all(`%${like(String(query))}%`, `${like(String(query))}%`, `%${like(String(query))}%`)
   )
 
   // Search: the words anywhere in the title or the body, newest first. Names
@@ -333,9 +385,9 @@ export function registerCaptures(): void {
     return db.prepare(
       `select * from (
          select 'capture' as type, id, number, kind, status, source, attribution, ${LABEL} as label, captured_at as capturedAt
-           from captures where status != 'discarded' and ${match(`(${LABEL} || ' ' || body || ' ' || coalesce(medium, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, ''))`)}
+           from captures where status != 'discarded' and ${match(`(${LABEL} || ' ' || words(id, body) || ' ' || coalesce(medium, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, ''))`)}
          union all
-         select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), created_at from nuggets where ${match("(title || ' ' || body || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, ''))")}
+         select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), created_at from nuggets where ${match("(title || ' ' || words(id, body) || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, ''))")}
          union all
          select 'task', id, number, 'todo', status, '', null, title, created_at from tasks where ${match("(title || ' ' || coalesce(notes, ''))")}
        ) ${kind ? 'where kind = ?' : ''} order by capturedAt desc limit 60`
@@ -368,7 +420,7 @@ export function registerCaptures(): void {
   // kept is not asked again every launch. None at all in safe mode.
   db.exec('create table if not exists card_tries (id text primary key, body text)')
   ipcMain.handle('captures:cards', () => {
-    if (JSON.parse((db.prepare("select value from settings where key = 'safeMode'").get() as { value: string } | undefined)?.value ?? 'false')) return []
+    if (setting('safeMode', false)) return []
     const rows = db.prepare(`select id, kind, body from captures where (kind = 'link' or body like '%"bookmark"%')
       and not exists (select 1 from card_tries t where t.id = captures.id and t.body = captures.body)`).all() as { id: string; kind: string; body: string }[]
     const tried = db.prepare('insert or replace into card_tries (id, body) values (?, ?)')
@@ -499,13 +551,15 @@ export function importBookmarks(name: string, html: string): number {
     text.replace(/&(amp|quot|#39|lt|gt);/g, (_, code: string) => ({ amp: '&', quot: '"', '#39': "'", lt: '<', gt: '>' })[code]!).trim()
   for (const [, url, attrs, raw] of html.matchAll(/<a\s+href="([^"]+)"([^>]*)>([^<]*)<\/a>/gi)) {
     const title = plain(raw)
-    if (!/^https?:/.test(url) || seen.get(name, `%${url}%`)) continue
+    // An address that does not parse ("http://[bad") is skipped, not the rest of the file.
+    const host = URL.canParse(url) ? new URL(url).hostname.replace(/^www\./, '') : null
+    if (!host || !/^https?:/.test(url) || seen.get(name, `%${url}%`)) continue
     const saved = /add_date="(\d+)"/i.exec(attrs)?.[1]
     const { id, number } = insert(
       { title: title || url, kind: 'link', body: url, source: name },
       saved ? new Date(Number(saved) * 1000).toISOString() : new Date().toISOString()
     )
-    where.run(new URL(url).hostname.replace(/^www\./, ''), id)
+    where.run(host, id)
     void writeMarkdown(number, `[${title || url}](${url})`)
     added += 1
   }

@@ -267,6 +267,13 @@ export function DayBanner({ day }: { day: string }): React.JSX.Element | null {
   )
 }
 
+/** The day's scene itself, the same one its banner shows: for words that name it. */
+export function useDayScene(day: string): Scene | null {
+  const { settings, scenes } = useScenery()
+  if (!settings?.scenery || !settings.sceneryToday) return null
+  return choose(scenes, `day:${day}:${settings.sceneryShuffle ?? 0}`, ['day', 'dusk', 'night', 'interior'], true)
+}
+
 /**
  * Behind Focus (⇧⌘F): a scene filling the window, dimmed far enough that the
  * words over it read as well as on the plain page. Only while focus is on.

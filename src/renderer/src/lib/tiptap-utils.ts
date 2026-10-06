@@ -1,5 +1,6 @@
 import type { Node as PMNode } from "@tiptap/pm/model"
 import type { Transaction } from "@tiptap/pm/state"
+import type { ReplaceStep } from "@tiptap/pm/transform"
 import { clsx, type ClassValue } from "clsx"
 import {
   AllSelection,
@@ -609,4 +610,25 @@ export function getSelectedBlockNodes(editor: Editor): PMNode[] {
   })
 
   return blocks
+}
+
+/**
+ * Is this change only words typed or deleted inside lines? Then nothing about
+ * the blocks changed, only where they start, and a plugin that walks every
+ * block can move what it found instead of finding it again.
+ */
+export function onlyWordsChanged(tr: Transaction): boolean {
+  return (
+    tr.docChanged &&
+    tr.steps.every((step, index) => {
+      // By its name, not `instanceof`: the bundle can hold two copies of the class.
+      if (step.toJSON().stepType !== "replace") return false
+      const { from, to, slice } = step as ReplaceStep
+      if (slice.openStart || slice.openEnd) return false
+      let inline = true
+      slice.content.forEach((node) => (inline &&= node.isInline))
+      const $from = tr.docs[index].resolve(from)
+      return inline && $from.parent.isTextblock && $from.sameParent(tr.docs[index].resolve(to))
+    })
+  )
 }

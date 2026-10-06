@@ -12,6 +12,14 @@ import { Toaster, pin } from './ui'
 import { NoteHeader } from './note-extras'
 import { Board, useBoard } from './board-view'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { Search } from '../search'
+import { SECTIONS } from './places'
+import { ShortcutSheet } from './shortcut-sheet'
+import { foldEverything } from '@/extensions/heading-fold'
+import { themeActions } from '@/lib/theme'
+import { chime } from '@/lib/sound'
+import { toast, typing } from './ui'
+import { EXITS, exit } from '@/lib/capture-links'
 import { captureKey, findCaptures, findHeadings, follow, headingIn } from '@/lib/capture-links'
 import { toMarkdown } from '@/lib/export'
 import { useSameWords } from '@/lib/same-words'
@@ -29,10 +37,45 @@ const elsewhere = (type: string, id: string, heading?: string): void => window.a
 export function NoteWindow({ link }: { link: string }): React.JSX.Element {
   useAppearance()
   const [type, id] = link.split(':')
+  // ⌘K: notes and actions; ⌘P: notes only, the same palette as the other windows.
+  const [searching, setSearching] = useState<false | 'all' | 'notes'>(false)
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.metaKey || event.altKey || event.ctrlKey || event.shiftKey || (event.code !== 'KeyK' && event.code !== 'KeyP')) return
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return
+      event.preventDefault()
+      event.stopPropagation()
+      setSearching(event.code === 'KeyK' ? 'all' : 'notes')
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
   return (
     <TooltipProvider delayDuration={600}>
       <div className="flex h-screen flex-col bg-background text-foreground">
         <Toaster />
+        <ShortcutSheet />
+        {searching && (
+          <Search
+            // What finds a note opens it in the main window, beside everything else.
+            actions={searching === 'notes' ? [] : [
+              { label: 'New capture', run: () => window.api.showPrompt() },
+              ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, run: () => window.api.openInHome('view', section.id) })),
+              { label: 'Fold every heading', cue: null, run: () => void (foldEverything(true) || chime('nope')) },
+              { label: 'Unfold every heading', cue: null, run: () => void (foldEverything(false) || chime('nope')) },
+              { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('vigil:shortcuts')) },
+              ...themeActions((text) => toast(text)),
+              { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') },
+              { label: 'Close this window', cue: null, run: () => window.close() }
+            ]}
+            onClose={() => setSearching(false)}
+            onOpen={(to, at) => {
+              setSearching(false)
+              // This note is already here.
+              if (at !== id) elsewhere(to, at)
+            }}
+          />
+        )}
         <NotePreview />
         {/* Room for the traffic lights, and somewhere to hold the window by. */}
         <div className="h-10 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
@@ -61,6 +104,24 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
   const [propsOut, setPropsOut] = useState(false)
   const [tools, setTools] = useState<HTMLElement | null>(null)
   useEffect(() => setPropsOut(false), [boardShown])
+  // P, R, D and H take that exit here too, as the menu says, when no field has the keys.
+  const open = meta?.status === 'open'
+  useEffect(() => {
+    if (!open || boardShown) return
+    let afterG = false
+    const onKey = (event: KeyboardEvent): void => {
+      if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
+      // G then a letter is a place to go, not an exit.
+      const g = afterG
+      afterG = event.key === 'g'
+      const one = !g && EXITS.find((e) => e.key === event.key)
+      if (!one) return
+      event.preventDefault()
+      void exit(id, one.status)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [id, open, boardShown])
   // A private note's words never become its window's name: titles show in a screen share.
   useEffect(() => void (document.title = (!meta?.private && meta?.label) || 'Note'), [meta?.label, meta?.private])
   if (!capture || !meta) return null
@@ -73,7 +134,7 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
           })}
           edited={meta.editedAt} captured={meta.capturedAt} pinned={!!meta.pinnedAt} onPin={() => pin('captures', id, !meta.pinnedAt)}
           copyKey={captureKey(meta.number)} board={board.fits || board.on ? board : undefined}
-          menu={[...(boardShown ? [{ label: propsOut ? 'Hide properties' : 'Show properties', run: () => setPropsOut(!propsOut) }, 'separator' as const] : []), ...captureDots(meta)]}
+          menu={[...(boardShown ? [{ label: propsOut ? 'Hide properties' : 'Show properties', run: () => setPropsOut(!propsOut) }, 'separator' as const] : []), ...captureDots(meta).filter((item) => !item || item === 'separator' || item.label !== 'Open in a new window')]}
           tools={boardShown ? <span ref={setTools} className="contents" /> : undefined} />
         {past ? (
           <MindflowEditor key={`past-${past.key}`} defaultContent={(past.body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />

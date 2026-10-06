@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { ArrowUpRight, Eye, EyeOff, CheckCircle2, FileText, Hash, Inbox, ListTodo, Merge, Orbit, Pin, Trash2, X, Laptop, Timer, CloudSun, PanelLeftOpen } from 'lucide-react'
+import { ArrowUpRight, Eye, EyeOff, CheckCircle2, FileText, Hash, Inbox, ListTodo, Merge, Orbit, Pin, Trash2, X, Laptop, Timer, CloudSun } from 'lucide-react'
+import { motion } from 'motion/react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
-import { CaptureList, captureMenu, useCaptures, whereFrom, type CaptureMeta } from '../capture-list'
+import { CaptureList, captureEntry, captureMenu, useCaptures, whereFrom, type CaptureMeta } from '../capture-list'
 import { tagColors, spread } from '@/extensions/tokens'
-import { AGES, Display, arrange, period, useView, type Facet, type View } from './display'
+import { AGES, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
 import { Mentions } from './mentions'
@@ -17,26 +18,27 @@ import { splitTags, vigil } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
 import { useSameWords } from '@/lib/same-words'
 import { chime } from '@/lib/sound'
-import { Empty, Island, Page, Prop, Props, Remembered, Rolling, ask, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle } from './ui'
+import { Empty, Island, Page, Prop, Props, Remembered, Rolling, ask, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle, Pressed } from './ui'
 import { GlossTimeline } from './gloss-line'
 import { RemindMe } from './items-view'
 import { addToQuestion } from './questions-view'
 import { ReadThrough } from './read-through'
 import { PassLinks } from './pass'
 import { selectionActions } from './selection-actions'
-import { Kbd, Tip } from '@/components/vigil/ui'
+import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
 import TrashIcon from '@/components/ui/trash-icon'
 import { Archive, ArchiveRestore, Download } from 'lucide-react'
-import { Aliases, KindFields, LayoutToggle, LocalGraph, NoteCards, NoteHeader, useLayout } from './note-extras'
+import { Aliases, KindFields, LocalGraph, NoteHeader } from './note-extras'
+import { ListSearch, NoteRail, PaneButtons, Peek, matches, still } from './note-list'
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { Rest } from './scenery'
 import type { MenuItem } from './row-menu'
 import { PinnedQuestions, clueInto } from './pinned-questions'
 import { Board, useBoard } from './board-view'
-import { num } from '../../../../main/dates'
+import { dayjs, num } from '../../../../main/dates'
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
 
@@ -56,10 +58,16 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
 }): React.JSX.Element {
   const all = useCaptures(true)
   const kept = all.filter(keep)
-  const { groups, display, move, moveBy } = useCaptureDisplay(`captures:${title}`, kept, undefined, archived)
-  const shown = groups.flatMap(([, list]) => list)
-  const [layout, setLayout] = useLayout(`captures:${title}`)
+  const { groups: arranged, display, chips, density, view, setView, move, moveBy } = useCaptureDisplay(`captures:${title}`, kept, undefined, archived)
+  // The list's width: beside the note, over the whole page, or a rail of pictures.
+  const pane = view.pane ?? 'list'
+  const [query, setQuery] = useState('')
   const [open, setOpen] = useState<Capture | null>(null)
+  const spread = pane === 'wide' && !open
+  const groups = spread && query.trim() ? arranged.map(([name, list]) => [name, list.filter((one) => matches(one.label, query))] as [string, CaptureMeta[]]).filter(([, list]) => list.length) : arranged
+  const shown = groups.flatMap(([, list]) => list)
+  // Spread out, a click looks at a note beside the list; Enter opens it.
+  const [peek, setPeek] = useState<string | null>(null)
   // An earlier version, shown in place of the editor while you look back.
   const [past, setPast] = useState<{ body: unknown; key: string } | null>(null)
   // Bumped when the words change under the editor (a version restored), so it
@@ -68,7 +76,19 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
   // The capture as first written, shown in place of the editor, or null.
   const [first, setFirst] = useState<unknown>(null)
   useEffect(() => setFirst(null), [open?.id])
-  const pick = (id: string): void => void window.api.captures.get(id).then(setOpen)
+  const pick = (id: string): void => {
+    // Opening a note brings the list back beside it.
+    if (view.pane === 'wide') setView({ ...view, pane: 'list' })
+    void window.api.captures.get(id).then(setOpen)
+  }
+  const setPane = (next: typeof pane): void => {
+    if (next === 'wide') {
+      setPeek(open?.id ?? shown[Math.max(0, cursor)]?.id ?? null)
+      setOpen(null)
+    }
+    if (pane === 'wide' && next === 'list' && peek) void window.api.captures.get(peek).then(setOpen)
+    setView({ ...view, pane: next })
+  }
   // Saved only over the words it was opened on: another window's never lost.
   const words = useSameWords('captures', open?.id, open?.body, (id, body, base, editor) =>
     window.api.captures.save(id, { body, base, ...(editor ? { markdown: toMarkdown(editor) } : {}) }))
@@ -102,7 +122,13 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
     window.addEventListener('vigil:opened-apart', onApart)
     return () => window.removeEventListener('vigil:opened-apart', onApart)
   }, [])
-  const [cursor, setCursor] = useListKeys(shown.length, { onOpen: (index) => pick(shown[index].id), onBack: () => setOpen(null) })
+  const [cursor, setCursor] = useListKeys(shown.length, {
+    onOpen: (index) => pick(shown[index].id),
+    // Spread out, Escape empties the search, then brings the list back.
+    onBack: () => (spread ? (query ? setQuery('') : setPane('list')) : setOpen(null))
+  })
+  useEffect(() => void (spread && shown[cursor] && setPeek(shown[cursor].id)), [cursor, spread]) // eslint-disable-line react-hooks/exhaustive-deps
+  const peeked = spread ? all.find((one) => one.id === peek) : undefined
   // Reading through what is shown, one at a time with nothing else on screen.
   const [readFrom, setReadFrom] = useState<number | null>(null)
   useReadKey(() => setReadFrom(startAt(shown, open?.id, cursor)), shown.length)
@@ -172,12 +198,9 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
 
   return (
     <>
-      {boardShown && !listOut ? (
-        <div data-chrome className="hidden w-11 shrink-0 flex-col items-center pt-3 @[56rem]/page:flex">
-          <Tip label="Show the list">
-            <Button variant="ghost" size="icon-sm" onClick={() => (chime('slide'), setListOut(true))}><PanelLeftOpen className="size-4" /></Button>
-          </Tip>
-        </div>
+      {/* Folded to a rail: by you, or by a board that needs the room. */}
+      {open && (boardShown ? !listOut : pane === 'rail') ? (
+        <NoteRail entries={shown.map((one) => captureEntry(one, pick))} cursor={cursor} selected={open.id} onPick={pick} onShow={() => (boardShown ? setListOut(true) : setPane('list'))} />
       ) : (
       <Page aside={!!open}
         title={title}
@@ -214,35 +237,27 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
             </span>
           ) : (
             <span className="flex items-center gap-2">
-              {shown.length > 1 && <span className="hidden text-xs whitespace-nowrap @[48rem]/page:inline"><Kbd>x</Kbd> to select</span>}
-              {title === 'Inbox' && <PassLinks />}
+              {spread && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder={`Search in ${title}`} />}
+              {shown.length > 1 && !spread && !open && <span className="hidden text-xs whitespace-nowrap @[48rem]/page:inline"><Pressed keys="X" /> to select</span>}
+              {title === 'Inbox' && <PassLinks className="shrink-0 flex-nowrap!" />}
               <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R">
-                <Button variant="ghost" size="sm" onClick={() => setReadFrom(startAt(shown, open?.id, cursor))} disabled={!shown.length}><AliveIcon icon={BookIcon} size={14} /> Read list</Button>
+                <Button variant="ghost" size={open ? 'icon-sm' : 'sm'} aria-label="Read through" onClick={() => setReadFrom(startAt(shown, open?.id, cursor))} disabled={!shown.length}><AliveIcon icon={BookIcon} size={14} />{!open && ' Read through'}</Button>
               </Tip>
-              <LayoutToggle layout={layout} onChange={setLayout} />
               {display}
+              <PaneButtons pane={spread ? 'wide' : 'list'} onPane={setPane} fold={!!open && !boardShown} />
             </span>
           )
         }
       >
-        {shown.length && layout === 'cards' ? (
-          <NoteCards table="captures" cards={shown.map((one) => ({ id: one.id, title: one.label, kind: one.kind, type: 'capture', dim: one.status !== 'open', private: !!one.private }))} selected={open?.id} cursor={cursor} onPick={pick}
-            menu={(card) => captureMenu(shown.find((one) => one.id === card.id)!, pick)} />
-        ) : shown.length ? (
-          <div className="px-3 py-2">
-            {groups.map(([name, list], index) => {
-              const before = groups.slice(0, index).reduce((n, [, one]) => n + one.length, 0)
-              return (
-                <div key={name || 'all'}>
-                  {name && <div className="px-2 pt-4 pb-1 text-xs text-muted-foreground first:pt-1">{name} <span className="tabular-nums"><Rolling text={list.length} /></span></div>}
-                  <CaptureList captures={list} selected={open?.id} cursor={cursor - before} chosen={chosen} onPick={pick} onMove={(id, target, after) => move(kept.map((one) => one.id), id, target, after)} />
-                </div>
-              )
-            })}
-          </div>
+        <div className="px-5 pt-2.5 empty:hidden">{chips}</div>
+        {shown.length ? (
+          <CaptureList groups={groups} density={density} selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
+            onPick={spread ? (id) => (setPeek(id), setCursor(shown.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined}
+            onChoose={(id) => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))}
+            onMove={(id, target, after) => move(kept.map((one) => one.id), id, target, after)} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
         ) : kept.length ? (
           <Empty shape={['ellipse', 3]} title="Nothing matches">
-            {"Display's filters hide everything here. Change them, or clear them."}
+            {spread && query.trim() ? 'No title here has those words. Escape clears the search.' : "The filters hide everything here. Clear them with the × above, or press F to change them."}
           </Empty>
         ) : archived ? (
           <Empty shape={['moon', 1]} title="Nothing archived">
@@ -251,9 +266,19 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
         ) : (
           <Rest seed="inbox">
             {/* A new install has nothing that could have left yet. */}
-            <Empty shape={['flower', 2]} title={all.length ? 'Nothing waiting' : 'Your Inbox'}>
-              {all.length ? 'Every capture has taken its exit. ⌘. catches the next thought, from anywhere.' : 'What you catch lands here. Press ⌘. anywhere, write a thought, and press Enter.'}
-            </Empty>
+            {title === 'Inbox' ? (
+              <Empty shape={['flower', 2]} title={all.length ? 'Nothing waiting' : 'Your Inbox'}>
+                {all.length ? 'Every capture has taken its exit. ⌘. catches the next thought, from anywhere.' : 'Press ⌘. in any app, write the thought, and send it with ⌘↵. It waits here until you tidy or decide.'}
+              </Empty>
+            ) : title === 'Discarded' ? (
+              <Empty shape={['flower', 2]} title="Nothing let go">
+                {'What you discard waits here, never deleted, so it can always come back.'}
+              </Empty>
+            ) : (
+              <Empty shape={['flower', 2]} title="Nothing here yet">
+                {'Press ⌘. in any app to catch a thought. It shows here once it is sent.'}
+              </Empty>
+            )}
           </Rest>
         )}
       </Page>
@@ -269,8 +294,14 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
           }}
         />
       )}
+      {peeked && (
+        <Peek entry={captureEntry(peeked, pick)} table="captures" onOpen={() => pick(peeked.id)}>
+          <CaptureProps capture={peeked} onOpen={onOpen} className="border-t pt-3 @[40rem]/page:w-full @[40rem]/page:border-t @[40rem]/page:border-l-0" />
+        </Peek>
+      )}
       {open && meta ? (
-        <div className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_1.5rem_1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
+        // Slides to where the list leaves it room, when the list folds or comes back.
+        <motion.div layout={still() ? false : 'position'} transition={{ type: 'spring', bounce: 0, duration: 0.32 }} className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_1.5rem_1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
           {/* A board stands as tall as the window, even above the properties in a narrow one. */}
           <div className={`flex min-h-0 min-w-0 flex-1 flex-col pt-6 ${boardShown ? '!min-h-[calc(100vh-5rem)]' : ''}`}>
             {/* What you first caught, kept from the first edit on: read it
@@ -356,7 +387,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
             {boardShown && <Board key={`${open.id}-${rev}`} editor={editor} id={open.id} tools={tools} />}
           </div>
           {(!boardShown || propsOut) && <CaptureProps capture={meta} onOpen={onOpen} />}
-        </div>
+        </motion.div>
       ) : null}
     </>
   )
@@ -364,7 +395,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
 
 /** A capture's row menu in its note's dots, less what the row over it already shows: opening, the star, the link. */
 export const captureDots = (capture: CaptureMeta): MenuItem[] =>
-  captureMenu(capture).filter((item) => !item || item === 'separator' || !['Open', 'Unpin', 'Pin to the prompt', `Copy ${captureKey(capture.number)}`].includes(item.label))
+  captureMenu(capture).filter((item) => !item || item === 'separator' || !['Open', 'Unpin', 'Pin to the box', `Copy ${captureKey(capture.number)}`].includes(item.label))
 
 /** Status and the exits, then what the capture is, then where it came from. */
 export function CaptureProps({ capture, onOpen, className }: { capture: CaptureMeta; onOpen?: (type: string, id: string) => void; className?: string }): React.JSX.Element {
@@ -464,7 +495,7 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
           {capture.private ? 'Private' : 'Can surface any time'}
         </Prop>
         <Prop icon={Pin} active={!!capture.pinnedAt} onClick={() => pin('captures', capture.id, !capture.pinnedAt)}>
-          {capture.pinnedAt ? 'Pinned' : 'Pin to the prompt'}
+          {capture.pinnedAt ? 'Pinned' : 'Pin to the box'}
         </Prop>
         <RemindMe table="captures" id={capture.id} at={capture.remindAt} />
         {/* Out of sight, apart from the exits: whatever became of it, it can be put away. */}
@@ -507,6 +538,13 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
   )
 }
 
+/** When a capture was last touched, the way rot counts it: an import is new here for thirty days. */
+const touched = (one: CaptureMeta): string => {
+  const at = one.editedAt ?? one.capturedAt
+  const imported = one.importedAt ? dayjs(one.importedAt).add(30, 'day').toISOString() : ''
+  return imported > at ? imported : at
+}
+
 /**
  * Filter, sort and group for a list of captures, with the Display menu that
  * sets them: the same in the main window and the prompt. `name` keeps each
@@ -515,6 +553,11 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
 export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: View['filter'], archived = false): {
   groups: [string, CaptureMeta[]][]
   display: React.JSX.Element
+  /** The filters set, as chips over the list, and the kinds a click away. */
+  chips: React.JSX.Element | null
+  density: Density
+  view: View
+  setView: (view: View) => void
   /** Drop a row before or after another, in your own order. */
   move: (ids: string[], id: string, target: string, after: boolean) => void
   /** One step up or down in your own order, from the keyboard; false at an end. */
@@ -553,24 +596,31 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   ]
   const groups = arrange(kept, view, facets, {
     newest: (a, b) => b.capturedAt.localeCompare(a.capturedAt),
-    manual: (a, b) => own.compare(a.id, b.id) || b.capturedAt.localeCompare(a.capturedAt),
-    oldest: (a, b) => a.capturedAt.localeCompare(b.capturedAt),
+    changed: (a, b) => (b.editedAt ?? b.capturedAt).localeCompare(a.editedAt ?? a.capturedAt),
+    untouched: (a, b) => touched(a).localeCompare(touched(b)),
     name: (a, b) => a.label.localeCompare(b.label),
-    kind: (a, b) => a.kind.localeCompare(b.kind)
+    kind: (a, b) => a.kind.localeCompare(b.kind) || b.capturedAt.localeCompare(a.capturedAt),
+    manual: (a, b) => own.compare(a.id, b.id) || b.capturedAt.localeCompare(a.capturedAt)
   }, {
     kind: (one) => CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note',
     date: (one) => period(one.capturedAt),
     source: (one) => (one.source ? whereFrom(one.source) || 'Vault' : 'Typed here')
   })
+  // Spread over the page, the list keeps a size of its own: a grid, unless you chose another.
+  const wide = view.pane === 'wide'
+  const density = (wide ? view.wideDensity ?? 'grid' : view.density) ?? 'list'
   const display = (
     <Display
       view={view}
       onChange={setView}
       facets={facets}
       defaults={filter ?? {}}
-      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'name', label: 'Name' }, { id: 'kind', label: 'Kind' }, { id: 'manual', label: 'Your order' }]}
+      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Oldest untouched' }, { id: 'name', label: 'A to Z' }, { id: 'kind', label: 'Kind' }, { id: 'manual', label: 'Custom order' }]}
       groups={[{ id: 'none', label: 'None' }, { id: 'kind', label: 'Kind' }, { id: 'date', label: 'Date' }, { id: 'source', label: 'Where from' }]}
+      density={density}
+      onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}
     />
   )
-  return { groups, display, move, moveBy }
+  const chips = <FilterChips view={view} onChange={setView} facets={facets} defaults={filter ?? {}} />
+  return { groups, display, chips, density, view, setView, move, moveBy }
 }

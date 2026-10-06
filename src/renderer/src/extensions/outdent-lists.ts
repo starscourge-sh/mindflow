@@ -31,7 +31,11 @@ export const OutdentLists = Extension.create({
         // for every item here, so it compares exactly as the item's own would.
         const items: { from: number; to: number; name: string; depth: number }[] = []
         state.doc.nodesBetween(from, to, (node, pos) => {
-          if (ITEMS.includes(node.type.name)) {
+          // An item counts when the selection reaches its own first line, not
+          // when it only holds the line the caret is on: the caret in a child
+          // made its parent count too, and the lift threw it out of the list.
+          const line = pos + 1 + (node.firstChild?.nodeSize ?? 0)
+          if (ITEMS.includes(node.type.name) && from < line && to > pos + 1) {
             items.push({
               from: pos + 1,
               to: pos + node.nodeSize - 1,

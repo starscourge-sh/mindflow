@@ -92,7 +92,7 @@ export type PinnedQuestion = { id: string; title: string; pinnedAt: string; clue
 
 /** A picture from the Scenery folders, as the main process describes its smaller copy. */
 export type Mood = 'day' | 'dusk' | 'night' | 'interior'
-export type Scene = { id: string; url: string; mood: Mood; width: number; height: number; pixel: boolean; color: string; light: number }
+export type Scene = { id: string; url: string; mood: Mood; width: number; height: number; pixel: boolean; color: string; light: number; name?: string; folder?: string }
 
 /** A nugget or an article: the same row, told apart by `tier`. */
 export type Item = {
@@ -275,6 +275,8 @@ export const vigil = {
   /** What it came from, what it became, and what links to it. */
   mentions: (id: string) => call<Record<'linked' | 'unlinked' | 'out' | 'named', { type: string; id: string; title: string; snippet: string; private?: number }[]> & { me: string }>('mentions', id),
   linkMention: (sourceType: string, sourceId: string, targetId: string) => call<boolean>('mention:link', sourceType, sourceId, targetId),
+  /** Notes sharing tags with this one and not linked to it, rarest tags first. */
+  related: (id: string) => call<{ type: string; id: string; title: string; excerpt: string; private: boolean; at: string; shared: string[] }[]>('related', id),
   lineage: (id: string) => call<Record<'from' | 'became' | 'linked', { type: string; id: string; title: string; private?: number }[]>>('lineage', id),
   newArticle: () => call<string>('article:new'),
   findItems: (query: string) => call<{ id: string; tier: 'nugget' | 'article' | 'question'; title: string }[]>('items:find', query),
@@ -352,7 +354,9 @@ export const vigil = {
   stats: () => call<Stats>('stats'),
   exportAll: () => call<string | null>('export'),
   /** Stored pictures and files no note points at; `extra` is text only a window holds, like the box's draft. */
-  unusedFind: (extra: string[]) => call<{ name: string; size: number; image: boolean }[] | { error: string }>('unused:find', extra),
+  /** Null when stopped, or overtaken by a newer look. */
+  unusedFind: (extra: string[]) => call<{ name: string; size: number; image: boolean; at: number }[] | { error: string } | null>('unused:find', extra),
+  unusedStop: () => call('unused:stop'),
   unusedBin: (names: string[], extra: string[]) => call<{ moved: number; size: number }>('unused:bin', names, extra),
   bury: (id: string) => call('review:bury', id),
   taskFrom: (ids: string[], text: string) => call<Made | null>('tasks:from', ids, text),

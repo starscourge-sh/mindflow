@@ -36,7 +36,7 @@ import icon from '../../resources/icon.png?asset'
 import { alreadyImported, captureText, changed, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { backupDir } from './backup'
-import { activeSession, badge, gate, motionOn, registerVigil, toggleSafeMode, whenKeys, whenSafeMode } from './vigil'
+import { activeSession, badge, gate, motionOn, registerHome, registerVigil, toggleSafeMode, whenKeys, whenSafeMode } from './vigil'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
 import { registerPeriods } from './periods'
@@ -920,7 +920,7 @@ app.on('second-instance', (_event, argv) => {
  * pages became here. A note imported before, by the same path, is left as it is.
  */
 async function importVault(given?: string): Promise<void> {
-  const root = given ?? (await dialog.showOpenDialog({ title: 'Import an Obsidian vault', properties: ['openDirectory'] })).filePaths[0]
+  const root = given ?? (await dialog.showOpenDialog({ title: 'Import an Obsidian vault or a Notion export (unzipped)', properties: ['openDirectory'] })).filePaths[0]
   if (!root) return
   // Its notes wait to become documents until their links are in; then every
   // window hears of it, and one of them turns them into documents.
@@ -930,6 +930,8 @@ async function importVault(given?: string): Promise<void> {
   } finally {
     setImporting(false)
     changed()
+    // The box turns them into documents, hidden or not: not only once it is next opened.
+    for (const win of BrowserWindow.getAllWindows()) win.webContents.send('imports:ready')
   }
 }
 
@@ -1020,6 +1022,7 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
   let already = 0
   let empty = 0
   let marked = 0
+  const unread: string[] = []
   for (const path of notes) {
     // Known by its path, so its pictures are not read again; new notes may still link to it.
     const before = alreadyImported(relative(root, path))
@@ -1029,7 +1032,13 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
       if (!byName.has(before.title.toLowerCase())) byName.set(before.title.toLowerCase(), before.link)
       continue
     }
-    let text = (await readFile(path, 'utf8')).replace(/\r\n/g, '\n')
+    const read = await readFile(path, 'utf8').catch(() => null)
+    // One that cannot be opened, or a picture or a program renamed .md, is not a note.
+    if (read === null || read.includes('\u0000')) {
+      unread.push(relative(root, path))
+      continue
+    }
+    let text = read.replace(/\r\n/g, '\n')
     const front = /^---\n([\s\S]*?)\n---\n/.exec(text)?.[1] ?? ''
     const tags = listed(front, 'tags')
     // Notion's asides are callouts; the little picture it starts them with is its icon, not content.
@@ -1116,7 +1125,8 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
     already ? `${num(already)} ${already === 1 ? 'was' : 'were'} already here, from an earlier import, and ${already === 1 ? 'was' : 'were'} left as ${already === 1 ? 'it was' : 'they were'}.` : '',
     empty ? `${num(empty)} empty ${empty === 1 ? 'file was' : 'files were'} skipped.` : '',
     marked ? `${num(marked)} ${marked === 1 ? 'note came' : 'notes came'} in marked private: ${marked === 1 ? 'its name sounds' : 'their names sound'} like passwords or logins.` : '',
-    kept.length ? `Left out because ${kept.length === 1 ? 'it looks' : 'they look'} like passwords or keys: ${kept.join(', ')}.` : ''
+    kept.length ? `Left out because ${kept.length === 1 ? 'it looks' : 'they look'} like passwords or keys: ${kept.join(', ')}.` : '',
+    unread.length ? `Left out because ${unread.length === 1 ? 'it could not be read as text' : 'they could not be read as text'}: ${unread.join(', ')}.` : ''
   ].filter(Boolean)
   if (quiet) return console.log(`imported ${made.length} new, ${already} already here, ${empty} empty, ${kept.length} left out, ${marked} marked private, ${pictures} pictures, ${attached} files, ${linked} links${kept.length ? ` [${kept.join(', ')}]` : ''}`)
   // Not waited on: the notes become documents while it is being read.
@@ -1170,15 +1180,25 @@ async function importFiles(): Promise<void> {
   const lines = []
   for (const path of filePaths) {
     const name = basename(path)
-    const text = await readFile(path, 'utf8')
-    const added = /\.html?$/i.test(name)
-      ? importBookmarks(name, text)
-      : /\.(csv|json)$/i.test(name) || (/\.txt$/i.test(name) && text.includes('=========='))
-        ? importHighlights(name, text)
-        : /\.txt$/i.test(name)
-          ? importAnki(text)
-          : importMarkdown(name, text, /joke|bit/i.test(name) ? 'bit' : 'note')
-    lines.push(`${name}: ${num(added)} new`)
+    // One file that cannot be read is said so, and the rest still come in.
+    try {
+      const text = await readFile(path, 'utf8')
+      // A picture or a program renamed .md is not words to keep.
+      if (text.includes('\u0000')) {
+        lines.push(`${name}: skipped, it is not a text file`)
+        continue
+      }
+      const added = /\.html?$/i.test(name)
+        ? importBookmarks(name, text)
+        : /\.(csv|json)$/i.test(name) || (/\.txt$/i.test(name) && text.includes('=========='))
+          ? importHighlights(name, text)
+          : /\.txt$/i.test(name)
+            ? importAnki(text)
+            : importMarkdown(name, text, /joke|bit/i.test(name) ? 'bit' : 'note')
+      lines.push(`${name}: ${num(added)} new`)
+    } catch (error) {
+      lines.push(`${name}: could not be read (${/\.json$/i.test(name) ? 'it is not a list of highlights in JSON' : error instanceof Error ? error.message : String(error)})`)
+    }
   }
   if (lines.length) await dialog.showMessageBox({ message: 'Imported', detail: lines.join('\n') })
 }
@@ -1239,7 +1259,7 @@ function updateTray(): void {
       { label: 'Show Vigil', accelerator: SUMMON, click: () => toggleWindow() },
       { label: 'Open the main window', click: openHome },
       { label: 'Import…', click: () => void importFiles() },
-      { label: 'Import an Obsidian vault…', click: () => void importVault() },
+      { label: 'Import an Obsidian vault or Notion export…', click: () => void importVault() },
       { label: 'Restore from a backup…', click: () => void restore() },
       { type: 'separator' },
       { label: 'Safe mode', type: 'checkbox', checked: safe, click: () => (toggleSafeMode(), updateTray()) },
@@ -1257,6 +1277,7 @@ app.whenReady().then(() => {
   registerCaptures()
   registerImportConversion()
   registerVigil()
+  registerHome()
   registerNotes({ load, guard })
   registerPeriods()
   registerIssues()
@@ -1546,6 +1567,14 @@ app.whenReady().then(() => {
 
     const problem = await shell.openPath(join(assetsDir(), name))
     return problem === ''
+  })
+
+  // The stored file, picked out in a Finder window.
+  ipcMain.handle('show-file', (_event, src: unknown) => {
+    const name = typeof src === 'string' ? src.replace('mindflow://assets/', '') : ''
+    if (!/^[a-f0-9]{64}\.[a-z0-9]+$/.test(name)) return false
+    shell.showItemInFolder(join(assetsDir(), name))
+    return true
   })
 
   // Put a stored image on the system clipboard, so it can be pasted into any

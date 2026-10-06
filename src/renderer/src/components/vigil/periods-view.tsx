@@ -14,7 +14,7 @@ import { Chips } from './display'
 import { DayBanner } from './scenery'
 import { MonthReflect } from './reflect-view'
 import { IssueLine, Odometer, PastIssues, SERIF, useIssue, weekOfYear, weekSpan } from './issue'
-import { Island, Kbd, Page, Rolling, Tip, Typed, typing } from './ui'
+import { Island, Page, Rolling, Tip, Typed, typing, Pressed } from './ui'
 import { dayjs, noon } from '../../../../main/dates'
 
 /**
@@ -79,7 +79,7 @@ function Steps({ name, now, atNow, go }: { name: string; now: string; atNow: boo
       <Tip label={`The ${name} after  →`}>
         <Button variant="ghost" size="icon-sm" aria-label={`The ${name} after`} disabled={atNow} onClick={() => go(1)}><ArrowRight className="size-3.5" /></Button>
       </Tip>
-      {!atNow && <Button variant="ghost" size="sm" onClick={() => go(0)}>{now} <Kbd>T</Kbd></Button>}
+      {!atNow && <Button variant="ghost" size="sm" onClick={() => go(0)}>{now} <Pressed keys="T" /></Button>}
     </>
   )
 }

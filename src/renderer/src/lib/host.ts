@@ -26,6 +26,8 @@ export interface MindflowHost {
   saveFileAs?: (src: string, name: string) => Promise<boolean>
   /** Open a stored file with whatever the system uses for it. */
   openFile?: (src: string) => Promise<boolean>
+  /** Show a stored file in Finder. */
+  showFile?: (src: string) => Promise<boolean>
   /** Put a stored image on the system clipboard. */
   copyImage?: (src: string) => Promise<boolean>
   /** A word's spelling suggestions when it is misspelt, null when it is not. */

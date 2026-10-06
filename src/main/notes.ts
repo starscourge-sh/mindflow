@@ -1,8 +1,8 @@
 import { BrowserWindow, app, dialog, ipcMain, nativeImage } from 'electron'
-import { copyFile, mkdir } from 'fs/promises'
+import { copyFile, mkdir, stat } from 'fs/promises'
 import { join } from 'path'
 
-import { LABEL, changed, database } from './captures'
+import { LABEL, atomically, changed, database } from './captures'
 import { gate, plain } from './vigil'
 
 /**
@@ -128,23 +128,28 @@ export function registerNotes({ load, guard }: Windows): void {
   // Small and kept: a list shows dozens at once, and the full picture is
   // often megabytes. Made once per picture per run.
   const small = new Map<string, string>()
-  handle('notes:thumb', async (src: string) => {
-    const cached = small.get(src)
+  handle('notes:thumb', async (src: string, height = 96) => {
+    // Two sizes: a row's, and a grid tile's, which is drawn larger.
+    const tall = height > 96 ? 320 : 96
+    const key = `${tall}:${src}`
+    const cached = small.get(key)
     if (cached !== undefined) return cached
     const name = stored(src)
     if (!name) return ''
+    // A huge original is never opened for a list: it shows its kind instead.
+    if (((await stat(join(assets(), name)).catch(() => null))?.size ?? 0) > 30 * 1024 * 1024) return (small.set(key, ''), '')
     // A video's first frame, as Finder's Quick Look draws it: no player needed.
     if (/\.(mp4|m4v|mov|webm)$/.test(name)) {
-      const frame = await nativeImage.createThumbnailFromPath(join(assets(), name), { width: 192, height: 192 }).catch(() => null)
+      const frame = await nativeImage.createThumbnailFromPath(join(assets(), name), { width: tall * 2, height: tall * 2 }).catch(() => null)
       const made = frame && !frame.isEmpty() ? `data:image/jpeg;base64,${frame.toJPEG(72).toString('base64')}` : ''
-      small.set(src, made)
+      small.set(key, made)
       return made
     }
     if (!/\.(png|jpe?g|gif|webp|avif|bmp|heic|svg)$/.test(name)) return ''
     const image = nativeImage.createFromPath(join(assets(), name))
     // A picture the system cannot read (an SVG) is shown as it is.
-    const made = image.isEmpty() ? src : `data:image/jpeg;base64,${image.resize({ height: 96, quality: 'good' }).toJPEG(72).toString('base64')}`
-    small.set(src, made)
+    const made = image.isEmpty() ? src : `data:image/jpeg;base64,${image.resize({ height: Math.min(tall, image.getSize().height), quality: 'good' }).toJPEG(72).toString('base64')}`
+    small.set(key, made)
     return made
   })
   // A card's first lines: only asked for while cards are shown.
@@ -159,11 +164,12 @@ export function registerNotes({ load, guard }: Windows): void {
   handle('notes:order', (list: string) =>
     (db.prepare('select id from note_order where list = ? order by position').all(list) as { id: string }[]).map((row) => row.id))
   handle('notes:order:set', (list: string, ids: string[]) => {
-    db.exec('begin')
-    db.prepare('delete from note_order where list = ?').run(list)
-    const add = db.prepare('insert into note_order (list, id, position) values (?, ?, ?)')
-    ids.forEach((id, at) => add.run(list, id, at))
-    db.exec('commit')
+    atomically(() => {
+      db.prepare('delete from note_order where list = ?').run(list)
+      // A row twice keeps its first place.
+      const add = db.prepare('insert or ignore into note_order (list, id, position) values (?, ?, ?)')
+      ids.forEach((id, at) => add.run(list, id, at))
+    })
     changed()
     return true
   })

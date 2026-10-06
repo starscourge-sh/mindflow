@@ -3,6 +3,7 @@ import type { ReactElement } from 'react'
 import { toast } from './ui'
 import { chime } from '@/lib/sound'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut, ContextMenuTrigger } from '@/components/ui/context-menu'
+import { keyFor } from '@/lib/keys'
 
 /** One line of a right-click menu, or a rule between groups. */
 export type MenuItem = { label: string; run: () => void; keys?: string; danger?: boolean } | 'separator' | false | null | undefined
@@ -45,7 +46,7 @@ export function RowMenu({ items, children }: { items: MenuItem[]; children: Reac
           ) : (
             <ContextMenuItem key={item.label} variant={item.danger ? 'destructive' : 'default'} onSelect={item.run}>
               {item.label}
-              {item.keys && <ContextMenuShortcut>{item.keys}</ContextMenuShortcut>}
+              {item.keys && keyFor(item.keys) && <ContextMenuShortcut>{keyFor(item.keys)}</ContextMenuShortcut>}
             </ContextMenuItem>
           )
         )}

@@ -16,6 +16,7 @@ import { openPass } from './vigil/pass'
 import { Postcarded, usePostcard } from './vigil/memory-postcard'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import TrashIcon from '@/components/ui/trash-icon'
+import { keyFor } from '@/lib/keys'
 
 // A memory is a hint that says what it is: this day last year, one source's things.
 type Hint = NonNullable<Awaited<ReturnType<typeof window.api.hints.next>>> & { memory?: string }
@@ -308,7 +309,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
                   </TooltipTrigger>
                   <TooltipContent>
                     {tip}
-                    {keys && <kbd className="ml-2 font-sans text-key opacity-70">{keys}</kbd>}
+                    {keys && keyFor(keys) && <kbd className="ml-2 font-sans text-key opacity-70">{keyFor(keys)}</kbd>}
                   </TooltipContent>
                 </Tooltip>
               ))}

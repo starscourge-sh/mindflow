@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
+import { createRoot } from "react-dom/client"
 import { NodeSelection } from "@tiptap/pm/state"
 import { useEditorState, type Editor } from "@tiptap/react"
 import { animate, motion } from "motion/react"
-import { ChevronLeft, ChevronRight, Copy, X } from "lucide-react"
+import { ChevronLeft, ChevronRight, Copy, FolderOpen, X } from "lucide-react"
 import { AliveIcon } from "@/components/ui/alive-icon"
 import MagnifierIcon from "@/components/ui/magnifier-icon"
 import ExternalLinkIcon from "@/components/ui/external-link-icon"
@@ -18,6 +19,9 @@ export const lookAtSelected = (editor: Editor): void => void editor.view.dom.dis
 
 const still = (): boolean => document.documentElement.dataset.motion === "off" || matchMedia("(prefers-reduced-motion: reduce)").matches
 const EASE = [0.16, 1, 0.3, 1] as const
+// The lift and the drop: a spring, so Escape mid-flight turns it round from
+// where it is rather than starting over.
+const SPRING = { type: "spring", visualDuration: 0.42, bounce: 0.12 } as const
 // Room kept round the picture: the window's own bar on top, the viewer's below.
 const TOP = 48
 const FOOT = 76
@@ -26,13 +30,37 @@ const SIDE = 32
 /** Drawn, and really there: a missing file's dashed note has nothing to look at. */
 const whole = (img: HTMLImageElement): boolean => !img.dataset.missing && img.naturalWidth > 0
 
+/** A picture as the viewer needs it: where to read it, how big it really is, and where it sits on the page, if anywhere. */
+type Picture = { src: string; width: number; height: number; caption: string; el: Element | null }
+const pictureOf = (img: HTMLImageElement): Picture => ({ src: img.currentSrc || img.src, width: img.naturalWidth, height: img.naturalHeight, caption: captionOf(img), el: img })
+
+/**
+ * Quick Look for any picture outside a note (a page's cover, say): it lifts
+ * out of `from` when given, else simply appears. Mounts a viewer of its own.
+ */
+export async function openLook(src: string, from?: Element | null, caption = ""): Promise<void> {
+  const probe = new Image()
+  probe.src = src
+  await probe.decode().catch(() => undefined)
+  if (!probe.naturalWidth) return
+  const holder = document.createElement("div")
+  document.body.append(holder)
+  const root = createRoot(holder)
+  const done = (): void => {
+    root.unmount()
+    holder.remove()
+  }
+  root.render(<Viewer pictures={[{ src, width: probe.naturalWidth, height: probe.naturalHeight, caption, el: from ?? null }]} start={0} onClose={done} />)
+}
+
 /** A note's pictures in reading order: image blocks only, never an emoji or a card's thumbnail. */
 function picturesOf(editor: Editor): HTMLImageElement[] {
   const found: HTMLImageElement[] = []
   editor.state.doc.descendants((node, pos) => {
     if (node.type.name !== "image") return
     const dom = editor.view.nodeDOM(pos)
-    if (dom instanceof HTMLImageElement && whole(dom)) found.push(dom)
+    // Not one inside a folded heading: there is nowhere for it to lift from or go back to.
+    if (dom instanceof HTMLImageElement && whole(dom) && dom.getClientRects().length) found.push(dom)
   })
   return found
 }
@@ -42,6 +70,8 @@ function captionOf(img: HTMLImageElement): string {
   const next = img.nextElementSibling
   if (next?.tagName === "P" && next.children.length === 1 && next.firstElementChild?.tagName === "EM") return next.textContent?.trim() ?? ""
   if (img.alt) return img.alt
+  // A picture pasted in whole has no name, only its bytes.
+  if (img.src.startsWith("data:")) return ""
   const end = decodeURIComponent(img.src.split(/[?#]/)[0].split("/").pop() ?? "")
   // A stored file's name is only its hash.
   return /^[a-f0-9]{64}\./.test(end) ? "" : end
@@ -170,23 +200,36 @@ export function ImageLook({ editor }: { editor: Editor | null }): React.JSX.Elem
           </Toolbar>
         </div>
       )}
-      {open && <Viewer key={open.pictures[open.at].src} pictures={open.pictures} start={open.at} onClose={() => setOpen(null)} />}
+      {open && <Viewer key={open.pictures[open.at].src} pictures={open.pictures.map(pictureOf)} start={open.at} onClose={() => setOpen(null)} />}
     </>,
     document.body
   )
 }
 
 /** Where a picture sits when it fills the window: never past its own size. */
-function fitOf(img: HTMLImageElement): { left: number; top: number; width: number; height: number; scale: number } {
+function fitOf(picture: Picture): { left: number; top: number; width: number; height: number; scale: number } {
   const roomW = innerWidth - SIDE * 2
   const roomH = innerHeight - TOP - FOOT
-  const scale = Math.min(1, roomW / img.naturalWidth, roomH / img.naturalHeight)
-  const width = img.naturalWidth * scale
-  const height = img.naturalHeight * scale
+  const scale = Math.min(1, roomW / picture.width, roomH / picture.height)
+  const width = picture.width * scale
+  const height = picture.height * scale
   return { left: (innerWidth - width) / 2, top: TOP + (roomH - height) / 2, width, height, scale }
 }
 
-function Viewer({ pictures, start, onClose }: { pictures: HTMLImageElement[]; start: number; onClose: () => void }): React.JSX.Element {
+/**
+ * Where the frame starts from (or goes back to) to sit over `rect`: moved and
+ * scaled about its centre, and tipped a few degrees toward where it is going,
+ * the way a card turns as it is lifted, settling flat once there.
+ */
+function from(rect: DOMRect, fit: ReturnType<typeof fitOf>): { x: number; y: number; scale: number; rotateX: number; rotateY: number } {
+  const dx = rect.left + rect.width / 2 - (fit.left + fit.width / 2)
+  const dy = rect.top + rect.height / 2 - (fit.top + fit.height / 2)
+  // Tipped back a little whatever the way, and more toward the side it comes from.
+  const tilt = (by: number, span: number, base = 0): number => Math.max(-8, Math.min(8, base + (by / span) * 14))
+  return { x: dx, y: dy, scale: rect.width / fit.width, rotateY: -tilt(dx, innerWidth), rotateX: tilt(dy, innerHeight, 4) }
+}
+
+function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: number; onClose: () => void }): React.JSX.Element {
   const [at, setAt] = useState(start)
   const [, setSize] = useState(0)
   const [view, setView] = useState({ zoom: 1, x: 0, y: 0, smooth: true })
@@ -198,11 +241,12 @@ function Viewer({ pictures, start, onClose }: { pictures: HTMLImageElement[]; st
   const went = useRef(0)
   const drag = useRef<{ x: number; y: number; from: { x: number; y: number }; moved: boolean } | null>(null)
 
-  const img = pictures[at]
-  const fit = fitOf(img)
-  const src = img.currentSrc || img.src
+  const picture = pictures[at]
+  const img = picture.el
+  const fit = fitOf(picture)
+  const src = picture.src
   const stored = src.startsWith("mindflow://assets/")
-  const caption = captionOf(img)
+  const caption = picture.caption
   const most = Math.max(4, 2 / fit.scale)
 
   useEffect(() => {
@@ -213,6 +257,7 @@ function Viewer({ pictures, start, onClose }: { pictures: HTMLImageElement[]; st
 
   // The picture in the note stands empty while it is out, so it reads as lifted rather than copied.
   useEffect(() => {
+    if (!(img instanceof HTMLElement)) return
     img.style.visibility = "hidden"
     return () => void (img.style.visibility = "")
   }, [img])
@@ -240,16 +285,17 @@ function Viewer({ pictures, start, onClose }: { pictures: HTMLImageElement[]; st
     chime("unstick")
     if (still() || !frame.current) return onClose()
     // Back to where it sits now: the note may have scrolled while it was out.
-    img.scrollIntoView({ block: "nearest" })
-    const home = img.getBoundingClientRect()
+    // With nowhere to go back to, it settles away where it is.
+    img?.scrollIntoView({ block: "nearest" })
+    const home = img?.isConnected ? img.getBoundingClientRect() : null
     setView({ zoom: 1, x: 0, y: 0, smooth: true })
     await Promise.all([
-      animate(frame.current, { x: home.left - fit.left, y: home.top - fit.top, scale: home.width / fit.width }, { duration: 0.32, ease: EASE }),
-      backdrop.current && animate(backdrop.current, { opacity: 0 }, { duration: 0.28 }),
+      home ? animate(frame.current, from(home, fit), SPRING) : animate(frame.current, { scale: 0.96, opacity: 0 }, { duration: 0.18, ease: EASE }),
+      backdrop.current && animate(backdrop.current, { opacity: 0 }, { duration: 0.28, ease: EASE }),
       foot.current && animate(foot.current, { opacity: 0 }, { duration: 0.12 }),
     ])
     onClose()
-  }, [fit.left, fit.top, fit.width, img, onClose])
+  }, [fit, img, onClose])
 
   const stepBy = useCallback(
     (by: number) => {
@@ -311,12 +357,12 @@ function Viewer({ pictures, start, onClose }: { pictures: HTMLImageElement[]; st
   // The first frame grows out of the picture's place in the note; a step
   // after that slides in from the side it came from.
   const lifting = went.current === 0
-  const from = img.getBoundingClientRect()
+  const place = img?.isConnected ? img.getBoundingClientRect() : null
   const initial = still()
     ? false
     : lifting
-      ? { x: from.left - fit.left, y: from.top - fit.top, scale: from.width / fit.width, opacity: 1 }
-      : { x: went.current * 28, y: 0, scale: 1, opacity: 0 }
+      ? place ? { ...from(place, fit), opacity: 1 } : { x: 0, y: 0, scale: 0.96, rotateX: 0, rotateY: 0, opacity: 0 }
+      : { x: went.current * 28, y: 0, scale: 1, rotateX: 0, rotateY: 0, opacity: 0 }
 
   useEffect(() => void chime("open"), [])
 
@@ -327,17 +373,17 @@ function Viewer({ pictures, start, onClose }: { pictures: HTMLImageElement[]; st
         className="mf-look-backdrop"
         initial={still() ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.3 }}
+        transition={{ duration: 0.3, ease: EASE }}
         onClick={() => void close()}
       />
       <motion.div
         key={at}
         ref={frame}
         className="mf-look-frame"
-        style={{ left: fit.left, top: fit.top, width: fit.width, height: fit.height, originX: 0, originY: 0 }}
+        style={{ left: fit.left, top: fit.top, width: fit.width, height: fit.height }}
         initial={initial}
-        animate={{ x: 0, y: 0, scale: 1, opacity: 1 }}
-        transition={{ duration: lifting ? 0.44 : 0.22, ease: EASE }}
+        animate={{ x: 0, y: 0, scale: 1, rotateX: 0, rotateY: 0, opacity: 1 }}
+        transition={lifting ? SPRING : { duration: 0.22, ease: EASE }}
       >
         <img
           src={src}
@@ -382,6 +428,11 @@ function Viewer({ pictures, start, onClose }: { pictures: HTMLImageElement[]; st
             {!src.startsWith("data:") && (
               <Button data-style="ghost" tooltip={stored ? "Open in Preview" : "Open in browser"} aria-label={stored ? "Open in Preview" : "Open in browser"} onClick={openIt}>
                 <AliveIcon icon={ExternalLinkIcon} size={16} className="tiptap-button-icon" />
+              </Button>
+            )}
+            {stored && host().showFile && (
+              <Button data-style="ghost" tooltip="Show in Finder" aria-label="Show in Finder" onClick={() => void host().showFile?.(src).then((shown) => chime(shown ? "open" : "nope"))}>
+                <FolderOpen className="tiptap-button-icon" />
               </Button>
             )}
             {stored && (

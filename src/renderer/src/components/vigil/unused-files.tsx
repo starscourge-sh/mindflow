@@ -3,11 +3,11 @@ import { Check, FileText } from 'lucide-react'
 import { chime, click } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
 import { Button } from '@/components/ui/button'
-import { num } from '../../../../main/dates'
+import { dayMonth, num } from '../../../../main/dates'
 import { Kbd, Rolling, Typed, refuse, toast } from './ui'
 import { Orb } from './orb'
 
-type Found = { name: string; size: number; image: boolean }
+type Found = { name: string; size: number; image: boolean; at: number }
 
 /** A size the way Finder writes one: 1.2 MB, counted in thousands. */
 export const bytes = (n: number): string => {
@@ -24,8 +24,14 @@ const held = (): string[] => {
   }
 }
 
-/** A stored name is a long hash: its start and its ending are enough to tell two apart. */
-const short = (name: string): string => name.replace(/^([a-f0-9]{8})[a-f0-9]+/, '$1')
+/**
+ * A stored file is named by a hash, and nothing remembers what it was called
+ * (a note naming it would be using it), so a tile says what kind it is and
+ * when it came in: "Picture, 14 Sep".
+ */
+const named = (one: Found): string => `${one.image ? 'Picture' : (one.name.split('.').pop() ?? '').toUpperCase()}, ${dayMonth(one.at)}`
+/** Past this a picture is not drawn as a tile: decoding it would stall the window. */
+const DRAWN = 30e6
 
 /**
  * Pictures and files no note uses any more, Obsidian's "clear unused images"
@@ -38,6 +44,8 @@ export function UnusedFiles(): React.JSX.Element | null {
   const [found, setFound] = useState<Found[] | { error: string } | null>(null)
   const [kept, setKept] = useState<Set<string>>(new Set())
   const [moving, setMoving] = useState(false)
+  // Pictures that would not draw, shown by their kind instead.
+  const [broken, setBroken] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const onAsk = (): void => {
@@ -45,7 +53,9 @@ export function UnusedFiles(): React.JSX.Element | null {
       setOpen(true)
       setFound(null)
       setKept(new Set())
-      void vigil.unusedFind(held()).then(setFound, () => setFound({ error: 'Could not look through your notes.' }))
+      setBroken(new Set())
+      // Null is a look stopped or overtaken: the newer one fills the sheet.
+      void vigil.unusedFind(held()).then((got) => got && setFound(got), () => setFound({ error: 'Could not look through your notes.' }))
     }
     window.addEventListener('vigil:unused', onAsk)
     return () => window.removeEventListener('vigil:unused', onAsk)
@@ -55,6 +65,8 @@ export function UnusedFiles(): React.JSX.Element | null {
   const chosen = list.filter((one) => !kept.has(one.name))
   const close = (): void => {
     chime('fold')
+    // Still looking: the scan stops too, not left running for nobody.
+    if (!found) void vigil.unusedStop()
     setOpen(false)
   }
   const move = (): void => {
@@ -128,16 +140,17 @@ export function UnusedFiles(): React.JSX.Element | null {
                     className="group flex min-w-0 flex-col gap-1.5 rounded-lg p-1 text-left transition-colors hover:bg-accent/60"
                   >
                     <span className={`relative flex aspect-square items-center justify-center overflow-hidden rounded-md border bg-accent/30 transition-opacity ${keep ? 'opacity-40' : ''}`}>
-                      {one.image
-                        ? <img src={`mindflow://assets/${one.name}`} alt="" loading="lazy" decoding="async" className="size-full object-cover" />
+                      {one.image && one.size < DRAWN && !broken.has(one.name)
+                        ? <img src={`mindflow://assets/${one.name}`} alt="" loading="lazy" decoding="async" className="size-full object-cover"
+                            onError={() => setBroken((was) => new Set(was).add(one.name))} />
                         : <span className="flex flex-col items-center gap-1 text-muted-foreground"><FileText className="size-6" /><span className="text-meta uppercase">{one.name.split('.').pop()}</span></span>}
                       <span className={`absolute top-1.5 right-1.5 flex size-4.5 items-center justify-center rounded-full border transition-colors ${keep ? 'border-foreground/30 bg-background/80' : 'border-transparent bg-primary text-primary-foreground'}`}>
                         {!keep && <Check className="size-3" strokeWidth={3} />}
                       </span>
                     </span>
-                    <span className="flex min-w-0 items-baseline justify-between gap-1 px-0.5 text-meta">
-                      <span className="truncate font-mono text-foreground/80">{short(one.name)}</span>
-                      <span className="shrink-0 text-muted-foreground">{keep ? 'kept' : bytes(one.size)}</span>
+                    <span className="flex min-w-0 flex-col px-0.5 text-meta leading-tight">
+                      <span className="truncate text-foreground/80">{named(one)}</span>
+                      <span className="text-muted-foreground tabular-nums">{keep ? 'Kept' : bytes(one.size)}</span>
                     </span>
                   </button>
                 )

@@ -11,7 +11,7 @@ import { MindflowEditor, TAGS, currentVim, foldEverything, goToHeading, onVimCha
 import { EXITS, exit, findCaptures, findHeadings, follow } from './lib/capture-links'
 import { toMarkdown } from './lib/export'
 import { useSameWords } from './lib/same-words'
-import { CaptureList, useCaptures } from './components/capture-list'
+import { CaptureList, useCaptures, type CaptureMeta } from './components/capture-list'
 import { RotCards, textOf } from './components/rot-cards'
 import { HintCard } from './components/hint-card'
 import { Pins } from './components/pins'
@@ -63,7 +63,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
-import { Tip } from '@/components/vigil/ui'
+import { Tip, Pressed } from '@/components/vigil/ui'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
@@ -270,7 +270,8 @@ export default function App(): React.JSX.Element {
   useEffect(() => {
     const later = setTimeout(convertImports, 1500)
     const stop = window.api.captures.onChange(convertImports)
-    return () => (clearTimeout(later), stop())
+    const landed = window.api.onImported(convertImports)
+    return () => (clearTimeout(later), stop(), landed())
   }, [])
 
   // The window's controls show while the pointer is over it. Told by the main
@@ -395,9 +396,10 @@ export default function App(): React.JSX.Element {
   const actionTags = useLive(() => vigil.tagMeta().then((meta) => meta.filter((row) => row.action).map((row) => row.tag)), [] as string[])
 
   // Kept as you type, so a half-written note survives quitting.
+  // Not while it is being sent: kept, it must not come back as a draft too.
   useEffect(() => {
-    if (!editing) putDraft(body)
-  }, [body, editing])
+    if (!editing && !sending) putDraft(body)
+  }, [body, editing, sending])
 
   // The same idea arriving again is a vote, not a duplicate: say so quietly,
   // and let the new one land anyway.
@@ -535,15 +537,16 @@ export default function App(): React.JSX.Element {
   // With the panel shut, ⇧⌘R still reads: the inbox, from the top.
   useReadKey(() => setReadList({ items: captures.filter((one) => one.status === 'open' && !one.archivedAt).map((one) => ({ type: 'capture', id: one.id })), start: 0 }), captures.length, !panel)
   // ⌘K: search everything from the prompt, and open what it finds here.
-  const [searching, setSearching] = useState(false)
+  // ⌘K: notes and every action. ⌘P, Obsidian's quick open: notes only.
+  const [searching, setSearching] = useState<boolean | 'notes'>(false)
   // What search opens with: a clicked tag, or nothing.
   const [searchFrom, setSearchFrom] = useState('')
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (!event.metaKey || event.key !== 'k') return
+      if (!event.metaKey || (event.key !== 'k' && event.key !== 'p')) return
       event.preventDefault()
       event.stopPropagation()
-      setSearching(true)
+      setSearching(event.key === 'k' || 'notes')
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
@@ -798,12 +801,19 @@ export default function App(): React.JSX.Element {
     // ⌥ is Linear's "create more": the box is fresh at once, so the next one
     // can be typed straight away. Otherwise the box leaves and the window goes.
     if (more) {
+      // Emptied now, not on the next render: a second ⌘↵ straight after
+      // would otherwise read the same words and keep them twice.
+      editorRef.current?.commands.clearContent()
       fresh()
       // Said on the button itself, rolling to Saved and back: the box is
       // already fresh for the next one, so nothing else needs to move.
       setSaved(true)
       setTimeout(() => setSaved(false), 1200)
-    } else setSending(true)
+    } else {
+      setSending(true)
+      // Quit before the box has gone, and it is kept once, not kept and back as a draft.
+      localStorage.removeItem('capture-draft')
+    }
     void window.api.captures
       .create({ title: '', kind: sorted, elapsedMs: Date.now() - openedAt.current, body: hasContent(doc) ? doc : null, markdown,
         attribution: attribution.trim(), medium: where || undefined, private: secret })
@@ -830,6 +840,7 @@ export default function App(): React.JSX.Element {
         // the box; with it the box was already cleared, so they come back into
         // it, or, if the next note is under way, on a key from the toast.
         keepLifted(pieces)
+        if (!more) putDraft(doc)
         setSending(false)
         const why = `Not saved: ${whyFailed(error)}.`
         const restore = (): void => {
@@ -900,7 +911,7 @@ export default function App(): React.JSX.Element {
         <Search
           initial={searchFrom}
           // Everything the box can do, by name and key, as Raycast's ⌘K lists it.
-          actions={[
+          actions={searching === 'notes' ? [] : [
             { label: 'New capture', keys: '⌘N', run: () => startOver() },
             { label: 'New question', cue: null, run: () => void startQuestion(openAny) },
             { label: panel ? 'Hide the side panel' : 'Show the side panel', keys: '⌘\\', cue: null, run: () => setPanel(!panel) },
@@ -908,8 +919,8 @@ export default function App(): React.JSX.Element {
               setTab(one)
               if (!panel) setPanel(true)
             } })),
-            { label: 'Tidy the last few days: tags and formatting, nothing to decide', run: () => openPass('tidy') },
-            { label: 'Decide: the weekly pass over what you set aside', run: () => openPass('decide') },
+            { label: 'Tidy: a few minutes over the latest captures', run: () => openPass('tidy') },
+            { label: 'Decide: the weekly pass over what waited', run: () => openPass('decide') },
             { label: 'Read the inbox from the top', run: () => setReadList({ items: captures.filter((one) => one.status === 'open' && !one.archivedAt).map((one) => ({ type: 'capture', id: one.id })), start: 0 }) },
             { label: 'Copy this note as Markdown', keys: '⇧⌘C', run: copyMarkdown },
             ...(editing ? [{ label: 'Stick this note on the desktop', cue: null, run: () => stickOnDesktop('capture', editing.id) }] : []),
@@ -932,11 +943,13 @@ export default function App(): React.JSX.Element {
             { label: recordable ? 'Hide from screen recordings' : 'Show in screen recordings', cue: recordable ? 'off' : 'on', run: () => setRecordable(!recordable) },
             { label: reveal ? 'Blur private titles again' : 'Show private titles for now', cue: reveal ? 'off' : 'on', run: () => setReveal(!reveal) },
             { label: 'Open the main window', run: () => window.api.openInHome('view', 'inbox') },
-            { label: "Week's page", cue: 'season', run: () => window.api.openInHome('view', 'weekpage') },
-            { label: "Month's page", cue: 'season', run: () => window.api.openInHome('view', 'monthpage') },
+            { label: "Open the week's page", cue: 'season', run: () => window.api.openInHome('view', 'weekpage') },
+            { label: "Open the month's page", cue: 'season', run: () => window.api.openInHome('view', 'monthpage') },
             { label: 'Year: your seasons of life, month by month', cue: 'season', run: () => window.api.openInHome('view', 'yearpage') },
             ...noteActions(),
             { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('vigil:shortcuts')) },
+            { label: 'Import an Obsidian vault or Notion export…', cue: null, run: () => void window.api.importFrom('vault') },
+            { label: 'Import Readwise, Kindle, Markdown, bookmarks or Anki…', cue: null, run: () => void window.api.importFrom('files') },
             ...themeActions((text) => toast(text)),
             { label: appSettings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', cue: appSettings?.blur === false ? 'on' : 'off', run: () => void vigil.setSettings({ blur: appSettings?.blur === false }) },
             { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') },
@@ -1086,7 +1099,7 @@ export default function App(): React.JSX.Element {
               <div className="flex items-center gap-2 px-[4.75rem] pt-2 text-xs text-muted-foreground">
                 {/* A sentence, so it types in; the key drawn as a key. */}
                 <span className="truncate"><Typed text={`Your draft “${(firstLine(waiting) || 'unfinished').slice(0, 32)}${(firstLine(waiting) ?? '').length > 32 ? '…' : ''}” is waiting:`} /></span>
-                <span className="flex shrink-0 items-center gap-1"><Kbd>⌘[</Kbd> takes you back.</span>
+                <span className="flex shrink-0 items-center gap-1"><Pressed keys="⌘[" /> takes you back.</span>
               </div>
             )}
             {/* Under the writing: what it is, who said it and where you met it. */}
@@ -1275,7 +1288,7 @@ function useEscapeToHide(): void {
 function DetailsDrawer({ open, id, captures, onOpenChange, onOpen }: {
   open: boolean
   id: string
-  captures: Parameters<typeof CaptureList>[0]['captures']
+  captures: CaptureMeta[]
   onOpenChange: (open: boolean) => void
   onOpen: (type: string, id: string) => void
 }): React.JSX.Element | null {
@@ -1482,7 +1495,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   setTab: (tab: Tab) => void
   /** Read through a list, from a place in it. */
   onRead: (items: Readable[], start: number) => void
-  captures: Parameters<typeof CaptureList>[0]['captures']
+  captures: CaptureMeta[]
   editing?: string
   onOpen: (id: string) => void
   /** A task, nugget or article, opened in the prompt. */
@@ -1535,7 +1548,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   // The same Display menu as the main window's inbox: filter, sort, group.
   // Every capture, starting on those with no exit: Display's Status reaches
   // the handled and discarded ones without leaving the prompt.
-  const { groups, display } = useCaptureDisplay('prompt:captures', captures, { status: ['open'] })
+  const { groups, display, chips, density } = useCaptureDisplay('prompt:captures', captures, { status: ['open'] })
   const shown = groups.flatMap(([, list]) => list)
   // x picks several, the way it does in the main window, for one exit on all.
   const [chosen, setChosen] = useState<string[]>([])
@@ -1550,7 +1563,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   const tabs = BOX_TABS.filter((one) => shownTabs.includes(one.id) || one.id === tab) as (Place & { id: Tab })[]
   // The same keys as every list: j and k when the editor does not have the
   // focus, Enter to open. ⌃1 to ⌃4 switch tabs from anywhere in the window.
-  const [cursor] = useListKeys(shown.length, { onOpen: (index) => onOpen(shown[index].id), enabled: tab === 'inbox' })
+  const [cursor, setCursor] = useListKeys(shown.length, { onOpen: (index) => onOpen(shown[index].id), enabled: tab === 'inbox' })
   // On the row under the cursor: x picks it, and P, R and D take the exit the
   // right-click menu shows them beside.
   useEffect(() => {
@@ -1677,32 +1690,25 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                     </>
                   ) : (
                     <>
-                      <Tip label="Every capture with no exit yet; Display's Status shows the rest. x selects several.">
+                      <Tip label="Every capture with no exit yet; the sort and view menu (F) shows the rest under Status. x selects several.">
                         <h3 className="w-fit">{shown.length === open.length ? 'Inbox' : `${num(shown.length)} shown`}</h3>
                       </Tip>
                       <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R">
                         <Button variant="ghost" size="sm" className="ml-auto" onClick={() => onRead(shown.map((one) => ({ type: 'capture', id: one.id })), startAt(shown, editing, cursor))}>
-                          <AliveIcon icon={BookIcon} size={14} /> Read list
+                          <AliveIcon icon={BookIcon} size={14} /> Read through
                         </Button>
                       </Tip>
                       <span>{display}</span>
                     </>
                   )}
                 </Strip>
-                {groups.map(([name, list], index) => {
-                  const before = groups.slice(0, index).reduce((n, [, one]) => n + one.length, 0)
-                  return (
-                    <div key={name || 'all'}>
-                      {name && <div className="px-2 pt-3 pb-1 text-xs text-muted-foreground">{name} <span className="tabular-nums"><Rolling text={list.length} /></span></div>}
-                      <CaptureList captures={list} selected={editing} cursor={cursor - before} chosen={chosen} onPick={onOpen} />
-                    </div>
-                  )
-                })}
+                <div className="px-1 pb-1 empty:hidden">{chips}</div>
+                {shown.length > 0 && <CaptureList groups={groups} density={density} selected={editing} cursor={cursor} onCursor={setCursor} chosen={chosen} onPick={onOpen} />}
                 {!shown.length && (
                   open.length ? (
-                    <Empty compact shape={['ellipse', 3]} title="Nothing matches">Display's filters hide everything here. Change them, or clear them.</Empty>
+                    <Empty compact shape={['ellipse', 3]} title="Nothing matches">The filters hide everything here. Clear them with the × above, or press F to change them.</Empty>
                   ) : (
-                    <Rest compact seed="inbox"><Empty compact shape={['flower', 2]} title={captures.length ? 'Nothing waiting' : 'Nothing caught yet'}>{captures.length ? 'Every capture has taken its exit. Write the next thought on the left.' : 'Write a thought on the left and press Enter: it waits here.'}</Empty></Rest>
+                    <Rest compact seed="inbox"><Empty compact shape={['flower', 2]} title={captures.length ? 'Nothing waiting' : 'Nothing caught yet'}>{captures.length ? 'Every capture has taken its exit. Write the next thought on the left.' : 'Write a thought on the left and send it with ⌘↵: it waits here.'}</Empty></Rest>
                   )
                 )}
               </>

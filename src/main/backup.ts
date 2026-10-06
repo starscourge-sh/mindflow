@@ -5,7 +5,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { homedir } from 'os'
 import { join } from 'path'
 
-import { database } from './captures'
+import { database, setting } from './captures'
 import { dayKey } from './dates'
 
 /**
@@ -63,10 +63,7 @@ export async function backUp(db: DatabaseSync): Promise<void> {
 }
 
 /** Plain-text copies are a setting, on unless you turned them off. */
-const copiesOn = (): boolean => {
-  const row = database().prepare("select value from settings where key = 'markdownCopies'").get() as { value: string } | undefined
-  return row ? JSON.parse(row.value) !== false : true
-}
+const copiesOn = (): boolean => setting<unknown>('markdownCopies', true) !== false
 /** Whether a capture may have a Markdown copy: never a private or discarded one. */
 const mayCopy = (number: number): boolean =>
   copiesOn() && !!database().prepare("select 1 from captures where number = ? and private = 0 and status != 'discarded'").get(number)
@@ -76,8 +73,11 @@ const fileOf = (number: number): string => join(backupDir(), 'captures', `MF-${n
 export async function writeMarkdown(number: number, markdown: string): Promise<void> {
   // Asked before anything waits, so a capture made private in the same breath is never written.
   if (!mayCopy(number)) return void (await rm(fileOf(number), { force: true }).catch(() => undefined))
+  // A copy that cannot be written (iCloud full, a folder made read-only) is
+  // only a copy: the capture itself is already safe in the database.
   await mkdir(join(backupDir(), 'captures'), { recursive: true })
-  await writeFile(fileOf(number), markdown)
+    .then(() => writeFile(fileOf(number), markdown))
+    .catch((error) => console.error('Markdown copy failed:', error))
 }
 
 /** A capture just made private or discarded loses its copy now, not at the next hourly pass. */

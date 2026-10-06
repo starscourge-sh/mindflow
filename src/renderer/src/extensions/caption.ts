@@ -2,6 +2,8 @@ import { Extension, type Editor, type JSONContent } from "@tiptap/core"
 import { NodeSelection, Plugin, PluginKey, TextSelection, type EditorState } from "@tiptap/pm/state"
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view"
 
+import { onlyWordsChanged } from "@/lib/tiptap-utils"
+
 /** What can carry a caption: a picture, a YouTube video, a stored video or recording. */
 const MEDIA = new Set(["image", "youtube", "attachment"])
 
@@ -156,7 +158,22 @@ export const Caption = Extension.create({
   name: "caption",
 
   addGlobalAttributes() {
-    return [{ types: [...MEDIA], attributes: { caption: { default: null, rendered: false } } }]
+    // On the copied HTML as `data-caption`, so a picture pasted into another
+    // note keeps its words. Nothing draws it: the line under is a decoration.
+    return [
+      {
+        types: [...MEDIA],
+        attributes: {
+          caption: {
+            default: null,
+            // A web page's <figure> writes it as the <figcaption> beside the picture.
+            parseHTML: (element) =>
+              element.getAttribute("data-caption") || element.closest("figure")?.querySelector("figcaption")?.textContent?.replace(/\s+/g, " ").trim() || null,
+            renderHTML: ({ caption }) => (caption ? { "data-caption": caption } : {}),
+          },
+        },
+      },
+    ]
   },
 
   // A note saved with the italic line opens with a real caption. Not an edit:
@@ -179,6 +196,8 @@ export const Caption = Extension.create({
           apply(tr, old, _, state) {
             const meta = tr.getMeta(key) as number | null | undefined
             if (meta === undefined && !tr.docChanged) return old
+            // Words typed in a line: every caption only moves with the text.
+            if (meta === undefined && old.editing == null && onlyWordsChanged(tr)) return { editing: null, set: old.set.map(tr.mapping, tr.doc) }
             const editing = meta !== undefined ? meta : old.editing == null ? null : tr.mapping.map(old.editing)
             return { editing, set: decorate(state, editing) }
           },

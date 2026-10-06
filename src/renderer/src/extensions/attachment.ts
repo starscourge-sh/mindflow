@@ -98,8 +98,9 @@ export const Attachment = Node.create({
 
   /** A link to the stored file, under the name it arrived with. */
   renderMarkdown(node): string {
-    const { name, src } = (node.attrs ?? {}) as Partial<AttachmentAttributes>
-    return captioned(`[${name || "Attachment"}](${src})`, node)
+    const { name, src, size } = (node.attrs ?? {}) as Partial<AttachmentAttributes>
+    // The size rides as the link's title, where the reader looks for it.
+    return captioned(`[${name || "Attachment"}](${src}${size ? ` "${size}"` : ""})`, node)
   },
 
   addCommands() {

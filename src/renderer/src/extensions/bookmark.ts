@@ -2,6 +2,7 @@ import { Node, mergeAttributes } from "@tiptap/core"
 import { ReactNodeViewRenderer } from "@tiptap/react"
 
 import { BookmarkView } from "@/components/bookmark/bookmark-view"
+import { CARD_FIELDS } from "@/extensions/card-link"
 
 /**
  * A link rendered as a preview card: thumbnail, title, description, site.
@@ -110,9 +111,16 @@ export const Bookmark = Node.create({
     return ReactNodeViewRenderer(BookmarkView)
   },
 
+  /**
+   * Obsidian's link card, the fenced `cardlink` block: every field the card
+   * shows, so it reads back as the same card rather than a bare link.
+   */
   renderMarkdown(node): string {
-    const { href, title } = (node.attrs ?? {}) as Partial<BookmarkAttributes>
-    return `[${title || href}](${href})`
+    const attrs = (node.attrs ?? {}) as Record<string, string>
+    const lines = Object.entries(CARD_FIELDS)
+      .filter(([, attr]) => attrs[attr])
+      .map(([field, attr]) => `${field}: "${String(attrs[attr]).replace(/\s+/g, " ")}"`)
+    return ["```cardlink", ...lines, "```"].join("\n")
   },
 
   addCommands() {

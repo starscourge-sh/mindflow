@@ -11,7 +11,7 @@ import { makeTask } from '@/lib/tasks'
 import { archive } from '@/lib/notes'
 import { useLive, vigil, type PassItem, type Settings } from '@/lib/vigil'
 import { Button } from '@/components/ui/button'
-import { Kbd, Rolling, Tip, Typed, toast } from './ui'
+import { Kbd, Rolling, Tip, Typed, toast, Pressed } from './ui'
 import { Scenery } from './scenery'
 import { textOf } from '../rot-cards'
 import { PinnedQuestions, clueInto } from './pinned-questions'
@@ -387,9 +387,9 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
           {item && tidy && <Action label={back[item.id] ? `Back on ${day}` : `Come back ${day}`} keys="C" tip={back[item.id] ? 'Set aside: it waits for deciding day. Press again to take the mark off' : `Set it aside for ${day}'s deciding pass, and let it go until then`} tint="orange" on={!!back[item.id]} run={() => comeBack(item.id)} />}
           {item && !tidy && <Action label="Next week" keys="C" tip="Not this week: it comes round again next week" tint="orange" run={() => nextWeek(item.id)} />}
           <span className="ml-2 flex items-center gap-1">
-            <Kbd>J</Kbd><span>{tidy ? 'tidied, next' : 'next'}</span>
-            <Kbd className="ml-1">K</Kbd><span>back</span>
-            {!tidy && <><Kbd className="ml-1">E</Kbd><span>open it</span></>}
+            <Pressed keys="J" /><span>{tidy ? 'tidied, next' : 'next'}</span>
+            <Pressed className="ml-1" keys="K" /><span>back</span>
+            {!tidy && <><Pressed className="ml-1" keys="E" /><span>open it</span></>}
             <Kbd className="ml-1">Esc</Kbd><span>{tidy ? 'stop for now' : 'close'}</span>
           </span>
         </footer>
@@ -405,7 +405,7 @@ function Action({ label, keys, tip, tint, on, run }: { label: string; keys: stri
       <Button variant="ghost" size="sm" onMouseDown={(event) => event.preventDefault()} onClick={run} aria-pressed={on}
         className={`text-muted-foreground transition-colors hover:text-[var(--tint)] ${on ? 'bg-accent text-[var(--tint)]' : ''}`}
         style={{ '--tint': tint ? `var(--tt-color-text-${tint})` : 'var(--foreground)' } as React.CSSProperties}>
-        <Rolling text={label} by="word" /> <Kbd className="ml-1">{keys}</Kbd>
+        <Rolling text={label} by="word" /> <Pressed className="ml-1" keys={keys} />
       </Button>
     </Tip>
   )

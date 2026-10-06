@@ -7,13 +7,14 @@ import { AnimatePresence, motion } from 'motion/react'
 import { MindflowEditor } from '../mindflow'
 import { vigil } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
-import { Kbd, Rolling } from './ui'
+import { Kbd, Rolling, Pressed } from './ui'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { exit } from '@/lib/capture-links'
 import { Scenery } from './scenery'
 import { GlossLine, openGloss } from './gloss-line'
 
-export type Readable = { type: string; id: string }
+/** `body`: words read as they are, never changed here, like a question's clues. */
+export type Readable = { type: string; id: string; body?: string; title?: string }
 
 /**
  * Reading, and nothing else: the notes of the list you were on, one at a
@@ -59,6 +60,7 @@ export function ReadThrough({ items, start = 0, onClose }: {
   useEffect(() => {
     if (!item) return
     setPage(null)
+    if (item.body !== undefined) return setPage({ id: item.id, title: item.title, body: item.body })
     const load = item.type === 'capture'
       ? window.api.captures.get(item.id).then((found) => found && { body: found.body as JSONContent })
       : vigil.item(item.id).then((found) => found && { title: found.tier === 'article' ? found.title : undefined, body: found.body as JSONContent })
@@ -99,8 +101,8 @@ export function ReadThrough({ items, start = 0, onClose }: {
       else if (back) setAt((n) => Math.max(0, n - 1))
       else if (event.key === 'Escape') onClose()
       // ; a thought on the page in front of you, kept beside it, dated.
-      else if (event.key === ';' && item) openGloss(item.id)
-      else if ((event.key === 'e' || event.key === 'Enter') && item) {
+      else if (event.key === ';' && item && item.body === undefined) openGloss(item.id)
+      else if ((event.key === 'e' || event.key === 'Enter') && item && item.body === undefined) {
         event.preventDefault()
         chime('on')
         setWriting(true)
@@ -150,7 +152,7 @@ export function ReadThrough({ items, start = 0, onClose }: {
         >
           {page?.title && <h1 className="mb-4 text-3xl font-semibold text-balance">{page.title}</h1>}
           {page && page.id === item.id && (
-            <div className={writing ? '' : 'cursor-text'} onClick={() => void (!writing && (chime('on'), setWriting(true)))}>
+            <div className={writing ? '' : 'cursor-text'} onClick={() => void (!writing && item.body === undefined && (chime('on'), setWriting(true)))}>
             <MindflowEditor
               key={`${item.id}-${writing}`}
               // The note's own files, so its pictures load.
@@ -174,7 +176,7 @@ export function ReadThrough({ items, start = 0, onClose }: {
             />
             </div>
           )}
-          {page && page.id === item.id && !writing && <GlossLine id={item.id} className="mt-8 text-control" />}
+          {page && page.id === item.id && !writing && item.body === undefined && <GlossLine id={item.id} className="mt-8 text-control" />}
         </motion.article>
       </AnimatePresence>
       {/* The only furniture: where you are, and how to move. */}
@@ -189,10 +191,10 @@ export function ReadThrough({ items, start = 0, onClose }: {
           <span><span className="text-foreground">Writing</span>, saved as you go · <Kbd>Esc</Kbd> back to reading</span>
         ) : (
           <>
-            <span><Kbd>↓</Kbd> <Kbd>J</Kbd> next · <Kbd>↑</Kbd> <Kbd>K</Kbd> back</span>
-            <span><Kbd>E</Kbd> write in it</span>
-            <span><Kbd>;</Kbd> a thought</span>
-            {item.type === 'capture' && <span><Kbd>P</Kbd> <Kbd>R</Kbd> <Kbd>D</Kbd> exits · <Kbd>T</Kbd> task</span>}
+            <span><Kbd>↓</Kbd> <Pressed keys="J" /> next · <Kbd>↑</Kbd> <Pressed keys="K" /> back</span>
+            {item.body === undefined && <><span><Pressed keys="E" /> write in it</span>
+            <span><Pressed keys=";" /> a thought</span></>}
+            {item.type === 'capture' && <span><Pressed keys="P" /> <Pressed keys="R" /> <Pressed keys="D" /> exits · <Pressed keys="T" /> task</span>}
             <span><Kbd>Esc</Kbd> close</span>
           </>
         )}

@@ -36,6 +36,7 @@ delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker
 import { Component, StrictMode, type ReactNode } from 'react'
 import { applyTheme, currentTheme } from './lib/theme'
 import { createRoot } from 'react-dom/client'
+import { MotionConfig } from 'motion/react'
 import App from './App'
 import { DrawingWindow } from './components/excalidraw/drawing-window'
 import { Home } from './home'
@@ -101,8 +102,11 @@ class Broken extends Component<{ children: ReactNode }, { error: Error | null }>
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    {/* What a Motion animation moves on unless it says otherwise: the app's curve (--mf-ease), at a UI pace. */}
+    <MotionConfig transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
     <Broken>
     {drawing ? <DrawingWindow id={drawing} /> : params.get('note') ? <NoteWindow link={params.get('note')!} /> : params.get('view') === 'home' ? <Home /> : params.get('view') === 'focus' ? <FocusPill /> : params.get('view') === 'glow' ? <ScreenGlow /> : params.get('view') === 'sticky' ? <StickyNote type={params.get('type') ?? 'capture'} id={params.get('id') ?? ''} /> : <App />}
     </Broken>
+    </MotionConfig>
   </StrictMode>
 )

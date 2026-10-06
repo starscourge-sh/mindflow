@@ -5,7 +5,7 @@ import { join } from 'path'
 import { homedir } from 'os'
 import { createEmptyCard, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
 
-import { LABEL, LIST, changed, database, like, movedOn, type Change } from './captures'
+import { LABEL, LIST, atomically, changed, database, like, movedOn, type Change } from './captures'
 import { advance, readTask } from './task-words'
 import { dayKey, dayMonth, dayjs, daysFromToday, monthName, num, startOfDay } from './dates'
 import { backupDir, checkMarkdown } from './backup'
@@ -270,7 +270,16 @@ export const motionOn = (): boolean => settings().motion
 
 function settings(): Settings {
   const rows = database().prepare('select key, value from settings').all() as { key: string; value: string }[]
-  return { ...DEFAULTS, ...Object.fromEntries(rows.map((row) => [row.key, JSON.parse(row.value)])) }
+  // A row that no longer reads (a damaged file) falls back to its default,
+  // rather than every window failing to start.
+  const read = (value: string): unknown => {
+    try {
+      return JSON.parse(value)
+    } catch {
+      return undefined
+    }
+  }
+  return { ...DEFAULTS, ...Object.fromEntries(rows.map((row) => [row.key, read(row.value)]).filter(([, value]) => value !== undefined)) }
 }
 
 /**
@@ -423,6 +432,8 @@ export function registerVigil(): void {
   column('tasks', 'sort_order real')
   column('tasks', 'notified_at text')
   column('tasks', 'repeat_until text')
+  // The day of the month a monthly series began on, kept once it first moves on.
+  column('tasks', 'repeat_day integer')
   column('tasks', 'important integer not null default 0')
   column('tasks', 'deadline_at text')
   // "by 5pm" has a time that matters; "by friday" is only a day.
@@ -535,12 +546,13 @@ export function registerVigil(): void {
   // for filling in when a batch of old things was really written.
   handle('captures:bulk', (ids: string[], change: { tag?: string; capturedAt?: string }) => {
     // One write for the lot: a hundred rows are one change, not a hundred.
-    db.exec('begin')
-    for (const id of ids) {
+    atomically(() => { for (const id of ids) {
       if (change.capturedAt) db.prepare('update captures set captured_at = ? where id = ?').run(change.capturedAt, id)
       if (!change.tag) continue
       const tag = `#${change.tag.replace(/^#/, '')}`
-      const row = db.prepare('select body from captures where id = ?').get(id) as { body: string }
+      // Gone meanwhile, from another window: nothing to tag.
+      const row = db.prepare('select body from captures where id = ?').get(id) as { body: string } | undefined
+      if (!row) continue
       const body = JSON.parse(row.body ?? 'null')
       // On the first line, where a row reads its tags: added at the end it
       // was there but never showed.
@@ -553,8 +565,7 @@ export function registerVigil(): void {
           : { ...body, content: [{ type: 'paragraph', content: [{ type: 'text', text: tag }] }, ...(body.content ?? [])] }
         : String(body ?? '').replace(/^([^\n]*)/, (line) => `${line} ${tag}`.trim())
       db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(next), id)
-    }
-    db.exec('commit')
+    } })
     return write(ids.length)
   })
   // One task from several captures: each is linked from it, so the task can
@@ -727,7 +738,10 @@ export function registerVigil(): void {
         const label = /"label":"([^"]*)"/.exec(row.body.slice(Math.max(0, row.body.search(new RegExp(`"id":"(?:[a-z]+:)?${id}"`)))))?.[1] ??
           new RegExp(`\\[\\[@(?:[a-z]+:)?${id}\\|([^\\]]+)\\]\\]`).exec(row.body)?.[1] ?? name
         const at = text.indexOf(label)
-        linked.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: at >= 0 ? around(text, at, label.length) : text.slice(0, 160) })
+        const snippet = at >= 0 ? around(text, at, label.length) : text.slice(0, 160)
+        // A line that is only the link and tags says nothing the row does not: none then.
+        const bare = !snippet.replace(label, '').replace(/(?:^|\s)#[a-z][\w-]*/gi, '').replace(row.title ?? '', '').replace(/[\s….,:;·-]/g, '')
+        linked.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: bare ? '' : snippet })
         continue
       }
       const hit = pattern?.exec(text)
@@ -1152,7 +1166,8 @@ export function registerVigil(): void {
   reviewQueue = () => {
     const { reviewsPerDay } = settings()
     const newPerDay = newCap().cap
-    const today = new Date().toISOString().slice(0, 10)
+    // Today on your calendar, not London's: a day's limits start at your midnight.
+    const today = new Date(startOfDay()).toISOString()
     const done = db.prepare('select sum(first) as fresh, count(*) - sum(first) as old from review_log where reviewed_at >= ?').get(today) as { fresh: number | null; old: number | null }
     // Most at risk: the lowest chance of recall now, by the card's own memory.
     const risk = scheduler()
@@ -1564,7 +1579,8 @@ export function registerVigil(): void {
       const was = (db.prepare('select due_at from tasks where id = ?').get(id) as { due_at: string | null }).due_at
       // An undo says the count itself; it is not one more reschedule.
       const later = patch.reschedules === undefined && was && patch.due && patch.due > was ? 1 : 0
-      db.prepare('update tasks set due_at = ?, notified_at = null, reschedules = reschedules + ? where id = ?').run(patch.due, later, id)
+      // A series moved by hand begins again from its new day.
+      db.prepare('update tasks set due_at = ?, notified_at = null, reschedules = reschedules + ?, repeat_day = null where id = ?').run(patch.due, later, id)
     }
     // A new due-by date is a new moment to be told about, as a new day is.
     if (patch.deadline !== undefined && patch.deadline !== deadlineWas) db.prepare('update tasks set notified_at = null where id = ?').run(id)
@@ -1579,7 +1595,7 @@ export function registerVigil(): void {
   // completion note. A routine closes many times, so it is a row, not a field.
   // It gives back what it was, so a routine ticked by mistake can be put back.
   const finish = (id: string, session: string | null = null): { dueAt: string | null; doneAt: string; notifiedAt: string | null; deadlineAt?: string | null } => {
-    const task = db.prepare('select due_at, deadline_at, recurrence, repeat_until, notified_at from tasks where id = ?').get(id) as { due_at: string | null; deadline_at: string | null; recurrence: string | null; repeat_until: string | null; notified_at: string | null }
+    const task = db.prepare('select due_at, deadline_at, recurrence, repeat_until, repeat_day, notified_at from tasks where id = ?').get(id) as { due_at: string | null; deadline_at: string | null; recurrence: string | null; repeat_until: string | null; repeat_day: number | null; notified_at: string | null }
     const doneAt = now()
     const was = { dueAt: task.due_at, doneAt, notifiedAt: task.notified_at, deadlineAt: task.deadline_at }
     db.prepare('insert into task_done (task_id, done_at, session_id) values (?, ?, ?)').run(id, doneAt, session)
@@ -1590,8 +1606,13 @@ export function registerVigil(): void {
     // 9 stays at 9, rather than taking the minute it was ticked.
     const at = dayjs(task.due_at ?? undefined)
     const base = fromToday && task.due_at ? dayjs().hour(at.hour()).minute(at.minute()).startOf('minute').toDate() : new Date()
-    let next = advance(fromToday ? base : new Date(task.due_at!), task.recurrence)
-    while (next.getTime() < Date.now()) next = advance(next, task.recurrence)
+    // The day it began on, so the 31st is the 31st again after a short month.
+    const day = task.repeat_day ?? (task.due_at ? dayjs(task.due_at).date() : undefined)
+    if (day && task.repeat_day === null) db.prepare('update tasks set repeat_day = ? where id = ?').run(day, id)
+    let next = advance(fromToday ? base : new Date(task.due_at!), task.recurrence, day)
+    // A rule that cannot move the date on is no series: done, rather than a loop that never ends.
+    if (next.getTime() <= (fromToday ? base : new Date(task.due_at!)).getTime()) return close()
+    while (next.getTime() < Date.now()) next = advance(next, task.recurrence, day)
     // Past its end, the series is over: this one was the last.
     if (task.repeat_until && next.toISOString() > task.repeat_until) return close()
     // A deadline moves with the date it belongs to, the same distance on.
@@ -1869,7 +1890,7 @@ export function registerVigil(): void {
       nuggets: one<{ n: number }>("select count(*) n from nuggets where tier = 'nugget'").n,
       articles: one<{ n: number }>("select count(*) n from nuggets where tier = 'article'").n,
       recall: one<{ n: number }>("select count(*) n from nuggets where coalesce(prompt, '') != ''").n,
-      days: all<{ day: string }>('select distinct substr(opened_at, 1, 10) day from app_opens where opened_at >= ?', ago(84)).map((row) => row.day),
+      days: all<{ day: string }>("select distinct date(opened_at, 'localtime') day from app_opens where opened_at >= ?", ago(84)).map((row) => row.day),
       hints: one<{ shown: number; up: number; down: number }>(
         "select count(*) shown, sum(reaction = 'up') up, sum(reaction = 'down') down from hint_events where shown_at >= ?", ago(30)),
       reviews: one<{ n: number; recalled: number }>('select count(*) n, sum(grade > 1) recalled from review_log where reviewed_at >= ?', ago(30)),
@@ -1892,7 +1913,7 @@ export function registerVigil(): void {
       lead: {
         exits: one<{ n: number }>("select count(*) n from captures where exited_at >= ?", ago(7)).n,
         glosses: one<{ n: number }>("select count(*) n from glosses where author = 'user' and created_at >= ?", ago(7)).n,
-        reviewDays: one<{ n: number }>('select count(distinct substr(reviewed_at, 1, 10)) n from review_log where reviewed_at >= ?', ago(7)).n,
+        reviewDays: one<{ n: number }>("select count(distinct date(reviewed_at, 'localtime')) n from review_log where reviewed_at >= ?", ago(7)).n,
         articles: one<{ n: number }>("select count(*) n from nuggets where tier = 'article' and created_at >= ?", ago(7)).n
       },
       // Wrapped, for the day and for the year: what happened, set down plainly.
@@ -1929,7 +1950,7 @@ export function registerVigil(): void {
   handle('export', async () => {
     const { filePaths } = await dialog.showOpenDialog({ title: 'Export everything to…', properties: ['openDirectory', 'createDirectory'] })
     if (!filePaths[0]) return null
-    const folder = join(filePaths[0], `vigil-${new Date().toISOString().slice(0, 10)}`)
+    const folder = join(filePaths[0], `vigil-${dayKey()}`)
     await mkdir(join(folder, 'markdown'), { recursive: true })
     // Every table, so nothing stays behind in the app: sessions, settings and all.
     const tables = (db.prepare("select name from sqlite_master where type = 'table' and name not like 'sqlite_%'").all() as { name: string }[]).map((row) => row.name)
@@ -1985,6 +2006,87 @@ export function registerVigil(): void {
     await cp(join(app.getPath('userData'), 'assets'), join(folder, 'assets'), { recursive: true }).catch(() => undefined)
     return folder
   })
+
+  // --- related: the notes that share tags with this one
+  // Each note's tags in a table of this connection's own, kept true by
+  // triggers as notes are written, so asking is one indexed query rather than
+  // reading every note. Temporary: nothing on disk, built on first use.
+  db.function('note_tags', (title, body) => {
+    let words = ''
+    try {
+      words = plain(JSON.parse(String(body ?? 'null')))
+    } catch {
+      words = String(body ?? '')
+    }
+    return JSON.stringify(tagsIn(`${title ?? ''} ${words}`))
+  })
+  let indexed = false
+  const index = (): void => {
+    if (indexed) return
+    indexed = true
+    const fill = (type: string, row: string): string => `insert into temp.note_tag select ${row}.id, ${type}, value from json_each(note_tags(${row}.title, ${row}.body))`
+    db.exec(`create temp table note_tag (id text not null, type text not null, tag text not null);
+      insert into temp.note_tag select c.id, 'capture', j.value from captures c, json_each(note_tags(c.title, c.body)) j;
+      insert into temp.note_tag select n.id, n.tier, j.value from nuggets n, json_each(note_tags(n.title, n.body)) j;
+      create index temp.note_tag_by_tag on note_tag(tag);
+      create index temp.note_tag_by_id on note_tag(id);
+      create temp trigger note_tag_capture_in after insert on main.captures begin ${fill("'capture'", 'new')}; end;
+      create temp trigger note_tag_capture_edit after update of title, body on main.captures begin delete from temp.note_tag where id = old.id; ${fill("'capture'", 'new')}; end;
+      create temp trigger note_tag_capture_out after delete on main.captures begin delete from temp.note_tag where id = old.id; end;
+      create temp trigger note_tag_nugget_in after insert on main.nuggets begin ${fill('new.tier', 'new')}; end;
+      create temp trigger note_tag_nugget_edit after update of title, body, tier on main.nuggets begin delete from temp.note_tag where id = old.id; ${fill('new.tier', 'new')}; end;
+      create temp trigger note_tag_nugget_out after delete on main.nuggets begin delete from temp.note_tag where id = old.id; end;`)
+  }
+  // Ranked by the tags they share, a rare tag worth more than a common one
+  // (one on 3 notes says more than one on 300), then the newest. An alias
+  // counts as its tag. Notes linked either way are left out after: the panel
+  // lists them above already.
+  const RELATED = `
+    with mine as (select distinct coalesce(m.alias_of, t.tag) as tag from note_tag t left join tag_meta m on m.tag = t.tag where t.id = :id),
+    spelled as (select tag as raw, tag from mine union select m.tag, m.alias_of from tag_meta m join mine on mine.tag = m.alias_of),
+    alive as (
+      select distinct t.id, t.type, s.tag from note_tag t join spelled s on s.raw = t.tag
+      where case when t.type = 'capture'
+        then exists (select 1 from captures c where c.id = t.id and c.status != 'discarded' and c.archived_at is null)
+        else exists (select 1 from nuggets n where n.id = t.id and n.archived_at is null and n.superseded_by is null) end
+    ),
+    spread as (select tag, count(*) as n from alive group by tag)
+    select a.type, a.id, sum(1.0 / ln(1 + s.n)) as score, json_group_array(json_array(s.tag, s.n)) as shared
+      from alive a join spread s using (tag) where a.id != :id group by a.id order by score desc limit 60`
+  let related: ReturnType<typeof db.prepare> | undefined
+  let detail: ReturnType<typeof db.prepare> | undefined
+  handle('related', (id: string) => {
+    index()
+    // Prepared on first use: some columns it reads are added after this runs.
+    related ??= db.prepare(RELATED)
+    detail ??= db.prepare(`select id, ${LABEL} as title, body, private, coalesce(edited_at, captured_at) as at from captures where id in (select value from json_each(?))
+      union all select id, title, body, private, coalesce(updated_at, created_at) from nuggets where id in (select value from json_each(?))`)
+    const ranked = related.all({ id }) as { type: string; id: string; score: number; shared: string }[]
+    const ids = JSON.stringify([id, ...ranked.map((row) => row.id)])
+    const rows = new Map((detail.all(ids, ids) as { id: string; title: string; body: string | null; private: number; at: string }[]).map((row) => [row.id, row]))
+    const mine = rows.get(id)?.body ?? ''
+    const { hidePrivate } = gate()
+    return ranked
+      .map((one) => ({ ...one, ...rows.get(one.id)! }))
+      // Linked either way, an id in the other's words; private, when hidden.
+      .filter((row) => row.title !== undefined && !(row.body ?? '').includes(id) && !mine.includes(row.id) && !(hidePrivate && row.private))
+      // Equal scores, the newest first.
+      .sort((a, b) => b.score - a.score || String(b.at).localeCompare(String(a.at)))
+      .slice(0, 12)
+      .map((row) => {
+        let text = ''
+        try {
+          text = plain(JSON.parse(row.body ?? 'null'))
+        } catch {
+          text = row.body ?? ''
+        }
+        // A few words after the name, tags out: the card names them below.
+        const excerpt = text.replace(/(?:^|\s)#[a-z][\w-]*/gi, ' ').split('\n').map((line) => line.trim()).filter((line) => line && line !== row.title.trim()).join(' ').slice(0, 220)
+        // Rarest first, the ones that say the most.
+        const shared = (JSON.parse(row.shared) as [string, number][]).sort((a, b) => a[1] - b[1]).map(([tag]) => tag)
+        return { type: row.type, id: row.id, title: row.title, excerpt, private: !!row.private, at: row.at, shared }
+      })
+  })
 }
 
 /** When a task's time comes: its timed date, or else a timed "by", as "by 5pm". All-day ones never come. */
@@ -2017,4 +2119,92 @@ export function activeSession(): { title: string; startedAt: string } | null {
   return (database()
     .prepare('select t.title, s.started_at as startedAt from sessions s join tasks t on t.id = s.task_id where s.ended_at is null order by s.started_at desc limit 1')
     .get() as { title: string; startedAt: string } | undefined) ?? null
+}
+
+// --- Home: what comes back to you, read in one go -------------------------
+
+/** One thing on a Home shelf: a capture, nugget, article or question. */
+type Shelved = { type: string; id: string; title: string; kind: string; private: number; at: string }
+
+/**
+ * Home's shelves in one read, and nothing written while reading: unlike a
+ * hint or a memory card, looking at Home never counts as being shown
+ * something. Opens are kept by `home:opened`, one row per note.
+ */
+export function registerHome(): void {
+  const db = database()
+  db.exec('create table if not exists note_opens (id text primary key, type text not null, at text not null)')
+  ipcMain.handle('vigil:home:opened', (_event, type: string, id: string) =>
+    void db.prepare('insert into note_opens (id, type, at) values (?, ?, ?) on conflict(id) do update set at = excluded.at, type = excluded.type').run(id, type, now()))
+
+  // Every note in view, as a shelf shows it: newest change first.
+  const NOTES = `select id, 'capture' as type, ${LABEL} as title, kind, private, coalesce(edited_at, captured_at) as at, captured_at as made, body from captures where status != 'discarded' and archived_at is null
+    union all select id, tier, coalesce(nullif(title, ''), label('', body)), kind, private, coalesce(updated_at, created_at), created_at, body from nuggets where archived_at is null and superseded_by is null`
+  const strip = ({ type, id, title, kind, private: hidden, at }: Shelved): Shelved => ({ type, id, title, kind, private: hidden, at })
+
+  ipcMain.handle('vigil:home', () => {
+    const { blackout, hidePrivate } = gate()
+    const all = db.prepare(NOTES).all() as (Shelved & { made: string; body: string | null })[]
+    const byId = new Map(all.map((row) => [row.id, row]))
+    // Asked for, so private ones show (blurred); offered, so they wait out quiet hours.
+    const offered = (row: Shelved): boolean => !(hidePrivate && row.private)
+    const opened = (db.prepare('select id, at from note_opens order by at desc limit 24').all() as { id: string; at: string }[])
+      .flatMap((open) => { const row = byId.get(open.id); return row && row.type !== 'question' ? [{ ...strip(row), at: open.at }] : [] })
+    const edited = [...all].filter((row) => row.type !== 'question').sort((a, b) => b.at.localeCompare(a.at)).slice(0, 16).map(strip)
+
+    // A note caught on this day in an earlier year: the first of them, so it holds all day.
+    const today = dayKey()
+    const memory = blackout ? null : all
+      .filter((row) => row.type === 'capture' && offered(row) && !row.private && dayKey(row.made).slice(5) === today.slice(5) && dayKey(row.made).slice(0, 4) < today.slice(0, 4))
+      .sort((a, b) => a.made.localeCompare(b.made))[0]
+    const years = memory ? dayjs().year() - dayjs(memory.made).year() : 0
+
+    // Due for review now, and kept things longest unseen: the hints' pool, read without picking.
+    const due = (db.prepare("select id from nuggets where tier = 'nugget' and suspended = 0 and archived_at is null and superseded_by is null and due_at is not null and due_at <= ? order by due_at limit 12").all(now()) as { id: string }[])
+      .flatMap(({ id }) => { const row = byId.get(id); return row && offered(row) ? [strip(row)] : [] })
+    const unseen = blackout ? [] : (db.prepare("select id from nuggets where tier != 'question' and suspended = 0 and archived_at is null and superseded_by is null and private = 0 order by coalesce(last_visited_at, '') limit 8").all() as { id: string }[])
+      .flatMap(({ id }) => { const row = byId.get(id); return row && !due.some((one) => one.id === id) ? [strip(row)] : [] })
+    const article = all.filter((row) => row.type === 'article' && offered(row)).sort((a, b) => b.made.localeCompare(a.made))[0]
+
+    // Questions still held, each with its newest clue.
+    const questions = (db.prepare(`select n.id, (select body from glosses where item_id = n.id order by created_at desc limit 1) as clue,
+        (select created_at from glosses where item_id = n.id order by created_at desc limit 1) as clueAt
+      from nuggets n where tier = 'question' and closed_at is null and archived_at is null order by coalesce(clueAt, n.created_at) desc limit 12`).all() as { id: string; clue: string | null; clueAt: string | null }[])
+      .flatMap((one) => { const row = byId.get(one.id); return row ? [{ ...strip(row), clue: one.clue, at: one.clueAt ?? row.at }] : [] })
+
+    // The two tags used most in the last two months, each with what carries it.
+    const lately = all.filter((row) => row.made >= ago(60) || row.at >= ago(60))
+    const tagged = new Map<string, Shelved[]>()
+    for (const row of lately) {
+      let text = row.body ?? ''
+      try { text = plain(JSON.parse(text)) } catch { /* Markdown, as it is */ }
+      for (const tag of tagsIn(`${row.title} ${text}`)) tagged.set(tag, [...(tagged.get(tag) ?? []), strip(row)])
+    }
+    const colours = new Map((db.prepare('select tag, color from tag_meta').all() as { tag: string; color: string | null }[]).map((row) => [row.tag, row.color]))
+    const tags = [...tagged].filter(([, rows]) => rows.length >= 2).sort((a, b) => b[1].length - a[1].length).slice(0, 2)
+      .map(([tag, rows]) => ({ tag, color: colours.get(tag) ?? null, cards: rows.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 12) }))
+
+    const monday = dayjs().startOf('week').toISOString()
+    const week = all.filter((row) => row.made >= monday && row.type !== 'question').sort((a, b) => b.made.localeCompare(a.made)).slice(0, 16).map(strip)
+
+    // A few words after the first line, for the cards that have no picture: only for what is shown.
+    const excerpts = new Map<string, string>()
+    const excerpt = <T extends Shelved>(card: T): T & { excerpt: string } => {
+      if (!excerpts.has(card.id)) {
+        const raw = byId.get(card.id)?.body ?? ''
+        let text = raw
+        try { text = plain(JSON.parse(raw)) } catch { /* Markdown, as it is */ }
+        const lines = text.split('\n').map((line) => line.replace(/^[#>*\-\s]+/, '').trim()).filter(Boolean)
+        excerpts.set(card.id, (lines[0]?.startsWith(card.title.slice(0, 20)) ? lines.slice(1) : lines).join(' ').slice(0, 220))
+      }
+      return { ...card, excerpt: card.private ? '' : excerpts.get(card.id)! }
+    }
+    const each = <T extends Shelved>(list: T[]): (T & { excerpt: string })[] => list.map(excerpt)
+    return {
+      opened: each(opened), edited: each(edited), due: each(due), unseen: each(unseen), questions, week: each(week),
+      tags: tags.map((one) => ({ ...one, cards: each(one.cards) })),
+      memory: memory ? excerpt({ ...strip(memory), memory: years === 1 ? 'A year ago today' : `${years} years ago today` }) : null,
+      article: article ? excerpt(strip(article)) : null
+    }
+  })
 }

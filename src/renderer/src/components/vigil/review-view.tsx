@@ -7,7 +7,7 @@ import { MindflowEditor } from '../mindflow'
 import { textOf } from '../rot-cards'
 import { chime } from '@/lib/sound'
 import { interval, vigil, when, type Due, type Exam, useLive } from '@/lib/vigil'
-import { Empty, Kbd, Page, Rolling, toast, Typed, typing } from './ui'
+import { Empty, Kbd, Page, Rolling, toast, Typed, typing, Pressed } from './ui'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/vigil/ui'
@@ -162,7 +162,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
         ) : (
           <Rest seed="review-none" compact={compact}>
             <Empty compact={compact} shape={['moon', 1]} title="Nothing to review">
-              Review holds only what you chose to be tested on. Open a nugget and write it a question, and it joins the queue tomorrow at the latest.
+              Review holds only what you choose to be tested on. Open a nugget and write the question it answers, under Review: it joins the queue by tomorrow.
             </Empty>
           </Rest>
         )}
@@ -181,7 +181,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
       {at === 0 && <Exams exams={exams} />}
       {missed && (
         <p className="px-5 pt-4 -mb-6 text-xs text-muted-foreground">
-          <Typed text="Missed that one? Reread where it came from:" step={28} delay={100} /> <Kbd>R</Kbd>
+          <Typed text="Missed that one? Reread where it came from:" step={28} delay={100} /> <Pressed keys="R" />
         </p>
       )}
       {/* The next card is there at once: grading fast never waits for the
@@ -324,7 +324,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
         )}
         {!shown && (
           <Button variant="ghost" size="sm" onClick={bury} className="-mt-3 self-start text-muted-foreground">
-            Not today <Kbd>B</Kbd>
+            Not today <Pressed keys="B" />
           </Button>
         )}
       </motion.div>
@@ -494,7 +494,7 @@ export function Readiness({ exam, named = true }: { exam: Exam; named?: boolean 
         <>
           <div className="flex h-1.5 overflow-hidden rounded-full">
             {READY.map(({ key, color }) => exam[key] > 0 && (
-              <motion.div key={key} initial={{ width: 0 }} animate={{ width: `${(exam[key] / exam.total) * 100}%` }} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }} style={{ background: color }} />
+              <motion.div key={key} initial={{ width: 0 }} animate={{ width: `${(exam[key] / exam.total) * 100}%` }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} style={{ background: color }} />
             ))}
           </div>
           <p className="flex flex-wrap gap-x-3">

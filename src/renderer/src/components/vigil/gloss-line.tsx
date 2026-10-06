@@ -5,7 +5,7 @@ import { MessageSquareText } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, when, type Gloss } from '@/lib/vigil'
 import { cn } from '@/lib/cn'
-import { Island, Kbd, Rolling, Tip, toast, Typed, typing } from './ui'
+import { Island, Kbd, Rolling, Tip, toast, Typed, typing, Pressed } from './ui'
 import { ago } from '../../../../main/dates'
 
 /**
@@ -50,7 +50,7 @@ export function useGlossKey(id: string | null | undefined, enabled = true): void
  */
 export function GlossButton({ onClick, className }: { onClick: () => void; className?: string }): React.JSX.Element {
   return (
-    <Tip label={<span className="flex items-center gap-2">Add a thought<Kbd>;</Kbd></span>}>
+    <Tip label={<span className="flex items-center gap-2">Add a thought<Pressed keys=";" /></span>}>
       <button type="button" aria-label="Add a thought" onClick={(event) => (event.stopPropagation(), chime('tap'), onClick())}
         className={cn('absolute top-1 right-1 flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity group-hover/item:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100', className)}>
         <MessageSquareText className="size-3.5" />
@@ -185,7 +185,7 @@ export function GlossLine({ id, className, placeholder = 'A thought on it, in yo
               <span className="min-w-0 flex-1 truncate">Add a thought…</span>
             )}
             {last && <span className="shrink-0 opacity-0 transition-opacity group-hover/gloss:opacity-100 group-focus-visible/gloss:opacity-100">Add a thought</span>}
-            <span className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover/gloss:opacity-100 group-focus-visible/gloss:opacity-100">{Array.from(keys).map((key, n) => <Kbd key={n}>{key}</Kbd>)}</span>
+            <span className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover/gloss:opacity-100 group-focus-visible/gloss:opacity-100"><Pressed keys={keys} each /></span>
           </motion.button>
         )}
       </AnimatePresence>

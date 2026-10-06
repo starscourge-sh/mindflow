@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { AlignLeft, Check, ChevronRight, Columns3, LayoutGrid, Link2, List, ListChecks, Lock, Plus, Split, Star, Tags, Type, X } from 'lucide-react'
+import { AlignLeft, Check, ChevronRight, Columns3, Link2, ListChecks, Lock, Plus, Split, Star, Tags, Type, X } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import ClockIcon from '@/components/ui/clock-icon'
 import PenIcon from '@/components/ui/pen-icon'
@@ -15,16 +15,17 @@ import { Slider } from '@/components/ui/slider'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { chime, step, type Cue } from '@/lib/sound'
-import { notes, openWindow, smallPicture, useThumb, type GraphNode, type NoteTable, type Version } from '@/lib/notes'
-import { splitTags, useLive, vigil } from '@/lib/vigil'
+import { notes, smallPicture, useThumb, type GraphNode, type NoteTable, type Version } from '@/lib/notes'
+import { useLive, vigil } from '@/lib/vigil'
 import { Chips } from './display'
-import { RowMenu, copy, type MenuItem } from './row-menu'
+import { copy, type MenuItem } from './row-menu'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import BookIcon from '@/components/ui/book-icon'
 import { ReadThrough } from './read-through'
-import { Island, PropInput, Rolling, Tip, Typed, VirtualList, refuse, toast } from './ui'
+import { Island, PropInput, Rolling, Tip, Typed, refuse, toast } from './ui'
 import { age, dayKey, dayMonth, dayjs, moment, noon, num } from '../../../../main/dates'
+import { keyFor } from '@/lib/keys'
 
 // --- a note's first picture, small
 
@@ -42,120 +43,6 @@ export function Thumb({ id, className = 'size-9' }: { id: string; className?: st
     <span className={`private-text block shrink-0 overflow-hidden rounded-md border bg-accent/40 ${className}`}>
       {shown && <img src={shown} alt="" loading="lazy" decoding="async" draggable={false} className="size-full object-cover animate-in fade-in-0 duration-200" />}
     </span>
-  )
-}
-
-// --- list or cards
-
-export type Layout = 'list' | 'cards'
-/** Each list's own choice of list or cards, kept in this window like Display's. */
-export function useLayout(name: string): [Layout, (layout: Layout) => void] {
-  const key = `layout:${name}`
-  const read = (): Layout => {
-    try {
-      return localStorage.getItem(key) === 'cards' ? 'cards' : 'list'
-    } catch {
-      return 'list'
-    }
-  }
-  const [layout, setLayout] = useState(read)
-  useEffect(() => setLayout(read()), [name]) // eslint-disable-line react-hooks/exhaustive-deps
-  return [layout, (next) => {
-    setLayout(next)
-    try {
-      localStorage.setItem(key, next)
-    } catch {
-      // Applied, not kept.
-    }
-  }]
-}
-
-export function LayoutToggle({ layout, onChange }: { layout: Layout; onChange: (layout: Layout) => void }): React.JSX.Element {
-  return (
-    <span className="flex items-center rounded-md border">
-      {([['list', List, 'As a list'], ['cards', LayoutGrid, 'As cards, with pictures']] as const).map(([id, Icon, label], index) => (
-        <Tip key={id} label={label}>
-          <button
-            type="button"
-            aria-label={label}
-            aria-pressed={layout === id}
-            onClick={() => {
-              if (layout === id) return
-              chime(id === 'cards' ? 'slide' : 'fold')
-              onChange(id)
-            }}
-            className={`flex h-6 w-7 items-center justify-center ${index ? 'border-l' : ''} ${layout === id ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            <Icon className="size-3.5" />
-          </button>
-        </Tip>
-      ))}
-    </span>
-  )
-}
-
-export type Card = { id: string; title: string; kind: string; dim?: boolean; type: string; private?: boolean }
-
-/**
- * Notes as cards: the picture, the name, and the first lines under it. Rows
- * of cards, drawn only in view, as many across as fit.
- */
-export function NoteCards({ cards, table, selected, cursor = -1, onPick, menu }: {
-  cards: Card[]
-  table: NoteTable
-  selected?: string
-  cursor?: number
-  onPick: (id: string) => void
-  menu?: (card: Card) => MenuItem[]
-}): React.JSX.Element {
-  const box = useRef<HTMLDivElement>(null)
-  const [across, setAcross] = useState(3)
-  useLayoutEffect(() => {
-    const element = box.current
-    if (!element) return
-    const fit = (): void => setAcross(Math.max(1, Math.floor(element.clientWidth / 200)))
-    fit()
-    const watch = new ResizeObserver(fit)
-    watch.observe(element)
-    return () => watch.disconnect()
-  }, [])
-  const glance = useLive(() => notes.glance(table), {} as Record<string, string>, [table])
-  const rows = Array.from({ length: Math.ceil(cards.length / across) }, (_, at) => cards.slice(at * across, at * across + across))
-  return (
-    <div ref={box} className="px-3 py-2">
-      <VirtualList items={rows} keyOf={(row) => row[0].id} cursor={cursor >= 0 ? Math.floor(cursor / across) : undefined} estimate={190}>
-        {(row, rowAt) => (
-          <div className="grid gap-2 pb-2" style={{ gridTemplateColumns: `repeat(${across}, minmax(0, 1fr))` }}>
-            {row.map((card, at) => {
-              const index = rowAt * across + at
-              const kind = CAPTURE_TYPES.find((type) => type.id === card.kind) ?? CAPTURE_TYPES[0]
-              const { text } = splitTags(card.title)
-              // The words after the name, which the name already says.
-              const rest = (glance[card.id] ?? '').split('\n').filter((line) => line.trim() && !text.startsWith(line.trim().slice(0, 40))).join('\n')
-              const face = (
-                <button
-                  type="button"
-                  data-row
-                  data-cursor={index === cursor || undefined}
-                  data-id={card.id}
-                  data-private={card.private ? '' : undefined}
-                  onClick={(event) => (event.metaKey ? openWindow(card.type, card.id) : onPick(card.id))}
-                  className={`flex h-44 w-full flex-col overflow-hidden rounded-lg border text-left transition-colors hover:bg-accent/40 ${card.dim ? 'opacity-50' : ''} ${card.id === selected ? 'border-ring bg-accent/60' : index === cursor ? 'bg-accent/40' : ''}`}
-                >
-                  <Thumb id={card.id} className="h-20 w-full rounded-none border-0 border-b" />
-                  <span className="flex items-center gap-1.5 px-2.5 pt-2">
-                    <kind.icon className="size-3.5 shrink-0" style={{ color: kind.tint }} />
-                    <span className="private-text truncate text-sm font-medium">{text || 'Untitled'}</span>
-                  </span>
-                  <span className="private-text mt-1 line-clamp-4 px-2.5 text-xs leading-relaxed whitespace-pre-line text-muted-foreground">{rest}</span>
-                </button>
-              )
-              return <div key={card.id}>{menu ? <RowMenu items={menu(card)}>{face}</RowMenu> : face}</div>
-            })}
-          </div>
-        )}
-      </VirtualList>
-    </div>
   )
 }
 
@@ -619,11 +506,14 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
 } & Parameters<typeof Versions>[0]): React.JSX.Element {
   const at = edited && edited > captured ? edited : captured
   const old = age(at)
-  const said = `${edited && edited > captured ? 'Edited' : made} ${old === '0m' ? 'just now' : `${old} ago`}`
+  const verb = edited && edited > captured ? 'Edited' : made
+  const said = `${verb} ${old === '0m' ? 'just now' : `${old} ago`}`
+  // In a narrow pane, "Edited 2m": shorter, never cut off mid-word.
+  const short = `${verb} ${old === '0m' ? 'now' : old}`
   const items = menu.filter(Boolean) as Exclude<MenuItem, false | null | undefined>[]
   const [reading, setReading] = useState(false)
   return (
-    <div className={`flex min-h-7 items-center justify-between gap-2 px-3 @[40rem]/page:px-[4.25rem] ${className}`}>
+    <div className={`@container/head flex min-h-7 items-center justify-between gap-2 px-3 @[40rem]/page:px-[4.25rem] ${className}`}>
       {reading && <ReadThrough items={[{ type, id: versions.id }]} onClose={() => setReading(false)} />}
       {left ?? <span />}
       {looking ?? (
@@ -631,8 +521,9 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
           // On the right even when there is no list position to its left.
           <div className="ml-auto flex min-w-0 items-center gap-0.5">
             <Tip label={moment(at, 'dddd')}>
-              <button type="button" onClick={open} className="mr-1 truncate rounded-md px-1.5 py-1 text-xs whitespace-nowrap text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
-                {said}
+              <button type="button" aria-label={said} onClick={open} className="mr-1 shrink-0 rounded-md px-1.5 py-1 text-xs whitespace-nowrap text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+                <span className="hidden @[30rem]/head:inline">{said}</span>
+                <span className="@[30rem]/head:hidden">{short}</span>
               </button>
             </Tip>
             {tools}
@@ -660,7 +551,7 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
                   ) : (
                     <DropdownMenuItem key={item.label} variant={item.danger ? 'destructive' : 'default'} onSelect={item.run}>
                       {item.label}
-                      {item.keys && <DropdownMenuShortcut>{item.keys}</DropdownMenuShortcut>}
+                      {item.keys && keyFor(item.keys) && <DropdownMenuShortcut>{keyFor(item.keys)}</DropdownMenuShortcut>}
                     </DropdownMenuItem>
                   )
                 )}
@@ -732,7 +623,7 @@ export function LocalGraph({ id, title, onOpen }: { id: string; title: string; o
               const [x, y] = place(side, index, sides[side].length)
               const out = node.way !== 'in'
               return (
-                <motion.g key={node.id} data-private={node.private ? '' : undefined} initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.04, duration: 0.25 }}
+                <motion.g key={node.id} data-private={node.private ? '' : undefined} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.04, duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                   style={{ transformOrigin: `${x}px ${y}px`, cursor: onOpen ? 'pointer' : undefined }}
                   onClick={() => onOpen && (chime('tap'), onOpen(node.type, node.id))}>
                   <title>{`${out ? (node.way === 'both' ? 'Links both ways: ' : 'Links to: ') : 'Linked from: '}${node.title || 'Untitled'}`}</title>

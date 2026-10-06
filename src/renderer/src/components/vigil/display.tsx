@@ -1,5 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { Check, ChevronDown } from 'lucide-react'
+import { useEffect, useId, useState, type ReactNode } from 'react'
+import { motion } from 'motion/react'
+import { AlignJustify, Check, ChevronDown, Grid3x3, LayoutGrid, LayoutList, X } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -24,7 +25,25 @@ export type Choice = {
   tint?: string
 }
 export type Facet<T> = { key: string; label: string; options: Choice[]; test: (item: T, option: string) => boolean }
-export type View = { filter: Record<string, string[]>; sort: string; group: string }
+/** How a list is drawn, from the most rows on screen to the most picture. */
+export type Density = 'compact' | 'list' | 'small' | 'grid'
+export const DENSITIES: { id: Density; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: 'compact', label: 'Compact', icon: AlignJustify },
+  { id: 'list', label: 'List', icon: LayoutList },
+  { id: 'small', label: 'Small grid', icon: Grid3x3 },
+  { id: 'grid', label: 'Grid', icon: LayoutGrid }
+]
+/** The list beside the open note, the whole page, or a thin rail of pictures. */
+export type Pane = 'list' | 'wide' | 'rail'
+export type View = {
+  filter: Record<string, string[]>
+  sort: string
+  group: string
+  density?: Density
+  /** The density while the list fills the page: a grid unless you chose otherwise. */
+  wideDensity?: Density
+  pane?: Pane
+}
 
 export function useView(name: string, initial: { sort: string; group: string; filter?: View['filter'] }): [View, (view: View) => void] {
   const key = `view:${name}`
@@ -32,7 +51,12 @@ export function useView(name: string, initial: { sort: string; group: string; fi
   const start = { ...initial, filter: initial.filter ?? {} }
   const read = (): View => {
     try {
-      return { ...start, ...JSON.parse(localStorage.getItem(key) ?? '{}') }
+      const kept = { ...start, ...JSON.parse(localStorage.getItem(key) ?? '{}') }
+      // Oldest became Oldest untouched, the order things rot in.
+      if (kept.sort === 'oldest') kept.sort = 'untouched'
+      // The list or cards toggle that Display's View as replaced.
+      if (!kept.density && localStorage.getItem(`layout:${name}`) === 'cards') kept.density = 'grid'
+      return kept
     } catch {
       return start
     }
@@ -85,6 +109,9 @@ export function period(iso: string | null): string {
 export const AGES: Choice[] = ['Today', 'This week', 'This month', 'This year', 'Older'].map((id) => ({ id, label: id }))
 
 export function Chips({ options, on, pick, className = 'flex-wrap' }: { options: readonly Choice[]; on: (id: string) => boolean; pick: (id: string) => void; className?: string }): React.JSX.Element {
+  // Where one chip is chosen at a time, its pill slides to the next one, as the box's tabs do.
+  const group = useId()
+  const single = options.filter((option) => on(option.id)).length === 1
   return (
     <div data-hover-quiet className={`flex gap-x-1 gap-y-0.5 ${className}`}>
       {options.map((option) => (
@@ -95,8 +122,9 @@ export function Chips({ options, on, pick, className = 'flex-wrap' }: { options:
             chime('tap')
             pick(option.id)
           }}
-          className={`rounded-md px-2 py-0.5 text-xs transition-colors ${on(option.id) ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'}`}
+          className={`relative isolate rounded-md px-2 py-0.5 text-xs transition-colors ${on(option.id) ? `${single ? '' : 'bg-accent'} text-foreground` : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'}`}
         >
+          {single && on(option.id) && <motion.span layoutId={`${group}-chip`} className="absolute inset-0 -z-10 rounded-md bg-accent" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />}
           <Rolling text={option.label} />
         </button>
       ))}
@@ -179,12 +207,76 @@ const Row = ({ label, changed, children }: { label: string; changed: boolean; ch
 )
 
 /**
- * The Display button and its panel, the way Todoist lays it out: Sort, then
- * Filter, each setting a name and a field. A changed setting carries a dot,
- * each section counts its changes, and Reset all puts everything back. F opens
- * it from anywhere on the list.
+ * What the list is filtered by, as chips over it, Spotify's way: each one
+ * set shows filled, with one × in front that clears them all, and the kinds
+ * the list holds sit beside them a click away. Defaults a list starts with
+ * are not shown: they are where it is, not a filter you chose.
  */
-export function Display<T>({ view, onChange, facets, sorts, groups = [], defaults = {}, compact = false }: {
+export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 'kind', className = '' }: {
+  view: View
+  onChange: (view: View) => void
+  facets: Facet<T>[]
+  defaults?: View['filter']
+  /** The facet whose options are offered as chips before any is chosen. */
+  quick?: string
+  className?: string
+}): React.JSX.Element | null {
+  const set = facets.flatMap((facet) =>
+    (view.filter[facet.key] ?? []).filter((id) => !(defaults[facet.key] ?? []).includes(id)).map((id) => ({ facet, option: facet.options.find((one) => one.id === id) ?? { id, label: id } }))
+  )
+  const offered = facets.find((facet) => facet.key === quick)
+  const more = offered && offered.options.length > 1 ? offered.options.filter((one) => !(view.filter[offered.key] ?? []).includes(one.id)) : []
+  if (!set.length && !more.length) return null
+  const toggle = (key: string, id: string): void => {
+    const list = view.filter[key] ?? []
+    chime(list.includes(id) ? 'off' : 'on')
+    onChange({ ...view, filter: { ...view.filter, [key]: list.includes(id) ? list.filter((one) => one !== id) : [...list, id] } })
+  }
+  const icon = (one: Choice): ReactNode => (one.icon ? <one.icon className="size-3.5" style={{ color: one.tint }} /> : one.tint ? <span className="size-2 rounded-full" style={{ background: one.tint }} /> : null)
+  return (
+    // One line that scrolls sideways, fading at its end, never wrapping under itself.
+    <div data-hover-quiet className={`flex min-w-0 items-center gap-1 overflow-x-auto pr-6 text-xs [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] [&>*]:shrink-0 ${className}`}>
+      {set.length > 0 && (
+        <Tip label="Clear the filters">
+          <button
+            type="button"
+            onClick={() => {
+              chime('undo')
+              onChange({ ...view, filter: { ...defaults } })
+            }}
+            className="flex size-6 items-center justify-center rounded-full bg-accent text-muted-foreground hover:text-foreground"
+          >
+            <X className="size-3.5" />
+          </button>
+        </Tip>
+      )}
+      {set.map(({ facet, option }) => (
+        <button key={`${facet.key}:${option.id}`} type="button" aria-pressed onClick={() => toggle(facet.key, option.id)}
+          className="flex h-6 items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--tt-brand-color-400)_18%,transparent)] px-2.5 text-foreground">
+          {icon(option)}
+          {option.label}
+        </button>
+      ))}
+      {more.map((option) => (
+        <button key={option.id} type="button" aria-pressed={false} onClick={() => toggle(offered!.key, option.id)}
+          className="flex h-6 items-center gap-1.5 rounded-full bg-accent/60 px-2.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+          {icon(option)}
+          {option.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * The Display button and its panel, Spotify's library menu in Vigil's look:
+ * Sort by as a list to tick, then how it is grouped, View as in four sizes,
+ * and Filter. The button itself says how the list is ordered and drawn
+ * ("Newest" and the view's icon), so it needs no name. A changed setting
+ * carries a dot, each section counts its changes, and Reset all puts them
+ * back. F opens it from anywhere on the list; 1 to 4 pick a view while open.
+ */
+export function Display<T>({ view, onChange, facets, sorts, groups = [], defaults = {}, compact = false, density, onDensity }: {
   /** Icon only, where the row beside it needs the room. */
   compact?: boolean
   view: View
@@ -195,6 +287,9 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
   /** The first of each is the list's own default. */
   sorts: Choice[]
   groups?: Choice[]
+  /** How the list is drawn now, and how to change it: offered as View as. */
+  density?: Density
+  onDensity?: (density: Density) => void
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const [more, setMore] = useState(false)
@@ -222,13 +317,21 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
     onChange({ ...view, filter: { ...view.filter, [key]: list.includes(id) ? list.filter((one) => one !== id) : [...list, id] } })
   }
   const shownFacets = facets.filter((facet) => facet.options.length > 1 || (view.filter[facet.key] ?? []).length > 0)
+  const sortName = (sorts.find((one) => one.id === view.sort) ?? sorts[0])?.label ?? ''
+  const Shown = DENSITIES.find((one) => one.id === density)?.icon
+  const pickDensity = (next: Density): void => {
+    if (next === density) return
+    chime('tap')
+    onDensity?.(next)
+  }
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <Tip label="Display  F">
+      <Tip label={`${onDensity ? 'Sort and view' : 'Sort and filter'}  F`}>
       <PopoverTrigger asChild>
-        <button type="button" className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-control hover:bg-accent hover:text-foreground ${active ? 'text-foreground' : ''}`}>
-          <AliveIcon icon={SlidersHorizontalIcon} size={14} />
-          {compact ? (active ? active : null) : `Display${active ? `: ${active}` : ''}`}
+        <button type="button" className={`flex h-7 items-center gap-1.5 rounded-md px-2 text-control whitespace-nowrap hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground ${active ? 'text-foreground' : ''}`}>
+          {!compact && sorts.length > 1 && <Rolling by="word" text={sortName} />}
+          {filtered > 0 && <span className="rounded bg-accent px-1 text-xs tabular-nums text-muted-foreground"><Rolling text={filtered} /></span>}
+          {Shown ? <Shown className="size-3.5" /> : <AliveIcon icon={SlidersHorizontalIcon} size={14} />}
         </button>
         </PopoverTrigger>
       </Tip>
@@ -238,12 +341,21 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
         collisionPadding={12}
         tabIndex={-1}
         // Opened, the panel holds the keys, not its first control: a ring on
-        // Grouping before you have pressed anything reads as a mistake.
+        // the first sort before you have pressed anything reads as a mistake.
         onOpenAutoFocus={(event) => {
           event.preventDefault()
           ;(event.currentTarget as HTMLElement | null)?.focus()
         }}
-        className="max-h-[min(calc(var(--radix-popover-content-available-height)-12px),calc(100vh-8rem))] w-80 gap-0 overflow-y-auto p-2 text-control"
+        // Closed, the keys go back to the list, not to this button: Enter then opens a note, not the menu again.
+        onCloseAutoFocus={(event) => event.preventDefault()}
+        onKeyDown={(event) => {
+          const at = Number(event.key) - 1
+          if (!onDensity || event.metaKey || event.ctrlKey || event.altKey || !DENSITIES[at]) return
+          if ((event.target as Element).closest('input, textarea')) return
+          event.preventDefault()
+          pickDensity(DENSITIES[at].id)
+        }}
+        className="max-h-[min(calc(var(--radix-popover-content-available-height)-12px),calc(100vh-8rem))] w-72 gap-0 overflow-y-auto p-2 text-control"
         // A soft fade at the foot while there is more below, as the type list
         // has: in a short window the filters run past the edge, and this says so.
         // The rows fade, not the panel: its edge and corners stay solid.
@@ -256,17 +368,51 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
         onInteractOutside={(event) => void ((event.target as Element | null)?.closest?.('[data-slot="dropdown-menu-content"]') && event.preventDefault())}
       >
         {(groups.length > 1 || sorts.length > 1) && (
-          <Section title="Sort" count={sorted}>
+          <Section title="Sort by" count={sorted}>
+            {sorts.length > 1 && (
+              <div role="menu" className="flex flex-col p-1">
+                {sorts.map((one) => (
+                  <button
+                    key={one.id}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={one.id === view.sort}
+                    onClick={() => {
+                      if (one.id === view.sort) return
+                      chime('tap')
+                      onChange({ ...view, sort: one.id })
+                    }}
+                    className={`flex h-7 items-center gap-2 rounded-md px-1.5 text-left hover:bg-accent/60 ${one.id === view.sort ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    <span className="flex-1 truncate">{one.label}</span>
+                    {one.id === view.sort && <Check className="size-3.5 text-[var(--tt-brand-color-400)]" />}
+                  </button>
+                ))}
+              </div>
+            )}
             {groups.length > 1 && (
               <Row label="Grouping" changed={regrouped}>
                 <Pick options={groups} chosen={[view.group]} many={false} onPick={(group) => onChange({ ...view, group })} />
               </Row>
             )}
-            {sorts.length > 1 && (
-              <Row label="Ordering" changed={reordered}>
-                <Pick options={sorts} chosen={[view.sort]} many={false} onPick={(sort) => onChange({ ...view, sort })} />
-              </Row>
-            )}
+          </Section>
+        )}
+        {onDensity && (
+          <Section title="View as" count={0}>
+            <div className="grid grid-cols-4 gap-1 p-1">
+              {DENSITIES.map((one, at) => (
+                <Tip key={one.id} label={`${one.label}  ${at + 1}`}>
+                  <button
+                    type="button"
+                    aria-pressed={one.id === density}
+                    onClick={() => pickDensity(one.id)}
+                    className={`flex h-8 items-center justify-center rounded-md transition-colors ${one.id === density ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'}`}
+                  >
+                    <one.icon className="size-4" />
+                  </button>
+                </Tip>
+              ))}
+            </div>
           </Section>
         )}
         {shownFacets.length > 0 && (

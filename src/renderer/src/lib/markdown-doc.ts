@@ -160,12 +160,17 @@ export function tidyDocument(node: JSONContent, inText = false): JSONContent {
  * Tabs that indent a line as four spaces each. The list reader nests by
  * spaces only, and Obsidian indents with tabs: its sub-tasks came in as
  * "[ ] words". Not inside a code block at the margin, whose tabs are its own.
+ * Also gives an empty task the space after its box that the reader needs.
  */
 function untab(markdown: string): string {
   let fenced = false
   return markdown.split("\n").map((line) => {
     if (/^(```|~~~)/.test(line)) fenced = !fenced
-    return fenced ? line : line.replace(/^[ \t]+/, (lead) => lead.replace(/\t/g, "    "))
+    if (fenced) return line
+    // An empty task, `- [ ]` with nothing after it: the task reader wants a
+    // space after the box, which editors trim, and it came in as a bullet
+    // reading "[ ]".
+    return line.replace(/^[ \t]+/, (lead) => lead.replace(/\t/g, "    ")).replace(/^(\s*[-+*]\s+\[[ xX]\])$/, "$1 ")
   }).join("\n")
 }
 

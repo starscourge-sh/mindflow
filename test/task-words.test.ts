@@ -1,7 +1,7 @@
 // Run with: node --test test/task-words.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readTask } from '../src/main/task-words.ts'
+import { advance, readTask } from '../src/main/task-words.ts'
 
 // A Monday morning, so "tomorrow" and "friday" land on known days.
 const at = new Date(2026, 9, 5, 10, 0)
@@ -25,4 +25,51 @@ test('a time-only "by" falls on the scheduled day', () => {
   assert.equal(day(read.due), 'Tue Oct 06 2026')
   assert.equal(new Date(read.deadline!).toString().slice(0, 21), 'Tue Oct 06 2026 17:00')
   assert.equal(read.deadlineTimed, true)
+})
+
+test('"every month" is monthly, not every Monday', () => {
+  const read = readTask('pay rent every month', new Date(2026, 9, 7, 10, 0))
+  assert.equal(day(read.due), 'Wed Oct 07 2026')
+  assert.equal(day(advance(new Date(2026, 9, 7, 9), 'every month').toISOString()), 'Sat Nov 07 2026')
+})
+
+test('a repeat of nothing still moves on', () => {
+  assert.equal(day(advance(new Date(2026, 9, 5, 9), 'every 0 days').toISOString()), 'Tue Oct 06 2026')
+})
+
+test('a monthly series on the 31st keeps its day after a short month', () => {
+  const feb = advance(new Date(2026, 0, 31, 9), 'every month', 31)
+  assert.equal(day(feb.toISOString()), 'Sat Feb 28 2026')
+  assert.equal(day(advance(feb, 'every month', 31).toISOString()), 'Tue Mar 31 2026')
+})
+
+test('"tonight" and "this evening" are timed at eight', () => {
+  for (const words of ['call mom tonight', 'call mom this evening']) {
+    const read = readTask(words, at)
+    assert.equal(read.title, 'call mom')
+    assert.equal(new Date(read.due!).toString().slice(0, 21), 'Mon Oct 05 2026 20:00')
+    assert.equal(read.allDay, false)
+  }
+})
+
+test('"weekly" before a noun is part of the name, not a repeat', () => {
+  for (const words of ['Write the weekly review', 'weekly review notes', 'read my daily log']) {
+    const read = readTask(words, at)
+    assert.equal(read.title, words)
+    assert.equal(read.recurrence, null)
+  }
+})
+
+test('"weekly" saying when is still a repeat', () => {
+  assert.equal(readTask('review the garden weekly', at).recurrence, 'every week')
+  assert.equal(readTask('review the garden weekly', at).title, 'review the garden')
+  assert.equal(readTask('water plants weekly on monday', at).recurrence, 'every week')
+  assert.equal(readTask('stretch daily !!', at).recurrence, 'every day')
+})
+
+test('a leading "Someday:" takes its colon with it', () => {
+  const read = readTask('Someday: learn to bind books', at)
+  assert.equal(read.title, 'learn to bind books')
+  assert.equal(read.plan, 'someday')
+  assert.equal(readTask('Tomorrow: call Sam', at).title, 'call Sam')
 })

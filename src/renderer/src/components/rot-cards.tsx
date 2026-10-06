@@ -6,12 +6,12 @@ import { captureKey } from '@/lib/capture-links'
 import { TagRow, decideDay, openPass } from './vigil/pass'
 import { clueInto } from './vigil/pinned-questions'
 import { wordsOf } from '../../../main/import'
-import { AskWho, Rolling, Typed, pin, toast } from './vigil/ui'
+import { AskWho, Rolling, Typed, pin, toast, Pressed } from './vigil/ui'
 import { AnimatePresence, motion } from 'motion/react'
 import { useLive, vigil, type PinnedQuestion } from '@/lib/vigil'
 import { RowMenu, copy } from './vigil/row-menu'
 import { age, ageTint } from './capture-list'
-import { Kbd, Tip } from '@/components/vigil/ui'
+import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { Rest } from './vigil/scenery'
 import { ComingBack } from './vigil/coming-back'
@@ -206,7 +206,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             ...clues.map((question) => ({ label: `A clue to “${question.title.length > 32 ? `${question.title.slice(0, 32)}…` : question.title}”`, run: () =>
               void clueInto(question, { captureId: card.id }, () => putBack(card)).then((ok) => ok && (drop(card.id), count())) })),
             'separator',
-            { label: 'Pin to the prompt', run: () => pin('captures', card.id, true) },
+            { label: 'Pin to the box', run: () => pin('captures', card.id, true) },
             { label: `Copy ${captureKey(card.number)}`, run: () => copy(captureKey(card.number)) }
           ]}>
             {/* Blurred as a whole box: blur inside a clamped box was cut at its edges. */}
@@ -242,7 +242,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
               { label: 'Tidy', key: 'F', tint: 'green', what: 'Bold the line that matters, fold the rest, cross off what is done', run: () => openPass('tidy', [card.id]) },
               { label: `Come back ${day}`, key: 'C', tint: 'orange', what: `Set it aside for ${day}'s deciding pass, and let it go until then`, run: () => setAside(card) }
             ].map((one) => (
-              <Tip key={one.key} label={<span className="flex items-center gap-2">{one.what}<Kbd>{one.key}</Kbd></span>}>
+              <Tip key={one.key} label={<span className="flex items-center gap-2">{one.what}<Pressed keys={one.key} /></span>}>
               {/* Quiet at rest, their colour when you reach the card. */}
               <Button variant="ghost" size="sm"
                 // Out of sight until you reach the card: three cards of three buttons
@@ -259,7 +259,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             ))}
             {/* Who said it matters for a quote, or once someone is named. */}
             {(card.kind === 'quote' || card.attribution) && (
-            <Tip label={<span className="flex items-center gap-2">Say who said it: a quote needs one to be kept<Kbd>W</Kbd></span>}>
+            <Tip label={<span className="flex items-center gap-2">Say who said it: a quote needs one to be kept<Pressed keys="W" /></span>}>
             <Button variant="ghost" size="sm" className="text-muted-foreground transition-colors group-hover:text-foreground focus-visible:text-foreground" onClick={() => setAsking(card.id)}>
               <Rolling text={card.attribution ?? 'Who?'} />
             </Button>

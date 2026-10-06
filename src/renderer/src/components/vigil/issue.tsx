@@ -95,9 +95,9 @@ export function PastIssues({ scale, current, onPick }: { scale: 'week' | 'month'
           const headline = scale === 'week' ? issue.fields.theme || firstLine(issue.fields.summary) : issue.fields.season || issue.fields.focus
           const date = scale === 'week' ? `Week ${weekOfYear(issue.start)}` : dayjs(issue.start).format("MMM 'YY")
           return (
-            <motion.li key={issue.key} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 * index, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}>
+            <motion.li key={issue.key} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 * index, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
                 <button type="button" onClick={() => (chime('season'), onPick(issue.start))}
-                  className="mf-island group flex h-full w-full flex-col items-center gap-2 rounded-xl border bg-accent/25 px-4 pt-4 pb-5 text-center transition-[background-color,translate] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-0.5 hover:bg-accent/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  className="mf-island group flex h-full w-full flex-col items-center gap-2 rounded-xl border bg-accent/25 px-4 pt-4 pb-5 text-center transition-[background-color,translate] duration-200 ease-(--mf-ease) pointer-fine:hover:-translate-y-0.5 hover:bg-accent/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <IssueLine className="justify-center" parts={[date, number && issueLabel(number)]} />
                   <span className={`line-clamp-3 ${SERIF} text-[1.0625rem] leading-snug text-balance ${headline ? 'text-foreground' : 'text-muted-foreground/70 italic'}`}>
                     {headline || (scale === 'week' ? weekSpan(issue.start) : dayjs(issue.start).format('MMMM'))}

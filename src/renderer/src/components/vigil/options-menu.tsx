@@ -22,6 +22,7 @@ import { useLive, vigil, type Settings } from '@/lib/vigil'
 import { Tip } from './ui'
 import { cn } from '@/lib/cn'
 import { Swatch } from '../theme/theme-picker'
+import { keyFor } from '@/lib/keys'
 
 /** One setting the box can have switched on or off. */
 export type Option = { label: string; on: boolean; keys?: string; set: (on: boolean) => void }
@@ -74,7 +75,7 @@ export function OptionsMenu({ options, actions, app = false, label = 'Options', 
         {options.map((one) => (
           <DropdownMenuCheckboxItem key={one.label} checked={one.on} onCheckedChange={one.set} onSelect={(event) => event.preventDefault()}>
             {one.label}
-            {one.keys && <DropdownMenuShortcut>{one.keys}</DropdownMenuShortcut>}
+            {one.keys && keyFor(one.keys) && <DropdownMenuShortcut>{keyFor(one.keys)}</DropdownMenuShortcut>}
           </DropdownMenuCheckboxItem>
         ))}
         {app && settings && (
@@ -119,7 +120,7 @@ export function OptionsMenu({ options, actions, app = false, label = 'Options', 
         {actions.map((one) => (
           <DropdownMenuItem key={one.label} onSelect={one.run} className="pr-8">
             {one.label}
-            {one.keys && <DropdownMenuShortcut>{one.keys}</DropdownMenuShortcut>}
+            {one.keys && keyFor(one.keys) && <DropdownMenuShortcut>{keyFor(one.keys)}</DropdownMenuShortcut>}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

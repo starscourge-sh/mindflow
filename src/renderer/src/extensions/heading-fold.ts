@@ -5,6 +5,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 
 import { headingRank } from "@/extensions/toggle-heading"
 import { cue } from "@/lib/cues"
+import { onlyWordsChanged } from "@/lib/tiptap-utils"
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -271,6 +272,12 @@ export const HeadingFold = Extension.create<{ id: string | null }>({
           apply: (tr, fold, _old, state) => {
             const meta = tr.getMeta(key) as Meta | undefined
             if (!tr.docChanged && !meta) return fold
+            // Words typed in a line: the sections are found again, which is
+            // quick, but what they draw only moves. Drawing it afresh, for every
+            // heading in a long note, was most of the time each key took.
+            if (!meta && onlyWordsChanged(tr)) {
+              return { folded: fold.folded.map((pos) => tr.mapping.map(pos)), sections: sectionsOf(state.doc), decorations: fold.decorations.map(tr.mapping, tr.doc) }
+            }
             const sections = tr.docChanged ? sectionsOf(state.doc) : fold.sections
             let folded = fold.folded
             if (tr.docChanged) {

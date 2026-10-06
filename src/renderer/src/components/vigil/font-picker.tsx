@@ -14,7 +14,7 @@ import {
 import { NOTE_FONTS, TEXT_SIZES, familyOf, systemFonts } from '@/lib/editor-setup'
 import { chime, step } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
-import { Kbd, Rolling } from './ui'
+import { Rolling, Pressed } from './ui'
 
 /**
  * The font notes are written in: ours first, then every family on this Mac,
@@ -75,11 +75,11 @@ export function TextSize({ value }: { value: number }): React.JSX.Element {
   }
   return (
     <>
-      <Kbd>⌘−</Kbd>
+      <Pressed keys="⌘−" />
       <Button variant="ghost" size="icon-sm" aria-label="Smaller text" disabled={at <= 0} onClick={() => go(at - 1)}><Minus /></Button>
       <span className="w-10 text-center tabular-nums"><Rolling text={`${Math.round(value * 100)}%`} /></span>
       <Button variant="ghost" size="icon-sm" aria-label="Bigger text" disabled={at >= TEXT_SIZES.length - 1} onClick={() => go(at + 1)}><Plus /></Button>
-      <Kbd>⌘+</Kbd>
+      <Pressed keys="⌘+" />
     </>
   )
 }

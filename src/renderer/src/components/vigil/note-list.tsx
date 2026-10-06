@@ -1,0 +1,758 @@
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ComponentType,
+  type CSSProperties,
+  type ReactNode
+} from 'react'
+import {
+  Maximize2,
+  Minimize2,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Search as SearchIcon,
+  X
+} from 'lucide-react'
+
+import { notes, openWindow, smallPicture, useThumb, type NoteTable } from '@/lib/notes'
+import { useLive } from '@/lib/vigil'
+import { chime } from '@/lib/sound'
+import { RowMenu, type MenuItem } from './row-menu'
+import { SortableList, SortableRow } from './sortable'
+import { Tags, Tip, VirtualList, typing } from './ui'
+import { Button } from '@/components/ui/button'
+import type { Density, Pane } from './display'
+
+/**
+ * One note in a list, whatever it is: a capture, a nugget, an article or a
+ * question. The list draws it at any of Display's four sizes from this.
+ */
+export type Entry = {
+  id: string
+  /** What a ⌘-click opens it as. */
+  type: string
+  title: string
+  tags: string[]
+  icon: ComponentType<{ className?: string; style?: CSSProperties }>
+  tint?: string
+  /** How long ago, short, and its colour once it is going stale. */
+  age?: string
+  ageTint?: string
+  /** The rest of the line under the title: where it came from, who said it. */
+  sub?: ReactNode
+  /** Small marks after the title: a pin, private. */
+  marks?: ReactNode
+  /** Shown on the row under the pointer or the keyboard only: its handle. */
+  hint?: string
+  dim?: boolean
+  private?: boolean
+  /** Its own words rather than a name (a nugget): two lines of them in a list, not one. */
+  wrap?: boolean
+  menu?: MenuItem[]
+}
+
+/** A note's first picture, made small (or tile-sized) once. Undefined: it has none; null: on its way; '': too big to show. */
+function usePicture(id: string, large: boolean): string | null | undefined {
+  const src = useThumb(id)
+  const [shown, setShown] = useState<string | null>(null)
+  useEffect(() => {
+    setShown(null)
+    if (src) void smallPicture(src, large).then(setShown)
+  }, [src, large])
+  return src ? shown : undefined
+}
+
+const tileTint = (tint?: string): CSSProperties => ({
+  background: tint ? `color-mix(in srgb, ${tint} 9%, var(--accent))` : 'var(--accent)'
+})
+
+/**
+ * What stands for a note in a grid: its picture, or a quiet tile of its first
+ * words under its kind's icon, so a grid of notes without pictures still
+ * reads as notes, not as blanks.
+ */
+function Cover({
+  entry,
+  words,
+  large,
+  className = ''
+}: {
+  entry: Entry
+  words?: string
+  large: boolean
+  className?: string
+}): React.JSX.Element {
+  const picture = usePicture(entry.id, large)
+  if (picture)
+    return (
+      <span className={`private-text block overflow-hidden bg-accent ${className}`}>
+        <img
+          src={picture}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          className="size-full object-cover animate-in fade-in-0 duration-200"
+        />
+      </span>
+    )
+  return (
+    <span
+      className={`flex flex-col overflow-hidden ${large ? 'gap-1.5 p-3' : 'gap-1 p-2'} ${className}`}
+      style={tileTint(entry.tint)}
+    >
+      <entry.icon
+        className={`${large ? 'size-4' : 'size-3.5'} shrink-0`}
+        style={{ color: entry.tint }}
+      />
+      {picture !== null && (
+        <span
+          className={`private-text text-muted-foreground whitespace-pre-line ${large ? 'line-clamp-5 text-xs leading-snug' : 'line-clamp-4 text-[10px] leading-tight'}`}
+        >
+          {(large ? rest(words, entry.title) : words) || entry.title || 'Untitled'}
+        </span>
+      )}
+    </span>
+  )
+}
+
+/** A note's first words less its name, which the tile's foot already says. A small tile has no foot: it keeps them. */
+const rest = (words: string | undefined, title: string): string =>
+  (words ?? '')
+    .split('\n')
+    .filter(
+      (line) =>
+        line.trim() &&
+        !title.startsWith(line.trim().slice(0, 40)) &&
+        !line.trim().startsWith(title.slice(0, 40))
+    )
+    .join('\n')
+
+/** A row's lead: the note's picture, small, or its kind's icon on a quiet square of the same size. */
+export function Lead({
+  entry,
+  className = 'size-9'
+}: {
+  entry: Entry
+  className?: string
+}): React.JSX.Element {
+  const picture = usePicture(entry.id, false)
+  return (
+    <span
+      className={`flex shrink-0 items-center justify-center overflow-hidden rounded-md ${picture ? 'private-text bg-accent' : ''} ${className}`}
+      style={picture ? undefined : tileTint(entry.tint)}
+    >
+      {picture ? (
+        <img
+          src={picture}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          className="size-full object-cover animate-in fade-in-0 duration-200"
+        />
+      ) : (
+        <entry.icon className="size-4" style={{ color: entry.tint }} />
+      )}
+    </span>
+  )
+}
+
+/** A line of the list as drawn: a row, or a row of tiles, with its group's name over the first. */
+type Line = { key: string; head?: [string, number]; start: number; entries: Entry[] }
+
+const TILE = { small: 92, grid: 184 }
+
+/**
+ * A list of notes at one of Display's four sizes: Compact (a line each), List
+ * (a picture or the kind, the title, and a quiet line under it), Small grid
+ * (pictures, the title when pointed at) and Grid (picture, title, line). Rows
+ * are drawn only in view. j and k (or the arrows) move through any of them; in
+ * a grid ← and → step along a row and ↑ ↓ j k move by rows. The ring of the
+ * keyboard sits inside each tile's padding, so the list's edge never cuts it.
+ */
+export function NoteList({
+  groups,
+  density,
+  table,
+  cursor,
+  onCursor,
+  selected,
+  chosen = [],
+  onPick,
+  onOpen,
+  onChoose,
+  onMove,
+  after,
+  className = ''
+}: {
+  groups: [string, Entry[]][]
+  density: Density
+  /** Where a tile's first words are read from. */
+  table: NoteTable
+  cursor: number
+  /** Only a grid needs it: rows and columns are the list's to work out. */
+  onCursor?: (index: number) => void
+  /** The one open (or looked at), lit. */
+  selected?: string
+  /** Picked with x, tinted. */
+  chosen?: string[]
+  onPick: (id: string) => void
+  /** A double-click: opened fully, where a click only looks. */
+  onOpen?: (id: string) => void
+  /** Shift-click picks it, as x does. */
+  onChoose?: (id: string) => void
+  /** Your own order: rows (never tiles) dragged into it. */
+  onMove?: (id: string, target: string, after: boolean) => void
+  /** Drawn under a row: a thought being written under it. */
+  after?: (entry: Entry) => ReactNode
+  className?: string
+}): React.JSX.Element {
+  const grid = density === 'small' || density === 'grid'
+  const box = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(0)
+  useLayoutEffect(() => {
+    const element = box.current
+    if (!element) return
+    const fit = (): void => setWidth(element.clientWidth)
+    fit()
+    const watch = new ResizeObserver(fit)
+    watch.observe(element)
+    return () => watch.disconnect()
+  }, [])
+  const gap = density === 'grid' ? 12 : 8
+  const across = grid
+    ? Math.max(1, Math.floor((width + gap) / (TILE[density as 'small' | 'grid'] + gap)))
+    : 1
+  // A tile's first words, asked for only while tiles are drawn.
+  const glance = useLive(
+    () => (grid ? notes.glance(table) : Promise.resolve({} as Record<string, string>)),
+    {} as Record<string, string>,
+    [table, grid]
+  )
+  const draw = (sorted: Entry[]): React.JSX.Element => {
+    // Back into the groups, in the order the drag left them.
+    const order = new Map(sorted.map((one, at) => [one.id, at]))
+    const lines: Line[] = []
+    let start = 0
+    for (const [name, list] of groups) {
+      const here = [...list].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+      for (let at = 0; at < here.length; at += across) {
+        const entries = here.slice(at, at + across)
+        lines.push({
+          key: entries[0].id,
+          head: at === 0 && name ? [name, here.length] : undefined,
+          start: start + at,
+          entries
+        })
+      }
+      start += here.length
+    }
+    const line = lines.findIndex(
+      (one) => cursor >= one.start && cursor < one.start + one.entries.length
+    )
+    return (
+      <>
+        <GridKeys on={grid} lines={lines} cursor={cursor} onCursor={onCursor} />
+        <VirtualList
+          items={lines}
+          keyOf={(one) => one.key}
+          cursor={line >= 0 ? line : undefined}
+          estimate={
+            density === 'compact'
+              ? 30
+              : density === 'list'
+                ? 50
+                : density === 'small'
+                  ? TILE.small + gap
+                  : 260
+          }
+          className={className}
+        >
+          {(one) => (
+            <>
+              {one.head && (
+                <div
+                  className={`px-2 pb-1 text-xs text-muted-foreground ${one.start === 0 ? 'pt-1' : 'pt-4'}`}
+                >
+                  {one.head[0]} <span className="tabular-nums">{one.head[1]}</span>
+                </div>
+              )}
+              {grid ? (
+                <div
+                  className="grid"
+                  style={{
+                    gridTemplateColumns: `repeat(${across}, minmax(0, 1fr))`,
+                    gap,
+                    paddingBottom: gap - 2
+                  }}
+                >
+                  {one.entries.map((entry, at) => (
+                    <div key={entry.id}>{face(entry, one.start + at, glance[entry.id])}</div>
+                  ))}
+                </div>
+              ) : (
+                one.entries.map((entry) => (
+                  <SortableRow key={entry.id} id={entry.id}>
+                    <div className="group/item relative">
+                      {face(entry, one.start)}
+                      {after?.(entry)}
+                    </div>
+                  </SortableRow>
+                ))
+              )}
+            </>
+          )}
+        </VirtualList>
+      </>
+    )
+  }
+  // A function, not a component: one made inside here would be new each
+  // render, and every row would be drawn again from nothing, pictures and all.
+  const face = (entry: Entry, index: number, words?: string): React.JSX.Element => {
+    const at = index === cursor
+    const open = entry.id === selected
+    const picked = chosen.includes(entry.id)
+    const row = (
+      <button
+        type="button"
+        data-row
+        data-id={entry.id}
+        data-cursor={at || undefined}
+        data-private={entry.private ? '' : undefined}
+        data-open={open ? '' : undefined}
+        // ⌘-click: a window of its own, as a browser opens a tab; shift-click picks.
+        onClick={(event) =>
+          event.metaKey
+            ? openWindow(entry.type, entry.id)
+            : event.shiftKey && onChoose
+              ? onChoose(entry.id)
+              : onPick(entry.id)
+        }
+        onDoubleClick={onOpen ? () => onOpen(entry.id) : undefined}
+        className={
+          grid
+            ? tileClass(at, open, picked, entry.dim)
+            : rowClass(at, open, picked, entry.dim, density === 'compact')
+        }
+      >
+        {density === 'compact' ? (
+          <CompactRow entry={entry} lit={at || open} />
+        ) : density === 'list' ? (
+          <ListRow entry={entry} lit={at || open} />
+        ) : density === 'small' ? (
+          <SmallTile entry={entry} words={words} />
+        ) : (
+          <GridTile entry={entry} words={words} />
+        )}
+      </button>
+    )
+    return entry.menu ? <RowMenu items={entry.menu}>{row}</RowMenu> : row
+  }
+  const flat = groups.flatMap(([, list]) => list)
+  return (
+    <div ref={box}>
+      {/* Tiles never drag: your own order is set in the lists. */}
+      <SortableList items={flat} keyOf={(one) => one.id} onMove={grid ? undefined : onMove}>
+        {draw}
+      </SortableList>
+    </div>
+  )
+}
+
+// Rows flush, Linear's way: one plain highlight for the one open, a fainter
+// one under the keyboard, a tint for the picked. Tiles take a ring instead,
+// drawn inside their own edge so nothing around them can cut it.
+const PICKED = 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]'
+const rowClass = (
+  at: boolean,
+  open: boolean,
+  picked: boolean,
+  dim = false,
+  compact = false
+): string =>
+  `group/row relative flex w-full items-center gap-2.5 rounded-md px-2 text-left transition-colors hover:bg-accent/50 ${compact ? 'py-1' : 'py-1.5'} ${dim ? 'opacity-50' : ''} ${picked ? PICKED : open ? 'bg-accent' : at ? 'bg-accent/50' : ''}`
+// The ring is drawn over the tile, not under it, so a picture never hides it.
+const tileClass = (at: boolean, open: boolean, picked: boolean, dim = false): string =>
+  `group/row relative flex w-full flex-col overflow-hidden rounded-lg text-left after:pointer-events-none after:absolute after:inset-0 after:rounded-lg after:ring-inset after:transition-[box-shadow] ${dim ? 'opacity-50' : ''} ${picked ? `${PICKED} after:ring-2 after:ring-[var(--tt-brand-color-400)]` : at ? 'after:ring-2 after:ring-ring' : open ? 'after:ring-2 after:ring-foreground/40' : 'after:ring-1 after:ring-border hover:after:ring-foreground/25'}`
+
+/** The title's own marks, and its handle on the row under the pointer or the keyboard. */
+function Tail({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Element {
+  return (
+    <>
+      {entry.marks}
+      {/* The handle is for copying and linking, not reading: it shows on the
+          row under the pointer or the cursor, in room the title gives up. */}
+      {entry.hint && (
+        <span
+          className={`shrink-0 text-xs text-muted-foreground tabular-nums ${lit ? '' : 'hidden group-hover/row:inline'}`}
+        >
+          {entry.hint}
+        </span>
+      )}
+    </>
+  )
+}
+const Age = ({ entry }: { entry: Entry }): React.JSX.Element | null =>
+  entry.age ? (
+    <span className="shrink-0 tabular-nums" style={{ color: entry.ageTint }}>
+      {entry.age}
+    </span>
+  ) : null
+const Dot = (): React.JSX.Element => (
+  <span aria-hidden className="text-muted-foreground/60">
+    ·
+  </span>
+)
+
+function CompactRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Element {
+  return (
+    <>
+      <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} />
+      <span className="private-text min-w-0 flex-1 truncate">{entry.title || 'Untitled'}</span>
+      <Tags tags={entry.tags} max={2} />
+      <Tail entry={entry} lit={lit} />
+      <span className="text-xs text-muted-foreground">
+        <Age entry={entry} />
+      </span>
+    </>
+  )
+}
+
+function ListRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Element {
+  return (
+    <>
+      <Lead entry={entry} />
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="flex items-center gap-2">
+          <span
+            className={`private-text min-w-0 flex-1 ${entry.wrap ? 'line-clamp-2' : 'truncate'}`}
+          >
+            {entry.title || 'Untitled'}
+          </span>
+          <Tail entry={entry} lit={lit} />
+        </span>
+        <Under entry={entry} />
+      </span>
+    </>
+  )
+}
+
+/** The quiet line under a title: when, where it came from or who said it, then its tags. */
+function Under({ entry }: { entry: Entry }): React.JSX.Element {
+  return (
+    <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+      <Age entry={entry} />
+      {entry.age && entry.sub && <Dot />}
+      {entry.sub && <span className="min-w-0 truncate">{entry.sub}</span>}
+      {entry.tags.length > 0 && (entry.age || entry.sub) && <Dot />}
+      <Tags tags={entry.tags} max={2} />
+    </span>
+  )
+}
+
+function SmallTile({ entry, words }: { entry: Entry; words?: string }): React.JSX.Element {
+  return (
+    <>
+      <Cover entry={entry} words={words} large={false} className="aspect-square w-full" />
+      {/* The name, pointed at or under the keyboard, over the foot of the tile. */}
+      <span
+        className={`private-text pointer-events-none absolute inset-x-0 bottom-0 truncate bg-linear-to-t from-black/70 to-transparent px-2 pt-4 pb-1.5 text-[11px] font-medium text-white opacity-0 transition-opacity duration-150 group-hover/row:opacity-100 group-data-[cursor]/row:opacity-100`}
+      >
+        {entry.title || 'Untitled'}
+      </span>
+    </>
+  )
+}
+
+function GridTile({ entry, words }: { entry: Entry; words?: string }): React.JSX.Element {
+  return (
+    <>
+      <Cover entry={entry} words={words} large className="aspect-[4/3] w-full" />
+      <span className="flex min-w-0 flex-col gap-0.5 px-2.5 pt-2 pb-2.5">
+        <span className="flex items-center gap-1.5 text-sm">
+          <span className="private-text min-w-0 flex-1 truncate font-medium">
+            {entry.title || 'Untitled'}
+          </span>
+          {entry.marks}
+        </span>
+        <Under entry={entry} />
+      </span>
+    </>
+  )
+}
+
+/**
+ * The keys a grid adds to the list's own: ← and → along a row, ↑ ↓ j k a
+ * row at a time, staying in the same column. Taken before the list's own
+ * handler, which then leaves the key alone.
+ */
+function GridKeys({
+  on,
+  lines,
+  cursor,
+  onCursor
+}: {
+  on: boolean
+  lines: Line[]
+  cursor: number
+  onCursor?: (index: number) => void
+}): null {
+  const latest = useRef({ lines, cursor })
+  latest.current = { lines, cursor }
+  useEffect(() => {
+    if (!on || !onCursor) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || typing())
+        return
+      const { lines, cursor } = latest.current
+      const count = lines.reduce((n, one) => n + one.entries.length, 0)
+      if (!count) return
+      const down = event.key === 'ArrowDown' || event.key === 'j'
+      const up = event.key === 'ArrowUp' || event.key === 'k'
+      const side = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0
+      if (!down && !up && !side) return
+      event.preventDefault()
+      if (cursor < 0) return onCursor(0)
+      if (side) return onCursor(Math.max(0, Math.min(count - 1, cursor + side)))
+      const row = lines.findIndex(
+        (one) => cursor >= one.start && cursor < one.start + one.entries.length
+      )
+      const next = lines[row + (down ? 1 : -1)]
+      if (next) onCursor(next.start + Math.min(cursor - lines[row].start, next.entries.length - 1))
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [on, onCursor])
+  return null
+}
+
+/**
+ * The list folded to a rail, Spotify's collapsed library: a square for each
+ * note (its picture, or its kind), its name when pointed at, and at the top
+ * the way back to the whole list. j and k still move through it.
+ */
+export function NoteRail({
+  entries,
+  cursor,
+  selected,
+  onPick,
+  onShow,
+  label = 'Show the list'
+}: {
+  entries: Entry[]
+  cursor: number
+  selected?: string
+  onPick: (id: string) => void
+  onShow: () => void
+  label?: string
+}): React.JSX.Element {
+  return (
+    <div data-chrome className="hidden w-14 shrink-0 flex-col items-center @[56rem]/page:flex">
+      <div className="flex h-10 w-full shrink-0 items-center justify-center border-b">
+        <Tip label={label}>
+          <button
+            type="button"
+            onClick={() => (chime('slide'), onShow())}
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <PanelLeftOpen className="size-4" />
+          </button>
+        </Tip>
+      </div>
+      <div className="min-h-0 w-full flex-1 overflow-y-auto px-1.5 py-2 [scrollbar-width:none]">
+        <VirtualList items={entries} keyOf={(one) => one.id} cursor={cursor} estimate={46}>
+          {(entry, index) => {
+            const face = (
+              <button
+                type="button"
+                data-row
+                data-id={entry.id}
+                data-cursor={index === cursor || undefined}
+                data-private={entry.private ? '' : undefined}
+                data-open={entry.id === selected ? '' : undefined}
+                onClick={(event) =>
+                  event.metaKey ? openWindow(entry.type, entry.id) : onPick(entry.id)
+                }
+                className={`flex w-full items-center justify-center rounded-lg p-1 ring-inset transition-[box-shadow,background-color] hover:bg-accent/60 ${entry.dim ? 'opacity-50' : ''} ${index === cursor ? 'ring-2 ring-ring' : entry.id === selected ? 'bg-accent' : ''}`}
+              >
+                {/* Never a private note's name: names show in a screen share. */}
+                <Tip label={entry.private ? 'Private' : entry.title || 'Untitled'}>
+                  <span className="flex">
+                    <Lead entry={entry} />
+                  </span>
+                </Tip>
+              </button>
+            )
+            return entry.menu ? <RowMenu items={entry.menu}>{face}</RowMenu> : face
+          }}
+        </VirtualList>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Search in this list, for the list spread over the page: the words narrow
+ * what is shown as you type. Escape empties it and gives the keys back to the
+ * list; ↓ or Enter go to the first match.
+ */
+export function ListSearch({
+  value,
+  onChange,
+  onDone,
+  placeholder
+}: {
+  value: string
+  onChange: (value: string) => void
+  onDone: () => void
+  placeholder: string
+}): React.JSX.Element {
+  return (
+    <label className="flex h-7 w-56 max-w-full items-center gap-1.5 rounded-md bg-accent/60 px-2 text-control text-muted-foreground focus-within:bg-accent focus-within:text-foreground">
+      <SearchIcon className="size-3.5 shrink-0" />
+      <input
+        value={value}
+        placeholder={placeholder}
+        spellCheck={false}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            event.preventDefault()
+            event.stopPropagation()
+            onChange('')
+            event.currentTarget.blur()
+          }
+          if (event.key === 'ArrowDown' || event.key === 'Enter') {
+            event.preventDefault()
+            event.currentTarget.blur()
+            onDone()
+          }
+        }}
+        className="min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
+      />
+      {value && (
+        <button
+          type="button"
+          aria-label="Clear the search"
+          onClick={() => onChange('')}
+          className="rounded-sm text-muted-foreground hover:text-foreground"
+        >
+          <X className="size-3.5" />
+        </button>
+      )}
+    </label>
+  )
+}
+
+/** Whether a note's title holds every word searched for, in any order. */
+export const matches = (title: string, query: string): boolean => {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean)
+  const said = title.toLowerCase()
+  return words.every((word) => said.includes(word))
+}
+
+/**
+ * The top of the panel beside the spread-out list: the note's picture (or its
+ * tile), its name and its line, and the way into it.
+ */
+export function Peek({
+  entry,
+  table,
+  onOpen,
+  children
+}: {
+  entry: Entry
+  table: NoteTable
+  onOpen: () => void
+  children?: ReactNode
+}): React.JSX.Element {
+  const glance = useLive(() => notes.glance(table), {} as Record<string, string>, [table])
+  return (
+    <aside
+      data-chrome
+      className="hidden w-72 shrink-0 flex-col overflow-y-auto border-l @[48rem]/page:flex"
+      data-private={entry.private ? '' : undefined}
+    >
+      <div className="flex flex-col gap-2 p-4 pb-2">
+        <Cover
+          entry={entry}
+          words={glance[entry.id]}
+          large
+          className="aspect-[4/3] w-full rounded-lg"
+        />
+        <div className="private-text mt-1 text-body font-semibold leading-snug">
+          {entry.title || 'Untitled'}
+        </div>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          {entry.age && <span style={{ color: entry.ageTint }}>{entry.age}</span>}
+          {entry.sub && <span>{entry.sub}</span>}
+          <Tags tags={entry.tags} max={4} />
+        </div>
+        <Tip label="Open it  ↵">
+          <button
+            type="button"
+            onClick={onOpen}
+            className="mt-1 h-8 rounded-md bg-accent text-control font-medium text-foreground hover:bg-accent/70"
+          >
+            Open
+          </button>
+        </Tip>
+      </div>
+      {children}
+    </aside>
+  )
+}
+
+/**
+ * The list's own width, at the end of its header: spread it over the page,
+ * fold it to a rail of pictures (only beside an open note, which takes the
+ * room), or bring it back beside the note.
+ */
+export function PaneButtons({
+  pane,
+  onPane,
+  fold
+}: {
+  pane: Pane
+  onPane: (pane: Pane) => void
+  fold: boolean
+}): React.JSX.Element {
+  const to = (next: Pane, cue: 'slide' | 'fold'): void => {
+    chime(cue)
+    // The keys go back to the list, not this button, which then moves away.
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    onPane(next)
+  }
+  if (pane === 'wide')
+    return (
+      <Tip label="Back beside the note">
+        <Button variant="ghost" size="icon-sm" onClick={() => to('list', 'fold')}>
+          <Minimize2 className="size-3.5" />
+        </Button>
+      </Tip>
+    )
+  return (
+    <>
+      {fold && (
+        <Tip label="Fold the list to pictures">
+          <Button variant="ghost" size="icon-sm" onClick={() => to('rail', 'fold')}>
+            <PanelLeftClose className="size-3.5" />
+          </Button>
+        </Tip>
+      )}
+      <Tip label="Spread the list over the page">
+        <Button variant="ghost" size="icon-sm" onClick={() => to('wide', 'slide')}>
+          <Maximize2 className="size-3.5" />
+        </Button>
+      </Tip>
+    </>
+  )
+}
+
+/** Whether to move at all: Motion off in Settings, or the system asking for less. */
+export const still = (): boolean =>
+  document.documentElement.dataset.motion === 'off' ||
+  matchMedia('(prefers-reduced-motion: reduce)').matches

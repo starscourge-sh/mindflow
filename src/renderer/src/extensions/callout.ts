@@ -23,6 +23,9 @@ const TYPES: Record<string, [string, BlockColor]> = {
   quote: ["💬", "gray"], cite: ["💬", "gray"],
 }
 
+/** The type a callout made here is written under, having none of Obsidian's. */
+const PLAIN = "callout"
+
 /**
  * An aside: a tinted box with an icon, holding whatever you put in it.
  *
@@ -83,21 +86,25 @@ export const Callout = Node.create({
   markdownTokenizer: {
     name: "callout",
     level: "block",
-    start: (src: string) => src.search(/^ {0,3}> ?\[![\w-]+\]/m),
+    start: (src: string) => src.search(/^ {0,3}> ?\[![\w-]+[|\]]/m),
     tokenize: (src, _tokens, lexer) => {
-      const match = /^ {0,3}> ?\[!([\w-]+)\]([+-]?)[ \t]*(.*)(?:\n|$)((?: {0,3}>.*(?:\n|$))*)/.exec(src)
+      const match = /^ {0,3}> ?\[!([\w-]+)(?:\|([^\]\n]*))?\]([+-]?)[ \t]*(.*)(?:\n|$)((?: {0,3}>.*(?:\n|$))*)/.exec(src)
       if (!match) return undefined
-      const inside = match[4].replace(/\n$/, "").split("\n").map((line) => line.replace(/^ {0,3}> ?/, "")).join("\n")
-      return { type: "callout", raw: match[0], kind: match[1].toLowerCase(), fold: match[2], title: match[3].trim(), tokens: lexer.blockTokens(inside) }
+      const inside = match[5].replace(/\n$/, "").split("\n").map((line) => line.replace(/^ {0,3}> ?/, "")).join("\n")
+      return { type: "callout", raw: match[0], kind: match[1].toLowerCase(), look: match[2] ?? "", fold: match[3], title: match[4].trim(), tokens: lexer.blockTokens(inside) }
     },
   },
   parseMarkdown: (token, helpers) => {
     const kind = String(token.kind ?? "note")
-    const [icon, color] = TYPES[kind] ?? TYPES.note
+    // `[!tip|🌱 green]`: an icon and colour of its own, after the bar.
+    const [ownIcon, ownColor] = String(token.look ?? "").trim().split(/\s+/)
+    const [icon, color] = ownIcon ? [ownIcon, (ownColor || "blue") as BlockColor] : (TYPES[kind] ?? TYPES.note)
     const content = helpers.parseChildren(token.tokens ?? [])
+    // One made here, with no type, comes back as it was.
+    const plain = kind === PLAIN && !!ownIcon
     // With no title of its own, Obsidian heads it with its type.
-    const title = String(token.title ?? "").replace(/[*_`]/g, "") || kind[0].toUpperCase() + kind.slice(1)
-    return helpers.createNode("callout", { icon, color, type: kind, title, fold: token.fold ?? "" }, content.length ? content : [{ type: "paragraph" }])
+    const title = String(token.title ?? "").replace(/[*_`]/g, "") || (plain ? "" : kind[0].toUpperCase() + kind.slice(1))
+    return helpers.createNode("callout", { icon, color, type: plain ? "" : kind, title, fold: token.fold ?? "" }, content.length ? content : [{ type: "paragraph" }])
   },
 
   parseHTML() {
@@ -136,8 +143,12 @@ export const Callout = Node.create({
    */
   renderMarkdown(node, { renderChildren }): string {
     // One that came from Obsidian goes back the way it came.
-    const { type, fold, title } = (node.attrs ?? {}) as Record<string, string>
-    const head = type ? `[!${type}]${fold ?? ""}${title ? ` ${title}` : ""}\n` : `${node.attrs?.icon ?? ""} `
+    // One made here is written as Obsidian's too, so it reads back as a callout:
+    // its icon and colour after a bar when they are not its type's own.
+    const { type, fold, title, icon, color } = (node.attrs ?? {}) as Record<string, string>
+    const own = TYPES[type]
+    const look = own && own[0] === icon && own[1] === color ? "" : `|${icon} ${color}`
+    const head = `[!${type || PLAIN}${look}]${fold ?? ""}${title ? ` ${title}` : ""}\n`
     const body = `${head}${renderChildren(node, "\n\n")}`.trim()
     return body
       .split("\n")

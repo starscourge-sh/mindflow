@@ -1,6 +1,6 @@
 import { themeActions } from '@/lib/theme'
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
-import { Minimize2, ArrowLeft, ArrowRight, ChevronDown, ChevronRight, CircleHelp, PanelLeft, Search as SearchIcon, Shield, SquarePen, Tag } from 'lucide-react'
+import { Minimize2, ArrowLeft, ArrowRight, ChevronDown, ChevronRight, CircleHelp, PanelLeft, Pin as PinMark, Search as SearchIcon, Shield, SquarePen, Tag } from 'lucide-react'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AnimatePresence, motion } from 'motion/react'
 import { chime, soundOn } from './lib/sound'
@@ -14,17 +14,19 @@ import { CapturesView } from './components/vigil/captures-view'
 import { ItemsView } from './components/vigil/items-view'
 import { QuestionsView, startQuestion } from './components/vigil/questions-view'
 import { ReviewView } from './components/vigil/review-view'
+import { HomeView } from './components/vigil/home-view'
 import { SettingsView } from './components/vigil/settings-view'
 import { StatsView } from './components/vigil/stats-view'
 import { TagsView } from './components/vigil/tags-view'
+import { usePinnedTags } from './components/vigil/tag-read'
 import { TasksView } from './components/vigil/tasks-view'
 import { WeekView } from './components/vigil/week-view'
 import { placed } from './lib/tasks'
-import { Kbd, Rolling, Toaster, toast, typing, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
+import { Rolling, Toaster, toast, typing, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
 import { FocusScenery } from './components/vigil/scenery'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import { useAppearance, useLive, vigil, type Item, type Pin, type Settings, type Task } from './lib/vigil'
-import { Tip, showTopTitle, useTopTitle } from '@/components/vigil/ui'
+import { Tip, showTopTitle, useTopTitle, Pressed } from '@/components/vigil/ui'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import ExpandIcon from '@/components/ui/expand-icon'
 import GearIcon from '@/components/ui/gear-icon'
@@ -43,7 +45,6 @@ import { openWindow } from '@/lib/notes'
 import { PlaceIcon, SECTIONS, ShowList, useShown } from '@/components/vigil/places'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { RowMenu } from '@/components/vigil/row-menu'
-import SlidersHorizontalIcon from '@/components/ui/sliders-horizontal-icon'
 
 // A nonce makes asking again a fresh visit: the recap reopens each time.
 type View = { id: string; focus?: string; nonce?: number }
@@ -72,7 +73,7 @@ const today = (): number => new Date().setHours(24, 0, 0, 0)
 
 /** The top bar's buttons, one size and one look, each named with its key on hover. */
 const TOOL = 'flex h-7 min-w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4'
-const keyed = (label: string, keys: string): React.JSX.Element => <span className="flex items-center gap-1.5">{label} <Kbd>{keys}</Kbd></span>
+const keyed = (label: string, keys: string): React.JSX.Element => <span className="flex items-center gap-1.5">{label} <Pressed keys={keys} /></span>
 
 /** Whether the window is under 760px wide, followed as it is resized. */
 const NARROW = '(max-width: 759px)'
@@ -99,7 +100,7 @@ const useCramped = (): boolean => useSyncExternalStore(followCramped, () => matc
  */
 export function Home(): React.JSX.Element {
   // Where you have been, for back and forward: a list and a place in it.
-  const [trail, setTrail] = useState<{ views: View[]; at: number }>({ views: [{ id: 'inbox' }], at: 0 })
+  const [trail, setTrail] = useState<{ views: View[]; at: number }>({ views: [{ id: 'home' }], at: 0 })
   const view = trail.views[trail.at]
   const setView = (next: View): void =>
     setTrail((trail) => {
@@ -151,7 +152,8 @@ export function Home(): React.JSX.Element {
   }, [])
   useAppearance()
   useFocusMode('home')
-  const [searching, setSearching] = useState(false)
+  // ⌘K: notes and every action. ⌘P, Obsidian's quick open: notes only.
+  const [searching, setSearching] = useState<false | 'all' | 'notes'>(false)
   // Recent beside the page: everything made lately, or in the week a week's
   // page shows. `until` null reaches back from now.
   const [recent, setRecentState] = useState<{ until: string | null } | null>(null)
@@ -173,6 +175,9 @@ export function Home(): React.JSX.Element {
   const shown = useShown('sidebarShown')
   const pins = useLive(vigil.pins, [] as Pin[])
   const tags = useLive(vigil.tags, [] as Awaited<ReturnType<typeof vigil.tags>>)
+  // Pinned from a tag's page: those first, then the most used.
+  const [pinnedTags] = usePinnedTags()
+  const sideTags = [...tags.filter((one) => pinnedTags.includes(one.tag)), ...tags.filter((one) => !pinnedTags.includes(one.tag))].slice(0, Math.max(8, pinnedTags.length))
   const captures = useCaptures()
   const due = useLive(vigil.dueCount, 0, [], ['item'])
   const tasks = useLive(vigil.tasks, [] as Task[])
@@ -216,17 +221,23 @@ export function Home(): React.JSX.Element {
       // ⌘ keys work with the caret in a note too; only something held over
       // the page (Read, a question) keeps them.
       if (document.querySelector('[role="dialog"]')) return
-      if (event.metaKey && event.key === 'k') {
+      if (event.metaKey && (event.key === 'k' || event.key === 'p')) {
         event.preventDefault()
-        return setSearching(true)
+        return setSearching(event.key === 'k' ? 'all' : 'notes')
+      }
+      // ⌘N, as in Notion and Linear: a new capture, in the box.
+      if (event.metaKey && event.key === 'n') {
+        event.preventDefault()
+        return void (chime('open'), window.api.showPrompt())
       }
       // ⇧⌘Y: Recent beside the page, or away again.
       if (event.metaKey && event.shiftKey && event.key.toLowerCase() === 'y') {
         event.preventDefault()
         return toggleRecent()
       }
-      if (event.metaKey && event.key === '[') return step(-1)
-      if (event.metaKey && event.key === ']') return step(1)
+      // ⌥⌘[ is the editor's fold, not Back.
+      if (event.metaKey && !event.altKey && event.key === '[') return step(-1)
+      if (event.metaKey && !event.altKey && event.key === ']') return step(1)
       if (event.metaKey && event.key === '\\') {
         chime(sidebar ? 'fold' : 'slide')
         return setSidebar((open) => !open)
@@ -296,13 +307,16 @@ export function Home(): React.JSX.Element {
       <FocusScenery />
       {searching && (
         <Search
-          // The same palette as the prompt's: places to go and things to switch.
-          actions={[
+          // The same palette as the box's: places to go and things to switch.
+          actions={searching === 'notes' ? [] : [
             { label: 'New capture', keys: 'C', run: () => window.api.showPrompt() },
             { label: 'New question', cue: null, run: () => void startQuestion(open) },
-            { label: 'Tidy the last few days: tags and formatting, nothing to decide', run: () => openPass('tidy') },
-            { label: 'Decide: the weekly pass over what you set aside', run: () => openPass('decide') },
-            ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),
+            { label: 'Tidy: a few minutes over the latest captures', run: () => openPass('tidy') },
+            { label: 'Decide: the weekly pass over what waited', run: () => openPass('decide') },
+            { label: 'Import an Obsidian vault or Notion export…', cue: null, run: () => void window.api.importFrom('vault') },
+            { label: 'Import Readwise, Kindle, Markdown, bookmarks or Anki…', cue: null, run: () => void window.api.importFrom('files') },
+            { label: 'Take the tour', cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:tour')) },
+            ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),
             { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘\\', cue: sidebar ? 'fold' : 'slide', run: () => setSidebar(!sidebar) },
             { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', cue: null, run: () => setFill(!fill) },
             { label: 'Fold every heading', cue: null, run: () => void (foldEverything(true) || chime('nope')) },
@@ -357,12 +371,12 @@ export function Home(): React.JSX.Element {
             type="button"
             data-tour="search"
             aria-label="Search"
-            onClick={() => setSearching(true)}
+            onClick={() => setSearching('all')}
             className={`flex w-full items-center gap-2 rounded-lg bg-accent/60 py-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${narrow ? 'justify-center px-0' : 'px-2.5'}`}
           >
             <AliveIcon icon={MagnifierIcon} size={16} />
             {!narrow && <span className="flex-1 text-left">Search…</span>}
-            {!narrow && <Kbd>⌘K</Kbd>}
+            {!narrow && <Pressed keys="⌘K" />}
           </button>
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pt-1 pb-3">
@@ -374,7 +388,7 @@ export function Home(): React.JSX.Element {
               <button
                 type="button"
                 data-home={section.id === 'nuggets' ? 'nugget' : section.id === 'upcoming' ? 'task' : section.id === 'questions' ? 'question' : undefined}
-                data-tour={section.id === 'inbox' ? 'inbox' : undefined}
+                data-tour={section.id === 'inbox' || section.id === 'review' ? section.id : undefined}
                 aria-label={section.label}
                 onClick={() => setView({ id: section.id })}
                 className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors ${narrow ? 'justify-center px-0' : 'px-2'} ${view.id === section.id ? 'bg-accent text-foreground' : 'text-foreground/80 hover:bg-accent/60'}`}
@@ -393,7 +407,7 @@ export function Home(): React.JSX.Element {
               </TooltipTrigger>
               <TooltipContent side="right" className="flex items-center gap-1.5">
                 {/* The name only when the icon stands alone; beside its name, just the keys. */}
-                {narrow && <>{section.label} </>}<Kbd>G</Kbd><Kbd>{section.key.toUpperCase()}</Kbd>
+                {narrow && <>{section.label} </>}<Pressed keys={`G ${section.key.toUpperCase()}`} />
               </TooltipContent>
               </Tooltip>
             )
@@ -515,7 +529,7 @@ export function Home(): React.JSX.Element {
           </button>
         )}
         {tagsOpen &&
-          tags.slice(0, 8).map(({ tag, count, color }) => (
+          sideTags.map(({ tag, count, color }) => (
             <button
               key={tag}
               type="button"
@@ -524,27 +538,12 @@ export function Home(): React.JSX.Element {
             >
               <Tag className="size-4 text-muted-foreground" style={color ? { color: `var(--tt-color-text-${color})` } : undefined} />
               <span className="flex-1 truncate text-left">{tag}</span>
+              {pinnedTags.includes(tag) && <PinMark className="size-3 text-muted-foreground" aria-label="Pinned" />}
               <span className="text-xs text-muted-foreground tabular-nums"><Rolling text={count} /></span>
             </button>
           ))}
         </>)}
 
-        <div className="mt-auto flex flex-col gap-px pt-4">
-          {/* Notion's quiet last row: which sections the sidebar lists. Settings has the same switches. */}
-          <Tip label={narrow ? 'Customize sidebar' : ''}>
-          <button
-            type="button"
-            data-customize
-            aria-label="Customize sidebar"
-            aria-expanded={customizing}
-            onClick={() => setCustomizing(!customizing)}
-            className={`flex items-center gap-2.5 rounded-md py-1.5 text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground aria-expanded:bg-accent/60 ${narrow ? 'justify-center px-0' : 'px-2'}`}
-          >
-            <AliveIcon icon={SlidersHorizontalIcon} size={16} />
-            {!narrow && <span className="flex-1 text-left">Customize sidebar</span>}
-          </button>
-          </Tip>
-        </div>
         </div>
         {/* One row at the foot, the way Notion keeps its workspace menu: Settings,
             Safe mode, Blurring, the keys and the tour wait behind Vigil's name.
@@ -561,6 +560,7 @@ export function Home(): React.JSX.Element {
             </DropdownMenuTrigger>
             <DropdownMenuContent side="top" align="start" className="w-60">
               <DropdownMenuItem onSelect={() => setView({ id: 'settings' })}>Settings<DropdownMenuShortcut>⌘,</DropdownMenuShortcut></DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void window.api.importFrom('vault')}>Import from Obsidian or Notion…</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuCheckboxItem checked={!!settings?.safeMode} onSelect={(event) => event.preventDefault()} onCheckedChange={() => safeMode()}>
                 Safe mode<DropdownMenuShortcut>⌥⌘S</DropdownMenuShortcut>
@@ -571,6 +571,9 @@ export function Home(): React.JSX.Element {
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={() => window.dispatchEvent(new CustomEvent('vigil:shortcuts'))}>Keyboard shortcuts<DropdownMenuShortcut>?</DropdownMenuShortcut></DropdownMenuItem>
               <DropdownMenuItem onSelect={() => window.dispatchEvent(new CustomEvent('vigil:tour'))}>Take the tour</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {/* Used once, so it waits here rather than taking a row of the sidebar; each group's ··· has it too. */}
+              <DropdownMenuItem onSelect={() => setTimeout(() => setCustomizing(true), 0)}>Customize sidebar…</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           {settings?.safeMode && (
@@ -606,7 +609,7 @@ export function Home(): React.JSX.Element {
         {[
           { icon: PanelLeft, label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘\\', run: () => (chime(sidebar ? 'fold' : 'slide'), setSidebar(!sidebar)) },
           // With the sidebar away, its search field comes up here as a button.
-          ...(sidebar ? [] : [{ icon: SearchIcon, label: 'Search', keys: '⌘K', run: () => setSearching(true) }])
+          ...(sidebar ? [] : [{ icon: SearchIcon, label: 'Search', keys: '⌘K', run: () => setSearching('all') }])
         ].map(({ icon: Icon, label, keys, run }) => (
           <Tip key={keys} label={keyed(label, keys)}>
             <button type="button" aria-label={label} onClick={run} className={TOOL} style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
@@ -650,16 +653,19 @@ export function Home(): React.JSX.Element {
       {/* The page itself, a card like the sidebar's. */}
       <div className="relative flex min-h-0 flex-1 gap-2">
       <div className="@container/page relative flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border">
-      <AnimatePresence mode="wait" initial={false}>
+      {/* Views are switched by key all day: the new one is there at once and
+          only settles in, never waiting for the old one to leave first. A
+          transform string, so it stays smooth while the view mounts. */}
       <motion.div
         key={view.id}
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -4 }}
-        transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+        initial={{ opacity: 0, transform: 'translateY(4px)' }}
+        animate={{ opacity: 1, transform: 'translateY(0px)' }}
+        transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
         className="flex min-w-0 flex-1"
       >
-        {view.id === 'inbox' || view.id === 'all' || view.id === 'discarded' || view.id === 'archived' ? (
+        {view.id === 'home' ? (
+          <HomeView onOpen={open} onView={(id, focus) => setView({ id, focus })} />
+        ) : view.id === 'inbox' || view.id === 'all' || view.id === 'discarded' || view.id === 'archived' ? (
           <CapturesView title={SECTIONS.find((section) => section.id === view.id)!.label} keep={keep[view.id]} focus={view.focus} onOpen={open} archived={view.id === 'archived'} />
         ) : view.id === 'day' ? (
           <DayView key={view.focus} start={view.focus} onOpen={open} onScale={toScale} />
@@ -689,7 +695,6 @@ export function Home(): React.JSX.Element {
           <SettingsView />
         )}
       </motion.div>
-      </AnimatePresence>
       </div>
       {/* Beside the page, not over it, while there is room; over its right edge in a narrow window. */}
       <AnimatePresence>

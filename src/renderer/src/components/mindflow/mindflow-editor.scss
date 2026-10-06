@@ -53,6 +53,12 @@
     font-size: 1em;
   }
 
+  // Each line runs the way its own words do: Hebrew or Arabic from the
+  // right, English from the left, in the same note.
+  :is(p, h1, h2, h3, h4, h5, h6) {
+    unicode-bidi: plaintext;
+  }
+
   // The quirk in the g, k and y, and softer terminals. Off unless asked for.
   font-variation-settings:
     "SOFT" 20,
@@ -1982,20 +1988,29 @@ $nested-ul: "ul:not([data-type='taskList'])";
   inset: 0;
   z-index: 60;
   overflow: hidden;
+  // Depth for the lift's slight tilt.
+  perspective: 1400px;
 }
 
-// The note stays faintly there behind it, dimmed and soft. Blurring off keeps
-// the dim and drops the blur.
+// The page goes nearly dark behind it, its own pictures drained to grey, so
+// the one lifted out is the only colour left (Spotify's cover view). One
+// filter on this layer, not on each picture. Blurring off keeps the dim and
+// the grey and drops the softening.
 .mf-look-backdrop {
   position: absolute;
   inset: 0;
-  background: color-mix(in oklab, var(--background) 80%, transparent);
-  backdrop-filter: blur(18px) saturate(0.9);
+  background: rgb(0 0 0 / 0.8);
+  backdrop-filter: grayscale(1) brightness(0.6) blur(4px);
 }
 
 html[data-noblur] .mf-look-backdrop {
-  background: color-mix(in oklab, var(--background) 92%, transparent);
-  backdrop-filter: none;
+  backdrop-filter: grayscale(1) brightness(0.6);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .mf-look-backdrop {
+    background: rgb(0 0 0 / 0.92);
+  }
 }
 
 .mf-look-frame {
@@ -3199,5 +3214,45 @@ body > div[dir][style*="-10000px"] > .tableWrapper {
 @keyframes mf-fade-in {
   from {
     opacity: 0;
+  }
+}
+
+// Where a block dragged to another's side lands: an upright line on that side,
+// the seam the new column will open at. The flat line steps aside meanwhile.
+.mf-drop-beside > .prosemirror-dropcursor-block {
+  opacity: 0;
+}
+
+.mf-column-drop {
+  position: absolute;
+  z-index: 50;
+  width: 2px;
+  border-radius: 1px;
+  pointer-events: none;
+  background: currentColor;
+  transform-origin: center top;
+  animation: mf-column-drop-in 160ms cubic-bezier(0.23, 1, 0.32, 1);
+  transition:
+    left 110ms ease-out,
+    top 110ms ease-out,
+    height 110ms ease-out;
+}
+
+@keyframes mf-column-drop-in {
+  from {
+    opacity: 0;
+    transform: scaleY(0.85);
+  }
+}
+
+html[data-motion="off"] .mf-column-drop {
+  animation: none;
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mf-column-drop {
+    animation: none;
+    transition: none;
   }
 }

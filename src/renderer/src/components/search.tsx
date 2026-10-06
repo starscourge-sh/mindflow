@@ -7,7 +7,7 @@ import type { JSONContent } from '@tiptap/core'
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { whereFrom } from './capture-list'
 import { MindflowEditor } from './mindflow'
-import { AskWho, Kbd, Rolling, Typed } from './vigil/ui'
+import { AskWho, Kbd, Rolling, Typed, Pressed } from './vigil/ui'
 import { AliveIcon } from './vigil/alive-icon'
 import { Orb } from './vigil/orb'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
@@ -19,6 +19,7 @@ import { BUCKETS, bucket } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../main/task-words'
 import { GlossLine, openGloss } from './vigil/gloss-line'
 import { dayjs, daysSince } from '../../../main/dates'
+import { keyFor } from '@/lib/keys'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 
@@ -254,7 +255,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
                 onClick={() => run(one)}
               >
                 <span className="min-w-0 flex-1 truncate">{one.label}</span>
-                {one.keys && <span className="flex shrink-0 gap-0.5">{Array.from(one.keys).map((key, n) => <Kbd key={n}>{key}</Kbd>)}</span>}
+                {one.keys && <span className="flex shrink-0 gap-0.5"><Pressed keys={one.keys} each /></span>}
               </button>
             ))}
             {!query.trim() && !doing.length && (
@@ -319,7 +320,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
                 {picking
                   ? theme && (
                     // A small page in the theme: the whole window wears it behind, this says which.
-                    <div key={theme} className="animate-in fade-in-0 flex flex-col gap-2 p-4 duration-150">
+                    <div key={theme} className="flex flex-col gap-2 p-4">
                       <p className="font-heading text-xl font-semibold text-heading">{themeName(theme)}</p>
                       <p className="text-body text-foreground">The quick brown fox jumps over the lazy dog.</p>
                       <p className="text-body text-muted-foreground">Quieter words, for dates and asides.</p>
@@ -329,7 +330,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
                   : current
                   ? current.type === 'task' ? <TaskPreview id={current.id} /> : <NotePreview type={current.type} id={current.id} />
                   : action
-                    ? <p key={action.label} className="animate-in fade-in-0 p-4 text-base font-medium text-pretty text-foreground duration-150">{action.label}</p>
+                    ? <p key={action.label} className="p-4 text-base font-medium text-pretty text-foreground">{action.label}</p>
                     : <p className="p-4 text-body text-muted-foreground">Move onto something to see it here.</p>}
               </div>
               {/* One bar under every item: a thought on a result (⌘; or a click),
@@ -346,7 +347,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
                   </>
                 ) : action && (
                   <>
-                    {action.keys && <span className="flex items-center gap-1.5"><span className="flex gap-0.5">{Array.from(action.keys).map((key, n) => <Kbd key={n}>{key}</Kbd>)}</span> any time</span>}
+                    {action.keys && keyFor(action.keys) && <span className="flex items-center gap-1.5"><span className="flex gap-0.5"><Pressed keys={action.keys} each /></span> any time</span>}
                   </>
                 )}
               </div>
@@ -378,7 +379,7 @@ function NotePreview({ type, id }: { type: string; id: string }): React.JSX.Elem
   }, [type, id])
   if (!shown) return null
   return (
-    <div key={shown.id} className="animate-in fade-in-0 duration-150">
+    <div key={shown.id}>
       <MindflowEditor defaultContent={(shown.body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
     </div>
   )
@@ -406,7 +407,7 @@ function TaskPreview({ id }: { id: string }): React.JSX.Element | null {
   ].filter(Boolean)
   const notes = /"text":|"src":/.test(JSON.stringify(task.notes ?? null))
   return (
-    <div key={task.id} className="animate-in fade-in-0 flex flex-col gap-3 p-4 text-body duration-150">
+    <div key={task.id} className="flex flex-col gap-3 p-4 text-body">
       <div>
         <p className="text-base font-medium text-foreground">{task.title || 'Untitled task'}</p>
         <p className="mt-1 text-muted-foreground">{facts.join(' · ')}</p>

@@ -115,8 +115,11 @@ export const looksPrivate = (path: string): boolean =>
     isPrivateFile(part, at < all.length - 1))
 
 /** When the file says it was made, or nothing. */
-export const createdOf = (text: string): string | null =>
-  /^created:\s*(\S+)/m.exec(text)?.[1] ?? null
+export const createdOf = (text: string): string | null => {
+  const said = /^created:\s*(\S+)/m.exec(text)?.[1]
+  // "created: soon" is no date: the file's own is used instead.
+  return said && !Number.isNaN(Date.parse(said)) ? said : null
+}
 
 /**
  * A best guess at what a jotting is, from the cheap signals only: the tags the
@@ -137,8 +140,10 @@ export function guessKind(chunk: string, fallback: string): string {
 /** The old inbox's "$2026-06-05 08:34:42$ 💭 »" prefix: its time, and the text without it. */
 export function unstamp(chunk: string): { text: string; at: string | null } {
   const match = /\$(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\$\s*💭\s*»\s*/.exec(chunk)
+  const at = match ? new Date(match[1].replace(' ', 'T')) : null
+  // A stamp that is no real time ("2026-13-45") keeps the words, undated.
   return match
-    ? { text: chunk.replace(match[0], ''), at: new Date(match[1].replace(' ', 'T')).toISOString() }
+    ? { text: chunk.replace(match[0], ''), at: at && !Number.isNaN(at.getTime()) ? at.toISOString() : null }
     : { text: chunk, at: null }
 }
 

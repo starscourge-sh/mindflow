@@ -9,8 +9,9 @@ import { findCaptures, findHeadings, follow } from '@/lib/capture-links'
 import { dayOf, notes, type Day, type DayEntry } from '@/lib/notes'
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/vigil'
-import { Island, Kbd, Page, Rolling, Tip, Typed, toast, typing } from './ui'
+import { Island, Page, Rolling, Tip, Typed, toast, typing, Pressed } from './ui'
 import { DayBanner } from './scenery'
+import { DayBrief } from './day-brief'
 import { GlossButton, GlossLine } from './gloss-line'
 import { Versions } from './note-extras'
 import { ScaleSwitch, type Scale } from './periods-view'
@@ -82,16 +83,20 @@ export function DayView({ onOpen, start, onScale }: {
           <Tip label="The day after  →">
             <Button variant="ghost" size="icon-sm" aria-label="The day after" disabled={day >= today} onClick={() => go(shift(day, 1))}><ArrowRight className="size-3.5" /></Button>
           </Tip>
-          {day !== today && <Button variant="ghost" size="sm" onClick={() => go(today)}>Today <Kbd>T</Kbd></Button>}
+          {day !== today && <Button variant="ghost" size="sm" onClick={() => go(today)}>Today <Pressed keys="T" /></Button>}
           <Button variant={data?.reviewed ? 'secondary' : 'ghost'} size="sm" aria-pressed={!!data?.reviewed} onClick={tick}>
             <AliveIcon icon={CheckedIcon} size={14} /> <Rolling text={data?.reviewed ? 'Reviewed' : 'Mark reviewed'} by="word" />
           </Button>
         </span>
       }
     >
+      {/* Today opens as a brief: the day's picture and name, a line on what
+          it holds, and the one thing worth doing next. Other days keep their strip. */}
+      {day === today && <DayBrief day={day} onOpen={onOpen} />}
       <div className="page-narrow mx-auto w-full px-5 pt-6 pb-16 [--mf-padding:0.5rem_0]">
-        <DayBanner day={day} />
-        <h1 className="text-title font-semibold"><Rolling text={day === today ? `Today, ${named(day)}` : named(day)} by="word" /></h1>
+        {day !== today && <DayBanner day={day} />}
+        {/* Today, the brief says the date (on its spine, or a line when narrow): this stays for screen readers. */}
+        <h1 className={`text-title font-semibold ${day === today ? 'sr-only' : ''}`}><Rolling text={day === today ? `Today, ${named(day)}` : named(day)} by="word" /></h1>
         {data && !data.exists && (
           <p className="mt-1 text-meta text-muted-foreground"><Typed text="No page for this day yet. Write below and it keeps one." step={28} /></p>
         )}

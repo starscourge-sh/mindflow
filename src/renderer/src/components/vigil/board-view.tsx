@@ -2,18 +2,23 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { createPortal } from 'react-dom'
 import type { Editor, JSONContent } from '@tiptap/core'
 import type { Node as PMNode } from '@tiptap/pm/model'
+import { redo, undo } from '@tiptap/pm/history'
 import { DndContext, DragOverlay, MeasuringStrategy, PointerSensor, closestCorners, useDroppable, useSensor, useSensors, type DragOverEvent, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Archive, Check, ChevronDown, ChevronRight, GripVertical, Plus, Search, X } from 'lucide-react'
 
 import { MindflowEditor, TAGS, readMarkdown } from '../mindflow'
+import { Calendar } from '@/components/ui/calendar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { chime } from '@/lib/sound'
 import { notes, type NoteTable } from '@/lib/notes'
+import { taskSaid, vigil } from '@/lib/vigil'
+import { keyFor } from '@/lib/keys'
+import { dayMonth } from '../../../../main/dates'
 import { SETTLE, snapshot } from './sortable'
-import { Rolling, Tip, toast } from './ui'
+import { Rolling, Tip, toast, untoast } from './ui'
 
 /**
  * A note seen as a board: each heading a list, side by side, each item under
@@ -292,6 +297,14 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
         }
         return
       }
+      // ⌘Z takes back the board's last change, as it would in the note.
+      if (event.metaKey && !event.altKey && event.code === 'KeyZ') {
+        take()
+        const done = (event.shiftKey ? redo : undo)(editor.state, editor.view.dispatch)
+        // A toast offering to undo is out of date once the note has moved under it.
+        if (done) untoast()
+        return chime(done ? 'undo' : 'nope')
+      }
       if (event.metaKey || event.ctrlKey) return
       const lanes = shape.lanes
       const open = lanes.map((lane, at) => ({ lane, at })).filter(({ lane }) => !folds.includes(lane.title))
@@ -420,13 +433,63 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
       return { id, card: shape.lanes[l].cards[i], at: i }
     }).filter((one) => one.card && (!query || one.card.node.textContent.toLowerCase().includes(query.toLowerCase())))
 
-  const menuFor = (lane: number, at: number): ReactNode => {
+  /** An empty card above or below this one, open to write in; left empty, it goes again. */
+  const fresh = useRef<string | null>(null)
+  const insert = (lane: number, at: number): void => {
+    edit(editor, (model) => {
+      const { item, list } = model.lanes[lane].cards[Math.min(at, model.lanes[lane].cards.length - 1)]
+      const blank = { type: item.type, ...(item.type === 'taskItem' ? { attrs: { checked: false } } : {}), content: [{ type: 'paragraph' }] }
+      model.lanes[lane].cards.splice(at, 0, { item: blank, list })
+      return [lane]
+    })
+    chime('open')
+    fresh.current = cardId(lane, at)
+    setEditing(fresh.current)
+  }
+  /** The card's words become a note of their own, and the card a link to it. */
+  const toNote = async (lane: number, at: number): Promise<void> => {
+    const card = shape.lanes[lane].cards[at]
+    const title = card.node.firstChild?.textContent.trim() || 'Untitled'
+    const before = editor.getJSON()
+    const made = await window.api.captures.create({ body: { type: 'doc', content: card.node.toJSON().content ?? [{ type: 'paragraph' }] }, origin: id })
+    if (!made) return void (chime('nope'), toast('Could not make the note', undefined, 'error'))
+    edit(editor, (model) => {
+      const item = model.lanes[lane].cards[at].item
+      model.lanes[lane].cards[at].item = { ...item, content: [{ type: 'paragraph', content: [{ type: 'noteLink', attrs: { id: made, label: title } }] }] }
+      return [lane]
+    })
+    chime('noted')
+    toast(`Made a note: ${title}`, () => (commit(editor, before), void vigil.unmakeCapture(made, id), chime('undo')), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('capture', made) })
+  }
+  /** A date on a card makes it a task on that day, linked back to this note. */
+  const dated = async (lane: number, at: number, day: Date): Promise<void> => {
+    const text = shape.lanes[lane].cards[at].node.firstChild?.textContent.trim()
+    if (!text) return void (chime('nope'), toast('Write something on the card first', undefined, 'info'))
+    const made = await vigil.addTask(text, id)
+    const due = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 12).toISOString()
+    if (!made.existed) await vigil.saveTask(made.id, { due })
+    chime('noted')
+    toast(taskSaid(made, `Task T-${made.number}, for ${dayMonth(due)}`))
+  }
+
+  const menuFor = (lane: number, at: number) => (close: () => void): ReactNode => {
     const card = shape.lanes[lane].cards[at]
     const last = shape.lanes[lane].cards.length - 1
     return (
       <>
         <DropdownMenuItem onSelect={() => (chime('open'), setEditing(cardId(lane, at)))}>Edit card<DropdownMenuShortcut>↵</DropdownMenuShortcut></DropdownMenuItem>
-        {card.node.type.name === 'taskItem' && <DropdownMenuItem onSelect={() => tick(card.pos)}>{card.node.attrs.checked ? 'Not done' : 'Done'}<DropdownMenuShortcut>X</DropdownMenuShortcut></DropdownMenuItem>}
+        {card.node.type.name === 'taskItem' && <DropdownMenuItem onSelect={() => tick(card.pos)}>{card.node.attrs.checked ? 'Not done' : 'Done'}<DropdownMenuShortcut>{keyFor('X')}</DropdownMenuShortcut></DropdownMenuItem>}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => insert(lane, at)}>Add a card above</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => insert(lane, at + 1)}>Add a card below</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => void toNote(lane, at)}>Make it a note</DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>Add a date</DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="p-0">
+            <Calendar mode="single" className="bg-transparent" onSelect={(day) => day && (close(), void dated(lane, at, day))} />
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled={at === 0} onSelect={() => (chime('settled'), move([lane, at], [lane, 0]))}>Move to top</DropdownMenuItem>
         <DropdownMenuItem disabled={at === last} onSelect={() => (chime('settled'), move([lane, at], [lane, last]))}>Move to bottom</DropdownMenuItem>
@@ -493,7 +556,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
                   here={cursor?.lane === at && cursor.card < 0}
                   menu={
                     <>
-                      <DropdownMenuItem onSelect={() => setAdding(at)}>Add a card<DropdownMenuShortcut>N</DropdownMenuShortcut></DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => setAdding(at)}>Add a card<DropdownMenuShortcut>{keyFor('N')}</DropdownMenuShortcut></DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => flipFold(lane.title)}>{folded ? 'Unfold' : 'Fold'}</DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => archiveDone(at)}>Archive done cards</DropdownMenuItem>
                     </>
@@ -509,6 +572,10 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
                         onEdited={(content) => {
                           setEditing(null)
                           root.current?.focus({ preventScroll: true })
+                          const wasFresh = fresh.current === key
+                          fresh.current = null
+                          const empty = !content || !content.some((block) => block.content?.length)
+                          if (wasFresh && empty) return edit(editor, (model) => (model.lanes[at].cards.splice(index, 1), [at]))
                           if (!content) return
                           chime('noted')
                           edit(editor, (model) => {
@@ -584,6 +651,16 @@ function useDrawn(editor: Editor, positions: number[], pick?: (node: HTMLElement
 function useCardClicks(editor: Editor, pos: number): (event: React.MouseEvent) => boolean {
   return (event) => {
     const target = event.target as HTMLElement
+    // A link to another note opens it, the way it does in the note.
+    const note = target.closest('[data-note]')
+    if (note) {
+      event.preventDefault()
+      event.stopPropagation()
+      const to = note.getAttribute('data-note')
+      const open = editor.extensionManager.extensions.find((one) => one.name === 'noteLink')?.options.onOpenNote as ((id: string, heading?: string) => void) | undefined
+      if (to) open?.(to, note.getAttribute('data-heading') || undefined)
+      return true
+    }
     const link = target.closest('a[href]') as HTMLAnchorElement | null
     if (link) {
       event.preventDefault()
@@ -688,8 +765,9 @@ function CardBox({ id, editor, card, here, editing, disabled, onPick, onTick, on
   onEdit: () => void
   /** The card's new content, or null when nothing changed. */
   onEdited: (content: JSONContent[] | null) => void
-  menu: ReactNode
+  menu: (close: () => void) => ReactNode
 }): React.JSX.Element {
+  const [menuOpen, setMenuOpen] = useState(false)
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id, disabled, transition: still() ? null : { duration: 220, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1)' } })
   const task = card.node.type.name === 'taskItem'
   const checked = !!card.node.attrs.checked
@@ -717,14 +795,14 @@ function CardBox({ id, editor, card, here, editing, disabled, onPick, onTick, on
           className={`tiptap ProseMirror mindflow-editor max-h-64 min-w-0 flex-1 overflow-hidden pr-4 [--mf-padding:0] [mask-image:linear-gradient(to_bottom,black_13rem,transparent)] ${checked ? '[&>p:first-child]:text-muted-foreground [&>p:first-child]:line-through' : ''}`} />
       )}
       {!editing && (
-        <DropdownMenu modal={false}>
+        <DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger asChild>
             <button type="button" aria-label="Card menu" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}
               className={`${TOOL} absolute top-1 right-1 size-6 bg-background opacity-0 group-hover/card:opacity-100 data-[state=open]:opacity-100`}>
               <AliveIcon icon={DotsHorizontalIcon} size={14} />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">{menu}</DropdownMenuContent>
+          <DropdownMenuContent align="end" className="w-52">{menu(() => setMenuOpen(false))}</DropdownMenuContent>
         </DropdownMenu>
       )}
     </div>

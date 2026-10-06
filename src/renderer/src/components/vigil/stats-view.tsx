@@ -16,6 +16,7 @@ const percent = (part: number, whole: number): string => (whole ? `${Math.round(
 const plural = (n: number, one: string, many: string): string => `${num(n)} ${n === 1 ? one : many}`
 
 /** A number inside a sentence, set apart only by weight and even figures. It rolls into place. */
+// Each figure is wrapped with the mark after it (whitespace-nowrap), so a comma never starts a line.
 function N({ children }: { children: ReactNode }): React.JSX.Element {
   return <strong className="font-semibold text-foreground proportional-nums">{typeof children === 'string' || typeof children === 'number' ? <Rolling text={children} /> : children}</strong>
 }
@@ -55,7 +56,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
   const maxHour = Math.max(1, ...stats.hours.map((row) => row.n))
   const opened = new Set(stats.days)
   // Twelve weeks of days, oldest first, ending today: the heatmap's cells.
-  const days = Array.from({ length: 84 }, (_, index) => dayjs().subtract(83 - index, 'day').toISOString().slice(0, 10))
+  const days = Array.from({ length: 84 }, (_, index) => dayjs().subtract(83 - index, 'day').format('YYYY-MM-DD'))
   const exits = [
     { status: 'promoted', label: 'became nuggets', color: 'var(--tt-color-text-purple)' },
     { status: 'resolved', label: 'dealt with elsewhere', color: 'var(--tt-color-text-green)' },
@@ -78,7 +79,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           <p>
             {stats.day.captured + stats.day.exits + stats.day.reviews ? (
               <>
-                You caught <N>{plural(stats.day.captured, 'thing', 'things')}</N>, saw <N>{stats.day.exits}</N> through to an exit and reviewed <N>{stats.day.reviews}</N>.
+                You caught <span className="whitespace-nowrap"><N>{plural(stats.day.captured, 'thing', 'things')}</N>,</span> saw <N>{stats.day.exits}</N> through to an exit and reviewed <span className="whitespace-nowrap"><N>{stats.day.reviews}</N>.</span>
               </>
             ) : 'A quiet day here. That is allowed.'}
           </p>
@@ -117,7 +118,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           </p>
           {stats.reviews.n > 0 && (
             <p>
-              You aim to remember <N>{Math.round(stats.retention * 100)}%</N> and actually remembered <N>{percent(stats.reviews.recalled ?? 0, stats.reviews.n)}</N>.
+              You aim to remember <N>{Math.round(stats.retention * 100)}%</N> and actually remembered <span className="whitespace-nowrap"><N>{percent(stats.reviews.recalled ?? 0, stats.reviews.n)}</N>.</span>
             </p>
           )}
           {stats.estimates.estimated ? (
@@ -129,7 +130,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
 
         <Section title="The doing, this week">
           <p>
-            No target here, only the trend. This week: <N>{`${plural(stats.lead.exits, 'capture', 'captures')} dealt with`}</N>, <N>{`${plural(stats.lead.glosses, 'note', 'notes')} added`}</N>,
+            No target here, only the trend. This week: <span className="whitespace-nowrap"><N>{`${plural(stats.lead.exits, 'capture', 'captures')} dealt with`}</N>,</span> <span className="whitespace-nowrap"><N>{`${plural(stats.lead.glosses, 'note', 'notes')} added`}</N>,</span>{' '}
             reviews on <N>{plural(stats.lead.reviewDays, 'day', 'days')}</N> and <N>{plural(stats.lead.articles, 'article', 'articles')}</N> started.
           </p>
           <p>
@@ -197,15 +198,15 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
             )}
           </p>
           <p>
-            You keep <N>{plural(stats.nuggets, 'nugget', 'nuggets')}</N>, <N>{stats.recall}</N> of them tested, and <N>{plural(stats.articles, 'article', 'articles')}</N> written from them.
+            You keep <span className="whitespace-nowrap"><N>{plural(stats.nuggets, 'nugget', 'nuggets')}</N>,</span> <N>{stats.recall}</N> of them tested, and <N>{plural(stats.articles, 'article', 'articles')}</N> written from them.
           </p>
         </Section>
 
         <Section title={`${dayjs().year()} so far`}>
           <p>
-            <N>{plural(stats.year.captured, 'capture', 'captures')}</N>, <N>{plural(stats.year.nuggets, 'nugget', 'nuggets')}</N> kept and{' '}
+            <span className="whitespace-nowrap"><N>{plural(stats.year.captured, 'capture', 'captures')}</N>,</span> <N>{plural(stats.year.nuggets, 'nugget', 'nuggets')}</N> kept and{' '}
             <N>{plural(stats.year.articles, 'article', 'articles')}</N> written.
-            {stats.year.month && <> Your busiest month was <N>{monthName(Number(stats.year.month) - 1)}</N>.</>}
+            {stats.year.month && <> Your busiest month was <span className="whitespace-nowrap"><N>{monthName(Number(stats.year.month) - 1)}</N>.</span></>}
           </p>
         </Section>
 
@@ -224,7 +225,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           <div className="flex justify-between text-xs tabular-nums">
             <span>00</span><span>06</span><span>12</span><span>18</span><span>23</span>
           </div>
-          <p>Most of it happens around <N>{`${busiest.hour}:00`}</N>.</p>
+          <p>Most of it happens around <span className="whitespace-nowrap"><N>{`${busiest.hour}:00`}</N>.</span></p>
           </> : <p>Nothing captured yet, so no hours to show.</p>}
         </Section>
 

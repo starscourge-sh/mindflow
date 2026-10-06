@@ -57,6 +57,9 @@ const api = {
   /** Open a stored file with whatever the system uses for it. */
   openFile: (src: string): Promise<boolean> => ipcRenderer.invoke('open-file', src),
 
+  /** Show a stored file in Finder. */
+  showFile: (src: string): Promise<boolean> => ipcRenderer.invoke('show-file', src),
+
   /** Put a stored image on the system clipboard. */
   copyImage: (src: string): Promise<boolean> => ipcRenderer.invoke('copy-image', src),
 
@@ -103,6 +106,13 @@ const api = {
     const relay = (): void => listen()
     ipcRenderer.on('window:hiding', relay)
     return () => ipcRenderer.off('window:hiding', relay)
+  },
+
+  /** An import has landed: told shown or hidden, so its notes are read into documents at once. */
+  onImported: (listen: () => void): (() => void) => {
+    const relay = (): void => listen()
+    ipcRenderer.on('imports:ready', relay)
+    return () => ipcRenderer.off('imports:ready', relay)
   },
 
   /** Each time the window is brought up: the moment the rot cards reshuffle and a hint may show. */

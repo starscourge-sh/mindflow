@@ -16,9 +16,9 @@ import { findCaptures, findHeadings, follow } from '@/lib/capture-links'
 import { interval, splitTags, useLive, vigil, when, whenInLine, type Item, type ItemFull } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
 import { useSameWords } from '@/lib/same-words'
-import { Empty, Island, Page, Prop, Props, Tags, refuse, toast, useListKeys, useReadKey, typing, pin, VirtualList, Stepper, startAt, Rolling, Typed, showTopTitle } from './ui'
-import { AGES, Display, arrange, period, useView, type Facet } from './display'
-import { RowMenu, copy, type MenuItem } from './row-menu'
+import { Empty, Island, Page, Prop, Props, refuse, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Rolling, Typed, showTopTitle, Pressed } from './ui'
+import { AGES, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
+import { copy, type MenuItem } from './row-menu'
 import { stickOnDesktop } from './sticky-note'
 import { Lineage } from './lineage'
 import { ReviewHistory } from './review-view'
@@ -27,14 +27,14 @@ import * as chrono from 'chrono-node'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Kbd, Tip } from '@/components/vigil/ui'
+import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
 import AlarmClockPlusIcon from '@/components/ui/alarm-clock-plus-icon'
 import { Archive, ArchiveRestore, Download } from 'lucide-react'
-import { Aliases, KindFields, LayoutToggle, LocalGraph, NoteCards, NoteHeader, Thumb, useLayout } from './note-extras'
-import { SortableList, SortableRow } from './sortable'
+import { Aliases, KindFields, LocalGraph, NoteHeader } from './note-extras'
+import { ListSearch, NoteList, NoteRail, PaneButtons, Peek, matches, type Entry } from './note-list'
 import { archive, changeKind, openWindow, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { QuestionDetail } from './questions-view'
 import { GlossTimeline } from './gloss-line'
@@ -43,27 +43,88 @@ import { dayjs, moment, num } from '../../../../main/dates'
 const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
 
 /**
+ * A nugget or an article as any list draws it. A nugget reads as its own
+ * words, with how it comes back under them; an article as a titled document.
+ */
+export const itemEntry = (item: Item, menu?: MenuItem[]): Entry => {
+  const kind = kindOf(item.kind)
+  const { text, tags } = splitTags(item.title)
+  const recall = !!item.prompt
+  const article = item.tier === 'article'
+  const comes = recall ? (item.dueAt ? `Recall · ${new Date(item.dueAt) <= new Date() ? 'due' : `in ${interval(item.dueAt)}`}` : 'Recall · new') : item.mode === 'pushed' ? 'On rotation' : 'Now and then'
+  return {
+    id: item.id,
+    type: item.tier,
+    title: text,
+    tags,
+    icon: article ? FileText : kind.icon,
+    tint: article ? undefined : kind.tint,
+    age: age(item.createdAt),
+    sub: article ? item.attribution ?? undefined : (
+      <span className="flex min-w-0 items-center gap-1.5">
+        {recall ? <Brain className="size-3 shrink-0" /> : item.mode === 'pushed' ? <RefreshCw className="size-3 shrink-0" /> : <Eye className="size-3 shrink-0" />}
+        <span className="truncate">{[comes, item.attribution].filter(Boolean).join(' · ')}</span>
+      </span>
+    ),
+    marks: (
+      <>
+        {item.supersededBy && <span className="shrink-0 text-xs text-[var(--tt-color-text-orange)]">Superseded</span>}
+        {item.lapses >= 4 && <Tip label="Forgotten often"><TriangleAlert className="size-3 shrink-0 text-[var(--tt-color-text-orange)]" /></Tip>}
+        {item.pinnedAt && <Pin className="size-3 shrink-0 text-muted-foreground" />}
+        {item.private ? <EyeOff className="size-3 shrink-0 text-muted-foreground" aria-label="Private" /> : null}
+      </>
+    ),
+    dim: !!item.suspended,
+    private: !!item.private,
+    wrap: item.tier === 'nugget',
+    menu
+  }
+}
+
+/**
  * Nuggets and articles: the kept tiers. A nugget reads as its own words, two
  * lines of them, with a line saying how it comes back; an article as a titled
  * document. Same row underneath, so one view, drawn two ways.
  */
 export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article'; focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const all = useLive(() => vigil.items(tier), [] as Item[], [tier], ['item'])
-  const { groups, display, move, moveBy } = useItemDisplay(tier, all)
-  const items = groups.flatMap(([, list]) => list)
-  const [layout, setLayout] = useLayout(tier)
-  const onMove = (id: string, target: string, after: boolean): void => move(all.map((one) => one.id), id, target, after)
-  // Each group's name, on its first row.
-  const heads = new Map(groups.map(([name, list]) => [list[0], name]))
+  const { groups: arranged, display, chips, density, view, setView, move, moveBy } = useItemDisplay(tier, all)
+  // The list's width: beside the note, over the whole page, or a rail of pictures.
+  const pane = view.pane ?? 'list'
+  const [query, setQuery] = useState('')
   const [open, setOpen] = useState<ItemFull | null>(null)
-  const pick = (id: string): void => void vigil.item(id).then(setOpen)
+  const spread = pane === 'wide' && !open
+  const groups = spread && query.trim() ? arranged.map(([name, list]) => [name, list.filter((one) => matches(one.title, query))] as [string, Item[]]).filter(([, list]) => list.length) : arranged
+  const items = groups.flatMap(([, list]) => list)
+  const onMove = (id: string, target: string, after: boolean): void => move(all.map((one) => one.id), id, target, after)
+  // Spread out, a click looks at a note beside the list; Enter opens it.
+  const [peek, setPeek] = useState<string | null>(null)
+  const pick = (id: string): void => {
+    // Opening a note brings the list back beside it.
+    if (view.pane === 'wide') setView({ ...view, pane: 'list' })
+    void vigil.item(id).then(setOpen)
+  }
+  const setPane = (next: typeof pane): void => {
+    if (next === 'wide') {
+      setPeek(open?.id ?? items[Math.max(0, cursor)]?.id ?? null)
+      setOpen(null)
+    }
+    if (pane === 'wide' && next === 'list' && peek) void vigil.item(peek).then(setOpen)
+    setView({ ...view, pane: next })
+  }
   // Opened in a window of its own: closed here, so only one editor saves it.
   useEffect(() => {
     const onApart = (event: Event): void => setOpen((was) => (was?.id === (event as CustomEvent).detail ? null : was))
     window.addEventListener('vigil:opened-apart', onApart)
     return () => window.removeEventListener('vigil:opened-apart', onApart)
   }, [])
-  const [cursor, setCursor] = useListKeys(items.length, { onOpen: (index) => pick(items[index].id), onBack: () => setOpen(null) })
+  const [cursor, setCursor] = useListKeys(items.length, {
+    onOpen: (index) => pick(items[index].id),
+    // Spread out, Escape empties the search, then brings the list back.
+    onBack: () => (spread ? (query ? setQuery('') : setPane('list')) : setOpen(null))
+  })
+  useEffect(() => void (spread && items[cursor] && setPeek(items[cursor].id)), [cursor, spread]) // eslint-disable-line react-hooks/exhaustive-deps
+  const peeked = spread ? all.find((one) => one.id === peek) : undefined
   // ⌥↑ and ⌥↓ (or ⌥K and ⌥J) move the row under the cursor in your own order.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -115,15 +176,19 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   const menuFor = (item: Item): MenuItem[] => [
     { label: 'Open', keys: '↵', run: () => pick(item.id) },
     'separator',
-    { label: item.pinnedAt ? 'Unpin' : 'Pin to the prompt', run: () => pin('nuggets', item.id, !item.pinnedAt) },
+    { label: item.pinnedAt ? 'Unpin' : 'Pin to the box', run: () => pin('nuggets', item.id, !item.pinnedAt) },
     ...itemMenu(item),
     tier === 'nugget' && { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(item.id) },
     'separator',
     { label: 'Copy title', run: () => copy(item.title) }
   ]
 
+  const entries = groups.map(([name, list]) => [name, list.map((one) => itemEntry(one, menuFor(one)))] as [string, Entry[]])
   return (
     <>
+      {open && pane === 'rail' ? (
+        <NoteRail entries={entries.flatMap(([, list]) => list)} cursor={cursor} selected={open.id} onPick={pick} onShow={() => setPane('list')} />
+      ) : (
       <Page aside={!!open}
         title={tier === 'nugget' ? 'Nuggets' : 'Articles'}
         count={items.length}
@@ -151,9 +216,10 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
             </span>
           ) : (
             <span className="flex items-center gap-2 text-xs">
-              {tier === 'nugget' && items.length > 1 && (
+              {spread && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder={`Search in ${tier === 'nugget' ? 'Nuggets' : 'Articles'}`} />}
+              {tier === 'nugget' && items.length > 1 && !spread && !open && (
                 <>
-                  <span className="whitespace-nowrap"><Kbd>x</Kbd> to select</span>
+                  <span className="whitespace-nowrap"><Pressed keys="X" /> to select</span>
                   <Button variant="ghost" size="sm" onClick={() => void vigil.random().then(setPair)}>
                     Two at random
                   </Button>
@@ -165,10 +231,10 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
                 </Button>
               )}
               <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R">
-                <Button variant="ghost" size="sm" onClick={() => setReadFrom(startAt(items, open?.id, cursor))} disabled={!items.length}><AliveIcon icon={BookIcon} size={14} /> Read list</Button>
+                <Button variant="ghost" size={open ? 'icon-sm' : 'sm'} aria-label="Read through" onClick={() => setReadFrom(startAt(items, open?.id, cursor))} disabled={!items.length}><AliveIcon icon={BookIcon} size={14} />{!open && ' Read through'}</Button>
               </Tip>
-              <LayoutToggle layout={layout} onChange={setLayout} />
               {display}
+              <PaneButtons pane={spread ? 'wide' : 'list'} onPane={setPane} fold={!!open} />
             </span>
           )
         }
@@ -194,37 +260,13 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
             </motion.div>
           )}
         </AnimatePresence>
-        {items.length && layout === 'cards' ? (
-          <NoteCards table="nuggets" cards={items.map((one) => ({ id: one.id, title: one.title, kind: one.kind, type: tier, dim: !!one.suspended, private: !!one.private }))} selected={open?.id} cursor={cursor} onPick={pick}
-            menu={(card) => menuFor(items.find((one) => one.id === card.id)!)} />
-        ) : items.length ? (
-          <SortableList items={items} keyOf={(item) => item.id} onMove={onMove}>
-          {(items) => (
-          <VirtualList items={items} keyOf={(item) => item.id} cursor={cursor} estimate={60} className="mx-3 my-2">
-            {(item, index) => (
-              <SortableRow id={item.id}>
-              <div className="flex flex-col">
-              {heads.get(item) && <div className={`px-2 pb-1 text-xs text-muted-foreground ${index === 0 ? 'pt-1' : 'pt-4'}`}>{heads.get(item)}</div>}
-              <RowMenu items={menuFor(item)}>
-              <button
-                data-cursor={index === cursor || undefined}
-                data-private={item.private ? "" : undefined}
-                data-open={item.id === open?.id ? "" : undefined}
-                type="button"
-                data-row
-                // ⌘-click: a window of its own, as in every other list; shift-click selects.
-                onClick={(event) => (event.metaKey ? openWindow(tier, item.id) : event.shiftKey ? toggle(item.id) : pick(item.id))}
-                className={`relative rounded-sm px-2 py-1.5 text-left transition-colors ${chosen.includes(item.id) ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : item.id === open?.id ? 'bg-accent' : index === cursor ? 'bg-accent/50' : 'hover:bg-accent/50'} ${item.suspended ? 'opacity-50' : ''}`}
-              >
-                {tier === 'nugget' ? <NuggetRow item={item} /> : <ArticleRow item={item} />}
-              </button>
-              </RowMenu>
-              </div>
-              </SortableRow>
-            )}
-          </VirtualList>
-          )}
-          </SortableList>
+        <div className="px-5 pt-2.5 empty:hidden">{chips}</div>
+        {items.length ? (
+          <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
+            onPick={spread ? (id) => (setPeek(id), setCursor(items.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined}
+            onChoose={tier === 'nugget' ? toggle : undefined} onMove={onMove} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
+        ) : all.length && query.trim() ? (
+          <Empty shape={['ellipse', 3]} title="Nothing matches">No title here has those words. Escape clears the search.</Empty>
         ) : tier === 'nugget' ? (
           <Empty shape={['star', 3]} title="Nothing kept yet">
             A nugget is a capture worth keeping, cleaned up so it reads cold. Promote one from the inbox or a rot card and it lands here, ready to come back to you.
@@ -235,6 +277,8 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           </Empty>
         )}
       </Page>
+      )}
+      {peeked && <Peek entry={itemEntry(peeked)} table="nuggets" onOpen={() => pick(peeked.id)} />}
       {readFrom !== null && (
         <ReadThrough
           items={items.map((one) => ({ type: tier, id: one.id }))}
@@ -248,49 +292,6 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
       )}
       {open && <ItemDetail top={<Stepper at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => pick(items[to].id)} />} key={open.id} item={open} onOpen={(type, id) => (type === tier ? pick(id) : onOpen?.(type, id))} />}
     </>
-  )
-}
-
-/** A nugget's card: the kind, the words, and how it returns. */
-function NuggetRow({ item }: { item: Item }): React.JSX.Element {
-  const kind = kindOf(item.kind)
-  const recall = !!item.prompt
-  const { text, tags } = splitTags(item.title)
-  return (
-    <>
-      <span className="flex items-start gap-2">
-        <kind.icon className="mt-0.5 size-4 shrink-0" style={{ color: kind.tint }} />
-        <span className="private-text line-clamp-2 flex-1">{text || 'Untitled'}</span>
-        <Thumb id={item.id} />
-      </span>
-      <span className="mt-1 flex items-center gap-3 pl-6 text-xs text-muted-foreground">
-        {/* Pointed at, a tested one shows its own past in review. */}
-        <Tip label={recall && item.reviewed ? <ReviewHistory id={item.id} /> : null}>
-        <span className="flex items-center gap-1">
-          {recall ? <Brain className="size-3" /> : item.mode === 'pushed' ? <RefreshCw className="size-3" /> : <Eye className="size-3" />}
-          <Rolling by="word" text={recall ? (item.dueAt ? `Recall · ${new Date(item.dueAt) <= new Date() ? 'due' : `in ${interval(item.dueAt)}`}` : 'Recall · new') : item.mode === 'pushed' ? 'On rotation' : 'Now and then'} />
-        </span>
-        </Tip>
-        <Tags tags={tags} />
-        {item.supersededBy && <span className="text-[var(--tt-color-text-orange)]">Superseded</span>}
-        {item.lapses >= 4 && <TriangleAlert className="size-3 text-[var(--tt-color-text-orange)]" />}
-        {item.pinnedAt && <Pin className="size-3" />}
-        {item.private ? <EyeOff className="size-3" aria-label="Private" /> : null}
-        <span className="ml-auto tabular-nums">{age(item.createdAt)}</span>
-      </span>
-    </>
-  )
-}
-
-/** An article's line: a document, titled, dated. */
-function ArticleRow({ item }: { item: Item }): React.JSX.Element {
-  return (
-    <span className="flex items-center gap-3">
-      <FileText className="size-4 shrink-0 text-muted-foreground" />
-      <span className="private-text flex-1 truncate">{item.title || 'Untitled'}</span>
-      <Thumb id={item.id} className="size-7" />
-      <span className="shrink-0 text-xs text-muted-foreground">{when(item.createdAt)}</span>
-    </span>
   )
 }
 
@@ -453,7 +454,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
           {!!item.reviewed && <div className="px-2 py-1.5 text-muted-foreground"><ReviewHistory id={item.id} /></div>}
           {item.lapses >= 4 && (
             <p className="px-2 py-1.5 text-xs leading-relaxed text-[var(--tt-color-text-orange)]">
-              <Typed text={`Forgotten ${item.lapses} times. That is usually the prompt, not you: try rewriting it.`} step={28} />
+              <Typed text={`Forgotten ${item.lapses} times. That is usually the question, not you: try rewriting it.`} step={28} />
             </p>
           )}
           <Prop
@@ -469,7 +470,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
             {item.private ? 'Private' : 'Can surface any time'}
           </Prop>
           <Prop icon={Pin} active={!!item.pinnedAt} onClick={() => pin('nuggets', item.id, !item.pinnedAt)}>
-            {item.pinnedAt ? 'Pinned' : 'Pin to the prompt'}
+            {item.pinnedAt ? 'Pinned' : 'Pin to the box'}
           </Prop>
           <RemindMe table="nuggets" id={item.id} at={item.remindAt} />
           <Prop icon={item.archivedAt ? ArchiveRestore : Archive} active={!!item.archivedAt} onClick={() => void archive('nuggets', [item.id], !item.archivedAt)}>
@@ -654,6 +655,11 @@ function Supersede({ item }: { item: ItemFull }): React.JSX.Element {
 export function useItemDisplay(name: string, every: Item[]): {
   groups: [string, Item[]][]
   display: React.JSX.Element
+  /** The filters set, as chips over the list, and the kinds a click away. */
+  chips: React.JSX.Element
+  density: Density
+  view: View
+  setView: (view: View) => void
   /** Drop a row before or after another, in your own order. */
   move: (ids: string[], id: string, target: string, after: boolean) => void
   /** One step up or down in your own order, from the keyboard; false at an end. */
@@ -685,22 +691,30 @@ export function useItemDisplay(name: string, every: Item[]): {
   ]
   const groups = arrange(all, view, facets, {
     newest: (a, b) => b.createdAt.localeCompare(a.createdAt),
-    oldest: (a, b) => a.createdAt.localeCompare(b.createdAt),
+    changed: (a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
+    untouched: (a, b) => (a.updatedAt ?? a.createdAt).localeCompare(b.updatedAt ?? b.createdAt),
     name: (a, b) => a.title.localeCompare(b.title),
+    kind: (a, b) => a.kind.localeCompare(b.kind) || b.createdAt.localeCompare(a.createdAt),
     due: (a, b) => (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9'),
     manual: (a, b) => own.compare(a.id, b.id) || b.createdAt.localeCompare(a.createdAt)
   }, {
     kind: (one) => CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note',
     date: (one) => period(one.createdAt)
   })
+  // Spread over the page, the list keeps a size of its own: a grid, unless you chose another.
+  const wide = view.pane === 'wide'
+  const density = (wide ? view.wideDensity ?? 'grid' : view.density) ?? 'list'
   const display = (
     <Display
       view={view}
       onChange={setView}
       facets={facets}
-      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'name', label: 'Name' }, { id: 'due', label: 'Next review' }, { id: 'manual', label: 'Your order' }]}
+      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Oldest untouched' }, { id: 'name', label: 'A to Z' }, { id: 'kind', label: 'Kind' }, { id: 'due', label: 'Next review' }, { id: 'manual', label: 'Custom order' }]}
       groups={[{ id: 'none', label: 'None' }, { id: 'kind', label: 'Kind' }, { id: 'date', label: 'Date' }]}
+      density={density}
+      onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}
     />
   )
-  return { groups, display, move, moveBy }
+  const chips = <FilterChips view={view} onChange={setView} facets={facets} />
+  return { groups, display, chips, density, view, setView, move, moveBy }
 }

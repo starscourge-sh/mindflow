@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { Archive, ArchiveRestore, Calendar, Download, EyeOff, Eye, Orbit, Pin, PinOff, Plus, RotateCcw, Wind } from 'lucide-react'
+import { Archive, ArchiveRestore, Calendar, Download, EyeOff, Eye, Orbit, Pin, PinOff, Play, Plus, RotateCcw, Wind } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { MindflowEditor, TAGS } from '../mindflow'
@@ -11,14 +11,17 @@ import { archive, openWindow, saveAttachments, useOpenNote } from '@/lib/notes'
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Chips } from './display'
+import { Chips, Display, useView } from './display'
+import { ListSearch, NoteList, NoteRail, PaneButtons, Peek, matches, type Entry } from './note-list'
 import { Lineage } from './lineage'
 import { pinQuestion } from './pinned-questions'
 import { Mentions } from './mentions'
 import { Aliases, LocalGraph, NoteHeader } from './note-extras'
 import { RowMenu, copy, type MenuItem } from './row-menu'
-import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Typed, VirtualList, ask, refuse, showTopTitle, toast, useListKeys } from './ui'
-import { dayMonth, dayjs, heldFor, num } from '../../../../main/dates'
+import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Tip, Typed, ask, refuse, showTopTitle, toast, useListKeys } from './ui'
+import { ago, dayMonth, dayName, dayjs, heldFor, num } from '../../../../main/dates'
+import { ReadThrough } from './read-through'
+import { CollectionHeader, Cover, MenuButton, PlayButton, QuietAction, pictureIn, useTint } from './collection-header'
 import BulbSvg from '@/components/ui/bulb-svg'
 
 /**
@@ -150,15 +153,40 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
   const all = useLive(() => vigil.items('question'), [] as Item[], [], ['item'])
   const inView = new Set(useLive(vigil.pinnedQuestions, [] as Awaited<ReturnType<typeof vigil.pinnedQuestions>>).map((one) => one.id))
   const [show, setShow] = useState<'open' | 'answered'>('open')
-  const items = all
-    .filter((one) => !one.archivedAt && (show === 'open' ? !one.closedAt : !!one.closedAt))
-    .sort((a, b) => (show === 'open' ? b.createdAt.localeCompare(a.createdAt) : (b.closedAt ?? '').localeCompare(a.closedAt ?? '')))
+  const [view, setView] = useView('questions', { sort: 'newest', group: 'none' })
+  const pane = view.pane ?? 'list'
+  const [query, setQuery] = useState('')
   const [open, setOpen] = useState<ItemFull | null>(null)
-  const pick = (id: string): void => void vigil.item(id).then((found) => {
-    setOpen(found)
-    // One sent here that is already settled is found under Answered.
-    if (found) setShow(found.closedAt ? 'answered' : 'open')
-  })
+  const spread = pane === 'wide' && !open
+  const sorts: Record<string, (a: Item, b: Item) => number> = {
+    // Settled ones, newest settled first.
+    newest: (a, b) => (show === 'open' ? b.createdAt.localeCompare(a.createdAt) : (b.closedAt ?? '').localeCompare(a.closedAt ?? '')),
+    changed: (a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
+    untouched: (a, b) => (a.updatedAt ?? a.createdAt).localeCompare(b.updatedAt ?? b.createdAt),
+    name: (a, b) => a.title.localeCompare(b.title)
+  }
+  const items = all
+    .filter((one) => !one.archivedAt && (show === 'open' ? !one.closedAt : !!one.closedAt) && (!spread || matches(one.title, query)))
+    .sort(sorts[view.sort] ?? sorts.newest)
+  const wide = pane === 'wide'
+  const density = (wide ? view.wideDensity ?? 'grid' : view.density) ?? 'list'
+  const [peek, setPeek] = useState<string | null>(null)
+  const pick = (id: string): void => {
+    if (view.pane === 'wide') setView({ ...view, pane: 'list' })
+    void vigil.item(id).then((found) => {
+      setOpen(found)
+      // One sent here that is already settled is found under Answered.
+      if (found) setShow(found.closedAt ? 'answered' : 'open')
+    })
+  }
+  const setPane = (next: typeof pane): void => {
+    if (next === 'wide') {
+      setPeek(open?.id ?? items[Math.max(0, cursor)]?.id ?? null)
+      setOpen(null)
+    }
+    if (pane === 'wide' && next === 'list' && peek) pick(peek)
+    setView({ ...view, pane: next })
+  }
   useEffect(() => void (focus && pick(focus)), [focus]) // eslint-disable-line react-hooks/exhaustive-deps
   // Read again when anything changes, so a clue added elsewhere shows.
   useEffect(() => window.api.captures.onChange(() => open && void vigil.item(open.id).then(setOpen)), [open?.id])
@@ -167,41 +195,40 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
     window.addEventListener('vigil:opened-apart', onApart)
     return () => window.removeEventListener('vigil:opened-apart', onApart)
   }, [])
-  const [cursor] = useListKeys(items.length, { onOpen: (index) => pick(items[index].id), onBack: () => setOpen(null) })
+  const [cursor, setCursor] = useListKeys(items.length, {
+    onOpen: (index) => pick(items[index].id),
+    onBack: () => (spread ? (query ? setQuery('') : setPane('list')) : setOpen(null))
+  })
+  useEffect(() => void (spread && items[cursor] && setPeek(items[cursor].id)), [cursor, spread]) // eslint-disable-line react-hooks/exhaustive-deps
   const go = (type: string, id: string): void => (type === 'question' ? pick(id) : onOpen?.(type, id))
   const menuFor = (item: Item): MenuItem[] => [
     { label: 'Open', keys: '↵', run: () => pick(item.id) },
     ...questionMenu(item, inView.has(item.id))
   ]
+  const entries = items.map((one) => questionEntry(one, inView.has(one.id), menuFor(one)))
+  const peeked = spread ? all.find((one) => one.id === peek) : undefined
   return (
     <>
+      {open && pane === 'rail' ? (
+        <NoteRail entries={entries} cursor={cursor} selected={open.id} onPick={pick} onShow={() => setPane('list')} />
+      ) : (
       <Page aside={!!open} title="Holding" count={items.length}
         actions={
           <span className="flex items-center gap-2">
+            {spread && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder="Search in Holding" />}
             <Chips className="shrink-0" options={[{ id: 'open', label: 'Holding' }, { id: 'answered', label: 'Answered' }]} on={(id) => id === show} pick={(id) => setShow(id as 'open' | 'answered')} />
-            <Button variant="ghost" size="sm" onClick={() => void startQuestion(go)}><Plus className="size-3.5" /> New question</Button>
+            {!spread && <Button variant="ghost" size="sm" onClick={() => void startQuestion(go)}><Plus className="size-3.5" /> New question</Button>}
+            <Display view={view} onChange={setView} facets={[]} sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Oldest untouched' }, { id: 'name', label: 'A to Z' }]}
+              density={density} onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })} />
+            <PaneButtons pane={spread ? 'wide' : 'list'} onPane={setPane} fold={!!open} />
           </span>
         }
       >
         {items.length ? (
-          <VirtualList items={items} keyOf={(item) => item.id} cursor={cursor} estimate={60} className="mx-3 my-2">
-            {(item, index) => (
-              <RowMenu items={menuFor(item)}>
-                <button
-                  type="button"
-                  data-row
-                  data-id={item.id}
-                  data-cursor={index === cursor || undefined}
-                  data-private={item.private ? '' : undefined}
-                  data-open={item.id === open?.id ? '' : undefined}
-                  onClick={(event) => (event.metaKey ? openWindow('question', item.id) : pick(item.id))}
-                  className={`flex w-full flex-col rounded-sm px-2 py-1.5 text-left transition-colors ${item.id === open?.id ? 'bg-accent' : index === cursor ? 'bg-accent/50' : 'hover:bg-accent/50'}`}
-                >
-                  <QuestionRow item={item} inView={inView.has(item.id)} />
-                </button>
-              </RowMenu>
-            )}
-          </VirtualList>
+          <NoteList groups={[['', entries]]} density={density} table="nuggets" selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor}
+            onPick={spread ? (id) => (setPeek(id), setCursor(items.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
+        ) : spread && query.trim() ? (
+          <Empty shape={['ellipse', 3]} title="Nothing matches">No question here has those words. Escape clears the search.</Empty>
         ) : show === 'open' ? (
           <Empty shape={['ellipse', 3]} title="Nothing held yet" action={<Button variant="secondary" size="sm" onClick={() => void startQuestion(go)}><Plus className="size-3.5" /> New question</Button>}>
             A question is for what you keep circling and cannot name yet. It never rots and is never tested: it just holds the clues, for as long as it takes. Press H on a capture to hold it as one.
@@ -212,31 +239,33 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
           </Empty>
         )}
       </Page>
+      )}
+      {peeked && <Peek entry={questionEntry(peeked, inView.has(peeked.id))} table="nuggets" onOpen={() => pick(peeked.id)} />}
       {open && <QuestionDetail key={open.id} item={open} onOpen={go}
         top={<Stepper at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => pick(items[to].id)} />} />}
     </>
   )
 }
 
-/** A question's line: the words, then how long it has been held and its clues, in a calm grey. */
-export function QuestionRow({ item, compact = false, inView = false }: { item: Item; compact?: boolean; inView?: boolean }): React.JSX.Element {
-  const meta = item.closedAt ? `${item.closedHow === 'let go' ? 'let go' : 'answered'} ${when(item.closedAt).toLowerCase()} · ${cluesSaid(item.clues)}` : `${heldFor(item.createdAt)} · ${cluesSaid(item.clues)}`
-  return (
+/** A question as any list draws it: its words, then how long it has been held and its clues. */
+export const questionEntry = (item: Item, inView = false, menu?: MenuItem[]): Entry => ({
+  id: item.id,
+  type: 'question',
+  title: item.title,
+  tags: [],
+  icon: Orbit,
+  sub: item.closedAt ? `${item.closedHow === 'let go' ? 'Let go' : 'Answered'} ${when(item.closedAt).toLowerCase()} · ${cluesSaid(item.clues)}` : `${heldFor(item.createdAt)[0].toUpperCase()}${heldFor(item.createdAt).slice(1)} · ${cluesSaid(item.clues)}`,
+  marks: (
     <>
-      <span className="flex items-start gap-2">
-        <Orbit className={`mt-0.5 size-4 shrink-0 ${item.closedAt ? 'text-muted-foreground/60' : 'text-muted-foreground'}`} />
-        <span className={`private-text flex-1 ${compact ? 'truncate' : 'line-clamp-2'} ${item.closedAt ? 'text-muted-foreground' : ''}`}>{item.title || 'Untitled'}</span>
-        {inView ? <Pin className="mt-1 size-3 shrink-0 text-muted-foreground" aria-label="Kept in view" /> : null}
-        {item.private ? <EyeOff className="mt-1 size-3 shrink-0 text-muted-foreground" aria-label="Private" /> : null}
-      </span>
-      {!compact && (
-        <span className="mt-0.5 pl-6 text-xs text-muted-foreground">
-          <Rolling by="word" text={meta} />
-        </span>
-      )}
+      {inView ? <Pin className="size-3 shrink-0 text-muted-foreground" aria-label="Kept in view" /> : null}
+      {item.private ? <EyeOff className="size-3 shrink-0 text-muted-foreground" aria-label="Private" /> : null}
     </>
-  )
-}
+  ),
+  dim: !!item.closedAt,
+  private: !!item.private,
+  wrap: true,
+  menu
+})
 
 /**
  * An open question: the question in your words, the page under it to write in
@@ -279,17 +308,50 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
       toast('Held again', () => void vigil.closeQuestion(item.id, how, true))
     })
   }
+  // Its clues read one at a time, newest first as they are listed; null while not reading.
+  const [reading, setReading] = useState<number | null>(null)
+  const clues = [...item.glosses].reverse()
+  const readClues = (from = 0): void => (clues.length ? setReading(from) : refuse('No clues yet: add one first', 'info'))
+  const addClue = (): void => {
+    const field = document.querySelector<HTMLTextAreaElement>('[data-clue-field]')
+    field?.scrollIntoView({ block: 'center', behavior: document.documentElement.dataset.motion === 'off' ? 'instant' : 'smooth' })
+    field?.focus({ preventScroll: true })
+  }
+  const cover = pictureIn(item.body)
+  const tint = useTint(cover, 'var(--primary)')
+  const lastClue = clues[0]?.createdAt
   return (
     <div className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_1.5rem_1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
         <NoteHeader className="-mt-3 mb-1" left={top} type={item.tier} table="nuggets" id={item.id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
           onRestored={() => void vigil.item(item.id).then((fresh) => fresh && setRestored((was) => ({ body: fresh.body, rev: (was?.rev ?? 0) + 1 })))}
           edited={item.updatedAt} captured={item.createdAt} made="Asked" menu={questionMenu(item, inView)} />
-        <div className="page-narrow mx-auto w-full px-12">
-          {/* The question itself, in your words: it can take a few lines. */}
+        {reading !== null && (
+          <ReadThrough items={clues.map((clue) => ({ type: 'clue', id: clue.id, body: clue.body, title: dayName(clue.createdAt) }))} start={reading} onClose={() => setReading(null)} />
+        )}
+        <CollectionHeader
+          tint={tint}
+          cover={<Cover src={cover} colour="var(--primary)"><Orbit className="size-[42cqi]" strokeWidth={1.6} /></Cover>}
+          label="Question"
+          meta={[
+            cluesSaid(clues.length).replace(/^n/, 'N'),
+            settled ?? `held since ${dayMonth(item.createdAt)}`,
+            ...(lastClue ? [`last clue ${ago(lastClue)}`] : [])
+          ]}
+          actions={<>
+            <PlayButton label="Read the clues" onClick={() => readClues()} />
+            <QuietAction label="Add a clue" onClick={addClue}><Plus /></QuietAction>
+            <MenuButton items={[
+              ...(item.closedAt ? [{ label: 'Hold it again', run: holdAgain }] : [{ label: "I've got it: start the article", run: gotIt }, { label: 'Let it go', run: letGo }]),
+              'separator',
+              ...questionMenu(item, inView)
+            ]} />
+          </>}
+          title={
+          /* The question itself, in your words: it can take a few lines. */
           <textarea
             rows={1}
-            className="block w-full resize-none bg-transparent font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content] placeholder:text-foreground/70"
+            className="block w-full resize-none bg-transparent text-balance outline-none [field-sizing:content] placeholder:text-foreground/50"
             defaultValue={item.title === 'Untitled' ? '' : item.title}
             autoFocus={!item.title || item.title === 'Untitled'}
             placeholder="What do you keep circling?"
@@ -302,11 +364,8 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
               const title = event.target.value.trim()
               if (title && title !== item.title) void vigil.saveItem(item.id, { title }).then(() => chime('noted'))
             }}
-          />
-          <p className="mt-1 mb-2 text-control text-muted-foreground">
-            <Rolling by="word" text={`${settled ?? heldFor(item.createdAt).replace(/^h/, 'H')} · ${cluesSaid(item.glosses.length)}`} />
-          </p>
-        </div>
+          />}
+        />
         {past ? (
           <MindflowEditor key={`past-${past.key}`} defaultContent={(past.body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
         ) : (
@@ -324,7 +383,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
             findHeadings={findHeadings}
             onOpenNote={(link, heading) => onOpen && follow(link, onOpen, heading)}
             autofocus={false}
-            after={<><Clues item={item} /><Mentions id={item.id} onOpen={onOpen} /></>}
+            after={<><Clues item={item} onRead={readClues} /><Mentions id={item.id} onOpen={onOpen} /></>}
             onReady={(instance) => void (seen.current = JSON.stringify(instance.getJSON()))}
             onChange={(body) => {
               // The editor tidying a document as it opens is not an edit.
@@ -385,7 +444,7 @@ const whenLower = (at: string): string => {
  * The clues: dated, newest first, one row each and never an edit, so the way
  * your thinking moved stays readable. A line at the top takes the next one.
  */
-function Clues({ item }: { item: ItemFull }): React.JSX.Element {
+function Clues({ item, onRead }: { item: ItemFull; onRead: (from: number) => void }): React.JSX.Element {
   const [words, setWords] = useState('')
   const clues = [...item.glosses].reverse()
   const keep = (): void => {
@@ -405,6 +464,7 @@ function Clues({ item }: { item: ItemFull }): React.JSX.Element {
       <div className="mx-2 mb-3 flex items-start gap-2 rounded-lg border bg-accent/30 px-3 py-2 focus-within:border-foreground/25">
         <Plus className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
         <textarea
+          data-clue-field
           rows={1}
           value={words}
           onChange={(event) => setWords(event.target.value)}
@@ -424,23 +484,40 @@ function Clues({ item }: { item: ItemFull }): React.JSX.Element {
       {clues.length ? (
         <ol className="flex flex-col">
           <AnimatePresence initial={false}>
-            {clues.map((clue) => (
-              <motion.li
-                key={clue.id}
-                layout
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-                className="grid grid-cols-[4.5rem_1fr] gap-3 rounded-md px-2 py-1.5"
-              >
-                <span className="pt-px text-xs text-muted-foreground tabular-nums">{clueDate(clue.createdAt)}</span>
-                <span className="min-w-0">
-                  <span className="private-text block whitespace-pre-line">{clue.body}</span>
-                  {clue.sourceKey && <span className="text-xs text-muted-foreground">from {clue.sourceKey}</span>}
-                </span>
-              </motion.li>
-            ))}
+            {clues.map((clue, index) => {
+              const menu: MenuItem[] = [
+                { label: 'Read from here', run: () => onRead(index) },
+                { label: 'Copy the clue', run: () => copy(clue.body) }
+              ]
+              return (
+                <RowMenu key={clue.id} items={menu}>
+                  <motion.li
+                    layout
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                    // Pointed at, its number becomes a play mark (read from here) and its ··· shows, as in the tag's list.
+                    className="group/track relative grid grid-cols-[1.25rem_4.25rem_1fr] items-start gap-2.5 rounded-md px-2 py-1.5 pr-9 hover:bg-foreground/[0.055] has-[[data-state=open]]:bg-foreground/[0.055]"
+                  >
+                    <span className="relative pt-px text-right text-xs text-muted-foreground tabular-nums">
+                      <span className="group-focus-within/track:opacity-0 group-hover/track:opacity-0">{clues.length - index}</span>
+                      <Tip label="Read from here">
+                        <button type="button" onClick={() => onRead(index)} className="absolute inset-y-0 right-0 flex items-center text-foreground opacity-0 group-focus-within/track:opacity-100 group-hover/track:opacity-100">
+                          <Play className="size-3 fill-current" />
+                        </button>
+                      </Tip>
+                    </span>
+                    <span className="pt-px text-xs text-muted-foreground tabular-nums">{clueDate(clue.createdAt)}</span>
+                    <span className="min-w-0">
+                      <span className="private-text block whitespace-pre-line">{clue.body}</span>
+                      {clue.sourceKey && <span className="text-xs text-muted-foreground">from {clue.sourceKey}</span>}
+                    </span>
+                    <span className="absolute top-0.5 right-1 opacity-0 group-focus-within/track:opacity-100 group-hover/track:opacity-100 has-[[data-state=open]]:opacity-100"><MenuButton small items={menu} /></span>
+                  </motion.li>
+                </RowMenu>
+              )
+            })}
           </AnimatePresence>
         </ol>
       ) : (

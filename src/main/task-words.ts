@@ -8,18 +8,24 @@ import dayjs from 'dayjs'
  */
 
 // Named days, alone or listed: "every mon, wed", "every tuesday and friday".
-const DAY = '(?:mon|tue|wed|thu|fri|sat|sun)[a-z]*'
+// Not "month", which starts like Monday.
+const DAY = '(?:mon(?!th)|tue|wed|thu|fri|sat|sun)[a-z]*'
 export const RECURRENCE = new RegExp(`\\bevery(!)?\\s+(day|weekday|week|month|year|\\d+\\s+(?:days?|weeks?|months?)|${DAY}(?:\\s*(?:,|and|&)\\s*${DAY})*)\\b`, 'i')
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
 /** The days of the week a "every mon, wed" rule falls on, or none. */
 const namedDays = (unit: string): number[] =>
-  /^(?:mon|tue|wed|thu|fri|sat|sun)/i.test(unit) ? [...unit.toLowerCase().matchAll(/(mon|tue|wed|thu|fri|sat|sun)/g)].map((m) => DAYS.indexOf(m[1])) : []
+  /^(?:mon(?!th)|tue|wed|thu|fri|sat|sun)/i.test(unit) ? [...unit.toLowerCase().matchAll(/(mon|tue|wed|thu|fri|sat|sun)/g)].map((m) => DAYS.indexOf(m[1])) : []
 
-/** The next date in a series, from `from`. `every 3 days`, `every weekday`, `every mon, wed`. */
-export function advance(from: Date, rule: string): Date {
+/**
+ * The next date in a series, from `from`. `every 3 days`, `every weekday`, `every mon, wed`.
+ * `day` is the day of the month a monthly series began on: the 31st falls on
+ * the 28th in February and is back on the 31st in March.
+ */
+export function advance(from: Date, rule: string, day?: number): Date {
   let next = dayjs(from)
   const [, , unit] = RECURRENCE.exec(rule) ?? []
-  const count = Number(/\d+/.exec(unit ?? '')?.[0] ?? 1)
+  // "every 0 days" is every day: never a series that stays where it is.
+  const count = Math.max(1, Number(/\d+/.exec(unit ?? '')?.[0] ?? 1))
   const named = namedDays(unit ?? '')
   // Days, weeks, months and years on the calendar: a clock change keeps the
   // time of day, and a month too short for the day takes its last one.
@@ -27,7 +33,10 @@ export function advance(from: Date, rule: string): Date {
   else if (/day/.test(unit) && !/weekday/.test(unit)) next = next.add(count, 'day')
   else if (/weekday/.test(unit)) do next = next.add(1, 'day'); while ([0, 6].includes(next.day()))
   else if (/week/.test(unit)) next = next.add(count, 'week')
-  else if (/month/.test(unit)) next = next.add(count, 'month')
+  else if (/month/.test(unit)) {
+    next = next.add(count, 'month')
+    if (day) next = next.date(Math.min(day, next.daysInMonth()))
+  }
   else if (/year/.test(unit)) next = next.add(1, 'year')
   return next.toDate()
 }
@@ -85,14 +94,19 @@ export function readTask(text: string, at = new Date()): ReadTask {
   }
   const find = (pattern: RegExp): RegExpExecArray | null => pattern.exec(rest)
 
-  // The ways people say a repeat without the word "every".
+  // The ways people say a repeat without the word "every". "Weekly" and the
+  // rest are a repeat only where they say when: at the end, or before a
+  // when-word ("weekly on monday"). Before a noun or after "the" they are part
+  // of the name: "write the weekly review", "weekly review notes".
+  const said = (word: string): RegExp =>
+    new RegExp(`(?<!every\\s)(?<!\\b(?:the|a|an|my|our|your|this|that|his|her|their)\\s)\\b(?:${word})\\b(?=\\s*$|\\s*[,.;!]|\\s+(?:on|at|from|until|by|before|due|starting|in|p[1-4])\\b)`, 'i')
   let recurrence: string | null = null
   for (const [pattern, rule] of [
     [/(?<!every\s)\b(?:on\s+)?weekdays\b/i, 'every weekday'],
-    [/(?<!every\s)\bdaily\b/i, 'every day'],
-    [/(?<!every\s)\bweekly\b/i, 'every week'],
-    [/(?<!every\s)\bmonthly\b/i, 'every month'],
-    [/(?<!every\s)\b(?:yearly|annually)\b/i, 'every year']
+    [said('daily'), 'every day'],
+    [said('weekly'), 'every week'],
+    [said('monthly'), 'every month'],
+    [said('yearly|annually'), 'every year']
   ] as const) {
     const match = find(pattern)
     if (!match || recurrence) continue
@@ -142,7 +156,8 @@ export function readTask(text: string, at = new Date()): ReadTask {
     take(from, index + length, by && !recurrence ? 'deadline' : 'date')
   }
   // Said as words: end of the day is five, end of the week is Friday at five.
-  for (const [pattern, said] of [[/\b(?:eod|end of (?:the )?day)\b/i, 'today 5pm'], [/\b(?:eow|end of (?:the )?week)\b/i, 'friday 5pm']] as const) {
+  // Tonight and this evening are at eight.
+  for (const [pattern, said] of [[/\b(?:eod|end of (?:the )?day)\b/i, 'today 5pm'], [/\b(?:eow|end of (?:the )?week)\b/i, 'friday 5pm'], [/\b(?:tonight|this evening)\b/i, 'today 8pm']] as const) {
     const match = find(pattern)
     const date = match && chrono.parseDate(said, at, { forwardDate: true })
     if (match && date) add(match.index, match[0].length, date, true)
@@ -194,6 +209,9 @@ export function readTask(text: string, at = new Date()): ReadTask {
   // then, so "sign up for" keeps its "for".
   let title = rest.replace(/\s+/g, ' ').trim()
   if (dates.length) title = title.replace(/\s+(?:by|on|at|due|before|for|from)$/i, '').trim()
+  // Punctuation that only joined a taken word to the rest: "Someday: learn
+  // Welsh", "call Sam, tomorrow".
+  title = title.replace(/^(?:[:;,]|[-–—](?=\s))\s*/, '').replace(/\s*[:;,]$/, '').trim()
   return {
     title,
     due: due?.toISOString() ?? null,

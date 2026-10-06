@@ -1,21 +1,22 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
 import { Button } from '@/components/ui/button'
-import { Kbd, Rolling, Typed, toast } from './ui'
+import { Kbd, Rolling, Typed, toast, Pressed } from './ui'
 
 /**
- * The first-run tour: a handful of cards, each with the part of the window it
- * is about lit up and the rest dimmed. Under two minutes, skippable at any
- * point with Esc, and replayed from Settings. The last card offers to bring
- * in what you already have, through the menu bar's importers.
+ * The first-run tour: the loop in one card a step, with the part of the window
+ * it is about lit up and the rest dimmed. Catch it, it waits in the Inbox, tidy
+ * daily, decide weekly, and it comes back. About a minute, skippable with Esc,
+ * replayed from Settings. The last card brings in what you already have.
  */
 type Stop = { title: string; text: string; keys?: string[]; at?: string }
 const STOPS: Stop[] = [
-  { title: 'The box', keys: ['⌘.'], text: 'Press ⌘. from any app and a small box comes up. Write the thought down, press ⌘↵, and you are back where you were.' },
-  { title: 'The inbox', at: '[data-tour="inbox"]', keys: ['P', 'R', 'D'], text: 'Everything you write lands in the Inbox. Each capture leaves by one of three exits: Promote keeps it, Resolve says it is done, Discard lets it go.' },
-  { title: 'Rot cards', text: 'Nothing is left to rot. A few captures you have not dealt with come back as cards in the Inbox of the box\'s side panel. With the panel shut, a chip at the top of the box says how many ("3 to revisit"); click it to see them.' },
-  { title: 'Hints', keys: ['⌃⇧↑', '⌃⇧↓'], text: 'Now and then the box shows you something you kept, so it comes back to you. Thumbs up or down, and the next hints follow what you liked.' },
-  { title: 'Finding things', at: '[data-tour="search"]', keys: ['⌘K', '?'], text: '⌘K searches everything and does anything. ? shows every shortcut, whenever you are not typing.' }
+  { title: 'Catch it', keys: ['⌘.'], text: 'Press ⌘. in any app, write the thought, and send it with ⌘↵. You are back where you were.' },
+  { title: 'It waits in the Inbox', at: '[data-tour="inbox"]', keys: ['G I'], text: 'Everything you send lands here. Nothing to sort as you write: that comes later, a few minutes at a time.' },
+  { title: 'Tidy, each day', text: 'Once a day the box offers a few minutes over your latest captures: add tags, bold a line, fold the rest. Nothing to decide.' },
+  { title: 'Decide, each week', keys: ['P', 'R', 'D'], text: 'On your deciding day, go through what waited, one at a time: Promote to keep it, Resolve when it is done, Discard to let it go.' },
+  { title: 'It comes back to you', at: '[data-tour="review"]', keys: ['G R'], text: 'What you keep returns on its own: a hint in the box now and then, old captures as cards, and Review for what you want to remember.' },
+  { title: 'Find anything', at: '[data-tour="search"]', keys: ['⌘K', '?'], text: '⌘K searches every note and runs every action. ? lists every key.' }
 ]
 
 const seen = (): boolean => {
@@ -87,7 +88,8 @@ export function Tour({ firstRun = false }: { firstRun?: boolean }): React.JSX.El
   useEffect(() => {
     if (at < 0) return
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') end(true)
+      // Esc on the last card is finishing, not skipping.
+      if (event.key === 'Escape') end(at < STOPS.length)
       else if (event.key === 'ArrowRight' || (event.key === 'Enter' && at < STOPS.length)) go(at + 1)
       else if (event.key === 'ArrowLeft') go(at - 1)
       else return
@@ -112,7 +114,7 @@ export function Tour({ firstRun = false }: { firstRun?: boolean }): React.JSX.El
       {/* The dim, with a hole where the lit part is: one shadow, spread wide. */}
       {rect ? (
         <div
-          className="pointer-events-none absolute rounded-lg ring-2 ring-primary transition-all duration-300"
+          className="pointer-events-none absolute rounded-lg ring-2 ring-primary transition-[left,top,width,height] duration-250 ease-(--mf-ease)"
           style={{ left: rect.left - pad, top: rect.top - pad, width: rect.width + pad * 2, height: rect.height + pad * 2, boxShadow: '0 0 0 9999px rgb(0 0 0 / 0.55)' }}
         />
       ) : (
@@ -125,17 +127,17 @@ export function Tour({ firstRun = false }: { firstRun?: boolean }): React.JSX.El
         style={{ top }}
       >
         <div className="mb-1 flex items-center gap-2">
-          <span className="font-semibold text-foreground">{stop?.title ?? 'Bring what you have'}</span>
-          {stop?.keys && <span className="flex gap-1">{stop.keys.map((key) => <Kbd key={key}>{key}</Kbd>)}</span>}
+          <span className="font-semibold text-foreground">{stop?.title ?? 'Coming from Obsidian or Notion?'}</span>
+          {stop?.keys && <span className="flex gap-1">{stop.keys.map((key) => <Pressed key={key} keys={key} />)}</span>}
           <Rolling text={`${at + 1} / ${STOPS.length + 1}`} className="ml-auto text-meta tabular-nums text-muted-foreground" />
         </div>
         <p className="leading-relaxed text-muted-foreground">
-          <Typed text={stop?.text ?? 'Notes from Obsidian, highlights from Readwise or Kindle: bring them in now, or later from Settings or the menu bar icon.'} step={24} delay={150} />
+          <Typed text={stop?.text ?? 'Bring your notes in now, or any time from Settings, under Import and backups.'} step={24} delay={150} />
         </p>
         {!stop && (
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={() => bring('vault')}>Obsidian vault…</Button>
-            <Button size="sm" variant="outline" onClick={() => bring('files')}>Readwise or Kindle…</Button>
+            <Button size="sm" variant="outline" onClick={() => bring('vault')}>Obsidian vault or Notion export…</Button>
+            <Button size="sm" variant="outline" onClick={() => bring('files')}>Readwise, Kindle, Markdown…</Button>
           </div>
         )}
         <div className="mt-4 flex items-center gap-2">

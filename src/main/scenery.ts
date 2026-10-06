@@ -1,7 +1,7 @@
 import { app, dialog, ipcMain, nativeImage } from 'electron'
 import { createHash } from 'crypto'
 import { mkdir, readFile, readdir, rm, stat, writeFile } from 'fs/promises'
-import { extname, isAbsolute, join } from 'path'
+import { basename, dirname, extname, isAbsolute, join } from 'path'
 import { changed } from './captures'
 
 /**
@@ -27,6 +27,9 @@ export type Scene = {
   color: string
   /** 0 is black, 1 is white. */
   light: number
+  /** The file's name without its ending, and its folder's, for a credit under the picture. */
+  name?: string
+  folder?: string
 }
 type Entry = Scene & { path: string; key: string }
 
@@ -201,7 +204,7 @@ async function list(folders: string[]): Promise<{ scenes: Scene[]; scanning: boo
   await loading()
   const inFolders = (path: string): boolean => folders.some((folder) => path.startsWith(folder.endsWith('/') ? folder : `${folder}/`))
   // Only what the windows need: where a picture lives on disk stays here.
-  const scenes: Scene[] = [...known.values()].filter((one) => inFolders(one.path)).map((one) => ({ id: one.id, url: one.url, mood: one.mood, width: one.width, height: one.height, pixel: one.pixel, color: one.color, light: one.light }))
+  const scenes: Scene[] = [...known.values()].filter((one) => inFolders(one.path)).map((one) => ({ id: one.id, url: one.url, mood: one.mood, width: one.width, height: one.height, pixel: one.pixel, color: one.color, light: one.light, name: basename(one.path, extname(one.path)), folder: basename(dirname(one.path)) }))
   return { scenes, scanning: !!scanning }
 }
 

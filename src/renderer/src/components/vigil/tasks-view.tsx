@@ -11,7 +11,7 @@ import { splitTags, useLive, vigil, when, whenInLine, type Made, type Session, t
 import { BUCKETS, bucket, makeTask, placed } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, TaskInput, planFor, setPriority } from './task-input'
-import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper } from './ui'
+import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper, Pressed } from './ui'
 import { Display, arrange, useView, type Facet } from './display'
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
@@ -224,7 +224,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
       <Page aside={!!open}
  title={mode} count={shown.length} actions={
         <span className="flex items-center gap-2">
-          {shown.length > 0 && <span className="hidden text-xs whitespace-nowrap @[48rem]/page:inline"><Kbd>?</Kbd> or <Kbd>⌘/</Kbd> for keys</span>}
+          {shown.length > 0 && <span className="hidden text-xs whitespace-nowrap @[48rem]/page:inline"><Pressed keys="?" /> or <Pressed keys="⌘/" /> for keys</span>}
           <Display
             view={view}
             onChange={setView}
@@ -626,7 +626,7 @@ function Sessions({ taskId, title }: { taskId: string; title: string }): React.J
       {running ? (
         <div className="space-y-1 p-1">
           <div className="flex items-center gap-2 px-1 text-foreground">
-            <span className="size-1.5 animate-pulse rounded-full bg-[var(--tt-color-text-red)]" />
+            <span className="size-1.5 motion-safe:animate-pulse rounded-full bg-[var(--tt-color-text-red)]" />
             <span className="text-lg font-semibold tabular-nums">{clock(Math.max(0, tick - new Date(running.startedAt).getTime() - running.pausedMs - (running.pausedAt ? tick - new Date(running.pausedAt).getTime() : 0)))}</span>
           </div>
           <Textarea

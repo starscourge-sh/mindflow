@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { PACKS, chime, click, soundOn, step } from '@/lib/sound'
 import { NOTE_FONTS } from '@/lib/editor-setup'
-import { Brain, FolderPlus, HardDrive, Inbox, Keyboard, LifeBuoy, ListChecks, Mountain, Palette, PenLine, Search as SearchIcon, Sparkles, Volume2, X, type LucideIcon } from 'lucide-react'
+import { Brain, FolderPlus, HardDrive, Keyboard, LifeBuoy, ListChecks, Mountain, Palette, PenLine, Search as SearchIcon, Sparkles, Volume2, X, type LucideIcon } from 'lucide-react'
 import { allThemes, applyTheme, customThemes, frosted, importTheme, removeTheme, restoreTheme, setFrosted, themeName } from '@/lib/theme'
 import { KeysEditor, Marked } from './shortcut-sheet'
 import { keyFor } from '@/lib/keys'
@@ -73,16 +73,15 @@ function Setting({ title, children, note, below, keywords = '' }: {
  */
 const SECTIONS: { title: string; icon: LucideIcon; tint: string }[] = [
   { title: 'Appearance', icon: Palette, tint: 'purple' },
-  { title: 'Scenery', icon: Mountain, tint: 'green' },
   { title: 'Writing', icon: PenLine, tint: 'orange' },
-  { title: 'Capturing', icon: Inbox, tint: 'blue' },
   { title: 'What comes back to you', icon: Sparkles, tint: 'yellow' },
   { title: 'Review', icon: Brain, tint: 'pink' },
   { title: 'Tasks', icon: ListChecks, tint: 'green' },
+  { title: 'Scenery', icon: Mountain, tint: 'green' },
   { title: 'Sound', icon: Volume2, tint: 'red' },
-  { title: 'Your data', icon: HardDrive, tint: 'gray' },
-  { title: 'Help', icon: LifeBuoy, tint: 'blue' },
-  { title: 'Keys', icon: Keyboard, tint: 'purple' }
+  { title: 'Import and backups', icon: HardDrive, tint: 'gray' },
+  { title: 'Keys', icon: Keyboard, tint: 'purple' },
+  { title: 'Help', icon: LifeBuoy, tint: 'blue' }
 ]
 /** The section on show, unless a search shows every section's matches. */
 const Shown = createContext('')
@@ -291,7 +290,7 @@ export function SettingsView(): React.JSX.Element {
         {!searching && <h1 className="px-1 text-lg font-semibold text-foreground">{section}</h1>}
         <p data-none className="px-1 text-body text-muted-foreground">Nothing here matches “{query}”. Try fewer letters, or what it changes.</p>
         <Group section="Appearance" title="Theme">
-          <Setting title="Theme" note="The colours of every window: the prompt and this one change together. Point at one to try it, click to keep it." keywords={allThemes().map(themeName).join(' ')}>
+          <Setting title="Theme" note="The colours of every window: the box and this one change together. Point at one to try it, click to keep it." keywords={allThemes().map(themeName).join(' ')}>
             <ThemePicker className="-mr-2 h-8 gap-1.5 rounded-full px-2 hover:bg-accent" />
           </Setting>
           <ImportedThemes />
@@ -426,12 +425,12 @@ export function SettingsView(): React.JSX.Element {
         </Group>
 
         <Group section="What comes back to you" title="Hints and cards">
-          <Setting title="Hints" note="How often the prompt shows you something you kept. Rare is the point: a hint every time is one you learn to ignore.">
+          <Setting title="Hints" note="How often the box shows you something you kept. Rare is the point: a hint every time is one you learn to ignore.">
             <SettingSlider min={0} max={0.5} step={0.05} value={settings.hintRate} onSave={(hintRate) => set({ hintRate })} />
             <span className="w-16 text-right tabular-nums"><Rolling text={settings.hintRate ? `1 in ${Math.round(1 / settings.hintRate)}` : 'never'} /></span>
           </Setting>
           <HintTuning />
-          <Setting title="Rot cards" note="How many unhandled captures come back each time you open the prompt. A few, never the whole pile.">
+          <Setting title="Rot cards" note="How many unhandled captures come back each time you open the box. A few, never the whole pile.">
             <SettingSlider min={0} max={6} step={1} value={settings.rotCount} onSave={(rotCount) => set({ rotCount })} />
             <span className="w-16 text-right tabular-nums"><Rolling text={settings.rotCount} /></span>
           </Setting>
@@ -450,12 +449,12 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Every day">
-          <Setting title="Daily tidy" note="Once a day the prompt offers a few minutes over the last days' captures: add tags, bold a line, fold a section, cross off what is done. Nothing is decided there. Never in quiet hours.">
+          <Setting title="Daily tidy" note="Once a day the box offers a few minutes over the last days' captures: add tags, bold a line, fold a section, cross off what is done. Nothing is decided there. Never in quiet hours.">
             <Switch checked={settings.dailyTidy} onCheckedChange={(dailyTidy) => set({ dailyTidy })} />
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Once a week">
-          <Setting title="Weekly review" note="On the day you pick, the prompt offers the deciding pass: what you set aside to come back to, and what has waited longest, each with its exits. Rot cards only ask for a tidy; deciding happens here. Never in quiet hours.">
+          <Setting title="Deciding day" note="On the day you pick, the box offers the deciding pass: what you set aside to come back to, and what has waited longest, each with its exits. Rot cards only ask for a tidy; deciding happens here. Never in quiet hours.">
             {settings.weeklyReview && (
               <div className="flex rounded-md border p-0.5">
                 {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((letter, day) => (
@@ -504,7 +503,7 @@ export function SettingsView(): React.JSX.Element {
           <CapTuning />
         </Group>
         <Group section="Review" title="Exams">
-          <Setting title="Exam nudges" note="A tag with an exam date (set on its page in Tags) says so in the prompt when its cards fall behind, once a day at most, never in quiet hours.">
+          <Setting title="Exam nudges" note="A tag with an exam date (set on its page in Tags) says so in the box when its cards fall behind, once a day at most, never in quiet hours.">
             <Switch checked={settings.examNudges} onCheckedChange={(examNudges) => set({ examNudges })} />
           </Setting>
         </Group>
@@ -530,14 +529,14 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
 
-        <Group section="Capturing" title="With each capture">
+        <Group section="Writing" title="With each capture">
           <Setting title="Weather" note="Each capture keeps the weather outside when you caught it, like 12°C, light rain. It asks wttr.in, which guesses your town from your connection: no account and no location permission. Left out when offline.">
             <Switch checked={settings.weather} onCheckedChange={(weather) => set({ weather })} />
           </Setting>
         </Group>
 
         <Group section="Help" title="Getting started">
-          <Setting title="Tour" note="The two-minute walk through the box, the inbox's exits, rot cards and hints that played the first time.">
+          <Setting title="Tour" note="The one-minute walk through the loop: catch it in the box, the Inbox, Tidy, Decide, and what comes back.">
             <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('vigil:tour'))}>Play it again</Button>
           </Setting>
           <Setting title="Shortcut sheet" note="Every shortcut over the window you are in, whenever you are not typing.">
@@ -545,13 +544,13 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
 
-        <Group section="Your data" title="Export and import">
+        <Group section="Import and backups" title="Import and export">
+          <Setting title="Import" note="Notes from an Obsidian vault or a Notion export (as Markdown, unzipped); highlights from Readwise or Kindle; Markdown files, bookmarks or Anki cards." keywords="import obsidian vault notion export readwise kindle markdown bookmarks anki bring move">
+            <ImportButton what="vault">Obsidian or Notion…</ImportButton>
+            <ImportButton what="files">Files…</ImportButton>
+          </Setting>
           <Setting title="Export everything" note="All of it as JSON and Markdown, in a folder you choose: yours to read without this app.">
             <ExportButton />
-          </Setting>
-          <Setting title="Import" note="Notes from an Obsidian vault; highlights from Readwise or Kindle; Markdown, bookmarks or Anki cards. The menu bar icon has the same.">
-            <ImportButton what="vault">Obsidian…</ImportButton>
-            <ImportButton what="files">Files…</ImportButton>
           </Setting>
           <Setting title="Backups" note="Every day a full copy of everything, private notes included, goes to the folder below, the last 30 kept: it is your own backup. With this on, each capture is also kept there as a plain Markdown file, never a private or discarded one. Off removes those files within the hour." below={<BackupPlace />} keywords="backup icloud markdown copies">
             <Switch checked={settings.markdownCopies !== false} onCheckedChange={(markdownCopies) => set({ markdownCopies })} />

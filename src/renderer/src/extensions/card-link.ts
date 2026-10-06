@@ -3,7 +3,7 @@ import { Plugin, type EditorState, type Transaction } from "@tiptap/pm/state"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 
 /** Obsidian's field names, and what they are called on the card. */
-const FIELDS: Record<string, string> = {
+export const CARD_FIELDS: Record<string, string> = {
   url: "href",
   title: "title",
   description: "description",
@@ -23,7 +23,7 @@ export function readCardLink(source: string): Record<string, string> | null {
   const card: Record<string, string> = {}
   for (const line of source.split("\n")) {
     const match = line.match(/^\s*([a-z]+)\s*:\s*(.+)$/i)
-    const field = match && FIELDS[match[1].toLowerCase()]
+    const field = match && CARD_FIELDS[match[1].toLowerCase()]
     if (!field) continue
     card[field] = match[2].trim().replace(/^(["'])([^]*)\1$/, "$2")
   }

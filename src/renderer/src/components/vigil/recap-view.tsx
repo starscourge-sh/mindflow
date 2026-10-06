@@ -51,7 +51,7 @@ function Ranked({ rows, prefix = '' }: { rows: { name: string; n: number }[]; pr
   return (
     <ol className="space-y-2">
       {rows.map((row, index) => (
-        <motion.li key={row.name} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 + index * 0.12 }}
+        <motion.li key={row.name} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 + index * 0.05 }}
           className="flex items-baseline gap-3 text-heading">
           <span className="w-6 text-muted-foreground tabular-nums">{index + 1}</span>
           <span className="flex-1 truncate text-foreground">{prefix}{row.name}</span>

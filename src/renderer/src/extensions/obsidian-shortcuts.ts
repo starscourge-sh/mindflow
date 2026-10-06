@@ -1,4 +1,4 @@
-import { Extension } from "@tiptap/core"
+import { Extension, InputRule } from "@tiptap/core"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import type { EditorState } from "@tiptap/pm/state"
 
@@ -165,6 +165,40 @@ export const ObsidianShortcuts = Extension.create<ObsidianShortcutOptions>({
         },
 
     }
+  },
+
+  /**
+   * A list's mark typed at the start of a list item changes that item's kind,
+   * as in Notion: `- ` in a numbered item makes it a bullet, `[ ] ` a
+   * checkbox. Left to the list's own rule it nested a new list inside the
+   * item instead, under an empty numbered line.
+   */
+  addInputRules() {
+    const { editor } = this
+    const retype = (find: RegExp, list: string): InputRule =>
+      new InputRule({
+        find,
+        handler: ({ state, range, match, commands }) => {
+          const $from = state.doc.resolve(range.from)
+          const item = $from.depth > 2 ? $from.node(-1) : null
+          if (!item || !["listItem", "taskItem"].includes(item.type.name) || $from.index(-1) !== 0) return null
+          if ($from.node(-2).type.name === list) return null
+          commands.deleteRange(range)
+          // Once the mark is gone, on the document as it then is: inside the
+          // rule's own step the rebuilt list lost the caret. Moments apart,
+          // the two are still one undo.
+          queueMicrotask(() => {
+            if (!retypeList(editor, list)) return
+            if (list === "taskList" && /x/i.test(match[0])) editor.commands.updateAttributes("taskItem", { checked: true })
+          })
+          return undefined
+        },
+      })
+    return [
+      retype(/^\s*([-+*])\s$/, "bulletList"),
+      retype(/^(\d+)\.\s$/, "orderedList"),
+      retype(/^\s*\[([( |x])?\]\s$/i, "taskList"),
+    ]
   },
 
   addKeyboardShortcuts() {
