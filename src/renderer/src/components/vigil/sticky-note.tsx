@@ -152,6 +152,17 @@ function Body({ node, path, tick }: { node: Node; path: number[]; tick: (at: num
   }
 }
 
+/** Where a double-click landed in the drawing: the words of its line, and how far into them. */
+const spot = (left: number, top: number): { left: number; top: number; line: string; offset: number } => {
+  const range = document.caretRangeFromPoint(left, top)
+  const line = range?.startContainer.parentElement?.closest('[data-line], li > div, div') as HTMLElement | null
+  if (!range || !line) return { left, top, line: '', offset: 0 }
+  const before = document.createRange()
+  before.setStart(line, 0)
+  before.setEnd(range.startContainer, range.startOffset)
+  return { left, top, line: line.textContent ?? '', offset: before.toString().length }
+}
+
 /** Stick a note on the desktop, or take it down, with its own sound; undoable. */
 export const stickOnDesktop = (type: string, id: string, on = true): void => {
   chime(on ? 'stick' : 'unstick')
@@ -202,13 +213,14 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   const doc: Node = typeof body === 'string' ? fromMarkdown(body) : ((body as Node) ?? { type: 'doc' })
   // Double-click or E edits it in place; Esc or clicking away puts it back.
   // The words it opened on, held, so a save elsewhere does not rebuild the editor under the caret.
-  const [editing, setEditing] = useState<{ body: unknown } | null>(null)
+  const [editing, setEditing] = useState<{ body: unknown; at?: { left: number; top: number; line: string; offset: number } } | null>(null)
   const area = useRef<HTMLDivElement>(null)
   const typed = useSameWords(type === 'capture' ? 'captures' : 'nuggets', editing ? id : undefined, editing?.body, (at, next, base, editor) =>
     type === 'capture'
       ? window.api.captures.save(at, { body: next as never, base, ...(editor ? { markdown: toMarkdown(editor) } : {}) })
       : vigil.saveItem(at, { body: next, base }))
-  const edit = (): void => void (note && !editing && setEditing({ body: note.body }))
+  // A double-click says where: the caret goes there. E starts at the end.
+  const edit = (at?: { left: number; top: number; line: string; offset: number }): void => void (note && !editing && setEditing({ body: note.body, at }))
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.metaKey || event.ctrlKey || event.altKey) return
@@ -306,15 +318,30 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
           </span>
         </div>
         {/* A long note scrolls, and fades out at the bottom as the box does, instead of stopping hard at the edge. */}
-        <div ref={area} onDoubleClick={(event) => !(event.target as Element).closest('input') && edit()}
+        <div ref={area} onDoubleClick={(event) => !(event.target as Element).closest('input') && edit(spot(event.clientX, event.clientY))}
           className="private-text min-h-0 flex-1 overflow-y-auto px-3 pt-1 pb-6 text-muted-foreground [mask-image:linear-gradient(to_bottom,#000_calc(100%-1.75rem),transparent)]" style={STILL}>
           {editing ? (
             // The note's own editor, small and bare: no handles, toolbar or slash menu, saving as you type.
             <Suspense fallback={drawn}>
               <div style={{ '--mf-padding': '0' } as CSSProperties} className="text-foreground [zoom:0.8125] [&_.tiptap-word-count]:hidden">
                 <MindflowEditor defaultContent={(editing.body as JSONContent | string | null) ?? ''} host={window.api}
-                  toolbar={false} handles={false} slash={false} outline={false} search={false} vim={false} autofocus="end"
-                  onReady={typed.ready} onChange={typed.save} />
+                  toolbar={false} handles={false} slash={false} outline={false} search={false} vim={false} autofocus={editing.at ? false : 'end'}
+                  onReady={(editor) => {
+                    typed.ready(editor)
+                    const at = editing.at
+                    // Once laid out, the spot clicked on the drawing, in the editor; the end when it lands on nothing.
+                    // The drawing hides a first line that repeats the title, so the same words are looked for
+                    // before the point is: the line clicked, then that many letters in.
+                    if (at) requestAnimationFrame(() => {
+                      if (editor.isDestroyed) return
+                      let pos: number | undefined
+                      editor.state.doc.descendants((node, start) => {
+                        if (pos === undefined && node.isTextblock && node.textContent === at.line) pos = start + 1 + Math.min(at.offset, node.content.size)
+                        return pos === undefined
+                      })
+                      editor.chain().focus(pos ?? editor.view.posAtCoords(at)?.pos ?? 'end').run()
+                    })
+                  }} onChange={typed.save} />
               </div>
             </Suspense>
           ) : drawn}
