@@ -116,7 +116,13 @@ export function DayBrief({ day, onOpen, onListed }: {
 
   const forget = (id: string): void => setTicked(({ [id]: _, ...rest }) => rest)
   const tick = (task: Task): void => {
-    const was = ticked[task.id]?.was
+    // Ticked here, what the tick gave back; done elsewhere, the same read off
+    // the task: its date and deadline as they were (a one-off keeps them),
+    // done at its completed time, and counted as told about, so opening it
+    // again does not set off an alert for something you are looking at.
+    const was = ticked[task.id]?.was ?? (task.status === 'done' && task.completedAt
+      ? { dueAt: task.dueAt, doneAt: task.completedAt, notifiedAt: new Date().toISOString(), deadlineAt: task.deadline }
+      : undefined)
     if (was) {
       chime('off')
       forget(task.id)
@@ -163,7 +169,7 @@ export function DayBrief({ day, onOpen, onListed }: {
     ...backs.map((one): Row => {
       const kind = CAPTURE_TYPES.find((type) => type.id === one.kind)
       const Mark = kind?.icon ?? ArrowRight
-      return { key: one.id, mark: <Mark className="size-4" style={{ color: kind?.tint }} />, title: one.title, text: backLine(one), run: () => onOpen?.(one.type, one.id), extra: <KindBack one={one} onOpen={onOpen} /> }
+      return { key: one.id, mark: <Mark className="size-4" style={{ color: kind?.tint }} />, title: one.title, text: backLine(one), run: () => onOpen?.(one.type, one.id), extra: <KindBack one={one} onOpen={onOpen} flush /> }
     }),
     ...(prompt ? [prompt] : []),
     ...(reviews > 0 ? [{
@@ -254,9 +260,7 @@ export function DayBrief({ day, onOpen, onListed }: {
             </div>
             <ul className="min-w-0 divide-y divide-border/50">
               {shown.map((task) => (
-                <TaskRow key={task.id} task={task} today={today} done={struck(task)}
-                  // One done elsewhere stays ticked: its undo lives where it was done.
-                  locked={task.status === 'done' && !ticked[task.id]?.was} onTick={() => tick(task)} />
+                <TaskRow key={task.id} task={task} today={today} done={struck(task)} onTick={() => tick(task)} />
               ))}
               {todos.length > shown.length && (
                 <li>
@@ -288,7 +292,7 @@ export function DayBrief({ day, onOpen, onListed }: {
 }
 
 /** A to-do as a line of the list: a round tick, its title, and when it is for. */
-function TaskRow({ task, today, done, locked, onTick }: { task: Task; today: string; done: boolean; locked: boolean; onTick: () => void }): React.JSX.Element {
+function TaskRow({ task, today, done, onTick }: { task: Task; today: string; done: boolean; onTick: () => void }): React.JSX.Element {
   const due = dueDay(task)
   const late = !!due && due < today
   const when = late ? `From ${whenInLine(task.dueAt ?? task.deadline, !task.dueAt || !!task.allDay)}, still open`
@@ -296,9 +300,9 @@ function TaskRow({ task, today, done, locked, onTick }: { task: Task; today: str
   const text = [done ? 'Done' : when, task.blocker ? `In the way: ${task.blocker}` : task.waitingOn ? `Waiting on ${task.waitingOn}` : ''].filter(Boolean).join(' · ')
   return (
     <li className="flex items-start gap-3 py-3">
-      <Tip label={locked ? 'Done' : done ? 'Not done after all' : 'Done'}>
-        <button type="button" role="checkbox" aria-checked={done} aria-label={task.title} disabled={locked} onClick={onTick}
-          className="mt-[0.1875rem] grid size-[1.125rem] shrink-0 place-items-center rounded-full border-[1.5px] transition-[background-color,border-color,scale] duration-150 ease-out outline-none active:scale-90 focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-default"
+      <Tip label={done ? 'Not done after all' : 'Done'}>
+        <button type="button" role="checkbox" aria-checked={done} aria-label={task.title} onClick={onTick}
+          className="mt-[0.1875rem] grid size-[1.125rem] shrink-0 place-items-center rounded-full border-[1.5px] transition-[background-color,border-color,scale] duration-150 ease-out outline-none active:scale-90 focus-visible:ring-2 focus-visible:ring-ring/40"
           style={{
             // Amber for late, as the Today list has it; green once done.
             borderColor: done ? 'var(--tt-color-text-green)' : late ? 'var(--tt-color-text-orange)' : 'color-mix(in oklab, var(--muted-foreground) 70%, transparent)',

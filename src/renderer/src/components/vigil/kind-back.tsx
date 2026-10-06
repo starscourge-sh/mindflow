@@ -96,7 +96,13 @@ export async function keepGoing(one: Returning): Promise<void> {
  * find?" with Finish and Keep going. `onOpen` follows Reopen to the note;
  * `onDone` is told once it is settled, and offers Not now.
  */
-export function KindBack({ one, onOpen, onDone }: { one: Returning; onOpen?: (type: string, id: string) => void; onDone?: () => void }): React.JSX.Element {
+export function KindBack({ one, onOpen, onDone, flush }: {
+  one: Returning
+  onOpen?: (type: string, id: string) => void
+  onDone?: () => void
+  /** In a list whose rows start flush: the buttons' own inset is taken back, so their words line up with the text above. */
+  flush?: boolean
+}): React.JSX.Element {
   const [found, setFound] = useState(one.outcome)
   const then = (work: Promise<void>): void => void work.then(() => onDone?.())
   const line = (label: string, text: string, empty: string): React.JSX.Element => (
@@ -110,7 +116,7 @@ export function KindBack({ one, onOpen, onDone }: { one: Returning; onOpen?: (ty
       <div className="flex flex-col gap-1">
         {line('The call:', one.call, 'not written down')}
         {line('Reopen only if:', one.reopen, 'nothing said, so ask whether anything has changed')}
-        <div className="mt-1.5 flex items-center gap-1">
+        <div className={`mt-1.5 flex items-center gap-1 ${flush ? '-ml-2' : ''}`}>
           <Button variant="ghost" size="sm" className="text-foreground" onClick={() => then(stillHolds(one))}><Lock className="size-3" /> Still holds</Button>
           <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => then(reopen(one).then(() => onOpen?.(one.type, one.id)))}>Reopen</Button>
           {onDone && <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground" onClick={() => (chime('fold'), onDone())}>Not now</Button>}
@@ -135,7 +141,7 @@ export function KindBack({ one, onOpen, onDone }: { one: Returning; onOpen?: (ty
         aria-label="What did you find?"
         className="private-text w-full resize-none rounded-md bg-foreground/[0.05] px-2.5 py-1.5 text-control text-foreground outline-none [field-sizing:content] placeholder:text-foreground/60 focus-visible:ring-2 focus-visible:ring-ring/30"
       />
-      <div className="flex items-center gap-1">
+      <div className={`flex items-center gap-1 ${flush ? '-ml-2' : ''}`}>
         <Button variant="ghost" size="sm" className="text-foreground" onClick={() => then(finish(one, found))}>Finish</Button>
         <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => then(keepGoing(one))}>Keep going a week</Button>
         {onDone && <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground" onClick={() => (chime('fold'), onDone())}>Not now</Button>}
