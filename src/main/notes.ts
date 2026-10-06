@@ -130,7 +130,8 @@ export function registerNotes({ load, guard }: Windows): void {
   const small = new Map<string, string>()
   handle('notes:thumb', async (src: string, height = 96) => {
     // Two sizes: a row's, and a grid tile's, which is drawn larger.
-    const tall = height > 96 ? 320 : 96
+    // Twice the size drawn, for Retina screens: a row's picture is about 48px, a tile's up to about 260px.
+    const tall = height > 96 ? 560 : 112
     const key = `${tall}:${src}`
     const cached = small.get(key)
     if (cached !== undefined) return cached
@@ -148,7 +149,7 @@ export function registerNotes({ load, guard }: Windows): void {
     if (!/\.(png|jpe?g|gif|webp|avif|bmp|heic|svg)$/.test(name)) return ''
     const image = nativeImage.createFromPath(join(assets(), name))
     // A picture the system cannot read (an SVG) is shown as it is.
-    const made = image.isEmpty() ? src : `data:image/jpeg;base64,${image.resize({ height: Math.min(tall, image.getSize().height), quality: 'good' }).toJPEG(72).toString('base64')}`
+    const made = image.isEmpty() ? src : `data:image/jpeg;base64,${image.resize({ height: Math.min(tall, image.getSize().height), quality: 'best' }).toJPEG(82).toString('base64')}`
     small.set(key, made)
     return made
   })

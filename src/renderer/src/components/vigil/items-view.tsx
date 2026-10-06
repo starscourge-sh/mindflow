@@ -293,7 +293,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
             </motion.div>
           )}
         </AnimatePresence>
-        <div className="px-5 pt-2.5 empty:hidden">{chips}</div>
+        <div className="px-5 pt-2.5 pb-2 empty:hidden">{chips}</div>
         {items.length ? (
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (setPeek(id), setCursor(items.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined}

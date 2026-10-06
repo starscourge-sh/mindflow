@@ -286,7 +286,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
           )
         }
       >
-        <div className="px-5 pt-2.5 empty:hidden">{chips}</div>
+        <div className="px-5 pt-2.5 pb-2 empty:hidden">{chips}</div>
         {shown.length ? (
           <CaptureList groups={groups} density={density} selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (setPeek(id), setCursor(shown.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined}

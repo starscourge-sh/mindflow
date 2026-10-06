@@ -110,7 +110,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
           <Button variant="ghost" size="sm" onClick={() => article(chosen)}>Start an article from {chosen.length === 1 ? 'it' : 'these'}</Button>
         </div>
       )}
-      {tier !== 'question' && <div className="px-1 empty:hidden">{chips}</div>}
+      {tier !== 'question' && <div className="px-1 pb-3 empty:hidden">{chips}</div>}
       {items.length ? (
         <NoteList
           groups={groups.map(([name, list]) => [name, list.map((item) => (tier === 'question' ? questionEntry(item, false, questionItems(item)) : withThought(itemEntry(item, menuFor(item)))))] as [string, Entry[]])}

@@ -1725,7 +1725,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                     </>
                   )}
                 </Strip>
-                <div className="px-1 pb-1 empty:hidden">{chips}</div>
+                <div className="px-1 pb-3 empty:hidden">{chips}</div>
                 {shown.length > 0 && <CaptureList groups={groups} density={density} selected={editing} cursor={cursor} onCursor={setCursor} chosen={chosen} onPick={onOpen} />}
                 {!shown.length && (
                   open.length ? (

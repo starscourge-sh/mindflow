@@ -90,7 +90,8 @@ function Cover({
   large: boolean
   className?: string
 }): React.JSX.Element {
-  const picture = usePicture(entry.id, large)
+  // A tile is a tile whichever grid it is in: always the tile-sized picture, or a small grid blurs.
+  const picture = usePicture(entry.id, true)
   if (picture)
     return (
       <span className={`private-text block overflow-hidden bg-accent ${className}`}>
