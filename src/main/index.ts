@@ -1,3 +1,4 @@
+import { pathToFileURL } from 'url'
 import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, net, protocol, screen, session, Tray } from 'electron'
 /*
  * app - Control your application's event lifecycle.
@@ -30,7 +31,6 @@ import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShor
 import { createHash, randomUUID } from 'crypto'
 import { copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'fs/promises'
 import { basename, dirname, join, relative } from 'path'
-import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { alreadyImported, captureText, changed, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
@@ -1806,8 +1806,21 @@ app.whenReady().then(() => {
     const mime = Object.keys(EXTENSIONS).find((type) => EXTENSIONS[type] === extension)
     if (!/^[a-f0-9]{64}\.[a-z0-9]+$/.test(name) || !mime) return false
 
+    // As a PNG, the picture type every app pastes (WhatsApp, Messages, Slack,
+    // Preview); a GIF or WebP written as itself went on the clipboard under a
+    // type most apps never ask for, so nothing pasted. A GIF gives its first
+    // frame; anything the system can't draw goes as its own type.
+    const path = join(assetsDir(), name)
     try {
-      const bytes = await readFile(join(assetsDir(), name))
+      let image = nativeImage.createFromPath(path)
+      // The system's own reader takes what nativeImage can't (a GIF, a HEIC):
+      // the picture at full size, its first frame for a GIF.
+      if (image.isEmpty()) image = await nativeImage.createThumbnailFromPath(path, { width: 4096, height: 4096 }).catch(() => image)
+      if (!image.isEmpty()) {
+        await clipboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(image.toPNG())], { type: 'image/png' }) })])
+        return true
+      }
+      const bytes = await readFile(path)
       await clipboard.write([new ClipboardItem({ [mime]: new Blob([bytes], { type: mime }) })])
       return true
     } catch {
