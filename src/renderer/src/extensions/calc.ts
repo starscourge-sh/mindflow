@@ -113,6 +113,10 @@ function prepare(text: string): string {
       .replace(/−/g, "-")
       // $40 is 40 USD; a thousands comma inside an amount is not an argument list.
       .replace(/([$€£¥₹])\s?(\d[\d,]*(?:\.\d+)?)/g, (_, sign: string, amount: string) => `${amount.replace(/,/g, "")} ${SIGNS[sign]}`)
+      // `1usd to zar`: a currency code in small letters is still that currency,
+      // unless the small letters already name a unit (`cup` stays a cup).
+      .replace(/(?<![A-Za-z])([A-Za-z]{3})(?![A-Za-z])/g, (code: string) =>
+        code !== code.toUpperCase() && CURRENCIES.has(code.toUpperCase()) && !math?.Unit.isValuelessUnit(code) ? code.toUpperCase() : code)
       // 10% of 200.
       .replace(/(\d+(?:\.\d+)?)\s*%\s+of\s+/gi, "$1 / 100 * ")
       // A conversion covers everything before it: `$40 * 3 in EUR` is the
