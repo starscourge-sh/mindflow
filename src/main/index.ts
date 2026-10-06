@@ -555,7 +555,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   // The window is the note plus room for its lean and shadow.
   // A saved place is brought back onto a screen that exists now: a display
   // unplugged, or a note dragged past an edge, never leaves it out of reach.
-  const place = bounds ? onScreen(bounds) : {
+  const place = bounds ? onScreen({ ...bounds, ...stickySize(bounds.width, bounds.height, bounds) }) : {
     width: 300,
     height: 220,
     x: workArea.x + workArea.width - 300 - (stickies.size % 2) * 24,
@@ -565,6 +565,8 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     ...place,
     minWidth: 220,
     minHeight: 130,
+    maxWidth: 480,
+    maxHeight: 520,
     // Named for AeroSpace's floating rule, and with no close button, like the
     // box: a window of an accessory app without one is never tiled at all.
     // Its own X takes it down; quitting makes it closable first.
@@ -780,6 +782,19 @@ let grew: { was: Electron.Rectangle; became: Electron.Rectangle } | null = null
  * of the work area if it is somehow bigger than the screen, which is the half
  * worth keeping.
  */
+/**
+ * A sticky's size kept to a note's: never smaller than reads, never bigger
+ * than about a postcard (480 by 520), and never more than half the screen it
+ * is on, so one can't swallow the desk.
+ */
+function stickySize(width: number, height: number, at: Electron.Rectangle): { width: number; height: number } {
+  const { workArea } = screen.getDisplayMatching(at)
+  return {
+    width: Math.round(Math.min(480, workArea.width * 0.5, Math.max(220, width))),
+    height: Math.round(Math.min(520, workArea.height * 0.6, Math.max(130, height)))
+  }
+}
+
 /** Every sticky to the screen the pointer is on, fanned from its top right: the way back for one lost off an edge. */
 function gatherStickies(): void {
   const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
@@ -1520,7 +1535,7 @@ app.whenReady().then(() => {
     const win = BrowserWindow.fromWebContents(event.sender)
     const key = [...stickies].find(([, one]) => one === win)?.[0]
     if (!win || !key || typeof width !== 'number' || typeof height !== 'number') return
-    win.setBounds({ ...win.getBounds(), width: Math.max(220, Math.round(width)), height: Math.max(130, Math.round(height)) })
+    win.setBounds({ ...win.getBounds(), ...stickySize(width, height, win.getBounds()) })
     const one = stuckAs(key)
     if (one) (one.bounds = win.getBounds()), keepStuck()
   })
