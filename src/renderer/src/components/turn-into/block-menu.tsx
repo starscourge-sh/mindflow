@@ -15,6 +15,8 @@ import {
 
 // --- Items ---
 import { slashItems } from "@/components/slash/slash-items"
+import { lookAtSelected } from "@/components/image/image-look"
+import { startCaption } from "@/extensions/caption"
 import { BLOCK_COLORS, COLORABLE } from "@/extensions/block-color"
 import { host } from "@/lib/host"
 import { listDirection } from "@/lib/menu-keys"
@@ -159,6 +161,7 @@ export function BlockMenu({
       ["listItem", "taskItem", "blockquote"].includes(thing.type.name))
   const imageSrc: string | undefined =
     thing?.type.name === "image" ? thing.attrs.src : undefined
+  const captionable = !!thing && ["image", "youtube", "attachment"].includes(thing.type.name)
   /** A card's address. Opened through `window.open`, which the app hands to the browser. */
   const href: string | undefined = thing?.attrs.href || undefined
 
@@ -352,6 +355,29 @@ export function BlockMenu({
           </DropdownMenuItem>
         ) : null}
 
+        {/* The picture's own toolbar, here too: a right-click should never offer less. */}
+        {imageSrc && matches("Look") ? (
+          <DropdownMenuItem asChild>
+            <button type="button" onClick={() => at(() => lookAtSelected(editor))}>
+              <span className="tiptap-slash-menu-title">Look</span>
+              <span className="tiptap-slash-menu-hint">Space</span>
+            </button>
+          </DropdownMenuItem>
+        ) : null}
+        {captionable && matches("Caption") ? (
+          <DropdownMenuItem asChild>
+            <button type="button" onClick={() => at(() => startCaption(editor, editor.state.selection.from))}>
+              <span className="tiptap-slash-menu-title">{thing?.attrs.caption ? "Edit caption" : "Add a caption"}</span>
+            </button>
+          </DropdownMenuItem>
+        ) : null}
+        {imageSrc?.startsWith("mindflow://assets/") && host().saveFileAs && matches("Download") ? (
+          <DropdownMenuItem asChild>
+            <button type="button" onClick={() => void host().saveFileAs?.(imageSrc, thing?.attrs.alt ? `${thing.attrs.alt}.${imageSrc.split(".").pop()}` : imageSrc.split("/").pop() ?? "Picture")}>
+              <span className="tiptap-slash-menu-title">Download</span>
+            </button>
+          </DropdownMenuItem>
+        ) : null}
         {imageSrc && matches("Copy image") ? (
           <DropdownMenuItem asChild>
             <button type="button" onClick={() => void copyImage()}>
