@@ -213,7 +213,7 @@ const DEFAULTS = {
   sidebarShown: ['inbox', 'review', 'day', 'today', 'week', 'nuggets', 'articles', 'questions'] as string[],
   // The box's tabs; Recent is a ⇧⌘Y or ⌘K away until shown.
   boxTabs: ['inbox', 'today', 'review', 'kept'] as string[],
-  // Sticky notes on the desktop: shown or all put away (⌥⌘N), and kept out of
+  // Sticky notes on the desktop: shown or all put away (⌃⌥⌘N), and kept out of
   // screen shares and recordings while still there for you.
   stickiesShown: true,
   stickiesUnshared: true,

@@ -2,6 +2,11 @@
 // drawing's size, spacing and lines, so nothing moves when editing starts or ends.
 // !important where the editor's own sheets set the same thing more specifically.
 .sticky-text {
+  // The card's dimmed words, as drawn; headings keep their own colour below.
+  .mindflow-editor-wrapper {
+    --tt-theme-text: currentColor;
+  }
+
   .tiptap.ProseMirror.mindflow-editor {
     padding: 0 !important;
     font-size: inherit;
@@ -58,6 +63,12 @@
     .mf-fold {
       display: none !important;
     }
+  }
+
+  // The empty line the editor always keeps at the end is not drawn unless the caret is in it
+  // (the placeholder marks only the line with the caret), so editing adds no line.
+  .ProseMirror > p:last-child:not(.is-empty):has(> .ProseMirror-trailingBreak:only-child) {
+    display: none;
   }
 
   // The first line hidden while it only repeats the title, as the drawing does.

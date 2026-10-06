@@ -77,7 +77,7 @@ export type Settings = {
   /** A heading folds away what is under it; only how the note is shown. */
   foldHeadings: boolean
   /** The sections the main window's sidebar lists; the rest sit under More. */
-  /** Every sticky note on the desktop shown, or all put away; ⌥⌘N from anywhere. */
+  /** Every sticky note on the desktop shown, or all put away; ⌃⌥⌘N from anywhere. */
   stickiesShown: boolean
   /** Stickies kept out of screen shares and recordings, still seen by you. */
   stickiesUnshared: boolean
@@ -433,6 +433,8 @@ export const INTERFACE_SIZES = { small: 16, medium: 17, large: 18.5 } as const
 
 export function useAppearance(): void {
   const settings = useLive(vigil.settings, null as Settings | null)
+  // Every sticky shown or put away at once (⌃⌥⌘N, the menu bar, ⌘K, Settings): said quietly by the one window main picks.
+  useEffect(() => window.api.onStickiesShown((shown) => chime(shown ? 'untuck' : 'tuck')), [])
   // Tag colours from the Tags page, for every editor in this window.
   const meta = useLive(vigil.tagMeta, [] as Awaited<ReturnType<typeof vigil.tagMeta>>)
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { JSONContent } from '@tiptap/core'
 import { Plugin } from '@tiptap/pm/state'
 import { alive } from '@/components/ui/alive-icon'
@@ -167,6 +167,27 @@ const spot = (left: number, top: number): { left: number; top: number; line: str
   return { left, top, line: line.textContent ?? '', offset: before.toString().length }
 }
 
+/** The line a text node sits in: a drawn line or heading, or the editor's paragraph or heading. */
+const blockOf = (text: globalThis.Node): Element | null => text.parentElement?.closest('p, h1, h2, h3, h4, h5, h6, div') ?? null
+/** Every line with words in the card, in reading order, as [line, its first text]. */
+const linesIn = (box: HTMLElement): Element[] => {
+  const walk = document.createTreeWalker(box, NodeFilter.SHOW_TEXT)
+  const found: Element[] = []
+  while (walk.nextNode()) {
+    const line = blockOf(walk.currentNode)
+    if (line && walk.currentNode.textContent?.trim() && line.getClientRects().length && found.at(-1) !== line) found.push(line)
+  }
+  return found
+}
+/** The first line whose bottom is in sight, with how far below the card's top it starts. */
+const firstInSight = (box: HTMLElement | null): { text: string; top: number } | null => {
+  if (!box) return null
+  const top = box.getBoundingClientRect().top
+  const line = linesIn(box).find((one) => one.getBoundingClientRect().bottom > top + 1)
+  return line ? { text: line.textContent ?? '', top: line.getBoundingClientRect().top - top } : null
+}
+const lineOf = (box: HTMLElement, text: string): Element | undefined => linesIn(box).find((one) => one.textContent === text)
+
 /** Stick a note on the desktop, or take it down, with its own sound; undoable. */
 export const stickOnDesktop = (type: string, id: string, on = true): void => {
   chime(on ? 'stick' : 'unstick')
@@ -210,8 +231,6 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [type, id])
-  // Every sticky shown or put away at once (⌥⌘N, the menu bar, ⌘K, Settings): one of them says so, quietly.
-  useEffect(() => window.api.onStickiesShown((shown) => chime(shown ? 'untuck' : 'tuck')), [])
   // Deleted since it was stuck: nothing left to show, so it comes down.
   useEffect(() => void (note === null && window.api.stick(type, id, false)), [note, type, id])
   // A box ticked here shows at once; the stored note takes over when it comes back.
@@ -223,6 +242,23 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   // The words it opened on, held, so a save elsewhere does not rebuild the editor under the caret.
   const [editing, setEditing] = useState<{ body: unknown; at?: { left: number; top: number; line: string; offset: number } } | null>(null)
   const area = useRef<HTMLDivElement>(null)
+  // The first line in sight as editing starts or ends, so the same words stay at the top after the swap.
+  const held = useRef<{ text: string; top: number } | null>(null)
+  const hold = (): void => void (held.current = firstInSight(area.current))
+  // Drawn from the editor's words at once: the store has them only once the save lands.
+  const writing = useRef<{ destroyed: boolean; doc: () => unknown } | null>(null)
+  const leave = (): void => {
+    hold()
+    if (writing.current && !writing.current.destroyed && note) setTicked({ on: note.body, body: writing.current.doc() })
+    setEditing(null)
+  }
+  useLayoutEffect(() => {
+    const box = area.current
+    const was = held.current
+    held.current = null
+    const now = was && box && lineOf(box, was.text)
+    if (now) box.scrollTop += now.getBoundingClientRect().top - box.getBoundingClientRect().top - was.top
+  }, [editing])
   // While editing, the first line stays hidden as long as it only repeats the title and the caret is elsewhere.
   const [hideFirst, setHideFirst] = useState(false)
   const titled = useRef('')
@@ -234,17 +270,18 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   const edit = (at?: { left: number; top: number; line: string; offset: number }): void => {
     if (!note || editing) return
     setHideFirst(twice)
+    hold()
     setEditing({ body: note.body, at })
   }
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.metaKey || event.ctrlKey || event.altKey) return
-      if (editing && event.key === 'Escape') return (event.preventDefault(), setEditing(null))
+      if (editing && event.key === 'Escape') return (event.preventDefault(), leave())
       if (!editing && event.key.toLowerCase() === 'e' && !(event.target as Element | null)?.closest?.('textarea, input:not([type=checkbox]), [contenteditable="true"]'))
         return (event.preventDefault(), edit())
     }
-    const onDown = (event: PointerEvent): void => void (editing && !area.current?.contains(event.target as globalThis.Node) && setEditing(null))
-    const away = (): void => setEditing(null)
+    const onDown = (event: PointerEvent): void => void (editing && !area.current?.contains(event.target as globalThis.Node) && leave())
+    const away = (): void => void (editing && leave())
     window.addEventListener('keydown', onKey, true)
     window.addEventListener('pointerdown', onDown, true)
     window.addEventListener('blur', away)
@@ -325,7 +362,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
             <button type="button" title="Open it" aria-label="Open it" onClick={() => window.api.openInHome(note.tier, id)} className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
               <AliveIcon icon={ExternalLinkIcon} size={14} />
             </button>
-            <button type="button" title="Hide this one till sticky notes are next shown  ⌥⌘N" aria-label="Hide this one"
+            <button type="button" title="Hide this one till sticky notes are next shown  ⌃⌥⌘N" aria-label="Hide this one"
               onClick={() => (chime('tuck'), window.api.hideSticky(type, id))}
               className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
               <AliveIcon icon={EyeOffIcon} size={14} />
@@ -361,11 +398,12 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
           {editing ? (
             // The note's own editor, small and bare: no handles, toolbar or slash menu, saving as you type.
             <Suspense fallback={drawn}>
-              <div className="text-foreground [&_.tiptap-word-count]:hidden">
+              <div className="[&_.tiptap-word-count]:hidden">
                 <MindflowEditor defaultContent={(editing.body as JSONContent | string | null) ?? ''} host={window.api} placeholder="Write…"
                   toolbar={false} handles={false} slash={false} outline={false} search={false} vim={false} smoothScroll={false} autofocus={editing.at ? false : 'end'}
                   onReady={(editor) => {
                     typed.ready(editor)
+                    writing.current = { get destroyed() { return editor.isDestroyed }, doc: () => editor.getJSON() }
                     // The page keeps a third of the window clear round the caret, more than this card has:
                     // every key scrolled it one way, then the other. Here it moves only as far as keeps the caret in sight, above the fade.
                     editor.registerPlugin(new Plugin({ props: { handleScrollToSelection: (view) => {

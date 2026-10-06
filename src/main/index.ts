@@ -1457,12 +1457,14 @@ app.whenReady().then(() => {
   })
   void restoreStickies()
   // Shown again, every sticky comes back, those put away on their own too. A quiet
-  // sound from one of them, whichever way it went (they play while hidden).
+  // sound whichever way it went, from the window in front if it is Vigil's, else the box: never a sticky being hidden.
   let stickiesShown = stickyPrefs().shown
   whenStickies(() => {
     const { shown } = stickyPrefs()
     if (shown && stuck.some((one) => one.hidden)) stuck.forEach((one) => delete one.hidden), keepStuck()
-    if (shown !== stickiesShown) [...stickies.values()][0]?.webContents.send('stickies:shown', shown)
+    const front = BrowserWindow.getFocusedWindow()
+    const voice = front && ![...stickies.values()].includes(front) ? front : prompt
+    if (shown !== stickiesShown && voice && !voice.isDestroyed()) voice.webContents.send('stickies:shown', shown)
     stickiesShown = shown
     applyStickies()
     updateTray()
@@ -1917,7 +1919,7 @@ app.whenReady().then(() => {
     }
     take('⌘.', toggleWindow)
     take('⌥⌘S', () => (toggleSafeMode(), updateTray()))
-    take('⌥⌘N', () => showStickies())
+    take('⌃⌥⌘N', () => showStickies())
   }
   anywhere(whenKeys(anywhere))
 
