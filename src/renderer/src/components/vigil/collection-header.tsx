@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { alive } from '@/components/ui/alive-icon'
-import PlayerIcon from '@/components/ui/player-icon'
+import BookIcon from '@/components/ui/book-icon'
 
 import { chime } from '@/lib/sound'
 import { keyFor } from '@/lib/keys'
@@ -13,7 +13,7 @@ import { RowMenu, type MenuItem } from './row-menu'
 import { Tip } from './ui'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
-const Play = alive(PlayerIcon)
+const Read = alive(BookIcon)
 
 /**
  * A collection read as a page, the way a music app shows an album: a band
@@ -185,16 +185,17 @@ export function CollectionHeader({ tint, cover, label, title, meta, actions }: {
   )
 }
 
-/** The one big round button: read it, from the top. */
+/** The one filled button: read them, from the top. Worded like Home's Open, its key in the tip. */
 export function PlayButton({ label, onClick }: { label: string; onClick: () => void }): React.JSX.Element {
   return (
     <Tip label={label}>
       <button
         type="button"
         onClick={onClick}
-        className="mr-2 flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_6px_16px_-6px_color-mix(in_srgb,var(--primary)_70%,transparent)] transition-transform duration-150 ease-out outline-none hover:scale-[1.04] focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] @[44rem]/band:size-13"
+        className="mr-1.5 flex h-9 shrink-0 items-center gap-2 rounded-full bg-primary px-4 text-control font-semibold text-primary-foreground shadow-[0_6px_16px_-8px_rgb(0_0_0/0.5)] transition-transform duration-150 ease-out outline-none hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97]"
       >
-        <Play className="size-5 translate-x-px fill-current @[44rem]/band:size-6" />
+        <Read className="size-4" />
+        {label.split('  ')[0]}
       </button>
     </Tip>
   )
@@ -276,7 +277,7 @@ export type Track = {
 
 /**
  * The numbered list: quiet column names, then a row each. Pointed at, a
- * row's number becomes a play mark (read from here) and its add and ···
+ * row's number becomes a book (read from here) and its add and ···
  * show at the right, the rest of the time out of the way.
  */
 export function TrackList({ columns, tracks }: { columns: { label: string; size: string; wide?: boolean }[]; tracks: Track[] }): React.JSX.Element {
@@ -310,7 +311,7 @@ export function TrackList({ columns, tracks }: { columns: { label: string; size:
                 <span className="text-muted-foreground tabular-nums group-focus-within/track:opacity-0 group-hover/track:opacity-0">{index + 1}</span>
                 <Tip label={track.playLabel ?? 'Read from here'}>
                   <button type="button" onClick={track.onPlay} className="absolute inset-y-0 right-0 flex w-6 items-center justify-end text-foreground opacity-0 group-focus-within/track:opacity-100 group-hover/track:opacity-100">
-                    <Play className="size-3.5 fill-current" />
+                    <Read className="size-3.5" />
                   </button>
                 </Tip>
               </span>

@@ -423,22 +423,22 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
   )
 }
 
-/** Kept words, set as quotes in a few columns: each as tall as it needs. */
+/** Kept words, set as quotes in a few columns: a row's cards share one height, their line about why at the foot. */
 function Quotes({ title, onAll, cards, actions }: { title: ReactNode; onAll?: () => void; cards: Card[]; actions: Actions }): React.JSX.Element {
   return (
     <section className="flex flex-col gap-2 px-5 @[44rem]/page:px-8">
       <Heading title={title} onAll={onAll} />
-      <div className="columns-1 gap-2 @[24rem]/page:columns-2 @[60rem]/page:columns-3">
+      <div className="grid grid-cols-1 gap-2 @[24rem]/page:grid-cols-2 @[60rem]/page:grid-cols-3">
         {cards.map((card, at) => (
           <RowMenu key={card.id} items={menuFor(card, actions, cards, at)}>
-            <div className="group/card relative mb-2 break-inside-avoid" data-private={card.private ? '' : undefined}>
+            <div className="group/card relative" data-private={card.private ? '' : undefined}>
               {/* A card that is settled in place carries its answer under it, in the same paper. */}
-              <Lean by={4} inner={card.foot ? 'rounded-xl bg-foreground/[0.04]' : ''}>
+              <Lean by={4} className="h-full" inner={`flex flex-col ${card.foot ? 'rounded-xl bg-foreground/[0.04]' : ''}`}>
               <button type="button" data-nav data-private={card.private ? '' : undefined} onClick={() => actions.open(card)}
-                className={`flex w-full flex-col gap-2 rounded-xl p-4 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring/50 ${card.foot ? 'pb-2 hover:bg-foreground/[0.03]' : 'bg-foreground/[0.04] hover:bg-foreground/[0.07]'}`}>
+                className={`flex w-full flex-1 flex-col gap-2 rounded-xl p-4 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring/50 ${card.foot ? 'pb-2 hover:bg-foreground/[0.03]' : 'bg-foreground/[0.04] hover:bg-foreground/[0.07]'}`}>
                 <span className="private-text pr-7 font-heading text-[1.0625rem] leading-snug [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
                 {wordsOf(card.excerpt) && <span className="private-text line-clamp-3 text-xs leading-relaxed text-muted-foreground">{wordsOf(card.excerpt)}</span>}
-                <span className="flex items-center gap-1.5 text-xs text-muted-foreground/80">
+                <span className="mt-auto flex items-center gap-1.5 text-xs text-muted-foreground/80">
                   <KindMark card={card} className="size-4 rounded-[4px] [&_svg]:size-2.5" />{card.sub}
                 </span>
               </button>
