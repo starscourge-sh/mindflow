@@ -1,6 +1,11 @@
 import { themeActions } from '@/lib/theme'
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
-import { Minimize2, ChevronRight, CircleHelp, Pin as PinMark, Tag } from 'lucide-react'
+import { Minimize2 } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import RightChevronIcon from '@/components/ui/right-chevron'
+import InfoCircleIcon from '@/components/ui/info-circle-icon'
+import BookmarkIcon from '@/components/ui/bookmark-icon'
+import HashtagIcon from '@/components/ui/hashtag-icon'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AnimatePresence, motion } from 'motion/react'
 import { chime, soundOn } from './lib/sound'
@@ -51,6 +56,12 @@ import { openWindow } from '@/lib/notes'
 import { PlaceIcon, SECTIONS, ShowList, useShown } from '@/components/vigil/places'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { RowMenu } from '@/components/vigil/row-menu'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const ChevronRight = alive(RightChevronIcon)
+const CircleHelp = alive(InfoCircleIcon)
+const PinMark = alive(BookmarkIcon)
+const Tag = alive(HashtagIcon)
 
 // A nonce makes asking again a fresh visit: the recap reopens each time.
 type View = { id: string; focus?: string; nonce?: number }
@@ -658,10 +669,10 @@ export function Home(): React.JSX.Element {
         <Tip label={keyed('New capture, in the box', '⌘N')}>
           <button type="button" onClick={() => (chime('open'), window.api.showPrompt())}
             style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-            className={`${PILL} ml-1.5 gap-1.5 pr-1 pl-2.5 text-control font-medium text-foreground/90 transition-colors hover:bg-accent/60 hover:text-foreground`}>
+            className={`${PILL} ml-1.5 gap-1.5 pr-1.5 pl-3 text-control font-medium text-foreground/90 transition-colors hover:bg-accent/60 hover:text-foreground`}>
             <AliveIcon icon={PenIcon} size={14} />
             New
-            <Pressed keys="C" className="ml-0.5 h-[18px] min-w-[18px] rounded-[5px]" />
+            <Pressed keys="C" className="ml-1 h-[18px] min-w-[18px] rounded-[5px]" />
           </button>
         </Tip>
       </header>
