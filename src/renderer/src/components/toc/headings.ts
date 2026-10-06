@@ -1,6 +1,7 @@
 import { Extension, type JSONContent } from "@tiptap/core"
 import { TextSelection } from "@tiptap/pm/state"
 import type { Editor } from "@tiptap/react"
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 
 import { headingRank } from "@/extensions/toggle-heading"
 import { cue } from "@/lib/cues"
@@ -19,8 +20,13 @@ export interface Heading {
  * own sub-headings stay, and the list reads as orphans.
  */
 export function headingsOf(editor: Editor): Heading[] {
+  return headingsInDoc(editor.state.doc)
+}
+
+/** The same, from a document rather than an editor. */
+export function headingsInDoc(doc: ProseMirrorNode): Heading[] {
   const headings: Heading[] = []
-  editor.state.doc.descendants((node, pos) => {
+  doc.descendants((node, pos) => {
     const rank = headingRank(node)
     if (rank === null) return !node.isTextblock
 

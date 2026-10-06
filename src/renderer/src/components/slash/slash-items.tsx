@@ -1,4 +1,4 @@
-import { Columns2, Columns3, Minus as DividerIcon, Table as TableIcon, Paperclip, SquarePlay as VideoIcon } from 'lucide-react'
+import { Columns2, Columns3, TableOfContents as ContentsIcon, Minus as DividerIcon, Table as TableIcon, Paperclip, SquarePlay as VideoIcon } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import BookmarkIconDrawing from '@/components/ui/bookmark-icon'
 import RightChevronIcon from '@/components/ui/right-chevron'
@@ -171,6 +171,14 @@ export const slashItems: SlashItem[] = [
       editor.chain().focus().insertContentAt(range, emptyColumns(count)).setTextSelection(at + 3).run()
     }
   })),
+  {
+    title: 'Table of contents',
+    group: 'Basic blocks',
+    hint: '[TOC]',
+    keywords: ['toc', 'contents', 'outline', 'headings'],
+    icon: <ContentsIcon />,
+    run: (editor) => editor.chain().focus().insertContents().run()
+  },
   {
     title: 'Table',
     group: 'Media',

@@ -3294,3 +3294,186 @@ html[data-motion="off"] .mf-column-drop {
   object-fit: contain;
   object-position: center;
 }
+
+// --- Table of contents ------------------------------------------------------
+// The note's headings, placed in the note. Quiet like the text around it: muted
+// rows in the text's own font, the accent only under the pointer, and a thin
+// rule down the side of each level, so the nesting reads without bullets.
+
+.tiptap.ProseMirror.mindflow-editor .mf-contents {
+  --contents-step: 0.875rem;
+  --contents-rule: color-mix(in srgb, var(--mf-muted) 45%, transparent);
+  margin: 0.5em 0;
+  padding: 0.25rem 0;
+  border-radius: 0.5rem;
+  font-size: 0.9375em;
+  line-height: 1.4;
+  user-select: none;
+
+  &.is-selected {
+    outline: 0.125rem solid var(--tt-brand-color-500);
+    outline-offset: 0.25rem;
+  }
+}
+
+.mf-contents-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.125rem;
+}
+
+.mf-contents-head,
+.mf-contents-numbers {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.375rem;
+  margin-left: -0.375rem;
+  border-radius: 0.375rem;
+  color: var(--mf-muted);
+  font: inherit;
+  font-size: 0.8125rem;
+  letter-spacing: 0.01em;
+  transition: color 120ms ease-out, background-color 120ms ease-out;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--mf-muted-strong);
+    background-color: var(--mf-surface);
+  }
+
+  &:focus-visible {
+    outline: 0.125rem solid var(--tt-brand-color-500);
+  }
+
+  svg {
+    width: 0.875rem;
+    height: 0.875rem;
+    transform: rotate(90deg);
+    transition: transform 150ms ease-out;
+  }
+}
+
+.mf-contents[data-collapsed] .mf-contents-head svg {
+  transform: none;
+}
+
+// Only offered under the pointer: how the rows are counted is a setting, not content.
+.mf-contents-numbers {
+  margin-left: auto;
+  opacity: 0;
+
+  .mf-contents:hover &,
+  &:focus-visible,
+  &[aria-pressed="true"]:hover {
+    opacity: 1;
+  }
+
+  &[aria-pressed="true"] {
+    color: var(--mf-accent-ink, var(--tt-brand-color-500));
+  }
+}
+
+.tiptap.ProseMirror.mindflow-editor .mf-contents-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// One rule per level above this row, a step apart: rows sit flush, so the rules
+// join into lines down the side of each section.
+.tiptap.ProseMirror.mindflow-editor .mf-contents-row {
+  margin: 0;
+  padding: 0 0 0 calc(var(--depth) * var(--contents-step));
+  background-image: repeating-linear-gradient(to right, var(--contents-rule) 0 1px, transparent 1px var(--contents-step));
+  background-size: calc(var(--depth) * var(--contents-step)) 100%;
+  background-repeat: no-repeat;
+
+  &::before {
+    content: none;
+  }
+}
+
+.mf-contents-entry {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.1875rem 0.5rem;
+  border-radius: 0.375rem;
+  color: var(--mf-muted-strong);
+  font: inherit;
+  text-align: left;
+  transition: color 120ms ease-out, background-color 120ms ease-out;
+
+  &[data-level="1"] {
+    color: var(--tt-theme-text);
+    font-weight: 500;
+  }
+
+  &:hover,
+  &:focus-visible {
+    color: var(--mf-accent-ink, var(--tt-brand-color-500));
+    background-color: var(--mf-surface);
+  }
+
+  &:focus-visible {
+    outline: 0.125rem solid var(--tt-brand-color-500);
+    outline-offset: -0.125rem;
+  }
+}
+
+.mf-contents-number {
+  flex: none;
+  color: var(--mf-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.mf-contents-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tiptap.ProseMirror.mindflow-editor .mf-contents-empty {
+  margin: 0;
+  padding: 0.1875rem 0;
+  color: var(--mf-muted);
+  font-size: 0.875rem;
+}
+
+// The heading gone to, lit and let go, so the eye lands on it.
+.tiptap.ProseMirror.mindflow-editor .mf-contents-landed {
+  border-radius: 0.25rem;
+  animation: mf-contents-landed 1.4s ease-out;
+}
+
+@keyframes mf-contents-landed {
+  from,
+  30% {
+    background-color: color-mix(in srgb, var(--tt-brand-color-500) 16%, transparent);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+html[data-motion="off"] .tiptap.ProseMirror.mindflow-editor .mf-contents-landed,
+html[data-motion="off"] .mf-contents :is(button, svg) {
+  animation: none;
+  transition: none;
+}
+
+html[data-motion="off"] .tiptap.ProseMirror.mindflow-editor .mf-contents-landed {
+  background-color: color-mix(in srgb, var(--tt-brand-color-500) 12%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tiptap.ProseMirror.mindflow-editor .mf-contents-landed {
+    animation: none;
+    background-color: color-mix(in srgb, var(--tt-brand-color-500) 12%, transparent);
+  }
+}

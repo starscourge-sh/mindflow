@@ -1,5 +1,5 @@
 import { Extension } from "@tiptap/core"
-import { AllSelection, Plugin, PluginKey, Selection } from "@tiptap/pm/state"
+import { AllSelection, Plugin, PluginKey, Selection, type EditorState } from "@tiptap/pm/state"
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 
@@ -61,6 +61,9 @@ export function foldEverything(fold: boolean): boolean {
   cue(fold ? "fold" : "unfold")
   return true
 }
+
+/** Whether the heading at `pos` has its section folded away. */
+export const isFolded = (state: EditorState, pos: number): boolean => !!key.getState(state)?.folded.includes(pos)
 
 /** Blocks that can hold a heading, so the walk skips the rest. */
 const HOLDERS = new Set(["doc", "details", "detailsContent", "blockquote", "callout", "listItem", "taskItem", "bulletList", "orderedList", "taskList"])

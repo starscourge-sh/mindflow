@@ -62,6 +62,7 @@ import { Caption, captioned } from "@/extensions/caption"
 import { Column, Columns, draggedOf, dropBeside, moveOutOfColumn } from "@/extensions/columns"
 import { Attachment } from "@/extensions/attachment"
 import { ExcalidrawDiagram } from "@/extensions/excalidraw"
+import { ContentsBlock } from "@/extensions/contents-block"
 import { Calc } from "@/extensions/calc"
 import { markdownToDocument } from "@/lib/markdown-doc"
 import { LongDocument } from "@/extensions/long-document"
@@ -1134,6 +1135,7 @@ function Surface({
       Column,
       Attachment,
       ExcalidrawDiagram,
+      ContentsBlock,
       // Gives the editor `storage.markdown.getMarkdown()`, used by Export.
       // A Markdown reader of its own: on the shared one, each editor added its
       // rules for good, and they kept every editor ever opened in memory.
