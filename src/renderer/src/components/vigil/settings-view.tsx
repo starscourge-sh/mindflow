@@ -375,7 +375,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Heading font" note="A note's headings in a font of their own, and the titles of pages here: Fraunces over the Mac's font to start, the way Dia pairs a characterful serif with plain text. Or the same as the text." below={<Sample />} keywords={`headings titles pairing ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
             <FontPicker value={settings.headingFont} setting="headingFont" same="Same as text" />
           </Setting>
-          <Setting title="Notes only" note="On, the font above is used only for what you write, and the app's own lists, menus and labels stay in Fraunces.">
+          <Setting title="Notes only" note="On, the font above is used only for what you write, and the app's own lists, menus and labels keep the Mac's font.">
             <Switch checked={!!settings.fontNotesOnly} onCheckedChange={(fontNotesOnly) => set({ fontNotesOnly })} />
           </Setting>
           <Setting title="Text size" note="How big the words in notes are. ⌘+ and ⌘− change it from any note, ⌘0 puts it back." below={<Sample text />}>
@@ -686,9 +686,11 @@ function ImportedThemes(): React.JSX.Element {
  */
 function Sample({ text = false }: { text?: boolean }): React.JSX.Element {
   return (
-    <div className="mt-2 text-foreground" style={{ fontSize: 'calc(1rem * var(--mf-text-scale, 1))' }}>
+    // A small page of its own, set apart from the words about it: the sample
+    // reads as a sample, not as more of the setting's description.
+    <div className="mt-3 mb-1 rounded-lg border border-border/60 bg-background/60 px-4 py-3 text-foreground" style={{ fontSize: 'calc(1rem * var(--mf-text-scale, 1))' }}>
       {!text && <p className="truncate text-[1.4375em] leading-tight font-semibold tracking-[-0.018em] [font-variation-settings:'SOFT'_50,'WONK'_1]" style={{ fontFamily: 'var(--mf-heading-font, var(--mf-font))' }}>How the system holds up</p>}
-      <p className={`truncate ${text ? '' : 'mt-1'}`} style={{ fontFamily: 'var(--mf-font, "Fraunces Variable", Georgia, serif)' }}>The quick brown fox jumps over the lazy dog.</p>
+      <p className={`truncate ${text ? '' : 'mt-1.5'}`} style={{ fontFamily: 'var(--mf-font, "Fraunces Variable", Georgia, serif)' }}>The quick brown fox jumps over the lazy dog.</p>
     </div>
   )
 }
