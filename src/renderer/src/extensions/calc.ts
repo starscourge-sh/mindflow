@@ -102,6 +102,10 @@ function load(): void {
 
 // --- working it out ------------------------------------------------------
 
+/** A currency code in small letters, in capitals, when it is one and names nothing else. */
+const money = (code: string): string =>
+  CURRENCIES.has(code.toUpperCase()) && !math?.Unit.isValuelessUnit(code) && !(math && code in math) ? code.toUpperCase() : code
+
 /** What people type, in the shape mathjs reads. */
 function prepare(text: string): string {
   return (
@@ -114,9 +118,11 @@ function prepare(text: string): string {
       // $40 is 40 USD; a thousands comma inside an amount is not an argument list.
       .replace(/([$€£¥₹])\s?(\d[\d,]*(?:\.\d+)?)/g, (_, sign: string, amount: string) => `${amount.replace(/,/g, "")} ${SIGNS[sign]}`)
       // `1usd to zar`: a currency code in small letters is still that currency,
-      // unless the small letters already name a unit (`cup` stays a cup).
-      .replace(/(?<![A-Za-z])([A-Za-z]{3})(?![A-Za-z])/g, (code: string) =>
-        code !== code.toUpperCase() && CURRENCIES.has(code.toUpperCase()) && !math?.Unit.isValuelessUnit(code) ? code.toUpperCase() : code)
+      // but only straight after an amount or after in, to or as, so a word like
+      // `try` or `all` stays a word, and never when the letters already name a
+      // unit or a function (`cup`, `mad`).
+      .replace(/(\d\s*)([a-z]{3})(?![A-Za-z])/g, (_, amount: string, code: string) => `${amount}${money(code)}`)
+      .replace(/(\s(?:in|to|as)\s+)([a-z]{3})\s*$/, (_, word: string, code: string) => `${word}${money(code)}`)
       // 10% of 200.
       .replace(/(\d+(?:\.\d+)?)\s*%\s+of\s+/gi, "$1 / 100 * ")
       // A conversion covers everything before it: `$40 * 3 in EUR` is the
