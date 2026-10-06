@@ -101,7 +101,11 @@ export function applyTheme(theme: Theme, remember = true): void {
     for (const other of allThemes()) if (other !== "dark") classList.toggle(other, theme === other)
     // An imported light theme has no class of its own in the stylesheet to make
     // the window solid, so it says so here.
-    if ((theme.startsWith("custom-") && isLight(theme)) || !frosted()) document.documentElement.dataset.solid = ""
+    // A sticky note is paper on the desktop: always solid. Frosted, it showed
+    // whatever was behind it through its words, text over text, and macOS
+    // blurs nothing behind a window this small and tilted.
+    const sticky = new URLSearchParams(location.search).get("view") === "sticky"
+    if ((theme.startsWith("custom-") && isLight(theme)) || !frosted() || sticky) document.documentElement.dataset.solid = ""
     else delete document.documentElement.dataset.solid
     // Native bits (a time field, a scrollbar) follow light or dark, imported themes included.
     if (isLight(theme)) document.documentElement.dataset.light = ""

@@ -1293,7 +1293,15 @@ async function importFiles(): Promise<void> {
  * then asked to go.
  */
 let quitting = false
-app.on('before-quit', () => (quitting = true))
+// However the app is told to quit (the menu bar, ⌘Q in any window, the
+// system at log out, Ctrl+C in a terminal), every window may close first:
+// stickies and the box have no close button, and a window that can't close
+// keeps the app, and itself, on screen.
+app.on('before-quit', () => {
+  quitting = true
+  for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.closable = true
+})
+for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => quit())
 
 function quit(): void {
   for (const win of BrowserWindow.getAllWindows()) win.closable = true
