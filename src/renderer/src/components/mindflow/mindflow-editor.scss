@@ -463,8 +463,12 @@
     max-width: 100% !important;
   }
 
+  // The header row a fine dot screen over the tint, as Obsidian's Minimal
+  // theme has it: set apart from the rows without a heavier colour.
   th {
     background-color: var(--mf-surface);
+    background-image: radial-gradient(color-mix(in oklab, var(--foreground) 14%, transparent) 0.6px, transparent 0.9px);
+    background-size: 4px 4px;
     font-weight: 600;
     text-align: left;
   }
