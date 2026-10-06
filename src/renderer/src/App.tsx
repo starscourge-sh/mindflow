@@ -214,9 +214,11 @@ const Header = ({ panel, onPanel, onNew, menu, nav, title, aside }: {
         style={{ padding: panel ? '0 0.75rem 0 4.75rem' : '0rem 4.75rem' } as CSSProperties}>
         <WindowDots />
         <span style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>{nav}</span>
-        <span className="flex-1" />
         {/* The note's name, faint and centred, once its first line has
-            scrolled away - so a long note still says what it is. */}
+            scrolled away - so a long note still says what it is. It takes
+            only the room between the back arrows and the chips on the
+            right, so it can never run under them. */}
+        <span className="relative flex min-w-0 flex-1 justify-center px-3">
         <AnimatePresence>
           {title && (
             <motion.span
@@ -226,12 +228,13 @@ const Header = ({ panel, onPanel, onNew, menu, nav, title, aside }: {
               // Out quicker than in: it gets out of the way of the line coming back.
               exit={{ opacity: 0, transform: shift('translateY(-4px)'), transition: { duration: 0.1, ease: EASE } }}
               transition={{ duration: 0.16, ease: EASE }}
-              className="pointer-events-none absolute inset-x-0 truncate px-56 text-center text-control text-muted-foreground/70"
+              className="pointer-events-none min-w-0 truncate text-center text-control text-muted-foreground/70"
             >
               {title}
             </motion.span>
           )}
         </AnimatePresence>
+        </span>
         {/* One pill for the window's controls, there while the pointer is,
             the way Raycast Notes keeps them: a new note, the actions, the
             panel. The strip is the window's drag handle, so the pill has to

@@ -191,7 +191,6 @@ import "@/components/tiptap-node/paragraph-node/paragraph-node.scss"
 import { HeadingDropdownMenu } from "@/components/tiptap-ui/heading-dropdown-menu"
 import { ListDropdownMenu } from "@/components/tiptap-ui/list-dropdown-menu"
 import { BlockquoteButton } from "@/components/tiptap-ui/blockquote-button"
-import { LinkPopover } from "@/components/tiptap-ui/link-popover"
 import { LinkToBookmarkButton } from "@/components/bookmark/link-to-bookmark-button"
 import { SelectionMenu } from "@/components/selection/selection-menu"
 import { CodeBlockButton } from "@/components/tiptap-ui/code-block-button"
@@ -1481,7 +1480,7 @@ function Surface({
           </ToolbarGroup>
           <ToolbarSeparator />
           <ToolbarGroup>
-            <LinkPopover showTooltip={false} autoOpenOnLinkActive={false} />
+            {/* No link button: a pasted address over a selection makes the link, and @ or [[ link a note. */}
             <LinkToBookmarkButton editor={editor} />
             <ColorHighlightPopover showTooltip={false} />
           </ToolbarGroup>
