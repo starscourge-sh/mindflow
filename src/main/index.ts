@@ -1281,7 +1281,8 @@ function updateTray(): void {
   // A running session shows its minutes, so the menu bar says what you are on.
   const session = activeSession()
   const minutes = session ? Math.floor((Date.now() - new Date(session.startedAt).getTime()) / 60000) : 0
-  tray.setTitle([session ? `● ${minutes}m` : '', tasks ? `▸${tasks}` : '', due ? String(due) : '', safe ? 'Safe' : ''].filter(Boolean).join(' · '), { fontType: 'monospacedDigit' })
+  // Words beside each number, so the menu bar says what it counts: a bare "2 · 1" meant nothing.
+  tray.setTitle([session ? `● ${minutes}m` : '', tasks ? `${tasks} due` : '', due ? `${due} to review` : '', safe ? 'Safe' : ''].filter(Boolean).join(' · '), { fontType: 'monospacedDigit' })
   tray.setToolTip(`Vigil${tasks ? ` · ${tasks} task${tasks === 1 ? '' : 's'} due now` : ''}${due ? ` · ${due} to review` : ''}${safe ? ' · safe mode on' : ''}`)
   tray.setContextMenu(
     Menu.buildFromTemplate([
