@@ -1,12 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { MessageSquareText } from 'lucide-react'
+import { alive } from '@/components/ui/alive-icon'
+import MessageCircleIcon from '@/components/ui/message-circle-icon'
+import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
 
 import { chime } from '@/lib/sound'
 import { useLive, vigil, when, type Gloss } from '@/lib/vigil'
 import { cn } from '@/lib/cn'
 import { Island, Kbd, Rolling, Tip, toast, Typed, typing, Pressed } from './ui'
 import { ago } from '../../../../main/dates'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const MessageSquareText = alive(MessageCircleIcon)
+const ArrowUp = alive(ArrowNarrowUpIcon)
 
 /**
  * A gloss: what an item means to you, written the moment you bump into it.
@@ -226,5 +232,114 @@ export function GlossTimeline({ id }: { id: string }): React.JSX.Element {
         ))}
       </AnimatePresence>
     </Island>
+  )
+}
+
+/**
+ * Thoughts on one page, the way a comment box sits under an issue: the ones
+ * kept so far, oldest first and dated, then a real field to write the next.
+ * Clicking anywhere in the field puts the caret in it; ; does too. Enter
+ * keeps it, Shift-Enter starts a new line, Escape lets go of the keys.
+ */
+export function GlossComposer({ id, keys = ';', className }: { id: string; keys?: string; className?: string }): React.JSX.Element {
+  const glosses = useLive(() => vigil.glosses(id), [] as Gloss[], [id])
+  const [words, setWords] = useState('')
+  const [fresh, setFresh] = useState<string | null>(null)
+  const field = useRef<HTMLTextAreaElement>(null)
+  const root = useRef<HTMLDivElement>(null)
+  useEffect(() => setWords(''), [id])
+  useEffect(() => {
+    const onOpen = (event: Event): void => {
+      if ((event as CustomEvent<string>).detail !== id) return
+      const over = [...document.querySelectorAll('[role="dialog"]')].at(-1)
+      if (over && !over.contains(root.current)) return
+      chime('tap')
+      field.current?.focus()
+    }
+    window.addEventListener('vigil:gloss', onOpen)
+    return () => window.removeEventListener('vigil:gloss', onOpen)
+  }, [id])
+  const ready = words.trim().length > 0
+  const keep = (): void => {
+    const text = words.trim()
+    if (!text) return
+    setWords('')
+    setFresh(text)
+    void keepGloss(id, text)
+  }
+
+  return (
+    <div ref={root} data-gloss className={cn('flex flex-col gap-4', className)} onClick={(event) => event.stopPropagation()}>
+      {glosses.length > 0 && (
+        <ol className="flex flex-col gap-3.5">
+          <AnimatePresence initial={false}>
+            {[...glosses].reverse().map((one) => (
+              <motion.li
+                key={one.id}
+                layout
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                className="flex gap-3"
+              >
+                <MessageSquareText className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="private-text text-control whitespace-pre-line wrap-break-word text-foreground">{fresh === one.body ? <Typed text={one.body} step={28} delay={60} /> : one.body}</p>
+                  <p className="mt-0.5 flex items-center gap-1.5 text-meta text-muted-foreground">
+                    <span className="tabular-nums">{when(one.createdAt)}</span>
+                    {one.author === 'ai' && <span className="rounded border border-border/80 px-1 text-[10px] leading-4 tracking-wide uppercase">AI</span>}
+                  </p>
+                </div>
+              </motion.li>
+            ))}
+          </AnimatePresence>
+        </ol>
+      )}
+      {/* The field: a raised, edged surface, so it reads as a place to type at a glance. */}
+      <div
+        onClick={() => field.current?.focus()}
+        className="group/field flex cursor-text items-end gap-2 rounded-xl border bg-card py-2 pr-2 pl-3.5 shadow-sm transition-[border-color,box-shadow] duration-150 hover:border-foreground/20 focus-within:border-foreground/30 focus-within:shadow-md"
+      >
+        <textarea
+          ref={field}
+          rows={1}
+          value={words}
+          placeholder="Add a thought…"
+          aria-label="Add a thought"
+          onChange={(event) => setWords(event.target.value)}
+          onKeyDown={(event) => {
+            event.stopPropagation()
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault()
+              keep()
+            }
+            // Lets go of the keys only: the page stays open.
+            if (event.key === 'Escape') {
+              event.preventDefault()
+              chime('fold')
+              setWords('')
+              field.current?.blur()
+            }
+          }}
+          className={cn(ready && 'private-text', 'max-h-40 min-h-7 min-w-0 flex-1 resize-none self-center bg-transparent py-1 text-control text-foreground outline-none [field-sizing:content] placeholder:text-muted-foreground')}
+        />
+        {!ready && <span className="mb-1.5 flex shrink-0 group-focus-within/field:hidden"><Pressed keys={keys} /></span>}
+        <Tip label={<span className="flex items-center gap-2">Keep it<Kbd>↵</Kbd></span>}>
+          <button
+            type="button"
+            aria-label="Keep thought"
+            disabled={!ready}
+            onClick={(event) => (event.stopPropagation(), keep())}
+            className={cn(
+              'flex size-7 shrink-0 items-center justify-center rounded-full transition-colors duration-150 active:scale-95',
+              ready ? 'bg-foreground text-background hover:bg-foreground/85' : 'bg-muted text-muted-foreground/60'
+            )}
+          >
+            <ArrowUp className="size-3.5" />
+          </button>
+        </Tip>
+      </div>
+    </div>
   )
 }

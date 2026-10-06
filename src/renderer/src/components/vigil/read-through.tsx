@@ -5,16 +5,54 @@ import { toMarkdown } from '@/lib/export'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { MindflowEditor } from '../mindflow'
-import { vigil } from '@/lib/vigil'
+import { vigil, when } from '@/lib/vigil'
+import { cn } from '@/lib/cn'
+import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { makeTask } from '@/lib/tasks'
-import { Kbd, Rolling, Pressed } from './ui'
-import { ArrowDown, ArrowUp } from 'lucide-react'
+import { Kbd, Rolling, Pressed, Tip } from './ui'
+import { alive } from '@/components/ui/alive-icon'
+import ArrowNarrowDownIcon from '@/components/ui/arrow-narrow-down-icon'
+import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
 import { exit } from '@/lib/capture-links'
 import { Scenery } from './scenery'
-import { GlossLine, openGloss } from './gloss-line'
+import { GlossComposer, openGloss } from './gloss-line'
+
+// itshover drawings in lucide's place, moving when their control is pointed at.
+const ArrowDown = alive(ArrowNarrowDownIcon)
+const ArrowUp = alive(ArrowNarrowUpIcon)
 
 /** `body`: words read as they are, never changed here, like a question's clues. */
 export type Readable = { type: string; id: string; body?: string; title?: string }
+
+type Page = { id: string; title?: string; body: JSONContent | string | null; meta?: string[]; private?: boolean }
+
+/** What it is, when it came, and where from: the quiet line under the words. */
+const metaOf = (kind: string | undefined, at: string | null | undefined, from: (string | null | undefined)[]): string[] => {
+  const name = kind && (CAPTURE_TYPES.find((one) => one.id === kind)?.label ?? kind[0].toUpperCase() + kind.slice(1))
+  const source = from.find((one) => one && one.trim())
+  return [name, at ? when(at) : '', source ? source.split('/').pop()! : ''].filter((one): one is string => !!one)
+}
+
+/** The first line, when it is short and there is no title: it reads as one. */
+const leads = (page: Page): boolean => {
+  if (page.title) return false
+  if (typeof page.body === 'string') return page.body.length <= 120 && !page.body.includes('\n')
+  const first = page.body?.content?.[0]
+  if (first?.type !== 'paragraph') return false
+  const text = (first.content ?? []).map((one) => one.text ?? '').join('')
+  return text.length > 0 && text.length <= 120
+}
+
+/** Every key Read through answers to, shown when asked for. */
+const KEYS: { keys: string[]; label: string; when?: 'own' | 'capture' }[] = [
+  { keys: ['↓', 'J'], label: 'Next' },
+  { keys: ['↑', 'K'], label: 'Back' },
+  { keys: ['E'], label: 'Write in it', when: 'own' },
+  { keys: [';'], label: 'Add a thought', when: 'own' },
+  { keys: ['P', 'R', 'D'], label: 'Promote, resolve, discard', when: 'capture' },
+  { keys: ['T'], label: 'Make it a task', when: 'capture' },
+  { keys: ['Esc'], label: 'Close' },
+]
 
 /**
  * Reading, and nothing else: the notes of the list you were on, one at a
@@ -32,7 +70,8 @@ export function ReadThrough({ items, start = 0, onClose }: {
   const [at, setAt] = useState(Math.min(Math.max(0, start), Math.max(0, items.length - 1)))
   // Which note the page is: a load that comes back after the page has turned
   // is thrown away, so one note's words are never shown, or saved, as another's.
-  const [page, setPage] = useState<{ id: string; title?: string; body: JSONContent | string | null } | null>(null)
+  const [page, setPage] = useState<Page | null>(null)
+  const [keysOpen, setKeysOpen] = useState(false)
   const item = items[at]
   // Writing in place: the same page, the same quiet, the words now editable.
   // E, Enter or a click starts it; Escape puts the keys back to reading.
@@ -61,9 +100,9 @@ export function ReadThrough({ items, start = 0, onClose }: {
     if (!item) return
     setPage(null)
     if (item.body !== undefined) return setPage({ id: item.id, title: item.title, body: item.body })
-    const load = item.type === 'capture'
-      ? window.api.captures.get(item.id).then((found) => found && { body: found.body as JSONContent })
-      : vigil.item(item.id).then((found) => found && { title: found.tier === 'article' ? found.title : undefined, body: found.body as JSONContent })
+    const load: Promise<Omit<Page, 'id'> | null> = item.type === 'capture'
+      ? window.api.captures.get(item.id).then((found) => found && { body: found.body as JSONContent, private: !!found.private, meta: metaOf(found.kind, found.capturedAt, [found.attribution, found.medium, found.source]) })
+      : vigil.item(item.id).then((found) => found && { title: found.tier === 'article' ? found.title : undefined, body: found.body as JSONContent, private: !!found.private, meta: metaOf(found.kind, found.createdAt, [found.attribution, found.context]) })
     let current = true
     void load.then((next) => current && setPage({ id: item.id, ...(next ?? { body: null }) }))
     return () => void (current = false)
@@ -87,6 +126,16 @@ export function ReadThrough({ items, start = 0, onClose }: {
       if (event.metaKey || event.ctrlKey || event.altKey) return
       // A question asked over the page (who said it?) has the keys.
       if (document.querySelector('[role="dialog"]:not([aria-label="Reading"])')) return
+      if (event.key === '?') {
+        event.preventDefault()
+        event.stopPropagation()
+        return setKeysOpen((open) => !open)
+      }
+      if (event.key === 'Escape' && keysOpen) {
+        event.preventDefault()
+        event.stopPropagation()
+        return setKeysOpen(false)
+      }
       const next = event.key === 'j' || event.key === 'ArrowDown' || event.key === 'ArrowRight' || event.key === ' '
       const back = event.key === 'k' || event.key === 'ArrowUp' || event.key === 'ArrowLeft'
       // Every plain key is Read's while it is open: none reaches the list
@@ -121,7 +170,7 @@ export function ReadThrough({ items, start = 0, onClose }: {
     // Taken first, so the lists and the editor underneath never see the keys.
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [items.length, item, at, onClose, writing])
+  }, [items.length, item, at, onClose, writing, keysOpen])
 
   // The focus comes here while reading, and goes back where it was after.
   const box = useRef<HTMLDivElement>(null)
@@ -137,67 +186,112 @@ export function ReadThrough({ items, start = 0, onClose }: {
   }, [])
 
   if (!item) return null
+  // Its own words can be written in, and thought about; a clue is read only.
+  const own = item.body === undefined
+  const shown = page && page.id === item.id ? page : null
+  // Private words blur like everywhere else, clear where you point or write.
+  const hidden = shown?.private ? '' : undefined
+  const write = (): void => void (!writing && own && (chime('on'), setWriting(true)))
   return (
     <div ref={box} tabIndex={-1} className="fixed inset-0 z-[55] isolate flex flex-col bg-background outline-none" role="dialog" aria-label="Reading">
       <Scenery place="focus" seed={`read:${new Date().toDateString()}`} text="middle" className="absolute inset-0 -z-10" />
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.article
-          key={item.id}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-          // Reading size: a step up from writing, with room between lines.
-          className="mx-auto flex min-h-0 w-full max-w-[40rem] flex-1 flex-col overflow-y-auto px-8 pt-14 pb-8 [&_.tiptap.ProseMirror]:text-[1.15rem] [&_.tiptap.ProseMirror]:leading-[1.7]"
-        >
-          {page?.title && <h1 className="mb-4 text-3xl font-semibold text-balance">{page.title}</h1>}
-          {page && page.id === item.id && (
-            <div className={writing ? '' : 'cursor-text'} onClick={() => void (!writing && item.body === undefined && (chime('on'), setWriting(true)))}>
-            <MindflowEditor
-              key={`${item.id}-${writing}`}
-              // The note's own files, so its pictures load.
-              host={window.api}
-              shape="document"
-              readOnly={!writing}
-              autofocus={writing ? 'end' : false}
-              defaultContent={page.body ?? ''}
-              onChange={(doc, editor) => {
-                setPage((now) => (now && now.id === item.id ? { ...now, body: doc } : now))
-                save(item, doc, editor)
-              }}
-              // Writing keeps the selection bar, so a highlight or a link is a
-              // selection away; reading has nothing on the page but the words.
-              toolbar={writing ? undefined : false}
-              handles={false}
-              slash={writing}
-              outline={false}
-              vim={false}
-              search={false}
-            />
-            </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.article
+            key={item.id}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+            // A reading column: a short note sits in the upper third, not lost
+            // in the middle of an empty page.
+            className="mx-auto flex w-full max-w-[40rem] flex-col px-6 pt-[clamp(2.5rem,12vh,7rem)] pb-16 sm:px-8"
+          >
+            {shown?.title && <h1 data-private={hidden} className="private-text mb-5 text-3xl font-semibold tracking-tight text-balance">{shown.title}</h1>}
+            {shown && (
+              <div data-private={hidden} className="group/body">
+                {/* The words, at reading size, a step up from writing. Pointed at,
+                    the area shows it can be written in; writing, it looks like a field. */}
+                <div
+                  onClick={write}
+                  className={cn(
+                    'private-text -mx-4 rounded-xl px-4 py-3 ring-1 ring-transparent transition-[background-color,box-shadow] duration-150',
+                    // The column sets the margins, not the editor's own gutter.
+                    '[--mf-padding:0] [&_.mindflow-editor-content]:p-0 [&_.tiptap.ProseMirror]:text-[1.125rem] [&_.tiptap.ProseMirror]:leading-[1.7] [&_.ProseMirror>p:last-child:has(>br:only-child)]:hidden',
+                    // Room between paragraphs, as a page of reading has.
+                    '[&_.tiptap.ProseMirror>:first-child]:mt-0! [&_.tiptap.ProseMirror>p+p]:mt-[0.75em]!',
+                    leads(shown) && '[&_.tiptap.ProseMirror>p:first-child]:text-[1.375rem]! [&_.tiptap.ProseMirror>p:first-child]:leading-snug! [&_.tiptap.ProseMirror>p:first-child]:font-medium! [&_.tiptap.ProseMirror>p:first-child]:tracking-tight',
+                    writing ? 'bg-card shadow-sm ring-foreground/25' : own && 'cursor-text hover:bg-accent/40 hover:ring-border [&_.tiptap.ProseMirror]:cursor-text'
+                  )}
+                >
+                  <MindflowEditor
+                    key={`${item.id}-${writing}`}
+                    // The note's own files, so its pictures load.
+                    host={window.api}
+                    shape="document"
+                    readOnly={!writing}
+                    autofocus={writing ? 'end' : false}
+                    defaultContent={shown.body ?? ''}
+                    onChange={(doc, editor) => {
+                      setPage((now) => (now && now.id === item.id ? { ...now, body: doc } : now))
+                      save(item, doc, editor)
+                    }}
+                    // Writing keeps the selection bar, so a highlight or a link is a
+                    // selection away; reading has nothing on the page but the words.
+                    toolbar={writing ? { fixed: false } : false}
+                    handles={false}
+                    slash={writing}
+                    outline={false}
+                    vim={false}
+                    search={false}
+                  />
+                </div>
+                {/* What it is, when, and from where; and how to write in it. */}
+                <div className="mt-2 flex min-h-5 items-center gap-3 text-meta text-muted-foreground">
+                  <span className="min-w-0 flex-1 truncate">{shown.meta?.join(' · ')}</span>
+                  {writing ? (
+                    <span className="flex shrink-0 items-center gap-1.5"><span><span className="text-foreground">Writing</span>, saved as you go ·</span><Kbd>Esc</Kbd><span>done</span></span>
+                  ) : own && (
+                    <span className="flex shrink-0 items-center gap-1.5 opacity-0 transition-opacity duration-150 group-hover/body:opacity-100"><span>Click or press</span><Pressed keys="E" /><span>to write</span></span>
+                  )}
+                </div>
+              </div>
+            )}
+            {shown && own && <div data-private={hidden} className="mt-8 border-t border-border/60 pt-6"><GlossComposer id={item.id} /></div>}
+          </motion.article>
+        </AnimatePresence>
+      </div>
+      {/* The only furniture: where you are, how to move, and the rest of the keys when asked. */}
+      <footer className="relative flex shrink-0 items-center justify-center gap-4 pt-2 pb-3 text-meta text-muted-foreground">
+        <AnimatePresence>
+          {keysOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 4, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 4, scale: 0.98 }}
+              transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
+              className="absolute bottom-full mb-1 flex w-72 origin-bottom flex-col gap-0.5 rounded-xl border bg-popover p-2 text-control text-popover-foreground shadow-xl"
+              role="list"
+              aria-label="Keys"
+            >
+              {KEYS.filter((one) => !one.when || (one.when === 'own' ? own : own && item.type === 'capture')).map((one) => (
+                <div key={one.label} role="listitem" className="flex items-center justify-between gap-3 rounded-md px-2 py-1">
+                  <span>{one.label}</span>
+                  <span className="flex gap-1">{one.keys.map((key) => <Kbd key={key}>{key}</Kbd>)}</span>
+                </div>
+              ))}
+            </motion.div>
           )}
-          {page && page.id === item.id && !writing && item.body === undefined && <GlossLine id={item.id} className="mt-8 text-control" />}
-        </motion.article>
-      </AnimatePresence>
-      {/* The only furniture: where you are, and how to move. */}
-      <footer className="flex shrink-0 items-center justify-center gap-4 pb-4 text-xs text-muted-foreground">
-        {/* Where you are, and arrows to move, as Linear's issue view has them. */}
+        </AnimatePresence>
         <span className="flex items-center gap-1 tabular-nums">
           <span className="text-foreground"><Rolling text={at + 1} /></span> / {items.length}
-          <button type="button" aria-label="Next" disabled={at >= items.length - 1} onClick={() => (chime('page'), setAt(at + 1))} className="ml-1 flex size-6 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowDown className="size-3.5" /></button>
-          <button type="button" aria-label="Previous" disabled={at <= 0} onClick={() => (chime('page'), setAt(at - 1))} className="flex size-6 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowUp className="size-3.5" /></button>
+          <Tip label={<span className="flex items-center gap-2">Next<Kbd>↓</Kbd></span>}><button type="button" aria-label="Next" disabled={at >= items.length - 1} onClick={() => (chime('page'), setAt(at + 1))} className="ml-1 flex size-6 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowDown className="size-3.5" /></button></Tip>
+          <Tip label={<span className="flex items-center gap-2">Back<Kbd>↑</Kbd></span>}><button type="button" aria-label="Previous" disabled={at <= 0} onClick={() => (chime('page'), setAt(at - 1))} className="flex size-6 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowUp className="size-3.5" /></button></Tip>
         </span>
-        {writing ? (
-          <span><span className="text-foreground">Writing</span>, saved as you go · <Kbd>Esc</Kbd> back to reading</span>
-        ) : (
-          <>
-            <span><Kbd>↓</Kbd> <Pressed keys="J" /> next · <Kbd>↑</Kbd> <Pressed keys="K" /> back</span>
-            {item.body === undefined && <><span><Pressed keys="E" /> write in it</span>
-            <span><Pressed keys=";" /> a thought</span></>}
-            {item.type === 'capture' && <span><Pressed keys="P" /> <Pressed keys="R" /> <Pressed keys="D" /> exits · <Pressed keys="T" /> task</span>}
-            <span><Kbd>Esc</Kbd> close</span>
-          </>
-        )}
+        {!writing && <span className="flex items-center gap-1.5"><Kbd>Esc</Kbd> close</span>}
+        <button type="button" aria-expanded={keysOpen} onClick={() => (chime('tap'), setKeysOpen(!keysOpen))} className={cn('flex h-6 items-center gap-1.5 rounded-md px-1.5 hover:bg-accent hover:text-foreground', keysOpen && 'bg-accent text-foreground')}>
+          <Kbd>?</Kbd> Keys
+        </button>
       </footer>
     </div>
   )
