@@ -20,6 +20,13 @@ type Choice = { label: string; icon: React.ComponentType<{ className?: string }>
 function SubMenu({ editor, label, choices, fallback, plain = -1 }: { editor: Editor; label: string; choices: Choice[]; fallback: Choice["icon"]; plain?: number }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const box = useRef<HTMLDivElement>(null)
+  // One menu open at a time in the bar: opening this one closes the others, and theirs closes this.
+  useEffect(() => {
+    if (open) document.dispatchEvent(new CustomEvent("mf:menu", { detail: label }))
+    const other = (event: Event): void => void ((event as CustomEvent<string>).detail !== label && setOpen(false))
+    document.addEventListener("mf:menu", other)
+    return () => document.removeEventListener("mf:menu", other)
+  }, [open, label])
   const panel = useRef<HTMLDivElement>(null)
   // Placed on the page, not inside the bar, which clips what hangs off it:
   // beneath the button, kept 8px inside the window.

@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useState } from "react"
+import { forwardRef, useCallback, useEffect, useState } from "react"
 
 // --- Icons ---
 import { ChevronDownIcon } from "@/components/tiptap-icons/chevron-down-icon"
@@ -73,9 +73,16 @@ export const MarkDropdownMenu = forwardRef<
         if (!editor || !canToggle) return
         setIsOpen(open)
         onOpenChange?.(open)
+        // One menu open at a time in the bar (see sub-menu.tsx).
+        if (open) document.dispatchEvent(new CustomEvent("mf:menu", { detail: "marks" }))
       },
       [canToggle, editor, onOpenChange]
     )
+    useEffect(() => {
+      const other = (event: Event): void => void ((event as CustomEvent<string>).detail !== "marks" && setIsOpen(false))
+      document.addEventListener("mf:menu", other)
+      return () => document.removeEventListener("mf:menu", other)
+    }, [])
 
     if (!isVisible) {
       return null
