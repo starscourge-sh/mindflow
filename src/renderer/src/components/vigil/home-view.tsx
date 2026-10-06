@@ -154,8 +154,8 @@ function Tile({ card, pinned, actions, onHover }: { card: Card; pinned: boolean;
           className="flex h-12 w-full min-w-0 items-center gap-3 overflow-hidden rounded-md bg-foreground/[0.05] pr-10 text-left outline-none transition-colors duration-150 hover:bg-foreground/[0.09] focus-visible:bg-foreground/[0.09] focus-visible:ring-2 focus-visible:ring-ring/50"
         >
           {src && !broken
-            ? <span className="aspect-square h-full shrink-0 overflow-hidden shadow-[2px_0_10px_-4px_rgb(0_0_0/0.3)]"><Picture src={src} onBroken={() => setBroken(true)} /></span>
-            : <KindMark card={card} className="aspect-square h-full shrink-0" />}
+            ? <span className="aspect-square h-full shrink-0 overflow-hidden rounded-l-md shadow-[2px_0_10px_-4px_rgb(0_0_0/0.3)]"><Picture src={src} onBroken={() => setBroken(true)} /></span>
+            : <KindMark card={card} className="aspect-square h-full shrink-0 rounded-l-md" />}
           <span className="private-text line-clamp-2 min-w-0 flex-1 text-control leading-tight font-medium [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
           {pinned && <Pin className="absolute right-3 size-3.5 rotate-45 text-muted-foreground transition-opacity group-focus-within/tile:opacity-0 group-hover/tile:opacity-0" aria-label="Pinned" />}
         </button>
@@ -194,12 +194,15 @@ function RowCard({ card, list, at, actions, tag }: { card: Card; list: Card[]; a
             <>
               <span className="relative aspect-square w-full overflow-hidden rounded-lg shadow-[0_8px_24px_-12px_rgb(0_0_0/0.35)]">
                 <Picture src={src} onBroken={() => setBroken(true)} />
-                {/* A mix's name bar, the way a music app labels its mixes: the tag, in its colour. */}
-                {tag && <span className="absolute inset-x-0 bottom-0 truncate px-2.5 py-1 text-xs font-semibold text-white" style={{ background: tag.colour }}>{tag.name}</span>}
               </span>
               <span className="flex min-w-0 flex-1 flex-col gap-0.5 px-2 pb-2">
                 <span className="private-text line-clamp-2 text-control leading-snug font-medium [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
-                {card.sub && <span className="mt-auto truncate pt-1 text-xs text-muted-foreground">{card.sub}</span>}
+                {(card.sub || tag) && (
+                  <span className="mt-auto flex min-w-0 items-center gap-2 pt-1 text-xs text-muted-foreground">
+                    <span className="truncate">{card.sub}</span>
+                    {tag && <span className="ml-auto max-w-[60%] shrink-0 truncate font-medium" style={{ color: tag.colour }}>{tag.name}</span>}
+                  </span>
+                )}
               </span>
             </>
           ) : (
@@ -222,8 +225,8 @@ function RowCard({ card, list, at, actions, tag }: { card: Card; list: Card[]; a
           )}
         </button>
         {readable(card) && (
-          // Over the picture's corner, 8px in from both edges and above the tag's bar; on words, level with the kind.
-          <span className={`pointer-events-none absolute flex justify-end ${picture ? `inset-x-1.5 top-1.5 aspect-square items-end p-2 ${tag ? 'pb-8' : ''}` : 'top-[9px] right-[9px]'}`}>
+          // Over the picture's corner, 8px in from both edges; on words, level with the kind.
+          <span className={`pointer-events-none absolute flex justify-end ${picture ? 'inset-x-1.5 top-1.5 aspect-square items-end p-2' : 'top-[9px] right-[9px]'}`}>
             <RoundRead onRead={() => actions.read(list, at)}
               className="pointer-events-auto translate-y-1 opacity-0 group-focus-within/card:translate-y-0 group-focus-within/card:opacity-100 group-hover/card:translate-y-0 group-hover/card:opacity-100" />
           </span>
@@ -235,7 +238,7 @@ function RowCard({ card, list, at, actions, tag }: { card: Card; list: Card[]; a
 }
 
 /** A part's heading: plain, smaller than a page title, with Show all at its end. */
-function Heading({ title, onAll }: { title: ReactNode; onAll?: () => void }): React.JSX.Element {
+function Heading({ title, onAll, extra }: { title: ReactNode; onAll?: () => void; extra?: ReactNode }): React.JSX.Element {
   return (
     <div className="flex items-baseline gap-3">
       <h2 className="min-w-0 flex-1 truncate font-heading text-heading font-semibold tracking-[-0.01em] text-foreground">{title}</h2>
@@ -276,6 +279,7 @@ function Row({ title, onAll, children }: { title: ReactNode; onAll?: () => void;
   }, [children])
   const page = (by: -1 | 1): void => {
     const box = scroller.current
+      {extra}
     if (!box) return
     chime('riffle')
     box.scrollBy({ left: by * box.clientWidth * 0.8, behavior: motionOff() ? 'auto' : 'smooth' })
@@ -283,20 +287,26 @@ function Row({ title, onAll, children }: { title: ReactNode; onAll?: () => void;
   const mask = `linear-gradient(to right, ${edges.left ? 'transparent 0, black 2rem' : 'black 0'}, ${edges.right ? 'black calc(100% - 3rem), transparent 100%' : 'black 100%'})`
   return (
     <section className="group/shelf flex flex-col gap-1 [--card:9rem] @[44rem]/page:[--card:10.5rem]">
-      <div className="px-5 @[44rem]/page:px-8"><Heading title={title} onAll={onAll} /></div>
+      {/* ‹ and › beside Show all, never over a card's words. */}
+      <div className="px-5 @[44rem]/page:px-8">
+        <Heading title={title} onAll={onAll} extra={(edges.left || edges.right) && (
+          <span className="flex shrink-0 items-center gap-1 self-center">
+            {(['left', 'right'] as const).map((side) => (
+              <Tip key={side} label={side === 'left' ? 'Back' : 'More'}>
+                <button type="button" tabIndex={-1} disabled={!edges[side]} onClick={() => page(side === 'left' ? -1 : 1)}
+                  className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,opacity,scale] duration-150 hover:bg-foreground/[0.07] hover:text-foreground active:scale-95 disabled:pointer-events-none disabled:opacity-30">
+                  {side === 'left' ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
+                </button>
+              </Tip>
+            ))}
+          </span>
+        )} />
+      </div>
       <div className="relative">
         <div ref={scroller} onScroll={measure} className="flex snap-x scroll-px-3.5 items-stretch gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain px-3.5 py-1 [scrollbar-width:none] @[44rem]/page:scroll-px-6.5 @[44rem]/page:px-6.5 [&::-webkit-scrollbar]:hidden"
           style={{ maskImage: mask, WebkitMaskImage: mask }}>
           {children}
         </div>
-        {(['left', 'right'] as const).map((side) => edges[side] && (
-          <Tip key={side} label={side === 'left' ? 'Back' : 'More'}>
-            <button type="button" tabIndex={-1} onClick={() => page(side === 'left' ? -1 : 1)}
-              className={`absolute top-[calc((var(--card)-1.5rem)/2)] flex size-8 items-center justify-center rounded-full bg-background text-foreground shadow-[0_6px_16px_-6px_rgb(0_0_0/0.4),0_0_0_1px_var(--border)] transition-[opacity,scale] duration-150 hover:scale-105 active:scale-95 ${side === 'left' ? 'left-2' : 'right-2'} opacity-0 group-focus-within/shelf:opacity-100 group-hover/shelf:opacity-100`}>
-              {side === 'left' ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
-            </button>
-          </Tip>
-        ))}
       </div>
       {(edges.left || edges.right) && <DotTrack from={span.from} to={span.to} onPick={(at) => {
         const box = scroller.current
