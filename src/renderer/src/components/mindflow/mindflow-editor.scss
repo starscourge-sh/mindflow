@@ -2034,8 +2034,9 @@ html[data-noblur] .mf-look-backdrop {
   cursor: zoom-in;
   user-select: none;
 
+  // Zoomed in: a click goes back out, a drag looks around.
   &[data-zoomed] {
-    cursor: grab;
+    cursor: zoom-out;
     border-radius: 0;
   }
 

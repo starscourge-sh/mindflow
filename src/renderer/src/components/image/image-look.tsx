@@ -369,8 +369,12 @@ function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: numb
     const y = Math.max(-spanY, Math.min(spanY, was.from.y + event.clientY - was.y))
     setView((now) => ({ ...now, x, y, smooth: false }))
   }
-  // Double-click: the picture's own pixels, one to one, or back to fitting.
-  const onDouble = (event: React.MouseEvent): void => {
+  // A click is what the zoom cursor promises: in on the spot you clicked, to
+  // the picture's own pixels (or twice its size), and a click again back to
+  // fitting. A drag to look around is not a click.
+  const onClickImage = (event: React.MouseEvent): void => {
+    if (drag.current?.moved) return void (drag.current = null)
+    drag.current = null
     chime("tap")
     zoomTo(view.zoom > 1 ? 1 : fit.scale < 1 ? 1 / fit.scale : 2, event.clientX, event.clientY)
   }
@@ -435,8 +439,7 @@ function Viewer({ pictures, start, onClose }: { pictures: Picture[]; start: numb
           }}
           onPointerDown={onDown}
           onPointerMove={onMove}
-          onPointerUp={() => void (drag.current = null)}
-          onDoubleClick={onDouble}
+          onClick={onClickImage}
         />
         </motion.div>
       </motion.div>

@@ -53,14 +53,16 @@ export const ShortcutDisplay: React.FC<{ shortcuts: string[] }> = ({
   if (shortcuts.length === 0) return null
 
   return (
-    <div>
+    // Beside the name, on its line, as every other tooltip has its keys; a
+    // word key reads as a word ("Space"), not shouted.
+    <span className="tiptap-tooltip-keys">
       {shortcuts.map((key, index) => (
         <Fragment key={index}>
           {index > 0 && <kbd>+</kbd>}
-          <kbd>{key}</kbd>
+          <kbd>{key.length > 1 && /^[A-Z]+$/.test(key) ? key[0] + key.slice(1).toLowerCase() : key}</kbd>
         </Fragment>
       ))}
-    </div>
+    </span>
   )
 }
 
