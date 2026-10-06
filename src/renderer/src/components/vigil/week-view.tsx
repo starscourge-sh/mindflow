@@ -255,7 +255,7 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
                       </span>
                       <span className="flex items-center gap-1.5 text-xs text-muted-foreground" style={{ color: late ? 'var(--tt-color-text-red)' : undefined }}>
                         {card.kind === 'deadline' ? (
-                          <span className="flex items-center gap-1" style={{ color: 'var(--tt-color-text-red)' }}><CalendarClock className="size-3" /> Due by{card.task.deadlineTimed ? ` ${clock(card.task.deadline!)}` : ''}</span>
+                          <span className="flex items-center gap-1" style={{ color: late ? 'var(--tt-color-text-red)' : 'var(--tt-color-text-orange)' }}><CalendarClock className="size-3" /> Due by{card.task.deadlineTimed ? ` ${clock(card.task.deadline!)}` : ''}</span>
                         ) : late ? (
                           when(card.task.dueAt, !!card.task.allDay)
                         ) : !card.task.allDay ? (

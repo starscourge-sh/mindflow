@@ -118,7 +118,7 @@ export function useSameWords(table: NoteTable, id: string | undefined, loaded: u
     // Shown at once, before anything more is typed over the old words.
     show(note, theirs)
     const version = await notes.keep(note.id, mine)
-    toast('This note changed elsewhere; your words are saved in its history', undefined, 'success', {
+    toast('This note changed elsewhere; your words are saved in its history', undefined, 'warning', {
       label: 'Restore',
       key: 'R',
       run: () => void notes.restore(table, note.id, version)

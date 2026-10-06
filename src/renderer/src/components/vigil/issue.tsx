@@ -5,7 +5,7 @@ import isoWeek from 'dayjs/plugin/isoWeek.js'
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/vigil'
 import { issueLabel, issueNumber, issues, type PastIssue } from '@/lib/issues'
-import { Rolling, Tip } from './ui'
+import { Rolling } from './ui'
 import { dayjs, noon, num } from '../../../../main/dates'
 
 dayjs.extend(isoWeek)
@@ -19,11 +19,12 @@ dayjs.extend(isoWeek)
  */
 
 /**
- * The issue's own face: the app's serif whatever the heading font is set to,
- * since an issue is set like print. Headlines and the month's prose use it.
+ * The issue's display face: the heading font chosen in Settings, the same one
+ * notes' headings wear, so an issue is set like the rest of what you read.
+ * Headlines and the month's prose use it.
  */
-// Marked important: headings otherwise take the heading font from a rule outside Tailwind's layers.
-export const SERIF = "font-['Fraunces_Variable',Georgia,serif]!"
+// Marked important: it wins over the text font on a <p> as well as on headings.
+export const SERIF = 'font-heading!'
 
 /** "6–12 Oct '26", or "29 Sept – 5 Oct '26" across a month. */
 export const weekSpan = (monday: string): string => {
@@ -95,7 +96,6 @@ export function PastIssues({ scale, current, onPick }: { scale: 'week' | 'month'
           const date = scale === 'week' ? `Week ${weekOfYear(issue.start)}` : dayjs(issue.start).format("MMM 'YY")
           return (
             <motion.li key={issue.key} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 * index, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}>
-              <Tip label={`Open ${scale === 'week' ? 'that week' : 'that month'}'s page`}>
                 <button type="button" onClick={() => (chime('season'), onPick(issue.start))}
                   className="mf-island group flex h-full w-full flex-col items-center gap-2 rounded-xl border bg-accent/25 px-4 pt-4 pb-5 text-center transition-[background-color,translate] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-0.5 hover:bg-accent/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <IssueLine className="justify-center" parts={[date, number && issueLabel(number)]} />
@@ -106,7 +106,6 @@ export function PastIssues({ scale, current, onPick }: { scale: 'week' | 'month'
                     {issue.captures ? `${num(issue.captures)} caught` : 'Nothing caught'}{headline ? '' : ' · no page yet'}
                   </span>
                 </button>
-              </Tip>
             </motion.li>
           )
         })}

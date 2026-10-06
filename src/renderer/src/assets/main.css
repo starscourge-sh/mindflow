@@ -512,18 +512,18 @@ body {
   border-radius: 999px;
 }
 .mf-beam-success,
+.mf-beam-info,
+.mf-beam-warning,
 .mf-beam-error {
   background: radial-gradient(closest-side, var(--beam) 0%, color-mix(in srgb, var(--beam) 40%, transparent) 60%, transparent 100%);
   box-shadow: 0 0 12px 1px color-mix(in srgb, var(--beam) 60%, transparent);
   animation: mf-beam-out 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 .mf-beam-success { --beam: var(--tt-color-text-green); }
+/* News is blue and a careful-now amber: green only for something done. */
+.mf-beam-info { --beam: var(--tt-color-text-blue); }
+.mf-beam-warning { --beam: var(--tt-color-text-orange); }
 .mf-beam-error { --beam: var(--tt-color-text-red); animation-name: mf-beam-flicker; }
-.mf-beam-loading {
-  background: linear-gradient(90deg, transparent 0%, var(--tt-brand-color-400) 50%, transparent 100%) no-repeat;
-  background-size: 35% 100%;
-  animation: mf-beam-travel 1.1s cubic-bezier(0.45, 0, 0.55, 1) infinite;
-}
 @keyframes mf-beam-out {
   0% { opacity: 0; transform: scaleX(0.2); }
   20% { opacity: 1; transform: scaleX(1); }
@@ -535,16 +535,11 @@ body {
   60% { opacity: 1; }
   100% { opacity: 0; transform: scaleX(1); }
 }
-@keyframes mf-beam-travel {
-  from { background-position: -40% 0; }
-  to { background-position: 140% 0; }
-}
 /* Without motion the beam still answers: lit for a moment, then gone, as the
    screen glow does (mf-glow-still, below), rather than cut to nothing. */
-:root[data-motion='off'] :is(.mf-beam-success, .mf-beam-error) { animation: mf-glow-still 1.4s step-end forwards; animation-duration: 1.4s !important; }
+:root[data-motion='off'] :is(.mf-beam-success, .mf-beam-info, .mf-beam-warning, .mf-beam-error) { animation: mf-glow-still 1.4s step-end forwards; animation-duration: 1.4s !important; }
 @media (prefers-reduced-motion: reduce) {
-  .mf-beam-success, .mf-beam-error { animation: mf-glow-still 1.4s step-end forwards; }
-  .mf-beam-loading { opacity: 0.8; animation: none; background-size: 100% 100%; }
+  .mf-beam-success, .mf-beam-info, .mf-beam-warning, .mf-beam-error { animation: mf-glow-still 1.4s step-end forwards; }
 }
 
 /* The prompt's note fades at its edges as it scrolls, Raycast Notes' way. */
@@ -643,12 +638,16 @@ input[type='number']::-webkit-outer-spin-button {
 :root[data-motion='off'] .mf-glow { animation-duration: 1.4s !important; }
 @media (prefers-reduced-motion: reduce) { .mf-glow { animation: mf-glow-still 1.4s step-end forwards; } }
 
-/* Headings in their own font when Settings names one (a serif over plain
-   text, Dia's way); otherwise they are the text's. */
+/* A heading that wraps breaks evenly, not with one word left on a line. */
 :is(h1, h2, h3, h4) {
-  font-family: var(--mf-heading-font, inherit);
-  /* A heading that wraps breaks evenly, not with one word left on a line. */
   text-wrap: balance;
+}
+/* The heading font is a display face (a serif over plain text, Dia's way): a
+   note's headings, which the editor sets, and titles here at title size or
+   bigger. A small heading that only names a panel or a group stays in the
+   text font, where a serif at that size read as fussy chrome. */
+:is(h1, h2, h3, h4):is(.text-title, .text-xl, .text-2xl, .text-3xl, .text-4xl) {
+  font-family: var(--mf-heading-font, inherit);
 }
 
 /* Postcards, a choice in Settings: a picture in a note sits in a white
@@ -711,9 +710,10 @@ input[type='number']::-webkit-outer-spin-button {
   display: inline-flex;
   flex: none;
   align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 14px 0 8px;
+  gap: 6px;
+  /* A toast's height, so a wait and the answer that replaces it are one size. */
+  height: 32px;
+  padding: 0 12px 0 6px;
   border-radius: 999px;
   background: var(--card);
   box-shadow: inset 0 0 0 1px var(--border);

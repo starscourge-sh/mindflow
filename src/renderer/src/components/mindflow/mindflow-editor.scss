@@ -162,6 +162,36 @@
   margin-bottom: 0.3em;
 }
 
+// Dia's pairing, in the note itself: headings in the heading font, set like a
+// display face (bigger, tighter, a touch heavier), over the text font that
+// lists, tables and quotes keep. With "Same as text" they are the text's.
+// Fraunces sizes its own strokes for the size, and its softer corners and
+// quirkier shapes only show this large, which is where they are wanted.
+.tiptap.ProseMirror.mindflow-editor :is(h1, h2, h3, h4) {
+  font-family: var(--mf-heading-font, inherit);
+  font-optical-sizing: auto;
+  font-variation-settings: "SOFT" 50, "WONK" 1;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.012em;
+}
+
+.tiptap.ProseMirror.mindflow-editor h1 {
+  font-size: 1.875em;
+  letter-spacing: -0.024em;
+}
+
+// A new section in a long imported doc wants a clear breath before it.
+.tiptap.ProseMirror.mindflow-editor h2 {
+  margin-top: 1.25em;
+  font-size: 1.4375em;
+  letter-spacing: -0.018em;
+}
+
+.tiptap.ProseMirror.mindflow-editor h3 {
+  font-size: 1.1875em;
+}
+
 // The same one soft layer every other panel here gets. The vendored four-layer
 // shadow reads as a grey box against a frosted window rather than as depth,
 // which is the whole reason `--mf-panel-shadow` exists.
@@ -1098,10 +1128,6 @@
   // takes the middle, which is the picture.
   object-fit: cover;
   background-color: var(--mf-surface);
-
-  &.is-loading {
-    animation: tiptap-bookmark-pulse 1.2s ease-in-out infinite;
-  }
 }
 
 // No room for both, so the text wins: it is what the card is for. Written
@@ -1155,70 +1181,6 @@
   width: 0.875rem;
   height: 0.875rem;
   border-radius: 0.125rem;
-}
-
-// The preview on its way: an orb and its words in a chip (the libraries.dev
-// orbs pill), the words shimmering with a band of the theme's text colour
-// sweeping across a muted copy (transitions.dev's t-shimmer).
-.tiptap-bookmark-fetching {
-  display: inline-flex;
-  align-self: flex-start;
-  align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 14px 0 8px;
-  border-radius: 999px;
-  background-color: var(--mf-surface);
-  box-shadow: inset 0 0 0 1px var(--tt-border-color);
-  color: var(--mf-muted);
-  font-size: 13px;
-  line-height: 14px;
-  white-space: nowrap;
-}
-
-.tiptap-shimmer {
-  position: relative;
-  display: inline-block;
-
-  &::before {
-    content: attr(data-text);
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background-image: linear-gradient(90deg, transparent 0%, transparent 40%, var(--tt-theme-text) 50%, transparent 60%, transparent 100%);
-    background-size: 400% 100%;
-    background-repeat: no-repeat;
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    -webkit-text-fill-color: transparent;
-    animation: tiptap-shimmer 2s linear infinite;
-  }
-}
-
-@keyframes tiptap-shimmer {
-  from {
-    background-position: 100% 0;
-  }
-  to {
-    background-position: 0% 0;
-  }
-}
-
-:root[data-motion="off"] .tiptap-shimmer::before {
-  animation: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tiptap-shimmer::before {
-    animation: none;
-  }
-}
-
-@keyframes tiptap-bookmark-pulse {
-  50% {
-    opacity: 0.4;
-  }
 }
 
 // Collapsible sections. The node view renders a `div[data-type=details]` - not

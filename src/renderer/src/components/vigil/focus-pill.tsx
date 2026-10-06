@@ -174,7 +174,7 @@ export function FocusPill(): React.JSX.Element | null {
               <button
                 type="button"
                 aria-label={timer ? 'Done' : 'End the session'}
-                title={timer ? 'Done' : 'End the session, and keep it'}
+                title={over ? undefined : timer ? 'Done' : 'End the session, and keep it'}
                 // Past its time it has already glowed: ending it is only the tick.
                 // A session asks how it went before the pill goes; a timer just goes.
                 onClick={() => void (timer ? vigil.cancelSession(focus.id) : vigil.endSession(focus.id, '', false)).then(() => (over ? chime('done') : glowEnd('done'), timer || setAsked(focus.id)))}

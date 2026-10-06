@@ -21,16 +21,14 @@ export const linkCard = async (editor: Editor, href: string): Promise<void> => {
   }
   editor.chain().focus().setBookmark(placeholder).run()
 
-  // A failed fetch still has to clear the card, or it sits on "Loading..."
+  // A failed fetch still has to clear the card, or it sits on its orb
   // for the life of the document. A host with no fetcher - a browser, which
   // cannot read another origin's page - is the same case: the card settles as
   // the bare link it was made from.
   const look = host().fetchLinkMetadata
-  // The window's top edge shimmers while the page is fetched (see Beam).
-  const say = (state: string | null): void => void window.dispatchEvent(new CustomEvent('vigil:beam', { detail: state }))
-  if (look) say('loading')
+  // The card's own orb says it is on its way; a preview that never comes is
+  // no failure worth a red light, the card just stays the plain link.
   const metadata = look ? await look(href).catch(() => null) : null
-  if (look) say(metadata ? null : 'error')
   if (editor.isDestroyed) return
 
   let at = -1

@@ -2,7 +2,7 @@ import { Children, cloneElement, createContext, useContext, useEffect, useLayout
 import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { SlotText } from 'slot-text/react'
-import { ArrowDown, ArrowUp, CircleCheck, CircleX, type LucideIcon } from 'lucide-react'
+import { ArrowDown, ArrowUp, CircleCheck, CircleX, Info, TriangleAlert, type LucideIcon } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Coolshape, type shapeTypes } from 'coolshapes-react'
 import Lenis from 'lenis'
@@ -353,7 +353,9 @@ export function Strip({ className, children }: { className?: string; children: R
  */
 /** One next step a toast can offer beside its undo, with a key: Q, for a question. */
 export type ToastAction = { label: string; key: string; run: () => void }
-export const toast = (text: string, undo?: () => void, tone: 'success' | 'error' = 'success', action?: ToastAction): void => {
+/** What a toast means, so its colour and mark say it too: done, only news, careful, or not done. */
+export type ToastTone = 'success' | 'info' | 'warning' | 'error'
+export const toast = (text: string, undo?: () => void, tone: ToastTone = 'success', action?: ToastAction): void => {
   beam(tone)
   window.dispatchEvent(new CustomEvent('vigil:toast', { detail: { text, undo, tone, action } }))
 }
@@ -377,10 +379,13 @@ export const askQuestion = (id: string): Promise<void> =>
     if (prompt) void vigil.saveItem(id, { prompt }).then(() => toast('Now tested: it will come up in review'))
   })
 
-/** Say why something was not done, with the "not allowed" sound. */
-export const refuse = (text: string): void => {
+/**
+ * Say why something was not done, with the "not allowed" sound: amber for a
+ * request that cannot be done as asked, red only when something failed.
+ */
+export const refuse = (text: string, tone: ToastTone = 'warning'): void => {
   chime('nope')
-  toast(text, undefined, 'error')
+  toast(text, undefined, tone)
 }
 
 /**
@@ -396,27 +401,15 @@ export const whyFailed = (error: unknown): string => {
   return `${raw || 'something went wrong'}. Try again, and restart Vigil if it keeps happening`
 }
 
-export type BeamState = 'success' | 'error' | 'loading' | null
+export type BeamState = ToastTone | null
 /**
  * The light along the window's top edge, the way Raycast's does it: a green
- * sweep when something worked, a red flicker when it did not, a travelling
- * shimmer while something is on its way. Seen from the corner of the eye,
- * without reading a word.
+ * sweep when something worked, blue for news, amber for a careful-now, a red
+ * flicker when it did not. Seen from the corner of the eye, without reading
+ * a word. Only answers: a wait is the Orb's (see waiting), so the app has one
+ * look for "on its way" rather than a light here and an orb there.
  */
 export const beam = (state: BeamState): void => void window.dispatchEvent(new CustomEvent('vigil:beam', { detail: state }))
-/** The shimmer for as long as the work takes, then the answer it gave. */
-export async function beaming<T>(work: Promise<T>): Promise<T> {
-  beam('loading')
-  try {
-    const done = await work
-    beam(null)
-    return done
-  } catch (error) {
-    beam('error')
-    throw error
-  }
-}
-
 export function Beam(): React.JSX.Element | null {
   const [state, setState] = useState<{ tone: BeamState; key: number }>({ tone: null, key: 0 })
   useEffect(() => {
@@ -425,8 +418,8 @@ export function Beam(): React.JSX.Element | null {
       clearTimeout(timer)
       const tone = (event as CustomEvent<BeamState>).detail
       setState({ tone, key: Date.now() })
-      // Loading stays until it is answered; an answer fades on its own.
-      if (tone && tone !== 'loading') timer = setTimeout(() => setState({ tone: null, key: Date.now() }), 1400)
+      // An answer fades on its own.
+      if (tone) timer = setTimeout(() => setState({ tone: null, key: Date.now() }), 1400)
     }
     window.addEventListener('vigil:beam', onBeam)
     return () => window.removeEventListener('vigil:beam', onBeam)
@@ -500,7 +493,7 @@ function Asker(): React.JSX.Element | null {
 let lastEdit = 0
 
 export function Toaster(): React.JSX.Element | null {
-  const [shown, setShown] = useState<{ text: string; undo?: () => void; tone?: 'success' | 'error'; action?: ToastAction; key: number } | null>(null)
+  const [shown, setShown] = useState<{ text: string; undo?: () => void; tone?: ToastTone; action?: ToastAction; key: number } | null>(null)
   const [wait, setWait] = useState<{ label: string; state: OrbState } | null>(null)
   useEffect(() => {
     const onWait = (event: Event): void => setWait((event as CustomEvent).detail)
@@ -515,13 +508,13 @@ export function Toaster(): React.JSX.Element | null {
       setShown({ ...detail, key: Date.now() })
       // Longer when it can be taken back, so the undo is there to reach.
       // A problem stays as long, so what to do about it can be read.
-      timer = setTimeout(() => setShown(null), detail.undo || detail.action || detail.tone === 'error' ? 6000 : 3200)
+      timer = setTimeout(() => setShown(null), detail.undo || detail.action || detail.tone === 'error' || detail.tone === 'warning' ? 6000 : 3200)
     }
     // A save that failed on the way to the database says so, rather than the
     // success toast just never coming.
     const onFail = (event: PromiseRejectionEvent): void => {
       const message = String(event.reason?.message ?? event.reason ?? '')
-      if (message.includes('Error invoking remote method')) refuse(`Not saved: ${whyFailed(event.reason)}.`)
+      if (message.includes('Error invoking remote method')) refuse(`Not saved: ${whyFailed(event.reason)}.`, 'error')
     }
     window.addEventListener('vigil:toast', onToast)
     window.addEventListener('unhandledrejection', onFail)
@@ -604,9 +597,14 @@ export function Toaster(): React.JSX.Element | null {
       // from the corner of the eye, on any theme.
       className="pointer-events-auto mx-4 flex max-w-[min(36rem,calc(100%-2rem))] min-w-0 items-center gap-2 rounded-md border border-border bg-popover py-1.5 pr-3.5 pl-2.5 text-sm font-medium shadow-[0_8px_24px_-6px_rgb(0_0_0/0.5)] animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]"
     >
+      {/* The mark says what kind of news it is: a tick only for something done. */}
       {shown.tone === 'error'
         ? <CircleX className="size-4 shrink-0 text-[var(--tt-color-text-red)]" />
-        : <CircleCheck className="size-4 shrink-0 text-[var(--tt-brand-color-400)]" />}
+        : shown.tone === 'warning'
+          ? <TriangleAlert className="size-4 shrink-0 text-[var(--tt-color-text-orange)]" />
+          : shown.tone === 'info'
+            ? <Info className="size-4 shrink-0 text-[var(--tt-color-text-blue)]" />
+            : <CircleCheck className="size-4 shrink-0 text-[var(--tt-color-text-green)]" />}
       {/* With a button beside it, one line: a long quoted title ends in an ellipsis rather than pushing Undo onto two lines. */}
       <span className={`min-w-0 ${shown.undo || shown.action ? 'truncate' : 'text-pretty wrap-break-word'}`} title={shown.undo || shown.action ? shown.text : undefined}>{shown.text}</span>
       {shown.action && (
@@ -812,10 +810,33 @@ export function Tip({ label, children }: { label: ReactNode; children: React.Rea
   // only hovered. A button with words of its own keeps them as its name.
   const worded = Children.toArray(children.props.children).some((child) => typeof child === 'string' || typeof child === 'number')
   const named = typeof label === 'string' && !worded && !children.props['aria-label'] ? cloneElement(children, { 'aria-label': label }) : children
+  return <Tipped label={label}>{named}</Tipped>
+}
+
+/**
+ * A tip never repeats what the control already shows: worded the same as its
+ * visible words it stays shut, and "Settings  ⌘," over a row that says
+ * Settings shows only ⌘,. Checked on opening, so a row that is an icon at one
+ * width and words at another gets its tip only when it needs one.
+ */
+function Tipped({ label, children }: { label: ReactNode; children: React.ReactElement }): React.JSX.Element {
+  const trigger = useRef<HTMLButtonElement>(null)
+  const [open, setOpen] = useState(false)
+  // Kept as it closes, so the tip fades out with its words still in it.
+  const [shown, setShown] = useState<ReactNode>(label)
+  const onOpenChange = (next: boolean): void => {
+    if (!next || typeof label !== 'string') return (setShown(next ? label : shown), setOpen(next))
+    const seen = (trigger.current?.innerText ?? '').replace(/\s+/g, ' ').trim().toLowerCase()
+    const said = label.toLowerCase()
+    if (seen && said === seen) return setOpen(false)
+    // Two spaces part a name from its keys, so what is left after them is only keys.
+    setShown(seen && said.startsWith(`${seen}  `) ? label.slice(seen.length).trim() : label)
+    setOpen(true)
+  }
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>{named}</TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
+    <Tooltip open={open} onOpenChange={onOpenChange}>
+      <TooltipTrigger asChild ref={trigger}>{children}</TooltipTrigger>
+      <TooltipContent>{shown}</TooltipContent>
     </Tooltip>
   )
 }

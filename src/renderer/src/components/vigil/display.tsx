@@ -288,7 +288,7 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
                 event.currentTarget.closest<HTMLElement>('[data-slot="popover-content"]')?.focus()
                 onChange({ ...view, filter: { ...defaults }, group: groups[0]?.id ?? view.group, sort: sorts[0]?.id ?? view.sort })
               }}
-              className="w-full rounded-md py-2 font-medium text-[var(--tt-color-text-red)] hover:bg-accent/50"
+              className="w-full rounded-md py-2 font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground"
             >
               Reset all
             </button>

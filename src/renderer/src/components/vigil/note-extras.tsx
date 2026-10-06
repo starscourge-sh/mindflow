@@ -370,7 +370,7 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
         return <PropInput key={`${id}-${field.key}-${value ?? ''}`} icon={Type} value={String(value ?? '')} placeholder={field.placeholder ?? field.label} onSave={(text) => save(field.key, text)} />
       })}
       {kind === 'experiment' && (
-        <Tip label="Make a decision from what this found: each links to the other">
+        <Tip label="A decision note, each linked to the other">
           <button type="button" onClick={() => void decide()} className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-control hover:bg-accent hover:text-foreground">
             <Split className="size-4 shrink-0" style={{ color: 'var(--tt-color-text-red)' }} /> Decide from this
           </button>
@@ -526,7 +526,7 @@ export function Versions({ table, id, onShow, onRestored }: {
     void notes.versions(id).then((found) => {
       if (!found.length) {
         chime('nope')
-        return toast('No earlier versions yet: one is kept each time you come back to change it')
+        return toast('No earlier versions yet: one is kept each time you come back to change it', undefined, 'info')
       }
       chime('open')
       setList(found)
@@ -553,9 +553,7 @@ export function Versions({ table, id, onShow, onRestored }: {
   })
   if (!list)
     return (
-      <Tip label="Earlier versions of this note, to read or bring back">
-        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={open}><AliveIcon icon={ClockIcon} size={14} /> Versions</Button>
-      </Tip>
+      <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={open}><AliveIcon icon={ClockIcon} size={14} /> Versions</Button>
     )
   const version = list[at]
   return (

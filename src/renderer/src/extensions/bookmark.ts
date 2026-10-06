@@ -79,11 +79,7 @@ export const Bookmark = Node.create({
         target: "_blank",
         rel: "noopener noreferrer",
       }),
-      ...(loading
-        ? [["span", { class: "tiptap-bookmark-image is-loading" }]]
-        : image
-          ? [["img", { class: "tiptap-bookmark-image", src: image, alt: "" }]]
-          : []),
+      ...(image && !loading ? [["img", { class: "tiptap-bookmark-image", src: image, alt: "" }]] : []),
       [
         "span",
         { class: "tiptap-bookmark-body" },
@@ -97,7 +93,8 @@ export const Bookmark = Node.create({
           ...(icon && !loading
             ? [["img", { class: "tiptap-bookmark-icon", src: icon, alt: "" }]]
             : []),
-          ["span", {}, loading ? "Loading..." : site],
+          // Copied or exported mid-fetch, a card is just its link: no "Loading...".
+          ["span", {}, loading ? "" : site],
         ],
       ],
     ]

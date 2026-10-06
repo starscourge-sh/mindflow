@@ -82,7 +82,7 @@ export function Tour({ firstRun = false }: { firstRun?: boolean }): React.JSX.El
     markSeen()
     chime(skipped ? 'away' : 'done')
     setAt(-1)
-    if (skipped) toast('Tour skipped: Settings can play it again')
+    if (skipped) toast('Tour skipped: Settings can play it again', undefined, 'info')
   }
   useEffect(() => {
     if (at < 0) return

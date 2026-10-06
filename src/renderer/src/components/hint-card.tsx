@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { RowMenu } from './vigil/row-menu'
-import { ArrowUpRight, Pencil, ThumbsDown, ThumbsUp, Trash2, X } from 'lucide-react'
+import { ArrowUpRight, EyeOff, Pencil, ThumbsDown, ThumbsUp, Trash2, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { shown } from './rot-cards'
@@ -171,7 +171,9 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
                 { icon: X, tip: 'Not now', run: () => (chime('fold'), setHint(null)) },
                 // Gone for good, but never destroyed: a capture goes to
                 // Discarded and a nugget stops surfacing; both come back.
-                { icon: Trash2, tip: hint.id === hint.captureId ? 'Discard it' : 'Stop showing it', run: () => {
+                // A bin only for the capture that goes to Discarded: a nugget
+                // that stops surfacing is still kept, so it gets a closed eye.
+                { icon: hint.id === hint.captureId ? Trash2 : EyeOff, tip: hint.id === hint.captureId ? 'Discard it' : 'Stop showing it', run: () => {
                   const id = hint.id
                   const capture = id === hint.captureId
                   chime('away')
@@ -183,7 +185,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
 ]
   // A memory may be something already dealt with, so it is opened, fixed or
   // shown less, never kept or discarded from here.
-  const offered = hint?.memory ? actions.filter(({ icon }) => icon !== ThumbsUp && icon !== Trash2) : actions
+  const offered = hint?.memory ? actions.filter(({ icon }) => icon !== ThumbsUp && icon !== Trash2 && icon !== EyeOff) : actions
   const go = (): void => {
     if (!nudge) return
     chime('open')

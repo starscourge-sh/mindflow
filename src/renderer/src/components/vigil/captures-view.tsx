@@ -148,7 +148,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
     <>
       <Page aside={!!open}
         title={title}
-        count={shown.length}
+        // The Inbox is a place to set things down, never a queue with a number on it.
+        count={title === 'Inbox' ? undefined : shown.length}
         actions={
           chosen.length ? (
             <span className="flex items-center gap-1">
@@ -182,7 +183,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
             <span className="flex items-center gap-2">
               {shown.length > 1 && <span className="hidden text-xs whitespace-nowrap @[48rem]/page:inline"><Kbd>x</Kbd> to select</span>}
               {title === 'Inbox' && <PassLinks />}
-              <Tip label="Read this list full screen, one note at a time, from the highlighted one (or the first). You can write in each as you go.  ⇧⌘R">
+              <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R">
                 <Button variant="ghost" size="sm" onClick={() => setReadFrom(startAt(shown, open?.id, cursor))} disabled={!shown.length}><AliveIcon icon={BookIcon} size={14} /> Read list</Button>
               </Tip>
               <LayoutToggle layout={layout} onChange={setLayout} />
@@ -253,7 +254,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
                       setFirst(null)
                     })
                   : void window.api.captures.get(open.id).then((found) => {
-                      if (!found?.original) return (chime('nope'), toast('Unchanged since you wrote it'))
+                      if (!found?.original) return (chime('nope'), toast('Unchanged since you wrote it', undefined, 'info'))
                       chime('rewind')
                       setFirst(found.original)
                     })

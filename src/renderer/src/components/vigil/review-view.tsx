@@ -90,7 +90,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
       setQueue((cards) => [...(cards ?? []), card])
       // Missed: the place it came from is offered, to read it again in context.
       const needles = [answer, textOf(card.body).trim().split('\n')[0].slice(0, 40)].filter(Boolean) as string[]
-      toast('This card comes back once more before you finish')
+      toast('This card comes back once more before you finish', undefined, 'info')
       void vigil.source(card.id).then((found) => found && setMissed({ ...found, needles }))
     }
     setShown(false)
@@ -227,7 +227,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
             card.prompt = prompt
             void vigil.saveItem(card.id, { prompt }).then(() => (chime('noted'), toast('Question rewritten')))
           }}
-          className="rounded-md text-title font-semibold text-balance outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="rounded-md font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           {editing ? card.prompt : asked}
         </h2>

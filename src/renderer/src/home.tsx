@@ -387,7 +387,8 @@ export function Home(): React.JSX.Element {
               </button>
               </TooltipTrigger>
               <TooltipContent side="right" className="flex items-center gap-1.5">
-                {section.label} <Kbd>G</Kbd><Kbd>{section.key.toUpperCase()}</Kbd>
+                {/* The name only when the icon stands alone; beside its name, just the keys. */}
+                {narrow && <>{section.label} </>}<Kbd>G</Kbd><Kbd>{section.key.toUpperCase()}</Kbd>
               </TooltipContent>
               </Tooltip>
             )
@@ -524,7 +525,7 @@ export function Home(): React.JSX.Element {
         </>)}
 
         <div className="mt-auto flex flex-col gap-px pt-4">
-          <Tip label="Safe mode  ⌥⌘S">
+          <Tip label={narrow ? 'Safe mode  ⌥⌘S' : '⌥⌘S'}>
           <button
             type="button"
             onClick={safeMode}

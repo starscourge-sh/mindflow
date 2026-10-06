@@ -379,7 +379,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
           ) : (
             <>
               {EXITS.map((one) => <Action key={one.key} label={one.label} keys={one.key.toUpperCase()} tip={one.what} tint={one.tint} run={() => decide(one.status)} />)}
-              <Action label="Task" keys="T" tip="Make it a task" tint="blue" run={() => decide('task')} />
+              <Action label="Task" keys="T" tip="" tint="blue" run={() => decide('task')} />
               <Action label="Archive" keys="A" tip="Out of sight, not let go" tint="brown" run={() => decide('archive')} />
               <Action label="Leave open" keys="O" tip="Findable is enough: it stops asking" run={() => decide('keep')} />
             </>

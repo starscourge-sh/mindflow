@@ -459,6 +459,11 @@ export function registerVigil(): void {
       update nuggets set kind = 'note' where kind in ('tip', 'idea', 'question', 'self');
       pragma user_version = 2`)
   }
+  // The font pairing is the notes' own now, headings in Fraunces over the
+  // Mac's text font, so a choice saved under the old meaning starts on it once.
+  if (version < 3) {
+    db.exec("delete from settings where key in ('noteFont', 'headingFont'); pragma user_version = 3")
+  }
 
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
     void ipcMain.handle(`vigil:${channel}`, (_event, ...args) => run(...(args as never[])))

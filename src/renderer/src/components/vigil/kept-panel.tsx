@@ -73,7 +73,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
       <Strip className="flex h-8 min-w-0 items-center gap-1 px-1">
         <Chips className="shrink-0" options={TIERS} on={(id) => id === tier} pick={(id) => setTier(id as 'nugget' | 'article' | 'question')} />
         {/* Read only when there is something to read. */}
-        {all.length > 0 && <Tip label="Read this list full screen, one note at a time, from the highlighted one (or the first). You can write in each as you go.  ⇧⌘R"><Button variant="ghost" size="sm" className="ml-auto" onClick={read}><AliveIcon icon={BookIcon} size={14} /> Read list</Button></Tip>}
+        {all.length > 0 && <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R"><Button variant="ghost" size="sm" className="ml-auto" onClick={read}><AliveIcon icon={BookIcon} size={14} /> Read list</Button></Tip>}
         {tier !== 'question' && <span className={all.length ? '' : 'ml-auto'}>{display}</span>}
         {tier === 'article' && (
           <Button variant="ghost" size="sm" onClick={() => void vigil.newArticle().then((id) => (chime('promote'), onOpen('article', id)))}><Plus className="size-3.5" /> New article</Button>

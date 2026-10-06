@@ -350,7 +350,7 @@ export default function App(): React.JSX.Element {
   // One that ran out while Vigil was closed was ended quietly at start: said
   // once, the first time the box is on screen, rather than ringing late.
   useEffect(() => {
-    const tell = (): void => void vigil.focusMissed().then((said) => said && toast(said))
+    const tell = (): void => void vigil.focusMissed().then((said) => said && toast(said, undefined, 'info'))
     if (document.visibilityState === 'visible') tell()
     return window.api.onShown(tell)
   }, [])
@@ -836,10 +836,10 @@ export default function App(): React.JSX.Element {
           putDraft(doc)
           fresh(true)
         }
-        if (!more) return refuse(`${why} Your note is still here.`)
+        if (!more) return refuse(`${why} Your note is still here.`, 'error')
         if (!latestEditing.current && !hasContent(editorRef.current?.getJSON() ?? null)) {
           restore()
-          return refuse(`${why} Your note is back in the box.`)
+          return refuse(`${why} Your note is back in the box.`, 'error')
         }
         chime('nope')
         toast(why, undefined, 'error', { label: 'Bring it back', key: 'B', run: restore })
@@ -1188,7 +1188,8 @@ export default function App(): React.JSX.Element {
                 </label>
                 </Tip>
               )}
-              <Tip label={createMore && !editing ? 'Save, and a fresh box for the next  ⌘↵' : (editing ? 'Close this note and go back to your draft  ⌘↵ · changes save as you make them' : 'Save and close  ⌘↵ · once with a fresh box after  ⌥⌘↵')}>
+              {/* The button shows its own words and ⌘↵: the tip says only what it does not. */}
+              <Tip label={createMore && !editing ? 'A fresh box for the next' : (editing ? 'Back to your draft: changes already save as you make them' : 'With a fresh box after  ⌥⌘↵')}>
               <Button variant="secondary" onClick={() => submit()} className="text-control">
                 {/* Open on a saved note: closing it, since changes already save. */}
                 <Rolling text={editing ? 'Close note' : saved ? 'Saved' : plus?.question ? 'Add clue' : 'Create'} /> <kbd className="font-sans text-key opacity-70">⌘↵</kbd>
@@ -1676,7 +1677,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                       <Tip label="Every capture with no exit yet; Display's Status shows the rest. x selects several.">
                         <h3 className="w-fit">{shown.length === open.length ? 'Inbox' : `${num(shown.length)} shown`}</h3>
                       </Tip>
-                      <Tip label="Read this list full screen, one note at a time, from the highlighted one (or the first). You can write in each as you go.  ⇧⌘R">
+                      <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R">
                         <Button variant="ghost" size="sm" className="ml-auto" onClick={() => onRead(shown.map((one) => ({ type: 'capture', id: one.id })), startAt(shown, editing, cursor))}>
                           <AliveIcon icon={BookIcon} size={14} /> Read list
                         </Button>

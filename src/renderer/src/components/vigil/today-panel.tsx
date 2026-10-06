@@ -156,7 +156,9 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
                 // task, and a tick there read as if a click would complete it.
                 className="group/tick mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors"
                 style={{
-                  borderColor: late ? 'var(--tt-color-text-red)' : 'var(--tt-color-text-orange)',
+                  // Red only for late, amber for today's, plain for later days: an
+                  // amber ring on a task weeks off read as if it were already pressing.
+                  borderColor: late ? 'var(--tt-color-text-red)' : scope === 'today' ? 'var(--tt-color-text-orange)' : 'var(--muted-foreground)',
                   background: ticking === task.id ? 'var(--tt-color-text-green)' : undefined
                 }}
               >

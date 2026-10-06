@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as chrono from 'chrono-node'
 import type { JSONContent } from '@tiptap/core'
-import { Bell, CalendarClock, CalendarDays, Check, FileText, Gem, Hash, History, ListChecks, Play, Plus, Repeat, Square, Telescope, X, Ban, Timer, Hourglass } from 'lucide-react'
+import { Bell, CalendarClock, CalendarDays, Check, CircleX, FileText, Gem, Hash, History, ListChecks, Play, Plus, Repeat, Square, Telescope, X, Ban, Timer, Hourglass } from 'lucide-react'
 
 
 import { MindflowEditor } from '../mindflow'
@@ -24,7 +24,6 @@ import { Rest } from './scenery'
 import { TaskLog } from './task-log'
 import { GlossButton, GlossLine } from './gloss-line'
 import { dayjs, startOfDay } from '../../../../main/dates'
-import TrashIcon from '@/components/ui/trash-icon'
 
 // Counted on the calendar, so a clock change never moves a day by an hour.
 /** The day a task shows on, as a number to compare: never, for one with no day. */
@@ -324,7 +323,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                                 </Tip>
                               )}
                               {task.deadline && (
-                                <span className="flex items-center gap-1" style={{ color: new Date(task.deadline).getTime() < startOfDay(1) ? 'var(--tt-color-text-red)' : undefined }}>
+                                <span className="flex items-center gap-1" style={{ color: tone({ ...task, dueAt: task.deadline }) }}>
                                   <CalendarClock className="size-3" />
                                   Due by {whenInLine(task.deadline, !task.deadlineTimed)}
                                 </span>
@@ -410,7 +409,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
         )}
         <input
           ref={title}
-          className="page-narrow mx-auto mb-2 block w-full bg-transparent px-12 font-heading text-title font-semibold text-balance outline-none"
+          className="page-narrow mx-auto mb-2 block w-full bg-transparent px-12 font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none"
           defaultValue={task.title}
           onBlur={(event) => void vigil.saveTask(task.id, { title: event.target.value })}
         />
@@ -495,8 +494,9 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
         )}
         <Island compact title="Task">
           <Prop icon={Hash}>{captureKey(task.number).replace('MF', 'T')}</Prop>
+          {/* Closed, not deleted (it comes back with Undo), so no bin. */}
           <Prop
-            alive={TrashIcon}
+            icon={CircleX}
             onClick={() =>
               void vigil.saveTask(task.id, { status: 'dropped' }).then(() => {
                 onClose()

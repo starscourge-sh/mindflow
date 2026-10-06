@@ -15,7 +15,7 @@ const lifted = new Set<string>()
 const once = (kind: 'capture' | 'nugget' | 'task', text: string): boolean => {
   const key = `${kind}\n${text}`
   if (!lifted.has(key)) return !!lifted.add(key)
-  refuse({ capture: 'Already in your inbox', nugget: 'Already a nugget', task: 'Already a task' }[kind])
+  refuse({ capture: 'Already in your inbox', nugget: 'Already a nugget', task: 'Already a task' }[kind], 'info')
   return false
 }
 

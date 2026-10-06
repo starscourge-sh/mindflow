@@ -1,9 +1,9 @@
 import { useState } from "react"
-import { ThinkingOrb } from "thinking-orbs"
 import { NodeViewWrapper, useEditorState, type NodeViewProps } from "@tiptap/react"
 import { Check, Copy } from "lucide-react"
 
 import type { BookmarkAttributes } from "@/extensions/bookmark"
+import { Orb } from "@/components/vigil/orb"
 
 /**
  * The link preview card.
@@ -45,18 +45,16 @@ export function BookmarkView(props: NodeViewProps): React.JSX.Element {
       data-loading={loading ? "" : undefined}
       onClick={() => !loading && window.open(href, "_blank", "noopener")}
     >
-      {loading ? (
-        <span className="tiptap-bookmark-image is-loading" />
-      ) : (
-        image && <img className="tiptap-bookmark-image" src={image} alt="" />
-      )}
+      {/* No grey block pulsing where the picture will be: the orb below is
+          the one sign of a wait, the same one every wait in Vigil uses. */}
+      {image && !loading && <img className="tiptap-bookmark-image" src={image} alt="" />}
 
       <span className="tiptap-bookmark-body">
         <span className="tiptap-bookmark-title">{title || href}</span>
         {description && <span className="tiptap-bookmark-description">{description}</span>}
         <span className="tiptap-bookmark-site">
           {icon && !loading && <img className="tiptap-bookmark-icon" src={icon} alt="" />}
-          {loading ? <Fetching /> : <span>{site}</span>}
+          {loading ? <Orb state="connecting" label="Fetching preview…" /> : <span>{site}</span>}
         </span>
       </span>
 
@@ -77,30 +75,5 @@ export function BookmarkView(props: NodeViewProps): React.JSX.Element {
         {copied ? <Check /> : <Copy />}
       </button>
     </NodeViewWrapper>
-  )
-}
-
-/**
- * A small orb in a chip while the preview is on its way: a real wait, often
- * a second or two, the words shimmering while it lasts. Its ink is read off
- * the chip's own text colour, light on a dark page and dark on a light one,
- * and it holds still with Motion off.
- */
-function Fetching(): React.JSX.Element {
-  const [theme, setTheme] = useState<"dark" | "light">("dark")
-  const still = document.documentElement.dataset.motion === "off"
-  return (
-    <span
-      className="tiptap-bookmark-fetching"
-      role="status"
-      ref={(node) => {
-        if (!node) return
-        const [r, g, b] = (getComputedStyle(node).color.match(/[\d.]+/g) ?? []).map(Number)
-        setTheme(0.2126 * r + 0.7152 * g + 0.0722 * b > 128 ? "dark" : "light")
-      }}
-    >
-      <ThinkingOrb size={20} state="connecting" theme={theme} paused={still} aria-hidden />
-      <span className="tiptap-shimmer" data-text="Fetching preview…">Fetching preview…</span>
-    </span>
   )
 }

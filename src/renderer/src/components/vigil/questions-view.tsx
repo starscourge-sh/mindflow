@@ -17,7 +17,7 @@ import { pinQuestion } from './pinned-questions'
 import { Mentions } from './mentions'
 import { Aliases, LocalGraph, Versions } from './note-extras'
 import { RowMenu, copy, type MenuItem } from './row-menu'
-import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Tip, Typed, VirtualList, ask, refuse, showTopTitle, toast, useListKeys } from './ui'
+import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Typed, VirtualList, ask, refuse, showTopTitle, toast, useListKeys } from './ui'
 import { dayMonth, dayjs, heldFor, num } from '../../../../main/dates'
 import BulbSvg from '@/components/ui/bulb-svg'
 
@@ -286,7 +286,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
           {/* The question itself, in your words: it can take a few lines. */}
           <textarea
             rows={1}
-            className="block w-full resize-none bg-transparent text-title font-semibold text-balance outline-none [field-sizing:content] placeholder:text-foreground/70"
+            className="block w-full resize-none bg-transparent font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content] placeholder:text-foreground/70"
             defaultValue={item.title === 'Untitled' ? '' : item.title}
             autoFocus={!item.title || item.title === 'Untitled'}
             placeholder="What do you keep circling?"
@@ -492,9 +492,7 @@ export function QuestionBack({ back, onOpen, onDone }: {
             <Rolling by="word" text={`${heldFor(back.createdAt)} · ${cluesSaid(back.clues)}`} />
           </span>
           <Button variant="ghost" size="sm" onClick={() => (chime('open'), onOpen('question', back.id), onDone())}>Open</Button>
-          <Tip label="Drop a clue into it without leaving the box">
-            <Button variant="ghost" size="sm" onClick={() => (chime('tap'), setAdding(true))}>Add a clue</Button>
-          </Tip>
+          <Button variant="ghost" size="sm" onClick={() => (chime('tap'), setAdding(true))}>Add a clue</Button>
           <Button variant="ghost" size="sm" onClick={() => (chime('fold'), onDone())}>Not now</Button>
         </div>
       )}

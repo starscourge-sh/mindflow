@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { chime, click, type Cue } from '@/lib/sound'
 import type { JSONContent } from '@tiptap/core'
 
@@ -23,6 +23,14 @@ type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 /** Something to do from the palette, with the key that does it anywhere. */
 /** `cue` is its sound, on/off for a switch; a tap when it says nothing. */
 export type Action = { label: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean }
+
+/** Room for the preview beside the list: the box's 640px window has none, so there it never shows. */
+const ROOMY = '(min-width: 700px)'
+const followRoomy = (change: () => void): (() => void) => {
+  const query = matchMedia(ROOMY)
+  query.addEventListener('change', change)
+  return () => query.removeEventListener('change', change)
+}
 
 /** Which of Notion's three groups a date falls in. */
 const groupOf = (at: string): string => {
@@ -64,6 +72,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
   const box = useRef<HTMLInputElement>(null)
   // Notion's highlight pane: on by default, and a button to put it away.
   const [pane, setPane] = useState(true)
+  const roomy = useSyncExternalStore(followRoomy, () => matchMedia(ROOMY).matches)
   // The words the list on screen answers. A reply for words since changed is
   // dropped: a slow search must not land over a quicker, newer one.
   const [searched, setSearched] = useState<string | null>(null)
@@ -93,11 +102,13 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
     document.querySelector('[data-search-at]')?.scrollIntoView({ block: 'nearest' })
   }, [at, results.length])
   const current = at >= doing.length ? results[at - doing.length] : undefined
+  const action = at < doing.length ? doing[at] : undefined
   const total = doing.length + results.length
-  // Opened for something to do, it is Raycast's small list: no filters, no
-  // empty preview half. Typing makes it the full search.
-  const compact = actions.length > 0 && !query.trim()
-  const preview = pane && !!current
+  // One size and one shape from the moment it opens: the filters are always
+  // there, and the preview half stays put whatever is highlighted, so
+  // nothing grows or jumps as the arrows move or a letter is typed.
+  const shown = pane && roomy
+  const preview = shown && !!current
   // A gloss on anything found, a task included: there it lands in the task's log.
   const glossable = !!current
   // ⌘; pressed with the preview put away: the line opens under the row instead.
@@ -113,7 +124,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[10vh]" onMouseDown={onClose}>
-      <div className={`@container/search flex flex-col overflow-hidden rounded-xl border bg-background text-sm shadow-(--mf-panel-shadow) ${compact ? 'max-h-[70vh] w-[min(36rem,calc(100vw-2rem))]' : 'h-[70vh] w-[min(56rem,calc(100vw-2rem))]'}`} onMouseDown={(event) => event.stopPropagation()}>
+      <div className="flex h-[70vh] w-[min(56rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border bg-background text-sm shadow-(--mf-panel-shadow)" onMouseDown={(event) => event.stopPropagation()}>
         <label className="flex items-center gap-3 border-b px-4 py-3">
           <span className="text-muted-foreground"><AliveIcon icon={MagnifierIcon} size={16} /></span>
           <input
@@ -138,14 +149,14 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
               event.preventDefault()
             }}
           />
-          <Tip label="Show highlight pane">
-          <button type="button" className={`rounded p-1 hover:bg-accent ${pane ? 'text-foreground' : 'text-muted-foreground'} ${compact ? 'hidden' : ''}`} onClick={() => { chime(pane ? 'fold' : 'slide'); setPane(!pane) }}>
+          <Tip label={pane ? 'Hide the preview' : 'Show the preview'}>
+          <button type="button" aria-label={pane ? 'Hide the preview' : 'Show the preview'} className={`rounded p-1 hover:bg-accent ${pane ? 'text-foreground' : 'text-muted-foreground'} ${roomy ? '' : 'hidden'}`} onClick={() => { chime(pane ? 'fold' : 'slide'); setPane(!pane) }}>
             <AliveIcon icon={LayoutSidebarRightIcon} size={16} />
           </button>
           </Tip>
         </label>
         {/* One gap everywhere; the groups are told apart by a hairline, not by wider gaps. */}
-        <div className={`flex flex-wrap items-center gap-x-1 gap-y-0.5 border-b px-2 py-1.5 ${compact ? 'hidden' : ''}`}>
+        <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5 border-b px-2 py-1.5">
           <Chips options={[{ id: 'name', label: 'Name only' }]} on={() => titleOnly} pick={() => setTitleOnly(!titleOnly)} />
           <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />
           <Chips options={[{ id: 'capture', label: 'Captures' }, { id: 'nugget', label: 'Nuggets' }, { id: 'task', label: 'Tasks' }]} on={(id) => types.includes(id)} pick={(id) => setTypes(flip(types, id))} />
@@ -154,12 +165,10 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
           {kindsOpen && <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />}
           {kindsOpen && <Chips options={CAPTURE_TYPES} on={(id) => kinds.includes(id)} pick={(id) => setKinds(flip(kinds, id))} />}
         </div>
-        {/* Side by side when there is room; in a narrow window the preview goes
-            under the results instead of squeezing both to nothing. */}
-        <div className="flex min-h-0 flex-1 flex-col @[34rem]/search:flex-row">
+        <div className="flex min-h-0 flex-1">
           {/* mf-more: faded at an edge while there is more past it; the scroll
               padding keeps a row the arrows reach clear of that fade. */}
-          <div className={`mf-more min-h-0 min-w-0 flex-1 scroll-pt-8 scroll-pb-12 overflow-y-auto p-2 ${preview ? '@[34rem]/search:w-1/2 @[34rem]/search:flex-none' : ''}`}>
+          <div className={`mf-more min-h-0 min-w-0 flex-1 scroll-pt-8 scroll-pb-12 overflow-y-auto p-2 ${shown ? 'w-1/2 flex-none' : ''}`}>
             {doing.length > 0 && <div className="px-2 pt-1 pb-1 text-xs text-muted-foreground">Actions</div>}
             {doing.map((one, index) => (
               <button
@@ -208,7 +217,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
                     <span className="min-w-0 truncate">{capture.label || 'Untitled'}</span>
                     {capture.type !== 'capture' && <span className="shrink-0 rounded bg-accent px-1.5 text-xs text-muted-foreground capitalize">{capture.type}</span>}
                     {whereFrom(capture.source, capture.label) && <span className="min-w-0 max-w-[40%] truncate text-xs text-muted-foreground">· {whereFrom(capture.source, capture.label)}</span>}
-                    {index + doing.length === at && !asking && capture.type === 'capture' && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{capture.attribution ?? 'Tab: who said it'}</span>}
+                    {index + doing.length === at && !asking && !preview && capture.type === 'capture' && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{capture.attribution ?? 'Tab: who said it'}</span>}
                   </button>
                   {index + doing.length === at && glossing && !preview && glossable && (
                     <div className="px-8 pb-1"><GlossLine id={capture.id} open onDone={backToBox} /></div>
@@ -226,19 +235,35 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
               )
             })}
           </div>
-          {/* The capture as it reads, not its raw text: the same editor, read only,
-              and a fresh one for each result. */}
-          {pane && current && (
-            <div className="m-3 mt-0 flex max-h-[45%] min-h-24 shrink-0 flex-col overflow-hidden rounded-lg border @[34rem]/search:mt-3 @[34rem]/search:max-h-none @[34rem]/search:w-1/2 @[34rem]/search:shrink">
+          {/* The capture as it reads, not its raw text: the same editor, read
+              only. An action shows what it does and its keys instead, so the
+              half never empties or closes as the arrows pass over it. */}
+          {shown && (
+            <div className="m-3 ml-0 flex w-1/2 min-w-0 flex-col overflow-hidden rounded-lg border">
               <div className="min-h-0 flex-1 overflow-y-auto [--mf-padding:1rem_1.25rem]">
-              {current.type === 'task' ? <TaskPreview key={current.id} id={current.id} /> : <NotePreview key={current.id} type={current.type} id={current.id} />}
+                {current
+                  ? current.type === 'task' ? <TaskPreview id={current.id} /> : <NotePreview type={current.type} id={current.id} />
+                  : action
+                    ? <p key={action.label} className="animate-in fade-in-0 p-4 text-base font-medium text-pretty text-foreground duration-150">{action.label}</p>
+                    : <p className="p-4 text-body text-muted-foreground">Move onto something to see it here.</p>}
               </div>
-              {/* A thought on it right from the results: ⌘; or a click. */}
-              {glossable && (
-                <div className="shrink-0 border-t bg-accent/25 px-3 py-1.5">
-                  <GlossLine key={current.id} id={current.id} open={glossing} onDone={backToBox} keys="⌘;" />
-                </div>
-              )}
+              {/* One bar under every item: a thought on a result (⌘; or a click),
+                  or how to do an action. */}
+              <div className="flex min-h-9 shrink-0 items-center gap-3 border-t bg-accent/25 px-3 py-1.5 text-xs text-muted-foreground">
+                {current ? (
+                  <>
+                    <div className="min-w-0 flex-1"><GlossLine key={current.id} id={current.id} open={glossing} onDone={backToBox} keys="⌘;" /></div>
+                    {current.type === 'capture' && !glossing && !asking && (
+                      <span className="shrink-0">{current.attribution ?? <><Kbd>Tab</Kbd> who said it</>}</span>
+                    )}
+                  </>
+                ) : action && (
+                  <>
+                    <span className="flex items-center gap-1.5"><Kbd>↵</Kbd> does it</span>
+                    {action.keys && <span className="flex items-center gap-1.5"><span className="flex gap-0.5">{Array.from(action.keys).map((key, n) => <Kbd key={n}>{key}</Kbd>)}</span> any time</span>}
+                  </>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -252,14 +277,19 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
  * highlighted rather than sent along with every result.
  */
 function NotePreview({ type, id }: { type: string; id: string }): React.JSX.Element | null {
-  const [body, setBody] = useState<unknown>(undefined)
+  // The last one stays until the next arrives: no blank flash between rows.
+  const [shown, setShown] = useState<{ id: string; body: unknown } | null>(null)
   useEffect(() => {
     let old = false
-    void window.api.captures.peek(type, id).then((found) => !old && setBody(found))
+    void window.api.captures.peek(type, id).then((body) => !old && setShown({ id, body }))
     return () => void (old = true)
   }, [type, id])
-  if (body === undefined) return null
-  return <MindflowEditor defaultContent={(body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
+  if (!shown) return null
+  return (
+    <div key={shown.id} className="animate-in fade-in-0 duration-150">
+      <MindflowEditor defaultContent={(shown.body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
+    </div>
+  )
 }
 
 /**
@@ -269,7 +299,11 @@ function NotePreview({ type, id }: { type: string; id: string }): React.JSX.Elem
  */
 function TaskPreview({ id }: { id: string }): React.JSX.Element | null {
   const [task, setTask] = useState<TaskFull | null>(null)
-  useEffect(() => void vigil.task(id).then(setTask), [id])
+  useEffect(() => {
+    let old = false
+    void vigil.task(id).then((found) => !old && setTask(found))
+    return () => void (old = true)
+  }, [id])
   if (!task) return null
   const later = bucket(task)
   const facts = [
@@ -280,7 +314,7 @@ function TaskPreview({ id }: { id: string }): React.JSX.Element | null {
   ].filter(Boolean)
   const notes = /"text":|"src":/.test(JSON.stringify(task.notes ?? null))
   return (
-    <div className="flex flex-col gap-3 p-4 text-body">
+    <div key={task.id} className="animate-in fade-in-0 flex flex-col gap-3 p-4 text-body duration-150">
       <div>
         <p className="text-base font-medium text-foreground">{task.title || 'Untitled task'}</p>
         <p className="mt-1 text-muted-foreground">{facts.join(' · ')}</p>

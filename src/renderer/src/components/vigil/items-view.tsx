@@ -170,7 +170,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
                   <Plus className="size-3.5" /> New article
                 </Button>
               )}
-              <Tip label="Read this list full screen, one note at a time, from the highlighted one (or the first). You can write in each as you go.  ⇧⌘R">
+              <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R">
                 <Button variant="ghost" size="sm" onClick={() => setReadFrom(startAt(items, open?.id, cursor))} disabled={!items.length}><AliveIcon icon={BookIcon} size={14} /> Read list</Button>
               </Tip>
               <LayoutToggle layout={layout} onChange={setLayout} />
@@ -349,7 +349,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
         </div>
         {item.tier === 'article' && (
           <input
-            className="page-narrow mx-auto mb-2 block w-full bg-transparent px-12 text-title font-semibold text-balance outline-none placeholder:text-foreground/70"
+            className="page-narrow mx-auto mb-2 block w-full bg-transparent px-12 font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none placeholder:text-foreground/70"
             defaultValue={item.title}
             // A new article starts in its title, the stand-in name selected
             // so typing replaces it, and the button that made it does not

@@ -145,7 +145,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
     ) : null
   return (
     <section className="mb-2">
-      <Tip label={`A few old captures, a fresh few each time you open this. A sample, not a list to clear: tag one, tidy it, or set it aside for ${day}. Deciding what each becomes waits for that day.`}>
+      <Tip label={`A fresh few old captures each time, not a list to clear. Deciding waits for ${day}.`}>
         <h3 className="w-fit px-2 pb-1 text-xs text-muted-foreground">Worth a tidy</h3>
       </Tip>
       {/* A card that takes an exit leaves sideways, the way it was dealt with,
