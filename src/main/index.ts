@@ -1212,6 +1212,22 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
       for (const alias of listed(front, 'aliases')) byName.set(alias.toLowerCase(), one.link)
     }
   }
+  // A folder of pictures and no notes: each picture is a note of its own, named after its file.
+  if (!notes.length) {
+    for (const path of everyFile) {
+      if (!IMAGE[path.split('.').pop()?.toLowerCase() ?? '']) continue
+      const name = relative(root, path)
+      if (alreadyImported(name)) {
+        already += 1
+        continue
+      }
+      const stored = await keep(path)
+      if (!stored) continue
+      const one = importNote(name, shown(stored, basename(path), undefined, false), (await stat(path)).mtime, looksPrivate(name))
+      if (one === 'already here') already += 1
+      else if (one !== 'empty') made.push(one)
+    }
+  }
   const linked = linkImported(made, byName, known)
   const inbox = made.filter((one) => !one.link.startsWith('article:')).length
   const report = [
@@ -1405,7 +1421,7 @@ app.whenReady().then(() => {
 
     // Scenery's smaller copies, named the same careful way.
     if (host === 'scenery') {
-      if (!/^[a-f0-9]{32}\.(jpg|png)$/.test(name)) return new Response('not found', { status: 404 })
+      if (!/^[a-f0-9]{32}(-s)?\.(jpg|png)$/.test(name)) return new Response('not found', { status: 404 })
       try {
         return await net.fetch(pathToFileURL(join(sceneryDir(), name)).toString())
       } catch {

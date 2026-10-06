@@ -210,7 +210,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
       {reading && <ReadThrough items={reading.list} start={reading.start} onClose={() => setReading(null)} />}
       <CollectionHeader
         tint={tint}
-        cover={<Cover src={facts.cover} colour={colour}>#{tag}</Cover>}
+        cover={<Cover src={facts.cover} colour={colour} seed={`tag:${tag}`}>#{tag}</Cover>}
         label="Tag"
         title={<span>#{tag}</span>}
         meta={[`${num(items.length)} ${items.length === 1 ? 'note' : 'notes'}`, `since ${dayjs(first).format('MMM YYYY')}`, `last added ${ago(last)}`]}

@@ -11,6 +11,7 @@ import { issues, type Repeat } from '@/lib/issues'
 import { useLive, vigil, whenInLine, type Finished, type Item, type Settings, type Task } from '@/lib/vigil'
 import { Rolling, Tip, Typed, toast } from './ui'
 import { Scenery, useDayScene } from './scenery'
+import { GrainFill, useCover } from './grain'
 import { openPass } from './pass'
 import { KindBack, backLine, returning, type Returning } from './kind-back'
 import { ago, clock, dayjs, dayKey, num } from '../../../../main/dates'
@@ -75,6 +76,8 @@ export function DayBrief({ day, onOpen, onListed }: {
 }): React.JSX.Element {
   const now = useMinute()
   const scene = useDayScene(day)
+  // Scenery off, or no pictures: the day's grain cover, the same all day.
+  const grain = useCover(scene ? null : `day:${day}`)
   const settings = useLive(vigil.settings, null as Settings | null)
   const tasks = useLive(vigil.tasks, [] as Task[])
   const waiting = useLive(vigil.passWaiting, { tidy: 0, decide: 0 })
@@ -205,7 +208,7 @@ export function DayBrief({ day, onOpen, onListed }: {
   const greeting = `Happy ${weekday}. ${said}`
 
   const named = credit(scene?.name, scene?.folder)
-  const picture = !!scene
+  const picture = !!scene || !!grain
   const date = dayjs(now).format('DD MMM YYYY').toUpperCase()
   const time = dayjs(now).format('HH:mm')
 
@@ -216,7 +219,9 @@ export function DayBrief({ day, onOpen, onListed }: {
         <div className={`relative isolate overflow-hidden rounded-2xl ${picture ? 'h-[clamp(8.5rem,34vh,24rem)]' : 'py-6 min-[900px]:py-10'}`}>
           {picture && (
             <>
-              <Scenery place="today" seed={`day:${day}`} mood={['day', 'dusk', 'night', 'interior']} className="absolute inset-0 -z-10" rounded="rounded-2xl" soft />
+              {scene
+                ? <Scenery place="today" seed={`day:${day}`} mood={['day', 'dusk', 'night', 'interior']} className="absolute inset-0 -z-10" rounded="rounded-2xl" soft />
+                : grain && <GrainFill cover={grain} large shade="none" className="-z-10" />}
               {/* A soft dark pool behind the words, never a band: the
                   painting still reads at the edges, the title on any of it. */}
               <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_75%_70%_at_50%_55%,rgb(0_0_0/0.44),rgb(0_0_0/0.16)_70%,rgb(0_0_0/0.06))]" />

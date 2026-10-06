@@ -18,6 +18,7 @@ import { openWindow, smallPicture, useThumb } from '@/lib/notes'
 import { placed } from '@/lib/tasks'
 import { splitTags, useLive, vigil, whenInLine, type Pin as Pinned, type Settings, type Task } from '@/lib/vigil'
 import { MenuButton, useTint } from './collection-header'
+import { GrainFill, useCover } from './grain'
 import { ReadThrough, type Readable } from './read-through'
 import { RowMenu, type MenuItem } from './row-menu'
 import { tagColour } from './tag-read'
@@ -101,15 +102,33 @@ function Picture({ src, className = '', onBroken }: { src: string; className?: s
   return <img src={src} alt="" loading="lazy" decoding="async" draggable={false} onError={onBroken} className={`private-text size-full object-cover ${className}`} />
 }
 
-/** The kind's icon on a soft square of its colour: what a tile shows with no picture. */
-function KindMark({ card, className = '' }: { card: Card; className?: string }): React.JSX.Element {
+/**
+ * What a tile shows with no picture: its grain cover, tinted its kind's
+ * colour, the kind's icon faint on it; with no Covers folder, the icon on a
+ * soft square of that colour.
+ */
+function KindMark({ card, className = '', grain = true }: { card: Card; className?: string; grain?: boolean }): React.JSX.Element {
   const Icon = card.type === 'question' ? Orbit : kindOf(card).icon
   const tint = tintOf(card)
+  const cover = useCover(grain ? card.id : null)
+  if (cover)
+    return (
+      <span className={`relative flex items-center justify-center overflow-hidden ${className}`}>
+        <GrainFill cover={cover} tint={tint} shade="none" />
+        <KindIcon card={card} className="relative size-4 text-white/60 drop-shadow-[0_1px_2px_rgb(0_0_0/0.35)]" />
+      </span>
+    )
   return (
     <span className={`flex items-center justify-center ${className}`} style={{ background: `color-mix(in oklab, ${tint} 16%, transparent)` }}>
       <Icon className="size-4" style={{ color: tint }} aria-hidden />
     </span>
   )
+}
+
+/** The kind's icon alone. */
+function KindIcon({ card, className = '' }: { card: Card; className?: string }): React.JSX.Element {
+  const Icon = card.type === 'question' ? Orbit : kindOf(card).icon
+  return <Icon className={className} aria-hidden />
 }
 
 /** Read, as a round button: what a card or tile offers on hover. 30px, its tip kept clear of it. */
@@ -178,7 +197,10 @@ function Tile({ card, pinned, actions, onHover }: { card: Card; pinned: boolean;
 function RowCard({ card, list, at, actions, tag }: { card: Card; list: Card[]; at: number; actions: Actions; tag?: { name: string; colour: string } }): React.JSX.Element {
   const src = usePicture(card)
   const [broken, setBroken] = useState(false)
-  const picture = !!src && !broken
+  const real = !!src && !broken
+  // No picture of its own: its grain cover stands in, so a row of cards reads as one shelf.
+  const grain = useCover(real ? null : card.id)
+  const picture = real || !!grain
   return (
     <RowMenu items={menuFor(card, actions, list, at)}>
       <div className="group/card relative flex w-(--card) shrink-0 snap-start">
@@ -193,7 +215,16 @@ function RowCard({ card, list, at, actions, tag }: { card: Card; list: Card[]; a
           {picture ? (
             <>
               <span className="relative aspect-square w-full overflow-hidden rounded-lg shadow-[0_8px_24px_-12px_rgb(0_0_0/0.35)]">
-                <Picture src={src} onBroken={() => setBroken(true)} />
+                {real ? <Picture src={src!} onBroken={() => setBroken(true)} /> : grain && (
+                  <>
+                    <GrainFill cover={grain} tint={tintOf(card)} shade={wordsOf(card.excerpt) ? 'foot' : 'none'} />
+                    {/* Its kind, and its first words where a picture would be: white on the dark of the cover. */}
+                    <span className="absolute inset-0 flex flex-col justify-between p-3 text-white">
+                      <KindIcon card={card} className="size-4 text-white/80 drop-shadow-[0_1px_2px_rgb(0_0_0/0.35)]" />
+                      {wordsOf(card.excerpt) && <span className="private-text line-clamp-4 text-xs leading-snug [overflow-wrap:anywhere] text-white/90 [text-shadow:0_1px_2px_rgb(0_0_0/0.4)]">{wordsOf(card.excerpt)}</span>}
+                    </span>
+                  </>
+                )}
               </span>
               <span className="flex min-w-0 flex-1 flex-col gap-0.5 px-2 pb-2">
                 <span className="private-text line-clamp-2 text-control leading-snug font-medium [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
@@ -209,7 +240,7 @@ function RowCard({ card, list, at, actions, tag }: { card: Card; list: Card[]; a
             <>
               {/* Its right end left free for Read, which sits level with it. */}
               <span className="flex min-w-0 items-center gap-1.5 pr-8 text-xs text-muted-foreground">
-                <KindMark card={card} className="size-5 rounded-[5px] [&_svg]:size-3" />
+                <KindMark card={card} grain={false} className="size-5 rounded-[5px] [&_svg]:size-3" />
                 {kindLabel(card)}
               </span>
               <span className="private-text line-clamp-3 text-[0.9375rem] leading-snug font-semibold [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
@@ -248,6 +279,7 @@ function Heading({ title, onAll, extra }: { title: ReactNode; onAll?: () => void
           Show all
         </button>
       )}
+      {extra}
     </div>
   )
 }
@@ -279,7 +311,6 @@ function Row({ title, onAll, children }: { title: ReactNode; onAll?: () => void;
   }, [children])
   const page = (by: -1 | 1): void => {
     const box = scroller.current
-      {extra}
     if (!box) return
     chime('riffle')
     box.scrollBy({ left: by * box.clientWidth * 0.8, behavior: motionOff() ? 'auto' : 'smooth' })
@@ -391,25 +422,34 @@ function TaskRow({ task, actions }: { task: Task; actions: Actions }): React.JSX
 function Feature({ card, line, actions }: { card: Card; line: string; actions: Actions }): React.JSX.Element {
   const src = usePicture(card)
   const [broken, setBroken] = useState(false)
-  const picture = !!src && !broken
+  const real = !!src && !broken
   const tint = tintOf(card)
+  // No picture of its own: its grain cover, behind it and as its square.
+  const grain = useCover(real ? null : card.id)
+  const picture = real || !!grain
+  const backdrop = real ? src : grain?.small
   return (
     <RowMenu items={menuFor(card, actions, [card], 0)}>
       <div className="relative mx-5 overflow-hidden rounded-xl @[44rem]/page:mx-8" data-private={card.private ? '' : undefined}>
         <div aria-hidden className="absolute inset-0" style={{ background: `color-mix(in oklab, ${tint} 12%, var(--background))` }} />
-        {picture && <img aria-hidden src={src} alt="" className="absolute inset-0 size-full scale-125 object-cover opacity-40 blur-2xl saturate-150" />}
+        {picture && <img aria-hidden src={backdrop} alt="" className="absolute inset-0 size-full scale-125 object-cover opacity-40 blur-2xl saturate-150" />}
         <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-background/70 via-background/45 to-background/10" />
         <div className="relative flex items-center gap-4 p-4 @[44rem]/page:gap-5 @[44rem]/page:p-5">
           {picture && (
             <button type="button" tabIndex={-1} onClick={() => actions.open(card)} aria-label={`Open ${nameOf(card)}`}
               className="aspect-square w-20 shrink-0 overflow-hidden rounded-lg shadow-[0_10px_30px_-10px_rgb(0_0_0/0.5)] transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:scale-[1.02] active:scale-[0.98] @[44rem]/page:w-28">
-              <Picture src={src} onBroken={() => setBroken(true)} />
+              {real ? <Picture src={src!} onBroken={() => setBroken(true)} /> : grain && (
+                <span className="relative flex size-full items-center justify-center">
+                  <GrainFill cover={grain} tint={tint} shade="none" />
+                  <KindIcon card={card} className="relative size-7 text-white/75 drop-shadow-[0_1px_2px_rgb(0_0_0/0.35)] @[44rem]/page:size-9" />
+                </span>
+              )}
             </button>
           )}
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <span className="text-xs font-medium text-foreground/80">{line}</span>
             <h2 className="private-text line-clamp-2 font-heading text-[1.25rem] leading-[1.15] font-semibold tracking-[-0.02em] text-balance text-foreground @[44rem]/page:text-[1.5rem]">{nameOf(card)}</h2>
-            {!picture && wordsOf(card.excerpt) && <p className="private-text line-clamp-2 max-w-[60ch] text-control text-muted-foreground">{wordsOf(card.excerpt)}</p>}
+            {!real && wordsOf(card.excerpt) && <p className="private-text line-clamp-2 max-w-[60ch] text-control text-muted-foreground">{wordsOf(card.excerpt)}</p>}
             <div className="mt-2 flex items-center gap-1.5">
               <button type="button" data-nav onClick={() => actions.open(card)}
                 className="flex h-8 items-center gap-1.5 rounded-full bg-primary px-3.5 text-control font-semibold text-primary-foreground shadow-[0_6px_16px_-8px_rgb(0_0_0/0.5)] outline-none transition-transform duration-150 hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97]">
@@ -449,7 +489,7 @@ function Quotes({ title, onAll, cards, actions }: { title: ReactNode; onAll?: ()
                 <span className="private-text pr-7 font-heading text-[1.0625rem] leading-snug [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
                 {wordsOf(card.excerpt) && <span className="private-text line-clamp-3 text-xs leading-relaxed text-muted-foreground">{wordsOf(card.excerpt)}</span>}
                 <span className="mt-auto flex items-center gap-1.5 text-xs text-muted-foreground/80">
-                  <KindMark card={card} className="size-4 rounded-[4px] [&_svg]:size-2.5" />{card.sub}
+                  <KindMark card={card} grain={false} className="size-4 rounded-[4px] [&_svg]:size-2.5" />{card.sub}
                 </span>
               </button>
               {card.foot && <div className="px-4 pb-3">{card.foot}</div>}
@@ -668,7 +708,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
               {tidy.length > 0 && (
                 <List title="Worth a tidy" onAll={() => onView('inbox')}>
                   {tidy.map((card) => (
-                    <ListRow key={card.id} card={card} actions={actions} lead={<KindMark card={card} className="mt-px size-5 shrink-0 rounded-[5px] [&_svg]:size-3" />}
+                    <ListRow key={card.id} card={card} actions={actions} lead={<KindMark card={card} grain={false} className="mt-px size-5 shrink-0 rounded-[5px] [&_svg]:size-3" />}
                       aside={<span className="mt-0.5 shrink-0 text-xs text-muted-foreground">{whenInLine(card.at)}</span>}>
                       <span className="private-text line-clamp-2 [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
                     </ListRow>

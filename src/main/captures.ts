@@ -678,7 +678,7 @@ export function importNote(path: string, text: string, modified: Date, hidden = 
   // Private by its name, or because an export from here said so.
   const secret = hidden || fields.private === 'true'
   delete fields.private
-  const title = withoutNotionId(path.split('/').pop()!.replace(/\.md$/, ''))
+  const title = withoutNotionId(path.split('/').pop()!.replace(/\.(md|png|jpe?g|gif|webp|svg|avif|bmp)$/i, ''))
   // The name already heads the page; a first heading saying it again is dropped.
   const body = text.slice(front?.[0].length ?? 0).trim().replace(/^#[ \t]+(.*)(\n|$)/, (line, words: string) =>
     withoutNotionId(words.trim()).toLowerCase() === title.toLowerCase() ? '' : line).trim()

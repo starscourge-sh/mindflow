@@ -30,12 +30,16 @@ export type Scene = {
   /** The file's name without its ending, and its folder's, for a credit under the picture. */
   name?: string
   folder?: string
+  /** A copy small enough for a list's tiles: mindflow://scenery/<id>-s.jpg. */
+  small?: string
 }
 type Entry = Scene & { path: string; key: string }
 
 const PICTURES = new Set(['.jpg', '.jpeg', '.png', '.webp'])
 /** About as wide as a window ever is at 2x, and small enough to load at once. */
 const WIDTH = 1600
+/** Wide enough for the biggest tile or cover at 2x. */
+const SMALL = 480
 
 export const sceneryDir = (): string => join(app.getPath('userData'), 'scenery-cache')
 const indexFile = (): string => join(sceneryDir(), 'index.json')
@@ -104,7 +108,7 @@ function read(image: Electron.NativeImage): Pick<Scene, 'mood' | 'color' | 'ligh
 function blocky(image: Electron.NativeImage, path: string): boolean {
   if (/pixel/i.test(path)) return true
   const { width, height } = image.getSize()
-  let runs = 0, short = 0
+  let runs = 0, short = 0, soft = 0
   for (const at of [0.3, 0.5, 0.7]) {
     const row = image.crop({ x: 0, y: Math.floor(height * at), width, height: 1 }).toBitmap()
     let run = 1
@@ -113,22 +117,27 @@ function blocky(image: Electron.NativeImage, path: string): boolean {
       else {
         runs++
         if (run < 3) short++
+        // A step of a shade or two: a smooth gradient's long runs, not a drawn square's edge.
+        if (Math.abs(row[i] - row[i - 4]) + Math.abs(row[i + 1] - row[i - 3]) + Math.abs(row[i + 2] - row[i - 2]) <= 6) soft++
         run = 1
       }
     }
   }
-  return runs > 12 && short / runs < 0.1
+  return runs > 12 && short / runs < 0.1 && soft / runs < 0.5
 }
 
 /** The copy for one picture, made if it is new or has changed since. */
 async function prepare(path: string): Promise<Entry | null> {
   const facts = await stat(path)
-  const key = createHash('sha1').update(`2\0${path}\0${facts.mtimeMs}\0${facts.size}`).digest('hex').slice(0, 32)
+  const key = createHash('sha1').update(`3\0${path}\0${facts.mtimeMs}\0${facts.size}`).digest('hex').slice(0, 32)
   const kept = known.get(key)
   if (kept) return kept
   const image = nativeImage.createFromPath(path)
   if (image.isEmpty()) return null
   const { width } = image.getSize()
+  // A small copy too, for covers in lists.
+  const small = `mindflow://scenery/${key}-s.jpg`
+  await writeFile(join(sceneryDir(), `${key}-s.jpg`), (width > SMALL ? image.resize({ width: SMALL, quality: 'good' }) : image).toJPEG(82))
   const pixel = blocky(image, path)
   // Pixel art is kept whole, as a PNG: shrinking it smears the squares, and
   // squares compress to almost nothing anyway.
@@ -136,7 +145,7 @@ async function prepare(path: string): Promise<Entry | null> {
   const ext = pixel ? 'png' : 'jpg'
   await writeFile(join(sceneryDir(), `${key}.${ext}`), pixel ? copy.toPNG() : copy.toJPEG(80))
   const size = copy.getSize()
-  return { id: key, key, path, url: `mindflow://scenery/${key}.${ext}`, width: size.width, height: size.height, pixel, ...read(copy) }
+  return { id: key, key, path, url: `mindflow://scenery/${key}.${ext}`, small, width: size.width, height: size.height, pixel, ...read(copy) }
 }
 
 /** Every picture in the folders, one level down too, copied where needed. */
@@ -180,7 +189,7 @@ async function scan(folders: string[]): Promise<void> {
   await save(next)
   // Copies of pictures no longer in any folder go, so the cache never grows
   // past what you have chosen.
-  const keep = new Set([...next.values()].map((one) => one.url.split('/').pop()))
+  const keep = new Set([...next.values()].flatMap((one) => [one.url, one.small ?? ''].map((url) => url.split('/').pop())))
   for (const name of await readdir(sceneryDir()).catch(() => [] as string[]))
     if (name !== 'index.json' && !keep.has(name)) await rm(join(sceneryDir(), name), { force: true })
   if (fresh) changed()
@@ -188,30 +197,37 @@ async function scan(folders: string[]): Promise<void> {
 
 const save = (entries: Map<string, Entry>): Promise<void> => writeFile(indexFile(), JSON.stringify([...entries.values()]))
 
+/**
+ * The folders each use asks for (Scenery's, and Covers'): one scan and one
+ * cache serve them all, so neither clears away the other's copies.
+ */
+const uses = new Map<string, string[]>()
+
 /** The scenes in the folders, as far as they are known now; a scan starts if the folders changed. */
-async function list(folders: string[]): Promise<{ scenes: Scene[]; scanning: boolean }> {
-  const wanted = JSON.stringify(folders)
+async function list(folders: string[], use = 'scenery'): Promise<{ scenes: Scene[]; scanning: boolean }> {
+  uses.set(use, folders)
+  const wanted = JSON.stringify([...new Set([...uses.values()].flat())].sort())
   // Looked at again now and then too, so a picture dropped into a folder turns up.
   if ((wanted !== scanned || Date.now() - scannedAt > 10 * 60000) && !scanning) {
     scanned = wanted
     scannedAt = Date.now()
-    scanning = scan(folders).catch(() => undefined).finally(() => {
+    scanning = scan(JSON.parse(wanted) as string[]).catch(() => undefined).finally(() => {
       scanning = null
       // The folders changed again while that ran: go round once more.
-      if (scanned !== wanted) void list(JSON.parse(scanned) as string[])
+      if (scanned !== wanted) void list(folders, use)
     })
   } else if (wanted !== scanned) scanned = wanted
   await loading()
   const inFolders = (path: string): boolean => folders.some((folder) => path.startsWith(folder.endsWith('/') ? folder : `${folder}/`))
   // Only what the windows need: where a picture lives on disk stays here.
-  const scenes: Scene[] = [...known.values()].filter((one) => inFolders(one.path)).map((one) => ({ id: one.id, url: one.url, mood: one.mood, width: one.width, height: one.height, pixel: one.pixel, color: one.color, light: one.light, name: basename(one.path, extname(one.path)), folder: basename(dirname(one.path)) }))
+  const scenes: Scene[] = [...known.values()].filter((one) => inFolders(one.path)).map((one) => ({ id: one.id, url: one.url, mood: one.mood, width: one.width, height: one.height, pixel: one.pixel, color: one.color, light: one.light, name: basename(one.path, extname(one.path)), folder: basename(dirname(one.path)), small: one.small }))
   return { scenes, scanning: !!scanning }
 }
 
 export function registerScenery(): void {
-  ipcMain.handle('vigil:scenery', (_event, folders: unknown) =>
+  ipcMain.handle('vigil:scenery', (_event, folders: unknown, use: unknown) =>
     // Whole folders only, named from the top of the disk: nothing relative to wherever the app runs.
-    list(Array.isArray(folders) ? folders.filter((one): one is string => typeof one === 'string' && isAbsolute(one)) : []))
+    list(Array.isArray(folders) ? folders.filter((one): one is string => typeof one === 'string' && isAbsolute(one)) : [], use === 'covers' ? 'covers' : 'scenery'))
   ipcMain.handle('vigil:scenery:folder', async () => {
     const { filePaths } = await dialog.showOpenDialog({ title: 'Choose a folder of pictures', buttonLabel: 'Use this folder', properties: ['openDirectory'] })
     return filePaths[0] ?? null

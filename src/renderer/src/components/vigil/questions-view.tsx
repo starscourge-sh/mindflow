@@ -353,7 +353,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
         )}
         <CollectionHeader
           tint={tint}
-          cover={<Cover src={cover} colour="var(--primary)"><Orbit className="size-[42cqi]" strokeWidth={1.6} /></Cover>}
+          cover={<Cover src={cover} colour="var(--primary)" seed={item.id}><Orbit className="size-[42cqi]" strokeWidth={1.6} /></Cover>}
           label="Question"
           meta={[
             cluesSaid(clues.length).replace(/^n/, 'N'),

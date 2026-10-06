@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 
 import { useLive, vigil, type Settings } from '@/lib/vigil'
 import { Scenery } from './scenery'
+import { GrainFill, useCover } from './grain'
 import { dayjs } from '../../../../main/dates'
 
 /**
@@ -57,13 +58,27 @@ export function MemoryPostcard({ at, seed, children }: { at?: string; seed: stri
         <div aria-hidden className="relative float-right -mt-1 -mr-0.5 mb-1 ml-3 h-14 w-[10.5rem]">
           {/* The stamp: gone, with its border, when there is no scene to put in it. */}
           <div className="absolute top-0 right-0 h-[3.25rem] w-11 rotate-[4deg] rounded-[3px] bg-white p-[3px] shadow-[0_1px_3px_rgb(0_0_0/0.25)] [&:not(:has(*))]:hidden">
-            <Scenery place="recap" seed={`memory:${seed}`} mood={['day', 'dusk', 'night', 'interior']} wide={false} soft className="relative size-full" rounded="rounded-[1px]" />
+            <Stamp seed={seed}>
+              <Scenery place="recap" seed={`memory:${seed}`} mood={['day', 'dusk', 'night', 'interior']} wide={false} soft className="relative size-full" rounded="rounded-[1px]" />
+            </Stamp>
           </div>
           {at && <Postmark at={at} className="absolute top-0.5 right-6 h-14 w-[9.25rem]" />}
         </div>
         {children}
       </div>
     </div>
+  )
+}
+
+/** The stamp's picture: the scene over the memory's grain cover, so with Scenery off it still has one. */
+function Stamp({ seed, children }: { seed: string; children: ReactNode }): React.JSX.Element {
+  const grain = useCover(`memory:${seed}`)
+  if (!grain) return <>{children}</>
+  return (
+    <span className="relative block size-full overflow-hidden rounded-[1px]">
+      {grain && <GrainFill cover={grain} shade="none" />}
+      {children}
+    </span>
   )
 }
 

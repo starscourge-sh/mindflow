@@ -11,6 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { openLook } from '@/components/image/image-look'
 import { RowMenu, type MenuItem } from './row-menu'
 import { Tip } from './ui'
+import { GrainFill, useCover } from './grain'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Read = alive(BookIcon)
@@ -126,10 +127,14 @@ export function useTint(src: string | null | undefined, colour: string | null | 
   return tint
 }
 
-/** The square on the left: a picture, or a tile in a colour with words or a mark on it. */
-/** A picture opens large in Quick Look, lifting from where it sits. */
-export function Cover({ src, colour, children, caption = '' }: { src?: string | null; colour: string; children?: ReactNode; caption?: string }): React.JSX.Element {
+/**
+ * The square on the left: a picture, or a tile with words or a mark on it,
+ * over a grain cover tinted its colour (or the colour alone, with no Covers
+ * folder). A picture opens large in Quick Look, lifting from where it sits.
+ */
+export function Cover({ src, colour, seed, children, caption = '' }: { src?: string | null; colour: string; seed?: string; children?: ReactNode; caption?: string }): React.JSX.Element {
   const [broken, setBroken] = useState(false)
+  const grain = useCover(seed)
   useEffect(() => setBroken(false), [src])
   const box = 'relative aspect-square w-24 shrink-0 overflow-hidden rounded-lg shadow-[0_10px_30px_-8px_rgb(0_0_0/0.45),0_2px_8px_rgb(0_0_0/0.18)] [container-type:inline-size] @[30rem]/band:w-32 @[44rem]/band:w-44 @[60rem]/band:w-52'
   if (src && !broken) {
@@ -141,7 +146,8 @@ export function Cover({ src, colour, children, caption = '' }: { src?: string | 
     )
   }
   return (
-    <div className={box} style={{ background: `linear-gradient(140deg, color-mix(in oklab, ${colour} 78%, white), color-mix(in oklab, ${colour} 72%, black))` }}>
+    <div className={box} style={grain ? undefined : { background: `linear-gradient(140deg, color-mix(in oklab, ${colour} 78%, white), color-mix(in oklab, ${colour} 72%, black))` }}>
+      {grain && <GrainFill cover={grain} tint={colour} />}
       <div className="absolute inset-0 flex items-end p-[9cqi] font-heading text-[clamp(0.75rem,14cqi,2.5rem)] leading-none font-bold tracking-[-0.03em] break-all text-white drop-shadow-[0_1px_2px_rgb(0_0_0/0.25)]">{children}</div>
     </div>
   )

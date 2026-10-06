@@ -23,6 +23,7 @@ import { SortableList, SortableRow } from './sortable'
 import { Tags, Tip, VirtualList, typing } from './ui'
 import { Button } from '@/components/ui/button'
 import type { Density, Pane } from './display'
+import { GrainFill, useCover } from './grain'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Maximize2 = alive(ExpandIcon)
@@ -92,6 +93,8 @@ function Cover({
 }): React.JSX.Element {
   // A tile is a tile whichever grid it is in: always the tile-sized picture, or a small grid blurs.
   const picture = usePicture(entry.id, true)
+  // No picture of its own: its grain cover, its words in white on it.
+  const grain = useCover(picture === undefined ? entry.id : null)
   if (picture)
     return (
       <span className={`private-text block overflow-hidden bg-accent ${className}`}>
@@ -107,16 +110,17 @@ function Cover({
     )
   return (
     <span
-      className={`flex flex-col overflow-hidden ${large ? 'gap-1.5 p-3' : 'gap-1 p-2'} ${className}`}
-      style={tileTint(entry.tint)}
+      className={`relative flex flex-col overflow-hidden ${large ? 'gap-1.5 p-3' : 'gap-1 p-2'} ${className}`}
+      style={grain ? undefined : tileTint(entry.tint)}
     >
+      {grain && <GrainFill cover={grain} tint={entry.tint} shade="all" />}
       <entry.icon
-        className={`${large ? 'size-4' : 'size-3.5'} shrink-0`}
-        style={{ color: entry.tint }}
+        className={`relative ${large ? 'size-4' : 'size-3.5'} shrink-0 ${grain ? 'text-white/80' : ''}`}
+        style={grain ? undefined : { color: entry.tint }}
       />
       {picture !== null && (
         <span
-          className={`private-text text-muted-foreground whitespace-pre-line ${large ? 'line-clamp-5 text-xs leading-snug' : 'line-clamp-4 text-[10px] leading-tight'}`}
+          className={`private-text relative whitespace-pre-line ${grain ? 'text-white/90 [text-shadow:0_1px_2px_rgb(0_0_0/0.4)]' : 'text-muted-foreground'} ${large ? 'line-clamp-5 text-xs leading-snug' : 'line-clamp-4 text-[10px] leading-tight'}`}
         >
           {(large ? rest(words, entry.title) : words) || entry.title || 'Untitled'}
         </span>
@@ -146,10 +150,11 @@ export function Lead({
   className?: string
 }): React.JSX.Element {
   const picture = usePicture(entry.id, false)
+  const grain = useCover(picture === undefined ? entry.id : null)
   return (
     <span
-      className={`flex shrink-0 items-center justify-center overflow-hidden rounded-md ${picture ? 'private-text bg-accent' : ''} ${className}`}
-      style={picture ? undefined : tileTint(entry.tint)}
+      className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-md ${picture ? 'private-text bg-accent' : ''} ${className}`}
+      style={picture || grain ? undefined : tileTint(entry.tint)}
     >
       {picture ? (
         <img
@@ -160,6 +165,11 @@ export function Lead({
           draggable={false}
           className="size-full object-cover animate-in fade-in-0 duration-200"
         />
+      ) : grain ? (
+        <>
+          <GrainFill cover={grain} tint={entry.tint} shade="none" />
+          <entry.icon className="relative size-4 text-white/80" />
+        </>
       ) : (
         <entry.icon className="size-4" style={{ color: entry.tint }} />
       )}

@@ -1,6 +1,7 @@
 import { Notification, app, dialog, ipcMain, net, session } from 'electron'
 import { randomUUID } from 'crypto'
 import { cp, mkdir, writeFile } from 'fs/promises'
+import { existsSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
 import { createEmptyCard, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
@@ -198,6 +199,10 @@ const DEFAULTS = {
   sceneryTime: true,
   sceneryDim: 0.5,
   sceneryShuffle: 0,
+  // Covers: soft grainy pictures from one folder, behind whatever has no
+  // picture of its own (a tag, a text-only note), each thing always the same
+  // one. Empty is none: the plain colour tiles.
+  coversFolder: existsSync(join(homedir(), 'Documents/img/gradients')) ? join(homedir(), 'Documents/img/gradients') : '',
   // A question you are holding comes back now and then as a hint card: still
   // open, how long, how many clues. Off in Settings.
   questionsBack: true,

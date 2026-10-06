@@ -66,6 +66,8 @@ export type Settings = {
   sceneryDim: number
   /** Turned over by "Show another", so every scene changes at once. */
   sceneryShuffle: number
+  /** Pictures behind what has none of its own; '' for plain tiles. See components/vigil/grain.tsx. */
+  coversFolder: string
   /** A question you are holding comes back now and then as a hint card. */
   questionsBack: boolean
   /** A plain Markdown copy of each capture beside the backups; never a private one. */
@@ -97,7 +99,7 @@ export type PinnedQuestion = { id: string; title: string; pinnedAt: string; clue
 
 /** A picture from the Scenery folders, as the main process describes its smaller copy. */
 export type Mood = 'day' | 'dusk' | 'night' | 'interior'
-export type Scene = { id: string; url: string; mood: Mood; width: number; height: number; pixel: boolean; color: string; light: number; name?: string; folder?: string }
+export type Scene = { id: string; url: string; mood: Mood; width: number; height: number; pixel: boolean; color: string; light: number; name?: string; folder?: string; small?: string }
 
 /** A nugget or an article: the same row, told apart by `tier`. */
 export type Item = {
@@ -265,7 +267,7 @@ export const vigil = {
   spellingLanguages: () => call<{ all: string[]; on: string[] }>('spelling:languages'),
   backupsWhere: () => call<string>('backups:where'),
   /** The scenes in these folders so far; copies of new pictures are made in the background. */
-  scenery: (folders: string[]) => call<{ scenes: Scene[]; scanning: boolean }>('scenery', folders),
+  scenery: (folders: string[], use: 'scenery' | 'covers' = 'scenery') => call<{ scenes: Scene[]; scanning: boolean }>('scenery', folders, use),
   /** A folder of pictures, picked in the system's own chooser. */
   sceneryFolder: () => call<string | null>('scenery:folder'),
   // Up for private, down for not, from whichever menu or button switched it.

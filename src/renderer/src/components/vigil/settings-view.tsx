@@ -397,6 +397,16 @@ export function SettingsView(): React.JSX.Element {
             }}>Show another</Button>
           </Setting>
         </Group>
+        <Group section="Scenery" title="Covers">
+          <SceneryFolders
+            use="covers"
+            title="Covers folder"
+            note="Soft, grainy pictures behind whatever has no picture of its own: a tag's page, a note of only words, a tile on Home. Each thing always gets the same one, tinted toward its colour. With no folder, plain colour tiles."
+            folders={settings.coversFolder ? [settings.coversFolder] : []}
+            on
+            onSave={(folders) => set({ coversFolder: folders.at(-1) ?? '' })}
+          />
+        </Group>
         <Group section="Scenery" title="Where they show">
           {([
             ['sceneryRest', 'When there is nothing to do', 'Inbox empty, review done, nothing due today, nothing rotting: a wide picture above the sentence that says so.', 'empty inbox zero review done'],
@@ -721,11 +731,11 @@ function HintTuning(): React.JSX.Element | null {
  * The folders Scenery takes its pictures from: each with a count of what is
  * ready in it, a way to take it out (undoable), and one to add another.
  */
-function SceneryFolders({ folders, on, onSave }: { folders: string[]; on: boolean; onSave: (folders: string[]) => void }): React.JSX.Element {
+function SceneryFolders({ folders, on, onSave, use = 'scenery', title = 'Folders', note = 'Where the pictures come from.' }: { folders: string[]; on: boolean; onSave: (folders: string[]) => void; use?: 'scenery' | 'covers'; title?: string; note?: string }): React.JSX.Element {
   // Asked again every second or two while a scan runs, since nothing else
   // says when it is done: the count climbs and the orb goes when it ends.
   const [ask, setAsk] = useState(0)
-  const found = useLive(() => (on && folders.length ? vigil.scenery(folders) : Promise.resolve(null)), null as Awaited<ReturnType<typeof vigil.scenery>> | null, [on, JSON.stringify(folders), ask])
+  const found = useLive(() => (on && folders.length ? vigil.scenery(folders, use) : Promise.resolve(null)), null as Awaited<ReturnType<typeof vigil.scenery>> | null, [on, JSON.stringify(folders), ask])
   const ready = found?.scenes.length ?? 0
   useEffect(() => {
     if (!found?.scanning) return
@@ -734,9 +744,9 @@ function SceneryFolders({ folders, on, onSave }: { folders: string[]; on: boolea
   }, [found, ask])
   return (
     <Setting
-      title="Folders"
-      note={`Where the pictures come from. They stay where they are: Vigil keeps only smaller copies for itself, and looks for new ones every ten minutes or so.${on && found ? ` ${ready} ${ready === 1 ? 'picture' : 'pictures'} ready${found.scanning ? ', more on the way' : ''}.` : ''}`}
-      keywords="scenery folder pictures images add remove choose"
+      title={title}
+      note={`${note} They stay where they are: Vigil keeps only smaller copies for itself, and looks for new ones every ten minutes or so.${on && found ? ` ${ready} ${ready === 1 ? 'picture' : 'pictures'} ready${found.scanning ? ', more on the way' : ''}.` : ''}`}
+      keywords={use === 'covers' ? 'covers grain gradients tiles folder pictures choose remove' : 'scenery folder pictures images add remove choose'}
       below={folders.length > 0 && (
         <div className="mt-2 flex flex-col gap-1">
           {folders.map((folder) => (
@@ -760,11 +770,12 @@ function SceneryFolders({ folders, on, onSave }: { folders: string[]; on: boolea
       <Button variant="outline" size="sm" onClick={() => void vigil.sceneryFolder().then((folder) => {
         if (!folder) return
         if (folders.includes(folder)) return refuse('That folder is already in the list')
+        // Covers take one folder: a new one takes the old one's place.
         onSave([...folders, folder])
         chime('settled')
         toast(`Added ${folder.split('/').pop()}`, () => onSave(folders))
       })}>
-        <FolderPlus className="size-4" /> Add a folder…
+        <FolderPlus className="size-4" /> {use === 'covers' && folders.length ? 'Choose another…' : use === 'covers' ? 'Choose a folder…' : 'Add a folder…'}
       </Button>
     </Setting>
   )
