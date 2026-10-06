@@ -71,6 +71,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
 import { Tip, Pressed } from '@/components/vigil/ui'
+import { Celebrations } from '@/components/vigil/celebrate'
 import { Mentions } from '@/components/vigil/mentions'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
@@ -915,6 +916,7 @@ export default function App(): React.JSX.Element {
       {/* Toasts sit above the box's footer here, clear of Create. */}
       {/* Toasts over the note, above its footer: clear of Create and of the panel. */}
       <div className={`contents [--toast-bottom:6.5rem] ${panel ? '[--toast-right:440px]' : ''}`}><Toaster /></div>
+      <Celebrations place="box" />
       <NotePreview />
       <ShortcutSheet />
       <Passes onOpen={(type, id) => openAny(type, id)} />

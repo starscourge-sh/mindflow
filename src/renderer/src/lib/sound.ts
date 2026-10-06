@@ -181,6 +181,9 @@ const CUES = {
   alias: [[784, 0, 0.06, 0.035], [1568, 0.05, 0.1, 0.025]],
   // Kept in view: a pin's two notes, softer and lower, for a question.
   watch: [[880, 0, 0.05, 0.035], [659, 0.04, 0.16, 0.035]],
+  // A milestone: two quick knocks and a held chord with a bright note on
+  // top, a small "ba-da-da". Rare by design, so it can be the boldest here.
+  cheer: [[784, 0, 0.06, 0.045], [784, 0.08, 0.06, 0.045], [523, 0.18, 0.7, 0.04], [659, 0.18, 0.7, 0.035], [1046, 0.19, 0.8, 0.04], [1568, 0.3, 0.6, 0.02]],
   // A week or a month turned over: a page, slower and lower than a day's.
   season: [[330, 0, 0.3, 0.035, 349, 0.03], [494, 0.08, 0.4, 0.03]]
 } satisfies Record<string, Note[]>

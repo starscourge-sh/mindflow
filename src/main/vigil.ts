@@ -10,6 +10,7 @@ import { LABEL, LIST, atomically, changed, database, like, movedOn, type Change 
 import { advance, readTask } from './task-words'
 import { dayKey, dayMonth, dayjs, daysFromToday, monthName, num, startOfDay } from './dates'
 import { backupDir, checkMarkdown } from './backup'
+import { celebrateAfter, watches } from './celebrate'
 
 /**
  * Everything past the capture: nuggets and articles, the review queue, tasks,
@@ -126,6 +127,12 @@ const tagsIn = (text: string): string[] =>
  * The settings and their defaults. The plan budgeted five; the argument for
  * the rest is that you asked for them, and each is one value read in one place.
  */
+/** A folder of the developer's own, used only while Vigil is run from its source: an installed app starts with none. */
+function devFolder(path: string): string {
+  const full = join(homedir(), path)
+  return !app.isPackaged && existsSync(full) ? full : ''
+}
+
 const DEFAULTS = {
   // Pages sit in a centred column, as Notion lays them out, unless this is on.
   fullWidth: false,
@@ -202,7 +209,11 @@ const DEFAULTS = {
   // Covers: soft grainy pictures from one folder, behind whatever has no
   // picture of its own (a tag, a text-only note), each thing always the same
   // one. Empty is none: the plain colour tiles.
-  coversFolder: existsSync(join(homedir(), 'Documents/img/gradients')) ? join(homedir(), 'Documents/img/gradients') : '',
+  coversFolder: devFolder('Documents/img/gradients'),
+  // Celebrations: a card on the rare milestones, playing something from this
+  // folder (a GIF, a picture, a short clip). Empty is none: a grainy cover.
+  celebrate: true,
+  celebrationsFolder: devFolder('Downloads/memes'),
   // A question you are holding comes back now and then as a hint card: still
   // open, how long, how many clues. Off in Settings.
   questionsBack: true,
@@ -291,6 +302,9 @@ function spellingLanguages(): string[] {
   const mac = app.getPreferredSystemLanguages().map((one) => (known.has(one) ? one : one.split('-')[0]))
   return [...new Set(picked.length ? picked : mac)].filter((one) => known.has(one))
 }
+
+/** Whether milestones are celebrated, and from which folder. */
+export const celebrationPrefs = (): { on: boolean; folder: string } => ({ on: settings().celebrate !== false, folder: settings().celebrationsFolder || '' })
 
 /** The Motion setting, for the window's own arrival. */
 export const motionOn = (): boolean => settings().motion
@@ -539,8 +553,14 @@ export function registerVigil(): void {
     db.exec("delete from settings where key in ('noteFont', 'headingFont'); pragma user_version = 3")
   }
 
+  // A write that may reach a milestone is looked at once it is done, and the
+  // window it came from is the one that celebrates.
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
-    void ipcMain.handle(`vigil:${channel}`, (_event, ...args) => run(...(args as never[])))
+    void ipcMain.handle(`vigil:${channel}`, (event, ...args) => {
+      const result = run(...(args as never[]))
+      if (watches(channel)) void Promise.resolve(result).then((done) => celebrateAfter(channel, event.sender, args, done), () => undefined)
+      return result
+    })
   const write = <T>(result: T, what?: Change): T => (changed(what), result)
 
   // --- settings and privacy

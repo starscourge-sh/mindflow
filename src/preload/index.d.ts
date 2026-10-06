@@ -1,5 +1,8 @@
 import type { Capture, CaptureMeta, CapturePatch, Change, SaveResult } from '../main/captures'
 
+/** A milestone to celebrate, as src/main/celebrate.ts describes it. */
+export type Moment = { id: string; rank: number; headline: string; line?: string; mark: string; tint: string }
+
 export interface LinkMetadata {
   href: string
   title: string
@@ -65,6 +68,8 @@ export interface Api {
   openInHome: (type: string, id: string, heading?: string) => void
   onSentTo: (listen: (type: string, id: string, heading?: string) => void) => () => void
   vigil: (channel: string, ...args: unknown[]) => Promise<unknown>
+  celebrateHere: (on: boolean) => void
+  onCelebrate: (listen: (moment: Moment) => void) => () => void
   onShown: (listen: () => void) => () => void
   onHiding: (listen: () => void) => () => void
   onImported: (listen: () => void) => () => void

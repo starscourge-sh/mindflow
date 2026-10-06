@@ -9,7 +9,8 @@
     "src/main/backup.ts",
     "src/main/import.ts",
     "src/main/task-words.ts",
-    "src/main/dates.ts"
+    "src/main/dates.ts",
+    "src/main/celebrate.ts"
   ],
   "compilerOptions": {
     "noImplicitAny": true,

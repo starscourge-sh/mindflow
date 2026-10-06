@@ -43,6 +43,7 @@ import { registerPeriods } from './periods'
 import { registerIssues } from './issues'
 import { num } from './dates'
 import { registerScenery, sceneryDir } from './scenery'
+import { celebrationFile, registerCelebrations } from './celebrate'
 import { registerUnused } from './unused'
 
 
@@ -1406,6 +1407,7 @@ app.whenReady().then(() => {
   registerPeriods()
   registerIssues()
   registerScenery()
+  registerCelebrations()
   registerUnused()
   const first = fromCli(process.argv)
   if (first) captureText(first)
@@ -1424,6 +1426,20 @@ app.whenReady().then(() => {
       if (!/^[a-f0-9]{32}(-s)?\.(jpg|png)$/.test(name)) return new Response('not found', { status: 404 })
       try {
         return await net.fetch(pathToFileURL(join(sceneryDir(), name)).toString())
+      } catch {
+        return new Response('not found', { status: 404 })
+      }
+    }
+
+    // Celebrations, read straight from the chosen folder so a GIF keeps moving.
+    // Only a name handed out for a file found in that folder is served.
+    if (host === 'celebrate') {
+      const path = /^[a-f0-9]{32}\.(gif|png|jpe?g|webp|mp4|mov|webm)$/.test(name) ? celebrationFile(name) : null
+      if (!path) return new Response('not found', { status: 404 })
+      try {
+        // The range asked for is passed on, so a clip can loop and seek.
+        const range = request.headers.get('range')
+        return await net.fetch(pathToFileURL(path).toString(), range ? { headers: { range } } : undefined)
       } catch {
         return new Response('not found', { status: 404 })
       }

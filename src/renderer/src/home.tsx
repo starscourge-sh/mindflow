@@ -33,6 +33,7 @@ import { FocusScenery } from './components/vigil/scenery'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import { useAppearance, useLive, vigil, type Item, type Pin, type Settings, type Task } from './lib/vigil'
 import { Tip, showTopTitle, useTopTitle, Pressed } from '@/components/vigil/ui'
+import { Celebrations, tryCelebration } from '@/components/vigil/celebrate'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import ExpandIcon from '@/components/ui/expand-icon'
 import GearIcon from '@/components/ui/gear-icon'
@@ -318,6 +319,7 @@ export function Home(): React.JSX.Element {
     <div className="isolate flex h-screen flex-col bg-background text-foreground">
       {/* Centred over the page, not the sidebar beside it. */}
       <div className={`contents ${sidebar ? (narrow ? '[--toast-left:4rem]' : '[--toast-left:15rem]') : ''}`}><Toaster /></div>
+      <Celebrations place="home" />
       <NotePreview />
       <ShortcutSheet />
       <UnusedFiles />
@@ -336,6 +338,7 @@ export function Home(): React.JSX.Element {
             { label: 'Import an Obsidian vault or Notion export…', cue: null, run: () => void window.api.importFrom('vault') },
             { label: 'Import Readwise, Kindle, Markdown, bookmarks or Anki…', cue: null, run: () => void window.api.importFrom('files') },
             { label: 'Take the tour', cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:tour')) },
+            { label: 'Try a celebration', cue: null, run: tryCelebration },
             ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),
             { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘\\', cue: sidebar ? 'fold' : 'slide', run: () => setSidebar(!sidebar) },
             { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', cue: null, run: () => setFill(!fill) },

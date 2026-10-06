@@ -8,6 +8,7 @@ import { hostname } from 'os'
 
 import { backUp, checkMarkdown, writeMarkdown } from './backup'
 import { markdown } from './vigil'
+import { celebrateAfter } from './celebrate'
 import { chunks, createdOf, firstLine, guessKind, kindOf, propertiesOf, titleOfMarkdown, unstamp, withoutNotionId } from './import'
 
 /** What the list shows. The body is only read when one is opened. */
@@ -429,7 +430,7 @@ export function registerCaptures(): void {
     return rows.map((row) => ({ ...row, body: JSON.parse(row.body ?? 'null') }))
   })
 
-  ipcMain.handle('captures:create', (_event, raw: unknown) => {
+  ipcMain.handle('captures:create', (event, raw: unknown) => {
     const patch = Patch.parse(raw)
     const { id, number } = insert(patch, new Date().toISOString())
     // The plan's automatic context: which machine, and how long it took.
@@ -443,11 +444,12 @@ export function registerCaptures(): void {
         (select attribution from captures where id = ?), (select attribution from nuggets where id = ?)) where id = ?`).run(patch.origin, patch.origin, patch.origin, id)
     if (patch.markdown !== undefined) void writeMarkdown(number, patch.markdown)
     changed()
+    celebrateAfter('captures:create', event.sender, [raw], id)
     return id
   })
 
   // Only the fields passed are written. `coalesce` keeps the rest as they were.
-  ipcMain.handle('captures:save', (_event, id: unknown, raw: unknown): SaveResult => {
+  ipcMain.handle('captures:save', (event, id: unknown, raw: unknown): SaveResult => {
     const patch = Patch.parse(raw)
     // Two editors on one note, or an editor and a merge: words written since
     // this editor last looked are never written over. It is told what is
@@ -489,7 +491,9 @@ export function registerCaptures(): void {
     if (row && (patch.markdown !== undefined || patch.body !== undefined)) void writeMarkdown(row.number as number, patch.markdown ?? markdown(patch.body))
     else if (patch.status) checkMarkdown(String(id))
     changed({ kind: 'capture', id: String(id) })
-    return { was, refused, ...(moved ? { conflict: true, body: moved.body } : {}) }
+    const result = { was, refused, ...(moved ? { conflict: true, body: moved.body } : {}) }
+    if (patch.status) celebrateAfter('captures:save', event.sender, [id, patch], result)
+    return result
   })
 }
 

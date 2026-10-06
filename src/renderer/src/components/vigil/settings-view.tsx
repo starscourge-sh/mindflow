@@ -29,6 +29,7 @@ import { FontPicker, TextSize } from './font-picker'
 import { BackToTop, Kbd, Rolling, Tip, refuse, toast, useSmooth } from './ui'
 import { Button } from '@/components/ui/button'
 import { Orb } from './orb'
+import { tryCelebration } from './celebrate'
 import { byKeys } from '@/lib/motion'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DownloadIcon from '@/components/ui/download-icon'
@@ -407,6 +408,13 @@ export function SettingsView(): React.JSX.Element {
             onSave={(folders) => set({ coversFolder: folders.at(-1) ?? '' })}
           />
         </Group>
+        <Group section="Scenery" title="Celebrations">
+          <Setting title="Celebrate milestones" note="A small card on the rare days worth marking: your 100th capture, an inbox emptied, a week of capturing in a row. Never for an everyday save or tick, and never more than one in ten minutes." keywords="celebrate celebration milestone gif meme party confetti fun">
+            <Button variant="outline" size="sm" onClick={tryCelebration}>Try a celebration</Button>
+            <Switch checked={settings.celebrate !== false} onCheckedChange={(celebrate) => set({ celebrate })} />
+          </Setting>
+          <CelebrationsFolder folder={settings.celebrationsFolder ?? ''} on={settings.celebrate !== false} onSave={(celebrationsFolder) => set({ celebrationsFolder })} />
+        </Group>
         <Group section="Scenery" title="Where they show">
           {([
             ['sceneryRest', 'When there is nothing to do', 'Inbox empty, review done, nothing due today, nothing rotting: a wide picture above the sentence that says so.', 'empty inbox zero review done'],
@@ -776,6 +784,45 @@ function SceneryFolders({ folders, on, onSave, use = 'scenery', title = 'Folders
         toast(`Added ${folder.split('/').pop()}`, () => onSave(folders))
       })}>
         <FolderPlus className="size-4" /> {use === 'covers' && folders.length ? 'Choose another…' : use === 'covers' ? 'Choose a folder…' : 'Add a folder…'}
+      </Button>
+    </Setting>
+  )
+}
+
+/**
+ * The folder celebrations play from. Unlike Scenery and Covers nothing is
+ * copied: the files are played as they are, so a GIF keeps moving.
+ */
+function CelebrationsFolder({ folder, on, onSave }: { folder: string; on: boolean; onSave: (folder: string) => void }): React.JSX.Element {
+  const found = useLive(() => (on && folder ? vigil.celebrations(folder) : Promise.resolve(null)), null as Awaited<ReturnType<typeof vigil.celebrations>> | null, [on, folder])
+  return (
+    <Setting
+      title="Celebrations folder"
+      note={`GIFs, pictures and short clips (under 25 MB and 20 seconds) to play on a milestone, one at random. They stay where they are and are never changed. With no folder, a soft grainy picture instead.${on && found ? ` ${found.length} ready.` : ''}`}
+      keywords="celebrations celebrate folder gif memes videos clips pictures choose remove"
+      below={folder && (
+        <div className="mt-2 flex flex-col gap-1">
+          <span className="flex items-center gap-2 rounded-md border py-1 pr-1 pl-2.5 text-control">
+            <span className="min-w-0 flex-1 truncate" title={folder}>{folder.split('/').slice(-2).join('/')}</span>
+            <button type="button" aria-label={`Remove ${folder}`} className="rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => {
+              onSave('')
+              chime('away')
+              toast(`Removed ${folder.split('/').pop()}`, () => onSave(folder))
+            }}>
+              <X className="size-3" />
+            </button>
+          </span>
+        </div>
+      )}
+    >
+      <Button variant="outline" size="sm" disabled={!on} onClick={() => void vigil.sceneryFolder().then((chosen) => {
+        if (!chosen) return
+        if (chosen === folder) return refuse('That folder is already chosen')
+        onSave(chosen)
+        chime('settled')
+        toast(`Celebrating with ${chosen.split('/').pop()}`, () => onSave(folder))
+      })}>
+        <FolderPlus className="size-4" /> {folder ? 'Choose another…' : 'Choose a folder…'}
       </Button>
     </Setting>
   )

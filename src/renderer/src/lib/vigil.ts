@@ -68,6 +68,10 @@ export type Settings = {
   sceneryShuffle: number
   /** Pictures behind what has none of its own; '' for plain tiles. See components/vigil/grain.tsx. */
   coversFolder: string
+  /** A card on the rare milestones; see components/vigil/celebrate.tsx. */
+  celebrate: boolean
+  /** GIFs, pictures and short clips it plays from; '' for a grainy cover. */
+  celebrationsFolder: string
   /** A question you are holding comes back now and then as a hint card. */
   questionsBack: boolean
   /** A plain Markdown copy of each capture beside the backups; never a private one. */
@@ -270,6 +274,8 @@ export const vigil = {
   scenery: (folders: string[], use: 'scenery' | 'covers' = 'scenery') => call<{ scenes: Scene[]; scanning: boolean }>('scenery', folders, use),
   /** A folder of pictures, picked in the system's own chooser. */
   sceneryFolder: () => call<string | null>('scenery:folder'),
+  /** What a celebration can play: the chosen folder's, or the one named. */
+  celebrations: (folder?: string) => call<{ url: string; video: boolean; name: string }[]>('celebrations', folder),
   // Up for private, down for not, from whichever menu or button switched it.
   setPrivate: (table: 'captures' | 'nuggets', id: string, on: boolean, quiet = false) => (quiet || chime(on ? 'on' : 'off'), call('private', table, id, on)),
   /** False when three are pinned already. */

@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webFrame } from 'electron'
 import type { LinkMetadata, LookPicture } from './index.d'
 import type { Capture, CaptureMeta, CapturePatch, Change, SaveResult } from '../main/captures'
+import type { Moment } from '../main/celebrate'
 
 // Every live view listens for changes; one IPC listener tells them all,
 // rather than one each past Node's limit of ten.
@@ -152,6 +153,15 @@ const api = {
       ipcRenderer.invoke('hints:react', event, id, reaction),
     /** How long it was on screen before the window went. */
     dwell: (event: number, ms: number): Promise<void> => ipcRenderer.invoke('hints:dwell', event, ms)
+  },
+
+  /** This window can show a celebration (or no longer can); told once it is listening. */
+  celebrateHere: (on: boolean): void => ipcRenderer.send('celebrate:host', on),
+  /** A milestone reached by something done in this window. */
+  onCelebrate: (listen: (moment: Moment) => void): (() => void) => {
+    const relay = (_event: unknown, moment: Moment): void => listen(moment)
+    ipcRenderer.on('celebrate', relay)
+    return () => ipcRenderer.off('celebrate', relay)
   },
 
   /** Everything past the capture, by channel. Only `vigil:` channels pass. */
