@@ -3,6 +3,7 @@ import { copyFile, mkdir, stat } from 'fs/promises'
 import { join } from 'path'
 
 import { LABEL, atomically, changed, database } from './captures'
+import { celebrateAfter, watches } from './celebrate'
 import { gate, plain } from './vigil'
 
 /**
@@ -52,8 +53,14 @@ export function registerNotes({ load, guard }: Windows): void {
       // Already there.
     }
   }
+  // Archiving the last capture can empty the inbox, so a watched write is
+  // looked at once it is done, as in vigil.ts.
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
-    void ipcMain.handle(`vigil:${channel}`, (_event, ...args) => run(...(args as never[])))
+    void ipcMain.handle(`vigil:${channel}`, (event, ...args) => {
+      const result = run(...(args as never[]))
+      if (watches(channel)) void Promise.resolve(result).then((done) => celebrateAfter(channel, event.sender, args, done), () => undefined)
+      return result
+    })
 
   // Archived: out of sight, never gone. Apart from the exits, so a note can be
   // put away whatever became of it, and come back as it was.

@@ -19,3 +19,6 @@ qa/qa-*
 undefined/
 out-qa
 out-*
+
+# The developer's own celebration picks, read only when run from source.
+dev-picks.json

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, motion, useIsPresent } from 'motion/react'
 import { Volume2, VolumeX, X } from 'lucide-react'
 import { vigil, type MomentKind } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
@@ -78,8 +78,9 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
       const [all, picks] = await Promise.all([vigil.celebrations().catch(() => []), vigil.celebrationPicks().catch(() => ({}))])
       items.current = all
       shownAt.current = Date.now()
-      // The file picked for this kind of moment, or else one from the folder.
-      setShown({ moment, media: (picks as Partial<Record<MomentKind, Media>>)[moment.kind] ?? pick(items.current), key: Date.now() })
+      // The file picked for this kind of moment, unless it ran too long, or else one from the folder.
+      const own = (picks as Partial<Record<MomentKind, Media>>)[moment.kind]
+      setShown({ moment, media: own && !LONG.has(own.url) ? own : pick(items.current), key: Date.now() })
       chime('cheer')
     }
     const arrive = (moment: Moment): void => {
@@ -133,7 +134,7 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
   )
 }
 
-const still = (): boolean => matchMedia('(prefers-reduced-motion: reduce)').matches
+const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 /** The small round buttons over the picture: dark glass, so they read on any of them. */
 const OVER = 'absolute flex size-6 items-center justify-center rounded-full bg-black/45 text-white/90 backdrop-blur-sm transition-colors hover:bg-black/65 hover:text-white'
 
@@ -148,8 +149,17 @@ function Card({ moment, media, origin, onDone, onTooLong }: {
   const [loud, setLoud] = useState(false)
   const [broken, setBroken] = useState(false)
   const [ready, setReady] = useState(!media?.video)
+  // Set once it is on its way out (put away, or another in its place), so
+  // Escape goes on to whatever is under it and never puts the next one away.
+  const present = useIsPresent()
+  const leaving = useRef(false)
+  if (!present) leaving.current = true
   const done = useRef(onDone)
-  done.current = onDone
+  done.current = () => {
+    if (leaving.current) return
+    leaving.current = true
+    onDone()
+  }
   // Gone after five seconds, unless the pointer is on it.
   useEffect(() => {
     if (hover) return
@@ -159,7 +169,7 @@ function Card({ moment, media, origin, onDone, onTooLong }: {
   // Escape puts it away first, before anything else hears the key.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape') return
+      if (event.key !== 'Escape' || leaving.current) return
       event.preventDefault()
       event.stopImmediatePropagation()
       done.current()
@@ -186,7 +196,7 @@ function Card({ moment, media, origin, onDone, onTooLong }: {
       onMouseDown={(event) => event.preventDefault()}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      onClick={onDone}
+      onClick={() => done.current()}
       className="pointer-events-auto w-72 cursor-default rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-(--mf-panel-shadow) select-none"
     >
       <div className="relative h-40 overflow-hidden rounded-lg" style={{ background: `color-mix(in oklab, ${moment.tint} 30%, var(--popover))` }}>
@@ -215,7 +225,7 @@ function Card({ moment, media, origin, onDone, onTooLong }: {
           <Fallback moment={moment} />
         )}
         <Tip label="Dismiss  Esc">
-          <button type="button" tabIndex={-1} aria-label="Dismiss" className={`${OVER} top-1.5 right-1.5`} onClick={(event) => (event.stopPropagation(), onDone())}>
+          <button type="button" tabIndex={-1} aria-label="Dismiss" className={`${OVER} top-1.5 right-1.5`} onClick={(event) => (event.stopPropagation(), done.current())}>
             <X className="size-3.5" />
           </button>
         </Tip>

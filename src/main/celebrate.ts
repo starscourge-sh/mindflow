@@ -1,6 +1,6 @@
 import { dialog, ipcMain, type WebContents } from 'electron'
 import { createHash } from 'crypto'
-import { readdir, stat } from 'fs/promises'
+import { readdir, realpath, stat } from 'fs/promises'
 import { basename, extname, isAbsolute, join } from 'path'
 import { database } from './captures'
 import { dayKey, dayjs, startOfDay } from './dates'
@@ -30,16 +30,21 @@ const LARGEST = 25 * 1024 * 1024
 const APART = 10 * 60000
 
 // What the windows may load, by the name they ask for: only files found in
-// the chosen folder, and the files picked for a moment, ever get a name, so
-// nothing else on the disk can be read.
+// the saved folder, and the files picked for a moment, ever get a name. A
+// pick is a path in the settings, so it is only played once it has been
+// followed to a real picture or clip of a size a card can hold.
 let served = new Map<string, string>()
 let picked = new Map<string, string>()
-let listed: { folder: string; at: number; items: Media[] } | null = null
+let listed: { folder: string; at: number; items: Media[]; names: Map<string, string> } | null = null
 
-/** The usable files in the folder, looked at again after a minute. */
+/** The usable files in a folder, looked at again after a minute. Only the saved folder's can be loaded. */
 async function media(folder: string): Promise<Media[]> {
   if (!folder || !isAbsolute(folder)) return []
-  if (listed?.folder === folder && Date.now() - listed.at < 60000) return listed.items
+  const saved = folder === celebrationPrefs().folder
+  if (listed?.folder === folder && Date.now() - listed.at < 60000) {
+    if (saved) served = listed.names
+    return listed.items
+  }
   const items: Media[] = []
   const names = new Map<string, string>()
   for (const entry of await readdir(folder, { withFileTypes: true }).catch(() => [])) {
@@ -52,8 +57,10 @@ async function media(folder: string): Promise<Media[]> {
     names.set(name, path)
     items.push({ url: `mindflow://celebrate/${name}`, video: KINDS[ext] === 'video', name: entry.name })
   }
-  served = names
-  listed = { folder, at: Date.now(), items }
+  // Another folder (Settings counting one) is only counted, so a card
+  // showing now keeps its file.
+  if (saved) served = names
+  listed = { folder, at: Date.now(), items, names }
   return items
 }
 
@@ -66,9 +73,12 @@ async function picks(): Promise<Partial<Record<MomentKind, Media>>> {
   const out: Partial<Record<MomentKind, Media>> = {}
   const names = new Map<string, string>()
   for (const kind of MOMENTS) {
-    const path = chosen[kind]
-    const ext = typeof path === 'string' ? extname(path).toLowerCase() : ''
-    if (!path || !isAbsolute(path) || !KINDS[ext]) continue
+    const asked = chosen[kind]
+    if (typeof asked !== 'string' || !isAbsolute(asked)) continue
+    // Followed to where it really is, so a link named .gif is judged by what it points at.
+    const path = await realpath(asked).catch(() => '')
+    const ext = extname(path).toLowerCase()
+    if (!path || !KINDS[ext]) continue
     const facts = await stat(path).catch(() => null)
     if (!facts?.isFile() || !facts.size || facts.size > LARGEST) continue
     const name = nameFor(path)
@@ -96,32 +106,53 @@ const today = (): string => new Date(startOfDay()).toISOString()
 /** Typed into Vigil, not brought in by an import. */
 const TYPED = "coalesce(source, '') = ''"
 
+// Each milestone is the highest one reached, not an exact count, so one held
+// back (by the ten minutes, by a window that cannot show it, by a bigger one
+// at the same time) still shows on a later save.
+const KEPT: Record<number, number> = { 1: 10, 10: 20, 100: 60, 500: 80, 1000: 100 }
+const STREAK: Record<number, number> = { 7: 30, 30: 65, 100: 90 }
+/** The highest of these that `n` has reached, or 0. */
+const reached = (steps: Record<number, number>, n: number): number => Math.max(0, ...Object.keys(steps).map(Number).filter((step) => step <= n))
+const keptCount = (): number => count(`select count(*) as n from captures where ${TYPED}`)
+const answeredCount = (): number => count("select count(*) as n from nuggets where tier = 'question' and closed_how = 'answered'")
+/** The first answer, then each tenth reached. */
+const answeredStep = (n: number): number => (n < 10 ? Math.min(n, 1) : n - (n % 10))
+
 /** The 1st, 10th, 100th, 500th and 1,000th capture, as it is kept. */
 function kept(): Moment | null {
-  const n = count(`select count(*) as n from captures where ${TYPED}`)
-  const rank = ({ 1: 10, 10: 20, 100: 60, 500: 80, 1000: 100 } as Record<number, number>)[n]
+  const n = reached(KEPT, keptCount())
+  const rank = KEPT[n]
   if (!rank || fired(`kept:${n}`)) return null
   return n === 1
     ? { id: 'kept:1', kind: 'kept', rank, headline: 'Your first capture', line: 'Out of your head, and kept.', mark: '1', tint: TINT.blue }
     : { id: `kept:${n}`, kind: 'kept', rank, headline: `${n.toLocaleString('en')} captures kept`, line: 'Each one out of your head.', mark: n.toLocaleString('en'), tint: TINT.blue }
 }
 
-/** Capturing 7, 30 or 100 days in a row, counted back from today. */
-function streak(): Moment | null {
-  const days = (database().prepare(`select distinct date(captured_at, 'localtime') as day from captures where ${TYPED} order by day desc limit 101`).all() as { day: string }[]).map((row) => row.day)
+/** The days in a row with a capture, counted back from today, and the day the run began. */
+function run(): { n: number; from: string } {
+  const days = (database().prepare(`select distinct date(captured_at, 'localtime') as day from captures where ${TYPED} order by day desc`).all() as { day: string }[]).map((row) => row.day)
   let n = 0
   while (days[n] === dayjs().subtract(n, 'day').format('YYYY-MM-DD')) n++
-  const rank = ({ 7: 30, 30: 65, 100: 90 } as Record<number, number>)[n]
-  if (!rank || fired(`streak:${n}`)) return null
+  return { n, from: dayjs().subtract(Math.max(n - 1, 0), 'day').format('YYYY-MM-DD') }
+}
+
+/** Capturing 7, 30 or 100 days in a row: once a run, so a new run after a break counts again. */
+function streak(): Moment | null {
+  const { n: days, from } = run()
+  const n = reached(STREAK, days)
+  const rank = STREAK[n]
+  const id = `streak:${from}:${n}`
+  if (!rank || fired(id)) return null
   const line = { 7: 'Something kept every day for a week.', 30: 'Something kept every day for a month.', 100: 'A hundred days without missing one.' }[n as 7 | 30 | 100]
-  return { id: `streak:${n}`, kind: 'streak', rank, headline: `${n} days in a row`, line, mark: `${n}`, tint: TINT.orange }
+  return { id, kind: 'streak', rank, headline: `${n} days in a row`, line, mark: `${n}`, tint: TINT.orange }
 }
 
 /** The inbox emptied, on a day it held five or more: once a day. */
 function emptied(): Moment | null {
   const id = `inbox:${dayKey()}`
   if (fired(id) || count("select count(*) as n from captures where status = 'open' and archived_at is null")) return null
-  const cleared = count('select count(*) as n from captures where exited_at >= ?', today())
+  // Dealt with, or put away in the archive, today.
+  const cleared = count('select count(*) as n from captures where exited_at >= ? or archived_at >= ?', today(), today())
   if (cleared < 5) return null
   return { id, kind: 'inbox', rank: 40, headline: 'Inbox empty', line: `${cleared} captures dealt with today.`, mark: '0', tint: TINT.green }
 }
@@ -155,8 +186,8 @@ function longAgo(itemId: unknown): Moment | null {
 
 /** A question answered: the first, then every tenth. */
 function answered(id: unknown): Moment | null {
-  const n = count("select count(*) as n from nuggets where tier = 'question' and closed_how = 'answered'")
-  if (!(n === 1 || n % 10 === 0) || fired(`answered:${n}`)) return null
+  const n = answeredStep(answeredCount())
+  if (!n || fired(`answered:${n}`)) return null
   const row = typeof id === 'string' ? (database().prepare('select title, private from nuggets where id = ?').get(id) as { title: string; private: number } | undefined) : undefined
   return {
     id: `answered:${n}`, kind: 'answered', rank: n === 1 ? 45 : 50,
@@ -175,6 +206,9 @@ const WATCH: Record<string, (args: unknown[], result: unknown) => (Moment | null
   },
   // Every other way a capture leaves the inbox.
   promote: () => [emptied()],
+  'nugget:from': () => [emptied()],
+  clue: () => [emptied()],
+  'notes:archive': (args) => (args[2] && args[0] !== 'nuggets' ? [emptied()] : []),
   'capture:merge': () => [emptied()],
   toTask: () => [emptied()],
   'tasks:from': () => [emptied()],
@@ -210,13 +244,32 @@ export function celebrateAfter(channel: string, sender: WebContents, args: unkno
   }
 }
 
+/**
+ * Once, the milestones already passed are marked as shown, dated long ago so
+ * they hold nothing back: someone with 150 captures gets no card for the 1st,
+ * 10th or 100th the day this arrives. A table from before this is marked too.
+ */
+function seed(): void {
+  if (fired('seeded:v2')) return
+  const mark = database().prepare("insert or ignore into celebrations (id, at) values (?, '1970-01-01T00:00:00.000Z')")
+  const kept = keptCount()
+  const answers = answeredCount()
+  const { n: days, from } = run()
+  for (const step of Object.keys(KEPT).map(Number)) if (step <= kept) mark.run(`kept:${step}`)
+  for (let step = answeredStep(answers); step > 0; step = step === 10 ? 1 : step - 10) mark.run(`answered:${step}`)
+  for (const step of Object.keys(STREAK).map(Number)) if (step <= days) mark.run(`streak:${from}:${step}`)
+  mark.run('seeded:v2')
+}
+
 export function registerCelebrations(): void {
   database().exec('create table if not exists celebrations (id text primary key, at text not null)')
+  seed()
   ipcMain.on('celebrate:host', (event, on: unknown) => void (on ? hosts.add(event.sender.id) : hosts.delete(event.sender.id)))
-  // The files in a folder: the one asked about (Settings' count), or the chosen one.
+  // The files in a folder: the one asked about (Settings' count, never then
+  // loadable unless it is the saved one), or the saved one.
   ipcMain.handle('vigil:celebrations', (_event, folder?: unknown) =>
     media(typeof folder === 'string' ? folder : celebrationPrefs().folder))
-  // The file picked for each moment, from Settings only: never a path the window names.
+  // The file picked for each moment, from the settings, each followed and checked by picks().
   ipcMain.handle('vigil:celebrations:picks', () => picks())
   ipcMain.handle('vigil:celebrations:choose', async () => {
     const { filePaths } = await dialog.showOpenDialog({

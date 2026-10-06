@@ -1,7 +1,7 @@
 import { Notification, app, dialog, ipcMain, net, session } from 'electron'
 import { randomUUID } from 'crypto'
 import { cp, mkdir, writeFile } from 'fs/promises'
-import { existsSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
 import { createEmptyCard, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
@@ -133,17 +133,20 @@ function devFolder(path: string): string {
   return !app.isPackaged && existsSync(full) ? full : ''
 }
 
-/** The developer's own file for each moment, under the same rule as devFolder. */
+/**
+ * The developer's own file for each moment, under the same rule as devFolder:
+ * named in dev-picks.json at the top of the source (kept out of git), as a
+ * path under the home folder for each kind of moment.
+ */
 function devPicks(): Partial<Record<MomentKind, string>> {
-  const files: Record<MomentKind, string> = {
-    kept: '467097809_1166086144860069_741815299916840190_n.gif',
-    streak: '467097809_1166086144860069_741815299916840190_n.gif',
-    inbox: '732863253_842536828689706_5251082396523319902_n.gif',
-    tasks: 'stewie-stewie-griffin.gif',
-    year: 'HQn0GA4XcAAXmEH.jpeg',
-    answered: 'example_You can now Rick roll in 4K, thanks to machine learning_2021-02-20_190500_4272.mp4'
+  if (app.isPackaged) return {}
+  let files: Record<string, unknown> = {}
+  try {
+    files = JSON.parse(readFileSync(join(app.getAppPath(), 'dev-picks.json'), 'utf8'))
+  } catch {
+    // No file of picks: the folder alone.
   }
-  return Object.fromEntries(Object.entries(files).map(([kind, file]) => [kind, devFolder(`Downloads/memes/${file}`)]).filter(([, path]) => path))
+  return Object.fromEntries(Object.entries(files).filter(([, file]) => typeof file === 'string').map(([kind, file]) => [kind, devFolder(file as string)]).filter(([, path]) => path))
 }
 
 const DEFAULTS = {
