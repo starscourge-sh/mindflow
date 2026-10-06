@@ -215,10 +215,10 @@ const Header = ({ panel, onPanel, onNew, menu, nav, title, aside }: {
         <WindowDots />
         <span style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>{nav}</span>
         {/* The note's name, faint, once its first line has scrolled away, so
-            a long note still says what it is: beside the back arrows like a
-            breadcrumb, a short line at most, never over the side panel or
-            under the chips on the right. */}
-        <span className="relative flex min-w-0 flex-1 justify-start px-3">
+            a long note still says what it is: centred over the writing, a
+            short line at most, never over the side panel or the window dots. */}
+        <span className="flex-1" />
+        <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center justify-center px-32" style={{ right: panel ? 440 : 0 }}>
         <AnimatePresence>
           {title && (
             <motion.span
