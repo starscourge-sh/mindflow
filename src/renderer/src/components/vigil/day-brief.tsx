@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { motion } from 'motion/react'
 import { alive } from '@/components/ui/alive-icon'
 import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
@@ -9,6 +9,7 @@ import { useLive, vigil, whenInLine, type Item, type Settings, type Task } from 
 import { Typed, toast } from './ui'
 import { Scenery, useDayScene } from './scenery'
 import { openPass } from './pass'
+import { KindBack, returning, type Returning } from './kind-back'
 import { ago, clock, dayjs, dayKey, num } from '../../../../main/dates'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -54,7 +55,7 @@ function useMinute(): Date {
 /** When a task is for: the day it is due, else its deadline's. */
 const dueDay = (task: Task): string | null => (task.dueAt ? dayKey(task.dueAt) : task.deadline ? dayKey(task.deadline) : null)
 
-type Next = { label: string; title: string; text: string; run: () => void; private?: boolean }
+type Next = { label: string; title: string; text: string; run: () => void; private?: boolean; extra?: ReactNode }
 
 export function DayBrief({ day, onOpen }: { day: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const now = useMinute()
@@ -64,6 +65,8 @@ export function DayBrief({ day, onOpen }: { day: string; onOpen?: (type: string,
   const waiting = useLive(vigil.passWaiting, { tidy: 0, decide: 0 })
   const reviews = useLive(vigil.dueCount, 0)
   const questions = useLive(() => vigil.items('question'), [] as Item[], [], ['item'])
+  // A decision on its look-again day, an experiment past its run-until.
+  const back = useLive(returning, [] as Returning[], [], ['capture', 'item']).filter((one) => !one.private)[0]
   // The same idea caught three times or more, among the last fortnight's captures.
   const repeats = useLive<Record<string, Repeat>>(async () => {
     const ids = (await vigil.recent(14)).filter((one) => one.type === 'capture' && !one.private).map((one) => one.id).slice(0, 80)
@@ -82,8 +85,8 @@ export function DayBrief({ day, onOpen }: { day: string; onOpen?: (type: string,
   const clue = questions.filter((one) => !one.closedAt && !one.archivedAt && !one.private && one.clues > 0 && (one.updatedAt ?? '') >= week)
     .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))[0]
 
-  // The one thing, in order of what helps most: a task that is due, the
-  // deciding pass on its day, an idea that keeps coming back, a question
+  // The one thing, in order of what helps most: a task that is due, a
+  // decision or experiment whose day has come, the deciding pass on its day, an idea that keeps coming back, a question
   // with a new clue, then the review.
   const task = [...late, ...dueToday].sort((a, b) => b.important - a.important || (a.dueAt ?? a.deadline ?? '').localeCompare(b.dueAt ?? b.deadline ?? ''))[0]
   const next: Next | null = task ? {
@@ -95,6 +98,14 @@ export function DayBrief({ day, onOpen }: { day: string; onOpen?: (type: string,
       task.blocker ? `In the way: ${task.blocker}.` : task.waitingOn ? `Waiting on ${task.waitingOn}.` : ''
     ].filter(Boolean).join(' '),
     run: () => window.api.openInHome('task', task.id)
+  } : back ? {
+    label: back.kind === 'decision' ? 'Look again' : 'Write the finding',
+    title: back.title,
+    text: back.kind === 'decision'
+      ? 'You set today to check this call still holds. If nothing in its reopen condition has happened, it stands.'
+      : `It was to run until ${whenInLine(back.at)}. Whatever happened is a finding, even “nothing changed”.`,
+    run: () => onOpen?.(back.type, back.id),
+    extra: <KindBack one={back} onOpen={onOpen} />
   } : deciding ? {
     label: 'Make the calls',
     title: 'Decide what you set aside',
@@ -129,6 +140,7 @@ export function DayBrief({ day, onOpen }: { day: string; onOpen?: (type: string,
   else if (dueToday.length && timed.length) parts.push(`${say(dueToday.length)} ${dueToday.length === 1 ? 'thing is' : 'things are'} due today, the first at ${clock(timed[0].dueAt!)}`)
   else if (dueToday.length) parts.push(`${say(dueToday.length)} ${dueToday.length === 1 ? 'thing is' : 'things are'} due today, at no set time`)
   if (late.length) parts.push(`${late.length === 1 ? 'one thing from before is' : 'a few things from before are'} still open`)
+  if (back) parts.push(back.kind === 'decision' ? 'a decision comes back for a look' : 'an experiment has run its time')
   if (deciding) parts.push('it is deciding day')
   if (waiting.tidy) parts.push('new captures are ready for a tidy when you like')
   if (reviews) parts.push(reviews === 1 ? 'one thing comes back for review' : 'a few things come back for review')
@@ -241,6 +253,7 @@ function NextCard({ next }: { next: Next }): React.JSX.Element {
         <div className="min-w-0 @[34rem]:pt-0.5">
           <p className="private-text line-clamp-2 text-[0.9375rem] font-semibold text-foreground">{next.title}</p>
           <p className="mt-1.5 max-w-[60ch] text-sm leading-relaxed text-pretty text-muted-foreground">{next.text}</p>
+          {next.extra && <div className="mt-3 max-w-[60ch]">{next.extra}</div>}
         </div>
       </div>
     </div>

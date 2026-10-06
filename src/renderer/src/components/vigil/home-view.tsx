@@ -24,6 +24,7 @@ import { tagColour } from './tag-read'
 import { completeTask } from './tasks-view'
 import { Empty, Pressed, Tip } from './ui'
 import { byKeys } from '@/lib/motion'
+import { KindBack, backLine, type Returning } from './kind-back'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowRight = alive(ArrowNarrowRightIcon)
@@ -45,7 +46,7 @@ const Repeat2 = alive(RefreshIcon)
  */
 
 type Kind = 'capture' | 'nugget' | 'article' | 'question' | 'task'
-type Card = { type: Kind; id: string; title: string; kind: string; private: number; at: string; excerpt?: string; sub?: string; clue?: string | null; count?: number }
+type Card = { type: Kind; id: string; title: string; kind: string; private: number; at: string; excerpt?: string; sub?: string; clue?: string | null; count?: number; foot?: ReactNode }
 type HomeData = {
   opened: Card[]
   edited: Card[]
@@ -56,8 +57,9 @@ type HomeData = {
   week: Card[]
   memory: (Card & { memory: string }) | null
   article: Card | null
+  returning: Returning[]
 }
-const NONE: HomeData = { opened: [], edited: [], due: [], unseen: [], questions: [], tags: [], week: [], memory: null, article: null }
+const NONE: HomeData = { opened: [], edited: [], due: [], unseen: [], questions: [], tags: [], week: [], memory: null, article: null, returning: [] }
 const home = (): Promise<HomeData> => window.api.vigil('home') as Promise<HomeData>
 
 const CHIPS = [
@@ -429,16 +431,18 @@ function Quotes({ title, onAll, cards, actions }: { title: ReactNode; onAll?: ()
       <div className="columns-1 gap-2 @[24rem]/page:columns-2 @[60rem]/page:columns-3">
         {cards.map((card, at) => (
           <RowMenu key={card.id} items={menuFor(card, actions, cards, at)}>
-            <div className="group/card relative mb-2 break-inside-avoid">
-              <Lean by={4}>
+            <div className="group/card relative mb-2 break-inside-avoid" data-private={card.private ? '' : undefined}>
+              {/* A card that is settled in place carries its answer under it, in the same paper. */}
+              <Lean by={4} inner={card.foot ? 'rounded-xl bg-foreground/[0.04]' : ''}>
               <button type="button" data-nav data-private={card.private ? '' : undefined} onClick={() => actions.open(card)}
-                className="flex w-full flex-col gap-2 rounded-xl bg-foreground/[0.04] p-4 text-left outline-none transition-colors duration-150 hover:bg-foreground/[0.07] focus-visible:ring-2 focus-visible:ring-ring/50">
+                className={`flex w-full flex-col gap-2 rounded-xl p-4 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring/50 ${card.foot ? 'pb-2 hover:bg-foreground/[0.03]' : 'bg-foreground/[0.04] hover:bg-foreground/[0.07]'}`}>
                 <span className="private-text pr-7 font-heading text-[1.0625rem] leading-snug [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
                 {wordsOf(card.excerpt) && <span className="private-text line-clamp-3 text-xs leading-relaxed text-muted-foreground">{wordsOf(card.excerpt)}</span>}
                 <span className="flex items-center gap-1.5 text-xs text-muted-foreground/80">
                   <KindMark card={card} className="size-4 rounded-[4px] [&_svg]:size-2.5" />{card.sub}
                 </span>
               </button>
+              {card.foot && <div className="px-4 pb-3">{card.foot}</div>}
               <span className="pointer-events-none absolute top-2 right-2">
                 <RoundRead onRead={() => actions.read(cards, at)}
                   className="pointer-events-auto translate-y-1 opacity-0 group-focus-within/card:translate-y-0 group-focus-within/card:opacity-100 group-hover/card:translate-y-0 group-hover/card:opacity-100" />
@@ -519,7 +523,9 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   // Not what the tiles already show: further back in what you had open or changed.
   const jumpSeen = new Set(tiles.slice(0, 8).map((card) => card.id))
   const jump = only([...data.opened, ...data.edited].filter((card) => !jumpSeen.has(card.id) && (jumpSeen.add(card.id), true)).map(dated)).slice(0, 12)
-  const back = only([...data.due.map((card) => ({ ...card, sub: 'Due for review' })), ...data.unseen.map((card) => ({ ...card, sub: 'Not seen in a while' }))]).slice(0, 6)
+  // A decision or experiment whose day has come leads, settled right on its card.
+  const returned = data.returning.map((one): Card => ({ ...one, type: one.type as Kind, excerpt: '', sub: backLine(one), foot: <KindBack one={one} onOpen={(type, id) => onOpen(type, id)} /> }))
+  const back = only([...returned, ...data.due.map((card) => ({ ...card, sub: 'Due for review' })), ...data.unseen.map((card) => ({ ...card, sub: 'Not seen in a while' }))]).slice(0, Math.max(6, returned.length))
   const questions = only(data.questions).slice(0, chip === 'questions' ? 12 : 4)
   const tidy = only(rot)
   const again = only(clusters)

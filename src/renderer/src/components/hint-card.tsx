@@ -17,6 +17,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { QuestionBack } from './vigil/questions-view'
+import { KindBack, backLine, returningHint, type Returning } from './vigil/kind-back'
 import { GlossLine, useGlossKey } from './vigil/gloss-line'
 import { openPass } from './vigil/pass'
 import { Postcarded, usePostcard } from './vigil/memory-postcard'
@@ -55,6 +56,9 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
   // A question you are holding, come back: "Still open: …".
   const [back, setBack] = useState<Awaited<ReturnType<typeof vigil.questionBack>>>(null)
   useEffect(() => void (back && chime('memory')), [back?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  // A decision on its look-again day, an experiment past its run-until: you set the day, so it skips the dice.
+  const [due, setDue] = useState<Returning | null>(null)
+  useEffect(() => void (due && chime('memory')), [due?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const shownAt = useRef(0)
   // What the card says, set a beat after it arrives so the words roll in
   // from nothing rather than appearing already there.
@@ -109,11 +113,15 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
       window.api.onShown(async () => {
         setAsking(false)
         setBack(null)
+        setDue(null)
         // A nudge comes at most once a day, so it skips the dice; never in
         // quiet hours or safe mode, which the main process checks.
         const nudging = await vigil.nudge()
         setNudge(nudging)
         if (nudging) return setHint(null)
+        const coming = await returningHint()
+        setDue(coming)
+        if (coming) return setHint(null)
         const { rate } = await vigil.hintRate()
         if (Math.random() < rate) {
           // Now and then, a question still held instead: low weight, at most
@@ -223,6 +231,22 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
           className="mt-2 mb-3 overflow-hidden rounded-lg border bg-accent/40 px-3 py-2.5 text-sm"
         >
           <QuestionBack back={back} onOpen={onOpen} onDone={() => setBack(null)} />
+        </motion.div>
+      )}
+      {due && !nudge && !hint && (
+        <motion.div
+          key={`due-${due.id}`}
+          initial={{ opacity: 0, transform: shift('translateY(-6px) scale(0.98)') }}
+          animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
+          exit={{ opacity: 0, height: 0, marginBottom: 0, transition: { duration: 0.16, ease: EASE } }}
+          transition={{ duration: 0.24, ease: EASE }}
+          className="mt-2 mb-3 overflow-hidden rounded-lg border bg-accent/40 px-3 py-2.5 text-sm"
+        >
+          <p className="text-xs text-muted-foreground">{backLine(due)}</p>
+          <button type="button" onClick={() => (chime('open'), onOpen(due.type, due.id), setDue(null))} className="mb-1.5 block text-left text-sm text-foreground hover:underline">
+            <Typed text={due.title} step={28} delay={120} />
+          </button>
+          <KindBack one={due} onOpen={onOpen} onDone={() => setDue(null)} />
         </motion.div>
       )}
       {nudge && !hint && (

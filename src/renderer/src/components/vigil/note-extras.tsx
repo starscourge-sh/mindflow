@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { AlignLeft, Columns3, Plus, Split, Star } from 'lucide-react'
+import { AlignLeft, CalendarDays, Columns3, Plus, Split, Star } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 import RightChevronIcon from '@/components/ui/right-chevron'
@@ -33,7 +33,8 @@ import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import BookIcon from '@/components/ui/book-icon'
 import { ReadThrough } from './read-through'
 import { Island, PropInput, Rolling, Tip, Typed, refuse, toast } from './ui'
-import { age, dayKey, dayMonth, dayjs, moment, noon, num } from '../../../../main/dates'
+import { age, dayKey, dayMonth, dayjs, daysFromToday, moment, noon, num, when } from '../../../../main/dates'
+import { DatePicker } from './date-picker'
 import { keyFor } from '@/lib/keys'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -133,7 +134,9 @@ const STATUS: Record<string, { said: string; cue: Cue }> = {
   Deciding: { said: 'Deciding: weigh it up under Working out', cue: 'weigh' },
   Decided: { said: "Decided. Don't reopen it without a new reason", cue: 'decided' },
   Running: { said: 'Running: say what came of it when it ends', cue: 'trial' },
-  Finished: { said: 'Finished: write the outcome so it skims later', cue: 'finding' }
+  Finished: { said: 'Finished: write the outcome so it skims later', cue: 'finding' },
+  // A book's own: the same word, a different ask.
+  'book:Finished': { said: 'Finished: say what you will keep from it under Takeaway', cue: 'finding' }
 }
 
 /**
@@ -171,9 +174,15 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
     const patch = { [key]: next, ...(dates ? { decidedAt: next === 'Decided' ? (values.decidedAt && values[key] === 'Decided' ? values.decidedAt : new Date().toISOString()) : null } : {}) }
     // Weighing it up opens the working out; deciding folds it away, kept.
     if (dates) setWorking(next === 'Deciding' ? true : next === 'Decided' ? false : null)
-    void saveAll(patch).then(() => {
-      chime(next ? STATUS[next]?.cue ?? 'tap' : 'off')
-      toast(next ? STATUS[next]?.said ?? next : 'No status', () => void saveAll(was).then(() => chime('undo')))
+    void saveAll(patch).then(async () => {
+      const says = next ? STATUS[`${kind}:${next}`] ?? STATUS[next] : undefined
+      chime(next ? says?.cue ?? 'tap' : 'off')
+      // Decided with no call written: the note's first line usually is it, offered in one key.
+      const first = dates && next === 'Decided' && !values.call
+        ? (await vigil.linkTitle(table === 'captures' ? id : `nugget:${id}`))?.title?.split('\n')[0].trim().slice(0, 200)
+        : ''
+      toast(next ? says?.said ?? next : 'No status', () => void saveAll(was).then(() => chime('undo')), 'success',
+        first ? { label: 'Use the first line as the call', key: 'c', run: () => void notes.setField(table, id, 'call', first).then(() => (chime('noted'), toast(`The call: ${first}`, () => void notes.setField(table, id, 'call', null).then(() => chime('undo'))))) } : undefined)
     })
   }
   // An experiment's finding becomes a decision: made from it, so each shows
@@ -205,8 +214,12 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
   const longField = (field: Field, value: string | number | undefined): React.JSX.Element => (
     <label key={`${id}-${field.key}-${value ?? ''}`} className="flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-accent focus-within:bg-accent">
       <AlignLeft className="mt-1 size-4 shrink-0" />
-      <Textarea rows={2} defaultValue={String(value ?? '')} placeholder={field.placeholder ?? field.label} aria-label={field.label} onBlur={(event) => save(field.key, event.target.value.trim())}
-        className="min-h-0 resize-none border-0 bg-transparent p-0 text-control text-foreground shadow-none focus-visible:ring-0" />
+      <span className="flex min-w-0 flex-1 flex-col">
+        {/* Once filled, the placeholder that said what it was is gone: the name stays above. */}
+        {value ? <span className="text-meta">{field.label}</span> : null}
+        <Textarea rows={2} defaultValue={String(value ?? '')} placeholder={field.placeholder ?? field.label} aria-label={field.label} onBlur={(event) => save(field.key, event.target.value.trim())}
+          className="min-h-0 resize-none border-0 bg-transparent p-0 text-control text-foreground shadow-none focus-visible:ring-0 dark:bg-transparent" />
+      </span>
     </label>
   )
   return (
@@ -216,6 +229,7 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
       {fields.map((field) => {
         const value = values[field.key]
         if (field.type === 'hidden') return null
+        if (field.when && values[field.when[0]] !== field.when[1] && !value) return null
         if (field.type === 'choice')
           return (
             <div key={field.key} className="px-2 py-1">
@@ -227,7 +241,7 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
               {kind === 'decision' && value === 'Decided' && (
                 <p className="flex items-center gap-1.5 pt-1 pb-0.5 pl-6 text-xs text-muted-foreground">
                   <Lock className="size-3 shrink-0" />
-                  <Typed text={`Decided${values.decidedAt ? ` ${dated(String(values.decidedAt))}` : ''} — don't reopen without a reason`} step={24} delay={150} />
+                  <Typed text={`Decided${values.decidedAt ? ` ${dated(String(values.decidedAt))}` : ''}: don't reopen it without a reason`} step={24} delay={150} />
                 </p>
               )}
             </div>
@@ -256,6 +270,17 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
             </div>
           )
         }
+        if (field.type === 'date')
+          return <DateField key={field.key} field={field} value={value}
+            // Nothing comes back once it is finished, or while a decision is still being made.
+            settled={field.key === 'until' ? values.status === 'Finished' : !!state && state !== 'Decided'} onSave={(iso) => {
+            const was = value ?? null
+            void notes.setField(table, id, field.key, iso).then(() => {
+              chime(iso ? 'pin' : 'off')
+              const back = field.key === 'until' ? 'asks what you found' : 'comes back to check it still holds'
+              toast(iso ? `On ${dayMonth(iso)} it ${back}` : `${field.label}: cleared`, () => void notes.setField(table, id, field.key, was).then(() => chime('undo')))
+            })
+          }} />
         if (field.type === 'link')
           return <LinkField key={field.key} label={field.label} placeholder={field.placeholder ?? field.label} value={value ? String(value) : null} onOpen={onOpen}
             onSave={(link) => {
@@ -277,7 +302,9 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
             </div>
           )
         if (field.type === 'long') return longField(field, value)
-        return <PropInput key={`${id}-${field.key}-${value ?? ''}`} icon={Type} value={String(value ?? '')} placeholder={field.placeholder ?? field.label} onSave={(text) => save(field.key, text)} />
+        const input = <PropInput key={`${id}-${field.key}-${value ?? ''}`} icon={Type} value={String(value ?? '')} placeholder={field.placeholder ?? field.label} onSave={(text) => save(field.key, text)} />
+        // A decision's call is read by its name, so the name stays once it is written.
+        return kind === 'decision' && value ? <div key={field.key}><span className="block px-8 pt-1.5 -mb-1.5 text-meta">{field.label}</span>{input}</div> : input
       })}
       {kind === 'experiment' && (
         <Tip label="A decision note, each linked to the other">
@@ -288,6 +315,26 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
       )}
     </Island>
     </>
+  )
+}
+
+/**
+ * A day that brings the note back: said in words or picked, with its name
+ * beside it like a link's. A date written as words before this was a date
+ * shows as it was, until one is picked.
+ */
+function DateField({ field, value, settled, onSave }: { field: Field; value: string | number | undefined; settled: boolean; onSave: (iso: string | null) => void }): React.JSX.Element {
+  const iso = typeof value === 'string' && /^\d{4}-\d\d-\d\dT/.test(value) ? value : null
+  const due = !!iso && !settled && daysFromToday(iso) <= 0
+  return (
+    <DatePicker value={iso} onChange={onSave} suggest={field.suggest} className="w-full rounded-none">
+      <CalendarDays className="size-4 shrink-0" />
+      <span className="w-16 shrink-0 truncate text-meta">{field.label}</span>
+      <span className={`min-w-0 flex-1 truncate ${iso ? 'text-foreground' : 'text-foreground/70'}`}>
+        {iso ? when(iso) : value ? String(value) : field.placeholder}
+      </span>
+      {due && <span className="shrink-0 rounded-full px-1.5 text-xs" style={{ color: 'var(--tt-color-text-orange)', background: 'color-mix(in oklab, var(--tt-color-text-orange) 12%, transparent)' }}>Due</span>}
+    </DatePicker>
   )
 }
 

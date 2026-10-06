@@ -696,8 +696,12 @@ export function importNote(path: string, text: string, modified: Date, hidden = 
     return { link: `article:${id}`, title, path, private: secret }
   }
   if (db.prepare('select 1 from captures where source = ? and named = 1').get(path)) return 'already here'
-  const { id, number } = insert({ title, kind: 'note', body, source: path }, new Date(at).toISOString())
-  db.prepare('update captures set named = 1, fields = ?, private = max(private, ?) where id = ?').run(kept, secret ? 1 : 0, id)
+  // A kind of ours, as an export from here writes it, comes back as that kind with its fields.
+  const kind = (KINDS as readonly string[]).includes(fields.kind) ? (fields.kind as (typeof KINDS)[number]) : 'note'
+  if (kind !== 'note') delete fields.kind
+  const own = Object.keys(fields).length ? JSON.stringify(fields) : null
+  const { id, number } = insert({ title, kind, body, source: path }, new Date(at).toISOString())
+  db.prepare('update captures set named = 1, fields = ?, private = max(private, ?) where id = ?').run(own, secret ? 1 : 0, id)
   void writeMarkdown(number, body)
   return { link: id, title, path, private: secret }
 }

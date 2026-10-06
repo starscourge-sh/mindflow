@@ -2150,6 +2150,8 @@ export function activeSession(): { title: string; startedAt: string } | null {
 
 /** One thing on a Home shelf: a capture, nugget, article or question. */
 type Shelved = { type: string; id: string; title: string; kind: string; private: number; at: string }
+/** A decision or experiment whose day has come: `at` is that day, the rest what it says when it comes back. */
+type Returning = Shelved & { call: string; reopen: string; question: string; outcome: string }
 
 /**
  * Home's shelves in one read, and nothing written while reading: unlike a
@@ -2166,6 +2168,33 @@ export function registerHome(): void {
   const NOTES = `select id, 'capture' as type, ${LABEL} as title, kind, private, coalesce(edited_at, captured_at) as at, captured_at as made, body from captures where status != 'discarded' and archived_at is null
     union all select id, tier, coalesce(nullif(title, ''), label('', body)), kind, private, coalesce(updated_at, created_at), created_at, body from nuggets where archived_at is null and superseded_by is null`
   const strip = ({ type, id, title, kind, private: hidden, at }: Shelved): Shelved => ({ type, id, title, kind, private: hidden, at })
+
+  // A decision on its look-again day, or an experiment past its run-until and
+  // not finished: each comes back with what it needs to be settled in place.
+  // Oldest due first; a date said in words before dates were dates never counts.
+  const returning = (): Returning[] => {
+    const end = dayjs().endOf('day').toISOString()
+    const rows = db.prepare(`select id, 'capture' as type, ${LABEL} as title, kind, private, fields from captures where status != 'discarded' and archived_at is null and kind in ('decision', 'experiment') and fields is not null
+      union all select id, tier, coalesce(nullif(title, ''), label('', body)), kind, private, fields from nuggets where archived_at is null and superseded_by is null and kind in ('decision', 'experiment') and fields is not null`).all() as (Shelved & { fields: string })[]
+    return rows.flatMap(({ fields, ...row }) => {
+      let f: Record<string, string> = {}
+      try { f = JSON.parse(fields) } catch { return [] }
+      const at = row.kind === 'decision' ? (f.state === 'Decided' || !f.state ? f.revisit : null) : f.status !== 'Finished' ? f.until : null
+      if (!at || !/^\d{4}-\d\d-\d\dT/.test(at) || at > end) return []
+      return [{ ...row, at, call: f.call ?? '', reopen: f.reopen ?? '', question: f.question ?? '', outcome: f.outcome ?? '' }]
+    }).sort((a, b) => a.at.localeCompare(b.at))
+  }
+  ipcMain.handle('vigil:returning', () => returning().filter((one) => !(gate().hidePrivate && one.private)))
+  // In the box, as a hint would come: each at most once a day, never private, never in quiet hours.
+  ipcMain.handle('vigil:returning:hint', () => {
+    const { blackout, hidePrivate } = gate()
+    if (blackout || hidePrivate) return null
+    const shown = new Set((db.prepare('select nugget_id as id from hint_events where shown_at >= ?').all(new Date(startOfDay()).toISOString()) as { id: string }[]).map((row) => row.id))
+    const one = returning().find((row) => !row.private && !shown.has(row.id))
+    if (!one) return null
+    db.prepare('insert into hint_events (nugget_id, shown_at) values (?, ?)').run(one.id, now())
+    return one
+  })
 
   ipcMain.handle('vigil:home', () => {
     const { blackout, hidePrivate } = gate()
@@ -2234,6 +2263,7 @@ export function registerHome(): void {
     const each = <T extends Shelved>(list: T[]): (T & { excerpt: string })[] => list.map(excerpt)
     return {
       opened: each(opened), edited: each(edited), due: each(due), unseen: each(unseen), questions, week: each(week),
+      returning: returning().filter(offered),
       tags: tags.map((one) => ({ ...one, cards: each(one.cards) })),
       memory: memory ? excerpt({ ...strip(memory), memory: years === 1 ? 'A year ago today' : `${years} years ago today` }) : null,
       article: article ? excerpt(strip(article)) : null
