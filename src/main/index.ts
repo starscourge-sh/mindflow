@@ -634,14 +634,19 @@ function openHome(): void {
  * quick as every other, and again only if it is ever really gone. Closing it
  * hides it; only quitting closes it for good.
  */
+/** The compact main window: about Raycast's settings window, never more than most of the screen. */
+const compact = (): { width: number; height: number } => {
+  const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+  return { width: Math.min(1000, Math.round(workArea.width * 0.8)), height: Math.min(700, Math.round(workArea.height * 0.8)) }
+}
+
 function makeHome(): BrowserWindow {
   if (home) return home
 
   // Compact by default, a window that sits beside your work rather than
   // taking it over; filling the screen is a button away (`home:fill`).
   home = new BrowserWindow({
-    width: 760,
-    height: 520,
+    ...compact(),
     show: false,
     title: 'Vigil',
     backgroundColor: '#1c1c1c',
@@ -679,7 +684,8 @@ function makeHome(): BrowserWindow {
     if (home.isMaximized()) home.unmaximize()
     if (home.isFullScreen()) home.setFullScreen(false)
     const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
-    home.setBounds({ width: 760, height: 520, x: Math.round(workArea.x + (workArea.width - 760) / 2), y: Math.round(workArea.y + (workArea.height - 520) / 2) })
+    const { width, height } = compact()
+    home.setBounds({ width, height, x: Math.round(workArea.x + (workArea.width - width) / 2), y: Math.round(workArea.y + (workArea.height - height) / 2) })
   })
   guard(home)
   load(home, '?view=home')
