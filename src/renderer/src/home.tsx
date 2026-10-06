@@ -1,6 +1,7 @@
 import { themeActions } from '@/lib/theme'
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
-import { Minimize2, ArrowLeft, ArrowRight, ChevronRight, PanelLeft, Search as SearchIcon, Shield, ShieldOff, SquarePen, Tag } from 'lucide-react'
+import { Minimize2, ArrowLeft, ArrowRight, ChevronDown, ChevronRight, CircleHelp, PanelLeft, Search as SearchIcon, Shield, SquarePen, Tag } from 'lucide-react'
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AnimatePresence, motion } from 'motion/react'
 import { chime, soundOn } from './lib/sound'
 import { NotePreview } from './components/vigil/note-preview'
@@ -26,8 +27,6 @@ import { Tip, showTopTitle, useTopTitle } from '@/components/vigil/ui'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import ExpandIcon from '@/components/ui/expand-icon'
 import GearIcon from '@/components/ui/gear-icon'
-import EyeIcon from '@/components/ui/eye-icon'
-import EyeOffIcon from '@/components/ui/eye-off-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
 import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
@@ -525,40 +524,6 @@ export function Home(): React.JSX.Element {
         </>)}
 
         <div className="mt-auto flex flex-col gap-px pt-4">
-          <Tip label={narrow ? 'Safe mode  ⌥⌘S' : '⌥⌘S'}>
-          <button
-            type="button"
-            onClick={safeMode}
-          
-            aria-label={settings?.safeMode ? 'Safe mode: on' : 'Safe mode: off'}
-            className={`flex items-center gap-2.5 rounded-md py-1.5 transition-colors hover:bg-accent/60 ${narrow ? 'justify-center px-0' : 'px-2'} ${settings?.safeMode ? 'text-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,var(--foreground))]' : 'text-foreground/80'}`}
-          >
-            {settings?.safeMode ? <Shield className="size-4" /> : <ShieldOff className="size-4" />}
-            {!narrow && <span className="flex-1 text-left">{settings?.safeMode ? 'Safe mode: on' : 'Safe mode: off'}</span>}
-          </button>
-          </Tip>
-          <Tip label="Blurring: private words, the dim, soft arrivals">
-          <button
-            type="button"
-            onClick={blurring}
-            aria-label={settings?.blur === false ? 'Blurring: off' : 'Blurring: on'}
-            className={`flex items-center gap-2.5 rounded-md py-1.5 text-foreground/80 transition-colors hover:bg-accent/60 ${narrow ? 'justify-center px-0' : 'px-2'}`}
-          >
-            <AliveIcon icon={settings?.blur === false ? EyeIcon : EyeOffIcon} size={16} />
-            {!narrow && <span className="flex-1 text-left">{settings?.blur === false ? 'Blurring: off' : 'Blurring: on'}</span>}
-          </button>
-          </Tip>
-          <Tip label="Settings  ⌘,">
-          <button
-            type="button"
-            aria-label="Settings"
-            onClick={() => setView({ id: 'settings' })}
-            className={`flex items-center gap-2.5 rounded-md py-1.5 ${narrow ? 'justify-center px-0' : 'px-2'} ${view.id === 'settings' ? 'bg-accent' : 'text-foreground/80 hover:bg-accent/60'}`}
-          >
-            <AliveIcon icon={GearIcon} size={16} />
-            {!narrow && <span className="flex-1 text-left">Settings</span>}
-          </button>
-          </Tip>
           {/* Notion's quiet last row: which sections the sidebar lists. Settings has the same switches. */}
           <Tip label={narrow ? 'Customize sidebar' : ''}>
           <button
@@ -573,13 +538,49 @@ export function Home(): React.JSX.Element {
             {!narrow && <span className="flex-1 text-left">Customize sidebar</span>}
           </button>
           </Tip>
-          {/* Faint until the pointer comes to the sidebar: read once, then out of the way. */}
-          {!narrow && (
-            <p className="mt-2 flex flex-wrap gap-x-2.5 px-2 text-xs whitespace-nowrap text-muted-foreground opacity-60 transition-opacity duration-200 group-hover/side:opacity-100">
-              <span><Kbd>G</Kbd> jump</span> <span><Kbd>C</Kbd> capture</span> <span><Kbd>?</Kbd> keys</span>
-            </p>
-          )}
         </div>
+        </div>
+        {/* One row at the foot, the way Notion keeps its workspace menu: Settings,
+            Safe mode, Blurring, the keys and the tour wait behind Vigil's name.
+            Safe mode on still shows, since a quiet box should say why. */}
+        <div className={`mx-2 mb-2 flex shrink-0 items-center gap-1 border-t pt-2 ${narrow ? 'flex-col' : ''}`}>
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <button type="button" aria-label="Vigil menu"
+                className={`flex min-w-0 items-center gap-2 rounded-md py-1.5 text-foreground/80 transition-colors hover:bg-accent/60 data-[state=open]:bg-accent/60 ${narrow ? 'justify-center px-0' : 'flex-1 px-2'}`}>
+                <AliveIcon icon={GearIcon} size={16} />
+                {!narrow && <span className="flex-1 truncate text-left">Vigil</span>}
+                {!narrow && <ChevronDown className="size-3.5 text-muted-foreground" />}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="start" className="w-60">
+              <DropdownMenuItem onSelect={() => setView({ id: 'settings' })}>Settings<DropdownMenuShortcut>⌘,</DropdownMenuShortcut></DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem checked={!!settings?.safeMode} onSelect={(event) => event.preventDefault()} onCheckedChange={() => safeMode()}>
+                Safe mode<DropdownMenuShortcut>⌥⌘S</DropdownMenuShortcut>
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={settings?.blur !== false} onSelect={(event) => event.preventDefault()} onCheckedChange={() => blurring()}>
+                Blurring
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => window.dispatchEvent(new CustomEvent('vigil:shortcuts'))}>Keyboard shortcuts<DropdownMenuShortcut>?</DropdownMenuShortcut></DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => window.dispatchEvent(new CustomEvent('vigil:tour'))}>Take the tour</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {settings?.safeMode && (
+            <Tip label="Safe mode is on: no hints, rot cards or pins  ⌥⌘S">
+              <button type="button" aria-label="Turn safe mode off" onClick={safeMode}
+                className="flex size-7 items-center justify-center rounded-md text-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,var(--foreground))] hover:bg-accent/60">
+                <Shield className="size-4" />
+              </button>
+            </Tip>
+          )}
+          <Tip label="Keyboard shortcuts  ?">
+            <button type="button" aria-label="Keyboard shortcuts" onClick={() => window.dispatchEvent(new CustomEvent('vigil:shortcuts'))}
+              className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/60 hover:text-foreground">
+              <CircleHelp className="size-4" />
+            </button>
+          </Tip>
         </div>
       </aside>
       </PopoverAnchor>
