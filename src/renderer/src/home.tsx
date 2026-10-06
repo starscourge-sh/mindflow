@@ -1,6 +1,6 @@
 import { themeActions } from '@/lib/theme'
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
-import { Minimize2, ArrowLeft, ArrowRight, ChevronDown, ChevronRight, CircleHelp, PanelLeft, Pin as PinMark, Search as SearchIcon, Shield, SquarePen, Tag } from 'lucide-react'
+import { Minimize2, ChevronRight, CircleHelp, Pin as PinMark, Tag } from 'lucide-react'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AnimatePresence, motion } from 'motion/react'
 import { chime, soundOn } from './lib/sound'
@@ -31,6 +31,12 @@ import MagnifierIcon from '@/components/ui/magnifier-icon'
 import ExpandIcon from '@/components/ui/expand-icon'
 import GearIcon from '@/components/ui/gear-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
+import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
+import ArrowNarrowLeftIcon from '@/components/ui/arrow-narrow-left-icon'
+import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
+import PenIcon from '@/components/ui/pen-icon'
+import ShieldCheck from '@/components/ui/shield-check'
+import DownChevron from '@/components/ui/down-chevron'
 import { AliveIcon } from '@/components/vigil/alive-icon'
 import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
 import { UnusedFiles } from '@/components/vigil/unused-files'
@@ -72,7 +78,9 @@ function useRemembered(key: string, start = false): [boolean, (open: boolean) =>
 const today = (): number => new Date().setHours(24, 0, 0, 0)
 
 /** The top bar's buttons, one size and one look, each named with its key on hover. */
-const TOOL = 'flex h-7 min-w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4'
+const TOOL = 'flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground [&_svg]:size-4'
+/** Joined buttons, and the one button that matters, wear an edge: a hairline pill the height of the rest. */
+const PILL = 'flex h-7 items-center overflow-hidden rounded-full border'
 const keyed = (label: string, keys: string): React.JSX.Element => <span className="flex items-center gap-1.5">{label} <Pressed keys={keys} /></span>
 
 /** Whether the window is under 760px wide, followed as it is resized. */
@@ -555,7 +563,7 @@ export function Home(): React.JSX.Element {
                 className={`flex min-w-0 items-center gap-2 rounded-md py-1.5 text-foreground/80 transition-colors hover:bg-accent/60 data-[state=open]:bg-accent/60 ${narrow ? 'justify-center px-0' : 'flex-1 px-2'}`}>
                 <AliveIcon icon={GearIcon} size={16} />
                 {!narrow && <span className="flex-1 truncate text-left">Vigil</span>}
-                {!narrow && <ChevronDown className="size-3.5 text-muted-foreground" />}
+                {!narrow && <AliveIcon icon={DownChevron} size={14} className="text-muted-foreground" />}
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent side="top" align="start" className="w-60">
@@ -579,15 +587,15 @@ export function Home(): React.JSX.Element {
           {settings?.safeMode && (
             <Tip label="Safe mode is on: no hints, rot cards or pins  ⌥⌘S">
               <button type="button" aria-label="Turn safe mode off" onClick={safeMode}
-                className="flex size-7 items-center justify-center rounded-md text-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,var(--foreground))] hover:bg-accent/60">
-                <Shield className="size-4" />
+                className="flex size-7 items-center justify-center rounded-md text-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,var(--foreground))] transition-colors hover:bg-accent/60">
+                <AliveIcon icon={ShieldCheck} size={16} />
               </button>
             </Tip>
           )}
           <Tip label="Keyboard shortcuts  ?">
             <button type="button" aria-label="Keyboard shortcuts" onClick={() => window.dispatchEvent(new CustomEvent('vigil:shortcuts'))}
-              className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/60 hover:text-foreground">
-              <CircleHelp className="size-4" />
+              className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground">
+              <CircleHelp className="size-4" strokeWidth={2} />
             </button>
           </Tip>
         </div>
@@ -607,26 +615,27 @@ export function Home(): React.JSX.Element {
       {/* Clear of the traffic lights whatever sits to the left: nothing, or the folded rail. */}
       <header className={`flex h-8 shrink-0 items-center gap-1 ${!sidebar ? 'pl-[68px]' : narrow ? 'pl-3' : ''}`} style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
         {[
-          { icon: PanelLeft, label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘\\', run: () => (chime(sidebar ? 'fold' : 'slide'), setSidebar(!sidebar)) },
+          { icon: LayoutSidebarRightIcon, flip: true, label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘\\', run: () => (chime(sidebar ? 'fold' : 'slide'), setSidebar(!sidebar)) },
           // With the sidebar away, its search field comes up here as a button.
-          ...(sidebar ? [] : [{ icon: SearchIcon, label: 'Search', keys: '⌘K', run: () => setSearching('all') }])
-        ].map(({ icon: Icon, label, keys, run }) => (
+          ...(sidebar ? [] : [{ icon: MagnifierIcon, flip: false, label: 'Search', keys: '⌘K', run: () => setSearching('all') }])
+        ].map(({ icon, flip, label, keys, run }) => (
           <Tip key={keys} label={keyed(label, keys)}>
             <button type="button" aria-label={label} onClick={run} className={TOOL} style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
-              <Icon />
+              {/* itshover draws the panel on the right; ours is on the left. */}
+              <AliveIcon icon={icon} size={16} className={flip ? '-scale-x-100' : ''} />
             </button>
           </Tip>
         ))}
         {/* Back and forward as one pill, the way Raycast and Safari join them. */}
-        <span className="flex items-center rounded-full border" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
+        <span className={PILL} style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
           {[
-            { icon: ArrowLeft, label: 'Back', keys: '⌘[', run: () => step(-1), off: trail.at === 0 },
-            { icon: ArrowRight, label: 'Forward', keys: '⌘]', run: () => step(1), off: trail.at === trail.views.length - 1 }
-          ].map(({ icon: Icon, label, keys, run, off }, index) => (
+            { icon: ArrowNarrowLeftIcon, label: 'Back', keys: '⌘[', run: () => step(-1), off: trail.at === 0 },
+            { icon: ArrowNarrowRightIcon, label: 'Forward', keys: '⌘]', run: () => step(1), off: trail.at === trail.views.length - 1 }
+          ].map(({ icon, label, keys, run, off }, index) => (
             <Tip key={label} label={keyed(label, keys)}>
               <button type="button" aria-label={label} disabled={off} onClick={run}
-                className={`flex h-7 w-8 items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-40 ${index ? 'border-l' : ''}`}>
-                <Icon className="size-3.5" />
+                className={`flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40 ${index ? 'border-l' : ''}`}>
+                <AliveIcon icon={icon} size={16} />
               </button>
             </Tip>
           ))}
@@ -634,19 +643,25 @@ export function Home(): React.JSX.Element {
         <h1 className="ml-2 truncate font-medium">{SECTIONS.find((section) => section.id === view.id)?.label ?? (kind ? kind.label : view.id === 'settings' ? 'Settings' : view.id === 'yearpage' ? 'Year' : '')}</h1>
         {/* The open note's name, faint, once its first line has scrolled away. */}
         <span className={`min-w-0 flex-1 truncate px-4 text-center text-muted-foreground transition-opacity duration-200 ${topTitle && settings?.topTitle !== false ? 'opacity-100' : 'opacity-0'}`}>{topTitle}</span>
-        <SoundToggle className={TOOL} />
-        <Tip label={keyed(fill ? 'Back to compact' : 'Fill the screen', '⌃⇧F')}>
-          <button type="button" aria-label={fill ? 'Back to compact' : 'Fill the screen'} onClick={() => setFill(!fill)}
-            style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-            className={TOOL}>
-            {fill ? <Minimize2 /> : <AliveIcon icon={ExpandIcon} size={16} />}
-          </button>
-        </Tip>
-        <Tip label={keyed('New capture', 'C')}>
+        {/* The window's own settings, quiet and side by side: what you hear, how much screen it takes. */}
+        <span className="flex items-center">
+          <SoundToggle className={TOOL} />
+          <Tip label={keyed(fill ? 'Back to compact' : 'Fill the screen', '⌃⇧F')}>
+            <button type="button" aria-label={fill ? 'Back to compact' : 'Fill the screen'} aria-pressed={fill} onClick={() => setFill(!fill)}
+              style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
+              className={TOOL}>
+              {fill ? <Minimize2 strokeWidth={2} /> : <AliveIcon icon={ExpandIcon} size={16} />}
+            </button>
+          </Tip>
+        </span>
+        {/* The one thing the window is for, so the one with an edge: the same pill as back and forward, its key beside it. */}
+        <Tip label={keyed('New capture, in the box', '⌘N')}>
           <button type="button" onClick={() => (chime('open'), window.api.showPrompt())}
             style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-            className={`${TOOL} gap-1.5 px-2`}>
-            <SquarePen /> New
+            className={`${PILL} ml-1.5 gap-1.5 pr-1 pl-2.5 text-control font-medium text-foreground/90 transition-colors hover:bg-accent/60 hover:text-foreground`}>
+            <AliveIcon icon={PenIcon} size={14} />
+            New
+            <Pressed keys="C" className="ml-0.5 h-[18px] min-w-[18px] rounded-[5px]" />
           </button>
         </Tip>
       </header>

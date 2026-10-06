@@ -1,12 +1,26 @@
-import type { CSSProperties } from 'react'
+import type { ComponentType, CSSProperties, RefAttributes } from 'react'
 import { Archive, BarChart3, Brain, CalendarDays, CalendarFold, CalendarRange, FileText, Gem, History, House, Inbox, Layers, ListChecks, NotebookPen, Orbit, Repeat, Sprout, Sun, Tag, Telescope, Trash2, type LucideIcon } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
 import { Pressed } from './ui'
+import { AliveIcon } from './alive-icon'
+import type { AnimatedIconHandle, AnimatedIconProps } from '@/components/ui/types'
+import HomeIcon from '@/components/ui/home-icon'
+import FileDescriptionIcon from '@/components/ui/file-description-icon'
+import HashtagIcon from '@/components/ui/hashtag-icon'
+import ChartBarIcon from '@/components/ui/chart-bar-icon'
+import LayersIcon from '@/components/ui/layers-icon'
+import TrashIcon from '@/components/ui/trash-icon'
+import RefreshIcon from '@/components/ui/refresh-icon'
+import HistoryCircleIcon from '@/components/ui/history-circle-icon'
 
 /** A place the main window's sidebar or the box's tabs can show. */
-export type Place = { id: string; label: string; icon: LucideIcon; tint: string; key?: string; group?: 'Tasks' | 'Kept' }
+export type Place = {
+  id: string; label: string; icon: LucideIcon; tint: string; key?: string; group?: 'Tasks' | 'Kept'
+  /** The same drawing, moving when its row is pointed at, where itshover has one. */
+  alive?: ComponentType<AnimatedIconProps & RefAttributes<AnimatedIconHandle>>
+}
 
 /**
  * The main window's sections, each with the key that jumps to it after G, in
@@ -16,7 +30,7 @@ export type Place = { id: string; label: string; icon: LucideIcon; tint: string;
  */
 export const SECTIONS: (Place & { key: string })[] = [
   // Where things come back to you; the window opens here. Always shown.
-  { id: 'home', label: 'Home', icon: House, key: 'y', tint: 'orange' },
+  { id: 'home', label: 'Home', icon: House, alive: HomeIcon, key: 'y', tint: 'orange' },
   { id: 'inbox', label: 'Inbox', icon: Inbox, key: 'i', tint: 'blue' },
   { id: 'review', label: 'Review', icon: Brain, key: 'r', tint: 'purple' },
   // The daily note: written in, and what the day held.
@@ -29,17 +43,17 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'today', label: 'Today', icon: Sun, key: 't', tint: 'green', group: 'Tasks' },
   { id: 'week', label: 'Week', icon: CalendarRange, key: 'w', tint: 'blue', group: 'Tasks' },
   { id: 'upcoming', label: 'Upcoming', icon: CalendarDays, key: 'u', tint: 'orange', group: 'Tasks' },
-  { id: 'routines', label: 'Routines', icon: Repeat, key: 'o', tint: 'yellow', group: 'Tasks' },
+  { id: 'routines', label: 'Routines', icon: Repeat, alive: RefreshIcon, key: 'o', tint: 'yellow', group: 'Tasks' },
   // This month, This year and Someday: what has no day yet.
   { id: 'later', label: 'Later', icon: Telescope, key: 'z', tint: 'purple', group: 'Tasks' },
   { id: 'nuggets', label: 'Nuggets', icon: Gem, key: 'n', tint: 'pink', group: 'Kept' },
-  { id: 'articles', label: 'Articles', icon: FileText, key: 'a', tint: 'brown', group: 'Kept' },
+  { id: 'articles', label: 'Articles', icon: FileText, alive: FileDescriptionIcon, key: 'a', tint: 'brown', group: 'Kept' },
   // Questions you are holding open: what you keep circling and cannot name yet.
   { id: 'questions', label: 'Holding', icon: Orbit, key: 'h', tint: 'gray', group: 'Kept' },
-  { id: 'tags', label: 'Tags', icon: Tag, key: '#', tint: 'red' },
-  { id: 'stats', label: 'Stats', icon: BarChart3, key: 's', tint: 'blue' },
-  { id: 'all', label: 'All captures', icon: Layers, key: 'l', tint: 'gray' },
-  { id: 'discarded', label: 'Discarded', icon: Trash2, key: 'd', tint: 'gray' },
+  { id: 'tags', label: 'Tags', icon: Tag, alive: HashtagIcon, key: '#', tint: 'red' },
+  { id: 'stats', label: 'Stats', icon: BarChart3, alive: ChartBarIcon, key: 's', tint: 'blue' },
+  { id: 'all', label: 'All captures', icon: Layers, alive: LayersIcon, key: 'l', tint: 'gray' },
+  { id: 'discarded', label: 'Discarded', icon: Trash2, alive: TrashIcon, key: 'd', tint: 'gray' },
   // Out of sight, not let go: apart from the exits.
   { id: 'archived', label: 'Archived', icon: Archive, key: 'v', tint: 'gray' }
 ]
@@ -50,7 +64,7 @@ export const BOX_TABS: Place[] = [
   { id: 'today', label: 'Tasks', icon: ListChecks, tint: 'green' },
   { id: 'review', label: 'Review', icon: Brain, tint: 'purple' },
   { id: 'kept', label: 'Kept', icon: Gem, tint: 'pink' },
-  { id: 'recent', label: 'Recent', icon: History, tint: 'gray' }
+  { id: 'recent', label: 'Recent', icon: History, alive: HistoryCircleIcon, tint: 'gray' }
 ]
 
 /** The calm start: what serves capture, review and coming back; the rest a key away. */
@@ -62,12 +76,9 @@ const SHOWN: Record<Shown, string[]> = {
 
 /** A place's icon in its theme colour, softened unless `full`. */
 export function PlaceIcon({ place, full }: { place: Place; full?: boolean }): React.JSX.Element {
-  return (
-    <place.icon
-      className={`size-4 shrink-0 transition-colors ${full ? 'text-[var(--tint)]' : 'text-[color-mix(in_oklab,var(--tint)_55%,var(--muted-foreground))] group-hover:text-[var(--tint)]'}`}
-      style={{ '--tint': `var(--tt-color-text-${place.tint})` } as CSSProperties}
-    />
-  )
+  const className = `size-4 shrink-0 transition-colors ${full ? 'text-[var(--tint)]' : 'text-[color-mix(in_oklab,var(--tint)_55%,var(--muted-foreground))] group-hover:text-[var(--tint)]'}`
+  const style = { '--tint': `var(--tt-color-text-${place.tint})` } as CSSProperties
+  return place.alive ? <AliveIcon icon={place.alive} size={16} className={className} style={style} /> : <place.icon className={className} style={style} />
 }
 
 /**

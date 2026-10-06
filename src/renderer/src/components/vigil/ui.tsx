@@ -2,7 +2,7 @@ import { Children, cloneElement, createContext, useContext, useEffect, useLayout
 import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { SlotText } from 'slot-text/react'
-import { ArrowDown, ArrowUp, CircleCheck, CircleX, Info, TriangleAlert, type LucideIcon } from 'lucide-react'
+import { ArrowDown, ArrowUp, CircleX, type LucideIcon } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Coolshape, type shapeTypes } from 'coolshapes-react'
 import Lenis from 'lenis'
@@ -23,6 +23,9 @@ import { Orb } from './orb'
 import type { AnimatedIconHandle, AnimatedIconProps } from '@/components/ui/types'
 import Volume2Icon from '@/components/ui/volume-2-icon'
 import VolumeXIcon from '@/components/ui/volume-x-icon'
+import CheckedIcon from '@/components/ui/checked-icon'
+import InfoCircleIcon from '@/components/ui/info-circle-icon'
+import TriangleAlertIcon from '@/components/ui/triangle-alert-icon'
 
 /**
  * The few parts every view is built from, so the views read as one app. The
@@ -627,14 +630,15 @@ export function Toaster(): React.JSX.Element | null {
       // from the corner of the eye, on any theme.
       className="pointer-events-auto mx-4 flex max-w-[min(36rem,calc(100%-2rem))] min-w-0 items-center gap-2 rounded-md border border-border bg-popover py-1.5 pr-3.5 pl-2.5 text-sm font-medium shadow-(--mf-panel-shadow)"
     >
-      {/* The mark says what kind of news it is: a tick only for something done. */}
+      {/* The mark says what kind of news it is: a tick only for something done. It
+          moves once as it lands; an error's cross keeps still. */}
       {shown.tone === 'error'
         ? <CircleX className="size-4 shrink-0 text-[var(--tt-color-text-red)]" />
         : shown.tone === 'warning'
-          ? <TriangleAlert className="size-4 shrink-0 text-[var(--tt-color-text-orange)]" />
+          ? <AliveIcon play icon={TriangleAlertIcon} size={16} className="text-[var(--tt-color-text-orange)]" />
           : shown.tone === 'info'
-            ? <Info className="size-4 shrink-0 text-[var(--tt-color-text-blue)]" />
-            : <CircleCheck className="size-4 shrink-0 text-[var(--tt-color-text-green)]" />}
+            ? <AliveIcon play icon={InfoCircleIcon} size={16} className="text-[var(--tt-color-text-blue)]" />
+            : <AliveIcon play icon={CheckedIcon} size={16} className="text-[var(--tt-color-text-green)]" />}
       {/* With a button beside it, one line: a long quoted title ends in an ellipsis rather than pushing Undo onto two lines. */}
       <span className={`min-w-0 ${shown.undo || shown.action ? 'truncate' : 'text-pretty wrap-break-word'}`} title={shown.undo || shown.action ? shown.text : undefined}>{shown.text}</span>
       {shown.action && (

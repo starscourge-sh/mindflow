@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useRef, useState, type CSSProperties } f
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
 import { useSwipeBack } from './lib/use-swipe-back'
-import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Orbit, Plus, X } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Orbit, X } from 'lucide-react'
 import type { Editor, JSONContent } from '@tiptap/core'
 
 import { convertImports } from './lib/convert-imports'
@@ -69,6 +69,7 @@ import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import GearIcon from '@/components/ui/gear-icon'
+import PenIcon from '@/components/ui/pen-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
 import { useStoredFlag } from '@/lib/use-stored-flag'
 import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
@@ -224,19 +225,19 @@ const Header = ({ panel, onPanel, onNew, menu, nav, title, aside }: {
         <span className="group/top relative flex items-center">
         {aside && <span className="transition-[margin] duration-150 group-has-[[data-state=open]]/top:mr-[calc(5.5rem+0.25rem)] [.pointer-in_&]:mr-[calc(5.5rem+0.25rem)]">{aside}</span>}
         <span
-          className="mf-pill absolute right-0 flex items-center rounded-full border border-foreground/15 bg-background/60 opacity-0 transition-opacity duration-150 [.pointer-in_&]:opacity-100 has-[[data-state=open]]:opacity-100 [&>*+*]:border-l [&>*+*]:border-foreground/15"
+          className="mf-pill absolute right-0 flex items-center overflow-hidden rounded-full border border-foreground/15 bg-background/60 opacity-0 transition-opacity duration-150 [.pointer-in_&]:opacity-100 has-[[data-state=open]]:opacity-100 [&>*+*]:border-l [&>*+*]:border-foreground/15"
           style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
         >
           <Tip label="New capture  ⌘N">
-            <button type="button" tabIndex={-1} aria-label="New capture" className="flex h-6 w-7 items-center justify-center text-muted-foreground hover:text-foreground"
+            <button type="button" tabIndex={-1} aria-label="New capture" className="flex h-6 w-7 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
               onMouseDown={(event) => event.preventDefault()} onClick={onNew}>
-              <Plus className="size-3.5" />
+              <AliveIcon icon={PenIcon} size={14} />
             </button>
           </Tip>
           <span className="flex h-6 w-7 items-center justify-center">{menu(expanded, toggle)}</span>
           <Tip label={`${panel ? 'Hide' : 'Show'} Inbox, Tasks, Review and Kept  ⌘\\`}>
             <button type="button" tabIndex={-1} aria-label={panel ? 'Hide the side panel' : 'Show the side panel'} aria-pressed={panel}
-              className="flex h-6 w-7 items-center justify-center text-muted-foreground hover:text-foreground aria-pressed:text-foreground"
+              className="flex h-6 w-7 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground aria-pressed:text-foreground"
               onMouseDown={(event) => event.preventDefault()} onClick={onPanel}>
               <AliveIcon icon={LayoutSidebarRightIcon} size={14} />
             </button>
@@ -1014,7 +1015,7 @@ export default function App(): React.JSX.Element {
           icon={<AliveIcon icon={GearIcon} size={14} />}
           side="bottom"
           align="end"
-          className="h-6 w-7 flex-none rounded-none hover:bg-transparent"
+          className="h-6 w-7 flex-none rounded-none hover:bg-accent/60"
           options={[
             { label: 'Vim keys', on: vim, set: setVim },
             { label: 'Show in screen recordings', on: recordable, set: setRecordable },
