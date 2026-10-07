@@ -41,6 +41,7 @@ import { BOX_TABS, SECTIONS as PLACES, ShowList } from './places'
 import { SpellLanguages } from './spell-languages'
 import { isMac } from '@/lib/tiptap-utils'
 import { currentVim, onVimChange, setVim } from '@/lib/vim'
+import { useStoredFlag } from '@/lib/use-stored-flag'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Brain = alive(BrainCircuitIcon)
@@ -64,29 +65,32 @@ const matches = (query: string, ...texts: string[]): boolean => !query.trim() ||
 
 /**
  * One setting, as a row in an island the way System Settings groups them: its
- * name and what it changes on the left, the control on the right. Anything
- * set under it (`below`) takes the full width. Searched for and not matching,
- * it is not there at all.
+ * name and what it changes on the left, the control on the right. Where the
+ * words would be squeezed narrower than a short line, the control drops under
+ * them instead. Anything set under it (`below`) takes the full width.
+ * Searched for and not matching, it is not there at all.
  */
-function Setting({ title, children, note, below, keywords = '' }: {
+function Setting({ title, children, note, below, keywords = '', under = false }: {
   title: string
   children?: ReactNode
   note: string
   below?: ReactNode
   /** More words it is found by: the names of what it offers, a theme's or a font's. */
   keywords?: string
+  /** A choice within the row above it, set in a little under it. */
+  under?: boolean
 }): React.JSX.Element | null {
   const { query, all } = useContext(Query)
   if (!all && !matches(query, title, note, keywords)) return null
   const shown = all ? '' : query
   return (
-    <div data-setting className="px-4 py-3">
-      <div className="flex items-center justify-between gap-6">
-        <div className="min-w-0">
+    <div data-setting className={`py-3 pr-4 ${under ? 'pl-9' : 'pl-4'}`}>
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+        <div className="min-w-0 flex-[1_1_13rem]">
           <div className="text-body font-medium text-foreground"><Marked text={title} query={shown} /></div>
           <p className="mt-0.5 max-w-md text-meta leading-relaxed text-muted-foreground"><Marked text={note} query={shown} /></p>
         </div>
-        {children && <div className="flex shrink-0 items-center gap-2 text-control">{children}</div>}
+        {children && <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2 text-control">{children}</div>}
       </div>
       {below}
     </div>
@@ -155,7 +159,7 @@ function SettingSlider({ value, onSave, ...props }: { value: number; onSave: (va
   return (
     <Slider
       {...props}
-      className="w-40"
+      className="w-40 max-w-full min-w-20 shrink"
       value={[held ?? value]}
       onValueChange={([next]) => {
         setHeld(next)
@@ -253,6 +257,12 @@ export function SettingsView(): React.JSX.Element {
   // Vim keys live with the editors, not here, so the box's menu and this switch move together.
   const [vim, setVimOn] = useState(currentVim)
   useEffect(() => onVimChange(setVimOn), [])
+  // Seen in screen recordings or not: the same flag as the box's menu and ⌘K, so all of them agree.
+  const [recordable, setRecordableFlag] = useStoredFlag('recordable')
+  const setRecordable = (on: boolean): void => {
+    setRecordableFlag(on)
+    void window.api.setRecordable(on)
+  }
   if (!settings) return <section className="flex-1" />
   const set = (patch: Partial<Settings>): void => void vigil.setSettings(patch)
   const searching = !!query.trim()
@@ -549,9 +559,9 @@ export function SettingsView(): React.JSX.Element {
         </Group>
         <Group section="What comes back to you" title="Keeping it quiet">
           <Setting title="Quiet hours" note="Nothing private, and no capture you have not dealt with yet, comes up unasked; pins stay, except private ones and unhandled captures. Search and lists still show everything.">
-            <Input type="time" className={field} value={settings.quietStart} onChange={(event) => set({ quietStart: event.target.value })} />
+            <Input type="time" className={`${field} w-28`} value={settings.quietStart} onChange={(event) => set({ quietStart: event.target.value })} />
             <span className="text-muted-foreground">to</span>
-            <Input type="time" className={field} value={settings.quietEnd} onChange={(event) => set({ quietEnd: event.target.value })} />
+            <Input type="time" className={`${field} w-28`} value={settings.quietEnd} onChange={(event) => set({ quietEnd: event.target.value })} />
           </Setting>
           <Setting title="Safe mode" note="Nothing comes up unasked at all: no hints, rot cards or pins. For screen shares. ⌥⌘S from anywhere.">
             <Switch checked={settings.safeMode} onCheckedChange={(safeMode) => {
@@ -565,9 +575,15 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Show sticky notes" note="Every note stuck on the desktop, or all of them put away; they keep their places. ⌃⌥⌘N from anywhere.">
             <Switch checked={settings.stickiesShown} onCheckedChange={(stickiesShown) => set({ stickiesShown })} />
           </Setting>
-          <Setting title="Keep sticky notes out of screen shares" note="They stay on your screen but never show in a shared screen or a recording.">
-            <Switch checked={settings.stickiesUnshared} onCheckedChange={(stickiesUnshared) => set({ stickiesUnshared })} />
+          <Setting title="Show Vigil in screen recordings and shares" note="Off: every Vigil window, sticky notes included, shows as blank in a shared screen, a recording or a screenshot, while you still see it. On: they show, for a demo or a Loom. Also in ⌘K." keywords="record recording screen share sharing zoom loom demo screenshot capture hide sticky notes">
+            <Switch checked={recordable} onCheckedChange={setRecordable} />
           </Setting>
+          {/* Only a choice while Vigil shows: off, the stickies are hidden with everything else. */}
+          {recordable && (
+            <Setting under title="Except sticky notes" note="Sticky notes stay blank in shares and recordings even so; the rest of Vigil shows." keywords="record recording screen share sharing hide sticky notes">
+              <Switch checked={settings.stickiesUnshared} onCheckedChange={(stickiesUnshared) => set({ stickiesUnshared })} />
+            </Setting>
+          )}
         </Group>
 
         <Group section="Review" title="Remembering">
@@ -588,7 +604,7 @@ export function SettingsView(): React.JSX.Element {
         </Group>
 
         <Group section="Tasks" title="Reminders">
-          <Setting title="When a task's time comes" note="Pull: it rises to the top of Today. Quiet: the menu bar counts it too. Alerts: a notification, once, at the time.">
+          <Setting title="When a task's time comes" note="Pull: it moves to the top of Today, and nothing else happens. Quiet: the menu bar shows how many are due, with no sound. Alerts: the menu bar count, and a notification with a sound once, at its time.">
             <div className="flex rounded-md border p-0.5">
               {(['pull', 'quiet', 'alerts'] as const).map((level, index) => (
                 <button
@@ -631,11 +647,18 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Export everything" note="All of it as JSON and Markdown, in a folder you choose: yours to read without this app.">
             <ExportButton />
           </Setting>
-          <Setting title="Backups" note="Every day a full copy of everything, private notes included, goes to the folder below, the last 30 kept: it is your own backup. With this on, each capture is also kept there as a plain Markdown file, never a private or discarded one. Off removes those files within the hour." below={<BackupPlace />} keywords="backup icloud markdown copies">
-            <Switch checked={settings.markdownCopies !== false} onCheckedChange={(markdownCopies) => set({ markdownCopies })} />
-          </Setting>
           <Setting title="Unused pictures and files" note="Ones no note, old version or page points at any more. You see them first and keep any you like; the rest go to the Mac's Bin, never deleted outright." keywords="clear clean space disk images attachments trash bin">
             <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('vigil:unused'))}>Find them</Button>
+          </Setting>
+        </Group>
+        <Group section="Import and backups" title="Backups">
+          {/* Always on: there is no switch, so the row says so and where the copies go. */}
+          <Setting title="Daily backup" note="Always on, with nothing to set: every day a full copy of everything, private notes included, with every picture and file, goes to the folder below. The last 30 days are kept." below={<BackupPlace />} keywords="backup backups icloud copy daily database safe" />
+          <Setting title="Restore from a backup" note="Go back to one of those daily copies. What you have now is saved first, beside them, so a restore can be undone the same way. Vigil then starts again on the copy you chose. Also in ⌘K." keywords="restore backup undo go back copy recover">
+            <Button variant="outline" size="sm" onClick={() => void window.api.restoreBackup()}>Restore…</Button>
+          </Setting>
+          <Setting title="Markdown copies" note="Each capture also kept in that folder as a plain Markdown file, readable without Vigil; never a private or discarded one. Turning this off takes those files away within the hour. The daily backup goes on either way." keywords="backup markdown copies plain text files icloud">
+            <Switch checked={settings.markdownCopies !== false} onCheckedChange={(markdownCopies) => set({ markdownCopies })} />
           </Setting>
         </Group>
 
@@ -656,7 +679,7 @@ export function SettingsView(): React.JSX.Element {
 function BackupPlace(): React.JSX.Element {
   const [where, setWhere] = useState('')
   useEffect(() => void vigil.backupsWhere().then(setWhere), [])
-  return <p className="text-xs text-muted-foreground">Backups go to <span className="font-mono text-foreground/80">{where.includes('CloudDocs') ? 'iCloud Drive › mindflow' : where || '…'}</span></p>
+  return <p className="mt-1.5 text-xs text-muted-foreground">Backups go to <span className="font-mono break-all text-foreground/80">{where.includes('CloudDocs') ? 'iCloud Drive › mindflow' : where || '…'}</span></p>
 }
 
 /** The keys, as an island, each changeable: those matching the search, or all of them with their own filter. */

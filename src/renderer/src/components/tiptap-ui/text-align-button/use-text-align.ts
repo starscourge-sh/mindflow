@@ -58,7 +58,7 @@ export const textAlignIcons = {
 
 export const textAlignLabels: Record<TextAlign, string> = {
   left: "Align left",
-  center: "Align center",
+  center: "Align centre",
   right: "Align right",
   justify: "Align justify",
 }

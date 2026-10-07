@@ -159,7 +159,8 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
   const box = place === 'box'
   return (
     <>
-    <div className={`pointer-events-none fixed z-[70] ${box ? 'inset-x-0 bottom-[7.75rem] flex justify-center' : 'right-5 bottom-5'}`}>
+    {/* Under menus, search and dialogs (z-50 and up): a celebration never covers what you are using. */}
+    <div className={`pointer-events-none fixed z-[45] ${box ? 'inset-x-0 bottom-[7.75rem] flex justify-center' : 'right-5 bottom-5'}`}>
       <AnimatePresence>
         {shown && !shown.sprite && (
           <Card
@@ -174,7 +175,7 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
       </AnimatePresence>
     </div>
     {/* A sprite's own strip along the bottom, clipped at its sides so it never shows past the note. */}
-    <div className={`pointer-events-none fixed z-[70] overflow-hidden ${box ? 'inset-x-0 bottom-[7.75rem] h-72' : 'inset-x-0 bottom-0 h-80'}`}>
+    <div className={`pointer-events-none fixed z-[45] overflow-hidden ${box ? 'inset-x-0 bottom-[7.75rem] h-72' : 'inset-x-0 bottom-0 h-80'}`}>
       <AnimatePresence>
         {shown?.sprite && (
           <Sprite key={shown.key} moment={shown.moment} media={shown.media!} size={shown.sprite} from={box ? 'left' : 'right'} onDone={() => setShown(null)} />
@@ -272,10 +273,12 @@ function usePutAway(onDone: () => void): { done: React.RefObject<() => void>; pr
     leaving.current = true
     onDone()
   }
-  // Escape puts it away first, before anything else hears the key.
+  // Escape puts it away first, before anything else hears the key. Not while
+  // search, a dialog or a menu is open over it: that Escape is theirs.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape' || leaving.current) return
+      if (document.querySelector('[role=dialog], [role=alertdialog], [role=menu], [role=listbox], [cmdk-root]')) return
       event.preventDefault()
       event.stopImmediatePropagation()
       done.current()

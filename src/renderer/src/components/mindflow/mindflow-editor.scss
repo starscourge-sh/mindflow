@@ -638,7 +638,8 @@
 .tiptap-toc {
   position: absolute;
   top: 50%;
-  right: 0.125rem;
+  // Clear of the edge, so the opened panel does not sit flush against it.
+  right: 0.5rem;
   z-index: 25;
   transform: translateY(-50%);
   display: flex;
@@ -1288,6 +1289,11 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+// Near enough the frame's shape: fill it, so no sliver of the blur shows.
+.tiptap.ProseMirror.mindflow-editor .tiptap-bookmark-frame[data-fill] .tiptap-bookmark-image {
+  object-fit: cover;
 }
 
 // No room for both, so the text wins: it is what the card is for. Written

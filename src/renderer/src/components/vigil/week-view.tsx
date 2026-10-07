@@ -68,10 +68,12 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
     const el = strip.current
     if (el) setEdges({ left: el.scrollLeft > 2, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 2 })
   }
+  // Measured as the strip itself changes size (the sidebar folding, a pane opening), not only the window.
   useEffect(() => {
     measure()
-    addEventListener('resize', measure)
-    return () => removeEventListener('resize', measure)
+    const watch = new ResizeObserver(measure)
+    if (strip.current) watch.observe(strip.current)
+    return () => watch.disconnect()
   }, [])
   useEffect(() => {
     strip.current?.querySelector(`[data-day="${at.col}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
@@ -222,7 +224,7 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
         >
         <div ref={strip} onScroll={measure}
           style={{ maskImage: edges.left || edges.right ? `linear-gradient(to right, ${edges.left ? 'transparent, black 3rem' : 'black'}, ${edges.right ? 'black calc(100% - 3rem), transparent' : 'black'})` : undefined }}
-          className="grid min-h-0 flex-1 gap-px overflow-x-auto p-3 [grid-template-columns:repeat(7,minmax(7.5rem,1fr))]">
+          className="grid min-h-0 flex-1 gap-px overflow-x-auto p-3 [grid-template-columns:repeat(7,minmax(5.5rem,1fr))]">
           {days.map((day, col) => {
             const date = new Date(day.start)
             const today = day.start === dayStart(0)

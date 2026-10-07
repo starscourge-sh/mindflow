@@ -183,14 +183,14 @@ export function KeysEditor({ search = '' }: { search?: string }): React.JSX.Elem
             </Tip>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex rounded-md border p-0.5 text-control">
+            <div className="flex flex-wrap rounded-md border p-0.5 text-control">
               {([['all', 'All'], ['changed', 'Changed by you'], ['conflicts', 'Conflicts'], ['fixed', 'Fixed']] as const).map(([id, label]) => (
                 <button
                   key={id}
                   type="button"
                   aria-pressed={only === id}
                   onClick={() => (click('soft'), setOnly(id))}
-                  className={`flex items-center gap-1.5 rounded-sm px-2.5 py-1 transition-colors ${only === id ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                  className={`flex items-center gap-1.5 rounded-sm px-2.5 py-1 whitespace-nowrap transition-colors ${only === id ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                   {label}
                   {id !== 'all' && counts[id] > 0 && (
@@ -206,7 +206,8 @@ export function KeysEditor({ search = '' }: { search?: string }): React.JSX.Elem
       )}
       {!list.length && <p className="px-1 pb-3 text-meta text-muted-foreground"><Typed text={only === 'all' ? 'No shortcut matches. Try what it does, or press its keys.' : 'None here.'} /></p>}
       {grouped(list).map(([group, rows]) => (
-        <section key={group} className="mb-4">
+        // Where each works shows only while the rows have room for it beside the words.
+        <section key={group} className="@container mb-4">
           <h3 className="mb-1 px-1 text-meta font-medium text-muted-foreground">{group}</h3>
           {rows.map((one) => {
             const now = keyFor(one.keys)
@@ -219,7 +220,7 @@ export function KeysEditor({ search = '' }: { search?: string }): React.JSX.Elem
                   <span className="text-foreground"><Marked text={one.does} query={query} /></span>
                   {tone && <span className="block text-meta" style={{ color: TONE[tone] }}>Same keys as {others.map((other) => `${other.does} (${other.where})`).join(', ')}</span>}
                 </span>
-                <span className="hidden text-meta text-muted-foreground min-[28rem]:inline">{one.where}</span>
+                <span className="hidden text-meta text-muted-foreground @min-[30rem]:inline">{one.where}</span>
                 {fixed(one.keys) ? (
                   <Tip label="Fixed: this key does its job by being the key">
                     <span className="flex items-center"><Keys keys={one.keys} /><span className="flex w-10 justify-end pr-1"><Lock className="size-3 text-muted-foreground" /></span></span>

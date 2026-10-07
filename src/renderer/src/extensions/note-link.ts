@@ -268,6 +268,12 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         .map((heading) => ({ ...note, heading, group: note.label ? `Headings in ${note.label}` : "Headings in this note" }))
     }
     const noteItems = ({ query }: { query: string }) => (query.includes("#") ? headingItems(query) : findNotes(query))
+    // A space follows what a menu wrote, so the next word can start; the
+    // space you then type out of habit is taken as that one, not a second.
+    let spaced: number | null = null
+    const space = (editor: Editor): void => {
+      spaced = editor.state.selection.from
+    }
     const insertLink: SuggestionOptions<NoteSuggestion>["command"] = ({ editor, range, props }) => {
       editor
         .chain()
@@ -277,6 +283,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
           { type: "text", text: " " },
         ])
         .run()
+      space(editor)
     }
 
     // The tags are read once as the `#` menu opens, then narrowed as you type.
@@ -333,6 +340,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         },
         command: ({ editor, range, props }) => {
           editor.chain().focus().insertContentAt(range, `#${props.id} `).run()
+          space(editor)
         },
         render: tagRender ?? render,
       }),
@@ -343,6 +351,11 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       // note and its editor finds the heading.
       new Plugin({
         props: {
+          handleTextInput: (_view, from, to, text) => {
+            const at = spaced
+            spaced = null
+            return text === " " && from === to && from === at
+          },
           handleClickOn: (_view, _pos, node) => {
             if (node.type.name !== "noteLink") return false
             const { id, heading, label } = node.attrs

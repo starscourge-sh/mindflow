@@ -348,11 +348,12 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
     return () => clearTimeout(timer)
   }, [allDone, loaded, id])
   if (!note) return null
-  const text = glance(note.body).trim()
-  const title = note.title || text.split('\n')[0].slice(0, 80) || 'Untitled'
-  // The title is not said twice: a first line that is the title is left out below it.
+  // The note's own title, or else its first line alone: never the whole note run together.
   const first = doc.content?.[0]
-  const twice = !!first && words(first).trim() === title
+  const opening = first ? glance(first).trim() : ''
+  const title = note.title || opening.slice(0, 80) || 'Untitled'
+  // The title is not said twice: a first line that is the title is left out below it.
+  const twice = !!opening && opening === title
   titled.current = title
 
   // Saved as the main window saves: only over the words it was drawn from.

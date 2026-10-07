@@ -1,7 +1,7 @@
 import { chime } from '@/lib/sound'
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { Calendar, Pause, Plus, SquareDashed } from 'lucide-react'
+import { Archive, Calendar, Pause, Plus, SquareDashed } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
 import EyeIcon from '@/components/ui/eye-icon'
@@ -15,7 +15,6 @@ import MessageCircleIcon from '@/components/ui/message-circle-icon'
 import RefreshIcon from '@/components/ui/refresh-icon'
 import TriangleAlertIcon from '@/components/ui/triangle-alert-icon'
 import XIcon from '@/components/ui/x-icon'
-import Stack3Icon from '@/components/ui/stack-3-icon'
 import ArrowBackUpIcon from '@/components/ui/arrow-back-up-icon'
 import DownloadIcon from '@/components/ui/download-icon'
 
@@ -52,7 +51,7 @@ import { Aliases, KindFields, LocalGraph, NoteHeader } from './note-extras'
 import { ListSearch, NoteList, NoteRail, PaneButtons, Peek, matches, type Entry } from './note-list'
 import { archive, changeKind, openWindow, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { QuestionDetail } from './questions-view'
-import { GlossTimeline } from './gloss-line'
+import { GlossTimeline, useRowGloss } from './gloss-line'
 import { dayjs, moment, num } from '../../../../main/dates'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -69,7 +68,6 @@ const Quote = alive(MessageCircleIcon)
 const RefreshCw = alive(RefreshIcon)
 const TriangleAlert = alive(TriangleAlertIcon)
 const X = alive(XIcon)
-const Archive = alive(Stack3Icon)
 const ArchiveRestore = alive(ArrowBackUpIcon)
 const Download = alive(DownloadIcon)
 
@@ -157,6 +155,8 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
     onBack: () => (spread ? (query ? setQuery('') : setPane('list')) : setOpen(null))
   })
   useEffect(() => void (spread && items[cursor] && setPeek(items[cursor].id)), [cursor, spread]) // eslint-disable-line react-hooks/exhaustive-deps
+  // ; on the row under the cursor, with nothing open: a thought written under it.
+  const glossAfter = useRowGloss(items[cursor]?.id, !open)
   const peeked = spread ? all.find((one) => one.id === peek) : undefined
   // ⌥↑ and ⌥↓ (or ⌥K and ⌥J) move the row under the cursor in your own order.
   useEffect(() => {
@@ -297,7 +297,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
         {items.length ? (
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (setPeek(id), setCursor(items.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined}
-            onChoose={tier === 'nugget' ? toggle : undefined} onMove={onMove} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
+            onChoose={tier === 'nugget' ? toggle : undefined} onMove={onMove} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
         ) : all.length && query.trim() ? (
           <Empty shape={['ellipse', 3]} title="Nothing matches">No title here has those words. Escape clears the search.</Empty>
         ) : tier === 'nugget' ? (
@@ -448,7 +448,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
 
       </div>
 
-      <Props>
+      <Props fold>
         {item.tier === 'nugget' && (
           <>
             <Island compact title="Kind">

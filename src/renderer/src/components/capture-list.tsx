@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { chime } from '@/lib/sound'
 import { alive } from '@/components/ui/alive-icon'
 import EyeOffIcon from '@/components/ui/eye-off-icon'
@@ -137,7 +137,7 @@ export const captureEntry = (capture: CaptureMeta, onPick?: (id: string) => void
  * Captures at any of Display's sizes, grouped as Display asks. `cursor` is
  * where the keyboard is, drawn apart from the one that is open.
  */
-export function CaptureList({ groups, density = 'list', selected, cursor, onCursor, chosen = [], onPick, onOpen, onChoose, onMove, className }: {
+export function CaptureList({ groups, density = 'list', selected, cursor, onCursor, chosen = [], onPick, onOpen, onChoose, onMove, after, className }: {
   groups: [string, CaptureMeta[]][]
   density?: Density
   selected?: string
@@ -149,6 +149,8 @@ export function CaptureList({ groups, density = 'list', selected, cursor, onCurs
   onChoose?: (id: string) => void
   /** In your own order: a row dragged onto another lands before or after it. */
   onMove?: (id: string, target: string, after: boolean) => void
+  /** Drawn under a row: a thought being written under it. */
+  after?: (entry: { id: string }) => ReactNode
   className?: string
 }): React.JSX.Element {
   return (
@@ -164,6 +166,7 @@ export function CaptureList({ groups, density = 'list', selected, cursor, onCurs
       onOpen={onOpen}
       onChoose={onChoose}
       onMove={onMove}
+      after={after}
       className={className}
     />
   )

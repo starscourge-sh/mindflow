@@ -5,9 +5,8 @@ import type { Node as PMNode } from '@tiptap/pm/model'
 import { redo, undo } from '@tiptap/pm/history'
 import { DndContext, MeasuringStrategy, PointerSensor, closestCorners, useDroppable, useSensor, useSensors, type DragOverEvent, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { Plus } from 'lucide-react'
+import { Archive, Plus } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
-import Stack3Icon from '@/components/ui/stack-3-icon'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 import DownChevronIcon from '@/components/ui/down-chevron'
 import RightChevronIcon from '@/components/ui/right-chevron'
@@ -29,7 +28,6 @@ import { Overlay, SETTLE, snapshot } from './sortable'
 import { Rolling, Tip, toast, untoast } from './ui'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
-const Archive = alive(Stack3Icon)
 const Check = alive(SimpleCheckedIcon)
 const ChevronDown = alive(DownChevronIcon)
 const ChevronRight = alive(RightChevronIcon)
@@ -250,7 +248,9 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
 
   const tick = (pos: number): void => {
     const node = editor.state.doc.nodeAt(pos)
-    if (!node || node.type.name !== 'taskItem') return
+    if (!node) return
+    // A bullet has no box to tick: say so rather than do nothing.
+    if (node.type.name !== 'taskItem') return void (chime('nope'), toast('Only to-dos can be ticked', undefined, 'info'))
     chime(node.attrs.checked ? 'off' : 'done')
     editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, checked: !node.attrs.checked }))
   }

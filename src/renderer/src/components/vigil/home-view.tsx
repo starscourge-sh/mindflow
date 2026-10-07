@@ -16,6 +16,7 @@ import { chime } from '@/lib/sound'
 import { issues, type Repeat } from '@/lib/issues'
 import { openWindow, smallPicture, useThumb } from '@/lib/notes'
 import { placed } from '@/lib/tasks'
+import { startOfDay } from '../../../../main/dates'
 import { splitTags, useLive, vigil, whenInLine, type Pin as Pinned, type Settings, type Task } from '@/lib/vigil'
 import { MenuButton, useTint } from './collection-header'
 import { GrainFill, useCover } from './grain'
@@ -84,6 +85,8 @@ const kindLabel = (card: Card): string => (card.type === 'capture' ? kindOf(card
 const nameOf = (card: Pick<Card, 'title'>): string => splitTags(card.title).text || card.title || 'Untitled'
 /** A few words after the name, tags out: they are said elsewhere. */
 const wordsOf = (text?: string): string => (text ? splitTags(text).text : '')
+/** Words only, for telling whether two say the same: no case, marks or spacing. */
+const flat = (text: string): string => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
 const readable = (card: Card): boolean => card.type !== 'task'
 const motionOff = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -562,6 +565,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
 
   const nextUp = keep('task') ? tasks.filter((task) => task.status === 'open')
     .sort((a, b) => b.important - a.important || (placed(a) ?? Infinity) - (placed(b) ?? Infinity)).slice(0, chip === 'tasks' ? 12 : 5) : []
+  // Show all goes where the list's tasks are: Today when any is due by today, else Upcoming (later days and no date).
 
   const feature = [
     data.memory && { card: data.memory, line: data.memory.memory },
@@ -681,7 +685,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
           {(nextUp.length > 0 || questions.length > 0) && (
             <div className="grid gap-x-6 gap-y-8 px-3 @[44rem]/page:grid-cols-2 @[44rem]/page:px-6">
               {nextUp.length > 0 && (
-                <List title="Next up" onAll={() => onView('today')}>
+                <List title="Next up" onAll={() => onView(nextUp.some((task) => (placed(task) ?? Infinity) < startOfDay(1)) ? 'today' : 'upcoming')}>
                   {nextUp.map((task) => <TaskRow key={task.id} task={task} actions={actions} />)}
                 </List>
               )}
@@ -690,7 +694,8 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
                   {questions.map((card) => (
                     <ListRow key={card.id} card={card} actions={actions} lead={<Orbit className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}>
                       <span className="private-text line-clamp-2 [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
-                      <span className="line-clamp-1 text-xs text-muted-foreground">{card.clue ? `“${card.clue.replace(/\s+/g, ' ')}”` : 'No clues yet'}</span>
+                      {/* Never the question again: a first clue that only repeats its words is left out. */}
+                      {!(card.clue && flat(card.title) && flat(card.clue).startsWith(flat(card.title))) && <span className="line-clamp-1 text-xs text-muted-foreground">{card.clue ? `“${card.clue.replace(/\s+/g, ' ')}”` : 'No clues yet'}</span>}
                     </ListRow>
                   ))}
                 </List>

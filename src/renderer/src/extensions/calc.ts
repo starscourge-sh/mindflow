@@ -106,10 +106,25 @@ function load(): void {
 const money = (code: string): string =>
   CURRENCIES.has(code.toUpperCase()) && !math?.Unit.isValuelessUnit(code) && !(math && code in math) ? code.toUpperCase() : code
 
+/** Whether a spot sits inside a function's brackets, where a comma parts the arguments. */
+function inCall(before: string): boolean {
+  const open: boolean[] = []
+  for (let at = 0; at < before.length; at++) {
+    if (before[at] === "(") open.push(/\w/.test(before.slice(0, at).trimEnd().slice(-1)))
+    else if (before[at] === ")") open.pop()
+  }
+  return open.at(-1) ?? false
+}
+
 /** What people type, in the shape mathjs reads. */
 function prepare(text: string): string {
   return (
     text
+      // `1,000 + 1`: commas in threes are a thousands mark, except in a call
+      // like `max(1,000)`, where they part the arguments.
+      .replace(/(?<![\w.,])\d{1,3}(?:,\d{3})+(?![\w,])/g, (found: string, at: number, all: string) =>
+        inCall(all.slice(0, at)) ? found : found.replace(/,/g, "")
+      )
       // The editor's typography turns `2 * 3` into `2 × 3` as you type; read the
       // pretty signs back as the plain ones mathjs knows.
       .replace(/×/g, "*")
@@ -146,18 +161,31 @@ function show(result: unknown): string | null {
     const value = result.toNumber(unit)
     if (!Number.isFinite(value)) return null
     if (CURRENCIES.has(unit)) {
-      return value.toLocaleString("en-US", { style: "currency", currency: unit, useGrouping: false })
+      const as = (currencyDisplay: "symbol" | "narrowSymbol"): string =>
+        value.toLocaleString("en-US", { style: "currency", currency: unit, currencyDisplay, useGrouping: false })
+      // Its own sign where it has one, `R16.53` rather than `ZAR 16.53`, but
+      // `CA$` stays: the narrow form of that is a `$` no one could tell apart.
+      const shown = as("symbol")
+      // Snug to the number as a sign is: `R16.53`, not `R 16.53`. A code
+      // with no sign of its own, `CHF`, keeps its space.
+      const narrow = as("narrowSymbol")
+      return shown.includes(unit) && !narrow.includes(unit) ? narrow.replace(/(\p{L})\s(?=\d)/u, "$1") : shown
     }
     return `${number(value)} ${unit}`
   }
   return null
 }
 
+/** The name as the note first gave it, whatever its capitals: `Lunch` is `lunch`. */
+const nameIn = (word: string, scope: Map<string, unknown>): string | undefined =>
+  scope.has(word) ? word : [...scope.keys()].find((name) => name.toLowerCase() === word.toLowerCase())
+
 /** One word on its own that names nothing in the note: `g =` is not asking what a gram is. */
-const bare = (text: string, scope: Map<string, unknown>): boolean => /^[A-Za-z_]\w*$/.test(text.trim()) && !scope.has(text.trim())
+const bare = (text: string, scope: Map<string, unknown>): boolean => /^[A-Za-z_]\w*$/.test(text.trim()) && !nameIn(text.trim(), scope)
 
 function evaluate(text: string, scope: Map<string, unknown>): string | null {
   if (!math || !text.trim() || bare(text, scope)) return null
+  text = text.replace(/[A-Za-z_]\w*/g, (word) => nameIn(word, scope) ?? word)
   try {
     return show(math.evaluate(prepare(text), scope))
   } catch {

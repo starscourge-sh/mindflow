@@ -107,7 +107,7 @@ export const AlignMenu = ({ editor }: { editor: Editor }): React.JSX.Element => 
     fallback={AlignLeftIcon}
     plain={0}
     choices={(["left", "center", "right"] as const).map((align, i) => ({
-      label: ["Align left", "Centre", "Align right"][i],
+      label: ["Align left", "Align centre", "Align right"][i],
       icon: [AlignLeftIcon, AlignCenterIcon, AlignRightIcon][i],
       active: (editor) => (align === "left" ? !editor.isActive({ textAlign: "center" }) && !editor.isActive({ textAlign: "right" }) : editor.isActive({ textAlign: align })),
       apply: (editor) => void editor.chain().focus().setTextAlign(align).run(),

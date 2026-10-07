@@ -246,8 +246,11 @@ export function registerCaptures(): void {
     let name = names.get(key)
     if (name === undefined) {
       try {
+        // A bare address with a name of its own (an imported bookmark) goes by the name.
+        const line = firstLine(JSON.parse(raw || 'null'))
+        const bare = !!title && /^https?:\/\/\S+$/.test(line)
         // With no words at all, named for what it holds rather than "Untitled".
-        name = firstLine(JSON.parse(raw || 'null')) || String(title ?? '') ||
+        name = (bare ? '' : line) || String(title ?? '') ||
           (/"type":"image"/.test(raw) ? 'Picture' : /"type":"excalidraw"/.test(raw) ? 'Drawing' : /"type":"attachment"/.test(raw) ? 'File' : '')
       } catch {
         name = String(title ?? '')
@@ -651,7 +654,8 @@ export function importAnki(text: string): number {
     const [front, back] = line.split('\t').map((part) => part.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim())
     if (!front || !back || seen.get(front)) continue
     const at = new Date().toISOString()
-    add.run(randomUUID(), back.split('\n')[0].slice(0, 160), JSON.stringify(back), front, at, at)
+    // Named by its question, as the deck shows it: the answer stays hidden till asked.
+    add.run(randomUUID(), front.split('\n')[0].slice(0, 160), JSON.stringify(back), front, at, at)
     added += 1
   }
   if (added) changed()

@@ -61,14 +61,17 @@ export type Entry = {
 }
 
 /** A note's first picture, made small (or tile-sized) once. Undefined: it has none; null: on its way; '': too big to show. */
-function usePicture(id: string, large: boolean): string | null | undefined {
+function usePicture(id: string, large: boolean): [string | null | undefined, () => void] {
   const src = useThumb(id)
   const [shown, setShown] = useState<string | null>(null)
+  // A picture whose file has gone is no picture: the note falls back to its cover, as Home's cards do.
+  const [broken, setBroken] = useState(false)
   useEffect(() => {
     setShown(null)
-    if (src) void smallPicture(src, large).then(setShown)
+    setBroken(false)
+    if (src) void smallPicture(src, large).then(setShown, () => setBroken(true))
   }, [src, large])
-  return src ? shown : undefined
+  return [src && !broken ? shown : undefined, () => setBroken(true)]
 }
 
 const tileTint = (tint?: string): CSSProperties => ({
@@ -92,7 +95,7 @@ function Cover({
   className?: string
 }): React.JSX.Element {
   // A tile is a tile whichever grid it is in: always the tile-sized picture, or a small grid blurs.
-  const picture = usePicture(entry.id, true)
+  const [picture, broken] = usePicture(entry.id, true)
   // No picture of its own: its grain cover, its words in white on it.
   const grain = useCover(picture === undefined ? entry.id : null)
   if (picture)
@@ -104,6 +107,7 @@ function Cover({
           loading="lazy"
           decoding="async"
           draggable={false}
+          onError={broken}
           className="size-full object-cover animate-in fade-in-0 duration-200"
         />
       </span>
@@ -149,7 +153,7 @@ export function Lead({
   entry: Entry
   className?: string
 }): React.JSX.Element {
-  const picture = usePicture(entry.id, false)
+  const [picture, broken] = usePicture(entry.id, false)
   const grain = useCover(picture === undefined ? entry.id : null)
   return (
     <span
@@ -163,6 +167,7 @@ export function Lead({
           loading="lazy"
           decoding="async"
           draggable={false}
+          onError={broken}
           className="size-full object-cover animate-in fade-in-0 duration-200"
         />
       ) : grain ? (
@@ -596,7 +601,7 @@ export function NoteRail({
   label?: string
 }): React.JSX.Element {
   return (
-    <div data-chrome className="hidden w-14 shrink-0 flex-col items-center @[56rem]/page:flex">
+    <div data-chrome className="mf-rail hidden w-14 shrink-0 flex-col items-center @[56rem]/page:flex">
       <div className="flex h-10 w-full shrink-0 items-center justify-center border-b">
         <Tip label={label}>
           <button

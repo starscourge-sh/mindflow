@@ -137,6 +137,10 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
   useEditorState({ editor, selector: ({ editor: instance }) => instance?.isEditable ?? false })
   const editable = !!editor?.isEditable
 
+  // Whether the last thing done here was a replace, so ⌘Z takes it back in the
+  // note rather than in the field the focus stayed in. Typing ends that.
+  const replaced = useRef(false)
+
   const replace = (all: boolean): void => {
     if (!editor?.isEditable) return cue("find-miss")
     if (!editor.storage.findAndReplace?.results.length) return cue("find-miss")
@@ -145,6 +149,7 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
     if (editor.storage.findAndReplace.currentIndex === null) editor.commands.goToNextResult()
     if (all) editor.commands.replaceAll()
     else editor.commands.replace()
+    replaced.current = true
     cue(all ? "replace-all" : "replace")
   }
 
@@ -157,6 +162,12 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
       // pointer while it is collapsed to nothing.
       inert={!open}
       aria-hidden={!open}
+      onKeyDown={(event) => {
+        if (!replaced.current || !editor || !event.metaKey || event.key.toLowerCase() !== "z") return
+        event.preventDefault()
+        if (event.shiftKey) editor.commands.redo()
+        else editor.commands.undo()
+      }}
     >
       <div className="tiptap-find-bar-row">
         <button
@@ -180,7 +191,10 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
           // The bar unmounts when closed, so this re-seeds from the live search
           // each time it opens - otherwise it reopens blank over a running search.
           defaultValue={editor?.storage.findAndReplace?.searchTerm ?? ""}
-          onChange={(event) => editor?.commands.setSearchTerm(event.target.value)}
+          onChange={(event) => {
+            replaced.current = false
+            editor?.commands.setSearchTerm(event.target.value)
+          }}
           onKeyDown={(event) => {
             if (event.key !== "Enter") return
             event.preventDefault()
@@ -207,7 +221,10 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
             type="text"
             placeholder="Replace with"
             defaultValue={editor?.storage.findAndReplace?.replaceTerm ?? ""}
-            onChange={(event) => editor?.commands.setReplaceTerm(event.target.value)}
+            onChange={(event) => {
+              replaced.current = false
+              editor?.commands.setReplaceTerm(event.target.value)
+            }}
             onKeyDown={(event) => {
               if (event.key !== "Enter") return
               event.preventDefault()

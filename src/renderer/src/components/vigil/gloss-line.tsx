@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, shift } from '@/lib/motion'
 import { alive } from '@/components/ui/alive-icon'
@@ -49,6 +49,29 @@ export function useGlossKey(id: string | null | undefined, enabled = true): void
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [enabled])
+}
+
+/**
+ * ; on a list's row, with nothing open: a thought on the row under the cursor,
+ * written under it in place, as Kept does. Hands back what the list draws
+ * under each row. Off while a note is open, whose own page takes the key.
+ */
+export function useRowGloss(id: string | undefined, enabled = true, placeholder?: string): (entry: { id: string }) => ReactNode {
+  const [glossing, setGlossing] = useState<string | null>(null)
+  const latest = useRef(id)
+  latest.current = id
+  useEffect(() => {
+    if (!enabled) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== ';' || event.altKey || event.ctrlKey || event.metaKey || event.defaultPrevented || typing() || !latest.current) return
+      event.preventDefault()
+      chime('tap')
+      setGlossing(latest.current)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [enabled])
+  return (entry) => (glossing === entry.id ? <GlossLine id={entry.id} open placeholder={placeholder} onDone={() => setGlossing(null)} className="px-2 pt-0.5 pb-1" /> : null)
 }
 
 /**

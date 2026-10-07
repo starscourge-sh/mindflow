@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { Merge } from 'lucide-react'
+import { Archive, Merge } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
 import EyeIcon from '@/components/ui/eye-icon'
@@ -16,7 +16,6 @@ import XIcon from '@/components/ui/x-icon'
 import CpuIcon from '@/components/ui/cpu-icon'
 import ClockIcon from '@/components/ui/clock-icon'
 import Cloud2Icon from '@/components/ui/cloud-2-icon'
-import Stack3Icon from '@/components/ui/stack-3-icon'
 import ArrowBackUpIcon from '@/components/ui/arrow-back-up-icon'
 import DownloadIcon from '@/components/ui/download-icon'
 import { motion } from 'motion/react'
@@ -37,7 +36,7 @@ import { makeTask } from '@/lib/tasks'
 import { useSameWords } from '@/lib/same-words'
 import { chime } from '@/lib/sound'
 import { Empty, Island, Page, Prop, Props, Remembered, Rolling, ask, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle, Pressed } from './ui'
-import { GlossTimeline } from './gloss-line'
+import { GlossTimeline, useRowGloss } from './gloss-line'
 import { RemindMe } from './items-view'
 import { addToQuestion } from './questions-view'
 import { ReadThrough } from './read-through'
@@ -73,7 +72,6 @@ const X = alive(XIcon)
 const Laptop = alive(CpuIcon)
 const Timer = alive(ClockIcon)
 const CloudSun = alive(Cloud2Icon)
-const Archive = alive(Stack3Icon)
 const ArchiveRestore = alive(ArrowBackUpIcon)
 const Download = alive(DownloadIcon)
 
@@ -165,6 +163,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
     onBack: () => (spread ? (query ? setQuery('') : setPane('list')) : setOpen(null))
   })
   useEffect(() => void (spread && shown[cursor] && setPeek(shown[cursor].id)), [cursor, spread]) // eslint-disable-line react-hooks/exhaustive-deps
+  // ; on the row under the cursor, with nothing open: a thought written under it.
+  const glossAfter = useRowGloss(shown[cursor]?.id, !open)
   const peeked = spread ? all.find((one) => one.id === peek) : undefined
   // Reading through what is shown, one at a time with nothing else on screen.
   const [readFrom, setReadFrom] = useState<number | null>(null)
@@ -291,7 +291,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
           <CaptureList groups={groups} density={density} selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (setPeek(id), setCursor(shown.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined}
             onChoose={(id) => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))}
-            onMove={(id, target, after) => move(kept.map((one) => one.id), id, target, after)} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
+            onMove={(id, target, after) => move(kept.map((one) => one.id), id, target, after)} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
         ) : kept.length ? (
           <Empty shape={['ellipse', 3]} title="Nothing matches">
             {spread && query.trim() ? 'No title here has those words. Escape clears the search.' : "The filters hide everything here. Clear them with the × above, or press F to change them."}
@@ -345,7 +345,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
                 beside what it has become, never lost to an edit. One click
                 into the dots, so the row stays quiet. */}
             <NoteHeader table="captures" id={open.id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
-              board={board.fits || board.on ? board : undefined}
+              board={board.fits || board.on ? board : undefined} details={!boardShown}
               onRestored={() => void window.api.captures.get(open.id).then((found) => {
                 setOpen(found)
                 setRev((n) => n + 1)
@@ -423,7 +423,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
             )}
             {boardShown && <Board key={`${open.id}-${rev}`} editor={editor} id={open.id} tools={tools} />}
           </div>
-          {(!boardShown || propsOut) && <CaptureProps capture={meta} onOpen={onOpen} />}
+          {(!boardShown || propsOut) && <CaptureProps capture={meta} onOpen={onOpen} fold={!boardShown} />}
         </motion.div>
       ) : null}
     </>
@@ -435,7 +435,7 @@ export const captureDots = (capture: CaptureMeta): MenuItem[] =>
   captureMenu(capture).filter((item) => !item || item === 'separator' || !['Open', 'Unpin', 'Pin to the box', `Copy ${captureKey(capture.number)}`].includes(item.label))
 
 /** Status and the exits, then what the capture is, then where it came from. */
-export function CaptureProps({ capture, onOpen, className }: { capture: CaptureMeta; onOpen?: (type: string, id: string) => void; className?: string }): React.JSX.Element {
+export function CaptureProps({ capture, onOpen, className, fold }: { capture: CaptureMeta; onOpen?: (type: string, id: string) => void; className?: string; /** Beside the open note: put away until asked for. */ fold?: boolean }): React.JSX.Element {
   const Status = STATUS_ICON[capture.status as keyof typeof STATUS_ICON] ?? STATUS_ICON.open
   // Whichever window shows these, ⌘K there acts on this capture.
   useOpenNote({ table: 'captures', type: 'capture', id: capture.id, kind: capture.kind, archived: !!capture.archivedAt })
@@ -454,7 +454,7 @@ export function CaptureProps({ capture, onOpen, className }: { capture: CaptureM
   ]
 
   return (
-    <Props className={className}>
+    <Props className={className} fold={fold}>
       <Island compact title="Status">
         <Prop icon={Status} active>
           {/* A status that changes rolls to the new word: the change is seen. */}

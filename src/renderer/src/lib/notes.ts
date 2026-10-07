@@ -5,6 +5,7 @@ import { fieldKeys } from '@/components/capture-kinds/kind-fields'
 import { refuse, toast, waiting } from '@/components/vigil/ui'
 import type { Action } from '@/components/search'
 import { chime } from '@/lib/sound'
+import { detailsShown, fullWidth, setFullWidth, showDetails } from '@/lib/reading'
 import { useLive, vigil } from '@/lib/vigil'
 import { addToQuestion } from '@/components/vigil/questions-view'
 import { dayKey } from '../../../main/dates'
@@ -195,7 +196,11 @@ export function noteActions({ day = true }: { day?: boolean } = {}): Action[] {
   const note = current
   const page: Action[] = day ? [{ label: "Today's page", cue: null, run: openToday }] : []
   const all: Action = { label: 'Save every picture and file to a folder', cue: null, run: () => void saveAttachments() }
-  if (!note) return [...page, all]
+  // Notion's switch, for every page: the words in a reading column, or across the window.
+  const width: Action = fullWidth()
+    ? { label: 'Contained width', cue: null, run: () => setFullWidth(false) }
+    : { label: 'Full width', cue: null, run: () => setFullWidth(true) }
+  if (!note) return [...page, width, all]
   // Marked as this note's own, so search ranks them above going somewhere.
   return [
     ...page,
@@ -205,8 +210,10 @@ export function noteActions({ day = true }: { day?: boolean } = {}): Action[] {
       { label: note.archived ? 'Unarchive this note' : 'Archive this note', cue: null, run: () => void archive(note.table, [note.id], !note.archived) },
       { label: 'Open this note in a new window', cue: null, run: () => openWindow(note.type, note.id) },
       { label: 'Version history of this note', cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:versions', { detail: note.id })) },
+      { label: detailsShown() ? "Hide this note's details" : "Show this note's details", cue: null, run: () => showDetails(!detailsShown()) },
       { label: "Save this note's pictures and files", cue: null, run: () => void saveAttachments([{ table: note.table, id: note.id }]) },
     ] as Action[]).map((one) => ({ ...one, own: true })),
+    width,
     all
   ]
 }

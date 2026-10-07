@@ -36,6 +36,23 @@ export function plain(value: unknown): string {
   return value ? walk(value as { content?: unknown[] }) : ''
 }
 
+/** Markdown read as words, for a card's few lines: no marks, links as their words, pictures and tags of HTML out. */
+const mdWords = (text: string): string =>
+  plain(text)
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, '$1')
+    .replace(/<[^>]+>/g, '')
+    .replace(/^\s*(?:#{1,6}|>|[-*+]|\d+\.)\s+/gm, '')
+    .replace(/\*\*|__|~~|==|`/g, '')
+    .replace(/(^|[\s(])[*_](?=\S)([^*_\n]*?\S)[*_](?=$|[\s).,;:!?])/gm, '$1$2')
+/** A stored body as words for a card: the editor's JSON walked, Markdown (bare, or saved as a JSON string) read without its marks. */
+const cardWords = (raw: string): string => {
+  let value: unknown = raw
+  try { value = JSON.parse(raw) } catch { /* Markdown, as it is */ }
+  return typeof value === 'string' ? mdWords(value) : plain(value)
+}
+
 type Doc = { type?: string; text?: string; attrs?: Record<string, unknown>; marks?: { type: string; attrs?: Record<string, unknown> }[]; content?: Doc[] }
 /**
  * A document as Markdown, the way any editor would read it back: headings,
@@ -2144,9 +2161,9 @@ export function registerVigil(): void {
       // Wrapped, for the day and for the year: what happened, set down plainly.
       day: (() => {
         const since = dayjs().startOf('day').toISOString()
-        return one<{ captured: number; exits: number; reviews: number }>(
+        return one<{ captured: number; exits: number; tasks: number; reviews: number }>(
           `select (select count(*) from captures where captured_at >= ?) captured, (select count(*) from captures where exited_at >= ?) exits,
-            (select count(*) from review_log where reviewed_at >= ?) reviews`, since, since, since)
+            (select count(*) from task_done where done_at >= ?) tasks, (select count(*) from review_log where reviewed_at >= ?) reviews`, since, since, since, since)
       })(),
       year: (() => {
         const since = dayjs().startOf('year').toISOString()
@@ -2208,8 +2225,10 @@ export function registerVigil(): void {
     const captureRows = data.captures as Record<string, string & number>[]
     const nuggetRows = data.nuggets as Record<string, string>[]
     const names = new Map<string, string>()
+    // Each capture by the name the app shows it by: its own title (a vault note's), else its first line.
+    const labels = new Map((db.prepare(`select id, ${LABEL} as label from captures`).all() as { id: string; label: string }[]).map((row) => [row.id, row.label]))
     for (const row of captureRows) {
-      const name = slug(plain(JSON.parse(row.body ?? 'null')).split('\n').find((line) => line.trim()) ?? '')
+      const name = slug(labels.get(row.id) ?? '')
       names.set(row.id, unique(`MF-${row.number}${name ? ` ${name}` : ''}`))
     }
     for (const row of nuggetRows) names.set(row.id, unique(`${row.tier}-${slug(row.title) || row.id.slice(0, 8)}`))
@@ -2299,12 +2318,7 @@ export function registerVigil(): void {
       .sort((a, b) => b.score - a.score || String(b.at).localeCompare(String(a.at)))
       .slice(0, 12)
       .map((row) => {
-        let text = ''
-        try {
-          text = plain(JSON.parse(row.body ?? 'null'))
-        } catch {
-          text = row.body ?? ''
-        }
+        const text = cardWords(row.body ?? '')
         // A few words after the name, tags out: the card names them below.
         const excerpt = text.replace(/(?:^|\s)#[a-z][\w-]*/gi, ' ').split('\n').map((line) => line.trim()).filter((line) => line && line !== row.title.trim()).join(' ').slice(0, 220)
         // Rarest first, the ones that say the most.
@@ -2425,7 +2439,8 @@ export function registerHome(): void {
     // Due for review now, and kept things longest unseen: the hints' pool, read without picking.
     const due = (db.prepare("select id from nuggets where tier = 'nugget' and suspended = 0 and archived_at is null and superseded_by is null and due_at is not null and due_at <= ? order by due_at limit 12").all(now()) as { id: string }[])
       .flatMap(({ id }) => { const row = byId.get(id); return row && offered(row) ? [strip(row)] : [] })
-    const unseen = blackout ? [] : (db.prepare("select id from nuggets where tier not in ('question', 'goal') and suspended = 0 and archived_at is null and superseded_by is null and private = 0 order by coalesce(last_visited_at, '') limit 8").all() as { id: string }[])
+    // Unseen means old too: made over three weeks ago and not opened for as long, so nothing new reads "not seen in a while".
+    const unseen = blackout ? [] : (db.prepare("select id from nuggets where tier not in ('question', 'goal') and suspended = 0 and archived_at is null and superseded_by is null and private = 0 and created_at < ? and coalesce(last_visited_at, '') < ? and id not in (select id from note_opens where at >= ?) order by coalesce(last_visited_at, '') limit 8").all(ago(21), ago(21), ago(21)) as { id: string }[])
       .flatMap(({ id }) => { const row = byId.get(id); return row && !due.some((one) => one.id === id) ? [strip(row)] : [] })
     const article = all.filter((row) => row.type === 'article' && offered(row)).sort((a, b) => b.made.localeCompare(a.made))[0]
 
@@ -2455,8 +2470,7 @@ export function registerHome(): void {
     const excerpt = <T extends Shelved>(card: T): T & { excerpt: string } => {
       if (!excerpts.has(card.id)) {
         const raw = byId.get(card.id)?.body ?? ''
-        let text = raw
-        try { text = plain(JSON.parse(raw)) } catch { /* Markdown, as it is */ }
+        const text = cardWords(raw)
         const lines = text.split('\n').map((line) => line.replace(/^[#>*\-\s]+/, '').trim()).filter(Boolean)
         // Never the title again: drop the lines the title already says (a
         // name can be made from the first line or two), then any of its words.

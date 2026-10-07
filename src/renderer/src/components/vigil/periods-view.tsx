@@ -349,11 +349,16 @@ export function YearPage({ onScale, onMonth }: { onScale?: (scale: Scale) => voi
         <ol className="mt-6 flex flex-col">
           {all.map((month) => {
             const page = months.find((one) => one.month === month)
+            // The month you are in, marked quietly: a soft fill, its name in full ink and a dot.
+            const now = month === dayjs().format('YYYY-MM')
             return (
               <li key={month}>
-                <button type="button" onClick={() => (chime('season'), onMonth(month))}
-                  className="grid w-full grid-cols-[6.5rem_1fr] gap-4 rounded-lg px-3 py-3 text-left transition-colors hover:bg-accent/50">
-                  <span className="pt-0.5 text-control text-muted-foreground">{monthName(month, false)}</span>
+                <button type="button" onClick={() => (chime('season'), onMonth(month))} aria-current={now ? 'date' : undefined}
+                  className={`grid w-full grid-cols-[6.5rem_1fr] items-baseline gap-4 rounded-lg px-3 py-3 text-left transition-colors hover:bg-accent/50 ${now ? 'bg-accent/30' : ''}`}>
+                  <span className={`flex items-baseline gap-1.5 text-control ${now ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
+                    {monthName(month, false)}
+                    {now && <span aria-hidden className="size-1.5 shrink-0 self-center rounded-full bg-[var(--tt-brand-color-400)]" />}
+                  </span>
                   <span className="min-w-0">
                     <span className={`block text-body text-pretty ${page?.season ? 'text-foreground' : 'text-muted-foreground/70'}`}>{page?.season || 'No season named'}</span>
                     {page?.focus && <span className="mt-0.5 block truncate text-xs text-muted-foreground">Focus: {page.focus}</span>}

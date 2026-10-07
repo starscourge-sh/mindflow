@@ -126,14 +126,14 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
   useEffect(() => void (document.title = (!meta?.private && meta?.label) || 'Note'), [meta?.label, meta?.private])
   if (!capture || !meta) return null
   return (
-    <div className="flex min-w-0 flex-1 flex-col overflow-y-auto [--mf-padding:1rem_1.5rem_1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem]">
+    <div className="note-pane flex min-w-0 flex-1 flex-col overflow-y-auto [--mf-padding:1rem_1.5rem_1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem]">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <NoteHeader table="captures" id={id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })} onRestored={() => void window.api.captures.get(id).then((found) => {
             setCapture(found)
             setRev((n) => n + 1)
           })}
           edited={meta.editedAt} captured={meta.capturedAt} pinned={!!meta.pinnedAt} onPin={() => pin('captures', id, !meta.pinnedAt)}
-          copyKey={captureKey(meta.number)} board={board.fits || board.on ? board : undefined}
+          copyKey={captureKey(meta.number)} board={board.fits || board.on ? board : undefined} details={!boardShown}
           menu={[...(boardShown ? [{ label: propsOut ? 'Hide properties' : 'Show properties', run: () => setPropsOut(!propsOut) }, 'separator' as const] : []), ...captureDots(meta).filter((item) => !item || item === 'separator' || item.label !== 'Open in a new window')]}
           tools={boardShown ? <span ref={setTools} className="contents" /> : undefined} />
         {past ? (
@@ -159,7 +159,7 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
         )}
         {boardShown && <Board key={`${id}-${rev}`} editor={editor} id={id} tools={tools} />}
       </div>
-      {(!boardShown || propsOut) && <CaptureProps capture={meta} onOpen={elsewhere} />}
+      {(!boardShown || propsOut) && <CaptureProps capture={meta} onOpen={elsewhere} fold={!boardShown} />}
     </div>
   )
 }

@@ -262,7 +262,7 @@ export type Stats = {
   estimates: { estimated: number | null; spent: number | null }
   lead: { exits: number; glosses: number; reviewDays: number; articles: number }
   leeches: string[]
-  day: { captured: number; exits: number; reviews: number }
+  day: { captured: number; exits: number; tasks: number; reviews: number }
   year: { captured: number; nuggets: number; articles: number; month: string | null }
   stopped: number
   unprocessed: { now: number; weekAgo: number }

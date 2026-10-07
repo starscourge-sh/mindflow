@@ -3,7 +3,6 @@ import { type Editor } from "@tiptap/react"
 
 // --- Hooks ---
 import { useMenuNavigation } from "@/hooks/use-menu-navigation"
-import { useIsBreakpoint } from "@/hooks/use-is-breakpoint"
 import { useTiptapEditor } from "@/hooks/use-tiptap-editor"
 
 // --- Icons ---
@@ -110,7 +109,6 @@ export function ColorHighlightPopoverContent({
   useColorValue = false,
 }: ColorHighlightPopoverContentProps) {
   const { handleRemoveHighlight } = useColorHighlight({ editor })
-  const isMobile = useIsBreakpoint()
   const containerRef = useRef<HTMLDivElement>(null)
 
   const menuItems = useMemo(
@@ -138,9 +136,10 @@ export function ColorHighlightPopoverContent({
     <Card
       ref={containerRef}
       tabIndex={0}
-      style={isMobile ? { boxShadow: "none", border: 0 } : {}}
+      // Never stripped bare for a narrow window: the box is narrow, not a
+      // phone, and without its edge the panel sank into a dark page.
     >
-      <CardBody style={isMobile ? { padding: 0 } : {}}>
+      <CardBody>
         <CardItemGroup orientation="horizontal">
           <ButtonGroup>
             {colors.map((color, index) => (

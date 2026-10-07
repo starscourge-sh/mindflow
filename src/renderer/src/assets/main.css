@@ -413,6 +413,107 @@ html[data-width='page'] .mindflow-editor-wrapper:not(.is-line) .tiptap.ProseMirr
   margin-inline: auto;
 }
 
+/* A note reads like a page of a wiki: the words in a column of about seventy
+   characters (36em of the note's own size, so it grows with ⌘+), centred,
+   the margins either side left empty. The pane's gutters (4.75rem a side)
+   are on top of the column, so the drag grip keeps its room. Full width lets
+   it run edge to edge. Read sets its column itself, Full width or not. */
+html[data-width='page'] .note-pane .mindflow-editor-wrapper:not(.is-line) .tiptap.ProseMirror.mindflow-editor {
+  max-width: calc(36em + 9.5rem);
+}
+.mf-read .mindflow-editor-wrapper:not(.is-line) .tiptap.ProseMirror.mindflow-editor {
+  width: 100%;
+  max-width: 36em;
+  margin-inline: auto;
+}
+
+/* The rhythm of a page meant to be read: room between paragraphs, a heading
+   with more air above than below, a section heading ruled off the way an
+   encyclopedia's are, pictures held inside the column and never taller than
+   the window, quotes and lists with space to breathe. Only where a note is
+   read (an open note, Read): the box and the day's page keep their own. */
+:is(.note-pane, .mf-read) .tiptap.ProseMirror.mindflow-editor:not(.is-line) {
+  > p {
+    line-height: 1.7;
+  }
+  > p + p {
+    margin-top: 0.7em;
+  }
+  > :is(h1, h2, h3, h4) + p {
+    margin-top: 0.35em;
+  }
+  > h1 {
+    margin-top: 1.5em;
+  }
+  > h2 {
+    margin-top: 1.9em;
+    margin-bottom: 0.45em;
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
+  }
+  > h3 {
+    margin-top: 1.5em;
+  }
+  > :is(h1, h2, h3, h4):first-child {
+    margin-top: 0;
+  }
+  /* Lists: their items apart enough to read one at a time. */
+  > :is(ul, ol) {
+    margin-block: 0.7em;
+  }
+  li + li {
+    margin-top: 0.25em;
+  }
+  li > p {
+    line-height: 1.6;
+  }
+  /* A quote: set off by its rule and its voice, not by a box. */
+  > blockquote {
+    margin-block: 1.4em;
+    padding-left: 1.1em;
+    color: color-mix(in oklab, var(--foreground) 82%, transparent);
+    font-style: italic;
+  }
+  > blockquote::before {
+    width: 2px;
+    border-radius: 1px;
+  }
+  /* Pictures: inside the column, centred, a soft corner, never taller than
+     most of the window. One sized by hand keeps its size. */
+  > img:not([data-type='emoji'] img) {
+    max-height: 80vh;
+    margin-block: 1.75em;
+    border-radius: 0.5rem;
+  }
+  > img:not([data-type='emoji'] img):not([style*='width']) {
+    width: auto;
+  }
+  > img:not([data-type='emoji'] img):not([data-align='left'], [data-align='right']) {
+    margin-inline: auto;
+  }
+  /* Code and tables a step smaller than the prose, with room around them. A
+     table wider than the column scrolls sideways inside it. */
+  > pre {
+    margin-block: 1.4em;
+    font-size: 0.875em;
+    line-height: 1.55;
+  }
+  .tableWrapper {
+    margin-block: 1.5em;
+  }
+  table {
+    font-size: 0.9375em;
+    line-height: 1.5;
+  }
+  th {
+    text-align: left;
+  }
+  > hr,
+  > [data-type='horizontalRule'] {
+    margin-block: 2em;
+  }
+}
+
 /* Every button answers the press: a small give, gone the moment you let go.
    Not on the editor's drag grip, which is picked up rather than pressed. */
 button:not(:disabled):not(.tiptap-drag-handle *) {
@@ -478,6 +579,18 @@ html[data-width='page'] .page-column {
 html[data-width='page'] header.page-column {
   max-width: none;
   padding-inline: max(1.25rem, calc((100% - 56rem) / 2 + 1.25rem));
+}
+/* Today's sheet (the brief and the page under it): a centred column like
+   any page, edge to edge with Full width. */
+html[data-width='page'] .page-sheet {
+  max-width: 54rem;
+}
+/* Edge to edge, it still leaves the brief's margins room for the date and
+   the time set on their sides, wherever the page is wide enough to show them. */
+@container page (min-width: 66rem) {
+  html[data-width='full'] .page-sheet {
+    padding-inline: 5.5rem;
+  }
 }
 /* A day's page, a task's or nugget's title and checklist: a narrower column,
    and the same switch lets them run edge to edge. */
@@ -635,6 +748,17 @@ body {
 body:has([data-card]:focus) [data-cursor] {
   background-color: transparent !important;
 }
+
+/* A list that scrolls fades out at its foot while there is more below, so
+   nothing reads as cut off by what sits under it; at the end, no fade.
+   Driven by the scroll itself; a list too short to scroll never fades. */
+@property --mf-fade-end { syntax: '<length>'; inherits: false; initial-value: 0px; }
+.mf-fade-end {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--mf-fade-end)), transparent);
+  animation: mf-fade-end steps(1, jump-end) both;
+  animation-timeline: scroll(self);
+}
+@keyframes mf-fade-end { from { --mf-fade-end: 2rem; } to { --mf-fade-end: 0px; } }
 
 /* Typed: each word of a hint sentence arrives in turn, from a soft blur. */
 .mf-typed {
@@ -869,3 +993,32 @@ input[type='number']::-webkit-outer-spin-button {
 }
 :root[data-motion='off'] .mf-goal-today { animation: none; }
 @media (prefers-reduced-motion: reduce) { .mf-goal-today { animation: none; } }
+
+/* Read: the page first. The furniture around the words (the pager and its
+   keys, the word count, the field for a new thought) is there while the
+   pointer moves or rests on it, and settles away while you read. Quick to
+   come, slow to go. With Motion off it simply shows and hides. */
+.mf-read .mindflow-editor-wrapper:not(.is-line) .tiptap.ProseMirror.mindflow-editor {
+  font-size: calc(1.125rem * var(--mf-text-scale, 1));
+}
+.mf-read :is(.mf-fade, .tiptap-word-count, [data-gloss] .group\/field) {
+  opacity: 0;
+  transition: opacity 450ms var(--mf-ease);
+}
+.mf-read:is([data-awake], :has([data-gloss] textarea:focus)) :is(.mf-fade, .tiptap-word-count, [data-gloss] .group\/field),
+.mf-read :is(.mf-fade, .tiptap-word-count, [data-gloss] .group\/field):is(:hover, :focus-within) {
+  opacity: 1;
+  transition-duration: 140ms;
+}
+
+/* The list folded to a rail sits beside the page as a quiet margin: its
+   pictures faded and drained of most of their colour, so the note is what the
+   eye lands on. The one open, the one the keys are on and the one pointed at
+   show in full. */
+.mf-rail [data-row] > * {
+  transition: opacity 180ms var(--mf-ease), filter 180ms var(--mf-ease);
+}
+.mf-rail [data-row]:not([data-open], [data-cursor], :hover, :focus-visible) > * {
+  opacity: 0.45;
+  filter: saturate(0.4);
+}

@@ -67,6 +67,7 @@ export interface Api {
   hideWindow: () => void
   showPrompt: () => void
   importFrom: (what: 'vault' | 'files') => Promise<void>
+  restoreBackup: () => Promise<void>
   setAppearance: (mode: 'light' | 'dark') => void
   openInHome: (type: string, id: string, heading?: string) => void
   onSentTo: (listen: (type: string, id: string, heading?: string) => void) => () => void

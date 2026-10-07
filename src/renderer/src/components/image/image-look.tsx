@@ -80,9 +80,13 @@ function picturesOf(editor: Editor): HTMLImageElement[] {
   return found
 }
 
-/** The italic line under it if it has one, else its name, else nothing worth saying. */
+/** Its own caption, else the italic line under it, else its name, else nothing worth saying. */
 export function captionOf(img: HTMLImageElement): string {
+  const own = img.dataset.caption?.trim() || img.closest("figure")?.querySelector("figcaption")?.textContent?.trim()
+  if (own) return own
   const next = img.nextElementSibling
+  // The caption written under it in the note, drawn beside the picture.
+  if (next?.classList.contains("mf-caption") && next.textContent?.trim()) return next.textContent.trim()
   if (next?.tagName === "P" && next.children.length === 1 && next.firstElementChild?.tagName === "EM") return next.textContent?.trim() ?? ""
   if (img.alt) return img.alt
   // A picture pasted in whole has no name, only its bytes.

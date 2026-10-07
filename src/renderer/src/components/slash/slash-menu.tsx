@@ -17,7 +17,7 @@ import type { SlashItem } from "@/extensions/slash-command"
 import { listDirection, step } from "@/lib/menu-keys"
 
 const SlashList = forwardRef(function SlashList(
-  { items, command }: SuggestionProps<SlashItem>,
+  { items, command, query }: SuggestionProps<SlashItem>,
   ref: ForwardedRef<SuggestionListHandle>
 ) {
   const [selected, setSelected] = useState(0)
@@ -97,7 +97,8 @@ const SlashList = forwardRef(function SlashList(
     <div className="tiptap-slash-menu">
       <div className="tiptap-slash-menu-list">
         {items.map((item, index) => {
-          const header = item.group !== lastGroup ? item.group : null
+          // Found by a search, best first: the groups no longer hold together.
+          const header = !query && item.group !== lastGroup ? item.group : null
           lastGroup = item.group
 
           return (

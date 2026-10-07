@@ -912,7 +912,8 @@ function gatherStickies(): void {
   const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
   let n = 0
   for (const [key, win] of stickies) {
-    if (win.isDestroyed()) continue
+    // Only those meant to be up: never one put away, nor any in safe mode.
+    if (win.isDestroyed() || !stickyUp(key)) continue
     const { width, height } = win.getBounds()
     const bounds = onScreen({ width, height, x: workArea.x + workArea.width - width - (n % 2) * 24, y: workArea.y + n * 64 })
     win.setBounds(bounds)
@@ -1641,7 +1642,7 @@ function updateTray(): void {
       { type: 'separator' },
       { label: 'Safe mode', type: 'checkbox', checked: safe, click: () => (toggleSafeMode(), updateTray()) },
       { label: 'Show sticky notes', type: 'checkbox', checked: stickyPrefs().shown, click: () => showStickies() },
-      { label: 'Bring sticky notes here', enabled: stickies.size > 0, click: () => gatherStickies() },
+      { label: 'Bring sticky notes here', enabled: !safe && stickies.size > 0, click: () => gatherStickies() },
       { type: 'separator' },
       { label: 'Quit Vigil', accelerator: 'Command+Q', click: quit }
     ])
@@ -1747,6 +1748,7 @@ app.whenReady().then(() => {
   ipcMain.on('prompt:show', () => toggleWindow())
   // The first-run step and Settings import the way the menu bar does.
   ipcMain.handle('import:run', (_event, what: unknown) => (what === 'vault' ? importVault() : importFiles()))
+  ipcMain.handle('backup:restore', () => restore())
   // The app's theme decides the frosting behind every window, not the system's.
   ipcMain.on('appearance', (_event, mode: string) => void (nativeTheme.themeSource = mode === 'light' ? 'light' : 'dark'))
   // The prompt sends you to one thing in the main window: a task's notes and

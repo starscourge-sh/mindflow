@@ -1800,7 +1800,10 @@ export const VimMode = Extension.create<VimModeOptions>({
             // caret through a list one item at a time instead of lighting up
             // the whole list. Every mode, because in insert mode it is still
             // the line you are working on.
-            if ($head.parent.isTextblock && $head.depth >= 1) {
+            // Not in a table's cell: the band ran across the whole table and
+            // out over the bar that adds a column.
+            const inCell = Array.from({ length: $head.depth }, (_, d) => $head.node(d + 1).type.spec.tableRole).some((role) => role === "cell" || role === "header_cell")
+            if ($head.parent.isTextblock && $head.depth >= 1 && !inCell) {
               decorations.push(
                 Decoration.node($head.before(), $head.after(), {
                   class: "vim-cursor-line",

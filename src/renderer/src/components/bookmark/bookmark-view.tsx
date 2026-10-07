@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { NodeViewWrapper, useEditorState, type NodeViewProps } from "@tiptap/react"
 import { alive } from "@/components/ui/alive-icon"
 import SimpleCheckedIcon from "@/components/ui/simple-checked-icon"
@@ -43,6 +43,29 @@ export function BookmarkView(props: NodeViewProps): React.JSX.Element {
     },
   })
 
+  // A picture that nearly fills the frame fills it: shown whole, it left a
+  // few pixels of its blurred copy down one side, which read as a seam.
+  const frame = useRef<HTMLSpanElement>(null)
+  const [fills, setFills] = useState(false)
+  useEffect(() => {
+    const box = frame.current
+    const img = box?.querySelector("img")
+    if (!box || !img) return
+    const check = (): void => {
+      if (!img.naturalWidth || !box.clientHeight) return
+      const off = (img.naturalWidth / img.naturalHeight) / (box.clientWidth / box.clientHeight)
+      setFills(Math.abs(off - 1) <= 0.06)
+    }
+    check()
+    img.addEventListener("load", check)
+    const watch = new ResizeObserver(check)
+    watch.observe(box)
+    return () => {
+      img.removeEventListener("load", check)
+      watch.disconnect()
+    }
+  }, [image, loading])
+
   return (
     <NodeViewWrapper
       // A card holds no text for the browser to paint, so a select-all swept
@@ -56,7 +79,7 @@ export function BookmarkView(props: NodeViewProps): React.JSX.Element {
       {/* The picture whole, over itself blurred: a picture of another shape
           leaves no empty bands, only its own colours carried to the edges. */}
       {image && !loading && (
-        <span className="tiptap-bookmark-frame" style={{ '--bookmark-art': `url(${JSON.stringify(image)})` } as React.CSSProperties}>
+        <span ref={frame} className="tiptap-bookmark-frame" data-fill={fills ? "" : undefined} style={{ '--bookmark-art': `url(${JSON.stringify(image)})` } as React.CSSProperties}>
           <img className="tiptap-bookmark-image" src={image} alt="" />
         </span>
       )}

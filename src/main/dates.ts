@@ -91,24 +91,30 @@ export function interval(iso: string, from: ConfigType = Date.now()): string {
 }
 /** Days since a moment, with the fraction: for thresholds like "older than a month". */
 export const daysSince = (at: ConfigType): number => span(dayjs(at), dayjs(), 'day')
-/** "3 days", "2 weeks", "6 months", "2 years": how long since, said in words, or null under a day. */
+/** Whole calendar days since a moment: 0 today, 1 yesterday, however few hours ago it was. */
+export const daysAgo = (at: ConfigType): number => -daysFromToday(at)
+/** "3 days", "2 weeks", "6 months", "2 years": how long since, said in words, or null for today. Days go by the calendar. */
 function spoken(at: ConfigType): { n: number; unit: string } | null {
-  const days = Math.floor(daysSince(at))
+  const days = daysAgo(at)
   if (days < 1) return null
   const [n, unit] = dayjs().diff(at, 'year') >= 1 ? [dayjs().diff(at, 'year'), 'year'] : days >= 60 ? [dayjs().diff(at, 'month'), 'month'] : days >= 14 ? [Math.floor(days / 7), 'week'] : [days, 'day']
   return { n, unit: `${unit}${n === 1 ? '' : 's'}` }
 }
-/** "today", "yesterday", "3 days ago", "6 months ago": how long ago, the way you would say it. */
+/** "today", "yesterday", "3 days ago", "6 months ago": how long ago, the way you would say it, by calendar days. */
 export function ago(at: ConfigType): string {
   const said = spoken(at)
   if (!said) return 'today'
   if (said.unit === 'day') return 'yesterday'
   return `${said.n} ${said.unit} ago`
 }
-/** How long a question has been held: "held 2 years", "held since today". */
+/** How long a question has been held: "held since today", "held since yesterday", "held since Monday", "held 2 weeks". */
 export function heldFor(at: ConfigType): string {
-  const said = spoken(at)
-  return said ? `held ${said.n} ${said.unit}` : 'held since today'
+  const days = daysAgo(at)
+  if (days < 1) return 'held since today'
+  if (days === 1) return 'held since yesterday'
+  if (days < 7) return `held since ${dayjs(at).format('dddd')}`
+  const said = spoken(at)!
+  return `held ${said.n} ${said.unit}`
 }
 
 const NUMBER = new Intl.NumberFormat('en')

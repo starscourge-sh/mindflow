@@ -1,5 +1,5 @@
 import { Fragment } from 'react'
-import { Minus, Plus } from 'lucide-react'
+import { Flag, Minus, Plus } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import FileDescriptionIcon from '@/components/ui/file-description-icon'
 import LibraryIcon from '@/components/ui/library-icon'
@@ -25,7 +25,7 @@ const ListTodo = alive(CheckedIcon)
 const Orbit = alive(QuestionMarkIcon)
 const X = alive(XIcon)
 
-const TIER = { nugget: Gem, article: FileText, question: Orbit, task: ListTodo } as const
+const TIER = { nugget: Gem, article: FileText, question: Orbit, task: ListTodo, goal: Flag } as const
 
 /** A day header in the list: "Today", "Yesterday", "Monday 5 October". */
 const dayHeader = (iso: string): string => {

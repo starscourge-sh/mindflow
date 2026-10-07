@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import type { Editor } from "@tiptap/react"
+import type { Node as PMNode } from "@tiptap/pm/model"
 import { num } from '../../../../main/dates'
 
 /**
@@ -19,8 +20,12 @@ export function WordCount({ editor }: { editor: Editor | null }) {
     if (!editor) return
     let later: ReturnType<typeof setTimeout> | undefined
     const count = (): void => {
-      const words = editor.storage.characterCount.words()
-      const characters = editor.storage.characterCount.characters()
+      // A link to a note counts as the words it shows; the counter's own read
+      // took it for a gap. A `/` on its own is the block menu being opened.
+      const { doc } = editor.state
+      const shown = (node: PMNode): string => (node.type.name === "noteLink" ? String(node.attrs.text || node.attrs.label || " ") : " ")
+      const words = doc.textBetween(0, doc.content.size, " ", (node) => ` ${shown(node)} `).split(/\s+/).filter((word) => word && word !== "/").length
+      const characters = doc.textBetween(0, doc.content.size, undefined, shown).length
       setCounts((now) => (now?.words === words && now.characters === characters ? now : { words, characters }))
     }
     const changed = (): void => {
@@ -83,7 +88,8 @@ export function WordCount({ editor }: { editor: Editor | null }) {
       ref={pill}
       data-clear={clear || undefined}
       // Centred under the page on a soft pill, the way Raycast Notes shows it.
-      className="tiptap-word-count pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-background px-2 py-0.5 text-xs whitespace-nowrap text-foreground/70 tabular-nums opacity-0 transition-opacity duration-200 data-clear:opacity-100">
+      // Tinted from the ink, so it shows on a page the colour of the background too (Paper).
+      className="tiptap-word-count pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-foreground/[0.07] px-2 py-0.5 text-xs whitespace-nowrap text-foreground/70 tabular-nums opacity-0 transition-opacity duration-200 data-clear:opacity-100">
       {num(words)} {words === 1 ? "word" : "words"} · {num(characters)} {characters === 1 ? "character" : "characters"}
     </span>
   )

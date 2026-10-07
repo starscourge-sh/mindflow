@@ -545,3 +545,15 @@ $mf-themes: (
     );
   }
 }
+
+/* On a dark page the same weight sank into it: the words were light on a tint
+   barely lighter than the page. Heavier there, still read through. */
+:root:not([data-light]) {
+  @each $name in ("gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red") {
+    --tt-color-highlight-#{$name}: color-mix(
+      in srgb,
+      var(--tt-color-text-#{$name}) 42%,
+      transparent
+    );
+  }
+}

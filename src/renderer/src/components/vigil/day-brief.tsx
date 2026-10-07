@@ -261,7 +261,7 @@ export function DayBrief({ day, onOpen, onListed }: {
                   </p>
                 )}
               </div>
-              {start && <Seal onClick={start} />}
+              {todos.length > 0 && finished === todos.length ? <DoneSeal /> : start && <Seal onClick={start} />}
             </div>
             <ul className="min-w-0 divide-y divide-border/50">
               {shown.map((task) => (
@@ -349,6 +349,21 @@ const SEAL = (() => {
 })()
 
 /** "Let's do it": a sticker off a sheet, starting on the first thing still to do. */
+/** Every to-do done: the seal stamped, a mark of the day and nothing more to press. */
+function DoneSeal(): React.JSX.Element {
+  return (
+    <motion.div role="img" aria-label="All done" initial={{ rotate: -9, scale: 0.9 }} animate={{ rotate: -9, scale: 1 }} transition={{ type: 'spring', stiffness: 520, damping: 17, mass: 0.7 }}
+      className="relative grid size-[4.75rem] shrink-0 place-items-center text-[var(--tt-brand-color-400)] @[34rem]:mt-5">
+      <svg aria-hidden viewBox="0 0 100 100" className="absolute inset-0 size-full">
+        <path d={SEAL} fill="color-mix(in oklab, var(--tt-brand-color-400) 12%, transparent)" stroke="var(--tt-brand-color-400)" strokeWidth="3" strokeLinejoin="round" />
+      </svg>
+      <span className="relative text-center text-[0.875rem] leading-[1.05] font-semibold italic" style={{ fontFamily: 'var(--font-heading)' }}>
+        All<br />done <Check className="inline size-3.5 translate-y-[-1px]" />
+      </span>
+    </motion.div>
+  )
+}
+
 function Seal({ onClick }: { onClick: () => void }): React.JSX.Element {
   return (
     <motion.button

@@ -59,6 +59,7 @@ import { openWindow } from '@/lib/notes'
 import { PlaceIcon, SECTIONS, ShowList, useShown } from '@/components/vigil/places'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { RowMenu } from '@/components/vigil/row-menu'
+import { useStoredFlag } from '@/lib/use-stored-flag'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ChevronRight = alive(RightChevronIcon)
@@ -208,6 +209,8 @@ export function Home(): React.JSX.Element {
   const questions = useLive(() => vigil.items('question'), [] as Item[], [], ['item'])
   const goals = useLive(() => vigil.items('goal'), [] as Item[], [], ['item'])
   const settings = useLive(vigil.settings, null as Settings | null)
+  // Seen in screen recordings or not: one flag with the box's menu and Settings.
+  const [recordable, setRecordable] = useStoredFlag('recordable')
   const topTitle = useTopTitle()
   // A new section has no note scrolled: the last one's name does not follow you there.
   useEffect(() => showTopTitle(null), [view.id])
@@ -337,18 +340,22 @@ export function Home(): React.JSX.Element {
             { label: 'New capture', keys: 'C', run: () => window.api.showPrompt() },
             { label: 'New question', cue: null, run: () => void startQuestion(open) },
             { label: 'New goal', cue: null, run: () => void startGoal(open) },
-            // Each open goal's beacon, on screen always or taken off.
-            ...goals.filter((one) => !one.archivedAt && !one.closedAt).map((goal) => {
-              const on = (goal.beacon ?? settings?.goalBeacon ?? 'sometimes') !== 'off'
-              return { label: `${on ? 'Take off screen' : 'Keep on screen'}: ${goal.title}`, cue: null, run: () => void vigil.setBeacon(goal.id, on ? 'off' : 'always').then(() => {
-                chime(on ? 'unstick' : 'stick')
-                toast(on ? 'Off screen: the menu bar and Home still show it' : 'On screen, on every Space', () => void vigil.setBeacon(goal.id, goal.beacon))
-              }) }
+            // Each open goal's beacon: the two settings it is not on, named as the goal's page names them.
+            ...goals.filter((one) => !one.archivedAt && !one.closedAt).flatMap((goal) => {
+              const now = goal.beacon ?? settings?.goalBeacon ?? 'sometimes'
+              return (['always', 'sometimes', 'off'] as const).filter((mode) => mode !== now).map((mode) => ({
+                label: `Goal on screen, ${mode === 'always' ? 'always' : mode === 'sometimes' ? 'now and then' : 'off'}: ${goal.title}`, cue: null,
+                run: () => void vigil.setBeacon(goal.id, mode).then(() => {
+                  chime(mode === 'off' ? 'unstick' : 'stick')
+                  toast(mode === 'always' ? 'On screen, on every Space' : mode === 'sometimes' ? 'On screen now and then: it comes out a few times a day' : 'Off screen: the menu bar and Home still show it', () => void vigil.setBeacon(goal.id, goal.beacon))
+                })
+              }))
             }),
             { label: 'Tidy: a few minutes over the latest captures', run: () => openPass('tidy') },
             { label: 'Decide: the weekly pass over what waited', run: () => openPass('decide') },
             { label: 'Import an Obsidian vault or Notion export…', cue: null, run: () => void window.api.importFrom('vault') },
             { label: 'Import Readwise, Kindle, Markdown, bookmarks or Anki…', cue: null, run: () => void window.api.importFrom('files') },
+            { label: 'Restore from a backup…', cue: null, run: () => void window.api.restoreBackup() },
             { label: 'Take the tour', cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:tour')) },
             { label: 'Try a celebration', cue: null, run: () => tryCelebration() },
             ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),
@@ -363,7 +370,9 @@ export function Home(): React.JSX.Element {
             } },
             { label: settings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', cue: null, run: safeMode },
             { label: settings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', keys: '⌃⌥⌘N', cue: null, run: () => void vigil.setSettings({ stickiesShown: settings?.stickiesShown === false }) },
-            { label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() },
+            { label: recordable ? 'Hide Vigil from screen recordings' : 'Show Vigil in screen recordings', cue: recordable ? 'off' : 'on', run: () => (setRecordable(!recordable), void window.api.setRecordable(!recordable)) },
+            // Not in safe mode: the notes it would bring are meant to be put away then.
+            ...(settings?.safeMode ? [] : [{ label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() }]),
             { label: 'reveal' in document.documentElement.dataset ? 'Blur private titles again' : 'Show private titles for now', cue: 'reveal' in document.documentElement.dataset ? 'off' : 'on', run: () => {
               const root = document.documentElement
               if ('reveal' in root.dataset) delete root.dataset.reveal
@@ -395,7 +404,7 @@ export function Home(): React.JSX.Element {
           on them says it does not. */}
       <div className="flex min-h-0 flex-1 gap-2 p-2">
       {sidebar && (
-      // Customize opens beside the whole sidebar, from its top, so it never runs off the window.
+      // Customize opens beside the whole sidebar, just under the window's top bar, so it never hides the bar nor runs off the window.
       <Popover open={customizing} onOpenChange={setCustomizing}>
       <PopoverAnchor asChild>
       <aside data-chrome className={`group/side flex shrink-0 flex-col overflow-hidden rounded-xl border bg-accent/20 ${narrow ? 'w-12' : 'w-56'}`}>
@@ -416,7 +425,7 @@ export function Home(): React.JSX.Element {
             {!narrow && <Pressed keys="⌘K" />}
           </button>
         </div>
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pt-1 pb-3">
+        <div className="mf-fade-end flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pt-1 pb-3">
         <nav className="flex flex-col gap-px">
           {(() => {
             const row = (section: (typeof SECTIONS)[number]): React.JSX.Element => (
@@ -540,7 +549,7 @@ export function Home(): React.JSX.Element {
         </button>
         {kindsOpen &&
           CAPTURE_TYPES.map((type) => {
-            const count = captures.filter((capture) => capture.kind === type.id && !capture.archivedAt).length
+            const count = captures.filter((capture) => capture.kind === type.id && capture.status !== 'discarded' && !capture.archivedAt).length
             return (
               <button
                 key={type.id}
@@ -630,10 +639,10 @@ export function Home(): React.JSX.Element {
         </div>
       </aside>
       </PopoverAnchor>
-      <PopoverContent side="right" align="start" sideOffset={8}
+      <PopoverContent side="right" align="start" sideOffset={8} alignOffset={52}
         // Its own row toggles it: a click there is not a click away.
         onInteractOutside={(event) => (event.target as Element | null)?.closest?.('[data-customize]') && event.preventDefault()}
-        className="max-h-[calc(var(--radix-popover-content-available-height)-8px)] w-72 gap-1 overflow-y-auto p-1.5">
+        className="max-h-[calc(var(--radix-popover-content-available-height)-60px)] w-72 gap-1 overflow-y-auto p-1.5">
         <p className="px-2 pt-1 pb-1.5 text-meta text-muted-foreground">Shown in the sidebar. The rest wait under More, and G with their letter still goes to them.</p>
         <ShowList places={SECTIONS} setting="sidebarShown" />
       </PopoverContent>
@@ -721,7 +730,7 @@ export function Home(): React.JSX.Element {
         ) : view.id === 'yearpage' ? (
           <YearPage onScale={toScale} onMonth={(month) => setView({ id: 'monthpage', focus: month })} />
         ) : kind ? (
-          <CapturesView title={kind.label} keep={(capture) => capture.kind === kind.id} onOpen={open} />
+          <CapturesView title={kind.label} keep={(capture) => capture.kind === kind.id && capture.status !== 'discarded'} onOpen={open} />
         ) : view.id === 'review' ? (
           <ReviewView />
         ) : view.id === 'today' || view.id === 'upcoming' || view.id === 'routines' || view.id === 'later' ? (

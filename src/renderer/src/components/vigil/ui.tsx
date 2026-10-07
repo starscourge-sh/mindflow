@@ -15,6 +15,7 @@ import { chime, soundOn } from '@/lib/sound'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/cn'
 import { useStoredFlag } from '@/lib/use-stored-flag'
+import { useDetailsShown } from '@/lib/reading'
 import { keyFor, useKeyChanges, withKeys } from '@/lib/keys'
 import { Kbd as ShadKbd, KbdGroup } from '@/components/ui/kbd'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -145,11 +146,15 @@ export function Pressed({ keys, each = false, className }: { keys: string; each?
 }
 
 /** A labelled run of properties, the right-hand column of an open item. */
-export function Props({ children, className }: { children: ReactNode; className?: string }): React.JSX.Element {
+export function Props({ children, className, fold = false }: { children: ReactNode; className?: string; fold?: boolean }): React.JSX.Element | null {
+  // Beside an open note (`fold`), put away until asked for: the note opens as
+  // a page to read. The details button over the note brings them out.
+  const shown = useDetailsShown()
+  if (fold && !shown) return null
   // One size for every row, whatever window it sits in: the prompt's larger
   // base made some rows grow and others not. A caller's classes are merged
   // over these, so the prompt's drawer can drop the width and the rule.
-  return <aside data-chrome className={cn('flex w-full shrink-0 flex-col gap-px overflow-y-auto border-t p-3 pt-4 text-control text-muted-foreground @[40rem]/page:w-64 @[40rem]/page:border-t-0 @[40rem]/page:border-l', className)}>{children}</aside>
+  return <aside data-chrome className={cn('flex w-full shrink-0 flex-col gap-px overflow-y-auto border-t p-3 pt-4 text-control text-muted-foreground @[40rem]/page:w-64 @[40rem]/page:border-t-0 @[40rem]/page:border-l', fold && 'mf-details', className)}>{children}</aside>
 }
 export function PropLabel({ children }: { children: ReactNode }): React.JSX.Element {
   return <div className="mt-3 mb-1 px-2 text-meta font-medium first:mt-0">{children}</div>
@@ -546,8 +551,9 @@ function useClearSpot(on: boolean, lane: React.RefObject<HTMLDivElement | null>)
       for (const one of document.querySelectorAll<HTMLElement>(PANELS)) {
         const at = one.getBoundingClientRect()
         if (!at.width || !at.height) continue
-        // Read through is the page itself while it is up: only its footer and Keys count.
-        if (one.getAttribute('aria-label') === 'Reading') {
+        // Read through, Tidy and Decide are the page itself while they are up: only their footer and Keys count,
+        // so a toast sits just above the keys, never over the header's words.
+        if (one.getAttribute('aria-label') === 'Reading' || one.hasAttribute('data-pass')) {
           for (const part of one.querySelectorAll<HTMLElement>('footer, [aria-label="Keys"]')) boxes.push(part.getBoundingClientRect())
         } else boxes.push(at)
       }

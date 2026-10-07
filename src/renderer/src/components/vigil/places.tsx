@@ -1,7 +1,6 @@
 import type { ComponentType, CSSProperties, RefAttributes } from 'react'
-import { CalendarFold, CalendarRange, Flag, Sprout, type LucideIcon } from 'lucide-react'
+import { Archive, CalendarFold, CalendarRange, Flag, Sprout, type LucideIcon } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
-import Stack3Icon from '@/components/ui/stack-3-icon'
 import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
 import ClockIcon from '@/components/ui/clock-icon'
 import LibraryIcon from '@/components/ui/library-icon'
@@ -27,7 +26,6 @@ import RefreshIcon from '@/components/ui/refresh-icon'
 import HistoryCircleIcon from '@/components/ui/history-circle-icon'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
-const Archive = alive(Stack3Icon)
 const BarChart3 = alive(ChartBarIcon)
 const Brain = alive(BrainCircuitIcon)
 const CalendarDays = alive(ClockIcon)

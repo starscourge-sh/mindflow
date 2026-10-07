@@ -1,4 +1,4 @@
-import { Columns2, Columns3, TableOfContents as ContentsIcon, Minus as DividerIcon, Table as TableIcon, Paperclip, SquarePlay as VideoIcon } from 'lucide-react'
+import { Columns2, Columns3, TableOfContents as ContentsIcon, Minus as DividerIcon, Sigma as SigmaIcon, Table as TableIcon, Paperclip, SquarePlay as VideoIcon } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import BookmarkIconDrawing from '@/components/ui/bookmark-icon'
 import RightChevronIcon from '@/components/ui/right-chevron'
@@ -48,6 +48,7 @@ export const slashItems: SlashItem[] = [
   {
     title: 'Text',
     group: 'Basic blocks',
+    keywords: ['paragraph', 'plain'],
     turnInto: true,
     icon: <TextIcon />,
     run: (editor) => {
@@ -66,6 +67,7 @@ export const slashItems: SlashItem[] = [
   {
     title: 'Heading 1',
     group: 'Basic blocks',
+    keywords: ['h1', 'heading one', 'title'],
     turnInto: true,
     hint: '#',
     icon: <HeadingOneIcon />,
@@ -74,6 +76,7 @@ export const slashItems: SlashItem[] = [
   {
     title: 'Heading 2',
     group: 'Basic blocks',
+    keywords: ['h2', 'heading two', 'title'],
     turnInto: true,
     hint: '##',
     icon: <HeadingTwoIcon />,
@@ -82,6 +85,7 @@ export const slashItems: SlashItem[] = [
   {
     title: 'Heading 3',
     group: 'Basic blocks',
+    keywords: ['h3', 'heading three', 'title'],
     turnInto: true,
     hint: '###',
     icon: <HeadingThreeIcon />,
@@ -90,6 +94,7 @@ export const slashItems: SlashItem[] = [
   {
     title: 'Bulleted list',
     group: 'Basic blocks',
+    keywords: ['bullets', 'unordered', 'ul', 'list'],
     turnInto: true,
     hint: '-',
     icon: <ListIcon />,
@@ -99,6 +104,7 @@ export const slashItems: SlashItem[] = [
   {
     title: 'Numbered list',
     group: 'Basic blocks',
+    keywords: ['ordered', 'ol', 'list', '1.'],
     turnInto: true,
     hint: '1.',
     icon: <ListOrderedIcon />,
@@ -108,6 +114,7 @@ export const slashItems: SlashItem[] = [
   {
     title: 'To-do list',
     group: 'Basic blocks',
+    keywords: ['todo', 'task', 'check', 'checkbox', 'checklist'],
     turnInto: true,
     hint: '[]',
     icon: <ListTodoIcon />,
@@ -117,6 +124,7 @@ export const slashItems: SlashItem[] = [
   {
     title: 'Quote',
     group: 'Basic blocks',
+    keywords: ['blockquote', 'citation'],
     turnInto: true,
     hint: '>',
     icon: <BlockquoteIcon />,
@@ -125,14 +133,31 @@ export const slashItems: SlashItem[] = [
   {
     title: 'Code',
     group: 'Basic blocks',
+    keywords: ['code block', 'snippet', 'pre'],
     turnInto: true,
     hint: '```',
     icon: <CodeBlockIcon />,
     run: (editor) => editor.chain().focus().toggleCodeBlock().run()
   },
+  // A formula, the word under the caret its first draft: the same as ⌥⌘0 and ⌥⌘9.
+  {
+    title: 'Math',
+    group: 'Basic blocks',
+    keywords: ['equation', 'formula', 'latex', 'tex', 'math block'],
+    icon: <SigmaIcon />,
+    run: (editor) => editor.chain().focus().insertMathBlock().run()
+  },
+  {
+    title: 'Inline math',
+    group: 'Basic blocks',
+    keywords: ['math', 'equation', 'formula', 'latex', 'tex'],
+    icon: <SigmaIcon />,
+    run: (editor) => editor.chain().focus().toggleInlineMath().run()
+  },
   {
     title: 'Divider',
     group: 'Basic blocks',
+    keywords: ['hr', 'rule', 'line', 'separator'],
     hint: '---',
     icon: <DividerIcon />,
     run: (editor) => editor.chain().focus().setHorizontalRule().run()
@@ -140,6 +165,7 @@ export const slashItems: SlashItem[] = [
   {
     title: 'Toggle',
     group: 'Basic blocks',
+    keywords: ['collapse', 'fold', 'details', 'expand'],
     turnInto: true,
     icon: <ToggleIcon />,
     // Not `setDetails`: that leaves the title EMPTY and drops the block you
@@ -149,6 +175,7 @@ export const slashItems: SlashItem[] = [
   {
     title: 'Callout',
     group: 'Basic blocks',
+    keywords: ['note', 'info', 'tip', 'warning', 'aside'],
     turnInto: true,
     hint: 'aside',
     icon: <CalloutIcon />,
@@ -160,9 +187,10 @@ export const slashItems: SlashItem[] = [
     title: `${count === 2 ? 'Two' : 'Three'} columns`,
     group: 'Basic blocks',
     hint: 'side by side',
-    keywords: ['columns', 'layout'],
+    keywords: ['columns', 'layout', 'side by side'],
     icon: count === 2 ? <Columns2 /> : <Columns3 />,
-    when: (editor: Editor) => !editor.isActive('column'),
+    // Not in another row, nor in a table's cell.
+    when: (editor: Editor) => !editor.isActive('column') && !isInTable(editor.state),
     run: (editor: Editor) => {
       const { $from } = editor.state.selection
       // On an empty line the row takes its place; otherwise it goes under it.
@@ -177,18 +205,24 @@ export const slashItems: SlashItem[] = [
     hint: '[TOC]',
     keywords: ['toc', 'contents', 'outline', 'headings'],
     icon: <ContentsIcon />,
+    // The headings of the whole note have no place inside one cell.
+    when: (editor) => !isInTable(editor.state),
     run: (editor) => editor.chain().focus().insertContents().run()
   },
   {
     title: 'Table',
     group: 'Media',
+    keywords: ['grid', 'rows', 'columns'],
     icon: <TableIcon />,
+    // A table inside a table's cell is one nobody can work with.
+    when: (editor) => !isInTable(editor.state),
     run: (editor) =>
       editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
   },
   {
     title: 'Image',
     group: 'Media',
+    keywords: ['img', 'picture', 'photo'],
     icon: <ImagePlusIcon />,
     // An empty block, not a prompt for a URL: the picture is usually a file on
     // the disk, and a menu that only takes a link cannot take one.
@@ -197,6 +231,7 @@ export const slashItems: SlashItem[] = [
   {
     title: 'File',
     group: 'Media',
+    keywords: ['attachment', 'upload'],
     hint: 'attach',
     icon: <Paperclip />,
     // The browser's own picker rather than a dialog through the main process:
@@ -234,7 +269,7 @@ export const slashItems: SlashItem[] = [
     title: 'Bookmark',
     group: 'Media',
     hint: 'link card',
-    keywords: ['embed', 'link', 'card'],
+    keywords: ['link', 'bookmark', 'card', 'url', 'embed'],
     icon: <BookmarkIcon />,
     prompt: 'Paste a link',
     // A card is only a card if something can say what the link is about.
@@ -245,7 +280,7 @@ export const slashItems: SlashItem[] = [
     title: 'YouTube',
     group: 'Media',
     hint: 'video player',
-    keywords: ['embed', 'video'],
+    keywords: ['video', 'embed', 'youtube'],
     icon: <VideoIcon />,
     prompt: 'Paste a YouTube link',
     run: (editor, href) => {

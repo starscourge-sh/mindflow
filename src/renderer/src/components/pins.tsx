@@ -51,8 +51,9 @@ export function Pins({ onOpen }: { onOpen: (type: string, id: string) => void })
                 'separator',
                 { label: 'Unpin', run: () => void vigil.pin(table, pin.id, false).then(() => chime('unpin')) }
               ]}>
-                <button type="button" data-private={pin.private ? '' : undefined} className="flex-1 truncate text-left hover:underline" onClick={() => onOpen(pin.type, pin.id)}>
-                  <span className="private-text">{pin.title || 'Untitled'}</span>
+                <button type="button" data-private={pin.private ? '' : undefined} className="min-w-0 flex-1 text-left hover:underline" onClick={() => onOpen(pin.type, pin.id)}>
+                  {/* Cut inside the blurred words, so the "…" is blurred with them. */}
+                  <span className="private-text block truncate">{pin.title || 'Untitled'}</span>
                 </button>
               </RowMenu>
               {stale && (

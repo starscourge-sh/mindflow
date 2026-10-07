@@ -14,6 +14,8 @@ import { dayjs, monthName, num } from '../../../../main/dates'
 
 const percent = (part: number, whole: number): string => (whole ? `${Math.round((part / whole) * 100)}%` : 'none')
 const plural = (n: number, one: string, many: string): string => `${num(n)} ${n === 1 ? one : many}`
+/** Time spent: "40 minutes" under an hour, "1.5 hours" from one. */
+const spent = (minutes: number): string => (minutes < 60 ? plural(Math.round(minutes), 'minute', 'minutes') : plural(Math.round(minutes / 6) / 10, 'hour', 'hours'))
 
 /** A number inside a sentence, set apart only by weight and even figures. It rolls into place. */
 // Each figure is wrapped with the mark after it (whitespace-nowrap), so a comma never starts a line.
@@ -57,6 +59,13 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
   const opened = new Set(stats.days)
   // Twelve weeks of days, oldest first, ending today: the heatmap's cells.
   const days = Array.from({ length: 84 }, (_, index) => dayjs().subtract(83 - index, 'day').format('YYYY-MM-DD'))
+  // Only what happened today, each its own clause: tasks closed count as much as captures caught.
+  const today = [
+    stats.day.captured > 0 && <>caught <N>{plural(stats.day.captured, 'thing', 'things')}</N></>,
+    stats.day.exits > 0 && <>saw <N>{num(stats.day.exits)}</N> through to an exit</>,
+    stats.day.tasks > 0 && <>closed <N>{plural(stats.day.tasks, 'task', 'tasks')}</N></>,
+    stats.day.reviews > 0 && <>reviewed <N>{plural(stats.day.reviews, 'card', 'cards')}</N></>
+  ].filter(Boolean)
   const exits = [
     { status: 'promoted', label: 'became nuggets', color: 'var(--tt-color-text-purple)' },
     { status: 'resolved', label: 'dealt with elsewhere', color: 'var(--tt-color-text-green)' },
@@ -77,9 +86,11 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
       <div className="px-5 pb-20 [&>section]:max-w-[62ch]">
         <Section title="Today">
           <p>
-            {stats.day.captured + stats.day.exits + stats.day.reviews ? (
+            {today.length ? (
               <>
-                You caught <span className="whitespace-nowrap"><N>{plural(stats.day.captured, 'thing', 'things')}</N>,</span> saw <N>{stats.day.exits}</N> through to an exit and reviewed <span className="whitespace-nowrap">{stats.day.reviews ? <N>{plural(stats.day.reviews, 'card', 'cards')}</N> : 'nothing'}.</span>
+                You {today.map((part, index) => (
+                  <span key={index}>{part}{index < today.length - 2 ? ', ' : index === today.length - 2 ? ' and ' : '.'}</span>
+                ))}
               </>
             ) : 'A quiet day here. That is allowed.'}
           </p>
@@ -104,7 +115,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           <p>
             {stats.sessions.n ? (
               <>
-                You ran <N>{plural(stats.sessions.n, 'session', 'sessions')}</N> for <N>{Math.round((stats.sessions.minutes ?? 0) / 60 * 10) / 10} hours</N> of focus.{' '}
+                You ran <N>{plural(stats.sessions.n, 'session', 'sessions')}</N> for <N>{spent(stats.sessions.minutes ?? 0)}</N> of focus.{' '}
               </>
             ) : 'No sessions this week. '}
             {Object.keys(stats.tagsWeek).length ? (
@@ -123,7 +134,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           )}
           {stats.estimates.estimated ? (
             <p>
-              Tasks you estimated at <N>{`${num(stats.estimates.estimated)} minutes`}</N> took <N>{Math.round(stats.estimates.spent ?? 0)}</N> in sessions.
+              Tasks you estimated at <N>{`${num(stats.estimates.estimated)} minutes`}</N> took <N>{spent(stats.estimates.spent ?? 0)}</N> in sessions.
             </p>
           ) : null}
         </Section>

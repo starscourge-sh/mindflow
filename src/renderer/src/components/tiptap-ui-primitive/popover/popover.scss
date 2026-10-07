@@ -62,3 +62,11 @@
     animation: slideFromRight 150ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 }
+
+/* The card a popover holds wears the edge every other panel in Vigil has: the
+   vendored hairline all but vanished on a dark page. */
+.tiptap-popover > .tiptap-card {
+  border: 1px solid var(--border);
+  background-color: var(--popover);
+  box-shadow: var(--mf-panel-shadow, 0 8px 24px rgba(0, 0, 0, 0.28));
+}

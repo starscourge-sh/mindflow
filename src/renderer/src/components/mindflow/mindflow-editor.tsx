@@ -1322,7 +1322,21 @@ function Surface({
       for (let depth = $at.depth; depth > 0; depth -= 1) {
         if ($at.node(depth).type.name === "table") pos = $at.before(depth)
       }
-      const node = editor.state.doc.nodeAt(pos)
+      let node = editor.state.doc.nodeAt(pos)
+      // A bullet sits in its list's margin, so the pointer finds the list:
+      // the item level with it is the one meant, and it can be turned into.
+      while (node && /List$/.test(node.type.name)) {
+        const list: number = pos
+        let item: number | null = null
+        node.forEach((_, offset) => {
+          const dom = editor.view.nodeDOM(list + 1 + offset)
+          const box = dom instanceof HTMLElement ? dom.getBoundingClientRect() : null
+          if (box && event.clientY >= box.top && event.clientY <= box.bottom) item = list + 1 + offset
+        })
+        if (item === null) break
+        pos = item
+        node = editor.state.doc.nodeAt(pos)
+      }
       if (!node) return
       event.preventDefault()
       blockTarget.current = { pos, name: node.type.name, level: headingRank(node) ?? undefined }

@@ -28,9 +28,11 @@ import { notes, smallPicture, useThumb, type GraphNode, type NoteTable, type Ver
 import { useLive, vigil } from '@/lib/vigil'
 import { Chips } from './display'
 import { copy, type MenuItem } from './row-menu'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import BookIcon from '@/components/ui/book-icon'
+import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
+import { setFullWidth, showDetails, useDetailsShown } from '@/lib/reading'
 import { ReadThrough } from './read-through'
 import { Island, PropInput, Rolling, Tip, Typed, refuse, toast } from './ui'
 import { age, dayKey, dayMonth, dayjs, daysFromToday, moment, noon, num, when } from '../../../../main/dates'
@@ -550,7 +552,7 @@ const TOOL = 'flex size-7 shrink-0 items-center justify-center rounded-md text-m
  * right, quietly, when it last changed (a click goes back through its
  * versions), a book to read it, and everything else behind the dots. `looking` takes the right side while an older text is shown.
  */
-export function NoteHeader({ left, type = 'capture', edited, captured, made = 'Captured', pinned, onPin, copyKey, menu, looking, board, tools, className = '', ...versions }: {
+export function NoteHeader({ left, type = 'capture', edited, captured, made = 'Captured', pinned, onPin, copyKey, menu, looking, board, tools, details = true, className = '', ...versions }: {
   left?: React.ReactNode
   /** What it is, for reading it: capture, nugget, article, question. */
   type?: string
@@ -568,6 +570,8 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
   board?: { on: boolean; toggle: () => void }
   /** A view's own tools, in the same row before the switch: the board's find, archive and new list. */
   tools?: React.ReactNode
+  /** The button that brings out the note's details beside it, put away until asked for. */
+  details?: boolean
   className?: string
 } & Parameters<typeof Versions>[0]): React.JSX.Element {
   const at = edited && edited > captured ? edited : captured
@@ -578,6 +582,8 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
   const short = `${verb} ${old === 'now' ? 'now' : old}`
   const items = menu.filter(Boolean) as Exclude<MenuItem, false | null | undefined>[]
   const [reading, setReading] = useState(false)
+  const detailsOut = useDetailsShown()
+  const full = !!useLive(vigil.settings, null)?.fullWidth
   return (
     <div className={`@container/head flex min-h-7 items-center justify-between gap-2 px-3 @[40rem]/page:px-[4.25rem] ${className}`}>
       {reading && <ReadThrough items={[{ type, id: versions.id }]} onClose={() => setReading(false)} />}
@@ -601,6 +607,11 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
             <Tip label="Read">
               <button type="button" aria-label="Read" onClick={() => (chime('open'), setReading(true))} className={TOOL}><AliveIcon icon={BookIcon} size={16} /></button>
             </Tip>
+            {details && (
+              <Tip label={detailsOut ? 'Hide details' : 'Details'}>
+                <button type="button" aria-label="Details" aria-pressed={detailsOut} onClick={() => showDetails(!detailsOut)} className={`${TOOL} ${detailsOut ? 'bg-accent text-foreground' : ''}`}><AliveIcon icon={LayoutSidebarRightIcon} size={16} /></button>
+              </Tip>
+            )}
             <DropdownMenu modal={false}>
               <Tip label="More">
                 <DropdownMenuTrigger asChild>
@@ -611,6 +622,10 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
                 {onPin && <DropdownMenuItem onSelect={onPin}>{pinned ? 'Unpin' : 'Pin'}</DropdownMenuItem>}
                 {copyKey && <DropdownMenuItem onSelect={() => copy(copyKey, `Copied ${copyKey}`)}>Copy {copyKey}</DropdownMenuItem>}
                 <DropdownMenuItem onSelect={open}>Version history</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {/* Notion's switch: the words in a reading column, or across the page. For every note. */}
+                <DropdownMenuCheckboxItem checked={full} onCheckedChange={(on) => setFullWidth(on)}>Full width</DropdownMenuCheckboxItem>
+                {details && <DropdownMenuItem onSelect={() => showDetails(!detailsOut)}>{detailsOut ? 'Hide details' : 'Show details'}</DropdownMenuItem>}
                 {items.map((item, index) =>
                   item === 'separator' ? (
                     items[index - 1] !== 'separator' && index < items.length - 1 && <DropdownMenuSeparator key={`separator-${index}`} />

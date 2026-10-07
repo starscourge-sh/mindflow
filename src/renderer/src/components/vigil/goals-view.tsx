@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Flag, Plus, Wind } from 'lucide-react'
+import { Archive, CalendarPlus, Flag, Plus, Wind } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { alive } from '@/components/ui/alive-icon'
-import Stack3Icon from '@/components/ui/stack-3-icon'
 import ArrowBackUpIcon from '@/components/ui/arrow-back-up-icon'
 import EyeOffIcon from '@/components/ui/eye-off-icon'
 import EyeIcon from '@/components/ui/eye-icon'
@@ -25,7 +24,6 @@ import { ago, dayKey, dayMonth, dayName, num } from '../../../../main/dates'
 import { daysBetween, daysLeft, journey, leftSaid, percent, tempus, wayThrough, type Dot } from '../../../../main/goal-days'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
-const Archive = alive(Stack3Icon)
 const ArchiveRestore = alive(ArrowBackUpIcon)
 const EyeOff = alive(EyeOffIcon)
 const Eye = alive(EyeIcon)
@@ -190,12 +188,21 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
   const today = useToday()
   const [show, setShow] = useState<'open' | 'settled'>('open')
   const [open, setOpen] = useState<ItemFull | null>(null)
-  const items = show === 'open' ? openOnes(all) : all.filter((one) => one.closedAt && !one.archivedAt).sort((a, b) => b.closedAt!.localeCompare(a.closedAt!))
+  const listOf = (which: 'open' | 'settled'): Item[] => which === 'open' ? openOnes(all) : all.filter((one) => one.closedAt && !one.archivedAt).sort((a, b) => b.closedAt!.localeCompare(a.closedAt!))
+  const items = listOf(show)
   const pick = (id: string): void =>
     void vigil.item(id).then((found) => {
       setOpen(found)
       if (found) setShow(found.closedAt ? 'settled' : 'open')
     })
+  // Open or Settled: the goal beside the list is always one of it, its first, or none.
+  const switchTo = (which: 'open' | 'settled'): void => {
+    setShow(which)
+    if (!open || !!open.closedAt === (which === 'settled')) return
+    const first = listOf(which)[0]
+    if (first) pick(first.id)
+    else setOpen(null)
+  }
   useEffect(() => void (focus && pick(focus)), [focus]) // eslint-disable-line react-hooks/exhaustive-deps
   // Read again when anything changes, so a log added from the box shows.
   useEffect(() => window.api.captures.onChange(() => open && void vigil.item(open.id).then(setOpen)), [open?.id])
@@ -207,7 +214,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
       <Page aside={!!open} title="Goals" count={items.length} unit={['goal', 'goals']}
         actions={
           <span className="flex items-center gap-2">
-            <Chips className="shrink-0" options={[{ id: 'open', label: 'Open' }, { id: 'settled', label: 'Settled' }]} on={(id) => id === show} pick={(id) => setShow(id as 'open' | 'settled')} />
+            <Chips className="shrink-0" options={[{ id: 'open', label: 'Open' }, { id: 'settled', label: 'Settled' }]} on={(id) => id === show} pick={(id) => switchTo(id as 'open' | 'settled')} />
             <Button variant="ghost" size="sm" onClick={() => void startGoal(go)}><Plus className="size-3.5" /> New goal</Button>
           </span>
         }
@@ -371,7 +378,7 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
             <span className="truncate">For {dayMonth(`${target}T12:00`, 'always')}</span>
           </DatePicker>
           <DatePicker value={`${from}T12:00`} onChange={(iso) => iso && dayKey(iso) !== from && moveDates({ from: dayKey(iso) })}>
-            <Plus className="size-4 shrink-0 rotate-45 opacity-0" aria-hidden />
+            <CalendarPlus className="size-4 shrink-0 text-muted-foreground" aria-hidden />
             <span className="truncate text-muted-foreground">Set {dayMonth(`${from}T12:00`, 'always')}</span>
           </DatePicker>
         </Island>

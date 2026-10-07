@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { Calendar, Plus, Wind } from 'lucide-react'
+import { Archive, Calendar, Plus, Wind } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
-import Stack3Icon from '@/components/ui/stack-3-icon'
 import ArrowBackUpIcon from '@/components/ui/arrow-back-up-icon'
 import DownloadIcon from '@/components/ui/download-icon'
 import EyeOffIcon from '@/components/ui/eye-off-icon'
@@ -29,13 +28,13 @@ import { Mentions } from './mentions'
 import { Aliases, LocalGraph, NoteHeader } from './note-extras'
 import { RowMenu, copy, type MenuItem } from './row-menu'
 import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Tip, Typed, ask, refuse, showTopTitle, toast, useListKeys } from './ui'
-import { ago, dayMonth, dayName, dayjs, heldFor, num } from '../../../../main/dates'
+import { useRowGloss } from './gloss-line'
+import { ago, dayMonth, dayName, heldFor, num } from '../../../../main/dates'
 import { ReadThrough } from './read-through'
 import { CollectionHeader, Cover, MenuButton, PlayButton, QuietAction, pictureIn, useTint } from './collection-header'
 import BulbSvg from '@/components/ui/bulb-svg'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
-const Archive = alive(Stack3Icon)
 const ArchiveRestore = alive(ArrowBackUpIcon)
 const Download = alive(DownloadIcon)
 const EyeOff = alive(EyeOffIcon)
@@ -222,6 +221,8 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
     onBack: () => (spread ? (query ? setQuery('') : setPane('list')) : setOpen(null))
   })
   useEffect(() => void (spread && items[cursor] && setPeek(items[cursor].id)), [cursor, spread]) // eslint-disable-line react-hooks/exhaustive-deps
+  // ; on the row under the cursor, with nothing open: a clue written under it.
+  const glossAfter = useRowGloss(items[cursor]?.id, !open, 'A clue, in your own words')
   const go = (type: string, id: string): void => (type === 'question' ? pick(id) : onOpen?.(type, id))
   const menuFor = (item: Item): MenuItem[] => [
     { label: 'Open', keys: '↵', run: () => pick(item.id) },
@@ -248,7 +249,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
       >
         {items.length ? (
           <NoteList groups={[['', entries]]} density={density} table="nuggets" selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor}
-            onPick={spread ? (id) => (setPeek(id), setCursor(items.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
+            onPick={spread ? (id) => (setPeek(id), setCursor(items.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
         ) : spread && query.trim() ? (
           <Empty shape={['ellipse', 3]} title="Nothing matches">No question here has those words. Escape clears the search.</Empty>
         ) : show === 'open' ? (
@@ -276,7 +277,7 @@ export const questionEntry = (item: Item, inView = false, menu?: MenuItem[]): En
   title: item.title,
   tags: [],
   icon: Orbit,
-  sub: item.closedAt ? `${item.closedHow === 'let go' ? 'Let go' : 'Answered'} ${when(item.closedAt).toLowerCase()} · ${cluesSaid(item.clues)}` : `${heldFor(item.createdAt)[0].toUpperCase()}${heldFor(item.createdAt).slice(1)} · ${cluesSaid(item.clues)}`,
+  sub: item.closedAt ? `${item.closedHow === 'let go' ? 'Let go' : 'Answered'} ${whenLower(item.closedAt)} · ${cluesSaid(item.clues)}` : `${heldFor(item.createdAt)[0].toUpperCase()}${heldFor(item.createdAt).slice(1)} · ${cluesSaid(item.clues)}`,
   marks: (
     <>
       {inView ? <Pin className="size-3 shrink-0 text-muted-foreground" aria-label="Kept in view" /> : null}
@@ -358,7 +359,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
           length={item.title.length}
           meta={[
             cluesSaid(clues.length).replace(/^n/, 'N'),
-            settled ?? `held since ${dayMonth(item.createdAt)}`,
+            settled ?? heldFor(item.createdAt),
             ...(lastClue ? [`last clue ${ago(lastClue)}`] : [])
           ]}
           actions={<>
@@ -419,7 +420,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
         )}
       </div>
 
-      <Props>
+      <Props fold>
         <Island compact title="Holding">
           <Prop icon={Orbit} active>{settled ?? <Rolling by="word" text={heldFor(item.createdAt).replace(/^h/, 'H')} />}</Prop>
           {!item.closedAt && (
@@ -427,7 +428,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
               {inView ? 'In view: shows while you capture' : 'Keep in view while capturing'}
             </Prop>
           )}
-          <Prop icon={Calendar}>Since {when(item.createdAt)}{dayjs(item.createdAt).year() !== dayjs().year() ? ` ${dayjs(item.createdAt).year()}` : ''}</Prop>
+          <Prop icon={Calendar}>Asked {dayMonth(item.createdAt)}</Prop>
         </Island>
         <Island compact title={item.closedAt ? 'Settled' : 'When it comes clear'}>
           {item.closedAt ? (

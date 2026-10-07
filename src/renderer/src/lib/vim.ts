@@ -11,9 +11,23 @@
 
 const listeners = new Set<(on: boolean) => void>()
 
-/** On unless it was turned off, which is the default a vim user wants. */
+/** Off unless it was turned on: plain keys are what a new user expects. */
 export function currentVim(): boolean {
-  return localStorage.getItem("vim") !== "off"
+  return localStorage.getItem("vim") === "on"
+}
+
+/**
+ * Once, when nothing is stored yet: Vim used to be on for everyone, so an
+ * install that already has notes typed before today keeps it on. A new one
+ * stores off, so it is never asked again.
+ */
+export async function settleVim(): Promise<void> {
+  if (localStorage.getItem("vim") !== null) return
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const captures = await window.api.captures.list().catch(() => null)
+  if (!captures || localStorage.getItem("vim") !== null) return
+  setVim(captures.some((one) => !one.source && new Date(one.capturedAt) < today))
 }
 
 /** Turn it on or off everywhere, and remember it. */
@@ -30,5 +44,5 @@ export function onVimChange(listener: (on: boolean) => void): () => void {
 
 // Turned in another window, the box's menu or Settings: this one follows too.
 window.addEventListener("storage", (event) => {
-  if (event.key === "vim") for (const listener of listeners) listener(event.newValue !== "off")
+  if (event.key === "vim") for (const listener of listeners) listener(event.newValue === "on")
 })

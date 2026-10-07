@@ -15,6 +15,7 @@ import type { Editor, JSONContent } from '@tiptap/core'
 
 import { convertImports } from './lib/convert-imports'
 import { MindflowEditor, TAGS, currentVim, foldEverything, goToHeading, onVimChange, setVim } from './components/mindflow'
+import { settleVim } from './lib/vim'
 import { EXITS, exit, findCaptures, findHeadings, follow } from './lib/capture-links'
 import { toMarkdown } from './lib/export'
 import { useSameWords } from './lib/same-words'
@@ -211,6 +212,18 @@ const Header = ({ panel, onPanel, onNew, menu, nav, title, aside }: {
     // Once: `toggle` reads the size through the updater, so it is never stale.
   }, [])
 
+  // How wide the chip and the pill are at the right, so the title stops short of them.
+  const top = useRef<HTMLSpanElement>(null)
+  const [room, setRoom] = useState(0)
+  useEffect(() => {
+    const at = top.current
+    if (!at) return
+    const measure = (): void => setRoom(Math.max(at.offsetWidth, at.querySelector<HTMLElement>('.mf-pill')?.offsetWidth ?? 0))
+    const watch = new ResizeObserver(measure)
+    watch.observe(at)
+    return () => watch.disconnect()
+  }, [])
+
   return (
     <div className="h-fit fixed top-0 right-0 left-0 z-10 flex flex-col items-center py-2 text-xs cursor-pointer" style={{ WebkitAppRegion: 'drag' }}>
       <div className="relative flex w-full items-center gap-1" // Over the panel, the icons end where the panel's own edge does.
@@ -221,7 +234,7 @@ const Header = ({ panel, onPanel, onNew, menu, nav, title, aside }: {
             a long note still says what it is: centred over the writing, a
             short line at most, never over the side panel or the window dots. */}
         <span className="flex-1" />
-        <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center justify-center px-40" style={{ right: panel ? 440 : 0 }}>
+        <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center justify-center" style={{ right: panel ? 440 : 0, paddingInline: Math.max(160, room + (panel ? 12 : 76) + 8 - (panel ? 440 : 0)) }}>
         <AnimatePresence>
           {title && (
             <motion.span
@@ -246,10 +259,12 @@ const Header = ({ panel, onPanel, onNew, menu, nav, title, aside }: {
         {/* The chip sits where the pill will be while the pill is away, and
             steps aside for it when the pointer comes in, so it never floats
             beside an empty space. */}
-        <span className="mf-top relative flex items-center">
-        {aside && <span className="transition-[margin] duration-150 [.mf-top:has([data-state=open])_&]:mr-[calc(5.5rem+0.25rem)] [.pointer-in_&]:mr-[calc(5.5rem+0.25rem)]">{aside}</span>}
+        {/* In turn, never on top of each other: coming in, the chip steps
+            aside and then the pill fades in; going out, the pill fades first. */}
+        <span ref={top} className="mf-top relative flex items-center">
+        {aside && <span data-aside className="transition-[margin] delay-150 duration-150 [.mf-top:has([data-state=open])_&]:mr-[calc(5.5rem+0.25rem)] [.mf-top:has([data-state=open])_&]:delay-0 [.pointer-in_&]:mr-[calc(5.5rem+0.25rem)] [.pointer-in_&]:delay-0">{aside}</span>}
         <span
-          className="mf-pill absolute right-0 flex items-center overflow-hidden rounded-full border border-foreground/15 bg-background/60 opacity-0 transition-opacity duration-150 [.pointer-in_&]:opacity-100 has-[[data-state=open]]:opacity-100 [&>*+*]:border-l [&>*+*]:border-foreground/15"
+          className="mf-pill absolute right-0 flex items-center overflow-hidden rounded-full border border-foreground/15 bg-background/60 opacity-0 transition-opacity duration-150 [.pointer-in_&]:opacity-100 [.pointer-in_.mf-top:has([data-aside])_&]:delay-150 has-[[data-state=open]]:opacity-100 [&>*+*]:border-l [&>*+*]:border-foreground/15"
           style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
         >
           <Tip label="New capture  ⌘N">
@@ -259,7 +274,7 @@ const Header = ({ panel, onPanel, onNew, menu, nav, title, aside }: {
             </button>
           </Tip>
           <span className="flex h-6 w-7 items-center justify-center">{menu(expanded, toggle)}</span>
-          <Tip label={`${panel ? 'Hide' : 'Show'} Inbox, Tasks, Review and Kept  ⌘\\`}>
+          <Tip label={`${panel ? 'Hide' : 'Show'} Inbox, Tasks, Review, Kept and Recent  ⌘\\`}>
             <button type="button" tabIndex={-1} aria-label={panel ? 'Hide the side panel' : 'Show the side panel'} aria-pressed={panel}
               className="flex h-6 w-7 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground aria-pressed:text-foreground"
               onMouseDown={(event) => event.preventDefault()} onClick={onPanel}>
@@ -305,7 +320,8 @@ export default function App(): React.JSX.Element {
   useEffect(() => window.api.onPointer(setPointerIn), [])
 
   const [vim, setVimOn] = useState(currentVim)
-  useEffect(() => onVimChange(setVimOn), [])
+  // Once, on a first start after Vim stopped being on for everyone: see `settleVim`.
+  useEffect(() => (void settleVim(), onVimChange(setVimOn)), [])
 
   const [locked, setLocked] = useState(false)
 
@@ -906,10 +922,19 @@ export default function App(): React.JSX.Element {
   latestPick.current = pick
   const latestSubmit = useRef(submit)
   latestSubmit.current = submit
+  const latestOver = useRef({ searching, reading })
+  latestOver.current = { searching, reading }
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      // Search, a dialog or a menu has the keys: the note under it is not
+      // touched, and ⌘↵ is not taken as a plain ↵ by what is open either.
+      if (latestOver.current.searching || document.querySelector('[role=dialog], [role=alertdialog], [role=menu], [role=listbox], [cmdk-root]')) {
+        if (event.key === 'Enter' && event.metaKey) (event.preventDefault(), event.stopPropagation())
+        return
+      }
       // ⌘1 to ⌘9: a kind you already know, without opening the picker.
-      const picked = event.metaKey && !event.shiftKey && !event.altKey ? CAPTURE_TYPES[Number(event.key) - 1] : undefined
+      // Not while a task is being read here: its note is out of sight.
+      const picked = event.metaKey && !event.shiftKey && !event.altKey && !latestOver.current.reading ? CAPTURE_TYPES[Number(event.key) - 1] : undefined
       if (picked) {
         event.preventDefault()
         chime('settled')
@@ -1150,7 +1175,8 @@ export default function App(): React.JSX.Element {
               </div>
             )}
             {/* Under the writing: what it is, who said it and where you met it. */}
-            <div data-chrome className="flex items-center gap-1 px-[4.75rem] py-2">
+            {/* Wraps onto a second line rather than squeezing a field or a chip. */}
+            <div data-chrome className="flex flex-wrap items-center gap-1 px-[4.75rem] py-2">
               <OptionsMenu
                 label="This note"
                 options={[
@@ -1163,7 +1189,7 @@ export default function App(): React.JSX.Element {
                     if (editing) void vigil.setPrivate('captures', editing.id, on, true)
                   } }
                 ]}
-                actions={[{ label: 'New capture', keys: '⌘N', run: () => fresh() }]}
+                actions={[{ label: 'New capture', keys: '⌘N', run: () => startOver() }]}
               />
               {/* A todo says what it understood of its first line: the day, the deadline, the priority. */}
               {kind === 'todo' && <TaskChips read={readTask(firstLine(body))} />}
@@ -1171,13 +1197,13 @@ export default function App(): React.JSX.Element {
               {/* Who and where once there is something to say it about, and only
                   what this kind asks for, unless it already holds something. */}
               {((started && ASKS[kind].who) || attribution) && (
-                <Remembered field="attribution" value={attribution} placeholder={ASKS[kind].who ?? 'Who'} className="field-sizing-content min-w-16 max-w-48 px-1.5 py-0.5 text-meta" onChange={(value) => {
+                <Remembered field="attribution" value={attribution} placeholder={ASKS[kind].who ?? 'Who'} className={FIELD} onChange={(value) => {
                   setAttribution(value)
                   if (editing) void vigil.setCapture(editing.id, 'attribution', value.trim() || null)
                 }} />
               )}
               {((started && ASKS[kind].where) || medium) && (
-                <Remembered field="medium" value={medium} placeholder={ASKS[kind].where ?? 'Where'} className="field-sizing-content min-w-16 max-w-48 px-1.5 py-0.5 text-meta" onChange={(value) => {
+                <Remembered field="medium" value={medium} placeholder={ASKS[kind].where ?? 'Where'} className={FIELD} onChange={(value) => {
                   setMedium(value)
                   if (editing) void vigil.setCapture(editing.id, 'medium', value.trim() || null)
                 }} />
@@ -1194,13 +1220,19 @@ export default function App(): React.JSX.Element {
                 </Tip>
               )}
               {ASKS[kind].why && textOf(body).trim().split('\n').filter(Boolean).length < 2 && (
-                <span className="truncate px-1.5 text-xs text-muted-foreground/70"><Typed text={ASKS[kind].why} /></span>
+                // Wrapped, not cut: an ellipsis lands mid-word over words that type in.
+                <span className="min-w-0 px-1.5 text-xs text-muted-foreground/70"><Typed text={ASKS[kind].why} /></span>
               )}
               {/* "+name": which question the clue will go into, said before you send. */}
               {plus && (
-                <span className="ml-auto flex max-w-72 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground animate-in fade-in-0 zoom-in-95 duration-200">
+                <span className="ml-auto flex min-w-0 max-w-full items-center gap-1.5 rounded-2xl border px-2.5 py-0.5 text-xs text-muted-foreground animate-in fade-in-0 zoom-in-95 duration-200">
                   {plusGoal ? <Flag className="size-3.5 shrink-0 text-[var(--tt-brand-color-400)]" /> : <Orbit className="size-3.5 shrink-0" />}
-                  <span className="truncate"><Rolling by="word" text={plus.question ? `${plusGoal ? 'A log for' : 'A clue for'} “${plus.question.title}”` : held.length ? `No question or goal matches “${plus.name}”: it will be a capture` : 'No questions or goals yet: it will be a capture'} /></span>
+                  {(() => {
+                    const said = plus.question ? `${plusGoal ? 'A log for' : 'A clue for'} “${plus.question.title}”` : held.length ? `No question or goal matches “${plus.name}”: it will be a capture` : 'No questions or goals yet: it will be a capture'
+                    // Plain words that wrap whole; a new sentence fades in whole,
+                    // so no word of the old one lingers while it changes.
+                    return <span key={plus.question?.title ?? (held.length ? 'none' : 'empty')} className="min-w-0 animate-in fade-in-0 duration-200">{said}</span>
+                  })()}
                 </span>
               )}
               {like && !plus && (
@@ -1210,7 +1242,7 @@ export default function App(): React.JSX.Element {
                   onClick={() => openCapture(like.id)}
                   // Hard to miss but not loud: a brand-tinted chip whose words
                   // roll in when a match arrives, and roll over when it changes.
-                  className="group/like ml-auto flex max-w-64 cursor-pointer items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--tt-brand-color-400)_35%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_12%,transparent)] px-2.5 py-0.5 text-xs text-foreground animate-in fade-in-0 zoom-in-95 duration-200 hover:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_20%,transparent)]"
+                  className="group/like ml-auto flex max-w-full shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--tt-brand-color-400)_35%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_12%,transparent)] px-2.5 py-0.5 text-xs text-foreground animate-in fade-in-0 zoom-in-95 duration-200 hover:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_20%,transparent)]"
                 >
                   {/* Still, not pulsing: it turns up while you write, and a beat that never stops pulls the eye off the words. */}
                   <span className="size-1.5 shrink-0 rounded-full bg-[var(--tt-brand-color-400)]" />
@@ -1286,9 +1318,10 @@ export default function App(): React.JSX.Element {
  * this asks rather than keeping its own list of what might be open. The list
  * was always going to be missing whatever was added last.
  *
- * Vim in its resting state deliberately does not claim it, or Escape could
- * never reach the window from inside the editor. `jk` is the way out of
- * insert mode, so Escape has nothing to do there anyway.
+ * With Vim on, Escape in insert mode goes to normal mode first, as it does in
+ * vim, so hiding the box takes a second press. Normal mode, vim's resting
+ * state, does not claim it, or Escape could never reach the window from
+ * inside the editor. Vim is off unless turned on.
  */
 function useEscapeToHide(): void {
   useEffect(() => {
@@ -1542,6 +1575,9 @@ const CapturePrompt = ({
  */
 type Tab = 'inbox' | 'today' | 'review' | 'kept' | 'recent'
 const TABS: Tab[] = ['inbox', 'today', 'review', 'kept', 'recent']
+
+/** Who and where under the writing: empty or filled, the same quiet pill, so an empty one still reads as a field. */
+const FIELD = 'field-sizing-content min-w-28 max-w-60 shrink-0 text-ellipsis rounded-full border border-foreground/10 px-2 py-0.5 text-meta placeholder:text-muted-foreground hover:border-foreground/20 focus:border-foreground/20'
 
 function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab, setTab }: {
   tab: Tab

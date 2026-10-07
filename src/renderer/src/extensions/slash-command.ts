@@ -2,6 +2,8 @@ import { Extension, type Editor } from "@tiptap/core"
 import type { ReactNode } from "react"
 import Suggestion, { type SuggestionOptions } from "@tiptap/suggestion"
 
+import { findItems } from "@/lib/slash-rank"
+
 /**
  * A `/` menu for inserting blocks.
  *
@@ -47,6 +49,7 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
 
   addProseMirrorPlugins() {
     const { items, render } = this.options
+    const offered = (editor: Editor): SlashItem[] => items.filter((item) => item.when?.(editor) ?? true)
 
     return [
       Suggestion<SlashItem>({
@@ -56,17 +59,14 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
         // only names it, so the stylesheet can make it look like the chip it
         // behaves as - a thing you are inside of, not text you have typed.
         decorationClass: "tiptap-slash-token",
-        items: ({ editor, query }) => {
-          const term = query.toLowerCase()
-          return items.filter(
-            (item) =>
-              (item.when?.(editor) ?? true) &&
-              (item.title.toLowerCase().includes(term) ||
-                item.group.toLowerCase().includes(term) ||
-                (item.hint?.toLowerCase().includes(term) ?? false) ||
-                (item.keywords?.some((word) => word.includes(term)) ?? false))
-          )
-        },
+        // Spaces are part of what you look for, `/heading 2`, `/insert row
+        // above`. A space straight after the `/`, two in a row, or words that
+        // no longer find anything close it: that is writing, not a search.
+        allowSpaces: true,
+        shouldShow: ({ editor, query }) =>
+          !query.includes(" ") ||
+          (!/^\s|\s\s/.test(query) && findItems(offered(editor), query).length > 0),
+        items: ({ editor, query }) => findItems(offered(editor), query),
         command: ({ editor, range, props }) => {
           // The item runs against a document that no longer holds the `/query`.
           editor.chain().focus().deleteRange(range).run()

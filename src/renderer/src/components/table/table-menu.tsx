@@ -39,6 +39,22 @@ const POSITION = {
   }
 } as const
 
+/**
+ * A column's menu hangs from the column's top cell, not from under the whole
+ * column: below a tall table there was no room left, and Delete column sat
+ * under the bottom edge. Anything else keeps the menu's own reckoning.
+ */
+function columnTop(this: { editor: Editor }): { getBoundingClientRect: () => DOMRect } | null {
+  const { selection } = this.editor.state
+  if (!(selection instanceof CellSelection) || !selection.isColSelection()) return null
+  const cells = [selection.$anchorCell.pos, selection.$headCell.pos]
+    .map((pos) => this.editor.view.nodeDOM(pos))
+    .filter((dom): dom is HTMLElement => dom instanceof HTMLElement)
+  if (!cells.length) return null
+  const top = cells.reduce((a, b) => (b.getBoundingClientRect().top < a.getBoundingClientRect().top ? b : a))
+  return { getBoundingClientRect: () => top.getBoundingClientRect() }
+}
+
 /** A row of the menu, or a rule between groups. */
 type Entry = [label: string, run: () => void] | null
 
@@ -143,6 +159,7 @@ export function TableMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
       // Shares the default key with the selection menu otherwise.
       pluginKey="tableMenu"
       shouldShow={showForCells}
+      getReferencedVirtualElement={columnTop}
       options={POSITION}
       className="tiptap-table-menu"
     >

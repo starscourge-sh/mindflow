@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { chime, step } from "@/lib/sound"
 import { FlaskConical, ScrollText, Split, Sticker } from "lucide-react"
 import { alive } from "@/components/ui/alive-icon"
@@ -89,7 +89,17 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
   const [open, setOpen] = useState(false)
   // The row under the cursor, kept here so moving through the list can be heard.
   const [row, setRow] = useState('')
-  const [more, setMore] = useState(true)
+  const [more, setMore] = useState(false)
+  // Faded only while rows are really out of sight: measured as the list opens,
+  // as a search shrinks it and as it scrolls.
+  const fade = (list: HTMLElement): void => setMore(list.scrollTop + list.clientHeight < list.scrollHeight - 4)
+  const watchList = useCallback((list: HTMLDivElement | null) => {
+    if (!list) return
+    const watch = new ResizeObserver(() => fade(list))
+    watch.observe(list)
+    if (list.firstElementChild) watch.observe(list.firstElementChild)
+    return () => watch.disconnect()
+  }, [])
   const current = CAPTURE_TYPES.find((Ctype) => Ctype.id === value) ?? CAPTURE_TYPES[0]
 
   // ⌃L, for label; ⌃T is a tag in the editor.
@@ -119,11 +129,11 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
             if (at >= 0 && label !== row) step(at)
             setRow(label)
           }}
-          // The number beside each row picks it. Taken before the input sees
-          // it, or the digit is typed into the search instead - no type has
-          // one in its name, so nothing is lost by claiming them.
+          // The number beside each row picks it, 0 the tenth. Taken before the
+          // input sees it, or the digit is typed into the search instead - no
+          // type has one in its name, so nothing is lost by claiming them.
           onKeyDown={(event) => {
-            const picked = CAPTURE_TYPES[Number(event.key) - 1]
+            const picked = /^[0-9]$/.test(event.key) ? CAPTURE_TYPES[(Number(event.key) + 9) % 10] : undefined
             if (!picked) return
             event.preventDefault()
             chime('settled')
@@ -135,10 +145,8 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
           {/* A soft fade at the foot while there are more types below: excerpt,
               decision and the rest are a scroll away, and this says so. */}
           <CommandList
-            onScroll={(event) => {
-              const list = event.currentTarget
-              setMore(list.scrollTop + list.clientHeight < list.scrollHeight - 4)
-            }}
+            ref={watchList}
+            onScroll={(event) => fade(event.currentTarget)}
             className={more ? '[mask-image:linear-gradient(to_bottom,black_75%,transparent)]' : ''}
           >
             <CommandEmpty>No type</CommandEmpty>
@@ -160,7 +168,7 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
                   <span className="text-xs">{type.label}</span>
                   {type.id === value && <Check className="ml-auto size-4" />}
                   <CommandShortcut className={type.id === value ? "ml-2" : ""}>
-                    {index + 1}
+                    {(index + 1) % 10}
                   </CommandShortcut>
                 </CommandItem>
               )

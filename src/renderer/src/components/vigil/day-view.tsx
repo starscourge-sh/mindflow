@@ -113,7 +113,7 @@ export function DayView({ onOpen, start, onScale }: {
           it holds, and its to-dos. The brief and the page under it share one
           centred column, so they read as one sheet; the margins either side
           hold the brief's date and time. Other days keep their strip. */}
-      <div className={day === today ? 'mx-auto w-full max-w-[54rem] px-5' : undefined}>
+      <div className={day === today ? 'page-sheet mx-auto w-full px-5' : undefined}>
       {day === today && <DayBrief day={day} onOpen={onOpen} onListed={setListed} />}
       {day === today && <GoalStrip onOpen={onOpen} className="mt-4 -mx-2" />}
       <div className={`${day === today ? '' : 'page-narrow mx-auto w-full px-5'} pt-6 pb-16 [--mf-padding:0.5rem_0]`}>
