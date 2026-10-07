@@ -8,7 +8,8 @@ import { comboOf, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
 import { onboarding, type Onboarding } from '@/lib/onboarding'
 import { enterSandbox } from '@/lib/sandbox'
 import { EXAMPLES } from '@/lib/welcome-box'
-import { CaptureList, type CaptureMeta } from '@/components/capture-list'
+import { CaptureList, captureEntry, type CaptureMeta } from '@/components/capture-list'
+import { NoteList } from './note-list'
 import { dayjs } from '../../../../main/dates'
 import { Scenery } from './scenery'
 import { NOISE } from './grain'
@@ -292,6 +293,15 @@ export function Welcome(): React.JSX.Element | null {
     document.documentElement.toggleAttribute('data-welcoming', at >= 0)
   }, [at])
 
+  // Whether the real box is up over the welcome: the words then keep clear of it.
+  const [boxUp, setBoxUp] = useState(false)
+  useEffect(() => {
+    if (at < 0) return
+    const offShown = window.api.onBoxShown(() => setBoxUp(true))
+    const offAway = window.api.onBoxAway(() => setBoxUp(false))
+    return () => (offShown(), offAway())
+  }, [at < 0]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Your first capture, the moment it is saved.
   useEffect(() => {
     if (at !== 1 && at !== 2) return
@@ -416,7 +426,7 @@ export function Welcome(): React.JSX.Element | null {
       {at === LAST && <TrayArrow tray={state?.tray ?? null} />}
       {/* One frame for the words and the footer: in a large window they stay
           together in the middle, not scattered to its far corners. */}
-      <div className="relative mx-auto flex min-h-0 w-full max-w-[76rem] flex-1 flex-col [@media(min-height:760px)]:my-auto [@media(min-height:760px)]:max-h-[44rem]">
+      <div className="relative mx-auto flex min-h-0 w-full max-w-[84rem] flex-1 flex-col [@media(min-height:760px)]:my-auto [@media(min-height:760px)]:max-h-[48rem]">
       {/* The first screen's year, behind its words: there and gone with the screen. */}
       <AnimatePresence initial={false}>
         {at === 0 && (
@@ -434,11 +444,11 @@ export function Welcome(): React.JSX.Element | null {
             animate={{ opacity: 1, transform: shift('translateY(0px)'), filter: 'blur(0px)' }}
             exit={motionless ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, filter: 'blur(2px)', transition: { duration: 0.12, ease: EASE } }}
             transition={{ duration: 0.2, ease: EASE }}
-            className={`w-full px-[clamp(1.5rem,5vw,4rem)] py-6 [@media(max-height:480px)]:py-2 ${at === 0 && lateInYear() ? 'mx-auto mb-auto mt-[clamp(0rem,2vh,1.5rem)]' : (PLACE[at] ?? 'm-auto')}`}
+            className={`w-full px-[clamp(1.5rem,5vw,4rem)] py-6 [@media(max-height:480px)]:py-2 ${at === 0 && lateInYear() ? 'mx-auto mb-auto mt-[clamp(0rem,2vh,1.5rem)]' : at === 2 && boxUp ? 'mx-auto mt-auto' : (PLACE[at] ?? 'm-auto')}`}
           >
             {at === 0 && <Hello replay={replay} />}
             {at === 1 && <OneKey state={state} onState={setState} onBox={() => go(2, 'app')} />}
-            {at === 2 && <Catch />}
+            {at === 2 && <Catch boxUp={boxUp} />}
             {at === 3 && caught && <Landed capture={caught} />}
             {at === 4 && <ComesBack capture={caught} />}
             {at === 5 && <Yours onPick={(theme) => (picked.current = theme)} />}
@@ -455,7 +465,7 @@ export function Welcome(): React.JSX.Element | null {
         <div className="justify-self-end">
           {at === 0 && <Primary onClick={next}>Show me</Primary>}
           {at === 1 && <LateButton onClick={openBox} />}
-          {at === 2 && <Primary onClick={openBox} keys={<BoxKeys />}>Open the box</Primary>}
+          {at === 2 && <Primary onClick={openBox} keys={<BoxKeys />} hidden={boxUp}>Open the box</Primary>}
           {(at === 3 || at === 4 || at === 5) && <Primary onClick={next}>Next</Primary>}
         </div>
       </footer>
@@ -526,14 +536,13 @@ const HEADLINE = 'font-heading text-[clamp(2rem,min(5vw,7.4vh),4.5rem)] leading-
 const HEADLINE_XL = 'font-heading text-[clamp(2.5rem,min(7.4vw,10.5vh),6.75rem)] leading-[0.98] font-medium tracking-[-0.034em] text-balance text-foreground'
 /** Under something larger than itself: the keys, the dial. */
 const HEADLINE_SM = 'font-heading text-[clamp(1.625rem,min(3.6vw,5.4vh),3.25rem)] leading-[1.08] font-medium tracking-[-0.022em] text-balance text-foreground'
-const BODY = 'max-w-[32ch] text-[clamp(1.0625rem,min(2.3vw,3.3vh),1.625rem)] leading-[1.42] text-pretty text-(--mf-wl-body)'
-const QUIET = 'text-[clamp(0.9375rem,min(1.9vw,2.8vh),1.375rem)] leading-snug text-(--mf-wl-quiet)'
+const BODY = 'max-w-[32ch] text-[clamp(1.0625rem,min(2.5vw,3.6vh),1.75rem)] leading-[1.4] text-pretty text-(--mf-wl-body)'
+const QUIET = 'text-[clamp(0.9375rem,min(2.2vw,3.2vh),1.5rem)] leading-snug text-(--mf-wl-quiet)'
 /** Keys inside a line of the larger type: sized to it, not to the app's small caps. */
 const LINE_KEY = 'h-[1.3em] min-w-[1.3em] rounded-[0.3em] px-[0.3em] text-[0.62em]'
-/** Where each screen sits in the window: the first low, in its field; the landing high, like the top of a page. */
+/** Where each screen sits in the window: the first low, in its field; the rest in the middle. */
 const PLACE: Record<number, string> = {
-  0: 'mx-auto mt-auto mb-[clamp(0rem,3vh,2.5rem)]',
-  3: 'mx-auto mb-auto mt-[clamp(0rem,12vh,7rem)]'
+  0: 'mx-auto mt-auto mb-[clamp(0rem,3vh,2.5rem)]'
 }
 
 // --- the screens ------------------------------------------------------------------
@@ -704,18 +713,23 @@ function KeyPicker({ taken, onState }: { taken: boolean; onState: (now: Onboardi
   )
 }
 
-/** The medium shot: the words first, then the box itself, large, as the thing to try. */
-function Catch(): React.JSX.Element {
+/**
+ * The box itself is the hero: large and in the middle, the words small above
+ * it. With the real box up (it opens over the top of the screen), the picture
+ * of it goes and the words wait low in the window, clear of it as it grows.
+ */
+function Catch({ boxUp }: { boxUp: boolean }): React.JSX.Element {
   useKeyChanges()
+  const send = <InlineKeys keys={keyFor('⌘↵') || '⌘↵'} />
   return (
-    <div className="mx-auto flex w-full max-w-[min(100%,40rem)] flex-col gap-[clamp(1.25rem,4vh,2.5rem)]">
-      <div className="flex flex-col gap-[clamp(0.5rem,1.6vh,1rem)]">
-        <h1 className={HEADLINE}>Catch something</h1>
-        <p className={`${BODY} max-w-[36ch]`}>
-          Write anything: a thing to buy, a line you liked, a half-idea. <InlineKeys keys={keyFor('⌘↵') || '⌘↵'} /> sends it, and you are back where you were.
+    <div className="mx-auto flex w-full max-w-[min(100%,54rem)] flex-col items-center gap-[clamp(1rem,3.6vh,2.25rem)] text-center">
+      <div className="flex flex-col items-center gap-[clamp(0.375rem,1.2vh,0.75rem)]">
+        <h1 className={boxUp ? HEADLINE : HEADLINE_SM}>{boxUp ? 'Write anything in the box.' : 'Catch something'}</h1>
+        <p className={`${BODY} max-w-[34ch] text-balance`}>
+          {boxUp ? <>{send} sends it. <span className="inline-flex translate-y-[-0.08em] align-middle"><Kbd className={LINE_KEY}>Esc</Kbd></span> puts it away.</> : <>A thing to buy, a line you liked, a half-idea. {send} sends it, and you are back where you were.</>}
         </p>
       </div>
-      <BoxPreview />
+      {!boxUp && <BoxPreview />}
     </div>
   )
 }
@@ -739,24 +753,30 @@ function BoxPreview(): React.JSX.Element {
     return () => clearTimeout(rest)
   }, [typed, line, quiet])
   return (
-    <figure aria-hidden className="flex w-full flex-col gap-3">
-      <div className="pointer-events-none overflow-hidden rounded-2xl border border-foreground/10 bg-background shadow-(--mf-panel-shadow)">
-        <p className="min-h-[clamp(2.75rem,14vh,9rem)] px-[1.1em] pt-[0.9em] text-[clamp(1.125rem,min(2.4vw,3.4vh),1.75rem)] leading-snug text-foreground">
+    <figure aria-hidden className="w-full text-left">
+      <div className="pointer-events-none overflow-hidden rounded-[clamp(1rem,2vw,1.5rem)] border border-foreground/10 bg-background shadow-(--mf-panel-shadow)">
+        <p className="min-h-[clamp(4.5rem,22vh,12rem)] px-[1em] pt-[0.8em] text-[clamp(1.25rem,min(3.2vw,4.6vh),2.5rem)] leading-snug text-foreground">
           {quiet ? line : line.slice(0, typed)}
           <span className={`mf-caret ${!quiet && typed < line.length ? 'mf-caret-typing' : ''}`} />
         </p>
-        <div className="flex items-center gap-2 border-t border-foreground/[0.07] px-4 py-2.5 text-[clamp(0.8125rem,min(1.4vw,2vh),1rem)] text-(--mf-wl-quiet)">
-          <NotebookText className="size-3.5" strokeWidth={1.75} />
+        <div className="flex items-center gap-[0.5em] border-t border-foreground/[0.07] px-[1.1em] py-[0.6em] text-[clamp(0.875rem,min(2.2vw,3.2vh),1.375rem)] text-(--mf-wl-quiet)">
+          <NotebookText className="size-[1em]" strokeWidth={1.75} />
           Note
-          <span className="ml-auto flex h-7 items-center gap-1.5 rounded-md bg-foreground/[0.07] px-2.5 font-medium text-foreground">
-            Create <span className="text-key opacity-70">{keyFor('⌘↵') || '⌘↵'}</span>
+          <span className="ml-auto flex h-[1.9em] items-center gap-[0.4em] rounded-[0.4em] bg-foreground/[0.07] px-[0.65em] font-medium text-foreground">
+            Create <span className="text-[0.85em] opacity-70">{keyFor('⌘↵') || '⌘↵'}</span>
           </span>
         </div>
       </div>
-      <figcaption className={`pl-1 ${QUIET} [@media(max-height:480px)]:hidden`}>The box, as it opens over any app.</figcaption>
     </figure>
   )
 }
+
+/** The Inbox around your first capture: what it will hold, faded behind it. */
+const NEIGHBOURS: [string, string, number][] = [
+  ['quote', '"The obstacle is the way": check who said that', 1],
+  ['word', 'Sonder: that every passer-by has a life as vivid as yours', 3],
+  ['note', 'Walk to think, not to get somewhere', 6]
+]
 
 /**
  * The moment it lands, timed to the frame: the line changes at once, the
@@ -803,18 +823,22 @@ function Landed({ capture }: { capture: CaptureMeta }): React.JSX.Element {
   }, [quiet])
   const aside = landedAside(capture.label)
   const w = mark?.width ?? 0
+  // The ones before it, as the Inbox will hold them: faded, there for scale.
+  const earlier = NEIGHBOURS.map(([kind, label, days], i): CaptureMeta => ({ ...capture, id: `welcome-${i}`, number: 0, kind, label, status: 'open', private: 0, pinnedAt: null, capturedAt: dayjs().subtract(days, 'day').toISOString() }))
+  const arrive = { delay: 0.08, duration: 0.26, ease: EASE }
   return (
-    // The moment, close up and high on the page: the row first, as it is in
-    // the Inbox, and the words after it.
-    <div className="mx-auto flex w-full max-w-[min(100%,56rem)] flex-col gap-[clamp(1.5rem,5vh,3.5rem)]">
-      <motion.div ref={row} className="relative w-full [zoom:1.25] @[56rem]:[zoom:1.7] @[80rem]:[zoom:1.9]"
+    // The moment, as it is in the Inbox: a calm column, yours arriving at the
+    // top and the ones before it moving down to make room; the words beside it.
+    <div className="mx-auto grid w-full max-w-[72rem] items-center gap-x-[clamp(2rem,5vw,5rem)] gap-y-[clamp(1.25rem,4vh,3rem)] @[56rem]:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+      <div className="pointer-events-none overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow) [zoom:1.2] @[56rem]:order-2 @[56rem]:[zoom:1.55] @[80rem]:[zoom:1.75] [&_*]:!cursor-default">
+        <p className="px-4 pt-3 pb-1 text-[0.8125rem] font-medium text-foreground">Inbox</p>
+      <motion.div ref={row} className="relative w-full"
         initial={quiet ? false : { opacity: 0, transform: 'translateY(-10px)', filter: 'blur(2px)' }}
         animate={{ opacity: 1, transform: 'translateY(0px)', filter: 'blur(0px)' }}
-        transition={{ delay: 0.08, duration: 0.26, ease: EASE }}>
-        <div className="pointer-events-none overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow) [&_*]:!cursor-default">
+        transition={arrive}>
           {/* Shown as it waits in the Inbox: one the box also made a task still reads as just caught. */}
-          <CaptureList groups={[['', [{ ...capture, status: 'open' }]]]} cursor={-1} onPick={() => undefined} />
-        </div>
+          {/* Your words whole, over two lines if they need them: never cut off at the moment they land. */}
+          <NoteList groups={[['', [{ ...captureEntry({ ...capture, status: 'open' }), wrap: true }]]]} density="list" table="captures" cursor={-1} onPick={() => undefined} />
         {mark && (
           <svg aria-hidden className="pointer-events-none absolute overflow-visible" style={{ left: mark.left, top: mark.top, width: w, height: 6 }} viewBox={`0 0 ${w} 6`}>
             <path d={inkPath(w, capture.id)} pathLength={1} fill="none" stroke="var(--primary)" strokeWidth={2} strokeLinecap="round"
@@ -825,17 +849,23 @@ function Landed({ capture }: { capture: CaptureMeta }): React.JSX.Element {
           </svg>
         )}
       </motion.div>
+        <motion.div aria-hidden className="opacity-40 [mask-image:linear-gradient(to_bottom,black_30%,transparent)] [@media(max-height:560px)]:hidden"
+          initial={quiet ? false : { transform: 'translateY(-3.25rem)' }} animate={{ transform: 'translateY(0rem)' }} transition={arrive}>
+          <CaptureList groups={[['', earlier]]} cursor={-1} onPick={() => undefined} />
+        </motion.div>
+      </div>
       <div className="flex flex-col gap-[clamp(0.5rem,1.6vh,1rem)]">
         <div className="flex flex-col gap-1">
           <h1 className={HEADLINE}>It landed.</h1>
           {aside && <p className="font-heading text-[clamp(1.125rem,min(2.6vw,3.6vh),1.75rem)] text-(--mf-wl-body) italic">{aside}</p>}
         </div>
         <p className={`${BODY} max-w-[34ch]`}>It waits in your Inbox. Nothing to sort now: later, a few minutes at a time.</p>
-        <ol aria-label="How Vigil goes" className={`flex flex-wrap items-center gap-x-2.5 gap-y-1 ${QUIET}`}>
-          {['Catch', 'Wait', 'Tidy and Decide', 'Comes back'].map((step, i) => (
-            <li key={step} className="flex items-center gap-2.5">
-              {i > 0 && <ArrowRight aria-hidden className="size-[0.85em] opacity-60" strokeWidth={1.75} />}
+        <ol aria-label="How Vigil goes" className={`flex flex-wrap items-center gap-x-2.5 gap-y-1 ${QUIET} [@media(max-height:520px)]:hidden`}>
+          {['Catch', 'Wait', 'Tidy and Decide', 'Comes back'].map((step, i, all) => (
+            // The arrow goes with the step before it, so a wrapped line never starts with one.
+            <li key={step} className="flex items-center gap-2.5 whitespace-nowrap">
               <span className={i === 0 ? 'font-medium text-foreground' : ''}>{step}</span>
+              {i < all.length - 1 && <ArrowRight aria-hidden className="size-[0.85em] opacity-60" strokeWidth={1.75} />}
             </li>
           ))}
         </ol>

@@ -217,6 +217,8 @@ function hideWindow(win: BrowserWindow): void {
   // back already blank rather than showing the old note for a frame.
   win.webContents.send('window:hiding')
   win.hide()
+  // The welcome brings its words back where the box was.
+  if (win === prompt && home && !home.isDestroyed()) home.webContents.send('onboarding:box-away')
 }
 
 /**
@@ -280,14 +282,14 @@ const GLIDE = 240
  * once with Motion off, Reduce motion on, or the window not on screen.
  * Resolves once the window has its new bounds.
  */
-function reshape(win: BrowserWindow, bounds: Electron.Rectangle): Promise<void> {
+function reshape(win: BrowserWindow, bounds: Electron.Rectangle, snap = false): Promise<void> {
   clearInterval(arriving)
   // Turned round mid-way: the old target is dropped, not landed.
   const before = landed
   landed = null
   pending = null
   before?.()
-  if (stillness() || !win.isVisible()) {
+  if (snap || stillness() || !win.isVisible()) {
     win.setBounds(bounds, false)
     return Promise.resolve()
   }
@@ -902,12 +904,12 @@ function anchored(win: BrowserWindow, x: number, width: number, height: number):
 }
 
 /** The box to the height its content (or the panel, or the expander) asks for, in one glide. */
-function refit(win: BrowserWindow): Promise<void> {
+function refit(win: BrowserWindow, snap = false): Promise<void> {
   const bounds = boundsOf(win)
   const next = anchored(win, bounds.x, bounds.width, boxHeight())
   // Already there, or on its way: a glide under way is never restarted.
-  if (sameBox(next, bounds)) return Promise.resolve()
-  return reshape(win, next)
+  if (sameBox(next, bounds) && !(snap && pending)) return Promise.resolve()
+  return reshape(win, next, snap)
 }
 /** Where the box's left edge was before the side panel opened, and where opening put it: the same test, sideways. */
 let panelFrom: { x: number; became: number } | null = null
@@ -2117,11 +2119,12 @@ app.whenReady().then(() => {
   // What the writing needs, measured by the page: the box grows down to it,
   // or comes back up, in the same glide. The panel and the expander keep
   // their full height whatever it says.
-  ipcMain.on('window:fit', (event, height: unknown) => {
+  // A pop-up waiting for room asks for it at once (snap): see fit-box.
+  ipcMain.on('window:fit', (event, height: unknown, snap: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || win !== prompt || typeof height !== 'number' || !Number.isFinite(height)) return
     fit = height
-    void refit(win)
+    void refit(win, snap === true)
   })
 
   ipcMain.handle('save-image', (_event, mime: unknown, bytes: unknown) =>

@@ -58,10 +58,12 @@ export function GoalBeacon({ id }: { id: string }): React.JSX.Element | null {
       >
         <SandboxStamp />
         <Frost />
-        <div className="flex items-center gap-1.5">
-          <Flag className="size-3.5 shrink-0" style={{ color: warmth(Math.max(left, 0)) }} />
-          <p className="private-text min-w-0 flex-1 truncate font-medium">{goal.title}</p>
-          <span className="flex items-center opacity-0 transition-opacity duration-200 group-hover:opacity-100" style={STILL}>
+        <div className="flex items-start gap-1.5">
+          <Flag className="mt-[0.2em] size-3.5 shrink-0" style={{ color: warmth(Math.max(left, 0)) }} />
+          {/* The whole goal, over two lines if it needs them: a goal cut short is not the goal. */}
+          <p className="private-text line-clamp-2 min-w-0 flex-1 leading-snug font-medium text-balance">{goal.title}</p>
+          {/* Over the end of the title, only while pointed at: the title has the whole row the rest of the time. */}
+          <span className="absolute top-2 right-2 z-10 flex items-center rounded-lg bg-popover opacity-0 transition-opacity duration-200 group-hover:opacity-100" style={STILL}>
             <button type="button" title="Open it" aria-label="Open it" onClick={() => (chime('open'), window.api.openInHome('goal', id))}
               className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
               <AliveIcon icon={ExternalLinkIcon} size={14} />

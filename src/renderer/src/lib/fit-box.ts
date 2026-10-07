@@ -79,15 +79,52 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean):
     return Math.min(FULL, Math.max(SHORT, height))
   }, [column])
 
-  const send = useCallback((height: number): void => {
+  const send = useCallback((height: number, snap = false): void => {
     clearTimeout(wait.current)
-    if (height === sent.current) return
+    // Already asked for, but gliding there: a snap still lands it at once.
+    if (height === sent.current && !snap) return
     sent.current = height
-    window.api.fitBox(height)
+    window.api.fitBox(height, snap)
   }, [])
 
+  /**
+   * A pop-up opened in a box too short for it is kept out of sight (and its
+   * entrance paused) while the box jumps to full height, then shown where it
+   * belongs: never seen clipped, never seen moving. A key opens most of them,
+   * so the box gets there at once rather than gliding.
+   */
+  const settling = useRef(false)
+  const room = useCallback((): boolean => {
+    const root = document.documentElement
+    const short = !held.current && !document.hidden && window.innerHeight < FULL - 1 && Boolean(document.querySelector(POPS))
+    if (short) {
+      // Never left hidden if the box cannot grow (no room on the screen).
+      if (!('growing' in root.dataset)) setTimeout(() => delete root.dataset.growing, 500)
+      root.dataset.growing = ''
+      send(FULL, true)
+    } else if ('growing' in root.dataset && !settling.current) {
+      // Shown once it has stopped moving: the pop-up places itself in the new
+      // room over a frame or two, measured while still unseen.
+      settling.current = true
+      let last = ''
+      let frames = 0
+      const still = (): void => {
+        const pop = document.querySelector(POPS)
+        const at = pop ? JSON.stringify(pop.getBoundingClientRect()) : ''
+        if (!pop || (at === last && window.innerHeight >= FULL - 1) || ++frames > 12) {
+          settling.current = false
+          return void delete root.dataset.growing
+        }
+        last = at
+        requestAnimationFrame(still)
+      }
+      requestAnimationFrame(still)
+    }
+    return short
+  }, [send])
+
   const refit = useCallback((now = false): void => {
-    if (held.current) return
+    if (held.current || room()) return
     const height = want()
     // Hidden, it is sized at once: it opens at what it needs, never growing in view.
     if (now || document.hidden || height > sent.current || height < sent.current - CLEARLY) return send(height)
@@ -103,8 +140,10 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean):
       const run = (): void => void ((frame = 0), refit())
       frame = document.hidden ? (setTimeout(run, 16) as unknown as number) : requestAnimationFrame(run)
     }
-    const changes = new MutationObserver(soon)
+    // A pop-up is hidden in the same task it arrives in, before it is ever drawn.
+    const changes = new MutationObserver(() => void (room(), soon()))
     changes.observe(document.body, { childList: true, subtree: true, characterData: true })
+    window.addEventListener('resize', soon)
     const sizes = new ResizeObserver(soon)
     if (column.current) sizes.observe(column.current)
     // A picture or a card's image arriving makes its block taller.
@@ -113,10 +152,11 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean):
     return () => {
       changes.disconnect()
       sizes.disconnect()
+      window.removeEventListener('resize', soon)
       document.removeEventListener('load', soon, true)
       clearTimeout(wait.current)
     }
-  }, [column, refit])
+  }, [column, refit, room])
 
   // A task read here, or back to the note: at once.
   useEffect(() => refit(true), [full, refit])

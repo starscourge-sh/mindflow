@@ -102,14 +102,16 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
   }, [])
   const current = CAPTURE_TYPES.find((Ctype) => Ctype.id === value) ?? CAPTURE_TYPES[0]
 
-  // ⌃L, for label; ⌃T is a tag in the editor.
-  useShortcut('l', setOpen, open)
+  // ⌃L, for label; ⌃T is a tag in the editor. Opened by the key, it is simply there.
+  const [keyed, setKeyed] = useState(false)
+  const byKey = useCallback((next: boolean) => void (setKeyed(true), setOpen(next)), [])
+  useShortcut('l', byKey, open)
   // Opened by click or ⌃L, the cursor starts on the type it is now.
   useEffect(() => void (open && setRow(current.label)), [open]) // eslint-disable-line react-hooks/exhaustive-deps
   const Icon = current.icon
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(next) => void (setKeyed(false), setOpen(next))}>
       <Tip label={suggested ? 'Suggested from what you typed. ⌃L or ⌘1-9 to choose' : undefined}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className={`gap-1.5 rounded-full cursor-pointer ${suggested ? 'border-dashed' : ''} ${flat ? 'h-auto w-full justify-start gap-2 rounded-none border-0 bg-transparent px-2 py-1.5 font-normal shadow-none hover:bg-accent dark:bg-transparent dark:hover:bg-accent' : ''}`}>
@@ -119,7 +121,7 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
         </PopoverTrigger>
       </Tip>
 
-      <PopoverContent className="w-64 gap-0 p-0" align="start">
+      <PopoverContent className="w-64 gap-0 p-0" style={keyed ? { animation: 'none' } : undefined} align="start">
         <Command
           // Each type its own note as you move through them, as the themes
           // have: a scale under the list. Picking one lands with a chord.

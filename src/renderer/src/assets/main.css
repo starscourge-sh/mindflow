@@ -641,6 +641,13 @@ html[data-width='full'] .note-pane {
   animation-duration: 0s !important;
 }
 
+/* A pop-up waiting for the box to grow tall enough: unseen, its entrance held (see fit-box). */
+html[data-growing] :is([role='dialog'], [role='alertdialog'], [role='menu'], [role='listbox'], [data-radix-popper-content-wrapper], .tiptap-suggestion-popup, [data-celebration]),
+html[data-growing] :is([role='dialog'], [role='alertdialog'], [role='menu'], [role='listbox'], [data-radix-popper-content-wrapper], .tiptap-suggestion-popup, [data-celebration]) * {
+  visibility: hidden !important;
+  animation-play-state: paused !important;
+}
+
 /* Focus: the marked parts go, and what is left has the window. */
 [data-focus='on'] [data-chrome] {
   display: none !important;

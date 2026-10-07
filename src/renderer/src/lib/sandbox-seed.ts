@@ -316,7 +316,7 @@ What you keep comes back: as ${link(schwarzschild, 'a Review card', 'nugget')} j
   await write(hal, `
 Which AI flies the ship: HAL or TARS?
 
-A decision keeps what you weighed, so it is never argued again. Its fields hold the call and what would reopen it.
+A decision keeps what you weighed, so it is never argued again. Its fields, under Details at the top right, hold the call and what would reopen it.
 
 **Try it:** click in the table and press Tab to go cell to cell. Tab in the last cell adds a row.
 

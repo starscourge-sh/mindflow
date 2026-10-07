@@ -51,7 +51,7 @@ export interface Api {
   /** Swap the window between the capture size and the roomier one. */
   setExpanded: (expanded: boolean) => Promise<boolean>
   setPanel: (open: boolean) => Promise<boolean>
-  fitBox: (height: number) => void
+  fitBox: (height: number, snap?: boolean) => void
   fillHome: (fill: boolean | 'toggle') => Promise<boolean>
   onFilled: (listen: (filled: boolean) => void) => () => void
   setRecordable: (on: boolean) => Promise<boolean>
@@ -85,6 +85,7 @@ export interface Api {
   onCelebrate: (listen: (moment: Moment) => void) => () => void
   onShown: (listen: () => void) => () => void
   onBoxShown: (listen: () => void) => () => void
+  onBoxAway: (listen: () => void) => () => void
   onHiding: (listen: () => void) => () => void
   onImported: (listen: () => void) => () => void
   hints: {

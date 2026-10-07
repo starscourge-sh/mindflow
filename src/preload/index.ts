@@ -83,7 +83,7 @@ const api = {
   /** Widen the window for the side panel, or narrow it back to the box. */
   setPanel: (open: boolean): Promise<boolean> => ipcRenderer.invoke('window:panel', open),
   /** The box's height as its writing needs it: it grows down to it, up to its full size. */
-  fitBox: (height: number): void => ipcRenderer.send('window:fit', height),
+  fitBox: (height: number, snap = false): void => ipcRenderer.send('window:fit', height, snap),
   /** The main window: fill the screen, or back to its compact size. */
   fillHome: (fill: boolean | 'toggle'): Promise<boolean> => ipcRenderer.invoke('home:fill', fill),
   /** Told whenever the main window fills the screen or comes back from it. */
@@ -166,6 +166,12 @@ const api = {
     const relay = (): void => listen()
     ipcRenderer.on('onboarding:box', relay)
     return () => ipcRenderer.off('onboarding:box', relay)
+  },
+  /** In the main window: each time the box is put away. For the welcome. */
+  onBoxAway: (listen: () => void): (() => void) => {
+    const relay = (): void => listen()
+    ipcRenderer.on('onboarding:box-away', relay)
+    return () => ipcRenderer.off('onboarding:box-away', relay)
   },
 
   /** Each time the window is brought up: the moment the rot cards reshuffle and a hint may show. */

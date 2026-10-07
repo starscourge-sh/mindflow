@@ -217,11 +217,19 @@ export const changed = (what?: Change): void => {
       continue
     }
     const was = untold.get(win)
-    if (was === undefined) win.once('show', () => {
-      const told = untold.get(win)
-      untold.delete(win)
-      if (told !== undefined && !win.isDestroyed()) win.webContents.send('captures:changed', told)
-    })
+    if (was === undefined) {
+      const tell = (): void => {
+        clearInterval(look)
+        win.off('show', tell)
+        const told = untold.get(win)
+        untold.delete(win)
+        if (told !== undefined && !win.isDestroyed()) win.webContents.send('captures:changed', told)
+      }
+      // 'show' is not always told on macOS (a window shown without taking
+      // the focus never hears it), so it is looked for as well.
+      const look = setInterval(() => (win.isDestroyed() ? clearInterval(look) : win.isVisible() && tell()), 300)
+      win.once('show', tell)
+    }
     untold.set(win, was === null || !what ? null : [...(was ?? []), what].slice(-50))
   }
 }
