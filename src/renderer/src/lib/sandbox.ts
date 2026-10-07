@@ -9,12 +9,15 @@ import { vigil } from './vigil'
  */
 export const SANDBOX = new URLSearchParams(location.search).has('sandbox')
 
-/** The look that comes along into the sandbox, so it looks like yours. */
-const CARRY_SETTINGS = ['motion', 'sounds', 'volume', 'soundPack', 'blur', 'keys', 'noteFont', 'headingFont', 'fontNotesOnly', 'textSize', 'interfaceSize',
-  'scenery', 'sceneryFolders', 'sceneryDim', 'sceneryTime', 'sceneryRest', 'sceneryRecap', 'sceneryToday', 'sceneryFocus', 'coversFolder',
-  'celebrate', 'celebrationsFolder', 'celebrationPicks', 'postcards', 'marks', 'thumbnails', 'tempusDots', 'calc', 'topTitle', 'spellcheck'] as const
-/** And from the window's own storage: the theme, and whether Vigil shows in screen recordings. */
-const CARRY_LOCAL = ['theme', 'custom-themes', 'frosted', 'word-count', 'recordable', 'vim'] as const
+/**
+ * What comes along into the sandbox: how Vigil feels to you (sounds, motion,
+ * your keys, margin marks, the sizes you read at). Never your pictures: the
+ * sandbox may be shown or recorded, so its scenery is its own public-domain
+ * landscapes and its covers and celebrations are Vigil's own.
+ */
+const CARRY_SETTINGS = ['motion', 'sounds', 'volume', 'soundPack', 'keys', 'marks', 'textSize', 'interfaceSize'] as const
+/** And from the window's own storage: the theme, Vim, and whether Vigil shows in screen recordings. */
+const CARRY_LOCAL = ['theme', 'custom-themes', 'frosted', 'recordable', 'vim'] as const
 
 export type Carry = { local: Record<string, string>; settings: Record<string, unknown> }
 

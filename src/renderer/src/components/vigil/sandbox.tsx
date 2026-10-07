@@ -189,13 +189,13 @@ export function SandboxHost(): React.JSX.Element | null {
         }
       }
       if (carry?.local?.theme) applyTheme(currentTheme(), false)
-      const settings = { ...(carry?.settings ?? {}) }
-      // With no scenery of your own, the sandbox brings four landscapes, so you see what Scenery does.
-      if (!Array.isArray(settings.sceneryFolders) || !settings.sceneryFolders.length) settings.sceneryFolders = [await sandboxScenery()]
+      // Its own pictures, whatever yours are: four public-domain landscapes for
+      // Scenery, and Vigil's own grain for covers and celebrations.
+      const settings = { ...(carry?.settings ?? {}), scenery: true, sceneryFolders: [await sandboxScenery()], coversFolder: '', celebrationsFolder: '', celebrationPicks: {} }
       // An editor on the page reads Markdown for the seed; wait for one, five seconds at most.
       for (let waited = 0; !readMarkdown('x') && waited < 5000; waited += 100) await new Promise((wait) => setTimeout(wait, 100))
       await seedSandbox(readMarkdown)
-      await window.api.vigil('settings:set', { ...settings, celebrate: settings.celebrate ?? true })
+      await window.api.vigil('settings:set', { ...settings, celebrate: true })
       await window.api.vigil('sandbox:seeded')
       setSeeding(false)
       chime('scene')

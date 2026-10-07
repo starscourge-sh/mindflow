@@ -1,5 +1,5 @@
 import { BrowserWindow, app, dialog, ipcMain, nativeImage } from 'electron'
-import { copyFile, mkdir, stat } from 'fs/promises'
+import { copyFile, mkdir, readFile, stat } from 'fs/promises'
 import { join } from 'path'
 
 import { LABEL, atomically, changed, database } from './captures'
@@ -155,8 +155,13 @@ export function registerNotes({ load, guard }: Windows): void {
     }
     if (!/\.(png|jpe?g|gif|webp|avif|bmp|heic|svg)$/.test(name)) return ''
     const image = nativeImage.createFromPath(join(assets(), name))
-    // A picture the system cannot read (an SVG) is shown as it is.
-    const made = image.isEmpty() ? src : `data:image/jpeg;base64,${image.resize({ height: Math.min(tall, image.getSize().height), quality: 'best' }).toJPEG(82).toString('base64')}`
+    // A picture the system cannot shrink (an SVG, often a WebP) is shown as it
+    // is; a small one as a data URL, so a canvas may still read its colour.
+    const kind = name.match(/\.(\w+)$/)?.[1]
+    const whole = image.isEmpty() && kind && kind !== 'svg' && ((await stat(join(assets(), name)).catch(() => null))?.size ?? Infinity) < 2 * 1024 * 1024
+      ? `data:image/${kind === 'jpg' ? 'jpeg' : kind};base64,${(await readFile(join(assets(), name))).toString('base64')}`
+      : src
+    const made = image.isEmpty() ? whole : `data:image/jpeg;base64,${image.resize({ height: Math.min(tall, image.getSize().height), quality: 'best' }).toJPEG(82).toString('base64')}`
     small.set(key, made)
     return made
   })

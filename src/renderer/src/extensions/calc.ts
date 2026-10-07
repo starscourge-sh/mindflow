@@ -82,6 +82,9 @@ function load(): void {
   void import("mathjs").then(({ create, all }) => {
     const instance = create(all)
     instance.createUnit("USD")
+    // The distances of the sky, which mathjs leaves out: a light year and a parsec.
+    instance.createUnit("lightyear", { definition: "9460730472580800 m", aliases: ["lightyears"] })
+    instance.createUnit("parsec", { definition: "30856775814913673 m", aliases: ["parsecs"] })
     math = instance
     refresh()
     void rates().then((table) => {

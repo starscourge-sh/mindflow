@@ -341,11 +341,9 @@ A line ending in = shows its answer, faint. Name a number once and use it below.
 
 **Try it:** put the caret after any = and press Tab to write the answer in.
 
-parsec = 3.26 lightyear
-
 run = 12 parsec
 
-run in km =
+run in lightyear =
 
 A parsec is a distance, not a time: the boast was about a shorter route.
 

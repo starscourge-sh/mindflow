@@ -158,6 +158,10 @@ export function useSameWords(table: NoteTable, id: string | undefined, loaded: u
     save: (body, editor) => {
       const note = editor ? seen.current.find((one) => one.editor === editor) : open.current
       if (!note) return
+      // The words it already holds, with nothing else on the way: nothing to
+      // save. An editor reports a note it has only opened (its own spelling of
+      // the same words), and that is not an edit.
+      if (!running.current && !queue.current.some((one) => one.note === note) && JSON.stringify(body) === note.sent) return
       // Only the newest words of a note need sending: older ones waiting are dropped.
       queue.current = [...queue.current.filter((one) => one.note !== note), { note, body }]
       void pump()

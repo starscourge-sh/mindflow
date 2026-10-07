@@ -192,7 +192,7 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
   const last = new Date(days[6].start)
   return (
     <>
-      <Page aside={!!open} title="week" actions={
+      <Page aside={!!open} wide title="week" actions={
         <span className="flex items-center gap-2 text-xs">
           <span className="hidden whitespace-nowrap @[60rem]/page:inline"><Pressed keys="H" /> <Pressed keys="L" /> days · <Pressed keys="⇧H" /> <Pressed keys="⇧L" /> move a day · <Pressed keys="[" /> <Pressed keys="]" /> week</span>
           <Tip label="Week before  [">
@@ -238,7 +238,7 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
         >
         <div ref={strip} onScroll={measure}
           style={{ maskImage: edges.left || edges.right ? `linear-gradient(to right, ${edges.left ? 'transparent, black 3rem' : 'black'}, ${edges.right ? 'black calc(100% - 3rem), transparent' : 'black'})` : undefined }}
-          className="grid min-h-0 flex-1 gap-px overflow-x-auto p-3 [grid-template-columns:repeat(7,minmax(5.5rem,1fr))]">
+          className="grid min-h-0 flex-1 gap-px overflow-x-auto p-3 [grid-template-columns:repeat(7,minmax(8rem,1fr))]">
           {days.map((day, col) => {
             const date = new Date(day.start)
             const today = day.start === dayStart(0)
@@ -280,7 +280,7 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
                     >
                       <span className="flex w-full items-start gap-1.5">
                         {card.task.priority ? <PriorityIcon level={card.task.priority} className="mt-0.5 size-3 shrink-0" /> : null}
-                        <span className="line-clamp-2 min-w-0 pr-5 wrap-anywhere">{card.task.title}</span>
+                        <span className="line-clamp-2 min-w-0 text-pretty">{card.task.title}</span>
                       </span>
                       <span className="flex min-w-0 flex-wrap items-center gap-1.5 pr-5 text-xs text-muted-foreground" style={{ color: late ? 'var(--tt-color-text-red)' : undefined }}>
                         {card.kind === 'deadline' ? (
@@ -294,9 +294,10 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
                       </span>
                     </button>
                     </Carried>
-                    {/* A thought without opening it: on hover, or ; on the card. The title
-                        and the date keep its corner clear, so it never lands on either. */}
-                    <GlossButton className="top-1 right-1" onClick={() => setGlossing(id)} />
+                    {/* A thought without opening it: on hover, or ; on the card. Over the
+                        corner on its own ground while shown, so the title keeps the
+                        card's whole width the rest of the time. */}
+                    <GlossButton className="top-1 right-1 bg-background" onClick={() => setGlossing(id)} />
                     {glossing === id && <GlossLine id={card.task.id} open onDone={() => setGlossing(null)} placeholder="A thought, kept in its log" className="pt-1" />}
                     </motion.div>
                   )

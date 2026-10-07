@@ -46,8 +46,10 @@ const ArrowUp = alive(ArrowNarrowUpIcon)
  */
 
 /** A view's frame: title, a muted count, actions on the right, then the body. */
-export function Page({ title, count, unit = ['item', 'items'], actions, children, aside = false }: {
+export function Page({ title, count, unit = ['item', 'items'], actions, children, aside = false, wide = false }: {
   title: ReactNode
+  /** Every bit of the window's width, even with a page-wide reading column: a week of days needs the room. */
+  wide?: boolean
   /** What the count counts, one and many. */
   unit?: [string, string]
   /** A list beside an open item: in focus it goes, and the item has the window. */
@@ -61,13 +63,13 @@ export function Page({ title, count, unit = ['item', 'items'], actions, children
       {/* The window's toolbar already names the section, so this line only
           carries the count and the actions, and goes when it has neither. */}
       {(count !== undefined || actions) && (
-        <header data-chrome={aside || undefined} className="page-column flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground">
+        <header data-chrome={aside || undefined} className={`${wide ? '' : 'page-column '}flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground`}>
           {typeof title === 'string' && title.startsWith('#') ? <span className="font-medium text-foreground">{title}</span> : null}
           {count ? <span className="whitespace-nowrap tabular-nums"><Rolling text={count} /> {count === 1 ? unit[0] : unit[1]}</span> : null}
           <div className="ml-auto flex min-w-0 items-center gap-1">{actions}</div>
         </header>
       )}
-      <SmoothScroll>{children}</SmoothScroll>
+      <SmoothScroll wide={wide}>{children}</SmoothScroll>
     </section>
   )
 }
@@ -755,13 +757,13 @@ export function Toaster(): React.JSX.Element | null {
  * toward where you sent them over a few frames instead of in fixed jumps. The
  * editor scrolls itself and is left alone; this is the lists and pages.
  */
-export function SmoothScroll({ children }: { children: ReactNode }): React.JSX.Element {
+export function SmoothScroll({ children, wide = false }: { children: ReactNode; wide?: boolean }): React.JSX.Element {
   const [box, setBox] = useState<HTMLDivElement | null>(null)
   useSmooth(box)
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div ref={setBox} className="min-h-0 flex-1 overflow-y-auto">
-        <div className="page-column">{children}</div>
+        <div className={wide ? undefined : 'page-column'}>{children}</div>
       </div>
       <BackToTop target={box} />
     </div>

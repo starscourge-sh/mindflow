@@ -660,7 +660,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
               </button>
             </div>
           }>
-            Catch a thought with ⌘. from anywhere, or bring your notes in. What you open, keep and keep circling will wait here for you.
+            Catch a thought with ⌘. from anywhere, or bring your notes in. What you open, keep and wonder about gathers here.
           </Empty>
         </div>
       ) : (

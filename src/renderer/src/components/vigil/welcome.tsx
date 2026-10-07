@@ -1,12 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowRight, ArrowUp, CornerDownLeft } from 'lucide-react'
+import { ArrowRight, ArrowUp, CornerDownLeft, NotebookText } from 'lucide-react'
 import { EASE, byKeys, shift } from '@/lib/motion'
 import { chime, click } from '@/lib/sound'
 import { applyTheme, type Theme } from '@/lib/theme'
 import { comboOf, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
 import { onboarding, type Onboarding } from '@/lib/onboarding'
 import { enterSandbox } from '@/lib/sandbox'
+import { EXAMPLES } from '@/lib/welcome-box'
 import { CaptureList, type CaptureMeta } from '@/components/capture-list'
 import { dayjs } from '../../../../main/dates'
 import { Scenery } from './scenery'
@@ -143,8 +144,8 @@ function YearDots(): React.JSX.Element {
   const cols = Math.ceil((days + lead) / 7)
   const here = cells[at]
   return (
-    <figure className="flex flex-col gap-2.5" aria-label={`Today, day ${at + 1} of ${days}`}>
-      <svg aria-hidden viewBox={`0 0 ${cols * 10} 70`} className="w-[min(100%,clamp(20rem,34vw,36rem))] overflow-visible">
+    <figure className="flex w-full flex-col gap-2.5 @[50rem]:w-[clamp(20rem,32vw,34rem)]" aria-label={`Today, day ${at + 1} of ${days}`}>
+      <svg aria-hidden viewBox={`0 0 ${cols * 10} 70`} className="w-full max-w-[34rem] overflow-visible">
         {cells.map(({ i, x, y }) => {
           const far = Math.hypot(x - here.x, (y - here.y) * 1.4)
           return (
@@ -214,6 +215,7 @@ export function Welcome(): React.JSX.Element | null {
   const before = useRef<Set<string>>(new Set())
   // The theme the dial was left on, kept when you move on.
   const picked = useRef<Theme | null>(null)
+  const veteran = useRef(false)
 
   const go = (to: number, by: 'key' | 'pointer' | 'app' = byKeys() ? 'key' : 'pointer'): void => {
     if (to < 0 || to > LAST) return
@@ -223,8 +225,12 @@ export function Welcome(): React.JSX.Element | null {
   }
 
   const open = (again: boolean): void => {
-    void window.api.captures.list().then((list) => (before.current = new Set(list.map((one) => one.id))))
-    void onboarding.state().then(setState)
+    void Promise.all([window.api.captures.list(), onboarding.state()]).then(([list, now]) => {
+      before.current = new Set(list.map((one) => one.id))
+      // Notes from before the welcome existed: someone who knows Vigil already.
+      veteran.current = !now.welcomed && list.length > 0
+      setState(now)
+    })
     picked.current = null
     setCaught(null)
     setSkipped(false)
@@ -269,7 +275,9 @@ export function Welcome(): React.JSX.Element | null {
   const leave = (how: 'fresh' | 'sandbox' | 'notes' | 'closed'): void => {
     // The theme on the dial is the one you leave with.
     if (picked.current) applyTheme(picked.current)
-    void onboarding.set({ welcomed: new Date().toISOString(), newsSeen: true, welcoming: false })
+    // Someone with notes of their own does not need a beginner's checklist on
+    // Home after a look round, unless they chose to start fresh.
+    void onboarding.set({ welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, ...(veteran.current && how !== 'fresh' ? { hidden: true } : {}) })
     setAtState(-1)
     if (how === 'fresh') {
       chime('decided')
@@ -374,6 +382,9 @@ export function Welcome(): React.JSX.Element | null {
       {/* Somewhere to hold the window by, clear of its buttons. */}
       <div className="relative h-11 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
       {at === LAST && <TrayArrow tray={state?.tray ?? null} />}
+      {/* One frame for the words and the footer: in a large window they stay
+          together in the middle, not scattered to its far corners. */}
+      <div className="relative mx-auto flex min-h-0 w-full max-w-[76rem] flex-1 flex-col [@media(min-height:760px)]:my-auto [@media(min-height:760px)]:max-h-[44rem]">
       <main className="relative flex min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.section
@@ -383,7 +394,7 @@ export function Welcome(): React.JSX.Element | null {
             animate={{ opacity: 1, transform: shift('translateY(0px)'), filter: 'blur(0px)' }}
             exit={motionless ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, filter: 'blur(2px)', transition: { duration: 0.12, ease: EASE } }}
             transition={{ duration: 0.2, ease: EASE }}
-            className="m-auto w-full max-w-[min(78rem,100%)] px-[clamp(1.5rem,7vw,7rem)] py-6"
+            className="m-auto w-full px-[clamp(1.5rem,5vw,4rem)] py-6"
           >
             {at === 0 && <Hello replay={replay} />}
             {at === 1 && <OneKey state={state} onState={setState} onBox={() => go(2, 'app')} />}
@@ -395,8 +406,9 @@ export function Welcome(): React.JSX.Element | null {
           </motion.section>
         </AnimatePresence>
       </main>
-      <footer className="relative grid h-16 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 px-[clamp(1rem,4vw,2rem)]">
-        <button type="button" onClick={skip} className="flex h-8 items-center gap-2 justify-self-start rounded-full px-3 text-control text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97]">
+      <footer className="relative grid h-16 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 px-[clamp(1.5rem,5vw,4rem)]">
+        {/* Its words in line with the headline above; the hover wash reaches out past them. */}
+        <button type="button" onClick={skip} className="-ml-3 flex h-8 items-center gap-2 justify-self-start rounded-full px-3 text-control text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97]">
           {at === LAST ? 'Close' : 'Skip'} <Kbd>Esc</Kbd>
         </button>
         <Dots at={at} seen={seen} onGo={(to) => (chime('page'), go(to === 3 && !caught ? 2 : to, 'pointer'))} />
@@ -407,6 +419,7 @@ export function Welcome(): React.JSX.Element | null {
           {(at === 3 || at === 4 || at === 5) && <Primary onClick={next}>Next</Primary>}
         </div>
       </footer>
+      </div>
     </div>
   )
 }
@@ -451,11 +464,11 @@ function Backdrop(): React.JSX.Element {
 function TrayArrow({ tray }: { tray: { x: number; y: number } | null }): React.JSX.Element | null {
   if (!tray) return null
   const x = tray.x - window.screenX
-  const inside = x >= 24 && x <= window.innerWidth - 24
-  const left = Math.max(24, Math.min(window.innerWidth - 24, x))
+  // Off past the window's edge, an arrow would point at nothing: the line on the screen says where instead.
+  if (x < 24 || x > window.innerWidth - 24) return null
   return (
-    <div aria-hidden className="pointer-events-none absolute top-1.5 z-10 flex -translate-x-1/2 flex-col items-center text-primary" style={{ left }}>
-      <ArrowUp className={`size-4 ${still() ? '' : 'mf-nudge-up'}`} strokeWidth={2.2} style={inside ? undefined : { transform: `rotate(${x > left ? 45 : -45}deg)` }} />
+    <div aria-hidden className="pointer-events-none absolute top-1.5 z-10 flex -translate-x-1/2 flex-col items-center text-primary" style={{ left: x }}>
+      <ArrowUp className={`size-4 ${still() ? '' : 'mf-nudge-up'}`} strokeWidth={2.2} />
     </div>
   )
 }
@@ -463,7 +476,7 @@ function TrayArrow({ tray }: { tray: { x: number; y: number } | null }): React.J
 /** The words of a screen: the headline in the heading font, the line under it, and what it shows beside. */
 function Screen({ title, children, aside, side = false, stack = false }: { title: ReactNode; children?: ReactNode; aside?: ReactNode; /** Beside the words in a narrow window too. */ side?: boolean; /** Under the words at every width. */ stack?: boolean }): React.JSX.Element {
   return (
-    <div className={`grid items-center gap-x-[clamp(1.5rem,5vw,5rem)] gap-y-7 [@media(max-height:560px)]:gap-y-5 ${aside && !stack ? (side ? '@[30rem]:grid-cols-[minmax(0,1fr)_auto]' : '@[50rem]:grid-cols-[minmax(0,1fr)_auto]') : ''}`}>
+    <div className={`grid items-center gap-x-[clamp(1.5rem,5vw,5rem)] gap-y-7 [@media(max-height:560px)]:gap-y-5 ${aside && !stack ? (side ? '@[30rem]:grid-cols-[minmax(0,auto)_auto] @[30rem]:justify-center' : '@[50rem]:grid-cols-[minmax(0,auto)_auto] @[50rem]:justify-center') : ''}`}>
       <div className="flex max-w-[clamp(20rem,44vw,40rem)] flex-col gap-4 [@media(max-height:560px)]:gap-3">
         {typeof title === 'string' ? <h1 className={HEADLINE}>{title}</h1> : title}
         {children}
@@ -651,21 +664,50 @@ function Catch(): React.JSX.Element {
   return (
     <Screen
       title="Catch something"
-      aside={
-        <div className="w-full @[50rem]:w-[clamp(22rem,34vw,32rem)]">
-          {/* Where it will land: the shape of an Inbox row, waiting. */}
-          <div className="flex h-12 items-center gap-3 rounded-xl border border-foreground/10 bg-[color-mix(in_oklab,var(--foreground)_3%,transparent)] px-3.5">
-            <span className="size-4 shrink-0 rounded-[5px] border border-foreground/15" />
-            <span className="mf-caret mf-caret-slow" aria-hidden />
-            <span className="truncate text-control text-muted-foreground/70">Your first capture lands here</span>
-          </div>
-        </div>
-      }
+      aside={<BoxPreview />}
     >
       <p className={BODY}>
         Write anything: a thing to buy, a line you liked, a half-idea. Press <InlineKeys keys={keyFor('⌘↵') || '⌘↵'} /> to send it. The box closes and you are back where you were.
       </p>
     </Screen>
+  )
+}
+
+/**
+ * What the box looks like, writing the same examples the real one shows
+ * while it waits: so the thing that opens is already familiar. Not a
+ * control; the real box is a key away.
+ */
+function BoxPreview(): React.JSX.Element {
+  const [n, setN] = useState(0)
+  const [typed, setTyped] = useState(0)
+  const line = EXAMPLES[n % EXAMPLES.length]
+  const quiet = still()
+  useEffect(() => {
+    if (quiet || typed < line.length) {
+      const timer = setTimeout(() => (quiet ? setN((was) => was + 1) : setTyped((was) => was + 1)), quiet ? 3000 : typed === 0 ? 500 : 38)
+      return () => clearTimeout(timer)
+    }
+    const rest = setTimeout(() => (setTyped(0), setN((was) => was + 1)), 2600)
+    return () => clearTimeout(rest)
+  }, [typed, line, quiet])
+  return (
+    <figure aria-hidden className="flex w-full flex-col gap-3 @[50rem]:w-[clamp(22rem,32vw,30rem)]">
+      <div className="pointer-events-none overflow-hidden rounded-2xl border border-foreground/10 bg-background shadow-(--mf-panel-shadow)">
+        <p className="min-h-[clamp(6rem,10vw,8rem)] px-5 pt-5 text-[clamp(1rem,1.35vw,1.1875rem)] leading-snug text-foreground">
+          {quiet ? line : line.slice(0, typed)}
+          <span className={`mf-caret ${!quiet && typed < line.length ? 'mf-caret-typing' : ''}`} />
+        </p>
+        <div className="flex items-center gap-2 border-t border-foreground/[0.07] px-4 py-2.5 text-control text-muted-foreground">
+          <NotebookText className="size-3.5" strokeWidth={1.75} />
+          Note
+          <span className="ml-auto flex h-7 items-center gap-1.5 rounded-md bg-foreground/[0.07] px-2.5 font-medium text-foreground">
+            Create <span className="text-key opacity-70">{keyFor('⌘↵') || '⌘↵'}</span>
+          </span>
+        </div>
+      </div>
+      <figcaption className="pl-1 text-control text-muted-foreground">The box, as it opens over any app.</figcaption>
+    </figure>
   )
 }
 
@@ -718,7 +760,7 @@ function Landed({ capture }: { capture: CaptureMeta }): React.JSX.Element {
     <Screen
       title={<div className="flex flex-col gap-1"><h1 className={HEADLINE}>It landed.</h1>{aside && <p className="font-heading text-[clamp(1.125rem,2.4vw,1.5rem)] text-muted-foreground italic">{aside}</p>}</div>}
       aside={
-        <motion.div ref={row} className="relative w-full [zoom:1.1] @[50rem]:w-[clamp(20rem,28vw,26rem)] @[80rem]:[zoom:1.3]"
+        <motion.div ref={row} className="relative w-full [zoom:1.1] @[50rem]:w-[clamp(22rem,34vw,32rem)] @[80rem]:[zoom:1.3]"
           initial={quiet ? false : { opacity: 0, transform: 'translateY(-10px)', filter: 'blur(2px)' }}
           animate={{ opacity: 1, transform: 'translateY(0px)', filter: 'blur(0px)' }}
           transition={{ delay: 0.08, duration: 0.26, ease: EASE }}>
@@ -808,7 +850,7 @@ function Start({ name, skipped, importing, onPick, onFiles }: { name: string; sk
   ]
   const stagger = !byKeys() && !still()
   return (
-    <div className="flex flex-col gap-6 [@media(max-height:560px)]:gap-3">
+    <div className="mx-auto flex w-full max-w-[54rem] flex-col gap-6 [@media(max-height:560px)]:gap-3">
       <div className="flex flex-col gap-2">
         <h1 className={HEADLINE}>{name ? `How do you want to start, ${name}?` : 'How do you want to start?'}</h1>
         {skipped && <p role="status" className="text-control text-muted-foreground">{skipped === 'first' && <span className="italic">{WANDER} </span>}Skipped ahead. The welcome is in the Vigil menu and ⌘K whenever you want it again.</p>}

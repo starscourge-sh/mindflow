@@ -6,7 +6,7 @@ import { useEffect } from 'react'
  * commands…", the third showing that a half-thought is welcome too. Only
  * while the welcome is open; the stylesheet does the rest (main.css).
  */
-const EXAMPLES = ['Buy oat milk', 'Ask Sam about the Lisbon flat', '"The obstacle is the way": check who said that']
+export const EXAMPLES = ['Buy oat milk', 'Ask Sam about the Lisbon flat', '"The obstacle is the way": check who said that']
 
 export function useWelcomePlaceholder(): void {
   useEffect(() => {
