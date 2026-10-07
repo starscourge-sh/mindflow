@@ -103,6 +103,7 @@ const api = {
   stick: (type: string, id: string, on: boolean): void => ipcRenderer.send('sticky', type, id, on),
   /** Every sticky to the screen in front of you: the way back for one lost off an edge. */
   gatherStickies: (): void => ipcRenderer.send('stickies:gather'),
+  showFolder: (path: string): void => ipcRenderer.send('folder:show', path),
   /** A sticky's pictures in Vigil's own Quick Look, in a window over its screen rather than inside the small one. */
   look: (pictures: LookPicture[], at: number): void => ipcRenderer.send('look', pictures, at),
   /** The look window's own: what to show, and that it is done. */

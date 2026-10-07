@@ -400,9 +400,9 @@ const HOP_EASE: Easing[] = ['easeOut', 'easeIn', 'easeOut', 'easeIn', 'easeOut',
 
 /**
  * A sprite on its own: no card, just the figure. It comes on from the side
- * nearest where it rests (the right in the main window, the left in the box,
- * so most face the way they go), turns to face you, says what happened in a
- * bubble, and after four seconds (longer while the pointer is on it) goes
+ * nearest where it rests (the right in the main window, the left in the box),
+ * never mirrored, since which way a sprite was drawn facing is unknown and a
+ * flip mid-way read as a spin. It says what happened in a bubble, and after four seconds (longer while the pointer is on it) goes
  * back the way it came. A GIF moves by itself and slides; a still picture
  * hops, and bobs while it waits. With Motion off it is simply there; with
  * Reduce motion it fades.
@@ -434,8 +434,6 @@ function Sprite({ moment, media, size, from, onDone }: {
   // Far enough to start wholly out of sight, past the side it comes from.
   const away = from === 'right' ? size.width + 40 : -(window.innerWidth / 2 + size.width / 2 + 24)
   const slide = (by: number): string => (from === 'bottom' ? `translateY(${size.height + 16}px)` : `translateX(${by}px)`)
-  // Facing the way it goes: most sprites are drawn facing right.
-  const facing = !present ? (from === 'left' ? -1 : 1) : !here && from === 'right' ? -1 : 1
   const phase = !present ? 'out' : here ? 'rest' : 'in'
   const hop: Variants = moving || calm ? {} : {
     in: { transform: HOPS, transition: { duration: ENTER, ease: HOP_EASE } },
@@ -477,7 +475,7 @@ function Sprite({ moment, media, size, from, onDone }: {
           </motion.div>
         )}
       </AnimatePresence>
-      <div {...hold} className="pointer-events-auto cursor-default" style={{ width: size.width, height: size.height, transform: `scaleX(${facing})` }}>
+      <div {...hold} className="pointer-events-auto cursor-default" style={{ width: size.width, height: size.height }}>
         <motion.img
           src={media.url}
           alt=""

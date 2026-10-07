@@ -14,6 +14,7 @@ import MagnifierIcon from '@/components/ui/magnifier-icon'
 import SparklesIcon from '@/components/ui/sparkles-icon'
 import Volume2Icon from '@/components/ui/volume-2-icon'
 import XIcon from '@/components/ui/x-icon'
+import ExternalLinkIcon from '@/components/ui/external-link-icon'
 import { allThemes, applyTheme, customThemes, frosted, importTheme, removeTheme, restoreTheme, setFrosted, themeName } from '@/lib/theme'
 import { KeysEditor, Marked } from './shortcut-sheet'
 import { keyFor } from '@/lib/keys'
@@ -777,6 +778,7 @@ function SceneryFolders({ folders, on, onSave, use = 'scenery', title = 'Folders
           {folders.map((folder) => (
             <span key={folder} className="flex items-center gap-2 rounded-md border py-1 pr-1 pl-2.5 text-control">
               <span className="min-w-0 flex-1 truncate" title={folder}>{folder.split('/').slice(-2).join('/')}</span>
+            <InFinder folder={folder} />
               <button type="button" aria-label={`Remove ${folder}`} className="rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => {
                 onSave(folders.filter((one) => one !== folder))
                 chime('away')
@@ -806,6 +808,17 @@ function SceneryFolders({ folders, on, onSave, use = 'scenery', title = 'Folders
   )
 }
 
+/** A folder's row: open it in Finder. */
+function InFinder({ folder }: { folder: string }): React.JSX.Element {
+  return (
+    <Tip label="Show in Finder">
+      <button type="button" className="rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => (chime('open'), window.api.showFolder(folder))}>
+        <AliveIcon icon={ExternalLinkIcon} size={12} />
+      </button>
+    </Tip>
+  )
+}
+
 /**
  * The folder celebrations play from. Unlike Scenery and Covers nothing is
  * copied: the files are played as they are, so a GIF keeps moving.
@@ -821,6 +834,7 @@ function CelebrationsFolder({ folder, on, onSave }: { folder: string; on: boolea
         <div className="mt-2 flex flex-col gap-1">
           <span className="flex items-center gap-2 rounded-md border py-1 pr-1 pl-2.5 text-control">
             <span className="min-w-0 flex-1 truncate" title={folder}>{folder.split('/').slice(-2).join('/')}</span>
+            <InFinder folder={folder} />
             <button type="button" aria-label={`Remove ${folder}`} className="rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => {
               onSave('')
               chime('away')

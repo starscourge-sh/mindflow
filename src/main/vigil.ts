@@ -1,4 +1,4 @@
-import { Notification, app, dialog, ipcMain, net, session } from 'electron'
+import { Notification, app, dialog, ipcMain, net, session, shell } from 'electron'
 import { randomUUID } from 'crypto'
 import { cp, mkdir, writeFile } from 'fs/promises'
 import { existsSync, readFileSync } from 'fs'
@@ -464,6 +464,12 @@ function addTask(text: string, origin: string | null = null, today = false): Mad
 // --- the registration -----------------------------------------------------
 
 export function registerVigil(): void {
+  // A picture folder in Finder, from its row in Settings: only one of the
+  // folders Settings holds, never a path the window names.
+  ipcMain.on('folder:show', (_event, path: unknown) => {
+    const { sceneryFolders, coversFolder, celebrationsFolder } = settings()
+    if (typeof path === 'string' && [...(sceneryFolders ?? []), coversFolder, celebrationsFolder].includes(path)) void shell.openPath(path)
+  })
   const db = database()
   const column = (table: string, definition: string): void => {
     try {
