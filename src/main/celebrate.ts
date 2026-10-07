@@ -338,13 +338,13 @@ const stickyAt = new Map<string, number>()
 /**
  * Every to-do on a sticky ticked: its own small celebration, in the sticky.
  * Not a milestone: it is never written down, never waits ten minutes, and
- * never holds a milestone back. Not in safe mode or quiet hours.
+ * never holds a milestone back. Not in safe mode. Quiet hours keep private
+ * words back, and this shows none, so it plays then too: you just ticked it.
  */
 function stickyDone(id: unknown): Moment | null {
   if (typeof id !== 'string') return null
   const { on } = celebrationPrefs()
-  const { blackout, hidePrivate } = gate()
-  if (!on || blackout || hidePrivate) return null
+  if (!on || gate().blackout) return null
   const last = stickyAt.get(id)
   if (last && Date.now() - last < STICKY_APART) return null
   stickyAt.set(id, Date.now())
