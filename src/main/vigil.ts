@@ -337,6 +337,8 @@ const DEFAULTS = {
   // Keys you changed: { the keys it came with: yours, or null for none }.
   keys: {} as Record<string, string | null>
 }
+  // Now and then one sticky stirs, as paper does in a draught, so it never turns into wallpaper.
+  stickiesStir: true,
 export type Settings = typeof DEFAULTS
 
 /**
@@ -385,6 +387,7 @@ export const stickyFrost = (): boolean => settings().stickiesFrosted !== false
 export const stickyPrefs = (): { shown: boolean; unshared: boolean } => ({ shown: settings().stickiesShown, unshared: settings().stickiesUnshared })
 /** Every sticky shown or put away at once; they keep their places. */
 export function showStickies(on = !settings().stickiesShown): boolean {
+export const stickyStir = (): boolean => settings().stickiesStir !== false
   database().prepare("insert or replace into settings (key, value) values ('stickiesShown', ?)").run(JSON.stringify(on))
   stickiesTold()
   changed()

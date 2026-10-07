@@ -38,7 +38,7 @@ import icon from '../../resources/icon.png?asset'
 import { alreadyImported, captureText, changed, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { backupDir } from './backup'
-import { activeSession, atLogin, badge, beaconDefault, tempusDots, blurOn, boxPlacement, gate, motionOn, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenGoals, whenStickies } from './vigil'
+import { activeSession, atLogin, badge, beaconDefault, tempusDots, blurOn, boxPlacement, gate, motionOn, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenGoals, whenStickies } from './vigil'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
@@ -1967,6 +1967,16 @@ app.whenReady().then(() => {
   setInterval(() => {
     if (powerMonitor.getSystemIdleTime() < 120 && Date.now() - lastAppear >= 3 * 3600_000) beaconMoment('active')
   }, 5 * 60_000)
+  // Now and then one sticky stirs, so it is seen again rather than becoming
+  // part of the desktop: every 25 to 45 minutes, while you are at the Mac,
+  // one at a time in turn. The sticky itself declines if you are writing in it.
+  let stirred = 0
+  const stirLater = (): void => void setTimeout(() => {
+    const up = [...stickies.entries()].filter(([key, win]) => !win.isDestroyed() && win.isVisible() && stickyUp(key)).map(([, win]) => win)
+    if (stickyStir() && motionOn() && !gate().blackout && up.length && powerMonitor.getSystemIdleTime() < 120) up[stirred++ % up.length].webContents.send('sticky:stir')
+    stirLater()
+  }, (25 + Math.random() * 20) * 60_000)
+  stirLater()
   // Pointed at, a beacon stays; let go, it tucks a minute later. Its own X
   // tucks it: till its next moment, or for an always one, till tomorrow.
   ipcMain.on('beacon:hold', (event, on: unknown) => {

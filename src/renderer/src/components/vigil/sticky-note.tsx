@@ -255,6 +255,23 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   const area = useRef<HTMLDivElement>(null)
   // The picture out in the look window: its place here stands empty till it comes back.
   const out = useRef<HTMLImageElement | null>(null)
+  // Told now and then to stir (see main): it lifts a little and settles, as
+  // paper does in a draught, so it is seen again. Not while you write in it,
+  // nor with Motion off; added to its own lean, never instead of it.
+  const card = useRef<HTMLDivElement>(null)
+  const lastKey = useRef(0)
+  useEffect(() => {
+    const note = (): void => void (lastKey.current = Date.now())
+    window.addEventListener('keydown', note, true)
+    return () => window.removeEventListener('keydown', note, true)
+  }, [])
+  useEffect(() => window.api.onStir(() => {
+    if (!card.current || Date.now() - lastKey.current < 15_000 || document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    card.current.animate(
+      [{ transform: 'translateY(0) rotate(0deg)' }, { transform: 'translateY(-4px) rotate(1.6deg)', offset: 0.3 }, { transform: 'translateY(-1px) rotate(-0.9deg)', offset: 0.62 }, { transform: 'translateY(0) rotate(0deg)' }],
+      { duration: 1200, easing: 'cubic-bezier(0.37, 0, 0.63, 1)' }
+    )
+  }), [])
   useEffect(() => window.api.onLookOver(() => {
     if (out.current) out.current.style.visibility = ''
     out.current = null
@@ -385,6 +402,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
     // Room all round for the lean, the lift and the shadow, so none of it is cut off at the window's edge.
     <div className="h-screen p-5">
       <div
+        ref={card}
         data-private={note.private ? '' : undefined}
         // Paper: solid, as the timer pill is (a glass theme's colours would let the desktop show through),
         // warmed a little and lit from the top. Frosted (the setting), <Frost> lays the blurred desktop under it. Leans its own way; pointed at, it straightens and lifts.

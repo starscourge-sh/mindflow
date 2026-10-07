@@ -72,6 +72,7 @@ export interface Api {
   frost: () => Promise<Frost | null>
   onFrost: (listen: (frost: Frost) => void) => () => void
   onFrostAt: (listen: (at: { x: number; y: number }) => void) => () => void
+  onStir: (listen: () => void) => () => void
   onStickiesShown: (listen: (shown: boolean) => void) => () => void
   hideWindow: () => void
   showPrompt: () => void

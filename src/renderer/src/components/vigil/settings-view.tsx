@@ -601,6 +601,9 @@ export function SettingsView(): React.JSX.Element {
             <Switch checked={recordable} onCheckedChange={setRecordable} />
           </Setting>
           {/* Only a choice while Vigil shows: off, the stickies are hidden with everything else. */}
+          <Setting title="Stickies stir now and then" note="Every half hour or so, while you are at the Mac, one sticky lifts a little and settles, as paper does in a draught, so your eye finds it again. Never while you write in it, in safe mode, or with Motion off." keywords="sticky notes stir move motion wiggle attention banner blindness notice">
+            <Switch checked={settings.stickiesStir !== false} onCheckedChange={(stickiesStir) => set({ stickiesStir })} />
+          </Setting>
           {recordable && (
             <Setting under title="Except sticky notes" note="Sticky notes stay blank in shares and recordings even so; the rest of Vigil shows." keywords="record recording screen share sharing hide sticky notes">
               <Switch checked={settings.stickiesUnshared} onCheckedChange={(stickiesUnshared) => set({ stickiesUnshared })} />

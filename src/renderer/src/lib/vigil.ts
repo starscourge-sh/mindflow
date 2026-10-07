@@ -111,6 +111,7 @@ export type Settings = {
   stickiesFrosted: boolean
   sidebarShown: string[]
   /** The box's tabs, of inbox, today, review, kept and recent. */
+  stickiesStir: boolean
   boxTabs: string[]
   /** Keys you changed, by the keys each came with; null is none. See lib/keys.ts. */
   keys: Record<string, string | null>
