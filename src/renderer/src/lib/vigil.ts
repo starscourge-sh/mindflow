@@ -293,9 +293,9 @@ export const vigil = {
   /** A folder of pictures, picked in the system's own chooser. */
   sceneryFolder: () => call<string | null>('scenery:folder'),
   /** What a celebration can play: the chosen folder's, or the one named. */
-  celebrations: (folder?: string) => call<{ url: string; video: boolean; name: string }[]>('celebrations', folder),
+  celebrations: (folder?: string) => call<{ url: string; video: boolean; name: string; sprite?: boolean }[]>('celebrations', folder),
   /** The file picked for each kind of milestone, where it is still there. */
-  celebrationPicks: () => call<Partial<Record<MomentKind, { url: string; video: boolean; name: string }>>>('celebrations:picks'),
+  celebrationPicks: () => call<Partial<Record<MomentKind, { url: string; video: boolean; name: string; sprite?: boolean }>>>('celebrations:picks'),
   /** One GIF, picture or clip, picked in the system's own chooser. */
   celebrationFile: () => call<string | null>('celebrations:choose'),
   // Up for private, down for not, from whichever menu or button switched it.

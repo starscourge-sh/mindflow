@@ -11,7 +11,8 @@
     "src/main/task-words.ts",
     "src/main/dates.ts",
     "src/main/goal-days.ts",
-    "src/main/celebrate.ts"
+    "src/main/celebrate.ts",
+    "src/main/sprite.ts"
   ],
   "compilerOptions": {
     "noImplicitAny": true,

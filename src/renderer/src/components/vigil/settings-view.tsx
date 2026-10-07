@@ -812,7 +812,7 @@ function CelebrationsFolder({ folder, on, onSave }: { folder: string; on: boolea
   return (
     <Setting
       title="Celebrations folder"
-      note={`GIFs, pictures and short clips (under 25 MB and 20 seconds) to play on a milestone, one at random. They stay where they are and are never changed. With no folder, a soft grainy picture instead.${on && found ? ` ${found.length} ready.` : ''}`}
+      note={`GIFs, pictures and short clips (under 25 MB and 20 seconds) to play on a milestone, one at random. They stay where they are and are never changed. One on a see-through background comes on by itself, without a card. With no folder, a soft grainy picture instead.${on && found ? ` ${found.length} ready.` : ''}`}
       keywords="celebrations celebrate folder gif memes videos clips pictures choose remove"
       below={folder && (
         <div className="mt-2 flex flex-col gap-1">
@@ -881,7 +881,8 @@ function CelebrationPicks({ picks, on, onSave }: { picks: Partial<Record<MomentK
                       media.video ? (
                         <video src={`${media.url}#t=0.1`} muted playsInline preload="metadata" className="absolute inset-0 size-full object-cover" />
                       ) : (
-                        <img src={media.url} alt="" draggable={false} className="absolute inset-0 size-full object-cover" />
+                        // A sprite is shown whole, on the plain ground, never cropped.
+                        <img src={media.url} alt="" draggable={false} className={`absolute inset-0 size-full ${media.sprite ? 'object-contain p-0.5' : 'object-cover'}`} />
                       )
                     ) : (
                       <Shuffle className="absolute inset-0 m-auto size-3.5" />

@@ -6,12 +6,15 @@ import { database } from './captures'
 import { dayKey, dayjs, startOfDay } from './dates'
 import { celebrationPrefs, gate, openGoals } from './vigil'
 import { daysBetween, daysLeft, wayThrough } from './goal-days'
+import { isSprite } from './sprite'
 
 /**
  * Celebrations: a small card for the rare milestones (a 100th capture, an
  * inbox emptied, a week of capturing in a row), never for everyday saves.
  * What plays comes from a folder you choose, read in place and never changed.
  * GIFs are served as they are, so they keep moving; nothing is copied.
+ * A sprite (a figure on a see-through background) walks on by itself
+ * instead of being cropped into the card.
  */
 
 /** The kinds of milestone, each of which can have a file of its own to play. */
@@ -21,14 +24,25 @@ export type MomentKind = (typeof MOMENTS)[number]
 export type Moment = { id: string; kind: MomentKind; rank: number; headline: string; line?: string; mark: string; tint: string
   /** Steps passed along with it, marked shown with it so none comes after. */
   also?: string[] }
-export type Media = { url: string; video: boolean; name: string }
+export type Media = { url: string; video: boolean; name: string; sprite?: boolean }
 
 const KINDS: Record<string, 'image' | 'video'> = {
-  '.gif': 'image', '.png': 'image', '.jpg': 'image', '.jpeg': 'image', '.webp': 'image',
+  '.gif': 'image', '.png': 'image', '.jpg': 'image', '.jpeg': 'image', '.webp': 'image', '.svg': 'image',
   '.mp4': 'video', '.mov': 'video', '.webm': 'video'
 }
 /** Bigger than this is skipped: a card is no place for a film. */
 const LARGEST = 25 * 1024 * 1024
+// Whether each file is a sprite, kept while its size and date stay the same.
+const sprites = new Map<string, { key: string; sprite: boolean }>()
+async function spriteAt(path: string, facts: { size: number; mtimeMs: number }): Promise<boolean> {
+  const key = `${facts.size}:${facts.mtimeMs}`
+  const known = sprites.get(path)
+  if (known?.key === key) return known.sprite
+  const sprite = await isSprite(path)
+  sprites.set(path, { key, sprite })
+  return sprite
+}
+
 /** One celebration in this long, whatever else happens. */
 const APART = 10 * 60000
 
@@ -58,7 +72,7 @@ async function media(folder: string): Promise<Media[]> {
     if (!facts?.size || facts.size > LARGEST) continue
     const name = nameFor(path)
     names.set(name, path)
-    items.push({ url: `mindflow://celebrate/${name}`, video: KINDS[ext] === 'video', name: entry.name })
+    items.push({ url: `mindflow://celebrate/${name}`, video: KINDS[ext] === 'video', name: entry.name, sprite: await spriteAt(path, facts) })
   }
   // Another folder (Settings counting one) is only counted, so a card
   // showing now keeps its file.
@@ -86,7 +100,7 @@ async function picks(): Promise<Partial<Record<MomentKind, Media>>> {
     if (!facts?.isFile() || !facts.size || facts.size > LARGEST) continue
     const name = nameFor(path)
     names.set(name, path)
-    out[kind] = { url: `mindflow://celebrate/${name}`, video: KINDS[ext] === 'video', name: basename(path) }
+    out[kind] = { url: `mindflow://celebrate/${name}`, video: KINDS[ext] === 'video', name: basename(path), sprite: await spriteAt(path, facts) }
   }
   picked = names
   return out
@@ -344,7 +358,7 @@ export function registerCelebrations(): void {
       title: 'Choose what plays',
       buttonLabel: 'Use this',
       properties: ['openFile'],
-      filters: [{ name: 'GIFs, pictures and clips', extensions: Object.keys(KINDS).map((ext) => ext.slice(1)) }]
+      filters: [{ name: 'GIFs, pictures, sprites and clips', extensions: Object.keys(KINDS).map((ext) => ext.slice(1)) }]
     })
     return filePaths[0] ?? null
   })

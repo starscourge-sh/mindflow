@@ -1576,9 +1576,15 @@ app.whenReady().then(() => {
     // Celebrations, read straight from the chosen folder so a GIF keeps moving.
     // Only a name handed out for a file found in that folder is served.
     if (host === 'celebrate') {
-      const path = /^[a-f0-9]{32}\.(gif|png|jpe?g|webp|mp4|mov|webm)$/.test(name) ? celebrationFile(name) : null
+      const path = /^[a-f0-9]{32}\.(gif|png|jpe?g|webp|svg|mp4|mov|webm)$/.test(name) ? celebrationFile(name) : null
       if (!path) return new Response('not found', { status: 404 })
       try {
+        // An SVG is only ever shown in an <img>, which runs none of its
+        // scripts; it is said to be one, and opened on its own it may run
+        // nothing and load nothing either.
+        if (name.endsWith('.svg')) {
+          return new Response(await readFile(path), { headers: { 'content-type': 'image/svg+xml', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; img-src data:", 'x-content-type-options': 'nosniff' } })
+        }
         // The range asked for is passed on, so a clip can loop and seek.
         const range = request.headers.get('range')
         return await net.fetch(pathToFileURL(path).toString(), range ? { headers: { range } } : undefined)
