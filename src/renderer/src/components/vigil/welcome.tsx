@@ -222,7 +222,7 @@ function Dots({ at, seen, onGo }: { at: number; seen: number; onGo: (to: number)
 function Primary({ children, keys = '↵', onClick, hidden = false }: { children: ReactNode; keys?: ReactNode; onClick: () => void; hidden?: boolean }): React.JSX.Element {
   return (
     <button type="button" onClick={onClick} tabIndex={hidden ? -1 : 0} aria-hidden={hidden || undefined}
-      className={`flex h-9 items-center gap-2 rounded-full bg-primary pr-1.5 pl-4 text-[0.875rem] font-semibold whitespace-nowrap text-primary-foreground transition-[opacity,transform,background-color] duration-200 ease-(--mf-ease) hover:bg-primary/90 active:scale-[0.97] ${hidden ? 'pointer-events-none opacity-0' : 'opacity-100'}`}>
+      className={`flex h-[clamp(2.25rem,5vmin,3rem)] items-center gap-2 rounded-full bg-primary pr-1.5 pl-4 text-[clamp(0.875rem,2vmin,1.15rem)] font-semibold whitespace-nowrap text-primary-foreground transition-[opacity,transform,background-color] duration-200 ease-(--mf-ease) hover:bg-primary/90 active:scale-[0.97] ${hidden ? 'pointer-events-none opacity-0' : 'opacity-100'}`}>
       {children}
       <span className="flex items-center gap-0.5">
         {typeof keys === 'string' ? <Kbd className="h-6 min-w-6 rounded-full border-primary-foreground/30 bg-primary-foreground/15 text-primary-foreground">{keys === '↵' ? <CornerDownLeft className="size-3" strokeWidth={2.4} /> : keys}</Kbd> : keys}
@@ -456,9 +456,9 @@ export function Welcome(): React.JSX.Element | null {
           </motion.section>
         </AnimatePresence>
       </main>
-      <footer className="relative grid h-16 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 px-[clamp(1.5rem,5vw,4rem)]">
+      <footer className="relative grid h-[clamp(4rem,9vmin,5.5rem)] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 px-[clamp(1.5rem,5vw,4rem)]">
         {/* Its words in line with the headline above; the hover wash reaches out past them. */}
-        <button type="button" onClick={skip} className="-ml-3 flex h-8 items-center gap-2 justify-self-start rounded-full px-3 text-[0.875rem] text-(--mf-wl-quiet) transition-colors hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97]">
+        <button type="button" onClick={skip} className="-ml-3 flex h-[clamp(2rem,4.6vmin,2.75rem)] items-center gap-2 justify-self-start rounded-full px-3 text-[clamp(0.875rem,2vmin,1.15rem)] text-(--mf-wl-quiet) transition-colors hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97]">
           {at === LAST ? 'Close' : 'Skip'} <Kbd>Esc</Kbd>
         </button>
         <Dots at={at} seen={seen} onGo={(to) => (chime('page'), go(to === 3 && !caught ? 2 : to, 'pointer'))} />

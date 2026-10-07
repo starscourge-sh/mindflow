@@ -195,7 +195,7 @@ export function SandboxHost(): React.JSX.Element | null {
       // An editor on the page reads Markdown for the seed; wait for one, five seconds at most.
       for (let waited = 0; !readMarkdown('x') && waited < 5000; waited += 100) await new Promise((wait) => setTimeout(wait, 100))
       await seedSandbox(readMarkdown)
-      await window.api.vigil('settings:set', { ...settings, celebrate: true })
+      await window.api.vigil('settings:set', { ...settings, celebrate: true, quietStart: '00:00', quietEnd: '00:00' })
       await window.api.vigil('sandbox:seeded')
       setSeeding(false)
       chime('scene')
