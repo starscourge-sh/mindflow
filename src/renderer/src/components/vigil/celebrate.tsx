@@ -308,10 +308,10 @@ function Card({ moment, media, origin, fill, onDone, onTooLong }: {
   const [broken, setBroken] = useState(false)
   const [ready, setReady] = useState(!media?.video)
   const { done } = usePutAway(onDone)
-  // Gone after five seconds (four on a sticky), unless the pointer is on it.
+  // Gone after seven seconds (six on a sticky), unless the pointer is on it.
   useEffect(() => {
     if (hover) return
-    const timer = setTimeout(() => done.current(), fill ? 4000 : 5000)
+    const timer = setTimeout(() => done.current(), fill ? 6000 : 7000)
     return () => clearTimeout(timer)
   }, [hover])
   useEffect(() => {
@@ -406,7 +406,7 @@ const HOP_EASE: Easing[] = ['easeOut', 'easeIn', 'easeOut', 'easeIn', 'easeOut',
  * A sprite on its own: no card, just the figure. It comes on from the side
  * nearest where it rests (the right in the main window, the left in the box),
  * never mirrored, since which way a sprite was drawn facing is unknown and a
- * flip mid-way read as a spin. It says what happened in a bubble, and after four seconds (longer while the pointer is on it) goes
+ * flip mid-way read as a spin. It says what happened in a bubble, and after six seconds (longer while the pointer is on it) goes
  * back the way it came. A GIF moves by itself and slides; a still picture
  * hops, and bobs while it waits. With Motion off it is simply there; with
  * Reduce motion it fades.
@@ -431,7 +431,7 @@ function Sprite({ moment, media, size, from, onDone }: {
   }, [])
   useEffect(() => {
     if (!here || hover) return
-    const timer = setTimeout(() => done.current(), 4000)
+    const timer = setTimeout(() => done.current(), 6000)
     return () => clearTimeout(timer)
   }, [here, hover])
 
