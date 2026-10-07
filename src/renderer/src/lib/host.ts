@@ -16,6 +16,11 @@ export interface MindflowHost {
   saveFile?: (name: string, bytes: Uint8Array) => Promise<string>
   /** Read a linked image the page's own content policy will not fetch. */
   fetchImage?: (href: string) => Promise<{ mime: string; bytes: Uint8Array } | null>
+  /**
+   * Find the pictures and files a note copied out of Obsidian points at
+   * (`![[name.png]]`, a path) and store them: each as what it became, or null.
+   */
+  bringEmbeds?: (refs: string[]) => Promise<({ src: string; name: string; size: number; image: boolean } | null)[]>
   /** Title, description and picture for a link, for the bookmark card. */
   fetchLinkMetadata?: (url: string) => Promise<LinkMetadata>
   /** Write text to a file the user picks. */

@@ -1777,6 +1777,11 @@ html[data-motion="off"] .tiptap.ProseMirror.mindflow-editor .mf-caption {
   margin: 0.5rem 0;
 }
 
+// A picture from Obsidian on its way in: nothing to click while it is looked for.
+.tiptap-image-placeholder[data-embed-waiting] .tiptap-image-placeholder-row {
+  cursor: default;
+}
+
 .tiptap-image-placeholder-row {
   display: flex;
   align-items: center;

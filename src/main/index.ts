@@ -49,6 +49,7 @@ import { registerScenery, sceneryDir } from './scenery'
 import { celebrationFile, registerCelebrations } from './celebrate'
 import { firstRun, noteChord, pretendTaken, registerOnboarding, whereTray } from './onboarding'
 import { registerUnused } from './unused'
+import { registerObsidian } from './obsidian'
 import { SANDBOX, onHandOff, registerSandbox, relaunch, restartNow, useDataFolder } from './sandbox'
 
 
@@ -1751,6 +1752,7 @@ app.whenReady().then(() => {
   registerCelebrations()
   registerOnboarding()
   registerUnused()
+  registerObsidian()
   const first = fromCli(process.argv)
   if (first) captureText(first)
   createTray()

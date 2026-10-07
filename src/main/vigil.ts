@@ -103,6 +103,8 @@ export function markdown(value: unknown, nameOf: (id: string) => string | undefi
       case 'codeBlock': return `\`\`\`${node.attrs?.language ?? ''}\n${inline(kids)}\n\`\`\``
       case 'horizontalRule': return '---'
       case 'image': return captioned(inline([node]), node)
+      // A picture from Obsidian not found here: pointed at again, the way Obsidian wrote it.
+      case 'imagePlaceholder': return node.attrs?.embed ? `![[${node.attrs.embed}]]` : ''
       case 'blockMath': return `$$\n${node.attrs?.latex ?? ''}\n$$`
       case 'youtube': return captioned(`![](${node.attrs?.src ?? ''})`, node)
       case 'attachment': return captioned(`[${node.attrs?.name || 'Attachment'}](${node.attrs?.src ?? ''})`, node)

@@ -31,7 +31,26 @@ export const ImagePlaceholder = Node.create({
   addAttributes() {
     // Not rendered: reopening a document should not pop every unfilled panel
     // open at once. Only the block you just inserted starts open.
-    return { open: { default: false, rendered: false } }
+    return {
+      open: { default: false, rendered: false },
+      // A picture a note from Obsidian points at: `embed` while it is being
+      // looked for, and `missing` (its file name) once it was not found.
+      embed: {
+        default: null,
+        parseHTML: (element) => element.getAttribute("data-embed"),
+        renderHTML: ({ embed }) => (embed ? { "data-embed": embed } : {}),
+      },
+      missing: {
+        default: null,
+        parseHTML: (element) => element.getAttribute("data-missing"),
+        renderHTML: ({ missing }) => (missing ? { "data-missing": missing } : {}),
+      },
+      width: {
+        default: null,
+        parseHTML: (element) => element.getAttribute("data-width"),
+        renderHTML: ({ width }) => (width ? { "data-width": width } : {}),
+      },
+    }
   },
 
   parseHTML() {
@@ -44,6 +63,9 @@ export const ImagePlaceholder = Node.create({
       mergeAttributes(HTMLAttributes, { "data-type": "image-placeholder" }),
     ]
   },
+
+  // One not found keeps pointing at its file, the way Obsidian wrote it; an empty one writes nothing.
+  renderMarkdown: (node) => (node.attrs?.embed ? `![[${node.attrs.embed}]]` : ""),
 
   addNodeView() {
     return ReactNodeViewRenderer(ImagePlaceholderView)

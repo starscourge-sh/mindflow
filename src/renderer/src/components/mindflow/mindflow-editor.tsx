@@ -49,6 +49,7 @@ import { ToggleHeading, headingRank } from "@/extensions/toggle-heading"
 import { HeadingFold } from "@/extensions/heading-fold"
 import { ImageDrop } from "@/extensions/image-drop"
 import { ImagePlaceholder } from "@/extensions/image-placeholder"
+import { ObsidianEmbeds } from "@/extensions/obsidian-embeds"
 import { BlockColor } from "@/extensions/block-color"
 import { JoinLists } from "@/extensions/join-lists"
 import { OutdentLists } from "@/extensions/outdent-lists"
@@ -1243,6 +1244,8 @@ function Surface({
           [Tokens.configure({ patterns: held, onClick: onToken })]
         : []),
       ImagePlaceholder,
+      // Pictures pasted from Obsidian come in as pictures, not their paths.
+      ObsidianEmbeds,
     ],
     // A string is Markdown: what an imported note, or one pasted from a file,
     // is. A page's is read once the editor exists, in pieces (see onCreate).

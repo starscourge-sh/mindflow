@@ -7,6 +7,7 @@ import {
   PopoverTrigger,
 } from "@/components/tiptap-ui-primitive/popover"
 import { saveImage, saveLinkedImage } from "@/extensions/image-drop"
+import { Orb } from "@/components/vigil/orb"
 
 type Tab = "add" | "link"
 
@@ -33,7 +34,7 @@ export function ImagePlaceholderView({ editor, node, getPos }: NodeViewProps) {
       .focus()
       .insertContentAt(
         { from: pos, to: pos + node.nodeSize },
-        { type: "image", attrs: { src } }
+        { type: "image", attrs: { src, width: node.attrs.width ?? null } }
       )
       .run()
   }
@@ -56,13 +57,24 @@ export function ImagePlaceholderView({ editor, node, getPos }: NodeViewProps) {
     return add(file && saveImage(file))
   }
 
+  // A picture from Obsidian still being looked for: the orb, and nothing to click yet.
+  const { embed, missing } = node.attrs as { embed: string | null; missing: string | null }
+  if (embed && !missing)
+    return (
+      <NodeViewWrapper className="tiptap-image-placeholder" data-embed-waiting="">
+        <div className="tiptap-image-placeholder-row" contentEditable={false}>
+          <Orb state="connecting" label="Bringing the picture in…" />
+        </div>
+      </NodeViewWrapper>
+    )
+
   return (
     <NodeViewWrapper className="tiptap-image-placeholder">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <button type="button" className="tiptap-image-placeholder-row">
+          <button type="button" className="tiptap-image-placeholder-row" title={missing ? "Choose the picture" : undefined}>
             <ImagePlusIcon />
-            <span>Add an image</span>
+            <span>{missing ? `Picture not found in your Obsidian vaults: ${missing}` : "Add an image"}</span>
           </button>
         </PopoverTrigger>
 

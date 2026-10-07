@@ -73,6 +73,10 @@ const api = {
   fetchImage: (href: string): Promise<{ mime: string; bytes: Uint8Array } | null> =>
     ipcRenderer.invoke('fetch-image', href),
 
+  /** Find pictures a note from Obsidian points at in the vaults Obsidian knows, and store them. */
+  bringEmbeds: (refs: string[]): Promise<({ src: string; name: string; size: number; image: boolean } | null)[]> =>
+    ipcRenderer.invoke('obsidian:bring', refs),
+
   /** Swap the window between the capture size and the roomier one. */
   setExpanded: (expanded: boolean): Promise<boolean> =>
     ipcRenderer.invoke('window:expand', expanded),

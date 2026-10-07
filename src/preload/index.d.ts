@@ -43,6 +43,8 @@ export interface Api {
   learnWord: (word: string) => Promise<boolean>
   /** Read a linked image, which the renderer's own content policy forbids. */
   fetchImage: (href: string) => Promise<{ mime: string; bytes: Uint8Array } | null>
+  /** Find pictures a note from Obsidian points at in the vaults Obsidian knows, and store them. */
+  bringEmbeds: (refs: string[]) => Promise<({ src: string; name: string; size: number; image: boolean } | null)[]>
   /** Swap the window between the capture size and the roomier one. */
   setExpanded: (expanded: boolean) => Promise<boolean>
   setPanel: (open: boolean) => Promise<boolean>
