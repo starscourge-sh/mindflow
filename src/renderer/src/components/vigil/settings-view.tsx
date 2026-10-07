@@ -375,6 +375,9 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Postcards" note="Pictures in notes sit in a white border with rounded corners and a soft shadow, like a print laid on the desk." keywords="images pictures photos border frame white">
             <Switch checked={!!settings.postcards} onCheckedChange={(postcards) => set({ postcards })} />
           </Setting>
+          <Setting title="Margin marks" note="A few marks drawn by hand: a tick when you finish, a circle round today, an arrow when there is nothing yet. Off keeps every line machine-straight." keywords="hand drawn handwritten sketch doodle pen ink circle tick strike arrow personal">
+            <Switch checked={settings.marks !== false} onCheckedChange={(marks) => set({ marks })} />
+          </Setting>
           <Setting title="Pictures in lists" note="A note with a picture in it shows the first one, small, at the end of its row and on its card.">
             <Switch checked={settings.thumbnails !== false} onCheckedChange={(thumbnails) => set({ thumbnails })} />
           </Setting>

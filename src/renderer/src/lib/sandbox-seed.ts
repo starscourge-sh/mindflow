@@ -254,6 +254,8 @@ What you keep, rather than what you read, is what returns: ${link(petrichor, 'Pe
   await v('task:save', blackHole, { waitingOn: 'TARS' })
   await v('task:save', wall, { due: at(0, '21:00'), reschedules: 0 })
   await task('Learn to read cuneiform someday')
+  // One already done this morning, struck through on Today's page.
+  await v('task:done', await task('Water the potatoes today 8am'))
   const kick = await task('Plan the kick tomorrow')
   await v('task:save', kick, { subtasks: [{ text: 'Music cue: one minute before', done: true }, { text: 'Fill the bathtub', done: false }, { text: 'Get the van off the bridge', done: false }] })
   // A task that remembers the capture it came from.

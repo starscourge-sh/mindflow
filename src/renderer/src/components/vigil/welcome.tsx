@@ -12,6 +12,7 @@ import { dayjs } from '../../../../main/dates'
 import { Scenery } from './scenery'
 import { NOISE } from './grain'
 import { MemoryPostcard } from './memory-postcard'
+import { inkPath, ringPath } from './marks'
 import { ThemeDial } from './theme-dial'
 import { Kbd, toast } from './ui'
 import { FULL_TURN, WANDER, glyph, inClay, konami, landedAside } from './welcome-eggs'
@@ -152,8 +153,12 @@ function YearDots(): React.JSX.Element {
               style={{ opacity: i === at ? 1 : i < at ? 0.42 : 0.14, animationDelay: quiet ? undefined : `${Math.round(120 + far * 14)}ms` } as CSSProperties} />
           )
         })}
-        {/* Today, ringed: the one dot that is lit because you are here. */}
-        <circle cx={here.x * 10 + 5} cy={here.y * 10 + 5} r={6.4} fill="none" stroke="var(--primary)" strokeWidth={1.1} opacity={0.55} className={quiet ? '' : 'mf-dot-in'} style={{ animationDelay: quiet ? undefined : '80ms' }} />
+        {/* Today, ringed: the one dot that is lit because you are here. A
+            loose ring by hand, written once the year has come in; a drawn
+            circle with Margin marks off. */}
+        <circle cx={here.x * 10 + 5} cy={here.y * 10 + 5} r={6.4} fill="none" stroke="var(--primary)" strokeWidth={1.1} opacity={0.55} className={`mf-unmarked ${quiet ? '' : 'mf-dot-in'}`} style={{ animationDelay: quiet ? undefined : '80ms' }} />
+        <path d={ringPath(here.x * 10 + 5, here.y * 10 + 5, 15, 12.5, today.format('YYYY-MM-DD'))} pathLength={1} fill="none" stroke="var(--primary)" strokeWidth={1.5} strokeLinecap="round" opacity={0.75}
+          className={`mf-mark ${quiet ? '' : 'mf-pen'}`} style={{ strokeDasharray: 1, strokeDashoffset: quiet ? 0 : 1, animationDelay: quiet ? undefined : '900ms' }} />
       </svg>
       <figcaption className="text-control text-muted-foreground">
         <span className="text-foreground">{today.format('dddd D MMMM')}.</span> Day one.
@@ -723,8 +728,11 @@ function Landed({ capture }: { capture: CaptureMeta }): React.JSX.Element {
           </div>
           {mark && (
             <svg aria-hidden className="pointer-events-none absolute overflow-visible" style={{ left: mark.left, top: mark.top, width: w, height: 6 }} viewBox={`0 0 ${w} 6`}>
-              <path d={`M1 3.6 C ${w * 0.28} 1.4, ${w * 0.55} 5.4, ${w - 1} 2.2`} pathLength={1} fill="none" stroke="var(--primary)" strokeWidth={2} strokeLinecap="round"
-                className={quiet ? '' : 'mf-ink'} style={{ strokeDasharray: 1, strokeDashoffset: quiet ? 0 : 1 }} />
+              <path d={inkPath(w, capture.id)} pathLength={1} fill="none" stroke="var(--primary)" strokeWidth={2} strokeLinecap="round"
+                className={`mf-mark ${quiet ? '' : 'mf-ink'}`} style={{ strokeDasharray: 1, strokeDashoffset: quiet ? 0 : 1 }} />
+              {/* Margin marks off: the same line, ruled straight. */}
+              <path d={`M1 3 H ${w - 1}`} pathLength={1} fill="none" stroke="var(--primary)" strokeWidth={2} strokeLinecap="round"
+                className={`mf-unmarked ${quiet ? '' : 'mf-ink'}`} style={{ strokeDasharray: 1, strokeDashoffset: quiet ? 0 : 1 }} />
             </svg>
           )}
         </motion.div>

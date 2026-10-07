@@ -12,7 +12,7 @@ export const SANDBOX = new URLSearchParams(location.search).has('sandbox')
 /** The look that comes along into the sandbox, so it looks like yours. */
 const CARRY_SETTINGS = ['motion', 'sounds', 'volume', 'soundPack', 'blur', 'keys', 'noteFont', 'headingFont', 'fontNotesOnly', 'textSize', 'interfaceSize',
   'scenery', 'sceneryFolders', 'sceneryDim', 'sceneryTime', 'sceneryRest', 'sceneryRecap', 'sceneryToday', 'sceneryFocus', 'coversFolder',
-  'celebrate', 'celebrationsFolder', 'celebrationPicks', 'postcards', 'thumbnails', 'tempusDots', 'calc', 'topTitle', 'spellcheck'] as const
+  'celebrate', 'celebrationsFolder', 'celebrationPicks', 'postcards', 'marks', 'thumbnails', 'tempusDots', 'calc', 'topTitle', 'spellcheck'] as const
 /** And from the window's own storage: the theme, and whether Vigil shows in screen recordings. */
 const CARRY_LOCAL = ['theme', 'custom-themes', 'frosted', 'word-count', 'recordable', 'vim'] as const
 

@@ -7,7 +7,8 @@ import { alive } from '@/components/ui/alive-icon'
 import ArrowNarrowDownIcon from '@/components/ui/arrow-narrow-down-icon'
 import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
 import { AnimatePresence, motion } from 'motion/react'
-import { EASE, shift } from '@/lib/motion'
+import { EASE, byKeys, shift } from '@/lib/motion'
+import { Arrow } from './marks'
 import { Coolshape, type shapeTypes } from 'coolshapes-react'
 import Lenis from 'lenis'
 import { useLive, vigil } from '@/lib/vigil'
@@ -121,7 +122,13 @@ export function Empty({ shape, title, children, action, compact = false }: {
           heading font, a step down in the prompt's narrow panel. */}
       <h2 className={compact ? 'text-heading font-semibold' : 'text-title font-medium'}>{title}</h2>
       <p className="leading-relaxed text-muted-foreground">{typeof children === 'string' ? <Typed text={children} step={30} /> : children}</p>
-      {action}
+      {/* The one thing to do, with a small arrow in the margin pointing to it. */}
+      {action && (
+        <div className="flex items-center gap-1.5">
+          {action}
+          <Arrow seed={typeof title === 'string' ? title : 'empty'} draw={() => !byKeys()} className="-mt-6" />
+        </div>
+      )}
     </div>
   )
 }

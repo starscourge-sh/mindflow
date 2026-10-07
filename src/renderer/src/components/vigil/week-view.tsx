@@ -15,6 +15,8 @@ import { TaskDetail, completeTask } from './tasks-view'
 import { Button } from '@/components/ui/button'
 import { Overlay, SETTLE, snapshot, underPointer } from './sortable'
 import { GlossButton, GlossLine } from './gloss-line'
+import { Ring } from './marks'
+import { byKeys } from '@/lib/motion'
 import { clock, dayMonth, dayjs, startOfDay } from '../../../../main/dates'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -27,6 +29,18 @@ const Repeat = alive(RefreshIcon)
 // Days are counted on the calendar, not in hours, so a clock change never
 // repeats or skips one.
 const dayStart = (offset: number): number => startOfDay(offset)
+
+/**
+ * Today's ring is written with the pen the first time the week is opened
+ * with the pointer that day, in this window; after that, and by a key, it
+ * is simply there.
+ */
+let ringed = 0
+const penToday = (start: number): boolean => {
+  if (ringed === start) return false
+  ringed = start
+  return !byKeys()
+}
 
 /** One card in a day: a task on the day it is scheduled, or on the day it is due by. */
 type Card = { task: Task; kind: 'scheduled' | 'deadline' }
@@ -236,7 +250,9 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
               >
                 <header className="mb-1 flex items-baseline gap-1.5 px-1">
                   <span className={`text-meta font-medium ${today ? 'text-[var(--tt-color-text-orange)]' : ''}`}>{dayjs(date).format('ddd')}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums">{date.getDate()}</span>
+                  {today
+                    ? <Ring seed={String(day.start)} draw={() => penToday(day.start)} ink="var(--tt-color-text-orange)" className="text-xs text-muted-foreground tabular-nums">{date.getDate()}</Ring>
+                    : <span className="text-xs text-muted-foreground tabular-nums">{date.getDate()}</span>}
                   {/* How much reviewing falls on the day: a heavy one is a light day for tasks. */}
                   {day.reviews > 0 && (
                     <Tip label={`${day.reviews} ${day.reviews === 1 ? 'review' : 'reviews'} due`}>

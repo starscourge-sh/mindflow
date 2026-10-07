@@ -47,6 +47,8 @@ export type Settings = {
   fontNotesOnly: boolean
   headingFont: string
   postcards: boolean
+  /** A few marks drawn by hand; see components/vigil/marks.tsx. */
+  marks: boolean
   blur: boolean
   interfaceSize: 'small' | 'medium' | 'large'
   /** Text in notes, as a scale: 1 is normal. */
@@ -496,6 +498,7 @@ export function useAppearance(): void {
     document.documentElement.dataset.width = settings.fullWidth ? 'full' : 'page'
     document.documentElement.dataset.motion = settings.motion ? 'on' : 'off'
     document.documentElement.toggleAttribute('data-postcards', !!settings.postcards)
+    document.documentElement.dataset.marks = settings.marks === false ? 'off' : 'on'
     document.documentElement.toggleAttribute('data-noblur', settings.blur === false)
     // Inherited by every editor and field below; on, each keeps its own say.
     if (settings.spellcheck === false) document.documentElement.spellcheck = false
@@ -508,5 +511,5 @@ export function useAppearance(): void {
     soundOn(settings.sounds)
     setVolume(settings.volume)
     setPack(settings.soundPack)
-  }, [settings?.fullWidth, settings?.motion, settings?.postcards, settings?.blur, settings?.spellcheck, settings?.interfaceSize, settings?.sounds, settings?.volume, settings?.soundPack])
+  }, [settings?.fullWidth, settings?.motion, settings?.postcards, settings?.marks, settings?.blur, settings?.spellcheck, settings?.interfaceSize, settings?.sounds, settings?.volume, settings?.soundPack])
 }

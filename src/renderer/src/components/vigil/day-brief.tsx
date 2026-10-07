@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { motion } from 'motion/react'
+import { byKeys } from '@/lib/motion'
 import { alive } from '@/components/ui/alive-icon'
 import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
 import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
@@ -10,6 +11,7 @@ import { chime } from '@/lib/sound'
 import { issues, type Repeat } from '@/lib/issues'
 import { useLive, vigil, whenInLine, type Finished, type Item, type Settings, type Task } from '@/lib/vigil'
 import { Rolling, Tip, Typed, toast } from './ui'
+import { Rule, Struck, Tick } from './marks'
 import { Scenery, useDayScene } from './scenery'
 import { GrainFill, useCover } from './grain'
 import { openPass } from './pass'
@@ -66,7 +68,7 @@ const dueDay = (task: Task): string | null => (task.dueAt ? dayKey(task.dueAt) :
 type Row = { key: string; mark: ReactNode; title: string; text: string; run: () => void; extra?: ReactNode }
 
 /** A task ticked here: kept in its place, struck through, with what to put back if it is unticked. */
-type Ticked = { task: Task; was?: Finished }
+type Ticked = { task: Task; was?: Finished; /** Ticked with the pointer: its pen line is written, not just there. */ pen?: boolean }
 
 export function DayBrief({ day, onOpen, onListed }: {
   day: string
@@ -133,9 +135,10 @@ export function DayBrief({ day, onOpen, onListed }: {
       return
     }
     chime('done')
-    setTicked((all) => ({ ...all, [task.id]: { task } }))
+    const pen = !byKeys()
+    setTicked((all) => ({ ...all, [task.id]: { task, pen } }))
     void vigil.doneTask(task.id).then((was) => {
-      setTicked((all) => ({ ...all, [task.id]: { task, was } }))
+      setTicked((all) => ({ ...all, [task.id]: { task, was, pen } }))
       toast(finished + 1 === todos.length ? 'Done. That is everything for today' : 'Done', () => {
         chime('undo')
         forget(task.id)
@@ -250,7 +253,8 @@ export function DayBrief({ day, onOpen, onListed }: {
         </div>
       </div>
       {(shown.length > 0 || rows.length > 0) && (
-        <section className="@container mt-8 border-t border-border/70 pt-6">
+        <section className="@container mf-hand-ruled relative mt-8 border-t border-border/70 pt-6">
+          <Rule seed={day} />
           <div className="grid gap-x-10 gap-y-4 @[34rem]:grid-cols-[minmax(0,12rem)_minmax(0,1fr)]">
             <div className="flex items-center justify-between gap-4 @[34rem]:flex-col @[34rem]:items-start @[34rem]:justify-start">
               <div>
@@ -265,7 +269,7 @@ export function DayBrief({ day, onOpen, onListed }: {
             </div>
             <ul className="min-w-0 divide-y divide-border/50">
               {shown.map((task) => (
-                <TaskRow key={task.id} task={task} today={today} done={struck(task)} onTick={() => tick(task)} />
+                <TaskRow key={task.id} task={task} today={today} done={struck(task)} pen={!!ticked[task.id]?.pen} onTick={() => tick(task)} />
               ))}
               {todos.length > shown.length && (
                 <li>
@@ -297,7 +301,7 @@ export function DayBrief({ day, onOpen, onListed }: {
 }
 
 /** A to-do as a line of the list: a round tick, its title, and when it is for. */
-function TaskRow({ task, today, done, onTick }: { task: Task; today: string; done: boolean; onTick: () => void }): React.JSX.Element {
+function TaskRow({ task, today, done, pen, onTick }: { task: Task; today: string; done: boolean; pen: boolean; onTick: () => void }): React.JSX.Element {
   const due = dueDay(task)
   const late = !!due && due < today
   const when = late ? `From ${whenInLine(task.dueAt ?? task.deadline, !task.dueAt || !!task.allDay)}, still open`
@@ -313,11 +317,15 @@ function TaskRow({ task, today, done, onTick }: { task: Task; today: string; don
             borderColor: done ? 'var(--tt-color-text-green)' : late ? 'var(--tt-color-text-orange)' : 'color-mix(in oklab, var(--muted-foreground) 70%, transparent)',
             background: done ? 'var(--tt-color-text-green)' : undefined
           }}>
-          <Check className={`size-2.5 text-white transition-[opacity,scale] duration-150 ease-out ${done ? 'scale-100 opacity-100' : 'scale-50 opacity-0'}`} strokeWidth={3} />
+          <Check className={`mf-unmarked size-2.5 text-white transition-[opacity,scale] duration-150 ease-out ${done ? 'scale-100 opacity-100' : 'scale-50 opacity-0'}`} strokeWidth={3} />
+          {/* By hand once done: the tick written as you make it. */}
+          {done && <Tick seed={task.id} draw={pen} className="size-3 text-white" />}
         </button>
       </Tip>
       <button type="button" onClick={() => (chime('open'), window.api.openInHome('task', task.id))} className="group/row min-w-0 flex-1 text-left">
-        <span className={`block truncate text-[0.9375rem] font-semibold underline-offset-4 transition-colors ${done ? 'text-muted-foreground line-through decoration-foreground/40' : 'text-foreground group-hover/row:underline group-hover/row:decoration-foreground/30'}`}>{task.title}</span>
+        <span className={`block truncate text-[0.9375rem] font-semibold underline-offset-4 transition-colors ${done ? 'mf-hand-struck text-muted-foreground line-through decoration-foreground/40' : 'text-foreground group-hover/row:underline group-hover/row:decoration-foreground/30'}`}>
+          {done ? <Struck seed={task.id} draw={pen}>{task.title}</Struck> : task.title}
+        </span>
         <span className="mt-0.5 block truncate text-sm text-muted-foreground">{text}</span>
       </button>
     </li>

@@ -244,6 +244,9 @@ const DEFAULTS = {
   headingFont: 'default' as string,
   // Pictures in notes framed like a postcard: a white border and a soft shadow.
   postcards: false,
+  // Margin marks: a few things drawn as if by hand (a strike when a to-do is
+  // done, a ring round today, an arrow when there is nothing yet).
+  marks: true,
   // Blurring: private words blurred in lists, the window dimmed when you leave
   // it, words arriving from a soft blur. One switch turns all of it off.
   blur: true,
