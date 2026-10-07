@@ -6,6 +6,7 @@ import { chime, click } from '@/lib/sound'
 import { applyTheme, type Theme } from '@/lib/theme'
 import { comboOf, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
 import { onboarding, type Onboarding } from '@/lib/onboarding'
+import { vigil } from '@/lib/vigil'
 import { enterSandbox } from '@/lib/sandbox'
 import { EXAMPLES } from '@/lib/welcome-box'
 import { CaptureList, captureEntry, type CaptureMeta } from '@/components/capture-list'
@@ -771,12 +772,22 @@ function BoxPreview(): React.JSX.Element {
   )
 }
 
-/** The Inbox around your first capture: what it will hold, faded behind it. */
-const NEIGHBOURS: [string, string, number][] = [
-  ['quote', '"The obstacle is the way": check who said that', 1],
-  ['word', 'Sonder: that every passer-by has a life as vivid as yours', 3],
-  ['note', 'Walk to think, not to get somewhere', 6]
-]
+/**
+ * The Inbox around your capture: your own rows already waiting there, newest
+ * first, never made-up ones. Safe mode volunteers none of them; quiet hours
+ * keep the private ones back, as everything the app offers unasked does.
+ */
+async function waiting(capture: CaptureMeta): Promise<CaptureMeta[]> {
+  const [list, settings] = await Promise.all([window.api.captures.list(), vigil.settings().catch(() => null)])
+  if (settings?.safeMode) return []
+  const { quietStart: from = '', quietEnd: to = '' } = settings ?? {}
+  const now = new Date().toTimeString().slice(0, 5)
+  const hush = from <= to ? now >= from && now < to : now >= from || now < to
+  return list
+    .filter((one) => one.id !== capture.id && one.status === 'open' && !one.archivedAt && !(hush && one.private))
+    .sort((a, b) => b.capturedAt.localeCompare(a.capturedAt))
+    .slice(0, 3)
+}
 
 /**
  * The moment it lands, timed to the frame: the line changes at once, the
@@ -823,8 +834,13 @@ function Landed({ capture }: { capture: CaptureMeta }): React.JSX.Element {
   }, [quiet])
   const aside = landedAside(capture.label)
   const w = mark?.width ?? 0
-  // The ones before it, as the Inbox will hold them: faded, there for scale.
-  const earlier = NEIGHBOURS.map(([kind, label, days], i): CaptureMeta => ({ ...capture, id: `welcome-${i}`, number: 0, kind, label, status: 'open', private: 0, pinnedAt: null, capturedAt: dayjs().subtract(days, 'day').toISOString() }))
+  // The ones before it, as your Inbox holds them: faded, there for scale.
+  const [earlier, setEarlier] = useState<CaptureMeta[] | null>(null)
+  useEffect(() => {
+    let live = true
+    void waiting(capture).then((list) => live && setEarlier(list), () => live && setEarlier([]))
+    return () => void (live = false)
+  }, [capture])
   const arrive = { delay: 0.08, duration: 0.26, ease: EASE }
   return (
     // The moment, as it is in the Inbox: a calm column, yours arriving at the
@@ -849,10 +865,22 @@ function Landed({ capture }: { capture: CaptureMeta }): React.JSX.Element {
           </svg>
         )}
       </motion.div>
-        <motion.div aria-hidden className="opacity-40 [mask-image:linear-gradient(to_bottom,black_30%,transparent)] [@media(max-height:560px)]:hidden"
-          initial={quiet ? false : { transform: 'translateY(-3.25rem)' }} animate={{ transform: 'translateY(0rem)' }} transition={arrive}>
-          <CaptureList groups={[['', earlier]]} cursor={-1} onPick={() => undefined} />
-        </motion.div>
+        {earlier?.length ? (
+          <motion.div aria-hidden className="opacity-40 [mask-image:linear-gradient(to_bottom,black_30%,transparent)] [@media(max-height:560px)]:hidden"
+            initial={quiet ? false : { transform: 'translateY(-3.25rem)' }} animate={{ transform: 'translateY(0rem)' }} transition={arrive}>
+            <CaptureList groups={[['', earlier]]} cursor={-1} onPick={() => undefined} />
+          </motion.div>
+        ) : earlier && (
+          // Nothing before it: the first thing in your Inbox, over a quiet ruled column waiting for the rest.
+          <motion.div aria-hidden className="mx-4 [mask-image:linear-gradient(to_bottom,black_40%,transparent)] [@media(max-height:560px)]:hidden"
+            initial={quiet ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ ...arrive, delay: 0.34 }}>
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex h-[3.25rem] items-center border-t border-foreground/[0.07] px-1 text-xs text-muted-foreground">
+                {i === 0 && 'Everything you catch waits here, newest first.'}
+              </div>
+            ))}
+          </motion.div>
+        )}
       </div>
       <div className="flex flex-col gap-[clamp(0.5rem,1.6vh,1rem)]">
         <div className="flex flex-col gap-1">
