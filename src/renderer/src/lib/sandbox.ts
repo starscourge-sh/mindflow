@@ -11,11 +11,11 @@ export const SANDBOX = new URLSearchParams(location.search).has('sandbox')
 
 /**
  * What comes along into the sandbox: how Vigil feels to you (sounds, motion,
- * your keys, margin marks, the sizes you read at). Never your pictures: the
- * sandbox may be shown or recorded, so its scenery is its own public-domain
- * landscapes and its covers and celebrations are Vigil's own.
+ * your keys, margin marks, the sizes you read at) and your celebrations, the
+ * GIFs and pictures that make a milestone yours. Its scenery stays its own
+ * public-domain landscapes.
  */
-const CARRY_SETTINGS = ['motion', 'sounds', 'volume', 'soundPack', 'keys', 'marks', 'textSize', 'interfaceSize'] as const
+const CARRY_SETTINGS = ['motion', 'sounds', 'volume', 'soundPack', 'keys', 'marks', 'textSize', 'interfaceSize', 'celebrationsFolder', 'celebrationPicks'] as const
 /** And from the window's own storage: the theme, Vim, and whether Vigil shows in screen recordings. */
 const CARRY_LOCAL = ['theme', 'custom-themes', 'frosted', 'recordable', 'vim'] as const
 

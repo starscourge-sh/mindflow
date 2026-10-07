@@ -79,7 +79,7 @@ const click = (c, selector, text) => c.h.evaluate(([s, t]) => {
   check('no pill outside the sandbox', !(await c.h.$('[data-sandbox-pill]')))
   // Into the sandbox, the way every entry point goes: your look written down for it, then the restart.
   await c.h.evaluate(() => { localStorage.setItem('theme', 'paper'); localStorage.setItem('recordable', 'on') })
-  await c.v('settings:set', { motion: false, sceneryFolders: ['/Users/somebody/Pictures/Game art'], coversFolder: '/Users/somebody/Pictures/Covers' })
+  await c.v('settings:set', { motion: false, sceneryFolders: ['/Users/somebody/Pictures/Game art'], coversFolder: '/Users/somebody/Pictures/Covers', celebrationsFolder: '/Users/somebody/Pictures/GIFs' })
   await stub(c)
   await c.h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:sandbox-enter')))
   const enterArgs = await relaunched(c)
@@ -104,7 +104,7 @@ let first
   check('its database is its own', existsSync(join(root, 'sandbox', 'mindflow.db')))
   check('it wears the look you carried in', (await c.h.evaluate(() => localStorage.getItem('theme'))) === 'paper' && (await c.v('settings')).motion === false)
   const pictures = await c.v('settings')
-  check('but never your pictures: its own landscapes, no covers folder', pictures.sceneryFolders.length === 1 && pictures.sceneryFolders[0].includes('Sandbox scenery') && pictures.coversFolder === '' && pictures.celebrationsFolder === '', JSON.stringify([pictures.sceneryFolders, pictures.coversFolder, pictures.celebrationsFolder]))
+  check('its own landscapes and no covers folder, but your celebrations come along', pictures.sceneryFolders.length === 1 && pictures.sceneryFolders[0].includes('Sandbox scenery') && pictures.coversFolder === '' && pictures.celebrationsFolder === '/Users/somebody/Pictures/GIFs', JSON.stringify([pictures.sceneryFolders, pictures.coversFolder, pictures.celebrationsFolder]))
   const open = (await c.h.evaluate(() => window.api.captures.list())).filter((one) => one.status === 'open')
   check('Inbox holds 23 or more', open.length >= 23, `${open.length}`)
   check('Review has 2 or more due', (await c.v('review:queue')).length >= 2)
