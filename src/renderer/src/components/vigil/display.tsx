@@ -332,7 +332,18 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
   return (
     // One line that scrolls sideways, fading where there is more, never wrapping under itself.
     <div data-hover-quiet ref={row.ref} style={row.style} className={`flex min-w-0 items-center gap-1 text-xs ${row.className} ${className}`}>
-      {/* Always there, only faded out when nothing is chosen: appearing, it pushed every chip along. */}
+      {/* Chosen filters from other facets first; the quick facet's options
+          stay in their own order whether on or off, so a click never moves
+          the chip out from under the pointer. */}
+      {set.filter(({ facet }) => facet.key !== offered?.key).map(({ facet, option }) => (
+        <Chip key={`${facet.key}:${option.id}`} on onClick={() => toggle(facet.key, option.id)}>{icon(option)}{option.label}</Chip>
+      ))}
+      {offered && offered.options.length > 1 && offered.options.map((option) => (
+        <Chip key={option.id} on={(view.filter[offered.key] ?? []).includes(option.id) && !(defaults[offered.key] ?? []).includes(option.id)}
+          onClick={() => toggle(offered.key, option.id)}>{icon(option)}{option.label}</Chip>
+      ))}
+      {/* At the end, so nothing waits for it at the start; always there, only
+          faded out when nothing is chosen, so appearing it moves no chip. */}
       {(
         <Tip label="Clear the filters">
           <button
@@ -350,16 +361,6 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
           </button>
         </Tip>
       )}
-      {/* Chosen filters from other facets first; the quick facet's options
-          stay in their own order whether on or off, so a click never moves
-          the chip out from under the pointer. */}
-      {set.filter(({ facet }) => facet.key !== offered?.key).map(({ facet, option }) => (
-        <Chip key={`${facet.key}:${option.id}`} on onClick={() => toggle(facet.key, option.id)}>{icon(option)}{option.label}</Chip>
-      ))}
-      {offered && offered.options.length > 1 && offered.options.map((option) => (
-        <Chip key={option.id} on={(view.filter[offered.key] ?? []).includes(option.id) && !(defaults[offered.key] ?? []).includes(option.id)}
-          onClick={() => toggle(offered.key, option.id)}>{icon(option)}{option.label}</Chip>
-      ))}
     </div>
   )
 }
