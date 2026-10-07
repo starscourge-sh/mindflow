@@ -857,63 +857,81 @@ const MOMENT_NAMES: [MomentKind, string][] = [
 ]
 
 /**
- * A file of its own for each kind of milestone: its picture small (click it
- * to see that celebration), its name, a way to choose another and one to go
- * back to any from the folder (undoable).
+ * Files of its own for each kind of milestone, one played at random: each
+ * picture small (click it to see that celebration with it, its ✕ to take it
+ * off, undoable), and a way to add more. With none, any from the folder.
  */
-function CelebrationPicks({ picks, on, onSave }: { picks: Partial<Record<MomentKind, string>>; on: boolean; onSave: (picks: Partial<Record<MomentKind, string>>) => void }): React.JSX.Element {
+function CelebrationPicks({ picks, on, onSave }: { picks: Partial<Record<MomentKind, string[]>>; on: boolean; onSave: (picks: Partial<Record<MomentKind, string[]>>) => void }): React.JSX.Element {
   const found = useLive(() => vigil.celebrationPicks(), {} as Awaited<ReturnType<typeof vigil.celebrationPicks>>, [JSON.stringify(picks)])
+  const thumb = 'relative size-9 shrink-0 overflow-hidden rounded-[5px] bg-muted text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 enabled:hover:opacity-85'
   return (
     <Setting
       title="What plays for each"
-      note="A file of its own for each kind of milestone, played in place of one at random. Click a picture to see that one. A file that has moved or gone falls back to the folder."
+      note="Files of its own for each kind of milestone, one at random in place of one from the folder, never the same twice running. Click a picture to see it. A file that has moved or gone is passed over."
       keywords="celebrations celebrate pick choose file gif meme clip per moment milestone"
       below={
         <div className="mt-2 flex flex-col gap-1">
           {MOMENT_NAMES.map(([kind, label]) => {
-            const path = picks[kind]
-            const media = found[kind]
+            const paths = picks[kind] ?? []
+            const media = found[kind] ?? []
+            const missing = paths.filter((path) => !media.some((one) => one.path === path)).length
+            const note = !paths.length ? 'Any from the folder'
+              : !media.length ? 'Not found, so any from the folder'
+                : `${media.length === 1 ? media[0].name : `${media.length} files, one at random`}${missing ? `, ${missing} not found` : ''}`
             return (
-              <div key={kind} className="flex items-center gap-2.5 rounded-md border py-1 pr-1 pl-1 text-control">
-                <Tip label="See this one">
-                  <button type="button" aria-label={`See ${label}`} disabled={!on} onClick={() => tryCelebration(kind)} className="relative size-9 shrink-0 overflow-hidden rounded-[5px] bg-muted text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50 enabled:hover:opacity-85">
-                    {media ? (
-                      media.video ? (
-                        <video src={`${media.url}#t=0.1`} muted playsInline preload="metadata" className="absolute inset-0 size-full object-cover" />
-                      ) : (
-                        // A sprite is shown whole, on the plain ground, never cropped.
-                        <img src={media.url} alt="" draggable={false} className={`absolute inset-0 size-full ${media.sprite ? 'object-contain p-0.5' : 'object-cover'}`} />
-                      )
-                    ) : (
-                      <Shuffle className="absolute inset-0 m-auto size-3.5" />
-                    )}
-                  </button>
-                </Tip>
+              <div key={kind} className="flex items-center gap-2.5 rounded-md border py-1 pr-1 pl-2.5 text-control">
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-foreground">{label}</span>
-                  <span className="block truncate text-meta text-muted-foreground" title={path}>
-                    {media ? media.name : path ? 'Not found, so any from the folder' : 'Any from the folder'}
-                  </span>
+                  <span className="block truncate text-meta text-muted-foreground">{note}</span>
                 </span>
-                {path && (
-                  <button type="button" aria-label={`Clear ${label}`} className="rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => {
-                    const rest = { ...picks }
-                    delete rest[kind]
-                    onSave(rest)
-                    chime('away')
-                    toast(`${label}: any from the folder`, () => onSave(picks))
-                  }}>
-                    <X className="size-3" />
-                  </button>
-                )}
-                <Button variant="outline" size="sm" disabled={!on} onClick={() => void vigil.celebrationFile().then((chosen) => {
-                  if (!chosen) return
-                  if (chosen === path) return refuse('That file is already chosen')
-                  onSave({ ...picks, [kind]: chosen })
+                <div className="flex max-w-[60%] flex-wrap justify-end gap-1">
+                  {!paths.length && (
+                    <Tip label="See this one">
+                      <button type="button" aria-label={`See ${label}`} disabled={!on} onClick={() => tryCelebration(kind)} className={thumb}>
+                        <Shuffle className="absolute inset-0 m-auto size-3.5" />
+                      </button>
+                    </Tip>
+                  )}
+                  {paths.map((path) => {
+                    const one = media.find((each) => each.path === path)
+                    const name = path.split('/').pop()
+                    return (
+                      <span key={path} className="group/pick relative">
+                        <Tip label={one ? one.name : `${name} not found`}>
+                          <button type="button" aria-label={`See ${label} with ${name}`} disabled={!on || !one} onClick={() => one && tryCelebration(kind, one)} className={`${thumb} ${one ? '' : 'border border-dashed bg-transparent'}`}>
+                            {one ? (
+                              one.video ? (
+                                <video src={`${one.url}#t=0.1`} muted playsInline preload="metadata" className="absolute inset-0 size-full object-cover" />
+                              ) : (
+                                // A sprite is shown whole, on the plain ground, never cropped.
+                                <img src={one.url} alt="" draggable={false} className={`absolute inset-0 size-full ${one.sprite ? 'object-contain p-0.5' : 'object-cover'}`} />
+                              )
+                            ) : (
+                              <span className="absolute inset-0 grid place-items-center text-meta">?</span>
+                            )}
+                          </button>
+                        </Tip>
+                        <button type="button" aria-label={`Remove ${name} from ${label}`} className="absolute -top-1 -right-1 grid size-4 place-items-center rounded-full border bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover/pick:opacity-100 hover:text-foreground focus-visible:opacity-100" onClick={() => {
+                          // An emptied kind is kept as empty, so it stays any from the folder.
+                          onSave({ ...picks, [kind]: paths.filter((each) => each !== path) })
+                          chime('away')
+                          toast(`${label}: removed ${name}`, () => onSave(picks))
+                        }}>
+                          <X className="size-2.5" />
+                        </button>
+                      </span>
+                    )
+                  })}
+                </div>
+                <Button variant="outline" size="sm" disabled={!on} onClick={() => void vigil.celebrationFiles().then((chosen) => {
+                  if (!chosen.length) return
+                  const fresh = [...new Set(chosen)].filter((path) => !paths.includes(path))
+                  if (!fresh.length) return refuse(chosen.length === 1 ? 'That file is already chosen' : 'Those files are already chosen')
+                  onSave({ ...picks, [kind]: [...paths, ...fresh] })
                   chime('settled')
-                  toast(`${label}: ${chosen.split('/').pop()}`, () => onSave(picks))
+                  toast(`${label}: ${fresh.length === 1 ? `added ${fresh[0].split('/').pop()}` : `added ${fresh.length} files`}`, () => onSave(picks))
                 })}>
-                  Choose…
+                  Add…
                 </Button>
               </div>
             )

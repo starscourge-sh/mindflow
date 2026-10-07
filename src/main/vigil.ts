@@ -134,20 +134,44 @@ function devFolder(path: string): string {
   return !app.isPackaged && existsSync(full) ? full : ''
 }
 
+/** The files picked for each kind of moment, one of which plays at random. */
+type Picks = Partial<Record<MomentKind, string[]>>
+
+/** Saved picks as lists: a single path, as the one-file-per-kind version saved them, reads as a list of one. */
+const asLists = (saved: unknown): Picks =>
+  saved && typeof saved === 'object'
+    ? Object.fromEntries(Object.entries(saved).map(([kind, files]) => [kind, (Array.isArray(files) ? files : [files]).filter((file) => typeof file === 'string')]))
+    : {}
+
 /**
- * The developer's own file for each moment, under the same rule as devFolder:
- * named in dev-picks.json at the top of the source (kept out of git), as a
- * path under the home folder for each kind of moment.
+ * The developer's own files for each moment, under the same rule as
+ * devFolder: named in dev-picks.json at the top of the source (kept out of
+ * git), as paths under the home folder for each kind of moment.
  */
-function devPicks(): Partial<Record<MomentKind, string>> {
+function devPicks(): Picks {
   if (app.isPackaged) return {}
-  let files: Record<string, unknown> = {}
+  let files: unknown = {}
   try {
     files = JSON.parse(readFileSync(join(app.getAppPath(), 'dev-picks.json'), 'utf8'))
   } catch {
     // No file of picks: the folder alone.
   }
-  return Object.fromEntries(Object.entries(files).filter(([, file]) => typeof file === 'string').map(([kind, file]) => [kind, devFolder(file as string)]).filter(([, path]) => path))
+  return Object.fromEntries(Object.entries(asLists(files)).map(([kind, list]) => [kind, list!.map(devFolder).filter(Boolean)]).filter(([, list]) => list.length))
+}
+const DEV_PICKS = devPicks()
+
+/**
+ * While run from source, the developer's files fill each kind with nothing
+ * saved, or with only the first of them (the one file the one-per-kind
+ * version saved). Anything chosen in Settings is kept, an emptied kind too.
+ */
+function withDevPicks(saved: Picks): Picks {
+  const out = { ...saved }
+  for (const [kind, list] of Object.entries(DEV_PICKS) as [MomentKind, string[]][]) {
+    const mine = out[kind]
+    if (!mine || (mine.length === 1 && mine[0] === list[0])) out[kind] = list
+  }
+  return out
 }
 
 const DEFAULTS = {
@@ -231,9 +255,9 @@ const DEFAULTS = {
   // folder (a GIF, a picture, a short clip). Empty is none: a grainy cover.
   celebrate: true,
   celebrationsFolder: devFolder('Downloads/memes'),
-  // A file of its own for each kind of milestone, played in place of one at
-  // random from the folder. A file no longer there falls back to the folder.
-  celebrationPicks: devPicks(),
+  // Files of its own for each kind of milestone, one played at random in
+  // place of one from the folder. A file no longer there is passed over.
+  celebrationPicks: DEV_PICKS,
   // A question you are holding comes back now and then as a hint card: still
   // open, how long, how many clues. Off in Settings.
   questionsBack: true,
@@ -337,8 +361,8 @@ function spellingLanguages(): string[] {
   return [...new Set(picked.length ? picked : mac)].filter((one) => known.has(one))
 }
 
-/** Whether milestones are celebrated, from which folder, and the file picked for each kind. */
-export const celebrationPrefs = (): { on: boolean; folder: string; picks: Partial<Record<MomentKind, string>> } => {
+/** Whether milestones are celebrated, from which folder, and the files picked for each kind. */
+export const celebrationPrefs = (): { on: boolean; folder: string; picks: Picks } => {
   const now = settings()
   return { on: now.celebrate !== false, folder: now.celebrationsFolder || '', picks: now.celebrationPicks ?? {} }
 }
@@ -358,7 +382,8 @@ function settings(): Settings {
       return undefined
     }
   }
-  return { ...DEFAULTS, ...Object.fromEntries(rows.map((row) => [row.key, read(row.value)]).filter(([, value]) => value !== undefined)) }
+  const all: Settings = { ...DEFAULTS, ...Object.fromEntries(rows.map((row) => [row.key, read(row.value)]).filter(([, value]) => value !== undefined)) }
+  return { ...all, celebrationPicks: withDevPicks(asLists(all.celebrationPicks)) }
 }
 
 /**

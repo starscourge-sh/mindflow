@@ -18,7 +18,9 @@ import { Tip } from './ui'
  * goes back the way it came.
  */
 
-export type Moment = { id: string; kind: MomentKind; rank: number; headline: string; line?: string; mark: string; tint: string }
+export type Moment = { id: string; kind: MomentKind; rank: number; headline: string; line?: string; mark: string; tint: string
+  /** A preview of one file in particular, from Settings. */
+  play?: Media }
 type Media = { url: string; video: boolean; name: string; sprite?: boolean }
 /** A sprite's size on screen, worked out from its own once it has loaded. */
 type Size = { width: number; height: number; pixel: boolean }
@@ -37,11 +39,11 @@ const SAMPLES: Record<MomentKind, Omit<Moment, 'id' | 'kind' | 'rank' | 'line'>>
   goalDay: { headline: 'The day is here', mark: '14', tint: 'var(--tt-color-text-purple)' },
   goalMade: { headline: 'You made it', mark: '✓', tint: 'var(--tt-color-text-green)' }
 }
-/** One now, in this window, to see what they look like: nothing is counted. Any kind, unless one is named. */
-export function tryCelebration(kind?: MomentKind): void {
+/** One now, in this window, to see what they look like: nothing is counted. Any kind, unless one is named, playing `play` if given. */
+export function tryCelebration(kind?: MomentKind, play?: Media): void {
   const kinds = Object.keys(SAMPLES) as MomentKind[]
   const one = kind ?? kinds[Math.floor(Math.random() * kinds.length)]
-  const detail: Moment = { id: `try:${one}`, kind: one, rank: 0, line: PREVIEW, ...SAMPLES[one] }
+  const detail: Moment = { id: `try:${one}`, kind: one, rank: 0, line: PREVIEW, ...SAMPLES[one], play }
   window.dispatchEvent(new CustomEvent('vigil:celebrate', { detail }))
 }
 
@@ -70,6 +72,28 @@ function pick(items: Media[]): Media | null {
   return one
 }
 
+const LAST = 'celebrated-last'
+
+/** One of this kind's own files, never the one it showed last while it has others. */
+function pickOwn(kind: MomentKind, own: Media[]): Media | null {
+  const usable = own.filter((one) => !LONG.has(one.url))
+  if (!usable.length) return null
+  let last: Record<string, string> = {}
+  try {
+    last = JSON.parse(localStorage.getItem(LAST) ?? '{}') ?? {}
+  } catch {
+    // None remembered: any will do.
+  }
+  const from = usable.length > 1 ? usable.filter((one) => one.url !== last[kind]) : usable
+  const one = from[Math.floor(Math.random() * from.length)]
+  try {
+    localStorage.setItem(LAST, JSON.stringify({ ...last, [kind]: one.url }))
+  } catch {
+    // Not remembered; a repeat is no harm.
+  }
+  return one
+}
+
 /**
  * Where celebrations show in a window: bottom right in the main window,
  * bottom centre in the box, above its footer. One at a time.
@@ -79,6 +103,8 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
   const current = useRef(shown)
   current.current = shown
   const items = useRef<Media[]>([])
+  // The files picked for the kind showing, for another if one runs too long.
+  const own = useRef<Media[]>([])
   // One that came while the window was away waits for it to be back.
   const waiting = useRef<Moment | null>(null)
   const shownAt = useRef(0)
@@ -88,9 +114,9 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
       const [all, picks] = await Promise.all([vigil.celebrations().catch(() => []), vigil.celebrationPicks().catch(() => ({}))])
       items.current = all
       shownAt.current = Date.now()
-      // The file picked for this kind of moment, unless it ran too long, or else one from the folder.
-      const own = (picks as Partial<Record<MomentKind, Media>>)[moment.kind]
-      const media = own && !LONG.has(own.url) ? own : pick(items.current)
+      // One of the files picked for this kind of moment, passing over any that ran too long, or else one from the folder.
+      own.current = (picks as Partial<Record<MomentKind, Media[]>>)[moment.kind] ?? []
+      const media = moment.play ?? pickOwn(moment.kind, own.current) ?? pick(items.current)
       // A sprite is loaded first, so it comes on at its size; one that will not load goes on a card.
       const sprite = media?.sprite ? await measure(media.url) : undefined
       setShown({ moment, media, key: Date.now(), sprite })
@@ -140,7 +166,7 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
             media={shown.media}
             origin={box ? 'bottom center' : 'bottom right'}
             onDone={() => setShown(null)}
-            onTooLong={() => setShown((now) => now && { ...now, media: pick(items.current) })}
+            onTooLong={() => setShown((now) => now && { ...now, media: pickOwn(now.moment.kind, own.current) ?? pick(items.current) })}
           />
         )}
       </AnimatePresence>

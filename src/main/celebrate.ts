@@ -17,14 +17,16 @@ import { isSprite } from './sprite'
  * instead of being cropped into the card.
  */
 
-/** The kinds of milestone, each of which can have a file of its own to play. */
+/** The kinds of milestone, each of which can have files of its own to play. */
 export const MOMENTS = ['kept', 'streak', 'inbox', 'tasks', 'year', 'answered', 'goalHalf', 'goal30', 'goal7', 'goalDay', 'goalMade'] as const
 export type MomentKind = (typeof MOMENTS)[number]
 /** A milestone, as the window shows it. `rank` decides between two at once. */
 export type Moment = { id: string; kind: MomentKind; rank: number; headline: string; line?: string; mark: string; tint: string
   /** Steps passed along with it, marked shown with it so none comes after. */
   also?: string[] }
-export type Media = { url: string; video: boolean; name: string; sprite?: boolean }
+export type Media = { url: string; video: boolean; name: string; sprite?: boolean
+  /** For a pick, the path it was saved as, so Settings can tell which one it is. */
+  path?: string }
 
 const KINDS: Record<string, 'image' | 'video'> = {
   '.gif': 'image', '.png': 'image', '.jpg': 'image', '.jpeg': 'image', '.webp': 'image', '.svg': 'image',
@@ -84,23 +86,26 @@ async function media(folder: string): Promise<Media[]> {
 /** The name a file is asked for by: a hash of where it is, and its kind of file. */
 const nameFor = (path: string): string => `${createHash('sha1').update(path).digest('hex').slice(0, 32)}${extname(path).toLowerCase()}`
 
-/** The file picked for each moment, where it is still there and still playable. */
-async function picks(): Promise<Partial<Record<MomentKind, Media>>> {
+/** The files picked for each moment, those still there and still playable. */
+async function picks(): Promise<Partial<Record<MomentKind, Media[]>>> {
   const chosen = celebrationPrefs().picks
-  const out: Partial<Record<MomentKind, Media>> = {}
+  const out: Partial<Record<MomentKind, Media[]>> = {}
   const names = new Map<string, string>()
   for (const kind of MOMENTS) {
-    const asked = chosen[kind]
-    if (typeof asked !== 'string' || !isAbsolute(asked)) continue
-    // Followed to where it really is, so a link named .gif is judged by what it points at.
-    const path = await realpath(asked).catch(() => '')
-    const ext = extname(path).toLowerCase()
-    if (!path || !KINDS[ext]) continue
-    const facts = await stat(path).catch(() => null)
-    if (!facts?.isFile() || !facts.size || facts.size > LARGEST) continue
-    const name = nameFor(path)
-    names.set(name, path)
-    out[kind] = { url: `mindflow://celebrate/${name}`, video: KINDS[ext] === 'video', name: basename(path), sprite: await spriteAt(path, facts) }
+    const list: Media[] = []
+    for (const asked of chosen[kind] ?? []) {
+      if (typeof asked !== 'string' || !isAbsolute(asked)) continue
+      // Followed to where it really is, so a link named .gif is judged by what it points at.
+      const path = await realpath(asked).catch(() => '')
+      const ext = extname(path).toLowerCase()
+      if (!path || !KINDS[ext]) continue
+      const facts = await stat(path).catch(() => null)
+      if (!facts?.isFile() || !facts.size || facts.size > LARGEST) continue
+      const name = nameFor(path)
+      names.set(name, path)
+      list.push({ url: `mindflow://celebrate/${name}`, video: KINDS[ext] === 'video', name: basename(path), sprite: await spriteAt(path, facts), path: asked })
+    }
+    if (list.length) out[kind] = list
   }
   picked = names
   return out
@@ -351,15 +356,15 @@ export function registerCelebrations(): void {
   // loadable unless it is the saved one), or the saved one.
   ipcMain.handle('vigil:celebrations', (_event, folder?: unknown) =>
     media(typeof folder === 'string' ? folder : celebrationPrefs().folder))
-  // The file picked for each moment, from the settings, each followed and checked by picks().
+  // The files picked for each moment, from the settings, each followed and checked by picks().
   ipcMain.handle('vigil:celebrations:picks', () => picks())
   ipcMain.handle('vigil:celebrations:choose', async () => {
     const { filePaths } = await dialog.showOpenDialog({
       title: 'Choose what plays',
-      buttonLabel: 'Use this',
-      properties: ['openFile'],
+      buttonLabel: 'Use these',
+      properties: ['openFile', 'multiSelections'],
       filters: [{ name: 'GIFs, pictures, sprites and clips', extensions: Object.keys(KINDS).map((ext) => ext.slice(1)) }]
     })
-    return filePaths[0] ?? null
+    return filePaths
   })
 }

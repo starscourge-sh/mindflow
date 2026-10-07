@@ -76,7 +76,7 @@ export type Settings = {
   /** GIFs, pictures and short clips it plays from; '' for a grainy cover. */
   celebrationsFolder: string
   /** A file of its own for a kind of milestone, played in place of one from the folder. */
-  celebrationPicks: Partial<Record<MomentKind, string>>
+  celebrationPicks: Partial<Record<MomentKind, string[]>>
   /** A question you are holding comes back now and then as a hint card. */
   questionsBack: boolean
   /** Open goals in a slim strip at the top of Home and Today's page. */
@@ -294,10 +294,10 @@ export const vigil = {
   sceneryFolder: () => call<string | null>('scenery:folder'),
   /** What a celebration can play: the chosen folder's, or the one named. */
   celebrations: (folder?: string) => call<{ url: string; video: boolean; name: string; sprite?: boolean }[]>('celebrations', folder),
-  /** The file picked for each kind of milestone, where it is still there. */
-  celebrationPicks: () => call<Partial<Record<MomentKind, { url: string; video: boolean; name: string; sprite?: boolean }>>>('celebrations:picks'),
-  /** One GIF, picture or clip, picked in the system's own chooser. */
-  celebrationFile: () => call<string | null>('celebrations:choose'),
+  /** The files picked for each kind of milestone, those still there. */
+  celebrationPicks: () => call<Partial<Record<MomentKind, { url: string; video: boolean; name: string; sprite?: boolean; path?: string }[]>>>('celebrations:picks'),
+  /** GIFs, pictures or clips, picked in the system's own chooser. */
+  celebrationFiles: () => call<string[]>('celebrations:choose'),
   // Up for private, down for not, from whichever menu or button switched it.
   setPrivate: (table: 'captures' | 'nuggets', id: string, on: boolean, quiet = false) => (quiet || chime(on ? 'on' : 'off'), call('private', table, id, on)),
   /** False when three are pinned already. */
