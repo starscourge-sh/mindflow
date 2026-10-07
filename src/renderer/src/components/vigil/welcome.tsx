@@ -129,41 +129,73 @@ function Keycap({ label, down, size = 64 }: { label: string; down: boolean; size
   )
 }
 
-/** A year of days, a dot each, a week a column: today lit, the rest of it still to come. */
-function YearDots(): React.JSX.Element {
+/** Whether today is in the second half of the year: the first screen's words then sit high, clear of it. */
+const lateInYear = (): boolean => dayjs().month() >= 6
+
+/**
+ * The year, as a field of dots behind the first screen: a month a row and a
+ * day a dot, so the short months end short, the days gone a little stronger
+ * than the days to come, today lit and ringed by hand. It fills the window
+ * edge to edge; the words sit in the half of it today is not in, where it
+ * fades back.
+ */
+function YearField({ calm }: { calm: boolean }): React.JSX.Element {
+  const box = useRef<HTMLDivElement>(null)
+  const [room, setRoom] = useState<{ w: number; h: number } | null>(null)
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    const measure = (): void => setRoom({ w: el.clientWidth, h: el.clientHeight })
+    measure()
+    const watch = new ResizeObserver(measure)
+    watch.observe(el)
+    return () => watch.disconnect()
+  }, [])
   const today = dayjs().startOf('day')
   const start = today.startOf('year')
+  const quiet = calm || still()
+  const w = room?.w ?? 0
+  const h = room?.h ?? 0
+  const sx = w / 31
+  const sy = h / 12
+  const s = Math.min(sx, sy)
+  const months = Array.from({ length: 12 }, (_, m) => start.add(m, 'month'))
   const days = today.endOf('year').diff(start, 'day') + 1
-  const lead = start.day()
   const at = today.diff(start, 'day')
-  const quiet = still()
-  const cells = Array.from({ length: days }, (_, i) => {
-    const slot = i + lead
-    return { i, x: Math.floor(slot / 7), y: slot % 7 }
-  })
-  const cols = Math.ceil((days + lead) / 7)
-  const here = cells[at]
+  const cx = (today.date() - 0.5) * sx
+  const cy = (today.month() + 0.5) * sy
+  // The note beside today, on whichever side has the room.
+  const leftward = today.date() > 20
   return (
-    <figure className="flex w-full flex-col gap-2.5 @[50rem]:w-[clamp(20rem,32vw,34rem)]" aria-label={`Today, day ${at + 1} of ${days}`}>
-      <svg aria-hidden viewBox={`0 0 ${cols * 10} 70`} className="w-full max-w-[34rem] overflow-visible">
-        {cells.map(({ i, x, y }) => {
-          const far = Math.hypot(x - here.x, (y - here.y) * 1.4)
-          return (
-            <circle key={i} cx={x * 10 + 5} cy={y * 10 + 5} r={i === at ? 3.4 : 2.5}
-              className={`${i === at ? 'fill-primary' : 'fill-foreground'} ${quiet ? '' : 'mf-dot-in'}`}
-              style={{ opacity: i === at ? 1 : i < at ? 0.42 : 0.14, animationDelay: quiet ? undefined : `${Math.round(120 + far * 14)}ms` } as CSSProperties} />
-          )
-        })}
-        {/* Today, ringed: the one dot that is lit because you are here. A
-            loose ring by hand, written once the year has come in; a drawn
-            circle with Margin marks off. */}
-        <circle cx={here.x * 10 + 5} cy={here.y * 10 + 5} r={6.4} fill="none" stroke="var(--primary)" strokeWidth={1.1} opacity={0.55} className={`mf-unmarked ${quiet ? '' : 'mf-dot-in'}`} style={{ animationDelay: quiet ? undefined : '80ms' }} />
-        <path d={ringPath(here.x * 10 + 5, here.y * 10 + 5, 15, 12.5, today.format('YYYY-MM-DD'))} pathLength={1} fill="none" stroke="var(--primary)" strokeWidth={1.5} strokeLinecap="round" opacity={0.75}
-          className={`mf-mark ${quiet ? '' : 'mf-pen'}`} style={{ strokeDasharray: 1, strokeDashoffset: quiet ? 0 : 1, animationDelay: quiet ? undefined : '900ms' }} />
-      </svg>
-      <figcaption className="text-control text-muted-foreground">
-        <span className="text-foreground">{today.format('dddd D MMMM')}.</span> Day one.
-      </figcaption>
+    <figure aria-label={`Today, day ${at + 1} of ${days}`} className="pointer-events-none absolute top-0 bottom-16 left-[calc(50%-50vw+clamp(1rem,3vw,2.5rem))] right-[calc(50%-50vw+clamp(1rem,3vw,2.5rem))]">
+      <div ref={box} className="absolute inset-0">
+        {s > 0 && (
+          <>
+            <svg aria-hidden width={w} height={h} className={`absolute inset-0 overflow-visible ${lateInYear() ? 'mf-year-field-top' : 'mf-year-field'}`}>
+              {months.flatMap((month, m) => Array.from({ length: month.daysInMonth() }, (_, d) => {
+                const day = month.date(d + 1)
+                const now = day.isSame(today, 'day')
+                const gone = day.isBefore(today, 'day')
+                const far = Math.hypot(d + 1 - today.date(), (m - today.month()) * 2)
+                return (
+                  <circle key={`${m}-${d}`} cx={(d + 0.5) * sx} cy={(m + 0.5) * sy} r={now ? Math.max(3, s * 0.13) : Math.max(1.5, s * 0.075)}
+                    className={`${now ? 'fill-primary' : 'fill-foreground'} ${quiet ? '' : 'mf-dot-in'}`}
+                    style={{ opacity: now ? 1 : gone ? 0.46 : 0.17, animationDelay: quiet ? undefined : `${Math.round(120 + far * 18)}ms` } as CSSProperties} />
+                )
+              }))}
+              {/* Today, ringed: a loose ring by hand, written once the year has
+                  come in; a drawn circle with Margin marks off. */}
+              <circle cx={cx} cy={cy} r={s * 0.42} fill="none" stroke="var(--primary)" strokeWidth={1.2} opacity={0.6} className={`mf-unmarked ${quiet ? '' : 'mf-dot-in'}`} style={{ animationDelay: quiet ? undefined : '80ms' }} />
+              <path d={ringPath(cx, cy, s * 0.62, s * 0.5, today.format('YYYY-MM-DD'))} pathLength={1} fill="none" stroke="var(--primary)" strokeWidth={1.6} strokeLinecap="round" opacity={0.8}
+                className={`mf-mark ${quiet ? '' : 'mf-pen'}`} style={{ strokeDasharray: 1, strokeDashoffset: quiet ? 0 : 1, animationDelay: quiet ? undefined : '900ms' }} />
+            </svg>
+            <figcaption className={`absolute -translate-y-1/2 rounded-md bg-background/85 px-2 py-0.5 whitespace-nowrap ${QUIET}`}
+              style={leftward ? { right: w - cx + s * 0.8, top: cy } : { left: cx + s * 0.8, top: cy }}>
+              <span className="text-foreground">{today.format('dddd D MMMM')}.</span> Day one.
+            </figcaption>
+          </>
+        )}
+      </div>
     </figure>
   )
 }
@@ -377,14 +409,22 @@ export function Welcome(): React.JSX.Element | null {
   if (at < 0) return null
   const motionless = how === 'key' || still()
   return (
-    <div role="dialog" aria-modal aria-label="Welcome to Vigil" className="fixed inset-0 z-[70] flex flex-col overflow-hidden bg-background text-foreground [container-type:inline-size]">
-      <Backdrop />
+    <div role="dialog" aria-modal aria-label="Welcome to Vigil" className="mf-welcome fixed inset-0 z-[70] flex flex-col overflow-hidden bg-background text-foreground [container-type:inline-size]">
+      <Backdrop plain={at === LAST} />
       {/* Somewhere to hold the window by, clear of its buttons. */}
       <div className="relative h-11 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
       {at === LAST && <TrayArrow tray={state?.tray ?? null} />}
       {/* One frame for the words and the footer: in a large window they stay
           together in the middle, not scattered to its far corners. */}
       <div className="relative mx-auto flex min-h-0 w-full max-w-[76rem] flex-1 flex-col [@media(min-height:760px)]:my-auto [@media(min-height:760px)]:max-h-[44rem]">
+      {/* The first screen's year, behind its words: there and gone with the screen. */}
+      <AnimatePresence initial={false}>
+        {at === 0 && (
+          <motion.div key="year" className="absolute inset-0" initial={false} exit={{ opacity: 0, transition: { duration: motionless ? 0 : 0.12 } }}>
+            <YearField calm={motionless} />
+          </motion.div>
+        )}
+      </AnimatePresence>
       <main className="relative flex min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.section
@@ -394,7 +434,7 @@ export function Welcome(): React.JSX.Element | null {
             animate={{ opacity: 1, transform: shift('translateY(0px)'), filter: 'blur(0px)' }}
             exit={motionless ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, filter: 'blur(2px)', transition: { duration: 0.12, ease: EASE } }}
             transition={{ duration: 0.2, ease: EASE }}
-            className="m-auto w-full px-[clamp(1.5rem,5vw,4rem)] py-6"
+            className={`w-full px-[clamp(1.5rem,5vw,4rem)] py-6 [@media(max-height:480px)]:py-2 ${at === 0 && lateInYear() ? 'mx-auto mb-auto mt-[clamp(0rem,2vh,1.5rem)]' : (PLACE[at] ?? 'm-auto')}`}
           >
             {at === 0 && <Hello replay={replay} />}
             {at === 1 && <OneKey state={state} onState={setState} onBox={() => go(2, 'app')} />}
@@ -408,7 +448,7 @@ export function Welcome(): React.JSX.Element | null {
       </main>
       <footer className="relative grid h-16 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 px-[clamp(1.5rem,5vw,4rem)]">
         {/* Its words in line with the headline above; the hover wash reaches out past them. */}
-        <button type="button" onClick={skip} className="-ml-3 flex h-8 items-center gap-2 justify-self-start rounded-full px-3 text-control text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97]">
+        <button type="button" onClick={skip} className="-ml-3 flex h-8 items-center gap-2 justify-self-start rounded-full px-3 text-[0.875rem] text-(--mf-wl-quiet) transition-colors hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97]">
           {at === LAST ? 'Close' : 'Skip'} <Kbd>Esc</Kbd>
         </button>
         <Dots at={at} seen={seen} onGo={(to) => (chime('page'), go(to === 3 && !caught ? 2 : to, 'pointer'))} />
@@ -448,10 +488,11 @@ function LateButton({ onClick }: { onClick: () => void }): React.JSX.Element {
  * drifting very slowly, under a film of grain. With no scenery, the grain
  * on the page's own colour.
  */
-function Backdrop(): React.JSX.Element {
+function Backdrop({ plain }: { plain: boolean }): React.JSX.Element {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0">
-      <div className="mf-drift absolute -inset-[2%]">
+      {/* The last screen is a plain page: the scenery steps back for the choice. */}
+      <div className={`mf-drift absolute -inset-[2%] transition-opacity duration-300 ease-(--mf-ease) ${plain ? 'opacity-0' : 'opacity-100'}`}>
         <Scenery place="rest" seed="welcome" text="all" className="absolute inset-0" />
       </div>
       <div className="absolute inset-0 opacity-[0.035] mix-blend-overlay" style={{ backgroundImage: NOISE, backgroundSize: '160px' }} />
@@ -473,34 +514,40 @@ function TrayArrow({ tray }: { tray: { x: number; y: number } | null }): React.J
   )
 }
 
-/** The words of a screen: the headline in the heading font, the line under it, and what it shows beside. */
-function Screen({ title, children, aside, side = false, stack = false }: { title: ReactNode; children?: ReactNode; aside?: ReactNode; /** Beside the words in a narrow window too. */ side?: boolean; /** Under the words at every width. */ stack?: boolean }): React.JSX.Element {
-  return (
-    <div className={`grid items-center gap-x-[clamp(1.5rem,5vw,5rem)] gap-y-7 [@media(max-height:560px)]:gap-y-5 ${aside && !stack ? (side ? '@[30rem]:grid-cols-[minmax(0,auto)_auto] @[30rem]:justify-center' : '@[50rem]:grid-cols-[minmax(0,auto)_auto] @[50rem]:justify-center') : ''}`}>
-      <div className="flex max-w-[clamp(20rem,44vw,40rem)] flex-col gap-4 [@media(max-height:560px)]:gap-3">
-        {typeof title === 'string' ? <h1 className={HEADLINE}>{title}</h1> : title}
-        {children}
-      </div>
-      {aside}
-    </div>
-  )
+/*
+ * The type, sized to the window by its smaller side, so a short wide window
+ * and a tall narrow one both read, and a phone-sized recording of either
+ * still does. Lines stay short: a welcome is read at a glance, not studied.
+ * Secondary lines are the page's own ink, mixed back (main.css, .mf-welcome),
+ * never a faint grey.
+ */
+const HEADLINE = 'font-heading text-[clamp(2rem,min(5vw,7.4vh),4.5rem)] leading-[1.04] font-medium tracking-[-0.026em] text-balance text-foreground'
+/** The first screen's: the establishing shot, the largest words in the welcome. */
+const HEADLINE_XL = 'font-heading text-[clamp(2.5rem,min(7.4vw,10.5vh),6.75rem)] leading-[0.98] font-medium tracking-[-0.034em] text-balance text-foreground'
+/** Under something larger than itself: the keys, the dial. */
+const HEADLINE_SM = 'font-heading text-[clamp(1.625rem,min(3.6vw,5.4vh),3.25rem)] leading-[1.08] font-medium tracking-[-0.022em] text-balance text-foreground'
+const BODY = 'max-w-[32ch] text-[clamp(1.0625rem,min(2.3vw,3.3vh),1.625rem)] leading-[1.42] text-pretty text-(--mf-wl-body)'
+const QUIET = 'text-[clamp(0.9375rem,min(1.9vw,2.8vh),1.375rem)] leading-snug text-(--mf-wl-quiet)'
+/** Keys inside a line of the larger type: sized to it, not to the app's small caps. */
+const LINE_KEY = 'h-[1.3em] min-w-[1.3em] rounded-[0.3em] px-[0.3em] text-[0.62em]'
+/** Where each screen sits in the window: the first low, in its field; the landing high, like the top of a page. */
+const PLACE: Record<number, string> = {
+  0: 'mx-auto mt-auto mb-[clamp(0rem,3vh,2.5rem)]',
+  3: 'mx-auto mb-auto mt-[clamp(0rem,12vh,7rem)]'
 }
-const HEADLINE = 'font-heading text-[clamp(1.75rem,4.4vw,4.25rem)] leading-[1.05] font-medium tracking-[-0.024em] text-balance text-foreground [@media(max-height:560px)]:text-[clamp(1.6rem,4.2vw,2.25rem)]'
-const BODY = 'max-w-[clamp(20rem,40vw,36rem)] text-[clamp(0.9375rem,1.3vw,1.25rem)] leading-relaxed text-pretty text-muted-foreground'
 
 // --- the screens ------------------------------------------------------------------
 
+/** The establishing shot: the year all round, the line typed into its quiet corner. */
 function Hello({ replay }: { replay: boolean }): React.JSX.Element {
   return (
-    <Screen
-      title={replay ? <h1 className={HEADLINE}>Vigil keeps what you notice.</h1> : <TypeLine text="Vigil keeps what you notice." className={HEADLINE} />}
-      aside={<div className="[@media(max-height:560px)]:hidden"><YearDots /></div>}
-    >
+    <div className="flex max-w-[min(100%,44rem)] flex-col gap-[clamp(0.75rem,2.4vh,1.75rem)]">
+      {replay ? <h1 className={HEADLINE_XL}>Vigil keeps what you notice.</h1> : <TypeLine text="Vigil keeps what you notice." className={HEADLINE_XL} />}
       <p className={BODY}>
         <span className="text-foreground">{greeting()}</span> Catch a thought in two seconds. Nothing you keep goes stale, and the good things come back to you.
       </p>
-      <p className="text-control text-muted-foreground/80">Two minutes, and you can stop any time.</p>
-    </Screen>
+      <p className={`${QUIET} [@media(max-height:520px)]:hidden`}>Two minutes, and you can stop any time.</p>
+    </div>
   )
 }
 
@@ -519,7 +566,8 @@ function OneKey({ state, onState, onBox }: { state: Onboarding | null; onState: 
   const [choosing, setChoosing] = useState(false)
   const taken = !!state?.boxTaken
   const win = useWindowSize()
-  const big = win.height < 560 || win.width < 700 ? 52 : win.width >= 1280 && win.height >= 820 ? 104 : 76
+  // The hero of the screen: as large as the window allows, smaller per cap when the chord is long.
+  const big = Math.round(Math.max(52, Math.min(win.height * 0.17, win.width * 0.13, 152) * Math.min(1, 2.6 / caps.length)))
 
   useEffect(() => {
     const press = (event: KeyboardEvent, on: boolean): void => {
@@ -560,47 +608,44 @@ function OneKey({ state, onState, onBox }: { state: Onboarding | null; onState: 
 
   const all = down.size === caps.length
   return (
-    <Screen
-      stack={caps.length > 2}
-      title="One key to remember"
-      aside={
-        <div className={`flex flex-col items-start gap-5 ${caps.length > 2 ? '' : '@[50rem]:items-center'}`}>
-          <div className={`relative flex items-end gap-3 rounded-[28px] p-3 transition-[box-shadow] duration-300 ease-(--mf-ease) ${all || arrived ? 'shadow-[0_0_0_1.5px_var(--primary)]' : 'shadow-[0_0_0_1.5px_transparent]'}`}>
-            {caps.map((cap, i) => <Keycap key={`${cap}${i}`} label={glyph(cap, i === caps.length - 1)} down={down.has(i)} size={big} />)}
-          </div>
-        </div>
-      }
-    >
-      <AnimatePresence mode="wait" initial={false}>
-        {arrived ? (
-          <motion.p key="there" className="font-heading text-[clamp(1.25rem,2.4vw,2rem)] leading-snug text-foreground" initial={{ opacity: 0, filter: 'blur(2px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }} transition={{ duration: 0.12 }}>
-            There it is. <span className="text-muted-foreground">Now write something in it.</span>
-          </motion.p>
-        ) : taken || choosing ? (
-          <KeyPicker key="pick" taken={taken} onState={onState} />
-        ) : (
-          <motion.div key="ask" className="flex flex-col gap-4" exit={{ opacity: 0, transition: { duration: 0.1 } }}>
-            <p className={BODY}>
-              From any app, press <InlineKeys keys={keys} /> and a small box opens. Try it now.
-            </p>
-            <p className="flex items-center gap-2 text-control text-muted-foreground/80">
-              <span className="mf-listening" aria-hidden />
-              Listening for it
-              <span aria-hidden className="text-muted-foreground/40">·</span>
-              <button type="button" onClick={() => (chime('tap'), setChoosing(true))} className="rounded-sm underline decoration-foreground/20 underline-offset-4 transition-colors hover:text-foreground hover:decoration-foreground/50">
-                Use a different key
-              </button>
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </Screen>
+    // The close-up: the keys, large and in the middle, and the words under them.
+    <div className="mx-auto flex max-w-[min(100%,46rem)] flex-col items-center gap-[clamp(1.25rem,4.5vh,3rem)] text-center">
+      <div className={`relative flex items-end gap-[0.18em] rounded-[0.42em] p-[0.16em] transition-[box-shadow] duration-300 ease-(--mf-ease) ${all || arrived ? 'shadow-[0_0_0_1.5px_var(--primary)]' : 'shadow-[0_0_0_1.5px_transparent]'}`} style={{ fontSize: big }}>
+        {caps.map((cap, i) => <Keycap key={`${cap}${i}`} label={glyph(cap, i === caps.length - 1)} down={down.has(i)} size={big} />)}
+      </div>
+      <div className="flex flex-col items-center gap-[clamp(0.5rem,1.6vh,1rem)]">
+        <h1 className={HEADLINE_SM}>One key to remember</h1>
+        <AnimatePresence mode="wait" initial={false}>
+          {arrived ? (
+            <motion.p key="there" className="font-heading text-[clamp(1.25rem,min(2.6vw,3.8vh),2rem)] leading-snug text-foreground" initial={{ opacity: 0, filter: 'blur(2px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }} transition={{ duration: 0.12 }}>
+              There it is. <span className="text-(--mf-wl-body)">Now write something in it.</span>
+            </motion.p>
+          ) : taken || choosing ? (
+            <KeyPicker key="pick" taken={taken} onState={onState} />
+          ) : (
+            <motion.div key="ask" className="flex flex-col items-center gap-[clamp(0.75rem,2vh,1.25rem)]" exit={{ opacity: 0, transition: { duration: 0.1 } }}>
+              <p className={`${BODY} max-w-[30ch]`}>
+                From any app, press <InlineKeys keys={keys} /> and a small box opens. Try it now.
+              </p>
+              <p className={`flex items-center gap-2 ${QUIET}`}>
+                <span className="mf-listening" aria-hidden />
+                Listening for it
+                <span aria-hidden className="opacity-50">·</span>
+                <button type="button" onClick={() => (chime('tap'), setChoosing(true))} className="rounded-sm underline decoration-current/30 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current/60">
+                  Use a different key
+                </button>
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
   )
 }
 
 /** Keys written in a sentence, as small caps. */
 function InlineKeys({ keys }: { keys: string }): React.JSX.Element {
-  return <span className="inline-flex translate-y-[-1px] gap-0.5 align-middle">{capsOf(keys).map((key, i) => <Kbd key={i}>{glyph(key, i === capsOf(keys).length - 1)}</Kbd>)}</span>
+  return <span className="inline-flex translate-y-[-0.08em] gap-[0.12em] align-middle">{capsOf(keys).map((key, i) => <Kbd key={i} className={LINE_KEY}>{glyph(key, i === capsOf(keys).length - 1)}</Kbd>)}</span>
 }
 
 /**
@@ -643,33 +688,35 @@ function KeyPicker({ taken, onState }: { taken: boolean; onState: (now: Onboardi
     return () => listen(null)
   }, [listening]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <motion.div className="flex flex-col gap-4" initial={false} exit={{ opacity: 0, transition: { duration: 0.1 } }}>
-      <p className={BODY}>
+    <motion.div className="flex flex-col items-center gap-4" initial={false} exit={{ opacity: 0, transition: { duration: 0.1 } }}>
+      <p className={`${BODY} max-w-[34ch]`}>
         {taken ? <><InlineKeys keys={keyFor('⌘.') || '⌘.'} /> is already taken by another app on this Mac. Press the keys you would like instead.</> : <>Press the keys you would like for the box instead.</>}
       </p>
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center justify-center gap-3">
         <button type="button" onClick={() => (chime('tap'), setListening(true))}
-          className={`flex h-10 min-w-56 items-center gap-2.5 rounded-xl border px-3.5 text-control transition-colors ${listening ? 'border-primary/60 bg-primary/[0.06] text-foreground' : 'text-muted-foreground hover:bg-foreground/[0.04]'}`}>
-          {listening ? <><span className="mf-listening" aria-hidden />Press the keys…</> : <>Box key: <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> <span className="ml-auto text-muted-foreground">Change</span></>}
+          className={`flex h-11 min-w-60 items-center gap-2.5 rounded-xl border px-4 text-[0.9375rem] transition-colors ${listening ? 'border-primary/60 bg-primary/[0.06] text-foreground' : 'text-(--mf-wl-body) hover:bg-foreground/[0.04]'}`}>
+          {listening ? <><span className="mf-listening" aria-hidden />Press the keys…</> : <>Box key: <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> <span className="ml-auto text-(--mf-wl-quiet)">Change</span></>}
         </button>
       </div>
-      {said ? <p role="status" className="text-control text-[color-mix(in_srgb,var(--tt-color-text-orange)_80%,var(--foreground))]">{said}</p>
-        : !listening && !taken && <p role="status" className="text-control text-muted-foreground">Done. Now press it, from any app.</p>}
+      {said ? <p role="status" className={`${QUIET} text-[color-mix(in_srgb,var(--tt-color-text-orange)_70%,var(--foreground))]`}>{said}</p>
+        : !listening && !taken && <p role="status" className={QUIET}>Done. Now press it, from any app.</p>}
     </motion.div>
   )
 }
 
+/** The medium shot: the words first, then the box itself, large, as the thing to try. */
 function Catch(): React.JSX.Element {
   useKeyChanges()
   return (
-    <Screen
-      title="Catch something"
-      aside={<BoxPreview />}
-    >
-      <p className={BODY}>
-        Write anything: a thing to buy, a line you liked, a half-idea. Press <InlineKeys keys={keyFor('⌘↵') || '⌘↵'} /> to send it. The box closes and you are back where you were.
-      </p>
-    </Screen>
+    <div className="mx-auto flex w-full max-w-[min(100%,40rem)] flex-col gap-[clamp(1.25rem,4vh,2.5rem)]">
+      <div className="flex flex-col gap-[clamp(0.5rem,1.6vh,1rem)]">
+        <h1 className={HEADLINE}>Catch something</h1>
+        <p className={`${BODY} max-w-[36ch]`}>
+          Write anything: a thing to buy, a line you liked, a half-idea. <InlineKeys keys={keyFor('⌘↵') || '⌘↵'} /> sends it, and you are back where you were.
+        </p>
+      </div>
+      <BoxPreview />
+    </div>
   )
 }
 
@@ -692,13 +739,13 @@ function BoxPreview(): React.JSX.Element {
     return () => clearTimeout(rest)
   }, [typed, line, quiet])
   return (
-    <figure aria-hidden className="flex w-full flex-col gap-3 @[50rem]:w-[clamp(22rem,32vw,30rem)]">
+    <figure aria-hidden className="flex w-full flex-col gap-3">
       <div className="pointer-events-none overflow-hidden rounded-2xl border border-foreground/10 bg-background shadow-(--mf-panel-shadow)">
-        <p className="min-h-[clamp(6rem,10vw,8rem)] px-5 pt-5 text-[clamp(1rem,1.35vw,1.1875rem)] leading-snug text-foreground">
+        <p className="min-h-[clamp(2.75rem,14vh,9rem)] px-[1.1em] pt-[0.9em] text-[clamp(1.125rem,min(2.4vw,3.4vh),1.75rem)] leading-snug text-foreground">
           {quiet ? line : line.slice(0, typed)}
           <span className={`mf-caret ${!quiet && typed < line.length ? 'mf-caret-typing' : ''}`} />
         </p>
-        <div className="flex items-center gap-2 border-t border-foreground/[0.07] px-4 py-2.5 text-control text-muted-foreground">
+        <div className="flex items-center gap-2 border-t border-foreground/[0.07] px-4 py-2.5 text-[clamp(0.8125rem,min(1.4vw,2vh),1rem)] text-(--mf-wl-quiet)">
           <NotebookText className="size-3.5" strokeWidth={1.75} />
           Note
           <span className="ml-auto flex h-7 items-center gap-1.5 rounded-md bg-foreground/[0.07] px-2.5 font-medium text-foreground">
@@ -706,7 +753,7 @@ function BoxPreview(): React.JSX.Element {
           </span>
         </div>
       </div>
-      <figcaption className="pl-1 text-control text-muted-foreground">The box, as it opens over any app.</figcaption>
+      <figcaption className={`pl-1 ${QUIET} [@media(max-height:480px)]:hidden`}>The box, as it opens over any app.</figcaption>
     </figure>
   )
 }
@@ -757,86 +804,99 @@ function Landed({ capture }: { capture: CaptureMeta }): React.JSX.Element {
   const aside = landedAside(capture.label)
   const w = mark?.width ?? 0
   return (
-    <Screen
-      title={<div className="flex flex-col gap-1"><h1 className={HEADLINE}>It landed.</h1>{aside && <p className="font-heading text-[clamp(1.125rem,2.4vw,1.5rem)] text-muted-foreground italic">{aside}</p>}</div>}
-      aside={
-        <motion.div ref={row} className="relative w-full [zoom:1.1] @[50rem]:w-[clamp(22rem,34vw,32rem)] @[80rem]:[zoom:1.3]"
-          initial={quiet ? false : { opacity: 0, transform: 'translateY(-10px)', filter: 'blur(2px)' }}
-          animate={{ opacity: 1, transform: 'translateY(0px)', filter: 'blur(0px)' }}
-          transition={{ delay: 0.08, duration: 0.26, ease: EASE }}>
-          <div className="pointer-events-none overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow) [&_*]:!cursor-default">
-            {/* Shown as it waits in the Inbox: one the box also made a task still reads as just caught. */}
-            <CaptureList groups={[['', [{ ...capture, status: 'open' }]]]} cursor={-1} onPick={() => undefined} />
-          </div>
-          {mark && (
-            <svg aria-hidden className="pointer-events-none absolute overflow-visible" style={{ left: mark.left, top: mark.top, width: w, height: 6 }} viewBox={`0 0 ${w} 6`}>
-              <path d={inkPath(w, capture.id)} pathLength={1} fill="none" stroke="var(--primary)" strokeWidth={2} strokeLinecap="round"
-                className={`mf-mark ${quiet ? '' : 'mf-ink'}`} style={{ strokeDasharray: 1, strokeDashoffset: quiet ? 0 : 1 }} />
-              {/* Margin marks off: the same line, ruled straight. */}
-              <path d={`M1 3 H ${w - 1}`} pathLength={1} fill="none" stroke="var(--primary)" strokeWidth={2} strokeLinecap="round"
-                className={`mf-unmarked ${quiet ? '' : 'mf-ink'}`} style={{ strokeDasharray: 1, strokeDashoffset: quiet ? 0 : 1 }} />
-            </svg>
-          )}
-        </motion.div>
-      }
-    >
-      <p className={BODY}>It waits in your Inbox. Nothing to sort now: later, a few minutes at a time.</p>
-      <ol aria-label="How Vigil goes" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-control">
-        {['Catch', 'Wait', 'Tidy and Decide', 'Comes back'].map((step, i) => (
-          <li key={step} className="flex items-center gap-2">
-            {i > 0 && <ArrowRight aria-hidden className="size-3 text-muted-foreground/50" strokeWidth={1.75} />}
-            <span className={i === 0 ? 'font-medium text-foreground' : 'text-muted-foreground'}>{step}</span>
-          </li>
-        ))}
-      </ol>
-    </Screen>
+    // The moment, close up and high on the page: the row first, as it is in
+    // the Inbox, and the words after it.
+    <div className="mx-auto flex w-full max-w-[min(100%,56rem)] flex-col gap-[clamp(1.5rem,5vh,3.5rem)]">
+      <motion.div ref={row} className="relative w-full [zoom:1.25] @[56rem]:[zoom:1.7] @[80rem]:[zoom:1.9]"
+        initial={quiet ? false : { opacity: 0, transform: 'translateY(-10px)', filter: 'blur(2px)' }}
+        animate={{ opacity: 1, transform: 'translateY(0px)', filter: 'blur(0px)' }}
+        transition={{ delay: 0.08, duration: 0.26, ease: EASE }}>
+        <div className="pointer-events-none overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow) [&_*]:!cursor-default">
+          {/* Shown as it waits in the Inbox: one the box also made a task still reads as just caught. */}
+          <CaptureList groups={[['', [{ ...capture, status: 'open' }]]]} cursor={-1} onPick={() => undefined} />
+        </div>
+        {mark && (
+          <svg aria-hidden className="pointer-events-none absolute overflow-visible" style={{ left: mark.left, top: mark.top, width: w, height: 6 }} viewBox={`0 0 ${w} 6`}>
+            <path d={inkPath(w, capture.id)} pathLength={1} fill="none" stroke="var(--primary)" strokeWidth={2} strokeLinecap="round"
+              className={`mf-mark ${quiet ? '' : 'mf-ink'}`} style={{ strokeDasharray: 1, strokeDashoffset: quiet ? 0 : 1 }} />
+            {/* Margin marks off: the same line, ruled straight. */}
+            <path d={`M1 3 H ${w - 1}`} pathLength={1} fill="none" stroke="var(--primary)" strokeWidth={2} strokeLinecap="round"
+              className={`mf-unmarked ${quiet ? '' : 'mf-ink'}`} style={{ strokeDasharray: 1, strokeDashoffset: quiet ? 0 : 1 }} />
+          </svg>
+        )}
+      </motion.div>
+      <div className="flex flex-col gap-[clamp(0.5rem,1.6vh,1rem)]">
+        <div className="flex flex-col gap-1">
+          <h1 className={HEADLINE}>It landed.</h1>
+          {aside && <p className="font-heading text-[clamp(1.125rem,min(2.6vw,3.6vh),1.75rem)] text-(--mf-wl-body) italic">{aside}</p>}
+        </div>
+        <p className={`${BODY} max-w-[34ch]`}>It waits in your Inbox. Nothing to sort now: later, a few minutes at a time.</p>
+        <ol aria-label="How Vigil goes" className={`flex flex-wrap items-center gap-x-2.5 gap-y-1 ${QUIET}`}>
+          {['Catch', 'Wait', 'Tidy and Decide', 'Comes back'].map((step, i) => (
+            <li key={step} className="flex items-center gap-2.5">
+              {i > 0 && <ArrowRight aria-hidden className="size-[0.85em] opacity-60" strokeWidth={1.75} />}
+              <span className={i === 0 ? 'font-medium text-foreground' : ''}>{step}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </div>
   )
 }
 
-/** Your own words, as the postcard they will be a year from today; and the two other ways back. */
+/**
+ * Your own words, as the postcard they will be a year from today, laid large
+ * on the table and a little askew; the words on the other side of it, and
+ * the two other ways things come back.
+ */
 function ComesBack({ capture }: { capture: CaptureMeta | null }): React.JSX.Element {
   useEffect(() => chime('riffle'), [])
   const words = capture?.label?.split('\n')[0]?.trim() || 'The first thing you catch.'
   const year = dayjs().add(1, 'year')
   return (
-    <Screen
-      title="Then it comes back to you."
-      aside={
-        <figure className="flex w-full max-w-[clamp(18rem,30vw,30rem)] flex-col gap-3 [@media(max-height:520px)]:hidden">
-          <div className="-rotate-[1.5deg]">
-            <MemoryPostcard at={new Date().toISOString()} seed={capture?.id ?? 'welcome'}>
-              <p className="text-meta text-muted-foreground">A year ago today</p>
-              <p className="clear-both mt-1 line-clamp-3 font-heading text-[clamp(1.0625rem,1.6vw,1.5rem)] leading-snug text-foreground [overflow-wrap:anywhere]">{words}</p>
-            </MemoryPostcard>
-          </div>
-          <figcaption className="pl-1 text-control text-muted-foreground">On <span className="text-foreground">{year.format('D MMMM YYYY')}</span>, this comes back to you.</figcaption>
-        </figure>
-      }
-    >
-      <ul className="flex flex-col gap-3">
-        {[
-          ['A hint in the box', 'now and then: something you kept, at the moment you open it.'],
-          ['Review', 'the things you want to remember, just before you would forget them.'],
-          ['On this day', 'what you caught a year ago, like a postcard from yourself.']
-        ].map(([lead, rest]) => (
-          <li key={lead} className={BODY}><span className="font-medium text-foreground">{lead}</span>, {rest}</li>
-        ))}
-      </ul>
-    </Screen>
+    <div className="mx-auto grid w-full max-w-[72rem] items-center gap-x-[clamp(2rem,6vw,6rem)] gap-y-8 @[50rem]:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+      <figure className="flex w-full max-w-[34rem] flex-col gap-[clamp(0.75rem,2.4vh,1.5rem)] justify-self-center [@media(max-height:520px)]:hidden">
+        {/* Drawn at the postcard's own size and enlarged whole, so its stamp and postmark keep their proportions. */}
+        <div className="origin-center -rotate-[3deg] [zoom:1.15] @[50rem]:[zoom:1.35] @[80rem]:[zoom:1.6] [&>div]:shadow-[0_2px_3px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_22px_44px_-16px_color-mix(in_oklab,var(--mf-shadow-ink)_42%,transparent)]">
+          <MemoryPostcard at={new Date().toISOString()} seed={capture?.id ?? 'welcome'}>
+            <p className="text-meta text-(--mf-wl-quiet)">A year ago today</p>
+            <p className="clear-both mt-1 line-clamp-3 font-heading text-[1.125rem] leading-snug text-foreground [overflow-wrap:anywhere]">{words}</p>
+          </MemoryPostcard>
+        </div>
+        <figcaption className={`pl-1 ${QUIET}`}>On <span className="text-foreground">{year.format('D MMMM YYYY')}</span>, this comes back to you.</figcaption>
+      </figure>
+      <div className="flex flex-col gap-[clamp(0.75rem,2.6vh,1.75rem)]">
+        <h1 className={HEADLINE}>Then it comes back to you.</h1>
+        <ul className="flex flex-col gap-[clamp(0.5rem,1.6vh,1rem)]">
+          {[
+            ['On this day', 'what you caught a year ago.'],
+            ['A hint in the box', 'something you kept, as you open it.'],
+            ['Review', 'what you want to remember, just before you would forget it.']
+          ].map(([lead, rest]) => (
+            <li key={lead} className={`${BODY} max-w-[30ch]`}><span className="font-medium text-foreground">{lead}</span>: {rest}</li>
+          ))}
+        </ul>
+      </div>
+    </div>
   )
 }
 
+/** The centrepiece: the dial in the middle of the window, which wears each theme it passes; the words set in the corner beside it. */
 function Yours({ onPick }: { onPick: (theme: Theme) => void }): React.JSX.Element {
   const [say, setSay] = useState<string | undefined>()
   const win = useWindowSize()
-  const size = win.height < 560 ? 148 : win.width >= 1280 && win.height >= 820 ? 272 : 216
+  const size = Math.round(Math.max(140, Math.min(win.height * 0.44, win.width * 0.3, 360)))
   return (
-    <Screen side title="Make it yours." aside={<ThemeDial size={size} onPick={onPick} onFullTurn={() => (setSay(FULL_TURN), setTimeout(() => setSay(undefined), 1800))} say={say} />}>
-      <p className={BODY}>Pick the colours you will want to look at every day. You can change them any time.</p>
-      <p className="flex flex-wrap items-center gap-1.5 text-control text-muted-foreground/80 [@media(max-height:560px)]:hidden">
-        <span>Turn it with</span><span className="inline-flex gap-0.5"><Kbd>←</Kbd><Kbd>→</Kbd></span><span>or the scroll wheel, or give it a spin.</span>
-      </p>
-    </Screen>
+    <div className="mx-auto grid w-full max-w-[72rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-[clamp(1.5rem,4vw,4rem)] @[50rem]:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+      <div className="flex flex-col gap-[clamp(0.5rem,1.8vh,1.25rem)] @[50rem]:self-start @[50rem]:pt-[clamp(0rem,4vh,2.5rem)]">
+        <h1 className={HEADLINE}>Make it yours.</h1>
+        <p className={`${BODY} max-w-[24ch]`}>Pick the colours you will want to look at every day.</p>
+        <p className={`${QUIET} max-w-[26ch] [@media(max-height:560px)]:hidden`}>
+          Turn it with <span className="inline-flex translate-y-[-0.08em] gap-[0.12em] align-middle"><Kbd className={LINE_KEY}>←</Kbd><Kbd className={LINE_KEY}>→</Kbd></span>, the scroll wheel, or a spin. You can change it any time.
+        </p>
+      </div>
+      <ThemeDial size={size} big onPick={onPick} onFullTurn={() => (setSay(FULL_TURN), setTimeout(() => setSay(undefined), 1800))} say={say} />
+    </div>
   )
 }
 
@@ -850,38 +910,39 @@ function Start({ name, skipped, importing, onPick, onFiles }: { name: string; sk
   ]
   const stagger = !byKeys() && !still()
   return (
-    <div className="mx-auto flex w-full max-w-[54rem] flex-col gap-6 [@media(max-height:560px)]:gap-3">
+    // A plain page and a quiet list: the choice, without a frame round it.
+    <div className="mx-auto flex w-full max-w-[72rem] flex-col gap-[clamp(0.75rem,2.6vh,1.75rem)]">
       <div className="flex flex-col gap-2">
-        <h1 className={HEADLINE}>{name ? `How do you want to start, ${name}?` : 'How do you want to start?'}</h1>
-        {skipped && <p role="status" className="text-control text-muted-foreground">{skipped === 'first' && <span className="italic">{WANDER} </span>}Skipped ahead. The welcome is in the Vigil menu and ⌘K whenever you want it again.</p>}
+        <h1 className={`${HEADLINE} max-w-[18ch]`}>{name ? `How do you want to start, ${name}?` : 'How do you want to start?'}</h1>
+        {skipped && <p role="status" className={`${QUIET} max-w-[48ch]`}>{skipped === 'first' && <span className="italic">{WANDER} </span>}Skipped ahead. The welcome is in the Vigil menu and ⌘K whenever you want it again.</p>}
       </div>
-      <ol className="flex max-w-[clamp(28rem,60vw,48rem)] flex-col gap-2 [@media(max-height:560px)]:gap-1.5">
+      <ol className="flex max-w-[44rem] flex-col">
         {rows.map((row, i) => (
-          <motion.li key={row.key}
+          <motion.li key={row.key} className="border-t border-foreground/10 first:border-t-0"
             initial={stagger ? { opacity: 0, transform: shift('translateY(6px)') } : false}
             animate={{ opacity: 1, transform: shift('translateY(0px)') }}
             transition={{ delay: stagger ? 0.06 + i * 0.04 : 0, duration: 0.22, ease: EASE }}>
-            <button type="button" onClick={() => onPick(row.key)} className={`group flex w-full min-w-0 items-start gap-4 rounded-2xl border bg-[color-mix(in_oklab,var(--background)_88%,transparent)] px-4 py-3.5 text-left outline-none backdrop-blur-sm transition-[background-color,border-color,transform] duration-150 hover:border-foreground/20 hover:bg-[color-mix(in_oklab,var(--foreground)_5%,var(--background))] focus-visible:ring-2 focus-visible:ring-ring/40 active:scale-[0.99] [@media(max-height:560px)]:py-2 ${row.key === 1 ? 'border-foreground/15' : 'border-foreground/8'}`}>
-                <Kbd className="mt-0.5 h-6 min-w-6 text-[0.75rem]">{row.key}</Kbd>
-                <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="mf-row-title flex items-center gap-2 font-heading text-[clamp(1.0625rem,2vw,1.25rem)] font-medium tracking-[-0.01em] text-foreground">
-                    {row.title}
-                    {row.key === 1 && <Kbd className="text-muted-foreground"><CornerDownLeft className="size-3" strokeWidth={2.2} /></Kbd>}
-                  </span>
-                  <span className="text-control leading-relaxed text-pretty text-muted-foreground [@media(max-height:560px)]:truncate [@media(max-height:440px)]:hidden">{row.line}</span>
+            <button type="button" onClick={() => onPick(row.key)} className="group -mx-3 flex w-[calc(100%+1.5rem)] min-w-0 items-baseline gap-[clamp(0.75rem,2vw,1.25rem)] rounded-xl px-3 py-[clamp(0.375rem,1.2vh,0.875rem)] text-left outline-none transition-[background-color,transform] duration-150 hover:bg-foreground/[0.05] focus-visible:ring-2 focus-visible:ring-ring/40 active:scale-[0.99]">
+              <Kbd className={`${LINE_KEY} shrink-0 translate-y-[-0.1em] text-[clamp(0.6875rem,min(1.1vw,1.7vh),0.875rem)]`}>{row.key}</Kbd>
+              <span className="flex min-w-0 flex-col gap-[0.2em]">
+                <span className="mf-row-title flex items-center gap-2 font-heading text-[clamp(1.25rem,min(2.6vw,3.8vh),2rem)] leading-tight font-medium tracking-[-0.015em] text-foreground">
+                  {row.title}
+                  {row.key === 1 && <Kbd className={`${LINE_KEY} text-(--mf-wl-quiet)`}><CornerDownLeft className="size-[1em]" strokeWidth={2.2} /></Kbd>}
                 </span>
+                <span className={`${QUIET} max-w-[46ch] text-pretty [@media(max-height:560px)]:truncate [@media(max-height:440px)]:hidden`}>{row.line}</span>
+              </span>
             </button>
             {row.key === 3 && importing && (
-              <div className="mt-2 flex flex-wrap gap-2 pl-14">
-                <button type="button" onClick={() => onPick(3)} className="h-8 rounded-full bg-primary px-3.5 text-control font-semibold text-primary-foreground active:scale-[0.97]">A folder: Obsidian or Notion…</button>
-                <button type="button" onClick={onFiles} className="h-8 rounded-full border px-3.5 text-control font-medium text-foreground hover:bg-foreground/[0.05] active:scale-[0.97]">Files: Markdown, Readwise, Kindle, Anki…</button>
+              <div className="mb-3 flex flex-wrap gap-2 pl-[clamp(2.25rem,5vw,3.25rem)]">
+                <button type="button" onClick={() => onPick(3)} className="h-9 rounded-full bg-primary px-4 text-[0.875rem] font-semibold text-primary-foreground active:scale-[0.97]">A folder: Obsidian or Notion…</button>
+                <button type="button" onClick={onFiles} className="h-9 rounded-full border px-4 text-[0.875rem] font-medium text-foreground hover:bg-foreground/[0.05] active:scale-[0.97]">Files: Markdown, Readwise, Kindle, Anki…</button>
               </div>
             )}
           </motion.li>
         ))}
       </ol>
-      <p className="flex items-start gap-2 text-control text-muted-foreground [@media(max-height:440px)]:hidden">
-        <ArrowUp aria-hidden className="mt-0.5 size-3.5 shrink-0 text-primary" strokeWidth={2.2} />
+      <p className={`flex max-w-[48ch] items-start gap-2 ${QUIET} [@media(max-height:440px)]:hidden`}>
+        <ArrowUp aria-hidden className="mt-[0.15em] size-[1em] shrink-0 text-primary" strokeWidth={2.2} />
         <span>Vigil lives in your menu bar, up there. It starts with your Mac, so <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> always works.</span>
       </p>
     </div>

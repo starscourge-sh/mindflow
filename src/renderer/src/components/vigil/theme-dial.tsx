@@ -16,7 +16,7 @@ import { Rolling } from './ui'
  * settle); a drag follows the pointer and lands on the nearest detent with a
  * little spring, carrying the flick's speed. A full turn one way is noticed.
  */
-export function ThemeDial({ size = 200, onPick, onFullTurn, say }: { size?: number; onPick: (theme: Theme) => void; onFullTurn?: () => void; /** Said in place of the theme's name, for a moment. */ say?: string }): React.JSX.Element {
+export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: { size?: number; /** The name under it set as a title, for the welcome's centrepiece. */ big?: boolean; onPick: (theme: Theme) => void; onFullTurn?: () => void; /** Said in place of the theme's name, for a moment. */ say?: string }): React.JSX.Element {
   const themes = allThemes()
   const n = themes.length
   const per = 360 / n
@@ -138,7 +138,10 @@ export function ThemeDial({ size = 200, onPick, onFullTurn, say }: { size?: numb
     go(projected, 'pointer', velocity)
   }
 
-  const radius = size / 2 - 18
+  // The band the detents sit in, and the swatches in it, grow with the dial so a large one is not a thin rim.
+  const band = Math.max(30, Math.round(size * 0.14))
+  const radius = size / 2 - band * 0.6
+  const grow = Math.max(1, size / 240)
   return (
     <div className="flex flex-col items-center gap-3 select-none">
       <div
@@ -165,7 +168,7 @@ export function ThemeDial({ size = 200, onPick, onFullTurn, say }: { size?: numb
       >
         {/* The face: a machined ring, the detents set into it. */}
         <div aria-hidden className="absolute inset-0 rounded-full border bg-[color-mix(in_oklab,var(--foreground)_4%,var(--background))] shadow-[inset_0_1px_0_color-mix(in_oklab,white_8%,transparent),inset_0_-10px_24px_-12px_color-mix(in_oklab,var(--mf-shadow-ink)_40%,transparent),0_12px_32px_-14px_color-mix(in_oklab,var(--mf-shadow-ink)_45%,transparent)]" />
-        <div aria-hidden className="absolute inset-[30px] rounded-full border bg-background shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_20%,transparent)]" />
+        <div aria-hidden className="absolute rounded-full border bg-background shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_20%,transparent)]" style={{ inset: band }} />
         {/* The notch at the top: where the theme you are wearing sits. */}
         <div aria-hidden className="absolute top-[3px] left-1/2 h-[7px] w-[2px] -translate-x-1/2 rounded-full bg-primary" />
         <motion.div aria-hidden className="absolute inset-0" style={{ rotate: turn }}>
@@ -180,7 +183,7 @@ export function ThemeDial({ size = 200, onPick, onFullTurn, say }: { size?: numb
                 className="absolute flex size-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full [--mf-swatch-ring:color-mix(in_oklab,var(--foreground)_4%,var(--background))]"
                 style={{ left: x, top: y, rotate: counter }}
               >
-                <span className={`transition-transform duration-150 ease-(--mf-ease) ${i === at ? 'scale-110' : 'scale-[0.82] opacity-70'}`}>
+                <span style={{ zoom: grow }} className={`transition-transform duration-150 ease-(--mf-ease) ${i === at ? 'scale-110' : 'scale-[0.82] opacity-70'}`}>
                   <Swatch theme={theme} />
                 </span>
               </motion.span>
@@ -188,12 +191,12 @@ export function ThemeDial({ size = 200, onPick, onFullTurn, say }: { size?: numb
           })}
         </motion.div>
         {/* The middle: a sample of the words, in the theme being worn. */}
-        <div aria-hidden className="pointer-events-none absolute inset-[30px] flex flex-col items-center justify-center rounded-full">
-          <span className="font-heading text-[2rem] leading-none tracking-[-0.02em] text-foreground">Aa</span>
+        <div aria-hidden className="pointer-events-none absolute flex flex-col items-center justify-center rounded-full" style={{ inset: band }}>
+          <span className="font-heading leading-none tracking-[-0.02em] text-foreground" style={{ fontSize: Math.max(32, size * 0.17) }}>Aa</span>
           <span className="mt-1.5 h-[3px] w-6 rounded-full bg-primary" />
         </div>
       </div>
-      <Rolling text={say ?? themeName(themes[at])} by="character" className="h-5 max-w-[16rem] truncate text-control font-medium text-foreground" />
+      <Rolling text={say ?? themeName(themes[at])} by="character" className={big ? 'h-[1.3em] max-w-[20rem] truncate font-heading text-[clamp(1.125rem,min(2.2vw,3.2vh),1.625rem)] leading-[1.3] text-foreground' : 'h-5 max-w-[16rem] truncate text-control font-medium text-foreground'} />
     </div>
   )
 }

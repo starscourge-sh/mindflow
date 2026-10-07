@@ -1052,6 +1052,23 @@ input[type='number']::-webkit-outer-spin-button {
 @keyframes mf-listen { 50% { opacity: 0.25; } }
 /* A year of days arriving from today outward. */
 .mf-dot-in { animation: mf-dot 420ms var(--mf-ease) both; }
+/* The welcome's two inks under the headline: the page's own text colour
+   mixed back toward the page, so a line under a headline reads as quieter
+   without going faint (at least 4.5:1 in every theme, measured). */
+.mf-welcome {
+  --mf-wl-body: color-mix(in oklab, var(--foreground) 88%, var(--background));
+  --mf-wl-quiet: color-mix(in oklab, var(--foreground) 78%, var(--background));
+}
+/* The first screen's year fades back where the words sit: bottom left, or
+   top left when today is in the second half of the year. */
+.mf-year-field {
+  -webkit-mask-image: radial-gradient(ellipse 72% 82% at 0% 100%, rgb(0 0 0 / 0.07) 55%, black 100%);
+  mask-image: radial-gradient(ellipse 72% 82% at 0% 100%, rgb(0 0 0 / 0.07) 55%, black 100%);
+}
+.mf-year-field-top {
+  -webkit-mask-image: radial-gradient(ellipse 72% 82% at 0% 0%, rgb(0 0 0 / 0.07) 55%, black 100%);
+  mask-image: radial-gradient(ellipse 72% 82% at 0% 0%, rgb(0 0 0 / 0.07) 55%, black 100%);
+}
 @keyframes mf-dot { from { opacity: 0; } }
 /* The scenery behind it drifts, a little, over a minute. */
 .mf-drift { animation: mf-drift 60s ease-in-out infinite alternate; }
