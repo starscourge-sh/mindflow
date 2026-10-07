@@ -454,21 +454,33 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
   // the beacon) and always round. Measured, so a short road never stops half way.
   const most = compact ? 12 : 22
   const [width, setWidth] = useState(0)
+  const [height, setHeight] = useState(0)
   const box = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const node = box.current
     if (!node) return
-    const watch = new ResizeObserver(() => setWidth(node.clientWidth))
+    const measure = (): void => (setWidth(node.clientWidth), setHeight(node.clientHeight))
+    const watch = new ResizeObserver(measure)
     watch.observe(node)
-    setWidth(node.clientWidth)
+    measure()
     return () => watch.disconnect()
   }, [])
-  const step = width ? width / road.cols : most
-  const cell = Math.min(step, most)
+  // The beacon's road is a dense field instead, like a phone's dot widget:
+  // small dots, day after day, left to right, filling the card. The days
+  // before the goal was set fill the rows ahead of it, faint, so the field is
+  // always full and the goal's own days sit at its end, the day itself last.
+  const flow = compact && width > 0
+  const across = flow ? Math.max(7, Math.floor(width / 9)) : road.cols
+  const room = flow ? Math.max(Math.ceil(road.dots.length / across), Math.floor(height / (width / across))) : 0
+  const lead = flow ? Math.min(365, Math.max(0, room * across - road.dots.length)) : 0
+  const down = flow ? Math.ceil((lead + road.dots.length) / across) : road.rows
+  const place = (dot: Dot, index: number): Dot => (flow ? { ...dot, col: (index + lead) % across, row: Math.floor((index + lead) / across) } : dot)
+  const step = width ? width / across : most
+  const cell = flow ? step : Math.min(step, most)
   const at = (dot: Dot): { x: number; y: number } => ({ x: (dot.col + 0.5) * step, y: (dot.row + 0.5) * cell })
   const shown = hover ? logsIn(days, hover) : []
   return (
-    <div ref={box} className="relative w-full">
+    <div ref={box} className={`relative w-full ${compact ? 'h-full' : ''}`}>
       {!compact && (
         <div aria-hidden className="relative mb-1 h-4 text-[11px] text-muted-foreground">
           {road.months.map((month) => (
@@ -479,11 +491,15 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
       <svg
         role="img"
         aria-label={`${num(road.dots.length)} ${road.by === 'day' ? 'days' : 'weeks'} from ${dayMonth(`${from}T12:00`)} to ${dayMonth(`${target}T12:00`)}, ${num(road.dots.filter((dot) => dot.past).length)} gone`}
-        viewBox={`0 0 ${road.cols * step} ${road.rows * cell}`}
+        viewBox={`0 0 ${across * step} ${down * cell}`}
         className="block h-auto w-full overflow-visible"
         onMouseLeave={() => setHover(null)}
       >
-        {road.dots.map((dot) => {
+        {Array.from({ length: lead }, (_, index) => (
+          <circle key={`before-${index}`} cx={((index % across) + 0.5) * step} cy={(Math.floor(index / across) + 0.5) * cell} r={0.34 * cell} fill="currentColor" style={{ opacity: 0.06 }} />
+        ))}
+        {road.dots.map((given, index) => {
+          const dot = place(given, index)
           const logged = logsIn(days, dot).length > 0
           const on = picked?.day === dot.day
           const colour = logged ? ACCENT : 'currentColor'
