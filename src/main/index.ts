@@ -29,6 +29,8 @@ import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShor
 */
 
 import { createHash, randomUUID } from 'crypto'
+import { execFile } from 'child_process'
+import { existsSync } from 'fs'
 import { copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'fs/promises'
 import { basename, dirname, join, relative } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -686,8 +688,36 @@ function openHome(): void {
   const win = makeHome()
   // Painted already (it was made in the background), or the first paint is
   // still to come: either way it shows the moment there is something to see.
-  if (homePainted) win.show()
-  else win.once('ready-to-show', () => win.show())
+  // Your workspace is read before the window shows, since showing it may
+  // take you to its own. A hidden window may not be listed yet: then it is
+  // moved once it shows, and your workspace is brought back.
+  const reveal = (): void =>
+    void (async () => {
+      const here = AEROSPACE ? await aerospace('list-workspaces', '--focused') : ''
+      const seen = await bringHere(win, here)
+      win.show()
+      if (!seen) setTimeout(() => void bringHere(win, here).then((now) => void (now && aerospace('workspace', here))), 60)
+    })()
+  if (homePainted) reveal()
+  else win.once('ready-to-show', reveal)
+}
+
+// AeroSpace, a tiling window manager, keeps a window on the workspace it was
+// first seen on. The main window is made once and kept, so opening it would
+// take you back to that workspace instead of coming to the one you are on.
+// Where AeroSpace is installed, it is asked to move the window here first.
+const AEROSPACE = ['/opt/homebrew/bin/aerospace', '/usr/local/bin/aerospace'].find((path) => existsSync(path))
+const aerospace = (...args: string[]): Promise<string> =>
+  new Promise((done) => execFile(AEROSPACE!, args, { timeout: 1500 }, (error, out) => done(error ? '' : out.trim())))
+
+/** Move the main window to workspace `here`; false when AeroSpace does not list it yet. */
+async function bringHere(win: BrowserWindow, here: string): Promise<boolean> {
+  if (!AEROSPACE || !here || win.isDestroyed()) return true
+  const rows = await aerospace('list-windows', '--all', '--format', '%{window-id}|%{app-pid}|%{workspace}|%{window-title}')
+  const mine = rows.split('\n').map((row) => row.split('|')).find(([, pid, , title]) => Number(pid) === process.pid && title === win.getTitle())
+  if (!mine) return false
+  if (mine[2] !== here) await aerospace('move-node-to-workspace', '--window-id', mine[0], here)
+  return true
 }
 
 /**
