@@ -93,6 +93,9 @@ export function currentTheme(): Theme {
  * repaints the ramp underneath it. The page is transparent over the desktop
  * either way, so there is no second set of rules to switch to.
  */
+/** The appearance last told to the window, so a preview only tells it on a change. */
+let told: "light" | "dark" | null = null
+
 export function applyTheme(theme: Theme, remember = true): void {
   const paint = (): void => {
     const { classList } = document.documentElement
@@ -111,12 +114,13 @@ export function applyTheme(theme: Theme, remember = true): void {
     if (isLight(theme)) document.documentElement.dataset.light = ""
     else delete document.documentElement.dataset.light
   }
-  // Tried or chosen with the pointer, the whole window turns over as one
-  // picture, through a breath of blur (main.css): the page, its words and its
-  // lines change together, instead of a background fading behind text that
-  // had already flipped. Before the first paint, by keys (arrowing through
-  // ⌘K's themes), or with Motion off, it is simply there.
-  const fade = document.readyState === "complete" && document.documentElement.dataset.motion !== "off" && !byKeys() && typeof document.startViewTransition === "function"
+  // Chosen with the pointer, the whole window turns over as one picture,
+  // through a breath of blur (main.css): the page, its words and its lines
+  // change together, instead of a background fading behind text that had
+  // already flipped. A preview (passing over the themes) is simply there: a
+  // fade per theme passed froze the open menu mid-hover. So is a change before
+  // the first paint, by keys, or with Motion off.
+  const fade = remember && document.readyState === "complete" && document.documentElement.dataset.motion !== "off" && !byKeys() && typeof document.startViewTransition === "function"
   // A newer change skips one still running, which only means it is not needed.
   if (fade) document.startViewTransition(paint).ready.catch(() => {})
   else paint()
@@ -124,7 +128,10 @@ export function applyTheme(theme: Theme, remember = true): void {
   if (remember) localStorage.setItem("theme", theme)
   // The window is see-through over macOS's frosted backing: it has to be
   // dark frosting under a dark theme, or the text lands on white.
-  window.api?.setAppearance?.(isLight(theme) ? "light" : "dark")
+  // Told only when it changes: each telling redraws the frosting.
+  const appearance = isLight(theme) ? "light" : "dark"
+  if (appearance !== told) window.api?.setAppearance?.(appearance)
+  told = appearance
 }
 
 /**

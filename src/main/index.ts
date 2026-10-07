@@ -400,6 +400,11 @@ function guard(win: BrowserWindow): void {
       event.preventDefault()
       return sendHome('view', 'settings')
     }
+    // Cmd+O opens the main window from the box, a sticky or a note's own window.
+    if (input.key === 'o' && !input.shift && home?.webContents !== page) {
+      event.preventDefault()
+      return openHome()
+    }
     if (input.key.toLowerCase() !== 'q') return
     event.preventDefault()
     quit()
@@ -1485,6 +1490,31 @@ function createTray(): void {
 }
 
 /**
+ * A bar for the menu, 80 by 6 points, drawn as a template image so macOS
+ * colours it to suit a light or dark menu: the part gone solid, the rest faint.
+ */
+function tempusBar(share: number): Electron.NativeImage {
+  const scale = 2
+  const [width, height] = [80 * scale, 6 * scale]
+  const radius = height / 2
+  const filled = Math.round(Math.min(1, Math.max(0, share)) * width)
+  const pixels = Buffer.alloc(width * height * 4)
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      // Rounded ends: how far a pixel's centre is inside the capsule, as cover.
+      const cx = Math.min(Math.max(x + 0.5, radius), width - radius)
+      const inside = radius - Math.hypot(x + 0.5 - cx, y + 0.5 - radius)
+      const cover = Math.min(1, Math.max(0, inside + 0.5))
+      const alpha = Math.round(cover * (x < filled ? 255 : 70))
+      pixels.writeUInt32LE(alpha << 24 >>> 0, (y * width + x) * 4)
+    }
+  }
+  const image = nativeImage.createFromBitmap(pixels, { width, height, scaleFactor: scale })
+  image.setTemplateImage(true)
+  return image
+}
+
+/**
  * The menu bar: how many reviews are due beside the icon, and "Safe" while
  * safe mode is on, so a quiet app is never mistaken for a broken one. The menu
  * carries the toggle, for when no window is open to reach it from.
@@ -1503,8 +1533,8 @@ function updateTray(): void {
   // Words beside each number, so the menu bar says what it counts: a bare "2 · 1" meant nothing.
   tray.setTitle([nextSaid, session ? `● ${minutes}m` : '', tasks ? `${tasks} due` : '', due ? `${due} to review` : '', safe ? 'Safe' : ''].filter(Boolean).join(' · '), { fontType: 'monospacedDigit' })
   tray.setToolTip(`Vigil${tasks ? ` · ${tasks} task${tasks === 1 ? '' : 's'} due now` : ''}${due ? ` · ${due} to review` : ''}${safe ? ' · safe mode on' : ''}`)
-  // Tempus: how far through the day, week, month and year, as a row of dots each.
-  const dots = (share: number): string => '●'.repeat(Math.round(share * 10)) + '○'.repeat(10 - Math.round(share * 10))
+  // Tempus: how far through the day, week, month and year, each a drawn bar
+  // of one width, so the four line up whatever their words.
   const time = tempus()
   const hidden = safe || gate().hidePrivate
   const goalItems: Electron.MenuItemConstructorOptions[] = goals.slice(0, 6).map((goal) => {
@@ -1517,7 +1547,7 @@ function updateTray(): void {
     Menu.buildFromTemplate([
       ...(goalItems.length ? [{ label: 'Goals', enabled: false }, ...goalItems, { type: 'separator' } as const] : []),
       ...(['day', 'week', 'month', 'year'] as const).map((unit) => ({
-        label: `${unit[0].toUpperCase()}${unit.slice(1)}   ${dots(time[unit])}   ${percent(time[unit])}`, enabled: false
+        label: `${percent(time[unit])} of the ${unit}`, icon: tempusBar(time[unit]), enabled: false
       })),
       { type: 'separator' },
       { label: 'Show Vigil', accelerator: SUMMON, click: () => toggleWindow() },

@@ -63,6 +63,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: '⌃J', does: 'From the note to the list beside it', where: 'The box' },
   { group: 'Getting around', keys: 'I', does: 'From the list back to the note', where: 'The box' },
   { group: 'Getting around', keys: 'Esc', does: 'Hide the box', where: 'The box' },
+  { group: 'Getting around', keys: '⌘O', does: 'Open the main window', where: 'The box' },
 
   { group: 'Writing', keys: '⌘↵', does: 'Send the capture', where: 'The box' },
   { group: 'Writing', keys: '⌥⌘↵', does: 'Send, and keep the box open for the next', where: 'The box' },

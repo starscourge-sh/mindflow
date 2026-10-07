@@ -984,7 +984,7 @@ export default function App(): React.JSX.Element {
             { label: appSettings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', keys: '⌃⌥⌘N', cue: null, run: () => void vigil.setSettings({ stickiesShown: appSettings?.stickiesShown === false }) },
             { label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() },
             { label: reveal ? 'Blur private titles again' : 'Show private titles for now', cue: reveal ? 'off' : 'on', run: () => setReveal(!reveal) },
-            { label: 'Open the main window', run: () => window.api.openInHome('view', 'inbox') },
+            { label: 'Open the main window', keys: '⌘O', run: () => window.api.openInHome('view', 'home') },
             { label: "Open the week's page", cue: 'season', run: () => window.api.openInHome('view', 'weekpage') },
             { label: "Open the month's page", cue: 'season', run: () => window.api.openInHome('view', 'monthpage') },
             { label: 'Year: your seasons of life, month by month', cue: 'season', run: () => window.api.openInHome('view', 'yearpage') },
@@ -1064,6 +1064,7 @@ export default function App(): React.JSX.Element {
             { label: 'Word count', on: counting, set: setCounting }
           ]}
           actions={[
+            { label: 'Open the main window', keys: '⌘O', run: () => window.api.openInHome('view', 'home') },
             { label: expanded ? 'Shrink the window' : 'Expand the window', keys: '⌃⇧F', run: toggleExpanded },
             { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') }
           ]}
