@@ -178,6 +178,10 @@ export function Frost({ tint, lift = false }: { tint?: string; lift?: boolean })
       aria-hidden
       className="pointer-events-none absolute inset-0 -z-10 overflow-hidden rounded-[inherit]"
     >
+      {/* A solid floor under everything: whatever happens to the picture (not
+          loaded yet, refused, a see-through theme), the app or the note behind
+          this window never shows through, so words never sit on other words. */}
+      <div className="absolute inset-0" style={{ backgroundColor: `rgb(${painted(['Canvas', token('--background'), token('--popover')]).join(' ')})` }} />
       {frost.image ? (
         // Keyed apart: the picture's place is set straight on its element, which the wash must not inherit.
         <div

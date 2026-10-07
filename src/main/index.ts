@@ -631,12 +631,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   // A saved place is brought back onto a screen that exists now: a display
   // unplugged, or a note dragged past an edge, never leaves it out of reach.
   // A goal's beacon is taller than a note: the days left, the road and the four bars.
-  const place = bounds ? onScreen({ ...bounds, ...stickySize(bounds.width, bounds.height, bounds) }) : {
-    width: 300,
-    height: type === 'goal' ? 360 : 220,
-    x: workArea.x + workArea.width - 300 - (stickies.size % 2) * 24,
-    y: workArea.y + stickies.size * 64
-  }
+  const place = bounds ? onScreen({ ...bounds, ...stickySize(bounds.width, bounds.height, bounds) }) : freeSpot(workArea, 300, type === 'goal' ? 360 : 220)
   const win = new BrowserWindow({
     ...place,
     minWidth: 220,
@@ -1003,6 +998,25 @@ function beaconMoment(kind: 'wake' | 'open' | 'active'): void {
     tuckLater(key)
   }
   applyStickies()
+}
+
+/**
+ * Where a new sticky goes when it has no place of its own: down the right of
+ * the screen, under the ones already there with a small gap, then the next
+ * column to the left when a column is full. Never on top of another.
+ */
+function freeSpot(area: Electron.Rectangle, width: number, height: number): Electron.Rectangle {
+  const gap = 16
+  const taken = [...stickies.values()].filter((win) => !win.isDestroyed()).map((win) => win.getBounds())
+  const clear = (spot: Electron.Rectangle): boolean =>
+    taken.every((one) => spot.x + spot.width + gap <= one.x || one.x + one.width + gap <= spot.x || spot.y + spot.height + gap <= one.y || one.y + one.height + gap <= spot.y)
+  for (let x = area.x + area.width - width - gap; x >= area.x; x -= width + gap) {
+    for (let y = area.y + gap; y + height <= area.y + area.height; y += 8) {
+      const spot = { x, y, width, height }
+      if (clear(spot)) return spot
+    }
+  }
+  return { x: area.x + area.width - width - gap, y: area.y + gap, width, height }
 }
 
 /** Every sticky to the screen the pointer is on, fanned from its top right: the way back for one lost off an edge. */
