@@ -54,10 +54,16 @@ function useWindowSize(): { width: number; height: number } {
 }
 const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
-/** Said by the time of day, the way a person would open. */
+/**
+ * The hour noticed, with a wink rather than a receptionist's "Good evening":
+ * a line from something you might have watched, picked by the time of day.
+ */
 function greeting(now = new Date()): string {
   const hour = now.getHours()
-  return hour < 5 ? 'Up late.' : hour < 12 ? 'Good morning.' : hour < 18 ? 'Good afternoon.' : hour < 23 ? 'Good evening.' : 'Up late.'
+  if (hour < 5) return 'The night is darkest just before the dawn. A good hour for a thought.'
+  if (hour < 12) return 'Good morning, in all four of Gandalf\'s meanings.'
+  if (hour < 18) return 'An afternoon on Tatooine would have two suns. This one has you.'
+  return 'Captain\'s log, evening entry.'
 }
 
 /** The newest capture typed into Vigil that was not there when the welcome opened. */
@@ -553,10 +559,9 @@ function Hello({ replay }: { replay: boolean }): React.JSX.Element {
   return (
     <div className="flex max-w-[min(100%,44rem)] flex-col gap-[clamp(0.75rem,2.4vh,1.75rem)]">
       {replay ? <h1 className={HEADLINE_XL}>Vigil keeps what you notice.</h1> : <TypeLine text="Vigil keeps what you notice." className={HEADLINE_XL} />}
-      <p className={BODY}>
-        <span className="text-foreground">{greeting()}</span> Catch a thought in two seconds. Nothing you keep goes stale, and the good things come back to you.
-      </p>
-      <p className={`${QUIET} [@media(max-height:520px)]:hidden`}>Two minutes, and you can stop any time.</p>
+      <p className={BODY}>Catch a thought in two seconds. Nothing you keep goes stale, and the good things come back to you.</p>
+      {/* The hour, on a line of its own: an aside, never a salesman's opener. */}
+      <p className={`${QUIET} italic [@media(max-height:520px)]:hidden`}>{greeting()} Two minutes, and you can stop any time.</p>
     </div>
   )
 }
