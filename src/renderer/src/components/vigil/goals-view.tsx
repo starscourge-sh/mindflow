@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Archive, CalendarPlus, Flag, Plus, Wind } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { alive } from '@/components/ui/alive-icon'
@@ -449,11 +449,26 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
   const road = journey(from, target, today)
   const days = logDays(logs)
   const [hover, setHover] = useState<Dot | null>(null)
-  // As large as reads, never wider than the space: 22px a dot at most, 12 on the beacon.
+  // The road spans the whole width it is given, like the bars under it: the
+  // weeks spread out evenly, each dot as large as reads (22px at most, 12 on
+  // the beacon) and always round. Measured, so a short road never stops half way.
   const most = compact ? 12 : 22
+  const [width, setWidth] = useState(0)
+  const box = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const node = box.current
+    if (!node) return
+    const watch = new ResizeObserver(() => setWidth(node.clientWidth))
+    watch.observe(node)
+    setWidth(node.clientWidth)
+    return () => watch.disconnect()
+  }, [])
+  const step = width ? width / road.cols : most
+  const cell = Math.min(step, most)
+  const at = (dot: Dot): { x: number; y: number } => ({ x: (dot.col + 0.5) * step, y: (dot.row + 0.5) * cell })
   const shown = hover ? logsIn(days, hover) : []
   return (
-    <div className="relative" style={{ width: `min(100%, ${road.cols * most}px)` }}>
+    <div ref={box} className="relative w-full">
       {!compact && (
         <div aria-hidden className="relative mb-1 h-4 text-[11px] text-muted-foreground">
           {road.months.map((month) => (
@@ -464,7 +479,7 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
       <svg
         role="img"
         aria-label={`${num(road.dots.length)} ${road.by === 'day' ? 'days' : 'weeks'} from ${dayMonth(`${from}T12:00`)} to ${dayMonth(`${target}T12:00`)}, ${num(road.dots.filter((dot) => dot.past).length)} gone`}
-        viewBox={`0 0 ${road.cols} ${road.rows}`}
+        viewBox={`0 0 ${road.cols * step} ${road.rows * cell}`}
         className="block h-auto w-full overflow-visible"
         onMouseLeave={() => setHover(null)}
       >
@@ -479,10 +494,10 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
               onClick={compact || !onPick ? undefined : () => (chime('tap'), onPick(on ? null : dot))}
               className={compact ? undefined : 'cursor-pointer'}>
               {/* A bigger, unseen target, so the pointer finds each one. */}
-              {!compact && <rect x={dot.col} y={dot.row} width={1} height={1} fill="transparent" />}
-              {dot.target && <circle cx={dot.col + 0.5} cy={dot.row + 0.5} r={0.46} fill="none" stroke={ACCENT} strokeWidth={0.1} />}
-              {on && <circle cx={dot.col + 0.5} cy={dot.row + 0.5} r={0.48} fill="none" stroke="currentColor" strokeWidth={0.08} />}
-              <circle cx={dot.col + 0.5} cy={dot.row + 0.5} r={dot.target ? 0.24 : 0.34} fill={dot.target && !logged ? ACCENT : colour}
+              {!compact && <rect x={dot.col * step} y={dot.row * cell} width={step} height={cell} fill="transparent" />}
+              {dot.target && <circle cx={at(dot).x} cy={at(dot).y} r={0.46 * cell} fill="none" stroke={ACCENT} strokeWidth={0.1 * cell} />}
+              {on && <circle cx={at(dot).x} cy={at(dot).y} r={0.48 * cell} fill="none" stroke="currentColor" strokeWidth={0.08 * cell} />}
+              <circle cx={at(dot).x} cy={at(dot).y} r={(dot.target ? 0.24 : 0.34) * cell} fill={dot.target && !logged ? ACCENT : colour}
                 className={dot.today ? 'mf-goal-today' : undefined} style={{ opacity: dot.target ? 1 : opacity }} />
             </g>
           )
