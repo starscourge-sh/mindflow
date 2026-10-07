@@ -25,7 +25,12 @@ const SAMPLES: Record<MomentKind, Omit<Moment, 'id' | 'kind' | 'rank' | 'line'>>
   inbox: { headline: 'Inbox empty', mark: '0', tint: 'var(--tt-color-text-green)' },
   tasks: { headline: "Today's tasks, all done", mark: '3', tint: 'var(--tt-color-text-green)' },
   year: { headline: 'Kept a year ago', mark: '1y', tint: 'var(--tt-color-text-purple)' },
-  answered: { headline: 'Your first question answered', mark: '1', tint: 'var(--tt-color-text-yellow)' }
+  answered: { headline: 'Your first question answered', mark: '1', tint: 'var(--tt-color-text-yellow)' },
+  goalHalf: { headline: 'Halfway there', mark: '½', tint: 'var(--tt-color-text-orange)' },
+  goal30: { headline: '30 days to go', mark: '30', tint: 'var(--tt-color-text-orange)' },
+  goal7: { headline: 'One week to go', mark: '7', tint: 'var(--tt-color-text-orange)' },
+  goalDay: { headline: 'The day is here', mark: '14', tint: 'var(--tt-color-text-purple)' },
+  goalMade: { headline: 'You made it', mark: '✓', tint: 'var(--tt-color-text-green)' }
 }
 /** One now, in this window, to see what they look like: nothing is counted. Any kind, unless one is named. */
 export function tryCelebration(kind?: MomentKind): void {

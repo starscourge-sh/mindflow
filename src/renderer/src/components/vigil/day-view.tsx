@@ -18,6 +18,7 @@ import { useLive } from '@/lib/vigil'
 import { Island, Page, Rolling, Tip, Typed, toast, typing, Pressed } from './ui'
 import { DayBanner } from './scenery'
 import { DayBrief } from './day-brief'
+import { GoalStrip } from './goals-view'
 import { GlossButton, GlossLine } from './gloss-line'
 import { Versions } from './note-extras'
 import { ScaleSwitch, type Scale } from './periods-view'
@@ -114,6 +115,7 @@ export function DayView({ onOpen, start, onScale }: {
           hold the brief's date and time. Other days keep their strip. */}
       <div className={day === today ? 'mx-auto w-full max-w-[54rem] px-5' : undefined}>
       {day === today && <DayBrief day={day} onOpen={onOpen} onListed={setListed} />}
+      {day === today && <GoalStrip onOpen={onOpen} className="mt-4 -mx-2" />}
       <div className={`${day === today ? '' : 'page-narrow mx-auto w-full px-5'} pt-6 pb-16 [--mf-padding:0.5rem_0]`}>
         {day !== today && <DayBanner day={day} />}
         {/* Today, the brief says the date (on its spine, or a line when narrow): this stays for screen readers. */}

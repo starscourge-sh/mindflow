@@ -117,6 +117,9 @@ const api = {
   /** A sticky's own: put just this one away, or size it from its corner grip. */
   hideSticky: (type: string, id: string): void => ipcRenderer.send('sticky:hide', type, id),
   resizeSticky: (width: number, height: number): void => ipcRenderer.send('sticky:resize', width, height),
+  /** A goal's beacon: the pointer on it (it stays) or off it, and its own X (tucked away). */
+  holdBeacon: (on: boolean): void => ipcRenderer.send('beacon:hold', on),
+  tuckBeacon: (): void => ipcRenderer.send('beacon:tuck'),
   /** Told when every sticky is shown or put away, for its sound. */
   onStickiesShown: (listen: (shown: boolean) => void): (() => void) => {
     const relay = (_event: unknown, shown: boolean): void => listen(shown)
@@ -232,7 +235,7 @@ const api = {
     /** Links and captures holding a card, to tidy: read without counting as an open. */
     cards: (): Promise<{ id: string; kind: string; body: unknown }[]> => ipcRenderer.invoke('captures:cards'),
     /** Search the titles and bodies, newest first. */
-    find: (query: string): Promise<{ type: 'capture' | 'nugget' | 'article' | 'question' | 'task'; id: string; number: number | null; kind: string; status: string; source: string; attribution: string | null; label: string; capturedAt: string }[]> => ipcRenderer.invoke('captures:find', query),
+    find: (query: string): Promise<{ type: 'capture' | 'nugget' | 'article' | 'question' | 'goal' | 'task'; id: string; number: number | null; kind: string; status: string; source: string; attribution: string | null; label: string; capturedAt: string }[]> => ipcRenderer.invoke('captures:find', query),
     /** Three open captures, leaning old: the rot sampler. */
     rot: (): Promise<Capture[]> => ipcRenderer.invoke('captures:rot'),
     /** What `@` offers for the text typed after it. */

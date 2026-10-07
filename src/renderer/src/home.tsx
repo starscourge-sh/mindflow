@@ -19,6 +19,7 @@ import { Search } from './components/search'
 import { CapturesView } from './components/vigil/captures-view'
 import { ItemsView } from './components/vigil/items-view'
 import { QuestionsView, startQuestion } from './components/vigil/questions-view'
+import { GoalsView, startGoal } from './components/vigil/goals-view'
 import { ReviewView } from './components/vigil/review-view'
 import { HomeView } from './components/vigil/home-view'
 import { SettingsView } from './components/vigil/settings-view'
@@ -205,6 +206,7 @@ export function Home(): React.JSX.Element {
   const nuggets = useLive(() => vigil.items('nugget'), [] as Item[], [], ['item'])
   const articles = useLive(() => vigil.items('article'), [] as Item[], [], ['item'])
   const questions = useLive(() => vigil.items('question'), [] as Item[], [], ['item'])
+  const goals = useLive(() => vigil.items('goal'), [] as Item[], [], ['item'])
   const settings = useLive(vigil.settings, null as Settings | null)
   const topTitle = useTopTitle()
   // A new section has no note scrolled: the last one's name does not follow you there.
@@ -218,7 +220,8 @@ export function Home(): React.JSX.Element {
     nuggets: nuggets.filter((one) => !one.archivedAt).length,
     articles: articles.filter((one) => !one.archivedAt).length,
     // Held, not owed: counted in the same quiet grey, never as behind.
-    questions: questions.filter((one) => !one.archivedAt && !one.closedAt).length
+    questions: questions.filter((one) => !one.archivedAt && !one.closedAt).length,
+    goals: goals.filter((one) => !one.archivedAt && !one.closedAt).length
   }
 
   const safeMode = (): void => {
@@ -286,7 +289,7 @@ export function Home(): React.JSX.Element {
 
   // Somewhere else sent you to one thing: open its section with it open.
   const open = (type: string, id: string): void =>
-    setView(type === 'day' ? { id: 'day', focus: id } : { id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id })
+    setView(type === 'view' ? { id } : type === 'day' ? { id: 'day', focus: id } : { id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id })
   const toScale = (scale: Scale): void => (chime('season'), setView({ id: SCALE_VIEW[scale] }))
   // A view is sent by name (⌘, sends Settings), anything else as one thing to open.
   // A heading link from a note window lands on its heading once the note is open.
@@ -333,6 +336,15 @@ export function Home(): React.JSX.Element {
           actions={searching === 'notes' ? [] : [
             { label: 'New capture', keys: 'C', run: () => window.api.showPrompt() },
             { label: 'New question', cue: null, run: () => void startQuestion(open) },
+            { label: 'New goal', cue: null, run: () => void startGoal(open) },
+            // Each open goal's beacon, on screen always or taken off.
+            ...goals.filter((one) => !one.archivedAt && !one.closedAt).map((goal) => {
+              const on = (goal.beacon ?? settings?.goalBeacon ?? 'sometimes') !== 'off'
+              return { label: `${on ? 'Take off screen' : 'Keep on screen'}: ${goal.title}`, cue: null, run: () => void vigil.setBeacon(goal.id, on ? 'off' : 'always').then(() => {
+                chime(on ? 'unstick' : 'stick')
+                toast(on ? 'Off screen: the menu bar and Home still show it' : 'On screen, on every Space', () => void vigil.setBeacon(goal.id, goal.beacon))
+              }) }
+            }),
             { label: 'Tidy: a few minutes over the latest captures', run: () => openPass('tidy') },
             { label: 'Decide: the weekly pass over what waited', run: () => openPass('decide') },
             { label: 'Import an Obsidian vault or Notion export…', cue: null, run: () => void window.api.importFrom('vault') },
@@ -720,6 +732,8 @@ export function Home(): React.JSX.Element {
           <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} focus={view.focus} onOpen={open} />
         ) : view.id === 'questions' ? (
           <QuestionsView focus={view.focus} onOpen={open} />
+        ) : view.id === 'goals' ? (
+          <GoalsView focus={view.focus} onOpen={open} />
         ) : view.id === 'tags' ? (
           <TagsView key={view.focus} onOpen={open} focus={view.focus} />
         ) : view.id === 'stats' ? (

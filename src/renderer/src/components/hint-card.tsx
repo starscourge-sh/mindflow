@@ -215,6 +215,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
     chime('open')
     // The passes open right here in the box, where the day is spent.
     if (nudge.view === 'tidy' || nudge.view === 'decide') openPass(nudge.view)
+    else if (nudge.kind === 'goal' && nudge.id) window.api.openInHome('goal', nudge.id)
     else window.api.openInHome('view', nudge.view)
     setNudge(null)
   }
@@ -261,7 +262,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
           <Typed text={nudge.text} step={28} delay={120} />
           <div className="mt-2 flex items-center gap-1 text-muted-foreground">
             <span className="mr-auto text-xs">{nudge.label}</span>
-            <Button variant="ghost" size="sm" onClick={go}>{nudge.kind === 'weekly' ? 'Decide now' : nudge.kind === 'tidy' ? 'Tidy now' : 'Review now'}</Button>
+            <Button variant="ghost" size="sm" onClick={go}>{nudge.kind === 'weekly' ? 'Decide now' : nudge.kind === 'tidy' ? 'Tidy now' : nudge.kind === 'goal' ? 'Open it' : 'Review now'}</Button>
             <Button variant="ghost" size="sm" onClick={() => (chime('fold'), setNudge(null))}>Not now</Button>
           </div>
         </motion.div>

@@ -38,6 +38,8 @@ import { firstLineOf, tagsOf, type TokenPattern } from './extensions/tokens'
 import { KeptPanel } from './components/vigil/kept-panel'
 import { clueTarget, startQuestion } from './components/vigil/questions-view'
 import { PinnedQuestions, clueInto } from './components/vigil/pinned-questions'
+import { GoalChips, logInto } from './components/vigil/goals-view'
+import { Flag } from 'lucide-react'
 import { RecentPanel } from './components/vigil/recent-panel'
 import { BOX_TABS, useShown, type Place } from './components/vigil/places'
 import { RowMenu } from './components/vigil/row-menu'
@@ -432,10 +434,23 @@ export default function App(): React.JSX.Element {
     void vigil.similar(first).then(setLike)
   }, [first, editing])
 
-  // "+name" on the first line: a clue for a question you are holding, not a
-  // capture. The open questions, to find which one the name means.
-  const held = useLive(() => vigil.items('question').then((list) => list.filter((one) => !one.closedAt && !one.archivedAt)), [] as Item[], [], ['item'])
+  // "+name" on the first line: a clue for a question you are holding, or a
+  // log for a goal, not a capture. The open questions and goals, to find
+  // which one the name means.
+  const held = useLive(() => Promise.all([vigil.items('question'), vigil.items('goal')]).then((lists) => lists.flat().filter((one) => !one.closedAt && !one.archivedAt)), [] as Item[], [], ['item'])
   const plus = editing ? null : clueTarget(first, held)
+  const plusGoal = plus?.question?.tier === 'goal'
+  // A goal picked under the writing: the words are logged to it and nothing
+  // is captured; an open capture moves into it.
+  const logToGoal = (goal: Item): void => {
+    if (editing) return void logInto(goal, { captureId: editing.id })
+    const doc = editorRef.current?.getJSON() ?? body
+    const text = textOf(doc).trim()
+    if (!text) return refuse('Write something first: it is logged to the goal')
+    beam('success')
+    void logInto(goal, { text }, () => (putDraft(doc), fresh(true)))
+    fresh()
+  }
   // A question kept in view, picked under the writing: the words go into it
   // as a clue and nothing is captured; an open capture moves into it.
   const clueToPinned = (question: PinnedQuestion): void => {
@@ -765,10 +780,11 @@ export default function App(): React.JSX.Element {
     if (clueFor?.question) {
       const question = clueFor.question
       const clue = [clueFor.rest, textOf(doc).split('\n').slice(1).join('\n').trim()].filter(Boolean).join('\n')
-      if (!clue) return refuse('Write the clue after a colon, or on the lines under the question’s name')
-      chime('clue')
+      const goal = question.tier === 'goal'
+      if (!clue) return refuse(goal ? 'Write the log after a colon, or on the lines under the goal’s name' : 'Write the clue after a colon, or on the lines under the question’s name')
+      chime(goal ? 'mark' : 'clue')
       beam('success')
-      void vigil.addClue(question.id, clue).then((id) => toast(`A clue in “${question.title.length > 36 ? `${question.title.slice(0, 36)}…` : question.title}”`, () => {
+      void vigil.addClue(question.id, clue).then((id) => toast(`${goal ? 'Logged to' : 'A clue in'} “${question.title.length > 36 ? `${question.title.slice(0, 36)}…` : question.title}”`, () => {
         if (id) void vigil.dropClue(id)
         putDraft(doc)
         fresh(true)
@@ -1182,8 +1198,8 @@ export default function App(): React.JSX.Element {
               {/* "+name": which question the clue will go into, said before you send. */}
               {plus && (
                 <span className="ml-auto flex max-w-72 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground animate-in fade-in-0 zoom-in-95 duration-200">
-                  <Orbit className="size-3.5 shrink-0" />
-                  <span className="truncate"><Rolling by="word" text={plus.question ? `A clue for “${plus.question.title}”` : held.length ? `No question matches “${plus.name}”: it will be a capture` : 'No questions held yet: it will be a capture'} /></span>
+                  {plusGoal ? <Flag className="size-3.5 shrink-0 text-[var(--tt-brand-color-400)]" /> : <Orbit className="size-3.5 shrink-0" />}
+                  <span className="truncate"><Rolling by="word" text={plus.question ? `${plusGoal ? 'A log for' : 'A clue for'} “${plus.question.title}”` : held.length ? `No question or goal matches “${plus.name}”: it will be a capture` : 'No questions or goals yet: it will be a capture'} /></span>
                 </span>
               )}
               {like && !plus && (
@@ -1206,6 +1222,8 @@ export default function App(): React.JSX.Element {
             </div>
             {/* The questions kept in view, once there is something to match against them. */}
             {started && !plus && !focus && <div data-chrome className="px-[4.75rem] pb-1"><PinnedQuestions onPick={clueToPinned} /></div>}
+            {/* The open goals, a click to log what you wrote against one. */}
+            {started && !plus && !focus && <div data-chrome className="px-[4.75rem] pb-1"><GoalChips onPick={logToGoal} /></div>}
             {/* A hint sits at the foot of the box: a glance at something you
                 wrote once, while you are here to write. Usually empty. */}
             <div data-chrome className="px-[4.75rem]">
@@ -1237,7 +1255,7 @@ export default function App(): React.JSX.Element {
               <Tip label={createMore && !editing ? 'A fresh box for the next' : (editing ? 'Back to your draft: changes already save as you make them' : 'With a fresh box after  ⌥⌘↵')}>
               <Button variant="secondary" onClick={() => submit()} className="text-control">
                 {/* Open on a saved note: closing it, since changes already save. */}
-                <Rolling text={editing ? 'Close note' : saved ? 'Saved' : plus?.question ? 'Add clue' : 'Create'} /> <kbd className="font-sans text-key opacity-70">⌘↵</kbd>
+                <Rolling text={editing ? 'Close note' : saved ? 'Saved' : plus?.question ? (plusGoal ? 'Add log' : 'Add clue') : 'Create'} /> <kbd className="font-sans text-key opacity-70">⌘↵</kbd>
               </Button>
               </Tip>
             </main>

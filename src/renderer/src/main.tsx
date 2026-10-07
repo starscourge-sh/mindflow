@@ -44,6 +44,7 @@ import { NoteWindow } from './components/vigil/note-window'
 import { FocusPill, ScreenGlow } from './components/vigil/focus-pill'
 import { StickyNote } from './components/vigil/sticky-note'
 import { LookWindow } from './components/vigil/look-window'
+import { GoalBeacon } from './components/vigil/goal-beacon'
 
 // Before the first paint, and before anything renders: the page wears a theme
 // whether or not an editor is on screen.
@@ -106,7 +107,7 @@ createRoot(document.getElementById('root')!).render(
     {/* What a Motion animation moves on unless it says otherwise: the app's curve (--mf-ease), at a UI pace. */}
     <MotionConfig reducedMotion="user" transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
     <Broken>
-    {drawing ? <DrawingWindow id={drawing} /> : params.get('note') ? <NoteWindow link={params.get('note')!} /> : params.get('view') === 'home' ? <Home /> : params.get('view') === 'focus' ? <FocusPill /> : params.get('view') === 'glow' ? <ScreenGlow /> : params.get('view') === 'look' ? <LookWindow /> : params.get('view') === 'sticky' ? <StickyNote type={params.get('type') ?? 'capture'} id={params.get('id') ?? ''} /> : <App />}
+    {drawing ? <DrawingWindow id={drawing} /> : params.get('note') ? <NoteWindow link={params.get('note')!} /> : params.get('view') === 'home' ? <Home /> : params.get('view') === 'focus' ? <FocusPill /> : params.get('view') === 'glow' ? <ScreenGlow /> : params.get('view') === 'look' ? <LookWindow /> : params.get('view') === 'sticky' && params.get('type') === 'goal' ? <GoalBeacon id={params.get('id') ?? ''} /> : params.get('view') === 'sticky' ? <StickyNote type={params.get('type') ?? 'capture'} id={params.get('id') ?? ''} /> : <App />}
     </Broken>
     </MotionConfig>
   </StrictMode>

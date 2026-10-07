@@ -1,5 +1,5 @@
 import { pathToFileURL } from 'url'
-import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, net, protocol, screen, session, Tray } from 'electron'
+import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, net, powerMonitor, protocol, screen, session, Tray } from 'electron'
 /*
  * app - Control your application's event lifecycle.
  *     - app.on('window-all-closed', () => { app.quit() })
@@ -38,12 +38,13 @@ import icon from '../../resources/icon.png?asset'
 import { alreadyImported, captureText, changed, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { backupDir } from './backup'
-import { activeSession, atLogin, badge, blurOn, gate, motionOn, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenStickies } from './vigil'
+import { activeSession, atLogin, badge, beaconDefault, blurOn, gate, motionOn, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenGoals, whenStickies } from './vigil'
+import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
 import { registerPeriods } from './periods'
 import { registerIssues } from './issues'
-import { num } from './dates'
+import { dayKey, dayMonth, num } from './dates'
 import { registerScenery, sceneryDir } from './scenery'
 import { celebrationFile, registerCelebrations } from './celebrate'
 import { registerUnused } from './unused'
@@ -290,6 +291,7 @@ function toggleWindow(): void {
   if (lastBounds) win.setBounds(onScreen(lastBounds))
   arrive(win)
   recordOpen('prompt')
+  beaconMoment('open')
   win.webContents.send('window:shown')
   // An accessory app is not in the running-app rotation, so asking for the
   // window alone sometimes leaves the keyboard with whatever had it. `steal`
@@ -525,7 +527,7 @@ let stuck: Stuck[] = []
 const keepStuck = (): void => void writeFile(stickyFile(), JSON.stringify(stuck)).catch(() => undefined)
 const stuckAs = (key: string): Stuck | undefined => stuck.find((one) => `${one.type}:${one.id}` === key)
 /** Whether a sticky is on the desktop now: not in safe mode, the stickies shown, and not put away on its own. */
-const stickyUp = (key: string): boolean => !gate().blackout && stickyPrefs().shown && !stuckAs(key)?.hidden
+const stickyUp = (key: string): boolean => !gate().blackout && stickyPrefs().shown && !stuckAs(key)?.hidden && (tucked.get(key) ?? 0) <= Date.now()
 /** Kept out of screen shares and recordings when either setting says so. */
 const shield = (win: BrowserWindow): void => win.setContentProtection(!recordable || stickyPrefs().unshared)
 /** Every sticky as the settings say now: shown or away, shared or not. */
@@ -540,6 +542,8 @@ function applyStickies(): void {
 function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangle): void {
   const key = `${type}:${id}`
   const open = stickies.get(key)
+  // A goal's page says whether its beacon is up, so it hears when that changes.
+  if (type === 'goal') setTimeout(() => changed({ kind: 'item', id }), 0)
   if (!on) {
     stuck = stuck.filter((one) => `${one.type}:${one.id}` !== key)
     keepStuck()
@@ -558,9 +562,10 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   // The window is the note plus room for its lean and shadow.
   // A saved place is brought back onto a screen that exists now: a display
   // unplugged, or a note dragged past an edge, never leaves it out of reach.
+  // A goal's beacon is taller than a note: the days left, the road and the four bars.
   const place = bounds ? onScreen({ ...bounds, ...stickySize(bounds.width, bounds.height, bounds) }) : {
     width: 300,
-    height: 220,
+    height: type === 'goal' ? 360 : 220,
     x: workArea.x + workArea.width - 300 - (stickies.size % 2) * 24,
     y: workArea.y + stickies.size * 64
   }
@@ -614,6 +619,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     if (quitting) return
     stuck = stuck.filter((one) => `${one.type}:${one.id}` !== key)
     keepStuck()
+    if (type === 'goal') changed({ kind: 'item', id })
   })
   stickies.set(key, win)
   if (!stuck.some((one) => `${one.type}:${one.id}` === key)) stuck.push({ type, id, bounds: place })
@@ -678,6 +684,7 @@ let homeAsked = false
 
 function openHome(): void {
   if (!home?.isVisible()) recordOpen('home')
+  beaconMoment('open')
   // One window at a time: going to the main app puts the prompt away.
   if (prompt?.isVisible()) hideWindow(prompt)
   // An accessory app is not in the running-app rotation, so the window alone
@@ -824,6 +831,75 @@ function stickySize(width: number, height: number, at: Electron.Rectangle): { wi
     width: Math.round(Math.min(480, workArea.width * 0.5, Math.max(220, width))),
     height: Math.round(Math.min(520, workArea.height * 0.6, Math.max(130, height)))
   }
+}
+
+/**
+ * A goal's beacon: a sticky of type 'goal', kept as its goal says. Always:
+ * up on every Space. Now and then: tucked away, out at a few moments (the
+ * first wake or unlock of the day, the first time Vigil is opened that day,
+ * and every three hours or so of being at the Mac), then tucked again a
+ * minute later unless the pointer is on it. Off: none. In a goal's last
+ * week, or past its day, now and then stays up as always does. Quiet hours,
+ * safe mode and the stickies put away all keep it down, as for any sticky.
+ */
+/** When each beacon may show again; Infinity is "at its next moment". */
+const tucked = new Map<string, number>()
+const beaconModes = new Map<string, 'always' | 'sometimes'>()
+const beaconHeld = new Set<string>()
+const tuckTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const momentsDone = new Map<string, string>()
+let lastAppear = Date.now()
+/** A goal's beacon as it should be now. */
+const beaconMode = (goal: { goalAt: string; beacon: 'always' | 'sometimes' | 'off' | null }): 'always' | 'sometimes' | 'off' => {
+  const mode = goal.beacon ?? beaconDefault()
+  return mode === 'sometimes' && daysLeft(goal.goalAt) <= 7 ? 'always' : mode
+}
+/** Every goal's beacon made, taken down or tucked as its goal says now. */
+function beacons(): void {
+  const want = new Map(openGoals().map((goal) => [goal.id, beaconMode(goal)]))
+  for (const key of [...stickies.keys()]) {
+    if (!key.startsWith('goal:')) continue
+    const mode = want.get(key.slice(5))
+    if (!mode || mode === 'off') (beaconModes.delete(key), tucked.delete(key), stick('goal', key.slice(5), false))
+  }
+  for (const [id, mode] of want) {
+    if (mode === 'off') continue
+    const key = `goal:${id}`
+    // Turned to now and then (or new), it waits for its moment; turned to always, it comes out.
+    if (beaconModes.get(key) !== mode) {
+      if (mode === 'sometimes') tucked.set(key, Infinity)
+      else tucked.delete(key)
+      beaconModes.set(key, mode)
+    }
+    if (!stickies.has(key)) stick('goal', id, true)
+  }
+  applyStickies()
+}
+/** Tucked a minute from now, unless the pointer is on it then. */
+function tuckLater(key: string): void {
+  clearTimeout(tuckTimers.get(key))
+  tuckTimers.set(key, setTimeout(() => {
+    if (beaconHeld.has(key) || beaconModes.get(key) !== 'sometimes') return
+    tucked.set(key, Infinity)
+    applyStickies()
+  }, 60_000))
+}
+/** A moment for the now-and-then beacons to come out: each kind once a day, the three-hourly one as it comes. */
+function beaconMoment(kind: 'wake' | 'open' | 'active'): void {
+  const { blackout, hidePrivate } = gate()
+  if (blackout || hidePrivate || !stickyPrefs().shown) return
+  if (kind !== 'active') {
+    if (momentsDone.get(kind) === dayKey()) return
+    momentsDone.set(kind, dayKey())
+  }
+  const keys = [...beaconModes].filter(([, mode]) => mode === 'sometimes').map(([key]) => key)
+  if (!keys.length) return
+  lastAppear = Date.now()
+  for (const key of keys) {
+    tucked.delete(key)
+    tuckLater(key)
+  }
+  applyStickies()
 }
 
 /** Every sticky to the screen the pointer is on, fanned from its top right: the way back for one lost off an edge. */
@@ -1405,7 +1481,7 @@ function createTray(): void {
   tray = new Tray(image)
   updateTray()
   // Kept current without a window open: the count changes as the day goes on.
-  setInterval(updateTray, 30_000)
+  setInterval(() => (updateTray(), beacons()), 30_000)
 }
 
 /**
@@ -1419,11 +1495,31 @@ function updateTray(): void {
   // A running session shows its minutes, so the menu bar says what you are on.
   const session = activeSession()
   const minutes = session ? Math.floor((Date.now() - new Date(session.startedAt).getTime()) / 60000) : 0
+  // The nearest open goal leads, short so the menu bar stays narrow: "14 Dec · 68d".
+  // Its day, never its name: the menu bar is on every shared screen.
+  const goals = openGoals()
+  const next = goals.find((goal) => daysLeft(goal.goalAt) >= 0)
+  const nextSaid = next ? `${dayMonth(`${next.goalAt}T12:00`)} · ${daysLeft(next.goalAt) ? `${daysLeft(next.goalAt)}d` : 'today'}` : ''
   // Words beside each number, so the menu bar says what it counts: a bare "2 · 1" meant nothing.
-  tray.setTitle([session ? `● ${minutes}m` : '', tasks ? `${tasks} due` : '', due ? `${due} to review` : '', safe ? 'Safe' : ''].filter(Boolean).join(' · '), { fontType: 'monospacedDigit' })
+  tray.setTitle([nextSaid, session ? `● ${minutes}m` : '', tasks ? `${tasks} due` : '', due ? `${due} to review` : '', safe ? 'Safe' : ''].filter(Boolean).join(' · '), { fontType: 'monospacedDigit' })
   tray.setToolTip(`Vigil${tasks ? ` · ${tasks} task${tasks === 1 ? '' : 's'} due now` : ''}${due ? ` · ${due} to review` : ''}${safe ? ' · safe mode on' : ''}`)
+  // Tempus: how far through the day, week, month and year, as a row of dots each.
+  const dots = (share: number): string => '●'.repeat(Math.round(share * 10)) + '○'.repeat(10 - Math.round(share * 10))
+  const time = tempus()
+  const hidden = safe || gate().hidePrivate
+  const goalItems: Electron.MenuItemConstructorOptions[] = goals.slice(0, 6).map((goal) => {
+    const left = daysLeft(goal.goalAt)
+    const name = goal.private && hidden ? 'A private goal' : goal.title.length > 40 ? `${goal.title.slice(0, 40)}…` : goal.title
+    const when = left < 0 ? 'did you make it?' : left === 0 ? 'today' : `${num(left)} ${left === 1 ? 'day' : 'days'} left`
+    return { label: `${name}  ·  ${when}  ·  ${percent(wayThrough(goal.goalFrom, goal.goalAt))} of the way`, click: () => sendHome('goal', goal.id) }
+  })
   tray.setContextMenu(
     Menu.buildFromTemplate([
+      ...(goalItems.length ? [{ label: 'Goals', enabled: false }, ...goalItems, { type: 'separator' } as const] : []),
+      ...(['day', 'week', 'month', 'year'] as const).map((unit) => ({
+        label: `${unit[0].toUpperCase()}${unit.slice(1)}   ${dots(time[unit])}   ${percent(time[unit])}`, enabled: false
+      })),
+      { type: 'separator' },
       { label: 'Show Vigil', accelerator: SUMMON, click: () => toggleWindow() },
       { label: 'Open the main window', click: openHome },
       { label: 'Import…', click: () => void importFiles() },
@@ -1585,7 +1681,30 @@ app.whenReady().then(() => {
   ipcMain.on('sticky', (_event, type: unknown, id: unknown, on: unknown) => {
     if (typeof type === 'string' && typeof id === 'string') stick(type, id, Boolean(on))
   })
-  void restoreStickies()
+  // Beacons once the stickies are back, then as goals change, and at their moments.
+  void restoreStickies().then(beacons)
+  whenGoals(beacons)
+  powerMonitor.on('unlock-screen', () => beaconMoment('wake'))
+  powerMonitor.on('resume', () => beaconMoment('wake'))
+  // At the Mac (touched in the last two minutes) and three hours since the last: out again.
+  setInterval(() => {
+    if (powerMonitor.getSystemIdleTime() < 120 && Date.now() - lastAppear >= 3 * 3600_000) beaconMoment('active')
+  }, 5 * 60_000)
+  // Pointed at, a beacon stays; let go, it tucks a minute later. Its own X
+  // tucks it: till its next moment, or for an always one, till tomorrow.
+  ipcMain.on('beacon:hold', (event, on: unknown) => {
+    const key = [...stickies].find(([, win]) => win.webContents === event.sender)?.[0]
+    if (!key) return
+    if (on) beaconHeld.add(key)
+    else (beaconHeld.delete(key), beaconModes.get(key) === 'sometimes' && tuckLater(key))
+  })
+  ipcMain.on('beacon:tuck', (event) => {
+    const key = [...stickies].find(([, win]) => win.webContents === event.sender)?.[0]
+    if (!key) return
+    beaconHeld.delete(key)
+    tucked.set(key, beaconModes.get(key) === 'sometimes' ? Infinity : new Date().setHours(24, 0, 0, 0))
+    applyStickies()
+  })
   // Shown again, every sticky comes back, those put away on their own too. A quiet
   // sound whichever way it went, from the window in front if it is Vigil's, else the box: never a sticky being hidden.
   let stickiesShown = stickyPrefs().shown

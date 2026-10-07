@@ -62,7 +62,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
   const words = query.toLowerCase().split(/\s+/).filter((word) => word && !word.startsWith('kind:'))
   const results = (slow ? [] : found).filter((one) =>
     (!titleOnly || words.every((word) => one.label.toLowerCase().includes(word))) &&
-    (!types.length || types.includes(one.type === 'article' || one.type === 'question' ? 'nugget' : one.type)) &&
+    (!types.length || types.includes(one.type === 'article' || one.type === 'question' || one.type === 'goal' ? 'nugget' : one.type)) &&
     (!kinds.length || kinds.includes(one.kind)))
   // Raycast's ⌘K: what you can do comes first, matched by the same words,
   // then what you have written. One list, one cursor.

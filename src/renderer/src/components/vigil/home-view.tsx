@@ -26,6 +26,7 @@ import { completeTask } from './tasks-view'
 import { Empty, Pressed, Tip } from './ui'
 import { byKeys } from '@/lib/motion'
 import { KindBack, backLine, type Returning } from './kind-back'
+import { GoalStrip } from './goals-view'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowRight = alive(ArrowNarrowRightIcon)
@@ -636,6 +637,8 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       {/* The band: the colour of the tile you point at, run down behind the top and faded into the page. */}
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[20rem] transition-[background-color] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]"
         style={{ backgroundColor: band ?? 'transparent', maskImage: 'linear-gradient(to bottom, black 0%, black 20%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 20%, transparent 100%)' }} />
+      {/* Open goals, quiet, above everything else: never hidden while one is open. */}
+      <GoalStrip onOpen={(type, id) => (type === 'view' ? onView(id) : onOpen(type, id))} className="page-column relative w-full px-3 pt-3 @[44rem]/page:px-6" />
       {empty ? (
         <div className="relative px-3 @[44rem]/page:px-6">
           <Empty shape={['flower', 2]} title="Things come back to you here" action={

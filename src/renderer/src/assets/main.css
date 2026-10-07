@@ -859,3 +859,13 @@ input[type='number']::-webkit-outer-spin-button {
 }
 :root[data-motion='off'] .mf-shimmer::before { animation: none; }
 @media (prefers-reduced-motion: reduce) { .mf-shimmer::before { animation: none; } }
+
+/* A goal's today, on its road: a slow breath, so the eye finds where you are.
+   Still with Motion off or Reduce motion on. */
+.mf-goal-today { animation: mf-goal-today 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes mf-goal-today {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.82); }
+}
+:root[data-motion='off'] .mf-goal-today { animation: none; }
+@media (prefers-reduced-motion: reduce) { .mf-goal-today { animation: none; } }

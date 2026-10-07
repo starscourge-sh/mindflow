@@ -10,6 +10,7 @@
     "src/main/import.ts",
     "src/main/task-words.ts",
     "src/main/dates.ts",
+    "src/main/goal-days.ts",
     "src/main/celebrate.ts"
   ],
   "compilerOptions": {

@@ -327,7 +327,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
     const how = item.closedHow ?? 'let go'
     void vigil.reopenQuestion(item.id).then(() => {
       chime('hold')
-      toast('Held again', () => void vigil.closeQuestion(item.id, how, true))
+      toast('Held again', () => void vigil.closeQuestion(item.id, how as 'answered' | 'let go', true))
     })
   }
   // Its clues read one at a time, newest first as they are listed; null while not reading.

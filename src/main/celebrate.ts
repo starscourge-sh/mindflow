@@ -4,7 +4,8 @@ import { readdir, realpath, stat } from 'fs/promises'
 import { basename, extname, isAbsolute, join } from 'path'
 import { database } from './captures'
 import { dayKey, dayjs, startOfDay } from './dates'
-import { celebrationPrefs, gate } from './vigil'
+import { celebrationPrefs, gate, openGoals } from './vigil'
+import { daysBetween, daysLeft, wayThrough } from './goal-days'
 
 /**
  * Celebrations: a small card for the rare milestones (a 100th capture, an
@@ -14,10 +15,12 @@ import { celebrationPrefs, gate } from './vigil'
  */
 
 /** The kinds of milestone, each of which can have a file of its own to play. */
-export const MOMENTS = ['kept', 'streak', 'inbox', 'tasks', 'year', 'answered'] as const
+export const MOMENTS = ['kept', 'streak', 'inbox', 'tasks', 'year', 'answered', 'goalHalf', 'goal30', 'goal7', 'goalDay', 'goalMade'] as const
 export type MomentKind = (typeof MOMENTS)[number]
 /** A milestone, as the window shows it. `rank` decides between two at once. */
-export type Moment = { id: string; kind: MomentKind; rank: number; headline: string; line?: string; mark: string; tint: string }
+export type Moment = { id: string; kind: MomentKind; rank: number; headline: string; line?: string; mark: string; tint: string
+  /** Steps passed along with it, marked shown with it so none comes after. */
+  also?: string[] }
 export type Media = { url: string; video: boolean; name: string }
 
 const KINDS: Record<string, 'image' | 'video'> = {
@@ -196,9 +199,72 @@ function answered(id: unknown): Moment | null {
   }
 }
 
+/** A goal's steps on the road: halfway, 30 days left, a week left, the day itself. */
+const STEPS = ['half', '30', '7', 'day'] as const
+type Step = (typeof STEPS)[number]
+/** The steps a goal has reached by now. Each only counts on a road long enough for it to mean something. */
+function stepsReached(goal: { goalAt: string; goalFrom: string }): Step[] {
+  const left = daysLeft(goal.goalAt)
+  const total = daysBetween(goal.goalFrom, goal.goalAt)
+  return STEPS.filter((step) =>
+    step === 'half' ? total >= 14 && wayThrough(goal.goalFrom, goal.goalAt) >= 0.5 && left > 0
+      : step === 'day' ? left === 0
+        : left <= Number(step) && left > 0 && total > Number(step))
+}
+const STEP_MOMENT: Record<Step, { kind: MomentKind; rank: number; headline: string; tint: string }> = {
+  half: { kind: 'goalHalf', rank: 42, headline: 'Halfway there', tint: TINT.orange },
+  30: { kind: 'goal30', rank: 44, headline: '30 days to go', tint: TINT.orange },
+  7: { kind: 'goal7', rank: 52, headline: 'One week to go', tint: TINT.orange },
+  day: { kind: 'goalDay', rank: 70, headline: 'The day is here', tint: TINT.purple }
+}
+/** A goal's name on a card, unless it is private or the screen may be shared. */
+const named = (goal: { title: string; private: number }): string | undefined => (goal.private || gate().hidePrivate ? undefined : goal.title)
+
+/** The biggest step any open goal has reached and not yet shown, with its others passed along with it. */
+function goalSteps(): Moment | null {
+  const found: Moment[] = []
+  for (const goal of openGoals()) {
+    const fresh = stepsReached(goal).filter((step) => !fired(`goal:${goal.id}:${step}`))
+    if (!fresh.length) continue
+    const best = fresh.map((step) => ({ step, ...STEP_MOMENT[step] })).sort((a, b) => b.rank - a.rank)[0]
+    const left = daysLeft(goal.goalAt)
+    found.push({
+      id: `goal:${goal.id}:${best.step}`, kind: best.kind, rank: best.rank, headline: best.headline, tint: best.tint,
+      line: named(goal), mark: best.step === 'half' ? '½' : best.step === 'day' ? dayjs().format('D') : `${left}`,
+      also: fresh.filter((step) => step !== best.step).map((step) => `goal:${goal.id}:${step}`)
+    })
+  }
+  return found.sort((a, b) => b.rank - a.rank)[0] ?? null
+}
+
+/** A goal made: once a goal, and not when an undo puts it back. */
+function madeIt(id: unknown): Moment | null {
+  if (typeof id !== 'string' || fired(`goal:${id}:made`)) return null
+  const row = database().prepare("select title, private from nuggets where id = ? and tier = 'goal' and closed_how = 'made it'").get(id) as { title: string; private: number } | undefined
+  if (!row) return null
+  return { id: `goal:${id}:made`, kind: 'goalMade', rank: 80, headline: 'You made it', line: named(row), mark: '✓', tint: TINT.green }
+}
+
+/**
+ * A goal just set, or its dates moved: the steps it has already passed are
+ * marked shown, dated long ago, so a goal set halfway along does not open
+ * with a card. Steps still ahead are left to come.
+ */
+export function goalPassed(id: string): void {
+  try {
+    const goal = database().prepare("select goal_at as goalAt, goal_from as goalFrom from nuggets where id = ? and tier = 'goal'").get(id) as { goalAt: string; goalFrom: string } | undefined
+    if (!goal) return
+    const mark = database().prepare("insert or ignore into celebrations (id, at) values (?, '1970-01-01T00:00:00.000Z')")
+    for (const step of stepsReached(goal)) mark.run(`goal:${id}:${step}`)
+  } catch {
+    // A milestone is never worth a failed save.
+  }
+}
+
 /** The channels that can reach a milestone, and which ones each can reach. */
 const WATCH: Record<string, (args: unknown[], result: unknown) => (Moment | null)[]> = {
-  'captures:create': () => [kept(), streak()],
+  // A goal's steps come with time, so they show on the next save that can show one.
+  'captures:create': () => [kept(), streak(), goalSteps()],
   'captures:save': (args, result) => {
     const status = (args[1] as { status?: string } | undefined)?.status
     const took = status && status !== 'open' && (result as { was?: string; refused?: boolean })?.was === 'open' && !(result as { refused?: boolean }).refused
@@ -207,13 +273,14 @@ const WATCH: Record<string, (args: unknown[], result: unknown) => (Moment | null
   // Every other way a capture leaves the inbox.
   promote: () => [emptied()],
   'nugget:from': () => [emptied()],
-  clue: () => [emptied()],
+  clue: () => [emptied(), goalSteps()],
   'notes:archive': (args) => (args[2] && args[0] !== 'nuggets' ? [emptied()] : []),
   'capture:merge': () => [emptied()],
   toTask: () => [emptied()],
   'tasks:from': () => [emptied()],
   'question:new': () => [emptied()],
-  'task:done': () => [finished()],
+  'task:done': () => [finished(), goalSteps()],
+  'goal:close': (args) => (args[1] === 'made it' ? [madeIt(args[0])] : []),
   'session:end': () => [finished()],
   'question:close': (args) => (args[1] === 'answered' && !args[2] ? [answered(args[0])] : []),
   'review:grade': (args) => [longAgo(args[0])]
@@ -236,9 +303,10 @@ export function celebrateAfter(channel: string, sender: WebContents, args: unkno
     if (!best) return
     const at = new Date().toISOString()
     database().prepare('insert or ignore into celebrations (id, at) values (?, ?)').run(best.id, at)
+    for (const id of best.also ?? []) database().prepare('insert or ignore into celebrations (id, at) values (?, ?)').run(id, at)
     // A note from long ago is also the day's one.
     if (best.id.startsWith('year:')) database().prepare('insert or ignore into celebrations (id, at) values (?, ?)').run(`year:${dayKey()}`, at)
-    sender.send('celebrate', best)
+    sender.send('celebrate', { ...best, also: undefined })
   } catch {
     // A milestone is never worth a failed save.
   }

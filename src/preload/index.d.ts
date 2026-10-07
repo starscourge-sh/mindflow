@@ -60,6 +60,8 @@ export interface Api {
   onLookOver: (listen: () => void) => () => void
   hideSticky: (type: string, id: string) => void
   resizeSticky: (width: number, height: number) => void
+  holdBeacon: (on: boolean) => void
+  tuckBeacon: () => void
   onStickiesShown: (listen: (shown: boolean) => void) => () => void
   hideWindow: () => void
   showPrompt: () => void
@@ -91,7 +93,7 @@ export interface Api {
     cards: () => Promise<{ id: string; kind: string; body: unknown }[]>
     search: (query: string) => Promise<CaptureMeta[]>
     rot: () => Promise<Capture[]>
-    find: (query: string) => Promise<{ type: 'capture' | 'nugget' | 'article' | 'question' | 'task'; id: string; number: number | null; kind: string; status: string; source: string; attribution: string | null; label: string; capturedAt: string }[]>
+    find: (query: string) => Promise<{ type: 'capture' | 'nugget' | 'article' | 'question' | 'goal' | 'task'; id: string; number: number | null; kind: string; status: string; source: string; attribution: string | null; label: string; capturedAt: string }[]>
     peek: (type: string, id: string) => Promise<unknown>
     create: (patch: CapturePatch) => Promise<string>
     save: (id: string, patch: CapturePatch) => Promise<SaveResult>

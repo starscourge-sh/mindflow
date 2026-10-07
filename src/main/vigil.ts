@@ -10,7 +10,8 @@ import { LABEL, LIST, atomically, changed, database, like, movedOn, type Change 
 import { advance, readTask } from './task-words'
 import { dayKey, dayMonth, dayjs, daysFromToday, monthName, num, startOfDay } from './dates'
 import { backupDir, checkMarkdown } from './backup'
-import { celebrateAfter, watches, type MomentKind } from './celebrate'
+import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrate'
+import { daysBetween, daysLeft, leftSaid } from './goal-days'
 
 /**
  * Everything past the capture: nuggets and articles, the review queue, tasks,
@@ -236,6 +237,14 @@ const DEFAULTS = {
   // A question you are holding comes back now and then as a hint card: still
   // open, how long, how many clues. Off in Settings.
   questionsBack: true,
+  // Open goals in a slim strip at the top of Home and Today's page.
+  goalStrip: true,
+  // A goal with no log for a week says so in the box, more plainly as it goes on.
+  goalNudges: true,
+  // A goal's beacon, a small window of its own on every Space: 'always',
+  // 'sometimes' (at a few moments a day, then tucked away) or 'off'. Each
+  // goal can say otherwise; in its last week 'sometimes' stays.
+  goalBeacon: 'sometimes' as 'always' | 'sometimes' | 'off',
   // A plain-text copy of each capture beside the backups (never a private one).
   markdownCopies: true,
   // How far back the Recent panel reaches, in days.
@@ -245,7 +254,7 @@ const DEFAULTS = {
   // Headings fold away what is under them, as a view: the note never changes.
   foldHeadings: true,
   // What the main window's sidebar lists; the rest wait under More, a G away.
-  sidebarShown: ['inbox', 'review', 'day', 'today', 'week', 'nuggets', 'articles', 'questions'] as string[],
+  sidebarShown: ['inbox', 'review', 'day', 'today', 'week', 'nuggets', 'articles', 'questions', 'goals'] as string[],
   // The box's tabs; Recent is a ⇧⌘Y or ⌘K away until shown.
   boxTabs: ['inbox', 'today', 'review', 'kept'] as string[],
   // Sticky notes on the desktop: shown or all put away (⌃⌥⌘N), and kept out of
@@ -283,6 +292,12 @@ async function weatherNow(): Promise<string | null> {
 /** Told when safe mode goes on or off, however it was flipped: the windows follow it. */
 let safeModeTold: (on: boolean) => void = () => undefined
 export const whenSafeMode = (tell: (on: boolean) => void): void => void (safeModeTold = tell)
+
+/** Told when a goal is made, moved, settled or taken back, or its beacon setting changes: the beacons follow. */
+let goalsTold: () => void = () => undefined
+export const whenGoals = (tell: () => void): void => void (goalsTold = tell)
+/** Each goal's beacon unless the goal says otherwise: 'always', 'sometimes' or 'off'. */
+export const beaconDefault = (): 'always' | 'sometimes' | 'off' => settings().goalBeacon
 
 /** Told when the stickies are shown or put away, or kept in or out of screen shares. */
 let stickiesTold: () => void = () => undefined
@@ -541,6 +556,13 @@ export function registerVigil(): void {
   column('nuggets', 'closed_how text')
   // A clue that came from a capture keeps which, so taking it back reopens it.
   column('glosses', 'source_id text')
+  // A goal: the day it is for and the day it was set, as "2026-12-14". It is
+  // settled as a question is, by closed_at and closed_how ('made it',
+  // 'missed' or 'let go'); why it matters is its `why`, its logs are glosses.
+  column('nuggets', 'goal_at text')
+  column('nuggets', 'goal_from text')
+  // How often its beacon shows; null follows Settings.
+  column('nuggets', 'goal_beacon text')
   // Which day each gentle nudge was last given, so none comes twice in a day.
   db.exec('create table if not exists nudges (key text primary key, day text not null)')
   // When a capture's age starts counting: when it was written, or for one
@@ -574,6 +596,15 @@ export function registerVigil(): void {
   if (version < 3) {
     db.exec("delete from settings where key in ('noteFont', 'headingFont'); pragma user_version = 3")
   }
+  // Goals arrived: a sidebar already set up shows them too, under Kept.
+  if (version < 4) {
+    const saved = db.prepare("select value from settings where key = 'sidebarShown'").get() as { value: string } | undefined
+    let shown: unknown = null
+    try { shown = saved && JSON.parse(saved.value) } catch { /* Unreadable: the default, which has them. */ }
+    if (Array.isArray(shown) && !shown.includes('goals'))
+      db.prepare("update settings set value = ? where key = 'sidebarShown'").run(JSON.stringify([...shown, 'goals']))
+    db.exec('pragma user_version = 4')
+  }
 
   // A write that may reach a milestone is looked at once it is done, and the
   // window it came from is the one that celebrates.
@@ -596,6 +627,7 @@ export function registerVigil(): void {
     if ('stickiesShown' in patch || 'stickiesUnshared' in patch) stickiesTold()
     if ('spellcheck' in patch || 'spellLanguages' in patch) spelling()
     if ('openAtLogin' in patch) atLogin()
+    if ('goalBeacon' in patch) goalsTold()
     return write(settings())
   })
   // Spelling: the languages there are and the ones in use, and a word kept as
@@ -935,7 +967,7 @@ export function registerVigil(): void {
     // A third of the time, a note-to-self on rotation: the one that has gone
     // longest unseen, unconditionally. Otherwise a weighted random encounter.
     const pushed = Math.random() < 1 / 3
-      ? (db.prepare(`select id, capture_id as captureId, kind, tier, title, body from nuggets where mode = 'pushed' and tier != 'question' and suspended = 0 and archived_at is null and coalesce(capture_id, '') not in (select id from captures where surfaced_at >= ?) and private = 0
+      ? (db.prepare(`select id, capture_id as captureId, kind, tier, title, body from nuggets where mode = 'pushed' and tier not in ('question', 'goal') and suspended = 0 and archived_at is null and coalesce(capture_id, '') not in (select id from captures where surfaced_at >= ?) and private = 0
           order by coalesce(last_visited_at, '') limit 1`).get(ago(3)) as Record<string, string> | undefined)
       : undefined
     // Half the time, or always while there are few nuggets, an old capture
@@ -959,7 +991,7 @@ export function registerVigil(): void {
       : undefined
     const hint = pushed ?? old ?? db
       .prepare(
-        `select id, capture_id as captureId, kind, tier, title, body from nuggets where suspended = 0 and archived_at is null and mode != 'pushed' and tier != 'question' and coalesce(capture_id, '') not in (select id from captures where surfaced_at >= ?) and private = 0
+        `select id, capture_id as captureId, kind, tier, title, body from nuggets where suspended = 0 and archived_at is null and mode != 'pushed' and tier not in ('question', 'goal') and coalesce(capture_id, '') not in (select id from captures where surfaced_at >= ?) and private = 0
          order by (julianday('now') - julianday(coalesce(last_visited_at, '2000-01-01'))) * surfacing_weight * (abs(random()) % 1000) desc
          limit 1`
       )
@@ -972,7 +1004,7 @@ export function registerVigil(): void {
   })
   // The Luhmann move: two unrelated things side by side, for the connection
   // you would never have gone looking for.
-  handle('random', () => db.prepare("select id, kind, title, body from nuggets where archived_at is null and superseded_by is null and private = 0 and tier != 'question' order by random() limit 2").all().map(body))
+  handle('random', () => db.prepare("select id, kind, title, body from nuggets where archived_at is null and superseded_by is null and private = 0 and tier not in ('question', 'goal') order by random() limit 2").all().map(body))
   // Dwell: how long the hint was in front of you before the window went. The
   // signal every hint produces, where a vote is the rare one.
   ipcMain.handle('hints:dwell', (_event, event: number, ms: number) =>
@@ -1002,7 +1034,8 @@ export function registerVigil(): void {
   const ITEM = `id, tier, kind, coalesce(nullif(title, ''), label('', body)) as title, prompt, private, pinned_at as pinnedAt, due_at as dueAt, suspended,
     state is not null as reviewed, created_at as createdAt, updated_at as updatedAt, capture_id as captureId, remind_at as remindAt,
     (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses, attribution, context, mode, superseded_by as supersededBy, archived_at as archivedAt, revisions, why,
-    closed_at as closedAt, closed_how as closedHow, (select count(*) from glosses where item_id = nuggets.id) as clues`
+    closed_at as closedAt, closed_how as closedHow, (select count(*) from glosses where item_id = nuggets.id) as clues,
+    goal_at as goalAt, goal_from as goalFrom, goal_beacon as beacon, (select max(created_at) from glosses where item_id = nuggets.id) as lastLog`
   handle('items', (tier: string) =>
     db.prepare(`select ${ITEM} from nuggets where tier = ? order by created_at desc`).all(tier)
   )
@@ -1221,6 +1254,61 @@ export function registerVigil(): void {
     return { ...row, event: Number(lastInsertRowid) }
   })
 
+  // --- goals: a day you are working toward, and the road to it. A goal
+  // lives beside the questions, a nugget row with its own tier: dated logs
+  // (glosses, kept by the same 'clue' channel), never reviewed, never rotting.
+  // It ends when you say how it went: made it, missed, or let go.
+  const isDay = (day: unknown): day is string => typeof day === 'string' && /^\d{4}-\d\d-\d\d$/.test(day)
+  handle('goal:new', (title: string, target: string, from?: string | null, why?: string | null) => {
+    if (!isDay(target)) return null
+    const start = isDay(from) ? from : dayKey()
+    const id = randomUUID()
+    db.prepare("insert into nuggets (id, tier, kind, title, body, why, goal_at, goal_from, created_at, updated_at) values (?, 'goal', 'note', ?, 'null', ?, ?, ?, ?, ?)")
+      .run(id, String(title ?? '').trim().slice(0, 300) || 'Untitled', why?.trim() || null, target, start > target ? target : start, now(), now())
+    goalPassed(id)
+    goalsTold()
+    return write(id)
+  })
+  // Its dates moved: the start never after the target. Milestones it has
+  // already passed on the new dates are marked, so none floods in.
+  handle('goal:dates', (id: string, dates: { target?: string; from?: string }) => {
+    const row = db.prepare("select goal_at, goal_from from nuggets where id = ? and tier = 'goal'").get(id) as { goal_at: string; goal_from: string } | undefined
+    if (!row) return null
+    const target = isDay(dates.target) ? dates.target : row.goal_at
+    const from = isDay(dates.from) ? dates.from : row.goal_from
+    db.prepare('update nuggets set goal_at = ?, goal_from = ?, updated_at = ? where id = ?').run(target, from > target ? target : from, now(), id)
+    goalPassed(id)
+    goalsTold()
+    return write(true)
+  })
+  handle('goal:close', (id: string, how: 'made it' | 'missed' | 'let go') => {
+    if (!['made it', 'missed', 'let go'].includes(how)) return null
+    const done = db.prepare("update nuggets set closed_at = ?, closed_how = ? where id = ? and tier = 'goal'").run(now(), how, id).changes > 0
+    goalsTold()
+    return write(done)
+  })
+  handle('goal:reopen', (id: string) => {
+    const done = db.prepare("update nuggets set closed_at = null, closed_how = null where id = ? and tier = 'goal'").run(id).changes > 0
+    goalsTold()
+    return write(done)
+  })
+  // How often this goal's beacon shows; null goes back to the Settings default.
+  handle('goal:beacon:set', (id: string, mode: 'always' | 'sometimes' | 'off' | null) => {
+    const done = db.prepare("update nuggets set goal_beacon = ? where id = ? and tier = 'goal'").run(['always', 'sometimes', 'off'].includes(mode ?? '') ? mode : null, id).changes > 0
+    goalsTold()
+    return write(done)
+  })
+  // Taken back: the goal and its logs go, and a capture logged in it is open again.
+  handle('goal:drop', (id: string) => {
+    if (!db.prepare("select 1 from nuggets where id = ? and tier = 'goal'").get(id)) return write(false)
+    for (const log of db.prepare('select source_id from glosses where item_id = ? and source_id is not null').all(id) as { source_id: string }[])
+      db.prepare("update captures set status = 'open' where id = ?").run(log.source_id)
+    db.prepare('delete from glosses where item_id = ?').run(id)
+    db.prepare('delete from nuggets where id = ?').run(id)
+    goalsTold()
+    return write(true)
+  })
+
   // --- review
   // Due items with a prompt, most at risk first, inside the day's two limits so
   // the queue can always be finished.
@@ -1388,6 +1476,31 @@ export function registerVigil(): void {
     db.prepare('insert or replace into nudges (key, day) values (?, ?)').run(key, day)
     return false
   }
+  /** The open goal most in need of a word, as a nudge, or null; marks it nudged. */
+  const quietGoal = (): { kind: 'goal'; view: string; id: string; label: string; text: string } | null => {
+    const today = dayKey()
+    for (const goal of openGoals().filter((one) => !one.private)) {
+      const left = daysLeft(goal.goalAt, today)
+      if (left < 0) continue
+      const quiet = daysBetween(dayKey(goal.lastLog ?? goal.createdAt), today)
+      if (quiet < 7) continue
+      // Every week at first; every three days after a fortnight, or within a fortnight of the day; every day in the last week.
+      const every = left <= 7 ? 1 : quiet >= 14 || left <= 14 ? 3 : 7
+      const last = (db.prepare('select day from nudges where key = ?').get(`goal:${goal.id}`) as { day: string } | undefined)?.day
+      if (last && daysBetween(last, today) < every) continue
+      db.prepare('insert or replace into nudges (key, day) values (?, ?)').run(`goal:${goal.id}`, today)
+      const name = `“${goal.title.length > 60 ? `${goal.title.slice(0, 60)}…` : goal.title}”`
+      const said = left === 0 ? 'is today' : `is ${left === 1 ? 'tomorrow' : `${num(left)} days away`}`
+      const weeks = quiet >= 14 ? `${Math.floor(quiet / 7)} weeks` : 'a week'
+      const text = left <= 14
+        ? `${name} ${said}, and the last log was ${quiet >= 14 ? `${weeks} ago` : 'a week ago'}. Worth a look today.`
+        : quiet >= 14
+          ? `${weeks[0].toUpperCase()}${weeks.slice(1)} without a word on ${name}. ${leftSaid(left)}. Where does it stand?`
+          : `No log on ${name} for a week. ${leftSaid(left)}. A line on where it stands keeps it alive.`
+      return { kind: 'goal', view: 'goals', id: goal.id, label: 'Goal', text }
+    }
+    return null
+  }
   handle('nudge', () => {
     const { blackout, hidePrivate } = gate()
     if (blackout || hidePrivate) return null
@@ -1403,6 +1516,12 @@ export function registerVigil(): void {
       if (decideList().length && !nudgedToday('weekly'))
         return { kind: 'weekly', view: 'decide', label: 'Deciding day',
           text: 'Deciding day. What you said you would come back to is here, with a few that have waited longest. Keep, act on or let go of each.' }
+    }
+    // A goal gone quiet: a week with no log, then sooner and more plainly as
+    // the quiet stretches or the day comes near. One goal a day at most.
+    if (settings().goalNudges) {
+      const goal = quietGoal()
+      if (goal) return goal
     }
     // The tidy pass, most mornings: only once there is something from before today.
     if (dailyTidy && tidyList().some((one) => (one.capturedAt as string) < dayjs().startOf('day').toISOString()) && !nudgedToday('tidy'))
@@ -2177,6 +2296,15 @@ export function badge(): { due: number; tasks: number; safe: boolean } {
   return { due: n, tasks, safe: settings().safeMode }
 }
 
+/** An open goal, as the menu bar, nudges and milestones read it. */
+export type OpenGoal = { id: string; title: string; goalAt: string; goalFrom: string; private: number; createdAt: string; lastLog: string | null; beacon: 'always' | 'sometimes' | 'off' | null }
+/** The goals still open (not settled, not archived), nearest first. */
+export function openGoals(): OpenGoal[] {
+  return database().prepare(`select id, title, goal_at as goalAt, goal_from as goalFrom, private, created_at as createdAt, goal_beacon as beacon,
+      (select max(created_at) from glosses where item_id = nuggets.id) as lastLog
+    from nuggets where tier = 'goal' and closed_at is null and archived_at is null and goal_at is not null order by goal_at, created_at`).all() as OpenGoal[]
+}
+
 /** Flip safe mode from outside a window: the menu bar. */
 export function toggleSafeMode(): boolean {
   const on = !settings().safeMode
@@ -2250,8 +2378,8 @@ export function registerHome(): void {
     // Asked for, so private ones show (blurred); offered, so they wait out quiet hours.
     const offered = (row: Shelved): boolean => !(hidePrivate && row.private)
     const opened = (db.prepare('select id, at from note_opens order by at desc limit 24').all() as { id: string; at: string }[])
-      .flatMap((open) => { const row = byId.get(open.id); return row && row.type !== 'question' ? [{ ...strip(row), at: open.at }] : [] })
-    const edited = [...all].filter((row) => row.type !== 'question').sort((a, b) => b.at.localeCompare(a.at)).slice(0, 16).map(strip)
+      .flatMap((open) => { const row = byId.get(open.id); return row && row.type !== 'question' && row.type !== 'goal' ? [{ ...strip(row), at: open.at }] : [] })
+    const edited = [...all].filter((row) => row.type !== 'question' && row.type !== 'goal').sort((a, b) => b.at.localeCompare(a.at)).slice(0, 16).map(strip)
 
     // A note caught on this day in an earlier year: the first of them, so it holds all day.
     const today = dayKey()
@@ -2263,7 +2391,7 @@ export function registerHome(): void {
     // Due for review now, and kept things longest unseen: the hints' pool, read without picking.
     const due = (db.prepare("select id from nuggets where tier = 'nugget' and suspended = 0 and archived_at is null and superseded_by is null and due_at is not null and due_at <= ? order by due_at limit 12").all(now()) as { id: string }[])
       .flatMap(({ id }) => { const row = byId.get(id); return row && offered(row) ? [strip(row)] : [] })
-    const unseen = blackout ? [] : (db.prepare("select id from nuggets where tier != 'question' and suspended = 0 and archived_at is null and superseded_by is null and private = 0 order by coalesce(last_visited_at, '') limit 8").all() as { id: string }[])
+    const unseen = blackout ? [] : (db.prepare("select id from nuggets where tier not in ('question', 'goal') and suspended = 0 and archived_at is null and superseded_by is null and private = 0 order by coalesce(last_visited_at, '') limit 8").all() as { id: string }[])
       .flatMap(({ id }) => { const row = byId.get(id); return row && !due.some((one) => one.id === id) ? [strip(row)] : [] })
     const article = all.filter((row) => row.type === 'article' && offered(row)).sort((a, b) => b.made.localeCompare(a.made))[0]
 
@@ -2286,7 +2414,7 @@ export function registerHome(): void {
       .map(([tag, rows]) => ({ tag, color: colours.get(tag) ?? null, cards: rows.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 12) }))
 
     const monday = dayjs().startOf('week').toISOString()
-    const week = all.filter((row) => row.made >= monday && row.type !== 'question').sort((a, b) => b.made.localeCompare(a.made)).slice(0, 16).map(strip)
+    const week = all.filter((row) => row.made >= monday && row.type !== 'question' && row.type !== 'goal').sort((a, b) => b.made.localeCompare(a.made)).slice(0, 16).map(strip)
 
     // A few words after the first line, for the cards that have no picture: only for what is shown.
     const excerpts = new Map<string, string>()

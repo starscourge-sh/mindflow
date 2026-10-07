@@ -1,5 +1,5 @@
 import type { ComponentType, CSSProperties, RefAttributes } from 'react'
-import { CalendarFold, CalendarRange, Sprout, type LucideIcon } from 'lucide-react'
+import { CalendarFold, CalendarRange, Flag, Sprout, type LucideIcon } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import Stack3Icon from '@/components/ui/stack-3-icon'
 import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
@@ -81,6 +81,8 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'articles', label: 'Articles', icon: FileText, alive: FileDescriptionIcon, key: 'a', tint: 'brown', group: 'Kept' },
   // Questions you are holding open: what you keep circling and cannot name yet.
   { id: 'questions', label: 'Holding', icon: Orbit, key: 'h', tint: 'gray', group: 'Kept' },
+  // Goals: a day you are working toward, and the road there.
+  { id: 'goals', label: 'Goals', icon: Flag, key: 'e', tint: 'orange', group: 'Kept' },
   { id: 'tags', label: 'Tags', icon: Tag, alive: HashtagIcon, key: '#', tint: 'red' },
   { id: 'stats', label: 'Stats', icon: BarChart3, alive: ChartBarIcon, key: 's', tint: 'blue' },
   { id: 'all', label: 'All captures', icon: Layers, alive: LayersIcon, key: 'l', tint: 'gray' },
@@ -101,7 +103,7 @@ export const BOX_TABS: Place[] = [
 /** The calm start: what serves capture, review and coming back; the rest a key away. */
 type Shown = 'sidebarShown' | 'boxTabs'
 const SHOWN: Record<Shown, string[]> = {
-  sidebarShown: ['inbox', 'review', 'day', 'today', 'week', 'nuggets', 'articles', 'questions'],
+  sidebarShown: ['inbox', 'review', 'day', 'today', 'week', 'nuggets', 'articles', 'questions', 'goals'],
   boxTabs: ['inbox', 'today', 'review', 'kept']
 }
 

@@ -10,7 +10,7 @@ import { useEditorSetup } from './editor-setup'
  * preload, the shapes here, so a new channel is one line on each side.
  */
 /** The kinds of milestone, as src/main/celebrate.ts names them. */
-export type MomentKind = 'kept' | 'streak' | 'inbox' | 'tasks' | 'year' | 'answered'
+export type MomentKind = 'kept' | 'streak' | 'inbox' | 'tasks' | 'year' | 'answered' | 'goalHalf' | 'goal30' | 'goal7' | 'goalDay' | 'goalMade'
 
 const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
 
@@ -79,6 +79,12 @@ export type Settings = {
   celebrationPicks: Partial<Record<MomentKind, string>>
   /** A question you are holding comes back now and then as a hint card. */
   questionsBack: boolean
+  /** Open goals in a slim strip at the top of Home and Today's page. */
+  goalStrip: boolean
+  /** A goal with no log for a week says so in the box. */
+  goalNudges: boolean
+  /** Each goal's beacon unless it says otherwise. */
+  goalBeacon: 'always' | 'sometimes' | 'off'
   /** A plain Markdown copy of each capture beside the backups; never a private one. */
   markdownCopies: boolean
   /** How far back the Recent panel reaches, in days. */
@@ -113,7 +119,7 @@ export type Scene = { id: string; url: string; mood: Mood; width: number; height
 /** A nugget or an article: the same row, told apart by `tier`. */
 export type Item = {
   id: string
-  tier: 'nugget' | 'article' | 'question'
+  tier: 'nugget' | 'article' | 'question' | 'goal'
   kind: string
   title: string
   prompt: string | null
@@ -140,9 +146,16 @@ export type Item = {
   why: string | null
   /** A question: when it was settled, and how; both null while it is held. */
   closedAt: string | null
-  closedHow: 'answered' | 'let go' | null
-  /** Its glosses, which on a question are its clues. */
+  closedHow: 'answered' | 'let go' | 'made it' | 'missed' | null
+  /** Its glosses, which on a question are its clues and on a goal its logs. */
   clues: number
+  /** A goal: the day it is for and the day it was set, "2026-12-14"; null on anything else. */
+  goalAt: string | null
+  goalFrom: string | null
+  /** How often a goal's beacon shows; null follows Settings. */
+  beacon: 'always' | 'sometimes' | 'off' | null
+  /** When its newest gloss was written. */
+  lastLog: string | null
 }
 /** On a question, a gloss is a clue; one kept from a capture says which (`MF-12`). */
 export type Gloss = { id: string; body: string; author: 'user' | 'ai'; createdAt: string; sourceId?: string | null; sourceKey?: string | null }
@@ -303,7 +316,7 @@ export const vigil = {
   newArticle: () => call<string>('article:new'),
   findItems: (query: string) => call<{ id: string; tier: 'nugget' | 'article' | 'question'; title: string }[]>('items:find', query),
   toTask: (id: string) => call<Made | null | 'not-open'>('toTask', id),
-  items: (tier: 'nugget' | 'article' | 'question') => call<Item[]>('items', tier),
+  items: (tier: 'nugget' | 'article' | 'question' | 'goal') => call<Item[]>('items', tier),
   /** A question, from nothing or from a capture whose words become its first clue; `dropQuestion` takes it back. */
   newQuestion: (title: string, captureId?: string) => call<string>('question:new', title, captureId),
   dropQuestion: (id: string) => call<boolean>('question:drop', id),
@@ -313,6 +326,14 @@ export const vigil = {
   /** Got it (an article, seeded and linked) or let go; `reopenQuestion` holds it again. */
   closeQuestion: (id: string, how: 'answered' | 'let go', again = false) => call<{ article: string | null } | null>('question:close', id, how, again),
   reopenQuestion: (id: string, article?: string | null) => call('question:reopen', id, article),
+  /** A goal: its name, the day it is for, the day it was set (today if not said) and why it matters. `dropGoal` takes it back. */
+  newGoal: (title: string, target: string, from?: string | null, why?: string | null) => call<string | null>('goal:new', title, target, from, why),
+  goalDates: (id: string, dates: { target?: string; from?: string }) => call<boolean | null>('goal:dates', id, dates),
+  closeGoal: (id: string, how: 'made it' | 'missed' | 'let go') => call<boolean | null>('goal:close', id, how),
+  reopenGoal: (id: string) => call<boolean>('goal:reopen', id),
+  dropGoal: (id: string) => call<boolean>('goal:drop', id),
+  /** How often a goal's beacon shows; null follows Settings. */
+  setBeacon: (id: string, mode: 'always' | 'sometimes' | 'off' | null) => call<boolean>('goal:beacon:set', id, mode),
   /** A question still open, come back as a hint; null most of the time. */
   questionBack: () => call<{ id: string; title: string; createdAt: string; clues: number; event: number } | null>('question:back'),
   item: (id: string) => call<ItemFull | null>('item', id),
@@ -347,7 +368,7 @@ export const vigil = {
   exams: () => call<Exam[]>('exams'),
   history: (id: string) => call<{ reviews: { at: string; grade: number }[]; dueAt: string | null }>('review:history', id),
   source: (id: string) => call<{ type: string; id: string; title: string; body: unknown } | null>('review:source', id),
-  nudge: () => call<{ kind: 'exam' | 'weekly' | 'tidy'; view: string; label: string; text: string } | null>('nudge'),
+  nudge: () => call<{ kind: 'exam' | 'weekly' | 'tidy' | 'goal'; view: string; id?: string; label: string; text: string } | null>('nudge'),
   memory: () => call<{ id: string; captureId: string; kind: string; title: string; body: unknown; event: number; memory: string } | null>('memory'),
   rotLeft: () => call<number>('rot:left'),
   rotWaiting: () => call<number>('rot:waiting'),

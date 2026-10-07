@@ -24,6 +24,7 @@ import { Input } from '@/components/ui/input'
 import { ThemePicker } from '../theme/theme-picker'
 import { Switch } from '@/components/ui/switch'
 import { useLive, vigil, type MomentKind, type Settings } from '@/lib/vigil'
+import { Chips } from './display'
 import { SoundPacks } from './sound-packs'
 import { FontPicker, TextSize } from './font-picker'
 import { BackToTop, Kbd, Rolling, Tip, refuse, toast, useSmooth } from './ui'
@@ -501,6 +502,18 @@ export function SettingsView(): React.JSX.Element {
             <span className="w-16 text-right tabular-nums"><Rolling text={(settings.recentDays ?? 7) === 1 ? '1 day' : `${settings.recentDays ?? 7} days`} /></span>
           </Setting>
         </Group>
+        <Group section="What comes back to you" title="Goals">
+          <Setting title="Goals at the top" note="Open goals show in a slim strip at the top of Home and Today's page: the days left, a line of the time gone, and when you last logged." keywords="goals strip home today countdown">
+            <Switch checked={settings.goalStrip !== false} onCheckedChange={(goalStrip) => set({ goalStrip })} />
+          </Setting>
+          <Setting title="Goal on screen" note="Each goal's beacon, a small window on every Space with the days left, unless the goal says otherwise. Now and then: out when you first unlock or open Vigil each day and every few hours you are at the Mac, then tucked away after a minute. In the last week it stays." keywords="goals beacon on screen window always sometimes off">
+            <Chips className="shrink-0" options={[{ id: 'always', label: 'Always' }, { id: 'sometimes', label: 'Now and then' }, { id: 'off', label: 'Off' }]}
+              on={(id) => id === (settings.goalBeacon ?? 'sometimes')} pick={(goalBeacon) => set({ goalBeacon: goalBeacon as Settings['goalBeacon'] })} />
+          </Setting>
+          <Setting title="Goal nudges" note="A goal with no log for a week says so in the box, more often as the quiet goes on or the day comes near. Never in quiet hours." keywords="goals nudge reminder log">
+            <Switch checked={settings.goalNudges !== false} onCheckedChange={(goalNudges) => set({ goalNudges })} />
+          </Setting>
+        </Group>
         <Group section="What comes back to you" title="Every day">
           <Setting title="Daily tidy" note="Once a day the box offers a few minutes over the last days' captures: add tags, bold a line, fold a section, cross off what is done. Nothing is decided there. Never in quiet hours.">
             <Switch checked={settings.dailyTidy} onCheckedChange={(dailyTidy) => set({ dailyTidy })} />
@@ -835,7 +848,12 @@ const MOMENT_NAMES: [MomentKind, string][] = [
   ['inbox', 'Inbox empty'],
   ['tasks', "Today's tasks done"],
   ['year', 'A note from a year ago'],
-  ['answered', 'A question answered']
+  ['answered', 'A question answered'],
+  ['goalHalf', 'A goal halfway'],
+  ['goal30', 'A goal 30 days away'],
+  ['goal7', 'A goal a week away'],
+  ['goalDay', "A goal's day"],
+  ['goalMade', 'A goal made']
 ]
 
 /**

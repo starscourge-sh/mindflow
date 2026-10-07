@@ -20,6 +20,7 @@ import { Kbd as ShadKbd, KbdGroup } from '@/components/ui/kbd'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { KindAsker } from './note-extras'
 import { QuestionAsker } from './questions-view'
+import { GoalAsker } from './goals-view'
 import { num } from '../../../../main/dates'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import type { OrbState } from 'thinking-orbs'
@@ -673,6 +674,7 @@ export function Toaster(): React.JSX.Element | null {
     <Asker />
     <KindAsker />
     <QuestionAsker />
+    <GoalAsker />
     <Beam />
     {wait && !shown && <div style={spot} className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex justify-center">
       <Orb state={wait.state} label={wait.label} className="bg-popover shadow-(--mf-panel-shadow) animate-in fade-in-0 slide-in-from-bottom-2 duration-200" />
