@@ -50,6 +50,7 @@ import { celebrationFile, registerCelebrations } from './celebrate'
 import { firstRun, noteChord, pretendTaken, registerOnboarding, whereTray } from './onboarding'
 import { registerUnused } from './unused'
 import { registerObsidian } from './obsidian'
+import { frostWindow, registerFrost, retellFrost } from './frost'
 import { SANDBOX, onHandOff, registerSandbox, relaunch, restartNow, useDataFolder } from './sandbox'
 
 
@@ -166,6 +167,22 @@ const SIZES = {
   compact: { width: WIDTH, height: 600 },
   expanded: { width: WIDTH, height: 816 }
 }
+/**
+ * The box opens short, as Linear's "New issue" does: room for two lines, the
+ * fields and the footer. It grows down with what is written, up to the
+ * compact size, and the note scrolls from there. The page measures what it
+ * needs and says so (window:fit); the panel and the expander go to their full
+ * height whatever is written.
+ */
+const FIT_MIN = 240
+/** What the writing asks for, as the page last measured it. */
+let fit = FIT_MIN
+/** The side panel and the expander, as the page last asked. */
+let panelOpen = false
+let expandedNow = false
+/** How tall the box should be now. */
+const boxHeight = (): number =>
+  expandedNow ? SIZES.expanded.height : panelOpen ? SIZES.compact.height : Math.round(Math.min(SIZES.compact.height, Math.max(FIT_MIN, fit)))
 
 /** What summons the window. */
 const SUMMON = 'Command+.'
@@ -315,14 +332,14 @@ function toggleWindow(): void {
   // Checked against the screen as it is now: a display can have been unplugged
   // while the window was away.
   // Where Settings says, the screen you are on by default.
-  const place = summonedAt(win)
+  const { place, top } = summonedAt(win)
+  // Its top is where it was put, unless the screen's bottom pushed it up.
+  anchor = { y: top, became: place.y }
   const now = boundsOf(win)
   if (!sameBox(place, now)) {
-    // Where it grew from moves with it, so shrinking or closing the panel
+    // Where the panel opened from moves with it, so closing the panel
     // still lands where it should.
     const dx = place.x - now.x
-    const dy = place.y - now.y
-    if (grew) grew = { was: { ...grew.was, x: grew.was.x + dx, y: grew.was.y + dy }, became: { ...grew.became, x: grew.became.x + dx, y: grew.became.y + dy } }
     if (panelFrom) panelFrom = { x: panelFrom.x + dx, became: panelFrom.became + dx }
     win.setBounds(place)
   }
@@ -585,6 +602,8 @@ function applyStickies(): void {
     if (stickyUp(key)) win.showInactive()
     else win.hide()
   }
+  // Frosted or plain paper, as the setting says now.
+  retellFrost()
 }
 function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangle): void {
   const key = `${type}:${id}`
@@ -644,6 +663,8 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   win.setAlwaysOnTop(true, 'floating')
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   shield(win)
+  // The desktop picture, blurred, behind its paper (frost.ts).
+  frostWindow(win, () => stickyUp(key))
   win.once('ready-to-show', () => stickyUp(key) && win.showInactive())
   // Where you leave it is where it comes back.
   const remember = (): void => {
@@ -861,13 +882,33 @@ function sameBox(a: Electron.Rectangle, b: Electron.Rectangle): boolean {
 }
 
 /**
- * Where the window was before it was expanded, and where the expand put it.
+ * Where the box's top edge wants to be, and where it was last put.
  *
- * The second half is how "has it been moved since" is answered: if the window
- * is no longer where the expand left it, somebody dragged it, and where it
- * came from is no longer where it wants to go back to.
+ * The box grows and shrinks downward from its top, so the writing never moves
+ * on screen. Only near the bottom of the screen is it pushed up, just enough;
+ * shrinking again, it goes back down to its top. The second half is how "has
+ * it been moved since" is answered: a box no longer where it was put was
+ * dragged, and its top is wherever it is now.
  */
-let grew: { was: Electron.Rectangle; became: Electron.Rectangle } | null = null
+let anchor: { y: number; became: number } | null = null
+
+/** The box at a new size, its top where it wants to be, kept on the screen. */
+function anchored(win: BrowserWindow, x: number, width: number, height: number): Electron.Rectangle {
+  const bounds = boundsOf(win)
+  if (!anchor || anchor.became !== bounds.y) anchor = { y: bounds.y, became: bounds.y }
+  const next = onScreen({ x, y: anchor.y, width, height })
+  anchor.became = next.y
+  return next
+}
+
+/** The box to the height its content (or the panel, or the expander) asks for, in one glide. */
+function refit(win: BrowserWindow): Promise<void> {
+  const bounds = boundsOf(win)
+  const next = anchored(win, bounds.x, bounds.width, boxHeight())
+  // Already there, or on its way: a glide under way is never restarted.
+  if (sameBox(next, bounds)) return Promise.resolve()
+  return reshape(win, next)
+}
 /** Where the box's left edge was before the side panel opened, and where opening put it: the same test, sideways. */
 let panelFrom: { x: number; became: number } | null = null
 
@@ -1011,25 +1052,33 @@ const pointerArea = (): Electron.Rectangle => screen.getDisplayNearestPoint(scre
  * another screen, it keeps its place relative to the screen it moves to.
  * Never off the screen.
  */
-function summonedAt(win: BrowserWindow): Electron.Rectangle {
-  const left = lastBounds ?? boundsOf(win)
-  const { width, height } = left
+function summonedAt(win: BrowserWindow): { place: Electron.Rectangle; top: number } {
+  // Its size now, which the content may have changed while it was away; its
+  // top where it was left, not where the screen's bottom last pushed it.
+  const { width, height } = boundsOf(win)
+  const kept = lastBounds ?? boundsOf(win)
+  const left = { ...kept, y: anchor && anchor.became === kept.y ? anchor.y : kept.y, width, height }
   const { place, screen: which } = boxPlacement()
   const was = screen.getDisplayMatching(left).workArea
   const area = which === 'pointer' ? pointerArea() : was
-  if (place === 'top') return onScreen(topMiddle(area, width, height))
-  if (place === 'centre') return onScreen({ width, height, x: Math.round(area.x + (area.width - width) / 2), y: Math.round(area.y + (area.height - height) / 2) })
-  if (sameBox(area, was)) return onScreen(left)
+  // Placed by its full size, so its top is the same however tall it opens.
+  const full = SIZES.compact.height
+  const put = (at: Electron.Rectangle): { place: Electron.Rectangle; top: number } => ({ place: onScreen({ ...at, width, height }), top: at.y })
+  if (place === 'top') return put(topMiddle(area, width, full))
+  if (place === 'centre') return put({ width, height, x: Math.round(area.x + (area.width - width) / 2), y: Math.round(area.y + (area.height - full) / 2) })
+  if (sameBox(area, was)) return put(left)
   const along = (at: number, from: number, span: number, size: number, to: number, room: number): number =>
     Math.round(to + ((at - from) / Math.max(1, span - size)) * Math.max(0, room - size))
-  return onScreen({ width, height, x: along(left.x, was.x, was.width, width, area.x, area.width), y: along(left.y, was.y, was.height, height, area.y, area.height) })
+  return put({ width, height, x: along(left.x, was.x, was.width, width, area.x, area.width), y: along(left.y, was.y, was.height, full, area.y, area.height) })
 }
 
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = (prompt = new BrowserWindow({
     // First seen at the top middle of the screen you are on.
+    // Short until the page says how much it needs: see FIT_MIN.
     ...topMiddle(pointerArea(), SIZES.compact.width, SIZES.compact.height),
+    height: FIT_MIN,
 
     resizable: false,
     // No window buttons at all which, with the accessory policy below, is what
@@ -1863,15 +1912,17 @@ app.whenReady().then(() => {
   ipcMain.handle('window:panel', async (event, open: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return false
+    panelOpen = Boolean(open)
     const bounds = boundsOf(win)
     const width = open ? WITH_PANEL : WIDTH
-    if (width === bounds.width) return Boolean(open)
+    // Wide already: only the height may be owed (the box opened short).
+    if (width === bounds.width) return (await refit(win), Boolean(open))
     const back = !open && panelFrom && panelFrom.became === bounds.x ? panelFrom.x : undefined
     const x = back ?? (boxPlacement().centred ? Math.round(bounds.x - (width - bounds.width) / 2) : bounds.x)
-    const next = onScreen({ ...bounds, x, width })
+    // Wider and to its full height (or back to what the writing needs) in
+    // the one glide, both at once, so it reads as one move.
+    const next = anchored(win, x, width, boxHeight())
     panelFrom = open ? { x: bounds.x, became: next.x } : null
-    // An expanded box remembers where it grew from; the panel moving it moves that too.
-    if (grew) grew = { was: { ...grew.was, x: grew.was.x + (next.x - bounds.x), width: next.width }, became: { ...grew.became, x: next.x, width: next.width } }
     await reshape(win, next)
     return Boolean(open)
   })
@@ -1891,6 +1942,7 @@ app.whenReady().then(() => {
     if (typeof type === 'string' && typeof id === 'string') stick(type, id, Boolean(on))
   })
   // Beacons once the stickies are back, then as goals change, and at their moments.
+  registerFrost()
   void restoreStickies().then(beacons)
   whenGoals(() => (beacons(), updateTray()))
   powerMonitor.on('unlock-screen', () => beaconMoment('wake'))
@@ -2049,38 +2101,27 @@ app.whenReady().then(() => {
   ipcMain.handle('window:expand', (event, expanded: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return false
-    const bounds = boundsOf(win)
-    // Taller or shorter; as wide as it is, panel open or not.
-    const size = { width: bounds.width, height: (expanded ? SIZES.expanded : SIZES.compact).height }
-
-    // Shrinking straight back to where it came from, if it has not been moved
-    // since: a box tucked into a corner belongs in that corner, and growing
-    // then shrinking about the middle walks it away from there a step at a
-    // time. Moved by hand and the old place is stale, so it is forgotten and
-    // the shrink happens about the middle as usual.
-    const wasMoved = !grew || !sameBox(bounds, grew.became)
-    const back = !expanded && !wasMoved && grew ? { ...grew.was, width: bounds.width } : undefined
-
+    expandedNow = Boolean(expanded)
     // No `setResizable` dance around this: `setBounds` is honoured on a window
     // that is not resizable, and toggling the flag rebuilds the title bar -
     // which is the traffic lights appearing for a moment in the wrong place
     // halfway through the resize.
     //
-    // Centred (the default), grown about its own middle; otherwise down from
-    // its top edge, so the first line stays where the eye is. Then brought
-    // back on screen if that put an edge over the side: near the bottom it
-    // grows up instead. One glide, like the panel.
-    const next = onScreen(
-      back ?? {
-        x: bounds.x,
-        y: boxPlacement().centred ? Math.round(bounds.y + (bounds.height - size.height) / 2) : bounds.y,
-        ...size
-      }
-    )
-    void reshape(win, next)
+    // Down from its top edge, so the first line stays where the eye is, and
+    // back up to what the writing needs; near the bottom of the screen it
+    // grows up just enough instead. One glide, like the panel.
+    void refit(win)
+    return expandedNow
+  })
 
-    grew = expanded ? { was: bounds, became: next } : null
-    return Boolean(expanded)
+  // What the writing needs, measured by the page: the box grows down to it,
+  // or comes back up, in the same glide. The panel and the expander keep
+  // their full height whatever it says.
+  ipcMain.on('window:fit', (event, height: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== prompt || typeof height !== 'number' || !Number.isFinite(height)) return
+    fit = height
+    void refit(win)
   })
 
   ipcMain.handle('save-image', (_event, mime: unknown, bytes: unknown) =>

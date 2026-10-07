@@ -161,7 +161,7 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
   return (
     <>
     {/* Under menus, search and dialogs (z-50 and up): a celebration never covers what you are using. */}
-    <div className={`pointer-events-none fixed z-[45] ${box ? 'inset-x-0 bottom-[7.75rem] flex justify-center' : 'right-5 bottom-5'}`}>
+    <div data-celebration className={`pointer-events-none fixed z-[45] ${box ? 'inset-x-0 bottom-[7.75rem] flex justify-center' : 'right-5 bottom-5'}`}>
       <AnimatePresence>
         {shown && !shown.sprite && (
           <Card
@@ -176,7 +176,7 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
       </AnimatePresence>
     </div>
     {/* A sprite's own strip along the bottom, clipped at its sides so it never shows past the note. */}
-    <div className={`pointer-events-none fixed z-[45] overflow-hidden ${box ? 'inset-x-0 bottom-[7.75rem] h-72' : 'inset-x-0 bottom-0 h-80'}`}>
+    <div data-celebration className={`pointer-events-none fixed z-[45] overflow-hidden ${box ? 'inset-x-0 bottom-[7.75rem] h-72' : 'inset-x-0 bottom-0 h-80'}`}>
       <AnimatePresence>
         {shown?.sprite && (
           <Sprite key={shown.key} moment={shown.moment} media={shown.media!} size={shown.sprite} from={box ? 'left' : 'right'} onDone={() => setShown(null)} />

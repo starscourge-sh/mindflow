@@ -89,6 +89,7 @@ import { FocusScenery, Rest } from './components/vigil/scenery'
 import { num } from '../../main/dates'
 import { useWelcomePlaceholder } from './lib/welcome-box'
 import { SandboxChip } from '@/components/vigil/sandbox'
+import { useFitBox } from './lib/fit-box'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowLeft = alive(ArrowNarrowLeftIcon)
@@ -539,7 +540,13 @@ export default function App(): React.JSX.Element {
     setPanelOpen(open)
     panelWanted.current = open
     if (open) setPanelDrawn(true)
-    void window.api.setPanel(open).then(() => !panelWanted.current && setPanelDrawn(false))
+    // The panel's glide sets the height too; the writing's own waits for it to land.
+    box.held.current = true
+    void window.api.setPanel(open).then(() => {
+      box.held.current = false
+      if (!panelWanted.current) setPanelDrawn(false)
+      box.refit()
+    })
   }
   useEffect(() => void window.api.setPanel(panel), []) // eslint-disable-line react-hooks/exhaustive-deps
   // From the writing to the list and back without the mouse: ⌃J or ⌃K leaves
@@ -644,6 +651,8 @@ export default function App(): React.JSX.Element {
   }
   // Two fingers sideways on the note go back and forward too.
   const column = useRef<HTMLDivElement>(null)
+  // The window as tall as the writing, from short to full: see fit-box.
+  const box = useFitBox(column, Boolean(reading))
   const swipeX = useSwipeBack(column, (by) => trail.stack[trail.at + by] !== undefined, (by) => travel(trail.at + by))
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -1167,6 +1176,7 @@ export default function App(): React.JSX.Element {
               onReady={(editor) => {
                 editorRef.current = editor
                 words.ready(editor)
+                box.guard(editor)
               }}
               tokens={boxTokens}
               // A heading in the note already open is gone to here; anywhere else, once it opens.

@@ -117,8 +117,9 @@ const LISTS = ["bulletList", "orderedList", "taskList"]
 const LIST_ITEMS = ["listItem", "taskItem"]
 
 // The caret keeps about a third of the view above and below it, so what you
-// are writing sits near the middle rather than at an edge.
-const third = Math.round((typeof window === "undefined" ? 600 : window.innerHeight) * 0.32)
+// are writing sits near the middle rather than at an edge. A third of the
+// capture box at its full size, even when it opens short.
+const third = Math.round((typeof window === "undefined" ? 600 : Math.max(600, window.innerHeight)) * 0.32)
 const CARET_MARGIN = { top: Math.max(64, third), right: 0, bottom: Math.max(112, third), left: 0 }
 
 /**

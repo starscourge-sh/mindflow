@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webFrame } from 'electron'
-import type { LinkMetadata, LookPicture } from './index.d'
+import type { Frost, LinkMetadata, LookPicture } from './index.d'
 import type { Capture, CaptureMeta, CapturePatch, Change, SaveResult } from '../main/captures'
 import type { Moment } from '../main/celebrate'
 
@@ -82,6 +82,8 @@ const api = {
     ipcRenderer.invoke('window:expand', expanded),
   /** Widen the window for the side panel, or narrow it back to the box. */
   setPanel: (open: boolean): Promise<boolean> => ipcRenderer.invoke('window:panel', open),
+  /** The box's height as its writing needs it: it grows down to it, up to its full size. */
+  fitBox: (height: number): void => ipcRenderer.send('window:fit', height),
   /** The main window: fill the screen, or back to its compact size. */
   fillHome: (fill: boolean | 'toggle'): Promise<boolean> => ipcRenderer.invoke('home:fill', fill),
   /** Told whenever the main window fills the screen or comes back from it. */
@@ -125,6 +127,19 @@ const api = {
   /** A goal's beacon: the pointer on it (it stays) or off it, and its own X (tucked away). */
   holdBeacon: (on: boolean): void => ipcRenderer.send('beacon:hold', on),
   tuckBeacon: (): void => ipcRenderer.send('beacon:tuck'),
+  /** A sticky's frost: the desktop picture blurred, its screen and where the window is; asked once, then told on each change. */
+  frost: (): Promise<Frost | null> => ipcRenderer.invoke('frost'),
+  onFrost: (listen: (frost: Frost) => void): (() => void) => {
+    const relay = (_event: unknown, frost: Frost): void => listen(frost)
+    ipcRenderer.on('frost', relay)
+    return () => ipcRenderer.off('frost', relay)
+  },
+  /** Where the sticky's window is now, as it is dragged. */
+  onFrostAt: (listen: (at: { x: number; y: number }) => void): (() => void) => {
+    const relay = (_event: unknown, at: { x: number; y: number }): void => listen(at)
+    ipcRenderer.on('frost:at', relay)
+    return () => ipcRenderer.off('frost:at', relay)
+  },
   /** Told when every sticky is shown or put away, for its sound. */
   onStickiesShown: (listen: (shown: boolean) => void): (() => void) => {
     const relay = (_event: unknown, shown: boolean): void => listen(shown)

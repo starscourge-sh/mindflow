@@ -107,6 +107,8 @@ export type Settings = {
   openAtLogin: boolean
   /** Stickies kept out of screen shares and recordings, still seen by you. */
   stickiesUnshared: boolean
+  /** Stickies over the desktop picture, softly blurred; off, plain paper. */
+  stickiesFrosted: boolean
   sidebarShown: string[]
   /** The box's tabs, of inbox, today, review, kept and recent. */
   boxTabs: string[]

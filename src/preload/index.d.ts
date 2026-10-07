@@ -1,5 +1,8 @@
 import type { Capture, CaptureMeta, CapturePatch, Change, SaveResult } from '../main/captures'
 
+/** A sticky's frost (main/frost.ts): whether to frost, its screen's desktop picture small and blurred (or null), where that screen is, and where the window is. */
+export type Frost = { on: boolean; image: string | null; display: { x: number; y: number; width: number; height: number }; at: { x: number; y: number } }
+
 /** A milestone to celebrate, as src/main/celebrate.ts describes it. */
 export type Moment = { id: string; kind: 'kept' | 'streak' | 'inbox' | 'tasks' | 'year' | 'answered'; rank: number; headline: string; line?: string; mark: string; tint: string }
 
@@ -48,6 +51,7 @@ export interface Api {
   /** Swap the window between the capture size and the roomier one. */
   setExpanded: (expanded: boolean) => Promise<boolean>
   setPanel: (open: boolean) => Promise<boolean>
+  fitBox: (height: number) => void
   fillHome: (fill: boolean | 'toggle') => Promise<boolean>
   onFilled: (listen: (filled: boolean) => void) => () => void
   setRecordable: (on: boolean) => Promise<boolean>
@@ -65,6 +69,9 @@ export interface Api {
   resizeSticky: (width: number, height: number) => void
   holdBeacon: (on: boolean) => void
   tuckBeacon: () => void
+  frost: () => Promise<Frost | null>
+  onFrost: (listen: (frost: Frost) => void) => () => void
+  onFrostAt: (listen: (at: { x: number; y: number }) => void) => () => void
   onStickiesShown: (listen: (shown: boolean) => void) => () => void
   hideWindow: () => void
   showPrompt: () => void

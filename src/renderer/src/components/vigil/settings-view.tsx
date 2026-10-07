@@ -383,7 +383,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="Appearance" title="Window placement">
-          <Setting title="Keep the box centred" note="Opening the side panel or expanding the box grows it about its middle, so it stays centred where it was. Off, it grows to the right and down, and the writing stays exactly where your eyes are. Either way it never goes past the edge of the screen, and closing the panel puts it back where it was." keywords="box window centre center grow panel expand position place">
+          <Setting title="Keep the box centred" note="Opening the side panel grows the box out on both sides, so it stays centred where it was. Off, it grows to the right. Either way it grows down from its top as you write or expand it, so the writing stays where your eyes are, never goes past the edge of the screen, and closing the panel puts it back where it was." keywords="box window centre center grow panel expand position place">
             <Switch checked={settings.boxCentred !== false} onCheckedChange={(boxCentred) => set({ boxCentred })} />
           </Setting>
           <Setting title="Where the box appears" note="When you summon it. Where you left it brings it back just where you put it; the others place it fresh each time, near the top like Spotlight or in the middle." keywords="box window summon open position place top middle centre last">
@@ -592,6 +592,9 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
           <Setting title="Show sticky notes" note="Every note stuck on the desktop, or all of them put away; they keep their places. ⌃⌥⌘N from anywhere.">
             <Switch checked={settings.stickiesShown} onCheckedChange={(stickiesShown) => set({ stickiesShown })} />
+          </Setting>
+          <Setting title="Frosted stickies" note="Your wallpaper, softly blurred behind each note. Off makes them plain paper." keywords="sticky notes frosted glass blur wallpaper desktop transparent paper">
+            <Switch checked={settings.stickiesFrosted !== false} onCheckedChange={(stickiesFrosted) => set({ stickiesFrosted })} />
           </Setting>
           <Setting title="Show Vigil in screen recordings and shares" note="Off: every Vigil window, sticky notes included, shows as blank in a shared screen, a recording or a screenshot, while you still see it. On: they show, for a demo or a Loom. Also in ⌘K." keywords="record recording screen share sharing zoom loom demo screenshot capture hide sticky notes">
             <Switch checked={recordable} onCheckedChange={setRecordable} />

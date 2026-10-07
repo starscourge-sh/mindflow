@@ -214,9 +214,9 @@ const DEFAULTS = {
   volume: 1,
   // Things ease in and out rather than appearing at once.
   motion: true,
-  // Where the box sits. Centred: opening the side panel or expanding grows it
-  // about its middle, so it stays centred where it was; off, it grows right
-  // and down and the writing stays exactly where the eye is.
+  // Where the box sits. Centred: opening the side panel grows it out on both
+  // sides, so it stays centred where it was; off, it grows right. Up and down
+  // it always grows from its top, so the writing stays where the eye is.
   boxCentred: true,
   // Where it turns up when summoned: where you left it, or always the top
   // middle or the middle of the screen. And on which screen: the one the
@@ -332,6 +332,8 @@ const DEFAULTS = {
   // A capture box and sticky notes are only any use if they are there after a restart.
   openAtLogin: true,
   stickiesUnshared: true,
+  // Sticky notes over the desktop picture, softly blurred (see frost.ts); off, plain paper.
+  stickiesFrosted: true,
   // Keys you changed: { the keys it came with: yours, or null for none }.
   keys: {} as Record<string, string | null>
 }
@@ -378,6 +380,8 @@ export function atLogin(): void {
   if (SANDBOX) return
   if (process.platform === 'darwin' && app.isPackaged) app.setLoginItemSettings({ openAtLogin: settings().openAtLogin !== false })
 }
+/** Stickies frosted over the desktop picture, unless turned off. */
+export const stickyFrost = (): boolean => settings().stickiesFrosted !== false
 export const stickyPrefs = (): { shown: boolean; unshared: boolean } => ({ shown: settings().stickiesShown, unshared: settings().stickiesUnshared })
 /** Every sticky shown or put away at once; they keep their places. */
 export function showStickies(on = !settings().stickiesShown): boolean {
@@ -708,7 +712,7 @@ export function registerVigil(): void {
       db.prepare('insert or replace into settings (key, value) values (?, ?)').run(key, JSON.stringify(value))
     if (patch.safeMode !== undefined && patch.safeMode !== wasSafe) safeModeTold(patch.safeMode)
     if (patch.keys) keysTold(patch.keys)
-    if ('stickiesShown' in patch || 'stickiesUnshared' in patch) stickiesTold()
+    if ('stickiesShown' in patch || 'stickiesUnshared' in patch || 'stickiesFrosted' in patch) stickiesTold()
     if ('spellcheck' in patch || 'spellLanguages' in patch) spelling()
     if ('openAtLogin' in patch) atLogin()
     if ('goalBeacon' in patch || 'tempusDots' in patch) goalsTold()
