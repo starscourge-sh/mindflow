@@ -13,12 +13,15 @@ import { byKeys } from "./motion"
 /**
  * Every scheme, in the order the picker lists them.
  *
- * The two plain ones first, then the rest roughly by how widely each is used,
- * because the list is read top down and the answer is usually near the top.
+ * The default first, then the two house favourites, the plain pair, and the
+ * rest roughly by how widely each is used: the list is read top down.
  * Each is a class the stylesheet defines; adding one here without adding it
  * there gives a theme that does nothing.
  */
 export const THEMES = [
+  "github",
+  "midnight",
+  "paper",
   "dark",
   "light",
   "catppuccin",
@@ -28,12 +31,12 @@ export const THEMES = [
   "obsidian-nord",
   "everforest",
   "kanagawa",
-  "github",
   "adwaita",
-  "rose-pine",
-  "paper",
-  "midnight"
+  "rose-pine"
 ] as const
+
+/** What a new window wears before anything is chosen. */
+export const DEFAULT_THEME = "github"
 
 /** A scheme the stylesheet ships, or one imported from a file (`custom-…`). */
 export type Theme = (typeof THEMES)[number] | `custom-${string}`
@@ -79,10 +82,10 @@ export function setFrosted(on: boolean): void {
   applyTheme(currentTheme(), false)
 }
 
-/** The one last chosen, or the default. */
+/** The one last chosen, or the default (GitHub). */
 export function currentTheme(): Theme {
   const saved = localStorage.getItem("theme")
-  return allThemes().includes(saved as Theme) ? (saved as Theme) : "dark"
+  return allThemes().includes(saved as Theme) ? (saved as Theme) : DEFAULT_THEME
 }
 
 /**
@@ -225,7 +228,7 @@ export function importTheme(fileName: string, text: string): (CustomTheme & { un
       saveCustom(customThemes().filter((one) => one.id !== id))
       document.documentElement.classList.remove(id)
     }
-    applyTheme(allThemes().includes(before) ? before : "dark")
+    applyTheme(allThemes().includes(before) ? before : DEFAULT_THEME)
   }
   return { ...theme, undo }
 }
@@ -237,7 +240,7 @@ export function removeTheme(id: Theme): CustomTheme | undefined {
   saveCustom(customThemes().filter((one) => one.id !== id))
   // Its class is no longer in the list applyTheme clears, so it goes here.
   document.documentElement.classList.remove(id)
-  if (wearing) applyTheme("dark")
+  if (wearing) applyTheme(DEFAULT_THEME)
   return gone
 }
 
