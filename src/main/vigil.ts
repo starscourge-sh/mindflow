@@ -10,6 +10,7 @@ import { LABEL, LIST, atomically, changed, database, like, movedOn, type Change 
 import { advance, readTask } from './task-words'
 import { dayKey, dayMonth, dayjs, daysFromToday, monthName, num, startOfDay } from './dates'
 import { backupDir, checkMarkdown } from './backup'
+import { SANDBOX } from './sandbox'
 import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrate'
 import { daysBetween, daysLeft, leftSaid } from './goal-days'
 
@@ -200,6 +201,15 @@ const DEFAULTS = {
   volume: 1,
   // Things ease in and out rather than appearing at once.
   motion: true,
+  // Where the box sits. Centred: opening the side panel or expanding grows it
+  // about its middle, so it stays centred where it was; off, it grows right
+  // and down and the writing stays exactly where the eye is.
+  boxCentred: true,
+  // Where it turns up when summoned: where you left it, or always the top
+  // middle or the middle of the screen. And on which screen: the one the
+  // pointer is on, or the one it was last on.
+  boxPlace: 'last' as 'last' | 'top' | 'centre',
+  boxScreen: 'pointer' as 'pointer' | 'same',
   // Which of the nine packs they play through.
   soundPack: 'soft' as string,
   // The share of prompt opens that show a hint, and how many rot cards.
@@ -348,6 +358,8 @@ let stickiesTold: () => void = () => undefined
 export const whenStickies = (tell: () => void): void => void (stickiesTold = tell)
 /** Open at login, as the setting says. Only the installed app: in development it would register Electron itself. */
 export function atLogin(): void {
+  // Never from the sandbox: its settings are practice, and the login item is your Mac's.
+  if (SANDBOX) return
   if (process.platform === 'darwin' && app.isPackaged) app.setLoginItemSettings({ openAtLogin: settings().openAtLogin !== false })
 }
 export const stickyPrefs = (): { shown: boolean; unshared: boolean } => ({ shown: settings().stickiesShown, unshared: settings().stickiesUnshared })
@@ -390,6 +402,11 @@ export const celebrationPrefs = (): { on: boolean; folder: string; picks: Picks 
 /** The Motion setting, for the window's own arrival. */
 export const motionOn = (): boolean => settings().motion
 export const blurOn = (): boolean => settings().blur !== false
+/** Where the box goes: see boxCentred, boxPlace and boxScreen above. */
+export const boxPlacement = (): { centred: boolean; place: 'last' | 'top' | 'centre'; screen: 'pointer' | 'same' } => {
+  const now = settings()
+  return { centred: now.boxCentred !== false, place: now.boxPlace ?? 'last', screen: now.boxScreen ?? 'pointer' }
+}
 
 function settings(): Settings {
   const rows = database().prepare('select key, value from settings').all() as { key: string; value: string }[]
@@ -2192,7 +2209,7 @@ export function registerVigil(): void {
   handle('export', async () => {
     const { filePaths } = await dialog.showOpenDialog({ title: 'Export everything to…', properties: ['openDirectory', 'createDirectory'] })
     if (!filePaths[0]) return null
-    const folder = join(filePaths[0], `vigil-${dayKey()}`)
+    const folder = join(filePaths[0], SANDBOX ? `Vigil sandbox export ${dayKey()}` : `vigil-${dayKey()}`)
     await mkdir(join(folder, 'markdown'), { recursive: true })
     // Every table, so nothing stays behind in the app: sessions, settings and all.
     const tables = (db.prepare("select name from sqlite_master where type = 'table' and name not like 'sqlite_%'").all() as { name: string }[]).map((row) => row.name)

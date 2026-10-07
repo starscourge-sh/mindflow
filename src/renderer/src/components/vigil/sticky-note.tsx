@@ -20,6 +20,7 @@ import { useAppearance, useLive, vigil } from '@/lib/vigil'
 import { toMarkdown } from '@/lib/export'
 import { useSameWords } from '@/lib/same-words'
 import { StickyCelebration, type Moment } from './celebrate'
+import { SandboxStamp } from '@/components/vigil/sandbox'
 
 // The editor only once you edit: at rest a sticky is just the light drawing below.
 const MindflowEditor = lazy(() => import('@/components/mindflow').then((one) => ({ default: one.MindflowEditor })))
@@ -395,6 +396,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
         onMouseLeave={() => setAsking(false)}
         className="group relative flex h-full rotate-(--tilt) flex-col rounded-lg border text-control text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_4px_10px_-2px_rgb(0_0_0/0.16)] transition-[rotate,scale,box-shadow] duration-500 ease-[cubic-bezier(0.34,1.36,0.64,1)] hover:scale-102 hover:rotate-0 hover:shadow-[0_2px_4px_rgb(0_0_0/0.12),0_10px_18px_-4px_rgb(0_0_0/0.24)] motion-reduce:transition-none"
       >
+        <SandboxStamp />
         {/* A strip of tape holding it up. */}
         <span aria-hidden className="pointer-events-none absolute -top-2 left-1/2 h-4 w-14 -translate-x-1/2 -rotate-2 rounded-[2px] bg-[color-mix(in_oklab,var(--foreground)_10%,transparent)] backdrop-blur-[1px]" />
         <div className="flex items-center gap-1 px-3 pt-2">

@@ -39,7 +39,8 @@ const SAMPLES: Record<MomentKind, Omit<Moment, 'id' | 'kind' | 'rank' | 'line'>>
   goal7: { headline: 'One week to go', mark: '7', tint: 'var(--tt-color-text-orange)' },
   goalDay: { headline: 'The day is here', mark: '14', tint: 'var(--tt-color-text-purple)' },
   goalMade: { headline: 'You made it', mark: '✓', tint: 'var(--tt-color-text-green)' },
-  stickyDone: { headline: 'All done', mark: '✓', tint: 'var(--tt-color-text-green)' }
+  stickyDone: { headline: 'All done', mark: '✓', tint: 'var(--tt-color-text-green)' },
+  started: { headline: 'You are all set.', mark: '✓', tint: 'var(--tt-color-text-orange)' }
 }
 /** One now, in this window, to see what they look like: nothing is counted. Any kind, unless one is named, playing `play` if given. */
 export function tryCelebration(kind?: MomentKind, play?: Media): void {

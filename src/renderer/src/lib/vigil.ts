@@ -10,7 +10,7 @@ import { useEditorSetup } from './editor-setup'
  * preload, the shapes here, so a new channel is one line on each side.
  */
 /** The kinds of milestone, as src/main/celebrate.ts names them. */
-export type MomentKind = 'kept' | 'streak' | 'inbox' | 'tasks' | 'year' | 'answered' | 'goalHalf' | 'goal30' | 'goal7' | 'goalDay' | 'goalMade' | 'stickyDone'
+export type MomentKind = 'kept' | 'streak' | 'inbox' | 'tasks' | 'year' | 'answered' | 'goalHalf' | 'goal30' | 'goal7' | 'goalDay' | 'goalMade' | 'stickyDone' | 'started'
 
 const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
 
@@ -19,6 +19,11 @@ export type Settings = {
   sounds: boolean
   volume: number
   motion: boolean
+  /** The box grows about its middle when the panel opens or it expands; off, right and down. */
+  boxCentred: boolean
+  /** Where the box turns up when summoned, and on which screen. */
+  boxPlace: 'last' | 'top' | 'centre'
+  boxScreen: 'pointer' | 'same'
   soundPack: PackName
   hintRate: number
   rotCount: number

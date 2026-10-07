@@ -7,6 +7,7 @@
     "src/preload/*.d.ts",
     "src/main/captures.ts",
     "src/main/backup.ts",
+    "src/main/sandbox.ts",
     "src/main/import.ts",
     "src/main/task-words.ts",
     "src/main/dates.ts",

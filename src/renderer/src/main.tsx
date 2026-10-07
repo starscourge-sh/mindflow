@@ -65,7 +65,7 @@ window.addEventListener('focus', blurred(false))
 const params = new URLSearchParams(window.location.search)
 const drawing = params.get('drawing')
 // The page's own name, not the framework's: the window bar shows it.
-document.title = drawing ? 'Drawing' : 'Vigil'
+document.title = drawing ? 'Drawing' : params.has('sandbox') ? 'Vigil sandbox' : 'Vigil'
 // The word count, shown or not: one choice for every window, kept in step.
 const wordCount = (): void => {
   if (localStorage.getItem('word-count') === 'off') document.documentElement.dataset.wordCount = 'off'

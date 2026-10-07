@@ -87,6 +87,8 @@ import { useStoredFlag } from '@/lib/use-stored-flag'
 import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
 import { FocusScenery, Rest } from './components/vigil/scenery'
 import { num } from '../../main/dates'
+import { useWelcomePlaceholder } from './lib/welcome-box'
+import { SandboxChip } from '@/components/vigil/sandbox'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowLeft = alive(ArrowNarrowLeftIcon)
@@ -175,8 +177,14 @@ const WindowDots = (): React.JSX.Element => (
   </div>
 )
 
-const Header = ({ panel, onPanel, onNew, menu, nav, title, aside }: {
+/** The box's width, and what the side panel adds: the same numbers as WIDTH and WITH_PANEL in the main process. */
+const BOX_WIDTH = 640
+const PANEL_WIDTH = 440
+
+const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
   panel: boolean
+  /** The panel is on screen, or still gliding away. */
+  drawn: boolean
   onPanel: () => void
   onNew: () => void
   /** The actions menu, handed the window's size and the way to change it. */
@@ -226,7 +234,9 @@ const Header = ({ panel, onPanel, onNew, menu, nav, title, aside }: {
 
   return (
     <div className="h-fit fixed top-0 right-0 left-0 z-10 flex flex-col items-center py-2 text-xs cursor-pointer" style={{ WebkitAppRegion: 'drag' }}>
-      <div className="relative flex w-full items-center gap-1" // Over the panel, the icons end where the panel's own edge does.
+      {/* Over the panel, the icons end where the panel's own edge does; the
+          move there takes the window's glide, its length and its curve. */}
+      <div className="relative flex w-full items-center gap-1 transition-[padding] duration-[240ms] ease-[cubic-bezier(0.165,0.84,0.44,1)] motion-reduce:transition-none"
         style={{ padding: panel ? '0 0.75rem 0 4.75rem' : '0rem 4.75rem' } as CSSProperties}>
         <WindowDots />
         <span style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>{nav}</span>
@@ -234,7 +244,7 @@ const Header = ({ panel, onPanel, onNew, menu, nav, title, aside }: {
             a long note still says what it is: centred over the writing, a
             short line at most, never over the side panel or the window dots. */}
         <span className="flex-1" />
-        <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center justify-center" style={{ right: panel ? 440 : 0, paddingInline: Math.max(160, room + (panel ? 12 : 76) + 8 - (panel ? 440 : 0)) }}>
+        <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center justify-center" style={{ ...(drawn ? { width: BOX_WIDTH } : { right: 0 }), paddingInline: drawn ? 160 : Math.max(160, room + 84) }}>
         <AnimatePresence>
           {title && (
             <motion.span
@@ -293,6 +303,8 @@ const Header = ({ panel, onPanel, onNew, menu, nav, title, aside }: {
 }
 
 export default function App(): React.JSX.Element {
+  // While the welcome waits on a first capture, the empty line offers examples.
+  useWelcomePlaceholder()
   const [kind, setKind] = useState<CaptureType>('note')
   // Picked by hand: from then on the wording no longer suggests one.
   const [chosen, setChosen] = useState(false)
@@ -516,10 +528,18 @@ export default function App(): React.JSX.Element {
   // Remembered, and the window is sized to match on every start.
   const [panel, setPanelOpen] = useStoredFlag('panel', false, ['open', 'closed'])
   const [tab, setTab] = useState<Tab>('inbox')
+  // The panel stays drawn while the window glides shut, so closing slides
+  // it out of view instead of leaving an empty strip, and is drawn before
+  // the window starts to widen, so opening uncovers it from the right.
+  const [panelDrawn, setPanelDrawn] = useState(panel)
+  const panelWanted = useRef(panel)
+  panelWanted.current = panel
   const setPanel = (open: boolean): void => {
     chime(open ? 'slide' : 'fold')
     setPanelOpen(open)
-    void window.api.setPanel(open)
+    panelWanted.current = open
+    if (open) setPanelDrawn(true)
+    void window.api.setPanel(open).then(() => !panelWanted.current && setPanelDrawn(false))
   }
   useEffect(() => void window.api.setPanel(panel), []) // eslint-disable-line react-hooks/exhaustive-deps
   // From the writing to the list and back without the mouse: ⌃J or ⌃K leaves
@@ -956,7 +976,7 @@ export default function App(): React.JSX.Element {
     <div className={`app-container ${pointerIn ? 'pointer-in' : ''} isolate flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-10 color-white`}>
       {/* Toasts sit above the box's footer here, clear of Create. */}
       {/* Toasts over the note, above its footer: clear of Create and of the panel. */}
-      <div className={`contents [--toast-bottom:6.5rem] ${panel ? '[--toast-right:440px]' : ''}`}><Toaster /></div>
+      <div className={`contents [--toast-bottom:6.5rem] ${panel ? `[--toast-right:${PANEL_WIDTH}px]` : ''}`}><Toaster /></div>
       <Celebrations place="box" />
       <NotePreview />
       <ShortcutSheet />
@@ -1037,7 +1057,7 @@ export default function App(): React.JSX.Element {
       )}
       <FocusNote />
       <FocusScenery />
-      <Header panel={panel} onPanel={() => setPanel(!panel)} nav={trail.stack.length > 1 && (
+      <Header panel={panel} drawn={panelDrawn} onPanel={() => setPanel(!panel)} nav={trail.stack.length > 1 && (
         // Back and forward, joined in one pill as Safari and Raycast do it.
         <span className="ml-3 flex items-center self-center rounded-full border border-foreground/15 [&_svg]:size-3">
           {([['Back  ⌘[', -1, ChevronLeft], ['Forward  ⌘]', 1, ChevronRight]] as const).map(([label, by, Icon], index) => (
@@ -1059,8 +1079,9 @@ export default function App(): React.JSX.Element {
       aside={appSettings?.safeMode ? <Tip label="Safe mode: no hints, rot cards or pins come up  ⌥⌘S"><span className="flex h-5 items-center rounded-full bg-accent px-2 text-key leading-none text-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,var(--foreground))]">Safe</span></Tip>
         // Rot cards and reminder pins live in the side panel's Inbox; with the
         // panel shut, a chip up here says they are there, and opens it on them.
-        : !panel && (oldCount || pinned.length) ? (
-          <Tip label={'Open the Inbox in the side panel  ⌘\\'}>
+        // Kept with the panel open too, so it never pops out as the panel slides in.
+        : oldCount || pinned.length ? (
+          <Tip label={panel ? 'Show the Inbox in the side panel  ⌃1' : 'Open the Inbox in the side panel  ⌘\\'}>
             <button type="button" data-waiting style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
@@ -1096,13 +1117,17 @@ export default function App(): React.JSX.Element {
         />
       )} />
 
+      {/* With the panel, laid out at the full width from the start, the writing
+          exactly as wide as without it, so nothing in the note re-wraps while
+          the window glides: the window uncovers the panel, nothing squeezes. */}
       <ResizablePanelGroup
         orientation="horizontal"
         className="w-full h-full"
+        style={!focus && panelDrawn ? { width: BOX_WIDTH + PANEL_WIDTH, minWidth: BOX_WIDTH + PANEL_WIDTH, alignSelf: 'flex-start' } : undefined}
       >
         <ResizablePanel
-          defaultSize="60%"
-          minSize={"60%"}
+          defaultSize={!focus && panelDrawn ? `${BOX_WIDTH}px` : '100%'}
+          minSize={!focus && panelDrawn ? '50%' : '100%'}
           className="h-full w-full"
         >
           <motion.div ref={column} style={{ x: swipeX }} className="h-full w-full flex flex-col">
@@ -1275,6 +1300,8 @@ export default function App(): React.JSX.Element {
                 onChange={pick}
               />
               <span className="flex-1" />
+              {/* In the sandbox, said here too: a practice box, not your own. */}
+              <SandboxChip />
               {/* Beside Create, as in Linear: on, a save keeps the box open for the next one. */}
               {!editing && (
                 <Tip label="Keep the box open after each save  ⌥C">
@@ -1298,9 +1325,9 @@ export default function App(): React.JSX.Element {
           {editing && <DetailsDrawer open={details} id={editing.id} captures={captures} onOpenChange={setDetails} onOpen={openAny} />}
         </ResizablePanel>
 
-        {!focus && panel && <ResizableHandle withHandle />}
-        {!focus && panel && (
-          <ResizablePanel defaultSize="40%" minSize={"30%"}>
+        {!focus && panelDrawn && <ResizableHandle withHandle />}
+        {!focus && panelDrawn && (
+          <ResizablePanel defaultSize={`${PANEL_WIDTH - 1}px`} minSize="30%">
             <SidePanel tab={tab} setTab={setTab} captures={captures} editing={editing?.id} onOpen={openCapture} onOpenAny={openAny} reading={reading?.id} onRead={(items, start) => setReadList({ items, start })} />
           </ResizablePanel>
         )}

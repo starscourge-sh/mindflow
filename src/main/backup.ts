@@ -7,6 +7,7 @@ import { join } from 'path'
 
 import { database, setting } from './captures'
 import { dayKey } from './dates'
+import { apart } from './sandbox'
 
 /**
  * Where copies of everything go: iCloud Drive when there is one, so the copies
@@ -19,8 +20,8 @@ import { dayKey } from './dates'
  */
 const ICLOUD = join(homedir(), 'Library/Mobile Documents/com~apple~CloudDocs')
 export const backupDir = (): string =>
-  // A QA run keeps its own data, and its backups with it, off iCloud.
-  existsSync(ICLOUD) && !process.env.MINDFLOW_USER_DATA
+  // A QA run, or the sandbox, keeps its own data, and its backups with it, off iCloud.
+  existsSync(ICLOUD) && !apart()
     ? join(ICLOUD, 'mindflow')
     : join(app.getPath('userData'), 'backups')
 
@@ -44,7 +45,7 @@ export async function backUp(db: DatabaseSync): Promise<void> {
   // Named by their contents, so a name already there is the same file.
   // A test run (its own data folder) keeps no copy of the pictures: each run
   // would otherwise copy the whole picture store, gigabytes, all over again.
-  if (process.env.MINDFLOW_USER_DATA) return
+  if (apart()) return
   const from = join(app.getPath('userData'), 'assets')
   const to = join(backupDir(), 'assets')
   await mkdir(to, { recursive: true })

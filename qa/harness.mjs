@@ -24,7 +24,9 @@ export async function open() {
   const data = process.env.QA_DATA ?? mkdtempSync(join(tmpdir(), 'mindflow-qa-'))
   // QA_ENTRY runs a build kept apart from out/, so one test's build does not
   // pull the app out from under another test running at the same time.
-  const app = await electron.launch({ args: [process.env.QA_ENTRY ?? '.'], env: { MINDFLOW_QA_AWAY: '1', ...process.env, MINDFLOW_USER_DATA: data } })
+  // QA_ARGS adds launch flags, such as --sandbox for the practice copy.
+  const extra = (process.env.QA_ARGS ?? '').split(' ').filter(Boolean)
+  const app = await electron.launch({ args: [process.env.QA_ENTRY ?? '.', ...extra], env: { MINDFLOW_QA_AWAY: '1', ...process.env, MINDFLOW_USER_DATA: data } })
   // Never left running: the app keeps its windows when asked to close (a
   // window put away, not quit), so a plain kill can leave it stuck exiting.
   // However the run ends (done, failed, interrupted), it is killed outright.

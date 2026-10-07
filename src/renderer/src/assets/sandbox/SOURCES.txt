@@ -1,0 +1,40 @@
+Pictures bundled with the sandbox (src/renderer/src/lib/sandbox-seed.ts).
+Each is public domain or CC0. Resized to webp (about 1200px on the long side,
+1600px for scenery) from the copies named below; the originals were not changed.
+
+Paintings: made before 1900, by painters dead for more than 100 years, photographed
+flat. Public domain in the US (Bridgeman v. Corel; tagged PD-Art on Wikimedia Commons).
+
+  mona-lisa.webp          Leonardo da Vinci, Mona Lisa, about 1503 to 1519. Louvre.
+                          From Mona_Lisa,_by_Leonardo_da_Vinci,_from_C2RMF_retouched.jpg (Wikimedia Commons)
+  annunciation.webp       Leonardo da Vinci, Annunciation, about 1472 to 1476. Uffizi.
+                          From Leonardo_da_Vinci_-_Annunciazione_-_Google_Art_Project.jpg (Wikimedia Commons)
+  last-supper.webp        Leonardo da Vinci, The Last Supper, 1495 to 1498. Santa Maria delle Grazie.
+                          From Leonardo_da_Vinci_(1452-1519)_-_The_Last_Supper_(1495-1498).jpg (Wikimedia Commons)
+  creation-of-adam.webp   Michelangelo, The Creation of Adam, about 1512. Sistine Chapel.
+                          From The_Creation_of_Adam_perspective_fix.jpg (Wikimedia Commons)
+  primavera.webp          Sandro Botticelli, Primavera, about 1480. Uffizi.
+                          From Botticelli-primavera.jpeg (Wikimedia Commons)
+  scenery/wanderer.webp   Caspar David Friedrich, Wanderer above the Sea of Fog, about 1818. Hamburger Kunsthalle.
+  scenery/mont-blanc.webp, scenery/lake-tahoe.webp, scenery/landers-peak.webp
+                          Albert Bierstadt (1830 to 1902): Mont Blanc; Lake Tahoe in Winter; Lander's Peak.
+
+The Metropolitan Museum of Art, Open Access (CC0 1.0), downloaded 2026-10-07:
+
+  cuneiform-tablet.webp   Cuneiform tablet: student exercise tablet. Babylonian, about 20th to 16th century BC.
+                          Accession 86.11.251, object 321878.
+                          https://www.metmuseum.org/art/collection/search/321878
+  odysseus-plaque.webp    Terracotta plaque with Odysseus. Greek, Melian, about 450 BC.
+                          Accession 25.78.26, object 251812.
+                          https://www.metmuseum.org/art/collection/search/251812
+  marble-head.webp        Marble head of a woman wearing diadem and veil. Greek, 425 to 400 BC.
+                          Accession 2007.328, object 258079.
+                          https://www.metmuseum.org/art/collection/search/258079
+
+NASA (public domain; no NASA logo, no endorsement implied), downloaded 2026-10-07:
+
+  pale-blue-dot.webp      "Pale Blue Dot Revisited", Voyager 1, 1990, reprocessed 2020. NASA/JPL-Caltech.
+                          PIA23645. Cropped around Earth. https://images.nasa.gov/details/PIA23645
+
+Not bundled, on purpose: ~/Documents/img/gradients (source not verified), and every
+picture listed under "Not bundled" or "Never bundle" in the sandbox design.

@@ -28,6 +28,7 @@ import { Empty, Pressed, Tip } from './ui'
 import { byKeys } from '@/lib/motion'
 import { KindBack, backLine, type Returning } from './kind-back'
 import { GoalStrip } from './goals-view'
+import { GettingStarted } from './getting-started'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowRight = alive(ArrowNarrowRightIcon)
@@ -643,6 +644,8 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
         style={{ backgroundColor: band ?? 'transparent', maskImage: 'linear-gradient(to bottom, black 0%, black 20%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 20%, transparent 100%)' }} />
       {/* Open goals, quiet, above everything else: never hidden while one is open. */}
       <GoalStrip onOpen={(type, id) => (type === 'view' ? onView(id) : onOpen(type, id))} className="page-column relative w-full px-3 pt-3 @[44rem]/page:px-6" />
+      {/* After the welcome: the firsts, ticking themselves, until they are done. */}
+      <div className="page-column relative w-full pt-4 empty:hidden"><GettingStarted onOpen={onOpen} onView={onView} /></div>
       {empty ? (
         <div className="relative px-3 @[44rem]/page:px-6">
           <Empty shape={['flower', 2]} title="Things come back to you here" action={

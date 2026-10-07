@@ -1,5 +1,5 @@
 import { pathToFileURL } from 'url'
-import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, net, powerMonitor, protocol, screen, session, Tray } from 'electron'
+import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, net, powerMonitor, protocol, screen, session, systemPreferences, Tray } from 'electron'
 /*
  * app - Control your application's event lifecycle.
  *     - app.on('window-all-closed', () => { app.quit() })
@@ -38,7 +38,7 @@ import icon from '../../resources/icon.png?asset'
 import { alreadyImported, captureText, changed, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { backupDir } from './backup'
-import { activeSession, atLogin, badge, beaconDefault, tempusDots, blurOn, gate, motionOn, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenGoals, whenStickies } from './vigil'
+import { activeSession, atLogin, badge, beaconDefault, tempusDots, blurOn, boxPlacement, gate, motionOn, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenGoals, whenStickies } from './vigil'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
@@ -47,7 +47,9 @@ import { registerIssues } from './issues'
 import { dayKey, dayMonth, num } from './dates'
 import { registerScenery, sceneryDir } from './scenery'
 import { celebrationFile, registerCelebrations } from './celebrate'
+import { firstRun, noteChord, pretendTaken, registerOnboarding, whereTray } from './onboarding'
 import { registerUnused } from './unused'
+import { SANDBOX, registerSandbox, relaunch, useDataFolder } from './sandbox'
 
 
 /* The standard electron app file structure:
@@ -190,6 +192,8 @@ let lastBounds: Electron.Rectangle | null = null
 
 /** Put it away, keeping its place. Shared by the key, Escape and the dot. */
 function hideWindow(win: BrowserWindow): void {
+  // A glide under way lands first, so the window is put away at its new size.
+  if (pending?.win === win) (clearInterval(arriving), settle())
   lastBounds = boundsOf(win)
   // Told before it goes, so the page can clear itself while hidden and come
   // back already blank rather than showing the old note for a frame.
@@ -207,34 +211,27 @@ function hideWindow(win: BrowserWindow): void {
 /**
  * The box is summoned many times a day, so it appears at once with the caret
  * ready, never fading up: the sound alone says it is alive (Rauno: what is
- * done hundreds of times should barely move). Fades are kept for a resize.
+ * done hundreds of times should barely move). A resize glides instead (reshape).
  */
 let arriving: ReturnType<typeof setInterval> | undefined
 /**
- * The size a fade is on its way to, before it is applied: what the next
+ * The size a glide is on its way to, before it lands: what the next
  * resize must start from, or two quick presses read the old size and undo
  * each other.
  */
 let pending: { win: BrowserWindow; bounds: Electron.Rectangle } | null = null
 /** Where the window is, or is about to be. */
 const boundsOf = (win: BrowserWindow): Electron.Rectangle => (pending?.win === win ? pending.bounds : win.getBounds())
-/** A fade cut short still lands its size. */
+/** A glide cut short (the window hidden, or shown again) still lands its size. */
 function settle(): void {
   if (pending && !pending.win.isDestroyed()) pending.win.setBounds(pending.bounds, false)
   pending = null
+  const done = landed
+  landed = null
+  done?.()
 }
-/** Up from nothing over `length` ms, easing out: most of the way at once. */
-function fadeIn(win: BrowserWindow, length: number, after = 0): void {
-  clearInterval(arriving)
-  settle()
-  win.setOpacity(0)
-  const start = Date.now() + after
-  arriving = setInterval(() => {
-    const t = Math.max(0, Math.min(1, (Date.now() - start) / length))
-    win.setOpacity(1 - (1 - t) ** 3)
-    if (t === 1) clearInterval(arriving)
-  }, 1000 / 120)
-}
+/** Told when the glide under way lands, or is cut short. */
+let landed: (() => void) | null = null
 function arrive(win: BrowserWindow): void {
   clearInterval(arriving)
   settle()
@@ -242,33 +239,61 @@ function arrive(win: BrowserWindow): void {
   win.show()
 }
 
+/** Motion off in Settings, or Reduce motion on in the Mac's Accessibility settings. */
+const stillness = (): boolean => !motionOn() || systemPreferences.getAnimationSettings().prefersReducedMotion
+/** How long a glide takes: quick, since a key asks for it, but long enough for the eye to follow. */
+const GLIDE = 240
+
 /**
- * A new size without the jolt: the page needs a frame or two to lay itself
- * out at the new size, and that frame showed stretched and half drawn. So the
- * window goes clear, takes its new size, and fades back once the page has
- * caught up. At once when Motion is off.
+ * A new size or place as one continuous glide, the way a Mac window zooms.
+ *
+ * The frame moves a little every display frame, easing out (most of the way
+ * at once, settling gently), and stays fully drawn throughout: no fade, no
+ * blink. The page is laid out so nothing in it reflows as the frame moves
+ * (the writing keeps its width; the panel is uncovered rather than squeezed),
+ * so the glide is the frame alone.
+ *
+ * Not macOS's own `setBounds(bounds, true)`: that one holds up the whole app
+ * until it ends (measured: 356ms for the panel's 440px, with no page drawn
+ * in between), and its length is fixed by the distance.
+ *
+ * Started again mid-way, it starts from where the frame is now, never from
+ * where it was going, so pressing twice turns it round without a jump. At
+ * once with Motion off, Reduce motion on, or the window not on screen.
+ * Resolves once the window has its new bounds.
  */
-function reshape(win: BrowserWindow, bounds: Electron.Rectangle): void {
+function reshape(win: BrowserWindow, bounds: Electron.Rectangle): Promise<void> {
   clearInterval(arriving)
-  settle()
-  if (!motionOn()) {
-    win.setOpacity(1)
-    return win.setBounds(bounds, false)
+  // Turned round mid-way: the old target is dropped, not landed.
+  const before = landed
+  landed = null
+  pending = null
+  before?.()
+  if (stillness() || !win.isVisible()) {
+    win.setBounds(bounds, false)
+    return Promise.resolve()
   }
-  // Out gently rather than off at once, then the new size while it cannot
-  // be seen, then back in a little slower than it left.
+  const from = win.getBounds()
   pending = { win, bounds }
-  const from = win.getOpacity()
   const start = Date.now()
-  const OUT = 70
-  arriving = setInterval(() => {
-    const t = Math.min(1, (Date.now() - start) / OUT)
-    win.setOpacity(from * (1 - t * t))
-    if (t < 1) return
-    clearInterval(arriving)
-    settle()
-    fadeIn(win, 200, 30)
-  }, 1000 / 120)
+  return new Promise((resolve) => {
+    landed = resolve
+    const step = (): void => {
+      if (win.isDestroyed()) return void (clearInterval(arriving), (pending = null), (landed = null), resolve())
+      const t = Math.min(1, (Date.now() - start) / GLIDE)
+      // Ease-out quart: quick off the mark, as anything a key asks for should be.
+      const k = 1 - (1 - t) ** 4
+      const at = (a: number, b: number): number => Math.round(a + (b - a) * k)
+      const next = { x: at(from.x, bounds.x), y: at(from.y, bounds.y), width: at(from.width, bounds.width), height: at(from.height, bounds.height) }
+      const now = win.getBounds()
+      if (!sameBox(now, next)) win.setBounds(next, false)
+      if (t < 1) return
+      clearInterval(arriving)
+      settle()
+    }
+    arriving = setInterval(step, 1000 / 120)
+    step()
+  })
 }
 
 function toggleWindow(): void {
@@ -288,11 +313,25 @@ function toggleWindow(): void {
   // Before showing it, or you watch it arrive in one place and move to another.
   // Checked against the screen as it is now: a display can have been unplugged
   // while the window was away.
-  if (lastBounds) win.setBounds(onScreen(lastBounds))
+  // Where Settings says, the screen you are on by default.
+  const place = summonedAt(win)
+  const now = boundsOf(win)
+  if (!sameBox(place, now)) {
+    // Where it grew from moves with it, so shrinking or closing the panel
+    // still lands where it should.
+    const dx = place.x - now.x
+    const dy = place.y - now.y
+    if (grew) grew = { was: { ...grew.was, x: grew.was.x + dx, y: grew.was.y + dy }, became: { ...grew.became, x: grew.became.x + dx, y: grew.became.y + dy } }
+    if (panelFrom) panelFrom = { x: panelFrom.x + dx, became: panelFrom.became + dx }
+    win.setBounds(place)
+  }
   arrive(win)
   recordOpen('prompt')
   beaconMoment('open')
   win.webContents.send('window:shown')
+  // The welcome listens for the box, so its keycaps press down even when the
+  // key went to another app.
+  if (home && !home.isDestroyed()) home.webContents.send('onboarding:box')
   // An accessory app is not in the running-app rotation, so asking for the
   // window alone sometimes leaves the keyboard with whatever had it. `steal`
   // is what brings this app forward at all.
@@ -306,6 +345,8 @@ function toggleWindow(): void {
  * ours has run.
  */
 function load(win: BrowserWindow, query = ''): void {
+  // The sandbox says so in every window's address, the one thing a page knows before it runs.
+  if (SANDBOX) query = `${query || '?'}${query ? '&' : ''}sandbox=1`
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}${query}`)
   } else {
@@ -687,6 +728,17 @@ let sentTo: [string, string, string?] | null = null
 /** The main window's page has asked for what it was sent: it is listening. */
 let homeAsked = false
 
+/**
+ * The sandbox from the menu bar: the main window carries your look in and
+ * restarts, the same as its own way in, so there is one way it happens.
+ */
+function openSandbox(): void {
+  const win = makeHome()
+  const go = (): void => void win.webContents.executeJavaScript("window.dispatchEvent(new CustomEvent('vigil:sandbox-enter'))").catch(() => undefined)
+  if (homePainted) go()
+  else win.once('ready-to-show', go)
+}
+
 function openHome(): void {
   if (!home?.isVisible()) recordOpen('home')
   beaconMoment('open')
@@ -815,6 +867,8 @@ function sameBox(a: Electron.Rectangle, b: Electron.Rectangle): boolean {
  * came from is no longer where it wants to go back to.
  */
 let grew: { was: Electron.Rectangle; became: Electron.Rectangle } | null = null
+/** Where the box's left edge was before the side panel opened, and where opening put it: the same test, sideways. */
+let panelFrom: { x: number; became: number } | null = null
 
 /**
  * Nudge a rectangle back onto the screen it is mostly on.
@@ -938,20 +992,43 @@ function onScreen(bounds: Electron.Rectangle): Electron.Rectangle {
   }
 }
 
-function topRight(width: number): { x: number; y: number } {
-  const { workArea } = screen.getPrimaryDisplay()
-  const margin = 16
-  return {
-    x: workArea.x + workArea.width - width - margin,
-    y: workArea.y + margin
-  }
+/**
+ * The top middle of a screen, the way Spotlight sits: across from the eye,
+ * a quarter of the spare height down. Where the box first appears.
+ */
+function topMiddle(area: Electron.Rectangle, width: number, height: number): Electron.Rectangle {
+  return { width, height, x: Math.round(area.x + (area.width - width) / 2), y: Math.round(area.y + Math.max(0, area.height - height) / 4) }
+}
+
+/** The work area of the screen the pointer is on. */
+const pointerArea = (): Electron.Rectangle => screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea
+
+/**
+ * Where the box turns up when summoned, as Settings says: where you left it
+ * (the default), or always the top middle or the middle of the screen; on the
+ * screen the pointer is on (the default) or the one it was last on. Left on
+ * another screen, it keeps its place relative to the screen it moves to.
+ * Never off the screen.
+ */
+function summonedAt(win: BrowserWindow): Electron.Rectangle {
+  const left = lastBounds ?? boundsOf(win)
+  const { width, height } = left
+  const { place, screen: which } = boxPlacement()
+  const was = screen.getDisplayMatching(left).workArea
+  const area = which === 'pointer' ? pointerArea() : was
+  if (place === 'top') return onScreen(topMiddle(area, width, height))
+  if (place === 'centre') return onScreen({ width, height, x: Math.round(area.x + (area.width - width) / 2), y: Math.round(area.y + (area.height - height) / 2) })
+  if (sameBox(area, was)) return onScreen(left)
+  const along = (at: number, from: number, span: number, size: number, to: number, room: number): number =>
+    Math.round(to + ((at - from) / Math.max(1, span - size)) * Math.max(0, room - size))
+  return onScreen({ width, height, x: along(left.x, was.x, was.width, width, area.x, area.width), y: along(left.y, was.y, was.height, height, area.y, area.height) })
 }
 
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = (prompt = new BrowserWindow({
-    ...SIZES.compact,
-    ...topRight(SIZES.compact.width),
+    // First seen at the top middle of the screen you are on.
+    ...topMiddle(pointerArea(), SIZES.compact.width, SIZES.compact.height),
 
     resizable: false,
     // No window buttons at all which, with the accessory policy below, is what
@@ -1081,7 +1158,9 @@ if (process.platform === 'darwin') app.setActivationPolicy('accessory')
 // in the folder named for what it was first called: renaming must never look
 // like losing everything.
 app.setName('Vigil')
-app.setPath('userData', process.env.MINDFLOW_USER_DATA ?? join(app.getPath('appData'), 'mindflow'))
+// The sandbox (a restart with --sandbox) keeps everything in a folder of its
+// own inside this one, so it is apart by path alone: see sandbox.ts.
+const locked = useDataFolder()
 // Test runs only: every window sits past the screen's right edge, unseen,
 // unclickable and never focused, so a run never lands on top of anyone's work.
 if (process.env.MINDFLOW_USER_DATA && process.env.MINDFLOW_QA_AWAY) {
@@ -1112,7 +1191,7 @@ const fromCli = (argv: string[]): string | null => {
   return at < 0 ? null : argv.slice(at + 1).join(' ').trim() || null
 }
 // A QA run is its own app on its own data, and may start while the last one closes.
-if (!process.env.MINDFLOW_USER_DATA && !app.requestSingleInstanceLock()) app.quit()
+if (!locked) app.quit()
 app.on('second-instance', (_event, argv) => {
   const text = fromCli(argv)
   if (text) captureText(text)
@@ -1129,7 +1208,7 @@ app.on('second-instance', (_event, argv) => {
  * pages became here. A note imported before, by the same path, is left as it is.
  */
 async function importVault(given?: string): Promise<void> {
-  const root = given ?? (await dialog.showOpenDialog({ title: 'Import an Obsidian vault or a Notion export (unzipped)', properties: ['openDirectory'] })).filePaths[0]
+  const root = given ?? (await dialog.showOpenDialog({ title: SANDBOX ? 'Import into the sandbox: an Obsidian vault or a Notion export (unzipped)' : 'Import an Obsidian vault or a Notion export (unzipped)', properties: ['openDirectory'] })).filePaths[0]
   if (!root) return
   // Its notes wait to become documents until their links are in; then every
   // window hears of it, and one of them turns them into documents.
@@ -1380,6 +1459,8 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
  * the copy you chose.
  */
 async function restore(): Promise<void> {
+  // The sandbox would only restore itself, but a restore reads as a risk to your notes there.
+  if (SANDBOX) return
   const { filePaths: [chosen] } = await dialog.showOpenDialog({
     title: 'Restore from a backup',
     defaultPath: join(backupDir(), 'database'),
@@ -1414,7 +1495,7 @@ async function restore(): Promise<void> {
  */
 async function importFiles(): Promise<void> {
   const { filePaths } = await dialog.showOpenDialog({
-    title: 'Import',
+    title: SANDBOX ? 'Import into the sandbox' : 'Import',
     properties: ['openFile', 'multiSelections'],
     filters: [{ name: 'Markdown, bookmarks, highlights (Readwise, Kindle) or Anki cards', extensions: ['md', 'html', 'htm', 'csv', 'json', 'txt'] }]
   })
@@ -1485,6 +1566,7 @@ function createTray(): void {
   image.setTemplateImage(true)
 
   tray = new Tray(image)
+  whereTray(() => (tray && !tray.isDestroyed() ? tray.getBounds() : null))
   updateTray()
   // Kept current without a window open: the count changes as the day goes on.
   setInterval(() => (updateTray(), beacons()), 30_000)
@@ -1607,8 +1689,8 @@ function updateTray(): void {
   const next = goals.find((goal) => daysLeft(goal.goalAt) >= 0)
   const nextSaid = next ? `${dayMonth(`${next.goalAt}T12:00`)} · ${daysLeft(next.goalAt) ? `${daysLeft(next.goalAt)}d` : 'today'}` : ''
   // Words beside each number, so the menu bar says what it counts: a bare "2 · 1" meant nothing.
-  tray.setTitle([nextSaid, session ? `● ${minutes}m` : '', tasks ? `${tasks} due` : '', due ? `${due} to review` : '', safe ? 'Safe' : ''].filter(Boolean).join(' · '), { fontType: 'monospacedDigit' })
-  tray.setToolTip(`Vigil${tasks ? ` · ${tasks} task${tasks === 1 ? '' : 's'} due now` : ''}${due ? ` · ${due} to review` : ''}${safe ? ' · safe mode on' : ''}`)
+  tray.setTitle([SANDBOX ? 'Sandbox' : '', nextSaid, session ? `● ${minutes}m` : '', tasks ? `${tasks} due` : '', due ? `${due} to review` : '', safe ? 'Safe' : ''].filter(Boolean).join(' · '), { fontType: 'monospacedDigit' })
+  tray.setToolTip(`${SANDBOX ? 'Vigil sandbox' : 'Vigil'}${tasks ? ` · ${tasks} task${tasks === 1 ? '' : 's'} due now` : ''}${due ? ` · ${due} to review` : ''}${safe ? ' · safe mode on' : ''}`)
   // Tempus: how far through the day, week, month and year, each a drawn bar
   // of one width, so the four line up whatever their words.
   const time = tempus()
@@ -1634,11 +1716,13 @@ function updateTray(): void {
         return drawn ? { label: '', icon: drawn, enabled: false } : { label: `${percent(time[unit])} of the ${unit}`, icon: tempusBar(time[unit]), enabled: false }
       }),
       { type: 'separator' },
+      // In the sandbox the way out comes first; from your notes, the way in.
+      ...(SANDBOX ? [{ label: 'Back to my notes', click: () => relaunch('real') }, { label: 'Reset the sandbox', click: () => relaunch('sandbox', true) }, { type: 'separator' } as const] : []),
       { label: 'Show Vigil', accelerator: SUMMON, click: () => toggleWindow() },
       { label: 'Open the main window', click: openHome },
       { label: 'Import…', click: () => void importFiles() },
       { label: 'Import an Obsidian vault or Notion export…', click: () => void importVault() },
-      { label: 'Restore from a backup…', click: () => void restore() },
+      ...(SANDBOX ? [] : [{ label: 'Restore from a backup…', click: () => void restore() }, { label: 'Open the sandbox', click: openSandbox }]),
       { type: 'separator' },
       { label: 'Safe mode', type: 'checkbox', checked: safe, click: () => (toggleSafeMode(), updateTray()) },
       { label: 'Show sticky notes', type: 'checkbox', checked: stickyPrefs().shown, click: () => showStickies() },
@@ -1657,6 +1741,7 @@ app.whenReady().then(() => {
   registerCaptures()
   registerImportConversion()
   registerVigil()
+  registerSandbox()
   atLogin()
   registerHome()
   registerNotes({ load, guard })
@@ -1664,6 +1749,7 @@ app.whenReady().then(() => {
   registerIssues()
   registerScenery()
   registerCelebrations()
+  registerOnboarding()
   registerUnused()
   const first = fromCli(process.argv)
   if (first) captureText(first)
@@ -1723,9 +1809,6 @@ app.whenReady().then(() => {
 
   // Save bytes dropped or pasted into the editor, and hand back the URL that
   // reads them again.
-  // Grows and shrinks around the window's own centre, so expanding does not
-  // walk the window across the screen. macOS animates the move itself, but it
-  // will not resize a window pinned non-resizable, hence the two calls around.
   ipcMain.on('drawing:open', (event, id: unknown, scene: unknown) => {
     if (typeof id === 'string') openDrawing(id, scene, event.sender)
   })
@@ -1768,23 +1851,26 @@ app.whenReady().then(() => {
     if (win) hideWindow(win)
   })
 
-  // The side panel, asked for: the window grows to the right, so the box
-  // you are writing in stays exactly where it is.
-  // If the screen's edge forces it left to fit, by how much, so closing the
-  // panel puts it back where it was rather than leaving it shifted.
-  let panelShift = 0
-  ipcMain.handle('window:panel', (event, open: unknown) => {
+  // The side panel, asked for. Centred (the default in Settings), the window
+  // grows about its middle, so the box stays centred where it was; otherwise
+  // it grows to the right and the writing stays exactly where the eye is.
+  // Either way the screen's edge pushes it back on, and closing puts it back
+  // exactly where it was before, unless it was moved in between.
+  // Resolves once the glide lands: the page keeps the panel drawn until then,
+  // so closing slides it away rather than leaving an empty strip.
+  ipcMain.handle('window:panel', async (event, open: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return false
     const bounds = boundsOf(win)
     const width = open ? WITH_PANEL : WIDTH
     if (width === bounds.width) return Boolean(open)
-    const next = onScreen({ ...bounds, x: open ? bounds.x : bounds.x + panelShift, width })
-    panelShift = open ? bounds.x - next.x : 0
-    // Instant: macOS's own resize animation is slow enough to wait on.
-    reshape(win, next)
+    const back = !open && panelFrom && panelFrom.became === bounds.x ? panelFrom.x : undefined
+    const x = back ?? (boxPlacement().centred ? Math.round(bounds.x - (width - bounds.width) / 2) : bounds.x)
+    const next = onScreen({ ...bounds, x, width })
+    panelFrom = open ? { x: bounds.x, became: next.x } : null
     // An expanded box remembers where it grew from; the panel moving it moves that too.
     if (grew) grew = { was: { ...grew.was, x: grew.was.x + (next.x - bounds.x), width: next.width }, became: { ...grew.became, x: next.x, width: next.width } }
+    await reshape(win, next)
     return Boolean(open)
   })
 
@@ -1978,17 +2064,18 @@ app.whenReady().then(() => {
     // which is the traffic lights appearing for a moment in the wrong place
     // halfway through the resize.
     //
-    // Grown about its own middle, then brought back on screen if that put an
-    // edge over the side.
-    // Instant, like the panel: the animated resize was slow.
+    // Centred (the default), grown about its own middle; otherwise down from
+    // its top edge, so the first line stays where the eye is. Then brought
+    // back on screen if that put an edge over the side: near the bottom it
+    // grows up instead. One glide, like the panel.
     const next = onScreen(
       back ?? {
-        x: Math.round(bounds.x + (bounds.width - size.width) / 2),
-        y: Math.round(bounds.y + (bounds.height - size.height) / 2),
+        x: bounds.x,
+        y: boxPlacement().centred ? Math.round(bounds.y + (bounds.height - size.height) / 2) : bounds.y,
         ...size
       }
     )
-    reshape(win, next)
+    void reshape(win, next)
 
     grew = expanded ? { was: bounds, became: next } : null
     return Boolean(expanded)
@@ -2340,8 +2427,12 @@ app.whenReady().then(() => {
   createWindow()
   // The QA harness imports a test vault without the folder dialog.
   if (process.env.MINDFLOW_QA_VAULT) void importVault(process.env.MINDFLOW_QA_VAULT)
-  // The main window, made in the background once the prompt is up.
-  setTimeout(makeHome, 1500)
+  // The main window, made in the background once the prompt is up. A brand-new
+  // Vigil opens it at once instead, in front, for the welcome: an accessory app
+  // has no Dock icon, so nothing else would say it had started.
+  // Arriving in or back from the sandbox, the main window opens too: that is where you were.
+  if (firstRun() || process.argv.includes('--show-home')) openHome()
+  else setTimeout(makeHome, 1500)
 
   /**
    * The key that summons it from anywhere, and puts it away again.
@@ -2359,8 +2450,12 @@ app.whenReady().then(() => {
   const anywhere = (keys: Record<string, string | null>): void => {
     globalShortcut.unregisterAll()
     const take = (made: string, run: () => void): void => {
-      const chord = accelerator(made in keys ? keys[made] : made)
-      if (chord && !globalShortcut.register(chord, run)) console.error(`Could not register ${chord}: something else already has it`)
+      const now = made in keys ? keys[made] : made
+      const chord = accelerator(now)
+      // Told to the welcome, which offers another key when the one it teaches is taken.
+      const ok = !!chord && !pretendTaken(now) && globalShortcut.register(chord, run)
+      if (chord && !ok) console.error(`Could not register ${chord}: something else already has it`)
+      noteChord(made, now, ok)
     }
     take('⌘.', toggleWindow)
     take('⌥⌘S', () => (toggleSafeMode(), updateTray()))

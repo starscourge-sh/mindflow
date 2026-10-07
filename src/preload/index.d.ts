@@ -75,6 +75,7 @@ export interface Api {
   celebrateHere: (on: boolean) => void
   onCelebrate: (listen: (moment: Moment) => void) => () => void
   onShown: (listen: () => void) => () => void
+  onBoxShown: (listen: () => void) => () => void
   onHiding: (listen: () => void) => () => void
   onImported: (listen: () => void) => () => void
   hints: {

@@ -24,6 +24,7 @@ import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
 import { ThemePicker } from '../theme/theme-picker'
 import { Switch } from '@/components/ui/switch'
+import { onboarding, playWelcome, useOnboarding } from '@/lib/onboarding'
 import { useLive, vigil, type MomentKind, type Settings } from '@/lib/vigil'
 import { Chips } from './display'
 import { SoundPacks } from './sound-packs'
@@ -42,6 +43,7 @@ import { SpellLanguages } from './spell-languages'
 import { isMac } from '@/lib/tiptap-utils'
 import { currentVim, onVimChange, setVim } from '@/lib/vim'
 import { useStoredFlag } from '@/lib/use-stored-flag'
+import { SANDBOX, enterSandbox, leaveSandbox, resetSandbox } from '@/lib/sandbox'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Brain = alive(BrainCircuitIcon)
@@ -377,6 +379,19 @@ export function SettingsView(): React.JSX.Element {
             <Switch checked={settings.thumbnails !== false} onCheckedChange={(thumbnails) => set({ thumbnails })} />
           </Setting>
         </Group>
+        <Group section="Appearance" title="Window placement">
+          <Setting title="Keep the box centred" note="Opening the side panel or expanding the box grows it about its middle, so it stays centred where it was. Off, it grows to the right and down, and the writing stays exactly where your eyes are. Either way it never goes past the edge of the screen, and closing the panel puts it back where it was." keywords="box window centre center grow panel expand position place">
+            <Switch checked={settings.boxCentred !== false} onCheckedChange={(boxCentred) => set({ boxCentred })} />
+          </Setting>
+          <Setting title="Where the box appears" note="When you summon it. Where you left it brings it back just where you put it; the others place it fresh each time, near the top like Spotlight or in the middle." keywords="box window summon open position place top middle centre last">
+            <Chips className="shrink-0" options={[{ id: 'last', label: 'Where you left it' }, { id: 'top', label: 'Near the top' }, { id: 'centre', label: 'Middle' }]}
+              on={(id) => id === (settings.boxPlace ?? 'last')} pick={(boxPlace) => set({ boxPlace: boxPlace as Settings['boxPlace'] })} />
+          </Setting>
+          <Setting title="Which screen" note="With more than one screen: the box comes to the screen the pointer is on, or stays on the one it was last on." keywords="box window display monitor screen pointer second">
+            <Chips className="shrink-0" options={[{ id: 'pointer', label: 'Where the pointer is' }, { id: 'same', label: 'Where it was' }]}
+              on={(id) => id === (settings.boxScreen ?? 'pointer')} pick={(boxScreen) => set({ boxScreen: boxScreen as Settings['boxScreen'] })} />
+          </Setting>
+        </Group>
         <Group section="Appearance" title="Sidebar and tabs">
           <Setting title="Sidebar" note="The sections the main window lists. The rest wait under More, and G with their letter still goes to them." keywords="customize sections menu more hide show" below={<div className="-mx-2 mt-2"><ShowList places={PLACES} setting="sidebarShown" /></div>} />
           <Setting title="Box tabs" note="The tabs beside the box. A hidden one is still a key away, ⌃ and its number, and shows while it is open." keywords="prompt panel inbox tasks review kept recent hide show" below={<div className="-mx-2 mt-2"><ShowList places={BOX_TABS} setting="boxTabs" /></div>} />
@@ -631,9 +646,18 @@ export function SettingsView(): React.JSX.Element {
         </Group>
 
         <Group section="Help" title="Getting started">
-          <Setting title="Tour" note="The one-minute walk through the loop: catch it in the box, the Inbox, Tidy, Decide, and what comes back.">
-            <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('vigil:tour'))}>Play it again</Button>
+          <Setting title="Welcome" note="The two-minute start: the one key, your first capture, and how things come back." keywords="tour welcome onboarding start intro replay">
+            <Button variant="outline" size="sm" onClick={playWelcome}>Play it again</Button>
           </Setting>
+          <Setting title="Sandbox" note={SANDBOX ? "You're in it now: a practice copy of Vigil, filled with examples to try. Your own notes stay exactly as they are." : 'A practice copy of Vigil, filled with examples to try. Your own notes stay exactly as they are.'} keywords="sandbox practice examples demo try sample playground">
+            {SANDBOX ? (<>
+              <Button variant="outline" size="sm" onClick={() => void leaveSandbox()}>Back to my notes</Button>
+              <Button variant="outline" size="sm" onClick={() => void resetSandbox()}>Reset</Button>
+            </>) : (
+              <Button variant="outline" size="sm" onClick={() => void enterSandbox()}>Open the sandbox</Button>
+            )}
+          </Setting>
+          <OnboardingRows />
           <Setting title="Shortcut sheet" note="Every shortcut over the window you are in, whenever you are not typing.">
             <Kbd>{keyFor('?') || 'None'}</Kbd>
           </Setting>
@@ -654,9 +678,9 @@ export function SettingsView(): React.JSX.Element {
         <Group section="Import and backups" title="Backups">
           {/* Always on: there is no switch, so the row says so and where the copies go. */}
           <Setting title="Daily backup" note="Always on, with nothing to set: every day a full copy of everything, private notes included, with every picture and file, goes to the folder below. The last 30 days are kept." below={<BackupPlace />} keywords="backup backups icloud copy daily database safe" />
-          <Setting title="Restore from a backup" note="Go back to one of those daily copies. What you have now is saved first, beside them, so a restore can be undone the same way. Vigil then starts again on the copy you chose. Also in ⌘K." keywords="restore backup undo go back copy recover">
+          {!SANDBOX && <Setting title="Restore from a backup" note="Go back to one of those daily copies. What you have now is saved first, beside them, so a restore can be undone the same way. Vigil then starts again on the copy you chose. Also in ⌘K." keywords="restore backup undo go back copy recover">
             <Button variant="outline" size="sm" onClick={() => void window.api.restoreBackup()}>Restore…</Button>
-          </Setting>
+          </Setting>}
           <Setting title="Markdown copies" note="Each capture also kept in that folder as a plain Markdown file, readable without Vigil; never a private or discarded one. Turning this off takes those files away within the hour. The daily backup goes on either way." keywords="backup markdown copies plain text files icloud">
             <Switch checked={settings.markdownCopies !== false} onCheckedChange={(markdownCopies) => set({ markdownCopies })} />
           </Setting>
@@ -882,6 +906,25 @@ function CelebrationsFolder({ folder, on, onSave }: { folder: string; on: boolea
   )
 }
 
+/** Page hints and Getting started, with what the main process says of them. */
+function OnboardingRows(): React.JSX.Element | null {
+  const state = useOnboarding()
+  if (!state) return null
+  return (
+    <>
+      <Setting title="Page hints" note="One line the first time you reach a page, saying what it is for." keywords="hints tips help first time page">
+        {state.hintsSeen.length > 0 && <Button variant="outline" size="sm" onClick={() => void onboarding.set({ hintsSeen: [], pageHints: true }).then(() => toast('Page hints will show again'))}>Show them again</Button>}
+        <Switch checked={state.pageHints} onCheckedChange={(on) => void onboarding.set({ pageHints: on })} />
+      </Setting>
+      {!state.sandbox && state.welcomed && (
+        <Setting title="Getting started" note="The checklist on Home: eight firsts that tick themselves as you do them." keywords="getting started checklist onboarding">
+          {state.hidden ? <Button variant="outline" size="sm" onClick={() => void onboarding.set({ hidden: false }).then(() => toast('Getting started is back on Home'))}>Show it</Button> : <span className="text-control text-muted-foreground">On Home</span>}
+        </Setting>
+      )}
+    </>
+  )
+}
+
 const MOMENT_NAMES: [MomentKind, string][] = [
   ['kept', '100th capture and other counts'],
   ['streak', 'Days in a row'],
@@ -894,7 +937,8 @@ const MOMENT_NAMES: [MomentKind, string][] = [
   ['goal7', 'A goal a week away'],
   ['goalDay', "A goal's day"],
   ['goalMade', 'A goal made'],
-  ['stickyDone', "A sticky's list done"]
+  ['stickyDone', "A sticky's list done"],
+  ['started', 'Getting started, all done']
 ]
 
 /**

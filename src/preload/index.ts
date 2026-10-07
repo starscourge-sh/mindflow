@@ -142,6 +142,13 @@ const api = {
     return () => ipcRenderer.off('imports:ready', relay)
   },
 
+  /** In the main window: each time the box is brought up, whichever app had the keys. For the welcome. */
+  onBoxShown: (listen: () => void): (() => void) => {
+    const relay = (): void => listen()
+    ipcRenderer.on('onboarding:box', relay)
+    return () => ipcRenderer.off('onboarding:box', relay)
+  },
+
   /** Each time the window is brought up: the moment the rot cards reshuffle and a hint may show. */
   onShown: (listen: () => void): (() => void) => {
     const relay = (): void => listen()

@@ -49,6 +49,11 @@ import { AliveIcon } from '@/components/vigil/alive-icon'
 import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
 import { UnusedFiles } from '@/components/vigil/unused-files'
 import { Tour } from '@/components/vigil/tour'
+import { SandboxHost, SandboxPill } from '@/components/vigil/sandbox'
+import { SANDBOX, enterSandbox, leaveSandbox, resetSandbox } from '@/lib/sandbox'
+import { Welcome } from '@/components/vigil/welcome'
+import { PageHint } from '@/components/vigil/page-hint'
+import { onboarding, playWelcome } from '@/lib/onboarding'
 import { DayView } from '@/components/vigil/day-view'
 import { MonthPage, SCALE_VIEW, WeekPage, YearPage, type Scale } from '@/components/vigil/periods-view'
 import { RecentPanel } from '@/components/vigil/recent-panel'
@@ -177,6 +182,8 @@ export function Home(): React.JSX.Element {
   useFocusMode('home')
   // ⌘K: notes and every action. ⌘P, Obsidian's quick open: notes only.
   const [searching, setSearching] = useState<false | 'all' | 'notes'>(false)
+  // Getting started's last step: ⌘K opened once.
+  useEffect(() => void (searching && onboarding.mark('search')), [searching])
   // Recent beside the page: everything made lately, or in the week a week's
   // page shows. `until` null reaches back from now.
   const [recent, setRecentState] = useState<{ until: string | null } | null>(null)
@@ -330,7 +337,9 @@ export function Home(): React.JSX.Element {
       <ShortcutSheet />
       <UnusedFiles />
       <Passes onOpen={(type, id) => open(type, id)} />
-      <Tour firstRun />
+      <Welcome />
+      <Tour />
+      <SandboxHost />
       <FocusNote />
       <FocusScenery />
       {searching && (
@@ -355,8 +364,15 @@ export function Home(): React.JSX.Element {
             { label: 'Decide: the weekly pass over what waited', run: () => openPass('decide') },
             { label: 'Import an Obsidian vault or Notion export…', cue: null, run: () => void window.api.importFrom('vault') },
             { label: 'Import Readwise, Kindle, Markdown, bookmarks or Anki…', cue: null, run: () => void window.api.importFrom('files') },
-            { label: 'Restore from a backup…', cue: null, run: () => void window.api.restoreBackup() },
-            { label: 'Take the tour', cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:tour')) },
+            // In the sandbox, restoring reads as a risk to your notes: it is not offered there.
+            ...(SANDBOX ? [
+              { label: 'Back to my notes: leave the sandbox', cue: null, run: () => void leaveSandbox() },
+              { label: 'Reset the sandbox: every example back to how it began', cue: null, run: () => void resetSandbox() }
+            ] : [
+              { label: 'Restore from a backup…', cue: null, run: () => void window.api.restoreBackup() },
+              { label: 'Open the sandbox: examples to try, apart from your notes', cue: null, run: () => void enterSandbox() }
+            ]),
+            { label: 'Play the welcome again', cue: null, run: playWelcome },
             { label: 'Try a celebration', cue: null, run: () => tryCelebration() },
             ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),
             { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘\\', cue: sidebar ? 'fold' : 'slide', run: () => setSidebar(!sidebar) },
@@ -600,7 +616,7 @@ export function Home(): React.JSX.Element {
               <button type="button" aria-label="Vigil menu"
                 className={`flex min-w-0 items-center gap-2 rounded-md py-1.5 text-foreground/80 transition-colors hover:bg-accent/60 data-[state=open]:bg-accent/60 ${narrow ? 'justify-center px-0' : 'flex-1 px-2'}`}>
                 <AliveIcon icon={GearIcon} size={16} />
-                {!narrow && <span className="flex-1 truncate text-left">Vigil</span>}
+                {!narrow && <span className="flex-1 truncate text-left">{SANDBOX ? 'Vigil sandbox' : 'Vigil'}</span>}
                 {!narrow && <AliveIcon icon={DownChevron} size={14} className="text-muted-foreground" />}
               </button>
             </DropdownMenuTrigger>
@@ -616,7 +632,13 @@ export function Home(): React.JSX.Element {
               </DropdownMenuCheckboxItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={() => window.dispatchEvent(new CustomEvent('vigil:shortcuts'))}>Keyboard shortcuts<DropdownMenuShortcut>?</DropdownMenuShortcut></DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => window.dispatchEvent(new CustomEvent('vigil:tour'))}>Take the tour</DropdownMenuItem>
+              <DropdownMenuItem onSelect={playWelcome}>Play the welcome again</DropdownMenuItem>
+              {SANDBOX ? (<>
+                <DropdownMenuItem onSelect={() => void leaveSandbox()}>Back to my notes</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => void resetSandbox()}>Reset the sandbox</DropdownMenuItem>
+              </>) : (
+                <DropdownMenuItem onSelect={() => void enterSandbox()}>Open the sandbox…</DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               {/* Used once, so it waits here rather than taking a row of the sidebar; each group's ··· has it too. */}
               <DropdownMenuItem onSelect={() => setTimeout(() => setCustomizing(true), 0)}>Customize sidebar…</DropdownMenuItem>
@@ -678,7 +700,9 @@ export function Home(): React.JSX.Element {
             </Tip>
           ))}
         </span>
-        <h1 className="ml-2 truncate font-medium">{SECTIONS.find((section) => section.id === view.id)?.label ?? (kind ? kind.label : view.id === 'settings' ? 'Settings' : view.id === 'yearpage' ? 'Year' : '')}</h1>
+        {/* In the sandbox, always: where you are, and the two ways out. */}
+        <SandboxPill narrow={narrow} />
+        <h1 className="ml-2 truncate font-medium" style={{ textWrap: 'nowrap' } as CSSProperties}>{SECTIONS.find((section) => section.id === view.id)?.label ?? (kind ? kind.label : view.id === 'settings' ? 'Settings' : view.id === 'yearpage' ? 'Year' : '')}</h1>
         {/* The open note's name, faint, once its first line has scrolled away. */}
         <span className={`min-w-0 flex-1 truncate px-4 text-center text-muted-foreground transition-opacity duration-200 ${topTitle && settings?.topTitle !== false ? 'opacity-100' : 'opacity-0'}`}>{topTitle}</span>
         {/* The window's own settings, quiet and side by side: what you hear, how much screen it takes. */}
@@ -703,6 +727,8 @@ export function Home(): React.JSX.Element {
           </button>
         </Tip>
       </header>
+      {/* The first time a page is reached, one line on what it is for. */}
+      <PageHint page={view.id} />
       {/* The page itself, a card like the sidebar's. */}
       <div className="relative flex min-h-0 flex-1 gap-2">
       <div className="@container/page relative flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border">

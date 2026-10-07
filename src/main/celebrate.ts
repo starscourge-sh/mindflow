@@ -18,7 +18,7 @@ import { isSprite } from './sprite'
  */
 
 /** The kinds of milestone, each of which can have files of its own to play. */
-export const MOMENTS = ['kept', 'streak', 'inbox', 'tasks', 'year', 'answered', 'goalHalf', 'goal30', 'goal7', 'goalDay', 'goalMade', 'stickyDone'] as const
+export const MOMENTS = ['kept', 'streak', 'inbox', 'tasks', 'year', 'answered', 'goalHalf', 'goal30', 'goal7', 'goalDay', 'goalMade', 'stickyDone', 'started'] as const
 export type MomentKind = (typeof MOMENTS)[number]
 /** A milestone, as the window shows it. `rank` decides between two at once. */
 export type Moment = { id: string; kind: MomentKind; rank: number; headline: string; line?: string; mark: string; tint: string
@@ -349,6 +349,28 @@ function stickyDone(id: unknown): Moment | null {
   if (last && Date.now() - last < STICKY_APART) return null
   stickyAt.set(id, Date.now())
   return { id: `sticky:${id}`, kind: 'stickyDone', rank: 0, headline: 'All done', mark: '✓', tint: TINT.green }
+}
+
+/**
+ * Getting started, every step done: once ever, on the same terms as the
+ * milestones (celebrations on, not in quiet hours, never over another card).
+ * One held back is not marked, so the shelf asks again a little later.
+ */
+export function startedMoment(name = ''): Moment | null | false {
+  try {
+    // Already given: false, so nothing asks again.
+    if (fired('started')) return false
+    const { on } = celebrationPrefs()
+    if (!on || gate().blackout) return null
+    const last = (database().prepare('select max(at) as at from celebrations').get() as { at: string | null }).at
+    // Never on top of another card; but a minute apart, not ten: the checklist
+    // is often finished within ten minutes of the first capture's own card.
+    if (last && Date.now() - new Date(last).getTime() < 60000) return null
+    database().prepare('insert or ignore into celebrations (id, at) values (?, ?)').run('started', new Date().toISOString())
+    return { id: 'started', kind: 'started', rank: 90, headline: name ? `You are all set, ${name}.` : 'You are all set.', line: 'Press ⌘. whenever something crosses your mind.', mark: '✓', tint: TINT.orange }
+  } catch {
+    return null
+  }
 }
 
 /**
