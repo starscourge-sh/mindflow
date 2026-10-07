@@ -85,6 +85,7 @@ export type Settings = {
   goalNudges: boolean
   /** Each goal's beacon unless it says otherwise. */
   goalBeacon: 'always' | 'sometimes' | 'off'
+  tempusDots: boolean
   /** A plain Markdown copy of each capture beside the backups; never a private one. */
   markdownCopies: boolean
   /** How far back the Recent panel reaches, in days. */

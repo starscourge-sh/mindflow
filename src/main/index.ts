@@ -38,7 +38,7 @@ import icon from '../../resources/icon.png?asset'
 import { alreadyImported, captureText, changed, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { backupDir } from './backup'
-import { activeSession, atLogin, badge, beaconDefault, blurOn, gate, motionOn, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenGoals, whenStickies } from './vigil'
+import { activeSession, atLogin, badge, beaconDefault, tempusDots, blurOn, gate, motionOn, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenGoals, whenStickies } from './vigil'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
@@ -1489,6 +1489,81 @@ function createTray(): void {
   setInterval(() => (updateTray(), beacons()), 30_000)
 }
 
+let tempusDrawn: { key: string; images: Electron.NativeImage[] } | null = null
+
+/** Draw the four Tempus rows in the main window's page, then put them in the menu. */
+async function drawTempus(key: string, rows: { label: string; share: number }[], dots: boolean, widest: string[]): Promise<void> {
+  const page = home && !home.isDestroyed() && homePainted ? home.webContents : null
+  if (!page) return
+  const urls = (await page.executeJavaScript(`(${tempusRows.toString()})(${JSON.stringify([rows, dots, widest])})`).catch(() => null)) as string[] | null
+  if (!urls?.length) return
+  tempusDrawn = { key, images: urls.map((url) => {
+    const image = nativeImage.createFromDataURL(url)
+    image.setTemplateImage(true)
+    return image
+  }) }
+  updateTray()
+}
+
+/**
+ * Run in a page: each row as a PNG as wide as the menu's widest words, in the
+ * menu's own font, black on clear so macOS can colour it as a template.
+ */
+function tempusRows([rows, dots, widest]: [{ label: string; share: number }[], boolean, string[]]): string[] {
+  const scale = 2
+  const font = '14px -apple-system, system-ui'
+  const measure = document.createElement('canvas').getContext('2d')!
+  measure.font = font
+  const width = Math.ceil(Math.max(240, ...widest.map((words) => measure.measureText(words).width)))
+  const height = 22
+  return rows.map(({ label, share }) => {
+    const canvas = document.createElement('canvas')
+    canvas.width = width * scale
+    canvas.height = height * scale
+    const pen = canvas.getContext('2d')!
+    pen.scale(scale, scale)
+    pen.font = font
+    pen.textBaseline = 'middle'
+    pen.fillStyle = '#000'
+    pen.fillText(label, 0, height / 2)
+    const said = `${Math.round(share * 100)}%`
+    pen.textAlign = 'right'
+    pen.fillText(said, width, height / 2)
+    // The track runs from after the longest unit name to before the percent.
+    const from = measure.measureText('Month').width + 14
+    const to = width - measure.measureText('100%').width - 14
+    if (dots) {
+      const count = Math.max(8, Math.floor((to - from) / 11))
+      const lit = Math.round(share * count)
+      const step = (to - from) / count
+      for (let n = 0; n < count; n++) {
+        const x = from + step * n + step / 2
+        pen.beginPath()
+        pen.arc(x, height / 2, 3.6, 0, Math.PI * 2)
+        if (n < lit) {
+          pen.globalAlpha = 1
+          pen.fill()
+        } else {
+          pen.globalAlpha = 0.55
+          pen.lineWidth = 1.2
+          pen.stroke()
+        }
+      }
+    } else {
+      const bar = (end: number, alpha: number): void => {
+        pen.globalAlpha = alpha
+        pen.beginPath()
+        pen.roundRect(from, height / 2 - 3, Math.max(6, end - from), 6, 3)
+        pen.fill()
+      }
+      bar(to, 0.28)
+      if (share > 0) bar(from + (to - from) * share, 1)
+    }
+    pen.globalAlpha = 1
+    return canvas.toDataURL('image/png')
+  })
+}
+
 /**
  * A bar for the menu, 80 by 6 points, drawn as a template image so macOS
  * colours it to suit a light or dark menu: the part gone solid, the rest faint.
@@ -1543,12 +1618,20 @@ function updateTray(): void {
     const when = left < 0 ? 'did you make it?' : left === 0 ? 'today' : `${num(left)} ${left === 1 ? 'day' : 'days'} left`
     return { label: `${name}  ·  ${when}  ·  ${percent(wayThrough(goal.goalFrom, goal.goalAt))} of the way`, click: () => sendHome('goal', goal.id) }
   })
+  // Each row as one picture the menu's width: the unit at the left, the bar or
+  // dots across, the percent at the right edge. Drawn by a page, since the
+  // main process cannot set text; until it is, the plain bar stands in.
+  const rows = (['day', 'week', 'month', 'year'] as const).map((unit) => ({ label: `${unit[0].toUpperCase()}${unit.slice(1)}`, share: Math.round(time[unit] * 100) / 100 }))
+  const widest = [...goalItems.map((item) => item.label ?? ''), 'Import an Obsidian vault or Notion export…']
+  const tempusKey = JSON.stringify([rows, tempusDots(), widest])
+  if (tempusDrawn?.key !== tempusKey) void drawTempus(tempusKey, rows, tempusDots(), widest)
   tray.setContextMenu(
     Menu.buildFromTemplate([
       ...(goalItems.length ? [{ label: 'Goals', enabled: false }, ...goalItems, { type: 'separator' } as const] : []),
-      ...(['day', 'week', 'month', 'year'] as const).map((unit) => ({
-        label: `${percent(time[unit])} of the ${unit}`, icon: tempusBar(time[unit]), enabled: false
-      })),
+      ...(['day', 'week', 'month', 'year'] as const).map((unit, at) => {
+        const drawn = tempusDrawn?.key === tempusKey ? tempusDrawn.images[at] : null
+        return drawn ? { label: '', icon: drawn, enabled: false } : { label: `${percent(time[unit])} of the ${unit}`, icon: tempusBar(time[unit]), enabled: false }
+      }),
       { type: 'separator' },
       { label: 'Show Vigil', accelerator: SUMMON, click: () => toggleWindow() },
       { label: 'Open the main window', click: openHome },
@@ -1719,7 +1802,7 @@ app.whenReady().then(() => {
   })
   // Beacons once the stickies are back, then as goals change, and at their moments.
   void restoreStickies().then(beacons)
-  whenGoals(beacons)
+  whenGoals(() => (beacons(), updateTray()))
   powerMonitor.on('unlock-screen', () => beaconMoment('wake'))
   powerMonitor.on('resume', () => beaconMoment('wake'))
   // At the Mac (touched in the last two minutes) and three hours since the last: out again.

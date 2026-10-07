@@ -269,6 +269,8 @@ const DEFAULTS = {
   // 'sometimes' (at a few moments a day, then tucked away) or 'off'. Each
   // goal can say otherwise; in its last week 'sometimes' stays.
   goalBeacon: 'sometimes' as 'always' | 'sometimes' | 'off',
+  // The menu bar's day, week, month and year as rows of dots instead of bars.
+  tempusDots: false,
   // A plain-text copy of each capture beside the backups (never a private one).
   markdownCopies: true,
   // How far back the Recent panel reaches, in days.
@@ -322,6 +324,7 @@ let goalsTold: () => void = () => undefined
 export const whenGoals = (tell: () => void): void => void (goalsTold = tell)
 /** Each goal's beacon unless the goal says otherwise: 'always', 'sometimes' or 'off'. */
 export const beaconDefault = (): 'always' | 'sometimes' | 'off' => settings().goalBeacon
+export const tempusDots = (): boolean => settings().tempusDots === true
 
 /** Told when the stickies are shown or put away, or kept in or out of screen shares. */
 let stickiesTold: () => void = () => undefined
@@ -652,7 +655,7 @@ export function registerVigil(): void {
     if ('stickiesShown' in patch || 'stickiesUnshared' in patch) stickiesTold()
     if ('spellcheck' in patch || 'spellLanguages' in patch) spelling()
     if ('openAtLogin' in patch) atLogin()
-    if ('goalBeacon' in patch) goalsTold()
+    if ('goalBeacon' in patch || 'tempusDots' in patch) goalsTold()
     return write(settings())
   })
   // Spelling: the languages there are and the ones in use, and a word kept as

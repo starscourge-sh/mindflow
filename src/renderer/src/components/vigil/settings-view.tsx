@@ -506,6 +506,9 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Goals at the top" note="Open goals show in a slim strip at the top of Home and Today's page: the days left, a line of the time gone, and when you last logged." keywords="goals strip home today countdown">
             <Switch checked={settings.goalStrip !== false} onCheckedChange={(goalStrip) => set({ goalStrip })} />
           </Setting>
+          <Setting title="Time as dots" note="The menu bar's menu shows how far through the day, week, month and year you are. As dots, like a line of beads, or as plain bars." keywords="tempus menu bar day week month year dots bars progress">
+            <Switch checked={settings.tempusDots === true} onCheckedChange={(tempusDots) => set({ tempusDots })} />
+          </Setting>
           <Setting title="Goal on screen" note="Each goal's beacon, a small window on every Space with the days left, unless the goal says otherwise. Now and then: out when you first unlock or open Vigil each day and every few hours you are at the Mac, then tucked away after a minute. In the last week it stays." keywords="goals beacon on screen window always sometimes off">
             <Chips className="shrink-0" options={[{ id: 'always', label: 'Always' }, { id: 'sometimes', label: 'Now and then' }, { id: 'off', label: 'Off' }]}
               on={(id) => id === (settings.goalBeacon ?? 'sometimes')} pick={(goalBeacon) => set({ goalBeacon: goalBeacon as Settings['goalBeacon'] })} />
