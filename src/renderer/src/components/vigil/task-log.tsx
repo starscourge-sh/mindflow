@@ -117,14 +117,6 @@ export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
     ...(glosses ?? []).map((one) => ({ key: `g-${one.id}`, at: one.createdAt, text: one.body, gloss: one }))
   ].sort((a, b) => b.at.localeCompare(a.at))
 
-  // Typed only for words that arrive while you watch: a recap kept from the
-  // pill, a thought just written. What was already here reads still.
-  const seen = useRef<Map<string, string | null> | null>(null)
-  const fresh = useRef(new Set<string>())
-  if (sessions && glosses) {
-    if (seen.current) for (const one of entries) if (one.text && seen.current.get(one.key) !== one.text) fresh.current.add(`${one.key}:${one.text}`)
-    seen.current = new Map(entries.map((one) => [one.key, one.text]))
-  }
 
   return (
     <Island compact title={<span className="flex items-baseline gap-1.5">Log {entries.length > 0 && <Rolling text={entries.length} className="font-normal text-muted-foreground tabular-nums" />}</span>}>
@@ -149,7 +141,8 @@ export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
           >
             {one.text ? (
               <p className="private-text text-control whitespace-pre-line text-foreground wrap-break-word">
-                {fresh.current.has(`${one.key}:${one.text}`) ? <Typed text={one.text} step={28} delay={60} /> : one.text}
+                {/* A row is written, never typed: it arrives by easing in (lib/motion.ts). */}
+                {one.text}
               </p>
             ) : one.session && asking === one.session.id ? (
               <RecapLine id={one.session.id} onDone={() => setAsking(null)} className="-mx-1" />

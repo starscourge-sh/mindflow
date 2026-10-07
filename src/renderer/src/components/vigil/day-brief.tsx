@@ -236,8 +236,9 @@ export function DayBrief({ day, onOpen, onListed }: {
               color: picture ? 'color-mix(in oklab, var(--tt-brand-color-400) 42%, white)' : 'var(--tt-brand-color-400)',
               textShadow: picture ? '0 1px 2px rgb(0 0 0 / 0.25), 0 4px 28px rgb(0 0 0 / 0.35)' : undefined
             }}>
-            <span className="mf-typed -mb-[0.1em] text-[clamp(1.25rem,3.2vw,2.5rem)] italic" style={{ animationDelay: '80ms', marginInlineStart: picture ? '-3.5em' : undefined }}>The</span>
-            <span className="mf-typed font-semibold tracking-[-0.02em] text-[clamp(2.4rem,7.4vw,5.75rem)] text-balance" style={{ animationDelay: '160ms' }}>{weekday} Brief</span>
+            {/* The title is simply there: the greeting below is the line that speaks (lib/motion.ts). */}
+            <span className="-mb-[0.1em] text-[clamp(1.25rem,3.2vw,2.5rem)] italic" style={{ marginInlineStart: picture ? '-3.5em' : undefined }}>The</span>
+            <span className="font-semibold tracking-[-0.02em] text-[clamp(2.4rem,7.4vw,5.75rem)] text-balance">{weekday} Brief</span>
           </h2>
         </div>
         <Upright text={time} side="right" />

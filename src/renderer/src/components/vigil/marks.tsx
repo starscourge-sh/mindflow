@@ -103,7 +103,7 @@ export function Strike({ seed, draw: asked }: { seed: string; draw?: Pen }): Rea
   const bow = 1.4 + r() * 1.2
   return (
     <svg aria-hidden viewBox="0 0 100 12" preserveAspectRatio="none"
-      className={`mf-mark pointer-events-none absolute top-[calc(50%-0.3rem)] -left-[4px] h-3 w-[calc(100%+10px)] overflow-visible text-foreground ${draw ? 'mf-pen-across' : ''}`}>
+      className={`mf-mark pointer-events-none absolute top-[calc(50%-0.3rem)] -left-[4px] h-3 w-[calc(100%+10px)] overflow-visible text-foreground ${draw ? 'mf-pen-across mf-now' : ''}`}>
       <path d={`M0 ${f(a)} C${f(28 + wobble(r) * 6)} ${f(a - bow)}, ${f(62 + wobble(r) * 6)} ${f(b + bow * 0.3)}, 100 ${f(b)}`} fill="none" stroke="currentColor" strokeOpacity={0.6} strokeWidth={1.6} strokeLinecap="round" style={STRETCH} />
     </svg>
   )
@@ -134,7 +134,7 @@ export function Tick({ seed, draw: asked, className = '' }: { seed: string; draw
   return (
     <svg aria-hidden viewBox="0 0 10 10" className={`mf-mark pointer-events-none overflow-visible ${className}`}>
       <path d={d} pathLength={1} fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"
-        className={draw ? 'mf-pen' : ''} style={{ strokeDasharray: 1, strokeDashoffset: draw ? 1 : 0 }} />
+        className={draw ? 'mf-pen mf-now' : ''} style={{ strokeDasharray: 1, strokeDashoffset: draw ? 1 : 0 }} />
     </svg>
   )
 }

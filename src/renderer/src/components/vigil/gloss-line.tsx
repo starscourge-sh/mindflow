@@ -8,7 +8,7 @@ import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, when, type Gloss } from '@/lib/vigil'
 import { cn } from '@/lib/cn'
-import { Island, Kbd, Rolling, Tip, toast, Typed, typing, Pressed } from './ui'
+import { Island, Kbd, Rolling, Tip, toast, typing, Pressed } from './ui'
 import { ago } from '../../../../main/dates'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -122,9 +122,6 @@ export function GlossLine({ id, className, placeholder = 'A thought on it, in yo
   const last = latest ? glosses[0] : undefined
   const [writing, setWriting] = useState(open)
   const [words, setWords] = useState('')
-  // Typed only for a gloss kept here and now: a list of rows typing out every
-  // old note at once would be noise.
-  const [fresh, setFresh] = useState<string | null>(null)
   const field = useRef<HTMLTextAreaElement>(null)
   const root = useRef<HTMLDivElement>(null)
   useEffect(() => (setWriting(open), setWords('')), [id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -148,7 +145,6 @@ export function GlossLine({ id, className, placeholder = 'A thought on it, in yo
     const text = words.trim()
     if (!text) return close()
     close()
-    setFresh(text)
     void keepGloss(id, text)
   }
 
@@ -212,7 +208,7 @@ export function GlossLine({ id, className, placeholder = 'A thought on it, in yo
             {last ? (
               <span className="min-w-0 flex-1 truncate">
                 <span className="text-muted-foreground/70">{said(last)} </span>
-                <span className="private-text">{fresh === last.body ? <Typed text={last.body} step={28} delay={60} /> : last.body}</span>
+                <span className="private-text">{last.body}</span>
               </span>
             ) : (
               <span className="min-w-0 flex-1 truncate">Add a thought…</span>
@@ -271,7 +267,6 @@ export function GlossTimeline({ id }: { id: string }): React.JSX.Element {
 export function GlossComposer({ id, keys = ';', className }: { id: string; keys?: string; className?: string }): React.JSX.Element {
   const glosses = useLive(() => vigil.glosses(id), [] as Gloss[], [id])
   const [words, setWords] = useState('')
-  const [fresh, setFresh] = useState<string | null>(null)
   const field = useRef<HTMLTextAreaElement>(null)
   const root = useRef<HTMLDivElement>(null)
   useEffect(() => setWords(''), [id])
@@ -291,7 +286,6 @@ export function GlossComposer({ id, keys = ';', className }: { id: string; keys?
     const text = words.trim()
     if (!text) return
     setWords('')
-    setFresh(text)
     void keepGloss(id, text)
   }
 
@@ -312,7 +306,7 @@ export function GlossComposer({ id, keys = ';', className }: { id: string; keys?
               >
                 <MessageSquareText className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <p className="private-text text-control whitespace-pre-line wrap-break-word text-foreground">{fresh === one.body ? <Typed text={one.body} step={28} delay={60} /> : one.body}</p>
+                  <p className="private-text text-control whitespace-pre-line wrap-break-word text-foreground">{one.body}</p>
                   <p className="mt-0.5 flex items-center gap-1.5 text-meta text-muted-foreground">
                     <span className="tabular-nums">{when(one.createdAt)}</span>
                     {one.author === 'ai' && <span className="rounded border border-border/80 px-1 text-[10px] leading-4 tracking-wide uppercase">AI</span>}

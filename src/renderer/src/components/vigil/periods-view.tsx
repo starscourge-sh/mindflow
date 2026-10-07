@@ -144,7 +144,8 @@ function Masthead({ parts, issue, headline, named }: { parts: React.ReactNode[];
         {issue !== null && <Odometer n={issue} />}
       </div>
       <h1 className={`mt-5 ${SERIF} text-[clamp(1.625rem,3.6vw,2.25rem)] leading-[1.15] font-medium tracking-[-0.015em] text-balance ${named ? 'text-foreground' : 'text-foreground/80'}`}>
-        <Typed key={headline} text={headline} step={18} delay={60} />
+        {/* A title, so simply there: the line under it is the one that speaks (lib/motion.ts). */}
+        {headline}
       </h1>
     </header>
   )

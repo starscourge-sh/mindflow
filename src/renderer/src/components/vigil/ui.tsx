@@ -1,4 +1,4 @@
-import { Children, cloneElement, createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Children, cloneElement, createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { SlotText } from 'slot-text/react'
@@ -7,7 +7,7 @@ import { alive } from '@/components/ui/alive-icon'
 import ArrowNarrowDownIcon from '@/components/ui/arrow-narrow-down-icon'
 import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
 import { AnimatePresence, motion } from 'motion/react'
-import { EASE, byKeys, shift } from '@/lib/motion'
+import { EASE, byKeys, hush, shift, speak } from '@/lib/motion'
 import { Arrow } from './marks'
 import { Coolshape, type shapeTypes } from 'coolshapes-react'
 import Lenis from 'lenis'
@@ -86,14 +86,21 @@ export function Page({ title, count, unit = ['item', 'items'], actions, children
  * label (textmotion.dev's word reveal). Typed again when the words change.
  * Plain text when Motion is off.
  */
-export function Typed({ text, className, step = 40, delay = 700 }: { text: string; className?: string; step?: number; delay?: number }): React.JSX.Element {
+export function Typed({ text, className, step = 40, delay = 700, story = false }: { text: string; className?: string; step?: number; delay?: number; story?: boolean }): React.JSX.Element {
   const words = text.split(/(\s+)/)
+  // One voice per screen (lib/motion.ts): settled when the words arrive, so
+  // a later render never starts it again. Any other line is simply written.
+  const id = useId()
+  const turn = useRef<{ text: string; speaks: boolean } | null>(null)
+  if (turn.current?.text !== text) turn.current = { text, speaks: speak(id, text, delay + (words.length / 2) * step * 1.4 + 364, story) }
+  const speaks = turn.current.speaks
+  useEffect(() => () => hush(id), [id])
   return (
     <span key={text} className={className} aria-label={text}>
       {words.map((word, index) =>
         /^\s+$/.test(word) ? word : (
-          <span key={index} aria-hidden className="mf-typed" // 1.4: each word a beat slower than first built, easier to follow.
-          style={{ animationDelay: `${delay + (index / 2) * step * 1.4}ms` }}>
+          <span key={index} aria-hidden className={speaks ? 'mf-typed' : 'inline-block'} // 1.4: each word a beat slower than first built, easier to follow.
+          style={speaks ? { animationDelay: `${delay + (index / 2) * step * 1.4}ms` } : undefined}>
             {/* A shortcut in a sentence is drawn as keys, one cap each. */}
             {/[⌃⌥⇧⌘]/.test(word)
               ? (() => {
@@ -1082,7 +1089,10 @@ export function Rolling({ text, className = '', by = 'character' }: { text: stri
   const last = useRef(text)
   const up = typeof text === 'number' && typeof last.current === 'number' ? text >= last.current : true
   useEffect(() => void (last.current = text), [text])
-  const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+  // A number arriving with its page is not a change you saw: in its first
+  // second it simply takes its value (lib/motion.ts, rule 3).
+  const [born] = useState(() => performance.now())
+  const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches || performance.now() - born < 1000
   return (
     <SlotText
       text={typeof text === 'number' ? num(text) : text}

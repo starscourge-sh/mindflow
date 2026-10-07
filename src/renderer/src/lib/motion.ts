@@ -1,8 +1,26 @@
+import { useEffect, useState } from 'react'
 import type { Variants } from 'motion/react'
 
 /**
  * The app's motion in one place: its curve, how far things travel, and when
  * they should not travel at all.
+ *
+ * How a screen moves, so that what moves reads as meant rather than as noise:
+ * 1. One voice per screen. Only one line types itself in at a time (`speak`);
+ *    any other on screen at that moment is simply written. A sequence that
+ *    tells a story (the welcome, a recap) takes its turns on purpose.
+ * 2. Typing is for the one line that speaks to you: a page hint, the brief's
+ *    greeting, what an empty page is for. Never for data: titles, labels,
+ *    counts, rows. A line says itself once a session; after that it is written.
+ * 3. A number rolls only when it changes in front of you, never as a page
+ *    paints (`Rolling`).
+ * 4. First paint: one short stagger at most, on the page's main list, 250ms
+ *    in all, and only on the first visit in a session (`useFirstVisit`).
+ * 5. Reached by a key, nothing moves (`byKeys`). Motion off or Reduce motion,
+ *    nothing travels (`shift`, main.css).
+ * 6. Decoration waits for the voice: while a line types, the scenery holds
+ *    still and a margin mark is drawn only once the line is done (data-voice
+ *    on the root, main.css).
  */
 
 /** The one curve the app moves on, the same as `--mf-ease` in CSS. */
@@ -29,7 +47,52 @@ export const shift = (transform: string): string =>
 let keyed = false
 addEventListener('keydown', () => void (keyed = true), true)
 addEventListener('pointerdown', () => void (keyed = false), true)
+// Coming back to the window starts afresh: the box, opened by its key from
+// another app, still says its line.
+addEventListener('focus', () => void (keyed = false))
 export const byKeys = (): boolean => keyed
+
+// The one line speaking in this window, and until when.
+let voice: { id: string; until: number } | null = null
+let quiet: ReturnType<typeof setTimeout> | undefined
+// Each line said this session, and which one said it.
+const spoken = new Map<string, string>()
+
+/**
+ * Whether the line `id` may type itself in for `ms` (rule 1): no when another
+ * is speaking, when it was reached by a key, when it has been said before
+ * this session, or while the welcome holds the screen (its box examples
+ * included). A `story` line is part of a sequence and always takes its turn.
+ * Asked again with the same id, the same answer.
+ */
+export function speak(id: string, text: string, ms: number, story = false): boolean {
+  const root = document.documentElement
+  const now = performance.now()
+  const said = spoken.get(text)
+  if (!story && voice?.id !== id && ((voice && voice.until > now) || byKeys() || (said && said !== id) || root.hasAttribute('data-welcoming') || root.hasAttribute('data-welcome-ph'))) return false
+  spoken.set(text, id)
+  voice = { id, until: Math.max(now + ms, story && voice ? voice.until : 0) }
+  root.setAttribute('data-voice', '')
+  clearTimeout(quiet)
+  quiet = setTimeout(() => hush(id), voice.until - now)
+  return true
+}
+
+/** The line `id` has finished or gone: the screen is free for another. */
+export function hush(id: string): void {
+  if (voice?.id !== id) return
+  voice = null
+  clearTimeout(quiet)
+  document.documentElement.removeAttribute('data-voice')
+}
+
+const visited = new Set<string>()
+/** True the first time `key` is reached this session (rule 4); a revisit arrives settled. */
+export function useFirstVisit(key: string): boolean {
+  const [first] = useState(() => !visited.has(key))
+  useEffect(() => void visited.add(key), [key])
+  return first
+}
 
 /**
  * One page giving way to the next in the same place (reading through a list,

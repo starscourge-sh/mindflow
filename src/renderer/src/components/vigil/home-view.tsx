@@ -25,7 +25,7 @@ import { RowMenu, type MenuItem } from './row-menu'
 import { tagColour } from './tag-read'
 import { completeTask } from './tasks-view'
 import { Empty, Pressed, Tip } from './ui'
-import { byKeys } from '@/lib/motion'
+import { byKeys, useFirstVisit } from '@/lib/motion'
 import { KindBack, backLine, type Returning } from './kind-back'
 import { GoalStrip } from './goals-view'
 import { GettingStarted } from './getting-started'
@@ -513,9 +513,10 @@ function Quotes({ title, onAll, cards, actions }: { title: ReactNode; onAll?: ()
 
 export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string) => void; onView: (id: string, focus?: string) => void }): React.JSX.Element {
   const data = useLive(home, NONE, [], ['capture', 'item'])
-  // Opened by pointer, the shelves come in top down, 40ms apart; by G H they
-  // are simply there. Decided once, as the page opens.
-  const [enter] = useState(() => !byKeys())
+  // Opened by pointer, the shelves come in top down, 20ms apart; by G H, or
+  // back again this session, they are simply there. Decided once, as the page opens.
+  const first = useFirstVisit('home')
+  const [enter] = useState(() => first && !byKeys())
   const pins = useLive(vigil.pins, [] as Pinned[])
   const tasks = useLive(vigil.tasks, [] as Task[])
   const settings = useLive(vigil.settings, null as Settings | null)
@@ -623,7 +624,9 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
     return () => window.removeEventListener('keydown', onKey)
   }, [reading])
 
-  const empty = !captures.length && !data.edited.length && !tasks.length && !pins.length
+  // Not while Home is still loading: an empty page flashed first took the
+  // page's one voice from its hint (lib/motion.ts).
+  const empty = data !== NONE && !captures.length && !data.edited.length && !tasks.length && !pins.length
   // Four tiles across with room for them, two in a small window.
   const [wide, setWide] = useState(true)
   useLayoutEffect(() => {

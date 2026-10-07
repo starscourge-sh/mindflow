@@ -1,7 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { ArrowRight, ArrowUp, CornerDownLeft, NotebookText } from 'lucide-react'
-import { EASE, byKeys, shift } from '@/lib/motion'
+import { EASE, byKeys, hush, shift, speak } from '@/lib/motion'
 import { chime, click } from '@/lib/sound'
 import { applyTheme, type Theme } from '@/lib/theme'
 import { comboOf, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
@@ -80,17 +80,23 @@ const newest = (list: CaptureMeta[], before: Set<string>): CaptureMeta | null =>
 function TypeLine({ text, className }: { text: string; className?: string }): React.JSX.Element {
   const [n, setN] = useState(() => (still() ? text.length : 0))
   const [resting, setResting] = useState(false)
+  // The screen's one voice while it types: the ring round today waits for it (lib/motion.ts).
+  const voice = useId()
+  useState(() => n < text.length && speak(voice, text, 10000, true))
+  useEffect(() => () => hush(voice), [voice])
   useEffect(() => {
     if (n >= text.length) {
+      hush(voice)
       const timer = setTimeout(() => setResting(true), 1200)
       return () => clearTimeout(timer)
     }
     const timer = setTimeout(() => {
       setN((now) => now + 1)
       if (text[n] !== ' ') click('soft')
-    }, n === 0 ? 420 : text[n - 1] === '.' ? 180 : 38)
+    // The first letter once the year has come in: one thing at a time.
+    }, n === 0 ? 680 : text[n - 1] === '.' ? 180 : 38)
     return () => clearTimeout(timer)
-  }, [n, text])
+  }, [n, text]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const finish = (event: KeyboardEvent): void => void (event.key !== 'Escape' && setN(text.length))
     window.addEventListener('keydown', finish, true)
@@ -188,14 +194,14 @@ function YearField({ calm }: { calm: boolean }): React.JSX.Element {
                 return (
                   <circle key={`${m}-${d}`} cx={(d + 0.5) * sx} cy={(m + 0.5) * sy} r={now ? Math.max(3, s * 0.13) : Math.max(1.5, s * 0.075)}
                     className={`${now ? 'fill-primary' : 'fill-foreground'} ${quiet ? '' : 'mf-dot-in'}`}
-                    style={{ opacity: now ? 1 : gone ? 0.46 : 0.17, animationDelay: quiet ? undefined : `${Math.round(120 + far * 18)}ms` } as CSSProperties} />
+                    style={{ opacity: now ? 1 : gone ? 0.46 : 0.17, animationDelay: quiet ? undefined : `${Math.round(60 + far * 8)}ms` } as CSSProperties} />
                 )
               }))}
-              {/* Today, ringed: a loose ring by hand, written once the year has
-                  come in; a drawn circle with Margin marks off. */}
+              {/* Today, ringed: a loose ring by hand, written once the line
+                  above has been typed; a drawn circle with Margin marks off. */}
               <circle cx={cx} cy={cy} r={s * 0.42} fill="none" stroke="var(--primary)" strokeWidth={1.2} opacity={0.6} className={`mf-unmarked ${quiet ? '' : 'mf-dot-in'}`} style={{ animationDelay: quiet ? undefined : '80ms' }} />
               <path d={ringPath(cx, cy, s * 0.62, s * 0.5, today.format('YYYY-MM-DD'))} pathLength={1} fill="none" stroke="var(--primary)" strokeWidth={1.6} strokeLinecap="round" opacity={0.8}
-                className={`mf-mark ${quiet ? '' : 'mf-pen'}`} style={{ strokeDasharray: 1, strokeDashoffset: quiet ? 0 : 1, animationDelay: quiet ? undefined : '900ms' }} />
+                className={`mf-mark ${quiet ? '' : 'mf-pen'}`} style={{ strokeDasharray: 1, strokeDashoffset: quiet ? 0 : 1, animationDelay: quiet ? undefined : '150ms' }} />
             </svg>
             <figcaption className={`absolute -translate-y-1/2 rounded-md bg-background/85 px-2 py-0.5 whitespace-nowrap ${QUIET}`}
               style={leftward ? { right: w - cx + s * 0.8, top: cy } : { left: cx + s * 0.8, top: cy }}>
@@ -750,6 +756,10 @@ function BoxPreview(): React.JSX.Element {
   const [typed, setTyped] = useState(0)
   const line = EXAMPLES[n % EXAMPLES.length]
   const quiet = still()
+  // The screen's voice for as long as it is up: the scenery holds still behind it.
+  const voice = useId()
+  useState(() => !quiet && speak(voice, 'box preview', 600000, true))
+  useEffect(() => () => hush(voice), [voice])
   useEffect(() => {
     if (quiet || typed < line.length) {
       const timer = setTimeout(() => (quiet ? setN((was) => was + 1) : setTyped((was) => was + 1)), quiet ? 3000 : typed === 0 ? 500 : 38)
@@ -984,7 +994,7 @@ function Start({ name, skipped, importing, onPick, onFiles }: { name: string; sk
           <motion.li key={row.key} className="border-t border-foreground/10 first:border-t-0"
             initial={stagger ? { opacity: 0, transform: shift('translateY(6px)') } : false}
             animate={{ opacity: 1, transform: shift('translateY(0px)') }}
-            transition={{ delay: stagger ? 0.06 + i * 0.04 : 0, duration: 0.22, ease: EASE }}>
+            transition={{ delay: stagger ? i * 0.035 : 0, duration: 0.18, ease: EASE }}>
             <button type="button" onClick={() => onPick(row.key)} className="group -mx-3 flex w-[calc(100%+1.5rem)] min-w-0 items-baseline gap-[clamp(0.75rem,2vw,1.25rem)] rounded-xl px-3 py-[clamp(0.375rem,1.2vh,0.875rem)] text-left outline-none transition-[background-color,transform] duration-150 hover:bg-foreground/[0.05] focus-visible:ring-2 focus-visible:ring-ring/40 active:scale-[0.99]">
               <Kbd className={`${LINE_KEY} shrink-0 translate-y-[-0.1em] text-[clamp(0.6875rem,min(1.1vw,1.7vh),0.875rem)]`}>{row.key}</Kbd>
               <span className="flex min-w-0 flex-col gap-[0.2em]">

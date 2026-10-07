@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
 import { Lightbulb, X } from 'lucide-react'
 import { chime } from '@/lib/sound'
-import { EASE, byKeys, shift } from '@/lib/motion'
+import { EASE, byKeys, shift, useFirstVisit } from '@/lib/motion'
 import { onboarding, playWelcome, useOnboarding } from '@/lib/onboarding'
 import { enterSandbox } from '@/lib/sandbox'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
@@ -51,7 +51,7 @@ export function PageHint({ page }: { page: string }): React.JSX.Element | null {
       void onboarding.set({ newsSeen: true })
     }
     return (
-      <Line onDone={done} done="Not now">
+      <Line name="news" onDone={done} done="Not now">
         <span className="font-medium text-foreground">New:</span> a welcome tour, and a sandbox full of examples to try apart from your notes.{' '}
         <button type="button" onClick={() => (done(), playWelcome())} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Play the welcome</button>
         {' or '}
@@ -74,11 +74,13 @@ export function PageHint({ page }: { page: string }): React.JSX.Element | null {
     setGone((was) => [...was, page])
     void onboarding.set({ hintsSeen: [...state.hintsSeen, page] })
   }
-  return <Line key={page} onDone={done} done="Got it"><Typed text={text} step={22} delay={250} /></Line>
+  return <Line key={page} name={page} onDone={done} done="Got it"><Typed text={text} step={22} delay={250} /></Line>
 }
 
-function Line({ children, onDone, done }: { children: React.ReactNode; onDone: () => void; done: string }): React.JSX.Element {
-  const [enter] = useState(() => !byKeys())
+function Line({ name, children, onDone, done }: { name: string; children: React.ReactNode; onDone: () => void; done: string }): React.JSX.Element {
+  // Slides in the first time this session, never by keys; back again, it is simply there.
+  const first = useFirstVisit(`hint:${name}`)
+  const [enter] = useState(() => first && !byKeys())
   return (
     <motion.div role="note"
       initial={enter ? { opacity: 0, transform: shift('translateY(-4px)') } : false}

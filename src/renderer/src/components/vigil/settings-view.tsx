@@ -33,7 +33,7 @@ import { BackToTop, Kbd, Rolling, Tip, refuse, toast, useSmooth } from './ui'
 import { Button } from '@/components/ui/button'
 import { Orb } from './orb'
 import { tryCelebration } from './celebrate'
-import { byKeys } from '@/lib/motion'
+import { byKeys, useFirstVisit } from '@/lib/motion'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DownloadIcon from '@/components/ui/download-icon'
 import UploadIcon from '@/components/ui/upload-icon'
@@ -135,7 +135,8 @@ function Group({ title, section = title, children }: { title: string; section?: 
 
 /** A group as it appears: a section picked with a click brings its groups in one after another; one reached by keys or a search is simply there. */
 function GroupIsland({ title, section, query, children }: { title: string; section: string; query: string; children: ReactNode }): React.JSX.Element {
-  const [enter] = useState(() => !byKeys())
+  const first = useFirstVisit(`settings:${section}`)
+  const [enter] = useState(() => first && !byKeys())
   return (
     <section className={`mt-6 first:mt-0 [&:not(:has([data-setting]))]:hidden ${enter ? 'mf-rise' : ''}`}>
       {/* Searching, rows from every section show at once, so each island says whose it is. */}

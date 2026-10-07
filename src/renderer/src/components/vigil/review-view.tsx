@@ -485,11 +485,9 @@ const READY = [
 
 /** Every exam ahead, nearest first. */
 function Exams({ exams }: { exams: Exam[] }): React.JSX.Element | null {
-  // A few exams at the top of the session come in one after another, once:
-  // decided as it opens, so a later render never plays it again.
-  const [enter] = useState(() => !byKeys())
+  // Simply there: the card below is what arrives (lib/motion.ts, rule 4).
   if (!exams.length) return null
-  return <div className={`flex flex-col gap-4 px-5 pt-5 ${enter ? 'mf-stagger' : ''}`}>{exams.map((exam) => <Readiness key={exam.tag} exam={exam} />)}</div>
+  return <div className="flex flex-col gap-4 px-5 pt-5">{exams.map((exam) => <Readiness key={exam.tag} exam={exam} />)}</div>
 }
 
 /**
@@ -508,13 +506,12 @@ export function Readiness({ exam, named = true }: { exam: Exam; named?: boolean 
         <p><Rolling text={exam.total} /> {exam.total === 1 ? 'card' : 'cards'}, none seen yet. About <Rolling text={exam.perDay} /> a day from today has them all met in time.</p>
       ) : (
         <>
-          {/* Drawn at its widths and wiped in from the left: a clip, not a
-              width, so nothing is laid out again while it moves. */}
-          <motion.div initial={{ clipPath: 'inset(0 100% 0 0)' }} animate={{ clipPath: 'inset(0 0% 0 0)' }} transition={{ duration: 0.3, ease: EASE }} className="flex h-1.5 overflow-hidden rounded-full">
+          {/* Drawn at its widths, there with the page: data, not a show. */}
+          <div className="flex h-1.5 overflow-hidden rounded-full">
             {READY.map(({ key, color }) => exam[key] > 0 && (
               <div key={key} style={{ width: `${(exam[key] / exam.total) * 100}%`, background: color }} />
             ))}
-          </motion.div>
+          </div>
           <p className="flex flex-wrap gap-x-3">
             {READY.map(({ key, label, color }) => exam[key] > 0 && (
               <span key={key}><span style={{ color }}>●</span> <Rolling text={exam[key]} /> {label}</span>

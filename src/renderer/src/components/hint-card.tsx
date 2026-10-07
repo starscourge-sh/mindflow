@@ -245,7 +245,8 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
         >
           <p className="text-xs text-muted-foreground">{backLine(due)}</p>
           <button type="button" onClick={() => (chime('open'), onOpen(due.type, due.id), setDue(null))} className="mb-1.5 block text-left text-sm text-foreground hover:underline">
-            <Typed text={due.title} step={28} delay={120} />
+            {/* A title, so written, not typed (lib/motion.ts). */}
+            {due.title}
           </button>
           <KindBack one={due} onOpen={onOpen} onDone={() => setDue(null)} />
         </motion.div>

@@ -1,6 +1,6 @@
-import { Fragment, type ReactNode } from 'react'
+import { Fragment, useState, type ReactNode } from 'react'
 import { motion } from 'motion/react'
-import { EASE, shift } from '@/lib/motion'
+import { EASE, byKeys, shift, useFirstVisit } from '@/lib/motion'
 import isoWeek from 'dayjs/plugin/isoWeek.js'
 
 import { chime } from '@/lib/sound'
@@ -86,6 +86,9 @@ export const useIssue = (start: string, scale: 'week' | 'month'): number | null 
 export function PastIssues({ scale, current, onPick }: { scale: 'week' | 'month'; current: string; onPick: (start: string) => void }): React.JSX.Element | null {
   const first = useFirstCapture()
   const past = useLive(() => issues.past(scale, current, 3), [] as PastIssue[], [scale, current])
+  // The page's one short stagger, the first visit only, never by keys (lib/motion.ts, rule 4).
+  const firstVisit = useFirstVisit(`issues:${scale}`)
+  const [enter] = useState(() => firstVisit && !byKeys())
   if (!past.length) return null
   return (
     <section className="mt-16 border-t pt-8" aria-label="Past issues">
@@ -96,7 +99,7 @@ export function PastIssues({ scale, current, onPick }: { scale: 'week' | 'month'
           const headline = scale === 'week' ? issue.fields.theme || firstLine(issue.fields.summary) : issue.fields.season || issue.fields.focus
           const date = scale === 'week' ? `Week ${weekOfYear(issue.start)}` : dayjs(issue.start).format("MMM 'YY")
           return (
-            <motion.li key={issue.key} initial={{ opacity: 0, transform: shift('translateY(8px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ delay: Math.min(index, 6) * 0.05, duration: 0.28, ease: EASE }}>
+            <motion.li key={issue.key} initial={enter ? { opacity: 0, transform: shift('translateY(8px)') } : false} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ delay: Math.min(index, 3) * 0.02, duration: 0.18, ease: EASE }}>
                 <button type="button" onClick={() => (chime('season'), onPick(issue.start))}
                   className="mf-island group flex h-full w-full flex-col items-center gap-2 rounded-xl border bg-accent/25 px-4 pt-4 pb-5 text-center transition-[background-color,translate] duration-200 ease-(--mf-ease) pointer-fine:hover:-translate-y-0.5 hover:bg-accent/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <IssueLine className="justify-center" parts={[date, number && issueLabel(number)]} />

@@ -781,19 +781,19 @@ body:has([data-card]:focus) [data-cursor] {
 @media (prefers-reduced-motion: reduce) { .mf-typed { animation-name: mf-fade; } }
 @keyframes mf-fade { from { opacity: 0; } to { opacity: 1; } }
 
-/* A page's groups arriving together come in one after another, 40ms apart,
-   so the eye reads them top down instead of taking one flash. Opacity and a
-   short rise only, on the compositor; nothing waits on it, so a click lands
-   at once. Put on when a page opens by pointer, never by keys. */
+/* A page's groups arriving together come in one after another, 20ms apart,
+   so the eye reads them top down instead of taking one flash: 250ms in all
+   (lib/motion.ts, rule 4). Opacity and a short rise only, on the compositor;
+   nothing waits on it, so a click lands at once. Put on the first time a
+   page opens by pointer, never by keys. */
 .mf-stagger > *,
 .mf-rise {
-  animation: mf-rise 280ms var(--mf-ease) both;
+  animation: mf-rise 180ms var(--mf-ease) both;
 }
-.mf-stagger > :nth-child(2), .mf-rise:nth-of-type(2) { animation-delay: 40ms; }
-.mf-stagger > :nth-child(3), .mf-rise:nth-of-type(3) { animation-delay: 80ms; }
-.mf-stagger > :nth-child(4), .mf-rise:nth-of-type(4) { animation-delay: 120ms; }
-.mf-stagger > :nth-child(5), .mf-rise:nth-of-type(5) { animation-delay: 160ms; }
-.mf-stagger > :nth-child(n + 6), .mf-rise:nth-of-type(n + 6) { animation-delay: 200ms; }
+.mf-stagger > :nth-child(2), .mf-rise:nth-of-type(2) { animation-delay: 20ms; }
+.mf-stagger > :nth-child(3), .mf-rise:nth-of-type(3) { animation-delay: 40ms; }
+.mf-stagger > :nth-child(4), .mf-rise:nth-of-type(4) { animation-delay: 60ms; }
+.mf-stagger > :nth-child(n + 5), .mf-rise:nth-of-type(n + 5) { animation-delay: 70ms; }
 @keyframes mf-rise {
   from { opacity: 0; transform: translateY(6px); }
 }
@@ -1058,7 +1058,7 @@ input[type='number']::-webkit-outer-spin-button {
 }
 @keyframes mf-listen { 50% { opacity: 0.25; } }
 /* A year of days arriving from today outward. */
-.mf-dot-in { animation: mf-dot 420ms var(--mf-ease) both; }
+.mf-dot-in { animation: mf-dot 320ms var(--mf-ease) both; }
 /* The welcome's two inks under the headline: the page's own text colour
    mixed back toward the page, so a line under a headline reads as quieter
    without going faint (at least 4.5:1 in every theme, measured). */
@@ -1107,6 +1107,10 @@ input[type='number']::-webkit-outer-spin-button {
 :root:not([data-marks='off']) .tiptap.ProseMirror[contenteditable='false'] :is(hr:nth-of-type(even), [data-type='horizontalRule']:nth-of-type(even) hr) {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 6' preserveAspectRatio='none'%3E%3Cpath d='M0.5 2.8C18 3.9 30 2.2 47 3.3S77 3.9 88 2.9 97 3.3 99.5 3.5' fill='none' stroke='black' stroke-width='1.3' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
 }
+/* One voice at a time (lib/motion.ts, rule 6): while a line types itself
+   in, the scenery holds still and a mark waits, drawn once the line is done.
+   Not a tick or a strike (mf-now): those answer your click, at once. */
+:root[data-voice] :is(.mf-drift, .mf-pen, .mf-ink, .mf-pen-across):not(.mf-now) { animation-play-state: paused; }
 .mf-nudge-up { animation: mf-nudge 1.8s var(--mf-ease) infinite; }
 @keyframes mf-nudge { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-3px); } }
 :root[data-motion='off'] :is(.mf-caret, .mf-listening, .mf-dot-in, .mf-drift, .mf-ink, .mf-nudge-up) { animation: none; }

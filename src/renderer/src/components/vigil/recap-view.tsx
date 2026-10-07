@@ -29,6 +29,9 @@ const PAGE_MOTION: Variants = {
 
 const plural = (n: number, one: string, many: string): string => `${num(n)} ${n === 1 ? one : many}`
 
+/** How long a count takes, in seconds after its 0.25s wait. */
+const counting = (n: number): number => Math.min(1.6, 0.6 + Math.log10(n + 1) * 0.3)
+
 /**
  * A number counted up from nothing as its page arrives, fast at first and
  * easing into its place, the way a total is added up in front of you. Figures
@@ -39,7 +42,7 @@ function CountUp({ n }: { n: number }): React.JSX.Element {
   const value = useMotionValue(0)
   const shown = useTransform(value, (at) => num(Math.round(at)))
   useEffect(() => {
-    const run = animate(value, n, { duration: Math.min(1.6, 0.6 + Math.log10(n + 1) * 0.3), delay: 0.25, ease: [0.16, 1, 0.3, 1] })
+    const run = animate(value, n, { duration: counting(n), delay: 0.25, ease: [0.16, 1, 0.3, 1] })
     return () => run.stop()
   }, [n, value])
   return <motion.span aria-label={num(n)}>{shown}</motion.span>
@@ -84,12 +87,12 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
   useEffect(() => void vigil.recap(period).then(setData), [period])
 
   const pages: ReactNode[] = !data ? [] : data.captures === 0 ? [
-    <p key="none" className="text-title"><Typed text={data.finished ? `Nothing was captured in ${data.label}.` : `Nothing was captured in ${data.label} yet. Come back when there is.`} /></p>
+    <p key="none" className="text-title"><Typed story text={data.finished ? `Nothing was captured in ${data.label}.` : `Nothing was captured in ${data.label} yet. Come back when there is.`} /></p>
   ] : [
     <div key="intro" className="space-y-3">
       <p className="text-heading text-muted-foreground">Your recap</p>
       <h2 className="text-[clamp(2.5rem,9vw,4.5rem)] leading-none font-semibold text-foreground">{data.label}</h2>
-      <p className="text-muted-foreground"><Typed text="What you caught, kept and came back to. → to go on." /></p>
+      <p className="text-muted-foreground"><Typed story text="What you caught, kept and came back to. → to go on." /></p>
     </div>,
     <div key="captures" className="space-y-8">
       <Big n={data.captures}>{data.captures === 1 ? 'thing caught' : 'things caught'}</Big>
@@ -97,25 +100,25 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
     </div>,
     data.busiestDay && (
       <div key="busiest" className="space-y-4 text-title">
-        {data.busiestMonth && <p><Typed text={`Your busiest month was ${data.busiestMonth.name}, with ${plural(data.busiestMonth.n, 'capture', 'captures')}.`} /></p>}
-        <p><Typed delay={data.busiestMonth ? 1800 : 700} text={`Your busiest day was ${dayName(noon(data.busiestDay.name), 'never')}: ${plural(data.busiestDay.n, 'capture', 'captures')}.`} /></p>
+        {data.busiestMonth && <p><Typed story text={`Your busiest month was ${data.busiestMonth.name}, with ${plural(data.busiestMonth.n, 'capture', 'captures')}.`} /></p>}
+        <p><Typed story delay={data.busiestMonth ? 1800 : 700} text={`Your busiest day was ${dayName(noon(data.busiestDay.name), 'never')}: ${plural(data.busiestDay.n, 'capture', 'captures')}.`} /></p>
       </div>
     ),
     data.tags.length > 0 && (
       <div key="tags" className="space-y-5">
-        <p className="text-title"><Typed text="What it gathered around" /></p>
+        <p className="text-title"><Typed story text="What it gathered around" /></p>
         <Ranked rows={data.tags} prefix="#" />
       </div>
     ),
     data.sources.length > 0 && (
       <div key="sources" className="space-y-5">
-        <p className="text-title"><Typed text="Who you listened to" /></p>
+        <p className="text-title"><Typed story text="Who you listened to" /></p>
         <Ranked rows={data.sources} />
       </div>
     ),
     data.kept + data.resolved + data.discarded > 0 && (
       <div key="exits" className="space-y-6">
-        <p className="text-title"><Typed text={`You kept ${data.kept}, dealt with ${data.resolved} elsewhere and let go of ${data.discarded}.`} /></p>
+        <p className="text-title"><Typed story text={`You kept ${data.kept}, dealt with ${data.resolved} elsewhere and let go of ${data.discarded}.`} /></p>
         {/* Drawn at its widths and wiped in from the left: a clip, not widths, so nothing is laid out again. */}
         <motion.div initial={{ clipPath: 'inset(0 100% 0 0)' }} animate={{ clipPath: 'inset(0 0% 0 0)' }} transition={{ delay: 0.6, duration: 0.7, ease: EASE }} className="flex h-3 overflow-hidden rounded-full">
           {[[data.kept, 'var(--tt-color-text-purple)'], [data.resolved, 'var(--tt-color-text-green)'], [data.discarded, 'var(--tt-color-text-gray)']].map(([n, color], index) => Number(n) > 0 && (
@@ -128,12 +131,13 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
     data.mostReviewed && (
       <div key="reviewed" className="space-y-6">
         <Big n={data.reviews}>{data.reviews === 1 ? 'review' : 'reviews'}</Big>
-        <p className="text-title"><Typed delay={1200} text={`The one you came back to most: “${data.mostReviewed.title}”, ${plural(data.mostReviewed.n, 'time', 'times')}.`} /></p>
+        <p className="text-title">{/* Its turn once the count above has landed: one thing moving at a time. */}
+        <Typed story delay={Math.round((0.25 + counting(data.reviews)) * 1000) + 100} text={`The one you came back to most: “${data.mostReviewed.title}”, ${plural(data.mostReviewed.n, 'time', 'times')}.`} /></p>
       </div>
     ),
     <div key="outro" className="space-y-3">
-      <p className="text-title"><Typed text={`That was ${data.label}.`} /></p>
-      <p className="text-muted-foreground"><Typed delay={1400} text="Nothing here is a score. It is only what happened." /></p>
+      <p className="text-title"><Typed story text={`That was ${data.label}.`} /></p>
+      <p className="text-muted-foreground"><Typed story delay={1400} text="Nothing here is a score. It is only what happened." /></p>
     </div>
   ].filter(Boolean)
 
