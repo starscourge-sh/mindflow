@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { AnimatePresence, motion, useIsPresent, type Easing, type Variants } from 'motion/react'
 import { Volume2, VolumeX, X } from 'lucide-react'
 import { vigil, type MomentKind } from '@/lib/vigil'
@@ -6,6 +6,7 @@ import { chime } from '@/lib/sound'
 import { EASE, shift } from '@/lib/motion'
 import { GrainFill, NOISE, useCover } from './grain'
 import { Tip } from './ui'
+import { TooltipProvider } from '@/components/ui/tooltip'
 
 /**
  * Celebrations: a small card on the rare milestones (src/main/celebrate.ts
@@ -37,7 +38,8 @@ const SAMPLES: Record<MomentKind, Omit<Moment, 'id' | 'kind' | 'rank' | 'line'>>
   goal30: { headline: '30 days to go', mark: '30', tint: 'var(--tt-color-text-orange)' },
   goal7: { headline: 'One week to go', mark: '7', tint: 'var(--tt-color-text-orange)' },
   goalDay: { headline: 'The day is here', mark: '14', tint: 'var(--tt-color-text-purple)' },
-  goalMade: { headline: 'You made it', mark: '✓', tint: 'var(--tt-color-text-green)' }
+  goalMade: { headline: 'You made it', mark: '✓', tint: 'var(--tt-color-text-green)' },
+  stickyDone: { headline: 'All done', mark: '✓', tint: 'var(--tt-color-text-green)' }
 }
 /** One now, in this window, to see what they look like: nothing is counted. Any kind, unless one is named, playing `play` if given. */
 export function tryCelebration(kind?: MomentKind, play?: Media): void {
@@ -183,12 +185,60 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
   )
 }
 
+/** How tall a sprite may be, and how wide: a window's, and a sticky's smaller one. */
+type Bounds = { low: number; high: number; wide: number }
+const ROOMY: Bounds = { low: 96, high: 140, wide: 220 }
+const SMALL: Bounds = { low: 64, high: 96, wide: 140 }
+
+const STILL = { WebkitAppRegion: 'no-drag' } as CSSProperties
+
 /**
- * A sprite's size on screen: 96 to 140 pixels tall and no wider than 220,
- * keeping its shape. Small pixel art is scaled by whole steps and kept
- * blocky, so its pixels stay square. Nothing if it does not load in time.
+ * A sticky's own celebration, its list all ticked (the sticky decides when;
+ * main says whether one may show now). Media fills the paper and fades back
+ * to the note; a sprite hops up from its bottom edge, smaller, and goes back
+ * down. Never takes focus from the sticky's editor. `onDone` once it has gone.
  */
-async function measure(url: string): Promise<Size | undefined> {
+export function StickyCelebration({ moment, onDone }: { moment: Moment; onDone: () => void }): React.JSX.Element {
+  const [shown, setShown] = useState<{ media: Media | null; sprite?: Size } | null>(null)
+  const items = useRef<Media[]>([])
+  const own = useRef<Media[]>([])
+  useEffect(() => {
+    let live = true
+    void (async () => {
+      const [all, picks] = await Promise.all([vigil.celebrations().catch(() => []), vigil.celebrationPicks().catch(() => ({}))])
+      items.current = all
+      own.current = (picks as Partial<Record<MomentKind, Media[]>>)[moment.kind] ?? []
+      const media = moment.play ?? pickOwn(moment.kind, own.current) ?? pick(items.current)
+      const sprite = media?.sprite ? await measure(media.url, SMALL) : undefined
+      if (!live) return
+      setShown({ media, sprite })
+      chime('cheer')
+    })()
+    return () => void (live = false)
+  }, [moment])
+  return (
+    // A sticky's window has no tooltips of its own for the card's buttons to use.
+    <TooltipProvider delayDuration={500}>
+    <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden rounded-[inherit]" style={STILL}>
+      <AnimatePresence onExitComplete={onDone}>
+        {shown && !shown.sprite && (
+          <Card key="card" fill moment={moment} media={shown.media} origin="center" onDone={() => setShown(null)}
+            onTooLong={() => setShown((now) => now && { ...now, media: pickOwn(moment.kind, own.current) ?? pick(items.current) })} />
+        )}
+        {shown?.sprite && <Sprite key="sprite" moment={moment} media={shown.media!} size={shown.sprite} from="bottom" onDone={() => setShown(null)} />}
+      </AnimatePresence>
+    </div>
+    </TooltipProvider>
+  )
+}
+
+/**
+ * A sprite's size on screen: 96 to 140 pixels tall and no wider than 220
+ * (less on a sticky), keeping its shape. Small pixel art is scaled by whole
+ * steps and kept blocky, so its pixels stay square. Nothing if it does not
+ * load in time.
+ */
+async function measure(url: string, { low, high, wide }: Bounds = ROOMY): Promise<Size | undefined> {
   const image = new Image()
   image.src = url
   const loaded = await Promise.race([image.decode().then(() => true, () => false), new Promise<boolean>((done) => setTimeout(() => done(false), 2000))])
@@ -197,12 +247,12 @@ async function measure(url: string): Promise<Size | undefined> {
   const naturalW = image.naturalWidth || 120
   const naturalH = image.naturalHeight || 120
   const pixel = naturalH < 128 && naturalW < 256
-  const steps = Math.floor(140 / naturalH)
-  let height = pixel ? (naturalH * steps >= 96 ? naturalH * steps : 96) : Math.min(140, Math.max(96, naturalH))
+  const steps = Math.floor(high / naturalH)
+  let height = pixel ? (naturalH * steps >= low ? naturalH * steps : low) : Math.min(high, Math.max(low, naturalH))
   let width = (naturalW / naturalH) * height
-  if (width > 220) {
-    height *= 220 / width
-    width = 220
+  if (width > wide) {
+    height *= wide / width
+    width = wide
   }
   return { width: Math.round(width), height: Math.round(height), pixel }
 }
@@ -240,10 +290,12 @@ const still = (): boolean => document.documentElement.dataset.motion === 'off' |
 /** The small round buttons over the picture: dark glass, so they read on any of them. */
 const OVER = 'absolute flex size-6 items-center justify-center rounded-full bg-black/45 text-white/90 backdrop-blur-sm transition-colors hover:bg-black/65 hover:text-white'
 
-function Card({ moment, media, origin, onDone, onTooLong }: {
+function Card({ moment, media, origin, fill, onDone, onTooLong }: {
   moment: Moment
   media: Media | null
   origin: string
+  /** Over a sticky's paper, filling it, its headline in a bar along the bottom. */
+  fill?: boolean
   onDone: () => void
   onTooLong: () => void
 }): React.JSX.Element {
@@ -252,10 +304,10 @@ function Card({ moment, media, origin, onDone, onTooLong }: {
   const [broken, setBroken] = useState(false)
   const [ready, setReady] = useState(!media?.video)
   const { done } = usePutAway(onDone)
-  // Gone after five seconds, unless the pointer is on it.
+  // Gone after five seconds (four on a sticky), unless the pointer is on it.
   useEffect(() => {
     if (hover) return
-    const timer = setTimeout(() => done.current(), 5000)
+    const timer = setTimeout(() => done.current(), fill ? 4000 : 5000)
     return () => clearTimeout(timer)
   }, [hover])
   useEffect(() => {
@@ -278,9 +330,11 @@ function Card({ moment, media, origin, onDone, onTooLong }: {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       onClick={() => done.current()}
-      className="pointer-events-auto w-72 cursor-default rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-(--mf-panel-shadow) select-none"
+      className={fill
+        ? 'pointer-events-auto absolute inset-0 flex cursor-default flex-col overflow-hidden rounded-[inherit] bg-popover text-popover-foreground select-none'
+        : 'pointer-events-auto w-72 cursor-default rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-(--mf-panel-shadow) select-none'}
     >
-      <div className="relative h-40 overflow-hidden rounded-lg" style={{ background: `color-mix(in oklab, ${moment.tint} 30%, var(--popover))` }}>
+      <div className={`relative overflow-hidden ${fill ? 'min-h-0 flex-1' : 'h-40 rounded-lg'}`} style={{ background: `color-mix(in oklab, ${moment.tint} 30%, var(--popover))` }}>
         {media && !broken ? (
           media.video ? (
             <video
@@ -321,10 +375,18 @@ function Card({ moment, media, origin, onDone, onTooLong }: {
           </Tip>
         )}
       </div>
-      <div className="px-1.5 pt-2 pb-1">
-        <p className="truncate text-sm leading-snug font-semibold text-foreground">{moment.headline}</p>
-        {moment.line && <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-muted-foreground">{moment.line}</p>}
-      </div>
+      {fill ? (
+        // In the sticky's own type, as its title is set.
+        <p className="flex shrink-0 items-center gap-1.5 border-t px-3 py-1.5 text-control font-medium text-foreground">
+          <span aria-hidden className="text-(--tt-color-text-green)">{moment.mark}</span>
+          <span className="truncate">{moment.headline}</span>
+        </p>
+      ) : (
+        <div className="px-1.5 pt-2 pb-1">
+          <p className="truncate text-sm leading-snug font-semibold text-foreground">{moment.headline}</p>
+          {moment.line && <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-muted-foreground">{moment.line}</p>}
+        </div>
+      )}
     </motion.div>
   )
 }
@@ -349,7 +411,8 @@ function Sprite({ moment, media, size, from, onDone }: {
   moment: Moment
   media: Media
   size: Size
-  from: 'left' | 'right'
+  /** The side it comes on from; the bottom edge in a sticky, hopping up into it. */
+  from: 'left' | 'right' | 'bottom'
   onDone: () => void
 }): React.JSX.Element {
   const [hover, setHover] = useState(false)
@@ -370,6 +433,7 @@ function Sprite({ moment, media, size, from, onDone }: {
 
   // Far enough to start wholly out of sight, past the side it comes from.
   const away = from === 'right' ? size.width + 40 : -(window.innerWidth / 2 + size.width / 2 + 24)
+  const slide = (by: number): string => (from === 'bottom' ? `translateY(${size.height + 16}px)` : `translateX(${by}px)`)
   // Facing the way it goes: most sprites are drawn facing right.
   const facing = !present ? (from === 'left' ? -1 : 1) : !here && from === 'right' ? -1 : 1
   const phase = !present ? 'out' : here ? 'rest' : 'in'
@@ -389,11 +453,11 @@ function Sprite({ moment, media, size, from, onDone }: {
     <motion.div
       role="status"
       aria-live="polite"
-      initial={calm ? { opacity: 0 } : { transform: `translateX(${away}px)` }}
-      animate={calm ? { opacity: 1 } : { transform: 'translateX(0px)' }}
-      exit={calm ? { opacity: 0, transition: { duration: off ? 0 : 0.15 } } : { transform: `translateX(${away}px)`, transition: { duration: LEAVE, delay: 0.12, ease: 'easeIn' } }}
+      initial={calm ? { opacity: 0 } : { transform: slide(away) }}
+      animate={calm ? { opacity: 1 } : { transform: from === 'bottom' ? 'translateY(0px)' : 'translateX(0px)' }}
+      exit={calm ? { opacity: 0, transition: { duration: off ? 0 : 0.15 } } : { transform: slide(away), transition: { duration: LEAVE, delay: 0.12, ease: 'easeIn' } }}
       transition={calm ? { duration: off ? 0 : 0.2 } : { duration: ENTER, ease: 'easeOut' }}
-      className={`absolute flex flex-col ${from === 'right' ? 'right-5 bottom-5 items-end' : 'inset-x-0 bottom-0 items-center'}`}
+      className={`absolute flex flex-col ${from === 'right' ? 'right-5 bottom-5 items-end' : from === 'bottom' ? 'inset-x-0 bottom-1 items-center' : 'inset-x-0 bottom-0 items-center'}`}
     >
       <AnimatePresence>
         {here && present && (
@@ -404,7 +468,7 @@ function Sprite({ moment, media, size, from, onDone }: {
             exit={{ opacity: 0, transition: { duration: off ? 0 : 0.1 } }}
             transition={{ duration: off ? 0 : 0.18, ease: EASE }}
             style={{ transformOrigin: from === 'right' ? `calc(100% - ${size.width / 2}px) 100%` : '50% 100%' }}
-            className="pointer-events-auto relative mb-2.5 w-max max-w-56 cursor-default rounded-xl border bg-popover px-3 py-2 text-popover-foreground shadow-(--mf-panel-shadow) select-none"
+            className="pointer-events-auto relative mb-2.5 w-max max-w-[min(14rem,calc(100vw-4rem))] cursor-default rounded-xl border bg-popover px-3 py-2 text-popover-foreground shadow-(--mf-panel-shadow) select-none"
           >
             <p className="text-sm leading-snug font-semibold text-foreground">{moment.headline}</p>
             {moment.line && <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-muted-foreground">{moment.line}</p>}

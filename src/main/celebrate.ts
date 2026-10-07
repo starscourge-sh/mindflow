@@ -18,7 +18,7 @@ import { isSprite } from './sprite'
  */
 
 /** The kinds of milestone, each of which can have files of its own to play. */
-export const MOMENTS = ['kept', 'streak', 'inbox', 'tasks', 'year', 'answered', 'goalHalf', 'goal30', 'goal7', 'goalDay', 'goalMade'] as const
+export const MOMENTS = ['kept', 'streak', 'inbox', 'tasks', 'year', 'answered', 'goalHalf', 'goal30', 'goal7', 'goalDay', 'goalMade', 'stickyDone'] as const
 export type MomentKind = (typeof MOMENTS)[number]
 /** A milestone, as the window shows it. `rank` decides between two at once. */
 export type Moment = { id: string; kind: MomentKind; rank: number; headline: string; line?: string; mark: string; tint: string
@@ -331,6 +331,26 @@ export function celebrateAfter(channel: string, sender: WebContents, args: unkno
   }
 }
 
+/** A sticky's list done shows at most once a minute per note, however often its last box is ticked. */
+const STICKY_APART = 60000
+const stickyAt = new Map<string, number>()
+
+/**
+ * Every to-do on a sticky ticked: its own small celebration, in the sticky.
+ * Not a milestone: it is never written down, never waits ten minutes, and
+ * never holds a milestone back. Not in safe mode or quiet hours.
+ */
+function stickyDone(id: unknown): Moment | null {
+  if (typeof id !== 'string') return null
+  const { on } = celebrationPrefs()
+  const { blackout, hidePrivate } = gate()
+  if (!on || blackout || hidePrivate) return null
+  const last = stickyAt.get(id)
+  if (last && Date.now() - last < STICKY_APART) return null
+  stickyAt.set(id, Date.now())
+  return { id: `sticky:${id}`, kind: 'stickyDone', rank: 0, headline: 'All done', mark: '✓', tint: TINT.green }
+}
+
 /**
  * Once, the milestones already passed are marked as shown, dated long ago so
  * they hold nothing back: someone with 150 captures gets no card for the 1st,
@@ -358,6 +378,7 @@ export function registerCelebrations(): void {
     media(typeof folder === 'string' ? folder : celebrationPrefs().folder))
   // The files picked for each moment, from the settings, each followed and checked by picks().
   ipcMain.handle('vigil:celebrations:picks', () => picks())
+  ipcMain.handle('vigil:celebrations:sticky', (_event, id: unknown) => stickyDone(id))
   ipcMain.handle('vigil:celebrations:choose', async () => {
     const { filePaths } = await dialog.showOpenDialog({
       title: 'Choose what plays',

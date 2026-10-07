@@ -19,6 +19,7 @@ import { chime } from '@/lib/sound'
 import { useAppearance, useLive, vigil } from '@/lib/vigil'
 import { toMarkdown } from '@/lib/export'
 import { useSameWords } from '@/lib/same-words'
+import { StickyCelebration, type Moment } from './celebrate'
 
 // The editor only once you edit: at rest a sticky is just the light drawing below.
 const MindflowEditor = lazy(() => import('@/components/mindflow').then((one) => ({ default: one.MindflowEditor })))
@@ -190,6 +191,9 @@ const firstInSight = (box: HTMLElement | null): { text: string; top: number } | 
 }
 const lineOf = (box: HTMLElement, text: string): Element | undefined => linesIn(box).find((one) => one.textContent === text)
 
+/** How long a list stays all ticked before it is celebrated, so an untick straight after takes it back unseen. */
+const GRACE = 2500
+
 /** Stick a note on the desktop, or take it down, with its own sound; undoable. */
 export const stickOnDesktop = (type: string, id: string, on = true): void => {
   chime(on ? 'stick' : 'unstick')
@@ -328,6 +332,21 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   })
   const todos = todosOf(doc)
   const left = todos.filter((todo) => !todo.done).length
+  // A list of two or more going from not all ticked to all ticked, here or in
+  // the note elsewhere, is celebrated once it has stayed so a moment. One all
+  // ticked when the sticky opens is not; main says whether one may show now.
+  const allDone = todos.length >= 2 && !left
+  const wasDone = useRef<boolean | undefined>(undefined)
+  const [cheer, setCheer] = useState<Moment | null>(null)
+  const loaded = note !== undefined
+  useEffect(() => {
+    if (!loaded) return
+    const before = wasDone.current
+    wasDone.current = allDone
+    if (before !== false || !allDone) return
+    const timer = setTimeout(() => void vigil.stickyDone(id).then((moment) => moment && setCheer(moment)), GRACE)
+    return () => clearTimeout(timer)
+  }, [allDone, loaded, id])
   if (!note) return null
   const text = glance(note.body).trim()
   const title = note.title || text.split('\n')[0].slice(0, 80) || 'Untitled'
@@ -486,6 +505,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
           className="absolute right-0.5 bottom-0.5 flex size-4 cursor-nwse-resize items-end justify-end p-0.5 text-muted-foreground/60 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
           <svg viewBox="0 0 8 8" className="size-2"><path d="M7 1 1 7M7 4 4 7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none" /></svg>
         </span>
+        {cheer && <StickyCelebration moment={cheer} onDone={() => setCheer(null)} />}
       </div>
     </div>
   )

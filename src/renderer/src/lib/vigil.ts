@@ -10,7 +10,7 @@ import { useEditorSetup } from './editor-setup'
  * preload, the shapes here, so a new channel is one line on each side.
  */
 /** The kinds of milestone, as src/main/celebrate.ts names them. */
-export type MomentKind = 'kept' | 'streak' | 'inbox' | 'tasks' | 'year' | 'answered' | 'goalHalf' | 'goal30' | 'goal7' | 'goalDay' | 'goalMade'
+export type MomentKind = 'kept' | 'streak' | 'inbox' | 'tasks' | 'year' | 'answered' | 'goalHalf' | 'goal30' | 'goal7' | 'goalDay' | 'goalMade' | 'stickyDone'
 
 const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
 
@@ -297,6 +297,8 @@ export const vigil = {
   celebrations: (folder?: string) => call<{ url: string; video: boolean; name: string; sprite?: boolean }[]>('celebrations', folder),
   /** The files picked for each kind of milestone, those still there. */
   celebrationPicks: () => call<Partial<Record<MomentKind, { url: string; video: boolean; name: string; sprite?: boolean; path?: string }[]>>>('celebrations:picks'),
+  /** A sticky's list just done: its celebration, or null when none may show now. */
+  stickyDone: (id: string) => call<{ id: string; kind: MomentKind; rank: number; headline: string; mark: string; tint: string } | null>('celebrations:sticky', id),
   /** GIFs, pictures or clips, picked in the system's own chooser. */
   celebrationFiles: () => call<string[]>('celebrations:choose'),
   // Up for private, down for not, from whichever menu or button switched it.

@@ -856,7 +856,8 @@ const MOMENT_NAMES: [MomentKind, string][] = [
   ['goal30', 'A goal 30 days away'],
   ['goal7', 'A goal a week away'],
   ['goalDay', "A goal's day"],
-  ['goalMade', 'A goal made']
+  ['goalMade', 'A goal made'],
+  ['stickyDone', "A sticky's list done"]
 ]
 
 /**
