@@ -153,8 +153,15 @@ const tagsIn = (text: string): string[] =>
 /** A folder of the developer's own, used only while Vigil is run from its source: an installed app starts with none. */
 function devFolder(path: string): string {
   const full = join(homedir(), path)
-  return !app.isPackaged && existsSync(full) ? full : ''
+  return ownData() && existsSync(full) ? full : ''
 }
+
+/**
+ * The developer's own Vigil: run from source, on the usual data folder. A
+ * fresh or test folder (MINDFLOW_USER_DATA) and the sandbox start like a
+ * stranger's copy, so a demo recorded from source shows none of their files.
+ */
+const ownData = (): boolean => !app.isPackaged && !process.env.MINDFLOW_USER_DATA && !process.argv.includes('--sandbox')
 
 /** The files picked for each kind of moment, one of which plays at random. */
 type Picks = Partial<Record<MomentKind, string[]>>
@@ -171,7 +178,7 @@ const asLists = (saved: unknown): Picks =>
  * git), as paths under the home folder for each kind of moment.
  */
 function devPicks(): Picks {
-  if (app.isPackaged) return {}
+  if (!ownData()) return {}
   let files: unknown = {}
   try {
     files = JSON.parse(readFileSync(join(app.getAppPath(), 'dev-picks.json'), 'utf8'))
