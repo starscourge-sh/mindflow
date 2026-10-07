@@ -174,6 +174,8 @@ export function SandboxHost(): React.JSX.Element | null {
     } catch {
       // Then it may show once; nothing worse.
     }
+    // Said on arrival too, so the restart's own message never has to be caught in passing.
+    setTimeout(() => toast("You're in the sandbox: a practice Vigil. Your own notes are safe; Back to my notes is up top.", undefined, 'info'), 900)
     void sandboxState().then(async (state) => {
       if (state.seeded) {
         const days = state.seededOn ? Math.round((Date.now() - new Date(`${state.seededOn}T12:00`).getTime()) / 86_400_000) : 0

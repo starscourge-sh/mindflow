@@ -21,11 +21,11 @@ const CARRY_LOCAL = ['theme', 'custom-themes', 'frosted', 'recordable', 'vim'] a
 
 export type Carry = { local: Record<string, string>; settings: Record<string, unknown> }
 
-/** Said once, then the restart. */
+/** Said once, long enough to read, then the restart. */
 const going = (text: string, cue: Parameters<typeof chime>[0]): Promise<void> => {
   chime(cue)
   toast(text, undefined, 'info')
-  return new Promise((done) => setTimeout(done, 900))
+  return new Promise((done) => setTimeout(done, 2200))
 }
 
 /**
