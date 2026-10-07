@@ -239,7 +239,7 @@ const DEFAULTS = {
   // come from, the four places they may show, whether they follow the time of
   // day, how far they are dimmed, and a number "Show another" turns over.
   scenery: true,
-  sceneryFolders: [devFolder('Documents/img/Elden Ring Environments'), devFolder('Documents/img/elden-ring')].filter(Boolean) as string[],
+  sceneryFolders: [devFolder('Documents/img/Elden Ring Environments')].filter(Boolean) as string[],
   sceneryRest: true,
   sceneryRecap: true,
   sceneryToday: true,
