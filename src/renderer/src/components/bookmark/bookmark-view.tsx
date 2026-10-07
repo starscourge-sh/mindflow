@@ -53,7 +53,13 @@ export function BookmarkView(props: NodeViewProps): React.JSX.Element {
     >
       {/* No grey block pulsing where the picture will be: the orb below is
           the one sign of a wait, the same one every wait in Vigil uses. */}
-      {image && !loading && <img className="tiptap-bookmark-image" src={image} alt="" />}
+      {/* The picture whole, over itself blurred: a picture of another shape
+          leaves no empty bands, only its own colours carried to the edges. */}
+      {image && !loading && (
+        <span className="tiptap-bookmark-frame" style={{ '--bookmark-art': `url(${JSON.stringify(image)})` } as React.CSSProperties}>
+          <img className="tiptap-bookmark-image" src={image} alt="" />
+        </span>
+      )}
 
       <span className="tiptap-bookmark-body">
         <span className="tiptap-bookmark-title">{title || href}</span>

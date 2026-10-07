@@ -80,7 +80,7 @@ export const Bookmark = Node.create({
         target: "_blank",
         rel: "noopener noreferrer",
       }),
-      ...(image && !loading ? [["img", { class: "tiptap-bookmark-image", src: image, alt: "" }]] : []),
+      ...(image && !loading ? [["span", { class: "tiptap-bookmark-frame", style: `--bookmark-art: url(${JSON.stringify(image)})` }, ["img", { class: "tiptap-bookmark-image", src: image, alt: "" }]]] : []),
       [
         "span",
         { class: "tiptap-bookmark-body" },
