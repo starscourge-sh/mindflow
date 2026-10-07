@@ -76,12 +76,13 @@ export function SandboxPill({ narrow = false }: { narrow?: boolean }): React.JSX
         {asking ? (
           <motion.span key="ask" {...swap} className="flex h-full items-center">
             {RULE}
-            {!narrow && <span className="truncate px-2.5 text-foreground/85">Start the sandbox over? Everything goes back to how it began.</span>}
-            <button ref={sure} type="button" disabled={busy} onClick={() => go(resetSandbox)} className={`${PART} text-foreground`}>
-              Reset
+            {!narrow && <span className="truncate px-2.5 text-foreground/85">Start over, as it began?</span>}
+            {/* The answer that does something is the one in the tape's colour; Cancel is quiet. */}
+            <button ref={sure} type="button" disabled={busy} onClick={() => go(resetSandbox)} className={`${PART} font-semibold`}>
+              Start over
             </button>
             {RULE}
-            <button type="button" onClick={() => (chime('fold'), setAsking(false))} className={`${PART} pr-3`}>
+            <button type="button" onClick={() => (chime('fold'), setAsking(false))} className={`${PART} pr-3 text-foreground/70 hover:text-foreground`}>
               Cancel
             </button>
           </motion.span>

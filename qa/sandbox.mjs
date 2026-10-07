@@ -145,8 +145,8 @@ let first
   await click(c, '[data-sandbox-pill] button', 'Reset')
   await c.h.waitForTimeout(400)
   const asked = await c.h.$eval('[data-sandbox-pill]', (one) => one.textContent)
-  check('Reset asks first', asked.includes('Start the sandbox over?'), asked)
-  await click(c, '[data-sandbox-pill] button', 'Reset')
+  check('Reset asks first', asked.includes('Start over, as it began?'), asked)
+  await click(c, '[data-sandbox-pill] button', 'Start over')
   const resetArgs = await relaunched(c)
   check('Reset restarts with --sandbox --sandbox-reset', resetArgs?.includes('--sandbox') && resetArgs?.includes('--sandbox-reset'), JSON.stringify(resetArgs))
   // Back to my notes, through the pill.

@@ -470,13 +470,19 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
   // before the goal was set fill the rows ahead of it, faint, so the field is
   // always full and the goal's own days sit at its end, the day itself last.
   const flow = compact && width > 0
-  const across = flow ? Math.max(7, Math.floor(width / 9)) : road.cols
+  // On the page, a week a column as before, but small dots and as many weeks
+  // as the width holds: the weeks before the goal was set fill the left, faint,
+  // so the road always runs edge to edge and ends on the day itself.
+  const weeks = !compact && width > 0 && road.by === 'day'
+  const before = weeks ? Math.max(0, Math.floor(width / 15) - road.cols) : 0
+  const across = flow ? Math.max(7, Math.floor(width / 9)) : road.cols + before
   const room = flow ? Math.max(Math.ceil(road.dots.length / across), Math.floor(height / (width / across))) : 0
-  const lead = flow ? Math.min(365, Math.max(0, room * across - road.dots.length)) : 0
+  const lead = flow ? Math.min(365, Math.max(0, room * across - road.dots.length)) : weeks ? before * road.rows : 0
   const down = flow ? Math.ceil((lead + road.dots.length) / across) : road.rows
-  const place = (dot: Dot, index: number): Dot => (flow ? { ...dot, col: (index + lead) % across, row: Math.floor((index + lead) / across) } : dot)
+  const place = (dot: Dot, index: number): Dot =>
+    flow ? { ...dot, col: (index + lead) % across, row: Math.floor((index + lead) / across) } : { ...dot, col: dot.col + before }
   const step = width ? width / across : most
-  const cell = flow ? step : Math.min(step, most)
+  const cell = flow || weeks ? step : Math.min(step, most)
   const at = (dot: Dot): { x: number; y: number } => ({ x: (dot.col + 0.5) * step, y: (dot.row + 0.5) * cell })
   const shown = hover ? logsIn(days, hover) : []
   return (
@@ -484,7 +490,7 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
       {!compact && (
         <div aria-hidden className="relative mb-1 h-4 text-[11px] text-muted-foreground">
           {road.months.map((month) => (
-            <span key={month.col} className="absolute top-0 whitespace-nowrap" style={{ left: `${(month.col / road.cols) * 100}%` }}>{month.label}</span>
+            <span key={month.col} className="absolute top-0 whitespace-nowrap" style={{ left: `${((month.col + before) / across) * 100}%` }}>{month.label}</span>
           ))}
         </div>
       )}
@@ -496,7 +502,7 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
         onMouseLeave={() => setHover(null)}
       >
         {Array.from({ length: lead }, (_, index) => (
-          <circle key={`before-${index}`} cx={((index % across) + 0.5) * step} cy={(Math.floor(index / across) + 0.5) * cell} r={0.34 * cell} fill="currentColor" style={{ opacity: 0.06 }} />
+          <circle key={`before-${index}`} cx={((weeks ? Math.floor(index / road.rows) : index % across) + 0.5) * step} cy={((weeks ? index % road.rows : Math.floor(index / across)) + 0.5) * cell} r={0.34 * cell} fill="currentColor" style={{ opacity: 0.06 }} />
         ))}
         {road.dots.map((given, index) => {
           const dot = place(given, index)
@@ -520,8 +526,8 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
         })}
       </svg>
       {hover && !compact && (
-        <div className={`pointer-events-none absolute z-10 w-max max-w-64 rounded-md ${hover.col < road.cols / 3 ? '-translate-x-3' : hover.col > (road.cols * 2) / 3 ? '-translate-x-[calc(100%-0.75rem)]' : '-translate-x-1/2'} bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10`}
-          style={{ left: `${((hover.col + 0.5) / road.cols) * 100}%`, top: `calc(${((hover.row + 1) / road.rows) * 100}% + 1.25rem + 4px)` }}>
+        <div className={`pointer-events-none absolute z-10 w-max max-w-64 rounded-md ${hover.col < across / 3 ? '-translate-x-3' : hover.col > (across * 2) / 3 ? '-translate-x-[calc(100%-0.75rem)]' : '-translate-x-1/2'} bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10`}
+          style={{ left: `${((hover.col + 0.5) / across) * 100}%`, top: `calc(${((hover.row + 1) / road.rows) * 100}% + 1.25rem + 4px)` }}>
           <span className="block font-medium">
             {hover.day === hover.last ? dayName(`${hover.day}T12:00`) : `${dayMonth(`${hover.day}T12:00`)} to ${dayMonth(`${hover.last}T12:00`)}`}
             {hover.today ? ' · today' : hover.target ? ' · the day' : ''}
