@@ -51,8 +51,12 @@ const mdWords = (text: string): string =>
 const cardWords = (raw: string): string => {
   let value: unknown = raw
   try { value = JSON.parse(raw) } catch { /* Markdown, as it is */ }
-  return typeof value === 'string' ? mdWords(value) : plain(value)
+  const words = typeof value === 'string' ? mdWords(value) : plain(value)
+  // A line that is only a file's path or name (a picture pasted from Obsidian
+  // whose file did not come with it) says nothing on a card.
+  return words.split('\n').filter((line) => line.includes('://') || !FILE_LINE.test(line.trim())).join('\n')
 }
+const FILE_LINE = /^(?:\.{0,2}\/)?(?:[^\n/]*\/)*[^\n/]+\.(?:png|jpe?g|gif|webp|heic|svg|pdf|mp4|mov|webm|m4a|mp3)$/i
 
 type Doc = { type?: string; text?: string; attrs?: Record<string, unknown>; marks?: { type: string; attrs?: Record<string, unknown> }[]; content?: Doc[] }
 /**
