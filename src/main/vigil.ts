@@ -337,6 +337,10 @@ const DEFAULTS = {
   // Keys you changed: { the keys it came with: yours, or null for none }.
   keys: {} as Record<string, string | null>
 }
+  // Frosted by the Mac itself: real glass that blurs whatever is behind, sitting straight (no lean).
+  stickiesGlass: false,
+  // Now and then one sticky stirs, as paper does in a draught, so it never turns into wallpaper.
+  stickiesStir: true,
   // Now and then one sticky stirs, as paper does in a draught, so it never turns into wallpaper.
   stickiesStir: true,
 export type Settings = typeof DEFAULTS
@@ -385,6 +389,9 @@ export function atLogin(): void {
 /** Stickies frosted over the desktop picture, unless turned off. */
 export const stickyFrost = (): boolean => settings().stickiesFrosted !== false
 export const stickyPrefs = (): { shown: boolean; unshared: boolean } => ({ shown: settings().stickiesShown, unshared: settings().stickiesUnshared })
+/** Frosted by the Mac's own blur rather than the desktop picture. */
+export const stickyGlass = (): boolean => settings().stickiesFrosted !== false && settings().stickiesGlass === true
+export const stickyStir = (): boolean => settings().stickiesStir !== false
 /** Every sticky shown or put away at once; they keep their places. */
 export function showStickies(on = !settings().stickiesShown): boolean {
 export const stickyStir = (): boolean => settings().stickiesStir !== false
@@ -715,7 +722,7 @@ export function registerVigil(): void {
       db.prepare('insert or replace into settings (key, value) values (?, ?)').run(key, JSON.stringify(value))
     if (patch.safeMode !== undefined && patch.safeMode !== wasSafe) safeModeTold(patch.safeMode)
     if (patch.keys) keysTold(patch.keys)
-    if ('stickiesShown' in patch || 'stickiesUnshared' in patch || 'stickiesFrosted' in patch) stickiesTold()
+    if ('stickiesShown' in patch || 'stickiesUnshared' in patch || 'stickiesFrosted' in patch || 'stickiesGlass' in patch) stickiesTold()
     if ('spellcheck' in patch || 'spellLanguages' in patch) spelling()
     if ('openAtLogin' in patch) atLogin()
     if ('goalBeacon' in patch || 'tempusDots' in patch) goalsTold()

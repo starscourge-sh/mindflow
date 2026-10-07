@@ -379,6 +379,10 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Margin marks" note="A few marks drawn by hand: a tick when you finish, a circle round today, an arrow when there is nothing yet. Off keeps every line machine-straight." keywords="hand drawn handwritten sketch doodle pen ink circle tick strike arrow personal">
             <Switch checked={settings.marks !== false} onCheckedChange={(marks) => set({ marks })} />
           </Setting>
+          <Setting title="Progress bars" note="How every bar that fills is drawn: the day and year on a goal's beacon, a goal's time gone, Getting started. A lightsaber lights up as it grows; a small dinosaur runs along the line and hops the cacti ahead." keywords="progress bar lightsaber saber dino dinosaur run fun playful style">
+            <Chips className="shrink-0" options={[{ id: 'plain', label: 'Plain' }, { id: 'saber', label: 'Lightsaber' }, { id: 'dino', label: 'Dino run' }]}
+              on={(id) => id === (settings.progressBars ?? 'plain')} pick={(progressBars) => set({ progressBars: progressBars as Settings['progressBars'] })} />
+          </Setting>
           <Setting title="Pictures in lists" note="A note with a picture in it shows the first one, small, at the end of its row and on its card.">
             <Switch checked={settings.thumbnails !== false} onCheckedChange={(thumbnails) => set({ thumbnails })} />
           </Setting>
@@ -594,8 +598,13 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Show sticky notes" note="Every note stuck on the desktop, or all of them put away; they keep their places. ⌃⌥⌘N from anywhere.">
             <Switch checked={settings.stickiesShown} onCheckedChange={(stickiesShown) => set({ stickiesShown })} />
           </Setting>
-          <Setting title="Frosted stickies" note="Your wallpaper, softly blurred behind each note. Off makes them plain paper." keywords="sticky notes frosted glass blur wallpaper desktop transparent paper">
-            <Switch checked={settings.stickiesFrosted !== false} onCheckedChange={(stickiesFrosted) => set({ stickiesFrosted })} />
+          <Setting title="Sticky notes are made of" note="Paper: solid. Wallpaper frost: your desktop picture softly blurred behind each note, and they keep their lean. Real glass: the Mac blurs whatever is behind, windows and all, and the notes sit straight." keywords="sticky notes frosted glass blur wallpaper desktop transparent paper vibrancy">
+            <Chips className="shrink-0" options={[{ id: 'paper', label: 'Paper' }, { id: 'frost', label: 'Wallpaper frost' }, { id: 'glass', label: 'Real glass' }]}
+              on={(id) => id === (settings.stickiesFrosted === false ? 'paper' : settings.stickiesGlass ? 'glass' : 'frost')}
+              pick={(id) => set({ stickiesFrosted: id !== 'paper', stickiesGlass: id === 'glass' })} />
+          </Setting>
+          <Setting title="Stickies stir now and then" note="Every half hour or so, while you are at the Mac, one sticky lifts a little and settles, as paper does in a draught, so your eye finds it again. Never while you write in it, in safe mode, or with Motion off." keywords="sticky notes stir move motion wiggle attention banner blindness notice">
+            <Switch checked={settings.stickiesStir !== false} onCheckedChange={(stickiesStir) => set({ stickiesStir })} />
           </Setting>
           <Setting title="Show Vigil in screen recordings and shares" note="Off: every Vigil window, sticky notes included, shows as blank in a shared screen, a recording or a screenshot, while you still see it. On: they show, for a demo or a Loom. Also in ⌘K." keywords="record recording screen share sharing zoom loom demo screenshot capture hide sticky notes">
             <Switch checked={recordable} onCheckedChange={setRecordable} />

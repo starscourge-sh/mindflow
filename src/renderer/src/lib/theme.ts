@@ -111,7 +111,7 @@ export function applyTheme(theme: Theme, remember = true): void {
     // whatever was behind it through its words, text over text, and macOS
     // blurs nothing behind a window this small and tilted. Its frost is drawn
     // instead, from the desktop picture (components/vigil/frost.tsx).
-    const sticky = new URLSearchParams(location.search).get("view") === "sticky"
+    const sticky = new URLSearchParams(location.search).get("view") === "sticky" && !new URLSearchParams(location.search).has("glass")
     if ((theme.startsWith("custom-") && isLight(theme)) || !frosted() || sticky) document.documentElement.dataset.solid = ""
     else delete document.documentElement.dataset.solid
     // Native bits (a time field, a scrollbar) follow light or dark, imported themes included.

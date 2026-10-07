@@ -38,7 +38,7 @@ import icon from '../../resources/icon.png?asset'
 import { alreadyImported, captureText, changed, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { backupDir } from './backup'
-import { activeSession, atLogin, badge, beaconDefault, tempusDots, blurOn, boxPlacement, gate, motionOn, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenGoals, whenStickies } from './vigil'
+import { activeSession, atLogin, badge, beaconDefault, tempusDots, blurOn, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenGoals, whenStickies } from './vigil'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
@@ -607,6 +607,9 @@ function applyStickies(): void {
   // Frosted or plain paper, as the setting says now.
   retellFrost()
 }
+/** Which stickies were made as real glass, so a change of the setting remakes the rest. */
+const builtGlass = new Map<string, boolean>()
+
 function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangle): void {
   const key = `${type}:${id}`
   const open = stickies.get(key)
@@ -632,8 +635,13 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   // unplugged, or a note dragged past an edge, never leaves it out of reach.
   // A goal's beacon is taller than a note: the days left, the road and the four bars.
   const place = bounds ? onScreen({ ...bounds, ...stickySize(bounds.width, bounds.height, bounds) }) : freeSpot(workArea, 300, type === 'goal' ? 360 : 220)
+  // Real glass: the Mac blurs whatever is behind, kept on while the window is
+  // not the active one (it never is). It fills the window, so the note sits
+  // straight in it, with the Mac's own rounded corners.
+  const glass = stickyGlass() && !nativeTheme.prefersReducedTransparency
   const win = new BrowserWindow({
     ...place,
+    ...(glass ? { vibrancy: 'popover' as const, visualEffectState: 'active' as const, roundedCorners: true, backgroundColor: '#00000000' } : {}),
     minWidth: 220,
     minHeight: 130,
     maxWidth: 480,
@@ -648,12 +656,12 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     // a real window, files it under one workspace and hides it on the others.
     resizable: false,
     frame: false,
-    transparent: true,
+    transparent: !glass,
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
     skipTaskbar: true,
-    hasShadow: false,
+    hasShadow: glass,
     show: false,
     webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
   })
@@ -692,7 +700,8 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   guard(win)
   // Its place in line, so neighbours lean opposite ways.
   const nth = stuck.findIndex((one) => `${one.type}:${one.id}` === key)
-  load(win, `?view=sticky&type=${encodeURIComponent(type)}&id=${encodeURIComponent(id)}&nth=${nth}`)
+  load(win, `?view=sticky&type=${encodeURIComponent(type)}&id=${encodeURIComponent(id)}&nth=${nth}${glass ? '&glass=1' : ''}`)
+  builtGlass.set(key, glass)
 }
 /** The stickies left on the desktop last time, back where they were. */
 async function restoreStickies(): Promise<void> {
@@ -2002,6 +2011,16 @@ app.whenReady().then(() => {
     const voice = front && ![...stickies.values()].includes(front) ? front : prompt
     if (shown !== stickiesShown && voice && !voice.isDestroyed()) voice.webContents.send('stickies:shown', shown)
     stickiesShown = shown
+    // Glass or not is how a window is made: one made the other way is made again, in place.
+    const glass = stickyGlass() && !nativeTheme.prefersReducedTransparency
+    for (const [key, win] of [...stickies]) {
+      if (win.isDestroyed() || builtGlass.get(key) === glass) continue
+      const [type, ...rest] = key.split(':')
+      const at = win.getBounds()
+      win.destroy()
+      stickies.delete(key)
+      stick(type, rest.join(':'), true, at)
+    }
     applyStickies()
     updateTray()
   })

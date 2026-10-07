@@ -1,7 +1,7 @@
 import { execFile } from 'child_process'
 import { stat } from 'fs/promises'
 import { BrowserWindow, ipcMain, nativeImage, nativeTheme, screen, type Display } from 'electron'
-import { stickyFrost } from './vigil'
+import { stickyFrost, stickyGlass } from './vigil'
 import type { Frost } from '../preload/index.d'
 
 /**
@@ -99,7 +99,7 @@ function boxBlur(pixels: Buffer, w: number, h: number, r: number): void {
 }
 
 /** Frosted unless turned off in Settings or Reduce transparency is on. */
-const frostOn = (): boolean => stickyFrost() && !nativeTheme.prefersReducedTransparency
+const frostOn = (): boolean => stickyFrost() && !stickyGlass() && !nativeTheme.prefersReducedTransparency
 
 /** Everything a sticky needs to draw its frost now. */
 async function frostOf(win: BrowserWindow): Promise<Frost> {

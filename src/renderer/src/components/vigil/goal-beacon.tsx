@@ -5,6 +5,9 @@ import { AliveIcon } from '@/components/ui/alive-icon'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
 import XIcon from '@/components/ui/x-icon'
 
+/** Made as real glass (the setting): the Mac's blur behind it. */
+const GLASS = new URLSearchParams(location.search).has('glass')
+
 import { EASE, shift } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { useAppearance, useLive, vigil } from '@/lib/vigil'
@@ -43,7 +46,7 @@ export function GoalBeacon({ id }: { id: string }): React.JSX.Element | null {
   const left = daysLeft(goal.goalAt, today)
   const still = document.documentElement.dataset.motion === 'off'
   return (
-    <div className="h-screen p-4">
+    <div className={GLASS ? 'h-screen' : 'h-screen p-4'}>
       <motion.div
         key={shown}
         initial={still ? false : { opacity: 0, transform: shift('translateY(8px) scale(0.98)') }}
@@ -53,11 +56,11 @@ export function GoalBeacon({ id }: { id: string }): React.JSX.Element | null {
         onPointerEnter={() => window.api.holdBeacon(true)}
         onPointerLeave={() => window.api.holdBeacon(false)}
         // Solid, as a sticky is: lit from the top, never see-through; frosted over the desktop picture as a sticky is.
-        style={{ ...DRAG, backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' }}
-        className="group relative isolate flex h-full flex-col gap-2.5 rounded-xl border px-4 pt-3 pb-4 text-control text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_6px_16px_-4px_rgb(0_0_0/0.22)]"
+        style={{ ...DRAG, ...(GLASS ? { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(color-mix(in oklab, var(--popover) 55%, transparent), color-mix(in oklab, var(--popover) 55%, transparent))' } : { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' }) }}
+        className={`group relative isolate flex h-full flex-col gap-2.5 px-4 pt-3 pb-4 text-control text-foreground ${GLASS ? 'rounded-[10px]' : 'rounded-xl border shadow-[0_1px_2px_rgb(0_0_0/0.14),0_6px_16px_-4px_rgb(0_0_0/0.22)]'}`}
       >
         <SandboxStamp />
-        <Frost />
+        {!GLASS && <Frost />}
         <div className="flex items-start gap-1.5">
           <Flag className="mt-[0.2em] size-3.5 shrink-0" style={{ color: warmth(Math.max(left, 0)) }} />
           {/* The whole goal, over two lines if it needs them: a goal cut short is not the goal. */}
