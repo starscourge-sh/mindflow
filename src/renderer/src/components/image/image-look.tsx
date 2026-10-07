@@ -209,7 +209,7 @@ export function ImageLook({ editor }: { editor: Editor | null }): React.JSX.Elem
         <div
           ref={button}
           className="mf-look-corner"
-          style={{ top: rect.top + 8, left: rect.right - 8 }}
+          style={{ top: rect.top + 12, left: rect.right - 12 }}
           onPointerLeave={(event) => event.relatedTarget !== hovered && setHovered(null)}
         >
           <Toolbar variant="floating">
