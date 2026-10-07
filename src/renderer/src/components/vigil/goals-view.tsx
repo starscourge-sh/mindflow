@@ -485,6 +485,11 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
   const cell = flow || weeks ? step : Math.min(step, most)
   const at = (dot: Dot): { x: number; y: number } => ({ x: (dot.col + 0.5) * step, y: (dot.row + 0.5) * cell })
   const shown = hover ? logsIn(days, hover) : []
+  // The milestones on the way, the same ones that celebrate: halfway, a month to go, a week to go.
+  const shiftDay = (day: string, by: number): string => { const at = new Date(`${day}T12:00`); at.setDate(at.getDate() + by); return dayKey(at.toISOString()) }
+  const span = Math.round((new Date(`${target}T12:00`).getTime() - new Date(`${from}T12:00`).getTime()) / 86_400_000)
+  const marks: [string, string][] = [[shiftDay(from, Math.round(span / 2)), 'halfway'], [shiftDay(target, -30), 'a month to go'], [shiftDay(target, -7), 'a week to go']]
+  const milestoneIn = (dot: Dot): string | undefined => marks.find(([day]) => day >= from && day >= dot.day && day <= dot.last)?.[1]
   return (
     <div ref={box} className={`relative w-full ${compact ? 'h-full' : ''}`}>
       {!compact && (
@@ -509,7 +514,8 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
           const logged = logsIn(days, dot).length > 0
           const on = picked?.day === dot.day
           const colour = logged ? ACCENT : 'currentColor'
-          const opacity = logged || dot.today ? 1 : dot.past ? 0.5 : 0.13
+          const marker = milestoneIn(dot)
+          const opacity = logged || dot.today ? 1 : marker ? 0.75 : dot.past ? 0.5 : 0.13
           return (
             <g key={dot.day}
               onMouseEnter={compact ? undefined : () => setHover(dot)}
@@ -517,10 +523,15 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
               className={compact ? undefined : 'cursor-pointer'}>
               {/* A bigger, unseen target, so the pointer finds each one. */}
               {!compact && <rect x={dot.col * step} y={dot.row * cell} width={step} height={cell} fill="transparent" />}
-              {dot.target && <circle cx={at(dot).x} cy={at(dot).y} r={0.46 * cell} fill="none" stroke={ACCENT} strokeWidth={0.1 * cell} />}
-              {on && <circle cx={at(dot).x} cy={at(dot).y} r={0.48 * cell} fill="none" stroke="currentColor" strokeWidth={0.08 * cell} />}
-              <circle cx={at(dot).x} cy={at(dot).y} r={(dot.target ? 0.24 : 0.34) * cell} fill={dot.target && !logged ? ACCENT : colour}
-                className={dot.today ? 'mf-goal-today' : undefined} style={{ opacity: dot.target ? 1 : opacity }} />
+              {/* The day itself: a bold ring round a full dot, in the accent. */}
+              {dot.target && <circle cx={at(dot).x} cy={at(dot).y} r={0.56 * cell} fill="none" stroke={ACCENT} strokeWidth={0.14 * cell} />}
+              {/* Today: a halo that breathes round a full, bright dot. */}
+              {dot.today && <circle cx={at(dot).x} cy={at(dot).y} r={0.56 * cell} fill="none" stroke={ACCENT} strokeWidth={0.1 * cell} className="mf-goal-today" />}
+              {/* A milestone on the way (halfway, a month to go, a week to go): a quiet ring. */}
+              {marker && !dot.target && !dot.today && <circle cx={at(dot).x} cy={at(dot).y} r={0.52 * cell} fill="none" stroke="currentColor" strokeWidth={0.08 * cell} style={{ opacity: 0.6 }} />}
+              {on && <circle cx={at(dot).x} cy={at(dot).y} r={0.6 * cell} fill="none" stroke="currentColor" strokeWidth={0.08 * cell} />}
+              <circle cx={at(dot).x} cy={at(dot).y} r={(dot.target ? 0.32 : dot.today ? 0.4 : 0.34) * cell} fill={dot.target && !logged ? ACCENT : colour}
+                style={{ opacity: dot.target ? 1 : opacity }} />
             </g>
           )
         })}
@@ -530,7 +541,7 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
           style={{ left: `${((hover.col + 0.5) / across) * 100}%`, top: `calc(${((hover.row + 1) / road.rows) * 100}% + 1.25rem + 4px)` }}>
           <span className="block font-medium">
             {hover.day === hover.last ? dayName(`${hover.day}T12:00`) : `${dayMonth(`${hover.day}T12:00`)} to ${dayMonth(`${hover.last}T12:00`)}`}
-            {hover.today ? ' · today' : hover.target ? ' · the day' : ''}
+            {hover.today ? ' · today' : hover.target ? ' · the day' : milestoneIn(hover) ? ` · ${milestoneIn(hover)}` : ''}
           </span>
           <span className="block text-muted-foreground">{shown.length ? `${logsSaid(shown.length)}: ${shown[shown.length - 1].body.replace(/\s+/g, ' ').slice(0, 80)}` : hover.past || hover.today ? 'No log' : `${leftSaid(daysLeft(hover.day, today)).toLowerCase()}`}</span>
         </div>
