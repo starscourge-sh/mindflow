@@ -45,6 +45,60 @@ const ArrowUp = alive(ArrowNarrowUpIcon)
  * empty state that says what the view is for and how to fill it.
  */
 
+/**
+ * How wide a list is beside an open page: one width for every list, dragged
+ * at its right edge (double-click puts it back), kept between visits. A list
+ * of titles needs a column, not half the window.
+ */
+const LIST_WIDTH = 'list-width'
+function useListWidth(): [string, React.JSX.Element] {
+  const [width, setWidth] = useState<number>(() => {
+    try {
+      return Number(localStorage.getItem(LIST_WIDTH)) || 400
+    } catch {
+      return 400
+    }
+  })
+  const keep = (next: number): void => {
+    setWidth(next)
+    try {
+      localStorage.setItem(LIST_WIDTH, String(Math.round(next)))
+    } catch {
+      // This window only.
+    }
+  }
+  const grip = (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Drag to resize the list"
+      title="Drag to resize · double-click to reset"
+      className="group/grip absolute inset-y-0 -right-1.5 z-20 w-3 cursor-col-resize"
+      onDoubleClick={() => keep(400)}
+      onPointerDown={(event) => {
+        event.preventDefault()
+        const section = event.currentTarget.parentElement
+        const page = section?.parentElement
+        if (!section || !page) return
+        const left = section.getBoundingClientRect().left
+        const most = page.getBoundingClientRect().width * 0.6
+        const move = (at: PointerEvent): void => keep(Math.min(most, Math.max(280, at.clientX - left)))
+        const up = (): void => {
+          window.removeEventListener('pointermove', move)
+          window.removeEventListener('pointerup', up)
+          document.body.style.removeProperty('cursor')
+        }
+        document.body.style.cursor = 'col-resize'
+        window.addEventListener('pointermove', move)
+        window.addEventListener('pointerup', up)
+      }}
+    >
+      <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors group-hover/grip:bg-ring/60 group-active/grip:bg-ring" />
+    </div>
+  )
+  return [`${width}px`, grip]
+}
+
 /** A view's frame: title, a muted count, actions on the right, then the body. */
 export function Page({ title, count, unit = ['item', 'items'], actions, children, aside = false, wide = false }: {
   title: ReactNode
@@ -58,8 +112,10 @@ export function Page({ title, count, unit = ['item', 'items'], actions, children
   actions?: ReactNode
   children: ReactNode
 }): React.JSX.Element {
+  const [listWidth, grip] = useListWidth()
   return (
-    <section data-chrome={aside || undefined} className={cn('flex min-w-0 flex-1 flex-col', aside && 'hidden @[56rem]/page:flex')}>
+    <section data-chrome={aside || undefined} className={cn('relative flex min-w-0 flex-1 flex-col', aside && 'hidden flex-none @[56rem]/page:flex')} style={aside ? { width: listWidth } : undefined}>
+      {aside && grip}
       {/* The window's toolbar already names the section, so this line only
           carries the count and the actions, and goes when it has neither. */}
       {(count !== undefined || actions) && (
