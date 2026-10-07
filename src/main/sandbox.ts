@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, globalShortcut, ipcMain } from 'electron'
+import { spawnSync } from 'child_process'
 import { randomUUID } from 'crypto'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { copyFile, mkdir, rm, writeFile } from 'fs/promises'
@@ -70,11 +71,73 @@ export function useDataFolder(): boolean {
  * places; the new run opens the main window straight away.
  */
 export function relaunch(into: 'sandbox' | 'real', reset = false): void {
-  const base = process.argv.slice(1).filter((arg) => !arg.startsWith('--sandbox') && arg !== '--show-home')
-  const args = [...base, '--show-home', ...(into === 'sandbox' ? ['--sandbox', ...(reset ? ['--sandbox-reset'] : [])] : [])]
+  const to: Target = into === 'real' ? 'real' : reset ? 'reset' : 'sandbox'
   for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.closable = true
-  app.relaunch({ args })
+  if (!DEV) app.relaunch({ args: argsFor(to) })
+  else if (HANDED) app.once('quit', () => app.exit(CODES[to]))
+  else app.once('will-quit', (event) => (event.preventDefault(), handOff(to)))
   app.quit()
+}
+
+/**
+ * Start again at once, without closing anything first (a restore, whose
+ * database is already shut). Packaged, the app simply starts itself again.
+ */
+export function restartNow(): void {
+  if (!DEV) {
+    app.relaunch()
+    app.exit(0)
+  } else if (HANDED) app.exit(CODES.real)
+  else {
+    for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.destroy()
+    handOff('real')
+  }
+}
+
+/*
+ * Under `electron-vite dev` a restart cannot be `app.relaunch()`: the dev
+ * server ends the moment the first app process ends, and the new one finds no
+ * pages to load. So in dev the first process stays alive and starts each new
+ * run itself, waiting for it; a run started that way asks for the next one by
+ * how it exits. The first process lets go of everything first (the one-copy
+ * lock, the keys, the menu bar icon, the database) and then waits without
+ * running anything at all, so only one Vigil is ever live.
+ */
+type Target = 'real' | 'sandbox' | 'reset'
+const DEV = !app.isPackaged && !!process.env.ELECTRON_RENDERER_URL
+const HANDED = process.env.MINDFLOW_DEV_RELAUNCHED === '1'
+const CODES: Record<Target, number> = { real: 75, sandbox: 76, reset: 77 }
+const letGo: (() => void)[] = []
+/** Something only the app itself holds (the menu bar icon), let go of before a dev restart. */
+export const onHandOff = (run: () => void): void => void letGo.push(run)
+
+function argsFor(to: Target): string[] {
+  const base = process.argv.slice(1).filter((arg) => !arg.startsWith('--sandbox') && arg !== '--show-home')
+  return [...base, '--show-home', ...(to === 'real' ? [] : ['--sandbox', ...(to === 'reset' ? ['--sandbox-reset'] : [])])]
+}
+
+function handOff(first: Target): void {
+  for (const run of letGo) run()
+  globalShortcut.unregisterAll()
+  try {
+    database().close()
+  } catch {
+    // Already shut, by a restore.
+  }
+  app.releaseSingleInstanceLock()
+  // A moment for the icon and windows to leave the screen, then nothing runs here until the last run ends.
+  setTimeout(() => {
+    let to = first
+    for (;;) {
+      console.log(`[vigil] dev restart: ${to}`)
+      // The waiting process keeps its debugging ports; the new run must not ask for them again.
+      const args = argsFor(to).filter((arg) => !/^--(inspect|remote-debugging-port)/.test(arg))
+      const { status } = spawnSync(process.execPath, args, { stdio: 'inherit', env: { ...process.env, MINDFLOW_DEV_RELAUNCHED: '1' } })
+      const next = (Object.keys(CODES) as Target[]).find((one) => CODES[one] === status)
+      if (!next) return app.exit(status ?? 0)
+      to = next
+    }
+  }, 200)
 }
 
 const read = <T>(path: string, fallback: T): T => {

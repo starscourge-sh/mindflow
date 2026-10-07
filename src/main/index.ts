@@ -49,7 +49,7 @@ import { registerScenery, sceneryDir } from './scenery'
 import { celebrationFile, registerCelebrations } from './celebrate'
 import { firstRun, noteChord, pretendTaken, registerOnboarding, whereTray } from './onboarding'
 import { registerUnused } from './unused'
-import { SANDBOX, registerSandbox, relaunch, useDataFolder } from './sandbox'
+import { SANDBOX, onHandOff, registerSandbox, relaunch, restartNow, useDataFolder } from './sandbox'
 
 
 /* The standard electron app file structure:
@@ -1482,8 +1482,7 @@ async function restore(): Promise<void> {
   database().close()
   await copyFile(chosen, live)
   for (const extra of ['-wal', '-shm']) await rm(`${live}${extra}`, { force: true })
-  app.relaunch()
-  app.exit(0)
+  restartNow()
 }
 
 /**
@@ -1566,6 +1565,7 @@ function createTray(): void {
   image.setTemplateImage(true)
 
   tray = new Tray(image)
+  onHandOff(() => tray?.destroy())
   whereTray(() => (tray && !tray.isDestroyed() ? tray.getBounds() : null))
   updateTray()
   // Kept current without a window open: the count changes as the day goes on.
