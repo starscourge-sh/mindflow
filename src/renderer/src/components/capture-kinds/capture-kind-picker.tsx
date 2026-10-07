@@ -5,7 +5,7 @@ import { alive } from "@/components/ui/alive-icon"
 import BookIcon from "@/components/ui/book-icon"
 import SimpleCheckedIcon from "@/components/ui/simple-checked-icon"
 import CheckedIcon from "@/components/ui/checked-icon"
-import PenIcon from "@/components/ui/pen-icon"
+import NoteIcon from "@/components/ui/note-icon"
 import MessageCircleIcon from "@/components/ui/message-circle-icon"
 import BookmarkIcon from "@/components/ui/bookmark-icon"
 import LinkIcon from "@/components/ui/link-icon"
@@ -29,7 +29,7 @@ import { Tip } from '@/components/vigil/ui'
 const BookOpen = alive(BookIcon)
 const Check = alive(SimpleCheckedIcon)
 const ListTodo = alive(CheckedIcon)
-const NotebookText = alive(PenIcon)
+const NotebookText = alive(NoteIcon)
 const Quote = alive(MessageCircleIcon)
 const Bookmark = alive(BookmarkIcon)
 const Link = alive(LinkIcon)
