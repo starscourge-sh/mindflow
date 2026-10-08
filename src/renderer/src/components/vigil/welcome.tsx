@@ -118,44 +118,29 @@ function TypeLine({ text, className }: { text: string; className?: string }): Re
  * along its top. Pressed, it sinks and the lip goes, in 60ms; let go, it
  * springs back with a little overshoot.
  */
-function Keycap({ label, down, size = 64, i = 0 }: { label: string; down: boolean; size?: number; i?: number }): React.JSX.Element {
-  // A sculpted key, as a real one sits on a desk: dark whatever the theme, lit
-  // from above and to the left, its side wall showing under a top that is cupped
-  // a little. Each leans its own way and floats; pressed, it sinks onto its wall.
-  const wall = Math.round(size * 0.14)
+function Keycap({ label, down, size = 64 }: { label: string; down: boolean; size?: number }): React.JSX.Element {
+  const lip = Math.round(size / 20)
   const wide = label.length > 1 && !/^[𒀭𒆠]$/u.test(label)
-  const lean = i % 2 ? { x: 22, y: -20, z: 5 } : { x: 24, y: 20, z: -6 }
   return (
-    <span aria-hidden className="inline-block [perspective:900px]" style={{ paddingBottom: wall }}>
-      <motion.span
-        className={`relative inline-flex items-center justify-center rounded-[24%] ${still() ? '' : 'mf-key-float'}`}
-        style={{
-          height: size, minWidth: size, paddingInline: wide ? size * 0.28 : 0,
-          animationDelay: `${i * -1.7}s`,
-          // The top: a soft light across it, and a cupped edge.
-          background: 'radial-gradient(120% 90% at 30% 18%, #3b3b40 0%, #26262a 45%, #1b1b1e 100%)',
-          boxShadow: [
-            'inset 0 1.5px 0 rgb(255 255 255 / 0.09)',
-            `inset 0 -${Math.round(size * 0.06)}px ${Math.round(size * 0.1)}px rgb(0 0 0 / 0.35)`,
-            // The side wall, lit at its foot as a key is by the desk under it.
-            `0 ${down ? wall * 0.25 : wall}px 0 #2c2a28`,
-            // Its lower edge catching the light, so the wall reads against a dark page.
-            `0 ${(down ? wall * 0.25 : wall) + 1}px 0 rgb(255 240 220 / 0.12)`,
-            `0 ${wall + size * 0.18}px ${size * 0.35}px -${size * 0.12}px rgb(0 0 0 / 0.6)`
-          ].join(', '),
-          transition: down ? 'box-shadow 60ms ease-out' : 'box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1)',
-          // A full stop is a speck at the size of a letter: drawn as a dot, the way a keycap prints it.
-          fontSize: wide ? size * 0.3 : size * 0.4,
-          fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
-          color: down ? 'var(--primary)' : '#d6d6d2',
-          textShadow: '0 1px 0 rgb(0 0 0 / 0.6)'
-        }}
-        animate={{ transform: `rotateX(${lean.x}deg) rotateY(${lean.y}deg) rotateZ(${lean.z}deg) translateY(${down ? wall * 0.75 : 0}px)` }}
-        transition={down ? { duration: 0.06, ease: 'easeOut' } : { type: 'spring', duration: 0.24, bounce: 0.35 }}
-      >
-        {label === '.' ? <span className="block rounded-full bg-current" style={{ width: size * 0.07, height: size * 0.07 }} /> : label}
-      </motion.span>
-    </span>
+    <motion.span
+      aria-hidden
+      className="relative inline-flex items-center justify-center rounded-[22%] border border-foreground/12 bg-[color-mix(in_oklab,var(--foreground)_7%,var(--background))] font-medium text-foreground"
+      style={{
+        height: size, minWidth: size, paddingInline: wide ? size * 0.28 : 0,
+        // A full stop is a speck at the size of a letter: drawn larger, the way a keycap prints it.
+        fontSize: wide ? size * 0.3 : /^[.,;']$/.test(label) ? size * 0.62 : size * 0.42,
+        color: down ? 'var(--primary)' : undefined,
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
+        boxShadow: down
+          ? `inset 0 1px 0 color-mix(in oklab, white 6%, transparent), 0 0 0 0 transparent`
+          : `inset 0 1px 0 color-mix(in oklab, white 10%, transparent), 0 ${lip}px 0 color-mix(in oklab, var(--foreground) 16%, var(--background)), 0 ${lip + 6}px 16px -8px color-mix(in oklab, var(--mf-shadow-ink) 55%, transparent)`,
+        transition: down ? 'box-shadow 60ms ease-out' : 'box-shadow 140ms cubic-bezier(0.16, 1, 0.3, 1)'
+      }}
+      animate={{ transform: `translateY(${down ? lip : 0}px)` }}
+      transition={down ? { duration: 0.06, ease: 'easeOut' } : { type: 'spring', duration: 0.22, bounce: 0.35 }}
+    >
+      {label}
+    </motion.span>
   )
 }
 
@@ -650,7 +635,7 @@ function OneKey({ state, onState, onBox }: { state: Onboarding | null; onState: 
     // The close-up: the keys, large and in the middle, and the words under them.
     <div className="mx-auto flex max-w-[min(100%,46rem)] flex-col items-center gap-[clamp(1.25rem,4.5vh,3rem)] text-center">
       <div className={`relative flex items-end gap-[0.18em] rounded-[0.42em] p-[0.16em] transition-[box-shadow] duration-300 ease-(--mf-ease) ${all || arrived ? 'shadow-[0_0_0_1.5px_var(--primary)]' : 'shadow-[0_0_0_1.5px_transparent]'}`} style={{ fontSize: big }}>
-        {caps.map((cap, i) => <Keycap key={`${cap}${i}`} label={glyph(cap, i === caps.length - 1)} down={down.has(i)} size={big} i={i} />)}
+        {caps.map((cap, i) => <Keycap key={`${cap}${i}`} label={glyph(cap, i === caps.length - 1)} down={down.has(i)} size={big} />)}
       </div>
       <div className="flex flex-col items-center gap-[clamp(0.5rem,1.6vh,1rem)]">
         <h1 className={HEADLINE_SM}>One key to remember</h1>
