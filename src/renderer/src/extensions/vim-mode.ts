@@ -692,13 +692,17 @@ function findInLine(
   const forward = kind === "f" || kind === "t"
   const step = forward ? 1 : -1
   let i = from - start
+  // Smartcase, as Vim's searches can be: a small letter finds either case
+  // (fe lands on the E of a capitalised word too), a capital only itself.
+  const loose = char !== char.toUpperCase()
+  const hit = (at: number): boolean => text[at] === char || (loose && text[at]?.toLowerCase() === char)
 
-  if (kind === "t" && text[i + 1] === char) i += 1
-  if (kind === "T" && text[i - 1] === char) i -= 1
+  if (kind === "t" && hit(i + 1)) i += 1
+  if (kind === "T" && hit(i - 1)) i -= 1
 
   for (let n = 0; n < count; n++) {
     i += step
-    while (i >= 0 && i < text.length && text[i] !== char) i += step
+    while (i >= 0 && i < text.length && !hit(i)) i += step
     if (i < 0 || i >= text.length) return null
   }
 
