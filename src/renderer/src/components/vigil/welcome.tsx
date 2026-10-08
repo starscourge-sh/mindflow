@@ -743,16 +743,20 @@ function Catch({ boxUp }: { boxUp: boolean }): React.JSX.Element {
         </p>
       </div>
       {!boxUp && <BoxPreview />}
+      {/* The box has the cursor, so the first key wipes its example: here they keep coming while you type. */}
+      {boxUp && <Example />}
     </div>
   )
 }
 
-/**
- * What the box looks like, writing the same examples the real one shows
- * while it waits: so the thing that opens is already familiar. Not a
- * control; the real box is a key away.
- */
-function BoxPreview(): React.JSX.Element {
+/** The box's examples, one after another, quietly under the words while the real box is up. */
+function Example(): React.JSX.Element {
+  const { shown } = useExample()
+  return <p aria-hidden className={`${QUIET} min-h-[1.4em]`}>Like: <span className="text-(--mf-wl-body)">{shown}</span></p>
+}
+
+/** The box's examples typed in turn, one at a time, still when Motion is off. */
+function useExample(): { line: string; shown: string; typing: boolean; quiet: boolean } {
   const [n, setN] = useState(0)
   const [typed, setTyped] = useState(0)
   const line = EXAMPLES[n % EXAMPLES.length]
@@ -769,12 +773,22 @@ function BoxPreview(): React.JSX.Element {
     const rest = setTimeout(() => (setTyped(0), setN((was) => was + 1)), 2600)
     return () => clearTimeout(rest)
   }, [typed, line, quiet])
+  return { line, shown: quiet ? line : line.slice(0, typed), typing: !quiet && typed < line.length, quiet }
+}
+
+/**
+ * What the box looks like, writing the same examples the real one shows
+ * while it waits: so the thing that opens is already familiar. Not a
+ * control; the real box is a key away.
+ */
+function BoxPreview(): React.JSX.Element {
+  const { shown, typing } = useExample()
   return (
     <figure aria-hidden className="w-full text-left">
       <div className="pointer-events-none overflow-hidden rounded-[clamp(1rem,2vw,1.5rem)] border border-foreground/10 bg-background shadow-(--mf-panel-shadow)">
         <p className="min-h-[clamp(4.5rem,22vh,12rem)] px-[1em] pt-[0.8em] text-[clamp(1.25rem,min(3.2vw,4.6vh),2.5rem)] leading-snug text-foreground">
-          {quiet ? line : line.slice(0, typed)}
-          <span className={`mf-caret ${!quiet && typed < line.length ? 'mf-caret-typing' : ''}`} />
+          {shown}
+          <span className={`mf-caret ${typing ? 'mf-caret-typing' : ''}`} />
         </p>
         <div className="flex items-center gap-[0.5em] border-t border-foreground/[0.07] px-[1.1em] py-[0.6em] text-[clamp(0.875rem,min(2.2vw,3.2vh),1.375rem)] text-(--mf-wl-quiet)">
           <NotebookText className="size-[1em]" strokeWidth={1.75} />
