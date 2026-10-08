@@ -828,9 +828,25 @@ export function registerVigil(): void {
   // What you have typed before in a field, most used first: the autocomplete
   // for attribution and medium. Never a preset list: seeding "book, podcast"
   // would lean you toward medium, the less useful half.
-  handle('values', (field: 'attribution' | 'medium') =>
-    (db.prepare(`select ${field} as v, count(*) n from captures where ${field} is not null and ${field} != '' group by v order by n desc limit 50`).all() as { v: string }[]).map((row) => row.v)
-  )
+  // Spellings that differ only in their capitals are one name, counted
+  // together and offered in the spelling used most ("marcus aurelius" once and
+  // "Marcus Aurelius" three times is Marcus Aurelius, used four times).
+  handle('values', (field: 'attribution' | 'medium') => {
+    const rows = db.prepare(`select ${field} as v, count(*) n from captures where ${field} is not null and trim(${field}) != '' group by v`).all() as { v: string; n: number }[]
+    const names = new Map<string, { v: string; best: number; n: number }>()
+    for (const { v, n } of rows) {
+      const key = v.trim().toLowerCase()
+      const one = names.get(key)
+      // On a tie, the spelling with more capitals: a name is usually written with them.
+      const caps = (word: string): number => (word.match(/\p{Lu}/gu) ?? []).length
+      if (!one) names.set(key, { v: v.trim(), best: n, n })
+      else {
+        one.n += n
+        if (n > one.best || (n === one.best && caps(v) > caps(one.v))) Object.assign(one, { v: v.trim(), best: n })
+      }
+    }
+    return [...names.values()].sort((a, b) => b.n - a.n).slice(0, 50).map((one) => one.v)
+  })
 
   // --- the capture exits
   // Promote: a nugget made from the capture, which stays as it was. A word

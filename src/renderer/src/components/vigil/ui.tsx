@@ -1042,19 +1042,21 @@ export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX
 }
 
 /** What you have typed before in a field, most used first, for its autocomplete. */
-export function Remembered({ field, value, onChange, placeholder, className = 'field-sizing-content min-w-16 max-w-48 px-1.5 py-0.5', onKeyDown, onBlur, ...rest }: {
+export function Remembered({ field, value, onChange, placeholder, className = 'field-sizing-content min-w-16 max-w-48 px-1.5 py-0.5', complete = true, onKeyDown, onBlur, ...rest }: {
   field: 'attribution' | 'medium'
   value: string
   onChange: (value: string) => void
   placeholder: string
   className?: string
+  /** Off, nothing is offered from the names used before: the welcome's lesson keeps your history out of it. */
+  complete?: boolean
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>): React.JSX.Element {
   // The names you have used before, most used first: the rest of the nearest
   // one is written in faint after what you typed, and Tab or → takes it. A
   // name that is one you know but for its capitals or a slip of a key ("Pink
   // floyd", "Pnik Floyd") becomes that one as you leave the field.
   const values = useLive(() => vigil.values(field), [] as string[])
-  const typed = value.trim().toLowerCase()
+  const typed = complete ? value.trim().toLowerCase() : ''
   const match = typed ? values.find((one) => one.toLowerCase().startsWith(typed) && one.length > typed.length) : undefined
   const ahead = match ? match.slice(value.length) : ''
   const known = (): string | undefined => {
