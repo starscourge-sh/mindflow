@@ -43,7 +43,7 @@ export async function exit(id: string, status: string, onUndo?: () => void): Pro
     const question = await flying(id, 'question', () => vigil.newQuestion('', id))
     if (!question) return refuse(NOT_OPEN)
     chime('hold')
-    return toast('Kept in a question: it is in Holding', () => void vigil.dropQuestion(question).then(() => onUndo?.()))
+    return toast('Kept in a question: it is in Holding', () => void vigil.dropQuestion(question).then(() => onUndo?.()), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', question) })
   }
   const result = status === 'promoted' ? await flying(id, 'nugget', () => takeExit(id, status)) : await takeExit(id, status)
   if (result === 'cancelled' || !one) return

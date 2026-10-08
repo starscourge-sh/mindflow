@@ -60,7 +60,7 @@ export function selectionActions(origin: { captureId?: string; attribution?: str
                 .then((id) => {
                   // From a note not saved yet: it is linked back once that note is.
                   if (!origin.from) origin.onLifted?.(id)
-                  toast(origin.from ? 'In your inbox, linked back to here' : 'In your inbox, linked once this note is saved')
+                  toast(origin.from ? 'In your inbox, linked back to here' : 'In your inbox, linked once this note is saved', undefined, 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('capture', id) })
                 })
             }}
           >

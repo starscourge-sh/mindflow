@@ -108,7 +108,7 @@ export async function addToQuestion(captureId: string, onUndo?: () => void): Pro
     // A capture that already took another exit keeps it.
     if (!id) return refuse('That capture already took an exit. Put it back in the inbox first')
     chime('hold')
-    return toast('Kept in a new question, as its first clue', () => void vigil.dropQuestion(id).then(() => onUndo?.()))
+    return toast('Kept in a new question, as its first clue', () => void vigil.dropQuestion(id).then(() => onUndo?.()), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', id) })
   }
   const clue = await flying(captureId, 'question', () => vigil.addClue(picked.id, '', captureId))
   if (!clue) return
