@@ -165,9 +165,10 @@ export function FocusPill(): React.JSX.Element | null {
         </button>
         {/* It runs all session, looked at or not, unlike the bars in the app,
             which run only while their window is (main.css). Paused, or time up
-            in place, it stands; reaching the end of its line, it jumps for joy. */}
-        {bubble !== 'circle' && (
-          <span className={`shrink-0 ${paused || (over && !along) ? 'mf-bubble-still' : alive ? 'mf-bubble-run' : ''} ${over && along && alive ? 'mf-bubble-cheer' : ''}`}>
+            in place, it stands; reaching the end of its line, it jumps for joy.
+            Paused, it steps out: "Paused" needs the room, and the goal keeps its words. */}
+        {bubble !== 'circle' && !paused && (
+          <span className={`shrink-0 ${(over && !along) ? 'mf-bubble-still' : alive ? 'mf-bubble-run' : ''} ${over && along && alive ? 'mf-bubble-cheer' : ''}`}>
             <ProgressBar as="dino" value={along ? (over ? 1 : share!) : 0} label="The session so far" duration={0} className={along ? 'w-[64px]' : 'w-[44px]'} />
           </span>
         )}
