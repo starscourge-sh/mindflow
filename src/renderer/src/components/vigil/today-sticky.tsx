@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { alive, AliveIcon } from '@/components/ui/alive-icon'
 import XIcon from '@/components/ui/x-icon'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
-import EyeOffIcon from '@/components/ui/eye-off-icon'
+import { Minus } from 'lucide-react'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 
 import '@/assets/styles/_variables.scss'
@@ -137,7 +137,7 @@ export function TodaySticky(): React.JSX.Element {
               <button type="button" title="Hide this one till sticky notes are next shown  ⌃⌥⌘N" aria-label="Hide this one"
                 onClick={() => (chime('tuck'), window.api.hideSticky('today', 'today'))}
                 className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
-                <AliveIcon icon={EyeOffIcon} size={14} />
+                <Minus className="size-3.5" strokeWidth={2.25} />
               </button>
               <button type="button" title="Take it off the desktop" aria-label="Take it off the desktop"
                 onClick={() => {
