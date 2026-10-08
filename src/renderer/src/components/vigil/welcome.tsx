@@ -388,8 +388,9 @@ export function Welcome(): React.JSX.Element | null {
       if (event.key === 'Escape') skip()
       else if (event.key === 'Enter') primary[at]?.()
       else if (at === LAST && /^[123]$/.test(event.key)) choose(Number(event.key) as 1 | 2 | 3)
-      else if (at === 5 && /^Arrow/.test(event.key)) {
-        // The dial's own: turned from anywhere on the screen.
+      else if (at === 5 && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+        // The dial's own, as its scroll wheel turns it: turned from anywhere on
+        // the screen. Left and right stay back and next, as on every other screen.
         const dial = document.querySelector<HTMLElement>('[role="slider"][aria-label="Theme"]')
         if (!dial || dial.contains(event.target as Node)) return
         dial.focus({ preventScroll: true })
@@ -990,7 +991,7 @@ function Yours({ onPick }: { onPick: (theme: Theme) => void }): React.JSX.Elemen
         <h1 className={HEADLINE}>Make it yours.</h1>
         <p className={`${BODY} max-w-[24ch]`}>Pick the colours you will want to look at every day.</p>
         <p className={`${QUIET} max-w-[26ch] [@media(max-height:560px)]:hidden`}>
-          Turn it with <span className="inline-flex translate-y-[-0.08em] gap-[0.12em] align-middle"><Kbd className={LINE_KEY}>←</Kbd><Kbd className={LINE_KEY}>→</Kbd></span>, the scroll wheel, or a spin. You can change it any time.
+          Turn it with <span className="inline-flex translate-y-[-0.08em] gap-[0.12em] align-middle"><Kbd className={LINE_KEY}>↑</Kbd><Kbd className={LINE_KEY}>↓</Kbd></span>, the scroll wheel, or a spin. You can change it any time.
         </p>
       </div>
       <ThemeDial size={size} big onPick={onPick} onFullTurn={() => (setSay(FULL_TURN), setTimeout(() => setSay(undefined), 1800))} say={say} />
