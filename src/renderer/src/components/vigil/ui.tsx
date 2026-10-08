@@ -7,7 +7,7 @@ import { alive } from '@/components/ui/alive-icon'
 import ArrowNarrowDownIcon from '@/components/ui/arrow-narrow-down-icon'
 import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
 import { AnimatePresence, motion } from 'motion/react'
-import { EASE, byKeys, hush, shift, speak } from '@/lib/motion'
+import { EASE, byKeys, hush, shift, speak, useFirstVisit } from '@/lib/motion'
 import { detent, slotTicker } from '@/lib/proximity'
 import { Arrow } from './marks'
 import { Coolshape, type shapeTypes } from 'coolshapes-react'
@@ -143,11 +143,6 @@ export function Page({ title, count, unit = ['item', 'items'], actions, children
 }
 
 /**
- * What an empty view is for, and the one thing that fills it. A shape from
- * coolshapes, clean rather than grainy, in place of a grey icon: an empty view
- * is the first thing a new feature shows you, and it should not read as an error.
- */
-/**
  * A sentence that tells you something, typed out a word at a time as it
  * arrives, a beat after the page paints so the motion is seen rather than
  * lost in the opening frame, so the app reads as if it is talking to you rather than showing a
@@ -188,8 +183,70 @@ export function Typed({ text, className, step = 40, delay: asked = 700, story = 
   )
 }
 
-export function Empty({ shape, title, children, action, compact = false }: {
+// The folder's papers: where each sits tucked in, and where it rises to when
+// the folder opens, fanned a little either way.
+const PAPERS = [
+  { left: 9, width: 34, tone: 0.9, open: { y: -9, x: -3, rotate: -9 } },
+  { left: 12, width: 33, tone: 0.95, open: { y: -13, x: 1, rotate: 3 } },
+  { left: 15, width: 31, tone: 0.99, open: { y: -8, x: 4, rotate: 11 } }
+]
+
+/**
+ * What an empty page shows over its line: a folder in the accent's colour
+ * with a few papers tucked in, nothing on them yet. Pointed at, it opens a
+ * little and the papers rise and fan; on the first visit this session it
+ * does so once by itself, a beat after the page paints. Drawn at 56 and
+ * scaled, so the narrow panel's 44 is the same drawing. Reached by a key, it
+ * does not open by itself; with Motion off it stays shut and still.
+ */
+function Folder({ size, seed }: { size: number; seed: string }): React.JSX.Element {
+  const calm = useState(() => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches)[0]
+  const first = useFirstVisit(`empty:${seed}`)
+  const [peek, setPeek] = useState(false)
+  useEffect(() => {
+    if (calm || !first || byKeys()) return
+    const open = setTimeout(() => setPeek(true), 450)
+    const shut = setTimeout(() => setPeek(false), 1500)
+    return () => (clearTimeout(open), clearTimeout(shut))
+  }, [calm, first])
+  const back = 'color-mix(in oklab, var(--primary) 58%, var(--background))'
+  const front = 'color-mix(in oklab, var(--primary) 82%, var(--background))'
+  const spring = { type: 'spring', stiffness: 260, damping: 20 } as const
+  return (
+    <motion.div aria-hidden className="mb-3 shrink-0" style={{ width: size, height: size }} initial={false}
+      animate={peek ? 'open' : 'shut'} whileHover={calm ? undefined : 'open'}>
+      <div className="relative size-14 origin-top-left" style={{ scale: String(size / 56), perspective: 160 }}>
+        {/* The back, its tab on the left. */}
+        <div className="absolute top-[9px] left-[3px] h-[8px] w-[20px] rounded-t-[4px]" style={{ background: back }} />
+        <div className="absolute top-[13px] right-[3px] bottom-[5px] left-[3px] rounded-[5px] rounded-tl-none" style={{ background: back }} />
+        {PAPERS.map((paper, at) => (
+          <motion.div key={at} className="absolute top-[18px] h-[26px] rounded-[3px] shadow-[0_1px_2px_rgb(0_0_0/0.18)]"
+            style={{ left: paper.left, width: paper.width, background: `oklch(${paper.tone} 0.008 80)`, originY: 1 }}
+            variants={{ shut: { y: 0, x: 0, rotate: 0 }, open: paper.open }} transition={{ ...spring, delay: at * 0.03 }}>
+            {/* A line or two on it, so it reads as paper. */}
+            <div className="mx-[5px] mt-[5px] h-[2px] w-1/2 rounded-full bg-black/15" />
+            <div className="mx-[5px] mt-[3px] h-[2px] w-2/3 rounded-full bg-black/10" />
+          </motion.div>
+        ))}
+        {/* The front, swinging down from its foot as the folder opens. */}
+        <motion.div className="absolute right-[3px] bottom-[5px] left-[3px] h-[29px] rounded-[5px] shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_-1px_3px_rgb(0_0_0/0.12)]"
+          style={{ background: front, originY: 1 }}
+          variants={{ shut: { rotateX: 0 }, open: { rotateX: -32 } }} transition={spring} />
+      </div>
+    </motion.div>
+  )
+}
+
+/**
+ * What an empty view is for, and the one thing that fills it. A folder with
+ * nothing filed in it yet, in place of a grey icon: an empty view is the first
+ * thing a new feature shows you, and it should not read as an error.
+ */
+export function Empty({ shape, shaped = false, title, children, action, compact = false }: {
+  /** The coolshape drawn in the folder's place, when `shaped`. */
   shape: [shapeTypes, number]
+  /** The shape, not the folder: a finished queue is done, not empty. */
+  shaped?: boolean
   title: ReactNode
   children: ReactNode
   action?: ReactNode
@@ -198,7 +255,9 @@ export function Empty({ shape, title, children, action, compact = false }: {
 }): React.JSX.Element {
   return (
     <div className={`flex max-w-sm flex-col items-start gap-3 ${compact ? 'px-2 py-10' : 'px-5 py-[16vh]'}`}>
-      <Coolshape type={shape[0]} index={shape[1]} noise={false} size={compact ? 44 : 56} className="mb-3" />
+      {shaped
+        ? <Coolshape type={shape[0]} index={shape[1]} noise={false} size={compact ? 44 : 56} className="mb-3" />
+        : <Folder size={compact ? 44 : 56} seed={typeof title === 'string' ? title : 'empty'} />}
       {/* A rest is a moment, not a missing list: its line at title size in the
           heading font, a step down in the prompt's narrow panel. */}
       <h2 className={compact ? 'text-heading font-semibold' : 'text-title font-medium'}>{title}</h2>

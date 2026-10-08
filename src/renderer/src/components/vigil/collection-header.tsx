@@ -12,6 +12,7 @@ import { openLook } from '@/components/image/image-look'
 import { RowMenu, type MenuItem } from './row-menu'
 import { Tip } from './ui'
 import { GrainFill, useCover } from './grain'
+import { Tilt } from './tilt'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Read = alive(BookIcon)
@@ -140,9 +141,11 @@ export function Cover({ src, colour, seed, children, caption = '' }: { src?: str
   if (src && !broken) {
     const picture = <img src={src} alt="" draggable={false} onError={() => setBroken(true)} className="size-full object-cover" />
     return (
-      <Tip label="Look at it">
-        <button type="button" onClick={(event) => (chime('look'), void openLook(src, event.currentTarget.querySelector('img'), caption))} className={`${box} cursor-zoom-in transition-transform duration-150 ease-out active:scale-[0.98]`}>{picture}</button>
-      </Tip>
+      <Tilt className="shrink-0 rounded-lg">
+        <Tip label="Look at it">
+          <button type="button" onClick={(event) => (chime('look'), void openLook(src, event.currentTarget.querySelector('img'), caption))} className={`${box} cursor-zoom-in transition-transform duration-150 ease-out active:scale-[0.98]`}>{picture}</button>
+        </Tip>
+      </Tilt>
     )
   }
   return (

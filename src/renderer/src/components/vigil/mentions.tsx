@@ -12,6 +12,7 @@ import { openWindow, useThumb } from '@/lib/notes'
 import { vigil } from '@/lib/vigil'
 import { Thumb } from './note-extras'
 import { Tip, refuse, toast } from './ui'
+import { Tilt } from './tilt'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ChevronLeft = alive(RightChevronIcon, 'rotate-180')
@@ -224,6 +225,8 @@ function RelatedRow({ cards, onOpen }: { cards: Related; onOpen?: (type: string,
 
 function RelatedCard({ card, onOpen }: { card: Related[number]; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const picture = useThumb(card.id)
+  // A picture tips toward the pointer; a card of words stays put.
+  const Frame = picture ? Tilt : 'span'
   return (
     <div data-private={card.private ? '' : undefined} className="group/card relative w-40 shrink-0 snap-start transition-transform duration-200 ease-out motion-safe:hover:-translate-y-0.5 motion-safe:focus-within:-translate-y-0.5">
       <button
@@ -232,13 +235,13 @@ function RelatedCard({ card, onOpen }: { card: Related[number]; onOpen?: (type: 
         onClick={(event) => (event.metaKey ? openWindow(card.type, card.id) : onOpen?.(card.type, card.id))}
         className="block w-full rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98] transition-transform duration-150 ease-out"
       >
-        <span className="block h-24 overflow-hidden rounded-lg border bg-muted/50 transition-colors group-hover/card:border-foreground/20">
+        <Frame className="block h-24 overflow-hidden rounded-lg border bg-muted/50 transition-colors group-hover/card:border-foreground/20">
           {picture ? (
             <Thumb id={card.id} className="size-full rounded-none border-0" />
           ) : (
             <span className="private-text line-clamp-4 pt-2 pr-8 pl-2.5 text-xs leading-relaxed text-muted-foreground">{card.excerpt || ' '}</span>
           )}
-        </span>
+        </Frame>
         <span className="private-text mt-1.5 block truncate px-0.5 text-sm font-medium text-foreground">{card.title || 'Untitled'}</span>
         <span className="private-text block truncate px-0.5 text-xs">
           {card.shared.map((tag, at) => (

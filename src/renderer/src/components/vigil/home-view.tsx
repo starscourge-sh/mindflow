@@ -31,6 +31,7 @@ import { byKeys, useFirstVisit } from '@/lib/motion'
 import { KindBack, backLine, type Returning } from './kind-back'
 import { GoalStrip } from './goals-view'
 import { GettingStarted } from './getting-started'
+import { Tilt } from './tilt'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowRight = alive(ArrowNarrowRightIcon)
@@ -443,6 +444,7 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
         <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-background/70 via-background/45 to-background/10" />
         <div className="relative flex items-center gap-4 p-4 @[44rem]/page:gap-5 @[44rem]/page:p-5">
           {picture && (
+            <Tilt className="shrink-0 rounded-lg">
             <button type="button" tabIndex={-1} onClick={() => actions.open(card)} aria-label={`Open ${nameOf(card)}`}
               className="aspect-square w-20 shrink-0 overflow-hidden rounded-lg shadow-[0_10px_30px_-10px_rgb(0_0_0/0.5)] transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:scale-[1.02] active:scale-[0.98] @[44rem]/page:w-28">
               {real ? <Picture src={src!} onBroken={() => setBroken(true)} /> : grain && (
@@ -452,6 +454,7 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
                 </span>
               )}
             </button>
+            </Tilt>
           )}
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <span className="text-xs font-medium text-foreground/80">{line}</span>

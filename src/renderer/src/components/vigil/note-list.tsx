@@ -24,6 +24,7 @@ import { Tags, Tip, VirtualList, typing } from './ui'
 import { Button } from '@/components/ui/button'
 import type { Density, Pane } from './display'
 import { GrainFill, useCover } from './grain'
+import { Tilt } from './tilt'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Maximize2 = alive(ExpandIcon)
@@ -100,7 +101,7 @@ function Cover({
   const grain = useCover(picture === undefined ? entry.id : null)
   if (picture)
     return (
-      <span className={`private-text block overflow-hidden bg-accent ${className}`}>
+      <Tilt className={`private-text overflow-hidden bg-accent ${className}`}>
         <img
           src={picture}
           alt=""
@@ -110,7 +111,7 @@ function Cover({
           onError={broken}
           className="size-full object-cover animate-in fade-in-0 duration-200"
         />
-      </span>
+      </Tilt>
     )
   return (
     <span
