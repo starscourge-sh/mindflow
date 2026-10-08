@@ -3,14 +3,15 @@ import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { ArrowUp, Check, CornerDownLeft } from 'lucide-react'
 import { EASE, byKeys, hush, spring, speak } from '@/lib/motion'
 import { chime, click, fold } from '@/lib/sound'
-import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
+import { allThemes, applyTheme, currentTheme, type Theme } from '@/lib/theme'
 import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
 import { onboarding, type Onboarding } from '@/lib/onboarding'
 import { enterSandbox } from '@/lib/sandbox'
 import { STARTERS, fillBox, holdKeys, tellBox } from '@/lib/welcome-box'
 import keycapsUrl from '@/assets/welcome/keycaps.webp'
 import type { CaptureMeta } from '@/components/capture-list'
-import { dayjs } from '../../../../main/dates'
+import { dayjs, when } from '../../../../main/dates'
+import { readTask } from '../../../../main/task-words'
 import { Scenery } from './scenery'
 import { NOISE } from './grain'
 import { ThemeDial } from './theme-dial'
@@ -18,8 +19,8 @@ import { RecapRadar } from './recap-radar'
 import { Kbd, toast } from './ui'
 import { FULL_TURN, glyph, inClay, konami } from './welcome-eggs'
 import {
-  CAM, Chip, EMPTY_BOX, GhostHand, KINDS, LAND, MiniMap, PostcardResult, QUOTE, Rise, Slots, Stage, TaskResult, CardResult, WORD,
-  cue, guess, seeded, starterOf, typed, useScript, type Beat, type Box, type Kind
+  CAM, Chip, DRAWER, EMPTY_BOX, GhostHand, KINDS, LAND, LinkScene, PostcardResult, QUOTE, Rise, Slots, Stage, TaskResult, CardResult, WORD,
+  cue, seeded, starterOf, typed, useScript, type Beat, type Box, type Kind, type MapShot
 } from './welcome-reel'
 
 /**
@@ -52,7 +53,6 @@ const RETURN = 4
 const DIAL = 5
 const LAST = 6
 const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
-const MODS: Record<string, string> = { '⌘': 'Meta', '⌥': 'Alt', '⌃': 'Control', '⇧': 'Shift' }
 const capsOf = (keys: string): string[] => keys.match(/[⌃⌥⇧⌘]|[^⌃⌥⇧⌘]+/g) ?? []
 /** The window's size, kept fresh: the keycaps and the dial are sized to it. */
 function useWindowSize(): { width: number; height: number } {
@@ -361,12 +361,12 @@ export function Welcome(): React.JSX.Element | null {
               className="absolute inset-0 flex flex-col px-[clamp(1.5rem,5vw,4rem)] pt-2"
               exit={{ opacity: 0, filter: 'blur(2px)', transition: spring.slow.exit }}
               // A click on the picture while it plays: its end, as a key does.
-              onPointerDown={(event) => void (!(event.target as HTMLElement).closest('button, a, [role="slider"]') && !reel.current.done && settled())}>
+              onPointerDown={(event) => void (event.isTrusted && !(event.target as HTMLElement).closest('button, a, [role="slider"]') && !reel.current.done && settled())}>
               {at === 0 && <Hello replay={replay} kept={kept} calm={!play} newcomer={newcomer} today={earlier + caught.length} />}
               {at === CATCH && <CatchChapter play={play} report={report} state={state} onState={setState} />}
-              {at === BECOME && <BecomeChapter play={play} report={report} pick={pick} onPick={choose} turn={turn} mine={mine} onBox={openBox} />}
+              {at === BECOME && <BecomeChapter play={play} report={report} pick={pick} onPick={choose} turn={turn} mine={mine} />}
               {at === CONNECT && <ConnectChapter play={play} report={report} />}
-              {at === RETURN && <ReturnChapter play={play} report={report} kept={kept} newcomer={newcomer} today={earlier + caught.length} />}
+              {at === RETURN && <ReturnChapter play={play} report={report} />}
               {at === DIAL && <DialChapter play={play} report={report} onPick={(theme) => (picked.current = theme)} />}
               {at === LAST && <Start name={name} kept={caught.length} skipped={skipped} importing={importing} still={!play} onPick={start} onFiles={() => (leave('notes'), void window.api.importFrom('files'))} />}
             </motion.section>
@@ -383,14 +383,14 @@ export function Welcome(): React.JSX.Element | null {
               </motion.p>
             )}
           </AnimatePresence>
-          {(at === LAST || !caught.length) && (
+          {(at === LAST || !caught.length) && !(at === BECOME && turn !== 'kept') && (
             <button type="button" onClick={skip} className={`flex h-[clamp(2rem,4.2vmin,2.5rem)] items-center gap-2 rounded-[0.6rem] px-3 text-[clamp(0.8125rem,1.8vmin,1rem)] transition-colors hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97] ${sure ? 'text-foreground' : 'text-(--mf-wl-quiet)'}`}>
               {at === LAST ? 'Close' : sure ? 'Skip to the end? Click again' : 'Skip the welcome'}
             </button>
           )}
           {at === BECOME && turn !== 'kept' && (
-            <button type="button" onClick={next} className="flex h-[clamp(2rem,4.2vmin,2.5rem)] items-center gap-2 rounded-[0.6rem] px-3 text-[clamp(0.8125rem,1.8vmin,1rem)] text-foreground transition-colors hover:bg-foreground/[0.06] active:scale-[0.97]">
-              Not now <Kbd>→</Kbd>
+            <button type="button" onClick={next} className="rounded-sm px-1 text-[clamp(0.8125rem,1.8vmin,1rem)] text-(--mf-wl-quiet) underline decoration-current/30 underline-offset-4 transition-colors hover:text-foreground">
+              Not now
             </button>
           )}
           {at === 0 && <Primary onClick={next}>Show me</Primary>}
@@ -464,74 +464,50 @@ function useReport(report: (now: Reel) => void, done: boolean, settle: () => voi
 
 // --- 1 Catch ------------------------------------------------------------------------
 
-type CatchState = { docked: boolean; keys: boolean; down: number[]; box: Box | null; filled: Kind[]; hand: string | null; press: boolean }
+type CatchState = { docked: boolean; keys: boolean; down: number[]; box: Box | null; filled: Kind[] }
 
-/** The ghost's three things, written into the box one after another, each caught into a slot. */
+/**
+ * Three things caught in about five seconds, with Vigil doing the sorting:
+ * each lands whole, then what Vigil read in it lifts out into its place and
+ * the chip turns to its kind; Create presses itself, and the line folds to a
+ * square that flies to its slot.
+ */
 function catchBeats(): Beat<CatchState>[] {
-  const random = seeded(7)
+  const todo = readTask('Call Sam tomorrow 6pm')
+  const day = todo.due ? when(todo.due, todo.allDay) : 'Tomorrow 18:00'
   const beats: Beat<CatchState>[] = [
     { at: 0, to: {}, cue: cue('scene') },
-    { at: 1300, to: { docked: true, keys: true } },
-    { at: 1750, to: { down: [0] }, cue: cue('tap') },
-    { at: 1900, to: { down: [0, 1] }, cue: cue('tap') },
-    { at: 2060, to: { down: [] } },
-    { at: 2250, to: { keys: false, box: EMPTY_BOX }, cue: cue('open') }
+    { at: 1000, to: { docked: true, keys: true } },
+    { at: 1250, to: { down: [0] }, cue: cue('tap') },
+    { at: 1360, to: { down: [0, 1] }, cue: cue('tap') },
+    { at: 1500, to: { down: [] } },
+    { at: 1650, to: { keys: false, box: EMPTY_BOX }, cue: cue('open') }
   ]
-  let t = 2600
-  // Each letter, and a pulse of sound when the chip changes its guess.
-  const write = (base: Box, text: string, field: 'text' | 'who' | 'where', quick = 1): Box => {
-    let was = guess(base.text)
-    const run = typed<CatchState>(text, t, (sofar) => ({ box: { ...base, at: field, [field]: field === 'text' ? base.text + sofar : sofar } }), random, quick)
-    for (const beat of run.beats) {
-      const now = guess(beat.to.box!.text)
-      if (now !== was) {
-        const tick = beat.cue
-        beat.cue = () => (tick?.(), chime('shift'))
-        was = now
-      }
-      beats.push(beat)
-    }
-    t = run.end
-    return { ...base, at: field, [field]: field === 'text' ? base.text + text : text }
+  let t = 1950
+  const catchOne = (item: Kind, landed: Partial<Box>, sorted: Partial<Box>, filled: Kind[], sortCue: () => void): void => {
+    const first = { ...EMPTY_BOX, item, ...landed }
+    const then = { ...first, ...sorted }
+    beats.push({ at: t, to: { box: first }, cue: () => click('tick') })
+    beats.push({ at: t + 420, to: { box: then }, cue: sortCue })
+    beats.push({ at: t + 1000, to: { box: { ...then, press: true } }, cue: () => (click('tick'), chime('send')) })
+    beats.push({ at: t + 1090, to: { box: { ...then, fold: true } } })
+    beats.push({ at: t + 1330, to: { box: { ...EMPTY_BOX }, filled } })
+    t += 1650
   }
-  // Create, pressed by the ghost; the line folds into its slot.
-  const send = (box: Box, filled: Kind[]): void => {
-    beats.push({ at: t + 260, to: { hand: 'create' } })
-    beats.push({ at: t + 900, to: { press: true, box: { ...box, press: true } }, cue: () => (click('tick'), chime('send')) })
-    beats.push({ at: t + 1000, to: { press: false, box: EMPTY_BOX, filled, hand: null } })
-    t += 1350
-  }
-  let box = write({ ...EMPTY_BOX, item: 'todo' }, starterOf('todo').text, 'text')
-  send(box, ['todo'])
-  // The quote, pasted whole, then who said it and where it is from.
-  box = { ...EMPTY_BOX, item: 'quote', text: QUOTE.text, pasted: 1 }
-  beats.push({ at: t, to: { box }, cue: () => click('tick') })
-  beats.push({ at: t + 160, to: {}, cue: cue('shift') })
-  t += 650
-  box = write(box, QUOTE.who!, 'who', 0.7)
-  t += 300
-  box = write(box, QUOTE.where!, 'where', 0.7)
-  send(box, ['todo', 'quote'])
-  // The word, and what it means on the line under it.
-  box = write({ ...EMPTY_BOX, item: 'word' }, WORD.term, 'text')
-  t += 380
-  beats.push({ at: t, to: { box: { ...box, text: `${box.text}\n` } } })
-  box = write({ ...box, text: `${box.text}\n` }, WORD.meaning, 'text', 0.38)
-  t += 300
-  box = write(box, starterOf('word').where!, 'where', 0.7)
-  send(box, ['todo', 'quote', 'word'])
-  beats.push({ at: t - 300, to: {}, cue: cue('settled') })
-  beats.push({ at: t + 500, to: { box: { ...EMPTY_BOX, at: 'text' } } })
+  catchOne('todo', { text: 'Call Sam', lit: 'tomorrow 6pm' }, { lit: null, date: day, kind: 'todo' }, ['todo'], () => (chime('tag'), setTimeout(() => chime('shift'), 80)))
+  catchOne('quote', { text: QUOTE.text, tail: { who: QUOTE.who!, where: QUOTE.where! } }, { tail: null, who: QUOTE.who!, where: QUOTE.where!, kind: 'quote' }, ['todo', 'quote'], () => (chime('promote'), setTimeout(() => chime('shift'), 80)))
+  catchOne('word', { text: `${WORD.term}\n${WORD.meaning}` }, { kind: 'word' }, ['todo', 'quote', 'word'], cue('shift'))
+  beats.push({ at: t - 200, to: {}, cue: cue('settled') })
+  beats.push({ at: t + 300, to: {} })
   return beats
 }
 
 function CatchChapter({ play, report, state, onState }: { play: boolean; report: (now: Reel) => void; state: Onboarding | null; onState: (now: Onboarding) => void }): React.JSX.Element {
   useKeyChanges()
   const [beats] = useState(catchBeats)
-  const show = useScript<CatchState>({ docked: false, keys: false, down: [], box: null, filled: [], hand: null, press: false }, beats, play)
+  const show = useScript<CatchState>({ docked: false, keys: false, down: [], box: null, filled: [] }, beats, play)
   useReport(report, show.done, show.settle)
   const s = show.state
-  const scene = useRef<HTMLDivElement>(null)
   const [choosing, setChoosing] = useState(false)
   const keys = keyFor('⌘.') || '⌘.'
   const caps = capsOf(keys)
@@ -550,7 +526,7 @@ function CatchChapter({ play, report, state, onState }: { play: boolean; report:
           </>
         )}
       </Words>
-      <div ref={scene} className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-[clamp(0.75rem,3vh,1.75rem)] pb-2">
+      <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-[clamp(0.75rem,3vh,1.75rem)] pb-2">
         {s.keys && (
           <motion.div layoutId="reel-box" transition={CAM} className="flex items-end gap-2" initial={play ? { opacity: 0, filter: 'blur(4px)' } : false} animate={{ opacity: 1, filter: 'blur(0px)' }}>
             {keys === '⌘.'
@@ -558,9 +534,8 @@ function CatchChapter({ play, report, state, onState }: { play: boolean; report:
               : caps.map((cap, i) => <Keycap key={`${cap}${i}`} label={glyph(cap, i === caps.length - 1)} down={down.has(i)} size={88} />)}
           </motion.div>
         )}
-        {s.box && <Stage box={s.box} quiet={!play || show.done} />}
-        {(s.box || s.filled.length > 0) && <Slots filled={s.filled} quiet={!play} />}
-        {play && !show.done && <GhostHand to={s.hand} down={s.press} root={scene} />}
+        {s.box && <Stage box={s.box} />}
+        {(s.box || s.filled.length > 0) && <Slots filled={s.filled} />}
       </div>
     </>
   )
@@ -598,46 +573,50 @@ function Results({ cards, landed, signed, over, onTurn, pick, onPick, kept, quie
   cards: Kind[]; landed: boolean; signed: boolean; over: boolean; onTurn: (over: boolean) => void; quiet: boolean
   pick?: Kind | null; onPick?: (kind: Kind) => void; kept?: boolean; captions: boolean
 }): React.JSX.Element {
+  const live = !!onPick
+  // Two rows on one grid: the three set down on one baseline, their lines under them on one line.
   return (
-    <div className="grid w-full max-w-[64rem] grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)] items-center gap-[clamp(1rem,2.5vw,2rem)]">
-      {KINDS.map((kind, i) => {
+    <div className="grid w-full max-w-[64rem] grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)] gap-x-[clamp(1rem,2.5vw,2rem)] gap-y-3">
+      {KINDS.map((kind) => {
         const card = cards.includes(kind)
         const chosen = pick === kind
-        const live = !!onPick
         return (
-          <div key={kind} className="flex min-w-0 flex-col items-center gap-3">
-            <div onClick={live ? () => onPick(kind) : undefined} data-ghost={kind === 'word' ? 'card' : undefined}
-              className={`relative w-full rounded-2xl p-1.5 transition-[box-shadow,background-color] duration-200 ${live ? 'cursor-pointer hover:bg-foreground/[0.03]' : ''} ${chosen ? 'shadow-[0_0_0_2px_var(--primary)]' : 'shadow-[0_0_0_2px_transparent]'}`}>
-              {!card ? (
-                <div className="flex justify-center py-6"><Chip kind={kind} quiet={quiet} /></div>
-              ) : kind === 'todo' ? (
-                <TaskResult line={starterOf('todo').text} />
-              ) : kind === 'quote' ? (
-                <PostcardResult words={QUOTE.text} who={QUOTE.who!} where={QUOTE.where} landed={landed} signed={signed} />
-              ) : (
-                <CardResult term={WORD.term} meaning={WORD.meaning} over={over} onTurn={onTurn} />
-              )}
-              {chosen && kept && (
-                <motion.span className="absolute -top-2.5 -right-2.5 flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md" initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={LAND}>
-                  <Check className="size-4" strokeWidth={2.6} />
+          <div key={kind} onClick={live ? () => onPick(kind) : undefined} data-ghost={kind === 'word' ? 'card' : undefined}
+            style={{ rotate: kind === 'quote' && landed ? '-2.5deg' : '0deg', transition: 'rotate 450ms cubic-bezier(0.34, 1.4, 0.64, 1)' }}
+            className={`relative min-w-0 self-end rounded-2xl p-1.5 transition-[box-shadow,background-color] duration-200 ${live ? 'cursor-pointer hover:bg-foreground/[0.03]' : ''} ${chosen ? 'shadow-[0_0_0_2px_var(--primary)]' : 'shadow-[0_0_0_2px_transparent]'}`}>
+            {!card ? (
+              <div className="flex justify-center py-6"><Chip kind={kind} /></div>
+            ) : kind === 'todo' ? (
+              <TaskResult line={starterOf('todo').text} />
+            ) : kind === 'quote' ? (
+              <PostcardResult words={QUOTE.text} who={QUOTE.who!} where={QUOTE.where} signed={signed} />
+            ) : (
+              <CardResult term={WORD.term} meaning={WORD.meaning} over={over} onTurn={onTurn} />
+            )}
+            {/* The one you picked for your turn says so, and says when it is kept. */}
+            <AnimatePresence>
+              {chosen && (
+                <motion.span key={kept ? 'kept' : 'pick'} className="absolute -top-3 left-4 z-10 flex h-6 items-center gap-1 rounded-full bg-primary px-2.5 text-[0.75rem] font-semibold text-primary-foreground shadow-sm"
+                  initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, transition: spring.fast.exit }} transition={LAND}>
+                  {kept ? <><Check className="size-3.5" strokeWidth={2.6} />Kept</> : 'Your pick'}
                 </motion.span>
               )}
-            </div>
-            {captions && (
-              <motion.p className="flex max-w-[22rem] items-center justify-center gap-2 text-center text-[clamp(0.8125rem,min(1.5vw,2.2vh),1rem)] leading-snug text-(--mf-wl-quiet)"
-                initial={false} animate={{ opacity: card ? 1 : 0 }} transition={{ duration: 0.3, ease: EASE, delay: card && !quiet ? 0.35 : 0 }}>
-                {live && <Kbd className="shrink-0">{i + 1}</Kbd>}
-                <span><Caption kind={kind} /></span>
-              </motion.p>
-            )}
+            </AnimatePresence>
           </div>
         )
       })}
+      {captions && KINDS.map((kind, i) => (
+        <motion.p key={kind} className="flex items-start gap-2 px-1.5 text-left text-[clamp(0.8125rem,min(1.5vw,2.2vh),1rem)] leading-snug text-(--mf-wl-quiet)"
+          initial={false} animate={{ opacity: cards.includes(kind) ? 1 : 0 }} transition={{ duration: 0.3, ease: EASE, delay: cards.includes(kind) && !quiet ? 0.35 : 0 }}>
+          {live && <Kbd className="mt-px shrink-0">{i + 1}</Kbd>}
+          <span><Caption kind={kind} /></span>
+        </motion.p>
+      ))}
     </div>
   )
 }
 
-function BecomeChapter({ play, report, pick, onPick, turn, mine, onBox }: { play: boolean; report: (now: Reel) => void; pick: Kind; onPick: (kind: Kind) => void; turn: Turn; mine: CaptureMeta | null; onBox: () => void }): React.JSX.Element {
+function BecomeChapter({ play, report, pick, onPick, turn, mine }: { play: boolean; report: (now: Reel) => void; pick: Kind; onPick: (kind: Kind) => void; turn: Turn; mine: CaptureMeta | null }): React.JSX.Element {
   useKeyChanges()
   const show = useScript<BecomeState>({ docked: false, cards: [], landed: false, signed: false, over: false, hand: null, down: false }, BECOME_BEATS, play)
   useReport(report, show.done, show.settle)
@@ -656,7 +635,7 @@ function BecomeChapter({ play, report, pick, onPick, turn, mine, onBox }: { play
   return (
     <>
       <Words title="Then it becomes something." docked={s.docked} still={!play} done={show.done}>
-        Each kind goes where it will be of use to you.
+        Each kind goes where it will be of use to you. These three were only a show: nothing is kept until your turn.
       </Words>
       <div ref={scene} className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-[clamp(0.75rem,3vh,1.75rem)] pb-2">
         <Results cards={s.cards} landed={s.landed} signed={s.signed} over={over ?? s.over} quiet={!play} captions={s.docked}
@@ -664,8 +643,7 @@ function BecomeChapter({ play, report, pick, onPick, turn, mine, onBox }: { play
           pick={show.done ? pick : null} onPick={show.done ? onPick : undefined} kept={turn === 'kept'} />
         <AnimatePresence>
           {show.done && (
-            <motion.div key="turn" className="flex items-center gap-[clamp(1rem,2.5vw,2rem)]" initial={{ opacity: 0, filter: 'blur(2px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, transition: spring.fast.exit }} transition={{ duration: 0.25, ease: EASE }}>
-              {turn !== 'kept' && <PressMe onBox={onBox} open={turn === 'open'} />}
+            <motion.div key="turn" className="flex items-center gap-[clamp(1rem,2.5vw,2rem)] pt-2" initial={{ opacity: 0, filter: 'blur(2px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, transition: spring.fast.exit }} transition={{ duration: 0.25, ease: EASE }}>
               <motion.p role="status" key={turn} className="max-w-[40ch] text-[clamp(1rem,min(2vw,2.9vh),1.375rem)] leading-snug text-pretty text-foreground" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
                 {said[turn]}
               </motion.p>
@@ -678,62 +656,34 @@ function BecomeChapter({ play, report, pick, onPick, turn, mine, onBox }: { play
   )
 }
 
-/**
- * The one key, drawn as the real keys, pressing as yours go down and when the
- * box opens from anywhere. A click on it opens the box too.
- */
-function PressMe({ onBox, open }: { onBox: () => void; open: boolean }): React.JSX.Element {
-  useKeyChanges()
-  const keys = keyFor('⌘.') || '⌘.'
-  const caps = capsOf(keys)
-  const [down, setDown] = useState<Set<number>>(new Set())
-  useEffect(() => {
-    const press = (event: KeyboardEvent, on: boolean): void => caps.forEach((cap, i) => {
-      if (!(MODS[cap] ? event.key === MODS[cap] : comboOf(event)?.endsWith(cap))) return
-      setDown((was) => {
-        const next = new Set(was)
-        if (on) next.add(i)
-        else next.delete(i)
-        return next
-      })
-    })
-    const onDown = (event: KeyboardEvent): void => press(event, true)
-    const onUp = (event: KeyboardEvent): void => press(event, false)
-    const onBlur = (): void => void setTimeout(() => setDown(new Set()), 160)
-    const offShown = window.api.onBoxShown(() => {
-      setDown(new Set(caps.map((_, i) => i)))
-      setTimeout(() => setDown(new Set()), 150)
-    })
-    window.addEventListener('keydown', onDown)
-    window.addEventListener('keyup', onUp)
-    window.addEventListener('blur', onBlur)
-    return () => (offShown(), window.removeEventListener('keydown', onDown), window.removeEventListener('keyup', onUp), window.removeEventListener('blur', onBlur))
-  }, [keys]) // eslint-disable-line react-hooks/exhaustive-deps
-  return (
-    <button type="button" onClick={onBox} aria-label="Open the box" className={`shrink-0 rounded-[0.9rem] p-1 transition-shadow duration-300 ${open ? 'shadow-[0_0_0_1.5px_var(--primary)]' : 'shadow-[0_0_0_1.5px_transparent] hover:shadow-[0_0_0_1.5px_color-mix(in_oklab,var(--foreground)_20%,transparent)]'}`}>
-      {keys === '⌘.'
-        ? <KeycapPicture down={down} width={150} />
-        : <span className="flex items-end gap-1">{caps.map((cap, i) => <Keycap key={`${cap}${i}`} label={glyph(cap, i === caps.length - 1)} down={down.has(i)} size={44} />)}</span>}
-    </button>
-  )
-}
-
 // --- 3 Connect ----------------------------------------------------------------------
 
-type ConnectState = { docked: boolean; dots: boolean; map: boolean; lit: string | null; hand: string | null }
+type ConnectState = MapShot & { docked: boolean; cards: boolean; hand: string | null }
 
-const CONNECT_BEATS: Beat<ConnectState>[] = [
-  { at: 0, to: {} },
-  { at: 1200, to: { docked: true, dots: true }, cue: () => fold() },
-  { at: 1550, to: { map: true }, cue: cue('scene') },
-  { at: 2600, to: { hand: 'dot-quote' } },
-  { at: 3250, to: { lit: 'quote' }, cue: cue('search') },
-  { at: 4500, to: { hand: null } },
-  { at: 5400, to: {} }
-]
+/** A link being made, typed by the ghost; then the map it joins. */
+function connectBeats(): Beat<ConnectState>[] {
+  const random = seeded(11)
+  const beats: Beat<ConnectState>[] = [
+    { at: 0, to: {} },
+    { at: 900, to: { docked: true } },
+    { at: 1250, to: { cards: false }, cue: () => fold() },
+    { at: 1550, to: { dots: true }, cue: cue('bead') }
+  ]
+  const run = typed<ConnectState>('Rereading [[Medit', 1900, (sofar) => ({ note: sofar }), random, 0.8)
+  beats.push(...run.beats)
+  beats.push({ at: run.end + 120, to: { suggest: true }, cue: cue('search') })
+  beats.push({ at: run.end + 820, to: { suggest: false, note: 'Rereading Meditations' }, cue: () => click('tick') })
+  beats.push({ at: run.end + 1150, to: { linked: true }, cue: cue('clue') })
+  beats.push({ at: run.end + 1900, to: { pulled: true }, cue: cue('zoomout') })
+  beats.push({ at: run.end + 3300, to: { hand: 'dot-quote' } })
+  beats.push({ at: run.end + 3850, to: { lit: 'quote' }, cue: cue('look') })
+  beats.push({ at: run.end + 4700, to: { hand: null } })
+  return beats
+}
 
 function ConnectChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
-  const show = useScript<ConnectState>({ docked: false, dots: false, map: false, lit: null, hand: null }, CONNECT_BEATS, play)
+  const [beats] = useState(connectBeats)
+  const show = useScript<ConnectState>({ docked: false, cards: true, hand: null, dots: false, note: '', suggest: false, linked: false, pulled: false, lit: null }, beats, play)
   useReport(report, show.done, show.settle)
   const s = show.state
   const scene = useRef<HTMLDivElement>(null)
@@ -741,13 +691,20 @@ function ConnectChapter({ play, report }: { play: boolean; report: (now: Reel) =
   return (
     <>
       <Words title="And it finds its friends." docked={s.docked} still={!play} done={show.done}>
-        Notes that share a book, a person or an idea link up on their own. {show.done ? 'Your turn: point at a dot.' : ''}
+        Type <Kbd className={LINE_KEY}>[[</Kbd> and a note’s name to link two notes. Every link you make joins your notes map. {show.done ? 'Your turn: point at a dot.' : ''}
       </Words>
       <div ref={scene} className="relative flex min-h-0 flex-1 flex-col items-center justify-center pb-2">
-        {!s.dots ? (
-          <Results cards={KINDS} landed signed over quiet={!play} captions={false} onTurn={() => undefined} />
-        ) : (
-          <MiniMap shown={s.map} lit={show.done && lit !== undefined ? lit : s.lit} quiet={!play} onLight={(id) => show.done && (id !== lit && id && click('soft'), setLit(id))} />
+        <AnimatePresence>
+          {s.cards && (
+            <motion.div key="cards" className="w-full max-w-[64rem] origin-center" exit={{ opacity: 0, scale: 0.15, filter: 'blur(2px)', transition: { duration: 0.4, ease: DRAWER } }}>
+              <Results cards={KINDS} landed signed over quiet={!play} captions={false} onTurn={() => undefined} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+        {!s.cards && (
+          <div className="absolute inset-0 pb-2">
+            <LinkScene shot={{ ...s, lit: show.done && lit !== undefined ? lit : s.lit }} quiet={!play} onLight={(id) => show.done && (id !== lit && id && click('soft'), setLit(id))} />
+          </div>
         )}
         {play && !show.done && <GhostHand to={s.hand} down={false} root={scene} />}
       </div>
@@ -772,79 +729,134 @@ const RETURN_BEATS: Beat<ReturnState>[] = [
 
 /** An example year: what Your year, wrapped finds out about its reader. */
 const FOUND: [string, string][] = [
-  ['You kept the most from Frankenstein.', '11 lines, more than from any other book'],
-  ['You think best on Sunday evenings.', 'a third of all you caught, around 9pm'],
-  ['You kept circling one question.', '“Who is the monster?” Four clues, then an answer'],
-  ['You remembered 86%.', 'of what came back to you, on 112 different days']
+  ['Kept the most from Frankenstein.', '11 lines, more than from any other book'],
+  ['Thought best on Sunday evenings.', 'a third of all they caught, around 9pm'],
+  ['Kept circling one question.', '“Who is the monster?” Four clues, then an answer'],
+  ['Remembered 86%.', 'of what came back to them, on 112 different days']
 ]
 const YEAR = [{ kind: 'note', n: 142 }, { kind: 'todo', n: 96 }, { kind: 'quote', n: 64 }, { kind: 'word', n: 41 }, { kind: 'link', n: 52 }]
 const YEAR_BEFORE = { label: 'The year before', kinds: [{ kind: 'note', n: 80 }, { kind: 'todo', n: 120 }, { kind: 'quote', n: 18 }, { kind: 'word', n: 9 }, { kind: 'link', n: 44 }] }
 
-function ReturnChapter({ play, report, kept, newcomer, today }: { play: boolean; report: (now: Reel) => void; kept: Set<string>; newcomer: boolean; today: number }): React.JSX.Element {
+function ReturnChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
   const show = useScript<ReturnState>({ docked: false, radar: false, lines: 0 }, RETURN_BEATS, play)
   useReport(report, show.done, show.settle)
   const s = show.state
   return (
     <>
       <Words title="And it all comes back to you." docked={s.docked} still={!play} done={show.done}>
-        Your year starts today. Once a year, Vigil reads it back to you, like this.
+        Once a year, Vigil reads your year back to you: what you kept, and what it says about you.
       </Words>
-      <div className="w-full shrink-0 pb-[clamp(0.5rem,2vh,1.25rem)] [@media(max-height:560px)]:hidden">
-        <YearRule calm={!play} kept={kept} faded newcomer={newcomer} today={today} />
-      </div>
-      <div className="relative grid min-h-0 flex-1 grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] items-center gap-x-[clamp(1.5rem,5vw,5rem)] pb-2">
-        <div className="flex min-h-0 justify-center [&_svg]:max-h-[min(20rem,34vh)]">
+      <figure aria-label="An example year, read back" className="relative mb-2 grid min-h-0 flex-1 grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] grid-rows-[auto_minmax(0,1fr)] items-center gap-x-[clamp(1.5rem,4vw,4rem)] rounded-2xl border border-foreground/10 bg-popover/60 px-[clamp(1rem,3vw,2rem)] py-[clamp(0.75rem,2vh,1.25rem)]">
+        <figcaption className="col-span-2 flex items-baseline gap-3">
+          <span className="font-heading text-[clamp(1.0625rem,min(1.9vw,2.8vh),1.375rem)] font-medium text-foreground">An example year</span>
+          <span className="text-[0.875rem] text-(--mf-wl-quiet)">Someone else’s, read back, to show how yours will look.</span>
+        </figcaption>
+        <div className="flex min-h-0 justify-center [&_svg]:max-h-[min(26rem,40vh)]">
           {s.radar && (
             <motion.div className="w-full max-w-[24rem]" initial={play ? { opacity: 0, scale: 0.94 } : false} animate={{ opacity: 1, scale: 1 }} transition={LAND}>
               <RecapRadar kinds={YEAR} before={YEAR_BEFORE} />
             </motion.div>
           )}
         </div>
-        <ol aria-label="An example year, read back" className="flex flex-col gap-[clamp(0.75rem,2.6vh,1.5rem)]">
+        <ol className="flex flex-col gap-[clamp(0.5rem,2vh,1.25rem)]">
           {FOUND.map(([said, how], i) => (
             <motion.li key={said} initial={false} animate={{ opacity: i < s.lines ? 1 : 0, transform: i < s.lines ? 'translateY(0px)' : 'translateY(8px)' }} transition={{ duration: 0.4, ease: EASE }}>
-              <p className="font-heading text-[clamp(1.125rem,min(2.3vw,3.3vh),1.75rem)] leading-tight text-foreground">{said}</p>
+              <p className="font-heading text-[clamp(1.0625rem,min(2vw,2.9vh),1.5rem)] leading-tight text-foreground">{said}</p>
               <p className="mt-0.5 text-[clamp(0.8125rem,min(1.5vw,2.2vh),1rem)] text-(--mf-wl-quiet)">{how}</p>
             </motion.li>
           ))}
         </ol>
-      </div>
+      </figure>
     </>
   )
 }
 
 // --- 5 Make it yours ----------------------------------------------------------------
 
-type DialState = { docked: boolean; dial: boolean; hand: string | null }
+type DialState = { docked: boolean; dial: boolean; grab: number }
 
 /**
- * The dial turns itself on first sight (theme-dial.tsx): a theme, another,
- * and back. The ghost's hand rests on it while it does. Settled, the dial is
- * set down calm on the theme it started on.
+ * The window puts a theme on by spreading it from the dial's notch in a
+ * circle, over everything (a View Transition). With Motion off, or where the
+ * browser cannot, it simply changes.
  */
+const spreadFromNotch = (theme: Theme): void => {
+  const dial = document.querySelector<HTMLElement>('[role="slider"][aria-label="Theme"]')
+  const go = (): void => applyTheme(theme, false)
+  const start = (document as Document & { startViewTransition?: (run: () => void) => { ready: Promise<void>; skipTransition: () => void } }).startViewTransition
+  if (!dial || !start || still()) return go()
+  const box = dial.getBoundingClientRect()
+  const at = `${Math.round(box.left + box.width / 2)}px ${Math.round(box.top + 6)}px`
+  const shift = start.call(document, go)
+  void shift.ready.then(() => document.documentElement.animate(
+    { clipPath: [`circle(0px at ${at})`, `circle(150% at ${at})`] },
+    { duration: 520, easing: 'cubic-bezier(0.65, 0, 0.35, 1)', pseudoElement: '::view-transition-new(root)' }
+  )).catch(() => undefined)
+}
+
+/**
+ * The ghost takes the notch and turns the ring along its arc, `by` degrees,
+ * through the dial's own pointer handlers, so it lands and is heard as a hand's
+ * turn is. The hand's dot follows on screen. Stopped by `cancel`.
+ */
+function turnDial(by: number, hand: (x: number, y: number) => void, ms = 760): () => void {
+  const ring = document.querySelector<HTMLElement>('[role="slider"][aria-label="Theme"]')
+  if (!ring) return () => undefined
+  const box = ring.getBoundingClientRect()
+  const [cx, cy, r] = [box.left + box.width / 2, box.top + box.height / 2, box.width * 0.43]
+  const point = (deg: number): { clientX: number; clientY: number } => ({ clientX: cx + Math.sin((deg * Math.PI) / 180) * r, clientY: cy - Math.cos((deg * Math.PI) / 180) * r })
+  const send = (type: string, deg: number): void => {
+    const at = point(deg)
+    hand(at.clientX, at.clientY)
+    ring.dispatchEvent(new PointerEvent(type, { ...at, bubbles: true, pointerId: 77, button: 0, buttons: type === 'pointerup' ? 0 : 1, isPrimary: true }))
+  }
+  let frame = 0
+  const t0 = performance.now()
+  send('pointerdown', 0)
+  const step = (now: number): void => {
+    const p = Math.min(1, (now - t0) / ms)
+    // The glide of a wrist: slow away, slow to rest.
+    const eased = p < 0.5 ? 4 * p * p * p : 1 - (-2 * p + 2) ** 3 / 2
+    send('pointermove', by * eased)
+    if (p < 1) frame = requestAnimationFrame(step)
+    else send('pointerup', by)
+  }
+  frame = requestAnimationFrame(step)
+  return () => cancelAnimationFrame(frame)
+}
+
 const DIAL_BEATS: Beat<DialState>[] = [
   { at: 0, to: {} },
   { at: 900, to: { docked: true, dial: true }, cue: cue('slide') },
-  { at: 2600, to: { hand: 'dial' } },
-  { at: 6700, to: { hand: null } },
-  { at: 7300, to: {} }
+  { at: 1900, to: { grab: 1 } },
+  { at: 3200, to: { grab: 2 } },
+  { at: 4500, to: { grab: 0 } },
+  { at: 4900, to: {} }
 ]
 
 function DialChapter({ play, report, onPick }: { play: boolean; report: (now: Reel) => void; onPick: (theme: Theme) => void }): React.JSX.Element {
   const [say, setSay] = useState<string | undefined>()
   const [start] = useState(currentTheme)
-  const [calm, setCalm] = useState(!play)
-  const show = useScript<DialState>({ docked: false, dial: false, hand: null }, DIAL_BEATS, play)
+  const show = useScript<DialState>({ docked: false, dial: false, grab: 0 }, DIAL_BEATS, play)
+  const scene = useRef<HTMLDivElement>(null)
+  const [hand, setHand] = useState<[number, number] | null>(null)
+  // The ghost's two turns: two detents one way, then back home.
+  const turning = useRef<() => void>(() => undefined)
+  useEffect(() => {
+    if (!play || show.done || !s.grab) return
+    const frame = scene.current?.getBoundingClientRect()
+    const per = 360 / allThemes().length
+    turning.current = turnDial(s.grab === 1 ? per * 2 : -per * 2, (x, y) => setHand(frame ? [x - frame.left, y - frame.top] : null))
+    return () => turning.current()
+  }, [show.state.grab]) // eslint-disable-line react-hooks/exhaustive-deps
   const settle = (): void => {
+    turning.current()
     show.settle()
-    if (calm) return
     applyTheme(start, false)
     onPick(start)
-    setCalm(true)
   }
   useReport(report, show.done, settle)
   const s = show.state
-  const scene = useRef<HTMLDivElement>(null)
   const win = useWindowSize()
   const size = Math.round(Math.max(150, Math.min(win.height * 0.42, win.width * 0.3, 360)))
   return (
@@ -852,15 +864,29 @@ function DialChapter({ play, report, onPick }: { play: boolean; report: (now: Re
       <Words title="Make it yours." docked={s.docked} still={!play} done={show.done}>
         {show.done
           ? <>Your turn: turn it with <span className="inline-flex translate-y-[-0.08em] gap-[0.12em] align-middle"><Kbd className={LINE_KEY}>↑</Kbd><Kbd className={LINE_KEY}>↓</Kbd></span>, the wheel or a drag. Settings has it later.</>
-          : <>The page you will write on. The window wears each one as it passes.</>}
+          : <>The page you write on. Everything you keep wears it.</>}
       </Words>
       <div ref={scene} className="relative flex min-h-0 flex-1 items-center justify-center pb-2">
+        {/* What she has seen caught, behind the dial, wearing each theme as it passes. */}
         {s.dial && (
-          <motion.div data-ghost="dial" initial={play ? { opacity: 0, scale: 0.96, filter: 'blur(4px)' } : false} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} transition={CAM}>
-            <ThemeDial key={String(calm)} calm={calm} size={size} big onPick={onPick} onFullTurn={() => (setSay(FULL_TURN), setTimeout(() => setSay(undefined), 1800))} say={say} />
+          <>
+            <motion.div aria-hidden className="absolute top-[18%] left-[2%] w-[min(19rem,27%)] [@media(max-width:820px)]:hidden" initial={play ? { opacity: 0, y: 10 } : false} animate={{ opacity: 1, y: 0, rotate: -4 }} transition={{ ...LAND, delay: 0.15 }}>
+              <TaskResult line={starterOf('todo').text} id="dial-todo" />
+            </motion.div>
+            <motion.div aria-hidden className="absolute right-[2%] bottom-[12%] w-[min(20rem,28%)] [@media(max-width:820px)]:hidden" initial={play ? { opacity: 0, y: 10 } : false} animate={{ opacity: 1, y: 0, rotate: 3 }} transition={{ ...LAND, delay: 0.25 }}>
+              <PostcardResult words={QUOTE.text} who={QUOTE.who!} where={QUOTE.where} signed id="dial-quote" />
+            </motion.div>
+          </>
+        )}
+        {s.dial && (
+          <motion.div className="relative z-10" initial={play ? { opacity: 0, scale: 0.96, filter: 'blur(4px)' } : false} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} transition={CAM}>
+            <ThemeDial calm size={size} big wear={spreadFromNotch} onPick={onPick} onFullTurn={() => (setSay(FULL_TURN), setTimeout(() => setSay(undefined), 1800))} say={say} />
           </motion.div>
         )}
-        {play && !show.done && <GhostHand to={s.hand} down={false} root={scene} />}
+        {play && !show.done && hand && (
+          <motion.span aria-hidden className="pointer-events-none absolute top-0 left-0 z-20 -mt-[7px] -ml-[7px] size-[14px] rounded-full border-2 border-primary bg-primary/20 shadow-[0_2px_6px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]"
+            style={{ x: hand[0], y: hand[1] }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} />
+        )}
       </div>
     </>
   )
@@ -999,8 +1025,9 @@ function YearRule({ calm, kept, faded, newcomer, today: count }: { calm: boolean
   }, [])
   const quiet = calm || still()
   const today = dayjs().startOf('day')
-  const start = today.startOf('year')
-  const days = today.endOf('year').diff(start, 'day') + 1
+  // Someone new: the ruler is the year ahead, starting today, not a calendar year mostly gone before they came.
+  const start = newcomer ? today : today.startOf('year')
+  const days = newcomer ? 365 : today.endOf('year').diff(start, 'day') + 1
   const at = today.diff(start, 'day')
   const step = w / days
   const x = (d: number): number => Math.round((d + 0.5) * step) + 0.5
@@ -1014,12 +1041,14 @@ function YearRule({ calm, kept, faded, newcomer, today: count }: { calm: boolean
   const keptOn = (d: number): boolean => kept.has(start.add(d, 'day').format('YYYY-MM-DD'))
   // The first of each month a little taller, so the months read without a grid.
   const first = (d: number): boolean => start.add(d, 'day').date() === 1
-  const months = Array.from({ length: 12 }, (_, m) => ({ name: start.add(m, 'month').format('MMM'), d: start.add(m, 'month').diff(start, 'day') }))
+  const months = newcomer
+    ? Array.from({ length: 12 }, (_, m) => start.add(m + 1, 'month').startOf('month')).map((day) => ({ name: day.format('MMM'), d: day.diff(start, 'day') })).filter((one) => one.d < days)
+    : Array.from({ length: 12 }, (_, m) => ({ name: start.add(m, 'month').format('MMM'), d: start.add(m, 'month').diff(start, 'day') }))
   const anyKept = Array.from({ length: at }, (_, d) => d).some(keptOn)
   // Today's mark: three quarters up with nothing kept yet, full height by the third thing.
   const rise = Math.min(1, 0.72 + count * 0.095)
   const said = newcomer
-    ? count ? `Your year starts today: ${count} kept so far. Each day you keep something stands taller.` : 'Your year starts today. Each day you keep something stands taller.'
+    ? count ? `Your year starts today, with ${count} kept. Each day you keep something stands taller.` : 'Your year starts today. Each day you keep something stands taller.'
     : `Each mark is a day of your year. ${anyKept ? 'The tall ones are days you kept something.' : 'Keep something, and its day stands taller.'}`
   return (
     <figure aria-label={newcomer ? 'Your year, starting today' : `Today is day ${at + 1} of ${days}`} className="relative w-full">
@@ -1027,7 +1056,7 @@ function YearRule({ calm, kept, faded, newcomer, today: count }: { calm: boolean
         {w > 0 && (
           <>
             {/* Over today: its number (or just Today, for someone new), and what was kept on it. */}
-            <span className={`absolute top-0 -translate-x-1/2 text-[0.8125rem] leading-[1.1rem] font-medium whitespace-nowrap text-primary tabular-nums ${quiet ? '' : 'mf-rise-text'}`} style={{ left: x(at) }}>
+            <span className={`absolute top-0 ${newcomer ? '-translate-x-px' : '-translate-x-1/2'} text-[0.8125rem] leading-[1.1rem] font-medium whitespace-nowrap text-primary tabular-nums ${quiet ? '' : 'mf-rise-text'}`} style={{ left: x(at) }}>
               {newcomer ? 'Today' : `Day ${at + 1}`}{count > 0 && <span className="text-(--mf-wl-quiet)"> · {count} kept</span>}
             </span>
             <svg aria-hidden width={w} height={H} className="absolute top-[1.4rem] left-0 overflow-visible">

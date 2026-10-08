@@ -320,10 +320,12 @@ export default function App(): React.JSX.Element {
     setAttribution(who)
     setMedium(where)
     autoWho.current = who
+    autoWhere.current = where
   })
   const lesson = useLesson()
   // A name read from a quote's "- Name" tail, kept up to date while it is still ours, not yours.
   const autoWho = useRef('')
+  const autoWhere = useRef('')
   useEffect(() => window.api.onHeld(heldNote), [])
   const [kind, setKind] = useState<CaptureType>('note')
   // Picked by hand: from then on the wording no longer suggests one.
@@ -1234,10 +1236,14 @@ export default function App(): React.JSX.Element {
                 const guess = (chosen ? kind : (kindOf(firstLine(doc)) ?? 'note')) as CaptureType
                 if (!chosen && !editing) setKind(guess)
                 // A quote ending "- Name": the name goes into Who said it, unless you wrote one there.
-                const by = guess === 'quote' && !editing ? saidBy(firstLine(doc)) : ''
-                if (by && attribution === autoWho.current && by !== attribution) {
-                  autoWho.current = by
-                  setAttribution(by)
+                const by = guess === 'quote' && !editing ? saidBy(firstLine(doc)) : { who: '', where: '' }
+                if (by.who && attribution === autoWho.current && by.who !== attribution) {
+                  autoWho.current = by.who
+                  setAttribution(by.who)
+                }
+                if (by.where && medium === autoWhere.current && by.where !== medium) {
+                  autoWhere.current = by.where
+                  setMedium(by.where)
                 }
                 // Only a capture already kept is written as you type; a new note's
                 // Markdown is made once, when it is saved, not on every pause.
@@ -1411,7 +1417,7 @@ export default function App(): React.JSX.Element {
  * inside the editor. Vim is off unless turned on.
  */
 /**
- * A quote whose line ends "- Name" with that name in Who said it: kept
+ * A quote whose line ends "- Name" (or "- Name, Source") with that name in Who said it: kept
  * without the tail, so the name is said once, as its signature.
  */
 function withoutTail(doc: JSONContent | null, who: string): JSONContent | null {
@@ -1419,7 +1425,7 @@ function withoutTail(doc: JSONContent | null, who: string): JSONContent | null {
   const at = doc.content.findIndex((node) => node.content?.some((one) => one.text?.trim()))
   const block = doc.content[at]
   const last = block?.content?.[block.content.length - 1]
-  const tail = new RegExp(`(["”'])\\s*[-–—]\\s*${who.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`)
+  const tail = new RegExp(`(["”'])\\s*[-–—]\\s*${who.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s*,[^"”']*)?\\s*$`)
   if (!block?.content || !last?.text || !tail.test(last.text)) return doc
   const content = [...block.content.slice(0, -1), { ...last, text: last.text.replace(tail, '$1') }]
   return { ...doc, content: doc.content.map((node, i) => (i === at ? { ...block, content } : node)) }

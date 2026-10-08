@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { animate, motion, useMotionValue, useTransform, type MotionValue } from 'motion/react'
+import { AnimatePresence, animate, motion, useMotionValue, useTransform, type MotionValue } from 'motion/react'
 import { allThemes, applyTheme, currentTheme, isLight, themeName, type Theme } from '@/lib/theme'
 import { chime, click, step } from '@/lib/sound'
 import { falloff } from '@/lib/proximity'
@@ -31,7 +31,7 @@ const offTop = (deg: number): number => ((((deg + 180) % 360) + 360) % 360) - 18
 /** 1 at the notch, falling smoothly to 0 at `reach` degrees away. */
 const near = (deg: number, reach: number): number => falloff(offTop(deg), reach)
 
-export function ThemeDial({ size = 200, big = false, calm = false, onPick, onFullTurn, say }: { size?: number; /** The name under it set as a title, for the welcome's centrepiece. */ big?: boolean; /** It does not turn itself: already shown, or settled. */ calm?: boolean; onPick: (theme: Theme) => void; onFullTurn?: () => void; /** Said in place of the theme's name, for a moment. */ say?: string }): React.JSX.Element {
+export function ThemeDial({ size = 200, big = false, calm = false, wear = (theme) => applyTheme(theme, false), onPick, onFullTurn, say }: { size?: number; /** The name under it set as a title, for the welcome's centrepiece. */ big?: boolean; /** It does not turn itself: already shown, or settled. */ calm?: boolean; /** How the window puts a theme on as it passes (the welcome spreads it from the notch). */ wear?: (theme: Theme) => void; onPick: (theme: Theme) => void; onFullTurn?: () => void; /** Said in place of the theme's name, for a moment. */ say?: string }): React.JSX.Element {
   const themes = allThemes()
   const n = themes.length
   const per = 360 / n
@@ -66,7 +66,7 @@ export function ThemeDial({ size = 200, big = false, calm = false, onPick, onFul
       click('tick')
       if (!still()) animate(bump, [1.45, 1], { type: 'spring', bounce: 0.3, duration: 0.3 })
     } else step(i)
-    applyTheme(themes[i], false)
+    wear(themes[i])
     setAt(i)
     onPick(themes[i])
     if (by) {
@@ -158,7 +158,12 @@ export function ThemeDial({ size = 200, big = false, calm = false, onPick, onFul
   const onDown = (event: React.PointerEvent): void => {
     if (event.button !== 0) return
     // A click on a swatch is a click: the drag starts once it moves.
-    ring.current?.setPointerCapture(event.pointerId)
+    // A pointer the system did not make (the welcome's hand) cannot be captured, and needs not be.
+    try {
+      ring.current?.setPointerCapture(event.pointerId)
+    } catch {
+      // Followed without it.
+    }
     turn.stop()
     setTouched(true)
     drag.current = { from: angleOf(event), turn: turn.get(), last: here(), moved: 0, samples: [] }
@@ -191,7 +196,7 @@ export function ThemeDial({ size = 200, big = false, calm = false, onPick, onFul
     drag.current = null
     setGrabbing(false)
     if (!now) return
-    ring.current?.releasePointerCapture(event.pointerId)
+    if (ring.current?.hasPointerCapture(event.pointerId)) ring.current.releasePointerCapture(event.pointerId)
     // Hardly moved: a click, on a swatch or the face. A swatch is turned to the top the short way round.
     if (now.moved < 4) {
       const hit = (document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null)?.closest<HTMLElement>('[data-detent]')
@@ -272,7 +277,16 @@ export function ThemeDial({ size = 200, big = false, calm = false, onPick, onFul
         {big && <DialParticles size={size} band={band} per={per} turn={turn} at={at} touched={touched} grabbing={grabbing} light={isLight(themes[at])} sparks={sparks} />}
       </div>
       <div className="flex flex-col items-center">
-        <Rolling text={say ?? themeName(themes[at])} by="character" className={big ? 'h-[1.3em] max-w-[20rem] truncate font-heading text-[clamp(1.125rem,min(2.2vw,3.2vh),1.625rem)] leading-[1.3] text-foreground' : 'h-5 max-w-[16rem] truncate text-control font-medium text-foreground'} />
+        {big ? (
+          // Large, the name passes whole, a soft crossfade: letters rolling at speed read as a flicker.
+          <span className="relative grid h-[1.3em] max-w-[20rem] place-items-center font-heading text-[clamp(1.125rem,min(2.2vw,3.2vh),1.625rem)] leading-[1.3] text-foreground">
+            <AnimatePresence initial={false}>
+              <motion.span key={say ?? themes[at]} className="col-start-1 row-start-1 truncate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.16 }}>
+                {say ?? themeName(themes[at])}
+              </motion.span>
+            </AnimatePresence>
+          </span>
+        ) : <Rolling text={say ?? themeName(themes[at])} by="character" className="h-5 max-w-[16rem] truncate text-control font-medium text-foreground" />}
         {big && <span aria-hidden className={`text-meta text-muted-foreground transition-opacity duration-300 ease-(--mf-ease) ${touched ? 'opacity-0' : 'opacity-100'}`}>Drag the ring</span>}
       </div>
     </div>

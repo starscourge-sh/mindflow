@@ -21,7 +21,7 @@ export type Starter = { kind: 'todo' | 'quote' | 'word'; text: string; who?: str
 
 /** Three things to catch, one of each kind, each showing off what its kind does. */
 export const STARTERS: Starter[] = [
-  { kind: 'todo', text: 'Call Sam tomorrow at 6pm' },
+  { kind: 'todo', text: 'Call Sam tomorrow 6pm' },
   { kind: 'quote', text: '“Waste no more time arguing what a good man should be. Be one.”', who: 'Marcus Aurelius', where: 'Meditations' },
   { kind: 'word', text: 'sonder\nThe feeling that every stranger has a life as full as your own.', where: 'A podcast' }
 ]
@@ -90,10 +90,15 @@ export function useLesson(): boolean {
 }
 
 /**
- * A quote's "- Name" at the end of its line: the name, for Who said it.
- * Only after a closing quote mark, so a dash in the middle of a thought is left alone.
+ * A quote's "- Name" at the end of its line: the name, for Who said it, and
+ * after a comma where it is from ("- Marcus Aurelius, Meditations"). Only
+ * after a closing quote mark, so a dash in the middle of a thought is left alone.
  */
-export const saidBy = (line: string): string => /[”"']\s*[-–—]\s*([^-–—”"']{2,60}?)\s*$/.exec(line)?.[1]?.trim() ?? ''
+export const saidBy = (line: string): { who: string; where: string } => {
+  const tail = /[”"']\s*[-–—]\s*([^-–—”"']{2,90}?)\s*$/.exec(line)?.[1]?.trim() ?? ''
+  const [who = '', ...rest] = tail.split(',')
+  return { who: who.trim(), where: rest.join(',').trim() }
+}
 
 const read = <T>(key: string): T | null => {
   try {
