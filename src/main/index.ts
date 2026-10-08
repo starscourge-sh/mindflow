@@ -42,6 +42,7 @@ import { activeSession, atLogin, badge, beaconDefault, tempusDots, blurOn, boxPl
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
+import { registerGroups } from './groups'
 import { registerPeriods } from './periods'
 import { registerIssues } from './issues'
 import { dayKey, dayMonth, num } from './dates'
@@ -1881,6 +1882,7 @@ app.whenReady().then(() => {
   atLogin()
   registerHome()
   registerNotes({ load, guard })
+  registerGroups()
   registerPeriods()
   registerIssues()
   registerScenery()

@@ -104,6 +104,10 @@ const CUES = {
   // low note, nothing changed.
   lift: [[587, 0, 0.05, 0.03, 784, 0.01]],
   stay: [[392, 0, 0.07, 0.03]],
+  // Rows gathered into a group: two notes sliding in to meet on a third, a
+  // bundle tied. Separated: the same notes leaving the middle, softer.
+  gather: [[523, 0, 0.07, 0.035, 587, 0.01], [880, 0.02, 0.07, 0.03, 784, 0.01], [659, 0.08, 0.16, 0.035]],
+  separate: [[659, 0, 0.06, 0.03], [587, 0.05, 0.1, 0.025, 523, 0.01], [784, 0.05, 0.1, 0.025, 880, 0.01]],
   // A card carried to another column: a warm glide across, then the landing.
   move: [[523, 0, 0.07, 0.04, 698, 0.01], [784, 0.06, 0.1, 0.035]],
   // A tag put on: a small rising third, a label pressed on. Taken off: the

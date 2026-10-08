@@ -18,8 +18,9 @@ import XIcon from '@/components/ui/x-icon'
 import { notes, openWindow, smallPicture, useThumb, type NoteTable } from '@/lib/notes'
 import { useLive } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
-import { RowMenu, type MenuItem } from './row-menu'
+import { RowMenu, type RowItem } from './row-menu'
 import { SortableList, SortableRow } from './sortable'
+import { GroupedList, type Folds } from './kept-groups'
 import { Tags, Tip, VirtualList, typing } from './ui'
 import { Button } from '@/components/ui/button'
 import type { Density, Pane } from './display'
@@ -58,7 +59,7 @@ export type Entry = {
   private?: boolean
   /** Its own words rather than a name (a nugget): two lines of them in a list, not one. */
   wrap?: boolean
-  menu?: MenuItem[]
+  menu?: RowItem[]
 }
 
 /** A note's first picture, made small (or tile-sized) once. Undefined: it has none; null: on its way; '': too big to show. */
@@ -237,6 +238,7 @@ export function NoteList({
   onChoose,
   onMove,
   after,
+  folds,
   className = ''
 }: {
   groups: [string, Entry[]][]
@@ -259,6 +261,8 @@ export function NoteList({
   onMove?: (id: string, target: string, after: boolean) => void
   /** Drawn under a row: a thought being written under it. */
   after?: (entry: Entry) => ReactNode
+  /** Your own order with groups in it: drawn as groups that fold, in place of `groups`. Rows only, never tiles. */
+  folds?: Folds
   className?: string
 }): React.JSX.Element {
   const grid = density === 'small' || density === 'grid'
@@ -404,6 +408,12 @@ export function NoteList({
     return entry.menu ? <RowMenu items={entry.menu}>{row}</RowMenu> : row
   }
   const flat = groups.flatMap(([, list]) => list)
+  if (folds && !grid)
+    return (
+      <div ref={box}>
+        <GroupedList {...folds} face={face} after={after} arrived={arrived} cursor={cursor} estimate={density === 'compact' ? 30 : 50} className={className} />
+      </div>
+    )
   return (
     <div ref={box}>
       {/* Tiles never drag: your own order is set in the lists. */}

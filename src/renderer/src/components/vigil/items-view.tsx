@@ -34,7 +34,7 @@ import { useSameWords } from '@/lib/same-words'
 import { Empty, Island, Page, Prop, Props, refuse, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Rolling, Typed, showTopTitle, Pressed } from './ui'
 import { Term } from './term'
 import { AGES, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
-import { copy, type MenuItem } from './row-menu'
+import { copy, type MenuItem, type RowItem } from './row-menu'
 import { stickOnDesktop } from './sticky-note'
 import { Lineage } from './lineage'
 import { ReviewHistory } from './review-view'
@@ -56,6 +56,10 @@ import { QuestionDetail } from './questions-view'
 import { GlossTimeline, useRowGloss } from './gloss-line'
 import { dayjs, moment, num } from '../../../../main/dates'
 import { Signed } from './signature'
+import { groups as noteGroupsApi, useGroups } from '@/lib/groups'
+import { drop, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveTo, type Layout } from '@/lib/group-layout'
+import type { Cue } from '@/lib/sound'
+import type { Bundle, Folds } from './kept-groups'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const BookOpen = alive(BookIcon)
@@ -80,7 +84,7 @@ const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.fin
  * A nugget or an article as any list draws it. A nugget reads as its own
  * words, with how it comes back under them; an article as a titled document.
  */
-export const itemEntry = (item: Item, menu?: MenuItem[]): Entry => {
+export const itemEntry = (item: Item, menu?: RowItem[]): Entry => {
   const kind = kindOf(item.kind)
   const { text, tags } = splitTags(item.title)
   const recall = !!item.prompt
@@ -122,14 +126,15 @@ export const itemEntry = (item: Item, menu?: MenuItem[]): Entry => {
  */
 export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article'; focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const all = useLive(() => vigil.items(tier), [] as Item[], [tier], ['item'])
-  const { groups: arranged, display, chips, density, view, setView, move, moveBy } = useItemDisplay(tier, all)
+  const { groups: arranged, display, chips, density, view, setView, move, moveBy, ownOrder } = useItemDisplay(tier, all)
   // The list's width: beside the note, over the whole page, or a rail of pictures.
   const pane = view.pane ?? 'list'
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState<ItemFull | null>(null)
   const spread = pane === 'wide' && !open
   const groups = spread && query.trim() ? arranged.map(([name, list]) => [name, list.filter((one) => matches(one.title, query))] as [string, Item[]]).filter(([, list]) => list.length) : arranged
-  const items = groups.flatMap(([, list]) => list)
+  const folding = useFolding(tier, all, ownOrder, view.sort === 'manual' && view.group === 'none' && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? groups.flatMap(([, list]) => list) : null)
+  const items = folding?.rows ?? groups.flatMap(([, list]) => list)
   const onMove = (id: string, target: string, after: boolean): void => move(all.map((one) => one.id), id, target, after)
   // Spread out, a click looks at a note beside the list; Enter opens it.
   const [peek, setPeek] = useState<string | null>(null)
@@ -169,6 +174,12 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
       const row = items[cursor]
       if (!by || !row) return
       event.preventDefault()
+      // Among groups, a step can go into one or out of it: the row is followed wherever it lands.
+      if (folding) {
+        const to = folding.step(row.id, by, true)
+        if (to !== null && to >= 0) setCursor(to)
+        return
+      }
       if (moveBy(items.map((one) => one.id), row.id, by)) setCursor(cursor + by)
     }
     window.addEventListener('keydown', onKey)
@@ -208,12 +219,13 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   // Re-read the open one when anything changes, so a gloss or a prompt shows.
   useEffect(() => window.api.captures.onChange(() => open && pick(open.id)), [open?.id])
   // The right-click menu: the same on a row and on a card.
-  const menuFor = (item: Item): MenuItem[] => [
+  const menuFor = (item: Item): RowItem[] => [
     { label: 'Open', keys: '↵', run: () => pick(item.id) },
     'separator',
     { label: item.pinnedAt ? 'Unpin' : 'Pin to the box', run: () => pin('nuggets', item.id, !item.pinnedAt) },
     ...itemMenu(item),
     tier === 'nugget' && { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(item.id) },
+    ...(folding?.menu(item.id, chosen.includes(item.id) && chosen.length > 1 ? chosen : [item.id]) ?? []),
     'separator',
     { label: 'Copy title', run: () => copy(item.title) }
   ]
@@ -226,7 +238,8 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
       ) : (
       <Page aside={!!open}
         title={tier === 'nugget' ? 'Nuggets' : 'Articles'}
-        count={items.length}
+        // Every note on show, a folded group's too.
+        count={groups.reduce((sum, [, list]) => sum + list.length, 0)}
         actions={
           chosen.length ? (
             <span className="flex items-center gap-2 text-muted-foreground">
@@ -299,7 +312,8 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
         {items.length ? (
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (setPeek(id), setCursor(items.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined}
-            onChoose={tier === 'nugget' ? toggle : undefined} onMove={onMove} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
+            onChoose={tier === 'nugget' ? toggle : undefined} onMove={onMove} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'}
+            folds={folding ? { ...folding.folds(menuFor), onNewNote: pick } : undefined} />
         ) : all.length && query.trim() ? (
           <Empty shape={['ellipse', 3]} title="Nothing matches">No title here has those words. Escape clears the search.</Empty>
         ) : unloaded(all) ? null : tier === 'nugget' ? (
@@ -706,6 +720,8 @@ export function useItemDisplay(name: string, every: Item[]): {
   move: (ids: string[], id: string, target: string, after: boolean) => void
   /** One step up or down in your own order, from the keyboard; false at an end. */
   moveBy: (shown: string[], id: string, by: number) => boolean
+  /** Your own order, as a sort: what groups are laid out by. */
+  ownOrder: (a: Item, b: Item) => number
 } {
   const [view, setView] = useView(name, { sort: 'newest', group: 'none' })
   // Archived ones are out of sight until Display's Marked asks for them.
@@ -737,6 +753,7 @@ export function useItemDisplay(name: string, every: Item[]): {
     { key: 'tested', label: 'Review', options: [{ id: 'tested', label: 'Tested' }, { id: 'not', label: 'Not tested' }, { id: 'leech', label: 'Forgotten often' }], test: (one, how) => (how === 'leech' ? one.lapses >= 4 : !!one.prompt === (how === 'tested')) },
     { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Pinned' }, { id: 'private', label: 'Private' }, { id: 'pushed', label: 'Note to self' }, { id: 'archived', label: 'Archived' }], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : flag === 'private' ? !!one.private : flag === 'archived' ? !!one.archivedAt : one.mode === 'pushed') }
   ]
+  const ownOrder = (a: Item, b: Item): number => own.compare(a.id, b.id) || b.createdAt.localeCompare(a.createdAt)
   const groups = arrange(all, view, facets, {
     newest: (a, b) => b.createdAt.localeCompare(a.createdAt),
     changed: (a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
@@ -744,7 +761,7 @@ export function useItemDisplay(name: string, every: Item[]): {
     name: (a, b) => a.title.localeCompare(b.title),
     kind: (a, b) => a.kind.localeCompare(b.kind) || b.createdAt.localeCompare(a.createdAt),
     due: (a, b) => (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9'),
-    manual: (a, b) => own.compare(a.id, b.id) || b.createdAt.localeCompare(a.createdAt)
+    manual: ownOrder
   }, {
     kind: (one) => CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note',
     date: (one) => period(one.createdAt)
@@ -764,5 +781,113 @@ export function useItemDisplay(name: string, every: Item[]): {
     />
   )
   const chips = <FilterChips view={view} onChange={setView} facets={facets} />
-  return { groups, display, chips, density, view, setView, move, moveBy }
+  return { groups, display, chips, density, view, setView, move, moveBy, ownOrder }
+}
+
+/**
+ * Groups in a kept list, while it is in your own order as rows: the rows on
+ * show (a folded group's notes left out, which is what the keyboard walks),
+ * the lines to draw, and what a drop, a step with the keys or the row menu
+ * does to them. Null in any other sort, where the list is simply flat.
+ *
+ * What was just done is drawn at once and held until the saved order comes
+ * back the same, so nothing jumps back while the save is on its way.
+ */
+function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, shown: Item[] | null): {
+  rows: Item[]
+  step: (id: string, by: number, take?: boolean) => number | null
+  menu: (id: string, ids: string[]) => RowItem[]
+  folds: (menuFor: (item: Item) => RowItem[]) => Omit<Folds, 'onNewNote'>
+} | null {
+  const list = useGroups(tier)
+  const [held, setHeld] = useState<Layout | null>(null)
+  const [opened, setOpened] = useState<Record<string, boolean>>({})
+  const [renaming, setRenaming] = useState<string | null>(null)
+  const saved = layoutOf([...every].sort(ownOrder).map((one) => one.id), list)
+  const savedOrder = flatten(saved).join('\n')
+  useEffect(() => void (held && flatten(held).join('\n') === savedOrder && setHeld(null)), [savedOrder]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Never held for long: a save that came back otherwise is the truth.
+  useEffect(() => {
+    if (!held) return
+    const late = setTimeout(() => setHeld(null), 1500)
+    return () => clearTimeout(late)
+  }, [held])
+  const folded = list.map((one) => `${one.id}:${one.folded}`).join()
+  useEffect(() => setOpened({}), [folded])
+  if (!shown) return null
+  const layout = held ?? saved
+  const info = new Map(list.map((one) => [one.id, one]))
+  const isOpen = (id: string): boolean => opened[id] ?? !info.get(id)?.folded
+  const visible = new Map(shown.map((one) => [one.id, one]))
+  const shut = new Set(list.filter((one) => !isOpen(one.id)).map((one) => one.id))
+  const blocks = (from: Layout): { group?: string; items: Item[] }[] =>
+    from.top.flatMap((key) => {
+      if (!isGroup(key)) return visible.has(key) ? [{ items: [visible.get(key)!] }] : []
+      const items = (from.groups[groupId(key)] ?? []).flatMap((id) => (visible.has(id) ? [visible.get(id)!] : []))
+      return items.length ? [{ group: groupId(key), items }] : []
+    })
+  const rowsOf = (from: Layout): Item[] => blocks(from).flatMap((one) => (one.group && !isOpen(one.group) ? [] : one.items))
+  const now = blocks(layout)
+  const keys = now.flatMap((one) => (one.group ? [KEY + one.group, ...(isOpen(one.group) ? one.items.map((item) => item.id) : [])] : [one.items[0].id]))
+  const make = (): { id: string; name: string } => ({ id: crypto.randomUUID(), name: 'New group' })
+  const commit = (next: Layout, cue: Cue, said?: string): void => {
+    const was = layout
+    setHeld(next)
+    chime(cue)
+    if (next.make) setRenaming(next.make.id)
+    void noteGroupsApi.arrange(tier, next).then(() => said && toast(said, () => void noteGroupsApi.arrange(tier, { top: was.top, groups: was.groups })))
+  }
+  const step = (id: string, by: number, take = false): number | null => {
+    const target = keys[keys.indexOf(id) + by]
+    const next = target ? drop(layout, keys, id, target, false, shut, make) : null
+    if (!next) return null
+    if (take) commit(next, 'shift')
+    return rowsOf(next).findIndex((one) => one.id === id)
+  }
+  const inOrder = (ids: string[]): string[] => {
+    const at = new Map(rowsOf(layout).map((one, index) => [one.id, index]))
+    return [...ids].sort((a, b) => (at.get(a) ?? 0) - (at.get(b) ?? 0))
+  }
+  const menu = (id: string, ids: string[]): RowItem[] => {
+    const own = groupOf(layout, id)
+    const these = inOrder(ids)
+    const many = these.length > 1 ? ` (${these.length})` : ''
+    const into = (group: string): Layout => these.reduce((next, one) => moveTo(next, one, { group, after: next.groups[group]?.[next.groups[group].length - 1] ?? null }), layout)
+    const others = list.filter((one) => one.id !== own && layout.groups[one.id]?.some((member) => visible.has(member)))
+    return [
+      'separator',
+      {
+        label: `Group with…${many}`,
+        items: [
+          { label: these.length > 1 ? `New group of ${these.length}` : 'New group', run: () => commit(gather(layout, these[0], these, make()), 'gather', 'Grouped') },
+          others.length ? 'separator' : null,
+          ...others.map((one) => ({ label: one.name, run: () => commit(into(one.id), 'gather', `Added to ${one.name}`) }))
+        ]
+      },
+      !!own && { label: 'Take out of the group', run: () => commit(these.reduce((next, one) => moveTo(next, one, { group: null, after: KEY + own }), layout), 'separate', 'Taken out of the group') }
+    ]
+  }
+  const folds = (menuFor: (item: Item) => RowItem[]): Omit<Folds, 'onNewNote'> => ({
+    bundles: now.map((one): Bundle => {
+      const group = one.group ? info.get(one.group) : undefined
+      return {
+        group: one.group
+          ? { id: one.group, name: group?.name ?? layout.make?.name ?? 'New group', icon: group?.icon ?? null, color: group?.color ?? null, open: isOpen(one.group), members: one.items.map((item) => item.id) }
+          : undefined,
+        entries: one.items.map((item) => itemEntry(item, menuFor(item)))
+      }
+    }),
+    onDrop: (active, over, join) => {
+      const next = drop(layout, keys, active, over, join, shut, make)
+      if (!next) return chime('stay')
+      commit(next, join ? 'gather' : 'shift', next.make ? 'Grouped' : join ? 'Added to the group' : 'Moved')
+    },
+    onFold: (group, open) => {
+      setOpened((was) => ({ ...was, [group.id]: open }))
+      void noteGroupsApi.set(group.id, { folded: !open })
+    },
+    renaming,
+    onRenaming: setRenaming
+  })
+  return { rows: rowsOf(layout), step, menu, folds }
 }
