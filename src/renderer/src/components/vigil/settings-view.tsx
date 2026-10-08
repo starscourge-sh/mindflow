@@ -31,6 +31,7 @@ import { Chips } from './display'
 import { SoundPacks } from './sound-packs'
 import { FontPicker, TextSize } from './font-picker'
 import { BackToTop, Kbd, Rolling, Tip, refuse, toast, useSmooth } from './ui'
+import { Term } from './term'
 import { Button } from '@/components/ui/button'
 import { Orb } from './orb'
 import { tryCelebration } from './celebrate'
@@ -372,7 +373,7 @@ export function SettingsView(): React.JSX.Element {
       <Query.Provider value={{ query, all: false }}>
       <Shown.Provider value={section}>
       <div ref={page} className="w-full max-w-2xl px-6 pt-4 pb-16 [&:has([data-setting])>[data-none]]:hidden">
-        {!searching && <h1 className="px-1 text-lg font-semibold text-foreground">{section}</h1>}
+        {!searching && <h1 className="px-1 text-lg font-semibold text-foreground"><Term>{section}</Term></h1>}
         <p data-none className="px-1 text-body text-muted-foreground">Nothing here matches “{query}”. Try fewer letters, or what it changes.</p>
         <Group section="Appearance" title="Theme">
           <Setting title="Theme" note="The colours of every window: the box and this one change together. Point at one to try it, click to keep it." keywords={allThemes().map(themeName).join(' ')}>

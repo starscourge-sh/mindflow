@@ -66,6 +66,7 @@ import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { openWindow } from '@/lib/notes'
 import { PlaceIcon, SECTIONS, ShowList, useShown } from '@/components/vigil/places'
+import { Term, WordNotes } from '@/components/vigil/term'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { RowMenu } from '@/components/vigil/row-menu'
 import { useStoredFlag } from '@/lib/use-stored-flag'
@@ -427,6 +428,7 @@ export function Home(): React.JSX.Element {
       <Celebrations place="home" />
       <NotePreview />
       <ShortcutSheet />
+      <WordNotes />
       <UnusedFiles />
       <Passes onOpen={(type, id) => open(type, id)} />
       <Welcome />
@@ -797,7 +799,7 @@ export function Home(): React.JSX.Element {
         </span>
         {/* In the sandbox, always: where you are, and the two ways out. */}
         <SandboxPill narrow={narrow} />
-        <h1 className="ml-2 truncate font-medium" style={{ textWrap: 'nowrap' } as CSSProperties}>{SECTIONS.find((section) => section.id === view.id)?.label ?? (kind ? kind.label : view.id === 'settings' ? 'Settings' : view.id === 'yearpage' ? 'Year' : '')}</h1>
+        <h1 className="ml-2 truncate font-medium" style={{ textWrap: 'nowrap' } as CSSProperties}><Term>{SECTIONS.find((section) => section.id === view.id)?.label ?? (kind ? kind.label : view.id === 'settings' ? 'Settings' : view.id === 'yearpage' ? 'Year' : '')}</Term></h1>
         {/* The open note's name, faint, once its first line has scrolled away. */}
         <span className={`min-w-0 flex-1 truncate px-4 text-center text-muted-foreground transition-opacity duration-200 ${topTitle && settings?.topTitle !== false ? 'opacity-100' : 'opacity-0'}`}>{topTitle}</span>
         {/* The window's own settings, quiet and side by side: what you hear, how much screen it takes. */}

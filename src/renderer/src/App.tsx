@@ -87,6 +87,7 @@ import PenIcon from '@/components/ui/pen-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
 import { useStoredFlag } from '@/lib/use-stored-flag'
 import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
+import { WordNotes } from '@/components/vigil/term'
 import { FocusScenery, Rest } from './components/vigil/scenery'
 import { num } from '../../main/dates'
 import { useWelcomePlaceholder } from './lib/welcome-box'
@@ -991,6 +992,7 @@ export default function App(): React.JSX.Element {
       <Celebrations place="box" />
       <NotePreview />
       <ShortcutSheet />
+      <WordNotes />
       <Passes onOpen={(type, id) => openAny(type, id)} />
       {readList && (
         <ReadThrough

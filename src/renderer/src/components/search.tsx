@@ -20,6 +20,8 @@ import { PRIORITY_NAMES } from '../../../main/task-words'
 import { GlossLine, openGloss } from './vigil/gloss-line'
 import { dayjs, daysSince } from '../../../main/dates'
 import { keyFor } from '@/lib/keys'
+import { wordFor } from '@/lib/words'
+import { ALL_WORDS, openWord } from './vigil/term'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 
@@ -68,8 +70,15 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
   // then what you have written. One list, one cursor.
   // Typed, the open note's own actions come before places to go: "Archive"
   // with a note open means archive it, not the Archived list.
-  const doing = actions.filter((one) => (!one.typed || query.trim()) && words.every((word) => one.label.toLowerCase().includes(word)))
-    .sort((a, b) => (query.trim() ? Number(!!b.own) - Number(!!a.own) : 0)).slice(0, query.trim() ? 4 : 12)
+  // A word of Vigil's own and a ?, "gloss?", asks what it means here: its
+  // note comes first. A ? alone is left to search as before.
+  const asked = query.trim().endsWith('?') ? wordFor(query.trim().slice(0, -1)) : undefined
+  const doing = [
+    ...(asked ? [{ label: `What Vigil means by ${asked.forms[0]}`, cue: null, run: () => openWord(asked.id) }] : []),
+    ...[...actions, { label: 'Vigil’s words: what its own names mean', typed: true, cue: null, run: () => openWord(ALL_WORDS) }]
+      .filter((one) => (!one.typed || query.trim()) && words.every((word) => one.label.toLowerCase().includes(word)))
+      .sort((a, b) => (query.trim() ? Number(!!b.own) - Number(!!a.own) : 0)).slice(0, query.trim() ? 4 : 12)
+  ]
   const [at, setAt] = useState(0)
   // Tab on a result asks who said it, without leaving search.
   const [asking, setAsking] = useState(false)
@@ -332,7 +341,11 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
                   : current
                   ? current.type === 'task' ? <TaskPreview id={current.id} /> : <NotePreview type={current.type} id={current.id} />
                   : action
-                    ? <p key={action.label} className="p-4 text-base font-medium text-pretty text-foreground">{action.label}</p>
+                    ? <div key={action.label} className="p-4">
+                      <p className="text-base font-medium text-pretty text-foreground">{action.label}</p>
+                      {/* A word asked about says what it means here before Enter opens the rest. */}
+                      {asked && action === doing[0] && <p className="mt-1 text-body text-muted-foreground">{asked.line}</p>}
+                    </div>
                     : <p className="p-4 text-body text-muted-foreground">Move onto something to see it here.</p>}
               </div>
               {/* One bar under every item: a thought on a result (⌘; or a click),

@@ -36,6 +36,7 @@ import { makeTask, oneTask, picked } from '@/lib/tasks'
 import { useSameWords } from '@/lib/same-words'
 import { chime } from '@/lib/sound'
 import { Empty, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle, Pressed } from './ui'
+import { Term } from './term'
 import { GlossTimeline, useRowGloss } from './gloss-line'
 import { RemindMe } from './items-view'
 import { addToQuestion } from './questions-view'
@@ -545,7 +546,7 @@ export function CaptureProps({ capture, onOpen, className, fold }: { capture: Ca
       <KindFields table="captures" id={capture.id} kind={capture.kind} onOpen={onOpen} />
       <Aliases table="captures" id={capture.id} />
 
-      <Island compact title="Surfacing">
+      <Island compact title={<Term>Surfacing</Term>}>
         <Prop icon={capture.private ? EyeOff : Eye} active={!!capture.private} onClick={() => void vigil.setPrivate('captures', capture.id, !capture.private)}>
           {capture.private ? 'Private' : 'Can surface any time'}
         </Prop>

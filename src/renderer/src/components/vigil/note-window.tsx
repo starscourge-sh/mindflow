@@ -15,6 +15,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { Search } from '../search'
 import { SECTIONS } from './places'
 import { ShortcutSheet } from './shortcut-sheet'
+import { WordNotes } from './term'
 import { foldEverything } from '@/extensions/heading-fold'
 import { themeActions } from '@/lib/theme'
 import { chime } from '@/lib/sound'
@@ -55,6 +56,7 @@ export function NoteWindow({ link }: { link: string }): React.JSX.Element {
       <div className="flex h-screen flex-col bg-background text-foreground">
         <Toaster />
         <ShortcutSheet />
+        <WordNotes />
         {searching && (
           <Search
             // What finds a note opens it in the main window, beside everything else.

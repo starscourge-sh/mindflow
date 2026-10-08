@@ -29,6 +29,7 @@ import { Mentions } from './mentions'
 import { Aliases, LocalGraph, NoteHeader } from './note-extras'
 import { RowMenu, copy, type MenuItem } from './row-menu'
 import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Tip, Typed, ask, refuse, showTopTitle, toast, useListKeys } from './ui'
+import { Term } from './term'
 import { useRowGloss } from './gloss-line'
 import { ago, dayMonth, dayName, heldFor, num } from '../../../../main/dates'
 import { ReadThrough } from './read-through'
@@ -424,7 +425,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
       </div>
 
       <Props fold>
-        <Island compact title="Holding">
+        <Island compact title={<Term>Holding</Term>}>
           <Prop icon={Orbit} active>{settled ?? <Rolling by="word" text={heldFor(item.createdAt).replace(/^h/, 'H')} />}</Prop>
           {!item.closedAt && (
             <Prop icon={inView ? Pin : PinOff} active={inView} onClick={() => void pinQuestion(item.id, item.title, !inView)}>
@@ -443,7 +444,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
             </>
           )}
         </Island>
-        <Island compact title="Surfacing">
+        <Island compact title={<Term>Surfacing</Term>}>
           <Prop icon={item.private ? EyeOff : Eye} active={!!item.private} onClick={() => void vigil.setPrivate('nuggets', item.id, !item.private)}>
             {item.private ? 'Private: never comes back unasked' : 'Can come back to you'}
           </Prop>
@@ -486,7 +487,7 @@ function Clues({ item, onRead }: { item: ItemFull; onRead: (from: number) => voi
   return (
     <section data-chrome className="page-narrow mx-auto mt-6 w-full border-t px-10 pt-4 text-body">
       <h3 className="mb-2 flex items-baseline gap-1.5 px-2 text-meta text-muted-foreground">
-        Clues {clues.length > 0 && <Rolling text={clues.length} className="tabular-nums" />}
+        <Term>Clues</Term> {clues.length > 0 && <Rolling text={clues.length} className="tabular-nums" />}
       </h3>
       <div className="mx-2 mb-3 flex items-start gap-2 rounded-lg border bg-accent/30 px-3 py-2 focus-within:border-foreground/25">
         <Plus className="mt-1 size-3.5 shrink-0 text-muted-foreground" />

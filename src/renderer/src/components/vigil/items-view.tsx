@@ -32,6 +32,7 @@ import { interval, splitTags, unloaded, useLive, vigil, when, whenInLine, type I
 import { makeTask } from '@/lib/tasks'
 import { useSameWords } from '@/lib/same-words'
 import { Empty, Island, Page, Prop, Props, refuse, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Rolling, Typed, showTopTitle, Pressed } from './ui'
+import { Term } from './term'
 import { AGES, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
 import { copy, type MenuItem } from './row-menu'
 import { stickOnDesktop } from './sticky-note'
@@ -467,7 +468,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
         )}
         <Aliases table="nuggets" id={item.id} />
 
-        <Island compact title="Review">
+        <Island compact title={<Term>Review</Term>}>
           <Prop icon={item.prompt ? Brain : item.mode === 'pushed' ? RefreshCw : Eye} active>
             <Rolling by="word" text={item.prompt ? 'Tested, on a schedule' : item.mode === 'pushed' ? 'On rotation, always' : 'Now and then, as a hint'} />
           </Prop>
@@ -506,7 +507,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
           </Prop>
         </Island>
 
-        <Island compact title="Surfacing">
+        <Island compact title={<Term>Surfacing</Term>}>
           <Prop icon={item.private ? EyeOff : Eye} active={!!item.private} onClick={() => void vigil.setPrivate('nuggets', item.id, !item.private)}>
             {item.private ? 'Private' : 'Can surface any time'}
           </Prop>

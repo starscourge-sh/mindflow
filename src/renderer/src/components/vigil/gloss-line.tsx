@@ -9,6 +9,7 @@ import { chime } from '@/lib/sound'
 import { useLive, vigil, when, type Gloss } from '@/lib/vigil'
 import { cn } from '@/lib/cn'
 import { Island, Kbd, Rolling, Tip, toast, typing, Pressed } from './ui'
+import { Term } from './term'
 import { ago } from '../../../../main/dates'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -231,7 +232,7 @@ export function GlossTimeline({ id }: { id: string }): React.JSX.Element {
   const glosses = useLive(() => vigil.glosses(id), [] as Gloss[], [id])
   useGlossKey(id)
   return (
-    <Island compact title={<span className="flex items-baseline gap-1.5">Glosses {glosses.length > 0 && <Rolling text={glosses.length} className="font-normal text-muted-foreground tabular-nums" />}</span>}>
+    <Island compact title={<span className="flex items-baseline gap-1.5"><Term>Glosses</Term> {glosses.length > 0 && <Rolling text={glosses.length} className="font-normal text-muted-foreground tabular-nums" />}</span>}>
       <div className="px-2 py-1.5">
         <GlossLine id={id} latest={false} placeholder="Why you kept it, or where you disagree" />
       </div>

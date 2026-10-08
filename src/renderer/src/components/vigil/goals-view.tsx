@@ -19,6 +19,7 @@ import { Chips } from './display'
 import { NoteList, type Entry } from './note-list'
 import { RowMenu, copy, type MenuItem } from './row-menu'
 import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Tip, Typed, refuse, toast, useListKeys } from './ui'
+import { Term } from './term'
 import { CollectionHeader, Cover, MenuButton, QuietAction, useTint } from './collection-header'
 import { DatePicker } from './date-picker'
 import { ago, dayKey, dayMonth, dayName, num } from '../../../../main/dates'
@@ -409,7 +410,7 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
             </>
           )}
         </Island>
-        <Island compact title="Surfacing">
+        <Island compact title={<Term>Surfacing</Term>}>
           <Prop icon={item.private ? EyeOff : Eye} active={!!item.private} onClick={() => void vigil.setPrivate('nuggets', item.id, !item.private)}>
             {item.private ? 'Private: its name stays hidden' : 'Its name can show'}
           </Prop>
