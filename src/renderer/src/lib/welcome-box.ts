@@ -22,16 +22,16 @@ export function useWelcomePlaceholder(): void {
     const run = (n: number): void => {
       const line = EXAMPLES[n % EXAMPLES.length]
       const quiet = root.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
-      if (quiet) show(line)
+      // The first is there the moment the box opens, so the line is never blank; the rest type in.
+      if (quiet || n === 0) show(line)
       else for (let i = 1; i <= line.length; i++) timers.push(setTimeout(() => show(line.slice(0, i)), i * 38))
-      timers.push(setTimeout(() => run(n + 1), (quiet ? 0 : line.length * 38) + 3000))
+      timers.push(setTimeout(() => run(n + 1), (quiet || n === 0 ? 0 : line.length * 38) + 3000))
     }
     const start = (): void =>
       void (window.api.vigil('onboarding:welcoming') as Promise<boolean>).then((on) => {
         stop()
         if (!on) return
         root.dataset.welcomePh = ''
-        show('')
         run(0)
       }).catch(() => undefined)
     start()

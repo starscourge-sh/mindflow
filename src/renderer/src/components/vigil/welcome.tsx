@@ -942,15 +942,23 @@ function ComesBack({ capture }: { capture: CaptureMeta | null }): React.JSX.Elem
       </figure>
       <div className="flex flex-col gap-[clamp(0.75rem,2.6vh,1.75rem)]">
         <h1 className={HEADLINE}>Then it comes back to you.</h1>
-        <ul className="flex flex-col gap-[clamp(0.5rem,1.6vh,1rem)]">
+        {/* Three ways back, read top to bottom: a number to follow, the name large,
+            what it does quiet beneath it, a hairline leading the eye down. */}
+        <ol className="flex flex-col border-l border-foreground/15">
           {[
-            ['On this day', 'what you caught a year ago.'],
-            ['A hint in the box', 'something you kept, as you open it.'],
-            ['Review', 'what you want to remember, just before you would forget it.']
-          ].map(([lead, rest]) => (
-            <li key={lead} className={`${BODY} max-w-[30ch]`}><span className="font-medium text-foreground">{lead}</span>: {rest}</li>
+            ['On this day', 'What you caught a year ago.'],
+            ['A hint in the box', 'Something you kept, as you open it.'],
+            ['Review', 'What you want to remember, just before you would forget it.']
+          ].map(([lead, rest], n) => (
+            <li key={lead} className="relative flex flex-col gap-0.5 py-[clamp(0.35rem,1.2vh,0.75rem)] pl-[clamp(1rem,2vw,1.5rem)]">
+              <span aria-hidden className="absolute top-[calc(clamp(0.35rem,1.2vh,0.75rem)+clamp(1.25rem,min(2.9vw,4.2vh),2rem)*0.64)] -left-[3px] size-[5px] rounded-full bg-foreground/50" />
+              <span className="font-heading text-[clamp(1.25rem,min(2.9vw,4.2vh),2rem)] leading-tight font-medium text-foreground">
+                <span className="mr-2 text-[0.6em] font-normal tabular-nums text-(--mf-wl-quiet)">{n + 1}</span>{lead}
+              </span>
+              <span className={`${QUIET} max-w-[34ch]`}>{rest}</span>
+            </li>
           ))}
-        </ul>
+        </ol>
       </div>
     </div>
   )

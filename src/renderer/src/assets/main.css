@@ -1152,7 +1152,7 @@ input[type='number']::-webkit-outer-spin-button {
 /* The box while the welcome waits on it: a warmer line than "Type / for
    commands…", typed in and turned over every few seconds (App.tsx). */
 :root[data-welcome-ph] .tiptap.ProseMirror.mindflow-editor:not(.is-line) > .is-empty[data-placeholder]:first-child:has(> .ProseMirror-trailingBreak:only-child)::before {
-  content: var(--mf-welcome-ph);
+  content: var(--mf-welcome-ph, attr(data-placeholder));
 }
 
 /* Progress bars, playful (components/vigil/progress-bar.tsx). The blade: a
