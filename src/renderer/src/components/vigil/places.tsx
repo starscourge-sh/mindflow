@@ -24,6 +24,7 @@ import LayersIcon from '@/components/ui/layers-icon'
 import TrashIcon from '@/components/ui/trash-icon'
 import RefreshIcon from '@/components/ui/refresh-icon'
 import HistoryCircleIcon from '@/components/ui/history-circle-icon'
+import LinkIcon from '@/components/ui/link-icon'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const BarChart3 = alive(ChartBarIcon)
@@ -35,6 +36,7 @@ const History = alive(HistoryCircleIcon)
 const House = alive(HomeIcon)
 const Inbox = alive(StackIcon)
 const Layers = alive(LayersIcon)
+const Links = alive(LinkIcon)
 const ListChecks = alive(CheckedIcon)
 const NotebookPen = alive(PenIcon)
 const Orbit = alive(QuestionMarkIcon)
@@ -85,6 +87,8 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'goals', label: 'Goals', icon: Flag, key: 'e', tint: 'orange', group: 'Kept' },
   { id: 'tags', label: 'Tags', icon: Tag, alive: HashtagIcon, key: '#', tint: 'red' },
   { id: 'stats', label: 'Stats', icon: BarChart3, alive: ChartBarIcon, key: 's', tint: 'blue' },
+  // Every note you have linked, as a map of dots and lines.
+  { id: 'map', label: 'Map', icon: Links, alive: LinkIcon, key: 'x', tint: 'purple' },
   { id: 'all', label: 'All captures', icon: Layers, alive: LayersIcon, key: 'l', tint: 'gray' },
   { id: 'discarded', label: 'Discarded', icon: Trash2, alive: TrashIcon, key: 'd', tint: 'gray' },
   // Out of sight, not let go: apart from the exits.

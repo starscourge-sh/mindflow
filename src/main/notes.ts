@@ -279,9 +279,8 @@ export function registerNotes({ load, guard }: Windows): void {
       ? db.prepare(`select 'capture' as type, id, ${LABEL} as title, private from captures where id = ?`).get(id)
       : db.prepare("select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, private from nuggets where id = ?").get(id)) as Node | undefined
   }
-  handle('notes:graph', (id: string) => {
-    const row = (db.prepare('select body from captures where id = ?').get(id) ?? db.prepare('select body from nuggets where id = ?').get(id)) as { body: string } | undefined
-    // Out: the links written in it, as the editor keeps them or an import left them.
+  // The links written in a note's words, as the editor keeps them or an import left them.
+  const linksIn = (body: string | null | undefined): Set<string> => {
     const out = new Set<string>()
     const walk = (node: Doc | string | null): void => {
       if (!node) return
@@ -289,7 +288,13 @@ export function registerNotes({ load, guard }: Windows): void {
       if (node.type === 'noteLink' && node.attrs?.id) out.add(String(node.attrs.id))
       node.content?.forEach(walk)
     }
-    walk(parse(row?.body) as Doc | string | null)
+    walk(parse(body) as Doc | string | null)
+    return out
+  }
+  handle('notes:graph', (id: string) => {
+    const row = (db.prepare('select body from captures where id = ?').get(id) ?? db.prepare('select body from nuggets where id = ?').get(id)) as { body: string } | undefined
+    // Out: the links written in it.
+    const out = linksIn(row?.body)
     // In: every note whose words hold a link to this one.
     const into = db.prepare(`select 'capture' as type, id, ${LABEL} as title, private from captures where status != 'discarded' and (body like ? or body like ? or body like ? or body like ?)
       union all select tier, id, coalesce(nullif(title, ''), label('', body)), private from nuggets where body like ? or body like ? or body like ? or body like ?`)
@@ -297,6 +302,32 @@ export function registerNotes({ load, guard }: Windows): void {
     return {
       out: [...out].map(nodeOf).filter((node): node is Node => !!node && node.id !== id),
       in: into.filter((node) => node.id !== id)
+    }
+  })
+
+  // --- every note's links at once, for the map: each note with a link to or
+  // from another, and each pair once. Private and discarded notes stay off it.
+  handle('notes:graph:all', () => {
+    const rows = [
+      ...db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, body from captures where status != 'discarded' and private = 0`).all(),
+      ...db.prepare("select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, kind, body from nuggets where private = 0").all()
+    ] as (Node & { kind: string; body: string | null })[]
+    const known = new Set(rows.map((row) => row.id))
+    const pairs = new Map<string, [string, string]>()
+    for (const row of rows)
+      for (const link of linksIn(row.body)) {
+        // A link names its note as `id` or `tier:id`.
+        const to = link.includes(':') ? link.split(':')[1] : link
+        if (to === row.id || !known.has(to)) continue
+        const pair: [string, string] = row.id < to ? [row.id, to] : [to, row.id]
+        pairs.set(pair.join(' '), pair)
+      }
+    const links = new Map<string, number>()
+    for (const [a, b] of pairs.values()) (links.set(a, (links.get(a) ?? 0) + 1), links.set(b, (links.get(b) ?? 0) + 1))
+    return {
+      nodes: rows.filter((row) => links.has(row.id)).map(({ type, id, title, kind }) => ({ type, id, title, kind, links: links.get(id)! })),
+      edges: [...pairs.values()],
+      alone: rows.length - links.size
     }
   })
 

@@ -28,6 +28,7 @@ import { ReviewView } from './components/vigil/review-view'
 import { HomeView } from './components/vigil/home-view'
 import { SettingsView } from './components/vigil/settings-view'
 import { StatsView } from './components/vigil/stats-view'
+import { MapView } from './components/vigil/map-view'
 import { TagsView } from './components/vigil/tags-view'
 import { usePinnedTags } from './components/vigil/tag-read'
 import { TasksView } from './components/vigil/tasks-view'
@@ -922,6 +923,8 @@ export function Home(): React.JSX.Element {
           <TagsView onOpen={open} focus={view.focus} />
         ) : view.id === 'stats' ? (
           <StatsView key={`${view.focus}-${view.nonce}`} recap={view.focus} />
+        ) : view.id === 'map' ? (
+          <MapView onOpen={open} />
         ) : (
           <SettingsView />
         )}

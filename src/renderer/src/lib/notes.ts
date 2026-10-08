@@ -20,6 +20,8 @@ const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.
 
 export type NoteTable = 'captures' | 'nuggets'
 export type GraphNode = { type: string; id: string; title: string; private: number }
+export type MapNode = { type: string; id: string; title: string; kind: string; links: number }
+export type NoteMap = { nodes: MapNode[]; edges: [string, string][]; alone: number }
 export type Version = { id: number; savedAt: string; size: number }
 export type DayEntry = { type: string; id: string; title: string; kind?: string; status?: string; private: number }
 export type Day = { day: string; exists: boolean; body: unknown; reviewed: boolean; captured: DayEntry[]; resolved: DayEntry[]; studied: DayEntry[]; done: DayEntry[] }
@@ -40,6 +42,8 @@ export const notes = {
   /** A note's words as stored now, without counting as an open. */
   body: (table: NoteTable, id: string) => call<unknown>('notes:body', table, id),
   graph: (id: string) => call<{ out: GraphNode[]; in: GraphNode[] }>('notes:graph', id),
+  /** Every note with a link, each pair of linked notes once, and how many notes have none. */
+  map: () => call<NoteMap>('notes:graph:all'),
   day: (day: string) => call<Day>('notes:day', day),
   saveDay: (day: string, patch: { body?: unknown; reviewed?: boolean }) => call('notes:day:save', day, patch)
 }
