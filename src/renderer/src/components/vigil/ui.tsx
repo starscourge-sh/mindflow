@@ -155,11 +155,22 @@ export function Typed({ text, className, step = 40, delay: asked = 700, story = 
   // what you just did (delay 0) starts at once.
   const delay = asked === 0 ? 0 : Math.max(asked, 600)
   const words = text.split(/(\s+)/)
+  // Paced like someone typing it: a word takes as long as its letters (about
+  // 28ms each at the usual step), a short gap between words, a breath after a
+  // comma and a longer one after a full stop. Even spacing read as a reveal,
+  // and too fast to feel said.
+  const starts: number[] = []
+  let at = 0
+  for (const word of words) {
+    starts.push(at)
+    if (/^\s+$/.test(word)) continue
+    at += word.length * step * 0.7 + 70 + (/[.!?:]$/.test(word) ? 200 : /[,;]$/.test(word) ? 100 : 0)
+  }
   // One voice at a time (lib/motion.ts): settled when the words arrive, so a
   // later render never starts it again. A second line waits its turn.
   const id = useId()
   const turn = useRef<{ text: string; speaks: boolean } | null>(null)
-  const long = delay + (words.length / 2) * step * 1.4 + 364
+  const long = delay + at + 364
   const root = document.documentElement
   // A line in a sequence takes its turn as told; any other may always speak,
   // except while the welcome holds the screen, and its turn is found below.
@@ -178,8 +189,8 @@ export function Typed({ text, className, step = 40, delay: asked = 700, story = 
     <span key={text} ref={line} data-line={id} className={className} aria-label={text}>
       {words.map((word, index) =>
         /^\s+$/.test(word) ? word : (
-          <span key={index} aria-hidden className={speaks ? 'mf-typed' : 'inline-block'} // 1.4: each word a beat slower than first built, easier to follow.
-          style={speaks ? { animationDelay: `${delay + (index / 2) * step * 1.4}ms` } : undefined}>
+          <span key={index} aria-hidden className={speaks ? 'mf-typed' : 'inline-block'}
+          style={speaks ? { animationDelay: `${delay + starts[index]}ms` } : undefined}>
             {/* A shortcut in a sentence is drawn as keys, one cap each. */}
             {/[⌃⌥⇧⌘]/.test(word)
               ? (() => {
