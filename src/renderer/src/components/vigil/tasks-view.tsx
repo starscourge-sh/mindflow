@@ -41,6 +41,7 @@ import { stickOnDesktop } from './sticky-note'
 import { TaskLog } from './task-log'
 import { GlossButton, GlossLine } from './gloss-line'
 import { dayjs, startOfDay } from '../../../../main/dates'
+import { SessionFooter } from './session-footer'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Bell = alive(FilledBellIcon)
@@ -476,6 +477,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           documentId={`task-${task.id}`}
           defaultContent={(task.notes as JSONContent | null) ?? ''}
           onChange={(notes) => void vigil.saveTask(task.id, { notes })}
+          foot={(editor) => <SessionFooter editor={editor} note={`task-${task.id}`} />}
         />
         {/* Keyed by the list itself, so a change made elsewhere (the other window, an undo) shows. */}
         <Checklist key={JSON.stringify(task.subtasks)} task={task} />

@@ -22,7 +22,7 @@ const Play = alive(PlayerIcon)
 const X = alive(XIcon)
 
 /** 59:55, or 1:02:03 past the hour. */
-const clock = (ms: number): string => {
+export const clock = (ms: number): string => {
   const s = Math.max(0, Math.round(ms / 1000))
   const [h, m, sec] = [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60]
   const two = (n: number): string => String(n).padStart(2, '0')

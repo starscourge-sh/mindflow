@@ -38,7 +38,7 @@ import icon from '../../resources/icon.png?asset'
 import { alreadyImported, captureText, changed, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { backupDir } from './backup'
-import { activeSession, atLogin, badge, beaconDefault, tempusDots, blurOn, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenGoals, whenStickies } from './vigil'
+import { activeSession, atLogin, badge, beaconDefault, tempusDots, blurOn, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, whenFocusShows } from './vigil'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
@@ -511,10 +511,15 @@ function sendHome(type: string, id: string, heading?: string): void {
 let focusPill: BrowserWindow | null = null
 /** Whether a session wants the pill up: safe mode hides it without forgetting. */
 let focusWanted = false
+/** The pill on screen: a session wants it, Settings has the bubble showing, and safe mode is off. */
+const pillUp = (): boolean => focusWanted && focusBubbleShown() && !gate().blackout
 function showFocus(on: boolean): void {
   focusWanted = on
-  if (!on) return void focusPill?.hide()
-  if (focusPill && !focusPill.isDestroyed()) return void (gate().blackout || focusPill.showInactive())
+  // With the time in the note only, the pill is still made and kept hidden:
+  // it is what rings and glows when the time is up.
+  if (!on || !focusBubbleShown()) focusPill?.hide()
+  if (!on) return
+  if (focusPill && !focusPill.isDestroyed()) return void (pillUp() && focusPill.showInactive())
   const { workArea } = screen.getPrimaryDisplay()
   focusPill = new BrowserWindow({
     width: 340,
@@ -540,7 +545,7 @@ function showFocus(on: boolean): void {
   })
   focusPill.setAlwaysOnTop(true, 'floating')
   focusPill.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-  focusPill.once('ready-to-show', () => gate().blackout || focusPill?.showInactive())
+  focusPill.once('ready-to-show', () => pillUp() && focusPill?.showInactive())
   guard(focusPill)
   load(focusPill, '?view=focus')
   // Made now, hidden, so the glow at the end has nothing to load.
@@ -765,7 +770,7 @@ function safeWindows(on: boolean): void {
     if (on) {
       win.hide()
       if (url.includes('note=')) win.setTitle('Note')
-    } else if ((win !== focusPill || focusWanted) && (!url.includes('view=sticky') || [...stickies].some(([key, one]) => one === win && stickyUp(key)))) {
+    } else if ((win !== focusPill || (focusWanted && focusBubbleShown())) && (!url.includes('view=sticky') || [...stickies].some(([key, one]) => one === win && stickyUp(key)))) {
       win.setTitle(win.webContents.getTitle())
       win.showInactive()
     }
@@ -2024,6 +2029,8 @@ app.whenReady().then(() => {
   registerFrost()
   void restoreStickies().then(beacons)
   whenGoals(() => (beacons(), updateTray()))
+  // The bubble comes or goes with Settings' "Session timer shows in".
+  whenFocusShows(() => focusWanted && showFocus(true))
   powerMonitor.on('unlock-screen', () => beaconMoment('wake'))
   powerMonitor.on('resume', () => beaconMoment('wake'))
   // At the Mac (touched in the last two minutes) and three hours since the last: out again.

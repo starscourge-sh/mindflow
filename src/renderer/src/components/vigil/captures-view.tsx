@@ -58,6 +58,7 @@ import { PinnedQuestions, clueInto } from './pinned-questions'
 import { Board, useBoard } from './board-view'
 import { dayjs, num } from '../../../../main/dates'
 import { Signed } from './signature'
+import { SessionFooter } from './session-footer'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowUpRight = alive(ExternalLinkIcon)
@@ -435,6 +436,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
               </>}
               onReady={(ready) => (words.ready(ready), setEditor(ready))}
               onChange={words.save}
+              foot={(editor) => <SessionFooter editor={editor} note={`capture-${open.id}`} />}
             />
             </div>
             )}

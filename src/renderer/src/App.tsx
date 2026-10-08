@@ -28,6 +28,7 @@ import { Pins } from './components/pins'
 import { TodayPanel } from './components/vigil/today-panel'
 import { selectionActions } from './components/vigil/selection-actions'
 import { ReviewView } from './components/vigil/review-view'
+import { SessionFooter } from './components/vigil/session-footer'
 import { unloaded, useAppearance, useLive } from './lib/vigil'
 import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt } from './components/vigil/ui'
 import { TooltipProvider } from './components/ui/tooltip'
@@ -1612,6 +1613,8 @@ const CapturePrompt = ({
         onOpenNote={onOpenNote}
         onTitleOut={onTitleOut}
         after={after}
+        // A focus session running, the time and the words written show at the foot.
+        foot={(editor) => <SessionFooter editor={editor} note={from ? `capture-${from}` : 'box'} />}
       />
     </div>
   )

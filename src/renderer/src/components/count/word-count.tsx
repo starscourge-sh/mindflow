@@ -4,13 +4,11 @@ import type { Node as PMNode } from "@tiptap/pm/model"
 import { num } from '../../../../main/dates'
 
 /**
- * Words and characters for the whole document.
- *
- * The counts live in extension storage, which React has no reason to re-read on
- * its own. Counted on edits only, so a plain caret move never counts the whole
- * document.
+ * Words and characters for the whole document, counted on edits only, so a
+ * plain caret move never counts the whole document. Shared with the focus
+ * session's footer, which counts the words written since it began.
  */
-export function WordCount({ editor }: { editor: Editor | null }) {
+export function useCounts(editor: Editor | null): { words: number; characters: number } | null {
   // Counted once the typing pauses in a long note: each count reads the whole
   // document, which in a 1 MB note was most of every keystroke. Listened for
   // rather than drawn from: a redraw on every key in a long note made React
@@ -43,6 +41,17 @@ export function WordCount({ editor }: { editor: Editor | null }) {
       editor.off("transaction", transaction)
     }
   }, [editor])
+  return counts
+}
+
+/**
+ * Words and characters for the whole document.
+ *
+ * The counts live in extension storage, which React has no reason to re-read on
+ * its own.
+ */
+export function WordCount({ editor }: { editor: Editor | null }) {
+  const counts = useCounts(editor)
 
   // Shown only where nothing is under it: past the last line, which is the
   // end of a long note scrolled down, or anywhere in a short one. Over words

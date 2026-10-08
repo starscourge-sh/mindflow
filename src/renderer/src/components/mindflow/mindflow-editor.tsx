@@ -423,6 +423,11 @@ export interface MindflowEditorProps {
   /** Shown after the document, scrolling with it: backlinks, as Obsidian keeps them. */
   after?: ReactNode
   /**
+   * What sits at the foot of a document in place of the word count: the
+   * focus session's footer, which shows the count itself when no session runs.
+   */
+  foot?: (editor: Editor | null) => ReactNode
+  /**
    * What the editor asks of whatever it is running inside: storing a dropped
    * picture, reading what a link is about, handing a file to the system.
    *
@@ -541,6 +546,7 @@ function Surface({
   showSource = false,
   onToggleSource,
   after,
+  foot,
   readOnly = false,
   host,
   shape = "document",
@@ -1715,7 +1721,7 @@ function Surface({
         {!handles && editor && <SpellingMenu editor={editor} spelling={spelling} at={menuAt} onClose={() => setSpelling(null)} />}
 
         {/* How much is written, quietly in the corner of a document. */}
-        {shape === "document" && !readOnly && <WordCount editor={editor} />}
+        {shape === "document" && !readOnly && (foot ? foot(editor) : <WordCount editor={editor} />)}
 
         {/* The dock earns its place only if something is in it. */}
         {(fixedItems !== false || search) && (

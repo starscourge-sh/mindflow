@@ -1554,8 +1554,14 @@
   padding-bottom: 2.5rem;
 }
 
+// The focus session's footer, in the word count's place: room under the last
+// line for it too.
+.mindflow-editor-wrapper:has(> .mf-session-foot) > .mindflow-editor-content {
+  padding-bottom: 2.75rem;
+}
+
 // Find has the bottom while it is open: the count would sit on top of it.
-.mindflow-editor-wrapper:has(.tiptap-find-bar:not([inert])) > .tiptap-word-count {
+.mindflow-editor-wrapper:has(.tiptap-find-bar:not([inert])) > :is(.tiptap-word-count, .mf-session-foot) {
   display: none;
 }
 

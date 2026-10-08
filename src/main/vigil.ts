@@ -318,6 +318,9 @@ const DEFAULTS = {
   // The focus pill: its ring alone, or the progress bars' dinosaur beside it,
   // running in place or along a line that fills with the session.
   focusBubble: 'circle' as 'circle' | 'runner' | 'progress',
+  // Where a session's time shows: the floating bubble, a quiet footer under
+  // the note being written in (the bubble then stays away), or both.
+  focusShows: 'bubble' as 'bubble' | 'note' | 'both',
   // The menu bar's day, week, month and year as rows of dots instead of bars.
   tempusDots: false,
   // A plain-text copy of each capture beside the backups (never a private one).
@@ -380,6 +383,12 @@ export const whenGoals = (tell: () => void): void => void (goalsTold = tell)
 /** Each goal's beacon unless the goal says otherwise: 'always', 'sometimes' or 'off'. */
 export const beaconDefault = (): 'always' | 'sometimes' | 'off' => settings().goalBeacon
 export const tempusDots = (): boolean => settings().tempusDots === true
+
+/** Told when where a session's time shows changes: the bubble comes or goes. */
+let focusShowsTold: () => void = () => undefined
+export const whenFocusShows = (tell: () => void): void => void (focusShowsTold = tell)
+/** Whether the floating bubble shows during a session, or only the note's footer does. */
+export const focusBubbleShown = (): boolean => settings().focusShows !== 'note'
 
 /** Told when the stickies are shown or put away, or kept in or out of screen shares. */
 let stickiesTold: () => void = () => undefined
@@ -731,6 +740,7 @@ export function registerVigil(): void {
     if ('spellcheck' in patch || 'spellLanguages' in patch) spelling()
     if ('openAtLogin' in patch) atLogin()
     if ('goalBeacon' in patch || 'tempusDots' in patch) goalsTold()
+    if ('focusShows' in patch) focusShowsTold()
     return write(settings())
   })
   // Spelling: the languages there are and the ones in use, and a word kept as
