@@ -519,7 +519,9 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
           const on = picked?.day === dot.day
           const marker = milestoneIn(dot)
           const colour = logged ? ACCENT : 'currentColor'
-          const opacity = logged || dot.today ? 1 : marker ? 0.75 : dot.past ? 0.5 : 0.13
+          // Quiet by default: days gone are dim, a logged day a little brighter, and only
+          // today and the day itself at full strength, so the eye goes to where you are.
+          const opacity = dot.today ? 1 : logged ? (dot.past ? 0.7 : 1) : marker ? 0.5 : dot.past ? 0.24 : 0.12
           return (
             <g key={dot.day}
               onMouseEnter={compact ? undefined : () => setHover(dot)}

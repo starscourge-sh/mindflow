@@ -271,10 +271,15 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   }, [])
   useEffect(() => window.api.onStir(() => {
     if (!card.current || Date.now() - lastKey.current < 15_000 || document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    card.current.animate(
-      [{ transform: 'translateY(0) rotate(0deg)' }, { transform: 'translateY(-4px) rotate(1.6deg)', offset: 0.3 }, { transform: 'translateY(-1px) rotate(-0.9deg)', offset: 0.62 }, { transform: 'translateY(0) rotate(0deg)' }],
-      { duration: 1200, easing: 'cubic-bezier(0.37, 0, 0.63, 1)' }
-    )
+    // On glass the note is the window, so the paper stays and its words and tape lift instead.
+    const moving = GLASS ? [...card.current.children] : [card.current]
+    for (const one of moving)
+      one.animate(
+        GLASS
+          ? [{ transform: 'translateY(0)' }, { transform: 'translateY(-3px)', offset: 0.3 }, { transform: 'translateY(-1px)', offset: 0.62 }, { transform: 'translateY(0)' }]
+          : [{ transform: 'translateY(0) rotate(0deg)' }, { transform: 'translateY(-4px) rotate(1.6deg)', offset: 0.3 }, { transform: 'translateY(-1px) rotate(-0.9deg)', offset: 0.62 }, { transform: 'translateY(0) rotate(0deg)' }],
+        { duration: 1200, easing: 'cubic-bezier(0.37, 0, 0.63, 1)', composite: 'add' }
+      )
   }), [])
   useEffect(() => window.api.onLookOver(() => {
     if (out.current) out.current.style.visibility = ''
@@ -419,7 +424,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
             : { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--mf-paper-tint), var(--mf-paper-tint)), linear-gradient(var(--mf-paper), var(--mf-paper)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' })
         } as unknown as CSSProperties}
         onMouseLeave={() => setAsking(false)}
-        className={GLASS ? 'group relative flex h-full flex-col rounded-[10px] text-control text-foreground' : 'group relative flex h-full rotate-(--tilt) flex-col rounded-lg border text-control text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_4px_10px_-2px_rgb(0_0_0/0.16)] transition-[rotate,scale,box-shadow] duration-500 ease-[cubic-bezier(0.34,1.36,0.64,1)] hover:scale-102 hover:rotate-0 hover:shadow-[0_2px_4px_rgb(0_0_0/0.12),0_10px_18px_-4px_rgb(0_0_0/0.24)] motion-reduce:transition-none'}
+        className={GLASS ? 'group relative flex h-full flex-col rounded-[10px] text-control text-foreground [&>*]:transition-transform [&>*]:duration-500 [&>*]:ease-[cubic-bezier(0.34,1.36,0.64,1)] hover:[&>*]:-translate-y-0.5 motion-reduce:[&>*]:transition-none' : 'group relative flex h-full rotate-(--tilt) flex-col rounded-lg border text-control text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_4px_10px_-2px_rgb(0_0_0/0.16)] transition-[rotate,scale,box-shadow] duration-500 ease-[cubic-bezier(0.34,1.36,0.64,1)] hover:scale-102 hover:rotate-0 hover:shadow-[0_2px_4px_rgb(0_0_0/0.12),0_10px_18px_-4px_rgb(0_0_0/0.24)] motion-reduce:transition-none'}
       >
         {/* Frosted: the desktop picture behind it, blurred, under the same paper. */}
         {!GLASS && <Frost tint="--mf-paper-tint" lift />}
