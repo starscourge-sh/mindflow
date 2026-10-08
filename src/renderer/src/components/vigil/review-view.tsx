@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
 
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, animate, motion, useMotionValue, type AnimationPlaybackControls } from 'motion/react'
 import { EASE, byKeys, shift } from '@/lib/motion'
 
 import { MindflowEditor } from '../mindflow'
@@ -46,6 +46,9 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   const [reviewed, setReviewed] = useState<Set<string>>(new Set())
   const [at, setAt] = useState(0)
   const [shown, setShown] = useState(false)
+  // Which face of the card is up: once the answer is shown you may turn
+  // back to the question and over again, and the grades stay out.
+  const [over, setOver] = useState(false)
   // Explain it back: your own words first, then the answer beside them.
   const [said, setSaid] = useState('')
   const started = useRef(Date.now())
@@ -76,6 +79,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   const asked = card ? masked(card.prompt ?? '', answer) : ''
 
   const reveal = (): void => {
+    setOver(true)
     if (shown) return
     chime('reveal')
     setShown(true)
@@ -103,10 +107,17 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
       void vigil.source(card.id).then((found) => found && setMissed({ ...found, needles }))
     }
     setShown(false)
+    setOver(false)
     setSaid('')
     setCameBack(false)
     setAt((index) => index + 1)
     started.current = Date.now()
+  }
+  // The card turned by a click or a drag: the first time over is the reveal.
+  const turnTo = (next: boolean): void => {
+    if (next && !shown) return reveal()
+    chime('page')
+    setOver(next)
   }
   // Bury: not today. The schedule is untouched; it is back tomorrow.
   const bury = (): void => {
@@ -114,6 +125,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     setMissed(null)
     void vigil.bury(card.id).then(() => (chime('later'), toast('Buried until tomorrow')))
     setShown(false)
+    setOver(false)
     setSaid('')
     setCameBack(false)
     setAt((index) => index + 1)
@@ -140,7 +152,8 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
       }
       if (event.key === ' ' && card) {
         event.preventDefault()
-        reveal()
+        if (shown && !over) turnTo(true)
+        else reveal()
       }
       if (['1', '2', '3', '4'].includes(event.key)) grade(Number(event.key) as 1 | 2 | 3 | 4)
       if (event.key === 'b') bury()
@@ -223,33 +236,64 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
             })()}
           </p>
         )}
-        {/* The question is editable in place: a card forgotten again and again
-            is usually asking the wrong thing, and this is where you notice. */}
-        <h2
-          key={`${card.id}-${rewrites}`}
-          contentEditable
-          suppressContentEditableWarning
-          // One line: Enter keeps it rather than starting a second.
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter') return
-            event.preventDefault()
-            event.currentTarget.blur()
-          }}
-          onFocus={() => setEditing(true)}
-          onBlur={(event) => {
-            const prompt = event.currentTarget.textContent?.trim()
-            // Drawn afresh, so what you typed never sits under React's own text.
-            setEditing(false)
-            setRewrites((n) => n + 1)
-            if (!prompt || prompt === card.prompt) return
-            // The card in the queue too, so an Again brings back the new words.
-            card.prompt = prompt
-            void vigil.saveItem(card.id, { prompt }).then(() => (chime('noted'), toast('Question rewritten')))
-          }}
-          className="rounded-md font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        >
-          {editing ? card.prompt : asked}
-        </h2>
+        {/* The question on the card's face, the answer on its back. */}
+        <Flip
+          over={over}
+          onTurn={turnTo}
+          front={
+            <div className="h-full rounded-lg border bg-accent/30 px-5 py-6">
+              {/* The question is editable in place: a card forgotten again and again
+                  is usually asking the wrong thing, and this is where you notice. */}
+              <h2
+                key={`${card.id}-${rewrites}`}
+                contentEditable
+                suppressContentEditableWarning
+                // One line: Enter keeps it rather than starting a second.
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter') return
+                  event.preventDefault()
+                  event.currentTarget.blur()
+                }}
+                onFocus={() => setEditing(true)}
+                onBlur={(event) => {
+                  const prompt = event.currentTarget.textContent?.trim()
+                  // Drawn afresh, so what you typed never sits under React's own text.
+                  setEditing(false)
+                  setRewrites((n) => n + 1)
+                  if (!prompt || prompt === card.prompt) return
+                  // The card in the queue too, so an Again brings back the new words.
+                  card.prompt = prompt
+                  void vigil.saveItem(card.id, { prompt }).then(() => (chime('noted'), toast('Question rewritten')))
+                }}
+                className="rounded-md font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                {editing ? card.prompt : asked}
+              </h2>
+            </div>
+          }
+          back={shown && (
+            // Waiting on your grade: a faint beam goes round the answer.
+            // On a light page the library draws it at a few percent, and it was
+            // lost: there its stroke is drawn stronger, to a soft graphite arc.
+            <BorderBeam size="md" colorVariant="mono" strength={0.5} style={surface === 'light' ? ({ '--beam-stroke-opacity': 12 } as React.CSSProperties) : undefined} duration={5} theme={surface} active={alive && over} borderRadius={8} className="h-full">
+              {/* The answer sits at the box's edge, not in a page's wide margins. */}
+              <div className="h-full rounded-lg border bg-accent/30 [--mf-padding:0.625rem_1rem_0.625rem_1.25rem] [&_.tiptap-word-count]:hidden">
+                {/* What it answers, small at the top: the question is on the other side now. */}
+                <p className="px-5 pt-3 text-xs text-muted-foreground">{asked}</p>
+                <MindflowEditor
+                  defaultContent={(card.body as JSONContent | string | null) ?? ''}
+                  readOnly
+                  toolbar={false}
+                  handles={false}
+                  slash={false}
+                  outline={false}
+                  search={false}
+                  autofocus={false}
+                />
+              </div>
+            </BorderBeam>
+          )}
+        />
         {card.lapses >= 4 && (
           <p className="-mt-3 text-sm text-[var(--tt-color-text-orange)]">
             <Typed text={`Forgotten ${card.lapses} times. Rewrite the question above rather than drilling it: click it to edit.`} step={28} delay={300} />
@@ -266,31 +310,6 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
                 }>Keep as a gloss</Button>
               </div>
             )}
-            {/* Waiting on your grade: a faint beam goes round the answer. */}
-            {/* On a light page the library draws it at a few percent, and it was
-                lost: there its stroke is drawn stronger, to a soft graphite arc. */}
-            <BorderBeam size="md" colorVariant="mono" strength={0.5} style={surface === 'light' ? ({ '--beam-stroke-opacity': 12 } as React.CSSProperties) : undefined} duration={5} theme={surface} active={alive} borderRadius={8}>
-            {/* Space shows it on every card: a quick fade out of a slight blur,
-                nothing that travels, so reading starts at once. */}
-            <motion.div
-              initial={{ opacity: 0, filter: 'blur(2px)' }}
-              animate={{ opacity: 1, filter: 'blur(0px)' }}
-              transition={{ duration: 0.16, ease: EASE }}
-              // The answer sits at the box's edge, not in a page's wide margins.
-              className="rounded-lg border bg-accent/30 [--mf-padding:0.625rem_1rem_0.625rem_1.25rem] [&_.tiptap-word-count]:hidden"
-            >
-              <MindflowEditor
-                defaultContent={(card.body as JSONContent | string | null) ?? ''}
-                readOnly
-                toolbar={false}
-                handles={false}
-                slash={false}
-                outline={false}
-                search={false}
-                autofocus={false}
-              />
-            </motion.div>
-            </BorderBeam>
             {/* Context: what makes the answer learnable, shown only after it, or
                 it would give the prompt away. */}
             {card.context && <p className="-mt-2 text-sm leading-relaxed whitespace-pre-line text-muted-foreground">{card.context}</p>}
@@ -563,6 +582,102 @@ export function ReviewHistory({ id }: { id: string }): React.JSX.Element | null 
           </p>
         )
       })}
+    </div>
+  )
+}
+
+const still = (): boolean =>
+  document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+// Which face a turn shows: an odd half turn is the back.
+const backOf = (deg: number): boolean => Math.abs(Math.round(deg / 180)) % 2 === 1
+const snap = (deg: number): number => Math.round(deg / 180) * 180
+
+/**
+ * A card with the question on its face and the answer on its back. Space or
+ * a click turns it over; so does a quick drag sideways, which carries its
+ * speed into the settle, the way a card flicked over keeps going. Short, so
+ * it never holds up a grade: the next card does not wait for it to land.
+ * With Motion off or Reduce motion it does not turn, one face simply gives
+ * way to the other.
+ */
+function Flip({ over, onTurn, front, back }: { over: boolean; onTurn: (over: boolean) => void; front: React.ReactNode; back: React.ReactNode }): React.JSX.Element {
+  const turn = useMotionValue(over ? 180 : 0)
+  // Where the turn is headed, which is not where it is while it is moving.
+  const aim = useRef(over ? 180 : 0)
+  const spin = useRef<AnimationPlaybackControls | null>(null)
+  const grip = useRef<{ x: number; base: number; moved: boolean; width: number; trail: { t: number; deg: number }[] } | null>(null)
+  const flat = still()
+  const settle = (to: number, velocity = 0): void => {
+    aim.current = to
+    spin.current?.stop()
+    spin.current = animate(turn, to, flat ? { duration: 0 } : { type: 'spring', visualDuration: 0.34, bounce: 0.15, velocity })
+  }
+  // Turned from outside (Space, the button): on over the way it was going.
+  useEffect(() => {
+    if (backOf(aim.current) !== over) settle(aim.current + 180)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [over])
+  // What a press on the card leaves alone: the question being edited, a link,
+  // a button, words being picked out to copy.
+  const own = (target: EventTarget): boolean => !!(target as HTMLElement).closest('a, button, input, textarea, [contenteditable="true"]')
+  const face = (shown: boolean): React.HTMLAttributes<HTMLDivElement> => ({
+    'aria-hidden': !shown,
+    inert: !shown,
+    className: `[grid-area:1/1] ${flat ? 'transition-opacity duration-150 starting:opacity-0' : '[backface-visibility:hidden]'} ${flat && !shown ? 'opacity-0' : ''}`
+  })
+  return (
+    <div
+      className="grid cursor-pointer [perspective:1400px]"
+      onPointerDown={(event) => {
+        if (event.button !== 0 || own(event.target)) return
+        grip.current = { x: event.clientX, base: aim.current, moved: false, width: event.currentTarget.offsetWidth, trail: [] }
+      }}
+      onPointerMove={(event) => {
+        const held = grip.current
+        if (!held || flat) return
+        const dx = event.clientX - held.x
+        if (!held.moved) {
+          if (Math.abs(dx) < 6) return
+          // A drag, not a selection: the card has the pointer from here.
+          held.moved = true
+          // Caught mid-turn, it carries on from where your finger found it.
+          spin.current?.stop()
+          held.base = turn.get()
+          held.x = event.clientX
+          event.currentTarget.setPointerCapture(event.pointerId)
+          getSelection()?.removeAllRanges()
+        }
+        const deg = held.base + ((event.clientX - held.x) / held.width) * 180
+        turn.set(deg)
+        held.trail = [...held.trail.filter((one) => event.timeStamp - one.t < 90), { t: event.timeStamp, deg }]
+      }}
+      onPointerUp={(event) => {
+        const held = grip.current
+        grip.current = null
+        if (!held) return
+        if (!held.moved) {
+          // A click, unless it picked out words to copy.
+          if (getSelection()?.isCollapsed !== false) onTurn(!over)
+          return
+        }
+        const [first, last] = [held.trail[0], held.trail[held.trail.length - 1]]
+        // Held still before letting go, it is not a flick.
+        const velocity = first && last && last.t > first.t && event.timeStamp - last.t < 60 ? ((last.deg - first.deg) / (last.t - first.t)) * 1000 : 0
+        const here = turn.get()
+        // A flick goes over even when let go short of half way.
+        const to = Math.min(snap(here) + 180, Math.max(snap(here) - 180, snap(here + velocity * 0.16)))
+        settle(to, velocity)
+        if (backOf(to) !== over) onTurn(backOf(to))
+      }}
+      onPointerCancel={() => {
+        if (grip.current?.moved) settle(snap(grip.current.base))
+        grip.current = null
+      }}
+    >
+      <motion.div className="grid [transform-style:preserve-3d] [grid-area:1/1]" style={flat ? undefined : { rotateY: turn }}>
+        <div {...face(!over)}>{front}</div>
+        <div {...face(over)} style={flat ? undefined : { transform: 'rotateY(180deg)' }}>{back}</div>
+      </motion.div>
     </div>
   )
 }
