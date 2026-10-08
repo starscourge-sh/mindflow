@@ -450,8 +450,9 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
         {top && <div className="-mt-3 mb-1 flex px-3 @[40rem]/page:px-[4.25rem]">{top}</div>}
         {/* Pushed back three times: the plan's question, once, without a verdict. */}
         {task.reschedules >= 3 && task.status === 'open' && (
-          <div className="page-narrow mx-auto mb-3 flex w-full items-center gap-2 px-12 text-sm text-muted-foreground">
-            <span className="mr-auto">Moved {task.reschedules} times. Smaller, or let it go?</span>
+          <div className="page-narrow mx-auto mb-3 flex w-full flex-wrap items-center gap-x-1 gap-y-1 px-12 text-sm text-muted-foreground">
+            {/* The question keeps its line; the answers sit after it, or wrap below when there is no room. */}
+            <span className="mr-auto min-w-[14rem] flex-1 whitespace-nowrap">Moved {task.reschedules} times. Smaller, or let it go?</span>
             <Button variant="ghost" size="sm" onClick={() => {
               void vigil.saveTask(task.id, { reschedules: 0 })
               title.current?.select()
