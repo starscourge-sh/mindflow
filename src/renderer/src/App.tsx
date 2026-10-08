@@ -1557,25 +1557,12 @@ const CapturePrompt = ({
   onOpenNote: (id: string, heading?: string) => void
 }): React.JSX.Element => {
   useEscapeToHide()
-  // The sheet hovers, barely, while you are not typing: a breath of lift and
-  // shadow every few seconds, so the box feels alive and not pasted on. Still
-  // the moment a key is pressed, and for a couple of seconds after.
-  useEffect(() => {
-    let quiet: ReturnType<typeof setTimeout> | undefined
-    const typing = (): void => {
-      document.documentElement.dataset.typing = ''
-      clearTimeout(quiet)
-      quiet = setTimeout(() => delete document.documentElement.dataset.typing, 2500)
-    }
-    window.addEventListener('keydown', typing, true)
-    return () => (window.removeEventListener('keydown', typing, true), clearTimeout(quiet))
-  }, [])
 
 
   return (
     // mf-faded: the note fades out at its top and bottom edges as it scrolls,
     // the way Raycast Notes reads, instead of being cut by a hard line.
-    <div className="mf-faded relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-b-3xl border-b shadow-xl"
+    <div className="mf-faded relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-b-3xl border-b shadow-[0_6px_14px_-8px_color-mix(in_oklab,var(--mf-shadow-ink,black)_22%,transparent)]"
       style={{ transform: 'translate(0,0)' }}>
 
       {/* The same, spelled out. See `docs/components.md` for what each one

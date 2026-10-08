@@ -1214,16 +1214,6 @@ input[type='number']::-webkit-outer-spin-button {
   .pb-core::after { animation: none; }
 }
 
-/* The box's sheet, hovering: a two-pixel rise and a deeper shadow, slowly.
-   Paused while typing, still with Motion off or Reduce motion. */
-.mf-levitate { animation: mf-levitate 5.5s ease-in-out infinite; }
-@keyframes mf-levitate {
-  0%, 100% { translate: 0 0; box-shadow: 0 14px 22px -8px rgb(0 0 0 / 0.22), 0 4px 8px -4px rgb(0 0 0 / 0.18); }
-  50% { translate: 0 -5px; box-shadow: 0 30px 40px -10px rgb(0 0 0 / 0.38), 0 14px 18px -8px rgb(0 0 0 / 0.22); }
-}
-:root[data-typing] .mf-levitate { animation-play-state: paused; }
-:root[data-motion='off'] .mf-levitate { animation: none; }
-@media (prefers-reduced-motion: reduce) { .mf-levitate { animation: none; } }
 
 /* Tape (vigil/tape.tsx): a matte strip, torn at its ends, with a fine grain
    and a glint that crosses it every so often. Still with Motion off. */
