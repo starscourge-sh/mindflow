@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { AnimatePresence, animate, motion, useMotionValue } from 'motion/react'
 import { forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY, type SimulationLinkDatum, type SimulationNodeDatum } from 'd3-force'
 import { CalendarDays } from 'lucide-react'
@@ -133,11 +133,10 @@ const DATE_PILL = 'flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs whit
  */
 export function Stage({ box }: { box: Box }): React.JSX.Element {
   const lines = box.text.split('\n')
-  const tint = box.item ? typeOf(box.item).tint : 'var(--primary)'
   const lift = { layout: true, transition: { ...spring.moderate, duration: 0.32 } } as const
   return (
     <motion.div layoutId="reel-box" transition={CAM} inert aria-hidden
-      className="relative w-[min(40rem,100%)] shrink-0 overflow-hidden rounded-[14px] border border-foreground/10 bg-popover text-popover-foreground"
+      className="relative w-full overflow-hidden rounded-[14px] border border-foreground/10 bg-popover text-popover-foreground"
       style={{ boxShadow: 'var(--mf-panel-shadow), inset 0 1px 0 rgb(255 255 255 / 0.06)' }}>
       <div className="relative min-h-[5.75rem] px-7 pt-6 pb-2 text-foreground" style={EDITOR_FONT}>
         <AnimatePresence initial={false}>
@@ -157,12 +156,7 @@ export function Stage({ box }: { box: Box }): React.JSX.Element {
             </motion.div>
           )}
         </AnimatePresence>
-        {!box.text && !box.fold && <p className="leading-[1.6] text-muted-foreground/70"><span className="mf-ghost-caret -ml-px mr-px" />Type / for commands…</p>}
-        {/* Folded: the line is a square in its kind's colour, about to fly to its slot. */}
-        {box.fold && box.item && (
-          <motion.div layoutId={`reel-item-${box.item}`} transition={CAM} className="mt-1 size-[26px]" style={{ background: tint, borderRadius: 7 }}
-            initial={{ opacity: 0, scaleX: 3, scaleY: 0.6 }} animate={{ opacity: 1, scaleX: 1, scaleY: 1 }} />
-        )}
+        {!box.text && <p className="leading-[1.6]"><span className="mf-ghost-caret -ml-px" /></p>}
       </div>
       {/* Under the writing: only what Vigil read, once it has read it. */}
       <div className="flex min-h-[2.6rem] flex-wrap items-center gap-1.5 px-7 py-2">
@@ -224,12 +218,82 @@ export function Slots({ filled }: { filled: Kind[] }): React.JSX.Element {
   return (
     <div className="flex flex-wrap items-center justify-center gap-2">
       {KINDS.map((kind) => (
-        <div key={kind} className={`flex h-9 min-w-[9.5rem] items-center justify-center rounded-full border border-dashed transition-colors duration-300 ${filled.includes(kind) ? 'border-transparent' : 'border-foreground/20'}`}>
-          {filled.includes(kind) && <Chip kind={kind} />}
+        <div key={kind} data-slot={kind} className={`flex h-9 min-w-[9.5rem] items-center justify-center rounded-full border border-dashed transition-colors duration-300 ${filled.includes(kind) ? 'border-transparent' : 'border-foreground/20'}`}>
+          {filled.includes(kind) && (
+            <motion.span initial={{ scale: 0.85 }} animate={{ scale: 1 }} transition={{ type: 'spring', duration: 0.35, bounce: 0.3 }}><Chip kind={kind} /></motion.span>
+          )}
         </div>
       ))}
       <span className="ml-2 min-w-[8.5rem] text-[0.875rem] text-(--mf-wl-quiet) tabular-nums"><Rolling text={said} by="word" /></span>
     </div>
+  )
+}
+
+// --- the camera -----------------------------------------------------------------
+
+/** Where the camera looks: how close (`k`), and how far the world is moved under it, in px. */
+export type Shot = { k: number; x: number; y: number }
+export const WIDE: Shot = { k: 1, x: 0, y: 0 }
+
+/**
+ * The world a chapter is set in, framed by one camera: pushed in, followed,
+ * pulled back, all on one slow spring, by transform alone. The chapters move
+ * it only when no shared-element morph is under way inside it. With
+ * Reduce motion or Motion off (MotionConfig), the camera cuts and only fades.
+ */
+export function Camera({ shot, children, className = '' }: { shot: Shot; children: ReactNode; className?: string }): React.JSX.Element {
+  return (
+    <motion.div className={`origin-center will-change-transform ${className}`} initial={false} animate={{ scale: shot.k, x: shot.x, y: shot.y }}
+      transition={{ type: 'spring', duration: 1.1, bounce: 0 }}>
+      {children}
+    </motion.div>
+  )
+}
+
+/**
+ * A shot that frames `[data-frame=…]` inside `world` at `k`: worked out from
+ * where it sits with the camera wide, so it is right whatever the camera does now.
+ */
+export function frameOn(world: HTMLElement | null, name: string | null, k: number): Shot {
+  const el = name ? world?.querySelector<HTMLElement>(`[data-frame="${CSS.escape(name)}"]`) : null
+  if (!world || !el || k === 1) return WIDE
+  let [x, y] = [el.offsetWidth / 2, el.offsetHeight / 2]
+  // Summed up to the world, which is positioned so that it is every offset's parent in the end.
+  for (let at: HTMLElement | null = el; at && at !== world; at = at.offsetParent as HTMLElement | null) {
+    x += at.offsetLeft
+    y += at.offsetTop
+  }
+  return { k, x: (world.offsetWidth / 2 - x) * k, y: (world.offsetHeight / 2 - y) * k }
+}
+
+/**
+ * A sent line, folded to a square at the Create button, flying on one arc
+ * into its slot, a square in its kind's colour slowing as it lands.
+ * Measured on screen, so the camera may be anywhere.
+ */
+export function Flight({ kind, root, onLand }: { kind: Kind; root: RefObject<HTMLElement | null>; onLand: () => void }): React.JSX.Element | null {
+  const x = useMotionValue(0)
+  const y = useMotionValue(0)
+  const [go, setGo] = useState(false)
+  useLayoutEffect(() => {
+    const frame = root.current?.getBoundingClientRect()
+    const from = root.current?.querySelector('[data-ghost="create"]')?.getBoundingClientRect()
+    const to = root.current?.querySelector(`[data-slot="${kind}"]`)?.getBoundingClientRect()
+    if (!frame || !from || !to) return onLand()
+    const [fx, fy] = [from.left - frame.left + from.width / 2, from.top - frame.top + from.height / 2]
+    const [tx, ty] = [to.left - frame.left + to.width / 2, to.top - frame.top + to.height / 2]
+    x.jump(fx)
+    y.jump(fy)
+    setGo(true)
+    const arc = { duration: 0.46, ease: DRAWER, times: [0, 0.45, 1] }
+    const runs = [animate(x, [fx, fx + (tx - fx) * 0.45, tx], arc), animate(y, [fy, Math.min(fy, ty) - 70, ty], arc)]
+    void runs[0].then(onLand)
+    return () => runs.forEach((run) => run.stop())
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  if (!go) return null
+  return (
+    <motion.span aria-hidden className="pointer-events-none absolute top-0 left-0 z-30 -mt-[13px] -ml-[13px] size-[26px] rounded-[7px] shadow-[0_4px_12px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]"
+      style={{ x, y, background: typeOf(kind).tint }} initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: [0.4, 1, 0.8], opacity: 1 }} transition={{ duration: 0.46, ease: DRAWER }} />
   )
 }
 
@@ -297,10 +361,10 @@ export function TaskResult({ line, id = 'reel-item-todo' }: { line: string; id?:
 }
 
 /** A quote, as it comes back a year from today: a postcard, signed, set down a little askew. */
-export function PostcardResult({ words, who, where, signed, id = 'reel-item-quote' }: { words: string; who: string; where?: string; signed: boolean; id?: string }): React.JSX.Element {
+export function PostcardResult({ words, who, where, signed, id = 'reel-item-quote', themed = false }: { words: string; who: string; where?: string; signed: boolean; id?: string; /** Its white print frame in the page's own colours, to wear the theme with it. */ themed?: boolean }): React.JSX.Element {
   return (
     <motion.div layoutId={id} transition={CAM} style={{ borderRadius: 12 }} className="w-full" initial={{ filter: 'blur(4px)' }} animate={{ filter: 'blur(0px)' }}>
-      <div className="[&>div]:shadow-[0_2px_3px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_22px_44px_-16px_color-mix(in_oklab,var(--mf-shadow-ink)_42%,transparent)] dark:[&>div]:bg-[color-mix(in_oklab,white_88%,var(--background))]"
+      <div className={`[&>div]:shadow-[0_2px_3px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_22px_44px_-16px_color-mix(in_oklab,var(--mf-shadow-ink)_42%,transparent)] ${themed ? '[&>div]:!bg-[color-mix(in_oklab,var(--foreground)_10%,var(--background))]' : 'dark:[&>div]:bg-[color-mix(in_oklab,white_88%,var(--background))]'}`}
         >
         <MemoryPostcard at={new Date().toISOString()} seed="welcome-quote">
           <p className="text-meta text-(--mf-wl-quiet)">Kept a year ago today</p>
@@ -340,21 +404,21 @@ type Edge = SimulationLinkDatum<Dot>
  */
 const NODES: [string, string, string][] = [
   ['todo', 'Call Sam tomorrow 6pm', 'todo'], ['quote', 'Waste no more time arguing…', 'quote'], ['word', 'sonder', 'word'],
-  ['note', 'Rereading Meditations on the train', 'note'], ['meditations', 'Meditations', 'book'],
+  ['note', 'Rereading this today', 'note'], ['meditations', 'Meditations', 'book'],
   ['stoics', 'Notes on the Stoics', 'note'], ['kinder', 'Be kinder to strangers', 'note'], ['sorrows', 'The Dictionary of Obscure Sorrows', 'book'],
   ['lisbon', 'Lisbon with Sam in May', 'note'], ['birthday', 'Ideas for Sam’s birthday', 'note'], ['walk', 'What the long walk was about', 'note'],
   ['seneca', 'We suffer more in imagination than in reality.', 'quote'], ['letters', 'Letters from a Stoic', 'book'], ['mono', 'monachopsis', 'word'],
   ['flights', 'Book the Lisbon flights', 'todo'], ['cook', 'Cooking for friends', 'note'], ['read', 'How to read a book', 'link'], ['hiraeth', 'hiraeth', 'word']
 ]
-/** The links made in the scene itself: the note to the book, and the book the quote is from. */
-const MADE: [string, string][] = [['note', 'meditations'], ['meditations', 'quote']]
+/** The link made in the scene itself: the note written beside the quote, to it. */
+const MADE: [string, string][] = [['note', 'quote']]
 const EDGES: [string, string][] = [
-  ...MADE, ['quote', 'stoics'], ['quote', 'kinder'], ['word', 'sorrows'], ['word', 'kinder'], ['mono', 'sorrows'], ['hiraeth', 'sorrows'],
+  ...MADE, ['quote', 'meditations'], ['note', 'meditations'], ['quote', 'stoics'], ['quote', 'kinder'], ['word', 'sorrows'], ['word', 'kinder'], ['mono', 'sorrows'], ['hiraeth', 'sorrows'],
   ['todo', 'birthday'], ['todo', 'lisbon'], ['lisbon', 'flights'], ['seneca', 'letters'], ['seneca', 'stoics'], ['letters', 'stoics'], ['meditations', 'stoics'],
   ['walk', 'kinder'], ['walk', 'stoics'], ['cook', 'birthday'], ['read', 'walk']
 ]
 /** What the scene draws itself, not the example around it. */
-const OURS = new Set(['todo', 'quote', 'word', 'note', 'meditations'])
+const OURS = new Set(['todo', 'quote', 'word', 'note'])
 /** Bigger the more links touch it, as on the notes map. */
 const radius = (links: number): number => Math.min(9, 3 + Math.sqrt(links) * 1.6)
 
@@ -373,11 +437,15 @@ function layout(): { dots: Dot[]; edges: [Dot, Dot][] } {
     .force('y', forceY<Dot>(0).strength(0.12))
     .stop()
     .tick(300)
+  // The note is written right beside the quote it links to: the pair is the shot.
+  const [quote, note] = [byId.get('quote')!, byId.get('note')!]
+  note.x = quote.x! - 34
+  note.y = quote.y! + 4
   laid = { dots, edges: EDGES.map(([a, b]) => [byId.get(a)!, byId.get(b)!]) }
   return laid
 }
 
-export type MapShot = { dots: boolean; note: string; suggest: boolean; linked: boolean; pulled: boolean; lit: string | null }
+export type MapShot = { dots: boolean; note: string; suggest: boolean; linked: boolean; folded: boolean; pulled: boolean; lit: string | null }
 
 /**
  * A link being made, then the map it joins. Close in, the quote is a dot;
@@ -411,13 +479,16 @@ export function LinkScene({ shot, quiet, onLight }: { shot: MapShot; quiet: bool
   const xs = dots.map((dot) => dot.x!), ys = dots.map((dot) => dot.y!)
   const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]
   const fit = { k: Math.min(2.4, (size.w - 160) / (x1 - x0 || 1), (size.h - 70) / (y1 - y0 || 1)), x: (x0 + x1) / 2, y: (y0 + y1) / 2 }
-  const close = ['quote', 'meditations', 'note'].map((id) => byId.get(id)!)
-  const near = { k: fit.k * 2.1, x: close.reduce((sum, dot) => sum + dot.x!, 0) / 3, y: close.reduce((sum, dot) => sum + dot.y!, 0) / 3 }
+  // Close in, the pair fills the middle of the frame: the note being written, and the quote.
+  const [quote, noteDot] = [byId.get('quote')!, byId.get('note')!]
+  // Composed as one line across the middle: the note card, its dot, the link, the quote's dot, its name.
+  const nk = Math.max(fit.k * 1.3, 2)
+  const near = { k: nk, x: (noteDot.x! - 290 / nk + quote.x! + 230 / nk) / 2, y: quote.y! }
   const view = { k: near.k + (fit.k - near.k) * t, x: near.x + (fit.x - near.x) * t, y: near.y + (fit.y - near.y) * t }
   const px = (dot: Dot): [number, number] => [size.w / 2 + (dot.x! - view.x) * view.k, size.h / 2 + (dot.y! - view.y) * view.k]
   // The example draws in a ring at a time, by how far each dot is from the three.
   const ring = (dot: Dot): number => (quiet ? 0 : Math.min(0.9, Math.hypot(dot.x! - near.x, dot.y! - near.y) / 180))
-  const shown = (id: string): boolean => (id === 'note' || id === 'meditations' ? shot.linked : OURS.has(id) ? shot.dots : shot.pulled)
+  const shown = (id: string): boolean => (id === 'note' ? shot.folded : id === 'quote' ? shot.dots : shot.pulled)
   const lit = shot.lit
   const around = lit ? new Set(EDGES.filter((edge) => edge.includes(lit)).flat()) : null
   const on = (id: string): boolean => !around || around.has(id)
@@ -436,7 +507,7 @@ export function LinkScene({ shot, quiet, onLight }: { shot: MapShot; quiet: bool
               const visible = ours ? shot.linked : shot.pulled && shown(a.id) && shown(b.id)
               return <motion.path key={`${a.id}-${b.id}`} d={`M${ax} ${ay}L${bx} ${by}`} stroke="var(--foreground)" strokeWidth={ours || bright ? 1.5 : 1} fill="none"
                 initial={{ pathLength: 0, opacity: 0 }} animate={{ pathLength: visible ? 1 : 0, opacity: !visible ? 0 : bright ? 0.6 : lit ? 0.06 : ours ? 0.55 : 0.2 }}
-                transition={{ duration: quiet ? 0 : ours ? 0.36 : 0.45, ease: EASE, delay: ours ? (b.id === 'quote' || a.id === 'quote' ? 0.3 : 0.1) : lit ? 0 : ring(a) + 0.15 }} />
+                transition={{ duration: quiet ? 0 : ours ? 0.4 : 0.45, ease: EASE, delay: ours || lit ? 0 : ring(a) + 0.15 }} />
             })}
             {dots.map((dot) => {
               const [x, y] = px(dot)
@@ -449,10 +520,10 @@ export function LinkScene({ shot, quiet, onLight }: { shot: MapShot; quiet: bool
             })}
           </svg>
           {/* Our dots name themselves while the camera is close; once it pulls back, only the lit ones do. */}
-          {dots.filter((dot) => shown(dot.id) && ((!lit && OURS.has(dot.id) && t < 0.5) || (!!lit && around!.has(dot.id) && dot.id !== lit))).map((dot) => {
+          {dots.filter((dot) => shown(dot.id) && ((!lit && (dot.id === 'quote' || dot.id === 'note')) || (!!lit && around!.has(dot.id) && dot.id !== lit))).map((dot) => {
             const [x, y] = px(dot)
             const r = radius(dot.links) + 6
-            const left = litDot ? x < px(litDot)[0] : dot.id === 'note'
+            const left = litDot ? x <= px(litDot)[0] : dot.id === 'note'
             return (
               <motion.span key={dot.id} className="pointer-events-none absolute -translate-y-1/2 text-[0.75rem] font-medium whitespace-nowrap text-foreground [paint-order:stroke] [-webkit-text-stroke:3px_var(--background)]"
                 style={left ? { right: size.w - x + r, top: y } : { left: x + r, top: y }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={spring.fast}>
@@ -462,17 +533,23 @@ export function LinkScene({ shot, quiet, onLight }: { shot: MapShot; quiet: bool
           })}
           {/* The note being written beside the quote, until its link is made. */}
           <AnimatePresence>
-            {shot.dots && !shot.linked && (
+            {shot.dots && !shot.folded && (
               <NoteBeing key="note" at={px(note)} text={shot.note} suggest={shot.suggest} quiet={quiet} />
             )}
           </AnimatePresence>
-          {litDot && <MapCard dot={litDot} at={px(litDot)} links={around!.size - 1} frame={size} blocked={dots.filter((dot) => around!.has(dot.id)).flatMap((dot) => {
+          {litDot && <MapCard dot={litDot} at={px(litDot)} links={around!.size - 1} frame={size} blocked={[...dots.filter((dot) => shown(dot.id) && !around!.has(dot.id)).map((dot) => {
+            const [x, y] = px(dot)
+            return [x - 8, y - 8, x + 8, y + 8]
+          }), ...dots.filter((dot) => around!.has(dot.id)).flatMap((dot) => {
             const [x, y] = px(dot)
             const r = radius(dot.links) + 6
             const words = dot.id === lit ? 0 : Math.min(30, dot.title.length) * 6.8
             const left = x < px(litDot)[0]
-            return [[x - r, y - r, x + r, y + r], left ? [x - r - words, y - 9, x - r, y + 9] : [x + r, y - 9, x + r + words, y + 9]]
-          })} />}
+            const [lx, ly] = px(litDot)
+            // Its line to the lit dot, as a row of small boxes the card must not sit on.
+            const line = Array.from({ length: 8 }, (_, i) => [lx + ((x - lx) * (i + 0.5)) / 8 - 4, ly + ((y - ly) * (i + 0.5)) / 8 - 4, lx + ((x - lx) * (i + 0.5)) / 8 + 4, ly + ((y - ly) * (i + 0.5)) / 8 + 4])
+            return [[x - r, y - r, x + r, y + r], left ? [x - r - words, y - 9, x - r, y + 9] : [x + r, y - 9, x + r + words, y + 9], ...line]
+          })]} />}
           <motion.p className="absolute bottom-1 left-0 text-[0.8125rem] text-(--mf-wl-quiet)" initial={false} animate={{ opacity: shot.pulled ? 1 : 0 }} transition={{ duration: 0.3, delay: shot.pulled && !quiet ? 0.6 : 0 }}>
             Around them, an example of a year’s links
           </motion.p>
@@ -489,15 +566,18 @@ export function LinkScene({ shot, quiet, onLight }: { shot: MapShot; quiet: bool
  */
 function NoteBeing({ at, text, suggest, quiet }: { at: [number, number]; text: string; suggest: boolean; quiet: boolean }): React.JSX.Element {
   const asking = text.lastIndexOf('[[')
+  const quote = typeOf('quote')
+  const Quote = quote.icon
   const book = typeOf('book')
   const Book = book.icon
   return (
-    <motion.div className="absolute z-10 w-[17rem] origin-bottom-right" style={{ right: `calc(100% - ${at[0] - 6}px)`, bottom: `calc(100% - ${at[1] - 6}px)` }}
+    <motion.div className="absolute z-10 w-[17rem] origin-right -translate-y-1/2" style={{ right: `calc(100% - ${at[0] + 4}px)`, top: at[1] }}
       initial={quiet ? false : { opacity: 0, scale: 0.96, filter: 'blur(3px)' }} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
       exit={{ opacity: 0, scale: 0.05, transition: { duration: 0.3, ease: DRAWER } }} transition={{ duration: 0.3, ease: EASE }}>
       <div className="rounded-xl border border-foreground/10 bg-popover px-4 py-3 text-popover-foreground shadow-(--mf-panel-shadow)" style={EDITOR_FONT}>
         <p className="text-[0.95em] leading-[1.5]">
           {asking < 0 ? text : <>{text.slice(0, asking)}<span className="rounded-[0.2em] bg-primary/12 px-[0.1em] text-primary">{text.slice(asking)}</span></>}
+          {/* The link taken: its words as the editor shows a link to a note, reaching right to the dot. */}
           <span className="mf-ghost-caret" data-typing="" />
         </p>
       </div>
@@ -506,10 +586,10 @@ function NoteBeing({ at, text, suggest, quiet }: { at: [number, number]; text: s
           <motion.div className="absolute top-[calc(100%+6px)] left-3 w-60 rounded-lg border bg-popover p-1 text-popover-foreground shadow-(--mf-panel-shadow)"
             initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: spring.fast.exit }} transition={spring.fast}>
             <div className="flex items-center gap-2 rounded-md bg-accent px-2 py-1.5 text-[0.8125rem] text-foreground">
-              <Book className="size-3.5 shrink-0" style={{ color: book.tint }} /><span className="flex-1">Meditations</span><kbd className="font-sans text-key opacity-60">↵</kbd>
+              <Quote className="size-3.5 shrink-0" style={{ color: quote.tint }} /><span className="flex-1 truncate">Waste no more time arguing…</span><kbd className="font-sans text-key opacity-60">↵</kbd>
             </div>
             <div className="flex items-center gap-2 px-2 py-1.5 text-[0.8125rem] text-muted-foreground">
-              <Book className="size-3.5 shrink-0" style={{ color: book.tint }} /><span className="flex-1">Letters from a Stoic</span>
+              <Book className="size-3.5 shrink-0" style={{ color: book.tint }} /><span className="flex-1">Meditations</span>
             </div>
           </motion.div>
         )}
@@ -533,9 +613,10 @@ function MapCard({ dot, at, links, frame, blocked }: { dot: Dot; at: [number, nu
     if (!el) return
     const w = el.offsetWidth, h = el.offsetHeight, gap = 12 + radius(dot.links)
     const [x, y] = at
+    // Above and to the left first, as a hand pointing from below right leaves it clear.
     const spots = [
-      [x - w / 2, y - gap - h], [x - w / 2, y + gap], [x + gap, y - h / 2], [x - gap - w, y - h / 2],
-      [x + gap, y - gap - h], [x - gap - w, y - gap - h], [x + gap, y + gap], [x - gap - w, y + gap]
+      [x - gap - w, y - gap - h], [x - w / 2, y - gap - h], [x + gap, y - gap - h], [x - gap - w, y - h / 2],
+      [x + gap, y - h / 2], [x - gap - w, y + gap], [x - w / 2, y + gap], [x + gap, y + gap]
     ]
     const cost = ([sx, sy]: number[]): number => {
       let covered = 0

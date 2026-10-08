@@ -279,7 +279,7 @@ export function ThemeDial({ size = 200, big = false, calm = false, wear = (theme
       <div className="flex flex-col items-center">
         {big ? (
           // Large, the name passes whole, a soft crossfade: letters rolling at speed read as a flicker.
-          <span className="relative grid h-[1.3em] max-w-[20rem] place-items-center font-heading text-[clamp(1.125rem,min(2.2vw,3.2vh),1.625rem)] leading-[1.3] text-foreground">
+          <span className="relative grid h-[1.4em] max-w-[20rem] place-items-center text-[0.9375rem] leading-[1.4] font-medium text-foreground">
             <AnimatePresence initial={false}>
               <motion.span key={say ?? themes[at]} className="col-start-1 row-start-1 truncate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.16 }}>
                 {say ?? themeName(themes[at])}

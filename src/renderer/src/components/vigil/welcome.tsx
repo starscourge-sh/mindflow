@@ -3,7 +3,7 @@ import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { ArrowUp, Check, CornerDownLeft } from 'lucide-react'
 import { EASE, byKeys, hush, spring, speak } from '@/lib/motion'
 import { chime, click, fold } from '@/lib/sound'
-import { allThemes, applyTheme, currentTheme, type Theme } from '@/lib/theme'
+import { allThemes, applyTheme, currentTheme, isLight, type Theme } from '@/lib/theme'
 import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
 import { onboarding, type Onboarding } from '@/lib/onboarding'
 import { enterSandbox } from '@/lib/sandbox'
@@ -19,7 +19,7 @@ import { RecapRadar } from './recap-radar'
 import { Kbd, toast } from './ui'
 import { FULL_TURN, glyph, inClay, konami } from './welcome-eggs'
 import {
-  CAM, Chip, DRAWER, EMPTY_BOX, GhostHand, KINDS, LAND, LinkScene, PostcardResult, QUOTE, Rise, Slots, Stage, TaskResult, CardResult, WORD,
+  CAM, Camera, Chip, DRAWER, EMPTY_BOX, Flight, WIDE, frameOn, GhostHand, KINDS, LAND, LinkScene, PostcardResult, QUOTE, Rise, Slots, Stage, TaskResult, CardResult, WORD,
   cue, seeded, starterOf, typed, useScript, type Beat, type Box, type Kind, type MapShot
 } from './welcome-reel'
 
@@ -359,7 +359,10 @@ export function Welcome(): React.JSX.Element | null {
           <AnimatePresence initial={false}>
             <motion.section key={at}
               className="absolute inset-0 flex flex-col px-[clamp(1.5rem,5vw,4rem)] pt-2"
-              exit={{ opacity: 0, filter: 'blur(2px)', transition: spring.slow.exit }}
+              // One camera across the chapters: the last pushes on past, the next comes up out of the distance.
+              initial={play ? { opacity: 0, scale: 0.94, filter: 'blur(4px)' } : false} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+              transition={{ type: 'spring', duration: 0.9, bounce: 0 }}
+              exit={{ opacity: 0, scale: 1.06, filter: 'blur(4px)', transition: { duration: 0.35, ease: EASE } }}
               // A click on the picture while it plays: its end, as a key does.
               onPointerDown={(event) => void (event.isTrusted && !(event.target as HTMLElement).closest('button, a, [role="slider"]') && !reel.current.done && settled())}>
               {at === 0 && <Hello replay={replay} kept={kept} calm={!play} newcomer={newcomer} today={earlier + caught.length} />}
@@ -440,9 +443,10 @@ function Progress({ at, onBack }: { at: number; onBack: () => void }): React.JSX
  * the top (one element, moved on CAM) so the stage below has the room, and
  * the line under it fades in.
  */
-function Words({ title, docked, still, done, children }: { title: string; docked: boolean; still: boolean; done: boolean; children?: ReactNode }): React.JSX.Element {
+function Words({ title, docked, still, done, tight = false, children }: { title: string; docked: boolean; still: boolean; done: boolean; /** The camera is in close: the words step back to give it the frame. */ tight?: boolean; children?: ReactNode }): React.JSX.Element {
   return (
-    <div data-reel={done ? 'done' : 'playing'} className="relative z-10 flex max-w-[52rem] shrink-0 flex-col gap-[clamp(0.375rem,1.2vh,0.75rem)] pb-[clamp(0.5rem,2vh,1.25rem)]">
+    <motion.div data-reel={done ? 'done' : 'playing'} className="relative z-20 flex max-w-[52rem] shrink-0 origin-top-left flex-col gap-[clamp(0.375rem,1.2vh,0.75rem)] pb-[clamp(0.5rem,2vh,1.25rem)]"
+      initial={false} animate={{ opacity: tight ? 0.45 : 1 }} transition={{ duration: 0.6, ease: EASE }}>
       <motion.h1 layout="position" transition={CAM} className={docked ? DOCKED : `${HEADLINE_XL} max-w-[18ch] pt-[clamp(0rem,6vh,4rem)]`}>
         <Rise text={title} still={still} />
       </motion.h1>
@@ -453,7 +457,7 @@ function Words({ title, docked, still, done, children }: { title: string; docked
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   )
 }
 
@@ -464,7 +468,7 @@ function useReport(report: (now: Reel) => void, done: boolean, settle: () => voi
 
 // --- 1 Catch ------------------------------------------------------------------------
 
-type CatchState = { docked: boolean; keys: boolean; down: number[]; box: Box | null; filled: Kind[] }
+type CatchState = { docked: boolean; keys: boolean; down: number[]; box: Box | null; filled: Kind[]; flying: Kind | null; close: boolean }
 
 /**
  * Three things caught in about five seconds, with Vigil doing the sorting:
@@ -483,16 +487,17 @@ function catchBeats(): Beat<CatchState>[] {
     { at: 1500, to: { down: [] } },
     { at: 1650, to: { keys: false, box: EMPTY_BOX }, cue: cue('open') }
   ]
-  let t = 1950
+  let t = 2050
   const catchOne = (item: Kind, landed: Partial<Box>, sorted: Partial<Box>, filled: Kind[], sortCue: () => void): void => {
     const first = { ...EMPTY_BOX, item, ...landed }
     const then = { ...first, ...sorted }
-    beats.push({ at: t, to: { box: first }, cue: () => click('tick') })
-    beats.push({ at: t + 420, to: { box: then }, cue: sortCue })
-    beats.push({ at: t + 1000, to: { box: { ...then, press: true } }, cue: () => (click('tick'), chime('send')) })
-    beats.push({ at: t + 1090, to: { box: { ...then, fold: true } } })
-    beats.push({ at: t + 1330, to: { box: { ...EMPTY_BOX }, filled } })
-    t += 1650
+    beats.push({ at: t, to: { box: first, close: true }, cue: () => click('tick') })
+    beats.push({ at: t + 520, to: { box: then }, cue: sortCue })
+    beats.push({ at: t + 1150, to: { box: { ...then, press: true }, close: false }, cue: () => (click('tick'), chime('send')) })
+    beats.push({ at: t + 1240, to: { box: { ...then, fold: true }, flying: item } })
+    // The slot fills as the square lands (Flight), and for certain here, should the flight be cut short.
+    beats.push({ at: t + 1800, to: { box: { ...EMPTY_BOX }, filled, flying: null } })
+    t += 2050
   }
   catchOne('todo', { text: 'Call Sam', lit: 'tomorrow 6pm' }, { lit: null, date: day, kind: 'todo' }, ['todo'], () => (chime('tag'), setTimeout(() => chime('shift'), 80)))
   catchOne('quote', { text: QUOTE.text, tail: { who: QUOTE.who!, where: QUOTE.where! } }, { tail: null, who: QUOTE.who!, where: QUOTE.where!, kind: 'quote' }, ['todo', 'quote'], () => (chime('promote'), setTimeout(() => chime('shift'), 80)))
@@ -505,16 +510,21 @@ function catchBeats(): Beat<CatchState>[] {
 function CatchChapter({ play, report, state, onState }: { play: boolean; report: (now: Reel) => void; state: Onboarding | null; onState: (now: Onboarding) => void }): React.JSX.Element {
   useKeyChanges()
   const [beats] = useState(catchBeats)
-  const show = useScript<CatchState>({ docked: false, keys: false, down: [], box: null, filled: [] }, beats, play)
+  const show = useScript<CatchState>({ docked: false, keys: false, down: [], box: null, filled: [], flying: null, close: false }, beats, play)
   useReport(report, show.done, show.settle)
   const s = show.state
   const [choosing, setChoosing] = useState(false)
+  const scene = useRef<HTMLDivElement>(null)
+  const world = useRef<HTMLDivElement>(null)
+  // Landed early by the square in flight, before the beat that fills it for certain.
+  const [landed, setLanded] = useState<Kind[]>([])
+  const filled = [...new Set([...s.filled, ...landed])].filter((kind) => s.filled.includes(kind) || landed.includes(kind))
   const keys = keyFor('⌘.') || '⌘.'
   const caps = capsOf(keys)
   const down = new Set(s.down)
   return (
     <>
-      <Words title="Catch it before it goes." docked={s.docked} still={!play} done={show.done}>
+      <Words title="Catch it before it goes." docked={s.docked} still={!play} done={show.done} tight={s.close && !show.done}>
         {state?.boxTaken || choosing ? (
           <KeyPicker taken={!!state?.boxTaken} onState={onState} />
         ) : (
@@ -526,7 +536,9 @@ function CatchChapter({ play, report, state, onState }: { play: boolean; report:
           </>
         )}
       </Words>
-      <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-[clamp(0.75rem,3vh,1.75rem)] pb-2">
+      <div ref={scene} className="relative flex min-h-0 flex-1 flex-col pb-2">
+      <Camera shot={s.close && !show.done ? frameOn(world.current, 'box', 1.32) : WIDE} className="flex min-h-0 flex-1">
+      <div ref={world} className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-[clamp(0.75rem,3vh,1.75rem)]">
         {s.keys && (
           <motion.div layoutId="reel-box" transition={CAM} className="flex items-end gap-2" initial={play ? { opacity: 0, filter: 'blur(4px)' } : false} animate={{ opacity: 1, filter: 'blur(0px)' }}>
             {keys === '⌘.'
@@ -534,8 +546,11 @@ function CatchChapter({ play, report, state, onState }: { play: boolean; report:
               : caps.map((cap, i) => <Keycap key={`${cap}${i}`} label={glyph(cap, i === caps.length - 1)} down={down.has(i)} size={88} />)}
           </motion.div>
         )}
-        {s.box && <Stage box={s.box} />}
-        {(s.box || s.filled.length > 0) && <Slots filled={s.filled} />}
+        {s.box && <div data-frame="box" className="w-[min(40rem,100%)] shrink-0"><Stage box={s.box} /></div>}
+        {(s.box || filled.length > 0) && <Slots filled={filled} />}
+      </div>
+      </Camera>
+      {s.flying && play && <Flight key={s.flying} kind={s.flying} root={scene} onLand={() => (click('soft'), setLanded((was) => [...was, s.flying!]))} />}
       </div>
     </>
   )
@@ -543,21 +558,26 @@ function CatchChapter({ play, report, state, onState }: { play: boolean; report:
 
 // --- 2 Become -----------------------------------------------------------------------
 
-type BecomeState = { docked: boolean; cards: Kind[]; landed: boolean; signed: boolean; over: boolean; hand: string | null; down: boolean }
+type BecomeState = { docked: boolean; cards: Kind[]; landed: boolean; signed: boolean; over: boolean; hand: string | null; down: boolean; look: Kind | null }
 
 const BECOME_BEATS: Beat<BecomeState>[] = [
   { at: 0, to: {} },
-  { at: 1300, to: { docked: true }, cue: cue('slide') },
-  { at: 1900, to: { cards: ['todo'] }, cue: cue('noted') },
-  { at: 3200, to: { cards: ['todo', 'quote'] }, cue: cue('riffle') },
-  { at: 3800, to: { landed: true }, cue: () => (click('tick'), chime('memory')) },
-  { at: 4100, to: { signed: true } },
-  { at: 5400, to: { cards: ['todo', 'quote', 'word'] }, cue: cue('reveal') },
-  { at: 6300, to: { hand: 'card' } },
-  { at: 6950, to: { down: true }, cue: () => click('tick') },
-  { at: 7020, to: { down: false, over: true }, cue: () => fold() },
-  { at: 7900, to: { hand: null } },
-  { at: 8700, to: {} }
+  { at: 1100, to: { docked: true }, cue: cue('slide') },
+  { at: 1600, to: { cards: ['todo'] }, cue: cue('noted') },
+  { at: 2200, to: { look: 'todo' } },
+  { at: 3300, to: { look: null } },
+  { at: 3700, to: { cards: ['todo', 'quote'] }, cue: cue('riffle') },
+  { at: 4300, to: { look: 'quote' } },
+  { at: 4900, to: { landed: true }, cue: () => (click('tick'), chime('memory')) },
+  { at: 5200, to: { signed: true } },
+  { at: 6600, to: { look: null } },
+  { at: 7000, to: { cards: ['todo', 'quote', 'word'] }, cue: cue('reveal') },
+  { at: 7600, to: { look: 'word' } },
+  { at: 8100, to: { hand: 'card' } },
+  { at: 8750, to: { down: true }, cue: () => click('tick') },
+  { at: 8820, to: { down: false, over: true }, cue: () => fold() },
+  { at: 9800, to: { hand: null, look: null } },
+  { at: 10700, to: {} }
 ]
 
 /** What each kind does, in a line under it. */
@@ -581,7 +601,7 @@ function Results({ cards, landed, signed, over, onTurn, pick, onPick, kept, quie
         const card = cards.includes(kind)
         const chosen = pick === kind
         return (
-          <div key={kind} onClick={live ? () => onPick(kind) : undefined} data-ghost={kind === 'word' ? 'card' : undefined}
+          <div key={kind} data-frame={kind} onClick={live ? () => onPick(kind) : undefined} data-ghost={kind === 'word' ? 'card' : undefined}
             style={{ rotate: kind === 'quote' && landed ? '-2.5deg' : '0deg', transition: 'rotate 450ms cubic-bezier(0.34, 1.4, 0.64, 1)' }}
             className={`relative min-w-0 self-end rounded-2xl p-1.5 transition-[box-shadow,background-color] duration-200 ${live ? 'cursor-pointer hover:bg-foreground/[0.03]' : ''} ${chosen ? 'shadow-[0_0_0_2px_var(--primary)]' : 'shadow-[0_0_0_2px_transparent]'}`}>
             {!card ? (
@@ -618,7 +638,8 @@ function Results({ cards, landed, signed, over, onTurn, pick, onPick, kept, quie
 
 function BecomeChapter({ play, report, pick, onPick, turn, mine }: { play: boolean; report: (now: Reel) => void; pick: Kind; onPick: (kind: Kind) => void; turn: Turn; mine: CaptureMeta | null }): React.JSX.Element {
   useKeyChanges()
-  const show = useScript<BecomeState>({ docked: false, cards: [], landed: false, signed: false, over: false, hand: null, down: false }, BECOME_BEATS, play)
+  const show = useScript<BecomeState>({ docked: false, cards: [], landed: false, signed: false, over: false, hand: null, down: false, look: null }, BECOME_BEATS, play)
+  const world = useRef<HTMLDivElement>(null)
   useReport(report, show.done, show.settle)
   const s = show.state
   const scene = useRef<HTMLDivElement>(null)
@@ -634,13 +655,17 @@ function BecomeChapter({ play, report, pick, onPick, turn, mine }: { play: boole
   }
   return (
     <>
-      <Words title="Then it becomes something." docked={s.docked} still={!play} done={show.done}>
+      <Words title="Then it becomes something." docked={s.docked} still={!play} done={show.done} tight={!!s.look && !show.done}>
         Each kind goes where it will be of use to you. These three were only a show: nothing is kept until your turn.
       </Words>
       <div ref={scene} className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-[clamp(0.75rem,3vh,1.75rem)] pb-2">
+        <Camera shot={s.look && !show.done ? frameOn(world.current, s.look, 1.35) : WIDE} className="w-full max-w-[64rem]">
+        <div ref={world} className="relative w-full">
         <Results cards={s.cards} landed={s.landed} signed={s.signed} over={over ?? s.over} quiet={!play} captions={s.docked}
           onTurn={(to) => (show.done ? (chime('tap'), setOver(to)) : undefined)}
           pick={show.done ? pick : null} onPick={show.done ? onPick : undefined} kept={turn === 'kept'} />
+        </div>
+        </Camera>
         <AnimatePresence>
           {show.done && (
             <motion.div key="turn" className="flex items-center gap-[clamp(1rem,2.5vw,2rem)] pt-2" initial={{ opacity: 0, filter: 'blur(2px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, transition: spring.fast.exit }} transition={{ duration: 0.25, ease: EASE }}>
@@ -669,21 +694,22 @@ function connectBeats(): Beat<ConnectState>[] {
     { at: 1250, to: { cards: false }, cue: () => fold() },
     { at: 1550, to: { dots: true }, cue: cue('bead') }
   ]
-  const run = typed<ConnectState>('Rereading [[Medit', 1900, (sofar) => ({ note: sofar }), random, 0.8)
+  const run = typed<ConnectState>('Rereading this today [[Wast', 1900, (sofar) => ({ note: sofar }), random, 0.75)
   beats.push(...run.beats)
   beats.push({ at: run.end + 120, to: { suggest: true }, cue: cue('search') })
-  beats.push({ at: run.end + 820, to: { suggest: false, note: 'Rereading Meditations' }, cue: () => click('tick') })
-  beats.push({ at: run.end + 1150, to: { linked: true }, cue: cue('clue') })
-  beats.push({ at: run.end + 1900, to: { pulled: true }, cue: cue('zoomout') })
-  beats.push({ at: run.end + 3300, to: { hand: 'dot-quote' } })
-  beats.push({ at: run.end + 3850, to: { lit: 'quote' }, cue: cue('look') })
-  beats.push({ at: run.end + 4700, to: { hand: null } })
+  beats.push({ at: run.end + 800, to: { suggest: false, note: 'Rereading this today [[Waste no more time]]' }, cue: () => click('tick') })
+  beats.push({ at: run.end + 1050, to: { linked: true }, cue: cue('clue') })
+  beats.push({ at: run.end + 1700, to: { folded: true }, cue: () => fold() })
+  beats.push({ at: run.end + 2100, to: { pulled: true }, cue: cue('zoomout') })
+  beats.push({ at: run.end + 3600, to: { hand: 'dot-quote' } })
+  beats.push({ at: run.end + 4150, to: { lit: 'quote' }, cue: cue('look') })
+  beats.push({ at: run.end + 5000, to: { hand: null } })
   return beats
 }
 
 function ConnectChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
   const [beats] = useState(connectBeats)
-  const show = useScript<ConnectState>({ docked: false, cards: true, hand: null, dots: false, note: '', suggest: false, linked: false, pulled: false, lit: null }, beats, play)
+  const show = useScript<ConnectState>({ docked: false, cards: true, hand: null, dots: false, note: '', suggest: false, linked: false, folded: false, pulled: false, lit: null }, beats, play)
   useReport(report, show.done, show.settle)
   const s = show.state
   const scene = useRef<HTMLDivElement>(null)
@@ -773,7 +799,7 @@ function ReturnChapter({ play, report }: { play: boolean; report: (now: Reel) =>
 
 // --- 5 Make it yours ----------------------------------------------------------------
 
-type DialState = { docked: boolean; dial: boolean; grab: number }
+type DialState = { docked: boolean; dial: boolean; grab: number; close: boolean }
 
 /**
  * The window puts a theme on by spreading it from the dial's notch in a
@@ -828,25 +854,37 @@ function turnDial(by: number, hand: (x: number, y: number) => void, ms = 760): (
 const DIAL_BEATS: Beat<DialState>[] = [
   { at: 0, to: {} },
   { at: 900, to: { docked: true, dial: true }, cue: cue('slide') },
-  { at: 1900, to: { grab: 1 } },
-  { at: 3200, to: { grab: 2 } },
-  { at: 4500, to: { grab: 0 } },
-  { at: 4900, to: {} }
+  { at: 1700, to: { close: true } },
+  { at: 2300, to: { grab: 1 } },
+  { at: 3700, to: { grab: 2 } },
+  { at: 5100, to: { grab: 3 } },
+  { at: 6100, to: { close: false } },
+  { at: 6600, to: { grab: 0 } },
+  { at: 7000, to: {} }
 ]
 
 function DialChapter({ play, report, onPick }: { play: boolean; report: (now: Reel) => void; onPick: (theme: Theme) => void }): React.JSX.Element {
   const [say, setSay] = useState<string | undefined>()
   const [start] = useState(currentTheme)
-  const show = useScript<DialState>({ docked: false, dial: false, grab: 0 }, DIAL_BEATS, play)
+  const show = useScript<DialState>({ docked: false, dial: false, grab: 0, close: false }, DIAL_BEATS, play)
   const scene = useRef<HTMLDivElement>(null)
   const [hand, setHand] = useState<[number, number] | null>(null)
-  // The ghost's two turns: two detents one way, then back home.
+  // The ghost's turns: first to a page of the other kind (dark to Paper, or light to
+  // Midnight), so the new page is seen to spread; one more detent; then home.
   const turning = useRef<() => void>(() => undefined)
+  const [route] = useState(() => {
+    const themes = allThemes()
+    const home = Math.max(0, themes.indexOf(start))
+    const other = themes.indexOf(isLight(start) ? 'midnight' : 'paper')
+    const first = other < 0 ? home + 2 : other
+    return [first - home, 1, home - first - 1]
+  })
   useEffect(() => {
     if (!play || show.done || !s.grab) return
     const frame = scene.current?.getBoundingClientRect()
     const per = 360 / allThemes().length
-    turning.current = turnDial(s.grab === 1 ? per * 2 : -per * 2, (x, y) => setHand(frame ? [x - frame.left, y - frame.top] : null))
+    // A turn of the ring clockwise brings the detent before it to the notch: degrees run against the list.
+    turning.current = turnDial(-route[s.grab - 1] * per, (x, y) => setHand(frame ? [x - frame.left, y - frame.top] : null), 520 + Math.abs(route[s.grab - 1]) * 160)
     return () => turning.current()
   }, [show.state.grab]) // eslint-disable-line react-hooks/exhaustive-deps
   const settle = (): void => {
@@ -861,7 +899,7 @@ function DialChapter({ play, report, onPick }: { play: boolean; report: (now: Re
   const size = Math.round(Math.max(150, Math.min(win.height * 0.42, win.width * 0.3, 360)))
   return (
     <>
-      <Words title="Make it yours." docked={s.docked} still={!play} done={show.done}>
+      <Words title="Make it yours." docked={s.docked} still={!play} done={show.done} tight={s.close && !show.done}>
         {show.done
           ? <>Your turn: turn it with <span className="inline-flex translate-y-[-0.08em] gap-[0.12em] align-middle"><Kbd className={LINE_KEY}>↑</Kbd><Kbd className={LINE_KEY}>↓</Kbd></span>, the wheel or a drag. Settings has it later.</>
           : <>The page you write on. Everything you keep wears it.</>}
@@ -874,15 +912,17 @@ function DialChapter({ play, report, onPick }: { play: boolean; report: (now: Re
               <TaskResult line={starterOf('todo').text} id="dial-todo" />
             </motion.div>
             <motion.div aria-hidden className="absolute right-[2%] bottom-[12%] w-[min(20rem,28%)] [@media(max-width:820px)]:hidden" initial={play ? { opacity: 0, y: 10 } : false} animate={{ opacity: 1, y: 0, rotate: 3 }} transition={{ ...LAND, delay: 0.25 }}>
-              <PostcardResult words={QUOTE.text} who={QUOTE.who!} where={QUOTE.where} signed id="dial-quote" />
+              <PostcardResult words={QUOTE.text} who={QUOTE.who!} where={QUOTE.where} signed id="dial-quote" themed />
             </motion.div>
           </>
         )}
+        <Camera shot={s.close && !show.done ? { k: 1.16, x: 0, y: 0 } : WIDE} className="absolute inset-0 flex items-center justify-center">
         {s.dial && (
           <motion.div className="relative z-10" initial={play ? { opacity: 0, scale: 0.96, filter: 'blur(4px)' } : false} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} transition={CAM}>
             <ThemeDial calm size={size} big wear={spreadFromNotch} onPick={onPick} onFullTurn={() => (setSay(FULL_TURN), setTimeout(() => setSay(undefined), 1800))} say={say} />
           </motion.div>
         )}
+        </Camera>
         {play && !show.done && hand && (
           <motion.span aria-hidden className="pointer-events-none absolute top-0 left-0 z-20 -mt-[7px] -ml-[7px] size-[14px] rounded-full border-2 border-primary bg-primary/20 shadow-[0_2px_6px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]"
             style={{ x: hand[0], y: hand[1] }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} />
