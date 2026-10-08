@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client"
 import { NodeSelection } from "@tiptap/pm/state"
 import { useEditorState, type Editor } from "@tiptap/react"
 import { animate, motion, useMotionValue, useSpring } from "motion/react"
-import { FolderOpen } from "lucide-react"
+import { Check, FolderOpen } from "lucide-react"
 import { alive } from "@/components/ui/alive-icon"
 import RightChevronIcon from "@/components/ui/right-chevron"
 import CopyIcon from "@/components/ui/copy-icon"
@@ -356,7 +356,17 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
   // Its own pixels, here rather than handed to another app: shrunk to fit,
   // one click shows it at full size, centred, and another fits it again.
   const fullSize = (): void => (chime(view.zoom > 1 ? "zoomout" : "zoomin"), zoomTo(view.zoom > 1 ? 1 : 1 / fit.scale))
-  const copyIt = async (): Promise<void> => chime((await host().copyImage?.(src)) ? "copy" : "nope")
+  // Copied, said where you clicked: the button becomes a tick for a moment, as
+  // well as the sound, so it is seen to have worked, and a failure is seen too.
+  const [copied, setCopied] = useState<"yes" | "no" | null>(null)
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const copyIt = async (): Promise<void> => {
+    const done = !!(await host().copyImage?.(src))
+    chime(done ? "copy" : "nope")
+    setCopied(done ? "yes" : "no")
+    clearTimeout(copyTimer.current)
+    copyTimer.current = setTimeout(() => setCopied(null), 1400)
+  }
 
   useEffect(() => {
     keys = (event) => {
@@ -505,8 +515,12 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
               </Button>
             )}
             {stored && (
-              <Button data-style="ghost" tooltip="Copy picture" shortcutKeys="mod+c" aria-label="Copy picture" onClick={() => void copyIt()}>
-                <Copy className="tiptap-button-icon" />
+              <Button data-style="ghost" tooltip={copied === "yes" ? "Copied" : copied === "no" ? "Could not copy it" : "Copy picture"} shortcutKeys="mod+c" aria-label={copied === "yes" ? "Copied" : "Copy picture"} onClick={() => void copyIt()}>
+                {/* The two glyphs share one cell and crossfade, so the button never changes size. */}
+                <span className="grid place-items-center [&>*]:col-start-1 [&>*]:row-start-1">
+                  <Copy className={`tiptap-button-icon transition-[opacity,scale,filter] duration-160 ${copied === "yes" ? "scale-75 opacity-0 blur-[2px]" : ""}`} />
+                  <Check className={`tiptap-button-icon text-(--tt-color-text-green) transition-[opacity,scale,filter] duration-160 ${copied === "yes" ? "" : "scale-75 opacity-0 blur-[2px]"}`} />
+                </span>
               </Button>
             )}
             <Button data-style="ghost" tooltip="Close" shortcutKeys="Space" aria-label="Close" onClick={() => void close()}>
