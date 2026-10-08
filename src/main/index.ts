@@ -644,13 +644,13 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   // unplugged, or a note dragged past an edge, never leaves it out of reach.
   // The goal stack is taller than a note: the days left, the road and the four
   // bars, and a little more for the cards peeking out under it.
-  const size = type === 'goal' ? STACK_SIZE : { width: 300, height: 220 }
-  const place = bounds ? onScreen({ ...bounds, ...stickySize(type === 'goal' ? size.width : bounds.width, type === 'goal' ? size.height : bounds.height, bounds) }) : freeSpot(workArea, size.width, size.height)
   // Real glass: the Mac blurs whatever is behind, kept on while the window is
   // not the active one (it never is). It fills the window, so the note sits
-  // straight in it, with the Mac's own rounded corners. Never for the goal
-  // stack: its cards peek out past the top one, so it is frosted paper instead.
-  const glass = type !== 'goal' && stickyGlass() && !nativeTheme.prefersReducedTransparency
+  // straight in it, with the Mac's own rounded corners. The goal stack too:
+  // its cards behind then show as edges inside the window, not past it.
+  const glass = stickyGlass() && !nativeTheme.prefersReducedTransparency
+  const size = type === 'goal' ? (glass ? STACK_GLASS : STACK_SIZE) : { width: 300, height: 220 }
+  const place = bounds ? onScreen({ ...bounds, ...stickySize(type === 'goal' ? size.width : bounds.width, type === 'goal' ? size.height : bounds.height, bounds) }) : freeSpot(workArea, size.width, size.height)
   const win = new BrowserWindow({
     ...place,
     ...(glass ? { vibrancy: 'popover' as const, visualEffectState: 'active' as const, roundedCorners: true, backgroundColor: '#00000000' } : {}),
@@ -681,7 +681,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   shield(win)
   // The desktop picture, blurred, behind its paper (frost.ts).
-  frostWindow(win, () => stickyUp(key), type === 'goal')
+  frostWindow(win, () => stickyUp(key), type === 'goal' && !glass)
   win.once('ready-to-show', () => stickyUp(key) && win.showInactive())
   // Where you leave it is where it comes back.
   const remember = (): void => {
@@ -971,6 +971,8 @@ function stickySize(width: number, height: number, at: Electron.Rectangle): { wi
  */
 const STACK = 'goal:stack'
 const STACK_SIZE = { width: 304, height: 384 }
+/** As glass: the top card fills it, less a strip at the foot for the edges of those behind. */
+const STACK_GLASS = { width: 268, height: 340 }
 /** When each beacon may show again; Infinity is "at its next moment". */
 const tucked = new Map<string, number>()
 const beaconModes = new Map<string, 'always' | 'sometimes'>()
@@ -2046,9 +2048,11 @@ app.whenReady().then(() => {
     // Glass or not is how a window is made: one made the other way is made again, in place.
     const glass = stickyGlass() && !nativeTheme.prefersReducedTransparency
     for (const [key, win] of [...stickies]) {
-      if (win.isDestroyed() || key === STACK || builtGlass.get(key) === glass) continue
+      if (win.isDestroyed() || builtGlass.get(key) === glass) continue
       const [type, ...rest] = key.split(':')
       const at = win.getBounds()
+      // The stack's card stays where it was: as paper it has room round it, as glass none.
+      if (key === STACK) (at.x += glass ? 14 : -14), (at.y += glass ? 14 : -14)
       win.destroy()
       stickies.delete(key)
       stick(type, rest.join(':'), true, at)

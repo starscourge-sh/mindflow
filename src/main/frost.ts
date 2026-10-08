@@ -139,8 +139,8 @@ async function refresh(all = false): Promise<void> {
 /**
  * A sticky (or the goal stack) frosted: told when it loads and is shown, and
  * where it is as it moves. `up` says whether it is on the desktop now; one
- * put away is not told anything until it is back. `paper`: never made as
- * real glass, so frosted here even while the other stickies are glass.
+ * put away is not told anything until it is back. `paper`: made as paper
+ * while the setting is glass (the stack when it cannot be glass), so frosted here.
  */
 export function frostWindow(win: BrowserWindow, up: () => boolean, paper = false): void {
   windows.set(win, { up, paper })

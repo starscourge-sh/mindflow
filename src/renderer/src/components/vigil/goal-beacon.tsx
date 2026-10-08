@@ -21,14 +21,20 @@ const STILL = { WebkitAppRegion: 'no-drag' } as CSSProperties
 
 /** How often the stack rolls its top card to the back while it sits there. */
 const ROLL_EVERY = 45_000
+/** Made as real glass (the setting): the stack lives inside its window, its cards behind as edges at the foot. */
+const GLASS = new URLSearchParams(location.search).has('glass')
 /** The cards drawn behind the top one: enough to read as a stack, never a pile. */
-const BEHIND = 3
+const BEHIND = GLASS ? 2 : 3
+/** As glass, how far each card behind shows under the one in front of it. */
+const EDGE = 5
 /** Each card behind sits a little lower and to the right, and leans its own way, as loose paper does. */
 const TILT = [0, 1.3, -1, 1.8]
-const pose = (depth: number): string =>
-  `translate(${Math.min(depth, BEHIND) * 2}px, ${Math.min(depth, BEHIND) * 8}px) rotate(${TILT[Math.min(depth, BEHIND)]}deg) scale(1)`
+const pose = (depth: number): string => GLASS
+  // As glass: straight, each one lower by an edge and a little narrower, as a stack seen from the front.
+  ? `translate(0px, ${Math.min(depth, BEHIND) * EDGE}px) rotate(0deg) scale(${1 - Math.min(depth, BEHIND) * 0.035})`
+  : `translate(${Math.min(depth, BEHIND) * 2}px, ${Math.min(depth, BEHIND) * 8}px) rotate(${TILT[Math.min(depth, BEHIND)]}deg) scale(1)`
 /** The top card picked up: towards you, turned a little, kept inside the window. */
-const LIFT = 'translate(8px, -2px) rotate(-2.5deg) scale(1.025)'
+const LIFT = GLASS ? 'translate(0px, -3px) rotate(0deg) scale(0.985)' : 'translate(8px, -2px) rotate(-2.5deg) scale(1.025)'
 /** Motion off or Reduce motion: the stack changes at once, nothing travels. */
 const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 /** A goal in its last week, due today or past its day: it stays on top and is drawn warm. */
@@ -43,7 +49,9 @@ type Flight = { id: string; back: boolean; out: boolean }
  * The goal stack: every goal's beacon that is out, in one small window on
  * every Space, made by the sticky notes' machinery (see `beacons` in main).
  * The nearest goal is the card on top, frosted; the others peek out under
- * it as plain paper edges, each in its goal's warmth. Every 45 seconds or so
+ * it as plain paper edges, each in its goal's warmth. As glass (the setting)
+ * it all stays inside the window: the top card fills it and the edges of
+ * the next one or two show in a strip at its foot. Every 45 seconds or so
  * the top card is picked up and slipped to the back, unless it is pointed at
  * or its goal is in its last week. Its wheel, its ‹ › and the edges flip it
  * by hand. It comes back each time it is shown, so it reads as arriving
@@ -134,7 +142,9 @@ export function GoalStack(): React.JSX.Element | null {
       initial={still() ? false : { opacity: 0, transform: shift('translateY(8px) scale(0.98)') }}
       animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
       transition={{ duration: 0.45, ease: EASE }}
-      className="group h-screen pt-3.5 pr-[22px] pb-[42px] pl-3.5"
+      // As glass the top card fills the window, less a strip at the foot for the edges behind it.
+      className={GLASS ? 'group h-screen' : 'group h-screen pt-3.5 pr-[22px] pb-[42px] pl-3.5'}
+      style={GLASS ? { paddingBottom: Math.min(n - 1, BEHIND) * EDGE } : undefined}
       onPointerEnter={() => (setHovered(true), window.api.holdBeacon(true))}
       onPointerLeave={() => (setHovered(false), window.api.holdBeacon(false))}
       onWheel={(event) => {
@@ -150,16 +160,18 @@ export function GoalStack(): React.JSX.Element | null {
           // Picked up: over everything going out, under everything coming back (and the reverse for a card brought back).
           const z = flying ? (flying.out !== flying.back ? n + 1 : 0) : n - depth
           const front = depth === 0 || Boolean(flying?.out && !flying.back)
+          // As glass the top card's pane lets a tenth through, so a card under it travels blank.
           return (
             <motion.div
               key={id}
               className="absolute inset-0"
-              style={{ zIndex: z, transformOrigin: '50% 60%' }}
+              // As glass, one at rest behind is only its edge: none of its paper dims the glass under the top card.
+              style={{ zIndex: z, transformOrigin: GLASS ? '50% 100%' : '50% 60%', clipPath: GLASS && depth > 0 && !flying ? 'inset(calc(100% - 16px) 0 0 0)' : undefined }}
               initial={false}
               animate={{ transform: flying?.out ? LIFT : pose(depth) }}
               transition={still() ? { duration: 0 } : flying?.out ? { duration: 0.15, ease: EASE } : { duration: flying ? 0.24 : 0.3, ease: EASE }}
             >
-              <Card id={id} today={today} front={front} shows={front || Boolean(flying)} stacked={n > 1} count={n > 1 && depth === 0 ? `${top + 1} of ${n}` : ''} ignite={!rolled}
+              <Card id={id} today={today} front={front} shows={front || (!GLASS && Boolean(flying))} stacked={n > 1} count={n > 1 && depth === 0 ? `${top + 1} of ${n}` : ''} ignite={!rolled}
                 flip={(step) => roll(step, 'riffle')} />
             </motion.div>
           )
@@ -193,18 +205,25 @@ function Card({ id, today, front, shows, stacked, count, ignite, flip }: { id: s
       // Solid, as a sticky is: lit from the top, never see-through; on top, frosted over the desktop picture.
       style={{
         ...(front ? DRAG : {}),
-        backgroundImage: front
-          ? 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))'
-          : `linear-gradient(rgb(255 255 255 / 0.04), transparent 50%), linear-gradient(color-mix(in oklab, ${warm} 12%, ${PAPER}), color-mix(in oklab, ${warm} 12%, ${PAPER})), linear-gradient(var(--background), var(--background))`,
-        backgroundColor: 'Canvas',
+        // As glass: the Mac's blur through a 90% pane of the theme's paper, the edges behind a little more solid.
+        backgroundImage: GLASS
+          ? front
+            ? 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(color-mix(in oklab, var(--popover) 90%, transparent), color-mix(in oklab, var(--popover) 90%, transparent))'
+            : `linear-gradient(color-mix(in oklab, color-mix(in oklab, ${warm} 12%, ${PAPER}) 96%, transparent), color-mix(in oklab, color-mix(in oklab, ${warm} 12%, ${PAPER}) 96%, transparent))`
+          : front
+            ? 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))'
+            : `linear-gradient(rgb(255 255 255 / 0.04), transparent 50%), linear-gradient(color-mix(in oklab, ${warm} 12%, ${PAPER}), color-mix(in oklab, ${warm} 12%, ${PAPER})), linear-gradient(var(--background), var(--background))`,
+        backgroundColor: GLASS ? undefined : 'Canvas',
         // Its warmth along the edge that shows; on top in its last week, a warm rim as well.
         boxShadow: front
-          ? `${urgent ? `inset 0 0 0 1px color-mix(in oklab, ${warm} 45%, transparent), 0 0 0 3px color-mix(in oklab, ${warm} 12%, transparent), ` : ''}0 1px 2px rgb(0 0 0 / 0.14), 0 6px 16px -4px rgb(0 0 0 / 0.22)`
-          : `inset 0 -3px 0 color-mix(in oklab, ${warm} 55%, transparent), 0 1px 2px rgb(0 0 0 / 0.12), 0 3px 8px -3px rgb(0 0 0 / 0.18)`
+          ? `${urgent ? `inset 0 0 0 1px color-mix(in oklab, ${warm} 45%, transparent), ${GLASS ? '' : `0 0 0 3px color-mix(in oklab, ${warm} 12%, transparent), `}` : ''}${GLASS ? '0 1px 2px rgb(0 0 0 / 0.16)' : '0 1px 2px rgb(0 0 0 / 0.14), 0 6px 16px -4px rgb(0 0 0 / 0.22)'}`
+          : GLASS
+            ? `inset 0 -2px 0 color-mix(in oklab, ${warm} 60%, transparent), 0 1px 2px rgb(0 0 0 / 0.12)`
+            : `inset 0 -3px 0 color-mix(in oklab, ${warm} 55%, transparent), 0 1px 2px rgb(0 0 0 / 0.12), 0 3px 8px -3px rgb(0 0 0 / 0.18)`
       }}
-      className={`relative isolate flex h-full flex-col gap-2.5 rounded-xl border px-4 pt-3 pb-4 text-control text-foreground ${urgent && front ? 'border-transparent' : ''}`}
+      className={`relative isolate flex h-full flex-col gap-2.5 ${GLASS ? 'rounded-[10px]' : 'rounded-xl border'} px-4 pt-3 pb-4 text-control text-foreground ${urgent && front ? 'border-transparent' : ''}`}
     >
-      {front && <Frost />}
+      {front && !GLASS && <Frost />}
       {shows && (
         <>
           <div className="flex items-start gap-1.5">
