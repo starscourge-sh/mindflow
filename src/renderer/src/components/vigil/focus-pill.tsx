@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { Pause, Square } from 'lucide-react'
+import { Pause, Square, GripVertical as Grip } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
-import DotsVerticalIcon from '@/components/ui/dots-vertical-icon'
 import PlayerIcon from '@/components/ui/player-icon'
 import XIcon from '@/components/ui/x-icon'
 
@@ -19,7 +18,6 @@ import { ProgressBar } from './progress-bar'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Check = alive(SimpleCheckedIcon)
-const GripVertical = alive(DotsVerticalIcon)
 const Play = alive(PlayerIcon)
 const X = alive(XIcon)
 
@@ -225,7 +223,7 @@ export function FocusPill(): React.JSX.Element | null {
         </span>
         {/* The one place that moves the window, as Raycast's grip does: faint until you reach for it. */}
         <span aria-hidden className={`-ml-1 flex h-7 w-4 shrink-0 cursor-grab items-center justify-center text-muted-foreground transition-opacity duration-150 ${hover ? 'opacity-70' : 'opacity-25'}`} style={DRAG}>
-          <GripVertical className="size-3.5" />
+          <Grip className="size-3.5" />
         </span>
       </div>
       </BorderBeam>

@@ -5,12 +5,11 @@ import type { Node as PMNode } from '@tiptap/pm/model'
 import { redo, undo } from '@tiptap/pm/history'
 import { DndContext, MeasuringStrategy, PointerSensor, closestCorners, useDroppable, useSensor, useSensors, type DragOverEvent, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { Archive, Plus } from 'lucide-react'
+import { Archive, Plus, GripVertical as Grip } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 import DownChevronIcon from '@/components/ui/down-chevron'
 import RightChevronIcon from '@/components/ui/right-chevron'
-import DotsVerticalIcon from '@/components/ui/dots-vertical-icon'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import XIcon from '@/components/ui/x-icon'
 
@@ -32,7 +31,6 @@ import { Rolling, Tip, toast, untoast } from './ui'
 const Check = alive(SimpleCheckedIcon)
 const ChevronDown = alive(DownChevronIcon)
 const ChevronRight = alive(RightChevronIcon)
-const GripVertical = alive(DotsVerticalIcon)
 const Search = alive(MagnifierIcon)
 const X = alive(XIcon)
 
@@ -753,7 +751,7 @@ function LaneBox({ id, title, count, folded, here, onFold, menu, children }: {
       <header className="flex h-10 shrink-0 items-center gap-0.5 pr-1.5 pl-1">
         <button type="button" aria-label={`Drag ${name}`} {...attributes} {...listeners} tabIndex={-1}
           className="flex h-7 w-4 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground opacity-0 transition-opacity group-hover/lane:opacity-60 hover:opacity-100 active:cursor-grabbing">
-          <GripVertical className="size-3.5" />
+          <Grip className="size-3.5" />
         </button>
         <Tip label={`Fold ${name}`}>
           <button type="button" onClick={onFold} className={`${TOOL} size-6`}><ChevronDown /></button>
