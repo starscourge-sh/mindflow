@@ -230,7 +230,14 @@ try {
   await articles(c)
   await carry(c, row(c, 'Interleaving beats blocking'), row(c, 'Who is the monster'), 0.5, {
     up: false,
-    hold: async () => (await c.h.waitForTimeout(250), await frames(c, 'm-middle-dark', 1, 0))
+    hold: async () => (await c.h.waitForTimeout(250), await frames(c, 'a-middle-dark', 4, 40))
+  })
+  await c.h.keyboard.press('Escape')
+  await c.h.mouse.up()
+  await c.h.waitForTimeout(400)
+  await carry(c, row(c, 'How memory palaces work'), row(c, 'Who is the monster'), 0.85, {
+    up: false,
+    hold: async () => (await c.h.waitForTimeout(250), await frames(c, 'e-out-dark', 4, 40))
   })
   await c.h.keyboard.press('Escape')
   await c.h.mouse.up()

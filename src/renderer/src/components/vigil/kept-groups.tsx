@@ -92,6 +92,8 @@ function Node({ id, children, inner, indent = 0 }: { id: string; children: React
   const lifted = here?.how === 'join'
   // A new group would form here: the panel around this row and the room under it.
   const forming = lifted && !here.into
+  // The carried row's own place travels to where it would land: the room the rows open. Near an edge, a line in it.
+  const room = isDragging && !!aim
   return (
     <div
       ref={setNodeRef}
@@ -102,8 +104,16 @@ function Node({ id, children, inner, indent = 0 }: { id: string; children: React
       tabIndex={-1}
       role={undefined}
       className="relative isolate"
-      style={{ transform: transform ? `translate3d(0, ${Math.round(transform.y)}px, 0)` : undefined, transition, opacity: isDragging ? 0.3 : undefined }}
+      style={{ transform: transform ? `translate3d(0, ${Math.round(transform.y)}px, 0)` : undefined, transition, opacity: isDragging && !room ? 0.3 : undefined }}
     >
+      {room && aim.how !== 'join' && (
+        <span
+          aria-hidden
+          data-line={aim.how}
+          className="pointer-events-none absolute inset-y-0 right-2 my-auto h-0.5 rounded-full bg-(--tt-brand-color-400) animate-in fade-in-0 duration-150 before:absolute before:-top-[3px] before:-left-2 before:size-2 before:rounded-full before:border-2 before:border-(--tt-brand-color-400) before:bg-background"
+          style={{ left: (aim.into ? INDENT : 0) + 12 }}
+        />
+      )}
       <AnimatePresence>
         {forming && (
           <motion.div
@@ -124,7 +134,7 @@ function Node({ id, children, inner, indent = 0 }: { id: string; children: React
       </AnimatePresence>
       <div
         className="transition-[scale,translate,opacity] duration-200 motion-reduce:transition-none"
-        style={{ transitionTimingFunction: OUT, scale: lifted ? 1.02 : 1, paddingLeft: indent || undefined, ...inner }}
+        style={{ transitionTimingFunction: OUT, scale: lifted ? 1.02 : 1, paddingLeft: indent || undefined, ...inner, ...(room ? { opacity: 0 } : {}) }}
       >
         {children}
       </div>
@@ -152,12 +162,13 @@ export function GroupedList({ bundles, onDrop, onFold, onNewNote, renaming, onRe
   const home = useMemo(() => new Map(bundles.flatMap((one) => (one.group ? one.entries.map((entry) => [entry.id, one.group!.id] as const) : []))), [bundles])
   const [carried, setCarried] = useState<string | null>(null)
   const [height, setHeight] = useState(0)
+  // Where the row was taken hold of, across it: the chip sits just past it.
+  const [grab, setGrab] = useState(60)
   const [aim, setAim] = useState<Aim | null>(null)
   const aimed = useRef<Aim | null>(null)
   const [shot, setShot] = useState<{ id: string; html: string; width: number; height: number } | null>(null)
   const ticks = useRef(slotTicker()).current
   const label = useRef<HTMLDivElement>(null)
-  const rule = useRef<HTMLDivElement>(null)
   // Over the middle of a row, room opens just after it (or after the last of
   // its group's notes): where the carried row would land. Anywhere else
   // nothing moves; a line says where it would go. A group carried by its row
@@ -168,13 +179,13 @@ export function GroupedList({ bundles, onDrop, onFold, onNewNote, renaming, onRe
     const group = info.get(target.slice(KEY.length))
     return group?.open ? group.members.filter((id) => keys.includes(id)).pop() ?? target : target
   }
-  const gapAfter = aim?.how === 'join' ? anchor(aim.target) : null
-  const down = !!carried && !!gapAfter && keys.indexOf(carried) < keys.indexOf(gapAfter)
+  // Where the room opens: just after this row on show (-1, at the very top), so the rows slide apart by one row there.
+  const gapAfter = !aim ? null : aim.how === 'join' ? keys.indexOf(anchor(aim.target)) : aim.how === 'after' ? keys.indexOf(aim.target) : keys.indexOf(aim.target) - 1
+  const down = !!carried && gapAfter !== null && keys.indexOf(carried) <= gapAfter
   const strategy: SortingStrategy = useMemo(
     () => (args) => {
-      if (!gapAfter || (mine && mine.has(keys[args.index]))) return null
-      const at = keys.indexOf(gapAfter)
-      return verticalListSortingStrategy({ ...args, overIndex: args.activeIndex < at ? at : at + 1 })
+      if (gapAfter === null || (mine && mine.has(keys[args.index]))) return null
+      return verticalListSortingStrategy({ ...args, overIndex: args.activeIndex <= gapAfter ? gapAfter : gapAfter + 1 })
     },
     [gapAfter, carried, keys.join('\n')] // eslint-disable-line react-hooks/exhaustive-deps
   )
@@ -184,12 +195,14 @@ export function GroupedList({ bundles, onDrop, onFold, onNewNote, renaming, onRe
     aimed.current = next
     setAim(next)
   }
-  const onDragStart = ({ active }: DragStartEvent): void => {
+  const onDragStart = ({ active, activatorEvent }: DragStartEvent): void => {
     const id = String(active.id)
     chime('lift')
     ticks.start(id)
     setCarried(id)
     setHeight(active.rect.current.initial?.height ?? 48)
+    const start = active.rect.current.initial
+    setGrab(start && activatorEvent instanceof PointerEvent ? activatorEvent.clientX - start.left : 60)
     // A group lifts whole: its row and its notes.
     if (isGroup(id)) {
       const block = document.querySelector<HTMLElement>(`[data-group-block="${CSS.escape(id.slice(KEY.length))}"]`)
@@ -211,12 +224,6 @@ export function GroupedList({ bundles, onDrop, onFold, onNewNote, renaming, onRe
     // The words ride at the right end of the lifted row, clear of its title and of the rows under it.
     const lifted = active.rect.current.translated
     if (label.current && lifted) label.current.style.translate = `${Math.round(lifted.right - 14)}px ${Math.round(lifted.top + lifted.height / 2)}px`
-    // The line sits over everything, the lifted row too, so it is never hidden under it.
-    if (rule.current && over) {
-      const node = document.querySelector<HTMLElement>(`[data-sortable-id="${CSS.escape(String(over.id))}"]`)
-      const box = node?.getBoundingClientRect()
-      if (box) rule.current.style.cssText = `left:${box.left}px;width:${box.width}px;top:${box.top}px;height:${box.height}px`
-    }
     const shut = target && !isGroup(id) ? info.get(target.slice(KEY.length)) : undefined
     if (!shut || shut.open || !isGroup(target!)) unspring()
     else if (spring.current?.key !== target) {
@@ -253,6 +260,7 @@ export function GroupedList({ bundles, onDrop, onFold, onNewNote, renaming, onRe
     onDrop(String(active.id), now.target, now.how)
   }
   const own = carried ? home.get(carried) : undefined
+  const chip = aim?.how === 'join' && carried ? bundles.flatMap((one) => one.entries).find((entry) => entry.id === carried) : undefined
   const leaving = own && aim && aim.into !== own ? { group: own, id: carried! } : null
   let index = 0
   const lines = bundles.map((one) => {
@@ -287,27 +295,37 @@ export function GroupedList({ bundles, onDrop, onFold, onNewNote, renaming, onRe
         </Carrying.Provider>
       </SortableContext>
       <Overlay dropAnimation={still() ? null : SETTLE}>
-        {/* Over the middle of a row the lifted one draws in a little, so the row it would gather with shows lit around it. */}
-        <div className="transition-[scale] duration-150 motion-reduce:transition-none" style={{ transitionTimingFunction: OUT, scale: aim?.how === 'join' ? 0.94 : 0.98 }}>
-          <Lifted shot={shot} />
+        <div className="relative" style={{ width: shot?.width }}>
+          {/* Over the middle of a row the lifted row draws in to a small chip beside the pointer, so the room it previews stays in sight. */}
+          <div className="transition-[opacity,scale] duration-150 motion-reduce:transition-none" style={{ transitionTimingFunction: OUT, opacity: chip ? 0 : 1, scale: chip ? 0.92 : 1 }}>
+            <Lifted shot={shot} />
+          </div>
+          <AnimatePresence>
+            {chip && (
+              <motion.div
+                key="chip"
+                className="absolute top-1/2 flex w-[60%] -translate-y-1/2 items-center gap-2 rounded-md bg-background px-2.5 py-1.5 text-control shadow-[0_8px_24px_-6px_rgb(0_0_0/0.35)] ring-1 ring-foreground/10"
+                style={{ left: `min(${grab + 18}px, 40%)` }}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.08 } }}
+                transition={still() ? { duration: 0 } : springs.moderate}
+              >
+                <chip.icon className="size-4 shrink-0" style={{ color: chip.tint }} />
+                <span className="private-text min-w-0 flex-1 truncate">{chip.title || 'Untitled'}</span>
+                <span data-drag-label="" className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="size-1.5 rounded-full" style={{ background: aim?.tint ?? 'var(--muted-foreground)' }} />
+                  {aim?.label}
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </Overlay>
       {createPortal(
-        <div ref={rule} aria-hidden className="pointer-events-none fixed z-[1000]">
-          {carried && aim && aim.how !== 'join' && (
-            <span
-              data-line={aim.how}
-              className="absolute right-2 h-0.5 rounded-full bg-(--tt-brand-color-400) shadow-[0_0_0_2px_var(--background)] animate-in fade-in-0 duration-100 before:absolute before:-top-[3px] before:-left-2 before:size-2 before:rounded-full before:border-2 before:border-(--tt-brand-color-400) before:bg-background"
-              style={{ left: (home.has(aim.target) ? INDENT : 0) + (isGroup(aim.target) && aim.into ? INDENT : 0) + 12, [aim.how === 'before' ? 'top' : 'bottom']: -1.5 }}
-            />
-          )}
-        </div>,
-        document.body
-      )}
-      {createPortal(
         <div ref={label} aria-hidden className="pointer-events-none fixed top-0 left-0 z-[1001]">
           <AnimatePresence>
-            {carried && aim?.label && (
+            {carried && aim?.label && !chip && (
               <motion.span
                 key={aim.label}
                 data-drag-label=""
@@ -374,7 +392,7 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
   const joining = aim?.how === 'join' && aim.into === group.id
   const losing = leaving?.group === group.id ? entries.findIndex((entry) => entry.id === leaving.id) : -1
   // The panel follows what is about to happen: wider for one about to join, closing over one about to leave.
-  const stretch = joining ? (down ? { top: -height } : { bottom: -height }) : losing >= 0 ? { bottom: height } : {}
+  const stretch = joining ? (down ? { top: -height } : { bottom: -height }) : losing >= 0 ? (down ? { bottom: height } : { top: height }) : {}
   const fold = (): void => {
     chime(group.open ? 'tuck' : 'untuck')
     onFold(!group.open)
@@ -515,8 +533,7 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
           {entries.map((entry, at) =>
             row(entry, start + at, {
               // Its notes sit in by a step; separating, they slide back out to the list's edge one after another.
-              translate: parting ? `-${INDENT}px 0` : losing >= 0 && at > losing ? `0 -${height}px` : undefined,
-              opacity: losing === at ? 0 : undefined,
+              translate: parting ? `-${INDENT}px 0` : undefined,
               transitionDelay: parting ? `${at * 40}ms` : undefined
             }, INDENT)
           )}
