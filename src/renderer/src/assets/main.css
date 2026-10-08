@@ -1220,6 +1220,17 @@ input[type='number']::-webkit-outer-spin-button {
 :root .mf-bubble-run :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-near) { animation-play-state: running; }
 .mf-bubble-still :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-near) { animation: none; }
 .mf-bubble-cheer .pb-dino svg.left-0 { animation: pb-cheer 0.42s 2; }
+/* The bubble's strip is short, so its cactus comes in from past the right edge
+   and keeps one speed all the way (48px a second), as in the game, rather than
+   fading up where it stands. Same timing at the dinosaur, so the hop still clears it. */
+.mf-bubble-run .pb-near { animation-name: pb-near-in; }
+@keyframes pb-near-in {
+  0%, 51% { transform: translateX(40px); opacity: 1; }
+  88% { transform: translateX(-48px); opacity: 1; }
+  91% { transform: translateX(-56px); opacity: 0; }
+  92% { transform: translateX(40px); opacity: 0; }
+  93%, 100% { transform: translateX(40px); opacity: 1; }
+}
 @keyframes pb-cheer {
   0% { transform: translateY(0); animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1); }
   45% { transform: translateY(-6px); animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.3); }
