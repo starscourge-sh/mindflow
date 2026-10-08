@@ -373,6 +373,8 @@ function toggleWindow(): void {
 function load(win: BrowserWindow, query = ''): void {
   // The sandbox says so in every window's address, the one thing a page knows before it runs.
   if (SANDBOX) query = `${query || '?'}${query ? '&' : ''}sandbox=1`
+  // Just restarted into (or out of) the sandbox: the main window finishes the moment the last run began.
+  if (process.argv.includes('--show-home') && query.includes('view=home')) query += '&arrived=1'
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}${query}`)
   } else {

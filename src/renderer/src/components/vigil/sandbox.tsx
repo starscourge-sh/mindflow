@@ -147,17 +147,22 @@ let started = false
  * the words in the middle, and a blade lights across under them as Vigil
  * gets ready, until it starts again. Always a blade, whatever bars you chose.
  */
+// Arrived by that restart: the window opens on the blade fully lit, and lets it go.
+const ARRIVED = new URLSearchParams(location.search).has('arrived')
+
 function Going(): React.JSX.Element | null {
-  const [text, setText] = useState<string | null>(null)
-  const [lit, setLit] = useState(0)
+  const [text, setText] = useState<string | null>(ARRIVED ? (SANDBOX ? 'Opening the sandbox' : 'Back to your notes') : null)
+  const [lit, setLit] = useState(ARRIVED ? 1 : 0)
   useEffect(() => {
-    const on = (event: Event): void => setText((event as CustomEvent<string>).detail)
+    const on = (event: Event): void => (setLit(0), setText((event as CustomEvent<string>).detail))
     window.addEventListener('vigil:going', on)
-    return () => window.removeEventListener('vigil:going', on)
+    // Long enough to be seen as the same moment going on, then into the app.
+    const off = ARRIVED ? setTimeout(() => setText(null), 700) : undefined
+    return () => (window.removeEventListener('vigil:going', on), clearTimeout(off))
   }, [])
   // In small steps, each a quick slide, so it reads as one steady burn.
   useEffect(() => {
-    if (text === null) return
+    if (text === null || lit === 1) return
     const start = performance.now()
     const timer = setInterval(() => setLit(Math.min(1, (performance.now() - start) / (GOING_MS - 200))), 90)
     return () => clearInterval(timer)
@@ -169,12 +174,13 @@ function Going(): React.JSX.Element | null {
           key="going"
           role="status"
           className="fixed inset-0 z-[200] flex flex-col items-center justify-center gap-6 bg-background"
-          initial={{ opacity: 0 }}
+          initial={ARRIVED && lit === 1 ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
+          exit={{ opacity: 0, transition: { duration: 0.35, ease: EASE } }}
           transition={{ duration: 0.2, ease: EASE }}
         >
           <p className="font-heading text-[clamp(1.5rem,4vw,2.5rem)] font-medium tracking-[-0.02em] text-foreground">{text}</p>
-          <ProgressBar as="saber" value={lit} label={text} thick={4} blade="var(--primary)" ignite className="w-[min(26rem,70vw)]" />
+          <ProgressBar as="saber" value={lit} label={text} thick={4} blade="var(--primary)" ignite={!ARRIVED} className="w-[min(26rem,70vw)]" />
         </motion.div>
       )}
     </AnimatePresence>
