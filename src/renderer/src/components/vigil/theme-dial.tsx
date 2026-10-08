@@ -109,17 +109,24 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
     go(next, 'pointer')
   }
 
-  // The first sight of it: a small rock either way and back, to show the ring turns.
+  // The first sight of it: once you have had a moment with the page, the ring
+  // turns itself, a theme, then another, each worn by the page as it lands,
+  // and comes back to where you were. It shows what the dial does better than
+  // a rock could. Any touch of yours stops it where it is.
+  const yours = useRef(false)
+  yours.current = touched
   useEffect(() => {
     if (!big || rocked || still()) return
     rocked = true
-    const swing = Math.min(14, per * 0.4)
+    const home = here()
     let run: { stop: () => void } | undefined
-    const wait = setTimeout(() => {
-      const from = turn.get()
-      run = animate(turn, [from, from + swing, from - swing * 0.45, from], { duration: 1.1, times: [0, 0.32, 0.68, 1], ease: ['easeOut', 'easeInOut', 'easeOut'] })
-    }, 900)
-    return () => (clearTimeout(wait), run?.stop())
+    const to = (raw: number, by: 1 | -1): void => {
+      if (yours.current) return
+      land(raw, by, 'tick')
+      run = animate(turn, -raw * per, { type: 'spring', bounce: 0.25, duration: 0.5 })
+    }
+    const steps = [setTimeout(() => to(home + 1, 1), 2200), setTimeout(() => to(home + 2, 1), 3900), setTimeout(() => to(home, -1), 5800)]
+    return () => (steps.forEach(clearTimeout), run?.stop())
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
