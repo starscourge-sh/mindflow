@@ -75,7 +75,8 @@ export function Tour(): React.JSX.Element | null {
   })
   if (at < 0 || !stop) return null
 
-  const pad = 6
+  // A row in a list gets its own outline, never one that spills onto its neighbours.
+  const pad = rect && rect.height < 48 ? 0 : 6
   // The card beside the lit part where it is a narrow column (the sidebar), else under or over it, never past the window's edges.
   const fit = (top: number): number => Math.max(16, Math.min(top, window.innerHeight - cardH - 16))
   const beside = !!rect && rect.right + 16 + 320 < window.innerWidth && rect.width < window.innerWidth * 0.4
@@ -86,11 +87,11 @@ export function Tour(): React.JSX.Element | null {
       : { top: rect.bottom + pad + 10 + cardH + 16 <= window.innerHeight ? rect.bottom + pad + 10 : fit(rect.top - pad - 10 - cardH), left: Math.max(16, Math.min(rect.left, window.innerWidth - 336)) }
   return (
     <div role="dialog" aria-label="Where things are" className="fixed inset-0 z-[60]">
-      {/* The dim, with a hole where the lit part is: one shadow, spread wide. */}
+      {/* The dim, with a hole where the lit part is, outlined: one shadow, spread wide (a ring class would be overwritten by it). */}
       {rect ? (
         <div
-          className="pointer-events-none absolute rounded-lg ring-2 ring-primary transition-[left,top,width,height] duration-250 ease-(--mf-ease)"
-          style={{ left: rect.left - pad, top: rect.top - pad, width: rect.width + pad * 2, height: rect.height + pad * 2, boxShadow: '0 0 0 9999px rgb(0 0 0 / 0.55)' }}
+          className="pointer-events-none absolute rounded-lg transition-[left,top,width,height] duration-250 ease-(--mf-ease)"
+          style={{ left: rect.left - pad, top: rect.top - pad, width: rect.width + pad * 2, height: rect.height + pad * 2, boxShadow: '0 0 0 2px var(--primary), 0 0 0 9999px rgb(0 0 0 / 0.55)' }}
         />
       ) : (
         <div className="absolute inset-0 bg-black/55" />

@@ -516,9 +516,10 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
             )}
             {stored && (
               <Button data-style="ghost" tooltip={copied === "yes" ? "Copied" : copied === "no" ? "Could not copy it" : "Copy picture"} shortcutKeys="mod+c" aria-label={copied === "yes" ? "Copied" : "Copy picture"} onClick={() => void copyIt()}>
-                {/* The two glyphs share one cell and crossfade, so the button never changes size. */}
-                <span className="grid place-items-center [&>*]:col-start-1 [&>*]:row-start-1">
-                  <Copy className={`tiptap-button-icon transition-[opacity,scale,filter] duration-160 ${copied === "yes" ? "scale-75 opacity-0 blur-[2px]" : ""}`} />
+                {/* The two glyphs share one cell and crossfade, so the button never changes size. The
+                    living copy icon sits inside a display: contents span, so it is placed through it. */}
+                <span className="grid size-4 place-items-center leading-none [&>*]:col-start-1 [&>*]:row-start-1 [&>.contents>*]:col-start-1 [&>.contents>*]:row-start-1">
+                  <Copy size={16} className={`tiptap-button-icon transition-[opacity,scale,filter] duration-160 ${copied === "yes" ? "scale-75 opacity-0 blur-[2px]" : ""}`} />
                   <Check className={`tiptap-button-icon text-(--tt-color-text-green) transition-[opacity,scale,filter] duration-160 ${copied === "yes" ? "" : "scale-75 opacity-0 blur-[2px]"}`} />
                 </span>
               </Button>
