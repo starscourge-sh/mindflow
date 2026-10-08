@@ -9,9 +9,9 @@ import { EASE } from '@/lib/motion'
 
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, vigil, when, whenInLine, type Task } from '@/lib/vigil'
-import { BUCKETS, bucket, makeTask, placed } from '@/lib/tasks'
+import { BUCKETS, bucket, closeTask, makeTask, placed } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
-import { Empty, toast, typing, useListKeys, Strip } from './ui'
+import { Empty, typing, useListKeys, Strip } from './ui'
 import { Chips, Display, arrange, useView } from './display'
 import { completeTask, landed, moveTo, taskFacets } from './tasks-view'
 import { PriorityIcon, TaskInput, planFor, setPriority } from './task-input'
@@ -189,9 +189,9 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
                 'separator',
                 { label: `Copy T-${task.number}`, run: () => copy(`T-${task.number}`, `Copied T-${task.number}`) },
                 'separator',
-                { label: 'Close without doing', danger: true, run: () => void vigil.saveTask(task.id, { status: 'dropped' }).then(() => (chime('away'), toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' })))) }
+                { label: 'Close without doing', danger: true, run: () => closeTask(task.id) }
               ]}>
-              <button type="button" data-row data-cursor={index === cursor || undefined} className={`min-w-0 flex-1 text-left ${task.id === open ? 'font-medium' : ''}`} onClick={() => onOpen(task.id)}>
+              <button type="button" data-row data-id={task.id} data-cursor={index === cursor || undefined} className={`min-w-0 flex-1 text-left ${task.id === open ? 'font-medium' : ''}`} onClick={() => onOpen(task.id)}>
                 <p className="flex items-center gap-1.5">
                   {task.priority ? <PriorityIcon level={task.priority} className="size-3 shrink-0" /> : null}
                   <span className="truncate">{task.title}</span>

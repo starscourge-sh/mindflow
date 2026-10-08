@@ -1,4 +1,5 @@
 import { chime } from './sound'
+import { crumple } from './fly-home'
 import { taskSaid, vigil, type Made, type Task } from './vigil'
 import { flying } from './capture-links'
 import { ask, refuse, toast } from '@/components/vigil/ui'
@@ -85,4 +86,18 @@ export const BUCKETS = { month: 'This month', year: 'This year', next: 'Next yea
 export function planKey(which: keyof typeof BUCKETS): string {
   const now = dayjs()
   return which === 'someday' ? 'someday' : which === 'year' ? String(now.year()) : which === 'next' ? String(now.year() + 1) : monthKey(now.toDate())
+}
+
+/**
+ * Closed without doing: its row crumples and is tossed away, and it can be
+ * taken back. One way for every list and page, so it always reads the same.
+ */
+export function closeTask(id: string, then?: () => void): void {
+  const land = crumple(id)
+  void vigil.saveTask(id, { status: 'dropped' }).then(() => {
+    land?.()
+    then?.()
+    chime('away')
+    toast('Closed', () => void vigil.saveTask(id, { status: 'open' }))
+  })
 }

@@ -139,3 +139,51 @@ export function shred(id: string): (() => void) | undefined {
     }
   }
 }
+
+/**
+ * Thrown away, shown: a copy of the sheet scrunches into a ball (its outline
+ * crumpling inward, creases darkening, its words blurring as they fold under)
+ * and is tossed off in a short arc (after reactbits' Paper Crumple, drawn
+ * flat rather than in 3D). For what is let go rather than filed: a task closed
+ * without doing, a draft cleared. Like `lift`, before the change; returns a `land`.
+ */
+export const crumple = (id: string): (() => void) | undefined =>
+  crumpleFrom(document.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`))
+
+export function crumpleFrom(from: HTMLElement | null): (() => void) | undefined {
+  if (!from || still()) return undefined
+  const box = from.getBoundingClientRect()
+  const picture = from.cloneNode(true) as HTMLElement
+  picture.removeAttribute('data-id')
+  Object.assign(picture.style, { margin: '0', width: `${box.width}px`, height: `${box.height}px`, pointerEvents: 'none' })
+  return () => {
+    const sheet = document.createElement('div')
+    Object.assign(sheet.style, {
+      position: 'fixed', left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`,
+      zIndex: '60', pointerEvents: 'none', overflow: 'hidden', borderRadius: '6px',
+      // A shade lighter than the page, so a ball of it reads as paper, not a hole.
+      backgroundImage: 'linear-gradient(color-mix(in oklab, var(--foreground) 12%, var(--popover)), color-mix(in oklab, var(--foreground) 12%, var(--popover)))', backgroundColor: 'Canvas'
+    })
+    sheet.append(picture)
+    document.body.append(sheet)
+    // Ten points round the edge, pulled in by different amounts: the outline of a ball of paper.
+    const flat = '0% 0%, 50% 0%, 100% 0%, 100% 50%, 100% 100%, 50% 100%, 0% 100%, 0% 50%, 25% 25%, 75% 75%'
+    const pull = (): number => 18 + Math.random() * 22
+    const ball = `${pull()}% ${pull()}%, 50% ${pull() - 8}%, ${100 - pull()}% ${pull()}%, ${100 - pull() + 6}% 50%, ${100 - pull()}% ${100 - pull()}%, 50% ${100 - pull() + 8}%, ${pull()}% ${100 - pull()}%, ${pull() - 6}% 50%, 40% 40%, 60% 60%`
+    const size = Math.min(box.width, box.height)
+    // Into a ball, whatever the sheet's shape: a long row squeezed only evenly stayed a ribbon.
+    const across = Math.min(1, 48 / box.width)
+    const down = Math.min(1, 48 / box.height)
+    const turn = (Math.random() < 0.5 ? -1 : 1) * (18 + Math.random() * 14)
+    // Scrunched where it was, quickly; then tossed down and aside, falling faster as it goes.
+    picture.animate([{ filter: 'blur(0px)', opacity: 1 }, { filter: 'blur(1.5px)', opacity: 0.55 }], { duration: 240, easing: 'ease-out', fill: 'forwards' })
+    void sheet.animate(
+      [
+        { clipPath: `polygon(${flat})`, transform: 'rotate(0deg) scale(1, 1)', boxShadow: 'inset 0 0 0 rgb(0 0 0 / 0)', opacity: 1, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' },
+        { clipPath: `polygon(${ball})`, transform: `rotate(${turn}deg) scale(${across}, ${down})`, boxShadow: `inset 0 0 ${size * 0.5}px rgb(0 0 0 / 0.32)`, opacity: 1, offset: 0.4, easing: 'cubic-bezier(0.5, 0, 0.9, 0.6)' },
+        { clipPath: `polygon(${ball})`, transform: `translate(${turn > 0 ? 70 : -70}px, ${Math.min(size, 48) * 0.6 + 120}px) rotate(${turn * 6}deg) scale(${across * 0.9}, ${down * 0.9})`, boxShadow: `inset 0 0 ${size * 0.5}px rgb(0 0 0 / 0.32)`, opacity: 0 }
+      ],
+      { duration: 640, easing: 'linear', fill: 'forwards' }
+    ).finished.then(() => sheet.remove(), () => sheet.remove())
+  }
+}

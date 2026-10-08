@@ -54,7 +54,7 @@ import { makeTask, oneTask, picked, placed } from './lib/tasks'
 import { TaskChips, taskTokens } from './components/vigil/task-input'
 import { readTask } from '../../main/task-words'
 import { chime, soundOn } from './lib/sound'
-import { liftFrom } from './lib/fly-home'
+import { crumpleFrom, liftFrom } from './lib/fly-home'
 import { lengthSaid, timerFrom } from './lib/timer'
 import { stickOnDesktop } from './components/vigil/sticky-note'
 import { NotePreview } from './components/vigil/note-preview'
@@ -786,7 +786,10 @@ export default function App(): React.JSX.Element {
   const startOver = (): void => {
     const draft = latestEditing.current ? readDraft() : editorRef.current?.getJSON()
     const links = [...lifted]
+    // Thrown away: the sheet crumples and is tossed, before it goes blank.
+    const land = hasContent(draft ?? null) ? crumpleFrom(document.querySelector<HTMLElement>('.tiptap.ProseMirror.mindflow-editor')) : undefined
     fresh()
+    land?.()
     if (!hasContent(draft ?? null)) return
     toast('Draft cleared', () => {
       putDraft(draft)

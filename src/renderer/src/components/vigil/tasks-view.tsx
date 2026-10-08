@@ -22,7 +22,7 @@ import { chime, step } from '@/lib/sound'
 import { captureKey } from '@/lib/capture-links'
 import { splitTags, unloaded, useLive, vigil, when, whenInLine, type Made, type Session, type Task, type TaskFull } from '@/lib/vigil'
 import { useOpened } from '@/lib/nav'
-import { BUCKETS, bucket, makeTask, placed } from '@/lib/tasks'
+import { BUCKETS, bucket, closeTask, makeTask, placed } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, TaskInput, planFor, setPriority } from './task-input'
 import { useArrivals } from './note-list'
@@ -344,9 +344,10 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                         'separator',
                         { label: `Copy T-${task.number}`, run: () => copy(`T-${task.number}`, `Copied T-${task.number}`) },
                         'separator',
-                        { label: 'Close without doing', danger: true, run: () => void vigil.saveTask(task.id, { status: 'dropped' }).then(() => (chime('away'), toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' })))) }
+                        { label: 'Close without doing', danger: true, run: () => closeTask(task.id) }
                       ]}>
                       <div
+                        data-id={task.id}
                         data-cursor={index === cursor || undefined}
                         className={`group group/item relative flex items-start gap-3 rounded-md px-2 py-2 transition-colors ${task.id === open?.id ? 'bg-accent' : index === cursor ? 'bg-accent/40' : 'hover:bg-accent/50'} ${arrived(task.id) ? 'mf-arrive' : ''}`}
                       >
@@ -456,12 +457,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
               void vigil.saveTask(task.id, { reschedules: 0 })
               title.current?.select()
             }}>Make it smaller</Button>
-            <Button variant="ghost" size="sm" onClick={() =>
-              void vigil.saveTask(task.id, { status: 'dropped' }).then(() => {
-                onClose()
-                chime('away')
-                toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' }))
-              })
+            <Button variant="ghost" size="sm" onClick={() => closeTask(task.id, onClose)
             }>Close without doing</Button>
           </div>
         )}
@@ -564,12 +560,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           {/* Closed, not deleted (it comes back with Undo), so no bin. */}
           <Prop
             icon={CircleX}
-            onClick={() =>
-              void vigil.saveTask(task.id, { status: 'dropped' }).then(() => {
-                onClose()
-                chime('away')
-                toast('Closed', () => void vigil.saveTask(task.id, { status: 'open' }))
-              })
+            onClick={() => closeTask(task.id, onClose)
             }
           >
             Close without doing
