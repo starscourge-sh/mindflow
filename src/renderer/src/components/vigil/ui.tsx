@@ -1090,7 +1090,9 @@ export function Remembered({ field, value, onChange, placeholder, className = 'f
       {/* The rest of the name, faint, after the typed part: it sits under the
           input's own text and gives the field its width. */}
       {ahead && (
-        <span aria-hidden className={cn('pointer-events-none overflow-hidden whitespace-pre', className.replace(/field-sizing-content|min-w-\S+|max-w-\S+/g, ''))}>
+        // Only the field's spacing and type: its border and fill drawn again
+        // read as a second field on top of the first.
+        <span aria-hidden className={cn('pointer-events-none overflow-hidden whitespace-pre', className.split(/\s+/).filter((one) => /^(p[xylrtb]?-|text-(xs|sm|meta|control|body|base|lg)$|font-|leading-|tracking-)/.test(one)).join(' '), /\bborder\b/.test(className) && 'border border-transparent')}>
           <span className="invisible">{value}</span><span className="text-muted-foreground/45">{ahead}</span>
         </span>
       )}

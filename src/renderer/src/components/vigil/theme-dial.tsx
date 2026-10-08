@@ -25,7 +25,6 @@ import { DialParticles, type Sparks } from './dial-particles'
  * stream of light runs round it toward the notch (dial-particles.tsx).
  */
 // The rock is shown once a session: a hint, not a habit.
-let rocked = false
 
 /** -180..180: how far `deg` is from the top. */
 const offTop = (deg: number): number => ((((deg + 180) % 360) + 360) % 360) - 180
@@ -116,8 +115,8 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
   const yours = useRef(false)
   yours.current = touched
   useEffect(() => {
-    if (!big || rocked || still()) return
-    rocked = true
+    // Each time the welcome shows it (played again from ⌘K too): it is the one place it turns itself.
+    if (!big || still()) return
     const home = here()
     let run: { stop: () => void } | undefined
     const to = (raw: number, by: 1 | -1): void => {
