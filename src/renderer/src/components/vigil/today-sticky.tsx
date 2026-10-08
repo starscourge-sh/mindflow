@@ -116,7 +116,7 @@ export function TodaySticky(): React.JSX.Element {
 
   return (
     <div className={GLASS ? 'h-screen' : 'h-screen p-5'}>
-      <div ref={card} onMouseLeave={() => setAsking(false)} className={CARD}
+      <div ref={card} onPointerEnter={() => window.api.wiggle()} onMouseLeave={() => setAsking(false)} className={CARD}
         style={{ ...DRAG, '--tilt': GLASS ? '0deg' : `${tiltOf('today', Number(new URLSearchParams(location.search).get('nth')) || 0)}deg`, ...PAPER } as unknown as CSSProperties}>
         {!GLASS && <Frost tint="--mf-paper-tint" lift />}
         <SandboxStamp />

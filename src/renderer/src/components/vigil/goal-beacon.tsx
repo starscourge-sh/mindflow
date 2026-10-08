@@ -147,7 +147,7 @@ export function GoalStack(): React.JSX.Element | null {
       // As glass the top card fills the window, less a strip at the foot for the edges behind it.
       className={GLASS ? 'group h-screen' : 'group h-screen pt-3.5 pr-[22px] pb-[42px] pl-3.5'}
       style={GLASS ? { paddingBottom: Math.min(n - 1, BEHIND) * EDGE } : undefined}
-      onPointerEnter={() => (setHovered(true), window.api.holdBeacon(true))}
+      onPointerEnter={() => (setHovered(true), window.api.holdBeacon(true), window.api.wiggle())}
       onPointerLeave={() => (setHovered(false), window.api.holdBeacon(false))}
       onWheel={(event) => {
         // A flick of the wheel or two fingers turns one card, however long the swipe runs on.

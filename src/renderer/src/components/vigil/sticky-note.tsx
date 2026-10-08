@@ -211,6 +211,8 @@ export const CARD = GLASS ? 'group relative flex h-full flex-col rounded-[10px] 
  */
 export function stir(card: HTMLElement | null, lastKey: number): void {
   if (!card || Date.now() - lastKey < 15_000 || document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  // The window itself stirs too, as well as what is drawn in it.
+  window.api.wiggle()
   // On glass the note is the window, so the paper stays and its words and tape lift instead.
   const moving = GLASS ? [...card.children] : [card]
   for (const one of moving)
@@ -426,6 +428,8 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
     <div className={GLASS ? 'h-screen' : 'h-screen p-5'}>
       <div
         ref={card}
+        // Pointed at, the whole window wiggles where it stands (main says how often).
+        onPointerEnter={() => window.api.wiggle()}
         data-private={note.private ? '' : undefined}
         // Paper: solid, as the timer pill is (a glass theme's colours would let the desktop show through),
         // the theme's own paper (--mf-paper, sticky-note.scss), warmed a little by its own yellow and lit from the top. Frosted (the setting), <Frost> lays the blurred desktop under it. Leans its own way; pointed at, it straightens and lifts.

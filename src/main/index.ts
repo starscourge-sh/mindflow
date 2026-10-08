@@ -594,6 +594,8 @@ function showGlow(tone: string): void {
  * so the desktop looks the same after a restart.
  */
 const stickies = new Map<string, BrowserWindow>()
+/** Stickies mid-wiggle: their moves are not where you put them, so not kept or nudged. */
+const wiggling = new WeakSet<BrowserWindow>()
 const stickyFile = (): string => join(app.getPath('userData'), 'stickies.json')
 // Hidden: put away on its own ("Hide this one") until the stickies are next shown.
 type Stuck = { type: string; id: string; bounds?: Electron.Rectangle; hidden?: boolean }
@@ -694,7 +696,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   }
   // Let go with most of it past an edge, it slides back until it is all in view.
   win.on('moved', () => {
-    if (win.isDestroyed()) return
+    if (win.isDestroyed() || wiggling.has(win)) return
     const now = win.getBounds()
     const safe = onScreen(now)
     if (safe.x !== now.x || safe.y !== now.y) win.setBounds(safe)
@@ -2076,6 +2078,29 @@ app.whenReady().then(() => {
     one.hidden = true
     keepStuck()
     stickies.get(key)?.hide()
+  })
+  // A sticky's whole window wiggles where it stands, as a Mac's own window shakes
+  // at a wrong password: a few quick, shrinking swings side to side, then exactly
+  // back. A window cannot turn, but it can move. Not while one is already going,
+  // nor more than once a second and a half, and a drag mid-wiggle wins.
+  const wiggled = new WeakMap<BrowserWindow, number>()
+  ipcMain.on('sticky:wiggle', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win.isDestroyed() || stillness() || Date.now() - (wiggled.get(win) ?? 0) < 1500) return
+    wiggled.set(win, Date.now())
+    wiggling.add(win)
+    const { x, y } = win.getBounds()
+    const start = Date.now()
+    let at = x
+    const stop = (): void => (clearInterval(timer), void wiggling.delete(win))
+    const timer = setInterval(() => {
+      const t = (Date.now() - start) / 420
+      // Moved by something else (your hand): let it be where it is.
+      if (win.isDestroyed() || win.getBounds().x !== at || win.getBounds().y !== y) return stop()
+      at = t >= 1 ? x : x + Math.round(5 * Math.sin(t * Math.PI * 6) * (1 - t) ** 1.5)
+      win.setPosition(at, y)
+      if (t >= 1) stop()
+    }, 16)
   })
   // Its corner grip: the window is not resizable (see stick), so the size is set here, no smaller than its least.
   ipcMain.on('sticky:resize', (event, width: unknown, height: unknown) => {
