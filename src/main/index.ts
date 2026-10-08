@@ -1707,11 +1707,14 @@ async function drawTempus(key: string, rows: { label: string; share: number }[],
  */
 function tempusRows([rows, dots, widest]: [{ label: string; share: number }[], boolean, string[]]): string[] {
   const scale = 2
-  const font = '14px -apple-system, system-ui'
+  const font = '13px -apple-system, system-ui'
   const measure = document.createElement('canvas').getContext('2d')!
   measure.font = font
-  const width = Math.ceil(Math.max(240, ...widest.map((words) => measure.measureText(words).width)))
-  const height = 22
+  // A row's own size, not the menu's: as wide as the longest goal line, the bars
+  // stretched across the whole menu and looked blown up. As tall as a line of
+  // menu text, so the menu's own padding makes it a row like the others.
+  const width = Math.ceil(Math.min(260, Math.max(220, ...widest.map((words) => measure.measureText(words).width))))
+  const height = 16
   return rows.map(({ label, share }) => {
     const canvas = document.createElement('canvas')
     canvas.width = width * scale
@@ -1735,7 +1738,7 @@ function tempusRows([rows, dots, widest]: [{ label: string; share: number }[], b
       for (let n = 0; n < count; n++) {
         const x = from + step * n + step / 2
         pen.beginPath()
-        pen.arc(x, height / 2, 3.6, 0, Math.PI * 2)
+        pen.arc(x, height / 2, 3, 0, Math.PI * 2)
         if (n < lit) {
           pen.globalAlpha = 1
           pen.fill()
@@ -1749,7 +1752,7 @@ function tempusRows([rows, dots, widest]: [{ label: string; share: number }[], b
       const bar = (end: number, alpha: number): void => {
         pen.globalAlpha = alpha
         pen.beginPath()
-        pen.roundRect(from, height / 2 - 3, Math.max(6, end - from), 6, 3)
+        pen.roundRect(from, height / 2 - 2.5, Math.max(5, end - from), 5, 2.5)
         pen.fill()
       }
       bar(to, 0.28)
