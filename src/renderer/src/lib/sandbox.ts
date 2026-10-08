@@ -1,4 +1,3 @@
-import { toast } from '@/components/vigil/ui'
 import { chime } from './sound'
 import { vigil } from './vigil'
 
@@ -21,11 +20,18 @@ const CARRY_LOCAL = ['theme', 'custom-themes', 'frosted', 'recordable', 'vim'] a
 
 export type Carry = { local: Record<string, string>; settings: Record<string, unknown> }
 
-/** Said once, long enough to read, then the restart. */
+/** How long the blade takes to light across, before the restart. */
+export const GOING_MS = 2200
+
+/**
+ * Said over the whole window, a blade lighting across as Vigil gets ready,
+ * then the restart. Over everything, so what lies under it (an empty Home
+ * behind a closing welcome) never flashes up first.
+ */
 const going = (text: string, cue: Parameters<typeof chime>[0]): Promise<void> => {
   chime(cue)
-  toast(text, undefined, 'info')
-  return new Promise((done) => setTimeout(done, 2200))
+  window.dispatchEvent(new CustomEvent('vigil:going', { detail: text }))
+  return new Promise((done) => setTimeout(done, GOING_MS))
 }
 
 /**
@@ -35,6 +41,8 @@ const going = (text: string, cue: Parameters<typeof chime>[0]): Promise<void> =>
  */
 export async function enterSandbox(): Promise<void> {
   if (SANDBOX) return
+  // Up at once: your look is gathered behind it.
+  const said = going('Opening the sandbox', 'scene')
   const settings = (await vigil.settings()) as unknown as Record<string, unknown>
   const local: Record<string, string> = {}
   for (const key of CARRY_LOCAL) {
@@ -47,7 +55,7 @@ export async function enterSandbox(): Promise<void> {
   }
   // Plain bars stay home: the sandbox shows off its lightsaber unless you picked a playful one.
   const carry: Carry = { local, settings: Object.fromEntries(CARRY_SETTINGS.filter((key) => key in settings && !(key === 'progressBars' && settings[key] === 'plain')).map((key) => [key, settings[key]])) }
-  await going('Opening the sandbox. Vigil restarts in a moment.', 'scene')
+  await said
   await window.api.vigil('sandbox:enter', carry)
 }
 
@@ -56,15 +64,15 @@ export async function leaveSandbox(): Promise<void> {
   if (!SANDBOX) return
   const now = new Date()
   // At 11:11 exactly, one more line.
-  const wish = now.getHours() % 12 === 11 && now.getMinutes() === 11 ? ' Make a wish.' : ''
-  await going(`Back to your notes. The sandbox keeps what you did, until you reset it.${wish}`, 'rewind')
+  const wish = now.getHours() % 12 === 11 && now.getMinutes() === 11 ? '. Make a wish' : ''
+  await going(`Back to your notes${wish}`, 'rewind')
   await window.api.vigil('sandbox:leave')
 }
 
 /** The sandbox as it began: its folder cleared, and the examples set out again. */
 export async function resetSandbox(): Promise<void> {
   if (!SANDBOX) return
-  await going('Starting the sandbox over. Vigil restarts in a moment.', 'rewind')
+  await going('Starting the sandbox over', 'rewind')
   await window.api.vigil('sandbox:reset')
 }
 

@@ -340,8 +340,6 @@ export function Welcome(): React.JSX.Element | null {
       window.api.openInHome('view', 'home')
       setTimeout(() => window.dispatchEvent(new CustomEvent('vigil:tour-stops')), 450)
     } else if (how === 'sandbox') {
-      chime('scene')
-      toast('Opening the sandbox. Vigil restarts in a moment.', undefined, 'info')
       void enterSandbox().catch(() => toast('The sandbox could not open just now. It waits in ⌘K, under Open the sandbox.', undefined, 'warning'))
     } else if (how === 'notes') {
       chime('decided')

@@ -36,7 +36,7 @@ const IGNITE = 'transform 220ms cubic-bezier(0.23, 1, 0.32, 1)'
 export function ProgressBar({
   value, label, className = '', thick = 4, fill = 'color-mix(in oklab, var(--foreground) 45%, transparent)',
   track = 'color-mix(in oklab, var(--foreground) 9%, transparent)', blade = 'var(--tt-color-text-blue)',
-  duration = 700, square = false, ignite = false
+  duration = 700, square = false, ignite = false, as
 }: {
   /** How far, 0 to 1. */
   value: number
@@ -56,8 +56,11 @@ export function ProgressBar({
   square?: boolean
   /** Lit as it arrives (a beacon coming back), not only as it grows. */
   ignite?: boolean
+  /** This style whatever Settings says, for a moment that is always the same one. */
+  as?: BarStyle
 }): React.JSX.Element {
-  const kind = useSyncExternalStore(watch, style)
+  const chosen = useSyncExternalStore(watch, style)
+  const kind = as ?? chosen
   const at = Math.min(1, Math.max(0, Number.isFinite(value) ? value : 0))
   // Arriving lit from nothing: dark for a frame, then out to where it is.
   const [phase, setPhase] = useState<'dark' | 'lit' | 'still'>(ignite && root.dataset.motion !== 'off' ? 'dark' : 'still')
