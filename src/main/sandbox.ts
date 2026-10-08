@@ -116,9 +116,22 @@ function argsFor(to: Target): string[] {
   return [...base, '--show-home', ...(to === 'real' ? [] : ['--sandbox', ...(to === 'reset' ? ['--sandbox-reset'] : [])])]
 }
 
+/**
+ * The database is shut and this run is only waiting to end: its own timers
+ * (the menu bar, reminders, beacons) may still fire once or twice and find
+ * no database. Those are let go quietly, never shown as an error box.
+ */
+export function windingDown(): void {
+  process.on('uncaughtException', (error) => {
+    if (/database is not open/.test(String(error?.message))) return
+    console.error(error)
+  })
+}
+
 function handOff(first: Target): void {
   for (const run of letGo) run()
   globalShortcut.unregisterAll()
+  windingDown()
   try {
     database().close()
   } catch {

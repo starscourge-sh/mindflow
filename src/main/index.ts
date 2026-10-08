@@ -51,7 +51,7 @@ import { firstRun, noteChord, pretendTaken, registerOnboarding, whereTray } from
 import { registerUnused } from './unused'
 import { registerObsidian } from './obsidian'
 import { frostWindow, registerFrost, retellFrost } from './frost'
-import { SANDBOX, onHandOff, registerSandbox, relaunch, restartNow, useDataFolder } from './sandbox'
+import { SANDBOX, windingDown, onHandOff, registerSandbox, relaunch, restartNow, useDataFolder } from './sandbox'
 
 
 /* The standard electron app file structure:
@@ -1636,6 +1636,7 @@ async function restore(): Promise<void> {
   if (response !== 0) return
   const live = join(app.getPath('userData'), 'mindflow.db')
   database().prepare('vacuum into ?').run(join(backupDir(), 'database', `before-restore-${Date.now()}.db`))
+  windingDown()
   database().close()
   await copyFile(chosen, live)
   for (const extra of ['-wal', '-shm']) await rm(`${live}${extra}`, { force: true })
