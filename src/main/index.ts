@@ -1845,7 +1845,8 @@ function updateTray(): void {
       }),
       { type: 'separator' },
       // In the sandbox the way out comes first; from your notes, the way in.
-      ...(SANDBOX ? [{ label: 'Back to my notes', click: () => relaunch('real') }, { label: 'Reset the sandbox', click: () => relaunch('sandbox', true) }, { type: 'separator' } as const] : []),
+      // A reset cannot be undone, so it is asked in the main window, where Start over is held.
+      ...(SANDBOX ? [{ label: 'Back to my notes', click: () => relaunch('real') }, { label: 'Reset the sandbox…', click: () => (openHome(), makeHome().webContents.send('sandbox:ask-reset')) }, { type: 'separator' } as const] : []),
       { label: 'Show Vigil', accelerator: SUMMON, click: () => toggleWindow() },
       { label: 'Open the main window', click: openHome },
       { label: 'Import…', click: () => void importFiles() },

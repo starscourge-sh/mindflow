@@ -7,12 +7,13 @@ import { AliveIcon } from '@/components/vigil/alive-icon'
 import ArrowBackUpIcon from '@/components/ui/arrow-back-up-icon'
 import RefreshIcon from '@/components/ui/refresh-icon'
 import { Tip, toast } from '@/components/vigil/ui'
+import { HoldButton } from '@/components/vigil/hold-button'
 import { ProgressBar } from '@/components/vigil/progress-bar'
 import { applyTheme, currentTheme } from '@/lib/theme'
 import { EASE, shift } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
-import { GOING_MS, SANDBOX, enterSandbox, leaveSandbox, resetSandbox, sandboxState, type Carry } from '@/lib/sandbox'
+import { GOING_MS, SANDBOX, enterSandbox, leaveSandbox, resetSandbox, sandboxState, startSandboxOver, type Carry } from '@/lib/sandbox'
 import { builtInScenery, seedSandbox } from '@/lib/sandbox-seed'
 
 /**
@@ -37,15 +38,23 @@ const RULE = <span aria-hidden className="h-3.5 w-px shrink-0 bg-[color-mix(in_s
 
 /**
  * In the main window's top bar, always, with nothing to dismiss: Sandbox,
- * Back to my notes, Reset. Reset asks once, in the pill itself.
+ * Back to my notes, Reset. Reset asks once, in the pill itself, and Start
+ * over is held, not clicked: nothing brings back what was there. ⌘K and the
+ * menus ask here too (vigil:sandbox-reset).
  */
 export function SandboxPill({ narrow = false }: { narrow?: boolean }): React.JSX.Element | null {
   const [asking, setAsking] = useState(false)
   const [busy, setBusy] = useState(false)
   const sure = useRef<HTMLButtonElement>(null)
   useEffect(() => {
+    const onAsk = (): void => (chime('tap'), setAsking(true))
+    window.addEventListener('vigil:sandbox-reset', onAsk)
+    return () => window.removeEventListener('vigil:sandbox-reset', onAsk)
+  }, [])
+  useEffect(() => {
     if (!asking) return
-    sure.current?.focus()
+    // A turn later, so a menu closing (⌘K, the Vigil menu) does not take focus back after.
+    const later = setTimeout(() => sure.current?.focus(), 0)
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return
       event.preventDefault()
@@ -54,7 +63,7 @@ export function SandboxPill({ narrow = false }: { narrow?: boolean }): React.JSX
       setAsking(false)
     }
     window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
+    return () => (clearTimeout(later), window.removeEventListener('keydown', onKey, true))
   }, [asking])
   if (!SANDBOX) return null
   const go = (run: () => Promise<void>): void => {
@@ -79,11 +88,11 @@ export function SandboxPill({ narrow = false }: { narrow?: boolean }): React.JSX
       <AnimatePresence mode="popLayout" initial={false}>
         {asking ? (
           <motion.span key="ask" {...swap} className="flex h-full items-center">
-            {!narrow && <span className="truncate px-2.5 text-foreground/85">Start over, as it began?</span>}
+            {!narrow && <span className="truncate px-2.5 text-foreground/85">Hold to start over, as it began</span>}
             {/* The answer that does something is the one in the tape's colour; Cancel is quiet. */}
-            <button ref={sure} type="button" disabled={busy} onClick={() => go(resetSandbox)} className={`${PART} font-semibold`}>
+            <HoldButton ref={sure} variant={null} hint="Hold to start over" done="Starting over…" disabled={busy} onHold={() => go(startSandboxOver)} className={`${PART} font-semibold`}>
               Start over
-            </button>
+            </HoldButton>
             {RULE}
             <button type="button" onClick={() => (chime('fold'), setAsking(false))} className={`${PART} pr-3 text-foreground/70 hover:text-foreground`}>
               Cancel
@@ -284,7 +293,7 @@ export function SandboxHost(): React.JSX.Element | null {
             ) : (
               <>
                 <span className="text-foreground/85">These examples are from {stale} days ago, so their dates have drifted.</span>
-                <button type="button" onClick={() => void resetSandbox()} className="font-semibold hover:underline">Freshen</button>
+                <button type="button" onClick={() => (setStale(null), void resetSandbox())} className="font-semibold hover:underline">Freshen</button>
                 <button type="button" aria-label="Not now" onClick={() => setStale(null)} className="text-muted-foreground hover:text-foreground">Not now</button>
               </>
             )}

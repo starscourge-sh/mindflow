@@ -153,8 +153,16 @@ let first
   await click(c, '[data-sandbox-pill] button', 'Reset')
   await c.h.waitForTimeout(400)
   const asked = await c.h.$eval('[data-sandbox-pill]', (one) => one.textContent)
-  check('Reset asks first', asked.includes('Start over, as it began?'), asked)
-  await click(c, '[data-sandbox-pill] button', 'Start over')
+  check('Reset asks first', asked.includes('Hold to start over, as it began'), asked)
+  // Start over is held, not clicked: down for longer than the hold, then up.
+  const sure = await c.h.evaluateHandle(() => [...document.querySelectorAll('[data-sandbox-pill] button')].find((one) => (one.textContent ?? '').includes('Start over')))
+  const box = await sure.asElement()?.boundingBox()
+  await c.h.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await c.h.mouse.down()
+  await c.h.waitForTimeout(1500)
+  await c.h.mouse.up()
+  // The blade lights across first (GOING_MS), then the restart.
+  await c.h.waitForTimeout(2200)
   const resetArgs = await relaunched(c)
   check('Reset restarts with --sandbox --sandbox-reset', resetArgs?.includes('--sandbox') && resetArgs?.includes('--sandbox-reset'), JSON.stringify(resetArgs))
   // Back to my notes, through the pill.

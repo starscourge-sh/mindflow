@@ -68,8 +68,17 @@ export async function leaveSandbox(): Promise<void> {
   await window.api.vigil('sandbox:leave')
 }
 
-/** The sandbox as it began: its folder cleared, and the examples set out again. */
+/**
+ * Asked for from ⌘K, the Vigil menu, the menu bar or an old example's
+ * Freshen: the pill up top asks, and Start over there is held, since nothing
+ * brings back what was there.
+ */
 export async function resetSandbox(): Promise<void> {
+  window.dispatchEvent(new CustomEvent('vigil:sandbox-reset'))
+}
+
+/** The sandbox as it began: its folder cleared, and the examples set out again. Only from a held button. */
+export async function startSandboxOver(): Promise<void> {
   if (!SANDBOX) return
   await going('Starting the sandbox over', 'rewind')
   await window.api.vigil('sandbox:reset')

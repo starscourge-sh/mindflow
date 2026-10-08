@@ -46,7 +46,8 @@ import { SpellLanguages } from './spell-languages'
 import { isMac } from '@/lib/tiptap-utils'
 import { currentVim, onVimChange, setVim } from '@/lib/vim'
 import { useStoredFlag } from '@/lib/use-stored-flag'
-import { SANDBOX, enterSandbox, leaveSandbox, resetSandbox } from '@/lib/sandbox'
+import { SANDBOX, enterSandbox, leaveSandbox, startSandboxOver } from '@/lib/sandbox'
+import { HoldButton } from './hold-button'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Brain = alive(BrainCircuitIcon)
@@ -713,7 +714,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Sandbox" note={SANDBOX ? "You're in it now: a practice copy of Vigil, filled with examples to try. Your own notes stay exactly as they are." : 'A practice copy of Vigil, filled with examples to try. Your own notes stay exactly as they are.'} keywords="sandbox practice examples demo try sample playground">
             {SANDBOX ? (<>
               <Button variant="outline" size="sm" onClick={() => void leaveSandbox()}>Back to my notes</Button>
-              <Button variant="outline" size="sm" onClick={() => void resetSandbox()}>Reset</Button>
+              <HoldButton hint="Hold to reset" done="Resetting…" onHold={() => void startSandboxOver()}>Reset</HoldButton>
             </>) : (
               <Button variant="outline" size="sm" onClick={() => void enterSandbox()}>Open the sandbox</Button>
             )}

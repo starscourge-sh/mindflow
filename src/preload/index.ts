@@ -29,6 +29,8 @@ let listed: { rows: CaptureMeta[]; version: number } | null = null
 // other window, which closes it there: two editors on one note would each
 // save over the other's words.
 ipcRenderer.on('notes:opened-apart', (_event, id: string) => window.dispatchEvent(new CustomEvent('vigil:opened-apart', { detail: id })))
+// The menu bar's Reset the sandbox: asked in the pill, where Start over is held.
+ipcRenderer.on('sandbox:ask-reset', () => window.dispatchEvent(new CustomEvent('vigil:sandbox-reset')))
 
 // Custom APIs for renderer
 const api = {
