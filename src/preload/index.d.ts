@@ -68,7 +68,9 @@ export interface Api {
   hideSticky: (type: string, id: string) => void
   resizeSticky: (width: number, height: number) => void
   holdBeacon: (on: boolean) => void
-  tuckBeacon: () => void
+  tuckBeacon: (id: string) => void
+  beaconStack: () => Promise<string[]>
+  onBeaconStack: (listen: (ids: string[]) => void) => () => void
   frost: () => Promise<Frost | null>
   onFrost: (listen: (frost: Frost) => void) => () => void
   onFrostAt: (listen: (at: { x: number; y: number }) => void) => () => void

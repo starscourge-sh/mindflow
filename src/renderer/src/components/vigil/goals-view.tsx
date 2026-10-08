@@ -477,7 +477,9 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
   // so the road always runs edge to edge and ends on the day itself.
   const weeks = !compact && width > 0 && road.by === 'day'
   const before = weeks ? Math.max(0, Math.floor(width / 15) - road.cols) : 0
-  const across = flow ? Math.max(7, Math.floor(width / 9)) : road.cols + before
+  // A long road (a goal a year away) packs its dots smaller until it fits the card.
+  let across = flow ? Math.max(7, Math.floor(width / 9)) : road.cols + before
+  while (flow && height > 0 && across < width / 3 && Math.ceil(road.dots.length / across) * (width / across) > height) across += 1
   const room = flow ? Math.max(Math.ceil(road.dots.length / across), Math.floor(height / (width / across))) : 0
   const lead = flow ? Math.min(365, Math.max(0, room * across - road.dots.length)) : weeks ? before * road.rows : 0
   const down = flow ? Math.ceil((lead + road.dots.length) / across) : road.rows

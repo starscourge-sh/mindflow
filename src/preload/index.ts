@@ -124,9 +124,16 @@ const api = {
   /** A sticky's own: put just this one away, or size it from its corner grip. */
   hideSticky: (type: string, id: string): void => ipcRenderer.send('sticky:hide', type, id),
   resizeSticky: (width: number, height: number): void => ipcRenderer.send('sticky:resize', width, height),
-  /** A goal's beacon: the pointer on it (it stays) or off it, and its own X (tucked away). */
+  /** The goal stack: the pointer on it (it stays) or off it, and the top card's X (that goal tucked away). */
   holdBeacon: (on: boolean): void => ipcRenderer.send('beacon:hold', on),
-  tuckBeacon: (): void => ipcRenderer.send('beacon:tuck'),
+  tuckBeacon: (id: string): void => ipcRenderer.send('beacon:tuck', id),
+  /** The goals in the stack, nearest first: asked once, then told on each change. */
+  beaconStack: (): Promise<string[]> => ipcRenderer.invoke('beacon:stack'),
+  onBeaconStack: (listen: (ids: string[]) => void): (() => void) => {
+    const relay = (_event: unknown, ids: string[]): void => listen(ids)
+    ipcRenderer.on('beacon:stack', relay)
+    return () => ipcRenderer.off('beacon:stack', relay)
+  },
   /** A sticky's frost: the desktop picture blurred, its screen and where the window is; asked once, then told on each change. */
   frost: (): Promise<Frost | null> => ipcRenderer.invoke('frost'),
   onFrost: (listen: (frost: Frost) => void): (() => void) => {

@@ -30,7 +30,7 @@ JSON.stringify(out)`
 
 /** Each screen's desktop picture, as last asked: its path, when it last changed, and the blurred copy once made. */
 const pictures = new Map<number, { path: string; stamp: string; image?: Promise<string | null> }>()
-const windows = new Map<BrowserWindow, { up: () => boolean; display?: number }>()
+const windows = new Map<BrowserWindow, { up: () => boolean; display?: number; paper?: boolean }>()
 
 /** Ask which picture each screen shows now. Quiet on failure: no picture is the fallback. */
 function ask(): Promise<void> {
@@ -98,14 +98,14 @@ function boxBlur(pixels: Buffer, w: number, h: number, r: number): void {
   for (let x = 0; x < w; x++) run(h, (y) => (y * w + x) * 4)
 }
 
-/** Frosted unless turned off in Settings or Reduce transparency is on. */
-const frostOn = (): boolean => stickyFrost() && !stickyGlass() && !nativeTheme.prefersReducedTransparency
+/** Frosted unless turned off in Settings or Reduce transparency is on; with real glass, only a window that is never made as glass (`paper`). */
+const frostOn = (win?: BrowserWindow): boolean => stickyFrost() && (!stickyGlass() || Boolean(win && windows.get(win)?.paper)) && !nativeTheme.prefersReducedTransparency
 
 /** Everything a sticky needs to draw its frost now. */
 async function frostOf(win: BrowserWindow): Promise<Frost> {
   const bounds = win.getBounds()
   const display = screen.getDisplayMatching(bounds)
-  const on = frostOn()
+  const on = frostOn(win)
   const picture = on ? pictures.get(display.id) : undefined
   if (picture && !picture.image) picture.image = blurred(picture.path, display).catch(() => null)
   return { on, image: (await picture?.image) ?? null, display: display.bounds, at: { x: bounds.x, y: bounds.y } }
@@ -137,12 +137,13 @@ async function refresh(all = false): Promise<void> {
 }
 
 /**
- * A sticky (or a goal's beacon) frosted: told when it loads and is shown, and
+ * A sticky (or the goal stack) frosted: told when it loads and is shown, and
  * where it is as it moves. `up` says whether it is on the desktop now; one
- * put away is not told anything until it is back.
+ * put away is not told anything until it is back. `paper`: never made as
+ * real glass, so frosted here even while the other stickies are glass.
  */
-export function frostWindow(win: BrowserWindow, up: () => boolean): void {
-  windows.set(win, { up })
+export function frostWindow(win: BrowserWindow, up: () => boolean, paper = false): void {
+  windows.set(win, { up, paper })
   win.on('closed', () => windows.delete(win))
   win.webContents.on('did-finish-load', () => void tell(win))
   // Shown after a while away: the picture may have changed meanwhile.
@@ -150,7 +151,7 @@ export function frostWindow(win: BrowserWindow, up: () => boolean): void {
   // Where it is, as it moves; a full telling when it crosses to another screen.
   win.on('move', () => {
     const one = windows.get(win)
-    if (!one || win.isDestroyed() || !frostOn()) return
+    if (!one || win.isDestroyed() || !frostOn(win)) return
     const bounds = win.getBounds()
     if (screen.getDisplayMatching(bounds).id !== one.display) return void tell(win)
     win.webContents.send('frost:at', { x: bounds.x, y: bounds.y })

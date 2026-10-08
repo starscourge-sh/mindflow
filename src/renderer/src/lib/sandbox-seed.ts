@@ -256,8 +256,8 @@ What you keep, rather than what you read, is what returns: ${link(petrichor, 'Pe
     [await v<string>('gloss', homer, 'Book 5: Calypso lets him go. Seven years on one island.'), at(-26, '22:00')],
     [await v<string>('gloss', homer, "Book 9: the Cyclops. 'Nobody' is the best fake name ever given."), at(-6, '21:45')]
   ]
-  // One beacon on the desktop is a reminder; two is clutter.
-  await v('goal:beacon:set', homer, 'off')
+  // Two beacons share one window, the goal stack: Mars (the nearer day) on top, the Odyssey under it.
+  await v('goal:beacon:set', homer, 'always')
   const kesselGoal = await v<string>('goal:new', 'Make the Kessel Run in under 12 parsecs', day(-3), day(-40), 'Fastest hunk of junk in the galaxy.')
   await v('gloss', kesselGoal, 'Cut the corner past the Maw. 11.5 parsecs.')
   await v('goal:close', kesselGoal, 'made it')
