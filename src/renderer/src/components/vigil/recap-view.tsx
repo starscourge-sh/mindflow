@@ -1,21 +1,25 @@
-import { useEffect, useState, type ReactElement, type ReactNode } from 'react'
-import { AnimatePresence, animate, motion, useMotionValue, useTransform, type Variants } from 'motion/react'
+import { lazy, Suspense, useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
+import { AnimatePresence, animate, motion, MotionGlobalConfig, useInView, useMotionValue, useReducedMotion, useTransform, type Variants } from 'motion/react'
 import { alive } from '@/components/ui/alive-icon'
 import XIcon from '@/components/ui/x-icon'
 
 import { chime } from '@/lib/sound'
 import { vigil, type Mood, type Recap as Data } from '@/lib/vigil'
+import { notes, smallPicture } from '@/lib/notes'
 import { Kbd, Rolling, Typed } from './ui'
 import { Button } from '@/components/ui/button'
 import { Scenery } from './scenery'
 import { EASE, shift } from '@/lib/motion'
-import { dayName, noon, num } from '../../../../main/dates'
+import { dayjs, dayName, noon, num } from '../../../../main/dates'
+
+// WebGL and its library, fetched only when a strip of pictures is first shown.
+const FlexCarousel = lazy(() => import('./flex-carousel'))
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const X = alive(XIcon)
 
 /** The light each page sits in: the year opens at dawn and closes at night. */
-const RECAP_MOODS: Record<string, Mood> = { intro: 'day', captures: 'day', busiest: 'day', tags: 'dusk', sources: 'dusk', exits: 'interior', reviewed: 'night', outro: 'night', none: 'night' }
+const RECAP_MOODS: Record<string, Mood> = { intro: 'day', captures: 'day', busiest: 'day', tags: 'dusk', sources: 'dusk', pictures: 'dusk', exits: 'interior', reviewed: 'night', outro: 'night', none: 'night' }
 
 const PAGE_MOTION: Variants = {
   // Whole transforms: each page counts and types as it lands, and a slide
@@ -74,6 +78,84 @@ function Ranked({ rows, prefix = '' }: { rows: { name: string; n: number }[]; pr
   )
 }
 
+type Picture = { src: string; title: string; type: string; id: string }
+
+/** Fewer than this, and a strip of them would only look empty. */
+export const FEW_PICTURES = 5
+/** More than this are thinned out evenly: each one is a picture held in memory. */
+const MOST_PICTURES = 36
+
+/**
+ * The pictures in the captures and notes made between two times, oldest
+ * first, each with its note's name. Private notes are left out, as the recap
+ * never names them, and so is everything when list pictures are turned off.
+ */
+export function usePicturesFrom(since: string | null, until: string | null): Picture[] | null {
+  const [pictures, setPictures] = useState<Picture[] | null>(null)
+  useEffect(() => {
+    if (!since || !until) return
+    let live = true
+    setPictures(null)
+    void (async () => {
+      // A month at a time: one ask stops at 400 things, and a year can hold more.
+      const asks: Promise<Awaited<ReturnType<typeof vigil.recent>>>[] = []
+      for (let end = dayjs(until); end.isAfter(since); end = end.subtract(31, 'day')) asks.push(vigil.recent(31, end.toISOString()))
+      const [months, thumbs, settings] = await Promise.all([Promise.all(asks), notes.thumbs(), vigil.settings()])
+      if ((settings as { thumbnails?: boolean }).thumbnails === false) return live && setPictures([])
+      const seen = new Set<string>()
+      const found = months.flat()
+        .filter((one) => one.type !== 'task' && !one.private && thumbs[one.id] && one.at >= since && one.at < until && !seen.has(one.id) && seen.add(one.id))
+        .sort((a, b) => a.at.localeCompare(b.at))
+      const kept = found.length > MOST_PICTURES ? Array.from({ length: MOST_PICTURES }, (_, at) => found[Math.floor((at * found.length) / MOST_PICTURES)]) : found
+      // Made small by the main process. Only a picture it could read is kept:
+      // the strip draws with WebGL, which takes a picture's pixels only from here.
+      const made = await Promise.all(kept.map((one) => smallPicture(thumbs[one.id], true).catch(() => '')))
+      if (live) setPictures(kept.flatMap((one, at) => made[at].startsWith('data:image/') ? [{ src: made[at], title: one.title, type: one.type, id: one.id }] : []))
+    })()
+    return () => void (live = false)
+  }, [since, until])
+  return pictures
+}
+
+/** Opens the note a picture came from, in its own section here. */
+const openPicture = (picture: Picture): void => (chime('open'), window.api.openInHome(picture.type, picture.id))
+
+/**
+ * A strip of the pictures, flowing through glass at its edges (React Bits'
+ * Flex Carousel). Its WebGL is only started once the strip is on screen.
+ * With Motion off or Reduce motion it is a still row instead, scrolled
+ * sideways. A click on a picture brings it close; a second opens its note.
+ * Nothing at all with fewer than five.
+ */
+export function PictureStrip({ pictures, className = '' }: { pictures: Picture[] | null; className?: string }): React.JSX.Element | null {
+  const box = useRef<HTMLDivElement>(null)
+  const seen = useInView(box, { once: true })
+  const reduced = useReducedMotion()
+  if (!pictures || pictures.length < FEW_PICTURES) return null
+  if (reduced || MotionGlobalConfig.skipAnimations)
+    return (
+      <div className={`-mx-1 flex gap-3 overflow-x-auto px-1 pb-2 ${className}`}>
+        {pictures.map((picture) => (
+          <button key={picture.id} type="button" onClick={() => openPicture(picture)} className="group flex w-max shrink-0 flex-col gap-1.5 text-left">
+            <img src={picture.src} alt="" draggable={false} className="h-40 w-auto rounded-[10px] bg-accent object-cover" />
+            <span className="max-w-48 truncate text-meta text-muted-foreground group-hover:text-foreground">{picture.title || 'Untitled'}</span>
+          </button>
+        ))}
+      </div>
+    )
+  return (
+    // Its own clicks and drags stay its own: the recap's click turns the page.
+    // Its sides fade out, so a picture leaves the row rather than being cut off.
+    <div ref={box} onClick={(event) => event.stopPropagation()} className={`h-[25rem] [mask-image:linear-gradient(to_right,transparent,#000_7%,#000_93%,transparent)] ${className}`}>
+      {seen && (
+        <Suspense fallback={null}>
+          <FlexCarousel key={pictures.map((picture) => picture.id).join()} items={pictures} cardHeight={0.52} onOpen={(at) => openPicture(pictures[at])} />
+        </Suspense>
+      )}
+    </div>
+  )
+}
+
 /**
  * A month or a year here, Wrapped's way (Notesnook's, for notes): a few
  * pages, one thing each, stepped through with the arrow keys. Only pages
@@ -85,8 +167,25 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
   // Which way the last step went, so a page slides in from the side you are heading to.
   const [dir, setDir] = useState(1)
   useEffect(() => void vigil.recap(period).then(setData), [period])
+  // The same span the recap counts: a month already over when it says so.
+  const opened = dayjs().startOf(period)
+  const pictures = usePicturesFrom(
+    data ? (data.finished ? opened.subtract(1, period) : opened).toISOString() : null,
+    data ? (data.finished ? opened.toISOString() : dayjs().endOf('day').toISOString()) : null
+  )
+  // The pages are settled once, so none slips in under you: the pictures if
+  // they are ready within a moment, and otherwise the recap goes on without.
+  const [strip, setStrip] = useState<Picture[] | null | undefined>(undefined)
+  useEffect(() => {
+    if (pictures) setStrip((was) => (was === undefined ? pictures : was))
+  }, [pictures])
+  useEffect(() => {
+    if (!data) return
+    const late = setTimeout(() => setStrip((was) => (was === undefined ? null : was)), 1500)
+    return () => clearTimeout(late)
+  }, [data])
 
-  const pages: ReactNode[] = !data ? [] : data.captures === 0 ? [
+  const pages: ReactNode[] = !data || strip === undefined ? [] : data.captures === 0 ? [
     <p key="none" className="text-title"><Typed story text={data.finished ? `Nothing was captured in ${data.label}.` : `Nothing was captured in ${data.label} yet. Come back when there is.`} /></p>
   ] : [
     <div key="intro" className="space-y-3">
@@ -114,6 +213,12 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
       <div key="sources" className="space-y-5">
         <p className="text-title"><Typed story text="Who you listened to" /></p>
         <Ranked rows={data.sources} />
+      </div>
+    ),
+    strip && strip.length >= FEW_PICTURES && (
+      <div key="pictures" className="space-y-2">
+        <p className="text-title"><Typed story text={`What you saw in ${data.label}`} /></p>
+        <PictureStrip pictures={strip} className="-mx-4" />
       </div>
     ),
     data.kept + data.resolved + data.discarded > 0 && (

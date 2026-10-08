@@ -12,6 +12,7 @@ import { issues, type MonthTold } from '@/lib/issues'
 import { Button } from '@/components/ui/button'
 import { Kbd, Rolling, Tip, Typed } from './ui'
 import { IssueLine, SERIF } from './issue'
+import { FEW_PICTURES, PictureStrip, usePicturesFrom } from './recap-view'
 import { dayjs, num, weekdayName } from '../../../../main/dates'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -223,6 +224,7 @@ export function MonthReflect({ start, onClose }: { start?: string; onClose: () =
   const name = at.format('MMMM')
   // The days so far, for this month: tomorrow has nothing to say yet.
   const days = ready ? (month === thisMonth ? ready.days.slice(0, dayjs().date()) : ready.days) : []
+  const pictures = usePicturesFrom(at.toISOString(), at.add(1, 'month').toISOString())
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}
       className="absolute inset-0 z-40 flex flex-col bg-background" role="dialog" aria-label={`${name}, told back`}>
@@ -263,6 +265,12 @@ export function MonthReflect({ start, onClose }: { start?: string; onClose: () =
                     <Activity days={days} month={month} />
                   </section>
                   <About told={ready} />
+                  {pictures && pictures.length >= FEW_PICTURES && (
+                    <section className="mt-10">
+                      <Label rule>What you saw</Label>
+                      <PictureStrip pictures={pictures} className="mt-2" />
+                    </section>
+                  )}
                 </>
               ) : (
                 <p className={`mt-5 ${SERIF} text-[1.0625rem] leading-[1.7] text-muted-foreground`}>Nothing was caught in {name}. That is allowed: a month can be lived rather than written down.</p>
