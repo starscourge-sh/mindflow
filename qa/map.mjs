@@ -73,7 +73,7 @@ try {
       await h.mouse.click(hub.x, hub.y)
       await h.waitForTimeout(1200)
       const still = await h.evaluate(() => !!document.querySelector('canvas'))
-      console.log('click opened a note:', !still)
+      console.log('click opened a note:', !still, hub.said, await h.evaluate(() => document.querySelector('h1')?.textContent))
       if (still) fail.push('click did not open the note')
       await h.screenshot({ path: `${dir}/opened-dark.png` })
     }

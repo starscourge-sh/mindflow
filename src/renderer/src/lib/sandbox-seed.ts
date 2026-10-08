@@ -731,8 +731,11 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
     ['Frankenstein', 'Mary Shelley', 'A podcast about the summer of 1816', 180, 5, 'The creature asks for one thing, company, and everyone refuses him. The monster is made, not born.'],
     ['Hamlet', 'William Shakespeare', 'The play in the park', 126, 4, 'Thinking about acting is not acting. He knows it, and does it anyway for five acts.']
   ]
+  // Each book's id by its title, so the lines and notes about it can link to it.
+  const bookId: Record<string, string> = {}
   for (const [title, by, heard, n, rating, takeaway] of books) {
     const id = await capture({ kind: 'book', attribution: by, medium: heard }, on(n, 6, '10:30')[1])
+    bookId[title] = id
     await write(id, title)
     await field(id, 'status', 'Finished')
     await field(id, 'rating', rating)
@@ -759,14 +762,15 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
     [92, 0, '21:55', 'William Shakespeare', 'Hamlet, Act 5, Scene 2', "There's a divinity that shapes our ends, / Rough-hew them how we will.", 'By the last act he has stopped planning. It goes no better, and no worse.'],
     [85, 0, '22:30', 'William Shakespeare', 'Hamlet, Act 5, Scene 2', 'The rest is silence.', 'Four words, after four hours.']
   ]
-  const kept: { id: string; n: number }[] = []
+  const kept: { id: string; n: number; book: string; line: string }[] = []
   for (const [n, weekday, time, who, where, line, mine] of lines) {
     const [back, when] = on(n, weekday, time)
     const id = await capture({ kind: 'quote', attribution: who, medium: where }, when)
     await write(id, line)
     const nugget = await v<string>('promote', id, mine)
     nuggets++
-    kept.push({ id: nugget, n: back })
+    const book = books.find(([title]) => where.startsWith(title))![0]
+    kept.push({ id: nugget, n: back, book, line })
     yearAges.push({ createdAt: at(-back, time), nuggetId: nugget }, { exitedAt: at(-back, time), captureId: id })
   }
   // Read again later, and a word added each time.
@@ -818,10 +822,13 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
     [19, 2, '08:50', 'Sorted the bookshelf by colour. Now I cannot find anything, and it looks wonderful.', 'gone'],
     [12, 0, '21:00', 'Reading on Sunday evenings has become the best hour of the week. #reading']
   ]
+  // Each note caught in passing by its words, for the links written in below.
+  const passed = new Map<string, string>()
   for (const [n, weekday, time, words, became] of passing) {
     const [back, when] = on(n, weekday, time)
     const id = await capture({}, when)
     await write(id, words)
+    if (became !== 'gone') passed.set(words, id)
     // Looked at again a day or two later, when the week's few minutes came round.
     yearAges.push({ usedAt: at(-back + 1 + (back % 2), '20:30'), captureId: id })
     if (became === 'kept') {
@@ -847,6 +854,15 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
   ]
   // Dated before it is settled, so the article lists each clue on its own day.
   await v('sandbox:age', [{ createdAt: at(-172, '21:30'), nuggetId: monster }, ...await Promise.all(monsterClues.map(async ([text, n]) => ({ glossAt: at(-n, '21:40'), id: await v<string>('clue', monster, text) })))])
+  // --- the year joined up: what you wrote about a book links to it, a book to
+  // the lines kept from it and the question it left, and the places two
+  // books, or a book and a walk, meet. It is what the Map draws.
+  const short = (text: string): string => (text.length > 40 ? `${text.slice(0, 38).trimEnd()}…` : text).replace(/[|\]]/g, '')
+  const lineLink = (line: (typeof kept)[number]): string => link(line.id, short(line.line), 'nugget')
+  const linesOf = (book: string): string => kept.filter((line) => line.book === book).map(lineLink).join(' · ')
+  const bookLink = (title: string): string => link(bookId[title], title)
+  // The question holds the lines that were its clues, and its answer keeps them.
+  await v('item:save', monster, { body: doc(`The lines it came from: ${linesOf('Frankenstein')}. From ${bookLink('Frankenstein')}.`) })
   const answered = await v<{ article: string | null }>('question:close', monster, 'answered')
   yearAges.push({ closedAt: at(-141, '21:50'), nuggetId: monster })
   if (answered?.article) yearAges.push({ createdAt: at(-141, '21:50'), nuggetId: answered.article })
@@ -856,6 +872,58 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
   for (const [text, n] of [['He tells Horatio he will put on an antic disposition: acting, so far.', 115], ['Talking to the skull, there is nobody left to act for.', 101], ['Read the graveyard scene again. Still both.', 20]] as const)
     yearAges.push({ glossAt: at(-n, '21:40'), id: await v<string>('clue', mad, text) })
   nuggets += 3
+
+  const monsterLink = link(monster, 'Who is the monster in Frankenstein?', 'question')
+  const madLink = link(mad, 'Is Hamlet mad, or acting?', 'question')
+  await v('item:save', mad, { body: doc(`The lines that keep it open: ${linesOf('Hamlet')}. From ${bookLink('Hamlet')}.`) })
+  await write(bookId['Meditations'], `Meditations\n\nLines kept: ${linesOf('Meditations')} · ${link(aurelius, 'Very little is needed for a happy life', 'nugget')}`)
+  await write(bookId['Pride and Prejudice'], `Pride and Prejudice\n\nLines kept: ${linesOf('Pride and Prejudice')}\n\nJudged on sight, as the creature is in ${bookLink('Frankenstein')}, only here someone changes their mind.`)
+  await write(bookId['Frankenstein'], `Frankenstein\n\nLines kept: ${linesOf('Frankenstein')}\n\nThe question it left me with: ${monsterLink}`)
+  await write(bookId['Hamlet'], `Hamlet\n\nLines kept: ${linesOf('Hamlet')}\n\nStill circling: ${madLink}. Thinking makes it so, as ${bookLink('Meditations')} says, and says calmer.`)
+  // Notes caught in passing, each joined to what it was about.
+  const noteLink = (start: string): string => {
+    const [words, id] = [...passed].find(([one]) => one.startsWith(start))!
+    return link(id, short(words.replace(/\s#\w+/g, '')))
+  }
+  const joins: [string, string[]][] = [
+    ['Meditations was never', [bookLink('Meditations')]],
+    ['Twelve books of Meditations', [bookLink('Meditations'), noteLink('Meditations was never')]],
+    ['Mr Collins', [bookLink('Pride and Prejudice')]],
+    ['Darcy is not shy', [bookLink('Pride and Prejudice'), lineLink(kept[2])]],
+    ['Pemberley', [bookLink('Pride and Prejudice'), noteLink('Darcy is not shy')]],
+    ['Finished Pride and Prejudice', [bookLink('Pride and Prejudice'), lineLink(kept[1])]],
+    ['Frankenstein began', [bookLink('Frankenstein')]],
+    ['The creature learns to read', [bookLink('Frankenstein'), monsterLink, lineLink(kept[8])]],
+    ['Finished Frankenstein', [bookLink('Frankenstein'), monsterLink, ...(answered?.article ? [link(answered.article, 'What the clues added up to', 'article')] : [])]],
+    ['Saw Hamlet', [bookLink('Hamlet')]],
+    ['Hamlet thinks about every move', [bookLink('Hamlet'), madLink, lineLink(kept[12])]],
+    ['Ophelia', [bookLink('Hamlet')]],
+    ['Finished Hamlet', [bookLink('Hamlet'), madLink]],
+    ['Odyssey, Book 12', [link(odyssey, 'An excerpt from Book 1'), link(book, 'The Odyssey')]],
+    ['Started Dorian Gray', [link(dorian, 'The Picture of Dorian Gray')]],
+    ['Finished Dorian Gray', [link(dorian, 'The Picture of Dorian Gray'), link(wilde, 'The line kept from it', 'nugget')]],
+    ['Reading on Sunday evenings', [...books.map(([title]) => bookLink(title)), link(dorian, 'Dorian Gray')]],
+    ['Two-minute rule', [noteLink('Write the email')]],
+    ['Meetings that could be a note', [noteLink('Ask for the decision'), noteLink('Write the plan'), noteLink('Walk at lunch')]],
+    ['Ask for the decision', [link(hal, 'Which AI flies the ship?')]],
+    ['Write the plan on one page', [noteLink('Two-minute rule')]],
+    ['Walk at lunch', [noteLink('Ten-minute walk')]],
+    ['Ten-minute walk', [link(walk, 'Does a ten-minute walk shrink the slump?')]],
+    ['Every city has a street', [noteLink('The best part of a trip'), noteLink('Walk at lunch')]],
+    ['Long light this time', [noteLink('Walk at lunch'), noteLink('Every city has a street')]],
+    ['Bread, third try', [noteLink('Bread, fourteenth try')]],
+    ["Mum's lentil soup", [noteLink('Market')]],
+    ['Market', [noteLink('Bread, third try')]],
+    ['The library has a seed library', [noteLink("Planted the seed library's beans")]],
+    ['Started a list of the words', [link(apophenia, 'Apophenia'), link(petrichor, 'Petrichor', 'nugget')]],
+    ['A good question keeps', [madLink, link(top, 'Is the top still spinning?', 'question'), monsterLink]],
+    ['Rain all week', [link(petrichor, 'Petrichor', 'nugget')]],
+    ['Swam in the lake', [noteLink('First cold morning')]]
+  ]
+  for (const [start, to] of joins) {
+    const [words, id] = [...passed].find(([one]) => one.startsWith(start))!
+    await write(id, `${words}\n\n${to.join(' · ')}`)
+  }
 
   // Reviewed as Review asks, each gap longer than the last, so the days add
   // up across the year: a day, three, eight, eighteen, forty, then months.

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY, type Simulation, type SimulationLinkDatum, type SimulationNodeDatum } from 'd3-force'
 import { alive } from '@/components/ui/alive-icon'
 import ExpandIcon from '@/components/ui/expand-icon'
@@ -41,7 +41,34 @@ export function MapView({ onOpen }: { onOpen: (type: string, id: string) => void
   const map = useLive(notes.map, null as NoteMap | null)
   const box = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
-  const [hover, setHover] = useState<{ dot: Dot; x: number; y: number } | null>(null)
+  // The dot pointed at, by its middle and size on the screen.
+  const [hover, setHover] = useState<{ dot: Dot; x: number; y: number; r: number } | null>(null)
+  const blocked = useRef<number[][]>([])
+  const card = useRef<HTMLDivElement>(null)
+  // The card goes where it covers no lit dot or name: above if it can, else
+  // below, beside or at a corner, whichever is clearest and stays in the frame.
+  useLayoutEffect(() => {
+    const el = card.current, frame = box.current
+    if (!hover || !el || !frame) return
+    const w = el.offsetWidth, h = el.offsetHeight, gap = 8 + hover.r
+    const { clientWidth: fw, clientHeight: fh } = frame
+    const spots = [
+      [hover.x - w / 2, hover.y - gap - h], [hover.x - w / 2, hover.y + gap],
+      [hover.x + gap, hover.y - h / 2], [hover.x - gap - w, hover.y - h / 2],
+      [hover.x + gap, hover.y - gap - h], [hover.x - gap - w, hover.y - gap - h],
+      [hover.x + gap, hover.y + gap], [hover.x - gap - w, hover.y + gap]
+    ]
+    const cost = ([x, y]: number[]): number => {
+      let covered = 0
+      for (const [x0, y0, x1, y1] of blocked.current) covered += Math.max(0, Math.min(x + w, x1) - Math.max(x, x0)) * Math.max(0, Math.min(y + h, y1) - Math.max(y, y0))
+      const outside = Math.max(0, 8 - x) + Math.max(0, x + w - fw + 8) + Math.max(0, 8 - y) + Math.max(0, y + h - fh + 8)
+      return covered + outside * 1000
+    }
+    const best = spots.reduce((a, b) => (cost(b) < cost(a) ? b : a))
+    el.style.left = `${best[0]}px`
+    el.style.top = `${best[1]}px`
+    el.style.visibility = 'visible'
+  }, [hover])
   const fit = useRef<() => void>(() => undefined)
 
   // Kinds on the map, for the key in the corner.
@@ -135,7 +162,8 @@ export function MapView({ onOpen }: { onOpen: (type: string, id: string) => void
         context.stroke()
       }
       // The neighbours name themselves; the dot pointed at has its own card.
-      if (shown && amount > 0) {
+      // Worked out even before the light fades in, so the card knows where the names will be.
+      if (shown) {
         context.globalAlpha = amount
         context.font = `500 ${11 / view.k}px ${font}`
         context.fillStyle = text
@@ -156,11 +184,15 @@ export function MapView({ onOpen }: { onOpen: (type: string, id: string) => void
           const box = left ? [x - wide, dot.y! - half, x, dot.y! + half] : [x, dot.y! - half, x + wide, dot.y! + half]
           if (taken.some((one) => one.dot !== dot && !(box[2] < one.box[0] || box[0] > one.box[2] || box[3] < one.box[1] || box[1] > one.box[3]))) continue
           taken.push({ dot: shown, box })
+          if (!amount) continue
           context.textAlign = left ? 'right' : 'left'
           context.strokeText(words, x, dot.y!)
           context.fillText(words, x, dot.y!)
         }
         context.textAlign = 'left'
+        // The lit dots and their names, on the screen: what the card must not cover.
+        const screen = (at: number, middle: number, offset: number): number => middle + offset + at * view.k
+        blocked.current = taken.map(({ box }) => [screen(box[0], width / 2, view.x), screen(box[1], height / 2, view.y), screen(box[2], width / 2, view.x), screen(box[3], height / 2, view.y)])
       }
       context.globalAlpha = 1
     }
@@ -246,12 +278,14 @@ export function MapView({ onOpen }: { onOpen: (type: string, id: string) => void
     const point = (dot: Dot | null, event?: PointerEvent): void => {
       el.style.cursor = drag ? 'grabbing' : dot ? 'pointer' : 'grab'
       if (dot && event) {
-        setHover({ dot, x: width / 2 + view.x + dot.x! * view.k, y: height / 2 + view.y + (dot.y! - dot.r) * view.k })
+        setHover({ dot, x: width / 2 + view.x + dot.x! * view.k, y: height / 2 + view.y + dot.y! * view.k, r: dot.r * view.k })
       } else setHover(null)
       if (dot === focus) return
       focus = dot
       if (dot) {
         shown = dot
+        // Drawn now, so where the names go is known before the card is placed.
+        draw()
         fade(1)
       } else fade(0)
     }
@@ -308,7 +342,7 @@ export function MapView({ onOpen }: { onOpen: (type: string, id: string) => void
       if (event.ctrlKey || event.metaKey) {
         const rect = el.getBoundingClientRect()
         const px = event.clientX - rect.left - width / 2, py = event.clientY - rect.top - height / 2
-        const k = Math.min(4, Math.max(0.15, view.k * Math.exp(-event.deltaY * 0.01)))
+        const k = Math.min(4, Math.max(0.15, view.k * Math.exp(-Math.max(-40, Math.min(40, event.deltaY)) * 0.01)))
         view.x = px - ((px - view.x) / view.k) * k
         view.y = py - ((py - view.y) / view.k) * k
         view.k = k
@@ -361,8 +395,8 @@ export function MapView({ onOpen }: { onOpen: (type: string, id: string) => void
         <div ref={box} className="relative min-h-0 flex-1 overflow-hidden select-none">
           <canvas ref={canvas} className="absolute inset-0 touch-none" />
           {hover && (
-            <div data-map-tip className="pointer-events-none absolute z-10 flex max-w-xs -translate-x-1/2 -translate-y-full flex-col gap-0.5 rounded-md bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-[0_6px_20px_-6px_rgb(0_0_0/0.5)]"
-              style={{ left: hover.x, top: hover.y - 8 }}>
+            <div ref={card} data-map-tip className="pointer-events-none invisible absolute z-10 flex max-w-xs flex-col gap-0.5 rounded-md bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-[0_6px_20px_-6px_rgb(0_0_0/0.5)]"
+              >
               <span className="truncate font-medium">{hover.dot.title || 'Untitled'}</span>
               <span className="flex items-center gap-1.5 text-muted-foreground">
                 <span className="size-2 rounded-full" style={{ background: kind?.tint ?? CAPTURE_TYPES[0].tint }} />
