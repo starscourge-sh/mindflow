@@ -531,9 +531,12 @@ function TrayArrow({ tray }: { tray: { x: number; y: number } | null }): React.J
   const x = tray.x - window.screenX
   // Off past the window's edge, an arrow would point at nothing: the line on the screen says where instead.
   if (x < 24 || x > window.innerWidth - 24) return null
+  // A window lower down has something else above it: pointing up would point at that.
+  if (window.screenY - (screen as Screen & { availTop: number }).availTop > 40) return null
   return (
-    <div aria-hidden className="pointer-events-none absolute top-1.5 z-10 flex -translate-x-1/2 flex-col items-center text-primary" style={{ left: x }}>
+    <div aria-hidden className="pointer-events-none absolute top-1.5 z-10 flex -translate-x-1/2 flex-col items-center gap-0.5 text-primary" style={{ left: x }}>
       <ArrowUp className={`size-4 ${still() ? '' : 'mf-nudge-up'}`} strokeWidth={2.2} />
+      <span className="text-[0.75rem] font-medium whitespace-nowrap">Vigil is up here</span>
     </div>
   )
 }
