@@ -1025,29 +1025,72 @@ export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX
 }
 
 /** What you have typed before in a field, most used first, for its autocomplete. */
-export function Remembered({ field, value, onChange, placeholder, className = 'field-sizing-content min-w-16 max-w-48 px-1.5 py-0.5', ...rest }: {
+export function Remembered({ field, value, onChange, placeholder, className = 'field-sizing-content min-w-16 max-w-48 px-1.5 py-0.5', onKeyDown, onBlur, ...rest }: {
   field: 'attribution' | 'medium'
   value: string
   onChange: (value: string) => void
   placeholder: string
   className?: string
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>): React.JSX.Element {
+  // The names you have used before, most used first: the rest of the nearest
+  // one is written in faint after what you typed, and Tab or → takes it. A
+  // name that is one you know but for its capitals or a slip of a key ("Pink
+  // floyd", "Pnik Floyd") becomes that one as you leave the field.
   const values = useLive(() => vigil.values(field), [] as string[])
+  const typed = value.trim().toLowerCase()
+  const match = typed ? values.find((one) => one.toLowerCase().startsWith(typed) && one.length > typed.length) : undefined
+  const ahead = match ? match.slice(value.length) : ''
+  const known = (): string | undefined => {
+    if (!typed) return undefined
+    const same = values.find((one) => one.toLowerCase() === typed)
+    if (same) return same
+    return typed.length >= 4 ? values.find((one) => near(one.toLowerCase(), typed)) : undefined
+  }
   return (
-    <>
+    <span className="relative inline-grid [&>*]:col-start-1 [&>*]:row-start-1">
       <input
         {...rest}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        list={`remembered-${field}`}
+        onKeyDown={(event) => {
+          const end = event.currentTarget.selectionStart === value.length
+          if (ahead && end && (event.key === 'Tab' || event.key === 'ArrowRight')) {
+            event.preventDefault()
+            chime('tap')
+            onChange(match!)
+            return
+          }
+          onKeyDown?.(event)
+        }}
+        onBlur={(event) => {
+          const fixed = known()
+          if (fixed && fixed !== value.trim()) onChange(fixed)
+          onBlur?.(event)
+        }}
         placeholder={placeholder}
-        className={cn('rounded-md bg-transparent text-muted-foreground outline-none placeholder:text-foreground/70/60 hover:bg-accent/50 focus:bg-accent/50 focus:text-foreground', className)}
+        className={cn('rounded-md bg-transparent text-muted-foreground outline-none placeholder:text-foreground/70/60 hover:bg-accent/50 focus:bg-accent/50 focus:text-foreground', className, ahead && 'min-w-0')}
       />
-      <datalist id={`remembered-${field}`}>
-        {values.map((one) => <option key={one} value={one} />)}
-      </datalist>
-    </>
+      {/* The rest of the name, faint, after the typed part: it sits under the
+          input's own text and gives the field its width. */}
+      {ahead && (
+        <span aria-hidden className={cn('pointer-events-none overflow-hidden whitespace-pre', className.replace(/field-sizing-content|min-w-\S+|max-w-\S+/g, ''))}>
+          <span className="invisible">{value}</span><span className="text-muted-foreground/45">{ahead}</span>
+        </span>
+      )}
+    </span>
   )
+}
+
+/** Within a slip of a key or two of each other, for names of a few letters or more. */
+function near(a: string, b: string): boolean {
+  if (Math.abs(a.length - b.length) > 2) return false
+  let row = Array.from({ length: b.length + 1 }, (_, i) => i)
+  for (let i = 1; i <= a.length; i++) {
+    const next = [i]
+    for (let j = 1; j <= b.length; j++) next[j] = Math.min(row[j] + 1, next[j - 1] + 1, row[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+    row = next
+  }
+  return row[b.length] <= (b.length < 8 ? 1 : 2)
 }
 
 /**
