@@ -1575,7 +1575,7 @@ const CapturePrompt = ({
   return (
     // mf-faded: the note fades out at its top and bottom edges as it scrolls,
     // the way Raycast Notes reads, instead of being cut by a hard line.
-    <div className="mf-faded mf-levitate relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-b-3xl border-b shadow-xl"
+    <div className="mf-faded relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-b-3xl border-b shadow-xl"
       style={{ transform: 'translate(0,0)' }}>
 
       {/* The same, spelled out. See `docs/components.md` for what each one
