@@ -67,15 +67,16 @@ export function SandboxPill({ narrow = false }: { narrow?: boolean }): React.JSX
     <span data-sandbox-pill role="group" aria-label="Sandbox" style={{ ...TAPE, ...NO_DRAG }}
       className="ml-2 flex h-7 shrink-0 items-center overflow-hidden rounded-full border border-dashed text-control">
       <Tip label={SAID}>
-        <span tabIndex={0} className="flex h-full items-center gap-1.5 pr-2.5 pl-2.5 font-semibold tracking-[0.01em] outline-none">
-          <FlaskConical className="size-3.5 shrink-0" strokeWidth={2.25} />
+        {/* A label, not a button: a filled strip of tape with small capitals, so the
+            two answers after it read as the only things to press. */}
+        <span tabIndex={0} className="flex h-full cursor-default items-center gap-1.5 bg-[color-mix(in_srgb,var(--tt-color-text-yellow)_16%,transparent)] pr-2.5 pl-2.5 text-[0.6875rem] font-semibold tracking-[0.1em] uppercase outline-none">
+          <FlaskConical className="size-3 shrink-0" strokeWidth={2.25} />
           Sandbox
         </span>
       </Tip>
       <AnimatePresence mode="popLayout" initial={false}>
         {asking ? (
           <motion.span key="ask" {...swap} className="flex h-full items-center">
-            {RULE}
             {!narrow && <span className="truncate px-2.5 text-foreground/85">Start over, as it began?</span>}
             {/* The answer that does something is the one in the tape's colour; Cancel is quiet. */}
             <button ref={sure} type="button" disabled={busy} onClick={() => go(resetSandbox)} className={`${PART} font-semibold`}>
@@ -88,7 +89,6 @@ export function SandboxPill({ narrow = false }: { narrow?: boolean }): React.JSX
           </motion.span>
         ) : (
           <motion.span key="parts" {...swap} className="flex h-full items-center">
-            {RULE}
             <Tip label={narrow ? 'Back to my notes' : 'Vigil starts again on your own notes'}>
               <button type="button" disabled={busy} onClick={() => go(leaveSandbox)} className={PART}>
                 <AliveIcon icon={ArrowBackUpIcon} size={14} />
