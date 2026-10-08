@@ -1830,15 +1830,17 @@ function updateTray(): void {
   const hidden = safe || gate().hidePrivate
   const goalItems: Electron.MenuItemConstructorOptions[] = goals.slice(0, 6).map((goal) => {
     const left = daysLeft(goal.goalAt)
-    const name = goal.private && hidden ? 'A private goal' : goal.title.length > 40 ? `${goal.title.slice(0, 40)}…` : goal.title
+    const name = goal.private && hidden ? 'A private goal' : goal.title.length > 34 ? `${goal.title.slice(0, 34)}…` : goal.title
     const when = left < 0 ? 'did you make it?' : left === 0 ? 'today' : `${num(left)} ${left === 1 ? 'day' : 'days'} left`
-    return { label: `${name}  ·  ${when}  ·  ${percent(wayThrough(goal.goalFrom, goal.goalAt))} of the way`, click: () => sendHome('goal', goal.id) }
+    // The goal on its own line and where it stands under it, smaller: a menu
+    // taller and narrower, rather than one long line setting its width.
+    return { label: name, sublabel: `${when}  ·  ${percent(wayThrough(goal.goalFrom, goal.goalAt))} of the way`, click: () => sendHome('goal', goal.id) }
   })
   // Each row as one picture the menu's width: the unit at the left, the bar or
   // dots across, the percent at the right edge. Drawn by a page, since the
   // main process cannot set text; until it is, the plain bar stands in.
   const rows = (['day', 'week', 'month', 'year'] as const).map((unit) => ({ label: `${unit[0].toUpperCase()}${unit.slice(1)}`, share: Math.round(time[unit] * 100) / 100 }))
-  const widest = [...goalItems.map((item) => item.label ?? ''), 'Import an Obsidian vault or Notion export…']
+  const widest = [...goalItems.flatMap((item) => [item.label ?? '', item.sublabel ?? '']), 'Import from Obsidian or Notion…']
   const tempusKey = JSON.stringify([rows, tempusDots(), widest])
   if (tempusDrawn?.key !== tempusKey) void drawTempus(tempusKey, rows, tempusDots(), widest)
   tray.setContextMenu(
@@ -1855,7 +1857,7 @@ function updateTray(): void {
       { label: 'Show Vigil', accelerator: SUMMON, click: () => toggleWindow() },
       { label: 'Open the main window', click: openHome },
       { label: 'Import…', click: () => void importFiles() },
-      { label: 'Import an Obsidian vault or Notion export…', click: () => void importVault() },
+      { label: 'Import from Obsidian or Notion…', click: () => void importVault() },
       ...(SANDBOX ? [] : [{ label: 'Restore from a backup…', click: () => void restore() }, { label: 'Open the sandbox', click: openSandbox }]),
       { type: 'separator' },
       { label: 'Safe mode', type: 'checkbox', checked: safe, click: () => (toggleSafeMode(), updateTray()) },
