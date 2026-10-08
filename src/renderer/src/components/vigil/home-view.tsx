@@ -27,7 +27,8 @@ import { tagColour } from './tag-read'
 import { completeTask } from './tasks-view'
 import { Empty, Pressed, Tip } from './ui'
 import { Signed } from './signature'
-import { byKeys, useFirstVisit } from '@/lib/motion'
+import { byKeys, spring, useFirstVisit } from '@/lib/motion'
+import { Highlight, useChosen, useFluidHover, Weighted } from './glide'
 import { KindBack, backLine, type Returning } from './kind-back'
 import { GoalStrip } from './goals-view'
 import { GettingStarted } from './getting-started'
@@ -529,6 +530,10 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   const settings = useLive(vigil.settings, null as Settings | null)
   const captures = useCaptures()
   const [chip, setChip] = useState<Chip>('all')
+  // The chosen chip's dark pill travels to the next one; pointing lights the nearest chip, never the gap.
+  const chipRow = useRef<HTMLDivElement>(null)
+  const chipHover = useFluidHover(chipRow, { items: ':scope > button', axis: 'xy' })
+  const chipChosen = useChosen(chipRow, ':scope > button[aria-selected="true"]', chip)
   // The kind picked is kept in the step, so Back finds Home as you left it.
   useKept('tab', chip, setChip, 'all')
   const [reading, setReading] = useState<{ items: Readable[]; start: number } | null>(null)
@@ -680,12 +685,14 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
         <div className={`page-column relative flex flex-col gap-8 pt-4 pb-10 @[44rem]/page:pt-5 ${enter ? 'mf-stagger' : ''}`}>
           <div className="flex flex-col gap-4">
             {/* What the page holds. */}
-            <div role="tablist" aria-label="Show" className="flex flex-wrap gap-1.5 px-5 @[44rem]/page:px-8">
+            <div ref={chipRow} {...chipHover.handlers} role="tablist" aria-label="Show" className="relative isolate flex flex-wrap gap-1.5 px-5 @[44rem]/page:px-8">
+              <Highlight spot={chipChosen.spot} snap={chipChosen.snap} travel={spring.moderate} className="rounded-full bg-foreground" />
+              <Highlight spot={chipHover.spot} session={chipHover.session} snap={chipHover.snap} from={chipChosen.spot} className="rounded-full bg-foreground/[0.05]" />
               {CHIPS.map((one) => (
                 <button key={one.id} type="button" role="tab" aria-selected={chip === one.id}
                   onClick={() => void (chip !== one.id && (chime('tap'), setChip(one.id)))}
-                  className={`h-7 rounded-full px-3 text-control transition-[background-color,color,scale] duration-150 active:scale-[0.96] ${chip === one.id ? 'bg-foreground font-medium text-background' : 'bg-foreground/[0.06] text-foreground/85 hover:bg-foreground/[0.1]'}`}>
-                  {one.label}
+                  className={`h-7 rounded-full px-3 text-control transition-[background-color,color] duration-160 ${chip === one.id ? 'text-background' : 'bg-foreground/[0.06] text-foreground/85'}`}>
+                  <Weighted on={chip === one.id}>{one.label}</Weighted>
                 </button>
               ))}
             </div>

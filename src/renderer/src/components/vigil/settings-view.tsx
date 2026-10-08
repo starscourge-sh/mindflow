@@ -35,7 +35,8 @@ import { Term } from './term'
 import { Button } from '@/components/ui/button'
 import { Orb } from './orb'
 import { tryCelebration } from './celebrate'
-import { byKeys, useFirstVisit } from '@/lib/motion'
+import { byKeys, spring, useFirstVisit } from '@/lib/motion'
+import { Highlight, useChosen, useFluidHover, Weighted } from './glide'
 import { detent, falloff } from '@/lib/proximity'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DownloadIcon from '@/components/ui/download-icon'
@@ -297,6 +298,15 @@ export function SettingsView(): React.JSX.Element {
   const [vim, setVimOn] = useState(currentVim)
   useEffect(() => onVimChange(setVimOn), [])
   // Seen in screen recordings or not: the same flag as the box's menu and ⌘K, so all of them agree.
+  // The section list's light glides to the row nearest the pointer, and the
+  // section on show is one fill that travels to the next.
+  const sectionList = useRef<HTMLElement>(null)
+  const sectionHover = useFluidHover(sectionList, { items: '[data-section]' })
+  const sectionChosen = useChosen(sectionList, '[data-section][aria-current="page"]', `${section}:${!!query.trim()}`)
+  // The interface sizes, the same way along a line.
+  const sizeRow = useRef<HTMLSpanElement>(null)
+  const sizeHover = useFluidHover(sizeRow, { items: ':scope > button', axis: 'x' })
+  const sizeChosen = useChosen(sizeRow, ':scope > button[aria-pressed="true"]', settings?.interfaceSize)
   const [recordable, setRecordableFlag] = useStoredFlag('recordable')
   const [typewriter, setTypewriter] = useStoredFlag('typewriter')
   const setRecordable = (on: boolean): void => {
@@ -314,9 +324,11 @@ export function SettingsView(): React.JSX.Element {
   return (
     <section className={`grid min-h-0 min-w-0 flex-1 grid-cols-[3.5rem_1fr] grid-rows-[auto_1fr] @[44rem]/page:grid-cols-[14rem_1fr]`}>
       <nav
+        ref={sectionList}
+        {...sectionHover.handlers}
         data-sections
         aria-label="Settings sections"
-        className={`col-start-1 row-span-2 row-start-1 flex flex-col gap-px overflow-y-auto px-2 pt-4 pb-4 @[44rem]/page:row-span-1 @[44rem]/page:row-start-2 @[44rem]/page:pt-0`}
+        className={`relative isolate col-start-1 row-span-2 row-start-1 flex flex-col gap-px overflow-y-auto px-2 pt-4 pb-4 @[44rem]/page:row-span-1 @[44rem]/page:row-start-2 @[44rem]/page:pt-0`}
         onKeyDown={(event) => {
           const by = { ArrowDown: 1, j: 1, ArrowUp: -1, k: -1 }[event.key]
           if (!by || event.metaKey || event.ctrlKey || event.altKey) return
@@ -327,6 +339,8 @@ export function SettingsView(): React.JSX.Element {
           event.currentTarget.querySelector<HTMLElement>(`[data-section="${next.title}"]`)?.focus()
         }}
       >
+        <Highlight spot={sectionChosen.spot} snap={sectionChosen.snap} travel={spring.moderate} className="bg-accent" />
+        <Highlight spot={sectionHover.spot} session={sectionHover.session} snap={sectionHover.snap} from={sectionChosen.spot} />
         {SECTIONS.map((one) => (
           <Tip key={one.title} label={one.title}>
             <button
@@ -337,13 +351,13 @@ export function SettingsView(): React.JSX.Element {
                 setSection(one.title)
                 if (searching) (chime('fold'), setQuery(''))
               }}
-              className={`group flex items-center justify-center gap-2.5 rounded-md p-1.5 text-left text-body transition-colors @[44rem]/page:justify-start @[44rem]/page:px-2 ${!searching && section === one.title ? 'bg-accent text-foreground' : 'text-foreground/80 hover:bg-accent/60'}`}
+              className={`group flex items-center justify-center gap-2.5 rounded-md p-1.5 text-left text-body transition-colors duration-80 @[44rem]/page:justify-start @[44rem]/page:px-2 ${!searching && section === one.title ? 'text-foreground' : 'text-foreground/80'}`}
             >
               <one.icon
-                className={`size-4 shrink-0 transition-colors ${!searching && section === one.title ? 'text-[var(--tint)]' : 'text-[color-mix(in_oklab,var(--tint)_55%,var(--muted-foreground))] group-hover:text-[var(--tint)]'}`}
+                className={`size-4 shrink-0 transition-colors duration-80 ${!searching && section === one.title ? 'text-[var(--tint)]' : 'text-[color-mix(in_oklab,var(--tint)_55%,var(--muted-foreground))] group-hover:text-[var(--tint)] group-data-[fluid-hover-active]:text-[var(--tint)]'}`}
                 style={{ '--tint': `var(--tt-color-text-${one.tint})` } as CSSProperties}
               />
-              <span className={`hidden truncate @[44rem]/page:inline`}>{one.title}</span>
+              <Weighted on={!searching && section === one.title} className="hidden @[44rem]/page:inline-grid">{one.title}</Weighted>
             </button>
           </Tip>
         ))}
@@ -391,7 +405,9 @@ export function SettingsView(): React.JSX.Element {
             <Switch checked={settings.motion} onCheckedChange={(motion) => set({ motion })} />
           </Setting>
           <Setting title="Interface size" note="How big everything is: the lists, menus and notes together, in every window." keywords="zoom scale bigger smaller text ui">
-            <span className="flex items-center gap-1">
+            <span ref={sizeRow} {...sizeHover.handlers} className="relative isolate flex items-center gap-1">
+              <Highlight spot={sizeChosen.spot} snap={sizeChosen.snap} travel={spring.moderate} className="bg-accent" />
+              <Highlight spot={sizeHover.spot} session={sizeHover.session} snap={sizeHover.snap} from={sizeChosen.spot} />
               {(['small', 'medium', 'large'] as const).map((size, index) => (
                 <button
                   key={size}
@@ -399,7 +415,7 @@ export function SettingsView(): React.JSX.Element {
                   aria-label={size[0].toUpperCase() + size.slice(1)}
                   aria-pressed={(settings.interfaceSize ?? 'medium') === size}
                   onClick={() => (set({ interfaceSize: size }), step(index))}
-                  className={`flex h-8 min-w-9 items-center justify-center rounded-md px-2 font-medium transition-colors hover:bg-accent ${(settings.interfaceSize ?? 'medium') === size ? 'bg-accent text-foreground' : 'text-muted-foreground'}`}
+                  className={`flex h-8 min-w-9 items-center justify-center rounded-md px-2 font-medium transition-colors duration-80 ${(settings.interfaceSize ?? 'medium') === size ? 'text-foreground' : 'text-muted-foreground hover:text-foreground data-[fluid-hover-active]:text-foreground'}`}
                   style={{ fontSize: [12, 14, 17][index] }}
                 >
                   Aa

@@ -1,5 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { motion } from 'motion/react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AlignJustify, Grid3x3 } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
@@ -13,6 +12,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Island, Rolling, Tip, typing } from './ui'
 import { chime } from '@/lib/sound'
+import { spring } from '@/lib/motion'
+import { Highlight, useChosen, useFluidHover, Weighted } from './glide'
 import SlidersHorizontalIcon from '@/components/ui/sliders-horizontal-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
 import { dayjs, daysSince } from '../../../../main/dates'
@@ -186,12 +187,18 @@ export function Chips({ options, on, pick, className = 'flex-wrap', sideways = f
   /** One line that scrolls along, never wrapping under itself. */
   sideways?: boolean
 }): React.JSX.Element {
-  // Where one chip is chosen at a time, its pill slides to the next one, as the box's tabs do.
-  const group = useId()
+  // Where one chip is chosen at a time, its pill travels to the next one, as
+  // the box's tabs do; pointing lights the chip nearest, never the gap.
   const single = options.filter((option) => on(option.id)).length === 1
   const row = useSideways()
+  const box = useRef<HTMLDivElement | null>(null)
+  const hover = useFluidHover(box, { items: ':scope > button', axis: sideways ? 'x' : 'xy' })
+  const chosen = useChosen(box, ':scope > button[aria-pressed="true"]', options.map((option) => on(option.id)).join())
   return (
-    <div data-hover-quiet ref={sideways ? row.ref : undefined} style={sideways ? row.style : undefined} className={`flex gap-x-1 gap-y-0.5 ${sideways ? row.className : ''} ${className}`}>
+    <div data-hover-quiet ref={(node) => { box.current = node; if (sideways) row.ref(node) }} {...hover.handlers} style={sideways ? row.style : undefined}
+      className={`relative isolate flex gap-x-1 gap-y-0.5 ${sideways ? row.className : ''} ${className}`}>
+      {single && <Highlight spot={chosen.spot} snap={chosen.snap} travel={spring.moderate} className="bg-accent" />}
+      <Highlight spot={hover.spot} session={hover.session} snap={hover.snap} from={single ? chosen.spot : null} className="bg-accent/50" />
       {options.map((option) => (
         <button
           key={option.id}
@@ -201,10 +208,9 @@ export function Chips({ options, on, pick, className = 'flex-wrap', sideways = f
             chime('tap')
             pick(option.id)
           }}
-          className={`relative isolate rounded-md px-2 py-0.5 text-xs transition-colors ${on(option.id) ? `${single ? '' : 'bg-accent'} text-foreground` : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'}`}
+          className={`rounded-md px-2 py-0.5 text-xs transition-colors duration-80 ${on(option.id) ? `${single ? '' : 'bg-accent'} text-foreground` : 'text-muted-foreground hover:text-foreground data-[fluid-hover-active]:text-foreground'}`}
         >
-          {single && on(option.id) && <motion.span layoutId={`${group}-chip`} className="absolute inset-0 -z-10 rounded-md bg-accent" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />}
-          <Rolling text={option.label} />
+          <Weighted on={on(option.id)}><Rolling text={option.label} /></Weighted>
         </button>
       ))}
     </div>
@@ -299,9 +305,9 @@ const Row = ({ label, changed, children }: { label: string; changed: boolean; ch
 function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }): React.JSX.Element {
   return (
     <button type="button" aria-pressed={on} onClick={(event) => (onClick(), event.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' }))}
-      className={`flex h-6 shrink-0 items-center gap-1.5 rounded-full border px-2.5 transition-[background-color,border-color,color] duration-150 ${on
+      className={`flex h-6 shrink-0 items-center gap-1.5 rounded-full border px-2.5 transition-[background-color,border-color,color] duration-80 ${on
         ? 'border-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_18%,transparent)] text-foreground'
-        : 'border-border bg-transparent text-muted-foreground hover:border-foreground/25 hover:text-foreground'}`}>
+        : 'border-border bg-transparent text-muted-foreground hover:border-foreground/25 hover:text-foreground data-[fluid-hover-active]:border-foreground/25 data-[fluid-hover-active]:text-foreground'}`}>
       {on && <Check className="-ml-0.5 size-3 text-[var(--tt-brand-color-400)]" />}
       {children}
     </button>
@@ -321,6 +327,8 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
     (view.filter[facet.key] ?? []).filter((id) => !(defaults[facet.key] ?? []).includes(id)).map((id) => ({ facet, option: facet.options.find((one) => one.id === id) ?? { id, label: id } }))
   )
   const row = useSideways()
+  const box = useRef<HTMLDivElement | null>(null)
+  const hover = useFluidHover(box, { items: ':scope > button[aria-pressed]', axis: 'x' })
   const offered = facets.find((facet) => facet.key === quick)
   if (!set.length && !(offered && offered.options.length > 1)) return null
   const toggle = (key: string, id: string): void => {
@@ -331,7 +339,8 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
   const icon = (one: Choice): ReactNode => (one.icon ? <one.icon className="size-3.5" style={{ color: one.tint }} /> : one.tint ? <span className="size-2 rounded-full" style={{ background: one.tint }} /> : null)
   return (
     // One line that scrolls sideways, fading where there is more, never wrapping under itself.
-    <div data-hover-quiet ref={row.ref} style={row.style} className={`flex min-w-0 items-center gap-1 text-xs ${row.className} ${className}`}>
+    <div data-hover-quiet ref={(node) => { box.current = node; row.ref(node) }} {...hover.handlers} style={row.style} className={`isolate flex min-w-0 items-center gap-1 text-xs ${row.className} ${className}`}>
+      <Highlight spot={hover.spot} session={hover.session} snap={hover.snap} className="rounded-full bg-accent/60" />
       {/* Chosen filters from other facets first; the quick facet's options
           stay in their own order whether on or off, so a click never moves
           the chip out from under the pointer. */}
