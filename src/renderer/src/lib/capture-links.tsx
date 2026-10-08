@@ -2,7 +2,7 @@ import { CircleArrowUp, CircleCheck, CircleDashed, CircleX } from 'lucide-react'
 
 import { ask, askQuestion, refuse, toast } from '@/components/vigil/ui'
 import { chime } from '@/lib/sound'
-import { lift, type Home } from '@/lib/fly-home'
+import { lift, shred, type Home } from '@/lib/fly-home'
 import { showHeading, type NoteSuggestion } from '@/extensions/note-link'
 import { headingsIn } from '@/components/toc/headings'
 import type { JSONContent } from '@tiptap/core'
@@ -45,7 +45,7 @@ export async function exit(id: string, status: string, onUndo?: () => void): Pro
     chime('hold')
     return toast('Kept in a question: it is in Holding', () => void vigil.dropQuestion(question).then(() => onUndo?.()), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', question) })
   }
-  const result = status === 'promoted' ? await flying(id, 'nugget', () => takeExit(id, status)) : await takeExit(id, status)
+  const result = status === 'promoted' ? await flying(id, 'nugget', () => takeExit(id, status)) : status === 'discarded' ? await flying(id, 'away', () => takeExit(id, status)) : await takeExit(id, status)
   if (result === 'cancelled' || !one) return
   // Only a capture still in the inbox takes an exit: one already promoted,
   // resolved or let go keeps the one it took.
@@ -78,8 +78,9 @@ export const unpromote = (id: string, nugget: string): Promise<boolean> => {
  * picture is taken first, while the capture is still on screen, and flies
  * once the work is done. A cancelled step flies nowhere.
  */
-export async function flying<T>(id: string, home: Home, work: () => Promise<T>): Promise<T> {
-  const land = lift(id, home)
+export async function flying<T>(id: string, home: Home | 'away', work: () => Promise<T>): Promise<T> {
+  // Discarded: no home to fly to, it goes through the shredder.
+  const land = home === 'away' ? shred(id) : lift(id, home)
   const result = await work()
   if (result !== 'cancelled' && result !== 'needs-source' && result !== 'not-open' && result !== null && !(result as SaveResult)?.refused) land?.()
   return result

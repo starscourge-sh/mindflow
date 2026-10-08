@@ -90,3 +90,52 @@ export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | u
       .catch(() => card.remove())
   }
 }
+
+/**
+ * Let go, shown: a copy of the card feeds down through a slit and comes out
+ * the other side as strips, each curling its own way as it drops and fades,
+ * as paper does from a shredder (after reactbits' Shredder, without the drag:
+ * here a discard is a key or a click). Like `lift`, call it before the change;
+ * it returns a `land` for once the change is made.
+ */
+export function shred(id: string): (() => void) | undefined {
+  const from = document.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`)
+  if (!from || still()) return undefined
+  const box = from.getBoundingClientRect()
+  const picture = from.cloneNode(true) as HTMLElement
+  picture.removeAttribute('data-id')
+  Object.assign(picture.style, { margin: '0', width: `${box.width}px`, height: `${box.height}px`, pointerEvents: 'none' })
+  return () => {
+    // Narrow as a shredder cuts, whatever the width: a long row is many strips, not a few blocks.
+    const strips = Math.max(8, Math.min(48, Math.round(box.width / 14)))
+    const width = box.width / strips
+    for (let n = 0; n < strips; n++) {
+      const strip = document.createElement('div')
+      Object.assign(strip.style, {
+        position: 'fixed', left: `${box.left + n * width}px`, top: `${box.top}px`, width: `${width - 0.5}px`, height: `${box.height}px`,
+        zIndex: '60', pointerEvents: 'none', overflow: 'hidden', borderRadius: '1px',
+        // Paper: the card's own colour, a hairline shadow so each strip reads as a thing.
+        backgroundImage: 'linear-gradient(var(--popover), var(--popover))', backgroundColor: 'Canvas',
+        boxShadow: '0 1px 2px rgb(0 0 0 / 0.18)'
+      })
+      const piece = picture.cloneNode(true) as HTMLElement
+      piece.style.transform = `translateX(${-n * width}px)`
+      strip.append(piece)
+      document.body.append(strip)
+      const turn = (Math.random() * 2 - 1) * 14
+      const fall = box.height * 1.6 + 40 + Math.random() * 60
+      // Fed in together, a short drop as the blades take it; then each strip
+      // comes apart, curling its own way and falling faster as it goes.
+      void strip.animate(
+        [
+          { transform: 'translateY(0) rotate(0deg)', opacity: 1, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' },
+          { transform: `translateY(${Math.min(10, box.height * 0.15)}px) rotate(0deg)`, opacity: 1, offset: 0.2, easing: 'cubic-bezier(0.5, 0, 0.9, 0.5)' },
+          { transform: `translateY(${fall * 0.45}px) rotate(${turn * 0.6}deg) skewY(${turn * 0.3}deg)`, opacity: 1, offset: 0.65, easing: 'cubic-bezier(0.3, 0, 0.7, 1)' },
+          { transform: `translateY(${fall}px) rotate(${turn}deg) skewY(${turn * 0.5}deg)`, opacity: 0 }
+        ],
+        // Each stage its own timing (above): a whole-run ease made them drop and vanish at once.
+        { duration: 820, delay: (n % 2) * 18 + Math.random() * 40, easing: 'linear', fill: 'forwards' }
+      ).finished.then(() => strip.remove(), () => strip.remove())
+    }
+  }
+}
