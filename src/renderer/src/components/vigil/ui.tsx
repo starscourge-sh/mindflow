@@ -154,7 +154,11 @@ export function Page({ title, count, unit = ['item', 'items'], actions, children
  * label (textmotion.dev's word reveal). Typed again when the words change.
  * Plain text when Motion is off.
  */
-export function Typed({ text, className, step = 40, delay = 700, story = false }: { text: string; className?: string; step?: number; delay?: number; story?: boolean }): React.JSX.Element {
+export function Typed({ text, className, step = 40, delay: asked = 700, story = false }: { text: string; className?: string; step?: number; delay?: number; story?: boolean }): React.JSX.Element {
+  // Never sooner than a beat after it appears: typed with the first paint it
+  // reads as noise, not as something said to you. Only a line that answers
+  // what you just did (delay 0) starts at once.
+  const delay = asked === 0 ? 0 : Math.max(asked, 600)
   const words = text.split(/(\s+)/)
   // One voice per screen (lib/motion.ts): settled when the words arrive, so
   // a later render never starts it again. Any other line is simply written.
