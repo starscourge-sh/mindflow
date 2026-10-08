@@ -26,9 +26,10 @@ const ROLL_EVERY = 45_000
 /** Made as real glass (the setting): the stack lives inside its window, its cards behind as edges at the foot. */
 const GLASS = new URLSearchParams(location.search).has('glass')
 /** The cards drawn behind the top one: enough to read as a stack, never a pile. */
-const BEHIND = GLASS ? 2 : 3
+const BEHIND = 3
 /** As glass, how far each card behind shows under the one in front of it. */
-const EDGE = 5
+// Deep enough that the cards under it read as a stack at a glance, not a hairline.
+const EDGE = 9
 /** Each card behind sits a little lower and to the right, and leans its own way, as loose paper does. */
 const TILT = [0, 1.3, -1, 1.8]
 const pose = (depth: number): string => GLASS
@@ -147,7 +148,7 @@ export function GoalStack(): React.JSX.Element | null {
       // As glass the top card fills the window, less a strip at the foot for the edges behind it.
       className={GLASS ? 'group h-screen' : 'group h-screen pt-3.5 pr-[22px] pb-[42px] pl-3.5'}
       style={GLASS ? { paddingBottom: Math.min(n - 1, BEHIND) * EDGE } : undefined}
-      onPointerEnter={() => (setHovered(true), window.api.holdBeacon(true), window.api.wiggle())}
+      onPointerEnter={() => (setHovered(true), window.api.holdBeacon(true), GLASS && window.api.lift())}
       onPointerLeave={() => (setHovered(false), window.api.holdBeacon(false))}
       onWheel={(event) => {
         // A flick of the wheel or two fingers turns one card, however long the swipe runs on.
@@ -170,7 +171,7 @@ export function GoalStack(): React.JSX.Element | null {
               key={id}
               className="absolute inset-0"
               // As glass, one at rest behind is only its edge: none of its paper dims the glass under the top card.
-              style={{ zIndex: z, transformOrigin: GLASS ? '50% 100%' : '50% 60%', clipPath: GLASS && depth > 0 && !flying ? 'inset(calc(100% - 16px) 0 0 0)' : undefined }}
+              style={{ zIndex: z, transformOrigin: GLASS ? '50% 100%' : '50% 60%', clipPath: GLASS && depth > 0 && !flying ? `inset(calc(100% - ${EDGE + 11}px) 0 0 0)` : undefined }}
               initial={false}
               animate={{ transform: flying?.out ? LIFT : pose(depth) }}
               transition={still() ? { duration: 0 } : flying?.out ? { duration: 0.15, ease: EASE } : { duration: flying ? 0.24 : 0.3, ease: EASE }}
@@ -240,7 +241,7 @@ function Card({ id, today, front, shows, stacked, count, flip }: { id: string; t
             {/* The whole goal, over two lines if it needs them: a goal cut short is not the goal. */}
             <p className={`private-text line-clamp-2 min-w-0 flex-1 leading-snug font-medium text-balance ${stacked ? 'pr-8' : ''}`}>{goal.title}</p>
             {/* Where this card is in the stack, till the controls take the corner. */}
-            {count && <span className="absolute top-3 right-3.5 text-[10px] leading-none text-muted-foreground tabular-nums transition-opacity duration-200 group-hover:opacity-0">{count}</span>}
+            {count && <span className="absolute top-3 right-3.5 text-[11px] leading-none font-medium text-foreground/70 tabular-nums transition-opacity duration-200 group-hover:opacity-0">{count}</span>}
             {/* Over the end of the title, only while pointed at: the title has the whole row the rest of the time. */}
             {front && (
               <span className="absolute top-2 right-2 z-10 flex items-center rounded-lg bg-popover opacity-0 transition-opacity duration-200 group-hover:opacity-100" style={STILL}>

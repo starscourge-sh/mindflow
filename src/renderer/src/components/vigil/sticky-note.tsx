@@ -428,8 +428,8 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
     <div className={GLASS ? 'h-screen' : 'h-screen p-5'}>
       <div
         ref={card}
-        // Pointed at, the whole window wiggles where it stands (main says how often).
-        onPointerEnter={() => window.api.wiggle()}
+        // Pointed at, a glass note's window rises a little (main sets it down); paper lifts in its own window.
+        onPointerEnter={() => GLASS && window.api.lift()}
         data-private={note.private ? '' : undefined}
         // Paper: solid, as the timer pill is (a glass theme's colours would let the desktop show through),
         // the theme's own paper (--mf-paper, sticky-note.scss), warmed a little by its own yellow and lit from the top. Frosted (the setting), <Frost> lays the blurred desktop under it. Leans its own way; pointed at, it straightens and lifts.

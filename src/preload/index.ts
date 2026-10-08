@@ -126,6 +126,8 @@ const api = {
   resizeSticky: (width: number, height: number): void => ipcRenderer.send('sticky:resize', width, height),
   /** The sticky's whole window wiggles where it stands, and settles back exactly. */
   wiggle: (): void => ipcRenderer.send('sticky:wiggle'),
+  /** Pointed at: the window rises a little, and sets down once the pointer leaves. */
+  lift: (): void => ipcRenderer.send('sticky:lift'),
   /** The goal stack: the pointer on it (it stays) or off it, and the top card's X (that goal tucked away). */
   holdBeacon: (on: boolean): void => ipcRenderer.send('beacon:hold', on),
   tuckBeacon: (id: string): void => ipcRenderer.send('beacon:tuck', id),

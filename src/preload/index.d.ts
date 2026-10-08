@@ -67,6 +67,7 @@ export interface Api {
   onLookOver: (listen: () => void) => () => void
   hideSticky: (type: string, id: string) => void
   wiggle: () => void
+  lift: () => void
   resizeSticky: (width: number, height: number) => void
   holdBeacon: (on: boolean) => void
   tuckBeacon: (id: string) => void

@@ -594,8 +594,16 @@ function showGlow(tone: string): void {
  * so the desktop looks the same after a restart.
  */
 const stickies = new Map<string, BrowserWindow>()
-/** Stickies mid-wiggle: their moves are not where you put them, so not kept or nudged. */
-const wiggling = new WeakSet<BrowserWindow>()
+/**
+ * Where Vigil itself last put a sticky (a wiggle, a lift). A window found there
+ * was moved by Vigil, not by you: not kept as its place, nor nudged on screen.
+ */
+const placed = new WeakMap<BrowserWindow, { x: number; y: number }>()
+const ours = (win: BrowserWindow): boolean => {
+  const at = placed.get(win)
+  const now = win.getBounds()
+  return !!at && at.x === now.x && at.y === now.y
+}
 const stickyFile = (): string => join(app.getPath('userData'), 'stickies.json')
 // Hidden: put away on its own ("Hide this one") until the stickies are next shown.
 type Stuck = { type: string; id: string; bounds?: Electron.Rectangle; hidden?: boolean }
@@ -696,7 +704,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   }
   // Let go with most of it past an edge, it slides back until it is all in view.
   win.on('moved', () => {
-    if (win.isDestroyed() || wiggling.has(win)) return
+    if (win.isDestroyed() || ours(win)) return
     const now = win.getBounds()
     const safe = onScreen(now)
     if (safe.x !== now.x || safe.y !== now.y) win.setBounds(safe)
@@ -2081,26 +2089,55 @@ app.whenReady().then(() => {
   })
   // A sticky's whole window wiggles where it stands, as a Mac's own window shakes
   // at a wrong password: a few quick, shrinking swings side to side, then exactly
-  // back. A window cannot turn, but it can move. Not while one is already going,
-  // nor more than once a second and a half, and a drag mid-wiggle wins.
+  // back. Now and then, when it stirs. A drag mid-move always wins.
   const wiggled = new WeakMap<BrowserWindow, number>()
+  /** Move a window along a path of offsets from where it is, one per frame; false if your hand took it. */
+  const glide = (win: BrowserWindow, ms: number, at: (t: number) => { x: number; y: number }, done?: () => void): void => {
+    const start = Date.now()
+    const timer = setInterval(() => {
+      if (win.isDestroyed() || (placed.has(win) && !ours(win))) return clearInterval(timer)
+      const t = Math.min(1, (Date.now() - start) / ms)
+      const to = at(t)
+      placed.set(win, to)
+      win.setPosition(to.x, to.y)
+      if (t >= 1) (clearInterval(timer), done?.())
+    }, 16)
+  }
   ipcMain.on('sticky:wiggle', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
-    if (!win || win.isDestroyed() || stillness() || Date.now() - (wiggled.get(win) ?? 0) < 1500) return
+    if (!win || win.isDestroyed() || stillness() || lifted.has(win) || Date.now() - (wiggled.get(win) ?? 0) < 1500) return
     wiggled.set(win, Date.now())
-    wiggling.add(win)
     const { x, y } = win.getBounds()
-    const start = Date.now()
-    let at = x
-    const stop = (): void => (clearInterval(timer), void wiggling.delete(win))
-    const timer = setInterval(() => {
-      const t = (Date.now() - start) / 420
-      // Moved by something else (your hand): let it be where it is.
-      if (win.isDestroyed() || win.getBounds().x !== at || win.getBounds().y !== y) return stop()
-      at = t >= 1 ? x : x + Math.round(5 * Math.sin(t * Math.PI * 6) * (1 - t) ** 1.5)
-      win.setPosition(at, y)
-      if (t >= 1) stop()
-    }, 16)
+    placed.set(win, { x, y })
+    glide(win, 420, (t) => ({ x: t >= 1 ? x : x + Math.round(5 * Math.sin(t * Math.PI * 6) * (1 - t) ** 1.5), y }))
+  })
+  // Pointed at, a sticky's window rises a few points, as a card picked off the
+  // desk does, and sets down again once the pointer has left it. The pointer is
+  // watched from here rather than the page, so the rise itself, slipping the
+  // window out from under a pointer near its foot, never counts as leaving.
+  const RISE = 6
+  const lifted = new WeakMap<BrowserWindow, { x: number; y: number }>()
+  ipcMain.on('sticky:lift', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win.isDestroyed() || stillness() || lifted.has(win)) return
+    const rest = win.getBounds()
+    lifted.set(win, { x: rest.x, y: rest.y })
+    placed.set(win, { x: rest.x, y: rest.y })
+    const ease = (t: number): number => 1 - (1 - t) ** 3
+    let watch: ReturnType<typeof setInterval>
+    // Up first, then watched: a set-down starting mid-rise would fight it.
+    glide(win, 160, (t) => ({ x: rest.x, y: rest.y - Math.round(RISE * ease(t)) }), () => down())
+    const down = (): void => void (watch = setInterval(() => {
+      if (win.isDestroyed()) return clearInterval(watch)
+      // Dragged while up: wherever you put it is its place now.
+      if (!ours(win)) return (clearInterval(watch), void lifted.delete(win))
+      const p = screen.getCursorScreenPoint()
+      const b = win.getBounds()
+      if (p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < rest.y + b.height) return
+      clearInterval(watch)
+      const from = b.y
+      glide(win, 220, (t) => ({ x: rest.x, y: Math.round(from + (rest.y - from) * (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2)) }), () => void lifted.delete(win))
+    }, 80))
   })
   // Its corner grip: the window is not resizable (see stick), so the size is set here, no smaller than its least.
   ipcMain.on('sticky:resize', (event, width: unknown, height: unknown) => {
