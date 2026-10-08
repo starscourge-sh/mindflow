@@ -185,6 +185,9 @@ export function Scenery({ place, seed, mood, text = 'none', fade = false, wide =
   const melt = fade ? 'linear-gradient(to bottom, black 0%, black 40%, transparent 96%)' : undefined
   return (
     <div aria-hidden className={`pointer-events-none overflow-hidden ${rounded} ${className}`} style={{ maskImage: melt, background: shown ? undefined : `color-mix(in srgb, ${scene.color} 30%, transparent)` }}>
+      {/* While the full picture decodes: its small copy, softened, so the page
+          starts on the picture rather than on a flat colour. */}
+      {!shown && scene.small && <img src={scene.small} alt="" className="absolute inset-0 size-full scale-110 object-cover blur-xl" />}
       <AnimatePresence initial={!!settings?.motion && !ready}>
         {shown && (
           <motion.img
