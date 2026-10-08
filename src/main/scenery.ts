@@ -1,5 +1,8 @@
 import { app, dialog, ipcMain, nativeImage } from 'electron'
-import { createHash } from 'crypto'
+import { createHash, randomUUID } from 'crypto'
+import { execFile } from 'child_process'
+import { tmpdir } from 'os'
+import { promisify } from 'util'
 import { mkdir, readFile, readdir, rm, stat, writeFile } from 'fs/promises'
 import { basename, dirname, extname, isAbsolute, join } from 'path'
 import { changed } from './captures'
@@ -133,6 +136,26 @@ function seeThrough(image: Electron.NativeImage): boolean {
   return false
 }
 
+/**
+ * A picture as nativeImage reads it. WebP it cannot read (every .webp came
+ * back empty and was skipped, the sandbox's own landscapes included), so on a
+ * Mac those are turned into a PNG by the Mac's own `sips` first. (The system
+ * thumbnailer reads them too, but pads them out square.)
+ */
+async function decode(path: string): Promise<Electron.NativeImage> {
+  const image = nativeImage.createFromPath(path)
+  if (!image.isEmpty() || !/\.webp$/i.test(path) || process.platform !== 'darwin') return image
+  const out = join(tmpdir(), `vigil-scene-${randomUUID()}.png`)
+  try {
+    await promisify(execFile)('sips', ['-s', 'format', 'png', path, '--out', out], { timeout: 20000 })
+    return nativeImage.createFromPath(out)
+  } catch {
+    return image
+  } finally {
+    await rm(out, { force: true })
+  }
+}
+
 /** The copy for one picture, made if it is new or has changed since. */
 async function prepare(path: string): Promise<Entry | null> {
   const facts = await stat(path)
@@ -141,7 +164,7 @@ async function prepare(path: string): Promise<Entry | null> {
   // Kept only while both its copies are still on disk; a lost one is made again.
   const onDisk = (url = ''): Promise<boolean> => stat(join(sceneryDir(), url.split('/').pop() ?? '')).then(() => true, () => false)
   if (kept && (await onDisk(kept.url)) && (await onDisk(kept.small))) return kept
-  const image = nativeImage.createFromPath(path)
+  const image = await decode(path)
   if (image.isEmpty()) return null
   const { width } = image.getSize()
   // A picture with see-through parts stays a PNG: a JPEG would fill them black.

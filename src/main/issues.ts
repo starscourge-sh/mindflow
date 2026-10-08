@@ -44,9 +44,7 @@ export function registerIssues(): void {
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
     void ipcMain.handle(`vigil:${channel}`, (_event, ...args) => run(...(args as never[])))
 
-  // --- issues: a week or a month, numbered from the first thing you caught
-
-  handle('issues:first', () => (db.prepare('select min(captured_at) as at from captures').get() as { at: string | null }).at)
+  // --- a week or a month, and the ones before it
 
   // The issues before one: each with its page's fields and how much was
   // caught in it, newest first. Nothing before your first capture.

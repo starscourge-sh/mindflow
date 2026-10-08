@@ -331,8 +331,8 @@ export function celebrateAfter(channel: string, sender: WebContents, args: unkno
   }
 }
 
-/** A sticky's list done shows at most once a minute per note, however often its last box is ticked. */
-// Only a double firing is stopped: untick by mistake and tick again, and it plays again.
+/** A sticky's list done shows every time it is finished; only a double firing (within 3 seconds) is stopped. */
+// Untick by mistake and tick again, and it plays again.
 const STICKY_APART = 3000
 const stickyAt = new Map<string, number>()
 

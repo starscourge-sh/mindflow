@@ -6,7 +6,7 @@ import BookmarkIcon from '@/components/ui/bookmark-icon'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { EXITS, captureKey, exit } from '@/lib/capture-links'
-import { splitTags, vigil } from '@/lib/vigil'
+import { splitTags, unread, vigil } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
 import { Tip, pin } from './vigil/ui'
 import { copy, type MenuItem } from './vigil/row-menu'
@@ -28,7 +28,7 @@ export type CaptureMeta = Awaited<ReturnType<typeof window.api.captures.list>>[n
  * ones are out of sight unless asked for: `archived` gives every capture.
  */
 export function useCaptures(archived = false): CaptureMeta[] {
-  const [captures, setCaptures] = useState<CaptureMeta[]>([])
+  const [captures, setCaptures] = useState<CaptureMeta[]>(() => unread([]))
   useEffect(() => {
     // The same list as last time (typing past a note's first line) keeps the
     // old one, so the lists holding it do not redraw on every pause.

@@ -5,6 +5,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 
 import { headingRank } from "@/extensions/toggle-heading"
 import { cue } from "@/lib/cues"
+import { jumpTo } from "@/extensions/contents-block"
 
 export interface Heading {
   pos: number
@@ -72,12 +73,13 @@ export function land(editor: Editor, heading: Heading): void {
 
 /**
  * Go to the heading with these words, ignoring case: where a link to a heading
- * lands. False when the note has no such heading any more.
+ * lands, the way the contents do (unfolded, at the top of the view, lit for a
+ * moment). False when the note has no such heading any more.
  */
 export function goToHeading(editor: Editor, text: string): boolean {
   const wanted = text.trim().toLowerCase()
   const found = headingsOf(editor).find((one) => one.text.toLowerCase() === wanted)
-  if (found) land(editor, found)
+  if (found) jumpTo(editor as Parameters<typeof jumpTo>[0], found.pos)
   return !!found
 }
 

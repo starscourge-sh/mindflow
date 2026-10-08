@@ -31,7 +31,7 @@ import { Mentions } from './mentions'
 import { EXITS, NOT_OPEN, STATUS_ICON, captureKey, exit, findCaptures, findHeadings, flying, takeExit, follow, unpromote } from '@/lib/capture-links'
 import type { SaveResult } from '../../../../main/captures'
 import { toMarkdown } from '@/lib/export'
-import { splitTags, vigil } from '@/lib/vigil'
+import { splitTags, unloaded, vigil } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
 import { useSameWords } from '@/lib/same-words'
 import { chime } from '@/lib/sound'
@@ -55,6 +55,7 @@ import type { MenuItem } from './row-menu'
 import { PinnedQuestions, clueInto } from './pinned-questions'
 import { Board, useBoard } from './board-view'
 import { dayjs, num } from '../../../../main/dates'
+import { Signed } from './signature'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowUpRight = alive(ExternalLinkIcon)
@@ -292,7 +293,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
             onPick={spread ? (id) => (setPeek(id), setCursor(shown.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined}
             onChoose={(id) => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))}
             onMove={(id, target, after) => move(kept.map((one) => one.id), id, target, after)} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
-        ) : kept.length ? (
+        ) : unloaded(all) ? null : kept.length ? (
           <Empty shape={['ellipse', 3]} title="Nothing matches">
             {spread && query.trim() ? 'No title here has those words. Escape clears the search.' : "The filters hide everything here. Clear them with the × above, or press F to change them."}
           </Empty>
@@ -415,7 +416,11 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
               findNotes={findCaptures}
               findHeadings={findHeadings}
               onOpenNote={(link, heading) => follow(link, (type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id)), heading)}
-              after={<Mentions id={open.id} onOpen={(type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id))} />}
+              after={<>
+                {/* A quote signed at its foot: who said it, in a pen's hand. */}
+                {meta.kind === 'quote' && meta.attribution && <div data-chrome className="page-narrow mx-auto mt-1 w-full px-[4.5rem] text-control text-muted-foreground"><Signed who={meta.attribution} className="private-text" /></div>}
+                <Mentions id={open.id} onOpen={(type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id))} />
+              </>}
               onReady={(ready) => (words.ready(ready), setEditor(ready))}
               onChange={words.save}
             />

@@ -18,6 +18,7 @@ import { Rest } from './vigil/scenery'
 import { ComingBack } from './vigil/coming-back'
 import { GlossButton, GlossLine, openGloss } from './vigil/gloss-line'
 import { daysSince } from '../../../main/dates'
+import { Signed } from './vigil/signature'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.rot>>[number]
 
@@ -262,7 +263,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             {(card.kind === 'quote' || card.attribution) && (
             <Tip label={<span className="flex items-center gap-2">Say who said it: a quote needs one to be kept<Pressed keys="W" /></span>}>
             <Button variant="ghost" size="sm" className="text-muted-foreground transition-colors group-hover:text-foreground focus-visible:text-foreground" onClick={() => setAsking(card.id)}>
-              <Rolling text={card.attribution ?? 'Who?'} />
+              {card.kind === 'quote' && card.attribution ? <Signed who={card.attribution} className="private-text max-w-56" /> : <Rolling text={card.attribution ?? 'Who?'} />}
             </Button>
             </Tip>
             )}

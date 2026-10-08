@@ -14,7 +14,7 @@ import StackIcon from '@/components/ui/stack-icon'
 import CheckedIcon from '@/components/ui/checked-icon'
 import HashtagIcon from '@/components/ui/hashtag-icon'
 
-import { splitTags, useLive, vigil } from '@/lib/vigil'
+import { splitTags, unloaded, useLive, vigil } from '@/lib/vigil'
 import { Empty, Page, useListKeys } from './ui'
 import { Input } from '@/components/ui/input'
 import { Tip } from '@/components/vigil/ui'
@@ -95,7 +95,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               </RowMenu>
             )}
           </VirtualList>
-        ) : (
+        ) : unloaded(tags) ? null : (
           <Empty shape={['polygon', 3]} title="No tags yet">
             Write a <span className="text-foreground">#word</span> anywhere in a capture, a nugget or a task and it shows up here, counted. The ones that keep coming up are the ones worth a home of their own.
           </Empty>

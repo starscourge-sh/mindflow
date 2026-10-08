@@ -14,7 +14,7 @@ import { EASE } from '@/lib/motion'
 
 import { MindflowEditor, TAGS } from '../mindflow'
 import { chime } from '@/lib/sound'
-import { useLive, vigil, when, type Item, type ItemFull } from '@/lib/vigil'
+import { unloaded, useLive, vigil, when, type Item, type ItemFull } from '@/lib/vigil'
 import { findCaptures, findHeadings, flying, follow } from '@/lib/capture-links'
 import { archive, openWindow, saveAttachments, useOpenNote } from '@/lib/notes'
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -250,7 +250,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
         {items.length ? (
           <NoteList groups={[['', entries]]} density={density} table="nuggets" selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor}
             onPick={spread ? (id) => (setPeek(id), setCursor(items.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
-        ) : spread && query.trim() ? (
+        ) : unloaded(all) ? null : spread && query.trim() ? (
           <Empty shape={['ellipse', 3]} title="Nothing matches">No question here has those words. Escape clears the search.</Empty>
         ) : show === 'open' ? (
           <Empty shape={['ellipse', 3]} title="Nothing held yet" action={<Button variant="secondary" size="sm" onClick={() => void startQuestion(go)}><Plus className="size-3.5" /> New question</Button>}>

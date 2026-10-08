@@ -16,6 +16,7 @@ import ArrowNarrowDownIcon from '@/components/ui/arrow-narrow-down-icon'
 import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
 import { exit } from '@/lib/capture-links'
 import { GlossComposer, openGloss } from './gloss-line'
+import { Signed } from './signature'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowDown = alive(ArrowNarrowDownIcon)
@@ -24,7 +25,7 @@ const ArrowUp = alive(ArrowNarrowUpIcon)
 /** `body`: words read as they are, never changed here, like a question's clues. */
 export type Readable = { type: string; id: string; body?: string; title?: string }
 
-type Page = { id: string; title?: string; body: JSONContent | string | null; meta?: string[]; private?: boolean }
+type Page = { id: string; title?: string; body: JSONContent | string | null; meta?: string[]; private?: boolean; /** Who said it, for a quote: signed under the words. */ who?: string }
 
 /** The #tags in a note's words, the first few, for the line under its title. */
 const tagsOf = (body: unknown): string[] => {
@@ -46,6 +47,9 @@ const metaOf = (kind: string | undefined, at: string | null | undefined, from: (
   const source = from.find((one) => one && one.trim())
   return [name, at ? when(at) : '', source ? source.split('/').pop()! : '', ...tagsOf(body)].filter((one): one is string => !!one)
 }
+
+/** A quote's name, signed under its words rather than said in the meta line. */
+const said = (kind: string | undefined, who: string | null | undefined): { who?: string } => (kind === 'quote' && who?.trim() ? { who: who.trim() } : {})
 
 /** The first line, when it is short (or a heading) and there is no title: it reads as one. */
 const leads = (page: Page): boolean => {
@@ -133,8 +137,8 @@ export function ReadThrough({ items, start = 0, onClose }: {
     setPage(null)
     if (item.body !== undefined) return setPage({ id: item.id, title: item.title, body: item.body })
     const load: Promise<Omit<Page, 'id'> | null> = item.type === 'capture'
-      ? window.api.captures.get(item.id).then((found) => found && { body: found.body as JSONContent, private: !!found.private, meta: metaOf(found.kind, found.capturedAt, [found.attribution, found.medium, found.source], found.body) })
-      : vigil.item(item.id).then((found) => found && { title: found.tier === 'article' ? found.title : undefined, body: found.body as JSONContent, private: !!found.private, meta: metaOf(found.kind, found.createdAt, [found.attribution, found.context], found.body) })
+      ? window.api.captures.get(item.id).then((found) => found && { body: found.body as JSONContent, private: !!found.private, ...said(found.kind, found.attribution), meta: metaOf(found.kind, found.capturedAt, [said(found.kind, found.attribution).who ? null : found.attribution, found.medium, found.source], found.body) })
+      : vigil.item(item.id).then((found) => found && { title: found.tier === 'article' ? found.title : undefined, body: found.body as JSONContent, private: !!found.private, ...said(found.kind, found.attribution), meta: metaOf(found.kind, found.createdAt, [said(found.kind, found.attribution).who ? null : found.attribution, found.context], found.body) })
     let current = true
     void load.then((next) => current && setPage({ id: item.id, ...(next ?? { body: null }) }))
     return () => void (current = false)
@@ -318,6 +322,7 @@ export function ReadThrough({ items, start = 0, onClose }: {
                 </div>
               </div>
             )}
+            {shown?.who && <p data-private={hidden} className="mt-5 text-control text-muted-foreground"><Signed who={shown.who} className="private-text" /></p>}
             {/* Thoughts kept on it stay with the words; the field for a new
                 one comes up with the rest of the furniture. */}
             {shown && own && <div data-private={hidden} className="mt-16"><GlossComposer id={item.id} /></div>}

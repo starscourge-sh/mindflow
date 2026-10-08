@@ -26,7 +26,7 @@ import { Pins } from './components/pins'
 import { TodayPanel } from './components/vigil/today-panel'
 import { selectionActions } from './components/vigil/selection-actions'
 import { ReviewView } from './components/vigil/review-view'
-import { useAppearance, useLive } from './lib/vigil'
+import { unloaded, useAppearance, useLive } from './lib/vigil'
 import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, ask, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt } from './components/vigil/ui'
 import { TooltipProvider } from './components/ui/tooltip'
 import { Rolling, Toaster, Typed, beam, refuse, toast, whyFailed } from './components/vigil/ui'
@@ -1288,10 +1288,14 @@ export default function App(): React.JSX.Element {
                 </Tip>
               )}
             </div>
-            {/* The questions kept in view, once there is something to match against them. */}
-            {started && !plus && !focus && <div data-chrome className="px-[4.75rem] pb-1"><PinnedQuestions onPick={clueToPinned} /></div>}
-            {/* The open goals, a click to log what you wrote against one. */}
-            {started && !plus && !focus && <div data-chrome className="px-[4.75rem] pb-1"><GoalChips onPick={logToGoal} /></div>}
+            {/* Where else it could go, the questions kept in view and the open goals, on
+                one quiet line, and only once a few words are written: an empty box asks nothing. */}
+            {started && !plus && !focus && textOf(body).trim().split(/\s+/).length >= 3 && (
+              <div data-chrome className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 px-[4.75rem] pb-1">
+                <PinnedQuestions onPick={clueToPinned} />
+                <GoalChips onPick={logToGoal} />
+              </div>
+            )}
             {/* A hint sits at the foot of the box: a glance at something you
                 wrote once, while you are here to write. Usually empty. */}
             <div data-chrome className="px-[4.75rem]">
@@ -1553,12 +1557,25 @@ const CapturePrompt = ({
   onOpenNote: (id: string, heading?: string) => void
 }): React.JSX.Element => {
   useEscapeToHide()
+  // The sheet hovers, barely, while you are not typing: a breath of lift and
+  // shadow every few seconds, so the box feels alive and not pasted on. Still
+  // the moment a key is pressed, and for a couple of seconds after.
+  useEffect(() => {
+    let quiet: ReturnType<typeof setTimeout> | undefined
+    const typing = (): void => {
+      document.documentElement.dataset.typing = ''
+      clearTimeout(quiet)
+      quiet = setTimeout(() => delete document.documentElement.dataset.typing, 2500)
+    }
+    window.addEventListener('keydown', typing, true)
+    return () => (window.removeEventListener('keydown', typing, true), clearTimeout(quiet))
+  }, [])
 
 
   return (
     // mf-faded: the note fades out at its top and bottom edges as it scrolls,
     // the way Raycast Notes reads, instead of being cut by a hard line.
-    <div className="mf-faded relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-b-3xl border-b shadow-xl"
+    <div className="mf-faded mf-levitate relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-b-3xl border-b shadow-xl"
       style={{ transform: 'translate(0,0)' }}>
 
       {/* The same, spelled out. See `docs/components.md` for what each one
@@ -1834,7 +1851,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                 </Strip>
                 <div className="px-1 pb-3 empty:hidden">{chips}</div>
                 {shown.length > 0 && <CaptureList groups={groups} density={density} selected={editing} cursor={cursor} onCursor={setCursor} chosen={chosen} onPick={onOpen} />}
-                {!shown.length && (
+                {!shown.length && !unloaded(captures) && (
                   open.length ? (
                     <Empty compact shape={['ellipse', 3]} title="Nothing matches">The filters hide everything here. Clear them with the × above, or press F to change them.</Empty>
                   ) : (

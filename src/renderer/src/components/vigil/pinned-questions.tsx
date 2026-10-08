@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'motion/react'
 
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type PinnedQuestion, type Settings } from '@/lib/vigil'
-import { Tip, Typed, refuse, toast } from './ui'
+import { Tip, refuse, toast } from './ui'
 import { num } from '../../../../main/dates'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -53,7 +53,7 @@ export function PinnedQuestions({ onPick, className = '' }: { onPick: (question:
     <div className={`flex min-w-0 flex-wrap items-center gap-1 text-xs text-muted-foreground ${className}`}>
       <span className="mr-0.5 flex shrink-0 items-center gap-1.5">
         <Orbit className="size-3.5" />
-        <Typed text="Add as a clue to" step={30} delay={200} />
+        Clue for
       </span>
       <AnimatePresence initial={false}>
         {pinned.map((question, index) => (

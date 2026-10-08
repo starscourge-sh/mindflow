@@ -1096,6 +1096,34 @@ input[type='number']::-webkit-outer-spin-button {
 :root:not([data-marks='off']) .mf-hand-struck { text-decoration-line: none; }
 :root:not([data-marks='off']) .mf-hand-ruled { border-top-color: transparent; }
 :root:not([data-marks='off']) .mf-ringed { margin-inline: 0.45em; }
+/* A quote's signature: "said by" in the app's font, the name in a pen's hand,
+   the way Dia signs its changelog. Only the name, never body text. Bundled
+   (OFL, assets/fonts), so nothing is fetched. Off with the marks: the name
+   goes back to the app's own font. */
+@font-face {
+  font-family: 'Vigil Signature';
+  font-display: block;
+  src: url('./fonts/la-belle-aurore-latin-400-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Vigil Signature';
+  font-display: block;
+  src: url('./fonts/la-belle-aurore-latin-ext-400-normal.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+.mf-signed { display: inline-flex; align-items: baseline; gap: 0.4em; min-width: 0; max-width: 100%; }
+.mf-signed-by { flex: none; }
+.mf-signature {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  /* The pen's ink at 85%, a hair bigger than the words beside it: the face
+     is small for its size. Room below for the tails of g and y. */
+  color: color-mix(in oklab, var(--foreground) 85%, transparent);
+  font-size: 1.2em; line-height: 1.25; padding-block-end: 0.12em; padding-inline-end: 0.15em;
+  unicode-bidi: plaintext;
+}
+:root:not([data-marks='off']) .mf-signature { font-family: 'Vigil Signature', var(--mf-app-font, 'Fraunces Variable', Georgia, serif); font-weight: 400; font-style: normal; letter-spacing: 0; word-spacing: -0.12em; }
+:root[data-marks='off'] .mf-signature { font-size: 1em; padding: 0; }
 /* A note's rule, in Read mode and wherever a note is only read: a pen line
    across, not a hairline. A mask, so it keeps the rule's own colour. */
 :root:not([data-marks='off']) .tiptap.ProseMirror[contenteditable='false'] hr {
@@ -1126,3 +1154,73 @@ input[type='number']::-webkit-outer-spin-button {
 :root[data-welcome-ph] .tiptap.ProseMirror.mindflow-editor:not(.is-line) > .is-empty[data-placeholder]:first-child:has(> .ProseMirror-trailingBreak:only-child)::before {
   content: var(--mf-welcome-ph);
 }
+
+/* Progress bars, playful (components/vigil/progress-bar.tsx). The blade: a
+   pale core, its colour as a glow; a slow hum while the window is looked at. */
+.pb-core {
+  position: relative;
+  background: linear-gradient(color-mix(in oklab, var(--blade) 45%, white), color-mix(in oklab, var(--blade) 8%, white) 35% 65%, color-mix(in oklab, var(--blade) 45%, white));
+  box-shadow: 0 0 0 0.5px var(--blade), 0 0 3px 0.5px var(--blade), 0 0 8px 1px color-mix(in oklab, var(--blade) 45%, transparent);
+}
+.pb-core::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 5px 1.5px color-mix(in oklab, var(--blade) 70%, transparent);
+  opacity: 0.5;
+  animation: pb-hum 3.2s linear infinite;
+}
+@keyframes pb-hum {
+  0%, 100% { opacity: 0.5; }
+  18% { opacity: 0.68; }
+  31% { opacity: 0.46; }
+  57% { opacity: 0.72; }
+  76% { opacity: 0.52; }
+}
+/* The dinosaur's ground: a dotted line, the dots of the page's ink. */
+.pb-ground {
+  background: radial-gradient(circle, currentColor 0.75px, transparent 0.9px) 0 50% / 4px 1.5px repeat-x;
+  opacity: 0.35;
+}
+/* Its run: two frames of legs and scarf, and every few seconds the nearest
+   cactus comes up to meet it and it hops over. */
+.pb-frame-a { animation: pb-frame-a 0.34s steps(1) infinite; }
+.pb-frame-b { animation: pb-frame-b 0.34s steps(1) infinite; opacity: 0; }
+@keyframes pb-frame-a { 0% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes pb-frame-b { 0% { opacity: 0; } 50% { opacity: 1; } }
+.pb-hop { animation: pb-hop 5s infinite; }
+@keyframes pb-hop {
+  0%, 72% { transform: translateY(0); animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1); }
+  79% { transform: translateY(-8px); animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.3); }
+  86%, 100% { transform: translateY(0); }
+}
+.pb-near { animation: pb-near 5s linear infinite; }
+@keyframes pb-near {
+  0%, 68% { transform: translateX(0); opacity: 1; }
+  88% { transform: translateX(-48px); opacity: 1; }
+  91% { transform: translateX(-56px); opacity: 0; }
+  92% { transform: translateX(0); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+/* Only while the window is looked at; hidden, tucked or left, they hold. */
+:root:not([data-awake]) :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-near) { animation-play-state: paused; }
+:root:not([data-awake]) .pb-core::after { animation-play-state: paused; }
+/* Motion off or Reduce motion: the blade lit and still, the dinosaur standing. */
+:root[data-motion='off'] :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-near) { animation: none; }
+:root[data-motion='off'] .pb-core::after { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-near) { animation: none; }
+  .pb-core::after { animation: none; }
+}
+
+/* The box's sheet, hovering: a two-pixel rise and a deeper shadow, slowly.
+   Paused while typing, still with Motion off or Reduce motion. */
+.mf-levitate { animation: mf-levitate 7s ease-in-out infinite; }
+@keyframes mf-levitate {
+  0%, 100% { translate: 0 0; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); }
+  50% { translate: 0 -2px; box-shadow: 0 30px 36px -8px rgb(0 0 0 / 0.17), 0 12px 16px -6px rgb(0 0 0 / 0.12); }
+}
+:root[data-typing] .mf-levitate { animation-play-state: paused; }
+:root[data-motion='off'] .mf-levitate { animation: none; }
+@media (prefers-reduced-motion: reduce) { .mf-levitate { animation: none; } }

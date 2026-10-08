@@ -11,11 +11,11 @@ export const SANDBOX = new URLSearchParams(location.search).has('sandbox')
 
 /**
  * What comes along into the sandbox: how Vigil feels to you (sounds, motion,
- * your keys, margin marks, the sizes you read at) and your celebrations, the
- * GIFs and pictures that make a milestone yours. Its scenery stays its own
- * public-domain landscapes.
+ * your keys, margin marks, the sizes you read at, a playful progress bar) and
+ * your celebrations, the GIFs and pictures that make a milestone yours. Its
+ * scenery stays its own public-domain landscapes.
  */
-const CARRY_SETTINGS = ['motion', 'sounds', 'volume', 'soundPack', 'keys', 'marks', 'textSize', 'interfaceSize', 'celebrationsFolder', 'celebrationPicks'] as const
+const CARRY_SETTINGS = ['motion', 'sounds', 'volume', 'soundPack', 'keys', 'marks', 'textSize', 'interfaceSize', 'progressBars', 'celebrationsFolder', 'celebrationPicks'] as const
 /** And from the window's own storage: the theme, Vim, and whether Vigil shows in screen recordings. */
 const CARRY_LOCAL = ['theme', 'custom-themes', 'frosted', 'recordable', 'vim'] as const
 
@@ -45,7 +45,8 @@ export async function enterSandbox(): Promise<void> {
       // Not carried: the sandbox starts on its own default.
     }
   }
-  const carry: Carry = { local, settings: Object.fromEntries(CARRY_SETTINGS.filter((key) => key in settings).map((key) => [key, settings[key]])) }
+  // Plain bars stay home: the sandbox shows off its lightsaber unless you picked a playful one.
+  const carry: Carry = { local, settings: Object.fromEntries(CARRY_SETTINGS.filter((key) => key in settings && !(key === 'progressBars' && settings[key] === 'plain')).map((key) => [key, settings[key]])) }
   await going('Opening the sandbox. Vigil restarts in a moment.', 'scene')
   await window.api.vigil('sandbox:enter', carry)
 }

@@ -10,7 +10,7 @@ import XIcon from '@/components/ui/x-icon'
 
 import { EASE } from '@/lib/motion'
 import { chime } from '@/lib/sound'
-import { useLive, vigil, type Gloss, type Item, type ItemFull, type Settings } from '@/lib/vigil'
+import { unloaded, useLive, vigil, type Gloss, type Item, type ItemFull, type Settings } from '@/lib/vigil'
 import { archive } from '@/lib/notes'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,6 +21,7 @@ import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Tip, Typed, re
 import { CollectionHeader, Cover, MenuButton, QuietAction, useTint } from './collection-header'
 import { DatePicker } from './date-picker'
 import { ago, dayKey, dayMonth, dayName, num } from '../../../../main/dates'
+import { ProgressBar } from './progress-bar'
 import { daysBetween, daysLeft, journey, leftSaid, percent, tempus, wayThrough, type Dot } from '../../../../main/goal-days'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -221,7 +222,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
       >
         {items.length ? (
           <NoteList groups={[['', entries]]} density="list" table="nuggets" selected={open?.id} cursor={cursor} onCursor={setCursor} onPick={pick} className="mx-3 my-2" />
-        ) : show === 'open' ? (
+        ) : unloaded(all) ? null : show === 'open' ? (
           <Empty shape={['star', 2]} title="No goals yet" action={<Button variant="secondary" size="sm" onClick={() => void startGoal(go)}><Plus className="size-3.5" /> New goal</Button>}>
             A goal is a day you are working toward. It stays in front of you, in the menu bar and at the top of Home, counts the days down, and keeps a log of the road there.
           </Empty>
@@ -435,7 +436,8 @@ const logsIn = (days: Map<string, Gloss[]>, dot: Dot): Gloss[] =>
  * week, as the focus timer draws its figures. Gone days lit, today breathing,
  * days with a log in the accent, the day itself ringed. Pointed at, a dot
  * says its day and its logs; clicked, the logs below show only that day.
- * `compact` is the beacon's: no names, no pointing.
+ * `compact` is the beacon's: no names, and only the marked dots (today, the
+ * day, the milestones, days with a log) say what they are when pointed at.
  */
 export function Journey({ from, target, today, logs, picked, onPick, compact = false }: {
   from: string
@@ -484,12 +486,12 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
   const step = width ? width / across : most
   const cell = flow || weeks ? step : Math.min(step, most)
   const at = (dot: Dot): { x: number; y: number } => ({ x: (dot.col + 0.5) * step, y: (dot.row + 0.5) * cell })
-  const shown = hover ? logsIn(days, hover) : []
   // The milestones on the way, the same ones that celebrate: halfway, a month to go, a week to go.
   const shiftDay = (day: string, by: number): string => { const at = new Date(`${day}T12:00`); at.setDate(at.getDate() + by); return dayKey(at.toISOString()) }
   const span = Math.round((new Date(`${target}T12:00`).getTime() - new Date(`${from}T12:00`).getTime()) / 86_400_000)
   const marks: [string, string][] = [[shiftDay(from, Math.round(span / 2)), 'halfway'], [shiftDay(target, -30), 'a month to go'], [shiftDay(target, -7), 'a week to go']]
   const milestoneIn = (dot: Dot): string | undefined => marks.find(([day]) => day >= from && day >= dot.day && day <= dot.last)?.[1]
+  const shown = hover ? logsIn(days, hover) : []
   return (
     <div ref={box} className={`relative w-full ${compact ? 'h-full' : ''}`}>
       {!compact && (
@@ -513,8 +515,8 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
           const dot = place(given, index)
           const logged = logsIn(days, dot).length > 0
           const on = picked?.day === dot.day
-          const colour = logged ? ACCENT : 'currentColor'
           const marker = milestoneIn(dot)
+          const colour = logged ? ACCENT : 'currentColor'
           const opacity = logged || dot.today ? 1 : marker ? 0.75 : dot.past ? 0.5 : 0.13
           return (
             <g key={dot.day}
@@ -536,6 +538,32 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
           )
         })}
       </svg>
+      {/* The beacon is dragged by its whole card, which swallows the pointer: the
+          marked dots get a small spot each that is not, to be pointed at. */}
+      {compact && road.dots.map((given, index) => {
+        const dot = place(given, index)
+        if (!dot.today && !dot.target && !milestoneIn(dot) && !logsIn(days, dot).length) return null
+        const { x, y } = at(dot)
+        return <span key={dot.day} aria-hidden data-road-mark onMouseEnter={() => setHover(dot)} onMouseLeave={() => setHover(null)}
+          className="absolute rounded-full" style={{ left: x - cell * 0.6, top: y - cell * 0.6, width: cell * 1.2, height: cell * 1.2, WebkitAppRegion: 'no-drag' } as React.CSSProperties} />
+      })}
+      {hover && compact && (() => {
+        const { x, y } = at(hover)
+        const date = dayMonth(`${hover.day}T12:00`)
+        const marker = milestoneIn(hover)
+        const head = hover.today ? `Today · ${leftSaid(daysLeft(target, today)).toLowerCase()}` : hover.target ? `${date} · the day` : marker ? `${marker[0].toUpperCase()}${marker.slice(1)} · ${date}` : date
+        const said = logsIn(days, hover)
+        // Inside the little window: under the dot in the top half, over it in the bottom; from the nearer side.
+        const below = y < height / 2
+        const side = x < width / 3 ? { left: 0 } : x > (width * 2) / 3 ? { right: 0 } : { left: x, transform: 'translateX(-50%)' }
+        return (
+          <div className="pointer-events-none absolute z-10 w-max max-w-full rounded-md bg-popover px-2 py-1 text-[11px] leading-snug text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10"
+            style={{ ...side, ...(below ? { top: y + cell * 0.8 } : { bottom: height - y + cell * 0.8 }) }}>
+            <span className="block font-medium">{head}</span>
+            {said.length > 0 && <span className="block max-w-56 truncate text-muted-foreground">{logsSaid(said.length)}: {said[said.length - 1].body.replace(/\s+/g, ' ')}</span>}
+          </div>
+        )
+      })()}
       {hover && !compact && (
         <div className={`pointer-events-none absolute z-10 w-max max-w-64 rounded-md ${hover.col < across / 3 ? '-translate-x-3' : hover.col > (across * 2) / 3 ? '-translate-x-[calc(100%-0.75rem)]' : '-translate-x-1/2'} bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10`}
           style={{ left: `${((hover.col + 0.5) / across) * 100}%`, top: `calc(${((hover.row + 1) / road.rows) * 100}% + 1.25rem + 4px)` }}>
@@ -640,8 +668,11 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
   )
 }
 
+/** Each of Tempus's bars a blade of its own colour, the year the dark side. */
+const BLADES = { day: 'var(--tt-color-text-blue)', week: 'var(--tt-color-text-green)', month: 'var(--tt-color-text-purple)', year: 'var(--tt-color-text-red)' }
+
 /** Tempus: how far through the day, the week, the month and the year, a thin bar each. */
-export function TempusBars({ className = '' }: { className?: string }): React.JSX.Element {
+export function TempusBars({ className = '', ignite = false }: { className?: string; ignite?: boolean }): React.JSX.Element {
   useToday(true)
   const time = tempus()
   return (
@@ -649,9 +680,7 @@ export function TempusBars({ className = '' }: { className?: string }): React.JS
       {(['day', 'week', 'month', 'year'] as const).map((unit) => (
         <div key={unit} className="contents">
           <span className="first-letter:uppercase">{unit}</span>
-          <span className="relative h-1 overflow-hidden rounded-full bg-foreground/[0.09]">
-            <span className="absolute inset-y-0 left-0 rounded-full bg-foreground/45 transition-[width] duration-700 ease-(--mf-ease)" style={{ width: `${time[unit] * 100}%` }} />
-          </span>
+          <ProgressBar value={time[unit]} label={`The ${unit}`} blade={BLADES[unit]} ignite={ignite} />
           <span className="text-right tabular-nums">{percent(time[unit])}</span>
         </div>
       ))}
@@ -696,9 +725,9 @@ export function GoalStrip({ onOpen, className = '' }: { onOpen?: (type: string, 
                 </>
               )}
             </span>
-            <span className="relative ml-5.5 h-px overflow-hidden rounded-full bg-foreground/[0.08]" aria-label={`${percent(way)} of the way`}>
-              <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${way * 100}%`, background: `color-mix(in oklab, ${left <= 30 ? warmth(Math.max(left, 0)) : 'var(--foreground)'} ${left <= 30 ? 55 : 35}%, transparent)` }} />
-            </span>
+            <ProgressBar value={way} label={`${percent(way)} of the way`} className="ml-5.5" thick={1} track="color-mix(in oklab, var(--foreground) 8%, transparent)"
+              fill={`color-mix(in oklab, ${left <= 30 ? warmth(Math.max(left, 0)) : 'var(--foreground)'} ${left <= 30 ? 55 : 35}%, transparent)`}
+              blade={left <= 30 ? warmth(Math.max(left, 0)) : 'var(--tt-color-text-blue)'} />
           </div>
         )
       })}
@@ -725,7 +754,7 @@ export function GoalChips({ onPick, className = '' }: { onPick: (goal: Item) => 
     <div className={`flex min-w-0 flex-wrap items-center gap-1 text-xs text-muted-foreground ${className}`}>
       <span className="mr-0.5 flex shrink-0 items-center gap-1.5">
         <Flag className="size-3.5" />
-        <Typed text="Log to" step={30} delay={200} />
+        Log to
       </span>
       <AnimatePresence initial={false}>
         {open.map((goal, index) => (

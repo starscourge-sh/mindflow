@@ -312,6 +312,9 @@ const DEFAULTS = {
   // 'sometimes' (at a few moments a day, then tucked away) or 'off'. Each
   // goal can say otherwise; in its last week 'sometimes' stays.
   goalBeacon: 'sometimes' as 'always' | 'sometimes' | 'off',
+  // Every bar that fills: plain, a lightsaber, or a dinosaur running along
+  // it. The developer's own Vigil wears the saber.
+  progressBars: (ownData() ? 'saber' : 'plain') as 'plain' | 'saber' | 'dino',
   // The menu bar's day, week, month and year as rows of dots instead of bars.
   tempusDots: false,
   // A plain-text copy of each capture beside the backups (never a private one).
@@ -334,15 +337,13 @@ const DEFAULTS = {
   stickiesUnshared: true,
   // Sticky notes over the desktop picture, softly blurred (see frost.ts); off, plain paper.
   stickiesFrosted: true,
-  // Keys you changed: { the keys it came with: yours, or null for none }.
-  keys: {} as Record<string, string | null>
-}
   // Frosted by the Mac itself: real glass that blurs whatever is behind, sitting straight (no lean).
   stickiesGlass: false,
   // Now and then one sticky stirs, as paper does in a draught, so it never turns into wallpaper.
   stickiesStir: true,
-  // Now and then one sticky stirs, as paper does in a draught, so it never turns into wallpaper.
-  stickiesStir: true,
+  // Keys you changed: { the keys it came with: yours, or null for none }.
+  keys: {} as Record<string, string | null>
+}
 export type Settings = typeof DEFAULTS
 
 /**
@@ -388,13 +389,12 @@ export function atLogin(): void {
 }
 /** Stickies frosted over the desktop picture, unless turned off. */
 export const stickyFrost = (): boolean => settings().stickiesFrosted !== false
-export const stickyPrefs = (): { shown: boolean; unshared: boolean } => ({ shown: settings().stickiesShown, unshared: settings().stickiesUnshared })
 /** Frosted by the Mac's own blur rather than the desktop picture. */
 export const stickyGlass = (): boolean => settings().stickiesFrosted !== false && settings().stickiesGlass === true
 export const stickyStir = (): boolean => settings().stickiesStir !== false
+export const stickyPrefs = (): { shown: boolean; unshared: boolean } => ({ shown: settings().stickiesShown, unshared: settings().stickiesUnshared })
 /** Every sticky shown or put away at once; they keep their places. */
 export function showStickies(on = !settings().stickiesShown): boolean {
-export const stickyStir = (): boolean => settings().stickiesStir !== false
   database().prepare("insert or replace into settings (key, value) values ('stickiesShown', ?)").run(JSON.stringify(on))
   stickiesTold()
   changed()
@@ -2419,7 +2419,7 @@ export function activeSession(): { title: string; startedAt: string } | null {
 // --- Home: what comes back to you, read in one go -------------------------
 
 /** One thing on a Home shelf: a capture, nugget, article or question. */
-type Shelved = { type: string; id: string; title: string; kind: string; private: number; at: string }
+type Shelved = { type: string; id: string; title: string; kind: string; private: number; at: string; who?: string | null }
 /** A decision or experiment whose day has come: `at` is that day, the rest what it says when it comes back. */
 type Returning = Shelved & { call: string; reopen: string; question: string; outcome: string }
 
@@ -2435,9 +2435,10 @@ export function registerHome(): void {
     void db.prepare('insert into note_opens (id, type, at) values (?, ?, ?) on conflict(id) do update set at = excluded.at, type = excluded.type').run(id, type, now()))
 
   // Every note in view, as a shelf shows it: newest change first.
-  const NOTES = `select id, 'capture' as type, ${LABEL} as title, kind, private, coalesce(edited_at, captured_at) as at, captured_at as made, body from captures where status != 'discarded' and archived_at is null
-    union all select id, tier, coalesce(nullif(title, ''), label('', body)), kind, private, coalesce(updated_at, created_at), created_at, body from nuggets where archived_at is null and superseded_by is null`
-  const strip = ({ type, id, title, kind, private: hidden, at }: Shelved): Shelved => ({ type, id, title, kind, private: hidden, at })
+  const NOTES = `select id, 'capture' as type, ${LABEL} as title, kind, private, coalesce(edited_at, captured_at) as at, captured_at as made, body, attribution as who from captures where status != 'discarded' and archived_at is null
+    union all select id, tier, coalesce(nullif(title, ''), label('', body)), kind, private, coalesce(updated_at, created_at), created_at, body, attribution from nuggets where archived_at is null and superseded_by is null`
+  // Who said it, only for a quote: its card signs it.
+  const strip = ({ type, id, title, kind, private: hidden, at, who }: Shelved): Shelved => ({ type, id, title, kind, private: hidden, at, ...(kind === 'quote' && who ? { who } : {}) })
 
   // A decision on its look-again day, or an experiment past its run-until and
   // not finished: each comes back with what it needs to be settled in place.
@@ -2526,7 +2527,7 @@ export function registerHome(): void {
         while (lines.length && name.includes(flat(lines[0]))) lines.shift()
         let rest = lines.join(' ')
         if (name && flat(rest).startsWith(name)) rest = rest.slice(card.title.length).trim()
-        excerpts.set(card.id, rest.slice(0, 220))
+        excerpts.set(card.id, rest.replace(/^[:;,.\s]+/, '').slice(0, 220))
       }
       return { ...card, excerpt: card.private ? '' : excerpts.get(card.id)! }
     }

@@ -51,7 +51,7 @@ test('the journey has a dot a day across month ends and clock changes', () => {
   assert.equal(road.dots.filter((dot) => dot.past).length, 7)
   assert.equal(road.dots.find((dot) => dot.today)?.day, '2026-10-27')
   assert.equal(road.dots.at(-1)?.target, true)
-  assert.deepEqual(road.months.map((one) => one.label), ['Oct 2026'])
+  assert.deepEqual(road.months.map((one) => one.label), [new Date().getFullYear() === 2026 ? 'Oct' : 'Oct 2026'])
   // A leap year's February has its 29th.
   assert.ok(journey('2028-02-27', '2028-03-02').dots.some((dot) => dot.day === '2028-02-29'))
 })

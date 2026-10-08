@@ -11,7 +11,7 @@ import { useLive } from '@/lib/vigil'
 import { issues, type MonthTold } from '@/lib/issues'
 import { Button } from '@/components/ui/button'
 import { Kbd, Rolling, Tip, Typed } from './ui'
-import { IssueLine, Odometer, SERIF, useIssue } from './issue'
+import { IssueLine, SERIF } from './issue'
 import { dayjs, num, weekdayName } from '../../../../main/dates'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -199,7 +199,6 @@ export function MonthReflect({ start, onClose }: { start?: string; onClose: () =
   // Early in a month there is little to tell: the month before, unless asked.
   const [month, setMonth] = useState(start ?? (dayjs().date() < 7 ? dayjs().subtract(1, 'month').format('YYYY-MM') : thisMonth))
   const told = useLive(() => issues.month(month), null as MonthTold | null, [month])
-  const issue = useIssue(`${month}-01`, 'month')
   const ready = told?.month === month ? told : null
   const go = (by: number): void => {
     const to = dayjs(`${month}-01`).add(by, 'month').format('YYYY-MM')
@@ -237,7 +236,6 @@ export function MonthReflect({ start, onClose }: { start?: string; onClose: () =
         <article className="mx-auto w-full max-w-[42rem] px-6 pt-8 pb-20">
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-b border-border/60 pb-2">
             <IssueLine parts={[at.format("MMMM 'YY"), ready ? `${plural(ready.captures, 'capture')}` : '']} />
-            {issue !== null && <Odometer n={issue} />}
           </div>
           {ready && (
             <motion.div key={month} initial={{ opacity: 0, transform: shift('translateY(6px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ duration: 0.3, ease: EASE }}>

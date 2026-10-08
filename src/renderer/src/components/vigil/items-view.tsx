@@ -28,7 +28,7 @@ import { ReadThrough } from './read-through'
 import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { age } from '../capture-list'
 import { findCaptures, findHeadings, follow } from '@/lib/capture-links'
-import { interval, splitTags, useLive, vigil, when, whenInLine, type Item, type ItemFull } from '@/lib/vigil'
+import { interval, splitTags, unloaded, useLive, vigil, when, whenInLine, type Item, type ItemFull } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
 import { useSameWords } from '@/lib/same-words'
 import { Empty, Island, Page, Prop, Props, refuse, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Rolling, Typed, showTopTitle, Pressed } from './ui'
@@ -53,6 +53,7 @@ import { archive, changeKind, openWindow, saveAttachments, useOpenNote, useOwnOr
 import { QuestionDetail } from './questions-view'
 import { GlossTimeline, useRowGloss } from './gloss-line'
 import { dayjs, moment, num } from '../../../../main/dates'
+import { Signed } from './signature'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const BookOpen = alive(BookIcon)
@@ -300,7 +301,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
             onChoose={tier === 'nugget' ? toggle : undefined} onMove={onMove} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
         ) : all.length && query.trim() ? (
           <Empty shape={['ellipse', 3]} title="Nothing matches">No title here has those words. Escape clears the search.</Empty>
-        ) : tier === 'nugget' ? (
+        ) : unloaded(all) ? null : tier === 'nugget' ? (
           <Empty shape={['star', 3]} title="Nothing kept yet">
             A nugget is a capture worth keeping, cleaned up so it reads cold. Promote one from the inbox or a rot card and it lands here, ready to come back to you.
           </Empty>
@@ -425,7 +426,11 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
           findNotes={findCaptures}
           findHeadings={findHeadings}
           onOpenNote={(link, heading) => onOpen && follow(link, onOpen, heading)}
-          after={<Mentions id={item.id} onOpen={onOpen} />}
+          after={<>
+            {/* A quote signed at its foot: who said it, in a pen's hand. */}
+            {item.kind === 'quote' && item.attribution && <div data-chrome className="page-narrow mx-auto mt-1 w-full px-[4.5rem] text-control text-muted-foreground"><Signed who={item.attribution} className="private-text" /></div>}
+            <Mentions id={item.id} onOpen={onOpen} />
+          </>}
           onReady={(instance) => {
             seen.current = { body: JSON.stringify(instance.getJSON()), line: firstLineOf(instance.state.doc)?.text ?? '' }
             words.ready(instance)

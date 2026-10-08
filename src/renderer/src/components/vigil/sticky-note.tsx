@@ -22,6 +22,7 @@ import { useSameWords } from '@/lib/same-words'
 import { StickyCelebration, type Moment } from './celebrate'
 import { SandboxStamp } from '@/components/vigil/sandbox'
 import { Frost } from './frost'
+import { Signed } from './signature'
 
 // The editor only once you edit: at rest a sticky is just the light drawing below.
 const MindflowEditor = lazy(() => import('@/components/mindflow').then((one) => ({ default: one.MindflowEditor })))
@@ -218,9 +219,9 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   useAppearance()
   const note = useLive(
     () => (type === 'capture'
-      ? window.api.captures.get(id).then((found) => found && { title: found.title || '', body: found.body, private: !!found.private, tier: 'capture' })
-      : vigil.item(id).then((found) => found && { title: found.title, body: found.body, private: !!found.private, tier: found.tier as string })),
-    undefined as { title: string; body: unknown; private: boolean; tier: string } | null | undefined,
+      ? window.api.captures.get(id).then((found) => found && { title: found.title || '', body: found.body, private: !!found.private, tier: 'capture', who: found.kind === 'quote' ? found.attribution : null })
+      : vigil.item(id).then((found) => found && { title: found.title, body: found.body, private: !!found.private, tier: found.tier as string, who: found.kind === 'quote' ? found.attribution : null })),
+    undefined as { title: string; body: unknown; private: boolean; tier: string; who: string | null } | null | undefined,
     [type, id]
   )
   // A see-through window: only the card is drawn.
@@ -407,20 +408,20 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
         ref={card}
         data-private={note.private ? '' : undefined}
         // Paper: solid, as the timer pill is (a glass theme's colours would let the desktop show through),
-        // warmed a little and lit from the top. Frosted (the setting), <Frost> lays the blurred desktop under it. Leans its own way; pointed at, it straightens and lifts.
+        // the theme's own paper (--mf-paper, sticky-note.scss), warmed a little by its own yellow and lit from the top. Frosted (the setting), <Frost> lays the blurred desktop under it. Leans its own way; pointed at, it straightens and lifts.
         style={{
           ...DRAG,
           '--tilt': GLASS ? '0deg' : `${tiltOf(id, Number(new URLSearchParams(location.search).get('nth')) || 0)}deg`,
-          // Real glass: the Mac's blur shows through a thin warm wash, enough to read on.
+          // Real glass: the Mac's blur shows through a thin wash of the theme's paper, enough to read on.
           ...(GLASS
-            ? { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(rgb(240 190 80 / 0.08), rgb(240 190 80 / 0.08)), linear-gradient(color-mix(in oklab, var(--popover) 55%, transparent), color-mix(in oklab, var(--popover) 55%, transparent))' }
-            : { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(rgb(240 190 80 / 0.09), rgb(240 190 80 / 0.09)), linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' })
+            ? { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--mf-paper-tint), var(--mf-paper-tint)), linear-gradient(color-mix(in oklab, var(--mf-paper) 55%, transparent), color-mix(in oklab, var(--mf-paper) 55%, transparent))' }
+            : { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--mf-paper-tint), var(--mf-paper-tint)), linear-gradient(var(--mf-paper), var(--mf-paper)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' })
         } as unknown as CSSProperties}
         onMouseLeave={() => setAsking(false)}
         className={GLASS ? 'group relative flex h-full flex-col rounded-[10px] text-control text-foreground' : 'group relative flex h-full rotate-(--tilt) flex-col rounded-lg border text-control text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_4px_10px_-2px_rgb(0_0_0/0.16)] transition-[rotate,scale,box-shadow] duration-500 ease-[cubic-bezier(0.34,1.36,0.64,1)] hover:scale-102 hover:rotate-0 hover:shadow-[0_2px_4px_rgb(0_0_0/0.12),0_10px_18px_-4px_rgb(0_0_0/0.24)] motion-reduce:transition-none'}
       >
         {/* Frosted: the desktop picture behind it, blurred, under the same paper. */}
-        {!GLASS && <Frost tint="rgb(240 190 80 / 0.09)" lift />}
+        {!GLASS && <Frost tint="--mf-paper-tint" lift />}
         <SandboxStamp />
         {/* A strip of tape holding it up. */}
         {!GLASS && <span aria-hidden className="pointer-events-none absolute -top-2 left-1/2 h-4 w-14 -translate-x-1/2 -rotate-2 rounded-[2px] bg-[color-mix(in_oklab,var(--foreground)_10%,transparent)] backdrop-blur-[1px]" />}
@@ -521,7 +522,11 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
                   }} onChange={typed.save} />
               </div>
             </Suspense>
-          ) : drawn}
+          ) : <>
+            {drawn}
+            {/* A quote signed under its words, in a pen's hand. */}
+            {note.who && <p className="mt-1.5"><Signed who={note.who} /></p>}
+          </>}
         </div>
         {/* Its size, from the corner: shown on hover. The window cannot be resized by the system (see stick in main). */}
         <span aria-hidden style={STILL} onPointerDown={(event) => {

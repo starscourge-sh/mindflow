@@ -68,7 +68,8 @@ export function PageHint({ page }: { page: string }): React.JSX.Element | null {
   const text = HINTS[page]
   // Home has Getting started under it while that is there: one guide at a time.
   if (page === 'home' && !state.sandbox && !state.hidden && !state.doneAt) return null
-  if (!text || !state.welcomed || !state.pageHints || state.hintsSeen.includes(page) || gone.includes(page)) return null
+  // The sandbox is never welcomed (it has its own way in), but its pages say what they are for too.
+  if (!text || !(state.welcomed || state.sandbox) || !state.pageHints || state.hintsSeen.includes(page) || gone.includes(page)) return null
   const done = (): void => {
     chime('tap')
     setGone((was) => [...was, page])

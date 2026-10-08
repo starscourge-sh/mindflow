@@ -5,7 +5,7 @@ import type { Frost as FrostState } from '../../../../preload/index.d'
 const BLEED = 48
 
 /** The least of the paper over the picture, and the step it rises by until the words read well enough. */
-const LEAST = 0.6
+const LEAST = 0.8
 const STEP = 0.02
 
 /** A fine paper grain, the same on every card. */
@@ -54,7 +54,7 @@ const token = (name: string): string => getComputedStyle(document.documentElemen
  * paper, and never under 4.5:1 where plain paper manages that.
  */
 function paperOver(patch: RGB[], tint?: string): number {
-  const paper = painted(['Canvas', token('--background'), token('--popover'), ...(tint ? [tint] : [])])
+  const paper = painted(['Canvas', token('--background'), token('--mf-paper'), ...(tint ? [tint.startsWith('--') ? token(tint) : tint] : [])])
   const inks = [token('--foreground'), token('--muted-foreground')].map((ink) => painted([`rgb(${paper.join(' ')})`, ink]))
   const need = inks.map((ink, i) => Math.min(i ? 4.5 : 7, contrast(ink, paper) * 0.92))
   for (let amount = LEAST; amount < 1; amount += STEP) {
@@ -181,7 +181,7 @@ export function Frost({ tint, lift = false }: { tint?: string; lift?: boolean })
       {/* A solid floor under everything: whatever happens to the picture (not
           loaded yet, refused, a see-through theme), the app or the note behind
           this window never shows through, so words never sit on other words. */}
-      <div className="absolute inset-0" style={{ backgroundColor: `rgb(${painted(['Canvas', token('--background'), token('--popover')]).join(' ')})` }} />
+      <div className="absolute inset-0" style={{ backgroundColor: `rgb(${painted(['Canvas', token('--background'), token('--mf-paper')]).join(' ')})` }} />
       {frost.image ? (
         // Keyed apart: the picture's place is set straight on its element, which the wash must not inherit.
         <div
@@ -193,7 +193,8 @@ export function Frost({ tint, lift = false }: { tint?: string; lift?: boolean })
             backgroundImage: `url(${frost.image})`,
             backgroundSize: `${frost.display.width}px ${frost.display.height}px`,
             backgroundRepeat: 'no-repeat',
-            filter: 'blur(14px) saturate(1.5)'
+            // Muted, so the desktop shows as a texture under the paper, never as a colour that makes the card look like another theme.
+            filter: 'blur(14px) saturate(0.6)'
           }}
         />
       ) : (
@@ -206,7 +207,7 @@ export function Frost({ tint, lift = false }: { tint?: string; lift?: boolean })
         className="absolute inset-0"
         style={{
           opacity: 1,
-          backgroundImage: `linear-gradient(rgb(255 255 255 / 0.06), transparent 40%)${tint ? `, linear-gradient(${tint}, ${tint})` : ''}, linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))`,
+          backgroundImage: `linear-gradient(rgb(255 255 255 / 0.06), transparent 40%)${tint ? `, linear-gradient(${tint.startsWith('--') ? `var(${tint})` : tint}, ${tint.startsWith('--') ? `var(${tint})` : tint})` : ''}, linear-gradient(var(--mf-paper), var(--mf-paper)), linear-gradient(var(--background), var(--background))`,
           backgroundColor: 'Canvas'
         }}
       />

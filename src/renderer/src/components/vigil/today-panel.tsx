@@ -8,7 +8,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { EASE } from '@/lib/motion'
 
 import { chime } from '@/lib/sound'
-import { useLive, vigil, when, whenInLine, type Task } from '@/lib/vigil'
+import { unloaded, useLive, vigil, when, whenInLine, type Task } from '@/lib/vigil'
 import { BUCKETS, bucket, makeTask, placed } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { Empty, toast, typing, useListKeys, Strip } from './ui'
@@ -211,7 +211,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
           )
         })}
       </AnimatePresence>
-      {!due.length && (
+      {!due.length && !unloaded(tasks) && (
         <Rest compact seed="today" off={scope !== 'today'}><Empty compact shape={EMPTY[scope].shape} title={EMPTY[scope].title}>{EMPTY[scope].text}</Empty></Rest>
       )}
     </div>

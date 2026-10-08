@@ -5,23 +5,21 @@ import isoWeek from 'dayjs/plugin/isoWeek.js'
 
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/vigil'
-import { issueLabel, issueNumber, issues, type PastIssue } from '@/lib/issues'
-import { Rolling } from './ui'
+import { issues, type PastIssue } from '@/lib/issues'
 import { dayjs, noon, num } from '../../../../main/dates'
 
 dayjs.extend(isoWeek)
 
 /**
- * A week's or a month's page as an issue: a line of plain facts in the
- * typewriter face along the top, the issue's number turning over in its own
- * boxes, a headline in the heading face, and the issues before it lined up at
- * the bottom. The headline is yours: what you said the stretch was about, or
+ * A week's or a month's page: a line of plain facts in the typewriter face
+ * along the top, a headline in the heading face, and the weeks or months
+ * before it lined up at the bottom. The headline is yours: what you said the stretch was about, or
  * its dates until you say.
  */
 
 /**
- * The issue's display face: the heading font chosen in Settings, the same one
- * notes' headings wear, so an issue is set like the rest of what you read.
+ * The page's display face: the heading font chosen in Settings, the same one
+ * notes' headings wear, so the page is set like the rest of what you read.
  * Headlines and the month's prose use it.
  */
 // Marked important: it wins over the text font on a <p> as well as on headings.
@@ -51,58 +49,29 @@ export function IssueLine({ parts, className = '' }: { parts: ReactNode[]; class
 }
 
 /**
- * The issue's number in a row of little boxes, one figure each, like the
- * wheels of a counter: stepping to another issue turns only the wheels that
- * change.
- */
-export function Odometer({ n, label = 'Issue No.' }: { n: number; label?: string }): React.JSX.Element {
-  const digits = String(n).padStart(3, '0').split('')
-  return (
-    <span className="flex shrink-0 items-center gap-1.5 font-mono text-[0.6875rem] text-muted-foreground" aria-label={`${label} ${n}`}>
-      <span aria-hidden>{label}</span>
-      <span aria-hidden className="flex">
-        {digits.map((digit, index) => (
-          <span key={index} className="-ml-px grid h-[1.125rem] w-3.5 place-items-center border border-foreground/20 text-foreground tabular-nums first:ml-0 first:rounded-l-[3px] last:rounded-r-[3px]">
-            <Rolling text={digit} />
-          </span>
-        ))}
-      </span>
-    </span>
-  )
-}
-
-/** The first thing you ever caught: issue No. 1 is the week (or month) it fell in. */
-export const useFirstCapture = (): string | null => useLive(issues.first, null as string | null)
-
-/** The number an issue goes by, or null before your first. */
-export const useIssue = (start: string, scale: 'week' | 'month'): number | null => issueNumber(useFirstCapture(), start, scale)
-
-/**
- * Past issues: the three before this one, each a card with its dates, its
- * number and its headline; picked, the page turns to it. Weeks and months
+ * Earlier weeks or months: the three before this one, each a card with its
+ * dates and its headline; picked, the page turns to it. Weeks and months
  * with no page yet still show, with how much was caught in them, since the
  * point is that they come back to you.
  */
-export function PastIssues({ scale, current, onPick }: { scale: 'week' | 'month'; current: string; onPick: (start: string) => void }): React.JSX.Element | null {
-  const first = useFirstCapture()
+export function EarlierPages({ scale, current, onPick }: { scale: 'week' | 'month'; current: string; onPick: (start: string) => void }): React.JSX.Element | null {
   const past = useLive(() => issues.past(scale, current, 3), [] as PastIssue[], [scale, current])
   // The page's one short stagger, the first visit only, never by keys (lib/motion.ts, rule 4).
   const firstVisit = useFirstVisit(`issues:${scale}`)
   const [enter] = useState(() => firstVisit && !byKeys())
   if (!past.length) return null
   return (
-    <section className="mt-16 border-t pt-8" aria-label="Past issues">
-      <h2 className={`mb-5 text-center text-title font-normal text-foreground ${SERIF}`}>Past issues</h2>
+    <section className="mt-16 border-t pt-8" aria-label={scale === 'week' ? 'Earlier weeks' : 'Earlier months'}>
+      <h2 className={`mb-5 text-center text-title font-normal text-foreground ${SERIF}`}>{scale === 'week' ? 'Earlier weeks' : 'Earlier months'}</h2>
       <ol className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(11.5rem,1fr))]">
         {past.map((issue, index) => {
-          const number = issueNumber(first, issue.start, scale)
           const headline = scale === 'week' ? issue.fields.theme || firstLine(issue.fields.summary) : issue.fields.season || issue.fields.focus
           const date = scale === 'week' ? `Week ${weekOfYear(issue.start)}` : dayjs(issue.start).format("MMM 'YY")
           return (
             <motion.li key={issue.key} initial={enter ? { opacity: 0, transform: shift('translateY(8px)') } : false} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ delay: Math.min(index, 3) * 0.02, duration: 0.18, ease: EASE }}>
                 <button type="button" onClick={() => (chime('season'), onPick(issue.start))}
                   className="mf-island group flex h-full w-full flex-col items-center gap-2 rounded-xl border bg-accent/25 px-4 pt-4 pb-5 text-center transition-[background-color,translate] duration-200 ease-(--mf-ease) pointer-fine:hover:-translate-y-0.5 hover:bg-accent/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <IssueLine className="justify-center" parts={[date, number && issueLabel(number)]} />
+                  <IssueLine className="justify-center" parts={[date, !!headline && scale === 'week' && weekSpan(issue.start)]} />
                   <span className={`line-clamp-3 ${SERIF} text-[1.0625rem] leading-snug text-balance ${headline ? 'text-foreground' : 'text-muted-foreground/70 italic'}`}>
                     {headline || (scale === 'week' ? weekSpan(issue.start) : dayjs(issue.start).format('MMMM'))}
                   </span>

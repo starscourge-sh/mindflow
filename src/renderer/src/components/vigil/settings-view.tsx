@@ -537,7 +537,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Goals">
-          <Setting title="Goals at the top" note="Open goals show in a slim strip at the top of Home and Today's page: the days left, a line of the time gone, and when you last logged." keywords="goals strip home today countdown">
+          <Setting title="Goals at the top" note="Open goals show in a slim strip at the top of Home and under the brief on Today's page: the days left, a line of the time gone, and when you last logged." keywords="goals strip home today countdown">
             <Switch checked={settings.goalStrip !== false} onCheckedChange={(goalStrip) => set({ goalStrip })} />
           </Setting>
           <Setting title="Time as dots" note="The menu bar's menu shows how far through the day, week, month and year you are. As dots, like a line of beads, or as plain bars." keywords="tempus menu bar day week month year dots bars progress">
@@ -610,9 +610,6 @@ export function SettingsView(): React.JSX.Element {
             <Switch checked={recordable} onCheckedChange={setRecordable} />
           </Setting>
           {/* Only a choice while Vigil shows: off, the stickies are hidden with everything else. */}
-          <Setting title="Stickies stir now and then" note="Every half hour or so, while you are at the Mac, one sticky lifts a little and settles, as paper does in a draught, so your eye finds it again. Never while you write in it, in safe mode, or with Motion off." keywords="sticky notes stir move motion wiggle attention banner blindness notice">
-            <Switch checked={settings.stickiesStir !== false} onCheckedChange={(stickiesStir) => set({ stickiesStir })} />
-          </Setting>
           {recordable && (
             <Setting under title="Except sticky notes" note="Sticky notes stay blank in shares and recordings even so; the rest of Vigil shows." keywords="record recording screen share sharing hide sticky notes">
               <Switch checked={settings.stickiesUnshared} onCheckedChange={(stickiesUnshared) => set({ stickiesUnshared })} />
@@ -936,7 +933,7 @@ function OnboardingRows(): React.JSX.Element | null {
         <Switch checked={state.pageHints} onCheckedChange={(on) => void onboarding.set({ pageHints: on })} />
       </Setting>
       {!state.sandbox && state.welcomed && (
-        <Setting title="Getting started" note="The checklist on Home: eight firsts that tick themselves as you do them." keywords="getting started checklist onboarding">
+        <Setting title="Getting started" note="The checklist on Home: nine firsts that tick themselves as you do them." keywords="getting started checklist onboarding">
           {state.hidden ? <Button variant="outline" size="sm" onClick={() => void onboarding.set({ hidden: false }).then(() => toast('Getting started is back on Home'))}>Show it</Button> : <span className="text-control text-muted-foreground">On Home</span>}
         </Setting>
       )}

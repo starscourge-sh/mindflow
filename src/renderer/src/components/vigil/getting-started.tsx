@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react'
 import { motion } from 'motion/react'
 import { Check } from 'lucide-react'
 import { chime } from '@/lib/sound'
-import { EASE } from '@/lib/motion'
 import { keyFor, useKeyChanges } from '@/lib/keys'
 import { onboarding, useOnboarding } from '@/lib/onboarding'
 import { useLive, vigil } from '@/lib/vigil'
@@ -10,21 +9,23 @@ import { useCaptures } from '@/components/capture-list'
 import { MenuButton } from './collection-header'
 import { stickOnDesktop } from './sticky-note'
 import { Kbd, Rolling, toast } from './ui'
+import { ProgressBar } from './progress-bar'
 
 /**
- * Getting started: a shelf at the top of Home after the welcome, eight firsts
+ * Getting started: a shelf at the top of Home after the welcome, nine firsts
  * that tick themselves from what is really there (the main process reads the
  * data; tags are read here). Each row does its step, or takes you to where it
- * is done. All eight, and it celebrates once, then says Done and goes three
+ * is done. All nine, and it celebrates once, then says Done and goes three
  * days later. Hidden from its ··· menu; back from Settings.
  */
-type Step = { id: 'catch' | 'tag' | 'keep' | 'review' | 'task' | 'hold' | 'stick' | 'search'; label: string; keys?: string }
+type Step = { id: 'catch' | 'tag' | 'keep' | 'review' | 'task' | 'focus' | 'hold' | 'stick' | 'search'; label: string; keys?: string }
 const STEPS: Step[] = [
   { id: 'catch', label: 'Catch a thought', keys: '⌘.' },
   { id: 'tag', label: 'Give something a #tag' },
   { id: 'keep', label: 'Keep one from the Inbox', keys: 'P' },
   { id: 'review', label: 'Review a card' },
   { id: 'task', label: 'Add a task' },
+  { id: 'focus', label: 'Start a focus session' },
   { id: 'hold', label: 'Hold a question, or set a goal' },
   { id: 'stick', label: 'Stick a note to your desktop' },
   { id: 'search', label: 'Find anything', keys: '⌘K' }
@@ -36,7 +37,7 @@ export function GettingStarted({ onOpen, onView }: { onOpen: (type: string, id: 
   const state = useOnboarding()
   const tags = useLive(vigil.tags, [] as Awaited<ReturnType<typeof vigil.tags>>)
   const captures = useCaptures()
-  const done: Record<Step['id'], boolean> = { ...(state?.steps ?? { catch: false, keep: false, review: false, task: false, hold: false, stick: false, search: false }), tag: tags.length > 0 }
+  const done: Record<Step['id'], boolean> = { ...(state?.steps ?? { catch: false, keep: false, review: false, task: false, focus: false, hold: false, stick: false, search: false }), tag: tags.length > 0 }
   const count = STEPS.filter((step) => done[step.id]).length
   const all = count === STEPS.length
 
@@ -79,6 +80,7 @@ export function GettingStarted({ onOpen, onView }: { onOpen: (type: string, id: 
     if (step.id === 'keep') return (onView('inbox'), toast('Pick one and press P to keep it', undefined, 'info'))
     if (step.id === 'review') return onView('review')
     if (step.id === 'task') return onView('today')
+    if (step.id === 'focus') return (onView('today'), toast('Open a task and choose Start a focus session', undefined, 'info'))
     if (step.id === 'hold') return onView('questions')
     if (step.id === 'stick') return newest ? stickOnDesktop('capture', newest.id) : window.api.showPrompt()
     // ⌘K, pressed for you: the palette opens as it would.
@@ -96,10 +98,8 @@ export function GettingStarted({ onOpen, onView }: { onOpen: (type: string, id: 
         <h2 className="font-heading text-heading font-semibold tracking-[-0.01em] text-foreground">{all ? 'Done.' : 'Getting started'}</h2>
         <span className="text-control text-muted-foreground tabular-nums"><Rolling text={count} /> of {STEPS.length}</span>
         {/* The bar: a thin line of the accent, filling as the steps tick. */}
-        <span aria-hidden className="relative h-[3px] min-w-12 flex-1 overflow-hidden rounded-full bg-foreground/[0.08]">
-          <motion.span className="absolute inset-y-0 left-0 w-full origin-left rounded-full bg-primary"
-            initial={false} animate={{ transform: `scaleX(${count / STEPS.length})` }} transition={{ duration: 0.5, ease: EASE }} />
-        </span>
+        <ProgressBar value={count / STEPS.length} label="Getting started" className="min-w-12 flex-1" thick={3} duration={500}
+          fill="var(--primary)" track="color-mix(in oklab, var(--foreground) 8%, transparent)" blade="var(--tt-color-text-green)" />
         {all
           ? <button type="button" onClick={hide} className="rounded-full px-2.5 py-1 text-control font-medium text-foreground transition-colors hover:bg-foreground/[0.07]">Hide this</button>
           : <MenuButton small items={[{ label: 'Hide Getting started', run: hide }]} />}

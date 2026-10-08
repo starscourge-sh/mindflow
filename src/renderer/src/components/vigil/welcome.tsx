@@ -15,6 +15,7 @@ import { dayjs } from '../../../../main/dates'
 import { Scenery } from './scenery'
 import { NOISE } from './grain'
 import { MemoryPostcard } from './memory-postcard'
+import { Signed } from './signature'
 import { inkPath, ringPath } from './marks'
 import { ThemeDial } from './theme-dial'
 import { Kbd, toast } from './ui'
@@ -934,6 +935,7 @@ function ComesBack({ capture }: { capture: CaptureMeta | null }): React.JSX.Elem
           <MemoryPostcard at={new Date().toISOString()} seed={capture?.id ?? 'welcome'}>
             <p className="text-meta text-(--mf-wl-quiet)">A year ago today</p>
             <p className="clear-both mt-1 line-clamp-3 font-heading text-[1.125rem] leading-snug text-foreground [overflow-wrap:anywhere]">{words}</p>
+            {capture?.kind === 'quote' && capture.attribution && <p className="mt-1 text-meta text-(--mf-wl-quiet)"><Signed who={capture.attribution} /></p>}
           </MemoryPostcard>
         </div>
         <figcaption className={`pl-1 ${QUIET}`}>On <span className="text-foreground">{year.format('D MMMM YYYY')}</span>, this comes back to you.</figcaption>

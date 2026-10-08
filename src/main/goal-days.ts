@@ -84,7 +84,8 @@ export function journey(from: string, target: string, today = dayKey()): Journey
   const total = daysBetween(start, target)
   const dots: Dot[] = []
   const months: { col: number; label: string }[] = []
-  const label = (day: string): string => (dayjs(day).month() === 0 || !months.length ? dayjs(day).format('MMM YYYY') : dayjs(day).format('MMM'))
+  // The year only where it turns, or on the first label when it is not this year: "Sept 2026" beside "Oct" read as one label.
+  const label = (day: string): string => (dayjs(day).month() === 0 || (!months.length && !dayjs(day).isSame(dayjs(), 'year')) ? dayjs(day).format('MMM YYYY') : dayjs(day).format('MMM'))
   if (total <= LONG) {
     // Its column is the week it falls in, counted from the start's Monday.
     const lead = (noon(start).day() + 6) % 7

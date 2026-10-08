@@ -93,6 +93,8 @@ export type Settings = {
   /** Each goal's beacon unless it says otherwise. */
   goalBeacon: 'always' | 'sometimes' | 'off'
   tempusDots: boolean
+  /** How every bar that fills is drawn; see components/vigil/progress-bar.tsx. */
+  progressBars: 'plain' | 'saber' | 'dino'
   /** A plain Markdown copy of each capture beside the backups; never a private one. */
   markdownCopies: boolean
   /** How far back the Recent panel reaches, in days. */
@@ -109,11 +111,10 @@ export type Settings = {
   stickiesUnshared: boolean
   /** Stickies over the desktop picture, softly blurred; off, plain paper. */
   stickiesFrosted: boolean
-  sidebarShown: string[]
-  /** The box's tabs, of inbox, today, review, kept and recent. */
   stickiesGlass: boolean
   stickiesStir: boolean
-  stickiesStir: boolean
+  sidebarShown: string[]
+  /** The box's tabs, of inbox, today, review, kept and recent. */
   boxTabs: string[]
   /** Keys you changed, by the keys each came with; null is none. See lib/keys.ts. */
   keys: Record<string, string | null>
@@ -445,11 +446,21 @@ export const vigil = {
 }
 
 /**
+ * The stand-in a list starts as, before its first answer comes back. An empty
+ * list then means "not read yet", not "there is none": a view asks `unloaded`
+ * before saying "No articles yet", so the empty page never flashes on the way
+ * to a full one. Kept by the object itself, so nothing else has to be passed on.
+ */
+const STAND_INS = new WeakSet<object>()
+export const unread = <T,>(initial: T): T => (initial && typeof initial === 'object' && STAND_INS.add(initial), initial)
+export const unloaded = (value: unknown): boolean => !!value && typeof value === 'object' && STAND_INS.has(value)
+
+/**
  * Something read from the main process, read again whenever any window writes.
  * The one way every view stays current without each one wiring it up.
  */
 export function useLive<T>(read: () => Promise<T>, initial: T, deps: unknown[] = [], kinds?: ('capture' | 'item')[]): T {
-  const [value, setValue] = useState<T>(initial)
+  const [value, setValue] = useState<T>(() => unread(initial))
   useEffect(() => {
     // Every write anywhere reloads every list, a note being typed in included:
     // an answer the same as the last keeps the old value, so nothing redraws.
@@ -504,6 +515,7 @@ export function useAppearance(): void {
     document.documentElement.dataset.motion = settings.motion ? 'on' : 'off'
     document.documentElement.toggleAttribute('data-postcards', !!settings.postcards)
     document.documentElement.dataset.marks = settings.marks === false ? 'off' : 'on'
+    document.documentElement.dataset.bars = settings.progressBars ?? 'plain'
     document.documentElement.toggleAttribute('data-noblur', settings.blur === false)
     // Inherited by every editor and field below; on, each keeps its own say.
     if (settings.spellcheck === false) document.documentElement.spellcheck = false
@@ -516,5 +528,5 @@ export function useAppearance(): void {
     soundOn(settings.sounds)
     setVolume(settings.volume)
     setPack(settings.soundPack)
-  }, [settings?.fullWidth, settings?.motion, settings?.postcards, settings?.marks, settings?.blur, settings?.spellcheck, settings?.interfaceSize, settings?.sounds, settings?.volume, settings?.soundPack])
+  }, [settings?.fullWidth, settings?.motion, settings?.postcards, settings?.marks, settings?.progressBars, settings?.blur, settings?.spellcheck, settings?.interfaceSize, settings?.sounds, settings?.volume, settings?.soundPack])
 }

@@ -216,7 +216,13 @@ function hideWindow(win: BrowserWindow): void {
   // Told before it goes, so the page can clear itself while hidden and come
   // back already blank rather than showing the old note for a frame.
   win.webContents.send('window:hiding')
+  // Put away, the box hands the focus back to the app you came from, not to a
+  // sticky: macOS passes it to the app's next window, so for a moment no
+  // sticky can take it (the main window still can, if you came from there).
+  const notes = win === prompt ? [...stickies.values()].filter((one) => !one.isDestroyed() && one.isFocusable()) : []
+  for (const one of notes) one.setFocusable(false)
   win.hide()
+  if (notes.length) setTimeout(() => notes.forEach((one) => one.isDestroyed() || one.setFocusable(true)), 400)
   // The welcome brings its words back where the box was.
   if (win === prompt && home && !home.isDestroyed()) home.webContents.send('onboarding:box-away')
 }

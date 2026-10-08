@@ -117,3 +117,18 @@
 body[data-sticky] :is(.mf-look-corner, :has(> .tiptap-toolbar [aria-label="Delete image"])) {
   display: none !important;
 }
+
+// A sticky's paper is the theme's own: the card colour its menus use, and on a
+// light theme the page itself (its card colour is a shade darker, which read
+// as dull grey beside the window). Warmed, if at all, by the theme's own
+// yellow, never a fixed amber that pulled every theme toward brown.
+// On :root, so the frost (frost.tsx) reads the same colours to work out its paper.
+:root {
+  --mf-paper: var(--popover);
+  --mf-paper-tint: color-mix(in oklab, var(--tt-color-text-yellow) 5%, transparent);
+}
+
+:root[data-light] {
+  --mf-paper: var(--background);
+  --mf-paper-tint: transparent;
+}

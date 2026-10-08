@@ -18,6 +18,7 @@ import { GlossLine, keepGloss, openGloss } from './gloss-line'
 import { BorderBeam } from 'border-beam'
 import { useAlive, useSurface } from '@/lib/use-alive'
 import { num } from '../../../../main/dates'
+import { Signed } from './signature'
 
 /** The four grades, as the plan defines them: how the retrieval felt, not whether it was right. */
 const GRADES = [
@@ -26,6 +27,13 @@ const GRADES = [
   { grade: 3, label: 'Good', hint: 'Normal effort', tone: 'var(--tt-color-text-green)' },
   { grade: 4, label: 'Easy', hint: 'Instant', tone: 'var(--tt-color-text-blue)' }
 ] as const
+
+/** When a grade brings the card back, as a time you would say: "in 9 min", "in 4 days". */
+const WORD: Record<string, [string, string]> = { m: ['min', 'min'], h: ['hour', 'hours'], d: ['day', 'days'], w: ['week', 'weeks'], mo: ['month', 'months'], y: ['year', 'years'] }
+function backIn(iso: string): string {
+  const [, n, unit] = /^(\d+)(\D+)$/.exec(interval(iso)) ?? []
+  return WORD[unit] ? `in ${n} ${WORD[unit][Number(n) === 1 ? 0 : 1]}` : interval(iso)
+}
 
 /**
  * The review session, the one surface allowed a definition of done. One card:
@@ -288,14 +296,14 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
             {card.context && <p className="-mt-2 text-sm leading-relaxed whitespace-pre-line text-muted-foreground">{card.context}</p>}
             <Why card={card} />
             {/* Where it came from, which a flashcard app never knows. */}
-            <Origin id={card.id} attribution={card.attribution} said={`${card.prompt ?? ''}\n${textOf(card.body)}`} />
+            <Origin id={card.id} quote={card.kind === 'quote'} attribution={card.attribution} said={`${card.prompt ?? ''}\n${textOf(card.body)}`} />
             {/* A thought on it now, while it is in front of you: the latest is
                 shown above already when it stands in for the why. */}
             <GlossLine id={card.id} latest={!!card.why} className="-mt-3" />
             {/* The key shows where there is room for it; in a narrow panel the time comes first. */}
             <div className="@container grid grid-cols-4 gap-2">
               {GRADES.map(({ grade: value, label, hint, tone }) => (
-                <Tip key={value} label={hint}>
+                <Tip key={value} label={`${hint}: back ${backIn(card.intervals[value])}`}>
                 <button
                   type="button"
                   onClick={() => grade(value)}
@@ -305,7 +313,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
                   className="flex h-9 min-w-0 items-center justify-center gap-2 rounded-md border px-2 text-control transition-colors hover:border-[color-mix(in_srgb,var(--tone)_45%,var(--border))] hover:bg-[color-mix(in_srgb,var(--tone)_10%,transparent)]"
                 >
                   <span className="font-medium" style={{ color: tone }}>{label}</span>
-                  <span className="text-xs whitespace-nowrap text-muted-foreground tabular-nums">{interval(card.intervals[value])}</span>
+                  <span className="text-xs whitespace-nowrap text-muted-foreground tabular-nums">{backIn(card.intervals[value])}</span>
                   <Kbd className="hidden @lg:inline-flex">{value}</Kbd>
                 </button>
                 </Tip>
@@ -354,7 +362,7 @@ const plain = (text: string): string => text.toLowerCase().replace(/[^\p{L}\p{N}
  * out when the card already says it: a card made from a capture's own words
  * only repeated them here.
  */
-function Origin({ id, attribution, said }: { id: string; attribution: string | null; said: string }): React.JSX.Element | null {
+function Origin({ id, quote, attribution, said }: { id: string; quote?: boolean; attribution: string | null; said: string }): React.JSX.Element | null {
   const lineage = useLive(() => vigil.lineage(id), null, [id])
   const card = plain(said)
   const fresh = (text: string | null | undefined): text is string => !!text && !card.includes(plain(text))
@@ -362,6 +370,9 @@ function Origin({ id, attribution, said }: { id: string; attribution: string | n
   const from = lineage?.from[0]?.title
   const source = fresh(from) && plain(from) !== plain(attribution ?? '') ? from : null
   if (!who && !source) return null
+  const whence = source && `from ${/^["“‘'«]/.test(source) ? source : `“${source}”`}`
+  // A quote is signed: the name in a pen's hand, then where it came from.
+  if (quote && who) return <p className="-mt-2 flex min-w-0 items-baseline text-xs text-muted-foreground"><Signed who={who} className="private-text" />{whence && <span className="truncate">, {whence}</span>}</p>
   return (
     <p className="-mt-2 text-xs text-muted-foreground">
       {[who && `Said by ${who}`, source && `from ${/^["“‘'«]/.test(source) ? source : `“${source}”`}`].filter(Boolean).join(', ')}

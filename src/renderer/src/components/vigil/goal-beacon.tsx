@@ -96,7 +96,7 @@ export function GoalBeacon({ id }: { id: string }): React.JSX.Element | null {
           </div>
         )}
         <div className="min-h-0 flex-1 text-foreground"><Journey compact from={from} target={goal.goalAt} today={today} logs={goal.glosses} /></div>
-        <TempusBars />
+        <TempusBars ignite />
       </motion.div>
     </div>
   )

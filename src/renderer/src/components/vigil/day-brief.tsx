@@ -9,7 +9,7 @@ import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { chime } from '@/lib/sound'
 import { issues, type Repeat } from '@/lib/issues'
-import { useLive, vigil, whenInLine, type Finished, type Item, type Settings, type Task } from '@/lib/vigil'
+import { unloaded, useLive, vigil, whenInLine, type Finished, type Item, type Settings, type Task } from '@/lib/vigil'
 import { Rolling, Tip, Typed, toast } from './ui'
 import { Rule, Struck, Tick } from './marks'
 import { Scenery, useDayScene } from './scenery'
@@ -248,7 +248,8 @@ export function DayBrief({ day, onOpen, onListed }: {
         <p className="mb-0.5 text-xs font-medium text-foreground tabular-nums @min-[66rem]/page:hidden">{dayjs(now).format('dddd D MMMM')}, {time}</p>
         <div className="flex items-start gap-6">
           <p className="line-clamp-2 min-w-0 flex-1 text-[0.9375rem] leading-snug text-pretty text-muted-foreground italic" style={{ fontFamily: 'var(--font-heading)' }}>
-            <Typed text={greeting} delay={350} step={22} />
+            {/* Not before the day is read: "Nothing is due" typed over a full day was wrong for a moment. */}
+            {!unloaded(tasks) && <Typed text={greeting} delay={350} step={22} />}
           </p>
           {named && <span className="max-w-[35%] min-w-0 truncate pt-0.5 text-right font-mono text-[0.625rem] tracking-wide text-muted-foreground/80" title={named}>{named}</span>}
         </div>

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
 import type { Readable } from './read-through'
 
-import { useLive, vigil, type Item } from '@/lib/vigil'
+import { unloaded, useLive, vigil, type Item } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
 import { Chips } from './display'
 import { copy, type MenuItem } from './row-menu'
@@ -129,7 +129,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
             </>
           )}
         />
-      ) : (
+      ) : unloaded(all) ? null : (
         <Empty compact shape={tier === 'nugget' ? ['star', 3] : tier === 'question' ? ['ellipse', 3] : ['polygon', 4]} title={tier === 'nugget' ? 'Nothing kept yet' : tier === 'question' ? 'Nothing held yet' : 'No articles yet'}>
           {tier === 'nugget' ? 'Promote a capture and it lands here, to come back to you.' : tier === 'question' ? 'For what you keep circling and cannot name yet. Press H on a capture to hold it as a question.' : 'Your own words on one idea. Start one with New article, or from a nugget.'}
         </Empty>

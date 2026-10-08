@@ -79,8 +79,8 @@ const paragraphs = (markdown: string): JSONContent => ({
   content: markdown.split(/\n{2,}/).map((text) => ({ type: 'paragraph', content: text.trim() ? [{ type: 'text', text: text.trim() }] : [] }))
 })
 
-/** A link to another example by its id, the form the editor reads back as a link. */
-const link = (id: string, name: string, type = ''): string => `[[@${type ? `${type}:` : ''}${id}|${name}]]`
+/** A link to another example by its id, the form the editor reads back as a link; with a heading, it lands on that heading. */
+const link = (id: string, name: string, type = '', heading = ''): string => `[[@${type ? `${type}:` : ''}${id}${heading ? `#${heading}` : ''}|${name}]]`
 
 export type SeedCounts = { captures: number; nuggets: number; tasks: number }
 
@@ -113,6 +113,7 @@ export async function seedSandbox(read: Read): Promise<SeedCounts> {
 
   // --- the captures, newest first as the Inbox reads them --------------------------------
   const start = await capture({}, earlier(2))
+  const errands = await capture({}, earlier(5))
   const hal = await capture({ kind: 'decision' }, earlier(9))
   const kessel = await capture({}, earlier(16))
   const napoleon = await capture({ kind: 'quote', attribution: 'Napoleon Bonaparte' }, earlier(23))
@@ -133,6 +134,10 @@ export async function seedSandbox(read: Read): Promise<SeedCounts> {
   const adam19 = await capture({}, earlier(137))
   const primavera20 = await capture({}, earlier(144))
   const pitch = await capture({}, earlier(152))
+  // Two books on the go: Dune half read, Dorian Gray finished.
+  const dune = await capture({ kind: 'book', attribution: 'Frank Herbert', medium: 'A friend who would not stop talking about sandworms' }, earlier(166))
+  const duneNotes = await capture({}, at(-1, '22:30'))
+  const dorian = await capture({ kind: 'book', attribution: 'Oscar Wilde', medium: 'A second-hand shop in Dublin' }, at(-2, '21:15'))
   const noFace = await capture({}, at(-3, '22:41'))
   const rick = await capture({}, at(-4, '19:12'))
   const gilgamesh = await capture({}, at(-6, '08:03'))
@@ -157,6 +162,12 @@ export async function seedSandbox(read: Read): Promise<SeedCounts> {
   const aureliusCapture = await capture({ kind: 'quote', attribution: 'Marcus Aurelius', medium: 'Meditations, tr. George Long (1862)' }, at(-5, '06:55'))
   await write(aureliusCapture, 'Remember this, that very little is needed for living a happy life.')
   const aurelius = await v<string>('promote', aureliusCapture, 'Mine: the list of what I need keeps getting shorter, and that is the point.')
+  nuggets++
+
+  // A line kept from a novel: the character who says it, inside the book it is from.
+  const wildeCapture = await capture({ kind: 'quote', attribution: 'Lord Henry, in Oscar Wilde', medium: 'The Picture of Dorian Gray, chapter 2 (1890)' }, at(-10, '23:02'))
+  await write(wildeCapture, 'The only way to get rid of a temptation is to yield to it.')
+  const wilde = await v<string>('promote', wildeCapture, 'He says it to be clever. The rest of the book is the bill.')
   nuggets++
 
   // A card with a history: reviewed three times over three weeks, due again today.
@@ -212,7 +223,12 @@ What you keep, rather than what you read, is what returns: ${link(petrichor, 'Pe
   await write(bronzeClue, 'Drought, earthquakes and the Sea Peoples, all at once?')
   const bronze = await v<string>('question:new', 'Why did the Bronze Age collapse around 1177 BC?')
   await v('clue', bronze, '', bronzeClue)
-  nuggets += 2
+  const paul = await v<string>('question:new', 'Is Paul the hero of Dune?')
+  const paulClues = [
+    [await v<string>('clue', paul, 'He sees the holy war coming, in every future, and walks toward it anyway.'), at(-8, '22:40')],
+    [await v<string>('clue', paul, 'Herbert said he wrote him as a warning about following a leader like that, not as a model.'), at(-1, '22:55')]
+  ] as const
+  nuggets += 3
 
   // --- goals ---------------------------------------------------------------------------
   const mars = await v<string>('goal:new', 'Get to Mars before the dust storm', day(68), day(-30), "The Hab won't hold forever.")
@@ -238,7 +254,15 @@ What you keep, rather than what you read, is what returns: ${link(petrichor, 'Pe
   const kesselGoal = await v<string>('goal:new', 'Make the Kessel Run in under 12 parsecs', day(-3), day(-40), 'Fastest hunk of junk in the galaxy.')
   await v('gloss', kesselGoal, 'Cut the corner past the Maw. 11.5 parsecs.')
   await v('goal:close', kesselGoal, 'made it')
-  nuggets += 3
+  // A small reading goal, its logs a reading diary.
+  const duneGoal = await v<string>('goal:new', 'Finish Dune before film night', day(12), day(-18), 'Book before film, every time.')
+  const duneGlosses: [string, string][] = [
+    [await v<string>('gloss', duneGoal, 'Book One done. The dinner party chapter is all knives.'), at(-15, '22:20')],
+    [await v<string>('gloss', duneGoal, 'Into the deep desert. Slower going, more glossary than story.'), at(-8, '22:35')],
+    [await v<string>('gloss', duneGoal, 'Book Two finished on the bus. Missed my stop.'), at(-1, '18:05')]
+  ]
+  await v('goal:beacon:set', duneGoal, 'off')
+  nuggets += 4
 
   // --- tasks, typed as a person would ------------------------------------------------
   const task = async (text: string): Promise<string> => {
@@ -263,6 +287,13 @@ What you keep, rather than what you read, is what returns: ${link(petrichor, 'Pe
   await write(plane, 'Follow the white rabbit. Probably a tattoo, but you never know.')
   await v('tasks:from', [plane], 'Follow the white rabbit')
   tasks++
+  // A task to practise a focus session on, its notes saying how.
+  const voightKampff = await task('Run the Voight-Kampff test today')
+  await v('task:save', voightKampff, { notes: doc(`
+A focus session is a timer on one task: a goal, how long, and a small clock that floats over everything until you are done. When it ends, it asks how it went.
+
+**Try it:** under **Sessions**, beside these notes, choose **Start a focus session**. 25 minutes is already filled in; press ↵.
+`) })
   // A study task, made from the article.
   await v('study', article, 'Study the forgetting curve this week')
   tasks++
@@ -309,9 +340,23 @@ What you keep comes back: as ${link(schwarzschild, 'a Review card', 'nugget')} j
 
 ⌘K finds anything: notes, tasks, goals, and every action in the app. Try *renaissance*, or open ${link(leonardo, "Leonardo's notebooks")}.
 
+A link can land partway down a note: ${link(prestige, 'Every great trick has three acts', '', 'The Turn')} opens that note at its second act, unfolded.
+
+**Try it:** click it. To make your own, write \`[[Note#Heading]]\`, or type @ and a note's name, then # to pick one of its headings.
+
 *Nisaba, keeper of the tablets*
 `)
   await v('pin', 'captures', start, true)
+
+  await write(errands, `
+Tasks, said in plain words
+
+Write a task the way you would say it, and the date comes out of the words: *call Mr Wolf tomorrow 9am*, *send the budget by Friday*, *chip at the wall every day*.
+
+**Try it:** press G then T for Today, press A, and type *feed the cat tomorrow 8am*. Then tick a task off with its circle, or press E on it.
+
+Today is what is due now. Week lays the next seven days side by side, Upcoming lists everything with a date ahead, and Routines hold what comes round again. In Today, open *Run the Voight-Kampff test* to try a focus session.
+`)
 
   await write(hal, `
 Which AI flies the ship: HAL or TARS?
@@ -565,6 +610,50 @@ Let go, not deleted. Everything you discard waits under Discarded, to bring back
 `)
   await window.api.captures.save(pitch, { status: 'discarded' })
 
+  await write(dune, `
+Dune
+
+A book keeps who wrote it and where you heard of it, the two things forgotten first. Its reading notes can live in a note of their own, and a link can open them at the part you are on: ${link(duneNotes, "Dune, as I read it", '', "Book Two: Muad'Dib")}.
+
+**Try it:** open its details, top right: the friend who would not stop talking about sandworms is there. It also feeds ${link(duneGoal, 'a goal with a date', 'goal')}.
+`)
+  await field(dune, 'status', 'Reading')
+
+  await write(duneNotes, `
+Dune, as I read it
+
+Notes on a long book, a heading for each part: the note reads as its outline, and a link can land on any one part.
+
+**Try it:** press ⇧⌘O for the outline, pick Book Three with the arrows and press ↵.
+
+## Book One: Dune
+
+A desert planet, and the only place the spice comes from. Whoever holds the spice holds the empire, so of course everyone wants the desert.
+
+The test with the box in the first chapter: pain, to tell a person from an animal. *Fear is the mind-killer*, and the boy believes it.
+
+## Book Two: Muad'Dib
+
+Paul and his mother in the deep desert, with the Fremen. He sees the futures now, and most of them end in a holy war fought in his name.
+
+He knows, and he goes on. That is where I began to wonder: ${link(paul, 'Is Paul the hero of Dune?', 'question')}
+
+## Book Three: The Prophet
+
+The worm ride, the duel, the emperor beaten. It reads like a triumph. Herbert said it was meant as a warning.
+`)
+
+  await write(dorian, `
+The Picture of Dorian Gray
+
+A book set to Finished asks one more thing: what you will keep from it, a line or two under Takeaway.
+
+**Try it:** press ⌘K and type *Dorian*: the book and ${link(wilde, 'the line kept from it', 'nugget')} come up together, one by its title, the other by where it is from.
+`)
+  await field(dorian, 'status', 'Finished')
+  await field(dorian, 'rating', 4)
+  await field(dorian, 'takeaway', 'A face can stay young while the life behind it does not. The bill is paid somewhere.')
+
   await write(noFace, 'No-Face only speaks with the voices of the ones it swallowed.')
   await write(rick, "Rick's catchphrase supposedly means 'I am in great pain, please help me'.")
   await write(gilgamesh, 'Gilgamesh went looking for immortality and came home with a story instead. #history')
@@ -608,6 +697,8 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
     ...clues.map(([id, when]) => ({ glossAt: when, id })),
     ...marsGlosses.map(([id, when]) => ({ glossAt: when, id })),
     ...homerGlosses.map(([id, when]) => ({ glossAt: when, id })),
+    ...paulClues.map(([id, when]) => ({ glossAt: when, id })),
+    ...duneGlosses.map(([id, when]) => ({ glossAt: when, id })),
     ...done,
     { reviewedAt: at(-21, '08:10'), itemId: schwarzschild, nth: 0 },
     { reviewedAt: at(-12, '08:05'), itemId: schwarzschild, nth: 1 },
@@ -617,6 +708,9 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
     { createdAt: at(-60, '12:00'), nuggetId: pluto },
     { createdAt: at(-2, '07:41'), nuggetId: petrichor },
     { createdAt: at(-5, '06:56'), nuggetId: aurelius },
+    { createdAt: at(-10, '23:03'), nuggetId: wilde },
+    { createdAt: at(-9, '22:10'), nuggetId: paul },
+    { createdAt: at(-18, '21:00'), nuggetId: duneGoal },
     // Held, aimed at and written for some while: their pages say since when.
     { createdAt: at(-24, '22:10'), nuggetId: top },
     { createdAt: at(-15, '09:30'), nuggetId: bronze },

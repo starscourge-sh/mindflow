@@ -10,7 +10,7 @@ export type Onboarding = {
   firstRun: boolean
   welcomed: string | null
   news: boolean
-  steps: Record<'catch' | 'keep' | 'review' | 'task' | 'hold' | 'stick' | 'search', boolean>
+  steps: Record<'catch' | 'keep' | 'review' | 'task' | 'focus' | 'hold' | 'stick' | 'search', boolean>
   marks: Record<string, string>
   hidden: boolean
   doneAt: string | null

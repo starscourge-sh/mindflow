@@ -112,9 +112,11 @@ export function Page({ title, count, unit = ['item', 'items'], actions, children
   actions?: ReactNode
   children: ReactNode
 }): React.JSX.Element {
+  // A list never takes more than the drag allows (60%), so a width kept from a wider window cannot squeeze the page.
   const [listWidth, grip] = useListWidth()
   return (
-    <section data-chrome={aside || undefined} className={cn('relative flex min-w-0 flex-1 flex-col', aside && 'hidden flex-none @[56rem]/page:flex')} style={aside ? { width: listWidth } : undefined}>
+    <section data-chrome={aside || undefined} className={cn('relative flex min-w-0 flex-1 flex-col', aside && 'hidden flex-none @[56rem]/page:flex')}
+      style={aside ? { width: listWidth, maxWidth: '60%' } : undefined}>
       {aside && grip}
       {/* The window's toolbar already names the section, so this line only
           carries the count and the actions, and goes when it has neither. */}
