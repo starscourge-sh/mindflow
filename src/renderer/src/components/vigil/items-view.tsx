@@ -56,7 +56,7 @@ import { QuestionDetail } from './questions-view'
 import { GlossTimeline, useRowGloss } from './gloss-line'
 import { dayjs, moment, num } from '../../../../main/dates'
 import { Signed } from './signature'
-import { groups as noteGroupsApi, useGroups } from '@/lib/groups'
+import { groups as noteGroupsApi, tintOf, useGroups } from '@/lib/groups'
 import { drop, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveTo, type Layout } from '@/lib/group-layout'
 import type { Cue } from '@/lib/sound'
 import type { Bundle, Folds } from './kept-groups'
@@ -135,6 +135,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   const groups = spread && query.trim() ? arranged.map(([name, list]) => [name, list.filter((one) => matches(one.title, query))] as [string, Item[]]).filter(([, list]) => list.length) : arranged
   const folding = useFolding(tier, all, ownOrder, view.sort === 'manual' && view.group === 'none' && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? groups.flatMap(([, list]) => list) : null)
   const items = folding?.rows ?? groups.flatMap(([, list]) => list)
+  const noteGroups = useGroups(tier)
   const onMove = (id: string, target: string, after: boolean): void => move(all.map((one) => one.id), id, target, after)
   // Spread out, a click looks at a note beside the list; Enter opens it.
   const [peek, setPeek] = useState<string | null>(null)
@@ -230,7 +231,9 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
     { label: 'Copy title', run: () => copy(item.title) }
   ]
 
-  const entries = groups.map(([name, list]) => [name, list.map((one) => itemEntry(one, menuFor(one)))] as [string, Entry[]])
+  // Drawn flat (another sort, or grouped by kind or date), a note in a group says which, small, beside its age.
+  const chipOf = new Map(noteGroups.flatMap((group) => group.members.map((id) => [id, { label: group.name, tint: tintOf(group.color) }] as const)))
+  const entries = groups.map(([name, list]) => [name, list.map((one) => ({ ...itemEntry(one, menuFor(one)), chip: folding ? undefined : chipOf.get(one.id) }))] as [string, Entry[]])
   return (
     <>
       {open && pane === 'rail' ? (

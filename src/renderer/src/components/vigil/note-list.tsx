@@ -60,6 +60,8 @@ export type Entry = {
   /** Its own words rather than a name (a nugget): two lines of them in a list, not one. */
   wrap?: boolean
   menu?: RowItem[]
+  /** The group it is in, shown small beside its age where the list is not drawn in groups. */
+  chip?: { label: string; tint?: string }
 }
 
 /** A note's first picture, made small (or tile-sized) once. Undefined: it has none; null: on its way; '': too big to show. */
@@ -469,11 +471,24 @@ const Dot = (): React.JSX.Element => (
   </span>
 )
 
+/** A group's name, small and faint in its colour: where a note sits, said without drawing the group. */
+const Chip = ({ entry }: { entry: Entry }): React.JSX.Element | null =>
+  entry.chip ? (
+    <span
+      data-chip=""
+      className="max-w-32 shrink-0 truncate rounded-sm px-1 text-[11px] leading-4 opacity-80"
+      style={{ color: entry.chip.tint ?? 'var(--muted-foreground)', background: `color-mix(in srgb, ${entry.chip.tint ?? 'var(--foreground)'} 10%, transparent)` }}
+    >
+      {entry.chip.label}
+    </span>
+  ) : null
+
 function CompactRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Element {
   return (
     <>
       <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} />
       <span className="private-text min-w-0 flex-1 truncate">{entry.title || 'Untitled'}</span>
+      <Chip entry={entry} />
       <Tags tags={entry.tags} max={2} />
       <Tail entry={entry} lit={lit} />
       <span className="text-xs text-muted-foreground">
@@ -507,6 +522,7 @@ function Under({ entry }: { entry: Entry }): React.JSX.Element {
   return (
     <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
       <Age entry={entry} />
+      <Chip entry={entry} />
       {entry.age && entry.sub && <Dot />}
       {entry.sub && <span className="min-w-0 truncate">{entry.sub}</span>}
       {entry.tags.length > 0 && (entry.age || entry.sub) && <Dot />}

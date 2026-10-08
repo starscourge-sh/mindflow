@@ -115,6 +115,28 @@ try {
   check('after a restart the group is kept', list.length === 1 && list[0].name === 'Memory' && list[0].color === 'blue' && list[0].members.length === 3 && list[0].folded === 1, JSON.stringify(list[0] ?? null))
   check('and is still drawn folded', (await c.h.locator('[data-group-row]').count()) === 1 && (await row(c, 'The forgetting curve').count()) === 0)
 
+  // The hand: open at rest on a row in your own order, closed while carrying.
+  const rest = await row(c, 'Interleaving beats blocking').evaluate((el) => getComputedStyle(el).cursor)
+  check('a row at rest shows an open hand', rest === 'grab', rest)
+  // Held over the folded group's row, it springs open; Escape lets the row go where it was.
+  let carrying = ''
+  let sprung = false
+  await carry(c, row(c, 'Interleaving beats blocking'), head(c), 0.15, {
+    hold: async () => {
+      carrying = await c.h.evaluate(() => getComputedStyle(document.body).cursor)
+      await c.h.waitForTimeout(800)
+      sprung = (await head(c).getAttribute('aria-expanded')) === 'true'
+      await c.h.screenshot({ path: `${dir}/spring-open-light.png` })
+      await c.h.keyboard.press('Escape')
+    }
+  })
+  check('carrying shows a closed hand', carrying === 'grabbing', carrying)
+  check('held over a folded group for a moment, it opens', sprung)
+  check('and the open is kept', (await groupsNow(c))[0]?.folded === 0)
+  check('Escape let the row go where it was', (await groupsNow(c))[0]?.members.length === 3)
+  await head(c).click()
+  await c.h.waitForTimeout(500)
+
   await c.theme('dark')
   await c.size(1100, 760)
   await articles(c)
@@ -155,6 +177,21 @@ try {
   await c.h.mouse.move(900, 700)
   await c.h.waitForTimeout(300)
   await c.h.screenshot({ path: `${dir}/separated-dark.png` })
+
+  // 9. Another sort: flat, each grouped row with its group's name small beside its age.
+  await c.h.evaluate(() => localStorage.setItem('view:article', JSON.stringify({ sort: 'newest', group: 'none', filter: {}, density: 'list' })))
+  await c.h.reload()
+  await c.h.waitForTimeout(1500)
+  await articles(c)
+  const chips = await c.h.locator('[data-chip]').allTextContents()
+  check('in another sort, grouped rows carry a chip', chips.length === 2 && chips.every((one) => one === 'New group') && (await c.h.locator('[data-group-row]').count()) === 0, JSON.stringify(chips))
+  await c.h.mouse.move(900, 700)
+  await c.h.screenshot({ path: `${dir}/chips-dark.png` })
+  await c.theme('light')
+  await c.size(1100, 760)
+  await articles(c)
+  await c.h.mouse.move(900, 700)
+  await c.h.screenshot({ path: `${dir}/chips-light.png` })
   if (c.errors.length) console.log('errors:', c.errors.slice(0, 5))
   check('no errors in the page', !c.errors.some((one) => /PAGEERROR/.test(one)), c.errors.find((one) => /PAGEERROR/.test(one)) ?? '')
 } catch (error) {

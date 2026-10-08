@@ -9,7 +9,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator,
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { IconPicker } from '@/components/emoji/icon-picker'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
-import { chime } from '@/lib/sound'
+import { chime, click } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
 import { archive } from '@/lib/notes'
 import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
@@ -135,9 +135,22 @@ export function GroupedList({ bundles, onDrop, onFold, onNewNote, renaming, onRe
       setShot(block && box ? { id, html: block.innerHTML, width: box.width, height: box.height } : null)
     } else setShot(snapshot(id))
   }
+  // Held over a folded group's row for a moment, the group opens, as a folder
+  // does in Finder when something is held over it.
+  const spring = useRef<{ key: string; timer: ReturnType<typeof setTimeout> } | null>(null)
+  const unspring = (): void => {
+    if (spring.current) clearTimeout(spring.current.timer)
+    spring.current = null
+  }
   const onDragMove = ({ active, over, activatorEvent, delta }: DragMoveEvent): void => {
     const id = String(active.id)
     const target = over && String(over.id)
+    const shut = target && !isGroup(id) ? bundles.find((one) => one.group && !one.group.open && KEY + one.group.id === target)?.group : undefined
+    if (!shut) unspring()
+    else if (spring.current?.key !== target) {
+      unspring()
+      spring.current = { key: target!, timer: setTimeout(() => (click('tick'), onFold(shut, true), (spring.current = null)), 600) }
+    }
     if (!target || target === id || isGroup(id) || !(activatorEvent instanceof PointerEvent)) return aim(null)
     // Its own group, or a row of it, is no new home.
     const own = home.get(id)
@@ -147,6 +160,7 @@ export function GroupedList({ bundles, onDrop, onFold, onNewNote, renaming, onRe
     aim(at > 0.25 && at < 0.75 ? target : null)
   }
   const end = (): void => {
+    unspring()
     setShot(null)
     setCarried(null)
     aim(null)
@@ -311,7 +325,7 @@ function GroupBlock({ group, count, members, carried, renaming, onRenaming, onFo
               onClick={() => void separate()}
               // Not a handle: pressing here never lifts the group.
               onPointerDown={(event) => event.stopPropagation()}
-              className="absolute top-1/2 right-1.5 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity duration-150 group-hover/fold:opacity-100 group-data-[active]/fold:opacity-100 hover:bg-[color-mix(in_srgb,var(--group-tint)_12%,transparent)] hover:text-foreground focus-visible:opacity-100"
+              className="absolute top-1/2 right-1.5 flex size-6 cursor-pointer! -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity duration-150 group-hover/fold:opacity-100 group-data-[active]/fold:opacity-100 hover:bg-[color-mix(in_srgb,var(--group-tint)_12%,transparent)] hover:text-foreground focus-visible:opacity-100"
             >
               <X className="size-3.5" />
             </button>
