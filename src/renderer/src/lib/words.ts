@@ -96,7 +96,7 @@ export const WORDS: Word[] = [
     origin: 'Greek glōssa, tongue',
     note: [
       'From Greek glōssa, tongue or language, through Latin glossa: first a hard word that needed explaining, then the explanation itself. Medieval scribes wrote glosses between the lines and in the margins, and later copyists sometimes folded them into the text as if the author had written them.',
-      'Here a gloss is your reaction to a thing, kept beside it with its date, so past you and present you can disagree in the open. Press ⌘; on anything to add one.'
+      'Here a gloss is your reaction to a thing, kept beside it with its date, so past you and present you can disagree in the open. Add one under Glosses beside any note, or press ⌘; on a search result.'
     ],
     see: ['nugget', 'clue', 'review']
   },
