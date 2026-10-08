@@ -91,7 +91,7 @@ import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
 import { WordNotes } from '@/components/vigil/term'
 import { FocusScenery, Rest } from './components/vigil/scenery'
 import { num } from '../../main/dates'
-import { useWelcomePlaceholder } from './lib/welcome-box'
+import { holdKeys, saidBy, useLesson, useWelcomePlaceholder } from './lib/welcome-box'
 import { SandboxChip } from '@/components/vigil/sandbox'
 import { useFitBox } from './lib/fit-box'
 
@@ -307,9 +307,24 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
   )
 }
 
+/** A key held back in the welcome, said once in a line. */
+const heldNote = (): void => toast('That waits until the welcome is done. ⌘↵ keeps this one.', undefined, 'info')
+// Registered as the module loads, so it comes before every other key listener in the box.
+holdKeys(() => document.documentElement.hasAttribute('data-welcome-ph'), true, heldNote)
+
 export default function App(): React.JSX.Element {
-  // While the welcome waits on a first capture, the empty line offers examples.
-  useWelcomePlaceholder()
+  // While the welcome runs, the empty line offers examples, a starter picked
+  // there arrives written in with its fields filled, and the box is in lesson
+  // mode: what is not being taught is calm, what draws on your history is hidden.
+  useWelcomePlaceholder((who, where) => {
+    setAttribution(who)
+    setMedium(where)
+    autoWho.current = who
+  })
+  const lesson = useLesson()
+  // A name read from a quote's "- Name" tail, kept up to date while it is still ours, not yours.
+  const autoWho = useRef('')
+  useEffect(() => window.api.onHeld(heldNote), [])
   const [kind, setKind] = useState<CaptureType>('note')
   // Picked by hand: from then on the wording no longer suggests one.
   const [chosen, setChosen] = useState(false)
@@ -814,13 +829,14 @@ export default function App(): React.JSX.Element {
   // Save. Never fails, and no field can block it: an empty box is the only
   // thing it refuses, because there is nothing there to keep.
   const submit = (once = false): void => {
-    const more = once || createMore
+    // In the welcome, one is kept and the box goes, whatever Create more says.
+    const more = (once || createMore) && !lesson
     if (editing) return fresh(true)
     // A second ⌘↵ while the first is still on its way would keep it twice.
     if (sending) return
     // Read from the editor itself: its onChange waits for a pause in the
     // typing, and ⌘↵ often comes before one.
-    const doc = editorRef.current?.getJSON() ?? body
+    const doc = withoutTail(editorRef.current?.getJSON() ?? body, attribution.trim())
     const text = textOf(doc).trim()
     // Nothing to keep: said with the "not allowed" sound, not in silence. A
     // picture or a drawing with no words is still something.
@@ -978,6 +994,16 @@ export default function App(): React.JSX.Element {
         latestPick.current(picked.id)
         return
       }
+      // In the welcome, a lone Enter on a one-line note sends it, as a newcomer
+      // expects; anything longer, or a menu open in the editor, keeps its Enter.
+      const lone = event.key === 'Enter' && !event.metaKey && !event.shiftKey && !event.altKey && !event.ctrlKey && document.documentElement.hasAttribute('data-welcome-ph') &&
+        !!(event.target as HTMLElement | null)?.closest?.('.ProseMirror') && !document.querySelector('.tiptap-suggestion-popup') &&
+        (editorRef.current?.state.doc.childCount ?? 2) === 1 && !!editorRef.current?.getText().trim()
+      if (lone) {
+        event.preventDefault()
+        event.stopPropagation()
+        return latestSubmit.current()
+      }
       if (event.key !== 'Enter' || !event.metaKey) return
       event.preventDefault()
       event.stopPropagation()
@@ -1100,7 +1126,7 @@ export default function App(): React.JSX.Element {
         // Rot cards and reminder pins live in the side panel's Inbox; with the
         // panel shut, a chip up here says they are there, and opens it on them.
         // Kept with the panel open too, so it never pops out as the panel slides in.
-        : oldCount || pinned.length ? (
+        : (oldCount || pinned.length) && !lesson ? (
           <Tip label={panel ? 'Show the Inbox in the side panel  ⌃1' : 'Open the Inbox in the side panel  ⌘\\'}>
             <button type="button" data-waiting style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
               onMouseDown={(event) => event.preventDefault()}
@@ -1205,7 +1231,14 @@ export default function App(): React.JSX.Element {
                 if (editing?.id !== editingNow.current) return words.save(doc, editor)
                 setBody(doc)
                 // The kind follows the wording of the first line until you choose one.
-                if (!chosen && !editing) setKind((kindOf(firstLine(doc)) ?? 'note') as CaptureType)
+                const guess = (chosen ? kind : (kindOf(firstLine(doc)) ?? 'note')) as CaptureType
+                if (!chosen && !editing) setKind(guess)
+                // A quote ending "- Name": the name goes into Who said it, unless you wrote one there.
+                const by = guess === 'quote' && !editing ? saidBy(firstLine(doc)) : ''
+                if (by && attribution === autoWho.current && by !== attribution) {
+                  autoWho.current = by
+                  setAttribution(by)
+                }
                 // Only a capture already kept is written as you type; a new note's
                 // Markdown is made once, when it is saved, not on every pause.
                 if (editing) words.save(doc, editor)
@@ -1223,6 +1256,7 @@ export default function App(): React.JSX.Element {
             {/* Under the writing: what it is, who said it and where you met it. */}
             {/* Wraps onto a second line rather than squeezing a field or a chip. */}
             <div data-chrome className="flex flex-wrap items-center gap-1 px-[4.75rem] py-2">
+              <span data-lesson="hide" className="inline-flex">
               <OptionsMenu
                 label="This note"
                 options={[
@@ -1237,19 +1271,20 @@ export default function App(): React.JSX.Element {
                 ]}
                 actions={[{ label: 'New capture', keys: '⌘N', run: () => startOver() }]}
               />
+              </span>
               {/* A todo says what it understood of its first line: the day, the deadline, the priority. */}
               {kind === 'todo' && <TaskChips read={readTask(firstLine(body))} />}
               {/* Only what this kind asks for, unless it already holds something. */}
               {/* Who and where once there is something to say it about, and only
                   what this kind asks for, unless it already holds something. */}
               {((started && ASKS[kind].who) || attribution) && (
-                <Remembered field="attribution" value={attribution} placeholder={ASKS[kind].who ?? 'Who'} className={FIELD} onChange={(value) => {
+                <Remembered field="attribution" complete={!lesson} value={attribution} placeholder={ASKS[kind].who ?? 'Who'} className={FIELD} onChange={(value) => {
                   setAttribution(value)
                   if (editing) void vigil.setCapture(editing.id, 'attribution', value.trim() || null)
                 }} />
               )}
               {((started && ASKS[kind].where) || medium) && (
-                <Remembered field="medium" value={medium} placeholder={ASKS[kind].where ?? 'Where'} className={FIELD} onChange={(value) => {
+                <Remembered field="medium" complete={!lesson} value={medium} placeholder={ASKS[kind].where ?? 'Where'} className={FIELD} onChange={(value) => {
                   setMedium(value)
                   if (editing) void vigil.setCapture(editing.id, 'medium', value.trim() || null)
                 }} />
@@ -1281,7 +1316,7 @@ export default function App(): React.JSX.Element {
                   })()}
                 </span>
               )}
-              {like && !plus && (
+              {like && !plus && !lesson && (
                 <Tip label={`Open it: ${like.title}`}>
                 <button
                   type="button"
@@ -1301,7 +1336,7 @@ export default function App(): React.JSX.Element {
             </div>
             {/* Where else it could go, the questions kept in view and the open goals, on
                 one quiet line, and only once a few words are written: an empty box asks nothing. */}
-            {started && !plus && !focus && textOf(body).trim().split(/\s+/).length >= 3 && (
+            {started && !plus && !focus && !lesson && textOf(body).trim().split(/\s+/).length >= 3 && (
               <div data-chrome className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 px-[4.75rem] pb-1">
                 <PinnedQuestions onPick={clueToPinned} />
                 <GoalChips onPick={logToGoal} />
@@ -1310,7 +1345,7 @@ export default function App(): React.JSX.Element {
             {/* A hint sits at the foot of the box: a glance at something you
                 wrote once, while you are here to write. Usually empty. */}
             <div data-chrome className="px-[4.75rem]">
-              {!focus && <HintCard onOpen={openAny} />}
+              {!focus && !lesson && <HintCard onOpen={openAny} />}
             </div>
             </motion.div>
             </>
@@ -1320,7 +1355,7 @@ export default function App(): React.JSX.Element {
               {/* What matters first is the writing and Create; every other
                   switch is in here, each keeping its own key. */}
               <CaptureKindPicker
-                suggested={!chosen && kind !== 'note'}
+                suggested={!chosen && kind !== 'note' && !lesson}
                 value={kind}
                 onChange={pick}
               />
@@ -1330,7 +1365,7 @@ export default function App(): React.JSX.Element {
               {/* Beside Create, as in Linear: on, a save keeps the box open for the next one. */}
               {!editing && (
                 <Tip label="Keep the box open after each save  ⌥C">
-                <label className="mr-2 flex cursor-pointer items-center gap-2 text-control text-muted-foreground">
+                <label data-lesson="hide" className="mr-2 flex cursor-pointer items-center gap-2 text-control text-muted-foreground">
                   <Switch size="sm" checked={createMore} onCheckedChange={setCreateMore} tabIndex={-1} />
                   Create more
                 </label>
@@ -1375,6 +1410,21 @@ export default function App(): React.JSX.Element {
  * state, does not claim it, or Escape could never reach the window from
  * inside the editor. Vim is off unless turned on.
  */
+/**
+ * A quote whose line ends "- Name" with that name in Who said it: kept
+ * without the tail, so the name is said once, as its signature.
+ */
+function withoutTail(doc: JSONContent | null, who: string): JSONContent | null {
+  if (!doc?.content || !who) return doc
+  const at = doc.content.findIndex((node) => node.content?.some((one) => one.text?.trim()))
+  const block = doc.content[at]
+  const last = block?.content?.[block.content.length - 1]
+  const tail = new RegExp(`(["”'])\\s*[-–—]\\s*${who.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`)
+  if (!block?.content || !last?.text || !tail.test(last.text)) return doc
+  const content = [...block.content.slice(0, -1), { ...last, text: last.text.replace(tail, '$1') }]
+  return { ...doc, content: doc.content.map((node, i) => (i === at ? { ...block, content } : node)) }
+}
+
 function useEscapeToHide(): void {
   useEffect(() => {
     // The editor marks every Escape as handled, so whether it was spent is

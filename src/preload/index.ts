@@ -186,6 +186,12 @@ const api = {
     ipcRenderer.on('onboarding:box', relay)
     return () => ipcRenderer.off('onboarding:box', relay)
   },
+  /** In any window: a key held back while the welcome runs, to say so in a line. */
+  onHeld: (listen: () => void): (() => void) => {
+    const relay = (): void => listen()
+    ipcRenderer.on('onboarding:held', relay)
+    return () => ipcRenderer.off('onboarding:held', relay)
+  },
   /** In the main window: each time the box is put away. For the welcome. */
   onBoxAway: (listen: () => void): (() => void) => {
     const relay = (): void => listen()
@@ -225,6 +231,7 @@ const api = {
 
   /** Bring up the capture prompt, from any window. */
   showPrompt: (): void => ipcRenderer.send('prompt:show'),
+  hidePrompt: (): void => ipcRenderer.send('prompt:hide'),
   /** The menu bar's importers, from a window: an Obsidian vault, or files (Readwise, Kindle and the rest). */
   importFrom: (what: 'vault' | 'files'): Promise<void> => ipcRenderer.invoke('import:run', what),
   /** The menu bar's restore, from a window: pick a day's copy, and the app starts again on it. */

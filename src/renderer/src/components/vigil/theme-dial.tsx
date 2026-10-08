@@ -31,7 +31,7 @@ const offTop = (deg: number): number => ((((deg + 180) % 360) + 360) % 360) - 18
 /** 1 at the notch, falling smoothly to 0 at `reach` degrees away. */
 const near = (deg: number, reach: number): number => falloff(offTop(deg), reach)
 
-export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: { size?: number; /** The name under it set as a title, for the welcome's centrepiece. */ big?: boolean; onPick: (theme: Theme) => void; onFullTurn?: () => void; /** Said in place of the theme's name, for a moment. */ say?: string }): React.JSX.Element {
+export function ThemeDial({ size = 200, big = false, calm = false, onPick, onFullTurn, say }: { size?: number; /** The name under it set as a title, for the welcome's centrepiece. */ big?: boolean; /** It does not turn itself: already shown, or settled. */ calm?: boolean; onPick: (theme: Theme) => void; onFullTurn?: () => void; /** Said in place of the theme's name, for a moment. */ say?: string }): React.JSX.Element {
   const themes = allThemes()
   const n = themes.length
   const per = 360 / n
@@ -116,7 +116,7 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
   yours.current = touched
   useEffect(() => {
     // Each time the welcome shows it (played again from ⌘K too): it is the one place it turns itself.
-    if (!big || still()) return
+    if (!big || calm || still()) return
     const home = here()
     let run: { stop: () => void } | undefined
     const to = (raw: number, by: 1 | -1): void => {

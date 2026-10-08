@@ -1,39 +1,41 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/core'
 
 /**
- * The box, while the welcome is asking for three things of different kinds.
- * The welcome lives in the main window and the box in its own, so they talk
- * through the storage both windows share:
+ * The box, while the welcome runs. The welcome lives in the main window and
+ * the box in its own, so they talk through the storage both windows share:
  *
  * - its empty line types out the starters still to try, in turn, instead of
  *   "Type / for commands…" (the stylesheet does the rest, main.css)
- * - a starter clicked in the welcome is typed into the box here, letter by
- *   letter, so the kind chip can be seen changing its guess
+ * - the starter picked for "Your turn" is waiting in the box when it opens,
+ *   written in whole, with who said it and where it is from already filled
  * - the kind chip wears the accent, gives a small pulse each time its guess
  *   changes, and the first time says what it is
+ * - lesson mode (`useLesson`): what is not being taught is calm, and what
+ *   draws on your history (completions, Similar to, what is waiting) is hidden
  *
  * Only while the welcome is open.
  */
 
-export type Starter = { kind: 'todo' | 'quote' | 'word'; text: string }
+export type Starter = { kind: 'todo' | 'quote' | 'word'; text: string; who?: string; where?: string }
 
 /** Three things to catch, one of each kind, each showing off what its kind does. */
 export const STARTERS: Starter[] = [
   { kind: 'todo', text: 'Call Sam tomorrow at 6pm' },
-  { kind: 'quote', text: '“Waste no more time arguing what a good man should be. Be one.” - Marcus Aurelius' },
-  { kind: 'word', text: 'sonder' }
+  { kind: 'quote', text: '“Waste no more time arguing what a good man should be. Be one.”', who: 'Marcus Aurelius', where: 'Meditations' },
+  { kind: 'word', text: 'sonder\nThe feeling that every stranger has a life as full as your own.', where: 'A podcast' }
 ]
 
 const FILL = 'welcome-fill'
 const LEFT = 'welcome-left'
 
-/** From the welcome: type these words into the box when it is next on screen. */
-export const fillBox = (text: string): void => {
+/** From the welcome: have this starter waiting in the box when it is next on screen. Null takes it back. */
+export const fillBox = (starter: Starter | null): void => {
   try {
-    localStorage.setItem(FILL, JSON.stringify({ text, at: Date.now() }))
+    if (starter) localStorage.setItem(FILL, JSON.stringify({ ...starter, at: Date.now() }))
+    else localStorage.removeItem(FILL)
   } catch {
-    // Nothing typed for you; the box still opens.
+    // Nothing written in for you; the box still opens.
   }
 }
 
@@ -46,6 +48,53 @@ export const tellBox = (lines: string[], first: boolean): void => {
   }
 }
 
+/**
+ * The keys held back while the welcome runs, in the box (`box`) and the main
+ * window: the side panel and its tabs, search, a new note, back and forward,
+ * the source, focus and the window's size. The main process holds the same
+ * ones before they reach a page (index.ts, heldInWelcome); this catches them
+ * in the page as well, ahead of every other listener, for keys that arrive
+ * another way.
+ */
+export function heldInWelcome(event: KeyboardEvent, box: boolean): boolean {
+  const key = event.key.toLowerCase()
+  if (event.metaKey && !event.ctrlKey && !event.altKey) {
+    if (event.shiftKey) return ['y', 'r', 'd', 'f', 'c', 'k'].includes(key)
+    if (/^[1-9]$/.test(key)) return !box
+    return ['\\', 'k', 'p', 'n', '[', ']', 'e', 'f', ',', 'l', 'j', 'g', 't', 'w', 'm', 'h'].includes(key) || (!box && key === 'b')
+  }
+  if (event.ctrlKey && !event.metaKey) return /^[0-9]$/.test(key) || ['j', 'k', 'l', 'f'].includes(key)
+  return event.altKey && !event.metaKey && !event.ctrlKey && event.code === 'KeyC'
+}
+
+/** Holds those keys back in this window while `on()` says the welcome is running; `told` hears each one. */
+export function holdKeys(on: () => boolean, box: boolean, told: () => void): void {
+  addEventListener('keydown', (event) => {
+    if (!on() || !heldInWelcome(event, box)) return
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    told()
+  }, true)
+}
+
+/** Whether the box is in lesson mode now: the welcome is running. */
+export function useLesson(): boolean {
+  const root = document.documentElement
+  const [on, setOn] = useState(() => root.hasAttribute('data-welcome-ph'))
+  useEffect(() => {
+    const watch = new MutationObserver(() => setOn(root.hasAttribute('data-welcome-ph')))
+    watch.observe(root, { attributes: true, attributeFilter: ['data-welcome-ph'] })
+    return () => watch.disconnect()
+  }, [root])
+  return on
+}
+
+/**
+ * A quote's "- Name" at the end of its line: the name, for Who said it.
+ * Only after a closing quote mark, so a dash in the middle of a thought is left alone.
+ */
+export const saidBy = (line: string): string => /[”"']\s*[-–—]\s*([^-–—”"']{2,60}?)\s*$/.exec(line)?.[1]?.trim() ?? ''
+
 const read = <T>(key: string): T | null => {
   try {
     return JSON.parse(localStorage.getItem(key) ?? 'null') as T | null
@@ -56,11 +105,12 @@ const read = <T>(key: string): T | null => {
 
 const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
 
-export function useWelcomePlaceholder(): void {
+export function useWelcomePlaceholder(onFields?: (who: string, where: string) => void): void {
+  const fields = useRef(onFields)
+  fields.current = onFields
   useEffect(() => {
     const root = document.documentElement
     let timers: ReturnType<typeof setTimeout>[] = []
-    let typing: ReturnType<typeof setTimeout>[] = []
     let on = false
     const quiet = (): boolean => root.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
     const stop = (): void => {
@@ -76,7 +126,7 @@ export function useWelcomePlaceholder(): void {
     const show = (text: string): void => root.style.setProperty('--mf-welcome-ph', JSON.stringify(text))
     const lines = (): string[] => {
       const left = read<{ lines: string[] }>(LEFT)?.lines
-      return left?.length ? left : STARTERS.map((one) => one.text)
+      return left?.length ? left : STARTERS.map((one) => one.text.split('\n')[0])
     }
     const run = (n: number): void => {
       const all = lines()
@@ -87,22 +137,22 @@ export function useWelcomePlaceholder(): void {
       timers.push(setTimeout(() => run(n + 1), (quiet() || n === 0 ? 0 : line.length * 38) + 3000))
     }
 
-    // A starter asked for from the welcome, typed into an empty box a letter
-    // at a time (all at once with Motion off). Taken once, and only while fresh.
+    // The starter picked in the welcome, waiting in the box: written in whole
+    // (the welcome has just shown it being typed), its fields filled. Over an
+    // empty box, or one still holding an untouched starter; never over your words.
     const fill = (): void => {
-      const asked = read<{ text: string; at: number }>(FILL)
+      const asked = read<Starter & { at: number }>(FILL)
       if (!asked || !on || document.visibilityState !== 'visible') return
-      localStorage.removeItem(FILL)
-      if (Date.now() - asked.at > 8000) return
+      if (Date.now() - asked.at > 10 * 60_000) return void localStorage.removeItem(FILL)
       const editor = (document.querySelector(EDITOR) as (HTMLElement & { editor?: Editor }) | null)?.editor
-      if (!editor || editor.isDestroyed || !editor.isEmpty) return
-      typing.forEach(clearTimeout)
-      typing = []
-      if (quiet()) return void editor.chain().focus('end').insertContent(asked.text).run()
-      const letters = [...asked.text]
-      letters.forEach((letter, i) => typing.push(setTimeout(() => {
-        if (!editor.isDestroyed) editor.chain().focus('end').insertContent(letter).run()
-      }, 180 + i * 28)))
+      if (!editor || editor.isDestroyed) return
+      const now = editor.getText({ blockSeparator: '\n' }).trim()
+      if (!editor.isEmpty && !STARTERS.some((one) => one.text === now)) return void localStorage.removeItem(FILL)
+      localStorage.removeItem(FILL)
+      if (now === asked.text) return void fields.current?.(asked.who ?? '', asked.where ?? '')
+      const lines = asked.text.split('\n').map((line) => ({ type: 'paragraph', content: [{ type: 'text', text: line }] }))
+      editor.chain().setContent({ type: 'doc', content: lines }, { emitUpdate: true }).focus('end').run()
+      fields.current?.(asked.who ?? '', asked.where ?? '')
     }
 
     // The kind chip: lit while the welcome is up, and a small pulse each time its guess changes.
@@ -143,14 +193,9 @@ export function useWelcomePlaceholder(): void {
     }
     window.addEventListener('storage', onStorage)
     const offShown = window.api.onShown(start)
-    const offHiding = window.api.onHiding(() => {
-      typing.forEach(clearTimeout)
-      typing = []
-      stop()
-    })
+    const offHiding = window.api.onHiding(stop)
     return () => {
       stop()
-      typing.forEach(clearTimeout)
       watchChip.disconnect()
       window.removeEventListener('storage', onStorage)
       offShown()

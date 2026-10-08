@@ -42,7 +42,7 @@ const hasData = (): boolean =>
   any('select 1 from captures limit 1') || any('select 1 from nuggets limit 1') || any('select 1 from tasks limit 1')
 
 /** A brand-new Vigil: never welcomed and nothing in it. Never the sandbox, which has its own way in. */
-export const firstRun = (): boolean => !SANDBOX && !read<string | null>('welcomed', null) && !hasData()
+export const firstRun = (): boolean => !SANDBOX && !read<string | null>('welcomed', null) && (!hasData() || read<boolean>('welcomeBegun', false))
 
 // --- the one key --------------------------------------------------------------
 
@@ -108,7 +108,7 @@ function state(): unknown {
     firstRun: firstRun(),
     welcomed,
     // Here before the welcome existed: told about it once, quietly.
-    news: !SANDBOX && !welcomed && hasData() && !read<boolean>('newsSeen', false),
+    news: !SANDBOX && !welcomed && hasData() && !read<boolean>('welcomeBegun', false) && !read<boolean>('newsSeen', false),
     steps: steps(progress.marks ?? {}),
     marks: progress.marks ?? {},
     hidden: !!progress.hidden,
@@ -136,7 +136,11 @@ export function registerOnboarding(): void {
   ipcMain.handle('vigil:onboarding:set', (_event, patch: Record<string, unknown>) => {
     for (const [key, value] of Object.entries(patch ?? {})) {
       if (!PATCHABLE.has(key)) continue
-      if (key === 'welcoming') welcoming = !!value
+      if (key === 'welcoming') {
+        welcoming = !!value
+        // Begun and not finished (quit after one catch): it opens again next time, as a first run.
+        if (welcoming && !read<string | null>('welcomed', null)) write('welcomeBegun', true)
+      }
       else write(key, value)
     }
     if ('hidden' in (patch ?? {})) write('onboarding', { ...read<Progress>('onboarding', { marks: {}, hidden: false, doneAt: null }), hidden: !!patch.hidden })

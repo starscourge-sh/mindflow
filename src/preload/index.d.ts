@@ -80,6 +80,7 @@ export interface Api {
   onStickiesShown: (listen: (shown: boolean) => void) => () => void
   hideWindow: () => void
   showPrompt: () => void
+  hidePrompt: () => void
   importFrom: (what: 'vault' | 'files') => Promise<void>
   restoreBackup: () => Promise<void>
   setAppearance: (mode: 'light' | 'dark') => void
@@ -91,6 +92,7 @@ export interface Api {
   onShown: (listen: () => void) => () => void
   onBoxShown: (listen: () => void) => () => void
   onBoxAway: (listen: () => void) => () => void
+  onHeld: (listen: () => void) => () => void
   onHiding: (listen: () => void) => () => void
   onImported: (listen: () => void) => () => void
   hints: {

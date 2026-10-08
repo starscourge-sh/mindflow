@@ -48,7 +48,7 @@ import { registerIssues } from './issues'
 import { dayKey, dayMonth, num } from './dates'
 import { registerScenery, sceneryDir } from './scenery'
 import { celebrationFile, registerCelebrations } from './celebrate'
-import { firstRun, noteChord, pretendTaken, registerOnboarding, whereTray } from './onboarding'
+import { firstRun, isWelcoming, noteChord, pretendTaken, registerOnboarding, whereTray } from './onboarding'
 import { registerUnused } from './unused'
 import { registerObsidian } from './obsidian'
 import { frostWindow, registerFrost, retellFrost } from './frost'
@@ -464,6 +464,14 @@ function guard(win: BrowserWindow): void {
   // expects to end a program is not bound to anything. Taken from the window
   // rather than globally: Cmd+Q belongs to whichever app is in front.
   page.on('before-input-event', (event, input) => {
+    // While the welcome runs, the keys that would open a panel, a search or
+    // another page wait, in the box and the main window alike: a first-timer
+    // pressing one by mistake is told so in a line, never taken somewhere else.
+    if (input.type === 'keyDown' && isWelcoming() && heldInWelcome(input, page === prompt?.webContents)) {
+      event.preventDefault()
+      page.send('onboarding:held')
+      return
+    }
     if (input.type !== 'keyDown' || !input.meta || input.control || input.alt) return
     // Cmd+, opens Settings, as in every Mac app: from any window, typing or not.
     if (input.key === ',') {
@@ -479,6 +487,24 @@ function guard(win: BrowserWindow): void {
     event.preventDefault()
     quit()
   })
+}
+
+/**
+ * The keys held back while the welcome runs: the side panel and its tabs, search,
+ * a new note, back and forward, the source, Settings, focus and the window's size.
+ * Typing, copying, pasting, undo, ⌘↵ and Esc are left alone, and in the box ⌘1
+ * to ⌘9 still choose a kind.
+ */
+function heldInWelcome(input: Electron.Input, box: boolean): boolean {
+  const key = input.key.toLowerCase()
+  if (input.meta && !input.control && !input.alt) {
+    if (input.shift) return ['y', 'r', 'd', 'f', 'c', 'k'].includes(key)
+    if (/^[1-9]$/.test(key)) return !box
+    return ['\\', 'k', 'p', 'n', '[', ']', 'e', 'f', ',', 'l', 'j', 'g', 't', 'w', 'm', 'h'].includes(key) || (!box && key === 'b')
+  }
+  if (input.control && !input.meta) return /^[0-9]$/.test(key) || ['j', 'k', 'l', 'f'].includes(key)
+  // ⌥C turns Create more on, which would keep the box open after the welcome's one.
+  return input.alt && !input.meta && !input.control && input.code === 'KeyC'
 }
 
 /** The capture prompt. Every other window is something else. */
@@ -882,6 +908,9 @@ function makeHome(): BrowserWindow {
   home.on('close', (event) => {
     if (quitting) return
     event.preventDefault()
+    // The welcome is the only way into an app with no Dock icon: ⌘W or the red
+    // dot mid-welcome would leave nothing on screen, so it stays.
+    if (isWelcoming()) return void home?.webContents.send('onboarding:held')
     home?.hide()
   })
   home.on('closed', () => {
@@ -1968,6 +1997,8 @@ app.whenReady().then(() => {
 
   // The main window's "new" button: the same prompt the key brings up.
   ipcMain.on('prompt:show', () => toggleWindow())
+  // From the welcome: the box put away, as its own Esc would.
+  ipcMain.on('prompt:hide', () => void (prompt?.isVisible() && hideWindow(prompt)))
   // The first-run step and Settings import the way the menu bar does.
   ipcMain.handle('import:run', (_event, what: unknown) => (what === 'vault' ? importVault() : importFiles()))
   ipcMain.handle('backup:restore', () => restore())
