@@ -143,6 +143,7 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
         <MindflowEditor
           key={`${id}-${rev}`}
           host={window.api}
+          typewriter
           tokens={TAGS}
           onTokenClick={(token) => token.name === 'tag' && elsewhere('tag', token.value)}
           toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: id, from: id }) }}

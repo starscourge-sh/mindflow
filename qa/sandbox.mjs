@@ -126,6 +126,7 @@ let first
   const stackWin = c.electron.windows().find((one) => one.url().includes('type=goal&id=stack'))
   const stacked = stackWin ? await stackWin.evaluate(() => window.api.beaconStack()) : []
   check('a sticky and the goal stack are up, Mars on top of 2', urls.some((one) => one.includes('view=sticky') && one.includes('type=capture')) && stacked.length === 2 && stacked[0] === mars.id, JSON.stringify(stacked))
+  check("today's tasks are a sticky too", urls.some((one) => one.includes('view=sticky') && one.includes('type=today')))
   check('every sandbox window is told so', urls.filter((one) => one.includes('index.html')).every((one) => one.includes('sandbox=1')))
   const monday = new Date(); monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7))
   const key = `week:${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`

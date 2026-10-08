@@ -9,6 +9,8 @@ import ArrowNarrowLeftIcon from '@/components/ui/arrow-narrow-left-icon'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
 import RightChevronIcon from '@/components/ui/right-chevron'
 import EyeOffIcon from '@/components/ui/eye-off-icon'
+import CameraIcon from '@/components/ui/camera-icon'
+import CameraOffIcon from '@/components/ui/camera-off-icon'
 import QuestionMarkIcon from '@/components/ui/question-mark'
 import XIcon from '@/components/ui/x-icon'
 import type { Editor, JSONContent } from '@tiptap/core'
@@ -27,7 +29,7 @@ import { TodayPanel } from './components/vigil/today-panel'
 import { selectionActions } from './components/vigil/selection-actions'
 import { ReviewView } from './components/vigil/review-view'
 import { unloaded, useAppearance, useLive } from './lib/vigil'
-import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, ask, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt } from './components/vigil/ui'
+import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt } from './components/vigil/ui'
 import { TooltipProvider } from './components/ui/tooltip'
 import { Rolling, Toaster, Typed, beam, refuse, toast, whyFailed } from './components/vigil/ui'
 import { Reader } from './components/vigil/reader'
@@ -48,7 +50,7 @@ import { CaptureProps, useCaptureDisplay } from './components/vigil/captures-vie
 import { Search } from './components/search'
 import { noteActions, useOpenNote } from './lib/notes'
 import { vigil, type Item, type PinnedQuestion, type Settings } from './lib/vigil'
-import { makeTask, placed } from './lib/tasks'
+import { makeTask, oneTask, picked, placed } from './lib/tasks'
 import { TaskChips, taskTokens } from './components/vigil/task-input'
 import { readTask } from '../../main/task-words'
 import { chime, soundOn } from './lib/sound'
@@ -1013,6 +1015,8 @@ export default function App(): React.JSX.Element {
               setTab(one)
               if (!panel) setPanel(true)
             } })),
+            ...(picked.ids.length > 1 ? [{ label: `Make one task from the ${num(picked.ids.length)} selected captures`, cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:one-task')) }] : []),
+            { label: "Keep today's tasks on screen", cue: null, run: () => stickOnDesktop('today', 'today') },
             { label: 'Tidy: a few minutes over the latest captures', run: () => openPass('tidy') },
             { label: 'Decide: the weekly pass over what waited', run: () => openPass('decide') },
             { label: 'Read the inbox from the top', run: () => setReadList({ items: captures.filter((one) => one.status === 'open' && !one.archivedAt).map((one) => ({ type: 'capture', id: one.id })), start: 0 }) },
@@ -1034,7 +1038,7 @@ export default function App(): React.JSX.Element {
               void vigil.setSettings({ sounds: !appSettings?.sounds })
             } },
             { label: appSettings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', cue: appSettings?.safeMode ? 'off' : 'on', run: () => void vigil.setSettings({ safeMode: !appSettings?.safeMode }).then(() => toast(appSettings?.safeMode ? 'Safe mode off' : 'Safe mode: no hints, rot cards or pins come up')) },
-            { label: recordable ? 'Hide from screen recordings' : 'Show in screen recordings', cue: recordable ? 'off' : 'on', run: () => setRecordable(!recordable) },
+            { label: recordable ? 'Hide from screen recordings' : 'Show in screen recordings', cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => setRecordable(!recordable) },
             { label: appSettings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', keys: '⌃⌥⌘N', cue: null, run: () => void vigil.setSettings({ stickiesShown: appSettings?.stickiesShown === false }) },
             { label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() },
             { label: reveal ? 'Blur private titles again' : 'Show private titles for now', cue: reveal ? 'off' : 'on', run: () => setReveal(!reveal) },
@@ -1114,7 +1118,7 @@ export default function App(): React.JSX.Element {
           className="h-6 w-7 flex-none rounded-none hover:bg-accent/60"
           options={[
             { label: 'Vim keys', on: vim, set: setVim },
-            { label: 'Show in screen recordings', on: recordable, set: setRecordable },
+            { label: 'Show in screen recordings', on: recordable, set: setRecordable, icon: recordable ? CameraIcon : CameraOffIcon },
             { label: 'Show private titles for now', on: reveal, set: setReveal },
             { label: 'Word count', on: counting, set: setCounting }
           ]}
@@ -1682,6 +1686,20 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   const shown = groups.flatMap(([, list]) => list)
   // x picks several, the way it does in the main window, for one exit on all.
   const [chosen, setChosen] = useState<string[]>([])
+  // Several made one task, from the bar or ⌘K: its name starts as the first one's title.
+  const makeOne = (): void => {
+    const ids = chosen
+    void oneTask(ids, captures.find((capture) => capture.id === ids[0])?.label ?? '').then((made) => made && setChosen([]))
+  }
+  useEffect(() => {
+    picked.ids = chosen
+    const onAsk = (): void => void (chosen.length > 1 && makeOne())
+    window.addEventListener('vigil:one-task', onAsk)
+    return () => {
+      window.removeEventListener('vigil:one-task', onAsk)
+      picked.ids = []
+    }
+  })
   const shownNow = useRef(shown)
   shownNow.current = shown
   // Only what is waiting on you is counted: the inbox is somewhere to set
@@ -1811,12 +1829,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                       <Button variant="ghost" size="sm" onClick={() => bulk('resolved')}>Resolve</Button>
                       <Button variant="ghost" size="sm" onClick={() => bulk('discarded')}>Discard</Button>
                       {chosen.length > 1 && (
-                        <Button variant="ghost" size="sm" onClick={() => void ask(`One task from these ${num(chosen.length)}. What is it?`, 'e.g. sort out the freight rules by Thursday').then((text) => {
-                          if (!text) return
-                          const ids = chosen
-                          setChosen([])
-                          void makeTask({ captures: ids, text }, `One task, from ${num(ids.length)} captures`)
-                        })}>One task</Button>
+                        <Button variant="ghost" size="sm" onClick={makeOne}>Make one task</Button>
                       )}
                       <Tip label="Let them go  Esc">
                       <Button variant="ghost" size="icon-sm" onClick={() => setChosen([])} aria-label="Clear the selection"><X className="size-3.5" /></Button>

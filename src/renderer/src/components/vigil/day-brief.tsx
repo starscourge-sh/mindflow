@@ -12,6 +12,7 @@ import { issues, type Repeat } from '@/lib/issues'
 import { unloaded, useLive, vigil, whenInLine, type Finished, type Item, type Settings, type Task } from '@/lib/vigil'
 import { Rolling, Tip, Typed, toast } from './ui'
 import { Rule, Struck, Tick } from './marks'
+import { stickOnDesktop } from './sticky-note'
 import { Scenery, useDayScene } from './scenery'
 import { GrainFill, useCover } from './grain'
 import { openPass } from './pass'
@@ -279,6 +280,13 @@ export function DayBrief({ day, onOpen, onListed }: {
                   <p className="mt-1 font-mono text-[0.6875rem] tracking-wide text-muted-foreground tabular-nums">
                     <Rolling text={finished} /> / {num(todos.length)} done
                   </p>
+                )}
+                {/* The same list as a sticky, ticked off on the desktop through the day. */}
+                {todos.length > 0 && (
+                  <button type="button" onClick={() => stickOnDesktop('today', 'today')}
+                    className="mt-1 font-mono text-[0.6875rem] tracking-wide text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+                    Keep on screen
+                  </button>
                 )}
               </div>
               {todos.length > 0 && finished === todos.length ? <DoneSeal /> : start && <Seal onClick={start} />}

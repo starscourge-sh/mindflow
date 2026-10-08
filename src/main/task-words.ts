@@ -61,7 +61,9 @@ export function bucketOf(plan: string | null, at = new Date()): 'month' | 'year'
 }
 
 /** A part of the words that was read as something, by where it sits in them. */
-export type Span = { from: number; to: number; kind: 'date' | 'deadline' | 'repeat' | 'priority' | 'plan' }
+export type Span = { from: number; to: number; kind: 'date' | 'deadline' | 'repeat' | 'priority' | 'plan' | 'notify' }
+/** How a task tells you its time has come, over the setting: "!pull", "!quiet" or "!alert". */
+export type Notify = 'pull' | 'quiet' | 'alerts'
 export type ReadTask = {
   title: string
   /** When you mean to do it: "Scheduled". */
@@ -76,6 +78,8 @@ export type ReadTask = {
   priority: number
   /** "someday", "2026-10" or "2026", from "someday", "this month", "next year". */
   plan: string | null
+  /** Its own reminder level, from a trailing "!alert", "!quiet" or "!pull"; null keeps the setting. */
+  notify: Notify | null
   spans: Span[]
 }
 
@@ -121,6 +125,16 @@ export function readTask(text: string, at = new Date()): ReadTask {
   if (repeat && !recurrence) {
     recurrence = repeat[0]
     take(repeat.index, repeat.index + repeat[0].length, 'repeat')
+  }
+
+  // Its own reminder level: "!alert", "!quiet", "!pull". A word straight after
+  // the !, so it never reads as a priority's !s on their own.
+  let notify: Notify | null = null
+  const level = find(/(?:^|\s)(!(pull|quiet|alerts?))(?=\s|$)/i)
+  if (level) {
+    notify = level[2].toLowerCase().startsWith('alert') ? 'alerts' : (level[2].toLowerCase() as Notify)
+    const from = level.index + level[0].length - level[1].length
+    take(from, from + level[1].length, 'notify')
   }
 
   // Priority as Todoist types it: p1 to p4, or one to three !s on their own.
@@ -228,6 +242,21 @@ export function readTask(text: string, at = new Date()): ReadTask {
     priority,
     // A day wins over a vaguer when.
     plan: due ? null : plan,
+    notify,
     spans: spans.sort((a, b) => a.from - b.from)
   }
+}
+
+/**
+ * Eisenhower's four. Urgent is late, or scheduled or due by within two days
+ * (today, tomorrow or the day after); important is the important flag.
+ */
+export type Quadrant = 'do' | 'plan' | 'handoff' | 'drop'
+export const isUrgent = (task: { dueAt: string | null; deadline: string | null }, at = new Date()): boolean => {
+  const soon = dayjs(at).startOf('day').add(3, 'day').valueOf()
+  return [task.dueAt, task.deadline].some((one) => !!one && new Date(one).getTime() < soon)
+}
+export function quadrantOf(task: { dueAt: string | null; deadline: string | null; important: number | boolean }, at = new Date()): Quadrant {
+  const urgent = isUrgent(task, at)
+  return task.important ? (urgent ? 'do' : 'plan') : urgent ? 'handoff' : 'drop'
 }

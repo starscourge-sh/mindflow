@@ -102,6 +102,12 @@
 
 }
 
+// Typewriter scrolling: room after the last line, so the line being written
+// can still be held 40% down the view at the very end of a note.
+.mindflow-editor-content.is-typewriter > .tiptap.ProseMirror.mindflow-editor {
+  padding-bottom: 60vh;
+}
+
 // So the cursor line below runs past the text column to the edges of the box
 // that holds it, not stopping short at the column's own edge, and grows no
 // horizontal scrollbar. Clipped here, at the scrolling box, rather than on the

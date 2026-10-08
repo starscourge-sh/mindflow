@@ -52,14 +52,16 @@ export const saveKeys = (next: KeyChanges): void => {
 
 /**
  * Keys that stay as they are. Some do their job by being the key (Esc, ↵, the
- * arrows, typing / or +), some stand for a run (1 to 4, ⌘1 to ⌘9), ⌘, and ⌘Q
+ * arrows, typing / or + or a task's !alert), some stand for a run (1 to 4, ⌘1 to ⌘9), ⌘, and ⌘Q
  * are taken before the page sees them, and the editor's own formatting keys are
  * kept so writing always behaves the same.
  */
 export const fixed = (keys: string): boolean =>
   /Esc|↵|←|→|↑|↓|Space|⇥|⌫/.test(keys) ||
   ['/', '+', '⌘', '⌘,', '⌘Q', '⌘Z', '⌘1', '1', '⌘B', '⌘I', '⌘U', '⇧⌘S', '⌥⌘T'].includes(keys) ||
-  /^⌥⌘\d$/.test(keys)
+  /^⌥⌘\d$/.test(keys) ||
+  // Words typed in a task ("!alert"), not keys.
+  keys.startsWith('!')
 
 /** Each changeable default, once, with every place it works. */
 export const KEYED = [...new Set(SHORTCUTS.map((one) => one.keys))]

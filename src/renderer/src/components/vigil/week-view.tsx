@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { DndContext, MeasuringStrategy, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
+import { DndContext, MeasuringStrategy, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors, type CollisionDetection } from '@dnd-kit/core'
 import { alive } from '@/components/ui/alive-icon'
 import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
 import ClockIcon from '@/components/ui/clock-icon'
@@ -42,6 +42,12 @@ const penToday = (start: number): boolean => {
   return !byKeys()
 }
 
+/** Over a card, the card wins over the day it sits in: dropped on one in its own day, a card goes beside it. */
+const cardsFirst: CollisionDetection = (args) => {
+  const hits = pointerWithin(args).filter((hit) => hit.id !== `on:${args.active.id}`)
+  return [...hits.filter((hit) => String(hit.id).startsWith('on:')), ...hits.filter((hit) => !String(hit.id).startsWith('on:'))]
+}
+
 /** One card in a day: a task on the day it is scheduled, or on the day it is due by. */
 type Card = { task: Task; kind: 'scheduled' | 'deadline' }
 
@@ -52,7 +58,8 @@ const shifted = (iso: string, by: number): string => dayjs(iso).add(by, 'day').t
  * A week at a glance: seven days side by side, each with what is scheduled,
  * what is due by then, and how much reviewing falls on it, so a heavy review
  * day can be planned around. The keyboard walks it: H and L across the days,
- * J and K down one, ⇧H and ⇧L move the task a day, [ and ] change the week,
+ * J and K down one, ⇧H and ⇧L move the task a day, ⌥↑ and ⌥↓ move it up and
+ * down its day (as dragging it there does), [ and ] change the week,
  * and the lists' own keys work on the card: E, T, M, W, 1 to 4.
  */
 export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => void }): React.JSX.Element {
@@ -72,7 +79,11 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
   // A card just dropped on a day, shown there at once while the move saves, so
   // it settles into its new place rather than jumping back first.
   const [landing, setLanding] = useState<{ id: string; col: number } | null>(null)
-  useEffect(() => setLanding(null), [tasks])
+  // A day put in a new order, shown so at once while it saves.
+  const [held, setHeld] = useState<string[] | null>(null)
+  useEffect(() => (setLanding(null), setHeld(null)), [tasks])
+  // The card a dragged one is over in its own day, and which side it goes.
+  const [between, setBetween] = useState<{ id: string; after: boolean } | null>(null)
   // In a narrow window the seven days scroll sideways: the edge with more days
   // past it fades, so it is plain there is more, and the day the keys are on
   // is always brought into view.
@@ -104,8 +115,12 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
       ...live.filter((task) => inDay(task.dueAt)).map((task) => ({ task, kind: 'scheduled' as const })),
       ...live.filter((task) => inDay(task.deadline)).map((task) => ({ task, kind: 'deadline' as const }))
     ]
+    // In your own order where you gave one (dragged or ⌥↑ ⌥↓), the rest after as they come.
+    cards.sort((a, b) => (a.task.sortOrder ?? Infinity) - (b.task.sortOrder ?? Infinity))
     return { start, cards, reviews: load[from + index] ?? 0 }
   })
+  if (held) for (const day of days) if (day.cards.some((card) => held.includes(`${card.kind}:${card.task.id}`)))
+    day.cards.sort((a, b) => held.indexOf(`${a.kind}:${a.task.id}`) - held.indexOf(`${b.kind}:${b.task.id}`))
   if (landing) {
     const at = days.findIndex((day) => day.cards.some((card) => `${card.kind}:${card.task.id}` === landing.id))
     const card = at >= 0 ? days[at].cards.find((one) => `${one.kind}:${one.task.id}` === landing.id) : undefined
@@ -144,6 +159,14 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
       toast(`${card.kind === 'scheduled' ? 'Moved to' : 'Due by'} ${whenInLine(to, card.kind === 'scheduled' ? !!card.task.allDay : !card.task.deadlineTimed)}`, () => void vigil.saveTask(card.task.id, { [field]: was, ...(before === true ? {} : before) }))
     })
   }
+  /** A day's cards in a new order, kept as each task's own order; undoable. */
+  const reorder = (cards: Card[], said = 'Moved in the day'): void => {
+    const was = cards.map((card) => [card.task.id, card.task.sortOrder] as const)
+    setHeld(cards.map((card) => `${card.kind}:${card.task.id}`))
+    chime('shift')
+    void Promise.all(cards.map((card, index) => vigil.saveTask(card.task.id, { sortOrder: index }))).then(() =>
+      toast(said, () => void Promise.all(was.map(([id, sortOrder]) => vigil.saveTask(id, { sortOrder })))))
+  }
   const go = (col: number): void => {
     // Past either edge, the week turns.
     if (col < 0 || col > 6) {
@@ -158,12 +181,22 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
+      if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey) return
       const key = event.key
       const take = (run: () => void): void => {
         event.preventDefault()
         run()
       }
+      // ⌥↑ and ⌥↓ move the card up and down its day.
+      if (event.altKey && (key === 'ArrowUp' || key === 'ArrowDown')) {
+        const to = row + (key === 'ArrowUp' ? -1 : 1)
+        if (!chosen) return
+        if (to < 0 || to >= column.length) return take(() => chime('nope'))
+        const order = [...column]
+        ;[order[row], order[to]] = [order[to], order[row]]
+        return take(() => reorder(order))
+      }
+      if (event.altKey) return
       if (key === 'H' || (event.shiftKey && key === 'ArrowLeft')) return chosen && take(() => (move(chosen, -1), setAt({ col: Math.max(0, at.col - 1), id: at.id })))
       if (key === 'L' || (event.shiftKey && key === 'ArrowRight')) return chosen && take(() => (move(chosen, 1), setAt({ col: Math.min(6, at.col + 1), id: at.id })))
       if (key === 'h' || key === 'ArrowLeft') return take(() => go(at.col - 1))
@@ -194,7 +227,7 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
     <>
       <Page aside={!!open} wide title="week" actions={
         <span className="flex items-center gap-2 text-xs">
-          <span className="hidden whitespace-nowrap @[60rem]/page:inline"><Pressed keys="H" /> <Pressed keys="L" /> days · <Pressed keys="⇧H" /> <Pressed keys="⇧L" /> move a day · <Pressed keys="[" /> <Pressed keys="]" /> week</span>
+          <span className="hidden whitespace-nowrap @[60rem]/page:inline"><Pressed keys="H" /> <Pressed keys="L" /> days · <Pressed keys="⇧H" /> <Pressed keys="⇧L" /> move a day · <Pressed keys="⌥↑" /> <Pressed keys="⌥↓" /> order · <Pressed keys="[" /> <Pressed keys="]" /> week</span>
           <Tip label="Week before  [">
             <Button variant="ghost" size="icon-sm" onClick={() => (chime('page'), setFrom(from - 7))} aria-label="Week before"><ChevronLeft className="size-4" /></Button>
           </Tip>
@@ -213,7 +246,7 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
             moves there. The days scroll by themselves near the edges. */}
         <DndContext
           sensors={sensors}
-          collisionDetection={pointerWithin}
+          collisionDetection={cardsFirst}
           // Scroll only right at the edges, gently, so a day near the edge can
           // still be dropped on; and the days are measured again as they scroll,
           // or a drop after scrolling lands nowhere.
@@ -224,14 +257,34 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
             setLanding(null)
             setShot(snapshot(String(active.id)))
           }}
-          onDragOver={({ over }) => setOver(over ? Number(over.id) : null)}
-          onDragCancel={() => (setShot(null), setOver(null))}
+          onDragMove={({ active, over }) => {
+            // Over a card: its day lights; in the card's own day, a line shows which side it goes.
+            const target = over && String(over.id).startsWith('on:') ? cardOf(String(over.id).slice(3)) : null
+            setOver(target ? target.col : over ? Number(over.id) : null)
+            const box = active.rect.current.translated
+            const same = target && target.col === cardOf(String(active.id))?.col
+            const next = same && box && over ? { id: String(over.id).slice(3), after: box.top + box.height / 2 > over.rect.top + over.rect.height / 2 } : null
+            if (next?.id !== between?.id || next?.after !== between?.after) setBetween(next)
+          }}
+          onDragCancel={() => (setShot(null), setOver(null), setBetween(null))}
           onDragEnd={({ active, over }) => {
             setShot(null)
             setOver(null)
+            const place = between
+            setBetween(null)
             const from = cardOf(String(active.id))
-            const to = over ? Number(over.id) : null
-            if (!from || to === null || to === from.col) return chime('stay')
+            const onCard = over && String(over.id).startsWith('on:') ? cardOf(String(over.id).slice(3)) : null
+            const to = onCard ? onCard.col : over ? Number(over.id) : null
+            if (!from || to === null) return chime('stay')
+            // In its own day, beside the card it was let go on: a new order for the day.
+            if (to === from.col) {
+              if (!place) return chime('stay')
+              const order = days[to].cards.filter((card) => card !== from.card)
+              const at = order.findIndex((card) => `${card.kind}:${card.task.id}` === place.id) + (place.after ? 1 : 0)
+              order.splice(at, 0, from.card)
+              if (order.every((card, index) => card === days[to].cards[index])) return chime('stay')
+              return reorder(order)
+            }
             setLanding({ id: String(active.id), col: to })
             move(from.card, to - from.col)
           }}
@@ -271,6 +324,8 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
                       // Just dropped here from another day: it settles in from the chip's tilt.
                       initial={landing?.id === id && landing.col === col ? { opacity: 0.4, scale: 0.97, rotate: -1.5 } : false}
                       animate={{ opacity: 1, scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 520, damping: 34 }}>
+                    {/* Where a card dragged in its own day will go: a line above or below this one. */}
+                    {between?.id === id && <span aria-hidden className={`absolute inset-x-1 z-10 h-0.5 rounded-full bg-ring ${between.after ? '-bottom-[3px]' : '-top-[3px]'}`} />}
                     <Carried id={id}>
                     <button
                       type="button"
@@ -340,7 +395,9 @@ function Day({ col, className, children }: { col: number; className: string; chi
 /** A card that can be picked up; the place it left stays, faint, until it lands. */
 function Carried({ id, children }: { id: string; children: ReactNode }): React.JSX.Element {
   const { setNodeRef, listeners, isDragging } = useDraggable({ id })
-  return <div ref={setNodeRef} data-sortable-id={id} {...listeners} className={isDragging ? 'opacity-30' : undefined}>{children}</div>
+  // Also somewhere to drop: another card let go on it goes beside it.
+  const { setNodeRef: dropOn } = useDroppable({ id: `on:${id}` })
+  return <div ref={(node) => (setNodeRef(node), dropOn(node))} data-sortable-id={id} {...listeners} className={isDragging ? 'opacity-30' : undefined}>{children}</div>
 }
 
 /**

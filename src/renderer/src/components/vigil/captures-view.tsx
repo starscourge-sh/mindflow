@@ -32,10 +32,10 @@ import { EXITS, NOT_OPEN, STATUS_ICON, captureKey, exit, findCaptures, findHeadi
 import type { SaveResult } from '../../../../main/captures'
 import { toMarkdown } from '@/lib/export'
 import { splitTags, unloaded, vigil } from '@/lib/vigil'
-import { makeTask } from '@/lib/tasks'
+import { makeTask, oneTask, picked } from '@/lib/tasks'
 import { useSameWords } from '@/lib/same-words'
 import { chime } from '@/lib/sound'
-import { Empty, Island, Page, Prop, Props, Remembered, Rolling, ask, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle, Pressed } from './ui'
+import { Empty, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle, Pressed } from './ui'
 import { GlossTimeline, useRowGloss } from './gloss-line'
 import { RemindMe } from './items-view'
 import { addToQuestion } from './questions-view'
@@ -215,6 +215,20 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   })
+  // Several made one task, from the bar or ⌘K: its name starts as the first one's title.
+  const makeOne = (): void => {
+    const ids = chosen
+    void oneTask(ids, all.find((capture) => capture.id === ids[0])?.label ?? '').then((made) => made && setChosen([]))
+  }
+  useEffect(() => {
+    picked.ids = chosen
+    const onAsk = (): void => void (chosen.length > 1 && makeOne())
+    window.addEventListener('vigil:one-task', onAsk)
+    return () => {
+      window.removeEventListener('vigil:one-task', onAsk)
+      picked.ids = []
+    }
+  })
   const bulk = (status: string): void => {
     // Only the open ones: a promoted capture resolved, or undone back to open,
     // would lose where it went.
@@ -252,11 +266,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
               <Button variant="ghost" size="sm" onClick={() => bulk('discarded')}>Discard</Button>
               <Button variant="ghost" size="sm" onClick={() => void archive('captures', chosen, !archived).then(() => setChosen([]))}>{archived ? 'Unarchive' : 'Archive'}</Button>
               {chosen.length > 1 && (
-                <Button variant="ghost" size="sm" onClick={() => void ask(`One task from these ${num(chosen.length)}. What is it?`, 'e.g. sort out the freight rules by Thursday').then((text) => {
-                  if (!text) return
-                  const ids = chosen
-                  void makeTask({ captures: ids, text }, `One task, from ${num(ids.length)} captures`).then(() => setChosen([]))
-                })}>One task</Button>
+                <Button variant="ghost" size="sm" onClick={makeOne}>Make one task</Button>
               )}
               <input
                 placeholder="#tag ↵"
@@ -407,6 +417,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
             <MindflowEditor
               key={`${open.id}-${rev}`}
               host={window.api}
+              typewriter
               tokens={TAGS}
               onTokenClick={(token) => token.name === 'tag' && onOpen?.('tag', token.value)}
               toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: open.id, from: open.id }) }}

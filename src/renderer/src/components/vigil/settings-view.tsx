@@ -8,6 +8,7 @@ import SaveIcon from '@/components/ui/save-icon'
 import InfoCircleIcon from '@/components/ui/info-circle-icon'
 import CheckedIcon from '@/components/ui/checked-icon'
 import CameraIcon from '@/components/ui/camera-icon'
+import CameraOffIcon from '@/components/ui/camera-off-icon'
 import PaintIcon from '@/components/ui/paint-icon'
 import PenIcon from '@/components/ui/pen-icon'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
@@ -262,6 +263,7 @@ export function SettingsView(): React.JSX.Element {
   useEffect(() => onVimChange(setVimOn), [])
   // Seen in screen recordings or not: the same flag as the box's menu and ⌘K, so all of them agree.
   const [recordable, setRecordableFlag] = useStoredFlag('recordable')
+  const [typewriter, setTypewriter] = useStoredFlag('typewriter')
   const setRecordable = (on: boolean): void => {
     setRecordableFlag(on)
     void window.api.setRecordable(on)
@@ -491,6 +493,9 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Vim keys" note="Move and edit with Vim's keys in every note." keywords="vim keys keyboard bindings modal normal insert">
             <Switch checked={vim} onCheckedChange={setVim} />
           </Setting>
+          <Setting title="Typewriter scrolling" note="While you type in a note, the line you are on stays a little above the middle and the page moves up instead. Clicking, selecting and scrolling leave it alone. Not in the box. Also in ⌘K." keywords="typewriter scroll scrolling center centre caret cursor line focus writing">
+            <Switch checked={typewriter} onCheckedChange={setTypewriter} />
+          </Setting>
         </Group>
 
         <Group section="Sound" title="What you hear">
@@ -607,6 +612,8 @@ export function SettingsView(): React.JSX.Element {
             <Switch checked={settings.stickiesStir !== false} onCheckedChange={(stickiesStir) => set({ stickiesStir })} />
           </Setting>
           <Setting title="Show Vigil in screen recordings and shares" note="Off: every Vigil window, sticky notes included, shows as blank in a shared screen, a recording or a screenshot, while you still see it. On: they show, for a demo or a Loom. Also in ⌘K." keywords="record recording screen share sharing zoom loom demo screenshot capture hide sticky notes">
+            {/* What the windows are now: seen, or blank to a camera. */}
+            <AliveIcon icon={recordable ? CameraIcon : CameraOffIcon} size={16} className="text-muted-foreground" />
             <Switch checked={recordable} onCheckedChange={setRecordable} />
           </Setting>
           {/* Only a choice while Vigil shows: off, the stickies are hidden with everything else. */}

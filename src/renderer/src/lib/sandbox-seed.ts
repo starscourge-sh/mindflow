@@ -285,6 +285,8 @@ What you keep, rather than what you read, is what returns: ${link(petrichor, 'Pe
   await v('task:save', blackHole, { waitingOn: 'TARS' })
   await v('task:save', wall, { due: at(0, '21:00'), reschedules: 0 })
   await task('Learn to read cuneiform someday')
+  // Important and not yet urgent: the matrix's Plan box.
+  await task('Draft the oxygenator repair plan next week !!')
   // One already done this morning, struck through on Today's page.
   await v('task:done', await task('Water the potatoes today 8am'))
   const kick = await task('Plan the kick tomorrow')
@@ -670,6 +672,8 @@ A book set to Finished asks one more thing: what you will keep from it, a line o
 
   // --- the stickies ----------------------------------------------------------------------
   window.api.stick('capture', team, true)
+  // Today's tasks as one sticky, ticked off through the day.
+  window.api.stick('today', 'today', true)
 
   // --- the pages ---------------------------------------------------------------------------
   await v('notes:day:save', day(0), {

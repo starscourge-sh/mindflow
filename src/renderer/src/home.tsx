@@ -5,6 +5,8 @@ import { alive } from '@/components/ui/alive-icon'
 import RightChevronIcon from '@/components/ui/right-chevron'
 import InfoCircleIcon from '@/components/ui/info-circle-icon'
 import BookmarkIcon from '@/components/ui/bookmark-icon'
+import CameraIcon from '@/components/ui/camera-icon'
+import CameraOffIcon from '@/components/ui/camera-off-icon'
 import HashtagIcon from '@/components/ui/hashtag-icon'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AnimatePresence, motion } from 'motion/react'
@@ -28,7 +30,9 @@ import { TagsView } from './components/vigil/tags-view'
 import { usePinnedTags } from './components/vigil/tag-read'
 import { TasksView } from './components/vigil/tasks-view'
 import { WeekView } from './components/vigil/week-view'
-import { placed } from './lib/tasks'
+import { MatrixView } from './components/vigil/matrix-view'
+import { picked, placed } from './lib/tasks'
+import { stickOnDesktop } from './components/vigil/sticky-note'
 import { Rolling, Toaster, toast, typing, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
 import { FocusScenery } from './components/vigil/scenery'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
@@ -218,6 +222,7 @@ export function Home(): React.JSX.Element {
   const settings = useLive(vigil.settings, null as Settings | null)
   // Seen in screen recordings or not: one flag with the box's menu and Settings.
   const [recordable, setRecordable] = useStoredFlag('recordable')
+  const [typewriter, setTypewriter] = useStoredFlag('typewriter')
   const topTitle = useTopTitle()
   // A new section has no note scrolled: the last one's name does not follow you there.
   useEffect(() => showTopTitle(null), [view.id])
@@ -360,6 +365,8 @@ export function Home(): React.JSX.Element {
                 })
               }))
             }),
+            ...(picked.ids.length > 1 ? [{ label: `Make one task from the ${picked.ids.length} selected captures`, cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:one-task')) }] : []),
+            { label: "Keep today's tasks on screen", cue: null, run: () => stickOnDesktop('today', 'today') },
             { label: 'Tidy: a few minutes over the latest captures', run: () => openPass('tidy') },
             { label: 'Decide: the weekly pass over what waited', run: () => openPass('decide') },
             { label: 'Import an Obsidian vault or Notion export…', cue: null, run: () => void window.api.importFrom('vault') },
@@ -379,6 +386,7 @@ export function Home(): React.JSX.Element {
             { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', cue: null, run: () => setFill(!fill) },
             { label: 'Fold every heading', cue: null, run: () => void (foldEverything(true) || chime('nope')) },
             { label: 'Unfold every heading', cue: null, run: () => void (foldEverything(false) || chime('nope')) },
+            { label: typewriter ? 'Turn typewriter scrolling off' : 'Turn typewriter scrolling on', cue: typewriter ? 'off' : 'on', run: () => setTypewriter(!typewriter) },
             { label: settings?.sounds ? 'Turn sounds off' : 'Turn sounds on', cue: null, run: () => {
               soundOn(!settings?.sounds)
               chime(settings?.sounds ? 'off' : 'on')
@@ -386,7 +394,7 @@ export function Home(): React.JSX.Element {
             } },
             { label: settings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', cue: null, run: safeMode },
             { label: settings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', keys: '⌃⌥⌘N', cue: null, run: () => void vigil.setSettings({ stickiesShown: settings?.stickiesShown === false }) },
-            { label: recordable ? 'Hide Vigil from screen recordings' : 'Show Vigil in screen recordings', cue: recordable ? 'off' : 'on', run: () => (setRecordable(!recordable), void window.api.setRecordable(!recordable)) },
+            { label: recordable ? 'Hide Vigil from screen recordings' : 'Show Vigil in screen recordings', cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => (setRecordable(!recordable), void window.api.setRecordable(!recordable)) },
             // Not in safe mode: the notes it would bring are meant to be put away then.
             ...(settings?.safeMode ? [] : [{ label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() }]),
             { label: 'reveal' in document.documentElement.dataset ? 'Blur private titles again' : 'Show private titles for now', cue: 'reveal' in document.documentElement.dataset ? 'off' : 'on', run: () => {
@@ -763,6 +771,8 @@ export function Home(): React.JSX.Element {
           <TasksView mode={view.id} focus={view.focus} onOpen={open} />
         ) : view.id === 'week' ? (
           <WeekView onOpen={open} />
+        ) : view.id === 'matrix' ? (
+          <MatrixView onOpen={open} />
         ) : view.id === 'nuggets' || view.id === 'articles' ? (
           <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} focus={view.focus} onOpen={open} />
         ) : view.id === 'questions' ? (

@@ -35,6 +35,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
 import { Rest } from './scenery'
+import { OptionsMenu } from './options-menu'
+import { stickOnDesktop } from './sticky-note'
 import { TaskLog } from './task-log'
 import { GlossButton, GlossLine } from './gloss-line'
 import { dayjs, startOfDay } from '../../../../main/dates'
@@ -70,6 +72,24 @@ const tone = (task: Task): string | undefined => {
 
 /** The Scheduled island's buttons: one size, and a faint fill so each reads as a button on a light page too. */
 const plan = 'min-w-0 truncate bg-foreground/[0.04] px-1 text-control hover:bg-accent data-[variant=secondary]:bg-secondary'
+
+/** A task's reminder level, or the setting's (null), with the words each goes by. */
+const REMINDERS = [[null, 'Default'], ['pull', 'Pull'], ['quiet', 'Quiet'], ['alerts', 'Alert']] as const
+const REMINDER_SAID = {
+  default: 'As Settings says for every task.',
+  pull: 'Rises to the top of Today at its time. No sound, no count.',
+  quiet: 'Counted in the menu bar at its time.',
+  alerts: 'A notification at its time.'
+}
+/** Set it, heard and undoable. */
+const setReminder = (task: Pick<Task, 'id' | 'notify'>, level: Task['notify']): void => {
+  if ((task.notify ?? null) === level) return chime('nope')
+  const was = task.notify
+  void vigil.saveTask(task.id, { notify: level }).then(() => {
+    chime(level === 'alerts' ? 'on' : level ? 'tap' : 'off')
+    toast(level ? `Reminder: ${level === 'alerts' ? 'alert' : level}` : 'Reminder: as Settings says', () => void vigil.saveTask(task.id, { notify: was }))
+  })
+}
 
 /** Move a task to a day from now, and say where: one wording for keys, menus and buttons. */
 export const moveTo = (task: Pick<Task, 'id' | 'dueAt' | 'allDay' | 'planFor'>, days: number): void => {
@@ -268,6 +288,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
             sorts={[{ id: 'manual', label: 'Your order' }, { id: 'priority', label: 'Priority' }, { id: 'name', label: 'Name' }, { id: 'due', label: 'Scheduled' }, { id: 'deadline', label: 'Due by' }, { id: 'added', label: 'Date added' }]}
             groups={[{ id: 'when', label: mode === 'later' ? 'By list' : 'By date' }, { id: 'note', label: 'By note' }, { id: 'none', label: 'None' }]}
           />
+          {/* Today's list on the desktop, ticked off there through the day. */}
+          {mode === 'today' && <OptionsMenu label="More" side="bottom" align="end" options={[]} actions={[{ label: 'Keep today on screen', run: () => stickOnDesktop('today', 'today') }]} />}
         </span>
       }>
 
@@ -499,10 +521,16 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
               </Tip>
             ))}
           </div>
-          {/* Its own alert level, for the one task that must interrupt you. */}
-          <Prop icon={Bell} active={task.notify === 'alerts'} onClick={() => void vigil.saveTask(task.id, { notify: task.notify === 'alerts' ? null : 'alerts' }).then(() => chime(task.notify === 'alerts' ? 'off' : 'on'))}>
-            {task.notify === 'alerts' ? 'Alerts you at its time' : 'Alert me at its time'}
-          </Prop>
+        </Island>
+        {/* Its own reminder level over the setting's: "!alert", "!quiet" or "!pull" in the words does the same. */}
+        <Island compact title="Reminder">
+          <div className="grid grid-cols-4 gap-1 p-1">
+            {REMINDERS.map(([level, label]) => (
+              <Button key={label} variant={(task.notify ?? null) === level ? 'secondary' : 'ghost'} size="sm" className={plan}
+                onClick={() => setReminder(task, level)}>{label}</Button>
+            ))}
+          </div>
+          <p className="flex items-start gap-2 px-2 py-1.5 text-xs leading-relaxed"><Bell className="mt-0.5 size-3 shrink-0" />{REMINDER_SAID[task.notify ?? 'default']}</p>
         </Island>
         {/* The rest of what a task can carry, each one row like the rest. */}
         <Island compact title="Details">

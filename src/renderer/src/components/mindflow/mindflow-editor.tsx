@@ -67,6 +67,8 @@ import { ContentsBlock } from "@/extensions/contents-block"
 import { Calc } from "@/extensions/calc"
 import { markdownToDocument } from "@/lib/markdown-doc"
 import { LongDocument } from "@/extensions/long-document"
+import { Typewriter } from "@/extensions/typewriter"
+import { useStoredFlag } from "@/lib/use-stored-flag"
 
 /** Every mark the editor can register. */
 export type MarkName =
@@ -345,6 +347,14 @@ export interface MindflowEditorProps {
    */
   autofocus?: boolean | "start" | "end"
   /**
+   * May hold the line being typed at a steady height, the page scrolling under
+   * it, when Settings > Writing > Typewriter scrolling is on. For a full page
+   * of writing; a short box that grows with its words has nothing to scroll.
+   *
+   * @default false
+   */
+  typewriter?: boolean
+  /**
    * Ease the document to the caret instead of snapping to it.
    *
    * Every jump the editor makes on its own - a keystroke scrolling the caret
@@ -542,6 +552,7 @@ function Surface({
   vim,
   vimStart = "normal",
   autofocus = false,
+  typewriter = false,
   smoothScroll = true,
   marks,
   className = "",
@@ -567,6 +578,12 @@ function Surface({
   const [pageVim, setPageVim] = useState(currentVim)
   useEffect(() => onVimChange(setPageVim), [])
   const vimOn = vim ?? pageVim
+
+  // Typewriter scrolling: the editor asked for it, and the switch is on. Read
+  // through a ref by the extension, which is built once.
+  const [typewriterOn] = useStoredFlag("typewriter")
+  const typing = typewriter && typewriterOn && !readOnly
+  const typingRef = useLatest(typing)
 
   /**
    * Scroll the document while a block is dragged near its edge.
@@ -1222,6 +1239,7 @@ function Surface({
       BlockColor,
       JoinLists,
       CurrentItem,
+      Typewriter.configure({ on: () => typingRef.current }),
       CardLink,
       LongDocument,
       SelectedNodes,
@@ -1686,7 +1704,7 @@ function Surface({
           role="presentation"
           className={`mindflow-editor-content relative p-3 overflow-auto${
             smoothScroll ? " is-smooth" : ""
-          }`}
+          }${typing ? " is-typewriter" : ""}`}
           ref={contentRef}
         />
         {/* After the words, inside the same scroll: added beside ProseMirror's

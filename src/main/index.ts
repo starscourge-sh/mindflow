@@ -649,7 +649,8 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   // straight in it, with the Mac's own rounded corners. The goal stack too:
   // its cards behind then show as edges inside the window, not past it.
   const glass = stickyGlass() && !nativeTheme.prefersReducedTransparency
-  const size = type === 'goal' ? (glass ? STACK_GLASS : STACK_SIZE) : { width: 300, height: 220 }
+  // Today's list is a little taller than a note: a few tasks under its title.
+  const size = type === 'goal' ? (glass ? STACK_GLASS : STACK_SIZE) : type === 'today' ? { width: 280, height: 300 } : { width: 300, height: 220 }
   const place = bounds ? onScreen({ ...bounds, ...stickySize(type === 'goal' ? size.width : bounds.width, type === 'goal' ? size.height : bounds.height, bounds) }) : freeSpot(workArea, size.width, size.height)
   const win = new BrowserWindow({
     ...place,

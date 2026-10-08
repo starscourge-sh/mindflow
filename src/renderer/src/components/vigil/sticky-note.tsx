@@ -31,8 +31,8 @@ const MindflowEditor = lazy(() => import('@/components/mindflow').then((one) => 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const X = alive(XIcon)
 
-const DRAG = { WebkitAppRegion: 'drag' } as CSSProperties
-const STILL = { WebkitAppRegion: 'no-drag' } as CSSProperties
+export const DRAG = { WebkitAppRegion: 'drag' } as CSSProperties
+export const STILL = { WebkitAppRegion: 'no-drag' } as CSSProperties
 const LIST: CSSProperties = { marginBlock: '0.25rem', paddingLeft: '1rem' }
 
 /**
@@ -40,8 +40,8 @@ const LIST: CSSProperties = { marginBlock: '0.25rem', paddingLeft: '1rem' }
  * every launch; which way goes by its place in line, so neighbours lean apart.
  */
 /** Made as real glass (the setting): the Mac's blur behind, the note sitting straight. */
-const GLASS = new URLSearchParams(location.search).has('glass')
-const tiltOf = (id: string, nth: number): number => {
+export const GLASS = new URLSearchParams(location.search).has('glass')
+export const tiltOf = (id: string, nth: number): number => {
   let hash = 0
   for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) | 0
   const lean = 1.2 + (Math.abs(hash) % 19) / 10
@@ -197,8 +197,33 @@ const firstInSight = (box: HTMLElement | null): { text: string; top: number } | 
 }
 const lineOf = (box: HTMLElement, text: string): Element | undefined => linesIn(box).find((one) => one.textContent === text)
 
+/** Real glass: the Mac's blur shows through a thin wash of the theme's paper, enough to read on. */
+export const PAPER: CSSProperties = GLASS
+  ? { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--mf-paper-tint), var(--mf-paper-tint)), linear-gradient(color-mix(in oklab, var(--mf-paper) 90%, transparent), color-mix(in oklab, var(--mf-paper) 90%, transparent))' }
+  : { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--mf-paper-tint), var(--mf-paper-tint)), linear-gradient(var(--mf-paper), var(--mf-paper)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' }
+/** The card itself: on glass, straight with its words lifting on hover; as paper, leaning, and straightening as it lifts. */
+export const CARD = GLASS ? 'group relative flex h-full flex-col rounded-[10px] text-control text-foreground [&>*]:transition-transform [&>*]:duration-500 [&>*]:ease-[cubic-bezier(0.34,1.36,0.64,1)] hover:[&>*]:-translate-y-0.5 motion-reduce:[&>*]:transition-none' : 'group relative flex h-full rotate-(--tilt) flex-col rounded-lg border text-control text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_4px_10px_-2px_rgb(0_0_0/0.16)] transition-[rotate,scale,box-shadow] duration-500 ease-[cubic-bezier(0.34,1.36,0.64,1)] hover:scale-102 hover:rotate-0 hover:shadow-[0_2px_4px_rgb(0_0_0/0.12),0_10px_18px_-4px_rgb(0_0_0/0.24)] motion-reduce:transition-none'
+
+/**
+ * Told now and then to stir (see main), the card lifts a little and settles,
+ * as paper does in a draught, so it is seen again. Not while you write in it
+ * (a key in the last 15 seconds), nor with Motion off; added to its own lean.
+ */
+export function stir(card: HTMLElement | null, lastKey: number): void {
+  if (!card || Date.now() - lastKey < 15_000 || document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  // On glass the note is the window, so the paper stays and its words and tape lift instead.
+  const moving = GLASS ? [...card.children] : [card]
+  for (const one of moving)
+    one.animate(
+      GLASS
+        ? [{ transform: 'translateY(0)' }, { transform: 'translateY(-3px)', offset: 0.3 }, { transform: 'translateY(-1px)', offset: 0.62 }, { transform: 'translateY(0)' }]
+        : [{ transform: 'translateY(0) rotate(0deg)' }, { transform: 'translateY(-4px) rotate(1.6deg)', offset: 0.3 }, { transform: 'translateY(-1px) rotate(-0.9deg)', offset: 0.62 }, { transform: 'translateY(0) rotate(0deg)' }],
+      { duration: 1200, easing: 'cubic-bezier(0.37, 0, 0.63, 1)', composite: 'add' }
+    )
+}
+
 /** How long a list stays all ticked before it is celebrated, so an untick straight after takes it back unseen. */
-const GRACE = 2500
+export const GRACE = 2500
 
 /** Stick a note on the desktop, or take it down, with its own sound; undoable. */
 export const stickOnDesktop = (type: string, id: string, on = true): void => {
@@ -269,18 +294,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
     window.addEventListener('keydown', note, true)
     return () => window.removeEventListener('keydown', note, true)
   }, [])
-  useEffect(() => window.api.onStir(() => {
-    if (!card.current || Date.now() - lastKey.current < 15_000 || document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    // On glass the note is the window, so the paper stays and its words and tape lift instead.
-    const moving = GLASS ? [...card.current.children] : [card.current]
-    for (const one of moving)
-      one.animate(
-        GLASS
-          ? [{ transform: 'translateY(0)' }, { transform: 'translateY(-3px)', offset: 0.3 }, { transform: 'translateY(-1px)', offset: 0.62 }, { transform: 'translateY(0)' }]
-          : [{ transform: 'translateY(0) rotate(0deg)' }, { transform: 'translateY(-4px) rotate(1.6deg)', offset: 0.3 }, { transform: 'translateY(-1px) rotate(-0.9deg)', offset: 0.62 }, { transform: 'translateY(0) rotate(0deg)' }],
-        { duration: 1200, easing: 'cubic-bezier(0.37, 0, 0.63, 1)', composite: 'add' }
-      )
-  }), [])
+  useEffect(() => window.api.onStir(() => stir(card.current, lastKey.current)), [])
   useEffect(() => window.api.onLookOver(() => {
     if (out.current) out.current.style.visibility = ''
     out.current = null
@@ -418,13 +432,10 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
         style={{
           ...DRAG,
           '--tilt': GLASS ? '0deg' : `${tiltOf(id, Number(new URLSearchParams(location.search).get('nth')) || 0)}deg`,
-          // Real glass: the Mac's blur shows through a thin wash of the theme's paper, enough to read on.
-          ...(GLASS
-            ? { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--mf-paper-tint), var(--mf-paper-tint)), linear-gradient(color-mix(in oklab, var(--mf-paper) 90%, transparent), color-mix(in oklab, var(--mf-paper) 90%, transparent))' }
-            : { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--mf-paper-tint), var(--mf-paper-tint)), linear-gradient(var(--mf-paper), var(--mf-paper)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' })
+          ...PAPER
         } as unknown as CSSProperties}
         onMouseLeave={() => setAsking(false)}
-        className={GLASS ? 'group relative flex h-full flex-col rounded-[10px] text-control text-foreground [&>*]:transition-transform [&>*]:duration-500 [&>*]:ease-[cubic-bezier(0.34,1.36,0.64,1)] hover:[&>*]:-translate-y-0.5 motion-reduce:[&>*]:transition-none' : 'group relative flex h-full rotate-(--tilt) flex-col rounded-lg border text-control text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_4px_10px_-2px_rgb(0_0_0/0.16)] transition-[rotate,scale,box-shadow] duration-500 ease-[cubic-bezier(0.34,1.36,0.64,1)] hover:scale-102 hover:rotate-0 hover:shadow-[0_2px_4px_rgb(0_0_0/0.12),0_10px_18px_-4px_rgb(0_0_0/0.24)] motion-reduce:transition-none'}
+        className={CARD}
       >
         {/* Frosted: the desktop picture behind it, blurred, under the same paper. */}
         {!GLASS && <Frost tint="--mf-paper-tint" lift />}

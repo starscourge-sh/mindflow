@@ -5,6 +5,7 @@ import { alive } from '@/components/ui/alive-icon'
 import ClockIcon from '@/components/ui/clock-icon'
 import RefreshIcon from '@/components/ui/refresh-icon'
 import BookmarkIcon from '@/components/ui/bookmark-icon'
+import FilledBellIcon from '@/components/ui/filled-bell-icon'
 
 import { chime, step } from '@/lib/sound'
 import { vigil, type Task } from '@/lib/vigil'
@@ -19,6 +20,7 @@ import { short } from '../../../../main/dates'
 const CalendarClock = alive(ClockIcon)
 const Repeat = alive(RefreshIcon)
 const Telescope = alive(BookmarkIcon)
+const Bell = alive(FilledBellIcon)
 
 export { short }
 
@@ -73,7 +75,7 @@ export function planFor(task: Pick<Task, 'id' | 'dueAt' | 'deadline' | 'planFor'
   })
 }
 
-const TINT: Record<Span['kind'], BlockColor> = { date: 'blue', deadline: 'red', repeat: 'purple', priority: 'orange', plan: 'green' }
+const TINT: Record<Span['kind'], BlockColor> = { date: 'blue', deadline: 'red', repeat: 'purple', priority: 'orange', plan: 'green', notify: 'pink' }
 
 /**
  * The same lighting for a task typed in the box's editor, as token patterns
@@ -112,6 +114,7 @@ export function TaskChips({ read }: { read: ReadTask | null }): React.JSX.Elemen
   if (read?.recurrence) chips.push({ key: 'repeat', icon: <Repeat className="size-3" />, label: read.recurrence.replace(/^every!?\s*/i, 'Every '), tint: TINT.repeat })
   if (read?.plan) chips.push({ key: 'plan', icon: <Telescope className="size-3" />, label: BUCKETS[bucketOf(read.plan)!], tint: TINT.plan })
   if (read?.priority) chips.push({ key: 'priority', icon: <PriorityIcon level={read.priority} className="size-3" />, label: PRIORITY_NAMES[read.priority], tint: TINT.priority })
+  if (read?.notify) chips.push({ key: 'notify', icon: <Bell className="size-3" />, label: { pull: 'Pull', quiet: 'Quiet', alerts: 'Alert' }[read.notify], tint: TINT.notify })
   return (
     <span className="flex shrink-0 items-center gap-1">
       <AnimatePresence initial={false}>

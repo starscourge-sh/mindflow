@@ -1,5 +1,5 @@
 import type { ComponentType, CSSProperties, RefAttributes } from 'react'
-import { Archive, CalendarFold, CalendarRange, Flag, Sprout, type LucideIcon } from 'lucide-react'
+import { Archive, CalendarFold, CalendarRange, Flag, Grid2x2, Sprout, type LucideIcon } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
 import ClockIcon from '@/components/ui/clock-icon'
@@ -72,6 +72,8 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'today', label: 'Today', icon: Sun, key: 't', tint: 'green', group: 'Tasks' },
   { id: 'week', label: 'Week', icon: CalendarRange, key: 'w', tint: 'blue', group: 'Tasks' },
   { id: 'upcoming', label: 'Upcoming', icon: CalendarDays, key: 'u', tint: 'orange', group: 'Tasks' },
+  // Eisenhower's four boxes: urgent by date, important by the flag.
+  { id: 'matrix', label: 'Matrix', icon: Grid2x2, key: 'q', tint: 'red', group: 'Tasks' },
   { id: 'routines', label: 'Routines', icon: Repeat, alive: RefreshIcon, key: 'o', tint: 'yellow', group: 'Tasks' },
   // This month, This year and Someday: what has no day yet.
   { id: 'later', label: 'Later', icon: Telescope, key: 'z', tint: 'purple', group: 'Tasks' },

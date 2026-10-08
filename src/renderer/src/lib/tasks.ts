@@ -1,9 +1,9 @@
 import { chime } from './sound'
 import { taskSaid, vigil, type Made, type Task } from './vigil'
 import { flying } from './capture-links'
-import { refuse, toast } from '@/components/vigil/ui'
+import { ask, refuse, toast } from '@/components/vigil/ui'
 import { bucketOf, monthKey } from '../../../main/task-words'
-import { dayjs } from '../../../main/dates'
+import { dayjs, num } from '../../../main/dates'
 
 /**
  * Everything that becomes a task: words typed, a capture, several captures,
@@ -45,6 +45,22 @@ export async function makeTask(
   toast(taskSaid(made, words), () => void vigil.unmakeTask(made.id, made.existed, links, reopen).then(() => onUndo?.()))
   return made
 }
+
+/**
+ * Several captures made one task: its name asked, offered the first one's
+ * title to start from. Each capture is linked from it and leaves the inbox.
+ */
+export async function oneTask(ids: string[], first = ''): Promise<Made | null> {
+  const text = await ask(`One task from these ${num(ids.length)}. What is it?`, 'e.g. sort out the freight rules by Thursday', undefined, first)
+  if (!text) return null
+  return makeTask({ captures: ids, text }, `One task, from ${num(ids.length)} captures`)
+}
+
+/**
+ * The captures selected in the list on screen now, for ⌘K's "Make one task":
+ * the palette asks with `vigil:one-task`, and the list with them answers.
+ */
+export const picked = { ids: [] as string[] }
 
 /**
  * The day a task shows on: when it is scheduled, or the day it is due by if

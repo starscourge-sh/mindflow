@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ComponentProps } from 'react'
 import { chime, soundOn, step } from '@/lib/sound'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
@@ -25,7 +25,7 @@ import { Swatch } from '../theme/theme-picker'
 import { keyFor } from '@/lib/keys'
 
 /** One setting the box can have switched on or off. */
-export type Option = { label: string; on: boolean; keys?: string; set: (on: boolean) => void }
+export type Option = { label: string; on: boolean; keys?: string; set: (on: boolean) => void; icon?: ComponentProps<typeof AliveIcon>['icon'] }
 
 /**
  * Everything about the box that is not the writing, behind one button: what
@@ -75,6 +75,7 @@ export function OptionsMenu({ options, actions, app = false, label = 'Options', 
         {options.map((one) => (
           <DropdownMenuCheckboxItem key={one.label} checked={one.on} onCheckedChange={one.set} onSelect={(event) => event.preventDefault()}>
             {one.label}
+            {one.icon && <AliveIcon key={String(one.on)} icon={one.icon} size={14} className="ml-auto text-muted-foreground" />}
             {one.keys && keyFor(one.keys) && <DropdownMenuShortcut>{keyFor(one.keys)}</DropdownMenuShortcut>}
           </DropdownMenuCheckboxItem>
         ))}
@@ -115,7 +116,7 @@ export function OptionsMenu({ options, actions, app = false, label = 'Options', 
           </DropdownMenuSubContent>
         </DropdownMenuSub>
         )}
-        {actions.length > 0 && <DropdownMenuSeparator />}
+        {actions.length > 0 && (options.length > 0 || app) && <DropdownMenuSeparator />}
         {/* Room on the right like the tickable rows, so every shortcut lines up. */}
         {actions.map((one) => (
           <DropdownMenuItem key={one.label} onSelect={one.run} className="pr-8">

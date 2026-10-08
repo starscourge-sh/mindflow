@@ -510,6 +510,8 @@ function addTask(text: string, origin: string | null = null, today = false): Mad
     : (db.prepare("select id, number from tasks where status = 'open' and lower(trim(title)) = lower(trim(?))").get(title) as { id: string; number: number } | undefined)
   if (twin) {
     if (origin) db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(twin.id, origin)
+    // A reminder word said again ("!alert") is still heard.
+    if (task.notify) db.prepare('update tasks set notify = ? where id = ?').run(task.notify, twin.id)
     return { ...twin, existed: true }
   }
   const id = randomUUID()
@@ -518,10 +520,10 @@ function addTask(text: string, origin: string | null = null, today = false): Mad
   if (today && !task.due && !task.plan) Object.assign(task, { due: dayjs().hour(9).startOf('hour').toISOString(), allDay: true })
   const { number } = db
     .prepare(
-      `insert into tasks (id, number, title, due_at, all_day, recurrence, repeat_until, origin_capture_id, created_at, deadline_at, priority, important, plan_for, deadline_timed)
-       values (?, (select coalesce(max(number), 0) + 1 from tasks), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) returning number`
+      `insert into tasks (id, number, title, due_at, all_day, recurrence, repeat_until, origin_capture_id, created_at, deadline_at, priority, important, plan_for, deadline_timed, notify)
+       values (?, (select coalesce(max(number), 0) + 1 from tasks), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) returning number`
     )
-    .get(id, title, task.due, task.allDay ? 1 : 0, task.recurrence, task.until, origin, now(), task.deadline, task.priority, [1, 2].includes(task.priority) ? 1 : 0, task.plan, task.deadlineTimed ? 1 : 0) as { number: number }
+    .get(id, title, task.due, task.allDay ? 1 : 0, task.recurrence, task.until, origin, now(), task.deadline, task.priority, [1, 2].includes(task.priority) ? 1 : 0, task.plan, task.deadlineTimed ? 1 : 0, task.notify) as { number: number }
   return { id, number, existed: false }
 }
 
@@ -783,6 +785,16 @@ export function registerVigil(): void {
       db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(task.id, id)
       db.prepare("update captures set status = 'resolved' where id = ?").run(id)
     }
+    // A new one's notes list each capture as a link, so what it is made of is one click away.
+    if (!task.existed && open.length > 1) {
+      const rows = open.map((id) => db.prepare(`select id, number, ${LABEL} as label from captures where id = ?`).get(id) as { id: string; number: number | null; label: string })
+      const line = (content: unknown[]): unknown => ({ type: 'paragraph', content })
+      const notes = { type: 'doc', content: [
+        line([{ type: 'text', text: `Made from ${rows.length} captures:` }]),
+        { type: 'bulletList', content: rows.map((row) => ({ type: 'listItem', content: [line([{ type: 'noteLink', attrs: { id: row.id, label: row.label || 'Untitled', key: row.number ? `MF-${row.number}` : '' } }])] })) }
+      ] }
+      db.prepare('update tasks set notes = ? where id = ? and notes is null').run(JSON.stringify(notes), task.id)
+    }
     return write({ ...task, resolved: open })
   })
   handle('capture:set', (id: string, field: keyof typeof CAPTURE_FIELDS, value: string | number | null) => {
@@ -877,7 +889,7 @@ export function registerVigil(): void {
     return {
       from: [
         ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title, private from captures where id in (select capture_id from nuggets where id = ? union select origin_capture_id from tasks where id = ?
-          union select origin_id from captures where id = ?)`).all(id, id, id) as never[]),
+          union select origin_id from captures where id = ? union select item_id from task_links where task_id = ?)`).all(id, id, id, id) as never[]),
         ...(db.prepare('select tier as type, id, title, private from nuggets where id = (select origin_id from captures where id = ?)').all(id) as never[]),
         ...(JSON.parse((db.prepare('select origins from nuggets where id = ?').get(id) as { origins: string | null } | undefined)?.origins ?? '[]') as string[])
           .map((origin) => db.prepare('select tier as type, id, title, private from nuggets where id = ?').get(origin) as never)
@@ -885,7 +897,8 @@ export function registerVigil(): void {
       ],
       became: [
         ...(db.prepare("select tier as type, id, title, private from nuggets where capture_id = ? or origins like ?").all(id, `%"${id}"%`) as never[]),
-        ...(db.prepare("select 'task' as type, id, title, 0 as private from tasks where origin_capture_id = ?").all(id) as never[]),
+        // Its own task, or one it became part of with others.
+        ...(db.prepare("select 'task' as type, id, title, 0 as private from tasks where origin_capture_id = ? or id in (select task_id from task_links where item_id = ?)").all(id, id) as never[]),
         ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title, private from captures where origin_id = ?`).all(id) as never[]),
         // Kept as a clue in a question someone is holding.
         ...(db.prepare('select tier as type, id, title, private from nuggets where id in (select item_id from glosses where source_id = ?)').all(id) as never[])
@@ -2385,9 +2398,10 @@ let reviewQueue: () => unknown[] = () => []
 export function badge(): { due: number; tasks: number; safe: boolean } {
   const n = reviewQueue().length
   // Quiet push: a task whose time has come is counted in the menu bar, unless
-  // you chose pull, where it only rises in Today.
-  const tasks = settings().notify === 'pull' ? 0 : (database()
-    .prepare(`select count(*) n from tasks where status = 'open' and ${ALERT_AT} <= ?`).get(now()) as { n: number }).n
+  // it is set to pull, where it only rises in Today.
+  // A task's own level wins: a pull one is never counted, a quiet or alert one always is.
+  const tasks = (database()
+    .prepare(`select count(*) n from tasks where status = 'open' and ${ALERT_AT} <= ? and coalesce(notify, ?) != 'pull'`).get(now(), settings().notify) as { n: number }).n
   return { due: n, tasks, safe: settings().safeMode }
 }
 

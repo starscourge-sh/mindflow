@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps } from 'react'
 import { chime, click, step, type Cue } from '@/lib/sound'
 import { allThemes, applyTheme, currentTheme, themeName, type Theme } from '@/lib/theme'
 import { Swatch } from './theme/theme-picker'
@@ -26,7 +26,7 @@ type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 /** Something to do from the palette, with the key that does it anywhere. */
 /** `cue` is its sound, on/off for a switch; a tap when it says nothing. */
 /** `typed`: kept out of the list until something is typed. `themes`: opens the theme list in place, and is handed the one kept. */
-export type Action = { label: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean; typed?: boolean; themes?: (theme: Theme) => void }
+export type Action = { label: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean; typed?: boolean; themes?: (theme: Theme) => void; icon?: ComponentProps<typeof AliveIcon>['icon'] }
 
 /** Room for the preview beside the list: the box's 640px window has none, so there it never shows. */
 const ROOMY = '(min-width: 700px)'
@@ -256,6 +256,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
                 onClick={() => run(one)}
               >
                 <span className="min-w-0 flex-1 truncate">{one.label}</span>
+                {one.icon && <AliveIcon key={one.label} icon={one.icon} size={14} className="text-muted-foreground" />}
                 {one.keys && <span className="flex shrink-0 gap-0.5"><Pressed keys={one.keys} each /></span>}
               </button>
             ))}

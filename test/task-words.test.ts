@@ -1,7 +1,7 @@
 // Run with: node --test test/task-words.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { advance, readTask } from '../src/main/task-words.ts'
+import { advance, quadrantOf, readTask } from '../src/main/task-words.ts'
 
 // A Monday morning, so "tomorrow" and "friday" land on known days.
 const at = new Date(2026, 9, 5, 10, 0)
@@ -78,4 +78,37 @@ test('a date word taken from the front leaves a capital, and nothing else change
   assert.equal(readTask('every monday water plants', at).title, 'Water plants')
   assert.equal(readTask('call mom tonight', at).title, 'call mom')
   assert.equal(readTask('review the garden weekly', at).title, 'review the garden')
+})
+
+test('a trailing !alert, !quiet or !pull is the task\'s own reminder level, not its title', () => {
+  const alert = readTask('call the vet tomorrow 3pm !alert', at)
+  assert.equal(alert.notify, 'alerts')
+  assert.equal(alert.title, 'call the vet')
+  assert.equal(readTask('stretch !quiet', at).notify, 'quiet')
+  assert.equal(readTask('tidy the desk !PULL', at).notify, 'pull')
+  assert.equal(readTask('tidy the desk', at).notify, null)
+})
+
+test('a reminder word never clashes with the !s of a priority', () => {
+  const read = readTask('file taxes by friday !! !alerts', at)
+  assert.equal(read.priority, 2)
+  assert.equal(read.notify, 'alerts')
+  assert.equal(read.title, 'file taxes')
+  // Glued to a word, or a word that only starts like one, it stays in the title.
+  assert.equal(readTask('say wow!alert', at).notify, null)
+  assert.equal(readTask('buy !quieter fan', at).notify, null)
+})
+
+test('urgent is late or within two days; important is the flag', () => {
+  const on = (days: number): string => new Date(2026, 9, 5 + days, 9).toISOString()
+  const task = (days: number | null, important: number, deadline: number | null = null) => ({ dueAt: days === null ? null : on(days), deadline: deadline === null ? null : on(deadline), important })
+  assert.equal(quadrantOf(task(0, 1), at), 'do')
+  assert.equal(quadrantOf(task(-3, 1), at), 'do')
+  assert.equal(quadrantOf(task(2, 0), at), 'handoff')
+  assert.equal(quadrantOf(task(3, 1), at), 'plan')
+  assert.equal(quadrantOf(task(null, 1), at), 'plan')
+  assert.equal(quadrantOf(task(null, 0), at), 'drop')
+  assert.equal(quadrantOf(task(9, 0), at), 'drop')
+  // A deadline counts as much as a scheduled day.
+  assert.equal(quadrantOf(task(9, 0, 1), at), 'handoff')
 })

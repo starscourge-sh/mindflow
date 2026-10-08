@@ -296,6 +296,7 @@ export function ReadThrough({ items, start = 0, onClose }: {
                     host={window.api}
                     shape="document"
                     readOnly={!writing}
+                    typewriter
                     // Where the click was, or the end when E asked.
                     autofocus={writing && caret.current === null ? 'end' : false}
                     onReady={(editor) => {
