@@ -23,7 +23,7 @@ import { Kbd, toast } from './ui'
 import { FULL_TURN, WANDER, glyph, inClay, konami, landedAside } from './welcome-eggs'
 
 /**
- * The welcome: seven screens over the whole main window, the first time
+ * The welcome: eight screens over the whole main window, the first time
  * Vigil opens (and again from the Vigil menu, ⌘K or Settings).
  *
  *   0 hello: today's date and hour, a line typed, and the year as a ruler
@@ -32,8 +32,10 @@ import { FULL_TURN, WANDER, glyph, inClay, konami, landedAside } from './welcome
  *   2 catch something: in the real box; this screen waits for it
  *   3 it landed: your real Inbox row, an ink line under your first word
  *   4 it comes back: your words as next year's postcard, the year rolling on
- *   5 make it yours: the theme dial
- *   6 how to start: fresh, the sandbox, or your notes
+ *   5 a year of it: an example year read back, the books and the lines
+ *     kept from them, the hour you think best, how much you remembered
+ *   6 make it yours: the theme dial
+ *   7 how to start: fresh, the sandbox, or your notes
  *
  * Esc always works: before the last screen it goes to it (never into an
  * empty app), and on it, it closes. Keys swap screens at once; a click
@@ -41,7 +43,9 @@ import { FULL_TURN, WANDER, glyph, inClay, konami, landedAside } from './welcome
  * capture landing, the caps under your fingers.
  */
 
-const SCREENS = 7
+const SCREENS = 8
+/** The theme dial's screen. */
+const DIAL = 6
 const LAST = SCREENS - 1
 const MODS: Record<string, string> = { '⌘': 'Meta', '⌥': 'Alt', '⌃': 'Control', '⇧': 'Shift' }
 const capsOf = (keys: string): string[] => keys.match(/[⌃⌥⇧⌘]|[^⌃⌥⇧⌘]+/g) ?? []
@@ -206,6 +210,7 @@ function YearRule({ calm, kept, faded }: { calm: boolean; kept: Set<string>; fad
   // The first of each month a little taller, so the months read without a grid.
   const first = (d: number): boolean => start.add(d, 'day').date() === 1
   const months = Array.from({ length: 12 }, (_, m) => ({ name: start.add(m, 'month').format('MMM'), d: start.add(m, 'month').diff(start, 'day') }))
+  const anyKept = Array.from({ length: at }, (_, d) => d).some(keptOn)
   return (
     <figure aria-label={`Today is day ${at + 1} of ${days}`} className="relative w-full">
       <div ref={box} className="relative h-[calc(32px+2.9rem)]">
@@ -231,6 +236,10 @@ function YearRule({ calm, kept, faded }: { calm: boolean; kept: Set<string>; fad
           </>
         )}
       </div>
+      {/* What it is, said once and quietly, so the ruler reads at a glance. */}
+      <figcaption className={`mt-2 text-[0.8125rem] leading-snug text-(--mf-wl-quiet) ${quiet ? '' : 'mf-rise-text'}`}>
+        Each mark is a day of your year. {anyKept ? 'The tall ones are days you kept something.' : 'Keep something, and its day stands taller.'}
+      </figcaption>
     </figure>
   )
 }
@@ -378,7 +387,7 @@ export function Welcome(): React.JSX.Element | null {
   }
   const next = (): void => {
     chime('page')
-    if (at === 5 && picked.current) applyTheme(picked.current)
+    if (at === DIAL && picked.current) applyTheme(picked.current)
     // No capture, nothing landed: past the landing.
     if (at === 2 && !caught) return go(4)
     go(at + 1)
@@ -408,7 +417,7 @@ export function Welcome(): React.JSX.Element | null {
       if (event.key === 'Escape') skip()
       else if (event.key === 'Enter') primary[at]?.()
       else if (at === LAST && /^[123]$/.test(event.key)) choose(Number(event.key) as 1 | 2 | 3)
-      else if (at === 5 && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+      else if (at === DIAL && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
         // The dial's own, as its scroll wheel turns it: turned from anywhere on
         // the screen. Left and right stay back and next, as on every other screen.
         const dial = document.querySelector<HTMLElement>('[role="slider"][aria-label="Theme"]')
@@ -446,7 +455,8 @@ export function Welcome(): React.JSX.Element | null {
     3: next,
     4: next,
     5: next,
-    6: () => choose(1)
+    6: next,
+    [LAST]: () => choose(1)
   }
 
   if (at < 0) return null
@@ -476,7 +486,8 @@ export function Welcome(): React.JSX.Element | null {
             {at === 2 && <Catch boxUp={boxUp} />}
             {at === 3 && caught && <Landed capture={caught} />}
             {at === 4 && <ComesBack capture={caught} />}
-            {at === 5 && <Yours onPick={(theme) => (picked.current = theme)} />}
+            {at === 5 && <AYear calm={motionless} />}
+            {at === DIAL && <Yours onPick={(theme) => (picked.current = theme)} />}
             {at === LAST && <Start name={replay ? '' : (state?.name ?? '')} skipped={skipped} importing={importing} onPick={choose} onFiles={() => (leave('notes'), void window.api.importFrom('files'))} />}
           </motion.section>
         </AnimatePresence>
@@ -492,7 +503,7 @@ export function Welcome(): React.JSX.Element | null {
           {at === 0 && <Primary onClick={next}>Show me</Primary>}
           {at === 1 && <LateButton onClick={openBox} />}
           {at === 2 && <Primary onClick={openBox} keys={<BoxKeys />} hidden={boxUp}>Open the box</Primary>}
-          {(at === 3 || at === 4 || at === 5) && <Primary onClick={next}>Next</Primary>}
+          {at >= 3 && at < LAST && <Primary onClick={next}>Next</Primary>}
           {at === LAST && <Primary onClick={() => choose(1)}>Start fresh</Primary>}
         </div>
       </footer>
@@ -976,6 +987,65 @@ function ComesBack({ capture }: { capture: CaptureMeta | null }): React.JSX.Elem
         </h1>
         <p className={`${BODY} max-w-[30ch]`}>A year to the day. Sooner, too: as a hint in the box, or in Review before you forget.</p>
       </div>
+    </div>
+  )
+}
+
+/**
+ * What a year of it becomes, shown rather than listed: an example year read
+ * back, the way Your year, wrapped will read yours. The first screen's
+ * ruler, a year on, its tall marks the days something was kept; then four
+ * things the year found out about its reader, one at a time, a beat apart.
+ * Plainly labelled an example: nothing on it is yours yet.
+ */
+function AYear({ calm }: { calm: boolean }): React.JSX.Element {
+  useEffect(() => chime('riffle'), [])
+  const quiet = calm || still()
+  // The example's days kept: most of them, more as the habit takes, never
+  // every one. Drawn a week to a mark, each as tall as the days kept in it,
+  // so the year reads at a glance as the first screen's ruler, filled in.
+  const [[path, days]] = useState(() => {
+    let line = ''
+    let n = 0
+    for (let week = 0; week < 52; week++) {
+      let kept = 0
+      for (let d = week * 7; d < week * 7 + 7; d++) if (((d * 2654435761) >>> 0) % 100 < 38 + d / 6.5) kept++
+      n += kept
+      line += `M${week * 7 + 3.5} 26V${24 - kept * 3}`
+    }
+    return [line, n] as const
+  })
+  const found: [string, string][] = [
+    ['You kept the most from Frankenstein.', '11 lines, more than from any other book'],
+    ['You think best on Sunday evenings.', 'a third of all you caught, around 9pm'],
+    ['You kept circling one question.', '“Who is the monster?” Four clues, then an answer'],
+    ['You remembered 86%.', 'of what came back to you, on 112 different days']
+  ]
+  const arrive = (i: number): object => quiet ? {} : { initial: { opacity: 0, transform: 'translateY(6px)' }, animate: { opacity: 1, transform: 'translateY(0px)' }, transition: { delay: 0.9 + i * 0.5, duration: 0.32, ease: EASE } }
+  return (
+    <div className="mx-auto grid w-full max-w-[72rem] items-center gap-x-[clamp(2rem,6vw,6rem)] gap-y-8 @[50rem]:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+      <div className="flex flex-col gap-[clamp(0.75rem,2.6vh,1.5rem)]">
+        <h1 className={`${HEADLINE} max-w-[13ch]`}>A year of it, read back to you.</h1>
+        <p className={`${BODY} max-w-[30ch]`}>No more notes in three apps you never open again. One book, and once a year it shows you what you were like.</p>
+      </div>
+      <figure aria-label="An example year, read back" className="w-full max-w-[30rem] justify-self-center rounded-2xl border bg-background/90 p-[clamp(1rem,2.6vh,1.5rem)] shadow-(--mf-panel-shadow) [@media(max-height:520px)]:hidden">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="font-heading text-[1.0625rem] font-medium text-foreground">A year, wrapped</p>
+          <span className="rounded-full border px-2 py-0.5 text-[0.6875rem] font-medium tracking-[0.08em] text-(--mf-wl-quiet) uppercase">An example</span>
+        </div>
+        <svg aria-hidden viewBox="0 0 365 26" preserveAspectRatio="none" className="mt-3 h-7 w-full overflow-visible">
+          <path d={path} stroke="var(--foreground)" strokeWidth={3} strokeLinecap="round" vectorEffect="non-scaling-stroke" fill="none" opacity={0.7} className={quiet ? '' : 'mf-sweep'} />
+        </svg>
+        <p className="mt-1.5 text-[0.75rem] text-(--mf-wl-quiet)">{days} days you kept something, a week to a mark</p>
+        <ol className="mt-[clamp(0.75rem,2.4vh,1.25rem)] flex flex-col gap-[clamp(0.5rem,1.7vh,0.9rem)] border-t border-foreground/10 pt-[clamp(0.75rem,2.4vh,1.25rem)]">
+          {found.map(([said, how], i) => (
+            <motion.li key={said} {...arrive(i)}>
+              <p className="font-heading text-[clamp(1.0625rem,min(2vw,2.9vh),1.375rem)] leading-tight text-foreground">{said}</p>
+              <p className="mt-0.5 text-[0.8125rem] text-(--mf-wl-quiet)">{how}</p>
+            </motion.li>
+          ))}
+        </ol>
+      </figure>
     </div>
   )
 }
