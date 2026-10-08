@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { animate, motion, useMotionValue, useTransform } from 'motion/react'
+import { animate, motion, useMotionValue, useTransform, type MotionValue } from 'motion/react'
 import { allThemes, applyTheme, currentTheme, themeName, type Theme } from '@/lib/theme'
-import { chime, step } from '@/lib/sound'
+import { chime, click, step } from '@/lib/sound'
 import { Swatch } from '@/components/theme/theme-picker'
 import { Rolling } from './ui'
 
@@ -15,7 +15,23 @@ import { Rolling } from './ui'
  * Keys turn it at once (pressed many times, they should never wait for a
  * settle); a drag follows the pointer and lands on the nearest detent with a
  * little spring, carrying the flick's speed. A full turn one way is noticed.
+ *
+ * It guides the hand: each swatch grows and brightens the nearer it comes to
+ * the notch, the notch glows and dips toward it, a drag is drawn gently into
+ * each detent, and a tick is heard and the notch bumps as one passes. The
+ * first time it is seen, it rocks a little, to show it turns.
  */
+// The rock is shown once a session: a hint, not a habit.
+let rocked = false
+
+/** -180..180: how far `deg` is from the top. */
+const offTop = (deg: number): number => ((((deg + 180) % 360) + 360) % 360) - 180
+/** 1 at the notch, falling smoothly to 0 at `reach` degrees away. */
+const near = (deg: number, reach: number): number => {
+  const t = Math.max(0, 1 - Math.abs(offTop(deg)) / reach)
+  return t * t * (3 - 2 * t)
+}
+
 export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: { size?: number; /** The name under it set as a title, for the welcome's centrepiece. */ big?: boolean; onPick: (theme: Theme) => void; onFullTurn?: () => void; /** Said in place of the theme's name, for a moment. */ say?: string }): React.JSX.Element {
   const themes = allThemes()
   const n = themes.length
@@ -25,6 +41,15 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
   const turn = useMotionValue(-at * per)
   const counter = useTransform(turn, (deg) => -deg)
   const [grabbing, setGrabbing] = useState(false)
+  // Touched yet: the hint under the name goes once you have.
+  const [touched, setTouched] = useState(false)
+  // The notch: how near the nearest swatch is (1 when one sits under it), and a bump as one passes.
+  const pull = useTransform(turn, (deg) => near(deg - Math.round(deg / per) * per, per / 2))
+  const bump = useMotionValue(1)
+  const notchY = useTransform(pull, (p) => p * 2)
+  const notchScale = useTransform([pull, bump], ([p, b]: number[]) => (0.8 + 0.35 * p) * b)
+  const glow = useTransform(pull, (p) => p * p)
+  const glowScale = useTransform(pull, (p) => 0.6 + 0.4 * p)
   // Detents passed one way, for the full turn.
   const travelled = useRef(0)
   const told = useRef(false)
@@ -33,10 +58,13 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
   const wrap = (i: number): number => ((i % n) + n) % n
 
   // A detent reached: worn, heard, and told.
-  const land = (raw: number, by: 1 | -1 | 0): void => {
+  const land = (raw: number, by: 1 | -1 | 0, heard: 'note' | 'tick' = 'note'): void => {
     const i = wrap(raw)
     if (i === at && by === 0) return
-    step(i)
+    if (heard === 'tick') {
+      click('tick')
+      if (!still()) animate(bump, [1.45, 1], { type: 'spring', bounce: 0.3, duration: 0.3 })
+    } else step(i)
     applyTheme(themes[i], false)
     setAt(i)
     onPick(themes[i])
@@ -53,8 +81,9 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
   /** To detent `raw` (unwrapped), by key (at once) or by pointer (a spring, carrying `velocity`). */
   const go = (raw: number, how: 'key' | 'pointer', velocity = 0): void => {
     const target = -raw * per
-    if (how === 'key' || still()) turn.set(target)
-    else animate(turn, target, { type: 'spring', bounce: 0.18, duration: 0.42, velocity })
+    setTouched(true)
+    if (how === 'key' || still()) turn.jump(target)
+    else animate(turn, target, { type: 'spring', bounce: 0.25, duration: 0.45, velocity })
   }
   const here = (): number => Math.round(-turn.get() / per)
 
@@ -64,6 +93,20 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
     go(next, how)
   }
 
+  // The first sight of it: a small rock either way and back, to show the ring turns.
+  useEffect(() => {
+    if (!big || rocked || still()) return
+    rocked = true
+    const swing = Math.min(14, per * 0.4)
+    let run: { stop: () => void } | undefined
+    const wait = setTimeout(() => {
+      const from = turn.get()
+      run = animate(turn, [from, from + swing, from - swing * 0.45, from], { duration: 1.1, times: [0, 0.32, 0.68, 1], ease: ['easeOut', 'easeInOut', 'easeOut'] })
+    }, 900)
+    return () => (clearTimeout(wait), run?.stop())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // The wheel: a detent per notch, or per 40px of a trackpad's glide.
   const wheel = useRef(0)
   const ring = useRef<HTMLDivElement>(null)
@@ -72,6 +115,7 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
     if (!el) return
     const onWheel = (event: WheelEvent): void => {
       event.preventDefault()
+      setTouched(true)
       wheel.current += Math.abs(event.deltaY) > Math.abs(event.deltaX) ? event.deltaY : event.deltaX
       while (Math.abs(wheel.current) >= 40) {
         const by = wheel.current > 0 ? 1 : -1
@@ -94,6 +138,7 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
     // A click on a swatch is a click: the drag starts once it moves.
     ring.current?.setPointerCapture(event.pointerId)
     turn.stop()
+    setTouched(true)
     drag.current = { from: angleOf(event), turn: turn.get(), last: here(), moved: 0, samples: [] }
     setGrabbing(true)
   }
@@ -107,11 +152,15 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
     now.from += delta
     now.moved += Math.abs(delta)
     now.turn += delta
-    turn.set(now.turn)
+    // Drawn into each detent: the ring lags the hand a little either side of one, and catches up between.
+    const k = Math.round(now.turn / per) * per
+    const half = per / 2
+    const f = (now.turn - k) / half
+    turn.set(k + Math.sign(f) * half * Math.abs(f) ** 1.6)
     now.samples = [...now.samples.slice(-4), { t: performance.now(), deg: now.turn }]
     const detent = here()
     if (detent !== now.last) {
-      land(detent, detent > now.last ? 1 : -1)
+      land(detent, detent > now.last ? 1 : -1, 'tick')
       now.last = detent
     }
   }
@@ -135,6 +184,7 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
     // Projected a little past where it was let go, the way a flicked knob carries on.
     const projected = Math.round(-(turn.get() + velocity * 0.12) / per)
     if (projected !== now.last) land(projected, projected > now.last ? 1 : -1)
+    else step(wrap(projected))
     go(projected, 'pointer', velocity)
   }
 
@@ -157,6 +207,7 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
           if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight' && event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
           event.preventDefault()
           event.stopPropagation()
+          turn.stop()
           nudge(event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1, 'key')
         }}
         onPointerDown={onDown}
@@ -170,24 +221,15 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
         <div aria-hidden className="absolute inset-0 rounded-full border bg-[color-mix(in_oklab,var(--foreground)_4%,var(--background))] shadow-[inset_0_1px_0_color-mix(in_oklab,white_8%,transparent),inset_0_-10px_24px_-12px_color-mix(in_oklab,var(--mf-shadow-ink)_40%,transparent),0_12px_32px_-14px_color-mix(in_oklab,var(--mf-shadow-ink)_45%,transparent)]" />
         <div aria-hidden className="absolute rounded-full border bg-background shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_20%,transparent)]" style={{ inset: band }} />
         {/* The notch at the top: where the theme you are wearing sits. */}
-        <div aria-hidden className="absolute top-[3px] left-1/2 h-[7px] w-[2px] -translate-x-1/2 rounded-full bg-primary" />
+        {/* A soft light under it, brighter as a swatch comes home; and the notch itself dips toward it. */}
+        <motion.div aria-hidden className="pointer-events-none absolute left-1/2 rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--primary)_32%,transparent),transparent)]" style={{ width: band * 1.9, height: band * 1.9, top: band * 0.6 - band * 0.95, x: '-50%', opacity: glow, scale: glowScale }} />
+        <motion.div aria-hidden className="absolute top-[3px] left-1/2 -ml-px h-[7px] w-[2px] origin-top rounded-full bg-primary" style={{ y: notchY, scale: notchScale }} />
         <motion.div aria-hidden className="absolute inset-0" style={{ rotate: turn }}>
           {themes.map((theme, i) => {
             const deg = i * per - 90
             const x = size / 2 + radius * Math.cos((deg * Math.PI) / 180)
             const y = size / 2 + radius * Math.sin((deg * Math.PI) / 180)
-            return (
-              <motion.span
-                key={theme}
-                data-detent={i}
-                className="absolute flex size-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full [--mf-swatch-ring:color-mix(in_oklab,var(--foreground)_4%,var(--background))]"
-                style={{ left: x, top: y, rotate: counter }}
-              >
-                <span style={{ zoom: grow }} className={`transition-transform duration-150 ease-(--mf-ease) ${i === at ? 'scale-110' : 'scale-[0.82] opacity-70'}`}>
-                  <Swatch theme={theme} />
-                </span>
-              </motion.span>
-            )
+            return <Detent key={theme} theme={theme} i={i} x={x} y={y} per={per} grow={grow} turn={turn} counter={counter} />
           })}
         </motion.div>
         {/* The middle: a sample of the words, in the theme being worn. */}
@@ -196,7 +238,28 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
           <span className="mt-1.5 h-[3px] w-6 rounded-full bg-primary" />
         </div>
       </div>
-      <Rolling text={say ?? themeName(themes[at])} by="character" className={big ? 'h-[1.3em] max-w-[20rem] truncate font-heading text-[clamp(1.125rem,min(2.2vw,3.2vh),1.625rem)] leading-[1.3] text-foreground' : 'h-5 max-w-[16rem] truncate text-control font-medium text-foreground'} />
+      <div className="flex flex-col items-center">
+        <Rolling text={say ?? themeName(themes[at])} by="character" className={big ? 'h-[1.3em] max-w-[20rem] truncate font-heading text-[clamp(1.125rem,min(2.2vw,3.2vh),1.625rem)] leading-[1.3] text-foreground' : 'h-5 max-w-[16rem] truncate text-control font-medium text-foreground'} />
+        {big && <span aria-hidden className={`text-meta text-muted-foreground transition-opacity duration-300 ease-(--mf-ease) ${touched ? 'opacity-0' : 'opacity-100'}`}>Drag the ring</span>}
+      </div>
     </div>
+  )
+}
+
+/** One swatch on the ring: larger and brighter the nearer it is to the notch, falling off smoothly. */
+function Detent({ theme, i, x, y, per, grow, turn, counter }: { theme: Theme; i: number; x: number; y: number; per: number; grow: number; turn: MotionValue<number>; counter: MotionValue<number> }): React.JSX.Element {
+  const close = useTransform(turn, (deg) => near(i * per + deg, per * 1.6))
+  const scale = useTransform(close, (c) => 0.8 + 0.34 * c)
+  const opacity = useTransform(close, (c) => 0.55 + 0.45 * c)
+  return (
+    <motion.span
+      data-detent={i}
+      className="absolute flex size-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full [--mf-swatch-ring:color-mix(in_oklab,var(--foreground)_4%,var(--background))]"
+      style={{ left: x, top: y, rotate: counter }}
+    >
+      <motion.span style={{ zoom: grow, scale, opacity }}>
+        <Swatch theme={theme} />
+      </motion.span>
+    </motion.span>
   )
 }
