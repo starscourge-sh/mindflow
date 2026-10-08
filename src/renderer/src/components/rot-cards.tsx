@@ -233,16 +233,17 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
               if (who !== undefined) setCards((all) => all.map((one) => (one.id === card.id ? { ...one, attribution: who || null } : one)))
             }} /></div>
           ) : (
-          <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-            {/* How long it has gone untouched, warming with age: the rot itself.
-                Never cut short: in a narrow panel the buttons wrap under it instead. */}
+          <div className="mt-1 flex min-w-0 flex-nowrap items-center gap-1 overflow-hidden text-xs text-muted-foreground">
+            {/* How long it has gone untouched, warming with age: the rot itself. Never cut short. */}
             <span className="mr-auto shrink-0 whitespace-nowrap">
               <span style={{ color: ageTint(card.capturedAt, card.importedAt) }}>{daysSince(card.capturedAt) < 1 ? 'from today' : `untouched ${age(card.capturedAt)}`}</span>
             </span>
-            {/* Who said it matters for a quote, or once someone is named. */}
+            {/* Who said it matters for a quote, or once someone is named. Reached,
+                the card's actions take its place on the same line, so the card never
+                grows under the pointer; W still asks. */}
             {(card.kind === 'quote' || card.attribution) && (
             <Tip label={<span className="flex items-center gap-2">Say who said it: a quote needs one to be kept<Pressed keys="W" /></span>}>
-            <Button variant="ghost" size="sm" className="text-muted-foreground transition-colors group-hover:text-foreground focus-visible:text-foreground" onClick={() => setAsking(card.id)}>
+            <Button variant="ghost" size="sm" className="min-w-0 text-muted-foreground group-hover:hidden group-focus-within:hidden group-focus-visible:hidden focus-visible:text-foreground" onClick={() => setAsking(card.id)}>
               {card.kind === 'quote' && card.attribution ? <Signed who={card.attribution} className="private-text max-w-56" /> : <Rolling text={card.attribution ?? 'Who?'} />}
             </Button>
             </Tip>
@@ -251,16 +252,15 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             {[
               { label: 'Tag', key: 'T', tint: 'blue', what: 'Add a tag, so it turns up on that tag\'s page', run: () => setTagging(card.id) },
               { label: 'Tidy', key: 'F', tint: 'green', what: 'Bold the line that matters, fold the rest, cross off what is done', run: () => openPass('tidy', [card.id]) },
-              { label: `Come back ${day}`, key: 'C', tint: 'orange', what: `Set it aside for ${day}'s deciding pass, and let it go until then`, run: () => setAside(card) }
+              { label: 'Later', key: 'C', tint: 'orange', what: `Set it aside for ${day}'s deciding pass, and let it go until then`, run: () => setAside(card) }
             ].map((one) => (
               <Tip key={one.key} label={<span className="flex items-center gap-2">{one.what}<Pressed keys={one.key} /></span>}>
               {/* Quiet at rest, their colour when you reach the card. */}
               <Button variant="ghost" size="sm"
                 // Out of sight until you reach the card: three cards of three buttons
                 // each was a wall of controls over the list. Taking no room until
-                // then too: hidden but still there, in a narrow panel they wrapped
-                // into blank lines and left Who? stranded mid-row.
-                className="hidden text-muted-foreground transition-[color] group-hover:inline-flex group-hover:text-[var(--tint)] group-focus-within:inline-flex group-focus-visible:inline-flex group-focus-visible:text-[var(--tint)] focus-visible:text-[var(--tint)]"
+                // then too, and then only the room Who? gives up, on the same line.
+                className="hidden shrink-0 text-muted-foreground transition-[color] group-hover:inline-flex group-hover:text-[var(--tint)] group-focus-within:inline-flex group-focus-visible:inline-flex group-focus-visible:text-[var(--tint)] focus-visible:text-[var(--tint)]"
                 style={{ '--tint': `var(--tt-color-text-${one.tint})` } as React.CSSProperties}
                 onClick={one.run}
               >

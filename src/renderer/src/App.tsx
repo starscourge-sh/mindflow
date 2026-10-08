@@ -1124,7 +1124,7 @@ export default function App(): React.JSX.Element {
           className="h-6 w-7 flex-none rounded-none hover:bg-accent/60"
           options={[
             { label: 'Vim keys', on: vim, set: setVim },
-            { label: 'Show in screen recordings', on: recordable, set: setRecordable, icon: recordable ? CameraIcon : CameraOffIcon },
+            { label: 'Show in screen recordings', on: recordable, set: setRecordable },
             { label: 'Show private titles for now', on: reveal, set: setReveal },
             { label: 'Word count', on: counting, set: setCounting }
           ]}
