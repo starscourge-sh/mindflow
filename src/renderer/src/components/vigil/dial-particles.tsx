@@ -19,7 +19,7 @@ import { falloff } from '@/lib/proximity'
  * the notch's own glow is enough.
  */
 
-const CAP = 110
+const CAP = 170
 type Dot = { kind: 0 | 1; th: number; ro: number; w: number; x: number; y: number; vx: number; vy: number; age: number; life: number; size: number; col: string; a: number; ph: number }
 
 const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -122,7 +122,7 @@ export function DialParticles({ size, band, per, turn, at, touched, grabbing, li
         const speed = rand(40, 90)
         // From the swatch's edge, not its middle, so none are born hidden under it.
         const from = band * rand(0.38, 0.5)
-        dots.push({ kind: 1, th: 0, ro: 0, w: 0, x: c + Math.cos(angle) * from, y: c - home + Math.sin(angle) * from * 0.8, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, age: 0, life: rand(0.7, 1.1), size: rand(1.4, 2.6), col: pick(i), a: rand(0.8, 1), ph: 0 })
+        dots.push({ kind: 1, th: 0, ro: 0, w: 0, x: c + Math.cos(angle) * from, y: c - home + Math.sin(angle) * from * 0.8, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, age: 0, life: rand(0.7, 1.1), size: rand(2, 3.6), col: pick(i), a: rand(0.9, 1), ph: 0 })
       }
       wake()
     }
@@ -149,7 +149,7 @@ export function DialParticles({ size, band, per, turn, at, touched, grabbing, li
         th = rand(-180, 180)
         w = rand(6, 14)
       } else th = rand(36, 178) * (Math.random() < 0.5 ? -1 : 1)
-      dots.push({ kind: 0, th, ro, w, x: 0, y: 0, vx: 0, vy: 0, age: 0, life: rand(2.6, 4.4), size: rand(0.9, 1.9), col, a: rand(0.45, 1), ph: rand(0, Math.PI * 2) })
+      dots.push({ kind: 0, th, ro, w, x: 0, y: 0, vx: 0, vy: 0, age: 0, life: rand(2.6, 4.4), size: rand(1.4, 2.8), col, a: rand(0.6, 1), ph: rand(0, Math.PI * 2) })
     }
 
     const draw = (now: number): void => {
@@ -174,7 +174,7 @@ export function DialParticles({ size, band, per, turn, at, touched, grabbing, li
         const py = (pointer.y - box.top) / scale - c
         const from = Math.hypot(px, py)
         const off = Math.max(0, from - size / 2, size / 2 - band - from)
-        closeness = falloff(off, size * 0.55)
+        closeness = falloff(off, size * 0.9)
         onBand = off === 0 ? 1 : 0
         under = (Math.atan2(px, -py) * 180) / Math.PI
       }
@@ -189,9 +189,9 @@ export function DialParticles({ size, band, per, turn, at, touched, grabbing, li
       const coming = ((Math.round(-deg / per) % n) + n) % n
 
       // As many as the moment asks for, fed in gently rather than all at once.
-      const want = Math.min(CAP, 22 * quiet + 26 * near + 18 * over + grab * (16 + 16 * pull))
+      const want = Math.min(CAP, 34 * quiet + 44 * near + 30 * over + grab * (26 + 26 * pull))
       let streams = dots.reduce((sum, dot) => sum + (dot.kind === 0 ? 1 : 0), 0)
-      owed = Math.min(owed + dt * (8 + 50 * Math.max(near, grab)), 3)
+      owed = Math.min(owed + dt * (14 + 80 * Math.max(near, grab)), 4)
       while (owed >= 1 && streams < want && dots.length < CAP) {
         spawn(velocity, pull, coming, under)
         streams += 1
@@ -258,15 +258,15 @@ export function DialParticles({ size, band, per, turn, at, touched, grabbing, li
             const dx = px - x
             const dy = py - y
             const d = Math.hypot(dx, dy) || 1
-            const lean = near * falloff(d, size * 0.45) * Math.min(d, 7 + 5 * over)
+            const lean = near * falloff(d, size * 0.75) * Math.min(d, 12 + 9 * over)
             x += (dx / d) * lean
             y += (dy / d) * lean
           }
         }
         if (alpha <= 0.004) continue
         // A grain of light with a soft halo, from one drawing per colour.
-        const r = dot.size * 3
-        ctx.globalAlpha = Math.min(1, alpha) * (pale ? 0.8 : 1)
+        const r = dot.size * 4
+        ctx.globalAlpha = Math.min(1, alpha * 1.45) * (pale ? 0.85 : 1)
         ctx.drawImage(mote(dot.col, pale), x - r, y - r, r * 2, r * 2)
       }
       ctx.globalAlpha = 1
