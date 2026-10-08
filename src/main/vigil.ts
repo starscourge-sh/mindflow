@@ -315,6 +315,9 @@ const DEFAULTS = {
   // Every bar that fills: plain, a lightsaber, or a dinosaur running along
   // it. The developer's own Vigil wears the saber.
   progressBars: (ownData() ? 'saber' : 'plain') as 'plain' | 'saber' | 'dino',
+  // The focus pill: its ring alone, or the progress bars' dinosaur beside it,
+  // running in place or along a line that fills with the session.
+  focusBubble: 'circle' as 'circle' | 'runner' | 'progress',
   // The menu bar's day, week, month and year as rows of dots instead of bars.
   tempusDots: false,
   // A plain-text copy of each capture beside the backups (never a private one).

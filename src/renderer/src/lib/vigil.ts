@@ -95,6 +95,8 @@ export type Settings = {
   tempusDots: boolean
   /** How every bar that fills is drawn; see components/vigil/progress-bar.tsx. */
   progressBars: 'plain' | 'saber' | 'dino'
+  /** The focus pill's ring alone, or with the dinosaur running beside it. */
+  focusBubble: 'circle' | 'runner' | 'progress'
   /** A plain Markdown copy of each capture beside the backups; never a private one. */
   markdownCopies: boolean
   /** How far back the Recent panel reaches, in days. */

@@ -9,12 +9,13 @@ import XIcon from '@/components/ui/x-icon'
 // The theme's colours: this window has no editor, which is what usually brings them.
 import '@/assets/styles/_variables.scss'
 import { chime } from '@/lib/sound'
-import { useAppearance, useLive, vigil, type Focus } from '@/lib/vigil'
+import { useAppearance, useLive, vigil, type Focus, type Settings } from '@/lib/vigil'
 import { useAlive, useSurface } from '@/lib/use-alive'
 import { BorderBeam } from 'border-beam'
 import { Liquid } from 'liquid-gooey'
 import { Typed } from './ui'
 import { DotMatrix } from './dot-matrix'
+import { ProgressBar } from './progress-bar'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Check = alive(SimpleCheckedIcon)
@@ -68,6 +69,7 @@ export function FocusPill(): React.JSX.Element | null {
   // Your Sounds, pack, volume and Motion here too: a window of its own still obeys them.
   useAppearance()
   const focus = useLive(vigil.focusNow, undefined as Focus | null | undefined)
+  const bubble = useLive(vigil.settings, null as Settings | null)?.focusBubble ?? 'circle'
   const [now, setNow] = useState(Date.now())
   const rang = useRef<string | null>(null)
   // Hover told by the pointer itself: a window's drag area never reports it.
@@ -125,6 +127,10 @@ export function FocusPill(): React.JSX.Element | null {
   // How far through: the ring is the session itself, filled as it goes.
   const share = focus.plannedMs ? Math.min(1, done / focus.plannedMs) : null
   const last = left !== null && left > 0 && left <= 60000
+  // The dinosaur beside the ring: along a line that fills with the session, or
+  // running in place, hopping a cactus now and then. A session with no length
+  // has no line to fill, so it only runs.
+  const along = bubble === 'progress' && share !== null
   const icon = 'flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)]'
 
   return (
@@ -157,6 +163,14 @@ export function FocusPill(): React.JSX.Element | null {
         >
           {focus.goal || (timer ? 'Timer' : 'Focus')}
         </button>
+        {/* It runs all session, looked at or not, unlike the bars in the app,
+            which run only while their window is (main.css). Paused, or time up
+            in place, it stands; reaching the end of its line, it jumps for joy. */}
+        {bubble !== 'circle' && (
+          <span className={`shrink-0 ${paused || (over && !along) ? 'mf-bubble-still' : alive ? 'mf-bubble-run' : ''} ${over && along && alive ? 'mf-bubble-cheer' : ''}`}>
+            <ProgressBar as="dino" value={along ? (over ? 1 : share!) : 0} label="The session so far" duration={0} className={along ? 'w-[64px]' : 'w-[44px]'} />
+          </span>
+        )}
         <span className="relative grid h-7 shrink-0 grid-cols-[minmax(0,1fr)] place-items-center transition-[width] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]" style={wide ? { width: hover ? wide.tools : wide.time } : undefined}>
           {/* At rest: the time, in figures that do not jiggle as they count. */}
           <span

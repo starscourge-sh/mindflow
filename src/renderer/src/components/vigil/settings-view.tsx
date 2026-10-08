@@ -419,6 +419,10 @@ export function SettingsView(): React.JSX.Element {
             <Chips className="shrink-0" options={[{ id: 'plain', label: 'Plain' }, { id: 'saber', label: 'Lightsaber' }, { id: 'dino', label: 'Dino run' }]}
               on={(id) => id === (settings.progressBars ?? 'plain')} pick={(progressBars) => set({ progressBars: progressBars as Settings['progressBars'] })} />
           </Setting>
+          <Setting title="Session bubble" note="The bubble that floats while you focus. Its circle always fills; beside it, the dinosaur can run the whole session, or along a line that ends when time is up." keywords="focus session pill bubble timer circle ring dino dinosaur runner run progress fun playful">
+            <Chips className="shrink-0" options={[{ id: 'circle', label: 'Circle' }, { id: 'runner', label: 'Runner' }, { id: 'progress', label: 'Runner as progress' }]}
+              on={(id) => id === (settings.focusBubble ?? 'circle')} pick={(focusBubble) => set({ focusBubble: focusBubble as Settings['focusBubble'] })} />
+          </Setting>
           <Setting title="Pictures in lists" note="A note with a picture in it shows the first one, small, at the end of its row and on its card.">
             <Switch checked={settings.thumbnails !== false} onCheckedChange={(thumbnails) => set({ thumbnails })} />
           </Setting>

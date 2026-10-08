@@ -1213,6 +1213,18 @@ input[type='number']::-webkit-outer-spin-button {
   :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-near) { animation: none; }
   .pb-core::after { animation: none; }
 }
+/* The focus pill's dinosaur (focus-pill.tsx) runs the whole session, since
+   the pill is watched without being focused; it is told when it is hidden.
+   Paused, it stands. At the end of its line, a small jump for joy: quick up,
+   falling back, twice. */
+:root .mf-bubble-run :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-near) { animation-play-state: running; }
+.mf-bubble-still :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-near) { animation: none; }
+.mf-bubble-cheer .pb-dino svg.left-0 { animation: pb-cheer 0.42s 2; }
+@keyframes pb-cheer {
+  0% { transform: translateY(0); animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1); }
+  45% { transform: translateY(-6px); animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.3); }
+  100% { transform: translateY(0); }
+}
 
 
 /* Tape (vigil/tape.tsx): a matte strip, torn at its ends, with a fine grain
