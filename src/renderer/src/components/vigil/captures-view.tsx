@@ -442,7 +442,12 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
             )}
             {boardShown && <Board key={`${open.id}-${rev}`} editor={editor} id={open.id} tools={tools} />}
           </div>
-          {(!boardShown || propsOut) && <CaptureProps capture={meta} onOpen={onOpen} fold={!boardShown} />}
+          {(!boardShown || propsOut) && <CaptureProps capture={meta} onOpen={onOpen} fold={!boardShown} onExit={() => {
+            const at = shown.findIndex((one) => one.id === meta.id)
+            const next = shown[at + 1] ?? shown[at - 1]
+            if (next && next.id !== meta.id) pick(next.id)
+            else setOpen(null)
+          }} />}
         </motion.div>
       ) : null}
     </>
@@ -454,7 +459,7 @@ export const captureDots = (capture: CaptureMeta): MenuItem[] =>
   captureMenu(capture).filter((item) => !item || item === 'separator' || !['Open', 'Unpin', 'Pin to the box', `Copy ${captureKey(capture.number)}`].includes(item.label))
 
 /** Status and the exits, then what the capture is, then where it came from. */
-export function CaptureProps({ capture, onOpen, className, fold }: { capture: CaptureMeta; onOpen?: (type: string, id: string) => void; className?: string; /** Beside the open note: put away until asked for. */ fold?: boolean }): React.JSX.Element {
+export function CaptureProps({ capture, onOpen, className, fold, onExit }: { capture: CaptureMeta; onOpen?: (type: string, id: string) => void; className?: string; /** Beside the open note: put away until asked for. */ fold?: boolean; /** Once it has taken a way out: on to the next one. */ onExit?: () => void }): React.JSX.Element {
   const Status = STATUS_ICON[capture.status as keyof typeof STATUS_ICON] ?? STATUS_ICON.open
   // Whichever window shows these, ⌘K there acts on this capture.
   useOpenNote({ table: 'captures', type: 'capture', id: capture.id, kind: capture.kind, archived: !!capture.archivedAt })
@@ -490,13 +495,15 @@ export function CaptureProps({ capture, onOpen, className, fold }: { capture: Ca
                   void exit.run().then((result) => {
                     if (result === 'cancelled') return
                     // A task was heard, said and made undoable where it was made; only a capture gone is left to say.
-                    if (exit.label === 'Make it a task') return void (result || refuse('That capture no longer exists, so it cannot become a task'))
+                    if (exit.label === 'Make it a task') return void (result ? onExit?.() : refuse('That capture no longer exists, so it cannot become a task'))
                     if (result === 'needs-source') return refuse('A quote needs to say who said it: add a source below first')
                     // Taken elsewhere a moment ago (the other window, a read-through): it keeps that exit.
                     if (result === 'not-open' || (result as SaveResult | null)?.refused) return refuse(NOT_OPEN)
                     // The sound once it went through, so a refusal never sounds like success first.
                     if (exit.label === 'Discard') tear()
                     else chime(exit.label === 'Promote to nugget' ? 'promote' : 'resolve')
+                    // Dealt with: on to the next one, as mail does, rather than left on what is gone.
+                    onExit?.()
                     if (exit.label === 'Promote to nugget')
                       return toast(exit.said, typeof result === 'string' ? () => void unpromote(capture.id, result) : undefined, 'success', typeof result === 'string' ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
                     // Back to exactly the status it had.
@@ -583,14 +590,15 @@ export function CaptureProps({ capture, onOpen, className, fold }: { capture: Ca
       <Lineage id={capture.id} onOpen={onOpen} became={capture.status === 'open'} />
       <LocalGraph id={capture.id} title={capture.label} onOpen={onOpen} />
       <Island compact title="Details">
-        <Prop icon={Hash}>{captureKey(capture.number)}</Prop>
-        {capture.device && <Prop icon={Laptop}>{capture.device}</Prop>}
-        {capture.weather && <Prop icon={CloudSun}>{capture.weather}</Prop>}
-        {capture.elapsedMs ? <Prop icon={Timer}>Written in {capture.elapsedMs < 60000 ? `${Math.round(capture.elapsedMs / 1000)}s` : `${Math.round(capture.elapsedMs / 60000)} min`}</Prop> : null}
-        {capture.source && <Prop icon={FileText}>{capture.source.replace(/\.md$/, '')}</Prop>}
+        {/* Each value with a quiet word for what it is: a bare "Mac" or "7 Oct" left you guessing. */}
+        <Prop icon={Hash}><Lead>Its number</Lead>{captureKey(capture.number)}</Prop>
+        {capture.device && <Prop icon={Laptop}><Lead>Caught on</Lead>{capture.device}</Prop>}
+        {capture.weather && <Prop icon={CloudSun}><Lead>Weather then</Lead>{capture.weather}</Prop>}
+        {capture.elapsedMs ? <Prop icon={Timer}><Lead>Took</Lead>{capture.elapsedMs < 60000 ? `${Math.round(capture.elapsedMs / 1000)}s` : `${Math.round(capture.elapsedMs / 60000)} min`} to write</Prop> : null}
+        {capture.source && <Prop icon={FileText}><Lead>Came from</Lead>{capture.source.replace(/\.md$/, '')}</Prop>}
         {/* Editable, because a system you can catch up on beats one you
             cannot fall behind in: a note from last Tuesday can say so. */}
-        <DatePicker key={capture.id} value={capture.capturedAt} className="w-full" onChange={(at) => at && void vigil.setCapture(capture.id, 'capturedAt', at)} />
+        <DatePicker key={capture.id} value={capture.capturedAt} lead="Caught" className="w-full" onChange={(at) => at && void vigil.setCapture(capture.id, 'capturedAt', at)} />
         <Prop icon={Download} onClick={() => void saveAttachments([{ table: 'captures', id: capture.id }])}>Save its pictures and files…</Prop>
       </Island>
     </Props>
@@ -689,3 +697,6 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   const chips = <FilterChips view={view} onChange={setView} facets={facets} defaults={filter ?? {}} />
   return { groups, display, chips, density, view, setView, move, moveBy }
 }
+
+/** A quiet lead-in naming what a detail is, before the detail itself. */
+const Lead = ({ children }: { children: React.ReactNode }): React.JSX.Element => <span className="mr-1.5 text-muted-foreground/80">{children}</span>

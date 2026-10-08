@@ -20,7 +20,7 @@ const said = (words: string): Date | null =>
  * it. The value goes in and out as an ISO string, or null for none. With
  * `suggest`, it can be said in words too, and those ways are offered first.
  */
-export function DatePicker({ value, onChange, time = false, placeholder = 'Pick a date', suggest, children, className = '' }: {
+export function DatePicker({ value, onChange, time = false, placeholder = 'Pick a date', suggest, children, lead, className = '' }: {
   value: string | null
   onChange: (iso: string | null) => void
   time?: boolean
@@ -29,6 +29,8 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
   suggest?: string[]
   /** What the button shows in place of the date, if anything. */
   children?: ReactNode
+  /** A quiet word before the date saying what it is ("Caught"). */
+  lead?: string
   className?: string
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
@@ -48,7 +50,7 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
           {children ?? (
             <>
               <CalendarDays className="size-4 shrink-0" />
-              <span className="truncate">{shown}</span>
+              <span className="truncate">{lead && <span className="mr-1.5 text-muted-foreground/80">{lead}</span>}{shown}</span>
             </>
           )}
         </button>
