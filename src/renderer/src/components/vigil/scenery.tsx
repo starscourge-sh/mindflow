@@ -38,8 +38,20 @@ const hash = (text: string): number => {
 function choose(scenes: Scene[], seed: string, moods: Mood[] | null, wide: boolean): Scene | null {
   const shaped = wide ? scenes.filter((one) => one.width >= one.height * 1.2) : scenes
   const pool = [shaped.filter((one) => !moods || moods.includes(one.mood)), shaped, scenes].find((one) => one.length) ?? []
-  return pool.length ? pool[hash(seed) % pool.length] : null
+  const key = `${seed}:${moods?.join() ?? ''}:${wide}`
+  // Kept once shown: the list grows and reorders as the folders are read again,
+  // and a page whose picture changed under you a moment after it opened looked
+  // like a carousel. It stays until the seed changes (a new day, a reshuffle).
+  const kept = pool.find((one) => one.url === picked.get(key))
+  if (kept) return kept
+  // Each picture scored on its own against the seed, so where it sits in the
+  // list does not matter, and a picture added later only wins its share.
+  const best = pool.reduce<Scene | null>((top, one) => (!top || hash(`${seed}:${one.id}`) > hash(`${seed}:${top.id}`) ? one : top), null)
+  if (best) picked.set(key, best.url)
+  return best
 }
+/** The picture each place has shown, for as long as this window is open. */
+const picked = new Map<string, string>()
 
 /** The settings and the scenes in your folders, while Scenery is on. */
 function useScenery(): { settings: Settings | null; scenes: Scene[] } {
