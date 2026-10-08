@@ -251,7 +251,8 @@ export function SandboxHost(): React.JSX.Element | null {
       if (carry?.local?.theme) applyTheme(currentTheme(), false)
       // Its own pictures, whatever yours are: four public-domain landscapes for
       // Scenery and Vigil's own grain for covers; your celebrations come along.
-      const settings = { progressBars: 'saber', ...(carry?.settings ?? {}), scenery: true, sceneryFolders: [await builtInScenery()], coversFolder: '' }
+      // Bars as yours are, plain if you never chose: playful ones are found in Settings, not met first.
+      const settings = { progressBars: 'plain', ...(carry?.settings ?? {}), scenery: true, sceneryFolders: [await builtInScenery()], coversFolder: '' }
       // An editor on the page reads Markdown for the seed; wait for one, five seconds at most.
       for (let waited = 0; !readMarkdown('x') && waited < 5000; waited += 100) await new Promise((wait) => setTimeout(wait, 100))
       await seedSandbox(readMarkdown)

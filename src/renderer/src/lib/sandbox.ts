@@ -10,7 +10,7 @@ export const SANDBOX = new URLSearchParams(location.search).has('sandbox')
 
 /**
  * What comes along into the sandbox: how Vigil feels to you (sounds, motion,
- * your keys, margin marks, the sizes you read at, a playful progress bar) and
+ * your keys, margin marks, the sizes you read at, your progress bars) and
  * your celebrations, the GIFs and pictures that make a milestone yours. Its
  * scenery stays its own public-domain landscapes.
  */
@@ -53,8 +53,7 @@ export async function enterSandbox(): Promise<void> {
       // Not carried: the sandbox starts on its own default.
     }
   }
-  // Plain bars stay home: the sandbox shows off its lightsaber unless you picked a playful one.
-  const carry: Carry = { local, settings: Object.fromEntries(CARRY_SETTINGS.filter((key) => key in settings && !(key === 'progressBars' && settings[key] === 'plain')).map((key) => [key, settings[key]])) }
+  const carry: Carry = { local, settings: Object.fromEntries(CARRY_SETTINGS.filter((key) => key in settings).map((key) => [key, settings[key]])) }
   await said
   await window.api.vigil('sandbox:enter', carry)
 }
