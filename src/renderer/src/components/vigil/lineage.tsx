@@ -54,15 +54,6 @@ function useRead<T>(id: string, read: (id: string) => Promise<T>): T | null {
   }, [id])
   return value
 }
-const useLineage = (id: string): Lin | null => useRead(id, vigil.lineage)
-
-/** What a capture became, said under its status, so the new thing is one click from the old. */
-export function Became({ id, onOpen }: { id: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element | null {
-  const lineage = useLineage(id)
-  if (!lineage) return null
-  // Named by what it is: its title is usually this capture's own, so the title alone read as a repeat.
-  return <>{lineage.became.map((one) => <Row key={one.id} one={{ ...one, title: `Open the ${NAME[one.type] ?? 'note'}` }} onOpen={onOpen} />)}</>
-}
 
 type One = Awaited<ReturnType<typeof vigil.lineage>>['became'][number]
 const Row = ({ one, onOpen }: { one: One; onOpen?: (type: string, id: string) => void }): React.JSX.Element => (
@@ -113,7 +104,7 @@ async function readFamily(id: string): Promise<Family> {
  * are always one click away, and the nugget one click back. Its family is a
  * small tree, older on the left and newer on the right, with this note lit.
  */
-export function Lineage({ id, onOpen }: { id: string; onOpen?: (type: string, id: string) => void; became?: boolean }): React.JSX.Element | null {
+export function Lineage({ id, onOpen }: { id: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element | null {
   const family = useRead(id, readFamily)
   if (!family) return null
   return (
