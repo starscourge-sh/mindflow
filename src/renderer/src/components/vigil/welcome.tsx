@@ -9,6 +9,7 @@ import { onboarding, type Onboarding } from '@/lib/onboarding'
 import { vigil } from '@/lib/vigil'
 import { enterSandbox } from '@/lib/sandbox'
 import { EXAMPLES } from '@/lib/welcome-box'
+import keycapsUrl from '@/assets/welcome/keycaps.webp'
 import { CaptureList, captureEntry, type CaptureMeta } from '@/components/capture-list'
 import { NoteList } from './note-list'
 import { dayjs } from '../../../../main/dates'
@@ -141,6 +142,31 @@ function Keycap({ label, down, size = 64 }: { label: string; down: boolean; size
     >
       {label}
     </motion.span>
+  )
+}
+
+/**
+ * ⌘ and . as two real keys, from a render: one picture split down the middle so
+ * each half presses on its own, sinking a little into the desk and dimming, as
+ * a key does under a finger. Only for ⌘. itself; any other key is drawn as caps.
+ */
+function KeycapPicture({ down, width }: { down: Set<number>; width: number }): React.JSX.Element {
+  return (
+    <span aria-hidden className="flex" style={{ width, height: Math.round((width * 320) / 520) }}>
+      {[0, 1].map((i) => (
+        <span key={i} className="relative h-full w-1/2 overflow-hidden">
+          <motion.img
+            src={keycapsUrl}
+            alt=""
+            draggable={false}
+            className="absolute top-0 h-full max-w-none"
+            style={{ width: width, left: i ? '-100%' : 0 }}
+            animate={{ transform: `translateY(${down.has(i) ? width * 0.012 : 0}px) scale(${down.has(i) ? 0.985 : 1})`, filter: `brightness(${down.has(i) ? 0.82 : 1}) drop-shadow(0 ${down.has(i) ? 8 : 14}px ${down.has(i) ? 10 : 18}px rgb(0 0 0 / 0.35))` }}
+            transition={down.has(i) ? { duration: 0.06, ease: 'easeOut' } : { type: 'spring', duration: 0.24, bounce: 0.35 }}
+          />
+        </span>
+      ))}
+    </span>
   )
 }
 
@@ -635,7 +661,9 @@ function OneKey({ state, onState, onBox }: { state: Onboarding | null; onState: 
     // The close-up: the keys, large and in the middle, and the words under them.
     <div className="mx-auto flex max-w-[min(100%,46rem)] flex-col items-center gap-[clamp(1.25rem,4.5vh,3rem)] text-center">
       <div className={`relative flex items-end gap-[0.18em] rounded-[0.42em] p-[0.16em] transition-[box-shadow] duration-300 ease-(--mf-ease) ${all || arrived ? 'shadow-[0_0_0_1.5px_var(--primary)]' : 'shadow-[0_0_0_1.5px_transparent]'}`} style={{ fontSize: big }}>
-        {caps.map((cap, i) => <Keycap key={`${cap}${i}`} label={glyph(cap, i === caps.length - 1)} down={down.has(i)} size={big} />)}
+        {keys === '⌘.'
+          ? <KeycapPicture down={down} width={Math.round(big * 3.1)} />
+          : caps.map((cap, i) => <Keycap key={`${cap}${i}`} label={glyph(cap, i === caps.length - 1)} down={down.has(i)} size={big} />)}
       </div>
       <div className="flex flex-col items-center gap-[clamp(0.5rem,1.6vh,1rem)]">
         <h1 className={HEADLINE_SM}>One key to remember</h1>
