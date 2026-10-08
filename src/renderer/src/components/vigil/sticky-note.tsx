@@ -414,7 +414,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
           '--tilt': GLASS ? '0deg' : `${tiltOf(id, Number(new URLSearchParams(location.search).get('nth')) || 0)}deg`,
           // Real glass: the Mac's blur shows through a thin wash of the theme's paper, enough to read on.
           ...(GLASS
-            ? { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--mf-paper-tint), var(--mf-paper-tint)), linear-gradient(color-mix(in oklab, var(--mf-paper) 55%, transparent), color-mix(in oklab, var(--mf-paper) 55%, transparent))' }
+            ? { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--mf-paper-tint), var(--mf-paper-tint)), linear-gradient(color-mix(in oklab, var(--mf-paper) 90%, transparent), color-mix(in oklab, var(--mf-paper) 90%, transparent))' }
             : { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--mf-paper-tint), var(--mf-paper-tint)), linear-gradient(var(--mf-paper), var(--mf-paper)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' })
         } as unknown as CSSProperties}
         onMouseLeave={() => setAsking(false)}

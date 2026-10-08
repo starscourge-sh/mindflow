@@ -598,8 +598,8 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Show sticky notes" note="Every note stuck on the desktop, or all of them put away; they keep their places. ⌃⌥⌘N from anywhere.">
             <Switch checked={settings.stickiesShown} onCheckedChange={(stickiesShown) => set({ stickiesShown })} />
           </Setting>
-          <Setting title="Sticky notes are made of" note="Paper: solid. Wallpaper frost: your desktop picture softly blurred behind each note, and they keep their lean. Real glass: the Mac blurs whatever is behind, windows and all, and the notes sit straight." keywords="sticky notes frosted glass blur wallpaper desktop transparent paper vibrancy">
-            <Chips className="shrink-0" options={[{ id: 'paper', label: 'Paper' }, { id: 'frost', label: 'Wallpaper frost' }, { id: 'glass', label: 'Real glass' }]}
+          <Setting title="Sticky notes are made of" note="Paper: solid. Wallpaper frost: your desktop picture softly blurred behind each note, and they keep their lean. Glass (the default): whatever is behind is blurred and dimmed, so it never reads through, and the notes sit straight." keywords="sticky notes frosted glass blur wallpaper desktop transparent paper vibrancy">
+            <Chips className="shrink-0" options={[{ id: 'paper', label: 'Paper' }, { id: 'frost', label: 'Wallpaper frost' }, { id: 'glass', label: 'Glass' }]}
               on={(id) => id === (settings.stickiesFrosted === false ? 'paper' : settings.stickiesGlass ? 'glass' : 'frost')}
               pick={(id) => set({ stickiesFrosted: id !== 'paper', stickiesGlass: id === 'glass' })} />
           </Setting>

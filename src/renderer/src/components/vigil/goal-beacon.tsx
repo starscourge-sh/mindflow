@@ -56,7 +56,7 @@ export function GoalBeacon({ id }: { id: string }): React.JSX.Element | null {
         onPointerEnter={() => window.api.holdBeacon(true)}
         onPointerLeave={() => window.api.holdBeacon(false)}
         // Solid, as a sticky is: lit from the top, never see-through; frosted over the desktop picture as a sticky is.
-        style={{ ...DRAG, ...(GLASS ? { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(color-mix(in oklab, var(--popover) 55%, transparent), color-mix(in oklab, var(--popover) 55%, transparent))' } : { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' }) }}
+        style={{ ...DRAG, ...(GLASS ? { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(color-mix(in oklab, var(--popover) 90%, transparent), color-mix(in oklab, var(--popover) 90%, transparent))' } : { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' }) }}
         className={`group relative isolate flex h-full flex-col gap-2.5 px-4 pt-3 pb-4 text-control text-foreground ${GLASS ? 'rounded-[10px]' : 'rounded-xl border shadow-[0_1px_2px_rgb(0_0_0/0.14),0_6px_16px_-4px_rgb(0_0_0/0.22)]'}`}
       >
         <SandboxStamp />

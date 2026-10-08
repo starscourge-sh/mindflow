@@ -338,7 +338,7 @@ const DEFAULTS = {
   // Sticky notes over the desktop picture, softly blurred (see frost.ts); off, plain paper.
   stickiesFrosted: true,
   // Frosted by the Mac itself: real glass that blurs whatever is behind, sitting straight (no lean).
-  stickiesGlass: false,
+  stickiesGlass: true,
   // Now and then one sticky stirs, as paper does in a draught, so it never turns into wallpaper.
   stickiesStir: true,
   // Keys you changed: { the keys it came with: yours, or null for none }.
