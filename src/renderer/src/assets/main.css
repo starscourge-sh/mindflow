@@ -1246,10 +1246,10 @@ input[type='number']::-webkit-outer-spin-button {
   inset: -2px -40%;
   background: linear-gradient(105deg, transparent 38%, rgb(255 255 255 / 0.5) 49%, rgb(255 255 255 / 0.15) 53%, transparent 62%);
   transform: translateX(-70%);
-  animation: mf-tape-glint 7s ease-in-out infinite;
+  animation: mf-tape-glint 14s ease-in-out infinite;
 }
 @keyframes mf-tape-glint {
-  0%, 72% { transform: translateX(-70%); }
+  0%, 64% { transform: translateX(-70%); }
   86%, 100% { transform: translateX(70%); }
 }
 :root[data-motion='off'] .mf-tape::after { animation: none; opacity: 0; }
