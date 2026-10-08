@@ -141,7 +141,7 @@ export function Cover({ src, colour, seed, children, caption = '' }: { src?: str
   if (src && !broken) {
     const picture = <img src={src} alt="" draggable={false} onError={() => setBroken(true)} className="size-full object-cover" />
     return (
-      <Tilt className="shrink-0 rounded-lg">
+      <Tilt className="shrink-0 rounded-lg" caption={caption || undefined}>
         <Tip label="Look at it">
           <button type="button" onClick={(event) => (chime('look'), void openLook(src, event.currentTarget.querySelector('img'), caption))} className={`${box} cursor-zoom-in transition-transform duration-150 ease-out active:scale-[0.98]`}>{picture}</button>
         </Tip>

@@ -101,7 +101,7 @@ function Cover({
   const grain = useCover(picture === undefined ? entry.id : null)
   if (picture)
     return (
-      <Tilt className={`private-text overflow-hidden bg-accent ${className}`}>
+      <Tilt caption={entry.title || undefined} className={`private-text overflow-hidden bg-accent ${className}`}>
         <img
           src={picture}
           alt=""
