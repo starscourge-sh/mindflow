@@ -4,7 +4,7 @@ import { alive } from '@/components/ui/alive-icon'
 import XIcon from '@/components/ui/x-icon'
 
 import { chime } from '@/lib/sound'
-import { vigil, type Mood, type Recap as Data } from '@/lib/vigil'
+import { vigil, type Mood, type Recap as Data, splitTags } from '@/lib/vigil'
 import { notes, smallPicture } from '@/lib/notes'
 import { Kbd, Rolling, Typed } from './ui'
 import { Button } from '@/components/ui/button'
@@ -110,7 +110,7 @@ export function usePicturesFrom(since: string | null, until: string | null): Pic
       // Made small by the main process. Only a picture it could read is kept:
       // the strip draws with WebGL, which takes a picture's pixels only from here.
       const made = await Promise.all(kept.map((one) => smallPicture(thumbs[one.id], true).catch(() => '')))
-      if (live) setPictures(kept.flatMap((one, at) => made[at].startsWith('data:image/') ? [{ src: made[at], title: one.title, type: one.type, id: one.id }] : []))
+      if (live) setPictures(kept.flatMap((one, at) => made[at].startsWith('data:image/') ? [{ src: made[at], title: splitTags(one.title).text, type: one.type, id: one.id }] : []))
     })()
     return () => void (live = false)
   }, [since, until])
