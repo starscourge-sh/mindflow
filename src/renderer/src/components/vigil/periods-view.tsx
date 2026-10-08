@@ -203,7 +203,7 @@ export function WeekPage({ onOpen, onScale, onRecent, recentOpen }: {
       }
     >
       <div className="page-narrow mx-auto w-full px-5 pt-6 pb-16 [--mf-padding:0.5rem_0]">
-        <DayBanner day={monday} />
+        <DayBanner day={monday} seed={`week:${monday}`} />
         <Masthead parts={[`Week ${weekOfYear(monday)}`, weekSpan(monday), current && 'This week']}
           headline={fields.theme || fields.summary?.split(/(?<=[.!?])\s|\n/)[0] || weekName(monday)} named={!!(fields.theme || fields.summary)} />
         <p className="mt-2 text-meta text-muted-foreground">
@@ -285,7 +285,7 @@ export function MonthPage({ onScale, start }: { onScale?: (scale: Scale) => void
       }
     >
       <div className="page-narrow mx-auto w-full px-5 pt-6 pb-16">
-        <DayBanner day={`${month}-01`} />
+        <DayBanner day={`${month}-01`} seed={`month:${month}`} />
         <Masthead parts={[dayjs(`${month}-01`).format("MMMM 'YY"), `${dayjs(`${month}-01`).daysInMonth()} days`, current && 'This month']}
           headline={fields.season || monthName(month)} named={!!fields.season} />
         <p className="mt-2 text-meta text-muted-foreground">

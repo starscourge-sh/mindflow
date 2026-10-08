@@ -254,7 +254,7 @@ export function Rest({ seed, children, compact = false, strip = false, off = fal
  * Today's page's banner: a painted strip of the day's scene, one a day and
  * the same all that day, framed like a print when Postcards is on.
  */
-export function DayBanner({ day }: { day: string }): React.JSX.Element | null {
+export function DayBanner({ day, seed = `day:${day}` }: { day: string; /** A week's or a month's own, so it is not the same picture as its first day's. */ seed?: string }): React.JSX.Element | null {
   const { settings, scenes } = useScenery()
   if (!settings?.scenery || !settings.sceneryToday || !scenes.length) return null
   const framed = !!settings.postcards
@@ -262,7 +262,7 @@ export function DayBanner({ day }: { day: string }): React.JSX.Element | null {
     <div className={`relative mb-5 aspect-[4/1] min-h-28 w-full overflow-hidden rounded-xl ${framed ? 'bg-white p-1.5 shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_10px_28px_-10px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]' : ''}`}>
       <div className="relative size-full overflow-hidden rounded-lg">
         {/* Not the hour's mood: a day keeps one picture from morning to night. */}
-        <Scenery place="today" seed={`day:${day}`} mood={['day', 'dusk', 'night', 'interior']} className="absolute inset-0" rounded="rounded-lg" soft />
+        <Scenery place="today" seed={seed} mood={['day', 'dusk', 'night', 'interior']} className="absolute inset-0" rounded="rounded-lg" soft />
       </div>
     </div>
   )

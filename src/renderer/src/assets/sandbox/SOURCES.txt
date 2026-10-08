@@ -18,6 +18,13 @@ flat. Public domain in the US (Bridgeman v. Corel; tagged PD-Art on Wikimedia Co
   scenery/wanderer.webp   Caspar David Friedrich, Wanderer above the Sea of Fog, about 1818. Hamburger Kunsthalle.
   scenery/mont-blanc.webp, scenery/lake-tahoe.webp, scenery/landers-peak.webp
                           Albert Bierstadt (1830 to 1902): Mont Blanc; Lake Tahoe in Winter; Lander's Peak.
+  scenery/bernina.webp, scenery/evening-prairie.webp, scenery/jungfrau.webp, scenery/lake-lucerne.webp
+                          Albert Bierstadt: Bernina, Switzerland; Evening on the Prairie; The Jungfrau; Lake Lucerne
+                          (National Gallery of Art, Open Access, 1990.50.1).
+  scenery/harbor-entrance.webp  Eugène Boudin (1824 to 1898), Entrance to the Harbor.
+  scenery/grand-manan.webp      Alfred Thompson Bricher (1837 to 1908), Morning at Grand Manan.
+  scenery/penobscot-bay.webp    Fitz Henry Lane (1804 to 1865), Lumber Schooners at Evening on Penobscot Bay, 1860
+                                (National Gallery of Art, Open Access, 1980.29.1).
 
 The Metropolitan Museum of Art, Open Access (CC0 1.0), downloaded 2026-10-07:
 

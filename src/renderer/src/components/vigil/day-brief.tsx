@@ -48,7 +48,14 @@ const PAINTINGS: Record<string, string> = {
   'lake-tahoe': 'Lake Tahoe in Winter, Albert Bierstadt',
   'landers-peak': "Lander's Peak, Albert Bierstadt",
   'mont-blanc': 'Mont Blanc, Albert Bierstadt',
-  wanderer: 'Wanderer above the Sea of Fog, Caspar David Friedrich'
+  wanderer: 'Wanderer above the Sea of Fog, Caspar David Friedrich',
+  bernina: 'Bernina, Switzerland, Albert Bierstadt',
+  'evening-prairie': 'Evening on the Prairie, Albert Bierstadt',
+  jungfrau: 'The Jungfrau, Albert Bierstadt',
+  'harbor-entrance': 'Entrance to the Harbor, Eugène Boudin',
+  'grand-manan': 'Morning at Grand Manan, Alfred Thompson Bricher',
+  'lake-lucerne': 'Lake Lucerne, Albert Bierstadt',
+  'penobscot-bay': 'Lumber Schooners at Evening on Penobscot Bay, Fitz Henry Lane'
 }
 /** A credit for the day's picture, the way a caption names a painting: its name, then where it hangs. */
 const credit = (name?: string, folder?: string): string | null =>

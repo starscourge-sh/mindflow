@@ -13,6 +13,13 @@ import wandererUrl from '@/assets/sandbox/scenery/wanderer.webp'
 import montBlancUrl from '@/assets/sandbox/scenery/mont-blanc.webp'
 import tahoeUrl from '@/assets/sandbox/scenery/lake-tahoe.webp'
 import landersUrl from '@/assets/sandbox/scenery/landers-peak.webp'
+import berninaUrl from '@/assets/sandbox/scenery/bernina.webp'
+import prairieUrl from '@/assets/sandbox/scenery/evening-prairie.webp'
+import jungfrauUrl from '@/assets/sandbox/scenery/jungfrau.webp'
+import harborUrl from '@/assets/sandbox/scenery/harbor-entrance.webp'
+import mananUrl from '@/assets/sandbox/scenery/grand-manan.webp'
+import lucerneUrl from '@/assets/sandbox/scenery/lake-lucerne.webp'
+import penobscotUrl from '@/assets/sandbox/scenery/penobscot-bay.webp'
 
 /**
  * What the sandbox holds when it opens: about fifty examples, each teaching
@@ -725,7 +732,7 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
 
 /** The four landscapes Scenery shows in a sandbox when you have no folder of your own. */
 export async function sandboxScenery(): Promise<string> {
-  const files = await Promise.all(([['wanderer.webp', wandererUrl], ['mont-blanc.webp', montBlancUrl], ['lake-tahoe.webp', tahoeUrl], ['landers-peak.webp', landersUrl]] as const)
+  const files = await Promise.all(([['wanderer.webp', wandererUrl], ['mont-blanc.webp', montBlancUrl], ['lake-tahoe.webp', tahoeUrl], ['landers-peak.webp', landersUrl], ['bernina.webp', berninaUrl], ['evening-prairie.webp', prairieUrl], ['jungfrau.webp', jungfrauUrl], ['harbor-entrance.webp', harborUrl], ['grand-manan.webp', mananUrl], ['lake-lucerne.webp', lucerneUrl], ['penobscot-bay.webp', penobscotUrl]] as const)
     .map(async ([name, url]) => ({ name, bytes: new Uint8Array(await (await fetch(url)).arrayBuffer()) })))
   return v<string>('sandbox:scenery', files)
 }
