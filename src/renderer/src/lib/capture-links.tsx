@@ -1,7 +1,7 @@
 import { CircleArrowUp, CircleCheck, CircleDashed, CircleX } from 'lucide-react'
 
 import { ask, askQuestion, refuse, toast } from '@/components/vigil/ui'
-import { chime } from '@/lib/sound'
+import { chime, tear } from '@/lib/sound'
 import { lift, shred, type Home } from '@/lib/fly-home'
 import { showHeading, type NoteSuggestion } from '@/extensions/note-link'
 import { headingsIn } from '@/components/toc/headings'
@@ -51,7 +51,9 @@ export async function exit(id: string, status: string, onUndo?: () => void): Pro
   // resolved or let go keeps the one it took.
   if (result === 'not-open' || (result as SaveResult | null)?.refused) return refuse(NOT_OPEN)
   // After the work, so a cancelled question or a refusal makes no false promise.
-  chime(status === 'discarded' ? 'away' : status === 'promoted' ? 'promote' : 'resolve')
+  // Let go: paper tearing, as it goes through the shredder.
+  if (status === 'discarded') tear()
+  else chime(status === 'promoted' ? 'promote' : 'resolve')
   // Kept as a nugget: the question review will test it with is one key away.
   // Kept, and it can be taken back like the other exits: the nugget goes, the capture is open again.
   if (status === 'promoted') return toast(one.done, typeof result === 'string' ? () => void unpromote(id, result).then(() => onUndo?.()) : undefined, 'success', typeof result === 'string' ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)

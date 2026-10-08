@@ -1,3 +1,4 @@
+import tearUrl from '@/assets/sounds/tear-paper.mp3'
 /**
  * Small sounds for the things you do, synthesised on the spot the way
  * sensory-ui does it: no files, no latency, a few lines of Web Audio. A click
@@ -463,4 +464,28 @@ export function installTicks(): () => void {
     document.removeEventListener('pointerover', onOver)
     document.removeEventListener('scroll', onScroll, true)
   }
+}
+
+/**
+ * A recorded sound, for the few moments a drawn one cannot be: paper tearing
+ * as a capture goes through the shredder. Read once and kept; played through
+ * the same switch and volume as every other sound.
+ */
+const recordings = new Map<string, Promise<AudioBuffer | null>>()
+export function tear(): void {
+  if (!enabled || !volume) return
+  const context = audio()
+  if (!context) return
+  let buffer = recordings.get(tearUrl)
+  if (!buffer) recordings.set(tearUrl, (buffer = fetch(tearUrl).then((r) => r.arrayBuffer()).then((data) => context.decodeAudioData(data)).catch(() => null)))
+  void buffer.then((sound) => {
+    if (!sound) return
+    const source = context.createBufferSource()
+    source.buffer = sound
+    const gain = context.createGain()
+    // A recording is louder than the drawn sounds: brought down to sit with them.
+    gain.gain.value = 0.55 * volume
+    source.connect(gain).connect(context.destination)
+    source.start()
+  })
 }

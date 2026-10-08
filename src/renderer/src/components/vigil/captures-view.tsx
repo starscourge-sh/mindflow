@@ -34,7 +34,7 @@ import { toMarkdown } from '@/lib/export'
 import { splitTags, unloaded, vigil } from '@/lib/vigil'
 import { makeTask, oneTask, picked } from '@/lib/tasks'
 import { useSameWords } from '@/lib/same-words'
-import { chime } from '@/lib/sound'
+import { chime, tear } from '@/lib/sound'
 import { Empty, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle, Pressed } from './ui'
 import { Term } from './term'
 import { GlossTimeline, useRowGloss } from './gloss-line'
@@ -493,7 +493,8 @@ export function CaptureProps({ capture, onOpen, className, fold }: { capture: Ca
                     // Taken elsewhere a moment ago (the other window, a read-through): it keeps that exit.
                     if (result === 'not-open' || (result as SaveResult | null)?.refused) return refuse(NOT_OPEN)
                     // The sound once it went through, so a refusal never sounds like success first.
-                    chime(exit.label === 'Discard' ? 'away' : exit.label === 'Promote to nugget' ? 'promote' : 'resolve')
+                    if (exit.label === 'Discard') tear()
+                    else chime(exit.label === 'Promote to nugget' ? 'promote' : 'resolve')
                     if (exit.label === 'Promote to nugget')
                       return toast(exit.said, typeof result === 'string' ? () => void unpromote(capture.id, result) : undefined, 'success', typeof result === 'string' ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
                     // Back to exactly the status it had.
