@@ -200,7 +200,7 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
     </div>,
     // The shape of it: what kinds of thing, read back in a line.
     (data.kinds ?? []).length > 0 && (
-      <div key="shape" className="grid items-center gap-x-10 gap-y-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+      <div key="shape" className="grid items-center gap-x-12 gap-y-4 sm:grid-cols-[minmax(0,1fr)_min(30rem,60vh)]">
         <p className="text-title"><Typed story text={readShape(data.kinds)} /></p>
         <RecapRadar kinds={data.kinds} before={data.before} />
       </div>
@@ -322,7 +322,7 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
             exit="leave"
             // The recap's every line in the heading font: the one place the app
             // speaks at length, so it speaks in its own voice.
-            className="w-full max-w-2xl font-heading"
+            className={`w-full font-heading ${pageKey === 'shape' ? 'max-w-5xl' : 'max-w-2xl'}`}
           >
             {pages[at]}
           </motion.div>

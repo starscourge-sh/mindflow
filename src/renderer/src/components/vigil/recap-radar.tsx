@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { animate, motion, MotionGlobalConfig, useInView, useMotionValue, useReducedMotion, useTransform, type MotionValue } from 'motion/react'
-import { curveLinearClosed, lineRadial } from 'd3-shape'
-import { scaleSymlog } from 'd3-scale'
+import { curveCardinalClosed, lineRadial } from 'd3-shape'
+import { scaleSqrt } from 'd3-scale'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { EASE, spring } from '@/lib/motion'
 import { num } from '../../../../main/dates'
@@ -40,7 +40,7 @@ export function readShape(kinds: Counted[]): string {
   if (!a) return 'Nothing caught yet to give it a shape.'
   if (!b) return `All ${many(a.kind)}: you were ${doing(a.kind)}.`
   const [first, second] = [a.n / total, b.n / total]
-  if (first >= 0.5 && second < 0.2) return `Mostly ${many(a.kind)}: you were ${doing(a.kind)}.`
+  if (first >= 0.5 && second < 0.15) return `Mostly ${many(a.kind)}: you were ${doing(a.kind)}.`
   if (first + second >= 0.6) return `Mostly ${many(a.kind)} and ${many(b.kind)}: you were ${doing(a.kind, b.kind)}.`
   return `No one kind took over: ${many(a.kind)}, ${many(b.kind)}${c ? ` and ${many(c.kind)}` : ''} in near equal parts.`
 }
@@ -63,8 +63,10 @@ const R = 118
 const RINGS = [0.25, 0.5, 0.75, 1]
 /** Fewer things than this in the span before, and it is not drawn. */
 const FEW_BEFORE = 10
+/** How far out a kind caught even once sits, as a share of the rim. */
+const FLOOR = 0.24
 const at = (angle: number, r: number): [number, number] => [Math.sin(angle) * r, -Math.cos(angle) * r]
-const radial = lineRadial<number>().angle((_, i, all) => (i * 2 * Math.PI) / all.length).radius((r) => r).curve(curveLinearClosed)
+const radial = lineRadial<number>().angle((_, i, all) => (i * 2 * Math.PI) / all.length).radius((r) => r).curve(curveCardinalClosed.tension(0.4))
 
 /** One kind's dot, riding out along its spoke as the shape grows. */
 function Dot({ angle, r, grow, tint, near }: { angle: number; r: number; grow: MotionValue<number>; tint: string; near: boolean }): React.JSX.Element {
@@ -87,8 +89,10 @@ export function RecapRadar({ kinds, before: asked }: { kinds: Counted[]; before:
   const count = (list: Counted[], kind: string): number => list.find((one) => one.kind === kind)?.n ?? 0
   const now = spokes.map((kind) => count(kinds, kind))
   const was = before ? spokes.map((kind) => count(before.kinds, kind)) : null
-  // On a log's curve, so one kind caught most does not leave the rest a point in the middle; pointed at, each says its true count.
-  const scale = scaleSymlog().domain([0, Math.max(1, ...now, ...(was ?? []))]).range([0, R])
+  // By area, and anything caught at all clear of the middle, so one kind caught
+  // most does not leave the rest a point at the centre; pointed at, each says its true count.
+  const sqrt = scaleSqrt().domain([0, Math.max(1, ...now, ...(was ?? []))]).range([R * FLOOR, R])
+  const scale = (n: number): number => (n > 0 ? sqrt(n) : 0)
   const radii = now.map((n) => scale(n))
   const angle = (i: number): number => (i * 2 * Math.PI) / spokes.length
 
@@ -109,9 +113,9 @@ export function RecapRadar({ kinds, before: asked }: { kinds: Counted[]; before:
   const said = spokes.map((kind, i) => `${many(kind)} ${num(now[i])}`).join(', ')
   const lastMostly = before && mostly(before.kinds)
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex w-full flex-col items-center gap-1">
       <svg ref={box} viewBox={`${-SIZE / 2} ${-SIZE / 2} ${SIZE} ${SIZE}`} role="img" aria-label={`What you caught, by kind: ${said}.`}
-        className="aspect-square w-[min(22rem,52vh,100%)] overflow-visible" onPointerLeave={() => setNear(null)}>
+        className="aspect-square w-full max-w-[min(30rem,60vh)] overflow-visible" onPointerLeave={() => setNear(null)}>
         {/* The grid: rings and spokes, faint, with no numbers on them. */}
         <g fill="none" stroke="var(--foreground)" strokeWidth={1}>
           {RINGS.map((ring) => <circle key={ring} r={R * ring} opacity={ring === 1 ? 0.14 : 0.08} />)}
@@ -134,8 +138,8 @@ export function RecapRadar({ kinds, before: asked }: { kinds: Counted[]; before:
           const up = Math.cos(angle(i)) > 0.3
           return (
             <g key={kind} transform={`translate(${x} ${y + (up ? -6 : Math.cos(angle(i)) < -0.3 ? 10 : 4)})`} textAnchor={anchor}>
-              <text className="text-[0.8125rem]" fill={near === i ? 'var(--foreground)' : 'var(--muted-foreground)'}>{typeOf(kind)?.label}s</text>
-              <motion.text y={up ? -17 : 17} className="text-[0.8125rem] font-semibold tabular-nums" fill={typeOf(kind)?.tint} initial={false}
+              <text className="text-[0.6875rem]" fill={near === i ? 'var(--foreground)' : 'var(--muted-foreground)'}>{typeOf(kind)?.label}s</text>
+              <motion.text y={up ? -17 : 17} className="text-[0.6875rem] font-semibold tabular-nums" fill={typeOf(kind)?.tint} initial={false}
                 animate={{ opacity: near === i ? 1 : 0 }} transition={spring.fast}>{num(now[i])}</motion.text>
             </g>
           )
