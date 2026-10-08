@@ -1,41 +1,46 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowUp, CornerDownLeft } from 'lucide-react'
+import { ArrowUp, CalendarDays, CornerDownLeft } from 'lucide-react'
 import { EASE, byKeys, hush, shift, speak } from '@/lib/motion'
 import { chime, click } from '@/lib/sound'
 import { applyTheme, type Theme } from '@/lib/theme'
 import { comboOf, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
 import { onboarding, type Onboarding } from '@/lib/onboarding'
-import { vigil } from '@/lib/vigil'
 import { enterSandbox } from '@/lib/sandbox'
-import { EXAMPLES } from '@/lib/welcome-box'
+import { STARTERS, fillBox, tellBox, type Starter } from '@/lib/welcome-box'
 import keycapsUrl from '@/assets/welcome/keycaps.webp'
-import { CaptureList, captureEntry, type CaptureMeta } from '@/components/capture-list'
+import { captureEntry, type CaptureMeta } from '@/components/capture-list'
+import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { NoteList } from './note-list'
-import { dayjs } from '../../../../main/dates'
+import { dayjs, when, whenInLine } from '../../../../main/dates'
+import { readTask } from '../../../../main/task-words'
 import { Scenery } from './scenery'
 import { NOISE } from './grain'
 import { MemoryPostcard } from './memory-postcard'
 import { Signed } from './signature'
 import { inkPath } from './marks'
 import { ThemeDial } from './theme-dial'
+import { Flip } from './review-view'
 import { Kbd, toast } from './ui'
 import { FULL_TURN, WANDER, glyph, inClay, konami, landedAside } from './welcome-eggs'
 
 /**
- * The welcome: eight screens over the whole main window, the first time
+ * The welcome: six screens over the whole main window, the first time
  * Vigil opens (and again from the Vigil menu, ⌘K or Settings).
  *
- *   0 hello: today's date and hour, a line typed, and the year as a ruler
- *     whose gone days fade as the line finishes saying so
+ *   0 hello: today's date and hour, a line typed, and the year as a ruler.
+ *     Someone new sees only today on it ("your year starts today"); someone
+ *     with notes sees the days they kept something stand taller. Today's mark
+ *     rises with each thing caught in the welcome.
  *   1 the one key: the caps press as the real keys go down, anywhere
- *   2 catch something: in the real box; this screen waits for it
- *   3 it landed: your real Inbox row, an ink line under your first word
- *   4 it comes back: your words as next year's postcard, the year rolling on
- *   5 a year of it: an example year read back, the books and the lines
- *     kept from them, the hour you think best, how much you remembered
- *   6 make it yours: the theme dial
- *   7 how to start: fresh, the sandbox, or your notes
+ *   2 catch three: three things of different kinds, in the real box, with
+ *     starters to click or type. As each lands, its kind is named and what
+ *     that kind does is shown: a todo in your tasks with the day it read, a
+ *     quote as next year's postcard, a word as a card that turns over, a
+ *     link with its page's name. One is enough to move on.
+ *   3 a year of it: the day just had, then an example year read back
+ *   4 make it yours: the theme dial
+ *   5 how to start: fresh, the sandbox, or your notes
  *
  * Esc always works: before the last screen it goes to it (never into an
  * empty app), and on it, it closes. Keys swap screens at once; a click
@@ -43,9 +48,11 @@ import { FULL_TURN, WANDER, glyph, inClay, konami, landedAside } from './welcome
  * capture landing, the caps under your fingers.
  */
 
-const SCREENS = 8
+const SCREENS = 6
+/** The screen that asks for three things. */
+const CATCH = 2
 /** The theme dial's screen. */
-const DIAL = 6
+const DIAL = 4
 const LAST = SCREENS - 1
 const MODS: Record<string, string> = { '⌘': 'Meta', '⌥': 'Alt', '⌃': 'Control', '⇧': 'Shift' }
 const capsOf = (keys: string): string[] => keys.match(/[⌃⌥⇧⌘]|[^⌃⌥⇧⌘]+/g) ?? []
@@ -70,9 +77,18 @@ const firstLine = (): string => `Most of what you notice today will be gone by $
 /** The moment the welcome opened, as a diary dates an entry: the day, then the hour in your Mac's own style. */
 const dateline = (): string => `${dayjs().format('dddd D MMMM')}, ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
 
-/** The newest capture typed into Vigil that was not there when the welcome opened. */
-const newest = (list: CaptureMeta[], before: Set<string>): CaptureMeta | null =>
-  list.filter((one) => !before.has(one.id) && !one.source).sort((a, b) => b.capturedAt.localeCompare(a.capturedAt))[0] ?? null
+/** What was typed into Vigil since the welcome opened, oldest first. */
+const since = (list: CaptureMeta[], before: Set<string>): CaptureMeta[] =>
+  list.filter((one) => !before.has(one.id) && !one.source).sort((a, b) => a.capturedAt.localeCompare(b.capturedAt))
+
+/** The kinds caught, each once, in the order they were first caught. */
+const kindsOf = (list: CaptureMeta[]): string[] => [...new Set(list.map((one) => one.kind))]
+
+/** A kind as the box names it, with its icon and colour. */
+const typeOf = (kind: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === kind) ?? CAPTURE_TYPES[0]
+
+/** A count in words, as a sentence says it. */
+const counted = (n: number): string => ['None', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'][n] ?? String(n)
 
 // --- small parts ----------------------------------------------------------------
 
@@ -178,9 +194,13 @@ function KeycapPicture({ down, width }: { down: Set<number>; width: number }): R
  * January at the left. It is drawn up to today in one sweep, then the days
  * gone fade back as the line above finishes saying they will be, all but the
  * days you kept something on, which stay, taller. Today stands up in the
- * accent with its number over it. Nothing else on the screen moves.
+ * accent with its number over it, and rises a little with each thing kept
+ * today, the count beside its number.
+ *
+ * Someone new has kept nothing, so nothing pretends they have: the days gone
+ * are a bare line, and the ruler says the year starts today.
  */
-function YearRule({ calm, kept, faded }: { calm: boolean; kept: Set<string>; faded: boolean }): React.JSX.Element {
+function YearRule({ calm, kept, faded, newcomer, today: count }: { calm: boolean; kept: Set<string>; faded: boolean; newcomer: boolean; today: number }): React.JSX.Element {
   const box = useRef<HTMLDivElement>(null)
   const [w, setW] = useState(0)
   useLayoutEffect(() => {
@@ -211,24 +231,37 @@ function YearRule({ calm, kept, faded }: { calm: boolean; kept: Set<string>; fad
   const first = (d: number): boolean => start.add(d, 'day').date() === 1
   const months = Array.from({ length: 12 }, (_, m) => ({ name: start.add(m, 'month').format('MMM'), d: start.add(m, 'month').diff(start, 'day') }))
   const anyKept = Array.from({ length: at }, (_, d) => d).some(keptOn)
+  // Today's mark: three quarters up with nothing kept yet, full height by the third thing.
+  const rise = Math.min(1, 0.72 + count * 0.095)
+  const said = newcomer
+    ? count ? `Your year starts today: ${count} kept so far. Each day you keep something stands taller.` : 'Your year starts today. Each day you keep something stands taller.'
+    : `Each mark is a day of your year. ${anyKept ? 'The tall ones are days you kept something.' : 'Keep something, and its day stands taller.'}`
   return (
-    <figure aria-label={`Today is day ${at + 1} of ${days}`} className="relative w-full">
+    <figure aria-label={newcomer ? 'Your year, starting today' : `Today is day ${at + 1} of ${days}`} className="relative w-full">
       <div ref={box} className="relative h-[calc(32px+2.9rem)]">
         {w > 0 && (
           <>
-            {/* Over today: its number, the one figure on the ruler. */}
+            {/* Over today: its number (or just Today, for someone new), and what was kept on it. */}
             <span className={`absolute top-0 -translate-x-1/2 text-[0.8125rem] leading-[1.1rem] font-medium whitespace-nowrap text-primary tabular-nums ${quiet ? '' : 'mf-rise-text'}`} style={{ left: x(at) }}>
-              Day {at + 1}
+              {newcomer ? 'Today' : `Day ${at + 1}`}{count > 0 && <span className="text-(--mf-wl-quiet)"> · {count} kept</span>}
             </span>
             <svg aria-hidden width={w} height={H} className="absolute top-[1.4rem] left-0 overflow-visible">
-              {/* The days gone: drawn in, then let go of as the line says they are. */}
-              <path d={ticks((d) => d < at && !keptOn(d), (d) => (first(d) ? 18 : 11))} stroke="var(--foreground)" strokeWidth={1} fill="none"
-                className={quiet ? '' : 'mf-sweep'} style={{ opacity: faded ? 0.1 : 0.6, transition: quiet ? undefined : 'opacity 1200ms cubic-bezier(0.33, 0.1, 0.25, 1)' }} />
+              {newcomer ? (
+                // Nothing kept before today: the days gone are a bare line, not marks.
+                <path d={`M${x(0)} ${H - 0.5}H${x(at)}`} stroke="var(--foreground)" strokeWidth={1} fill="none" opacity={0.18} />
+              ) : (
+                // The days gone: drawn in, then let go of as the line says they are.
+                <path d={ticks((d) => d < at && !keptOn(d), (d) => (first(d) ? 18 : 11))} stroke="var(--foreground)" strokeWidth={1} fill="none"
+                  className={quiet ? '' : 'mf-sweep'} style={{ opacity: faded ? 0.1 : 0.6, transition: quiet ? undefined : 'opacity 1200ms cubic-bezier(0.33, 0.1, 0.25, 1)' }} />
+              )}
               {/* The days to come, short and waiting. */}
               <path d={ticks((d) => d > at, (d) => (first(d) ? 18 : 7))} stroke="var(--foreground)" strokeWidth={1} fill="none" opacity={0.36} />
               {/* The days you kept something on: these stay. */}
-              <path d={ticks((d) => d < at && keptOn(d), () => 24)} stroke="var(--foreground)" strokeWidth={1.5} fill="none" opacity={0.85} className={quiet ? '' : 'mf-sweep'} />
-              <path d={`M${x(at)} ${H}V0`} stroke="var(--primary)" strokeWidth={2} fill="none" className={quiet ? '' : 'mf-rise'} />
+              {!newcomer && <path d={ticks((d) => d < at && keptOn(d), () => 24)} stroke="var(--foreground)" strokeWidth={1.5} fill="none" opacity={0.85} className={quiet ? '' : 'mf-sweep'} />}
+              <g className={quiet ? '' : 'mf-rise'}>
+                <path d={`M${x(at)} ${H}V0`} stroke="var(--primary)" strokeWidth={2} fill="none"
+                  style={{ transform: `scaleY(${rise})`, transformBox: 'fill-box', transformOrigin: '50% 100%', transition: quiet ? undefined : 'transform 420ms cubic-bezier(0.34, 1.4, 0.64, 1)' }} />
+              </g>
             </svg>
             {months.map((month) => (
               <span key={month.name} className="absolute top-[calc(1.4rem+32px+0.45rem)] text-[0.75rem] leading-none text-(--mf-wl-quiet)" style={{ left: x(month.d) - 0.5 }}>{month.name}</span>
@@ -237,9 +270,7 @@ function YearRule({ calm, kept, faded }: { calm: boolean; kept: Set<string>; fad
         )}
       </div>
       {/* What it is, said once and quietly, so the ruler reads at a glance. */}
-      <figcaption className={`mt-2 text-[0.8125rem] leading-snug text-(--mf-wl-quiet) ${quiet ? '' : 'mf-rise-text'}`}>
-        Each mark is a day of your year. {anyKept ? 'The tall ones are days you kept something.' : 'Keep something, and its day stands taller.'}
-      </figcaption>
+      <figcaption className={`mt-2 text-[0.8125rem] leading-snug text-(--mf-wl-quiet) ${quiet ? '' : 'mf-rise-text'}`}>{said}</figcaption>
     </figure>
   )
 }
@@ -285,12 +316,20 @@ export function Welcome(): React.JSX.Element | null {
   // Skipped ahead, and from where: the first screen gets a line of its own.
   const [skipped, setSkipped] = useState<false | 'first' | 'later'>(false)
   const [state, setState] = useState<Onboarding | null>(null)
-  const [caught, setCaught] = useState<CaptureMeta | null>(null)
+  // Everything caught since the welcome opened, oldest first, kept fresh (a link's name arrives late).
+  const [caught, setCaught] = useState<CaptureMeta[]>([])
+  const caughtNow = useRef<CaptureMeta[]>([])
+  // The one whose kind the catch screen is showing: the last to land.
+  const [showing, setShowing] = useState<string | null>(null)
   // How the screen was reached, for whether it rises in: a key, a click, or the app answering.
   const [how, setHow] = useState<'key' | 'pointer' | 'app'>('app')
   const before = useRef<Set<string>>(new Set())
   // The days this year you have already kept something on, for the first screen's ruler.
   const [kept, setKept] = useState<Set<string>>(new Set())
+  // Nothing kept, ever: the ruler does not pretend otherwise.
+  const [newcomer, setNewcomer] = useState(false)
+  // Kept today before the welcome opened, so today's mark counts the day, not just the welcome.
+  const [earlier, setEarlier] = useState(0)
   // The theme the dial was left on, kept when you move on.
   const picked = useRef<Theme | null>(null)
   const veteran = useRef(false)
@@ -305,12 +344,16 @@ export function Welcome(): React.JSX.Element | null {
     void Promise.all([window.api.captures.list(), onboarding.state()]).then(([list, now]) => {
       before.current = new Set(list.map((one) => one.id))
       setKept(new Set(list.map((one) => dayjs(one.capturedAt).format('YYYY-MM-DD'))))
+      setNewcomer(list.length === 0)
+      setEarlier(list.filter((one) => dayjs(one.capturedAt).isSame(dayjs(), 'day')).length)
       // Notes from before the welcome existed: someone who knows Vigil already.
       veteran.current = !now.welcomed && list.length > 0
       setState(now)
     })
     picked.current = null
-    setCaught(null)
+    caughtNow.current = []
+    setCaught([])
+    setShowing(null)
     setSkipped(false)
     setReplay(again)
     setHow('app')
@@ -333,9 +376,15 @@ export function Welcome(): React.JSX.Element | null {
 
   // The box says something warmer while the welcome waits on it.
   useEffect(() => {
-    void onboarding.set({ welcoming: at === 1 || at === 2 })
+    void onboarding.set({ welcoming: at === 1 || at === CATCH })
     document.documentElement.toggleAttribute('data-welcoming', at >= 0)
   }, [at])
+
+  const kinds = kindsOf(caught)
+  // The starters for the kinds not caught yet: once you have a todo of your own, the todo one goes.
+  const left = kinds.length >= 3 ? [] : STARTERS.filter((one) => !kinds.includes(one.kind))
+  // The box, told what is left to try, and whether this is the first thing.
+  useEffect(() => tellBox(left.map((one) => one.text), caught.length === 0), [left.length, caught.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Whether the real box is up over the welcome: the words then keep clear of it.
   const [boxUp, setBoxUp] = useState(false)
@@ -346,14 +395,17 @@ export function Welcome(): React.JSX.Element | null {
     return () => (offShown(), offAway())
   }, [at < 0]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Your first capture, the moment it is saved.
+  // Each capture, the moment it is saved, and again as it changes (a link's page name).
   useEffect(() => {
-    if (at !== 1 && at !== 2) return
+    if (at !== 1 && at !== CATCH) return
     return window.api.captures.onChange(() => void window.api.captures.list().then((list) => {
-      const found = newest(list, before.current)
-      if (!found) return
-      setCaught(found)
-      go(3, 'app')
+      const now = since(list, before.current)
+      const fresh = now.find((one) => !caughtNow.current.some((was) => was.id === one.id))
+      caughtNow.current = now
+      setCaught(now)
+      if (!fresh) return
+      setShowing(fresh.id)
+      if (at !== CATCH) go(CATCH, 'app')
     }), ['capture'])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [at])
@@ -388,18 +440,22 @@ export function Welcome(): React.JSX.Element | null {
   const next = (): void => {
     chime('page')
     if (at === DIAL && picked.current) applyTheme(picked.current)
-    // No capture, nothing landed: past the landing.
-    if (at === 2 && !caught) return go(4)
     go(at + 1)
   }
   const back = (): void => {
     if (at <= 0) return void chime('nope')
     chime('page')
-    go(at === 4 && !caught ? 2 : at - 1)
+    go(at - 1)
   }
   const openBox = (): void => {
     chime('open')
     window.api.showPrompt()
+  }
+  // A starter: typed into the box for you, so you see its kind guessed, and sent by you.
+  const start = (text: string): void => {
+    fillBox(text)
+    if (boxUp) return void chime('tap')
+    openBox()
   }
 
   // The keys, ahead of everything else in the window while the welcome is up.
@@ -417,6 +473,7 @@ export function Welcome(): React.JSX.Element | null {
       if (event.key === 'Escape') skip()
       else if (event.key === 'Enter') primary[at]?.()
       else if (at === LAST && /^[123]$/.test(event.key)) choose(Number(event.key) as 1 | 2 | 3)
+      else if (at === CATCH && /^[1-9]$/.test(event.key) && left[Number(event.key) - 1]) start(left[Number(event.key) - 1].text)
       else if (at === DIAL && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
         // The dial's own, as its scroll wheel turns it: turned from anywhere on
         // the screen. Left and right stay back and next, as on every other screen.
@@ -448,19 +505,20 @@ export function Welcome(): React.JSX.Element | null {
     void window.api.importFrom('vault')
   }
 
+  // Three kinds caught: the next screen. Before then, the box again.
+  const done = kinds.length >= 3
   const primary: Record<number, (() => void) | undefined> = {
     0: next,
     1: openBox,
-    2: openBox,
+    [CATCH]: boxUp ? undefined : done ? next : openBox,
     3: next,
-    4: next,
-    5: next,
-    6: next,
+    [DIAL]: next,
     [LAST]: () => choose(1)
   }
 
   if (at < 0) return null
   const motionless = how === 'key' || still()
+  const shown = caught.find((one) => one.id === showing) ?? null
   return (
     <div role="dialog" aria-modal aria-label="Welcome to Vigil" className="mf-welcome fixed inset-0 z-[70] flex flex-col overflow-hidden bg-background text-foreground [container-type:inline-size]">
       <Backdrop plain={at === LAST} />
@@ -479,16 +537,14 @@ export function Welcome(): React.JSX.Element | null {
             animate={{ opacity: 1, transform: shift('translateY(0px)'), filter: 'blur(0px)' }}
             exit={motionless ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, filter: 'blur(2px)', transition: { duration: 0.12, ease: EASE } }}
             transition={{ duration: 0.2, ease: EASE }}
-            className={`w-full px-[clamp(1.5rem,5vw,4rem)] py-6 [@media(max-height:480px)]:py-2 ${at === 2 && boxUp ? 'mx-auto mt-auto' : (PLACE[at] ?? 'm-auto')}`}
+            className={`w-full px-[clamp(1.5rem,5vw,4rem)] py-6 [@media(max-height:480px)]:py-2 ${at === CATCH && boxUp ? 'mx-auto mt-auto' : (PLACE[at] ?? 'm-auto')}`}
           >
-            {at === 0 && <Hello replay={replay} kept={kept} calm={motionless} />}
-            {at === 1 && <OneKey state={state} onState={setState} onBox={() => go(2, 'app')} />}
-            {at === 2 && <Catch boxUp={boxUp} />}
-            {at === 3 && caught && <Landed capture={caught} />}
-            {at === 4 && <ComesBack capture={caught} />}
-            {at === 5 && <AYear calm={motionless} />}
+            {at === 0 && <Hello replay={replay} kept={kept} calm={motionless} newcomer={newcomer} today={earlier + caught.length} />}
+            {at === 1 && <OneKey state={state} onState={setState} onBox={() => go(CATCH, 'app')} />}
+            {at === CATCH && <Catch boxUp={boxUp} caught={caught} shown={shown} left={left} onStart={start} />}
+            {at === 3 && <AYear calm={motionless} caught={caught} />}
             {at === DIAL && <Yours onPick={(theme) => (picked.current = theme)} />}
-            {at === LAST && <Start name={replay ? '' : (state?.name ?? '')} skipped={skipped} importing={importing} onPick={choose} onFiles={() => (leave('notes'), void window.api.importFrom('files'))} />}
+            {at === LAST && <Start name={replay ? '' : (state?.name ?? '')} kept={caught.length} skipped={skipped} importing={importing} onPick={choose} onFiles={() => (leave('notes'), void window.api.importFrom('files'))} />}
           </motion.section>
         </AnimatePresence>
       </main>
@@ -499,11 +555,19 @@ export function Welcome(): React.JSX.Element | null {
         <button type="button" onClick={skip} className="flex h-[clamp(2rem,4.2vmin,2.5rem)] items-center gap-2 rounded-[0.6rem] px-3 text-[clamp(0.8125rem,1.8vmin,1rem)] text-(--mf-wl-quiet) transition-colors hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97]">
           {at === LAST ? 'Close' : 'Skip'} <Kbd>Esc</Kbd>
         </button>
+        {/* One is enough: after the first, a quiet way on without the other two. */}
+        {at === CATCH && caught.length > 0 && !done && !boxUp && (
+          <button type="button" onClick={next} className="flex h-[clamp(2rem,4.2vmin,2.5rem)] items-center gap-2 rounded-[0.6rem] px-3 text-[clamp(0.8125rem,1.8vmin,1rem)] text-foreground transition-colors hover:bg-foreground/[0.06] active:scale-[0.97]">
+            That is enough for now <Kbd>→</Kbd>
+          </button>
+        )}
         <div>
           {at === 0 && <Primary onClick={next}>Show me</Primary>}
           {at === 1 && <LateButton onClick={openBox} />}
-          {at === 2 && <Primary onClick={openBox} keys={<BoxKeys />} hidden={boxUp}>Open the box</Primary>}
-          {at >= 3 && at < LAST && <Primary onClick={next}>Next</Primary>}
+          {at === CATCH && (done
+            ? <Primary onClick={next} hidden={boxUp}>Next</Primary>
+            : <Primary onClick={openBox} keys={<BoxKeys />} hidden={boxUp}>{caught.length ? 'Catch another' : 'Open the box'}</Primary>)}
+          {at > CATCH && at < LAST && <Primary onClick={next}>Next</Primary>}
           {at === LAST && <Primary onClick={() => choose(1)}>Start fresh</Primary>}
         </div>
       </footer>
@@ -596,7 +660,7 @@ const PLACE: Record<number, string> = {
  * today will be gone; as it finishes, the gone days on the ruler fade, and
  * only the ones you kept something on stay.
  */
-function Hello({ replay, kept, calm }: { replay: boolean; kept: Set<string>; calm: boolean }): React.JSX.Element {
+function Hello({ replay, kept, calm, newcomer, today }: { replay: boolean; kept: Set<string>; calm: boolean; newcomer: boolean; today: number }): React.JSX.Element {
   const [said, setSaid] = useState(false)
   const [line] = useState(firstLine)
   const [when] = useState(dateline)
@@ -614,7 +678,7 @@ function Hello({ replay, kept, calm }: { replay: boolean; kept: Set<string>; cal
         <p className={`${BODY} max-w-[28ch]`}>Vigil keeps it for you, one key away, and brings it back.</p>
       </div>
       <div className="[@media(max-height:520px)]:hidden">
-        <YearRule calm={calm} kept={kept} faded={said} />
+        <YearRule calm={calm} kept={kept} faded={said} newcomer={newcomer} today={today} />
       </div>
     </div>
   )
@@ -773,96 +837,343 @@ function KeyPicker({ taken, onState }: { taken: boolean; onState: (now: Onboardi
 }
 
 /**
- * The box itself is the hero: large and in the middle, the words small above
- * it. With the real box up (it opens over the top of the screen), the picture
- * of it goes and the words wait low in the window, clear of it as it grows.
+ * Three things to catch, of three kinds. Three slots at the top fill with
+ * each new kind as it lands. Before the first: three starters to click (each
+ * is typed into the box for you, to send yourself) or to write your own.
+ * With the real box up (it opens over the top of the screen), the words wait
+ * low in the window, clear of it. Once something lands: its kind, named, and
+ * beside it what that kind does, with the starters still to try under it.
  */
-function Catch({ boxUp }: { boxUp: boolean }): React.JSX.Element {
+function Catch({ boxUp, caught, shown, left, onStart }: { boxUp: boolean; caught: CaptureMeta[]; shown: CaptureMeta | null; left: Starter[]; onStart: (text: string) => void }): React.JSX.Element {
   useKeyChanges()
   const send = <InlineKeys keys={keyFor('⌘↵') || '⌘↵'} />
+  const kinds = kindsOf(caught)
   if (boxUp) {
     return (
-      <div className="mr-auto flex w-full max-w-[min(100%,54rem)] flex-col items-start gap-[clamp(0.375rem,1.2vh,0.75rem)]">
-        <h1 className={HEADLINE}>Write anything in the box.</h1>
-        <p className={`${BODY} max-w-none`}>{send} sends it. <span className="inline-flex translate-y-[-0.08em] align-middle"><Kbd className={LINE_KEY}>Esc</Kbd></span> puts it away.</p>
-        {/* The box has the cursor, so the first key wipes its example: here they keep coming while you type. */}
-        <Example />
+      <div className="mr-auto flex w-full max-w-[min(100%,54rem)] flex-col items-start gap-[clamp(0.5rem,1.6vh,1rem)]">
+        <Slots caught={caught} />
+        <h1 className={HEADLINE}>{caught.length ? 'The next one, in the box.' : 'Write it in the box.'}</h1>
+        <p className={`${BODY} max-w-[38ch]`}>
+          {caught.length ? null : <>Watch the chip at its foot: Vigil guesses the kind from your words. </>}
+          {send} sends it. <span className="inline-flex translate-y-[-0.08em] align-middle"><Kbd className={LINE_KEY}>Esc</Kbd></span> puts it away.
+        </p>
       </div>
     )
   }
-  return <Written send={send} />
-}
-
-/**
- * Before the box is open: the kind of thing it takes, written large as if
- * into it, one after another, on a single ruled line. What you see typed is
- * what you will do, and nothing here pretends to be the box.
- */
-function Written({ send }: { send: ReactNode }): React.JSX.Element {
-  const { shown, typing } = useExample()
+  if (!shown) {
+    return (
+      <div className="mr-auto flex w-full max-w-[56rem] flex-col gap-[clamp(1rem,3.6vh,2.5rem)]">
+        <div className="flex flex-col gap-[clamp(0.75rem,2.2vh,1.25rem)]">
+          <Slots caught={caught} />
+          <h1 className={HEADLINE}>Catch three things.</h1>
+          <p className={`${BODY} max-w-[36ch]`}>Three kinds, to see what each one does. Pick one and it is typed into the box for you, or write your own.</p>
+        </div>
+        <Starters left={left} onStart={onStart} />
+      </div>
+    )
+  }
+  const type = typeOf(shown.kind)
+  const name = type.label.toLowerCase()
+  const again = caught.find((one) => one.kind === shown.kind)?.id !== shown.id
+  const aside = shown.kind === 'note' ? landedAside(shown.label) : null
   return (
-    <div className="mr-auto flex w-full max-w-[min(100%,58rem)] flex-col gap-[clamp(1.25rem,4.5vh,3rem)]">
-      <h1 className={HEADLINE_SM}>Catch something.</h1>
-      <p aria-hidden className="border-b border-foreground/15 pb-[0.25em] font-heading text-[clamp(1.75rem,min(4.6vw,7vh),4rem)] leading-[1.15] tracking-[-0.02em] text-foreground">
-        <span className="block truncate">{shown || '\u00a0'}<span className={`mf-caret ${typing ? 'mf-caret-typing' : ''}`} /></span>
-      </p>
-      <p className={`${BODY} max-w-[36ch]`}>A thing to buy, a line you liked, half an idea. {send} sends it, and you are back where you were.</p>
+    <div className="mx-auto grid w-full max-w-[72rem] items-center gap-x-[clamp(2rem,6vw,6rem)] gap-y-8 @[50rem]:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+      <div className="flex min-w-0 flex-col gap-[clamp(1rem,3vh,2rem)]">
+        <div className="flex flex-col gap-[clamp(0.625rem,2vh,1.125rem)]">
+          <Slots caught={caught} said={false} />
+          <div className="flex flex-wrap items-baseline gap-x-[0.5em] gap-y-1">
+            <h1 className={HEADLINE}>{again ? `Another ${name}.` : `${/^[aeiou]/.test(name) ? 'An' : 'A'} ${name}.`}</h1>
+            {aside && <p className="font-heading text-[clamp(1.125rem,min(2.6vw,3.6vh),1.75rem)] text-(--mf-wl-body) italic">{aside}</p>}
+          </div>
+          <p className={`${BODY} max-w-[34ch]`}><Says capture={shown} /></p>
+        </div>
+        {kinds.length >= 3 ? (
+          <p className={QUIET}>Three kinds, one box for all of them.</p>
+        ) : (
+          <div className="flex flex-col gap-1">
+            <p className={QUIET}>{again ? 'For the next slot, another kind:' : 'Next, try:'}</p>
+            <Starters left={left} onStart={onStart} small />
+          </div>
+        )}
+      </div>
+      <div className="flex w-full min-w-0 justify-center [@media(max-height:520px)]:hidden">
+        <Shows key={shown.id} capture={shown} />
+      </div>
     </div>
   )
 }
 
-/** The box's examples, one after another, quietly under the words while the real box is up. */
-function Example(): React.JSX.Element {
-  const { shown } = useExample()
-  return <p aria-hidden className={`${QUIET} min-h-[1.4em]`}>Like: <span className="text-(--mf-wl-body)">{shown}</span></p>
-}
+/** Kinds already given their little arrival, so a slot pops in once, not every time the box comes and goes. */
+const popped = new Set<string>()
 
-/** The box's examples typed in turn, one at a time, still when Motion is off. */
-function useExample(): { line: string; shown: string; typing: boolean; quiet: boolean } {
-  const [n, setN] = useState(0)
-  const [typed, setTyped] = useState(0)
-  const line = EXAMPLES[n % EXAMPLES.length]
+/** Three slots, filling with each new kind caught: its icon and its name. */
+function Slots({ caught, said = true }: { caught: CaptureMeta[]; said?: boolean }): React.JSX.Element {
+  const firsts = kindsOf(caught).map((kind) => caught.find((one) => one.kind === kind) as CaptureMeta)
   const quiet = still()
-  // The screen's voice for as long as it is up: the scenery holds still behind it.
-  const voice = useId()
-  useState(() => !quiet && speak(voice, 'box preview', 600000, true))
-  useEffect(() => () => hush(voice), [voice])
-  useEffect(() => {
-    if (quiet || typed < line.length) {
-      const timer = setTimeout(() => (quiet ? setN((was) => was + 1) : setTyped((was) => was + 1)), quiet ? 3000 : typed === 0 ? 500 : 38)
-      return () => clearTimeout(timer)
-    }
-    const rest = setTimeout(() => (setTyped(0), setN((was) => was + 1)), 2600)
-    return () => clearTimeout(rest)
-  }, [typed, line, quiet])
-  return { line, shown: quiet ? line : line.slice(0, typed), typing: !quiet && typed < line.length, quiet }
+  useEffect(() => void firsts.forEach((one) => popped.add(one.id)))
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+    <ol aria-label={`${Math.min(firsts.length, 3)} of 3 kinds caught`} className="flex flex-wrap gap-2">
+      {[0, 1, 2].map((i) => {
+        const first = firsts[i]
+        const type = first ? typeOf(first.kind) : null
+        const Icon = type?.icon
+        return (
+          <li key={i} className={`flex h-8 min-w-[6.5rem] items-center justify-center rounded-full border px-3 text-[0.8125rem] font-medium ${type ? 'border-foreground/15 bg-background/85 text-foreground' : 'border-dashed border-foreground/25'}`}>
+            {type && Icon && (
+              <motion.span key={first.id} className="flex items-center gap-1.5"
+                initial={quiet || popped.has(first.id) ? false : { opacity: 0, transform: 'scale(0.6)' }} animate={{ opacity: 1, transform: 'scale(1)' }}
+                transition={{ type: 'spring', duration: 0.4, bounce: 0.35, delay: 0.15 }}>
+                <Icon className="size-4" style={{ color: type.tint }} />{type.label}
+              </motion.span>
+            )}
+          </li>
+        )
+      })}
+    </ol>
+      {said && firsts.length < 3 && <span aria-hidden className="text-[0.8125rem] text-(--mf-wl-quiet)">{firsts.length ? `${counted(firsts.length)} of three` : 'Three kinds to catch'}</span>}
+    </div>
+  )
 }
 
+/** The starters still to try, each with its kind beside it and a number key; a click types it into the box. */
+function Starters({ left, onStart, small = false }: { left: Starter[]; onStart: (text: string) => void; small?: boolean }): React.JSX.Element {
+  return (
+    <ol className="flex max-w-[46rem] flex-col">
+      {left.map((one, i) => {
+        const type = typeOf(one.kind)
+        const Icon = type.icon
+        return (
+          <li key={one.kind}>
+            <button type="button" onClick={() => onStart(one.text)}
+              className="group -mx-3 flex w-[calc(100%+1.5rem)] items-center gap-3 rounded-xl px-3 py-[clamp(0.375rem,1.2vh,0.625rem)] text-left transition-[background-color,transform] duration-150 hover:bg-foreground/[0.06] active:scale-[0.99]">
+              <Kbd className="shrink-0 text-(--mf-wl-quiet)">{i + 1}</Kbd>
+              <span className={`min-w-0 flex-1 truncate font-heading text-foreground ${small ? 'text-[clamp(1rem,min(1.9vw,2.8vh),1.25rem)]' : 'text-[clamp(1.125rem,min(2.4vw,3.4vh),1.625rem)]'}`}>{one.text}</span>
+              <span className="flex shrink-0 items-center gap-1.5 text-[0.8125rem] text-(--mf-wl-quiet)">
+                <Icon className="size-4" style={{ color: type.tint }} />{type.label}
+              </span>
+            </button>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+/** A quote's words without their marks, and who said it: the box's Who said it, or a name after a dash. */
+function quoteOf(capture: CaptureMeta): { words: string; who: string } {
+  const line = capture.label.split('\n')[0].trim()
+  const [, said = line, by = ''] = /^["“'](.+?)["”']\s*(?:[-–]\s*(.+))?$/.exec(line) ?? []
+  return { words: said.trim(), who: (capture.attribution || by).trim() }
+}
+
+/** A word on its own, and its meaning if one was written after a dash or a colon. */
+function wordOf(capture: CaptureMeta): { term: string; meaning: string } {
+  const line = capture.label.split('\n')[0].trim()
+  const [, term = line, meaning = ''] = /^(.+?)\s+[-–:]\s+(.+)$/.exec(line) ?? /^(.+?):\s*(.+)$/.exec(line) ?? []
+  return { term: term.replace(/^(define|what does)\s+/i, '').replace(/\s+(meaning|mean\??)$/i, '').trim(), meaning: meaning.trim() }
+}
+
+/** What the kind just caught does, in a sentence or two. */
+function Says({ capture }: { capture: CaptureMeta }): React.JSX.Element {
+  const strong = 'text-foreground'
+  if (capture.kind === 'todo') {
+    const read = readTask(capture.label.split('\n')[0])
+    if (!read.due) return <>It is in your tasks. Put a day in the words, like “friday”, and it shows in Today on that day.</>
+    const today = dayjs(read.due).isSame(dayjs(), 'day')
+    return <>Vigil read <span className={strong}>{whenInLine(read.due, read.allDay).replace(/ (\d)/, ' at $1')}</span> in your words. {today ? 'It is in Today, in your tasks.' : 'It waits in your tasks, and shows in Today on the day.'}</>
+  }
+  if (capture.kind === 'quote') {
+    const { who } = quoteOf(capture)
+    const now = dayjs()
+    const date = <span className={`${strong} whitespace-nowrap`} aria-label={now.add(1, 'year').format('D MMMM YYYY')}><span aria-hidden>{now.format('D MMMM')} <RollingYear from={now.year()} /></span></span>
+    return who
+      ? <>Back in your Inbox on {date}, a year to the day, signed by {who}.</>
+      : <>Back in your Inbox on {date}, a year to the day. Say who said it, and it comes back signed.</>
+  }
+  if (capture.kind === 'word') {
+    return wordOf(capture).meaning
+      ? <>A card now: Review asks you what it means, on days further and further apart, until it sticks.</>
+      : <>Write what it means under it, and it becomes a card: Review asks you, on days further and further apart, until it sticks.</>
+  }
+  if (capture.kind === 'link') {
+    const named = !!capture.title && !/^https?:/.test(capture.title)
+    return <>{named ? 'Vigil fetched the name of the page' : 'Vigil is fetching the name of the page'}, so you find it by what it is, not by its address.</>
+  }
+  if (capture.kind === 'decision') return <>Kept with its reason, the first thing forgotten: the box asks why on the line under it.</>
+  if (capture.kind === 'excerpt') return <>Kept whole, so you can lift out the lines you want later.</>
+  if (capture.kind === 'bit') return <>Kept for the next time you need a good line.</>
+  return <>Kept as you wrote it. It comes back on its own: as a hint in the box, or a year from today.</>
+}
+
+/** What the kind does, shown with the app's own parts rather than told. */
+function Shows({ capture }: { capture: CaptureMeta }): React.JSX.Element {
+  if (capture.kind === 'todo') return <TaskShow capture={capture} />
+  if (capture.kind === 'quote') return <QuoteShow capture={capture} />
+  if (capture.kind === 'word') return <WordShow capture={capture} />
+  if (capture.kind === 'link') return <LinkShow capture={capture} />
+  return <NoteShow capture={capture} />
+}
+
+/** A panel as the app draws one, enlarged with the window. */
+const PANEL = 'w-full max-w-[30rem] overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow) [zoom:1.1] @[56rem]:[zoom:1.2] @[80rem]:[zoom:1.4] [&_*]:!cursor-default'
+/** A panel's arrival: from just above, through a breath of blur. */
+const arrival = (quiet: boolean, delay = 0.08): object => quiet ? { initial: false } : { initial: { opacity: 0, transform: 'translateY(-10px)', filter: 'blur(2px)' }, animate: { opacity: 1, transform: 'translateY(0px)', filter: 'blur(0px)' }, transition: { delay, duration: 0.26, ease: EASE } }
+
 /**
- * The Inbox around your capture: your own rows already waiting there, newest
- * first, never made-up ones. Safe mode volunteers none of them; quiet hours
- * keep the private ones back, as everything the app offers unasked does.
+ * A todo: your words as typed, the day and time Vigil read in them lit, then
+ * the task as your list shows it, filed under Today, Upcoming or Backlog.
  */
-async function waiting(capture: CaptureMeta): Promise<CaptureMeta[]> {
-  const [list, settings] = await Promise.all([window.api.captures.list(), vigil.settings().catch(() => null)])
-  if (settings?.safeMode) return []
-  const { quietStart: from = '', quietEnd: to = '' } = settings ?? {}
-  const now = new Date().toTimeString().slice(0, 5)
-  const hush = from <= to ? now >= from && now < to : now >= from || now < to
-  return list
-    .filter((one) => one.id !== capture.id && one.status === 'open' && !one.archivedAt && !(hush && one.private))
-    .sort((a, b) => b.capturedAt.localeCompare(a.capturedAt))
-    .slice(0, 3)
+function TaskShow({ capture }: { capture: CaptureMeta }): React.JSX.Element {
+  const quiet = still()
+  useEffect(() => {
+    const sound = setTimeout(() => chime('send'), quiet ? 0 : 340)
+    return () => clearTimeout(sound)
+  }, [quiet])
+  const line = capture.label.split('\n')[0]
+  const read = readTask(line)
+  const spans = [...read.spans].sort((a, b) => a.from - b.from)
+  const parts: ReactNode[] = []
+  let from = 0
+  spans.forEach((span, i) => {
+    parts.push(line.slice(from, span.from), <span key={i} className="rounded-[0.2em] bg-primary/12 px-[0.15em] text-primary">{line.slice(span.from, span.to)}</span>)
+    from = span.to
+  })
+  parts.push(line.slice(from))
+  const place = !read.due ? 'Backlog' : dayjs(read.due).isSame(dayjs(), 'day') ? 'Today' : 'Upcoming'
+  return (
+    <div className="flex w-full max-w-[30rem] flex-col gap-3">
+      {/* Your words, with what Vigil read in them lit; nothing read, nothing to show. */}
+      {spans.length > 0 && <p className="px-1 text-[clamp(0.9375rem,min(1.9vw,2.8vh),1.1875rem)] text-(--mf-wl-body)">{parts}</p>}
+      <motion.div className={PANEL} {...arrival(quiet)}>
+        <p className="flex items-baseline gap-2 px-4 pt-3 pb-1 text-[0.8125rem] font-medium text-foreground">Tasks <span className="font-normal text-muted-foreground">{place}</span></p>
+        <div className="flex items-center gap-3 px-4 pt-2 pb-3.5">
+          <span aria-hidden className="size-4 shrink-0 rounded-full border-[1.5px] border-foreground/35" />
+          <span className="min-w-0 flex-1 truncate text-[0.9375rem] text-foreground">{read.title.trim() || line}</span>
+          {read.due && (
+            <span className="flex shrink-0 items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 text-[0.75rem] font-medium text-primary tabular-nums">
+              <CalendarDays className="size-3.5" />{when(read.due, read.allDay)}
+            </span>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+/** A quote: next year's postcard, laid on the table a little askew and signed. */
+function QuoteShow({ capture }: { capture: CaptureMeta }): React.JSX.Element {
+  useEffect(() => chime('riffle'), [])
+  const { words, who } = quoteOf(capture)
+  return (
+    <figure aria-hidden className="w-full max-w-[30rem]">
+      {/* Drawn at the postcard's own size and enlarged whole, so its stamp and postmark keep their proportions. */}
+      <div className="origin-center -rotate-[3deg] [zoom:1.1] @[50rem]:[zoom:1.25] @[80rem]:[zoom:1.5] [&>div]:shadow-[0_2px_3px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_22px_44px_-16px_color-mix(in_oklab,var(--mf-shadow-ink)_42%,transparent)]">
+        <MemoryPostcard at={new Date().toISOString()} seed={capture.id}>
+          <p className="text-meta text-(--mf-wl-quiet)">A year ago today</p>
+          <p className="clear-both mt-1 line-clamp-4 font-heading text-[1.125rem] leading-snug text-foreground [overflow-wrap:anywhere]">{words}</p>
+          {who && <p className="mt-1 text-meta text-(--mf-wl-quiet)"><Signed who={who} /></p>}
+        </MemoryPostcard>
+      </div>
+    </figure>
+  )
 }
 
 /**
- * The moment it lands, timed to the frame: the line changes at once, the
+ * A word: the card Review will ask you, the question on its face and the
+ * meaning on its back. Review's own card: a click, a drag or Space turns it.
+ */
+function WordShow({ capture }: { capture: CaptureMeta }): React.JSX.Element {
+  const [over, setOver] = useState(false)
+  const { term, meaning } = wordOf(capture)
+  const turn = (to: boolean): void => {
+    chime('tap')
+    setOver(to)
+  }
+  useEffect(() => {
+    const sound = setTimeout(() => chime('send'), still() ? 0 : 340)
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== ' ' || event.metaKey || (event.target as HTMLElement | null)?.closest?.('input, textarea, [contenteditable="true"]')) return
+      event.preventDefault()
+      chime('tap')
+      setOver((was) => !was)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => (clearTimeout(sound), window.removeEventListener('keydown', onKey))
+  }, [])
+  const face = 'flex h-full min-h-[10rem] flex-col justify-center rounded-xl border bg-background px-6 py-6 shadow-(--mf-panel-shadow)'
+  return (
+    <motion.div className="w-full max-w-[28rem] [zoom:1.05] @[56rem]:[zoom:1.15] @[80rem]:[zoom:1.35]" {...arrival(still())}>
+      <Flip over={over} onTurn={turn}
+        front={
+          <div className={face}>
+            <p className="text-xs text-muted-foreground">Review</p>
+            <h2 className="mt-1.5 font-heading text-title font-semibold tracking-[-0.018em] text-balance text-foreground">What does “{term}” mean?</h2>
+          </div>
+        }
+        back={
+          <div className={face}>
+            <p className="text-xs text-muted-foreground">What does “{term}” mean?</p>
+            <p className="mt-1.5 font-heading text-[1.1875rem] leading-snug text-foreground">{meaning || 'Its meaning, in your own words, once you write it under the word.'}</p>
+          </div>
+        }
+      />
+      <p className="mt-3 text-center text-[0.8125rem] text-(--mf-wl-quiet)">Click it, or press <Kbd>Space</Kbd>, to turn it over.</p>
+    </motion.div>
+  )
+}
+
+/** A link: the page's name as it arrives, over its address. */
+function LinkShow({ capture }: { capture: CaptureMeta }): React.JSX.Element {
+  const quiet = still()
+  useEffect(() => {
+    const sound = setTimeout(() => chime('send'), quiet ? 0 : 340)
+    return () => clearTimeout(sound)
+  }, [quiet])
+  const url = capture.label.match(/https?:\/\/\S+/)?.[0] ?? capture.label
+  let host = url
+  try {
+    host = new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    // Shown as written.
+  }
+  const named = !!capture.title && !/^https?:/.test(capture.title)
+  // Still nothing after a while: offline, most likely, and said so rather than left waiting.
+  const [slow, setSlow] = useState(false)
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), 8000)
+    return () => clearTimeout(timer)
+  }, [])
+  const Mark = typeOf('link').icon
+  return (
+    <motion.div className={PANEL} {...arrival(quiet)}>
+      <div className="flex items-center gap-3 px-4 py-3.5">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-foreground/[0.03]"><Mark className="size-4" style={{ color: typeOf('link').tint }} /></span>
+        <div className="min-w-0 flex-1">
+          <AnimatePresence mode="wait" initial={false}>
+            {named ? (
+              <motion.p key="named" className="truncate text-[0.9375rem] font-medium text-foreground" initial={quiet ? false : { opacity: 0, filter: 'blur(2px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }} transition={{ duration: 0.2 }}>{capture.title}</motion.p>
+            ) : (
+              <motion.p key="asking" className="flex items-center gap-2 text-[0.9375rem] text-muted-foreground" exit={{ opacity: 0, transition: { duration: 0.1 } }}>
+                {slow ? 'No answer from the page yet. Its name comes when it does.' : <>Fetching its name <span className="mf-listening" aria-hidden /></>}
+              </motion.p>
+            )}
+          </AnimatePresence>
+          <p className="truncate text-[0.8125rem] text-muted-foreground">{host}</p>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+/**
+ * Anything else: the row as your Inbox holds it, timed to the frame. The
  * row arrives at 80ms from just above through a breath of blur, the sound at
  * 340ms as it settles (it says arrived, not sent), and at 600ms an ink line
- * under the first word you wrote. With Motion off, all of it at once, and the
- * sound still.
+ * under the first word you wrote. With Motion off, all of it at once, and
+ * the sound still.
  */
-function Landed({ capture }: { capture: CaptureMeta }): React.JSX.Element {
+function NoteShow({ capture }: { capture: CaptureMeta }): React.JSX.Element {
   const row = useRef<HTMLDivElement>(null)
   const [mark, setMark] = useState<{ left: number; top: number; width: number } | null>(null)
   const quiet = still()
@@ -898,34 +1209,13 @@ function Landed({ capture }: { capture: CaptureMeta }): React.JSX.Element {
     const timer = setTimeout(find, quiet ? 0 : 340)
     return () => clearTimeout(timer)
   }, [quiet])
-  const aside = landedAside(capture.label)
   const w = mark?.width ?? 0
-  // The ones before it, as your Inbox holds them: faded, there for scale.
-  const [earlier, setEarlier] = useState<CaptureMeta[] | null>(null)
-  useEffect(() => {
-    let live = true
-    void waiting(capture).then((list) => live && setEarlier(list), () => live && setEarlier([]))
-    return () => void (live = false)
-  }, [capture])
-  const arrive = { delay: 0.08, duration: 0.26, ease: EASE }
   return (
-    // The moment, as it is in the Inbox: a calm column, yours arriving at the
-    // top and the ones before it moving down to make room. The words are two
-    // short lines over it, set to its left edge, so the row is what you look at.
-    <div className="mr-auto flex w-full max-w-[46rem] flex-col gap-[clamp(1rem,3.4vh,2.25rem)]">
-      <div className="flex flex-wrap items-baseline gap-x-[0.5em] gap-y-1">
-        <h1 className={HEADLINE}>It landed.</h1>
-        {aside && <p className="font-heading text-[clamp(1.125rem,min(2.6vw,3.6vh),1.75rem)] text-(--mf-wl-body) italic">{aside}</p>}
-      </div>
-      <div className="pointer-events-none overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow) [zoom:1.15] @[56rem]:[zoom:1.3] @[80rem]:[zoom:1.5] [&_*]:!cursor-default">
-        <p className="px-4 pt-3 pb-1 text-[0.8125rem] font-medium text-foreground">Inbox</p>
-      <motion.div ref={row} className="relative w-full"
-        initial={quiet ? false : { opacity: 0, transform: 'translateY(-10px)', filter: 'blur(2px)' }}
-        animate={{ opacity: 1, transform: 'translateY(0px)', filter: 'blur(0px)' }}
-        transition={arrive}>
-          {/* Shown as it waits in the Inbox: one the box also made a task still reads as just caught. */}
-          {/* Your words whole, over two lines if they need them: never cut off at the moment they land. */}
-          <NoteList groups={[['', [{ ...captureEntry({ ...capture, status: 'open' }), wrap: true }]]]} density="list" table="captures" cursor={-1} onPick={() => undefined} />
+    <div className={PANEL}>
+      <p className="px-4 pt-3 pb-1 text-[0.8125rem] font-medium text-foreground">Inbox</p>
+      <motion.div ref={row} className="relative w-full" {...arrival(quiet)}>
+        {/* Your words whole, over two lines if they need them: never cut off at the moment they land. */}
+        <NoteList groups={[['', [{ ...captureEntry({ ...capture, status: 'open' }), wrap: true }]]]} density="list" table="captures" cursor={-1} onPick={() => undefined} />
         {mark && (
           <svg aria-hidden className="pointer-events-none absolute overflow-visible" style={{ left: mark.left, top: mark.top, width: w, height: 6 }} viewBox={`0 0 ${w} 6`}>
             <path d={inkPath(w, capture.id)} pathLength={1} fill="none" stroke="var(--primary)" strokeWidth={2} strokeLinecap="round"
@@ -936,69 +1226,19 @@ function Landed({ capture }: { capture: CaptureMeta }): React.JSX.Element {
           </svg>
         )}
       </motion.div>
-        {earlier?.length ? (
-          <motion.div aria-hidden className="opacity-40 [mask-image:linear-gradient(to_bottom,black_30%,transparent)] [@media(max-height:560px)]:hidden"
-            initial={quiet ? false : { transform: 'translateY(-3.25rem)' }} animate={{ transform: 'translateY(0rem)' }} transition={arrive}>
-            <CaptureList groups={[['', earlier]]} cursor={-1} onPick={() => undefined} />
-          </motion.div>
-        ) : earlier && (
-          // Nothing before it: the first thing in your Inbox, over a quiet ruled column waiting for the rest.
-          <motion.div aria-hidden className="mx-4 [mask-image:linear-gradient(to_bottom,black_40%,transparent)] [@media(max-height:560px)]:hidden"
-            initial={quiet ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ ...arrive, delay: 0.34 }}>
-            {[0, 1].map((i) => (
-              <div key={i} className="flex h-[3.25rem] items-center border-t border-foreground/[0.07] px-1 text-xs text-muted-foreground">
-                {i === 0 && 'Everything you catch waits here, newest first.'}
-              </div>
-            ))}
-          </motion.div>
-        )}
-      </div>
-      <p className={QUIET}>Nothing to sort now. Later, a few minutes at a time.</p>
     </div>
   )
 }
 
 /**
- * Your own words, as the postcard they will be a year from today, laid large
- * on the table and a little askew. The date it comes back is the headline,
- * and its year rolls over from this one to the next as you arrive: a year,
- * shown passing. The two sooner ways back are one quiet line.
+ * What a year of it becomes, shown rather than listed. First the day you
+ * just had, what you caught in the welcome; then an example year read back,
+ * the way Your year, wrapped will read yours: the first screen's ruler, a
+ * year on, its tall marks the days something was kept, and four things the
+ * year found out about its reader, one at a time, a beat apart. Plainly
+ * labelled an example: nothing on it is yours yet.
  */
-function ComesBack({ capture }: { capture: CaptureMeta | null }): React.JSX.Element {
-  useEffect(() => chime('riffle'), [])
-  const words = capture?.label?.split('\n')[0]?.trim() || 'The first thing you catch.'
-  const now = dayjs()
-  return (
-    <div className="mx-auto grid w-full max-w-[72rem] items-center gap-x-[clamp(2rem,6vw,6rem)] gap-y-8 @[50rem]:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-      <figure aria-hidden className="w-full max-w-[34rem] justify-self-center [@media(max-height:520px)]:hidden">
-        {/* Drawn at the postcard's own size and enlarged whole, so its stamp and postmark keep their proportions. */}
-        <div className="origin-center -rotate-[3deg] [zoom:1.15] @[50rem]:[zoom:1.35] @[80rem]:[zoom:1.6] [&>div]:shadow-[0_2px_3px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_22px_44px_-16px_color-mix(in_oklab,var(--mf-shadow-ink)_42%,transparent)]">
-          <MemoryPostcard at={new Date().toISOString()} seed={capture?.id ?? 'welcome'}>
-            <p className="text-meta text-(--mf-wl-quiet)">A year ago today</p>
-            <p className="clear-both mt-1 line-clamp-3 font-heading text-[1.125rem] leading-snug text-foreground [overflow-wrap:anywhere]">{words}</p>
-            {capture?.kind === 'quote' && capture.attribution && <p className="mt-1 text-meta text-(--mf-wl-quiet)"><Signed who={capture.attribution} /></p>}
-          </MemoryPostcard>
-        </div>
-      </figure>
-      <div className="flex flex-col gap-[clamp(0.75rem,2.6vh,1.5rem)]">
-        <p className={FIGURES}>Back in your Inbox on</p>
-        <h1 aria-label={now.add(1, 'year').format('D MMMM YYYY')} className={HEADLINE}>
-          <span aria-hidden>{now.format('D MMMM')} <RollingYear from={now.year()} /></span>
-        </h1>
-        <p className={`${BODY} max-w-[30ch]`}>A year to the day. Sooner, too: as a hint in the box, or in Review before you forget.</p>
-      </div>
-    </div>
-  )
-}
-
-/**
- * What a year of it becomes, shown rather than listed: an example year read
- * back, the way Your year, wrapped will read yours. The first screen's
- * ruler, a year on, its tall marks the days something was kept; then four
- * things the year found out about its reader, one at a time, a beat apart.
- * Plainly labelled an example: nothing on it is yours yet.
- */
-function AYear({ calm }: { calm: boolean }): React.JSX.Element {
+function AYear({ calm, caught }: { calm: boolean; caught: CaptureMeta[] }): React.JSX.Element {
   useEffect(() => chime('riffle'), [])
   const quiet = calm || still()
   // The example's days kept: most of them, more as the habit takes, never
@@ -1025,7 +1265,24 @@ function AYear({ calm }: { calm: boolean }): React.JSX.Element {
   return (
     <div className="mx-auto grid w-full max-w-[72rem] items-center gap-x-[clamp(2rem,6vw,6rem)] gap-y-8 @[50rem]:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
       <div className="flex flex-col gap-[clamp(0.75rem,2.6vh,1.5rem)]">
-        <h1 className={`${HEADLINE} max-w-[13ch]`}>A year of it, read back to you.</h1>
+        {caught.length > 0 && (
+          // The day you just had, as the start of it: what you caught, by kind.
+          <div className="flex flex-col gap-2">
+            <p className={FIGURES}>One day: {counted(caught.length).toLowerCase()} {caught.length === 1 ? 'thing' : 'things'}.</p>
+            <ul aria-label="What you caught today" className="flex flex-wrap gap-2">
+              {caught.slice(0, 6).map((one) => {
+                const type = typeOf(one.kind)
+                const Icon = type.icon
+                return (
+                  <li key={one.id} className="flex h-8 max-w-[14rem] items-center gap-1.5 rounded-full border border-foreground/15 bg-background/85 px-3 text-[0.8125rem] text-foreground">
+                    <Icon className="size-4 shrink-0" style={{ color: type.tint }} /><span className="truncate">{one.label.split('\n')[0]}</span>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )}
+        <h1 className={`${HEADLINE} max-w-[13ch]`}>{caught.length ? 'A year of days, read back to you.' : 'A year of it, read back to you.'}</h1>
         <p className={`${BODY} max-w-[30ch]`}>No more notes in three apps you never open again. One book, and once a year it shows you what you were like.</p>
       </div>
       <figure aria-label="An example year, read back" className="w-full max-w-[30rem] justify-self-center rounded-2xl border bg-background/90 p-[clamp(1rem,2.6vh,1.5rem)] shadow-(--mf-panel-shadow) [@media(max-height:520px)]:hidden">
@@ -1099,7 +1356,7 @@ function Yours({ onPick }: { onPick: (theme: Theme) => void }): React.JSX.Elemen
  * arrow at the top of the window points at Vigil in the menu bar, so the
  * words do not have to.
  */
-function Start({ name, skipped, importing, onPick, onFiles }: { name: string; skipped: false | 'first' | 'later'; importing: boolean; onPick: (pick: 1 | 2 | 3) => void; onFiles: () => void }): React.JSX.Element {
+function Start({ name, kept, skipped, importing, onPick, onFiles }: { name: string; kept: number; skipped: false | 'first' | 'later'; importing: boolean; onPick: (pick: 1 | 2 | 3) => void; onFiles: () => void }): React.JSX.Element {
   const others: { key: 2 | 3; title: string }[] = [
     { key: 2, title: 'Try the sandbox first' },
     { key: 3, title: 'Bring my notes' }
@@ -1109,7 +1366,7 @@ function Start({ name, skipped, importing, onPick, onFiles }: { name: string; sk
     <div className="mr-auto flex w-full max-w-[58rem] flex-col gap-[clamp(1.25rem,4.5vh,3rem)]">
       <div className="flex flex-col gap-[clamp(0.5rem,1.8vh,1rem)]">
         <h1 className={`${HEADLINE_XL} max-w-[14ch]`}>{name ? `Your book is ready, ${name}.` : 'Your book is ready.'}</h1>
-        <p className={`${BODY} max-w-[30ch]`}>Empty for now. <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> fills it, from any app.</p>
+        <p className={`${BODY} max-w-[30ch]`}>{kept ? `${counted(kept)} ${kept === 1 ? 'thing' : 'things'} in it already.` : 'Empty for now.'} <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> {kept ? 'adds the next' : 'fills it'}, from any app.</p>
         {skipped && <p role="status" className={`${QUIET} max-w-[48ch]`}>{skipped === 'first' && <span className="italic">{WANDER} </span>}The welcome waits in the Vigil menu and ⌘K.</p>}
       </div>
       <div className={`flex flex-wrap items-center gap-x-6 gap-y-2 ${QUIET} [@media(max-height:440px)]:hidden`}>

@@ -114,7 +114,7 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
     <Popover open={open} onOpenChange={(next) => void (setKeyed(false), setOpen(next))}>
       <Tip label={suggested ? 'Suggested from what you typed. ⌃L or ⌘1-9 to choose' : undefined}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className={`gap-1.5 rounded-full cursor-pointer ${suggested ? 'border-dashed' : ''} ${flat ? 'h-auto w-full justify-start gap-2 rounded-none border-0 bg-transparent px-2 py-1.5 font-normal shadow-none hover:bg-accent dark:bg-transparent dark:hover:bg-accent' : ''}`}>
+        <Button variant="outline" size="sm" data-kind-chip={flat ? undefined : ''} className={`gap-1.5 rounded-full cursor-pointer ${suggested ? 'border-dashed' : ''} ${flat ? 'h-auto w-full justify-start gap-2 rounded-none border-0 bg-transparent px-2 py-1.5 font-normal shadow-none hover:bg-accent dark:bg-transparent dark:hover:bg-accent' : ''}`}>
           <Icon className="size-4" style={{ color: current.tint }} />
           {current.label}
         </Button>

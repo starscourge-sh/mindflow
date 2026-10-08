@@ -1157,6 +1157,27 @@ input[type='number']::-webkit-outer-spin-button {
 :root[data-welcome-ph] .tiptap.ProseMirror.mindflow-editor:not(.is-line) > .is-empty[data-placeholder]:first-child:has(> .ProseMirror-trailingBreak:only-child)::before {
   content: var(--mf-welcome-ph, attr(data-placeholder));
 }
+/* Its kind chip in the accent, so the guess is seen, with a small pulse each
+   time the guess changes; the first time, a word beside it says what it is. */
+:root[data-welcome-ph] [data-kind-chip] {
+  position: relative;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 18%, transparent);
+}
+:root[data-welcome-ph] [data-kind-chip][data-lit] { animation: mf-kind-lit 520ms var(--mf-ease); }
+@keyframes mf-kind-lit {
+  30% { transform: scale(1.08); box-shadow: 0 0 0 6px color-mix(in oklab, var(--primary) 22%, transparent); }
+}
+:root[data-welcome-ph][data-welcome-first] [data-kind-chip]::after {
+  content: '← guessed from your words';
+  position: absolute;
+  left: calc(100% + 0.75rem);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--primary);
+  white-space: nowrap;
+  pointer-events: none;
+}
 
 /* Progress bars, playful (components/vigil/progress-bar.tsx). The blade: a
    pale core, its colour as a glow; a slow hum while the window is looked at. */

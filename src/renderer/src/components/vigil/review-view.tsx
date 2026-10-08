@@ -600,7 +600,7 @@ const snap = (deg: number): number => Math.round(deg / 180) * 180
  * With Motion off or Reduce motion it does not turn, one face simply gives
  * way to the other.
  */
-function Flip({ over, onTurn, front, back }: { over: boolean; onTurn: (over: boolean) => void; front: React.ReactNode; back: React.ReactNode }): React.JSX.Element {
+export function Flip({ over, onTurn, front, back }: { over: boolean; onTurn: (over: boolean) => void; front: React.ReactNode; back: React.ReactNode }): React.JSX.Element {
   const turn = useMotionValue(over ? 180 : 0)
   // Where the turn is headed, which is not where it is while it is moving.
   const aim = useRef(over ? 180 : 0)
