@@ -371,14 +371,14 @@ export function PostcardResult({ words, who, where, signed, id = 'reel-item-quot
           <p className="clear-both mt-1 font-heading text-[1.0625rem] leading-snug text-foreground">{words.replace(/^[“"]|[”"]$/g, '')}</p>
           {/* Signed whole and never cut short: "said by" and the pen's stroke arrive together, the name
               drawn left to right (its clip reaches past the letters, so no swash shows early), and
-              where it is from wraps under it when the line is full. */}
+              where it is from wraps under it when the line is full ("in Meditations", which reads on either line where a dot would be left starting one). */}
           <p className="mt-1 flex min-h-[1.6em] flex-wrap items-baseline gap-x-1.5 text-meta text-(--mf-wl-quiet) [&_.mf-signature]:overflow-visible [&_.mf-signature]:text-clip">
             {signed && (
               <motion.span className="inline-flex shrink-0" initial={{ clipPath: 'inset(-40% 100% -40% -20%)' }} animate={{ clipPath: 'inset(-40% -20% -40% -20%)' }} transition={{ duration: 0.9, ease: [0.65, 0, 0.35, 1] }}>
                 <Signed who={who} />
               </motion.span>
             )}
-            {where && signed && <span className="shrink-0">· {where}</span>}
+            {where && signed && <span className="shrink-0">in {where}</span>}
           </p>
         </MemoryPostcard>
       </div>
