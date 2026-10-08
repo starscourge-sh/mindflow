@@ -9,7 +9,7 @@ import RefreshIcon from '@/components/ui/refresh-icon'
 import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
 import { placed } from '@/lib/tasks'
-import { useLive, vigil, when, whenInLine, type Task, type TaskFull } from '@/lib/vigil'
+import { unloaded, useLive, vigil, when, whenInLine, type Task, type TaskFull } from '@/lib/vigil'
 import { useOpened } from '@/lib/nav'
 import { isUrgent, quadrantOf, type Quadrant } from '../../../../main/task-words'
 import { dayjs, startOfDay } from '../../../../main/dates'
@@ -207,7 +207,8 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
                       </Carried>
                     </motion.div>
                   ))}
-                  {!boxes[q].length && <p className="px-1 py-2 text-xs text-muted-foreground/70">{carried ? 'Drop a task here' : 'Nothing here'}</p>}
+                  {/* Said only once the tasks are read, so coming back never flashes it. */}
+                  {!boxes[q].length && !unloaded(tasks) && <p className="px-1 py-2 text-xs text-muted-foreground/70">{carried ? 'Drop a task here' : 'Nothing here'}</p>}
                 </div>
               </Box>
             ))}
