@@ -51,7 +51,7 @@ import { firstRun, noteChord, pretendTaken, registerOnboarding, whereTray } from
 import { registerUnused } from './unused'
 import { registerObsidian } from './obsidian'
 import { frostWindow, registerFrost, retellFrost } from './frost'
-import { SANDBOX, windingDown, onHandOff, registerSandbox, relaunch, restartNow, useDataFolder } from './sandbox'
+import { SANDBOX, arrived, windingDown, onHandOff, registerSandbox, relaunch, restartNow, useDataFolder } from './sandbox'
 
 
 /* The standard electron app file structure:
@@ -817,6 +817,8 @@ function openHome(): void {
       const here = AEROSPACE ? await aerospace('list-workspaces', '--focused') : ''
       const seen = await bringHere(win, here)
       win.show()
+      // Started by a run that is waiting to go: it can now, with this window up in its place.
+      arrived()
       if (!seen) setTimeout(() => void bringHere(win, here).then((now) => void (now && aerospace('workspace', here))), 60)
     })()
   if (homePainted) reveal()

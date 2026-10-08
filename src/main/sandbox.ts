@@ -1,5 +1,5 @@
 import { app, BrowserWindow, globalShortcut, ipcMain } from 'electron'
-import { spawnSync } from 'child_process'
+import { spawn, type ChildProcess } from 'child_process'
 import { randomUUID } from 'crypto'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { copyFile, mkdir, rm, writeFile } from 'fs/promises'
@@ -66,17 +66,21 @@ export function useDataFolder(): boolean {
 }
 
 /**
- * Start again, into the sandbox or back to your notes. Every window may
- * close first, the same way quitting lets them, so stickies keep their
- * places; the new run opens the main window straight away.
+ * Start again, into the sandbox or back to your notes, without a gap: this run
+ * lets go of what only one Vigil may hold (the menu bar icon, the keys, the
+ * one-copy lock) but keeps its windows up, showing the moment,
+ * until the new run says its main window is on screen. Only then does this
+ * one go, so the main window is never simply gone for a while.
  */
 export function relaunch(into: 'sandbox' | 'real', reset = false): void {
   const to: Target = into === 'real' ? 'real' : reset ? 'reset' : 'sandbox'
-  for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.closable = true
-  if (!DEV) app.relaunch({ args: argsFor(to) })
-  else if (HANDED) app.once('quit', () => app.exit(CODES[to]))
-  else app.once('will-quit', (event) => (event.preventDefault(), handOff(to)))
-  app.quit()
+  release()
+  // A run the dev process started: that process starts the next, and ends this one once it is up.
+  if (HANDED) return void process.send?.({ next: to })
+  if (DEV) return start(to)
+  const marker = arrival()
+  spawn(process.execPath, argsFor(to), { detached: true, stdio: 'ignore', env: { ...process.env, MINDFLOW_ARRIVAL: marker } }).unref()
+  whenArrived(marker, () => app.exit(0))
 }
 
 /**
@@ -90,18 +94,16 @@ export function restartNow(): void {
   } else if (HANDED) app.exit(CODES.real)
   else {
     for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.destroy()
-    handOff('real')
+    release()
+    start('real')
   }
 }
 
 /*
- * Under `electron-vite dev` a restart cannot be `app.relaunch()`: the dev
- * server ends the moment the first app process ends, and the new one finds no
- * pages to load. So in dev the first process stays alive and starts each new
- * run itself, waiting for it; a run started that way asks for the next one by
- * how it exits. The first process lets go of everything first (the one-copy
- * lock, the keys, the menu bar icon, the database) and then waits without
- * running anything at all, so only one Vigil is ever live.
+ * Under `electron-vite dev` the dev server ends the moment the first app
+ * process ends, and a new one would find no pages to load. So in dev the first
+ * process stays alive and starts each run itself (see `start`); a run started
+ * that way asks it for the next one instead of starting it.
  */
 type Target = 'real' | 'sandbox' | 'reset'
 const DEV = !app.isPackaged && !!process.env.ELECTRON_RENDERER_URL
@@ -128,29 +130,71 @@ export function windingDown(): void {
   })
 }
 
-function handOff(first: Target): void {
+/** Let go of everything only one Vigil may hold, keeping the windows. */
+let released = false
+function release(): void {
+  if (released) return
+  released = true
   for (const run of letGo) run()
   globalShortcut.unregisterAll()
   windingDown()
-  try {
-    database().close()
-  } catch {
-    // Already shut, by a restore.
-  }
+  // Its database stays open until it ends: the windows still up may ask it
+  // for a list, and the new run works in a folder of its own (a reset clears
+  // the sandbox's files, which this run's open copy does not mind).
   app.releaseSingleInstanceLock()
-  // A moment for the icon and windows to leave the screen, then nothing runs here until the last run ends.
-  setTimeout(() => {
-    let to = first
-    for (;;) {
-      console.log(`[vigil] dev restart: ${to}`)
-      // The waiting process keeps its debugging ports; the new run must not ask for them again.
-      const args = argsFor(to).filter((arg) => !/^--(inspect|remote-debugging-port)/.test(arg))
-      const { status } = spawnSync(process.execPath, args, { stdio: 'inherit', env: { ...process.env, MINDFLOW_DEV_RELAUNCHED: '1' } })
-      const next = (Object.keys(CODES) as Target[]).find((one) => CODES[one] === status)
-      if (!next) return app.exit(status ?? 0)
-      to = next
-    }
-  }, 200)
+}
+
+/** A fresh file for a new run to write once its main window shows. */
+const arrival = (): string => join(app.getPath('temp'), `vigil-arrived-${randomUUID()}`)
+/** Called by a run started this way, once its main window is on screen. */
+export function arrived(): void {
+  const file = process.env.MINDFLOW_ARRIVAL
+  if (!file) return
+  delete process.env.MINDFLOW_ARRIVAL
+  try {
+    writeFileSync(file, '')
+  } catch {
+    // The run before gives up waiting on its own.
+  }
+}
+/** Once the new run is up (or after ten seconds, whatever happened), then. */
+function whenArrived(file: string, then: () => void): void {
+  const start = Date.now()
+  const look = setInterval(() => {
+    if (!existsSync(file) && Date.now() - start < 10_000) return
+    clearInterval(look)
+    rmSync(file, { force: true })
+    then()
+  }, 80)
+}
+
+/**
+ * The dev process's runs, one after another. Each asks for the next by
+ * message; the next starts while it is still up, and it is ended once the
+ * next has its window on screen. A run that simply ends ends this process.
+ */
+let current: ChildProcess | null = null
+function start(to: Target): void {
+  console.log(`[vigil] dev restart: ${to}`)
+  const before = current
+  const marker = arrival()
+  // The waiting process keeps its debugging ports; the new run must not ask for them again.
+  const args = argsFor(to).filter((arg) => !/^--(inspect|remote-debugging-port)/.test(arg))
+  const run = spawn(process.execPath, args, { stdio: ['inherit', 'inherit', 'inherit', 'ipc'], env: { ...process.env, MINDFLOW_DEV_RELAUNCHED: '1', MINDFLOW_ARRIVAL: marker } })
+  current = run
+  run.on('message', (message: { next?: Target }) => message?.next && start(message.next))
+  run.on('exit', (status) => {
+    if (current !== run) return
+    // Ended asking for a restart by its code (a restore), or for good.
+    const next = (Object.keys(CODES) as Target[]).find((one) => CODES[one] === status)
+    if (next) start(next)
+    else app.exit(status ?? 0)
+  })
+  whenArrived(marker, () => {
+    if (before) before.kill()
+    // The first time, the windows going are this process's own.
+    else for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.destroy()
+  })
 }
 
 const read = <T>(path: string, fallback: T): T => {

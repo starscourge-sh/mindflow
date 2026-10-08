@@ -52,10 +52,14 @@ const snapshot = (c) => c.h.evaluate(async () => {
   return { captures, items: items.sort(), tasks, queue: (await v('review:queue')).length, tags: (await v('tags')).map((one) => `${one.tag}:${one.count}`).sort() }
 })
 
+// A restart starts the next run itself and ends this one once it is up: both caught here.
 const stub = (c) => c.electron.evaluate(({ app }) => {
   globalThis.__relaunched = null
+  const children = process.mainModule.require('child_process')
+  children.spawn = (_command, args) => (globalThis.__relaunched = args ?? [], { unref() {}, on() {}, kill() {} })
   app.relaunch = (options) => void (globalThis.__relaunched = options?.args ?? [])
   app.quit = () => void (globalThis.__quit = true)
+  app.exit = () => void (globalThis.__quit = true)
 })
 const relaunched = async (c) => {
   for (let i = 0; i < 30 && !(await c.electron.evaluate(() => globalThis.__relaunched)); i++) await c.h.waitForTimeout(100)
