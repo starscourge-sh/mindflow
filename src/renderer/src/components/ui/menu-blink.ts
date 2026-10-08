@@ -27,14 +27,11 @@ export function blinkThen<E extends Event>(onSelect?: (event: E) => void): (even
     blinking.add(item)
     // Off, on, off, on: about 150ms, as the Finder's menus do it.
     const steps = [0, 40, 80, 120]
-    steps.forEach((at, index) =>
-      setTimeout(() => {
-        if (index % 2) item.style.removeProperty("background-color")
-        else item.style.setProperty("background-color", "transparent")
-      }, at)
-    )
+    // The light under the rows is what blinks (main.css, data-blink).
+    steps.forEach((at, index) => setTimeout(() => item.toggleAttribute("data-blink", !(index % 2)), at))
     setTimeout(() => {
       blinking.delete(item)
+      item.removeAttribute("data-blink")
       chosen.add(item)
       item.click()
     }, 160)

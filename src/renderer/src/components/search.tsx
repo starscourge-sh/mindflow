@@ -13,6 +13,7 @@ import { Orb } from './vigil/orb'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import { Chips } from './vigil/display'
+import { Highlight, useChosen } from './vigil/glide'
 import { Tip } from '@/components/vigil/ui'
 import { vigil, when, type TaskFull } from '@/lib/vigil'
 import { BUCKETS, bucket } from '@/lib/tasks'
@@ -169,6 +170,9 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
     onClose()
     picking?.themes?.(one)
   }
+  // One light for the rows, travelling to the one the pointer or the arrows reach.
+  const rows = useRef<HTMLDivElement>(null)
+  const lit = useChosen(rows, '[data-search-at], [data-theme-at]', `${picking ? 'theme' : 'row'}:${picking ? themeAt : at}`)
   const run = (action: Action): void => {
     if (action.themes) return pickTheme(action)
     // null: the action sounds for itself (the sound switch, the panel).
@@ -234,13 +238,14 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
         <div className="flex min-h-0 flex-1">
           {/* mf-more: faded at an edge while there is more past it; the scroll
               padding keeps a row the arrows reach clear of that fade. */}
-          <div className={`mf-more min-h-0 min-w-0 flex-1 scroll-pt-8 scroll-pb-12 overflow-y-auto p-2 ${shown ? 'w-1/2 flex-none' : ''}`}>
+          <div ref={rows} className={`mf-more relative isolate min-h-0 min-w-0 flex-1 scroll-pt-8 scroll-pb-12 overflow-y-auto p-2 ${shown ? 'w-1/2 flex-none' : ''}`}>
+            <Highlight spot={lit.spot} snap={lit.snap} className="rounded-sm bg-accent" />
             {picking ? <>
               {themes.map((one, index) => (
                 <button
                   key={one}
                   type="button"
-                  className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left ${index === themeAt ? 'bg-accent' : ''}`}
+                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left"
                   data-theme-at={index === themeAt || undefined}
                   // Only a mouse that really moves: a repaint under a resting
                   // cursor would otherwise pull the highlight back to it.
@@ -259,7 +264,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
               <button
                 key={one.label}
                 type="button"
-                className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left ${index === at ? 'bg-accent' : ''}`}
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left"
                 data-search-at={index === at || undefined}
                 onMouseEnter={() => setAt(index)}
                 onClick={() => run(one)}
@@ -293,7 +298,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
                   )}
                   <button
                     type="button"
-                    className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left ${index + doing.length === at ? 'bg-accent' : ''}`}
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left"
                     data-search-at={index + doing.length === at || undefined}
                     onMouseEnter={() => setAt(index + doing.length)}
                     data-row

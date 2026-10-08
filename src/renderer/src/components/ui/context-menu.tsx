@@ -3,11 +3,14 @@ import { quietClose } from "@/lib/quiet-focus"
 import { cn } from "@/lib/cn"
 import { chime } from "@/lib/sound"
 import { blinkThen } from "./menu-blink"
+import { byKeys } from "@/lib/motion"
+import { Highlight, spotOf, type Spot } from "@/components/vigil/glide"
 
 // Unfolding makes its own small sound, once, when the panel appears: the
 // wrapper is mounted with every row that has a menu, the panel only on open.
-// Closing is silent, like putting a thing down. It opens at once and only
-// fades going away: a menu is used all day, so it never makes you wait.
+// Closing is silent, like putting a thing down. It grows in from where it
+// was opened in 80ms and fades going away quicker still: a menu is used all
+// day, so it never makes you wait.
 const openCue = (node: HTMLElement | null): void => void (node && chime("open"))
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui"
 import { alive } from "@/components/ui/alive-icon"
@@ -85,7 +88,7 @@ function ContextMenuContent({
         // Kept clear of the window's edges, never touching them, and never
         // taller than the room it has: only a menu that cannot fit scrolls.
         collisionPadding={12}
-        className={cn("z-50 flex max-h-(--radix-context-menu-content-available-height) min-w-32 origin-(--radix-context-menu-content-transform-origin) flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 duration-150 data-closed:animate-out data-closed:fade-out-0", className )}
+        className={cn("z-50 flex max-h-(--radix-context-menu-content-available-height) min-w-32 origin-(--radix-context-menu-content-transform-origin) flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-[0.96] data-open:duration-80 data-closed:animate-out data-closed:fade-out-0 data-closed:duration-60 data-[side=bottom]:slide-in-from-top-1 data-[side=top]:slide-in-from-bottom-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1", className )}
         {...props}
         onCloseAutoFocus={quietClose(props.onCloseAutoFocus)}
       >
@@ -100,10 +103,72 @@ function ContextMenuContent({
  * says there is more (mf-more) dims the rows while the panel's edge and
  * shadow stay whole. The scroll padding keeps a row reached by the arrows
  * clear of that fade.
+ *
+ * The rows share one light, which glides to the row the pointer or the
+ * arrows reach (an arrow moves it at once, as keys do everywhere). Between
+ * rows, over a divider or the padding, the nearest row stays lit and a click
+ * there picks it: what is lit is what a click lands on.
  */
-export const MenuScroll = ({ children }: { children: React.ReactNode }): React.JSX.Element => (
-  <div className="mf-more min-h-0 scroll-py-8 overflow-x-hidden overflow-y-auto overscroll-contain p-1">{children}</div>
-)
+export function MenuScroll({ children }: { children: React.ReactNode }): React.JSX.Element {
+  const box = React.useRef<HTMLDivElement>(null)
+  const [lit, setLit] = React.useState<{ spot: Spot; snap: boolean; danger: boolean; session: number } | null>(null)
+  const litRow = React.useRef<HTMLElement | null>(null)
+  React.useEffect(() => {
+    const el = box.current
+    if (!el) return
+    let sessions = 0
+    const rowOf = (node: EventTarget | null): HTMLElement | null => (node instanceof Element ? node.closest<HTMLElement>('[role^="menuitem"]') : null)
+    // A submenu open from here keeps its row lit, wherever the pointer goes on its way there.
+    const held = (): boolean => !!el.querySelector('[role^="menuitem"][data-state="open"]')
+    const show = (row: HTMLElement, snap: boolean): void => {
+      litRow.current = row
+      setLit((was) => ({ spot: spotOf(row, el), snap: snap && !!was, danger: row.dataset.variant === "destructive", session: was ? was.session : ++sessions }))
+    }
+    const focused = (event: FocusEvent): void => {
+      const row = rowOf(event.target)
+      if (row && el.contains(row)) show(row, byKeys())
+    }
+    const moved = (event: PointerEvent): void => {
+      if (rowOf(event.target) || held() || !el.contains(event.target as Node)) return
+      const at = el.getBoundingClientRect()
+      const y = event.clientY - at.top + el.scrollTop
+      let nearest: HTMLElement | null = null
+      let best = Infinity
+      for (const row of el.querySelectorAll<HTMLElement>('[role^="menuitem"]:not([data-disabled])')) {
+        const spot = spotOf(row, el)
+        const far = Math.abs(y - (spot.top + spot.height / 2))
+        if (far < best) (best = far), (nearest = row)
+      }
+      // Focused, the menu itself lights it: Enter then picks the row that is lit.
+      if (nearest && document.activeElement !== nearest) nearest.focus()
+    }
+    const left = (): void => {
+      if (held()) return
+      litRow.current = null
+      setLit(null)
+    }
+    const clicked = (event: MouseEvent): void => {
+      const row = litRow.current
+      if (row && !rowOf(event.target) && el.contains(event.target as Node) && row.isConnected) row.click()
+    }
+    el.addEventListener("focusin", focused)
+    el.addEventListener("pointermove", moved)
+    el.addEventListener("pointerleave", left)
+    el.addEventListener("click", clicked)
+    return () => {
+      el.removeEventListener("focusin", focused)
+      el.removeEventListener("pointermove", moved)
+      el.removeEventListener("pointerleave", left)
+      el.removeEventListener("click", clicked)
+    }
+  }, [])
+  return (
+    <div ref={box} data-menu-scroll className="mf-more relative isolate min-h-0 scroll-py-8 overflow-x-hidden overflow-y-auto overscroll-contain p-1">
+      <Highlight spot={lit?.spot ?? null} session={lit?.session} snap={lit?.snap} className={lit?.danger ? "bg-destructive/10 dark:bg-destructive/20" : "bg-accent"} />
+      {children}
+    </div>
+  )
+}
 
 function ContextMenuItem({
   className,
@@ -122,7 +187,7 @@ function ContextMenuItem({
       data-variant={variant}
       onSelect={blinkThen(onSelect)}
       className={cn(
-        "group/context-menu-item relative flex min-h-7 cursor-default items-center gap-2 rounded-md px-2 py-1 text-control outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-7.5 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 data-[variant=destructive]:*:[svg]:text-destructive",
+        "group/context-menu-item relative flex min-h-7 cursor-default items-center gap-2 rounded-md px-2 py-1 text-control outline-hidden select-none focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-7.5 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:text-destructive data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 data-[variant=destructive]:*:[svg]:text-destructive",
         className
       )}
       {...props}
@@ -143,7 +208,7 @@ function ContextMenuSubTrigger({
       data-slot="context-menu-sub-trigger"
       data-inset={inset}
       className={cn(
-        "flex min-h-7 cursor-default items-center gap-2 rounded-md px-2 py-1 text-control outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-7.5 data-open:bg-accent data-open:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
+        "flex min-h-7 cursor-default items-center gap-2 rounded-md px-2 py-1 text-control outline-hidden select-none focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-7.5 data-open:bg-accent data-open:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
         className
       )}
       {...props}
@@ -165,7 +230,7 @@ function ContextMenuSubContent({
     <ContextMenuPrimitive.SubContent
       collisionPadding={12}
       data-slot="context-menu-sub-content"
-      className={cn("z-50 flex max-h-(--radix-context-menu-content-available-height) min-w-32 origin-(--radix-context-menu-content-transform-origin) flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 duration-150 data-closed:animate-out data-closed:fade-out-0", className )}
+      className={cn("z-50 flex max-h-(--radix-context-menu-content-available-height) min-w-32 origin-(--radix-context-menu-content-transform-origin) flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-[0.96] data-open:duration-80 data-closed:animate-out data-closed:fade-out-0 data-closed:duration-60 data-[side=bottom]:slide-in-from-top-1 data-[side=top]:slide-in-from-bottom-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1", className )}
       {...props}
     >
       <MenuScroll>{children}</MenuScroll>
@@ -189,7 +254,7 @@ function ContextMenuCheckboxItem({
       data-slot="context-menu-checkbox-item"
       data-inset={inset}
       className={cn(
-        "relative flex min-h-7 cursor-default items-center gap-2 rounded-md py-1.5 pr-8 pl-2 text-control outline-hidden select-none focus:bg-accent focus:text-accent-foreground focus:**:text-accent-foreground data-inset:pl-7.5 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
+        "relative flex min-h-7 cursor-default items-center gap-2 rounded-md py-1.5 pr-8 pl-2 text-control outline-hidden select-none focus:text-accent-foreground focus:**:text-accent-foreground data-inset:pl-7.5 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
         className
       )}
       checked={checked}
@@ -225,7 +290,7 @@ function ContextMenuRadioItem({
       data-slot="context-menu-radio-item"
       data-inset={inset}
       className={cn(
-        "relative flex min-h-7 cursor-default items-center gap-2 rounded-md py-1.5 pr-8 pl-2 text-control outline-hidden select-none focus:bg-accent focus:text-accent-foreground focus:**:text-accent-foreground data-inset:pl-7.5 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
+        "relative flex min-h-7 cursor-default items-center gap-2 rounded-md py-1.5 pr-8 pl-2 text-control outline-hidden select-none focus:text-accent-foreground focus:**:text-accent-foreground data-inset:pl-7.5 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
         className
       )}
       {...props}
