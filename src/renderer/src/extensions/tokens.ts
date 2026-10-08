@@ -295,21 +295,22 @@ export const Tokens = Extension.create<{
           /**
            * Following a tag.
            *
-           * A note link is a node with nothing to type in, so a plain click
-           * follows it. A token is live text someone may be in the middle of
-           * editing, and taking the plain click would leave no way to put the
-           * caret inside `#feature` to fix a typo. So Mod-click follows, the
-           * way a link in editable text does - and in a locked document, where
-           * there is nothing to edit, a plain click is enough.
+           * A click on a tag opens it, as in Obsidian: a ⌘-click only was a
+           * rule no one could see, and clicking a tag did nothing. To fix a
+           * typo in one, click once more with the caret already inside it (or
+           * arrow in): a click there edits rather than follows.
            */
           handleClick: (view, pos, event) => {
             if (!onClick) return false
-            if (view.editable && !(event.metaKey || event.ctrlKey)) return false
 
             const hit = scan(view.state.doc, patterns, pos, pos).find(
               (token) => pos >= token.from && pos < token.to
             )
-            if (!hit) return false
+            // Only a tag leads anywhere: a date or a priority stays text to click into.
+            if (!hit || hit.name !== "tag") return false
+            const { from, to } = view.state.selection
+            const inside = from >= hit.from && to <= hit.to + 1 && view.hasFocus()
+            if (view.editable && inside && !(event.metaKey || event.ctrlKey)) return false
 
             onClick(hit)
             return true

@@ -411,6 +411,8 @@
 }
 
 .tiptap-token {
+  // A tag opens on a click (extensions/tokens.ts): it says so under the pointer.
+  &[data-token="tag"] { cursor: pointer; }
   border-radius: 0.25rem;
   padding: 0.05em 0.15em;
   background-color: var(--tt-color-highlight-blue);
@@ -3246,6 +3248,21 @@ body > div[dir][style*="-10000px"] > .tableWrapper {
 // be edited - but the hand is the only hint that there is anything to open.
 .tiptap.ProseMirror.mindflow-editor a[href] {
   cursor: pointer;
+}
+
+// A link that leaves Vigil carries a small arrow up and out after its last
+// word, so it reads as "opens in your browser" before you hover it. Drawn as a
+// mask in the link's own colour; it never wraps away from the word it ends.
+.tiptap.ProseMirror.mindflow-editor a[href^="http"]::after {
+  content: "";
+  display: inline-block;
+  width: 0.62em;
+  height: 0.62em;
+  margin-left: 0.18em;
+  vertical-align: 0.12em;
+  background-color: currentColor;
+  opacity: 0.7;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 2h6v6M10 2 2.5 9.5'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
 // Where a link points, under the link, while the pointer is on it. The one
