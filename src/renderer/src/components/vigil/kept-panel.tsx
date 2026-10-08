@@ -5,6 +5,7 @@ import type { Readable } from './read-through'
 
 import { unloaded, useLive, vigil, type Item } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
+import { archive } from '@/lib/notes'
 import { Chips } from './display'
 import { copy, type MenuItem } from './row-menu'
 import { Empty, ask, pin, toast, typing, useListKeys, useReadKey, Strip, Tip, startAt, Rolling } from './ui'
@@ -72,6 +73,8 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
   const questionItems = (item: Item): MenuItem[] => [
     { label: 'Open', keys: '↵', run: () => onOpen('question', item.id) },
     { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
+    // Out of sight, not gone: the same way out as in the main window, undoable.
+    { label: 'Archive', run: () => void archive('nuggets', [item.id], true) },
     'separator',
     { label: 'Copy the question', run: () => copy(item.title) }
   ]
@@ -87,6 +90,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     'separator',
     { label: item.pinnedAt ? 'Unpin' : 'Pin to the box', run: () => pin('nuggets', item.id, !item.pinnedAt) },
     { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
+    { label: 'Archive', run: () => void archive('nuggets', [item.id], true) },
     'separator',
     { label: 'Copy title', run: () => copy(item.title) }
   ]
