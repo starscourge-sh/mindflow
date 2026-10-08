@@ -101,10 +101,12 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
   }
   const here = (): number => Math.round(-turn.get() / per)
 
-  const nudge = (by: 1 | -1, how: 'key' | 'pointer'): void => {
+  // A step by key or wheel turns the ring and ticks, as a drag does: a dial is
+  // seen and heard turning, not swapped. (Keys elsewhere skip their motion.)
+  const nudge = (by: 1 | -1): void => {
     const next = here() + by
-    land(next, by)
-    go(next, how)
+    land(next, by, 'tick')
+    go(next, 'pointer')
   }
 
   // The first sight of it: a small rock either way and back, to show the ring turns.
@@ -134,7 +136,7 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
       while (Math.abs(wheel.current) >= 40) {
         const by = wheel.current > 0 ? 1 : -1
         wheel.current -= by * 40
-        nudge(by, 'pointer')
+        nudge(by)
       }
     }
     el.addEventListener('wheel', onWheel, { passive: false })
@@ -222,7 +224,7 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
           event.preventDefault()
           event.stopPropagation()
           turn.stop()
-          nudge(event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1, 'key')
+          nudge(event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1)
         }}
         onPointerDown={onDown}
         onPointerMove={onMove}
