@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
 import { Lightbulb, X } from 'lucide-react'
 import { chime } from '@/lib/sound'
-import { EASE, byKeys, shift, useFirstVisit } from '@/lib/motion'
+import { EASE, shift, useFirstVisit } from '@/lib/motion'
 import { onboarding, playWelcome, useOnboarding } from '@/lib/onboarding'
 import { enterSandbox } from '@/lib/sandbox'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
@@ -79,14 +79,16 @@ export function PageHint({ page }: { page: string }): React.JSX.Element | null {
 }
 
 function Line({ name, children, onDone, done }: { name: string; children: React.ReactNode; onDone: () => void; done: string }): React.JSX.Element {
-  // Slides in the first time this session, never by keys; back again, it is simply there.
+  // A beat after the page, every time: there with the first paint it read as
+  // part of the furniture, and was skipped. Its room is kept from the start, so
+  // nothing moves when it comes; with Motion off it is simply there.
   const first = useFirstVisit(`hint:${name}`)
-  const [enter] = useState(() => first && !byKeys())
+  const [enter] = useState(() => document.documentElement.dataset.motion !== 'off' && !matchMedia('(prefers-reduced-motion: reduce)').matches)
   return (
     <motion.div role="note"
-      initial={enter ? { opacity: 0, transform: shift('translateY(-4px)') } : false}
+      initial={enter ? { opacity: 0, transform: shift(first ? 'translateY(-4px)' : 'translateY(0px)') } : false}
       animate={{ opacity: 1, transform: shift('translateY(0px)') }}
-      transition={{ duration: 0.22, ease: EASE }}
+      transition={{ duration: 0.3, delay: 0.6, ease: EASE }}
       className="flex shrink-0 items-start gap-3 rounded-xl border border-foreground/[0.07] bg-[color-mix(in_oklab,var(--foreground)_3%,transparent)] py-2 pr-1.5 pl-3.5 text-control leading-relaxed text-muted-foreground">
       <Lightbulb aria-hidden className="mt-[0.2rem] size-3.5 shrink-0 text-primary" strokeWidth={2} />
       <p className="min-w-0 flex-1 py-px text-pretty">{children}</p>
