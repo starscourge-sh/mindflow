@@ -43,9 +43,16 @@ const readable = (raw?: string): string | null => {
   if (!words || /^(img|dsc|dscn|pxl|photo|image|screenshot|screen shot)\b/i.test(words)) return null
   return words.split(' ').some((word) => /^[A-Z]?[a-z]{2,}[,.]?$/.test(word)) ? words : null
 }
+/** The sandbox's own landscapes, named as a museum would: the painting, then the painter. */
+const PAINTINGS: Record<string, string> = {
+  'lake-tahoe': 'Lake Tahoe in Winter, Albert Bierstadt',
+  'landers-peak': "Lander's Peak, Albert Bierstadt",
+  'mont-blanc': 'Mont Blanc, Albert Bierstadt',
+  wanderer: 'Wanderer above the Sea of Fog, Caspar David Friedrich'
+}
 /** A credit for the day's picture, the way a caption names a painting: its name, then where it hangs. */
 const credit = (name?: string, folder?: string): string | null =>
-  [readable(name), readable(folder)].filter(Boolean).join(', ') || null
+  (folder === 'Sandbox scenery' && name && PAINTINGS[name]) || [readable(name), readable(folder)].filter(Boolean).join(', ') || null
 
 /** The time now, said again on each new minute. */
 function useMinute(): Date {
