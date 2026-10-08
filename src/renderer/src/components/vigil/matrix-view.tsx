@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { motion } from 'motion/react'
 import { DndContext, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
 import { CalendarDays } from 'lucide-react'
@@ -7,8 +7,10 @@ import ClockIcon from '@/components/ui/clock-icon'
 import RefreshIcon from '@/components/ui/refresh-icon'
 
 import { chime } from '@/lib/sound'
+import { slotTicker } from '@/lib/proximity'
 import { placed } from '@/lib/tasks'
 import { useLive, vigil, when, whenInLine, type Task, type TaskFull } from '@/lib/vigil'
+import { useOpened } from '@/lib/nav'
 import { isUrgent, quadrantOf, type Quadrant } from '../../../../main/task-words'
 import { dayjs, startOfDay } from '../../../../main/dates'
 import { Page, Pressed, Rolling, Tip, toast, typing } from './ui'
@@ -44,7 +46,7 @@ const onDay = (days: number, from: string | null): string => {
  * into an urgent box it is scheduled today, and out of one it asks how far
  * to push the date. Each move is undoable from its notice.
  */
-export function MatrixView({ onOpen }: { onOpen?: (type: string, id: string) => void }): React.JSX.Element {
+export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const tasks = useLive(vigil.tasks, [] as Task[])
   const [open, setOpen] = useState<TaskFull | null>(null)
   const [at, setAt] = useState<{ q: number; id: string | null }>({ q: 0, id: null })
@@ -56,6 +58,8 @@ export function MatrixView({ onOpen }: { onOpen?: (type: string, id: string) => 
   // Out of an urgent box: how far its date goes is asked in the box it went to.
   const [pushing, setPushing] = useState<{ task: Task; to: Quadrant } | null>(null)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+  // A soft tick as a carried task comes over each new box.
+  const ticks = useRef(slotTicker()).current
 
   // What you are waiting on is chased, not done: it stays out of the boxes.
   const live = tasks.filter((task) => task.status === 'open' && !task.waitingOn)
@@ -67,6 +71,8 @@ export function MatrixView({ onOpen }: { onOpen?: (type: string, id: string) => 
   const chosen = row >= 0 ? column[row] : undefined
 
   const pick = (id: string): void => void vigil.task(id).then(setOpen)
+  // Opening a task is a step Back returns from.
+  useOpened(open?.id, focus, pick, () => setOpen(null))
 
   /** Saved with one notice, whose undo puts back its importance, its dates and what the move reset. */
   const save = (task: Task, patch: { important?: number; due?: string; deadline?: string }, said: string): void => {
@@ -158,8 +164,9 @@ export function MatrixView({ onOpen }: { onOpen?: (type: string, id: string) => 
             const task = live.find((one) => one.id === String(active.id))
             const node = document.querySelector(`[data-sortable-id="${CSS.escape(String(active.id))}"]`)
             if (task) setCarried({ task, width: node?.getBoundingClientRect().width ?? 224 })
+            ticks.start(task ? quadrantOf(task) : null)
           }}
-          onDragOver={({ over }) => setOver(over ? (String(over.id) as Quadrant) : null)}
+          onDragOver={({ over }) => (setOver(over ? (String(over.id) as Quadrant) : null), ticks(over?.id))}
           onDragCancel={() => (setCarried(null), setOver(null))}
           onDragEnd={({ active, over }) => {
             setCarried(null)
@@ -169,10 +176,10 @@ export function MatrixView({ onOpen }: { onOpen?: (type: string, id: string) => 
             send(task, String(over.id) as Quadrant)
           }}
         >
-          <div className="grid grid-cols-1 gap-3 p-3 @[44rem]/page:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 p-3 @[34rem]/page:grid-cols-2">
             {QUADS.map((quad, q) => (
               <Box key={quad.id} id={quad.id}
-                className={`flex min-h-[12rem] min-w-0 flex-col @[44rem]/page:min-h-[calc(50vh-4.5rem)] gap-1 rounded-lg border p-2 transition-colors ${over === quad.id ? 'bg-accent/60 ring-1 ring-ring' : q === at.q ? 'bg-accent/25' : ''}`}>
+                className={`flex min-h-[12rem] min-w-0 flex-col @[34rem]/page:min-h-[calc(50vh-4.5rem)] gap-1 rounded-lg border p-2 transition-colors ${over === quad.id ? 'bg-accent/60 ring-1 ring-ring' : q === at.q ? 'bg-accent/25' : ''}`}>
                 <header className="mb-1 px-1">
                   <h3 className="flex items-baseline gap-2 text-meta font-medium" style={{ color: `var(--tt-color-text-${quad.tint})` }}>
                     <span>{quad.title}</span>

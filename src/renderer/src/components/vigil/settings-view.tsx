@@ -35,6 +35,7 @@ import { Button } from '@/components/ui/button'
 import { Orb } from './orb'
 import { tryCelebration } from './celebrate'
 import { byKeys, useFirstVisit } from '@/lib/motion'
+import { detent, falloff } from '@/lib/proximity'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DownloadIcon from '@/components/ui/download-icon'
 import UploadIcon from '@/components/ui/upload-icon'
@@ -153,25 +154,57 @@ const field = 'h-8 tabular-nums'
  * A slider that holds its own value while it moves and saves a moment after:
  * read back from the saved settings, quick presses arrived before the last
  * save had, and each one started from the old value.
+ *
+ * `rest`, the value it comes set to, is a small mark on the track that grows
+ * clearer as the thumb comes near. A drag is drawn into it from a little
+ * further than the steps either side of it, and a soft tick says it has
+ * landed, so the default is easy to find again. The steps beside it can still
+ * be reached by hand, and keys step past it like any other value.
  */
-function SettingSlider({ value, onSave, ...props }: { value: number; onSave: (value: number) => void; min: number; max: number; step: number; disabled?: boolean }): React.JSX.Element {
+function SettingSlider({ value, onSave, rest, ...props }: { value: number; onSave: (value: number) => void; min: number; max: number; step: number; disabled?: boolean; rest?: number }): React.JSX.Element {
   const [held, setHeld] = useState<number | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
   useEffect(() => () => clearTimeout(timer.current), [])
   // Let go once the save has come back, so it never flicks to the old value.
   useEffect(() => void (held === value && setHeld(null)), [value, held])
+  const shown = held ?? value
+  const { min, max, step } = props
+  const span = max - min
+  // Only a slider of many steps pulls: with a handful, each step is already a detent.
+  // One that pulls is tracked in quarter steps underneath, so the pull can be wider than half a step.
+  const pulls = rest !== undefined && span / step >= 10
+  const fine = pulls ? step / 4 : step
+  const snap = (one: number): number => Math.min(max, Math.max(min, Number((min + Math.round((one - min) / step) * step).toFixed(6))))
+  const at = (one: number): boolean => rest !== undefined && Math.abs(one - rest) < step / 100
+  const place = rest === undefined ? 0 : ((rest - min) / span) * 100
+  const near = rest === undefined ? 0 : falloff(shown - rest, span / 4)
   return (
-    <Slider
-      {...props}
-      className="w-40 max-w-full min-w-20 shrink"
-      value={[held ?? value]}
-      onValueChange={([next]) => {
-        setHeld(next)
-        clearTimeout(timer.current)
-        timer.current = setTimeout(() => onSave(next), 250)
-      }}
-      onValueCommit={() => chime('tap')}
-    />
+    <span className="relative flex w-40 max-w-full min-w-20 shrink items-center">
+      {rest !== undefined && (
+        // Where the thumb's middle sits at this value: Radix keeps the thumb inside the track, 6px in at either end.
+        <span aria-hidden className="pointer-events-none absolute top-1/2 left-0 h-2 w-0.5 rounded-full bg-foreground"
+          style={{ left: `calc(${place}% + ${6 - 0.12 * place}px)`, opacity: (0.22 + 0.5 * near) * (props.disabled ? 0.5 : 1), transform: `translate(-50%, -50%) scaleY(${1 + 0.35 * near})` }} />
+      )}
+      <Slider
+        {...props}
+        step={fine}
+        className="w-full"
+        value={[shown]}
+        onValueChange={([raw]) => {
+          const keyed = byKeys()
+          // A key moves a whole step (the quarter steps are only for the hand).
+          const next = keyed
+            ? snap(Math.abs(raw - shown) < step ? shown + Math.sign(raw - shown) * step : raw)
+            : pulls ? snap(detent(raw, rest!, step * 0.75)) : snap(raw)
+          if (next === shown) return
+          if (!keyed && at(next)) click('tick')
+          setHeld(next)
+          clearTimeout(timer.current)
+          timer.current = setTimeout(() => onSave(next), 250)
+        }}
+        onValueCommit={() => chime('tap')}
+      />
+    </span>
   )
 }
 
@@ -381,7 +414,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Margin marks" note="A few marks drawn by hand: a tick when you finish, a circle round today, an arrow when there is nothing yet. Off keeps every line machine-straight." keywords="hand drawn handwritten sketch doodle pen ink circle tick strike arrow personal">
             <Switch checked={settings.marks !== false} onCheckedChange={(marks) => set({ marks })} />
           </Setting>
-          <Setting title="Progress bars" note="How every bar that fills is drawn: the day and year on a goal's beacon, a goal's time gone, Getting started. A lightsaber lights up as it grows; a small dinosaur runs along the line and hops the cacti ahead." keywords="progress bar lightsaber saber dino dinosaur run fun playful style">
+          <Setting title="Progress bars" note="How every bar that fills is drawn: the day, week, month and year on the goal stack, a goal's time gone, Getting started. A lightsaber lights up as it grows; a small dinosaur runs along the line and hops the cacti ahead." keywords="progress bar lightsaber saber dino dinosaur run fun playful style">
             <Chips className="shrink-0" options={[{ id: 'plain', label: 'Plain' }, { id: 'saber', label: 'Lightsaber' }, { id: 'dino', label: 'Dino run' }]}
               on={(id) => id === (settings.progressBars ?? 'plain')} pick={(progressBars) => set({ progressBars: progressBars as Settings['progressBars'] })} />
           </Setting>
@@ -470,7 +503,7 @@ export function SettingsView(): React.JSX.Element {
             <Switch disabled={!settings.scenery} checked={settings.sceneryTime} onCheckedChange={(sceneryTime) => set({ sceneryTime })} />
           </Setting>
           <Setting title="Dimness" note="How far the pictures fade toward the page colour. Wherever words sit over one, it is dimmed further still, so they always read clearly." keywords="scenery dim darken fade brightness opacity">
-            <SettingSlider disabled={!settings.scenery} min={0} max={0.9} step={0.05} value={settings.sceneryDim} onSave={(sceneryDim) => set({ sceneryDim })} />
+            <SettingSlider disabled={!settings.scenery} min={0} max={0.9} step={0.05} rest={0.5} value={settings.sceneryDim} onSave={(sceneryDim) => set({ sceneryDim })} />
             <span className="w-10 text-right tabular-nums"><Rolling text={`${Math.round(settings.sceneryDim * 100)}%`} /></span>
           </Setting>
         </Group>
@@ -519,12 +552,12 @@ export function SettingsView(): React.JSX.Element {
 
         <Group section="What comes back to you" title="Hints and cards">
           <Setting title="Hints" note="How often the box shows you something you kept. Rare is the point: a hint every time is one you learn to ignore.">
-            <SettingSlider min={0} max={0.5} step={0.05} value={settings.hintRate} onSave={(hintRate) => set({ hintRate })} />
+            <SettingSlider min={0} max={0.5} step={0.05} rest={0.1} value={settings.hintRate} onSave={(hintRate) => set({ hintRate })} />
             <span className="w-16 text-right tabular-nums"><Rolling text={settings.hintRate ? `1 in ${Math.round(1 / settings.hintRate)}` : 'never'} /></span>
           </Setting>
           <HintTuning />
           <Setting title="Rot cards" note="How many unhandled captures come back each time you open the box. A few, never the whole pile.">
-            <SettingSlider min={0} max={6} step={1} value={settings.rotCount} onSave={(rotCount) => set({ rotCount })} />
+            <SettingSlider min={0} max={6} step={1} rest={3} value={settings.rotCount} onSave={(rotCount) => set({ rotCount })} />
             <span className="w-16 text-right tabular-nums"><Rolling text={settings.rotCount} /></span>
           </Setting>
           <Setting title="Memories" note="Some hints are memories, the way Photos brings them: a year ago today, this week in an earlier year, more from one source. Each says which it is.">
@@ -537,7 +570,7 @@ export function SettingsView(): React.JSX.Element {
             <Switch checked={settings.pinnedQuestions !== false} onCheckedChange={(pinnedQuestions) => set({ pinnedQuestions })} />
           </Setting>
           <Setting title="Recent reaches back" note="How many days the Recent panel lists, newest first, every kind of thing. ⇧⌘Y opens it beside any page.">
-            <SettingSlider min={1} max={30} step={1} value={settings.recentDays ?? 7} onSave={(recentDays) => set({ recentDays })} />
+            <SettingSlider min={1} max={30} step={1} rest={7} value={settings.recentDays ?? 7} onSave={(recentDays) => set({ recentDays })} />
             <span className="w-16 text-right tabular-nums"><Rolling text={(settings.recentDays ?? 7) === 1 ? '1 day' : `${settings.recentDays ?? 7} days`} /></span>
           </Setting>
         </Group>
@@ -626,7 +659,7 @@ export function SettingsView(): React.JSX.Element {
 
         <Group section="Review" title="Remembering">
           <Setting title="How much to remember" note="The share of tested items you want to still know when they come back. Higher means more reviews; 90% is where most land.">
-            <SettingSlider min={0.8} max={0.97} step={0.01} value={settings.retention} onSave={(retention) => set({ retention })} />
+            <SettingSlider min={0.8} max={0.97} step={0.01} rest={0.9} value={settings.retention} onSave={(retention) => set({ retention })} />
             <span className="w-10 text-right tabular-nums"><Rolling text={`${Math.round(settings.retention * 100)}%`} /></span>
           </Setting>
           <Setting title="Daily limits" note="New items and reviews a day. A cap keeps the queue finishable; an uncapped one becomes a wall you stop opening.">

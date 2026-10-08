@@ -50,6 +50,7 @@ import AlarmClockPlusIcon from '@/components/ui/alarm-clock-plus-icon'
 import { Aliases, KindFields, LocalGraph, NoteHeader } from './note-extras'
 import { ListSearch, NoteList, NoteRail, PaneButtons, Peek, matches, type Entry } from './note-list'
 import { archive, changeKind, openWindow, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
+import { useOpened } from '@/lib/nav'
 import { QuestionDetail } from './questions-view'
 import { GlossTimeline, useRowGloss } from './gloss-line'
 import { dayjs, moment, num } from '../../../../main/dates'
@@ -146,7 +147,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   }
   // Opened in a window of its own: closed here, so only one editor saves it.
   useEffect(() => {
-    const onApart = (event: Event): void => setOpen((was) => (was?.id === (event as CustomEvent).detail ? null : was))
+    const onApart = (event: Event): void => setOpen((was) => (was?.id === (event as CustomEvent).detail ? (hush(), null) : was))
     window.addEventListener('vigil:opened-apart', onApart)
     return () => window.removeEventListener('vigil:opened-apart', onApart)
   }, [])
@@ -201,9 +202,8 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [items, tier, chosen.length])
-  useEffect(() => {
-    if (focus) pick(focus)
-  }, [focus])
+  // Opening one, or putting it away, is a step Back returns from.
+  const hush = useOpened(open?.id, focus, pick, () => setOpen(null))
   // Re-read the open one when anything changes, so a gloss or a prompt shows.
   useEffect(() => window.api.captures.onChange(() => open && pick(open.id)), [open?.id])
   // The right-click menu: the same on a row and on a card.
@@ -388,16 +388,19 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
           pinned={!!item.pinnedAt} onPin={() => pin('nuggets', item.id, !item.pinnedAt)}
           menu={[...itemMenu(item), 'separator', { label: 'Copy title', run: () => copy(item.title) }]} />
         {item.tier === 'article' && (
-          <input
-            className="page-narrow mx-auto mb-2 block w-full bg-transparent px-12 font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none placeholder:text-foreground/70"
+          // Wraps as a heading does, so a long title is never cut off at the edge; Enter ends it.
+          <textarea
+            rows={1}
+            className="page-narrow mx-auto mb-2 block w-full shrink-0 resize-none overflow-hidden bg-transparent px-12 font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content] placeholder:text-foreground/70"
             defaultValue={item.title}
+            onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), event.currentTarget.blur())}
             // A new article starts in its title, the stand-in name selected
             // so typing replaces it, and the button that made it does not
             // keep the keys.
             autoFocus={!item.title || item.title === 'Untitled'}
             onFocus={(event) => void (event.target.value === 'Untitled' && event.target.select())}
             placeholder="Untitled"
-            onBlur={(event) => void vigil.saveItem(item.id, { title: event.target.value })}
+            onBlur={(event) => void vigil.saveItem(item.id, { title: event.target.value.replace(/\s*\n\s*/g, ' ') })}
           />
         )}
         {past ? (

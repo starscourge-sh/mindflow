@@ -256,7 +256,7 @@ What you keep, rather than what you read, is what returns: ${link(petrichor, 'Pe
     [await v<string>('gloss', homer, 'Book 5: Calypso lets him go. Seven years on one island.'), at(-26, '22:00')],
     [await v<string>('gloss', homer, "Book 9: the Cyclops. 'Nobody' is the best fake name ever given."), at(-6, '21:45')]
   ]
-  // Two beacons share one window, the goal stack: Mars (the nearer day) on top, the Odyssey under it.
+  // Beacons share one window, the goal stack, nearest day on top: Dune, then Mars, then the Odyssey.
   await v('goal:beacon:set', homer, 'always')
   const kesselGoal = await v<string>('goal:new', 'Make the Kessel Run in under 12 parsecs', day(-3), day(-40), 'Fastest hunk of junk in the galaxy.')
   await v('gloss', kesselGoal, 'Cut the corner past the Maw. 11.5 parsecs.')
@@ -268,7 +268,7 @@ What you keep, rather than what you read, is what returns: ${link(petrichor, 'Pe
     [await v<string>('gloss', duneGoal, 'Into the deep desert. Slower going, more glossary than story.'), at(-8, '22:35')],
     [await v<string>('gloss', duneGoal, 'Book Two finished on the bus. Missed my stop.'), at(-1, '18:05')]
   ]
-  await v('goal:beacon:set', duneGoal, 'off')
+  await v('goal:beacon:set', duneGoal, 'always')
   nuggets += 4
 
   // --- tasks, typed as a person would ------------------------------------------------

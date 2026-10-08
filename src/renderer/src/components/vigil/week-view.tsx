@@ -8,7 +8,9 @@ import RightChevronIcon from '@/components/ui/right-chevron'
 import RefreshIcon from '@/components/ui/refresh-icon'
 
 import { chime } from '@/lib/sound'
+import { slotTicker } from '@/lib/proximity'
 import { useLive, vigil, when, whenInLine, type Task, type TaskFull } from '@/lib/vigil'
+import { useOpened } from '@/lib/nav'
 import { Page, Rolling, Tip, toast, typing, Pressed } from './ui'
 import { PriorityIcon, setPriority } from './task-input'
 import { TaskDetail, completeTask } from './tasks-view'
@@ -62,7 +64,7 @@ const shifted = (iso: string, by: number): string => dayjs(iso).add(by, 'day').t
  * down its day (as dragging it there does), [ and ] change the week,
  * and the lists' own keys work on the card: E, T, M, W, 1 to 4.
  */
-export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => void }): React.JSX.Element {
+export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const tasks = useLive(vigil.tasks, [] as Task[])
   // Which week, as days from today: 0, 7, 14.
   const [from, setFrom] = useState(0)
@@ -84,6 +86,8 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
   useEffect(() => (setLanding(null), setHeld(null)), [tasks])
   // The card a dragged one is over in its own day, and which side it goes.
   const [between, setBetween] = useState<{ id: string; after: boolean } | null>(null)
+  // A soft tick as a carried card comes over each new day, or each new gap in its own.
+  const ticks = useRef(slotTicker()).current
   // In a narrow window the seven days scroll sideways: the edge with more days
   // past it fades, so it is plain there is more, and the day the keys are on
   // is always brought into view.
@@ -143,6 +147,8 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
   const chosen = row >= 0 ? column[row] : undefined
 
   const pick = (id: string): void => void vigil.task(id).then(setOpen)
+  // Opening a task is a step Back returns from.
+  useOpened(open?.id, focus, pick, () => setOpen(null))
   /** Move a card a number of days, said and undoable; its time of day stays. */
   const move = (card: Card, by: number): void => {
     const field = card.kind === 'scheduled' ? 'due' : 'deadline'
@@ -254,6 +260,7 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
           measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
           onDragStart={({ active }) => {
             chime('lift')
+            ticks.start(cardOf(String(active.id))?.col)
             setLanding(null)
             setShot(snapshot(String(active.id)))
           }}
@@ -265,6 +272,7 @@ export function WeekView({ onOpen }: { onOpen?: (type: string, id: string) => vo
             const same = target && target.col === cardOf(String(active.id))?.col
             const next = same && box && over ? { id: String(over.id).slice(3), after: box.top + box.height / 2 > over.rect.top + over.rect.height / 2 } : null
             if (next?.id !== between?.id || next?.after !== between?.after) setBetween(next)
+            ticks(next ? `${next.id}:${next.after}` : target ? target.col : over ? Number(over.id) : null)
           }}
           onDragCancel={() => (setShot(null), setOver(null), setBetween(null))}
           onDragEnd={({ active, over }) => {

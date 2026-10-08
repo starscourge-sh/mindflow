@@ -18,6 +18,7 @@ import { openWindow, smallPicture, useThumb } from '@/lib/notes'
 import { placed } from '@/lib/tasks'
 import { startOfDay } from '../../../../main/dates'
 import { splitTags, unloaded, useLive, vigil, whenInLine, type Pin as Pinned, type Settings, type Task } from '@/lib/vigil'
+import { useKept } from '@/lib/nav'
 import { MenuButton, useTint } from './collection-header'
 import { GrainFill, useCover } from './grain'
 import { ReadThrough, type Readable } from './read-through'
@@ -525,6 +526,8 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   const settings = useLive(vigil.settings, null as Settings | null)
   const captures = useCaptures()
   const [chip, setChip] = useState<Chip>('all')
+  // The kind picked is kept in the step, so Back finds Home as you left it.
+  useKept('tab', chip, setChip, 'all')
   const [reading, setReading] = useState<{ items: Readable[]; start: number } | null>(null)
   const [hover, setHover] = useState<{ src?: string; colour: string } | null>(null)
   const band = useTint(hover?.src, hover?.colour)

@@ -69,6 +69,7 @@ import { PlaceIcon, SECTIONS, ShowList, useShown } from '@/components/vigil/plac
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { RowMenu } from '@/components/vigil/row-menu'
 import { useStoredFlag } from '@/lib/use-stored-flag'
+import { NavContext, type Nav, type Step } from '@/lib/nav'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ChevronRight = alive(RightChevronIcon)
@@ -77,7 +78,16 @@ const PinMark = alive(BookmarkIcon)
 const Tag = alive(HashtagIcon)
 
 // A nonce makes asking again a fresh visit: the recap reopens each time.
-type View = { id: string; focus?: string; nonce?: number }
+type View = Step
+
+/** A box's place in the page, as the child index at each level down. */
+const pathTo = (root: Element, node: Element): string => {
+  const steps: number[] = []
+  for (let at: Element | null = node; at && at !== root; at = at.parentElement) steps.unshift(at.parentElement ? [...at.parentElement.children].indexOf(at) : 0)
+  return steps.join('.')
+}
+const atPath = (root: Element, path: string): Element | null =>
+  path.split('.').reduce<Element | null>((at, index) => at?.children[Number(index)] ?? null, root)
 
 /** An open-or-shut fold in the sidebar, remembered across launches; shut to start unless said. */
 function useRemembered(key: string, start = false): [boolean, (open: boolean) => void] {
@@ -134,21 +144,94 @@ export function Home(): React.JSX.Element {
   // Where you have been, for back and forward: a list and a place in it.
   const [trail, setTrail] = useState<{ views: View[]; at: number }>({ views: [{ id: 'home' }], at: 0 })
   const view = trail.views[trail.at]
-  const setView = (next: View): void =>
+  // Back returns to exactly what you saw: each step keeps how far its page
+  // was scrolled, read as you leave it and put back when you return.
+  const pageRef = useRef<HTMLDivElement>(null)
+  // Each box as last scrolled, since a page that has just opened another
+  // note has already reset the box it showed in. Read once, then let go.
+  // Kept by place, so a box swapped for the next note's still counts.
+  const seen = useRef(new Map<string, number>())
+  useEffect(() => {
+    const root = pageRef.current
+    const onScroll = (event: Event): void => void (root && event.target instanceof Element && seen.current.set(pathTo(root, event.target), event.target.scrollTop))
+    root?.addEventListener('scroll', onScroll, true)
+    return () => root?.removeEventListener('scroll', onScroll, true)
+  }, [])
+  const scrolled = (): [string, number][] => {
+    const root = pageRef.current
+    if (!root) return []
+    const tops = new Map([...root.querySelectorAll('*')].filter((one) => one.scrollTop > 0).map((one) => [pathTo(root, one), one.scrollTop]))
+    for (const [path, top] of seen.current) tops.set(path, top)
+    seen.current.clear()
+    return [...tops].filter(([, top]) => top > 0)
+  }
+  const restore = useRef<[string, number][] | null>(null)
+  /** A new step after the one you are on, which keeps its scroll; what was ahead is let go. */
+  const push = (trail: { views: View[]; at: number }, next: View, scroll: [string, number][]): { views: View[]; at: number } => ({
+    views: [...trail.views.slice(0, trail.at), { ...trail.views[trail.at], scroll }, next],
+    at: trail.at + 1
+  })
+  const setView = (next: View): void => {
+    const scroll = scrolled()
     setTrail((trail) => {
       const here = trail.views[trail.at]
       // Going where you already are is not a step: Back would have to undo it.
-      if (here.id === next.id && here.focus === next.focus && here.nonce === next.nonce) return trail
+      // Nor is the section you are in, asked for again: what is open stays.
+      if (here.id === next.id && (here.focus === next.focus || next.focus === undefined) && here.nonce === next.nonce) return trail
       if (here.id !== next.id) chime('tap')
-      return { views: [...trail.views.slice(0, trail.at + 1), next], at: trail.at + 1 }
+      return push(trail, next, scroll)
     })
-  const step = (by: -1 | 1): void =>
+  }
+  const step = (by: -1 | 1): void => {
+    const scroll = scrolled()
     setTrail(({ views, at }) => {
       const next = Math.max(0, Math.min(views.length - 1, at + by))
+      if (next === at) return { views, at }
       // Back and forward sound like any other move between sections.
-      if (next !== at) chime('tap')
-      return { views, at: next }
+      chime('tap')
+      restore.current = views[next].scroll ?? null
+      return { views: views.map((one, index) => (index === at ? { ...one, scroll } : one)), at: next }
     })
+  }
+  // Put back where the page was scrolled, frame by frame while it loads.
+  useEffect(() => {
+    const want = restore.current
+    restore.current = null
+    const root = pageRef.current
+    if (!want?.length || !root) return
+    let frame = 0
+    let tries = 0
+    const put = (): void => {
+      let left = false
+      for (const [path, top] of want) {
+        const box = atPath(root, path)
+        if (box && Math.abs(box.scrollTop - top) > 2) box.scrollTop = top
+        if (!box || Math.abs(box.scrollTop - top) > 2) left = true
+      }
+      if (left && ++tries < 90) frame = requestAnimationFrame(put)
+    }
+    put()
+    return () => cancelAnimationFrame(frame)
+  }, [trail.at])
+  // What a page sees of the trail: opening something in it is a step; a tab
+  // or the day on show is kept in the step it is on.
+  const nav: Nav = {
+    here: view,
+    go: (focus) => {
+      const scroll = scrolled()
+      setTrail((trail) => {
+        const here = trail.views[trail.at]
+        if (here.id !== view.id || (here.focus ?? null) === focus) return trail
+        return push(trail, { id: here.id, focus: focus ?? undefined, tab: here.tab }, scroll)
+      })
+    },
+    keep: (patch) =>
+      setTrail((trail) => {
+        const here = trail.views[trail.at]
+        if (here.id !== view.id || Object.entries(patch).every(([key, value]) => here[key as keyof View] === value)) return trail
+        return { ...trail, views: trail.views.map((one, index) => (index === trail.at ? { ...one, ...patch } : one)) }
+      })
+  }
   const [sidebar, setSidebar] = useState(true)
   // Under 760px wide the sidebar folds down to its icons, each named on hover,
   // so a window tiled into a corner keeps its page.
@@ -258,8 +341,12 @@ export function Home(): React.JSX.Element {
     let pending = false
     const onKey = (event: KeyboardEvent): void => {
       // ⌘ keys work with the caret in a note too; only something held over
-      // the page (Read, a question) keeps them.
-      if (document.querySelector('[role="dialog"]')) return
+      // the page (Read, a question) keeps them. A month told back is the step
+      // itself (⌘K's "Your month, wrapped"), so Back and Forward leave it.
+      const held = document.querySelector('[role="dialog"]')
+      const told = !!held && !!pageRef.current?.contains(held) && !!held.getAttribute('aria-label')?.endsWith('told back')
+      if (told && event.metaKey && !event.altKey && (event.key === '[' || event.key === ']')) return step(event.key === '[' ? -1 : 1)
+      if (held) return
       if (event.metaKey && (event.key === 'k' || event.key === 'p')) {
         event.preventDefault()
         return setSearching(event.key === 'k' ? 'all' : 'notes')
@@ -739,7 +826,8 @@ export function Home(): React.JSX.Element {
       <PageHint page={view.id} />
       {/* The page itself, a card like the sidebar's. */}
       <div className="relative flex min-h-0 flex-1 gap-2">
-      <div className="@container/page relative flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border">
+      <div ref={pageRef} className="@container/page relative flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border">
+      <NavContext.Provider value={nav}>
       {/* Views are switched by key all day: the new one is there at once and
           only settles in, never waiting for the old one to leave first. A
           transform string, so it stays smooth while the view mounts. */}
@@ -756,23 +844,23 @@ export function Home(): React.JSX.Element {
         ) : view.id === 'inbox' || view.id === 'all' || view.id === 'discarded' || view.id === 'archived' ? (
           <CapturesView title={SECTIONS.find((section) => section.id === view.id)!.label} keep={keep[view.id]} focus={view.focus} onOpen={open} archived={view.id === 'archived'} />
         ) : view.id === 'day' ? (
-          <DayView key={view.focus} start={view.focus} onOpen={open} onScale={toScale} />
+          <DayView start={view.focus} onOpen={open} onScale={toScale} />
         ) : view.id === 'weekpage' ? (
-          <WeekPage onOpen={open} onScale={toScale} onRecent={setRecent} recentOpen={!!recent} />
+          <WeekPage start={view.focus} onOpen={open} onScale={toScale} onRecent={setRecent} recentOpen={!!recent} />
         ) : view.id === 'monthpage' ? (
-          <MonthPage key={view.focus} start={view.focus} onScale={toScale} />
+          <MonthPage start={view.focus} onScale={toScale} />
         ) : view.id === 'yearpage' ? (
-          <YearPage onScale={toScale} onMonth={(month) => setView({ id: 'monthpage', focus: month })} />
+          <YearPage start={view.focus} onScale={toScale} onMonth={(month) => setView({ id: 'monthpage', focus: month })} />
         ) : kind ? (
-          <CapturesView title={kind.label} keep={(capture) => capture.kind === kind.id && capture.status !== 'discarded'} onOpen={open} />
+          <CapturesView title={kind.label} keep={(capture) => capture.kind === kind.id && capture.status !== 'discarded'} focus={view.focus} onOpen={open} />
         ) : view.id === 'review' ? (
           <ReviewView />
         ) : view.id === 'today' || view.id === 'upcoming' || view.id === 'routines' || view.id === 'later' ? (
           <TasksView mode={view.id} focus={view.focus} onOpen={open} />
         ) : view.id === 'week' ? (
-          <WeekView onOpen={open} />
+          <WeekView focus={view.focus} onOpen={open} />
         ) : view.id === 'matrix' ? (
-          <MatrixView onOpen={open} />
+          <MatrixView focus={view.focus} onOpen={open} />
         ) : view.id === 'nuggets' || view.id === 'articles' ? (
           <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} focus={view.focus} onOpen={open} />
         ) : view.id === 'questions' ? (
@@ -780,13 +868,14 @@ export function Home(): React.JSX.Element {
         ) : view.id === 'goals' ? (
           <GoalsView focus={view.focus} onOpen={open} />
         ) : view.id === 'tags' ? (
-          <TagsView key={view.focus} onOpen={open} focus={view.focus} />
+          <TagsView onOpen={open} focus={view.focus} />
         ) : view.id === 'stats' ? (
           <StatsView key={`${view.focus}-${view.nonce}`} recap={view.focus} />
         ) : (
           <SettingsView />
         )}
       </motion.div>
+      </NavContext.Provider>
       </div>
       {/* Beside the page, not over it, while there is room; over its right edge in a narrow window. */}
       <AnimatePresence>

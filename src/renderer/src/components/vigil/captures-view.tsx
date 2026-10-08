@@ -50,6 +50,7 @@ import TrashIcon from '@/components/ui/trash-icon'
 import { Aliases, KindFields, LocalGraph, NoteHeader } from './note-extras'
 import { ListSearch, NoteRail, PaneButtons, Peek, matches, still } from './note-list'
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
+import { useOpened } from '@/lib/nav'
 import { Rest } from './scenery'
 import type { MenuItem } from './row-menu'
 import { PinnedQuestions, clueInto } from './pinned-questions'
@@ -154,7 +155,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
   }, [boardShown, label])
   // Opened in a window of its own: closed here, so only one editor saves it.
   useEffect(() => {
-    const onApart = (event: Event): void => setOpen((was) => (was?.id === (event as CustomEvent).detail ? null : was))
+    const onApart = (event: Event): void => setOpen((was) => (was?.id === (event as CustomEvent).detail ? (hush(), null) : was))
     window.addEventListener('vigil:opened-apart', onApart)
     return () => window.removeEventListener('vigil:opened-apart', onApart)
   }, [])
@@ -242,9 +243,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
       toast(`${status[0].toUpperCase()}${status.slice(1)} ${num(moved.length)}`, () => void Promise.all(moved.map((one) => window.api.captures.save(one.id, { status: one.was }))))
     })
   }
-  useEffect(() => {
-    if (focus) pick(focus)
-  }, [focus])
+  // Opening one, or putting it away, is a step Back returns from.
+  const hush = useOpened(open?.id, focus, pick, () => setOpen(null))
   // The open capture as the list last saw it, so its status follows an exit.
   const meta = all.find((capture) => capture.id === open?.id)
 

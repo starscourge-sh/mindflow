@@ -12,6 +12,7 @@ import { EASE } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, vigil, type Gloss, type Item, type ItemFull, type Settings } from '@/lib/vigil'
 import { archive } from '@/lib/notes'
+import { useKept, useOpened } from '@/lib/nav'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Chips } from './display'
@@ -204,7 +205,9 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
     if (first) pick(first.id)
     else setOpen(null)
   }
-  useEffect(() => void (focus && pick(focus)), [focus]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Opening one is a step Back returns from; Open or Settled is kept in it.
+  useOpened(open?.id, focus, pick, () => setOpen(null))
+  useKept('tab', show, setShow, 'open')
   // Read again when anything changes, so a log added from the box shows.
   useEffect(() => window.api.captures.onChange(() => open && void vigil.item(open.id).then(setOpen)), [open?.id])
   const [cursor, setCursor] = useListKeys(items.length, { onOpen: (index) => pick(items[index].id), onBack: () => setOpen(null) })

@@ -8,6 +8,7 @@ import ArrowNarrowDownIcon from '@/components/ui/arrow-narrow-down-icon'
 import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, byKeys, hush, shift, speak } from '@/lib/motion'
+import { detent, slotTicker } from '@/lib/proximity'
 import { Arrow } from './marks'
 import { Coolshape, type shapeTypes } from 'coolshapes-react'
 import Lenis from 'lenis'
@@ -73,6 +74,7 @@ function useListWidth(): [string, React.JSX.Element] {
       aria-orientation="vertical"
       aria-label="Drag to resize the list"
       title="Drag to resize · double-click to reset"
+      data-home={width === 400 || undefined}
       className="group/grip absolute inset-y-0 -right-1.5 z-20 w-3 cursor-col-resize"
       onDoubleClick={() => keep(400)}
       onPointerDown={(event) => {
@@ -82,7 +84,15 @@ function useListWidth(): [string, React.JSX.Element] {
         if (!section || !page) return
         const left = section.getBoundingClientRect().left
         const most = page.getBoundingClientRect().width * 0.6
-        const move = (at: PointerEvent): void => keep(Math.min(most, Math.max(280, at.clientX - left)))
+        // The usual width is a detent: drawn in from a few pixels either side, with a tick on arriving.
+        const tick = slotTicker()
+        tick.start(Math.round(section.getBoundingClientRect().width) === 400 ? 'home' : null)
+        const move = (at: PointerEvent): void => {
+          const next = detent(Math.min(most, Math.max(280, at.clientX - left)), 400, 10)
+          if (next === 400) tick('home')
+          else tick.start(null)
+          keep(next)
+        }
         const up = (): void => {
           window.removeEventListener('pointermove', move)
           window.removeEventListener('pointerup', up)
@@ -93,7 +103,7 @@ function useListWidth(): [string, React.JSX.Element] {
         window.addEventListener('pointerup', up)
       }}
     >
-      <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors group-hover/grip:bg-ring/60 group-active/grip:bg-ring" />
+      <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-[background-color,scale] duration-150 ease-(--mf-ease) group-hover/grip:bg-ring/60 group-active/grip:bg-ring group-data-home/grip:group-active/grip:scale-x-[3] motion-reduce:transition-none" />
     </div>
   )
   return [`${width}px`, grip]

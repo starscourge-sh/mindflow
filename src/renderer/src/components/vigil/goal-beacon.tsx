@@ -15,6 +15,7 @@ import { Journey, TempusBars, useToday, warmth } from './goals-view'
 import { dayKey, dayMonth } from '../../../../main/dates'
 import { daysLeft, percent, wayThrough } from '../../../../main/goal-days'
 import { SandboxStamp } from '@/components/vigil/sandbox'
+import { SANDBOX } from '@/lib/sandbox'
 import { Frost } from './frost'
 
 const DRAG = { WebkitAppRegion: 'drag' } as CSSProperties
@@ -41,6 +42,9 @@ const still = (): boolean => document.documentElement.dataset.motion === 'off' |
 /** A goal in its last week, due today or past its day: it stays on top and is drawn warm. */
 const pressing = (goalAt: string | null | undefined, today: string): boolean => Boolean(goalAt) && daysLeft(goalAt!, today) <= 7
 
+/** The card's foot: on glass in the sandbox, room under Tempus's bars for the stamp. */
+const FOOT = GLASS && SANDBOX ? 'pb-6' : 'pb-4'
+
 /** The paper of a card behind: the theme's own, a shade off the top card so its edge reads. */
 const PAPER = 'color-mix(in oklab, var(--foreground) 5%, var(--popover))'
 
@@ -65,8 +69,6 @@ export function GoalStack(): React.JSX.Element | null {
   const [at, setAt] = useState(0)
   const [flight, setFlight] = useState<Flight | null>(null)
   const [hovered, setHovered] = useState(false)
-  // Turned since it was shown: Tempus's bars light up as it arrives, not on every turn.
-  const [rolled, setRolled] = useState(false)
   // Shown again (tucked, then out at its moment): it arrives again, nearest goal on top.
   const [shown, setShown] = useState(0)
   const [visible, setVisible] = useState(document.visibilityState === 'visible')
@@ -94,7 +96,7 @@ export function GoalStack(): React.JSX.Element | null {
     const onShow = (): void => {
       const now = document.visibilityState === 'visible'
       setVisible(now)
-      if (now) (setShown((count) => count + 1), setAt(0), setRolled(false))
+      if (now) (setShown((count) => count + 1), setAt(0))
     }
     document.addEventListener('visibilitychange', onShow)
     return () => {
@@ -111,7 +113,6 @@ export function GoalStack(): React.JSX.Element | null {
   const roll = (step: 1 | -1, cue: 'page' | 'riffle'): void => {
     if (n < 2 || flight) return
     chime(cue)
-    setRolled(true)
     const next = top + step
     setAt(next)
     if (still()) return
@@ -161,7 +162,9 @@ export function GoalStack(): React.JSX.Element | null {
           // Picked up: over everything going out, under everything coming back (and the reverse for a card brought back).
           const z = flying ? (flying.out !== flying.back ? n + 1 : 0) : n - depth
           const front = depth === 0 || Boolean(flying?.out && !flying.back)
-          // As glass the top card's pane lets a tenth through, so a card under it travels blank.
+          // As glass the top card's pane lets a tenth through, so a card under it travels blank,
+          // and the new top card stays blank while the old one is lifted over it.
+          const covered = GLASS && !flying && Boolean(flight?.out && !flight.back)
           return (
             <motion.div
               key={id}
@@ -172,11 +175,14 @@ export function GoalStack(): React.JSX.Element | null {
               animate={{ transform: flying?.out ? LIFT : pose(depth) }}
               transition={still() ? { duration: 0 } : flying?.out ? { duration: 0.15, ease: EASE } : { duration: flying ? 0.24 : 0.3, ease: EASE }}
             >
-              <Card id={id} today={today} front={front} shows={front || (!GLASS && Boolean(flying))} stacked={n > 1} count={n > 1 && depth === 0 ? `${top + 1} of ${n}` : ''} ignite={!rolled}
+              <Card id={id} today={today} front={front} shows={(front && !covered) || (!GLASS && Boolean(flying))} stacked={n > 1} count={n > 1 && depth === 0 ? `${top + 1} of ${n}` : ''}
                 flip={(step) => roll(step, 'riffle')} />
             </motion.div>
           )
         })}
+        {/* Tempus's bars are the same for every goal, so they are drawn once, over the top card's foot:
+            the cards roll beneath them and they never move. They light up as the stack arrives. */}
+        <div className={`pointer-events-none absolute inset-x-0 bottom-0 px-4 ${FOOT}`} style={{ zIndex: n + 2 }}><TempusBars ignite /></div>
         <div className="pointer-events-none absolute inset-0" style={{ zIndex: n + 2 }}><SandboxStamp /></div>
         {/* The tape holding the stack to the desk; the cards roll beneath it. */}
         <div className="pointer-events-none absolute inset-0" style={{ zIndex: n + 3 }}><Tape inside={GLASS} /></div>
@@ -191,11 +197,11 @@ export function GoalStack(): React.JSX.Element | null {
 /**
  * One goal's card. On top (`front`): frosted, with the days left as the hero,
  * in the focus timer's dot figures and warming as the day nears, then the
- * road and Tempus's four bars. Behind: plain paper tinted by the theme, its
+ * road, and room at its foot for Tempus's bars (drawn once by the stack). Behind: plain paper tinted by the theme, its
  * bottom edge in the goal's warmth, its words drawn only while it is
  * moving (`shows`), so nothing under the top card catches the pointer.
  */
-function Card({ id, today, front, shows, stacked, count, ignite, flip }: { id: string; today: string; front: boolean; shows: boolean; stacked: boolean; count: string; ignite: boolean; flip: (step: 1 | -1) => void }): React.JSX.Element | null {
+function Card({ id, today, front, shows, stacked, count, flip }: { id: string; today: string; front: boolean; shows: boolean; stacked: boolean; count: string; flip: (step: 1 | -1) => void }): React.JSX.Element | null {
   const goal = useLive(() => vigil.item(id), undefined as Awaited<ReturnType<typeof vigil.item>> | undefined, [id])
   if (!goal?.goalAt) return null
   const from = goal.goalFrom ?? dayKey(goal.createdAt)
@@ -224,7 +230,7 @@ function Card({ id, today, front, shows, stacked, count, ignite, flip }: { id: s
             ? `inset 0 -2px 0 color-mix(in oklab, ${warm} 60%, transparent), 0 1px 2px rgb(0 0 0 / 0.12)`
             : `inset 0 -3px 0 color-mix(in oklab, ${warm} 55%, transparent), 0 1px 2px rgb(0 0 0 / 0.12), 0 3px 8px -3px rgb(0 0 0 / 0.18)`
       }}
-      className={`relative isolate flex h-full flex-col gap-2.5 ${GLASS ? 'rounded-[10px]' : 'rounded-xl border'} px-4 pt-3 pb-4 text-control text-foreground ${urgent && front ? 'border-transparent' : ''}`}
+      className={`relative isolate flex h-full flex-col gap-2.5 ${GLASS ? 'rounded-[10px]' : 'rounded-xl border'} px-4 pt-3 ${FOOT} text-control text-foreground ${urgent && front ? 'border-transparent' : ''}`}
     >
       {front && !GLASS && <Frost />}
       {shows && (
@@ -280,7 +286,8 @@ function Card({ id, today, front, shows, stacked, count, ignite, flip }: { id: s
             </div>
           )}
           <div className="min-h-0 flex-1 text-foreground">{front ? <Journey compact from={from} target={goal.goalAt} today={today} logs={goal.glosses} /> : null}</div>
-          {front ? <TempusBars ignite={ignite} /> : <div className="h-[52px]" />}
+          {/* Room for Tempus's bars, which the stack draws once over whichever card is on top. */}
+          <TempusBars className="invisible" />
         </>
       )}
     </div>

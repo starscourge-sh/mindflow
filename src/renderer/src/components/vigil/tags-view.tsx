@@ -1,5 +1,5 @@
 import { chime, step } from '@/lib/sound'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { toast, VirtualList, refuse } from './ui'
 import { RowMenu, copy } from './row-menu'
 import { Switch } from '@/components/ui/switch'
@@ -15,6 +15,7 @@ import CheckedIcon from '@/components/ui/checked-icon'
 import HashtagIcon from '@/components/ui/hashtag-icon'
 
 import { splitTags, unloaded, useLive, vigil } from '@/lib/vigil'
+import { useKept, useOpened } from '@/lib/nav'
 import { Empty, Page, useListKeys } from './ui'
 import { Input } from '@/components/ui/input'
 import { Tip } from '@/components/vigil/ui'
@@ -45,7 +46,9 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
   const [chosen, setChosen] = useState<string | null>(focus ?? null)
   // A tag opens to be read; looking after it (colour, alias, exam date) is the other tab.
   const [tab, setTab] = useState<'read' | 'manage'>('read')
-  useEffect(() => setChosen(focus ?? null), [focus])
+  // A tag picked is a step Back returns from; Read or Manage is kept in it.
+  useOpened(chosen ?? undefined, focus, setChosen, () => setChosen(null))
+  useKept('tab', tab, setTab, 'read')
   const items = useLive(() => (chosen ? vigil.tag(chosen) : Promise.resolve([])), [], [chosen])
   const [cursor] = useListKeys(tags.length, { onOpen: (index) => setChosen(tags[index].tag), onBack: () => setChosen(null) })
   const top = tags[0]?.count ?? 1

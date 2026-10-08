@@ -21,6 +21,7 @@ import { MindflowEditor } from '../mindflow'
 import { chime, step } from '@/lib/sound'
 import { captureKey } from '@/lib/capture-links'
 import { splitTags, unloaded, useLive, vigil, when, whenInLine, type Made, type Session, type Task, type TaskFull } from '@/lib/vigil'
+import { useOpened } from '@/lib/nav'
 import { BUCKETS, bucket, makeTask, placed } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, TaskInput, planFor, setPriority } from './task-input'
@@ -207,10 +208,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   // One list for the virtual scroller: each group's heading, then its tasks.
   const rows: (Task | { heading: string; count: number; key: string })[] = groups.flatMap(([heading, list, key]) => (list.length ? [{ heading, count: list.length, key: key ?? heading }, ...list] : []))
   const pick = (id: string): void => void vigil.task(id).then(setOpen)
-  // Sent here for one task, from search or a link: open it.
-  useEffect(() => {
-    if (focus) pick(focus)
-  }, [focus])
+  // Sent here for one task, from search or a link: open it. Opening one is a step Back returns from.
+  useOpened(open?.id, focus, pick, () => setOpen(null))
   const [cursor, setCursor] = useListKeys(shown.length, { onOpen: (index) => pick(shown[index].id), onBack: () => setOpen(null) })
   const addRef = useRef<HTMLInputElement>(null)
 
@@ -443,7 +442,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
 export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFull; onClose: () => void; onOpen?: (type: string, id: string) => void; top?: React.ReactNode }): React.JSX.Element {
   // Read again on every change, so a toggle shows what it now is.
   const task = useLive(async () => (await vigil.task(first.id)) ?? first, first, [first.id])
-  const title = useRef<HTMLInputElement>(null)
+  const title = useRef<HTMLTextAreaElement>(null)
   return (
     <div className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_1.5rem_1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
@@ -466,11 +465,14 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
             }>Close without doing</Button>
           </div>
         )}
-        <input
+        {/* Wraps as the page's heading does, so a long task is never cut off at the edge; Enter ends it. */}
+        <textarea
           ref={title}
-          className="page-narrow mx-auto mb-2 block w-full bg-transparent px-12 font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none"
+          rows={1}
+          className="page-narrow mx-auto mb-2 block w-full shrink-0 resize-none overflow-hidden bg-transparent px-12 font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content]"
           defaultValue={task.title}
-          onBlur={(event) => void vigil.saveTask(task.id, { title: event.target.value })}
+          onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), event.currentTarget.blur())}
+          onBlur={(event) => void vigil.saveTask(task.id, { title: event.target.value.replace(/\s*\n\s*/g, ' ') })}
         />
         <MindflowEditor
           toolbar={{ fixed: false }}

@@ -15,6 +15,7 @@ import { findCaptures, findHeadings, follow } from '@/lib/capture-links'
 import { dayOf, notes, type Day, type DayEntry } from '@/lib/notes'
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/vigil'
+import { useKept } from '@/lib/nav'
 import { Island, Page, Rolling, Tip, Typed, toast, typing, Pressed } from './ui'
 import { DayBanner } from './scenery'
 import { DayBrief } from './day-brief'
@@ -51,7 +52,10 @@ export function DayView({ onOpen, start, onScale }: {
   start?: string
   onScale?: (scale: Scale) => void
 }): React.JSX.Element {
-  const [day, setDay] = useState(start && /^\d{4}-\d{2}-\d{2}$/.test(start) && start <= dayOf() ? start : dayOf())
+  const valid = (to?: string): string => (to && /^\d{4}-\d{2}-\d{2}$/.test(to) && to <= dayOf() ? to : dayOf())
+  const [day, setDay] = useState(valid(start))
+  // The day on show is kept in the step, so Back finds the day you left.
+  useKept('focus', day, (to) => setDay(valid(to)), dayOf())
   const data = useLive(() => notes.day(day), null as Day | null, [day])
   const today = dayOf()
   // The row a thought is being written under: one at a time, by its section,

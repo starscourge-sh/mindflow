@@ -13,6 +13,7 @@ import { findCaptures, findHeadings, follow } from '@/lib/capture-links'
 import { dayOf } from '@/lib/notes'
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, vigil, type PeriodPage } from '@/lib/vigil'
+import { useKept } from '@/lib/nav'
 import { Chips } from './display'
 import { DayBanner } from './scenery'
 import { MonthReflect } from './reflect-view'
@@ -158,7 +159,9 @@ function Masthead({ parts, headline, named }: { parts: React.ReactNode[]; headli
  * written with Recent open beside it, for the connections a day at a time
  * hides. ← and → step through the weeks.
  */
-export function WeekPage({ onOpen, onScale, onRecent, recentOpen }: {
+export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen }: {
+  /** The Monday to open on, when Back returns to a week gone by. */
+  start?: string
   onOpen?: (type: string, id: string) => void
   onScale?: (scale: Scale) => void
   /** Recent beside the page, reaching back from the end of this week (or now). */
@@ -166,7 +169,9 @@ export function WeekPage({ onOpen, onScale, onRecent, recentOpen }: {
   recentOpen?: boolean
 }): React.JSX.Element {
   const thisWeek = mondayOf()
-  const [monday, setMonday] = useState(thisWeek)
+  const [monday, setMonday] = useState(start && start <= thisWeek ? start : thisWeek)
+  // The week on show is kept in the step, so Back finds the week you left.
+  useKept('focus', monday, setMonday, thisWeek)
   const key = `week:${monday}`
   const page = usePeriod(key)
   const current = monday === thisWeek
@@ -254,6 +259,7 @@ export function WeekPage({ onOpen, onScale, onRecent, recentOpen }: {
 export function MonthPage({ onScale, start }: { onScale?: (scale: Scale) => void; start?: string }): React.JSX.Element {
   const thisMonth = monthOf()
   const [month, setMonth] = useState(start && start <= thisMonth ? start : thisMonth)
+  useKept('focus', month, setMonth, thisMonth)
   const key = `month:${month}`
   const page = usePeriod(key)
   const current = month === thisMonth
@@ -312,9 +318,10 @@ export function MonthPage({ onScale, start }: { onScale?: (scale: Scale) => void
  * A year as its months' seasons of life, in order: life in stages, read top
  * to bottom. Each month opens its page.
  */
-export function YearPage({ onScale, onMonth }: { onScale?: (scale: Scale) => void; onMonth: (month: string) => void }): React.JSX.Element {
+export function YearPage({ start, onScale, onMonth }: { start?: string; onScale?: (scale: Scale) => void; onMonth: (month: string) => void }): React.JSX.Element {
   const thisYear = String(dayjs().year())
-  const [year, setYear] = useState(thisYear)
+  const [year, setYear] = useState(start && start <= thisYear ? start : thisYear)
+  useKept('focus', year, setYear, thisYear)
   const months = useLive(() => vigil.year(year), [] as Awaited<ReturnType<typeof vigil.year>>, [year])
   const current = year === thisYear
   const go = (by: -1 | 1 | 0): void => {

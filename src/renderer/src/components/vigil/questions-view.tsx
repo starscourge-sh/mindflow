@@ -17,6 +17,7 @@ import { chime } from '@/lib/sound'
 import { unloaded, useLive, vigil, when, type Item, type ItemFull } from '@/lib/vigil'
 import { findCaptures, findHeadings, flying, follow } from '@/lib/capture-links'
 import { archive, openWindow, saveAttachments, useOpenNote } from '@/lib/notes'
+import { useKept, useOpened } from '@/lib/nav'
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -208,11 +209,13 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
     if (pane === 'wide' && next === 'list' && peek) pick(peek)
     setView({ ...view, pane: next })
   }
-  useEffect(() => void (focus && pick(focus)), [focus]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Opening one is a step Back returns from; Holding or Answered is kept in it.
+  const hush = useOpened(open?.id, focus, pick, () => setOpen(null))
+  useKept('tab', show, setShow, 'open')
   // Read again when anything changes, so a clue added elsewhere shows.
   useEffect(() => window.api.captures.onChange(() => open && void vigil.item(open.id).then(setOpen)), [open?.id])
   useEffect(() => {
-    const onApart = (event: Event): void => setOpen((was) => (was?.id === (event as CustomEvent).detail ? null : was))
+    const onApart = (event: Event): void => setOpen((was) => (was?.id === (event as CustomEvent).detail ? (hush(), null) : was))
     window.addEventListener('vigil:opened-apart', onApart)
     return () => window.removeEventListener('vigil:opened-apart', onApart)
   }, [])

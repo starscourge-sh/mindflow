@@ -438,6 +438,12 @@
 
 // A single line hugs its text rather than filling whatever holds it, and has
 // no toolbar or panel parked against its edges to clip.
+// A signed quote: the signature sits under the words it signs, not at the
+// foot of the column a screenful away.
+.mindflow-editor-content:has(.mf-signed) > .tiptap.ProseMirror.mindflow-editor {
+  flex: none;
+}
+
 .mindflow-editor-wrapper.is-line {
   height: auto;
   overflow: visible;

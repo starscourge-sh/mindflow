@@ -20,6 +20,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { chime } from '@/lib/sound'
+import { slotTicker } from '@/lib/proximity'
 import { notes, type NoteTable } from '@/lib/notes'
 import { taskSaid, vigil } from '@/lib/vigil'
 import { keyFor } from '@/lib/keys'
@@ -405,7 +406,10 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
   const [lifted, setLifted] = useState<{ id: string; html: string; width: number; height: number } | null>(null)
   const order = draft ?? shape.lanes.map((lane, at) => lane.cards.map((_, index) => cardId(at, index)))
   const laneOf = (id: string): number => (id.startsWith('lane:') ? Number(id.split(':')[1]) : order.findIndex((ids) => ids.includes(id)))
+  // A soft tick as a carried card or list comes over each new place.
+  const ticks = useRef(slotTicker()).current
   const onDragOver = ({ active, over }: DragOverEvent): void => {
+    ticks(over?.id)
     const from = String(active.id)
     if (!from.startsWith('card:') || !over) return
     const to = String(over.id)
@@ -561,7 +565,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
       )}
       <DndContext sensors={sensors} collisionDetection={closestCorners} measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
         autoScroll={{ threshold: { x: 0.08, y: 0.12 }, acceleration: 6 }}
-        onDragStart={({ active }) => (chime('lift'), setLifted(snapshot(String(active.id))))}
+        onDragStart={({ active }) => (chime('lift'), ticks.start(String(active.id)), setLifted(snapshot(String(active.id))))}
         onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => (setDraft(null), setLifted(null))}>
         <SortableContext items={shape.lanes.map((_, at) => laneId(at))} strategy={horizontalListSortingStrategy}>
           <div className="flex min-h-0 flex-1 items-start gap-3 overflow-x-auto px-3 pt-2 pb-4 @[40rem]/page:px-6">

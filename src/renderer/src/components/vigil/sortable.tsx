@@ -1,8 +1,9 @@
-import { createContext, useContext, useEffect, useState, type ComponentProps, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { DndContext, DragOverlay, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragStartEvent, type DropAnimation, type Modifier } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { chime } from '@/lib/sound'
+import { slotTicker } from '@/lib/proximity'
 
 /**
  * Dragging rows into your own order, the way compose-dnd feels: the row lifts
@@ -82,6 +83,8 @@ export function SortableList<T>({ items, keyOf, onMove, children }: {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const [held, setHeld] = useState<string[] | null>(null)
   const [shot, setShot] = useState<Shot | null>(null)
+  // A soft tick as the lifted row comes over each new place in the list.
+  const ticks = useRef(slotTicker()).current
   const ids = items.map(keyOf)
   const incoming = ids.join('\n')
   // The saved order (or anything else) has arrived: it is the truth again.
@@ -91,6 +94,7 @@ export function SortableList<T>({ items, keyOf, onMove, children }: {
   const shown = held ? held.map((id) => byId.get(id)).filter((one): one is T => !!one) : items
   const onDragStart = ({ active }: DragStartEvent): void => {
     chime('lift')
+    ticks.start(String(active.id))
     setShot(snapshot(String(active.id)))
   }
   const onDragEnd = ({ active, over }: DragEndEvent): void => {
@@ -103,7 +107,7 @@ export function SortableList<T>({ items, keyOf, onMove, children }: {
     onMove(String(active.id), String(over.id), to > from)
   }
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} modifiers={[upDown]} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setShot(null)}>
+    <DndContext sensors={sensors} collisionDetection={closestCenter} modifiers={[upDown]} onDragStart={onDragStart} onDragOver={({ over }) => ticks(over?.id)} onDragEnd={onDragEnd} onDragCancel={() => setShot(null)}>
       <SortableContext items={shown.map(keyOf)} strategy={verticalListSortingStrategy}>
         <On.Provider value>{children(shown)}</On.Provider>
       </SortableContext>
