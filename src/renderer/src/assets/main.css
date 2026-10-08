@@ -1066,16 +1066,12 @@ input[type='number']::-webkit-outer-spin-button {
   --mf-wl-body: color-mix(in oklab, var(--foreground) 88%, var(--background));
   --mf-wl-quiet: color-mix(in oklab, var(--foreground) 78%, var(--background));
 }
-/* The first screen's year fades back where the words sit: bottom left, or
-   top left when today is in the second half of the year. */
-.mf-year-field {
-  -webkit-mask-image: radial-gradient(ellipse 78% 92% at 0% 100%, rgb(0 0 0 / 0.04) 72%, black 100%);
-  mask-image: radial-gradient(ellipse 78% 92% at 0% 100%, rgb(0 0 0 / 0.04) 72%, black 100%);
-}
-.mf-year-field-top {
-  -webkit-mask-image: radial-gradient(ellipse 78% 92% at 0% 0%, rgb(0 0 0 / 0.04) 72%, black 100%);
-  mask-image: radial-gradient(ellipse 78% 92% at 0% 0%, rgb(0 0 0 / 0.04) 72%, black 100%);
-}
+/* The first screen's ruler: the days so far drawn left to right in one
+   sweep, then today standing up in the accent, its number after it. */
+.mf-sweep { animation: mf-across 760ms cubic-bezier(0.33, 0.1, 0.25, 1) 120ms both; }
+.mf-rise { animation: mf-rise 280ms cubic-bezier(0.16, 1, 0.3, 1) 820ms both; transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes mf-rise { from { transform: scaleY(0); } }
+.mf-rise-text { animation: mf-dot 240ms var(--mf-ease) 1000ms both; }
 @keyframes mf-dot { from { opacity: 0; } }
 /* The scenery behind it drifts, a little, over a minute. */
 .mf-drift { animation: mf-drift 60s ease-in-out infinite alternate; }
@@ -1141,7 +1137,7 @@ input[type='number']::-webkit-outer-spin-button {
 :root[data-voice] :is(.mf-drift, .mf-pen, .mf-ink, .mf-pen-across):not(.mf-now) { animation-play-state: paused; }
 .mf-nudge-up { animation: mf-nudge 1.8s var(--mf-ease) infinite; }
 @keyframes mf-nudge { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-3px); } }
-:root[data-motion='off'] :is(.mf-caret, .mf-listening, .mf-dot-in, .mf-drift, .mf-ink, .mf-nudge-up) { animation: none; }
+:root[data-motion='off'] :is(.mf-caret, .mf-listening, .mf-dot-in, .mf-drift, .mf-ink, .mf-nudge-up, .mf-sweep, .mf-rise, .mf-rise-text) { animation: none; }
 :root[data-motion='off'] :is(.mf-ink, .mf-pen) { animation: none; stroke-dashoffset: 0 !important; }
 :root[data-motion='off'] .mf-pen-across { animation: none; }
 @media (prefers-reduced-motion: reduce) {

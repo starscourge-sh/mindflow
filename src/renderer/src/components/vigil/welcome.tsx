@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowRight, ArrowUp, CornerDownLeft, NotebookText } from 'lucide-react'
+import { ArrowUp, CornerDownLeft } from 'lucide-react'
 import { EASE, byKeys, hush, shift, speak } from '@/lib/motion'
 import { chime, click } from '@/lib/sound'
 import { applyTheme, type Theme } from '@/lib/theme'
@@ -17,7 +17,7 @@ import { Scenery } from './scenery'
 import { NOISE } from './grain'
 import { MemoryPostcard } from './memory-postcard'
 import { Signed } from './signature'
-import { inkPath, ringPath } from './marks'
+import { inkPath } from './marks'
 import { ThemeDial } from './theme-dial'
 import { Kbd, toast } from './ui'
 import { FULL_TURN, WANDER, glyph, inClay, konami, landedAside } from './welcome-eggs'
@@ -26,11 +26,12 @@ import { FULL_TURN, WANDER, glyph, inClay, konami, landedAside } from './welcome
  * The welcome: seven screens over the whole main window, the first time
  * Vigil opens (and again from the Vigil menu, ⌘K or Settings).
  *
- *   0 hello: the line types itself; a year of days, today lit
+ *   0 hello: today's date and hour, a line typed, and the year as a ruler
+ *     whose gone days fade as the line finishes saying so
  *   1 the one key: the caps press as the real keys go down, anywhere
  *   2 catch something: in the real box; this screen waits for it
  *   3 it landed: your real Inbox row, an ink line under your first word
- *   4 it comes back: your words as next year's postcard
+ *   4 it comes back: your words as next year's postcard, the year rolling on
  *   5 make it yours: the theme dial
  *   6 how to start: fresh, the sandbox, or your notes
  *
@@ -57,16 +58,13 @@ function useWindowSize(): { width: number; height: number } {
 const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /**
- * The hour noticed, with a wink rather than a receptionist's "Good evening":
- * a line from something you might have watched, picked by the time of day.
+ * The first line, about your week rather than about the app: most of what
+ * you notice is gone within a few days, so it names the day that will be.
  */
-function greeting(now = new Date()): string {
-  const hour = now.getHours()
-  if (hour < 5) return 'The night is darkest just before the dawn. A good hour for a thought.'
-  if (hour < 12) return 'Good morning, in all four of Gandalf\'s meanings.'
-  if (hour < 18) return 'An afternoon on Tatooine would have two suns. This one has you.'
-  return 'Captain\'s log, evening entry.'
-}
+const firstLine = (): string => `Most of what you notice today will be gone by ${dayjs().add(3, 'day').format('dddd')}.`
+
+/** The moment the welcome opened, as a diary dates an entry: the day, then the hour in your Mac's own style. */
+const dateline = (): string => `${dayjs().format('dddd D MMMM')}, ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
 
 /** The newest capture typed into Vigil that was not there when the welcome opened. */
 const newest = (list: CaptureMeta[], before: Set<string>): CaptureMeta | null =>
@@ -79,7 +77,7 @@ const newest = (list: CaptureMeta[], before: Set<string>): CaptureMeta | null =>
  * and a caret in the accent that blinks at the Mac's rate and goes once the
  * line has rested. Any key finishes it at once: reading never waits on it.
  */
-function TypeLine({ text, className }: { text: string; className?: string }): React.JSX.Element {
+function TypeLine({ text, className, onDone }: { text: string; className?: string; onDone?: () => void }): React.JSX.Element {
   const [n, setN] = useState(() => (still() ? text.length : 0))
   const [resting, setResting] = useState(false)
   // The screen's one voice while it types: the ring round today waits for it (lib/motion.ts).
@@ -89,6 +87,7 @@ function TypeLine({ text, className }: { text: string; className?: string }): Re
   useEffect(() => {
     if (n >= text.length) {
       hush(voice)
+      onDone?.()
       const timer = setTimeout(() => setResting(true), 1200)
       return () => clearTimeout(timer)
     }
@@ -170,70 +169,65 @@ function KeycapPicture({ down, width }: { down: Set<number>; width: number }): R
   )
 }
 
-/** Whether today is in the second half of the year: the first screen's words then sit high, clear of it. */
-const lateInYear = (): boolean => dayjs().month() >= 6
-
 /**
- * The year, as a field of dots behind the first screen: a month a row and a
- * day a dot, so the short months end short, the days gone a little stronger
- * than the days to come, today lit and ringed by hand. It fills the window
- * edge to edge; the words sit in the half of it today is not in, where it
- * fades back.
+ * The year as a ruler along the foot of the first screen: a tick a day,
+ * January at the left. It is drawn up to today in one sweep, then the days
+ * gone fade back as the line above finishes saying they will be, all but the
+ * days you kept something on, which stay, taller. Today stands up in the
+ * accent with its number over it. Nothing else on the screen moves.
  */
-function YearField({ calm }: { calm: boolean }): React.JSX.Element {
+function YearRule({ calm, kept, faded }: { calm: boolean; kept: Set<string>; faded: boolean }): React.JSX.Element {
   const box = useRef<HTMLDivElement>(null)
-  const [room, setRoom] = useState<{ w: number; h: number } | null>(null)
+  const [w, setW] = useState(0)
   useLayoutEffect(() => {
     const el = box.current
     if (!el) return
-    const measure = (): void => setRoom({ w: el.clientWidth, h: el.clientHeight })
+    const measure = (): void => setW(el.clientWidth)
     measure()
     const watch = new ResizeObserver(measure)
     watch.observe(el)
     return () => watch.disconnect()
   }, [])
+  const quiet = calm || still()
   const today = dayjs().startOf('day')
   const start = today.startOf('year')
-  const quiet = calm || still()
-  const w = room?.w ?? 0
-  const h = room?.h ?? 0
-  const sx = w / 31
-  const sy = h / 12
-  const s = Math.min(sx, sy)
-  const months = Array.from({ length: 12 }, (_, m) => start.add(m, 'month'))
   const days = today.endOf('year').diff(start, 'day') + 1
   const at = today.diff(start, 'day')
-  const cx = (today.date() - 0.5) * sx
-  const cy = (today.month() + 0.5) * sy
-  // The note beside today, on whichever side has the room.
-  const leftward = today.date() > 20
+  const step = w / days
+  const x = (d: number): number => Math.round((d + 0.5) * step) + 0.5
+  const H = 32
+  // One path a kind, so a year is four elements rather than 366.
+  const ticks = (pick: (d: number) => boolean, tall: (d: number) => number): string => {
+    let path = ''
+    for (let d = 0; d < days; d++) if (pick(d)) path += `M${x(d)} ${H}V${H - tall(d)}`
+    return path
+  }
+  const keptOn = (d: number): boolean => kept.has(start.add(d, 'day').format('YYYY-MM-DD'))
+  // The first of each month a little taller, so the months read without a grid.
+  const first = (d: number): boolean => start.add(d, 'day').date() === 1
+  const months = Array.from({ length: 12 }, (_, m) => ({ name: start.add(m, 'month').format('MMM'), d: start.add(m, 'month').diff(start, 'day') }))
   return (
-    <figure aria-label={`Today, day ${at + 1} of ${days}`} className="pointer-events-none absolute top-0 bottom-16 left-[calc(50%-50vw+clamp(1rem,3vw,2.5rem))] right-[calc(50%-50vw+clamp(1rem,3vw,2.5rem))]">
-      <div ref={box} className="absolute inset-0">
-        {s > 0 && (
+    <figure aria-label={`Today is day ${at + 1} of ${days}`} className="relative w-full">
+      <div ref={box} className="relative h-[calc(32px+2.9rem)]">
+        {w > 0 && (
           <>
-            <svg aria-hidden width={w} height={h} className={`absolute inset-0 overflow-visible ${lateInYear() ? 'mf-year-field-top' : 'mf-year-field'}`}>
-              {months.flatMap((month, m) => Array.from({ length: month.daysInMonth() }, (_, d) => {
-                const day = month.date(d + 1)
-                const now = day.isSame(today, 'day')
-                const gone = day.isBefore(today, 'day')
-                const far = Math.hypot(d + 1 - today.date(), (m - today.month()) * 2)
-                return (
-                  <circle key={`${m}-${d}`} cx={(d + 0.5) * sx} cy={(m + 0.5) * sy} r={now ? Math.max(3, s * 0.13) : Math.max(1.5, s * 0.075)}
-                    className={`${now ? 'fill-primary' : 'fill-foreground'} ${quiet ? '' : 'mf-dot-in'}`}
-                    style={{ opacity: now ? 1 : gone ? 0.46 : 0.17, animationDelay: quiet ? undefined : `${Math.round(60 + far * 8)}ms` } as CSSProperties} />
-                )
-              }))}
-              {/* Today, ringed: a loose ring by hand, written once the line
-                  above has been typed; a drawn circle with Margin marks off. */}
-              <circle cx={cx} cy={cy} r={s * 0.42} fill="none" stroke="var(--primary)" strokeWidth={1.2} opacity={0.6} className={`mf-unmarked ${quiet ? '' : 'mf-dot-in'}`} style={{ animationDelay: quiet ? undefined : '80ms' }} />
-              <path d={ringPath(cx, cy, s * 0.62, s * 0.5, today.format('YYYY-MM-DD'))} pathLength={1} fill="none" stroke="var(--primary)" strokeWidth={1.6} strokeLinecap="round" opacity={0.8}
-                className={`mf-mark ${quiet ? '' : 'mf-pen'}`} style={{ strokeDasharray: 1, strokeDashoffset: quiet ? 0 : 1, animationDelay: quiet ? undefined : '150ms' }} />
+            {/* Over today: its number, the one figure on the ruler. */}
+            <span className={`absolute top-0 -translate-x-1/2 text-[0.8125rem] leading-[1.1rem] font-medium whitespace-nowrap text-primary tabular-nums ${quiet ? '' : 'mf-rise-text'}`} style={{ left: x(at) }}>
+              Day {at + 1}
+            </span>
+            <svg aria-hidden width={w} height={H} className="absolute top-[1.4rem] left-0 overflow-visible">
+              {/* The days gone: drawn in, then let go of as the line says they are. */}
+              <path d={ticks((d) => d < at && !keptOn(d), (d) => (first(d) ? 18 : 11))} stroke="var(--foreground)" strokeWidth={1} fill="none"
+                className={quiet ? '' : 'mf-sweep'} style={{ opacity: faded ? 0.1 : 0.6, transition: quiet ? undefined : 'opacity 1200ms cubic-bezier(0.33, 0.1, 0.25, 1)' }} />
+              {/* The days to come, short and waiting. */}
+              <path d={ticks((d) => d > at, (d) => (first(d) ? 18 : 7))} stroke="var(--foreground)" strokeWidth={1} fill="none" opacity={0.36} />
+              {/* The days you kept something on: these stay. */}
+              <path d={ticks((d) => d < at && keptOn(d), () => 24)} stroke="var(--foreground)" strokeWidth={1.5} fill="none" opacity={0.85} className={quiet ? '' : 'mf-sweep'} />
+              <path d={`M${x(at)} ${H}V0`} stroke="var(--primary)" strokeWidth={2} fill="none" className={quiet ? '' : 'mf-rise'} />
             </svg>
-            <figcaption className={`absolute -translate-y-1/2 rounded-md bg-background/85 px-2 py-0.5 whitespace-nowrap ${QUIET}`}
-              style={leftward ? { right: w - cx + s * 0.8, top: cy } : { left: cx + s * 0.8, top: cy }}>
-              <span className="text-foreground">{today.format('dddd D MMMM')}.</span> Day one.
-            </figcaption>
+            {months.map((month) => (
+              <span key={month.name} className="absolute top-[calc(1.4rem+32px+0.45rem)] text-[0.75rem] leading-none text-(--mf-wl-quiet)" style={{ left: x(month.d) - 0.5 }}>{month.name}</span>
+            ))}
           </>
         )}
       </div>
@@ -241,31 +235,33 @@ function YearField({ calm }: { calm: boolean }): React.JSX.Element {
   )
 }
 
-/** The progress: one dot a screen, the current one a capsule. Seen ones can be gone back to. */
-function Dots({ at, seen, onGo }: { at: number; seen: number; onGo: (to: number) => void }): React.JSX.Element {
+/**
+ * Where you are, said once and quietly: Back, when there is somewhere to go
+ * back to, and the count. No row of dots or names to read; the screen is the
+ * thing to look at. The arrow keys do the same.
+ */
+function Progress({ at, onBack }: { at: number; onBack: () => void }): React.JSX.Element {
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-1 text-[clamp(0.8125rem,1.8vmin,1rem)] text-(--mf-wl-quiet)">
       <span className="sr-only">Step {at + 1} of {SCREENS}</span>
-      {Array.from({ length: SCREENS }, (_, i) => (
-        <button key={i} type="button" aria-hidden tabIndex={-1} disabled={i > seen || i === at} onClick={() => onGo(i)}
-          className="relative flex h-4 items-center justify-center disabled:cursor-default" style={{ width: i === at ? 14 : 6 }}>
-          <span className={`block h-1.5 w-full rounded-full transition-colors duration-200 ${i <= seen ? 'bg-foreground/35' : 'bg-foreground/15'}`} />
-          {i === at && <motion.span layoutId="mf-welcome-dot" className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-foreground"
-            transition={byKeys() || still() ? { duration: 0 } : { duration: 0.24, ease: EASE }} />}
+      {at > 0 && (
+        <button type="button" onClick={onBack} className="-ml-3 flex h-[clamp(2rem,4.2vmin,2.5rem)] items-center rounded-[0.6rem] px-3 transition-colors hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97]">
+          Back
         </button>
-      ))}
+      )}
+      <span aria-hidden className="tabular-nums"><span className="text-foreground">{at + 1}</span> of {SCREENS}</span>
     </div>
   )
 }
 
-/** The one orange button: what this screen does next, with its key. */
+/** The one button in the accent: what this screen does next, with its key. */
 function Primary({ children, keys = '↵', onClick, hidden = false }: { children: ReactNode; keys?: ReactNode; onClick: () => void; hidden?: boolean }): React.JSX.Element {
   return (
     <button type="button" onClick={onClick} tabIndex={hidden ? -1 : 0} aria-hidden={hidden || undefined}
-      className={`flex h-[clamp(2.25rem,5vmin,3rem)] items-center gap-2 rounded-full bg-primary pr-1.5 pl-4 text-[clamp(0.875rem,2vmin,1.15rem)] font-semibold whitespace-nowrap text-primary-foreground transition-[opacity,transform,background-color] duration-200 ease-(--mf-ease) hover:bg-primary/90 active:scale-[0.97] ${hidden ? 'pointer-events-none opacity-0' : 'opacity-100'}`}>
+      className={`flex h-[clamp(2.25rem,4.6vmin,2.75rem)] items-center gap-2.5 rounded-[0.6rem] bg-primary pr-2 pl-3.5 text-[clamp(0.875rem,1.8vmin,1.0625rem)] font-semibold whitespace-nowrap text-primary-foreground transition-[opacity,transform,background-color] duration-200 ease-(--mf-ease) hover:bg-primary/90 active:scale-[0.97] ${hidden ? 'pointer-events-none opacity-0' : 'opacity-100'}`}>
       {children}
       <span className="flex items-center gap-0.5">
-        {typeof keys === 'string' ? <Kbd className="h-6 min-w-6 rounded-full border-primary-foreground/30 bg-primary-foreground/15 text-primary-foreground">{keys === '↵' ? <CornerDownLeft className="size-3" strokeWidth={2.4} /> : keys}</Kbd> : keys}
+        {typeof keys === 'string' ? <Kbd className="h-6 min-w-6 rounded-[0.35rem] border-primary-foreground/25 bg-primary-foreground/12 text-primary-foreground">{keys === '↵' ? <CornerDownLeft className="size-3" strokeWidth={2.4} /> : keys}</Kbd> : keys}
       </span>
     </button>
   )
@@ -275,8 +271,6 @@ function Primary({ children, keys = '↵', onClick, hidden = false }: { children
 
 export function Welcome(): React.JSX.Element | null {
   const [at, setAtState] = useState(-1)
-  // How far you have been, for the dots.
-  const [seen, setSeen] = useState(0)
   // Opened again from a menu: nothing is first about it.
   const [replay, setReplay] = useState(false)
   // Skipped ahead, and from where: the first screen gets a line of its own.
@@ -286,6 +280,8 @@ export function Welcome(): React.JSX.Element | null {
   // How the screen was reached, for whether it rises in: a key, a click, or the app answering.
   const [how, setHow] = useState<'key' | 'pointer' | 'app'>('app')
   const before = useRef<Set<string>>(new Set())
+  // The days this year you have already kept something on, for the first screen's ruler.
+  const [kept, setKept] = useState<Set<string>>(new Set())
   // The theme the dial was left on, kept when you move on.
   const picked = useRef<Theme | null>(null)
   const veteran = useRef(false)
@@ -294,12 +290,12 @@ export function Welcome(): React.JSX.Element | null {
     if (to < 0 || to > LAST) return
     setHow(by)
     setAtState(to)
-    setSeen((was) => Math.max(was, to))
   }
 
   const open = (again: boolean): void => {
     void Promise.all([window.api.captures.list(), onboarding.state()]).then(([list, now]) => {
       before.current = new Set(list.map((one) => one.id))
+      setKept(new Set(list.map((one) => dayjs(one.capturedAt).format('YYYY-MM-DD'))))
       // Notes from before the welcome existed: someone who knows Vigil already.
       veteran.current = !now.welcomed && list.length > 0
       setState(now)
@@ -308,7 +304,6 @@ export function Welcome(): React.JSX.Element | null {
     setCaught(null)
     setSkipped(false)
     setReplay(again)
-    setSeen(0)
     setHow('app')
     setAtState(0)
     chime('read')
@@ -405,7 +400,6 @@ export function Welcome(): React.JSX.Element | null {
       if (konami(event.key)) {
         chime('finding')
         setAtState((now) => now) // redraw the caps
-        setSeen((was) => was)
         setClayTick((n) => n + 1)
       }
       if (event.metaKey || event.ctrlKey || event.altKey) return
@@ -466,14 +460,6 @@ export function Welcome(): React.JSX.Element | null {
       {/* One frame for the words and the footer: in a large window they stay
           together in the middle, not scattered to its far corners. */}
       <div className="relative mx-auto flex min-h-0 w-full max-w-[84rem] flex-1 flex-col [@media(min-height:760px)]:my-auto [@media(min-height:760px)]:max-h-[48rem]">
-      {/* The first screen's year, behind its words: there and gone with the screen. */}
-      <AnimatePresence initial={false}>
-        {at === 0 && (
-          <motion.div key="year" className="absolute inset-0" initial={false} exit={{ opacity: 0, transition: { duration: motionless ? 0 : 0.12 } }}>
-            <YearField calm={motionless} />
-          </motion.div>
-        )}
-      </AnimatePresence>
       <main className="relative flex min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.section
@@ -483,9 +469,9 @@ export function Welcome(): React.JSX.Element | null {
             animate={{ opacity: 1, transform: shift('translateY(0px)'), filter: 'blur(0px)' }}
             exit={motionless ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, filter: 'blur(2px)', transition: { duration: 0.12, ease: EASE } }}
             transition={{ duration: 0.2, ease: EASE }}
-            className={`w-full px-[clamp(1.5rem,5vw,4rem)] py-6 [@media(max-height:480px)]:py-2 ${at === 0 && lateInYear() ? 'mx-auto mb-auto mt-[clamp(0rem,2vh,1.5rem)]' : at === 2 && boxUp ? 'mx-auto mt-auto' : (PLACE[at] ?? 'm-auto')}`}
+            className={`w-full px-[clamp(1.5rem,5vw,4rem)] py-6 [@media(max-height:480px)]:py-2 ${at === 2 && boxUp ? 'mx-auto mt-auto' : (PLACE[at] ?? 'm-auto')}`}
           >
-            {at === 0 && <Hello replay={replay} />}
+            {at === 0 && <Hello replay={replay} kept={kept} calm={motionless} />}
             {at === 1 && <OneKey state={state} onState={setState} onBox={() => go(2, 'app')} />}
             {at === 2 && <Catch boxUp={boxUp} />}
             {at === 3 && caught && <Landed capture={caught} />}
@@ -495,17 +481,19 @@ export function Welcome(): React.JSX.Element | null {
           </motion.section>
         </AnimatePresence>
       </main>
-      <footer className="relative grid h-[clamp(4rem,9vmin,5.5rem)] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 px-[clamp(1.5rem,5vw,4rem)]">
-        {/* Its words in line with the headline above; the hover wash reaches out past them. */}
-        <button type="button" onClick={skip} className="-ml-3 flex h-[clamp(2rem,4.6vmin,2.75rem)] items-center gap-2 justify-self-start rounded-full px-3 text-[clamp(0.875rem,2vmin,1.15rem)] text-(--mf-wl-quiet) transition-colors hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97]">
+      <footer className="relative flex h-[clamp(4rem,9vmin,5.5rem)] shrink-0 items-center gap-3 px-[clamp(1.5rem,5vw,4rem)]">
+        <div className="mr-auto">
+          <Progress at={at} onBack={back} />
+        </div>
+        <button type="button" onClick={skip} className="flex h-[clamp(2rem,4.2vmin,2.5rem)] items-center gap-2 rounded-[0.6rem] px-3 text-[clamp(0.8125rem,1.8vmin,1rem)] text-(--mf-wl-quiet) transition-colors hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97]">
           {at === LAST ? 'Close' : 'Skip'} <Kbd>Esc</Kbd>
         </button>
-        <Dots at={at} seen={seen} onGo={(to) => (chime('page'), go(to === 3 && !caught ? 2 : to, 'pointer'))} />
-        <div className="justify-self-end">
+        <div>
           {at === 0 && <Primary onClick={next}>Show me</Primary>}
           {at === 1 && <LateButton onClick={openBox} />}
           {at === 2 && <Primary onClick={openBox} keys={<BoxKeys />} hidden={boxUp}>Open the box</Primary>}
           {(at === 3 || at === 4 || at === 5) && <Primary onClick={next}>Next</Primary>}
+          {at === LAST && <Primary onClick={() => choose(1)}>Start fresh</Primary>}
         </div>
       </footer>
       </div>
@@ -575,28 +563,48 @@ function TrayArrow({ tray }: { tray: { x: number; y: number } | null }): React.J
  */
 const HEADLINE = 'font-heading text-[clamp(2rem,min(5vw,7.4vh),4.5rem)] leading-[1.04] font-medium tracking-[-0.026em] text-balance text-foreground'
 /** The first screen's: the establishing shot, the largest words in the welcome. */
-const HEADLINE_XL = 'font-heading text-[clamp(2.5rem,min(7.4vw,10.5vh),6.75rem)] leading-[0.98] font-medium tracking-[-0.034em] text-balance text-foreground'
+const HEADLINE_XL = 'font-heading text-[clamp(2.25rem,min(5.6vw,8.4vh),5.25rem)] leading-[1.02] font-medium tracking-[-0.03em] text-balance text-foreground'
 /** Under something larger than itself: the keys, the dial. */
 const HEADLINE_SM = 'font-heading text-[clamp(1.625rem,min(3.6vw,5.4vh),3.25rem)] leading-[1.08] font-medium tracking-[-0.022em] text-balance text-foreground'
 const BODY = 'max-w-[32ch] text-[clamp(1.0625rem,min(2.5vw,3.6vh),1.75rem)] leading-[1.4] text-pretty text-(--mf-wl-body)'
 const QUIET = 'text-[clamp(0.9375rem,min(2.2vw,3.2vh),1.5rem)] leading-snug text-(--mf-wl-quiet)'
 /** Keys inside a line of the larger type: sized to it, not to the app's small caps. */
 const LINE_KEY = 'h-[1.3em] min-w-[1.3em] rounded-[0.3em] px-[0.3em] text-[0.62em]'
-/** Where each screen sits in the window: the first low, in its field; the rest in the middle. */
+/** A date or a count set in the type: figures that line up, in the quiet ink. */
+const FIGURES = 'text-[clamp(0.875rem,min(1.9vw,2.8vh),1.25rem)] tabular-nums text-(--mf-wl-quiet)'
+/** Where each screen sits in the window: the first fills it, top to bottom; the rest in the middle. */
 const PLACE: Record<number, string> = {
-  0: 'mx-auto mt-auto mb-[clamp(0rem,3vh,2.5rem)]'
+  0: 'flex self-stretch'
 }
 
 // --- the screens ------------------------------------------------------------------
 
-/** The establishing shot: the year all round, the line typed into its quiet corner. */
-function Hello({ replay }: { replay: boolean }): React.JSX.Element {
+/**
+ * The establishing shot: an entry dated like a diary's, one line about your
+ * week typed under it, and the year along the foot. The line says most of
+ * today will be gone; as it finishes, the gone days on the ruler fade, and
+ * only the ones you kept something on stay.
+ */
+function Hello({ replay, kept, calm }: { replay: boolean; kept: Set<string>; calm: boolean }): React.JSX.Element {
+  const [said, setSaid] = useState(false)
+  const [line] = useState(firstLine)
+  const [when] = useState(dateline)
+  // Opened again, nothing types: the days fade once the ruler has been drawn.
+  useEffect(() => {
+    if (!replay) return
+    const timer = setTimeout(() => setSaid(true), calm || still() ? 0 : 900)
+    return () => clearTimeout(timer)
+  }, [replay, calm])
   return (
-    <div className="flex max-w-[min(100%,44rem)] flex-col gap-[clamp(0.75rem,2.4vh,1.75rem)]">
-      {replay ? <h1 className={HEADLINE_XL}>Vigil keeps what you notice.</h1> : <TypeLine text="Vigil keeps what you notice." className={HEADLINE_XL} />}
-      <p className={BODY}>Catch a thought in two seconds. Nothing you keep goes stale, and the good things come back to you.</p>
-      {/* The hour, on a line of its own: an aside, never a salesman's opener. */}
-      <p className={`${QUIET} italic [@media(max-height:520px)]:hidden`}>{greeting()} Two minutes, and you can stop any time.</p>
+    <div className="flex min-h-0 w-full flex-1 flex-col justify-between gap-[clamp(1.5rem,5vh,3rem)]">
+      <div className="flex max-w-[min(100%,46rem)] flex-col gap-[clamp(0.75rem,2.6vh,1.75rem)] pt-[clamp(0rem,4vh,3rem)]">
+        <p className={FIGURES}>{when}</p>
+        {replay ? <h1 className={`${HEADLINE_XL} max-w-[17ch]`}>{line}</h1> : <TypeLine text={line} className={`${HEADLINE_XL} max-w-[17ch]`} onDone={() => setSaid(true)} />}
+        <p className={`${BODY} max-w-[28ch]`}>Vigil keeps it for you, one key away, and brings it back.</p>
+      </div>
+      <div className="[@media(max-height:520px)]:hidden">
+        <YearRule calm={calm} kept={kept} faded={said} />
+      </div>
     </div>
   )
 }
@@ -666,7 +674,7 @@ function OneKey({ state, onState, onBox }: { state: Onboarding | null; onState: 
           : caps.map((cap, i) => <Keycap key={`${cap}${i}`} label={glyph(cap, i === caps.length - 1)} down={down.has(i)} size={big} />)}
       </div>
       <div className="flex flex-col items-center gap-[clamp(0.5rem,1.6vh,1rem)]">
-        <h1 className={HEADLINE_SM}>One key to remember</h1>
+        <h1 className={HEADLINE_SM}>Press it, from any app.</h1>
         <AnimatePresence mode="wait" initial={false}>
           {arrived ? (
             <motion.p key="there" className="font-heading text-[clamp(1.25rem,min(2.6vw,3.8vh),2rem)] leading-snug text-foreground" initial={{ opacity: 0, filter: 'blur(2px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }} transition={{ duration: 0.12 }}>
@@ -677,12 +685,9 @@ function OneKey({ state, onState, onBox }: { state: Onboarding | null; onState: 
           ) : (
             <motion.div key="ask" className="flex flex-col items-center gap-[clamp(0.75rem,2vh,1.25rem)]" exit={{ opacity: 0, transition: { duration: 0.1 } }}>
               <p className={`${BODY} max-w-[30ch]`}>
-                From any app, press <InlineKeys keys={keys} /> and a small box opens. Try it now.
+                A small box opens. It is all of Vigil you need today.
               </p>
-              <p className={`flex items-center gap-2 ${QUIET}`}>
-                <span className="mf-listening" aria-hidden />
-                Listening for it
-                <span aria-hidden className="opacity-50">·</span>
+              <p className={QUIET}>
                 <button type="button" onClick={() => (chime('tap'), setChoosing(true))} className="rounded-sm underline decoration-current/30 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current/60">
                   Use a different key
                 </button>
@@ -764,17 +769,33 @@ function KeyPicker({ taken, onState }: { taken: boolean; onState: (now: Onboardi
 function Catch({ boxUp }: { boxUp: boolean }): React.JSX.Element {
   useKeyChanges()
   const send = <InlineKeys keys={keyFor('⌘↵') || '⌘↵'} />
-  return (
-    <div className="mx-auto flex w-full max-w-[min(100%,54rem)] flex-col items-center gap-[clamp(1rem,3.6vh,2.25rem)] text-center">
-      <div className="flex flex-col items-center gap-[clamp(0.375rem,1.2vh,0.75rem)]">
-        <h1 className={boxUp ? HEADLINE : HEADLINE_SM}>{boxUp ? 'Write anything in the box.' : 'Catch something'}</h1>
-        <p className={`${BODY} max-w-[34ch] text-balance`}>
-          {boxUp ? <>{send} sends it. <span className="inline-flex translate-y-[-0.08em] align-middle"><Kbd className={LINE_KEY}>Esc</Kbd></span> puts it away.</> : <>A thing to buy, a line you liked, a half-idea. {send} sends it, and you are back where you were.</>}
-        </p>
+  if (boxUp) {
+    return (
+      <div className="mr-auto flex w-full max-w-[min(100%,54rem)] flex-col items-start gap-[clamp(0.375rem,1.2vh,0.75rem)]">
+        <h1 className={HEADLINE}>Write anything in the box.</h1>
+        <p className={`${BODY} max-w-none`}>{send} sends it. <span className="inline-flex translate-y-[-0.08em] align-middle"><Kbd className={LINE_KEY}>Esc</Kbd></span> puts it away.</p>
+        {/* The box has the cursor, so the first key wipes its example: here they keep coming while you type. */}
+        <Example />
       </div>
-      {!boxUp && <BoxPreview />}
-      {/* The box has the cursor, so the first key wipes its example: here they keep coming while you type. */}
-      {boxUp && <Example />}
+    )
+  }
+  return <Written send={send} />
+}
+
+/**
+ * Before the box is open: the kind of thing it takes, written large as if
+ * into it, one after another, on a single ruled line. What you see typed is
+ * what you will do, and nothing here pretends to be the box.
+ */
+function Written({ send }: { send: ReactNode }): React.JSX.Element {
+  const { shown, typing } = useExample()
+  return (
+    <div className="mr-auto flex w-full max-w-[min(100%,58rem)] flex-col gap-[clamp(1.25rem,4.5vh,3rem)]">
+      <h1 className={HEADLINE_SM}>Catch something.</h1>
+      <p aria-hidden className="border-b border-foreground/15 pb-[0.25em] font-heading text-[clamp(1.75rem,min(4.6vw,7vh),4rem)] leading-[1.15] tracking-[-0.02em] text-foreground">
+        <span className="block truncate">{shown || '\u00a0'}<span className={`mf-caret ${typing ? 'mf-caret-typing' : ''}`} /></span>
+      </p>
+      <p className={`${BODY} max-w-[36ch]`}>A thing to buy, a line you liked, half an idea. {send} sends it, and you are back where you were.</p>
     </div>
   )
 }
@@ -804,32 +825,6 @@ function useExample(): { line: string; shown: string; typing: boolean; quiet: bo
     return () => clearTimeout(rest)
   }, [typed, line, quiet])
   return { line, shown: quiet ? line : line.slice(0, typed), typing: !quiet && typed < line.length, quiet }
-}
-
-/**
- * What the box looks like, writing the same examples the real one shows
- * while it waits: so the thing that opens is already familiar. Not a
- * control; the real box is a key away.
- */
-function BoxPreview(): React.JSX.Element {
-  const { shown, typing } = useExample()
-  return (
-    <figure aria-hidden className="w-full text-left">
-      <div className="pointer-events-none overflow-hidden rounded-[clamp(1rem,2vw,1.5rem)] border border-foreground/10 bg-background shadow-(--mf-panel-shadow)">
-        <p className="min-h-[clamp(4.5rem,22vh,12rem)] px-[1em] pt-[0.8em] text-[clamp(1.25rem,min(3.2vw,4.6vh),2.5rem)] leading-snug text-foreground">
-          {shown}
-          <span className={`mf-caret ${typing ? 'mf-caret-typing' : ''}`} />
-        </p>
-        <div className="flex items-center gap-[0.5em] border-t border-foreground/[0.07] px-[1.1em] py-[0.6em] text-[clamp(0.875rem,min(2.2vw,3.2vh),1.375rem)] text-(--mf-wl-quiet)">
-          <NotebookText className="size-[1em]" strokeWidth={1.75} />
-          Note
-          <span className="ml-auto flex h-[1.9em] items-center gap-[0.4em] rounded-[0.4em] bg-foreground/[0.07] px-[0.65em] font-medium text-foreground">
-            Create <span className="text-[0.85em] opacity-70">{keyFor('⌘↵') || '⌘↵'}</span>
-          </span>
-        </div>
-      </div>
-    </figure>
-  )
 }
 
 /**
@@ -904,9 +899,14 @@ function Landed({ capture }: { capture: CaptureMeta }): React.JSX.Element {
   const arrive = { delay: 0.08, duration: 0.26, ease: EASE }
   return (
     // The moment, as it is in the Inbox: a calm column, yours arriving at the
-    // top and the ones before it moving down to make room; the words beside it.
-    <div className="mx-auto grid w-full max-w-[72rem] items-center gap-x-[clamp(2rem,5vw,5rem)] gap-y-[clamp(1.25rem,4vh,3rem)] @[56rem]:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-      <div className="pointer-events-none overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow) [zoom:1.2] @[56rem]:order-2 @[56rem]:[zoom:1.55] @[80rem]:[zoom:1.75] [&_*]:!cursor-default">
+    // top and the ones before it moving down to make room. The words are two
+    // short lines over it, set to its left edge, so the row is what you look at.
+    <div className="mr-auto flex w-full max-w-[46rem] flex-col gap-[clamp(1rem,3.4vh,2.25rem)]">
+      <div className="flex flex-wrap items-baseline gap-x-[0.5em] gap-y-1">
+        <h1 className={HEADLINE}>It landed.</h1>
+        {aside && <p className="font-heading text-[clamp(1.125rem,min(2.6vw,3.6vh),1.75rem)] text-(--mf-wl-body) italic">{aside}</p>}
+      </div>
+      <div className="pointer-events-none overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow) [zoom:1.15] @[56rem]:[zoom:1.3] @[80rem]:[zoom:1.5] [&_*]:!cursor-default">
         <p className="px-4 pt-3 pb-1 text-[0.8125rem] font-medium text-foreground">Inbox</p>
       <motion.div ref={row} className="relative w-full"
         initial={quiet ? false : { opacity: 0, transform: 'translateY(-10px)', filter: 'blur(2px)' }}
@@ -934,7 +934,7 @@ function Landed({ capture }: { capture: CaptureMeta }): React.JSX.Element {
           // Nothing before it: the first thing in your Inbox, over a quiet ruled column waiting for the rest.
           <motion.div aria-hidden className="mx-4 [mask-image:linear-gradient(to_bottom,black_40%,transparent)] [@media(max-height:560px)]:hidden"
             initial={quiet ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ ...arrive, delay: 0.34 }}>
-            {[0, 1, 2].map((i) => (
+            {[0, 1].map((i) => (
               <div key={i} className="flex h-[3.25rem] items-center border-t border-foreground/[0.07] px-1 text-xs text-muted-foreground">
                 {i === 0 && 'Everything you catch waits here, newest first.'}
               </div>
@@ -942,38 +942,24 @@ function Landed({ capture }: { capture: CaptureMeta }): React.JSX.Element {
           </motion.div>
         )}
       </div>
-      <div className="flex flex-col gap-[clamp(0.5rem,1.6vh,1rem)]">
-        <div className="flex flex-col gap-1">
-          <h1 className={HEADLINE}>It landed.</h1>
-          {aside && <p className="font-heading text-[clamp(1.125rem,min(2.6vw,3.6vh),1.75rem)] text-(--mf-wl-body) italic">{aside}</p>}
-        </div>
-        <p className={`${BODY} max-w-[34ch]`}>It waits in your Inbox. Nothing to sort now: later, a few minutes at a time.</p>
-        <ol aria-label="How Vigil goes" className={`flex flex-wrap items-center gap-x-2.5 gap-y-1 ${QUIET} [@media(max-height:520px)]:hidden`}>
-          {['Catch', 'Wait', 'Tidy and Decide', 'Comes back'].map((step, i, all) => (
-            // The arrow goes with the step before it, so a wrapped line never starts with one.
-            <li key={step} className="flex items-center gap-2.5 whitespace-nowrap">
-              <span className={i === 0 ? 'font-medium text-foreground' : ''}>{step}</span>
-              {i < all.length - 1 && <ArrowRight aria-hidden className="size-[0.85em] opacity-60" strokeWidth={1.75} />}
-            </li>
-          ))}
-        </ol>
-      </div>
+      <p className={QUIET}>Nothing to sort now. Later, a few minutes at a time.</p>
     </div>
   )
 }
 
 /**
  * Your own words, as the postcard they will be a year from today, laid large
- * on the table and a little askew; the words on the other side of it, and
- * the two other ways things come back.
+ * on the table and a little askew. The date it comes back is the headline,
+ * and its year rolls over from this one to the next as you arrive: a year,
+ * shown passing. The two sooner ways back are one quiet line.
  */
 function ComesBack({ capture }: { capture: CaptureMeta | null }): React.JSX.Element {
   useEffect(() => chime('riffle'), [])
   const words = capture?.label?.split('\n')[0]?.trim() || 'The first thing you catch.'
-  const year = dayjs().add(1, 'year')
+  const now = dayjs()
   return (
     <div className="mx-auto grid w-full max-w-[72rem] items-center gap-x-[clamp(2rem,6vw,6rem)] gap-y-8 @[50rem]:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-      <figure className="flex w-full max-w-[34rem] flex-col gap-[clamp(0.75rem,2.4vh,1.5rem)] justify-self-center [@media(max-height:520px)]:hidden">
+      <figure aria-hidden className="w-full max-w-[34rem] justify-self-center [@media(max-height:520px)]:hidden">
         {/* Drawn at the postcard's own size and enlarged whole, so its stamp and postmark keep their proportions. */}
         <div className="origin-center -rotate-[3deg] [zoom:1.15] @[50rem]:[zoom:1.35] @[80rem]:[zoom:1.6] [&>div]:shadow-[0_2px_3px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_22px_44px_-16px_color-mix(in_oklab,var(--mf-shadow-ink)_42%,transparent)]">
           <MemoryPostcard at={new Date().toISOString()} seed={capture?.id ?? 'welcome'}>
@@ -982,29 +968,38 @@ function ComesBack({ capture }: { capture: CaptureMeta | null }): React.JSX.Elem
             {capture?.kind === 'quote' && capture.attribution && <p className="mt-1 text-meta text-(--mf-wl-quiet)"><Signed who={capture.attribution} /></p>}
           </MemoryPostcard>
         </div>
-        <figcaption className={`pl-1 ${QUIET}`}>On <span className="text-foreground">{year.format('D MMMM YYYY')}</span>, this comes back to you.</figcaption>
       </figure>
-      <div className="flex flex-col gap-[clamp(0.75rem,2.6vh,1.75rem)]">
-        <h1 className={HEADLINE}>Then it comes back to you.</h1>
-        {/* Three ways back, read top to bottom: a number to follow, the name large,
-            what it does quiet beneath it, a hairline leading the eye down. */}
-        <ol className="flex flex-col border-l border-foreground/15">
-          {[
-            ['On this day', 'What you caught a year ago.'],
-            ['A hint in the box', 'Something you kept, as you open it.'],
-            ['Review', 'What you want to remember, just before you would forget it.']
-          ].map(([lead, rest], n) => (
-            <li key={lead} className="relative flex flex-col gap-0.5 py-[clamp(0.35rem,1.2vh,0.75rem)] pl-[clamp(1rem,2vw,1.5rem)]">
-              <span aria-hidden className="absolute top-[calc(clamp(0.35rem,1.2vh,0.75rem)+clamp(1.25rem,min(2.9vw,4.2vh),2rem)*0.64)] -left-[3px] size-[5px] rounded-full bg-foreground/50" />
-              <span className="font-heading text-[clamp(1.25rem,min(2.9vw,4.2vh),2rem)] leading-tight font-medium text-foreground">
-                <span className="mr-2 text-[0.6em] font-normal tabular-nums text-(--mf-wl-quiet)">{n + 1}</span>{lead}
-              </span>
-              <span className={`${QUIET} max-w-[34ch]`}>{rest}</span>
-            </li>
-          ))}
-        </ol>
+      <div className="flex flex-col gap-[clamp(0.75rem,2.6vh,1.5rem)]">
+        <p className={FIGURES}>Back in your Inbox on</p>
+        <h1 aria-label={now.add(1, 'year').format('D MMMM YYYY')} className={HEADLINE}>
+          <span aria-hidden>{now.format('D MMMM')} <RollingYear from={now.year()} /></span>
+        </h1>
+        <p className={`${BODY} max-w-[30ch]`}>A year to the day. Sooner, too: as a hint in the box, or in Review before you forget.</p>
       </div>
     </div>
+  )
+}
+
+/** This year turning into the next, its last figure rolling up like a counter's, once. Still with Motion off. */
+function RollingYear({ from }: { from: number }): React.JSX.Element {
+  const quiet = still() || byKeys()
+  const [a, b] = [String(from), String(from + 1)]
+  // Only the figures that change roll; the rest of the year stays put.
+  let same = 0
+  while (same < a.length && a[same] === b[same]) same++
+  return (
+    <span className="whitespace-nowrap tabular-nums">
+      {b.slice(0, same)}
+      <span className="relative inline-flex overflow-hidden align-bottom [clip-path:inset(0_-0.1em)]">
+        <span className="invisible">{b.slice(same)}</span>
+        <motion.span className="absolute inset-x-0 top-0 flex flex-col"
+          initial={quiet ? false : { transform: 'translateY(0%)' }} animate={{ transform: 'translateY(-50%)' }}
+          transition={{ delay: 0.45, type: 'spring', duration: 0.5, bounce: 0.12 }}>
+          <span>{a.slice(same)}</span>
+          <span>{b.slice(same)}</span>
+        </motion.span>
+      </span>
+    </span>
   )
 }
 
@@ -1014,12 +1009,12 @@ function Yours({ onPick }: { onPick: (theme: Theme) => void }): React.JSX.Elemen
   const win = useWindowSize()
   const size = Math.round(Math.max(140, Math.min(win.height * 0.44, win.width * 0.3, 360)))
   return (
-    <div className="mx-auto grid w-full max-w-[72rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-[clamp(1.5rem,4vw,4rem)] @[50rem]:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
-      <div className="flex flex-col gap-[clamp(0.5rem,1.8vh,1.25rem)] @[50rem]:self-start @[50rem]:pt-[clamp(0rem,4vh,2.5rem)]">
-        <h1 className={HEADLINE}>Make it yours.</h1>
-        <p className={`${BODY} max-w-[24ch]`}>Pick the colours you will want to look at every day.</p>
-        <p className={`${QUIET} max-w-[26ch] [@media(max-height:560px)]:hidden`}>
-          Turn it with <span className="inline-flex translate-y-[-0.08em] gap-[0.12em] align-middle"><Kbd className={LINE_KEY}>↑</Kbd><Kbd className={LINE_KEY}>↓</Kbd></span>, the scroll wheel, or a spin. You can change it any time.
+    // The dial in the middle; the words low at its left, ending where it does.
+    <div className="mx-auto grid w-full max-w-[72rem] grid-cols-[minmax(0,1fr)_auto] items-end gap-x-[clamp(1.5rem,4vw,4rem)] @[50rem]:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+      <div className="flex flex-col gap-[clamp(0.5rem,1.8vh,1.25rem)] pb-[clamp(0rem,3vh,2rem)]">
+        <h1 className={`${HEADLINE} max-w-[13ch]`}>The page you will write on.</h1>
+        <p className={`${QUIET} max-w-[24ch] [@media(max-height:560px)]:hidden`}>
+          Turn it with <span className="inline-flex translate-y-[-0.08em] gap-[0.12em] align-middle"><Kbd className={LINE_KEY}>↑</Kbd><Kbd className={LINE_KEY}>↓</Kbd></span>, the wheel or a drag. Settings has it later.
         </p>
       </div>
       <ThemeDial size={size} big onPick={onPick} onFullTurn={() => (setSay(FULL_TURN), setTimeout(() => setSay(undefined), 1800))} say={say} />
@@ -1027,51 +1022,41 @@ function Yours({ onPick }: { onPick: (theme: Theme) => void }): React.JSX.Elemen
   )
 }
 
-/** The three ways in, as rows: each a key, a name and one line. */
+/**
+ * The end: a decision already made for you, with two quieter ways round it.
+ * Your empty book is ready and the button below opens it; the sandbox and
+ * your old notes are a line of small links, each with its number key. The
+ * arrow at the top of the window points at Vigil in the menu bar, so the
+ * words do not have to.
+ */
 function Start({ name, skipped, importing, onPick, onFiles }: { name: string; skipped: false | 'first' | 'later'; importing: boolean; onPick: (pick: 1 | 2 | 3) => void; onFiles: () => void }): React.JSX.Element {
-  useKeyChanges()
-  const rows: { key: 1 | 2 | 3; title: string; line: string }[] = [
-    { key: 1, title: 'Start fresh', line: 'Your own empty Vigil. A short checklist on Home shows you the rest.' },
-    { key: 2, title: 'Explore the sandbox', line: 'A practice copy full of examples, kept by Nisaba, the Sumerian goddess of writing. Nothing you do there touches your notes.' },
-    { key: 3, title: 'Bring my notes', line: 'From Obsidian, Notion, Markdown, Readwise, Kindle or Anki.' }
+  const others: { key: 2 | 3; title: string }[] = [
+    { key: 2, title: 'Try the sandbox first' },
+    { key: 3, title: 'Bring my notes' }
   ]
-  const stagger = !byKeys() && !still()
+  const link = 'group flex items-center gap-2 rounded-[0.6rem] px-3 py-1.5 -mx-3 text-foreground transition-colors hover:bg-foreground/[0.06] active:scale-[0.98]'
   return (
-    // A plain page and a quiet list: the choice, without a frame round it.
-    <div className="mx-auto flex w-full max-w-[72rem] flex-col gap-[clamp(0.75rem,2.6vh,1.75rem)]">
-      <div className="flex flex-col gap-2">
-        <h1 className={`${HEADLINE} max-w-[18ch]`}>{name ? `How do you want to start, ${name}?` : 'How do you want to start?'}</h1>
-        {skipped && <p role="status" className={`${QUIET} max-w-[48ch]`}>{skipped === 'first' && <span className="italic">{WANDER} </span>}Skipped ahead. The welcome is in the Vigil menu and ⌘K whenever you want it again.</p>}
+    <div className="mr-auto flex w-full max-w-[58rem] flex-col gap-[clamp(1.25rem,4.5vh,3rem)]">
+      <div className="flex flex-col gap-[clamp(0.5rem,1.8vh,1rem)]">
+        <h1 className={`${HEADLINE_XL} max-w-[14ch]`}>{name ? `Your book is ready, ${name}.` : 'Your book is ready.'}</h1>
+        <p className={`${BODY} max-w-[30ch]`}>Empty for now. <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> fills it, from any app.</p>
+        {skipped && <p role="status" className={`${QUIET} max-w-[48ch]`}>{skipped === 'first' && <span className="italic">{WANDER} </span>}The welcome waits in the Vigil menu and ⌘K.</p>}
       </div>
-      <ol className="flex max-w-[44rem] flex-col">
-        {rows.map((row, i) => (
-          <motion.li key={row.key} className="border-t border-foreground/10 first:border-t-0"
-            initial={stagger ? { opacity: 0, transform: shift('translateY(6px)') } : false}
-            animate={{ opacity: 1, transform: shift('translateY(0px)') }}
-            transition={{ delay: stagger ? i * 0.035 : 0, duration: 0.18, ease: EASE }}>
-            <button type="button" onClick={() => onPick(row.key)} className="group -mx-3 flex w-[calc(100%+1.5rem)] min-w-0 items-baseline gap-[clamp(0.75rem,2vw,1.25rem)] rounded-xl px-3 py-[clamp(0.375rem,1.2vh,0.875rem)] text-left outline-none transition-[background-color,transform] duration-150 hover:bg-foreground/[0.05] focus-visible:ring-2 focus-visible:ring-ring/40 active:scale-[0.99]">
-              <Kbd className={`${LINE_KEY} shrink-0 translate-y-[-0.1em] text-[clamp(0.6875rem,min(1.1vw,1.7vh),0.875rem)]`}>{row.key}</Kbd>
-              <span className="flex min-w-0 flex-col gap-[0.2em]">
-                <span className="mf-row-title flex items-center gap-2 font-heading text-[clamp(1.25rem,min(2.6vw,3.8vh),2rem)] leading-tight font-medium tracking-[-0.015em] text-foreground">
-                  {row.title}
-                  {row.key === 1 && <Kbd className={`${LINE_KEY} text-(--mf-wl-quiet)`}><CornerDownLeft className="size-[1em]" strokeWidth={2.2} /></Kbd>}
-                </span>
-                <span className={`${QUIET} max-w-[46ch] text-pretty [@media(max-height:560px)]:truncate [@media(max-height:440px)]:hidden`}>{row.line}</span>
-              </span>
-            </button>
-            {row.key === 3 && importing && (
-              <div className="mb-3 flex flex-wrap gap-2 pl-[clamp(2.25rem,5vw,3.25rem)]">
-                <button type="button" onClick={() => onPick(3)} className="h-9 rounded-full bg-primary px-4 text-[0.875rem] font-semibold text-primary-foreground active:scale-[0.97]">A folder: Obsidian or Notion…</button>
-                <button type="button" onClick={onFiles} className="h-9 rounded-full border px-4 text-[0.875rem] font-medium text-foreground hover:bg-foreground/[0.05] active:scale-[0.97]">Files: Markdown, Readwise, Kindle, Anki…</button>
-              </div>
-            )}
-          </motion.li>
+      <div className={`flex flex-wrap items-center gap-x-6 gap-y-2 ${QUIET} [@media(max-height:440px)]:hidden`}>
+        <span className="-mr-3">Or</span>
+        {others.map((row) => (
+          <button key={row.key} type="button" onClick={() => onPick(row.key)} className={link}>
+            {row.title}
+            <Kbd className="text-(--mf-wl-quiet)">{row.key}</Kbd>
+          </button>
         ))}
-      </ol>
-      <p className={`flex max-w-[48ch] items-start gap-2 ${QUIET} [@media(max-height:440px)]:hidden`}>
-        <ArrowUp aria-hidden className="mt-[0.15em] size-[1em] shrink-0 text-primary" strokeWidth={2.2} />
-        <span>Vigil lives in your menu bar, up there. It starts with your Mac, so <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> always works.</span>
-      </p>
+      </div>
+      {importing && (
+        <div className="-mt-[clamp(0.5rem,2vh,1.5rem)] flex flex-wrap gap-2">
+          <button type="button" onClick={() => onPick(3)} className="h-9 rounded-[0.6rem] bg-primary px-4 text-[0.875rem] font-semibold text-primary-foreground active:scale-[0.97]">A folder: Obsidian or Notion…</button>
+          <button type="button" onClick={onFiles} className="h-9 rounded-[0.6rem] border px-4 text-[0.875rem] font-medium text-foreground hover:bg-foreground/[0.05] active:scale-[0.97]">Files: Markdown, Readwise, Kindle, Anki…</button>
+        </div>
+      )}
     </div>
   )
 }
