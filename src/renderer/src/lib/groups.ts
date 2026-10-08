@@ -16,8 +16,10 @@ export const groups = {
   set: (id: string, patch: { name?: string; icon?: string | null; color?: string | null; folded?: boolean }) => call<boolean>('groups:set', id, patch),
   separate: (id: string) => call<Separated | null>('groups:separate', id),
   restore: (was: Separated) => call<boolean>('groups:restore', was),
-  duplicate: (id: string) => call<string | null>('groups:duplicate', id),
-  links: (id: string) => call<string[]>('groups:links', id),
+  duplicate: (id: string) => call<{ id: string; ids: string[] } | null>('groups:duplicate', id),
+  links: (id: string | string[]) => call<string[]>('groups:links', id),
+  clone: (list: string, ids: string[]) => call<string[]>('groups:clone', list, ids),
+  unclone: (ids: string[]) => call<boolean>('groups:unclone', ids),
   note: (id: string) => call<string | null>('groups:note', id)
 }
 

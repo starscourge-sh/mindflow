@@ -126,11 +126,12 @@ export function registerGroups(): void {
     const columns = (db.prepare('pragma table_info(nuggets)').all() as { name: string }[]).map((one) => one.name)
       .filter((name) => !['id', 'group_id', 'group_order', 'created_at', 'updated_at', 'pinned_at', 'remind_at', 'capture_id'].includes(name))
     const ids = members(id)
+    let made: string[] = []
     atomically(() => {
       db.prepare('insert into note_groups (id, list, name, icon, color, created_at) values (?, ?, ?, ?, ?, ?)').run(copy, group.list, `${group.name} copy`, group.icon, group.color, now())
       const clone = db.prepare(`insert into nuggets (id, group_id, group_order, created_at, updated_at, ${columns.join(', ')})
         select ?, ?, ?, ?, ?, ${columns.join(', ')} from nuggets where id = ?`)
-      const made = ids.map((one, at) => {
+      made = ids.map((one, at) => {
         const fresh = randomUUID()
         clone.run(fresh, copy, at, now(), now(), one)
         return fresh
@@ -144,17 +145,52 @@ export function registerGroups(): void {
       order.forEach((one, at) => add.run(group.list, one, at))
     })
     changed()
-    return copy
+    return { id: copy, ids: made }
   })
 
-  // Every web address its notes hold, once each, in the group's order.
-  handle('groups:links', (id: string) => {
-    const rows = db.prepare('select title, attribution, body, fields from nuggets where group_id = ? order by group_order').all(id) as { title: string; attribution: string | null; body: string | null; fields: string | null }[]
+  // Every web address a group's notes hold (or these notes'), once each, in order.
+  handle('groups:links', (id: string | string[]) => {
+    type Row = { attribution: string | null; body: string | null; fields: string | null }
+    const rows = Array.isArray(id)
+      ? id.flatMap((one) => (db.prepare('select attribution, body, fields from nuggets where id = ?').all(one) as Row[]))
+      : (db.prepare('select attribution, body, fields from nuggets where group_id = ? order by group_order').all(id) as Row[])
     const seen = new Set<string>()
     for (const row of rows)
       for (const found of `${row.attribution ?? ''} ${row.fields ?? ''} ${row.body ?? ''}`.matchAll(/https?:\/\/[^\s"'<>)\]\\]+/g))
         seen.add(found[0].replace(/[.,;:]+$/, ''))
     return [...seen]
+  })
+
+  // Copies of these notes, each just after its own (in its group, if it has one). Undo takes them away again.
+  handle('groups:clone', (list: string, ids: string[]) => {
+    const columns = (db.prepare('pragma table_info(nuggets)').all() as { name: string }[]).map((one) => one.name)
+      .filter((name) => !['id', 'group_order', 'created_at', 'updated_at', 'pinned_at', 'remind_at', 'capture_id'].includes(name))
+    const made: string[] = []
+    atomically(() => {
+      const clone = db.prepare(`insert into nuggets (id, group_order, created_at, updated_at, ${columns.join(', ')})
+        select ?, group_order + 0.5, ?, ?, ${columns.join(', ')} from nuggets where id = ?`)
+      const order = (db.prepare('select id from note_order where list = ? order by position').all(list) as { id: string }[]).map((row) => row.id)
+      for (const one of ids) {
+        const fresh = randomUUID()
+        clone.run(fresh, now(), now(), one)
+        made.push(fresh)
+        const at = order.indexOf(one)
+        order.splice(at < 0 ? order.length : at + 1, 0, fresh)
+      }
+      db.prepare('delete from note_order where list = ?').run(list)
+      const add = db.prepare('insert or ignore into note_order (list, id, position) values (?, ?, ?)')
+      order.forEach((one, at) => add.run(list, one, at))
+    })
+    changed()
+    return made
+  })
+  handle('groups:unclone', (ids: string[]) => {
+    atomically(() => {
+      for (const one of ids) (db.prepare('delete from nuggets where id = ?').run(one), db.prepare('delete from note_order where id = ?').run(one))
+      db.exec('delete from note_groups where not exists (select 1 from nuggets where nuggets.group_id = note_groups.id)')
+    })
+    changed()
+    return true
   })
 
   // A new note at the end of the group, of the list's own tier.

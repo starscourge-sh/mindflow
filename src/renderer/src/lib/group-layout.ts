@@ -73,53 +73,76 @@ export function gather(layout: Layout, target: string, ids: string[], make: { id
   return { top, groups: { ...groups, [make.id]: members }, make }
 }
 
-const arrayMove = <T>(list: T[], from: number, to: number): T[] => {
-  const next = [...list]
-  next.splice(to, 0, next.splice(from, 1)[0])
-  return next
+/** How a carried row is let go over another: on its middle (gathered with it), or just before or after it. */
+export type How = 'join' | 'before' | 'after'
+
+/** Put `key` just before or after `anchor`, in `group` (or the top level, null). */
+function beside(layout: Layout, key: string, group: string | null, anchor: string, how: 'before' | 'after'): Layout {
+  if (how === 'after') return moveTo(layout, key, { group, after: anchor })
+  const list = (group ? layout.groups[group] ?? [] : layout.top).filter((one) => one !== key)
+  const at = list.indexOf(anchor)
+  return moveTo(layout, key, { group, after: at > 0 ? list[at - 1] : null })
 }
 
 /**
- * Where a drop lands. `shown` is every row on screen in order (group rows as
- * `g:` keys, the notes of a folded group left out); `active` is what was
- * carried and `over` what it was let go over. `join`: let go over the middle
- * of a row, which gathers the two (or adds to that row's group). Null when
- * nothing changes.
+ * Where a drop lands: `active` (a note, or a group by its `g:` row) let go
+ * `how` over `target`. Over the middle of a row the two are gathered into a
+ * new group, or the note joins the target's group; just before or after a
+ * row it goes beside it, in that row's group if it has one. Just under an
+ * open group's own row is first in that group. Null when nothing changes.
  */
-export function drop(layout: Layout, shown: string[], active: string, over: string, join: boolean, folded: Set<string>, make: () => { id: string; name: string }): Layout | null {
-  if (active === over) return null
+export function drop(layout: Layout, active: string, target: string, how: How, folded: Set<string>, make: () => { id: string; name: string }): Layout | null {
+  if (active === target) return null
   const own = isGroup(active) ? undefined : groupOf(layout, active)
-  if (join && !isGroup(active)) {
-    if (isGroup(over)) {
-      const group = groupId(over)
+  if (isGroup(active)) {
+    // A group only ever sits at the top level: beside the target's own place there.
+    const anchor = topKey(layout, target)
+    if (anchor === active) return null
+    return beside(layout, active, null, anchor, how === 'before' ? 'before' : 'after')
+  }
+  if (how === 'join') {
+    if (isGroup(target)) {
+      const group = groupId(target)
       if (own === group) return null
       const ids = layout.groups[group] ?? []
       return moveTo(layout, active, { group, after: ids[ids.length - 1] ?? null })
     }
-    const group = groupOf(layout, over)
-    if (group) return moveTo(layout, active, { group, after: over })
-    return gather(layout, over, [active], make())
+    const group = groupOf(layout, target)
+    if (group) return moveTo(layout, active, { group, after: target })
+    return gather(layout, target, [active], make())
   }
-  const from = shown.indexOf(active)
-  const to = shown.indexOf(over)
-  if (from < 0 || to < 0) return null
-  const moved = arrayMove(shown, from, to)
-  const at = moved.indexOf(active)
-  if (isGroup(active)) {
-    // The nearest row above that is not its own: it goes after that row's place at the top.
-    const mine = new Set(layout.groups[groupId(active)] ?? [])
-    const prev = moved.slice(0, at).reverse().find((one) => !mine.has(one))
-    return moveTo(layout, active, { group: null, after: prev ? topKey(layout, prev) : null })
+  if (isGroup(target)) {
+    const group = groupId(target)
+    if (how === 'after' && !folded.has(group)) return moveTo(layout, active, { group, after: null })
+    return beside(layout, active, null, target, how)
   }
-  const prev = moved[at - 1]
-  const next = moved[at + 1]
-  // Just under an open group's row: first in it.
-  if (prev && isGroup(prev) && !folded.has(groupId(prev))) return moveTo(layout, active, { group: groupId(prev), after: null })
-  const above = prev && !isGroup(prev) ? groupOf(layout, prev) : undefined
-  const below = next && !isGroup(next) ? groupOf(layout, next) : undefined
-  // Between two of a group's notes, or still at the end of its own.
-  if (above && (above === below || above === own)) return moveTo(layout, active, { group: above, after: prev })
-  return moveTo(layout, active, { group: null, after: prev ? topKey(layout, prev) : null })
+  return beside(layout, active, groupOf(layout, target) ?? null, target, how)
+}
+
+/** The group a drop would leave the note in (null: the top level), for saying so before it happens. */
+export function landsIn(layout: Layout, target: string, how: How, folded: Set<string>): string | null {
+  if (isGroup(target)) return how === 'join' || (how === 'after' && !folded.has(groupId(target))) ? groupId(target) : null
+  return groupOf(layout, target) ?? null
+}
+
+/**
+ * One step up or down with the keys, among the rows on show (`shown`, folded
+ * groups' notes left out). Into a group and out of it are steps of their own:
+ * a note at the end of a group steps out to just under it before passing the
+ * next row.
+ */
+export function step(layout: Layout, shown: string[], id: string, by: number, folded: Set<string>): Layout | null {
+  const at = shown.indexOf(id)
+  const target = shown[at + by]
+  if (at < 0 || !target) return null
+  const own = groupOf(layout, id)
+  if (by > 0) {
+    if (own && groupOf(layout, target) !== own) return moveTo(layout, id, { group: null, after: KEY + own })
+    return drop(layout, id, target, 'after', folded, () => ({ id: '', name: '' }))
+  }
+  const theirs = isGroup(target) ? undefined : groupOf(layout, target)
+  if (theirs && theirs !== own) return moveTo(layout, id, { group: theirs, after: target })
+  return drop(layout, id, target, 'before', folded, () => ({ id: '', name: '' }))
 }
 
 /** The order the notes are read in, groups opened out: what your own order is saved as. */

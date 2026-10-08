@@ -1,56 +1,73 @@
 // Run with: node --test test/group-layout.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { drop, flatten, gather, layoutOf } from '../src/renderer/src/lib/group-layout.ts'
+import { drop, flatten, gather, landsIn, layoutOf, step } from '../src/renderer/src/lib/group-layout.ts'
 
 const make = () => ({ id: 'n', name: 'New group' })
 // a, then group G holding b and c, then d and e.
 const base = () => layoutOf(['a', 'b', 'c', 'd', 'e'], [{ id: 'G', members: ['b', 'c'] }])
-const shown = ['a', 'g:G', 'b', 'c', 'd', 'e']
 const none = new Set<string>()
+const shown = ['a', 'g:G', 'b', 'c', 'd', 'e']
 
 test('the saved order reads back as groups', () => {
   assert.deepEqual(base(), { top: ['a', 'g:G', 'd', 'e'], groups: { G: ['b', 'c'] } })
   assert.deepEqual(flatten(base()), ['a', 'g:G', 'b', 'c', 'd', 'e'])
 })
 
-test('a row let go over the middle of another makes a group in its place', () => {
-  const next = drop(base(), shown, 'e', 'a', true, none, make)!
+test('let go over the middle of a row, the two make a group in its place', () => {
+  const next = drop(base(), 'e', 'a', 'join', none, make)!
   assert.deepEqual(next.top, ['g:n', 'g:G', 'd'])
   assert.deepEqual(next.groups.n, ['a', 'e'])
   assert.deepEqual(next.make, make())
 })
 
 test('over the middle of a group row, it joins at the end', () => {
-  assert.deepEqual(drop(base(), shown, 'd', 'g:G', true, none, make)!.groups.G, ['b', 'c', 'd'])
+  assert.deepEqual(drop(base(), 'd', 'g:G', 'join', none, make)!.groups.G, ['b', 'c', 'd'])
 })
 
 test('over the middle of a note in a group, it joins after that note', () => {
-  assert.deepEqual(drop(base(), shown, 'e', 'b', true, none, make)!.groups.G, ['b', 'e', 'c'])
+  assert.deepEqual(drop(base(), 'e', 'b', 'join', none, make)!.groups.G, ['b', 'e', 'c'])
 })
 
-test('between two notes of a group it goes in; past the group it stays out', () => {
-  // e carried up over c: lands between b and c.
-  assert.deepEqual(drop(base(), shown, 'e', 'c', false, none, make)!.groups.G, ['b', 'e', 'c'])
-  // a carried down over d: lands after d, at the top level.
-  assert.deepEqual(drop(base(), shown, 'a', 'd', false, none, make)!.top, ['g:G', 'd', 'a', 'e'])
+test('just before or after a row, it goes beside it, in that row\'s group', () => {
+  assert.deepEqual(drop(base(), 'e', 'c', 'before', none, make)!.groups.G, ['b', 'e', 'c'])
+  assert.deepEqual(drop(base(), 'e', 'c', 'after', none, make)!.groups.G, ['b', 'c', 'e'])
+  assert.deepEqual(drop(base(), 'a', 'd', 'after', none, make)!.top, ['g:G', 'd', 'a', 'e'])
+  assert.deepEqual(drop(base(), 'e', 'd', 'before', none, make)!.top, ['a', 'g:G', 'e', 'd'])
 })
 
-test('a note dragged out of its group leaves it, and an emptied group goes', () => {
+test('just under an open group row is first in it; under a folded one, outside it', () => {
+  assert.deepEqual(drop(base(), 'e', 'g:G', 'after', none, make)!.groups.G, ['e', 'b', 'c'])
+  assert.deepEqual(drop(base(), 'a', 'g:G', 'after', new Set(['G']), make)!.top, ['g:G', 'a', 'd', 'e'])
+})
+
+test('a note let go outside its group leaves it, and an emptied group goes', () => {
   const one = layoutOf(['a', 'b', 'd'], [{ id: 'G', members: ['b'] }])
-  const next = drop(one, ['a', 'g:G', 'b', 'd'], 'b', 'd', false, none, make)!
-  assert.deepEqual(next, { top: ['a', 'd', 'b'], groups: {} })
+  assert.deepEqual(drop(one, 'b', 'd', 'after', none, make)!, { top: ['a', 'd', 'b'], groups: {} })
 })
 
-test('a group carried by its row takes its notes', () => {
-  const next = drop(base(), shown, 'g:G', 'e', false, none, make)!
-  assert.deepEqual(flatten(next), ['a', 'd', 'e', 'g:G', 'b', 'c'])
+test('a group carried by its row takes its notes, and lands beside a group, never in it', () => {
+  assert.deepEqual(flatten(drop(base(), 'g:G', 'e', 'after', none, make)!), ['a', 'd', 'e', 'g:G', 'b', 'c'])
+  const two = layoutOf(['a', 'b', 'c', 'd'], [{ id: 'G', members: ['a'] }, { id: 'H', members: ['c', 'd'] }])
+  assert.deepEqual(drop(two, 'g:G', 'd', 'before', none, make)!.top, ['b', 'g:G', 'g:H'])
 })
 
-test('under a folded group row a note stays outside it', () => {
-  const folded = ['a', 'g:G', 'd', 'e']
-  const next = drop(base(), folded, 'a', 'g:G', false, new Set(['G']), make)!
-  assert.deepEqual(next.top, ['g:G', 'a', 'd', 'e'])
+test('where a drop lands is known before it happens', () => {
+  assert.equal(landsIn(base(), 'b', 'before', none), 'G')
+  assert.equal(landsIn(base(), 'd', 'before', none), null)
+  assert.equal(landsIn(base(), 'g:G', 'after', none), 'G')
+  assert.equal(landsIn(base(), 'g:G', 'before', none), null)
+})
+
+test('the keys step into a group and out of it one place at a time', () => {
+  // a down: first in G.
+  assert.deepEqual(step(base(), shown, 'a', 1, none)!.groups.G, ['a', 'b', 'c'])
+  // c down: out, just under G.
+  assert.deepEqual(step(base(), shown, 'c', 1, none)!.top, ['a', 'g:G', 'c', 'd', 'e'])
+  // d up: into G, at its end.
+  assert.deepEqual(step(base(), shown, 'd', -1, none)!.groups.G, ['b', 'c', 'd'])
+  // b up: out, above G.
+  assert.deepEqual(step(base(), shown, 'b', -1, none)!.top, ['a', 'b', 'g:G', 'd', 'e'])
 })
 
 test('a group from a note already in one sits after that group', () => {

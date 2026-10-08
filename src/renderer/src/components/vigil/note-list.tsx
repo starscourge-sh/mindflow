@@ -238,6 +238,8 @@ export function NoteList({
   onPick,
   onOpen,
   onChoose,
+  onRange,
+  pickWithCommand,
   onMove,
   after,
   folds,
@@ -259,6 +261,10 @@ export function NoteList({
   onOpen?: (id: string) => void
   /** Shift-click picks it, as x does. */
   onChoose?: (id: string) => void
+  /** Shift-click picks every row from the last one picked to this one. */
+  onRange?: (id: string) => void
+  /** ⌘-click picks, as in Finder and Dia; ⌥⌘-click opens a window of its own. */
+  pickWithCommand?: boolean
   /** Your own order: rows (never tiles) dragged into it. */
   onMove?: (id: string, target: string, after: boolean) => void
   /** Drawn under a row: a thought being written under it. */
@@ -383,11 +389,13 @@ export function NoteList({
         data-open={open ? '' : undefined}
         // ⌘-click: a window of its own, as a browser opens a tab; shift-click picks.
         onClick={(event) =>
-          event.metaKey
-            ? openWindow(entry.type, entry.id)
-            : event.shiftKey && onChoose
-              ? onChoose(entry.id)
-              : onPick(entry.id)
+          event.metaKey && pickWithCommand && onChoose && !event.altKey
+            ? onChoose(entry.id)
+            : event.metaKey
+              ? openWindow(entry.type, entry.id)
+              : event.shiftKey && (onRange ?? onChoose)
+                ? (onRange ?? onChoose)!(entry.id)
+                : onPick(entry.id)
         }
         onDoubleClick={onOpen ? () => onOpen(entry.id) : undefined}
         className={
@@ -429,7 +437,8 @@ export function NoteList({
 // Rows flush, Linear's way: one plain highlight for the one open, a fainter
 // one under the keyboard, a tint for the picked. Tiles take a ring instead,
 // drawn inside their own edge so nothing around them can cut it.
-const PICKED = 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]'
+// A picked row keeps its tint while its menu is open, so every picked row reads the same.
+const PICKED = 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)] data-[state=open]:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_20%,transparent)]!'
 const rowClass = (
   at: boolean,
   open: boolean,

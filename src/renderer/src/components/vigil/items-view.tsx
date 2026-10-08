@@ -57,9 +57,9 @@ import { GlossTimeline, useRowGloss } from './gloss-line'
 import { dayjs, moment, num } from '../../../../main/dates'
 import { Signed } from './signature'
 import { groups as noteGroupsApi, tintOf, useGroups } from '@/lib/groups'
-import { drop, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveTo, type Layout } from '@/lib/group-layout'
+import { drop, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveTo, step as stepLayout, type Layout } from '@/lib/group-layout'
 import type { Cue } from '@/lib/sound'
-import type { Bundle, Folds } from './kept-groups'
+import { GroupIcon, type Bundle, type Folds } from './kept-groups'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const BookOpen = alive(BookIcon)
@@ -133,8 +133,11 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   const [open, setOpen] = useState<ItemFull | null>(null)
   const spread = pane === 'wide' && !open
   const groups = spread && query.trim() ? arranged.map(([name, list]) => [name, list.filter((one) => matches(one.title, query))] as [string, Item[]]).filter(([, list]) => list.length) : arranged
-  const folding = useFolding(tier, all, ownOrder, view.sort === 'manual' && view.group === 'none' && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? groups.flatMap(([, list]) => list) : null)
-  const items = folding?.rows ?? groups.flatMap(([, list]) => list)
+  // x, ⌘-click and ⇧-click pick rows: several nuggets make one article, and any rows make a group.
+  const [chosen, setChosen] = useState<string[]>([])
+  const folding = useFolding(tier, all, ownOrder, view.sort === 'manual' && view.group === 'none' && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? groups.flatMap(([, list]) => list) : null,
+    () => setView({ ...view, sort: 'manual', group: 'none', density: view.density === 'list' || view.density === 'compact' ? view.density : 'list' }), () => setChosen([]))
+  const items = folding.rows ?? groups.flatMap(([, list]) => list)
   const noteGroups = useGroups(tier)
   const onMove = (id: string, target: string, after: boolean): void => move(all.map((one) => one.id), id, target, after)
   // Spread out, a click looks at a note beside the list; Enter opens it.
@@ -176,8 +179,8 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
       if (!by || !row) return
       event.preventDefault()
       // Among groups, a step can go into one or out of it: the row is followed wherever it lands.
-      if (folding) {
-        const to = folding.step(row.id, by, true)
+      if (folding.rows) {
+        const to = folding.step(row.id, by)
         if (to !== null && to >= 0) setCursor(to)
         return
       }
@@ -189,51 +192,74 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   // Reading through what is shown, one at a time with nothing else on screen.
   const [readFrom, setReadFrom] = useState<number | null>(null)
   useReadKey(() => setReadFrom(startAt(items, open?.id, cursor)), items.length)
-  // x selects, the way Linear does it; several nuggets make one article.
-  const [chosen, setChosen] = useState<string[]>([])
   // The Luhmann move: two unrelated nuggets side by side, for the connection
   // nobody would have gone looking for.
   const [pair, setPair] = useState<Awaited<ReturnType<typeof vigil.random>>>([])
-  const toggle = (id: string): void => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
+  // Where ⇧-click picks from: the last row picked.
+  const from = useRef<string | null>(null)
+  const toggle = (id: string): void => {
+    from.current = id
+    setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
+  }
+  const range = (id: string): void => {
+    const a = items.findIndex((one) => one.id === from.current)
+    const b = items.findIndex((one) => one.id === id)
+    if (a < 0 || b < 0) return toggle(id)
+    chime('on')
+    const run = items.slice(Math.min(a, b), Math.max(a, b) + 1).map((one) => one.id)
+    setChosen((ids) => [...new Set([...ids, ...run])])
+  }
   const at = useRef(cursor)
   at.current = cursor
   useEffect(() => {
-    if (tier !== 'nugget') return
     const onKey = (event: KeyboardEvent): void => {
       if (typing()) return
+      // ⌃⌘N: a new group of the rows picked, or of the one under the cursor.
+      if (event.ctrlKey && event.metaKey && event.code === 'KeyN') {
+        event.preventDefault()
+        event.stopPropagation()
+        return folding.gatherNew(chosen.length ? chosen : items[at.current] ? [items[at.current].id] : [])
+      }
       // Escape lets the selection go, and only that: taken first, so the
       // list does not also close what is open.
-      if (event.key === 'Escape' && chosen.length) {
+      // An open menu takes its own Escape: closing it keeps what is picked.
+      if (event.key === 'Escape' && chosen.length && !document.querySelector('[role="menu"]')) {
         event.preventDefault()
         chime('off')
         return setChosen([])
       }
-      if (event.key !== 'x') return
+      if (event.key !== 'x' || event.metaKey || event.ctrlKey || event.altKey) return
       const item = items[at.current]
       if (item) toggle(item.id)
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [items, tier, chosen.length])
+  })
   // Opening one, or putting it away, is a step Back returns from.
   const hush = useOpened(open?.id, focus, pick, () => setOpen(null))
   // Re-read the open one when anything changes, so a gloss or a prompt shows.
   useEffect(() => window.api.captures.onChange(() => open && pick(open.id)), [open?.id])
   // The right-click menu: the same on a row and on a card.
-  const menuFor = (item: Item): RowItem[] => [
+  const menuFor = (item: Item): RowItem[] => chosen.includes(item.id) && chosen.length > 1 ? [
+    // Right-clicked among several picked: the menu speaks for all of them.
+    ...folding.menu(chosen),
+    'separator',
+    { label: 'Clear the selection', run: () => (chime('off'), setChosen([])) }
+  ] : [
     { label: 'Open', keys: '↵', run: () => pick(item.id) },
     'separator',
     { label: item.pinnedAt ? 'Unpin' : 'Pin to the box', run: () => pin('nuggets', item.id, !item.pinnedAt) },
     ...itemMenu(item),
-    tier === 'nugget' && { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(item.id) },
-    ...(folding?.menu(item.id, chosen.includes(item.id) && chosen.length > 1 ? chosen : [item.id]) ?? []),
+    { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(item.id) },
+    'separator',
+    ...folding.menu([item.id]),
     'separator',
     { label: 'Copy title', run: () => copy(item.title) }
   ]
 
   // Drawn flat (another sort, or grouped by kind or date), a note in a group says which, small, beside its age.
   const chipOf = new Map(noteGroups.flatMap((group) => group.members.map((id) => [id, { label: group.name, tint: tintOf(group.color) }] as const)))
-  const entries = groups.map(([name, list]) => [name, list.map((one) => ({ ...itemEntry(one, menuFor(one)), chip: folding ? undefined : chipOf.get(one.id) }))] as [string, Entry[]])
+  const entries = groups.map(([name, list]) => [name, list.map((one) => ({ ...itemEntry(one, menuFor(one)), chip: folding.rows ? undefined : chipOf.get(one.id) }))] as [string, Entry[]])
   return (
     <>
       {open && pane === 'rail' ? (
@@ -247,7 +273,10 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           chosen.length ? (
             <span className="flex items-center gap-2 text-muted-foreground">
               <Rolling text={chosen.length} /> selected
-              <Button variant="secondary" size="sm"
+              <Tip label="Group them  ⌃⌘N">
+                <Button variant="ghost" size="sm" onClick={() => folding.gatherNew(chosen)}>New group</Button>
+              </Tip>
+              {tier === 'nugget' && <Button variant="secondary" size="sm"
  
  onClick={() => void vigil.article(chosen).then((id) => {
  // The same words and the same landing as the prompt's: the article opens.
@@ -258,7 +287,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
  })}
 >
                 Start an article
-              </Button>
+              </Button>}
               <Tip label="Clear">
               <Button variant="ghost" size="icon-sm" onClick={() => setChosen([])}>
                 <X className="size-3.5" />
@@ -315,8 +344,8 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
         {items.length ? (
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (setPeek(id), setCursor(items.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined}
-            onChoose={tier === 'nugget' ? toggle : undefined} onMove={onMove} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'}
-            folds={folding ? { ...folding.folds(menuFor), onNewNote: pick } : undefined} />
+            onChoose={toggle} onRange={range} pickWithCommand onMove={onMove} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'}
+            folds={folding.rows ? { ...folding.folds(menuFor), onNewNote: pick } : undefined} />
         ) : all.length && query.trim() ? (
           <Empty shape={['ellipse', 3]} title="Nothing matches">No title here has those words. Escape clears the search.</Empty>
         ) : unloaded(all) ? null : tier === 'nugget' ? (
@@ -352,7 +381,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
 const itemMenu = (item: Item): MenuItem[] => [
   { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
   { label: 'Stick on the desktop', run: () => stickOnDesktop('nugget', item.id) },
-  { label: 'Open in a new window', keys: '⌘-click', run: () => openWindow(item.tier, item.id) },
+  { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openWindow(item.tier, item.id) },
   'separator',
   item.tier === 'nugget' && { label: 'Change kind…', run: () => void changeKind('nuggets', item.id, item.kind) },
   { label: item.archivedAt ? 'Unarchive' : 'Archive', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
@@ -788,24 +817,30 @@ export function useItemDisplay(name: string, every: Item[]): {
 }
 
 /**
- * Groups in a kept list, while it is in your own order as rows: the rows on
- * show (a folded group's notes left out, which is what the keyboard walks),
- * the lines to draw, and what a drop, a step with the keys or the row menu
- * does to them. Null in any other sort, where the list is simply flat.
+ * Groups in a kept list. In your own order, as rows, they are drawn: `rows`
+ * is what is on show (a folded group's notes left out, which is what the
+ * keyboard walks), and `folds` the lines to draw. In any other sort the list
+ * is flat, but grouping still works from the menu and ⌃⌘N: it puts the list
+ * back in your own order (`toOwn`) to show what it did.
  *
  * What was just done is drawn at once and held until the saved order comes
- * back the same, so nothing jumps back while the save is on its way.
+ * back the same, so nothing jumps back while the save is on its way. Every
+ * change says so with a way back.
  */
-function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, shown: Item[] | null): {
-  rows: Item[]
-  step: (id: string, by: number, take?: boolean) => number | null
-  menu: (id: string, ids: string[]) => RowItem[]
+function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, shown: Item[] | null, toOwn: () => void, done: () => void): {
+  rows: Item[] | null
+  step: (id: string, by: number) => number | null
+  /** The group lines of a row's menu: for that row, or every row picked. */
+  menu: (ids: string[]) => RowItem[]
+  /** A new group of these, named at once. */
+  gatherNew: (ids: string[]) => void
   folds: (menuFor: (item: Item) => RowItem[]) => Omit<Folds, 'onNewNote'>
-} | null {
+} {
   const list = useGroups(tier)
   const [held, setHeld] = useState<Layout | null>(null)
   const [opened, setOpened] = useState<Record<string, boolean>>({})
   const [renaming, setRenaming] = useState<string | null>(null)
+  const [born, setBorn] = useState<string | null>(null)
   const saved = layoutOf([...every].sort(ownOrder).map((one) => one.id), list)
   const savedOrder = flatten(saved).join('\n')
   useEffect(() => void (held && flatten(held).join('\n') === savedOrder && setHeld(null)), [savedOrder]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -815,13 +850,17 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     const late = setTimeout(() => setHeld(null), 1500)
     return () => clearTimeout(late)
   }, [held])
+  useEffect(() => {
+    if (!born) return
+    const grown = setTimeout(() => setBorn(null), 900)
+    return () => clearTimeout(grown)
+  }, [born])
   const folded = list.map((one) => `${one.id}:${one.folded}`).join()
   useEffect(() => setOpened({}), [folded])
-  if (!shown) return null
   const layout = held ?? saved
   const info = new Map(list.map((one) => [one.id, one]))
   const isOpen = (id: string): boolean => opened[id] ?? !info.get(id)?.folded
-  const visible = new Map(shown.map((one) => [one.id, one]))
+  const visible = new Map((shown ?? every).map((one) => [one.id, one]))
   const shut = new Set(list.filter((one) => !isOpen(one.id)).map((one) => one.id))
   const blocks = (from: Layout): { group?: string; items: Item[] }[] =>
     from.top.flatMap((key) => {
@@ -835,39 +874,68 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   const make = (): { id: string; name: string } => ({ id: crypto.randomUUID(), name: 'New group' })
   const commit = (next: Layout, cue: Cue, said?: string): void => {
     const was = layout
+    if (!shown) toOwn()
     setHeld(next)
     chime(cue)
-    if (next.make) setRenaming(next.make.id)
+    if (next.make) (setRenaming(next.make.id), setBorn(next.make.id))
+    done()
     void noteGroupsApi.arrange(tier, next).then(() => said && toast(said, () => void noteGroupsApi.arrange(tier, { top: was.top, groups: was.groups })))
   }
-  const step = (id: string, by: number, take = false): number | null => {
-    const target = keys[keys.indexOf(id) + by]
-    const next = target ? drop(layout, keys, id, target, false, shut, make) : null
+  const step = (id: string, by: number): number | null => {
+    const next = stepLayout(layout, keys, id, by, shut)
     if (!next) return null
-    if (take) commit(next, 'shift')
+    commit(next, 'shift')
     return rowsOf(next).findIndex((one) => one.id === id)
   }
   const inOrder = (ids: string[]): string[] => {
-    const at = new Map(rowsOf(layout).map((one, index) => [one.id, index]))
+    const at = new Map(flatten(layout).map((one, index) => [one, index]))
     return [...ids].sort((a, b) => (at.get(a) ?? 0) - (at.get(b) ?? 0))
   }
-  const menu = (id: string, ids: string[]): RowItem[] => {
-    const own = groupOf(layout, id)
+  const notes = (n: number): string => (n === 1 ? 'note' : `${n} notes`)
+  const gatherNew = (ids: string[]): void => {
     const these = inOrder(ids)
-    const many = these.length > 1 ? ` (${these.length})` : ''
+    if (!these.length) return refuse('Pick a row first')
+    commit(gather(layout, these[0], these, make()), 'gather', these.length > 1 ? `Grouped ${these.length} notes` : 'Grouped')
+  }
+  const menu = (ids: string[]): RowItem[] => {
+    const these = inOrder(ids)
+    const n = these.length
+    const theirs = new Set(these.map((one) => groupOf(layout, one)).filter(Boolean))
     const into = (group: string): Layout => these.reduce((next, one) => moveTo(next, one, { group, after: next.groups[group]?.[next.groups[group].length - 1] ?? null }), layout)
-    const others = list.filter((one) => one.id !== own && layout.groups[one.id]?.some((member) => visible.has(member)))
+    const others = list.filter((one) => layout.groups[one.id] && !(theirs.size === 1 && theirs.has(one.id)))
     return [
-      'separator',
+      { label: n > 1 ? `New group with ${n} notes` : 'New group with this note', keys: '⌃⌘N', run: () => gatherNew(these) },
       {
-        label: `Group with…${many}`,
+        label: 'Move to group',
         items: [
-          { label: these.length > 1 ? `New group of ${these.length}` : 'New group', run: () => commit(gather(layout, these[0], these, make()), 'gather', 'Grouped') },
+          ...others.map((one) => ({
+            label: one.name,
+            icon: <GroupIcon icon={one.icon} color={one.color} className="size-3.5" />,
+            trail: <span className="ml-auto size-2 rounded-full" style={{ background: tintOf(one.color) ?? 'color-mix(in srgb, var(--foreground) 25%, transparent)' }} />,
+            run: () => commit(into(one.id), 'gather', `Moved ${notes(n)} to ${one.name}`)
+          })),
           others.length ? 'separator' : null,
-          ...others.map((one) => ({ label: one.name, run: () => commit(into(one.id), 'gather', `Added to ${one.name}`) }))
+          { label: 'New group…', run: () => gatherNew(these) }
         ]
       },
-      !!own && { label: 'Take out of the group', run: () => commit(these.reduce((next, one) => moveTo(next, one, { group: null, after: KEY + own }), layout), 'separate', 'Taken out of the group') }
+      theirs.size > 0 && {
+        label: 'Remove from group',
+        run: () => commit(these.reduce((next, one) => {
+          const own = groupOf(next, one)
+          return own ? moveTo(next, one, { group: null, after: KEY + own }) : next
+        }, layout), 'separate', `Removed ${notes(n)} from ${theirs.size === 1 ? info.get([...theirs][0]!)?.name ?? 'the group' : 'their groups'}`)
+      },
+      'separator',
+      {
+        label: n > 1 ? `Duplicate ${n} notes` : 'Duplicate',
+        run: () => void noteGroupsApi.clone(tier, these).then((made) => (chime('copy'), done(), toast(n > 1 ? `Duplicated ${n} notes` : 'Duplicated', () => void noteGroupsApi.unclone(made))))
+      },
+      {
+        label: n > 1 ? `Copy ${n} links` : 'Copy link',
+        run: () => void noteGroupsApi.links(these).then((links) => (links.length ? copy(links.join('\n'), `Copied ${links.length === 1 ? 'one link' : `${links.length} links`}`) : refuse(n > 1 ? 'No web links in these notes' : 'No web link in this note')))
+      },
+      n > 1 && 'separator',
+      n > 1 && { label: `Archive ${n} notes`, run: () => (done(), void archive('nuggets', these, true)) }
     ]
   }
   const folds = (menuFor: (item: Item) => RowItem[]): Omit<Folds, 'onNewNote'> => ({
@@ -880,17 +948,22 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
         entries: one.items.map((item) => itemEntry(item, menuFor(item)))
       }
     }),
-    onDrop: (active, over, join) => {
-      const next = drop(layout, keys, active, over, join, shut, make)
+    onDrop: (active, target, how) => {
+      const next = drop(layout, active, target, how, shut, make)
       if (!next) return chime('stay')
-      commit(next, join ? 'gather' : 'shift', next.make ? 'Grouped' : join ? 'Added to the group' : 'Moved')
+      const was = isGroup(active) ? undefined : groupOf(layout, active)
+      const lands = isGroup(active) ? undefined : groupOf(next, active)
+      const name = (id?: string): string => (id && (info.get(id)?.name ?? next.make?.name)) || 'the group'
+      commit(next, next.make || (lands && lands !== was) ? 'gather' : was && !lands ? 'separate' : 'shift',
+        next.make ? 'Grouped' : lands && lands !== was ? `Added to ${name(lands)}` : was && !lands ? `Removed from ${name(was)}` : 'Moved')
     },
     onFold: (group, open) => {
       setOpened((was) => ({ ...was, [group.id]: open }))
       void noteGroupsApi.set(group.id, { folded: !open })
     },
     renaming,
-    onRenaming: setRenaming
+    onRenaming: setRenaming,
+    born
   })
-  return { rows: rowsOf(layout), step, menu, folds }
+  return { rows: shown ? rowsOf(layout) : null, step, menu, gatherNew, folds }
 }
