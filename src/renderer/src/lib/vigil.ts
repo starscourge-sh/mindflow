@@ -205,6 +205,10 @@ export type Recap = {
   books: { title: string; by: string | null; finished: boolean; lines: number }[]
   /** How many different days something was reviewed on. */
   reviewDays: number
+  /** What was caught, by kind, most first. */
+  kinds: { kind: string; n: number }[]
+  /** The same for the month or year before, when anything was caught in it. */
+  before: { label: string; kinds: { kind: string; n: number }[] } | null
 }
 
 export type Task = {

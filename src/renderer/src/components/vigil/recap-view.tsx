@@ -9,6 +9,7 @@ import { notes, smallPicture } from '@/lib/notes'
 import { Kbd, Rolling, Typed } from './ui'
 import { Button } from '@/components/ui/button'
 import { Scenery } from './scenery'
+import { RecapRadar, readShape } from './recap-radar'
 import { EASE, shift } from '@/lib/motion'
 import { dayjs, dayName, noon, num } from '../../../../main/dates'
 
@@ -19,7 +20,7 @@ const FlexCarousel = lazy(() => import('./flex-carousel'))
 const X = alive(XIcon)
 
 /** The light each page sits in: the year opens at dawn and closes at night. */
-const RECAP_MOODS: Record<string, Mood> = { intro: 'day', captures: 'day', busiest: 'day', tags: 'dusk', sources: 'dusk', pictures: 'dusk', exits: 'interior', reviewed: 'night', outro: 'night', none: 'night' }
+const RECAP_MOODS: Record<string, Mood> = { intro: 'day', captures: 'day', shape: 'day', busiest: 'day', tags: 'dusk', sources: 'dusk', pictures: 'dusk', exits: 'interior', reviewed: 'night', outro: 'night', none: 'night' }
 
 const PAGE_MOTION: Variants = {
   // Whole transforms: each page counts and types as it lands, and a slide
@@ -197,6 +198,13 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
       <Big n={data.captures}>{data.captures === 1 ? 'thing caught' : 'things caught'}</Big>
       {data.words > 0 && <Big n={data.words}>{data.words === 1 ? 'word in them' : 'words in them'}</Big>}
     </div>,
+    // The shape of it: what kinds of thing, read back in a line.
+    (data.kinds ?? []).length > 0 && (
+      <div key="shape" className="grid items-center gap-x-10 gap-y-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <p className="text-title"><Typed story text={readShape(data.kinds)} /></p>
+        <RecapRadar kinds={data.kinds} before={data.before} />
+      </div>
+    ),
     data.busiestDay && (
       <div key="busiest" className="space-y-4 text-title">
         {data.busiestMonth && <p><Typed story text={`Your busiest month was ${data.busiestMonth.name}, with ${plural(data.busiestMonth.n, 'capture', 'captures')}.`} /></p>}

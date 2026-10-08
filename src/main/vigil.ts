@@ -1829,6 +1829,11 @@ export function registerVigil(): void {
       where kind = 'book' and private = 0 and status != 'discarded' and captured_at >= ? and captured_at < ? order by captured_at`).all(since, until) as { title: string; by: string | null; state: string | null }[])
       .filter((book) => book.title && (book.state === 'Finished' || book.state === 'Reading'))
       .map((book) => ({ title: book.title, by: book.by, finished: book.state === 'Finished', lines: (lines.get(since, until, book.title) as { n: number }).n }))
+    // What was caught, by kind, and the same for the span before it, for the
+    // shape of it: counts only, so a private one counts here as everywhere.
+    const byKind = db.prepare('select kind, count(*) n from captures where captured_at >= ? and captured_at < ? group by kind order by n desc')
+    const before = start.subtract(1, period)
+    const kindsBefore = byKind.all(before.toISOString(), start.toISOString()) as { kind: string; n: number }[]
     return {
       label: start.format(period === 'year' ? 'YYYY' : 'MMMM YYYY'),
       // A month already over has no "yet" about it.
@@ -1845,6 +1850,8 @@ export function registerVigil(): void {
       reviews: (db.prepare('select count(*) n from review_log where reviewed_at >= ? and reviewed_at < ?').get(since, until) as { n: number }).n,
       mostReviewed: reviewed ?? null,
       books,
+      kinds: byKind.all(since, until) as { kind: string; n: number }[],
+      before: kindsBefore.length ? { label: before.format(period === 'year' ? 'YYYY' : 'MMMM YYYY'), kinds: kindsBefore } : null,
       // The days anything was reviewed on: a habit, counted, never a streak to keep.
       reviewDays: (db.prepare("select count(distinct date(reviewed_at, 'localtime')) n from review_log where reviewed_at >= ? and reviewed_at < ?").get(since, until) as { n: number }).n
     }
