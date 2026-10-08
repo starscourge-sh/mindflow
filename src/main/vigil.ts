@@ -1060,9 +1060,12 @@ export function registerVigil(): void {
     // other way: the same thing twice in a row is a nag, not a surprise.
     const rot = db
       .prepare(
-        `select ${LIST}, body, back_at as backAt from captures where status = 'open' and archived_at is null and back_at is null and ${AGED} < ? ${hidePrivate ? 'and 0' : ''}
-         and id not in (select nugget_id from hint_events where shown_at >= ? union select capture_id from nuggets where capture_id is not null and id in (select nugget_id from hint_events where shown_at >= ?))
-         order by (julianday('now') - julianday(${AGED}) + 1) * (abs(random()) % 1000) desc limit ${Math.max(0, Math.min(10, settings().rotCount))}`
+        // Fair by kind, as the hints are: each kind's own best first, then taken
+        // in turns, so a pile of bits cannot fill every card.
+        `select * from (select ${LIST}, body, back_at as backAt, row_number() over (partition by kind order by (julianday('now') - julianday(${AGED}) + 1) * (abs(random()) % 1000) desc) as turn
+         from captures where status = 'open' and archived_at is null and back_at is null and ${AGED} < ? ${hidePrivate ? 'and 0' : ''}
+         and id not in (select nugget_id from hint_events where shown_at >= ? union select capture_id from nuggets where capture_id is not null and id in (select nugget_id from hint_events where shown_at >= ?)))
+         order by turn, abs(random()) limit ${Math.max(0, Math.min(10, settings().rotCount))}`
       )
       // Only what has sat a day: anything newer is in the list right below,
       // and a card for it would only say the same thing twice.
@@ -1103,13 +1106,17 @@ export function registerVigil(): void {
       ? (db.prepare(`select id, id as captureId, kind, title, body ${candidates} and kind = ?
           order by (julianday('now') - julianday(${AGED})) * surfacing_weight * (abs(random()) % 1000) desc limit 1`).get(ago(3), ago(7), ago(3), kind) as Record<string, string> | undefined)
       : undefined
-    const hint = pushed ?? old ?? db
+    // Nuggets the same way: a kind drawn first, then one of its own.
+    const kept = `from nuggets where suspended = 0 and archived_at is null and mode != 'pushed' and tier not in ('question', 'goal') and coalesce(capture_id, '') not in (select id from captures where surfaced_at >= ?) and private = 0`
+    const keptKinds = (db.prepare(`select distinct kind ${kept}`).all(ago(3)) as { kind: string }[]).map((row) => row.kind)
+    const keptKind = keptKinds[Math.floor(Math.random() * keptKinds.length)]
+    const hint = pushed ?? old ?? (keptKind === undefined ? undefined : db
       .prepare(
-        `select id, capture_id as captureId, kind, tier, title, body from nuggets where suspended = 0 and archived_at is null and mode != 'pushed' and tier not in ('question', 'goal') and coalesce(capture_id, '') not in (select id from captures where surfaced_at >= ?) and private = 0
+        `select id, capture_id as captureId, kind, tier, title, body ${kept} and kind is ?
          order by (julianday('now') - julianday(coalesce(last_visited_at, '2000-01-01'))) * surfacing_weight * (abs(random()) % 1000) desc
          limit 1`
       )
-      .get(ago(3)) as Record<string, string> | undefined
+      .get(ago(3), keptKind) as Record<string, string> | undefined)
     if (!hint) return null
     if (!old) db.prepare('update nuggets set last_visited_at = ? where id = ?').run(now(), hint.id)
     // A capture's id goes in the same column: either way, what was shown.
