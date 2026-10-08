@@ -126,10 +126,13 @@ export function SandboxChip(): React.JSX.Element | null {
 /** On a sticky or a goal's beacon: a small label on its top edge, as if printed on the tape. */
 export function SandboxStamp(): React.JSX.Element | null {
   if (!SANDBOX) return null
+  // Over the top edge on paper and frost, which have room round the card; on
+  // glass the card fills its window, so the stamp sits inside its foot instead.
+  const glass = new URLSearchParams(location.search).has('glass')
   return (
     <span aria-label="Sandbox" title={SAID}
       style={{ ...TAPE, backgroundColor: 'color-mix(in srgb, var(--tt-color-text-yellow) 14%, var(--popover))' }}
-      className="pointer-events-none absolute -top-[7px] left-3 z-10 rounded-[3px] border border-dashed px-1 py-px text-[9px] leading-none font-semibold tracking-[0.14em] uppercase opacity-80">
+      className={`pointer-events-none absolute ${glass ? 'bottom-1 left-2' : '-top-[7px] left-3'} z-10 rounded-[3px] border border-dashed px-1 py-px text-[9px] leading-none font-semibold tracking-[0.14em] uppercase opacity-80`}>
       Sandbox
     </span>
   )
