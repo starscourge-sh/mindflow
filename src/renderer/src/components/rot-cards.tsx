@@ -239,26 +239,6 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             <span className="mr-auto shrink-0 whitespace-nowrap">
               <span style={{ color: ageTint(card.capturedAt, card.importedAt) }}>{daysSince(card.capturedAt) < 1 ? 'from today' : `untouched ${age(card.capturedAt)}`}</span>
             </span>
-            {[
-              { label: 'Tag', key: 'T', tint: 'blue', what: 'Add a tag, so it turns up on that tag\'s page', run: () => setTagging(card.id) },
-              { label: 'Tidy', key: 'F', tint: 'green', what: 'Bold the line that matters, fold the rest, cross off what is done', run: () => openPass('tidy', [card.id]) },
-              { label: `Come back ${day}`, key: 'C', tint: 'orange', what: `Set it aside for ${day}'s deciding pass, and let it go until then`, run: () => setAside(card) }
-            ].map((one) => (
-              <Tip key={one.key} label={<span className="flex items-center gap-2">{one.what}<Pressed keys={one.key} /></span>}>
-              {/* Quiet at rest, their colour when you reach the card. */}
-              <Button variant="ghost" size="sm"
-                // Out of sight until you reach the card: three cards of three buttons
-                // each was a wall of controls over the list.
-                className="text-muted-foreground opacity-0 transition-[color,opacity] group-hover:text-[var(--tint)] group-hover:opacity-100 group-focus-visible:text-[var(--tint)] group-focus-visible:opacity-100 focus-visible:text-[var(--tint)] focus-visible:opacity-100"
-                style={{ '--tint': `var(--tt-color-text-${one.tint})` } as React.CSSProperties}
-                onClick={one.run}
-              >
-                {/* Its key is in the tip: shown on the button, it widened the row
-                    as the card was reached, and the buttons wrapped. */}
-                {one.label}
-              </Button>
-              </Tip>
-            ))}
             {/* Who said it matters for a quote, or once someone is named. */}
             {(card.kind === 'quote' || card.attribution) && (
             <Tip label={<span className="flex items-center gap-2">Say who said it: a quote needs one to be kept<Pressed keys="W" /></span>}>
@@ -268,6 +248,28 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             </Tip>
             )}
             <GlossButton className="static group-focus-visible:opacity-100" onClick={() => openGloss(card.id)} />
+            {[
+              { label: 'Tag', key: 'T', tint: 'blue', what: 'Add a tag, so it turns up on that tag\'s page', run: () => setTagging(card.id) },
+              { label: 'Tidy', key: 'F', tint: 'green', what: 'Bold the line that matters, fold the rest, cross off what is done', run: () => openPass('tidy', [card.id]) },
+              { label: `Come back ${day}`, key: 'C', tint: 'orange', what: `Set it aside for ${day}'s deciding pass, and let it go until then`, run: () => setAside(card) }
+            ].map((one) => (
+              <Tip key={one.key} label={<span className="flex items-center gap-2">{one.what}<Pressed keys={one.key} /></span>}>
+              {/* Quiet at rest, their colour when you reach the card. */}
+              <Button variant="ghost" size="sm"
+                // Out of sight until you reach the card: three cards of three buttons
+                // each was a wall of controls over the list. Taking no room until
+                // then too: hidden but still there, in a narrow panel they wrapped
+                // into blank lines and left Who? stranded mid-row.
+                className="hidden text-muted-foreground transition-[color] group-hover:inline-flex group-hover:text-[var(--tint)] group-focus-within:inline-flex group-focus-visible:inline-flex group-focus-visible:text-[var(--tint)] focus-visible:text-[var(--tint)]"
+                style={{ '--tint': `var(--tt-color-text-${one.tint})` } as React.CSSProperties}
+                onClick={one.run}
+              >
+                {/* Its key is in the tip: shown on the button, it widened the row
+                    as the card was reached, and the buttons wrapped. */}
+                {one.label}
+              </Button>
+              </Tip>
+            ))}
           </div>
           )}
         </motion.div>

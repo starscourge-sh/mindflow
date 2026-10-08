@@ -1840,7 +1840,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                   ) : (
                     <>
                       <Tip label="Every capture with no exit yet; the sort and view menu (F) shows the rest under Status. x selects several.">
-                        <h3 className="w-fit">{shown.length === open.length ? 'Inbox' : `${num(shown.length)} shown`}</h3>
+                        <h3 className="w-fit whitespace-nowrap">{shown.length === open.length ? 'Inbox' : `${num(shown.length)} shown`}</h3>
                       </Tip>
                       <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R">
                         <Button variant="ghost" size="sm" className="ml-auto" onClick={() => onRead(shown.map((one) => ({ type: 'capture', id: one.id })), startAt(shown, editing, cursor))}>
