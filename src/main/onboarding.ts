@@ -4,7 +4,7 @@ import { execFileSync } from 'child_process'
 import { userInfo } from 'os'
 import { join } from 'path'
 import { database } from './captures'
-import { startedMoment } from './celebrate'
+import { hushWhile, startedMoment } from './celebrate'
 
 /**
  * The welcome, the page hints and Getting started, as the main process sees
@@ -128,6 +128,8 @@ const PATCHABLE = new Set(['welcomed', 'newsSeen', 'hintsSeen', 'pageHints', 'we
 /** Whether the welcome is open now, for the box to say something warmer while it is. */
 let welcoming = false
 export const isWelcoming = (): boolean => welcoming
+// While the welcome runs, a milestone is kept as had but not shown over it.
+hushWhile(isWelcoming)
 
 export function registerOnboarding(): void {
   ipcMain.handle('vigil:onboarding:state', () => state())

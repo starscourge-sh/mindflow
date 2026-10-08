@@ -25,7 +25,7 @@ export type TaskSource =
 export async function makeTask(
   from: TaskSource,
   said: string | ((made: Made) => string | Promise<string>) = 'Now a task',
-  { onUndo }: { onUndo?: () => void } = {}
+  { onUndo, quiet = false }: { onUndo?: () => void; /** Made without a word: something else on screen already shows it. */ quiet?: boolean } = {}
 ): Promise<Made | null> {
   const [got, links] =
     'capture' in from ? [await flying(from.capture, 'task', () => vigil.toTask(from.capture)), [from.capture]]
@@ -41,6 +41,7 @@ export async function makeTask(
   if (!made) return null
   // Only what this took out of the inbox goes back there on undo.
   const reopen = made.resolved ?? []
+  if (quiet) return made
   chime(made.existed ? 'nope' : 'noted')
   const words = typeof said === 'function' ? await said(made) : said
   toast(taskSaid(made, words), () => void vigil.unmakeTask(made.id, made.existed, links, reopen).then(() => onUndo?.()), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('task', made.id) })

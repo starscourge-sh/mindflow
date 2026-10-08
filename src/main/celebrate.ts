@@ -311,6 +311,10 @@ export const watches = (channel: string): boolean => channel in WATCH
  * to the window it came from. At most one in ten minutes; one held back by
  * that is not counted as shown.
  */
+/** Whether milestones are kept but not shown now (the welcome says so). */
+let hushed = (): boolean => false
+export const hushWhile = (check: () => boolean): void => void (hushed = check)
+
 export function celebrateAfter(channel: string, sender: WebContents, args: unknown[], result: unknown): void {
   try {
     if (!WATCH[channel] || sender.isDestroyed() || !hosts.has(sender.id)) return
@@ -325,7 +329,9 @@ export function celebrateAfter(channel: string, sender: WebContents, args: unkno
     for (const id of best.also ?? []) database().prepare('insert or ignore into celebrations (id, at) values (?, ?)').run(id, at)
     // A note from long ago is also the day's one.
     if (best.id.startsWith('year:')) database().prepare('insert or ignore into celebrations (id, at) values (?, ?)').run(`year:${dayKey()}`, at)
-    sender.send('celebrate', { ...best, also: undefined })
+    // During the welcome it is kept as had, but not shown: the welcome is
+    // already saying it, and a card over the box hid what was being written.
+    if (!hushed()) sender.send('celebrate', { ...best, also: undefined })
   } catch {
     // A milestone is never worth a failed save.
   }

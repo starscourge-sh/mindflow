@@ -917,7 +917,8 @@ export default function App(): React.JSX.Element {
         // A link shows as its card, filled in once the page answers.
         if (sorted === 'link') void cardUp({ id, kind: sorted, body: hasContent(doc) ? doc : null })
         if (action) {
-          await makeTask({ capture: id }, 'Added to your tasks')
+          // The welcome shows the task it became itself; the box says nothing over it.
+          await makeTask({ capture: id }, 'Added to your tasks', { quiet: document.documentElement.hasAttribute('data-welcome-ph') })
         }
         if (more) return
         // Let the box finish leaving before it is replaced.
