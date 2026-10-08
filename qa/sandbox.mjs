@@ -142,8 +142,11 @@ let first
     check(`the pill shows on ${view}`, await c.h.$eval('[data-sandbox-pill]', (one) => one.getBoundingClientRect().width > 100).catch(() => false))
   }
   check('the window says Vigil sandbox', (await c.h.title()) === 'Vigil sandbox')
-  const memory = await c.v('memory')
-  check('a year ago today comes back', memory?.memory === 'A year ago today', memory?.memory)
+  // Memories come in kinds, picked at random: with a year of books behind it, "From Jane Austen" is one
+  // too. Each one shown steps aside for a while, so asking again soon reaches the year-ago one.
+  const memories = []
+  for (let i = 0; i < 12 && !memories.includes('A year ago today'); i++) memories.push((await c.v('memory'))?.memory)
+  check('a year ago today comes back', memories.includes('A year ago today'), memories.join(' | '))
   first = await snapshot(c)
   // Something of your own, caught while practising.
   await c.h.evaluate(() => window.api.captures.create({ body: 'Caught in the sandbox: book the train' }))

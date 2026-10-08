@@ -1821,6 +1821,14 @@ export function registerVigil(): void {
     const reviewed = db.prepare(`select coalesce(nullif(n.title, ''), label('', n.body)) as title, count(*) n from review_log r join nuggets n on n.id = r.item_id
       where r.reviewed_at >= ? and r.reviewed_at < ? and n.private = 0
       group by r.item_id order by n desc limit 1`).get(since, until) as { title: string; n: number } | undefined
+    // The books begun in it, finished or still going, each with the lines kept
+    // from it: a quote or an excerpt whose where begins with the book's name.
+    const lines = db.prepare(`select count(*) n from captures where kind in ('quote', 'excerpt') and private = 0 and status != 'discarded'
+      and captured_at >= ? and captured_at < ? and lower(coalesce(medium, '')) like lower(?) || '%'`)
+    const books = (db.prepare(`select ${LABEL} as title, attribution as by, json_extract(fields, '$.status') as state from captures
+      where kind = 'book' and private = 0 and status != 'discarded' and captured_at >= ? and captured_at < ? order by captured_at`).all(since, until) as { title: string; by: string | null; state: string | null }[])
+      .filter((book) => book.title && (book.state === 'Finished' || book.state === 'Reading'))
+      .map((book) => ({ title: book.title, by: book.by, finished: book.state === 'Finished', lines: (lines.get(since, until, book.title) as { n: number }).n }))
     return {
       label: start.format(period === 'year' ? 'YYYY' : 'MMMM YYYY'),
       // A month already over has no "yet" about it.
@@ -1835,7 +1843,10 @@ export function registerVigil(): void {
       resolved: rows.filter((row) => row.status === 'resolved').length,
       discarded: rows.filter((row) => row.status === 'discarded').length,
       reviews: (db.prepare('select count(*) n from review_log where reviewed_at >= ? and reviewed_at < ?').get(since, until) as { n: number }).n,
-      mostReviewed: reviewed ?? null
+      mostReviewed: reviewed ?? null,
+      books,
+      // The days anything was reviewed on: a habit, counted, never a streak to keep.
+      reviewDays: (db.prepare("select count(distinct date(reviewed_at, 'localtime')) n from review_log where reviewed_at >= ? and reviewed_at < ?").get(since, until) as { n: number }).n
     }
   })
 

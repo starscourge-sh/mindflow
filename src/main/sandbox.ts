@@ -225,6 +225,9 @@ type Age =
   | { dueAt: string; nuggetId: string }
   | { createdAt: string; nuggetId: string }
   | { exitedAt: string; captureId: string }
+  | { openedAt: string }
+  | { usedAt: string; captureId: string }
+  | { closedAt: string; nuggetId: string }
 
 export function registerSandbox(): void {
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
@@ -299,7 +302,14 @@ export function registerSandbox(): void {
         if (row) done += Number(db.prepare('update review_log set reviewed_at = ? where rowid = ?').run(move.reviewedAt, row.rowid).changes)
       } else if ('dueAt' in move && isIso(move.dueAt)) done += Number(db.prepare('update nuggets set due_at = ? where id = ?').run(move.dueAt, String(move.nuggetId)).changes)
       else if ('createdAt' in move && isIso(move.createdAt)) done += Number(db.prepare('update nuggets set created_at = ?, updated_at = ? where id = ?').run(move.createdAt, move.createdAt, String(move.nuggetId)).changes)
-      else if ('exitedAt' in move && isIso(move.exitedAt)) done += Number(db.prepare('update captures set exited_at = ? where id = ?').run(move.exitedAt, String(move.captureId)).changes)
+      // Left the Inbox then, and so first used by then too, not on the day the seed ran.
+      else if ('exitedAt' in move && isIso(move.exitedAt)) done += Number(db.prepare('update captures set exited_at = ?, first_used_at = min(coalesce(first_used_at, ?), ?) where id = ?').run(move.exitedAt, move.exitedAt, move.exitedAt, String(move.captureId)).changes)
+      // First opened or acted on then: what Stats' time to first use reads.
+      else if ('usedAt' in move && isIso(move.usedAt)) done += Number(db.prepare('update captures set first_used_at = ? where id = ?').run(move.usedAt, String(move.captureId)).changes)
+      // A day the app was opened, for Stats' days-opened squares: a row added, never one changed.
+      else if ('openedAt' in move && isIso(move.openedAt)) done += Number(db.prepare("insert into app_opens (opened_at, surface) values (?, 'home')").run(move.openedAt).changes)
+      // A question settled some while ago: only one already closed.
+      else if ('closedAt' in move && isIso(move.closedAt)) done += Number(db.prepare('update nuggets set closed_at = ? where id = ? and closed_at is not null').run(move.closedAt, String(move.nuggetId)).changes)
     }
     changed()
     return done

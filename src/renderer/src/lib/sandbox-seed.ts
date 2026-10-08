@@ -345,6 +345,12 @@ Once a week: keep it (P), finish it (R) or let it go (D). Nothing is ever destro
 
 What you keep comes back: as ${link(schwarzschild, 'a Review card', 'nugget')} just before you would forget it, as a hint in the box, and as what you caught on this day last year. Goals and questions stay in sight: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, ${link(top, 'Is the top still spinning?', 'question')}
 
+## Look back
+
+Once a month and once a year, Vigil reads you back: the books you read and the lines you kept from each, the hour you think best, what you kept circling, how much you remembered. This copy has a year behind it: five books finished, from Meditations to Dorian Gray, and a question about Frankenstein settled.
+
+**Try it:** press ⌘K and choose **Your year, wrapped**, then → to turn its pages.
+
 ## Find
 
 ⌘K finds anything: notes, tasks, goals, and every action in the app. Try *renaissance*, or open ${link(leonardo, "Leonardo's notebooks")}.
@@ -702,6 +708,182 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
   // --- tags with a date to be ready by ---------------------------------------------------
   await v('tag:set', 'astrophysics', { examAt: day(21), color: 'purple' })
 
+  // --- a year behind it ----------------------------------------------------------------
+  // What a year of using it as meant leaves: books read one after another,
+  // the lines kept from each with a word of your own, a question worked out
+  // over weeks, cards reviewed on many days, and the small things caught in
+  // between. It is what the month and year recaps and Stats read back. Most
+  // reading notes fall on Sunday evenings, so the day you write most is a
+  // Sunday wherever in the week the sandbox is set out. Every passage is
+  // public domain: Austen (1813), Shelley (1831 text), Shakespeare, and
+  // Marcus Aurelius in Long's translation (1862).
+  /** `n` days back, then further back to the nearest `weekday` (0 is Sunday), at a time of day. */
+  const on = (n: number, weekday: number, time: string): [number, string] => {
+    const when = new Date()
+    when.setDate(when.getDate() - n)
+    const back = n + ((when.getDay() - weekday + 7) % 7)
+    return [back, at(-back, time)]
+  }
+  const yearAges: unknown[] = []
+  const books: [string, string, string, number, number, string][] = [
+    ['Meditations', 'Marcus Aurelius', "Grandad's shelf", 272, 4, 'Most of what upsets me is my opinion of the thing, not the thing.'],
+    ['Pride and Prejudice', 'Jane Austen', "The book club's pick", 236, 5, 'First impressions are a draft. The whole book is Elizabeth revising one.'],
+    ['Frankenstein', 'Mary Shelley', 'A podcast about the summer of 1816', 180, 5, 'The creature asks for one thing, company, and everyone refuses him. The monster is made, not born.'],
+    ['Hamlet', 'William Shakespeare', 'The play in the park', 126, 4, 'Thinking about acting is not acting. He knows it, and does it anyway for five acts.']
+  ]
+  for (const [title, by, heard, n, rating, takeaway] of books) {
+    const id = await capture({ kind: 'book', attribution: by, medium: heard }, on(n, 6, '10:30')[1])
+    await write(id, title)
+    await field(id, 'status', 'Finished')
+    await field(id, 'rating', rating)
+    await field(id, 'takeaway', takeaway)
+    yearAges.push({ usedAt: at(-on(n, 6, '10:30')[0], '18:00'), captureId: id })
+  }
+
+  // The lines kept, each with your own words beside it: [days ago, weekday, time, who, where, the line, yours].
+  const lines: [number, number, string, string, string, string, string][] = [
+    [268, 1, '07:10', 'Marcus Aurelius', 'Meditations, Book 2, tr. George Long (1862)', 'Begin the morning by saying to thyself, I shall meet with the busy-body, the ungrateful, arrogant, deceitful, envious, unsocial.', 'Read on the bus to work. It lowered the bar for the day, and the day cleared it.'],
+    [233, 0, '21:10', 'Jane Austen', 'Pride and Prejudice, chapter 1', 'It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.', "The first line is a joke, and it is the narrator's, not the world's. It took a reread to hear it."],
+    [226, 0, '21:40', 'Jane Austen', 'Pride and Prejudice, chapter 5', 'I could easily forgive his pride, if he had not mortified mine.', 'Elizabeth, honest about herself before she knows she is being.'],
+    [219, 0, '20:55', 'Jane Austen', 'Pride and Prejudice, chapter 5', 'Vanity and pride are different things, though the words are often used synonymously. A person may be proud without being vain. Pride relates more to our opinion of ourselves, vanity to what we would have others think of us.', 'Mary, the sister nobody listens to, gets the clearest line in the book.'],
+    [212, 0, '21:25', 'Jane Austen', 'Pride and Prejudice, chapter 11', 'I declare after all there is no enjoyment like reading! How much sooner one tires of any thing than of a book!', 'Caroline says it while not reading, to be seen reading. Austen is merciless.'],
+    [205, 0, '22:05', 'Jane Austen', 'Pride and Prejudice, chapter 34', 'In vain have I struggled. It will not do. My feelings will not be repressed. You must allow me to tell you how ardently I admire and love you.', 'The worst proposal in English, and he means every word.'],
+    [176, 0, '21:15', 'Mary Shelley', 'Frankenstein, chapter 4 (1831)', 'Learn from me, if not by my precepts, at least by my example, how dangerous is the acquirement of knowledge, and how much happier that man is who believes his native town to be the world, than he who aspires to become greater than his nature will allow.', 'Victor, warning Walton. Every chapter after this is him not taking his own advice.'],
+    [162, 0, '21:50', 'Mary Shelley', 'Frankenstein, chapter 10 (1831)', 'I was benevolent and good; misery made me a fiend. Make me happy, and I shall again be virtuous.', 'The whole argument of the book in two sentences, and the creature makes it, not Victor.'],
+    [161, 1, '07:45', 'Mary Shelley', 'Frankenstein, chapter 10 (1831)', 'Remember that I am thy creature; I ought to be thy Adam, but I am rather the fallen angel, whom thou drivest from joy for no misdeed.', 'He has read Paradise Lost. Of course he has: it is the only story about him.'],
+    [148, 0, '22:20', 'Mary Shelley', 'Frankenstein, chapter 20 (1831)', 'Beware; for I am fearless, and therefore powerful.', 'Nothing left to lose, said as a threat.'],
+    [120, 0, '21:05', 'William Shakespeare', 'Hamlet, Act 1, Scene 3', 'This above all: to thine own self be true, / And it must follow, as the night the day, / Thou canst not then be false to any man.', 'Polonius says it, and Polonius is a fool. Is good advice from a bad source still good advice?'],
+    [113, 0, '21:35', 'William Shakespeare', 'Hamlet, Act 1, Scene 5', 'There are more things in heaven and earth, Horatio, / Than are dreamt of in your philosophy.', 'Said to the one person in the play who studies philosophy.'],
+    [106, 0, '20:40', 'William Shakespeare', 'Hamlet, Act 2, Scene 2', 'There is nothing either good or bad, but thinking makes it so.', 'Marcus Aurelius said much the same in Meditations, and said it calmer.'],
+    [99, 0, '21:20', 'William Shakespeare', 'Hamlet, Act 2, Scene 2', 'Brevity is the soul of wit', 'Polonius, in the longest speech of the scene.'],
+    [92, 0, '21:55', 'William Shakespeare', 'Hamlet, Act 5, Scene 2', "There's a divinity that shapes our ends, / Rough-hew them how we will.", 'By the last act he has stopped planning. It goes no better, and no worse.'],
+    [85, 0, '22:30', 'William Shakespeare', 'Hamlet, Act 5, Scene 2', 'The rest is silence.', 'Four words, after four hours.']
+  ]
+  const kept: { id: string; n: number }[] = []
+  for (const [n, weekday, time, who, where, line, mine] of lines) {
+    const [back, when] = on(n, weekday, time)
+    const id = await capture({ kind: 'quote', attribution: who, medium: where }, when)
+    await write(id, line)
+    const nugget = await v<string>('promote', id, mine)
+    nuggets++
+    kept.push({ id: nugget, n: back })
+    yearAges.push({ createdAt: at(-back, time), nuggetId: nugget }, { exitedAt: at(-back, time), captureId: id })
+  }
+  // Read again later, and a word added each time.
+  for (const [index, n, text] of [[1, 60, 'Read chapter 1 aloud. Funnier aloud.'], [7, 40, 'Came back in Review on a hard week, and still lands.'], [12, 8, 'Came back in Review on a bad day. It helped, a little.']] as const)
+    yearAges.push({ glossAt: at(-n, '21:30'), id: await v<string>('gloss', kept[index].id, text) })
+
+  // The rest of the year, caught in passing: [days ago, weekday, time, words, what became of it].
+  const passing: [number, number, string, string, ('kept' | 'gone' | 'task')?][] = [
+    [275, 5, '08:15', 'Walk at lunch, no phone. The plane trees have bark like a map. #walks'],
+    [270, 0, '21:05', 'Meditations was never meant to be read. It is a man writing notes to himself, which is why it works. #reading'],
+    [262, 2, '13:05', 'Two-minute rule: if it takes less than two minutes, do it now. Works for dishes, not for letters. #work', 'kept'],
+    [258, 3, '07:30', 'Twelve books of Meditations, one a week. On Book 3 and slowing down on purpose. #reading'],
+    [250, 4, '18:40', 'Bread, third try: more water than feels right. It was right. #cooking'],
+    [243, 6, '11:00', 'The library has a seed library. You borrow seeds, and bring back seeds. #ideas'],
+    [238, 1, '07:50', 'Meetings that could be a note: most of them. Meetings that should be a walk: the rest. #work'],
+    [230, 0, '20:50', 'Mr Collins is the funniest man in English, and has no idea. #reading'],
+    [228, 3, '19:20', "Mum's lentil soup: cumin first, in the oil, before anything else. #cooking", 'kept'],
+    [221, 0, '21:30', 'Darcy is not shy. He is rude, and the book is honest that those differ. #reading'],
+    [216, 2, '12:45', 'Ten-minute walk after lunch: the 3pm slump came at 4pm instead. One data point. #walks'],
+    [208, 0, '21:15', "Pemberley changes Elizabeth's mind, and she admits it is partly the house. Austen lets her be that honest. #reading"],
+    [203, 5, '17:30', 'Write the email you would want to get: short, one ask, the date in the first line. #work', 'kept'],
+    [200, 6, '10:20', 'Finished Pride and Prejudice. Reread the first chapter straight after: every line is a different joke now. #reading'],
+    [190, 4, '08:05', 'Every city has a street the locals walk and visitors never find. #walks'],
+    [184, 0, '09:30', 'Ideas come in the shower because there is nothing to write them down with. A waterproof notepad? #ideas', 'task'],
+    [178, 0, '21:00', 'Frankenstein began as a ghost story contest by Lake Geneva in 1816, the year without a summer. #reading'],
+    [166, 1, '22:40', 'Cannot sleep. The fridge hums in B flat, I think.', 'gone'],
+    [156, 4, '23:05', "The creature learns to read from books found in the woods. A better education than Victor's. #reading"],
+    [152, 3, '07:20', 'Rain all week. The canal is higher than the path.'],
+    [141, 0, '21:20', 'Finished Frankenstein. The creature is the one I will remember, and he never gets a name. #reading'],
+    [137, 6, '15:10', 'Market: a man selling forty kinds of tomato, and arguing about all of them. #cooking'],
+    [130, 2, '18:25', 'Ask for the decision, not the meeting. #work', 'kept'],
+    [124, 6, '22:30', 'Saw Hamlet in the park. The ghost came on while a dog barked, and nobody laughed. #reading'],
+    [117, 4, '21:50', 'Long light this time of year: walked home the long way, twice. #walks'],
+    [110, 0, '21:45', 'Hamlet thinks about every move so long that the play happens to him instead. #reading'],
+    [103, 1, '08:40', 'Started a list of the words I look up. Three today. #ideas'],
+    [97, 0, '20:30', 'Ophelia gets the fewest lines, and the saddest. #reading'],
+    [90, 5, '19:00', 'The best part of a trip is the first morning, before you know where anything is. #walks'],
+    [84, 0, '21:10', 'Finished Hamlet. Five acts of deciding, then everything at once. #reading'],
+    [78, 3, '12:30', 'Lunch with Sam: he reads the last page first, always. #reading', 'gone'],
+    [72, 6, '09:15', 'Swam in the lake at 7am. Cold enough to make the day short and clear.'],
+    [66, 2, '17:45', 'Write the plan on one page, or it is not a plan yet. #work'],
+    [60, 0, '21:00', 'Odyssey, Book 12: tied to the mast, so he can hear the song and not drown. Wanting the thing, and arranging not to have it. #reading'],
+    [55, 4, '22:20', "Planted the seed library's beans. Two came up. #ideas"],
+    [48, 1, '07:35', "First cold morning. Gloves in last year's coat, with a ticket in them."],
+    [45, 0, '21:30', "Started Dorian Gray. Every line of Lord Henry's is a quote, which is the trouble with him. #reading"],
+    [38, 3, '13:10', 'A good question keeps for months. Most answers do not. #ideas', 'kept'],
+    [30, 0, '21:15', 'Finished Dorian Gray. The ending is one page, and it is enough. #reading'],
+    [26, 5, '18:20', 'Bread, fourteenth try: finally the holes. #cooking'],
+    [19, 2, '08:50', 'Sorted the bookshelf by colour. Now I cannot find anything, and it looks wonderful.', 'gone'],
+    [12, 0, '21:00', 'Reading on Sunday evenings has become the best hour of the week. #reading']
+  ]
+  for (const [n, weekday, time, words, became] of passing) {
+    const [back, when] = on(n, weekday, time)
+    const id = await capture({}, when)
+    await write(id, words)
+    // Looked at again a day or two later, when the week's few minutes came round.
+    yearAges.push({ usedAt: at(-back + 1 + (back % 2), '20:30'), captureId: id })
+    if (became === 'kept') {
+      yearAges.push({ createdAt: at(-back, '21:45'), nuggetId: await v<string>('promote', id) }, { exitedAt: at(-back, '21:45'), captureId: id })
+      nuggets++
+    } else if (became === 'gone') {
+      await window.api.captures.save(id, { status: 'discarded' })
+      yearAges.push({ exitedAt: at(-back + 4, '20:00'), captureId: id })
+    } else if (became === 'task') {
+      await v('tasks:from', [id], 'Buy a waterproof notepad')
+      tasks++
+      yearAges.push({ exitedAt: at(-back + 1, '09:00'), captureId: id })
+    }
+  }
+
+  // A question held for a month, then answered: its clues become an article.
+  const monster = await v<string>('question:new', 'Who is the monster in Frankenstein?')
+  const monsterClues: [string, number][] = [
+    ['Victor runs from the creature the moment it opens its eyes. Everything after is that one minute, paid for.', 170],
+    ['The creature saves a drowning girl and is shot for it.', 158],
+    ['Victor tears up the half-made bride, and is surprised by what follows.', 150],
+    ['Both of them, Victor first. The creature was taught by everyone who ran from him.', 142]
+  ]
+  // Dated before it is settled, so the article lists each clue on its own day.
+  await v('sandbox:age', [{ createdAt: at(-172, '21:30'), nuggetId: monster }, ...await Promise.all(monsterClues.map(async ([text, n]) => ({ glossAt: at(-n, '21:40'), id: await v<string>('clue', monster, text) })))])
+  const answered = await v<{ article: string | null }>('question:close', monster, 'answered')
+  yearAges.push({ closedAt: at(-141, '21:50'), nuggetId: monster })
+  if (answered?.article) yearAges.push({ createdAt: at(-141, '21:50'), nuggetId: answered.article })
+  // And one still circling.
+  const mad = await v<string>('question:new', 'Is Hamlet mad, or acting?')
+  yearAges.push({ createdAt: at(-118, '22:00'), nuggetId: mad })
+  for (const [text, n] of [['He tells Horatio he will put on an antic disposition: acting, so far.', 115], ['Talking to the skull, there is nobody left to act for.', 101], ['Read the graveyard scene again. Still both.', 20]] as const)
+    yearAges.push({ glossAt: at(-n, '21:40'), id: await v<string>('clue', mad, text) })
+  nuggets += 3
+
+  // Reviewed as Review asks, each gap longer than the last, so the days add
+  // up across the year: a day, three, eight, eighteen, forty, then months.
+  const GAPS = [1, 3, 8, 18, 40, 80, 150, 260]
+  let graded = 0
+  for (const card of kept) {
+    let nth = 0
+    for (const gap of GAPS) {
+      const ago = card.n - gap
+      if (ago <= 0) {
+        // Next due on the day the gap ends: today for some, later for most.
+        yearAges.push({ dueAt: at(-ago, '08:00'), nuggetId: card.id })
+        break
+      }
+      // Mostly remembered; now and then easy, now and then hard.
+      await v('review:grade', card.id, graded++ % 5 === 4 ? 4 : graded % 7 === 0 ? 2 : 3, 5000)
+      yearAges.push({ reviewedAt: at(-ago, `0${7 + (nth % 2)}:${String(10 + ((graded * 7) % 40)).padStart(2, '0')}`), itemId: card.id, nth: nth++ })
+      // Past its last gap: a month from now.
+      if (gap === GAPS[GAPS.length - 1]) yearAges.push({ dueAt: at(30, '08:00'), nuggetId: card.id })
+    }
+  }
+
+  // A small routine kept most evenings, and the app opened most days.
+  const reading = await task('Read twenty pages before bed every day')
+  for (let n = 160; n >= 1; n--) if (n % 4 !== 2) yearAges.push({ done: reading, at: at(-n, '22:30') })
+  for (let n = 280; n >= 1; n--) if (n % 9 !== 4 && (n < 120 || n % 3 !== 1)) yearAges.push({ openedAt: at(-n, '08:20') })
+  await v('sandbox:age', yearAges)
+
   // --- dates moved into the past, so it all looks lived in -----------------------------
   const done = [-6, -5, -4, -3, -2, -1].map((n) => ({ done: wall, at: at(n, '21:00') }))
   await v('sandbox:age', [
@@ -720,6 +902,10 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
     { createdAt: at(-2, '07:41'), nuggetId: petrichor },
     { createdAt: at(-5, '06:56'), nuggetId: aurelius },
     { createdAt: at(-10, '23:03'), nuggetId: wilde },
+    // Kept on the day they were caught, not the day the seed ran.
+    { exitedAt: at(-2, '07:41'), captureId: petrichorCapture },
+    { exitedAt: at(-5, '06:56'), captureId: aureliusCapture },
+    { exitedAt: at(-10, '23:03'), captureId: wildeCapture },
     { createdAt: at(-9, '22:10'), nuggetId: paul },
     { createdAt: at(-18, '21:00'), nuggetId: duneGoal },
     // Held, aimed at and written for some while: their pages say since when.

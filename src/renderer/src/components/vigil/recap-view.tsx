@@ -203,6 +203,13 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
         <p><Typed story delay={data.busiestMonth ? 1800 : 700} text={`Your busiest day was ${dayName(noon(data.busiestDay.name), 'never')}: ${plural(data.busiestDay.n, 'capture', 'captures')}.`} /></p>
       </div>
     ),
+    // What you read, and what you kept from it: the books, most lines first.
+    (data.books ?? []).some((book) => book.finished) && (
+      <div key="books" className="space-y-5">
+        <p className="text-title"><Typed story text={`You read ${plural(data.books.filter((book) => book.finished).length, 'book', 'books')} and kept ${plural(data.books.reduce((sum, book) => sum + book.lines, 0), 'line', 'lines')} from them.`} /></p>
+        <Ranked rows={[...data.books].sort((a, b) => b.lines - a.lines).slice(0, 5).map((book) => ({ name: book.by ? `${book.title}, ${book.by}` : book.title, n: book.lines }))} />
+      </div>
+    ),
     data.tags.length > 0 && (
       <div key="tags" className="space-y-5">
         <p className="text-title"><Typed story text="What it gathered around" /></p>
@@ -237,7 +244,7 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
       <div key="reviewed" className="space-y-6">
         <Big n={data.reviews}>{data.reviews === 1 ? 'review' : 'reviews'}</Big>
         <p className="text-title">{/* Its turn once the count above has landed: one thing moving at a time. */}
-        <Typed story delay={Math.round((0.25 + counting(data.reviews)) * 1000) + 100} text={`The one you came back to most: “${data.mostReviewed.title}”, ${plural(data.mostReviewed.n, 'time', 'times')}.`} /></p>
+        <Typed story delay={Math.round((0.25 + counting(data.reviews)) * 1000) + 100} text={`${data.reviewDays > 1 ? `On ${plural(data.reviewDays, 'day', 'different days')}. ` : ''}The one you came back to most: “${data.mostReviewed.title}”, ${plural(data.mostReviewed.n, 'time', 'times')}.`} /></p>
       </div>
     ),
     <div key="outro" className="space-y-3">

@@ -201,6 +201,10 @@ export type Recap = {
   discarded: number
   reviews: number
   mostReviewed: { title: string; n: number } | null
+  /** The books begun in it, finished or still going, and how many lines were kept from each. */
+  books: { title: string; by: string | null; finished: boolean; lines: number }[]
+  /** How many different days something was reviewed on. */
+  reviewDays: number
 }
 
 export type Task = {
