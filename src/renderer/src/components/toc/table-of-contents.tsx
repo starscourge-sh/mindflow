@@ -96,6 +96,31 @@ export function TableOfContents({ editor, shown = true }: { editor: Editor | nul
     activeRef.current?.scrollIntoView({ block: "nearest" })
   }, [lit])
 
+  // Room for it: wherever the note's words would run under the strip (a
+  // narrow pane, a wide block, a long outline), the note's right padding grows
+  // just enough to clear it, and goes back once it is not needed. Measured
+  // with the strip at rest, never while it is open over the words.
+  const drawn = !!editor && headings.length >= 2 && shown
+  useEffect(() => {
+    const nav = navRef.current
+    const page = editor?.view.dom as HTMLElement | undefined
+    if (!drawn || !nav || !page) return
+    const fit = (): void => {
+      if (nav.matches(":hover, [data-open]")) return
+      page.style.paddingRight = ""
+      const words = page.getBoundingClientRect().right - parseFloat(getComputedStyle(page).paddingRight)
+      const over = words + 12 - nav.getBoundingClientRect().left
+      if (over > 0) page.style.paddingRight = `${parseFloat(getComputedStyle(page).paddingRight) + over}px`
+    }
+    fit()
+    const watch = new ResizeObserver(fit)
+    watch.observe(page.parentElement ?? page)
+    return () => {
+      watch.disconnect()
+      page.style.paddingRight = ""
+    }
+  }, [drawn, editor, headings.length])
+
   if (!editor || headings.length < (keyed === null ? 2 : 1)) return null
   if (!shown && keyed === null) return null
 
