@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { animate, motion, useMotionValue, useTransform, type MotionValue } from 'motion/react'
-import { allThemes, applyTheme, currentTheme, themeName, type Theme } from '@/lib/theme'
+import { allThemes, applyTheme, currentTheme, isLight, themeName, type Theme } from '@/lib/theme'
 import { chime, click, step } from '@/lib/sound'
+import { falloff } from '@/lib/proximity'
 import { Swatch } from '@/components/theme/theme-picker'
 import { Rolling } from './ui'
+import { DialParticles, type Sparks } from './dial-particles'
 
 /**
  * The welcome's theme dial: every theme as a detent around a ring, the one
@@ -19,7 +21,8 @@ import { Rolling } from './ui'
  * It guides the hand: each swatch grows and brightens the nearer it comes to
  * the notch, the notch glows and dips toward it, a drag is drawn gently into
  * each detent, and a tick is heard and the notch bumps as one passes. The
- * first time it is seen, it rocks a little, to show it turns.
+ * first time it is seen, it rocks a little, to show it turns. Large, a faint
+ * stream of light runs round it toward the notch (dial-particles.tsx).
  */
 // The rock is shown once a session: a hint, not a habit.
 let rocked = false
@@ -27,10 +30,7 @@ let rocked = false
 /** -180..180: how far `deg` is from the top. */
 const offTop = (deg: number): number => ((((deg + 180) % 360) + 360) % 360) - 180
 /** 1 at the notch, falling smoothly to 0 at `reach` degrees away. */
-const near = (deg: number, reach: number): number => {
-  const t = Math.max(0, 1 - Math.abs(offTop(deg)) / reach)
-  return t * t * (3 - 2 * t)
-}
+const near = (deg: number, reach: number): number => falloff(offTop(deg), reach)
 
 export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: { size?: number; /** The name under it set as a title, for the welcome's centrepiece. */ big?: boolean; onPick: (theme: Theme) => void; onFullTurn?: () => void; /** Said in place of the theme's name, for a moment. */ say?: string }): React.JSX.Element {
   const themes = allThemes()
@@ -53,6 +53,8 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
   // Detents passed one way, for the full turn.
   const travelled = useRef(0)
   const told = useRef(false)
+  // The light round a large dial: a few sparks when a swatch lands on release.
+  const sparks: Sparks = useRef(null)
 
   const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
   const wrap = (i: number): number => ((i % n) + n) % n
@@ -83,7 +85,11 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
     const target = -raw * per
     setTouched(true)
     if (how === 'key' || still()) turn.jump(target)
-    else animate(turn, target, { type: 'spring', bounce: 0.25, duration: 0.45, velocity })
+    else {
+      const run = animate(turn, target, { type: 'spring', bounce: 0.25, duration: 0.45, velocity })
+      // Landed, and still there (not caught by another drag): a few sparks rise from it.
+      if (big) void run.then(() => !drag.current && Math.abs(turn.get() - target) < 0.5 && sparks.current?.(wrap(raw)))
+    }
   }
   const here = (): number => Math.round(-turn.get() / per)
 
@@ -237,6 +243,7 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
           <span className="font-heading leading-none tracking-[-0.02em] text-foreground" style={{ fontSize: Math.max(32, size * 0.17) }}>Aa</span>
           <span className="mt-1.5 h-[3px] w-6 rounded-full bg-primary" />
         </div>
+        {big && <DialParticles size={size} band={band} per={per} turn={turn} at={at} touched={touched} grabbing={grabbing} light={isLight(themes[at])} sparks={sparks} />}
       </div>
       <div className="flex flex-col items-center">
         <Rolling text={say ?? themeName(themes[at])} by="character" className={big ? 'h-[1.3em] max-w-[20rem] truncate font-heading text-[clamp(1.125rem,min(2.2vw,3.2vh),1.625rem)] leading-[1.3] text-foreground' : 'h-5 max-w-[16rem] truncate text-control font-medium text-foreground'} />
