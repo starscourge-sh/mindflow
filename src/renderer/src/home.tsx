@@ -1,3 +1,4 @@
+import { detailsShown, showDetails } from '@/lib/reading'
 import { themeActions } from '@/lib/theme'
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import { Minimize2 } from 'lucide-react'
@@ -369,6 +370,16 @@ export function Home(): React.JSX.Element {
         chime(sidebar ? 'fold' : 'slide')
         return setSidebar((open) => !open)
       }
+      // ⌘B the sidebar too, as in Finder and most editors; while you write it
+      // stays Bold. ⇧⌘B puts every side away at once (or brings them back),
+      // the page on its own.
+      if (event.metaKey && !event.altKey && event.key.toLowerCase() === 'b' && !typing()) {
+        event.preventDefault()
+        const open = event.shiftKey ? sidebar || detailsShown() : sidebar
+        chime(open ? 'fold' : 'slide')
+        if (event.shiftKey) showDetails(!open)
+        return setSidebar(!open)
+      }
       if (event.metaKey || event.ctrlKey || event.altKey || typing()) return
       // Shift on its own is half of a capital, not a key: G, let go, Shift+R.
       if (event.key === 'Shift') return
@@ -471,7 +482,8 @@ export function Home(): React.JSX.Element {
             { label: 'Play the welcome again', cue: null, run: playWelcome },
             { label: 'Try a celebration', cue: null, run: () => tryCelebration() },
             ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),
-            { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘\\', cue: sidebar ? 'fold' : 'slide', run: () => setSidebar(!sidebar) },
+            { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘B', cue: sidebar ? 'fold' : 'slide', run: () => setSidebar(!sidebar) },
+            { label: sidebar || detailsShown() ? 'Hide every sidebar' : 'Show every sidebar', keys: '⇧⌘B', cue: null, run: () => { const open = sidebar || detailsShown(); chime(open ? 'fold' : 'slide'); showDetails(!open); setSidebar(!open) } },
             { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', cue: null, run: () => setFill(!fill) },
             { label: 'Fold every heading', cue: null, run: () => void (foldEverything(true) || chime('nope')) },
             { label: 'Unfold every heading', cue: null, run: () => void (foldEverything(false) || chime('nope')) },
@@ -772,7 +784,7 @@ export function Home(): React.JSX.Element {
       {/* Clear of the traffic lights whatever sits to the left: nothing, or the folded rail. */}
       <header className={`flex h-8 shrink-0 items-center gap-1 ${!sidebar ? 'pl-[84px]' : narrow ? 'pl-3' : ''}`} style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
         {[
-          { icon: LayoutSidebarRightIcon, flip: true, label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘\\', run: () => (chime(sidebar ? 'fold' : 'slide'), setSidebar(!sidebar)) },
+          { icon: LayoutSidebarRightIcon, flip: true, label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘B', run: () => (chime(sidebar ? 'fold' : 'slide'), setSidebar(!sidebar)) },
           // With the sidebar away, its search field comes up here as a button.
           ...(sidebar ? [] : [{ icon: MagnifierIcon, flip: false, label: 'Search', keys: '⌘K', run: () => setSearching('all') }])
         ].map(({ icon, flip, label, keys, run }) => (

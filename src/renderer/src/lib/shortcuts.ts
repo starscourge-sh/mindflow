@@ -30,6 +30,8 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: '⌘[', does: 'Back', where: 'Both windows' },
   { group: 'Getting around', keys: '⌘]', does: 'Forward', where: 'Both windows' },
   { group: 'Getting around', keys: '⌘\\', does: 'Show or hide the side panel or sidebar', where: 'Both windows' },
+  { group: 'Getting around', keys: '⌘B', does: 'Show or hide the sidebar (while not writing)', where: 'Main window' },
+  { group: 'Getting around', keys: '⇧⌘B', does: 'Hide or show every sidebar at once, the page on its own', where: 'Main window' },
   { group: 'Getting around', keys: '⌃⇧F', does: 'Make the window bigger, or back to compact', where: 'Both windows' },
   { group: 'Getting around', keys: '⇧⌘F', does: 'Focus mode on or off', where: 'Both windows' },
   { group: 'Getting around', keys: '⌘Q', does: 'Quit', where: 'Both windows' },
