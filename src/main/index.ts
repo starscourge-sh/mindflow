@@ -212,7 +212,6 @@ let lastBounds: Electron.Rectangle | null = null
 function hideWindow(win: BrowserWindow): void {
   // A glide under way lands first, so the window is put away at its new size.
   if (pending?.win === win) (clearInterval(arriving), settle())
-  if (win === prompt) land(win)
   lastBounds = boundsOf(win)
   // Told before it goes, so the page can clear itself while hidden and come
   // back already blank rather than showing the old note for a frame.
@@ -290,7 +289,6 @@ const GLIDE = 240
  * Resolves once the window has its new bounds.
  */
 function reshape(win: BrowserWindow, bounds: Electron.Rectangle, snap = false): Promise<void> {
-  if (win === prompt) land(win)
   clearInterval(arriving)
   // Turned round mid-way: the old target is dropped, not landed.
   const before = landed
@@ -322,52 +320,6 @@ function reshape(win: BrowserWindow, bounds: Electron.Rectangle, snap = false): 
     arriving = setInterval(step, 1000 / 120)
     step()
   })
-}
-
-/**
- * The box hovers while it waits: the whole window rises a few points and
- * settles, slowly, so it reads as floating over your work rather than pasted
- * on it. Still the moment a key is pressed (and for a little after), while a
- * glide is under way, while you drag it, and with Motion off. It always comes
- * back to its own place before anything reads where it is.
- */
-let hoverBase: { x: number; y: number } | null = null
-let hoverQuiet = 0
-let hoverOwn = false
-/** Back where it belongs, the float forgotten: before it hides, moves or resizes. */
-function land(win: BrowserWindow): void {
-  if (hoverBase && !win.isDestroyed()) {
-    const [x, y] = win.getPosition()
-    if (x !== hoverBase.x || y !== hoverBase.y) (hoverOwn = true), win.setPosition(hoverBase.x, hoverBase.y), (hoverOwn = false)
-  }
-  hoverBase = null
-}
-function float(win: BrowserWindow): void {
-  const start = Date.now()
-  win.webContents.on('before-input-event', (_event, input) => {
-    if (input.type !== 'keyDown') return
-    hoverQuiet = Date.now() + 2500
-    land(win)
-  })
-  // Dragged by hand: the float lets go, and starts again from where it is put.
-  win.on('will-move', () => void (hoverOwn || (hoverBase = null)))
-  const timer = setInterval(() => {
-    if (win.isDestroyed()) return clearInterval(timer)
-    if (!win.isVisible() || pending || stillness() || Date.now() < hoverQuiet) return
-    if (!hoverBase) {
-      const [x, y] = win.getPosition()
-      hoverBase = { x, y }
-    }
-    // A breath every five and a half seconds, three points at most. It bobs
-    // down from its place rather than up: the Mac will not lift a window above
-    // the menu bar, and the box often sits right under it.
-    const lift = Math.round(3 * (1 - Math.cos(((Date.now() - start) / 5500) * Math.PI * 2)) / 2)
-    const [, y] = win.getPosition()
-    if (y === hoverBase.y + lift) return
-    hoverOwn = true
-    win.setPosition(hoverBase.x, hoverBase.y + lift)
-    hoverOwn = false
-  }, 60)
 }
 
 function toggleWindow(): void {
@@ -1222,7 +1174,6 @@ function createWindow(): void {
       backgroundThrottling: false
     }
   }))
-  float(mainWindow)
   // Kept out of screen shares and recordings, so a call never shows what you
   // are jotting. Honoured by older capture; recorders on Apple's newer
   // ScreenCaptureKit may still see it.
