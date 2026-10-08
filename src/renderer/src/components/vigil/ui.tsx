@@ -7,7 +7,7 @@ import { alive } from '@/components/ui/alive-icon'
 import ArrowNarrowDownIcon from '@/components/ui/arrow-narrow-down-icon'
 import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
 import { AnimatePresence, motion } from 'motion/react'
-import { EASE, byKeys, hush, shift, speak, useFirstVisit } from '@/lib/motion'
+import { EASE, byKeys, hush, shift, speak, speakAfter, useFirstVisit } from '@/lib/motion'
 import { detent, slotTicker } from '@/lib/proximity'
 import { Arrow } from './marks'
 import { Coolshape, type shapeTypes } from 'coolshapes-react'
@@ -155,15 +155,27 @@ export function Typed({ text, className, step = 40, delay: asked = 700, story = 
   // what you just did (delay 0) starts at once.
   const delay = asked === 0 ? 0 : Math.max(asked, 600)
   const words = text.split(/(\s+)/)
-  // One voice per screen (lib/motion.ts): settled when the words arrive, so
-  // a later render never starts it again. Any other line is simply written.
+  // One voice at a time (lib/motion.ts): settled when the words arrive, so a
+  // later render never starts it again. A second line waits its turn.
   const id = useId()
   const turn = useRef<{ text: string; speaks: boolean } | null>(null)
-  if (turn.current?.text !== text) turn.current = { text, speaks: speak(id, text, delay + (words.length / 2) * step * 1.4 + 364, story) }
-  const speaks = turn.current.speaks
+  const long = delay + (words.length / 2) * step * 1.4 + 364
+  const root = document.documentElement
+  // A line in a sequence takes its turn as told; any other may always speak,
+  // except while the welcome holds the screen, and its turn is found below.
+  if (turn.current?.text !== text) turn.current = { text, speaks: story ? speak(id, text, long, true) : !root.hasAttribute('data-welcoming') && !root.hasAttribute('data-welcome-ph') }
+  const speaks = turn.current.speaks && root.dataset.motion !== 'off'
+  const line = useRef<HTMLSpanElement>(null)
+  // Its place in the queue, found once the page it is on is the one showing
+  // (a page just left no longer counts), and before anything is painted.
+  useLayoutEffect(() => {
+    if (story || !speaks) return
+    const wait = speakAfter(id, long) ?? 0
+    if (wait) line.current?.querySelectorAll<HTMLElement>('.mf-typed').forEach((one) => void (one.style.animationDelay = `${parseFloat(one.style.animationDelay) + wait}ms`))
+  }, [text]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => hush(id), [id])
   return (
-    <span key={text} className={className} aria-label={text}>
+    <span key={text} ref={line} data-line={id} className={className} aria-label={text}>
       {words.map((word, index) =>
         /^\s+$/.test(word) ? word : (
           <span key={index} aria-hidden className={speaks ? 'mf-typed' : 'inline-block'} // 1.4: each word a beat slower than first built, easier to follow.
