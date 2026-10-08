@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { DndContext, DragOverlay, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragStartEvent, type DropAnimation, type Modifier } from '@dnd-kit/core'
+import { DndContext, DragOverlay, useDndMonitor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragStartEvent, type DropAnimation, type Modifier } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
@@ -24,6 +24,10 @@ export const SETTLE: DropAnimation = { duration: 280, easing: 'cubic-bezier(0.2,
  * rather than the window, and the lifted thing floated off from the pointer.
  */
 export function Overlay(props: ComponentProps<typeof DragOverlay>): React.JSX.Element {
+  // The closed hand for as long as something is carried, wherever the pointer is.
+  const hand = (on: boolean) => (): void => void (on ? (document.documentElement.dataset.dragging = '') : delete document.documentElement.dataset.dragging)
+  useDndMonitor({ onDragStart: hand(true), onDragEnd: hand(false), onDragCancel: hand(false) })
+  useEffect(() => hand(false), [])
   return createPortal(<DragOverlay {...props} />, document.body)
 }
 
