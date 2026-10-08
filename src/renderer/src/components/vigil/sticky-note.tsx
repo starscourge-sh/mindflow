@@ -1,3 +1,4 @@
+import { Tape } from './tape'
 import { currentVim, onVimChange } from '@/lib/vim'
 import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { JSONContent } from '@tiptap/core'
@@ -424,7 +425,8 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
         {!GLASS && <Frost tint="--mf-paper-tint" lift />}
         <SandboxStamp />
         {/* A strip of tape holding it up. */}
-        {!GLASS && <span aria-hidden className="pointer-events-none absolute -top-2 left-1/2 h-4 w-14 -translate-x-1/2 -rotate-2 rounded-[2px] bg-[color-mix(in_oklab,var(--foreground)_10%,transparent)] backdrop-blur-[1px]" />}
+        {/* The strip of tape that holds it up. */}
+        <Tape inside={GLASS} />
         <div className="flex items-center gap-1 px-3 pt-2">
           <p className="private-text min-w-0 grow truncate font-medium">{title}</p>
           {/* How far through its to-dos: green once all are done, settling rather than celebrating.

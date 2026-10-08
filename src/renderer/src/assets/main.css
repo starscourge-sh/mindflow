@@ -1224,3 +1224,33 @@ input[type='number']::-webkit-outer-spin-button {
 :root[data-typing] .mf-levitate { animation-play-state: paused; }
 :root[data-motion='off'] .mf-levitate { animation: none; }
 @media (prefers-reduced-motion: reduce) { .mf-levitate { animation: none; } }
+
+/* Tape (vigil/tape.tsx): a matte strip, torn at its ends, with a fine grain
+   and a glint that crosses it every so often. Still with Motion off. */
+.mf-tape {
+  width: 4.5rem;
+  height: 1.25rem;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.05) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, rgb(255 255 255 / 0.22), rgb(255 255 255 / 0.06) 45%, rgb(0 0 0 / 0.04)),
+    color-mix(in oklab, var(--foreground) 16%, color-mix(in oklab, var(--tt-color-text-yellow) 12%, transparent));
+  backdrop-filter: blur(1.5px) saturate(1.1);
+  box-shadow: 0 1px 1.5px rgb(0 0 0 / 0.18), inset 0 0 0 0.5px rgb(255 255 255 / 0.12);
+  /* Torn ends: a ragged edge left and right, straight top and bottom. */
+  clip-path: polygon(3% 0, 97% 0, 100% 12%, 96% 26%, 99.5% 40%, 96.5% 55%, 100% 70%, 96% 86%, 98.5% 100%, 2% 100%, 0 86%, 3.5% 72%, 0 57%, 3% 42%, 0.5% 27%, 3.5% 13%);
+}
+.mf-tape::after {
+  content: '';
+  position: absolute;
+  inset: -2px -40%;
+  background: linear-gradient(105deg, transparent 38%, rgb(255 255 255 / 0.5) 49%, rgb(255 255 255 / 0.15) 53%, transparent 62%);
+  transform: translateX(-70%);
+  animation: mf-tape-glint 7s ease-in-out infinite;
+}
+@keyframes mf-tape-glint {
+  0%, 72% { transform: translateX(-70%); }
+  86%, 100% { transform: translateX(70%); }
+}
+:root[data-motion='off'] .mf-tape::after { animation: none; opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .mf-tape::after { animation: none; opacity: 0; } }

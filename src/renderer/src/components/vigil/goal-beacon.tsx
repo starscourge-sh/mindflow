@@ -1,3 +1,4 @@
+import { Tape } from './tape'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Flag } from 'lucide-react'
 import { motion } from 'motion/react'
@@ -177,6 +178,8 @@ export function GoalStack(): React.JSX.Element | null {
           )
         })}
         <div className="pointer-events-none absolute inset-0" style={{ zIndex: n + 2 }}><SandboxStamp /></div>
+        {/* The tape holding the stack to the desk; the cards roll beneath it. */}
+        <div className="pointer-events-none absolute inset-0" style={{ zIndex: n + 3 }}><Tape inside={GLASS} /></div>
         {/* The edges peeking out under the top card: pointed at, the next one comes up. */}
         {n > 1 && <button type="button" tabIndex={-1} aria-label="The next goal" title="The next goal" onClick={() => roll(1, 'riffle')}
           className="absolute inset-x-0 top-[calc(100%-2px)] h-6 cursor-pointer" style={STILL} />}
