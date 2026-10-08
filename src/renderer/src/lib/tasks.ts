@@ -42,7 +42,7 @@ export async function makeTask(
   const reopen = made.resolved ?? []
   chime(made.existed ? 'nope' : 'noted')
   const words = typeof said === 'function' ? await said(made) : said
-  toast(taskSaid(made, words), () => void vigil.unmakeTask(made.id, made.existed, links, reopen).then(() => onUndo?.()))
+  toast(taskSaid(made, words), () => void vigil.unmakeTask(made.id, made.existed, links, reopen).then(() => onUndo?.()), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('task', made.id) })
   return made
 }
 

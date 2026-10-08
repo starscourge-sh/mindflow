@@ -26,7 +26,7 @@ import { CaptureList, captureEntry, captureMenu, useCaptures, whereFrom, type Ca
 import { tagColors, spread } from '@/extensions/tokens'
 import { AGES, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
 import { DatePicker } from './date-picker'
-import { Lineage } from './lineage'
+import { Became, Lineage } from './lineage'
 import { Mentions } from './mentions'
 import { EXITS, NOT_OPEN, STATUS_ICON, captureKey, exit, findCaptures, findHeadings, flying, takeExit, follow, unpromote } from '@/lib/capture-links'
 import type { SaveResult } from '../../../../main/captures'
@@ -507,6 +507,8 @@ export function CaptureProps({ capture, onOpen, className, fold }: { capture: Ca
           // A promoted capture stays out: its nugget is where it lives now, and
           // back in the inbox it could be promoted again, into a second one.
           : capture.status !== 'promoted' && <Prop icon={Inbox} onClick={reopen}>Back to the inbox</Prop>}
+        {/* Taken out of the inbox: what it went to, one click away, right under how. */}
+        {capture.status !== 'open' && <Became id={capture.id} onOpen={onOpen} />}
         {/* The question routes: a new one held from it, or a clue in one you are holding. */}
         {capture.status === 'open' && (
           <>
@@ -574,7 +576,7 @@ export function CaptureProps({ capture, onOpen, className, fold }: { capture: Ca
       </Island>
       {/* What it means to you, dated: a capture takes glosses as a nugget does. */}
       <GlossTimeline id={capture.id} />
-      <Lineage id={capture.id} onOpen={onOpen} />
+      <Lineage id={capture.id} onOpen={onOpen} became={capture.status === 'open'} />
       <LocalGraph id={capture.id} title={capture.label} onOpen={onOpen} />
       <Island compact title="Details">
         <Prop icon={Hash}>{captureKey(capture.number)}</Prop>

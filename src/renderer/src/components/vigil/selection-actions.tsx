@@ -75,9 +75,9 @@ export function selectionActions(origin: { captureId?: string; attribution?: str
               if (!text || !once('nugget', text)) return
               // Only what can cross to the main process: not the callbacks.
               void vigil.nuggetFrom(text, { captureId: origin.captureId, attribution: origin.attribution })
-                .then(() => {
+                .then((nugget) => {
                   chime('promote')
-                  toast('Kept as a nugget')
+                  toast('Kept as a nugget', undefined, 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('nugget', nugget) })
                 })
                 .catch(() => lifted.delete(`nugget\n${text}`))
             }}

@@ -330,7 +330,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
                 if (event.key !== 'Enter' || !event.currentTarget.value.trim()) return
                 const line = event.currentTarget.value.trim()
                 void (hint.id === hint.captureId
-                  ? vigil.promote(hint.id, line).then((result) => (result === 'needs-source' ? refuse('A quote needs to say who said it first') : result === 'not-open' ? refuse('That capture already took an exit, so it is not kept again') : toast('Kept as a nugget, with your line beside it')))
+                  ? vigil.promote(hint.id, line).then((result) => (result === 'needs-source' ? refuse('A quote needs to say who said it first') : result === 'not-open' ? refuse('That capture already took an exit, so it is not kept again') : toast('Kept as a nugget, with your line beside it', undefined, 'success', result ? { label: 'Open', key: 'O', run: () => window.api.openInHome('nugget', result) } : undefined)))
                   : vigil.saveItem(hint.id, { prompt: line }).then(() => toast('Now tested: it will come up in review'))
                 ).then(() => setHint(null))
               }}
