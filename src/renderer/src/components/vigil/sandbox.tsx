@@ -11,8 +11,9 @@ import { ProgressBar } from '@/components/vigil/progress-bar'
 import { applyTheme, currentTheme } from '@/lib/theme'
 import { EASE, shift } from '@/lib/motion'
 import { chime } from '@/lib/sound'
+import { vigil } from '@/lib/vigil'
 import { GOING_MS, SANDBOX, enterSandbox, leaveSandbox, resetSandbox, sandboxState, type Carry } from '@/lib/sandbox'
-import { sandboxScenery, seedSandbox } from '@/lib/sandbox-seed'
+import { builtInScenery, seedSandbox } from '@/lib/sandbox-seed'
 
 /**
  * Everything that says "you are in the sandbox". One colour, the yellow hue on
@@ -206,6 +207,13 @@ export function SandboxHost(): React.JSX.Element | null {
     if (started) return
     started = true
     if (!SANDBOX) {
+      // Scenery on with no folder of yours: Vigil's own landscapes, once, so a
+      // first start is not a bare page. Your own folders, once chosen, replace them.
+      void vigil.settings().then(async (settings) => {
+        if (!settings.scenery || settings.sceneryFolders.length || localStorage.getItem('scenery-built-in')) return
+        localStorage.setItem('scenery-built-in', 'set')
+        await window.api.vigil('settings:set', { sceneryFolders: [await builtInScenery()] })
+      }).catch(() => undefined)
       // Anything caught for real while practising, offered once you are back.
       void (window.api.vigil('sandbox:carried') as Promise<{ title: string }[]>).then((carried) => {
         if (!carried.length) return
@@ -243,7 +251,7 @@ export function SandboxHost(): React.JSX.Element | null {
       if (carry?.local?.theme) applyTheme(currentTheme(), false)
       // Its own pictures, whatever yours are: four public-domain landscapes for
       // Scenery and Vigil's own grain for covers; your celebrations come along.
-      const settings = { progressBars: 'saber', ...(carry?.settings ?? {}), scenery: true, sceneryFolders: [await sandboxScenery()], coversFolder: '' }
+      const settings = { progressBars: 'saber', ...(carry?.settings ?? {}), scenery: true, sceneryFolders: [await builtInScenery()], coversFolder: '' }
       // An editor on the page reads Markdown for the seed; wait for one, five seconds at most.
       for (let waited = 0; !readMarkdown('x') && waited < 5000; waited += 100) await new Promise((wait) => setTimeout(wait, 100))
       await seedSandbox(readMarkdown)

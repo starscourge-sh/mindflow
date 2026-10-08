@@ -263,9 +263,11 @@ export function registerSandbox(): void {
 
   // The bundled landscapes, written into the sandbox's own folder for
   // Scenery to read like any folder of yours. Only plain names, only webp.
+  // Vigil's own landscapes, written where this run keeps its things: the
+  // sandbox's, or yours on a first start with no folder of your own chosen.
   handle('scenery', async (files: unknown) => {
-    if (!SANDBOX || !Array.isArray(files)) return ''
-    const folder = join(sandboxRoot(), 'Sandbox scenery')
+    if (!Array.isArray(files)) return ''
+    const folder = SANDBOX ? join(sandboxRoot(), 'Sandbox scenery') : join(dataRoot(), 'Scenery')
     await mkdir(folder, { recursive: true })
     for (const file of files as { name: unknown; bytes: unknown }[]) {
       if (typeof file?.name !== 'string' || !/^[a-z-]+\.webp$/.test(file.name) || !(file.bytes instanceof Uint8Array)) continue

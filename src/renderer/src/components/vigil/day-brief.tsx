@@ -60,7 +60,7 @@ const PAINTINGS: Record<string, string> = {
 }
 /** A credit for the day's picture, the way a caption names a painting: its name, then where it hangs. */
 const credit = (name?: string, folder?: string): string | null =>
-  (folder === 'Sandbox scenery' && name && PAINTINGS[name]) || [readable(name), readable(folder)].filter(Boolean).join(', ') || null
+  ((folder === 'Sandbox scenery' || folder === 'Scenery') && name && PAINTINGS[name]) || [readable(name), readable(folder)].filter(Boolean).join(', ') || null
 
 /** The time now, said again on each new minute. */
 function useMinute(): Date {

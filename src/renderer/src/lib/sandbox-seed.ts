@@ -735,7 +735,8 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
 }
 
 /** The four landscapes Scenery shows in a sandbox when you have no folder of your own. */
-export async function sandboxScenery(): Promise<string> {
+/** The public-domain landscapes Vigil ships with, written to a folder of its own; that folder's path. */
+export async function builtInScenery(): Promise<string> {
   const files = await Promise.all(([['wanderer.webp', wandererUrl], ['mont-blanc.webp', montBlancUrl], ['lake-tahoe.webp', tahoeUrl], ['landers-peak.webp', landersUrl], ['bernina.webp', berninaUrl], ['evening-prairie.webp', prairieUrl], ['jungfrau.webp', jungfrauUrl], ['harbor-entrance.webp', harborUrl], ['grand-manan.webp', mananUrl], ['lake-lucerne.webp', lucerneUrl], ['penobscot-bay.webp', penobscotUrl]] as const)
     .map(async ([name, url]) => ({ name, bytes: new Uint8Array(await (await fetch(url)).arrayBuffer()) })))
   return v<string>('sandbox:scenery', files)
