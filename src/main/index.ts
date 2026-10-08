@@ -1691,7 +1691,8 @@ async function drawTempus(key: string, rows: { label: string; share: number }[],
   const urls = (await page.executeJavaScript(`(${tempusRows.toString()})(${JSON.stringify([rows, dots, widest])})`).catch(() => null)) as string[] | null
   if (!urls?.length) return
   tempusDrawn = { key, images: urls.map((url) => {
-    const image = nativeImage.createFromDataURL(url)
+    // Drawn at twice the size for a sharp Retina menu: said so, or the Mac shows it twice as big.
+    const image = nativeImage.createFromBuffer(Buffer.from(url.split(',')[1], 'base64'), { scaleFactor: 2 })
     image.setTemplateImage(true)
     return image
   }) }
