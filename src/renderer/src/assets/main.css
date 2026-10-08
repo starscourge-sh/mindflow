@@ -1216,7 +1216,7 @@ input[type='number']::-webkit-outer-spin-button {
 
 /* The box's sheet, hovering: a two-pixel rise and a deeper shadow, slowly.
    Paused while typing, still with Motion off or Reduce motion. */
-.mf-levitate { animation: mf-levitate 7s ease-in-out infinite; }
+.mf-levitate { animation: mf-levitate 5.5s ease-in-out infinite; }
 @keyframes mf-levitate {
   0%, 100% { translate: 0 0; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); }
   50% { translate: 0 -2px; box-shadow: 0 30px 36px -8px rgb(0 0 0 / 0.17), 0 12px 16px -6px rgb(0 0 0 / 0.12); }
