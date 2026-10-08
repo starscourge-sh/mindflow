@@ -18,7 +18,7 @@ import { slashItems } from "@/components/slash/slash-items"
 import { lookAtSelected } from "@/components/image/image-look"
 import { startCaption } from "@/extensions/caption"
 import { BLOCK_COLORS, COLORABLE } from "@/extensions/block-color"
-import { host } from "@/lib/host"
+import { host, said } from "@/lib/host"
 import { listDirection } from "@/lib/menu-keys"
 import { fitToWidth } from "@/lib/table"
 import { SpellingRows, type Misspelling } from "./spelling"
@@ -240,9 +240,9 @@ export function BlockMenu({
 
   /** The picture itself on the clipboard, not a link to it. */
   const copyImage = async () => {
-    if (imageSrc && !(await host().copyImage?.(imageSrc))) {
-      console.error(`Could not copy ${imageSrc}`)
-    }
+    if (!imageSrc) return
+    const done = !!(await host().copyImage?.(imageSrc))
+    said(done ? "Picture copied" : "Could not copy the picture", done)
   }
 
   /** Delete by range: `deleteNode` looks for an ancestor and misses atoms. */
@@ -414,7 +414,7 @@ export function BlockMenu({
 
         {href && matches("Copy link") ? (
           <DropdownMenuItem asChild>
-            <button type="button" onClick={() => void navigator.clipboard.writeText(href)}>
+            <button type="button" onClick={() => void navigator.clipboard.writeText(href).then(() => said("Link copied"), () => said("Could not copy the link", false))}>
               <span className="tiptap-slash-menu-title">Copy link</span>
             </button>
           </DropdownMenuItem>

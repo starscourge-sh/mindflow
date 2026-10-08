@@ -567,6 +567,13 @@ export const toast = (text: string, undo?: () => void, tone: ToastTone = 'succes
   window.dispatchEvent(new CustomEvent('vigil:toast', { detail: { text, undo, tone, action } }))
 }
 
+// What the editor says it did (a copy, from its own menus), said the app's way.
+addEventListener('mindflow:said', (event) => {
+  const { text, ok } = (event as CustomEvent<{ text: string; ok: boolean }>).detail
+  chime(ok ? 'copy' : 'nope')
+  toast(text, undefined, ok ? 'success' : 'error')
+})
+
 /** The toast up now goes: what it offered to take back was taken back another way. */
 export const untoast = (): void => void window.dispatchEvent(new CustomEvent('vigil:untoast'))
 
@@ -645,10 +652,18 @@ export function Beam(): React.JSX.Element | null {
 export const ask = (question: string, placeholder = '', field?: 'attribution' | 'medium', initial = ''): Promise<string | null> =>
   new Promise((answer) => void window.dispatchEvent(new CustomEvent('vigil:ask', { detail: { question, placeholder, field, initial, answer } })))
 
-/** The names typed before in a field, offered as you type: the list behind `list=`. */
-function Suggest({ field }: { field: 'attribution' | 'medium' }): React.JSX.Element {
-  const values = useLive(() => vigil.values(field), [] as string[])
-  return <datalist id={`remembered-${field}`}>{values.map((one) => <option key={one} value={one} />)}</datalist>
+/** The question's field when it is a name typed before: completes as you type, as Remembered does. */
+function AskRemembered({ field, initial, placeholder, onDone }: { field: 'attribution' | 'medium'; initial: string; placeholder: string; onDone: (words: string | null) => void }): React.JSX.Element {
+  const [words, setWords] = useState(initial)
+  return (
+    <Remembered field={field} value={words} onChange={setWords} placeholder={placeholder} autoFocus
+      className="h-9 w-full rounded-md border px-3 text-body"
+      onKeyDown={(event) => {
+        event.stopPropagation()
+        if (event.key === 'Enter') onDone(words)
+        if (event.key === 'Escape') onDone(null)
+      }} />
+  )
 }
 
 function Asker(): React.JSX.Element | null {
@@ -676,6 +691,10 @@ function Asker(): React.JSX.Element | null {
           if (!(event.target instanceof HTMLInputElement)) event.preventDefault()
         }}>
         <p className="mb-2 text-sm">{asked.question}</p>
+        {asked.field ? (
+          // Who said it before, completing as you type: it gets quicker with use.
+          <AskRemembered field={asked.field} initial={asked.initial ?? ''} placeholder={asked.placeholder} onDone={done} />
+        ) : (
         <Input
           autoFocus
           // Again a beat later: a right-click menu hands the focus back to
@@ -684,15 +703,13 @@ function Asker(): React.JSX.Element | null {
           placeholder={asked.placeholder}
           // A guess (a name already in the words) is offered, never kept unasked.
           defaultValue={asked.initial}
-          // Who said it before, offered as you type: it gets quicker with use.
-          list={asked.field ? `remembered-${asked.field}` : undefined}
           onKeyDown={(event) => {
             event.stopPropagation()
             if (event.key === 'Enter') done(event.currentTarget.value)
             if (event.key === 'Escape') done(null)
           }}
         />
-        {asked.field && <Suggest field={asked.field} />}
+        )}
         <p className="mt-2 text-xs text-muted-foreground">Enter to keep · Escape to leave it</p>
       </div>
     </div>
@@ -1047,7 +1064,7 @@ export function Remembered({ field, value, onChange, placeholder, className = 'f
     return typed.length >= 4 ? values.find((one) => near(one.toLowerCase(), typed)) : undefined
   }
   return (
-    <span className="relative inline-grid [&>*]:col-start-1 [&>*]:row-start-1">
+    <span className={cn('relative inline-grid [&>*]:col-start-1 [&>*]:row-start-1', /\bw-full\b/.test(className) && 'w-full')}>
       <input
         {...rest}
         value={value}

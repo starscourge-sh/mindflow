@@ -147,3 +147,12 @@ export function setHost(host: MindflowHost | undefined): void {
 export function host(): MindflowHost {
   return current
 }
+
+/**
+ * Something the editor did that has no mark of its own on the page (a copy):
+ * said out loud for whatever app holds the editor to show. Vigil turns it into
+ * a toast and a sound (components/vigil/ui.tsx); anywhere else it is quiet.
+ */
+export function said(text: string, ok = true): void {
+  window.dispatchEvent(new CustomEvent("mindflow:said", { detail: { text, ok } }))
+}
