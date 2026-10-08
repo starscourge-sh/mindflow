@@ -87,6 +87,14 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
     if (how === 'key' || still()) turn.jump(target)
     else {
       const run = animate(turn, target, { type: 'spring', bounce: 0.25, duration: 0.45, velocity })
+      // A flick carries the ring past stops on its way: each one it passes ticks, the last one rings as it lands.
+      let passing = here()
+      const off = turn.on('change', (deg) => {
+        const now = Math.round(-deg / per)
+        if (now !== passing && now !== raw) click('tick')
+        passing = now
+      })
+      void run.then(off, off)
       // Landed, and still there (not caught by another drag): a few sparks rise from it.
       if (big) void run.then(() => !drag.current && Math.abs(turn.get() - target) < 0.5 && sparks.current?.(wrap(raw)))
     }
@@ -220,7 +228,7 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
         onPointerMove={onMove}
         onPointerUp={onUp}
         onPointerCancel={onUp}
-        className={`relative shrink-0 touch-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${grabbing ? 'cursor-grabbing' : 'cursor-grab'}`}
+        className={`group/dial relative shrink-0 touch-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${grabbing ? 'cursor-grabbing' : 'cursor-grab'}`}
         style={{ width: size, height: size }}
       >
         {/* The face: a machined ring, the detents set into it. */}
@@ -231,6 +239,16 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
         <motion.div aria-hidden className="pointer-events-none absolute left-1/2 rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--primary)_32%,transparent),transparent)]" style={{ width: band * 1.9, height: band * 1.9, top: band * 0.6 - band * 0.95, x: '-50%', opacity: glow, scale: glowScale }} />
         <motion.div aria-hidden className="absolute top-[3px] left-1/2 -ml-px h-[7px] w-[2px] origin-top rounded-full bg-primary" style={{ y: notchY, scale: notchScale }} />
         <motion.div aria-hidden className="absolute inset-0" style={{ rotate: turn }}>
+          {/* A knurled edge round the face, like a grip: it turns with the ring, and darkens under the hand. */}
+          <svg className={`absolute inset-0 transition-opacity duration-200 ease-(--mf-ease) ${grabbing ? 'opacity-100' : 'opacity-60 group-hover/dial:opacity-90'}`} viewBox={`0 0 ${size} ${size}`}>
+            {/* Two rows, the inner one set half a step round, as the dots on a drag handle sit. */}
+            {[0, 1].flatMap((row) => Array.from({ length: GRIP }, (_, k) => {
+              const a = ((k + row / 2) / GRIP) * Math.PI * 2
+              const dot = Math.max(1.25, size / 200)
+              const r = size / 2 - band - Math.max(7, band * 0.24) - row * dot * 3.6
+              return <circle key={`${row}-${k}`} cx={size / 2 + r * Math.cos(a)} cy={size / 2 + r * Math.sin(a)} r={dot} className="fill-foreground/30" />
+            }))}
+          </svg>
           {themes.map((theme, i) => {
             const deg = i * per - 90
             const x = size / 2 + radius * Math.cos((deg * Math.PI) / 180)
@@ -252,6 +270,9 @@ export function ThemeDial({ size = 200, big = false, onPick, onFullTurn, say }: 
     </div>
   )
 }
+
+/** How many dots make the grip round the face. */
+const GRIP = 48
 
 /** One swatch on the ring: larger and brighter the nearer it is to the notch, falling off smoothly. */
 function Detent({ theme, i, x, y, per, grow, turn, counter }: { theme: Theme; i: number; x: number; y: number; per: number; grow: number; turn: MotionValue<number>; counter: MotionValue<number> }): React.JSX.Element {
