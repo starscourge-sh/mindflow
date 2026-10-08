@@ -50,6 +50,8 @@ function choose(scenes: Scene[], seed: string, moods: Mood[] | null, wide: boole
   if (best) picked.set(key, best.url)
   return best
 }
+/** Pictures already decoded in this window: shown without waiting again. */
+const decoded = new Set<string>()
 /** The picture each place has shown, for as long as this window is open. */
 const picked = new Map<string, string>()
 
@@ -153,14 +155,19 @@ export function Scenery({ place, seed, mood, text = 'none', fade = false, wide =
   const on = !!settings?.scenery && settings[SWITCH[place]] !== false
   const moods = mood ?? (settings?.sceneryTime ? moodsNow() : null)
   const scene = on ? choose(scenes, `${seed}:${settings?.sceneryShuffle ?? 0}`, moods, wide) : null
-  const [shown, setShown] = useState<Scene | null>(null)
+  // A picture decoded once this session shows at once after that: coming back
+  // to a page put up its plain colour first while the same file decoded again.
+  const [shown, setShown] = useState<Scene | null>(() => (scene && decoded.has(scene.url) ? scene : null))
+  // Already there when the page arrives: no fade up from the plain colour either.
+  const [ready] = useState(() => !!scene && decoded.has(scene.url))
   useEffect(() => {
     if (!scene || scene.url === shown?.url) return
+    if (decoded.has(scene.url)) return setShown(scene)
     // Decoded off the page's thread before it is shown, so the fade never stutters.
     let gone = false
     const image = new Image()
     image.src = scene.url
-    void image.decode().then(() => !gone && setShown(scene), () => !gone && setShown(null))
+    void image.decode().then(() => (decoded.add(scene.url), !gone && setShown(scene)), () => !gone && setShown(null))
     return () => void (gone = true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scene?.url])
@@ -178,7 +185,7 @@ export function Scenery({ place, seed, mood, text = 'none', fade = false, wide =
   const melt = fade ? 'linear-gradient(to bottom, black 0%, black 40%, transparent 96%)' : undefined
   return (
     <div aria-hidden className={`pointer-events-none overflow-hidden ${rounded} ${className}`} style={{ maskImage: melt, background: shown ? undefined : `color-mix(in srgb, ${scene.color} 30%, transparent)` }}>
-      <AnimatePresence initial={!!settings?.motion}>
+      <AnimatePresence initial={!!settings?.motion && !ready}>
         {shown && (
           <motion.img
             key={shown.url}
