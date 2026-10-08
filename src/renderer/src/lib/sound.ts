@@ -1,4 +1,5 @@
-import tearUrl from '@/assets/sounds/tear-paper.mp3'
+import tearUrl from '@/assets/sounds/paper-rip.m4a'
+import foldUrl from '@/assets/sounds/paper-fold.m4a'
 /**
  * Small sounds for the things you do, synthesised on the spot the way
  * sensory-ui does it: no files, no latency, a few lines of Web Audio. A click
@@ -468,24 +469,27 @@ export function installTicks(): () => void {
 
 /**
  * A recorded sound, for the few moments a drawn one cannot be: paper tearing
- * as a capture goes through the shredder. Read once and kept; played through
- * the same switch and volume as every other sound.
+ * as a capture goes through the shredder, a card folding over. Read once and
+ * kept; played through the same switch and volume as every other sound.
  */
 const recordings = new Map<string, Promise<AudioBuffer | null>>()
-export function tear(): void {
+function recording(url: string, level: number): void {
   if (!enabled || !volume) return
   const context = audio()
   if (!context) return
-  let buffer = recordings.get(tearUrl)
-  if (!buffer) recordings.set(tearUrl, (buffer = fetch(tearUrl).then((r) => r.arrayBuffer()).then((data) => context.decodeAudioData(data)).catch(() => null)))
+  let buffer = recordings.get(url)
+  if (!buffer) recordings.set(url, (buffer = fetch(url).then((r) => r.arrayBuffer()).then((data) => context.decodeAudioData(data)).catch(() => null)))
   void buffer.then((sound) => {
     if (!sound) return
     const source = context.createBufferSource()
     source.buffer = sound
     const gain = context.createGain()
     // A recording is louder than the drawn sounds: brought down to sit with them.
-    gain.gain.value = 0.55 * volume
+    gain.gain.value = level * volume
     source.connect(gain).connect(context.destination)
     source.start()
   })
 }
+export const tear = (): void => recording(tearUrl, 0.55)
+/** A review card turned over. */
+export const fold = (): void => recording(foldUrl, 0.5)

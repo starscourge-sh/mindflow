@@ -1,1 +1,2 @@
-tear-paper.mp3: "Tear paper" (103161) by freesound_community, from Pixabay (Pixabay Content License: free to use, no attribution required).
+paper-rip.m4a: "Paper Ripping", supplied by the project owner (the shredder's discard).
+paper-fold.m4a: one fold cut from "Paper Folding", supplied by the project owner (a review card turning over).

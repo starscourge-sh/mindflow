@@ -6,7 +6,7 @@ import { EASE, byKeys, shift } from '@/lib/motion'
 
 import { MindflowEditor } from '../mindflow'
 import { textOf } from '../rot-cards'
-import { chime } from '@/lib/sound'
+import { chime, fold } from '@/lib/sound'
 import { interval, vigil, when, type Due, type Exam, useLive } from '@/lib/vigil'
 import { Empty, Kbd, Page, Rolling, toast, Typed, typing, Pressed } from './ui'
 import { Input } from '@/components/ui/input'
@@ -81,7 +81,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   const reveal = (): void => {
     setOver(true)
     if (shown) return
-    chime('reveal')
+    fold()
     setShown(true)
     // Out of the box, so 1 to 4 grade straight away.
     ;(document.activeElement as HTMLElement | null)?.blur()
@@ -116,7 +116,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   // The card turned by a click or a drag: the first time over is the reveal.
   const turnTo = (next: boolean): void => {
     if (next && !shown) return reveal()
-    chime('page')
+    fold()
     setOver(next)
   }
   // Bury: not today. The schedule is untouched; it is back tomorrow.
