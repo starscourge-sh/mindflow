@@ -11,7 +11,8 @@ import CameraOffIcon from '@/components/ui/camera-off-icon'
 import HashtagIcon from '@/components/ui/hashtag-icon'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AnimatePresence, motion } from 'motion/react'
-import { EASE, byKeys, shift } from './lib/motion'
+import { EASE, byKeys, shift, spring } from './lib/motion'
+import { Highlight, Unfold, useChosen, useFluidHover, Weighted } from './components/vigil/glide'
 import { chime, soundOn } from './lib/sound'
 import { foldEverything } from './extensions/heading-fold'
 import { NotePreview } from './components/vigil/note-preview'
@@ -291,6 +292,12 @@ export function Home(): React.JSX.Element {
   const [tasksOpen, setTasksOpen] = useRemembered('sidebar:tasks', true)
   const [keptOpen, setKeptOpen] = useRemembered('sidebar:kept', true)
   const [customizing, setCustomizing] = useState(false)
+  // One light for the whole sidebar list, gliding to the row nearest the
+  // pointer, and the page you are on marked by one fill that travels to the
+  // next. A row folding shut is left out of both.
+  const sideList = useRef<HTMLDivElement>(null)
+  const sideHover = useFluidHover(sideList, { items: '[data-side-row]:not([inert] *)' })
+  const sideChosen = useChosen(sideList, '[data-side-row][aria-current="page"]:not([inert] *)', `${view.id}:${view.focus ?? ''}`)
   // A calm sidebar: what serves capturing and coming back; the rest under More.
   const shown = useShown('sidebarShown')
   const pins = useLive(vigil.pins, [] as Pin[])
@@ -551,7 +558,9 @@ export function Home(): React.JSX.Element {
             {!narrow && <Pressed keys="⌘K" />}
           </button>
         </div>
-        <div className="mf-fade-end flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pt-1 pb-3">
+        <div ref={sideList} {...sideHover.handlers} className="mf-fade-end relative isolate flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pt-1 pb-3">
+        <Highlight spot={sideChosen.spot} snap={sideChosen.snap} travel={spring.moderate} className="bg-accent" />
+        <Highlight spot={sideHover.spot} session={sideHover.session} snap={sideHover.snap} from={sideChosen.spot} />
         <nav className="flex flex-col gap-px">
           {(() => {
             const row = (section: (typeof SECTIONS)[number]): React.JSX.Element => (
@@ -561,14 +570,16 @@ export function Home(): React.JSX.Element {
                 type="button"
                 data-home={section.id === 'nuggets' ? 'nugget' : section.id === 'upcoming' ? 'task' : section.id === 'questions' ? 'question' : undefined}
                 data-tour={section.id === 'inbox' || section.id === 'review' ? section.id : undefined}
+                data-side-row
                 aria-label={section.label}
+                aria-current={view.id === section.id ? 'page' : undefined}
                 onClick={() => setView({ id: section.id })}
-                className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors ${narrow ? 'justify-center px-0' : 'px-2'} ${view.id === section.id ? 'bg-accent text-foreground' : 'text-foreground/80 hover:bg-accent/60'}`}
+                className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors duration-80 ${narrow ? 'justify-center px-0' : 'px-2'} ${view.id === section.id ? 'text-foreground' : 'text-foreground/80'}`}
               >
                 {/* Each icon keeps its colour, softened while at rest so the hues do not
                     shout at once; the one you are on, or reaching for, is in full. */}
                 <PlaceIcon place={section} full={view.id === section.id} />
-                {!narrow && <span className="flex-1 truncate text-left">{section.label}</span>}
+                {!narrow && <Weighted on={view.id === section.id} className="flex-1 text-left">{section.label}</Weighted>}
                 {!narrow && counts[section.id] ? (
                   <Rolling
                     text={counts[section.id]}
@@ -590,11 +601,12 @@ export function Home(): React.JSX.Element {
                   <button
                     type="button"
                     aria-expanded={open}
+                    data-side-row
                     onClick={() => (chime(open ? 'fold' : 'slide'), fold(!open))}
-                    className="flex flex-1 items-center gap-1 rounded-md px-2 py-0.5 text-left text-meta text-muted-foreground transition-colors hover:text-foreground"
+                    className="flex flex-1 items-center gap-1 rounded-md px-2 py-0.5 text-left text-meta text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground"
                   >
                     {label}
-                    <ChevronRight className={`size-3 transition-[rotate,opacity] ${open ? 'rotate-90 opacity-0 group-hover/head:opacity-100' : ''}`} />
+                    <ChevronRight className={`size-3 transition-[rotate,opacity] duration-80 ${open ? 'rotate-90 opacity-0 group-hover/head:opacity-100' : ''}`} />
                   </button>
                   {customize && (
                     <Tip label="Customize sidebar">
@@ -610,6 +622,11 @@ export function Home(): React.JSX.Element {
             const branched = (list: typeof SECTIONS): React.JSX.Element => (
               <Branches current={list.findIndex((section) => section.id === view.id)} className="flex flex-col gap-px">{list.map(row)}</Branches>
             )
+            // A fold opens to its height and shuts to nothing; shut, the row you are on still shows under its heading.
+            const folding = (list: typeof SECTIONS, open: boolean): React.JSX.Element => (<>
+              <Unfold open={open && !narrow}>{branched(list)}</Unfold>
+              {!(open && !narrow) && list.filter((section) => narrow || view.id === section.id).map(row)}
+            </>)
             const visible = SECTIONS.filter((section) => shown.includes(section.id))
             const hidden = SECTIONS.filter((section) => !shown.includes(section.id))
             const first = SECTIONS.findIndex((section) => section.group)
@@ -618,14 +635,14 @@ export function Home(): React.JSX.Element {
               const list = visible.filter((section) => section.group === name)
               if (!list.length) return null
               // Folded, the one you are on still shows, so you never lose your place.
-              return <Fragment key={name}>{heading(name, open, fold)}{open && !narrow ? branched(list) : list.filter((section) => narrow || view.id === section.id).map(row)}</Fragment>
+              return <Fragment key={name}>{heading(name, open, fold)}{folding(list, open)}</Fragment>
             }
             return (<>
               {loose(false).map(row)}
               {/* Pinned, Notion's Favourites: only there while something is. */}
               {pins.length > 0 && (<>
                 {heading('Pinned', pinsOpen, setPinsOpen, false)}
-                {(pinsOpen || narrow) && <Branches current={-1} bare={narrow} className="flex flex-col gap-px">{pins.map((pin) => {
+                <Unfold open={pinsOpen || narrow}><Branches current={-1} bare={narrow} className="flex flex-col gap-px">{pins.map((pin) => {
                   const kind = CAPTURE_TYPES.find((type) => type.id === pin.kind) ?? CAPTURE_TYPES[0]
                   const table = pin.type === 'capture' ? 'captures' : 'nuggets'
                   return (
@@ -639,8 +656,9 @@ export function Home(): React.JSX.Element {
                       <button
                         type="button"
                         data-private={pin.private ? '' : undefined}
+                        data-side-row
                         onClick={() => open(pin.type, pin.id)}
-                        className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1.5 text-foreground/80 transition-colors hover:bg-accent/60 ${narrow ? 'justify-center px-0' : 'px-2'}`}
+                        className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1.5 text-foreground/80 ${narrow ? 'justify-center px-0' : 'px-2'}`}
                       >
                         <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
                         {!narrow && <span className="private-text min-w-0 flex-1 truncate text-left">{pin.title || 'Untitled'}</span>}
@@ -649,7 +667,7 @@ export function Home(): React.JSX.Element {
                       </span>
                     </RowMenu>
                   )
-                })}</Branches>}
+                })}</Branches></Unfold>
               </>)}
               {group('Tasks', tasksOpen, setTasksOpen)}
               {group('Kept', keptOpen, setKeptOpen)}
@@ -658,13 +676,13 @@ export function Home(): React.JSX.Element {
               {/* Everything not shown, one fold away; G and a letter reach it anyway. */}
               {hidden.length > 0 && (narrow ? (
                 <Tip label="More">
-                  <button type="button" aria-expanded={moreOpen} aria-label="More" onClick={() => (chime(moreOpen ? 'fold' : 'slide'), setMoreOpen(!moreOpen))}
+                  <button type="button" data-side-row aria-expanded={moreOpen} aria-label="More" onClick={() => (chime(moreOpen ? 'fold' : 'slide'), setMoreOpen(!moreOpen))}
                     className="mt-3 flex justify-center rounded-md py-1 text-muted-foreground hover:text-foreground">
                     <AliveIcon icon={DotsHorizontalIcon} size={16} />
                   </button>
                 </Tip>
               ) : heading('More', moreOpen, setMoreOpen))}
-              {moreOpen && !narrow ? branched(hidden) : hidden.filter((section) => moreOpen || view.id === section.id).map(row)}
+              {narrow ? hidden.filter((section) => moreOpen || view.id === section.id).map(row) : folding(hidden, moreOpen)}
             </>)
           })()}
         </nav>
@@ -672,12 +690,14 @@ export function Home(): React.JSX.Element {
         {!narrow && (<>
         <button
           type="button"
+          data-side-row
+          aria-expanded={kindsOpen}
           onClick={() => (chime(kindsOpen ? 'fold' : 'slide'), setKindsOpen(!kindsOpen))}
-          className="mt-3 mb-0.5 flex items-center gap-1 rounded-md px-2 py-0.5 text-meta text-muted-foreground transition-colors hover:text-foreground"
+          className="mt-3 mb-0.5 flex items-center gap-1 rounded-md px-2 py-0.5 text-meta text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground"
         >
-          Kinds <ChevronRight className={`size-3 transition-transform ${kindsOpen ? 'rotate-90' : ''}`} />
+          Kinds <ChevronRight className={`size-3 transition-transform duration-80 ${kindsOpen ? 'rotate-90' : ''}`} />
         </button>
-        {kindsOpen && (
+        <Unfold open={kindsOpen}>
           <Branches current={CAPTURE_TYPES.findIndex((type) => view.id === `kind:${type.id}`)} className="flex flex-col">
           {CAPTURE_TYPES.map((type) => {
             const count = captures.filter((capture) => capture.kind === type.id && capture.status !== 'discarded' && !capture.archivedAt).length
@@ -685,45 +705,51 @@ export function Home(): React.JSX.Element {
               <button
                 key={type.id}
                 type="button"
+                data-side-row
+                aria-current={view.id === `kind:${type.id}` ? 'page' : undefined}
                 onClick={() => setView({ id: `kind:${type.id}` })}
-                className={`flex items-center gap-2.5 rounded-md px-2 py-1 ${view.id === `kind:${type.id}` ? 'bg-accent' : 'text-foreground/80 hover:bg-accent/60'}`}
+                className={`flex w-full items-center gap-2.5 rounded-md px-2 py-1 ${view.id === `kind:${type.id}` ? '' : 'text-foreground/80'}`}
               >
                 <type.icon className="size-4" style={{ color: type.tint }} />
-                <span className="flex-1 text-left">{type.label}</span>
+                <Weighted on={view.id === `kind:${type.id}`} className="flex-1 text-left">{type.label}</Weighted>
                 <span className="text-xs text-muted-foreground tabular-nums">{count ? <Rolling text={count} /> : ''}</span>
               </button>
             )
           })}
           </Branches>
-        )}
+        </Unfold>
 
         {/* Your most used tags, with counts, the way Todoist keeps favourite labels. */}
         {tags.length > 0 && (
           <button
             type="button"
+            data-side-row
+            aria-expanded={tagsOpen}
             onClick={() => (chime(tagsOpen ? 'fold' : 'slide'), setTagsOpen(!tagsOpen))}
-            className="mt-3 mb-0.5 flex items-center gap-1 rounded-md px-2 py-0.5 text-meta text-muted-foreground transition-colors hover:text-foreground"
+            className="mt-3 mb-0.5 flex items-center gap-1 rounded-md px-2 py-0.5 text-meta text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground"
           >
-            Tags <ChevronRight className={`size-3 transition-transform ${tagsOpen ? 'rotate-90' : ''}`} />
+            Tags <ChevronRight className={`size-3 transition-transform duration-80 ${tagsOpen ? 'rotate-90' : ''}`} />
           </button>
         )}
-        {tagsOpen && (
+        <Unfold open={tagsOpen && tags.length > 0}>
           <Branches current={view.id === 'tags' ? sideTags.findIndex(({ tag }) => tag === view.focus) : -1} className="flex flex-col">
           {sideTags.map(({ tag, count, color }) => (
             <button
               key={tag}
               type="button"
+              data-side-row
+              aria-current={view.id === 'tags' && view.focus === tag ? 'page' : undefined}
               onClick={() => setView({ id: 'tags', focus: tag })}
-              className={`flex items-center gap-2.5 rounded-md px-2 py-1 ${view.id === 'tags' && view.focus === tag ? 'bg-accent' : 'text-foreground/80 hover:bg-accent/60'}`}
+              className={`flex w-full items-center gap-2.5 rounded-md px-2 py-1 ${view.id === 'tags' && view.focus === tag ? '' : 'text-foreground/80'}`}
             >
               <Tag className="size-4 text-muted-foreground" style={color ? { color: `var(--tt-color-text-${color})` } : undefined} />
-              <span className="flex-1 truncate text-left">{tag}</span>
+              <Weighted on={view.id === 'tags' && view.focus === tag} className="flex-1 text-left">{tag}</Weighted>
               {pinnedTags.includes(tag) && <PinMark className="size-3 text-muted-foreground" aria-label="Pinned" />}
               <span className="text-xs text-muted-foreground tabular-nums"><Rolling text={count} /></span>
             </button>
           ))}
           </Branches>
-        )}
+        </Unfold>
         </>)}
 
         </div>

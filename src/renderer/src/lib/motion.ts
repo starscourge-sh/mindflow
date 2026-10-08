@@ -131,3 +131,25 @@ export const TURN: Variants = {
   here: () => ({ opacity: 1, transform: shift('translateY(0px)') }),
   gone: (keyed: boolean) => (keyed ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, transform: shift('translateY(-6px)'), transition: { duration: 0.1, ease: EASE } })
 }
+
+/**
+ * Three speeds for what answers the hand (Fluid Functionalism's springs): the
+ * bigger the thing that moves, the slower. `fast` for a hover, a highlight, a
+ * fold; `moderate` for a selection travelling between choices, which must land
+ * exactly; `slow` for a whole panel. Each enter is a spring, so a change of
+ * mind turns it round from where it is; each has its `exit`, a plain tween one
+ * step quicker, so going away reads as done rather than the arrival played
+ * backwards. Take one of these rather than writing a duration.
+ */
+export const spring = {
+  fast: { type: 'spring' as const, duration: 0.08, bounce: 0, exit: { duration: 0.06 } },
+  moderate: { type: 'spring' as const, duration: 0.16, bounce: 0, exit: { duration: 0.12 } },
+  slow: { type: 'spring' as const, duration: 0.24, bounce: 0.12, exit: { duration: 0.16 } }
+} as const
+
+/**
+ * The two weights a label moves between: at rest, and chosen or open. Set as
+ * `font-weight`, not a variation setting: the root's settings give the face
+ * its SOFT and WONK, and a variation list on a label would replace them.
+ */
+export const WEIGHT = { normal: 400, chosen: 550 } as const

@@ -1,4 +1,4 @@
-import { Fragment } from 'react'
+import { Fragment, useRef } from 'react'
 import { Flag, Minus, Plus } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import FileDescriptionIcon from '@/components/ui/file-description-icon'
@@ -15,6 +15,7 @@ import { openWindow } from '@/lib/notes'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type Recent, type Settings } from '@/lib/vigil'
 import { Rolling, Tip, Typed } from './ui'
+import { Highlight, useFluidHover } from './glide'
 import { clock, dayKey as dayOf, dayName, daysFromToday } from '../../../../main/dates'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -57,6 +58,9 @@ export function RecentPanel({ until, onOpen, onClose, className = '' }: {
   const settings = useLive(vigil.settings, null as Settings | null)
   const days = until ? 7 : settings?.recentDays ?? 7
   const list = useLive(() => vigil.recent(days, until ?? null), null as Recent[] | null, [days, until])
+  // One light over the rows, gliding to the nearest; over a day's heading it stays on a row.
+  const rows = useRef<HTMLDivElement>(null)
+  const hover = useFluidHover(rows, { items: '[data-recent-row]' })
   const reach = (by: number): void => {
     const next = Math.max(1, Math.min(30, days + by))
     if (next === days) return chime('nope')
@@ -87,7 +91,8 @@ export function RecentPanel({ until, onOpen, onClose, className = '' }: {
           </Tip>
         )}
       </header>
-      <div className="mf-more min-h-0 flex-1 overflow-y-auto px-1.5 pb-3">
+      <div ref={rows} {...hover.handlers} className="mf-more relative isolate min-h-0 flex-1 overflow-y-auto px-1.5 pb-3">
+        <Highlight spot={hover.spot} session={hover.session} snap={hover.snap} />
         {list && !list.length && (
           <p className="px-2 py-4 text-control text-muted-foreground">
             <Typed text={until ? 'Nothing was made that week.' : `Nothing made in the last ${days === 1 ? 'day' : `${days} days`}. What you capture, keep or plan shows here, newest first.`} step={28} />
@@ -108,13 +113,14 @@ export function RecentPanel({ until, onOpen, onClose, className = '' }: {
                   exit={{ opacity: 0, transition: { duration: 0.1 } }}
                   transition={{ duration: 0.16, ease: EASE }}
                   type="button"
+                  data-recent-row
                   data-private={one.private ? '' : undefined}
                   onClick={(event) => {
                     if (event.metaKey && one.type !== 'task') return openWindow(one.type, one.id)
                     chime('tap')
                     onOpen(one.type, one.id)
                   }}
-                  className="group/recent flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-control hover:bg-accent/60"
+                  className="group/recent flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-control"
                 >
                   <Mark className="size-4 shrink-0" style={one.type === 'capture' && kind ? { color: kind.tint } : undefined} />
                   <span className={`private-text min-w-0 flex-1 truncate ${closed(one) ? 'text-muted-foreground line-through decoration-foreground/40' : 'text-foreground'}`}>{one.title || 'Untitled'}</span>

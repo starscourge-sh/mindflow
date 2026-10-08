@@ -109,7 +109,7 @@ const SHOWN: Record<Shown, string[]> = {
 
 /** A place's icon in its theme colour, softened unless `full`. */
 export function PlaceIcon({ place, full }: { place: Place; full?: boolean }): React.JSX.Element {
-  const className = `size-4 shrink-0 transition-colors ${full ? 'text-[var(--tint)]' : 'text-[color-mix(in_oklab,var(--tint)_55%,var(--muted-foreground))] group-hover:text-[var(--tint)]'}`
+  const className = `size-4 shrink-0 transition-colors duration-80 ${full ? 'text-[var(--tint)]' : 'text-[color-mix(in_oklab,var(--tint)_55%,var(--muted-foreground))] group-hover:text-[var(--tint)] group-data-[fluid-hover-active]:text-[var(--tint)]'}`
   const style = { '--tint': `var(--tt-color-text-${place.tint})` } as CSSProperties
   return place.alive ? <AliveIcon icon={place.alive} size={16} className={className} style={style} /> : <place.icon className={className} style={style} />
 }
