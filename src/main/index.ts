@@ -1712,10 +1712,10 @@ function tempusRows([rows, dots, widest]: [{ label: string; share: number }[], b
   const font = '13px -apple-system, system-ui'
   const measure = document.createElement('canvas').getContext('2d')!
   measure.font = font
-  // A row's own size, not the menu's: as wide as the longest goal line, the bars
-  // stretched across the whole menu and looked blown up. As tall as a line of
-  // menu text, so the menu's own padding makes it a row like the others.
-  const width = Math.ceil(Math.min(260, Math.max(220, ...widest.map((words) => measure.measureText(words).width))))
+  // Across the menu's full width, the percent at its right edge with the menu's
+  // own shortcuts; as tall as a line of menu text, so the menu's padding makes
+  // it a row like the others rather than a taller, blown-up one.
+  const width = Math.ceil(Math.max(220, ...widest.map((words) => measure.measureText(words).width)))
   const height = 16
   return rows.map(({ label, share }) => {
     const canvas = document.createElement('canvas')
