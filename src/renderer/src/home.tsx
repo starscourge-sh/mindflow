@@ -67,6 +67,7 @@ import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { openWindow } from '@/lib/notes'
 import { PlaceIcon, SECTIONS, ShowList, useShown } from '@/components/vigil/places'
+import { Branches } from '@/components/vigil/branches'
 import { Term, WordNotes } from '@/components/vigil/term'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { RowMenu } from '@/components/vigil/row-menu'
@@ -605,6 +606,10 @@ export function Home(): React.JSX.Element {
                   )}
                 </div>
               )
+            // Open, a group's rows hang off its heading, the way down to where you are lit.
+            const branched = (list: typeof SECTIONS): React.JSX.Element => (
+              <Branches current={list.findIndex((section) => section.id === view.id)} className="flex flex-col gap-px">{list.map(row)}</Branches>
+            )
             const visible = SECTIONS.filter((section) => shown.includes(section.id))
             const hidden = SECTIONS.filter((section) => !shown.includes(section.id))
             const first = SECTIONS.findIndex((section) => section.group)
@@ -613,14 +618,14 @@ export function Home(): React.JSX.Element {
               const list = visible.filter((section) => section.group === name)
               if (!list.length) return null
               // Folded, the one you are on still shows, so you never lose your place.
-              return <Fragment key={name}>{heading(name, open, fold)}{list.filter((section) => open || narrow || view.id === section.id).map(row)}</Fragment>
+              return <Fragment key={name}>{heading(name, open, fold)}{open && !narrow ? branched(list) : list.filter((section) => narrow || view.id === section.id).map(row)}</Fragment>
             }
             return (<>
               {loose(false).map(row)}
               {/* Pinned, Notion's Favourites: only there while something is. */}
               {pins.length > 0 && (<>
                 {heading('Pinned', pinsOpen, setPinsOpen, false)}
-                {(pinsOpen || narrow) && pins.map((pin) => {
+                {(pinsOpen || narrow) && <Branches current={-1} bare={narrow} className="flex flex-col gap-px">{pins.map((pin) => {
                   const kind = CAPTURE_TYPES.find((type) => type.id === pin.kind) ?? CAPTURE_TYPES[0]
                   const table = pin.type === 'capture' ? 'captures' : 'nuggets'
                   return (
@@ -644,7 +649,7 @@ export function Home(): React.JSX.Element {
                       </span>
                     </RowMenu>
                   )
-                })}
+                })}</Branches>}
               </>)}
               {group('Tasks', tasksOpen, setTasksOpen)}
               {group('Kept', keptOpen, setKeptOpen)}
@@ -659,7 +664,7 @@ export function Home(): React.JSX.Element {
                   </button>
                 </Tip>
               ) : heading('More', moreOpen, setMoreOpen))}
-              {hidden.filter((section) => moreOpen || view.id === section.id).map(row)}
+              {moreOpen && !narrow ? branched(hidden) : hidden.filter((section) => moreOpen || view.id === section.id).map(row)}
             </>)
           })()}
         </nav>
@@ -672,8 +677,9 @@ export function Home(): React.JSX.Element {
         >
           Kinds <ChevronRight className={`size-3 transition-transform ${kindsOpen ? 'rotate-90' : ''}`} />
         </button>
-        {kindsOpen &&
-          CAPTURE_TYPES.map((type) => {
+        {kindsOpen && (
+          <Branches current={CAPTURE_TYPES.findIndex((type) => view.id === `kind:${type.id}`)} className="flex flex-col">
+          {CAPTURE_TYPES.map((type) => {
             const count = captures.filter((capture) => capture.kind === type.id && capture.status !== 'discarded' && !capture.archivedAt).length
             return (
               <button
@@ -688,6 +694,8 @@ export function Home(): React.JSX.Element {
               </button>
             )
           })}
+          </Branches>
+        )}
 
         {/* Your most used tags, with counts, the way Todoist keeps favourite labels. */}
         {tags.length > 0 && (
@@ -699,8 +707,9 @@ export function Home(): React.JSX.Element {
             Tags <ChevronRight className={`size-3 transition-transform ${tagsOpen ? 'rotate-90' : ''}`} />
           </button>
         )}
-        {tagsOpen &&
-          sideTags.map(({ tag, count, color }) => (
+        {tagsOpen && (
+          <Branches current={view.id === 'tags' ? sideTags.findIndex(({ tag }) => tag === view.focus) : -1} className="flex flex-col">
+          {sideTags.map(({ tag, count, color }) => (
             <button
               key={tag}
               type="button"
@@ -713,6 +722,8 @@ export function Home(): React.JSX.Element {
               <span className="text-xs text-muted-foreground tabular-nums"><Rolling text={count} /></span>
             </button>
           ))}
+          </Branches>
+        )}
         </>)}
 
         </div>
