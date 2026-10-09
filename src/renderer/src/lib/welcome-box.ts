@@ -23,7 +23,7 @@ export type Starter = { kind: 'todo' | 'quote' | 'word' | 'link'; text: string; 
 /** Three things to catch, one of each kind, each showing off what its kind does. */
 export const STARTERS: Starter[] = [
   // Two days from now by name, so the day read back is that day and never "today".
-  { kind: 'todo', text: `Book tickets for Dune Part Three on ${dayjs().add(2, 'day').format('dddd')} 7pm` },
+  { kind: 'todo', text: `Book tickets for the Star Wars marathon on ${dayjs().add(2, 'day').format('dddd')} 7pm` },
   // Yoda, to Luke on Dagobah, in The Empire Strikes Back (1980).
   { kind: 'quote', text: '“Do or do not. There is no try.”', who: 'Yoda', where: 'The Empire Strikes Back' },
   { kind: 'word', text: 'petrichor\nThe smell of rain falling on dry earth.' },

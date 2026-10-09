@@ -19,6 +19,7 @@ import { ThemeDial } from './theme-dial'
 import { RecapRadar } from './recap-radar'
 import { Kbd, toast } from './ui'
 import { FULL_TURN, glyph, inClay, konami } from './welcome-eggs'
+import { DeskSticky, EveningReview, GoalRoad, Moment, MorningBox } from './welcome-day'
 import {
   CAM, Camera, Chip, DRAWER, EMPTY_BOX, WIDE, frameOn, GhostHand, KINDS, LAND, LinkScene, PostcardResult, QUOTE, Rise, Slots, Stage, TaskResult, CardResult, LinkResult, WORD,
   cue, seeded, starterOf, typed, useScript, type Beat, type Box, type Kind, type MapShot
@@ -47,13 +48,14 @@ import {
  * Reduce motion: every chapter arrives settled, with fades only.
  */
 
-const CHAPTERS = ['Catch', 'Become', 'Connect', 'Return', 'Make it yours', 'Ready']
+const CHAPTERS = ['Catch', 'Become', 'A day', 'Connect', 'Return', 'Make it yours', 'Ready']
 const CATCH = 1
 const BECOME = 2
-const CONNECT = 3
-const RETURN = 4
-const DIAL = 5
-const LAST = 6
+const DAY = 3
+const CONNECT = 4
+const RETURN = 5
+const DIAL = 6
+const LAST = 7
 const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 const capsOf = (keys: string): string[] => keys.match(/[⌃⌥⇧⌘]|[^⌃⌥⇧⌘]+/g) ?? []
 /** The window's size, kept fresh: the keycaps and the dial are sized to it. */
@@ -371,10 +373,11 @@ export function Welcome(): React.JSX.Element | null {
               {at === 0 && <Hello replay={replay} kept={kept} calm={!play} newcomer={newcomer} today={earlier + caught.length} />}
               {at === CATCH && <CatchChapter play={play} report={report} state={state} onState={setState} />}
               {at === BECOME && <BecomeChapter play={play} report={report} pick={pick} onPick={choose} turn={turn} mine={mine} />}
+              {at === DAY && <DayChapter play={play} report={report} />}
               {at === CONNECT && <ConnectChapter play={play} report={report} />}
               {at === RETURN && <ReturnChapter play={play} report={report} />}
               {at === DIAL && <DialChapter play={play} report={report} onPick={(theme) => (picked.current = theme)} />}
-              {at === LAST && <Start name={name} kept={caught.length} skipped={skipped} importing={importing} still={!play} onPick={start} onFiles={() => (leave('notes'), void window.api.importFrom('files'))} />}
+              {at === LAST && <Start name={name} kept={caught.length} skipped={skipped} importing={importing} still={!play} onPick={start} onFiles={() => (leave('notes'), void window.api.importFrom('files'))} onPowers={() => (leave('notes'), window.api.openInHome('view', 'powers'))} />}
             </motion.section>
           </AnimatePresence>
         </main>
@@ -745,7 +748,99 @@ function BecomeChapter({ play, report, pick, onPick, turn, mine }: { play: boole
   )
 }
 
-// --- 3 Connect ----------------------------------------------------------------------
+// --- 3 A day with Vigil -------------------------------------------------------------
+
+type DayState = { docked: boolean; look: number; answered: number; hint: boolean; tip: boolean; asking: boolean; question: string; kept: boolean; sticky: boolean; ticked: boolean; line: string; chip: boolean; logged: boolean; over: boolean; hand: string | null; down: boolean; overview: boolean }
+
+/**
+ * An ordinary day, in four moments, each a problem and then what Vigil does
+ * about it, the camera moving from one to the next across the day and pulling
+ * back at the end to show them all.
+ */
+function dayBeats(): Beat<DayState>[] {
+  const random = seeded(23)
+  const beats: Beat<DayState>[] = [
+    { at: 0, to: {} },
+    { at: 900, to: { docked: true, look: 0 } },
+    // Morning: something kept comes back in the box; worth knowing, so it goes to Review.
+    { at: 2000, to: { hint: true, answered: 1 }, cue: cue('memory') },
+    { at: 3300, to: { hand: 'thumbs' } },
+    { at: 3800, to: { tip: true } },
+    { at: 4600, to: { down: true }, cue: () => click('tick') },
+    { at: 4680, to: { down: false, tip: false, asking: true, hand: null }, cue: cue('promote') }
+  ]
+  const ask = typed<DayState>('What is a commonplace book?', 4900, (sofar) => ({ question: sofar }), random, 0.45)
+  beats.push(...ask.beats)
+  let t = ask.end + 350
+  beats.push({ at: t, to: { kept: true }, cue: cue('noted') })
+  // While working: the day's tasks stay on the desktop.
+  t += 1100
+  beats.push({ at: t, to: { look: 1 } })
+  beats.push({ at: t + 1100, to: { sticky: true, answered: 2 }, cue: cue('stick') })
+  beats.push({ at: t + 2300, to: { hand: 'tick' } })
+  beats.push({ at: t + 2900, to: { ticked: true, down: true }, cue: cue('done') })
+  beats.push({ at: t + 3000, to: { down: false, hand: null } })
+  // The long run: a log from the box lights today on the goal's road.
+  t += 3600
+  beats.push({ at: t, to: { look: 2 } })
+  const log = typed<DayState>('+half marathon: 8k today', t + 1100, (sofar) => ({ line: sofar, chip: sofar.length > 3 }), random, 0.45)
+  beats.push(...log.beats)
+  t = log.end + 300
+  beats.push({ at: t, to: { hand: 'add-log' } })
+  beats.push({ at: t + 650, to: { down: true }, cue: () => click('tick') })
+  beats.push({ at: t + 730, to: { down: false, logged: true, chip: false, line: '', answered: 3, hand: null }, cue: cue('mark') })
+  // Evening: Review asks, just before you would forget.
+  t += 1700
+  beats.push({ at: t, to: { look: 3 } })
+  beats.push({ at: t + 1000, to: { answered: 4 } })
+  beats.push({ at: t + 1700, to: { over: true }, cue: () => fold() })
+  beats.push({ at: t + 3000, to: { overview: true }, cue: cue('zoomout') })
+  beats.push({ at: t + 4100, to: {} })
+  return beats
+}
+
+function DayChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
+  const [beats] = useState(dayBeats)
+  const show = useScript<DayState>({ docked: false, look: -1, answered: 0, hint: false, tip: false, asking: false, question: '', kept: false, sticky: false, ticked: false, line: '', chip: false, logged: false, over: false, hand: null, down: false, overview: false }, beats, play)
+  useReport(report, show.done, show.settle)
+  const s = show.state
+  const scene = useRef<HTMLDivElement>(null)
+  const world = useRef<HTMLDivElement>(null)
+  // The moment in view, or all four from above once the day is done.
+  const shot = s.overview || s.look < 0 ? { k: 0.5, x: 0, y: 0 } : frameOn(world.current, `moment-${s.look}`, 1)
+  const moments: [string, string, ReactNode][] = [
+    ['Morning', 'You saved it, then never saw it again.', <>Now and then, opening the box brings back something you kept, on its own. Worth knowing? Thumbs up, and Review will test you on it.</>],
+    ['While you work', 'Your plan is in a tab you closed.', <>Today’s tasks can stay on your desktop as a sticky note, over whatever you are working in. Tick them off right there.</>],
+    ['The long run', 'Big goals get lost in small days.', <>A goal keeps its road in sight. Start a line in the box with + and the goal’s name, and the step is logged. Small days, added up, get you there.</>],
+    ['Evening', 'You read it, and a week later it is gone.', <>Review asks you just before you would forget, further apart each time.</>]
+  ]
+  return (
+    <>
+      <Words title="A day with Vigil." docked={s.docked} still={!play} done={show.done}>
+        What a normal day looks like once you have kept a few things.
+      </Words>
+      <div ref={scene} className="relative min-h-0 flex-1 overflow-hidden">
+        <Camera shot={shot} className="absolute -top-1/2 -left-1/2 h-[200%] w-[200%]">
+          <div ref={world} className="relative grid size-full grid-cols-2 grid-rows-2">
+            {moments.map(([hour, problem, answer], i) => (
+              <div key={hour} data-frame={`moment-${i}`} className="min-h-0 min-w-0">
+                <Moment hour={hour} problem={problem} answer={answer} answered={s.answered > i}>
+                  {i === 0 && <MorningBox shown={s.hint} tip={s.tip} asking={s.asking} question={s.question} kept={s.kept} />}
+                  {i === 1 && <DeskSticky on={s.sticky} ticked={s.ticked} />}
+                  {i === 2 && <GoalRoad line={s.line} chip={s.chip} logged={s.logged} />}
+                  {i === 3 && <EveningReview over={s.over} />}
+                </Moment>
+              </div>
+            ))}
+          </div>
+        </Camera>
+        {play && !show.done && <GhostHand to={s.hand} down={s.down} root={scene} />}
+      </div>
+    </>
+  )
+}
+
+// --- 4 Connect ----------------------------------------------------------------------
 
 type ConnectState = MapShot & { docked: boolean; cards: boolean; hand: string | null }
 
@@ -1421,7 +1516,7 @@ function RollingYear({ from }: { from: number }): React.JSX.Element {
  * arrow at the top of the window points at Vigil in the menu bar, so the
  * words do not have to.
  */
-function Start({ name, kept, skipped, importing, still, onPick, onFiles }: { name: string; kept: number; skipped: false | 'first' | 'later'; importing: boolean; still: boolean; onPick: (pick: 1 | 2 | 3) => void; onFiles: () => void }): React.JSX.Element {
+function Start({ name, kept, skipped, importing, still, onPick, onFiles, onPowers }: { name: string; kept: number; skipped: false | 'first' | 'later'; importing: boolean; still: boolean; onPick: (pick: 1 | 2 | 3) => void; onFiles: () => void; onPowers: () => void }): React.JSX.Element {
   const others: { key: 2 | 3; title: string }[] = [
     { key: 2, title: 'Try the sandbox first' },
     { key: 3, title: 'Bring my notes' }
@@ -1449,6 +1544,8 @@ function Start({ name, kept, skipped, importing, still, onPick, onFiles }: { nam
           <button type="button" onClick={onFiles} className="h-9 rounded-[0.6rem] border px-4 text-[0.875rem] font-medium text-foreground hover:bg-foreground/[0.05] active:scale-[0.97]">Files: Markdown, Readwise, Kindle, Anki…</button>
         </div>
       )}
+      {/* Quietest of all: every power, a card each, for whoever wants the whole map first. */}
+      <button type="button" onClick={onPowers} className={`${QUIET} -mx-1 self-start rounded-sm px-1 underline decoration-current/30 underline-offset-4 transition-colors hover:text-foreground`}>See everything Vigil can do</button>
     </div>
   )
 }

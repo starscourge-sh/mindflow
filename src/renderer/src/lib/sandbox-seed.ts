@@ -250,8 +250,9 @@ What you keep, rather than what you read, is what returns: ${link(petrichor, 'Pe
   const marsGlosses: [string, string][] = []
   for (const [text, n] of marsLogs) marsGlosses.push([await v<string>('gloss', mars, text), at(n, n === -1 ? '20:10' : '18:30')])
   await v('goal:beacon:set', mars, 'always')
-  const year = new Date().getFullYear()
-  const homer = await v<string>('goal:new', 'Read the whole Odyssey: 24 books', `${year}-12-31`, `${year}-01-01`, 'Three thousand years old and still the best road trip.')
+  // Every day here counts from the day the sandbox is opened, so nothing in it ever goes stale:
+  // a year's goal begun five months ago, seven to go, whatever the date.
+  const homer = await v<string>('goal:new', 'Read the whole Odyssey: 24 books', day(215), day(-150), 'Three thousand years old and still the best road trip.')
   const homerGlosses: [string, string][] = [
     [await v<string>('gloss', homer, 'Book 5: Calypso lets him go. Seven years on one island.'), at(-26, '22:00')],
     [await v<string>('gloss', homer, "Book 9: the Cyclops. 'Nobody' is the best fake name ever given."), at(-6, '21:45')]

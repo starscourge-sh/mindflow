@@ -208,7 +208,7 @@ function KindChip({ kind }: { kind: CaptureType }): React.JSX.Element {
 }
 
 /** A short name for a thing caught, for a chip or a dot. */
-export const shortOf = (kind: Kind): string => ({ todo: 'Book Dune tickets', quote: 'Do or do not…', word: 'petrichor', link: LINK_PAGE.title })[kind]
+export const shortOf = (kind: Kind): string => ({ todo: 'Book Star Wars tickets', quote: 'Do or do not…', word: 'petrichor', link: LINK_PAGE.title })[kind]
 
 /** The link's page as Vigil would fetch it, kept here so the welcome works offline. */
 export const LINK_PAGE = { title: 'Dune (novel)', site: 'en.wikipedia.org' }
@@ -271,7 +271,7 @@ export function Camera({ shot, children, className = '' }: { shot: Shot; childre
  */
 export function frameOn(world: HTMLElement | null, name: string | null, k: number): Shot {
   const el = name ? world?.querySelector<HTMLElement>(`[data-frame="${CSS.escape(name)}"]`) : null
-  if (!world || !el || k === 1) return WIDE
+  if (!world || !el) return WIDE
   let [x, y] = [el.offsetWidth / 2, el.offsetHeight / 2]
   // Summed up to the world, which is positioned so that it is every offset's parent in the end.
   for (let at: HTMLElement | null = el; at && at !== world; at = at.offsetParent as HTMLElement | null) {
@@ -408,7 +408,7 @@ type Edge = SimulationLinkDatum<Dot>
  * to it, and around them an example of a year's links, each one a reader made.
  */
 const NODES: [string, string, string][] = [
-  ['todo', 'Book tickets for Dune Part Three', 'todo'], ['link', 'Dune (novel)', 'link'], ['quote', 'Do or do not. There is no try.', 'quote'], ['word', 'petrichor', 'word'],
+  ['todo', 'Book tickets for the Star Wars marathon', 'todo'], ['link', 'Dune (novel)', 'link'], ['quote', 'Do or do not. There is no try.', 'quote'], ['word', 'petrichor', 'word'],
   ['note', 'Rewatching this tonight', 'note'], ['meditations', 'The Empire Strikes Back', 'note'],
   ['stoics', 'Films that stayed with me', 'note'], ['kinder', 'Try the thing you are scared of', 'note'], ['sorrows', 'Words for weather', 'note'],
   ['lisbon', 'Friday night plans', 'note'], ['birthday', 'Films to see this year', 'note'], ['walk', 'What the long walk was about', 'note'],
