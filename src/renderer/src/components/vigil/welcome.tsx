@@ -10,6 +10,7 @@ import { enterSandbox } from '@/lib/sandbox'
 import { STARTERS, fillBox, holdKeys, tellBox } from '@/lib/welcome-box'
 import keycapsUrl from '@/assets/welcome/keycaps.webp'
 import type { CaptureMeta } from '@/components/capture-list'
+import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { dayjs, when } from '../../../../main/dates'
 import { readTask } from '../../../../main/task-words'
 import { Scenery } from './scenery'
@@ -19,7 +20,7 @@ import { RecapRadar } from './recap-radar'
 import { Kbd, toast } from './ui'
 import { FULL_TURN, glyph, inClay, konami } from './welcome-eggs'
 import {
-  CAM, Camera, Chip, DRAWER, EMPTY_BOX, Flight, WIDE, frameOn, GhostHand, KINDS, LAND, LinkScene, PostcardResult, QUOTE, Rise, Slots, Stage, TaskResult, CardResult, WORD,
+  CAM, Camera, Chip, DRAWER, EMPTY_BOX, WIDE, frameOn, GhostHand, KINDS, LAND, LinkScene, PostcardResult, QUOTE, Rise, Slots, Stage, TaskResult, CardResult, LinkResult, WORD,
   cue, seeded, starterOf, typed, useScript, type Beat, type Box, type Kind, type MapShot
 } from './welcome-reel'
 
@@ -31,11 +32,12 @@ import {
  * same objects moving on (shared layoutIds, welcome-reel.tsx).
  *
  *   0 hello: today's date and hour, a line typed, and the year as a ruler
- *   1 Catch: the key goes down, the box opens, and a ghost writes three
- *     things of three kinds into it; each is caught into a slot
+ *   1 Catch: the key goes down, the box opens, and four things of four
+ *     kinds land in it and sort themselves; each is caught into a slot;
+ *     then the kinds there are, as the kind chip lists them
  *   2 Become: each thing turns into what its kind does (a task row, next
  *     year's postcard, a Review card); then your turn, in the real box
- *   3 Connect: the three join a map of a year's notes
+ *   3 Connect: a link is made, and the map it joins
  *   4 Return: a year read back
  *   5 Make it yours: the theme dial
  *   6 Ready: fresh, the sandbox, or your notes
@@ -325,7 +327,7 @@ export function Welcome(): React.JSX.Element | null {
         if (at !== LAST) next()
       } else if (event.key === 'ArrowLeft') back()
       else if (at === LAST && /^[123]$/.test(event.key)) start(Number(event.key) as 1 | 2 | 3)
-      else if (at === BECOME && reel.current.done && /^[123]$/.test(event.key)) choose(KINDS[Number(event.key) - 1])
+      else if (at === BECOME && reel.current.done && /^[1-4]$/.test(event.key)) choose(KINDS[Number(event.key) - 1])
       else if (at === DIAL && reel.current.done && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
         const dial = document.querySelector<HTMLElement>('[role="slider"][aria-label="Theme"]')
         if (!dial || dial.contains(target)) return
@@ -469,17 +471,18 @@ function useReport(report: (now: Reel) => void, done: boolean, settle: () => voi
 
 // --- 1 Catch ------------------------------------------------------------------------
 
-type CatchState = { docked: boolean; keys: boolean; down: number[]; box: Box | null; filled: Kind[]; flying: Kind | null; close: boolean }
+type CatchState = { docked: boolean; keys: boolean; down: number[]; box: Box | null; filled: Kind[]; close: boolean; kinds: boolean }
 
 /**
- * Three things caught in about five seconds, with Vigil doing the sorting:
+ * Four things caught, a beat at a time, with Vigil doing the sorting:
  * each lands whole, then what Vigil read in it lifts out into its place and
  * the chip turns to its kind; Create presses itself, and the line folds to a
  * square that flies to its slot.
  */
 function catchBeats(): Beat<CatchState>[] {
-  const todo = readTask('Call Sam tomorrow 6pm')
-  const day = todo.due ? when(todo.due, todo.allDay) : 'Tomorrow 18:00'
+  const todo = readTask(starterOf('todo').text)
+  const day = todo.due ? when(todo.due, todo.allDay) : 'Friday 19:00'
+  const lit = todo.spans.length ? starterOf('todo').text.slice(Math.min(...todo.spans.map((one) => one.from))) : ''
   const beats: Beat<CatchState>[] = [
     { at: 0, to: {}, cue: cue('scene') },
     { at: 1000, to: { docked: true, keys: true } },
@@ -488,38 +491,83 @@ function catchBeats(): Beat<CatchState>[] {
     { at: 1500, to: { down: [] } },
     { at: 1650, to: { keys: false, box: EMPTY_BOX }, cue: cue('open') }
   ]
-  let t = 2050
-  const catchOne = (item: Kind, landed: Partial<Box>, sorted: Partial<Box>, filled: Kind[], sortCue: () => void): void => {
+  let t = 2150
+  // Each one, a beat at a time, so each can be read: the words land; a moment to
+  // read them; what Vigil read lifts out; the chip turns to its kind and holds;
+  // the camera eases back; Create; and the words themselves shrink into their slot.
+  const catchOne = (item: Kind, landed: Partial<Box>, sorted: Partial<Box> | null, kind: Box['kind'], filled: Kind[], sortCue: () => void): void => {
     const first = { ...EMPTY_BOX, item, ...landed }
     const then = { ...first, ...sorted }
+    const flip = sorted ? 1600 : 900
     beats.push({ at: t, to: { box: first, close: true }, cue: () => click('tick') })
-    beats.push({ at: t + 520, to: { box: then }, cue: sortCue })
-    beats.push({ at: t + 1150, to: { box: { ...then, press: true }, close: false }, cue: () => (click('tick'), chime('send')) })
-    beats.push({ at: t + 1240, to: { box: { ...then, fold: true }, flying: item } })
-    // The slot fills as the square lands (Flight), and for certain here, should the flight be cut short.
-    beats.push({ at: t + 1800, to: { box: { ...EMPTY_BOX }, filled, flying: null } })
-    t += 2050
+    if (sorted) beats.push({ at: t + 850, to: { box: then }, cue: sortCue })
+    beats.push({ at: t + flip, to: { box: { ...then, kind } }, cue: cue('shift') })
+    beats.push({ at: t + flip + 500, to: { close: false } })
+    beats.push({ at: t + flip + 1150, to: { box: { ...then, kind, press: true } }, cue: () => (click('tick'), chime('send')) })
+    beats.push({ at: t + flip + 1250, to: { box: { ...EMPTY_BOX }, filled } })
+    t += flip + 2000
   }
-  catchOne('todo', { text: 'Call Sam', lit: 'tomorrow 6pm' }, { lit: null, date: day, kind: 'todo' }, ['todo'], () => (chime('tag'), setTimeout(() => chime('shift'), 80)))
-  catchOne('quote', { text: QUOTE.text, tail: { who: QUOTE.who!, where: QUOTE.where! } }, { tail: null, who: QUOTE.who!, where: QUOTE.where!, kind: 'quote' }, ['todo', 'quote'], () => (chime('promote'), setTimeout(() => chime('shift'), 80)))
-  catchOne('word', { text: `${WORD.term}\n${WORD.meaning}` }, { kind: 'word' }, ['todo', 'quote', 'word'], cue('shift'))
-  beats.push({ at: t - 200, to: {}, cue: cue('settled') })
-  beats.push({ at: t + 300, to: {} })
+  catchOne('todo', { text: starterOf('todo').text.slice(0, starterOf('todo').text.length - lit.length).trim(), lit }, { lit: null, date: day }, 'todo', ['todo'], cue('tag'))
+  catchOne('quote', { text: QUOTE.text, tail: { who: QUOTE.who!, where: QUOTE.where! } }, { tail: null, who: QUOTE.who!, where: QUOTE.where! }, 'quote', ['todo', 'quote'], cue('promote'))
+  catchOne('word', { text: `${WORD.term}\n${WORD.meaning}` }, null, 'word', ['todo', 'quote', 'word'], () => undefined)
+  catchOne('link', { text: starterOf('link').text }, { page: true }, 'link', ['todo', 'quote', 'word', 'link'], cue('reveal'))
+  beats.push({ at: t - 700, to: {}, cue: cue('settled') })
+  // A calm beat: the kinds there are, as the picker lists them.
+  beats.push({ at: t, to: { kinds: true }, cue: cue('open') })
+  beats.push({ at: t + 3200, to: {} })
   return beats
+}
+
+/** The kinds, each with what it does: the welcome's own words for them. */
+const WHAT: Record<string, string> = {
+  note: 'Anything else, kept as you wrote it',
+  todo: 'Goes to your tasks, on the day it names',
+  quote: 'Someone’s words, signed with who said them',
+  word: 'A word to learn, asked back in Review',
+  link: 'A page, kept with its name and picture',
+  decision: 'A choice, with the reason you made it',
+  experiment: 'Something you are trying out'
+}
+
+/**
+ * The kind chip's list, opened over the box for a moment: every kind and what
+ * it does, a row at a time. Only the kinds the box offers.
+ */
+function KindList({ still }: { still: boolean }): React.JSX.Element {
+  const kinds = CAPTURE_TYPES.filter((type) => type.id in WHAT)
+  return (
+    <motion.div className="absolute bottom-14 left-5 z-10 w-[calc(100%-2.5rem)] origin-bottom-left rounded-xl border bg-popover p-2 text-popover-foreground shadow-(--mf-panel-shadow)"
+      initial={still ? false : { opacity: 0, scale: 0.96, y: 6 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, transition: spring.slow.exit }} transition={spring.slow}>
+      <p className="px-2 pt-1 pb-2 text-[0.8125rem] font-medium text-foreground">{counted(kinds.length)} kinds. Vigil guesses; you can always change it.</p>
+      <ul className="grid grid-cols-2 gap-x-3">
+        {kinds.map((type, i) => {
+          const Icon = type.icon
+          return (
+            <motion.li key={type.id} className="flex min-w-0 items-start gap-2 rounded-md px-2 py-1.5"
+              initial={still ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25, delay: still ? 0 : 0.15 + i * 0.07 }}>
+              <Icon className="mt-0.5 size-3.5 shrink-0" style={{ color: type.tint }} />
+              <span className="min-w-0 leading-tight">
+                <span className="block text-[0.8125rem] font-medium text-foreground">{type.label}</span>
+                <span className="block text-[0.75rem] text-muted-foreground">{WHAT[type.id]}</span>
+              </span>
+            </motion.li>
+          )
+        })}
+      </ul>
+    </motion.div>
+  )
 }
 
 function CatchChapter({ play, report, state, onState }: { play: boolean; report: (now: Reel) => void; state: Onboarding | null; onState: (now: Onboarding) => void }): React.JSX.Element {
   useKeyChanges()
   const [beats] = useState(catchBeats)
-  const show = useScript<CatchState>({ docked: false, keys: false, down: [], box: null, filled: [], flying: null, close: false }, beats, play)
+  const show = useScript<CatchState>({ docked: false, keys: false, down: [], box: null, filled: [], close: false, kinds: false }, beats, play)
   useReport(report, show.done, show.settle)
   const s = show.state
   const [choosing, setChoosing] = useState(false)
   const scene = useRef<HTMLDivElement>(null)
   const world = useRef<HTMLDivElement>(null)
-  // Landed early by the square in flight, before the beat that fills it for certain.
-  const [landed, setLanded] = useState<Kind[]>([])
-  const filled = [...new Set([...s.filled, ...landed])].filter((kind) => s.filled.includes(kind) || landed.includes(kind))
+  const filled = s.filled
   const keys = keyFor('⌘.') || '⌘.'
   const caps = capsOf(keys)
   const down = new Set(s.down)
@@ -547,11 +595,15 @@ function CatchChapter({ play, report, state, onState }: { play: boolean; report:
               : caps.map((cap, i) => <Keycap key={`${cap}${i}`} label={glyph(cap, i === caps.length - 1)} down={down.has(i)} size={88} />)}
           </motion.div>
         )}
-        {s.box && <div data-frame="box" className="w-[min(40rem,100%)] shrink-0"><Stage box={s.box} /></div>}
+        {s.box && (
+          <div data-frame="box" className="relative w-[min(40rem,100%)] shrink-0">
+            <Stage box={s.box} />
+            <AnimatePresence>{s.kinds && <KindList key="kinds" still={!play} />}</AnimatePresence>
+          </div>
+        )}
         {(s.box || filled.length > 0) && <Slots filled={filled} />}
       </div>
       </Camera>
-      {s.flying && play && <Flight key={s.flying} kind={s.flying} root={scene} onLand={() => (click('soft'), setLanded((was) => [...was, s.flying!]))} />}
       </div>
     </>
   )
@@ -577,19 +629,26 @@ const BECOME_BEATS: Beat<BecomeState>[] = [
   { at: 8100, to: { hand: 'card' } },
   { at: 8750, to: { down: true }, cue: () => click('tick') },
   { at: 8820, to: { down: false, over: true }, cue: () => fold() },
-  { at: 9800, to: { hand: null, look: null } },
-  { at: 10700, to: {} }
+  { at: 9600, to: { hand: null, look: null } },
+  { at: 10000, to: { cards: ['todo', 'quote', 'word', 'link'] }, cue: cue('reveal') },
+  { at: 10500, to: { look: 'link' } },
+  { at: 11900, to: { look: null } },
+  { at: 12700, to: {} }
 ]
 
 /** What each kind does, in a line under it. */
 function Caption({ kind }: { kind: Kind }): React.JSX.Element {
   const now = dayjs()
   if (kind === 'todo') return <>In your tasks, and in Today on the day.</>
-  if (kind === 'quote') return <>A year from today, on <span className="whitespace-nowrap text-foreground">{now.format('D MMMM')} <RollingYear from={now.year()} /></span>, it comes back to you like this.</>
-  return <>Review asks you, further apart each time, until it sticks.</>
+  // True of every kind: the year-later memory picks from anything kept (vigil.ts, memory).
+  if (kind === 'quote') return <>Anything you keep can come back a year later, on <span className="whitespace-nowrap text-foreground">{now.format('D MMMM')} <RollingYear from={now.year()} /></span>, like this.</>
+  // A word is asked in Review once it is kept from the Inbox with its meaning (vigil.ts, promote).
+  if (kind === 'word') return <>Keep it from your Inbox, and Review asks what it means, further apart each time.</>
+  // A link's card is filled in once the page answers (cardUp).
+  return <>Kept with the page’s name and picture, so you find it by what it is.</>
 }
 
-/** The three things as what they became, side by side; a chip until its turn comes. */
+/** The things caught as what they became, side by side; a chip until its turn comes. */
 function Results({ cards, landed, signed, over, onTurn, pick, onPick, kept, quiet, captions }: {
   cards: Kind[]; landed: boolean; signed: boolean; over: boolean; onTurn: (over: boolean) => void; quiet: boolean
   pick?: Kind | null; onPick?: (kind: Kind) => void; kept?: boolean; captions: boolean
@@ -597,7 +656,7 @@ function Results({ cards, landed, signed, over, onTurn, pick, onPick, kept, quie
   const live = !!onPick
   // Two rows on one grid: the three set down on one baseline, their lines under them on one line.
   return (
-    <div className="grid w-full max-w-[64rem] grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)] gap-x-[clamp(1rem,2.5vw,2rem)] gap-y-3">
+    <div className="grid w-full max-w-[72rem] grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)_minmax(0,1fr)_minmax(0,0.9fr)] gap-x-[clamp(0.75rem,1.8vw,1.75rem)] gap-y-3">
       {KINDS.map((kind) => {
         const card = cards.includes(kind)
         const chosen = pick === kind
@@ -612,7 +671,7 @@ function Results({ cards, landed, signed, over, onTurn, pick, onPick, kept, quie
             ) : kind === 'quote' ? (
               <PostcardResult words={QUOTE.text} who={QUOTE.who!} where={QUOTE.where} signed={signed} />
             ) : (
-              <CardResult term={WORD.term} meaning={WORD.meaning} over={over} onTurn={onTurn} />
+              kind === 'word' ? <CardResult term={WORD.term} meaning={WORD.meaning} over={over} onTurn={onTurn} /> : <LinkResult />
             )}
             {/* The one you picked for your turn says so, and says when it is kept. */}
             <AnimatePresence>
@@ -657,7 +716,7 @@ function BecomeChapter({ play, report, pick, onPick, turn, mine }: { play: boole
   return (
     <>
       <Words title="Then it becomes something." docked={s.docked} still={!play} done={show.done} tight={!!s.look && !show.done}>
-        Each kind goes where it will be of use to you. These three were only a show: nothing is kept until your turn.
+        Each kind goes where it will be of use to you. These four were only a show: nothing is kept until your turn.
       </Words>
       <div ref={scene} className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-[clamp(0.75rem,3vh,1.75rem)] pb-2">
         <Camera shot={s.look && !show.done ? frameOn(world.current, s.look, 1.35) : WIDE} className="w-full max-w-[64rem]">
@@ -695,10 +754,10 @@ function connectBeats(): Beat<ConnectState>[] {
     { at: 1250, to: { cards: false }, cue: () => fold() },
     { at: 1550, to: { dots: true }, cue: cue('bead') }
   ]
-  const run = typed<ConnectState>('Rereading this today [[Wast', 1900, (sofar) => ({ note: sofar }), random, 0.75)
+  const run = typed<ConnectState>('Rewatching this tonight [[Do or', 1900, (sofar) => ({ note: sofar }), random, 0.75)
   beats.push(...run.beats)
   beats.push({ at: run.end + 120, to: { suggest: true }, cue: cue('search') })
-  beats.push({ at: run.end + 800, to: { suggest: false, note: 'Rereading this today [[Waste no more time]]' }, cue: () => click('tick') })
+  beats.push({ at: run.end + 800, to: { suggest: false, note: 'Rewatching this tonight [[Do or do not]]' }, cue: () => click('tick') })
   beats.push({ at: run.end + 1050, to: { linked: true }, cue: cue('clue') })
   beats.push({ at: run.end + 1700, to: { folded: true }, cue: () => fold() })
   beats.push({ at: run.end + 2100, to: { pulled: true }, cue: cue('zoomout') })
@@ -807,14 +866,21 @@ type DialState = { docked: boolean; dial: boolean; grab: number; close: boolean 
  * circle, over everything (a View Transition). With Motion off, or where the
  * browser cannot, it simply changes.
  */
+let spreading = false
 const spreadFromNotch = (theme: Theme): void => {
   const dial = document.querySelector<HTMLElement>('[role="slider"][aria-label="Theme"]')
   const go = (): void => applyTheme(theme, false)
-  const start = (document as Document & { startViewTransition?: (run: () => void) => { ready: Promise<void>; skipTransition: () => void } }).startViewTransition
-  if (!dial || !start || still()) return go()
+  const start = (document as Document & { startViewTransition?: (run: () => void) => { ready: Promise<void>; finished: Promise<void> } }).startViewTransition
+  // One circle at a time: a detent passed while it is still spreading is simply
+  // worn, inside the circle already growing (its new picture is live), rather
+  // than starting another and cutting this one short.
+  if (!dial || !start || still() || spreading) return go()
+  spreading = true
   const box = dial.getBoundingClientRect()
-  const at = `${Math.round(box.left + box.width / 2)}px ${Math.round(box.top + 6)}px`
+  // In shares of the window: the snapshot it clips need not be measured in the page's own pixels.
+  const at = `${((box.left + box.width / 2) / innerWidth * 100).toFixed(2)}% ${((box.top + 6) / innerHeight * 100).toFixed(2)}%`
   const shift = start.call(document, go)
+  void shift.finished.finally(() => void (spreading = false))
   void shift.ready.then(() => document.documentElement.animate(
     { clipPath: [`circle(0px at ${at})`, `circle(150% at ${at})`] },
     { duration: 520, easing: 'cubic-bezier(0.65, 0, 0.35, 1)', pseudoElement: '::view-transition-new(root)' }
@@ -920,7 +986,10 @@ function DialChapter({ play, report, onPick }: { play: boolean; report: (now: Re
         <Camera shot={s.close && !show.done ? { k: 1.16, x: 0, y: 0 } : WIDE} className="absolute inset-0 flex items-center justify-center">
         {s.dial && (
           <motion.div className="relative z-10" initial={play ? { opacity: 0, scale: 0.96, filter: 'blur(4px)' } : false} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} transition={CAM}>
+            {/* Its own layer in the spread, shown live: the ring and its light never stop while the page turns. */}
+            <div className="[view-transition-name:mf-theme-dial]">
             <ThemeDial calm size={size} big wear={spreadFromNotch} onPick={onPick} onFullTurn={() => (setSay(FULL_TURN), setTimeout(() => setSay(undefined), 1800))} say={say} />
+            </div>
           </motion.div>
         )}
         </Camera>

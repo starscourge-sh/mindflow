@@ -14,6 +14,7 @@ import { MemoryPostcard } from './memory-postcard'
 import { Signed } from './signature'
 import { Flip } from './review-view'
 import { Rolling } from './ui'
+import { Scenery } from './scenery'
 
 /**
  * The welcome's reel: the parts it is filmed with.
@@ -25,7 +26,7 @@ import { Rolling } from './ui'
  *   ghost types into
  * - the ghost hand, which moves on arcs and presses like a finger
  * - what each kind becomes: a task row, next year's postcard, a Review card
- * - a small map the three join, drawn as the notes map draws
+ * - a small map the things caught join, drawn as the notes map draws
  *
  * Two springs carry it, named once here: CAM for anything that changes shape
  * or place between shots (every layoutId), LAND for an object set down.
@@ -33,13 +34,15 @@ import { Rolling } from './ui'
 
 /** The camera: every shared-element morph. */
 export const CAM = { type: 'spring' as const, duration: 0.55, bounce: 0 }
+/** The caught words shrinking into their slot: slow enough to follow with the eye. */
+export const MORPH = { type: 'spring' as const, duration: 0.75, bounce: 0 }
 /** An object set down: the postcard, the radar. The only bounce in the reel. */
 export const LAND = { type: 'spring' as const, duration: 0.45, bounce: 0.18 }
 /** A fold or a flight, from fly-home. */
 export const DRAWER = [0.32, 0.72, 0, 1] as const
 
 export type Kind = Starter['kind']
-export const KINDS: Kind[] = ['todo', 'quote', 'word']
+export const KINDS: Kind[] = ['todo', 'quote', 'word', 'link']
 export const starterOf = (kind: Kind): Starter => STARTERS.find((one) => one.kind === kind) as Starter
 export const typeOf = (kind: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === kind) ?? CAPTURE_TYPES[0]
 
@@ -112,8 +115,8 @@ export const cue = (name: Cue): (() => void) => () => chime(name)
  * read lifts out of the line into its place: a day into the date pill, a name
  * into Who said it. `fold` is the line folded to a square, on its way to a slot.
  */
-export type Box = { text: string; lit: string | null; kind: CaptureType; date: string | null; tail: { who: string; where: string } | null; who: string; where: string; press: boolean; fold: boolean; item: Kind | null }
-export const EMPTY_BOX: Box = { text: '', lit: null, kind: 'note', date: null, tail: null, who: '', where: '', press: false, fold: false, item: null }
+export type Box = { text: string; page: boolean; lit: string | null; kind: CaptureType; date: string | null; tail: { who: string; where: string } | null; who: string; where: string; press: boolean; fold: boolean; item: Kind | null }
+export const EMPTY_BOX: Box = { text: '', page: false, lit: null, kind: 'note', date: null, tail: null, who: '', where: '', press: false, fold: false, item: null }
 
 /** The kind the box guesses from the first line, as the real one does. */
 export const guess = (text: string): CaptureType => (kindOf(text.split('\n')[0]) ?? 'note') as CaptureType
@@ -139,10 +142,11 @@ export function Stage({ box }: { box: Box }): React.JSX.Element {
       className="relative w-full overflow-hidden rounded-[14px] border border-foreground/10 bg-popover text-popover-foreground"
       style={{ boxShadow: 'var(--mf-panel-shadow), inset 0 1px 0 rgb(255 255 255 / 0.06)' }}>
       <div className="relative min-h-[5.75rem] px-7 pt-6 pb-2 text-foreground" style={EDITOR_FONT}>
-        <AnimatePresence initial={false}>
+        {/* The words themselves are what is caught: sent, this block is the chip in the slot below
+            (one layoutId), so the eye follows the words all the way there. */}
           {box.text && !box.fold && (
-            <motion.div key={box.item ?? 'line'} className="leading-[1.6]" initial={{ opacity: 0, filter: 'blur(2px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, transition: { duration: 0.11, ease: 'linear' } }} transition={{ duration: 0.14, ease: EASE }}>
+            <motion.div key={box.item ?? 'line'} layoutId={box.item ? `reel-item-${box.item}` : undefined} className="origin-top-left leading-[1.6]"
+              initial={{ opacity: 0, filter: 'blur(2px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }} transition={{ duration: 0.14, ease: EASE, layout: MORPH }}>
               {lines.map((line, i) => (
                 <p key={i} className={i ? 'text-foreground/80' : ''}>
                   {line}
@@ -155,7 +159,6 @@ export function Stage({ box }: { box: Box }): React.JSX.Element {
               ))}
             </motion.div>
           )}
-        </AnimatePresence>
         {!box.text && <p className="leading-[1.6]"><span className="mf-ghost-caret -ml-px" /></p>}
       </div>
       {/* Under the writing: only what Vigil read, once it has read it. */}
@@ -167,6 +170,13 @@ export function Stage({ box }: { box: Box }): React.JSX.Element {
         )}
         {box.who && !box.fold && <span className={FIELD}><motion.span layoutId="reel-who" {...lift} className="inline-block">{box.who}</motion.span></span>}
         {box.where && !box.fold && <span className={FIELD}><motion.span layoutId="reel-where" {...lift} className="inline-block">{box.where}</motion.span></span>}
+        {/* A link: the page answers with its name and picture (a stored example here: nothing is fetched). */}
+        {box.page && !box.fold && (
+          <motion.span className="flex items-center gap-2 rounded-lg border border-foreground/10 py-1 pr-3 pl-1 text-meta" initial={{ opacity: 0, filter: 'blur(3px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }} transition={{ duration: 0.35, ease: EASE }}>
+            <span className="relative size-7 overflow-hidden rounded-md bg-[color-mix(in_oklab,var(--tt-color-text-brown)_35%,var(--background))]"><Scenery place="recap" seed="welcome-link" mood={['dusk']} wide={false} soft className="absolute inset-0" rounded="rounded-md" /></span>
+            <span className="font-medium text-foreground">{LINK_PAGE.title}</span><span className="text-muted-foreground">{LINK_PAGE.site}</span>
+          </motion.span>
+        )}
       </div>
       <div className="flex items-center gap-1 bg-linear-to-t from-[var(--accent)]/40 px-7 pt-2 pb-3">
         <KindChip kind={box.kind} />
@@ -198,31 +208,36 @@ function KindChip({ kind }: { kind: CaptureType }): React.JSX.Element {
 }
 
 /** A short name for a thing caught, for a chip or a dot. */
-export const shortOf = (kind: Kind): string => ({ todo: 'Call Sam', quote: 'Waste no more time…', word: 'sonder' })[kind]
+export const shortOf = (kind: Kind): string => ({ todo: 'Book Dune tickets', quote: 'Do or do not…', word: 'petrichor', link: LINK_PAGE.title })[kind]
+
+/** The link's page as Vigil would fetch it, kept here so the welcome works offline. */
+export const LINK_PAGE = { title: 'Dune (novel)', site: 'en.wikipedia.org' }
 
 /** A caught thing, small: its kind's icon and a few of its words. Shares its layoutId with the square it was and the thing it becomes. */
 export function Chip({ kind }: { kind: Kind }): React.JSX.Element {
   const type = typeOf(kind)
   const Icon = type.icon
   return (
-    <motion.div layoutId={`reel-item-${kind}`} transition={CAM} className="flex h-9 items-center gap-1.5 overflow-hidden border border-foreground/15 bg-popover px-3 text-[0.8125rem] whitespace-nowrap text-foreground shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_12%,transparent)]"
+    <motion.div layoutId={`reel-item-${kind}`} transition={MORPH} className="flex h-9 items-center gap-1.5 overflow-hidden border border-foreground/15 bg-popover px-3 text-[0.8125rem] whitespace-nowrap text-foreground shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_12%,transparent)]"
       style={{ borderRadius: 18 }}>
-      <Icon className="size-4 shrink-0" style={{ color: type.tint }} />{shortOf(kind)}
+      {/* Its own layout, so its words keep their shape while the chip is drawn out of the line. */}
+      <motion.span layout transition={MORPH} className="flex items-center gap-1.5"><Icon className="size-4 shrink-0" style={{ color: type.tint }} />{shortOf(kind)}</motion.span>
     </motion.div>
   )
 }
 
-/** Three slots under the box, dashed till a thing lands in each, and the count beside them. */
+/** A slot a kind under the box, dashed till a thing lands in each, and the count beside them. */
 export function Slots({ filled }: { filled: Kind[] }): React.JSX.Element {
-  const said = ['Three kinds to catch', 'One caught', 'Two caught', 'Three caught'][filled.length]
+  const said = ['Four kinds to catch', 'One caught', 'Two caught', 'Three caught', 'Four caught'][filled.length]
   return (
     <div className="flex flex-wrap items-center justify-center gap-2">
       {KINDS.map((kind) => (
-        <div key={kind} data-slot={kind} className={`flex h-9 min-w-[9.5rem] items-center justify-center rounded-full border border-dashed transition-colors duration-300 ${filled.includes(kind) ? 'border-transparent' : 'border-foreground/20'}`}>
-          {filled.includes(kind) && (
-            <motion.span initial={{ scale: 0.85 }} animate={{ scale: 1 }} transition={{ type: 'spring', duration: 0.35, bounce: 0.3 }}><Chip kind={kind} /></motion.span>
-          )}
-        </div>
+        // The slot answers once, as the words land in it.
+        <motion.div key={kind} data-slot={kind} className={`flex h-9 min-w-[8.5rem] items-center justify-center rounded-full border border-dashed transition-colors duration-300 ${filled.includes(kind) ? 'border-transparent' : 'border-foreground/20'}`}
+          initial={false} animate={filled.includes(kind) ? { scale: [1, 1, 1.08, 1], boxShadow: ['0 0 0 0px transparent', '0 0 0 0px transparent', '0 0 0 6px color-mix(in oklab, var(--primary) 22%, transparent)', '0 0 0 0px transparent'] } : { scale: 1 }}
+          transition={{ duration: 1.05, times: [0, 0.62, 0.78, 1], ease: EASE }}>
+          {filled.includes(kind) && <Chip kind={kind} />}
+        </motion.div>
       ))}
       <span className="ml-2 min-w-[8.5rem] text-[0.875rem] text-(--mf-wl-quiet) tabular-nums"><Rolling text={said} by="word" /></span>
     </div>
@@ -264,37 +279,6 @@ export function frameOn(world: HTMLElement | null, name: string | null, k: numbe
     y += at.offsetTop
   }
   return { k, x: (world.offsetWidth / 2 - x) * k, y: (world.offsetHeight / 2 - y) * k }
-}
-
-/**
- * A sent line, folded to a square at the Create button, flying on one arc
- * into its slot, a square in its kind's colour slowing as it lands.
- * Measured on screen, so the camera may be anywhere.
- */
-export function Flight({ kind, root, onLand }: { kind: Kind; root: RefObject<HTMLElement | null>; onLand: () => void }): React.JSX.Element | null {
-  const x = useMotionValue(0)
-  const y = useMotionValue(0)
-  const [go, setGo] = useState(false)
-  useLayoutEffect(() => {
-    const frame = root.current?.getBoundingClientRect()
-    const from = root.current?.querySelector('[data-ghost="create"]')?.getBoundingClientRect()
-    const to = root.current?.querySelector(`[data-slot="${kind}"]`)?.getBoundingClientRect()
-    if (!frame || !from || !to) return onLand()
-    const [fx, fy] = [from.left - frame.left + from.width / 2, from.top - frame.top + from.height / 2]
-    const [tx, ty] = [to.left - frame.left + to.width / 2, to.top - frame.top + to.height / 2]
-    x.jump(fx)
-    y.jump(fy)
-    setGo(true)
-    const arc = { duration: 0.46, ease: DRAWER, times: [0, 0.45, 1] }
-    const runs = [animate(x, [fx, fx + (tx - fx) * 0.45, tx], arc), animate(y, [fy, Math.min(fy, ty) - 70, ty], arc)]
-    void runs[0].then(onLand)
-    return () => runs.forEach((run) => run.stop())
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  if (!go) return null
-  return (
-    <motion.span aria-hidden className="pointer-events-none absolute top-0 left-0 z-30 -mt-[13px] -ml-[13px] size-[26px] rounded-[7px] shadow-[0_4px_12px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]"
-      style={{ x, y, background: typeOf(kind).tint }} initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: [0.4, 1, 0.8], opacity: 1 }} transition={{ duration: 0.46, ease: DRAWER }} />
-  )
 }
 
 // --- the ghost hand ---------------------------------------------------------------
@@ -347,14 +331,17 @@ export function TaskResult({ line, id = 'reel-item-todo' }: { line: string; id?:
   return (
     <motion.div layoutId={id} transition={CAM} style={{ borderRadius: 12 }} className={`${PANEL} w-full`} initial={{ filter: 'blur(4px)' }} animate={{ filter: 'blur(0px)' }}>
       <p className="flex items-baseline gap-2 px-4 pt-3 pb-1 text-[0.8125rem] font-medium text-foreground">Tasks <span className="font-normal text-muted-foreground">{place}</span></p>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 pt-2 pb-3.5">
-        <svg aria-hidden viewBox="0 0 16 16" className="size-4 shrink-0 text-foreground/40"><motion.circle cx="8" cy="8" r="6.75" fill="none" stroke="currentColor" strokeWidth="1.5" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.22, ease: EASE, delay: 0.3 }} /></svg>
-        <span className="flex-1 text-[0.9375rem] leading-snug whitespace-nowrap text-foreground">{read.title.trim() || line}</span>
-        {read.due && (
-          <span className="flex shrink-0 items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 text-[0.75rem] font-medium text-primary tabular-nums">
-            <CalendarDays className="size-3.5" />{when(read.due, read.allDay)}
-          </span>
-        )}
+      {/* As the Tasks list draws a row: the box, then the title across the card's width, its date under it. */}
+      <div className="flex items-start gap-3 px-4 pt-2 pb-3.5">
+        <svg aria-hidden viewBox="0 0 16 16" className="mt-[0.2rem] size-4 shrink-0 text-foreground/40"><motion.circle cx="8" cy="8" r="6.75" fill="none" stroke="currentColor" strokeWidth="1.5" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.22, ease: EASE, delay: 0.3 }} /></svg>
+        <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
+          <span className="text-[0.9375rem] leading-snug text-pretty text-foreground">{read.title.trim() || line}</span>
+          {read.due && (
+            <span className="flex items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 text-[0.75rem] font-medium whitespace-nowrap text-primary tabular-nums">
+              <CalendarDays className="size-3.5" />{when(read.due, read.allDay)}
+            </span>
+          )}
+        </div>
       </div>
     </motion.div>
   )
@@ -371,7 +358,7 @@ export function PostcardResult({ words, who, where, signed, id = 'reel-item-quot
           <p className="clear-both mt-1 font-heading text-[1.0625rem] leading-snug text-foreground">{words.replace(/^[“"]|[”"]$/g, '')}</p>
           {/* Signed whole and never cut short: "said by" and the pen's stroke arrive together, the name
               drawn left to right (its clip reaches past the letters, so no swash shows early), and
-              where it is from wraps under it when the line is full ("in Meditations", which reads on either line where a dot would be left starting one). */}
+              where it is from wraps under it when the line is full ("in The Empire Strikes Back", which reads on either line where a dot would be left starting one). */}
           <p className="mt-1 flex min-h-[1.6em] flex-wrap items-baseline gap-x-1.5 text-meta text-(--mf-wl-quiet) [&_.mf-signature]:overflow-visible [&_.mf-signature]:text-clip">
             {signed && (
               <motion.span className="inline-flex shrink-0" initial={{ clipPath: 'inset(-40% 100% -40% -20%)' }} animate={{ clipPath: 'inset(-40% -20% -40% -20%)' }} transition={{ duration: 0.9, ease: [0.65, 0, 0.35, 1] }}>
@@ -381,6 +368,19 @@ export function PostcardResult({ words, who, where, signed, id = 'reel-item-quot
             {where && signed && <span className="shrink-0">in {where}</span>}
           </p>
         </MemoryPostcard>
+      </div>
+    </motion.div>
+  )
+}
+
+/** A link, as it is kept: the page's picture, its name and where it lives, not its address. */
+export function LinkResult(): React.JSX.Element {
+  return (
+    <motion.div layoutId="reel-item-link" transition={CAM} style={{ borderRadius: 12 }} className={`${PANEL} w-full`} initial={{ filter: 'blur(4px)' }} animate={{ filter: 'blur(0px)' }}>
+      <div className="relative h-20 w-full bg-[color-mix(in_oklab,var(--tt-color-text-brown)_30%,var(--background))]"><Scenery place="recap" seed="welcome-link" mood={['dusk']} wide soft className="absolute inset-0" rounded="rounded-none" /></div>
+      <div className="px-4 py-3">
+        <p className="text-[0.9375rem] font-medium text-foreground">{LINK_PAGE.title}</p>
+        <p className="text-[0.8125rem] text-muted-foreground">{LINK_PAGE.site}</p>
       </div>
     </motion.div>
   )
@@ -408,22 +408,22 @@ type Edge = SimulationLinkDatum<Dot>
  * to it, and around them an example of a year's links, each one a reader made.
  */
 const NODES: [string, string, string][] = [
-  ['todo', 'Call Sam tomorrow 6pm', 'todo'], ['quote', 'Waste no more time arguing…', 'quote'], ['word', 'sonder', 'word'],
-  ['note', 'Rereading this today', 'note'], ['meditations', 'Meditations', 'book'],
-  ['stoics', 'Notes on the Stoics', 'note'], ['kinder', 'Be kinder to strangers', 'note'], ['sorrows', 'The Dictionary of Obscure Sorrows', 'book'],
-  ['lisbon', 'Lisbon with Sam in May', 'note'], ['birthday', 'Ideas for Sam’s birthday', 'note'], ['walk', 'What the long walk was about', 'note'],
-  ['seneca', 'We suffer more in imagination than in reality.', 'quote'], ['letters', 'Letters from a Stoic', 'book'], ['mono', 'monachopsis', 'word'],
-  ['flights', 'Book the Lisbon flights', 'todo'], ['cook', 'Cooking for friends', 'note'], ['read', 'How to read a book', 'link'], ['hiraeth', 'hiraeth', 'word']
+  ['todo', 'Book tickets for Dune Part Three', 'todo'], ['link', 'Dune (novel)', 'link'], ['quote', 'Do or do not. There is no try.', 'quote'], ['word', 'petrichor', 'word'],
+  ['note', 'Rewatching this tonight', 'note'], ['meditations', 'The Empire Strikes Back', 'note'],
+  ['stoics', 'Films that stayed with me', 'note'], ['kinder', 'Try the thing you are scared of', 'note'], ['sorrows', 'Words for weather', 'note'],
+  ['lisbon', 'Friday night plans', 'note'], ['birthday', 'Films to see this year', 'note'], ['walk', 'What the long walk was about', 'note'],
+  ['seneca', 'Fear is the path to the dark side.', 'quote'], ['letters', 'The Phantom Menace', 'note'], ['mono', 'apricity', 'word'],
+  ['flights', 'Book a table after the film', 'todo'], ['cook', 'Cooking for friends', 'note'], ['read', 'How to read a book', 'link'], ['hiraeth', 'virga', 'word']
 ]
 /** The link made in the scene itself: the note written beside the quote, to it. */
 const MADE: [string, string][] = [['note', 'quote']]
 const EDGES: [string, string][] = [
-  ...MADE, ['quote', 'meditations'], ['note', 'meditations'], ['quote', 'stoics'], ['quote', 'kinder'], ['word', 'sorrows'], ['word', 'kinder'], ['mono', 'sorrows'], ['hiraeth', 'sorrows'],
+  ...MADE, ['link', 'todo'], ['link', 'stoics'], ['quote', 'meditations'], ['note', 'meditations'], ['quote', 'stoics'], ['quote', 'kinder'], ['word', 'sorrows'], ['word', 'kinder'], ['mono', 'sorrows'], ['hiraeth', 'sorrows'],
   ['todo', 'birthday'], ['todo', 'lisbon'], ['lisbon', 'flights'], ['seneca', 'letters'], ['seneca', 'stoics'], ['letters', 'stoics'], ['meditations', 'stoics'],
   ['walk', 'kinder'], ['walk', 'stoics'], ['cook', 'birthday'], ['read', 'walk']
 ]
 /** What the scene draws itself, not the example around it. */
-const OURS = new Set(['todo', 'quote', 'word', 'note'])
+const OURS = new Set(['todo', 'quote', 'word', 'link', 'note'])
 /** Bigger the more links touch it, as on the notes map. */
 const radius = (links: number): number => Math.min(9, 3 + Math.sqrt(links) * 1.6)
 
@@ -573,7 +573,7 @@ function NoteBeing({ at, text, suggest, quiet }: { at: [number, number]; text: s
   const asking = text.lastIndexOf('[[')
   const quote = typeOf('quote')
   const Quote = quote.icon
-  const book = typeOf('book')
+  const book = typeOf('note')
   const Book = book.icon
   return (
     <motion.div className="absolute z-10 w-[17rem] origin-right -translate-y-1/2" style={{ right: `calc(100% - ${at[0] + 4}px)`, top: at[1] }}
@@ -591,10 +591,10 @@ function NoteBeing({ at, text, suggest, quiet }: { at: [number, number]; text: s
           <motion.div className="absolute top-[calc(100%+6px)] left-3 w-60 rounded-lg border bg-popover p-1 text-popover-foreground shadow-(--mf-panel-shadow)"
             initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: spring.fast.exit }} transition={spring.fast}>
             <div className="flex items-center gap-2 rounded-md bg-accent px-2 py-1.5 text-[0.8125rem] text-foreground">
-              <Quote className="size-3.5 shrink-0" style={{ color: quote.tint }} /><span className="flex-1 truncate">Waste no more time arguing…</span><kbd className="font-sans text-key opacity-60">↵</kbd>
+              <Quote className="size-3.5 shrink-0" style={{ color: quote.tint }} /><span className="flex-1 truncate">Do or do not. There is no try.</span><kbd className="font-sans text-key opacity-60">↵</kbd>
             </div>
             <div className="flex items-center gap-2 px-2 py-1.5 text-[0.8125rem] text-muted-foreground">
-              <Book className="size-3.5 shrink-0" style={{ color: book.tint }} /><span className="flex-1">Meditations</span>
+              <Book className="size-3.5 shrink-0" style={{ color: book.tint }} /><span className="flex-1 truncate">The Empire Strikes Back</span>
             </div>
           </motion.div>
         )}
@@ -666,6 +666,6 @@ export function Rise({ text, still, delay = 0 }: { text: string; still: boolean;
   )
 }
 
-/** The three starters' parts, as the stage and the results show them. */
+/** The starters' parts, as the stage and the results show them. */
 export const QUOTE = starterOf('quote')
 export const WORD = { term: STARTERS[2].text.split('\n')[0], meaning: STARTERS[2].text.split('\n')[1] }

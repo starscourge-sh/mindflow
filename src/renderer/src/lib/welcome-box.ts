@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/core'
+import { dayjs } from '../../../main/dates'
 
 /**
  * The box, while the welcome runs. The welcome lives in the main window and
@@ -17,13 +18,17 @@ import type { Editor } from '@tiptap/core'
  * Only while the welcome is open.
  */
 
-export type Starter = { kind: 'todo' | 'quote' | 'word'; text: string; who?: string; where?: string }
+export type Starter = { kind: 'todo' | 'quote' | 'word' | 'link'; text: string; who?: string; where?: string }
 
 /** Three things to catch, one of each kind, each showing off what its kind does. */
 export const STARTERS: Starter[] = [
-  { kind: 'todo', text: 'Call Sam tomorrow 6pm' },
-  { kind: 'quote', text: '“Waste no more time arguing what a good man should be. Be one.”', who: 'Marcus Aurelius', where: 'Meditations' },
-  { kind: 'word', text: 'sonder\nThe feeling that every stranger has a life as full as your own.', where: 'A podcast' }
+  // Two days from now by name, so the day read back is that day and never "today".
+  { kind: 'todo', text: `Book tickets for Dune Part Three on ${dayjs().add(2, 'day').format('dddd')} 7pm` },
+  // Yoda, to Luke on Dagobah, in The Empire Strikes Back (1980).
+  { kind: 'quote', text: '“Do or do not. There is no try.”', who: 'Yoda', where: 'The Empire Strikes Back' },
+  { kind: 'word', text: 'petrichor\nThe smell of rain falling on dry earth.' },
+  // Its name and picture are fetched when it is kept (cardUp); the welcome shows them from LINK_PAGE.
+  { kind: 'link', text: 'https://en.wikipedia.org/wiki/Dune_(novel)' }
 ]
 
 const FILL = 'welcome-fill'
@@ -110,7 +115,7 @@ const read = <T>(key: string): T | null => {
 
 const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
 
-export function useWelcomePlaceholder(onFields?: (who: string, where: string) => void): void {
+export function useWelcomePlaceholder(onFields?: (who: string, where: string, kind: Starter['kind']) => void): void {
   const fields = useRef(onFields)
   fields.current = onFields
   useEffect(() => {
@@ -154,10 +159,10 @@ export function useWelcomePlaceholder(onFields?: (who: string, where: string) =>
       const now = editor.getText({ blockSeparator: '\n' }).trim()
       if (!editor.isEmpty && !STARTERS.some((one) => one.text === now)) return void localStorage.removeItem(FILL)
       localStorage.removeItem(FILL)
-      if (now === asked.text) return void fields.current?.(asked.who ?? '', asked.where ?? '')
+      if (now === asked.text) return void fields.current?.(asked.who ?? '', asked.where ?? '', asked.kind)
       const lines = asked.text.split('\n').map((line) => ({ type: 'paragraph', content: [{ type: 'text', text: line }] }))
       editor.chain().setContent({ type: 'doc', content: lines }, { emitUpdate: true }).focus('end').run()
-      fields.current?.(asked.who ?? '', asked.where ?? '')
+      fields.current?.(asked.who ?? '', asked.where ?? '', asked.kind)
     }
 
     // The kind chip: lit while the welcome is up, and a small pulse each time its guess changes.

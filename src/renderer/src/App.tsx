@@ -300,7 +300,7 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
         </span>
       </div>
       {/* Room under the buttons, so none of them sits on the rule. */}
-      <div className="mt-2 w-full shadow-xl px-[4.75rem]">
+      <div data-lesson="hide" className="mt-2 w-full shadow-xl px-[4.75rem]">
         <div className="h-[2px] w-full bg-background/10 shadow-xl" />
       </div>
     </div>
@@ -318,7 +318,10 @@ export default function App(): React.JSX.Element {
   // While the welcome runs, the empty line offers examples, a starter picked
   // there arrives written in with its fields filled, and the box is in lesson
   // mode: what is not being taught is calm, what draws on your history is hidden.
-  useWelcomePlaceholder((who, where) => {
+  useWelcomePlaceholder((who, where, starter) => {
+    // The starter's own kind, as a guess, whatever kind the box was left on before.
+    setKind(starter as CaptureType)
+    setChosen(false)
     setAttribution(who)
     setMedium(where)
     autoWho.current = who

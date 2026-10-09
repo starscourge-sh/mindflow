@@ -1180,6 +1180,8 @@ input[type='number']::-webkit-outer-spin-button {
 /* The welcome's theme dial spreads each theme from its notch: the new page
    is revealed by a growing circle (welcome.tsx), with no fade of its own. */
 :root[data-welcoming]::view-transition-old(root), :root[data-welcoming]::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+:root[data-welcoming]::view-transition-old(mf-theme-dial) { display: none; }
+:root[data-welcoming]::view-transition-new(mf-theme-dial), :root[data-welcoming]::view-transition-group(mf-theme-dial) { animation: none; }
 /* The welcome's ghost caret: the accent bar, blinking at the Mac's rate while it rests. */
 .mf-ghost-caret { display: inline-block; width: 2px; height: 1.15em; margin-inline-start: 1px; vertical-align: -0.2em; border-radius: 1px; background: var(--primary); animation: mf-ghost-blink 1.06s steps(1) infinite; }
 .mf-ghost-caret[data-typing] { animation: none; }

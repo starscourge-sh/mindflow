@@ -67,10 +67,23 @@ export function DialParticles({ size, band, per, turn, at, touched, grabbing, li
       }
       return got
     }
-    // On a pale page, a dark palette's three read as dust: its accent alone, the notch's own colour, reads as light.
+    // On a pale page, any palette's colours drawn soft read as dust or smudges:
+    // there, every grain is the page's own accent, crisp, and nothing else.
+    let accent: { at: number; col: string } | null = null
+    const accentNow = (): string => {
+      const worn = live.current.at
+      if (accent?.at !== worn) {
+        const probe = document.createElement('i')
+        probe.style.color = 'var(--primary)'
+        dial.append(probe)
+        accent = { at: worn, col: getComputedStyle(probe).color }
+        probe.remove()
+      }
+      return accent.col
+    }
     const pick = (i: number): string => {
+      if (live.current.light) return accentNow()
       const all = palette(i)
-      if (live.current.light && all.every((col) => luma(col) < 0.45)) return all[0]
       return all[Math.floor(Math.random() * all.length)]
     }
 
@@ -86,9 +99,10 @@ export function DialParticles({ size, band, per, turn, at, touched, grabbing, li
         const [r = 0, gr = 0, b = 0] = (col.match(/[\d.]+/g) ?? []).map(Number)
         const at = (a: number): string => `rgba(${r},${gr},${b},${a})`
         const fill = g.createRadialGradient(16, 16, 0, 16, 16, 16)
+        // Pale: a crisp grain with no halo, for a halo on a light page is a smudge.
         fill.addColorStop(0, at(1))
-        fill.addColorStop(pale ? 0.2 : 0.26, at(pale ? 0.75 : 0.95))
-        fill.addColorStop(pale ? 0.45 : 0.36, at(pale ? 0.22 : 0.16))
+        fill.addColorStop(pale ? 0.32 : 0.26, at(pale ? 0.9 : 0.95))
+        fill.addColorStop(pale ? 0.5 : 0.36, at(pale ? 0 : 0.16))
         fill.addColorStop(1, at(0))
         g.fillStyle = fill
         g.fillRect(0, 0, 32, 32)
@@ -189,7 +203,8 @@ export function DialParticles({ size, band, per, turn, at, touched, grabbing, li
       const coming = ((Math.round(-deg / per) % n) + n) % n
 
       // As many as the moment asks for, fed in gently rather than all at once.
-      const want = Math.min(CAP, 34 * quiet + 44 * near + 30 * over + grab * (26 + 26 * pull))
+      // Held, the ring wakes right up: more of them, whatever the hint's quiet says.
+      const want = Math.min(CAP, 34 * Math.max(quiet, grab) + 44 * near + 30 * over + grab * (40 + 26 * pull))
       let streams = dots.reduce((sum, dot) => sum + (dot.kind === 0 ? 1 : 0), 0)
       owed = Math.min(owed + dt * (14 + 80 * Math.max(near, grab)), 4)
       while (owed >= 1 && streams < want && dots.length < CAP) {
@@ -206,7 +221,7 @@ export function DialParticles({ size, band, per, turn, at, touched, grabbing, li
       if (glow > 0.01) {
         const gy = c - size / 2 + band * 0.25
         const g = ctx.createRadialGradient(c, gy, 0, c, gy, band * 1.1)
-        const tint = palette(coming)[0]
+        const tint = pale ? accentNow() : palette(coming)[0]
         g.addColorStop(0, tint)
         g.addColorStop(1, 'transparent')
         ctx.globalAlpha = Math.min(0.5, glow) * (pale ? 0.5 : 0.7)
@@ -214,8 +229,9 @@ export function DialParticles({ size, band, per, turn, at, touched, grabbing, li
         ctx.fillRect(c - band * 1.2, gy - band * 1.2, band * 2.4, band * 2.4)
       }
 
-      const quick = 1 + 0.7 * near + 0.5 * over
-      const bright = (0.2 + 0.2 * quiet + 0.4 * near + 0.25 * over + 0.4 * grab) * (pale ? 1.15 : 1)
+      // Quicker the nearer the pointer, and quickest of all while the ring is held.
+      const quick = 1 + 0.7 * near + 0.5 * over + 1.6 * grab
+      const bright = (0.2 + 0.2 * quiet + 0.4 * near + 0.25 * over + 0.7 * grab) * (pale ? 1.15 : 1)
       for (let k = dots.length - 1; k >= 0; k--) {
         const dot = dots[k]
         dot.age += dt
@@ -240,7 +256,7 @@ export function DialParticles({ size, band, per, turn, at, touched, grabbing, li
         } else {
           // Along the rim toward the notch (or with the ring, in a turn), fading into it.
           const toward = dot.th === 0 ? 0 : -Math.sign(dot.th)
-          dot.th = wrapDeg(dot.th + (toward * dot.w * quick * (1 - 0.8 * grab) + velocity * 0.55 * grab) * dt)
+          dot.th = wrapDeg(dot.th + (toward * dot.w * quick + velocity * 0.55 * grab) * dt)
           const arrive = falloff(Math.abs(dot.th), 16)
           if (arrive > 0.97 && grab < 0.5) {
             dots.splice(k, 1)
@@ -258,15 +274,16 @@ export function DialParticles({ size, band, per, turn, at, touched, grabbing, li
             const dx = px - x
             const dy = py - y
             const d = Math.hypot(dx, dy) || 1
-            const lean = near * falloff(d, size * 0.75) * Math.min(d, 12 + 9 * over)
+            // Held, drawn harder toward the hand on the ring.
+            const lean = Math.max(near, grab) * falloff(d, size * 0.75) * Math.min(d, 12 + 9 * over + 14 * grab)
             x += (dx / d) * lean
             y += (dy / d) * lean
           }
         }
         if (alpha <= 0.004) continue
         // A grain of light with a soft halo, from one drawing per colour.
-        const r = dot.size * 4
-        ctx.globalAlpha = Math.min(1, alpha * 1.45) * (pale ? 0.85 : 1)
+        const r = dot.size * (pale ? 2.4 : 4)
+        ctx.globalAlpha = Math.min(1, alpha * 1.45) * (pale ? 0.7 : 1)
         ctx.drawImage(mote(dot.col, pale), x - r, y - r, r * 2, r * 2)
       }
       ctx.globalAlpha = 1
