@@ -239,7 +239,7 @@ function Chip({ kind, onClick }: { kind: Kind; onClick?: () => void }): React.JS
   )
 }
 
-/** Where a card sits by its words: under them, or over them when there is no room below. */
+/** Where a card sits by its words: under their paragraph, or over it when there is no room below, always inside the window. */
 function place(draft: Draft, height: number): { left: number; top: number; origin: string } | null {
   const anchor = draft.anchor
   if (!anchor || anchor.editor.isDestroyed) return null
@@ -250,8 +250,14 @@ function place(draft: Draft, height: number): { left: number; top: number; origi
   const width = Math.min(360, innerWidth - 24)
   const x = start.top === end.top ? (start.left + end.left) / 2 : start.left
   const left = Math.max(12, Math.min(innerWidth - width - 12, x - 40))
-  const below = end.bottom + 8
-  const above = start.top - 8 - height
+  // Clear of the whole paragraph the words are in, so the words around them stay readable.
+  const block = (pos: number): DOMRect | null => {
+    const at = view.state.doc.resolve(pos)
+    const dom = at.depth ? view.nodeDOM(at.before(at.depth)) : null
+    return dom instanceof HTMLElement ? dom.getBoundingClientRect() : null
+  }
+  const below = Math.max(end.bottom, block(Math.min(anchor.to, size))?.bottom ?? 0) + 8
+  const above = Math.min(start.top, block(Math.min(anchor.from, size))?.top ?? Infinity) - 8 - height
   const under = below + height <= innerHeight - 12 || above < 12
   const top = Math.max(12, Math.min(innerHeight - height - 12, under ? below : above))
   return { left, top, origin: `${Math.round(Math.max(0, Math.min(width, x - left)))}px ${under ? '0px' : '100%'}` }
