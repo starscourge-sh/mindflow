@@ -1002,19 +1002,23 @@ function makeHome(): BrowserWindow {
   // the green button, a drag, a tiling manager. Not while it glides.
   for (const change of ['maximize', 'unmaximize', 'resized', 'moved', 'enter-full-screen', 'leave-full-screen'] as const)
     home.on(change as 'resized', () => void (home && pending?.win !== home && tellFilled(home)))
-  // Raycast's settings way: put away filled or stretched, it comes back the
-  // small window it was made as, centred on the screen you are on. Filling is
-  // for this visit only.
+  // Filling is for this visit only: put away filled, it comes back the size
+  // it was before filling (or the small window it was made as, centred on the
+  // screen you are on). A size you gave it yourself, by dragging its edges or
+  // a tiling manager, is yours: kept as it is, never put back.
   home.on('hide', () => {
     if (!home || home.isDestroyed()) return
     // Hidden, a page still reads as visible here: told, so its looping
     // effects (beams, orbs) stop until it is back.
     home.webContents.send('window:hiding')
+    const filled = fillsScreen(home) || home.isMaximized()
     if (home.isMaximized()) home.unmaximize()
     if (home.isFullScreen()) home.setFullScreen(false)
+    const before = homeBefore
     homeBefore = null
+    if (!filled) return
     const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
-    const { width, height } = compact()
+    const { width, height } = before ?? compact()
     home.setBounds({ width, height, x: Math.round(workArea.x + (workArea.width - width) / 2), y: Math.round(workArea.y + (workArea.height - height) / 2) })
   })
   guard(home)
