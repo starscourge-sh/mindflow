@@ -241,7 +241,8 @@ const TYPED = 900
  * leaves the line under it to ride beside the pointer, as on the tilted cards
  * elsewhere (Tilt), the same springs and the same label. The line under it
  * only fades while the label carries its words, so nothing below moves and the
- * words are never shown twice; it is back the moment the pointer leaves the
+ * words are never shown twice (unless they run past the label's three lines,
+ * when it stays so all of them can be read); it is back the moment the pointer leaves the
  * picture, which is the only way to reach it, so a click on it still writes.
  * Never on a picture that is selected (its toolbar is over it), held, dragged,
  * while you type or write its caption, for a touch, or with Motion off: the
@@ -249,7 +250,7 @@ const TYPED = 900
  */
 function PictureTilt({ editor }: { editor: Editor }): React.ReactNode {
   const tilt = useTilt(6, 1.015)
-  const name = useFollowLabel()
+  const name = useFollowLabel({ wrap: true, most: 3 })
   const [caption, setCaption] = useState<string | null>(null)
   const on = useRef<HTMLImageElement | null>(null)
   const faded = useRef<HTMLElement | null>(null)
@@ -300,9 +301,13 @@ function PictureTilt({ editor }: { editor: Editor }): React.ReactNode {
       if (!tilt.lean(event, img)) return
       const line = lineUnder(img)
       if (!line) return void (name.hide(), fade(null))
-      setCaption(line.textContent!.trim())
-      name.follow(event.clientX, event.clientY)
-      fade(line)
+      const text = line.textContent!.trim()
+      setCaption(text)
+      // Kept within the picture. A caption longer than the label's three
+      // lines stays under the picture too, so all of it can still be read.
+      const fits = name.measure(text).whole
+      name.follow(event.clientX, event.clientY, img.getBoundingClientRect())
+      fade(fits ? line : null)
     }
     const onOut = (event: PointerEvent): void => {
       if (on.current && event.target === on.current && event.relatedTarget !== on.current) tilt.flat()

@@ -69,26 +69,69 @@ export function useTilt(by: number, lift = 1.03): {
   return { x, y, grow, glow, sheen, lean, flat, onFlat: (then) => void (also.current = then) }
 }
 
+const LABEL = 'pointer-events-none fixed top-0 left-0 z-50 rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md'
+// One line cut short for a card's title; up to three whole lines for a caption.
+const LINE = 'max-w-60 truncate'
+const LINES = 'w-max max-w-[280px] line-clamp-3 break-words leading-snug'
+const GAP = { x: 14, y: 16 }
+
 /**
  * A name that rides beside the pointer and swings a little with how fast it
  * moves, then settles, as in reactbits' Tilted Card. `follow` moves it there
- * and shows it, `hide` lets it fade; `label` is what to render, anywhere.
+ * and shows it, kept inside `within` when given (to the pointer's left near
+ * its right edge, above near its foot); `hide` lets it fade; `label` is what
+ * to render, anywhere. `wrap` gives a caption up to three lines; `measure`
+ * says whether its words fit in them.
  */
-export function useFollowLabel(): { follow: (clientX: number, clientY: number) => void; hide: () => void; label: (text?: string | null) => ReactNode } {
+export function useFollowLabel({ wrap = false, most = 12 }: { wrap?: boolean; /** The furthest it swings, in degrees. */ most?: number } = {}): {
+  follow: (clientX: number, clientY: number, within?: DOMRect) => void
+  hide: () => void
+  label: (text?: string | null) => ReactNode
+  measure: (text: string) => { width: number; height: number; whole: boolean }
+} {
   const [showing, setShowing] = useState(false)
   const at = { x: useSpring(0, { stiffness: 500, damping: 40 }), y: useSpring(0, { stiffness: 500, damping: 40 }) }
   const swing = useSpring(0, { stiffness: 350, damping: 30 })
   const lastX = useRef<number | null>(null)
   const settle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const follow = (clientX: number, clientY: number): void => {
+  const size = useRef({ width: 0, height: 0 })
+  const sizes = useRef(new Map<string, { width: number; height: number; whole: boolean }>())
+  const className = `${LABEL} ${wrap ? LINES : LINE}`
+  // Read once for each text, off screen: then it can be placed before it is drawn.
+  const measure = (text: string): { width: number; height: number; whole: boolean } => {
+    let found = sizes.current.get(text)
+    if (!found) {
+      const probe = document.createElement('span')
+      probe.className = className
+      probe.style.visibility = 'hidden'
+      probe.textContent = text
+      document.body.append(probe)
+      const box = probe.getBoundingClientRect()
+      found = { width: box.width, height: box.height, whole: probe.scrollHeight <= probe.clientHeight + 1 && probe.scrollWidth <= probe.clientWidth + 1 }
+      probe.remove()
+      sizes.current.set(text, found)
+    }
+    size.current = found
+    return found
+  }
+  const follow = (clientX: number, clientY: number, within?: DOMRect): void => {
+    const { width, height } = size.current
+    let x = clientX + GAP.x
+    let y = clientY + GAP.y
+    if (within) {
+      if (x + width > within.right) x = clientX - GAP.x - width
+      if (y + height > within.bottom) y = clientY - GAP.y - height
+      x = Math.max(within.left, Math.min(x, within.right - width))
+      y = Math.max(within.top, Math.min(y, within.bottom - height))
+    }
     // Placed at once the first time, so it never flies in from the corner.
     if (lastX.current === null) {
-      at.x.jump(clientX + 14)
-      at.y.jump(clientY + 16)
+      at.x.jump(x)
+      at.y.jump(y)
     }
-    at.x.set(clientX + 14)
-    at.y.set(clientY + 16)
-    swing.set(lastX.current === null ? 0 : Math.max(-12, Math.min(12, (clientX - lastX.current) * 0.8)))
+    at.x.set(x)
+    at.y.set(y)
+    swing.set(lastX.current === null ? 0 : Math.max(-most, Math.min(most, (clientX - lastX.current) * 0.8 * (most / 12))))
     lastX.current = clientX
     // Upright again once the pointer rests, the way a hanging tag stops swinging.
     clearTimeout(settle.current)
@@ -106,7 +149,7 @@ export function useFollowLabel(): { follow: (clientX: number, clientY: number) =
           <AnimatePresence>
             {showing && (
               <motion.span aria-hidden key="caption"
-                className="pointer-events-none fixed top-0 left-0 z-50 max-w-60 truncate rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md"
+                className={className}
                 style={{ x: at.x, y: at.y, rotate: swing }}
                 initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, transition: { duration: 0.08 } }}
                 transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}>
@@ -117,7 +160,7 @@ export function useFollowLabel(): { follow: (clientX: number, clientY: number) =
           document.body
         )
       : null
-  return { follow, hide, label }
+  return { follow, hide, label, measure }
 }
 
 /**
