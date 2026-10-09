@@ -77,6 +77,9 @@ let picking = false
 const since = (list: CaptureMeta[], before: Set<string>): CaptureMeta[] =>
   list.filter((one) => !before.has(one.id) && !one.source).sort((a, b) => a.capturedAt.localeCompare(b.capturedAt))
 
+/** How long a line needs to be read before the film moves on: a quarter second a word, never under 1.2s. */
+const readFor = (text: string): number => Math.max(1200, text.trim().split(/\s+/).length * 250)
+
 /** A count in words, as a sentence says it. */
 const counted = (n: number): string => ['None', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'][n] ?? String(n)
 
@@ -501,15 +504,19 @@ function catchBeats(): Beat<CatchState>[] {
   // the camera eases back; Create; and the words themselves shrink into their slot.
   const catchOne = (item: Kind, landed: Partial<Box>, sorted: Partial<Box> | null, kind: Box['kind'], filled: Kind[], sortCue: () => void): void => {
     const first = { ...EMPTY_BOX, item, ...landed }
-    const then = { ...first, ...sorted }
-    const flip = sorted ? 1600 : 900
+    // A link reads as one the moment it lands, as the box guesses a bare address at once.
+    const then = { ...first, ...sorted, ...(item === 'link' ? { kind } : {}) }
+    // Time to read the words that landed before anything moves on: a quarter second a word, never under 1.2s.
+    const read = readFor([landed.text, landed.lit, landed.tail?.who, landed.tail?.where].filter(Boolean).join(' '))
+    const flip = sorted ? read + (item === 'link' ? 0 : 900) : read
     beats.push({ at: t, to: { box: first, close: true }, cue: () => click('tick') })
-    if (sorted) beats.push({ at: t + 850, to: { box: then }, cue: sortCue })
+    if (sorted) beats.push({ at: t + read, to: { box: then }, cue: sortCue })
     beats.push({ at: t + flip, to: { box: { ...then, kind } }, cue: cue('shift') })
-    beats.push({ at: t + flip + 500, to: { close: false } })
-    beats.push({ at: t + flip + 1150, to: { box: { ...then, kind, press: true } }, cue: () => (click('tick'), chime('send')) })
-    beats.push({ at: t + flip + 1250, to: { box: { ...EMPTY_BOX }, filled } })
-    t += flip + 2000
+    // What it became, still, long enough to read, before it is sent.
+    beats.push({ at: t + flip + 900, to: { close: false } })
+    beats.push({ at: t + flip + 1500, to: { box: { ...then, kind, press: true } }, cue: () => (click('tick'), chime('send')) })
+    beats.push({ at: t + flip + 1600, to: { box: { ...EMPTY_BOX }, filled } })
+    t += flip + 2400
   }
   catchOne('todo', { text: starterOf('todo').text.slice(0, starterOf('todo').text.length - lit.length).trim(), lit }, { lit: null, date: day }, 'todo', ['todo'], cue('tag'))
   catchOne('quote', { text: QUOTE.text, tail: { who: QUOTE.who!, where: QUOTE.where! } }, { tail: null, who: QUOTE.who!, where: QUOTE.where! }, 'quote', ['todo', 'quote'], cue('promote'))
@@ -623,25 +630,25 @@ type BecomeState = { docked: boolean; cards: Kind[]; landed: boolean; signed: bo
 
 const BECOME_BEATS: Beat<BecomeState>[] = [
   { at: 0, to: {} },
-  { at: 1100, to: { docked: true }, cue: cue('slide') },
-  { at: 1600, to: { cards: ['todo'] }, cue: cue('noted') },
-  { at: 2200, to: { look: 'todo' } },
-  { at: 3300, to: { look: null } },
-  { at: 3700, to: { cards: ['todo', 'quote'] }, cue: cue('riffle') },
-  { at: 4300, to: { look: 'quote' } },
-  { at: 4900, to: { landed: true }, cue: () => (click('tick'), chime('memory')) },
-  { at: 5200, to: { signed: true } },
-  { at: 6600, to: { look: null } },
-  { at: 7000, to: { cards: ['todo', 'quote', 'word'] }, cue: cue('reveal') },
-  { at: 7600, to: { look: 'word' } },
-  { at: 8100, to: { hand: 'card' } },
-  { at: 8750, to: { down: true }, cue: () => click('tick') },
-  { at: 8820, to: { down: false, over: true }, cue: () => fold() },
-  { at: 9600, to: { hand: null, look: null } },
-  { at: 10000, to: { cards: ['todo', 'quote', 'word', 'link'] }, cue: cue('reveal') },
-  { at: 10500, to: { look: 'link' } },
-  { at: 11900, to: { look: null } },
-  { at: 12700, to: {} }
+  { at: 1450, to: { docked: true }, cue: cue('slide') },
+  { at: 2100, to: { cards: ['todo'] }, cue: cue('noted') },
+  { at: 2850, to: { look: 'todo' } },
+  { at: 4300, to: { look: null } },
+  { at: 4800, to: { cards: ['todo', 'quote'] }, cue: cue('riffle') },
+  { at: 5600, to: { look: 'quote' } },
+  { at: 6350, to: { landed: true }, cue: () => (click('tick'), chime('memory')) },
+  { at: 6450, to: { signed: true } },
+  { at: 8600, to: { look: null } },
+  { at: 9100, to: { cards: ['todo', 'quote', 'word'] }, cue: cue('reveal') },
+  { at: 9900, to: { look: 'word' } },
+  { at: 10550, to: { hand: 'card' } },
+  { at: 11400, to: { down: true }, cue: () => click('tick') },
+  { at: 11450, to: { down: false, over: true }, cue: () => fold() },
+  { at: 13500, to: { hand: null, look: null } },
+  { at: 14000, to: { cards: ['todo', 'quote', 'word', 'link'] }, cue: cue('reveal') },
+  { at: 14650, to: { look: 'link' } },
+  { at: 16450, to: { look: null } },
+  { at: 17500, to: {} }
 ]
 
 /** What each kind does, in a line under it. */
@@ -766,12 +773,12 @@ const GAPS: [typeof BookOpen, string, string][] = [
 const pairsBeats = (onward: () => void): Beat<PairsState>[] => [
   { at: 0, to: {} },
   ...GAPS.flatMap((_, i): Beat<PairsState>[] => [
-    { at: 700 + i * 1150, to: { pair: i, struck: false } },
-    { at: 700 + i * 1150 + 500, to: { struck: true }, cue: cue('tag') }
+    { at: 700 + i * 2300, to: { pair: i, struck: false } },
+    { at: 700 + i * 2300 + 800, to: { struck: true }, cue: cue('tag') }
   ]),
-  { at: 700 + 4 * 1150, to: { row: true }, cue: cue('gather') },
+  { at: 700 + 4 * 2300, to: { row: true }, cue: cue('gather') },
   // Watched through, the day follows on its own; settled, the row stays until the next press.
-  { at: 700 + 4 * 1150 + 1500, to: {}, cue: onward }
+  { at: 700 + 4 * 2300 + 2800, to: {}, cue: onward }
 ]
 
 /**
@@ -799,7 +806,7 @@ function Pairs({ play, report, onward }: { play: boolean; report: (now: Reel) =>
             ))}
           </motion.ul>
         ) : s.pair >= 0 ? (
-          <motion.div key={s.pair} className="flex max-w-[44rem] flex-col items-center gap-3 px-6 text-center"
+          <motion.div key={s.pair} className="mx-auto flex w-full max-w-[44rem] flex-col items-center gap-3 px-6 text-center"
             initial={{ opacity: 0, y: 10, filter: 'blur(3px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} exit={{ opacity: 0, y: -10, filter: 'blur(3px)', transition: { duration: 0.16 } }} transition={{ duration: 0.3, ease: EASE }}>
             {(() => {
               const [Icon, was, now] = GAPS[s.pair]
@@ -828,37 +835,37 @@ function dayBeats(): Beat<DayState>[] {
     { at: 0, to: { look: 0 } },
     // Morning: something kept comes back in the box; worth knowing, so it goes to Review.
     { at: 700, to: { hint: true, answered: 1 }, cue: cue('memory') },
-    { at: 1800, to: { hand: 'thumbs' } },
-    { at: 2250, to: { tip: true } },
-    { at: 2950, to: { down: true }, cue: () => click('tick') },
-    { at: 3030, to: { down: false, tip: false, asking: true, hand: null }, cue: cue('promote') }
+    { at: 3700, to: { hand: 'thumbs' } },
+    { at: 4200, to: { tip: true } },
+    { at: 5600, to: { down: true }, cue: () => click('tick') },
+    { at: 5680, to: { down: false, tip: false, asking: true, hand: null }, cue: cue('promote') }
   ]
-  const ask = typed<DayState>('What is a commonplace book?', 3200, (sofar) => ({ question: sofar }), random, 0.4)
+  const ask = typed<DayState>('What is a commonplace book?', 5900, (sofar) => ({ question: sofar }), random, 0.4)
   beats.push(...ask.beats)
-  let t = ask.end + 300
+  let t = ask.end + 1200
   beats.push({ at: t, to: { kept: true }, cue: cue('noted') })
   // While working: the day's tasks stay on the desktop.
-  t += 900
+  t += 1600
   beats.push({ at: t, to: { look: 1 } })
   beats.push({ at: t + 900, to: { sticky: true, answered: 2 }, cue: cue('stick') })
-  beats.push({ at: t + 1900, to: { hand: 'tick' } })
-  beats.push({ at: t + 2450, to: { ticked: true, down: true }, cue: cue('done') })
-  beats.push({ at: t + 2550, to: { down: false, hand: null } })
+  beats.push({ at: t + 2700, to: { hand: 'tick' } })
+  beats.push({ at: t + 3250, to: { ticked: true, down: true }, cue: cue('done') })
+  beats.push({ at: t + 3350, to: { down: false, hand: null } })
   // The long run: a log from the box lights today on the goal's road.
-  t += 3100
+  t += 4600
   beats.push({ at: t, to: { look: 2 } })
   const log = typed<DayState>('+half marathon: 8k today', t + 900, (sofar) => ({ line: sofar, chip: sofar.length > 3 }), random, 0.4)
   beats.push(...log.beats)
-  t = log.end + 250
+  t = log.end + 1300
   beats.push({ at: t, to: { hand: 'add-log' } })
   beats.push({ at: t + 600, to: { down: true }, cue: () => click('tick') })
   beats.push({ at: t + 680, to: { down: false, logged: true, chip: false, line: '', answered: 3, hand: null }, cue: cue('mark') })
   // Evening: Review asks, just before you would forget.
-  t += 1500
+  t += 2600
   beats.push({ at: t, to: { look: 3 } })
-  beats.push({ at: t + 900, to: { answered: 4 } })
-  beats.push({ at: t + 1500, to: { over: true }, cue: () => fold() })
-  beats.push({ at: t + 2400, to: {} })
+  beats.push({ at: t + 1000, to: { answered: 4 } })
+  beats.push({ at: t + 2400, to: { over: true }, cue: () => fold() })
+  beats.push({ at: t + 4200, to: {} })
   return beats
 }
 
@@ -943,14 +950,16 @@ function connectBeats(): Beat<ConnectState>[] {
   ]
   const run = typed<ConnectState>('Rewatching this tonight [[Do or', 1900, (sofar) => ({ note: sofar }), random, 0.75)
   beats.push(...run.beats)
-  beats.push({ at: run.end + 120, to: { suggest: true }, cue: cue('search') })
-  beats.push({ at: run.end + 800, to: { suggest: false, note: 'Rewatching this tonight [[Do or do not]]' }, cue: () => click('tick') })
-  beats.push({ at: run.end + 1050, to: { linked: true }, cue: cue('clue') })
-  beats.push({ at: run.end + 1700, to: { folded: true }, cue: () => fold() })
-  beats.push({ at: run.end + 2100, to: { pulled: true }, cue: cue('zoomout') })
-  beats.push({ at: run.end + 3600, to: { hand: 'dot-quote' } })
-  beats.push({ at: run.end + 4150, to: { lit: 'quote' }, cue: cue('look') })
-  beats.push({ at: run.end + 5000, to: { hand: null } })
+  beats.push({ at: run.end + 150, to: { suggest: true }, cue: cue('search') })
+  beats.push({ at: run.end + 1500, to: { suggest: false, note: 'Rewatching this tonight [[Do or do not]]' }, cue: () => click('tick') })
+  beats.push({ at: run.end + 1800, to: { linked: true }, cue: cue('clue') })
+  beats.push({ at: run.end + 3200, to: { folded: true }, cue: () => fold() })
+  beats.push({ at: run.end + 3700, to: { pulled: true }, cue: cue('zoomout') })
+  beats.push({ at: run.end + 5800, to: { hand: 'dot-quote' } })
+  beats.push({ at: run.end + 6350, to: { lit: 'quote' }, cue: cue('look') })
+  beats.push({ at: run.end + 7200, to: { hand: null } })
+  // The finished map, its names readable, held still before anything else.
+  beats.push({ at: run.end + 9200, to: {} })
   return beats
 }
 
@@ -994,10 +1003,10 @@ const RETURN_BEATS: Beat<ReturnState>[] = [
   { at: 1100, to: { docked: true, radar: true } },
   { at: 1700, to: {}, cue: cue('wrapped') },
   { at: 2200, to: { lines: 1 } },
-  { at: 2650, to: { lines: 2 } },
-  { at: 3100, to: { lines: 3 } },
-  { at: 3550, to: { lines: 4 } },
-  { at: 5000, to: {} }
+  { at: 3300, to: { lines: 2 } },
+  { at: 4400, to: { lines: 3 } },
+  { at: 5500, to: { lines: 4 } },
+  { at: 7500, to: {} }
 ]
 
 /** An example year: what Your year, wrapped finds out about its reader. */
