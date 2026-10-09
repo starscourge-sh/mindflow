@@ -253,6 +253,9 @@ function PictureTilt({ editor }: { editor: Editor }): React.ReactNode {
   const name = useFollowLabel({ wrap: true, most: 3 })
   const [caption, setCaption] = useState<string | null>(null)
   const on = useRef<HTMLImageElement | null>(null)
+  // Where that picture lies flat: the pointer is read against this, never the
+  // tipped picture, whose corners swing out from under it and would flicker.
+  const area = useRef<DOMRect | null>(null)
   const faded = useRef<HTMLElement | null>(null)
   const transform = useMotionTemplate`perspective(700px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(${tilt.grow})`
   const fade = (line: HTMLElement | null): void => {
@@ -290,15 +293,34 @@ function PictureTilt({ editor }: { editor: Editor }): React.ReactNode {
       const { selection } = editor.state
       return selection instanceof NodeSelection && editor.view.nodeDOM(selection.from) === img
     }
+    // Its box with the tip taken off for a moment.
+    const flatRect = (img: HTMLImageElement): DOMRect => {
+      const tipped = img.style.transform
+      img.style.transform = ""
+      const box = img.getBoundingClientRect()
+      img.style.transform = tipped
+      return box
+    }
+    const inside = (event: PointerEvent): boolean => {
+      const box = area.current
+      return !!box && event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom
+    }
     const onMove = (event: PointerEvent): void => {
-      const img = event.target instanceof HTMLImageElement && whole(event.target) && !event.target.closest("[data-type='emoji'], .tiptap-bookmark-image") ? event.target : null
+      // Still its place while the pointer is over the picture or what lies
+      // under it (a corner tipped away shows its line or the page), never over
+      // something on top of it, such as its toolbar.
+      const under = event.target instanceof Node && !!on.current && event.target.contains(on.current)
+      const img = on.current && inside(event) && under ? on.current
+        : event.target instanceof HTMLImageElement && dom.contains(event.target) && whole(event.target) && !event.target.closest("[data-type='emoji'], .tiptap-bookmark-image") ? event.target : null
       if (img !== on.current) {
         if (on.current) snap()
         on.current = img
+        area.current = null
       }
       if (!img) return
+      area.current ??= flatRect(img)
       if (chosen(img) || performance.now() - typed < TYPED || document.activeElement?.closest(".mf-caption") || dom.classList.contains("dragging")) return tilt.flat()
-      if (!tilt.lean(event, img)) return
+      if (!tilt.lean(event, area.current!)) return
       const line = lineUnder(img)
       if (!line) return void (name.hide(), fade(null))
       const text = line.textContent!.trim()
@@ -306,31 +328,51 @@ function PictureTilt({ editor }: { editor: Editor }): React.ReactNode {
       // Kept within the picture. A caption longer than the label's three
       // lines stays under the picture too, so all of it can still be read.
       const fits = name.measure(text).whole
-      name.follow(event.clientX, event.clientY, img.getBoundingClientRect())
+      name.follow(event.clientX, event.clientY, area.current!)
       fade(fits ? line : null)
     }
+    // Out of the window altogether: every other way off the picture is a move
+    // (read on the whole window, so a handle or a toolbar lying over the
+    // picture's edge is still its place, not a way out).
     const onOut = (event: PointerEvent): void => {
-      if (on.current && event.target === on.current && event.relatedTarget !== on.current) tilt.flat()
+      if (on.current && !event.relatedTarget) tilt.flat()
+    }
+    // The page moved under it: its flat place is somewhere else now. Only a
+    // scroll that carries the picture: a list scrolling elsewhere leaves it be.
+    const onScroll = (event: Event): void => {
+      if (!on.current || !(event.target instanceof Node) || !event.target.contains(on.current)) return
+      snap()
+      on.current = null
+      area.current = null
     }
     const onKey = (): void => {
       typed = performance.now()
       if (on.current) tilt.flat()
+      // What is typed can move the picture: measured again on the next move.
+      area.current = null
     }
-    const onPress = (): void => void (on.current && snap())
-    dom.addEventListener("pointermove", onMove)
-    dom.addEventListener("pointerout", onOut)
+    // A press may resize or move it: measured again on the next move.
+    const onPress = (): void => {
+      if (on.current) snap()
+      area.current = null
+    }
+    window.addEventListener("pointermove", onMove)
+    window.addEventListener("pointerout", onOut)
     dom.addEventListener("dragstart", snap)
+    window.addEventListener("scroll", onScroll, true)
     dom.addEventListener("keydown", onKey, true)
     window.addEventListener("pointerdown", onPress, true)
     return () => {
-      dom.removeEventListener("pointermove", onMove)
-      dom.removeEventListener("pointerout", onOut)
+      window.removeEventListener("pointermove", onMove)
+      window.removeEventListener("pointerout", onOut)
       dom.removeEventListener("dragstart", snap)
+      window.removeEventListener("scroll", onScroll, true)
       dom.removeEventListener("keydown", onKey, true)
       window.removeEventListener("pointerdown", onPress, true)
       unsubscribe()
       snap()
       on.current = null
+      area.current = null
     }
   }, [editor]) // eslint-disable-line react-hooks/exhaustive-deps
 

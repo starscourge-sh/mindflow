@@ -18,6 +18,8 @@ addEventListener('wheel', () => {
 }, { capture: true, passive: true })
 
 const spring = { stiffness: 260, damping: 24 }
+// How far in from an edge, as a share of the picture, the lean starts to ease off.
+const EDGE = 0.18
 
 /** How a pointer event reads to a tilt: only what it needs, so a plain DOM listener can pass one too. */
 type Pointing = { clientX: number; clientY: number; pointerType: string; buttons: number }
@@ -30,7 +32,7 @@ type Pointing = { clientX: number; clientY: number; pointerType: string; buttons
  */
 export function useTilt(by: number, lift = 1.03): {
   x: MotionValue<number>; y: MotionValue<number>; grow: MotionValue<number>; glow: MotionValue<number>; sheen: MotionValue<string>
-  lean: (event: Pointing, el: Element) => boolean; flat: () => void; onFlat: (then: () => void) => void
+  lean: (event: Pointing, area: Element | DOMRect) => boolean; flat: () => void; onFlat: (then: () => void) => void
 } {
   const x = useSpring(0, spring)
   const y = useSpring(0, spring)
@@ -51,14 +53,19 @@ export function useTilt(by: number, lift = 1.03): {
     also.current?.()
   })
   useEffect(() => flat, [flat])
-  const lean = (event: Pointing, el: Element): boolean => {
+  const lean = (event: Pointing, area: Element | DOMRect): boolean => {
     if (event.pointerType !== 'mouse' || event.buttons || still() || performance.now() - wheeled < SETTLE) return flat(), false
-    const box = el.getBoundingClientRect()
+    // Measured on something that does not tip (a wrapper, or the picture's
+    // place while it lay flat): the tipped picture's own box moves with it.
+    const box = area instanceof DOMRect ? area : area.getBoundingClientRect()
     if (box.width < SMALLEST || box.height < SMALLEST) return false
-    const left = (event.clientX - box.left) / box.width
-    const top = (event.clientY - box.top) / box.height
-    y.set((left - 0.5) * 2 * by)
-    x.set(-(top - 0.5) * 2 * by)
+    const left = Math.min(1, Math.max(0, (event.clientX - box.left) / box.width))
+    const top = Math.min(1, Math.max(0, (event.clientY - box.top) / box.height))
+    // Gentler toward the edges, so a corner never tips the picture far from the pointer.
+    const edge = Math.min(left, 1 - left, top, 1 - top) / EDGE
+    const damp = edge >= 1 ? 1 : 0.4 + 0.6 * edge * edge * (3 - 2 * edge)
+    y.set((left - 0.5) * 2 * by * damp)
+    x.set(-(top - 0.5) * 2 * by * damp)
     across.set(left * 100)
     down.set(top * 100)
     glow.set(1)
@@ -176,18 +183,22 @@ export function Tilt({ children, className = '', by = 8, caption }: { children: 
   const tilt = useTilt(by)
   const name = useFollowLabel()
   tilt.onFlat(name.hide)
+  // The pointer is read on a wrapper that never tips; only the picture inside
+  // it does. Read on the picture, a corner tips out from under the pointer,
+  // which reads as leaving, lies flat, is under it again, and flickers.
   return (
-    <motion.span
-      className={`relative block ${className}`}
-      style={{ rotateX: tilt.x, rotateY: tilt.y, scale: tilt.grow, transformPerspective: 700 }}
+    <span
+      className="relative block shrink-0"
       onPointerMove={(event) => {
         if (tilt.lean(event, event.currentTarget) && caption) name.follow(event.clientX, event.clientY)
       }}
       onPointerLeave={tilt.flat}
     >
-      {children}
-      <motion.span aria-hidden className="pointer-events-none absolute inset-0 rounded-[inherit]" style={{ background: tilt.sheen, opacity: tilt.glow }} />
+      <motion.span className={`relative block ${className}`} style={{ rotateX: tilt.x, rotateY: tilt.y, scale: tilt.grow, transformPerspective: 700 }}>
+        {children}
+        <motion.span aria-hidden className="pointer-events-none absolute inset-0 rounded-[inherit]" style={{ background: tilt.sheen, opacity: tilt.glow }} />
+      </motion.span>
       {name.label(caption)}
-    </motion.span>
+    </span>
   )
 }
