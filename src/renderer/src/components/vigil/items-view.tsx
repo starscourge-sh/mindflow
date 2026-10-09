@@ -59,8 +59,8 @@ import { QuestionDetail } from './questions-view'
 import { GlossTimeline, useRowGloss } from './gloss-line'
 import { dayjs, moment, num } from '../../../../main/dates'
 import { Signed } from './signature'
-import { groups as noteGroupsApi, tintOf, useGroups } from '@/lib/groups'
-import { dropMany, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveTo, step as stepLayout, type Layout } from '@/lib/group-layout'
+import { groups as noteGroupsApi, tintOf, useGroups, type NoteGroup } from '@/lib/groups'
+import { dropMany, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveTo, step as stepLayout, tidy, type Layout } from '@/lib/group-layout'
 import type { Cue } from '@/lib/sound'
 import { GroupIcon, type Bundle, type Folds } from './kept-groups'
 
@@ -864,9 +864,16 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   const [opened, setOpened] = useState<Record<string, boolean>>({})
   const [renaming, setRenaming] = useState<string | null>(null)
   const [born, setBorn] = useState<string | null>(null)
-  const saved = layoutOf([...every].sort(ownOrder).map((one) => one.id), list)
+  // A group is two notes or more that are not archived: one with fewer is drawn as its note, where it was.
+  const live = new Set(every.filter((one) => !one.archivedAt).map((one) => one.id))
+  const saved = layoutOf([...every].sort(ownOrder).map((one) => one.id), list, live)
+  // Groups coming apart, drawn going (the Separate fade and slide) before the list closes over them.
+  const [parting, setParting] = useState<string[]>([])
+  // Every group seen, so one coming apart keeps its name and colour while it goes, and Undo can bring it back as it was.
+  const known = useRef(new Map<string, NoteGroup>())
+  for (const one of list) known.current.set(one.id, one)
   const savedOrder = flatten(saved).join('\n')
-  useEffect(() => void (held && flatten(held).join('\n') === savedOrder && setHeld(null)), [savedOrder]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => void (held && flatten(held).join('\n') === savedOrder && setHeld(null)), [savedOrder, held])
   // Never held for long: a save that came back otherwise is the truth.
   useEffect(() => {
     if (!held) return
@@ -881,7 +888,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   const folded = list.map((one) => `${one.id}:${one.folded}`).join()
   useEffect(() => setOpened({}), [folded])
   const layout = held ?? saved
-  const info = new Map(list.map((one) => [one.id, one]))
+  const info = new Map([...known.current].filter(([id]) => list.some((one) => one.id === id) || parting.includes(id)))
   const isOpen = (id: string): boolean => opened[id] ?? !info.get(id)?.folded
   const visible = new Map((shown ?? every).map((one) => [one.id, one]))
   const shut = new Set(list.filter((one) => !isOpen(one.id)).map((one) => one.id))
@@ -910,14 +917,27 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     return `Group ${n}`
   }
   const make = (ids: string[] = []) => (): { id: string; name: string } => ({ id: crypto.randomUUID(), name: naming(ids) })
-  const commit = (next: Layout, cue: Cue, said?: string): void => {
+  const commit = (raw: Layout, cue: Cue, said?: string): void => {
     const was = layout
+    // A group left with one note comes apart, in the same step, and the same Undo.
+    const { layout: next, dissolved } = tidy(raw)
     if (!shown) toOwn()
-    setHeld(next)
-    chime(cue)
+    chime(dissolved.length ? 'separate' : cue)
+    if (dissolved.length && !matchMedia('(prefers-reduced-motion: reduce)').matches && document.documentElement.dataset.motion !== 'off') {
+      setHeld(raw)
+      setParting(dissolved)
+      setTimeout(() => (setHeld(next), setParting([])), 240)
+    } else setHeld(next)
     if (next.make) (setRenaming(next.make.id), setBorn(next.make.id))
     done()
-    void noteGroupsApi.arrange(tier, next).then(() => said && toast(said, () => void noteGroupsApi.arrange(tier, { top: was.top, groups: was.groups })))
+    const gone = Object.keys(was.groups).filter((id) => !next.groups[id])
+    const revive = gone.flatMap((id) => (known.current.has(id) ? [(({ name, icon, color, folded }) => ({ id, name, icon, color, folded }))(known.current.get(id)!)] : []))
+    const apart = dissolved.map((id) => known.current.get(id)?.name).filter(Boolean)
+    void noteGroupsApi.arrange(tier, next).then(() => said && toast(apart.length ? `${said}: ${apart.join(', ')} came apart` : said, () => {
+      // Drawn back at once, as the change itself was.
+      setHeld({ top: was.top, groups: was.groups })
+      void noteGroupsApi.arrange(tier, { top: was.top, groups: was.groups, revive })
+    }))
   }
   const step = (id: string, by: number): number | null => {
     const next = stepLayout(layout, keys, id, by, shut)
@@ -932,7 +952,8 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   const notes = (n: number): string => (n === 1 ? 'note' : `${n} notes`)
   const gatherNew = (ids: string[]): void => {
     const these = inOrder(ids)
-    if (!these.length) return refuse('Pick a row first')
+    // A group is two notes or more.
+    if (these.length < 2) return refuse('Pick two or more rows to make a group')
     commit(gather(layout, these[0], these, make(these)()), 'gather', these.length > 1 ? `Grouped ${these.length} notes` : 'Grouped')
   }
   const menu = (ids: string[]): RowItem[] => {
@@ -942,7 +963,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     const into = (group: string): Layout => these.reduce((next, one) => moveTo(next, one, { group, after: next.groups[group]?.[next.groups[group].length - 1] ?? null }), layout)
     const others = list.filter((one) => layout.groups[one.id] && !(theirs.size === 1 && theirs.has(one.id)))
     return [
-      { label: n > 1 ? `New group with ${n} notes` : 'New group with this note', keys: '⌃⌘N', run: () => gatherNew(these) },
+      n > 1 && { label: `New group with ${n} notes`, keys: '⌃⌘N', run: () => gatherNew(these) },
       {
         label: 'Move to group',
         items: [
@@ -952,8 +973,8 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
             trail: <span className="ml-auto size-2 rounded-full" style={{ background: tintOf(one.color) ?? 'color-mix(in srgb, var(--foreground) 25%, transparent)' }} />,
             run: () => commit(into(one.id), 'gather', `Moved ${notes(n)} to ${one.name}`)
           })),
-          others.length ? 'separator' : null,
-          { label: 'New group…', run: () => gatherNew(these) }
+          others.length && n > 1 ? 'separator' : null,
+          n > 1 && { label: 'New group…', run: () => gatherNew(these) }
         ]
       },
       theirs.size > 0 && {
@@ -981,7 +1002,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
       const group = one.group ? info.get(one.group) : undefined
       return {
         group: one.group
-          ? { id: one.group, name: group?.name ?? layout.make?.name ?? 'Group', icon: group?.icon ?? null, color: group?.color ?? null, open: isOpen(one.group), members: one.items.map((item) => item.id) }
+          ? { id: one.group, name: group?.name ?? layout.make?.name ?? 'Group', icon: group?.icon ?? null, color: group?.color ?? null, open: isOpen(one.group), members: one.items.map((item) => item.id), parting: parting.includes(one.group) }
           : undefined,
         entries: one.items.map((item) => itemEntry(item, menuFor(item)))
       }

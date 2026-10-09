@@ -19,7 +19,7 @@ import { atomically, changed, database } from './captures'
 
 export type Group = { id: string; name: string; icon: string | null; color: string | null; folded: number; members: string[] }
 /** A list as it should be: its top level in order (notes and `g:` groups), and each group's notes in order. */
-export type Layout = { top: string[]; groups: Record<string, string[]>; make?: { id: string; name: string } }
+export type Layout = { top: string[]; groups: Record<string, string[]>; make?: { id: string; name: string }; revive?: { id: string; name: string; icon: string | null; color: string | null; folded: number }[] }
 
 const now = (): string => new Date().toISOString()
 const KEY = 'g:'
@@ -67,6 +67,9 @@ export function registerGroups(): void {
   handle('groups:arrange', (list: string, layout: Layout) => {
     atomically(() => {
       if (layout.make) db.prepare('insert into note_groups (id, list, name, created_at) values (?, ?, ?, ?)').run(layout.make.id, list, layout.make.name, now())
+      // An Undo of what took a group apart brings it back as it was.
+      for (const one of layout.revive ?? [])
+        db.prepare('insert or ignore into note_groups (id, list, name, icon, color, folded, created_at) values (?, ?, ?, ?, ?, ?, ?)').run(one.id, list, one.name, one.icon, one.color, one.folded, now())
       const placed = new Set<string>()
       const put = db.prepare('update nuggets set group_id = ?, group_order = ? where id = ?')
       for (const [group, ids] of Object.entries(layout.groups))
@@ -74,7 +77,8 @@ export function registerGroups(): void {
       // Out of every group: whatever the layout has at its top level.
       for (const key of layout.top) if (!key.startsWith(KEY) && !placed.has(key)) put.run(null, null, key)
       writeOrder(list, layout.top, layout.groups)
-      // A group left with nothing in it is gone: a group is its notes.
+      // A group is two notes or more: one left with fewer is gone, its note left where it was.
+      db.exec('update nuggets set group_id = null, group_order = null where group_id in (select group_id from nuggets where group_id is not null group by group_id having count(*) < 2)')
       db.exec(`delete from note_groups where not exists (select 1 from nuggets where nuggets.group_id = note_groups.id)`)
     })
     changed()

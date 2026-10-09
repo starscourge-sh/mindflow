@@ -1,7 +1,7 @@
 // Run with: node --test test/group-layout.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { drop, flatten, gather, landsIn, layoutOf, step } from '../src/renderer/src/lib/group-layout.ts'
+import { drop, flatten, gather, landsIn, layoutOf, step, tidy } from '../src/renderer/src/lib/group-layout.ts'
 
 const make = () => ({ id: 'n', name: 'New group' })
 // a, then group G holding b and c, then d and e.
@@ -48,7 +48,7 @@ test('a note let go outside its group leaves it, and an emptied group goes', () 
 
 test('a group carried by its row takes its notes, and lands beside a group, never in it', () => {
   assert.deepEqual(flatten(drop(base(), 'g:G', 'e', 'after', none, make)!), ['a', 'd', 'e', 'g:G', 'b', 'c'])
-  const two = layoutOf(['a', 'b', 'c', 'd'], [{ id: 'G', members: ['a'] }, { id: 'H', members: ['c', 'd'] }])
+  const two = layoutOf(['a', 'x', 'b', 'c', 'd'], [{ id: 'G', members: ['a', 'x'] }, { id: 'H', members: ['c', 'd'] }])
   assert.deepEqual(drop(two, 'g:G', 'd', 'before', none, make)!.top, ['b', 'g:G', 'g:H'])
 })
 
@@ -87,4 +87,18 @@ test('several carried at once land together, in their order', async () => {
   // on the middle of a lone row: a new group of it and both.
   const made = dropMany(base(), ['a', 'e'], 'd', 'join', none, make)!
   assert.deepEqual(made.groups.n, ['d', 'a', 'e'])
+})
+
+test('a group left with one note comes apart, the note where the group was', () => {
+  // c carried out of G past e: G keeps only b, so b stands alone where G was.
+  const raw = drop(base(), 'c', 'e', 'after', none, make)!
+  assert.deepEqual(raw.groups.G, ['b'])
+  const { layout, dissolved } = tidy(raw)
+  assert.deepEqual(dissolved, ['G'])
+  assert.deepEqual(layout, { top: ['a', 'b', 'd', 'e', 'c'], groups: {} })
+})
+
+test('a group of one is never drawn as a group, nor one whose second note is archived', () => {
+  assert.deepEqual(layoutOf(['a', 'b'], [{ id: 'G', members: ['a'] }]), { top: ['a', 'b'], groups: {} })
+  assert.deepEqual(layoutOf(['a', 'b', 'c'], [{ id: 'G', members: ['a', 'b'] }], new Set(['a', 'c'])), { top: ['a', 'b', 'c'], groups: {} })
 })

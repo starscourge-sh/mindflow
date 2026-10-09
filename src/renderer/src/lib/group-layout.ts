@@ -7,7 +7,13 @@
  * No imports, so `node --test` can run it as it is.
  */
 
-export type Layout = { top: string[]; groups: Record<string, string[]>; make?: { id: string; name: string } }
+export type Layout = {
+  top: string[]
+  groups: Record<string, string[]>
+  make?: { id: string; name: string }
+  /** Groups to bring back as they were, for an Undo of what took them apart. */
+  revive?: { id: string; name: string; icon: string | null; color: string | null; folded: number }[]
+}
 /** Where a note goes: into a group (or the top level, null), just after `after` (or first, null). */
 type Place = { group: string | null; after: string | null }
 
@@ -15,9 +21,15 @@ export const KEY = 'g:'
 export const isGroup = (key: string): boolean => key.startsWith(KEY)
 export const groupId = (key: string): string => key.slice(KEY.length)
 
-/** The layout as saved: `ids` is every note in your own order, `groups` each group's notes in order. */
-export function layoutOf(ids: string[], groups: { id: string; members: string[] }[]): Layout {
+/**
+ * The layout as saved: `ids` is every note in your own order, `groups` each
+ * group's notes in order. A group is two notes or more: one with fewer (still
+ * counting only the notes in `live`, when given, so an archived one does not
+ * count) is drawn as the notes it has, where it was.
+ */
+export function layoutOf(ids: string[], groups: { id: string; members: string[] }[], live?: Set<string>): Layout {
   const known = new Set(ids)
+  groups = groups.filter((group) => group.members.filter((id) => known.has(id) && (!live || live.has(id))).length >= 2)
   const of = new Map<string, string>()
   for (const group of groups) for (const id of group.members) if (known.has(id)) of.set(id, group.id)
   const top: string[] = []
@@ -167,4 +179,18 @@ export function dropMany(layout: Layout, ids: string[], target: string, how: How
     prev = id
   }
   return next
+}
+
+/**
+ * A group is two notes or more. Any left with one (or none) comes apart: its
+ * note stays where the group was. Gives back the tidied layout and the groups
+ * that came apart, for the list to show them going.
+ */
+export function tidy(layout: Layout): { layout: Layout; dissolved: string[] } {
+  const dissolved = Object.keys(layout.groups).filter((group) => layout.groups[group].length < 2)
+  if (!dissolved.length) return { layout, dissolved }
+  const groups = { ...layout.groups }
+  for (const group of dissolved) delete groups[group]
+  const top = layout.top.flatMap((key) => (isGroup(key) && dissolved.includes(groupId(key)) ? layout.groups[groupId(key)] ?? [] : [key]))
+  return { layout: { ...layout, top, groups }, dissolved }
 }

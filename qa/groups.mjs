@@ -79,7 +79,7 @@ if (c) try {
       await frames(c, 'a-middle', 6, 40)
       check('over a row\'s middle, a preview of the group shows', await c.h.locator('[data-preview]').count() === 1)
       check('and the label says so', (await said(c)) === 'New group', await said(c))
-      check('and no insertion line', await c.h.locator('[data-line]').count() === 0)
+      check('and no insertion line', await c.h.locator('[data-drop-line]').count() === 0)
     }
   })
   // 2. Let go: the group forms, its row unfolding above with the name ready to write.
@@ -101,7 +101,7 @@ if (c) try {
     hold: async () => {
       await c.h.waitForTimeout(150)
       await frames(c, 'c-edge', 4, 40)
-      check('near a row\'s edge, only a line shows', await c.h.locator('[data-line]').count() === 1 && await c.h.locator('[data-preview]').count() === 0)
+      check('near a row\'s edge, only a line shows', await c.h.locator('[data-drop-line]').count() === 1 && await c.h.locator('[data-preview]').count() === 0)
     }
   })
   await c.h.keyboard.press('Escape')
@@ -211,10 +211,10 @@ if (c) try {
     }
   })
   await c.h.waitForTimeout(700)
-  check('both leave the group', (await named(c, 'Memory'))?.members.length === 1)
+  check('both leave, and the group of one left comes apart', !(await named(c, 'Memory')) && (await c.h.locator('[data-group-row]', { hasText: 'Memory' }).count()) === 0)
   await c.h.keyboard.press('Meta+z')
   await c.h.waitForTimeout(800)
-  check('and ⌘Z brings both back', (await named(c, 'Memory'))?.members.length === 3)
+  check('and one ⌘Z brings the group and all three back', (await named(c, 'Memory'))?.members.length === 3 && (await named(c, 'Memory'))?.name === 'Memory')
 
   // 7e. A row that is not picked goes alone, and the picks are let go.
   await row(c, 'Interleaving beats blocking').click({ modifiers: ['Meta'] })
@@ -239,6 +239,64 @@ if (c) try {
   await c.h.keyboard.press('Meta+z')
   await c.h.waitForTimeout(800)
   check('and ⌘Z takes it apart again', (await groupsNow(c)).length === 2)
+
+  // 7g. A group is two notes or more. Reading holds two: taking one out, by
+  // any way, takes the group apart, its other note left where it was; ⌘Z
+  // puts the group and both back.
+  const apart = async (how, take) => {
+    const before = await order(c)
+    const at = before.indexOf('Reading list for October')
+    await take()
+    await c.h.waitForTimeout(900)
+    const after = await order(c)
+    // Archived, the note only steps out of sight: the group is drawn apart, and comes back with it.
+    const gone = (how === 'archived' || !(await named(c, 'Reading'))) && (await c.h.locator('[data-group-row]', { hasText: 'Reading' }).count()) === 0
+    check(`${how}: the group of one comes apart`, gone, JSON.stringify((await groupsNow(c)).map((one) => one.name)))
+    check(`${how}: its last note stays where the group was`, Math.abs(after.indexOf('Reading list for October') - at) <= 1, `${at} → ${after.indexOf('Reading list for October')}`)
+    await c.h.keyboard.press('Meta+z')
+    await c.h.waitForTimeout(900)
+    const back = await named(c, 'Reading')
+    check(`${how}: one ⌘Z brings the group and both notes back`, back?.members.length === 2 && (await c.h.locator('[data-group-row]', { hasText: 'Reading' }).count()) === 1, JSON.stringify(back ?? null))
+  }
+  await apart('dragged out', async () => {
+    await carry(c, row(c, 'Notes on Zettelkasten'), row(c, 'Who is the monster'), 0.9, { hold: async () => (await c.h.waitForTimeout(200), await frames(c, 'z-dissolve-drag', 2, 40)) })
+    await frames(c, 'z-dissolve-going', 5, 40)
+  })
+  await apart('Remove from group', async () => {
+    await row(c, 'Notes on Zettelkasten').click({ button: 'right' })
+    await c.h.waitForTimeout(250)
+    await c.h.locator('[role="menuitem"]', { hasText: 'Remove from group' }).click()
+  })
+  await apart('Move to group', async () => {
+    await row(c, 'Notes on Zettelkasten').click({ button: 'right' })
+    await c.h.waitForTimeout(250)
+    await c.h.locator('[data-slot="context-menu-sub-trigger"]', { hasText: 'Move to group' }).hover()
+    await c.h.waitForTimeout(350)
+    // Into the submenu by the keys, as a hand would glide there: its first line is Memory.
+    await c.h.keyboard.press('ArrowRight')
+    await c.h.waitForTimeout(150)
+    await c.h.keyboard.press('Enter')
+  })
+  await apart('archived', async () => {
+    await row(c, 'Notes on Zettelkasten').click({ button: 'right' })
+    await c.h.waitForTimeout(250)
+    await c.h.locator('[role="menuitem"]', { hasText: /^Archive$/ }).click()
+  })
+  // And one row alone can never be a group.
+  await c.h.mouse.move(900, 700)
+  // The cursor on a row (j), nothing picked.
+  await c.h.keyboard.press('j')
+  await c.h.waitForTimeout(200)
+  const count = (await groupsNow(c)).length
+  await c.h.keyboard.press('Control+Meta+n')
+  await c.h.waitForTimeout(500)
+  check('⌃⌘N on one row makes no group', (await groupsNow(c)).length === count)
+  await row(c, 'Interleaving beats blocking').click({ button: 'right' })
+  await c.h.waitForTimeout(250)
+  const single = await c.h.locator('[data-slot="context-menu-content"] [role="menuitem"]').allTextContents()
+  check('one row\'s menu offers no new group of one', !single.some((one) => one.startsWith('New group')), single.join(' | '))
+  await c.h.keyboard.press('Escape')
+  await c.h.waitForTimeout(250)
 
   // 8. Colour from the menu, then ← and → on the group's row.
   await head(c, 'Memory').click({ button: 'right' })

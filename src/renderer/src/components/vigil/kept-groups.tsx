@@ -38,7 +38,7 @@ const X = alive(XIcon)
  * small label by the pointer says it in words.
  */
 
-export type GroupView = { id: string; name: string; icon: string | null; color: string | null; open: boolean; members: string[] }
+export type GroupView = { id: string; name: string; icon: string | null; color: string | null; open: boolean; members: string[]; /** Coming apart (left with one note): drawn going. */ parting?: boolean }
 /** A line of the list: one note at the top level, or a group and the notes it shows. */
 export type Bundle = { group?: GroupView; entries: Entry[] }
 
@@ -118,7 +118,7 @@ function Node({ id, children, inner, indent = 0 }: { id: string; children: React
       {room && aim.how !== 'join' && (
         <span
           aria-hidden
-          data-line={aim.how}
+          data-drop-line={aim.how}
           className="pointer-events-none absolute inset-y-0 right-2 my-auto h-0.5 rounded-full bg-(--tt-brand-color-400) animate-in fade-in-0 duration-150 before:absolute before:-top-[3px] before:-left-2 before:size-2 before:rounded-full before:border-2 before:border-(--tt-brand-color-400) before:bg-background"
           style={{ left: (aim.into ? INDENT : 0) + 12 }}
         />
@@ -437,7 +437,8 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
   const [menu, setMenu] = useState(false)
   const [picking, setPicking] = useState(false)
   const [pointing, setPointing] = useState(false)
-  const [parting, setParting] = useState(false)
+  const [parted, setParting] = useState(false)
+  const parting = parted || !!group.parting
   // Just made: its row unfolds above the two notes, a moment after it is drawn.
   const [arrived, setArrived] = useState(!born || still())
   useEffect(() => {
