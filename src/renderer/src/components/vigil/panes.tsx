@@ -220,11 +220,13 @@ function PaneFrame({ pane, apis, split, front, hidden, share, divider, onFront, 
         className={`relative min-h-0 min-w-0 ${hidden ? 'hidden' : 'flex'}`}
         style={{ flexGrow: share, flexBasis: 0 }}
       >
-        <div ref={pageRef} className={`@container/page relative flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border transition-opacity duration-150 ${split && !front ? 'opacity-[0.86]' : ''}`}>
-          {/* The pane with the keys: a calm line along its top edge. */}
-          {split && (
-            <span aria-hidden className={`pointer-events-none absolute inset-x-0 top-0 z-40 h-[2px] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_65%,transparent)] transition-opacity duration-150 ${front ? 'opacity-100' : 'opacity-0'}`} />
-          )}
+        {/* Split, the pane with the keys reads as the surface in front, the way Dia
+            shows it: a firmer hairline and a soft shadow, its words at full
+            strength. The others step back: a fainter hairline, no shadow, their
+            header lines muted and the page a touch dimmer. Nothing coloured.
+            On its own, the page is the card it always was. */}
+        <div ref={pageRef} className={`@container/page relative flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border transition-[opacity,border-color,box-shadow] duration-150 ${
+          !split ? '' : front ? 'border-foreground/12 shadow-[0_1px_2px_rgb(0_0_0/0.05),0_6px_18px_-6px_rgb(0_0_0/0.12)]' : 'border-foreground/6 opacity-[0.94] [&_header]:text-muted-foreground'}`}>
           <PaneContext.Provider value={pane.key}>
             <PaneWidthContext.Provider value={split ? width : null}>{pane.node}</PaneWidthContext.Provider>
           </PaneContext.Provider>

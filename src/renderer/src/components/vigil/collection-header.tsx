@@ -175,7 +175,8 @@ export function CollectionHeader({ tint, cover, label, title, length = 0, meta, 
     <header
       className="@container/band relative transition-[background-color] duration-300 ease-out"
       // The colour runs down behind the actions and fades into the page, as the band does in a music app.
-      style={{ background: tint ? `linear-gradient(180deg, ${tint} 0%, ${tint} 45%, var(--background) 100%)` : undefined }}
+      // It rises out of the page too, so no hard edge sits under the page's header line like a stray band.
+      style={{ background: tint ? `linear-gradient(180deg, var(--background) 0%, ${tint} 30%, ${tint} 50%, var(--background) 100%)` : undefined }}
     >
       <div className="page-column flex items-end gap-4 px-5 pt-6 pb-4 @[44rem]/band:gap-6 @[44rem]/band:px-8 @[44rem]/band:pt-10 @[44rem]/band:pb-5">
         {cover}

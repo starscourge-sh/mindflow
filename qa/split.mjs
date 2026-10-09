@@ -129,9 +129,14 @@ try {
   await press('Control+h')
   check('⌃H at the left edge stays put', (await panes(h))[0].front)
 
-  // --- The front pane: its line on top; the others dim ------------------------------------
-  const looks = await h.evaluate(() => [...document.querySelectorAll('[data-pane]')].map((el) => ({ line: getComputedStyle(el.querySelector('[data-pane] > div > span[aria-hidden]')).opacity, dim: getComputedStyle(el.firstElementChild).opacity })))
-  check('the front pane has the accent line, the others dim slightly', looks[0].line === '1' && looks[1].line === '0' && Number(looks[1].dim) < 1 && Number(looks[1].dim) > 0.8 && looks[0].dim === '1', JSON.stringify(looks))
+  // --- The front pane: a firmer hairline and a shadow; the others a fainter one, no shadow, nothing coloured ---
+  const looks = await h.evaluate(() => [...document.querySelectorAll('[data-pane]')].map((el) => {
+    const card = getComputedStyle(el.firstElementChild)
+    // The colour's alpha, whatever space it is written in: "/ 0.12)" or rgba's fourth number.
+    const alpha = (colour) => Number(/\/\s*([\d.]+)\)$/.exec(colour)?.[1] ?? /rgba\([^)]*,\s*([\d.]+)\)$/.exec(colour)?.[1] ?? 1)
+    return { border: card.borderTopColor, edge: alpha(card.borderTopColor), shadow: card.boxShadow !== 'none', dim: Number(card.opacity), strip: !!el.querySelector(':scope > div > span[aria-hidden].absolute') }
+  }))
+  check('the front pane has the firmer border and a shadow; the others a fainter border, no shadow, no coloured strip', looks[0].shadow && !looks[1].shadow && !looks[2].shadow && looks[0].edge > looks[1].edge && looks.every((one) => !one.strip) && looks[0].dim === 1 && looks[1].dim < 1 && looks[1].dim > 0.9, JSON.stringify(looks))
   await h.screenshot({ path: `${shots}/three-light.png` })
 
   // --- Vim on: ⌃L from inside a note in normal mode, nothing typed -------------------------
@@ -267,6 +272,9 @@ try {
   await press('Control+w', 'Control+w')
   list = await panes(h)
   check('⌃W down to one pane; the split is no longer kept', list.length === 1 && !(await trails(h)), show(list))
+  const alone = await h.evaluate(() => { const card = getComputedStyle(document.querySelector('[data-pane]').firstElementChild); return { shadow: card.boxShadow, dim: card.opacity } })
+  check('one pane alone shows no front-pane look at all', alone.shadow === 'none' && alone.dim === '1', JSON.stringify(alone))
+  await h.screenshot({ path: `${shots}/single-light.png` })
   await press('Control+w')
   check('⌃W with one pane does nothing', (await panes(h)).length === 1)
 } finally {
