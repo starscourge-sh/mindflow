@@ -3,7 +3,7 @@ import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { ArrowUp, BookOpen, Brain, Check, CornerDownLeft, GitBranch, RotateCcw } from 'lucide-react'
 import { EASE, byKeys, hush, spring, speak } from '@/lib/motion'
 import { chime, click, fold } from '@/lib/sound'
-import { allThemes, applyTheme, currentTheme, isLight, type Theme } from '@/lib/theme'
+import { applyTheme, type Theme } from '@/lib/theme'
 import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
 import { onboarding, type Onboarding } from '@/lib/onboarding'
 import { enterSandbox } from '@/lib/sandbox'
@@ -1055,119 +1055,64 @@ function ReturnChapter({ play, report }: { play: boolean; report: (now: Reel) =>
 
 // --- 5 Make it yours ----------------------------------------------------------------
 
-type DialState = { docked: boolean; dial: boolean; grab: number; close: boolean }
+type DialState = { docked: boolean; dial: boolean; ticks: number }
 
 /**
- * The window puts a theme on by spreading it from the dial's notch in a
- * circle, over everything (a View Transition). With Motion off, or where the
- * browser cannot, it simply changes.
+ * The window puts a theme on with a quick plain crossfade, colours only
+ * (main.css: 200ms while the welcome runs), and the dial itself stays live
+ * on top of it, so the ring never stops while the page changes.
  */
-let spreading = false
-const spreadFromNotch = (theme: Theme): void => {
-  const dial = document.querySelector<HTMLElement>('[role="slider"][aria-label="Theme"]')
+const fadeTo = (theme: Theme): void => {
   const go = (): void => applyTheme(theme, false)
-  const start = (document as Document & { startViewTransition?: (run: () => void) => { ready: Promise<void>; finished: Promise<void> } }).startViewTransition
-  // One circle at a time: a detent passed while it is still spreading is simply
-  // worn, inside the circle already growing (its new picture is live), rather
-  // than starting another and cutting this one short.
-  if (!dial || !start || still() || spreading) return go()
-  spreading = true
-  const box = dial.getBoundingClientRect()
-  // In shares of the window: the snapshot it clips need not be measured in the page's own pixels.
-  const at = `${((box.left + box.width / 2) / innerWidth * 100).toFixed(2)}% ${((box.top + 6) / innerHeight * 100).toFixed(2)}%`
-  const shift = start.call(document, go)
-  void shift.finished.finally(() => void (spreading = false))
-  void shift.ready.then(() => document.documentElement.animate(
-    { clipPath: [`circle(0px at ${at})`, `circle(150% at ${at})`] },
-    { duration: 520, easing: 'cubic-bezier(0.65, 0, 0.35, 1)', pseudoElement: '::view-transition-new(root)' }
-  )).catch(() => undefined)
+  const start = (document as Document & { startViewTransition?: (run: () => void) => { ready: Promise<void> } }).startViewTransition
+  if (!start || still()) return go()
+  void start.call(document, go).ready.catch(() => undefined)
 }
 
-/**
- * The ghost takes the notch and turns the ring along its arc, `by` degrees,
- * through the dial's own pointer handlers, so it lands and is heard as a hand's
- * turn is. The hand's dot follows on screen. Stopped by `cancel`.
- */
-function turnDial(by: number, hand: (x: number, y: number) => void, ms = 760): () => void {
-  const ring = document.querySelector<HTMLElement>('[role="slider"][aria-label="Theme"]')
-  if (!ring) return () => undefined
-  const box = ring.getBoundingClientRect()
-  const [cx, cy, r] = [box.left + box.width / 2, box.top + box.height / 2, box.width * 0.43]
-  const point = (deg: number): { clientX: number; clientY: number } => ({ clientX: cx + Math.sin((deg * Math.PI) / 180) * r, clientY: cy - Math.cos((deg * Math.PI) / 180) * r })
-  const send = (type: string, deg: number): void => {
-    const at = point(deg)
-    hand(at.clientX, at.clientY)
-    ring.dispatchEvent(new PointerEvent(type, { ...at, bubbles: true, pointerId: 77, button: 0, buttons: type === 'pointerup' ? 0 : 1, isPrimary: true }))
-  }
-  let frame = 0
-  const t0 = performance.now()
-  send('pointerdown', 0)
-  const step = (now: number): void => {
-    const p = Math.min(1, (now - t0) / ms)
-    // The glide of a wrist: slow away, slow to rest.
-    const eased = p < 0.5 ? 4 * p * p * p : 1 - (-2 * p + 2) ** 3 / 2
-    send('pointermove', by * eased)
-    if (p < 1) frame = requestAnimationFrame(step)
-    else send('pointerup', by)
-  }
-  frame = requestAnimationFrame(step)
-  return () => cancelAnimationFrame(frame)
-}
+/** Turns the dial one detent, as its arrow keys do: the ring ticks round and the page changes. */
+const tickDial = (key: 'ArrowDown' | 'ArrowUp'): void =>
+  void document.querySelector<HTMLElement>('[role="slider"][aria-label="Theme"]')?.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }))
 
+/** Two ticks of the dial, one on and one back, so the page you had is the page you keep; a hold after each, nothing else moving. */
 const DIAL_BEATS: Beat<DialState>[] = [
   { at: 0, to: {} },
   { at: 900, to: { docked: true, dial: true }, cue: cue('slide') },
-  { at: 1700, to: { close: true } },
-  { at: 2300, to: { grab: 1 } },
-  { at: 3700, to: { grab: 2 } },
-  { at: 5100, to: { grab: 3 } },
-  { at: 6100, to: { close: false } },
-  { at: 6600, to: { grab: 0 } },
-  { at: 7000, to: {} }
+  { at: 2600, to: { ticks: 1 }, cue: () => tickDial('ArrowDown') },
+  { at: 4400, to: { ticks: 2 }, cue: () => tickDial('ArrowUp') },
+  { at: 6200, to: {} }
 ]
+
+/** A grid of small dots over the whole screen, in the page's own ink: when the theme changes, it changes with it. */
+function DotGrid(): React.JSX.Element {
+  return (
+    <div aria-hidden className="pointer-events-none fixed inset-0 -z-0"
+      style={{
+        backgroundImage: 'radial-gradient(circle, color-mix(in oklab, var(--foreground) 22%, transparent) 1.1px, transparent 1.4px)',
+        backgroundSize: '22px 22px',
+        backgroundPosition: '11px 11px',
+        // Quieter behind the dial in the middle, so the dots frame it rather than fight it.
+        maskImage: 'radial-gradient(ellipse 40% 45% at 50% 58%, rgb(0 0 0 / 0.15), black 85%)',
+        WebkitMaskImage: 'radial-gradient(ellipse 40% 45% at 50% 58%, rgb(0 0 0 / 0.15), black 85%)'
+      }} />
+  )
+}
 
 function DialChapter({ play, report, onPick }: { play: boolean; report: (now: Reel) => void; onPick: (theme: Theme) => void }): React.JSX.Element {
   const [say, setSay] = useState<string | undefined>()
-  const [start] = useState(currentTheme)
-  const show = useScript<DialState>({ docked: false, dial: false, grab: 0, close: false }, DIAL_BEATS, play)
-  const scene = useRef<HTMLDivElement>(null)
-  const [hand, setHand] = useState<[number, number] | null>(null)
-  // The ghost's turns: first to a page of the other kind (dark to Paper, or light to
-  // Midnight), so the new page is seen to spread; one more detent; then home.
-  const turning = useRef<() => void>(() => undefined)
-  const [route] = useState(() => {
-    const themes = allThemes()
-    const home = Math.max(0, themes.indexOf(start))
-    const other = themes.indexOf(isLight(start) ? 'midnight' : 'paper')
-    const first = other < 0 ? home + 2 : other
-    return [first - home, 1, home - first - 1]
-  })
-  useEffect(() => {
-    if (!play || show.done || !s.grab) return
-    const frame = scene.current?.getBoundingClientRect()
-    const per = 360 / allThemes().length
-    // A turn of the ring clockwise brings the detent before it to the notch: degrees run against the list.
-    turning.current = turnDial(-route[s.grab - 1] * per, (x, y) => setHand(frame ? [x - frame.left, y - frame.top] : null), 520 + Math.abs(route[s.grab - 1]) * 160)
-    return () => turning.current()
-  }, [show.state.grab]) // eslint-disable-line react-hooks/exhaustive-deps
-  const settle = (): void => {
-    turning.current()
-    show.settle()
-    applyTheme(start, false)
-    onPick(start)
-  }
-  useReport(report, show.done, settle)
+  const show = useScript<DialState>({ docked: false, dial: false, ticks: 0 }, DIAL_BEATS, play)
+  useReport(report, show.done, show.settle)
   const s = show.state
   const win = useWindowSize()
   const size = Math.round(Math.max(150, Math.min(win.height * 0.42, win.width * 0.3, 360)))
   return (
     <>
-      <Words title="Make it yours." docked={s.docked} still={!play} done={show.done} tight={s.close && !show.done}>
+      <DotGrid />
+      <Words title="Make it yours." docked={s.docked} still={!play} done={show.done}>
         {show.done
           ? <>Your turn: turn it with <span className="inline-flex translate-y-[-0.08em] gap-[0.12em] align-middle"><Kbd className={LINE_KEY}>↑</Kbd><Kbd className={LINE_KEY}>↓</Kbd></span>, the wheel or a drag. Settings has it later.</>
           : <>The page you write on. Everything you keep wears it.</>}
       </Words>
-      <div ref={scene} className="relative flex min-h-0 flex-1 items-center justify-center pb-2">
+      <div className="relative flex min-h-0 flex-1 items-center justify-center pb-2">
         {/* What she has seen caught, behind the dial, wearing each theme as it passes. */}
         {s.dial && (
           <>
@@ -1179,19 +1124,13 @@ function DialChapter({ play, report, onPick }: { play: boolean; report: (now: Re
             </motion.div>
           </>
         )}
-        <Camera shot={s.close && !show.done ? { k: 1.16, x: 0, y: 0 } : WIDE} className="absolute inset-0 flex items-center justify-center">
         {s.dial && (
           <motion.div className="relative z-10" initial={play ? { opacity: 0, scale: 0.96, filter: 'blur(4px)' } : false} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} transition={CAM}>
-            {/* Its own layer in the spread, shown live: the ring and its light never stop while the page turns. */}
+            {/* Its own layer in the crossfade, shown live: the ring and its light never stop while the page changes. */}
             <div className="[view-transition-name:mf-theme-dial]">
-            <ThemeDial calm size={size} big wear={spreadFromNotch} onPick={onPick} onFullTurn={() => (setSay(FULL_TURN), setTimeout(() => setSay(undefined), 1800))} say={say} />
+              <ThemeDial calm size={size} big wear={fadeTo} onPick={onPick} onFullTurn={() => (setSay(FULL_TURN), setTimeout(() => setSay(undefined), 1800))} say={say} />
             </div>
           </motion.div>
-        )}
-        </Camera>
-        {play && !show.done && hand && (
-          <motion.span aria-hidden className="pointer-events-none absolute top-0 left-0 z-20 -mt-[7px] -ml-[7px] size-[14px] rounded-full border-2 border-primary bg-primary/20 shadow-[0_2px_6px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]"
-            style={{ x: hand[0], y: hand[1] }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} />
         )}
       </div>
     </>

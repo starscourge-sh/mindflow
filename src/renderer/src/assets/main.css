@@ -1177,9 +1177,12 @@ input[type='number']::-webkit-outer-spin-button {
 :root[data-welcome-ph] [data-lesson='calm'] { opacity: 0.4; pointer-events: none; }
 :root[data-welcome-ph] .mf-pill { display: none; }
 :root[data-welcome-ph] :is([data-lesson='hide'], .tiptap-word-count) { display: none !important; }
-/* The welcome's theme dial spreads each theme from its notch: the new page
-   is revealed by a growing circle (welcome.tsx), with no fade of its own. */
-:root[data-welcoming]::view-transition-old(root), :root[data-welcoming]::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+/* The welcome's theme dial changes the page with a quick plain crossfade,
+   colours only, the dial itself live on its own layer (welcome.tsx). */
+:root[data-welcoming]::view-transition-old(root) { animation: mf-plain-out 200ms ease-out both; }
+:root[data-welcoming]::view-transition-new(root) { animation: mf-plain-in 200ms ease-out both; }
+@keyframes mf-plain-out { to { opacity: 0; } }
+@keyframes mf-plain-in { from { opacity: 0; } }
 :root[data-welcoming]::view-transition-old(mf-theme-dial) { display: none; }
 :root[data-welcoming]::view-transition-new(mf-theme-dial), :root[data-welcoming]::view-transition-group(mf-theme-dial) { animation: none; }
 /* The welcome's ghost caret: the accent bar, blinking at the Mac's rate while it rests. */
