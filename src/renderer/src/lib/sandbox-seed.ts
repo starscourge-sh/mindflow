@@ -936,7 +936,8 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
       const ago = card.n - gap
       if (ago <= 0) {
         // Next due on the day the gap ends: today for some, later for most.
-        yearAges.push({ dueAt: at(-ago, '08:00'), nuggetId: card.id })
+        // Today's are due from midnight, so they wait in Review at any hour.
+        yearAges.push({ dueAt: at(-ago, ago === 0 ? '00:00' : '08:00'), nuggetId: card.id })
         break
       }
       // Mostly remembered; now and then easy, now and then hard.
@@ -965,7 +966,8 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
     { reviewedAt: at(-21, '08:10'), itemId: schwarzschild, nth: 0 },
     { reviewedAt: at(-12, '08:05'), itemId: schwarzschild, nth: 1 },
     { reviewedAt: at(-4, '07:58'), itemId: schwarzschild, nth: 2 },
-    { dueAt: at(0, '08:00'), nuggetId: schwarzschild },
+    // Due from midnight, not 08:00: opened before eight, it must already wait in Review.
+    { dueAt: at(0, '00:00'), nuggetId: schwarzschild },
     { createdAt: at(-150, '10:00'), nuggetId: overfitting },
     { createdAt: at(-60, '12:00'), nuggetId: pluto },
     { createdAt: at(-2, '07:41'), nuggetId: petrichor },
