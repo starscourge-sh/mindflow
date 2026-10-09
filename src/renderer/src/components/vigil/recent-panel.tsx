@@ -114,6 +114,7 @@ export function RecentPanel({ until, onOpen, onClose, className = '' }: {
                   transition={{ duration: 0.16, ease: EASE }}
                   type="button"
                   data-recent-row
+                  data-drag-open={`${one.type}:${one.id}`}
                   data-private={one.private ? '' : undefined}
                   onClick={(event) => {
                     if (event.metaKey && one.type !== 'task') return openWindow(one.type, one.id)

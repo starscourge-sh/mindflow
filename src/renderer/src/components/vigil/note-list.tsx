@@ -26,7 +26,8 @@ import { Button } from '@/components/ui/button'
 import type { Density, Pane } from './display'
 import { GrainFill, useCover } from './grain'
 import { Tilt } from './tilt'
-import { useHere } from '@/lib/split'
+import { useHere, usePaneMark } from '@/lib/split'
+import { knowRow } from './row-card'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Maximize2 = alive(ExpandIcon)
@@ -380,6 +381,7 @@ export function NoteList({
     const at = index === cursor
     const open = entry.id === selected
     const picked = chosen.includes(entry.id)
+    knowRow(entry)
     const row = (
       <button
         type="button"
@@ -406,6 +408,7 @@ export function NoteList({
             : rowClass(at, open, picked, entry.dim, density === 'compact')
         }
       >
+        {!grid && <PaneMark id={entry.id} />}
         {density === 'compact' ? (
           <CompactRow entry={entry} lit={at || open} />
         ) : density === 'list' ? (
@@ -452,6 +455,22 @@ const rowClass = (
 // The ring is drawn over the tile, not under it, so a picture never hides it.
 const tileClass = (at: boolean, open: boolean, picked: boolean, dim = false): string =>
   `group/row relative flex w-full flex-col overflow-hidden rounded-lg text-left after:pointer-events-none after:absolute after:inset-0 after:rounded-lg after:ring-inset after:transition-[box-shadow] ${dim ? 'opacity-50' : ''} ${picked ? `${PICKED} after:ring-2 after:ring-[var(--tt-brand-color-400)]` : at ? 'after:ring-2 after:ring-ring' : open ? 'after:ring-2 after:ring-foreground/40' : 'after:ring-1 after:ring-border hover:after:ring-foreground/25'}`
+
+/**
+ * Split, a row whose note is open in a pane says which: a small L, M or R
+ * in the list's margin, in the colour of the line along the front pane.
+ */
+function PaneMark({ id }: { id: string }): React.JSX.Element | null {
+  const mark = usePaneMark(id)
+  if (!mark) return null
+  const side = mark === 'L' ? 'left' : mark === 'R' ? 'right' : 'middle'
+  return (
+    <span data-pane-mark={mark} aria-label={`Open in the ${side} pane`} title={`Open in the ${side} pane`}
+      className="pointer-events-none absolute top-1/2 -left-1.5 z-10 flex size-3.5 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--tt-brand-color-400)] text-[8px] leading-none font-semibold text-white shadow-[0_0_0_2px_var(--background)]">
+      {mark}
+    </span>
+  )
+}
 
 /** The title's own marks, and its handle on the row under the pointer or the keyboard. */
 function Tail({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Element {

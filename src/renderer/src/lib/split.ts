@@ -107,3 +107,22 @@ export const spendAsideClick = (): void => void (armed = false)
 export type PaneWidth = 'narrow' | 'wide' | 'full'
 export const PaneWidthContext = createContext<{ width?: PaneWidth; set: (width: PaneWidth) => void } | null>(null)
 export const usePaneWidth = (): { width?: PaneWidth; set: (width: PaneWidth) => void } | null => useContext(PaneWidthContext)
+
+// --- which note each pane has open, for a list to mark its row
+
+let open: (string | null)[] = []
+const marks = new Set<() => void>()
+const followMarks = (tell: () => void): (() => void) => (marks.add(tell), () => void marks.delete(tell))
+/** Said by the main window: each pane's open note, left to right (null for a page with none). */
+export function setPaneNotes(ids: (string | null)[]): void {
+  if (ids.length === open.length && ids.every((id, at) => id === open[at])) return
+  open = ids
+  marks.forEach((tell) => tell())
+}
+/** Where a note is open while the page is split: L, M or R, or null. */
+export function paneMarkOf(id: string): 'L' | 'M' | 'R' | null {
+  if (open.length < 2) return null
+  const at = open.indexOf(id)
+  return at < 0 ? null : at === 0 ? 'L' : at === open.length - 1 ? 'R' : 'M'
+}
+export const usePaneMark = (id: string): 'L' | 'M' | 'R' | null => useSyncExternalStore(followMarks, () => paneMarkOf(id))

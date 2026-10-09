@@ -1,8 +1,9 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { DndContext, MeasuringStrategy, PointerSensor, closestCenter, pointerWithin, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragMoveEvent, type DragStartEvent, type Modifier } from '@dnd-kit/core'
 import { SortableContext, useSortable, type SortingStrategy } from '@dnd-kit/sortable'
 import { AnimatePresence, motion } from 'motion/react'
-import { ChevronRight, Layers } from 'lucide-react'
+import { ChevronRight, Layers, Plus } from 'lucide-react'
 
 import { alive } from '@/components/ui/alive-icon'
 import XIcon from '@/components/ui/x-icon'
@@ -17,6 +18,8 @@ import { spring as springs } from '@/lib/motion'
 import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
 import { KEY, isGroup, type How } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
+import { realMove } from '@/lib/real-move'
+import { openAside } from '@/lib/split'
 import { Overlay, SETTLE } from './sortable'
 import { copy } from './row-menu'
 import { Tip, VirtualList, refuse, toast } from './ui'
@@ -477,6 +480,7 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
     onRenaming(false)
     if (name.trim() && name.trim() !== group.name) change(group, { name: name.trim() }, `Renamed ${name.trim()}`)
   }
+  const peek = usePeek(!group.open && !menu && !picking && !renaming && !hand && !parting)
   const shown = (menu || picking || renaming || joining || landing || near || losing >= 0 || pointing || !arrived || born) && !parting
   return (
     <div
@@ -533,7 +537,9 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
                       type="button"
                       data-group-row={group.id}
                       aria-expanded={group.open}
-                      onClick={fold}
+                      onPointerMove={(event) => peek.near(event)}
+                      onPointerLeave={peek.away}
+                      onClick={() => (peek.close(), fold())}
                       onDoubleClick={() => onRenaming(true)}
                       // ← folds and → unfolds, as a folder in a list does.
                       onKeyDown={(event) => {
@@ -593,6 +599,9 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
           </Node>
         </div>
       </div>
+      {peek.at && (
+        <GroupPeek group={group} entries={entries} at={peek.at} onStay={peek.stay} onAway={peek.away} onClose={peek.close} onOpen={onNewNote} />
+      )}
       <Fold open={group.open}>
         <div className="pb-1">
           {entries.map((entry, at) =>
@@ -605,6 +614,96 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
         </div>
       </Fold>
     </div>
+  )
+}
+
+/**
+ * Hovering a folded group's row: after a short rest (and only once the hand
+ * really moved, lib/real-move.ts), its notes show beside it, as Dia shows a
+ * folded tab group's tabs. Leaving the row gives a moment to reach them.
+ */
+function usePeek(can: boolean): { at: DOMRect | null; near: (event: React.PointerEvent<HTMLElement>) => void; away: () => void; stay: () => void; close: () => void } {
+  const [at, setAt] = useState<DOMRect | null>(null)
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const leave = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const close = (): void => (clearTimeout(timer.current), clearTimeout(leave.current), setAt(null))
+  useEffect(() => void (!can && close()), [can]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => close, []) // eslint-disable-line react-hooks/exhaustive-deps
+  return {
+    at,
+    near: (event) => {
+      if (!can || !realMove(event) || event.buttons || 'dragging' in document.documentElement.dataset) return
+      clearTimeout(leave.current)
+      if (at) return
+      const row = event.currentTarget
+      clearTimeout(timer.current)
+      timer.current = setTimeout(() => row.isConnected && setAt(row.getBoundingClientRect()), 320)
+    },
+    away: () => {
+      clearTimeout(timer.current)
+      clearTimeout(leave.current)
+      leave.current = setTimeout(() => setAt(null), 180)
+    },
+    stay: () => clearTimeout(leave.current),
+    close
+  }
+}
+
+/** A folded group's notes beside its row: each to open (⌥-click to the side), and a new one in it. */
+function GroupPeek({ group, entries, at, onStay, onAway, onClose, onOpen }: {
+  group: GroupView
+  entries: Entry[]
+  at: DOMRect
+  onStay: () => void
+  onAway: () => void
+  onClose: () => void
+  onOpen: (id: string) => void
+}): React.JSX.Element {
+  const right = at.left + 248 + 260 < window.innerWidth
+  const left = right ? Math.min(at.left + 248, at.right - 40) : Math.max(12, at.left + 24)
+  const top = right ? at.top - 6 : at.bottom + 4
+  return createPortal(
+    <motion.div
+      role="toolbar"
+      aria-label={`${group.name}: ${entries.length === 1 ? 'one note' : `${entries.length} notes`}`}
+      data-group-peek={group.id}
+      className="fixed z-[70] flex max-h-80 w-64 flex-col overflow-hidden rounded-lg border bg-popover p-1 text-control text-popover-foreground shadow-(--mf-panel-shadow)"
+      style={{ left, top }}
+      initial={{ opacity: 0, x: right ? -4 : 0, y: right ? 0 : -4, scale: 0.98 }}
+      animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+      transition={still() ? { duration: 0 } : springs.moderate}
+      onPointerEnter={onStay}
+      onPointerLeave={onAway}
+    >
+      <div className="flex items-center gap-2 px-2 pt-1 pb-1.5 text-meta text-muted-foreground">
+        <GroupIcon icon={group.icon} color={group.color} className="size-3.5" />
+        <span className="min-w-0 truncate">{group.name}</span>
+      </div>
+      <div className="min-h-0 overflow-y-auto">
+        {entries.map((entry) => (
+          <button key={entry.id} type="button" data-peek-note={entry.id} data-private={entry.private ? '' : undefined}
+            onClick={(event) => {
+              onClose()
+              if (event.altKey) return openAside(entry.type, entry.id)
+              chime('open')
+              onOpen(entry.id)
+            }}
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-accent">
+            <entry.icon className="size-3.5 shrink-0" style={{ color: entry.tint }} />
+            <span className="private-text min-w-0 flex-1 truncate">{entry.title || 'Untitled'}</span>
+          </button>
+        ))}
+      </div>
+      <div className="mt-1 border-t pt-1">
+        <button type="button" data-peek-new=""
+          onClick={() => (onClose(), void groups.note(group.id).then((id) => id && (chime('promote'), onOpen(id))))}
+          className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-muted-foreground hover:bg-accent hover:text-foreground">
+          <Plus className="size-3.5 shrink-0" />
+          New note in group
+        </button>
+      </div>
+    </motion.div>,
+    document.body
   )
 }
 

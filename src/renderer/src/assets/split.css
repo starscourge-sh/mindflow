@@ -51,3 +51,21 @@
 [data-pane][data-width='full'] .note-pane {
   --mf-padding: 1rem 1.5rem 1rem 3.25rem;
 }
+
+/* Drag to split (split-drop.tsx): while something is carried toward a side,
+   a list's own lifted row and the search over the page step back, so only
+   the small card and the two places show. */
+html[data-split-drag] [data-lifted],
+html[data-split-drag] [data-ghost] {
+  opacity: 0 !important;
+}
+html[data-split-drag] [role='dialog'][aria-label='Search'] {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms;
+}
+html[data-split-drag],
+html[data-split-drag] * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}

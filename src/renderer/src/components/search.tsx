@@ -304,6 +304,7 @@ export function Search({ onOpen, onAside, onClose, initial = '', actions = [], p
                     data-search-at={index + doing.length === at || undefined}
                     onMouseMove={(event) => realMove(event) && setAt(index + doing.length)}
                     data-row
+                    data-drag-open={`${capture.type}:${capture.id}`}
                     onClick={() => onOpen(capture.type, capture.id)}
                   >
                     <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />

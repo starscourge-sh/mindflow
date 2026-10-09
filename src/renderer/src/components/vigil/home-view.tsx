@@ -183,7 +183,7 @@ function Tile({ card, pinned, actions, onHover }: { card: Card; pinned: boolean;
           data-private={card.private ? '' : undefined}
           onFocus={() => onHover(look)}
           onBlur={() => onHover(null)}
-          onClick={() => actions.open(card)}
+          data-drag-open={`${card.type}:${card.id}`} onClick={() => actions.open(card)}
           className="flex h-12 w-full min-w-0 items-center gap-3 overflow-hidden rounded-md bg-foreground/[0.05] pr-10 text-left outline-none transition-colors duration-150 hover:bg-foreground/[0.09] focus-visible:bg-foreground/[0.09] focus-visible:ring-2 focus-visible:ring-ring/50"
         >
           {src && !broken
@@ -223,7 +223,7 @@ function RowCard({ card, list, at, actions, tag }: { card: Card; list: Card[]; a
           type="button"
           data-nav
           data-private={card.private ? '' : undefined}
-          onClick={() => actions.open(card)}
+          data-drag-open={`${card.type}:${card.id}`} onClick={() => actions.open(card)}
           className={`flex w-full flex-col text-left outline-none transition-[background-color,scale] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.985] ${picture ? 'gap-2 rounded-xl bg-foreground/[0.04] p-1.5 hover:bg-foreground/[0.07]' : 'min-h-[7.5rem] gap-1.5 overflow-hidden rounded-xl bg-foreground/[0.04] p-3.5 hover:bg-foreground/[0.07]'}`}
         >
           {picture ? (
@@ -402,7 +402,7 @@ function ListRow({ card, actions, lead, children, aside }: { card: Card; actions
     <RowMenu items={menuFor(card, actions, [card], 0)}>
       <div className="group/row flex items-start gap-3 rounded-md px-2 py-2 transition-colors hover:bg-accent/50 has-[[data-nav]:focus-visible]:bg-accent/50">
         {lead}
-        <button type="button" data-nav data-private={card.private ? '' : undefined} onClick={() => actions.open(card)}
+        <button type="button" data-nav data-private={card.private ? '' : undefined} data-drag-open={`${card.type}:${card.id}`} onClick={() => actions.open(card)}
           className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left outline-none">
           {children}
         </button>
@@ -451,7 +451,7 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
         <div className="relative flex items-center gap-4 p-4 @[44rem]/page:gap-5 @[44rem]/page:p-5">
           {picture && (
             <Tilt className="shrink-0 rounded-lg">
-            <button type="button" tabIndex={-1} onClick={() => actions.open(card)} aria-label={`Open ${nameOf(card)}`}
+            <button type="button" tabIndex={-1} data-drag-open={`${card.type}:${card.id}`} onClick={() => actions.open(card)} aria-label={`Open ${nameOf(card)}`}
               className="aspect-square w-20 shrink-0 overflow-hidden rounded-lg shadow-[0_10px_30px_-10px_rgb(0_0_0/0.5)] transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:scale-[1.02] active:scale-[0.98] @[44rem]/page:w-28">
               {real ? <Picture src={src!} onBroken={() => setBroken(true)} /> : grain && (
                 <span className="relative flex size-full items-center justify-center">
@@ -468,7 +468,7 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
             {!real && wordsOf(card.excerpt) && <p className="private-text line-clamp-2 max-w-[60ch] text-control text-muted-foreground">{wordsOf(card.excerpt)}</p>}
             <Signed who={card.who} className="private-text text-control text-muted-foreground" />
             <div className="mt-2 flex items-center gap-1.5">
-              <button type="button" data-nav onClick={() => actions.open(card)}
+              <button type="button" data-nav data-drag-open={`${card.type}:${card.id}`} onClick={() => actions.open(card)}
                 className="flex h-8 items-center gap-1.5 rounded-full bg-primary px-3.5 text-control font-semibold text-primary-foreground shadow-[0_6px_16px_-8px_rgb(0_0_0/0.5)] outline-none transition-transform duration-150 hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97]">
                 Open <ArrowRight className="size-3.5" />
               </button>
@@ -529,7 +529,7 @@ function Quotes({ title, onAll, cards, actions }: { title: ReactNode; onAll?: ()
             <div className="group/card relative" data-private={card.private ? '' : undefined}>
               {/* A card that is settled in place carries its answer under it, in the same paper. */}
               <Lean by={4} className="h-full" inner={`flex flex-col ${card.foot ? 'rounded-xl bg-foreground/[0.04]' : ''}`}>
-              <button type="button" data-nav data-private={card.private ? '' : undefined} onClick={() => actions.open(card)}
+              <button type="button" data-nav data-private={card.private ? '' : undefined} data-drag-open={`${card.type}:${card.id}`} onClick={() => actions.open(card)}
                 className={`flex w-full flex-1 flex-col gap-2 rounded-xl p-4 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring/50 ${card.foot ? 'pb-2 hover:bg-foreground/[0.03]' : 'bg-foreground/[0.04] hover:bg-foreground/[0.07]'}`}>
                 <span className="private-text pr-7 font-heading text-[1.0625rem] leading-snug [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
                 {wordsOf(card.excerpt) && <span className="private-text line-clamp-3 text-xs leading-relaxed text-muted-foreground">{wordsOf(card.excerpt)}</span>}
