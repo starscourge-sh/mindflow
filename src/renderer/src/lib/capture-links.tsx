@@ -1,9 +1,11 @@
-import { CircleArrowUp, CircleCheck, CircleDashed, CircleX } from 'lucide-react'
+import { CircleArrowUp, CircleCheck, CircleDashed, CircleX, FileText, Flag, Gem, Hash, ListChecks, Orbit, UserRound } from 'lucide-react'
 
 import { ask, askQuestion, refuse, toast } from '@/components/vigil/ui'
 import { chime, tear } from '@/lib/sound'
 import { lift, shred, type Home } from '@/lib/fly-home'
-import { showHeading, type NoteSuggestion } from '@/extensions/note-link'
+import { readTags, setLinkKinds, showHeading, type LinkKind, type NoteSuggestion } from '@/extensions/note-link'
+import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
+import { openWindow } from '@/lib/notes'
 import { headingsIn } from '@/components/toc/headings'
 import type { JSONContent } from '@tiptap/core'
 import { vigil } from '@/lib/vigil'
@@ -116,26 +118,68 @@ export async function takeExit(id: string, status: string): Promise<unknown> {
   return words ? vigil.promote(id, words) : 'cancelled'
 }
 
+/**
+ * Everything an @ link can point at, in the order the menu groups them: a
+ * capture by its kind, then ideas, writing, questions, goals, tasks, the
+ * people your quotes are from, and tags. Colours and icons are the ones the
+ * sidebar and the kind picker already use, so a link looks like where it goes.
+ */
+let kinds: Record<string, LinkKind & { group: string }> | null = null
+// Made when first asked for, not as this file loads: the kind picker it reads may not have loaded yet.
+export const linkKinds = (): Record<string, LinkKind & { group: string }> => (kinds ??= {
+  ...Object.fromEntries(CAPTURE_TYPES.map((type) => [type.id, { label: type.label, group: `${type.label}s`, icon: type.icon, color: /text-(\w+)/.exec(type.tint)?.[1] ?? 'gray' }])),
+  idea: { label: 'Idea', group: 'Ideas', icon: Gem, color: 'pink' },
+  article: { label: 'Writing', group: 'Writing', icon: FileText, color: 'brown' },
+  question: { label: 'Question', group: 'Questions', icon: Orbit, color: 'gray' },
+  goal: { label: 'Goal', group: 'Goals', icon: Flag, color: 'orange' },
+  task: { label: 'Task', group: 'Tasks', icon: ListChecks, color: 'green' },
+  person: { label: 'Person', group: 'People', icon: UserRound, color: 'blue' },
+  tag: { label: 'Tag', group: 'Tags', icon: Hash, color: 'gray' }
+})
+
+/** A row of the menu: its kind's icon, in its kind's colour. */
+const row = (kind: string, one: Omit<NoteSuggestion, 'kind' | 'icon' | 'group'>): NoteSuggestion => {
+  const look = linkKinds()[kind] ?? linkKinds().note
+  return { ...one, kind, group: look.group, icon: <look.icon className="size-4 shrink-0" style={{ color: `var(--tt-color-text-${look.color})` }} /> }
+}
+
+setLinkKinds({
+  kinds: linkKinds,
+  // A link made before links kept their kind: a bare id is a capture.
+  find: async (link) => (link.includes(':') ? null : ((await window.api.captures.get(link))?.kind ?? null)),
+  // A new window of its own, for the notes that can have one.
+  aside: (link) => {
+    const [type, id] = link.includes(':') ? link.split(':') : ['capture', link]
+    if (['task', 'person', 'tag'].includes(type)) return false
+    openWindow(type, id)
+    return true
+  }
+})
+
 /** What `@` offers in any editor that can link captures. */
 export async function findCaptures(query: string): Promise<NoteSuggestion[]> {
-  const [captures, items] = await Promise.all([window.api.captures.search(query), vigil.findItems(query)])
-  return [...captures.map((capture) => {
-    const Icon = STATUS_ICON[capture.status as keyof typeof STATUS_ICON] ?? CircleDashed
-    return {
-      id: capture.id,
-      label: capture.label || 'Untitled',
-      key: captureKey(capture.number),
-      icon: <Icon className="size-4 shrink-0 text-muted-foreground" />,
-      group: 'Captures'
-    }
-  }),
-  // A nugget's or article's link carries its tier, so a click knows where to go.
-  ...items.map((item) => ({
-    id: `${item.tier}:${item.id}`,
-    label: item.title || 'Untitled',
-    key: item.tier === 'article' ? 'Article' : item.tier === 'question' ? 'Question' : 'Idea',
-    group: 'Ideas and writing'
-  }))]
+  const words = query.trim().toLowerCase()
+  const [captures, items, tasks, people, tags] = await Promise.all([
+    window.api.captures.search(query),
+    vigil.findItems(query),
+    vigil.tasks().catch(() => []),
+    // Names and tags only once something is typed: the open menu stays short.
+    words ? vigil.values('attribution').catch(() => []) : [],
+    words ? readTags().catch(() => []) : []
+  ])
+  const rows = [
+    ...captures.map((capture) => row(capture.kind in linkKinds() ? capture.kind : 'note', { id: capture.id, label: capture.label || 'Untitled', key: captureKey(capture.number) })),
+    // A nugget's or article's link carries its tier, so a click knows where to go.
+    ...items.map((item) => row(item.tier === 'nugget' ? 'idea' : item.tier, { id: `${item.tier}:${item.id}`, label: item.title || 'Untitled' })),
+    // Open ones first, as the list already has them.
+    ...tasks.filter((task) => task.title.toLowerCase().includes(words)).slice(0, 4)
+      .map((task) => row('task', { id: `task:${task.id}`, label: task.title || 'Untitled', key: `T-${task.number}` })),
+    // Who your quotes are from: a link opens every note by them.
+    ...people.filter((name) => name.toLowerCase().includes(words)).slice(0, 3).map((name) => row('person', { id: `person:${name}`, label: name })),
+    ...tags.filter(({ tag }) => tag.includes(words.replace(/^#/, ''))).slice(0, 3).map(({ tag }) => row('tag', { id: `tag:${tag}`, label: `#${tag}` }))
+  ]
+  const order = Object.keys(linkKinds())
+  return rows.sort((a, b) => order.indexOf(a.kind!) - order.indexOf(b.kind!))
 }
 
 /** The headings in what an @ link points at, for `@Note#` to offer. */
@@ -150,7 +194,9 @@ export async function findHeadings(link: string): Promise<string[]> {
  * A link to a heading lands on it, in the note already open if it is.
  */
 export const follow = (link: string, open: (type: string, id: string) => void, heading?: string): void => {
-  const [type, id] = link.includes(':') ? link.split(':') : ['capture', link]
+  const [type, id] = link.includes(':') ? [link.slice(0, link.indexOf(':')), link.slice(link.indexOf(':') + 1)] : ['capture', link]
+  // A person or a tag is a place in the main window, not a note: its tag page, or a search for their name.
+  if (type === 'person' || type === 'tag') return window.api.openInHome(type, id)
   open(type, id)
   if (heading) headingIn(type, id, heading)
 }

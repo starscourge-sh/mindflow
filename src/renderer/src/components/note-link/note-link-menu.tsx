@@ -5,7 +5,7 @@ import {
   createSuggestionRenderer,
   type SuggestionListHandle,
 } from "@/components/suggestion/suggestion-renderer"
-import { noteLinkPluginKey, tagPluginKey, wikiPluginKey, type NoteSuggestion } from "@/extensions/note-link"
+import { linkKind, noteLinkPluginKey, tagPluginKey, wikiPluginKey, type NoteSuggestion } from "@/extensions/note-link"
 import { listDirection, step } from "@/lib/menu-keys"
 import { realMove } from "@/lib/real-move"
 
@@ -60,6 +60,8 @@ const NoteList = forwardRef<SuggestionListHandle, SuggestionProps<NoteSuggestion
                 </span>
                 {/* A tag's name first, how often it is used quietly at the end. */}
                 {item.hint ? <span className="ml-auto pl-3 text-xs tabular-nums text-muted-foreground">{item.hint}</span> : null}
+                {/* What it is, faintly, so a quote and a task with the same words tell apart. */}
+                {!item.heading && linkKind(item.kind) ? <span className="tiptap-note-link-type">{linkKind(item.kind)!.label}</span> : null}
               </button>
             </Fragment>
           ))}

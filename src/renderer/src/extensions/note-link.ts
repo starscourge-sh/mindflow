@@ -3,7 +3,9 @@ import { Plugin, PluginKey } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
 import type { Editor } from "@tiptap/react"
 import Suggestion, { type SuggestionOptions } from "@tiptap/suggestion"
-import type { ReactNode } from "react"
+import type { LucideIcon } from "lucide-react"
+import { createElement, type ReactNode } from "react"
+import { renderToStaticMarkup } from "react-dom/server"
 
 import { goToHeading, headingsOf } from "@/components/toc/headings"
 
@@ -23,6 +25,67 @@ export interface NoteSuggestion {
   tint?: string
   /** A heading inside the note, for a link that lands on it. */
   heading?: string
+  /** What it is: a quote, a task, a question. Its icon goes on the link. */
+  kind?: string
+}
+
+/** One kind of thing a link can point at: how it is named and drawn. */
+export interface LinkKind {
+  label: string
+  /** A colour name from the editor's palette: gray, orange, purple. */
+  color: string
+  icon: LucideIcon
+}
+
+/**
+ * What links point at, and how to tell: the app says once, for every editor
+ * on the page, as it does for tags. `find` names the kind of an older link
+ * that was made before links kept it; `aside` opens one in a window of its
+ * own, for a ⌘-click, and says whether it could.
+ */
+let linkKinds: {
+  kinds: () => Record<string, LinkKind>
+  find?: (id: string) => Promise<string | null>
+  aside?: (id: string) => boolean
+} = { kinds: () => ({}) }
+
+export function setLinkKinds(given: typeof linkKinds): void {
+  linkKinds = given
+}
+
+/** The kind a link was given, or the one its id says: `question:…`, `task:…`. */
+export const kindOfLink = (id: string, kind?: string | null): string => {
+  if (kind) return kind
+  const prefix = id.includes(":") ? id.slice(0, id.indexOf(":")) : ""
+  return prefix === "nugget" ? "idea" : prefix
+}
+
+export const linkKind = (kind?: string | null): LinkKind | undefined => (kind ? linkKinds.kinds()[kind] : undefined)
+
+/**
+ * A kind's icon as the link can carry it: the link is plain HTML, not a React
+ * tree, so each icon is drawn once to markup and copied from then on.
+ */
+const drawn = new Map<LucideIcon, Element | null>()
+function iconFor(icon: LucideIcon, color: string): Element | null {
+  if (!drawn.has(icon)) {
+    let made: Element | null = null
+    try {
+      const box = document.createElement("span")
+      box.innerHTML = renderToStaticMarkup(createElement(icon, { "aria-hidden": true }))
+      made = box.querySelector("svg")
+      made?.removeAttribute("width")
+      made?.removeAttribute("height")
+    } catch {
+      made = null
+    }
+    drawn.set(icon, made)
+  }
+  const svg = drawn.get(icon)?.cloneNode(true) as Element | undefined
+  if (!svg) return null
+  svg.setAttribute("class", "tiptap-note-link-icon")
+  svg.setAttribute("style", `color: var(--tt-color-text-${color})`)
+  return svg
 }
 
 /**
@@ -57,6 +120,9 @@ let tagSource: () => Promise<TagSuggestion[]> = async () => []
 export function setTagSource(source: () => Promise<TagSuggestion[]>): void {
   tagSource = source
 }
+
+/** The tags in use, from wherever the app said they come from. */
+export const readTags = (): Promise<TagSuggestion[]> => tagSource()
 
 /** The editors on this page, by the `documentId` their host gave them. */
 const showing = new Map<string, Editor>()
@@ -161,6 +227,12 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         rendered: false,
         parseHTML: (el) => el.getAttribute("data-text") ?? "",
       },
+      // What it points at, for the icon: a quote, a task, a question.
+      kind: {
+        default: "",
+        rendered: false,
+        parseHTML: (el) => el.getAttribute("data-kind") ?? "",
+      },
     }
   },
 
@@ -173,10 +245,17 @@ export const NoteLink = Node.create<NoteLinkOptions>({
   //
   // Display text, when given, is all it shows. A heading follows the title,
   // and a link to a heading in this same note is the heading alone.
+  //
+  // Its kind's icon, in its kind's colour, comes first: a question reads as
+  // one before a word of it is read.
   renderHTML({ HTMLAttributes, node }) {
     const { id, key, label, heading, text } = node.attrs
+    const kind = id ? kindOfLink(id, node.attrs.kind) : ""
+    const look = linkKind(kind)
+    const icon = look ? iconFor(look.icon, look.color) : null
     const attrs = mergeAttributes(HTMLAttributes, {
       "data-note": id,
+      "data-kind": kind || null,
       "data-key": key || null,
       "data-heading": heading || null,
       "data-text": text || null,
@@ -186,13 +265,16 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       class: id || !label ? "tiptap-note-link" : "tiptap-note-link is-unresolved",
     })
     const shown = text || [label, heading].filter(Boolean).join(" › ")
-    if (!key || text) return ["a", attrs, ["span", { class: "tiptap-note-link-label" }, text || !id ? shown : `@${shown}`]]
+    const lead = icon ? [icon] : []
+    // The icon says it is a link; the `@` only says so where there is none.
+    if (!key || text) return ["a", attrs, ...lead, ["span", { class: "tiptap-note-link-label" }, text || !id || icon ? shown : `@${shown}`]] as never
     return [
       "a",
       attrs,
+      ...lead,
       ["span", { class: "tiptap-note-link-key" }, key],
       ["span", { class: "tiptap-note-link-label" }, shown],
-    ]
+    ] as never
   },
 
   /**
@@ -279,7 +361,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         .chain()
         .focus()
         .insertContentAt(range, [
-          { type: "noteLink", attrs: { id: props.id, label: props.label, key: props.key ?? "", heading: props.heading ?? "" } },
+          { type: "noteLink", attrs: { id: props.id, label: props.label, key: props.key ?? "", heading: props.heading ?? "", kind: props.kind ?? "" } },
           { type: "text", text: " " },
         ])
         .run()
@@ -356,9 +438,11 @@ export const NoteLink = Node.create<NoteLinkOptions>({
             spaced = null
             return text === " " && from === to && from === at
           },
-          handleClickOn: (_view, _pos, node) => {
+          handleClickOn: (_view, _pos, node, _at, event) => {
             if (node.type.name !== "noteLink") return false
             const { id, heading, label } = node.attrs
+            // ⌘-click: in a window of its own, beside this one, where it can have one.
+            if (id && event.metaKey && linkKinds.aside?.(id)) return true
             if (!id) {
               // Only a link to this note's own heading: an unresolved
               // [[Other#H]] is about another note, not a place in this one.
@@ -382,6 +466,19 @@ export const NoteLink = Node.create<NoteLinkOptions>({
           const resolve = (view: EditorView, from = 0, to = view.state.doc.content.size): void => {
             view.state.doc.nodesBetween(from, to, (node) => {
               const { id, label } = node.attrs
+              if (node.type.name === "noteLink" && id && !kindOfLink(id, node.attrs.kind) && linkKinds.find && !tried.has(`#${id}`)) {
+                // Made before links kept their kind: looked up once, so its icon shows.
+                tried.add(`#${id}`)
+                void linkKinds.find(id).then((kind) => {
+                  if (!kind || view.isDestroyed) return
+                  const tr = view.state.tr
+                  view.state.doc.descendants((one, pos) => {
+                    if (one.type.name === "noteLink" && one.attrs.id === id && !one.attrs.kind) tr.setNodeMarkup(pos, undefined, { ...one.attrs, kind })
+                  })
+                  // Not a change of yours: nothing is saved for it, and opening a note never marks it edited.
+                  if (tr.docChanged) view.dispatch(tr.setMeta("addToHistory", false).setMeta("preventUpdate", true))
+                })
+              }
               if (node.type.name !== "noteLink" || id || !label || tried.has(label)) return
               tried.add(label)
               void Promise.resolve(findNotes(label)).then((found) => {
@@ -390,7 +487,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
                 const tr = view.state.tr
                 view.state.doc.descendants((one, pos) => {
                   if (one.type.name === "noteLink" && !one.attrs.id && one.attrs.label === label) {
-                    tr.setNodeMarkup(pos, undefined, { ...one.attrs, id: note.id, key: note.key ?? "", label: note.label })
+                    tr.setNodeMarkup(pos, undefined, { ...one.attrs, id: note.id, key: note.key ?? "", label: note.label, kind: note.kind ?? "" })
                   }
                 })
                 if (tr.docChanged) view.dispatch(tr.setMeta("addToHistory", false))

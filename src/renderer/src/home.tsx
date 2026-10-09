@@ -287,6 +287,8 @@ export function Home(): React.JSX.Element {
   useFocusMode('home')
   // ⌘K: notes and every action. ⌘P, Obsidian's quick open: notes only.
   const [searching, setSearching] = useState<false | 'all' | 'notes'>(false)
+  // What an @ link to a person searches for: every note with their words.
+  const [searchFor, setSearchFor] = useState('')
   // Getting started's last step: ⌘K opened once.
   useEffect(() => void (searching && onboarding.mark('search')), [searching])
   // Recent beside the page: everything made lately, or in the week a week's
@@ -434,6 +436,7 @@ export function Home(): React.JSX.Element {
     else if (type === 'view') setView({ id })
     else if (type === 'recap') setView({ id: 'stats', focus: id, nonce: Date.now() })
     else if (type === 'task') setView({ id: 'today', focus: id })
+    else if (type === 'person') (setSearchFor(id), setSearching('all'))
     // A capture's version history, asked for in the box: opened, then once
     // its page is up, its history.
     else if (type === 'versions') {
@@ -470,6 +473,8 @@ export function Home(): React.JSX.Element {
       <FocusScenery />
       {searching && (
         <Search
+          key={searchFor}
+          initial={searchFor}
           // The same palette as the box's: places to go and things to switch.
           actions={searching === 'notes' ? [] : [
             { label: 'New capture', keys: 'C', run: () => window.api.showPrompt() },
@@ -537,9 +542,10 @@ export function Home(): React.JSX.Element {
             { label: 'Your month, wrapped', run: () => setView({ id: 'stats', focus: 'month', nonce: Date.now() }) },
             { label: 'Your year, wrapped', run: () => setView({ id: 'stats', focus: 'year', nonce: Date.now() }) }
           ]}
-          onClose={() => setSearching(false)}
+          onClose={() => (setSearching(false), setSearchFor(''))}
           onOpen={(type, id) => {
             setSearching(false)
+            setSearchFor('')
             open(type, id)
           }}
         />

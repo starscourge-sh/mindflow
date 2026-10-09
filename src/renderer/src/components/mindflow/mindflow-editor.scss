@@ -2698,6 +2698,20 @@ $media-brand: var(--tt-brand-color-500, currentColor);
     color: inherit;
   }
 
+  // Its words take the link's own line, none or dashed, not the plain links' underline.
+  span {
+    text-decoration: inherit;
+  }
+
+  // What it points at, before its name: small, in its kind's colour.
+  .tiptap-note-link-icon {
+    display: inline-block;
+    width: 0.85em;
+    height: 0.85em;
+    margin-right: 0.25em;
+    vertical-align: -0.1em;
+  }
+
   // A [[name]] no note answers to yet: still a link, plainly not a live one.
   &.is-unresolved {
     background-color: transparent;
@@ -2712,6 +2726,21 @@ $media-brand: var(--tt-brand-color-500, currentColor);
   margin-right: 0.375rem;
   color: var(--mf-muted);
   font-variant-numeric: tabular-nums;
+}
+
+// What a row is, faint at its end: Quote, Task, Question.
+.tiptap-note-link-type {
+  margin-left: auto;
+  padding-left: 0.75rem;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--mf-muted);
+  opacity: 0.8;
+}
+
+// After a tag's count, beside it rather than pushed apart again.
+.ml-auto + .tiptap-note-link-type {
+  margin-left: 0;
 }
 
 // In the menu the keys line up in a column, the way Linear's do.
