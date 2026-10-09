@@ -23,6 +23,7 @@ import { Display, FilterChips, arrange, useView, type Facet } from './display'
 import { ListSearch } from './note-list'
 import { motion } from 'motion/react'
 import { ago, dayKey, dayMonth, dayName, dayjs, noon, num } from '../../../../main/dates'
+import { asideItem, useHere } from '@/lib/split'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const FileText = alive(FileDescriptionIcon)
@@ -243,9 +244,12 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
   }
   useReadKey(() => shown.length && read(shown), shown.length, !reading)
   // R on its own reads it through, as the button says.
+  // Split, only the pane in front answers keys.
+  const here = useHere()
   useEffect(() => {
     if (!shown.length || reading) return
     const onKey = (event: KeyboardEvent): void => {
+      if (!here()) return
       if (event.key.toLowerCase() !== 'r' || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || typing()) return
       event.preventDefault()
       read(shown)
@@ -276,6 +280,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
   const rowMenu = (item: TagRead, index: number): MenuItem[] => [
     { label: 'Open', keys: '↵', run: () => open(item) },
     { label: 'Open in a new window', keys: '⌘-click', run: () => openWindow(item.type, item.id) },
+    asideItem(item.type, item.id),
     { label: 'Read from here', run: () => read(shown, index) },
     'separator',
     { label: pinnedNote(item) ? 'Unpin' : 'Pin', run: () => pin(table(item), item.id, !pinnedNote(item)) },

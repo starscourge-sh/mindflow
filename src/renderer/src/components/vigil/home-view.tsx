@@ -36,6 +36,7 @@ import { GoalStrip } from './goals-view'
 import { GettingStarted } from './getting-started'
 import { PowersLine } from './powers-view'
 import { Tilt } from './tilt'
+import { asideItem, useHere } from '@/lib/split'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowRight = alive(ArrowNarrowRightIcon)
@@ -163,6 +164,7 @@ type Actions = { open: (card: Card) => void; read: (cards: Card[], at: number) =
 const menuFor = (card: Card, { open, read }: Actions, list: Card[], at: number): MenuItem[] => [
   { label: 'Open', run: () => open(card) },
   card.type !== 'task' && { label: 'Open in a new window', run: () => openWindow(card.type, card.id) },
+  asideItem(card.type, card.id),
   readable(card) && { label: 'Read', run: () => read(list, at) }
 ]
 
@@ -636,8 +638,11 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
 
   // Arrows move to the nearest card that way, ↵ opens: each card is a button.
   const root = useRef<HTMLDivElement>(null)
+  // Split, only the pane in front answers keys.
+  const ours = useHere()
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      if (!ours()) return
       if (!/^Arrow(Up|Down|Left|Right)$/.test(event.key) || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || reading) return
       const box = root.current
       if (!box || document.querySelector('[role="dialog"], [role="menu"]')) return

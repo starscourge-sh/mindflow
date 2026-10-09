@@ -52,6 +52,7 @@ import { SANDBOX, enterSandbox, leaveSandbox, startSandboxOver } from '@/lib/san
 import { HoldButton } from './hold-button'
 import { askBook, deleteBook, renameBook, revealBook, switchBook, useShelf } from '@/lib/books'
 import { askNewBook } from './books'
+import { useHere } from '@/lib/split'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Brain = alive(BrainCircuitIcon)
@@ -275,8 +276,11 @@ export function SettingsView(): React.JSX.Element {
   }
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null)
   useSmooth(scroller)
+  // Split, only the pane in front answers keys.
+  const here = useHere()
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      if (!here()) return
       const active = document.activeElement as HTMLElement | null
       // In the section list, j and k move between sections instead.
       if (event.metaKey || event.ctrlKey || event.altKey || ['INPUT', 'TEXTAREA'].includes(active?.tagName ?? '') || active?.closest('[data-sections]')) return

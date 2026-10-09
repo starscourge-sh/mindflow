@@ -379,7 +379,8 @@ function Waiting({ draft }: { draft: Draft }): React.JSX.Element {
 
 /** Inside the bottom left corner of the note on screen; the window's corner when there is none. */
 function stackSpot(): React.CSSProperties | undefined {
-  const note = [...document.querySelectorAll<HTMLElement>('.mindflow-editor-content')].map((one) => one.getBoundingClientRect()).find((at) => at.width > 200 && at.height > 120)
+  // Split, the note in the front pane.
+  const note = [...document.querySelectorAll<HTMLElement>('[data-pane-front] .mindflow-editor-content'), ...document.querySelectorAll<HTMLElement>('.mindflow-editor-content')].map((one) => one.getBoundingClientRect()).find((at) => at.width > 200 && at.height > 120)
   if (!note) return undefined
   return { left: Math.max(16, note.left + 12), bottom: Math.max(16, innerHeight - Math.min(note.bottom, innerHeight) + 12) }
 }

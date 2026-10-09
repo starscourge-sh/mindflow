@@ -64,6 +64,7 @@ import { groups as noteGroupsApi, tintOf, useGroups, type NoteGroup } from '@/li
 import { dropMany, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveTo, step as stepLayout, tidy, type Layout } from '@/lib/group-layout'
 import type { Cue } from '@/lib/sound'
 import { GroupIcon, type Bundle, type Folds } from './kept-groups'
+import { asideItem, useHere } from '@/lib/split'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const BookOpen = alive(BookIcon)
@@ -176,8 +177,11 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   const glossAfter = useRowGloss(items[cursor]?.id, !open)
   const peeked = spread ? all.find((one) => one.id === peek) : undefined
   // ⌥↑ and ⌥↓ (or ⌥K and ⌥J) move the row under the cursor in your own order.
+  // Split, only the pane in front answers keys.
+  const here = useHere()
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      if (!here()) return
       if (!event.altKey || event.metaKey || event.ctrlKey || typing()) return
       const by = event.key === 'ArrowUp' || event.code === 'KeyK' ? -1 : event.key === 'ArrowDown' || event.code === 'KeyJ' ? 1 : 0
       const row = items[cursor]
@@ -218,6 +222,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   at.current = cursor
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      if (!here()) return
       if (typing()) return
       // ⌃⌘N: a new group of the rows picked, or of the one under the cursor.
       if (event.ctrlKey && event.metaKey && event.code === 'KeyN') {
@@ -392,6 +397,7 @@ const itemMenu = (item: Item): MenuItem[] => [
   { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
   { label: 'Stick on the desktop', run: () => stickOnDesktop('nugget', item.id) },
   { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openWindow(item.tier, item.id) },
+  asideItem(item.tier, item.id),
   'separator',
   item.tier === 'nugget' && { label: 'Change kind…', run: () => void changeKind('nuggets', item.id, item.kind) },
   { label: item.archivedAt ? 'Unarchive' : 'Archive', run: () => void archive('nuggets', [item.id], !item.archivedAt) },

@@ -22,6 +22,7 @@ import { Tip } from '@/components/vigil/ui'
 import { Rest } from './scenery'
 import { GlossButton, GlossLine } from './gloss-line'
 import { num, startOfDay } from '../../../../main/dates'
+import { useHere } from '@/lib/split'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const CalendarClock = alive(ClockIcon)
@@ -85,8 +86,11 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   const [cursor] = useListKeys(example ? 0 : due.length, { onOpen: (index) => onOpen(due[index].id) })
   // The main window's wording, time kept and undo and all.
   const move = moveTo
+  // Split, only the pane in front answers keys.
+  const here = useHere()
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      if (!here()) return
       if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
       if (event.key === 'a') {
         event.preventDefault()

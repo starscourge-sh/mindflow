@@ -28,6 +28,7 @@ import { ScaleSwitch, type Scale } from './periods-view'
 import { dayKey, dayName, noon } from '../../../../main/dates'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import CheckedIcon from '@/components/ui/checked-icon'
+import { useHere } from '@/lib/split'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowLeft = alive(ArrowNarrowLeftIcon)
@@ -74,8 +75,11 @@ export function DayView({ onOpen, start, onScale }: {
     chime('page')
     setDay(to)
   }
+  // Split, only the pane in front answers keys.
+  const here = useHere()
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      if (!here()) return
       if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
       if (event.key === 'ArrowLeft') go(shift(day, -1))
       else if (event.key === 'ArrowRight') go(shift(day, 1))

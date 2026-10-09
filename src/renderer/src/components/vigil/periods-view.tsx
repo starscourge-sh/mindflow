@@ -22,6 +22,7 @@ import { MonthReflect } from './reflect-view'
 import { IssueLine, EarlierPages, SERIF, weekOfYear, weekSpan } from './issue'
 import { Island, Page, Rolling, Tip, Typed, typing, Pressed } from './ui'
 import { dayjs, noon } from '../../../../main/dates'
+import { useHere } from '@/lib/split'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowLeft = alive(ArrowNarrowLeftIcon)
@@ -69,8 +70,11 @@ const weekName = (monday: string): string => {
 
 /** ← and →, and T for now, the way the day's page steps. */
 function useSteps(go: (by: -1 | 1 | 0) => void): void {
+  // Split, only the pane in front answers keys.
+  const here = useHere()
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      if (!here()) return
       if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
       if (event.key === 'ArrowLeft') go(-1)
       else if (event.key === 'ArrowRight') go(1)

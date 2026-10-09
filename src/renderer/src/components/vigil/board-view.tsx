@@ -26,6 +26,7 @@ import { keyFor } from '@/lib/keys'
 import { dayMonth } from '../../../../main/dates'
 import { Overlay, SETTLE, snapshot } from './sortable'
 import { Rolling, Tip, toast, untoast } from './ui'
+import { useHere } from '@/lib/split'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Check = alive(SimpleCheckedIcon)
@@ -177,8 +178,11 @@ export function useBoard(table: NoteTable, id: string | undefined, editor: Edito
   }
   const latest = useRef({ toggle, can: fits || on })
   latest.current = { toggle, can: fits || on }
+  // Split, only the pane in front answers keys.
+  const here = useHere()
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      if (!here()) return
       if (!(event.metaKey && event.altKey && event.code === 'KeyB') || !latest.current.can) return
       event.preventDefault()
       latest.current.toggle()
@@ -294,8 +298,11 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
 
   const latest = useRef({ shape, cursor, editing, query, folds, remove: (lane: number, at: number): void => void [lane, at] })
   latest.current = { shape, cursor, editing, query, folds, remove: (lane, at) => remove(lane, at) }
+  // Split, only the pane in front answers keys.
+  const here = useHere()
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      if (!here()) return
       const { shape, cursor, editing, query, folds } = latest.current
       const box = root.current
       if (!box || !box.contains(document.activeElement)) return

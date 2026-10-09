@@ -14,6 +14,7 @@ import { stickOnDesktop } from './vigil/sticky-note'
 import { NoteList, type Entry } from './vigil/note-list'
 import type { Density } from './vigil/display'
 import { archive, changeKind, openWindow, saveAttachments } from '@/lib/notes'
+import { asideItem } from '@/lib/split'
 import { copyToBookItem } from '@/lib/books'
 import { addToQuestion } from './vigil/questions-view'
 import { age, daysSince } from '../../../main/dates'
@@ -92,6 +93,7 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   { label: capture.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('captures', capture.id, !capture.private) },
   { label: 'Stick on the desktop', run: () => stickOnDesktop('capture', capture.id) },
   { label: 'Open in a new window', keys: '⌘-click', run: () => openWindow('capture', capture.id) },
+  asideItem('capture', capture.id),
   'separator',
   { label: 'Change kind…', run: () => void changeKind('captures', capture.id, capture.kind) },
   { label: capture.archivedAt ? 'Unarchive' : 'Archive', run: () => void archive('captures', [capture.id], !capture.archivedAt) },

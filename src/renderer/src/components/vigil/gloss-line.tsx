@@ -12,6 +12,7 @@ import { Island, Kbd, Rolling, Tip, toast, typing, Pressed } from './ui'
 import { Term } from './term'
 import { GhostText } from './ghost'
 import { ago } from '../../../../main/dates'
+import { useHere } from '@/lib/split'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const MessageSquareText = alive(MessageCircleIcon)
@@ -40,9 +41,12 @@ export const openGloss = (id: string): void => void window.dispatchEvent(new Cus
 export function useGlossKey(id: string | null | undefined, enabled = true): void {
   const latest = useRef(id)
   latest.current = id
+  // Split, only the pane in front answers keys.
+  const here = useHere()
   useEffect(() => {
     if (!enabled) return
     const onKey = (event: KeyboardEvent): void => {
+      if (!here()) return
       if (event.key !== ';' || event.altKey || event.ctrlKey || event.defaultPrevented || !latest.current) return
       if (!event.metaKey && typing()) return
       event.preventDefault()
@@ -62,9 +66,12 @@ export function useRowGloss(id: string | undefined, enabled = true, placeholder?
   const [glossing, setGlossing] = useState<string | null>(null)
   const latest = useRef(id)
   latest.current = id
+  // Split, only the pane in front answers keys.
+  const here = useHere()
   useEffect(() => {
     if (!enabled) return
     const onKey = (event: KeyboardEvent): void => {
+      if (!here()) return
       if (event.key !== ';' || event.altKey || event.ctrlKey || event.metaKey || event.defaultPrevented || typing() || !latest.current) return
       event.preventDefault()
       chime('tap')

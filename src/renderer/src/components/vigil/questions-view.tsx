@@ -19,6 +19,7 @@ import { exampleQuestions } from '@/lib/examples'
 import { Example } from './example'
 import { findCaptures, findHeadings, flying, follow } from '@/lib/capture-links'
 import { archive, openWindow, saveAttachments, useOpenNote } from '@/lib/notes'
+import { asideItem } from '@/lib/split'
 import { useKept, useOpened } from '@/lib/nav'
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Button } from '@/components/ui/button'
@@ -309,6 +310,7 @@ export const questionEntry = (item: Item, inView = false, menu?: MenuItem[]): En
 /** What a question offers besides opening it: its row menu and its note's dots share it. */
 const questionMenu = (item: Item, shown: boolean): MenuItem[] => [
   { label: 'Open in a new window', keys: '⌘-click', run: () => openWindow('question', item.id) },
+  asideItem('question', item.id),
   'separator',
   ...(item.closedAt ? [] : [{ label: shown ? 'Out of view' : 'Keep in view while capturing', run: () => void pinQuestion(item.id, item.title, !shown) }]),
   { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },

@@ -17,6 +17,7 @@ import { Highlight, useChosen, useFluidHover, Weighted } from './glide'
 import SlidersHorizontalIcon from '@/components/ui/sliders-horizontal-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
 import { dayjs, daysSince } from '../../../../main/dates'
+import { useHere } from '@/lib/split'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Check = alive(SimpleCheckedIcon)
@@ -412,8 +413,11 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
     if (next) setSheet(false)
     setOpen(next)
   }
+  // Split, only the pane in front answers keys.
+  const here = useHere()
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      if (!here()) return
       if (event.key !== 'f' || event.metaKey || event.ctrlKey || event.altKey) return
       if (typing()) return
       event.preventDefault()

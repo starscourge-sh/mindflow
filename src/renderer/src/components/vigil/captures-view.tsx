@@ -62,6 +62,7 @@ import { Board, useBoard } from './board-view'
 import { dayjs, num } from '../../../../main/dates'
 import { Signed } from './signature'
 import { SessionFooter } from './session-footer'
+import { keepTitle, useHere, usePane } from '@/lib/split'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowUpRight = alive(ExternalLinkIcon)
@@ -149,6 +150,9 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
     setListOut(false)
     setPropsOut(false)
   }, [boardShown])
+  // Split, each pane keeps its own note's name; the top bar shows the front one's.
+  const inPane = usePane()
+  const sayTitle = (title: string | null): void => void (keepTitle(inPane, title) && showTopTitle(title))
   // The note's name over the page, not its first heading, which the hidden note reports.
   const onBoard = useRef(false)
   onBoard.current = boardShown
@@ -157,8 +161,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
   const label = opened && !opened.private ? opened.label : null
   useEffect(() => {
     if (!boardShown) return
-    showTopTitle(label)
-    return () => showTopTitle(null)
+    sayTitle(label)
+    return () => sayTitle(null)
   }, [boardShown, label])
   // Opened in a window of its own: closed here, so only one editor saves it.
   useEffect(() => {
@@ -182,8 +186,11 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
   // x selects, as in Linear, for an exit on many at once.
   const [chosen, setChosen] = useState<string[]>([])
   // ⌥↑ and ⌥↓ (or ⌥K and ⌥J) move the row under the cursor in your own order.
+  // Split, only the pane in front answers keys.
+  const here = useHere()
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      if (!here()) return
       if (!event.altKey || event.metaKey || event.ctrlKey || typing()) return
       const by = event.key === 'ArrowUp' || event.code === 'KeyK' ? -1 : event.key === 'ArrowDown' || event.code === 'KeyJ' ? 1 : 0
       const row = shown[cursor]
@@ -197,6 +204,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
   const lastKey = useRef('')
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      if (!here()) return
       // Not a chord, nor the letter after G: G R is "go to Review", not
       // "resolve this". This listener runs before the window's G handler, so
       // it tracks the G itself.
@@ -435,7 +443,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
               onTokenClick={(token) => token.name === 'tag' && onOpen?.('tag', token.value)}
               toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: open.id, from: open.id }) }}
               documentId={`capture-${open.id}`}
-              onTitleOut={(title) => !onBoard.current && showTopTitle(title)}
+              onTitleOut={(title) => !onBoard.current && sayTitle(title)}
               defaultContent={(open.body as JSONContent | string | null) ?? ''}
               findNotes={findCaptures}
               findHeadings={findHeadings}

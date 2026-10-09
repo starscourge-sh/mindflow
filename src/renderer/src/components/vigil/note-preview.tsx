@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { vigil } from '@/lib/vigil'
+import { canSplit } from '@/lib/split'
 import { linkKind, kindOfLink } from '@/extensions/note-link'
 
 /** The words of a stored body, for a glance: no markup, first lines only. */
@@ -85,7 +86,7 @@ export function NotePreview(): React.JSX.Element | null {
       <p className="private-text mb-1 truncate font-medium text-foreground">{shown.title}</p>
       {shown.text && <p className="private-text line-clamp-6 whitespace-pre-line text-muted-foreground">{shown.text}</p>}
       <p className="mt-2 border-t pt-2 text-xs text-muted-foreground">
-        Click to open{shown.aside ? ', ⌘-click for a new window' : ''}
+        Click to open{shown.aside ? `, ${canSplit() ? '⌥-click to the side, ' : ''}⌘-click for a new window` : ''}
       </p>
     </div>
   )

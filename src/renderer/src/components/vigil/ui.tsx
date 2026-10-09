@@ -36,6 +36,7 @@ import CheckedIcon from '@/components/ui/checked-icon'
 import InfoCircleIcon from '@/components/ui/info-circle-icon'
 import TriangleAlertIcon from '@/components/ui/triangle-alert-icon'
 import { GHOST } from './ghost'
+import { useHere, usePane } from '@/lib/split'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowDown = alive(ArrowNarrowDownIcon)
@@ -345,9 +346,11 @@ export const startAt = (list: { id: string }[], open: string | null | undefined,
 export function Stepper({ at, total, onStep }: { at: number; total: number; onStep: (to: number) => void }): React.JSX.Element | null {
   const latest = useRef({ at, total, onStep })
   latest.current = { at, total, onStep }
+  // Split, only the pane in front steps.
+  const here = useHere()
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (event.metaKey || event.ctrlKey || event.altKey || typing() || event.defaultPrevented) return
+      if (event.metaKey || event.ctrlKey || event.altKey || typing() || event.defaultPrevented || !here()) return
       if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
       const { at, total, onStep } = latest.current
       const to = at + (event.key === 'ArrowDown' ? 1 : -1)
@@ -505,18 +508,21 @@ export function useListKeys(count: number, { onOpen, onEscape, enabled = true }:
   const latest = useRef({ count, onOpen, onEscape, at })
   latest.current = { count, onOpen, onEscape, at }
   useEffect(() => setAt((index) => Math.min(index, Math.max(0, count - 1))), [count])
+  // Split, each pane's list has its own cursor, and only the front one's moves.
+  const pane = usePane()
+  const here = useHere()
   // The row the cursor is on stays in view. Rows mark themselves with
   // data-cursor, since a ref on an animated row is only read once.
   useEffect(() => {
-    if (at >= 0) document.querySelector('[data-cursor]')?.scrollIntoView({ block: 'nearest' })
-  }, [at])
+    if (at >= 0) document.querySelector(pane ? `[data-pane="${pane}"] [data-cursor]` : '[data-cursor]')?.scrollIntoView({ block: 'nearest' })
+  }, [at]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!enabled) return
     const onKey = (event: KeyboardEvent): void => {
       const { count, onOpen, onEscape, at } = latest.current
       // A key something in front already took, like search over this list.
-      if (event.defaultPrevented) return
+      if (event.defaultPrevented || !here()) return
       // The editor has its own vim, and its menus their own Ctrl-J and K.
       if (focus() === 'editor') return
       const inBox = focus() === 'box'
@@ -1372,10 +1378,11 @@ export function Rolling({ text, className = '', by = 'character' }: { text: stri
 export function useReadKey(read: () => void, rows: number, enabled = true): void {
   const latest = useRef(read)
   latest.current = read
+  const here = useHere()
   useEffect(() => {
     if (!enabled) return
     const onKey = (event: KeyboardEvent): void => {
-      if (!event.metaKey || !event.shiftKey || event.key.toLowerCase() !== 'r' || !rows) return
+      if (!event.metaKey || !event.shiftKey || event.key.toLowerCase() !== 'r' || !rows || !here()) return
       event.preventDefault()
       latest.current()
     }

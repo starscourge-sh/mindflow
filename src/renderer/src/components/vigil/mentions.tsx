@@ -4,11 +4,12 @@ import RightChevronIcon from '@/components/ui/right-chevron'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import LinkIcon from '@/components/ui/link-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { tagColors, spread } from '@/extensions/tokens'
 
 import { chime } from '@/lib/sound'
 import { openWindow, useThumb } from '@/lib/notes'
+import { canSplit, openAside } from '@/lib/split'
 import { vigil } from '@/lib/vigil'
 import { Thumb } from './note-extras'
 import { Tip, refuse, toast } from './ui'
@@ -267,6 +268,7 @@ function RelatedCard({ card, onOpen }: { card: Related[number]; onOpen?: (type: 
         <DropdownMenuContent align="end" className="w-52">
           <DropdownMenuItem onSelect={() => onOpen?.(card.type, card.id)}>Open</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => openWindow(card.type, card.id)}>Open in a new window</DropdownMenuItem>
+          {canSplit() && <DropdownMenuItem onSelect={() => openAside(card.type, card.id)}>Open to the side<DropdownMenuShortcut>⌥-click</DropdownMenuShortcut></DropdownMenuItem>}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

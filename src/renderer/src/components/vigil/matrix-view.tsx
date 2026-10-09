@@ -20,6 +20,7 @@ import { PriorityIcon } from './task-input'
 import { TaskDetail, completeTask } from './tasks-view'
 import { Overlay, SETTLE, underPointer } from './sortable'
 import { Button } from '@/components/ui/button'
+import { useHere } from '@/lib/split'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const CalendarClock = alive(ClockIcon)
@@ -118,8 +119,11 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
     }, `${name}: moved to ${whenInLine(onDay(days, task.dueAt ?? task.deadline), !!task.allDay)}`)
   }
 
+  // Split, only the pane in front answers keys.
+  const here = useHere()
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      if (!here()) return
       if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || example) return
       const key = event.key
       const take = (run: () => void): void => (event.preventDefault(), run())

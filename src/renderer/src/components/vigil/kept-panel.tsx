@@ -19,6 +19,7 @@ import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
 import { questionEntry, startQuestion } from './questions-view'
 import { num } from '../../../../main/dates'
+import { useHere } from '@/lib/split'
 
 const TIERS = [{ id: 'nugget', label: 'Ideas' }, { id: 'article', label: 'Writing' }, { id: 'question', label: 'Questions' }] as const
 
@@ -40,8 +41,11 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
   const choose = (id: string): void => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
   // The row a thought is being written under, from ; or its hover button.
   const [glossing, setGlossing] = useState<string | null>(null)
+  // Split, only the pane in front answers keys.
+  const here = useHere()
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      if (!here()) return
       if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
       // ; a thought on the row under the cursor, written under it in place.
       if (event.key === ';' && items[cursor] && tier !== 'question') {

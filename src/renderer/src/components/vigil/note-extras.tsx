@@ -33,7 +33,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioG
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import BookIcon from '@/components/ui/book-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
-import { PAGE_WIDTHS, setPageWidth, showDetails, useDetailsShown, widthOf, type PageWidth } from '@/lib/reading'
+import { PAGE_WIDTHS, setPageWidth as setWidthEverywhere, showDetails, useDetailsShown, widthOf, type PageWidth } from '@/lib/reading'
+import { usePaneWidth } from '@/lib/split'
 import { ReadThrough } from './read-through'
 import { Island, PropInput, Rolling, Tip, Typed, refuse, toast } from './ui'
 import { Does, GHOST, GhostText } from './ghost'
@@ -608,7 +609,11 @@ function WidthGlyph({ width }: { width: PageWidth }): React.JSX.Element {
  * Narrow, Wide or Full, in the note's ⋯ menu: a submenu with a tick on the
  * width now. The same choice as in Settings, kept for every note and every window.
  */
-function PageWidthMenu({ width }: { width: PageWidth }): React.JSX.Element {
+function PageWidthMenu({ width: everywhere }: { width: PageWidth }): React.JSX.Element {
+  // Split, each pane keeps its own: a note read beside another can sit in a column while that one runs wide.
+  const pane = usePaneWidth()
+  const width = pane?.width ?? everywhere
+  const setPageWidth = (next: PageWidth): void => (pane ? pane.set(next) : setWidthEverywhere(next))
   return (
     <DropdownMenuSub>
       <DropdownMenuSubTrigger data-page-width={width}>Page width</DropdownMenuSubTrigger>

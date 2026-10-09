@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button'
 import type { Density, Pane } from './display'
 import { GrainFill, useCover } from './grain'
 import { Tilt } from './tilt'
+import { useHere } from '@/lib/split'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Maximize2 = alive(ExpandIcon)
@@ -590,9 +591,12 @@ function GridKeys({
 }): null {
   const latest = useRef({ lines, cursor })
   latest.current = { lines, cursor }
+  // Split, only the pane in front answers keys.
+  const here = useHere()
   useEffect(() => {
     if (!on || !onCursor) return
     const onKey = (event: KeyboardEvent): void => {
+      if (!here()) return
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || typing())
         return
       const { lines, cursor } = latest.current

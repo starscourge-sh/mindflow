@@ -77,7 +77,8 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
         // you are typing in answers; with the caret in none, the first does.
         const mine = barRef.current?.closest(".mindflow-editor-wrapper")
         const focused = document.activeElement?.closest(".mindflow-editor-wrapper[data-search]")
-        if ((focused ?? document.querySelector(".mindflow-editor-wrapper[data-search]")) !== mine) return
+        // Split, the pane in front's note before any other.
+        if ((focused ?? document.querySelector("[data-pane-front] .mindflow-editor-wrapper[data-search]") ?? document.querySelector(".mindflow-editor-wrapper[data-search]")) !== mine) return
         event.preventDefault()
         if (event.altKey && editor?.isEditable) setReplacing(true)
         if (open) inputRef.current?.select()

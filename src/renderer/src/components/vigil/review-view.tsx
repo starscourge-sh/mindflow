@@ -21,6 +21,7 @@ import { BorderBeam } from 'border-beam'
 import { useAlive, useSurface } from '@/lib/use-alive'
 import { num } from '../../../../main/dates'
 import { Signed } from './signature'
+import { useHere } from '@/lib/split'
 
 /** The four grades, as the plan defines them: how the retrieval felt, not whether it was right. */
 const GRADES = [
@@ -134,8 +135,11 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     setCameBack(false)
     setAt((index) => index + 1)
   }
+  // Split, only the pane in front answers keys.
+  const here = useHere()
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      if (!here()) return
       if (event.metaKey || event.ctrlKey) return
       // Before the window's own Escape, which would hide the box.
       if (source) {

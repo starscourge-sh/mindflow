@@ -22,6 +22,7 @@ import { GlossButton, GlossLine } from './gloss-line'
 import { Ring } from './marks'
 import { byKeys } from '@/lib/motion'
 import { clock, dayMonth, dayjs, startOfDay } from '../../../../main/dates'
+import { useHere } from '@/lib/split'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Brain = alive(BrainCircuitIcon)
@@ -191,8 +192,11 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
     setAt({ col, id: next ? `${next.kind}:${next.task.id}` : null })
   }
 
+  // Split, only the pane in front answers keys.
+  const here = useHere()
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      if (!here()) return
       if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || example) return
       const key = event.key
       const take = (run: () => void): void => {

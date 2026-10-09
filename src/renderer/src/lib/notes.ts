@@ -9,6 +9,7 @@ import { detailsShown, fullWidth, setFullWidth, showDetails } from '@/lib/readin
 import { useLive, vigil } from '@/lib/vigil'
 import { addToQuestion } from '@/components/vigil/questions-view'
 import { dayKey } from '../../../main/dates'
+import { frontPane, usePane } from '@/lib/split'
 
 /**
  * The main process's `notes:` channels, typed, and the actions built on them
@@ -128,14 +129,18 @@ export function useOwnOrder(list: string): {
 // --- the note open now, for ⌘K to act on
 
 export type OpenNote = { table: NoteTable; type: string; id: string; kind: string; archived: boolean }
-let current: OpenNote | null = null
+// One for each pane of a split page ('' outside the panes): ⌘K acts on the front pane's.
+const opened = new Map<string, OpenNote>()
+const currentNote = (): OpenNote | null => opened.get(frontPane() ?? '') ?? (frontPane() ? null : (opened.get('') ?? null))
 /** Said by whichever view has a note open, for as long as it is open. */
 export function useOpenNote(note: OpenNote | null): void {
+  const pane = usePane() ?? ''
   useEffect(() => {
-    current = note
+    if (note) opened.set(pane, note)
+    else opened.delete(pane)
     // Home's "Jump back in" reads these.
     if (note) void call('home:opened', note.type, note.id)
-    return () => void (current === note && (current = null))
+    return () => void (opened.get(pane) === note && opened.delete(pane))
   }, [note?.id, note?.kind, note?.archived]) // eslint-disable-line react-hooks/exhaustive-deps
 }
 
@@ -198,7 +203,7 @@ export const openToday = (): void => {
  * sections already, so it passes `day: false`.
  */
 export function noteActions({ day = true }: { day?: boolean } = {}): Action[] {
-  const note = current
+  const note = currentNote()
   const page: Action[] = day ? [{ label: "Today's page", cue: null, run: openToday }] : []
   const all: Action = { label: 'Save every picture and file to a folder', cue: null, run: () => void saveAttachments() }
   // Notion's switch, for every page: the words in a reading column, or across the window.

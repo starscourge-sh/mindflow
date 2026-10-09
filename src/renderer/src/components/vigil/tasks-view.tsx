@@ -45,6 +45,7 @@ import { SessionFooter } from './session-footer'
 import { Example } from './example'
 import { exampleTasks } from '@/lib/examples'
 import { GhostText } from './ghost'
+import { useHere } from '@/lib/split'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Bell = alive(FilledBellIcon)
@@ -232,8 +233,11 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   // On the row the keyboard is on: Alt-J and Alt-K move it (dates say what is
   // due, order says what is next), T, M and W put it on today, tomorrow or
   // next week in one press, and 1 to 4 give it a priority, 0 none.
+  // Split, only the pane in front answers keys.
+  const here = useHere()
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      if (!here()) return
       if (typing() || event.defaultPrevented) return
       // A goes to the add-a-task field, as it does in the box's Today.
       if (event.key === 'a' && !event.metaKey && !event.ctrlKey && !event.altKey) {
@@ -381,7 +385,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                         </button>
                         </Tip>
                         <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
-                        <button type="button" data-row onClick={() => pick(task.id)} className="flex w-full min-w-0 flex-col items-start gap-1 text-left">
+                        <button type="button" data-row data-id={task.id} onClick={() => pick(task.id)} className="flex w-full min-w-0 flex-col items-start gap-1 text-left">
                           <span className="flex max-w-full items-center gap-2">
                             {task.priority ? <PriorityIcon level={task.priority} className="size-3.5 shrink-0" /> : null}
                             <span className="truncate">{splitTags(task.title).text}</span>
