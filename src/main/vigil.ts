@@ -1270,6 +1270,22 @@ export function registerVigil(): void {
     if (origin.captureId) db.prepare("update captures set status = 'promoted' where id = ? and kind = 'quote' and status = 'open' and (kind_was = 'excerpt' or length(words(id, body)) > 600)").run(origin.captureId)
     return write(id)
   })
+  // Taken back straight after: words lifted out of a note as a capture or an
+  // idea (Undo on its toast). Called only with what that lift just made; a
+  // nugget must still be a plain one to go.
+  handle('lifted:undo', (type: 'capture' | 'nugget', id: string) => {
+    if (type === 'capture') db.prepare('delete from captures where id = ?').run(id)
+    else {
+      const row = db.prepare("select capture_id from nuggets where id = ? and tier = 'nugget'").get(id) as { capture_id: string | null } | undefined
+      if (!row) return write(false)
+      db.prepare('delete from glosses where item_id = ?').run(id)
+      db.prepare('delete from nuggets where id = ?').run(id)
+      // A long quote marked done by this lift is open again, unless another idea came from it.
+      if (row.capture_id && !db.prepare('select 1 from nuggets where capture_id = ?').get(row.capture_id))
+        db.prepare("update captures set status = 'open' where id = ? and kind = 'quote' and status = 'promoted'").run(row.capture_id)
+    }
+    return write(true)
+  })
   // Wrong, and corrected: the correction becomes its own nugget, the wrong one
   // leaves review at once and points to it. Nothing is deleted: the wrong
   // version beside the right one teaches more than either alone.

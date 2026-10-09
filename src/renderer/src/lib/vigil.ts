@@ -316,6 +316,8 @@ export const vigil = {
   /** Where a link held in a field leads: `day:2026-10-05`, `nugget:…`, or a capture's id. */
   linkTitle: (link: string) => call<{ type: string; id: string; title: string; kind: string; private?: number } | null>('link:title', link),
   unmakeCapture: (id: string, origin: string) => call('capture:unmake', id, origin),
+  /** Words just lifted out of a note as a capture or an idea, taken back: its toast's Undo. */
+  unlift: (type: 'capture' | 'nugget', id: string) => call<boolean>('lifted:undo', type, id),
   settings: () => call<Settings>('settings'),
   setSettings: (patch: Partial<Settings>) => call<Settings>('settings:set', patch),
   /** Every language the spellchecker knows, and the ones it is using. */
