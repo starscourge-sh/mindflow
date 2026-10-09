@@ -525,8 +525,8 @@ const WHAT: Record<string, string> = {
   quote: 'Someone’s words, signed with who said them',
   word: 'A word to learn, asked back in Review',
   link: 'A page, kept with its name and picture',
-  decision: 'A choice, with the reason you made it',
-  experiment: 'Something you are trying out'
+  decision: 'Comes back on a date to check it still holds',
+  experiment: 'Runs until a date, then asks how it went'
 }
 
 /**
@@ -536,10 +536,10 @@ const WHAT: Record<string, string> = {
 function KindList({ still }: { still: boolean }): React.JSX.Element {
   const kinds = CAPTURE_TYPES.filter((type) => type.id in WHAT)
   return (
-    <motion.div className="absolute bottom-14 left-5 z-10 w-[calc(100%-2.5rem)] origin-bottom-left rounded-xl border bg-popover p-2 text-popover-foreground shadow-(--mf-panel-shadow)"
+    <motion.div className="relative z-10 origin-bottom-left rounded-[14px] border bg-popover p-2.5 text-popover-foreground shadow-(--mf-panel-shadow)"
       initial={still ? false : { opacity: 0, scale: 0.96, y: 6 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, transition: spring.slow.exit }} transition={spring.slow}>
       <p className="px-2 pt-1 pb-2 text-[0.8125rem] font-medium text-foreground">{counted(kinds.length)} kinds. Vigil guesses; you can always change it.</p>
-      <ul className="grid grid-cols-2 gap-x-3">
+      <ul className="grid grid-cols-3 gap-x-2">
         {kinds.map((type, i) => {
           const Icon = type.icon
           return (
@@ -597,7 +597,11 @@ function CatchChapter({ play, report, state, onState }: { play: boolean; report:
         )}
         {s.box && (
           <div data-frame="box" className="relative w-[min(40rem,100%)] shrink-0">
-            <Stage box={s.box} />
+            {/* The box steps back while the kinds are shown in its place. */}
+            <motion.div className={s.kinds ? 'absolute inset-x-0 top-0' : ''} initial={false} animate={{ opacity: s.kinds ? 0 : 1, scale: s.kinds ? 0.97 : 1, filter: s.kinds ? 'blur(2px)' : 'blur(0px)' }} transition={spring.slow}>
+              <Stage box={s.box} />
+            </motion.div>
+            {/* In the box's place, in the page's flow: it takes the room it needs, nothing sits under it. */}
             <AnimatePresence>{s.kinds && <KindList key="kinds" still={!play} />}</AnimatePresence>
           </div>
         )}
