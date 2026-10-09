@@ -872,7 +872,22 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   const rowsOf = (from: Layout): Item[] => blocks(from).flatMap((one) => (one.group && !isOpen(one.group) ? [] : one.items))
   const now = blocks(layout)
   const keys = now.flatMap((one) => (one.group ? [KEY + one.group, ...(isOpen(one.group) ? one.items.map((item) => item.id) : [])] : [one.items[0].id]))
-  const make = (): { id: string; name: string } => ({ id: crypto.randomUUID(), name: 'New group' })
+  // A group left unnamed is named for what its notes share: a tag on all of
+  // them, or their kind, or else the next free "Group 2", so no two read the same.
+  const byId = new Map(every.map((one) => [one.id, one]))
+  const naming = (ids: string[]): string => {
+    const notes = ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []))
+    const taken = new Set(list.map((one) => one.name.toLowerCase()))
+    const tags = notes.map((one) => splitTags(one.title).tags)
+    const tag = tags[0]?.find((one) => tags.every((them) => them.includes(one)))
+    const kind = notes.length && notes.every((one) => one.kind === notes[0].kind) && notes[0].kind !== 'note' ? CAPTURE_TYPES.find((one) => one.id === notes[0].kind)?.label : undefined
+    const said = tag ? tag[0].toUpperCase() + tag.slice(1) : kind ? `${kind}s` : null
+    if (said && !taken.has(said.toLowerCase())) return said
+    let n = list.length + 1
+    while (taken.has(`group ${n}`)) n++
+    return `Group ${n}`
+  }
+  const make = (ids: string[] = []) => (): { id: string; name: string } => ({ id: crypto.randomUUID(), name: naming(ids) })
   const commit = (next: Layout, cue: Cue, said?: string): void => {
     const was = layout
     if (!shown) toOwn()
@@ -896,7 +911,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   const gatherNew = (ids: string[]): void => {
     const these = inOrder(ids)
     if (!these.length) return refuse('Pick a row first')
-    commit(gather(layout, these[0], these, make()), 'gather', these.length > 1 ? `Grouped ${these.length} notes` : 'Grouped')
+    commit(gather(layout, these[0], these, make(these)()), 'gather', these.length > 1 ? `Grouped ${these.length} notes` : 'Grouped')
   }
   const menu = (ids: string[]): RowItem[] => {
     const these = inOrder(ids)
@@ -944,13 +959,13 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
       const group = one.group ? info.get(one.group) : undefined
       return {
         group: one.group
-          ? { id: one.group, name: group?.name ?? layout.make?.name ?? 'New group', icon: group?.icon ?? null, color: group?.color ?? null, open: isOpen(one.group), members: one.items.map((item) => item.id) }
+          ? { id: one.group, name: group?.name ?? layout.make?.name ?? 'Group', icon: group?.icon ?? null, color: group?.color ?? null, open: isOpen(one.group), members: one.items.map((item) => item.id) }
           : undefined,
         entries: one.items.map((item) => itemEntry(item, menuFor(item)))
       }
     }),
     onDrop: (ids, target, how) => {
-      const next = dropMany(layout, ids, target, how, shut, make)
+      const next = dropMany(layout, ids, target, how, shut, make([target, ...ids]))
       if (!next) return chime('stay')
       const active = ids[0]
       const was = isGroup(active) ? undefined : groupOf(layout, active)

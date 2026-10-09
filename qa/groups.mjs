@@ -61,8 +61,8 @@ const memberTitles = async (c, name) => {
   return (group?.members ?? []).map((id) => items.find((one) => one.id === id)?.title)
 }
 
-let c = await open()
-try {
+let c = process.env.ONLY ? null : await open()
+if (c) try {
   await c.theme('light')
   await c.size(1100, 760)
   for (const title of TITLES) {
@@ -160,7 +160,7 @@ try {
   await frames(c, 'i-ctrlcmdn', 6, 35)
   await c.h.waitForTimeout(300)
   list = await groupsNow(c)
-  check('⌃⌘N makes a group of the picked rows', list.length === 2 && list.some((one) => one.members.length === 2 && one.name === 'New group'))
+  check('⌃⌘N makes a group of the picked rows', list.length === 2 && list.some((one) => one.members.length === 2 && /^Group \d+$/.test(one.name)), JSON.stringify(list.map((one) => one.name)))
   check('with its name being written', (await c.h.evaluate(() => document.activeElement?.getAttribute('aria-label'))) === 'Group name')
   await c.h.keyboard.type('Reading')
   await c.h.keyboard.press('Enter')
@@ -233,12 +233,12 @@ try {
     }
   })
   await c.h.waitForTimeout(700)
-  const fresh = (await groupsNow(c)).find((one) => one.name === 'New group')
+  const fresh = (await groupsNow(c)).find((one) => one.name !== 'Memory' && one.name !== 'Reading')
   check('a new group of the target and both picked', fresh?.members.length === 3, String(fresh?.members.length))
   await c.h.keyboard.press('Escape')
   await c.h.keyboard.press('Meta+z')
   await c.h.waitForTimeout(800)
-  check('and ⌘Z takes it apart again', !(await groupsNow(c)).some((one) => one.name === 'New group'))
+  check('and ⌘Z takes it apart again', (await groupsNow(c)).length === 2)
 
   // 8. Colour from the menu, then ← and → on the group's row.
   await head(c, 'Memory').click({ button: 'right' })
@@ -282,11 +282,11 @@ try {
   console.error(error)
   results.push(false)
 }
-await c.close()
+if (c) await c.close()
 
 // 10. A restart: names, colour, members and the fold kept. The hands. Then dark, and another sort.
-c = await open()
-try {
+c = process.env.ONLY ? null : await open()
+if (c) try {
   await articles(c)
   const memory = await named(c, 'Memory')
   check('after a restart the groups are kept', memory?.color === 'blue' && memory.members.length === 3 && memory.folded === 1 && !!(await named(c, 'Reading')), JSON.stringify(await groupsNow(c)))
@@ -353,6 +353,121 @@ try {
   await frames(c, 'o-chips-dark', 1, 0)
   if (c.errors.length) console.log('errors:', c.errors.slice(0, 5))
   check('no errors in the page', !c.errors.some((one) => /PAGEERROR/.test(one)), c.errors.find((one) => /PAGEERROR/.test(one)) ?? '')
+} catch (error) {
+  console.error(error)
+  results.push(false)
+}
+if (c) await c.close()
+
+// 11. Ideas with a kind filter on, several groups, and rows the filter hides in
+// and between them: every row and group row drawn apart from every other, in a
+// light and a dark theme, before and after drags, with nothing left moved.
+const overlaps = (c) => c.h.evaluate(() => {
+  const boxes = [...document.querySelectorAll('[data-row]:not([data-lifted] *), [data-group-row]:not([data-lifted] *)')]
+    .map((el) => ({ name: el.textContent.slice(0, 24), box: el.getBoundingClientRect() })).filter((one) => one.box.height > 0)
+  const bad = []
+  for (let i = 0; i < boxes.length; i++)
+    for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i].box, b = boxes[j].box
+      if (a.top < b.bottom - 1 && b.top < a.bottom - 1) bad.push(`${boxes[i].name} / ${boxes[j].name}`)
+    }
+  // Panels: each group's apart from the next.
+  const panels = [...document.querySelectorAll('[data-group-block]')].map((el) => el.getBoundingClientRect()).sort((a, b) => a.top - b.top)
+  for (let i = 1; i < panels.length; i++) if (panels[i].top < panels[i - 1].bottom + 2) bad.push(`panels ${i - 1} and ${i} touch (${Math.round(panels[i].top - panels[i - 1].bottom)}px)`)
+  // Nothing left moved once nothing is carried.
+  for (const el of document.querySelectorAll('[data-sortable-id]')) if (el.style.transform) bad.push(`left moved: ${el.textContent.slice(0, 20)} ${el.style.transform}`)
+  return bad
+})
+c = await open()
+try {
+  await c.h.evaluate(() => localStorage.setItem('view:nugget', JSON.stringify({ sort: 'manual', group: 'none', filter: { kind: ['note'] }, density: 'list' })))
+  await c.theme('light')
+  await c.size(1100, 760)
+  const all = await c.v('items', 'nugget')
+  const notes = all.filter((one) => one.kind === 'note' && !one.archivedAt)
+  const others = all.filter((one) => one.kind !== 'note' && !one.archivedAt)
+  console.log(`ideas: ${all.length}, notes on show: ${notes.length}`)
+  // Three groups the way the hand makes them, each left as New group: two notes picked, ⌃⌘N, Escape.
+  await c.go('nuggets')
+  await c.h.waitForTimeout(800)
+  const titleOf = (one) => one.title.slice(0, 18)
+  for (let g = 0; g < 3; g++) {
+    const shown = (await order(c)).filter(Boolean)
+    const free = notes.filter((one) => shown.some((t) => t.startsWith(titleOf(one)))).filter((one) => true)
+    const ungrouped = []
+    const grouped = new Set((await c.v('groups', 'nugget')).flatMap((one) => one.members))
+    for (const one of free) if (!grouped.has(one.id)) ungrouped.push(one)
+    await row(c, titleOf(ungrouped[g * 1])).click({ modifiers: ['Meta'] })
+    await row(c, titleOf(ungrouped[g * 1 + 2])).click({ modifiers: ['Meta'] })
+    await c.h.keyboard.press('Control+Meta+n')
+    await c.h.waitForTimeout(500)
+    await c.h.keyboard.press('Enter')
+    await c.h.waitForTimeout(400)
+  }
+  // Rows the filter hides, inside the first group and between the groups, as a filter changed later would leave them.
+  const unfiltered = async (on) => {
+    await c.h.evaluate((on) => localStorage.setItem('view:nugget', JSON.stringify({ sort: 'manual', group: 'none', filter: on ? { kind: ['note'] } : {}, density: 'list' })), on)
+    await c.h.reload()
+    await c.h.waitForTimeout(1500)
+    await c.go('nuggets')
+    await c.h.waitForTimeout(800)
+  }
+  await unfiltered(false)
+  const hide = others.slice(0, 2)
+  await carry(c, row(c, titleOf(hide[0])), c.h.locator('[data-group-block]').first().locator('[data-row]').first(), 0.5)
+  await c.h.waitForTimeout(700)
+  await carry(c, row(c, titleOf(hide[1])), c.h.locator('[data-group-row]').nth(1), 0.1)
+  await c.h.waitForTimeout(700)
+  await unfiltered(true)
+  let groupsHere = await c.v('groups', 'nugget')
+  check('a hidden row sits in the first group', groupsHere.some((one) => one.members.includes(hide[0].id)))
+  const names = groupsHere.map((one) => one.name)
+  check('three groups, each named apart', groupsHere.length === 3 && new Set(names).size === 3, JSON.stringify(names))
+  await c.h.mouse.move(900, 700)
+  await c.h.waitForTimeout(400)
+  await frames(c, 'u-filtered-light', 1, 0)
+  let bad = await overlaps(c)
+  check('with a filter on, no rows overlap and panels keep apart', bad.length === 0, bad.slice(0, 4).join('; '))
+  // Drag a free note into the second group's middle row, and look at the gap.
+  const second = c.h.locator('[data-group-block]').nth(1)
+  const member = second.locator('[data-row]').first()
+  const outside = (await order(c)).filter(Boolean)
+  const loose = notes.find((one) => !groupsHere.some((g) => g.members.includes(one.id)) && outside.some((t) => t.startsWith(titleOf(one))))
+  const before = await member.boundingBox()
+  await carry(c, row(c, titleOf(loose)), member, 0.5, {
+    hold: async () => {
+      await c.h.waitForTimeout(250)
+      const next = await second.locator('[data-row]').nth(1).boundingBox().catch(() => null)
+      const rowHeight = before.height
+      const lifted = await member.boundingBox()
+      const gap = next ? next.y - (lifted.y + lifted.height) : 0
+      check('the room opened is one row', Math.abs(gap - rowHeight) < rowHeight * 0.5, `${Math.round(gap)} vs a row of ${Math.round(rowHeight)}`)
+      await frames(c, 'v-filtered-join-light', 2, 40)
+    }
+  })
+  await c.h.waitForTimeout(900)
+  bad = await overlaps(c)
+  check('after the drop nothing is left moved or overlapping', bad.length === 0, bad.slice(0, 4).join('; '))
+  // Edge drops through the groups, then fold and unfold each, then look again.
+  const shownNow = (await order(c)).filter(Boolean)
+  await carry(c, row(c, shownNow[shownNow.length - 1].slice(0, 18)), row(c, shownNow[1].slice(0, 18)), 0.1)
+  await c.h.waitForTimeout(800)
+  for (let i = 0; i < 3; i++) { await c.h.locator('[data-group-row]').nth(i).click(); await c.h.waitForTimeout(350) }
+  for (let i = 0; i < 3; i++) { await c.h.locator('[data-group-row]').nth(i).click(); await c.h.waitForTimeout(350) }
+  await c.h.mouse.move(900, 700)
+  await c.h.waitForTimeout(400)
+  bad = await overlaps(c)
+  check('after edge drops and folds, still nothing overlaps', bad.length === 0, bad.slice(0, 4).join('; '))
+  await frames(c, 'w-filtered-after-light', 1, 0)
+  await c.theme('dark')
+  await c.size(1100, 760)
+  await c.go('nuggets')
+  await c.h.waitForTimeout(900)
+  await c.h.mouse.move(900, 700)
+  bad = await overlaps(c)
+  check('in the dark, nothing overlaps', bad.length === 0, bad.slice(0, 4).join('; '))
+  await frames(c, 'x-filtered-dark', 1, 0)
+  void others
 } catch (error) {
   console.error(error)
   results.push(false)

@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { DndContext, MeasuringStrategy, PointerSensor, closestCenter, pointerWithin, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragMoveEvent, type DragStartEvent, type Modifier } from '@dnd-kit/core'
-import { SortableContext, useSortable, verticalListSortingStrategy, type SortingStrategy } from '@dnd-kit/sortable'
+import { SortableContext, useSortable, type SortingStrategy } from '@dnd-kit/sortable'
 import { AnimatePresence, motion } from 'motion/react'
 import { ChevronRight, Layers } from 'lucide-react'
 
@@ -195,7 +195,20 @@ export function GroupedList({ bundles, onDrop, picked, onLetGo, onFold, onNewNot
   const strategy: SortingStrategy = useMemo(
     () => (args) => {
       if (gapAfter === null || (mine && mine.has(keys[args.index]))) return null
-      return verticalListSortingStrategy({ ...args, overIndex: args.activeIndex <= gapAfter ? gapAfter : gapAfter + 1 })
+      // Exactly one row of room, whatever lies between: the rows from the carried one's place to the gap slide by its height and no more.
+      const { activeIndex, index, rects, activeNodeRect } = args
+      const to = activeIndex <= gapAfter ? gapAfter : gapAfter + 1
+      const h = activeNodeRect?.height ?? rects[activeIndex]?.height ?? 0
+      const still = { x: 0, scaleX: 1, scaleY: 1 }
+      if (index === activeIndex) {
+        const at = rects[activeIndex]
+        const there = rects[to]
+        if (!at || !there || to === activeIndex) return null
+        return { ...still, y: to > activeIndex ? there.top + there.height - h - at.top : there.top - at.top }
+      }
+      if (activeIndex < index && index <= to) return { ...still, y: -h }
+      if (to <= index && index < activeIndex) return { ...still, y: h }
+      return null
     },
     [gapAfter, carried, keys.join('\n')] // eslint-disable-line react-hooks/exhaustive-deps
   )
@@ -306,8 +319,11 @@ export function GroupedList({ bundles, onDrop, picked, onLetGo, onFold, onNewNot
           <VirtualList items={lines} keyOf={({ one }) => (one.group ? KEY + one.group.id : one.entries[0].id)} cursor={line >= 0 ? line : undefined} estimate={estimate} className={className}>
             {({ one, start }) =>
               one.group ? (
+                // A little air above and below every group, so two in a row never touch.
+                <div className="py-1">
                 <GroupBlock group={one.group} entries={one.entries} start={start} row={row} carried={carried === KEY + one.group.id} renaming={renaming === one.group.id}
                   born={born === one.group.id} onRenaming={(on) => onRenaming(on ? one.group!.id : null)} onFold={(open) => onFold(one.group!, open)} onNewNote={onNewNote} />
+                </div>
               ) : (
                 row(one.entries[0], start)
               )
@@ -331,8 +347,9 @@ export function GroupedList({ bundles, onDrop, picked, onLetGo, onFold, onNewNot
             {chip && (
               <motion.div
                 key="chip"
-                className="absolute top-1/2 flex w-[60%] -translate-y-1/2 items-center gap-2 rounded-md bg-background px-2.5 py-1.5 text-control shadow-[0_8px_24px_-6px_rgb(0_0_0/0.35)] ring-1 ring-foreground/10"
-                style={{ left: `min(${grab + 18}px, 40%)` }}
+                className="absolute top-1/2 flex w-[60%] items-center gap-2 rounded-md bg-background px-2.5 py-1.5 text-control shadow-[0_8px_24px_-6px_rgb(0_0_0/0.35)] ring-1 ring-foreground/10"
+                // In the room it previews: under the pointer when the rows moved up to make it, a row lower when they moved down.
+                style={{ left: `min(${grab + 18}px, 40%)`, translate: `0 calc(-50% + ${down ? 0 : height}px)` }}
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.08 } }}
