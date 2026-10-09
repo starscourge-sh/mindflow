@@ -90,7 +90,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
           </p>
         )}
         {tags.length ? (
-          <Example on={example} tryIt={<>write a <span className="text-foreground">#word</span> anywhere in a note, an idea or a task. It shows up here, counted, with a page of its own.</>}>
+          <Example on={example} tryIt={<><strong>write a #word anywhere in a note, an idea or a task.</strong> It shows up here, counted, with a page of its own.</>}>
           <VirtualList items={tags} keyOf={(one) => one.tag} cursor={cursor} estimate={36} className="mx-3 my-2">
             {({ tag, count, color, examAt, action }, index) => (
               <RowMenu items={[

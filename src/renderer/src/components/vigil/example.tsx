@@ -25,10 +25,11 @@ export function Example({ on = true, tryIt, children, className, compact = false
   if (!on) return <>{children}</>
   return (
     <div data-example-frame className={cn('flex min-w-0 flex-col', className)}>
-      <div role="note" className={cn('flex shrink-0 items-baseline gap-2 rounded-lg border border-dashed border-foreground/15 text-control leading-relaxed text-muted-foreground', compact ? 'mx-1 mt-2 mb-1 px-2.5 py-1.5' : flush ? 'mb-1 px-3 py-2' : 'mx-5 mt-3 mb-1 px-3 py-2')}>
+      <div role="note" className={cn('flex shrink-0 items-baseline gap-2 rounded-lg border border-dashed border-foreground/15 text-control text-muted-foreground', compact ? 'mx-1 mt-2 mb-1 px-2.5 py-1.5' : flush ? 'mb-1 px-3 py-2' : 'mx-5 mt-3 mb-1 px-3 py-2')}>
         <span className="shrink-0 rounded-full bg-foreground/[0.06] px-2 py-px text-meta font-medium text-foreground/75">Example</span>
-        <span className="min-w-0 text-pretty">
-          <span className="font-medium text-foreground/85">Try it:</span> {tryIt}
+        {/* Dia's way: what to do, in bold, carries it; what then happens is plain. */}
+        <span className={cn('mf-prose min-w-0', compact ? 'text-body' : 'text-[0.9375rem]')}>
+          Try it: <Said text={tryIt} />
         </span>
       </div>
       {/* Faded toward the foot as well as dimmed, so it reads as a picture of the page rather than your notes. */}
@@ -37,4 +38,12 @@ export function Example({ on = true, tryIt, children, className, compact = false
       </div>
     </div>
   )
+}
+
+/** Words given as text: the first sentence, what to do, in bold. Anything richer is set as it comes. */
+function Said({ text }: { text: ReactNode }): React.JSX.Element {
+  if (typeof text !== 'string') return <>{text}</>
+  const end = /[.!?](?=\s)/.exec(text)
+  if (!end) return <strong>{text}</strong>
+  return <><strong>{text.slice(0, end.index + 1)}</strong>{text.slice(end.index + 1)}</>
 }

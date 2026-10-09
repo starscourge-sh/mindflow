@@ -40,8 +40,8 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
       <div className="mx-auto w-full max-w-[72rem] px-5 pt-10 pb-24 @[44rem]/page:px-10">
         <header className="max-w-[40rem]">
           <h1 className="font-heading text-[2rem] leading-[1.1] font-semibold tracking-[-0.02em] text-foreground">What Vigil can do</h1>
-          <p className="mt-3 text-body leading-relaxed text-muted-foreground">
-            Most of Vigil stays out of sight until you need it. Here is all of it, one card each. {SANDBOX ? 'You are in the sandbox, so Show me takes you to a real example and points at it.' : 'Show me takes you to where it lives.'}
+          <p className="mf-prose mt-3 text-[1.1875rem] text-muted-foreground">
+            <strong>Most of Vigil stays out of sight until you need it.</strong> Here it is, one card each, and Show me {SANDBOX ? 'takes you to a real example in the sandbox and points at it.' : 'takes you to where it lives.'}
           </p>
           {used && (
             <p className="mt-3 flex items-center gap-2 text-control text-muted-foreground">
@@ -60,7 +60,7 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
         {GROUPS.map((group) => (
           <section key={group.id} id={`powers-${slug(group.id)}`} aria-label={group.id} className="mt-14 scroll-mt-6">
             <h2 className="font-heading text-heading font-semibold tracking-[-0.01em] text-foreground">{group.id}</h2>
-            <p className="mt-1 text-control text-muted-foreground">{group.line}</p>
+            <p className="mf-aside mt-1 text-body text-muted-foreground">{group.line}</p>
             <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-3 @[40rem]/page:grid-cols-2 @[66rem]/page:grid-cols-3">
               {POWERS.filter((power) => power.group === group.id).map((power) => (
                 <Card key={power.id} power={power} used={!!used?.has(power.id)} onView={onView} />
@@ -74,6 +74,8 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
   )
 }
 
+/** Lower-cased to follow "Try it:", unless it opens on a key or a name. */
+const lower = (text: string): string => /^(I|Vigil|Settings)\b/.test(text) ? text : text[0].toLowerCase() + text.slice(1)
 const slug = (text: string): string => text.toLowerCase().replace(/\W+/g, '-')
 const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -92,15 +94,18 @@ function Card({ power, used, onView }: { power: Power; used: boolean; onView: (i
   const Demo = DEMOS[power.id]
   return (
     <article data-power={power.id} className="flex flex-col rounded-2xl border bg-[color-mix(in_oklab,var(--foreground)_2.5%,transparent)] p-1.5">
-      <div ref={stage} aria-hidden className="pw-stage relative flex h-44 items-center justify-center overflow-hidden rounded-xl border border-border/50 bg-background px-5">
-        {Demo && <Demo live={seen && !calm} />}
+      <div className="relative">
+        <div ref={stage} aria-hidden className="pw-stage relative flex h-44 items-center justify-center overflow-hidden rounded-xl border border-border/50 bg-background px-5">
+          {Demo && <Demo live={seen && !calm} />}
+        </div>
+        {used && <span className="absolute top-2.5 right-2.5" title="You have used this"><Tick /><span className="sr-only">You have used this</span></span>}
       </div>
       <div className="flex flex-1 flex-col px-3 pt-3.5 pb-2">
-        <h3 className="flex items-center gap-2 text-body font-medium text-foreground">
-          {power.name}
-          {used && <span className="ml-auto" title="You have used this"><Tick /><span className="sr-only">You have used this</span></span>}
-        </h3>
-        <p className="mt-1 text-control leading-relaxed text-muted-foreground">{power.line}</p>
+        {/* Dia's way: the name, bold, is the sentence's start; the rest only for whoever wants it. */}
+        <div className="mf-prose text-[0.9375rem] text-muted-foreground">
+          <h3 className="inline font-semibold text-foreground">{power.name}.</h3> {power.line}
+        </div>
+        <p className="mf-aside mt-1.5 text-[0.84375rem] text-muted-foreground/85">Try it: {lower(power.tryIt ?? power.show.text)}</p>
         <div className="mt-auto flex items-center gap-1.5 pt-4">
           {power.keys?.map((keys) => <span key={keys} className="flex gap-0.5"><Pressed keys={keys} each={!keys.includes(' ')} /></span>)}
           <button type="button" onClick={() => void showMe(power, onView)}

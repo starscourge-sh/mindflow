@@ -53,6 +53,7 @@ import { HoldButton } from './hold-button'
 import { askBook, deleteBook, renameBook, revealBook, switchBook, useShelf } from '@/lib/books'
 import { askNewBook } from './books'
 import { useHere } from '@/lib/split'
+import { Lead, plain } from './lead'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Brain = alive(BrainCircuitIcon)
@@ -92,14 +93,15 @@ function Setting({ title, children, note, below, keywords = '', under = false }:
   under?: boolean
 }): React.JSX.Element | null {
   const { query, all } = useContext(Query)
-  if (!all && !matches(query, title, note, keywords)) return null
+  if (!all && !matches(query, title, plain(note), keywords)) return null
   const shown = all ? '' : query
   return (
     <div data-setting className={`py-3 pr-4 ${under ? 'pl-9' : 'pl-4'}`}>
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <div className="min-w-0 flex-[1_1_13rem]">
           <div className="text-body font-medium text-foreground"><Marked text={title} query={shown} /></div>
-          <p className="mt-0.5 max-w-md text-meta leading-relaxed text-muted-foreground"><Marked text={note} query={shown} /></p>
+          {/* Dia's way: the lead-in in bold says it, the rest is there for whoever wants it. */}
+          <p className="mf-prose mt-1 max-w-md text-[0.8125rem] text-muted-foreground [&_strong]:font-medium [&_strong]:text-foreground/80"><Lead text={note} show={(words) => <Marked text={words} query={shown} />} /></p>
         </div>
         {children && <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2 text-control">{children}</div>}
       </div>
@@ -398,17 +400,17 @@ export function SettingsView(): React.JSX.Element {
         {!searching && <h1 className="px-1 text-lg font-semibold text-foreground"><Term>{section}</Term></h1>}
         <p data-none className="px-1 text-body text-muted-foreground">Nothing here matches “{query}”. Try fewer letters, or what it changes.</p>
         <Group section="Appearance" title="Theme">
-          <Setting title="Theme" note="The colours of every window: the box and this one change together. Point at one to try it, click to keep it." keywords={allThemes().map(themeName).join(' ')}>
+          <Setting title="Theme" note="**The colours of every window, the box and this one together.** Point at one to try it, click to keep it." keywords={allThemes().map(themeName).join(' ')}>
             <ThemePicker className="-mr-2 h-8 gap-1.5 rounded-full px-2 hover:bg-accent" />
           </Setting>
           <ImportedThemes />
           <Frosted />
         </Group>
         <Group section="Appearance" title="Layout">
-          <Setting title="Page width" note="How wide notes and pages are. Narrow keeps the words in a column that is easy to read, Wide gives them more room, Full runs them edge to edge. Also in a note's ⋯ menu." keywords="full width wide narrow column page layout">
+          <Setting title="Page width" note="**How wide notes and pages are, also in a note's ⋯ menu.** Narrow is an easy column to read, Wide gives more room, Full runs edge to edge." keywords="full width wide narrow column page layout">
             <Chips className="shrink-0" options={PAGE_WIDTHS} on={(id) => id === widthOf(settings)} pick={(id) => setPageWidth(id as PageWidth)} />
           </Setting>
-          <Setting title="Motion" note="Things ease in and out: a capture leaving, a card arriving, a page sliding over. Off, everything appears at once.">
+          <Setting title="Motion" note="**Things ease in and out, like a card arriving or a page sliding over.** Off, everything appears at once.">
             <Switch checked={settings.motion} onCheckedChange={(motion) => set({ motion })} />
           </Setting>
           <Setting title="Interface size" note="How big everything is: the lists, menus and notes together, in every window." keywords="zoom scale bigger smaller text ui">
@@ -430,28 +432,28 @@ export function SettingsView(): React.JSX.Element {
               ))}
             </span>
           </Setting>
-          <Setting title="Blurring" note="Private words blurred in lists until you point at them, a window dimmed when you leave it, and words that arrive out of a soft blur. Off, everything is plain and sharp." keywords="blur private dim focus soft">
+          <Setting title="Blurring" note="**Private words blur in lists until you point at them.** A window you leave dims and words arrive out of a soft blur; off, everything is plain and sharp." keywords="blur private dim focus soft">
             <Switch checked={settings.blur !== false} onCheckedChange={(blur) => set({ blur })} />
           </Setting>
           <Setting title="Postcards" note="Pictures in notes sit in a white border with rounded corners and a soft shadow, like a print laid on the desk." keywords="images pictures photos border frame white">
             <Switch checked={!!settings.postcards} onCheckedChange={(postcards) => set({ postcards })} />
           </Setting>
-          <Setting title="Link pictures" note="The picture on a link card, such as a video's thumbnail. Fill crops it to fill its box. Whole shows all of it, with its own colours blurred into the space around it." keywords="bookmark link card youtube video thumbnail image picture crop cover contain fit">
+          <Setting title="Link pictures" note="**The picture on a link card, such as a video's thumbnail.** Fill crops it to its box; Whole shows all of it, its own colours blurred around it." keywords="bookmark link card youtube video thumbnail image picture crop cover contain fit">
             <Chips className="shrink-0" options={[{ id: 'fill', label: 'Fill' }, { id: 'whole', label: 'Whole' }]}
               on={(id) => id === (settings.linkPictures ?? 'fill')} pick={(linkPictures) => set({ linkPictures: linkPictures as Settings['linkPictures'] })} />
           </Setting>
-          <Setting title="Margin marks" note="A few marks drawn by hand: a tick when you finish, a circle round today, an arrow when there is nothing yet. Off keeps every line machine-straight." keywords="hand drawn handwritten sketch doodle pen ink circle tick strike arrow personal">
+          <Setting title="Margin marks" note="**A few marks drawn by hand.** A tick when you finish, a circle round today, an arrow when there is nothing yet; off keeps every line machine-straight." keywords="hand drawn handwritten sketch doodle pen ink circle tick strike arrow personal">
             <Switch checked={settings.marks !== false} onCheckedChange={(marks) => set({ marks })} />
           </Setting>
-          <Setting title="Progress bars" note="How every bar that fills is drawn: the day, week, month and year on the goal stack, a goal's time gone, Getting started. A lightsaber lights up as it grows; a small dinosaur runs along the line and hops the cacti ahead." keywords="progress bar lightsaber saber dino dinosaur run fun playful style">
+          <Setting title="Progress bars" note="**How every bar that fills is drawn, from the goal stack to Getting started.** A lightsaber lights up as it grows; a small dinosaur runs along and hops the cacti." keywords="progress bar lightsaber saber dino dinosaur run fun playful style">
             <Chips className="shrink-0" options={[{ id: 'plain', label: 'Plain' }, { id: 'saber', label: 'Lightsaber' }, { id: 'dino', label: 'Dino run' }]}
               on={(id) => id === (settings.progressBars ?? 'plain')} pick={(progressBars) => set({ progressBars: progressBars as Settings['progressBars'] })} />
           </Setting>
-          <Setting title="Session bubble" note="The bubble that floats while you focus. Its circle always fills; beside it, the dinosaur can run the whole session, or along a line that ends when time is up." keywords="focus session pill bubble timer circle ring dino dinosaur runner run progress fun playful">
+          <Setting title="Session bubble" note="**The bubble that floats while you focus.** Its circle always fills, and the dinosaur can run beside it the whole session, or along a line that ends with the time." keywords="focus session pill bubble timer circle ring dino dinosaur runner run progress fun playful">
             <Chips className="shrink-0" options={[{ id: 'circle', label: 'Circle' }, { id: 'runner', label: 'Runner' }, { id: 'progress', label: 'Runner as progress' }]}
               on={(id) => id === (settings.focusBubble ?? 'circle')} pick={(focusBubble) => set({ focusBubble: focusBubble as Settings['focusBubble'] })} />
           </Setting>
-          <Setting title="Session timer shows in" note="Where a focus session's time is. The note puts a quiet line at the foot of what you are writing: the time left, a row of dots that light as it goes, and the words written since the session began. With the note alone, the bubble stays away." keywords="focus session timer footer note foot dots words count bubble pill where">
+          <Setting title="Session timer shows in" note="**Where a focus session's time shows.** The note gets a quiet line at its foot with the time left, dots that light as it goes and the words written since; with the note alone, no bubble." keywords="focus session timer footer note foot dots words count bubble pill where">
             <Chips className="shrink-0" options={[{ id: 'bubble', label: 'The bubble' }, { id: 'note', label: 'The note' }, { id: 'both', label: 'Both' }]}
               on={(id) => id === (settings.focusShows ?? 'bubble')} pick={(focusShows) => set({ focusShows: focusShows as Settings['focusShows'] })} />
           </Setting>
@@ -460,13 +462,13 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="Appearance" title="Window placement">
-          <Setting title="Keep the box centred" note="Opening the side panel grows the box out on both sides, so it stays centred where it was. Off, it grows to the right. Either way it grows down from its top as you write or expand it, so the writing stays where your eyes are, never goes past the edge of the screen, and closing the panel puts it back where it was." keywords="box window centre center grow panel expand position place">
+          <Setting title="Keep the box centred" note="**The side panel grows the box on both sides, so it stays centred.** Off, it grows to the right; either way it grows down from its top, never past the screen's edge, and closing the panel puts it back." keywords="box window centre center grow panel expand position place">
             <Switch checked={settings.boxCentred !== false} onCheckedChange={(boxCentred) => set({ boxCentred })} />
           </Setting>
-          <Setting title="Close the box when you click away" note="Like Raycast: click into another app or window and the box puts itself away, keeping what you wrote for next time. Off, it stays up until you press Esc or the key again." keywords="box window close hide blur focus click away raycast auto">
+          <Setting title="Close the box when you click away" note="**Click into another app and the box puts itself away, like Raycast.** What you wrote is kept; off, it stays up until Esc or the key again." keywords="box window close hide blur focus click away raycast auto">
             <Switch checked={settings.boxAutoHide !== false} onCheckedChange={(boxAutoHide) => set({ boxAutoHide })} />
           </Setting>
-          <Setting title="Where the box appears" note="When you summon it. Where you left it brings it back just where you put it; the others place it fresh each time, near the top like Spotlight or in the middle." keywords="box window summon open position place top middle centre last">
+          <Setting title="Where the box appears" note="**Where it comes when you summon it.** Where you left it brings it back there; the others place it fresh, near the top like Spotlight or in the middle." keywords="box window summon open position place top middle centre last">
             <Chips className="shrink-0" options={[{ id: 'last', label: 'Where you left it' }, { id: 'top', label: 'Near the top' }, { id: 'centre', label: 'Middle' }]}
               on={(id) => id === (settings.boxPlace ?? 'last')} pick={(boxPlace) => set({ boxPlace: boxPlace as Settings['boxPlace'] })} />
           </Setting>
@@ -476,30 +478,30 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="Appearance" title="Sidebar and tabs">
-          <Setting title="Sidebar" note="The sections the main window lists. The rest wait under More, and G with their letter still goes to them." keywords="customize sections menu more hide show" below={<div className="-mx-2 mt-2"><ShowList places={PLACES} setting="sidebarShown" /></div>} />
-          <Setting title="Box tabs" note="The tabs beside the box. A hidden one is still a key away, ⌃ and its number, and shows while it is open." keywords="prompt panel inbox tasks review kept recent hide show" below={<div className="-mx-2 mt-2"><ShowList places={BOX_TABS} setting="boxTabs" /></div>} />
+          <Setting title="Sidebar" note="**The sections the main window lists.** The rest wait under More, and G with their letter still goes to them." keywords="customize sections menu more hide show" below={<div className="-mx-2 mt-2"><ShowList places={PLACES} setting="sidebarShown" /></div>} />
+          <Setting title="Box tabs" note="**The tabs beside the box.** A hidden one is still ⌃ and its number away, and shows while it is open." keywords="prompt panel inbox tasks review kept recent hide show" below={<div className="-mx-2 mt-2"><ShowList places={BOX_TABS} setting="boxTabs" /></div>} />
         </Group>
         <Group section="Appearance" title="Text">
-          <Setting title="Text font" note="What notes are written in, and lists and menus too: the Mac's own font to start, Fraunces, a few others, or any font on this Mac. OpenDyslexic is easier for some to read." keywords={`note text body font ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
+          <Setting title="Text font" note="**What notes, lists and menus are written in.** The Mac's own font to start, Fraunces, a few others or any font on this Mac; OpenDyslexic is easier for some to read." keywords={`note text body font ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
             <FontPicker value={settings.noteFont} />
           </Setting>
-          <Setting title="Heading font" note="A note's headings in a font of their own, and the titles of pages here: Fraunces over the Mac's font to start, the way Dia pairs a characterful serif with plain text. Or the same as the text." below={<Sample />} keywords={`headings titles pairing ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
+          <Setting title="Heading font" note="**A font of their own for headings and page titles.** Fraunces over the Mac's font to start, the way Dia pairs a characterful serif with plain text, or the same as the text." below={<Sample />} keywords={`headings titles pairing ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
             <FontPicker value={settings.headingFont} setting="headingFont" same="Same as text" />
           </Setting>
-          <Setting title="Notes only" note="On, the font above is used only for what you write, and the app's own lists, menus and labels stay in Fraunces.">
+          <Setting title="Notes only" note="**On, the font above is only for what you write.** The app's own lists, menus and labels stay in Fraunces.">
             <Switch checked={!!settings.fontNotesOnly} onCheckedChange={(fontNotesOnly) => set({ fontNotesOnly })} />
           </Setting>
-          <Setting title="Text size" note="How big the words in notes are. ⌘+ and ⌘− change it from any note, ⌘0 puts it back." below={<Sample text />}>
+          <Setting title="Text size" note="**How big the words in notes are.** ⌘+ and ⌘− change it from any note, ⌘0 puts it back." below={<Sample text />}>
             <TextSize value={settings.textSize} />
           </Setting>
         </Group>
 
         <Group section="Scenery" title="Pictures at rest">
-          <Setting title="Scenery" note="Pictures from your own folders at the quiet moments: an empty inbox, a finished review, the top of today's page. Only where you rest, never behind your work." keywords="pictures images photos wallpaper background landscape scenes art">
+          <Setting title="Scenery" note="**Pictures from your own folders, only where you rest.** An empty inbox, a finished review, the top of today's page; never behind your work." keywords="pictures images photos wallpaper background landscape scenes art">
             <Switch checked={settings.scenery} onCheckedChange={(scenery) => set({ scenery })} />
           </Setting>
           <SceneryFolders folders={settings.sceneryFolders} on={settings.scenery} onSave={(sceneryFolders) => set({ sceneryFolders })} />
-          <Setting title="Show another" note="A different picture in every place at once. The ones you see stay put otherwise: one a day, the same all day." keywords="shuffle next change picture random">
+          <Setting title="Show another" note="**A different picture in every place at once.** Otherwise they stay put: one a day, the same all day." keywords="shuffle next change picture random">
             <Button variant="outline" size="sm" disabled={!settings.scenery} onClick={() => {
               const was = settings.sceneryShuffle ?? 0
               set({ sceneryShuffle: was + 1 })
@@ -512,14 +514,14 @@ export function SettingsView(): React.JSX.Element {
           <SceneryFolders
             use="covers"
             title="Covers folder"
-            note="Soft, grainy pictures behind whatever has no picture of its own: a tag's page, a note of only words, a tile on Home. Each thing always gets the same one, tinted toward its colour. With no folder, plain colour tiles."
+            note="**Soft, grainy pictures behind whatever has none of its own.** A tag's page, a note of only words or a tile on Home always gets the same one, tinted toward its colour; with no folder, plain colour tiles."
             folders={settings.coversFolder ? [settings.coversFolder] : []}
             on
             onSave={(folders) => set({ coversFolder: folders.at(-1) ?? '' })}
           />
         </Group>
         <Group section="Scenery" title="Celebrations">
-          <Setting title="Celebrate milestones" note="A small card on the rare days worth marking: your 100th capture, an inbox emptied, a week of capturing in a row. Never for an everyday save or tick, and never more than one in ten minutes." keywords="celebrate celebration milestone gif meme party confetti fun">
+          <Setting title="Celebrate milestones" note="**A small card on the rare days worth marking.** Your 100th capture, an inbox emptied, a week in a row; never for an everyday tick, and never more than one in ten minutes." keywords="celebrate celebration milestone gif meme party confetti fun">
             <Button variant="outline" size="sm" onClick={() => tryCelebration()}>Try a celebration</Button>
             <Switch checked={settings.celebrate !== false} onCheckedChange={(celebrate) => set({ celebrate })} />
           </Setting>
@@ -528,10 +530,10 @@ export function SettingsView(): React.JSX.Element {
         </Group>
         <Group section="Scenery" title="Where they show">
           {([
-            ['sceneryRest', 'When there is nothing to do', 'Inbox empty, review done, nothing due today, nothing rotting: a wide picture above the sentence that says so.', 'empty inbox zero review done'],
-            ['sceneryToday', "Today's page", "A painted strip across the top of each day's page, the same picture all that day. With Postcards on, it sits in a white frame.", 'banner header day daily'],
-            ['sceneryRecap', 'Recaps', 'Each page of a month or year recap over its own picture: morning light for the opening, night for the close.', 'wrapped month year'],
-            ['sceneryFocus', 'Reading and Focus', 'Behind Read mode and ⇧⌘F Focus, dimmed far enough that the words read as well as on a plain page.', 'read mode focus backdrop']
+            ['sceneryRest', 'When there is nothing to do', '**A wide picture when there is nothing left to do.** Inbox empty, review done, nothing due today, nothing rotting.', 'empty inbox zero review done'],
+            ['sceneryToday', "Today's page", "**A painted strip across the top of each day's page.** The same picture all day, in a white frame with Postcards on.", 'banner header day daily'],
+            ['sceneryRecap', 'Recaps', '**Each page of a month or year recap over its own picture.** Morning light for the opening, night for the close.', 'wrapped month year'],
+            ['sceneryFocus', 'Reading and Focus', '**Behind Read mode and ⇧⌘F Focus.** Dimmed far enough that the words read as well as on a plain page.', 'read mode focus backdrop']
           ] as const).map(([key, title, note, keywords]) => (
             <Setting key={key} title={title} note={note} keywords={`scenery pictures ${keywords}`}>
               <Switch disabled={!settings.scenery} checked={settings[key] !== false} onCheckedChange={(on) => set({ [key]: on })} />
@@ -539,26 +541,26 @@ export function SettingsView(): React.JSX.Element {
           ))}
         </Group>
         <Group section="Scenery" title="How they look">
-          <Setting title="Match the time of day" note="Golden scenes in the morning and afternoon, dusk in the evening, night and candlelight after dark. Off, any picture at any hour." keywords="scenery morning evening night dusk golden hour mood">
+          <Setting title="Match the time of day" note="**Pictures that follow the hour.** Golden by day, dusk in the evening, night and candlelight after dark; off, any picture at any hour." keywords="scenery morning evening night dusk golden hour mood">
             <Switch disabled={!settings.scenery} checked={settings.sceneryTime} onCheckedChange={(sceneryTime) => set({ sceneryTime })} />
           </Setting>
-          <Setting title="Dimness" note="How far the pictures fade toward the page colour. Wherever words sit over one, it is dimmed further still, so they always read clearly." keywords="scenery dim darken fade brightness opacity">
+          <Setting title="Dimness" note="**How far the pictures fade toward the page colour.** Under words they dim further still, so the words always read clearly." keywords="scenery dim darken fade brightness opacity">
             <SettingSlider disabled={!settings.scenery} min={0} max={0.9} step={0.05} rest={0.5} value={settings.sceneryDim} onSave={(sceneryDim) => set({ sceneryDim })} />
             <span className="w-10 text-right tabular-nums"><Rolling text={`${Math.round(settings.sceneryDim * 100)}%`} /></span>
           </Setting>
         </Group>
 
         <Group section="Writing" title="As you write">
-          <Setting title="Math as you type" note="End a line with = and its answer shows after it; Tab writes it in. lunch = 25 names a number for the lines below. Units and money work too: 5 km in mi, $40 * 3 in EUR.">
+          <Setting title="Math as you type" note="**End a line with = and its answer shows; Tab writes it in.** lunch = 25 names a number for the lines below, and units and money work too: 5 km in mi, $40 * 3 in EUR.">
             <Switch checked={settings.calc} onCheckedChange={(calc) => set({ calc })} />
           </Setting>
-          <Setting title="Fold headings" note="Point at a heading and click the arrow beside it to fold away everything under it, up to the next heading as big. Only how the note looks: nothing in it changes. ⌥⌘[ folds the one you are in." keywords="fold collapse heading section outline hide">
+          <Setting title="Fold headings" note="**Click the arrow beside a heading to fold away what is under it.** Up to the next heading as big, and nothing in the note changes; ⌥⌘[ folds the one you are in." keywords="fold collapse heading section outline hide">
             <Switch checked={settings.foldHeadings !== false} onCheckedChange={(foldHeadings) => set({ foldHeadings })} />
           </Setting>
-          <Setting title="Title in the top bar" note="Once a note's first line scrolls out of sight, it shows faintly at the top of the box, so you know what you are reading.">
+          <Setting title="Title in the top bar" note="**A note's first line, faintly at the top once it scrolls away.** So you know what you are reading.">
             <Switch checked={settings.topTitle} onCheckedChange={(topTitle) => set({ topTitle })} />
           </Setting>
-          <Setting title="Spellcheck" note={`Underline misspelt words as you write. Right-click one for what it might be.${isMac() ? ' The Mac picks the language from what you type.' : ' The gear picks the languages.'}`} keywords="spelling spell check dictionary language typo">
+          <Setting title="Spellcheck" note={`**Underline misspelt words as you write.** Right-click one for what it might be.${isMac() ? ' The Mac picks the language from what you type.' : ' The gear picks the languages.'}`} keywords="spelling spell check dictionary language typo">
             {/* On a Mac the system checks in whatever language you type, and ignores a list. */}
             {!isMac() && <SpellLanguages picked={settings.spellLanguages ?? []} disabled={settings.spellcheck === false} />}
             <Switch checked={settings.spellcheck !== false} onCheckedChange={(spellcheck) => set({ spellcheck })} />
@@ -566,13 +568,13 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Vim keys" note="Move and edit with Vim's keys in every note." keywords="vim keys keyboard bindings modal normal insert">
             <Switch checked={vim} onCheckedChange={setVim} />
           </Setting>
-          <Setting title="Typewriter scrolling" note="While you type in a note, the line you are on stays a little above the middle and the page moves up instead. Clicking, selecting and scrolling leave it alone. Not in the box. Also in ⌘K." keywords="typewriter scroll scrolling center centre caret cursor line focus writing">
+          <Setting title="Typewriter scrolling" note="**The line you type on stays a little above the middle, and the page moves instead.** Clicking, selecting and scrolling leave it alone; not in the box, and also in ⌘K." keywords="typewriter scroll scrolling center centre caret cursor line focus writing">
             <Switch checked={typewriter} onCheckedChange={setTypewriter} />
           </Setting>
         </Group>
 
         <Group section="Sound" title="What you hear">
-          <Setting title="Sounds" note="A small click as you point at things and scroll, and a sound for each thing you do.">
+          <Setting title="Sounds" note="A small click as you point and scroll, and a sound for each thing you do.">
             <Switch checked={settings.sounds} onCheckedChange={(sounds) => {
               soundOn(sounds)
               set({ sounds })
@@ -584,58 +586,58 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
           <Setting
             title="Sound pack"
-            note="Nine characters for the same sounds. Point at one to hear it; click it to make it yours. The pieces on the right always play the one you have."
+            note="**Nine characters for the same sounds.** Point at one to hear it, click to make it yours; the pieces on the right play the one you have."
             keywords={Object.values(PACKS).map((one) => `${one.label} ${one.feel}`).join(' ')}
             below={<div inert={!settings.sounds} className={settings.sounds ? '' : 'opacity-50'}><SoundPacks chosen={settings.soundPack} /></div>}
           />
         </Group>
 
         <Group section="What comes back to you" title="Hints and cards">
-          <Setting title="Hints" note="How often the box shows you something you kept. Rare is the point: a hint every time is one you learn to ignore.">
+          <Setting title="Hints" note="**How often the box shows you something you kept.** Rare is the point: a hint every time is one you learn to ignore.">
             <SettingSlider min={0} max={0.5} step={0.05} rest={0.1} value={settings.hintRate} onSave={(hintRate) => set({ hintRate })} />
             <span className="w-16 text-right tabular-nums"><Rolling text={settings.hintRate ? `1 in ${Math.round(1 / settings.hintRate)}` : 'never'} /></span>
           </Setting>
           <HintTuning />
-          <Setting title="Rot cards" note="How many unhandled captures come back each time you open the box. A few, never the whole pile.">
+          <Setting title="Rot cards" note="**How many unhandled captures come back when you open the box.** A few, never the whole pile.">
             <SettingSlider min={0} max={6} step={1} rest={3} value={settings.rotCount} onSave={(rotCount) => set({ rotCount })} />
             <span className="w-16 text-right tabular-nums"><Rolling text={settings.rotCount} /></span>
           </Setting>
-          <Setting title="Memories" note="Some hints are memories, the way Photos brings them: a year ago today, this week in an earlier year, more from one source. Each says which it is.">
+          <Setting title="Memories" note="**Some hints are memories, the way Photos brings them.** A year ago today, this week in an earlier year, more from one source, each saying which.">
             <Switch checked={settings.memories} onCheckedChange={(memories) => set({ memories })} />
           </Setting>
-          <Setting title="Questions come back" note="Now and then, a question you are holding comes back as a hint: still open, how long, how many clues, with a way to add one. Rare, never in quiet hours.">
+          <Setting title="Questions come back" note="**Now and then a question you hold comes back as a hint.** How long it has been open and how many clues, with a way to add one; rare, never in quiet hours.">
             <Switch checked={settings.questionsBack} onCheckedChange={(questionsBack) => set({ questionsBack })} />
           </Setting>
           <Setting title="Questions in view" note="The questions you keep in view (up to twelve, from Questions) show small while you capture and tidy, so something new can go straight in as a clue.">
             <Switch checked={settings.pinnedQuestions !== false} onCheckedChange={(pinnedQuestions) => set({ pinnedQuestions })} />
           </Setting>
-          <Setting title="Recent reaches back" note="How many days the Recent panel lists, newest first, every kind of thing. ⇧⌘Y opens it beside any page.">
+          <Setting title="Recent reaches back" note="**How many days the Recent panel lists, newest first.** Every kind of thing; ⇧⌘Y opens it beside any page.">
             <SettingSlider min={1} max={30} step={1} rest={7} value={settings.recentDays ?? 7} onSave={(recentDays) => set({ recentDays })} />
             <span className="w-16 text-right tabular-nums"><Rolling text={(settings.recentDays ?? 7) === 1 ? '1 day' : `${settings.recentDays ?? 7} days`} /></span>
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Goals">
-          <Setting title="Goals at the top" note="Open goals show in a slim strip at the top of Home and under the brief on Today's page: the days left, a line of the time gone, and when you last logged." keywords="goals strip home today countdown">
+          <Setting title="Goals at the top" note="**Open goals in a slim strip on Home and Today's page.** The days left, a line of the time gone, and when you last logged." keywords="goals strip home today countdown">
             <Switch checked={settings.goalStrip !== false} onCheckedChange={(goalStrip) => set({ goalStrip })} />
           </Setting>
-          <Setting title="Time as dots" note="The menu bar's menu shows how far through the day, week, month and year you are. As dots, like a line of beads, or as plain bars." keywords="tempus menu bar day week month year dots bars progress">
+          <Setting title="Time as dots" note="**How far through the day, week, month and year you are, in the menu bar's menu.** As dots like a line of beads, or as plain bars." keywords="tempus menu bar day week month year dots bars progress">
             <Switch checked={settings.tempusDots === true} onCheckedChange={(tempusDots) => set({ tempusDots })} />
           </Setting>
-          <Setting title="Goal on screen" note="Each goal's beacon, a small card on every Space with the days left, unless the goal says otherwise. With more than one, they share one window as a stack of cards, the nearest goal on top, and every 45 seconds or so the top card moves to the back (pointed at, it waits). Now and then: out when you first unlock or open Vigil each day and every few hours you are at the Mac, then tucked away after a minute. In the last week it stays." keywords="goals beacon on screen window stack cards always sometimes off">
+          <Setting title="Goal on screen" note="**Each goal's beacon: a small card on every Space with the days left.** Several share one stack, nearest goal on top, the top card moving back every 45 seconds or so unless pointed at. Now and then means out on your first unlock each day and every few hours, tucked away after a minute; in the last week it stays." keywords="goals beacon on screen window stack cards always sometimes off">
             <Chips className="shrink-0" options={[{ id: 'always', label: 'Always' }, { id: 'sometimes', label: 'Now and then' }, { id: 'off', label: 'Off' }]}
               on={(id) => id === (settings.goalBeacon ?? 'sometimes')} pick={(goalBeacon) => set({ goalBeacon: goalBeacon as Settings['goalBeacon'] })} />
           </Setting>
-          <Setting title="Goal nudges" note="A goal with no log for a week says so in the box, more often as the quiet goes on or the day comes near. Never in quiet hours." keywords="goals nudge reminder log">
+          <Setting title="Goal nudges" note="**A goal with no log for a week says so in the box.** More often as the quiet goes on or the day comes near; never in quiet hours." keywords="goals nudge reminder log">
             <Switch checked={settings.goalNudges !== false} onCheckedChange={(goalNudges) => set({ goalNudges })} />
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Every day">
-          <Setting title="Daily tidy" note="Once a day the box offers a few minutes over the last days' captures: add tags, bold a line, fold a section, cross off what is done. Nothing is decided there. Never in quiet hours.">
+          <Setting title="Daily tidy" note="**Once a day, a few minutes over the last days' captures, deciding nothing.** Add tags, bold a line, fold a section, cross off what is done; never in quiet hours.">
             <Switch checked={settings.dailyTidy} onCheckedChange={(dailyTidy) => set({ dailyTidy })} />
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Once a week">
-          <Setting title="Deciding day" note="On the day you pick, the box offers the deciding pass: what you set aside to come back to, and what has waited longest, each with its exits. Rot cards only ask for a tidy; deciding happens here. Never in quiet hours.">
+          <Setting title="Deciding day" note="**On the day you pick, the deciding pass.** What you set aside and what has waited longest, each with its exits; rot cards only ask for a tidy, and never in quiet hours.">
             {settings.weeklyReview && (
               <div className="flex rounded-md border p-0.5">
                 {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((letter, day) => (
@@ -659,32 +661,32 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Keeping it quiet">
-          <Setting title="Quiet hours" note="Nothing private, and no capture you have not dealt with yet, comes up unasked; pins stay, except private ones and unhandled captures. Search and lists still show everything.">
+          <Setting title="Quiet hours" note="**Nothing private or unhandled comes up unasked.** Other pins stay, and search and lists still show everything.">
             <Input type="time" className={`${field} w-28`} value={settings.quietStart} onChange={(event) => set({ quietStart: event.target.value })} />
             <span className="text-muted-foreground">to</span>
             <Input type="time" className={`${field} w-28`} value={settings.quietEnd} onChange={(event) => set({ quietEnd: event.target.value })} />
           </Setting>
-          <Setting title="Safe mode" note="Nothing comes up unasked at all: no hints, rot cards or pins. For screen shares. ⌥⌘S from anywhere.">
+          <Setting title="Safe mode" note="**Nothing comes up unasked at all, for screen shares.** No hints, rot cards or pins; ⌥⌘S from anywhere.">
             <Switch checked={settings.safeMode} onCheckedChange={(safeMode) => {
               set({ safeMode })
               toast(safeMode ? 'Safe mode: no hints, rot cards or pins come up' : 'Safe mode off')
             }} />
           </Setting>
-          <Setting title="Open at login" note="Vigil starts with your Mac, quietly in the menu bar, so ⌘. works straight away and your sticky notes are back where you left them.">
+          <Setting title="Open at login" note="**Vigil starts with your Mac, quietly in the menu bar.** ⌘. works straight away, and your sticky notes are back where you left them.">
             <Switch checked={settings.openAtLogin !== false} onCheckedChange={(openAtLogin) => set({ openAtLogin })} />
           </Setting>
-          <Setting title="Show sticky notes" note="Every note stuck on the desktop, or all of them put away; they keep their places. ⌃⌥⌘N from anywhere.">
+          <Setting title="Show sticky notes" note="**Every sticky note out, or all put away, keeping their places.** ⌃⌥⌘N from anywhere.">
             <Switch checked={settings.stickiesShown} onCheckedChange={(stickiesShown) => set({ stickiesShown })} />
           </Setting>
-          <Setting title="Sticky notes are made of" note="Paper: solid. Wallpaper frost: your desktop picture softly blurred behind each note, and they keep their lean. Glass (the default): whatever is behind is blurred and dimmed, so it never reads through, and the notes sit straight." keywords="sticky notes frosted glass blur wallpaper desktop transparent paper vibrancy">
+          <Setting title="Sticky notes are made of" note="**Paper, wallpaper frost or glass.** Paper is solid; frost blurs your desktop picture behind each note, and they keep their lean; glass, the default, blurs and dims what is behind so it never reads through, and the notes sit straight." keywords="sticky notes frosted glass blur wallpaper desktop transparent paper vibrancy">
             <Chips className="shrink-0" options={[{ id: 'paper', label: 'Paper' }, { id: 'frost', label: 'Wallpaper frost' }, { id: 'glass', label: 'Glass' }]}
               on={(id) => id === (settings.stickiesFrosted === false ? 'paper' : settings.stickiesGlass ? 'glass' : 'frost')}
               pick={(id) => set({ stickiesFrosted: id !== 'paper', stickiesGlass: id === 'glass' })} />
           </Setting>
-          <Setting title="Stickies stir now and then" note="Every half hour or so, while you are at the Mac, one sticky lifts a little and settles, as paper does in a draught, so your eye finds it again. Never while you write in it, in safe mode, or with Motion off." keywords="sticky notes stir move motion wiggle attention banner blindness notice">
+          <Setting title="Stickies stir now and then" note="**Every half hour or so, one sticky lifts a little and settles, like paper in a draught.** So your eye finds it again; never while you write in it, in safe mode, or with Motion off." keywords="sticky notes stir move motion wiggle attention banner blindness notice">
             <Switch checked={settings.stickiesStir !== false} onCheckedChange={(stickiesStir) => set({ stickiesStir })} />
           </Setting>
-          <Setting title="Show Vigil in screen recordings and shares" note="Off: every Vigil window, sticky notes included, shows as blank in a shared screen, a recording or a screenshot, while you still see it. On: they show, for a demo or a Loom. Also in ⌘K." keywords="record recording screen share sharing zoom loom demo screenshot capture hide sticky notes">
+          <Setting title="Show Vigil in screen recordings and shares" note="**Off, every Vigil window shows as blank in a share, a recording or a screenshot.** You still see them, sticky notes too; turn it on for a demo or a Loom, also in ⌘K." keywords="record recording screen share sharing zoom loom demo screenshot capture hide sticky notes">
             {/* What the windows are now: seen, or blank to a camera. */}
             <AliveIcon icon={recordable ? CameraIcon : CameraOffIcon} size={16} className="text-muted-foreground" />
             <Switch checked={recordable} onCheckedChange={setRecordable} />
@@ -698,24 +700,24 @@ export function SettingsView(): React.JSX.Element {
         </Group>
 
         <Group section="Review" title="Remembering">
-          <Setting title="How much to remember" note="The share of tested items you want to still know when they come back. Higher means more reviews; 90% is where most land.">
+          <Setting title="How much to remember" note="**How much you want to still know when a card comes back.** Higher means more reviews; 90% is where most land.">
             <SettingSlider min={0.8} max={0.97} step={0.01} rest={0.9} value={settings.retention} onSave={(retention) => set({ retention })} />
             <span className="w-10 text-right tabular-nums"><Rolling text={`${Math.round(settings.retention * 100)}%`} /></span>
           </Setting>
-          <Setting title="Daily limits" note="New items and reviews a day. A cap keeps the queue finishable; an uncapped one becomes a wall you stop opening.">
+          <Setting title="Daily limits" note="**New items and reviews a day.** A cap keeps the queue finishable; an uncapped one becomes a wall you stop opening.">
             <NumberSetting value={settings.newPerDay} onSave={(newPerDay) => set({ newPerDay })} /> new
             <NumberSetting value={settings.reviewsPerDay} onSave={(reviewsPerDay) => set({ reviewsPerDay })} /> reviews
           </Setting>
           <CapTuning />
         </Group>
         <Group section="Review" title="Exams">
-          <Setting title="Exam nudges" note="A tag with an exam date (set on its page in Tags) says so in the box when its cards fall behind, once a day at most, never in quiet hours.">
+          <Setting title="Exam nudges" note="**A tag with an exam date says so in the box when its cards fall behind.** Set the date on its page in Tags; once a day at most, never in quiet hours.">
             <Switch checked={settings.examNudges} onCheckedChange={(examNudges) => set({ examNudges })} />
           </Setting>
         </Group>
 
         <Group section="Tasks" title="Reminders">
-          <Setting title="When a task's time comes" note="Pull: it moves to the top of Today, and nothing else happens. Quiet: the menu bar shows how many are due, with no sound. Alerts: the menu bar count, and a notification with a sound once, at its time.">
+          <Setting title="When a task's time comes" note="**Pull, Quiet or Alerts.** Pull moves it to the top of Today; Quiet adds a silent count in the menu bar; Alerts adds a notification with a sound, once, at its time.">
             <div className="flex rounded-md border p-0.5">
               {(['pull', 'quiet', 'alerts'] as const).map((level, index) => (
                 <button
@@ -736,7 +738,7 @@ export function SettingsView(): React.JSX.Element {
         </Group>
 
         <Group section="Writing" title="With each capture">
-          <Setting title="Weather" note="Each capture keeps the weather outside when you caught it, like 12°C, light rain. It asks wttr.in, which guesses your town from your connection: no account and no location permission. Left out when offline.">
+          <Setting title="Weather" note="**Each capture keeps the weather when you caught it, like 12°C, light rain.** It asks wttr.in, which guesses your town from your connection with no account or location permission; left out when offline.">
             <Switch checked={settings.weather} onCheckedChange={(weather) => set({ weather })} />
           </Setting>
         </Group>
@@ -745,7 +747,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Welcome" note="The two-minute start: the one key, your first capture, and how things come back." keywords="tour welcome onboarding start intro replay">
             <Button variant="outline" size="sm" onClick={playWelcome}>Play it again</Button>
           </Setting>
-          <Setting title="Sandbox" note={SANDBOX ? "You're in it now: a practice copy of Vigil, filled with examples to try. Your own notes stay exactly as they are." : 'A practice copy of Vigil, filled with examples to try. Your own notes stay exactly as they are.'} keywords="sandbox practice examples demo try sample playground">
+          <Setting title="Sandbox" note={SANDBOX ? "**You're in it now: a practice copy of Vigil, full of examples.** Your own notes stay exactly as they are." : '**A practice copy of Vigil, full of examples to try.** Your own notes stay exactly as they are.'} keywords="sandbox practice examples demo try sample playground">
             {SANDBOX ? (<>
               <Button variant="outline" size="sm" onClick={() => void leaveSandbox()}>Back to my notes</Button>
               <HoldButton hint="Hold to reset" done="Resetting…" onHold={() => void startSandboxOver()}>Reset</HoldButton>
@@ -763,7 +765,7 @@ export function SettingsView(): React.JSX.Element {
           <BookRows />
         </Group>
         <Group section="Import and backups" title="Import and export">
-          <Setting title="Import" note="Notes from an Obsidian vault or a Notion export (as Markdown, unzipped); highlights from Readwise or Kindle; Markdown files, bookmarks or Anki cards." keywords="import obsidian vault notion export readwise kindle markdown bookmarks anki bring move">
+          <Setting title="Import" note="**Notes from Obsidian or Notion, highlights and cards.** A vault or an unzipped Markdown export, Readwise or Kindle highlights, Markdown files, bookmarks or Anki cards." keywords="import obsidian vault notion export readwise kindle markdown bookmarks anki bring move">
             <ImportButton what="vault">Obsidian or Notion…</ImportButton>
             <ImportButton what="files">Files…</ImportButton>
             {!SANDBOX && <Button variant="outline" size="sm" onClick={() => askBook('import')}>Into another book…</Button>}
@@ -771,17 +773,17 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Export everything" note="All of it as JSON and Markdown, in a folder you choose: yours to read without this app.">
             <ExportButton />
           </Setting>
-          <Setting title="Unused pictures and files" note="Ones no note, old version or page points at any more. You see them first and keep any you like; the rest go to the Mac's Bin, never deleted outright." keywords="clear clean space disk images attachments trash bin">
+          <Setting title="Unused pictures and files" note="**Ones no note, old version or page points at any more.** You see them first and keep any you like; the rest go to the Bin, never deleted outright." keywords="clear clean space disk images attachments trash bin">
             <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('vigil:unused'))}>Find them</Button>
           </Setting>
         </Group>
         <Group section="Import and backups" title="Backups">
           {/* Always on: there is no switch, so the row says so and where the copies go. */}
-          <Setting title="Daily backup" note="Always on, with nothing to set: every day a full copy of everything, private notes included, with every picture and file, goes to the folder below. The last 30 days are kept." below={<BackupPlace />} keywords="backup backups icloud copy daily database safe" />
-          {!SANDBOX && <Setting title="Restore from a backup" note="Go back to one of those daily copies. What you have now is saved first, beside them, so a restore can be undone the same way. Vigil then starts again on the copy you chose. Also in ⌘K." keywords="restore backup undo go back copy recover">
+          <Setting title="Daily backup" note="**Every day, a full copy of everything goes to the folder below.** Always on, private notes, pictures and files included; the last 30 days are kept." below={<BackupPlace />} keywords="backup backups icloud copy daily database safe" />
+          {!SANDBOX && <Setting title="Restore from a backup" note="**Go back to one of those daily copies.** What you have now is saved first, so a restore can be undone, then Vigil starts again on the copy you chose; also in ⌘K." keywords="restore backup undo go back copy recover">
             <Button variant="outline" size="sm" onClick={() => void window.api.restoreBackup()}>Restore…</Button>
           </Setting>}
-          <Setting title="Markdown copies" note="Each capture also kept in that folder as a plain Markdown file, readable without Vigil; never a private or discarded one. Turning this off takes those files away within the hour. The daily backup goes on either way." keywords="backup markdown copies plain text files icloud">
+          <Setting title="Markdown copies" note="**Each capture also kept there as a plain Markdown file.** Never a private or discarded one; off takes the files away within the hour, and the daily backup goes on." keywords="backup markdown copies plain text files icloud">
             <Switch checked={settings.markdownCopies !== false} onCheckedChange={(markdownCopies) => set({ markdownCopies })} />
           </Setting>
         </Group>
@@ -818,13 +820,13 @@ function BookRows(): React.JSX.Element {
   }
   return (
     <>
-      <Setting title="Books" note="Each book is a Vigil of its own: its notes, pictures, settings and Getting started. Your look comes along when you switch. Every book is backed up each day." keywords="books book vault vaults switch new another scratch library workspace">
+      <Setting title="Books" note="**Each book is a Vigil of its own.** Its own notes, pictures, settings and Getting started; your look comes along, and every book is backed up each day." keywords="books book vault vaults switch new another scratch library workspace">
         {!SANDBOX && <Button variant="outline" size="sm" onClick={() => void askNewBook()}>New book…</Button>}
         <Button variant="outline" size="sm" onClick={() => askBook('switch')}>Switch…</Button>
       </Setting>
       {shelf?.books.map((book) => (
         <Setting key={book.id} under title={book.name}
-          note={book.id === 'default' ? `Your first book, where Vigil has always kept your notes. It cannot be deleted.${book.current ? ' Open now.' : ''}` : `Made ${book.createdAt ? new Date(book.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'here'}.${book.current ? ' Open now: switch to another book to delete it.' : ''}`}
+          note={book.id === 'default' ? `**Your first book, where Vigil has always kept your notes.** It cannot be deleted${book.current ? ', and is open now' : ''}.` : `${book.current ? '**' : ''}Made ${book.createdAt ? new Date(book.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'here'}.${book.current ? '** Open now: switch to another book to delete it.' : ''}`}
           keywords="book rename reveal finder delete">
           {!SANDBOX && <Button variant="ghost" size="sm" onClick={() => void rename(book.id, book.name)}>Rename</Button>}
           <Button variant="ghost" size="sm" onClick={() => void revealBook(book.id)}>Show in Finder</Button>
@@ -862,7 +864,7 @@ function ImportedThemes(): React.JSX.Element {
   return (
     <Setting
       title="Imported themes"
-      note="A theme from a file: JSON with bg, ink and accent (and the nine hues if you like), or CSS variables. It joins the list above."
+      note="**A theme from a file joins the list above.** JSON with bg, ink and accent (and the nine hues if you like), or CSS variables."
       below={themes.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {themes.map((one) => (
@@ -956,7 +958,7 @@ function SceneryFolders({ folders, on, onSave, use = 'scenery', title = 'Folders
   return (
     <Setting
       title={title}
-      note={`${note} They stay where they are: Vigil keeps only smaller copies for itself, and looks for new ones every ten minutes or so.${on && found ? ` ${ready} ${ready === 1 ? 'picture' : 'pictures'} ready${found.scanning ? ', more on the way' : ''}.` : ''}`}
+      note={`${note.startsWith('**') ? note : `**${note}**`} They stay where they are; Vigil keeps only smaller copies, and looks for new ones every ten minutes or so.${on && found ? ` ${ready} ${ready === 1 ? 'picture' : 'pictures'} ready${found.scanning ? ', more on the way' : ''}.` : ''}`}
       keywords={use === 'covers' ? 'covers grain gradients tiles folder pictures choose remove' : 'scenery folder pictures images add remove choose'}
       below={folders.length > 0 && (
         <div className="mt-2 flex flex-col gap-1">
@@ -1013,7 +1015,7 @@ function CelebrationsFolder({ folder, on, onSave }: { folder: string; on: boolea
   return (
     <Setting
       title="Celebrations folder"
-      note={`GIFs, pictures and short clips (under 25 MB and 20 seconds) to play on a milestone, one at random. They stay where they are and are never changed. One on a see-through background comes on by itself, without a card. With no folder, a soft grainy picture instead.${on && found ? ` ${found.length} ready.` : ''}`}
+      note={`**GIFs, pictures and short clips to play on a milestone, one at random.** Under 25 MB and 20 seconds, left where they are, unchanged; a see-through one comes without a card, and with no folder, a soft grainy picture.${on && found ? ` ${found.length} ready.` : ''}`}
       keywords="celebrations celebrate folder gif memes videos clips pictures choose remove"
       below={folder && (
         <div className="mt-2 flex flex-col gap-1">
@@ -1090,7 +1092,7 @@ function CelebrationPicks({ picks, on, onSave }: { picks: Partial<Record<MomentK
   return (
     <Setting
       title="What plays for each"
-      note="Files of its own for each kind of milestone, one at random in place of one from the folder, never the same twice running. Click a picture to see it. A file that has moved or gone is passed over."
+      note="**Files of its own for each kind of milestone.** One at random in place of the folder's, never twice running; click a picture to see it, and a missing file is passed over."
       keywords="celebrations celebrate pick choose file gif meme clip per moment milestone"
       below={
         <div className="mt-2 flex flex-col gap-1">
@@ -1202,7 +1204,7 @@ function ImportButton({ what, children }: { what: 'vault' | 'files'; children: R
 function Frosted(): React.JSX.Element {
   const [on, setOn] = useState(frosted)
   return (
-    <Setting title="See-through windows" note="On, the desktop shows through every window, frosted. Off, windows are solid in your theme's colour.">
+    <Setting title="See-through windows" note="**On, the desktop shows through every window, frosted.** Off, windows are solid in your theme's colour.">
       <Switch
         checked={on}
         onCheckedChange={(next) => {

@@ -3,6 +3,7 @@ import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { chime } from '@/lib/sound'
 import { WORDS, word, wordFor } from '@/lib/words'
+import { Lead } from './lead'
 
 /** The note listing every word, from ⌘K: not a word of its own. */
 export const ALL_WORDS = 'words'
@@ -84,7 +85,7 @@ export function WordNotes(): React.JSX.Element {
           tabIndex={-1}
           data-word-note
           // From the word, on the strong ease-out, quick: a note handed over, not a page arriving.
-          className="w-80 gap-0 p-4 text-body duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] data-[state=open]:zoom-in-[0.96] data-[state=closed]:zoom-out-[0.96]"
+          className="w-[22rem] gap-0 p-4 text-body duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] data-[state=open]:zoom-in-[0.96] data-[state=closed]:zoom-out-[0.96]"
         >
           <Note id={shown.id} turn={turn} />
         </PopoverContent>
@@ -113,9 +114,12 @@ function Note({ id, turn }: { id: string; turn: (id: string) => void }): React.J
   if (!found) return null
   return (
     <>
-      <p className="font-heading text-heading font-semibold text-foreground">{found.forms[0]}</p>
-      <p className="mt-0.5 text-meta text-muted-foreground italic">{found.origin}</p>
-      {found.note.map((said, index) => <p key={index} className={`${index ? 'mt-2' : 'mt-3'} leading-relaxed text-foreground`}>{said}</p>)}
+      <p className="font-heading text-[1.375rem] leading-tight font-semibold tracking-[-0.01em] text-foreground">{found.forms[0]}</p>
+      <p className="mf-aside mt-1 text-muted-foreground">{found.origin}</p>
+      {/* Dia's way: the bold lead-in says it; the rest is there for whoever wants it. */}
+      <p className="mf-prose mt-3 text-[0.9375rem] text-foreground/80"><Lead text={found.here} /></p>
+      <p className="mf-aside mt-1.5 text-[0.84375rem] text-muted-foreground">{found.try}</p>
+      <p className="mf-prose mt-3 text-body text-muted-foreground">{found.history}</p>
       <p className="mt-3 border-t pt-2.5 text-meta text-muted-foreground">
         See also{' '}
         {found.see.map((id, index) => (
