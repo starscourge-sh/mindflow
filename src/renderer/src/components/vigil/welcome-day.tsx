@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowUpRight, EyeOff, Flag, Pencil, ThumbsDown, ThumbsUp, X } from 'lucide-react'
+import { ArrowUpRight, EyeOff, Flag, Gem, Inbox, ListTodo, Pencil, ThumbsDown, ThumbsUp, X } from 'lucide-react'
 import { EASE, spring } from '@/lib/motion'
 import { Button } from '@/components/ui/button'
 import { dayjs } from '../../../../main/dates'
@@ -9,6 +9,7 @@ import { Flip } from './review-view'
 import { Tape } from './tape'
 import { CARD, PAPER } from './sticky-note'
 import { LAND } from './welcome-reel'
+import { Scenery } from './scenery'
 
 /**
  * The parts of "A day with Vigil", the welcome's chapter on what happens once
@@ -218,3 +219,85 @@ export function EveningReview({ over }: { over: boolean }): React.JSX.Element {
     </div>
   )
 }
+
+/** The words picked out of the note, and what they become once reworded. */
+export const PICKED = 'the monster learns language from listening through a wall'
+export const REWORDED = 'Frankenstein’s creature learns to speak by listening to a family through a wall.'
+
+/**
+ * A long note, as the editor draws one: headings, an outline down the side,
+ * a callout and a picture, scrolled like a real page. Then a line in it is
+ * picked out, the selection bar offers Capture, Idea and Task, and the small
+ * card rewords it before it is kept as an idea that remembers this note.
+ */
+export function LongNote({ scroll, picked, bar, card, edited, saved }: { scroll: number; picked: boolean; bar: boolean; card: boolean; edited: string; saved: boolean }): React.JSX.Element {
+  const heads = ['Frankenstein, as I read it', 'Volume One', 'The creature’s story', 'Who is the monster?']
+  const lit = scroll < 0.3 ? 0 : scroll < 0.6 ? 1 : scroll < 0.85 ? 2 : 3
+  const p = 'mb-3 leading-[1.65] text-foreground/90'
+  return (
+    <div className="relative flex w-full max-w-[52rem] gap-6">
+      <div className={`${PANEL_PAGE} relative h-[clamp(18rem,52vh,28rem)] flex-1 overflow-hidden`}>
+        <motion.div className="px-10 pt-8 pb-24" style={{ fontFamily: 'var(--mf-font, "Fraunces Variable", Georgia, serif)', fontVariationSettings: '"SOFT" 20, "WONK" 1' }}
+          initial={false} animate={{ y: `${-scroll * 52}%` }} transition={{ type: 'spring', duration: 1.6, bounce: 0 }}>
+          <h1 className="mb-1 text-[1.75rem] leading-tight font-semibold text-foreground">{heads[0]}</h1>
+          <p className="mb-5 text-[0.8125rem] text-muted-foreground">Study notes · #reading · 2,340 words</p>
+          <h2 className="mb-2 text-[1.25rem] font-semibold text-foreground">{heads[1]}</h2>
+          <p className={p}>Walton writes to his sister from the ice. He wants glory; Victor, half frozen, warns him what wanting it cost.</p>
+          <div className="mb-4 flex gap-3 rounded-lg border-l-[3px] border-[var(--tt-color-text-purple)] bg-[var(--tt-color-highlight-purple)] px-4 py-3 text-[0.9375rem] leading-snug text-foreground">
+            <span aria-hidden>💡</span>Mary Shelley began it at eighteen, at Lake Geneva in 1816, the year without a summer.
+          </div>
+          <div className="relative mb-4 h-36 overflow-hidden rounded-lg bg-[color-mix(in_oklab,var(--tt-color-text-brown)_25%,var(--background))]">
+            <Scenery place="recap" seed="welcome-note" mood={['night']} wide soft className="absolute inset-0" rounded="rounded-lg" />
+          </div>
+          <h2 className="mb-2 text-[1.25rem] font-semibold text-foreground">{heads[2]}</h2>
+          <p className={`${p} relative`}>
+            Hidden in the hovel, <span className={`rounded-[2px] transition-colors duration-300 ${picked ? 'bg-primary/30 text-foreground' : ''}`}>{PICKED}</span>, and reads Milton, Plutarch and Goethe.
+            <AnimatePresence>
+              {bar && !card && (
+                <motion.span key="bar" className="absolute -top-11 left-24 z-10 flex items-center gap-0.5 rounded-lg border bg-popover p-1 font-sans text-control text-muted-foreground shadow-(--mf-panel-shadow)"
+                  initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: spring.fast.exit }} transition={spring.fast}>
+                  <span className="flex h-7 items-center gap-1.5 px-2"><Inbox className="size-4" />Capture</span>
+                  <span data-ghost="idea" className={`flex h-7 items-center gap-1.5 rounded-md px-2 ${card ? 'bg-accent text-foreground' : ''}`}><Gem className="size-4" />Idea</span>
+                  <span className="flex h-7 items-center gap-1.5 px-2"><ListTodo className="size-4" />Task</span>
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </p>
+          <p className={p}>Language is what lets him see himself, and what makes the rejection unbearable.</p>
+          <h2 className="mb-2 text-[1.25rem] font-semibold text-foreground">{heads[3]}</h2>
+          <p className={p}>Victor runs from what he made. The creature asks for one companion. Which one is the monster?</p>
+        </motion.div>
+        {/* The reword card, by the words: they can be changed before they are kept. */}
+        <AnimatePresence>
+          {card && !saved && (
+            <motion.div key="card" className="absolute bottom-6 left-8 z-20 w-[min(24rem,80%)] rounded-xl border bg-popover p-3 font-sans text-popover-foreground shadow-(--mf-panel-shadow)"
+              initial={{ opacity: 0, y: 8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 260, y: -120, scale: 0.4, filter: 'blur(2px)', transition: { duration: 0.5, ease: EASE } }} transition={spring.slow}>
+              <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--tt-color-text-purple)' }}><Gem className="size-3.5" />Idea</p>
+              <p className="min-h-[3em] text-[0.9375rem] leading-snug text-foreground">{edited}<span className="mf-ghost-caret" data-typing="" /></p>
+              <p className="mt-2 flex items-center justify-between text-xs text-muted-foreground"><span>From Frankenstein, as I read it</span><span>Save ⌘↵</span></p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+      {/* The outline down the side, its heading lit as the page passes it. */}
+      <div className="hidden w-44 shrink-0 flex-col gap-2 pt-8 text-[0.8125rem] sm:flex">
+        <p className="text-xs font-medium text-muted-foreground">On this page</p>
+        {heads.map((head, i) => (
+          <p key={head} className={`border-l-2 pl-2 transition-colors duration-300 ${i === lit ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground'}`}>{head}</p>
+        ))}
+        <AnimatePresence>
+          {saved && (
+            <motion.div key="kept" className="mt-4 rounded-lg border bg-popover p-2.5 text-xs text-popover-foreground shadow-(--mf-panel-shadow)" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={LAND}>
+              <p className="mb-1 flex items-center gap-1 font-medium" style={{ color: 'var(--tt-color-text-purple)' }}><Gem className="size-3.5" />In Ideas</p>
+              <p className="leading-snug text-foreground">{REWORDED}</p>
+              <p className="mt-1 text-muted-foreground">↩ From Frankenstein, as I read it</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  )
+}
+
+const PANEL_PAGE = 'rounded-[14px] border border-foreground/10 bg-popover text-popover-foreground shadow-(--mf-panel-shadow)'

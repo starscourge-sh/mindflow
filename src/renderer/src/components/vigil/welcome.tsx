@@ -19,7 +19,7 @@ import { ThemeDial } from './theme-dial'
 import { RecapRadar } from './recap-radar'
 import { Kbd, toast } from './ui'
 import { FULL_TURN, glyph, inClay, konami } from './welcome-eggs'
-import { DeskSticky, EveningReview, GoalRoad, Moment, MorningBox } from './welcome-day'
+import { DeskSticky, EveningReview, GoalRoad, LongNote, Moment, MorningBox, PICKED, REWORDED } from './welcome-day'
 import {
   CAM, Camera, Chip, DRAWER, EMPTY_BOX, WIDE, frameOn, GhostHand, KINDS, LAND, LinkScene, PostcardResult, QUOTE, Rise, Slots, Stage, TaskResult, CardResult, LinkResult, WORD,
   cue, seeded, starterOf, typed, useScript, type Beat, type Box, type Kind, type MapShot
@@ -48,14 +48,15 @@ import {
  * Reduce motion: every chapter arrives settled, with fades only.
  */
 
-const CHAPTERS = ['Catch', 'Become', 'A day', 'Connect', 'Return', 'Make it yours', 'Ready']
+const CHAPTERS = ['Catch', 'Write', 'Become', 'A day', 'Connect', 'Return', 'Make it yours', 'Ready']
 const CATCH = 1
-const BECOME = 2
-const DAY = 3
-const CONNECT = 4
-const RETURN = 5
-const DIAL = 6
-const LAST = 7
+const WRITE = 2
+const BECOME = 3
+const DAY = 4
+const CONNECT = 5
+const RETURN = 6
+const DIAL = 7
+const LAST = 8
 const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 const capsOf = (keys: string): string[] => keys.match(/[⌃⌥⇧⌘]|[^⌃⌥⇧⌘]+/g) ?? []
 /** The window's size, kept fresh: the keycaps and the dial are sized to it. */
@@ -376,6 +377,7 @@ export function Welcome(): React.JSX.Element | null {
               onPointerDown={(event) => void (event.isTrusted && !(event.target as HTMLElement).closest('button, a, [role="slider"]') && !reel.current.done && settled())}>
               {at === 0 && <Hello replay={replay} kept={kept} calm={!play} newcomer={newcomer} today={earlier + caught.length} />}
               {at === CATCH && <CatchChapter play={play} report={report} state={state} onState={setState} />}
+              {at === WRITE && <WriteChapter play={play} report={report} />}
               {at === BECOME && <BecomeChapter play={play} report={report} pick={pick} onPick={choose} turn={turn} mine={mine} />}
               {at === DAY && <DayChapter play={play} report={report} />}
               {at === CONNECT && <ConnectChapter play={play} report={report} />}
@@ -624,7 +626,56 @@ function CatchChapter({ play, report, state, onState }: { play: boolean; report:
   )
 }
 
-// --- 2 Become -----------------------------------------------------------------------
+// --- 2 Write ------------------------------------------------------------------------
+
+type WriteState = { docked: boolean; page: boolean; scroll: number; picked: boolean; bar: boolean; hand: string | null; down: boolean; card: boolean; edited: string; saved: boolean }
+
+function writeBeats(): Beat<WriteState>[] {
+  const random = seeded(31)
+  const beats: Beat<WriteState>[] = [
+    { at: 0, to: {} },
+    { at: 1000, to: { docked: true, page: true }, cue: cue('slide') },
+    // A long note, read down like a page: each part held long enough to take in.
+    { at: 2600, to: { scroll: 0.35 } },
+    { at: 4400, to: { scroll: 0.62 } },
+    { at: 6000, to: { picked: true }, cue: () => click('soft') },
+    { at: 6700, to: { bar: true }, cue: cue('open') },
+    { at: 8200, to: { hand: 'idea' } },
+    { at: 8800, to: { down: true }, cue: () => click('tick') },
+    { at: 8880, to: { down: false, hand: null, card: true, edited: PICKED }, cue: cue('open') }
+  ]
+  // The words reworded in the card, then kept.
+  const run = typed<WriteState>(REWORDED, 10300, (sofar) => ({ edited: sofar }), random, 0.35)
+  beats.push({ at: 10100, to: { edited: '' } }, ...run.beats)
+  beats.push({ at: run.end + 1600, to: { saved: true, bar: false, picked: false }, cue: cue('promote') })
+  beats.push({ at: run.end + 4400, to: {} })
+  return beats
+}
+
+function WriteChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
+  const [beats] = useState(writeBeats)
+  const show = useScript<WriteState>({ docked: false, page: false, scroll: 0, picked: false, bar: false, hand: null, down: false, card: false, edited: '', saved: false }, beats, play)
+  useReport(report, show.done, show.settle)
+  const s = show.state
+  const scene = useRef<HTMLDivElement>(null)
+  return (
+    <>
+      <Words title="Write it out at length." docked={s.docked} still={!play} done={show.done}>
+        Long notes live here too, with headings, pictures and callouts. Pick out a line, and it becomes an idea that remembers where it came from.
+      </Words>
+      <div ref={scene} className="relative flex min-h-0 flex-1 items-center justify-center pb-2">
+        {s.page && (
+          <motion.div className="w-full" initial={play ? { opacity: 0, y: 12, filter: 'blur(4px)' } : false} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} transition={{ duration: 0.5, ease: EASE }}>
+            <LongNote scroll={s.scroll} picked={s.picked} bar={s.bar} card={s.card} edited={s.edited} saved={s.saved} />
+          </motion.div>
+        )}
+        {play && !show.done && <GhostHand to={s.hand} down={s.down} root={scene} />}
+      </div>
+    </>
+  )
+}
+
+// --- 3 Become -----------------------------------------------------------------------
 
 type BecomeState = { docked: boolean; cards: Kind[]; landed: boolean; signed: boolean; over: boolean; hand: string | null; down: boolean; look: Kind | null }
 
@@ -764,9 +815,9 @@ type PairsState = { pair: number; struck: boolean; row: boolean }
 /** What other notes, task and flashcard apps each leave out, in plain words. */
 const GAPS: [typeof BookOpen, string, string][] = [
   [RotateCcw, 'Notes that sit and wait', 'Notes that come back'],
-  [GitBranch, 'Tasks without the why', 'Tasks with what they came from'],
-  [Brain, 'Flashcards you write by hand', 'Remembering built in'],
-  [BookOpen, 'Thoughts scattered across apps', 'One book']
+  [BookOpen, 'Long notes in one app, quick thoughts in another', 'Both in one book, each feeding the other'],
+  [GitBranch, 'Tasks without the why', 'Tasks with where they came from'],
+  [Brain, 'Flashcards you write by hand', 'Remembering built in']
 ]
 
 /** What a commonplace book adds, a pair at a time: what other apps leave you with, struck, then this; then all four in a row. */
@@ -924,7 +975,7 @@ function DayChapter({ play, report }: { play: boolean; report: (now: Reel) => vo
   return (
     <>
       <Words title="A day with Vigil." docked={dock} still={!play} done={stage === 'day' && done}>
-        {stage === 'pairs' ? 'Your commonplace book, and what it does that other apps leave out.' : 'What a normal day looks like once you have kept a few things.'}
+        {stage === 'pairs' ? 'If you have lived in Obsidian, Notion, Anki and a bit of Todoist, this is one place for all of it.' : 'What a normal day looks like once you have kept a few things.'}
       </Words>
       <div className="relative min-h-0 flex-1 overflow-hidden">
         {stage === 'pairs'
@@ -1429,7 +1480,7 @@ function Hello({ replay, kept, calm, newcomer, today }: { replay: boolean; kept:
       <div className="flex max-w-[min(100%,46rem)] flex-col gap-[clamp(0.75rem,2.6vh,1.75rem)] pt-[clamp(0rem,4vh,3rem)]">
         <p className={FIGURES}>{when}</p>
         {replay ? <h1 className={`${HEADLINE_XL} max-w-[17ch]`}>{line}</h1> : <TypeLine text={line} className={`${HEADLINE_XL} max-w-[17ch]`} onDone={() => setSaid(true)} />}
-        <p className={`${BODY} max-w-[28ch]`}>Your commonplace book: everything worth keeping, in one place, and it comes back to you.</p>
+        <p className={`${BODY} max-w-[28ch]`}>Your commonplace book: long notes and quick thoughts in one place, and they come back to you. For students, researchers and anyone who reads and writes to think.</p>
       </div>
       <div className="[@media(max-height:520px)]:hidden">
         <YearRule calm={calm} kept={kept} faded={said} newcomer={newcomer} today={today} />
