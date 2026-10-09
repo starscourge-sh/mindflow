@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AlignLeft, CalendarDays, Columns3, Plus, Split, Star } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
@@ -38,6 +38,8 @@ import { ReadThrough } from './read-through'
 import { Island, PropInput, Rolling, Tip, Typed, refuse, toast } from './ui'
 import { Does, GHOST, GhostText } from './ghost'
 import { cn } from '@/lib/cn'
+import ExpandIcon from '@/components/ui/expand-icon'
+import { GraphCanvas, showOnMap, type Graph } from './graph-canvas'
 import { age, dayKey, dayMonth, dayjs, daysFromToday, moment, noon, num, when } from '../../../../main/dates'
 import { DatePicker } from './date-picker'
 import { keyFor } from '@/lib/keys'
@@ -732,17 +734,37 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
 
 // --- the map of a note's links
 
-const W = 232
-const H = 176
 /**
- * The note in the middle, what it links to and what links to it around it:
- * one step each way, never the whole graph. Out to the right half, in to the
- * left, so the direction reads at a glance; a click opens one.
+ * A small live Map of one note: it in the middle, every note it links to or
+ * is linked from around it, and the links between those, so neighbours that
+ * belong together cluster. It and its busiest few are named; pointed at, a
+ * dot names itself and lights up its links; clicked, it opens. Drag to move,
+ * pinch or ⌘-scroll to zoom. The button opens the whole Map on this note.
  */
 export function LocalGraph({ id, title, onOpen }: { id: string; title: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element | null {
-  const [graph, setGraph] = useState<{ out: GraphNode[]; in: GraphNode[] } | null>(null)
+  const [graph, setGraph] = useState<(Graph & { out: number; in: number }) | null>(null)
+  const fit = useRef<() => void>(() => undefined)
+  const named = useRef(title)
+  named.current = title
   useEffect(() => {
-    const load = (): void => void notes.graph(id).then(setGraph)
+    let gone = false
+    // Its own links, with each neighbour's kind, size and links to the others from the whole map.
+    const load = (): void => void Promise.all([notes.graph(id), notes.map()]).then(([own, all]) => {
+      if (gone) return
+      const known = new Map(all.nodes.map((node) => [node.id, node]))
+      const around = new Map<string, GraphNode>()
+      for (const node of [...own.out, ...own.in]) around.set(node.id, node)
+      const edges: [string, string][] = [...around.keys()].map((other) => [id, other])
+      for (const [a, b] of all.edges) if (a !== id && b !== id && around.has(a) && around.has(b)) edges.push([a, b])
+      const next = {
+        nodes: [
+          { type: 'capture', id, title: named.current, kind: known.get(id)?.kind ?? 'note', links: around.size },
+          ...[...around.values()].map((node) => ({ type: node.type, id: node.id, title: node.title, kind: known.get(node.id)?.kind ?? 'note', links: known.get(node.id)?.links ?? 1, private: !!node.private }))
+        ],
+        edges, alone: 0, out: own.out.length, in: own.in.length
+      }
+      setGraph((last) => (JSON.stringify(last) === JSON.stringify(next) ? last : next))
+    })
     load()
     // After things settle, not on every keystroke of an autosave: the links
     // are read from every note's words.
@@ -752,61 +774,31 @@ export function LocalGraph({ id, title, onOpen }: { id: string; title: string; o
       timer = setTimeout(load, 1500)
     })
     return () => {
+      gone = true
       clearTimeout(timer)
       stop()
     }
   }, [id])
   if (!graph) return null
-  const both = new Set(graph.out.filter((one) => graph.in.some((other) => other.id === one.id)).map((one) => one.id))
-  const nodes = [
-    ...graph.out.map((node) => ({ ...node, way: both.has(node.id) ? 'both' : 'out' })),
-    ...graph.in.filter((node) => !both.has(node.id)).map((node) => ({ ...node, way: 'in' }))
-  ]
-  const more = Math.max(0, nodes.length - 10)
-  const shown = nodes.slice(0, 10)
-  const cx = W / 2
-  const cy = H / 2
-  // Out on the right, in on the left, each spread down its own half.
-  const place = (way: string, index: number, count: number): [number, number] => {
-    const angle = (way === 'in' ? Math.PI : 0) + (count === 1 ? 0 : ((index / (count - 1)) - 0.5) * Math.PI * 0.8) * (way === 'in' ? -1 : 1)
-    return [cx + Math.cos(angle) * 72, cy + Math.sin(angle) * 62]
-  }
-  const sides = { in: shown.filter((node) => node.way === 'in'), out: shown.filter((node) => node.way !== 'in') }
-  const short = (text: string): string => (text.length > 16 ? `${text.slice(0, 15)}…` : text) || 'Untitled'
+  const linked = graph.nodes.length - 1
   return (
     <Island compact title="Links">
-      {!shown.length ? (
+      {!linked ? (
         <p className="px-2 py-1.5 text-xs text-muted-foreground"><Typed text="No links yet. Type @ in the note to link another, and it shows here." step={25} /></p>
       ) : (
-        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="mx-auto block max-w-full overflow-visible" role="img" aria-label={`${graph.out.length} links out, ${graph.in.length} in`}>
-          <defs>
-            <marker id="mf-arrow" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-              <path d="M0,0 L6,3 L0,6 z" fill="currentColor" />
-            </marker>
-          </defs>
-          {(['out', 'in'] as const).flatMap((side) =>
-            sides[side].map((node, index) => {
-              const [x, y] = place(side, index, sides[side].length)
-              const out = node.way !== 'in'
-              return (
-                <motion.g key={node.id} data-private={node.private ? '' : undefined} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.04, duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                  style={{ transformOrigin: `${x}px ${y}px`, cursor: onOpen ? 'pointer' : undefined }}
-                  onClick={() => onOpen && (chime('tap'), onOpen(node.type, node.id))}>
-                  <title>{`${out ? (node.way === 'both' ? 'Links both ways: ' : 'Links to: ') : 'Linked from: '}${node.title || 'Untitled'}`}</title>
-                  <line x1={out ? cx + 7 : x + 5} y1={out ? cy : y} x2={out ? x - 5 : cx - 7} y2={out ? y : cy}
-                    className={out ? 'text-[var(--tt-brand-color-400)]' : 'text-muted-foreground'} stroke="currentColor" strokeWidth={1}
-                    markerEnd="url(#mf-arrow)" markerStart={node.way === 'both' ? 'url(#mf-arrow)' : undefined} />
-                  <circle cx={x} cy={y} r={4.5} className="fill-accent stroke-muted-foreground" strokeWidth={1} />
-                  <text x={x} y={y + 15} textAnchor="middle" className={`fill-muted-foreground text-[10px] ${node.private ? 'private-text' : ''}`}>{short(node.title)}</text>
-                </motion.g>
-              )
-            })
-          )}
-          <circle cx={cx} cy={cy} r={7} className="fill-[var(--tt-brand-color-400)]" />
-          <text x={cx} y={cy - 12} textAnchor="middle" className="fill-foreground text-[10px] font-medium">{short(title)}</text>
-        </svg>
+        <div data-local-graph>
+          <GraphCanvas map={graph} centre={id} fit={fit} onOpen={(type, to) => onOpen?.(type, to)} className="h-[248px]" />
+          <div className="flex h-8 items-center gap-1 border-t border-border/60 pr-1 pl-2 text-xs text-muted-foreground">
+            <span className="shrink-0 tabular-nums whitespace-nowrap"><Rolling text={graph.out} /> out · <Rolling text={graph.in} /> in</span>
+            <Tip label="Fit">
+              <button type="button" aria-label="Fit" onClick={() => (chime('tap'), fit.current())} className="ml-auto rounded-md p-1 transition-colors hover:bg-accent hover:text-foreground"><AliveIcon icon={ExpandIcon} size={14} /></button>
+            </Tip>
+            {onOpen && (
+              <button type="button" onClick={() => (chime('open'), showOnMap(id), onOpen('view', 'map'))} className="min-w-0 truncate rounded-md px-1.5 py-1 whitespace-nowrap transition-colors hover:bg-accent hover:text-foreground">See on Map</button>
+            )}
+          </div>
+        </div>
       )}
-      {more > 0 && <p className="px-2 py-1.5 text-xs text-muted-foreground">and <Rolling text={more} /> more, under Linked from</p>}
     </Island>
   )
 }
