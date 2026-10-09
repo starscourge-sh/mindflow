@@ -14,13 +14,32 @@ import { Kbd, Rolling, Pressed, Tip } from './ui'
 import { alive } from '@/components/ui/alive-icon'
 import ArrowNarrowDownIcon from '@/components/ui/arrow-narrow-down-icon'
 import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
+import XIcon from '@/components/ui/x-icon'
 import { exit } from '@/lib/capture-links'
 import { GlossComposer, openGloss } from './gloss-line'
 import { Signed } from './signature'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
+const ReadDone = alive(XIcon)
 const ArrowDown = alive(ArrowNarrowDownIcon)
 const ArrowUp = alive(ArrowNarrowUpIcon)
+
+/** How reading ends is said the first three times it opens, then trusted to be known. */
+const TOLD = 'readExitTold'
+const firstReads = (): boolean => {
+  try {
+    return Number(localStorage.getItem(TOLD) ?? 0) < 3
+  } catch {
+    return true
+  }
+}
+const countRead = (): void => {
+  try {
+    localStorage.setItem(TOLD, String(Number(localStorage.getItem(TOLD) ?? 0) + 1))
+  } catch {
+    // Said again next time, which does no harm.
+  }
+}
 
 /** `body`: words read as they are, never changed here, like a question's clues. */
 export type Readable = { type: string; id: string; body?: string; title?: string }
@@ -70,7 +89,7 @@ const KEYS: { keys: string[]; label: string; when?: 'own' | 'capture' }[] = [
   { keys: [';'], label: 'Add a thought', when: 'own' },
   { keys: ['P', 'R', 'D'], label: 'Promote, resolve, discard', when: 'capture' },
   { keys: ['T'], label: 'Make it a task', when: 'capture' },
-  { keys: ['Esc'], label: 'Close' },
+  { keys: ['Esc'], label: 'Stop reading' },
 ]
 
 /**
@@ -104,6 +123,14 @@ export function ReadThrough({ items, start = 0, onClose }: {
   useEffect(() => {
     wake()
     return () => clearTimeout(sleep.current)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // The first few times, a line at the top says how to get out, then goes.
+  const [told, setTold] = useState(() => !firstReads())
+  useEffect(() => {
+    if (told) return
+    countRead()
+    const gone = setTimeout(() => setTold(true), 4200)
+    return () => clearTimeout(gone)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // Where a click landed in the words, so writing starts with the caret there.
   const reader = useRef<Editor | null>(null)
@@ -252,6 +279,37 @@ export function ReadThrough({ items, start = 0, onClose }: {
       role="dialog"
       aria-label="Reading"
     >
+      {/* The way out, always there: quiet in the corner while you read,
+          plain as soon as the pointer moves. Esc does the same. */}
+      <Tip label={<span className="flex items-center gap-2">Stop reading<Kbd>Esc</Kbd></span>}>
+        <button
+          type="button"
+          onClick={() => onClose()}
+          className={cn(
+            'absolute top-3 right-3 z-10 flex h-7 items-center gap-1.5 rounded-full border bg-background/80 px-3 text-control text-muted-foreground backdrop-blur-sm transition-[opacity,background-color,color] duration-200 ease-out [-webkit-app-region:no-drag] hover:bg-accent hover:text-foreground focus-visible:opacity-100',
+            awake || keysOpen || writing ? 'opacity-100' : 'opacity-50'
+          )}
+        >
+          <ReadDone className="size-3.5" />
+          Done reading
+        </button>
+      </Tip>
+      {/* Said the first few times only: how reading ends. */}
+      <AnimatePresence>
+        {!told && (
+          <motion.p
+            role="status"
+            initial={{ opacity: 0, transform: shift('translateY(-4px)') }}
+            animate={{ opacity: 1, transform: shift('translateY(0px)') }}
+            exit={{ opacity: 0, transition: { duration: 0.2, ease: EASE } }}
+            transition={{ duration: 0.2, ease: EASE, delay: 0.3 }}
+            className="pointer-events-none absolute top-3.5 left-1/2 z-10 rounded-full bg-popover px-3 py-1 text-meta whitespace-nowrap text-muted-foreground shadow-sm ring-1 ring-border"
+            style={{ translate: '-50% 0' }}
+          >
+            <span className="flex items-center gap-1.5">Press <Kbd>Esc</Kbd> or click Done reading to stop</span>
+          </motion.p>
+        )}
+      </AnimatePresence>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {/* j and k turn the page hundreds of times: by key the next one is
             simply there; by the arrows it rises in. */}
@@ -370,7 +428,7 @@ export function ReadThrough({ items, start = 0, onClose }: {
         ) : (
           <>
             {own && <span className="hidden items-center gap-1.5 sm:flex">Click or <Pressed keys="E" /> to write</span>}
-            <span className="flex items-center gap-1.5"><Kbd>Esc</Kbd> close</span>
+            <span className="flex items-center gap-1.5"><Kbd>Esc</Kbd> stop reading</span>
           </>
         )}
         <button type="button" aria-expanded={keysOpen} onClick={() => (chime('tap'), setKeysOpen(!keysOpen))} className={cn('flex h-6 items-center gap-1.5 rounded-md px-1.5 hover:bg-accent hover:text-foreground', keysOpen && 'bg-accent text-foreground')}>

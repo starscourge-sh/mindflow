@@ -407,9 +407,24 @@ body {
 /* Notion's page: the writing in a centred column, the margins either side
    left empty, unless Full width is on in Settings. Only a document's own
    editor; a line editor hugs its text anyway. */
-html[data-width='page'] .mindflow-editor-wrapper:not(.is-line) .tiptap.ProseMirror.mindflow-editor {
+/* Narrow and Wide are the same column at two sizes; Full lets go of it. */
+html[data-width='page'] {
+  --mf-col-editor: 54rem;
+  --mf-col-note: 36em;
+  --mf-col-page: 56rem;
+  --mf-col-sheet: 54rem;
+  --mf-col-narrow: 44rem;
+}
+html[data-width='wide'] {
+  --mf-col-editor: 72rem;
+  --mf-col-note: 52em;
+  --mf-col-page: 76rem;
+  --mf-col-sheet: 72rem;
+  --mf-col-narrow: 60rem;
+}
+html:is([data-width='page'], [data-width='wide']) .mindflow-editor-wrapper:not(.is-line) .tiptap.ProseMirror.mindflow-editor {
   width: 100%;
-  max-width: 54rem;
+  max-width: var(--mf-col-editor);
   margin-inline: auto;
 }
 
@@ -418,8 +433,8 @@ html[data-width='page'] .mindflow-editor-wrapper:not(.is-line) .tiptap.ProseMirr
    the margins either side left empty. The pane's gutters (4.75rem a side)
    are on top of the column, so the drag grip keeps its room. Full width lets
    it run edge to edge. Read sets its column itself, Full width or not. */
-html[data-width='page'] .note-pane .mindflow-editor-wrapper:not(.is-line) .tiptap.ProseMirror.mindflow-editor {
-  max-width: calc(36em + 9.5rem);
+html:is([data-width='page'], [data-width='wide']) .note-pane .mindflow-editor-wrapper:not(.is-line) .tiptap.ProseMirror.mindflow-editor {
+  max-width: calc(var(--mf-col-note) + 9.5rem);
 }
 .mf-read .mindflow-editor-wrapper:not(.is-line) .tiptap.ProseMirror.mindflow-editor {
   width: 100%;
@@ -571,19 +586,19 @@ textarea {
 /* The same setting for the app's own pages: with Full width off, a list or a
    page sits in a centred column the way Notion's do, and the space either
    side stays empty. The header's line still runs edge to edge. */
-html[data-width='page'] .page-column {
+html:is([data-width='page'], [data-width='wide']) .page-column {
   width: 100%;
-  max-width: 56rem;
+  max-width: var(--mf-col-page);
   margin-inline: auto;
 }
-html[data-width='page'] header.page-column {
+html:is([data-width='page'], [data-width='wide']) header.page-column {
   max-width: none;
-  padding-inline: max(1.25rem, calc((100% - 56rem) / 2 + 1.25rem));
+  padding-inline: max(1.25rem, calc((100% - var(--mf-col-page)) / 2 + 1.25rem));
 }
 /* Today's sheet (the brief and the page under it): a centred column like
    any page, edge to edge with Full width. */
-html[data-width='page'] .page-sheet {
-  max-width: 54rem;
+html:is([data-width='page'], [data-width='wide']) .page-sheet {
+  max-width: var(--mf-col-sheet);
 }
 /* Edge to edge, it still leaves the brief's margins room for the date and
    the time set on their sides, wherever the page is wide enough to show them. */
@@ -594,8 +609,8 @@ html[data-width='page'] .page-sheet {
 }
 /* A day's page, a task's or nugget's title and checklist: a narrower column,
    and the same switch lets them run edge to edge. */
-html[data-width='page'] .page-narrow {
-  max-width: 44rem;
+html:is([data-width='page'], [data-width='wide']) .page-narrow {
+  max-width: var(--mf-col-narrow);
 }
 /* A note open beside its list keeps wide margins for the page look; with Full
    width on they shrink to the room the drag grip needs. */

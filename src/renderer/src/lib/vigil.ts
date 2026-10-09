@@ -16,6 +16,10 @@ const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.
 
 export type Settings = {
   fullWidth: boolean
+  /** Narrow, Wide or Full; unset, it follows fullWidth (see widthOf in reading.ts). */
+  pageWidth?: 'narrow' | 'wide' | 'full'
+  /** A link card's picture: filling its box (cover), or shown whole (contain). */
+  linkPictures?: 'fill' | 'whole'
   sounds: boolean
   volume: number
   motion: boolean
@@ -523,7 +527,9 @@ export function useAppearance(): void {
   useEditorSetup(settings)
   useEffect(() => {
     if (!settings) return
-    document.documentElement.dataset.width = settings.fullWidth ? 'full' : 'page'
+    const width = settings.pageWidth ?? (settings.fullWidth ? 'full' : 'narrow')
+    document.documentElement.dataset.width = width === 'narrow' ? 'page' : width
+    document.documentElement.dataset.linkPictures = settings.linkPictures ?? 'fill'
     document.documentElement.dataset.motion = settings.motion ? 'on' : 'off'
     document.documentElement.toggleAttribute('data-postcards', !!settings.postcards)
     document.documentElement.dataset.marks = settings.marks === false ? 'off' : 'on'
@@ -540,5 +546,5 @@ export function useAppearance(): void {
     soundOn(settings.sounds)
     setVolume(settings.volume)
     setPack(settings.soundPack)
-  }, [settings?.fullWidth, settings?.motion, settings?.postcards, settings?.marks, settings?.progressBars, settings?.blur, settings?.spellcheck, settings?.interfaceSize, settings?.sounds, settings?.volume, settings?.soundPack])
+  }, [settings?.fullWidth, settings?.pageWidth, settings?.linkPictures, settings?.motion, settings?.postcards, settings?.marks, settings?.progressBars, settings?.blur, settings?.spellcheck, settings?.interfaceSize, settings?.sounds, settings?.volume, settings?.soundPack])
 }

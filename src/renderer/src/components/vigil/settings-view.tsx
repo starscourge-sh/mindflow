@@ -28,6 +28,7 @@ import { Switch } from '@/components/ui/switch'
 import { onboarding, playWelcome, useOnboarding } from '@/lib/onboarding'
 import { useLive, vigil, type MomentKind, type Settings } from '@/lib/vigil'
 import { Chips } from './display'
+import { PAGE_WIDTHS, setPageWidth, widthOf, type PageWidth } from '@/lib/reading'
 import { SoundPacks } from './sound-packs'
 import { FontPicker, TextSize } from './font-picker'
 import { BackToTop, Kbd, Rolling, Tip, refuse, toast, useSmooth } from './ui'
@@ -398,8 +399,8 @@ export function SettingsView(): React.JSX.Element {
           <Frosted />
         </Group>
         <Group section="Appearance" title="Layout">
-          <Setting title="Full width" note="Off, pages sit in a centred column the way Notion lays them out. On, the writing runs edge to edge.">
-            <Switch checked={settings.fullWidth} onCheckedChange={(fullWidth) => set({ fullWidth })} />
+          <Setting title="Page width" note="How wide notes and pages are. Narrow keeps the words in a column that is easy to read, Wide gives them more room, Full runs them edge to edge. Also in a note's header." keywords="full width wide narrow column page layout">
+            <Chips className="shrink-0" options={PAGE_WIDTHS} on={(id) => id === widthOf(settings)} pick={(id) => setPageWidth(id as PageWidth)} />
           </Setting>
           <Setting title="Motion" note="Things ease in and out: a capture leaving, a card arriving, a page sliding over. Off, everything appears at once.">
             <Switch checked={settings.motion} onCheckedChange={(motion) => set({ motion })} />
@@ -428,6 +429,10 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
           <Setting title="Postcards" note="Pictures in notes sit in a white border with rounded corners and a soft shadow, like a print laid on the desk." keywords="images pictures photos border frame white">
             <Switch checked={!!settings.postcards} onCheckedChange={(postcards) => set({ postcards })} />
+          </Setting>
+          <Setting title="Link pictures" note="The picture on a link card, such as a video's thumbnail. Fill crops it to fill its box. Whole shows all of it, with its own colours blurred into the space around it." keywords="bookmark link card youtube video thumbnail image picture crop cover contain fit">
+            <Chips className="shrink-0" options={[{ id: 'fill', label: 'Fill' }, { id: 'whole', label: 'Whole' }]}
+              on={(id) => id === (settings.linkPictures ?? 'fill')} pick={(linkPictures) => set({ linkPictures: linkPictures as Settings['linkPictures'] })} />
           </Setting>
           <Setting title="Margin marks" note="A few marks drawn by hand: a tick when you finish, a circle round today, an arrow when there is nothing yet. Off keeps every line machine-straight." keywords="hand drawn handwritten sketch doodle pen ink circle tick strike arrow personal">
             <Switch checked={settings.marks !== false} onCheckedChange={(marks) => set({ marks })} />

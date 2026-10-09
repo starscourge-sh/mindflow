@@ -28,11 +28,11 @@ import { notes, smallPicture, useThumb, type GraphNode, type NoteTable, type Ver
 import { useLive, vigil } from '@/lib/vigil'
 import { Chips } from './display'
 import { copy, type MenuItem } from './row-menu'
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import BookIcon from '@/components/ui/book-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
-import { setFullWidth, showDetails, useDetailsShown } from '@/lib/reading'
+import { PAGE_WIDTHS, setPageWidth, showDetails, useDetailsShown, widthOf, type PageWidth } from '@/lib/reading'
 import { ReadThrough } from './read-through'
 import { Island, PropInput, Rolling, Tip, Typed, refuse, toast } from './ui'
 import { age, dayKey, dayMonth, dayjs, daysFromToday, moment, noon, num, when } from '../../../../main/dates'
@@ -545,6 +545,54 @@ export function Versions({ table, id, onShow, onRestored, trigger }: {
 
 // --- a note's header
 
+/** How much of the page a width takes, as the share of the glyph's middle the lines fill. */
+const SPAN: Record<PageWidth, number> = { narrow: 0.35, wide: 0.68, full: 1 }
+
+/**
+ * A page drawn small: its edges, and three lines of writing as wide as the
+ * page's words are. The lines stretch to the new width rather than swapping,
+ * so the button shows what it just did.
+ */
+function WidthGlyph({ width }: { width: PageWidth }): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" aria-hidden className="size-4">
+      <path d="M1.75 3v10M14.25 3v10" />
+      <g style={{ transform: `scaleX(${SPAN[width]})`, transformOrigin: '8px 8px' }} className="transition-transform duration-200 ease-out motion-reduce:transition-none">
+        <path d="M3.75 5h8.5M3.75 8h8.5M3.75 11h8.5" />
+      </g>
+    </svg>
+  )
+}
+
+/**
+ * Narrow, Wide or Full, in the note's own header: one button showing the
+ * width now, a short menu to pick another. The same choice as in Settings,
+ * kept for every note and every window.
+ */
+function PageWidthPicker({ width }: { width: PageWidth }): React.JSX.Element {
+  const name = PAGE_WIDTHS.find((one) => one.id === width)?.label ?? 'Narrow'
+  return (
+    <DropdownMenu modal={false}>
+      <Tip label={`Page width: ${name}`}>
+        <DropdownMenuTrigger asChild>
+          <button type="button" aria-label="Page width" data-page-width={width} className={TOOL}><WidthGlyph width={width} /></button>
+        </DropdownMenuTrigger>
+      </Tip>
+      <DropdownMenuContent align="end" className="w-44">
+        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Page width</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={width} onValueChange={(next) => next !== width && setPageWidth(next as PageWidth)}>
+          {PAGE_WIDTHS.map((one) => (
+            <DropdownMenuRadioItem key={one.id} value={one.id} className="gap-2">
+              <span className="text-muted-foreground"><WidthGlyph width={one.id} /></span>
+              {one.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 const TOOL = 'flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground [&_svg]:size-4'
 
 /**
@@ -583,7 +631,7 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
   const items = menu.filter(Boolean) as Exclude<MenuItem, false | null | undefined>[]
   const [reading, setReading] = useState(false)
   const detailsOut = useDetailsShown()
-  const full = !!useLive(vigil.settings, null)?.fullWidth
+  const width = widthOf(useLive(vigil.settings, null))
   return (
     <div className={`@container/head flex min-h-7 items-center justify-between gap-2 px-3 @[40rem]/page:px-[4.25rem] ${className}`}>
       {reading && <ReadThrough items={[{ type, id: versions.id }]} onClose={() => setReading(false)} />}
@@ -604,6 +652,7 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
                 <button type="button" aria-pressed={board.on} onClick={board.toggle} className={`${TOOL} ${board.on ? 'bg-accent text-foreground' : ''}`}><Columns3 /></button>
               </Tip>
             )}
+            <PageWidthPicker width={width} />
             <Tip label="Read">
               <button type="button" aria-label="Read" onClick={() => (chime('open'), setReading(true))} className={TOOL}><AliveIcon icon={BookIcon} size={16} /></button>
             </Tip>
@@ -623,8 +672,6 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
                 {copyKey && <DropdownMenuItem onSelect={() => copy(copyKey, `Copied ${copyKey}`)}>Copy {copyKey}</DropdownMenuItem>}
                 <DropdownMenuItem onSelect={open}>Version history</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                {/* Notion's switch: the words in a reading column, or across the page. For every note. */}
-                <DropdownMenuCheckboxItem checked={full} onCheckedChange={(on) => setFullWidth(on)}>Full width</DropdownMenuCheckboxItem>
                 {details && <DropdownMenuItem onSelect={() => showDetails(!detailsOut)}>{detailsOut ? 'Hide details' : 'Show details'}</DropdownMenuItem>}
                 {items.map((item, index) =>
                   item === 'separator' ? (
