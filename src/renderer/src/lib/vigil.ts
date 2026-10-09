@@ -25,6 +25,8 @@ export type Settings = {
   motion: boolean
   /** The box grows about its middle when the panel opens or it expands; off, right and down. */
   boxCentred: boolean
+  /** The box puts itself away when another app or window takes the focus. */
+  boxAutoHide: boolean
   /** Where the box turns up when summoned, and on which screen. */
   boxPlace: 'last' | 'top' | 'centre'
   boxScreen: 'pointer' | 'same'

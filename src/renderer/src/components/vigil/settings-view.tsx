@@ -457,6 +457,9 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Keep the box centred" note="Opening the side panel grows the box out on both sides, so it stays centred where it was. Off, it grows to the right. Either way it grows down from its top as you write or expand it, so the writing stays where your eyes are, never goes past the edge of the screen, and closing the panel puts it back where it was." keywords="box window centre center grow panel expand position place">
             <Switch checked={settings.boxCentred !== false} onCheckedChange={(boxCentred) => set({ boxCentred })} />
           </Setting>
+          <Setting title="Close the box when you click away" note="Like Raycast: click into another app or window and the box puts itself away, keeping what you wrote for next time. Off, it stays up until you press Esc or the key again." keywords="box window close hide blur focus click away raycast auto">
+            <Switch checked={settings.boxAutoHide !== false} onCheckedChange={(boxAutoHide) => set({ boxAutoHide })} />
+          </Setting>
           <Setting title="Where the box appears" note="When you summon it. Where you left it brings it back just where you put it; the others place it fresh each time, near the top like Spotlight or in the middle." keywords="box window summon open position place top middle centre last">
             <Chips className="shrink-0" options={[{ id: 'last', label: 'Where you left it' }, { id: 'top', label: 'Near the top' }, { id: 'centre', label: 'Middle' }]}
               on={(id) => id === (settings.boxPlace ?? 'last')} pick={(boxPlace) => set({ boxPlace: boxPlace as Settings['boxPlace'] })} />

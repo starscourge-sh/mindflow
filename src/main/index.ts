@@ -38,7 +38,7 @@ import icon from '../../resources/icon.png?asset'
 import { alreadyImported, captureText, changed, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { backupDir } from './backup'
-import { activeSession, atLogin, badge, beaconDefault, tempusDots, blurOn, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, whenFocusShows } from './vigil'
+import { activeSession, atLogin, badge, beaconDefault, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, whenFocusShows } from './vigil'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
@@ -209,6 +209,23 @@ function accelerator(keys: string | null | undefined): string | null {
  * red dot or Escape.
  */
 let lastBounds: Electron.Rectangle | null = null
+
+/**
+ * Dialogs open right now. The box closes itself when it loses the focus, and
+ * a file or message dialog takes it, so while one is up that waits.
+ */
+let dialogs = 0
+for (const name of ['showOpenDialog', 'showSaveDialog', 'showMessageBox'] as const) {
+  const real = dialog[name].bind(dialog) as (...args: unknown[]) => Promise<unknown>
+  ;(dialog as unknown as Record<string, unknown>)[name] = async (...args: unknown[]) => {
+    dialogs += 1
+    try {
+      return await real(...args)
+    } finally {
+      dialogs -= 1
+    }
+  }
+}
 
 /** Put it away, keeping its place. Shared by the key, Escape and the dot. */
 function hideWindow(win: BrowserWindow): void {
@@ -1235,6 +1252,18 @@ function createWindow(): void {
   // Like Raycast: the app starts in the background, ready, and the box shows
   // only when summoned (the shortcut or the menu bar). A test run, which
   // drives the window directly, still gets it on screen.
+  // Clicked away from, the box puts itself away, as Raycast's does. Not for
+  // a window of its own (a picture it opened) or a dialog it asked for, and
+  // not in a test run, whose box sits parked while another window is driven.
+  mainWindow.on('blur', () => {
+    if (!boxAutoHide() || dialogs > 0 || (process.env.MINDFLOW_QA_AWAY && !process.env.MINDFLOW_QA_AUTOHIDE)) return
+    setTimeout(() => {
+      if (mainWindow.isDestroyed() || !mainWindow.isVisible() || mainWindow.isFocused() || dialogs > 0) return
+      if (BrowserWindow.getFocusedWindow()?.getParentWindow() === mainWindow) return
+      if (mainWindow.webContents.isDevToolsFocused()) return
+      hideWindow(mainWindow)
+    }, 120)
+  })
   mainWindow.on('ready-to-show', () => {
     if (!process.env.MINDFLOW_USER_DATA) return
     mainWindow.show()

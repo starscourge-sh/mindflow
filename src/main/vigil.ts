@@ -218,6 +218,8 @@ const DEFAULTS = {
   // sides, so it stays centred where it was; off, it grows right. Up and down
   // it always grows from its top, so the writing stays where the eye is.
   boxCentred: true,
+  // Raycast's way: the box puts itself away when you click into another app.
+  boxAutoHide: true,
   // Where it turns up when summoned: where you left it, or always the top
   // middle or the middle of the screen. And on which screen: the one the
   // pointer is on, or the one it was last on.
@@ -444,6 +446,8 @@ export const celebrationPrefs = (): { on: boolean; folder: string; picks: Picks 
 /** The Motion setting, for the window's own arrival. */
 export const motionOn = (): boolean => settings().motion
 export const blurOn = (): boolean => settings().blur !== false
+/** Whether the box puts itself away when it loses the focus. */
+export const boxAutoHide = (): boolean => settings().boxAutoHide !== false
 /** Where the box goes: see boxCentred, boxPlace and boxScreen above. */
 export const boxPlacement = (): { centred: boolean; place: 'last' | 'top' | 'centre'; screen: 'pointer' | 'same' } => {
   const now = settings()
