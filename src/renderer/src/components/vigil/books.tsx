@@ -90,7 +90,7 @@ export function BookAsker(): React.JSX.Element | null {
     const made = await copyToBook(asked.refs ?? [], id)
     if (!made) return refuse('Nothing was copied')
     chime('copy')
-    toast(`Copied ${made === 1 ? 'one' : made} into ${name}, with its pictures and files. It shows there next time you open it`)
+    toast(made === 1 ? `Copied one into ${name}, with its pictures and files. It shows there next time you open it` : `Copied ${made} into ${name}, with their pictures and files. They show there next time you open it`)
   }
   // A new book by the words typed: copied or imported into, then made.
   const fresh = async (): Promise<void> => {

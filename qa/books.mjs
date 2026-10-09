@@ -7,11 +7,12 @@
 //   npx electron-vite build --outDir out-books
 //   QA_DATA=$(mktemp -d) QA_ENTRY=out-books/main/index.js MINDFLOW_QA_AWAY=1 node qa/books.mjs
 import { createHash } from 'crypto'
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
 
+process.setMaxListeners(40)
 const root = process.env.QA_DATA ?? mkdtempSync(join(tmpdir(), 'vigil-books-'))
 if (root.includes('Application Support')) throw new Error('never the real data folder')
 process.env.QA_DATA = root
@@ -187,6 +188,90 @@ await wait(1200)
 const end = print()
 check('My book\'s database still only changed by its own runs', end.hash !== 'none')
 check('no book left inside My book\'s folder but the books folder', readdirSync(root).every((name) => !name.startsWith('b-')))
+
+// --- 5. Copy to book… and Import into… through their own pickers ---------------------------
+const shots = process.env.QA_SHOTS
+if (shots) mkdirSync(shots, { recursive: true })
+const row = (c, title) => c.h.locator('button[data-row]', { hasText: title }).first()
+const picker = (c) => c.h.locator('[role="dialog"][aria-label$="which book…"]')
+const toasted = (c, words) => c.h.waitForFunction((w) => document.body.innerText.includes(w), words, { timeout: 6000 }).then(() => true).catch(() => false)
+let throwaway
+{
+  const c = await launch('')
+  check('My book, for the pickers', (await shelf(c)).current === 'default')
+  // Welcomed already, as a real My book is: the welcome is not over the list.
+  await c.v('onboarding:set', { welcomed: new Date().toISOString() })
+  // The picker in both looks, opened from a row's menu each time.
+  for (const look of ['light', 'dark']) {
+    await c.theme(look)
+    await c.go('inbox')
+    await row(c, 'Wall map of Rome').click({ button: 'right' })
+    await c.h.locator('[role="menuitem"]', { hasText: 'Copy to book…' }).click()
+    await picker(c).waitFor({ timeout: 4000 })
+    // Once the row's menu has finished going.
+    await c.h.waitForTimeout(400)
+    const menuGone = !(await c.h.locator('[data-slot="context-menu-content"]').count())
+    check(`the row menu is gone under the picker (${look})`, menuGone)
+    if (shots) await c.h.screenshot({ path: join(shots, `copy-picker-${look}.png`) })
+    if (look === 'light') await c.h.keyboard.press('Escape')
+  }
+  const offered = await picker(c).locator('[data-book]').evaluateAll((all) => all.map((one) => one.getAttribute('data-book')))
+  check('Copy to book offers the other books, not this one', offered.includes(second) && !offered.includes('default'), JSON.stringify(offered))
+  await picker(c).locator(`[data-book="${second}"]`).click()
+  check('one copied from the row menu', await toasted(c, 'Copied one into Apple Notes test'))
+  await c.h.waitForTimeout(600)
+  // Three picked with shift-click, then the bar's Copy to book….
+  for (const title of ['Wall map of Rome', 'My real thought', 'See the passport']) await row(c, title).click({ modifiers: ['Shift'] })
+  check('three selected', await c.h.waitForFunction(() => /3\s*selected/.test(document.body.innerText), null, { timeout: 4000 }).then(() => true).catch(() => false))
+  await c.h.locator('button', { hasText: 'Copy to book…' }).click()
+  await picker(c).locator(`[data-book="${second}"]`).click()
+  check('three copied from the multi-selection', await toasted(c, 'Copied 3 into Apple Notes test'))
+  // Import into a throwaway book, named in the picker: made, switched to, and the import asked for there.
+  await c.go('settings')
+  await c.h.locator('button', { hasText: 'Import and backups' }).first().click()
+  await stub(c)
+  await c.h.locator('button', { hasText: 'Into another book…' }).click()
+  await picker(c).waitFor({ timeout: 4000 })
+  await c.h.waitForTimeout(300)
+  if (shots) await c.h.screenshot({ path: join(shots, 'import-picker-dark.png') })
+  await picker(c).locator('input').fill('Throwaway')
+  await picker(c).locator('[role="option"]', { hasText: 'Into a new book' }).click()
+  const args = await relaunched(c)
+  throwaway = (await shelf(c)).books.find((one) => one.name === 'Throwaway')?.id
+  check('Import into a new book makes it and switches there', !!throwaway && argsOf(args) === `--book=${throwaway}`, JSON.stringify(args))
+  check('with the import waiting for it', existsSync(join(root, 'books', throwaway, 'next.json')))
+  await c.close()
+}
+await wait(1200)
+{
+  const folder = mkdtempSync(join(tmpdir(), 'vigil-books-md-'))
+  writeFileSync(join(folder, 'Lecture one.md'), '# Lecture one\n\nNotes from the first lecture.\n')
+  writeFileSync(join(folder, 'Reading list.md'), 'Books to read this term.\n')
+  process.env.MINDFLOW_QA_PICK = folder
+  const c = await launch(`--book=${throwaway}`)
+  delete process.env.MINDFLOW_QA_PICK
+  let list = []
+  for (let i = 0; i < 40 && list.length < 2; i++) (await c.h.waitForTimeout(250), (list = await labels(c)))
+  check('the import ran in the throwaway book', list.length === 2 && list.some((one) => one.includes('Lecture one')), JSON.stringify(list))
+  check('and only once', !existsSync(join(root, 'books', throwaway, 'next.json')))
+  await c.close()
+  rmSync(folder, { recursive: true, force: true })
+}
+await wait(1200)
+{
+  const c = await launch(`--book=${second}`)
+  await c.h.waitForTimeout(800)
+  const list = await labels(c)
+  check('the four copies arrived in their book', list.length === 4 && list.filter((one) => one === 'Wall map of Rome').length === 2, JSON.stringify(list))
+  check('and nothing from the import there', !list.some((one) => one.includes('Lecture one')))
+  await c.close()
+}
+await wait(1200)
+{
+  const c = await launch('--book=default')
+  check('My book unchanged by the copies out of it', (await labels(c)).length === 3)
+  await c.close()
+}
 
 const failed = results.filter((one) => !one.ok)
 console.log(`\n${results.length - failed.length}/${results.length} passed`)

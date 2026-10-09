@@ -1433,6 +1433,12 @@ if (process.env.MINDFLOW_USER_DATA && process.env.MINDFLOW_QA_AWAY) {
   app.focus = () => {}
   app.on('browser-window-created', (_, win) => away(win))
 }
+// Test runs only: a folder picked without the dialog, and the report said without a box, for Import into….
+if (process.env.MINDFLOW_USER_DATA && process.env.MINDFLOW_QA_PICK) {
+  const picked = process.env.MINDFLOW_QA_PICK
+  dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [picked] })) as typeof dialog.showOpenDialog
+  dialog.showMessageBox = (async (...args: unknown[]) => (console.log('[qa] message', JSON.stringify(args.at(-1))), { response: 0, checkboxChecked: false })) as typeof dialog.showMessageBox
+}
 
 // From a terminal, without the window: `open -n -a mindflow --args --capture "buy milk"`,
 // or the binary itself with the same flags. One copy of the app runs; a second
