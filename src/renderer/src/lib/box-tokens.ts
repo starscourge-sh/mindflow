@@ -116,6 +116,21 @@ const blocksOf = (doc: ProseMirrorNode): Block[] => {
 
 const trimTitle = (title: string): string => (title.length > 36 ? `${title.slice(0, 36)}…` : title)
 
+/** What keeping a kind of token as words gives up, for the toast: "no timer". */
+const DROPPED: Record<TokenKind, string> = {
+  clue: 'no clue added', 'clue-miss': 'it will be a capture', timer: 'no timer', date: 'no date', deadline: 'no deadline',
+  repeat: 'no repeat', priority: 'no priority', plan: 'no plan', notify: 'no reminder', 'task-tag': 'not a task',
+  book: 'not a book', bit: 'not private', signature: 'no speaker', link: 'not saved as a link'
+}
+
+/** The toast for words kept plain: "“5m” stays as words, no timer". */
+export function keptMessage(tokens: Pick<BoxToken, 'kind' | 'text'>[]): string {
+  const words = tokens.map((one) => one.text).join(' ')
+  const shown = words.length > 24 ? `${words.slice(0, 24)}…` : words
+  const lost = [...new Set(tokens.map((one) => DROPPED[one.kind]))].join(', ')
+  return `“${shown}” stays as words, ${lost}`
+}
+
 const EMPTY: BoxPlan = { tokens: [], kind: 'note', clue: null, miss: null, timer: null, url: null, task: false, taskPlain: [], plainTags: [], signature: null, signatureKept: false }
 
 /** What the box will do with these words, given what was kept plain. */

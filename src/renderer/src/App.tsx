@@ -53,7 +53,7 @@ import { noteActions, useOpenNote } from './lib/notes'
 import { vigil, type Item, type PinnedQuestion, type Settings } from './lib/vigil'
 import { makeTask, oneTask, picked, placed } from './lib/tasks'
 import { WillDo, TokenHint } from './components/vigil/will-do'
-import { boxTokensPlugin, keepPlain, planNow, rearm, replan, type BoxContext, type BoxPlan, type BoxToken } from './lib/box-tokens'
+import { boxTokensPlugin, keepPlain, keptMessage, planNow, rearm, replan, type BoxContext, type BoxPlan, type BoxToken } from './lib/box-tokens'
 import { chime, soundOn } from './lib/sound'
 import { crumpleFrom, liftFrom } from './lib/fly-home'
 import { lengthSaid } from './lib/timer'
@@ -471,7 +471,7 @@ export default function App(): React.JSX.Element {
   const keptPlain = (token: BoxToken, seq: number): void => {
     const view = editorRef.current?.view
     chime('off')
-    toast(`Kept “${token.text.length > 24 ? `${token.text.slice(0, 24)}…` : token.text}” as plain text`, () => view && rearm(view, seq))
+    toast(keptMessage([token]), () => view && rearm(view, seq))
   }
   const latestKept = useRef(keptPlain)
   latestKept.current = keptPlain
@@ -1300,7 +1300,7 @@ export default function App(): React.JSX.Element {
                   if (!view || !tokens.length) return
                   const seqs = tokens.map((one) => keepPlain(view, one))
                   chime('off')
-                  toast(tokens[0].kind === 'clue-miss' ? 'Kept as plain text: it will be a capture' : `Kept “${tokens.map((one) => one.text).join(' ').slice(0, 24)}” as plain text`, () => seqs.forEach((seq) => rearm(view, seq)))
+                  toast(keptMessage(tokens), () => seqs.forEach((seq) => rearm(view, seq)))
                 }}
                 onNotTask={() => pick('note')}
                 onNewQuestion={(name) => void vigil.newQuestion(name).then((id) => {
