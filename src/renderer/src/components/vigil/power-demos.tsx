@@ -322,22 +322,22 @@ const LISTS = [
 const BoardDemo: Demo = ({ live }) => {
   const at = useSteps([1600, 2600], live, 1)
   const board = at === 1
+  // The note gives way to its board in place: one fades and settles as the other leaves, so nothing travels past the card's edge.
   return (
-    <div className="flex w-full max-w-[19rem] flex-col items-center gap-2">
-      <LayoutGroup>
-        <div className={board ? 'grid w-full grid-cols-3 gap-1.5' : 'flex w-full flex-col gap-0.5 px-2'}>
+    <div className="grid w-full max-w-[19rem] place-items-center">
+      <AnimatePresence initial={false}>
+        <motion.div key={board ? 'board' : 'note'} className={`[grid-area:1/1] w-full ${board ? 'grid grid-cols-3 gap-1.5' : 'flex flex-col gap-0.5 px-2'}`}
+          initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.4, ease: EASE }}>
           {LISTS.map((list) => (
-            <motion.div layout key={list.head} transition={{ duration: 0.5, ease: EASE }}
-              className={board ? 'flex flex-col gap-1 rounded-lg bg-foreground/[0.05] p-1.5' : 'flex flex-col'}>
-              <motion.div layout="position" className={board ? 'text-meta font-medium text-muted-foreground' : 'font-heading text-control font-semibold text-foreground'}>{list.head}</motion.div>
+            <div key={list.head} className={board ? 'flex flex-col gap-1 rounded-lg bg-foreground/[0.05] p-1.5' : 'flex flex-col'}>
+              <div className={board ? 'text-meta font-medium text-muted-foreground' : 'font-heading text-control font-semibold text-foreground'}>{list.head}</div>
               {list.cards.map((card) => (
-                <motion.div layout key={card} transition={{ duration: 0.5, ease: EASE }}
-                  className={board ? 'rounded-md border bg-background px-1.5 py-1 text-meta leading-tight text-foreground shadow-[0_1px_1px_rgb(0_0_0/0.06)]' : 'truncate pl-3 text-meta text-muted-foreground before:mr-1.5 before:content-["•"]'}>{card}</motion.div>
+                <div key={card} className={board ? 'rounded-md border bg-background px-1.5 py-1 text-meta leading-tight text-foreground shadow-[0_1px_1px_rgb(0_0_0/0.06)]' : 'pl-3 text-meta text-muted-foreground before:mr-1.5 before:content-["•"]'}>{card}</div>
               ))}
-            </motion.div>
+            </div>
           ))}
-        </div>
-      </LayoutGroup>
+        </motion.div>
+      </AnimatePresence>
     </div>
   )
 }
