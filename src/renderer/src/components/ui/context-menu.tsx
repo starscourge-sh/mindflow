@@ -90,7 +90,7 @@ function ContextMenuContent({
         // Kept clear of the window's edges, never touching them, and never
         // taller than the room it has: only a menu that cannot fit scrolls.
         collisionPadding={12}
-        className={cn("z-50 flex max-h-(--radix-context-menu-content-available-height) min-w-32 origin-(--radix-context-menu-content-transform-origin) flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-[0.96] data-open:duration-80 data-closed:animate-out data-closed:fade-out-0 data-closed:duration-60 data-[side=bottom]:slide-in-from-top-1 data-[side=top]:slide-in-from-bottom-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1", className )}
+        className={cn("z-50 flex max-h-(--radix-context-menu-content-available-height) min-w-32 origin-(--radix-context-menu-content-transform-origin) flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-[0.96] data-open:duration-80 data-closed:animate-out data-closed:fade-out-0 data-closed:duration-60 data-[side=bottom]:slide-in-from-top-1 data-[side=top]:slide-in-from-bottom-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1", className , "min-w-fit")}
         {...props}
         onCloseAutoFocus={quietClose(props.onCloseAutoFocus)}
       >
@@ -190,7 +190,7 @@ function ContextMenuItem({
       data-variant={variant}
       onSelect={blinkThen(onSelect)}
       className={cn(
-        "group/context-menu-item relative flex min-h-7 cursor-default items-center gap-2 rounded-md px-2 py-1 text-control outline-hidden select-none focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-7.5 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:text-destructive data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 data-[variant=destructive]:*:[svg]:text-destructive",
+        "group/context-menu-item relative flex min-h-7 whitespace-nowrap cursor-default items-center gap-2 rounded-md px-2 py-1 text-control outline-hidden select-none focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-7.5 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:text-destructive data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 data-[variant=destructive]:*:[svg]:text-destructive",
         className
       )}
       {...props}
@@ -214,7 +214,7 @@ function ContextMenuSubTrigger({
       data-slot="context-menu-sub-trigger"
       data-inset={inset}
       className={cn(
-        "flex min-h-7 cursor-default items-center gap-2 rounded-md px-2 py-1 text-control outline-hidden select-none focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-7.5 data-open:bg-accent data-open:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
+        "flex min-h-7 cursor-default items-center gap-2 rounded-md px-2 py-1 whitespace-nowrap text-control outline-hidden select-none focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-7.5 data-open:bg-accent data-open:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
         className
       )}
       {...props}
@@ -237,7 +237,7 @@ function ContextMenuSubContent({
     <ContextMenuPrimitive.SubContent
       collisionPadding={12}
       data-slot="context-menu-sub-content"
-      className={cn("z-50 flex max-h-(--radix-context-menu-content-available-height) min-w-32 origin-(--radix-context-menu-content-transform-origin) flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-[0.96] data-open:duration-80 data-closed:animate-out data-closed:fade-out-0 data-closed:duration-60 data-[side=bottom]:slide-in-from-top-1 data-[side=top]:slide-in-from-bottom-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1", className )}
+      className={cn("z-50 flex max-h-(--radix-context-menu-content-available-height) min-w-32 origin-(--radix-context-menu-content-transform-origin) flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-[0.96] data-open:duration-80 data-closed:animate-out data-closed:fade-out-0 data-closed:duration-60 data-[side=bottom]:slide-in-from-top-1 data-[side=top]:slide-in-from-bottom-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1", className , "min-w-fit")}
       {...props}
     >
       <MenuScroll>{children}</MenuScroll>

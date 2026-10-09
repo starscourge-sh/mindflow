@@ -1,5 +1,5 @@
 import { useSyncExternalStore, type ComponentType, type CSSProperties } from 'react'
-import { Columns2, Pin } from 'lucide-react'
+import { Pin } from 'lucide-react'
 
 import { chime } from '@/lib/sound'
 import type { Step } from '@/lib/nav'
@@ -53,10 +53,11 @@ export const unpinLayout = (id: string): void => {
 export type PaneName = { title: string; icon: ComponentType<{ className?: string; style?: CSSProperties }>; tint?: string; private?: boolean }
 
 /**
- * The pair's row: each pane's name, joined by a thin rule, each with an ×
- * that closes that pane (on the live split only). Its menu is the pair's.
+ * The pair's row: each pane's kind stacked, the first name and how many
+ * more ("Notes on Zettelkasten + 2"), the whole list on hover. Its menu is
+ * the pair's, where each pane closes.
  */
-export function PairRow({ names, live, isPinned, narrow, menu, onOpen, onClose }: {
+export function PairRow({ names, live, isPinned, narrow, menu, onOpen }: {
   names: PaneName[]
   live: boolean
   isPinned: boolean
@@ -76,22 +77,22 @@ export function PairRow({ names, live, isPinned, narrow, menu, onOpen, onClose }
               data-pinned={isPinned ? '' : undefined}
               className={`group/pair flex min-w-0 flex-1 items-center gap-1.5 rounded-md py-1 text-foreground/80 ${narrow ? 'justify-center px-0' : 'px-2'} ${live ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_9%,transparent)]' : ''}`}
             >
-              {isPinned && !live ? <Pin className="size-3.5 shrink-0 text-muted-foreground" /> : <Columns2 className={`size-3.5 shrink-0 ${live ? 'text-[var(--tt-brand-color-400)]' : 'text-muted-foreground'}`} />}
-              {!narrow && names.map((name, index) => (
-                <span key={index} className="flex min-w-0 flex-1 items-center">
-                  {index > 0 && <span aria-hidden className="mx-1 h-3.5 w-px shrink-0 bg-foreground/15" />}
-                  <button type="button" data-pair-pane={index} data-private={name.private ? '' : undefined} onClick={() => onOpen(index)}
-                    className="private-text min-w-0 flex-1 truncate text-left text-control hover:text-foreground">
-                    {name.title}
-                  </button>
-                  {live && onClose && (
-                    <button type="button" aria-label={`Close ${name.title}`} data-pair-close={index} onClick={() => onClose(index)}
-                      className="ml-0.5 flex size-4 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity group-hover/pair:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
-                      <span aria-hidden className="text-[11px] leading-none">×</span>
-                    </button>
-                  )}
-                </span>
-              ))}
+              {/* Each pane's kind, stacked; then the first name, cut short once at most, and how many more. */}
+              <span className="flex shrink-0 items-center">
+                {isPinned && !live && <Pin className="mr-1 size-3.5 shrink-0 text-muted-foreground" />}
+                {names.slice(0, narrow ? 1 : 3).map((name, index) => (
+                  <span key={index} className={`flex size-4.5 items-center justify-center rounded-full bg-background shadow-[0_0_0_1.5px_var(--background)] ${index ? '-ml-1.5' : ''}`} style={{ zIndex: 3 - index }}>
+                    <name.icon className="size-3" style={{ color: name.tint }} />
+                  </span>
+                ))}
+              </span>
+              {!narrow && (<>
+                <button type="button" data-pair-pane={0} data-private={names[0]?.private ? '' : undefined} onClick={() => onOpen(0)}
+                  className="private-text min-w-0 flex-1 truncate text-left text-control hover:text-foreground">
+                  {names[0]?.title}
+                </button>
+                {names.length > 1 && <span data-pair-more className="shrink-0 text-control text-muted-foreground tabular-nums">+ {names.length - 1}</span>}
+              </>)}
             </span>
           </TooltipTrigger>
           {/* Pointed at, the pair says what is in it, each pane in turn. */}
