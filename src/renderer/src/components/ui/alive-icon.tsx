@@ -24,8 +24,8 @@ export function AliveIcon({ icon: Icon, size = 16, className, style, play = fals
     const host = box.current?.closest('button, a, [role="button"]') ?? box.current?.parentElement
     if (!host) return
     const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
-    const start = (): void => void (!still() && handle.current?.startAnimation())
-    const stop = (): void => handle.current?.stopAnimation()
+    const start = (): void => void (!still() && settle(handle.current?.startAnimation()))
+    const stop = (): void => settle(handle.current?.stopAnimation())
     if (play) start()
     host.addEventListener('pointerenter', start)
     host.addEventListener('pointerleave', stop)
@@ -45,6 +45,13 @@ export function AliveIcon({ icon: Icon, size = 16, className, style, play = fals
   )
 }
 
+/**
+ * A drawing's move, let finish however it ends: one whose button went away
+ * mid-move (a card or menu closing under the pointer) has nothing left to
+ * draw on, and that is no error.
+ */
+const settle = (move: unknown): void => void Promise.resolve(move).catch(() => undefined)
+
 type Drawing = ComponentType<AnimatedIconProps & RefAttributes<AnimatedIconHandle>>
 
 /** Starts a drawing when the control it sits in is pointed at; still with Motion off. */
@@ -53,8 +60,8 @@ function useAlive(box: React.RefObject<HTMLElement | null>, handle: React.RefObj
     const host = box.current?.closest('button, a, [role="button"], [role="menuitem"], [role="tab"], label') ?? box.current?.parentElement
     if (!host) return
     const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
-    const start = (): void => void (!still() && handle.current?.startAnimation())
-    const stop = (): void => handle.current?.stopAnimation()
+    const start = (): void => void (!still() && settle(handle.current?.startAnimation()))
+    const stop = (): void => settle(handle.current?.stopAnimation())
     host.addEventListener('pointerenter', start)
     host.addEventListener('pointerleave', stop)
     return () => {
