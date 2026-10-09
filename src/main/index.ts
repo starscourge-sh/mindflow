@@ -905,6 +905,56 @@ const compact = (): { width: number; height: number } => {
   return { width: Math.min(1000, Math.round(workArea.width * 0.8)), height: Math.min(700, Math.round(workArea.height * 0.8)) }
 }
 
+/** The main window's size and place before it filled the screen, to go back to. */
+let homeBefore: Electron.Rectangle | null = null
+/**
+ * Whether a window covers its screen's work area, read from where it is (or
+ * is gliding to), never from `isMaximized`: a Mac's maximize is a zoom that a
+ * tiling manager or a second screen can stop short while it still says yes.
+ */
+function fillsScreen(win: BrowserWindow): boolean {
+  const bounds = boundsOf(win)
+  return win.isFullScreen() || sameBox(bounds, screen.getDisplayMatching(bounds).workArea)
+}
+const tellFilled = (win: BrowserWindow): void => void (!win.isDestroyed() && win.webContents.send('home:filled', fillsScreen(win)))
+
+/**
+ * The main window to its screen's work area, or back to where it was before
+ * (the compact size, centred, when that is gone or off every screen). Set
+ * directly, in one glide, then checked: if something moved it on the way,
+ * it is put there again, twice at most.
+ */
+async function fillHome(win: BrowserWindow, on: boolean): Promise<boolean> {
+  // Another window's glide (the box's) lands first rather than being dropped.
+  if (pending && pending.win !== win) settle()
+  if (win.isFullScreen()) win.setFullScreen(false)
+  if (win.isMaximized()) win.unmaximize()
+  const now = boundsOf(win)
+  const { workArea } = screen.getDisplayMatching(now)
+  let to: Electron.Rectangle
+  if (on) {
+    if (!sameBox(now, workArea)) homeBefore = now
+    to = workArea
+  } else {
+    const back = homeBefore
+    homeBefore = null
+    const seen = back && screen.getAllDisplays().some(({ workArea: area }) => back.x < area.x + area.width && back.x + back.width > area.x && back.y < area.y + area.height && back.y + back.height > area.y)
+    if (back && seen && !sameBox(back, workArea)) to = back
+    else {
+      const { width, height } = compact()
+      to = { width, height, x: Math.round(workArea.x + (workArea.width - width) / 2), y: Math.round(workArea.y + (workArea.height - height) / 2) }
+    }
+  }
+  await reshape(win, to)
+  for (let tries = 0; tries < 2 && !win.isDestroyed() && pending?.win !== win && !sameBox(win.getBounds(), to); tries++) {
+    win.setBounds(to, false)
+    await new Promise((wait) => setTimeout(wait, 120))
+  }
+  if (win.isDestroyed()) return false
+  tellFilled(win)
+  return fillsScreen(win)
+}
+
 function makeHome(): BrowserWindow {
   if (home) return home
 
@@ -938,9 +988,10 @@ function makeHome(): BrowserWindow {
     homeAsked = false
   })
   home.once('ready-to-show', () => (homePainted = true))
-  // The fill icon follows the window, however it was filled or brought back.
-  home.on('maximize', () => home?.webContents.send('home:filled', true))
-  home.on('unmaximize', () => home?.webContents.send('home:filled', false))
+  // The fill icon follows the window, however it was filled or brought back:
+  // the green button, a drag, a tiling manager. Not while it glides.
+  for (const change of ['maximize', 'unmaximize', 'resized', 'moved', 'enter-full-screen', 'leave-full-screen'] as const)
+    home.on(change as 'resized', () => void (home && pending?.win !== home && tellFilled(home)))
   // Raycast's settings way: put away filled or stretched, it comes back the
   // small window it was made as, centred on the screen you are on. Filling is
   // for this visit only.
@@ -951,6 +1002,7 @@ function makeHome(): BrowserWindow {
     home.webContents.send('window:hiding')
     if (home.isMaximized()) home.unmaximize()
     if (home.isFullScreen()) home.setFullScreen(false)
+    homeBefore = null
     const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
     const { width, height } = compact()
     home.setBounds({ width, height, x: Math.round(workArea.x + (workArea.width - width) / 2), y: Math.round(workArea.y + (workArea.height - height) / 2) })
@@ -2315,15 +2367,13 @@ app.whenReady().then(() => {
     updateTray()
   })
 
-  // The main window fills the screen, or goes back to where it was: the
-  // window's own maximize, which remembers the size and place it came from.
+  // The main window fills the screen's work area, or goes back to where it
+  // was. A press mid-glide reads where it is going, so two quick presses
+  // turn it round rather than undo each other.
   ipcMain.handle('home:fill', (event, fill: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return false
-    const on = fill === 'toggle' ? !win.isMaximized() : Boolean(fill)
-    if (on) win.maximize()
-    else win.unmaximize()
-    return on
+    return fillHome(win, fill === 'toggle' ? !fillsScreen(win) : Boolean(fill))
   })
 
   ipcMain.handle('window:expand', (event, expanded: unknown) => {
