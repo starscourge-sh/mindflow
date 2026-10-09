@@ -7,13 +7,19 @@
 //   QA_DATA=$(mktemp -d) QA_ENTRY=out-tokens/main/index.js MINDFLOW_QA_AWAY=1 node qa/box-tokens.mjs
 //
 // SHOTS=dir saves light and dark pictures of the box with tokens lit.
-import { mkdirSync } from 'fs'
+import { mkdirSync, mkdtempSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
 import { open } from './harness.mjs'
 
-const qa = await open()
-const { page } = qa
+// One data folder for the whole run, so a quit and relaunch comes back to the same box.
+process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'vigil-tokens-'))
+
+let qa = await open()
+let { page } = qa
 const errors = []
-page.on('pageerror', (error) => errors.push(`PAGEERROR ${error.message}`))
+const listen = () => page.on('pageerror', (error) => errors.push(`PAGEERROR ${error.message}`))
+listen()
 // React's own warnings (a dev build): said, not failed on, as some are not this box's.
 const warnings = []
 page.on('console', (message) => ['error', 'warning'].includes(message.type()) && warnings.push(message.text().slice(0, 240)))
@@ -270,6 +276,33 @@ await check('hover: the hint says what it does and how to keep it plain', async 
   await wait()
   const hint = await page.evaluate(() => document.querySelector('[data-token-hint]')?.textContent ?? '')
   expect(hint.includes('Start a 25 min timer') && hint.includes('Click to keep as plain text'), `hint: ${hint}`)
+})
+
+// --- kept plain, with the draft ---------------------------------------------
+await check('kept plain survives a reload of the box and a quit and relaunch', async () => {
+  await type('5m exercise')
+  await page.click(`${EDITOR} .box-token[data-box-token="timer"]`)
+  // The draft is written a moment after typing stops.
+  await wait(1800)
+  await page.reload()
+  await page.waitForSelector(EDITOR)
+  await wait(1200)
+  expect((await page.evaluate((e) => document.querySelector(e)?.textContent, EDITOR)) === '5m exercise', 'the draft did not come back after a reload')
+  expect(await lit('timer') === 0, 'lit again after a reload')
+  const child = qa.electron.process()
+  await qa.close?.()
+  try { child.kill('SIGKILL') } catch {}
+  qa = await open()
+  page = qa.page
+  listen()
+  await wait(1500)
+  expect((await page.evaluate((e) => document.querySelector(e)?.textContent, EDITOR)) === '5m exercise', 'the draft did not come back after a relaunch')
+  expect(await lit('timer') === 0, 'lit again after a relaunch')
+  await page.click(EDITOR)
+  await page.keyboard.press('Meta+ArrowDown')
+  await send()
+  expect(!(await v('focus:now')), 'a timer started after the relaunch')
+  expect(await capture('5m exercise'), 'not kept as a capture')
 })
 
 // --- pictures ------------------------------------------------------------------

@@ -280,6 +280,19 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
 
 // --- the plugin -------------------------------------------------------------
 
+/** Where the draft's kept-plain places wait between sittings, beside the draft itself. */
+const KEPT = 'capture-draft-kept'
+/** What was kept plain in these words last time, if they are the same words. */
+function keptFor(doc: ProseMirrorNode): Kept[] {
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEPT) ?? 'null') as { text: string; kept: Omit<Kept, 'seq'>[] } | null
+    if (!saved || saved.text !== doc.textContent) return []
+    return saved.kept.filter((one) => one.from >= 0 && one.to <= doc.content.size && one.from < one.to).map((one) => ({ ...one, seq: 0 }))
+  } catch {
+    return []
+  }
+}
+
 const key = new PluginKey<State>('box-tokens')
 
 const paint = (doc: ProseMirrorNode, plan: BoxPlan): DecorationSet =>
@@ -340,7 +353,7 @@ export function boxTokensPlugin({ context, onPlan, onKept, onHover }: BoxTokensO
   return new Plugin<State>({
     key,
     state: {
-      init: (_, state) => make(state.doc, [], 0, 0),
+      init: (_, state) => make(state.doc, context().off ? [] : keptFor(state.doc), 0, 0),
       apply: (tr: Transaction, was: State, _old: EditorState, state: EditorState): State => {
         const meta = tr.getMeta(key) as Meta | undefined
         if (!tr.docChanged && !meta) return was
@@ -374,7 +387,23 @@ export function boxTokensPlugin({ context, onPlan, onKept, onHover }: BoxTokensO
         onPlan(plan)
       }
       tell()
-      return { update: tell, destroy: () => onHover(null) }
+      // Kept with the draft: the same words coming back after a quit or a
+      // reload come back with what was kept plain in them.
+      let stored = ''
+      const keep = (): void => {
+        if (context().off) return
+        const kept = key.getState(view.state)?.kept ?? []
+        const now = JSON.stringify({ text: view.state.doc.textContent, kept: kept.map(({ kind, from, to }) => ({ kind, from, to })) })
+        if (now === stored) return
+        stored = now
+        try {
+          if (kept.length) localStorage.setItem(KEPT, now)
+          else localStorage.removeItem(KEPT)
+        } catch {
+          // Storage refused: kept for this sitting only.
+        }
+      }
+      return { update: () => (tell(), keep()), destroy: () => onHover(null) }
     },
     props: {
       decorations: (state) => key.getState(state)?.deco,
