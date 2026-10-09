@@ -243,7 +243,8 @@ export function LongNote({ scroll, picked, bar, card, edited, saved }: { scroll:
           <p className="mb-5 text-[0.8125rem] text-muted-foreground">Study notes · #reading · 2,340 words</p>
           <h2 className="mb-2 text-[1.25rem] font-semibold text-foreground">{heads[1]}</h2>
           <p className={p}>Walton writes to his sister from the ice. He wants glory; Victor, half frozen, warns him what wanting it cost.</p>
-          <div className="mb-4 flex gap-3 rounded-lg border-l-[3px] border-[var(--tt-color-text-purple)] bg-[var(--tt-color-highlight-purple)] px-4 py-3 text-[0.9375rem] leading-snug text-foreground">
+          <div className="mb-4 flex gap-3 rounded-lg border border-[color-mix(in_srgb,var(--tt-color-text-purple)_22%,transparent)] bg-[color-mix(in_srgb,var(--tt-color-text-purple)_6%,transparent)] px-4 py-3 text-[0.9375rem] leading-snug text-foreground">
+            {/* The note's own callout: an even hairline and a whisper of its colour, never a stripe down one side. */}
             <span aria-hidden>💡</span>Mary Shelley began it at eighteen, at Lake Geneva in 1816, the year without a summer.
           </div>
           <div className="relative mb-4 h-36 overflow-hidden rounded-lg bg-[color-mix(in_oklab,var(--tt-color-text-brown)_25%,var(--background))]">

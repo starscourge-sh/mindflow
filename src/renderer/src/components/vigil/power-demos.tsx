@@ -971,7 +971,7 @@ const EmbedsDemo: Demo = ({ live }) => {
           {at < 2 ? (
             <motion.div key="raw" exit={{ opacity: 0 }} className="mt-1"><Said text={at === 0 ? text : EMBED} />{at === 0 && <Caret />}</motion.div>
           ) : (
-            <motion.div key="card" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={spring.slow} className="mt-1.5 rounded-md border-l-2 bg-foreground/[0.04] px-2.5 py-1.5" style={{ borderColor: 'var(--tt-color-text-green)' }}>
+            <motion.div key="card" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={spring.slow} className="mt-1.5 rounded-md border border-[color-mix(in_srgb,var(--tt-color-text-green)_22%,transparent)] bg-[color-mix(in_srgb,var(--tt-color-text-green)_6%,transparent)] px-2.5 py-1.5">
               <div className="text-meta font-medium text-foreground">Trip plan</div>
               <div className="mt-1 flex flex-col gap-1"><Line w="85%" /><Line w="60%" /></div>
             </motion.div>

@@ -489,9 +489,10 @@ html:is([data-width='page'], [data-width='wide']) .note-pane .mindflow-editor-wr
     color: color-mix(in oklab, var(--foreground) 82%, transparent);
     font-style: italic;
   }
+  /* A plain typographic rule: square ends, no tint behind it. */
   > blockquote::before {
     width: 2px;
-    border-radius: 1px;
+    border-radius: 0;
   }
   /* Pictures: inside the column, centred, a soft corner, never taller than
      most of the window. One sized by hand keeps its size. */
