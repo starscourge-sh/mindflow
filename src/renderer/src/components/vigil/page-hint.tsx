@@ -27,7 +27,15 @@ const HINTS: Record<string, string> = {
   goals: 'A day you are aiming for, and the road of days to it. Log what you did; the beacon keeps it in sight.',
   nuggets: 'What you kept, in your own words. These are what come back as hints and cards.',
   tags: 'Every #tag has a page. Give it a colour, or a date to be ready by.',
-  home: 'What is coming back to you today, and shelves of what you kept.'
+  home: 'What is coming back to you today, and shelves of what you kept.',
+  matrix: "Your tasks sorted by urgent and important. Drag one to another square and it takes that square's importance.",
+  routines: "What you do again and again. Write 'every!' in place of 'every' and the next one counts from when you last did it.",
+  later: "For what has no day yet. Say 'this month', 'this year' or 'someday' when you type it, and it waits here.",
+  upcoming: 'Every task with a day, day by day. T, M or W on a row moves it to today, tomorrow or next week.',
+  stats: 'How you have been using Vigil, told in sentences. Your month and Your year play the whole stretch back, a page at a time.',
+  map: 'Every note you linked, as dots joined by lines. Type [[ in any note to link it to another.',
+  monthpage: 'One page a month: what it was for, and how it went. The year page lines the months up as seasons.',
+  articles: "Your own words on one idea. In Ideas, press X on a few and 'Start an article' puts them on one page to write from."
 }
 
 export function PageHint({ page }: { page: string }): React.JSX.Element | null {

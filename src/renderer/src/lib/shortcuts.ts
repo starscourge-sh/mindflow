@@ -50,6 +50,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: 'G E', does: 'Go to Goals: the days you are working toward', where: 'Main window' },
   { group: 'Getting around', keys: 'G #', does: 'Go to Tags', where: 'Main window' },
   { group: 'Getting around', keys: 'G S', does: 'Go to Stats', where: 'Main window' },
+  { group: 'Getting around', keys: 'G X', does: 'Go to Map: your linked notes as dots', where: 'Main window' },
   { group: 'Getting around', keys: 'G L', does: 'Go to All captures', where: 'Main window' },
   { group: 'Getting around', keys: 'G D', does: 'Go to Discarded', where: 'Main window' },
   { group: 'Getting around', keys: 'G P', does: "Go to today's page", where: 'Main window' },
