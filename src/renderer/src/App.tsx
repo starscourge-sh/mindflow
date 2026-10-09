@@ -22,6 +22,8 @@ import { EXITS, exit, findCaptures, findHeadings, follow } from './lib/capture-l
 import { toMarkdown } from './lib/export'
 import { useSameWords } from './lib/same-words'
 import { CaptureList, useCaptures, type CaptureMeta } from './components/capture-list'
+import { Example } from './components/vigil/example'
+import { exampleInbox } from './lib/examples'
 import { RotCards, textOf } from './components/rot-cards'
 import { HintCard } from './components/hint-card'
 import { Pins } from './components/pins'
@@ -1927,7 +1929,11 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                 <div className="px-1 pb-3 empty:hidden">{chips}</div>
                 {shown.length > 0 && <CaptureList groups={groups} density={density} selected={editing} cursor={cursor} onCursor={setCursor} chosen={chosen} onPick={onOpen} />}
                 {!shown.length && !unloaded(captures) && (
-                  open.length ? (
+                  !captures.length ? (
+                    <Example compact tryIt="write a thought on the left and send it with ⌘↵. It waits here.">
+                      <CaptureList groups={[['', exampleInbox()]]} density={density} cursor={-1} onPick={() => undefined} />
+                    </Example>
+                  ) : open.length ? (
                     <Empty compact shape={['ellipse', 3]} title="Nothing matches">The filters hide everything here. Clear them with the × above, or press F to change them.</Empty>
                   ) : (
                     <Rest compact seed="inbox"><Empty compact shape={['flower', 2]} title={captures.length ? 'Nothing waiting' : 'Nothing caught yet'}>{captures.length ? 'Every capture has taken its exit. Write the next thought on the left.' : 'Write a thought on the left and send it with ⌘↵: it waits here.'}</Empty></Rest>

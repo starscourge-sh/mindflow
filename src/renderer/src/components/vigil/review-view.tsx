@@ -7,7 +7,9 @@ import { EASE, byKeys, shift } from '@/lib/motion'
 import { MindflowEditor } from '../mindflow'
 import { textOf } from '../rot-cards'
 import { chime, fold } from '@/lib/sound'
-import { interval, vigil, when, type Due, type Exam, useLive } from '@/lib/vigil'
+import { interval, unloaded, vigil, when, type Due, type Exam, type Item, useLive } from '@/lib/vigil'
+import { exampleCard } from '@/lib/examples'
+import { Example } from './example'
 import { Empty, Kbd, Page, Rolling, toast, Typed, typing, Pressed } from './ui'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -53,6 +55,8 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   const [said, setSaid] = useState('')
   const started = useRef(Date.now())
   useEffect(() => void vigil.queue().then(setQueue), [])
+  // Nothing has a question to be tested on yet: an example card shows what Review does with one.
+  const ideas = useLive(() => vigil.items('nugget'), [] as Item[], [], ['item'])
   const card = queue?.[at]
   // Exams ahead, nearest first, each with how ready it is.
   const exams = useLive(vigil.exams, [] as Exam[])
@@ -184,11 +188,17 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
             </Empty>
           </Rest>
         ) : (
+          !unloaded(ideas) && !ideas.some((one) => one.prompt) ? (
+            <Example compact={compact} tryIt="open an idea and write the question it answers, under Review. It joins the queue by tomorrow, and comes back just before you would forget it.">
+              <ExampleCard />
+            </Example>
+          ) : (
           <Rest seed="review-none" compact={compact}>
             <Empty compact={compact} shape={['moon', 1]} title="Nothing to review">
               Review holds only what you choose to be tested on. Open an idea and write the question it answers, under Review: it joins the queue by tomorrow.
             </Empty>
           </Rest>
+          )
         )}
         <Exams exams={exams} />
       </Page>
@@ -370,6 +380,30 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
       </motion.div>
       </AnimatePresence>
     </Page>
+  )
+}
+
+/** A card as Review shows it once turned over: the question, the answer, and the four grades with when each brings it back. */
+function ExampleCard(): React.JSX.Element {
+  const back = ['in 10 min', 'in 2 days', 'in 4 days', 'in 9 days']
+  return (
+    <div className="flex flex-col gap-4 px-5 py-6">
+      <div className="rounded-lg border bg-accent/30 px-5 py-6">
+        <h2 className="font-heading text-title font-semibold tracking-[-0.018em] text-balance">{exampleCard.prompt}</h2>
+      </div>
+      <div className="rounded-lg border bg-accent/30 px-5 py-4">
+        <p className="text-xs text-muted-foreground">From {exampleCard.from}</p>
+        <p className="mt-1.5 leading-relaxed">{exampleCard.answer}</p>
+      </div>
+      <div className="@container grid grid-cols-4 gap-2">
+        {GRADES.map(({ grade, label, tone }, at) => (
+          <span key={grade} className="flex h-9 min-w-0 items-center justify-center gap-2 rounded-md border px-2 text-control">
+            <span className="font-medium" style={{ color: tone }}>{label}</span>
+            <span className="text-xs whitespace-nowrap text-muted-foreground tabular-nums">{back[at]}</span>
+          </span>
+        ))}
+      </div>
+    </div>
   )
 }
 

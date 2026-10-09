@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { DndContext, MeasuringStrategy, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors, type CollisionDetection } from '@dnd-kit/core'
 import { alive } from '@/components/ui/alive-icon'
@@ -9,7 +9,9 @@ import RefreshIcon from '@/components/ui/refresh-icon'
 
 import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
-import { useLive, vigil, when, whenInLine, type Task, type TaskFull } from '@/lib/vigil'
+import { unloaded, useLive, vigil, when, whenInLine, type Task, type TaskFull } from '@/lib/vigil'
+import { exampleTasks } from '@/lib/examples'
+import { Example } from './example'
 import { useOpened } from '@/lib/nav'
 import { Page, Rolling, Tip, toast, typing, Pressed } from './ui'
 import { PriorityIcon, setPriority } from './task-input'
@@ -65,7 +67,11 @@ const shifted = (iso: string, by: number): string => dayjs(iso).add(by, 'day').t
  * and the lists' own keys work on the card: E, T, M, W, 1 to 4.
  */
 export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
-  const tasks = useLive(vigil.tasks, [] as Task[])
+  const real = useLive(vigil.tasks, [] as Task[])
+  // Nothing with a day yet: a made-up week shows what this holds, dimmed and out of reach.
+  const example = !unloaded(real) && !real.some((task) => task.status === 'open' && (task.dueAt || task.deadline))
+  const examples = useMemo(exampleTasks, [])
+  const tasks = example ? examples : real
   // Which week, as days from today: 0, 7, 14.
   const [from, setFrom] = useState(0)
   // Reviews ahead only: a week gone by has none left to plan around.
@@ -187,7 +193,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey) return
+      if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || example) return
       const key = event.key
       const take = (run: () => void): void => {
         event.preventDefault()
@@ -296,6 +302,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
             move(from.card, to - from.col)
           }}
         >
+        <Example on={example} className="min-h-0 flex-1" tryIt="give a task a day, like 'send the reading list thursday', in Today or Upcoming. It shows here on that day.">
         <div ref={strip} onScroll={measure}
           style={{ maskImage: edges.left || edges.right ? `linear-gradient(to right, ${edges.left ? 'transparent, black 3rem' : 'black'}, ${edges.right ? 'black calc(100% - 3rem), transparent' : 'black'})` : undefined }}
           className="grid min-h-0 flex-1 gap-px overflow-x-auto p-3 [grid-template-columns:repeat(7,minmax(8rem,1fr))]">
@@ -381,6 +388,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
             )
           })}
         </div>
+        </Example>
         {/* Settling back is shown only when it goes back: one let go over
             another day lands there at once, where its card fades in. */}
         <Overlay modifiers={[underPointer]} dropAnimation={document.documentElement.dataset.motion === 'off' || landing ? null : SETTLE}>

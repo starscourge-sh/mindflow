@@ -53,6 +53,8 @@ import { ListSearch, NoteRail, PaneButtons, Peek, matches, still } from './note-
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { useOpened } from '@/lib/nav'
 import { Rest } from './scenery'
+import { Example } from './example'
+import { exampleArchived, exampleDiscarded, exampleInbox } from '@/lib/examples'
 import type { MenuItem } from './row-menu'
 import { PinnedQuestions, clueInto } from './pinned-questions'
 import { Board, useBoard } from './board-view'
@@ -97,6 +99,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
 }): React.JSX.Element {
   const all = useCaptures(true)
   const kept = all.filter(keep)
+  // Nothing of yours here yet: the page as it will look, with a few made-up notes.
+  const examples = unloaded(all) || kept.length || (all.length && !archived && title !== 'Discarded') ? [] : archived ? exampleArchived() : [...exampleInbox(), ...exampleDiscarded()].filter(keep)
   const { groups: arranged, display, chips, density, view, setView, move, moveBy } = useCaptureDisplay(`captures:${title}`, kept, undefined, archived)
   // The list's width: beside the note, over the whole page, or a rail of pictures.
   const pane = view.pane ?? 'list'
@@ -306,7 +310,11 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
             onPick={spread ? (id) => (setPeek(id), setCursor(shown.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined}
             onChoose={(id) => setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))}
             onMove={(id, target, after) => move(kept.map((one) => one.id), id, target, after)} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
-        ) : unloaded(all) ? null : kept.length ? (
+        ) : unloaded(all) ? null : examples.length ? (
+          <Example tryIt={archived ? 'right-click any note and choose Archive. It goes out of sight here, never away.' : title === 'Discarded' ? 'press D on a note in your Inbox. It waits here, and can always come back.' : 'press ⌘. in any app, write a thought, and send it with ⌘↵. It waits here until you tidy or decide.'}>
+            <CaptureList groups={[['', examples]]} density={density} cursor={-1} onPick={() => undefined} className="mx-3 my-2" />
+          </Example>
+        ) : kept.length ? (
           <Empty shape={['ellipse', 3]} title="Nothing matches">
             {spread && query.trim() ? 'No title here has those words. Escape clears the search.' : "The filters hide everything here. Clear them with the × above, or press F to change them."}
           </Empty>

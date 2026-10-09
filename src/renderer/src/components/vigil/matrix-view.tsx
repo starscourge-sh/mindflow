@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { motion } from 'motion/react'
 import { DndContext, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
 import { CalendarDays } from 'lucide-react'
@@ -10,6 +10,8 @@ import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
 import { placed } from '@/lib/tasks'
 import { unloaded, useLive, vigil, when, whenInLine, type Task, type TaskFull } from '@/lib/vigil'
+import { exampleTasks } from '@/lib/examples'
+import { Example } from './example'
 import { useOpened } from '@/lib/nav'
 import { isUrgent, quadrantOf, type Quadrant } from '../../../../main/task-words'
 import { dayjs, startOfDay } from '../../../../main/dates'
@@ -47,7 +49,11 @@ const onDay = (days: number, from: string | null): string => {
  * to push the date. Each move is undoable from its notice.
  */
 export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
-  const tasks = useLive(vigil.tasks, [] as Task[])
+  const real = useLive(vigil.tasks, [] as Task[])
+  // No open tasks yet: four boxes of made-up ones show how it sorts them, dimmed and out of reach.
+  const example = !unloaded(real) && !real.some((task) => task.status === 'open')
+  const examples = useMemo(exampleTasks, [])
+  const tasks = example ? examples : real
   const [open, setOpen] = useState<TaskFull | null>(null)
   const [at, setAt] = useState<{ q: number; id: string | null }>({ q: 0, id: null })
   const [over, setOver] = useState<Quadrant | null>(null)
@@ -114,7 +120,7 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
+      if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || example) return
       const key = event.key
       const take = (run: () => void): void => (event.preventDefault(), run())
       // The push asked for: ↵ takes a week, Esc keeps it where it was.
@@ -149,7 +155,7 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
 
   return (
     <>
-      <Page aside={!!open} wide title="matrix" count={live.length} unit={['task', 'tasks']} actions={
+      <Page aside={!!open} wide title="matrix" count={example ? undefined : live.length} unit={['task', 'tasks']} actions={
         <span className="hidden text-xs whitespace-nowrap @[52rem]/page:inline">
           Urgent: late, or within two days · <Pressed keys="H" /> <Pressed keys="J" /> <Pressed keys="K" /> <Pressed keys="L" /> move · <Pressed keys="1" /> to <Pressed keys="4" /> send to a box
         </span>
@@ -175,6 +181,7 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
             send(task, String(over.id) as Quadrant)
           }}
         >
+          <Example on={example} tryIt="add a task in Today, like 'finish the essay by friday !!', and see which box it lands in. Drag it to another box to change how much it matters.">
           <div className="grid grid-cols-1 gap-3 p-3 @[34rem]/page:grid-cols-2">
             {QUADS.map((quad, q) => (
               <Box key={quad.id} id={quad.id}
@@ -212,6 +219,7 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
               </Box>
             ))}
           </div>
+          </Example>
           <Overlay modifiers={[underPointer]} dropAnimation={document.documentElement.dataset.motion === 'off' || landing ? null : SETTLE}>
             {carried ? (
               <motion.div initial={{ rotate: 0, scale: 1 }} animate={{ rotate: -2.5, scale: 1.03 }} transition={{ type: 'spring', stiffness: 600, damping: 30 }}

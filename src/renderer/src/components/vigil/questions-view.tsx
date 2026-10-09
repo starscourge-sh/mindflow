@@ -15,6 +15,8 @@ import { EASE } from '@/lib/motion'
 import { MindflowEditor, TAGS } from '../mindflow'
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, vigil, when, type Item, type ItemFull } from '@/lib/vigil'
+import { exampleQuestions } from '@/lib/examples'
+import { Example } from './example'
 import { findCaptures, findHeadings, flying, follow } from '@/lib/capture-links'
 import { archive, openWindow, saveAttachments, useOpenNote } from '@/lib/notes'
 import { useKept, useOpened } from '@/lib/nav'
@@ -256,6 +258,11 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
             onPick={spread ? (id) => (setPeek(id), setCursor(items.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
         ) : unloaded(all) ? null : spread && query.trim() ? (
           <Empty shape={['ellipse', 3]} title="Nothing matches">No question here has those words. Escape clears the search.</Empty>
+        ) : !all.length ? (
+          // None held yet: the page as it will look, with a few made-up ones.
+          <Example tryIt={<>press H on a note in your Inbox, or <button type="button" onClick={() => void startQuestion(go)} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">ask a new question</button>. Then add clues to it as they turn up.</>}>
+            <NoteList groups={[['', exampleQuestions().filter((one) => (show === 'open') === !one.closedAt).map((one) => questionEntry(one))]]} density={density} table="nuggets" cursor={-1} onPick={() => undefined} className="mx-3 my-2" />
+          </Example>
         ) : show === 'open' ? (
           <Empty shape={['ellipse', 3]} title="No questions yet" action={<Button variant="secondary" size="sm" onClick={() => void startQuestion(go)}><Plus className="size-3.5" /> New question</Button>}>
             A question is for something you keep thinking about and cannot answer yet. It is never tested: it just collects clues, for as long as it takes. Press H on a note in your Inbox to make it one.

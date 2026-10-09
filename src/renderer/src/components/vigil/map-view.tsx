@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { notes, type MapNode, type NoteMap } from '@/lib/notes'
 import { useLive } from '@/lib/vigil'
+import { exampleMap } from '@/lib/examples'
+import { Example } from './example'
 import { chime } from '@/lib/sound'
 import { Empty, Rolling, Tip } from './ui'
 
@@ -38,7 +40,11 @@ function resolve(css: string): string {
  * pan, pinch or ⌘-scroll to zoom. Notes with no links are left off.
  */
 export function MapView({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element {
-  const map = useLive(notes.map, null as NoteMap | null)
+  const real = useLive(notes.map, null as NoteMap | null)
+  // No links yet: a made-up map of a few books shows what it draws, dimmed and out of reach.
+  const example = !!real && !real.nodes.length
+  const examples = useMemo(exampleMap, [])
+  const map = example ? examples : real
   const box = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
   // The dot pointed at, by its middle and size on the screen.
@@ -382,7 +388,7 @@ export function MapView({ onOpen }: { onOpen: (type: string, id: string) => void
   return (
     <section className="relative flex min-w-0 flex-1 flex-col">
       {/* Like every page, the line goes when it has nothing to count. */}
-      {count ? <header className="flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground">
+      {count && !example ? <header className="flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground">
         <span className="whitespace-nowrap tabular-nums"><Rolling text={count} /> linked {count === 1 ? 'note' : 'notes'}</span>
         <span className="whitespace-nowrap tabular-nums">· <Rolling text={map!.edges.length} /> {map!.edges.length === 1 ? 'link' : 'links'}</span>
         <div className="ml-auto flex items-center gap-1">
@@ -392,6 +398,7 @@ export function MapView({ onOpen }: { onOpen: (type: string, id: string) => void
         </div>
       </header> : null}
       {count ? (
+        <Example on={example} className="min-h-0 flex-1" tryIt="type [[ in any note and pick another one. The two show up here as dots, joined by a line.">
         <div ref={box} className="relative min-h-0 flex-1 overflow-hidden select-none">
           <canvas ref={canvas} className="absolute inset-0 touch-none" />
           {hover && (
@@ -412,6 +419,7 @@ export function MapView({ onOpen }: { onOpen: (type: string, id: string) => void
             {map!.alone ? <span>{map!.alone} {map!.alone === 1 ? 'note has' : 'notes have'} no links and {map!.alone === 1 ? 'is' : 'are'} left off</span> : null}
           </div>
         </div>
+        </Example>
       ) : !map ? null : (
         <div className="page-column">
           <Empty shape={['polygon', 2]} title="No links yet">

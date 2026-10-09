@@ -29,6 +29,8 @@ import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-k
 import { age } from '../capture-list'
 import { findCaptures, findHeadings, follow } from '@/lib/capture-links'
 import { interval, splitTags, unloaded, useLive, vigil, when, whenInLine, type Item, type ItemFull } from '@/lib/vigil'
+import { exampleIdeas, exampleWriting } from '@/lib/examples'
+import { Example } from './example'
 import { makeTask } from '@/lib/tasks'
 import { useSameWords } from '@/lib/same-words'
 import { Empty, Island, Page, Prop, Props, refuse, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Rolling, Typed, showTopTitle, Pressed } from './ui'
@@ -349,7 +351,12 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
             folds={folding.rows ? { ...folding.folds(menuFor), onNewNote: pick } : undefined} />
         ) : all.length && query.trim() ? (
           <Empty shape={['ellipse', 3]} title="Nothing matches">No title here has those words. Escape clears the search.</Empty>
-        ) : unloaded(all) ? null : tier === 'nugget' ? (
+        ) : unloaded(all) ? null : !all.length ? (
+          // Nothing kept yet: the page as it will look, with a few made-up ones.
+          <Example tryIt={tier === 'nugget' ? 'open a note in your Inbox and press P. It lands here in your own words, ready to come back to you.' : 'press New article above, or pick a few ideas with X and choose Start an article.'}>
+            <NoteList groups={[['', (tier === 'nugget' ? exampleIdeas() : exampleWriting()).map((one) => itemEntry(one))]]} density={density} table="nuggets" cursor={-1} onPick={() => undefined} className="mx-3 my-2" />
+          </Example>
+        ) : tier === 'nugget' ? (
           <Empty shape={['star', 3]} title="No ideas yet">
             An idea is a note worth keeping, in your own words. Pick one in your Inbox and press P, and it lands here, ready to come back to you.
           </Empty>

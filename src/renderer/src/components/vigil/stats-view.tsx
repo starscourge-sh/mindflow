@@ -4,6 +4,8 @@ import SparklesIcon from '@/components/ui/sparkles-icon'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { useLive, vigil, type Stats } from '@/lib/vigil'
+import { exampleStats } from '@/lib/examples'
+import { Example } from './example'
 import { Island, Page, Rolling } from './ui'
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
@@ -42,7 +44,10 @@ function Section({ title, children }: { title: string; children: ReactNode }): R
  * abandoned, and time to first use, which says whether it works at all.
  */
 export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Element {
-  const stats = useLive(vigil.stats, null as Stats | null)
+  const real = useLive(vigil.stats, null as Stats | null)
+  // Nothing done here yet: the page told from a made-up few months, dimmed, so you can see what it will say.
+  const example = !!real && !real.exits.some((row) => row.n) && !real.week && !real.tasksDone && !real.nuggets && !real.reviews.n
+  const stats = example ? exampleStats() : real
   // The month or the year, Wrapped's way, over the page; from here or ⌘K.
   const [recap, setRecap] = useState<'month' | 'year' | null>(asked === 'month' || asked === 'year' ? asked : null)
   const wrap = (period: 'month' | 'year'): void => {
@@ -83,6 +88,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
         <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => wrap('year')}>Your year</Button>
       </>
     }>
+      <Example on={example} tryIt="catch a few thoughts with ⌘. and tidy them. By the end of the week this page tells you how it went, in sentences.">
       <div className="px-5 pb-20 [&>section]:max-w-[62ch]">
         <Section title="Today">
           <p>
@@ -258,6 +264,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           </div>
         </Section>
       </div>
+      </Example>
     </Page>
     </>
   )

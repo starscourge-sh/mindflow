@@ -15,6 +15,8 @@ import { findCaptures, findHeadings, follow } from '@/lib/capture-links'
 import { dayOf, notes, type Day, type DayEntry } from '@/lib/notes'
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/vigil'
+import { exampleDay } from '@/lib/examples'
+import { Example } from './example'
 import { useKept } from '@/lib/nav'
 import { Island, Page, Rolling, Tip, Typed, toast, typing, Pressed } from './ui'
 import { DayBanner } from './scenery'
@@ -88,9 +90,12 @@ export function DayView({ onOpen, start, onScale }: {
     void notes.saveDay(day, { reviewed: on }).then(() =>
       toast(on ? 'Day reviewed' : 'Not reviewed after all', () => void notes.saveDay(day, { reviewed: !on })))
   }
-  const sections: [string, typeof Inbox, DayEntry[]][] = data
-    ? [['Captured', Inbox, data.captured], ['Dealt with', CheckCircle2, data.resolved], ['Reviewed', Brain, data.studied],
-      ['Done', ListTodo, day === today ? data.done.filter((entry) => !(entry.type === 'task' && listed.includes(entry.id))) : data.done]]
+  // A first day with nothing in it: what the page gathers, shown with a made-up day under your own words.
+  const example = !!data && data.day === day && day === today && !data.exists && !data.captured.length && !data.resolved.length && !data.studied.length && !data.done.length
+  const held = example ? exampleDay(day) : data
+  const sections: [string, typeof Inbox, DayEntry[]][] = held
+    ? [['Captured', Inbox, held.captured], ['Dealt with', CheckCircle2, held.resolved], ['Reviewed', Brain, held.studied],
+      ['Done', ListTodo, day === today ? held.done.filter((entry) => !(entry.type === 'task' && listed.includes(entry.id))) : held.done]]
     : []
 
   return (
@@ -158,6 +163,7 @@ export function DayView({ onOpen, start, onScale }: {
             onChange={(body) => void notes.saveDay(day, { body })}
           />
         )}
+        <Example on={example} flush className="mt-6" tryIt="write a line about your day above. What you catch, finish and review today gathers underneath on its own.">
         {sections.map(([title, Icon, list]) => (
           <Island key={title} className="mt-6 first:mt-6" title={
             <span className="flex items-center gap-2">
@@ -187,6 +193,7 @@ export function DayView({ onOpen, start, onScale }: {
             }) : <p className="px-4 py-2 text-xs text-muted-foreground">Nothing</p>}
           </Island>
         ))}
+        </Example>
       </div>
       </div>
     </Page>

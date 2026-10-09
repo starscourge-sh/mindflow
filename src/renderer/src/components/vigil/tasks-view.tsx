@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import * as chrono from 'chrono-node'
 import type { JSONContent } from '@tiptap/core'
 import { CalendarDays, CircleX, Plus, Square, Ban } from 'lucide-react'
@@ -42,6 +42,9 @@ import { TaskLog } from './task-log'
 import { GlossButton, GlossLine } from './gloss-line'
 import { dayjs, startOfDay } from '../../../../main/dates'
 import { SessionFooter } from './session-footer'
+import { Example } from './example'
+import { exampleTasks } from '@/lib/examples'
+import { GhostText } from './ghost'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Bell = alive(FilledBellIcon)
@@ -70,6 +73,14 @@ const tone = (task: Task): string | undefined => {
   if (due < startOfDay()) return 'var(--tt-color-text-red)'
   if (due < startOfDay(1)) return 'var(--tt-color-text-orange)'
   return undefined
+}
+
+/** The one thing to try on each list while it shows its example. */
+const TRY_TASKS = {
+  today: "type 'call Mum friday 6pm' in the line above. Vigil reads the day and the time.",
+  upcoming: "type 'book seats for Hamlet on the 14th' above. It lands on that day.",
+  routines: "type 'water the plants every! 3 days' above. The next one counts from when you last did it.",
+  later: "type 'learn German someday' above. It waits here until you give it a day."
 }
 
 /** The Scheduled island's buttons: one size, and a faint fill so each reads as a button on a light page too. */
@@ -146,7 +157,11 @@ const byNote = (list: Task[]): [string, Task[], string][] =>
  * time it was done, and a way back to the capture it came from.
  */
 export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' | 'routines' | 'later'; focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
-  const tasks = useLive(vigil.tasks, [] as Task[])
+  const real = useLive(vigil.tasks, [] as Task[])
+  // Nothing of this list's yet: a few made-up tasks show what it holds, dimmed and out of reach.
+  const example = !unloaded(real) && !real.some((task) => task.status === 'open' && (mode === 'routines' ? !!task.recurrence : mode === 'later' ? !!bucket(task) : mode === 'upcoming' ? !task.recurrence : true))
+  const examples = useMemo(exampleTasks, [])
+  const tasks = example ? examples : real
   const [open, setOpen] = useState<TaskFull | null>(null)
   const [draft, setDraft] = useState('')
   const [leaving, setLeaving] = useState<string | null>(null)
@@ -211,7 +226,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   const pick = (id: string): void => void vigil.task(id).then(setOpen)
   // Sent here for one task, from search or a link: open it. Opening one is a step Back returns from.
   useOpened(open?.id, focus, pick, () => setOpen(null))
-  const [cursor, setCursor] = useListKeys(shown.length, { onOpen: (index) => pick(shown[index].id) })
+  const [cursor, setCursor] = useListKeys(example ? 0 : shown.length, { onOpen: (index) => pick(shown[index].id) })
   const addRef = useRef<HTMLInputElement>(null)
 
   // On the row the keyboard is on: Alt-J and Alt-K move it (dates say what is
@@ -225,7 +240,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
         event.preventDefault()
         return addRef.current?.focus()
       }
-      const task = shown[cursor]
+      const task = example ? undefined : shown[cursor]
       if (!task) return
       if (event.altKey && (event.code === 'KeyJ' || event.code === 'KeyK')) {
         event.preventDefault()
@@ -278,9 +293,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   return (
     <>
       <Page aside={!!open}
- title={mode} count={shown.length} actions={
+ title={mode} count={example ? undefined : shown.length} actions={
         <span className="flex items-center gap-2">
-          {shown.length > 0 && <span className="hidden text-xs whitespace-nowrap @[48rem]/page:inline"><Pressed keys="?" /> or <Pressed keys="⌘/" /> for keys</span>}
+          {shown.length > 0 && !example && <span className="hidden text-xs whitespace-nowrap @[48rem]/page:inline"><Pressed keys="?" /> or <Pressed keys="⌘/" /> for keys</span>}
           <Display
             view={view}
             onChange={setView}
@@ -314,6 +329,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
         </form>
 
         {shown.length ? (
+          <Example on={example} tryIt={TRY_TASKS[mode]}>
           <VirtualList
             items={rows}
             keyOf={(row) => ('id' in row ? row.id : `heading-${row.key}`)}
@@ -421,6 +437,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
               )
             }}
           </VirtualList>
+          </Example>
         ) : unloaded(tasks) ? null : (
           <Rest seed="today" off={mode !== 'today'}>
           <Empty shape={mode === 'today' ? ['star', 6] : mode === 'routines' ? ['flower', 5] : mode === 'later' ? ['moon', 3] : ['ellipse', 4]} title={mode === 'today' ? 'Nothing due today' : mode === 'routines' ? 'No routines' : mode === 'later' ? 'Nothing put off' : 'Nothing coming up'}>

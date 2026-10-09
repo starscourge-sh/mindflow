@@ -1,5 +1,5 @@
 import { chime, step } from '@/lib/sound'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { toast, VirtualList, refuse } from './ui'
 import { RowMenu, copy } from './row-menu'
 import { Switch } from '@/components/ui/switch'
@@ -26,6 +26,8 @@ import { TagStream } from './tag-read'
 import { motion } from 'motion/react'
 import { dayMonth } from '../../../../main/dates'
 import { TAG_DOES } from '../capture-kinds/kind-fields'
+import { exampleTags } from '@/lib/examples'
+import { Example } from './example'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowLeft = alive(ArrowNarrowLeftIcon)
@@ -48,7 +50,11 @@ const does = (tag: string, action: boolean): { short: string; long: string } | n
  * often a tag comes up is shown, never acted on: no threshold, no nagging.
  */
 export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string) => void; focus?: string }): React.JSX.Element {
-  const tags = useLive(vigil.tags, [] as Awaited<ReturnType<typeof vigil.tags>>)
+  const real = useLive(vigil.tags, [] as Awaited<ReturnType<typeof vigil.tags>>)
+  // No tags yet: a few made-up ones show what the list holds, dimmed and out of reach.
+  const example = !unloaded(real) && !real.length
+  const examples = useMemo(exampleTags, [])
+  const tags = example ? examples : real
   const [chosen, setChosen] = useState<string | null>(focus ?? null)
   // A tag opens to be read; looking after it (colour, alias, exam date) is the other tab.
   const [tab, setTab] = useState<'read' | 'manage'>('read')
@@ -56,7 +62,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
   useOpened(chosen ?? undefined, focus, setChosen, () => setChosen(null))
   useKept('tab', tab, setTab, 'read')
   const items = useLive(() => (chosen ? vigil.tag(chosen) : Promise.resolve([])), [], [chosen])
-  const [cursor] = useListKeys(tags.length, { onOpen: (index) => setChosen(tags[index].tag) })
+  const [cursor] = useListKeys(example ? 0 : tags.length, { onOpen: (index) => setChosen(tags[index].tag) })
   const top = tags[0]?.count ?? 1
   const current = tags.find((one) => one.tag === chosen)
   // How ready each tag with an exam date is, for the open tag's bar.
@@ -75,7 +81,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
       {/* With a tag open, the list narrows to a column and the tag takes the rest. */}
       {/* Narrow, the tag being read takes the whole page; the list is a step back. */}
       <div className={chosen ? 'hidden w-72 shrink-0 border-r @[56rem]/page:flex' : 'contents'}>
-      <Page title="Tags" count={tags.length} unit={['tag', 'tags']}>
+      <Page title="Tags" count={example ? undefined : tags.length} unit={['tag', 'tags']}>
         {/* The tags that do something, said before you need them: they work from the first time you write one. */}
         {!chosen && (
           <p className="mx-5 mt-3 text-xs text-muted-foreground">
@@ -83,6 +89,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
           </p>
         )}
         {tags.length ? (
+          <Example on={example} tryIt={<>write a <span className="text-foreground">#word</span> anywhere in a note, an idea or a task. It shows up here, counted, with a page of its own.</>}>
           <VirtualList items={tags} keyOf={(one) => one.tag} cursor={cursor} estimate={36} className="mx-3 my-2">
             {({ tag, count, color, examAt, action }, index) => (
               <RowMenu items={[
@@ -114,6 +121,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               </RowMenu>
             )}
           </VirtualList>
+          </Example>
         ) : unloaded(tags) ? null : (
           <Empty shape={['polygon', 3]} title="No tags yet">
             Write a <span className="text-foreground">#word</span> anywhere in a capture, an idea or a task and it shows up here, counted. The ones that keep coming up are the ones worth a home of their own.

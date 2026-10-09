@@ -13,6 +13,8 @@ import { findCaptures, findHeadings, follow } from '@/lib/capture-links'
 import { dayOf } from '@/lib/notes'
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, vigil, type PeriodPage } from '@/lib/vigil'
+import { exampleMonth, exampleYear } from '@/lib/examples'
+import { Example } from './example'
 import { useKept } from '@/lib/nav'
 import { Chips } from './display'
 import { DayBanner } from './scenery'
@@ -305,6 +307,15 @@ export function MonthPage({ onScale, start }: { onScale?: (scale: Scale) => void
               placeholder="e.g. The month I stopped waiting for permission" onSave={(text) => saveField(key, 'season', text)} />
           </Island>
         )}
+        {/* Both fields empty: the same two, filled in, to show the kind of thing that goes in them. */}
+        {page && !fields.focus && !fields.season && (
+          <Example flush className="mt-8" tryIt="write a few words in Focus as the month starts, and name its Season of life as it ends. The year page lines the seasons up.">
+            <Island>
+              <Field label="Focus" long value={exampleMonth.focus} placeholder="" onSave={() => undefined} />
+              <Field label="Season of life" long value={exampleMonth.season} placeholder="" onSave={() => undefined} />
+            </Island>
+          </Example>
+        )}
         <EarlierPages scale="month" current={month} onPick={(start) => setMonth(start.slice(0, 7))} />
       </div>
     </Page>
@@ -322,7 +333,7 @@ export function YearPage({ start, onScale, onMonth }: { start?: string; onScale?
   const thisYear = String(dayjs().year())
   const [year, setYear] = useState(start && start <= thisYear ? start : thisYear)
   useKept('focus', year, setYear, thisYear)
-  const months = useLive(() => vigil.year(year), [] as Awaited<ReturnType<typeof vigil.year>>, [year])
+  const real = useLive(() => vigil.year(year), [] as Awaited<ReturnType<typeof vigil.year>>, [year])
   const current = year === thisYear
   const go = (by: -1 | 1 | 0): void => {
     const to = by === 0 ? thisYear : String(Number(year) + by)
@@ -334,7 +345,10 @@ export function YearPage({ start, onScale, onMonth }: { start?: string; onScale?
   // Every month so far this year; a year gone by has all twelve.
   const last = current ? dayjs().month() + 1 : 12
   const all = Array.from({ length: last }, (_, at) => `${year}-${String(at + 1).padStart(2, '0')}`)
-  const named = months.filter((one) => one.season).length
+  const named = real.filter((one) => one.season).length
+  // No season named in any month yet: a made-up year shows what the page becomes, dimmed and out of reach.
+  const example = !unloaded(real) && !named && current
+  const months = example ? exampleYear(year, all.length) : real
   return (
     <Page
       title="Year"
@@ -351,7 +365,8 @@ export function YearPage({ start, onScale, onMonth }: { start?: string; onScale?
         <p className="mt-1 text-meta text-muted-foreground">
           {!unloaded(months) && <Typed key={`${year}-${named}`} text={named ? `Your seasons of life, month by month: ${named} of ${all.length} named so far.` : 'No season of life named yet. Each month\'s page has a field for it, looking back.'} step={28} />}
         </p>
-        <ol className="mt-6 flex flex-col">
+        <Example on={example} flush className="mt-6" tryIt={<><button type="button" onClick={() => (chime('season'), onMonth(dayjs().format('YYYY-MM')))} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">open this month's page</button> and give it a name, looking back. Each month you name lines up here.</>}>
+        <ol className={example ? 'flex flex-col' : 'mt-6 flex flex-col'}>
           {all.map((month) => {
             const page = months.find((one) => one.month === month)
             // The month you are in, marked quietly: a soft fill, its name in full ink and a dot.
@@ -373,6 +388,7 @@ export function YearPage({ start, onScale, onMonth }: { start?: string; onScale?
             )
           })}
         </ol>
+        </Example>
       </div>
     </Page>
   )
