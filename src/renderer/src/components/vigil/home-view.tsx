@@ -704,7 +704,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       {empty ? (
         // Nothing yet: Home as it will look, with a few made-up shelves, dimmed and out of reach.
         <Example className="page-column relative w-full" tryIt={<>
-          <button type="button" onClick={() => (chime('open'), window.api.showPrompt())} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">catch a thought</button> with ⌘. from anywhere, or <button type="button" onClick={() => void window.api.importFrom('vault')} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">bring your notes in</button>. What you open, keep and wonder about gathers here.
+          <strong><button type="button" onClick={() => (chime('open'), window.api.showPrompt())} className="text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">catch a thought</button> with ⌘. from anywhere, or <button type="button" onClick={() => void window.api.importFrom('vault')} className="text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">bring your notes in</button>.</strong> What you open, keep and wonder about gathers here.
         </>}>
           <ExampleHome />
         </Example>

@@ -373,7 +373,7 @@ export function YearPage({ start, onScale, onMonth }: { start?: string; onScale?
         <p className="mt-1 text-meta text-muted-foreground">
           {!unloaded(months) && <Typed key={`${year}-${named}`} text={named ? `Your seasons of life, month by month: ${named} of ${all.length} named so far.` : 'No season of life named yet. Each month\'s page has a field for it, looking back.'} step={28} />}
         </p>
-        <Example on={example} flush className="mt-6" tryIt={<><button type="button" onClick={() => (chime('season'), onMonth(dayjs().format('YYYY-MM')))} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">open this month's page</button> and give it a name, looking back. Each month you name lines up here.</>}>
+        <Example on={example} flush className="mt-6" tryIt={<><strong><button type="button" onClick={() => (chime('season'), onMonth(dayjs().format('YYYY-MM')))} className="text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">open this month's page</button> and give it a name, looking back.</strong> Each month you name lines up here.</>}>
         <ol className={example ? 'flex flex-col' : 'mt-6 flex flex-col'}>
           {all.map((month) => {
             const page = months.find((one) => one.month === month)

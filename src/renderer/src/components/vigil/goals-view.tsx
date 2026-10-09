@@ -230,7 +230,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
           <NoteList groups={[['', entries]]} density="list" table="nuggets" selected={open?.id} cursor={cursor} onCursor={setCursor} onPick={pick} className="mx-3 my-2" />
         ) : unloaded(all) ? null : !all.length ? (
           // None set yet: the page as it will look, with a few made-up ones.
-          <Example tryIt={<><button type="button" onClick={() => void startGoal(go)} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">set a goal</button>: a day you are aiming for. It counts down at the top of Home and keeps a log of the road there.</>}>
+          <Example tryIt={<><strong><button type="button" onClick={() => void startGoal(go)} className="text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">set a goal</button>: a day you are aiming for.</strong> It counts down at the top of Home and keeps a log of the road there.</>}>
             <NoteList groups={[['', exampleGoals().filter((one) => (show === 'open') === !one.closedAt).map((one) => goalEntry(one, today))]]} density="list" table="nuggets" cursor={-1} onPick={() => undefined} className="mx-3 my-2" />
           </Example>
         ) : show === 'open' ? (

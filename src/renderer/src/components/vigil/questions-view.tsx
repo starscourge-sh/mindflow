@@ -261,7 +261,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
           <Empty shape={['ellipse', 3]} title="Nothing matches">No question here has those words. Escape clears the search.</Empty>
         ) : !all.length ? (
           // None held yet: the page as it will look, with a few made-up ones.
-          <Example tryIt={<>press H on a note in your Inbox, or <button type="button" onClick={() => void startQuestion(go)} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">ask a new question</button>. Then add clues to it as they turn up.</>}>
+          <Example tryIt={<><strong>press H on a note in your Inbox, or <button type="button" onClick={() => void startQuestion(go)} className="text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">ask a new question</button>.</strong> Then add clues to it as they turn up.</>}>
             <NoteList groups={[['', exampleQuestions().filter((one) => (show === 'open') === !one.closedAt).map((one) => questionEntry(one))]]} density={density} table="nuggets" cursor={-1} onPick={() => undefined} className="mx-3 my-2" />
           </Example>
         ) : show === 'open' ? (
