@@ -613,9 +613,10 @@ function gotoBlock(view: EditorView, index: number): void {
   // under the padding. gg and G mean the very top and the very bottom.
   if (i !== 0 && !last) return
   const scroller = scrollParent(view.dom as HTMLElement)
+  // At once: eased over a long note it drew every block on the way, and the
+  // blocks drawn as it went moved the end out from under it.
   const top = i === 0 ? 0 : (scroller?.scrollHeight ?? document.body.scrollHeight)
-  if (scroller) scroller.scrollTop = top
-  else window.scrollTo({ top })
+  ;(scroller ?? window).scrollTo({ top, behavior: "instant" })
 }
 
 /** Every character of every textblock, paired with its document position. */

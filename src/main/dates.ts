@@ -76,12 +76,21 @@ const span = (from: Dayjs, to: Dayjs, unit: keyof typeof UNIT): number =>
   unit === 'day' || unit === 'week' ? to.diff(from, 'hour', true) / (unit === 'day' ? 24 : 168) : to.diff(from, unit as OpUnitType, true)
 /** The biggest of `units` that fits whole between two moments, and how many of it. */
 const fits = (from: Dayjs, to: Dayjs, units: (keyof typeof UNIT)[]): [number, keyof typeof UNIT] | null => {
-  for (const unit of units) if (span(from, to, unit) >= 1) return [span(from, to, unit), unit]
+  for (const unit of units) {
+    const n = span(from, to, unit)
+    if (n >= 1) return [n, unit]
+  }
   return null
 }
 /** How long since: "4mo", "3d", "12m", or "now" inside the first minute. Whole units, rounded down. */
 export function age(at: ConfigType): string {
-  const found = fits(dayjs(at), dayjs(), ['year', 'month', 'day', 'hour', 'minute'])
+  // Counting months by the calendar is slow, and a list works this out for
+  // every row it draws: under 28 days no month can fit, under 365 no year
+  // (with a day spare for a clock change).
+  const from = dayjs(at)
+  const now = dayjs()
+  const days = now.diff(from, 'day')
+  const found = fits(from, now, [...(days < 364 ? [] : ['year' as const]), ...(days < 27 ? [] : ['month' as const]), 'day', 'hour', 'minute'])
   return found ? `${Math.floor(found[0])}${UNIT[found[1]]}` : 'now'
 }
 /** How far off a review is: "10m", "1d", "3w". From now, or from another moment. Rounded. */

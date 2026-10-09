@@ -52,11 +52,13 @@ const GUESS = 32
  * it scrolls and the caret as it moves, and the words on screen stay put when
  * it shifts. The document itself never changes.
  */
-function nearScreen(view: EditorView, name: string): { update: () => void; destroy: () => void } {
+function nearScreen(view: EditorView, name: string): { ahead: (state: EditorState) => void; update: (previous: EditorState) => void; destroy: () => void } {
   const style = document.createElement("style")
   const heights = new WeakMap<Element, number>()
   let band: [number, number] | null = null
   let spaced: [number, number] = [0, 0]
+  let leap = false
+  let last: EditorState | null = null
   const at = `.tiptap.ProseMirror.mindflow-editor[data-long="${name}"]`
   const blocks = (): HTMLCollection => view.dom.children
   // A block never drawn is taken to be as tall as the drawn ones are on average.
@@ -64,8 +66,11 @@ function nearScreen(view: EditorView, name: string): { update: () => void; destr
   let counted = 0
   const tall = (block: Element): number => heights.get(block) ?? (counted ? sum / counted : GUESS)
   // Remember how tall the drawn blocks are, from where each next one starts.
+  // Not while the note is off the page as it opens: every block reads as no
+  // height there, and the space kept above and below came out as none, so the
+  // scrollbar lied and gg and G landed in the wrong place.
   const measure = (): void => {
-    if (!band) return
+    if (!band || !view.dom.isConnected) return
     const all = blocks()
     const last = Math.min(band[1], all.length - 1)
     for (let i = band[0]; i < last; i++) {
@@ -105,7 +110,8 @@ function nearScreen(view: EditorView, name: string): { update: () => void; destr
     draw(from, to)
     const scroller = view.dom.parentElement
     // Only when it is still drawn: a band moved far, after the caret, has nothing to keep still.
-    if (anchor && before !== undefined && scroller && anchor.getClientRects().length) scroller.scrollTop += anchor.getBoundingClientRect().top - before
+    // At once, never eased: the words have to stay where they were.
+    if (anchor && before !== undefined && scroller && anchor.getClientRects().length) scroller.scrollBy({ top: anchor.getBoundingClientRect().top - before, behavior: "instant" })
   }
   // The block at the top of the screen, as an index into the note, and its element when it is drawn.
   const onScreen = (): { first: number; last: number; anchor: Element | null; at?: number } | null => {
@@ -156,18 +162,51 @@ function nearScreen(view: EditorView, name: string): { update: () => void; destr
   document.head.appendChild(style)
   document.addEventListener("scroll", scrolled, { capture: true, passive: true })
   window.addEventListener("resize", follow)
+  // Once the note is on the page: drawn round a caret at the end before it
+  // was, the note opened on blank space until it was scrolled.
+  const settle = (): void => {
+    if (view.isDestroyed) return
+    if (view.dom.isConnected) follow()
+    else requestAnimationFrame(settle)
+  }
   return {
-    update: () => {
+    // A jump out of the band (gg, G, a search, the outline) draws its
+    // destination before the caret is put there: placed in a block that is not
+    // drawn, the browser walked every hidden letter to find where it could
+    // show, seconds on a long note. Only for a caret that moved: one left far
+    // from the screen stays where it is until it does.
+    ahead: (state) => {
+      const index = state.selection.$head.index(0)
+      const went = !last || !state.selection.eq(last.selection) || state.doc !== last.doc
+      last = state
+      if (went && band && (index < band[0] || index > band[1])) {
+        measure()
+        draw(index - AROUND, index + AROUND)
+        leap = true
+      }
+    },
+    update: (previous) => {
+      // And it lands at once: eased over tens of thousands of pixels, while
+      // the band moved under the glide, it stopped far short of the caret.
+      const scroller = view.dom.parentElement
+      if (leap && scroller) {
+        scroller.style.scrollBehavior = "auto"
+        requestAnimationFrame(() => (scroller.style.scrollBehavior = ""))
+      }
+      leap = false
       if (!view.dom.hasAttribute("data-long")) return band ? clear() : undefined
       // Where the caret went, without measuring anything, so a key stays cheap.
       // Near either edge of the band it moves: the arrow keys never reach a
-      // block that is not drawn.
+      // block that is not drawn. Only when the caret or the words moved: a
+      // change that leaves both (a mark redrawn) pulled the band back to a
+      // caret left far from the screen, which went blank.
       const index = view.state.selection.$head.index(0)
       const count = blocks().length
+      const moved = view.state.doc !== previous.doc || !view.state.selection.eq(previous.selection)
       if (!band) {
         draw(index - AROUND, index + AROUND)
-        requestAnimationFrame(follow)
-      } else if ((index - band[0] < SLACK && band[0] > 0) || (band[1] - index < SLACK && band[1] < count - 1) || band[1] > count - 1) {
+        requestAnimationFrame(settle)
+      } else if (band[1] > count - 1 || (moved && ((index - band[0] < SLACK && band[0] > 0) || (band[1] - index < SLACK && band[1] < count - 1)))) {
         const top = onScreen()
         shift(index - AROUND, index + AROUND, top?.anchor ?? null, top?.at)
       }
@@ -197,10 +236,17 @@ export const LongDocument = Extension.create({
   addProseMirrorPlugins() {
     const editor = this.editor
     const name = `long-${++made}`
+    let near: ReturnType<typeof nearScreen> | undefined
     return [
       new Plugin({
         props: {
-          attributes: (state): Record<string, string> => (long(state) ? { "data-long": name } : {}),
+          // Read with each new state before its selection reaches the page: the
+          // one moment to draw where the caret is going.
+          attributes: (state): Record<string, string> => {
+            if (!long(state)) return {}
+            near?.ahead(state)
+            return { "data-long": name }
+          },
           // ⌘↑ and ⌘↓ are left to the browser elsewhere, which would stop at
           // the last block drawn: here they go to the true start and end.
           handleKeyDown: (view, event) => {
@@ -216,7 +262,8 @@ export const LongDocument = Extension.create({
         view: (view) => {
           let views = view.props.nodeViews
           let away = false
-          const near = nearScreen(view, name)
+          near = nearScreen(view, name)
+          const { update, destroy } = near
           const aside = (): void => {
             const parent = view.dom.parentNode
             if (away || !parent || !view.dom.isConnected) return
@@ -237,9 +284,9 @@ export const LongDocument = Extension.create({
               const drawn = view.props.nodeViews !== views
               views = view.props.nodeViews
               if (long(view.state) && (drawn || !long(previous))) aside()
-              near.update()
+              update(previous)
             },
-            destroy: near.destroy,
+            destroy,
           }
         },
       }),

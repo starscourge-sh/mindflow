@@ -36,7 +36,9 @@ const absorbAll = (node: JSONContent): JSONContent => {
   if (!node.content || node.type === "paragraph" || node.type === "heading") return node
   const kids = node.content.map(absorbAll)
   const content = absorbCaptions(kids)
-  return content === node.content && kids.every((kid, at) => kid === node.content![at]) ? node : { ...node, content }
+  // Against `kids`, which `map` always makes anew: against the old list every
+  // note read as changed, and was rewritten whole each time it opened.
+  return content === kids && kids.every((kid, at) => kid === node.content![at]) ? node : { ...node, content }
 }
 
 /** A captioned block's Markdown: itself, then its caption as the italic line under it. */
