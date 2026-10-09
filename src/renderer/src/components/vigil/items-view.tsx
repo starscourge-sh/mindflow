@@ -54,6 +54,7 @@ import AlarmClockPlusIcon from '@/components/ui/alarm-clock-plus-icon'
 import { Aliases, KindFields, LocalGraph, NoteHeader } from './note-extras'
 import { ListSearch, NoteList, NoteRail, PaneButtons, Peek, matches, type Entry } from './note-list'
 import { archive, changeKind, openWindow, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
+import { copyToBookItem } from '@/lib/books'
 import { useOpened } from '@/lib/nav'
 import { QuestionDetail } from './questions-view'
 import { GlossTimeline, useRowGloss } from './gloss-line'
@@ -394,7 +395,8 @@ const itemMenu = (item: Item): MenuItem[] => [
   'separator',
   item.tier === 'nugget' && { label: 'Change kind…', run: () => void changeKind('nuggets', item.id, item.kind) },
   { label: item.archivedAt ? 'Unarchive' : 'Archive', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
-  { label: 'Save its pictures and files…', run: () => void saveAttachments([{ table: 'nuggets', id: item.id }]) }
+  { label: 'Save its pictures and files…', run: () => void saveAttachments([{ table: 'nuggets', id: item.id }]) },
+  copyToBookItem([{ table: 'nuggets', id: item.id }])
 ]
 
 export function ItemDetail(props: { item: ItemFull; onOpen?: (type: string, id: string) => void; top?: React.ReactNode }): React.JSX.Element {
@@ -993,6 +995,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
         label: n > 1 ? `Copy ${n} links` : 'Copy link',
         run: () => void noteGroupsApi.links(these).then((links) => (links.length ? copy(links.join('\n'), `Copied ${links.length === 1 ? 'one link' : `${links.length} links`}`) : refuse(n > 1 ? 'No web links in these notes' : 'No web link in this note')))
       },
+      n > 1 && copyToBookItem(these.map((id) => ({ table: 'nuggets' as const, id }))),
       n > 1 && 'separator',
       n > 1 && { label: `Archive ${n} notes`, run: () => (done(), void archive('nuggets', these, true)) }
     ]

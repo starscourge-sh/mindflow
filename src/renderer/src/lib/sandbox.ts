@@ -28,10 +28,25 @@ export const GOING_MS = 2200
  * then the restart. Over everything, so what lies under it (an empty Home
  * behind a closing welcome) never flashes up first.
  */
-const going = (text: string, sound: () => void): Promise<void> => {
+export const going = (text: string, sound: () => void): Promise<void> => {
   sound()
   window.dispatchEvent(new CustomEvent('vigil:going', { detail: text }))
   return new Promise((done) => setTimeout(done, GOING_MS))
+}
+
+/** Your look, written down to carry: into the sandbox, or into another book with `more` (its scenery too). */
+export async function gatherCarry(more: readonly string[] = []): Promise<Carry> {
+  const settings = (await vigil.settings()) as unknown as Record<string, unknown>
+  const local: Record<string, string> = {}
+  for (const key of CARRY_LOCAL) {
+    try {
+      const value = localStorage.getItem(key)
+      if (value !== null) local[key] = value
+    } catch {
+      // Not carried: it starts on its own default.
+    }
+  }
+  return { local, settings: Object.fromEntries([...CARRY_SETTINGS, ...more].filter((key) => key in settings).map((key) => [key, settings[key]])) }
 }
 
 /**
@@ -43,17 +58,7 @@ export async function enterSandbox(): Promise<void> {
   if (SANDBOX) return
   // Up at once: your look is gathered behind it.
   const said = going('Opening the sandbox', () => hum(true))
-  const settings = (await vigil.settings()) as unknown as Record<string, unknown>
-  const local: Record<string, string> = {}
-  for (const key of CARRY_LOCAL) {
-    try {
-      const value = localStorage.getItem(key)
-      if (value !== null) local[key] = value
-    } catch {
-      // Not carried: the sandbox starts on its own default.
-    }
-  }
-  const carry: Carry = { local, settings: Object.fromEntries(CARRY_SETTINGS.filter((key) => key in settings).map((key) => [key, settings[key]])) }
+  const carry = await gatherCarry()
   await said
   await window.api.vigil('sandbox:enter', carry)
 }

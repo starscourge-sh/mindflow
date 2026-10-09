@@ -23,6 +23,7 @@ import { Kbd as ShadKbd, KbdGroup } from '@/components/ui/kbd'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { KindAsker } from './note-extras'
 import { QuestionAsker } from './questions-view'
+import { BookAsker } from './books'
 import { GoalAsker } from './goals-view'
 import { num } from '../../../../main/dates'
 import { AliveIcon } from '@/components/ui/alive-icon'
@@ -908,6 +909,7 @@ export function Toaster(): React.JSX.Element | null {
     <Asker />
     <KindAsker />
     <QuestionAsker />
+    <BookAsker />
     <GoalAsker />
     <Beam />
     {wait && !shown && <div style={spot} className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex justify-center">

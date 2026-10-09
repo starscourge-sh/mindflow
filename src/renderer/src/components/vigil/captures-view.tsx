@@ -51,6 +51,7 @@ import TrashIcon from '@/components/ui/trash-icon'
 import { Aliases, KindFields, LocalGraph, NoteHeader } from './note-extras'
 import { ListSearch, NoteRail, PaneButtons, Peek, matches, still } from './note-list'
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
+import { askBook } from '@/lib/books'
 import { useOpened } from '@/lib/nav'
 import { Rest } from './scenery'
 import { Example } from './example'
@@ -275,6 +276,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
               {chosen.length > 1 && (
                 <Button variant="ghost" size="sm" onClick={makeOne}>Make one task</Button>
               )}
+              <Button variant="ghost" size="sm" onClick={() => askBook('copy', { refs: chosen.map((id) => ({ table: 'captures' as const, id })) })}>Copy to book…</Button>
               <input
                 placeholder="#tag ↵"
                 onKeyDown={(event) => {

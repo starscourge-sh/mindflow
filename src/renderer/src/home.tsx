@@ -59,6 +59,8 @@ import { UnusedFiles } from '@/components/vigil/unused-files'
 import { Tour } from '@/components/vigil/tour'
 import { SandboxHost, SandboxPill } from '@/components/vigil/sandbox'
 import { SANDBOX, enterSandbox, leaveSandbox, resetSandbox } from '@/lib/sandbox'
+import { askBook } from '@/lib/books'
+import { BookName, askNewBook } from '@/components/vigil/books'
 import { Welcome } from '@/components/vigil/welcome'
 import { PageHint } from '@/components/vigil/page-hint'
 import { onboarding, playWelcome } from '@/lib/onboarding'
@@ -497,6 +499,11 @@ export function Home(): React.JSX.Element {
             { label: 'Decide: the weekly pass over what waited', run: () => openPass('decide') },
             { label: 'Import an Obsidian vault or Notion export…', cue: null, run: () => void window.api.importFrom('vault') },
             { label: 'Import Readwise, Kindle, Markdown, bookmarks or Anki…', cue: null, run: () => void window.api.importFrom('files') },
+            { label: 'Switch book: another book of yours, or the sandbox', cue: null, run: () => askBook('switch') },
+            ...(SANDBOX ? [] : [
+              { label: 'New book: an empty one, apart from this', cue: null, run: () => void askNewBook() },
+              { label: 'Import into another book…', cue: null, run: () => askBook('import') }
+            ]),
             // In the sandbox, restoring reads as a risk to your notes: it is not offered there.
             ...(SANDBOX ? [
               { label: 'Back to my notes: leave the sandbox', cue: null, run: () => void leaveSandbox() },
@@ -789,7 +796,7 @@ export function Home(): React.JSX.Element {
               <button type="button" aria-label="Vigil menu"
                 className={`flex min-w-0 items-center gap-2 rounded-md py-1.5 text-foreground/80 transition-colors hover:bg-accent/60 data-[state=open]:bg-accent/60 ${narrow ? 'justify-center px-0' : 'flex-1 px-2'}`}>
                 <AliveIcon icon={GearIcon} size={16} />
-                {!narrow && <span className="flex-1 truncate text-left">{SANDBOX ? 'Vigil sandbox' : 'Vigil'}</span>}
+                {!narrow && <span className="flex-1 truncate text-left">{SANDBOX ? 'Vigil sandbox' : <BookName />}</span>}
                 {!narrow && <AliveIcon icon={DownChevron} size={14} className="text-muted-foreground" />}
               </button>
             </DropdownMenuTrigger>
@@ -806,6 +813,9 @@ export function Home(): React.JSX.Element {
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={() => window.dispatchEvent(new CustomEvent('vigil:shortcuts'))}>Keyboard shortcuts<DropdownMenuShortcut>?</DropdownMenuShortcut></DropdownMenuItem>
               <DropdownMenuItem onSelect={playWelcome}>Play the welcome again</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => askBook('switch')}>Switch book…</DropdownMenuItem>
+              {!SANDBOX && <DropdownMenuItem onSelect={() => void askNewBook()}>New book…</DropdownMenuItem>}
               {SANDBOX ? (<>
                 <DropdownMenuItem onSelect={() => void leaveSandbox()}>Back to my notes</DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => void resetSandbox()}>Reset the sandbox</DropdownMenuItem>

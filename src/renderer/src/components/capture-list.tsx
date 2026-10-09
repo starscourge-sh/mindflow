@@ -14,6 +14,7 @@ import { stickOnDesktop } from './vigil/sticky-note'
 import { NoteList, type Entry } from './vigil/note-list'
 import type { Density } from './vigil/display'
 import { archive, changeKind, openWindow, saveAttachments } from '@/lib/notes'
+import { copyToBookItem } from '@/lib/books'
 import { addToQuestion } from './vigil/questions-view'
 import { age, daysSince } from '../../../main/dates'
 
@@ -95,6 +96,7 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   { label: 'Change kind…', run: () => void changeKind('captures', capture.id, capture.kind) },
   { label: capture.archivedAt ? 'Unarchive' : 'Archive', run: () => void archive('captures', [capture.id], !capture.archivedAt) },
   { label: 'Save its pictures and files…', run: () => void saveAttachments([{ table: 'captures', id: capture.id }]) },
+  copyToBookItem([{ table: 'captures', id: capture.id }]),
   'separator',
   { label: `Copy ${captureKey(capture.number)}`, run: () => copy(captureKey(capture.number), `Copied ${captureKey(capture.number)}`) },
   { label: 'Copy text', run: () => copy(capture.label) }

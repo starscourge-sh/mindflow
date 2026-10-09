@@ -31,7 +31,7 @@ import { Chips } from './display'
 import { PAGE_WIDTHS, setPageWidth, widthOf, type PageWidth } from '@/lib/reading'
 import { SoundPacks } from './sound-packs'
 import { FontPicker, TextSize } from './font-picker'
-import { BackToTop, Kbd, Rolling, Tip, refuse, toast, useSmooth } from './ui'
+import { BackToTop, Kbd, Rolling, Tip, ask, refuse, toast, useSmooth } from './ui'
 import { Term } from './term'
 import { Button } from '@/components/ui/button'
 import { Orb } from './orb'
@@ -50,6 +50,8 @@ import { currentVim, onVimChange, setVim } from '@/lib/vim'
 import { useStoredFlag } from '@/lib/use-stored-flag'
 import { SANDBOX, enterSandbox, leaveSandbox, startSandboxOver } from '@/lib/sandbox'
 import { HoldButton } from './hold-button'
+import { askBook, deleteBook, renameBook, revealBook, switchBook, useShelf } from '@/lib/books'
+import { askNewBook } from './books'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Brain = alive(BrainCircuitIcon)
@@ -753,10 +755,14 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
 
+        <Group section="Import and backups" title="Books">
+          <BookRows />
+        </Group>
         <Group section="Import and backups" title="Import and export">
           <Setting title="Import" note="Notes from an Obsidian vault or a Notion export (as Markdown, unzipped); highlights from Readwise or Kindle; Markdown files, bookmarks or Anki cards." keywords="import obsidian vault notion export readwise kindle markdown bookmarks anki bring move">
             <ImportButton what="vault">Obsidian or Notion…</ImportButton>
             <ImportButton what="files">Files…</ImportButton>
+            {!SANDBOX && <Button variant="outline" size="sm" onClick={() => askBook('import')}>Into another book…</Button>}
           </Setting>
           <Setting title="Export everything" note="All of it as JSON and Markdown, in a folder you choose: yours to read without this app.">
             <ExportButton />
@@ -790,6 +796,44 @@ export function SettingsView(): React.JSX.Element {
 }
 
 /** Where the backups go: iCloud Drive when there is one, otherwise beside the app's data. */
+/**
+ * Each book: its name to change, its folder to see, and, for any but My book
+ * and the one open, deleting it, held, with a whole copy kept first.
+ */
+function BookRows(): React.JSX.Element {
+  const shelf = useShelf()
+  const rename = async (id: string, name: string): Promise<void> => {
+    const now = (await ask('Rename the book', name, undefined, name))?.trim()
+    if (now && now !== name) void renameBook(id, now).then((ok) => ok && (chime('settled'), toast(`Now called ${now}`)))
+  }
+  const remove = async (id: string, name: string): Promise<void> => {
+    const kept = await deleteBook(id)
+    if (!kept) return refuse(`${name} could not be deleted`)
+    chime('away')
+    toast(`${name} is deleted. A whole copy of it is kept with your backups, under deleted books`, undefined, 'info')
+  }
+  return (
+    <>
+      <Setting title="Books" note="Each book is a Vigil of its own: its notes, pictures, settings and Getting started. Your look comes along when you switch. Every book is backed up each day." keywords="books book vault vaults switch new another scratch library workspace">
+        {!SANDBOX && <Button variant="outline" size="sm" onClick={() => void askNewBook()}>New book…</Button>}
+        <Button variant="outline" size="sm" onClick={() => askBook('switch')}>Switch…</Button>
+      </Setting>
+      {shelf?.books.map((book) => (
+        <Setting key={book.id} under title={book.name}
+          note={book.id === 'default' ? `Your first book, where Vigil has always kept your notes. It cannot be deleted.${book.current ? ' Open now.' : ''}` : `Made ${book.createdAt ? new Date(book.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'here'}.${book.current ? ' Open now: switch to another book to delete it.' : ''}`}
+          keywords="book rename reveal finder delete">
+          {!SANDBOX && <Button variant="ghost" size="sm" onClick={() => void rename(book.id, book.name)}>Rename</Button>}
+          <Button variant="ghost" size="sm" onClick={() => void revealBook(book.id)}>Show in Finder</Button>
+          {!book.current && <Button variant="ghost" size="sm" onClick={() => void switchBook(book.id)}>Open</Button>}
+          {!SANDBOX && book.id !== 'default' && !book.current && (
+            <HoldButton hint={`Hold to delete ${book.name}`} done="Deleting…" onHold={() => void remove(book.id, book.name)}>Delete</HoldButton>
+          )}
+        </Setting>
+      ))}
+    </>
+  )
+}
+
 function BackupPlace(): React.JSX.Element {
   const [where, setWhere] = useState('')
   useEffect(() => void vigil.backupsWhere().then(setWhere), [])
