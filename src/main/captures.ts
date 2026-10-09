@@ -72,6 +72,7 @@ export type CapturePatch = Partial<Pick<Capture, 'title' | 'kind' | 'status' | '
   fetched?: boolean
   /** The body this one was made from: the words land only if they are still what is stored. */
   base?: unknown
+  plainTags?: string[]
 }
 
 /**
@@ -117,7 +118,9 @@ const Patch = z.object({
   medium: z.string().optional(),
   private: z.boolean().optional(),
   fetched: z.boolean().optional(),
-  base: z.unknown().optional()
+  base: z.unknown().optional(),
+  /** Tags the box was told to keep as plain text: "#bit" that does not make it private, "#book" that is not a book. */
+  plainTags: z.array(z.string()).optional()
 })
 
 /**
@@ -448,6 +451,9 @@ export function registerCaptures(): void {
   ipcMain.handle('captures:create', (event, raw: unknown) => {
     const patch = Patch.parse(raw)
     const { id, number } = insert(patch, new Date().toISOString())
+    // A #bit kept as plain text does not make it private; any tag kept so is remembered, so it does nothing later either.
+    const plain = [...new Set((patch.plainTags ?? []).map((tag) => tag.toLowerCase()))]
+    if (plain.length) db.prepare('update captures set plain_tags = ?, private = case when ? then 0 else private end where id = ?').run(JSON.stringify(plain), plain.includes('bit') ? 1 : 0, id)
     // The plan's automatic context: which machine, and how long it took.
     // Who and where, and private, in the same breath: never briefly public.
     db.prepare('update captures set device = ?, elapsed_ms = ?, attribution = ?, medium = ?, private = max(private, ?) where id = ?').run(

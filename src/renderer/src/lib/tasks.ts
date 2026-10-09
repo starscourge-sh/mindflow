@@ -12,7 +12,7 @@ import { dayjs, num } from '../../../main/dates'
  */
 export type TaskSource =
   | { text: string; today?: boolean; origin?: string }
-  | { capture: string }
+  | { capture: string; /** Words in its first line kept as plain text, not read as a date or a priority. */ plain?: { from: number; to: number; text: string }[] }
   | { captures: string[]; text: string }
   | { item: string; text: string }
 
@@ -28,7 +28,7 @@ export async function makeTask(
   { onUndo, quiet = false }: { onUndo?: () => void; /** Made without a word: something else on screen already shows it. */ quiet?: boolean } = {}
 ): Promise<Made | null> {
   const [got, links] =
-    'capture' in from ? [await flying(from.capture, 'task', () => vigil.toTask(from.capture)), [from.capture]]
+    'capture' in from ? [await flying(from.capture, 'task', () => vigil.toTask(from.capture, from.plain)), [from.capture]]
     : 'captures' in from ? [await vigil.taskFrom(from.captures, from.text), from.captures]
     : 'item' in from ? [await vigil.study(from.item, from.text), [from.item]]
     : [await vigil.addTask(from.text, from.origin, from.today), from.origin ? [from.origin] : []]

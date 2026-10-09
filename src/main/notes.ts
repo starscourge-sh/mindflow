@@ -205,9 +205,11 @@ export function registerNotes({ load, guard }: Windows): void {
     return true
   })
   // Its #tags: #book brings a book's fields, whatever its kind.
+  // A tag kept as plain text when it was sent does nothing: not counted here.
   handle('notes:tags', (name: string, id: string) => {
-    const row = db.prepare(`select title, body from ${table(name)} where id = ?`).get(id) as { title: string | null; body: string | null } | undefined
-    return row ? [...new Set([...`${row.title ?? ''} ${plain(parse(row.body))}`.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase()))] : []
+    const row = db.prepare(`select title, body${table(name) === 'captures' ? ', plain_tags as kept' : ''} from ${table(name)} where id = ?`).get(id) as { title: string | null; body: string | null; kept?: string | null } | undefined
+    const kept = (parse(row?.kept ?? null) as string[] | null) ?? []
+    return row ? [...new Set([...`${row.title ?? ''} ${plain(parse(row.body))}`.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase()))].filter((tag) => !kept.includes(tag)) : []
   })
   handle('notes:fields', (name: string, id: string) =>
     parse((db.prepare(`select fields from ${table(name)} where id = ?`).get(id) as { fields: string | null } | undefined)?.fields) ?? {})

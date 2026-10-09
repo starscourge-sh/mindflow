@@ -11,7 +11,6 @@ import RightChevronIcon from '@/components/ui/right-chevron'
 import EyeOffIcon from '@/components/ui/eye-off-icon'
 import CameraIcon from '@/components/ui/camera-icon'
 import CameraOffIcon from '@/components/ui/camera-off-icon'
-import QuestionMarkIcon from '@/components/ui/question-mark'
 import XIcon from '@/components/ui/x-icon'
 import type { Editor, JSONContent } from '@tiptap/core'
 
@@ -40,12 +39,11 @@ import { OptionsMenu } from './components/vigil/options-menu'
 import { ReadThrough, type Readable } from './components/vigil/read-through'
 import { PassLinks, Passes, openPass } from './components/vigil/pass'
 import { assetsOf } from './lib/document'
-import { firstLineOf, tagsOf, type TokenPattern } from './extensions/tokens'
+import { tagsOf, type TokenPattern } from './extensions/tokens'
 import { KeptPanel } from './components/vigil/kept-panel'
-import { clueTarget, startQuestion } from './components/vigil/questions-view'
+import { startQuestion } from './components/vigil/questions-view'
 import { PinnedQuestions, clueInto } from './components/vigil/pinned-questions'
 import { GoalChips, logInto } from './components/vigil/goals-view'
-import { Flag } from 'lucide-react'
 import { RecentPanel } from './components/vigil/recent-panel'
 import { BOX_TABS, useShown, type Place } from './components/vigil/places'
 import { RowMenu } from './components/vigil/row-menu'
@@ -54,17 +52,16 @@ import { Search } from './components/search'
 import { noteActions, useOpenNote } from './lib/notes'
 import { vigil, type Item, type PinnedQuestion, type Settings } from './lib/vigil'
 import { makeTask, oneTask, picked, placed } from './lib/tasks'
-import { TaskChips, taskTokens } from './components/vigil/task-input'
-import { readTask } from '../../main/task-words'
+import { WillDo, TokenHint } from './components/vigil/will-do'
+import { boxTokensPlugin, keepPlain, planNow, rearm, replan, type BoxContext, type BoxPlan, type BoxToken } from './lib/box-tokens'
 import { chime, soundOn } from './lib/sound'
 import { crumpleFrom, liftFrom } from './lib/fly-home'
-import { lengthSaid, timerFrom } from './lib/timer'
+import { lengthSaid } from './lib/timer'
 import { stickOnDesktop } from './components/vigil/sticky-note'
 import { NotePreview } from './components/vigil/note-preview'
 
 
 import { CAPTURE_TYPES, CaptureKindPicker, asksFor, type CaptureType } from './components/capture-kinds/capture-kind-picker'
-import { TAG_DOES, tagsIn } from './components/capture-kinds/kind-fields'
 import { firstLine, kindOf } from '../../main/import'
 import {
   Sheet,
@@ -94,7 +91,7 @@ import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
 import { WordNotes } from '@/components/vigil/term'
 import { FocusScenery, Rest } from './components/vigil/scenery'
 import { num } from '../../main/dates'
-import { holdKeys, saidBy, useLesson, useWelcomePlaceholder } from './lib/welcome-box'
+import { holdKeys, useLesson, useWelcomePlaceholder } from './lib/welcome-box'
 import { SandboxChip } from '@/components/vigil/sandbox'
 import { useFitBox } from './lib/fit-box'
 
@@ -104,7 +101,6 @@ const ArrowUpRight = alive(ExternalLinkIcon)
 const ChevronLeft = alive(RightChevronIcon, 'rotate-180')
 const ChevronRight = alive(RightChevronIcon)
 const EyeOff = alive(EyeOffIcon)
-const Orbit = alive(QuestionMarkIcon)
 const X = alive(XIcon)
 
 
@@ -396,7 +392,6 @@ export default function App(): React.JSX.Element {
   // Who and where, as this kind (or a #book) asks; and what a tag that does something will do.
   const boxText = textOf(body)
   const asks = asksFor(kind, boxText)
-  const doing = tagsIn(boxText).filter((tag) => TAG_DOES[tag])
   // Who said it and where you met it. Null who means the words are yours.
   const [attribution, setAttribution] = useState('')
   const [medium, setMedium] = useState('')
@@ -464,16 +459,22 @@ export default function App(): React.JSX.Element {
   useEffect(() => setDetails(false), [editing?.id])
 
   const editorRef = useRef<Editor | null>(null)
-  // A todo's first line is read as you type, Todoist's way: its date and
-  // priority words light up. Read through refs, as the editor's patterns are
-  // built once; painted again when the note turns into a todo or out of one.
-  const kindNow = useRef(kind)
-  kindNow.current = kind
-  const [boxTokens] = useState(() => [...TAGS, ...taskTokens(() => (kindNow.current === 'todo' && editorRef.current ? (firstLineOf(editorRef.current.state.doc)?.text ?? null) : null))])
-  useEffect(() => {
-    const editor = editorRef.current
-    if (editor && !editor.isDestroyed) editor.view.dispatch(editor.state.tr)
-  }, [kind])
+  // The box's command words, lit as you type, Todoist's way: a timer, a clue,
+  // a task's day and priority, a tag that does something, a signature, a link.
+  // Each can be kept as plain text; what is lit is what the send does (see
+  // lib/box-tokens.ts). Read through a ref, as the editor's plugin is built
+  // once; read again when the kind, the questions or the action tags change.
+  const boxContext = useRef<BoxContext>({ off: true, kind, chosen, held: [], actionTags: [] })
+  const [plan, setPlan] = useState<BoxPlan | null>(null)
+  const [tokenHover, setTokenHover] = useState<{ token: BoxToken; rect: DOMRect } | null>(null)
+  // Kept plain: said, with Undo, which lights it again.
+  const keptPlain = (token: BoxToken, seq: number): void => {
+    const view = editorRef.current?.view
+    chime('off')
+    toast(`Kept “${token.text.length > 24 ? `${token.text.slice(0, 24)}…` : token.text}” as plain text`, () => view && rearm(view, seq))
+  }
+  const latestKept = useRef(keptPlain)
+  latestKept.current = keptPlain
   // What is open now, for a change that arrives late from a box already put
   // down: it must not land on the draft that came back.
   const editingNow = useRef<string | undefined>(undefined)
@@ -500,8 +501,27 @@ export default function App(): React.JSX.Element {
   // log for a goal, not a capture. The open questions and goals, to find
   // which one the name means.
   const held = useLive(() => Promise.all([vigil.items('question'), vigil.items('goal')]).then((lists) => lists.flat().filter((one) => !one.closedAt && !one.archivedAt)), [] as Item[], [], ['item'])
-  const plus = editing ? null : clueTarget(first, held)
-  const plusGoal = plus?.question?.tier === 'goal'
+  boxContext.current = { off: !!editing, kind, chosen, held, actionTags }
+  useEffect(() => replan(editorRef.current), [editing, kind, chosen, held, actionTags])
+  // "+name" read as a clue, or as a name nothing matches yet.
+  const plus = editing || !plan ? null : plan.clue ?? plan.miss
+  const plusGoal = plan?.clue?.question.tier === 'goal'
+  // A quote's "- Name" fills Who said it, unless you wrote one there; kept
+  // as plain text, the name it filled goes again.
+  useEffect(() => {
+    if (!plan || editing) return
+    // A link kept as plain text is a note at once, not after the next key.
+    if (!chosen && plan.kind !== kind) setKind(plan.kind)
+    const by = plan.signature ?? { who: '', where: '' }
+    if (attribution === autoWho.current && by.who !== attribution && (by.who || plan.signatureKept)) {
+      autoWho.current = by.who
+      setAttribution(by.who)
+    }
+    if (medium === autoWhere.current && by.where !== medium && (by.where || plan.signatureKept)) {
+      autoWhere.current = by.where
+      setMedium(by.where)
+    }
+  }, [plan]) // eslint-disable-line react-hooks/exhaustive-deps
   // A goal picked under the writing: the words are logged to it and nothing
   // is captured; an open capture moves into it.
   const logToGoal = (goal: Item): void => {
@@ -848,8 +868,12 @@ export default function App(): React.JSX.Element {
     // A second ⌘↵ while the first is still on its way would keep it twice.
     if (sending) return
     // Read from the editor itself: its onChange waits for a pause in the
-    // typing, and ⌘↵ often comes before one.
-    const doc = withoutTail(editorRef.current?.getJSON() ?? body, attribution.trim())
+    // typing, and ⌘↵ often comes before one. What it does is what is lit in
+    // it: the plan, read again now, with every word kept as plain text left be.
+    replan(editorRef.current)
+    const plan = planNow(editorRef.current)
+    const raw = editorRef.current?.getJSON() ?? body
+    const doc = plan?.signatureKept ? raw : withoutTail(raw, attribution.trim())
     const text = textOf(doc).trim()
     // Nothing to keep: said with the "not allowed" sound, not in silence. A
     // picture or a drawing with no words is still something.
@@ -857,8 +881,8 @@ export default function App(): React.JSX.Element {
     if (!text && !something) return chime('nope')
     // "+name: …": a dated clue in that question, and nothing is captured. A
     // name that matches no question is kept as a capture, as the chip warned.
-    const clueFor = clueTarget(firstLine(doc), held)
-    if (clueFor?.question) {
+    const clueFor = plan?.clue
+    if (clueFor) {
       const question = clueFor.question
       const clue = [clueFor.rest, textOf(doc).split('\n').slice(1).join('\n').trim()].filter(Boolean).join('\n')
       const goal = question.tier === 'goal'
@@ -877,9 +901,7 @@ export default function App(): React.JSX.Element {
     // "5m tea", "timer 25m": a countdown in the floating timer, not a capture.
     // Not when a kind was picked or it is a todo, nor when the rest has a date,
     // a repeat or a tag: "10 min walk every day #health" is a task to keep.
-    const asTimer = !chosen && kind !== 'todo' && (doc as JSONContent | null)?.content?.length === 1 ? timerFrom(text) : null
-    const rest = asTimer && readTask(asTimer.goal)
-    const timer = rest && !rest.due && !rest.deadline && !rest.recurrence && !rest.plan && !/(?:^|\s)#[a-z]/i.test(text) ? asTimer : null
+    const timer = plan?.timer
     if (timer) {
       chime('timer')
       beam('success')
@@ -899,16 +921,15 @@ export default function App(): React.JSX.Element {
     // What a paste is, when the kind was left alone: a bare link is a link,
     // and where it came from is the site; a long block is a quote, the
     // container for what comes out of it later.
-    const url = /^https?:\/\/\S+$/.test(text) ? new URL(text) : null
+    const url = plan ? plan.url : null
     // The suggestion is worked out a moment after typing stops; a save before
     // then works it out here, so a quick "Call the plumber" is still a todo.
-    const said = chosen ? kind : ((kindOf(firstLine(doc)) as CaptureType | null) ?? kind)
+    const said = plan ? plan.kind : chosen ? kind : ((kindOf(firstLine(doc)) as CaptureType | null) ?? kind)
     const sorted = said !== 'note' ? said : url ? 'link' : text.length > 600 ? 'quote' : said
     const where = medium || (url ? siteName(url.hostname) : '')
     // A tag marked "makes a task" (#bug, #fix and the rest by default) is a
     // todo wearing a label: it goes to the task list at once, as a todo does.
-    const tags = [...text.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase())
-    const action = sorted === 'todo' || tags.some((tag) => actionTags.includes(tag))
+    const action = sorted === 'todo' || !!plan?.task
     chime('send')
     // The top edge lights green: kept, without a word.
     beam('success')
@@ -936,7 +957,7 @@ export default function App(): React.JSX.Element {
     }
     void window.api.captures
       .create({ title: '', kind: sorted, elapsedMs: Date.now() - openedAt.current, body: hasContent(doc) ? doc : null, markdown,
-        attribution: attribution.trim(), medium: where || undefined, private: secret })
+        attribution: attribution.trim(), medium: where || undefined, private: secret, plainTags: plan?.plainTags.length ? plan.plainTags : undefined })
       .then(async (id) => {
         land?.()
         await vigil.linkSession(id)
@@ -947,7 +968,7 @@ export default function App(): React.JSX.Element {
         if (sorted === 'link') void cardUp({ id, kind: sorted, body: hasContent(doc) ? doc : null })
         if (action) {
           // The welcome shows the task it became itself; the box says nothing over it.
-          await makeTask({ capture: id }, 'Added to your tasks', { quiet: document.documentElement.hasAttribute('data-welcome-ph') })
+          await makeTask({ capture: id, plain: plan?.taskPlain }, 'Added to your tasks', { quiet: document.documentElement.hasAttribute('data-welcome-ph') })
         }
         if (more) return
         // Let the box finish leaving before it is replaced.
@@ -1227,8 +1248,16 @@ export default function App(): React.JSX.Element {
                 editorRef.current = editor
                 words.ready(editor)
                 box.guard(editor)
+                // First among its plugins, so a click on a lit tag keeps it plain rather than opening it.
+                if (!planNow(editor))
+                  editor.registerPlugin(boxTokensPlugin({
+                    context: () => boxContext.current,
+                    onPlan: (next) => editorRef.current === editor && setPlan(next),
+                    onKept: (token, seq) => latestKept.current(token, seq),
+                    onHover: setTokenHover
+                  }), (plugin, plugins) => [plugin, ...plugins])
               }}
-              tokens={boxTokens}
+              tokens={TAGS}
               // A heading in the note already open is gone to here; anywhere else, once it opens.
               onOpenNote={(link, heading) => (heading && link === editing?.id && editorRef.current ? void goToHeading(editorRef.current, heading) : follow(link, (type, id) => openAny(type, id), heading))}
               from={editing?.id}
@@ -1243,19 +1272,11 @@ export default function App(): React.JSX.Element {
               onChange={(doc, editor) => {
                 if (editing?.id !== editingNow.current) return words.save(doc, editor)
                 setBody(doc)
-                // The kind follows the wording of the first line until you choose one.
-                const guess = (chosen ? kind : (kindOf(firstLine(doc)) ?? 'note')) as CaptureType
+                // The kind follows the wording of the first line until you
+                // choose one; a link kept as plain text is a note. A quote's
+                // "- Name" fills Who said it, from the plan (see above).
+                const guess = (chosen ? kind : (planNow(editor)?.kind ?? kindOf(firstLine(doc)) ?? 'note')) as CaptureType
                 if (!chosen && !editing) setKind(guess)
-                // A quote ending "- Name": the name goes into Who said it, unless you wrote one there.
-                const by = guess === 'quote' && !editing ? saidBy(firstLine(doc)) : { who: '', where: '' }
-                if (by.who && attribution === autoWho.current && by.who !== attribution) {
-                  autoWho.current = by.who
-                  setAttribution(by.who)
-                }
-                if (by.where && medium === autoWhere.current && by.where !== medium) {
-                  autoWhere.current = by.where
-                  setMedium(by.where)
-                }
                 // Only a capture already kept is written as you type; a new note's
                 // Markdown is made once, when it is saved, not on every pause.
                 if (editing) words.save(doc, editor)
@@ -1270,6 +1291,25 @@ export default function App(): React.JSX.Element {
                 <span className="flex shrink-0 items-center gap-1"><Pressed keys="⌘[" /> takes you back.</span>
               </div>
             )}
+            {/* What sending it will do, read from the lit words, each with its ×. */}
+            {!editing && (
+              <WillDo
+                plan={plan}
+                onKeep={(tokens) => {
+                  const view = editorRef.current?.view
+                  if (!view || !tokens.length) return
+                  const seqs = tokens.map((one) => keepPlain(view, one))
+                  chime('off')
+                  toast(tokens[0].kind === 'clue-miss' ? 'Kept as plain text: it will be a capture' : `Kept “${tokens.map((one) => one.text).join(' ').slice(0, 24)}” as plain text`, () => seqs.forEach((seq) => rearm(view, seq)))
+                }}
+                onNotTask={() => pick('note')}
+                onNewQuestion={(name) => void vigil.newQuestion(name).then((id) => {
+                  chime('hold')
+                  toast(`Saved as a question: “${name.length > 36 ? `${name.slice(0, 36)}…` : name}”`, () => void vigil.dropQuestion(id))
+                })}
+              />
+            )}
+            <TokenHint hover={tokenHover} />
             {/* Under the writing: what it is, who said it and where you met it. */}
             {/* Wraps onto a second line rather than squeezing a field or a chip. */}
             <div data-chrome className="flex flex-wrap items-center gap-1 px-[4.75rem] py-2">
@@ -1289,8 +1329,6 @@ export default function App(): React.JSX.Element {
                 actions={[{ label: 'New capture', keys: '⌘N', run: () => startOver() }]}
               />
               </span>
-              {/* A todo says what it understood of its first line: the day, the deadline, the priority. */}
-              {kind === 'todo' && <TaskChips read={readTask(firstLine(body))} />}
               {/* Only what this kind asks for, unless it already holds something. */}
               {/* Who and where once there is something to say it about, and only
                   what this kind asks for, unless it already holds something. */}
@@ -1320,22 +1358,6 @@ export default function App(): React.JSX.Element {
               {asks.why && boxText.trim().split('\n').filter(Boolean).length < 2 && (
                 // Wrapped, not cut: an ellipsis lands mid-word over words that type in.
                 <span className="min-w-0 px-1.5 text-xs text-muted-foreground/70"><Typed text={asks.why} /></span>
-              )}
-              {/* #bit or #book typed: what it will do, said faintly. */}
-              {doing.map((tag) => (
-                <span key={tag} className="min-w-0 px-1.5 text-xs text-muted-foreground/70"><Typed text={`#${tag}: ${TAG_DOES[tag]}`} /></span>
-              ))}
-              {/* "+name": which question the clue will go into, said before you send. */}
-              {plus && (
-                <span className="ml-auto flex min-w-0 max-w-full items-center gap-1.5 rounded-2xl border px-2.5 py-0.5 text-xs text-muted-foreground animate-in fade-in-0 zoom-in-95 duration-200">
-                  {plusGoal ? <Flag className="size-3.5 shrink-0 text-[var(--tt-brand-color-400)]" /> : <Orbit className="size-3.5 shrink-0" />}
-                  {(() => {
-                    const said = plus.question ? `${plusGoal ? 'A log for' : 'A clue for'} “${plus.question.title}”` : held.length ? `No question or goal matches “${plus.name}”: it will be a capture` : 'No questions or goals yet: it will be a capture'
-                    // Plain words that wrap whole; a new sentence fades in whole,
-                    // so no word of the old one lingers while it changes.
-                    return <span key={plus.question?.title ?? (held.length ? 'none' : 'empty')} className="min-w-0 animate-in fade-in-0 duration-200">{said}</span>
-                  })()}
-                </span>
               )}
               {like && !plus && !lesson && (
                 <Tip label={`Open it: ${like.title}`}>
@@ -1396,7 +1418,7 @@ export default function App(): React.JSX.Element {
               <Tip label={createMore && !editing ? 'A fresh box for the next' : (editing ? 'Back to your draft: changes already save as you make them' : 'With a fresh box after  ⌥⌘↵')}>
               <Button variant="secondary" onClick={() => submit()} className="text-control">
                 {/* Open on a saved note: closing it, since changes already save. */}
-                <Rolling text={editing ? 'Close note' : saved ? 'Saved' : plus?.question ? (plusGoal ? 'Add log' : 'Add clue') : 'Create'} /> <kbd className="font-sans text-key opacity-70">⌘↵</kbd>
+                <Rolling text={editing ? 'Close note' : saved ? 'Saved' : plan?.clue && !editing ? (plusGoal ? 'Add log' : 'Add clue') : 'Create'} /> <kbd className="font-sans text-key opacity-70">⌘↵</kbd>
               </Button>
               </Tip>
             </main>

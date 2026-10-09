@@ -352,7 +352,7 @@ export const vigil = {
   lineage: (id: string) => call<Record<'from' | 'became' | 'linked', { type: string; id: string; title: string; private?: number }[]>>('lineage', id),
   newArticle: () => call<string>('article:new'),
   findItems: (query: string) => call<{ id: string; tier: 'nugget' | 'article' | 'question'; title: string }[]>('items:find', query),
-  toTask: (id: string) => call<Made | null | 'not-open'>('toTask', id),
+  toTask: (id: string, plain?: { from: number; to: number; text: string }[]) => call<Made | null | 'not-open'>('toTask', id, plain),
   items: (tier: 'nugget' | 'article' | 'question' | 'goal') => call<Item[]>('items', tier),
   /** A question, from nothing or from a capture whose words become its first clue; `dropQuestion` takes it back. */
   newQuestion: (title: string, captureId?: string) => call<string>('question:new', title, captureId),

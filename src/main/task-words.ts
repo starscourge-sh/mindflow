@@ -89,8 +89,11 @@ export type ReadTask = {
  * Each part found is blanked out where it stood rather than cut, so the spans
  * still point at the words as typed; the title is what is left.
  */
-export function readTask(text: string, at = new Date()): ReadTask {
-  let rest = text
+export function readTask(text: string, at = new Date(), plain: { from: number; to: number }[] = []): ReadTask {
+  // Words you said to keep as plain text: covered while reading, so nothing
+  // is taken from them, and put back for the title.
+  const kept = plain.filter((one) => one.from >= 0 && one.to <= text.length && one.from < one.to)
+  let rest = kept.reduce((words, one) => words.slice(0, one.from) + '\uE000'.repeat(one.to - one.from) + words.slice(one.to), text)
   const spans: Span[] = []
   const take = (from: number, to: number, kind: Span['kind']): void => {
     spans.push({ from, to, kind })
@@ -221,6 +224,7 @@ export function readTask(text: string, at = new Date()): ReadTask {
 
   // A word left hanging where a date was taken out: "email Sam on". Only
   // then, so "sign up for" keeps its "for".
+  for (const one of kept) rest = rest.slice(0, one.from) + text.slice(one.from, one.to) + rest.slice(one.to)
   let title = rest.replace(/\s+/g, ' ').trim()
   if (dates.length) title = title.replace(/\s+(?:by|on|at|due|before|for|from)$/i, '').trim()
   // Punctuation that only joined a taken word to the rest: "Someday: learn

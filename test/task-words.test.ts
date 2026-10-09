@@ -112,3 +112,16 @@ test('urgent is late or within two days; important is the flag', () => {
   // A deadline counts as much as a scheduled day.
   assert.equal(quadrantOf(task(9, 0, 1), at), 'handoff')
 })
+
+test('words kept as plain text are not read, and stay in the title', () => {
+  const text = 'call mom tomorrow 5pm p1'
+  const from = text.indexOf('tomorrow 5pm')
+  const read = readTask(text, at, [{ from, to: from + 'tomorrow 5pm'.length }])
+  assert.equal(read.due, null)
+  assert.equal(read.priority, 1)
+  assert.equal(read.title, 'call mom tomorrow 5pm')
+  const plainP1 = readTask(text, at, [{ from: text.indexOf('p1'), to: text.length }])
+  assert.equal(plainP1.priority, 0)
+  assert.equal(day(plainP1.due), 'Tue Oct 06 2026')
+  assert.equal(plainP1.title, 'call mom p1')
+})

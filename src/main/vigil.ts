@@ -517,9 +517,9 @@ export type Made = { id: string; number: number; existed: boolean }
  * with the same name is returned instead, and what this one came from is
  * linked to it, so nothing is lost and nothing is doubled.
  */
-function addTask(text: string, origin: string | null = null, today = false): Made {
+function addTask(text: string, origin: string | null = null, today = false, plain: { from: number; to: number }[] = []): Made {
   const db = database()
-  const task = readTask(text)
+  const task = readTask(text, new Date(), plain)
   const title = task.title || text
   // The same name with no date or repeat of its own is the same task; one
   // that brings a date or a repeat is meant as a new one.
@@ -609,6 +609,9 @@ export function registerVigil(): void {
   column('captures', 'weather text')
   column('captures', 'surfacing_weight real not null default 1')
   column('captures', 'origin_id text')
+  // Tags the box was told to keep as plain text when it was sent ("#book"
+  // that is only a word): they do nothing for this capture.
+  column('captures', 'plain_tags text')
   // Kept by the database, so no exit can forget them: when a capture left the
   // inbox, and when it was first used (opened, exited or given a who or where),
   // which time to first use is measured by. Not in its first minute: that is
@@ -1072,12 +1075,20 @@ export function registerVigil(): void {
     return write(id)
   })
   // Resolve elsewhere: the capture becomes a task, and remembers it did.
-  handle('toTask', (id: string) => {
+  // `plain`: words the box was told to keep as plain text ("tomorrow", "p1"),
+  // by where they sit in its first line, with the words, so a name read a
+  // little differently here still finds them.
+  handle('toTask', (id: string, plain?: { from: number; to: number; text: string }[]) => {
     const capture = db.prepare(`select ${LABEL} as title, status from captures where id = ?`).get(id) as { title: string; status: string } | undefined
     if (!capture) return null
     // From the inbox only: a capture that took another exit keeps it.
     if (capture.status !== 'open') return 'not-open'
-    const task = addTask(capture.title, id)
+    const kept = (Array.isArray(plain) ? plain : []).flatMap((one) => {
+      if (typeof one?.text !== 'string' || !one.text) return []
+      const from = capture.title.slice(one.from, one.from + one.text.length) === one.text ? one.from : capture.title.indexOf(one.text)
+      return from < 0 ? [] : [{ from, to: from + one.text.length }]
+    })
+    const task = addTask(capture.title, id, false, kept)
     db.prepare("update captures set status = 'resolved' where id = ?").run(id)
     return write({ ...task, resolved: [id] })
   })
@@ -1869,7 +1880,7 @@ export function registerVigil(): void {
     const lines = db.prepare(`select count(*) n from captures where kind = 'quote' and private = 0 and status != 'discarded'
       and captured_at >= ? and captured_at < ? and lower(coalesce(medium, '')) like lower(?) || '%'`)
     const books = (db.prepare(`select ${LABEL} as title, title as own, body, attribution as by, json_extract(fields, '$.status') as state from captures
-      where body like '%#book%' and private = 0 and status != 'discarded' and captured_at >= ? and captured_at < ? order by captured_at`).all(since, until) as { title: string; own: string | null; body: string | null; by: string | null; state: string | null }[])
+      where body like '%#book%' and private = 0 and status != 'discarded' and coalesce(plain_tags, '') not like '%"book"%' and captured_at >= ? and captured_at < ? order by captured_at`).all(since, until) as { title: string; own: string | null; body: string | null; by: string | null; state: string | null }[])
       .filter((book) => hasTag(`${book.own ?? ''} ${book.body ?? ''}`, 'book'))
       .map((book) => ({ ...book, title: book.title.replace(/(?:^|\s)#[a-z][\w-]*/gi, '').trim() }))
       .filter((book) => book.title && (book.state === 'Finished' || book.state === 'Reading'))
