@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
 import { DndContext, MeasuringStrategy, PointerSensor, closestCenter, pointerWithin, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragMoveEvent, type DragStartEvent, type Modifier } from '@dnd-kit/core'
 import { SortableContext, useSortable, type SortingStrategy } from '@dnd-kit/sortable'
 import { AnimatePresence, motion } from 'motion/react'
@@ -18,7 +17,7 @@ import { spring as springs } from '@/lib/motion'
 import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
 import { KEY, isGroup, type How } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
-import { Lifted, Overlay, SETTLE, snapshot } from './sortable'
+import { Overlay, SETTLE } from './sortable'
 import { copy } from './row-menu'
 import { Tip, VirtualList, refuse, toast } from './ui'
 import type { Entry } from './note-list'
@@ -85,8 +84,12 @@ type Carry = {
   down: boolean
   /** The other rows carried along with the one in hand: they wait, faded, in their places. */
   along: Set<string>
+  /** The group the pointer is within while carrying. */
+  within: string | null
+  /** The row in hand. */
+  hand: string | null
 }
-const Carrying = createContext<Carry>({ aim: null, height: 0, leaving: null, down: false, along: new Set() })
+const Carrying = createContext<Carry>({ aim: null, height: 0, leaving: null, down: false, along: new Set(), within: null, hand: null })
 
 function Node({ id, children, inner, indent = 0 }: { id: string; children: ReactNode; inner?: CSSProperties; indent?: number }): React.JSX.Element {
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
@@ -172,13 +175,15 @@ export function GroupedList({ bundles, onDrop, picked, onLetGo, onFold, onNewNot
   const manyRef = useRef<string[]>([])
   manyRef.current = many
   const [height, setHeight] = useState(0)
+  const heightRef = useRef(0)
+  heightRef.current = height
+  const [within, setWithin] = useState<string | null>(null)
+  const withinRef = useRef<string | null>(null)
   // Where the row was taken hold of, across it: the chip sits just past it.
   const [grab, setGrab] = useState(60)
   const [aim, setAim] = useState<Aim | null>(null)
   const aimed = useRef<Aim | null>(null)
-  const [shot, setShot] = useState<{ id: string; html: string; width: number; height: number } | null>(null)
   const ticks = useRef(slotTicker()).current
-  const label = useRef<HTMLDivElement>(null)
   // Over the middle of a row, room opens just after it (or after the last of
   // its group's notes): where the carried row would land. Anywhere else
   // nothing moves; a line says where it would go. A group carried by its row
@@ -232,12 +237,6 @@ export function GroupedList({ bundles, onDrop, picked, onLetGo, onFold, onNewNot
     setHeight(active.rect.current.initial?.height ?? 48)
     const start = active.rect.current.initial
     setGrab(start && activatorEvent instanceof PointerEvent ? activatorEvent.clientX - start.left : 60)
-    // A group lifts whole: its row and its notes.
-    if (isGroup(id)) {
-      const block = document.querySelector<HTMLElement>(`[data-group-block="${CSS.escape(id.slice(KEY.length))}"]`)
-      const box = block?.getBoundingClientRect()
-      setShot(block && box ? { id, html: block.innerHTML, width: box.width, height: box.height } : null)
-    } else setShot(snapshot(id))
   }
   // Held over a folded group's row for a moment, the group opens, as a folder
   // does in Finder when something is held over it.
@@ -250,14 +249,22 @@ export function GroupedList({ bundles, onDrop, picked, onLetGo, onFold, onNewNot
     const id = String(active.id)
     const target = over && String(over.id)
     const pointer = activatorEvent instanceof PointerEvent ? { x: activatorEvent.clientX + delta.x, y: activatorEvent.clientY + delta.y } : null
-    // The words ride at the right end of the lifted row, clear of its title and of the rows under it.
-    const lifted = active.rect.current.translated
-    if (label.current && lifted) label.current.style.translate = `${Math.round(lifted.right - 14)}px ${Math.round(lifted.top + lifted.height / 2)}px`
     const shut = target && !isGroup(id) ? info.get(target.slice(KEY.length)) : undefined
     if (!shut || shut.open || !isGroup(target!)) unspring()
     else if (spring.current?.key !== target) {
       unspring()
       spring.current = { key: target!, timer: setTimeout(() => (click('tick'), onFold(shut, true), (spring.current = null)), 600) }
+    }
+    // The group the pointer is within, header, rows, the hair between them or
+    // the room opened at its end: its panel stays lit all the while.
+    if (pointer) {
+      let inside: string | null = null
+      for (const block of document.querySelectorAll<HTMLElement>('[data-group-block]')) {
+        const box = block.getBoundingClientRect()
+        const more = aimed.current?.into === block.dataset.groupBlock ? heightRef.current : 0
+        if (pointer.y >= box.top - more && pointer.y <= box.bottom + more) inside = block.dataset.groupBlock ?? null
+      }
+      if (inside !== withinRef.current) (withinRef.current = inside, setWithin(inside))
     }
     if (!target || target === id || !pointer || (manyRef.current.length > 1 && manyRef.current.includes(target))) return point(null)
     const at = (pointer.y - over.rect.top) / over.rect.height
@@ -282,8 +289,9 @@ export function GroupedList({ bundles, onDrop, picked, onLetGo, onFold, onNewNot
   }
   const end = (): void => {
     unspring()
+    withinRef.current = null
+    setWithin(null)
     setMany([])
-    setShot(null)
     setCarried(null)
     point(null)
   }
@@ -294,7 +302,6 @@ export function GroupedList({ bundles, onDrop, picked, onLetGo, onFold, onNewNot
     onDrop(manyRef.current.length > 1 ? manyRef.current : [String(active.id)], now.target, now.how)
   }
   const own = carried ? home.get(carried) : undefined
-  const chip = aim?.how === 'join' && carried ? bundles.flatMap((one) => one.entries).find((entry) => entry.id === carried) : undefined
   const leaving = own && aim && aim.into !== own ? { group: own, id: carried! } : null
   let index = 0
   const lines = bundles.map((one) => {
@@ -315,7 +322,7 @@ export function GroupedList({ bundles, onDrop, picked, onLetGo, onFold, onNewNot
     <DndContext sensors={sensors} collisionDetection={collide} modifiers={[upDown]} measuring={{ droppable: { strategy: MeasuringStrategy.WhileDragging } }}
       onDragStart={onDragStart} onDragMove={onDragMove} onDragOver={({ over }) => ticks(over?.id)} onDragEnd={onDragEnd} onDragCancel={end}>
       <SortableContext items={keys} strategy={strategy}>
-        <Carrying.Provider value={{ aim, height, leaving, down, along: new Set(many.filter((one) => one !== carried)) }}>
+        <Carrying.Provider value={{ aim, height, leaving, down, along: new Set(many.filter((one) => one !== carried)), within, hand: carried }}>
           <VirtualList items={lines} keyOf={({ one }) => (one.group ? KEY + one.group.id : one.entries[0].id)} cursor={line >= 0 ? line : undefined} estimate={estimate} className={className}>
             {({ one, start }) =>
               one.group ? (
@@ -332,63 +339,62 @@ export function GroupedList({ bundles, onDrop, picked, onLetGo, onFold, onNewNot
         </Carrying.Provider>
       </SortableContext>
       <Overlay dropAnimation={still() ? null : SETTLE}>
-        <div className="relative" style={{ width: shot?.width }}>
-          {/* Over the middle of a row the lifted row draws in to a small chip beside the pointer, so the room it previews stays in sight. */}
-          <div className="relative transition-[opacity,scale] duration-150 motion-reduce:transition-none" style={{ transitionTimingFunction: OUT, opacity: chip ? 0 : 1, scale: chip ? 0.92 : 1 }}>
-            {/* Several carried: a card or two showing behind the one in hand, a stack. */}
-            {shot && many.slice(1, 3).map((_, at) => (
-              <div key={at} aria-hidden className="absolute inset-0 rounded-md bg-background shadow-[0_4px_12px_-4px_rgb(0_0_0/0.3)] ring-1 ring-foreground/10"
-                style={{ translate: `0 ${(at + 1) * 5}px`, scale: 1 - (at + 1) * 0.025, zIndex: -1 - at }} />
-            ))}
-            <Lifted shot={shot} />
-          </div>
-          {many.length > 1 && !chip && <Count n={many.length} />}
-          <AnimatePresence>
-            {chip && (
-              <motion.div
-                key="chip"
-                className="absolute top-1/2 flex w-[60%] items-center gap-2 rounded-md bg-background px-2.5 py-1.5 text-control shadow-[0_8px_24px_-6px_rgb(0_0_0/0.35)] ring-1 ring-foreground/10"
-                // In the room it previews: under the pointer when the rows moved up to make it, a row lower when they moved down.
-                style={{ left: `min(${grab + 18}px, 40%)`, translate: `0 calc(-50% + ${down ? 0 : height}px)` }}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.08 } }}
-                transition={still() ? { duration: 0 } : springs.moderate}
-              >
-                {many.length > 1 && <Count n={many.length} />}
-                <chip.icon className="size-4 shrink-0" style={{ color: chip.tint }} />
-                <span className="private-text min-w-0 flex-1 truncate">{chip.title || 'Untitled'}</span>
-                <span data-drag-label="" className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-                  <span className="size-1.5 rounded-full" style={{ background: aim?.tint ?? 'var(--muted-foreground)' }} />
-                  {aim?.label}
-                </span>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        {carried && <Ghost carried={carried} bundles={bundles} many={many.length} aim={aim} grab={grab} lift={aim?.how === 'join' && !down ? height : 0} />}
       </Overlay>
-      {createPortal(
-        <div ref={label} aria-hidden className="pointer-events-none fixed top-0 left-0 z-[1001]">
-          <AnimatePresence>
-            {carried && aim?.label && !chip && (
+    </DndContext>
+  )
+}
+
+/**
+ * What is carried: one small card beside the pointer, the same one the whole
+ * way, whatever it is over. Its words change in place (Move here, Add to
+ * Memory, New group), and over a row's middle it drops into the room it
+ * previews. Several carried show as a stack with a count; a group, by its
+ * icon and name.
+ */
+function Ghost({ carried, bundles, many, aim, grab, lift }: { carried: string; bundles: Bundle[]; many: number; aim: Aim | null; grab: number; lift: number }): React.JSX.Element {
+  const group = isGroup(carried) ? bundles.find((one) => one.group && KEY + one.group.id === carried)?.group : undefined
+  const entry = group ? undefined : bundles.flatMap((one) => one.entries).find((one) => one.id === carried)
+  const words = aim?.label ?? (aim ? 'Move here' : null)
+  return (
+    <div className="relative h-full w-full">
+      <motion.div
+        data-ghost=""
+        className="absolute top-1/2 flex w-[60%] min-w-64 items-center gap-2 rounded-md bg-background px-2.5 py-1.5 text-control shadow-[0_8px_24px_-6px_rgb(0_0_0/0.35)] ring-1 ring-foreground/10"
+        style={{ left: `min(${grab + 18}px, 40%)`, translate: '0 -50%' }}
+        initial={{ opacity: 0, scale: 0.94 }}
+        animate={{ opacity: 1, scale: 1, y: lift }}
+        transition={still() ? { duration: 0 } : springs.moderate}
+      >
+        {/* Several: a card or two showing behind, a stack. */}
+        {Array.from({ length: Math.min(2, many - 1) }, (_, at) => (
+          <span key={at} aria-hidden className="absolute inset-0 -z-10 rounded-md bg-background shadow-[0_4px_12px_-4px_rgb(0_0_0/0.3)] ring-1 ring-foreground/10"
+            style={{ translate: `0 ${(at + 1) * 4}px`, scale: 1 - (at + 1) * 0.03 }} />
+        ))}
+        {many > 1 && <Count n={many} />}
+        {group ? <GroupIcon icon={group.icon} color={group.color} /> : entry ? <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} /> : null}
+        <span className={cn('min-w-0 flex-1 truncate', group ? 'font-semibold' : 'private-text')}>{group?.name ?? (entry?.title || 'Untitled')}</span>
+        {/* The words cross-fade in place; the card itself never changes. */}
+        <span className="grid shrink-0 justify-items-end text-xs text-muted-foreground">
+          <AnimatePresence initial={false}>
+            {words && (
               <motion.span
-                key={aim.label}
+                key={words}
                 data-drag-label=""
-                className="flex -translate-x-full -translate-y-1/2 items-center gap-1.5 rounded-md bg-popover px-2 py-1 text-xs whitespace-nowrap text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10"
-                initial={{ opacity: 0, scale: 0.92 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, transition: { duration: 0.06 } }}
+                className="col-start-1 row-start-1 flex items-center gap-1.5 whitespace-nowrap"
+                initial={{ opacity: 0, y: 3 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -3, transition: { duration: 0.08 } }}
                 transition={still() ? { duration: 0 } : springs.fast}
               >
-                <span className="size-1.5 rounded-full" style={{ background: aim.tint ?? 'var(--muted-foreground)' }} />
-                {aim.label}
+                <span className="size-1.5 rounded-full" style={{ background: aim?.tint ?? 'var(--muted-foreground)' }} />
+                {words}
               </motion.span>
             )}
           </AnimatePresence>
-        </div>,
-        document.body
-      )}
-    </DndContext>
+        </span>
+      </motion.div>
+    </div>
   )
 }
 
@@ -442,11 +448,15 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
   const count = entries.length
   const tint = tintOf(group.color)
   const key = KEY + group.id
-  const { aim, height, leaving, down } = useContext(Carrying)
+  const { aim, height, leaving, down, within, hand } = useContext(Carrying)
   const joining = aim?.how === 'join' && aim.into === group.id
+  // Carrying, the panel answers the pointer being anywhere within the group, and deepens when letting go would put the row in it.
+  const near = within === group.id && !carried
+  const landing = !!aim && aim.into === group.id
   const losing = leaving?.group === group.id ? entries.findIndex((entry) => entry.id === leaving.id) : -1
   // The panel follows what is about to happen: wider for one about to join, closing over one about to leave.
-  const stretch = joining ? (down ? { top: -height } : { bottom: -height }) : losing >= 0 ? (down ? { bottom: height } : { top: height }) : {}
+  // Room opened inside it for a row from elsewhere: the panel takes that row in too.
+  const stretch = landing && !entries.some((entry) => entry.id === hand) ? (down ? { top: -height } : { bottom: -height }) : losing >= 0 ? (down ? { bottom: height } : { top: height }) : {}
   const fold = (): void => {
     chime(group.open ? 'tuck' : 'untuck')
     onFold(!group.open)
@@ -466,7 +476,7 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
     onRenaming(false)
     if (name.trim() && name.trim() !== group.name) change(group, { name: name.trim() }, `Renamed ${name.trim()}`)
   }
-  const shown = (menu || picking || renaming || joining || losing >= 0 || pointing || !arrived || born) && !parting
+  const shown = (menu || picking || renaming || joining || landing || near || losing >= 0 || pointing || !arrived || born) && !parting
   return (
     <div
       data-group-block={group.id}
@@ -486,7 +496,7 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
         )}
         style={{
           transitionTimingFunction: OUT,
-          background: `color-mix(in srgb, var(--group-tint) ${(tint ? 9 : 4.5) * (pointing ? 1.7 : joining ? 1.4 : 1)}%, transparent)`,
+          background: `color-mix(in srgb, var(--group-tint) ${(tint ? 9 : 4.5) * (pointing ? 1.7 : landing ? 1.6 : 1)}%, transparent)`,
           ...stretch
         }}
       />

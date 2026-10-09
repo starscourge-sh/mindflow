@@ -459,6 +459,42 @@ try {
   bad = await overlaps(c)
   check('after edge drops and folds, still nothing overlaps', bad.length === 0, bad.slice(0, 4).join('; '))
   await frames(c, 'w-filtered-after-light', 1, 0)
+
+  // A slow pass down the whole list with a row in hand, sampled every 16ms:
+  // one ghost the whole way, and a group's panel lit the whole time the
+  // pointer is within it.
+  {
+    // A loose row in view, near the bottom, to carry up and then down across every group.
+    const loose = await c.h.evaluate(() => [...document.querySelectorAll('[data-row]:not([data-lifted] *)')].filter((one) => !one.closest('[data-group-block]')).map((one) => one.getBoundingClientRect()).filter((box) => box.bottom < innerHeight - 10).pop())
+    const from = { x: loose.x, y: loose.y, height: loose.height }
+    const top = await c.h.locator('[data-group-block]').first().boundingBox()
+    await c.h.mouse.move(from.x + 60, from.y + from.height / 2)
+    await c.h.mouse.down()
+    await c.h.mouse.move(from.x + 60, from.y + from.height / 2 - 10, { steps: 4 })
+    await c.h.mouse.move(from.x + 60, top.y - 20, { steps: 10 })
+    await c.h.waitForTimeout(200)
+    await c.h.evaluate(() => void (window.__ghost = document.querySelector('[data-ghost]')))
+    let swapped = 0, dark = [], inside = null, since = 0, shots = 0
+    for (let y = top.y - 20; y < 740; y += 3) {
+      await c.h.mouse.move(from.x + 60, y)
+      await c.h.waitForTimeout(16)
+      const seen = await c.h.evaluate((y) => {
+        const ghost = document.querySelector('[data-ghost]')
+        const block = [...document.querySelectorAll('[data-group-block]')].find((one) => { const box = one.getBoundingClientRect(); return y > box.top + 2 && y < box.bottom - 2 })
+        const panel = block?.querySelector('[data-panel]')
+        return { same: !!ghost && ghost === window.__ghost, group: block?.dataset.groupBlock ?? null, lit: panel ? Number(getComputedStyle(panel).opacity) : null, label: document.querySelector('[data-drag-label]')?.textContent ?? '' }
+      }, y)
+      if (!seen.same) swapped++
+      if (seen.group !== inside) (inside = seen.group, since = Date.now())
+      else if (inside && Date.now() - since > 260 && seen.lit < 0.9) dark.push(`${Math.round(y)}: ${seen.lit} (${seen.label})`)
+      if (inside && shots < 6 && Math.round(y) % 30 < 3) await frames(c, `y-sweep-${shots++}`, 1, 0)
+    }
+    await c.h.keyboard.press('Escape')
+    await c.h.mouse.up()
+    await c.h.waitForTimeout(400)
+    check('one ghost the whole way down', swapped === 0, `${swapped} samples saw another`)
+    check('a group\'s panel stays lit while the pointer is within it', dark.length === 0, dark.slice(0, 4).join('; '))
+  }
   await c.theme('dark')
   await c.size(1100, 760)
   await c.go('nuggets')
