@@ -218,7 +218,8 @@ function PaneFrame({ pane, apis, split, front, hidden, share, divider, onFront, 
         onPointerDownCapture={() => !front && onFront(pane.key)}
         onFocusCapture={() => tabbed && !front && onFront(pane.key)}
         className={`relative min-h-0 min-w-0 ${hidden ? 'hidden' : 'flex'}`}
-        style={{ flexGrow: share, flexBasis: 0 }}
+        // The page's own background, for the pane in front to be raised from.
+        style={{ flexGrow: share, flexBasis: 0, '--mf-under': 'var(--background)' } as React.CSSProperties}
       >
         {/* Split, the pane with the keys reads as the surface in front, the way Dia
             shows it: a firmer hairline and a soft shadow, its words at full
@@ -226,7 +227,10 @@ function PaneFrame({ pane, apis, split, front, hidden, share, divider, onFront, 
             header lines muted and the page a touch dimmer. Nothing coloured.
             On its own, the page is the card it always was. */}
         <div ref={pageRef} className={`@container/page relative flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border transition-[opacity,border-color,box-shadow] duration-150 ${
-          !split ? '' : front ? 'border-foreground/12 shadow-[0_1px_2px_rgb(0_0_0/0.05),0_6px_18px_-6px_rgb(0_0_0/0.12)]' : 'border-foreground/6 opacity-[0.94] [&_header]:text-muted-foreground'}`}>
+          !split ? '' : front
+            // In a dark theme (every theme carries .dark; light ones add data-light) a shadow barely reads, so the key pane's surface is raised a step, as macOS lifts its key window.
+            ? 'border-foreground/12 bg-background shadow-[0_1px_2px_rgb(0_0_0/0.05),0_6px_18px_-6px_rgb(0_0_0/0.12)] [:root:not([data-light])_&]:[--background:color-mix(in_srgb,var(--mf-under)_94%,white)]'
+            : 'border-foreground/6 opacity-[0.94] [:root:not([data-light])_&]:opacity-[0.85] [&_header]:text-muted-foreground'}`}>
           <PaneContext.Provider value={pane.key}>
             <PaneWidthContext.Provider value={split ? width : null}>{pane.node}</PaneWidthContext.Provider>
           </PaneContext.Provider>

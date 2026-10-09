@@ -214,6 +214,8 @@ try {
   await h.evaluate(() => { localStorage.setItem('theme', 'dark'); window.dispatchEvent(new StorageEvent('storage', { key: 'theme', newValue: 'dark' })) })
   await wait(800)
   await h.screenshot({ path: `${shots}/three-dark.png` })
+  const darkLooks = await h.evaluate(() => [...document.querySelectorAll('[data-pane]')].map((el) => { const card = getComputedStyle(el.firstElementChild); return { bg: card.backgroundColor, dim: Number(card.opacity) } }))
+  check('dark: the front pane is raised a step lighter, the others dimmed to about 85%, nothing coloured', new Set(darkLooks.map((one) => one.bg)).size === 2 && darkLooks.find((one) => one.dim === 1)?.bg !== 'rgba(0, 0, 0, 0)' && darkLooks.filter((one) => one.dim === 1).length === 1 && darkLooks.filter((one) => Math.abs(one.dim - 0.85) < 0.01).length === 2, JSON.stringify(darkLooks))
 
   // --- Restart: the panes, their pages and their widths come back -------------------------------
   const kept = (await panes(h)).map((one) => ({ width: one.width, open: one.open, note: one.note }))
