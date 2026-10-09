@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
-import { ArrowUp, Check, CornerDownLeft } from 'lucide-react'
+import { ArrowUp, BookOpen, Brain, Check, CornerDownLeft, GitBranch, RotateCcw } from 'lucide-react'
 import { EASE, byKeys, hush, spring, speak } from '@/lib/motion'
 import { chime, click, fold } from '@/lib/sound'
 import { allThemes, applyTheme, currentTheme, isLight, type Theme } from '@/lib/theme'
@@ -799,6 +799,14 @@ function dayBeats(): Beat<DayState>[] {
   return beats
 }
 
+/** What Notion, Obsidian, Todoist and Anki each left out, in plain words, and the chapter that showed it. */
+const GAPS: [typeof BookOpen, string, string, string][] = [
+  [RotateCcw, 'Notes that sit and wait', 'Notes that come back', 'A day'],
+  [GitBranch, 'Tasks without the why', 'Tasks with what they came from', 'Become'],
+  [Brain, 'Flashcards you write by hand', 'Remembering built in', 'Become'],
+  [BookOpen, 'Thoughts scattered across apps', 'One book', 'Catch']
+]
+
 function DayChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
   const [beats] = useState(dayBeats)
   const show = useScript<DayState>({ docked: false, look: -1, answered: 0, hint: false, tip: false, asking: false, question: '', kept: false, sticky: false, ticked: false, line: '', chip: false, logged: false, over: false, hand: null, down: false, overview: false }, beats, play)
@@ -819,6 +827,19 @@ function DayChapter({ play, report }: { play: boolean; report: (now: Reel) => vo
       <Words title="A day with Vigil." docked={s.docked} still={!play} done={show.done}>
         What a normal day looks like once you have kept a few things.
       </Words>
+      {/* What the other apps each left out, side by side, and where the welcome showed it. */}
+      <ul aria-label="What it adds" className="relative z-10 grid shrink-0 grid-cols-4 gap-x-[clamp(0.75rem,2vw,2rem)] pb-[clamp(0.5rem,2vh,1rem)]">
+        {GAPS.map(([Icon, was, now, where], i) => (
+          <motion.li key={was} className="flex min-w-0 items-start gap-2" initial={false} animate={{ opacity: s.docked ? 1 : 0, y: s.docked ? 0 : 6 }} transition={{ duration: 0.35, ease: EASE, delay: s.docked && play ? 0.3 + i * 0.12 : 0 }}>
+            <Icon className="mt-0.5 size-3.5 shrink-0 text-primary" />
+            <span className="min-w-0 text-[0.8125rem] leading-snug">
+              <span className="block text-(--mf-wl-quiet) line-through decoration-foreground/30">{was}</span>
+              <span className="block text-foreground">{now}</span>
+              <span className="block text-[0.6875rem] text-(--mf-wl-quiet)">Seen in {where}</span>
+            </span>
+          </motion.li>
+        ))}
+      </ul>
       <div ref={scene} className="relative min-h-0 flex-1 overflow-hidden">
         <Camera shot={shot} className="absolute -top-1/2 -left-1/2 h-[200%] w-[200%]">
           <div ref={world} className="relative grid size-full grid-cols-2 grid-rows-2">
@@ -1393,7 +1414,7 @@ function Hello({ replay, kept, calm, newcomer, today }: { replay: boolean; kept:
       <div className="flex max-w-[min(100%,46rem)] flex-col gap-[clamp(0.75rem,2.6vh,1.75rem)] pt-[clamp(0rem,4vh,3rem)]">
         <p className={FIGURES}>{when}</p>
         {replay ? <h1 className={`${HEADLINE_XL} max-w-[17ch]`}>{line}</h1> : <TypeLine text={line} className={`${HEADLINE_XL} max-w-[17ch]`} onDone={() => setSaid(true)} />}
-        <p className={`${BODY} max-w-[28ch]`}>Vigil keeps it for you, one key away, and brings it back.</p>
+        <p className={`${BODY} max-w-[28ch]`}>Your commonplace book: everything worth keeping, in one place, and it comes back to you.</p>
       </div>
       <div className="[@media(max-height:520px)]:hidden">
         <YearRule calm={calm} kept={kept} faded={said} newcomer={newcomer} today={today} />
@@ -1525,7 +1546,7 @@ function Start({ name, kept, skipped, importing, still, onPick, onFiles, onPower
   return (
     <div className="my-auto mr-auto flex w-full max-w-[58rem] flex-col gap-[clamp(1rem,4.5vh,3rem)] overflow-y-auto">
       <div className="flex flex-col gap-[clamp(0.5rem,1.8vh,1rem)]">
-        <h1 className={`${HEADLINE_XL} max-w-[14ch]`}><Rise text={name ? `Your book is ready, ${name}.` : 'Your book is ready.'} still={still} /></h1>
+        <h1 className={`${HEADLINE_XL} max-w-[14ch]`}><Rise text={name ? `Your commonplace book is ready, ${name}.` : 'Your commonplace book is ready.'} still={still} /></h1>
         <p className={`${BODY} max-w-[30ch]`}>{kept ? `${counted(kept)} ${kept === 1 ? 'thing' : 'things'} in it already.` : 'Empty for now.'} <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> {kept ? 'adds the next' : 'fills it'}, from any app.</p>
         {skipped && <p role="status" className={`${QUIET} max-w-[48ch]`}>The welcome waits in the Vigil menu and ⌘K.</p>}
       </div>
