@@ -471,7 +471,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit }: { cap
     setWhere(capture.medium ?? '')
   }, [capture.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const exits = [
-    { icon: ArrowUpRight, tint: 'purple', label: 'Promote to nugget', run: () => flying(capture.id, 'nugget', () => takeExit(capture.id, 'promoted')), said: 'Promoted' },
+    { icon: ArrowUpRight, tint: 'purple', label: 'Save as an idea', run: () => flying(capture.id, 'nugget', () => takeExit(capture.id, 'promoted')), said: 'Promoted' },
     { icon: ListTodo, tint: 'orange', label: 'Make it a task', run: () => makeTask({ capture: capture.id }), said: 'Now a task' },
     { icon: CheckCircle2, tint: 'green', label: 'Resolve', run: () => window.api.captures.save(capture.id, { status: 'resolved' }), said: 'Resolved' },
     { icon: Trash2, alive: TrashIcon, tint: 'red', label: 'Discard', run: () => flying(capture.id, 'away', () => window.api.captures.save(capture.id, { status: 'discarded' })), said: 'Discarded' }
@@ -501,10 +501,10 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit }: { cap
                     if (result === 'not-open' || (result as SaveResult | null)?.refused) return refuse(NOT_OPEN)
                     // The sound once it went through, so a refusal never sounds like success first.
                     if (exit.label === 'Discard') tear()
-                    else chime(exit.label === 'Promote to nugget' ? 'promote' : 'resolve')
+                    else chime(exit.label === 'Save as an idea' ? 'promote' : 'resolve')
                     // Dealt with: on to the next one, as mail does, rather than left on what is gone.
                     onExit?.()
-                    if (exit.label === 'Promote to nugget')
+                    if (exit.label === 'Save as an idea')
                       return toast(exit.said, typeof result === 'string' ? () => void unpromote(capture.id, result) : undefined, 'success', typeof result === 'string' ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
                     // Back to exactly the status it had.
                     const was = ((result as SaveResult | null)?.was ?? 'open') as 'open'

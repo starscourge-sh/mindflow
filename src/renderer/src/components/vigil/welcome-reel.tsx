@@ -367,7 +367,7 @@ export function PostcardResult({ words, who, where, signed, id = 'reel-item-quot
       <div className={`[&>div]:shadow-[0_2px_3px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_22px_44px_-16px_color-mix(in_oklab,var(--mf-shadow-ink)_42%,transparent)] ${themed ? '[&>div]:!bg-[color-mix(in_oklab,var(--foreground)_10%,var(--background))]' : 'dark:[&>div]:bg-[color-mix(in_oklab,white_88%,var(--background))]'}`}
         >
         <MemoryPostcard at={new Date().toISOString()} seed="welcome-quote">
-          <p className="text-meta text-(--mf-wl-quiet)">Kept a year ago today</p>
+          <p className="text-meta text-(--mf-wl-quiet)">Saved a year ago today</p>
           <p className="clear-both mt-1 font-heading text-[1.0625rem] leading-snug text-foreground">{words.replace(/^[“"]|[”"]$/g, '')}</p>
           {/* Signed whole and never cut short: "said by" and the pen's stroke arrive together, the name
               drawn left to right (its clip reaches past the letters, so no swash shows early), and

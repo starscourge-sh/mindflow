@@ -23,7 +23,7 @@ const lifted = new Set<string>()
 const once = (kind: 'capture' | 'nugget' | 'task', text: string): boolean => {
   const key = `${kind}\n${text}`
   if (!lifted.has(key)) return !!lifted.add(key)
-  refuse({ capture: 'Already in your inbox', nugget: 'Already a nugget', task: 'Already a task' }[kind], 'info')
+  refuse({ capture: 'Already in your inbox', nugget: 'Already an idea', task: 'Already a task' }[kind], 'info')
   return false
 }
 
@@ -69,7 +69,7 @@ export function selectionActions(origin: { captureId?: string; attribution?: str
           <button
             type="button"
             className={button}
-            aria-label="Nugget"
+            aria-label="Idea"
             onClick={() => {
               const text = words()
               if (!text || !once('nugget', text)) return
@@ -77,12 +77,12 @@ export function selectionActions(origin: { captureId?: string; attribution?: str
               void vigil.nuggetFrom(text, { captureId: origin.captureId, attribution: origin.attribution })
                 .then((nugget) => {
                   chime('promote')
-                  toast('Kept as a nugget', undefined, 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('nugget', nugget) })
+                  toast('Saved as an idea', undefined, 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('nugget', nugget) })
                 })
                 .catch(() => lifted.delete(`nugget\n${text}`))
             }}
           >
-            <Gem /> <span className="tiptap-button-text">Nugget</span>
+            <Gem /> <span className="tiptap-button-text">Idea</span>
           </button>
           <button
             type="button"

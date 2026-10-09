@@ -281,7 +281,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
  onClick={() => void vigil.article(chosen).then((id) => {
  // The same words and the same landing as the prompt's: the article opens.
  chime('promote')
- toast(chosen.length > 1 ? `An article, from ${num(chosen.length)} nuggets` : 'An article, from this nugget')
+ toast(chosen.length > 1 ? `An article, from ${num(chosen.length)} ideas` : 'An article, from this idea')
  setChosen([])
  pick(id)
  })}
@@ -431,7 +431,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
         <NoteHeader className="-mt-3 mb-1" left={top} type={item.tier} table="nuggets" id={item.id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
           onRestored={() => void vigil.item(item.id).then((fresh) => fresh && setRestored((was) => ({ body: fresh.body, rev: (was?.rev ?? 0) + 1 })))}
-          edited={item.updatedAt} captured={item.createdAt} made={item.tier === 'article' ? 'Started' : 'Kept'}
+          edited={item.updatedAt} captured={item.createdAt} made={item.tier === 'article' ? 'Started' : 'Saved'}
           pinned={!!item.pinnedAt} onPin={() => pin('nuggets', item.id, !item.pinnedAt)}
           menu={[...itemMenu(item), 'separator', { label: 'Copy title', run: () => copy(item.title) }]} />
         {item.tier === 'article' && (
@@ -594,7 +594,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
                   Your glosses here run to {num(glossWords)} words: that is an article already. Start one and they come with it.
                 </p>
               )}
-              <Prop icon={Plus} onClick={() => void vigil.article([item.id]).then((id) => { chime('promote'); toast('An article, from this nugget'); onOpen?.('article', id) })}>
+              <Prop icon={Plus} onClick={() => void vigil.article([item.id]).then((id) => { chime('promote'); toast('An article, from this idea'); onOpen?.('article', id) })}>
                 Start an article
               </Prop>
               <StudyThis item={item} />
@@ -602,7 +602,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
           </>
         ) : (
           <Island compact title="Made from">
-            <Prop icon={Layers}>{item.origins.length ? `${num(item.origins.length)} nugget${item.origins.length === 1 ? '' : 's'}` : 'Written from scratch'}</Prop>
+            <Prop icon={Layers}>{item.origins.length ? `${num(item.origins.length)} idea${item.origins.length === 1 ? '' : 's'}` : 'Written from scratch'}</Prop>
           </Island>
         )}
         <Lineage id={item.id} onOpen={onOpen} />
@@ -626,7 +626,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
           </label>
         </Island>
         <Island compact title="Details">
-          <Prop icon={Calendar}>Kept {when(item.createdAt)}</Prop>
+          <Prop icon={Calendar}>Saved {when(item.createdAt)}</Prop>
           {item.revisions > 0 && <Prop icon={History}>Rewritten {item.revisions === 1 ? 'once' : `${item.revisions} times`}</Prop>}
           <Prop icon={Download} onClick={() => void saveAttachments([{ table: 'nuggets', id: item.id }])}>Save its pictures and files…</Prop>
         </Island>
@@ -729,7 +729,7 @@ function Supersede({ item }: { item: ItemFull }): React.JSX.Element {
         if (event.key === 'Escape') setOpen(false)
         if (event.key !== 'Enter' || event.shiftKey || !event.currentTarget.value.trim()) return
         event.preventDefault()
-        void vigil.supersede(item.id, event.currentTarget.value.trim()).then(() => toast('Corrected: the new version is a nugget, this one is out of review'))
+        void vigil.supersede(item.id, event.currentTarget.value.trim()).then(() => toast('Corrected: the new version is an idea, this one is out of review'))
       }}
       className="resize-none text-control"
     />
@@ -781,7 +781,7 @@ export function useItemDisplay(name: string, every: Item[]): {
   }
   const facets: Facet<Item>[] = [
     { key: 'kind', label: 'Kind', options: CAPTURE_TYPES.filter((type) => all.some((one) => one.kind === type.id)).map(({ id, label, icon, tint }) => ({ id, label, icon, tint })), test: (one, kind) => one.kind === kind },
-    { key: 'when', label: 'Kept', options: AGES, test: (one, when) => period(one.createdAt) === when },
+    { key: 'when', label: 'Saved', options: AGES, test: (one, when) => period(one.createdAt) === when },
     { key: 'tested', label: 'Review', options: [{ id: 'tested', label: 'Tested' }, { id: 'not', label: 'Not tested' }, { id: 'leech', label: 'Forgotten often' }], test: (one, how) => (how === 'leech' ? one.lapses >= 4 : !!one.prompt === (how === 'tested')) },
     { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Pinned' }, { id: 'private', label: 'Private' }, { id: 'pushed', label: 'Note to self' }, { id: 'archived', label: 'Archived' }], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : flag === 'private' ? !!one.private : flag === 'archived' ? !!one.archivedAt : one.mode === 'pushed') }
   ]

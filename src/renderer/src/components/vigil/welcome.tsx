@@ -618,7 +618,7 @@ function Results({ cards, landed, signed, over, onTurn, pick, onPick, kept, quie
               {chosen && (
                 <motion.span key={kept ? 'kept' : 'pick'} className="absolute -top-3 left-4 z-10 flex h-6 items-center gap-1 rounded-full bg-primary px-2.5 text-[0.75rem] font-semibold text-primary-foreground shadow-sm"
                   initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, transition: spring.fast.exit }} transition={LAND}>
-                  {kept ? <><Check className="size-3.5" strokeWidth={2.6} />Kept</> : 'Your pick'}
+                  {kept ? <><Check className="size-3.5" strokeWidth={2.6} />Saved</> : 'Your pick'}
                 </motion.span>
               )}
             </AnimatePresence>
@@ -651,7 +651,7 @@ function BecomeChapter({ play, report, pick, onPick, turn, mine }: { play: boole
     idle: <>Your turn. Pick one, and press {box} to open the box with it written in. Then {send} keeps it.</>,
     open: <>It is in the box. Press {send} there to keep it.</>,
     away: <>The box is put away, with your words still in it. Press {box} to bring it back.</>,
-    kept: <>Kept{mine && mine.kind !== pick ? `: “${(mine.label.split('\n')[0] ?? '').slice(0, 40)}”` : ''}. It is yours now, in your Inbox.</>
+    kept: <>Saved{mine && mine.kind !== pick ? `: “${(mine.label.split('\n')[0] ?? '').slice(0, 40)}”` : ''}. It is yours now, in your Inbox.</>
   }
   return (
     <>
@@ -755,9 +755,9 @@ const RETURN_BEATS: Beat<ReturnState>[] = [
 
 /** An example year: what Your year, wrapped finds out about its reader. */
 const FOUND: [string, string][] = [
-  ['Kept the most from Frankenstein.', '11 lines, more than from any other book'],
+  ['Saved the most from Frankenstein.', '11 lines, more than from any other book'],
   ['Thought best on Sunday evenings.', 'a third of all they caught, around 9pm'],
-  ['Kept circling one question.', '“Who is the monster?” Four clues, then an answer'],
+  ['Came back to one question.', '“Who is the monster?” Four clues, then an answer'],
   ['Remembered 86%.', 'of what came back to them, on 112 different days']
 ]
 const YEAR = [{ kind: 'note', n: 142 }, { kind: 'todo', n: 96 }, { kind: 'quote', n: 64 }, { kind: 'word', n: 41 }, { kind: 'link', n: 52 }]

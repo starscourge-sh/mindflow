@@ -66,7 +66,7 @@ export async function startQuestion(open: (type: string, id: string) => void): P
   if (!title) return
   const id = await vigil.newQuestion(title)
   chime('hold')
-  toast('Holding it: add clues as they come', () => void vigil.dropQuestion(id))
+  toast('Saved as a question: add clues as they come', () => void vigil.dropQuestion(id))
   open('question', id)
 }
 
@@ -108,7 +108,7 @@ export async function addToQuestion(captureId: string, onUndo?: () => void): Pro
     // A capture that already took another exit keeps it.
     if (!id) return refuse('That capture already took an exit. Put it back in the inbox first')
     chime('hold')
-    return toast('Kept in a new question, as its first clue', () => void vigil.dropQuestion(id).then(() => onUndo?.()), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', id) })
+    return toast('Added to a new question, as its first clue', () => void vigil.dropQuestion(id).then(() => onUndo?.()), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', id) })
   }
   const clue = await flying(captureId, 'question', () => vigil.addClue(picked.id, '', captureId))
   if (!clue) return
@@ -284,7 +284,7 @@ export const questionEntry = (item: Item, inView = false, menu?: MenuItem[]): En
   sub: item.closedAt ? `${item.closedHow === 'let go' ? 'Let go' : 'Answered'} ${whenLower(item.closedAt)} · ${cluesSaid(item.clues)}` : `${heldFor(item.createdAt)[0].toUpperCase()}${heldFor(item.createdAt).slice(1)} · ${cluesSaid(item.clues)}`,
   marks: (
     <>
-      {inView ? <Pin className="size-3 shrink-0 text-muted-foreground" aria-label="Kept in view" /> : null}
+      {inView ? <Pin className="size-3 shrink-0 text-muted-foreground" aria-label="In view" /> : null}
       {item.private ? <EyeOff className="size-3 shrink-0 text-muted-foreground" aria-label="Private" /> : null}
     </>
   ),
@@ -425,7 +425,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
       </div>
 
       <Props fold>
-        <Island compact title={<Term>Holding</Term>}>
+        <Island compact title="Open question">
           <Prop icon={Orbit} active>{settled ?? <Rolling by="word" text={heldFor(item.createdAt).replace(/^h/, 'H')} />}</Prop>
           {!item.closedAt && (
             <Prop icon={inView ? Pin : PinOff} active={inView} onClick={() => void pinQuestion(item.id, item.title, !inView)}>

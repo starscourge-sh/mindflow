@@ -66,7 +66,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     void vigil.article(ids).then((id) => {
       chime('promote')
       setChosen([])
-      toast(ids.length > 1 ? `An article, from ${num(ids.length)} nuggets` : 'An article, from this nugget')
+      toast(ids.length > 1 ? `An article, from ${num(ids.length)} ideas` : 'An article, from this idea')
       onOpen('article', id)
     })
   // A question is held, not tested: its own short menu.

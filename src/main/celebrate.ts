@@ -201,7 +201,7 @@ function longAgo(itemId: unknown): Moment | null {
   const day = `year:${dayKey()}`
   if (years < 1 || fired(`year:${itemId}`) || fired(day)) return null
   const onTheDay = dayjs(row.createdAt).format('MM-DD') === dayjs().format('MM-DD')
-  const headline = onTheDay ? `${years === 1 ? 'A year' : `${years} years`} ago today you kept this` : `Kept ${years === 1 ? 'a year' : `${years} years`} ago`
+  const headline = onTheDay ? `${years === 1 ? 'A year' : `${years} years`} ago today you saved this` : `Saved ${years === 1 ? 'a year' : `${years} years`} ago`
   // A private note is never named on a card that might be on a shared screen.
   return { id: `year:${itemId}`, kind: 'year', rank: 55, headline, line: row.private || gate().hidePrivate ? undefined : row.title, mark: `${years}y`, tint: TINT.purple }
 }

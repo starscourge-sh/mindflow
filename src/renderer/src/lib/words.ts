@@ -52,40 +52,40 @@ export const WORDS: Word[] = [
     origin: 'From the office in-tray',
     note: [
       'Desks once had two wire trays, in and out: papers arrived in one and left by the other. Email borrowed the in-tray as the inbox.',
-      'Here it holds every capture that has not left yet. Each leaves by an exit: P promotes it to a nugget, R marks it finished, D lets it go. Leaving one waiting is fine too.'
+      'Here it holds every capture that has not left yet. Each leaves by an exit: P saves it as an idea, R marks it finished, D lets it go. Leaving one waiting is fine too.'
     ],
     see: ['capture', 'tidy', 'decide']
   },
   {
     id: 'promote',
     forms: ['Promote', 'Promoted'],
-    line: 'Keep a capture for good, as a nugget',
+    line: 'Save a capture for good, as an idea',
     origin: 'Latin promovere, to move forward',
     note: [
       'From Latin pro-, forward, and movere, to move. A soldier promoted moves up a rank.',
-      'Promoting a capture moves it out of the Inbox and into what you keep, as a nugget that can come back to you later. Press P on one in the Inbox.'
+      'Promoting a capture moves it out of the Inbox and into what you save, as an idea that can come back to you later. Press P on one in the Inbox.'
     ],
     see: ['nugget', 'inbox', 'kept']
   },
   {
     id: 'nugget',
-    forms: ['Nugget', 'Nuggets'],
-    line: 'Something you kept, in your own words, that can come back to you',
-    origin: 'A lump of gold, from the 1850s',
+    forms: ['Idea', 'Ideas'],
+    line: 'Something you saved, in your own words, that can come back to you',
+    origin: 'Greek idea, the look of a thing',
     note: [
-      'Nugget turns up in print in the 1850s, in the gold rushes, for a lump of gold dug out whole. Where it came from before that is not certain; it may come from an English dialect word, nug, a lump.',
-      'Here a nugget is a capture worth keeping, said your way. Nuggets are what come back as hints and review cards. Open one and add a gloss saying why you kept it.'
+      'Idea comes from Greek idea, the look or form of a thing, from idein, to see. Plato used it for the true shape behind what we see; English took it up in the 1500s for a thought in the mind.',
+      'Here an idea is a capture worth keeping, said your way. Ideas are what come back as hints and review cards. Open one and add a gloss saying why you saved it.'
     ],
     see: ['promote', 'review', 'gloss']
   },
   {
     id: 'kept',
-    forms: ['Kept'],
-    line: 'Everything you chose to keep: nuggets, articles, questions and goals',
-    origin: 'Old English cēpan, to hold and look after',
+    forms: ['Saved'],
+    line: 'Everything you chose to keep: ideas, writing, questions and goals',
+    origin: 'Latin salvare, to make safe',
     note: [
-      'Keep goes back to Old English cēpan, to hold, watch over, look after. Readers in the Renaissance kept commonplace books: notebooks of passages worth keeping, filed under headings, so they could find them again and think with them.',
-      'Vigil is one of those. Kept is the shelf of what you meant to hold on to. In the box, the Saved tab shows it beside whatever you are writing.'
+      'Save comes through Old French sauver from Latin salvare, to make safe. Readers in the Renaissance kept commonplace books: notebooks of passages worth saving, filed under headings, so they could find them again and think with them.',
+      'Vigil is one of those. Saved is the shelf of what you meant to hold on to. In the box, the Saved tab shows it beside whatever you are writing.'
     ],
     see: ['nugget', 'holding', 'surfacing']
   },
@@ -113,11 +113,11 @@ export const WORDS: Word[] = [
   },
   {
     id: 'holding',
-    forms: ['Holding'],
+    forms: ['Questions'],
     line: 'Questions you are carrying, not ready to answer yet',
-    origin: 'Old English healdan, to keep and tend',
+    origin: 'Latin quaerere, to seek',
     note: [
-      'Old English healdan meant to hold, but also to keep, guard and tend. In 1903 Rilke wrote to a young poet to be patient with what is unsolved in his heart and to live the questions now.',
+      'Question comes from Latin quaestio, a seeking, from quaerere, to seek. In 1903 Rilke wrote to a young poet to be patient with what is unsolved in his heart and to live the questions now.',
       'The Questions page is where they live. Nothing here needs settling: add clues as they turn up, and settle one only when it comes clear. Try ⌘K, New question, for one you keep coming back to.'
     ],
     see: ['clue', 'kept', 'surfacing']

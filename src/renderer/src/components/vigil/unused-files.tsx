@@ -133,7 +133,7 @@ export function UnusedFiles(): React.JSX.Element | null {
                     key={one.name}
                     type="button"
                     aria-pressed={!keep}
-                    title={keep ? 'Kept: click to clear it after all' : 'Click to keep this one'}
+                    title={keep ? 'Keeping it: click to clear it after all' : 'Click to keep this one'}
                     onClick={() => {
                       click('soft')
                       setKept((was) => {
@@ -156,7 +156,7 @@ export function UnusedFiles(): React.JSX.Element | null {
                     </span>
                     <span className="flex min-w-0 flex-col px-0.5 text-meta leading-tight">
                       <span className="truncate text-foreground/80">{named(one)}</span>
-                      <span className="text-muted-foreground tabular-nums">{keep ? 'Kept' : bytes(one.size)}</span>
+                      <span className="text-muted-foreground tabular-nums">{keep ? 'Keeping' : bytes(one.size)}</span>
                     </span>
                   </button>
                 )

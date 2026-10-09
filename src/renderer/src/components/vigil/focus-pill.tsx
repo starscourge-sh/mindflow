@@ -284,7 +284,7 @@ function HowDidItGo({ id, onDone }: { id: string; onDone: () => void }): React.J
           </>
         ) : (
           <>
-            <span className="min-w-0 flex-1 truncate font-medium"><Typed text="Kept in the task’s log" step={35} delay={0} /></span>
+            <span className="min-w-0 flex-1 truncate font-medium"><Typed text="Saved in the task’s log" step={35} delay={0} /></span>
             <button
               type="button"
               onClick={() => void vigil.recapSession(id, kept).then(() => (chime('undo'), onDone()))}

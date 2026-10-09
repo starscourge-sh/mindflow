@@ -449,7 +449,7 @@ function Why({ card }: { card: Due }): React.JSX.Element {
         setWhy(line)
         chime('noted')
         void vigil.saveItem(card.id, { why: line }).then(() =>
-          toast('Kept: it shows under the answer', () => {
+          toast('Saved: it shows under the answer', () => {
             card.why = null
             setWhy(null)
             void vigil.saveItem(card.id, { why: null })
@@ -531,7 +531,7 @@ export function Readiness({ exam, named = true }: { exam: Exam; named?: boolean 
     <div className="space-y-1.5 text-xs text-muted-foreground">
       {named && <p className="text-sm text-foreground">#{exam.tag} <span className="text-muted-foreground">· {day}, {when(exam.at)}</span></p>}
       {!exam.total ? (
-        <p>No tested cards carry #{exam.tag} yet. Give its nuggets a question and they are paced to be ready in time.</p>
+        <p>No tested cards carry #{exam.tag} yet. Give its ideas a question and they are paced to be ready in time.</p>
       ) : !seen ? (
         <p><Rolling text={exam.total} /> {exam.total === 1 ? 'card' : 'cards'}, none seen yet. About <Rolling text={exam.perDay} /> a day from today has them all met in time.</p>
       ) : (

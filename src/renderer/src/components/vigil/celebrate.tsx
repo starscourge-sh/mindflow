@@ -32,7 +32,7 @@ const SAMPLES: Record<MomentKind, Omit<Moment, 'id' | 'kind' | 'rank' | 'line'>>
   streak: { headline: '7 days in a row', mark: '7', tint: 'var(--tt-color-text-orange)' },
   inbox: { headline: 'Inbox empty', mark: '0', tint: 'var(--tt-color-text-green)' },
   tasks: { headline: "Today's tasks, all done", mark: '3', tint: 'var(--tt-color-text-green)' },
-  year: { headline: 'Kept a year ago', mark: '1y', tint: 'var(--tt-color-text-purple)' },
+  year: { headline: 'Saved a year ago', mark: '1y', tint: 'var(--tt-color-text-purple)' },
   answered: { headline: 'Your first question answered', mark: '1', tint: 'var(--tt-color-text-yellow)' },
   goalHalf: { headline: 'Halfway there', mark: '½', tint: 'var(--tt-color-text-orange)' },
   goal30: { headline: '30 days to go', mark: '30', tint: 'var(--tt-color-text-orange)' },

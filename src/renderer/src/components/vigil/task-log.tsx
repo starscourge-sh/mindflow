@@ -34,7 +34,7 @@ export async function keepRecap(id: string, text: string): Promise<void> {
   if (!words) return
   const was = await vigil.recapSession(id, words)
   chime('logged')
-  toast('Kept in the task’s log', () => void vigil.recapSession(id, was))
+  toast('Saved in the task’s log', () => void vigil.recapSession(id, was))
 }
 
 /**

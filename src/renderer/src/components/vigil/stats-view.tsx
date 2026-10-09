@@ -67,7 +67,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
     stats.day.reviews > 0 && <>reviewed <N>{plural(stats.day.reviews, 'card', 'cards')}</N></>
   ].filter(Boolean)
   const exits = [
-    { status: 'promoted', label: 'became nuggets', color: 'var(--tt-color-text-purple)' },
+    { status: 'promoted', label: 'became ideas', color: 'var(--tt-color-text-purple)' },
     { status: 'resolved', label: 'dealt with elsewhere', color: 'var(--tt-color-text-green)' },
     { status: 'discarded', label: 'let go', color: 'var(--tt-color-text-gray)' }
   ]
@@ -205,17 +205,17 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
                 <N>{percent(stats.stopped, stats.hints.shown)}</N> of <N>{stats.hints.shown}</N> hints stopped you this month: voted up, or kept on screen four seconds or more. If that falls, show fewer, not more.
               </>
             ) : (
-              'No hints yet: about one opening in ten shows one, from your nuggets and old captures.'
+              'No hints yet: about one opening in ten shows one, from your ideas and old captures.'
             )}
           </p>
           <p>
-            You keep <span className="whitespace-nowrap"><N>{plural(stats.nuggets, 'nugget', 'nuggets')}</N>,</span> <N>{stats.recall}</N> of them tested, and <N>{plural(stats.articles, 'article', 'articles')}</N> written from them.
+            You keep <span className="whitespace-nowrap"><N>{plural(stats.nuggets, 'idea', 'ideas')}</N>,</span> <N>{stats.recall}</N> of them tested, and <N>{plural(stats.articles, 'article', 'articles')}</N> written from them.
           </p>
         </Section>
 
         <Section title={`${dayjs().year()} so far`}>
           <p>
-            <span className="whitespace-nowrap"><N>{plural(stats.year.captured, 'capture', 'captures')}</N>,</span> <N>{plural(stats.year.nuggets, 'nugget', 'nuggets')}</N> kept and{' '}
+            <span className="whitespace-nowrap"><N>{plural(stats.year.captured, 'capture', 'captures')}</N>,</span> <N>{plural(stats.year.nuggets, 'idea', 'ideas')}</N> kept and{' '}
             <N>{plural(stats.year.articles, 'article', 'articles')}</N> written.
             {stats.year.month && <> Your busiest month was <span className="whitespace-nowrap"><N>{monthName(Number(stats.year.month) - 1)}</N>.</span></>}
           </p>
