@@ -37,9 +37,12 @@ const shown = (el: HTMLElement): boolean => el.offsetWidth > 0 || el.offsetHeigh
 
 /**
  * Calls `then` once a frame at most while anything inside `box` changes size
- * or comes and goes (a fold opening, a count rolling, a row added), and once
- * when the list first appears, which may be after its owner (a page waiting
- * for its settings).
+ * or place (a fold opening, a count rolling, a row added, a label filling in
+ * after the first measure, a font arriving, the padding changing at a width),
+ * once when the list first appears, which may be after its owner (a page
+ * waiting for its settings), and again whenever the window comes back into
+ * view. While the window is hidden there are no frames, so it measures at once
+ * instead of waiting for one.
  */
 function useReflow(box: RefObject<HTMLElement | null>, then: () => void): void {
   const call = useRef(then)
@@ -55,21 +58,55 @@ function useReflow(box: RefObject<HTMLElement | null>, then: () => void): void {
     let frame = 0
     const soon = (): void => {
       cancelAnimationFrame(frame)
+      if (document.hidden) return call.current()
       frame = requestAnimationFrame(() => call.current())
     }
+    // The content box and the border box both: padding that changes at a
+    // width moves every row while one of the two may stay the same.
     const sized = new ResizeObserver(soon)
+    const outer = new ResizeObserver(soon)
     const watch = (): void => {
       sized.disconnect()
       sized.observe(el)
+      outer.disconnect()
+      outer.observe(el, { box: 'border-box' })
       for (const child of el.children) sized.observe(child)
     }
     watch()
     const changed = new MutationObserver(() => (watch(), soon()))
     changed.observe(el, { childList: true, subtree: true })
+    // What can change layout without any row changing size, or happen while
+    // no frames run: a font arriving, the window resized or shown again.
+    const back = (): void => void (!document.hidden && soon())
+    document.fonts?.addEventListener('loadingdone', soon)
+    void document.fonts?.ready.then(() => watching.current?.el === el && soon())
+    window.addEventListener('resize', soon)
+    window.addEventListener('focus', back)
+    window.addEventListener('pageshow', back)
+    document.addEventListener('visibilitychange', back)
     soon()
-    watching.current = { el, stop: () => (cancelAnimationFrame(frame), sized.disconnect(), changed.disconnect()) }
+    watching.current = {
+      el,
+      stop: () => {
+        cancelAnimationFrame(frame)
+        sized.disconnect()
+        outer.disconnect()
+        changed.disconnect()
+        document.fonts?.removeEventListener('loadingdone', soon)
+        window.removeEventListener('resize', soon)
+        window.removeEventListener('focus', back)
+        window.removeEventListener('pageshow', back)
+        document.removeEventListener('visibilitychange', back)
+      }
+    }
   })
-  useEffect(() => () => watching.current?.stop(), [])
+  // Forgotten as well as stopped: React's development checks (and a hot
+  // reload) stop every effect and start it again on the same list, and a
+  // watch only stopped would look like one still running and never restart.
+  useEffect(() => () => {
+    watching.current?.stop()
+    watching.current = null
+  }, [])
 }
 
 export type FluidHover = {
@@ -222,6 +259,9 @@ export function Highlight({ spot, session = 0, snap, from, travel = spring.fast,
   className?: string
 }): React.JSX.Element {
   const still = useReducedMotion()
+  // No frames run in a hidden window: a glide started there would be left part
+  // way, so it arrives at once.
+  const now = snap || still || (typeof document !== 'undefined' && document.hidden)
   return (
     <AnimatePresence>
       {spot && (
@@ -233,7 +273,7 @@ export function Highlight({ spot, session = 0, snap, from, travel = spring.fast,
           initial={{ opacity: 0, ...at(from ?? spot) }}
           animate={{ opacity: 1, ...at(spot) }}
           exit={{ opacity: 0, transition: spring.fast.exit }}
-          transition={{ ...(snap || still ? { duration: 0 } : travel), opacity: { duration: spring.fast.duration } }}
+          transition={{ ...(now ? { duration: 0 } : travel), opacity: { duration: spring.fast.duration } }}
         />
       )}
     </AnimatePresence>
