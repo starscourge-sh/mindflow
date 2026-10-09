@@ -50,7 +50,7 @@ const groupOf = (at: string): string => {
  * they were captured, with the one under the cursor previewed on the right.
  * Arrows move, Enter opens, Escape closes.
  */
-export function Search({ onOpen, onClose, initial = '', actions = [], placeholder }: { onOpen: (type: string, id: string) => void; onClose: () => void; initial?: string; actions?: Action[]; placeholder?: string }): React.JSX.Element {
+export function Search({ onOpen, onAside, onClose, initial = '', actions = [], placeholder }: { onOpen: (type: string, id: string) => void; /** ⌥↵: open it beside the page, in a pane of its own (the main window's split view). */ onAside?: (type: string, id: string) => void; onClose: () => void; initial?: string; actions?: Action[]; placeholder?: string }): React.JSX.Element {
   const [query, setQuery] = useState(initial)
   // Opening search sends out one ping.
   useEffect(() => chime('search'), [])
@@ -206,6 +206,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
               }
               else if (event.key === 'Escape') { event.preventDefault(); chime('fold'); onClose() }
               else if (event.key === 'Enter' && at < doing.length) run(doing[at])
+              else if (event.key === 'Enter' && current && event.altKey && onAside) onAside(current.type, current.id)
               else if (event.key === 'Enter' && current) onOpen(current.type, current.id)
               else if (event.key === 'Tab' && current?.type === 'capture') setAsking(true)
               // ⌘; a thought on the highlighted one, without opening it.
@@ -379,6 +380,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
         <div className="flex shrink-0 items-center gap-4 border-t px-4 py-1.5 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5"><span className="flex gap-0.5"><Kbd>↑</Kbd><Kbd>↓</Kbd></span> navigate</span>
           <span className="flex items-center gap-1.5"><Kbd>↵</Kbd> <Rolling text={picking ? 'keep' : action ? 'use' : 'open'} /></span>
+          {onAside && !picking && !action && current && <span className="flex items-center gap-1.5"><Kbd>⌥↵</Kbd> to the side</span>}
           <span className="flex items-center gap-1.5"><Kbd>esc</Kbd> <Rolling text={picking ? 'back' : 'close'} /></span>
         </div>
       </div>

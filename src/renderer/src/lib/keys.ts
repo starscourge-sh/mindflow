@@ -58,7 +58,7 @@ export const saveKeys = (next: KeyChanges): void => {
  */
 export const fixed = (keys: string): boolean =>
   /Esc|↵|←|→|↑|↓|Space|⇥|⌫/.test(keys) ||
-  ['/', '+', '⌘', '⌘,', '⌘Q', '⌘Z', '⌘1', '1', '⌘B', '⌘I', '⌘U', '⇧⌘S', '⌥⌘T'].includes(keys) ||
+  ['/', '+', '⌘', '⌥', '⌘,', '⌘Q', '⌘Z', '⌘1', '1', '⌘B', '⌘I', '⌘U', '⇧⌘S', '⌥⌘T'].includes(keys) ||
   /^⌥⌘\d$/.test(keys) ||
   // Words typed in a task ("!alert"), not keys.
   keys.startsWith('!')
