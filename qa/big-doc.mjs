@@ -152,7 +152,11 @@ try {
     })
   }
   if (!id) throw new Error(`the big note never finished importing (${count} captures)`)
-  // Vim keys on, then All captures, as it was when it froze.
+  // Vim keys on, then All captures, as it was when it froze. The welcome is
+  // marked as seen: a fresh install opens on it whenever the window is up
+  // before the import's first note lands, and it then covers the note and
+  // takes every click and key, so G and gg never reach the editor.
+  await h.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
   await h.evaluate(() => localStorage.setItem('vim', 'on'))
   await h.reload()
   await h.waitForTimeout(2500)

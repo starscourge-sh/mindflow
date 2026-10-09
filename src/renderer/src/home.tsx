@@ -130,6 +130,16 @@ const followNarrow = (change: () => void): (() => void) => {
   query.addEventListener('change', change)
   return () => query.removeEventListener('change', change)
 }
+/**
+ * The open note's name in the title bar. Its own component, so the name
+ * changing as a note scrolls (G, gg) redraws only this line, not the whole
+ * window and the long list beside the note.
+ */
+function TopTitle({ on }: { on: boolean }): React.JSX.Element {
+  const title = useTopTitle()
+  return <span className={`min-w-0 flex-1 truncate px-4 text-center text-muted-foreground transition-opacity duration-200 ${title && on ? 'opacity-100' : 'opacity-0'}`}>{title}</span>
+}
+
 const useNarrow = (): boolean => useSyncExternalStore(followNarrow, () => matchMedia(NARROW).matches)
 /** Under 1000px wide, Recent lies over the page's right edge rather than squeezing it. */
 const CRAMPED = '(max-width: 999px)'
@@ -320,7 +330,6 @@ export function Home(): React.JSX.Element {
   // Seen in screen recordings or not: one flag with the box's menu and Settings.
   const [recordable, setRecordable] = useStoredFlag('recordable')
   const [typewriter, setTypewriter] = useStoredFlag('typewriter')
-  const topTitle = useTopTitle()
   // A new section has no note scrolled: the last one's name does not follow you there.
   useEffect(() => showTopTitle(null), [view.id])
 
@@ -855,7 +864,7 @@ export function Home(): React.JSX.Element {
         <SandboxPill narrow={narrow} />
         <h1 className="ml-2 truncate font-medium" style={{ textWrap: 'nowrap' } as CSSProperties}><Term>{SECTIONS.find((section) => section.id === view.id)?.label ?? (kind ? kind.label : view.id === 'settings' ? 'Settings' : view.id === 'yearpage' ? 'Year' : '')}</Term></h1>
         {/* The open note's name, faint, once its first line has scrolled away. */}
-        <span className={`min-w-0 flex-1 truncate px-4 text-center text-muted-foreground transition-opacity duration-200 ${topTitle && settings?.topTitle !== false ? 'opacity-100' : 'opacity-0'}`}>{topTitle}</span>
+        <TopTitle on={settings?.topTitle !== false} />
         {/* The window's own settings, quiet and side by side: what you hear, how much screen it takes. */}
         <span className="flex items-center">
           <SoundToggle className={TOOL} />
