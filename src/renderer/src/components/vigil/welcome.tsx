@@ -750,7 +750,7 @@ function BecomeChapter({ play, report, pick, onPick, turn, mine }: { play: boole
 
 // --- 3 A day with Vigil -------------------------------------------------------------
 
-type DayState = { docked: boolean; look: number; answered: number; hint: boolean; tip: boolean; asking: boolean; question: string; kept: boolean; sticky: boolean; ticked: boolean; line: string; chip: boolean; logged: boolean; over: boolean; hand: string | null; down: boolean; overview: boolean }
+type DayState = { pair: number; struck: boolean; row: boolean; docked: boolean; look: number; answered: number; hint: boolean; tip: boolean; asking: boolean; question: string; kept: boolean; sticky: boolean; ticked: boolean; line: string; chip: boolean; logged: boolean; over: boolean; hand: string | null; down: boolean}
 
 /**
  * An ordinary day, in four moments, each a problem and then what Vigil does
@@ -758,18 +758,27 @@ type DayState = { docked: boolean; look: number; answered: number; hint: boolean
  * back at the end to show them all.
  */
 function dayBeats(): Beat<DayState>[] {
+  // The pairs' beat comes first; the day starts after it.
+  const OFF = 8800
   const random = seeded(23)
   const beats: Beat<DayState>[] = [
     { at: 0, to: {} },
-    { at: 900, to: { docked: true, look: 0 } },
+    { at: 900, to: { docked: true } },
+    // What a commonplace book adds, a pair at a time: what other apps leave you with, struck, then this.
+    ...GAPS.flatMap((_, i): Beat<DayState>[] => [
+      { at: 1300 + i * 1500, to: { pair: i, struck: false } },
+      { at: 1300 + i * 1500 + 650, to: { struck: true }, cue: cue('tag') }
+    ]),
+    { at: 1300 + 4 * 1500, to: { row: true }, cue: cue('gather') },
+    { at: 1300 + 4 * 1500 + 1700, to: { pair: -1, row: false, look: 0 } },
     // Morning: something kept comes back in the box; worth knowing, so it goes to Review.
-    { at: 2000, to: { hint: true, answered: 1 }, cue: cue('memory') },
-    { at: 3300, to: { hand: 'thumbs' } },
-    { at: 3800, to: { tip: true } },
-    { at: 4600, to: { down: true }, cue: () => click('tick') },
-    { at: 4680, to: { down: false, tip: false, asking: true, hand: null }, cue: cue('promote') }
+    { at: 2000 + OFF, to: { hint: true, answered: 1 }, cue: cue('memory') },
+    { at: 3300 + OFF, to: { hand: 'thumbs' } },
+    { at: 3800 + OFF, to: { tip: true } },
+    { at: 4600 + OFF, to: { down: true }, cue: () => click('tick') },
+    { at: 4680 + OFF, to: { down: false, tip: false, asking: true, hand: null }, cue: cue('promote') }
   ]
-  const ask = typed<DayState>('What is a commonplace book?', 4900, (sofar) => ({ question: sofar }), random, 0.45)
+  const ask = typed<DayState>('What is a commonplace book?', 4900 + OFF, (sofar) => ({ question: sofar }), random, 0.45)
   beats.push(...ask.beats)
   let t = ask.end + 350
   beats.push({ at: t, to: { kept: true }, cue: cue('noted') })
@@ -794,28 +803,27 @@ function dayBeats(): Beat<DayState>[] {
   beats.push({ at: t, to: { look: 3 } })
   beats.push({ at: t + 1000, to: { answered: 4 } })
   beats.push({ at: t + 1700, to: { over: true }, cue: () => fold() })
-  beats.push({ at: t + 3000, to: { overview: true }, cue: cue('zoomout') })
-  beats.push({ at: t + 4100, to: {} })
+  beats.push({ at: t + 2800, to: {} })
   return beats
 }
 
-/** What Notion, Obsidian, Todoist and Anki each left out, in plain words, and the chapter that showed it. */
-const GAPS: [typeof BookOpen, string, string, string][] = [
-  [RotateCcw, 'Notes that sit and wait', 'Notes that come back', 'A day'],
-  [GitBranch, 'Tasks without the why', 'Tasks with what they came from', 'Become'],
-  [Brain, 'Flashcards you write by hand', 'Remembering built in', 'Become'],
-  [BookOpen, 'Thoughts scattered across apps', 'One book', 'Catch']
+/** What other notes, task and flashcard apps each leave out, in plain words. */
+const GAPS: [typeof BookOpen, string, string][] = [
+  [RotateCcw, 'Notes that sit and wait', 'Notes that come back'],
+  [GitBranch, 'Tasks without the why', 'Tasks with what they came from'],
+  [Brain, 'Flashcards you write by hand', 'Remembering built in'],
+  [BookOpen, 'Thoughts scattered across apps', 'One book']
 ]
 
 function DayChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
   const [beats] = useState(dayBeats)
-  const show = useScript<DayState>({ docked: false, look: -1, answered: 0, hint: false, tip: false, asking: false, question: '', kept: false, sticky: false, ticked: false, line: '', chip: false, logged: false, over: false, hand: null, down: false, overview: false }, beats, play)
+  const show = useScript<DayState>({ pair: -1, struck: false, row: false, docked: false, look: -1, answered: 0, hint: false, tip: false, asking: false, question: '', kept: false, sticky: false, ticked: false, line: '', chip: false, logged: false, over: false, hand: null, down: false }, beats, play)
   useReport(report, show.done, show.settle)
   const s = show.state
   const scene = useRef<HTMLDivElement>(null)
   const world = useRef<HTMLDivElement>(null)
   // The moment in view, or all four from above once the day is done.
-  const shot = s.overview || s.look < 0 ? { k: 0.5, x: 0, y: 0 } : frameOn(world.current, `moment-${s.look}`, 1)
+  const shot = frameOn(world.current, `moment-${Math.max(0, s.look)}`, 1)
   const moments: [string, string, ReactNode][] = [
     ['Morning', 'You saved it, then never saw it again.', <>Now and then, opening the box brings back something you kept, on its own. Worth knowing? Thumbs up, and Review will test you on it.</>],
     ['While you work', 'Your plan is in a tab you closed.', <>Today’s tasks can stay on your desktop as a sticky note, over whatever you are working in. Tick them off right there.</>],
@@ -827,19 +835,6 @@ function DayChapter({ play, report }: { play: boolean; report: (now: Reel) => vo
       <Words title="A day with Vigil." docked={s.docked} still={!play} done={show.done}>
         What a normal day looks like once you have kept a few things.
       </Words>
-      {/* What the other apps each left out, side by side, and where the welcome showed it. */}
-      <ul aria-label="What it adds" className="relative z-10 grid shrink-0 grid-cols-4 gap-x-[clamp(0.75rem,2vw,2rem)] pb-[clamp(0.5rem,2vh,1rem)]">
-        {GAPS.map(([Icon, was, now, where], i) => (
-          <motion.li key={was} className="flex min-w-0 items-start gap-2" initial={false} animate={{ opacity: s.docked ? 1 : 0, y: s.docked ? 0 : 6 }} transition={{ duration: 0.35, ease: EASE, delay: s.docked && play ? 0.3 + i * 0.12 : 0 }}>
-            <Icon className="mt-0.5 size-3.5 shrink-0 text-primary" />
-            <span className="min-w-0 text-[0.8125rem] leading-snug">
-              <span className="block text-(--mf-wl-quiet) line-through decoration-foreground/30">{was}</span>
-              <span className="block text-foreground">{now}</span>
-              <span className="block text-[0.6875rem] text-(--mf-wl-quiet)">Seen in {where}</span>
-            </span>
-          </motion.li>
-        ))}
-      </ul>
       <div ref={scene} className="relative min-h-0 flex-1 overflow-hidden">
         <Camera shot={shot} className="absolute -top-1/2 -left-1/2 h-[200%] w-[200%]">
           <div ref={world} className="relative grid size-full grid-cols-2 grid-rows-2">
@@ -855,6 +850,39 @@ function DayChapter({ play, report }: { play: boolean; report: (now: Reel) => vo
             ))}
           </div>
         </Camera>
+        {/* The pairs, over a scene not yet shown: never both at once. */}
+        <AnimatePresence>
+          {s.pair >= 0 && (
+            <motion.div key="pairs" className="absolute inset-0 z-10 flex items-center justify-center bg-background" exit={{ opacity: 0, filter: 'blur(4px)', transition: { duration: 0.4, ease: EASE } }}>
+              <AnimatePresence mode="wait" initial={false}>
+                {s.row ? (
+                  <motion.ul key="row" className="grid w-full max-w-[64rem] grid-cols-4 gap-x-[clamp(1rem,3vw,2.5rem)] px-6" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={spring.slow}>
+                    {GAPS.map(([Icon, , now], i) => (
+                      <motion.li key={now} className="flex flex-col items-center gap-2 text-center" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE, delay: i * 0.08 }}>
+                        <Icon className="size-5 text-primary" />
+                        <span className="font-heading text-[clamp(1.0625rem,min(2vw,3vh),1.5rem)] leading-tight text-foreground">{now}</span>
+                      </motion.li>
+                    ))}
+                  </motion.ul>
+                ) : (
+                  <motion.div key={s.pair} className="flex max-w-[44rem] flex-col items-center gap-3 px-6 text-center"
+                    initial={{ opacity: 0, y: 10, filter: 'blur(3px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} exit={{ opacity: 0, y: -10, filter: 'blur(3px)', transition: { duration: 0.18 } }} transition={{ duration: 0.35, ease: EASE }}>
+                    {(() => {
+                      const [Icon, was, now] = GAPS[s.pair]
+                      return (
+                        <>
+                          <Icon className="size-6 text-primary" />
+                          <p className={`font-heading text-[clamp(1.375rem,min(3vw,4.4vh),2.25rem)] leading-tight transition-colors duration-500 ${s.struck ? 'text-(--mf-wl-quiet) line-through decoration-primary/70 decoration-2' : 'text-foreground'}`}>{was}</p>
+                          <motion.p className="font-heading text-[clamp(1.625rem,min(3.6vw,5.2vh),2.75rem)] leading-tight text-foreground" initial={false} animate={{ opacity: s.struck ? 1 : 0, y: s.struck ? 0 : 8 }} transition={{ duration: 0.4, ease: EASE, delay: s.struck ? 0.15 : 0 }}>{now}</motion.p>
+                        </>
+                      )
+                    })()}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
         {play && !show.done && <GhostHand to={s.hand} down={s.down} root={scene} />}
       </div>
     </>

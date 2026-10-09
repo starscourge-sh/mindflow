@@ -55,7 +55,7 @@ export function MorningBox({ shown, tip, asking, question, kept }: { shown: bool
         </motion.span>
       </div>
       <div className="min-h-[3rem] px-6 pt-1 font-heading text-[1.0625rem] text-muted-foreground/60">
-        <span className="mf-ghost-caret -ml-px mr-px" />Type / for commands…
+        <span className="mf-ghost-caret -ml-px" />
       </div>
       <div className="px-6 pb-4">
         <AnimatePresence>
@@ -173,7 +173,7 @@ export function GoalRoad({ line, chip, logged }: { line: string; chip: boolean; 
     <div className="flex w-full max-w-[30rem] flex-col gap-3">
       {/* The box, taking a log for the goal rather than a capture. */}
       <div className="rounded-[14px] border border-foreground/10 bg-popover px-5 py-3 text-popover-foreground shadow-(--mf-panel-shadow)">
-        <p className="min-h-[1.6em] font-heading text-[1.0625rem] text-foreground">{line || <span className="text-muted-foreground/60">Type / for commands…</span>}{!logged && <span className="mf-ghost-caret" data-typing="" />}</p>
+        <p className="min-h-[1.6em] font-heading text-[1.0625rem] text-foreground">{line}{!logged && <span className="mf-ghost-caret" data-typing="" />}</p>
         <div className="mt-2 flex items-center gap-2">
           <AnimatePresence>
             {chip && (
