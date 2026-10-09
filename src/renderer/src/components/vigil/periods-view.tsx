@@ -299,6 +299,19 @@ export function MonthPage({ onScale, start }: { onScale?: (scale: Scale) => void
         <p className="mt-2 text-meta text-muted-foreground">
           <Typed key={key} text="Two fields, no numbers: a name for this stretch of time." step={28} />
         </p>
+        {/* Both fields empty: the same two, filled in, to show the kind of thing that goes in them. */}
+        {page && !fields.focus && !fields.season && (
+          <Example flush className="mt-6" tryIt="write a few words in Focus as the month starts, and name its Season of life as it ends. The year page lines the seasons up.">
+            <Island>
+              {([['Focus', exampleMonth.focus], ['Season of life', exampleMonth.season]] as const).map(([label, text]) => (
+                <p key={label} className="flex flex-col gap-0.5 px-4 py-2.5">
+                  <span className="text-control font-medium text-foreground">{label}</span>
+                  <span className="text-body text-foreground">{text}</span>
+                </p>
+              ))}
+            </Island>
+          </Example>
+        )}
         {page && (
           <Island key={key} className="mt-6">
             <Field label="Focus" long hint="Looking ahead: where to put your energy this month." value={fields.focus ?? ''}
@@ -306,15 +319,6 @@ export function MonthPage({ onScale, start }: { onScale?: (scale: Scale) => void
             <Field label="Season of life" long hint="Looking back: was there a story happening that you did not notice at the time?" value={fields.season ?? ''}
               placeholder="e.g. The month I stopped waiting for permission" onSave={(text) => saveField(key, 'season', text)} />
           </Island>
-        )}
-        {/* Both fields empty: the same two, filled in, to show the kind of thing that goes in them. */}
-        {page && !fields.focus && !fields.season && (
-          <Example flush className="mt-8" tryIt="write a few words in Focus as the month starts, and name its Season of life as it ends. The year page lines the seasons up.">
-            <Island>
-              <Field label="Focus" long value={exampleMonth.focus} placeholder="" onSave={() => undefined} />
-              <Field label="Season of life" long value={exampleMonth.season} placeholder="" onSave={() => undefined} />
-            </Island>
-          </Example>
         )}
         <EarlierPages scale="month" current={month} onPick={(start) => setMonth(start.slice(0, 7))} />
       </div>

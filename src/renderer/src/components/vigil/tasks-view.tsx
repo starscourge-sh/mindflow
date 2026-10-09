@@ -77,7 +77,7 @@ const tone = (task: Task): string | undefined => {
 
 /** The one thing to try on each list while it shows its example. */
 const TRY_TASKS = {
-  today: "type 'call Mum friday 6pm' in the line above. Vigil reads the day and the time.",
+  today: "type 'call Mum Friday 6pm' in the line above. Vigil reads the day and the time.",
   upcoming: "type 'book seats for Hamlet on the 14th' above. It lands on that day.",
   routines: "type 'water the plants every! 3 days' above. The next one counts from when you last did it.",
   later: "type 'learn German someday' above. It waits here until you give it a day."

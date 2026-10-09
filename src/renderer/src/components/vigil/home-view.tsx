@@ -25,7 +25,9 @@ import { ReadThrough, type Readable } from './read-through'
 import { RowMenu, type MenuItem } from './row-menu'
 import { tagColour } from './tag-read'
 import { completeTask } from './tasks-view'
-import { Empty, Pressed, Tip } from './ui'
+import { Tip } from './ui'
+import { Example } from './example'
+import { exampleIdeas, exampleInbox, exampleQuestions, exampleTasks } from '@/lib/examples'
 import { Signed } from './signature'
 import { byKeys, spring, useFirstVisit } from '@/lib/motion'
 import { Highlight, useChosen, useFluidHover, Weighted } from './glide'
@@ -487,6 +489,34 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
 }
 
 /** Kept words, set as quotes in a few columns: a row's cards share one height, their line about why at the foot. */
+/** Home's own shelves, filled from lib/examples.ts, for a first start with nothing in it. */
+function ExampleHome(): React.JSX.Element {
+  const none: Actions = { open: () => undefined, read: () => undefined }
+  const card = (one: { id: string; kind: string; private: number; attribution: string | null }, type: Kind, title: string, at: string, extra: Partial<Card> = {}): Card =>
+    ({ type, id: one.id, title, kind: one.kind, private: 0, at, who: one.attribution, ...extra })
+  const tiles = exampleInbox().slice(0, 4).map((one) => card(one, 'capture', one.label, one.capturedAt))
+  const ideas = exampleIdeas().slice(0, 3).map((one) => card(one, 'nugget', one.title, one.createdAt))
+  const held = exampleQuestions().filter((one) => !one.closedAt).slice(0, 3).map((one) => card(one, 'question', one.title, one.createdAt, { clue: null }))
+  return (
+    <div className="flex flex-col gap-8 pt-2 pb-10">
+      <div className="grid grid-cols-2 gap-2 px-5 @[44rem]/page:grid-cols-4 @[44rem]/page:px-8">
+        {tiles.map((one) => <Tile key={one.id} card={one} pinned={false} actions={none} onHover={() => undefined} />)}
+      </div>
+      <div className="grid gap-x-6 gap-y-8 px-3 @[44rem]/page:grid-cols-2 @[44rem]/page:px-6">
+        <List title="Next up">{exampleTasks().slice(0, 3).map((task) => <TaskRow key={task.id} task={task} actions={none} />)}</List>
+        <List title="Questions you're holding">
+          {held.map((one) => (
+            <ListRow key={one.id} card={one} actions={none} lead={<Orbit className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}>
+              <span className="line-clamp-2 text-foreground">{one.title}</span>
+            </ListRow>
+          ))}
+        </List>
+      </div>
+      <Quotes title="Coming back" cards={ideas} actions={none} />
+    </div>
+  )
+}
+
 function Quotes({ title, onAll, cards, actions }: { title: ReactNode; onAll?: () => void; cards: Card[]; actions: Actions }): React.JSX.Element {
   return (
     <section className="flex flex-col gap-2 px-5 @[44rem]/page:px-8">
@@ -667,22 +697,12 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       <div className="page-column relative w-full pt-4 empty:hidden"><GettingStarted onOpen={onOpen} onView={onView} /></div>
       <div className="page-column relative w-full pt-3 empty:hidden"><PowersLine onView={onView} /></div>
       {empty ? (
-        <div className="relative px-3 @[44rem]/page:px-6">
-          <Empty shape={['flower', 2]} title="Things come back to you here" action={
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <button type="button" onClick={() => (chime('open'), window.api.showPrompt())}
-                className="flex h-8 items-center gap-2 rounded-full bg-primary px-3.5 text-control font-semibold text-primary-foreground transition-transform duration-150 hover:scale-[1.03] active:scale-[0.97]">
-                Catch a thought <Pressed keys="⌘." className="border-primary-foreground/30 bg-primary-foreground/15 text-primary-foreground" />
-              </button>
-              <button type="button" onClick={() => void window.api.importFrom('vault')}
-                className="flex h-8 items-center rounded-full px-3.5 text-control font-medium text-foreground transition-colors hover:bg-foreground/[0.07]">
-                Import your notes…
-              </button>
-            </div>
-          }>
-            Catch a thought with ⌘. from anywhere, or bring your notes in. What you open, keep and wonder about gathers here.
-          </Empty>
-        </div>
+        // Nothing yet: Home as it will look, with a few made-up shelves, dimmed and out of reach.
+        <Example className="page-column relative w-full" tryIt={<>
+          <button type="button" onClick={() => (chime('open'), window.api.showPrompt())} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">catch a thought</button> with ⌘. from anywhere, or <button type="button" onClick={() => void window.api.importFrom('vault')} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">bring your notes in</button>. What you open, keep and wonder about gathers here.
+        </>}>
+          <ExampleHome />
+        </Example>
       ) : (
         <div className={`page-column relative flex flex-col gap-8 pt-4 pb-10 @[44rem]/page:pt-5 ${enter ? 'mf-stagger' : ''}`}>
           <div className="flex flex-col gap-4">

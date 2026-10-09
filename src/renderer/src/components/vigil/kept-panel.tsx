@@ -4,6 +4,8 @@ import { Plus } from 'lucide-react'
 import type { Readable } from './read-through'
 
 import { unloaded, useLive, vigil, type Item } from '@/lib/vigil'
+import { exampleIdeas, exampleQuestions, exampleWriting } from '@/lib/examples'
+import { Example } from './example'
 import { makeTask } from '@/lib/tasks'
 import { archive } from '@/lib/notes'
 import { Chips } from './display'
@@ -133,7 +135,13 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
             </>
           )}
         />
-      ) : unloaded(all) ? null : (
+      ) : unloaded(all) ? null : !all.length ? (
+        // Nothing kept yet: the tab as it will look, with a few made-up ones.
+        <Example compact tryIt={tier === 'nugget' ? 'open a note in your Inbox and press P. It lands here, ready to come back to you.' : tier === 'question' ? 'press H on a note in your Inbox. It is held here, gathering clues.' : 'press New article above, or start one from an idea.'}>
+          <NoteList groups={[['', (tier === 'nugget' ? exampleIdeas() : tier === 'question' ? exampleQuestions().filter((one) => !one.closedAt) : exampleWriting()).map((one) => (tier === 'question' ? questionEntry(one) : itemEntry(one)))]]}
+            density={tier === 'question' ? 'list' : density} table="nuggets" cursor={-1} onPick={() => undefined} />
+        </Example>
+      ) : (
         <Empty compact shape={tier === 'nugget' ? ['star', 3] : tier === 'question' ? ['ellipse', 3] : ['polygon', 4]} title={tier === 'nugget' ? 'No ideas yet' : tier === 'question' ? 'No questions yet' : 'No writing yet'}>
           {tier === 'nugget' ? 'Keep one from your Inbox with P and it lands here, to come back to you.' : tier === 'question' ? 'For what you keep thinking about and cannot answer yet. Press H on a note in your Inbox to make it a question.' : 'Your own words on one idea. Start one with New article, or from one of your ideas.'}
         </Empty>

@@ -181,7 +181,7 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
             send(task, String(over.id) as Quadrant)
           }}
         >
-          <Example on={example} tryIt="add a task in Today, like 'finish the essay by friday !!', and see which box it lands in. Drag it to another box to change how much it matters.">
+          <Example on={example} tryIt="add a task in Today, like 'finish the essay by Friday !!', and see which box it lands in. Drag it to another box to change how much it matters.">
           <div className="grid grid-cols-1 gap-3 p-3 @[34rem]/page:grid-cols-2">
             {QUADS.map((quad, q) => (
               <Box key={quad.id} id={quad.id}

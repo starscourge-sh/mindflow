@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarDays, Plus } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import ClockIcon from '@/components/ui/clock-icon'
@@ -9,6 +9,8 @@ import { EASE } from '@/lib/motion'
 
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, vigil, when, whenInLine, type Task } from '@/lib/vigil'
+import { exampleTasks } from '@/lib/examples'
+import { Example } from './example'
 import { BUCKETS, bucket, closeTask, makeTask, placed } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { Empty, typing, useListKeys, Strip } from './ui'
@@ -62,7 +64,11 @@ const SCOPES: Record<Scope, { label: string; test: (task: Task) => boolean }> = 
  * give it a priority and 0 none, a adds.
  */
 export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; open?: string }): React.JSX.Element {
-  const tasks = useLive(vigil.tasks, [] as Task[])
+  const real = useLive(vigil.tasks, [] as Task[])
+  // No open tasks yet: each list shows a few made-up ones, dimmed and out of reach.
+  const example = !unloaded(real) && !real.some((task) => task.status === 'open')
+  const examples = useMemo(exampleTasks, [])
+  const tasks = example ? examples : real
   const [draft, setDraft] = useState('')
   const [ticking, setTicking] = useState<string | null>(null)
   // The row a thought is being written under, without opening the task.
@@ -76,7 +82,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   const due = narrowed.filter((task) => task.status === 'open' && SCOPES[scope].test(task))
 
   const add = useRef<HTMLInputElement>(null)
-  const [cursor] = useListKeys(due.length, { onOpen: (index) => onOpen(due[index].id) })
+  const [cursor] = useListKeys(example ? 0 : due.length, { onOpen: (index) => onOpen(due[index].id) })
   // The main window's wording, time kept and undo and all.
   const move = moveTo
   useEffect(() => {
@@ -86,7 +92,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
         event.preventDefault()
         return add.current?.focus()
       }
-      const task = due[cursor]
+      const task = example ? undefined : due[cursor]
       if (!task) return
       const days = { t: 0, m: 1, w: 7 }[event.key]
       if (/^[0-4]$/.test(event.key)) setPriority(task, Number(event.key))
@@ -110,7 +116,8 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
       <Strip className="flex h-8 items-center gap-1 px-1">
       <Chips
         options={(Object.keys(SCOPES) as Scope[]).map((id) => {
-          const n = tasks.filter((task) => task.status === 'open' && SCOPES[id].test(task)).length
+          // Counted from yours only: an example never adds to a number.
+          const n = real.filter((task) => task.status === 'open' && SCOPES[id].test(task)).length
           return { id, label: n ? `${SCOPES[id].label} ${num(n)}` : SCOPES[id].label }
         })}
         on={(id) => id === scope}
@@ -144,6 +151,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
           placeholder="Add a task, with the date in the words"
         />
       </form>
+      <Example on={example && due.length > 0} compact tryIt="type a task in the line above with the day in the words, like 'call Mum Friday 6pm'.">
       <AnimatePresence initial={false}>
         {due.map((task, index) => {
           const late = (placed(task) ?? Infinity) < startOfToday()
@@ -211,6 +219,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
           )
         })}
       </AnimatePresence>
+      </Example>
       {!due.length && !unloaded(tasks) && (
         <Rest compact seed="today" off={scope !== 'today'}><Empty compact shape={EMPTY[scope].shape} title={EMPTY[scope].title}>{EMPTY[scope].text}</Empty></Rest>
       )}

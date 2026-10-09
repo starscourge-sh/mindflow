@@ -45,8 +45,8 @@ const capture = (n: number, part: Partial<CaptureMeta> & { label: string }): Cap
 /** The Inbox: one of most kinds, the way a first week's catches look. */
 export const exampleInbox = (): CaptureMeta[] => [
   capture(7, { kind: 'quote', label: 'It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.', attribution: 'Jane Austen' }),
-  capture(6, { kind: 'todo', label: 'Return Frankenstein to the library by friday' }),
-  capture(5, { kind: 'decision', label: 'Read Dune before seeing the film #book' }),
+  capture(6, { kind: 'todo', label: 'Return Frankenstein to the library by Friday' }),
+  capture(5, { kind: 'decision', label: 'Decided: read Dune before the film. Look again after the first chapter' }),
   capture(4, { kind: 'word', label: 'Soliloquy: speaking your thoughts aloud, alone on stage' }),
   capture(3, { kind: 'experiment', label: 'Write 300 words before breakfast, for two weeks' }),
   capture(2, { kind: 'link', label: 'The Folger Shakespeare: Hamlet, Act 3', medium: 'Website' }),
@@ -85,12 +85,13 @@ export const exampleTasks = (): Task[] => [
   task(6, { title: 'Learn the Litany Against Fear by heart', priority: 4 }),
   task(7, { title: 'Hear back about the Austen walking tour', waitingOn: 'Bath tourist office' }),
   task(8, { title: 'Water the plants', recurrence: 'every! 3 days', dueAt: at(1), allDay: 1 }),
-  task(9, { title: 'Put the bins out', recurrence: 'every monday', dueAt: at(((8 - new Date().getDay()) % 7) || 7, '19:00') }),
-  task(10, { title: 'Weekly review', recurrence: 'every friday', dueAt: at(((12 - new Date().getDay()) % 7) || 7), allDay: 1 }),
+  task(9, { title: 'Put the bins out', recurrence: 'every Monday', dueAt: at(((8 - new Date().getDay()) % 7) || 7, '19:00') }),
+  task(10, { title: 'Weekly review', recurrence: 'every Friday', dueAt: at(((12 - new Date().getDay()) % 7) || 7), allDay: 1 }),
   task(11, { title: 'Reread Hamlet before the play', planFor: monthKey() }),
   task(12, { title: 'Visit Bath, where Austen lived', planFor: String(new Date().getFullYear()) }),
   task(13, { title: 'Learn enough German to read Goethe', planFor: 'someday' }),
-  task(14, { title: 'Write to the publisher about the essay', deadline: at(6), priority: 2, important: 1 })
+  task(14, { title: 'Write to the publisher about the essay', deadline: at(6), priority: 2, important: 1 }),
+  task(15, { title: 'Reread War and Peace, slowly', planFor: String(new Date().getFullYear() + 1) })
 ]
 
 // --- ideas, writing, questions, goals
@@ -173,7 +174,7 @@ export const exampleMap = (): NoteMap => {
     node('darcy', 'Mr Darcy, misjudged', 'note'), node('bath', 'Visit Bath', 'todo'), node('ball', 'The Netherfield ball', 'note'),
     node('frank', 'Frankenstein', 'note'), node('nameless', 'The creature has no name', 'note', 'nugget'), node('ambition', 'What Frankenstein gets right about ambition', 'note', 'article'),
     node('hamlet', 'Hamlet', 'note'), node('waits', 'Why Hamlet waits', 'note', 'article'), node('soliloquy', 'Soliloquy', 'word'), node('mad', 'Is Hamlet mad?', 'note', 'question'),
-    node('dune', 'Dune', 'decision'), node('fear', 'Fear is the mind-killer', 'quote', 'nugget'), node('yoda', 'Yoda shows, then stops talking', 'note')
+    node('dune', 'Decided: read Dune before the film', 'decision'), node('fear', 'Fear is the mind-killer', 'quote', 'nugget'), node('yoda', 'Yoda shows, then stops talking', 'note')
   ]
   const pairs: [string, string][] = [['austen', 'first'], ['austen', 'darcy'], ['first', 'darcy'], ['austen', 'bath'], ['austen', 'ball'], ['darcy', 'ball'],
     ['frank', 'nameless'], ['frank', 'ambition'], ['nameless', 'ambition'], ['hamlet', 'waits'], ['hamlet', 'soliloquy'], ['hamlet', 'mad'], ['waits', 'mad'],
@@ -191,7 +192,7 @@ export const exampleDay = (day: string): Day => {
   return {
     day, exists: false, body: null, reviewed: false,
     captured: [entry('d1', 'It is a truth universally acknowledged…', 'capture', 'quote'), entry('d2', 'Return Frankenstein to the library', 'capture', 'todo', 'resolved'), entry('d3', 'Soliloquy', 'capture', 'word')],
-    resolved: [entry('d4', 'Read Dune before seeing the film', 'capture', 'decision', 'promoted')],
+    resolved: [entry('d4', 'Decided: read Dune before the film', 'capture', 'decision', 'resolved')],
     studied: [entry('d5', 'What does Elizabeth get wrong about Darcy at first?', 'nugget', 'quote', 'good')],
     done: [entry('d6', 'Call Mum about Sunday lunch', 'task')]
   }
