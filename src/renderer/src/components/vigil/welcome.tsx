@@ -789,12 +789,12 @@ function Pairs({ play, report, onward }: { play: boolean; report: (now: Reel) =>
     <div className="absolute inset-0 z-10 flex items-center justify-center">
       <AnimatePresence mode="wait" initial={false}>
         {s.row ? (
-          <motion.ul key="row" className="grid w-full max-w-[66rem] grid-cols-4 gap-x-[clamp(1rem,3vw,2.5rem)] px-6" initial={play ? { opacity: 0, scale: 0.96 } : false} animate={{ opacity: 1, scale: 1 }} transition={spring.slow}>
+          <motion.ul key="row" className="grid w-full max-w-[74rem] grid-cols-4 grid-rows-[auto_auto_auto] gap-x-[clamp(0.75rem,2.5vw,2.25rem)] gap-y-2 px-6" initial={play ? { opacity: 0, scale: 0.96 } : false} animate={{ opacity: 1, scale: 1 }} transition={spring.slow}>
             {GAPS.map(([Icon, was, now], i) => (
-              <motion.li key={now} className="flex flex-col items-center gap-2 text-center" initial={play ? { opacity: 0, y: 8 } : false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE, delay: i * 0.08 }}>
+              <motion.li key={now} className="row-span-3 grid grid-rows-subgrid justify-items-center text-center" initial={play ? { opacity: 0, y: 8 } : false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE, delay: i * 0.08 }}>
                 <Icon className="size-5 text-primary" />
-                <span className="text-[clamp(0.875rem,min(1.5vw,2.2vh),1.0625rem)] leading-snug text-(--mf-wl-quiet) line-through decoration-primary/60">{was}</span>
-                <span className="font-heading text-[clamp(1.0625rem,min(2vw,3vh),1.5rem)] leading-tight text-foreground">{now}</span>
+                <span className="self-end text-[clamp(0.875rem,min(1.5vw,2.2vh),1.0625rem)] leading-snug text-balance text-(--mf-wl-quiet) line-through decoration-primary/60">{was}</span>
+                <span className="font-heading text-[clamp(1.0625rem,min(2vw,3vh),1.5rem)] leading-tight text-balance text-foreground">{now}</span>
               </motion.li>
             ))}
           </motion.ul>
