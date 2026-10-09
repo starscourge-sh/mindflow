@@ -84,7 +84,7 @@ const counted = (n: number): string => ['None', 'One', 'Two', 'Three', 'Four', '
 holdKeys(() => document.documentElement.hasAttribute('data-welcoming'), false, () => window.dispatchEvent(new CustomEvent('vigil:held')))
 
 /** A chapter's report to the welcome: whether it has played to its end, and how to get it there now. */
-type Reel = { done: boolean; settle: () => void }
+type Reel = { done: boolean; settle: () => void; /** A chapter with a second part: true when it went on to it rather than letting the welcome move on. */ more?: () => boolean }
 /** Where you are in Your turn, in the real box. */
 type Turn = 'idle' | 'open' | 'away' | 'kept'
 
@@ -253,6 +253,7 @@ export function Welcome(): React.JSX.Element | null {
   const next = (): void => {
     if (!settled()) return
     chime('page')
+    if (reel.current.more?.()) return
     if (at === DIAL && picked.current) applyTheme(picked.current)
     go(at + 1)
   }
@@ -750,62 +751,8 @@ function BecomeChapter({ play, report, pick, onPick, turn, mine }: { play: boole
 
 // --- 3 A day with Vigil -------------------------------------------------------------
 
-type DayState = { pair: number; struck: boolean; row: boolean; docked: boolean; look: number; answered: number; hint: boolean; tip: boolean; asking: boolean; question: string; kept: boolean; sticky: boolean; ticked: boolean; line: string; chip: boolean; logged: boolean; over: boolean; hand: string | null; down: boolean}
-
-/**
- * An ordinary day, in four moments, each a problem and then what Vigil does
- * about it, the camera moving from one to the next across the day and pulling
- * back at the end to show them all.
- */
-function dayBeats(): Beat<DayState>[] {
-  // The pairs' beat comes first; the day starts after it.
-  const OFF = 8800
-  const random = seeded(23)
-  const beats: Beat<DayState>[] = [
-    { at: 0, to: {} },
-    { at: 900, to: { docked: true } },
-    // What a commonplace book adds, a pair at a time: what other apps leave you with, struck, then this.
-    ...GAPS.flatMap((_, i): Beat<DayState>[] => [
-      { at: 1300 + i * 1500, to: { pair: i, struck: false } },
-      { at: 1300 + i * 1500 + 650, to: { struck: true }, cue: cue('tag') }
-    ]),
-    { at: 1300 + 4 * 1500, to: { row: true }, cue: cue('gather') },
-    { at: 1300 + 4 * 1500 + 1700, to: { pair: -1, row: false, look: 0 } },
-    // Morning: something kept comes back in the box; worth knowing, so it goes to Review.
-    { at: 2000 + OFF, to: { hint: true, answered: 1 }, cue: cue('memory') },
-    { at: 3300 + OFF, to: { hand: 'thumbs' } },
-    { at: 3800 + OFF, to: { tip: true } },
-    { at: 4600 + OFF, to: { down: true }, cue: () => click('tick') },
-    { at: 4680 + OFF, to: { down: false, tip: false, asking: true, hand: null }, cue: cue('promote') }
-  ]
-  const ask = typed<DayState>('What is a commonplace book?', 4900 + OFF, (sofar) => ({ question: sofar }), random, 0.45)
-  beats.push(...ask.beats)
-  let t = ask.end + 350
-  beats.push({ at: t, to: { kept: true }, cue: cue('noted') })
-  // While working: the day's tasks stay on the desktop.
-  t += 1100
-  beats.push({ at: t, to: { look: 1 } })
-  beats.push({ at: t + 1100, to: { sticky: true, answered: 2 }, cue: cue('stick') })
-  beats.push({ at: t + 2300, to: { hand: 'tick' } })
-  beats.push({ at: t + 2900, to: { ticked: true, down: true }, cue: cue('done') })
-  beats.push({ at: t + 3000, to: { down: false, hand: null } })
-  // The long run: a log from the box lights today on the goal's road.
-  t += 3600
-  beats.push({ at: t, to: { look: 2 } })
-  const log = typed<DayState>('+half marathon: 8k today', t + 1100, (sofar) => ({ line: sofar, chip: sofar.length > 3 }), random, 0.45)
-  beats.push(...log.beats)
-  t = log.end + 300
-  beats.push({ at: t, to: { hand: 'add-log' } })
-  beats.push({ at: t + 650, to: { down: true }, cue: () => click('tick') })
-  beats.push({ at: t + 730, to: { down: false, logged: true, chip: false, line: '', answered: 3, hand: null }, cue: cue('mark') })
-  // Evening: Review asks, just before you would forget.
-  t += 1700
-  beats.push({ at: t, to: { look: 3 } })
-  beats.push({ at: t + 1000, to: { answered: 4 } })
-  beats.push({ at: t + 1700, to: { over: true }, cue: () => fold() })
-  beats.push({ at: t + 2800, to: {} })
-  return beats
-}
+type DayState = { look: number; answered: number; hint: boolean; tip: boolean; asking: boolean; question: string; kept: boolean; sticky: boolean; ticked: boolean; line: string; chip: boolean; logged: boolean; over: boolean; hand: string | null; down: boolean }
+type PairsState = { pair: number; struck: boolean; row: boolean }
 
 /** What other notes, task and flashcard apps each leave out, in plain words. */
 const GAPS: [typeof BookOpen, string, string][] = [
@@ -815,15 +762,114 @@ const GAPS: [typeof BookOpen, string, string][] = [
   [BookOpen, 'Thoughts scattered across apps', 'One book']
 ]
 
-function DayChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
+/** What a commonplace book adds, a pair at a time: what other apps leave you with, struck, then this; then all four in a row. */
+const pairsBeats = (onward: () => void): Beat<PairsState>[] => [
+  { at: 0, to: {} },
+  ...GAPS.flatMap((_, i): Beat<PairsState>[] => [
+    { at: 700 + i * 1150, to: { pair: i, struck: false } },
+    { at: 700 + i * 1150 + 500, to: { struck: true }, cue: cue('tag') }
+  ]),
+  { at: 700 + 4 * 1150, to: { row: true }, cue: cue('gather') },
+  // Watched through, the day follows on its own; settled, the row stays until the next press.
+  { at: 700 + 4 * 1150 + 1500, to: {}, cue: onward }
+]
+
+/**
+ * The pairs: one at a time, large, then gathered into a row. Settled (a skip,
+ * Reduce motion, Motion off) it is the row, each pair struck and answered,
+ * and it holds there: the product's whole case, never skipped past unseen.
+ */
+function Pairs({ play, report, onward }: { play: boolean; report: (now: Reel) => void; onward: () => void }): React.JSX.Element {
+  const [beats] = useState(() => pairsBeats(onward))
+  const show = useScript<PairsState>({ pair: -1, struck: false, row: false }, beats, play)
+  // Settled, the next press goes on to the day rather than to the next chapter.
+  report({ done: show.done, settle: show.settle, more: () => (onward(), true) })
+  const s = show.state
+  return (
+    <div className="absolute inset-0 z-10 flex items-center justify-center">
+      <AnimatePresence mode="wait" initial={false}>
+        {s.row ? (
+          <motion.ul key="row" className="grid w-full max-w-[66rem] grid-cols-4 gap-x-[clamp(1rem,3vw,2.5rem)] px-6" initial={play ? { opacity: 0, scale: 0.96 } : false} animate={{ opacity: 1, scale: 1 }} transition={spring.slow}>
+            {GAPS.map(([Icon, was, now], i) => (
+              <motion.li key={now} className="flex flex-col items-center gap-2 text-center" initial={play ? { opacity: 0, y: 8 } : false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE, delay: i * 0.08 }}>
+                <Icon className="size-5 text-primary" />
+                <span className="text-[clamp(0.875rem,min(1.5vw,2.2vh),1.0625rem)] leading-snug text-(--mf-wl-quiet) line-through decoration-primary/60">{was}</span>
+                <span className="font-heading text-[clamp(1.0625rem,min(2vw,3vh),1.5rem)] leading-tight text-foreground">{now}</span>
+              </motion.li>
+            ))}
+          </motion.ul>
+        ) : s.pair >= 0 ? (
+          <motion.div key={s.pair} className="flex max-w-[44rem] flex-col items-center gap-3 px-6 text-center"
+            initial={{ opacity: 0, y: 10, filter: 'blur(3px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} exit={{ opacity: 0, y: -10, filter: 'blur(3px)', transition: { duration: 0.16 } }} transition={{ duration: 0.3, ease: EASE }}>
+            {(() => {
+              const [Icon, was, now] = GAPS[s.pair]
+              return (
+                <>
+                  <Icon className="size-6 text-primary" />
+                  <p className={`font-heading text-[clamp(1.375rem,min(3vw,4.4vh),2.25rem)] leading-tight transition-colors duration-500 ${s.struck ? 'text-(--mf-wl-quiet) line-through decoration-primary/70 decoration-2' : 'text-foreground'}`}>{was}</p>
+                  <motion.p className="font-heading text-[clamp(1.625rem,min(3.6vw,5.2vh),2.75rem)] leading-tight text-foreground" initial={false} animate={{ opacity: s.struck ? 1 : 0, y: s.struck ? 0 : 8 }} transition={{ duration: 0.35, ease: EASE, delay: s.struck ? 0.1 : 0 }}>{now}</motion.p>
+                </>
+              )
+            })()}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+/**
+ * An ordinary day, in four moments, each a problem and then what Vigil does
+ * about it, the camera moving from one to the next across the day.
+ */
+function dayBeats(): Beat<DayState>[] {
+  const random = seeded(23)
+  const beats: Beat<DayState>[] = [
+    { at: 0, to: { look: 0 } },
+    // Morning: something kept comes back in the box; worth knowing, so it goes to Review.
+    { at: 700, to: { hint: true, answered: 1 }, cue: cue('memory') },
+    { at: 1800, to: { hand: 'thumbs' } },
+    { at: 2250, to: { tip: true } },
+    { at: 2950, to: { down: true }, cue: () => click('tick') },
+    { at: 3030, to: { down: false, tip: false, asking: true, hand: null }, cue: cue('promote') }
+  ]
+  const ask = typed<DayState>('What is a commonplace book?', 3200, (sofar) => ({ question: sofar }), random, 0.4)
+  beats.push(...ask.beats)
+  let t = ask.end + 300
+  beats.push({ at: t, to: { kept: true }, cue: cue('noted') })
+  // While working: the day's tasks stay on the desktop.
+  t += 900
+  beats.push({ at: t, to: { look: 1 } })
+  beats.push({ at: t + 900, to: { sticky: true, answered: 2 }, cue: cue('stick') })
+  beats.push({ at: t + 1900, to: { hand: 'tick' } })
+  beats.push({ at: t + 2450, to: { ticked: true, down: true }, cue: cue('done') })
+  beats.push({ at: t + 2550, to: { down: false, hand: null } })
+  // The long run: a log from the box lights today on the goal's road.
+  t += 3100
+  beats.push({ at: t, to: { look: 2 } })
+  const log = typed<DayState>('+half marathon: 8k today', t + 900, (sofar) => ({ line: sofar, chip: sofar.length > 3 }), random, 0.4)
+  beats.push(...log.beats)
+  t = log.end + 250
+  beats.push({ at: t, to: { hand: 'add-log' } })
+  beats.push({ at: t + 600, to: { down: true }, cue: () => click('tick') })
+  beats.push({ at: t + 680, to: { down: false, logged: true, chip: false, line: '', answered: 3, hand: null }, cue: cue('mark') })
+  // Evening: Review asks, just before you would forget.
+  t += 1500
+  beats.push({ at: t, to: { look: 3 } })
+  beats.push({ at: t + 900, to: { answered: 4 } })
+  beats.push({ at: t + 1500, to: { over: true }, cue: () => fold() })
+  beats.push({ at: t + 2400, to: {} })
+  return beats
+}
+
+function DayScene({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
   const [beats] = useState(dayBeats)
-  const show = useScript<DayState>({ pair: -1, struck: false, row: false, docked: false, look: -1, answered: 0, hint: false, tip: false, asking: false, question: '', kept: false, sticky: false, ticked: false, line: '', chip: false, logged: false, over: false, hand: null, down: false }, beats, play)
-  useReport(report, show.done, show.settle)
+  const show = useScript<DayState>({ look: 0, answered: 0, hint: false, tip: false, asking: false, question: '', kept: false, sticky: false, ticked: false, line: '', chip: false, logged: false, over: false, hand: null, down: false }, beats, play)
+  report({ done: show.done, settle: show.settle })
   const s = show.state
   const scene = useRef<HTMLDivElement>(null)
   const world = useRef<HTMLDivElement>(null)
-  // The moment in view, or all four from above once the day is done.
-  const shot = frameOn(world.current, `moment-${Math.max(0, s.look)}`, 1)
+  const shot = frameOn(world.current, `moment-${s.look}`, 1)
   const moments: [string, string, ReactNode][] = [
     ['Morning', 'You saved it, then never saw it again.', <>Now and then, opening the box brings back something you kept, on its own. Worth knowing? Thumbs up, and Review will test you on it.</>],
     ['While you work', 'Your plan is in a tab you closed.', <>Today’s tasks can stay on your desktop as a sticky note, over whatever you are working in. Tick them off right there.</>],
@@ -831,59 +877,52 @@ function DayChapter({ play, report }: { play: boolean; report: (now: Reel) => vo
     ['Evening', 'You read it, and a week later it is gone.', <>Review asks you just before you would forget, further apart each time.</>]
   ]
   return (
+    <motion.div ref={scene} className="absolute inset-0" initial={play ? { opacity: 0, filter: 'blur(4px)' } : false} animate={{ opacity: 1, filter: 'blur(0px)' }} transition={{ duration: 0.4, ease: EASE }}>
+      <Camera shot={shot} className="absolute -top-1/2 -left-1/2 h-[200%] w-[200%]">
+        <div ref={world} className="relative grid size-full grid-cols-2 grid-rows-2">
+          {moments.map(([hour, problem, answer], i) => (
+            <div key={hour} data-frame={`moment-${i}`} className="min-h-0 min-w-0">
+              <Moment hour={hour} problem={problem} answer={answer} answered={s.answered > i}>
+                {i === 0 && <MorningBox shown={s.hint} tip={s.tip} asking={s.asking} question={s.question} kept={s.kept} />}
+                {i === 1 && <DeskSticky on={s.sticky} ticked={s.ticked} />}
+                {i === 2 && <GoalRoad line={s.line} chip={s.chip} logged={s.logged} />}
+                {i === 3 && <EveningReview over={s.over} />}
+              </Moment>
+            </div>
+          ))}
+        </div>
+      </Camera>
+      {play && !show.done && <GhostHand to={s.hand} down={s.down} root={scene} />}
+    </motion.div>
+  )
+}
+
+/** A day with Vigil: first what a commonplace book adds, then a day of it. */
+function DayChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
+  const [stage, setStage] = useState<'pairs' | 'day'>('pairs')
+  const [docked] = useState(() => !play)
+  const [dock, setDock] = useState(docked)
+  useEffect(() => {
+    if (dock) return
+    const timer = setTimeout(() => setDock(true), 900)
+    return () => clearTimeout(timer)
+  }, [dock])
+  const [done, setDone] = useState(false)
+  // Before the pairs begin, a press brings the title down at once.
+  if (!dock) report({ done: false, settle: () => setDock(true) })
+  const relay = (now: Reel): void => {
+    report(now)
+    if (stage === 'day' && now.done !== done) queueMicrotask(() => setDone(now.done))
+  }
+  return (
     <>
-      <Words title="A day with Vigil." docked={s.docked} still={!play} done={show.done}>
-        What a normal day looks like once you have kept a few things.
+      <Words title="A day with Vigil." docked={dock} still={!play} done={stage === 'day' && done}>
+        {stage === 'pairs' ? 'Your commonplace book, and what it does that other apps leave out.' : 'What a normal day looks like once you have kept a few things.'}
       </Words>
-      <div ref={scene} className="relative min-h-0 flex-1 overflow-hidden">
-        <Camera shot={shot} className="absolute -top-1/2 -left-1/2 h-[200%] w-[200%]">
-          <div ref={world} className="relative grid size-full grid-cols-2 grid-rows-2">
-            {moments.map(([hour, problem, answer], i) => (
-              <div key={hour} data-frame={`moment-${i}`} className="min-h-0 min-w-0">
-                <Moment hour={hour} problem={problem} answer={answer} answered={s.answered > i}>
-                  {i === 0 && <MorningBox shown={s.hint} tip={s.tip} asking={s.asking} question={s.question} kept={s.kept} />}
-                  {i === 1 && <DeskSticky on={s.sticky} ticked={s.ticked} />}
-                  {i === 2 && <GoalRoad line={s.line} chip={s.chip} logged={s.logged} />}
-                  {i === 3 && <EveningReview over={s.over} />}
-                </Moment>
-              </div>
-            ))}
-          </div>
-        </Camera>
-        {/* The pairs, over a scene not yet shown: never both at once. */}
-        <AnimatePresence>
-          {s.pair >= 0 && (
-            <motion.div key="pairs" className="absolute inset-0 z-10 flex items-center justify-center bg-background" exit={{ opacity: 0, filter: 'blur(4px)', transition: { duration: 0.4, ease: EASE } }}>
-              <AnimatePresence mode="wait" initial={false}>
-                {s.row ? (
-                  <motion.ul key="row" className="grid w-full max-w-[64rem] grid-cols-4 gap-x-[clamp(1rem,3vw,2.5rem)] px-6" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={spring.slow}>
-                    {GAPS.map(([Icon, , now], i) => (
-                      <motion.li key={now} className="flex flex-col items-center gap-2 text-center" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE, delay: i * 0.08 }}>
-                        <Icon className="size-5 text-primary" />
-                        <span className="font-heading text-[clamp(1.0625rem,min(2vw,3vh),1.5rem)] leading-tight text-foreground">{now}</span>
-                      </motion.li>
-                    ))}
-                  </motion.ul>
-                ) : (
-                  <motion.div key={s.pair} className="flex max-w-[44rem] flex-col items-center gap-3 px-6 text-center"
-                    initial={{ opacity: 0, y: 10, filter: 'blur(3px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} exit={{ opacity: 0, y: -10, filter: 'blur(3px)', transition: { duration: 0.18 } }} transition={{ duration: 0.35, ease: EASE }}>
-                    {(() => {
-                      const [Icon, was, now] = GAPS[s.pair]
-                      return (
-                        <>
-                          <Icon className="size-6 text-primary" />
-                          <p className={`font-heading text-[clamp(1.375rem,min(3vw,4.4vh),2.25rem)] leading-tight transition-colors duration-500 ${s.struck ? 'text-(--mf-wl-quiet) line-through decoration-primary/70 decoration-2' : 'text-foreground'}`}>{was}</p>
-                          <motion.p className="font-heading text-[clamp(1.625rem,min(3.6vw,5.2vh),2.75rem)] leading-tight text-foreground" initial={false} animate={{ opacity: s.struck ? 1 : 0, y: s.struck ? 0 : 8 }} transition={{ duration: 0.4, ease: EASE, delay: s.struck ? 0.15 : 0 }}>{now}</motion.p>
-                        </>
-                      )
-                    })()}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        {play && !show.done && <GhostHand to={s.hand} down={s.down} root={scene} />}
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        {stage === 'pairs'
+          ? dock && <Pairs play={play} report={relay} onward={() => setStage('day')} />
+          : <DayScene play={play} report={relay} />}
       </div>
     </>
   )
