@@ -163,8 +163,9 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
   }, [])
   const [cursor, setCursor] = useListKeys(shown.length, {
     onOpen: (index) => pick(shown[index].id),
-    // Spread out, Escape empties the search, then brings the list back.
-    onBack: () => (spread ? (query ? setQuery('') : setPane('list')) : setOpen(null))
+    // Spread out, Escape empties the search, and that is all: it never puts
+    // the note away or changes the layout. ⌘[ is the way back.
+    onEscape: () => spread && query && setQuery('')
   })
   useEffect(() => void (spread && shown[cursor] && setPeek(shown[cursor].id)), [cursor, spread]) // eslint-disable-line react-hooks/exhaustive-deps
   // ; on the row under the cursor, with nothing open: a thought written under it.

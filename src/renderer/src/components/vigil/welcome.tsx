@@ -41,7 +41,7 @@ import {
  *   6 Ready: fresh, the sandbox, or your notes
  *
  * Any key or click while a chapter plays settles it at its end; the next
- * press moves on. Esc settles, then goes to the last page. Motion off or
+ * press moves on. Esc settles a chapter, and never goes back a page. Motion off or
  * Reduce motion: every chapter arrives settled, with fades only.
  */
 
@@ -314,11 +314,12 @@ export function Welcome(): React.JSX.Element | null {
       const button = target?.closest?.('button') && (event.key === 'Enter' || event.key === ' ')
       if (button) return
       if (event.key === 'Escape') {
-        // Esc puts the box away if it is up, settles a chapter that is playing,
-        // and otherwise goes back a step. Skipping the welcome is a button only.
+        // Esc puts the box away if it is up, or settles a chapter that is
+        // playing. It never goes back a page (← does), and skipping the
+        // welcome is a button only.
         if (turn === 'open') window.api.hidePrompt()
         else if (performance.now() - awayAt.current < 1000) undefined
-        else if (settled()) back()
+        else settled()
       } else if (event.key === 'Enter') primary()
       else if (event.key === 'ArrowRight' || event.key === ' ') {
         if (at !== LAST) next()

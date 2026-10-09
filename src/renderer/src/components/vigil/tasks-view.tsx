@@ -211,7 +211,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   const pick = (id: string): void => void vigil.task(id).then(setOpen)
   // Sent here for one task, from search or a link: open it. Opening one is a step Back returns from.
   useOpened(open?.id, focus, pick, () => setOpen(null))
-  const [cursor, setCursor] = useListKeys(shown.length, { onOpen: (index) => pick(shown[index].id), onBack: () => setOpen(null) })
+  const [cursor, setCursor] = useListKeys(shown.length, { onOpen: (index) => pick(shown[index].id) })
   const addRef = useRef<HTMLInputElement>(null)
 
   // On the row the keyboard is on: Alt-J and Alt-K move it (dates say what is

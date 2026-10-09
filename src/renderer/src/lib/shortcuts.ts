@@ -153,7 +153,6 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Week', keys: '[', does: 'Week before', where: 'Main window' },
   { group: 'Week', keys: ']', does: 'Week after', where: 'Main window' },
   { group: 'Week', keys: '↵', does: 'Open the task', where: 'Main window' },
-  { group: 'Week', keys: 'Esc', does: 'Close the open task', where: 'Main window' },
   { group: 'Week', keys: 'E', does: 'Complete the task', where: 'Main window' },
   { group: 'Week', keys: 'T', does: 'Move the task to today', where: 'Main window' },
   { group: 'Week', keys: 'M', does: 'Move the task to tomorrow', where: 'Main window' },

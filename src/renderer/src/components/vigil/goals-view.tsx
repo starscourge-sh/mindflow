@@ -211,7 +211,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
   useKept('tab', show, setShow, 'open')
   // Read again when anything changes, so a log added from the box shows.
   useEffect(() => window.api.captures.onChange(() => open && void vigil.item(open.id).then(setOpen)), [open?.id])
-  const [cursor, setCursor] = useListKeys(items.length, { onOpen: (index) => pick(items[index].id), onBack: () => setOpen(null) })
+  const [cursor, setCursor] = useListKeys(items.length, { onOpen: (index) => pick(items[index].id) })
   const go = (type: string, id: string): void => (type === 'goal' ? pick(id) : onOpen?.(type, id))
   const entries = items.map((one) => goalEntry(one, today, [{ label: 'Open', keys: '↵', run: () => pick(one.id) }, 'separator', ...goalMenu(one)]))
   return (

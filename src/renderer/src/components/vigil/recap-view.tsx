@@ -6,7 +6,7 @@ import XIcon from '@/components/ui/x-icon'
 import { chime } from '@/lib/sound'
 import { vigil, type Mood, type Recap as Data, splitTags } from '@/lib/vigil'
 import { notes, smallPicture } from '@/lib/notes'
-import { Kbd, Rolling, Typed } from './ui'
+import { Kbd, Rolling, Tip, Typed } from './ui'
 import { Button } from '@/components/ui/button'
 import { Scenery } from './scenery'
 import { RecapRadar, readShape } from './recap-radar'
@@ -302,7 +302,7 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
           ))}
         </div>
         <span className="text-xs text-muted-foreground"><Kbd>←</Kbd> <Kbd>→</Kbd></span>
-        <Button variant="ghost" size="icon-sm" aria-label="Close the recap" onClick={onClose}><X /></Button>
+        <Tip label="Close the recap  Esc"><Button variant="ghost" size="icon-sm" aria-label="Close the recap" onClick={onClose}><X /></Button></Tip>
       </div>
       {/* A click on the right half goes on, on the left goes back, as in a story. */}
       <div className="relative flex min-h-0 flex-1 items-center px-[8%]" onClick={(event) => {

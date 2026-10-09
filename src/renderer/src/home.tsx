@@ -40,7 +40,7 @@ import { Rolling, Toaster, toast, typing, FocusNote, useFocusMode, SoundToggle }
 import { FocusScenery } from './components/vigil/scenery'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import { useAppearance, useLive, vigil, type Item, type Pin, type Settings, type Task } from './lib/vigil'
-import { Tip, showTopTitle, useTopTitle, Pressed } from '@/components/vigil/ui'
+import { Tip, showTopTitle, useTopTitle, Pressed, useEscapeLeavesEditor } from '@/components/vigil/ui'
 import { Celebrations, tryCelebration } from '@/components/vigil/celebrate'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import ExpandIcon from '@/components/ui/expand-icon'
@@ -146,6 +146,8 @@ const useCramped = (): boolean => useSyncExternalStore(followCramped, () => matc
  * sidebar with counts, G and a letter to jump, C to capture, ⌘K to search.
  */
 export function Home(): React.JSX.Element {
+  // Escape in a note lets go of the note, and never goes back: ⌘[ does.
+  useEscapeLeavesEditor()
   // Where you have been, for back and forward: a list and a place in it.
   const [trail, setTrail] = useState<{ views: View[]; at: number }>({ views: [{ id: 'home' }], at: 0 })
   const view = trail.views[trail.at]

@@ -210,7 +210,7 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
         <button type="button" onClick={() => step(false)} aria-label="Next match" title="Next  ↵">
           <ChevronDown className="size-3.5" />
         </button>
-        <button type="button" onClick={() => leave(true)} aria-label="Close find">
+        <button type="button" onClick={() => leave(true)} aria-label="Close find" title="Close  Esc">
           <X className="size-3.5" />
         </button>
       </div>

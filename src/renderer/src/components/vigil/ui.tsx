@@ -478,22 +478,24 @@ export const pin = (table: 'captures' | 'nuggets', id: string, on: boolean): voi
 
 /**
  * Moving through a list the way the editor moves through a document: j and k,
- * or the arrows; gg and G for the ends; Enter to open; Escape to go back. Inside
+ * or the arrows; gg and G for the ends; Enter to open. Escape only lets go of
+ * something passing, like the words in a search (onEscape): it never goes
+ * back, which is ⌘['s job. Inside
  * a text box only Ctrl-J and Ctrl-K move, so typing a j is still a j, and in
  * the editor none of it: the editor has its own vim. The same
  * keys in every list in the app, which is the whole point of having one hook.
  */
-export function useListKeys(count: number, { onOpen, onBack, enabled = true }: {
+export function useListKeys(count: number, { onOpen, onEscape, enabled = true }: {
   onOpen?: (index: number) => void
-  onBack?: () => void
+  onEscape?: () => void
   enabled?: boolean
 }): [number, (index: number) => void] {
   // -1 until a key is pressed: the ring belongs to the keyboard, so a list you
   // only ever click never shows one.
   const [at, setAt] = useState(-1)
   const last = useRef('')
-  const latest = useRef({ count, onOpen, onBack, at })
-  latest.current = { count, onOpen, onBack, at }
+  const latest = useRef({ count, onOpen, onEscape, at })
+  latest.current = { count, onOpen, onEscape, at }
   useEffect(() => setAt((index) => Math.min(index, Math.max(0, count - 1))), [count])
   // The row the cursor is on stays in view. Rows mark themselves with
   // data-cursor, since a ref on an animated row is only read once.
@@ -504,7 +506,7 @@ export function useListKeys(count: number, { onOpen, onBack, enabled = true }: {
   useEffect(() => {
     if (!enabled) return
     const onKey = (event: KeyboardEvent): void => {
-      const { count, onOpen, onBack, at } = latest.current
+      const { count, onOpen, onEscape, at } = latest.current
       // A key something in front already took, like search over this list.
       if (event.defaultPrevented) return
       // The editor has its own vim, and its menus their own Ctrl-J and K.
@@ -531,7 +533,7 @@ export function useListKeys(count: number, { onOpen, onBack, enabled = true }: {
         event.preventDefault()
         onOpen(at)
       }
-      if (event.key === 'Escape' && onBack) onBack()
+      if (event.key === 'Escape' && onEscape) onEscape()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -540,6 +542,38 @@ export function useListKeys(count: number, { onOpen, onBack, enabled = true }: {
   return [at, setAt]
 }
 
+
+/**
+ * Escape in a note, once nothing else wants it, lets go of the note: the
+ * editor gives up the keys, and the page stays where it is. Vim's insert or
+ * visual mode, selected words, a menu or the find bar each take an Escape
+ * first, one per press. The editor marks every Escape as handled, so whether
+ * it is free is read on the way down, before the editor sees it.
+ */
+export function useEscapeLeavesEditor(): void {
+  useEffect(() => {
+    let free = false
+    const before = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      const editor = (event.target as Element | null)?.closest?.('.ProseMirror')
+      const mode = editor?.getAttribute('data-vim-mode')
+      free = !!editor && (!mode || mode === 'normal') && (window.getSelection()?.isCollapsed ?? true) &&
+        !document.querySelector('[role=menu], [role=listbox], [role=dialog], .tiptap-suggestion-popup, [cmdk-root], .tiptap-find-bar:not([inert])')
+    }
+    const after = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape' || !free) return
+      free = false
+      const held = document.activeElement
+      if (held instanceof HTMLElement && held.closest('.ProseMirror')) held.blur()
+    }
+    window.addEventListener('keydown', before, true)
+    window.addEventListener('keydown', after)
+    return () => {
+      window.removeEventListener('keydown', before, true)
+      window.removeEventListener('keydown', after)
+    }
+  }, [])
+}
 
 /**
  * A list's top bar, set above the scrolling area rather than in it: blur

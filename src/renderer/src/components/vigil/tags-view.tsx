@@ -50,7 +50,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
   useOpened(chosen ?? undefined, focus, setChosen, () => setChosen(null))
   useKept('tab', tab, setTab, 'read')
   const items = useLive(() => (chosen ? vigil.tag(chosen) : Promise.resolve([])), [], [chosen])
-  const [cursor] = useListKeys(tags.length, { onOpen: (index) => setChosen(tags[index].tag), onBack: () => setChosen(null) })
+  const [cursor] = useListKeys(tags.length, { onOpen: (index) => setChosen(tags[index].tag) })
   const top = tags[0]?.count ?? 1
   const current = tags.find((one) => one.tag === chosen)
   // How ready each tag with an exam date is, for the open tag's bar.

@@ -212,7 +212,6 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
         return take(() => setAt({ col: at.col, id: next ? `${next.kind}:${next.task.id}` : null }))
       }
       if (key === '[' || key === ']') return take(() => (chime('page'), setFrom((week) => week + (key === '[' ? -7 : 7))))
-      if (key === 'Escape' && open) return take(() => setOpen(null))
       if (!chosen) return
       if (key === 'Enter') return take(() => pick(chosen.task.id))
       if (key === 'e') return take(() => void completeTask(chosen.task))

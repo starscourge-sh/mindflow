@@ -324,11 +324,12 @@ export function ShortcutSheet(): React.JSX.Element | null {
         className="flex max-h-[80vh] w-[min(44rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow)"
         onMouseDown={(event) => event.stopPropagation()}
       >
+        <div className="flex items-center gap-2 border-b pr-4">
         <input
           autoFocus
           value={query}
           placeholder="Keyboard shortcuts: type to find one…"
-          className="border-b bg-transparent px-4 py-3 text-heading outline-none"
+          className="min-w-0 flex-1 bg-transparent px-4 py-3 text-heading outline-none"
           onChange={(event) => {
             click('soft')
             setQuery(event.target.value)
@@ -341,6 +342,8 @@ export function ShortcutSheet(): React.JSX.Element | null {
             }
           }}
         />
+        <Tip label="Close  Esc"><button type="button" onClick={close} className="shrink-0"><Kbd>Esc</Kbd></button></Tip>
+        </div>
         {/* Faded at an edge while there is more past it (mf-more). */}
         <div className="mf-more overflow-y-auto p-4">
           <ShortcutList query={query} columns />

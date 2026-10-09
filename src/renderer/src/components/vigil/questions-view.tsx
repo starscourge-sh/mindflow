@@ -222,7 +222,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
   }, [])
   const [cursor, setCursor] = useListKeys(items.length, {
     onOpen: (index) => pick(items[index].id),
-    onBack: () => (spread ? (query ? setQuery('') : setPane('list')) : setOpen(null))
+    onEscape: () => spread && query && setQuery('')
   })
   useEffect(() => void (spread && items[cursor] && setPeek(items[cursor].id)), [cursor, spread]) // eslint-disable-line react-hooks/exhaustive-deps
   // ; on the row under the cursor, with nothing open: a clue written under it.

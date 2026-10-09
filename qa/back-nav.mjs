@@ -126,7 +126,10 @@ try {
     () => link('Kessel Run'))
   await run('Inbox: a mention to a goal', async () => { await side('Inbox'); await click('[class*="@container/page"] [data-id]', 'Start here'); await reveal('Get to Mars') },
     () => link('Get to Mars'))
-  await run('Inbox: Escape puts the note away', async () => { await side('Inbox'); await row(0) }, () => keys('Escape'))
+  // Escape never goes back (qa/esc.mjs): ⌘K to another note is the step here instead.
+  await run('Inbox: one open, ⌘K to another', async () => { await side('Inbox'); await row(0) }, async () => {
+    await keys('Meta+k'); await h.keyboard.type('Dorian Gray', { delay: 40 }); await wait(1200); await h.keyboard.press('Enter'); await wait()
+  })
   await run('Inbox list scrolled, a row opened', async () => { await side('Inbox'); await scrollPage(300) }, () => row(14))
   await run('All: one open, ⌘K to another', async () => { await go('all'); await row(3) }, async () => {
     await keys('Meta+k'); await h.keyboard.type('Dorian Gray', { delay: 40 }); await wait(1200); await h.keyboard.press('Enter'); await wait()

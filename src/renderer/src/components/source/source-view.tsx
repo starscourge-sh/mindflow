@@ -37,6 +37,7 @@ export function SourceView({
         <span>
           {num(state.assets.length)} asset{state.assets.length === 1 ? "" : "s"}
         </span>
+        <span title="Close  Esc">Esc to close</span>
       </header>
 
       {state.assets.length ? (

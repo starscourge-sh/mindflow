@@ -28,6 +28,7 @@ export const MAC_SYMBOLS: Record<string, string> = {
   delete: "⌦",
   enter: "⏎",
   escape: "⎋",
+  esc: "Esc",
   capslock: "⇪",
 } as const
 

@@ -524,7 +524,7 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
                 </span>
               </Button>
             )}
-            <Button data-style="ghost" tooltip="Close" shortcutKeys="Space" aria-label="Close" onClick={() => void close()}>
+            <Button data-style="ghost" tooltip="Close" shortcutKeys="Esc" aria-label="Close" onClick={() => void close()}>
               <X className="tiptap-button-icon" />
             </Button>
           </ToolbarGroup>

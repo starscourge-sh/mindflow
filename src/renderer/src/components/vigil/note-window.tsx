@@ -8,7 +8,7 @@ import { ItemDetail } from './items-view'
 import { NotePreview } from './note-preview'
 import { Mentions } from './mentions'
 import { selectionActions } from './selection-actions'
-import { Toaster, pin } from './ui'
+import { Toaster, pin, useEscapeLeavesEditor } from './ui'
 import { NoteHeader } from './note-extras'
 import { Board, useBoard } from './board-view'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -37,6 +37,7 @@ const elsewhere = (type: string, id: string, heading?: string): void => window.a
  */
 export function NoteWindow({ link }: { link: string }): React.JSX.Element {
   useAppearance()
+  useEscapeLeavesEditor()
   const [type, id] = link.split(':')
   // ⌘K: notes and actions; ⌘P: notes only, the same palette as the other windows.
   const [searching, setSearching] = useState<false | 'all' | 'notes'>(false)

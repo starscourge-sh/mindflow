@@ -163,8 +163,9 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   }, [])
   const [cursor, setCursor] = useListKeys(items.length, {
     onOpen: (index) => pick(items[index].id),
-    // Spread out, Escape empties the search, then brings the list back.
-    onBack: () => (spread ? (query ? setQuery('') : setPane('list')) : setOpen(null))
+    // Spread out, Escape empties the search, and that is all: it never puts
+    // the note away or changes the layout. ⌘[ is the way back.
+    onEscape: () => spread && query && setQuery('')
   })
   useEffect(() => void (spread && items[cursor] && setPeek(items[cursor].id)), [cursor, spread]) // eslint-disable-line react-hooks/exhaustive-deps
   // ; on the row under the cursor, with nothing open: a thought written under it.

@@ -293,6 +293,7 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
           <button
             type="button"
             aria-label={full ? 'Leave full screen' : 'Open in full screen'}
+            title={full ? 'Leave full screen  Esc' : undefined}
             onClick={() => {
               // Full screen grows like the box's own expand, and sounds it.
               chime(full ? 'fold' : 'slide')

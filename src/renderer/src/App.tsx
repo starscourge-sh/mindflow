@@ -313,6 +313,8 @@ const heldNote = (): void => toast('That waits until the welcome is done. ⌘↵
 holdKeys(() => document.documentElement.hasAttribute('data-welcome-ph'), true, heldNote)
 
 export default function App(): React.JSX.Element {
+  // Here, not in the writing, so a task or idea open in its place hides too.
+  useEscapeToHide()
   // While the welcome runs, the empty line offers examples, a starter picked
   // there arrives written in with its fields filled, and the box is in lesson
   // mode: what is not being taught is calm, what draws on your history is hidden.
@@ -528,8 +530,8 @@ export default function App(): React.JSX.Element {
     if (!travelling) setTrail((now) => (now.stack[now.at] === step ? now : { stack: [...now.stack.slice(0, now.at + 1), step], at: now.at + 1 }))
     setReading({ type, id })
   }
-  // Escape goes back to the note, before it hides the window. Not while a
-  // field or the editor's insert mode has it: those keep their own Escape.
+  // Escape in one of its fields lets go of the field, before it hides the
+  // window. It never goes back to the note: that is ⌘[, as everywhere.
   useEffect(() => {
     if (!reading) return
     const onKey = (event: KeyboardEvent): void => {
@@ -537,11 +539,10 @@ export default function App(): React.JSX.Element {
       // Reading full screen over it: that Escape is reading's, not this note's.
       if (document.querySelector('[aria-label="Reading"]')) return
       const target = event.target as HTMLElement
-      if (target.closest?.('[data-vim-mode="insert"]')) return
+      if (!['INPUT', 'TEXTAREA'].includes(target.tagName)) return
       event.preventDefault()
       event.stopPropagation()
-      if (['INPUT', 'TEXTAREA'].includes(target.tagName)) return target.blur()
-      setReading(null)
+      target.blur()
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
@@ -1185,7 +1186,7 @@ export default function App(): React.JSX.Element {
                   <Button variant="ghost" size="sm" onClick={() => setReading(null)}>
                     <ArrowLeft className="size-4" /> Back to your note
                   </Button>
-                  <Kbd>Esc</Kbd>
+                  <Kbd>⌘[</Kbd>
                 </div>
                 <div className="@container/page flex min-h-0 flex-1">
                   <Reader type={reading.type} id={reading.id} onOpen={openAny} onClose={() => setReading(null)} />
@@ -1623,9 +1624,6 @@ const CapturePrompt = ({
   onReady: (editor: Editor) => void
   onOpenNote: (id: string, heading?: string) => void
 }): React.JSX.Element => {
-  useEscapeToHide()
-
-
   return (
     // mf-faded: the note fades out at its top and bottom edges as it scrolls,
     // the way Raycast Notes reads, instead of being cut by a hard line.

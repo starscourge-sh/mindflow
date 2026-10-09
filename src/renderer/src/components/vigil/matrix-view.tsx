@@ -138,7 +138,6 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
         const list = boxes[q]
         return take(() => setAt({ q, id: (down ? list[0] : list[list.length - 1])?.id ?? null }))
       }
-      if (key === 'Escape' && open) return take(() => setOpen(null))
       if (!chosen) return
       if (/^[1-4]$/.test(key)) return take(() => send(chosen, QUADS[Number(key) - 1].id))
       if (key === 'Enter') return take(() => pick(chosen.id))
