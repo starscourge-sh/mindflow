@@ -1,7 +1,7 @@
 import { detailsShown, showDetails } from '@/lib/reading'
 import { themeActions } from '@/lib/theme'
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
-import { Minimize2 } from 'lucide-react'
+import { FileText, ListTodo, Minimize2, PanelsTopLeft } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import RightChevronIcon from '@/components/ui/right-chevron'
 import InfoCircleIcon from '@/components/ui/info-circle-icon'
@@ -79,7 +79,12 @@ import { RowMenu } from '@/components/vigil/row-menu'
 import { useStoredFlag } from '@/lib/use-stored-flag'
 import { NavContext, type Nav, type Step } from '@/lib/nav'
 import { SplitPanes, type PaneApi } from '@/components/vigil/panes'
-import { asideClick, keepTitle, setPanes, spendAsideClick, titleOf, type PaneWidth } from '@/lib/split'
+import { SplitDrop, type Carried, type Side } from '@/components/vigil/split-drop'
+import { RowCard, rowOf } from '@/components/vigil/row-card'
+import { PairRow, pinLayout, sameLayout, unpinLayout, usePinnedLayouts, type PaneName } from '@/components/vigil/split-pairs'
+import type { BookRef } from '@/lib/books'
+import type { RowItem } from '@/components/vigil/row-menu'
+import { asideClick, keepTitle, setPaneNotes, setPanes, spendAsideClick, titleOf, type PaneWidth } from '@/lib/split'
 import XIcon from '@/components/ui/x-icon'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -209,6 +214,11 @@ export function Home(): React.JSX.Element {
   const view = trail.views[trail.at]
   // Said before anything in the panes listens for keys, so the right one answers.
   useLayoutEffect(() => setPanes(front.key, split.panes.length), [front.key, split.panes.length])
+  // Which note each pane has open, so a list can mark its row L, M or R.
+  useLayoutEffect(() => setPaneNotes(split.panes.map((one) => {
+    const there = one.trail.views[one.trail.at]
+    return holdsNotes(there.id) ? there.focus ?? null : null
+  })), [split])
   // Kept across launches while the page is split; on its own, Vigil opens on Home as always.
   useEffect(() => saveSplit(split), [split])
   // Back returns to exactly what you saw: each step keeps how far its page
@@ -323,6 +333,43 @@ export function Home(): React.JSX.Element {
   }
   const asideRef = useRef(aside)
   asideRef.current = aside
+  /**
+   * Dropped on a side of the page (split-drop.tsx): a new pane at that edge
+   * while there is room for one, else the pane at that edge takes it as a
+   * step, so its Back returns to what it showed.
+   */
+  const placeAt = (next: View, side: Side): void => {
+    const now = splitRef.current
+    chime('slide')
+    if (now.panes.length < 3) {
+      const made = fresh([next])
+      const n = now.panes.length + 1
+      const kept = now.sizes.length === now.panes.length ? now.sizes : now.panes.map(() => 1 / now.panes.length)
+      const total = kept.reduce((sum, one) => sum + one, 0) || 1
+      const rest = kept.map((one) => (one / total) * ((n - 1) / n))
+      setSplit({ panes: side === 'left' ? [made, ...now.panes] : [...now.panes, made], front: made.key, sizes: side === 'left' ? [1 / n, ...rest] : [...rest, 1 / n] })
+      return
+    }
+    const target = side === 'left' ? now.panes[0] : now.panes[now.panes.length - 1]
+    setView(next, target.key)
+    toFront(target.key)
+  }
+  /** What was carried to a side, as a step: a note by its kind and id, or a list's row in the list it is in. */
+  const dropAside = (carried: Carried, side: Side): void => {
+    let next: View | null = null
+    if (carried.open) {
+      const at = carried.open.indexOf(':')
+      next = stepOf(carried.open.slice(0, at), carried.open.slice(at + 1))
+    } else if (carried.row) {
+      const pane = splitRef.current.panes.find((one) => one.key === carried.row!.pane)
+      const there = pane?.trail.views[pane.trail.at]
+      if (there && holdsNotes(there.id)) next = { id: there.id, focus: carried.row.id, tab: there.tab }
+    }
+    if (!next) return void chime('nope')
+    setSearching(false)
+    setSearchFor('')
+    placeAt(next, side)
+  }
   /** ⌃W: the pane in front closes, and the one beside it takes the keys. */
   const closePane = (key = frontRef.current): void => {
     const now = splitRef.current
@@ -616,6 +663,82 @@ export function Home(): React.JSX.Element {
     archived: (capture) => !!capture.archivedAt
   }
 
+  // --- split pairs: the panes as one row in Pinned, and the menu they share (split-pairs.tsx)
+  const layouts = usePinnedLayouts()
+  /** The note a step has open: where it lives, its name and kind; null for a page with none. */
+  const noteIn = (view: View): { type: string; id: string; name: PaneName } | null => {
+    if (!view.focus || !holdsNotes(view.id)) return null
+    const capture = captures.find((one) => one.id === view.focus)
+    if (capture) {
+      const kind = CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
+      return { type: 'capture', id: capture.id, name: { title: capture.label || 'Untitled', icon: kind.icon, tint: kind.tint, private: !!capture.private } }
+    }
+    const item = [...nuggets, ...articles, ...questions, ...goals].find((one) => one.id === view.focus)
+    if (item) {
+      const kind = CAPTURE_TYPES.find((type) => type.id === item.kind)
+      return { type: item.tier, id: item.id, name: { title: item.title || 'Untitled', icon: kind?.icon ?? FileText, tint: kind?.tint, private: !!item.private } }
+    }
+    const task = tasks.find((one) => one.id === view.focus)
+    return task ? { type: 'task', id: task.id, name: { title: task.title || 'Untitled', icon: ListTodo } } : null
+  }
+  const paneName = (view: View): PaneName => noteIn(view)?.name ?? { title: labelOf(view) || 'Page', icon: PanelsTopLeft }
+  /** Lay a pinned layout out again: each pane a fresh trail on its page. */
+  const openLayout = (views: View[], sizes: number[]): void => {
+    chime('slide')
+    const panes = views.slice(0, 3).map((one) => fresh([{ ...one }]))
+    setSplit({ panes, front: panes[0].key, sizes: sizes.length === panes.length ? sizes : panes.map(() => 1 / panes.length) })
+  }
+  /** Separate: the split closes, the pane in front stays. */
+  const separate = (keep = frontRef.current): void => {
+    const now = splitRef.current
+    const pane = now.panes.find((one) => one.key === keep)
+    if (!pane || now.panes.length < 2) return void chime('nope')
+    chime('separate')
+    setSplit({ panes: [{ ...pane, width: undefined }], front: pane.key, sizes: [1] })
+    toFront(pane.key)
+  }
+  /**
+   * The menu of a split pair, the same wherever it is opened (the pair's row,
+   * the page's name in the top bar, a pane's tab), Dia's menu for a split
+   * with what Vigil has: its layout, the notes in it, and its panes.
+   */
+  const pairMenu = (views: View[], live: { key?: string } | null, pinnedId?: string): RowItem[] => {
+    const notes = views.map(noteIn).filter((one): one is NonNullable<ReturnType<typeof noteIn>> => !!one)
+    const refs: BookRef[] = notes.filter((one) => one.type !== 'task').map((one) => ({ table: one.type === 'capture' ? 'captures' : 'nuggets', id: one.id }))
+    const sizes = live ? splitRef.current.sizes : layouts.find((one) => one.id === pinnedId)?.sizes ?? []
+    const pinned = pinnedId ?? layouts.find((one) => sameLayout(one.views, views))?.id
+    // Move to group: the groups a note's own menu offers, done to every note of the pair that can go.
+    const groupsOf = (id: string): RowItem[] => (rowOf(id)?.menu ?? []).flatMap((one) => (one && one !== 'separator' && 'items' in one && /^move to group/i.test(one.label) ? one.items : []))
+    const targets = notes.length ? groupsOf(notes[0].id).filter((one): one is { label: string; run: () => void; icon?: React.ReactNode } => !!one && one !== 'separator' && 'run' in one) : []
+    const moveAll = (label: string): void => notes.forEach((note, at) => setTimeout(() => {
+      const item = groupsOf(note.id).find((one) => !!one && one !== 'separator' && 'run' in one && one.label === label)
+      if (item && item !== 'separator' && 'run' in item) item.run()
+    }, at * 450))
+    // Each note's own row actions, as its list offers them; a note not drawn yet has the few every note has.
+    const own = (note: (typeof notes)[number]): RowItem[] => rowOf(note.id)?.menu ?? [
+      { label: 'Open', run: () => open(note.type, note.id) },
+      { label: 'Open in a new window', run: () => openWindow(note.type, note.id) },
+      { label: 'Copy title', run: () => void navigator.clipboard.writeText(note.name.title).then(() => (chime('copy'), toast('Copied'))) }
+    ]
+    const key = live?.key ?? frontRef.current
+    return [
+      pinned ? { label: 'Unpin the layout', run: () => unpinLayout(pinned) } : { label: 'Pin the layout', run: () => pinLayout(views, sizes) },
+      'separator',
+      live ? { label: 'Separate', run: () => separate(key) } : { label: 'Open the layout', run: () => openLayout(views, sizes) },
+      { label: 'Duplicate the layout', run: () => (pinLayout(views, sizes), toast('Duplicated: a copy of the layout is pinned')) },
+      'separator',
+      targets.length > 0 && { label: 'Move to group', items: targets.map((one) => ({ label: one.label, icon: one.icon, run: () => moveAll(one.label) })) },
+      refs.length > 0 && { label: 'Copy to book', items: [{ label: refs.length > 1 ? `Copy ${refs.length} notes to book…` : 'Copy to book…', run: () => askBook('copy', { refs }) }] },
+      notes.length > 0 && { label: 'Open in new window', run: () => notes.forEach((note) => openWindow(note.type, note.id)) },
+      notes.length > 0 && 'separator',
+      notes.length > 0 && { heading: 'Notes' },
+      ...notes.map((note): RowItem => ({ label: note.name.title, icon: <note.name.icon className="size-3.5 shrink-0" style={{ color: note.name.tint }} />, items: own(note) })),
+      live && 'separator',
+      live && { label: 'Close pane', keys: '⌃W', run: () => closePane(key) },
+      live && { label: 'Close other panes', run: () => separate(key) }
+    ]
+  }
+
   /** A pane's page: the step it is on, drawn with everything it opens kept in that pane. */
   const pageFor = (key: string, view: View): React.JSX.Element => {
     const go = (type: string, id: string): void => open(type, id, key)
@@ -684,6 +807,7 @@ export function Home(): React.JSX.Element {
       <div className={`contents ${sidebar ? (narrow ? '[--toast-left:4rem]' : '[--toast-left:15rem]') : ''}`}><Toaster /></div>
       <Celebrations place="home" />
       <NotePreview />
+      <RowCard />
       <ShortcutSheet />
       <WordNotes />
       <UnusedFiles />
@@ -903,9 +1027,22 @@ export function Home(): React.JSX.Element {
             return (<>
               {loose(false).map(row)}
               {/* Pinned, Notion's Favourites: only there while something is. */}
-              {pins.length > 0 && (<>
+              {(pins.length > 0 || layouts.length > 0 || split.panes.length > 1) && (<>
                 {heading('Pinned', pinsOpen, setPinsOpen, false)}
-                <Unfold open={pinsOpen || narrow}><Branches current={-1} bare={narrow} className="flex flex-col gap-px">{pins.map((pin) => {
+                <Unfold open={pinsOpen || narrow}><Branches current={-1} bare={narrow} className="flex flex-col gap-px">{[
+                  // The split open now, as one row, unless it is one of the pinned layouts.
+                  ...(split.panes.length > 1 && !layouts.some((one) => sameLayout(one.views, split.panes.map((pane) => pane.trail.views[pane.trail.at]))) ? [(() => {
+                    const views = split.panes.map((pane) => pane.trail.views[pane.trail.at])
+                    return <PairRow key="live" live isPinned={false} narrow={narrow} names={views.map(paneName)} menu={pairMenu(views, {})}
+                      onOpen={(index) => (chime('tap'), toFront(split.panes[index].key))} onClose={(index) => closePane(split.panes[index].key)} />
+                  })()] : []),
+                  ...layouts.map((one) => {
+                    const live = split.panes.length > 1 && sameLayout(one.views, split.panes.map((pane) => pane.trail.views[pane.trail.at]))
+                    return <PairRow key={one.id} live={live} isPinned narrow={narrow} names={one.views.map(paneName)} menu={pairMenu(one.views, live ? {} : null, one.id)}
+                      onOpen={(index) => (live ? (chime('tap'), toFront(split.panes[index].key)) : openLayout(one.views, one.sizes))}
+                      onClose={live ? (index) => closePane(split.panes[index].key) : undefined} />
+                  }),
+                  ...pins.map((pin) => {
                   const kind = CAPTURE_TYPES.find((type) => type.id === pin.kind) ?? CAPTURE_TYPES[0]
                   const table = pin.type === 'capture' ? 'captures' : 'nuggets'
                   return (
@@ -920,6 +1057,7 @@ export function Home(): React.JSX.Element {
                         type="button"
                         data-private={pin.private ? '' : undefined}
                         data-side-row
+                        data-drag-open={`${pin.type}:${pin.id}`}
                         onClick={() => open(pin.type, pin.id)}
                         className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1.5 text-foreground/80 ${narrow ? 'justify-center px-0' : 'px-2'}`}
                       >
@@ -930,7 +1068,7 @@ export function Home(): React.JSX.Element {
                       </span>
                     </RowMenu>
                   )
-                })}</Branches></Unfold>
+                })]}</Branches></Unfold>
               </>)}
               {group('Tasks', tasksOpen, setTasksOpen)}
               {group('Saved', keptOpen, setKeptOpen)}
@@ -1125,7 +1263,11 @@ export function Home(): React.JSX.Element {
         )}
         {/* In the sandbox, always: where you are, and the two ways out. */}
         <SandboxPill narrow={narrow} />
-        <h1 className="ml-2 truncate font-medium" style={{ textWrap: 'nowrap' } as CSSProperties}><Term>{SECTIONS.find((section) => section.id === view.id)?.label ?? (kind(view) ? kind(view)!.label : view.id === 'settings' ? 'Settings' : view.id === 'yearpage' ? 'Year' : '')}</Term></h1>
+        {(() => {
+          const title = <h1 data-pane-title className="ml-2 truncate font-medium" style={{ textWrap: 'nowrap', WebkitAppRegion: split.panes.length > 1 ? 'no-drag' : undefined } as CSSProperties}><Term>{SECTIONS.find((section) => section.id === view.id)?.label ?? (kind(view) ? kind(view)!.label : view.id === 'settings' ? 'Settings' : view.id === 'yearpage' ? 'Year' : '')}</Term></h1>
+          // Split, the page's name is the split's header: a right click there has the pair's menu.
+          return split.panes.length > 1 ? <RowMenu items={pairMenu(split.panes.map((pane) => pane.trail.views[pane.trail.at]), { key: split.front })}>{title}</RowMenu> : title
+        })()}
         {/* The open note's name, faint, once its first line has scrolled away. */}
         <TopTitle on={settings?.topTitle !== false} />
         {/* The window's own settings, quiet and side by side: what you hear, how much screen it takes. */}
@@ -1154,6 +1296,7 @@ export function Home(): React.JSX.Element {
       <PageHint page={view.id} />
       {/* The page itself, a card like the sidebar's. */}
       <div className="relative flex min-h-0 flex-1 gap-2">
+      <SplitDrop panes={split.panes.length} onDrop={dropAside} />
       <SplitPanes
         apis={apis}
         front={split.front}
@@ -1162,6 +1305,7 @@ export function Home(): React.JSX.Element {
         onFront={toFront}
         onClose={closePane}
         onWidth={paneWidth}
+        menuFor={(key) => pairMenu(split.panes.map((pane) => pane.trail.views[pane.trail.at]), { key })}
         panes={split.panes.map(({ key, trail, width }) => ({ key, width, at: trail.at, label: labelOf(trail.views[trail.at]) || 'Page', node: pageFor(key, trail.views[trail.at]) }))}
       />
       {/* Beside the page, not over it, while there is room; over its right edge in a narrow window. */}

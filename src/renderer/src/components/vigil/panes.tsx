@@ -8,6 +8,7 @@ import { PaneContext, PaneWidthContext, type PaneWidth } from '@/lib/split'
 import XIcon from '@/components/ui/x-icon'
 import { AliveIcon } from './alive-icon'
 import { Tip } from './ui'
+import { RowMenu, type RowItem } from './row-menu'
 
 /** What the main window needs of a pane to keep Back exact: how its page is scrolled, and where to put it back. */
 export type PaneApi = { scrolled: () => [string, number][]; restore: (scroll: [string, number][] | null) => void }
@@ -42,7 +43,7 @@ const atPath = (root: Element, path: string): Element | null =>
  * again. In a window too narrow for them all, they take turns in one place,
  * with a small switcher over them: every pane kept as it was, one shown.
  */
-export function SplitPanes({ panes, front, sizes, onSizes, onFront, onClose, onWidth, apis }: {
+export function SplitPanes({ panes, front, sizes, onSizes, onFront, onClose, onWidth, apis, menuFor }: {
   panes: PaneShown[]
   front: string
   sizes: number[]
@@ -51,6 +52,8 @@ export function SplitPanes({ panes, front, sizes, onSizes, onFront, onClose, onW
   onClose: (key: string) => void
   onWidth: (key: string, width: PaneWidth) => void
   apis: RefObject<Map<string, PaneApi>>
+  /** The split's own menu, for a right click on a pane's tab. */
+  menuFor?: (key: string) => RowItem[]
 }): React.JSX.Element {
   const box = useRef<HTMLDivElement>(null)
   const [room, setRoom] = useState(0)
@@ -105,7 +108,8 @@ export function SplitPanes({ panes, front, sizes, onSizes, onFront, onClose, onW
         // Taking turns: which pane is shown, and a way to the others, in one quiet row.
         <div role="tablist" aria-label="Panes" className="flex shrink-0 items-center gap-1 overflow-x-auto [scrollbar-width:none]">
           {panes.map((pane, index) => (
-            <span key={pane.key} className={`flex h-7 min-w-0 shrink items-center rounded-full border text-control transition-colors ${pane.key === front ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'}`}>
+            <RowMenu key={pane.key} items={menuFor?.(pane.key) ?? []}>
+            <span data-pane-tab={pane.key} className={`flex h-7 min-w-0 shrink items-center rounded-full border text-control transition-colors ${pane.key === front ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'}`}>
               <Tip label={index ? `Pane ${index + 1}  ⌃L` : 'Pane 1  ⌃H'}>
                 <button type="button" role="tab" aria-selected={pane.key === front} onClick={() => (pane.key !== front && chime('tap'), onFront(pane.key))}
                   className="min-w-0 truncate py-0.5 pr-1 pl-3 text-left">
@@ -118,10 +122,11 @@ export function SplitPanes({ panes, front, sizes, onSizes, onFront, onClose, onW
                 </button>
               </Tip>
             </span>
+            </RowMenu>
           ))}
         </div>
       )}
-      <div ref={box} className="relative flex min-h-0 min-w-0 flex-1">
+      <div ref={box} data-split-area className="relative flex min-h-0 min-w-0 flex-1">
         <AnimatePresence initial={false}>
           {panes.map((pane, index) => (
             <PaneFrame key={pane.key} pane={pane} apis={apis} split={split} front={pane.key === front} hidden={turns && pane.key !== front}
