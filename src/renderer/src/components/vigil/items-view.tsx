@@ -57,7 +57,7 @@ import { GlossTimeline, useRowGloss } from './gloss-line'
 import { dayjs, moment, num } from '../../../../main/dates'
 import { Signed } from './signature'
 import { groups as noteGroupsApi, tintOf, useGroups } from '@/lib/groups'
-import { drop, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveTo, step as stepLayout, type Layout } from '@/lib/group-layout'
+import { dropMany, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveTo, step as stepLayout, type Layout } from '@/lib/group-layout'
 import type { Cue } from '@/lib/sound'
 import { GroupIcon, type Bundle, type Folds } from './kept-groups'
 
@@ -136,7 +136,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   // x, ⌘-click and ⇧-click pick rows: several nuggets make one article, and any rows make a group.
   const [chosen, setChosen] = useState<string[]>([])
   const folding = useFolding(tier, all, ownOrder, view.sort === 'manual' && view.group === 'none' && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? groups.flatMap(([, list]) => list) : null,
-    () => setView({ ...view, sort: 'manual', group: 'none', density: view.density === 'list' || view.density === 'compact' ? view.density : 'list' }), () => setChosen([]))
+    () => setView({ ...view, sort: 'manual', group: 'none', density: view.density === 'list' || view.density === 'compact' ? view.density : 'list' }), () => setChosen([]), chosen)
   const items = folding.rows ?? groups.flatMap(([, list]) => list)
   const noteGroups = useGroups(tier)
   const onMove = (id: string, target: string, after: boolean): void => move(all.map((one) => one.id), id, target, after)
@@ -828,7 +828,7 @@ export function useItemDisplay(name: string, every: Item[]): {
  * back the same, so nothing jumps back while the save is on its way. Every
  * change says so with a way back.
  */
-function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, shown: Item[] | null, toOwn: () => void, done: () => void): {
+function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, shown: Item[] | null, toOwn: () => void, done: () => void, chosen: string[]): {
   rows: Item[] | null
   step: (id: string, by: number) => number | null
   /** The group lines of a row's menu: for that row, or every row picked. */
@@ -949,15 +949,19 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
         entries: one.items.map((item) => itemEntry(item, menuFor(item)))
       }
     }),
-    onDrop: (active, target, how) => {
-      const next = drop(layout, active, target, how, shut, make)
+    onDrop: (ids, target, how) => {
+      const next = dropMany(layout, ids, target, how, shut, make)
       if (!next) return chime('stay')
+      const active = ids[0]
       const was = isGroup(active) ? undefined : groupOf(layout, active)
       const lands = isGroup(active) ? undefined : groupOf(next, active)
       const name = (id?: string): string => (id && (info.get(id)?.name ?? next.make?.name)) || 'the group'
+      const n = ids.length > 1 ? ` ${ids.length}` : ''
       commit(next, next.make || (lands && lands !== was) ? 'gather' : was && !lands ? 'separate' : 'shift',
-        next.make ? 'Grouped' : lands && lands !== was ? `Added to ${name(lands)}` : was && !lands ? `Removed from ${name(was)}` : 'Moved')
+        next.make ? 'Grouped' : lands && lands !== was ? `Added${n} to ${name(lands)}` : was && !lands ? `Removed${n} from ${name(was)}` : `Moved${n}`)
     },
+    picked: chosen,
+    onLetGo: () => done(),
     onFold: (group, open) => {
       setOpened((was) => ({ ...was, [group.id]: open }))
       void noteGroupsApi.set(group.id, { folded: !open })

@@ -45,8 +45,12 @@ export type Bundle = { group?: GroupView; entries: Entry[] }
 
 export type Folds = {
   bundles: Bundle[]
-  /** A drop, for the list to work out and save. */
-  onDrop: (active: string, target: string, how: How) => void
+  /** A drop, for the list to work out and save: `ids` is everything carried, in the order it is read. */
+  onDrop: (ids: string[], target: string, how: How) => void
+  /** The rows picked (⌘-click, ⇧-click, x): carrying one of them carries them all. */
+  picked: string[]
+  /** Carrying a row that is not picked lets the picks go, as Finder does. */
+  onLetGo: () => void
   onFold: (group: GroupView, open: boolean) => void
   /** A note just made in a group, to open. */
   onNewNote: (id: string) => void
@@ -79,15 +83,17 @@ type Carry = {
   leaving: { group: string; id: string } | null
   /** Dragging down (the rows between move up to make room) or up. */
   down: boolean
+  /** The other rows carried along with the one in hand: they wait, faded, in their places. */
+  along: Set<string>
 }
-const Carrying = createContext<Carry>({ aim: null, height: 0, leaving: null, down: false })
+const Carrying = createContext<Carry>({ aim: null, height: 0, leaving: null, down: false, along: new Set() })
 
 function Node({ id, children, inner, indent = 0 }: { id: string; children: ReactNode; inner?: CSSProperties; indent?: number }): React.JSX.Element {
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id,
     transition: still() ? null : { duration: 220, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1)' }
   })
-  const { aim, height } = useContext(Carrying)
+  const { aim, height, along } = useContext(Carrying)
   const here = aim?.target === id ? aim : null
   const lifted = here?.how === 'join'
   // A new group would form here: the panel around this row and the room under it.
@@ -134,7 +140,7 @@ function Node({ id, children, inner, indent = 0 }: { id: string; children: React
       </AnimatePresence>
       <div
         className="transition-[scale,translate,opacity] duration-200 motion-reduce:transition-none"
-        style={{ transitionTimingFunction: OUT, scale: lifted ? 1.02 : 1, paddingLeft: indent || undefined, ...inner, ...(room ? { opacity: 0 } : {}) }}
+        style={{ transitionTimingFunction: OUT, scale: lifted ? 1.02 : 1, paddingLeft: indent || undefined, ...inner, ...(room ? { opacity: 0 } : along.has(id) ? { opacity: 0.3 } : {}) }}
       >
         {children}
       </div>
@@ -147,7 +153,7 @@ function Node({ id, children, inner, indent = 0 }: { id: string; children: React
  * `face` draws a note's row as every list does; `index` counts rows on show,
  * which is what the keyboard's cursor counts.
  */
-export function GroupedList({ bundles, onDrop, onFold, onNewNote, renaming, onRenaming, born, face, after, arrived, cursor, estimate, className }: Folds & {
+export function GroupedList({ bundles, onDrop, picked, onLetGo, onFold, onNewNote, renaming, onRenaming, born, face, after, arrived, cursor, estimate, className }: Folds & {
   face: (entry: Entry, index: number) => React.JSX.Element
   after?: (entry: Entry) => ReactNode
   arrived: (id: string) => boolean
@@ -161,6 +167,10 @@ export function GroupedList({ bundles, onDrop, onFold, onNewNote, renaming, onRe
   // The group each row on show is in, for what a drop would mean.
   const home = useMemo(() => new Map(bundles.flatMap((one) => (one.group ? one.entries.map((entry) => [entry.id, one.group!.id] as const) : []))), [bundles])
   const [carried, setCarried] = useState<string | null>(null)
+  // Everything carried, in the order it is read: the row in hand, and the rest picked with it.
+  const [many, setMany] = useState<string[]>([])
+  const manyRef = useRef<string[]>([])
+  manyRef.current = many
   const [height, setHeight] = useState(0)
   // Where the row was taken hold of, across it: the chip sits just past it.
   const [grab, setGrab] = useState(60)
@@ -200,6 +210,12 @@ export function GroupedList({ bundles, onDrop, onFold, onNewNote, renaming, onRe
     chime('lift')
     ticks.start(id)
     setCarried(id)
+    const all = bundles.flatMap((one) => one.entries.map((entry) => entry.id))
+    if (!isGroup(id) && picked.includes(id) && picked.length > 1) setMany(all.filter((one) => picked.includes(one)))
+    else {
+      setMany([id])
+      if (picked.length) onLetGo()
+    }
     setHeight(active.rect.current.initial?.height ?? 48)
     const start = active.rect.current.initial
     setGrab(start && activatorEvent instanceof PointerEvent ? activatorEvent.clientX - start.left : 60)
@@ -230,7 +246,7 @@ export function GroupedList({ bundles, onDrop, onFold, onNewNote, renaming, onRe
       unspring()
       spring.current = { key: target!, timer: setTimeout(() => (click('tick'), onFold(shut, true), (spring.current = null)), 600) }
     }
-    if (!target || target === id || !pointer) return point(null)
+    if (!target || target === id || !pointer || (manyRef.current.length > 1 && manyRef.current.includes(target))) return point(null)
     const at = (pointer.y - over.rect.top) / over.rect.height
     const own = home.get(id)
     const targetGroup = isGroup(target) ? target.slice(KEY.length) : home.get(target)
@@ -239,16 +255,21 @@ export function GroupedList({ bundles, onDrop, onFold, onNewNote, renaming, onRe
     const how: How = joinable && at > 0.28 && at < 0.72 ? 'join' : at < 0.5 ? 'before' : 'after'
     const into = isGroup(id) ? null : how === 'join' ? targetGroup ?? null : isGroup(target) ? (how === 'after' && info.get(targetGroup!)?.open ? targetGroup! : null) : targetGroup ?? null
     const name = (group: string | null | undefined): string => info.get(group ?? '')?.name ?? 'the group'
+    // Several carried say how many.
+    const n = manyRef.current.length
+    const count = n > 1 ? `${n} ` : ''
     const words =
       isGroup(id) ? null
-      : how === 'join' ? (into ? `Add to ${name(into)}` : 'New group')
-      : own && into !== own ? (into ? `Move to ${name(into)}` : `Remove from ${name(own)}`)
-      : !own && into ? `Add to ${name(into)}`
+      : how === 'join' ? (into ? `Add ${count}to ${name(into)}` : n > 1 ? `New group of ${n + 1}` : 'New group')
+      : own && into !== own ? (into ? `Move ${count}to ${name(into)}` : `Remove ${count}from ${name(own)}`)
+      : !own && into ? `Add ${count}to ${name(into)}`
+      : n > 1 ? `Move ${n} here`
       : null
     point({ target, how, into, label: words, tint: tintOf(info.get(into ?? own ?? '')?.color) })
   }
   const end = (): void => {
     unspring()
+    setMany([])
     setShot(null)
     setCarried(null)
     point(null)
@@ -257,7 +278,7 @@ export function GroupedList({ bundles, onDrop, onFold, onNewNote, renaming, onRe
     const now = aimed.current
     end()
     if (!over || !now || now.target === String(active.id)) return chime('stay')
-    onDrop(String(active.id), now.target, now.how)
+    onDrop(manyRef.current.length > 1 ? manyRef.current : [String(active.id)], now.target, now.how)
   }
   const own = carried ? home.get(carried) : undefined
   const chip = aim?.how === 'join' && carried ? bundles.flatMap((one) => one.entries).find((entry) => entry.id === carried) : undefined
@@ -281,7 +302,7 @@ export function GroupedList({ bundles, onDrop, onFold, onNewNote, renaming, onRe
     <DndContext sensors={sensors} collisionDetection={collide} modifiers={[upDown]} measuring={{ droppable: { strategy: MeasuringStrategy.WhileDragging } }}
       onDragStart={onDragStart} onDragMove={onDragMove} onDragOver={({ over }) => ticks(over?.id)} onDragEnd={onDragEnd} onDragCancel={end}>
       <SortableContext items={keys} strategy={strategy}>
-        <Carrying.Provider value={{ aim, height, leaving, down }}>
+        <Carrying.Provider value={{ aim, height, leaving, down, along: new Set(many.filter((one) => one !== carried)) }}>
           <VirtualList items={lines} keyOf={({ one }) => (one.group ? KEY + one.group.id : one.entries[0].id)} cursor={line >= 0 ? line : undefined} estimate={estimate} className={className}>
             {({ one, start }) =>
               one.group ? (
@@ -297,9 +318,15 @@ export function GroupedList({ bundles, onDrop, onFold, onNewNote, renaming, onRe
       <Overlay dropAnimation={still() ? null : SETTLE}>
         <div className="relative" style={{ width: shot?.width }}>
           {/* Over the middle of a row the lifted row draws in to a small chip beside the pointer, so the room it previews stays in sight. */}
-          <div className="transition-[opacity,scale] duration-150 motion-reduce:transition-none" style={{ transitionTimingFunction: OUT, opacity: chip ? 0 : 1, scale: chip ? 0.92 : 1 }}>
+          <div className="relative transition-[opacity,scale] duration-150 motion-reduce:transition-none" style={{ transitionTimingFunction: OUT, opacity: chip ? 0 : 1, scale: chip ? 0.92 : 1 }}>
+            {/* Several carried: a card or two showing behind the one in hand, a stack. */}
+            {shot && many.slice(1, 3).map((_, at) => (
+              <div key={at} aria-hidden className="absolute inset-0 rounded-md bg-background shadow-[0_4px_12px_-4px_rgb(0_0_0/0.3)] ring-1 ring-foreground/10"
+                style={{ translate: `0 ${(at + 1) * 5}px`, scale: 1 - (at + 1) * 0.025, zIndex: -1 - at }} />
+            ))}
             <Lifted shot={shot} />
           </div>
+          {many.length > 1 && !chip && <Count n={many.length} />}
           <AnimatePresence>
             {chip && (
               <motion.div
@@ -311,6 +338,7 @@ export function GroupedList({ bundles, onDrop, onFold, onNewNote, renaming, onRe
                 exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.08 } }}
                 transition={still() ? { duration: 0 } : springs.moderate}
               >
+                {many.length > 1 && <Count n={many.length} />}
                 <chip.icon className="size-4 shrink-0" style={{ color: chip.tint }} />
                 <span className="private-text min-w-0 flex-1 truncate">{chip.title || 'Untitled'}</span>
                 <span data-drag-label="" className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
@@ -344,6 +372,15 @@ export function GroupedList({ bundles, onDrop, onFold, onNewNote, renaming, onRe
         document.body
       )}
     </DndContext>
+  )
+}
+
+/** How many are carried, in a small badge on the lifted card's corner. */
+function Count({ n }: { n: number }): React.JSX.Element {
+  return (
+    <span data-carried={n} className="absolute -top-2 -right-2 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-(--tt-brand-color-400) px-1.5 text-[11px] font-semibold text-white tabular-nums shadow-sm animate-in zoom-in-75 fade-in-0 duration-150">
+      {n}
+    </span>
   )
 }
 

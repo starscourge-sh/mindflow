@@ -147,3 +147,24 @@ export function step(layout: Layout, shown: string[], id: string, by: number, fo
 
 /** The order the notes are read in, groups opened out: what your own order is saved as. */
 export const flatten = (layout: Layout): string[] => layout.top.flatMap((key) => (isGroup(key) ? [key, ...(layout.groups[groupId(key)] ?? [])] : [key]))
+
+/**
+ * Several notes carried at once (`ids`, in the order they are read), let go
+ * `how` over `target`: the first lands as one would, and the rest follow it
+ * in order, in the same place. Over the middle of a row outside any group,
+ * all of them and that row make a new group.
+ */
+export function dropMany(layout: Layout, ids: string[], target: string, how: How, folded: Set<string>, make: () => { id: string; name: string }): Layout | null {
+  if (ids.length < 2) return ids[0] ? drop(layout, ids[0], target, how, folded, make) : null
+  if (ids.includes(target)) return null
+  if (how === 'join' && !isGroup(target) && !groupOf(layout, target)) return gather(layout, target, ids, make())
+  const [first, ...rest] = ids
+  let next = drop(layout, first, target, how, folded, make) ?? layout
+  let prev = first
+  for (const id of rest) {
+    const group = groupOf(next, prev) ?? null
+    next = moveTo(next, id, { group, after: prev })
+    prev = id
+  }
+  return next
+}

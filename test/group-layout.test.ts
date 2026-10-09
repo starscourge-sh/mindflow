@@ -75,3 +75,16 @@ test('a group from a note already in one sits after that group', () => {
   assert.deepEqual(next.top, ['a', 'g:G', 'g:n', 'd'])
   assert.deepEqual(next.groups, { G: ['c'], n: ['b', 'e'] })
 })
+
+test('several carried at once land together, in their order', async () => {
+  const { dropMany } = await import('../src/renderer/src/lib/group-layout.ts')
+  // a and e into G at its end, after c.
+  assert.deepEqual(dropMany(base(), ['a', 'e'], 'g:G', 'join', none, make)!.groups.G, ['b', 'c', 'a', 'e'])
+  // a and d before e, at the top level.
+  assert.deepEqual(dropMany(base(), ['a', 'd'], 'e', 'before', none, make)!.top, ['g:G', 'a', 'd', 'e'])
+  // b and c out of G, after e: G goes.
+  assert.deepEqual(dropMany(base(), ['b', 'c'], 'e', 'after', none, make)!, { top: ['a', 'd', 'e', 'b', 'c'], groups: {} })
+  // on the middle of a lone row: a new group of it and both.
+  const made = dropMany(base(), ['a', 'e'], 'd', 'join', none, make)!
+  assert.deepEqual(made.groups.n, ['d', 'a', 'e'])
+})

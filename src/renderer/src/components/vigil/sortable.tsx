@@ -71,7 +71,7 @@ export function Lifted({ shot }: { shot: Shot | null }): React.JSX.Element | nul
   // ring is for rows, which have none, and both together drew a double edge.
   // One surface: the row's own light (pointed at, under the keys, picked) and a
   // group's panel came along in the picture and read as a card inside the card.
-  return <div style={{ width: shot.width }} className="cursor-grabbing rounded-md bg-background shadow-[0_8px_24px_-6px_rgb(0_0_0/0.35)] ring-1 ring-foreground/10 has-[>.border]:ring-0 [&_[data-panel]]:hidden [&_[data-row]]:bg-transparent!" dangerouslySetInnerHTML={{ __html: shot.html }} />
+  return <div data-lifted="" style={{ width: shot.width }} className="cursor-grabbing rounded-md bg-background shadow-[0_8px_24px_-6px_rgb(0_0_0/0.35)] ring-1 ring-foreground/10 has-[>.border]:ring-0 [&_[data-panel]]:hidden [&_[data-row]]:bg-transparent!" dangerouslySetInnerHTML={{ __html: shot.html }} />
 }
 
 /**

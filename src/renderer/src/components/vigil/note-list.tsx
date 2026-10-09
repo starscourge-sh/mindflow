@@ -387,6 +387,7 @@ export function NoteList({
         data-cursor={at || undefined}
         data-private={entry.private ? '' : undefined}
         data-open={open ? '' : undefined}
+        data-picked={picked ? '' : undefined}
         // ⌘-click: a window of its own, as a browser opens a tab; shift-click picks.
         onClick={(event) =>
           event.metaKey && pickWithCommand && onChoose && !event.altKey
