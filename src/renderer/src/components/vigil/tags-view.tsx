@@ -25,6 +25,7 @@ import { openWindow } from '@/lib/notes'
 import { TagStream } from './tag-read'
 import { motion } from 'motion/react'
 import { dayMonth } from '../../../../main/dates'
+import { TAG_DOES } from '../capture-kinds/kind-fields'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowLeft = alive(ArrowNarrowLeftIcon)
@@ -35,6 +36,11 @@ const ListTodo = alive(CheckedIcon)
 const Tag = alive(HashtagIcon)
 
 const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo }
+
+/** What a tag does, if anything: a word for its row and a line for its tooltip. */
+const does = (tag: string, action: boolean): { short: string; long: string } | null =>
+  TAG_DOES[tag] ? { short: tag === 'bit' ? 'private' : 'a book', long: TAG_DOES[tag] }
+    : action ? { short: 'makes a task', long: 'Makes a task: anything tagged with it goes to your tasks' } : null
 
 /**
  * Every `#tag` in use, with how often: the retrospective index the plan asks
@@ -70,9 +76,15 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
       {/* Narrow, the tag being read takes the whole page; the list is a step back. */}
       <div className={chosen ? 'hidden w-72 shrink-0 border-r @[56rem]/page:flex' : 'contents'}>
       <Page title="Tags" count={tags.length} unit={['tag', 'tags']}>
+        {/* The tags that do something, said before you need them: they work from the first time you write one. */}
+        {!chosen && (
+          <p className="mx-5 mt-3 text-xs text-muted-foreground">
+            Some tags do something. <span className="text-foreground">#bit</span> keeps a note private, <span className="text-foreground">#book</span> adds a reading status, a rating and a takeaway, and a tag set to Makes a task (#bug, #fix) sends it to your tasks.
+          </p>
+        )}
         {tags.length ? (
           <VirtualList items={tags} keyOf={(one) => one.tag} cursor={cursor} estimate={36} className="mx-3 my-2">
-            {({ tag, count, color, examAt }, index) => (
+            {({ tag, count, color, examAt, action }, index) => (
               <RowMenu items={[
                 { label: 'Open', keys: '↵', run: () => setChosen(tag) },
                 // The date itself is picked in the open tag's bar.
@@ -88,6 +100,10 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               >
                 <Tag className="size-4" style={{ color: color ? `var(--tt-color-text-${color})` : undefined }} />
                 <span className={chosen ? 'min-w-0 flex-1 truncate' : 'w-40 truncate'}>{tag}</span>
+                {/* A tag that does something says what, quietly. */}
+                {does(tag, !!action) && !chosen && (
+                  <Tip label={does(tag, !!action)!.long}><span className="shrink-0 text-xs text-muted-foreground">{does(tag, !!action)!.short}</span></Tip>
+                )}
                 {!chosen && (
                   <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-border/50">
                     <span className="block h-full rounded-full bg-muted-foreground/40" style={{ width: `${(count / top) * 100}%` }} />
@@ -148,6 +164,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               <Switch checked={!!current?.action} onCheckedChange={(action) => void vigil.setTag(chosen, { action }).then(() => toast(action ? `#${chosen} now makes a task` : `#${chosen} is only a label`))} />
               <span className="whitespace-nowrap">Makes a task</span>
             </label>
+            {TAG_DOES[chosen] && <span className="text-xs text-muted-foreground">#{chosen}: {TAG_DOES[chosen]}</span>}
             {/* An exam or deadline: everything with this tag is paced to be ready by then. */}
             <DatePicker key={`exam-${chosen}`} value={current?.examAt ?? null} placeholder="Exam date" onChange={(at) => examOn(chosen, at, current?.examAt ?? null)} />
             {/* An alias: this tag counts as another without the words changing. */}
