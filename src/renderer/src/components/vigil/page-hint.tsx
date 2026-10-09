@@ -34,7 +34,7 @@ const HINTS: Record<string, string> = {
   later: "**For what has no day yet.** Say 'this month', 'this year' or 'someday' as you type it, and it waits here.",
   upcoming: '**Every task with a day, in order.** T, M or W on a row moves it to today, tomorrow or next week.',
   stats: '**How you have been using Vigil, in sentences.** Your month and Your year play the whole stretch back, a page at a time.',
-  map: '**Every note you linked, as dots joined by lines.** Type [[ in any note to link it to another.',
+  map: '**Every note you linked, as dots joined by lines.** Type @ in any note to link it to another.',
   monthpage: '**One page a month: what it was for, and how it went.** The year page lines the months up as seasons.',
   articles: "**Your own words on one idea.** In Ideas, press X on a few and 'Start an article' puts them on one page to write from."
 }

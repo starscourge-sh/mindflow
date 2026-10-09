@@ -441,7 +441,7 @@ function LinkField({ label, placeholder, ghost, does, value, onSave, onOpen }: {
 
 /**
  * Other names a note goes by: the word you think in, not the one you titled
- * it with. Search, ⌘K, @ links and [[links]] all find the note by them.
+ * it with. Search, ⌘K and @ links all find the note by them.
  */
 export function Aliases({ table, id }: { table: NoteTable; id: string }): React.JSX.Element {
   const read = useLive(() => vigil.aliases(table, id).then((list) => ({ of: id, list })), { of: '', list: [] as string[] }, [table, id])
@@ -466,7 +466,7 @@ export function Aliases({ table, id }: { table: NoteTable; id: string }): React.
           </Tip>
         </div>
       ))}
-      <Does does="Other names for this note. Search, ⌘K and [[links]] find it by these too" set={list.length > 0}>
+      <Does does="Other names for this note. Search, ⌘K and @ links find it by these too" set={list.length > 0}>
       <label data-ghost-field={list.length ? undefined : ''} className="flex cursor-text items-center gap-2 px-2 py-1.5 hover:bg-accent focus-within:bg-accent">
         <Plus className="size-4 shrink-0" />
         <input

@@ -358,7 +358,7 @@ Once a month and once a year, Vigil reads you back: the books you read and the l
 
 A link can land partway down a note: ${link(prestige, 'Every great trick has three acts', '', 'The Turn')} opens that note at its second act, unfolded.
 
-**Try it:** click it. To make your own, write \`[[Note#Heading]]\`, or type @ and a note's name, then # to pick one of its headings.
+**Try it:** click it. To make your own, type @ and a note's name, then # to pick one of its headings.
 
 *Nisaba, keeper of the tablets*
 `)
@@ -516,7 +516,7 @@ Ice clouds, and data that was too good to be true.
 
 <!-- /columns -->
 
-Link a note with [[ as in ${link(top, 'Is the top still spinning?', 'question')}, tag with # as in #interstellar, and @ finds any note to link without leaving the line. Vim keys are there too, off to start with: Settings, Writing.
+Link a note with @ as in ${link(top, 'Is the top still spinning?', 'question')}, without leaving the line, and tag with # as in #interstellar. Vim keys are there too, off to start with: Settings, Writing.
 
 `)
 

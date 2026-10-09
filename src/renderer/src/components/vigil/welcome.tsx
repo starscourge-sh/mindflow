@@ -3,7 +3,7 @@ import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { ArrowUp, BookOpen, Brain, Check, CornerDownLeft, GitBranch, RotateCcw } from 'lucide-react'
 import { EASE, byKeys, hush, spring, speak } from '@/lib/motion'
 import { chime, click, fold } from '@/lib/sound'
-import { applyTheme, type Theme } from '@/lib/theme'
+import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
 import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
 import { onboarding, type Onboarding } from '@/lib/onboarding'
 import { enterSandbox } from '@/lib/sandbox'
@@ -372,7 +372,8 @@ export function Welcome(): React.JSX.Element | null {
               // One camera across the chapters: the last pushes on past, the next comes up out of the distance.
               initial={play ? { opacity: 0, scale: 0.94, filter: 'blur(4px)' } : false} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
               transition={{ type: 'spring', duration: 0.9, bounce: 0 }}
-              exit={{ opacity: 0, scale: 1.06, filter: 'blur(4px)', transition: { duration: 0.35, ease: EASE } }}
+              // The dial's page goes at once: its ring, light and dots must never show over the next one.
+              exit={at === DIAL ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, scale: 1.06, filter: 'blur(4px)', transition: { duration: 0.35, ease: EASE } }}
               // A click on the picture while it plays: its end, as a key does.
               onPointerDown={(event) => void (event.isTrusted && !(event.target as HTMLElement).closest('button, a, [role="slider"]') && !reel.current.done && settled())}>
               {at === 0 && <Hello replay={replay} kept={kept} calm={!play} newcomer={newcomer} today={earlier + caught.length} />}
@@ -632,9 +633,10 @@ function CatchChapter({ play, report, state, onState }: { play: boolean; report:
             <AnimatePresence>{s.kinds && <KindList key="kinds" still={!play} />}</AnimatePresence>
           </div>
         )}
-        {(s.box || filled.length > 0) && <Slots filled={filled} />}
       </div>
       </Camera>
+      {/* Outside the camera: the camera pushing in on the box never carries the slots past the window's edge. */}
+      {(s.box || filled.length > 0) && <div className="relative z-10 flex shrink-0 justify-center pt-[clamp(0.5rem,2vh,1.25rem)]"><Slots filled={filled} /></div>}
       </div>
     </>
   )
@@ -1013,10 +1015,10 @@ function connectBeats(): Beat<ConnectState>[] {
     { at: 1250, to: { cards: false }, cue: () => fold() },
     { at: 1550, to: { dots: true }, cue: cue('bead') }
   ]
-  const run = typed<ConnectState>('Rewatching this tonight [[Do or', 1900, (sofar) => ({ note: sofar }), random, 0.75)
+  const run = typed<ConnectState>('Rewatching this tonight @Do or', 1900, (sofar) => ({ note: sofar }), random, 0.75)
   beats.push(...run.beats)
   beats.push({ at: run.end + 150, to: { suggest: true }, cue: cue('search') })
-  beats.push({ at: run.end + 1500, to: { suggest: false, note: 'Rewatching this tonight [[Do or do not]]' }, cue: () => click('tick') })
+  beats.push({ at: run.end + 1500, to: { suggest: false, note: 'Rewatching this tonight @Do or do not' }, cue: () => click('tick') })
   beats.push({ at: run.end + 1800, to: { linked: true }, cue: cue('clue') })
   beats.push({ at: run.end + 3200, to: { folded: true }, cue: () => fold() })
   beats.push({ at: run.end + 3700, to: { pulled: true }, cue: cue('zoomout') })
@@ -1040,7 +1042,7 @@ function ConnectChapter({ play, report }: { play: boolean; report: (now: Reel) =
   return (
     <>
       <Words title="And it finds its friends." docked={s.docked} still={!play} done={show.done}>
-        Type <Kbd className={LINE_KEY}>[[</Kbd> and a note’s name to link two notes.
+        Type <Kbd className={LINE_KEY}>@</Kbd> and a note’s name to link two notes.
       </Words>
       <div ref={scene} className="relative flex min-h-0 flex-1 flex-col items-center justify-center pb-2">
         <AnimatePresence>
@@ -1171,7 +1173,16 @@ function DialChapter({ play, report, onPick }: { play: boolean; report: (now: Re
   const show = useScript<DialState>({ docked: false, dial: false, ticks: 0 }, DIAL_BEATS, play)
   // Turned by you: the call to do it stops.
   const [turned, setTurned] = useState(false)
-  useReport(report, show.done, show.settle)
+  // The theme you came with. The demo's ticks only show it off: leave before you
+  // turn it yourself, mid-tick or not, and this is the theme you keep.
+  const [start] = useState(currentTheme)
+  const yours = useRef(false)
+  useEffect(() => () => void (!yours.current && applyTheme(start, false)), []) // eslint-disable-line react-hooks/exhaustive-deps
+  const settle = (): void => {
+    show.settle()
+    if (!yours.current) applyTheme(start, false)
+  }
+  useReport(report, show.done, settle)
   const s = show.state
   const win = useWindowSize()
   const size = Math.round(Math.max(150, Math.min(win.height * 0.42, win.width * 0.3, 360)))
@@ -1197,7 +1208,7 @@ function DialChapter({ play, report, onPick }: { play: boolean; report: (now: Re
           <motion.div className="relative z-10" initial={play ? { opacity: 0, scale: 0.96, filter: 'blur(4px)' } : false} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} transition={CAM}>
             {/* Its own layer in the crossfade, shown live: the ring and its light never stop while the page changes. */}
             <div className="[view-transition-name:mf-theme-dial]">
-              <ThemeDial calm size={size} big wear={fadeTo} onPick={(theme) => (show.done && setTurned(true), onPick(theme))} onFullTurn={() => (setSay(FULL_TURN), setTimeout(() => setSay(undefined), 1800))} say={say} />
+              <ThemeDial calm size={size} big wear={fadeTo} onPick={(theme) => void (show.done && (yours.current = true, setTurned(true), onPick(theme)))} onFullTurn={() => (setSay(FULL_TURN), setTimeout(() => setSay(undefined), 1800))} say={say} />
             </div>
             {show.done && <Action done={turned} className="relative z-20 mt-1 text-center">Your turn: turn the dial</Action>}
           </motion.div>

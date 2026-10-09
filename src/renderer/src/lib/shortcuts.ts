@@ -101,7 +101,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Writing', keys: '⌘0', does: 'Text back to normal size', where: 'Both windows' },
   { group: 'Writing', keys: '/', does: 'Insert a block', where: 'Writing' },
   { group: 'Writing', keys: '[[', does: 'Link a note; [[Note#Heading]] lands on a heading in it, [[#Heading]] in this note', where: 'Writing' },
-  { group: 'Writing', keys: '@', does: 'Link any note without leaving the line; @Note# offers its headings', where: 'Writing' },
+  { group: 'Writing', keys: '@', does: 'Link any note without leaving the line; @Note# offers its headings ([[ works too)', where: 'Writing' },
   { group: 'Writing', keys: '⌥⌘1', does: 'Heading 1 (⌥⌘2 and ⌥⌘3 for 2 and 3)', where: 'Writing' },
   { group: 'Writing', keys: '⌘B', does: 'Bold', where: 'Writing' },
   { group: 'Writing', keys: '⌘I', does: 'Italic', where: 'Writing' },

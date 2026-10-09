@@ -49,7 +49,7 @@ export function MapView({ onOpen }: { onOpen: (type: string, id: string) => void
         </div>
       </header> : null}
       {count ? (
-        <Example on={example} className="min-h-0 flex-1" tryIt="type [[ in any note and pick another one. The two show up here as dots, joined by a line.">
+        <Example on={example} className="min-h-0 flex-1" tryIt="type @ in any note and pick another one. The two show up here as dots, joined by a line.">
         <GraphCanvas map={map!} onOpen={onOpen} fit={fit} className="flex-1">
           {/* What each colour means, and what was left off. */}
           <div className="pointer-events-none absolute bottom-3 left-4 flex max-w-[calc(100%-2rem)] flex-wrap items-center gap-x-3 gap-y-1 text-meta text-muted-foreground">
@@ -63,7 +63,7 @@ export function MapView({ onOpen }: { onOpen: (type: string, id: string) => void
       ) : !map ? null : (
         <div className="page-column">
           <Empty shape={['polygon', 2]} title="No links yet">
-            Type [[ in a note and pick another to link them. Every note you link shows up here as a dot, joined to the notes it points to.
+            Type @ in a note and pick another to link them. Every note you link shows up here as a dot, joined to the notes it points to.
           </Empty>
         </div>
       )}

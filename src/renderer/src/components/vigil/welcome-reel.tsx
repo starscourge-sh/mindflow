@@ -454,7 +454,7 @@ export type MapShot = { dots: boolean; note: string; suggest: boolean; linked: b
 
 /**
  * A link being made, then the map it joins. Close in, the quote is a dot;
- * a note beside it is written, "[[Medit" asks for a note by name, and the
+ * a note beside it is written, "@Do or" asks for a note by name, and the
  * suggestion is taken; the note folds into a dot of its own and the lines
  * draw, note to book to quote. Then the camera pulls back and an example
  * year of links draws in around them, nearest first.
@@ -570,11 +570,11 @@ export function LinkScene({ shot, quiet, onLight, hint = null }: { shot: MapShot
 
 /**
  * A note as the box writes it, small, beside the dot it will become: its
- * words, then "[[" asking for another note by name, and the suggestion list
+ * words, then "@" asking for another note by name, and the suggestion list
  * the editor shows, one row lit. Taken, it folds into its dot.
  */
 function NoteBeing({ at, text, suggest, quiet }: { at: [number, number]; text: string; suggest: boolean; quiet: boolean }): React.JSX.Element {
-  const asking = text.lastIndexOf('[[')
+  const asking = text.lastIndexOf('@')
   const quote = typeOf('quote')
   const Quote = quote.icon
   const book = typeOf('note')
