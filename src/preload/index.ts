@@ -31,6 +31,8 @@ let listed: { rows: CaptureMeta[]; version: number } | null = null
 ipcRenderer.on('notes:opened-apart', (_event, id: string) => window.dispatchEvent(new CustomEvent('vigil:opened-apart', { detail: id })))
 // The menu bar's Reset the sandbox: asked in the pill, where Start over is held.
 ipcRenderer.on('sandbox:ask-reset', () => window.dispatchEvent(new CustomEvent('vigil:sandbox-reset')))
+// A book made, renamed or deleted: every list of them looks again.
+ipcRenderer.on('books:changed', () => window.dispatchEvent(new CustomEvent('vigil:books-changed')))
 
 // Custom APIs for renderer
 const api = {

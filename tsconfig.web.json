@@ -8,6 +8,7 @@
     "src/main/captures.ts",
     "src/main/backup.ts",
     "src/main/sandbox.ts",
+    "src/main/books.ts",
     "src/main/import.ts",
     "src/main/kinds.ts",
     "src/main/embeds.ts",

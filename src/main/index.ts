@@ -37,7 +37,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { alreadyImported, captureText, changed, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
-import { backupDir } from './backup'
+import { backupBase, backupDir } from './backup'
 import { activeSession, atLogin, badge, beaconDefault, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, whenFocusShows } from './vigil'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { fetchOutside, isOutside } from './outside'
@@ -53,7 +53,8 @@ import { registerUnused } from './unused'
 import { registerObsidian } from './obsidian'
 import { lookAhead, registerPictures } from './pictures'
 import { frostWindow, registerFrost, retellFrost } from './frost'
-import { SANDBOX, arrived, windingDown, onHandOff, registerSandbox, relaunch, restartNow, useDataFolder } from './sandbox'
+import { BOOK, SANDBOX, arrived, windingDown, onHandOff, registerSandbox, relaunch, restartNow, useDataFolder } from './sandbox'
+import { books, here, nameOf, nextImport, registerBooks } from './books'
 import { wideThumb } from './video-thumbs'
 
 
@@ -847,6 +848,15 @@ function openSandbox(): void {
   else win.once('ready-to-show', go)
 }
 
+/** Something the main window does, asked for from the menu bar: a book switched to, a new one named. */
+function inHome(event: string, detail: unknown = null): void {
+  openHome()
+  const win = makeHome()
+  const go = (): void => void win.webContents.executeJavaScript(`window.dispatchEvent(new CustomEvent(${JSON.stringify(event)}, { detail: ${JSON.stringify(detail)} }))`).catch(() => undefined)
+  if (homePainted) go()
+  else win.once('ready-to-show', go)
+}
+
 function openHome(): void {
   if (!home?.isVisible()) recordOpen('home')
   beaconMoment('open')
@@ -1449,7 +1459,7 @@ app.on('second-instance', (_event, argv) => {
  * pages became here. A note imported before, by the same path, is left as it is.
  */
 async function importVault(given?: string): Promise<void> {
-  const root = given ?? (await dialog.showOpenDialog({ title: SANDBOX ? 'Import into the sandbox: an Obsidian vault or a Notion export (unzipped)' : 'Import an Obsidian vault or a Notion export (unzipped)', properties: ['openDirectory'] })).filePaths[0]
+  const root = given ?? (await dialog.showOpenDialog({ title: SANDBOX ? 'Import into the sandbox: an Obsidian vault or a Notion export (unzipped)' : BOOK ? `Import into ${nameOf(here())}: an Obsidian vault or a Notion export (unzipped)` : 'Import an Obsidian vault or a Notion export (unzipped)', properties: ['openDirectory'] })).filePaths[0]
   if (!root) return
   // Its notes wait to become documents until their links are in; then every
   // window hears of it, and one of them turns them into documents.
@@ -1736,7 +1746,7 @@ async function restore(): Promise<void> {
  */
 async function importFiles(): Promise<void> {
   const { filePaths } = await dialog.showOpenDialog({
-    title: SANDBOX ? 'Import into the sandbox' : 'Import',
+    title: SANDBOX ? 'Import into the sandbox' : BOOK ? `Import into ${nameOf(here())}` : 'Import',
     properties: ['openFile', 'multiSelections'],
     filters: [{ name: 'Markdown, bookmarks, highlights (Readwise, Kindle) or Anki cards', extensions: ['md', 'html', 'htm', 'csv', 'json', 'txt'] }]
   })
@@ -1935,8 +1945,9 @@ function updateTray(): void {
   const next = goals.find((goal) => daysLeft(goal.goalAt) >= 0)
   const nextSaid = next ? `${dayMonth(`${next.goalAt}T12:00`)} · ${daysLeft(next.goalAt) ? `${daysLeft(next.goalAt)}d` : 'today'}` : ''
   // Words beside each number, so the menu bar says what it counts: a bare "2 · 1" meant nothing.
-  tray.setTitle([SANDBOX ? 'Sandbox' : '', nextSaid, session ? `● ${minutes}m` : '', tasks ? `${tasks} due` : '', due ? `${due} to review` : '', safe ? 'Safe' : ''].filter(Boolean).join(' · '), { fontType: 'monospacedDigit' })
-  tray.setToolTip(`${SANDBOX ? 'Vigil sandbox' : 'Vigil'}${tasks ? ` · ${tasks} task${tasks === 1 ? '' : 's'} due now` : ''}${due ? ` · ${due} to review` : ''}${safe ? ' · safe mode on' : ''}`)
+  // Another book than My book says which, so a scratch book is never taken for your own.
+  tray.setTitle([SANDBOX ? 'Sandbox' : BOOK ? nameOf(here()) : '', nextSaid, session ? `● ${minutes}m` : '', tasks ? `${tasks} due` : '', due ? `${due} to review` : '', safe ? 'Safe' : ''].filter(Boolean).join(' · '), { fontType: 'monospacedDigit' })
+  tray.setToolTip(`${SANDBOX ? 'Vigil sandbox' : `Vigil · ${nameOf(here())}`}${tasks ? ` · ${tasks} task${tasks === 1 ? '' : 's'} due now` : ''}${due ? ` · ${due} to review` : ''}${safe ? ' · safe mode on' : ''}`)
   // Tempus: how far through the day, week, month and year, each a drawn bar
   // of one width, so the four line up whatever their words.
   const time = tempus()
@@ -1969,8 +1980,19 @@ function updateTray(): void {
       ...(SANDBOX ? [{ label: 'Back to my notes', click: () => relaunch('real') }, { label: 'Reset the sandbox…', click: () => (openHome(), makeHome().webContents.send('sandbox:ask-reset')) }, { type: 'separator' } as const] : []),
       { label: 'Show Vigil', accelerator: SUMMON, click: () => toggleWindow() },
       { label: 'Open the main window', click: openHome },
+      // The book open now, ticked, and the way to each of the others.
+      {
+        label: SANDBOX ? 'Book: Sandbox' : `Book: ${nameOf(here())}`,
+        submenu: [
+          ...books().map((book) => ({ label: book.name, type: 'radio' as const, checked: book.current, click: () => void (book.current || inHome('vigil:book-switch', book.id)) })),
+          { label: 'Sandbox', type: 'radio' as const, checked: SANDBOX, click: () => void (SANDBOX || openSandbox()) },
+          { type: 'separator' as const },
+          { label: 'New book…', enabled: !SANDBOX, click: () => inHome('vigil:book-new') }
+        ]
+      },
       { label: 'Import…', click: () => void importFiles() },
       { label: 'Import from Obsidian or Notion…', click: () => void importVault() },
+      ...(SANDBOX ? [] : [{ label: 'Import into another book…', click: () => inHome('vigil:book-import') }]),
       ...(SANDBOX ? [] : [{ label: 'Restore from a backup…', click: () => void restore() }, { label: 'Open the sandbox', click: openSandbox }]),
       { type: 'separator' },
       { label: 'Safe mode', type: 'checkbox', checked: safe, click: () => (toggleSafeMode(), updateTray()) },
@@ -2003,6 +2025,8 @@ app.whenReady().then(() => {
   registerUnused()
   registerObsidian()
   registerPictures()
+  // Last, once every table is there: what other books sent this one is taken in.
+  registerBooks(backupBase, () => updateTray())
   const first = fromCli(process.argv)
   if (first) captureText(first)
   createTray()
@@ -2765,6 +2789,8 @@ app.whenReady().then(() => {
   // Arriving in or back from the sandbox, the main window opens too: that is where you were.
   if (firstRun() || process.argv.includes('--show-home')) openHome()
   else setTimeout(makeHome, 1500)
+  // Arrived by Import into…: the import asked for, once the main window is up.
+  void nextImport().then((what) => what && setTimeout(() => void (what === 'vault' ? importVault() : importFiles()), 1200))
 
   /**
    * The key that summons it from anywhere, and puts it away again.

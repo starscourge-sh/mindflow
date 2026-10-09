@@ -1,7 +1,7 @@
-import { app, BrowserWindow, globalShortcut, ipcMain } from 'electron'
+import { app, BrowserWindow, globalShortcut, ipcMain, session } from 'electron'
 import { spawn, type ChildProcess } from 'child_process'
 import { randomUUID } from 'crypto'
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'fs'
 import { copyFile, mkdir, rm, writeFile } from 'fs/promises'
 import { join } from 'path'
 
@@ -31,8 +31,44 @@ export const SANDBOX = process.argv.includes('--sandbox')
 export const realRoot = (): string => process.env.MINDFLOW_USER_DATA ?? join(app.getPath('appData'), 'mindflow')
 /** The sandbox's folder, inside yours, which never reads it. */
 export const sandboxRoot = (): string => join(realRoot(), 'sandbox')
+
+/**
+ * Books: more than one Vigil of your own, each a data folder like the
+ * sandbox's. Your first one, "My book", is the folder Vigil has always used
+ * and never moves; every other lives in `<your data>/books/<id>/`. Which
+ * books there are, their names and the one last open are kept in
+ * `<your data>/books.json`, read here before the app is ready.
+ */
+export type Shelf = { defaultName?: string; last?: string; books: { id: string; name: string; createdAt: string }[] }
+const SHELF = 'books.json'
+export const isBookId = (id: unknown): id is string => typeof id === 'string' && /^b-[a-z0-9]{6,24}$/.test(id)
+export const bookRoot = (id: string): string => join(realRoot(), 'books', id)
+export function readShelf(): Shelf {
+  try {
+    const shelf = JSON.parse(readFileSync(join(realRoot(), SHELF), 'utf8')) as Shelf
+    return { ...shelf, books: Array.isArray(shelf.books) ? shelf.books.filter((one) => isBookId(one?.id) && typeof one.name === 'string') : [] }
+  } catch {
+    return { books: [] }
+  }
+}
+/** Written whole to a new file, then moved over the old, so a crash never leaves half a list. */
+export function writeShelf(shelf: Shelf): void {
+  mkdirSync(realRoot(), { recursive: true })
+  const temp = join(realRoot(), `${SHELF}.${process.pid}.tmp`)
+  writeFileSync(temp, JSON.stringify(shelf, null, 2))
+  renameSync(temp, join(realRoot(), SHELF))
+}
+/** The book this run opens: the one asked for by the restart, or the one last open. Null is My book. */
+function pickBook(): string | null {
+  if (SANDBOX) return null
+  const asked = process.argv.find((arg) => arg.startsWith('--book='))?.slice('--book='.length)
+  const want = asked ?? readShelf().last
+  return isBookId(want) && readShelf().books.some((one) => one.id === want) ? want : null
+}
+/** This run's book, or null for My book (and for the sandbox). */
+export const BOOK = pickBook()
 /** Where this run keeps everything. */
-export const dataRoot = (): string => (SANDBOX ? sandboxRoot() : realRoot())
+export const dataRoot = (): string => (SANDBOX ? sandboxRoot() : BOOK ? bookRoot(BOOK) : realRoot())
 /** A test run or the sandbox: no iCloud, no login item, no copies anywhere else. */
 export const apart = (): boolean => SANDBOX || !!process.env.MINDFLOW_USER_DATA
 
@@ -73,8 +109,8 @@ export function useDataFolder(): boolean {
  * until the new run says its main window is on screen. Only then does this
  * one go, so the main window is never simply gone for a while.
  */
-export function relaunch(into: 'sandbox' | 'real', reset = false): void {
-  const to: Target = into === 'real' ? 'real' : reset ? 'reset' : 'sandbox'
+export function relaunch(into: 'sandbox' | 'real' | { book: string }, reset = false): void {
+  const to: Target = typeof into === 'object' ? `book:${into.book}` : into === 'real' ? 'real' : reset ? 'reset' : 'sandbox'
   release()
   // A run the dev process started: that process starts the next, and ends this one once it is up.
   if (HANDED) return void process.send?.({ next: to })
@@ -106,16 +142,18 @@ export function restartNow(): void {
  * process stays alive and starts each run itself (see `start`); a run started
  * that way asks it for the next one instead of starting it.
  */
-type Target = 'real' | 'sandbox' | 'reset'
+type Target = 'real' | 'sandbox' | 'reset' | `book:${string}`
 const DEV = !app.isPackaged && !!process.env.ELECTRON_RENDERER_URL
 const HANDED = process.env.MINDFLOW_DEV_RELAUNCHED === '1'
-const CODES: Record<Target, number> = { real: 75, sandbox: 76, reset: 77 }
+const CODES: Record<'real' | 'sandbox' | 'reset', number> = { real: 75, sandbox: 76, reset: 77 }
 const letGo: (() => void)[] = []
 /** Something only the app itself holds (the menu bar icon), let go of before a dev restart. */
 export const onHandOff = (run: () => void): void => void letGo.push(run)
 
 function argsFor(to: Target): string[] {
-  const base = process.argv.slice(1).filter((arg) => !arg.startsWith('--sandbox') && arg !== '--show-home')
+  const base = process.argv.slice(1).filter((arg) => !arg.startsWith('--sandbox') && !arg.startsWith('--book=') && arg !== '--show-home')
+  // A book by name; Back to my notes, with none, opens the book last open.
+  if (to.startsWith('book:')) return [...base, '--show-home', `--book=${to.slice(5)}`]
   return [...base, '--show-home', ...(to === 'real' ? [] : ['--sandbox', ...(to === 'reset' ? ['--sandbox-reset'] : [])])]
 }
 
@@ -137,6 +175,8 @@ function release(): void {
   if (released) return
   released = true
   for (const run of letGo) run()
+  // What the windows keep in their own storage (the box's draft) is written to disk now, not at the end.
+  session.defaultSession?.flushStorageData()
   globalShortcut.unregisterAll()
   windingDown()
   // Its database stays open until it ends: the windows still up may ask it
@@ -187,7 +227,7 @@ function start(to: Target): void {
   run.on('exit', (status) => {
     if (current !== run) return
     // Ended asking for a restart by its code (a restore), or for good.
-    const next = (Object.keys(CODES) as Target[]).find((one) => CODES[one] === status)
+    const next = (Object.keys(CODES) as (keyof typeof CODES)[]).find((one) => CODES[one] === status)
     if (next) start(next)
     else app.exit(status ?? 0)
   })
@@ -350,8 +390,9 @@ export function registerSandbox(): void {
         const body = JSON.stringify(one.body ?? null)
         for (const [, name] of body.matchAll(/mindflow:\/\/assets\/([a-f0-9]{64}\.[a-z0-9]+)/g)) {
           const from = join(sandboxRoot(), 'assets', name)
-          const to = join(realRoot(), 'assets', name)
-          if (existsSync(from) && !existsSync(to)) await mkdir(join(realRoot(), 'assets'), { recursive: true }).then(() => copyFile(from, to)).catch(() => undefined)
+          // Into whichever book you came back to.
+          const to = join(dataRoot(), 'assets', name)
+          if (existsSync(from) && !existsSync(to)) await mkdir(join(dataRoot(), 'assets'), { recursive: true }).then(() => copyFile(from, to)).catch(() => undefined)
         }
         db.prepare(`insert into captures (id, number, title, kind, body, captured_at, source, private, attribution)
           values (?, (select coalesce(max(number), 0) + 1 from captures), ?, ?, ?, ?, '', ?, ?)`)

@@ -7,7 +7,8 @@ import { join } from 'path'
 
 import { database, setting } from './captures'
 import { dayKey } from './dates'
-import { apart } from './sandbox'
+import { backUpOthers } from './books'
+import { BOOK, SANDBOX, apart, realRoot } from './sandbox'
 
 /**
  * Where copies of everything go: iCloud Drive when there is one, so the copies
@@ -19,11 +20,16 @@ import { apart } from './sandbox'
  *               a private or discarded one, and off in Settings
  */
 const ICLOUD = join(homedir(), 'Library/Mobile Documents/com~apple~CloudDocs')
-export const backupDir = (): string =>
+/** Where My book's copies go; every other book's go in `books/<id>/` under it. */
+export const backupBase = (): string =>
   // A QA run, or the sandbox, keeps its own data, and its backups with it, off iCloud.
   existsSync(ICLOUD) && !apart()
     ? join(ICLOUD, 'mindflow')
-    : join(app.getPath('userData'), 'backups')
+    : join(realRoot(), 'backups')
+/** One book's copies: null is My book. */
+export const backupDirFor = (book: string | null): string => (book ? join(backupBase(), 'books', book) : backupBase())
+/** This run's: the sandbox keeps its own inside its folder. */
+export const backupDir = (): string => (SANDBOX ? join(app.getPath('userData'), 'backups') : backupDirFor(BOOK))
 
 const KEEP = 30
 
@@ -41,6 +47,9 @@ export async function backUp(db: DatabaseSync): Promise<void> {
   // Only copies this made, oldest first, past the newest 30.
   const copies = (await readdir(dir)).filter((name) => /^mindflow-\d{4}-\d{2}-\d{2}\.db$/.test(name))
   for (const name of copies.sort().slice(0, -KEEP)) await rm(join(dir, name))
+
+  // Every other book has its copy for today too, though it is not open.
+  if (!SANDBOX) await backUpOthers(backupDirFor).catch((error) => console.error('Backup of the other books failed:', error))
 
   // Named by their contents, so a name already there is the same file.
   // A test run (its own data folder) keeps no copy of the pictures: each run
