@@ -273,10 +273,13 @@ try {
   await wait(400)
   await h.screenshot({ path: `${dir}/pair-menu-dark.png` })
   await settle()
+  // Keys pressed in the last moment keep the card away: wait them out first.
+  await wait(1600)
   const rb = await row('Interleaving beats blocking').boundingBox()
   await h.mouse.move(rb.x + 60, rb.y + rb.height / 2, { steps: 3 })
   await h.mouse.move(rb.x + 70, rb.y + rb.height / 2, { steps: 3 })
   await wait(900)
+  check('the card comes up in dark too', await h.locator('[data-row-card]').count() === 1)
   await h.screenshot({ path: `${dir}/card-dark.png` })
   await settle()
   await row('Interleaving beats blocking').click({ button: 'right' })
