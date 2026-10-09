@@ -220,8 +220,11 @@ export function SandboxHost(): React.JSX.Element | null {
       // first start is not a bare page. Your own folders, once chosen, replace them.
       void vigil.settings().then(async (settings) => {
         if (!settings.scenery || settings.sceneryFolders.length || localStorage.getItem('scenery-built-in')) return
-        localStorage.setItem('scenery-built-in', 'set')
+        // Marked done only once the folder is really set: copying the pictures
+        // takes a moment, and a reload (⌘R) in that moment, marked first, left
+        // a first start with no pictures for good.
         await window.api.vigil('settings:set', { sceneryFolders: [await builtInScenery()] })
+        localStorage.setItem('scenery-built-in', 'set')
       }).catch(() => undefined)
       // Anything caught for real while practising, offered once you are back.
       void (window.api.vigil('sandbox:carried') as Promise<{ title: string }[]>).then((carried) => {
