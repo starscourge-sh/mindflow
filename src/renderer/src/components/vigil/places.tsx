@@ -48,7 +48,7 @@ const Trash2 = alive(TrashIcon)
 
 /** A place the main window's sidebar or the box's tabs can show. */
 export type Place = {
-  id: string; label: string; icon: LucideIcon; tint: string; key?: string; group?: 'Tasks' | 'Kept'
+  id: string; label: string; icon: LucideIcon; tint: string; key?: string; group?: 'Tasks' | 'Saved'
   /** The same drawing, moving when its row is pointed at, where itshover has one. */
   alive?: ComponentType<AnimatedIconProps & RefAttributes<AnimatedIconHandle>>
 }
@@ -70,7 +70,7 @@ export const SECTIONS: (Place & { key: string })[] = [
   // Wider stretches, less detail each: a week in a few lines, a month in two.
   { id: 'weekpage', label: "Week's page", icon: CalendarFold, key: 'k', tint: 'yellow' },
   { id: 'monthpage', label: "Month's page", icon: Sprout, key: 'm', tint: 'yellow' },
-  // The same two words as the box's tabs: what to do, what you kept.
+  // The same two words as the box's tabs: what to do, what you saved.
   { id: 'today', label: 'Today', icon: Sun, key: 't', tint: 'green', group: 'Tasks' },
   { id: 'week', label: 'Week', icon: CalendarRange, key: 'w', tint: 'blue', group: 'Tasks' },
   { id: 'upcoming', label: 'Upcoming', icon: CalendarDays, key: 'u', tint: 'orange', group: 'Tasks' },
@@ -79,12 +79,12 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'routines', label: 'Routines', icon: Repeat, alive: RefreshIcon, key: 'o', tint: 'yellow', group: 'Tasks' },
   // This month, This year and Someday: what has no day yet.
   { id: 'later', label: 'Later', icon: Telescope, key: 'z', tint: 'purple', group: 'Tasks' },
-  { id: 'nuggets', label: 'Nuggets', icon: Gem, key: 'n', tint: 'pink', group: 'Kept' },
-  { id: 'articles', label: 'Articles', icon: FileText, alive: FileDescriptionIcon, key: 'a', tint: 'brown', group: 'Kept' },
+  { id: 'nuggets', label: 'Ideas', icon: Gem, key: 'n', tint: 'pink', group: 'Saved' },
+  { id: 'articles', label: 'Writing', icon: FileText, alive: FileDescriptionIcon, key: 'a', tint: 'brown', group: 'Saved' },
   // Questions you are holding open: what you keep circling and cannot name yet.
-  { id: 'questions', label: 'Holding', icon: Orbit, key: 'h', tint: 'gray', group: 'Kept' },
+  { id: 'questions', label: 'Questions', icon: Orbit, key: 'h', tint: 'gray', group: 'Saved' },
   // Goals: a day you are working toward, and the road there.
-  { id: 'goals', label: 'Goals', icon: Flag, key: 'e', tint: 'orange', group: 'Kept' },
+  { id: 'goals', label: 'Goals', icon: Flag, key: 'e', tint: 'orange', group: 'Saved' },
   { id: 'tags', label: 'Tags', icon: Tag, alive: HashtagIcon, key: '#', tint: 'red' },
   { id: 'stats', label: 'Stats', icon: BarChart3, alive: ChartBarIcon, key: 's', tint: 'blue' },
   // Every note you have linked, as a map of dots and lines.
@@ -100,7 +100,7 @@ export const BOX_TABS: Place[] = [
   { id: 'inbox', label: 'Inbox', icon: Inbox, tint: 'blue' },
   { id: 'today', label: 'Tasks', icon: ListChecks, tint: 'green' },
   { id: 'review', label: 'Review', icon: Brain, tint: 'purple' },
-  { id: 'kept', label: 'Kept', icon: Gem, tint: 'pink' },
+  { id: 'kept', label: 'Saved', icon: Gem, tint: 'pink' },
   { id: 'recent', label: 'Recent', icon: History, alive: HistoryCircleIcon, tint: 'gray' }
 ]
 

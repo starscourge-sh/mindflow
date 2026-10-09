@@ -266,7 +266,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
         <NoteRail entries={entries.flatMap(([, list]) => list)} cursor={cursor} selected={open.id} onPick={pick} onShow={() => setPane('list')} />
       ) : (
       <Page aside={!!open}
-        title={tier === 'nugget' ? 'Nuggets' : 'Articles'}
+        title={tier === 'nugget' ? 'Ideas' : 'Writing'}
         // Every note on show, a folded group's too.
         count={groups.reduce((sum, [, list]) => sum + list.length, 0)}
         actions={
@@ -296,7 +296,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
             </span>
           ) : (
             <span className="flex items-center gap-2 text-xs">
-              {spread && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder={`Search in ${tier === 'nugget' ? 'Nuggets' : 'Articles'}`} />}
+              {spread && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder={`Search in ${tier === 'nugget' ? 'Ideas' : 'Writing'}`} />}
               {tier === 'nugget' && items.length > 1 && !spread && !open && (
                 <>
                   <span className="hidden whitespace-nowrap @[48rem]/page:inline"><Pressed keys="X" /> to select</span>
@@ -349,12 +349,12 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
         ) : all.length && query.trim() ? (
           <Empty shape={['ellipse', 3]} title="Nothing matches">No title here has those words. Escape clears the search.</Empty>
         ) : unloaded(all) ? null : tier === 'nugget' ? (
-          <Empty shape={['star', 3]} title="Nothing kept yet">
-            A nugget is a capture worth keeping, cleaned up so it reads cold. Promote one from the inbox or a rot card and it lands here, ready to come back to you.
+          <Empty shape={['star', 3]} title="No ideas yet">
+            An idea is a note worth keeping, in your own words. Pick one in your Inbox and press P, and it lands here, ready to come back to you.
           </Empty>
         ) : (
-          <Empty shape={['rectangle', 2]} title="No articles yet">
-            An article is your own words on one idea: notes on linear algebra, a thesis, a guide. Start one from nothing with New article, or from nuggets with “Start an article”.
+          <Empty shape={['rectangle', 2]} title="No writing yet">
+            Your own words on one idea: notes on a subject, an essay, a guide. Start one from nothing with New article, or from your ideas with “Start an article”.
           </Empty>
         )}
       </Page>

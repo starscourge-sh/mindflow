@@ -31,7 +31,7 @@ const Pin = alive(BookmarkIcon)
 const PinOff = alive(BookmarkIcon)
 
 const ICON = { nugget: Gem, article: FileText, question: Orbit }
-const NAME: Record<string, string> = { capture: 'Capture', nugget: 'Nugget', article: 'Article', question: 'Question' }
+const NAME: Record<string, string> = { capture: 'Capture', nugget: 'Idea', article: 'Article', question: 'Question' }
 const COLORS = ['gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const
 
 /** A tag's colour as CSS: its own, or one picked from its name so it is always the same. */

@@ -289,7 +289,7 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
             </button>
           </Tip>
           <span className="flex h-6 w-7 items-center justify-center">{menu(expanded, toggle)}</span>
-          <Tip label={`${panel ? 'Hide' : 'Show'} Inbox, Tasks, Review, Kept and Recent  ⌘\\`}>
+          <Tip label={`${panel ? 'Hide' : 'Show'} Inbox, Tasks, Review, Saved and Recent  ⌘\\`}>
             <button type="button" tabIndex={-1} aria-label={panel ? 'Hide the side panel' : 'Show the side panel'} aria-pressed={panel}
               className="flex h-6 w-7 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground aria-pressed:text-foreground"
               onMouseDown={(event) => event.preventDefault()} onClick={onPanel}>
@@ -1046,7 +1046,7 @@ export default function App(): React.JSX.Element {
             { label: 'New capture', keys: '⌘N', run: () => startOver() },
             { label: 'New question', cue: null, run: () => void startQuestion(openAny) },
             { label: panel ? 'Hide the side panel' : 'Show the side panel', keys: '⌘\\', cue: null, run: () => setPanel(!panel) },
-            ...TABS.map((one, index) => ({ label: `Go to ${({ inbox: 'Inbox', today: 'Tasks', review: 'Review', kept: 'Kept', recent: 'Recent' } as Record<string, string>)[one] ?? one}`, keys: `⌃${index + 1}`, run: () => {
+            ...TABS.map((one, index) => ({ label: `Go to ${({ inbox: 'Inbox', today: 'Tasks', review: 'Review', kept: 'Saved', recent: 'Recent' } as Record<string, string>)[one] ?? one}`, keys: `⌃${index + 1}`, run: () => {
               setTab(one)
               if (!panel) setPanel(true)
             } })),

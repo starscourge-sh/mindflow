@@ -43,7 +43,7 @@ export async function exit(id: string, status: string, onUndo?: () => void): Pro
     const question = await flying(id, 'question', () => vigil.newQuestion('', id))
     if (!question) return refuse(NOT_OPEN)
     chime('hold')
-    return toast('Kept in a question: it is in Holding', () => void vigil.dropQuestion(question).then(() => onUndo?.()), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', question) })
+    return toast('Kept in a question: it is in Questions', () => void vigil.dropQuestion(question).then(() => onUndo?.()), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', question) })
   }
   const result = status === 'promoted' ? await flying(id, 'nugget', () => takeExit(id, status)) : status === 'discarded' ? await flying(id, 'away', () => takeExit(id, status)) : await takeExit(id, status)
   if (result === 'cancelled' || !one) return
@@ -133,8 +133,8 @@ export async function findCaptures(query: string): Promise<NoteSuggestion[]> {
   ...items.map((item) => ({
     id: `${item.tier}:${item.id}`,
     label: item.title || 'Untitled',
-    key: item.tier === 'article' ? 'Article' : item.tier === 'question' ? 'Question' : 'Nugget',
-    group: 'Nuggets and articles'
+    key: item.tier === 'article' ? 'Article' : item.tier === 'question' ? 'Question' : 'Idea',
+    group: 'Ideas and writing'
   }))]
 }
 

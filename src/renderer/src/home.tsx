@@ -671,7 +671,7 @@ export function Home(): React.JSX.Element {
                 })}</Branches></Unfold>
               </>)}
               {group('Tasks', tasksOpen, setTasksOpen)}
-              {group('Kept', keptOpen, setKeptOpen)}
+              {group('Saved', keptOpen, setKeptOpen)}
               {loose(true).length > 0 && <div className="mt-3" />}
               {loose(true).map(row)}
               {/* Everything not shown, one fold away; G and a letter reach it anyway. */}
@@ -696,7 +696,7 @@ export function Home(): React.JSX.Element {
           onClick={() => (chime(kindsOpen ? 'fold' : 'slide'), setKindsOpen(!kindsOpen))}
           className="mt-3 mb-0.5 flex items-center gap-1 rounded-md px-2 py-0.5 text-meta text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground"
         >
-          Kinds <ChevronRight className={`size-3 transition-transform duration-80 ${kindsOpen ? 'rotate-90' : ''}`} />
+          Types <ChevronRight className={`size-3 transition-transform duration-80 ${kindsOpen ? 'rotate-90' : ''}`} />
         </button>
         <Unfold open={kindsOpen}>
           <Branches current={CAPTURE_TYPES.findIndex((type) => view.id === `kind:${type.id}`)} className="flex flex-col">

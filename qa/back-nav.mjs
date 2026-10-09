@@ -140,9 +140,9 @@ try {
   await run('A kind: one open, another row', async () => { await go('kind:quote'); await row(0) }, () => row(1))
 
   // --- Kept --------------------------------------------------------------------------------
-  await run('Nuggets: one open, another row', async () => { await side('Nuggets'); await row(0) }, () => row(1))
-  await run('Questions: Answered, then a section', async () => { await side('Holding'); await click('[class*="@container/page"] button', 'Answered') }, () => side('Home'))
-  await run('Questions: one open, then a section', async () => { await side('Holding'); await row(0) }, () => side('Home'))
+  await run('Ideas: one open, another row', async () => { await side('Ideas'); await row(0) }, () => row(1))
+  await run('Questions: Answered, then a section', async () => { await side('Questions'); await click('[class*="@container/page"] button', 'Answered') }, () => side('Home'))
+  await run('Questions: one open, then a section', async () => { await side('Questions'); await row(0) }, () => side('Home'))
   await run('Goals: one open, then a section', async () => { await go('goals'); await row(0) }, () => side('Today'))
 
   // --- Tasks ---------------------------------------------------------------------------------

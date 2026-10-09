@@ -73,16 +73,16 @@ const home = (): Promise<HomeData> => window.api.vigil('home') as Promise<HomeDa
 const CHIPS = [
   { id: 'all', label: 'All', keep: () => true },
   { id: 'notes', label: 'Notes', keep: (type: Kind) => type === 'capture' },
-  { id: 'nuggets', label: 'Nuggets', keep: (type: Kind) => type === 'nugget' || type === 'article' },
+  { id: 'nuggets', label: 'Ideas', keep: (type: Kind) => type === 'nugget' || type === 'article' },
   { id: 'questions', label: 'Questions', keep: (type: Kind) => type === 'question' },
   { id: 'tasks', label: 'Tasks', keep: (type: Kind) => type === 'task' }
 ] as const
 type Chip = (typeof CHIPS)[number]['id']
 
-const KIND_NAME: Record<Kind, string> = { capture: 'Note', nugget: 'Nugget', article: 'Article', question: 'Question', task: 'Task' }
+const KIND_NAME: Record<Kind, string> = { capture: 'Note', nugget: 'Idea', article: 'Article', question: 'Question', task: 'Task' }
 const kindOf = (card: Pick<Card, 'type' | 'kind'>): (typeof CAPTURE_TYPES)[number] =>
   CAPTURE_TYPES.find((type) => type.id === (card.type === 'task' ? 'todo' : card.kind)) ?? CAPTURE_TYPES[0]
-/** A kept thing's colour is its tier's, as the sidebar gives Nuggets, Articles and Holding theirs. */
+/** A kept thing's colour is its tier's, as the sidebar gives Ideas, Writing and Questions theirs. */
 const tintOf = (card: Pick<Card, 'type' | 'kind'>): string =>
   card.type === 'nugget' ? 'var(--tt-color-text-pink)' : card.type === 'article' ? 'var(--tt-color-text-brown)' : card.type === 'question' ? 'var(--tt-color-text-gray)' : kindOf(card).tint
 const kindLabel = (card: Card): string => (card.type === 'capture' ? kindOf(card).label : KIND_NAME[card.type])

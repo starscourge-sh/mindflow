@@ -239,11 +239,11 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
       {open && pane === 'rail' ? (
         <NoteRail entries={entries} cursor={cursor} selected={open.id} onPick={pick} onShow={() => setPane('list')} />
       ) : (
-      <Page aside={!!open} title="Holding" count={items.length} unit={['question', 'questions']}
+      <Page aside={!!open} title="Questions" count={items.length} unit={['question', 'questions']}
         actions={
           <span className="flex items-center gap-2">
-            {spread && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder="Search in Holding" />}
-            <Chips className="shrink-0" options={[{ id: 'open', label: 'Holding' }, { id: 'answered', label: 'Answered' }]} on={(id) => id === show} pick={(id) => setShow(id as 'open' | 'answered')} />
+            {spread && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder="Search in Questions" />}
+            <Chips className="shrink-0" options={[{ id: 'open', label: 'Open' }, { id: 'answered', label: 'Answered' }]} on={(id) => id === show} pick={(id) => setShow(id as 'open' | 'answered')} />
             {!spread && <Button variant="ghost" size="sm" onClick={() => void startQuestion(go)}><Plus className="size-3.5" /> New question</Button>}
             <Display view={view} onChange={setView} facets={[]} sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Oldest untouched' }, { id: 'name', label: 'A to Z' }]}
               density={density} onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })} />
@@ -257,8 +257,8 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
         ) : unloaded(all) ? null : spread && query.trim() ? (
           <Empty shape={['ellipse', 3]} title="Nothing matches">No question here has those words. Escape clears the search.</Empty>
         ) : show === 'open' ? (
-          <Empty shape={['ellipse', 3]} title="Nothing held yet" action={<Button variant="secondary" size="sm" onClick={() => void startQuestion(go)}><Plus className="size-3.5" /> New question</Button>}>
-            A question is for what you keep circling and cannot name yet. It never rots and is never tested: it just holds the clues, for as long as it takes. Press H on a capture to hold it as one.
+          <Empty shape={['ellipse', 3]} title="No questions yet" action={<Button variant="secondary" size="sm" onClick={() => void startQuestion(go)}><Plus className="size-3.5" /> New question</Button>}>
+            A question is for something you keep thinking about and cannot answer yet. It is never tested: it just collects clues, for as long as it takes. Press H on a note in your Inbox to make it one.
           </Empty>
         ) : (
           <Empty shape={['moon', 1]} title="Nothing answered yet">

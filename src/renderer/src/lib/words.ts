@@ -85,7 +85,7 @@ export const WORDS: Word[] = [
     origin: 'Old English cēpan, to hold and look after',
     note: [
       'Keep goes back to Old English cēpan, to hold, watch over, look after. Readers in the Renaissance kept commonplace books: notebooks of passages worth keeping, filed under headings, so they could find them again and think with them.',
-      'Vigil is one of those. Kept is the shelf of what you meant to hold on to. In the box, the Kept tab shows it beside whatever you are writing.'
+      'Vigil is one of those. Kept is the shelf of what you meant to hold on to. In the box, the Saved tab shows it beside whatever you are writing.'
     ],
     see: ['nugget', 'holding', 'surfacing']
   },
@@ -118,7 +118,7 @@ export const WORDS: Word[] = [
     origin: 'Old English healdan, to keep and tend',
     note: [
       'Old English healdan meant to hold, but also to keep, guard and tend. In 1903 Rilke wrote to a young poet to be patient with what is unsolved in his heart and to live the questions now.',
-      'Holding is where those questions live. Nothing here needs settling: add clues as they turn up, and settle one only when it comes clear. Try ⌘K, New question, for one you keep coming back to.'
+      'The Questions page is where they live. Nothing here needs settling: add clues as they turn up, and settle one only when it comes clear. Try ⌘K, New question, for one you keep coming back to.'
     ],
     see: ['clue', 'kept', 'surfacing']
   },

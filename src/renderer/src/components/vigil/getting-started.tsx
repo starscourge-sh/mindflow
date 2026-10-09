@@ -4,40 +4,31 @@ import { Check } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { keyFor, useKeyChanges } from '@/lib/keys'
 import { onboarding, useOnboarding } from '@/lib/onboarding'
-import { useLive, vigil } from '@/lib/vigil'
-import { useCaptures } from '@/components/capture-list'
+import { vigil } from '@/lib/vigil'
 import { MenuButton } from './collection-header'
-import { stickOnDesktop } from './sticky-note'
 import { Kbd, Rolling, toast } from './ui'
 import { ProgressBar } from './progress-bar'
 
 /**
- * Getting started: a shelf at the top of Home after the welcome, nine firsts
- * that tick themselves from what is really there (the main process reads the
- * data; tags are read here). Each row does its step, or takes you to where it
- * is done. All nine, and it celebrates once, then says Done and goes three
+ * Getting started: a shelf at the top of Home after the welcome, the three
+ * firsts that show what Vigil is for: catch a thought from anywhere, keep it,
+ * and have it come back. Each ticks itself from what is really there (the
+ * main process reads the data). Each row does its step, or takes you to where
+ * it is done. All three, and it celebrates once, then says Done and goes three
  * days later. Hidden from its ··· menu; back from Settings.
  */
-type Step = { id: 'catch' | 'tag' | 'keep' | 'review' | 'task' | 'focus' | 'hold' | 'stick' | 'search'; label: string; keys?: string }
+type Step = { id: 'catch' | 'keep' | 'review'; label: string; keys?: string }
 const STEPS: Step[] = [
-  { id: 'catch', label: 'Catch a thought', keys: '⌘.' },
-  { id: 'tag', label: 'Give something a #tag' },
-  { id: 'keep', label: 'Keep one from the Inbox', keys: 'P' },
-  { id: 'review', label: 'Review a card' },
-  { id: 'task', label: 'Add a task' },
-  { id: 'focus', label: 'Start a focus session' },
-  { id: 'hold', label: 'Hold a question, or set a goal' },
-  { id: 'stick', label: 'Stick a note to your desktop' },
-  { id: 'search', label: 'Find anything', keys: '⌘K' }
+  { id: 'catch', label: 'Catch a thought from any app', keys: '⌘.' },
+  { id: 'keep', label: 'Keep one from your Inbox', keys: 'P' },
+  { id: 'review', label: 'See it come back in Review' }
 ]
 const LINGER = 3 * 86400000
 
 export function GettingStarted({ onOpen, onView }: { onOpen: (type: string, id: string) => void; onView: (id: string, focus?: string) => void }): React.JSX.Element | null {
   useKeyChanges()
   const state = useOnboarding()
-  const tags = useLive(vigil.tags, [] as Awaited<ReturnType<typeof vigil.tags>>)
-  const captures = useCaptures()
-  const done: Record<Step['id'], boolean> = { ...(state?.steps ?? { catch: false, keep: false, review: false, task: false, focus: false, hold: false, stick: false, search: false }), tag: tags.length > 0 }
+  const done: Record<Step['id'], boolean> = { catch: !!state?.steps.catch, keep: !!state?.steps.keep, review: !!state?.steps.review }
   const count = STEPS.filter((step) => done[step.id]).length
   const all = count === STEPS.length
 
@@ -72,19 +63,17 @@ export function GettingStarted({ onOpen, onView }: { onOpen: (type: string, id: 
   if (!state || state.sandbox || !state.welcomed || state.hidden) return null
   if (state.doneAt && Date.now() - new Date(state.doneAt).getTime() > LINGER) return null
 
-  const newest = captures.find((one) => one.status !== 'discarded')
-  const run = (step: Step): void => {
+  const run = async (step: Step): Promise<void> => {
     chime('tap')
     if (step.id === 'catch') return window.api.showPrompt()
-    if (step.id === 'tag') return newest ? (onOpen('capture', newest.id), toast('Type # and a word anywhere in it, like #ideas', undefined, 'info')) : window.api.showPrompt()
     if (step.id === 'keep') return (onView('inbox'), toast('Pick one and press P to keep it', undefined, 'info'))
-    if (step.id === 'review') return onView('review')
-    if (step.id === 'task') return onView('today')
-    if (step.id === 'focus') return (onView('today'), toast('Open a task and choose Start a focus session', undefined, 'info'))
-    if (step.id === 'hold') return onView('questions')
-    if (step.id === 'stick') return newest ? stickOnDesktop('capture', newest.id) : window.api.showPrompt()
-    // ⌘K, pressed for you: the palette opens as it would.
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', metaKey: true, bubbles: true }))
+    // Review asks only about what has a question: with none due yet, the newest
+    // idea opens, to be given one.
+    if (await vigil.dueCount()) return onView('review')
+    const idea = (await vigil.items('nugget')).find((one) => !one.archivedAt)
+    if (!idea) return (onView('inbox'), toast('Keep one first: pick one and press P', undefined, 'info'))
+    onOpen('nugget', idea.id)
+    toast('Write the question it answers, under Review. Then Review asks you.', undefined, 'info')
   }
   const hide = (): void => {
     chime('fold')
@@ -107,12 +96,12 @@ export function GettingStarted({ onOpen, onView }: { onOpen: (type: string, id: 
       {all ? (
         <p className="text-control text-muted-foreground">Every first is behind you. Press <span className="inline-flex translate-y-[-1px] gap-0.5 align-middle">{(keyFor('⌘.') || '⌘.').match(/[⌃⌥⇧⌘]|[^⌃⌥⇧⌘]+/g)?.map((key, i) => <Kbd key={i}>{key}</Kbd>)}</span> whenever something crosses your mind.</p>
       ) : (
-        <ol className="grid gap-x-4 gap-y-0.5 @[40rem]/page:grid-cols-2">
+        <ol className="grid gap-x-4 gap-y-0.5">
           {STEPS.map((step) => {
             const ticked = done[step.id]
             return (
               <li key={step.id}>
-                <button type="button" onClick={() => run(step)} disabled={ticked}
+                <button type="button" onClick={() => void run(step)} disabled={ticked}
                   className="group flex h-9 w-full items-center gap-3 rounded-lg px-2 text-left text-control transition-colors enabled:hover:bg-foreground/[0.05] disabled:cursor-default">
                   <span className={`relative flex size-[18px] shrink-0 items-center justify-center rounded-full border transition-colors duration-200 ${ticked ? 'border-primary bg-primary text-primary-foreground' : 'border-foreground/25'}`}>
                     {ticked && (

@@ -18,7 +18,7 @@ import { AliveIcon } from '@/components/vigil/alive-icon'
 import { questionEntry, startQuestion } from './questions-view'
 import { num } from '../../../../main/dates'
 
-const TIERS = [{ id: 'nugget', label: 'Nuggets' }, { id: 'article', label: 'Articles' }, { id: 'question', label: 'Questions' }] as const
+const TIERS = [{ id: 'nugget', label: 'Ideas' }, { id: 'article', label: 'Writing' }, { id: 'question', label: 'Questions' }] as const
 
 /**
  * What you kept, in the prompt: nuggets, articles and the questions you are
@@ -134,8 +134,8 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
           )}
         />
       ) : unloaded(all) ? null : (
-        <Empty compact shape={tier === 'nugget' ? ['star', 3] : tier === 'question' ? ['ellipse', 3] : ['polygon', 4]} title={tier === 'nugget' ? 'Nothing kept yet' : tier === 'question' ? 'Nothing held yet' : 'No articles yet'}>
-          {tier === 'nugget' ? 'Promote a capture and it lands here, to come back to you.' : tier === 'question' ? 'For what you keep circling and cannot name yet. Press H on a capture to hold it as a question.' : 'Your own words on one idea. Start one with New article, or from a nugget.'}
+        <Empty compact shape={tier === 'nugget' ? ['star', 3] : tier === 'question' ? ['ellipse', 3] : ['polygon', 4]} title={tier === 'nugget' ? 'No ideas yet' : tier === 'question' ? 'No questions yet' : 'No writing yet'}>
+          {tier === 'nugget' ? 'Keep one from your Inbox with P and it lands here, to come back to you.' : tier === 'question' ? 'For what you keep thinking about and cannot answer yet. Press H on a note in your Inbox to make it a question.' : 'Your own words on one idea. Start one with New article, or from one of your ideas.'}
         </Empty>
       )}
     </div>

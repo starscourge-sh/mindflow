@@ -186,7 +186,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
         ) : (
           <Rest seed="review-none" compact={compact}>
             <Empty compact={compact} shape={['moon', 1]} title="Nothing to review">
-              Review holds only what you choose to be tested on. Open a nugget and write the question it answers, under Review: it joins the queue by tomorrow.
+              Review holds only what you choose to be tested on. Open an idea and write the question it answers, under Review: it joins the queue by tomorrow.
             </Empty>
           </Rest>
         )}

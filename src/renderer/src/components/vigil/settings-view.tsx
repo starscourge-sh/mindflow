@@ -592,7 +592,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Questions come back" note="Now and then, a question you are holding comes back as a hint: still open, how long, how many clues, with a way to add one. Rare, never in quiet hours.">
             <Switch checked={settings.questionsBack} onCheckedChange={(questionsBack) => set({ questionsBack })} />
           </Setting>
-          <Setting title="Questions in view" note="The questions you keep in view (up to twelve, from Holding) show small while you capture and tidy, so something new can go straight in as a clue.">
+          <Setting title="Questions in view" note="The questions you keep in view (up to twelve, from Questions) show small while you capture and tidy, so something new can go straight in as a clue.">
             <Switch checked={settings.pinnedQuestions !== false} onCheckedChange={(pinnedQuestions) => set({ pinnedQuestions })} />
           </Setting>
           <Setting title="Recent reaches back" note="How many days the Recent panel lists, newest first, every kind of thing. ⇧⌘Y opens it beside any page.">
