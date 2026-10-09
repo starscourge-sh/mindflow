@@ -108,24 +108,24 @@ function Pointer({ x, y, press = false }: { x: number | string; y: number | stri
 
 const BOX_NOTE = 'Call Mum about Sunday'
 const BoxDemo: Demo = ({ live }) => {
-  const at = useSteps([500, typeMs(BOX_NOTE), 1300, 900], live, 3)
+  const at = useSteps([700, typeMs(BOX_NOTE), 900, 1600], live, 3)
   const text = useTyped(BOX_NOTE, at === 1)
   return (
-    <div className="relative h-full w-full max-w-[17rem]">
-      {/* Some other app, under it. */}
-      <div className="absolute inset-x-0 top-1 bottom-1 rounded-lg border border-dashed border-foreground/15 p-3">
-        <div className="flex gap-1">{[0, 1, 2].map((i) => <span key={i} className="size-1.5 rounded-full bg-foreground/15" />)}</div>
-        <div className="mt-3 flex flex-col gap-2"><Line w="70%" /><Line w="85%" /><Line w="55%" /></div>
+    <div className="relative h-[8.5rem] w-full max-w-[17rem]">
+      {/* Whatever app you were in, faint under the box: a page of someone else's words. */}
+      <div aria-hidden className="absolute inset-0 overflow-hidden rounded-lg border bg-foreground/[0.025]">
+        <div className="flex h-5 items-center gap-1 border-b px-2">{[0, 1, 2].map((i) => <span key={i} className="size-1.5 rounded-full bg-foreground/15" />)}<span className="ml-2 h-1.5 w-16 rounded-full bg-foreground/10" /></div>
+        <div className="flex flex-col gap-2 p-3"><Line w="72%" /><Line w="90%" /><Line w="84%" /><Line w="60%" /><Line w="78%" /><Line w="44%" /></div>
       </div>
       <AnimatePresence>
         {(at === 1 || at === 2) && (
-          <motion.div key="box" className="absolute inset-x-3 top-6" initial={{ opacity: 0, y: -8, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.98 }} transition={spring.slow}>
+          <motion.div key="box" className="absolute inset-x-4 top-9" initial={{ opacity: 0, y: -8, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.98 }} transition={spring.slow}>
             <Box text={at === 2 ? BOX_NOTE : text} caret={at === 1} />
           </motion.div>
         )}
         {at === 3 && (
-          <motion.div key="kept" {...rise} className="absolute inset-x-0 bottom-3 flex justify-center">
-            <Chip tint="green"><Check className="size-3" strokeWidth={3} /> In your Inbox</Chip>
+          <motion.div key="kept" {...rise} className="absolute inset-x-0 top-12 flex justify-center">
+            <Chip tint="green"><Check className="size-3" strokeWidth={3} /> Sent to your Inbox</Chip>
           </motion.div>
         )}
       </AnimatePresence>
@@ -236,7 +236,7 @@ const RemindDemo: Demo = ({ live }) => {
   )
 }
 
-const SAME = ['Walk after lunch', 'A walk after lunch clears my head', 'Lunchtime walk, better afternoon']
+const SAME = ['Walk after lunch', 'A lunch walk helps', 'Walking clears my head']
 const ComingBackDemo: Demo = ({ live }) => {
   const at = useSteps([1400, 700, 2600], live, 2)
   return (
@@ -281,7 +281,7 @@ const OneTaskDemo: Demo = ({ live }) => {
         </AnimatePresence>
       </div>
       <div className={`flex items-center gap-1.5 px-1 text-meta text-muted-foreground transition-opacity duration-300 ${at === 3 ? 'opacity-100' : 'opacity-0'}`}>
-        <Kbd>⌘K</Kbd> Make one task from the 3 selected
+        Make one task from the 3 selected
       </div>
     </Col>
   )
@@ -315,7 +315,7 @@ const MergeDemo: Demo = ({ live }) => {
 // ---------------------------------------------------------------- Writing
 
 const LISTS = [
-  { head: 'To do', cards: ['Book the ferry', 'Pack the tent'] },
+  { head: 'To do', cards: ['Book flights', 'Pack'] },
   { head: 'Doing', cards: ['Pick a route'] },
   { head: 'Done', cards: ['Ask for time off'] }
 ]
@@ -338,7 +338,6 @@ const BoardDemo: Demo = ({ live }) => {
           ))}
         </div>
       </LayoutGroup>
-      <span className={`flex gap-0.5 transition-opacity duration-300 ${at === 0 ? 'opacity-100' : 'opacity-40'}`}><Kbd>⌥</Kbd><Kbd>⌘</Kbd><Kbd>B</Kbd></span>
     </div>
   )
 }
@@ -390,7 +389,6 @@ const FindDemo: Demo = ({ live }) => {
           return <span key={i} className="rounded-[3px] px-px transition-colors duration-300" style={{ background: at === 0 ? 'transparent' : changed ? 'var(--tt-color-highlight-green)' : 'var(--tt-color-highlight-yellow)' }}>{changed ? 'wolf' : 'fox'}</span>
         })}
       </p>
-      <span className="flex gap-0.5 self-center"><Kbd>⌥</Kbd><Kbd>⌘</Kbd><Kbd>F</Kbd></span>
     </Col>
   )
 }
@@ -441,7 +439,6 @@ const FoldDemo: Demo = ({ live }) => {
         </motion.div>
         <div className="mt-2 font-heading text-control font-semibold text-foreground">Packing</div>
       </div>
-      <span className="flex gap-0.5 self-center"><Kbd>⌥</Kbd><Kbd>⌘</Kbd><Kbd>[</Kbd></span>
     </Col>
   )
 }
@@ -516,7 +513,7 @@ const ClozeDemo: Demo = ({ live }) => {
   )
 }
 
-const WHY = { context: 'On the train to Leeds, reading Deep Work', why: 'My mornings go on email' }
+const WHY = { context: 'On a train, reading Deep Work', why: 'My mornings go on email' }
 const ContextDemo: Demo = ({ live }) => {
   const at = useSteps([500, typeMs(WHY.context, 30), typeMs(WHY.why, 30), 1800], live, 3)
   const context = useTyped(WHY.context, at === 1, 30)
@@ -676,15 +673,22 @@ const GoalsDemo: Demo = ({ live }) => {
 const BOXES = [{ label: 'Do now', tint: 'red' }, { label: 'Plan', tint: 'blue' }, { label: 'Hand off', tint: 'orange' }, { label: 'Let go', tint: 'gray' }]
 const MatrixDemo: Demo = ({ live }) => {
   const at = useSteps([1200, 1200, 1200, 1200], live, 1)
+  // Round the four boxes in turn: top left, top right, bottom right, bottom left.
+  const here = [0, 1, 3, 2][at]
   return (
-    <div className="relative grid h-[7.5rem] w-full max-w-[17rem] grid-cols-2 grid-rows-2 gap-1">
-      {BOXES.map((box) => (
-        <div key={box.label} className="rounded-lg border bg-background px-2 py-1 text-meta" style={{ color: `var(--tt-color-text-${box.tint})` }}>{box.label}</div>
-      ))}
-      <motion.div className="absolute flex h-6 items-center gap-1.5 rounded-md border bg-popover px-2 text-meta whitespace-nowrap text-foreground shadow-[0_2px_6px_-2px_rgb(0_0_0/0.25)]" initial={false}
-        animate={{ left: at % 2 ? 'calc(50% + 0.5rem)' : '0.5rem', top: at < 2 ? '1.6rem' : 'calc(50% + 1.6rem)' }} transition={spring.slow}>
-        <Dot on={false} /> Renew passport
-      </motion.div>
+    <div className="grid h-[7.5rem] w-full max-w-[17rem] grid-cols-2 grid-rows-2 gap-1">
+      <LayoutGroup>
+        {BOXES.map((box, i) => (
+          <div key={box.label} className="flex flex-col gap-1 rounded-lg border bg-background px-2 py-1 text-meta" style={{ color: `var(--tt-color-text-${box.tint})` }}>
+            {box.label}
+            {here === i && (
+              <motion.div layoutId="matrix-task" transition={spring.slow} className="flex h-6 items-center gap-1.5 self-start rounded-md border bg-popover px-2 whitespace-nowrap text-foreground shadow-[0_2px_6px_-2px_rgb(0_0_0/0.25)]">
+                <Dot on={false} /> Pay rent
+              </motion.div>
+            )}
+          </div>
+        ))}
+      </LayoutGroup>
     </div>
   )
 }
@@ -899,7 +903,6 @@ const SafeDemo: Demo = ({ live }) => {
           <Row key={text as string}><span className={`truncate transition-[filter] duration-300 ${safe && secret ? 'blur-[4px]' : ''}`}>{text as string}</span></Row>
         ))}
       </div>
-      <span className={`flex gap-0.5 transition-opacity duration-200 ${at === 0 ? 'opacity-100' : 'opacity-50'}`}><Kbd>⌥</Kbd><Kbd>⌘</Kbd><Kbd>S</Kbd></span>
     </Col>
   )
 }
