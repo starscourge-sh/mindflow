@@ -1225,7 +1225,7 @@ export function Home(): React.JSX.Element {
 
       <div className="flex min-w-0 flex-1 flex-col gap-2">
       {/* Clear of the traffic lights whatever sits to the left: nothing, or the folded rail. */}
-      <header className={`flex h-8 shrink-0 items-center gap-1 ${!sidebar ? 'pl-[84px]' : narrow ? 'pl-3' : ''}`} style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
+      <header className={`@container/bar flex h-8 shrink-0 items-center gap-1 ${!sidebar ? 'pl-[84px]' : narrow ? 'pl-3' : ''}`} style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
         {[
           { icon: LayoutSidebarRightIcon, flip: true, label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘B', run: () => (chime(sidebar ? 'fold' : 'slide'), setSidebar(!sidebar)) },
           // With the sidebar away, its search field comes up here as a button.
@@ -1262,9 +1262,10 @@ export function Home(): React.JSX.Element {
           </Tip>
         )}
         {/* In the sandbox, always: where you are, and the two ways out. */}
-        <SandboxPill narrow={narrow} />
+        <SandboxPill />
+        {/* Never squeezed by what sits before it (the sandbox pill gives way instead): cut short only past two fifths of the bar. */}
         {(() => {
-          const title = <h1 data-pane-title className="ml-2 truncate font-medium" style={{ textWrap: 'nowrap', WebkitAppRegion: split.panes.length > 1 ? 'no-drag' : undefined } as CSSProperties}><Term>{SECTIONS.find((section) => section.id === view.id)?.label ?? (kind(view) ? kind(view)!.label : view.id === 'settings' ? 'Settings' : view.id === 'yearpage' ? 'Year' : '')}</Term></h1>
+          const title = <h1 data-pane-title className="ml-2 max-w-[40%] shrink-0 truncate font-medium" style={{ textWrap: 'nowrap', WebkitAppRegion: split.panes.length > 1 ? 'no-drag' : undefined } as CSSProperties}><Term>{SECTIONS.find((section) => section.id === view.id)?.label ?? (kind(view) ? kind(view)!.label : view.id === 'settings' ? 'Settings' : view.id === 'yearpage' ? 'Year' : '')}</Term></h1>
           // Split, the page's name is the split's header: a right click there has the pair's menu.
           return split.panes.length > 1 ? <RowMenu items={pairMenu(split.panes.map((pane) => pane.trail.views[pane.trail.at]), { key: split.front })}>{title}</RowMenu> : title
         })()}

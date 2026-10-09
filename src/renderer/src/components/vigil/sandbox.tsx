@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { FlaskConical } from 'lucide-react'
+import { ChevronDown, FlaskConical, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { MindflowEditor, readMarkdown } from '@/components/mindflow'
@@ -7,6 +7,7 @@ import { AliveIcon } from '@/components/vigil/alive-icon'
 import ArrowBackUpIcon from '@/components/ui/arrow-back-up-icon'
 import RefreshIcon from '@/components/ui/refresh-icon'
 import { Tip, toast } from '@/components/vigil/ui'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { HoldButton } from '@/components/vigil/hold-button'
 import { ProgressBar } from '@/components/vigil/progress-bar'
 import { applyTheme, currentTheme } from '@/lib/theme'
@@ -41,8 +42,13 @@ const RULE = <span aria-hidden className="h-3.5 w-px shrink-0 bg-[color-mix(in_s
  * Back to my notes, Reset. Reset asks once, in the pill itself, and Start
  * over is held, not clicked: nothing brings back what was there. ⌘K and the
  * menus ask here too (vigil:sandbox-reset).
+ *
+ * It gives way to the page's name as the bar narrows (the bar is the `bar`
+ * container in home.tsx): first its sentence, then its buttons' words, and
+ * in a cramped bar it is only the flask, which opens the same two choices
+ * as a menu. The page's name is never squeezed to a letter.
  */
-export function SandboxPill({ narrow = false }: { narrow?: boolean }): React.JSX.Element | null {
+export function SandboxPill(): React.JSX.Element | null {
   const [asking, setAsking] = useState(false)
   const [busy, setBusy] = useState(false)
   const sure = useRef<HTMLButtonElement>(null)
@@ -79,39 +85,67 @@ export function SandboxPill({ narrow = false }: { narrow?: boolean }): React.JSX
       className="ml-2 flex h-7 shrink-0 items-center overflow-hidden rounded-full border border-dashed text-control">
       <Tip label={SAID}>
         {/* A label, not a button: a filled strip of tape with small capitals, so the
-            two answers after it read as the only things to press. */}
-        <span tabIndex={0} className="flex h-full cursor-default items-center gap-1.5 bg-[color-mix(in_srgb,var(--tt-color-text-yellow)_16%,transparent)] pr-2.5 pl-2.5 text-[0.6875rem] font-semibold tracking-[0.1em] uppercase outline-none">
+            two answers after it read as the only things to press. Only the flask once the bar is tight. */}
+        <span tabIndex={0} className={`${asking ? 'hidden @min-[720px]/bar:flex' : 'hidden @min-[600px]/bar:flex'} h-full cursor-default items-center gap-1.5 bg-[color-mix(in_srgb,var(--tt-color-text-yellow)_16%,transparent)] pr-2.5 pl-2.5 text-[0.6875rem] font-semibold tracking-[0.1em] uppercase outline-none`}>
           <FlaskConical className="size-3 shrink-0" strokeWidth={2.25} />
           Sandbox
         </span>
       </Tip>
+      {asking ? (
+        <Tip label={SAID}>
+          <span tabIndex={0} className="flex h-full cursor-default items-center bg-[color-mix(in_srgb,var(--tt-color-text-yellow)_16%,transparent)] px-2 outline-none @min-[720px]/bar:hidden">
+            <FlaskConical className="size-3.5 shrink-0" strokeWidth={2.25} />
+          </span>
+        </Tip>
+      ) : (
+        // Cramped: the flask is the whole pill, and its two choices wait in a menu.
+        <DropdownMenu modal={false}>
+          <Tip label={`${SAID} Back to my notes, or reset it.`}>
+            <DropdownMenuTrigger asChild>
+              <button type="button" aria-label="Sandbox" disabled={busy}
+                className="flex h-full items-center gap-1 bg-[color-mix(in_srgb,var(--tt-color-text-yellow)_16%,transparent)] pr-2 pl-2.5 transition-colors outline-none hover:bg-[color-mix(in_srgb,var(--tt-color-text-yellow)_24%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--tt-color-text-yellow)_24%,transparent)] @min-[600px]/bar:hidden">
+                <FlaskConical className="size-3.5 shrink-0" strokeWidth={2.25} />
+                <ChevronDown className="size-3 shrink-0 opacity-70" strokeWidth={2.25} />
+              </button>
+            </DropdownMenuTrigger>
+          </Tip>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuItem onSelect={() => go(leaveSandbox)}>Back to my notes</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => (chime('tap'), setAsking(true))}>Reset the sandbox…</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
       <AnimatePresence mode="popLayout" initial={false}>
         {asking ? (
           <motion.span key="ask" {...swap} className="flex h-full items-center">
-            {!narrow && <span className="truncate px-2.5 text-foreground/85">Hold to start over, as it began</span>}
+            <span className="hidden truncate px-2.5 text-foreground/85 @min-[900px]/bar:inline">Hold to start over, as it began</span>
             {/* The answer that does something is the one in the tape's colour; Cancel is quiet. */}
             <HoldButton ref={sure} variant={null} hint="Hold to start over" done="Starting over…" disabled={busy} onHold={() => go(startSandboxOver)} className={`${PART} font-semibold`}>
               Start over
             </HoldButton>
             {RULE}
-            <button type="button" onClick={() => (chime('fold'), setAsking(false))} className={`${PART} pr-3 text-foreground/70 hover:text-foreground`}>
-              Cancel
-            </button>
+            <Tip label="Cancel">
+              <button type="button" onClick={() => (chime('fold'), setAsking(false))} className={`${PART} pr-3 text-foreground/70 hover:text-foreground`}>
+                <span className="hidden @min-[640px]/bar:inline">Cancel</span>
+                <X className="size-3.5 @min-[640px]/bar:hidden" strokeWidth={2.25} />
+              </button>
+            </Tip>
           </motion.span>
         ) : (
-          <motion.span key="parts" {...swap} className="flex h-full items-center">
-            <Tip label={narrow ? 'Back to my notes' : 'Vigil starts again on your own notes'}>
+          <motion.span key="parts" {...swap} className="hidden h-full items-center @min-[600px]/bar:flex">
+            <Tip label="Back to my notes: Vigil starts again on your own notes">
               <button type="button" disabled={busy} onClick={() => go(leaveSandbox)} className={PART}>
                 <AliveIcon icon={ArrowBackUpIcon} size={14} />
-                {/* Said in full where there is room; in a compact window, the short way. */}
-                {!narrow && <><span className="max-[1199px]:hidden">Back to my notes</span><span className="min-[1200px]:hidden">My notes</span></>}
+                {/* Said in full where there is room; in a tighter bar, the short way, then only the arrow. */}
+                <span className="hidden @min-[720px]/bar:inline @min-[1000px]/bar:hidden">My notes</span>
+                <span className="hidden @min-[1000px]/bar:inline">Back to my notes</span>
               </button>
             </Tip>
             {RULE}
-            <Tip label={narrow ? 'Reset the sandbox' : 'Every example back to how it began'}>
+            <Tip label="Reset: every example back to how it began">
               <button type="button" disabled={busy} onClick={() => (chime('tap'), setAsking(true))} className={`${PART} pr-3`}>
                 <AliveIcon icon={RefreshIcon} size={14} />
-                {!narrow && 'Reset'}
+                <span className="hidden @min-[720px]/bar:inline">Reset</span>
               </button>
             </Tip>
           </motion.span>
