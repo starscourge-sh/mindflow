@@ -1,4 +1,5 @@
 import { InputRule, Node, mergeAttributes } from "@tiptap/core"
+import { DOMSerializer, type DOMOutputSpec, type Node as PMNode } from "@tiptap/pm/model"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
 import type { Editor } from "@tiptap/react"
@@ -39,13 +40,13 @@ export interface LinkKind {
 
 /**
  * What links point at, and how to tell: the app says once, for every editor
- * on the page, as it does for tags. `find` names the kind of an older link
- * that was made before links kept it; `aside` opens one in a window of its
+ * on the page, as it does for tags. `find` names the kinds of older links,
+ * made before links kept theirs, all of a note's at once; `aside` opens one in a window of its
  * own, for a ⌘-click, and says whether it could.
  */
 let linkKinds: {
   kinds: () => Record<string, LinkKind>
-  find?: (id: string) => Promise<string | null>
+  find?: (ids: string[]) => Promise<Record<string, string>>
   aside?: (id: string) => boolean
 } = { kinds: () => ({}) }
 
@@ -53,11 +54,37 @@ export function setLinkKinds(given: typeof linkKinds): void {
   linkKinds = given
 }
 
-/** The kind a link was given, or the one its id says: `question:…`, `task:…`. */
+/** The kinds of older links already looked up, by id: shared by every editor on the page. */
+const knownKinds = new Map<string, string>()
+/** Ids being looked up now, so a second editor waits for the same answer rather than asking again. */
+const asking = new Set<string>()
+/** Links on screen waiting to learn their kind, by id. */
+const waiting = new Map<string, Set<() => void>>()
+
+/**
+ * Ask once for the kinds of every link given that is not known or being
+ * asked about already: one question per note, however many links it holds.
+ */
+function lookUpKinds(ids: Iterable<string>): void {
+  const wanted = [...new Set(ids)].filter((id) => !knownKinds.has(id) && !asking.has(id))
+  if (!wanted.length || !linkKinds.find) return
+  wanted.forEach((id) => asking.add(id))
+  void linkKinds.find(wanted).then((found) => {
+    for (const id of wanted) {
+      asking.delete(id)
+      // Not found is remembered too, so a link to a note since deleted is not asked about again.
+      knownKinds.set(id, found[id] ?? "")
+      if (found[id]) waiting.get(id)?.forEach((redraw) => redraw())
+      waiting.delete(id)
+    }
+  }, () => wanted.forEach((id) => asking.delete(id)))
+}
+
+/** The kind a link was given, the one its id says (`question:…`, `task:…`), or one looked up. */
 export const kindOfLink = (id: string, kind?: string | null): string => {
   if (kind) return kind
   const prefix = id.includes(":") ? id.slice(0, id.indexOf(":")) : ""
-  return prefix === "nugget" ? "idea" : prefix
+  return prefix === "nugget" ? "idea" : prefix || knownKinds.get(id) || ""
 }
 
 export const linkKind = (kind?: string | null): LinkKind | undefined => (kind ? linkKinds.kinds()[kind] : undefined)
@@ -331,6 +358,37 @@ export const NoteLink = Node.create<NoteLinkOptions>({
     ]
   },
 
+  /**
+   * Drawn as renderHTML draws it. A link made before links kept their kind
+   * draws again, in place, once its kind is known: the note itself is not
+   * touched, so opening one never changes or saves it.
+   */
+  addNodeView() {
+    return ({ node }) => {
+      const draw = (one: PMNode): HTMLElement => DOMSerializer.renderSpec(document, one.type.spec.toDOM!(one) as DOMOutputSpec).dom as HTMLElement
+      const dom = draw(node)
+      const { id } = node.attrs
+      let stop = (): void => undefined
+      if (id && !kindOfLink(id, node.attrs.kind) && !knownKinds.has(id)) {
+        const redraw = (): void => {
+          const next = draw(node)
+          for (const name of next.getAttributeNames()) dom.setAttribute(name, next.getAttribute(name)!)
+          dom.replaceChildren(...next.childNodes)
+        }
+        if (!waiting.has(id)) waiting.set(id, new Set())
+        waiting.get(id)!.add(redraw)
+        stop = () => void waiting.get(id)?.delete(redraw)
+      }
+      return {
+        dom,
+        // Any change to the link itself draws it anew.
+        update: (next: PMNode) => next === node,
+        ignoreMutation: () => true,
+        destroy: stop,
+      }
+    }
+  },
+
   addProseMirrorPlugins() {
     const { findNotes, onOpenNote, findHeadings, render, tagRender, wikiRender } = this.options
     const editor = this.editor
@@ -463,22 +521,17 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       new Plugin({
         view: (first) => {
           const tried = new Set<string>()
+          // Links made before links kept their kind (and an import's [[@id|name]]):
+          // every one in the note asked about in one go, and remembered for the page.
+          const unknown = new Set<string>()
+          const lookUp = (): void => {
+            lookUpKinds(unknown)
+            unknown.clear()
+          }
           const resolve = (view: EditorView, from = 0, to = view.state.doc.content.size): void => {
             view.state.doc.nodesBetween(from, to, (node) => {
               const { id, label } = node.attrs
-              if (node.type.name === "noteLink" && id && !kindOfLink(id, node.attrs.kind) && linkKinds.find && !tried.has(`#${id}`)) {
-                // Made before links kept their kind: looked up once, so its icon shows.
-                tried.add(`#${id}`)
-                void linkKinds.find(id).then((kind) => {
-                  if (!kind || view.isDestroyed) return
-                  const tr = view.state.tr
-                  view.state.doc.descendants((one, pos) => {
-                    if (one.type.name === "noteLink" && one.attrs.id === id && !one.attrs.kind) tr.setNodeMarkup(pos, undefined, { ...one.attrs, kind })
-                  })
-                  // Not a change of yours: nothing is saved for it, and opening a note never marks it edited.
-                  if (tr.docChanged) view.dispatch(tr.setMeta("addToHistory", false).setMeta("preventUpdate", true))
-                })
-              }
+              if (node.type.name === "noteLink" && id && !kindOfLink(id, node.attrs.kind) && !knownKinds.has(id)) unknown.add(id)
               if (node.type.name !== "noteLink" || id || !label || tried.has(label)) return
               tried.add(label)
               void Promise.resolve(findNotes(label)).then((found) => {
@@ -495,6 +548,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
             })
           }
           resolve(first)
+          lookUp()
           // Only what changed is looked through: walking a long note on every key was slow.
           return {
             update: (view, previous) => {
@@ -504,6 +558,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
               if (start == null) return
               const end = before.findDiffEnd(now)?.b ?? now.size
               resolve(view, start, Math.min(now.size, Math.max(start + 1, end)))
+              lookUp()
             },
           }
         },

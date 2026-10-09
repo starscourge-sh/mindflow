@@ -284,6 +284,11 @@ export function registerNotes({ load, guard }: Windows): void {
 
   // --- the map of a note's links, one step each way
   type Node = { type: string; id: string; title: string; private: number }
+  // The kinds of the captures a note links to, for links made before they kept
+  // theirs: one question for all of a note's links, however many.
+  handle('notes:kinds', (ids: string[]) =>
+    Object.fromEntries((db.prepare('select id, kind from captures where id in (select value from json_each(?))').all(JSON.stringify(Array.isArray(ids) ? ids.map(String) : [])) as { id: string; kind: string }[]).map((row) => [row.id, row.kind])))
+
   const nodeOf = (link: string): Node | undefined => {
     const [kind, id] = link.includes(':') ? link.split(':') : ['capture', link]
     return (kind === 'capture'
