@@ -9,7 +9,8 @@ import { hostname } from 'os'
 import { backUp, checkMarkdown, writeMarkdown } from './backup'
 import { markdown } from './vigil'
 import { celebrateAfter } from './celebrate'
-import { chunks, createdOf, firstLine, guessKind, kindOf, propertiesOf, titleOfMarkdown, unstamp, withoutNotionId } from './import'
+import { RETIRED, tagged, withTag } from './kinds'
+import { chunks, createdOf, firstLine, guessKind, isBit, kindOf, propertiesOf, titleOfMarkdown, unstamp, withoutNotionId } from './import'
 
 /** What the list shows. The body is only read when one is opened. */
 export interface CaptureMeta {
@@ -100,9 +101,9 @@ export const database = (): DatabaseSync => db
 /**
  * What a window may send to make or change a capture, checked here rather
  * than trusted: `as CapturePatch` is a hope, this is a check. The kinds are
- * the brief's eight, and a book.
+ * seven; a bit and a book are tags now (#bit, #book), an excerpt a long quote.
  */
-const KINDS = ['note', 'todo', 'quote', 'word', 'link', 'excerpt', 'decision', 'bit', 'book', 'experiment'] as const
+const KINDS = ['note', 'todo', 'quote', 'word', 'link', 'decision', 'experiment'] as const
 const Patch = z.object({
   title: z.string().optional(),
   kind: z.enum(KINDS).optional(),
@@ -390,9 +391,12 @@ export function registerCaptures(): void {
   // newest first, each saying what it is.
   ipcMain.handle('captures:find', (_event, query: unknown) => {
     const words = String(query ?? '').toLowerCase().split(/\s+/).filter(Boolean)
-    const kind = words.find((word) => word.startsWith('kind:'))?.slice(5)
+    // The kinds that went: kind:excerpt is a quote, kind:bit and kind:book their tags.
+    const asked = words.find((word) => word.startsWith('kind:'))?.slice(5)
+    const retired = asked ? RETIRED[asked] : undefined
+    const kind = retired ? (retired.tag ? undefined : retired.kind) : asked
     // % and _ are a search's own wildcards; typed, they mean themselves.
-    const terms = words.filter((word) => !word.startsWith('kind:')).map((word) => `%${like(word)}%`)
+    const terms = [...words.filter((word) => !word.startsWith('kind:')), ...(retired?.tag ? [`#${retired.tag}`] : [])].map((word) => `%${like(word)}%`)
     const match = (text: string): string => terms.map(() => `${text} like ? escape '\\'`).join(' and ') || '1'
     const args = (n: number): string[] => [...Array(n)].flatMap(() => terms)
     return db.prepare(
@@ -472,7 +476,8 @@ export function registerCaptures(): void {
     }
     // An exit is taken from the inbox only: a promoted capture resolved, or a
     // resolved one discarded, would leave its undo nothing true to go back to.
-    const was = (db.prepare('select status from captures where id = ?').get(String(id)) as { status: string } | undefined)?.status
+    const before = db.prepare('select status, body from captures where id = ?').get(String(id)) as { status: string; body: string | null } | undefined
+    const was = before?.status
     const refused = !!patch.status && patch.status !== 'open' && was !== 'open'
     if (refused) patch.status = undefined
     // The words as first written, kept the first time you change them: a
@@ -499,6 +504,9 @@ export function registerCaptures(): void {
     // When an exit was taken, for the lead measures: "did you take an exit
     // this week" needs the day, not only the state.
     // Words saved without their Markdown (a sticky's tick) are turned into it here, so the copy never lags.
+    // #bit written in makes it private, once: taken off by hand, it stays off.
+    if (row && patch.body !== undefined && tagged(JSON.stringify(patch.body), 'bit') && !tagged(before?.body, 'bit'))
+      db.prepare('update captures set private = 1 where id = ?').run(String(id))
     if (row && (patch.markdown !== undefined || patch.body !== undefined)) void writeMarkdown(row.number as number, patch.markdown ?? markdown(patch.body))
     else if (patch.status) checkMarkdown(String(id))
     changed({ kind: 'capture', id: String(id) })
@@ -513,12 +521,12 @@ function insert(patch: CapturePatch & { source?: string }, capturedAt: string): 
   const id = randomUUID()
   const { number } = db
     .prepare(
-      // A bit starts private: the one kind where a screen share is the risk.
+      // Tagged #bit, it starts private: the one place a screen share is the risk.
       `insert into captures (id, number, title, kind, body, captured_at, source, private, imported_at)
        values (?, (select coalesce(max(number), 0) + 1 from captures), ?, ?, ?, ?, ?, ?, ?)
        returning number`
     )
-    .get(id, patch.title ?? '', patch.kind ?? 'note', JSON.stringify(patch.body ?? null), capturedAt, patch.source ?? '', patch.kind === 'bit' ? 1 : 0,
+    .get(id, patch.title ?? '', patch.kind ?? 'note', JSON.stringify(patch.body ?? null), capturedAt, patch.source ?? '', tagged(JSON.stringify(patch.body ?? null), 'bit') ? 1 : 0,
       patch.source ? new Date().toISOString() : null) as { number: number }
   return { id, number }
 }
@@ -533,16 +541,18 @@ export function recordOpen(surface: string): void {
  * was made, and remembers the file it came from. A jotting already imported
  * from that file is skipped, so importing the same file twice adds nothing.
  */
-export function importMarkdown(name: string, text: string, kind: string): number {
+export function importMarkdown(name: string, text: string, jokes = false): number {
   const at = createdOf(text) ?? new Date().toISOString()
   const seen = db.prepare('select 1 from captures where source = ? and body = ?')
   let added = 0
   for (const raw of chunks(text)) {
-    const { text: chunk, at: stamped } = unstamp(raw)
+    const { text: words, at: stamped } = unstamp(raw)
+    // A joke (from a file of them, or starting "joke" or "bit") is a note tagged #bit, so private.
+    const chunk = (jokes || isBit(titleOfMarkdown(words))) && !tagged(words, 'bit') ? String(withTag(words, 'bit')) : words
     const body = JSON.stringify(chunk)
     if (seen.get(name, body)) continue
     const { number } = insert(
-      { title: titleOfMarkdown(chunk), kind: guessKind(chunk, kind), body: chunk, source: name },
+      { title: titleOfMarkdown(chunk), kind: guessKind(chunk, 'note'), body: chunk, source: name },
       stamped ?? new Date(at).toISOString()
     )
     // Already Markdown, so the readable copy beside the backups is the chunk itself.
@@ -586,7 +596,7 @@ export function importBookmarks(name: string, html: string): number {
 
 /** A capture from the command line: plain words, its kind guessed from them. */
 export function captureText(text: string): void {
-  insert({ title: '', kind: kindOf(text) ?? 'note', body: text }, new Date().toISOString())
+  insert({ title: '', kind: kindOf(text) ?? 'note', body: isBit(text) && !tagged(text, 'bit') ? withTag(text, 'bit') : text }, new Date().toISOString())
   recordOpen('cli')
   changed()
 }
@@ -605,7 +615,7 @@ function bring(name: string, found: Found[]): number {
     const text = one.text.trim()
     if (!text || seen.get(name, JSON.stringify(text))) continue
     const at = one.at && !Number.isNaN(Date.parse(one.at)) ? new Date(one.at).toISOString() : new Date().toISOString()
-    const kind = text.length > 600 ? 'excerpt' : one.who ? 'quote' : guessKind(text, 'note')
+    const kind = text.length > 600 || one.who ? 'quote' : guessKind(text, 'note')
     const { id, number } = insert({ title: '', kind, body: text, source: name }, at)
     set.run(one.who?.trim() || null, one.where?.trim() || null, id)
     void writeMarkdown(number, text)

@@ -130,10 +130,12 @@ export const createdOf = (text: string): string | null => {
 export function guessKind(chunk: string, fallback: string): string {
   const text = titleOfMarkdown(chunk)
   // The old inbox's own tags, where they name a kind: a goal is a todo.
-  const tag = /#(quote|bit|goal|word)\b/.exec(chunk)?.[1]
+  // #bit is a tag of its own now: the note keeps it, and is private by it.
+  const tag = /#(quote|goal|word)\b/.exec(chunk)?.[1]
   if (tag) return tag === 'goal' ? 'todo' : tag
   if (/^\s*[-*]\s+\[ \]/.test(chunk)) return 'todo'
-  if (chunk.length > 600) return 'excerpt'
+  // A long block is a quote: what was an excerpt, the container for what comes out of it.
+  if (chunk.length > 600) return 'quote'
   return kindOf(text.replace(/^\s*[-*]\s*\[?/, '')) ?? fallback
 }
 
@@ -146,6 +148,9 @@ export function unstamp(chunk: string): { text: string; at: string | null } {
     ? { text: chunk.replace(match[0], ''), at: at && !Number.isNaN(at.getTime()) ? at.toISOString() : null }
     : { text: chunk, at: null }
 }
+
+/** A joke or a bit by its first words: a note that gets #bit, and so stays private. */
+export const isBit = (line: string): boolean => /^(joke|bit)\b/i.test(line.trim())
 
 /**
  * What a line of text most likely is, from how it is worded: the kind the
@@ -161,7 +166,6 @@ export function kindOf(line: string): string | null {
   // anything that comes round again ("water the plants every 3 days") is.
   if (/\b(every (other )?(\d+ )?(day|week|month|year|morning|evening|night|weekday|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday)s?|daily|weekly|fortnightly|monthly|yearly)\b/i.test(text) && !/\?\s*$/.test(text)) return 'todo'
   if (/^(decided|decision|going with|chose|we('ll| will) go with)\b/i.test(text)) return 'decision'
-  if (/^(joke|bit)\b/i.test(text)) return 'bit'
   // A question is a question, not a todo; "Name: words" is a quote only when
   // there are words enough to be said, not a label like "Shopping list: eggs".
   if (/^["“].+["”]/.test(text) || /^[A-Z][\w.'-]*(?: [A-Z][\w.'-]*){0,2}( \([^)]*\))?: (?:\S+\s+){4,}\S/.test(text) || /^["“'].+["”']\s*[-—]\s*\w/.test(text)) return 'quote'

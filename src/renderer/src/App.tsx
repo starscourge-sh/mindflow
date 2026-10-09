@@ -61,7 +61,8 @@ import { stickOnDesktop } from './components/vigil/sticky-note'
 import { NotePreview } from './components/vigil/note-preview'
 
 
-import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from './components/capture-kinds/capture-kind-picker'
+import { CAPTURE_TYPES, CaptureKindPicker, asksFor, type CaptureType } from './components/capture-kinds/capture-kind-picker'
+import { TAG_DOES, tagsIn } from './components/capture-kinds/kind-fields'
 import { firstLine, kindOf } from '../../main/import'
 import {
   Sheet,
@@ -390,6 +391,10 @@ export default function App(): React.JSX.Element {
   const first = firstLine(body)
   // Whether anything is written yet: who and where wait until there is.
   const started = hasContent(body)
+  // Who and where, as this kind (or a #book) asks; and what a tag that does something will do.
+  const boxText = textOf(body)
+  const asks = asksFor(kind, boxText)
+  const doing = tagsIn(boxText).filter((tag) => TAG_DOES[tag])
   // Who said it and where you met it. Null who means the words are yours.
   const [attribution, setAttribution] = useState('')
   const [medium, setMedium] = useState('')
@@ -890,13 +895,13 @@ export default function App(): React.JSX.Element {
       return
     }
     // What a paste is, when the kind was left alone: a bare link is a link,
-    // and where it came from is the site; a long block is an excerpt, the
+    // and where it came from is the site; a long block is a quote, the
     // container for what comes out of it later.
     const url = /^https?:\/\/\S+$/.test(text) ? new URL(text) : null
     // The suggestion is worked out a moment after typing stops; a save before
     // then works it out here, so a quick "Call the plumber" is still a todo.
     const said = chosen ? kind : ((kindOf(firstLine(doc)) as CaptureType | null) ?? kind)
-    const sorted = said !== 'note' ? said : url ? 'link' : text.length > 600 ? 'excerpt' : said
+    const sorted = said !== 'note' ? said : url ? 'link' : text.length > 600 ? 'quote' : said
     const where = medium || (url ? siteName(url.hostname) : '')
     // A tag marked "makes a task" (#bug, #fix and the rest by default) is a
     // todo wearing a label: it goes to the task list at once, as a todo does.
@@ -1287,14 +1292,14 @@ export default function App(): React.JSX.Element {
               {/* Only what this kind asks for, unless it already holds something. */}
               {/* Who and where once there is something to say it about, and only
                   what this kind asks for, unless it already holds something. */}
-              {((started && ASKS[kind].who) || attribution) && (
-                <Remembered field="attribution" complete={!lesson} value={attribution} placeholder={ASKS[kind].who ?? 'Who'} className={FIELD} onChange={(value) => {
+              {((started && asks.who) || attribution) && (
+                <Remembered field="attribution" complete={!lesson} value={attribution} placeholder={asks.who ?? 'Who'} className={FIELD} onChange={(value) => {
                   setAttribution(value)
                   if (editing) void vigil.setCapture(editing.id, 'attribution', value.trim() || null)
                 }} />
               )}
-              {((started && ASKS[kind].where) || medium) && (
-                <Remembered field="medium" complete={!lesson} value={medium} placeholder={ASKS[kind].where ?? 'Where'} className={FIELD} onChange={(value) => {
+              {((started && asks.where) || medium) && (
+                <Remembered field="medium" complete={!lesson} value={medium} placeholder={asks.where ?? 'Where'} className={FIELD} onChange={(value) => {
                   setMedium(value)
                   if (editing) void vigil.setCapture(editing.id, 'medium', value.trim() || null)
                 }} />
@@ -1310,10 +1315,14 @@ export default function App(): React.JSX.Element {
                   </Button>
                 </Tip>
               )}
-              {ASKS[kind].why && textOf(body).trim().split('\n').filter(Boolean).length < 2 && (
+              {asks.why && boxText.trim().split('\n').filter(Boolean).length < 2 && (
                 // Wrapped, not cut: an ellipsis lands mid-word over words that type in.
-                <span className="min-w-0 px-1.5 text-xs text-muted-foreground/70"><Typed text={ASKS[kind].why} /></span>
+                <span className="min-w-0 px-1.5 text-xs text-muted-foreground/70"><Typed text={asks.why} /></span>
               )}
+              {/* #bit or #book typed: what it will do, said faintly. */}
+              {doing.map((tag) => (
+                <span key={tag} className="min-w-0 px-1.5 text-xs text-muted-foreground/70"><Typed text={`#${tag}: ${TAG_DOES[tag]}`} /></span>
+              ))}
               {/* "+name": which question the clue will go into, said before you send. */}
               {plus && (
                 <span className="ml-auto flex min-w-0 max-w-full items-center gap-1.5 rounded-2xl border px-2.5 py-0.5 text-xs text-muted-foreground animate-in fade-in-0 zoom-in-95 duration-200">

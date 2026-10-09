@@ -1676,7 +1676,7 @@ async function restore(): Promise<void> {
 
 /**
  * Jottings from Markdown files - an inbox note, a file of jokes - as captures.
- * A file with "joke" or "bit" in its name gives bits; anything else, notes.
+ * A file with "joke" or "bit" in its name gives notes tagged #bit (private); anything else, notes.
  * An HTML file is a bookmarks export, from Raindrop or a browser: links. A
  * CSV or JSON file, or Kindle's clippings, is highlights; any other text file
  * is Anki's plain-text export, cards to be tested on.
@@ -1704,7 +1704,7 @@ async function importFiles(): Promise<void> {
           ? importHighlights(name, text)
           : /\.txt$/i.test(name)
             ? importAnki(text)
-            : importMarkdown(name, text, /joke|bit/i.test(name) ? 'bit' : 'note')
+            : importMarkdown(name, text, /joke|bit/i.test(name))
       lines.push(`${name}: ${num(added)} new`)
     } catch (error) {
       lines.push(`${name}: could not be read (${/\.json$/i.test(name) ? 'it is not a list of highlights in JSON' : error instanceof Error ? error.message : String(error)})`)

@@ -28,7 +28,8 @@ export type Field = {
 export const KIND_FIELDS: Record<string, Field[]> = {
   note: [],
   todo: [],
-  quote: [],
+  // A long quote is what an excerpt was: where in the book it is.
+  quote: [{ key: 'location', label: 'Page or place', placeholder: 'e.g. p. 42, chapter 3' }],
   word: [
     { key: 'definition', label: 'Definition', type: 'long', placeholder: 'What it means' },
     { key: 'example', label: 'Example', type: 'long', placeholder: 'A sentence it is used in' },
@@ -38,7 +39,6 @@ export const KIND_FIELDS: Record<string, Field[]> = {
     { key: 'title', label: 'Title', placeholder: "The page's own title" },
     { key: 'site', label: 'Site', placeholder: 'e.g. nytimes.com' }
   ],
-  excerpt: [{ key: 'location', label: 'Page or place', placeholder: 'e.g. p. 42, chapter 3' }],
   // A decision's record is there to stop it being argued again, not to keep
   // the why: what was decided, what else was weighed, and the one thing that
   // would justify opening it again. On its look-again day it comes back.
@@ -52,12 +52,6 @@ export const KIND_FIELDS: Record<string, Field[]> = {
     { key: 'decidedAt', label: 'Decided on', type: 'hidden' },
     { key: 'heldAt', label: 'Last said it holds', type: 'hidden' }
   ],
-  bit: [],
-  book: [
-    { key: 'status', label: 'Status', type: 'choice', options: ['Want to read', 'Reading', 'Finished', 'Dropped'] },
-    { key: 'rating', label: 'Rating', type: 'rating' },
-    { key: 'takeaway', label: 'Takeaway', type: 'long', placeholder: 'What you will keep from it', when: ['status', 'Finished'] }
-  ],
   // A try with a finding at the end, never a pass or a fail: what launched
   // it, what it is working out, how long it runs (then it comes back asking
   // what you found), and what came of it, short enough to skim.
@@ -70,5 +64,26 @@ export const KIND_FIELDS: Record<string, Field[]> = {
   ]
 }
 
-/** The field names a kind has room for: what survives a change of kind. */
-export const fieldKeys = (kind: string): string[] => (KIND_FIELDS[kind] ?? []).map((field) => field.key)
+/**
+ * What a tag asks for, whatever the note's kind: #book makes any note a book,
+ * the way a tag marked "makes a task" makes it a todo.
+ */
+export const TAG_FIELDS: Record<string, Field[]> = {
+  book: [
+    { key: 'status', label: 'Status', type: 'choice', options: ['Want to read', 'Reading', 'Finished', 'Dropped'] },
+    { key: 'rating', label: 'Rating', type: 'rating' },
+    { key: 'takeaway', label: 'Takeaway', type: 'long', placeholder: 'What you will keep from it', when: ['status', 'Finished'] }
+  ]
+}
+
+/** The tags that do something, and what, in a line: said in the box, the Tags page and anywhere else they are explained. */
+export const TAG_DOES: Record<string, string> = {
+  bit: 'Kept private: blurred in lists, never shown as a hint',
+  book: 'A book: adds reading status, a 1 to 5 rating and a takeaway'
+}
+
+/** The tags in some words, lower case, once each, as every list reads them. */
+export const tagsIn = (text: string): string[] => [...new Set([...text.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase()))]
+
+/** The field names a kind has room for: what survives a change of kind. A tag's own stay with the tag. */
+export const fieldKeys = (kind: string): string[] => [...(KIND_FIELDS[kind] ?? []), ...Object.values(TAG_FIELDS).flat()].map((field) => field.key)

@@ -6,6 +6,7 @@ import { copyFile, mkdir, rm, writeFile } from 'fs/promises'
 import { join } from 'path'
 
 import { changed, database } from './captures'
+import { retireKinds } from './kinds'
 import { dayKey } from './dates'
 
 /**
@@ -357,7 +358,8 @@ export function registerSandbox(): void {
           .run(randomUUID(), one.title ?? '', String(one.kind || 'note'), body, isIso(one.capturedAt) ? one.capturedAt : new Date().toISOString(), one.private ? 1 : 0, one.attribution ?? null)
         made++
       }
-      if (made) changed()
+      // Carried by an older Vigil, a bit, an excerpt or a book: what it is now.
+      if (made) (retireKinds(db), changed())
     }
     await rm(file, { force: true })
     return made

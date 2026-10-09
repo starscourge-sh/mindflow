@@ -33,6 +33,7 @@ export const notes = {
   order: (list: string) => call<string[]>('notes:order', list),
   setOrder: (list: string, ids: string[]) => call('notes:order:set', list, ids),
   fields: (table: NoteTable, id: string) => call<Record<string, string | number>>('notes:fields', table, id),
+  tags: (table: NoteTable, id: string) => call<string[]>('notes:tags', table, id),
   setField: (table: NoteTable, id: string, key: string, value: string | number | null) => call('notes:fields:set', table, id, key, value),
   versions: (id: string) => call<Version[]>('notes:versions', id),
   version: (id: number) => call<unknown>('notes:version', id),

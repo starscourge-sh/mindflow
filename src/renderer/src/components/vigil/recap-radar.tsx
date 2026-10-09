@@ -14,11 +14,8 @@ const DOING: Record<string, string> = {
   todo: 'getting things done',
   quote: 'reading',
   word: 'reading',
-  excerpt: 'reading',
-  book: 'reading',
   link: 'following links',
   decision: 'making up your mind',
-  bit: 'collecting one-liners',
   experiment: 'trying things out'
 }
 

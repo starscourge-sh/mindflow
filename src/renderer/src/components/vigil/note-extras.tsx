@@ -17,7 +17,7 @@ import UnlinkIcon from '@/components/ui/unlink-icon'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
-import { KIND_FIELDS, type Field } from '../capture-kinds/kind-fields'
+import { KIND_FIELDS, TAG_FIELDS, type Field } from '../capture-kinds/kind-fields'
 import { Search } from '../search'
 import { Command, CommandInput, CommandItem, CommandList, CommandShortcut } from '@/components/ui/command'
 import { Slider } from '@/components/ui/slider'
@@ -91,7 +91,7 @@ export function KindAsker(): React.JSX.Element | null {
   }
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/40 pt-[22vh]" onMouseDown={() => done(null)}>
-      <div role="dialog" aria-modal="true" aria-label="Change kind" className="w-72 overflow-hidden rounded-xl bg-popover shadow-(--mf-panel-shadow)" onMouseDown={(event) => event.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-label="Change kind" className="w-80 overflow-hidden rounded-xl bg-popover shadow-(--mf-panel-shadow)" onMouseDown={(event) => event.stopPropagation()}>
         <Command
           value={row}
           onValueChange={(label) => {
@@ -113,7 +113,10 @@ export function KindAsker(): React.JSX.Element | null {
             {CAPTURE_TYPES.map((type, index) => (
               <CommandItem key={type.id} value={type.label} onSelect={() => done(type.id)}>
                 <type.icon style={{ color: type.tint }} />
-                <span className="text-xs">{type.label}</span>
+                <span className="flex min-w-0 flex-col">
+                  <span className="text-xs">{type.label}</span>
+                  <span className="text-meta text-muted-foreground">{type.does}</span>
+                </span>
                 {type.id === asked.current && <Check className="ml-auto size-4" />}
                 <CommandShortcut className={type.id === asked.current ? 'ml-2' : ''}>{index + 1}</CommandShortcut>
               </CommandItem>
@@ -149,6 +152,10 @@ const STATUS: Record<string, { said: string; cue: Cue }> = {
  */
 export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: string; kind: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element | null {
   const fields = KIND_FIELDS[kind] ?? []
+  // A tag that brings fields of its own (#book), whatever the kind: those the kind already has are its.
+  const tags = useLive(() => notes.tags(table, id), [] as string[], [table, id])
+  const tagged = Object.entries(TAG_FIELDS).filter(([tag]) => tags.includes(tag))
+    .map(([tag, list]) => [tag, list.filter((field) => !fields.some((one) => one.key === field.key))] as const)
   // Tagged with the note they belong to: until this note's own have come in,
   // a field would start from nothing (or the last note's words) and a blur
   // would write that over what is kept.
@@ -159,8 +166,8 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
   useEffect(() => setWorking(null), [id])
   // Properties a note came with that its kind does not ask for: an imported
   // note's frontmatter, every key of it, shown and editable as words.
-  const others = Object.keys(values).filter((key) => !fields.some((field) => field.key === key))
-  if ((!fields.length && !others.length) || read.of !== `${table}:${id}`) return null
+  const others = Object.keys(values).filter((key) => ![...fields, ...tagged.flatMap(([, list]) => list)].some((field) => field.key === key))
+  if ((!fields.length && !others.length && !tagged.length) || read.of !== `${table}:${id}`) return null
   const save = (key: string, value: string | number | null): void => {
     if ((values[key] ?? null) === (value === '' ? null : value)) return
     void notes.setField(table, id, key, value === '' ? null : value).then(() => chime('noted'))
@@ -169,7 +176,7 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
     Promise.all(Object.entries(patch).map(([key, value]) => notes.setField(table, id, key, value)))
   // A status picked (or picked again, to clear it), dated when a decision is
   // made, and taken back whole by the undo.
-  const pick = (key: string, option: string): void => {
+  const pick = (key: string, option: string, kind: string): void => {
     const next = values[key] === option ? null : option
     const dates = kind === 'decision' && key === 'state'
     const was = { [key]: values[key] ?? null, ...(dates ? { decidedAt: values.decidedAt ?? null } : {}) }
@@ -211,7 +218,6 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
       ))}
     </Island>
   ) : null
-  if (!fields.length) return properties
   const state = String(values.state ?? '')
   const longField = (field: Field, value: string | number | undefined): React.JSX.Element => (
     <label key={`${id}-${field.key}-${value ?? ''}`} className="flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-accent focus-within:bg-accent">
@@ -224,10 +230,9 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
       </span>
     </label>
   )
-  return (
-    <>
-    {properties}
-    <Island compact title={`${CAPTURE_TYPES.find((type) => type.id === kind)?.label ?? 'Kind'} details`}>
+  // One island of fields: the kind's, or a tag's (`kind` then the tag, so a book's Finished says its own thing).
+  const island = (kind: string, title: string, fields: Field[]): React.JSX.Element | null => !fields.length ? null : (
+    <Island key={kind} compact title={title}>
       {fields.map((field) => {
         const value = values[field.key]
         if (field.type === 'hidden') return null
@@ -237,7 +242,7 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
             <div key={field.key} className="px-2 py-1">
               <div className="flex items-center gap-2">
                 <ListChecks className="size-4 shrink-0" />
-                <Chips options={(field.options ?? []).map((option) => ({ id: option, label: option }))} on={(option) => value === option} pick={(option) => pick(field.key, option)} />
+                <Chips options={(field.options ?? []).map((option) => ({ id: option, label: option }))} on={(option) => value === option} pick={(option) => pick(field.key, option, kind)} />
               </div>
               {/* Proof you already thought it through: quiet, and only once it is settled. */}
               {kind === 'decision' && value === 'Decided' && (
@@ -316,6 +321,12 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
         </Tip>
       )}
     </Island>
+  )
+  return (
+    <>
+    {properties}
+    {island(kind, `${CAPTURE_TYPES.find((type) => type.id === kind)?.label ?? 'Kind'} details`, fields)}
+    {tagged.map(([tag, list]) => island(tag, `#${tag}`, list))}
     </>
   )
 }

@@ -126,13 +126,13 @@ export async function seedSandbox(read: Read): Promise<SeedCounts> {
   const napoleon = await capture({ kind: 'quote', attribution: 'Napoleon Bonaparte' }, earlier(23))
   const blueDot = await capture({ kind: 'link', title: 'The Pale Blue Dot' }, earlier(31))
   const apophenia = await capture({ kind: 'word' }, earlier(38))
-  const odyssey = await capture({ kind: 'excerpt', attribution: 'Homer, tr. Samuel Butler', medium: 'The Odyssey, Book 1 (1900)' }, earlier(46))
+  const odyssey = await capture({ kind: 'quote', attribution: 'Homer, tr. Samuel Butler', medium: 'The Odyssey, Book 1 (1900)' }, earlier(46))
   const leonardo = await capture({}, earlier(54))
   const endurance = await capture({}, earlier(61))
   const prestige = await capture({}, earlier(69))
   const totem = await capture({ kind: 'todo' }, earlier(77))
-  const bit = await capture({ kind: 'bit' }, earlier(84))
-  const book = await capture({ kind: 'book', attribution: 'Homer' }, earlier(92))
+  const bit = await capture({}, earlier(84))
+  const book = await capture({ attribution: 'Homer' }, earlier(92))
   const walk = await capture({ kind: 'experiment' }, at(-5, '12:40'))
   const wolf = await capture({}, earlier(107))
   const team = await capture({}, earlier(114))
@@ -142,9 +142,9 @@ export async function seedSandbox(read: Read): Promise<SeedCounts> {
   const primavera20 = await capture({}, earlier(144))
   const pitch = await capture({}, earlier(152))
   // Two books on the go: Dune half read, Dorian Gray finished.
-  const dune = await capture({ kind: 'book', attribution: 'Frank Herbert', medium: 'A friend who would not stop talking about sandworms' }, earlier(166))
+  const dune = await capture({ attribution: 'Frank Herbert', medium: 'A friend who would not stop talking about sandworms' }, earlier(166))
   const duneNotes = await capture({}, at(-1, '22:30'))
-  const dorian = await capture({ kind: 'book', attribution: 'Oscar Wilde', medium: 'A second-hand shop in Dublin' }, at(-2, '21:15'))
+  const dorian = await capture({ attribution: 'Oscar Wilde', medium: 'A second-hand shop in Dublin' }, at(-2, '21:15'))
   const noFace = await capture({}, at(-3, '22:41'))
   const rick = await capture({}, at(-4, '19:12'))
   const gilgamesh = await capture({}, at(-6, '08:03'))
@@ -455,7 +455,7 @@ A word keeps its meaning and an example. Keep it and it comes back in Review as 
   await write(odyssey, `
 Tell me, O muse, of that ingenious hero who travelled far and wide after he had sacked the famous town of Troy. Many cities did he visit, and many were the nations with whose manners and customs he was acquainted; moreover he suffered much by sea while trying to save his own life and bring his men safely home; but do what he might he could not save his men, for they perished through their own sheer folly in eating the cattle of the Sun-god Hyperion; so the god prevented them from ever reaching home.
 
-An excerpt is a long passage you mean to mine. **Try it:** select one sentence and choose **Idea** in the bar that appears. It is kept on its own, and once something is lifted out, the excerpt steps aside.
+A long quote is a passage you mean to mine. **Try it:** select one sentence and choose **Idea** in the bar that appears. It is kept on its own, and once something is lifted out, the long quote steps aside.
 
 ![A clay plaque from Melos showing Odysseus|360](${plaque})
 
@@ -554,17 +554,17 @@ Anything you catch can become a task, and the task remembers where it came from.
 `)
 
   await write(bit, `
-There's no place like 127.0.0.1
+There's no place like 127.0.0.1 #bit
 
-A bit (a joke, a line for later) starts private: blurred in lists until you point at it, and never brought up unasked.
+Tagged #bit (a joke, a line for later), a note starts private: blurred in lists until you point at it, and never brought up unasked.
 
 **Try it:** press ⌥⌘S for safe mode, from any app, and watch everything private leave the screen. Press it again to bring it all back.
 `)
 
   await write(book, `
-The Odyssey
+The Odyssey #book
 
-A book keeps where you are with it and what you made of it. This one feeds ${link(homer, 'a goal of 24 books', 'goal')} and ${link(odyssey, 'an excerpt from Book 1')}.
+Tagged #book, a note keeps where you are with a book and what you made of it. This one feeds ${link(homer, 'a goal of 24 books', 'goal')} and ${link(odyssey, 'a passage from Book 1')}.
 
 **Try it:** open its details and set it to Finished: a place for what you will keep from it appears.
 `)
@@ -626,7 +626,7 @@ Let go, not deleted. Everything you discard waits under Discarded, to bring back
   await window.api.captures.save(pitch, { status: 'discarded' })
 
   await write(dune, `
-Dune
+Dune #book
 
 A book keeps who wrote it and where you heard of it, the two things forgotten first. Its reading notes can live in a note of their own, and a link can open them at the part you are on: ${link(duneNotes, "Dune, as I read it", '', "Book Two: Muad'Dib")}.
 
@@ -659,7 +659,7 @@ The worm ride, the duel, the emperor beaten. It reads like a triumph. Herbert sa
 `)
 
   await write(dorian, `
-The Picture of Dorian Gray
+The Picture of Dorian Gray #book
 
 A book set to Finished asks one more thing: what you will keep from it, a line or two under Takeaway.
 
@@ -734,9 +734,9 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
   // Each book's id by its title, so the lines and notes about it can link to it.
   const bookId: Record<string, string> = {}
   for (const [title, by, heard, n, rating, takeaway] of books) {
-    const id = await capture({ kind: 'book', attribution: by, medium: heard }, on(n, 6, '10:30')[1])
+    const id = await capture({ attribution: by, medium: heard }, on(n, 6, '10:30')[1])
     bookId[title] = id
-    await write(id, title)
+    await write(id, `${title} #book`)
     await field(id, 'status', 'Finished')
     await field(id, 'rating', rating)
     await field(id, 'takeaway', takeaway)
@@ -876,10 +876,10 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
   const monsterLink = link(monster, 'Who is the monster in Frankenstein?', 'question')
   const madLink = link(mad, 'Is Hamlet mad, or acting?', 'question')
   await v('item:save', mad, { body: doc(`The lines that keep it open: ${linesOf('Hamlet')}. From ${bookLink('Hamlet')}.`) })
-  await write(bookId['Meditations'], `Meditations\n\nLines kept: ${linesOf('Meditations')} · ${link(aurelius, 'Very little is needed for a happy life', 'nugget')}`)
-  await write(bookId['Pride and Prejudice'], `Pride and Prejudice\n\nLines kept: ${linesOf('Pride and Prejudice')}\n\nJudged on sight, as the creature is in ${bookLink('Frankenstein')}, only here someone changes their mind.`)
-  await write(bookId['Frankenstein'], `Frankenstein\n\nLines kept: ${linesOf('Frankenstein')}\n\nThe question it left me with: ${monsterLink}`)
-  await write(bookId['Hamlet'], `Hamlet\n\nLines kept: ${linesOf('Hamlet')}\n\nStill circling: ${madLink}. Thinking makes it so, as ${bookLink('Meditations')} says, and says calmer.`)
+  await write(bookId['Meditations'], `Meditations #book\n\nLines kept: ${linesOf('Meditations')} · ${link(aurelius, 'Very little is needed for a happy life', 'nugget')}`)
+  await write(bookId['Pride and Prejudice'], `Pride and Prejudice #book\n\nLines kept: ${linesOf('Pride and Prejudice')}\n\nJudged on sight, as the creature is in ${bookLink('Frankenstein')}, only here someone changes their mind.`)
+  await write(bookId['Frankenstein'], `Frankenstein #book\n\nLines kept: ${linesOf('Frankenstein')}\n\nThe question it left me with: ${monsterLink}`)
+  await write(bookId['Hamlet'], `Hamlet #book\n\nLines kept: ${linesOf('Hamlet')}\n\nStill circling: ${madLink}. Thinking makes it so, as ${bookLink('Meditations')} says, and says calmer.`)
   // Notes caught in passing, each joined to what it was about.
   const noteLink = (start: string): string => {
     const [words, id] = [...passed].find(([one]) => one.startsWith(start))!
@@ -899,7 +899,7 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
     ['Hamlet thinks about every move', [bookLink('Hamlet'), madLink, lineLink(kept[12])]],
     ['Ophelia', [bookLink('Hamlet')]],
     ['Finished Hamlet', [bookLink('Hamlet'), madLink]],
-    ['Odyssey, Book 12', [link(odyssey, 'An excerpt from Book 1'), link(book, 'The Odyssey')]],
+    ['Odyssey, Book 12', [link(odyssey, 'A passage from Book 1'), link(book, 'The Odyssey')]],
     ['Started Dorian Gray', [link(dorian, 'The Picture of Dorian Gray')]],
     ['Finished Dorian Gray', [link(dorian, 'The Picture of Dorian Gray'), link(wilde, 'The line kept from it', 'nugget')]],
     ['Reading on Sunday evenings', [...books.map(([title]) => bookLink(title)), link(dorian, 'Dorian Gray')]],

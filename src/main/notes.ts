@@ -198,6 +198,11 @@ export function registerNotes({ load, guard }: Windows): void {
     changed()
     return true
   })
+  // Its #tags: #book brings a book's fields, whatever its kind.
+  handle('notes:tags', (name: string, id: string) => {
+    const row = db.prepare(`select title, body from ${table(name)} where id = ?`).get(id) as { title: string | null; body: string | null } | undefined
+    return row ? [...new Set([...`${row.title ?? ''} ${plain(parse(row.body))}`.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase()))] : []
+  })
   handle('notes:fields', (name: string, id: string) =>
     parse((db.prepare(`select fields from ${table(name)} where id = ?`).get(id) as { fields: string | null } | undefined)?.fields) ?? {})
   // A new kind, keeping the fields it still has room for. What was there is

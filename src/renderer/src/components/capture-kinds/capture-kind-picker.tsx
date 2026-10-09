@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { chime, step } from "@/lib/sound"
-import { FlaskConical, ScrollText, Split, Sticker } from "lucide-react"
+import { FlaskConical, Split } from "lucide-react"
 import { alive } from "@/components/ui/alive-icon"
-import BookIcon from "@/components/ui/book-icon"
 import SimpleCheckedIcon from "@/components/ui/simple-checked-icon"
 import CheckedIcon from "@/components/ui/checked-icon"
 import NoteIcon from "@/components/ui/note-icon"
@@ -26,7 +25,6 @@ import type { BlockColor } from "@/extensions/block-color"
 import { Tip } from '@/components/vigil/ui'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
-const BookOpen = alive(BookIcon)
 const Check = alive(SimpleCheckedIcon)
 const ListTodo = alive(CheckedIcon)
 const NotebookText = alive(NoteIcon)
@@ -45,35 +43,21 @@ const Link = alive(LinkIcon)
 const tint = (color: BlockColor): string => `var(--tt-color-text-${color})`
 
 /**
- * What a capture can be.
+ * What a capture can be, and in a line what each does.
  *
  * The number beside each is its position, which is also the key that picks it
  * - so the list is the documentation for the shortcut and cannot drift from
- * it.
+ * it. A joke and a book are tags now (#bit, #book), a long paste a quote.
  */
 export const CAPTURE_TYPES = [
-  { id: "note", label: "Note", icon: NotebookText, tint: tint("gray") },
-  { id: "todo", label: "Todo", icon: ListTodo, tint: tint("orange") },
-  { id: "quote", label: "Quote", icon: Quote, tint: tint("purple") },
-  { id: "word", label: "Word", icon: Bookmark, tint: tint("green") },
-  { id: "link", label: "Link", icon: Link, tint: tint("blue") },
-  { id: "excerpt", label: "Excerpt", icon: ScrollText, tint: tint("yellow") },
-  { id: "decision", label: "Decision", icon: Split, tint: tint("red") },
-  { id: "bit", label: "Bit", icon: Sticker, tint: tint("pink") },
-  { id: "book", label: "Book", icon: BookOpen, tint: tint("brown") },
-  { id: "experiment", label: "Experiment", icon: FlaskConical, tint: tint("green") },
+  { id: "note", label: "Note", icon: NotebookText, tint: tint("gray"), does: "Anything that is not one of the others" },
+  { id: "todo", label: "Todo", icon: ListTodo, tint: tint("orange"), does: "Goes to your tasks, its day and priority read as you type" },
+  { id: "quote", label: "Quote", icon: Quote, tint: tint("purple"), does: "Someone else's words, kept with who said them" },
+  { id: "word", label: "Word", icon: Bookmark, tint: tint("green"), does: "Comes back in review asking what it means" },
+  { id: "link", label: "Link", icon: Link, tint: tint("blue"), does: "Shows the page as a card, with why it is worth reading" },
+  { id: "decision", label: "Decision", icon: Split, tint: tint("red"), does: "Comes back on the date you set to check it still holds" },
+  { id: "experiment", label: "Experiment", icon: FlaskConical, tint: tint("green"), does: "Runs until a date, then asks what you found" },
 ] as const
-
-
-// type CaptureKind =
-//   | 'note'      // ✍️ - default — anything that isn't one of the others
-//   | 'quote'     // 💬 - someone else's words
-//   | 'word'      // 🗨️ - a term you looked up
-//   | 'link'      // 🔗 - a URL — parser sets this from paste detection
-//   | 'excerpt'   // 📑 - a long pasted block; the container, not the extract
-//   | 'decision'  // ⚖️ - a choice made, with its why
-//   | 'bit'       // 🃏 - a joke or one-liner
-//   | 'todo'      // 🎯 - an obligation
 
 export type CaptureType = (typeof CAPTURE_TYPES)[number]["id"]
 
@@ -112,7 +96,7 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
 
   return (
     <Popover open={open} onOpenChange={(next) => void (setKeyed(false), setOpen(next))}>
-      <Tip label={suggested ? 'Suggested from what you typed. ⌃L or ⌘1-9 to choose' : undefined}>
+      <Tip label={suggested ? `${current.does}. Suggested from what you typed: ⌃L or ⌘1-7 to choose` : current.does}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" data-kind-chip={flat ? undefined : ''} className={`gap-1.5 rounded-full cursor-pointer ${suggested ? 'border-dashed' : ''} ${flat ? 'h-auto w-full justify-start gap-2 rounded-none border-0 bg-transparent px-2 py-1.5 font-normal shadow-none hover:bg-accent dark:bg-transparent dark:hover:bg-accent' : ''}`}>
           <Icon className="size-4" style={{ color: current.tint }} />
@@ -121,7 +105,7 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
         </PopoverTrigger>
       </Tip>
 
-      <PopoverContent className="w-64 gap-0 p-0" style={keyed ? { animation: 'none' } : undefined} align="start">
+      <PopoverContent className="w-80 gap-0 p-0" style={keyed ? { animation: 'none' } : undefined} align="start">
         <Command
           // Each type its own note as you move through them, as the themes
           // have: a scale under the list. Picking one lands with a chord.
@@ -131,11 +115,11 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
             if (at >= 0 && label !== row) step(at)
             setRow(label)
           }}
-          // The number beside each row picks it, 0 the tenth. Taken before the
+          // The number beside each row picks it. Taken before the
           // input sees it, or the digit is typed into the search instead - no
           // type has one in its name, so nothing is lost by claiming them.
           onKeyDown={(event) => {
-            const picked = /^[0-9]$/.test(event.key) ? CAPTURE_TYPES[(Number(event.key) + 9) % 10] : undefined
+            const picked = /^[1-9]$/.test(event.key) ? CAPTURE_TYPES[Number(event.key) - 1] : undefined
             if (!picked) return
             event.preventDefault()
             chime('settled')
@@ -144,8 +128,8 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
           }}
         >
           <CommandInput placeholder="Change type…" shortcut="⌃L" />
-          {/* A soft fade at the foot while there are more types below: excerpt,
-              decision and the rest are a scroll away, and this says so. */}
+          {/* A soft fade at the foot while there are more types below, should
+              the window be short enough to hide some. */}
           <CommandList
             ref={watchList}
             onScroll={(event) => fade(event.currentTarget)}
@@ -167,10 +151,14 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
                   }}
                 >
                   <Mark style={{ color: type.tint }} />
-                  <span className="text-xs">{type.label}</span>
+                  <span className="flex min-w-0 flex-col">
+                    <span className="text-xs">{type.label}</span>
+                    {/* What it does, in a line: the difference between them, said where you choose. */}
+                    <span className="text-meta text-muted-foreground">{type.does}</span>
+                  </span>
                   {type.id === value && <Check className="ml-auto size-4" />}
                   <CommandShortcut className={type.id === value ? "ml-2" : ""}>
-                    {(index + 1) % 10}
+                    {index + 1}
                   </CommandShortcut>
                 </CommandItem>
               )
@@ -194,9 +182,10 @@ export const ASKS: Record<CaptureType, { who?: string; where?: string; why?: str
   quote: { who: 'Who said it', where: 'Where from' },
   word: { where: 'Where you met it' },
   link: { who: 'Who made it', where: 'Site', why: 'Why is it worth reading? Say it on the next line.' },
-  excerpt: { who: 'Who wrote it', where: 'Where from' },
   decision: { who: 'Decided with', why: 'Why this, and not the others? Say it on the next line.' },
-  bit: { who: 'Whose bit', where: 'Where you heard it' },
-  book: { who: 'Who wrote it', where: 'Where you heard of it' },
   experiment: { who: 'Tried with' }
 }
+
+/** What the box asks, by kind and by the words: tagged #book, any kind asks who wrote it. */
+export const asksFor = (kind: CaptureType, text: string): (typeof ASKS)[CaptureType] =>
+  /(?:^|\s)#book(?![\w-])/i.test(text) ? { ...ASKS[kind], who: 'Who wrote it', where: ASKS[kind]?.where ?? 'Where you heard of it' } : ASKS[kind] ?? {}

@@ -11,6 +11,7 @@ import { advance, readTask } from './task-words'
 import { dayKey, dayMonth, dayjs, daysFromToday, monthName, num, startOfDay } from './dates'
 import { backupDir, checkMarkdown } from './backup'
 import { SANDBOX } from './sandbox'
+import { retireKinds, tagged as hasTag, withTag } from './kinds'
 import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrate'
 import { daysBetween, daysLeft, leftSaid } from './goal-days'
 
@@ -721,6 +722,15 @@ export function registerVigil(): void {
       db.prepare("update settings set value = ? where key = 'sidebarShown'").run(JSON.stringify([...shown, 'goals']))
     db.exec('pragma user_version = 4')
   }
+  // Seven kinds, not ten: a bit is a note tagged #bit (private), an excerpt a
+  // long quote, a book a note tagged #book. What each was is kept in
+  // kind_was, so it can be put back.
+  column('captures', 'kind_was text')
+  column('nuggets', 'kind_was text')
+  if (version < 5) {
+    for (const id of retireKinds(db)) checkMarkdown(id)
+    db.exec('pragma user_version = 5')
+  }
 
   // A write that may reach a milestone is looked at once it is done, and the
   // window it came from is the one that celebrates.
@@ -774,18 +784,10 @@ export function registerVigil(): void {
       // Gone meanwhile, from another window: nothing to tag.
       const row = db.prepare('select body from captures where id = ?').get(id) as { body: string } | undefined
       if (!row) continue
-      const body = JSON.parse(row.body ?? 'null')
       // On the first line, where a row reads its tags: added at the end it
-      // was there but never showed.
-      // The first block holding words, heading or paragraph: that line is
-      // the capture's name, and where a row reads its tags.
-      const at = (body?.content ?? []).findIndex((block: { type?: string; content?: unknown[] }) => ['paragraph', 'heading'].includes(block.type ?? '') && block.content?.length)
-      const next = body && typeof body === 'object'
-        ? at >= 0
-          ? { ...body, content: body.content.map((block: { content?: unknown[] }, index: number) => (index === at ? { ...block, content: [...(block.content ?? []), { type: 'text', text: ` ${tag}` }] } : block)) }
-          : { ...body, content: [{ type: 'paragraph', content: [{ type: 'text', text: tag }] }, ...(body.content ?? [])] }
-        : String(body ?? '').replace(/^([^\n]*)/, (line) => `${line} ${tag}`.trim())
-      db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(next), id)
+      // was there but never showed. #bit makes it private, as typed does.
+      db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(withTag(JSON.parse(row.body ?? 'null'), tag)), id)
+      if (tag.toLowerCase() === '#bit') (db.prepare('update captures set private = 1 where id = ?').run(id), checkMarkdown(id))
     } })
     return write(ids.length)
   })
@@ -1235,6 +1237,9 @@ export function registerVigil(): void {
       const stored = key === 'body' ? JSON.stringify(value) : key === 'suspended' ? (value ? 1 : 0) : value
       db.prepare(`update nuggets set ${key} = ?, updated_at = ? where id = ?`).run(stored as string, now(), id)
     }
+    // #bit written in makes it private, once, as it would a capture.
+    if (patch.body !== undefined && !moved && hasTag(JSON.stringify(patch.body), 'bit') && !hasTag(before?.body, 'bit'))
+      db.prepare('update nuggets set private = 1 where id = ?').run(id)
     // Said to be this item, so lists of captures do not read every body again.
     return write(moved ? { conflict: true, body: moved.body } : true, { kind: 'item', id })
   })
@@ -1260,8 +1265,9 @@ export function registerVigil(): void {
     const attribution = origin.attribution ?? (origin.captureId ? (db.prepare('select attribution from captures where id = ?').get(origin.captureId) as { attribution: string | null } | undefined)?.attribution : null)
     db.prepare("insert into nuggets (id, capture_id, kind, title, body, attribution, created_at, updated_at) values (?, ?, 'note', ?, ?, ?, ?, ?)")
       .run(id, origin.captureId ?? null, text.split('\n')[0].slice(0, 160), JSON.stringify(text), attribution ?? null, now(), now())
-    // An excerpt is a container: once something is pulled out of it, it has done its job.
-    if (origin.captureId) db.prepare("update captures set status = 'promoted' where id = ? and kind = 'excerpt' and status = 'open'").run(origin.captureId)
+    // A long quote (what was an excerpt) is a container: once something is
+    // pulled out of it, it has done its job. A short one is the line itself.
+    if (origin.captureId) db.prepare("update captures set status = 'promoted' where id = ? and kind = 'quote' and status = 'open' and (kind_was = 'excerpt' or length(words(id, body)) > 600)").run(origin.captureId)
     return write(id)
   })
   // Wrong, and corrected: the correction becomes its own nugget, the wrong one
@@ -1842,11 +1848,14 @@ export function registerVigil(): void {
       where r.reviewed_at >= ? and r.reviewed_at < ? and n.private = 0
       group by r.item_id order by n desc limit 1`).get(since, until) as { title: string; n: number } | undefined
     // The books begun in it, finished or still going, each with the lines kept
-    // from it: a quote or an excerpt whose where begins with the book's name.
-    const lines = db.prepare(`select count(*) n from captures where kind in ('quote', 'excerpt') and private = 0 and status != 'discarded'
+    // from it: a quote whose where begins with the book's name. A book is
+    // anything tagged #book, named without its tags.
+    const lines = db.prepare(`select count(*) n from captures where kind = 'quote' and private = 0 and status != 'discarded'
       and captured_at >= ? and captured_at < ? and lower(coalesce(medium, '')) like lower(?) || '%'`)
-    const books = (db.prepare(`select ${LABEL} as title, attribution as by, json_extract(fields, '$.status') as state from captures
-      where kind = 'book' and private = 0 and status != 'discarded' and captured_at >= ? and captured_at < ? order by captured_at`).all(since, until) as { title: string; by: string | null; state: string | null }[])
+    const books = (db.prepare(`select ${LABEL} as title, title as own, body, attribution as by, json_extract(fields, '$.status') as state from captures
+      where body like '%#book%' and private = 0 and status != 'discarded' and captured_at >= ? and captured_at < ? order by captured_at`).all(since, until) as { title: string; own: string | null; body: string | null; by: string | null; state: string | null }[])
+      .filter((book) => hasTag(`${book.own ?? ''} ${book.body ?? ''}`, 'book'))
+      .map((book) => ({ ...book, title: book.title.replace(/(?:^|\s)#[a-z][\w-]*/gi, '').trim() }))
       .filter((book) => book.title && (book.state === 'Finished' || book.state === 'Reading'))
       .map((book) => ({ title: book.title, by: book.by, finished: book.state === 'Finished', lines: (lines.get(since, until, book.title) as { n: number }).n }))
     // What was caught, by kind, and the same for the span before it, for the

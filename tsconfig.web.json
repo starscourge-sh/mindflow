@@ -9,6 +9,7 @@
     "src/main/backup.ts",
     "src/main/sandbox.ts",
     "src/main/import.ts",
+    "src/main/kinds.ts",
     "src/main/embeds.ts",
     "src/main/task-words.ts",
     "src/main/dates.ts",
