@@ -89,7 +89,7 @@ try {
     await go('home')
     // The main process answers the map's channel with the made-up notes instead.
     await c.electron.evaluate(({ ipcMain }) => {
-      const kinds = ['note', 'quote', 'word', 'link', 'excerpt', 'book', 'todo']
+      const kinds = ['note', 'quote', 'word', 'link', 'decision', 'experiment', 'todo']
       const nodes = Array.from({ length: 600 }, (_, i) => ({ type: 'capture', id: `n${i}`, title: `Note number ${i}`, kind: kinds[i % 7], links: 0 }))
       const edges = []
       for (let i = 1; i < 600; i++) edges.push([`n${Math.floor(Math.random() * i)}`, `n${i}`])
