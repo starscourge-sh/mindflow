@@ -5,7 +5,6 @@ import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 import DownChevronIcon from '@/components/ui/down-chevron'
 import LayoutDashboardIcon from '@/components/ui/layout-dashboard-icon'
 import UnorderedListIcon from '@/components/ui/unordered-list-icon'
-import XIcon from '@/components/ui/x-icon'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -24,7 +23,6 @@ const Check = alive(SimpleCheckedIcon)
 const ChevronDown = alive(DownChevronIcon)
 const LayoutGrid = alive(LayoutDashboardIcon)
 const LayoutList = alive(UnorderedListIcon)
-const X = alive(XIcon)
 
 /**
  * Display, the way Todoist and Linear do it: one button on a list that holds
@@ -340,7 +338,8 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
   const icon = (one: Choice): ReactNode => (one.icon ? <one.icon className="size-3.5" style={{ color: one.tint }} /> : one.tint ? <span className="size-2 rounded-full" style={{ background: one.tint }} /> : null)
   return (
     // One line that scrolls sideways, fading where there is more, never wrapping under itself.
-    <div data-hover-quiet ref={(node) => { box.current = node; row.ref(node) }} {...hover.handlers} style={row.style} className={`isolate flex min-w-0 items-center gap-1 text-xs ${row.className} ${className}`}>
+    // Only a chip itself toggles: a click in the space beside one does nothing (the light's own click-through is left out here).
+    <div data-hover-quiet ref={(node) => { box.current = node; row.ref(node) }} {...hover.handlers} onClick={undefined} style={row.style} className={`isolate flex min-w-0 items-center gap-1 text-xs ${row.className} ${className}`}>
       <Highlight spot={hover.spot} session={hover.session} snap={hover.snap} className="rounded-full bg-accent/60" />
       {/* Chosen filters from other facets first; the quick facet's options
           stay in their own order whether on or off, so a click never moves
@@ -352,25 +351,7 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
         <Chip key={option.id} on={(view.filter[offered.key] ?? []).includes(option.id) && !(defaults[offered.key] ?? []).includes(option.id)}
           onClick={() => toggle(offered.key, option.id)}>{icon(option)}{option.label}</Chip>
       ))}
-      {/* At the end, so nothing waits for it at the start; always there, only
-          faded out when nothing is chosen, so appearing it moves no chip. */}
-      {(
-        <Tip label="Clear the filters">
-          <button
-            type="button"
-            disabled={!set.length}
-            aria-hidden={!set.length}
-            tabIndex={set.length ? 0 : -1}
-            onClick={() => {
-              chime('undo')
-              onChange({ ...view, filter: { ...defaults } })
-            }}
-            className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground transition-opacity duration-150 hover:text-foreground disabled:pointer-events-none disabled:opacity-0"
-          >
-            <X className="size-3.5" />
-          </button>
-        </Tip>
-      )}
+      {/* One way to clear: a chosen chip shows its ✓, and a click on it takes it off. */}
     </div>
   )
 }

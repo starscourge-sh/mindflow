@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { DndContext, MeasuringStrategy, PointerSensor, closestCenter, pointerWithin, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragMoveEvent, type DragStartEvent, type Modifier } from '@dnd-kit/core'
 import { SortableContext, useSortable, type SortingStrategy } from '@dnd-kit/sortable'
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform, type MotionValue } from 'motion/react'
-import { ChevronRight, Layers, Plus, X as Cross } from 'lucide-react'
+import { ChevronRight, GripVertical, Layers, Plus, X as Cross } from 'lucide-react'
 
 import { alive } from '@/components/ui/alive-icon'
 import XIcon from '@/components/ui/x-icon'
@@ -47,6 +47,8 @@ export type Bundle = { group?: GroupView; entries: Entry[] }
 
 export type Folds = {
   bundles: Bundle[]
+  /** In your own order: false while sorted some other way, when only joining or leaving a group means anything. */
+  ordered: boolean
   /** A drop, for the list to work out and save: `ids` is everything carried, in the order it is read. */
   onDrop: (ids: string[], target: string, how: How) => void
   /** The rows picked (⌘-click, ⇧-click, x): carrying one of them carries them all. */
@@ -117,9 +119,11 @@ function Node({ id, children, inner, indent = 0 }: { id: string; children: React
       {...listeners}
       tabIndex={-1}
       role={undefined}
-      className="relative isolate"
+      className="group/grip relative isolate"
       style={{ transform: transform ? `translate3d(0, ${Math.round(transform.y)}px, 0)` : undefined, transition, opacity: isDragging && !room ? 0.3 : undefined }}
     >
+      {/* That a row can be carried, said quietly: a grip in the margin by its left edge, only once the pointer has rested on it a moment. */}
+      <GripVertical aria-hidden data-grip="" className="pointer-events-none absolute top-1/2 size-3 -translate-y-1/2 text-muted-foreground/60 opacity-0 transition-opacity duration-150 group-hover/grip:opacity-100 group-hover/grip:delay-[400ms] motion-reduce:transition-none" style={{ left: indent - 13 }} />
       {room && (
         <span aria-hidden data-room={rows} className="pointer-events-none absolute inset-x-1 top-0 rounded-md bg-[color-mix(in_srgb,var(--tt-brand-color-400)_6%,transparent)] animate-in fade-in-0 duration-150" style={{ height: rows * height - 2 }} />
       )}
@@ -164,7 +168,7 @@ function Node({ id, children, inner, indent = 0 }: { id: string; children: React
  * `face` draws a note's row as every list does; `index` counts rows on show,
  * which is what the keyboard's cursor counts.
  */
-export function GroupedList({ bundles, onDrop, picked, onLetGo, onFold, onNewNote, renaming, onRenaming, born, face, after, arrived, cursor, estimate, className }: Folds & {
+export function GroupedList({ bundles, ordered, onDrop, picked, onLetGo, onFold, onNewNote, renaming, onRenaming, born, face, after, arrived, cursor, estimate, className }: Folds & {
   face: (entry: Entry, index: number) => React.JSX.Element
   after?: (entry: Entry) => ReactNode
   arrived: (id: string) => boolean
@@ -298,6 +302,8 @@ export function GroupedList({ bundles, onDrop, picked, onLetGo, onFold, onNewNot
       : !own && into ? `Add ${count}to ${name(into)}`
       : n > 1 ? `Move ${n} here`
       : null
+    // Sorted some other way, a row has no place of its own to move to: only into a group, or out of one, does anything.
+    if (!ordered && !isGroup(id) && how !== 'join' && (into ?? undefined) === own) return point(null)
     point({ target, how, into, label: words, tint: tintOf(info.get(into ?? own ?? '')?.color) })
   }
   const end = (): void => {
@@ -336,6 +342,7 @@ export function GroupedList({ bundles, onDrop, picked, onLetGo, onFold, onNewNot
       onDragStart={onDragStart} onDragMove={onDragMove} onDragOver={({ over }) => ticks(over?.id)} onDragEnd={onDragEnd} onDragCancel={end}>
       <SortableContext items={keys} strategy={strategy}>
         <Carrying.Provider value={{ aim, height, leaving, down, along: new Set(many.filter((one) => one !== carried)), within, hand: carried }}>
+          {ordered && <OwnOrderHint />}
           <VirtualList items={lines} keyOf={({ one }) => (one.group ? KEY + one.group.id : one.entries[0].id)} cursor={line >= 0 ? line : undefined} estimate={estimate} className={className}>
             {({ one, start }) =>
               one.group ? (
@@ -442,6 +449,33 @@ function Fanned({ entry, depth, dragY }: { entry: Entry; depth: number; dragY: M
   )
 }
 
+/** Said once, the first time a list is in your own order: rows can be carried, and gathered. */
+function OwnOrderHint(): React.JSX.Element | null {
+  const [seen, setSeen] = useState(() => {
+    try {
+      return !!localStorage.getItem('hint:own-order')
+    } catch {
+      return true
+    }
+  })
+  if (seen) return null
+  const done = (): void => {
+    setSeen(true)
+    try {
+      localStorage.setItem('hint:own-order', '1')
+    } catch {
+      // Not kept: it shows again next time, which is harmless.
+    }
+  }
+  return (
+    <p data-own-order-hint="" className="mb-1 flex items-center gap-2 px-2 text-xs text-muted-foreground animate-in fade-in-0 duration-300">
+      <GripVertical aria-hidden className="size-3 shrink-0" />
+      <span className="min-w-0 flex-1">Drag a row to move it; let it go on another row to make a group.</span>
+      <button type="button" onClick={done} className="shrink-0 rounded px-1.5 py-0.5 hover:bg-accent hover:text-foreground">Got it</button>
+    </p>
+  )
+}
+
 /** How many are carried, in a small badge on the lifted card's corner. */
 function Count({ n }: { n: number }): React.JSX.Element {
   return (
@@ -518,9 +552,15 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
       toast(`Separated: ${count === 1 ? 'the note stays' : `all ${count} notes stay`}`, () => void groups.restore(was).then(() => chime('gather')))
     }, still() ? 0 : 140 + count * 40)
   }
-  const rename = (name: string): void => {
+  // A new name shows at once and stays, never the old one flashing back while the save is on its way.
+  const [named, setNamed] = useState<string | null>(null)
+  useEffect(() => void (named !== null && named === group.name && setNamed(null)), [named, group.name])
+  const name = named ?? group.name
+  const rename = (next: string): void => {
     onRenaming(false)
-    if (name.trim() && name.trim() !== group.name) change(group, { name: name.trim() }, `Renamed ${name.trim()}`)
+    if (!next.trim() || next.trim() === group.name) return
+    setNamed(next.trim())
+    change(group, { name: next.trim() }, `Renamed ${next.trim()}`)
   }
   const peek = usePeek(!group.open && !menu && !picking && !renaming && !hand && !parting)
   const shown = (menu || picking || renaming || joining || landing || near || losing >= 0 || pointing || !arrived || born) && !parting
@@ -591,7 +631,7 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
                       className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 pr-9 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-transparent!"
                     >
                       <PopoverAnchor asChild><span className="flex w-9 shrink-0 justify-center"><GroupIcon icon={group.icon} color={group.color} /></span></PopoverAnchor>
-                      <span className="min-w-0 truncate text-control font-semibold">{group.name}</span>
+                      <span className="min-w-0 truncate text-control font-semibold">{name}</span>
                       <ChevronRight
                         aria-hidden
                         className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none"
@@ -632,7 +672,7 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
                   onMouseLeave={() => setPointing(false)}
                   // Not a handle: pressing here never lifts the group.
                   onPointerDown={(event) => event.stopPropagation()}
-                  className="absolute top-1/2 right-1.5 flex size-6 -translate-y-1/2 cursor-pointer! items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity duration-150 group-hover/fold:opacity-100 group-data-[active]/fold:opacity-100 hover:text-foreground focus-visible:opacity-100"
+                  className="absolute top-1/2 right-0.5 flex size-6 -translate-y-1/2 cursor-pointer! items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity duration-150 group-hover/fold:opacity-100 group-data-[active]/fold:opacity-100 hover:text-foreground focus-visible:opacity-100"
                 >
                   <X className="size-3.5" />
                 </button>

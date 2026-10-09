@@ -140,10 +140,10 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   const groups = spread && query.trim() ? arranged.map(([name, list]) => [name, list.filter((one) => matches(one.title, query))] as [string, Item[]]).filter(([, list]) => list.length) : arranged
   // x, ⌘-click and ⇧-click pick rows: several nuggets make one article, and any rows make a group.
   const [chosen, setChosen] = useState<string[]>([])
-  const folding = useFolding(tier, all, ownOrder, view.sort === 'manual' && view.group === 'none' && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? groups.flatMap(([, list]) => list) : null,
-    () => setView({ ...view, sort: 'manual', group: 'none', density: view.density === 'list' || view.density === 'compact' ? view.density : 'list' }), () => setChosen([]), chosen)
+  // Groups show as groups in every sort, as rows (not tiles, and not when Display groups the list by kind or date).
+  const folding = useFolding(tier, all, ownOrder, view.group === 'none' && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? groups.flatMap(([, list]) => list) : null,
+    view.sort === 'manual', () => setChosen([]), chosen)
   const items = folding.rows ?? groups.flatMap(([, list]) => list)
-  const noteGroups = useGroups(tier)
   const onMove = (id: string, target: string, after: boolean): void => move(all.map((one) => one.id), id, target, after)
   // Spread out, a click looks at a note beside the list; Enter opens it.
   const [peek, setPeek] = useState<string | null>(null)
@@ -267,9 +267,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
     { label: 'Copy title', run: () => copy(item.title) }
   ]
 
-  // Drawn flat (another sort, or grouped by kind or date), a note in a group says which, small, beside its age.
-  const chipOf = new Map(noteGroups.flatMap((group) => group.members.map((id) => [id, { label: group.name, tint: tintOf(group.color) }] as const)))
-  const entries = groups.map(([name, list]) => [name, list.map((one) => ({ ...itemEntry(one, menuFor(one)), chip: folding.rows ? undefined : chipOf.get(one.id) }))] as [string, Entry[]])
+  const entries = groups.map(([name, list]) => [name, list.map((one) => itemEntry(one, menuFor(one)))] as [string, Entry[]])
   return (
     <>
       {open && pane === 'rail' ? (
@@ -354,7 +352,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
         {items.length ? (
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (setPeek(id), setCursor(items.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined}
-            onChoose={toggle} onRange={range} pickWithCommand onMove={onMove} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'}
+            onChoose={toggle} onRange={range} pickWithCommand onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'}
             folds={folding.rows ? { ...folding.folds(menuFor), onNewNote: pick } : undefined} />
         ) : all.length && query.trim() ? (
           <Empty shape={['ellipse', 3]} title="Nothing matches">No title here has those words. Escape clears the search.</Empty>
@@ -858,7 +856,7 @@ export function useItemDisplay(name: string, every: Item[]): {
  * back the same, so nothing jumps back while the save is on its way. Every
  * change says so with a way back.
  */
-function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, shown: Item[] | null, toOwn: () => void, done: () => void, chosen: string[]): {
+function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, shown: Item[] | null, ordered: boolean, done: () => void, chosen: string[]): {
   rows: Item[] | null
   step: (id: string, by: number) => number | null
   /** The group lines of a row's menu: for that row, or every row picked. */
@@ -900,12 +898,23 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   const isOpen = (id: string): boolean => opened[id] ?? !info.get(id)?.folded
   const visible = new Map((shown ?? every).map((one) => [one.id, one]))
   const shut = new Set(list.filter((one) => !isOpen(one.id)).map((one) => one.id))
-  const blocks = (from: Layout): { group?: string; items: Item[] }[] =>
-    from.top.flatMap((key) => {
+  // In your own order, as you laid it out. In any other sort, the groups stay
+  // together at the top in your own order, and the sort orders the notes in
+  // each and the loose rows under them.
+  const rank = new Map((shown ?? []).map((one, at) => [one.id, at]))
+  const bySort = (a: Item, b: Item): number => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0)
+  const blocks = (from: Layout): { group?: string; items: Item[] }[] => {
+    const laid = from.top.flatMap((key): { group?: string; items: Item[] }[] => {
       if (!isGroup(key)) return visible.has(key) ? [{ items: [visible.get(key)!] }] : []
       const items = (from.groups[groupId(key)] ?? []).flatMap((id) => (visible.has(id) ? [visible.get(id)!] : []))
       return items.length ? [{ group: groupId(key), items }] : []
     })
+    if (ordered) return laid
+    return [
+      ...laid.filter((one) => one.group).map((one) => ({ ...one, items: [...one.items].sort(bySort) })),
+      ...laid.filter((one) => !one.group).sort((a, b) => bySort(a.items[0], b.items[0]))
+    ]
+  }
   const rowsOf = (from: Layout): Item[] => blocks(from).flatMap((one) => (one.group && !isOpen(one.group) ? [] : one.items))
   const now = blocks(layout)
   const keys = now.flatMap((one) => (one.group ? [KEY + one.group, ...(isOpen(one.group) ? one.items.map((item) => item.id) : [])] : [one.items[0].id]))
@@ -929,7 +938,6 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     const was = layout
     // A group left with one note comes apart, in the same step, and the same Undo.
     const { layout: next, dissolved } = tidy(raw)
-    if (!shown) toOwn()
     chime(dissolved.length ? 'separate' : cue)
     if (dissolved.length && !matchMedia('(prefers-reduced-motion: reduce)').matches && document.documentElement.dataset.motion !== 'off') {
       setHeld(raw)
@@ -948,6 +956,8 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     }))
   }
   const step = (id: string, by: number): number | null => {
+    // Sorted some other way, there is no own place to step to.
+    if (!ordered) return null
     const next = stepLayout(layout, keys, id, by, shut)
     if (!next) return null
     commit(next, 'shift')
@@ -1029,6 +1039,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     },
     picked: chosen,
     onLetGo: () => done(),
+    ordered,
     onFold: (group, open) => {
       setOpened((was) => ({ ...was, [group.id]: open }))
       void noteGroupsApi.set(group.id, { folded: !open })

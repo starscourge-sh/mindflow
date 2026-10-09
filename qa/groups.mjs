@@ -359,7 +359,15 @@ if (c) try {
   check('after a restart the groups are kept', memory?.color === 'blue' && memory.members.length === 3 && memory.folded === 1 && !!(await named(c, 'Reading')), JSON.stringify(await groupsNow(c)))
   check('and Memory is still drawn folded', (await row(c, 'The forgetting curve').count()) === 0)
   const rest = await row(c, 'Interleaving beats blocking').evaluate((el) => getComputedStyle(el).cursor)
-  check('a row at rest shows an open hand', rest === 'grab', rest)
+  check('a row at rest shows the plain arrow', rest === 'default', rest)
+  // A faint grip at its left edge, only after a moment's rest on it.
+  await row(c, 'Interleaving beats blocking').hover()
+  await c.h.waitForTimeout(80)
+  const early = await row(c, 'Interleaving beats blocking').evaluate((el) => Number(getComputedStyle(el.closest('[data-sortable-id]').querySelector('[data-grip]')).opacity))
+  await c.h.waitForTimeout(700)
+  const late = await row(c, 'Interleaving beats blocking').evaluate((el) => Number(getComputedStyle(el.closest('[data-sortable-id]').querySelector('[data-grip]')).opacity))
+  check('the grip comes in only after resting a moment', early < 0.2 && late > 0.8, `${early} then ${late}`)
+  await frames(c, 'grip-light', 1, 0)
   let carrying = ''
   let sprung = false
   await carry(c, row(c, 'Interleaving beats blocking'), head(c, 'Memory'), 0.15, {
@@ -414,10 +422,24 @@ if (c) try {
   await c.h.reload()
   await c.h.waitForTimeout(1500)
   await articles(c)
-  const chips = await c.h.locator('[data-chip]').allTextContents()
-  check('in another sort, grouped rows carry a chip', chips.filter((one) => one === 'Memory').length === 3 && chips.filter((one) => one === 'Reading').length === 2 && (await c.h.locator('[data-group-row]').count()) === 0, JSON.stringify(chips))
+  // In another sort the groups are still groups, kept together at the top, and nothing switches the sort.
+  const heads = await c.h.locator('[data-group-row]').count()
+  const firstRows = await c.h.evaluate(() => [...document.querySelectorAll('[data-group-row], [data-row]:not([data-lifted] *)')].sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).map((one) => (one.hasAttribute('data-group-row') ? 'group' : 'row')))
+  check('in another sort, groups still show as groups, at the top, with no chips', heads === 2 && firstRows[0] === 'group' && (await c.h.locator('[data-chip]').count()) === 0, firstRows.slice(0, 4).join(','))
   await c.h.mouse.move(900, 700)
-  await frames(c, 'o-chips-dark', 1, 0)
+  await frames(c, 'o-newest-dark', 1, 0)
+  // A loose row carried to an edge between loose rows: nothing to do there, no line, and the sort stays.
+  const loose = await c.h.evaluate(() => [...document.querySelectorAll('[data-row]:not([data-lifted] *)')].filter((one) => !one.closest('[data-group-block]')).map((one) => one.textContent.slice(0, 16)))
+  await carry(c, row(c, loose[loose.length - 1]), row(c, loose[0]), 0.1, {
+    hold: async () => (await c.h.waitForTimeout(200), check('sorted, an edge between loose rows offers nothing', (await c.h.locator('[data-drop-line]').count()) === 0 && !(await said(c))))
+  })
+  await c.h.waitForTimeout(600)
+  check('and the sort is still Newest', (await c.h.evaluate(() => JSON.parse(localStorage.getItem('view:article')).sort)) === 'newest')
+  // Into a group by its middle still works, sorted or not.
+  const grouped = (await groupsNow(c)).reduce((sum, one) => sum + one.members.length, 0)
+  await carry(c, row(c, loose[0]), c.h.locator('[data-group-block]').first().locator('[data-row]').first(), 0.5)
+  await c.h.waitForTimeout(700)
+  check('sorted, a row still joins a group, and the sort stays', (await c.h.evaluate(() => JSON.parse(localStorage.getItem('view:article')).sort)) === 'newest' && (await groupsNow(c)).reduce((sum, one) => sum + one.members.length, 0) === grouped + 1)
   if (c.errors.length) console.log('errors:', c.errors.slice(0, 5))
   check('no errors in the page', !c.errors.some((one) => /PAGEERROR/.test(one)), c.errors.find((one) => /PAGEERROR/.test(one)) ?? '')
 } catch (error) {
@@ -493,6 +515,41 @@ try {
   await c.h.mouse.move(900, 700)
   await c.h.waitForTimeout(400)
   await frames(c, 'u-filtered-light', 1, 0)
+  // The hint, once, the first time the list is in your own order.
+  check('a one-time hint says rows can be carried', (await c.h.locator('[data-own-order-hint]').count()) === 1)
+  await c.h.locator('[data-own-order-hint] button').click()
+  await c.h.waitForTimeout(200)
+  check('and Got it puts it away', (await c.h.locator('[data-own-order-hint]').count()) === 0)
+  // Renamed, the new name shows at once and the old never flashes back.
+  const old = (await c.h.locator('[data-group-row]').first().textContent()).trim()
+  await c.h.locator('[data-group-row]').first().dblclick()
+  await c.h.waitForTimeout(200)
+  await c.h.keyboard.press('Meta+a')
+  await c.h.keyboard.type('Planets')
+  await c.h.keyboard.press('Enter')
+  const seenNames = []
+  for (let i = 0; i < 25; i++) { seenNames.push((await c.h.locator('[data-group-row]').first().textContent()).trim()); await c.h.waitForTimeout(16) }
+  check('a new name shows at once and stays', seenNames.every((one) => one.startsWith('Planets')), `${old} → ${[...new Set(seenNames)].join(' / ')}`)
+  // Only a chip itself toggles a filter; no second way to clear beside them.
+  const chipsBox = await c.h.locator('button[aria-pressed]').last().boundingBox()
+  const filterBefore = await c.h.evaluate(() => localStorage.getItem('view:nugget'))
+  await c.h.mouse.click(chipsBox.x + chipsBox.width + 60, chipsBox.y + chipsBox.height / 2)
+  await c.h.waitForTimeout(300)
+  check('a click beside the chips changes nothing', (await c.h.evaluate(() => localStorage.getItem('view:nugget'))) === filterBefore)
+  check('no separate clear button beside the chips', (await c.h.locator('[aria-label="Clear the filters"]').count()) === 0)
+  // A private row's eye and a group's × sit on one line down the right.
+  const firstGroup = c.h.locator('[data-group-block]').first()
+  await c.v('private', 'nuggets', await firstGroup.locator('[data-row]').first().getAttribute('data-id'), true)
+  await c.h.waitForTimeout(800)
+  await firstGroup.locator('[data-group-row]').hover()
+  await c.h.waitForTimeout(400)
+  const columns = await c.h.evaluate(() => {
+    const eye = [...document.querySelectorAll('[data-group-block] [data-row] .sr-only')].find((one) => one.textContent === 'Private')?.parentElement?.querySelector('svg')?.getBoundingClientRect()
+    const cross = document.querySelector('[data-group-block] button[aria-label^="Separate"] svg')?.getBoundingClientRect()
+    return eye && cross ? { eye: eye.left + eye.width / 2, cross: cross.left + cross.width / 2 } : null
+  })
+  check('the eye and the × share one column', !!columns && Math.abs(columns.eye - columns.cross) <= 2, JSON.stringify(columns))
+  await frames(c, 'column-light', 1, 0)
   let bad = await overlaps(c)
   check('with a filter on, no rows overlap and panels keep apart', bad.length === 0, bad.slice(0, 4).join('; '))
   // Drag a free note into the second group's middle row, and look at the gap.
