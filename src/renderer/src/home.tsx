@@ -577,12 +577,16 @@ export function Home(): React.JSX.Element {
         <Highlight spot={sideHover.spot} session={sideHover.session} snap={sideHover.snap} from={sideChosen.spot} />
         <nav className="flex flex-col gap-px">
           {(() => {
+            // Where a promoted capture or a new task flies to (lib/fly-home.ts).
+            const homeOf = (id: string): string | undefined => (id === 'nuggets' ? 'nugget' : id === 'upcoming' ? 'task' : id === 'questions' ? 'question' : undefined)
+            // A fold's heading stands in for the rows it holds while they are shut away.
+            const homesIn = (list: typeof SECTIONS): string | undefined => list.map((section) => homeOf(section.id)).filter(Boolean).join(' ') || undefined
             const row = (section: (typeof SECTIONS)[number]): React.JSX.Element => (
               <Tooltip key={section.id}>
               <TooltipTrigger asChild>
               <button
                 type="button"
-                data-home={section.id === 'nuggets' ? 'nugget' : section.id === 'upcoming' ? 'task' : section.id === 'questions' ? 'question' : undefined}
+                data-home={homeOf(section.id)}
                 data-tour={section.id === 'inbox' || section.id === 'review' ? section.id : undefined}
                 data-side-row
                 aria-label={section.label}
@@ -609,13 +613,14 @@ export function Home(): React.JSX.Element {
               </Tooltip>
             )
             // A group's name, small: click folds it; pointed at, it offers Customize.
-            const heading = (label: string, open: boolean, fold: (open: boolean) => void, customize = true): React.JSX.Element =>
+            const heading = (label: string, open: boolean, fold: (open: boolean) => void, customize = true, near?: string): React.JSX.Element =>
               narrow ? <div key={label} className="mt-3" /> : (
                 <div key={label} className="group/head mt-3 mb-0.5 flex items-center">
                   <button
                     type="button"
                     aria-expanded={open}
                     data-side-row
+                    data-home-near={near}
                     onClick={() => (chime(open ? 'fold' : 'slide'), fold(!open))}
                     className="flex flex-1 items-center gap-1 rounded-md px-2 py-0.5 text-left text-meta text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground"
                   >
@@ -649,7 +654,7 @@ export function Home(): React.JSX.Element {
               const list = visible.filter((section) => section.group === name)
               if (!list.length) return null
               // Folded, the one you are on still shows, so you never lose your place.
-              return <Fragment key={name}>{heading(name, open, fold)}{folding(list, open)}</Fragment>
+              return <Fragment key={name}>{heading(name, open, fold, true, homesIn(list))}{folding(list, open)}</Fragment>
             }
             return (<>
               {loose(false).map(row)}
@@ -690,12 +695,12 @@ export function Home(): React.JSX.Element {
               {/* Everything not shown, one fold away; G and a letter reach it anyway. */}
               {hidden.length > 0 && (narrow ? (
                 <Tip label="More">
-                  <button type="button" data-side-row aria-expanded={moreOpen} aria-label="More" onClick={() => (chime(moreOpen ? 'fold' : 'slide'), setMoreOpen(!moreOpen))}
+                  <button type="button" data-side-row data-home-near={homesIn(hidden)} aria-expanded={moreOpen} aria-label="More" onClick={() => (chime(moreOpen ? 'fold' : 'slide'), setMoreOpen(!moreOpen))}
                     className="mt-3 flex justify-center rounded-md py-1 text-muted-foreground hover:text-foreground">
                     <AliveIcon icon={DotsHorizontalIcon} size={16} />
                   </button>
                 </Tip>
-              ) : heading('More', moreOpen, setMoreOpen))}
+              ) : heading('More', moreOpen, setMoreOpen, true, homesIn(hidden)))}
               {narrow ? hidden.filter((section) => moreOpen || view.id === section.id).map(row) : folding(hidden, moreOpen)}
             </>)
           })()}
@@ -840,7 +845,8 @@ export function Home(): React.JSX.Element {
           ...(sidebar ? [] : [{ icon: MagnifierIcon, flip: false, label: 'Search', keys: '⌘K', run: () => setSearching('all') }])
         ].map(({ icon, flip, label, keys, run }) => (
           <Tip key={keys} label={keyed(label, keys)}>
-            <button type="button" aria-label={label} onClick={run} className={TOOL} style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
+            {/* With the sidebar away, what would fly to it lands on the button that brings it back. */}
+            <button type="button" aria-label={label} onClick={run} data-home-away={keys === '⌘B' && !sidebar ? '' : undefined} className={TOOL} style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
               {/* itshover draws the panel on the right; ours is on the left. */}
               <AliveIcon icon={icon} size={16} className={flip ? '-scale-x-100' : ''} />
             </button>

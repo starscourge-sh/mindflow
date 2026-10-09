@@ -1597,11 +1597,14 @@ html[data-link-pictures="whole"] .tiptap.ProseMirror.mindflow-editor .tiptap-boo
 
 // A caption: the quiet line under a picture or a video, sized and placed like
 // what it names, so a small centred picture has its words centred under it.
-// The media gives up most of its bottom margin to sit close to its words.
+// The media gives up most of its bottom margin to sit close to its words:
+// about 8px from the picture to the caption's letters. Firmer than the note
+// page's own room around pictures (main.css), which left the caption about
+// 30px down, far enough to read as the next paragraph.
 .tiptap.ProseMirror.mindflow-editor {
   :is(img, div[data-youtube-video]):has(+ .mf-caption),
   .react-renderer:has(+ .mf-caption) > .tiptap-attachment {
-    margin-bottom: 0.375rem;
+    margin-bottom: 0.375rem !important;
   }
 
   .mf-caption {

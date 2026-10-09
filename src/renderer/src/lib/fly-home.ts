@@ -12,6 +12,117 @@ export type Home = 'nugget' | 'task' | 'capture' | 'question'
 const still = (): boolean =>
   document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
+type Box = { left: number; top: number; width: number; height: number }
+
+/** Whether a box scrolls or cuts what is inside it. */
+const cuts = (el: Element): boolean => {
+  const style = getComputedStyle(el)
+  return style.overflowX !== 'visible' || style.overflowY !== 'visible'
+}
+
+/**
+ * What of an element is on screen: cut by every box around it that scrolls
+ * or clips, and by the window. Nothing when none of it shows.
+ */
+function seen(el: Element): Box | null {
+  const r = el.getBoundingClientRect()
+  let [left, top, right, bottom] = [r.left, r.top, r.right, r.bottom]
+  for (let up = el.parentElement; up && up !== document.body; up = up.parentElement) {
+    if (!cuts(up)) continue
+    const b = up.getBoundingClientRect()
+    ;[left, top, right, bottom] = [Math.max(left, b.left), Math.max(top, b.top), Math.min(right, b.right), Math.min(bottom, b.bottom)]
+  }
+  ;[left, top, right, bottom] = [Math.max(left, 0), Math.max(top, 0), Math.min(right, innerWidth), Math.min(bottom, innerHeight)]
+  return right - left >= 1 && bottom - top >= 1 ? { left, top, width: right - left, height: bottom - top } : null
+}
+
+/** Not under something else (a dialog, a sheet): what is on top at its middle is it, or inside it. */
+const onTop = (el: Element, box: Box): boolean => {
+  const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+  return !!hit && (el.contains(hit) || hit.contains(el))
+}
+
+/**
+ * The thing to show flying: a copy of the part of it on screen, so a row
+ * half scrolled out of its list never flies over what is around the list.
+ */
+function snapshot(from: HTMLElement | null): { box: Box; picture: HTMLElement; x: number; y: number } | undefined {
+  if (!from || still()) return undefined
+  const box = seen(from)
+  if (!box) return undefined
+  const whole = from.getBoundingClientRect()
+  const picture = from.cloneNode(true) as HTMLElement
+  picture.removeAttribute('data-id')
+  const [x, y] = [whole.left - box.left, whole.top - box.top]
+  Object.assign(picture.style, { margin: '0', width: `${whole.width}px`, height: `${whole.height}px`, pointerEvents: 'none', transform: `translate(${x}px, ${y}px)` })
+  return { box, picture, x, y }
+}
+
+/**
+ * Each place has its colour, so where it went reads at a glance: a nugget
+ * purple, a task green, back to the Inbox blue, a question in the accent.
+ */
+const colourOf = (home: Home): string => {
+  const root = getComputedStyle(document.documentElement)
+  const hue = { nugget: '--tt-color-text-purple', task: '--tt-color-text-green', capture: '--tt-color-text-blue', question: '--tt-brand-color-400' }[home]
+  return root.getPropertyValue(hue).trim() || root.getPropertyValue('--tt-brand-color-400').trim() || 'var(--primary)'
+}
+
+/** Where a flight lands, and how that place answers. */
+type Landing = { end: Box; nod: () => void }
+
+const pulse = (el: HTMLElement): (() => void) => () =>
+  void el.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.12)' }, { transform: 'scale(1)' }], { duration: 220, easing: 'ease-out' })
+
+/**
+ * The nearest place it lives that can be seen now, never one hidden or
+ * covered: its row, or with the row scrolled out of its list, that list's
+ * edge on the row's side (which lights up as it lands), or the heading of
+ * the fold it is shut in, or with the sidebar away, the button that brings
+ * the sidebar back. Nothing when none of these shows.
+ */
+function landing(home: Home): Landing | null {
+  const all = (attribute: string): HTMLElement[] =>
+    [...document.querySelectorAll<HTMLElement>(`[${attribute}~="${home}"]`)].filter((el) => el.offsetParent !== null)
+  const rows = all('data-home')
+  for (const to of rows) {
+    const box = seen(to)
+    // Most of it in view: a row cut by a hair at the list's edge is still a place to land.
+    if (box && box.height >= to.getBoundingClientRect().height * 0.6 && onTop(to, box)) return { end: box, nod: pulse(to) }
+  }
+  for (const to of rows) {
+    let list = to.parentElement
+    while (list && !(cuts(list) && list.scrollHeight > list.clientHeight)) list = list.parentElement
+    const view = list && seen(list)
+    if (!list || !view || !onTop(list, view)) continue
+    const row = to.getBoundingClientRect()
+    const below = row.top >= view.top + view.height / 2
+    const x = Math.min(Math.max(row.left + row.width / 2, view.left + 12), view.left + view.width - 12)
+    // A small mark just inside the edge, pointing the way to the row.
+    const end = { left: x - 6, top: below ? view.top + view.height - 14 : view.top + 2, width: 12, height: 12 }
+    return {
+      end,
+      nod: () => {
+        const accent = colourOf(home)
+        const bar = document.createElement('div')
+        Object.assign(bar.style, {
+          position: 'fixed', left: `${view.left + 8}px`, width: `${view.width - 16}px`, height: '2px', borderRadius: '1px',
+          top: below ? `${view.top + view.height - 3}px` : `${view.top + 1}px`, background: accent, zIndex: '60', pointerEvents: 'none',
+          boxShadow: `0 0 8px ${accent}`
+        })
+        document.body.append(bar)
+        bar.animate([{ opacity: 0, transform: 'scaleX(0.4)' }, { opacity: 1, transform: 'scaleX(1)', offset: 0.35 }, { opacity: 0, transform: 'scaleX(1)' }], { duration: 520, easing: 'ease-out' })
+          .finished.then(() => bar.remove(), () => bar.remove())
+      }
+    }
+  }
+  for (const to of [...all('data-home-near'), ...[...document.querySelectorAll<HTMLElement>('[data-home-away]')].filter((el) => el.offsetParent !== null)]) {
+    const box = seen(to)
+    if (box && onTop(to, box)) return { end: box, nod: pulse(to) }
+  }
+  return null
+}
+
 export const lift = (id: string, home: Home): (() => void) | undefined =>
   liftFrom(document.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`), home)
 
@@ -20,13 +131,11 @@ const SQUARE = 26
 
 /** The same, from any element: a whole note sent off to the Inbox. */
 export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | undefined {
-  if (!from || still()) return undefined
-  const box = from.getBoundingClientRect()
   // A picture of it as it is now, inside a plain card: the real one is about
   // to change or go. The card is what flies; the picture only fades.
-  const picture = from.cloneNode(true) as HTMLElement
-  picture.removeAttribute('data-id')
-  Object.assign(picture.style, { margin: '0', width: `${box.width}px`, height: `${box.height}px`, pointerEvents: 'none' })
+  const shot = snapshot(from)
+  if (!shot) return undefined
+  const { box, picture } = shot
   const card = document.createElement('div')
   Object.assign(card.style, {
     position: 'fixed', left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`,
@@ -38,10 +147,10 @@ export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | u
   card.append(picture)
   return () => {
     // The nearest place it lives that is on screen now: the prompt's tab, or
-    // the main window's sidebar.
-    const to = [...document.querySelectorAll<HTMLElement>(`[data-home~="${home}"]`)].find((el) => el.offsetParent !== null)
+    // the main window's sidebar (see `landing`).
+    const to = landing(home)
     if (!to) return
-    const end = to.getBoundingClientRect()
+    const { end } = to
     document.body.append(card)
     // Three steps, one after the other, so it always looks the same whatever
     // was sent: the words go, the card folds into a small square where it
@@ -51,13 +160,9 @@ export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | u
     const fade = picture.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 110, easing: 'linear', fill: 'forwards' })
     void fade.finished
       .then(() => {
-        // As it folds, the square takes the accent colour: a plain card on a
+        // As it folds, the square takes its place's colour: a plain card on a
         // dark page blended in, and the eye lost it on the way.
-        // Each place has its colour, so where it went reads at a glance: a
-        // nugget purple, a task green, back to the Inbox blue, a question in the accent.
-        const root = getComputedStyle(document.documentElement)
-        const hue = { nugget: '--tt-color-text-purple', task: '--tt-color-text-green', capture: '--tt-color-text-blue', question: '--tt-brand-color-400' }[home]
-        const accent = root.getPropertyValue(hue).trim() || root.getPropertyValue('--tt-brand-color-400').trim() || 'var(--primary)'
+        const accent = colourOf(home)
         card.style.backgroundImage = 'none'
         card.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--popover').trim() || 'Canvas'
         card.animate([{ backgroundColor: card.style.backgroundColor, borderColor: 'var(--border)' }, { backgroundColor: accent, borderColor: accent }], { duration: 200, easing: 'ease-out', fill: 'forwards' })
@@ -85,7 +190,7 @@ export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | u
       })
       .then(() => {
         card.remove()
-        to.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.12)' }, { transform: 'scale(1)' }], { duration: 220, easing: 'ease-out' })
+        to.nod()
       })
       .catch(() => card.remove())
   }
@@ -99,12 +204,10 @@ export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | u
  * it returns a `land` for once the change is made.
  */
 export function shred(id: string): (() => void) | undefined {
-  const from = document.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`)
-  if (!from || still()) return undefined
-  const box = from.getBoundingClientRect()
-  const picture = from.cloneNode(true) as HTMLElement
-  picture.removeAttribute('data-id')
-  Object.assign(picture.style, { margin: '0', width: `${box.width}px`, height: `${box.height}px`, pointerEvents: 'none' })
+  // Only what is on screen of it is shredded, so no strip falls from behind the list's edge.
+  const shot = snapshot(document.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`))
+  if (!shot) return undefined
+  const { box, picture, x, y } = shot
   return () => {
     // Narrow as a shredder cuts, whatever the width: a long row is many strips, not a few blocks.
     const strips = Math.max(8, Math.min(48, Math.round(box.width / 14)))
@@ -119,7 +222,7 @@ export function shred(id: string): (() => void) | undefined {
         boxShadow: '0 1px 2px rgb(0 0 0 / 0.18)'
       })
       const piece = picture.cloneNode(true) as HTMLElement
-      piece.style.transform = `translateX(${-n * width}px)`
+      piece.style.transform = `translate(${x - n * width}px, ${y}px)`
       strip.append(piece)
       document.body.append(strip)
       const turn = (Math.random() * 2 - 1) * 14
@@ -151,11 +254,9 @@ export const crumple = (id: string): (() => void) | undefined =>
   crumpleFrom(document.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`))
 
 export function crumpleFrom(from: HTMLElement | null): (() => void) | undefined {
-  if (!from || still()) return undefined
-  const box = from.getBoundingClientRect()
-  const picture = from.cloneNode(true) as HTMLElement
-  picture.removeAttribute('data-id')
-  Object.assign(picture.style, { margin: '0', width: `${box.width}px`, height: `${box.height}px`, pointerEvents: 'none' })
+  const shot = snapshot(from)
+  if (!shot) return undefined
+  const { box, picture } = shot
   return () => {
     const sheet = document.createElement('div')
     Object.assign(sheet.style, {
