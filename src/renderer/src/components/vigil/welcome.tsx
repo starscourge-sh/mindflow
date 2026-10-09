@@ -642,7 +642,7 @@ function writeBeats(): Beat<WriteState>[] {
     { at: 6700, to: { bar: true }, cue: cue('open') },
     { at: 8200, to: { hand: 'idea' } },
     { at: 8800, to: { down: true }, cue: () => click('tick') },
-    { at: 8880, to: { down: false, hand: null, card: true, edited: PICKED }, cue: cue('open') }
+    { at: 8880, to: { down: false, hand: null, card: true, edited: PICKED, scroll: 0.86 }, cue: cue('open') }
   ]
   // The words reworded in the card, then kept.
   const run = typed<WriteState>(REWORDED, 10300, (sofar) => ({ edited: sofar }), random, 0.35)
