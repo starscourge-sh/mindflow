@@ -61,7 +61,7 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
           <section key={group.id} id={`powers-${slug(group.id)}`} aria-label={group.id} className="mt-14 scroll-mt-6">
             <h2 className="font-heading text-heading font-semibold tracking-[-0.01em] text-foreground">{group.id}</h2>
             <p className="mt-1 text-control text-muted-foreground">{group.line}</p>
-            <div className="mt-5 grid gap-3 @[40rem]/page:grid-cols-2 @[66rem]/page:grid-cols-3">
+            <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-3 @[40rem]/page:grid-cols-2 @[66rem]/page:grid-cols-3">
               {POWERS.filter((power) => power.group === group.id).map((power) => (
                 <Card key={power.id} power={power} used={!!used?.has(power.id)} onView={onView} />
               ))}
@@ -198,7 +198,7 @@ function Pages({ onView }: { onView: (id: string) => void }): React.JSX.Element 
     <section id="powers-every-page" aria-label="Every page" className="mt-14 scroll-mt-6">
       <h2 className="font-heading text-heading font-semibold tracking-[-0.01em] text-foreground">Every page</h2>
       <p className="mt-1 text-control text-muted-foreground">G and a letter goes to each one from anywhere in the window.</p>
-      <div className="mt-5 grid gap-x-6 @[40rem]/page:grid-cols-2 @[66rem]/page:grid-cols-3">
+      <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-x-6 @[40rem]/page:grid-cols-2 @[66rem]/page:grid-cols-3">
         {list.map((section) => (
           <button key={section.id} type="button" onClick={() => (chime('tap'), onView(section.id))}
             className="group -mx-2 flex items-start gap-3 rounded-lg px-2 py-2.5 text-left transition-colors duration-150 hover:bg-foreground/[0.05]">

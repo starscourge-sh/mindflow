@@ -27,6 +27,8 @@ import { BookAsker } from './books'
 import { GoalAsker } from './goals-view'
 import { num } from '../../../../main/dates'
 import { AliveIcon } from '@/components/ui/alive-icon'
+import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { OrbState } from 'thinking-orbs'
 import { Orb } from './orb'
 import type { AnimatedIconHandle, AnimatedIconProps } from '@/components/ui/types'
@@ -112,6 +114,56 @@ function useListWidth(): [string, React.JSX.Element] {
   return [`${width}px`, grip]
 }
 
+/**
+ * A page's actions, on the right of its header line, as long as they fit
+ * there. A narrow pane of a split page (or a narrow window) has less room
+ * than they need: then they wait behind one ⋯ button, in the same order.
+ * Measured on the line itself, so it follows the pane, not the window.
+ */
+function FitActions({ children }: { children: ReactNode }): React.JSX.Element {
+  const line = useRef<HTMLDivElement>(null)
+  // The width they took the last time they were all on the line.
+  const need = useRef(0)
+  const [folded, setFolded] = useState(false)
+  const [open, setOpen] = useState(false)
+  useLayoutEffect(() => {
+    const box = line.current
+    if (!box) return
+    const fit = (): void => {
+      if (!folded) {
+        need.current = box.scrollWidth
+        if (box.scrollWidth > box.clientWidth + 1) setFolded(true)
+      } else if (box.clientWidth >= need.current) setFolded(false)
+    }
+    fit()
+    const watch = new ResizeObserver(fit)
+    watch.observe(box)
+    return () => watch.disconnect()
+  })
+  useEffect(() => void (!folded && setOpen(false)), [folded])
+  return (
+    // Overflowing to the right, never the left, so the line can measure what does not fit.
+    <div ref={line} className="flex min-w-0 flex-1 items-center overflow-hidden">
+      <div className="ml-auto flex shrink-0 items-center gap-1">
+      {folded ? (
+        <Popover open={open} onOpenChange={setOpen}>
+          <Tip label="More">
+            <PopoverTrigger asChild>
+              <button type="button" aria-label="More" className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground data-[state=open]:bg-accent/60 data-[state=open]:text-foreground">
+                <AliveIcon icon={DotsHorizontalIcon} size={16} />
+              </button>
+            </PopoverTrigger>
+          </Tip>
+          <PopoverContent align="end" className="w-auto max-w-[min(22rem,calc(100vw-2rem))] p-1.5 text-xs text-muted-foreground [&>*]:flex-wrap [&>*]:justify-end">
+            {children}
+          </PopoverContent>
+        </Popover>
+      ) : children}
+      </div>
+    </div>
+  )
+}
+
 /** A view's frame: title, a muted count, actions on the right, then the body. */
 export function Page({ title, count, unit = ['item', 'items'], actions, children, aside = false, wide = false }: {
   title: ReactNode
@@ -137,7 +189,7 @@ export function Page({ title, count, unit = ['item', 'items'], actions, children
         <header data-chrome={aside || undefined} className={`${wide ? '' : 'page-column '}flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground`}>
           {typeof title === 'string' && title.startsWith('#') ? <span className="font-medium text-foreground">{title}</span> : null}
           {count ? <span className="whitespace-nowrap tabular-nums"><Rolling text={count} /> {count === 1 ? unit[0] : unit[1]}</span> : null}
-          <div className="ml-auto flex min-w-0 items-center gap-1">{actions}</div>
+          <FitActions>{actions}</FitActions>
         </header>
       )}
       <SmoothScroll wide={wide}>{children}</SmoothScroll>

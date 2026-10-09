@@ -13,6 +13,13 @@ import { Tip } from './ui'
 export type PaneApi = { scrolled: () => [string, number][]; restore: (scroll: [string, number][] | null) => void }
 export type PaneShown = { key: string; label: string; at: number; width?: PaneWidth; node: ReactNode }
 
+// Whether the last thing pressed was Tab: only then does focus arriving in a
+// pane bring it to the front. A menu closing hands the focus back to the row
+// it opened from, and that must never pull the wrong pane forward.
+let tabbed = false
+addEventListener('keydown', (event) => void (tabbed = event.key === 'Tab'), true)
+addEventListener('pointerdown', () => void (tabbed = false), true)
+
 /** Narrower than this, a pane would only show a sliver of its page: they take turns instead. */
 const MIN = 300
 /** The gap between panes, which is also where a divider is held. */
@@ -134,8 +141,7 @@ export function SplitPanes({ panes, front, sizes, onSizes, onFront, onClose, onW
 
 /**
  * One pane: the page card, which keeps how its page was scrolled for Back,
- * and comes to the front when pointed at. (Not on focus: a menu closing hands
- * the focus back to the row it opened from, which would pull the wrong pane forward.)
+ * and comes to the front when pointed at, or tabbed into.
  */
 function PaneFrame({ pane, apis, split, front, hidden, share, divider, onFront, onWidth }: {
   pane: PaneShown
@@ -205,6 +211,7 @@ function PaneFrame({ pane, apis, split, front, hidden, share, divider, onFront, 
         data-pane-front={split && front ? '' : undefined}
         data-width={split && pane.width ? (pane.width === 'narrow' ? 'page' : pane.width) : undefined}
         onPointerDownCapture={() => !front && onFront(pane.key)}
+        onFocusCapture={() => tabbed && !front && onFront(pane.key)}
         className={`relative min-h-0 min-w-0 ${hidden ? 'hidden' : 'flex'}`}
         style={{ flexGrow: share, flexBasis: 0 }}
       >

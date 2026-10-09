@@ -159,6 +159,30 @@ try {
   check('Vim off: ⌃L while typing moves the keys, the note untouched', list[1].front && (await editor.textContent()) === text2, show(list))
   await press('Control+h')
 
+  // --- Focus arriving in a pane brings it forward only when Tab moved it -----------------
+  // Tried from a few of pane 2's buttons, since where Tab goes next depends on the page.
+  let tabbedIn = null
+  let leftAlone = true
+  for (let n = 0; n < 6 && !tabbedIn; n++) {
+    await blur()
+    const focused = await h.evaluate((i) => {
+      const all = [...document.querySelectorAll('[data-pane]')[1].querySelectorAll('button:not([disabled])')].filter((el) => el.offsetParent !== null && !el.closest('[inert]'))
+      const el = all[i]
+      el?.focus()
+      return !!el && document.activeElement === el
+    }, n)
+    if (!focused) continue
+    await wait(300)
+    if (!(await panes(h))[0].front) leftAlone = false
+    await press('Tab')
+    const landed = await h.evaluate(() => [...document.querySelectorAll('[data-pane]')].findIndex((p) => p.contains(document.activeElement)))
+    if (landed === 1) tabbedIn = await panes(h)
+    else await press('Control+h')
+  }
+  check('focus moved by the app (as a menu closing does) leaves the front pane where it is', leftAlone)
+  check('Tab moving within pane 2 brings it to the front', !!tabbedIn && tabbedIn[1].front, tabbedIn ? show(tabbedIn) : 'Tab never stayed in pane 2')
+  await press('Control+h')
+
   // --- J in one pane's list never moves another's ---------------------------------------------
   await press('Control+l', 'Control+l')
   await blur()
@@ -167,6 +191,8 @@ try {
   check('J moves the list cursor in the front pane only', cursors[2] && !cursors[0] && !cursors[1], JSON.stringify(cursors))
 
   // --- Resize: drag the first divider, then double-click the second ---------------------------
+  // The app can put its window back where it was; the test's own size again.
+  await c.size(1500, 900)
   const widths0 = (await panes(h)).map((one) => one.width)
   const divider = h.locator('[data-pane-divider]').nth(0)
   const box = await divider.boundingBox()
@@ -203,6 +229,7 @@ try {
   check('after a restart each pane still has its Back', backAfter.panes.some((one, i) => one.trail.at !== againTrails.panes[i].trail.at), '')
 
   // --- Double-click a divider: equal shares --------------------------------------------------------
+  await c.size(1500, 900)
   await h.locator('[data-pane-divider]').nth(1).dblclick(); await wait(500)
   const even = (await panes(h)).map((one) => one.width)
   check('double-clicking a divider shares the room equally', Math.max(...even) - Math.min(...even) < 6, `${even}`)

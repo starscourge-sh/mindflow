@@ -192,7 +192,7 @@ export function CollectionHeader({ tint, cover, label, title, length = 0, meta, 
           </p>
         </div>
       </div>
-      <div className="page-column flex items-center gap-1 px-5 pb-4 @[44rem]/band:gap-2 @[44rem]/band:px-8 @[44rem]/band:pb-5">{actions}</div>
+      <div className="page-column flex flex-wrap items-center gap-1 px-5 pb-4 @[44rem]/band:gap-2 @[44rem]/band:px-8 @[44rem]/band:pb-5">{actions}</div>
     </header>
   )
 }
