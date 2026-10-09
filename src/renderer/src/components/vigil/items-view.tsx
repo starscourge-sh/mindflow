@@ -46,6 +46,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/vigil/ui'
+import { Does, GHOST } from './ghost'
 import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/vigil/alive-icon'
@@ -537,15 +538,21 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
               {item.mode === 'pushed' ? 'Only now and then' : 'Keep showing me this'}
             </Prop>
           )}
+          <Does does="A question this idea answers. Filled in, it is tested in Review on a schedule; empty, it comes back on its own now and then" set={!!prompt}>
           <Textarea
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
             onBlur={savePrompt}
             rows={3}
-            placeholder="A question this answers. Empty, it comes back on its own."
-            className="resize-none text-control"
+            placeholder="e.g. Who wrote Frankenstein, and how old was she?"
+            data-ghost-field={prompt ? undefined : ""}
+            aria-label="A question this answers"
+            className={`resize-none text-control ${GHOST}`}
           />
-          <Prop icon={SquareDashed} onClick={cloze}>Blank the selected words</Prop>
+          </Does>
+          <Tip label="Select a few words in the note first. They become a blank you fill in when it comes up in Review">
+            <div><Prop icon={SquareDashed} onClick={cloze}>Blank the selected words</Prop></div>
+          </Tip>
           {item.dueAt && <Prop icon={Calendar}>Next review {when(item.dueAt, false)}</Prop>}
           {!!item.reviewed && <div className="px-2 py-1.5 text-muted-foreground"><ReviewHistory id={item.id} /></div>}
           {item.lapses >= 4 && (
@@ -577,22 +584,30 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
         {item.tier === 'nugget' ? (
           <>
             <Island compact title="Context">
+              <Does does="What makes the answer make sense. Shown after the answer in Review" set={!!item.context}>
               <Textarea
                 defaultValue={item.context ?? ''}
                 onBlur={(event) => void vigil.saveItem(item.id, { context: event.target.value.trim() || null })}
                 rows={2}
-                placeholder="What makes the answer make sense: shown after it in review"
-                className="resize-none text-control"
+                placeholder="e.g. Written in a wet summer by Lake Geneva, for a ghost story contest"
+                data-ghost-field={item.context ? undefined : ""}
+                aria-label="Context"
+                className={`resize-none text-control ${GHOST}`}
               />
+              </Does>
             </Island>
             <Island compact title="Why">
+              <Does does="Why the answer is so, in a line. Shown under it in Review" set={!!item.why}>
               <Textarea
                 defaultValue={item.why ?? ''}
                 onBlur={(event) => void vigil.saveItem(item.id, { why: event.target.value.trim() || null })}
                 rows={1}
-                placeholder="Why the answer is so, in a line: under it in review"
-                className="resize-none text-control"
+                placeholder="e.g. Mary Shelley was eighteen when she began it"
+                data-ghost-field={item.why ? undefined : ""}
+                aria-label="Why"
+                className={`resize-none text-control ${GHOST}`}
               />
+              </Does>
             </Island>
             <Island compact title="Grow it">
               {/* Two hundred words of your own beside it is an article written

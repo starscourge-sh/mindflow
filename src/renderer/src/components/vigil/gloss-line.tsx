@@ -6,10 +6,11 @@ import MessageCircleIcon from '@/components/ui/message-circle-icon'
 import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
 
 import { chime } from '@/lib/sound'
-import { useLive, vigil, when, type Gloss } from '@/lib/vigil'
+import { unloaded, useLive, vigil, when, type Gloss } from '@/lib/vigil'
 import { cn } from '@/lib/cn'
 import { Island, Kbd, Rolling, Tip, toast, typing, Pressed } from './ui'
 import { Term } from './term'
+import { GhostText } from './ghost'
 import { ago } from '../../../../main/dates'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -236,6 +237,12 @@ export function GlossTimeline({ id }: { id: string }): React.JSX.Element {
       <div className="px-2 py-1.5">
         <GlossLine id={id} latest={false} placeholder="Why you kept it, or where you disagree" />
       </div>
+      {/* None yet: what one looks like, faint and plainly an example, never kept. */}
+      {!glosses.length && !unloaded(glosses) && (
+        <Tip label="A gloss is a dated thought on this note. They pile up, newest first, so you can see your mind change">
+          <p className="px-2 pb-1.5 pl-[1.85rem] text-xs leading-relaxed"><GhostText>e.g. Darcy only changes because Elizabeth tells him the truth</GhostText></p>
+        </Tip>
+      )}
       <AnimatePresence initial={false}>
         {glosses.map((one) => (
           <motion.div

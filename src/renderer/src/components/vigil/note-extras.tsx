@@ -24,6 +24,7 @@ import { Slider } from '@/components/ui/slider'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { chime, step, type Cue } from '@/lib/sound'
+import { blurFor } from '@/lib/pictures'
 import { notes, smallPicture, useThumb, type GraphNode, type NoteTable, type Version } from '@/lib/notes'
 import { useLive, vigil } from '@/lib/vigil'
 import { Chips } from './display'
@@ -35,6 +36,8 @@ import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import { PAGE_WIDTHS, setPageWidth, showDetails, useDetailsShown, widthOf, type PageWidth } from '@/lib/reading'
 import { ReadThrough } from './read-through'
 import { Island, PropInput, Rolling, Tip, Typed, refuse, toast } from './ui'
+import { Does, GHOST, GhostText } from './ghost'
+import { cn } from '@/lib/cn'
 import { age, dayKey, dayMonth, dayjs, daysFromToday, moment, noon, num, when } from '../../../../main/dates'
 import { DatePicker } from './date-picker'
 import { keyFor } from '@/lib/keys'
@@ -62,7 +65,8 @@ export function Thumb({ id, className = 'size-9' }: { id: string; className?: st
   if (!src) return null
   return (
     // Blurred with the words when its row is private: a picture says as much.
-    <span className={`private-text block shrink-0 overflow-hidden rounded-md border bg-accent/40 ${className}`}>
+    // Its colours, softly, until the small copy arrives (lib/pictures.ts).
+    <span className={`private-text block shrink-0 overflow-hidden rounded-md border bg-accent/40 bg-cover bg-center ${className}`} style={{ backgroundImage: shown ? undefined : blurFor(src) }}>
       {shown && <img src={shown} alt="" loading="lazy" decoding="async" draggable={false} className="size-full object-cover animate-in fade-in-0 duration-200" />}
     </span>
   )
@@ -219,17 +223,18 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
     </Island>
   ) : null
   const state = String(values.state ?? '')
-  const longField = (field: Field, value: string | number | undefined): React.JSX.Element => (
-    <label key={`${id}-${field.key}-${value ?? ''}`} className="flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-accent focus-within:bg-accent">
+  const longBox = (field: Field, value: string | number | undefined): React.JSX.Element => (
+    <label data-ghost-field={field.ghost && !value ? '' : undefined} key={`${id}-${field.key}-${value ?? ''}`} className="flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-accent focus-within:bg-accent">
       <AlignLeft className="mt-1 size-4 shrink-0" />
       <span className="flex min-w-0 flex-1 flex-col">
         {/* Once filled, the placeholder that said what it was is gone: the name stays above. */}
-        {value ? <span className="text-meta">{field.label}</span> : null}
-        <Textarea rows={2} defaultValue={String(value ?? '')} placeholder={field.placeholder ?? field.label} aria-label={field.label} onBlur={(event) => save(field.key, event.target.value.trim())}
-          className="min-h-0 resize-none border-0 bg-transparent p-0 text-control text-foreground shadow-none focus-visible:ring-0 dark:bg-transparent" />
+        {value || field.ghost ? <span className="text-meta">{field.label}</span> : null}
+        <Textarea rows={2} defaultValue={String(value ?? '')} placeholder={field.ghost ?? field.placeholder ?? field.label} aria-label={field.label} onBlur={(event) => save(field.key, event.target.value.trim())}
+          className={cn('min-h-0 resize-none border-0 bg-transparent p-0 text-control text-foreground shadow-none focus-visible:ring-0 dark:bg-transparent', field.ghost && GHOST)} />
       </span>
     </label>
   )
+  const longField = (field: Field, value: string | number | undefined): React.JSX.Element => <Does key={`${id}-${field.key}-${value ?? ''}`} does={field.does} set={!!value}>{longBox(field, value)}</Does>
   // One island of fields: the kind's, or a tag's (`kind` then the tag, so a book's Finished says its own thing).
   const island = (kind: string, title: string, fields: Field[]): React.JSX.Element | null => !fields.length ? null : (
     <Island key={kind} compact title={title}>
@@ -240,10 +245,12 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
         if (field.type === 'choice')
           return (
             <div key={field.key} className="px-2 py-1">
+              <Does does={field.does} set={!!value}>
               <div className="flex items-center gap-2">
                 <ListChecks className="size-4 shrink-0" />
                 <Chips options={(field.options ?? []).map((option) => ({ id: option, label: option }))} on={(option) => value === option} pick={(option) => pick(field.key, option, kind)} />
               </div>
+              </Does>
               {/* Proof you already thought it through: quiet, and only once it is settled. */}
               {kind === 'decision' && value === 'Decided' && (
                 <p className="flex items-center gap-1.5 pt-1 pb-0.5 pl-6 text-xs text-muted-foreground">
@@ -299,17 +306,20 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
             }} />
         if (field.type === 'rating')
           return (
-            <div key={field.key} className="flex items-center gap-2 px-2 py-1.5" aria-label={`${field.label}: ${value ?? 'none'} of 5`}>
+            <Does key={field.key} does={field.does} set={!!value}>
+            <div data-ghost={value ? undefined : ''} className="group/stars flex items-center gap-2 px-2 py-1.5" aria-label={`${field.label}: ${value ?? 'none'} of 5`}>
               <span className="w-12 text-meta">{field.label}</span>
               {[1, 2, 3, 4, 5].map((n) => (
-                <button key={n} type="button" aria-label={`${n} of 5`} onClick={() => (step(n - 1), save(field.key, value === n ? null : n))} className="text-muted-foreground hover:text-foreground">
+                // Unrated, five faint stars: there to be seen, plainly not a score.
+                <button key={n} type="button" aria-label={`${n} of 5`} onClick={() => (step(n - 1), save(field.key, value === n ? null : n))} className={`text-muted-foreground hover:text-foreground ${value ? '' : 'opacity-45 group-hover/stars:opacity-100 motion-safe:transition-opacity'}`}>
                   <Star className="size-4" style={Number(value) >= n ? { fill: 'var(--tt-color-text-yellow)', color: 'var(--tt-color-text-yellow)' } : undefined} />
                 </button>
               ))}
             </div>
+            </Does>
           )
         if (field.type === 'long') return longField(field, value)
-        const input = <PropInput key={`${id}-${field.key}-${value ?? ''}`} icon={Type} value={String(value ?? '')} placeholder={field.placeholder ?? field.label} onSave={(text) => save(field.key, text)} />
+        const input = <PropInput key={`${id}-${field.key}-${value ?? ''}`} icon={Type} value={String(value ?? '')} placeholder={field.placeholder ?? field.label} ghost={field.ghost} does={field.does} onSave={(text) => save(field.key, text)} />
         // A decision's call is read by its name, so the name stays once it is written.
         return kind === 'decision' && value ? <div key={field.key}><span className="block px-8 pt-1.5 -mb-1.5 text-meta">{field.label}</span>{input}</div> : input
       })}
@@ -340,14 +350,18 @@ function DateField({ field, value, settled, onSave }: { field: Field; value: str
   const iso = typeof value === 'string' && /^\d{4}-\d\d-\d\dT/.test(value) ? value : null
   const due = !!iso && !settled && daysFromToday(iso) <= 0
   return (
+    <Does does={field.does} set={!!value}>
+    <div>
     <DatePicker value={iso} onChange={onSave} suggest={field.suggest} className="w-full rounded-none">
       <CalendarDays className="size-4 shrink-0" />
       <span className="w-16 shrink-0 truncate text-meta">{field.label}</span>
       <span className={`min-w-0 flex-1 truncate ${iso ? 'text-foreground' : 'text-foreground/70'}`}>
-        {iso ? when(iso) : value ? String(value) : field.placeholder}
+        {iso ? when(iso) : value ? String(value) : field.ghost ? <GhostText>{field.ghost}</GhostText> : field.placeholder}
       </span>
       {due && <span className="shrink-0 rounded-full px-1.5 text-xs" style={{ color: 'var(--tt-color-text-orange)', background: 'color-mix(in oklab, var(--tt-color-text-orange) 12%, transparent)' }}>Due</span>}
     </DatePicker>
+    </div>
+    </Does>
   )
 }
 
@@ -438,11 +452,12 @@ export function Aliases({ table, id }: { table: NoteTable; id: string }): React.
           </Tip>
         </div>
       ))}
-      <label className="flex cursor-text items-center gap-2 px-2 py-1.5 hover:bg-accent focus-within:bg-accent">
+      <Does does="Other names for this note. Search, ⌘K and [[links]] find it by these too" set={list.length > 0}>
+      <label data-ghost-field={list.length ? undefined : ''} className="flex cursor-text items-center gap-2 px-2 py-1.5 hover:bg-accent focus-within:bg-accent">
         <Plus className="size-4 shrink-0" />
         <input
           key={`${id}-${list.length}`}
-          placeholder={list.length ? 'Another name…' : 'A name you might search for'}
+          placeholder={list.length ? 'Another name…' : 'e.g. Lizzy, Miss Bennet'}
           aria-label="Another name for this note"
           onKeyDown={(event) => {
             if (event.key === 'Escape') return event.currentTarget.blur()
@@ -452,9 +467,10 @@ export function Aliases({ table, id }: { table: NoteTable; id: string }): React.
             if (list.some((one) => one.toLowerCase() === name.toLowerCase())) return refuse(`Already called “${name}”`)
             set([...list, name], `Also called “${name}”: search finds it by that now`, 'alias')
           }}
-          className="min-w-0 flex-1 bg-transparent text-control text-ellipsis text-foreground outline-none placeholder:text-foreground/70"
+          className={cn('min-w-0 flex-1 bg-transparent text-control text-ellipsis text-foreground outline-none placeholder:text-foreground/70', !list.length && GHOST)}
         />
       </label>
+      </Does>
     </Island>
   )
 }

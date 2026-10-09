@@ -549,13 +549,19 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
             ))}
           </div>
           <p className="flex items-start gap-2 px-2 py-1.5 text-xs leading-relaxed"><Bell className="mt-0.5 size-3 shrink-0" />{REMINDER_SAID[task.notify ?? 'default']}</p>
+          {/* Unset, the way to set it in the words, as an example: never a value. */}
+          {!task.notify && (
+            <Tip label="How this task tells you when its time comes. Typed in the words, it is set as you add the task">
+              <p className="px-2 pb-1.5 pl-7 text-xs"><GhostText>e.g. “call the vet friday 9am !alert”</GhostText></p>
+            </Tip>
+          )}
         </Island>
         {/* The rest of what a task can carry, each one row like the rest. */}
         <Island compact title="Details">
-          <PropInput icon={Ban} value={task.blocker ?? ''} placeholder="Blocked by…" onSave={(blocker) => void vigil.saveTask(task.id, { blocker: blocker || null })} />
-          <PropInput icon={Timer} type="number" value={task.estimate ? String(task.estimate) : ''} placeholder="Estimate" suffix="minutes" onSave={(minutes) => void vigil.saveTask(task.id, { estimate: minutes ? Number(minutes) : null })} />
-          <PropInput icon={Hourglass} value={task.waitingOn ?? ''} placeholder="Waiting on…" onSave={(waitingOn) => void vigil.saveTask(task.id, { waitingOn: waitingOn || null })} />
-          <PropInput icon={Repeat} value={task.recurrence ?? ''} placeholder="Repeats, e.g. every week" onSave={(recurrence) => void vigil.saveTask(task.id, { recurrence: recurrence || null })} />
+          <PropInput icon={Ban} value={task.blocker ?? ''} placeholder="Blocked by…" ghost="Blocked by: the spare key" does="What is in the way. It shows on the row, and Blocked in the filter finds it" onSave={(blocker) => void vigil.saveTask(task.id, { blocker: blocker || null })} />
+          <PropInput icon={Timer} type="number" value={task.estimate ? String(task.estimate) : ''} placeholder="Estimate" ghost="Estimate: 45" does="How long you think it will take. Stats sets it beside the time your focus sessions took" suffix="minutes" onSave={(minutes) => void vigil.saveTask(task.id, { estimate: minutes ? Number(minutes) : null })} />
+          <PropInput icon={Hourglass} value={task.waitingOn ?? ''} placeholder="Waiting on…" ghost="Waiting on: Jane's letter" does="Someone else has the next move. It leaves your lists and waits under Waiting on someone in Upcoming" onSave={(waitingOn) => void vigil.saveTask(task.id, { waitingOn: waitingOn || null })} />
+          <PropInput icon={Repeat} value={task.recurrence ?? ''} placeholder="Repeats" ghost="Repeats: every monday" does="Comes back on its own once you tick it off, and moves to Routines" onSave={(recurrence) => void vigil.saveTask(task.id, { recurrence: recurrence || null })} />
           <p className="px-2 py-1.5 text-xs leading-relaxed">
             “every” follows the calendar. “every!” counts from when you last did it. Add “until” and a date when you type a task to end the series.
             {task.repeatUntil ? ` This one ends ${whenInLine(task.repeatUntil)}.` : ''}

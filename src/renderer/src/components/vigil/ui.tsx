@@ -34,6 +34,7 @@ import VolumeXIcon from '@/components/ui/volume-x-icon'
 import CheckedIcon from '@/components/ui/checked-icon'
 import InfoCircleIcon from '@/components/ui/info-circle-icon'
 import TriangleAlertIcon from '@/components/ui/triangle-alert-icon'
+import { GHOST } from './ghost'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowDown = alive(ArrowNarrowDownIcon)
@@ -377,30 +378,36 @@ export function Stepper({ at, total, onStep }: { at: number; total: number; onSt
  * icon, the words, a hover. No boxes of different shapes down one column.
  * Enter or leaving keeps it.
  */
-export function PropInput({ icon: Icon, value, placeholder, onSave, suffix, type = 'text' }: {
+export function PropInput({ icon: Icon, value, placeholder, onSave, suffix, type = 'text', ghost, does }: {
   icon: LucideIcon
   value: string
   placeholder: string
   onSave: (value: string) => void
   suffix?: string
   type?: 'text' | 'number'
+  /** A faint example shown while it is empty, in place of the placeholder: never saved. */
+  ghost?: string
+  /** What the field does, in a line on hover, while it is empty. */
+  does?: string
 }): React.JSX.Element {
-  return (
-    <label className="flex w-full cursor-text items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent focus-within:bg-accent">
+  const field = (
+    <label data-ghost-field={ghost && !value ? '' : undefined} className="flex w-full cursor-text items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent focus-within:bg-accent">
       <Icon className="size-4 shrink-0" />
       <input
         type={type}
         min={type === 'number' ? 0 : undefined}
         step={type === 'number' ? 5 : undefined}
         defaultValue={value}
-        placeholder={placeholder}
+        placeholder={ghost ?? placeholder}
+        aria-label={ghost ? placeholder : undefined}
         onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
         onBlur={(event) => onSave(event.target.value.trim())}
-        className="min-w-0 flex-1 bg-transparent text-control text-foreground tabular-nums outline-none placeholder:text-foreground/70 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+        className={cn('min-w-0 flex-1 bg-transparent text-control text-foreground tabular-nums outline-none placeholder:text-foreground/70 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none', ghost && GHOST)}
       />
       {suffix && <span className="shrink-0 text-meta">{suffix}</span>}
     </label>
   )
+  return does && !value ? <Tip label={does}>{field}</Tip> : field
 }
 
 export function Prop({ icon: Icon, alive, children, onClick, active, tint, secret }: {
