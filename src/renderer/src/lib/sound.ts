@@ -497,3 +497,74 @@ function recording(url: string, level: number): void {
 export const tear = (): void => recording(tearUrl, 0.55)
 /** A review card turned over. */
 export const fold = (): void => recording(foldUrl, 0.5)
+
+/**
+ * Into the sandbox: a low hum that rises and ignites, then settles, about
+ * 0.8s. Out of it (`up` false): the same hum falling away, softer and
+ * shorter. Drawn here like every other sound, two slightly apart saw waves
+ * under a filter that opens as the pitch climbs, with a breath of noise at
+ * the strike. Same switch and volume as the rest.
+ */
+export function hum(up = true): void {
+  const context = audio()
+  if (!context) return
+  const at = context.currentTime + 0.01
+  const end = at + (up ? 0.85 : 0.6)
+  const peak = (up ? 0.024 : 0.013) * volume
+  const out = context.createGain()
+  out.gain.setValueAtTime(0.0001, at)
+  if (up) {
+    out.gain.exponentialRampToValueAtTime(peak, at + 0.16)
+    out.gain.exponentialRampToValueAtTime(peak * 0.45, at + 0.42)
+  } else {
+    out.gain.exponentialRampToValueAtTime(peak, at + 0.04)
+    out.gain.exponentialRampToValueAtTime(peak * 0.5, at + 0.3)
+  }
+  out.gain.exponentialRampToValueAtTime(0.0001, end)
+  const warm = context.createBiquadFilter()
+  warm.type = 'lowpass'
+  warm.Q.value = 2
+  warm.frequency.setValueAtTime(up ? 180 : 1100, at)
+  if (up) {
+    warm.frequency.exponentialRampToValueAtTime(2200, at + 0.18)
+    warm.frequency.exponentialRampToValueAtTime(700, at + 0.5)
+  } else warm.frequency.exponentialRampToValueAtTime(140, end)
+  warm.connect(out).connect(context.destination)
+  // The hum's slow wobble, the way a held note never sits quite still.
+  const wobble = context.createOscillator()
+  const depth = context.createGain()
+  wobble.frequency.value = 5.5
+  depth.gain.value = 1.5
+  wobble.connect(depth)
+  for (const [ratio, type] of [[1, 'sawtooth'], [1.012, 'sawtooth'], [2, 'triangle']] as const) {
+    const tone = context.createOscillator()
+    tone.type = type
+    tone.frequency.setValueAtTime((up ? 55 : 98) * ratio, at)
+    if (up) {
+      tone.frequency.exponentialRampToValueAtTime(118 * ratio, at + 0.2)
+      tone.frequency.exponentialRampToValueAtTime(98 * ratio, at + 0.45)
+    } else tone.frequency.exponentialRampToValueAtTime(40 * ratio, end)
+    depth.connect(tone.frequency)
+    tone.connect(warm)
+    tone.start(at)
+    tone.stop(end + 0.02)
+  }
+  wobble.start(at)
+  wobble.stop(end + 0.02)
+  if (!up) return
+  // The strike: a short breath of noise as it catches.
+  const length = Math.round(context.sampleRate * 0.12)
+  const noise = context.createBuffer(1, length, context.sampleRate)
+  const data = noise.getChannelData(0)
+  for (let n = 0; n < length; n++) data[n] = (Math.random() * 2 - 1) * (1 - n / length) ** 2
+  const source = context.createBufferSource()
+  source.buffer = noise
+  const band = context.createBiquadFilter()
+  band.type = 'bandpass'
+  band.frequency.value = 2400
+  band.Q.value = 0.8
+  const breath = context.createGain()
+  breath.gain.value = 0.02 * volume
+  source.connect(band).connect(breath).connect(context.destination)
+  source.start(at + 0.1)
+}

@@ -1,4 +1,4 @@
-import { chime } from './sound'
+import { chime, hum } from './sound'
 import { vigil } from './vigil'
 
 /**
@@ -28,8 +28,8 @@ export const GOING_MS = 2200
  * then the restart. Over everything, so what lies under it (an empty Home
  * behind a closing welcome) never flashes up first.
  */
-const going = (text: string, cue: Parameters<typeof chime>[0]): Promise<void> => {
-  chime(cue)
+const going = (text: string, sound: () => void): Promise<void> => {
+  sound()
   window.dispatchEvent(new CustomEvent('vigil:going', { detail: text }))
   return new Promise((done) => setTimeout(done, GOING_MS))
 }
@@ -42,7 +42,7 @@ const going = (text: string, cue: Parameters<typeof chime>[0]): Promise<void> =>
 export async function enterSandbox(): Promise<void> {
   if (SANDBOX) return
   // Up at once: your look is gathered behind it.
-  const said = going('Opening the sandbox', 'scene')
+  const said = going('Opening the sandbox', () => hum(true))
   const settings = (await vigil.settings()) as unknown as Record<string, unknown>
   const local: Record<string, string> = {}
   for (const key of CARRY_LOCAL) {
@@ -64,7 +64,7 @@ export async function leaveSandbox(): Promise<void> {
   const now = new Date()
   // At 11:11 exactly, one more line.
   const wish = now.getHours() % 12 === 11 && now.getMinutes() === 11 ? '. Make a wish' : ''
-  await going(`Back to your notes${wish}`, 'rewind')
+  await going(`Back to your notes${wish}`, () => hum(false))
   await window.api.vigil('sandbox:leave')
 }
 
@@ -80,7 +80,7 @@ export async function resetSandbox(): Promise<void> {
 /** The sandbox as it began: its folder cleared, and the examples set out again. Only from a held button. */
 export async function startSandboxOver(): Promise<void> {
   if (!SANDBOX) return
-  await going('Starting the sandbox over', 'rewind')
+  await going('Starting the sandbox over', () => chime('rewind'))
   await window.api.vigil('sandbox:reset')
 }
 
