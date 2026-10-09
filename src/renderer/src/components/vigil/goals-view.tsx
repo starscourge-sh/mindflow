@@ -333,7 +333,7 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
           title={
             <textarea
               rows={1}
-              className="block w-full resize-none bg-transparent text-balance outline-none [field-sizing:content] placeholder:text-foreground/50"
+              className="block w-full resize-none overflow-hidden bg-transparent pb-[0.12em] text-balance outline-none [field-sizing:content] placeholder:text-foreground/50"
               defaultValue={item.title === 'Untitled' ? '' : item.title}
               placeholder="What are you working toward?"
               onKeyDown={(event) => {

@@ -388,7 +388,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
           /* The question itself, in your words: it can take a few lines. */
           <textarea
             rows={1}
-            className="block w-full resize-none bg-transparent text-balance outline-none [field-sizing:content] placeholder:text-foreground/50"
+            className="block w-full resize-none overflow-hidden bg-transparent pb-[0.12em] text-balance outline-none [field-sizing:content] placeholder:text-foreground/50"
             defaultValue={item.title === 'Untitled' ? '' : item.title}
             autoFocus={!item.title || item.title === 'Untitled'}
             placeholder="What do you keep circling?"
