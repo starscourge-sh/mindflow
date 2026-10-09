@@ -3387,6 +3387,14 @@ html[data-motion="off"] .mf-column-drop {
 
 // A picture squeezed narrower than the size it was given (a small window, a
 // table cell, a column) keeps its shape, centred in its box, instead of being
+// A YouTube thumbnail with black bands baked in over and under its 16:9
+// picture (see lib/video-bands.ts): only the picture is shown, so it lays out
+// as 16:9 too.
+// Not only in a note: a list's preview of it is the same picture.
+img[data-banded] {
+  object-view-box: inset(12.5% 0);
+}
+
 // stretched or cut at one side.
 .tiptap.ProseMirror.mindflow-editor img:not([data-type="emoji"] img) {
   object-fit: contain;

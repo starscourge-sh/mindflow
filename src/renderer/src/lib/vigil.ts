@@ -4,6 +4,7 @@ import type { BlockColor } from '@/extensions/block-color'
 import { MotionGlobalConfig } from 'motion/react'
 import { chime, installTicks, setPack, setVolume, soundOn, type PackName } from './sound'
 import { useEditorSetup } from './editor-setup'
+import { watchBands } from './video-bands'
 
 /**
  * The main process's `vigil:` channels, typed. One generic bridge in the
@@ -525,6 +526,8 @@ export function useAppearance(): void {
     for (const row of meta) if (row.color) tagColors.set(row.tag.toLowerCase(), row.color as BlockColor)
   }, [meta])
   useEffect(installTicks, [])
+  // YouTube thumbnails in notes shown without their black bands.
+  useEffect(watchBands, [])
   // The editor's sounds, math, font and text size.
   useEditorSetup(settings)
   useEffect(() => {
