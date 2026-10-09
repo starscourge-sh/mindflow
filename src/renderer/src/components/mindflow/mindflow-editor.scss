@@ -3108,6 +3108,32 @@ body > div[dir][style*="-10000px"] > .tableWrapper {
   }
 }
 
+// The title is written in place: a field that looks like the bold line it
+// was, wrapping as the words do, with the page's own caret and selection.
+.tiptap-callout-title-text {
+  // As wide as its words, so the fold sits just after them as it always has.
+  flex: 0 1 auto;
+  min-width: 2ch;
+  max-width: 100%;
+  field-sizing: content;
+  padding: 0;
+  border: 0;
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  background: transparent;
+  font: inherit;
+  line-height: 1.6;
+  color: inherit;
+  caret-color: var(--tt-cursor-color, currentColor);
+  caret-shape: auto;
+  user-select: text;
+
+  &::placeholder {
+    color: color-mix(in srgb, currentColor 45%, transparent);
+  }
+}
+
 .tiptap-callout-fold {
   display: grid;
   place-items: center;

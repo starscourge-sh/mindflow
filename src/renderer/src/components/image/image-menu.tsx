@@ -66,6 +66,12 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
       pluginKey="imageMenu"
       style={{ zIndex: 40 }}
       shouldShow={showForImage}
+      // Moved the moment the chosen picture changes. With the menu's own wait
+      // (a quarter second) it stayed drawn over the last picture, often one
+      // just scrolled away, while the buttons already worked on the new one:
+      // a press in that moment changed a picture you were not looking at, or
+      // landed on nothing, and the button seemed to do nothing.
+      updateDelay={0}
       // Inside the picture's own top corner, not over the words above it. Only
       // a picture too short to hold it gets it just beneath.
       options={{
