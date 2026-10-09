@@ -17,6 +17,7 @@ import {
   createSuggestionRenderer,
   type SuggestionListHandle,
 } from "@/components/suggestion/suggestion-renderer"
+import { realMove } from "@/lib/real-move"
 
 /**
  * `:` emoji autocomplete.
@@ -77,7 +78,7 @@ const EmojiList = forwardRef(function EmojiList(
           type="button"
           title={`:${item.name}:`}
           className={index === selected ? "is-selected" : undefined}
-          onMouseEnter={() => setSelected(index)}
+          onMouseMove={(event) => realMove(event) && setSelected(index)}
           onClick={() => pick(index)}
         >
           {item.emoji}

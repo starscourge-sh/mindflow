@@ -23,6 +23,7 @@ import { dayjs, daysSince } from '../../../main/dates'
 import { keyFor } from '@/lib/keys'
 import { wordFor } from '@/lib/words'
 import { ALL_WORDS, openWord } from './vigil/term'
+import { realMove } from '@/lib/real-move'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 
@@ -249,7 +250,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
                   data-theme-at={index === themeAt || undefined}
                   // Only a mouse that really moves: a repaint under a resting
                   // cursor would otherwise pull the highlight back to it.
-                  onMouseMove={(event) => (event.movementX || event.movementY) && setThemeAt(index)}
+                  onMouseMove={(event) => realMove(event) && setThemeAt(index)}
                   onClick={() => keep(one)}
                 >
                   <Swatch theme={one} />
@@ -266,7 +267,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
                 type="button"
                 className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left"
                 data-search-at={index === at || undefined}
-                onMouseEnter={() => setAt(index)}
+                onMouseMove={(event) => realMove(event) && setAt(index)}
                 onClick={() => run(one)}
               >
                 <span className="min-w-0 flex-1 truncate">{one.label}</span>
@@ -300,7 +301,7 @@ export function Search({ onOpen, onClose, initial = '', actions = [], placeholde
                     type="button"
                     className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left"
                     data-search-at={index + doing.length === at || undefined}
-                    onMouseEnter={() => setAt(index + doing.length)}
+                    onMouseMove={(event) => realMove(event) && setAt(index + doing.length)}
                     data-row
                     onClick={() => onOpen(capture.type, capture.id)}
                   >

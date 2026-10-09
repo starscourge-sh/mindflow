@@ -4,6 +4,7 @@ import { CheckIcon } from "@/components/tiptap-icons/check-icon"
 
 import "@/components/tiptap-ui-primitive/dropdown-menu/dropdown-menu.scss"
 import { chime } from "@/lib/sound"
+import { onlyRealMoves } from "@/lib/real-move"
 
 // Unfolding makes its own small sound, once, when the panel appears.
 const openCue = (node: HTMLElement | null): void => void (node && chime("open"))
@@ -89,6 +90,7 @@ function DropdownMenuItem({
       data-variant={variant}
       className={cn("tiptap-dropdown-menu-item", className)}
       {...props}
+      onPointerMove={onlyRealMoves(props.onPointerMove)}
     />
   )
 }
@@ -109,6 +111,7 @@ function DropdownMenuCheckboxItem({
       className={cn("tiptap-dropdown-menu-checkbox-item", className)}
       checked={checked}
       {...props}
+      onPointerMove={onlyRealMoves(props.onPointerMove)}
     >
       <span
         className="tiptap-dropdown-menu-item-indicator"
@@ -148,6 +151,7 @@ function DropdownMenuRadioItem({
       data-inset={inset}
       className={cn("tiptap-dropdown-menu-radio-item", className)}
       {...props}
+      onPointerMove={onlyRealMoves(props.onPointerMove)}
     >
       <span
         className="tiptap-dropdown-menu-item-indicator"
@@ -230,6 +234,7 @@ function DropdownMenuSubTrigger({
       data-inset={inset}
       className={cn("tiptap-dropdown-menu-sub-trigger", className)}
       {...props}
+      onPointerMove={onlyRealMoves(props.onPointerMove)}
     >
       {children}
     </DropdownMenuPrimitive.SubTrigger>

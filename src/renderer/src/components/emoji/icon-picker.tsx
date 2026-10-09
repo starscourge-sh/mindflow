@@ -3,6 +3,7 @@ import { emojis } from "@tiptap/extension-emoji"
 
 import { BLOCK_COLORS, type BlockColor } from "@/extensions/block-color"
 import { listDirection } from "@/lib/menu-keys"
+import { realMove } from "@/lib/real-move"
 
 type Emoji = (typeof emojis)[number] & { emoji: string }
 
@@ -128,7 +129,7 @@ export function IconPicker({
       data-selected={index === active ? "" : undefined}
       data-active={drawn(item.emoji) === icon ? "" : undefined}
       title={item.name.replace(/_/g, " ")}
-      onMouseEnter={() => setActive(index)}
+      onMouseMove={(event) => realMove(event) && setActive(index)}
       onClick={() => onPick({ icon: drawn(item.emoji) })}
     >
       {drawn(item.emoji)}

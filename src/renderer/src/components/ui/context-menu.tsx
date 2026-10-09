@@ -16,6 +16,7 @@ import { ContextMenu as ContextMenuPrimitive } from "radix-ui"
 import { alive } from "@/components/ui/alive-icon"
 import RightChevronIcon from "@/components/ui/right-chevron"
 import SimpleCheckedIcon from "@/components/ui/simple-checked-icon"
+import { onlyRealMoves } from "@/lib/real-move"
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ChevronRightIcon = alive(RightChevronIcon)
@@ -191,6 +192,7 @@ function ContextMenuItem({
         className
       )}
       {...props}
+      onPointerMove={onlyRealMoves(props.onPointerMove)}
     />
   )
 }
@@ -212,6 +214,7 @@ function ContextMenuSubTrigger({
         className
       )}
       {...props}
+      onPointerMove={onlyRealMoves(props.onPointerMove)}
     >
       {children}
       <ChevronRightIcon className="ml-auto" />
@@ -265,6 +268,7 @@ function ContextMenuCheckboxItem({
         chime(on ? "on" : "off")
       }}
       {...props}
+      onPointerMove={onlyRealMoves(props.onPointerMove)}
     >
       <span className="pointer-events-none absolute right-2 flex items-center justify-center">
         <ContextMenuPrimitive.ItemIndicator>
@@ -294,6 +298,7 @@ function ContextMenuRadioItem({
         className
       )}
       {...props}
+      onPointerMove={onlyRealMoves(props.onPointerMove)}
     >
       <span className="pointer-events-none absolute right-2 flex items-center justify-center">
         <ContextMenuPrimitive.ItemIndicator>

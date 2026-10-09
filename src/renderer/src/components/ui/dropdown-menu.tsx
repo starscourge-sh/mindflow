@@ -15,6 +15,7 @@ import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
 import { alive } from "@/components/ui/alive-icon"
 import SimpleCheckedIcon from "@/components/ui/simple-checked-icon"
 import RightChevronIcon from "@/components/ui/right-chevron"
+import { onlyRealMoves } from "@/lib/real-move"
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const CheckIcon = alive(SimpleCheckedIcon)
@@ -101,6 +102,7 @@ function DropdownMenuItem({
         className
       )}
       {...props}
+      onPointerMove={onlyRealMoves(props.onPointerMove)}
     />
   )
 }
@@ -131,6 +133,7 @@ function DropdownMenuCheckboxItem({
         chime(on ? "on" : "off")
       }}
       {...props}
+      onPointerMove={onlyRealMoves(props.onPointerMove)}
     >
       <span
         className="pointer-events-none absolute right-2 flex items-center justify-center"
@@ -174,6 +177,7 @@ function DropdownMenuRadioItem({
         className
       )}
       {...props}
+      onPointerMove={onlyRealMoves(props.onPointerMove)}
     >
       <span
         className="pointer-events-none absolute right-2 flex items-center justify-center"
@@ -261,6 +265,7 @@ function DropdownMenuSubTrigger({
         className
       )}
       {...props}
+      onPointerMove={onlyRealMoves(props.onPointerMove)}
     >
       {children}
       <ChevronRightIcon className="ml-auto" />

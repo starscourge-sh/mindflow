@@ -7,6 +7,7 @@ import {
 } from "@/components/suggestion/suggestion-renderer"
 import { noteLinkPluginKey, tagPluginKey, wikiPluginKey, type NoteSuggestion } from "@/extensions/note-link"
 import { listDirection, step } from "@/lib/menu-keys"
+import { realMove } from "@/lib/real-move"
 
 /** The `@` menu: which note to link to. */
 const NoteList = forwardRef<SuggestionListHandle, SuggestionProps<NoteSuggestion>>(
@@ -48,7 +49,7 @@ const NoteList = forwardRef<SuggestionListHandle, SuggestionProps<NoteSuggestion
                 type="button"
                 ref={index === selected ? selectedRef : undefined}
                 className={index === selected ? "is-selected" : undefined}
-                onMouseEnter={() => setSelected(index)}
+                onMouseMove={(event) => realMove(event) && setSelected(index)}
                 onClick={() => command(item)}
               >
                 {/* A heading row is the heading: its note is the group above. */}

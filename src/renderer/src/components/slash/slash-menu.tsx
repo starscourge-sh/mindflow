@@ -15,6 +15,7 @@ import {
 } from "@/components/suggestion/suggestion-renderer"
 import type { SlashItem } from "@/extensions/slash-command"
 import { listDirection, step } from "@/lib/menu-keys"
+import { realMove } from "@/lib/real-move"
 
 const SlashList = forwardRef(function SlashList(
   { items, command, query }: SuggestionProps<SlashItem>,
@@ -110,7 +111,7 @@ const SlashList = forwardRef(function SlashList(
                 type="button"
                 ref={index === selected ? selectedRef : undefined}
                 className={index === selected ? "is-selected" : undefined}
-                onMouseEnter={() => setSelected(index)}
+                onMouseMove={(event) => realMove(event) && setSelected(index)}
                 onClick={() => choose(index)}
               >
                 {item.icon}
