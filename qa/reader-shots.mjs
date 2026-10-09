@@ -17,6 +17,13 @@ try {
   ] }
   const id = await h.evaluate((b) => window.api.captures.create({ kind: 'note', body: b }).then((c) => c.id ?? c), body)
   log('capture', id)
+  // ⋯, then Page width: its submenu of Narrow, Wide and Full.
+  const widthMenu = async (page) => {
+    await page.click('[data-note-head] button[aria-label="More"]')
+    await page.waitForTimeout(250)
+    await page.getByRole('menuitem', { name: 'Page width' }).hover()
+    await page.waitForTimeout(350)
+  }
   const open = async () => { await s.send('capture', id); await h.waitForTimeout(1500) }
   for (const theme of ['light', 'dark']) {
     await s.theme(theme)
@@ -29,10 +36,9 @@ try {
     log(theme, 'fit whole', await h.evaluate(() => getComputedStyle(document.querySelector('.tiptap-bookmark-image')).objectFit))
     await shot(`1-card-whole-${theme}`)
     await h.evaluate(() => window.api.vigil('settings:set', { linkPictures: 'fill' }))
-    // Page width from the header.
+    // Page width from the header's ⋯ menu.
     for (const w of ['Narrow', 'Wide', 'Full']) {
-      await h.click('button[aria-label="Page width"]')
-      await h.waitForTimeout(300)
+      await widthMenu(h)
       if (w === 'Wide') await shot(`2-width-menu-${theme}`)
       await h.getByRole('menuitemradio', { name: w }).click()
       await h.waitForTimeout(600)
@@ -66,8 +72,7 @@ try {
   let w
   for (let i = 0; i < 30 && !w; i++) { w = electron.windows().find((x) => x.url().includes('note=')); if (!w) await h.waitForTimeout(300) }
   await w.waitForTimeout(1800)
-  await w.click('button[aria-label="Page width"]')
-  await w.waitForTimeout(300)
+  await widthMenu(w)
   await w.getByRole('menuitemradio', { name: 'Wide' }).click()
   await w.waitForTimeout(600)
   log('note window wide', await w.evaluate(() => document.documentElement.dataset.width), 'main follows', await h.evaluate(() => document.documentElement.dataset.width))

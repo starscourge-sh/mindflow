@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { AlignLeft, CalendarDays, Columns3, Plus, Split, Star } from 'lucide-react'
+import { AlignLeft, CalendarDays, Plus, Split, Star } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 import RightChevronIcon from '@/components/ui/right-chevron'
@@ -29,7 +29,7 @@ import { notes, smallPicture, useThumb, type GraphNode, type NoteTable, type Ver
 import { useLive, vigil } from '@/lib/vigil'
 import { Chips } from './display'
 import { copy, type MenuItem } from './row-menu'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import BookIcon from '@/components/ui/book-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
@@ -605,21 +605,14 @@ function WidthGlyph({ width }: { width: PageWidth }): React.JSX.Element {
 }
 
 /**
- * Narrow, Wide or Full, in the note's own header: one button showing the
- * width now, a short menu to pick another. The same choice as in Settings,
- * kept for every note and every window.
+ * Narrow, Wide or Full, in the note's ⋯ menu: a submenu with a tick on the
+ * width now. The same choice as in Settings, kept for every note and every window.
  */
-function PageWidthPicker({ width }: { width: PageWidth }): React.JSX.Element {
-  const name = PAGE_WIDTHS.find((one) => one.id === width)?.label ?? 'Narrow'
+function PageWidthMenu({ width }: { width: PageWidth }): React.JSX.Element {
   return (
-    <DropdownMenu modal={false}>
-      <Tip label={`Page width: ${name}`}>
-        <DropdownMenuTrigger asChild>
-          <button type="button" aria-label="Page width" data-page-width={width} className={TOOL}><WidthGlyph width={width} /></button>
-        </DropdownMenuTrigger>
-      </Tip>
-      <DropdownMenuContent align="end" className="w-44">
-        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Page width</DropdownMenuLabel>
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger data-page-width={width}>Page width</DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="w-40">
         <DropdownMenuRadioGroup value={width} onValueChange={(next) => next !== width && setPageWidth(next as PageWidth)}>
           {PAGE_WIDTHS.map((one) => (
             <DropdownMenuRadioItem key={one.id} value={one.id} className="gap-2">
@@ -628,8 +621,8 @@ function PageWidthPicker({ width }: { width: PageWidth }): React.JSX.Element {
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
   )
 }
 
@@ -673,7 +666,7 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
   const detailsOut = useDetailsShown()
   const width = widthOf(useLive(vigil.settings, null))
   return (
-    <div className={`@container/head flex min-h-7 items-center justify-between gap-2 px-3 @[40rem]/page:px-[4.25rem] ${className}`}>
+    <div data-note-head className={`@container/head flex min-h-7 items-center justify-between gap-2 px-3 @[40rem]/page:px-[4.25rem] ${className}`}>
       {reading && <ReadThrough items={[{ type, id: versions.id }]} onClose={() => setReading(false)} />}
       {left ?? <span />}
       {looking ?? (
@@ -687,12 +680,6 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
               </button>
             </Tip>
             {tools}
-            {board && (
-              <Tip label={board.on ? 'Note  ⌥⌘B' : 'Board  ⌥⌘B'}>
-                <button type="button" aria-pressed={board.on} onClick={board.toggle} className={`${TOOL} ${board.on ? 'bg-accent text-foreground' : ''}`}><Columns3 /></button>
-              </Tip>
-            )}
-            <PageWidthPicker width={width} />
             <Tip label="Read">
               <button type="button" aria-label="Read" onClick={() => (chime('open'), setReading(true))} className={TOOL}><AliveIcon icon={BookIcon} size={16} /></button>
             </Tip>
@@ -712,6 +699,14 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
                 {copyKey && <DropdownMenuItem onSelect={() => copy(copyKey, `Copied ${copyKey}`)}>Copy {copyKey}</DropdownMenuItem>}
                 <DropdownMenuItem onSelect={open}>Version history</DropdownMenuItem>
                 <DropdownMenuSeparator />
+                {board && (
+                  <DropdownMenuItem role="menuitemcheckbox" aria-checked={board.on} onSelect={board.toggle}>
+                    Board view
+                    <DropdownMenuShortcut>⌥⌘B</DropdownMenuShortcut>
+                    <span className="flex w-3.5 justify-center">{board.on && <Check />}</span>
+                  </DropdownMenuItem>
+                )}
+                <PageWidthMenu width={width} />
                 {details && <DropdownMenuItem onSelect={() => showDetails(!detailsOut)}>{detailsOut ? 'Hide details' : 'Show details'}</DropdownMenuItem>}
                 {items.map((item, index) =>
                   item === 'separator' ? (

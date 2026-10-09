@@ -399,7 +399,7 @@ export function SettingsView(): React.JSX.Element {
           <Frosted />
         </Group>
         <Group section="Appearance" title="Layout">
-          <Setting title="Page width" note="How wide notes and pages are. Narrow keeps the words in a column that is easy to read, Wide gives them more room, Full runs them edge to edge. Also in a note's header." keywords="full width wide narrow column page layout">
+          <Setting title="Page width" note="How wide notes and pages are. Narrow keeps the words in a column that is easy to read, Wide gives them more room, Full runs them edge to edge. Also in a note's ⋯ menu." keywords="full width wide narrow column page layout">
             <Chips className="shrink-0" options={PAGE_WIDTHS} on={(id) => id === widthOf(settings)} pick={(id) => setPageWidth(id as PageWidth)} />
           </Setting>
           <Setting title="Motion" note="Things ease in and out: a capture leaving, a card arriving, a page sliding over. Off, everything appears at once.">
