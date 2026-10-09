@@ -2,23 +2,29 @@ import type { ReactElement, ReactNode } from 'react'
 
 import { toast } from './ui'
 import { chime } from '@/lib/sound'
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '@/components/ui/context-menu'
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuShortcut, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { keyFor } from '@/lib/keys'
 
 /** One line of a right-click menu, a line that opens a few more beside it, or a rule between groups. */
 export type MenuItem = { label: string; run: () => void; keys?: string; danger?: boolean; icon?: ReactNode; trail?: ReactNode } | 'separator' | false | null | undefined
 /** A row menu's line can also open a few more beside it (Group with…). */
-export type RowItem = MenuItem | { label: string; items: MenuItem[] }
+export type RowItem = MenuItem | { label: string; items: RowItem[]; icon?: ReactNode } | { heading: string }
 type Shown = Exclude<RowItem, false | null | undefined>
+
+/** Rules only between groups of lines: never first, last or twice in a row, whatever was left out. */
+export const tidy = <T,>(items: (T | 'separator')[]): (T | 'separator')[] =>
+  items.filter((item, index) => item !== 'separator' || (index > 0 && index < items.length - 1 && items[index - 1] !== 'separator'))
 
 /** The lines of a menu, drawn: shared by the menu and the ones that open beside it. */
 const lines = (items: Shown[]): React.ReactNode =>
-  items.map((item, index) =>
+  tidy(items).map((item, index) =>
     item === 'separator' ? (
       <ContextMenuSeparator key={`separator-${index}`} />
+    ) : 'heading' in item ? (
+      <ContextMenuLabel key={`heading-${item.heading}`}>{item.heading}</ContextMenuLabel>
     ) : 'items' in item ? (
-      <ContextMenuSub key={item.label}>
-        <ContextMenuSubTrigger>{item.label}</ContextMenuSubTrigger>
+      <ContextMenuSub key={`${item.label}-${index}`}>
+        <ContextMenuSubTrigger>{item.icon}{item.label}</ContextMenuSubTrigger>
         <ContextMenuSubContent className="w-52">{lines(item.items.filter(Boolean) as Shown[])}</ContextMenuSubContent>
       </ContextMenuSub>
     ) : (
@@ -41,7 +47,7 @@ export function RowMenu({ items, children }: { items: RowItem[]; children: React
     <ContextMenu>
       <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
       <ContextMenuContent
-        className="w-56"
+        className="w-60"
         // An item that opens its own picker (Change kind…) keeps the keys
         // there: the menu would otherwise hand focus back to the row.
         onCloseAutoFocus={(event) => {

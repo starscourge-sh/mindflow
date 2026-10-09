@@ -74,8 +74,9 @@ export function OptionsMenu({ options, actions, app = false, label = 'Options', 
       >
         {options.map((one) => (
           <DropdownMenuCheckboxItem key={one.label} checked={one.on} onCheckedChange={one.set} onSelect={(event) => event.preventDefault()}>
+            {/* Its own drawing in the menu's one icon place, at the line's start, as every menu has it. */}
+            {one.icon && <AliveIcon key={String(one.on)} icon={one.icon} size={14} className="text-muted-foreground" />}
             {one.label}
-            {one.icon && <AliveIcon key={String(one.on)} icon={one.icon} size={14} className="ml-auto text-muted-foreground" />}
             {one.keys && keyFor(one.keys) && <DropdownMenuShortcut>{keyFor(one.keys)}</DropdownMenuShortcut>}
           </DropdownMenuCheckboxItem>
         ))}

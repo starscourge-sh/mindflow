@@ -1,0 +1,163 @@
+import { Children, type ReactNode } from 'react'
+import {
+  AlarmClock, AppWindow, Archive, ArchiveRestore, ArrowDown, ArrowUp, ArrowUpDown, Ban, Bell, BookCopy, BookOpen, Bookmark, Brain, Calendar,
+  CalendarClock, CalendarDays, CalendarPlus, Camera, CameraOff, ChartBar, CheckCheck, ChevronsDownUp, ChevronsUpDown, CircleCheck, CircleOff,
+  CircleX, Clipboard, Clock, Columns2, Copy, CopyPlus, Dice5, Dot, Download, Eraser, ExternalLink, Eye, EyeOff, FilePlus, FileText, Files, Flag,
+  FolderInput, FolderMinus, FolderPlus, Footprints, Gift, GraduationCap, Hash, History, Hourglass, House, Image, Inbox, Keyboard, LayoutGrid,
+  Library, Lightbulb, Link, List, ListChecks, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
+  MonitorUp, MoveRight, Palette, PanelLeft, PanelRight, Pencil, Pin, PinOff, Play, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
+  ShieldCheck, Smile, Sparkles, SquareCheck, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
+  User, Volume2, VolumeX, WandSparkles, X, Zap, type LucideIcon
+} from 'lucide-react'
+
+/**
+ * One icon for every line of a menu, app-wide: a right click on a row, a ⋯
+ * menu, a group's menu. Each line is matched by its words, so the menus
+ * themselves stay lists of words and the drawing follows the meaning. The
+ * first rule that fits wins, so the narrow ones come before the broad.
+ */
+const RULES: [RegExp, LucideIcon][] = [
+  // Pins and splits first: "Unpin" must not read as "Pin", nor "Open to the side" as "Open".
+  [/^unpin|^pin off/i, PinOff],
+  [/^pin\b|^keep .*on screen|^pin the layout/i, Pin],
+  [/to the side|as split|^split|beside it|^add (left|right) split|pane to the (left|right)/i, Columns2],
+  [/^separate/i, Ungroup],
+  [/close other panes/i, CircleX],
+  [/^close (this )?pane|^close without/i, X],
+  [/new window|own window|in a window/i, AppWindow],
+  [/^open .*sandbox|sandbox/i, Shapes],
+  [/^open|^go to|^show .*note|^read from here|^read the inbox|^write in it/i, ExternalLink],
+  // Groups.
+  [/^new group|^group with|new note in group/i, FolderPlus],
+  [/remove from group/i, FolderMinus],
+  [/^move to group|^move .*to (group|list)|^move to list/i, FolderInput],
+  [/^move to top/i, ArrowUp],
+  [/^move to bottom/i, ArrowDown],
+  [/^move|^send/i, MoveRight],
+  // Copies.
+  [/copy to book|into which book|another book/i, BookCopy],
+  [/^copy .*links?$|^copy link|all links/i, Link],
+  [/^duplicate/i, CopyPlus],
+  [/^copy/i, Copy],
+  // Names and looks.
+  [/^rename|^edit|^change the question|^say who/i, Pencil],
+  [/icon/i, Smile],
+  [/^colou?r|theme|^paint/i, Palette],
+  [/kind/i, Shapes],
+  [/^tag|#/i, Hash],
+  // Keeping and letting go.
+  [/^unarchive|^restore/i, ArchiveRestore],
+  [/^archive/i, Archive],
+  [/^delete|^discard|^clear|^let (it )?go|^drop/i, Trash2],
+  [/^not private|not private|unlock|^show private|blur private titles again/i, LockOpen],
+  [/private|^lock/i, Lock],
+  [/^hide|out of view|^blur/i, EyeOff],
+  [/^show|^keep .* in view|^reveal/i, Eye],
+  // Tasks and time.
+  [/task|^complete|^done|^mark done/i, SquareCheck],
+  [/^resolve|^promote|^made it|answered/i, CircleCheck],
+  [/^remind|^alarm/i, AlarmClock],
+  [/^due|deadline|exam date/i, CalendarClock],
+  [/today|tomorrow|this week|next week|^later|^someday|come back|^plan|^schedule|^snooze/i, CalendarDays],
+  [/^add a date|date/i, CalendarPlus],
+  [/repeat|routine/i, Repeat],
+  [/timer|^start .*focus|^focus/i, Timer],
+  [/^hold/i, Hourglass],
+  [/^stop/i, CircleOff],
+  // Learning and thinking.
+  [/question|clue|^test me|^ask/i, MessageCircleQuestion],
+  [/^study|^review|tested/i, GraduationCap],
+  [/thought|^comment/i, MessageSquare],
+  [/idea/i, Lightbulb],
+  [/^goal/i, Target],
+  [/quote|who said/i, Quote],
+  [/article|^read/i, BookOpen],
+  [/card/i, StickyNote],
+  [/sticky|desktop/i, StickyNote],
+  // Pages and places.
+  [/^new book|^switch book|book/i, Library],
+  [/^new capture|^new note|^new|^add/i, Plus],
+  [/version|history/i, History],
+  [/^import/i, Download],
+  [/^export|^save its|^save/i, Upload],
+  [/settings|^customi[sz]e/i, Settings],
+  [/keyboard|shortcut|vim/i, Keyboard],
+  [/welcome|^play/i, Play],
+  [/celebrat|wrapped/i, Gift],
+  [/^what .*vigil|power/i, Sparkles],
+  [/words|meaning/i, Type],
+  [/safe mode/i, ShieldCheck],
+  [/screen recording/i, CameraOff],
+  [/camera/i, Camera],
+  [/sound/i, Volume2],
+  [/mute|silen/i, VolumeX],
+  [/sidebar|side panel|^panel/i, PanelLeft],
+  [/outline|properties|source/i, PanelRight],
+  [/fill the screen|expand|bigger/i, Maximize2],
+  [/compact|shrink/i, Minimize2],
+  [/page width|width/i, ChevronsUpDown],
+  [/^fold|^collapse/i, ChevronsDownUp],
+  [/^unfold|^expand/i, ChevronsUpDown],
+  [/^search|^find/i, Search],
+  [/^tidy|^decide|^sweep/i, WandSparkles],
+  [/^two at random|random|shuffle/i, Dice5],
+  [/sort|order/i, ArrowUpDown],
+  [/^select|^unselect|^pick/i, CheckCheck],
+  [/stat|recap/i, ChartBar],
+  [/^map/i, MapIcon],
+  [/^home/i, House],
+  [/inbox/i, Inbox],
+  [/grid|tiles/i, LayoutGrid],
+  [/list/i, List],
+  [/picture|image|photo/i, Image],
+  [/file|markdown|page/i, FileText],
+  [/year|month|week|day|calendar/i, Calendar],
+  [/^undo/i, Undo2],
+  [/^reset|^again|^redo/i, RotateCcw],
+  [/notif|bell|nudge/i, Bell],
+  [/morning|sun/i, Sun],
+  [/^log|^track/i, ListChecks],
+  [/person|people|someone/i, User],
+  [/^star|favou?rite/i, Star],
+  [/^bookmark/i, Bookmark],
+  [/flag|important|priority|urgent/i, Flag],
+  [/learn|struggl|memor/i, Brain],
+  [/quick|^now|^do now/i, Zap],
+  [/^leave|^quit|^back to my notes/i, LogOut],
+  [/^paste|clipboard/i, Clipboard],
+  [/^upload|^attach/i, FilePlus],
+  [/^monitor|^present/i, Monitor],
+  [/^share|^publish/i, MonitorUp],
+  [/^shield|^guard/i, Shield],
+  [/^write|^draft|^compose|^edit/i, SquarePen],
+  [/^untitled|^note/i, FileText],
+  [/^tags?\b/i, Tag],
+  [/^come|^walk|^step/i, Footprints],
+  [/^never|^off$/i, Ban],
+  [/time|^when|^age/i, Clock],
+  [/^files?|^attachments?/i, Files],
+  [/^eras/i, Eraser]
+]
+
+/** The drawing for a menu line's words, or a quiet dot for words no rule knows yet. */
+export function menuIcon(label: string): LucideIcon {
+  const words = label.replace(/\s+/g, ' ').trim()
+  return RULES.find(([rule]) => rule.test(words))?.[1] ?? Dot
+}
+
+/**
+ * A menu line's children, its icon set in front: only when the line begins
+ * with its words. A line that brings its own drawing (a theme's swatch, a
+ * group's dot, an icon passed in) keeps it, and gets no second one.
+ */
+export function withMenuIcon(children: ReactNode): ReactNode {
+  const parts = Children.toArray(children)
+  let words = ''
+  for (const part of parts) {
+    if (typeof part !== 'string' && typeof part !== 'number') break
+    words += String(part)
+  }
+  if (!words.trim()) return children
+  const Icon = menuIcon(words)
+  return [<Icon key="menu-icon" aria-hidden data-menu-icon="" className="size-3.5 shrink-0 text-muted-foreground" />, ...parts]
+}

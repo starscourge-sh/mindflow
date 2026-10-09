@@ -17,6 +17,7 @@ import { alive } from "@/components/ui/alive-icon"
 import RightChevronIcon from "@/components/ui/right-chevron"
 import SimpleCheckedIcon from "@/components/ui/simple-checked-icon"
 import { onlyRealMoves } from "@/lib/real-move"
+import { withMenuIcon } from "./menu-icon"
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ChevronRightIcon = alive(RightChevronIcon)
@@ -176,6 +177,7 @@ function ContextMenuItem({
   inset,
   variant = "default",
   onSelect,
+  children,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Item> & {
   inset?: boolean
@@ -193,7 +195,9 @@ function ContextMenuItem({
       )}
       {...props}
       onPointerMove={onlyRealMoves(props.onPointerMove)}
-    />
+    >
+      {props.asChild ? children : withMenuIcon(children)}
+    </ContextMenuPrimitive.Item>
   )
 }
 
@@ -216,7 +220,7 @@ function ContextMenuSubTrigger({
       {...props}
       onPointerMove={onlyRealMoves(props.onPointerMove)}
     >
-      {children}
+      {withMenuIcon(children)}
       <ChevronRightIcon className="ml-auto" />
     </ContextMenuPrimitive.SubTrigger>
   )
@@ -276,7 +280,7 @@ function ContextMenuCheckboxItem({
           />
         </ContextMenuPrimitive.ItemIndicator>
       </span>
-      {children}
+      {withMenuIcon(children)}
     </ContextMenuPrimitive.CheckboxItem>
   )
 }
@@ -352,7 +356,7 @@ function ContextMenuShortcut({
     <span
       data-slot="context-menu-shortcut"
       className={cn(
-        "ml-auto text-key tracking-widest text-muted-foreground group-focus/context-menu-item:text-accent-foreground",
+        "ml-auto shrink-0 pl-3 whitespace-nowrap text-key tracking-widest text-muted-foreground group-focus/context-menu-item:text-accent-foreground",
         className
       )}
       {...props}

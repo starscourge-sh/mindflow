@@ -16,6 +16,7 @@ import { alive } from "@/components/ui/alive-icon"
 import SimpleCheckedIcon from "@/components/ui/simple-checked-icon"
 import RightChevronIcon from "@/components/ui/right-chevron"
 import { onlyRealMoves } from "@/lib/real-move"
+import { withMenuIcon } from "./menu-icon"
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const CheckIcon = alive(SimpleCheckedIcon)
@@ -86,6 +87,7 @@ function DropdownMenuItem({
   inset,
   variant = "default",
   onSelect,
+  children,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Item> & {
   inset?: boolean
@@ -103,7 +105,9 @@ function DropdownMenuItem({
       )}
       {...props}
       onPointerMove={onlyRealMoves(props.onPointerMove)}
-    />
+    >
+      {props.asChild ? children : withMenuIcon(children)}
+    </DropdownMenuPrimitive.Item>
   )
 }
 
@@ -144,7 +148,7 @@ function DropdownMenuCheckboxItem({
           />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
-      {children}
+      {withMenuIcon(children)}
     </DropdownMenuPrimitive.CheckboxItem>
   )
 }
@@ -234,7 +238,7 @@ function DropdownMenuShortcut({
     <span
       data-slot="dropdown-menu-shortcut"
       className={cn(
-        "ml-auto text-[0.625rem] tracking-widest text-muted-foreground group-focus/dropdown-menu-item:text-accent-foreground",
+        "ml-auto shrink-0 pl-3 whitespace-nowrap text-key tracking-widest text-muted-foreground group-focus/dropdown-menu-item:text-accent-foreground",
         className
       )}
       {...props}
@@ -267,7 +271,7 @@ function DropdownMenuSubTrigger({
       {...props}
       onPointerMove={onlyRealMoves(props.onPointerMove)}
     >
-      {children}
+      {withMenuIcon(children)}
       <ChevronRightIcon className="ml-auto" />
     </DropdownMenuPrimitive.SubTrigger>
   )
