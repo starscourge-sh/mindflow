@@ -19,7 +19,7 @@ const { h, v, page, electron, go } = s
 let failed = 0
 const check = (what, ok, detail = '') => { console.log(`${ok ? 'PASS' : 'FAIL'} ${what}${detail ? `: ${detail}` : ''}`); if (!ok) failed++ }
 
-const PAGES = ['inbox', 'review', 'day', 'today', 'week', 'upcoming', 'routines', 'later', 'matrix', 'nuggets', 'articles', 'questions', 'goals', 'tags', 'stats', 'map', 'monthpage', 'yearpage', 'discarded', 'archived']
+const PAGES = ['home', 'inbox', 'review', 'day', 'today', 'week', 'upcoming', 'routines', 'later', 'matrix', 'nuggets', 'articles', 'questions', 'goals', 'tags', 'stats', 'map', 'monthpage', 'yearpage', 'discarded', 'archived']
 /** What is in the database, everything that could have been written to. */
 const stored = async () => {
   const [captures, tasks, nuggets, articles, questions, goals, tags] = await Promise.all([
@@ -39,6 +39,7 @@ try {
   await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, pageHints: false })
   await h.reload()
   await h.waitForTimeout(2000)
+  const innerHeightOf = await h.evaluate(() => innerHeight)
   check('a fresh install holds nothing', !Object.values(await stored()).some((list) => list.length), sizes(await stored()))
 
   for (const theme of ['light', 'dark']) {
@@ -48,19 +49,25 @@ try {
       await h.waitForTimeout(700)
       const seen = await example()
       check(`${theme} ${id}: shows an example, labelled, with Try it`, seen.on && seen.inert && seen.text > 20 && /^Example\s*Try it:/.test(seen.label), seen.label.slice(0, 90))
-      // Below the page's own fields on the month's page: brought into view for the picture.
-      await h.evaluate(() => document.querySelector('[data-example-frame]')?.scrollIntoView({ block: 'nearest' }))
-      await h.waitForTimeout(300)
+      // Seen without scrolling: its label inside the window.
+      const top = await h.evaluate(() => document.querySelector('[data-example-frame] [role="note"]')?.getBoundingClientRect().bottom ?? Infinity)
+      check(`${theme} ${id}: the example is in view without scrolling`, top < innerHeightOf, `${Math.round(top)}`)
       await h.screenshot({ path: `${dir}/${id}-${theme}.png` })
     }
     // The box's Inbox tab.
     await electron.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows().find((one) => !one.webContents.getURL().includes('view=')); win?.setBounds({ x: 60, y: 60, width: 900, height: 600 }); win?.show() })
-    await page.evaluate((name) => { localStorage.setItem('theme', name); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }, theme)
-    await page.waitForTimeout(1200)
-    if (!(await example(page)).on) { await page.keyboard.press('Control+1'); await page.waitForTimeout(1200) }
-    const box = await example(page)
-    check(`${theme} the box's Inbox tab: shows an example`, box.on && box.inert, box.label.slice(0, 80))
-    await page.screenshot({ path: `${dir}/box-inbox-${theme}.png` })
+    await page.evaluate((name) => localStorage.setItem('theme', name), theme)
+    // Read afresh, so the box wears the theme whole rather than halfway through a change.
+    await page.reload()
+    await page.waitForTimeout(2500)
+    for (const [key, tab] of [['1', 'inbox'], ['2', 'tasks'], ['4', 'saved']]) {
+      await page.keyboard.press(`Control+${key}`)
+      await page.waitForTimeout(1200)
+      if (!(await example(page)).on) { await page.keyboard.press(`Control+${key}`); await page.waitForTimeout(1200) }
+      const box = await example(page)
+      check(`${theme} the box's ${tab} tab: shows an example`, box.on && box.inert, box.label.slice(0, 80))
+      await page.screenshot({ path: `${dir}/box-${tab}-${theme}.png` })
+    }
   }
 
   // Keys pressed over the examples reach nothing.
@@ -144,9 +151,11 @@ try {
       await h.waitForTimeout(800)
       const ghosts = await h.evaluate(() => document.querySelectorAll('[data-ghost], [data-ghost-field]').length)
       check(`${theme} ${name}: unset fields show a faint example`, ghosts > 0, `${ghosts}`)
+      const words = await h.evaluate(() => document.body.textContent ?? '')
+      if (name === 'book') check(`${theme} book: the takeaway says when it comes`, words.includes('shows once you mark it Finished'))
+      if (name === 'decision') check(`${theme} decision: Working out shows a faint example`, /Working out\s*pros, cons/.test(words))
+      if (name === 'experiment') check(`${theme} experiment: Started by shows a faint example`, words.includes("e.g. Monday's page"))
       await h.screenshot({ path: `${dir}/panel-${name}-${theme}.png` })
-      const aside = await h.$('aside')
-      if (aside) await aside.screenshot({ path: `${dir}/panel-${name}-${theme}-aside.png` }).catch(() => {})
     }
   }
   // Looked at, never written: the fields stay empty.

@@ -162,7 +162,11 @@ try {
 
   await run("Today's page: a row of the day's brief", async () => { await go('day') }, () => click('[class*="@container/page"] li button[class*="group/row"]'))
   await run('⌘K: your month, wrapped', async () => { await side('Inbox'); await row(0) }, async () => {
-    await keys('Meta+k'); await h.keyboard.type('month, wrapped', { delay: 40 }); await wait(900); await h.keyboard.press('Enter'); await wait(1500)
+    // Enter only once the action is listed and first: on a busy machine the
+    // search could still be on the last result, and Enter took that instead.
+    await keys('Meta+k'); await h.keyboard.type('month, wrapped', { delay: 40 })
+    await h.waitForFunction(() => /month, wrapped/i.test(document.querySelector('[role="dialog"][aria-label="Search"] [data-search-at]')?.textContent ?? ''), null, { timeout: 8000 })
+    await h.keyboard.press('Enter'); await wait(1500)
   })
 
   // --- Tags ------------------------------------------------------------------------------------
