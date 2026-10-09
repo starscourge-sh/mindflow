@@ -19,6 +19,7 @@ import { ThemeDial } from './theme-dial'
 import { RecapRadar } from './recap-radar'
 import { Kbd, toast } from './ui'
 import { FULL_TURN, glyph, inClay, konami } from './welcome-eggs'
+import { WelcomeBackdrop, type Family } from './welcome-backdrop'
 import { DeskSticky, EveningReview, GoalRoad, LongNote, Moment, MorningBox, PICKED, REWORDED } from './welcome-day'
 import {
   CAM, Camera, Chip, DRAWER, EMPTY_BOX, WIDE, frameOn, GhostHand, KINDS, LAND, LinkScene, PostcardResult, QUOTE, Rise, Slots, Stage, TaskResult, CardResult, LinkResult, WORD,
@@ -361,7 +362,7 @@ export function Welcome(): React.JSX.Element | null {
     <MotionConfig reducedMotion={quiet ? 'always' : 'never'}>
     <div ref={dialog} tabIndex={-1} role="dialog" aria-modal aria-label="Welcome to Vigil" onKeyDown={(event) => event.stopPropagation()}
       className="mf-welcome fixed inset-0 z-[70] flex outline-none flex-col overflow-hidden bg-background text-foreground [container-type:inline-size]">
-      <Backdrop plain={at === LAST} />
+      <Backdrop plain={at === LAST} family={at === WRITE ? 'ruled' : at === CONNECT ? 'threads' : at === RETURN || at === LAST ? 'none' : 'dots'} />
       <div className="relative h-11 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
       {at === LAST && <TrayArrow tray={state?.tray ?? null} />}
       <div className="relative mx-auto flex min-h-0 w-full max-w-[84rem] flex-1 flex-col">
@@ -1153,21 +1154,6 @@ const DIAL_BEATS: Beat<DialState>[] = [
   { at: 6200, to: {} }
 ]
 
-/** A grid of small dots over the whole screen, in the page's own ink: when the theme changes, it changes with it. */
-function DotGrid(): React.JSX.Element {
-  return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 -z-0"
-      style={{
-        backgroundImage: 'radial-gradient(circle, color-mix(in oklab, var(--foreground) 22%, transparent) 1.1px, transparent 1.4px)',
-        backgroundSize: '22px 22px',
-        backgroundPosition: '11px 11px',
-        // Quieter behind the dial in the middle, so the dots frame it rather than fight it.
-        maskImage: 'radial-gradient(ellipse 40% 45% at 50% 58%, rgb(0 0 0 / 0.15), black 85%)',
-        WebkitMaskImage: 'radial-gradient(ellipse 40% 45% at 50% 58%, rgb(0 0 0 / 0.15), black 85%)'
-      }} />
-  )
-}
-
 function DialChapter({ play, report, onPick }: { play: boolean; report: (now: Reel) => void; onPick: (theme: Theme) => void }): React.JSX.Element {
   const [say, setSay] = useState<string | undefined>()
   const show = useScript<DialState>({ docked: false, dial: false, ticks: 0 }, DIAL_BEATS, play)
@@ -1188,7 +1174,6 @@ function DialChapter({ play, report, onPick }: { play: boolean; report: (now: Re
   const size = Math.round(Math.max(150, Math.min(win.height * 0.42, win.width * 0.3, 360)))
   return (
     <>
-      <DotGrid />
       <Words title="Make it yours." docked={s.docked} still={!play} done={show.done}>
         The page you write on. Settings has it later too.
       </Words>
@@ -1442,7 +1427,7 @@ function BoxKeys(): React.JSX.Element {
  * drifting very slowly, under a film of grain. With no scenery, the grain
  * on the page's own colour.
  */
-function Backdrop({ plain }: { plain: boolean }): React.JSX.Element {
+function Backdrop({ plain, family }: { plain: boolean; family: Family }): React.JSX.Element {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0">
       {/* The last screen is a plain page: the scenery steps back for the choice. */}
@@ -1450,6 +1435,8 @@ function Backdrop({ plain }: { plain: boolean }): React.JSX.Element {
         <Scenery place="rest" seed="welcome" text="all" className="absolute inset-0" />
       </div>
       <div className="absolute inset-0 opacity-[0.035] mix-blend-overlay" style={{ backgroundImage: NOISE, backgroundSize: '160px' }} />
+      {/* One quiet family of marks a chapter, over the scenery and under the words (welcome-backdrop.tsx). */}
+      <WelcomeBackdrop family={family} />
       <div className="absolute inset-0 bg-[radial-gradient(120%_80%_at_0%_100%,color-mix(in_oklab,var(--background)_70%,transparent),transparent_70%)]" />
     </div>
   )
