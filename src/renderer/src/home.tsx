@@ -31,7 +31,7 @@ import { StatsView } from './components/vigil/stats-view'
 import { MapView } from './components/vigil/map-view'
 import { PowersView } from './components/vigil/powers-view'
 import { TagsView } from './components/vigil/tags-view'
-import { usePinnedTags } from './components/vigil/tag-read'
+import { prefetchTag, usePinnedTags } from './components/vigil/tag-read'
 import { TasksView } from './components/vigil/tasks-view'
 import { WeekView } from './components/vigil/week-view'
 import { MatrixView } from './components/vigil/matrix-view'
@@ -759,6 +759,8 @@ export function Home(): React.JSX.Element {
               data-side-row
               aria-current={view.id === 'tags' && view.focus === tag ? 'page' : undefined}
               onClick={() => setView({ id: 'tags', focus: tag })}
+              // Read ahead while the pointer rests on it, so the click shows it at once.
+              onPointerEnter={() => prefetchTag(tag)}
               className={`flex w-full items-center gap-2.5 rounded-md px-2 py-1 ${view.id === 'tags' && view.focus === tag ? '' : 'text-foreground/80'}`}
             >
               <Tag className="size-4 text-muted-foreground" style={color ? { color: `var(--tt-color-text-${color})` } : undefined} />

@@ -88,7 +88,18 @@ const EmojiList = forwardRef(function EmojiList(
   )
 })
 
-export const EmojiSuggestion = Emoji.configure({
+// Which emoji this screen can draw is worked out once per window, not once
+// per editor: it goes through the whole emoji list (about 25 ms), and a page
+// of notes builds an editor for each one.
+let support: unknown
+const OnceEmoji = Emoji.extend({
+  addStorage() {
+    support ??= this.parent?.()
+    return support as ReturnType<NonNullable<typeof this.parent>>
+  },
+})
+
+export const EmojiSuggestion = OnceEmoji.configure({
   enableEmoticons: true,
   suggestion: {
     items: ({ editor, query }) => {

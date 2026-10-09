@@ -22,7 +22,7 @@ import { Tip } from '@/components/vigil/ui'
 import { DatePicker } from './date-picker'
 import { Readiness } from './review-view'
 import { openWindow } from '@/lib/notes'
-import { TagStream } from './tag-read'
+import { TagStream, prefetchTag, useLiveFor } from './tag-read'
 import { motion } from 'motion/react'
 import { dayMonth } from '../../../../main/dates'
 import { TAG_DOES } from '../capture-kinds/kind-fields'
@@ -61,7 +61,8 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
   // A tag picked is a step Back returns from; Read or Manage is kept in it.
   useOpened(chosen ?? undefined, focus, setChosen, () => setChosen(null))
   useKept('tab', tab, setTab, 'read')
-  const items = useLive(() => (chosen ? vigil.tag(chosen) : Promise.resolve([])), [], [chosen])
+  // The open tag's notes, for Manage; never the tag before's while the next is read.
+  const items = useLiveFor(chosen ?? '', () => (chosen ? vigil.tag(chosen) : Promise.resolve([]))) ?? []
   const [cursor] = useListKeys(example ? 0 : tags.length, { onOpen: (index) => setChosen(tags[index].tag) })
   const top = tags[0]?.count ?? 1
   const current = tags.find((one) => one.tag === chosen)
@@ -103,6 +104,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 data-row
                 data-cursor={index === cursor || undefined}
                 onClick={() => setChosen(tag)}
+                onPointerEnter={() => prefetchTag(tag)}
                 className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-accent/50 ${chosen === tag ? 'bg-accent' : index === cursor ? 'bg-accent/50' : ''}`}
               >
                 <Tag className="size-4" style={{ color: color ? `var(--tt-color-text-${color})` : undefined }} />
@@ -149,7 +151,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
           </span>
           </span>
         }>
-          {tab === 'read' ? <TagStream tag={chosen} color={current?.color} onOpen={onOpen} onTag={setChosen} onManage={() => (chime('tap'), setTab('manage'))} /> : (<>
+          {tab === 'read' ? <TagStream key={chosen} tag={chosen} color={current?.color} onOpen={onOpen} onTag={setChosen} onManage={() => (chime('tap'), setTab('manage'))} /> : (<>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-5 py-3">
             {/* A colour, and whether writing this tag makes a task, the way
                 #bug does. Labels, not kinds: a colour and one behaviour. */}

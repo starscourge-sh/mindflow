@@ -2067,16 +2067,27 @@ export function registerVigil(): void {
   // A tag as something to read: the whole of everything carrying it, newest
   // first, each with its other tags. Captures and kept things; a task's notes
   // are not reading.
+  // Each note's words read once: a switch to another tag parses only what
+  // changed since the last, not every note there is.
+  let readOf = new Map<string, { title: string; body: string; parsed: unknown; tags: string[] }>()
   handle('tag:read', (tag: string) => {
     const alias = new Map((db.prepare('select tag, alias_of from tag_meta where alias_of is not null').all() as { tag: string; alias_of: string }[]).map((row) => [row.tag, row.alias_of]))
     const rows = [
-      ...db.prepare(`select id, 'capture' as type, kind, status, '' as title, ${LABEL} as label, body, private, captured_at as at from captures where status != 'discarded' and archived_at is null`).all(),
-      ...db.prepare("select id, tier as type, kind, 'open' as status, title, label('', body) as label, body, private, created_at as at from nuggets where archived_at is null and superseded_by is null").all()
+      ...db.prepare(`select id, 'capture' as type, kind, status, '' as title, ${LABEL} as label, body, private, captured_at as at, coalesce(edited_at, captured_at) as changed from captures where status != 'discarded' and archived_at is null`).all(),
+      ...db.prepare("select id, tier as type, kind, 'open' as status, title, label('', body) as label, body, private, created_at as at, coalesce(updated_at, created_at) as changed from nuggets where archived_at is null and superseded_by is null").all()
     ] as Record<string, string>[]
+    const was = readOf
+    readOf = new Map()
     return rows.flatMap((row) => {
-      const parsed = JSON.parse(row.body ?? 'null')
-      const tags = [...new Set(tagsIn(`${row.title} ${plain(parsed)}`).map((one) => alias.get(one) ?? one))]
-      return tags.includes(tag) ? [{ ...row, at: row.at, body: parsed, private: !!Number(row.private), tags: tags.filter((one) => one !== tag) }] : []
+      const key = `${row.type}:${row.id}`
+      let kept = was.get(key)
+      if (kept?.title !== row.title || kept.body !== row.body) {
+        const parsed = JSON.parse(row.body ?? 'null')
+        kept = { title: row.title, body: row.body, parsed, tags: tagsIn(`${row.title} ${plain(parsed)}`) }
+      }
+      readOf.set(key, kept)
+      const tags = [...new Set(kept.tags.map((one) => alias.get(one) ?? one))]
+      return tags.includes(tag) ? [{ ...row, at: row.at, body: kept.parsed, private: !!Number(row.private), tags: tags.filter((one) => one !== tag) }] : []
     }).sort((a, b) => String(b.at).localeCompare(String(a.at)))
   })
   // Rename everywhere at once; renaming onto a tag that exists is a merge. The
