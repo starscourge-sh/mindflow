@@ -12,6 +12,7 @@
     "src/main/embeds.ts",
     "src/main/task-words.ts",
     "src/main/dates.ts",
+    "src/main/video-thumbs.ts",
     "src/main/goal-days.ts",
     "src/main/celebrate.ts",
     "src/main/sprite.ts"

@@ -6,6 +6,7 @@ import CopyIcon from "@/components/ui/copy-icon"
 
 import type { BookmarkAttributes } from "@/extensions/bookmark"
 import { Orb } from "@/components/vigil/orb"
+import { isYouTube, wideThumb } from "../../../../main/video-thumbs"
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Check = alive(SimpleCheckedIcon)
@@ -24,8 +25,11 @@ const Copy = alive(CopyIcon)
  * clipboard and in an export, where a card is just a link.
  */
 export function BookmarkView(props: NodeViewProps): React.JSX.Element {
-  const { href, title, description, image, icon, site, loading } = props.node
+  const { href, title, description, image: saved, icon, site, loading } = props.node
     .attrs as BookmarkAttributes
+  // A card made before thumbnails were taken in 16:9 still points at YouTube's
+  // banded 4:3 one: shown as the 16:9 one instead, which has no black bands.
+  const image = (saved && wideThumb(saved)) || saved
   const [copied, setCopied] = useState(false)
 
   // Off the editor state rather than the `selected` prop or a decoration: a
@@ -47,13 +51,18 @@ export function BookmarkView(props: NodeViewProps): React.JSX.Element {
   // few pixels of its blurred copy down one side, which read as a seam.
   const frame = useRef<HTMLSpanElement>(null)
   const [fills, setFills] = useState(false)
+  // A 4:3 YouTube thumbnail already kept with the note has its bands baked in:
+  // only the 16:9 middle of it is shown.
+  const [banded, setBanded] = useState(false)
   useEffect(() => {
     const box = frame.current
     const img = box?.querySelector("img")
     if (!box || !img) return
     const check = (): void => {
       if (!img.naturalWidth || !box.clientHeight) return
-      const off = (img.naturalWidth / img.naturalHeight) / (box.clientWidth / box.clientHeight)
+      const band = isYouTube(href) && Math.abs(img.naturalWidth / img.naturalHeight - 4 / 3) < 0.02
+      setBanded(band)
+      const off = ((img.naturalWidth / img.naturalHeight) * (band ? 4 / 3 : 1)) / (box.clientWidth / box.clientHeight)
       setFills(Math.abs(off - 1) <= 0.06)
     }
     check()
@@ -64,7 +73,7 @@ export function BookmarkView(props: NodeViewProps): React.JSX.Element {
       img.removeEventListener("load", check)
       watch.disconnect()
     }
-  }, [image, loading])
+  }, [image, loading, href])
 
   return (
     <NodeViewWrapper
@@ -79,7 +88,7 @@ export function BookmarkView(props: NodeViewProps): React.JSX.Element {
       {/* The picture whole, over itself blurred: a picture of another shape
           leaves no empty bands, only its own colours carried to the edges. */}
       {image && !loading && (
-        <span ref={frame} className="tiptap-bookmark-frame" data-fill={fills ? "" : undefined} style={{ '--bookmark-art': `url(${JSON.stringify(image)})` } as React.CSSProperties}>
+        <span ref={frame} className="tiptap-bookmark-frame" data-fill={fills ? "" : undefined} data-banded={banded ? "" : undefined} style={{ '--bookmark-art': `url(${JSON.stringify(image)})` } as React.CSSProperties}>
           <img className="tiptap-bookmark-image" src={image} alt="" />
         </span>
       )}

@@ -53,6 +53,7 @@ import { registerUnused } from './unused'
 import { registerObsidian } from './obsidian'
 import { frostWindow, registerFrost, retellFrost } from './frost'
 import { SANDBOX, arrived, windingDown, onHandOff, registerSandbox, relaunch, restartNow, useDataFolder } from './sandbox'
+import { wideThumb } from './video-thumbs'
 
 
 /* The standard electron app file structure:
@@ -2658,9 +2659,17 @@ app.whenReady().then(() => {
       return src
     }
   }
+  // A YouTube thumbnail in 16:9, without the black bands its 4:3 ones carry:
+  // the sharpest size where the video has one, else the size every video has.
+  const keepWide = async (src: string): Promise<string> => {
+    const max = wideThumb(src, 'maxresdefault')
+    if (!max) return keep(src)
+    const kept = await keep(max)
+    return /^https?:/.test(kept) ? keep(wideThumb(src)!) : kept
+  }
   ipcMain.handle('fetch-link-metadata', async (_event, url: unknown) => {
     const found = await lookUp(url)
-    const [image, icon] = await Promise.all([keep(found.image), keep(found.icon)])
+    const [image, icon] = await Promise.all([keepWide(found.image), keep(found.icon)])
     return { ...found, image, icon }
   })
 

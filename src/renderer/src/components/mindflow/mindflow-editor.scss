@@ -1311,6 +1311,12 @@ html[data-link-pictures="whole"] .tiptap.ProseMirror.mindflow-editor .tiptap-boo
   object-fit: contain;
 }
 
+// A 4:3 YouTube thumbnail with black bands over and under its 16:9 picture:
+// the bands are cut away first, so Fill and Whole both see only the picture.
+.tiptap.ProseMirror.mindflow-editor .tiptap-bookmark-frame[data-banded] .tiptap-bookmark-image {
+  object-view-box: inset(12.5% 0);
+}
+
 // Near enough the frame's shape: fill it, so no sliver of the blur shows.
 .tiptap.ProseMirror.mindflow-editor .tiptap-bookmark-frame[data-fill] .tiptap-bookmark-image {
   object-fit: cover;
