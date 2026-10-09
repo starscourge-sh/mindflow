@@ -46,6 +46,7 @@ import { StickyNote } from './components/vigil/sticky-note'
 import { LookWindow } from './components/vigil/look-window'
 import { GoalStack } from './components/vigil/goal-beacon'
 import { TodaySticky } from './components/vigil/today-sticky'
+import { putDetailsAway } from './lib/reading'
 
 // Before the first paint, and before anything renders: the page wears a theme
 // whether or not an editor is on screen.
@@ -102,6 +103,9 @@ class Broken extends Component<{ children: ReactNode }, { error: Error | null }>
     )
   }
 }
+
+// Each time Vigil opens, a note's details start put away.
+if (params.get('view') === 'home') putDetailsAway()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

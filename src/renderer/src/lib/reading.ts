@@ -9,10 +9,20 @@ import { vigil } from '@/lib/vigil'
  *
  * Details start put away, so a note opens as a page to read rather than a
  * form to fill. Opened, they stay open everywhere until put away again: one
- * choice for every note and every window, the way a sidebar is remembered.
+ * choice for every note and every window, until Vigil is next opened, when
+ * they start put away again.
  */
 const KEY = 'noteDetails'
 const CHANGED = 'mf:details'
+
+/** Called once as the main window first loads: each time Vigil opens, details start put away. */
+export function putDetailsAway(): void {
+  try {
+    localStorage.removeItem(KEY)
+  } catch {
+    // Nothing kept, so nothing to put away.
+  }
+}
 
 export const detailsShown = (): boolean => {
   try {
