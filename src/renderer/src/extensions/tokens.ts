@@ -243,6 +243,7 @@ export const Tokens = Extension.create<{
           class: "tiptap-token",
           "data-token": token.name,
           "data-token-color": token.color,
+          ...(token.name === "tag" ? { title: "Click to open, ⌥-click to edit" } : {}),
         })
       )
     // Tag colours chosen elsewhere: a new choice repaints the whole note.
@@ -295,25 +296,43 @@ export const Tokens = Extension.create<{
           /**
            * Following a tag.
            *
-           * A click on a tag opens it, as in Obsidian: a ⌘-click only was a
-           * rule no one could see, and clicking a tag did nothing. To fix a
-           * typo in one, click once more with the caret already inside it (or
-           * arrow in): a click there edits rather than follows.
+           * A plain click on a tag opens it, as in Obsidian. It is decided on
+           * the press, from where the caret was before it: by the time a click
+           * finishes, the press itself has already moved the caret into the
+           * tag, so asking then always found it "inside" and nothing opened.
+           *
+           * Two clicks edit instead: ⌥-click places the caret in the tag, and
+           * so does a click on the tag the caret is already inside (arrowed in
+           * to fix a typo). The press is held back from the editor, so opening
+           * a tag never moves the caret or vim's cursor.
            */
-          handleClick: (view, pos, event) => {
-            if (!onClick) return false
+          handleDOMEvents: {
+            mousedown: (view, event) => {
+              if (!onClick || event.button !== 0 || event.altKey) return false
+              const chip = (event.target as Element | null)?.closest?.('.tiptap-token[data-token="tag"]')
+              if (!chip || !view.dom.contains(chip)) return false
+              const at = view.posAtDOM(chip, 0)
+              const hit = scan(view.state.doc, patterns, at, at).find(
+                (token) => token.name === "tag" && at >= token.from && at < token.to
+              )
+              if (!hit) return false
+              const { from, to } = view.state.selection
+              // Inside means between its letters. A caret at either end, or
+              // vim's block on its last letter (where a click at the end of
+              // the line puts it), is only next to it.
+              const block = view.dom.getAttribute("data-vim-mode") === "normal" ? 1 : 0
+              const inside = view.hasFocus() && from > hit.from && to < hit.to - block
+              if (view.editable && inside && !(event.metaKey || event.ctrlKey)) return false
 
-            const hit = scan(view.state.doc, patterns, pos, pos).find(
-              (token) => pos >= token.from && pos < token.to
-            )
-            // Only a tag leads anywhere: a date or a priority stays text to click into.
-            if (!hit || hit.name !== "tag") return false
-            const { from, to } = view.state.selection
-            const inside = from >= hit.from && to <= hit.to + 1 && view.hasFocus()
-            if (view.editable && inside && !(event.metaKey || event.ctrlKey)) return false
-
-            onClick(hit)
-            return true
+              event.preventDefault()
+              // Opens on release over the same tag: pressed and dragged off, nothing happens.
+              const up = (release: MouseEvent): void => {
+                window.removeEventListener("mouseup", up, true)
+                if (release.button === 0 && release.target instanceof Node && chip.contains(release.target)) onClick(hit)
+              }
+              window.addEventListener("mouseup", up, true)
+              return true
+            },
           },
         },
       }),
