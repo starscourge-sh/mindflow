@@ -219,6 +219,7 @@ import { NoteLink, showingDocument, takePendingHeading, type NoteSuggestion } fr
 import { noteLinkRenderer, tagRenderer, wikiRenderer } from "@/components/note-link/note-link-menu"
 import { ImageMenu } from "@/components/image/image-menu"
 import { ImageLook } from "@/components/image/image-look"
+import { holdPlace } from "@/lib/pictures"
 import { CodeBlockView } from "@/components/code/code-block-view"
 import { slashRenderer } from "@/components/slash/slash-menu"
 import { slashItems } from "@/components/slash/slash-items"
@@ -1143,6 +1144,19 @@ function Surface({
         // The extension's own way of writing it, then the caption under it.
         renderMarkdown: (node) =>
           captioned(`![${node.attrs?.alt ?? ""}](${node.attrs?.src ?? ""}${node.attrs?.title ? ` "${node.attrs.title}"` : ""})`, node),
+        // The same <img> the markup gives, with its place kept and its colours
+        // shown until it loads (holdPlace). The first screenful is read at
+        // once; the rest as they come near the screen.
+        addNodeView: () => ({ node, HTMLAttributes, getPos }) => {
+          const img = document.createElement("img")
+          for (const [key, value] of Object.entries(HTMLAttributes)) if (value != null && key !== "src") img.setAttribute(key, String(value))
+          const at = getPos() ?? Infinity
+          img.loading = at < 3000 ? "eager" : "lazy"
+          img.decoding = "async"
+          if (node.attrs.src) img.setAttribute("src", node.attrs.src)
+          holdPlace(img, at < 1200)
+          return { dom: img, update: (next) => next.sameMarkup(node) }
+        },
       }),
       Typography,
       ...(has("superscript") ? [Superscript] : []),

@@ -4,6 +4,7 @@ import { mkdir, readFile, readdir, realpath, rename, stat, writeFile } from 'fs/
 import { homedir } from 'os'
 import { join, sep } from 'path'
 import { PICTURE, SHOWN, cleanRef, nameOf, tailOf } from './embeds'
+import { lookAhead } from './pictures'
 
 /**
  * Finding a picture a note pasted from Obsidian points at, with no setup:
@@ -162,6 +163,7 @@ async function keep(path: string, assets: string): Promise<BroughtIn | null> {
     await writeFile(temporary, bytes)
     await rename(temporary, destination)
   }
+  if (PICTURE.test(path)) lookAhead(file)
   return { src: `mindflow://assets/${file}`, name: nameOf(path), size: bytes.byteLength, image: PICTURE.test(path) }
 }
 

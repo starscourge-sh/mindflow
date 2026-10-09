@@ -7,6 +7,7 @@ import CopyIcon from "@/components/ui/copy-icon"
 import type { BookmarkAttributes } from "@/extensions/bookmark"
 import { Orb } from "@/components/vigil/orb"
 import { isYouTube, wideThumb } from "../../../../main/video-thumbs"
+import { lookOf, paintWhileLoading, withoutBands } from "@/lib/pictures"
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Check = alive(SimpleCheckedIcon)
@@ -58,11 +59,14 @@ export function BookmarkView(props: NodeViewProps): React.JSX.Element {
     const box = frame.current
     const img = box?.querySelector("img")
     if (!box || !img) return
+    // Bands found in a stored picture are known before it loads (lib/pictures.ts).
+    const look = lookOf(image)
+    const cut = look ? 1 - look[3] - look[4] : 1
     const check = (): void => {
       if (!img.naturalWidth || !box.clientHeight) return
-      const band = isYouTube(href) && Math.abs(img.naturalWidth / img.naturalHeight - 4 / 3) < 0.02
+      const band = cut === 1 && isYouTube(href) && Math.abs(img.naturalWidth / img.naturalHeight - 4 / 3) < 0.02
       setBanded(band)
-      const off = ((img.naturalWidth / img.naturalHeight) * (band ? 4 / 3 : 1)) / (box.clientWidth / box.clientHeight)
+      const off = ((img.naturalWidth / (img.naturalHeight * cut)) * (band ? 4 / 3 : 1)) / (box.clientWidth / box.clientHeight)
       setFills(Math.abs(off - 1) <= 0.06)
     }
     check()
@@ -89,7 +93,15 @@ export function BookmarkView(props: NodeViewProps): React.JSX.Element {
           leaves no empty bands, only its own colours carried to the edges. */}
       {image && !loading && (
         <span ref={frame} className="tiptap-bookmark-frame" data-fill={fills ? "" : undefined} data-banded={banded ? "" : undefined} style={{ '--bookmark-art': `url(${JSON.stringify(image)})` } as React.CSSProperties}>
-          <img className="tiptap-bookmark-image" src={image} alt="" />
+          {/* Its colours in its place until it has loaded, and only the picture
+              between any black bands baked into it. */}
+          <img
+            className="tiptap-bookmark-image"
+            src={image}
+            alt=""
+            ref={paintWhileLoading}
+            style={{ backgroundSize: "cover", backgroundPosition: "center", objectViewBox: withoutBands(image) } as React.CSSProperties}
+          />
         </span>
       )}
 

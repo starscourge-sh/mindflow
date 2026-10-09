@@ -51,6 +51,7 @@ import { celebrationFile, registerCelebrations } from './celebrate'
 import { firstRun, isWelcoming, noteChord, pretendTaken, registerOnboarding, whereTray } from './onboarding'
 import { registerUnused } from './unused'
 import { registerObsidian } from './obsidian'
+import { lookAhead, registerPictures } from './pictures'
 import { frostWindow, registerFrost, retellFrost } from './frost'
 import { SANDBOX, arrived, windingDown, onHandOff, registerSandbox, relaunch, restartNow, useDataFolder } from './sandbox'
 import { wideThumb } from './video-thumbs'
@@ -1460,7 +1461,7 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
     const name = `${createHash('sha256').update(bytes).digest('hex')}.${extension}`
     await mkdir(assetsDir(), { recursive: true })
     await stat(join(assetsDir(), name)).catch(() => writeFile(join(assetsDir(), name), bytes))
-    if (IMAGE[ending]) pictures += 1
+    if (IMAGE[ending]) (pictures += 1, lookAhead(name))
     else attached += 1
     return { url: `mindflow://assets/${name}`, size: bytes.byteLength, image: !!IMAGE[ending] }
   }
@@ -1949,6 +1950,7 @@ app.whenReady().then(() => {
   registerOnboarding()
   registerUnused()
   registerObsidian()
+  registerPictures()
   const first = fromCli(process.argv)
   if (first) captureText(first)
   createTray()
@@ -2370,6 +2372,8 @@ app.whenReady().then(() => {
     const temporary = `${destination}.${randomUUID()}.tmp`
     await writeFile(temporary, bytes)
     await rename(temporary, destination)
+    // Its size and colours worked out now, so the note it lands in keeps its place.
+    lookAhead(`${hash}.${extension}`)
 
     return `mindflow://assets/${hash}.${extension}`
   }

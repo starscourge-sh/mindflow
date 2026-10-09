@@ -4,6 +4,7 @@ import { join } from 'path'
 
 import { LABEL, atomically, changed, database } from './captures'
 import { celebrateAfter, watches } from './celebrate'
+import { known } from './pictures'
 import { gate, plain } from './vigil'
 
 /**
@@ -161,7 +162,12 @@ export function registerNotes({ load, guard }: Windows): void {
     const whole = image.isEmpty() && kind && kind !== 'svg' && ((await stat(join(assets(), name)).catch(() => null))?.size ?? Infinity) < 2 * 1024 * 1024
       ? `data:image/${kind === 'jpg' ? 'jpeg' : kind};base64,${(await readFile(join(assets(), name))).toString('base64')}`
       : src
-    const made = image.isEmpty() ? whole : `data:image/jpeg;base64,${image.resize({ height: Math.min(tall, image.getSize().height), quality: 'best' }).toJPEG(82).toString('base64')}`
+    // Black bands baked into it (a YouTube thumbnail's) are cut away, so the row shows the picture.
+    // Only when already known: a list never waits for pictures still being looked at.
+    const look = image.isEmpty() ? null : known(name)
+    const full = image.getSize()
+    const cut = look && (look[3] || look[4]) ? image.crop({ x: 0, y: Math.round(look[3] * full.height), width: full.width, height: Math.round(full.height * (1 - look[3] - look[4])) }) : image
+    const made = image.isEmpty() ? whole : `data:image/jpeg;base64,${cut.resize({ height: Math.min(tall, cut.getSize().height), quality: 'best' }).toJPEG(82).toString('base64')}`
     small.set(key, made)
     return made
   })

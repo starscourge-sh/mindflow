@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
+import { blurFor, lookOf } from "@/lib/pictures"
 import { createRoot } from "react-dom/client"
 import { NodeSelection } from "@tiptap/pm/state"
 import { useEditorState, type Editor } from "@tiptap/react"
@@ -39,7 +40,8 @@ const FOOT = 76
 const SIDE = 32
 
 /** Drawn, and really there: a missing file's dashed note has nothing to look at. */
-const whole = (img: HTMLImageElement): boolean => !img.dataset.missing && img.naturalWidth > 0
+// One not loaded yet counts when its size is known: far down a note it loads only as it comes near the screen.
+const whole = (img: HTMLImageElement): boolean => !img.dataset.missing && (img.naturalWidth > 0 || !!lookOf(img.getAttribute("src")))
 
 /**
  * A picture as the viewer needs it: where to read it, how big it really is,
@@ -47,7 +49,10 @@ const whole = (img: HTMLImageElement): boolean => !img.dataset.missing && img.na
  * shown from another window, only its place.
  */
 export type Picture = { src: string; width: number; height: number; caption: string; el: Element | null; rect?: DOMRect | null }
-const pictureOf = (img: HTMLImageElement): Picture => ({ src: img.currentSrc || img.src, width: img.naturalWidth, height: img.naturalHeight, caption: captionOf(img), el: img })
+const pictureOf = (img: HTMLImageElement): Picture => {
+  const look = lookOf(img.getAttribute("src"))
+  return { src: img.currentSrc || img.src, width: img.naturalWidth || look?.[0] || 1, height: img.naturalHeight || look?.[1] || 1, caption: captionOf(img), el: img }
+}
 
 /**
  * Quick Look for any picture outside a note (a page's cover, say): it lifts
@@ -470,7 +475,11 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
           draggable={false}
           className="mf-look-image"
           data-zoomed={view.zoom > 1 ? "" : undefined}
+          // Its colours until it has loaded: a picture far down the note may not have yet.
+          onLoad={(event) => void (event.currentTarget.style.backgroundImage = "")}
           style={{
+            backgroundImage: lookOf(src)?.[3] || lookOf(src)?.[4] ? undefined : blurFor(src),
+            backgroundSize: "100% 100%",
             transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,
             transition: view.smooth && !still() ? "transform 0.24s cubic-bezier(0.16, 1, 0.3, 1)" : "none",
           }}

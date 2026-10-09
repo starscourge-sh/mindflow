@@ -33,3 +33,26 @@
     margin: 0;
   }
 }
+
+// A picture whose size is known (lib/pictures.ts) has its place from the
+// start: as wide as it is, or the column, and in a note's page never taller
+// than 80% of the window (main.css), the same box it settles into once loaded.
+// One sized by hand keeps its own width. Firmer than the column's own
+// `width: auto`, which would leave a picture not yet loaded no size at all.
+.tiptap.ProseMirror img[data-held]:not([style*="width"]) {
+  width: min(100%, var(--mf-pic-w)) !important;
+}
+
+:is(.note-pane, .mf-read) .tiptap.ProseMirror.mindflow-editor:not(.is-line) > img[data-held]:not([style*="width"]) {
+  width: min(100%, var(--mf-pic-w), 80vh * var(--mf-pic-r)) !important;
+}
+
+// Until it is drawn: its colours, blurred, where it will be, and the picture
+// kept out of sight until it fades in over them.
+.tiptap.ProseMirror img[data-waiting] {
+  background-size: 100% 100%;
+  background-origin: content-box;
+  background-clip: content-box;
+  background-repeat: no-repeat;
+  object-position: -99999px 0 !important;
+}
