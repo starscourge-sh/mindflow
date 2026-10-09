@@ -4,7 +4,8 @@ import { blurFor, lookOf } from "@/lib/pictures"
 import { createRoot } from "react-dom/client"
 import { NodeSelection } from "@tiptap/pm/state"
 import { useEditorState, type Editor } from "@tiptap/react"
-import { animate, motion, useMotionValue, useSpring } from "motion/react"
+import { animate, motion, useMotionTemplate, useMotionValue, useSpring } from "motion/react"
+import { useFollowLabel, useTilt } from "@/components/vigil/tilt"
 import { Check, FolderOpen } from "lucide-react"
 import { alive } from "@/components/ui/alive-icon"
 import RightChevronIcon from "@/components/ui/right-chevron"
@@ -224,10 +225,111 @@ export function ImageLook({ editor }: { editor: Editor | null }): React.JSX.Elem
           </Toolbar>
         </div>
       )}
+      {editor && <PictureTilt editor={editor} />}
       {open && <Viewer key={open.pictures[open.at].src} pictures={open.pictures.map(pictureOf)} start={open.at} onClose={() => setOpen(null)} />}
     </>,
     document.body
   )
+}
+
+// Keys pressed this recently: you are writing, and a picture swinging by the
+// words would only distract.
+const TYPED = 900
+
+/**
+ * A note's picture tips a few degrees toward the pointer, and its caption
+ * leaves the line under it to ride beside the pointer, as on the tilted cards
+ * elsewhere (Tilt), the same springs and the same label. The line under it
+ * only fades while the label carries its words, so nothing below moves and the
+ * words are never shown twice; it is back the moment the pointer leaves the
+ * picture, which is the only way to reach it, so a click on it still writes.
+ * Never on a picture that is selected (its toolbar is over it), held, dragged,
+ * while you type or write its caption, for a touch, or with Motion off: the
+ * plain caption only.
+ */
+function PictureTilt({ editor }: { editor: Editor }): React.ReactNode {
+  const tilt = useTilt(6, 1.015)
+  const name = useFollowLabel()
+  const [caption, setCaption] = useState<string | null>(null)
+  const on = useRef<HTMLImageElement | null>(null)
+  const faded = useRef<HTMLElement | null>(null)
+  const transform = useMotionTemplate`perspective(700px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(${tilt.grow})`
+  const fade = (line: HTMLElement | null): void => {
+    if (faded.current === line) return
+    if (faded.current) delete faded.current.dataset.following
+    if (line) line.dataset.following = ""
+    faded.current = line
+  }
+  tilt.onFlat(() => {
+    name.hide()
+    fade(null)
+  })
+
+  useEffect(() => {
+    const dom = editor.view.dom
+    let typed = 0
+    const resting = (): boolean => Math.abs(tilt.x.get()) < 0.01 && Math.abs(tilt.y.get()) < 0.01 && Math.abs(tilt.grow.get() - 1) < 0.0005
+    // Written on the picture in the frame the springs moved in: one transform, nothing measured.
+    const unsubscribe = transform.on("change", (value) => {
+      if (on.current) on.current.style.transform = resting() ? "" : value
+    })
+    // Flat at once, not on its spring: a press means the picture is about to
+    // be selected, lifted into Look or dragged, each from its real place.
+    const snap = (): void => {
+      tilt.flat()
+      for (const value of [tilt.x, tilt.y, tilt.glow]) value.jump(0)
+      tilt.grow.jump(1)
+      if (on.current) on.current.style.transform = ""
+    }
+    const lineUnder = (img: HTMLImageElement): HTMLElement | null => {
+      const next = img.nextElementSibling
+      return next instanceof HTMLElement && next.classList.contains("mf-caption") && next.textContent?.trim() ? next : null
+    }
+    const chosen = (img: HTMLImageElement): boolean => {
+      const { selection } = editor.state
+      return selection instanceof NodeSelection && editor.view.nodeDOM(selection.from) === img
+    }
+    const onMove = (event: PointerEvent): void => {
+      const img = event.target instanceof HTMLImageElement && whole(event.target) && !event.target.closest("[data-type='emoji'], .tiptap-bookmark-image") ? event.target : null
+      if (img !== on.current) {
+        if (on.current) snap()
+        on.current = img
+      }
+      if (!img) return
+      if (chosen(img) || performance.now() - typed < TYPED || document.activeElement?.closest(".mf-caption") || dom.classList.contains("dragging")) return tilt.flat()
+      if (!tilt.lean(event, img)) return
+      const line = lineUnder(img)
+      if (!line) return void (name.hide(), fade(null))
+      setCaption(line.textContent!.trim())
+      name.follow(event.clientX, event.clientY)
+      fade(line)
+    }
+    const onOut = (event: PointerEvent): void => {
+      if (on.current && event.target === on.current && event.relatedTarget !== on.current) tilt.flat()
+    }
+    const onKey = (): void => {
+      typed = performance.now()
+      if (on.current) tilt.flat()
+    }
+    const onPress = (): void => void (on.current && snap())
+    dom.addEventListener("pointermove", onMove)
+    dom.addEventListener("pointerout", onOut)
+    dom.addEventListener("dragstart", snap)
+    dom.addEventListener("keydown", onKey, true)
+    window.addEventListener("pointerdown", onPress, true)
+    return () => {
+      dom.removeEventListener("pointermove", onMove)
+      dom.removeEventListener("pointerout", onOut)
+      dom.removeEventListener("dragstart", snap)
+      dom.removeEventListener("keydown", onKey, true)
+      window.removeEventListener("pointerdown", onPress, true)
+      unsubscribe()
+      snap()
+      on.current = null
+    }
+  }, [editor]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  return name.label(caption)
 }
 
 /** Where a picture sits when it fills the window: never past its own size. */

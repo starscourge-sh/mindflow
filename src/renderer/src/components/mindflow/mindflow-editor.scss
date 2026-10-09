@@ -1636,6 +1636,17 @@ html[data-link-pictures="whole"] .tiptap.ProseMirror.mindflow-editor .tiptap-boo
     }
   }
 
+  // While the pointer is on its picture the caption rides beside the pointer
+  // (PictureTilt, image-look.tsx): the line here only fades, keeping its room,
+  // and is back by the time the pointer could reach it.
+  .mf-caption {
+    transition: opacity 140ms ease-out;
+  }
+
+  .mf-caption[data-following] {
+    opacity: 0;
+  }
+
   // A YouTube video always has its line, since its frame takes every click:
   // empty, it waits unseen in the margin until the pointer comes near.
   div[data-youtube-video] + .mf-caption {
