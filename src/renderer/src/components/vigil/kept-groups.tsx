@@ -2,8 +2,8 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type C
 import { createPortal } from 'react-dom'
 import { DndContext, MeasuringStrategy, PointerSensor, closestCenter, pointerWithin, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragMoveEvent, type DragStartEvent, type Modifier } from '@dnd-kit/core'
 import { SortableContext, useSortable, type SortingStrategy } from '@dnd-kit/sortable'
-import { AnimatePresence, motion } from 'motion/react'
-import { ChevronRight, Layers, Plus } from 'lucide-react'
+import { AnimatePresence, motion, useMotionValue, useSpring, useTransform, type MotionValue } from 'motion/react'
+import { ChevronRight, Layers, Plus, X as Cross } from 'lucide-react'
 
 import { alive } from '@/components/ui/alive-icon'
 import XIcon from '@/components/ui/x-icon'
@@ -106,6 +106,8 @@ function Node({ id, children, inner, indent = 0 }: { id: string; children: React
   const forming = lifted && !here.into
   // The carried row's own place travels to where it would land: the room the rows open. Near an edge, a line in it.
   const room = isDragging && !!aim
+  // The room is a row for each note carried, softly tinted.
+  const rows = along.size + 1
   return (
     <div
       ref={setNodeRef}
@@ -118,6 +120,9 @@ function Node({ id, children, inner, indent = 0 }: { id: string; children: React
       className="relative isolate"
       style={{ transform: transform ? `translate3d(0, ${Math.round(transform.y)}px, 0)` : undefined, transition, opacity: isDragging && !room ? 0.3 : undefined }}
     >
+      {room && (
+        <span aria-hidden data-room={rows} className="pointer-events-none absolute inset-x-1 top-0 rounded-md bg-[color-mix(in_srgb,var(--tt-brand-color-400)_6%,transparent)] animate-in fade-in-0 duration-150" style={{ height: rows * height - 2 }} />
+      )}
       {room && aim.how !== 'join' && (
         <span
           aria-hidden
@@ -175,6 +180,8 @@ export function GroupedList({ bundles, onDrop, picked, onLetGo, onFold, onNewNot
   const [carried, setCarried] = useState<string | null>(null)
   // Everything carried, in the order it is read: the row in hand, and the rest picked with it.
   const [many, setMany] = useState<string[]>([])
+  // How far the pointer has carried things: the stack's back cards follow it a moment late.
+  const dragY = useMotionValue(0)
   const manyRef = useRef<string[]>([])
   manyRef.current = many
   const [height, setHeight] = useState(0)
@@ -206,7 +213,8 @@ export function GroupedList({ bundles, onDrop, picked, onLetGo, onFold, onNewNot
       // Exactly one row of room, whatever lies between: the rows from the carried one's place to the gap slide by its height and no more.
       const { activeIndex, index, rects, activeNodeRect } = args
       const to = activeIndex <= gapAfter ? gapAfter : gapAfter + 1
-      const h = activeNodeRect?.height ?? rects[activeIndex]?.height ?? 0
+      // A row of room for each note carried.
+      const h = (activeNodeRect?.height ?? rects[activeIndex]?.height ?? 0) * Math.max(1, manyRef.current.length)
       const still = { x: 0, scaleX: 1, scaleY: 1 }
       if (index === activeIndex) {
         const at = rects[activeIndex]
@@ -228,6 +236,7 @@ export function GroupedList({ bundles, onDrop, picked, onLetGo, onFold, onNewNot
   }
   const onDragStart = ({ active, activatorEvent }: DragStartEvent): void => {
     const id = String(active.id)
+    dragY.jump(0)
     chime('lift')
     ticks.start(id)
     setCarried(id)
@@ -249,6 +258,7 @@ export function GroupedList({ bundles, onDrop, picked, onLetGo, onFold, onNewNot
     spring.current = null
   }
   const onDragMove = ({ active, over, activatorEvent, delta }: DragMoveEvent): void => {
+    dragY.set(delta.y)
     const id = String(active.id)
     const target = over && String(over.id)
     const pointer = activatorEvent instanceof PointerEvent ? { x: activatorEvent.clientX + delta.x, y: activatorEvent.clientY + delta.y } : null
@@ -342,7 +352,7 @@ export function GroupedList({ bundles, onDrop, picked, onLetGo, onFold, onNewNot
         </Carrying.Provider>
       </SortableContext>
       <Overlay dropAnimation={still() ? null : SETTLE}>
-        {carried && <Ghost carried={carried} bundles={bundles} many={many.length} aim={aim} grab={grab} lift={aim?.how === 'join' && !down ? height : 0} />}
+        {carried && <Ghost carried={carried} bundles={bundles} many={many} aim={aim} grab={grab} lift={aim?.how === 'join' && !down ? height : 0} dragY={dragY} />}
       </Overlay>
     </DndContext>
   )
@@ -355,56 +365,87 @@ export function GroupedList({ bundles, onDrop, picked, onLetGo, onFold, onNewNot
  * previews. Several carried show as a stack with a count; a group, by its
  * icon and name.
  */
-function Ghost({ carried, bundles, many, aim, grab, lift }: { carried: string; bundles: Bundle[]; many: number; aim: Aim | null; grab: number; lift: number }): React.JSX.Element {
+function Ghost({ carried, bundles, many, aim, grab, lift, dragY }: { carried: string; bundles: Bundle[]; many: string[]; aim: Aim | null; grab: number; lift: number; dragY: MotionValue<number> }): React.JSX.Element {
   const group = isGroup(carried) ? bundles.find((one) => one.group && KEY + one.group.id === carried)?.group : undefined
-  const entry = group ? undefined : bundles.flatMap((one) => one.entries).find((one) => one.id === carried)
+  const entries = bundles.flatMap((one) => one.entries)
+  const entry = group ? undefined : entries.find((one) => one.id === carried)
   const words = aim?.label ?? (aim ? 'Move here' : null)
+  // The rest carried, fanned up and to the left behind the one in hand: two at most show.
+  const behind = many.filter((one) => one !== carried).slice(0, 2).map((id) => entries.find((one) => one.id === id)).filter((one): one is Entry => !!one)
   return (
     <div className="relative h-full w-full">
-      <motion.div
-        data-ghost=""
-        className="absolute top-1/2 flex w-[60%] min-w-64 items-center gap-2 rounded-md bg-background px-2.5 py-1.5 text-control shadow-[0_8px_24px_-6px_rgb(0_0_0/0.35)] ring-1 ring-foreground/10"
-        style={{ left: `min(${grab + 18}px, 40%)`, translate: '0 -50%' }}
-        initial={{ opacity: 0, scale: 0.94 }}
-        animate={{ opacity: 1, scale: 1, y: lift }}
-        transition={still() ? { duration: 0 } : springs.moderate}
-      >
-        {/* Several: a card or two showing behind, a stack. */}
-        {Array.from({ length: Math.min(2, many - 1) }, (_, at) => (
-          <span key={at} aria-hidden className="absolute inset-0 -z-10 rounded-md bg-background shadow-[0_4px_12px_-4px_rgb(0_0_0/0.3)] ring-1 ring-foreground/10"
-            style={{ translate: `0 ${(at + 1) * 4}px`, scale: 1 - (at + 1) * 0.03 }} />
-        ))}
-        {many > 1 && <Count n={many} />}
-        {group ? <GroupIcon icon={group.icon} color={group.color} /> : entry ? <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} /> : null}
-        <span className={cn('min-w-0 flex-1 truncate', group ? 'font-semibold' : 'private-text')}>{group?.name ?? (entry?.title || 'Untitled')}</span>
-        {/* The words cross-fade in place; the card itself never changes. */}
-        <span className="grid shrink-0 justify-items-end text-xs text-muted-foreground">
-          <AnimatePresence initial={false}>
-            {words && (
-              <motion.span
-                key={words}
-                data-drag-label=""
-                className="col-start-1 row-start-1 flex items-center gap-1.5 whitespace-nowrap"
-                initial={{ opacity: 0, y: 3 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -3, transition: { duration: 0.08 } }}
-                transition={still() ? { duration: 0 } : springs.fast}
-              >
-                <span className="size-1.5 rounded-full" style={{ background: aim?.tint ?? 'var(--muted-foreground)' }} />
-                {words}
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </span>
-      </motion.div>
+      <div className="absolute top-1/2 w-[60%] min-w-64" style={{ left: `min(${grab + 18}px, 40%)`, translate: '0 -50%' }}>
+        <motion.div className="relative" initial={false} animate={{ y: lift }} transition={still() ? { duration: 0 } : springs.moderate}>
+          {behind.map((one, at) => <Fanned key={one.id} entry={one} depth={at + 1} dragY={dragY} />).reverse()}
+          <motion.div
+            data-ghost=""
+            className={cn('relative flex items-center gap-2 rounded-md px-2.5 py-1.5 text-control shadow-[0_8px_24px_-6px_rgb(0_0_0/0.35)] ring-1 ring-foreground/10', behind.length ? 'bg-[color-mix(in_srgb,var(--background)_90%,white)] dark:bg-[color-mix(in_srgb,var(--background)_92%,white)]' : 'bg-background')}
+            initial={{ opacity: 0, scale: 0.94 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={still() ? { duration: 0 } : springs.moderate}
+          >
+            {group ? <GroupIcon icon={group.icon} color={group.color} /> : entry ? <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} /> : null}
+            <span className={cn('min-w-0 flex-1 truncate', group ? 'font-semibold' : 'private-text')}>{group?.name ?? (entry?.title || 'Untitled')}</span>
+            {/* The words cross-fade in place; the card itself never changes. */}
+            <span className="grid shrink-0 justify-items-end text-xs text-muted-foreground">
+              <AnimatePresence initial={false}>
+                {words && (
+                  <motion.span
+                    key={words}
+                    data-drag-label=""
+                    className="col-start-1 row-start-1 flex items-center gap-1.5 whitespace-nowrap"
+                    initial={{ opacity: 0, y: 3 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -3, transition: { duration: 0.08 } }}
+                    transition={still() ? { duration: 0 } : springs.fast}
+                  >
+                    <span className="size-1.5 rounded-full" style={{ background: aim?.tint ?? 'var(--muted-foreground)' }} />
+                    {words}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </span>
+            {behind.length > 0 && <Cross aria-hidden className="size-3 shrink-0 text-muted-foreground/70" />}
+          </motion.div>
+          {/* How many, hanging just under the stack. */}
+          {many.length > 1 && <Count n={many.length} />}
+        </motion.div>
+      </div>
     </div>
+  )
+}
+
+/**
+ * One card behind the one in hand: fanned up and to the left, and following
+ * the pointer a moment late, the farther the later, like a stack held
+ * loosely. With Reduce motion it simply sits there.
+ */
+function Fanned({ entry, depth, dragY }: { entry: Entry; depth: number; dragY: MotionValue<number> }): React.JSX.Element {
+  const calm = still()
+  const late = useSpring(dragY, { stiffness: 900 - depth * 200, damping: 50, mass: 0.6 })
+  const y = useTransform(() => (calm ? 0 : late.get() - dragY.get()))
+  return (
+    <motion.div className="absolute inset-0" style={{ y }}>
+      <motion.div
+        aria-hidden
+        data-fanned={depth}
+        className="absolute inset-0 flex items-center gap-2 overflow-hidden rounded-md bg-background px-2.5 py-1.5 text-control shadow-[0_6px_16px_-6px_rgb(0_0_0/0.3)] ring-1 ring-foreground/10"
+        initial={calm ? false : { x: 0, y: 0, opacity: 0 }}
+        // Each about a title's height up and a little to the left, so every title reads above the one before it.
+        animate={{ x: -16 * depth, y: -28 * depth, opacity: 1 }}
+        transition={calm ? { duration: 0 } : springs.moderate}
+      >
+        <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} />
+        <span className="private-text min-w-0 flex-1 truncate">{entry.title || 'Untitled'}</span>
+      </motion.div>
+    </motion.div>
   )
 }
 
 /** How many are carried, in a small badge on the lifted card's corner. */
 function Count({ n }: { n: number }): React.JSX.Element {
   return (
-    <span data-carried={n} className="absolute -top-2 -right-2 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-(--tt-brand-color-400) px-1.5 text-[11px] font-semibold text-white tabular-nums shadow-sm animate-in zoom-in-75 fade-in-0 duration-150">
+    <span data-carried={n} className="absolute -bottom-3 left-1/2 z-10 flex h-5 -translate-x-1/2 min-w-5 items-center justify-center rounded-full bg-(--tt-brand-color-400) px-1.5 text-[11px] font-semibold text-white tabular-nums shadow-sm animate-in zoom-in-75 fade-in-0 duration-150">
       {n}
     </span>
   )
@@ -452,7 +493,7 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
   const count = entries.length
   const tint = tintOf(group.color)
   const key = KEY + group.id
-  const { aim, height, leaving, down, within, hand } = useContext(Carrying)
+  const { aim, height, leaving, down, within, hand, along } = useContext(Carrying)
   const joining = aim?.how === 'join' && aim.into === group.id
   // Carrying, the panel answers the pointer being anywhere within the group, and deepens when letting go would put the row in it.
   const near = within === group.id && !carried
@@ -460,7 +501,8 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
   const losing = leaving?.group === group.id ? entries.findIndex((entry) => entry.id === leaving.id) : -1
   // The panel follows what is about to happen: wider for one about to join, closing over one about to leave.
   // Room opened inside it for a row from elsewhere: the panel takes that row in too.
-  const stretch = landing && !entries.some((entry) => entry.id === hand) ? (down ? { top: -height } : { bottom: -height }) : losing >= 0 ? (down ? { bottom: height } : { top: height }) : {}
+  const span = height * (along.size + 1)
+  const stretch = landing && !entries.some((entry) => entry.id === hand) ? (down ? { top: -span } : { bottom: -span }) : losing >= 0 ? (down ? { bottom: span } : { top: span }) : {}
   const fold = (): void => {
     chime(group.open ? 'tuck' : 'untuck')
     onFold(!group.open)

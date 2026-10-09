@@ -179,6 +179,15 @@ if (c) try {
       await c.h.waitForTimeout(200)
       check('the picks survive the press', (await picked(c)).length === 3)
       check('carrying three, the label counts them', (await said(c)) === 'Add 3 to Memory', await said(c))
+      const stack = await c.h.evaluate(() => {
+        const ghost = document.querySelector('[data-ghost]')?.getBoundingClientRect()
+        const badge = document.querySelector('[data-carried]')?.getBoundingClientRect()
+        const fans = [...document.querySelectorAll('[data-fanned]')].map((one) => one.getBoundingClientRect())
+        const room = document.querySelector('[data-room]')
+        return { fans: fans.length, upLeft: fans.every((one) => one.top < ghost.top && one.left < ghost.left), badgeBelow: !!badge && badge.top > ghost.bottom - 12 && Math.abs((badge.left + badge.width / 2) - (ghost.left + ghost.width / 2)) < 4, rows: Number(room?.getAttribute('data-room')), roomHeight: room?.getBoundingClientRect().height, row: document.querySelector('[data-row]')?.getBoundingClientRect().height }
+      })
+      check('three carried show as a fanned stack, the count hanging under it', stack.fans === 2 && stack.upLeft && stack.badgeBelow, JSON.stringify(stack))
+      check('and the room opened is a row for each', stack.rows === 3 && Math.abs(stack.roomHeight - 3 * stack.row) < stack.row * 0.5, JSON.stringify(stack))
       await frames(c, 'p-stack-join', 4, 40)
     }
   })
