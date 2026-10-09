@@ -473,6 +473,20 @@ function Words({ title, docked, still, done, tight = false, children }: { title:
   )
 }
 
+/**
+ * A call to action, on its own line and larger than the words around it,
+ * the accent sweeping across its letters until it is done (main.css,
+ * .mf-shimmer); with Motion off, plain accent. One a chapter at most.
+ */
+function Action({ done = false, className = '', children }: { done?: boolean; className?: string; children: ReactNode }): React.JSX.Element {
+  return (
+    <motion.p className={`font-heading text-[clamp(1.25rem,min(2.4vw,3.4vh),1.75rem)] leading-tight font-medium whitespace-nowrap ${className}`}
+      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE, delay: 0.2 }}>
+      <span className="mf-shimmer" data-done={done || undefined}>{children}</span>
+    </motion.p>
+  )
+}
+
 /** Tells the welcome how far the chapter has got, every render. */
 function useReport(report: (now: Reel) => void, done: boolean, settle: () => void): void {
   report({ done, settle })
@@ -591,7 +605,7 @@ function CatchChapter({ play, report, state, onState }: { play: boolean; report:
           <KeyPicker taken={!!state?.boxTaken} onState={onState} />
         ) : (
           <>
-            <InlineKeys keys={keys} /> opens this box over any app. Write the thought, and Vigil works out what kind of thing it is.{' '}
+            <InlineKeys keys={keys} /> opens this box over any app, and Vigil sorts what you write.{' '}
             <button type="button" onClick={() => (chime('tap'), setChoosing(true))} className={`${QUIET} rounded-sm underline decoration-current/30 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current/60`}>
               Use a different key
             </button>
@@ -661,7 +675,7 @@ function WriteChapter({ play, report }: { play: boolean; report: (now: Reel) => 
   return (
     <>
       <Words title="Write it out at length." docked={s.docked} still={!play} done={show.done}>
-        Long notes live here too, with headings, pictures and callouts. Pick out a line, and it becomes an idea that remembers where it came from.
+        Long notes live here too, and any line in them can become an idea.
       </Words>
       <div ref={scene} className="relative flex min-h-0 flex-1 items-center justify-center pb-2">
         {s.page && (
@@ -707,11 +721,11 @@ function Caption({ kind }: { kind: Kind }): React.JSX.Element {
   const now = dayjs()
   if (kind === 'todo') return <>In your tasks, and in Today on the day.</>
   // True of every kind: the year-later memory picks from anything kept (vigil.ts, memory).
-  if (kind === 'quote') return <>Anything you keep can come back a year later, on <span className="whitespace-nowrap text-foreground">{now.format('D MMMM')} <RollingYear from={now.year()} /></span>, like this.</>
+  if (kind === 'quote') return <>Anything kept can come back a year later, on <span className="whitespace-nowrap text-foreground">{now.format('D MMM')} <RollingYear from={now.year()} /></span>.</>
   // A word is asked in Review once it is kept from the Inbox with its meaning (vigil.ts, promote).
-  if (kind === 'word') return <>Keep it from your Inbox, and Review asks what it means, further apart each time.</>
+  if (kind === 'word') return <>Kept as an idea, Review asks what it means.</>
   // A link's card is filled in once the page answers (cardUp).
-  return <>Kept with the page’s name and picture, so you find it by what it is.</>
+  return <>Kept with the page’s name and picture.</>
 }
 
 /** The things caught as what they became, side by side; a chip until its turn comes. */
@@ -774,15 +788,15 @@ function BecomeChapter({ play, report, pick, onPick, turn, mine }: { play: boole
   const box = <InlineKeys keys={keyFor('⌘.') || '⌘.'} />
   const send = <InlineKeys keys={keyFor('⌘↵') || '⌘↵'} />
   const said: Record<Turn, ReactNode> = {
-    idle: <>Your turn. Pick one, and press {box} to open the box with it written in. Then {send} keeps it.</>,
-    open: <>It is in the box. Press {send} there to keep it.</>,
-    away: <>The box is put away, with your words still in it. Press {box} to bring it back.</>,
+    idle: <Action>Your turn: pick one, then press {box}</Action>,
+    open: <Action>Now press {send} in the box to keep it</Action>,
+    away: <Action>Press {box} to bring the box back</Action>,
     kept: <>Saved{mine && mine.kind !== pick ? `: “${(mine.label.split('\n')[0] ?? '').slice(0, 40)}”` : ''}. It is yours now, in your Inbox.</>
   }
   return (
     <>
       <Words title="Then it becomes something." docked={s.docked} still={!play} done={show.done} tight={!!s.look && !show.done}>
-        Each kind goes where it will be of use to you. These four were only a show: nothing is kept until your turn.
+        Each kind goes where it is useful. These four were only a show.
       </Words>
       <div ref={scene} className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-[clamp(0.75rem,3vh,1.75rem)] pb-2">
         <Camera shot={s.look && !show.done ? frameOn(world.current, s.look, 1.35) : WIDE} className="w-full max-w-[64rem]">
@@ -795,9 +809,9 @@ function BecomeChapter({ play, report, pick, onPick, turn, mine }: { play: boole
         <AnimatePresence>
           {show.done && (
             <motion.div key="turn" className="flex items-center gap-[clamp(1rem,2.5vw,2rem)] pt-2" initial={{ opacity: 0, filter: 'blur(2px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, transition: spring.fast.exit }} transition={{ duration: 0.25, ease: EASE }}>
-              <motion.p role="status" key={turn} className="max-w-[40ch] text-[clamp(1rem,min(2vw,2.9vh),1.375rem)] leading-snug text-pretty text-foreground" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
+              <motion.div role="status" key={turn} className="text-[clamp(1rem,min(2vw,2.9vh),1.375rem)] leading-snug text-foreground" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
                 {said[turn]}
-              </motion.p>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -975,7 +989,7 @@ function DayChapter({ play, report }: { play: boolean; report: (now: Reel) => vo
   return (
     <>
       <Words title="A day with Vigil." docked={dock} still={!play} done={stage === 'day' && done}>
-        {stage === 'pairs' ? 'If you have lived in Obsidian, Notion, Anki and a bit of Todoist, this is one place for all of it.' : 'What a normal day looks like once you have kept a few things.'}
+        {stage === 'pairs' ? 'Obsidian, Notion, Anki and a bit of Todoist, in one place.' : 'A normal day, once you have kept a few things.'}
       </Words>
       <div className="relative min-h-0 flex-1 overflow-hidden">
         {stage === 'pairs'
@@ -1021,10 +1035,12 @@ function ConnectChapter({ play, report }: { play: boolean; report: (now: Reel) =
   const s = show.state
   const scene = useRef<HTMLDivElement>(null)
   const [lit, setLit] = useState<string | null | undefined>(undefined)
+  // Pointed at a dot yourself: the call to do it, and the ring round the dot, stop.
+  const [pointed, setPointed] = useState(false)
   return (
     <>
       <Words title="And it finds its friends." docked={s.docked} still={!play} done={show.done}>
-        Type <Kbd className={LINE_KEY}>[[</Kbd> and a note’s name to link two notes. Every link you make joins your notes map. {show.done ? 'Your turn: point at a dot.' : ''}
+        Type <Kbd className={LINE_KEY}>[[</Kbd> and a note’s name to link two notes.
       </Words>
       <div ref={scene} className="relative flex min-h-0 flex-1 flex-col items-center justify-center pb-2">
         <AnimatePresence>
@@ -1036,9 +1052,11 @@ function ConnectChapter({ play, report }: { play: boolean; report: (now: Reel) =
         </AnimatePresence>
         {!s.cards && (
           <div className="absolute inset-0 pb-2">
-            <LinkScene shot={{ ...s, lit: show.done && lit !== undefined ? lit : s.lit }} quiet={!play} onLight={(id) => show.done && (id !== lit && id && click('soft'), setLit(id))} />
+            <LinkScene shot={{ ...s, lit: show.done && lit !== undefined ? lit : s.lit }} quiet={!play} hint={show.done && !pointed ? 'quote' : null}
+              onLight={(id) => show.done && (id !== lit && id && click('soft'), id && setPointed(true), setLit(id))} />
           </div>
         )}
+        {show.done && <Action done={pointed} className="absolute bottom-2 left-1/2 -translate-x-1/2">Your turn: point at a dot</Action>}
         {play && !show.done && <GhostHand to={s.hand} down={false} root={scene} />}
       </div>
     </>
@@ -1077,7 +1095,7 @@ function ReturnChapter({ play, report }: { play: boolean; report: (now: Reel) =>
   return (
     <>
       <Words title="And it all comes back to you." docked={s.docked} still={!play} done={show.done}>
-        Once a year, Vigil reads your year back to you: what you kept, and what it says about you.
+        Once a year, Vigil reads your year back to you.
       </Words>
       <figure aria-label="An example year, read back" className="relative mb-2 grid min-h-0 flex-1 grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] grid-rows-[auto_minmax(0,1fr)] items-center gap-x-[clamp(1.5rem,4vw,4rem)] rounded-2xl border border-foreground/10 bg-popover/60 px-[clamp(1rem,3vw,2rem)] py-[clamp(0.75rem,2vh,1.25rem)]">
         <figcaption className="col-span-2 flex items-baseline gap-3">
@@ -1151,6 +1169,8 @@ function DotGrid(): React.JSX.Element {
 function DialChapter({ play, report, onPick }: { play: boolean; report: (now: Reel) => void; onPick: (theme: Theme) => void }): React.JSX.Element {
   const [say, setSay] = useState<string | undefined>()
   const show = useScript<DialState>({ docked: false, dial: false, ticks: 0 }, DIAL_BEATS, play)
+  // Turned by you: the call to do it stops.
+  const [turned, setTurned] = useState(false)
   useReport(report, show.done, show.settle)
   const s = show.state
   const win = useWindowSize()
@@ -1159,9 +1179,7 @@ function DialChapter({ play, report, onPick }: { play: boolean; report: (now: Re
     <>
       <DotGrid />
       <Words title="Make it yours." docked={s.docked} still={!play} done={show.done}>
-        {show.done
-          ? <>Your turn: turn it with <span className="inline-flex translate-y-[-0.08em] gap-[0.12em] align-middle"><Kbd className={LINE_KEY}>↑</Kbd><Kbd className={LINE_KEY}>↓</Kbd></span>, the wheel or a drag. Settings has it later.</>
-          : <>The page you write on. Everything you keep wears it.</>}
+        The page you write on. Settings has it later too.
       </Words>
       <div className="relative flex min-h-0 flex-1 items-center justify-center pb-2">
         {/* What she has seen caught, behind the dial, wearing each theme as it passes. */}
@@ -1179,8 +1197,9 @@ function DialChapter({ play, report, onPick }: { play: boolean; report: (now: Re
           <motion.div className="relative z-10" initial={play ? { opacity: 0, scale: 0.96, filter: 'blur(4px)' } : false} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} transition={CAM}>
             {/* Its own layer in the crossfade, shown live: the ring and its light never stop while the page changes. */}
             <div className="[view-transition-name:mf-theme-dial]">
-              <ThemeDial calm size={size} big wear={fadeTo} onPick={onPick} onFullTurn={() => (setSay(FULL_TURN), setTimeout(() => setSay(undefined), 1800))} say={say} />
+              <ThemeDial calm size={size} big wear={fadeTo} onPick={(theme) => (show.done && setTurned(true), onPick(theme))} onFullTurn={() => (setSay(FULL_TURN), setTimeout(() => setSay(undefined), 1800))} say={say} />
             </div>
+            {show.done && <Action done={turned} className="relative z-20 mt-1 text-center">Your turn: turn the dial</Action>}
           </motion.div>
         )}
       </div>
@@ -1480,7 +1499,8 @@ function Hello({ replay, kept, calm, newcomer, today }: { replay: boolean; kept:
       <div className="flex max-w-[min(100%,46rem)] flex-col gap-[clamp(0.75rem,2.6vh,1.75rem)] pt-[clamp(0rem,4vh,3rem)]">
         <p className={FIGURES}>{when}</p>
         {replay ? <h1 className={`${HEADLINE_XL} max-w-[17ch]`}>{line}</h1> : <TypeLine text={line} className={`${HEADLINE_XL} max-w-[17ch]`} onDone={() => setSaid(true)} />}
-        <p className={`${BODY} max-w-[28ch]`}>Your commonplace book: long notes and quick thoughts in one place, and they come back to you. For students, researchers and anyone who reads and writes to think.</p>
+        <p className={`${BODY} max-w-[28ch]`}>Your commonplace book: long notes and quick thoughts that come back to you.</p>
+        <p className={`${QUIET} max-w-[40ch]`}>For students, researchers and anyone who reads and writes to think.</p>
       </div>
       <div className="[@media(max-height:520px)]:hidden">
         <YearRule calm={calm} kept={kept} faded={said} newcomer={newcomer} today={today} />

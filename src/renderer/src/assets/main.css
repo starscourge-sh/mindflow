@@ -1185,6 +1185,23 @@ input[type='number']::-webkit-outer-spin-button {
 @keyframes mf-plain-in { from { opacity: 0; } }
 :root[data-welcoming]::view-transition-old(mf-theme-dial) { display: none; }
 :root[data-welcoming]::view-transition-new(mf-theme-dial), :root[data-welcoming]::view-transition-group(mf-theme-dial) { animation: none; }
+/* A call to action in the welcome: the accent sweeping across the letters,
+   slowly, until it is done; still, plain accent. */
+.mf-shimmer {
+  background-image: linear-gradient(100deg, var(--primary) 20%, color-mix(in oklab, var(--primary) 35%, white) 40%, color-mix(in oklab, var(--primary) 60%, var(--tt-color-text-purple)) 50%, var(--primary) 70%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: mf-shimmer 2.5s linear infinite;
+}
+.mf-shimmer[data-done] { animation: none; background-image: none; color: var(--primary); }
+@keyframes mf-shimmer { from { background-position: 100% 0; } to { background-position: -150% 0; } }
+:root[data-motion='off'] .mf-shimmer { animation: none; background-image: none; color: var(--primary); }
+@media (prefers-reduced-motion: reduce) { .mf-shimmer { animation: none; background-image: none; color: var(--primary); } }
+/* A soft ring that pulses round the thing to point at. */
+.mf-pulse-ring { animation: mf-pulse-ring 1.8s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes mf-pulse-ring { from { transform: scale(1); opacity: 0.7; } to { transform: scale(2.6); opacity: 0; } }
+:root[data-motion='off'] .mf-pulse-ring { animation: none; opacity: 0.6; }
+@media (prefers-reduced-motion: reduce) { .mf-pulse-ring { animation: none; opacity: 0.6; } }
 /* The welcome's ghost caret: the accent bar, blinking at the Mac's rate while it rests. */
 .mf-ghost-caret { display: inline-block; width: 2px; height: 1.15em; margin-inline-start: 1px; vertical-align: -0.2em; border-radius: 1px; background: var(--primary); animation: mf-ghost-blink 1.06s steps(1) infinite; }
 .mf-ghost-caret[data-typing] { animation: none; }

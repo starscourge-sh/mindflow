@@ -459,7 +459,7 @@ export type MapShot = { dots: boolean; note: string; suggest: boolean; linked: b
  * draw, note to book to quote. Then the camera pulls back and an example
  * year of links draws in around them, nearest first.
  */
-export function LinkScene({ shot, quiet, onLight }: { shot: MapShot; quiet: boolean; onLight: (id: string | null) => void }): React.JSX.Element {
+export function LinkScene({ shot, quiet, onLight, hint = null }: { shot: MapShot; quiet: boolean; onLight: (id: string | null) => void; /** A dot to point at: a soft ring pulses round it. */ hint?: string | null }): React.JSX.Element {
   const { dots, edges } = layout()
   const frame = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
@@ -522,6 +522,10 @@ export function LinkScene({ shot, quiet, onLight }: { shot: MapShot; quiet: bool
                 initial={{ opacity: 0, scale: 0.4 }} animate={{ opacity: !shown(dot.id) ? 0 : !on(dot.id) ? 0.15 : ours ? 1 : 0.7, scale: shown(dot.id) ? 1 : 0.4 }}
                 transition={{ duration: quiet ? 0 : 0.35, ease: EASE, delay: ours || lit ? 0 : ring(dot) }}
                 onPointerEnter={() => onLight(dot.id)} />
+            })}
+            {hint && dots.filter((dot) => dot.id === hint).map((dot) => {
+              const [x, y] = px(dot)
+              return <circle key="hint" className="mf-pulse-ring pointer-events-none" cx={x} cy={y} r={radius(dot.links) + 4} fill="none" stroke="var(--primary)" strokeWidth={2} />
             })}
           </svg>
           {/* Our dots name themselves while the camera is close; once it pulls back, only the lit ones do. */}
