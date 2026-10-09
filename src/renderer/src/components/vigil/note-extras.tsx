@@ -24,7 +24,7 @@ import { Slider } from '@/components/ui/slider'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { chime, step, type Cue } from '@/lib/sound'
-import { blurFor } from '@/lib/pictures'
+import { tintFor } from '@/lib/pictures'
 import { notes, smallPicture, useThumb, type GraphNode, type NoteTable, type Version } from '@/lib/notes'
 import { useLive, vigil } from '@/lib/vigil'
 import { Chips } from './display'
@@ -65,8 +65,8 @@ export function Thumb({ id, className = 'size-9' }: { id: string; className?: st
   if (!src) return null
   return (
     // Blurred with the words when its row is private: a picture says as much.
-    // Its colours, softly, until the small copy arrives (lib/pictures.ts).
-    <span className={`private-text block shrink-0 overflow-hidden rounded-md border bg-accent/40 bg-cover bg-center ${className}`} style={{ backgroundImage: shown ? undefined : blurFor(src) }}>
+    // Its colour until the small copy arrives (lib/pictures.ts).
+    <span className={`private-text block shrink-0 overflow-hidden rounded-md border bg-accent/40 ${className}`} style={{ backgroundColor: shown ? undefined : tintFor(src) }}>
       {shown && <img src={shown} alt="" loading="lazy" decoding="async" draggable={false} className="size-full object-cover animate-in fade-in-0 duration-200" />}
     </span>
   )
@@ -241,7 +241,13 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
       {fields.map((field) => {
         const value = values[field.key]
         if (field.type === 'hidden') return null
-        if (field.when && values[field.when[0]] !== field.when[1] && !value) return null
+        // Shown only once a status is picked: until then, a faint line says when it comes.
+        if (field.when && values[field.when[0]] !== field.when[1] && !value)
+          return (
+            <Does key={field.key} does={field.does}>
+              <p className="flex items-center gap-2 px-2 py-1.5 text-control"><AlignLeft className="size-4 shrink-0" /><GhostText>{field.label}: shows once you mark it {field.when[1]}</GhostText></p>
+            </Does>
+          )
         if (field.type === 'choice')
           return (
             <div key={field.key} className="px-2 py-1">
@@ -263,21 +269,21 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
         // The working out folds away: open while deciding, shut once decided,
         // and out of sight altogether until there is something to weigh.
         if (kind === 'decision' && field.key === 'working') {
-          if (state !== 'Deciding' && !value) return null
           const open = working ?? state === 'Deciding'
           return (
             <div key={field.key}>
               <button type="button" aria-expanded={open} onClick={() => (chime(open ? 'fold' : 'slide'), setWorking(!open))}
                 className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-control hover:bg-accent">
                 <ChevronRight className={`size-4 shrink-0 transition-transform duration-200 ${open ? 'rotate-90' : ''}`} />
-                <span className="flex-1">{field.label}</span>
+                <span className="flex-1">{field.label}{!open && !value && field.ghost ? <GhostText className="ml-1.5">{field.ghost}</GhostText> : null}</span>
                 {!open && value ? <span className="text-xs text-muted-foreground"><Rolling text={`${num(String(value).split(/\s+/).length)} words`} by="word" /></span> : null}
               </button>
               <AnimatePresence initial={false}>
                 {open && (
                   <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }} className="overflow-hidden">
-                    <Textarea rows={4} defaultValue={String(value ?? '')} placeholder={field.placeholder} aria-label={field.label} onBlur={(event) => save(field.key, event.target.value.trim())}
-                      className="min-h-0 resize-none rounded-none border-0 bg-transparent px-8 pt-0 pb-2 text-control text-foreground shadow-none focus-visible:ring-0" />
+                    <Textarea rows={4} defaultValue={String(value ?? '')} placeholder={field.ghost ? `e.g. ${field.ghost}` : field.placeholder} aria-label={field.label} onBlur={(event) => save(field.key, event.target.value.trim())}
+                      data-ghost-field={field.ghost && !value ? '' : undefined}
+                      className={cn('min-h-0 resize-none rounded-none border-0 bg-transparent px-8 pt-0 pb-2 text-control text-foreground shadow-none focus-visible:ring-0', field.ghost && GHOST)} />
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -296,7 +302,7 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
             })
           }} />
         if (field.type === 'link')
-          return <LinkField key={field.key} label={field.label} placeholder={field.placeholder ?? field.label} value={value ? String(value) : null} onOpen={onOpen}
+          return <LinkField key={field.key} label={field.label} placeholder={field.placeholder ?? field.label} ghost={field.ghost} does={field.does} value={value ? String(value) : null} onOpen={onOpen}
             onSave={(link) => {
               const was = value ?? null
               void notes.setField(table, id, field.key, link).then(() => {
@@ -373,9 +379,12 @@ const dayPage = (day: string): string => noon(day).format('ddd D MMM')
  * opens it, and search to pick or change it. Days are offered first, since a
  * day is what most often starts something.
  */
-function LinkField({ label, placeholder, value, onSave, onOpen }: {
+function LinkField({ label, placeholder, ghost, does, value, onSave, onOpen }: {
   label: string
   placeholder: string
+  /** A faint example while nothing is linked: never saved. */
+  ghost?: string
+  does?: string
   value: string | null
   onSave: (link: string | null) => void
   onOpen?: (type: string, id: string) => void
@@ -394,7 +403,9 @@ function LinkField({ label, placeholder, value, onSave, onOpen }: {
           {name}
         </button>
       ) : (
-        <button type="button" onClick={() => (chime('open'), setPicking(true))} className="min-w-0 flex-1 truncate text-left text-control text-foreground/70 hover:text-foreground">{placeholder}</button>
+        <Does does={does}>
+          <button type="button" data-ghost-field={ghost ? '' : undefined} aria-label={placeholder} onClick={() => (chime('open'), setPicking(true))} className="min-w-0 flex-1 truncate text-left text-control text-foreground/70 hover:text-foreground">{ghost ? <GhostText>{ghost}</GhostText> : placeholder}</button>
+        </Does>
       )}
       {value && (
         <span className="flex shrink-0 items-center opacity-0 transition-opacity group-hover/link:opacity-100 group-focus-within/link:opacity-100">
