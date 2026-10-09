@@ -1,5 +1,5 @@
 import type { ComponentType, CSSProperties, RefAttributes } from 'react'
-import { Archive, CalendarFold, CalendarRange, Flag, Grid2x2, Sprout, type LucideIcon } from 'lucide-react'
+import { Archive, CalendarFold, CalendarRange, Compass, Flag, Grid2x2, Sprout, type LucideIcon } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
 import ClockIcon from '@/components/ui/clock-icon'
@@ -92,7 +92,9 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'all', label: 'All captures', icon: Layers, alive: LayersIcon, key: 'l', tint: 'gray' },
   { id: 'discarded', label: 'Discarded', icon: Trash2, alive: TrashIcon, key: 'd', tint: 'gray' },
   // Out of sight, not let go: apart from the exits.
-  { id: 'archived', label: 'Archived', icon: Archive, key: 'v', tint: 'gray' }
+  { id: 'archived', label: 'Archived', icon: Archive, key: 'v', tint: 'gray' },
+  // Every power Vigil keeps out of sight, a card each (powers-view.tsx).
+  { id: 'powers', label: 'What Vigil can do', icon: Compass, key: 'f', tint: 'green' }
 ]
 
 /** The box's tabs, in their row's order; ⌃1 to ⌃5 reach each, shown or not. */

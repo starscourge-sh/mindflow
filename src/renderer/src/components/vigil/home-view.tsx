@@ -32,6 +32,7 @@ import { Highlight, useChosen, useFluidHover, Weighted } from './glide'
 import { KindBack, backLine, type Returning } from './kind-back'
 import { GoalStrip } from './goals-view'
 import { GettingStarted } from './getting-started'
+import { PowersLine } from './powers-view'
 import { Tilt } from './tilt'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -664,6 +665,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       <GoalStrip onOpen={(type, id) => (type === 'view' ? onView(id) : onOpen(type, id))} className="page-column relative w-full px-3 pt-3 @[44rem]/page:px-6" />
       {/* After the welcome: the firsts, ticking themselves, until they are done. */}
       <div className="page-column relative w-full pt-4 empty:hidden"><GettingStarted onOpen={onOpen} onView={onView} /></div>
+      <div className="page-column relative w-full pt-3 empty:hidden"><PowersLine onView={onView} /></div>
       {empty ? (
         <div className="relative px-3 @[44rem]/page:px-6">
           <Empty shape={['flower', 2]} title="Things come back to you here" action={

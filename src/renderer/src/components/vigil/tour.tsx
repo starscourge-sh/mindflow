@@ -3,6 +3,7 @@ import { chime } from '@/lib/sound'
 import { byKeys } from '@/lib/motion'
 import { Button } from '@/components/ui/button'
 import { Kbd, Rolling, Pressed } from './ui'
+import { enterSandbox } from '@/lib/sandbox'
 
 /**
  * Three places to know, after the welcome's Start fresh: where captures
@@ -10,7 +11,7 @@ import { Kbd, Rolling, Pressed } from './ui'
  * lit up with the rest of the window dimmed. The ideas themselves are the
  * welcome's (welcome.tsx); this only says where things are. Esc ends it.
  */
-type Stop = { title: string; text: string; keys?: string[]; at: string }
+type Stop = { title: string; text: string; keys?: string[]; at: string; /** Offer the sandbox too, for a power shown in your own notes. */ sandbox?: boolean }
 const STOPS: Stop[] = [
   { title: 'Your Inbox', at: '[data-tour="inbox"]', keys: ['G I'], text: 'Everything you catch waits here. Nothing to sort as you write: that comes later, a few minutes at a time.' },
   { title: 'Find anything', at: '[data-tour="search"]', keys: ['⌘K'], text: 'Every note, and every action Vigil has. Press ? for every key.' },
@@ -20,15 +21,19 @@ const STOPS: Stop[] = [
 export function Tour(): React.JSX.Element | null {
   // -1 is closed.
   const [at, setAt] = useState(-1)
+  // The three stops, or one thing pointed at from elsewhere (What Vigil can do's Show me).
+  const [stops, setStops] = useState(STOPS)
   useEffect(() => {
-    const start = (): void => setAt(0)
+    const start = (): void => (setStops(STOPS), setAt(0))
+    const point = (event: Event): void => (setStops([(event as CustomEvent<Stop>).detail]), setAt(0))
     window.addEventListener('vigil:tour-stops', start)
-    return () => window.removeEventListener('vigil:tour-stops', start)
+    window.addEventListener('vigil:point', point)
+    return () => (window.removeEventListener('vigil:tour-stops', start), window.removeEventListener('vigil:point', point))
   }, [])
 
   // Page hints keep quiet under it.
   useEffect(() => void document.documentElement.toggleAttribute('data-touring', at >= 0), [at])
-  const stop = STOPS[at] as Stop | undefined
+  const stop = stops[at] as Stop | undefined
   // Where the lit part is, measured after layout and again when the window changes size.
   const [rect, setRect] = useState<DOMRect | null>(null)
   const card = useRef<HTMLDivElement>(null)
@@ -56,7 +61,7 @@ export function Tour(): React.JSX.Element | null {
   }
   const go = (to: number): void => {
     if (to < 0) return void chime('nope')
-    if (to >= STOPS.length) return end(false)
+    if (to >= stops.length) return end(false)
     chime('page')
     setAt(to)
   }
@@ -105,14 +110,15 @@ export function Tour(): React.JSX.Element | null {
         <div className="mb-1 flex items-center gap-2">
           <span className="font-heading text-heading font-semibold text-foreground">{stop.title}</span>
           {stop.keys && <span className="flex gap-1">{stop.keys.map((key) => <Pressed key={key} keys={key} />)}</span>}
-          <Rolling text={`${at + 1} of ${STOPS.length}`} className="ml-auto text-meta tabular-nums text-muted-foreground" />
+          {stops.length > 1 && <Rolling text={`${at + 1} of ${stops.length}`} className="ml-auto text-meta tabular-nums text-muted-foreground" />}
         </div>
         <p className="leading-relaxed text-muted-foreground">{stop.text}</p>
         <div className="mt-4 flex items-center gap-2">
-          <Button size="sm" variant="ghost" onClick={() => end(true)}>Skip <Kbd>Esc</Kbd></Button>
+          {stops.length > 1 && <Button size="sm" variant="ghost" onClick={() => end(true)}>Skip <Kbd>Esc</Kbd></Button>}
+          {stop.sandbox && <Button size="sm" variant="ghost" onClick={() => (setAt(-1), void enterSandbox())}>Try it in the sandbox</Button>}
           <span className="flex-1" />
           {at > 0 && <Button size="sm" variant="ghost" onClick={() => go(at - 1)}>Back</Button>}
-          <Button size="sm" onClick={() => go(at + 1)}>{at === STOPS.length - 1 ? 'Done' : 'Next'} <Kbd>↵</Kbd></Button>
+          <Button size="sm" onClick={() => go(at + 1)}>{stops.length === 1 ? 'Got it' : at === stops.length - 1 ? 'Done' : 'Next'} <Kbd>↵</Kbd></Button>
         </div>
       </div>
     </div>

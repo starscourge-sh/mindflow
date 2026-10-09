@@ -29,6 +29,7 @@ import { HomeView } from './components/vigil/home-view'
 import { SettingsView } from './components/vigil/settings-view'
 import { StatsView } from './components/vigil/stats-view'
 import { MapView } from './components/vigil/map-view'
+import { PowersView } from './components/vigil/powers-view'
 import { TagsView } from './components/vigil/tags-view'
 import { usePinnedTags } from './components/vigil/tag-read'
 import { TasksView } from './components/vigil/tasks-view'
@@ -490,6 +491,7 @@ export function Home(): React.JSX.Element {
               { label: 'Restore from a backup…', cue: null, run: () => void window.api.restoreBackup() },
               { label: 'Open the sandbox: examples to try, apart from your notes', cue: null, run: () => void enterSandbox() }
             ]),
+            { label: 'What can Vigil do? Every power, with a way to try it', cue: null, run: () => setView({ id: 'powers' }) },
             { label: 'Play the welcome again', cue: null, run: playWelcome },
             { label: 'Try a celebration', cue: null, run: () => tryCelebration() },
             ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),
@@ -927,6 +929,8 @@ export function Home(): React.JSX.Element {
           <StatsView key={`${view.focus}-${view.nonce}`} recap={view.focus} />
         ) : view.id === 'map' ? (
           <MapView onOpen={open} />
+        ) : view.id === 'powers' ? (
+          <PowersView onView={(id, focus) => setView({ id, focus })} />
         ) : (
           <SettingsView />
         )}
