@@ -30,7 +30,12 @@ const store = (): string => join(app.getPath('userData'), 'assets')
 
 let made = false
 const db = (): ReturnType<typeof database> => {
-  if (!made) database().exec('create table if not exists picture_looks (name text primary key, width integer not null, height integer not null, hash text not null, top real not null default 0, bottom real not null default 0)')
+  if (!made) {
+    database().exec('create table if not exists picture_looks (name text primary key, width integer not null, height integer not null, hash text not null, top real not null default 0, bottom real not null default 0)')
+    // A book opened by an earlier build made the table before it kept black bands: add them.
+    const has = new Set((database().prepare('pragma table_info(picture_looks)').all() as { name: string }[]).map((one) => one.name))
+    for (const column of ['top', 'bottom']) if (!has.has(column)) database().exec(`alter table picture_looks add column ${column} real not null default 0`)
+  }
   made = true
   return database()
 }
