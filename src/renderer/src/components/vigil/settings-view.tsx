@@ -621,7 +621,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
           <Setting under title="Ticking sound" note="**Which clock ticks.** Pick one to hear it." keywords="tick ticking clock sound watch wall desk focus session">
             <div inert={!settings.sounds || !settings.sessionTick} className={settings.sounds && settings.sessionTick ? '' : 'opacity-50'}>
-              <Chips className="shrink-0" options={TICKS} on={(id) => id === (settings.sessionTickSound ?? 'old')} pick={(id) => {
+              <Chips className="shrink-0" options={TICKS} on={(id) => id === (settings.sessionTickSound ?? 'wall')} pick={(id) => {
                 const sessionTickSound = id as TickSound
                 tickSample(sessionTickSound, settings.sessionTickVolume ?? 0.5)
                 set({ sessionTickSound })

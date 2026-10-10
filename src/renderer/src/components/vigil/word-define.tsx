@@ -5,6 +5,7 @@ import { Volume2 } from 'lucide-react'
 import type { Answer, Defined } from '../../../../main/define'
 import { chime } from '@/lib/sound'
 import { Kbd } from './ui'
+import { menuShowing } from '@/lib/menu-keys'
 
 /**
  * A Word's meaning, offered while you write it: looked up in the background
@@ -99,7 +100,7 @@ export function DefineGhost({ definition, onKeep, onFix }: { definition: Definit
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!waiting.current || event.key !== 'Tab' || event.shiftKey || event.metaKey || event.altKey || event.ctrlKey) return
-      if (!(event.target as HTMLElement | null)?.closest?.('.ProseMirror') || document.querySelector('.tiptap-suggestion-popup')) return
+      if (!(event.target as HTMLElement | null)?.closest?.('.ProseMirror') || menuShowing('.tiptap-suggestion-popup')) return
       event.preventDefault()
       event.stopPropagation()
       keepNow.current()

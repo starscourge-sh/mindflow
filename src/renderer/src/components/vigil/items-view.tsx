@@ -270,11 +270,11 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   })
   // Opening one, or putting it away, is a step Back returns from.
   const hush = useOpened(open?.id, focus, pick, () => setOpen(null))
-  // Writing opened: a page turned, as a book is. Stepped to with ↓ and ↑
-  // (the Stepper over the page), a lighter page; a quick run turns only one.
+  // A gem or a piece of writing opened: a page turned, as a book is. Stepped to
+  // with ↓ and ↑ (the Stepper over the page), a lighter page; a quick run turns only one.
   const stepped = useRef(false)
   useEffect(() => {
-    if (tier === 'article' && open?.id) pageTurn(stepped.current)
+    if (open?.id) pageTurn(stepped.current)
     stepped.current = false
   }, [tier, open?.id])
   // Re-read the open one when anything changes, so a gloss or a prompt shows.

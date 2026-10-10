@@ -619,7 +619,7 @@ export const TICKS = [
   { id: 'desk', label: 'Desk clock', url: deskUrl }
 ] as const
 export type TickSound = (typeof TICKS)[number]['id']
-const tickOf = (sound?: TickSound): string => (TICKS.find((one) => one.id === sound) ?? TICKS[0]).url
+const tickOf = (sound?: TickSound): string => (TICKS.find((one) => one.id === (sound ?? 'wall')) ?? TICKS[1]).url
 let ticking: { key: string; source: Promise<AudioBufferSourceNode | null> } | null = null
 const hush = (): void => {
   if (!ticking) return
@@ -637,7 +637,7 @@ export function sessionClock({ running, left, tick, level, sound }: Clock): void
   // The tense tick lands as the seconds turn over on the clock, which rounds
   // to the nearest second: at each half second left.
   const at = kind === 'tense' && left !== null ? (((left - 500) % 1000) + 1000) % 1000 / 1000 : 0
-  ticking = { key, source: recording(kind === 'tense' ? tenseUrl : tickOf(sound), (kind === 'tense' ? 0.5 : 0.35) * level, kind === 'tense' ? 'clock-tense' : `clock-tick ${sound ?? 'old'}`, { loop: true, at }) }
+  ticking = { key, source: recording(kind === 'tense' ? tenseUrl : tickOf(sound), (kind === 'tense' ? 0.5 : 0.35) * level, kind === 'tense' ? 'clock-tense' : `clock-tick ${sound ?? 'wall'}`, { loop: true, at }) }
 }
 let sample: Promise<AudioBufferSourceNode | null> | null = null
 /** A tick picked in Settings, heard for a second and a half at the ticking volume, so you know it before a session. */

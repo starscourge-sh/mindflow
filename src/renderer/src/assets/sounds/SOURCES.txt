@@ -5,7 +5,7 @@ clock-tense.m4a: one second cut from "Slow Cinematic Clock Ticking Tension 2" by
 clock-wall.m4a: twelve ticks cut as a loop from "The Mechanical Wall Clock Ticks One Minute" by spinopel (Pixabay, sound 253101), supplied by the project owner (Wall clock, a choice of tick in Settings).
 clock-watch.m4a: twelve ticks cut as a loop from "Clock Ticking" by reddog0607 (Pixabay, sound 365218), supplied by the project owner (Pocket watch: small, dry ticks, five a second).
 clock-desk.m4a: twelve ticks cut as a loop from "Clock Ticking Sound Effect" by 11325622 (Pixabay, sound 240503), supplied by the project owner (Desk clock: brighter ticks, about four a second).
-All three brought to the loudness of clock-tick.m4a (Old clock, the default).
+All three brought to the loudness of clock-tick.m4a (Old clock; Wall clock is the default).
 clock-alarm.m4a: three rings cut from "Alarm Clock" by freesound_community (Pixabay, sound 90867), supplied by the project owner (a session's time up).
 saber-on.m4a: "Swing3" (Pixabay, sound 94210) into a moment of "Saber Humming.wav" (Pixabay, sound 14651), both by freesound_community, supplied by the project owner (into the sandbox).
 saber-off.m4a: a moment of "Saber Humming.wav" played backwards, from the same file (out of the sandbox).

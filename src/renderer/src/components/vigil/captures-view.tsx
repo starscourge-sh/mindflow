@@ -34,7 +34,7 @@ import { toMarkdown } from '@/lib/export'
 import { splitTags, unloaded, useLive, vigil, type Settings } from '@/lib/vigil'
 import { makeTask, oneTask, picked } from '@/lib/tasks'
 import { useSameWords } from '@/lib/same-words'
-import { chime, tear } from '@/lib/sound'
+import { chime, tear, pageTurn } from '@/lib/sound'
 import { Empty, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle, Pressed } from './ui'
 import { Term } from './term'
 import { GlossTimeline, useRowGloss } from './gloss-line'
@@ -265,6 +265,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
   }
   // Opening one, or putting it away, is a step Back returns from.
   const hush = useOpened(open?.id, focus, pick, () => setOpen(null))
+  // A note opened: a page turned, as a book is (a quick run down the list turns only one).
+  useEffect(() => void (open?.id && pageTurn()), [open?.id])
   // The open capture as the list last saw it, so its status follows an exit.
   const meta = all.find((capture) => capture.id === open?.id)
 

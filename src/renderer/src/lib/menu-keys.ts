@@ -30,3 +30,12 @@ export function step(current: number, direction: "up" | "down", length: number):
     ? (current + 1) % length
     : (current + length - 1) % length
 }
+
+/**
+ * Whether a menu or an editor's suggestion popup shows over the page now. Not
+ * just in it: a suggestion popup stays in the page, empty, after it closes, and
+ * keys checked for it then went dead.
+ */
+export function menuShowing(selector = '[cmdk-root], [role=menu], [role=listbox], .tiptap-suggestion-popup'): boolean {
+  return [...document.querySelectorAll(selector)].some((one) => one.checkVisibility() && one.getBoundingClientRect().width > 0)
+}

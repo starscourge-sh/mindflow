@@ -188,6 +188,16 @@ try {
     await h.waitForTimeout(1200)
     check('stepping quickly turns no more than one page', (await said()) - once <= 1, `${(await said()) - once}`)
   }
+  // --- A gem, an Inbox note and a question opened turn a page too.
+  for (const [type, table] of [['nugget', 'nugget'], ['capture', null], ['question', 'question']]) {
+    const one = table ? (await v('items', table))[0] : (await h.evaluate(() => window.api.captures.list()))[0]
+    if (!one) continue
+    await h.waitForTimeout(500)
+    const was = await said()
+    await c.send(type, one.id)
+    await h.waitForTimeout(1200)
+    check(`opening a ${type === 'nugget' ? 'gem' : type} turns a page`, (await said()) === was + 1, `${(await said()) - was}`)
+  }
   // --- The paper sounds: each read back by name, a moment apart.
   const count = (name) => h.evaluate((n) => (window.vigilHeard ?? []).filter((one) => one === n).length, name)
   // The visible one: a list keeps a copy of some buttons out of sight.

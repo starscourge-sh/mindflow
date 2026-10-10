@@ -94,6 +94,7 @@ import XIcon from '@/components/ui/x-icon'
 import { WhatsNewPage, openWhatsNew } from '@/components/vigil/whats-new'
 import { BinView } from '@/components/vigil/bin-view'
 import { CloseDaySheet, openCloseDay } from '@/components/vigil/close-day'
+import { menuShowing } from '@/lib/menu-keys'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ChevronRight = alive(RightChevronIcon)
@@ -591,7 +592,7 @@ export function Home(): React.JSX.Element {
       // one. Only while split, and taken before the editor (which keeps none
       // of the three, vim mode included); a menu open over the page keeps them.
       if (event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && splitRef.current.panes.length > 1 && ['KeyH', 'KeyL', 'KeyW'].includes(event.code)) {
-        if (document.querySelector('[cmdk-root], [role=menu], [role=listbox], .tiptap-suggestion-popup')) return
+        if (menuShowing()) return
         event.preventDefault()
         event.stopPropagation()
         return event.code === 'KeyW' ? closePane() : moveFront(event.code === 'KeyH' ? -1 : 1)

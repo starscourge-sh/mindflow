@@ -12,7 +12,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { EASE } from '@/lib/motion'
 
 import { MindflowEditor, TAGS } from '../mindflow'
-import { chime } from '@/lib/sound'
+import { chime, pageTurn } from '@/lib/sound'
 import { unloaded, useLive, vigil, when, type Item, type ItemFull } from '@/lib/vigil'
 import { exampleQuestions } from '@/lib/examples'
 import { Example } from './example'
@@ -215,6 +215,8 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
   }
   // Opening one is a step Back returns from; Holding or Answered is kept in it.
   const hush = useOpened(open?.id, focus, pick, () => setOpen(null))
+  // A note opened: a page turned, as a book is (a quick run down the list turns only one).
+  useEffect(() => void (open?.id && pageTurn()), [open?.id])
   useKept('tab', show, setShow, 'open')
   // Read again when anything changes, so a clue added elsewhere shows.
   useEffect(() => window.api.captures.onChange(() => open && void vigil.item(open.id).then(setOpen)), [open?.id])

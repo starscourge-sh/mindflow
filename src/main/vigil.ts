@@ -222,7 +222,7 @@ const DEFAULTS = {
   sessionTick: false,
   sessionTickVolume: 0.5,
   // Which tick, from the recordings in Settings.
-  sessionTickSound: 'old' as 'old' | 'wall' | 'watch' | 'desk',
+  sessionTickSound: 'wall' as 'old' | 'wall' | 'watch' | 'desk',
   // Now and then a light glides across the session bubble, in case it was forgotten.
   sessionGleam: true,
   // The bubble's soft smoke kept on all session, faint, stronger under the pointer.

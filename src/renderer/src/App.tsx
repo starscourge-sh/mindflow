@@ -100,6 +100,7 @@ import { BoxBeam, boxBeam } from '@/components/vigil/box-beam'
 import { DefineGhost, defineable, fixIn, useDefinition } from '@/components/vigil/word-define'
 import { notes } from './lib/notes'
 import { useFitBox } from './lib/fit-box'
+import { menuShowing } from '@/lib/menu-keys'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowLeft = alive(ArrowNarrowLeftIcon)
@@ -1112,7 +1113,7 @@ export default function App(): React.JSX.Element {
       // In the welcome, a lone Enter on a one-line note sends it, as a newcomer
       // expects; anything longer, or a menu open in the editor, keeps its Enter.
       const lone = event.key === 'Enter' && !event.metaKey && !event.shiftKey && !event.altKey && !event.ctrlKey && document.documentElement.hasAttribute('data-welcome-ph') &&
-        !!(event.target as HTMLElement | null)?.closest?.('.ProseMirror') && !document.querySelector('.tiptap-suggestion-popup') &&
+        !!(event.target as HTMLElement | null)?.closest?.('.ProseMirror') && !menuShowing('.tiptap-suggestion-popup') &&
         (editorRef.current?.state.doc.childCount ?? 2) === 1 && !!editorRef.current?.getText().trim()
       if (lone) {
         event.preventDefault()
