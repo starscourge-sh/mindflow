@@ -34,7 +34,7 @@ import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import BookIcon from '@/components/ui/book-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import { PAGE_WIDTHS, setPageWidth as setWidthEverywhere, showDetails, useDetailsShown, widthOf, type PageWidth } from '@/lib/reading'
-import { usePaneWidth } from '@/lib/split'
+import { usePane, usePaneWidth } from '@/lib/split'
 import { ReadThrough } from './read-through'
 import { Island, PropInput, Rolling, Tip, Typed, refuse, toast } from './ui'
 import { Does, GHOST, GhostText } from './ghost'
@@ -670,6 +670,7 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
   const items = menu.filter(Boolean) as Exclude<MenuItem, false | null | undefined>[]
   const [reading, setReading] = useState(false)
   const detailsOut = useDetailsShown()
+  const inPane = usePane()
   const width = widthOf(useLive(vigil.settings, null))
   return (
     <div data-note-head className={`@container/head flex min-h-7 items-center justify-between gap-2 px-3 @[40rem]/page:px-[4.25rem] ${className}`}>
@@ -691,7 +692,7 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
             </Tip>
             {details && (
               <Tip label={detailsOut ? 'Hide details' : 'Details'}>
-                <button type="button" aria-label="Details" aria-pressed={detailsOut} onClick={() => showDetails(!detailsOut)} className={`${TOOL} ${detailsOut ? 'bg-accent text-foreground' : ''}`}><AliveIcon icon={LayoutSidebarRightIcon} size={16} /></button>
+                <button type="button" aria-label="Details" aria-pressed={detailsOut} onClick={() => showDetails(!detailsOut, inPane)} className={`${TOOL} ${detailsOut ? 'bg-accent text-foreground' : ''}`}><AliveIcon icon={LayoutSidebarRightIcon} size={16} /></button>
               </Tip>
             )}
             <DropdownMenu modal={false}>
@@ -713,7 +714,7 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
                   </DropdownMenuItem>
                 )}
                 <PageWidthMenu width={width} />
-                {details && <DropdownMenuItem onSelect={() => showDetails(!detailsOut)}>{detailsOut ? 'Hide details' : 'Show details'}</DropdownMenuItem>}
+                {details && <DropdownMenuItem onSelect={() => showDetails(!detailsOut, inPane)}>{detailsOut ? 'Hide details' : 'Show details'}</DropdownMenuItem>}
                 {items.map((item, index) =>
                   item === 'separator' ? (
                     items[index - 1] !== 'separator' && index < items.length - 1 && <DropdownMenuSeparator key={`separator-${index}`} />

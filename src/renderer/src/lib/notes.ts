@@ -233,7 +233,7 @@ export function noteActions({ day = true }: { day?: boolean } = {}): Action[] {
       { label: note.archived ? 'Unarchive this note' : 'Archive this note', cue: null, run: () => void archive(note.table, [note.id], !note.archived) },
       { label: 'Open this note in a new window', cue: null, run: () => openWindow(note.type, note.id) },
       { label: 'Version history of this note', cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:versions', { detail: note.id })) },
-      { label: detailsShown() ? "Hide this note's details" : "Show this note's details", cue: null, run: () => showDetails(!detailsShown()) },
+      { label: detailsShown(frontPane()) ? "Hide this note's details" : "Show this note's details", cue: null, run: () => showDetails(!detailsShown(frontPane()), frontPane()) },
       { label: "Save this note's pictures and files", cue: null, run: () => void saveAttachments([{ table: note.table, id: note.id }]) },
     ] as Action[]).map((one) => ({ ...one, own: true })),
     width,

@@ -94,6 +94,32 @@ try {
   const cardText = await h.locator('[data-row-card]').innerText()
   check('the card says the title and its kind', cardText.includes('The forgetting curve') && /Article|Note|Writing/i.test(cardText), cardText.replace(/\n/g, ' / '))
   await h.screenshot({ path: `${dir}/card-light.png` })
+  // Report of 10 Oct: the card closed as the pointer went for it. Across the gap,
+  // a pause over the row under the gap, then into the card: it stays, the same card.
+  {
+    const shownId = await h.locator('[data-row-card]').getAttribute('data-row-card')
+    const cb = await h.locator('[data-row-card]').boundingBox()
+    const below = cb.y > tb.y
+    const gapY = below ? (tb.y + tb.height + cb.y) / 2 : (cb.y + cb.height + tb.y) / 2
+    await h.mouse.move(cb.x + 60, gapY, { steps: 3 })
+    await wait(250)
+    await h.mouse.move(cb.x + 80, cb.y + cb.height / 2, { steps: 6 })
+    await wait(700)
+    const still = await h.locator('[data-row-card]').count() === 1 ? await h.locator('[data-row-card]').getAttribute('data-row-card') : null
+    check('the card waits while the pointer crosses the gap to it, and stays the same card', still === shownId, `${shownId} → ${still}`)
+    // A short slip off its edge and back keeps it.
+    await h.mouse.move(cb.x + cb.width + 8, cb.y + cb.height / 2, { steps: 2 })
+    await wait(150)
+    await h.mouse.move(cb.x + cb.width - 30, cb.y + cb.height / 2, { steps: 2 })
+    await wait(500)
+    check('slipping off the card for a moment and back keeps it', await h.locator('[data-row-card]').count() === 1)
+    await h.mouse.move(5, 300, { steps: 3 })
+    await wait(500)
+    check('leaving it for good lets it go', await h.locator('[data-row-card]').count() === 0)
+    await h.mouse.move(tb.x + 80, tb.y + tb.height / 2, { steps: 4 })
+    await h.mouse.move(tb.x + 90, tb.y + tb.height / 2, { steps: 2 })
+    await wait(900)
+  }
   // A list filling in under a still pointer brings no card (lib/real-move.ts).
   await settle()
   await h.mouse.move(tb.x + 80, tb.y + tb.height / 2)
@@ -161,7 +187,19 @@ try {
   // --- 5. Pane marks and the pair row ------------------------------------------------
   const marks = await h.locator('[data-pane-mark]').evaluateAll((all) => all.map((one) => one.dataset.paneMark))
   check('rows open in panes carry an L / M / R mark', marks.length >= 2 && marks.some((one) => one === 'L' || one === 'R'), marks.join(','))
-  check('the split shows as one row in Pinned', await h.locator('[data-pair-row="live"]').count() === 1)
+  check('the split shows as one row, under Side by side, not among Pinned', await h.locator('[data-pair-row="live"]').count() === 1 && await h.locator('[data-side-heading="split"]').count() === 1)
+  // Report of 10 Oct: the mark sat over the row's picture.
+  const covered = await h.evaluate(() => [...document.querySelectorAll('[data-pane-mark]')].map((mark) => {
+    const m = mark.getBoundingClientRect()
+    const row = mark.closest('[data-row]')
+    const r = row.getBoundingClientRect()
+    const hits = [...row.querySelectorAll('img, svg, canvas, [class*="rounded"]')].filter((one) => one !== mark && !one.contains(mark) && !mark.contains(one)).filter((one) => {
+      const b = one.getBoundingClientRect()
+      return b.width > 0 && b.left < m.right - 1 && b.right > m.left + 1 && b.top < m.bottom - 1 && b.bottom > m.top + 1
+    })
+    return { inRow: m.left >= r.left && m.right <= r.right, hits: hits.length }
+  }))
+  check('the L / M / R mark sits in its own room in the row, over nothing', covered.length > 0 && covered.every((one) => one.inRow && one.hits === 0), JSON.stringify(covered))
   await h.screenshot({ path: `${dir}/pair-row-light.png` })
   await h.locator('[data-pair-row="live"]').click({ button: 'right' })
   await wait(400)

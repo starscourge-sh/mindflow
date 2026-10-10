@@ -61,6 +61,17 @@ export function keepTitle(pane: string | null, title: string | null): boolean {
   return keysHere(pane)
 }
 
+// --- how many panes fit side by side
+
+/** Narrower than this, a pane would only show a sliver of its page: they take turns instead. */
+export const PANE_MIN = 300
+/** The gap between panes, which is also where a divider is held. */
+export const PANE_GAP = 8
+/** Whether `many` panes fit side by side in `room` pixels, or else take turns. */
+export const panesFit = (many: number, room: number): boolean => many < 2 || room <= 0 || room - PANE_GAP * (many - 1) >= PANE_MIN * many
+/** Whether `many` panes would fit side by side in the main window's page as it is now. */
+export const roomFor = (many: number): boolean => panesFit(many, document.querySelector('[data-split-area]')?.clientWidth ?? 0)
+
 // --- opening to the side
 
 /** Only the main window splits: the box and a note's own window have one page. */

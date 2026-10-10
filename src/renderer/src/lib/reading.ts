@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 
 import { chime } from '@/lib/sound'
+import { isSplit, usePane } from '@/lib/split'
 import { vigil } from '@/lib/vigil'
 
 /**
@@ -11,6 +12,9 @@ import { vigil } from '@/lib/vigil'
  * form to fill. Opened, they stay open everywhere until put away again: one
  * choice for every note and every window, until Vigil is next opened, when
  * they start put away again.
+ *
+ * Split, each pane keeps its own: details brought out beside the note in
+ * one pane leave the note beside it as it was.
  */
 const KEY = 'noteDetails'
 const CHANGED = 'mf:details'
@@ -24,7 +28,12 @@ export function putDetailsAway(): void {
   }
 }
 
-export const detailsShown = (): boolean => {
+// Each pane's own choice, made while split; a pane with none follows the window's.
+const inPane = new Map<string, boolean>()
+
+export const detailsShown = (pane?: string | null): boolean => {
+  const own = pane ? inPane.get(pane) : undefined
+  if (own !== undefined) return own
   try {
     return localStorage.getItem(KEY) === 'open'
   } catch {
@@ -32,13 +41,19 @@ export const detailsShown = (): boolean => {
   }
 }
 
-export function showDetails(on: boolean): void {
+/** Out or away: for one pane when `pane` is given and the page is split, else everywhere. */
+export function showDetails(on: boolean, pane?: string | null): void {
+  chime(on ? 'slide' : 'fold')
+  if (pane && isSplit()) {
+    inPane.set(pane, on)
+    return void window.dispatchEvent(new Event(CHANGED))
+  }
+  inPane.clear()
   try {
     localStorage.setItem(KEY, on ? 'open' : 'closed')
   } catch {
     // This window only, until it reloads.
   }
-  chime(on ? 'slide' : 'fold')
   window.dispatchEvent(new Event(CHANGED))
 }
 
@@ -53,8 +68,11 @@ const listen = (changed: () => void): (() => void) => {
   }
 }
 
-/** Whether an open note's details are out beside it. */
-export const useDetailsShown = (): boolean => useSyncExternalStore(listen, detailsShown)
+/** Whether an open note's details are out beside it, in the pane this is drawn in. */
+export function useDetailsShown(): boolean {
+  const pane = usePane()
+  return useSyncExternalStore(listen, () => detailsShown(pane))
+}
 
 /** How wide a page is: a reading column, a wider one, or edge to edge. */
 export type PageWidth = 'narrow' | 'wide' | 'full'

@@ -86,7 +86,7 @@ import { RowCard, rowOf } from '@/components/vigil/row-card'
 import { PairRow, pinLayout, sameLayout, unpinLayout, usePinnedLayouts, type PaneName } from '@/components/vigil/split-pairs'
 import type { BookRef } from '@/lib/books'
 import type { RowItem } from '@/components/vigil/row-menu'
-import { asideClick, keepTitle, setPaneNotes, setPanes, spendAsideClick, titleOf, type PaneWidth } from '@/lib/split'
+import { asideClick, keepTitle, roomFor, setPaneNotes, setPanes, spendAsideClick, titleOf, type PaneWidth } from '@/lib/split'
 import XIcon from '@/components/ui/x-icon'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -312,14 +312,16 @@ export function Home(): React.JSX.Element {
   }
   /**
    * Open beside a pane (the one in front unless said): a new pane to its
-   * right while there is room for one, else the next pane over takes it as a
-   * step, so its Back returns to what it showed.
+   * right while there is room for one side by side, else the rightmost pane
+   * takes it as a step (the one left of it, when that is where it came
+   * from), so its Back returns to what it showed. The split never folds
+   * into turns because of it.
    */
   const aside = (next: View, from = frontRef.current): void => {
     const now = splitRef.current
     const at = Math.max(0, now.panes.findIndex((one) => one.key === from))
     chime('slide')
-    if (now.panes.length < 3) {
+    if (now.panes.length < 2 || (now.panes.length < 3 && roomFor(now.panes.length + 1))) {
       const made = fresh([next])
       const panes = [...now.panes.slice(0, at + 1), made, ...now.panes.slice(at + 1)]
       // The new one takes its share, the others give theirs up evenly.
@@ -328,7 +330,8 @@ export function Home(): React.JSX.Element {
       setSplit({ panes, front: made.key, sizes })
       return
     }
-    const target = now.panes[at + 1] ?? now.panes[at - 1]
+    const last = now.panes.length - 1
+    const target = now.panes[last].key !== now.panes[at].key ? now.panes[last] : now.panes[last - 1]
     setView(next, target.key)
     toFront(target.key)
   }
@@ -652,7 +655,7 @@ export function Home(): React.JSX.Element {
   }), [])
 
   const kind = (view: View): (typeof CAPTURE_TYPES)[number] | undefined => CAPTURE_TYPES.find((type) => `kind:${type.id}` === view.id)
-  /** A page's name, for the top bar and the panes' switcher. */
+  /** A page's name, for the top bar; a pane is named by its note first (paneName). */
   const labelOf = (view: View): string => SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'settings' ? 'Settings' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
   const paneWidth = (key: string, width: PaneWidth): void => {
     chime(width === 'narrow' ? 'fold' : 'slide')
@@ -1038,16 +1041,21 @@ export function Home(): React.JSX.Element {
             }
             return (<>
               {loose(false).map(row)}
+              {/* The split open now, as one row under its own name, never among the
+                  pinned: Pinned holds only what was pinned. Not shown when it is one
+                  of the pinned layouts, whose row lights instead. */}
+              {split.panes.length > 1 && !layouts.some((one) => sameLayout(one.views, split.panes.map((pane) => pane.trail.views[pane.trail.at]))) && (() => {
+                const views = split.panes.map((pane) => pane.trail.views[pane.trail.at])
+                return (<>
+                  {narrow ? <div className="mt-3" /> : <div data-side-heading="split" className="mt-3 mb-0.5 px-2 py-0.5 text-meta text-muted-foreground">Side by side</div>}
+                  <PairRow key="live" live isPinned={false} narrow={narrow} names={views.map(paneName)} menu={pairMenu(views, {})}
+                    onOpen={(index) => (chime('tap'), toFront(split.panes[index].key))} onClose={(index) => closePane(split.panes[index].key)} />
+                </>)
+              })()}
               {/* Pinned, Notion's Favourites: only there while something is. */}
-              {(pins.length > 0 || layouts.length > 0 || split.panes.length > 1) && (<>
+              {(pins.length > 0 || layouts.length > 0) && (<>
                 {heading('Pinned', pinsOpen, setPinsOpen, false)}
                 <Unfold open={pinsOpen || narrow}><Branches current={-1} bare={narrow} className="flex flex-col gap-px">{[
-                  // The split open now, as one row, unless it is one of the pinned layouts.
-                  ...(split.panes.length > 1 && !layouts.some((one) => sameLayout(one.views, split.panes.map((pane) => pane.trail.views[pane.trail.at]))) ? [(() => {
-                    const views = split.panes.map((pane) => pane.trail.views[pane.trail.at])
-                    return <PairRow key="live" live isPinned={false} narrow={narrow} names={views.map(paneName)} menu={pairMenu(views, {})}
-                      onOpen={(index) => (chime('tap'), toFront(split.panes[index].key))} onClose={(index) => closePane(split.panes[index].key)} />
-                  })()] : []),
                   ...layouts.map((one) => {
                     const live = split.panes.length > 1 && sameLayout(one.views, split.panes.map((pane) => pane.trail.views[pane.trail.at]))
                     return <PairRow key={one.id} live={live} isPinned narrow={narrow} names={one.views.map(paneName)} menu={pairMenu(one.views, live ? {} : null, one.id)}
@@ -1321,7 +1329,7 @@ export function Home(): React.JSX.Element {
         onClose={closePane}
         onWidth={paneWidth}
         menuFor={(key) => pairMenu(split.panes.map((pane) => pane.trail.views[pane.trail.at]), { key })}
-        panes={split.panes.map(({ key, trail, width }) => ({ key, width, at: trail.at, label: labelOf(trail.views[trail.at]) || 'Page', node: pageFor(key, trail.views[trail.at]) }))}
+        panes={split.panes.map(({ key, trail, width }) => { const name = paneName(trail.views[trail.at]); return { key, width, at: trail.at, label: name.title, private: name.private, node: pageFor(key, trail.views[trail.at]) } })}
       />
       {/* Beside the page, not over it, while there is room; over its right edge in a narrow window. */}
       <AnimatePresence>

@@ -27,6 +27,17 @@ export const knowRow = (entry: Entry): void => void known.set(entry.id, entry)
 export const rowOf = (id: string): Entry | undefined => known.get(id)
 
 const WAIT = 500
+/** How long the card waits for the pointer once it leaves the row or the card: time to cross the gap, or to come back. */
+const GRACE = 280
+
+/** Whether `p` is inside the triangle a, b, c: the way from where the pointer left the row to the card's near edge. */
+const inside = (p: [number, number], a: [number, number], b: [number, number], c: [number, number]): boolean => {
+  const side = (u: [number, number], v: [number, number], w: [number, number]): number => (u[0] - w[0]) * (v[1] - w[1]) - (v[0] - w[0]) * (u[1] - w[1])
+  const d1 = side(p, a, b)
+  const d2 = side(p, b, c)
+  const d3 = side(p, c, a)
+  return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0))
+}
 let lastKey = 0
 if (typeof window !== 'undefined') addEventListener('keydown', () => void (lastKey = Date.now()), true)
 
@@ -46,6 +57,8 @@ export function RowCard(): React.JSX.Element | null {
     let leave: ReturnType<typeof setTimeout> | undefined
     let over: HTMLElement | null = null
     let pending = false
+    // Where the pointer last was on the shown row, the tip of the way to the card.
+    let lastOnRow: [number, number] | null = null
     const busy = (): boolean =>
       'dragging' in document.documentElement.dataset || 'splitDrag' in document.documentElement.dataset || Date.now() - lastKey < 1500 || !!document.querySelector('[role="menu"], [aria-modal="true"]')
     const hide = (): void => {
@@ -55,21 +68,55 @@ export function RowCard(): React.JSX.Element | null {
       over = null
       setShown(null)
     }
+    /** Let the card go after a moment, unless the pointer comes back to it or its row first. */
+    const letGo = (): void => {
+      clearTimeout(leave)
+      leave = setTimeout(() => setShown(null), GRACE)
+    }
+    /** On the way from the row to the card: inside the triangle from where it left the row to the card's near edge. */
+    const crossing = (x: number, y: number): boolean => {
+      const box = card.current?.getBoundingClientRect()
+      const now = shownRef.current
+      if (!box || !now || !lastOnRow) return false
+      const edge = now.below ? box.top : box.bottom
+      // A little wider than the card, so a hand drifting at its corner still counts.
+      return inside([x, y], lastOnRow, [box.left - 12, edge], [box.right + 12, edge])
+    }
     const onMove = (event: PointerEvent): void => {
       if (!realMove(event)) return
       const target = event.target instanceof Element ? event.target : null
-      if (target && card.current?.contains(target)) return void clearTimeout(leave)
+      const shownNow = shownRef.current
+      // On the card: it stays, and no row under it starts a card of its own.
+      if (target && card.current?.contains(target)) {
+        clearTimeout(leave)
+        clearTimeout(timer)
+        pending = false
+        over = shownNow?.row ?? null
+        return
+      }
       if (event.buttons) return hide()
       const row = target?.closest<HTMLElement>('[data-pane] [data-row][data-id]') ?? null
+      // Back on the row whose card is up: it stays.
+      if (shownNow && row === shownNow.row) {
+        clearTimeout(leave)
+        over = row
+        lastOnRow = [event.clientX, event.clientY]
+        return
+      }
+      // On the way to the card, across the gap and the rows it passes over: it waits, and starts nothing new.
+      if (shownNow && crossing(event.clientX, event.clientY)) {
+        clearTimeout(timer)
+        pending = false
+        letGo()
+        return
+      }
       // Still on the same row: only a row whose wait was cut short (keys, a drag) starts it again.
-      if (row === over && (pending || shownRef.current?.row === row)) return
+      if (row === over && pending) return
       over = row
       clearTimeout(timer)
-      // Off the row: a moment's grace to reach the card below it.
-      if (shownRef.current) {
-        clearTimeout(leave)
-        leave = setTimeout(() => setShown(null), 160)
-      }
+      pending = false
+      // Off the row and the card: a moment's grace, then it goes.
+      if (shownNow) letGo()
       if (!row) return
       pending = true
       timer = setTimeout(() => {
@@ -79,6 +126,7 @@ export function RowCard(): React.JSX.Element | null {
         const box = row.getBoundingClientRect()
         const below = box.bottom + 120 < window.innerHeight
         clearTimeout(leave)
+        lastOnRow = [event.clientX, event.clientY]
         setShown({ entry, row, x: Math.min(Math.max(12, event.clientX - 40), window.innerWidth - 300), top: below ? box.bottom + 4 : box.top - 4, below })
       }, WAIT)
     }
@@ -92,7 +140,11 @@ export function RowCard(): React.JSX.Element | null {
     document.addEventListener('pointerdown', onDown, true)
     document.addEventListener('scroll', hide, true)
     window.addEventListener('blur', hide)
+    // Out of the window altogether: the same grace, in case it comes straight back.
+    const onOut = (event: MouseEvent): void => void (!event.relatedTarget && shownRef.current && letGo())
+    document.addEventListener('mouseout', onOut)
     return () => {
+      document.removeEventListener('mouseout', onOut)
       hide()
       document.removeEventListener('pointermove', onMove, true)
       document.removeEventListener('keydown', onKey, true)
@@ -117,7 +169,6 @@ export function RowCard(): React.JSX.Element | null {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, transition: { duration: 0.08 } }}
           transition={spring.moderate}
-          onPointerLeave={() => setShown(null)}
         >
           <Face entry={shown.entry} row={shown.row} onDone={() => setShown(null)} />
         </motion.div>

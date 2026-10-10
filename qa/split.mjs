@@ -53,7 +53,8 @@ const press = async (...keys) => { for (const key of keys) { await h.keyboard.pr
 const paneSel = async (n) => `[data-pane="${await h.evaluate((i) => document.querySelectorAll('[data-pane]')[i - 1]?.getAttribute('data-pane'), n)}"]`
 const rowIn = async (pane, n) => h.locator(`${await paneSel(pane)} [data-row][data-id]`).nth(n)
 
-try {
+// REPORTS_ONLY=1 runs just the checks for the reports of 10 October, at the end.
+if (!process.env.REPORTS_ONLY) try {
   await h.evaluate(() => { localStorage.setItem('theme', 'light'); window.dispatchEvent(new StorageEvent('storage', { key: 'theme', newValue: 'light' })) })
   // --- One pane: the page as always ---------------------------------------------------
   await send('view', 'inbox'); await wait()
@@ -131,7 +132,7 @@ try {
 
   // --- The front pane: a firmer hairline and a shadow; the others a fainter one, no shadow, nothing coloured ---
   const looks = await h.evaluate(() => [...document.querySelectorAll('[data-pane]')].map((el) => {
-    const card = getComputedStyle(el.firstElementChild)
+    const card = getComputedStyle(el.querySelector('[data-pane-card]') ?? el.firstElementChild)
     // The colour's alpha, whatever space it is written in: "/ 0.12)" or rgba's fourth number.
     const alpha = (colour) => Number(/\/\s*([\d.]+)\)$/.exec(colour)?.[1] ?? /rgba\([^)]*,\s*([\d.]+)\)$/.exec(colour)?.[1] ?? 1)
     return { border: card.borderTopColor, edge: alpha(card.borderTopColor), shadow: card.boxShadow !== 'none', dim: Number(card.opacity), strip: !!el.querySelector(':scope > div > span[aria-hidden].absolute') }
@@ -214,7 +215,7 @@ try {
   await h.evaluate(() => { localStorage.setItem('theme', 'dark'); window.dispatchEvent(new StorageEvent('storage', { key: 'theme', newValue: 'dark' })) })
   await wait(800)
   await h.screenshot({ path: `${shots}/three-dark.png` })
-  const darkLooks = await h.evaluate(() => [...document.querySelectorAll('[data-pane]')].map((el) => { const card = getComputedStyle(el.firstElementChild); return { bg: card.backgroundColor, dim: Number(card.opacity) } }))
+  const darkLooks = await h.evaluate(() => [...document.querySelectorAll('[data-pane]')].map((el) => { const card = getComputedStyle(el.querySelector('[data-pane-card]') ?? el.firstElementChild); return { bg: card.backgroundColor, dim: Number(card.opacity) } }))
   check('dark: the front pane is raised a step lighter, the others dimmed to about 85%, nothing coloured', new Set(darkLooks.map((one) => one.bg)).size === 2 && darkLooks.find((one) => one.dim === 1)?.bg !== 'rgba(0, 0, 0, 0)' && darkLooks.filter((one) => one.dim === 1).length === 1 && darkLooks.filter((one) => Math.abs(one.dim - 0.85) < 0.01).length === 2, JSON.stringify(darkLooks))
 
   // --- Restart: the panes, their pages and their widths come back -------------------------------
@@ -277,11 +278,136 @@ try {
   await press('Control+w', 'Control+w')
   list = await panes(h)
   check('⌃W down to one pane; the split is no longer kept', list.length === 1 && !(await trails(h)), show(list))
-  const alone = await h.evaluate(() => { const card = getComputedStyle(document.querySelector('[data-pane]').firstElementChild); return { shadow: card.boxShadow, dim: card.opacity } })
+  const alone = await h.evaluate(() => { const card = getComputedStyle(document.querySelector('[data-pane] [data-pane-card]') ?? document.querySelector('[data-pane]').firstElementChild); return { shadow: card.boxShadow, dim: card.opacity } })
   check('one pane alone shows no front-pane look at all', alone.shadow === 'none' && alone.dim === '1', JSON.stringify(alone))
   await h.screenshot({ path: `${shots}/single-light.png` })
   await press('Control+w')
   check('⌃W with one pane does nothing', (await panes(h)).length === 1)
+} finally {
+  await c.close()
+}
+
+// --- The reports of 10 October ----------------------------------------------------------------
+// One doc open but three tabs all named after the list; Details opening in every
+// pane; no plain way to close a pane; the split showing up among Pinned; a second
+// Open to the side folding the split into tabs; the L/M/R mark over a picture.
+if (process.env.REPORTS_ONLY) await c.close()
+c = await sandbox({ width: 1500, height: 900 }); ({ h, send } = c)
+try {
+  let list
+  /** A pane's name is the note it shows: its title is somewhere in that pane, and it is not the list's name. */
+  const named = (name, text) => !!name && !['Ideas', 'Questions', 'Page'].includes(name) && text.includes(name.slice(0, 24))
+  /** Every word in each pane, typed fields too, hidden or not. */
+  const texts = () => h.evaluate(() => [...document.querySelectorAll('[data-pane]')].map((el) => (el.querySelector('[data-pane-card]') ?? el).textContent + [...el.querySelectorAll('textarea, input')].map((one) => one.value).join(' ')))
+  const v = (channel, ...args) => h.evaluate(([ch, a]) => window.api.vigil(ch, ...a), [channel, args])
+  const seen = () => h.evaluate(() => ({
+    tabs: [...document.querySelectorAll('[role="tablist"][aria-label="Panes"] [role="tab"]')].map((one) => one.textContent.trim()),
+    heads: [...document.querySelectorAll('[data-pane-head]')].map((one) => one.textContent.trim()),
+    closes: document.querySelectorAll('[data-pane-close]').length,
+    marks: document.querySelectorAll('[data-pane-mark]').length,
+    live: document.querySelectorAll('[data-pair-row="live"]').length,
+    details: [...document.querySelectorAll('[data-pane]')].map((el) => el.querySelectorAll('.mf-details').length)
+  }))
+  /** Open to the side from a row's own menu, the way the user did it. */
+  const asideFromMenu = async (row) => {
+    await row.click({ button: 'right' }); await wait(400)
+    const openIn = h.locator('[role="menuitem"]', { hasText: 'Open in…' })
+    if (await openIn.count()) { await openIn.first().click(); await wait(400) }
+    await h.locator('[role="menuitem"]', { hasText: 'Open to the side' }).first().click()
+    await wait(1200)
+  }
+  await h.evaluate(() => { localStorage.removeItem('split'); localStorage.setItem('theme', 'dark'); window.dispatchEvent(new StorageEvent('storage', { key: 'theme', newValue: 'dark' })) })
+  await send('view', 'nuggets'); await wait()
+  // A separate pinned note, as the user has.
+  const pinnedId = await (await rowIn(1, 5)).getAttribute('data-id')
+  await v('pin', 'nuggets', pinnedId, true); await wait(800)
+  await (await rowIn(1, 0)).click(); await wait()
+  const pinsBefore = await h.evaluate(() => [...document.querySelectorAll('aside [data-drag-open]')].length)
+  let s1 = await seen()
+  check('report 1: one pane open shows no tabs, no pane header, no L/M/R mark and no side-by-side row', s1.tabs.length === 0 && s1.heads.length === 0 && s1.closes === 0 && s1.marks === 0 && s1.live === 0, JSON.stringify(s1))
+
+  // One Open to the side adds exactly one pane, never two.
+  await asideFromMenu(await rowIn(1, 1))
+  list = await panes(h)
+  s1 = await seen()
+  check('report 1: one Open to the side adds exactly one pane', list.length === 2, show(list))
+  check('report 1: each pane is named by the note it shows', s1.heads.length === 2 && (await texts()).every((text, i) => named(s1.heads[i], text)) && s1.heads[0] !== s1.heads[1], `${JSON.stringify(s1.heads)} vs ${list.map((one) => one.note)}`)
+
+  // --- report 4a: Pinned holds only what was pinned -------------------------------------------
+  const order = await h.evaluate(() => {
+    const live = document.querySelector('[data-pair-row="live"]')
+    const pinned = [...document.querySelectorAll('aside button[aria-expanded]')].find((one) => one.textContent.trim() === 'Pinned')
+    const pins = pinned?.parentElement?.nextElementSibling
+    return { live: !!live, pinned: !!pinned, liveInPinned: !!(live && pins?.contains(live)), liveAfterPinned: !!(live && pinned && pinned.compareDocumentPosition(live) & Node.DOCUMENT_POSITION_FOLLOWING), pinnedRows: pins ? pins.querySelectorAll('[data-drag-open], [data-pair-row]').length : 0 }
+  })
+  check('report 4a: the open split is not shown among Pinned, which keeps just the pinned note', order.live && order.pinned && !order.liveInPinned && !order.liveAfterPinned && order.pinnedRows === pinsBefore, `${JSON.stringify(order)} pinned before: ${pinsBefore}`)
+  await h.screenshot({ path: `${shots}/report-sidebar-dark.png` })
+
+  // --- report 3: each pane closes from its own × ----------------------------------------------
+  check('report 3: each of two panes has its own ×', s1.closes === 2, JSON.stringify(s1))
+  if (await h.locator('[data-pane-close]').count()) await h.locator('[data-pane-close]').nth(0).hover(); await wait(900)
+  const tip = await h.evaluate(() => [...document.querySelectorAll('[data-slot="tooltip-content"], [role="tooltip"]')].map((one) => one.textContent.trim()).join(' | '))
+  check('report 3: its tooltip says Close this pane ⌃W', /Close this pane\s*⌃W/.test(tip), tip)
+  await h.mouse.move(5, 300); await wait(300)
+
+  // --- report 2: Details in one pane only -------------------------------------------------------
+  const detailsAt = async (n) => h.locator(`${await paneSel(n)} button[aria-label="Details"]`).first()
+  await (await detailsAt(1)).click(); await wait(700)
+  s1 = await seen()
+  check('report 2: Details turned on in the left pane opens it there only', s1.details[0] > 0 && s1.details[1] === 0, JSON.stringify(s1.details))
+  const pressed = await h.evaluate(() => [...document.querySelectorAll('[data-pane]')].map((el) => el.querySelector('button[aria-label="Details"]')?.getAttribute('aria-pressed')))
+  check('report 2: only that pane\'s button reads Hide details', pressed[0] === 'true' && pressed[1] === 'false', JSON.stringify(pressed))
+  await h.screenshot({ path: `${shots}/report-details-dark.png` })
+  await (await detailsAt(1)).click(); await wait(500)
+
+  // --- report 4b: Open to the side again never folds the split away ----------------------------
+  // Back to one pane, on the Ideas list with nothing open, in a window with room
+  // for two panes side by side but not three.
+  const closeAt = async (n) => { const x = h.locator(`${await paneSel(n)} [data-pane-close]`); if (await x.count()) await x.click(); else { await h.locator(await paneSel(n)).click({ position: { x: 30, y: 30 } }); await blur(); await press('Control+w') } await wait(900) }
+  await closeAt(2)
+  await c.size(1100, 800); await wait(700)
+  await send('view', 'questions'); await wait()
+  await send('view', 'nuggets'); await wait()
+  await asideFromMenu(await rowIn(1, 1))
+  const keysTwo = (await panes(h)).map((one) => one.key)
+  const otherId = await (await rowIn(1, 3)).getAttribute('data-id')
+  await asideFromMenu(await rowIn(1, 3))
+  list = await panes(h)
+  s1 = await seen()
+  const t2 = await trails(h)
+  check('report 4b: with two panes and no room for a third, Open to the side again keeps both in view, the right one showing the new note', list.length === 2 && list.every((one) => one.shown) && s1.tabs.length === 0 && t2 && where(t2.panes[1].trail).focus === otherId && list.map((one) => one.key).join() === keysTwo.join(), `${show(list)} tabs:${s1.tabs.length}`)
+  await h.screenshot({ path: `${shots}/report-aside-again-dark.png` })
+  // With room for three: a third pane; then with three, the rightmost takes the next.
+  await c.size(1500, 900); await wait(700)
+  if (list.length === 3) await closeAt(3)
+  await asideFromMenu(await rowIn(1, 4))
+  list = await panes(h)
+  check('report 4b: with room, Open to the side adds a third pane', list.length === 3 && list.every((one) => one.shown), show(list))
+  const middle = (await trails(h)).panes[1]
+  const lastId = await (await rowIn(1, 6)).getAttribute('data-id')
+  await asideFromMenu(await rowIn(1, 6))
+  const t3 = await trails(h)
+  list = await panes(h)
+  check('report 4b: with three panes, Open to the side replaces the rightmost, the middle untouched', list.length === 3 && where(t3.panes[2].trail).focus === lastId && JSON.stringify(where(t3.panes[1].trail)) === JSON.stringify(where(middle.trail)), JSON.stringify(t3.panes.map((one) => where(one.trail))))
+
+  // --- report 1: narrow, the switcher's tabs name what each pane shows ---------------------------
+  const wide = (await seen()).heads
+  await c.size(820, 760); await wait(800)
+  list = await panes(h)
+  s1 = await seen()
+  check('report 1: narrow, each tab is named by its pane\'s note, not all after the list', s1.tabs.length === 3 && new Set(s1.tabs).size === 3 && s1.tabs.join('|') === wide.join('|') && s1.tabs[0] === 'Ideas', `${JSON.stringify(s1.tabs)} vs ${list.map((one) => one.note)}`)
+  await h.screenshot({ path: `${shots}/report-tabs-dark.png` })
+  await c.size(1500, 900); await wait(600)
+
+  // --- report 3: a pane's × closes just that pane -----------------------------------------------
+  const before3 = (await panes(h)).map((one) => one.key)
+  await closeAt(2)
+  list = await panes(h)
+  check('report 3: the middle pane\'s × closes just that pane', list.length === 2 && list[0].key === before3[0] && list[1].key === before3[2], show(list))
+  await closeAt(2)
+  s1 = await seen()
+  check('report 3: down to one pane, no × and no header line are left', (await panes(h)).length === 1 && s1.closes === 0 && s1.heads.length === 0 && s1.marks === 0, JSON.stringify(s1))
+  check('no page errors in the reports run', c.errors.length === 0, c.errors.slice(0, 3).join(' | '))
 } finally {
   await c.close()
 }

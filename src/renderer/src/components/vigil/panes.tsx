@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import '@/assets/split.css'
 import { shift, spring } from '@/lib/motion'
 import { chime } from '@/lib/sound'
-import { PaneContext, PaneWidthContext, type PaneWidth } from '@/lib/split'
+import { PANE_GAP, PANE_MIN, PaneContext, PaneWidthContext, panesFit, type PaneWidth } from '@/lib/split'
 import XIcon from '@/components/ui/x-icon'
 import { AliveIcon } from './alive-icon'
 import { Tip } from './ui'
@@ -12,7 +12,8 @@ import { RowMenu, type RowItem } from './row-menu'
 
 /** What the main window needs of a pane to keep Back exact: how its page is scrolled, and where to put it back. */
 export type PaneApi = { scrolled: () => [string, number][]; restore: (scroll: [string, number][] | null) => void }
-export type PaneShown = { key: string; label: string; at: number; width?: PaneWidth; node: ReactNode }
+/** A pane as drawn: `label` is what it shows, its open note's name, or its page's when no note is open. */
+export type PaneShown = { key: string; label: string; private?: boolean; at: number; width?: PaneWidth; node: ReactNode }
 
 // Whether the last thing pressed was Tab: only then does focus arriving in a
 // pane bring it to the front. A menu closing hands the focus back to the row
@@ -21,10 +22,8 @@ let tabbed = false
 addEventListener('keydown', (event) => void (tabbed = event.key === 'Tab'), true)
 addEventListener('pointerdown', () => void (tabbed = false), true)
 
-/** Narrower than this, a pane would only show a sliver of its page: they take turns instead. */
-const MIN = 300
-/** The gap between panes, which is also where a divider is held. */
-const GAP = 8
+const MIN = PANE_MIN
+const GAP = PANE_GAP
 
 /** A box's place in the page, as the child index at each level down. */
 const pathTo = (root: Element, node: Element): string => {
@@ -66,7 +65,7 @@ export function SplitPanes({ panes, front, sizes, onSizes, onFront, onClose, onW
     return () => watch.disconnect()
   }, [])
   const split = panes.length > 1
-  const turns = split && room > 0 && room - GAP * (panes.length - 1) < MIN * panes.length
+  const turns = split && !panesFit(panes.length, room)
   // Held while a divider is dragged, so only this draws, not every page.
   const [dragged, setDragged] = useState<number[] | null>(null)
   const shares = dragged ?? (sizes.length === panes.length ? sizes : panes.map(() => 1 / panes.length))
@@ -109,10 +108,10 @@ export function SplitPanes({ panes, front, sizes, onSizes, onFront, onClose, onW
         <div role="tablist" aria-label="Panes" className="flex shrink-0 items-center gap-1 overflow-x-auto [scrollbar-width:none]">
           {panes.map((pane, index) => (
             <RowMenu key={pane.key} items={menuFor?.(pane.key) ?? []}>
-            <span data-pane-tab={pane.key} className={`flex h-7 min-w-0 shrink items-center rounded-full border text-control transition-colors ${pane.key === front ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'}`}>
+            <span data-pane-tab={pane.key} className={`flex h-7 max-w-56 min-w-0 shrink items-center rounded-full border text-control transition-colors ${pane.key === front ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'}`}>
               <Tip label={index ? `Pane ${index + 1}  ⌃L` : 'Pane 1  ⌃H'}>
                 <button type="button" role="tab" aria-selected={pane.key === front} onClick={() => (pane.key !== front && chime('tap'), onFront(pane.key))}
-                  className="min-w-0 truncate py-0.5 pr-1 pl-3 text-left">
+                  data-private={pane.private ? '' : undefined} className="private-text min-w-0 truncate py-0.5 pr-1 pl-3 text-left">
                   {pane.label}
                 </button>
               </Tip>
@@ -130,6 +129,7 @@ export function SplitPanes({ panes, front, sizes, onSizes, onFront, onClose, onW
         <AnimatePresence initial={false}>
           {panes.map((pane, index) => (
             <PaneFrame key={pane.key} pane={pane} apis={apis} split={split} front={pane.key === front} hidden={turns && pane.key !== front}
+              head={split && !turns} menu={menuFor?.(pane.key) ?? []} onClose={onClose}
               share={turns ? 1 : shares[index]} onFront={onFront} onWidth={onWidth} divider={!turns && index > 0 ? (
                 <div role="separator" data-pane-divider aria-orientation="vertical" aria-label="Drag to resize, double-click to share equally"
                   onPointerDown={drag(index - 1)} onDoubleClick={even}
@@ -148,12 +148,16 @@ export function SplitPanes({ panes, front, sizes, onSizes, onFront, onClose, onW
  * One pane: the page card, which keeps how its page was scrolled for Back,
  * and comes to the front when pointed at, or tabbed into.
  */
-function PaneFrame({ pane, apis, split, front, hidden, share, divider, onFront, onWidth }: {
+function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, share, divider, onFront, onWidth }: {
   pane: PaneShown
   apis: RefObject<Map<string, PaneApi>>
   split: boolean
   front: boolean
   hidden: boolean
+  /** Side by side: a line over the pane with its name and an × that closes it. */
+  head: boolean
+  menu: RowItem[]
+  onClose: (key: string) => void
   share: number
   divider: ReactNode
   onFront: (key: string) => void
@@ -217,7 +221,7 @@ function PaneFrame({ pane, apis, split, front, hidden, share, divider, onFront, 
         data-width={split && pane.width ? (pane.width === 'narrow' ? 'page' : pane.width) : undefined}
         onPointerDownCapture={() => !front && onFront(pane.key)}
         onFocusCapture={() => tabbed && !front && onFront(pane.key)}
-        className={`relative min-h-0 min-w-0 ${hidden ? 'hidden' : 'flex'}`}
+        className={`relative min-h-0 min-w-0 flex-col gap-1 ${hidden ? 'hidden' : 'flex'}`}
         // The page's own background, for the pane in front to be raised from.
         style={{ flexGrow: share, flexBasis: 0, '--mf-under': 'var(--background)' } as React.CSSProperties}
       >
@@ -226,7 +230,25 @@ function PaneFrame({ pane, apis, split, front, hidden, share, divider, onFront, 
             strength. The others step back: a fainter hairline, no shadow, their
             header lines muted and the page a touch dimmer. Nothing coloured.
             On its own, the page is the card it always was. */}
-        <div ref={pageRef} className={`@container/page relative flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border transition-[opacity,border-color,box-shadow] duration-150 ${
+        {/* Side by side, each pane says what it shows and closes from its own ×,
+            for anyone who never learns ⌃W. A right click has the split's menu. */}
+        {head && (
+          <RowMenu items={menu}>
+            <div data-pane-head className="flex h-7 shrink-0 items-center gap-1 pr-0.5 pl-3 text-control">
+              <span data-private={pane.private ? '' : undefined}
+                className={`private-text min-w-0 flex-1 truncate transition-colors duration-150 ${front ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
+                {pane.label}
+              </span>
+              <Tip label="Close this pane  ⌃W">
+                <button type="button" data-pane-close aria-label="Close this pane" onClick={() => onClose(pane.key)}
+                  className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+                  <AliveIcon icon={XIcon} size={14} />
+                </button>
+              </Tip>
+            </div>
+          </RowMenu>
+        )}
+        <div ref={pageRef} data-pane-card className={`@container/page relative flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border transition-[opacity,border-color,box-shadow] duration-150 ${
           !split ? '' : front
             // In a dark theme (every theme carries .dark; light ones add data-light) a shadow barely reads, so the key pane's surface is raised a step, as macOS lifts its key window.
             ? 'border-foreground/12 bg-background shadow-[0_1px_2px_rgb(0_0_0/0.05),0_6px_18px_-6px_rgb(0_0_0/0.12)] [:root:not([data-light])_&]:[--background:color-mix(in_srgb,var(--mf-under)_94%,white)]'

@@ -408,7 +408,6 @@ export function NoteList({
             : rowClass(at, open, picked, entry.dim, density === 'compact')
         }
       >
-        {!grid && <PaneMark id={entry.id} />}
         {density === 'compact' ? (
           <CompactRow entry={entry} lit={at || open} />
         ) : density === 'list' ? (
@@ -460,7 +459,7 @@ const tileClass = (at: boolean, open: boolean, picked: boolean, dim = false): st
 
 /**
  * Split, a row whose note is open in a pane says which: a small L, M or R
- * in the list's margin, in the colour of the line along the front pane.
+ * just before its title, in its own room, so it never covers the picture.
  */
 function PaneMark({ id }: { id: string }): React.JSX.Element | null {
   const mark = usePaneMark(id)
@@ -468,7 +467,7 @@ function PaneMark({ id }: { id: string }): React.JSX.Element | null {
   const side = mark === 'L' ? 'left' : mark === 'R' ? 'right' : 'middle'
   return (
     <span data-pane-mark={mark} aria-label={`Open in the ${side} pane`} title={`Open in the ${side} pane`}
-      className="pointer-events-none absolute top-1/2 -left-3 z-10 flex size-4 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--tt-brand-color-400)] text-[10px] leading-none font-semibold text-white shadow-[0_0_0_2px_var(--background)]">
+      className="pointer-events-none flex size-4 shrink-0 items-center justify-center rounded-full bg-[var(--tt-brand-color-400)] text-[10px] leading-none font-semibold text-white">
       {mark}
     </span>
   )
@@ -507,6 +506,7 @@ function CompactRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.E
   return (
     <>
       <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} />
+      <PaneMark id={entry.id} />
       <span className="private-text min-w-0 flex-1 truncate">{entry.title || 'Untitled'}</span>
       <Tags tags={entry.tags} max={2} />
       <Tail entry={entry} lit={lit} />
@@ -523,6 +523,7 @@ function ListRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Elem
       <Lead entry={entry} />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="flex items-center gap-2">
+          <PaneMark id={entry.id} />
           <span
             className={`private-text min-w-0 flex-1 ${entry.wrap ? 'line-clamp-2 [overflow-wrap:anywhere]' : 'truncate'}`}
           >
