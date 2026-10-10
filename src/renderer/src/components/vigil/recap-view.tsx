@@ -10,6 +10,7 @@ import { Kbd, Rolling, Tip, Typed } from './ui'
 import { Button } from '@/components/ui/button'
 import { Scenery } from './scenery'
 import { RecapRadar, readShape } from './recap-radar'
+import { inkOf, useMilestones } from '@/lib/milestones'
 import { EASE, shift } from '@/lib/motion'
 import { dayjs, dayName, noon, num } from '../../../../main/dates'
 
@@ -20,7 +21,7 @@ const FlexCarousel = lazy(() => import('./flex-carousel'))
 const X = alive(XIcon)
 
 /** The light each page sits in: the year opens at dawn and closes at night. */
-const RECAP_MOODS: Record<string, Mood> = { intro: 'day', captures: 'day', shape: 'day', busiest: 'day', tags: 'dusk', sources: 'dusk', pictures: 'dusk', exits: 'interior', reviewed: 'night', outro: 'night', none: 'night' }
+const RECAP_MOODS: Record<string, Mood> = { intro: 'day', captures: 'day', shape: 'day', busiest: 'day', tags: 'dusk', sources: 'dusk', pictures: 'dusk', exits: 'interior', reviewed: 'night', marked: 'night', outro: 'night', none: 'night' }
 
 const PAGE_MOTION: Variants = {
   // Whole transforms: each page counts and types as it lands, and a slide
@@ -174,6 +175,9 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
     data ? (data.finished ? opened.subtract(1, period) : opened).toISOString() : null,
     data ? (data.finished ? opened.toISOString() : dayjs().endOf('day').toISOString()) : null
   )
+  // The days marked for something in the same span, in the order they came.
+  const span = data ? (data.finished ? opened.subtract(1, period) : opened) : null
+  const marked = useMilestones(span ? span.format('YYYY-MM-DD') : '9999-12-31', span ? span.endOf(period).format('YYYY-MM-DD') : '9999-12-31')
   // The pages are settled once, so none slips in under you: the pictures if
   // they are ready within a moment, and otherwise the recap goes on without.
   const [strip, setStrip] = useState<Picture[] | null | undefined>(undefined)
@@ -253,6 +257,22 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
         <Big n={data.reviews}>{data.reviews === 1 ? 'review' : 'reviews'}</Big>
         <p className="text-title">{/* Its turn once the count above has landed: one thing moving at a time. */}
         <Typed story delay={Math.round((0.25 + counting(data.reviews)) * 1000) + 100} text={`${data.reviewDays > 1 ? `On ${plural(data.reviewDays, 'day', 'different days')}. ` : ''}The one you came back to most: “${data.mostReviewed.title}”, ${plural(data.mostReviewed.n, 'time', 'times')}.`} /></p>
+      </div>
+    ),
+    marked.length > 0 && (
+      <div key="marked" className="space-y-5">
+        <p className="text-title"><Typed story text={`Your ${period}'s marked days`} /></p>
+        <ol className="space-y-2">
+          {marked.slice(0, 8).map((one, index) => (
+            <motion.li key={one.id} initial={{ opacity: 0, transform: shift('translateX(-12px)') }} animate={{ opacity: 1, transform: shift('translateX(0px)') }} transition={{ delay: 0.4 + index * 0.05, ease: EASE }}
+              className="flex items-baseline gap-3 text-heading">
+              <span className="w-6 shrink-0 text-center" style={{ color: inkOf(one) }}>{one.icon ?? '◆'}</span>
+              <span className="flex-1 truncate text-foreground">{one.title}</span>
+              <span className="text-muted-foreground tabular-nums">{dayjs(one.day).format('D MMM')}</span>
+            </motion.li>
+          ))}
+        </ol>
+        {marked.length > 8 && <p className="text-muted-foreground">and {num(marked.length - 8)} more</p>}
       </div>
     ),
     <div key="outro" className="space-y-3">

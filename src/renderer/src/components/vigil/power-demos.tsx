@@ -553,6 +553,31 @@ const ReadThroughDemo: Demo = ({ live }) => {
   )
 }
 
+const QUEUED = ['Pale Blue Dot, Voyager 1, 1990', 'The Picture of Dorian Gray', 'Why Pluto is a dwarf planet', 'The Kessel Run, in parsecs']
+const QueueDemo: Demo = ({ live }) => {
+  // Play next lifts the last one to the top; then each is read and the next comes up.
+  const at = useSteps([1300, 1100, 1100, 1100, 1600], live, 4)
+  const order = at === 0 ? QUEUED : [QUEUED[3], ...QUEUED.slice(0, 3)]
+  const read = Math.max(0, at - 1)
+  return (
+    <Col>
+      <div className="flex items-center justify-between px-1 text-meta text-muted-foreground"><span>Up next</span><span className="tabular-nums"><Rolling text={read} /> of 4 read</span></div>
+      <LayoutGroup>
+        <div className="flex flex-col gap-1">
+          {order.map((title, i) => (
+            <motion.div key={title} layout transition={spring.moderate}
+              className={`flex h-7 items-center gap-2 rounded-md border bg-background px-2 text-control transition-opacity duration-300 ${i < read ? 'opacity-35' : ''}`}>
+              <span className="w-3 text-right text-meta text-muted-foreground tabular-nums">{i + 1}</span>
+              <span className={`truncate ${i < read ? 'line-through decoration-foreground/40' : 'text-foreground'}`}>{title}</span>
+              {at === 0 && i === 3 && <Chip className="ml-auto">Play next</Chip>}
+            </motion.div>
+          ))}
+        </div>
+      </LayoutGroup>
+    </Col>
+  )
+}
+
 const WrongDemo: Demo = ({ live }) => {
   const at = useSteps([1200, 1000, 2400], live, 2)
   return (
@@ -782,6 +807,29 @@ const YearDemo: Demo = ({ live }) => {
   )
 }
 
+const MARKED = [{ name: 'Exam', d: 0.18, tint: 'red' }, { name: 'Launch', d: 0.52, tint: 'blue' }, { name: "Mum's birthday", d: 0.8, tint: 'pink' }]
+const MilestonesDemo: Demo = ({ live }) => {
+  const at = useSteps([800, 800, 800, 2400], live, 3)
+  return (
+    <div className="flex w-full max-w-[18rem] flex-col gap-2">
+      <div className="relative h-14">
+        <svg aria-hidden viewBox="0 0 288 56" className="absolute inset-0 h-full w-full overflow-visible">
+          {Array.from({ length: 72 }, (_, i) => <path key={i} d={`M${i * 4 + 2} 56V${i % 6 === 0 ? 44 : 49}`} stroke="var(--foreground)" strokeWidth={1} opacity={i < 30 ? 0.45 : 0.22} />)}
+          <path d="M122 56V30" stroke="var(--primary)" strokeWidth={2} />
+        </svg>
+        {MARKED.map((mark, i) => (
+          <motion.span key={mark.name} className="absolute bottom-0 flex flex-col items-start" style={{ left: `${mark.d * 100}%` }}
+            initial={false} animate={{ opacity: at > i ? 1 : 0, y: at > i ? 0 : 6 }} transition={{ duration: 0.35, ease: EASE }}>
+            <span className="-ml-px text-[0.625rem] leading-none font-medium whitespace-nowrap" style={{ color: `var(--tt-color-text-${mark.tint})` }}>{mark.name}</span>
+            <span className="mt-1 block h-10 w-[1.75px]" style={{ background: `var(--tt-color-text-${mark.tint})` }} />
+          </motion.span>
+        ))}
+      </div>
+      <div className={`text-control text-foreground transition-opacity duration-300 ${at >= 3 ? 'opacity-100' : 'opacity-0'}`}><span style={{ color: 'var(--tt-color-text-blue)' }}>◆</span> 23 days to Launch</div>
+    </div>
+  )
+}
+
 const TAKEAWAY = 'Fear is the mind-killer.'
 const BookDemo: Demo = ({ live }) => {
   const at = useSteps([900, 300, 300, 300, 300, typeMs(TAKEAWAY, 40), 1600], live, 6)
@@ -986,9 +1034,9 @@ const EmbedsDemo: Demo = ({ live }) => {
 export const DEMOS: Record<string, Demo> = {
   box: BoxDemo, timer: TimerDemo, clue: ClueDemo, tagtask: TagTaskDemo, remind: RemindDemo, comingback: ComingBackDemo, onetask: OneTaskDemo, merge: MergeDemo,
   board: BoardDemo, versions: VersionsDemo, find: FindDemo, aliases: AliasesDemo, calc: CalcDemo, fold: FoldDemo, bit: BitDemo, glossary: GlossaryDemo,
-  review: ReviewDemo, cloze: ClozeDemo, context: ContextDemo, readthrough: ReadThroughDemo, wrong: WrongDemo, suspend: SuspendDemo, questions: QuestionsDemo,
+  review: ReviewDemo, cloze: ClozeDemo, context: ContextDemo, readthrough: ReadThroughDemo, queue: QueueDemo, wrong: WrongDemo, suspend: SuspendDemo, questions: QuestionsDemo,
   decision: DecisionDemo, experiment: ExperimentDemo, goals: GoalsDemo, matrix: MatrixDemo, routines: RoutinesDemo, focus: FocusDemo, later: LaterDemo,
-  pages: PagesDemo, year: YearDemo, book: BookDemo, wrapped: WrappedDemo, map: MapDemo,
+  pages: PagesDemo, year: YearDemo, milestones: MilestonesDemo, book: BookDemo, wrapped: WrappedDemo, map: MapDemo,
   stickies: StickiesDemo, recordings: RecordingsDemo, window: WindowDemo, safe: SafeDemo, lock: LockDemo,
   vault: VaultDemo, files: FilesDemo, embeds: EmbedsDemo
 }

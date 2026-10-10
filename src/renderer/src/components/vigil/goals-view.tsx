@@ -26,6 +26,7 @@ import { CollectionHeader, Cover, MenuButton, QuietAction, useTint } from './col
 import { DatePicker } from './date-picker'
 import { ago, dayKey, dayMonth, dayName, num } from '../../../../main/dates'
 import { ProgressBar } from './progress-bar'
+import { inkOf, useMilestones, type Milestone } from '@/lib/milestones'
 import { daysBetween, daysLeft, journey, leftSaid, percent, tempus, wayThrough, type Dot } from '../../../../main/goal-days'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -504,6 +505,9 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
   const span = Math.round((new Date(`${target}T12:00`).getTime() - new Date(`${from}T12:00`).getTime()) / 86_400_000)
   const marks: [string, string][] = [[shiftDay(from, Math.round(span / 2)), 'halfway'], [shiftDay(target, -30), 'a month to go'], [shiftDay(target, -7), 'a week to go']]
   const milestoneIn = (dot: Dot): string | undefined => marks.find(([day]) => day >= from && day >= dot.day && day <= dot.last)?.[1]
+  // Days marked for something on the road (an exam, a launch): a ring in their colour, named when pointed at.
+  const marked = useMilestones(from, target)
+  const markIn = (dot: Dot): Milestone | undefined => marked.find((one) => one.day >= dot.day && one.day <= dot.last)
   const shown = hover ? logsIn(days, hover) : []
   return (
     <div ref={box} className={`relative w-full ${compact ? 'h-full' : ''}`}>
@@ -546,6 +550,7 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
               {dot.today && <circle cx={at(dot).x} cy={at(dot).y} r={0.56 * cell} fill="none" stroke={ACCENT} strokeWidth={0.1 * cell} className="mf-goal-today" />}
               {/* A milestone on the way (halfway, a month to go, a week to go): a quiet ring. */}
               {marker && !dot.target && !dot.today && <circle cx={at(dot).x} cy={at(dot).y} r={0.52 * cell} fill="none" stroke="currentColor" strokeWidth={0.08 * cell} style={{ opacity: 0.6 }} />}
+              {markIn(dot) && !dot.target && <circle data-road-marked cx={at(dot).x} cy={at(dot).y} r={0.56 * cell} fill="none" stroke={inkOf(markIn(dot)!)} strokeWidth={0.12 * cell} />}
               {on && <circle cx={at(dot).x} cy={at(dot).y} r={0.6 * cell} fill="none" stroke="currentColor" strokeWidth={0.08 * cell} />}
               <circle cx={at(dot).x} cy={at(dot).y} r={(dot.target ? 0.32 : dot.today ? 0.4 : 0.34) * cell} fill={dot.target && !logged ? ACCENT : colour}
                 style={{ opacity: dot.target ? 1 : opacity }} />
@@ -557,7 +562,7 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
           marked dots get a small spot each that is not, to be pointed at. */}
       {compact && road.dots.map((given, index) => {
         const dot = place(given, index)
-        if (!dot.today && !dot.target && !milestoneIn(dot) && !logsIn(days, dot).length) return null
+        if (!dot.today && !dot.target && !milestoneIn(dot) && !markIn(dot) && !logsIn(days, dot).length) return null
         const { x, y } = at(dot)
         return <span key={dot.day} aria-hidden data-road-mark onMouseEnter={() => setHover(dot)} onMouseLeave={() => setHover(null)}
           className="absolute rounded-full" style={{ left: x - cell * 0.6, top: y - cell * 0.6, width: cell * 1.2, height: cell * 1.2, WebkitAppRegion: 'no-drag' } as React.CSSProperties} />
@@ -567,6 +572,7 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
         const date = dayMonth(`${hover.day}T12:00`)
         const marker = milestoneIn(hover)
         const head = hover.today ? `Today · ${leftSaid(daysLeft(target, today)).toLowerCase()}` : hover.target ? `${date} · the day` : marker ? `${marker[0].toUpperCase()}${marker.slice(1)} · ${date}` : date
+        const named = markIn(hover)
         const said = logsIn(days, hover)
         // Inside the little window: under the dot in the top half, over it in the bottom; from the nearer side.
         const below = y < height / 2
@@ -574,7 +580,7 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
         return (
           <div className="pointer-events-none absolute z-10 w-max max-w-full rounded-md bg-popover px-2 py-1 text-[11px] leading-snug text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10"
             style={{ ...side, ...(below ? { top: y + cell * 0.8 } : { bottom: height - y + cell * 0.8 }) }}>
-            <span className="block font-medium">{head}</span>
+            <span className="block font-medium">{head}{named ? ` · ${named.title}` : ''}</span>
             {said.length > 0 && <span className="block max-w-56 truncate text-muted-foreground">{logsSaid(said.length)}: {said[said.length - 1].body.replace(/\s+/g, ' ')}</span>}
           </div>
         )
@@ -585,6 +591,7 @@ export function Journey({ from, target, today, logs, picked, onPick, compact = f
           <span className="block font-medium">
             {hover.day === hover.last ? dayName(`${hover.day}T12:00`) : `${dayMonth(`${hover.day}T12:00`)} to ${dayMonth(`${hover.last}T12:00`)}`}
             {hover.today ? ' · today' : hover.target ? ' · the day' : milestoneIn(hover) ? ` · ${milestoneIn(hover)}` : ''}
+            {markIn(hover) ? ` · ${markIn(hover)!.icon ? `${markIn(hover)!.icon} ` : ''}${markIn(hover)!.title}` : ''}
           </span>
           <span className="block text-muted-foreground">{shown.length ? `${logsSaid(shown.length)}: ${shown[shown.length - 1].body.replace(/\s+/g, ' ').slice(0, 80)}` : hover.past || hover.today ? 'No log' : `${leftSaid(daysLeft(hover.day, today)).toLowerCase()}`}</span>
         </div>

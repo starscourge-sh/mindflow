@@ -23,6 +23,7 @@ import { IssueLine, EarlierPages, SERIF, weekOfYear, weekSpan } from './issue'
 import { Island, Page, Rolling, Tip, Typed, typing, Pressed } from './ui'
 import { dayjs, noon } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
+import { DayGrid, YearMarks } from './milestones'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowLeft = alive(ArrowNarrowLeftIcon)
@@ -165,9 +166,11 @@ function Masthead({ parts, headline, named }: { parts: React.ReactNode[]; headli
  * written with Recent open beside it, for the connections a day at a time
  * hides. ← and → step through the weeks.
  */
-export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen }: {
+export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }: {
   /** The Monday to open on, when Back returns to a week gone by. */
   start?: string
+  /** A day of the week opened: its page. */
+  onDay?: (day: string) => void
   onOpen?: (type: string, id: string) => void
   onScale?: (scale: Scale) => void
   /** Recent beside the page, reaching back from the end of this week (or now). */
@@ -220,6 +223,8 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen }: {
         <p className="mt-2 text-meta text-muted-foreground">
           <Typed key={key} text={`${current ? 'This week. ' : ''}${page?.exists ? 'High level only: what you would still say about it in a month.' : 'No page for it yet: a few words in any field keeps one.'}`} step={28} />
         </p>
+        {/* The week's seven days, each wearing its mark: right-click one to mark it. */}
+        <div className="mt-5"><DayGrid label="The week's days" days={Array.from({ length: 7 }, (_, at) => addDays(monday, at))} onOpenDay={onDay} /></div>
         {page && (
           <div key={key} className="mt-6">
             <Island>
@@ -262,7 +267,7 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen }: {
  * A month, two fields and no numbers: where to put your energy, looking
  * forward, and the season of life it was, looking back. ← and → step months.
  */
-export function MonthPage({ onScale, start }: { onScale?: (scale: Scale) => void; start?: string }): React.JSX.Element {
+export function MonthPage({ onScale, start, onDay }: { onScale?: (scale: Scale) => void; start?: string; onDay?: (day: string) => void }): React.JSX.Element {
   const thisMonth = monthOf()
   const [month, setMonth] = useState(start && start <= thisMonth ? start : thisMonth)
   useKept('focus', month, setMonth, thisMonth)
@@ -303,6 +308,8 @@ export function MonthPage({ onScale, start }: { onScale?: (scale: Scale) => void
         <p className="mt-2 text-meta text-muted-foreground">
           <Typed key={key} text="Two fields, no numbers: a name for this stretch of time." step={28} />
         </p>
+        {/* The month's days, each wearing its mark: right-click one to mark it. */}
+        <div className="mt-5"><DayGrid key={month} label={`${monthName(month)}, day by day`} days={Array.from({ length: dayjs(`${month}-01`).daysInMonth() }, (_, at) => `${month}-${String(at + 1).padStart(2, '0')}`)} onOpenDay={onDay} /></div>
         {/* Both fields empty: the same two, filled in, to show the kind of thing that goes in them. */}
         {page && !fields.focus && !fields.season && (
           <Example flush className="mt-6" tryIt="write a few words in Focus as the month starts, and name its Season of life as it ends. The year page lines the seasons up.">
@@ -337,7 +344,7 @@ export function MonthPage({ onScale, start }: { onScale?: (scale: Scale) => void
  * A year as its months' seasons of life, in order: life in stages, read top
  * to bottom. Each month opens its page.
  */
-export function YearPage({ start, onScale, onMonth }: { start?: string; onScale?: (scale: Scale) => void; onMonth: (month: string) => void }): React.JSX.Element {
+export function YearPage({ start, onScale, onMonth, onDay }: { start?: string; onScale?: (scale: Scale) => void; onMonth: (month: string) => void; onDay?: (day: string) => void }): React.JSX.Element {
   const thisYear = String(dayjs().year())
   const [year, setYear] = useState(start && start <= thisYear ? start : thisYear)
   useKept('focus', year, setYear, thisYear)
@@ -373,6 +380,8 @@ export function YearPage({ start, onScale, onMonth }: { start?: string; onScale?
         <p className="mt-1 text-meta text-muted-foreground">
           {!unloaded(months) && <Typed key={`${year}-${named}`} text={named ? `Your seasons of life, month by month: ${named} of ${all.length} named so far.` : 'No season of life named yet. Each month\'s page has a field for it, looking back.'} step={28} />}
         </p>
+        {/* The year as a ruler, the marked days standing tall and named: right-click a day to mark it. */}
+        <div className="mt-6"><YearMarks key={year} year={year} onOpenDay={onDay} /></div>
         <Example on={example} flush className="mt-6" tryIt={<><strong><button type="button" onClick={() => (chime('season'), onMonth(dayjs().format('YYYY-MM')))} className="text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">open this month's page</button> and give it a name, looking back.</strong> Each month you name lines up here.</>}>
         <ol className={example ? 'flex flex-col' : 'mt-6 flex flex-col'}>
           {all.map((month) => {

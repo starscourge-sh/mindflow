@@ -65,6 +65,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: 'G M', does: "Go to the month's page", where: 'Main window' },
   { group: 'Getting around', keys: '⇧⌘Y', does: 'Recent: everything made lately, beside the page', where: 'Both windows' },
   { group: 'Getting around', keys: 'G V', does: 'Go to Archived', where: 'Main window' },
+  { group: 'Getting around', keys: 'G B', does: 'Go to Queue: what you mean to read next, in order', where: 'Main window' },
   { group: 'Getting around', keys: 'C', does: 'New capture in the box', where: 'Main window' },
   { group: 'Getting around', keys: '⌃1', does: 'Side panel: Inbox', where: 'The box' },
   { group: 'Getting around', keys: '⌃2', does: 'Side panel: Tasks', where: 'The box' },
@@ -213,6 +214,9 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Reading', keys: 'H', does: 'Hold as a question', where: 'Reading' },
   { group: 'Reading', keys: ';', does: 'Add a thought on the page', where: 'Reading' },
   { group: 'Reading', keys: 'Esc', does: 'Stop reading', where: 'Reading' },
+  { group: 'Reading', keys: ']', does: 'Reading the queue: the next one, this one kept in the queue', where: 'Reading' },
+  { group: 'Reading', keys: '⇧→', does: 'Reading the queue: this one read, and on to the next', where: 'Reading' },
+  { group: 'Reading', keys: 'O', does: "Reading the queue: a link's page, in your browser", where: 'Reading' },
 
   { group: 'Tidy', keys: 'T', does: 'Add a tag (or #); ⌫ in the empty field takes the last off', where: 'Tidy' },
   { group: 'Tidy', keys: 'B', does: 'Bold the line the caret is on', where: 'Tidy' },

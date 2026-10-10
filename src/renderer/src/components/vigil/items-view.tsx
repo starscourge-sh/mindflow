@@ -25,6 +25,7 @@ import { textOf } from '../rot-cards'
 import { firstLineOf } from '@/extensions/tokens'
 import { selectionActions } from './selection-actions'
 import { ReadThrough } from './read-through'
+import { enqueue } from '@/lib/reading-queue'
 import { CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { age } from '../capture-list'
 import { findCaptures, findHeadings, follow } from '@/lib/capture-links'
@@ -65,6 +66,7 @@ import { dropMany, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, mo
 import type { Cue } from '@/lib/sound'
 import { GroupIcon, type Bundle, type Folds } from './kept-groups'
 import { asideItem, useHere } from '@/lib/split'
+import { queueItems } from '@/lib/reading-queue'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const BookOpen = alive(BookIcon)
@@ -309,6 +311,9 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           chosen.length ? (
             <span className="flex items-center gap-2 text-muted-foreground">
               <Rolling text={chosen.length} /> selected
+              <Tip label="At the end of your reading queue; ⌥-click to read them next">
+                <Button variant="ghost" size="sm" onClick={(event) => void enqueue(chosen, event.altKey)}>Add to queue</Button>
+              </Tip>
               <Tip label="Group them  ⌃⌘N">
                 <Button variant="ghost" size="sm" onClick={() => folding.gatherNew(chosen)}>New group</Button>
               </Tip>
@@ -436,6 +441,7 @@ const itemMenu = (item: Item): MenuItem[] => [
   { label: 'Stick on the desktop', run: () => stickOnDesktop('nugget', item.id) },
   { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openWindow(item.tier, item.id) },
   asideItem(item.tier, item.id),
+  ...queueItems(item.id),
   'separator',
   item.tier === 'nugget' && { label: 'Change kind…', run: () => void changeKind('nuggets', item.id, item.kind) },
   { label: item.archivedAt ? 'Unarchive' : 'Archive', run: () => void archive('nuggets', [item.id], !item.archivedAt) },

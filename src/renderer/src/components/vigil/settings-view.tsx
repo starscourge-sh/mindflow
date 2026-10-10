@@ -641,6 +641,9 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Time as dots" note="**How far through the day, week, month and year you are, in the menu bar's menu.** As dots like a line of beads, or as plain bars." keywords="tempus menu bar day week month year dots bars progress">
             <Switch checked={settings.tempusDots === true} onCheckedChange={(tempusDots) => set({ tempusDots })} />
           </Setting>
+          <Setting title="Marked days in the menu bar" note="**The next three marked days under the bars in the menu bar's menu, each with the days to go.** A day is marked from its page, a right-click on any day, or !milestone in the box." keywords="milestones marked days exam launch birthday menu bar countdown">
+            <Switch checked={settings.milestonesInMenu !== false} onCheckedChange={(milestonesInMenu) => set({ milestonesInMenu })} />
+          </Setting>
           <Setting title="Goal on screen" note="**Each goal's beacon: a small card on every Space with the days left.** Several share one stack, nearest goal on top, the top card moving back every 45 seconds or so unless pointed at. Now and then means out on your first unlock each day and every few hours, tucked away after a minute; in the last week it stays." keywords="goals beacon on screen window stack cards always sometimes off">
             <Chips className="shrink-0" options={[{ id: 'always', label: 'Always' }, { id: 'sometimes', label: 'Now and then' }, { id: 'off', label: 'Off' }]}
               on={(id) => id === (settings.goalBeacon ?? 'sometimes')} pick={(goalBeacon) => set({ goalBeacon: goalBeacon as Settings['goalBeacon'] })} />

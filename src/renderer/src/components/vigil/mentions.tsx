@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { enqueue } from '@/lib/reading-queue'
 import { alive } from '@/components/ui/alive-icon'
 import RightChevronIcon from '@/components/ui/right-chevron'
 import { AliveIcon } from '@/components/ui/alive-icon'
@@ -269,6 +270,8 @@ function RelatedCard({ card, onOpen }: { card: Related[number]; onOpen?: (type: 
           <DropdownMenuItem onSelect={() => onOpen?.(card.type, card.id)}>Open</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => openWindow(card.type, card.id)}>Open in a new window</DropdownMenuItem>
           {canSplit() && <DropdownMenuItem onSelect={() => openAside(card.type, card.id)}>Open to the side<DropdownMenuShortcut>⌥-click</DropdownMenuShortcut></DropdownMenuItem>}
+          <DropdownMenuItem onSelect={() => void enqueue([card.id])}>Add to queue</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void enqueue([card.id], true)}>Play next</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

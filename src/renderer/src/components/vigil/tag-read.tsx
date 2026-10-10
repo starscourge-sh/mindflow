@@ -24,6 +24,7 @@ import { ListSearch } from './note-list'
 import { motion } from 'motion/react'
 import { ago, dayKey, dayMonth, dayName, dayjs, noon, num } from '../../../../main/dates'
 import { asideItem, useHere } from '@/lib/split'
+import { queueItems } from '@/lib/reading-queue'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const FileText = alive(FileDescriptionIcon)
@@ -281,6 +282,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
     { label: 'Open', keys: '↵', run: () => open(item) },
     { label: 'Open in a new window', keys: '⌘-click', run: () => openWindow(item.type, item.id) },
     asideItem(item.type, item.id),
+    ...queueItems(item.id),
     { label: 'Read from here', run: () => read(shown, index) },
     'separator',
     { label: pinnedNote(item) ? 'Unpin' : 'Pin', run: () => pin(table(item), item.id, !pinnedNote(item)) },

@@ -5,6 +5,7 @@ import { Columns2, Replace } from 'lucide-react'
 
 import { chime, click } from '@/lib/sound'
 import { canSplit } from '@/lib/split'
+import { enqueue } from '@/lib/reading-queue'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 
 /**
@@ -114,6 +115,9 @@ export function SplitDrop({ panes, onDrop }: { panes: number; onDrop: (carried: 
     let active = false
     let shown: Zone[] = []
     let over: Side | null = null
+    // The Queue's row in the sidebar, while the carried thing is over it: let go there, it joins the queue.
+    let queued: HTMLElement | null = null
+    const queueAt = (px: number, py: number): HTMLElement | null => document.elementFromPoint(px, py)?.closest<HTMLElement>('[data-queue-drop]') ?? null
     const area = (): DOMRect | null => document.querySelector('[data-split-area]')?.getBoundingClientRect() ?? null
     let quiet = still()
     const reset = (): void => {
@@ -121,6 +125,8 @@ export function SplitDrop({ panes, onDrop }: { panes: number; onDrop: (carried: 
       active = false
       shown = []
       over = null
+      if (queued) delete queued.dataset.queueHot
+      queued = null
       delete document.documentElement.dataset.splitDrag
       setCarried(null)
       setHot(null)
@@ -149,7 +155,13 @@ export function SplitDrop({ panes, onDrop }: { panes: number; onDrop: (carried: 
         cardX.set(toX)
         cardY.set(toY)
       }
-      shrink.set(target ? 0.86 : 1)
+      const queue = target ? null : queueAt(px, py)
+      if (queue !== queued) {
+        if (queued) delete queued.dataset.queueHot
+        if (queue) (queue.dataset.queueHot = ''), click('tick')
+        queued = queue
+      }
+      shrink.set(target || queue ? 0.86 : 1)
       if (target !== over) {
         over = target
         setHot(target)
@@ -199,7 +211,12 @@ export function SplitDrop({ panes, onDrop }: { panes: number; onDrop: (carried: 
       if (!active || !down) return void (down = null)
       const side = over
       const what = down.source.carried
-      if (side) {
+      const id = what.open ? what.open.slice(what.open.indexOf(':') + 1) : what.row?.id
+      if (!side && queued && id) {
+        dropListDrag()
+        event.preventDefault()
+        void enqueue([id])
+      } else if (side) {
         dropListDrag()
         event.preventDefault()
         // The click this release would make lands on nothing.

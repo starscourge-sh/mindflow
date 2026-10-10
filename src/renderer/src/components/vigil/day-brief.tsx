@@ -17,6 +17,8 @@ import { Scenery, useDayScene } from './scenery'
 import { GrainFill, useCover } from './grain'
 import { openPass } from './pass'
 import { KindBack, backLine, returning, type Returning } from './kind-back'
+import { NextMark } from './milestones'
+import { countdown, nextOf, useMilestones } from '@/lib/milestones'
 import { ago, clock, dayjs, dayKey, num } from '../../../../main/dates'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -108,6 +110,8 @@ export function DayBrief({ day, onOpen, onListed }: {
     return ids.length ? issues.repeats(ids) : {}
   }, {} as Record<string, Repeat>, [], ['capture', 'item'])
   const [ticked, setTicked] = useState<Record<string, Ticked>>({})
+  // The next marked day, said in the line when it is close.
+  const coming = nextOf(useMilestones(dayKey(now), dayjs(now).add(14, 'day').format('YYYY-MM-DD')), dayKey(now))
 
   const today = dayKey(now)
   const open = tasks.filter((task) => task.status === 'open' && (dueDay(task) ?? '9') <= today)
@@ -218,6 +222,8 @@ export function DayBrief({ day, onOpen, onListed }: {
   if (prompt?.key === 'clue') parts.push('a question has a new clue')
   if (waiting.tidy) parts.push('new captures wait for a tidy')
   if (reviews) parts.push('a few things come back for review')
+  // A marked day a week away or nearer leads: it is what the day is counting toward.
+  if (coming && dayjs(coming.day).diff(dayjs(dayKey(now)), 'day') <= 7) parts.unshift(countdown(coming, dayKey(now)))
   // Two clauses at most, so the line under the picture never runs to three.
   const said = parts.length
     ? `${cap(list(parts.slice(0, 2)))}.`
@@ -269,6 +275,8 @@ export function DayBrief({ day, onOpen, onListed }: {
           {named && <span className="max-w-[35%] min-w-0 truncate pt-0.5 text-right font-mono text-[0.625rem] tracking-wide text-muted-foreground/80" title={named}>{named}</span>}
         </div>
       </div>
+      {/* The next marked day, counted down: a click changes it. */}
+      <NextMark className="mt-3 -mx-1 px-1 py-1 hover:bg-foreground/[0.035]" />
       {(shown.length > 0 || rows.length > 0) && (
         <section className="@container mf-hand-ruled relative mt-8 border-t border-border/70 pt-6">
           <Rule seed={day} />

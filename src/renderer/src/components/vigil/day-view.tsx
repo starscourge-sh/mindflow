@@ -21,6 +21,9 @@ import { useKept } from '@/lib/nav'
 import { Island, Page, Rolling, Tip, Typed, toast, typing, Pressed } from './ui'
 import { DayBanner } from './scenery'
 import { DayBrief } from './day-brief'
+import { DayMarks } from './milestones'
+import { markDay } from '@/lib/milestones'
+import { FlagTriangleRight } from 'lucide-react'
 import { GoalStrip } from './goals-view'
 import { GlossButton, GlossLine } from './gloss-line'
 import { Versions } from './note-extras'
@@ -117,6 +120,9 @@ export function DayView({ onOpen, start, onScale }: {
           </Tip>
           {day !== today && <Button variant="ghost" size="sm" onClick={() => go(today)}>Today <Pressed keys="T" /></Button>}
           <Button variant={data?.reviewed ? 'secondary' : 'ghost'} size="sm" aria-pressed={!!data?.reviewed} onClick={tick}>
+          <Tip label="Mark this day: give it a purpose, like Exam or Launch">
+            <Button variant="ghost" size="sm" onClick={() => void markDay(day)}><FlagTriangleRight className="size-3.5" /> Mark</Button>
+          </Tip>
             <AliveIcon icon={CheckedIcon} size={14} /> <Rolling text={data?.reviewed ? 'Reviewed' : 'Mark reviewed'} by="word" />
           </Button>
         </span>
@@ -134,6 +140,8 @@ export function DayView({ onOpen, start, onScale }: {
         {/* Today, the brief says the date (on its spine, or a line when narrow): this stays for screen readers. */}
         <h1 className={`text-title font-semibold ${day === today ? 'sr-only' : ''}`}><Rolling text={day === today ? `Today, ${named(day)}` : named(day)} by="word" /></h1>
         {data && !data.exists && (
+        {/* What the day is marked for, if anything: a chip each, to change it. */}
+        <DayMarks key={`marks-${day}`} day={day} />
           <p className="mt-1 text-meta text-muted-foreground"><Typed text="No page for this day yet. Write below and it keeps one." step={28} /></p>
         )}
         {/* Only once this day's words are in: a page that opened on the day

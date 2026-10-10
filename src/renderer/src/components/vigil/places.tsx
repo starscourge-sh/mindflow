@@ -1,5 +1,5 @@
 import type { ComponentType, CSSProperties, RefAttributes } from 'react'
-import { Archive, CalendarFold, CalendarRange, Compass, Flag, Grid2x2, Sprout, type LucideIcon } from 'lucide-react'
+import { Archive, CalendarFold, CalendarRange, Compass, Flag, Grid2x2, ListVideo, Sprout, type LucideIcon } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
 import ClockIcon from '@/components/ui/clock-icon'
@@ -85,6 +85,8 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'questions', label: 'Questions', icon: Orbit, key: 'h', tint: 'gray', group: 'Saved' },
   // Goals: a day you are working toward, and the road there.
   { id: 'goals', label: 'Goals', icon: Flag, key: 'e', tint: 'orange', group: 'Saved' },
+  // What you mean to read next, in order, Spotify's way.
+  { id: 'queue', label: 'Queue', icon: ListVideo, key: 'b', tint: 'blue', group: 'Saved' },
   { id: 'tags', label: 'Tags', icon: Tag, alive: HashtagIcon, key: '#', tint: 'red' },
   { id: 'stats', label: 'Stats', icon: BarChart3, alive: ChartBarIcon, key: 's', tint: 'blue' },
   // Every note you have linked, as a map of dots and lines.
@@ -109,7 +111,7 @@ export const BOX_TABS: Place[] = [
 /** The calm start: what serves capture, review and coming back; the rest a key away. */
 type Shown = 'sidebarShown' | 'boxTabs'
 const SHOWN: Record<Shown, string[]> = {
-  sidebarShown: ['inbox', 'review', 'day', 'today', 'week', 'nuggets', 'articles', 'questions', 'goals'],
+  sidebarShown: ['inbox', 'review', 'day', 'today', 'week', 'nuggets', 'articles', 'questions', 'goals', 'queue'],
   boxTabs: ['inbox', 'today', 'review', 'kept']
 }
 

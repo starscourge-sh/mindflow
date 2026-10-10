@@ -1,3 +1,4 @@
+import { RulerMarks } from './milestones'
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { ArrowUp, BookOpen, Brain, Check, CornerDownLeft, GitBranch, RotateCcw } from 'lucide-react'
@@ -1397,6 +1398,8 @@ function YearRule({ calm, kept, faded, newcomer, today: count }: { calm: boolean
                   style={{ transform: `scaleY(${rise})`, transformBox: 'fill-box', transformOrigin: '50% 100%', transition: quiet ? undefined : 'transform 420ms cubic-bezier(0.34, 1.4, 0.64, 1)' }} />
               </g>
             </svg>
+            {/* The days marked for something: tall, in their colours, named. */}
+            <RulerMarks start={start.format('YYYY-MM-DD')} days={days} width={w} today={today.format('YYYY-MM-DD')} />
             {months.map((month) => (
               <span key={month.name} className="absolute top-[calc(1.4rem+32px+0.45rem)] text-[0.75rem] leading-none text-(--mf-wl-quiet)" style={{ left: x(month.d) - 0.5 }}>{month.name}</span>
             ))}

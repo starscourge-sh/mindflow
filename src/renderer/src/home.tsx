@@ -23,6 +23,8 @@ import { CapturesView } from './components/vigil/captures-view'
 import { ItemsView } from './components/vigil/items-view'
 import { QuestionsView, startQuestion } from './components/vigil/questions-view'
 import { GoalsView, startGoal } from './components/vigil/goals-view'
+import { QueueReader, QueueView } from './components/vigil/queue-view'
+import { useQueue } from './lib/reading-queue'
 import { ReviewView } from './components/vigil/review-view'
 import { HomeView } from './components/vigil/home-view'
 import { SettingsView } from './components/vigil/settings-view'
@@ -159,7 +161,7 @@ const SPLIT = 'split'
 let made = 0
 const fresh = (views: View[] = [{ id: 'home' }]): PaneState => ({ key: `p${Date.now().toString(36)}${made++}`, trail: { views, at: views.length - 1 } })
 /** Pages that hold one note open beside their list, its id as the step's focus. */
-const holdsNotes = (id: string): boolean => !['home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'stats', 'map', 'powers', 'settings', 'review'].includes(id)
+const holdsNotes = (id: string): boolean => !['home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'stats', 'map', 'powers', 'settings', 'review', 'queue'].includes(id)
 /** Where one thing opens: a view by name, a day's page, or a note or task in its section. */
 const stepOf = (type: string, id: string): View =>
   type === 'view' ? { id } : type === 'day' ? { id: 'day', focus: id } : { id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id }
@@ -505,6 +507,7 @@ export function Home(): React.JSX.Element {
   const articles = useLive(() => vigil.items('article'), [] as Item[], [], ['item'])
   const questions = useLive(() => vigil.items('question'), [] as Item[], [], ['item'])
   const goals = useLive(() => vigil.items('goal'), [] as Item[], [], ['item'])
+  const queued = useQueue()
   const settings = useLive(vigil.settings, null as Settings | null)
   // Seen in screen recordings or not: one flag with the box's menu and Settings.
   const [recordable, setRecordable] = useStoredFlag('recordable')
@@ -527,7 +530,8 @@ export function Home(): React.JSX.Element {
     articles: articles.filter((one) => !one.archivedAt).length,
     // Held, not owed: counted in the same quiet grey, never as behind.
     questions: questions.filter((one) => !one.archivedAt && !one.closedAt).length,
-    goals: goals.filter((one) => !one.archivedAt && !one.closedAt).length
+    goals: goals.filter((one) => !one.archivedAt && !one.closedAt).length,
+    queue: queued.queue.length
   }
 
   const safeMode = (): void => {
@@ -762,11 +766,11 @@ export function Home(): React.JSX.Element {
         ) : view.id === 'day' ? (
           <DayView start={view.focus} onOpen={go} onScale={scale} />
         ) : view.id === 'weekpage' ? (
-          <WeekPage start={view.focus} onOpen={go} onScale={scale} onRecent={setRecent} recentOpen={!!recent} />
+          <WeekPage start={view.focus} onOpen={go} onScale={scale} onRecent={setRecent} recentOpen={!!recent} onDay={(day) => go('day', day)} />
         ) : view.id === 'monthpage' ? (
-          <MonthPage start={view.focus} onScale={scale} />
+          <MonthPage start={view.focus} onScale={scale} onDay={(day) => go('day', day)} />
         ) : view.id === 'yearpage' ? (
-          <YearPage start={view.focus} onScale={scale} onMonth={(month) => setView({ id: 'monthpage', focus: month }, key)} />
+          <YearPage start={view.focus} onScale={scale} onMonth={(month) => setView({ id: 'monthpage', focus: month }, key)} onDay={(day) => go('day', day)} />
         ) : kind(view) ? (
           <CapturesView title={kind(view)!.label} keep={(capture) => capture.kind === kind(view)!.id && capture.status !== 'discarded'} focus={view.focus} onOpen={go} />
         ) : view.id === 'review' ? (
@@ -783,6 +787,8 @@ export function Home(): React.JSX.Element {
           <QuestionsView focus={view.focus} onOpen={go} />
         ) : view.id === 'goals' ? (
           <GoalsView focus={view.focus} onOpen={go} />
+        ) : view.id === 'queue' ? (
+          <QueueView />
         ) : view.id === 'tags' ? (
           <TagsView onOpen={go} focus={view.focus} />
         ) : view.id === 'stats' ? (
@@ -811,6 +817,7 @@ export function Home(): React.JSX.Element {
       <WordNotes />
       <UnusedFiles />
       <Passes onOpen={(type, id) => open(type, id)} />
+      <QueueReader />
       <Welcome />
       <Tour />
       <SandboxHost />
@@ -956,10 +963,11 @@ export function Home(): React.JSX.Element {
                 data-home={homeOf(section.id)}
                 data-tour={section.id === 'inbox' || section.id === 'review' ? section.id : undefined}
                 data-side-row
+                data-queue-drop={section.id === 'queue' ? '' : undefined}
                 aria-label={section.label}
                 aria-current={view.id === section.id ? 'page' : undefined}
                 onClick={() => setView({ id: section.id })}
-                className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors duration-80 ${narrow ? 'justify-center px-0' : 'px-2'} ${view.id === section.id ? 'text-foreground' : 'text-foreground/80'}`}
+                className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors duration-80 ${narrow ? 'justify-center px-0' : 'px-2'} ${view.id === section.id ? 'text-foreground' : 'text-foreground/80'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}
               >
                 {/* Each icon keeps its colour, softened while at rest so the hues do not
                     shout at once; the one you are on, or reaching for, is in full. */}

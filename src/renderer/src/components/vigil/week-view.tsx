@@ -21,8 +21,10 @@ import { Overlay, SETTLE, snapshot, underPointer } from './sortable'
 import { GlossButton, GlossLine } from './gloss-line'
 import { Ring } from './marks'
 import { byKeys } from '@/lib/motion'
-import { clock, dayMonth, dayjs, startOfDay } from '../../../../main/dates'
+import { clock, dayKey, dayMonth, dayjs, startOfDay } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
+import { DayFlags, DayMarkMenu } from './milestones'
+import { onDay, useMilestones } from '@/lib/milestones'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Brain = alive(BrainCircuitIcon)
@@ -116,6 +118,8 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
   }, [at.col, from])
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
+  // The marked days in the seven on show.
+  const marked = useMilestones(dayKey(dayStart(from)), dayKey(dayStart(from + 6)))
   const live = tasks.filter((task) => task.status === 'open')
   const days = Array.from({ length: 7 }, (_, index) => {
     const start = dayStart(from + index)
@@ -319,11 +323,14 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                 col={col}
                 className={`flex min-h-[calc(100vh-9rem)] min-w-0 flex-col gap-1 rounded-md p-1.5 transition-colors ${over === col ? 'bg-accent/60 ring-1 ring-ring' : col === at.col ? 'bg-accent/30' : ''}`}
               >
-                <header className="mb-1 flex items-baseline gap-1.5 px-1">
+                <DayMarkMenu day={dayKey(date)} all={marked} onOpenDay={(day) => onOpen?.('day', day)}>
+                <header className="mb-1 flex min-w-0 items-baseline gap-1.5 px-1">
                   <span className={`text-meta font-medium ${today ? 'text-[var(--tt-color-text-orange)]' : ''}`}>{dayjs(date).format('ddd')}</span>
                   {today
                     ? <Ring seed={String(day.start)} draw={() => penToday(day.start)} ink="var(--tt-color-text-orange)" className="text-xs text-muted-foreground tabular-nums">{date.getDate()}</Ring>
                     : <span className="text-xs text-muted-foreground tabular-nums">{date.getDate()}</span>}
+                  {/* A marked day: its flag and name, beside the date. */}
+                  <DayFlags marks={onDay(marked, dayKey(date))} named className="min-w-0 self-center" />
                   {/* How much reviewing falls on the day: a heavy one is a light day for tasks. */}
                   {day.reviews > 0 && (
                     <Tip label={`${day.reviews} ${day.reviews === 1 ? 'review' : 'reviews'} due`}>
@@ -334,6 +341,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                     </Tip>
                   )}
                 </header>
+                </DayMarkMenu>
                 {day.cards.map((card) => {
                   const id = `${card.kind}:${card.task.id}`
                   const late = card.kind === 'scheduled' ? new Date(card.task.dueAt!).getTime() < dayStart(0) : new Date(card.task.deadline!).getTime() < dayStart(0)

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { vigil } from '@/lib/vigil'
 import { canSplit } from '@/lib/split'
+import { enqueue } from '@/lib/reading-queue'
 import { linkKind, kindOfLink } from '@/extensions/note-link'
 
 /** The words of a stored body, for a glance: no markup, first lines only. */
@@ -19,17 +20,22 @@ export const glance = (body: unknown): string => {
  * are. Once per window, for every editor in it.
  */
 export function NotePreview(): React.JSX.Element | null {
-  const [shown, setShown] = useState<{ x: number; y: number; above: boolean; private: boolean; title: string; text: string; kind: string; aside: boolean } | null>(null)
+  const [shown, setShown] = useState<{ x: number; y: number; above: boolean; private: boolean; title: string; text: string; kind: string; aside: boolean; id: string; queue: boolean } | null>(null)
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
+    let leaving: ReturnType<typeof setTimeout> | undefined
     let over: Element | null = null
     const onOver = (event: MouseEvent): void => {
+      // On the card itself: it stays, so its buttons can be reached.
+      if ((event.target as Element | null)?.closest?.('[data-note-preview]')) return void clearTimeout(leaving)
       const link = (event.target as Element | null)?.closest?.('a.tiptap-note-link[data-note]') ?? null
-      if (link === over) return
+      if (link === over) return void clearTimeout(leaving)
       over = link
       clearTimeout(timer)
+      clearTimeout(leaving)
+      // Off the link: a moment to reach the card before it goes.
+      if (!link) return void (leaving = setTimeout(() => setShown(null), 260))
       setShown(null)
-      if (!link) return
       // A pause first: a pointer passing over a link is not asking.
       timer = setTimeout(() => {
         const raw = link.getAttribute('data-note') ?? ''
@@ -56,7 +62,9 @@ export function NotePreview(): React.JSX.Element | null {
             title: found.title || text.split('\n')[0].slice(0, 80) || 'Untitled',
             text: text.slice(0, 420),
             kind,
-            aside: !['task', 'person', 'tag'].includes(type)
+            aside: !['task', 'person', 'tag'].includes(type),
+            id,
+            queue: !['task', 'person', 'tag', 'goal'].includes(type)
           })
         })
       }, 350)
@@ -64,6 +72,7 @@ export function NotePreview(): React.JSX.Element | null {
     document.addEventListener('mouseover', onOver)
     return () => {
       clearTimeout(timer)
+      clearTimeout(leaving)
       document.removeEventListener('mouseover', onOver)
     }
   }, [])
@@ -74,7 +83,9 @@ export function NotePreview(): React.JSX.Element | null {
       // Private words stay blurred here as in any list, unless shown on purpose.
       data-private={shown.private ? '' : undefined}
       role="tooltip"
-      className="pointer-events-none fixed z-[70] w-80 rounded-lg border bg-popover p-3 text-control shadow-(--mf-panel-shadow) animate-in fade-in-0 duration-150"
+      data-note-preview
+      onMouseLeave={() => setShown(null)}
+      className="fixed z-[70] w-80 rounded-lg border bg-popover p-3 text-control shadow-(--mf-panel-shadow) animate-in fade-in-0 duration-150"
       style={{ left: Math.max(12, shown.x), top: shown.y, transform: shown.above ? 'translateY(-100%)' : undefined }}
     >
       {look && (
@@ -85,9 +96,16 @@ export function NotePreview(): React.JSX.Element | null {
       )}
       <p className="private-text mb-1 truncate font-medium text-foreground">{shown.title}</p>
       {shown.text && <p className="private-text line-clamp-6 whitespace-pre-line text-muted-foreground">{shown.text}</p>}
-      <p className="mt-2 border-t pt-2 text-xs text-muted-foreground">
-        Click to open{shown.aside ? `, ${canSplit() ? '⌥-click to the side, ' : ''}⌘-click for a new window` : ''}
-      </p>
+      <div className="mt-2 flex items-center gap-2 border-t pt-2 text-xs text-muted-foreground">
+        <span className="min-w-0 flex-1">Click to open{shown.aside ? `, ${canSplit() ? '⌥-click to the side, ' : ''}⌘-click for a new window` : ''}</span>
+        {/* Spotify's two verbs, for the note it leads to. */}
+        {shown.queue && (
+          <span className="flex shrink-0 gap-1">
+            <button type="button" onClick={() => (void enqueue([shown.id]), setShown(null))} className="rounded px-1.5 py-0.5 text-foreground/80 hover:bg-accent hover:text-foreground">Add to queue</button>
+            <button type="button" onClick={() => (void enqueue([shown.id], true), setShown(null))} className="rounded px-1.5 py-0.5 text-foreground/80 hover:bg-accent hover:text-foreground">Play next</button>
+          </span>
+        )}
+      </div>
     </div>
   )
 }

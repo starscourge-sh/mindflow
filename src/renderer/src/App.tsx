@@ -51,6 +51,7 @@ import { CaptureProps, useCaptureDisplay } from './components/vigil/captures-vie
 import { Search } from './components/search'
 import { noteActions, useOpenNote } from './lib/notes'
 import { vigil, type Item, type PinnedQuestion, type Settings } from './lib/vigil'
+import { markFromBox } from './lib/milestones'
 import { makeTask, oneTask, picked, placed } from './lib/tasks'
 import { WillDo, TokenHint } from './components/vigil/will-do'
 import { boxTokensPlugin, keepPlain, keptMessage, planNow, rearm, replan, type BoxContext, type BoxPlan, type BoxToken } from './lib/box-tokens'
@@ -927,6 +928,14 @@ export default function App(): React.JSX.Element {
           void vigil.cancelSession(id)
           putDraft(doc)
           fresh(true)
+    // "!milestone Exam on 3 Dec": that day marked, and nothing captured.
+    if (plan?.milestone) {
+      beam('success')
+      void markFromBox(plan.milestone, () => (putDraft(doc), fresh(true)))
+      fresh()
+      if (!more) window.api.hideWindow()
+      return
+    }
         })
       })
       fresh()

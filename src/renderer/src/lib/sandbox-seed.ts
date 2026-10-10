@@ -988,6 +988,25 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
     { createdAt: at(-3, '20:15'), nuggetId: article }
   ])
 
+  // --- marked days, counted from today so they never go stale ------------------------
+  // The astrophysics exam (in 21 days) is marked by its tag already.
+  for (const mark of [
+    { day: day(9), title: 'Hamlet essay due', icon: '📚', color: 'red', note: `question:${mad}` },
+    { day: day(12), title: 'Dune film night', icon: '🎬', color: 'purple', note: duneNotes },
+    { day: day(23), title: "Mum's birthday", icon: '🎂', color: 'pink', note: null },
+    { day: day(-40), title: 'Start of the course', icon: '🎓', color: 'blue', note: null },
+    { day: day(-141), title: 'Finished Frankenstein', icon: null, color: 'green', note: bookId['Frankenstein'] ?? null }
+  ]) await v('milestone:set', mark)
+
+  // --- a short reading queue, and what was read from it lately ------------------------
+  await v('queue:add', [blueDot, dorian, article, schwarzschild, duneNotes])
+  await v('queue:add', [wildeCapture, aureliusCapture])
+  const { queue } = await v<{ queue: { id: string; itemId: string }[] }>('queue')
+  for (const [id, n] of [[aureliusCapture, 6], [wildeCapture, 3]] as const) {
+    const row = queue.find((one) => one.itemId === id)
+    if (row) await v('queue:done', row.id, at(-n, '22:00'))
+  }
+
   return { captures, nuggets, tasks }
 }
 

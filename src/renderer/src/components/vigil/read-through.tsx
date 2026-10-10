@@ -10,7 +10,7 @@ import { vigil, when } from '@/lib/vigil'
 import { cn } from '@/lib/cn'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { makeTask } from '@/lib/tasks'
-import { Kbd, Rolling, Pressed, Tip } from './ui'
+import { Kbd, Rolling, Pressed, Tip, toast } from './ui'
 import { alive } from '@/components/ui/alive-icon'
 import ArrowNarrowDownIcon from '@/components/ui/arrow-narrow-down-icon'
 import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
@@ -18,6 +18,7 @@ import XIcon from '@/components/ui/x-icon'
 import { exit } from '@/lib/capture-links'
 import { GlossComposer, openGloss } from './gloss-line'
 import { Signed } from './signature'
+import { finish, openLink, readingQueue, type QueueRow } from '@/lib/reading-queue'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ReadDone = alive(XIcon)
@@ -82,7 +83,10 @@ const leads = (page: Page): boolean => {
 }
 
 /** Every key Read through answers to, shown when asked for. */
-const KEYS: { keys: string[]; label: string; when?: 'own' | 'capture' }[] = [
+const KEYS: { keys: string[]; label: string; when?: 'own' | 'capture' | 'queue' }[] = [
+  { keys: [']'], label: 'Next in the queue', when: 'queue' },
+  { keys: ['⇧→'], label: 'Done, next', when: 'queue' },
+  { keys: ['O'], label: "A link's page, in the browser", when: 'queue' },
   { keys: ['↓', 'J'], label: 'Next' },
   { keys: ['↑', 'K'], label: 'Back' },
   { keys: ['E'], label: 'Write in it', when: 'own' },
@@ -98,10 +102,12 @@ const KEYS: { keys: string[]; label: string; when?: 'own' | 'capture' }[] = [
  * buttons. j and k (or the arrows) turn the page, e opens the one in front of
  * you to change it, Escape goes back to where you were.
  */
-export function ReadThrough({ items, start = 0, onClose }: {
+export function ReadThrough({ items, start = 0, onClose, queue }: {
   items: Readable[]
   start?: number
   onClose: () => void
+  /** Reading the queue: its entries, one for each item, for the Up next bar under the page. */
+  queue?: QueueRow[]
   /** No longer used: a note is changed in place, here. */
   onEdit?: (type: string, id: string) => void
 }): React.JSX.Element | null {
@@ -136,6 +142,33 @@ export function ReadThrough({ items, start = 0, onClose }: {
   const reader = useRef<Editor | null>(null)
   const caret = useRef<number | null>(null)
   const item = items[at]
+  // Reading the queue: which entries were read here, and the moves the Up next bar and its keys make.
+  const [read, setRead] = useState<Set<string>>(new Set())
+  const upNext = {
+    skip: (): void => {
+      if (at >= items.length - 1) return void chime('nope')
+      chime('page')
+      setAt(at + 1)
+    },
+    done: (): void => {
+      const row = queue?.[at]
+      if (!row) return
+      if (!read.has(row.id)) void finish(row, true)
+      setRead((was) => new Set(was).add(row.id))
+      chime('done')
+      if (at >= items.length - 1) {
+        toast('That was the whole queue', () => void readingQueue.undone(row.id))
+        return onClose()
+      }
+      setAt(at + 1)
+    },
+    open: (): void => {
+      const row = queue?.[at]
+      if (!row?.url) return
+      setRead((was) => new Set(was).add(row.id))
+      openLink(row, () => setAt((now) => (now === at && now < items.length - 1 ? now + 1 : now)))
+    }
+  }
   // Writing in place: the same page, the same quiet, the words now editable.
   // E, Enter or a click starts it; Escape puts the keys back to reading.
   const [writing, setWriting] = useState(false)
@@ -199,6 +232,14 @@ export function ReadThrough({ items, start = 0, onClose }: {
         event.stopPropagation()
         return setKeysOpen(false)
       }
+      // The queue's own: ] the next one, ⇧→ this one read and the next, O a link's page.
+      if (queue && ((event.key === 'ArrowRight' && event.shiftKey) || event.key === ']' || (event.key === 'o' && queue[at]?.url))) {
+        event.preventDefault()
+        event.stopPropagation()
+        if (event.key === ']') return upNext.skip()
+        if (event.key === 'o') return upNext.open()
+        return upNext.done()
+      }
       const next = event.key === 'j' || event.key === 'ArrowDown' || event.key === 'ArrowRight' || event.key === ' '
       const back = event.key === 'k' || event.key === 'ArrowUp' || event.key === 'ArrowLeft'
       // Every plain key is Read's while it is open: none reaches the list
@@ -238,7 +279,7 @@ export function ReadThrough({ items, start = 0, onClose }: {
     // Taken first, so the lists and the editor underneath never see the keys.
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [items.length, item, at, onClose, writing, keysOpen])
+  }, [items.length, item, at, onClose, writing, keysOpen, queue]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // The focus comes here while reading, and goes back where it was after.
   const box = useRef<HTMLDivElement>(null)
@@ -388,6 +429,7 @@ export function ReadThrough({ items, start = 0, onClose }: {
           </motion.article>
         </AnimatePresence>
       </div>
+      {queue && <UpNext queue={queue} at={at} read={read} onSkip={upNext.skip} onDone={upNext.done} onOpen={upNext.open} />}
       {/* The only furniture: where you are, how to move, how to write, and the
           rest of the keys when asked. Quiet until the pointer moves. */}
       <footer className="mf-fade relative flex shrink-0 items-center justify-center gap-4 pt-2 pb-3 text-meta text-muted-foreground">
@@ -409,7 +451,7 @@ export function ReadThrough({ items, start = 0, onClose }: {
               role="list"
               aria-label="Keys"
             >
-              {KEYS.filter((one) => !one.when || (one.when === 'own' ? own : own && item.type === 'capture')).map((one) => (
+              {KEYS.filter((one) => !one.when || (one.when === 'queue' ? !!queue : one.when === 'own' ? own : own && item.type === 'capture')).map((one) => (
                 <div key={one.label} role="listitem" className="flex items-center justify-between gap-3 rounded-md px-2 py-1">
                   <span>{one.label}</span>
                   <span className="flex gap-1">{one.keys.map((key) => <Kbd key={key}>{key}</Kbd>)}</span>
@@ -435,6 +477,47 @@ export function ReadThrough({ items, start = 0, onClose }: {
           <Kbd>?</Kbd> Keys
         </button>
       </footer>
+    </div>
+  )
+}
+
+/**
+ * Reading the queue: a small bar under the page with what comes next, Next to
+ * go on and Done, next to count this one read on the way. A link that is only
+ * a link offers its page in the browser, counted read once you come back.
+ */
+function UpNext({ queue, at, read, onSkip, onDone, onOpen }: { queue: QueueRow[]; at: number; read: Set<string>; onSkip: () => void; onDone: () => void; onOpen: () => void }): React.JSX.Element {
+  const now = queue[at]
+  const next = queue[at + 1]
+  const kind = next ? CAPTURE_TYPES.find((one) => one.id === next.kind) : undefined
+  const button = 'flex h-7 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-control transition-colors hover:bg-accent hover:text-foreground'
+  return (
+    <div data-up-next className="relative z-10 flex shrink-0 justify-center px-4 pb-1">
+      <div className="flex max-w-full min-w-0 items-center gap-1 rounded-full border bg-background/85 py-1 pr-1 pl-3.5 text-control text-muted-foreground shadow-sm backdrop-blur-sm">
+        <span className="shrink-0 text-xs font-medium tracking-wide uppercase">{next ? 'Up next' : 'Last in the queue'}</span>
+        {next && (
+          <span className="flex min-w-0 items-center gap-1.5 pl-1.5 text-foreground">
+            {kind && <kind.icon className="size-3.5 shrink-0" style={{ color: kind.tint }} />}
+            <span data-private={next.private ? '' : undefined} className="private-text max-w-[22ch] truncate">{next.title}</span>
+          </span>
+        )}
+        <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-border" />
+        {now?.url && (
+          <Tip label={<span className="flex items-center gap-2">Read the page in your browser; read once you are back<Kbd>O</Kbd></span>}>
+            <button type="button" onClick={onOpen} className={button}>Open the page</button>
+          </Tip>
+        )}
+        {next && (
+          <Tip label={<span className="flex items-center gap-2">Next, keeping this one in the queue<Kbd>]</Kbd></span>}>
+            <button type="button" onClick={onSkip} className={button}>Next</button>
+          </Tip>
+        )}
+        <Tip label={<span className="flex items-center gap-2">{next ? 'This one read, and on to the next' : 'This one read, and the queue done'}<Kbd>⇧→</Kbd></span>}>
+          <button type="button" onClick={onDone} className={cn(button, 'bg-foreground text-background hover:bg-foreground/85 hover:text-background')}>
+            {now && read.has(now.id) ? 'Read' : next ? 'Done, next' : 'Done'}
+          </button>
+        </Tip>
+      </div>
     </div>
   )
 }

@@ -41,6 +41,7 @@ import { GlossTimeline, useRowGloss } from './gloss-line'
 import { RemindMe } from './items-view'
 import { addToQuestion } from './questions-view'
 import { ReadThrough } from './read-through'
+import { enqueue } from '@/lib/reading-queue'
 import { PassLinks } from './pass'
 import { selectionActions } from './selection-actions'
 import { Tip } from '@/components/vigil/ui'
@@ -284,6 +285,9 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
               {chosen.length > 1 && (
                 <Button variant="ghost" size="sm" onClick={makeOne}>Make one task</Button>
               )}
+              <Tip label="At the end of your reading queue; ⌥-click to read them next">
+                <Button variant="ghost" size="sm" onClick={(event) => void enqueue(chosen, event.altKey)}>Add to queue</Button>
+              </Tip>
               <Button variant="ghost" size="sm" onClick={() => askBook('copy', { refs: chosen.map((id) => ({ table: 'captures' as const, id })) })}>Copy to book…</Button>
               <input
                 placeholder="#tag ↵"

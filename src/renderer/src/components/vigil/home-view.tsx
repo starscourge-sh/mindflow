@@ -33,10 +33,13 @@ import { byKeys, spring, useFirstVisit } from '@/lib/motion'
 import { Highlight, useChosen, useFluidHover, Weighted } from './glide'
 import { KindBack, backLine, type Returning } from './kind-back'
 import { GoalStrip } from './goals-view'
+import { NextMark } from './milestones'
+import { QueuePanel } from './queue-view'
 import { GettingStarted } from './getting-started'
 import { PowersLine } from './powers-view'
 import { Tilt } from './tilt'
 import { asideItem, useHere } from '@/lib/split'
+import { queueItems } from '@/lib/reading-queue'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArrowRight = alive(ArrowNarrowRightIcon)
@@ -165,6 +168,7 @@ const menuFor = (card: Card, { open, read }: Actions, list: Card[], at: number):
   { label: 'Open', run: () => open(card) },
   card.type !== 'task' && { label: 'Open in a new window', run: () => openWindow(card.type, card.id) },
   asideItem(card.type, card.id),
+  ...(card.type === 'task' ? [] : queueItems(card.id)),
   readable(card) && { label: 'Read', run: () => read(list, at) }
 ]
 
@@ -698,6 +702,10 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
         style={{ backgroundColor: band ?? 'transparent', maskImage: 'linear-gradient(to bottom, black 0%, black 20%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 20%, transparent 100%)' }} />
       {/* Open goals, quiet, above everything else: never hidden while one is open. */}
       <GoalStrip onOpen={(type, id) => (type === 'view' ? onView(id) : onOpen(type, id))} className="page-column relative w-full px-3 pt-3 @[44rem]/page:px-6" />
+      {/* The next marked day, counted down, under the goals. */}
+      <div className="page-column relative w-full px-3 pt-1 empty:hidden @[44rem]/page:px-6"><NextMark className="w-full px-2 py-1.5 hover:bg-foreground/[0.045]" /></div>
+      {/* The reading queue, small: the next few, and Start reading. */}
+      <div className="page-column relative w-full px-3 pt-2 empty:hidden @[44rem]/page:px-6"><QueuePanel onView={(id) => onView(id)} /></div>
       {/* After the welcome: the firsts, ticking themselves, until they are done. */}
       <div className="page-column relative w-full pt-4 empty:hidden"><GettingStarted onOpen={onOpen} onView={onView} /></div>
       <div className="page-column relative w-full pt-3 empty:hidden"><PowersLine onView={onView} /></div>

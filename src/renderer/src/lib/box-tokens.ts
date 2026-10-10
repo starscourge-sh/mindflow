@@ -7,7 +7,8 @@ import type { BlockColor } from '@/extensions/block-color'
 import type { Item } from '@/lib/vigil'
 import { readTask, PRIORITY_NAMES, bucketOf, type Span } from '../../../main/task-words'
 import { kindOf } from '../../../main/import'
-import { short } from '../../../main/dates'
+import { dayKey, dayMonth, short } from '../../../main/dates'
+import * as chrono from 'chrono-node'
 import { lengthSaid, timerFrom } from './timer'
 import { saidBy } from './welcome-box'
 import { clueTarget } from '@/components/vigil/questions-view'
@@ -24,7 +25,7 @@ import type { CaptureType } from '@/components/capture-kinds/capture-kind-picker
  * only. The send reads the same plan, so what is lit is what happens.
  */
 
-export type TokenKind = 'clue' | 'clue-miss' | 'timer' | Span['kind'] | 'task-tag' | 'book' | 'bit' | 'signature' | 'link'
+export type TokenKind = 'clue' | 'clue-miss' | 'timer' | Span['kind'] | 'task-tag' | 'book' | 'bit' | 'signature' | 'link' | 'milestone'
 
 export type BoxToken = {
   /** Stable while you type: the kind and the words. */
@@ -68,6 +69,8 @@ export type BoxPlan = {
   signatureKept: boolean
   /** A link already made its card, and nothing else written: sent as that link. */
   card: { pos: number; href: string; title: string; loading: boolean } | null
+  /** "!milestone Exam on 3 Dec": that day marked, nothing captured. */
+  milestone?: { title: string; day: string } | null
 }
 
 type Kept = { kind: TokenKind; from: number; to: number; seq: number }
@@ -76,7 +79,7 @@ type Meta = { keep?: Kept; rearm?: number; refresh?: true }
 
 const COLOR: Record<TokenKind, BlockColor> = {
   clue: 'purple', 'clue-miss': 'gray', timer: 'yellow', date: 'blue', deadline: 'red', repeat: 'purple', priority: 'orange', plan: 'green', notify: 'pink',
-  'task-tag': 'green', book: 'brown', bit: 'gray', signature: 'pink', link: 'blue'
+  'task-tag': 'green', book: 'brown', bit: 'gray', signature: 'pink', link: 'blue', milestone: 'orange'
 }
 
 /**
@@ -122,7 +125,7 @@ const trimTitle = (title: string): string => (title.length > 36 ? `${title.slice
 const DROPPED: Record<TokenKind, string> = {
   clue: 'no clue added', 'clue-miss': 'it will be a capture', timer: 'no timer', date: 'no date', deadline: 'no deadline',
   repeat: 'no repeat', priority: 'no priority', plan: 'no plan', notify: 'no reminder', 'task-tag': 'not a task',
-  book: 'not a book', bit: 'not private', signature: 'no speaker', link: 'not saved as a link'
+  book: 'not a book', bit: 'not private', signature: 'no speaker', link: 'not saved as a link', milestone: 'no day marked'
 }
 
 /** The toast for words kept plain: "“5m” stays as words, no timer". */
@@ -131,6 +134,16 @@ export function keptMessage(tokens: Pick<BoxToken, 'kind' | 'text'>[]): string {
   const shown = words.length > 24 ? `${words.slice(0, 24)}…` : words
   const lost = [...new Set(tokens.map((one) => DROPPED[one.kind]))].join(', ')
   return `“${shown}” stays as words, ${lost}`
+}
+
+/** "!milestone Exam on 3 Dec", "!mark Launch next friday": the name and the day, or null. */
+export function markOf(line: string, now = new Date()): { title: string; day: string } | null {
+  const said = /^!(?:milestone|mark)\s+(.+)$/i.exec(line.trim())
+  if (!said) return null
+  const found = chrono.parse(said[1], now, { forwardDate: true })[0]
+  if (!found) return null
+  const title = (said[1].slice(0, found.index) + said[1].slice(found.index + found.text.length)).replace(/\s+on\s*$/i, '').replace(/^\s*on\s+/i, '').replace(/[\s,:–-]+$/, '').trim()
+  return title ? { title: title.slice(0, 60), day: dayKey(found.start.date()) } : null
 }
 
 const EMPTY: BoxPlan = { tokens: [], kind: 'note', clue: null, miss: null, timer: null, url: null, task: false, taskPlain: [], plainTags: [], signature: null, signatureKept: false, card: null }
@@ -197,6 +210,13 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
       miss = { name: plus.name }
       tokens.push(token('clue-miss', from, to, ctx.held.length ? `No question or goal matches “${trimTitle(plus.name)}”` : 'No questions or goals yet'))
     }
+  }
+
+  // "!milestone Exam on 3 Dec" (or !mark): a day marked for something, and nothing else.
+  const marked = markOf(first.text, now)
+  if (marked) {
+    const [from, to] = [pos(0), pos(first.text.length)]
+    if (!isKept('milestone', from, to)) return { ...EMPTY, kind: ctx.kind, milestone: marked, tokens: [token('milestone', from, to, `Mark ${dayMonth(`${marked.day}T12:00`)}: ${trimTitle(marked.title)}`)] }
   }
 
   const full = blocks.map((block) => block.text).join('\n').trim()
