@@ -12,11 +12,16 @@ import ExpandIcon from '@/components/ui/expand-icon'
 
 import type { DiagramScene } from '@/extensions/excalidraw'
 import { host } from '@/lib/host'
+import { currentTheme, isLight } from '@/lib/theme'
+import { Tip } from '@/components/vigil/ui'
 import type { ExcalidrawElement, NonDeleted } from '@excalidraw/excalidraw/element/types'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Check = alive(SimpleCheckedIcon)
 const PencilRuler = alive(PenIcon)
+
+/** As the main window's toolbar draws its buttons. */
+const BUTTON = 'flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground'
 
 const ExcalidrawCanvas = lazy(() => import('@/components/excalidraw/excalidraw-canvas'))
 
@@ -113,7 +118,8 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
     save()
     setEditing(false)
     setFull(false)
-    host().openDrawing?.(id, held.current ?? scene)
+    // The note's first line names it in the window's bar.
+    host().openDrawing?.(id, held.current ?? scene, props.editor.state.doc.firstChild?.textContent.trim() || undefined)
   }
 
   // Escape leaves the drawing rather than the app. The window's own Escape
@@ -226,9 +232,10 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
       const svg = await exportToSvg({
         elements: elements as NonDeleted<ExcalidrawElement>[],
         files: scene?.files ?? null,
-        // No background, and the same inversion the dark canvas draws under,
-        // so the picture matches what was drawn.
-        appState: { exportBackground: false, exportWithDarkMode: true }
+        // No background, and the inversion a dark canvas draws under (only
+        // then: on a light theme it turned black ink pale grey), so the
+        // picture matches what was drawn.
+        appState: { exportBackground: false, exportWithDarkMode: !isLight(currentTheme()) }
       })
       // The export sizes itself in the drawing's own units. The block has a
       // height of its own, and the viewBox keeps the drawing's shape inside it.
@@ -242,6 +249,52 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
     }
   }, [editing, scene])
 
+  // The block's own: full screen, a window of its own, and done.
+  const tools = (
+    <>
+      <Tip label={full ? 'Leave full screen  Esc' : 'Full screen'}>
+        <button
+          type="button"
+          aria-label={full ? 'Leave full screen' : 'Open in full screen'}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => {
+            // Full screen grows like the box's own expand, and sounds it.
+            chime(full ? 'fold' : 'slide')
+            toggleFull()
+          }}
+          className={BUTTON}
+        >
+          {full ? <Minimize2 className="size-4" /> : <AliveIcon icon={ExpandIcon} size={14} />}
+        </button>
+      </Tip>
+
+      {host().openDrawing && (
+        <Tip label={elsewhere ? 'Bring its window forward' : 'Open in its own window'}>
+          <button type="button" aria-label={elsewhere ? 'Bring its window forward' : 'Open in its own window'} onClick={openInWindow} className={BUTTON}>
+            <AliveIcon icon={ExternalLinkIcon} size={14} />
+          </button>
+        </Tip>
+      )}
+
+      {editing && (
+        <Tip label="Done drawing">
+          <button
+            type="button"
+            className={`${BUTTON} is-done`}
+            aria-label="Finish drawing"
+            onClick={() => {
+              chime('done')
+              save()
+              setEditing(false)
+            }}
+          >
+            <Check className="size-4" />
+          </button>
+        </Tip>
+      )}
+    </>
+  )
+
   const frame = (
     <div
       ref={box}
@@ -254,7 +307,7 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
         {editing ? (
           <div className="tiptap-excalidraw-canvas">
             <Suspense fallback={null}>
-              <ExcalidrawCanvas scene={scene} onChange={onChange} />
+              <ExcalidrawCanvas scene={scene} onChange={onChange} end={<span className="ml-1 flex items-center border-l pl-1">{tools}</span>} />
             </Suspense>
           </div>
         ) : preview ? (
@@ -287,46 +340,9 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
           </button>
         )}
 
-        {/* One island, the shape Excalidraw uses for its own floating tools,
-            on the wall opposite them so the two never overlap. */}
-        <div className="tiptap-excalidraw-tools">
-          <button
-            type="button"
-            aria-label={full ? 'Leave full screen' : 'Open in full screen'}
-            title={full ? 'Leave full screen  Esc' : undefined}
-            onClick={() => {
-              // Full screen grows like the box's own expand, and sounds it.
-              chime(full ? 'fold' : 'slide')
-              toggleFull()
-            }}
-          >
-            {full ? <Minimize2 /> : <AliveIcon icon={ExpandIcon} size={14} />}
-          </button>
-
-          {host().openDrawing && (
-            <button
-              type="button"
-              aria-label={elsewhere ? 'Bring its window forward' : 'Open in its own window'}
-              onClick={openInWindow}
-            >
-              <AliveIcon icon={ExternalLinkIcon} size={14} />
-            </button>
-          )}
-
-          {editing && (
-            <button
-              type="button"
-              className="is-done"
-              aria-label="Finish drawing"
-              onClick={() => {
-                save()
-                setEditing(false)
-              }}
-            >
-              <Check />
-            </button>
-          )}
-        </div>
+        {/* Drawing, these sit at the end of the canvas's own bar; looking at
+            the picture, they float over it as one island. */}
+        {!editing && <div className="tiptap-excalidraw-tools">{tools}</div>}
     </div>
   )
 

@@ -294,8 +294,8 @@ const api = {
   },
 
   /** Open a drawing in a window of its own, or bring that window forward. */
-  openDrawing: (id: string, scene: unknown): void =>
-    ipcRenderer.send('drawing:open', id, scene),
+  openDrawing: (id: string, scene: unknown, name?: string): void =>
+    ipcRenderer.send('drawing:open', id, scene, name),
 
   /** What that window has drawn, for the block it came from to write down. */
   onDrawingChange: (listen: (id: string, scene: unknown) => void): (() => void) => {

@@ -426,7 +426,7 @@ const drawings = new Map<
 >()
 
 /** Open a drawing in its own window, or bring the one already open forward. */
-function openDrawing(id: string, scene: unknown, note: Electron.WebContents): void {
+function openDrawing(id: string, scene: unknown, note: Electron.WebContents, name = ''): void {
   const open = drawings.get(id)
   if (open && !open.window.isDestroyed()) {
     open.scene = scene
@@ -462,7 +462,8 @@ function openDrawing(id: string, scene: unknown, note: Electron.WebContents): vo
   })
 
   guard(window)
-  load(window, `?drawing=${encodeURIComponent(id)}`)
+  // The note's name, for the window's own bar to say where the drawing lives.
+  load(window, `?drawing=${encodeURIComponent(id)}${name ? `&in=${encodeURIComponent(name.slice(0, 80))}` : ''}`)
 }
 
 /**
@@ -2331,8 +2332,8 @@ app.whenReady().then(() => {
 
   // Save bytes dropped or pasted into the editor, and hand back the URL that
   // reads them again.
-  ipcMain.on('drawing:open', (event, id: unknown, scene: unknown) => {
-    if (typeof id === 'string') openDrawing(id, scene, event.sender)
+  ipcMain.on('drawing:open', (event, id: unknown, scene: unknown, name: unknown) => {
+    if (typeof id === 'string') openDrawing(id, scene, event.sender, typeof name === 'string' ? name : '')
   })
 
   /** What the drawing window asks for once it is ready to be told. */

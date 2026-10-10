@@ -2,6 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 
 import type { DiagramScene } from '@/extensions/excalidraw'
 import { useAppearance } from '@/lib/vigil'
+import { TooltipProvider } from '@/components/ui/tooltip'
 
 const ExcalidrawCanvas = lazy(() => import('@/components/excalidraw/excalidraw-canvas'))
 
@@ -43,16 +44,28 @@ export function DrawingWindow({ id }: { id: string }): React.JSX.Element {
   // Closing the window mid-stroke still keeps the stroke.
   useEffect(() => () => clearTimeout(timer.current), [])
 
+  // Which note it came from, so a second drawing window is told apart from the first.
+  const note = new URLSearchParams(location.search).get('in')
+
   return (
-    <>
-      <div className="drawing-bar" />
+    <TooltipProvider delayDuration={600}>
       <div className="drawing-window">
         {ready && (
           <Suspense fallback={null}>
-            <ExcalidrawCanvas scene={scene} onChange={onChange} />
+            <ExcalidrawCanvas
+              header
+              scene={scene}
+              onChange={onChange}
+              start={
+                <span className="flex min-w-0 shrink items-baseline gap-1.5">
+                  <h1 className="shrink-0 font-medium">Drawing</h1>
+                  {note && <span className="truncate text-muted-foreground">in {note}</span>}
+                </span>
+              }
+            />
           </Suspense>
         )}
       </div>
-    </>
+    </TooltipProvider>
   )
 }

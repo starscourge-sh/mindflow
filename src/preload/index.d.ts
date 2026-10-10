@@ -114,7 +114,7 @@ export interface Api {
     dwell: (event: number, ms: number) => Promise<void>
   }
   onPointer: (listen: (inside: boolean) => void) => () => void
-  openDrawing: (id: string, scene: unknown) => void
+  openDrawing: (id: string, scene: unknown, name?: string) => void
   onDrawingChange: (listen: (id: string, scene: unknown) => void) => () => void
   onDrawingWindow: (listen: (id: string, open: boolean) => void) => () => void
   drawingScene: (id: string) => Promise<unknown>

@@ -47,6 +47,10 @@ const CUES = {
   off: [[784, 0, 0.07, 0.04], [523, 0.045, 0.1, 0.04]],
   // Undo: three quick steps back down, a rewind.
   undo: [[1046, 0, 0.05, 0.05], [880, 0.04, 0.05, 0.05], [698, 0.08, 0.1, 0.05]],
+  // Redo: the same steps back up, quieter, as going forward is the lesser news.
+  redo: [[698, 0, 0.05, 0.04], [880, 0.04, 0.05, 0.04], [1046, 0.08, 0.08, 0.04]],
+  // A shape set down on a drawing: one round note and its fifth, a soft pop.
+  pop: [[659, 0, 0.03, 0.035, 988, 0.002], [988, 0.02, 0.06, 0.025]],
   // Copy: the same high note twice, a duplicate.
   copy: [[1568, 0, 0.04, 0.045], [1568, 0.06, 0.05, 0.045]],
   // Pin: a note pressed down and held, a clip closing.
@@ -323,7 +327,11 @@ const CLICKS = {
   // The Brutal sticker in Settings, pointed at: a low, heavy block set down.
   clunk: { duration: 0.022, frequency: 520, q: 1.4, volume: 0.24, decay: 70 },
   // Brutal chosen: the same block, dropped from higher.
-  slam: { duration: 0.04, frequency: 300, q: 1.2, volume: 0.34, decay: 110 }
+  slam: { duration: 0.04, frequency: 300, q: 1.2, volume: 0.34, decay: 110 },
+  // A pen put to a drawing: a dry, bright scratch, once a stroke.
+  scratch: { duration: 0.07, frequency: 4200, q: 0.9, volume: 0.07, decay: 900 },
+  // The eraser: lower and duller, rubber on paper.
+  rub: { duration: 0.11, frequency: 1300, q: 0.7, volume: 0.09, decay: 1600 }
 }
 /**
  * sensory-ui's nine packs, from its published table: the waveform under each

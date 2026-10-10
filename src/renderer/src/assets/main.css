@@ -347,40 +347,128 @@ body {
   height: 0.875rem;
 }
 
-/* A drawing given a window to itself: the canvas is the whole page under a
-   slim bar for the window's dots, which is also what you drag it by. On the
-   page's own colour: the canvas is see-through, and the window under it is dark
-   whatever the theme, so a light theme's drawing sat on black. */
+/* A drawing given a window to itself: the canvas is the whole page under the
+   app's own bar, which is also what you drag it by. On the page's own colour:
+   the canvas is see-through, and the window under it is dark whatever the
+   theme, so a light theme's drawing sat on black. */
 .drawing-window {
   position: fixed;
-  inset: 2.25rem 0 0;
+  inset: 0;
   background: var(--background);
+  color: var(--foreground);
 }
-.drawing-bar {
-  position: fixed;
-  inset: 0 0 auto;
-  height: 2.25rem;
-  background: var(--background);
-  -webkit-app-region: drag;
+
+/* Paper, not graph paper: a faint dot at every grid point, moved and sized
+   with the canvas (excalidraw-canvas.tsx). */
+.drawing-dots {
+  pointer-events: none;
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--foreground) 22%, transparent) 1px, transparent 1.4px);
+  background-size: 20px 20px;
 }
 
 /* Excalidraw's chrome in the app's clothes, in a note or a window of its
-   own: the app's type, and its panels the colour of the app's menus. Doubled
-   to outrank Excalidraw's own theme rules, which load after this. */
-:is(.drawing-window, .tiptap-excalidraw-canvas) .excalidraw.excalidraw {
+   own, and in its dialogs, which it puts outside the drawing. Doubled to
+   outrank Excalidraw's own theme rules, which load after this. */
+:is(.drawing-surface .excalidraw, .excalidraw-modal-container).excalidraw {
   --ui-font: inherit;
+  /* Its panels (a shape's colours and lines, the export dialog) the colour,
+     edge and corners of the app's menus. */
   --island-bg-color: var(--popover);
-  /* Its buttons (menu, zoom, undo) and the picked tool, which were a cold
-     blue-grey and lavender on a warm page. */
+  --popup-bg-color: var(--popover);
+  --popup-secondary-bg-color: var(--accent);
+  --popup-text-color: var(--popover-foreground);
+  --text-primary-color: var(--popover-foreground);
+  --color-on-surface: var(--popover-foreground);
+  --icon-fill-color: var(--popover-foreground);
+  --keybinding-color: var(--muted-foreground);
+  --input-bg-color: var(--popover);
+  --input-border-color: var(--border);
+  --input-hover-bg-color: var(--accent);
+  --input-label-color: var(--muted-foreground);
+  --default-border-color: var(--border);
+  --dialog-border-color: var(--border);
+  --sidebar-border-color: var(--border);
+  --shadow-island: var(--mf-panel-shadow);
+  --modal-shadow: var(--mf-panel-shadow);
+  --sidebar-shadow: var(--mf-panel-shadow);
+  --border-radius-lg: var(--radius);
+  --border-radius-md: calc(var(--radius) - 0.25rem);
+  --overlay-bg-color: color-mix(in srgb, var(--background) 70%, transparent);
+  /* Its picked choices and hovers in the app's accent rather than lavender. */
+  --color-primary: var(--primary);
+  --color-primary-darker: color-mix(in oklab, var(--primary) 88%, var(--foreground));
+  --color-primary-darkest: color-mix(in oklab, var(--primary) 75%, var(--foreground));
+  --color-primary-hover: color-mix(in oklab, var(--primary) 88%, var(--foreground));
+  --color-primary-light: var(--accent);
+  --color-primary-light-darker: color-mix(in oklab, var(--accent) 80%, var(--foreground));
+  --color-brand-hover: color-mix(in oklab, var(--primary) 88%, var(--foreground));
+  --color-brand-active: color-mix(in oklab, var(--primary) 75%, var(--foreground));
+  --color-surface-lowest: var(--popover);
   --color-surface-low: var(--popover);
   --color-surface-mid: var(--accent);
+  --color-surface-high: var(--accent);
   --color-surface-primary-container: color-mix(in srgb, var(--tt-brand-color-400) 22%, var(--popover));
   --color-on-primary-container: var(--foreground);
+  --button-hover-bg: var(--accent);
+  --button-active-bg: var(--accent);
+  --button-active-border: var(--border);
+  --button-gray-1: var(--accent);
+  --button-gray-2: var(--border);
+  --focus-highlight-color: var(--ring);
+  --select-highlight-color: var(--primary);
+  --color-slider-track: var(--accent);
+  --color-slider-thumb: var(--foreground);
 }
 
-/* The shape library has no off switch; a drawing in a note has no use for it. */
-.drawing-window .excalidraw .default-sidebar-trigger {
+/* The app's bar stands in for Excalidraw's floating chrome: its tools, zoom,
+   undo, menu, help and the hint under the tools. Zoom and undo are still
+   there, put away, so the bar can press them. The shape library has no use in
+   a note and no off switch. */
+.drawing-surface .excalidraw :is(.App-toolbar-container, .App-toolbar, .HintViewer, .layer-ui__wrapper__footer-left, .help-icon, .main-menu-trigger, .default-sidebar-trigger) {
+  display: none !important;
+}
+
+/* The export dialog's title in the app's type, not Excalidraw's own face. */
+.excalidraw-modal-container .ImageExportModal h3 {
+  font-family: inherit;
+}
+
+/* Narrow, Excalidraw's bottom bar holds its tools (put away) and, while a
+   shape is picked, that shape's panel: shown only for the panel. */
+.drawing-surface .excalidraw .App-bottom-bar .Island:not(:has(.App-mobile-menu)) {
   display: none;
+}
+
+/* Its panel's headings, not the note's: inside a note they took its h3 look. */
+.tiptap.ProseMirror .drawing-surface .excalidraw :is(h2, h3, h4) {
+  margin: 0.25rem 0;
+  color: inherit;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: normal;
+  line-height: normal;
+}
+
+/* Narrow, the panel rises from the foot of the canvas: never taller than it. */
+.drawing-surface .excalidraw .App-bottom-bar .Island {
+  max-height: calc(100cqh - 1.5rem);
+  overflow-y: auto;
+}
+
+/* A shape's panel as the app's menus are: its type, and Brutal's outline. */
+.drawing-surface .excalidraw .Island {
+  border: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  font-size: 0.8125rem;
+}
+:root[data-style='brutal'] :is(.drawing-surface .excalidraw .Island, .excalidraw-modal-container .Modal__content) {
+  border: var(--mf-line-width) solid var(--mf-line);
+  box-shadow: var(--mf-card-shadow);
+}
+/* Excalidraw calls its row of swatches a dialog; it is a row, not a panel. */
+:root[data-style='brutal'] .drawing-surface .excalidraw .color-picker-container {
+  border: 0 !important;
+  box-shadow: none !important;
 }
 
 /* Anything that floats over the window keeps its clicks.
