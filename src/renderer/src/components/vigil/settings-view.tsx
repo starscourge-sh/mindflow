@@ -1075,7 +1075,7 @@ function OnboardingRows(): React.JSX.Element | null {
         <Switch checked={state.pageHints} onCheckedChange={(on) => void onboarding.set({ pageHints: on })} />
       </Setting>
       {!state.sandbox && state.welcomed && (
-        <Setting title="Getting started" note="The checklist on Home: nine firsts that tick themselves as you do them." keywords="getting started checklist onboarding">
+        <Setting title="Getting started" note="**Three first steps on Home.** Each ticks itself as you do it." keywords="getting started checklist onboarding">
           {state.hidden ? <Button variant="outline" size="sm" onClick={() => void onboarding.set({ hidden: false }).then(() => toast('Getting started is back on Home'))}>Show it</Button> : <span className="text-control text-muted-foreground">On Home</span>}
         </Setting>
       )}
