@@ -1,7 +1,7 @@
 import { detailsShown, showDetails } from '@/lib/reading'
 import { themeActions } from '@/lib/theme'
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
-import { FileText, ListTodo, Minimize2, PanelsTopLeft } from 'lucide-react'
+import { FileText, ListTodo, Minimize2, PanelsTopLeft, Wrench } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import RightChevronIcon from '@/components/ui/right-chevron'
 import InfoCircleIcon from '@/components/ui/info-circle-icon'
@@ -888,6 +888,7 @@ export function Home(): React.JSX.Element {
             { label: recordable ? 'Hide Vigil from screen recordings' : 'Show Vigil in screen recordings', cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => (setRecordable(!recordable), void window.api.setRecordable(!recordable)) },
             // Not in safe mode: the notes it would bring are meant to be put away then.
             ...(settings?.safeMode ? [] : [{ label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() }]),
+            ...(settings?.safeMode ? [] : [{ label: 'Tidy stickies', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }]),
             { label: 'reveal' in document.documentElement.dataset ? 'Blur private titles again' : 'Show private titles for now', cue: 'reveal' in document.documentElement.dataset ? 'off' : 'on', run: () => {
               const root = document.documentElement
               if ('reveal' in root.dataset) delete root.dataset.reveal
@@ -1006,7 +1007,7 @@ export function Home(): React.JSX.Element {
                     <Tip label="Customize sidebar">
                       <button type="button" onClick={() => setCustomizing(true)}
                         className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover/head:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
-                        <AliveIcon icon={DotsHorizontalIcon} size={14} />
+                        <Wrench className="size-3.5" />
                       </button>
                     </Tip>
                   )}
@@ -1186,6 +1187,8 @@ export function Home(): React.JSX.Element {
               <DropdownMenuCheckboxItem checked={settings?.blur !== false} onSelect={(event) => event.preventDefault()} onCheckedChange={() => blurring()}>
                 Blurring
               </DropdownMenuCheckboxItem>
+              {/* Every sticky down the right middle of its screen, clear of other apps' buttons at the top right. */}
+              {!settings?.safeMode && <DropdownMenuItem onSelect={() => window.api.tidyStickies()}>Tidy stickies<DropdownMenuShortcut>⌃⌥⌘T</DropdownMenuShortcut></DropdownMenuItem>}
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={() => window.dispatchEvent(new CustomEvent('vigil:shortcuts'))}>Keyboard shortcuts<DropdownMenuShortcut>?</DropdownMenuShortcut></DropdownMenuItem>
               <DropdownMenuItem onSelect={playWelcome}>Play the welcome again</DropdownMenuItem>

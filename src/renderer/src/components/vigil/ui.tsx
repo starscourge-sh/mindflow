@@ -882,6 +882,12 @@ export function Toaster(): React.JSX.Element | null {
     window.addEventListener('vigil:wait', onWait)
     return () => window.removeEventListener('vigil:wait', onWait)
   }, [])
+  // The stickies tidied down the right of the screen (⌃⌥⌘T, ⌘K, the menu bar, a
+  // sticky's right click), said in the one window main picks, with the way back.
+  useEffect(() => window.api.onStickiesTidied((count) => {
+    chime('gather')
+    toast(count === 1 ? 'Sticky tidied' : `${count} stickies tidied`, undefined, 'success', { label: 'Put them back', key: 'B', run: () => (chime('back'), window.api.untidyStickies()) })
+  }), [])
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
     const onToast = (event: Event): void => {

@@ -7,7 +7,7 @@ import {
   Library, Lightbulb, Link, List, ListChecks, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
   MonitorUp, MoveRight, Palette, PanelLeft, PanelRight, Pencil, Pin, PinOff, Play, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
   ShieldCheck, Smile, Sparkles, SquareCheck, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
-  User, Volume2, VolumeX, WandSparkles, X, Zap, type LucideIcon
+  User, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, type LucideIcon
 } from 'lucide-react'
 
 /**
@@ -80,7 +80,9 @@ const RULES: [RegExp, LucideIcon][] = [
   [/version|history/i, History],
   [/^import/i, Download],
   [/^export|^save its|^save/i, Upload],
-  [/settings|^customi[sz]e/i, Settings],
+  // Customize has a tool of its own, so it is never taken for Settings' gear.
+  [/^customi[sz]e/i, Wrench],
+  [/settings/i, Settings],
   [/keyboard|shortcut|vim/i, Keyboard],
   [/welcome|^play/i, Play],
   [/celebrat|wrapped/i, Gift],

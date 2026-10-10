@@ -776,6 +776,19 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     remember()
   })
   win.on('resized', remember)
+  // Its right-click menu: the writing's own Cut, Copy and Paste where you can
+  // write, then the whole desk tidied, and taken back while it is fresh.
+  win.webContents.on('context-menu', (_event, params) => {
+    if (win.isDestroyed()) return
+    const writing: Electron.MenuItemConstructorOptions[] = params.isEditable
+      ? [{ role: 'cut', enabled: params.editFlags.canCut }, { role: 'copy', enabled: params.editFlags.canCopy }, { role: 'paste', enabled: params.editFlags.canPaste }, { type: 'separator' }]
+      : params.selectionText ? [{ role: 'copy' }, { type: 'separator' }] : []
+    Menu.buildFromTemplate([
+      ...writing,
+      { label: 'Tidy stickies', accelerator: 'Control+Alt+Command+T', click: () => void tidyStickies(win.webContents) },
+      ...(canUntidy() ? [{ label: 'Put them back', click: untidyStickies }] : [])
+    ]).popup({ window: win })
+  })
   // Closed any way but quitting is taken down, so it stays down after a restart.
   win.on('closed', () => {
     stickies.delete(key)
@@ -1225,6 +1238,118 @@ function gatherStickies(): void {
     n += 1
   }
   keepStuck()
+}
+
+/** Move a sticky's window along a path, one step per frame; it stops if your hand takes it on the way. */
+function glide(win: BrowserWindow, ms: number, at: (t: number) => { x: number; y: number }, done?: () => void): void {
+  const start = Date.now()
+  const timer = setInterval(() => {
+    if (win.isDestroyed() || (placed.has(win) && !ours(win))) return clearInterval(timer)
+    const t = Math.min(1, (Date.now() - start) / ms)
+    const to = at(t)
+    placed.set(win, to)
+    win.setPosition(to.x, to.y)
+    if (t >= 1) (clearInterval(timer), done?.())
+  }, 16)
+}
+
+/** Each sticky to a place, gliding one after another (40ms apart), or at once with Motion off; kept as its place once there. */
+function moveStickies(moves: [string, BrowserWindow, { x: number; y: number }][]): void {
+  const still = stillness()
+  moves.forEach(([key, win, to], nth) => {
+    const land = (): void => {
+      if (win.isDestroyed()) return
+      const one = stuckAs(key)
+      if (one) (one.bounds = win.getBounds()), keepStuck()
+    }
+    const go = (): void => {
+      if (win.isDestroyed()) return
+      const from = win.getBounds()
+      // Marked as Vigil's own move first, so the glide is never taken for a drag.
+      placed.set(win, { x: from.x, y: from.y })
+      // Overlapping in a fan, the lower ones lie on top, as cards dealt down a table do.
+      win.moveTop()
+      if (still) return (placed.set(win, to), win.setPosition(to.x, to.y), land())
+      // Ease-out quart, as the box's own glide (reshape): most of the way at once, then settling.
+      const k = (t: number): number => 1 - (1 - t) ** 4
+      glide(win, 320, (t) => ({ x: Math.round(from.x + (to.x - from.x) * k(t)), y: Math.round(from.y + (to.y - from.y) * k(t)) }), land)
+    }
+    if (still || nth === 0) go()
+    else setTimeout(go, nth * 40)
+  })
+}
+
+/** Where each sticky was before the last tidy, for "Put them back", while it is fresh. */
+let untidy: { moves: [string, BrowserWindow, { x: number; y: number }][]; until: number } | null = null
+const UNTIDY_FOR = 10_000
+const canUntidy = (): boolean => !!untidy && untidy.until > Date.now()
+
+/**
+ * Every sticky out now, tidied on its own screen: a neat column down the
+ * right edge, 24 points in, centred on the screen's height but never in its
+ * top quarter, where other apps keep their buttons at the top right. Too many
+ * for one column, they overlap as a fan, each peeking out below the last, and
+ * every second one a little to the left so the edges read apart.
+ * Each screen keeps its own: one plugged in for slides keeps the ones put there.
+ * Said with "Put them back" by the window you asked from, or another one in sight.
+ */
+function tidyStickies(asker?: Electron.WebContents): number {
+  const MARGIN = 24
+  const GAP = 12
+  const up = [...stickies].filter(([key, win]) => !win.isDestroyed() && stickyUp(key) && win.isVisible())
+  const screens = new Map<number, { area: Electron.Rectangle; wins: [string, BrowserWindow][] }>()
+  for (const [key, win] of up) {
+    const display = screen.getDisplayMatching(win.getBounds())
+    const one = screens.get(display.id) ?? { area: display.workArea, wins: [] }
+    one.wins.push([key, win])
+    screens.set(display.id, one)
+  }
+  const moves: [string, BrowserWindow, { x: number; y: number }][] = []
+  const back: [string, BrowserWindow, { x: number; y: number }][] = []
+  for (const { area, wins } of screens.values()) {
+    // Top to bottom as they were, so the order you had them in is kept.
+    wins.sort(([, a], [, b]) => a.getBounds().y - b.getBounds().y || a.getBounds().x - b.getBounds().x)
+    const sizes = wins.map(([, win]) => win.getBounds())
+    const top = area.y + Math.round(area.height * 0.25)
+    const bottom = area.y + area.height - MARGIN
+    const room = bottom - top
+    const whole = sizes.reduce((sum, one) => sum + one.height, 0) + GAP * (sizes.length - 1)
+    // One column if it fits; otherwise each steps down just enough for the last to end at the bottom.
+    const fan = whole > room
+    const last = sizes[sizes.length - 1].height
+    const step = fan ? Math.max(8, Math.floor((room - last) / Math.max(1, sizes.length - 1))) : 0
+    const tall = fan ? step * (sizes.length - 1) + last : whole
+    let y = Math.max(top, Math.min(bottom - tall, Math.round(area.y + (area.height - tall) / 2)))
+    wins.forEach(([key, win], nth) => {
+      const { x, y: was, width, height } = sizes[nth]
+      const right = area.x + area.width - MARGIN - width - (fan && nth % 2 ? 16 : 0)
+      back.push([key, win, { x, y: was }])
+      moves.push([key, win, { x: right, y }])
+      y += fan ? step : height + GAP
+    })
+  }
+  if (!moves.length) return 0
+  untidy = { moves: back, until: Date.now() + UNTIDY_FOR }
+  moveStickies(moves)
+  // The menu bar offers the way back while it is fresh, then drops it.
+  updateTray()
+  setTimeout(updateTray, UNTIDY_FOR + 50)
+  // Said where it will be seen: the window that asked if it is out, else the
+  // main window or the box, else the sticky now at the top of the column.
+  const seen = (win: BrowserWindow | null | undefined): boolean => !!win && !win.isDestroyed() && win.isVisible()
+  const from = asker ? BrowserWindow.fromWebContents(asker) : null
+  const voice = [from, home, prompt].find(seen) ?? moves[0][1]
+  voice.webContents.send('stickies:tidied', moves.length)
+  return moves.length
+}
+
+/** "Put them back": each sticky to where it was before the last tidy. */
+function untidyStickies(): void {
+  if (!untidy) return
+  const { moves } = untidy
+  untidy = null
+  moveStickies(moves.filter(([key, win]) => !win.isDestroyed() && stickies.get(key) === win))
+  updateTray()
 }
 
 function onScreen(bounds: Electron.Rectangle): Electron.Rectangle {
@@ -2027,6 +2152,8 @@ function updateTray(): void {
       { label: 'Safe mode', type: 'checkbox', checked: safe, click: () => (toggleSafeMode(), updateTray()) },
       { label: 'Show sticky notes', type: 'checkbox', checked: stickyPrefs().shown, click: () => showStickies() },
       { label: 'Bring sticky notes here', enabled: !safe && stickies.size > 0, click: () => gatherStickies() },
+      { label: 'Tidy stickies', accelerator: 'Control+Alt+Command+T', enabled: !safe && stickies.size > 0, click: () => void tidyStickies() },
+      ...(canUntidy() ? [{ label: 'Put stickies back', click: untidyStickies }] : []),
       { type: 'separator' },
       { label: 'Quit Vigil', accelerator: 'Command+Q', click: quit }
     ])
@@ -2245,6 +2372,8 @@ app.whenReady().then(() => {
   })
   // A note stuck to the desktop, or taken down.
   ipcMain.on('stickies:gather', () => gatherStickies())
+  ipcMain.on('stickies:tidy', (event) => void tidyStickies(event.sender))
+  ipcMain.on('stickies:untidy', () => untidyStickies())
   ipcMain.on('sticky', (_event, type: unknown, id: unknown, on: unknown) => {
     if (typeof type === 'string' && typeof id === 'string') stick(type, id, Boolean(on))
   })
@@ -2324,18 +2453,6 @@ app.whenReady().then(() => {
   // at a wrong password: a few quick, shrinking swings side to side, then exactly
   // back. Now and then, when it stirs. A drag mid-move always wins.
   const wiggled = new WeakMap<BrowserWindow, number>()
-  /** Move a window along a path of offsets from where it is, one per frame; false if your hand took it. */
-  const glide = (win: BrowserWindow, ms: number, at: (t: number) => { x: number; y: number }, done?: () => void): void => {
-    const start = Date.now()
-    const timer = setInterval(() => {
-      if (win.isDestroyed() || (placed.has(win) && !ours(win))) return clearInterval(timer)
-      const t = Math.min(1, (Date.now() - start) / ms)
-      const to = at(t)
-      placed.set(win, to)
-      win.setPosition(to.x, to.y)
-      if (t >= 1) (clearInterval(timer), done?.())
-    }, 16)
-  }
   ipcMain.on('sticky:wiggle', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || win.isDestroyed() || stillness() || lifted.has(win) || Date.now() - (wiggled.get(win) ?? 0) < 1500) return
@@ -2891,6 +3008,7 @@ app.whenReady().then(() => {
     take('⌘.', toggleWindow)
     take('⌥⌘S', () => (toggleSafeMode(), updateTray()))
     take('⌃⌥⌘N', () => showStickies())
+    take('⌃⌥⌘T', () => void tidyStickies())
   }
   anywhere(whenKeys(anywhere))
 

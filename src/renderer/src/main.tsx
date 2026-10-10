@@ -43,6 +43,7 @@ import { Home } from './home'
 import { NoteWindow } from './components/vigil/note-window'
 import { FocusPill, ScreenGlow } from './components/vigil/focus-pill'
 import { StickyNote } from './components/vigil/sticky-note'
+import { Toaster } from './components/vigil/ui'
 import { LookWindow } from './components/vigil/look-window'
 import { GoalStack } from './components/vigil/goal-beacon'
 import { TodaySticky } from './components/vigil/today-sticky'
@@ -113,6 +114,8 @@ createRoot(document.getElementById('root')!).render(
     <MotionConfig reducedMotion="user" transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
     <Broken>
     {drawing ? <DrawingWindow id={drawing} /> : params.get('note') ? <NoteWindow link={params.get('note')!} /> : params.get('view') === 'home' ? <Home /> : params.get('view') === 'focus' ? <FocusPill /> : params.get('view') === 'glow' ? <ScreenGlow /> : params.get('view') === 'look' ? <LookWindow /> : params.get('view') === 'sticky' && params.get('type') === 'goal' ? <GoalStack /> : params.get('view') === 'sticky' && params.get('type') === 'today' ? <TodaySticky /> : params.get('view') === 'sticky' ? <StickyNote type={params.get('type') ?? 'capture'} id={params.get('id') ?? ''} /> : <App />}
+    {/* A sticky says what the menu bar or ⌃⌥⌘T did when no other Vigil window is out to say it. */}
+    {params.get('view') === 'sticky' && <Toaster />}
     </Broken>
     </MotionConfig>
   </StrictMode>

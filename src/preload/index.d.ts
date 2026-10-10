@@ -65,6 +65,9 @@ export interface Api {
   onGlow: (listen: (tone: 'done' | 'cancel') => void) => () => void
   stick: (type: string, id: string, on: boolean) => void
   gatherStickies: () => void
+  tidyStickies: () => void
+  untidyStickies: () => void
+  onStickiesTidied: (listen: (count: number) => void) => () => void
   showFolder: (path: string) => void
   look: (pictures: LookPicture[], at: number) => void
   lookWhat: () => Promise<{ pictures: LookPicture[]; at: number } | null>

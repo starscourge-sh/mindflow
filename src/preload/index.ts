@@ -123,6 +123,15 @@ const api = {
   stick: (type: string, id: string, on: boolean): void => ipcRenderer.send('sticky', type, id, on),
   /** Every sticky to the screen in front of you: the way back for one lost off an edge. */
   gatherStickies: (): void => ipcRenderer.send('stickies:gather'),
+  /** Every sticky tidied down the right middle of its screen, and put back where it was. */
+  tidyStickies: (): void => ipcRenderer.send('stickies:tidy'),
+  untidyStickies: (): void => ipcRenderer.send('stickies:untidy'),
+  /** Told, in the one window main picks, how many were tidied: for the toast with "Put them back". */
+  onStickiesTidied: (listen: (count: number) => void): (() => void) => {
+    const relay = (_event: unknown, count: number): void => listen(count)
+    ipcRenderer.on('stickies:tidied', relay)
+    return () => ipcRenderer.off('stickies:tidied', relay)
+  },
   showFolder: (path: string): void => ipcRenderer.send('folder:show', path),
   /** A sticky's pictures in Vigil's own Quick Look, in a window over its screen rather than inside the small one. */
   look: (pictures: LookPicture[], at: number): void => ipcRenderer.send('look', pictures, at),
