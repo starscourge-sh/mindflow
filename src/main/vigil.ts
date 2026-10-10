@@ -359,6 +359,12 @@ const DEFAULTS = {
   // Where the session pill sits: tucked under the notch on a Mac that has
   // one, compact until pointed at, or wherever you dragged it.
   pillSits: 'free' as 'notch' | 'free',
+  // The five-second rule: a session counts 5, 4, 3, 2, 1 with a tick before its clock starts.
+  countIn: false,
+  // On Sundays, Home sums up the week: caught, kept, reviewed, finished.
+  weeklyDigest: true,
+  // Your Mac's calendar on Today and the week, read only; off until you ask for it.
+  macCalendar: false,
   // When the working day ends, for Today's "4 h left today".
   dayEnd: '22:00',
   // Closing the day: offered once an evening, after this hour.
@@ -432,10 +438,10 @@ let focusShowsTold: () => void = () => undefined
 export const whenFocusShows = (tell: () => void): void => void (focusShowsTold = tell)
 /** Whether the floating bubble shows during a session, or only the note's footer does. */
 export const focusBubbleShown = (): boolean => settings().focusShows !== 'note'
-
-/** Told when the stickies are shown or put away, or kept in or out of screen shares. */
 /** The pill tucked under the notch, where the Mac has one. */
 export const pillInNotch = (): boolean => settings().pillSits === 'notch'
+
+/** Told when the stickies are shown or put away, or kept in or out of screen shares. */
 let stickiesTold: () => void = () => undefined
 export const whenStickies = (tell: () => void): void => void (stickiesTold = tell)
 /** Open at login, as the setting says. Only the installed app: in development it would register Electron itself. */
@@ -581,6 +587,8 @@ function addTask(text: string, origin: string | null = null, today = false, plai
     // A reminder word said again ("!alert") is still heard.
     if (task.notify) db.prepare('update tasks set notify = ? where id = ?').run(task.notify, twin.id)
     // So is a priority said again ("call mum p1"): the open task takes it, as the box's This will line says.
+    // And a length said again ("~30m").
+    if (task.estimate) db.prepare('update tasks set estimate = ? where id = ?').run(task.estimate, twin.id)
     if (task.spans.some((span) => span.kind === 'priority'))
       db.prepare('update tasks set priority = ?, important = ? where id = ?').run(task.priority, [1, 2].includes(task.priority) ? 1 : 0, twin.id)
     return { ...twin, existed: true }
@@ -588,8 +596,6 @@ function addTask(text: string, origin: string | null = null, today = false, plai
   const id = randomUUID()
   // Typed into Today with no date, it is for today, as in Todoist: all day,
   // not dropped into a backlog the list you typed it in does not show.
-    // And a length said again ("~30m").
-    if (task.estimate) db.prepare('update tasks set estimate = ? where id = ?').run(task.estimate, twin.id)
   if (today && !task.due && !task.plan) Object.assign(task, { due: dayjs().hour(9).startOf('hour').toISOString(), allDay: true })
   const { number } = db
     .prepare(
@@ -1263,8 +1269,74 @@ export function registerVigil(): void {
     closed_at as closedAt, closed_how as closedHow, (select count(*) from glosses where item_id = nuggets.id) as clues,
     goal_at as goalAt, goal_from as goalFrom, goal_beacon as beacon, (select max(created_at) from glosses where item_id = nuggets.id) as lastLog, line_of as lineOf, starred_at as starredAt`
   handle('items', (tier: string) =>
-    db.prepare(`select ${ITEM} from nuggets where tier = ? order by created_at desc`).all(tier)
+    db.prepare(`select ${ITEM} from nuggets where tier = ? and binned_at is null order by created_at desc`).all(tier)
   )
+
+  // --- the weekly digest: the seven days to now, caught, kept, reviewed and finished. Nothing leaves the Mac.
+  const digest = (): { caught: number; kept: number; reviewed: number; finished: number; from: string } => {
+    const from = ago(7)
+    const n = (sql: string): number => (db.prepare(sql).get(from) as { n: number }).n
+    return {
+      caught: n('select count(*) n from captures where captured_at >= ?'),
+      kept: n("select count(*) n from nuggets where created_at >= ? and tier in ('nugget', 'article')"),
+      reviewed: n('select count(*) n from review_log where reviewed_at >= ?'),
+      finished: n('select count(*) n from task_done where done_at >= ?'),
+      from
+    }
+  }
+  handle('digest:week', digest)
+  // Sunday from six in the evening: the week, said once in a notification, unless quiet or off.
+  setInterval(() => {
+    const at = new Date()
+    if (at.getDay() !== 0 || at.getHours() < 18 || settings().weeklyDigest === false || !Notification.isSupported()) return
+    const { blackout, hidePrivate } = gate()
+    if (blackout || hidePrivate) return
+    const day = dayKey()
+    if ((db.prepare("select day from nudges where key = 'weekly-digest'").get() as { day: string } | undefined)?.day === day) return
+    db.prepare("insert or replace into nudges (key, day) values ('weekly-digest', ?)").run(day)
+    const week = digest()
+    const note = new Notification({ title: 'Your week in Vigil', body: `${num(week.caught)} caught, ${num(week.kept)} kept, ${num(week.reviewed)} reviewed, ${num(week.finished)} finished.`, silent: !settings().sounds })
+    note.on('click', () => void ipcMain.emit('home:open', {}, 'view', 'home'))
+    note.show()
+  }, 15 * 60_000)
+
+  // --- the Bin: everything let go, of every kind, until it is restored or the Bin is emptied.
+  // A capture discarded, a task closed without doing, and a gem, a piece of
+  // writing, a question or a goal put in the Bin (archived too, so every list
+  // that leaves out the archived leaves it out).
+  column('nuggets', 'binned_at text')
+  handle('bin:list', () => db.prepare(`select * from (
+      select 'capture' as type, id, ${LABEL} as title, kind, coalesce(exited_at, captured_at) as at from captures where status = 'discarded'
+      union all
+      select 'task', id, title, 'todo', coalesce(completed_at, created_at) from tasks where status = 'dropped'
+      union all
+      select tier, id, coalesce(nullif(title, ''), label('', body)), kind, binned_at from nuggets where binned_at is not null
+    ) order by at desc limit 1000`).all())
+  handle('bin:put', (id: string) => write(db.prepare('update nuggets set binned_at = ?, archived_at = coalesce(archived_at, ?), pinned_at = null where id = ?').run(now(), now(), id)))
+  handle('bin:restore', (type: string, id: string) => {
+    if (type === 'capture') db.prepare("update captures set status = 'open', exited_at = null where id = ? and status = 'discarded'").run(id)
+    else if (type === 'task') db.prepare("update tasks set status = 'open', completed_at = null where id = ? and status = 'dropped'").run(id)
+    else db.prepare('update nuggets set binned_at = null, archived_at = null where id = ?').run(id)
+    return write(true)
+  })
+  // For good: what is in the Bin, and what hangs off it.
+  handle('bin:empty', () => {
+    const gone = atomically(() => {
+      const captures = (db.prepare("select id from captures where status = 'discarded'").all() as { id: string }[]).map((row) => row.id)
+      const tasks = (db.prepare("select id from tasks where status = 'dropped'").all() as { id: string }[]).map((row) => row.id)
+      const items = (db.prepare('select id from nuggets where binned_at is not null').all() as { id: string }[]).map((row) => row.id)
+      for (const id of [...captures, ...items]) {
+        db.prepare('delete from glosses where item_id = ?').run(id)
+        db.prepare('delete from task_links where item_id = ?').run(id)
+      }
+      for (const id of captures) db.prepare('delete from captures where id = ?').run(id)
+      for (const id of items) db.prepare('delete from nuggets where id = ?').run(id)
+      for (const id of tasks) for (const table of ['task_links', 'task_done']) db.prepare(`delete from ${table} where task_id = ?`).run(id)
+      for (const id of tasks) db.prepare('delete from tasks where id = ?').run(id)
+      return captures.length + tasks.length + items.length
+    })
+    return write(gone)
+  })
   handle('item', (id: string) => {
     // Its own title, not the name lists give it: an untitled article's title
     // box stays empty rather than showing its first line as if it were set.
@@ -2236,7 +2308,7 @@ export function registerVigil(): void {
     from tasks order by status, case priority when 0 then 5 else priority end, coalesce(sort_order, 1e12), due_at is null, due_at, created_at`).all()
     .map((row) => ({ ...(row as object), subtasks: JSON.parse(((row as { subtasks: string | null }).subtasks) ?? '[]') })))
   handle('task', (id: string) => {
-    const row = db.prepare(`select ${TASK}, notes, subtasks from tasks where id = ?`).get(id) as Record<string, unknown> | undefined
+    const row = db.prepare(`select ${TASK}, notes, subtasks, pickup from tasks where id = ?`).get(id) as Record<string, unknown> | undefined
     if (!row) return null
     const done = db.prepare('select done_at as at, s.recap from task_done d left join sessions s on s.id = d.session_id where d.task_id = ? order by done_at desc').all(id)
     // What the task is about, linked from nuggets and articles: shown as a
@@ -2510,6 +2582,17 @@ export function registerVigil(): void {
   column('sessions', 'planned_ms integer')
   column('sessions', 'paused_ms integer not null default 0')
   column('sessions', 'paused_at text')
+  // Pomodoro rounds ("4x25" in the box): where the set stands, as JSON, on the timer that runs them.
+  column('sessions', 'rounds text')
+  // The unfinished symphony: where to pick up, asked as a session ends, shown when its task next opens.
+  column('tasks', 'pickup text')
+  handle('session:pickup', (sessionId: string, text: string) => {
+    const row = db.prepare('select task_id from sessions where id = ?').get(sessionId) as { task_id: string } | undefined
+    if (!row?.task_id) return false
+    db.prepare('update tasks set pickup = ? where id = ?').run(String(text).trim() || null, row.task_id)
+    return write(true)
+  })
+  handle('task:pickup', (id: string, text: string | null) => write(db.prepare('update tasks set pickup = ? where id = ?').run(text?.trim() || null, id)))
   // A timer still running when Vigil quit would ring "Time's up" days later.
   // One already past its length ends quietly at start: a timer goes, as it
   // always does, and a focus session is kept, ended when its plan ran out.
@@ -2548,6 +2631,23 @@ export function registerVigil(): void {
     const id = randomUUID()
     db.prepare("insert into sessions (id, task_id, started_at, goal, planned_ms) values (?, '', ?, ?, ?)").run(id, now(), goal.trim() || null, ms)
     return write(id)
+  })
+  // Pomodoro rounds: one timer row that runs each stretch in turn, work and
+  // break, so the pill stays the same pill from the first round to the last.
+  handle('rounds:start', (goal: string, plan: { rounds: number; workMs: number; breakMs: number; longMs: number }) => {
+    db.prepare("delete from sessions where task_id = '' and ended_at is null").run()
+    const id = randomUUID()
+    const rounds = { rounds: plan.rounds, round: 1, phase: 'work', workMs: plan.workMs, breakMs: plan.breakMs, longMs: plan.longMs }
+    db.prepare("insert into sessions (id, task_id, started_at, goal, planned_ms, rounds) values (?, '', ?, ?, ?, ?)").run(id, now(), goal.trim() || null, plan.workMs, JSON.stringify(rounds))
+    return write(id)
+  })
+  // The next stretch, started now: what the pill asks for as one runs out.
+  handle('rounds:next', (id: string, next: { round: number; phase: string; ms: number }) => {
+    const row = db.prepare('select rounds from sessions where id = ? and ended_at is null').get(id) as { rounds: string | null } | undefined
+    if (!row?.rounds) return false
+    const rounds = { ...JSON.parse(row.rounds), round: next.round, phase: next.phase }
+    db.prepare('update sessions set started_at = ?, planned_ms = ?, paused_ms = 0, paused_at = null, rounds = ? where id = ?').run(now(), next.ms, JSON.stringify(rounds), id)
+    return write(true)
   })
   handle('session:pause', (id: string) => write(db.prepare('update sessions set paused_at = ? where id = ? and paused_at is null').run(now(), id)))
   handle('session:resume', (id: string) => {
@@ -2621,8 +2721,6 @@ export function registerVigil(): void {
       // Wrapped: what the week was, in the work itself.
       sessions: one<{ n: number; minutes: number | null }>(
         "select count(*) n, sum((julianday(ended_at) - julianday(started_at)) * 1440 - paused_ms / 60000.0) minutes from sessions where ended_at is not null and started_at >= ?", ago(7)),
-  // Pomodoro rounds ("4x25" in the box): where the set stands, as JSON, on the timer that runs them.
-  column('sessions', 'rounds text')
       // Private notes' tags are not counted: a tag can say as much as a title.
       tagsWeek: (db.prepare('select title, body from captures where captured_at >= ? and private = 0').all(ago(7)) as { title: string; body: string }[])
         .flatMap((row) => tagsIn(`${row.title} ${plain(JSON.parse(row.body ?? 'null'))}`))
@@ -2662,23 +2760,6 @@ export function registerVigil(): void {
         "select title from nuggets where private = 0 and (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) >= 4").map((row) => row.title),
       // A hint "stopped you" if you voted it up, or it stayed on screen four
       // seconds or more: the rare signal and the universal one together.
-  // Pomodoro rounds: one timer row that runs each stretch in turn, work and
-  // break, so the pill stays the same pill from the first round to the last.
-  handle('rounds:start', (goal: string, plan: { rounds: number; workMs: number; breakMs: number; longMs: number }) => {
-    db.prepare("delete from sessions where task_id = '' and ended_at is null").run()
-    const id = randomUUID()
-    const rounds = { rounds: plan.rounds, round: 1, phase: 'work', workMs: plan.workMs, breakMs: plan.breakMs, longMs: plan.longMs }
-    db.prepare("insert into sessions (id, task_id, started_at, goal, planned_ms, rounds) values (?, '', ?, ?, ?, ?)").run(id, now(), goal.trim() || null, plan.workMs, JSON.stringify(rounds))
-    return write(id)
-  })
-  // The next stretch, started now: what the pill asks for as one runs out.
-  handle('rounds:next', (id: string, next: { round: number; phase: string; ms: number }) => {
-    const row = db.prepare('select rounds from sessions where id = ? and ended_at is null').get(id) as { rounds: string | null } | undefined
-    if (!row?.rounds) return false
-    const rounds = { ...JSON.parse(row.rounds), round: next.round, phase: next.phase }
-    db.prepare('update sessions set started_at = ?, planned_ms = ?, paused_ms = 0, paused_at = null, rounds = ? where id = ?').run(now(), next.ms, JSON.stringify(rounds), id)
-    return write(true)
-  })
       stopped: one<{ n: number }>("select count(*) n from hint_events where shown_at >= ? and (reaction = 'up' or dwell_ms >= 4000)", ago(30)).n,
       unprocessed: one<{ now: number; weekAgo: number }>(
         "select coalesce(sum(status = 'open'), 0) now, coalesce(sum(captured_at < ? and (status = 'open' or exited_at >= ?)), 0) weekAgo from captures", ago(7), ago(7))
