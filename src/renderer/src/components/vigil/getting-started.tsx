@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import { Check } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { keyFor, useKeyChanges } from '@/lib/keys'
-import { onboarding, useOnboarding } from '@/lib/onboarding'
+import { onboarding, useOnboarding, type Setup } from '@/lib/onboarding'
+import { ImportSheet, sourceFrom } from './welcome-import'
 import { vigil } from '@/lib/vigil'
 import { MenuButton } from './collection-header'
 import { LearnOffer } from './study'
@@ -11,25 +12,42 @@ import { Kbd, Rolling, toast } from './ui'
 import { ProgressBar } from './progress-bar'
 
 /**
- * Getting started: a shelf at the top of Home after the welcome, the three
- * firsts that show what Vigil is for: catch a thought from anywhere, keep it,
- * and have it come back. Each ticks itself from what is really there (the
- * main process reads the data). Each row does its step, or takes you to where
- * it is done. All three, and it celebrates once, then says Done and goes three
- * days later. Hidden from its ··· menu; back from Settings.
+ * Getting started: a shelf at the top of Home after the welcome, counted
+ * ("2 of 6"): the three firsts that show what Vigil is for (catch a thought
+ * from anywhere, keep it, have it come back), then your first space, your
+ * notes from the app you came from (only if you said one Vigil can bring
+ * things in from), a goal, and the five-stop tour. Each ticks itself from
+ * what is really there (the main process reads the data). Each row does its
+ * step, or takes you to where it is done. All of them, and it celebrates
+ * once, then says Done and goes three days later. Hidden from its ··· menu;
+ * back from Settings.
  */
-type Step = { id: 'catch' | 'keep' | 'review'; label: string; keys?: string }
-const STEPS: Step[] = [
+type Step = { id: 'catch' | 'keep' | 'review' | 'space' | 'import' | 'goal' | 'tour'; label: string; keys?: string }
+const BASE: Step[] = [
   { id: 'catch', label: 'Catch a thought from any app', keys: '⌘.' },
   { id: 'keep', label: 'Keep one from your Inbox', keys: 'P' },
   { id: 'review', label: 'See it come back in Review' }
 ]
+/** The list for what the welcome was told: the firsts, then the rest. */
+function stepsFor(setup: Setup | null): Step[] {
+  const from = sourceFrom(setup?.from ?? [])
+  return [
+    ...BASE,
+    { id: 'space', label: setup?.space ? `Your first space: #${setup.space}` : 'Pick your first space, a #tag' },
+    ...(from && from !== 'Other files' ? [{ id: 'import' as const, label: `Bring your notes from ${from}` }] : []),
+    { id: 'goal', label: 'Set a goal' },
+    { id: 'tour', label: 'Take the five-stop tour' }
+  ]
+}
 export const LINGER = 3 * 86400000
 
 export function GettingStarted({ onOpen, onView }: { onOpen: (type: string, id: string) => void; onView: (id: string, focus?: string) => void }): React.JSX.Element | null {
   useKeyChanges()
   const state = useOnboarding()
-  const done: Record<Step['id'], boolean> = { catch: !!state?.steps.catch, keep: !!state?.steps.keep, review: !!state?.steps.review }
+  const STEPS = stepsFor(state?.setup ?? null)
+  const done = Object.fromEntries(STEPS.map((step) => [step.id, !!state?.steps[step.id]])) as Record<Step['id'], boolean>
+  // Getting started's own sheet: what each thing from your old app becomes here.
+  const [importing, setImporting] = useState(false)
   const count = STEPS.filter((step) => done[step.id]).length
   const all = count === STEPS.length
 
@@ -68,6 +86,10 @@ export function GettingStarted({ onOpen, onView }: { onOpen: (type: string, id: 
     chime('tap')
     if (step.id === 'catch') return window.api.showPrompt()
     if (step.id === 'keep') return (onView('inbox'), toast('Pick one and press P to keep it', undefined, 'info'))
+    if (step.id === 'space') return (onView('tags'), toast('Write a #tag in any note, and it has its own page here.', undefined, 'info'))
+    if (step.id === 'import') return setImporting(true)
+    if (step.id === 'goal') return onView('goals')
+    if (step.id === 'tour') return void window.dispatchEvent(new CustomEvent('vigil:tour-stops'))
     // Review asks only about what has a question: with none due yet, the newest
     // idea opens, to be given one.
     if (await vigil.dueCount()) return onView('review')
@@ -123,6 +145,7 @@ export function GettingStarted({ onOpen, onView }: { onOpen: (type: string, id: 
         <button type="button" onClick={() => (chime('tap'), onView('powers'))} className="self-start rounded-md px-2 py-0.5 text-control text-muted-foreground underline decoration-foreground/20 underline-offset-4 transition-colors hover:text-foreground">See everything else Vigil can do</button>
         <LearnOffer />
       </div>
+      {importing && <ImportSheet start={sourceFrom(state.setup?.from ?? [])} onClose={() => setImporting(false)} />}
     </section>
   )
 }
