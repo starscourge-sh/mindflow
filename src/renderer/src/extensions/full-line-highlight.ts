@@ -6,19 +6,6 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 
 import { onlyWordsChanged } from "@/lib/tiptap-utils"
 
-/**
- * A highlight covering a whole line is drawn as a band across it.
- *
- * Marking a few words should hug the words; marking the line should look like
- * the line is marked, which means a band the width of the block rather than
- * one that stops where the text does and breaks wherever the text breaks. It
- * is what Notion does, and the difference shows most on a list of links: hug
- * them and you get a row of ragged patches, band them and you get a list.
- *
- * CSS cannot tell the two apart - `mark` is inline either way, and no selector
- * asks "is the rest of this block marked too". So the check happens here, and
- * the block gets a class the stylesheet can paint.
- */
 /** The band for one line, when the whole of it wears one highlight. */
 function band(node: ProseMirrorNode, pos: number): Decoration | null {
   const highlight = node.type.schema.marks.highlight
@@ -42,6 +29,19 @@ function band(node: ProseMirrorNode, pos: number): Decoration | null {
   })
 }
 
+/**
+ * A highlight covering a whole line is drawn as a band across it.
+ *
+ * Marking a few words should hug the words; marking the line should look like
+ * the line is marked, which means a band the width of the block rather than
+ * one that stops where the text does and breaks wherever the text breaks. It
+ * is what Notion does, and the difference shows most on a list of links: hug
+ * them and you get a row of ragged patches, band them and you get a list.
+ *
+ * CSS cannot tell the two apart - `mark` is inline either way, and no selector
+ * asks "is the rest of this block marked too". So the check happens here, and
+ * the block gets a class the stylesheet can paint.
+ */
 function bands(doc: ProseMirrorNode): DecorationSet {
   const decorations: Decoration[] = []
   doc.descendants((node, pos) => {

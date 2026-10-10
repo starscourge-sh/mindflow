@@ -35,12 +35,12 @@ export const DRAG = { WebkitAppRegion: 'drag' } as CSSProperties
 export const STILL = { WebkitAppRegion: 'no-drag' } as CSSProperties
 const LIST: CSSProperties = { marginBlock: '0.25rem', paddingLeft: '1rem' }
 
+/** Made as real glass (the setting): the Mac's blur behind, the note sitting straight. */
+export const GLASS = new URLSearchParams(location.search).has('glass')
 /**
  * Each note's own lean, 1.2 to 3 degrees, sized from its id so it is the same
  * every launch; which way goes by its place in line, so neighbours lean apart.
  */
-/** Made as real glass (the setting): the Mac's blur behind, the note sitting straight. */
-export const GLASS = new URLSearchParams(location.search).has('glass')
 export const tiltOf = (id: string, nth: number): number => {
   let hash = 0
   for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) | 0

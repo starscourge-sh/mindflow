@@ -310,11 +310,6 @@ export const questionEntry = (item: Item, inView = false, menu?: MenuItem[]): En
   menu
 })
 
-/**
- * An open question: the question in your words, the page under it to write in
- * however it asks to be written, and its clues, newest first. Down the right,
- * how long it has been held and the two ways it can end.
- */
 /** What Show in quick capture does, said where it is offered. */
 const QUICK_TIP = 'Shows this question in quick capture, so you can add a clue the moment one comes to you.'
 
@@ -331,6 +326,11 @@ const questionMenu = (item: Item, shown: boolean): MenuItem[] => [
   { label: 'Copy the question', run: () => copy(item.title) }
 ]
 
+/**
+ * An open question: the question in your words, the page under it to write in
+ * however it asks to be written, and its clues, newest first. Down the right,
+ * how long it has been held and the two ways it can end.
+ */
 export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: string, id: string) => void; top?: React.ReactNode }): React.JSX.Element {
   useOpenNote({ table: 'nuggets', type: 'question', id: item.id, kind: item.kind, archived: !!item.archivedAt })
   const seen = useRef<string | null>(null)

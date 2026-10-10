@@ -53,7 +53,6 @@ export function useCaptures(archived = false): CaptureMeta[] {
   return captures
 }
 
-/** How long ago, the way Linear writes it: 5m, 3h, 26d, 4mo, 2y. */
 /**
  * Where a capture came from, short: an imported note's folder ("c++", not
  * "Unisa/old-modules/…/c++/Header Files.md", and without a Notion export's
@@ -68,6 +67,7 @@ export function whereFrom(source: string, label = ''): string {
   return strip(source) === label ? '' : strip(source)
 }
 
+/** How long ago, the way Linear writes it: 5m, 3h, 26d, 4mo, 2y. */
 export { age }
 
 /**

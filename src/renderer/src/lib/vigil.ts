@@ -6,13 +6,13 @@ import { chime, installTicks, setPack, setVolume, soundOn, type PackName } from 
 import { useEditorSetup } from './editor-setup'
 import { watchBands } from './video-bands'
 
+/** The kinds of milestone, as src/main/celebrate.ts names them. */
+export type MomentKind = 'kept' | 'streak' | 'inbox' | 'tasks' | 'year' | 'answered' | 'goalHalf' | 'goal30' | 'goal7' | 'goalDay' | 'goalMade' | 'stickyDone' | 'started' | 'taskDone'
+
 /**
  * The main process's `vigil:` channels, typed. One generic bridge in the
  * preload, the shapes here, so a new channel is one line on each side.
  */
-/** The kinds of milestone, as src/main/celebrate.ts names them. */
-export type MomentKind = 'kept' | 'streak' | 'inbox' | 'tasks' | 'year' | 'answered' | 'goalHalf' | 'goal30' | 'goal7' | 'goalDay' | 'goalMade' | 'stickyDone' | 'started' | 'taskDone'
-
 const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
 
 /** A GIF from Giphy, downloaded and ready to play (see src/main/giphy.ts). */
@@ -561,14 +561,14 @@ export function splitTags(text: string): { text: string; tags: string[] } {
   return { text: text.replace(/(?:^|\s)#[a-z][\w-]*/gi, '').trim(), tags }
 }
 
+/** The root size for each interface size; small is the size the app was drawn at. */
+export const INTERFACE_SIZES = { small: 16, medium: 17, large: 18.5 } as const
+
 /**
  * The settings that change how the whole app looks and sounds, applied the
  * moment they change: the page width as a flag on the document, which the
  * stylesheet reads, and the sounds as a switch the chimes check.
  */
-/** The root size for each interface size; small is the size the app was drawn at. */
-export const INTERFACE_SIZES = { small: 16, medium: 17, large: 18.5 } as const
-
 export function useAppearance(): void {
   const settings = useLive(vigil.settings, null as Settings | null)
   // Every sticky shown or put away at once (⌃⌥⌘N, the menu bar, ⌘K, Settings): said quietly by the one window main picks.

@@ -291,12 +291,6 @@ const Row = ({ label, changed, children }: { label: string; changed: boolean; ch
 )
 
 /**
- * What the list is filtered by, as chips over it, Spotify's way: each one
- * set shows filled, with one × in front that clears them all, and the kinds
- * the list holds sit beside them a click away. Defaults a list starts with
- * are not shown: they are where it is, not a filter you chose.
- */
-/**
  * A filter chip that says plainly whether it is on: off, a hairline outline
  * on the page; on, filled in the accent with a tick, the outline darkened.
  * Borders on both, since the fills alone are too faint to tell apart.
@@ -313,6 +307,12 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
   )
 }
 
+/**
+ * What the list is filtered by, as chips over it, Spotify's way: each one
+ * set shows filled, with one × in front that clears them all, and the kinds
+ * the list holds sit beside them a click away. Defaults a list starts with
+ * are not shown: they are where it is, not a filter you chose.
+ */
 export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 'kind', className = '' }: {
   view: View
   onChange: (view: View) => void

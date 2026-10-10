@@ -194,14 +194,6 @@ type Line = { key: string; head?: [string, number]; start: number; entries: Entr
 const TILE = { small: 92, grid: 184 }
 
 /**
- * A list of notes at one of Display's four sizes: Compact (a line each), List
- * (a picture or the kind, the title, and a quiet line under it), Small grid
- * (pictures, the title when pointed at) and Grid (picture, title, line). Rows
- * are drawn only in view. j and k (or the arrows) move through any of them; in
- * a grid ← and → step along a row and ↑ ↓ j k move by rows. The ring of the
- * keyboard sits inside each tile's padding, so the list's edge never cuts it.
- */
-/**
  * Which rows just turned up: a few ids new since the list first drew, joining
  * rows that were already there, for a moment, so a capture just sent or one
  * put back by Undo eases into the rows instead of popping in. A whole new set
@@ -229,6 +221,14 @@ export function useArrivals(ids: string[], scope = ''): (id: string) => boolean 
   return (id) => performance.now() - (seen.current!.get(id) ?? 0) < 400
 }
 
+/**
+ * A list of notes at one of Display's four sizes: Compact (a line each), List
+ * (a picture or the kind, the title, and a quiet line under it), Small grid
+ * (pictures, the title when pointed at) and Grid (picture, title, line). Rows
+ * are drawn only in view. j and k (or the arrows) move through any of them; in
+ * a grid ← and → step along a row and ↑ ↓ j k move by rows. The ring of the
+ * keyboard sits inside each tile's padding, so the list's edge never cuts it.
+ */
 export function NoteList({
   groups,
   density,

@@ -307,15 +307,15 @@ const WATCH: Record<string, (args: unknown[], result: unknown) => (Moment | null
 }
 export const watches = (channel: string): boolean => channel in WATCH
 
+/** Whether milestones are kept but not shown now (the welcome says so). */
+let hushed = (): boolean => false
+export const hushWhile = (check: () => boolean): void => void (hushed = check)
+
 /**
  * After a watched channel's write: the biggest milestone it reached, if any,
  * to the window it came from. At most one in ten minutes; one held back by
  * that is not counted as shown.
  */
-/** Whether milestones are kept but not shown now (the welcome says so). */
-let hushed = (): boolean => false
-export const hushWhile = (check: () => boolean): void => void (hushed = check)
-
 export function celebrateAfter(channel: string, sender: WebContents, args: unknown[], result: unknown): void {
   try {
     if (!WATCH[channel] || sender.isDestroyed() || !hosts.has(sender.id)) return

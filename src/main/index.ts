@@ -257,13 +257,6 @@ function hideWindow(win: BrowserWindow): void {
 }
 
 /**
- * Show it, or put it away if it is already in front.
- *
- * Only when it is *in front*: pressing the key while another app has the
- * focus should bring this one forward, not hide the window you were about to
- * type into. A window can be visible and still be behind everything.
- */
-/**
  * The box is summoned many times a day, so it appears at once with the caret
  * ready, never fading up: the sound alone says it is alive (Rauno: what is
  * done hundreds of times should barely move). A resize glides instead (reshape).
@@ -351,6 +344,13 @@ function reshape(win: BrowserWindow, bounds: Electron.Rectangle, snap = false): 
   })
 }
 
+/**
+ * Show it, or put it away if it is already in front.
+ *
+ * Only when it is *in front*: pressing the key while another app has the
+ * focus should bring this one forward, not hide the window you were about to
+ * type into. A window can be visible and still be behind everything.
+ */
 function toggleWindow(): void {
   const win = prompt
   if (!win) {
@@ -932,11 +932,6 @@ async function bringHere(win: BrowserWindow, here: string): Promise<boolean> {
   return true
 }
 
-/**
- * The main window, made hidden: soon after start, so the first open is as
- * quick as every other, and again only if it is ever really gone. Closing it
- * hides it; only quitting closes it for good.
- */
 /** The compact main window: about Raycast's settings window, never more than most of the screen. */
 const compact = (): { width: number; height: number } => {
   const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
@@ -993,6 +988,11 @@ async function fillHome(win: BrowserWindow, on: boolean): Promise<boolean> {
   return fillsScreen(win)
 }
 
+/**
+ * The main window, made hidden: soon after start, so the first open is as
+ * quick as every other, and again only if it is ever really gone. Closing it
+ * hides it; only quitting closes it for good.
+ */
 function makeHome(): BrowserWindow {
   if (home) return home
 
@@ -1054,13 +1054,6 @@ function makeHome(): BrowserWindow {
   return home
 }
 
-/**
- * Top right, clear of the middle of the screen.
- *
- * A capture window arrives over whatever you were reading, and the middle is
- * where that is. Measured against the work area rather than the display, so it
- * sits under the menu bar and beside the dock rather than behind them.
- */
 /** Same place, same size. */
 function sameBox(a: Electron.Rectangle, b: Electron.Rectangle): boolean {
   return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
@@ -1097,15 +1090,6 @@ function refit(win: BrowserWindow, snap = false): Promise<void> {
 /** Where the box's left edge was before the side panel opened, and where opening put it: the same test, sideways. */
 let panelFrom: { x: number; became: number } | null = null
 
-/**
- * Nudge a rectangle back onto the screen it is mostly on.
- *
- * There is no built-in for this. macOS keeps a window on screen when a person
- * drags it, but `setBounds` is not a drag and is taken literally - so growing
- * a window parked near an edge pushes half of it off. Pinned to the top left
- * of the work area if it is somehow bigger than the screen, which is the half
- * worth keeping.
- */
 /**
  * A sticky's size kept to a note's: never smaller than reads, never bigger
  * than about a postcard (480 by 520), and never more than half the screen it
@@ -1354,6 +1338,15 @@ function untidyStickies(): void {
   updateTray()
 }
 
+/**
+ * Nudge a rectangle back onto the screen it is mostly on.
+ *
+ * There is no built-in for this. macOS keeps a window on screen when a person
+ * drags it, but `setBounds` is not a drag and is taken literally - so growing
+ * a window parked near an edge pushes half of it off. Pinned to the top left
+ * of the work area if it is somehow bigger than the screen, which is the half
+ * worth keeping.
+ */
 function onScreen(bounds: Electron.Rectangle): Electron.Rectangle {
   const { workArea } = screen.getDisplayMatching(bounds)
   return {

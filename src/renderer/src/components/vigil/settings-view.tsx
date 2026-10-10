@@ -830,7 +830,6 @@ export function SettingsView(): React.JSX.Element {
   )
 }
 
-/** Where the backups go: iCloud Drive when there is one, otherwise beside the app's data. */
 /**
  * Each book: its name to change, its folder to see, and, for any but My book
  * and the one open, deleting it, held, with a whole copy kept first.
@@ -869,6 +868,7 @@ function BookRows(): React.JSX.Element {
   )
 }
 
+/** Where the backups go: iCloud Drive when there is one, otherwise beside the app's data. */
 function BackupPlace(): React.JSX.Element {
   const [where, setWhere] = useState('')
   useEffect(() => void vigil.backupsWhere().then(setWhere), [])

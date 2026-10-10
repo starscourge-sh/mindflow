@@ -138,6 +138,9 @@ export function currentTheme(): Theme {
   return allThemes().includes(saved as Theme) ? (saved as Theme) : DEFAULT_THEME
 }
 
+/** The appearance last told to the window, so a preview only tells it on a change. */
+let told: "light" | "dark" | null = null
+
 /**
  * Put it on the document, and remember it.
  *
@@ -146,9 +149,6 @@ export function currentTheme(): Theme {
  * repaints the ramp underneath it. The page is transparent over the desktop
  * either way, so there is no second set of rules to switch to.
  */
-/** The appearance last told to the window, so a preview only tells it on a change. */
-let told: "light" | "dark" | null = null
-
 export function applyTheme(theme: Theme, remember = true): void {
   const paint = (): void => {
     const { classList } = document.documentElement
