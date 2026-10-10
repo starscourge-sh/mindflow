@@ -444,7 +444,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Blurring" note="**Private words blur in lists until you point at them.** A window you leave dims and words arrive out of a soft blur; off, everything is plain and sharp." keywords="blur private dim focus soft">
             <Switch checked={settings.blur !== false} onCheckedChange={(blur) => set({ blur })} />
           </Setting>
-          <Setting title="Postcards" note="Pictures in notes sit in a white border with rounded corners and a soft shadow, like a print laid on the desk." keywords="images pictures photos border frame white">
+          <Setting title="Postcards" note="**Pictures in notes sit in a white border with rounded corners and a soft shadow, like a print laid on the desk.** Videos and the strip on a day's, week's or month's page too, and a memory hint comes as a postcard." keywords="images pictures photos border frame white">
             <Switch checked={!!settings.postcards} onCheckedChange={(postcards) => set({ postcards })} />
           </Setting>
           <Setting title="Tilt pictures in notes" note="**A picture tips a few degrees toward the pointer.** In Focus and full screen pictures always tilt." keywords="tilt picture image photo hover move 3d motion">
@@ -460,15 +460,15 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Margin marks" note="**A few marks drawn by hand.** A tick when you finish, a circle round today, an arrow when there is nothing yet; off keeps every line machine-straight." keywords="hand drawn handwritten sketch doodle pen ink circle tick strike arrow personal">
             <Switch checked={settings.marks !== false} onCheckedChange={(marks) => set({ marks })} />
           </Setting>
-          <Setting title="Progress bars" note="**How every bar that fills is drawn, from the goal stack to Getting started.** A lightsaber lights up as it grows; a small dinosaur runs along and hops the cacti." keywords="progress bar lightsaber saber dino dinosaur run fun playful style">
+          <Setting title="Progress bars" note="**How the bars that fill are drawn, from the goals on Home to Getting started.** A lightsaber lights up as it grows; a small dinosaur runs along and hops the cacti." keywords="progress bar lightsaber saber dino dinosaur run fun playful style">
             <Chips className="shrink-0" options={[{ id: 'plain', label: 'Plain' }, { id: 'saber', label: 'Lightsaber' }, { id: 'dino', label: 'Dino run' }]}
               on={(id) => id === (settings.progressBars ?? 'plain')} pick={(progressBars) => set({ progressBars: progressBars as Settings['progressBars'] })} />
           </Setting>
-          <Setting title="Session bubble" note="**The bubble that floats while you focus.** Its circle always fills, and the dinosaur can run beside it the whole session, or along a line that ends with the time." keywords="focus session pill bubble timer circle ring dino dinosaur runner run progress fun playful">
+          <Setting title="Session bubble" note="**The bubble that floats while you focus.** Its circle fills as the time goes, or shows a dot for a session with no set length, and the dinosaur can run beside it the whole session, or along a line that ends with the time." keywords="focus session pill bubble timer circle ring dino dinosaur runner run progress fun playful">
             <Chips className="shrink-0" options={[{ id: 'circle', label: 'Circle' }, { id: 'runner', label: 'Runner' }, { id: 'progress', label: 'Runner as progress' }]}
               on={(id) => id === (settings.focusBubble ?? 'circle')} pick={(focusBubble) => set({ focusBubble: focusBubble as Settings['focusBubble'] })} />
           </Setting>
-          <Setting title="Session timer shows in" note="**Where a focus session's time shows.** The note gets a quiet line at its foot with the time left, dots that light as it goes and the words written since; with the note alone, no bubble." keywords="focus session timer footer note foot dots words count bubble pill where">
+          <Setting title="Session timer shows in" note="**Where a focus session's time shows.** The note gets a quiet line at its foot with the time left (or so far, with no set length), dots that light as it goes and the words written since; with the note alone, no bubble." keywords="focus session timer footer note foot dots words count bubble pill where">
             <Chips className="shrink-0" options={[{ id: 'bubble', label: 'The bubble' }, { id: 'note', label: 'The note' }, { id: 'both', label: 'Both' }]}
               on={(id) => id === (settings.focusShows ?? 'bubble')} pick={(focusShows) => set({ focusShows: focusShows as Settings['focusShows'] })} />
           </Setting>
@@ -511,7 +511,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Text font" note="**What notes, lists and menus are written in.** The Mac's own font to start, Fraunces, a few others or any font on this Mac; OpenDyslexic is easier for some to read." keywords={`note text body font ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
             <FontPicker value={settings.noteFont} />
           </Setting>
-          <Setting title="Heading font" note="**A font of their own for headings and page titles.** Fraunces over the Mac's font to start, the way Dia pairs a characterful serif with plain text, or the same as the text." below={<Sample />} keywords={`headings titles pairing ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
+          <Setting title="Heading font" note="**A font of their own for headings and page titles.** Fraunces over the Mac's font to start, the way Dia pairs a characterful serif with plain text, or the same as the text. With the Brutal style, titles and note headings are in Archivo Black instead." below={<Sample />} keywords={`headings titles pairing ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
             <FontPicker value={settings.headingFont} setting="headingFont" same="Same as text" />
           </Setting>
           <Setting title="Notes only" note="**On, the font above is only for what you write.** The app's own lists, menus and labels stay in Fraunces.">
@@ -540,7 +540,7 @@ export function SettingsView(): React.JSX.Element {
           <SceneryFolders
             use="covers"
             title="Covers folder"
-            note="**Soft, grainy pictures behind whatever has none of its own.** The day's brief and a celebration always; a tag's page, a note of only words or a tile on Home when Appearance › Covers is Gradients. Each gets the same one, tinted toward its colour; with no folder, plain colour tiles."
+            note="**Soft, grainy pictures behind whatever has none of its own.** The day's brief when Scenery has no picture for it, and a celebration with no Celebrations folder; a tag's page, a note of only words or a tile on Home when Appearance › Covers is Gradients. Each gets the same one, tinted toward its colour; with no folder, plain colour tiles."
             folders={settings.coversFolder ? [settings.coversFolder] : []}
             on
             onSave={(folders) => set({ coversFolder: folders.at(-1) ?? '' })}
@@ -558,7 +558,7 @@ export function SettingsView(): React.JSX.Element {
         <Group section="Scenery" title="Where they show">
           {([
             ['sceneryRest', 'When there is nothing to do', '**A wide picture when there is nothing left to do.** Inbox empty, review done, nothing due today, no old captures waiting.', 'empty inbox zero review done'],
-            ['sceneryToday', "Today's page", "**A painted strip across the top of each day's page.** The same picture all day, in a white frame with Postcards on.", 'banner header day daily'],
+            ['sceneryToday', "Today's page", "**A painted picture at the top of each day's, week's and month's page.** Today's sits behind the brief; other pages get a strip, in a white frame with Postcards on. The same picture all day.", 'banner header day daily'],
             ['sceneryRecap', 'Recaps', '**Each page of a month or year recap over its own picture.** Morning light for the opening, night for the close.', 'wrapped month year'],
             ['sceneryFocus', 'Focus and passes', '**Behind ⇧⌘F Focus and the Tidy and Deciding passes.** Dimmed far enough that the words read as well as on a plain page.', 'read mode focus backdrop']
           ] as const).map(([key, title, note, keywords]) => (
@@ -568,7 +568,7 @@ export function SettingsView(): React.JSX.Element {
           ))}
         </Group>
         <Group section="Scenery" title="How they look">
-          <Setting title="Match the time of day" note="**Pictures that follow the hour.** Golden by day, dusk in the evening, night and candlelight after dark; off, any picture at any hour." keywords="scenery morning evening night dusk golden hour mood">
+          <Setting title="Match the time of day" note="**Pictures that follow the hour, where you rest and behind Focus.** Golden by day, dusk in the evening, night and candlelight after dark; off, any picture at any hour. Today's page keeps one picture all day, and recaps pick their own." keywords="scenery morning evening night dusk golden hour mood">
             <Switch disabled={!settings.scenery} checked={settings.sceneryTime} onCheckedChange={(sceneryTime) => set({ sceneryTime })} />
           </Setting>
           <Setting title="Dimness" note="**How far the pictures fade toward the page colour.** Under words they dim further still, so the words always read clearly." keywords="scenery dim darken fade brightness opacity">
@@ -592,7 +592,7 @@ export function SettingsView(): React.JSX.Element {
             {!isMac() && <SpellLanguages picked={settings.spellLanguages ?? []} disabled={settings.spellcheck === false} />}
             <Switch checked={settings.spellcheck !== false} onCheckedChange={(spellcheck) => set({ spellcheck })} />
           </Setting>
-          <Setting title="Vim keys" note="Move and edit with Vim's keys in every note." keywords="vim keys keyboard bindings modal normal insert">
+          <Setting title="Vim keys" note="**Move and edit with Vim's keys as you write.** Not in reading mode, the Tidy and Deciding passes or a board's cards." keywords="vim keys keyboard bindings modal normal insert">
             <Switch checked={vim} onCheckedChange={setVim} />
           </Setting>
           <Setting title="Typewriter scrolling" note="**The line you type on stays a little above the middle, and the page moves instead.** Clicking, selecting and scrolling leave it alone; not in quick capture, and also in ⌘K." keywords="typewriter scroll scrolling center centre caret cursor line focus writing">
@@ -679,7 +679,7 @@ export function SettingsView(): React.JSX.Element {
             <Switch checked={settings.closeDay !== false} onCheckedChange={(closeDay) => set({ closeDay })} />
           </Setting>
           <MacCalendarSetting on={!!settings.macCalendar} set={(macCalendar) => set({ macCalendar })} />
-          <Setting title="Weekly digest" note="**On Sundays, Home sums up your week:** what you caught, kept, reviewed and finished, with the week's page a click away. Nothing is sent anywhere." keywords="weekly digest sunday summary week review caught kept reviewed finished">
+          <Setting title="Weekly digest" note="**On Sundays, Home sums up your week:** what you caught, kept, reviewed and finished, with the week's page a click away. From 6 in the evening a Mac notification says it too, never in quiet hours; nothing leaves this Mac." keywords="weekly digest sunday summary week review caught kept reviewed finished">
             <Switch checked={settings.weeklyDigest !== false} onCheckedChange={(weeklyDigest) => set({ weeklyDigest })} />
           </Setting>
           <Setting title="Day ends at" note="**Today counts the hours left until then,** beside the hours your tasks are planned to take: write ~30m or ~1h on a task to give it a length." keywords="day end evening hours left planned estimate length time budget">
@@ -714,21 +714,21 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Keeping it quiet">
-          <Setting title="Quiet hours" note="**Nothing private or unhandled comes up unasked, and no nudges, alerts or goal cards.** Other pins stay, and search and lists still show everything.">
+          <Setting title="Quiet hours" note="**Nothing private or unhandled comes up unasked, and no nudges or alerts.** Goal cards wait to come out, unless set to Always or in their last week; other pins stay, and search and lists still show everything.">
             <Input type="time" className={`${field} w-28`} value={settings.quietStart} onChange={(event) => set({ quietStart: event.target.value })} />
             <span className="text-muted-foreground">to</span>
             <Input type="time" className={`${field} w-28`} value={settings.quietEnd} onChange={(event) => set({ quietEnd: event.target.value })} />
           </Setting>
-          <Setting title="Safe mode" note="**Nothing comes up unasked at all, for screen shares.** No hints, old captures coming back (rot cards) or pinned notes; ⌥⌘S from anywhere.">
+          <Setting title="Safe mode" note="**Nothing comes up unasked at all, for screen shares.** No hints, old captures coming back (rot cards) or pins on Home, and sticky notes, goal cards, the session bubble and notes in their own windows hide; ⌥⌘S from anywhere.">
             <Switch checked={settings.safeMode} onCheckedChange={(safeMode) => {
               set({ safeMode })
-              toast(safeMode ? 'Safe mode: no hints, old captures or pinned notes come up' : 'Safe mode off')
+              toast(safeMode ? 'Safe mode: nothing comes up on its own, and stickies and note windows hide' : 'Safe mode off')
             }} />
           </Setting>
           <Setting title="Open at login" note="**Vigil starts with your Mac, quietly in the menu bar.** ⌘. works straight away, and your sticky notes are back where you left them.">
             <Switch checked={settings.openAtLogin !== false} onCheckedChange={(openAtLogin) => set({ openAtLogin })} />
           </Setting>
-          <Setting title="Show sticky notes" note="**Every sticky note out, or all put away, keeping their places.** ⌃⌥⌘N from anywhere.">
+          <Setting title="Show sticky notes" note="**Every sticky note out, or all put away, keeping their places.** Goal cards go with them. ⌃⌥⌘N from anywhere.">
             <Switch checked={settings.stickiesShown} onCheckedChange={(stickiesShown) => set({ stickiesShown })} />
           </Setting>
           <Setting title="Sticky notes are made of" note="**Paper, wallpaper frost or glass.** Paper is solid; frost blurs your desktop picture behind each note, and they keep their lean; glass, the default, blurs and dims what is behind so it never reads through, and the notes sit straight." keywords="sticky notes frosted glass blur wallpaper desktop transparent paper vibrancy">
@@ -746,7 +746,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
           {/* Only a choice while Vigil shows: off, the stickies are hidden with everything else. */}
           {recordable && (
-            <Setting under title="Except sticky notes" note="Sticky notes stay blank in shares and recordings even so; the rest of Vigil shows." keywords="record recording screen share sharing hide sticky notes">
+            <Setting under title="Except sticky notes" note="Sticky notes and goal cards stay blank in shares and recordings even so; the rest of Vigil shows." keywords="record recording screen share sharing hide sticky notes">
               <Switch checked={settings.stickiesUnshared} onCheckedChange={(stickiesUnshared) => set({ stickiesUnshared })} />
             </Setting>
           )}
@@ -774,13 +774,13 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="Review" title="Exams">
-          <Setting title="Exam nudges" note="**A tag with an exam date says so in quick capture when its cards fall behind.** Set the date on its page in Tags; once a day at most, never in quiet hours.">
+          <Setting title="Exam nudges" note="**A tag with an exam date says so in quick capture when its cards fall behind.** Set the date on its page in Tags; once a day at most for each tag, never in quiet hours.">
             <Switch checked={settings.examNudges} onCheckedChange={(examNudges) => set({ examNudges })} />
           </Setting>
         </Group>
 
         <Group section="Tasks" title="Reminders">
-          <Setting title="When a task's time comes" note="**Pull, Quiet or Alerts.** Pull moves it to the top of Today; Quiet only counts it in the menu bar, without a sound; Alerts counts it there too and sends a notification with a sound, once, at its time.">
+          <Setting title="When a task's time comes" note="**Pull, Quiet or Alerts, unless a task picks its own.** Pull moves it to the top of Today; Quiet only counts it in the menu bar, without a sound; Alerts counts it there too and sends a notification with a sound, once, at its time; never in quiet hours or for an all-day task.">
             <div className="flex rounded-md border p-0.5">
               {(['pull', 'quiet', 'alerts'] as const).map((level, index) => (
                 <button
@@ -801,7 +801,7 @@ export function SettingsView(): React.JSX.Element {
         </Group>
 
         <Group section="Writing" title="With each capture">
-          <Setting title="Weather" note="**Each capture keeps the weather when you caught it, like 12°C, light rain.** It asks wttr.in, which guesses your town from your connection with no account or location permission; left out when offline.">
+          <Setting title="Weather" note="**Each capture keeps the weather when you caught it, like 12°C, light rain, and Today's brief shows it now.** It asks wttr.in, which guesses your town from your connection with no account or location permission; left out when offline.">
             <Switch checked={settings.weather} onCheckedChange={(weather) => set({ weather })} />
           </Setting>
         </Group>
@@ -1002,7 +1002,7 @@ function HintTuning(): React.JSX.Element | null {
   if (!tuning?.tuned) return null
   return (
     <p className="px-4 py-3 text-meta leading-relaxed text-[var(--tt-color-text-orange)]">
-      Only {tuning.stopped} of the last {tuning.shown} hints stopped you, so half as many are being shown: 1 in {Math.round(1 / tuning.rate)}. It goes back up when they start landing again.
+      Only {tuning.stopped} of the {tuning.shown} hints this past month stopped you, so half as many are being shown: 1 in {Math.round(1 / tuning.rate)}. It goes back up when they start landing again.
     </p>
   )
 }
@@ -1124,7 +1124,7 @@ function OnboardingRows(): React.JSX.Element | null {
         <Switch checked={state.pageHints} onCheckedChange={(on) => void onboarding.set({ pageHints: on })} />
       </Setting>
       {!state.sandbox && state.welcomed && !(state.doneAt && Date.now() - new Date(state.doneAt).getTime() > LINGER) && (
-        <Setting title="Getting started" note="**Three first steps on Home.** Each ticks itself as you do it." keywords="getting started checklist onboarding">
+        <Setting title="Getting started" note="**A short list of first steps on Home.** Each ticks itself as you do it, and the list goes a few days after the last." keywords="getting started checklist onboarding">
           {state.hidden ? <Button variant="outline" size="sm" onClick={() => void onboarding.set({ hidden: false }).then(() => toast('Getting started is back on Home'))}>Show it</Button> : <span className="text-control text-muted-foreground">On Home</span>}
         </Setting>
       )}
@@ -1257,7 +1257,7 @@ function GiphySettings({ settings, on, set }: { settings: Settings; on: boolean;
   const live = on && settings.giphy === true
   return (
     <>
-      <Setting title="Celebrate with a GIF from Giphy" note="**A GIF on every task you finish, and on the milestones.** Found on Giphy with your own key and words; offline or with no key, the folder plays instead." keywords="giphy gif task done finish meme ed edd eddy">
+      <Setting title="Celebrate with a GIF from Giphy" note="**A GIF on each task you finish, and on milestones with no files of their own.** Found on Giphy with your own key and words; offline or with no key, the folder plays instead." keywords="giphy gif task done finish meme ed edd eddy">
         <Switch checked={settings.giphy === true} disabled={!on} onCheckedChange={(giphy) => set({ giphy })} />
       </Setting>
       <Setting under title="Giphy key" note="**Your own, free from developers.giphy.com.** Kept in your settings and their backups, and sent only to Giphy." keywords="giphy key api token">
