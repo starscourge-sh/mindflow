@@ -9,7 +9,7 @@ import { BesidePeek, MCard, MChip, MLabel, MRow, MTitle, PeekCard, carrying, tin
  * its own with `data-peek`.
  */
 
-type MenuPeekEntry = { text: string; art: () => ReactNode; keys?: string }
+type MenuPeekEntry = { text: string; art: () => ReactNode; keys?: string; /** Drawn to fit, so not faded at its foot. */ whole?: boolean }
 
 /** A small switch, drawn. */
 const Toggle = ({ on }: { on: boolean }): React.JSX.Element => (
@@ -25,22 +25,21 @@ const Toggle = ({ on }: { on: boolean }): React.JSX.Element => (
  */
 function SafeSide({ on }: { on: boolean }): React.JSX.Element {
   const chip = (icon: ReactNode, words: string): React.JSX.Element => (
-    <div className="mb-0.5 flex items-center gap-1 rounded border px-1 text-[9.5px] leading-[15px] whitespace-nowrap" style={{ borderColor: 'color-mix(in oklab, var(--tt-color-text-orange) 35%, transparent)', backgroundColor: 'color-mix(in oklab, var(--tt-color-text-orange) 9%, transparent)' }}>
+    <div className="mb-0.5 flex items-center gap-1 rounded border px-1 text-[9.5px] leading-[13px] whitespace-nowrap" style={{ borderColor: 'color-mix(in oklab, var(--tt-color-text-orange) 35%, transparent)', backgroundColor: 'color-mix(in oklab, var(--tt-color-text-orange) 9%, transparent)' }}>
       {icon}{words}
     </div>
   )
   return (
     <div className="flex min-w-0 flex-1 flex-col">
-      <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold">{on ? 'On' : 'Off'} <Toggle on={on} /></div>
-      <div className="flex-1 rounded-md border border-foreground/10 px-1.5 py-1">
-        <div className="mb-1 text-[10px] font-semibold">Home</div>
+      <div className="mb-1 flex items-center gap-1.5 text-[11px] leading-4 font-semibold">{on ? 'On' : 'Off'} <Toggle on={on} /></div>
+      <div className="flex-1 overflow-hidden rounded-md border border-foreground/10 px-1.5 py-1">
+        <div className="mb-0.5 text-[10px] leading-[13px] font-semibold">Home</div>
         {!on && (<>
           {chip(<Lightbulb className="size-2.5 shrink-0" style={tinted('yellow')} />, 'A hint')}
           {chip(<RotateCcw className="size-2.5 shrink-0 text-muted-foreground" />, 'Old capture')}
           {chip(<Pin className="size-2.5 shrink-0 text-muted-foreground" />, 'Pinned note')}
         </>)}
         <div className="flex items-center gap-1 py-px text-[9.5px]"><MCheckLite />Call Mum</div>
-        <div className="flex items-center gap-1 py-px text-[9.5px]"><MCheckLite />Read Act 3</div>
       </div>
     </div>
   )
@@ -101,7 +100,8 @@ const PEEKS: Record<string, MenuPeekEntry> = {
   safe: {
     text: '**Safe mode: nothing surfaces on its own.** No hints, old captures coming back or pinned notes: for screen shares and quiet moments.',
     keys: '⌥⌘S',
-    art: () => <div className="flex h-full gap-2.5"><SafeSide on={false} /><SafeSide on /></div>
+    whole: true,
+    art: () => <div className="flex h-full gap-2.5 pb-1"><SafeSide on={false} /><SafeSide on /></div>
   },
   blur: {
     text: '**Blurring: private words stay blurred until you point at them.** A window you leave dims, and new words arrive out of a soft blur.',
@@ -218,7 +218,7 @@ export function MenuPeek(): React.JSX.Element {
     <span ref={probe} hidden />
     {peek && (
       <BesidePeek menu={() => probe.current?.closest<HTMLElement>('[role="menu"]') ?? null} row={(menu) => menu.querySelector('[data-highlighted]')} fresh={!seen.current}>
-        <PeekCard art={peek.art()} text={peek.text} keys={peek.keys} />
+        <PeekCard art={peek.art()} text={peek.text} keys={peek.keys} whole={peek.whole} />
       </BesidePeek>
     )}
   </>)

@@ -26,12 +26,12 @@ export const carrying = (): boolean => {
 }
 
 /** The picture, the line and the keys; `text` is `**Lead.** The rest.` */
-export function PeekCard({ art, text, keys, fit = false }: { art: ReactNode; text: string; keys?: string; /** As tall as the picture needs, up to the usual height: a block is often one line. */ fit?: boolean }): React.JSX.Element {
+export function PeekCard({ art, text, keys, fit = false, whole = false }: { art: ReactNode; text: string; keys?: string; /** As tall as the picture needs, up to the usual height: a block is often one line. */ fit?: boolean; /** A picture that fits whole: not faded at its foot. */ whole?: boolean }): React.JSX.Element {
   const { lead, rest } = splitLead(text)
   return (
     <div data-peek-card className="flex flex-col gap-0">
       {/* A picture of the thing, never a control: nothing in it can be reached. */}
-      <div aria-hidden inert className={`pointer-events-none relative ${fit ? 'max-h-[8.75rem] min-h-[4rem]' : 'h-[8.75rem]'} overflow-hidden rounded-lg border border-foreground/[0.08] bg-background px-3 py-2.5 text-[10.5px] leading-[1.4] text-foreground select-none [mask-image:linear-gradient(to_bottom,black_calc(100%-1.25rem),rgb(0_0_0/0.25))]`}>
+      <div aria-hidden inert className={`pointer-events-none relative ${fit ? 'max-h-[8.75rem] min-h-[4rem]' : 'h-[8.75rem]'} overflow-hidden rounded-lg border border-foreground/[0.08] bg-background px-3 py-2.5 text-[10.5px] leading-[1.4] text-foreground select-none ${whole ? '' : '[mask-image:linear-gradient(to_bottom,black_calc(100%-1.25rem),rgb(0_0_0/0.25))]'}`}>
         {art}
       </div>
       <div className="flex items-end gap-2 px-1.5 pt-2 pb-1">
