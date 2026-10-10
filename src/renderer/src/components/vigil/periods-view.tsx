@@ -19,7 +19,7 @@ import { useKept } from '@/lib/nav'
 import { Chips } from './display'
 import { DayBanner } from './scenery'
 import { MonthReflect } from './reflect-view'
-import { IssueLine, EarlierPages, SERIF, weekOfYear, weekSpan } from './issue'
+import { EarlierPages, SERIF, weekOfYear, weekSpan } from './issue'
 import { Island, Page, Rolling, Tip, Typed, typing, Pressed } from './ui'
 import { dayjs, noon } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
@@ -140,20 +140,18 @@ const saveField = (period: string, key: string, text: string): void =>
   void vigil.savePeriod(period, { fields: { [key]: text || null } }).then(() => chime('noted'))
 
 /**
- * The top of a week's or month's page: its facts in a line, then
- * the headline, in the heading face. Until you name the stretch, its dates
- * stand in, quieter.
+ * The top of a week's or month's page: the headline, in the heading face,
+ * then its facts in one plain line under it. Until you name the stretch, its
+ * dates stand in, quieter.
  */
 function Masthead({ parts, headline, named }: { parts: React.ReactNode[]; headline: string; named: boolean }): React.JSX.Element {
   return (
     <header>
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-b border-border/60 pb-2">
-        <IssueLine parts={parts} />
-      </div>
       <h1 className={`mt-5 ${SERIF} text-[clamp(1.625rem,3.6vw,2.25rem)] leading-[1.15] font-medium tracking-[-0.015em] text-balance ${named ? 'text-foreground' : 'text-foreground/80'}`}>
         {/* A title, so simply there: the line under it is the one that speaks (lib/motion.ts). */}
         {headline}
       </h1>
+      <p className="mt-1 text-meta text-muted-foreground tabular-nums">{parts.filter(Boolean).join(' · ')}</p>
     </header>
   )
 }
@@ -221,7 +219,7 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
         <Masthead parts={[`Week ${weekOfYear(monday)}`, weekSpan(monday), current && 'This week']}
           headline={fields.theme || fields.summary?.split(/(?<=[.!?])\s|\n/)[0] || weekName(monday)} named={!!(fields.theme || fields.summary)} />
         <p className="mt-2 text-meta text-muted-foreground">
-          <Typed key={key} text={`${current ? 'This week. ' : ''}${page?.exists ? 'High level only: what you would still say about it in a month.' : 'No page for it yet: a few words in any field keeps one.'}`} step={28} />
+          <Typed key={key} text={`${page?.exists ? 'High level only: what you would still say about it in a month.' : 'No page for it yet: a few words in any field keeps one.'}`} step={28} />
         </p>
         {/* The week's seven days, each wearing its mark: right-click one to mark it. */}
         <div className="mt-5"><DayGrid label="The week's days" days={Array.from({ length: 7 }, (_, at) => addDays(monday, at))} onOpenDay={onDay} /></div>
@@ -303,7 +301,7 @@ export function MonthPage({ onScale, start, onDay }: { onScale?: (scale: Scale) 
     >
       <div className="page-narrow mx-auto w-full px-5 pt-6 pb-16">
         <DayBanner day={`${month}-01`} seed={`month:${month}`} />
-        <Masthead parts={[dayjs(`${month}-01`).format("MMMM 'YY"), `${dayjs(`${month}-01`).daysInMonth()} days`, current && 'This month']}
+        <Masthead parts={[!!fields.season && dayjs(`${month}-01`).format('MMMM YYYY'), `${dayjs(`${month}-01`).daysInMonth()} days`, current && 'This month']}
           headline={fields.season || monthName(month)} named={!!fields.season} />
         {/* Both fields empty: the same two, filled in, to show the kind of thing
             that goes in them. Above the days, so it is seen without scrolling. */}
@@ -318,11 +316,6 @@ export function MonthPage({ onScale, start, onDay }: { onScale?: (scale: Scale) 
               ))}
             </Island>
           </Example>
-        )}
-        {(!page || fields.focus || fields.season) && (
-          <p className="mt-2 text-meta text-muted-foreground">
-            <Typed key={key} text="Two fields, no numbers: a name for this stretch of time." step={28} />
-          </p>
         )}
         {/* The month's days, each wearing its mark: right-click one to mark it. */}
         <div className="mt-5"><DayGrid key={month} label={`${monthName(month)}, day by day`} days={Array.from({ length: dayjs(`${month}-01`).daysInMonth() }, (_, at) => `${month}-${String(at + 1).padStart(2, '0')}`)} onOpenDay={onDay} /></div>

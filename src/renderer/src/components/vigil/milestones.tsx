@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 
 import { FlagTriangleRight } from 'lucide-react'
 
 import { chime } from '@/lib/sound'
+import { useLive, vigil, type Recent } from '@/lib/vigil'
 import { findCaptures, follow } from '@/lib/capture-links'
 import { MARK_COLORS, MARK_ICONS, countdown, inkOf, markDay, nextOf, onDay, useMilestones, type Milestone } from '@/lib/milestones'
 import { Button } from '@/components/ui/button'
@@ -171,7 +172,7 @@ export function DayFlags({ marks, named = false, className = '' }: { marks: Mile
     <Tip label={marks.map((one) => `${one.icon ? `${one.icon} ` : ''}${one.title} · ${countdown(one).replace(` to ${one.title}`, ' to go').replace(`${one.title} `, '')}`).join('\n')}>
       <span data-mark-flag className={`inline-flex min-w-0 items-center gap-1 ${className}`} style={{ color: inkOf(first) }}>
         {first.icon ? <span className="text-[0.8em] leading-none">{first.icon}</span> : <FlagTriangleRight className="size-3 shrink-0" fill="currentColor" strokeWidth={2} />}
-        {named && <span className="truncate text-[0.6875rem] leading-tight font-medium">{first.title}</span>}
+        {named && <span className="line-clamp-2 text-[0.6875rem] leading-tight font-medium break-words">{first.title}</span>}
         {marks.length > 1 && <span className="text-[0.625rem] text-muted-foreground tabular-nums">+{marks.length - 1}</span>}
       </span>
     </Tip>
@@ -209,6 +210,12 @@ export function DayGrid({ days, onOpenDay, label }: { days: string[]; onOpenDay?
   const all = useMilestones(days[0], days[days.length - 1])
   const today = dayKey()
   const lead = (noon(days[0]).day() + 6) % 7
+  // What you kept on each day gone by (captures and notes, not tasks), counted in its cell.
+  const last = days[days.length - 1] < today ? days[days.length - 1] : today
+  const made = useLive(() => (days[0] > today ? Promise.resolve([] as Recent[]) : vigil.recent(daysBetween(days[0], last) + 1, noon(last).endOf('day').toISOString())),
+    [] as Recent[], [days[0], last], ['capture', 'item'])
+  const kept = new Map<string, number>()
+  for (const one of made) if (one.type !== 'task') kept.set(dayKey(one.at), (kept.get(dayKey(one.at)) ?? 0) + 1)
   return (
     <div role="grid" aria-label={label} className="select-none">
       <div className="grid grid-cols-7 gap-1 pb-1 text-center text-[0.6875rem] text-muted-foreground">
@@ -223,11 +230,14 @@ export function DayGrid({ days, onOpenDay, label }: { days: string[]; onOpenDay?
           return (
             <DayMarkMenu key={day} day={day} all={all} onOpenDay={onOpenDay}>
               <button type="button" data-grid-day={day} aria-current={now ? 'date' : undefined}
-                aria-label={`${dayName(noon(day))}${here.length ? `, ${here.map((one) => one.title).join(', ')}` : ''}`}
+                aria-label={`${dayName(noon(day))}${here.length ? `, ${here.map((one) => one.title).join(', ')}` : ''}${kept.get(day) ? `, ${kept.get(day)} kept` : ''}`}
                 onClick={() => (chime('tap'), gone || now ? onOpenDay?.(day) : void markDay(day, here[0]))}
-                className={`flex h-12 min-w-0 flex-col items-start gap-0.5 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-accent/60 ${now ? 'bg-accent/40' : ''}`}
+                className={`flex min-h-12 min-w-0 flex-col items-start gap-0.5 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-accent/60 ${now ? 'bg-accent/40' : ''}`}
                 style={here.length ? { background: `color-mix(in oklab, ${inkOf(here[0])} ${now ? 16 : 9}%, transparent)` } : undefined}>
-                <span className={`text-xs tabular-nums ${now ? 'font-semibold text-[var(--tt-brand-color-400)]' : gone ? 'text-muted-foreground' : 'text-foreground'}`}>{noon(day).date()}</span>
+                <span className="flex w-full items-baseline gap-1">
+                  <span className={`text-xs tabular-nums ${now ? 'font-semibold text-[var(--tt-brand-color-400)]' : gone ? 'text-muted-foreground' : 'text-foreground'}`}>{noon(day).date()}</span>
+                  {!!kept.get(day) && <span className="ml-auto truncate text-[0.6875rem] text-muted-foreground tabular-nums">{num(kept.get(day)!)} kept</span>}
+                </span>
                 <DayFlags marks={here} named className="max-w-full" />
               </button>
             </DayMarkMenu>
@@ -280,29 +290,36 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
   }
   const first = (d: number): boolean => start.add(d, 'day').date() === 1
   const marked = new Set(all.map((one) => indexOf(one.day)))
-  // Labels on up to three lines, to the right of their tick or, crowded there, to its left. The
-  // days ahead are placed first (nearest first), then the ones gone (latest first); one with no
-  // room left is said when pointed at.
-  const taken: [number, number][][] = [[], [], []]
-  const free = (line: number, from: number, to: number): boolean => taken[line].every(([a, b]) => to + 6 < a || from > b + 6)
-  const order = [...all].sort((a, b) => (a.day >= today) !== (b.day >= today) ? (a.day >= today ? -1 : 1) : a.day >= today ? a.day.localeCompare(b.day) : b.day.localeCompare(a.day))
-  const spots = new Map<string, { line: number; flip: boolean }>()
-  for (const one of order) {
+  // Every mark named, on two staggered lines. In date order each takes the
+  // first line with room for its whole name, right of its tick or else left
+  // of it; with no room on either, the name before it on one line is cut short
+  // to make some. A cut name says the rest when pointed at. Names sit on the
+  // page's own colour, so a tick passing behind one never runs through it.
+  type Spot = { line: number; flip: boolean; width: number; from: number; to: number }
+  const sorted = [...all].sort((a, b) => a.day.localeCompare(b.day))
+  const taken: Spot[][] = [[], []]
+  const free = (line: number, from: number, to: number): boolean => taken[line].every((one) => to + 4 < one.from || from > one.to + 4)
+  const spots = new Map<string, Spot>()
+  for (const one of sorted) {
     const left = x(indexOf(one.day))
-    const width = labelWidth(one)
-    let spot: { line: number; flip: boolean } | null = null
-    // Its tick runs down through every line under its name: those must be clear at its x too.
-    const below = (line: number): boolean => [1, 2].every((under) => under <= line || free(under, left - 1, left + 1))
-    for (let line = 0; line < 3 && !spot; line++) {
-      if (!below(line)) continue
-      if (left + 3 + width <= w && free(line, left, left + 3 + width)) spot = { line, flip: false }
-      else if (left - 3 - width >= 0 && free(line, left - 3 - width, left)) spot = { line, flip: true }
+    const want = labelWidth(one)
+    let spot: Spot | null = null
+    for (let line = 0; line < 2 && !spot; line++) if (left + 3 + want <= w && free(line, left, left + 3 + want)) spot = { line, flip: false, width: want, from: left, to: left + 3 + want }
+    for (let line = 0; line < 2 && !spot; line++) if (left - 3 - want >= 0 && free(line, left - 3 - want, left)) spot = { line, flip: true, width: want, from: left - 3 - want, to: left }
+    if (!spot) {
+      // The line whose last name started furthest back gives up the most room.
+      const line = [0, 1].sort((a, b) => (taken[a].at(-1)?.from ?? -1) - (taken[b].at(-1)?.from ?? -1))[0]
+      const before = taken[line].at(-1)
+      if (before && !before.flip) {
+        before.width = Math.max(14, Math.min(before.width, left - 7 - before.from))
+        before.to = before.from + 3 + before.width
+      }
+      const width = Math.min(want, w - left - 3)
+      spot = width >= 30 || !before ? { line, flip: false, width: Math.max(14, width), from: left, to: left + 3 + Math.max(14, width) }
+        : ((width) => ({ line, flip: true, width, from: left - 3 - width, to: left }))(Math.max(14, Math.min(want, left - (before?.to ?? 0) - 7)))
     }
-    if (spot) {
-      taken[spot.line].push(spot.flip ? [left - 3 - width, left] : [left, left + 3 + width])
-      for (let under = spot.line + 1; under < 3; under++) taken[under].push([left - 1, left + 1])
-    }
-    spots.set(one.id, spot ?? { line: -1, flip: false })
+    taken[spot.line].push(spot)
+    spots.set(one.id, spot)
   }
   const placed = all.map((one) => ({ one, left: x(indexOf(one.day)), ...spots.get(one.id)! }))
   const fromPointer = (clientX: number): number => {
@@ -317,7 +334,7 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
     <DayMarkMenu day={aimed} all={all} onOpenDay={onOpenDay}>
       <figure data-year-marks aria-label={`${year}, with ${num(all.length)} marked ${all.length === 1 ? 'day' : 'days'}`} className="relative w-full"
         onContextMenuCapture={(event) => setAimed(near && hover !== null ? near.day : dayAt(fromPointer(event.clientX)))}>
-        <div ref={box} className="relative h-[calc(48px+30px+1.9rem)] cursor-default"
+        <div ref={box} className="relative h-[calc(32px+30px+1.9rem)] cursor-default"
           onPointerMove={(event) => setHover(fromPointer(event.clientX))} onPointerLeave={() => setHover(null)}
           onClick={() => {
             if (shownDay === null) return
@@ -330,27 +347,27 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
           }}>
           {w > 0 && (
             <>
-              {placed.map(({ one, left, line, flip }) => line >= 0 && (
-                <span key={one.id} data-mark-label className="absolute flex max-w-[150px] items-center gap-1 truncate text-[0.6875rem] leading-[1rem] font-medium whitespace-nowrap"
-                  style={{ ...(flip ? { right: w - left + 3 } : { left: left + 3 }), top: line * 16, color: inkOf(one) }}>
+              {placed.map(({ one, left, line, flip, width }) => line >= 0 && (
+                <span key={one.id} data-mark-label title={one.title} className="absolute z-10 flex items-center gap-1 overflow-hidden bg-background pr-0.5 text-[0.6875rem] leading-[1rem] font-medium whitespace-nowrap"
+                  style={{ ...(flip ? { right: w - left + 3 } : { left: left + 3 }), maxWidth: width, top: line * 16, color: inkOf(one) }}>
                   {one.icon && <span className="leading-none">{one.icon}</span>}
                   <span className="truncate">{one.title}</span>
                 </span>
               ))}
-              <svg aria-hidden width={w} height={H + 48} className="absolute top-[0.1rem] left-0 overflow-visible">
-                <g transform="translate(0 48)">
+              <svg aria-hidden width={w} height={H + 32} className="absolute top-[0.1rem] left-0 overflow-visible">
+                <g transform="translate(0 32)">
                   <path d={ticks((d) => d < at && !marked.has(d), (d) => (first(d) ? 16 : 9))} stroke="var(--foreground)" strokeWidth={1} fill="none" opacity={0.42} />
                   <path d={ticks((d) => d > at && !marked.has(d), (d) => (first(d) ? 16 : 6))} stroke="var(--foreground)" strokeWidth={1} fill="none" opacity={0.22} />
                   {at >= 0 && at < days && <path d={`M${x(at)} ${H}V${H - 26}`} stroke="var(--primary)" strokeWidth={2} fill="none" />}
                   {placed.map(({ one, left, line }) => (
                     // Tall and in its colour, reaching up to its name.
-                    <path key={one.id} d={`M${left} ${H}V${line < 0 ? 2 : line * 16 - 48}`} stroke={inkOf(one)} strokeWidth={1.75} fill="none" opacity={indexOf(one.day) < at ? 0.75 : 1} />
+                    <path key={one.id} d={`M${left} ${H}V${line < 0 ? 2 : line * 16 - 32}`} stroke={inkOf(one)} strokeWidth={1.75} fill="none" opacity={indexOf(one.day) < at ? 0.75 : 1} />
                   ))}
                   {shownDay !== null && <path d={`M${x(shownDay)} ${H + 2}V${H - 30}`} stroke="var(--foreground)" strokeWidth={1} fill="none" opacity={0.35} />}
                 </g>
               </svg>
               {months.map((month) => (
-                <span key={month.name} className="absolute top-[calc(48px+30px+0.55rem)] text-[0.6875rem] leading-none text-muted-foreground" style={{ left: x(month.d) - 0.5 }}>{month.name}</span>
+                <span key={month.name} className="absolute top-[calc(32px+30px+0.55rem)] text-[0.6875rem] leading-none text-muted-foreground" style={{ left: x(month.d) - 0.5 }}>{month.name}</span>
               ))}
               {shownDay !== null && (
                 <span className="pointer-events-none absolute -bottom-1 z-10 -translate-x-1/2 translate-y-full rounded-md bg-popover px-2 py-1 text-xs whitespace-nowrap text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10"
@@ -383,7 +400,8 @@ export function RulerMarks({ start, days, width, today }: { start: string; days:
     <>
       {all.map((one) => {
         const left = x(one.day)
-        const named = Math.abs(left - todayX) > 90 && left > end + 8
+        // Today's "Day N · N kept" sits centred over its tick, about 80px each side.
+        const named = (left + labelWidth(one) + 8 < todayX - 80 || left - 8 > todayX + 80) && left > end + 8
         if (named) end = left + labelWidth(one)
         return (
           <span key={one.id} aria-hidden data-ruler-mark>
