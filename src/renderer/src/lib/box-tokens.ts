@@ -9,6 +9,7 @@ import { readTask, PRIORITY_NAMES, bucketOf, type Span } from '../../../main/tas
 import { kindOf } from '../../../main/import'
 import { dayKey, dayMonth, short } from '../../../main/dates'
 import * as chrono from 'chrono-node'
+import dayjs from 'dayjs'
 import { lengthSaid, timerFrom } from './timer'
 import { saidBy } from './welcome-box'
 import { clueTarget } from '@/components/vigil/questions-view'
@@ -302,7 +303,7 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
         : span.kind === 'repeat' && /^until\b/i.test(words) && read.until ? `Until ${when(read.until, true)}`
         : span.kind === 'repeat' && read.recurrence ? `Repeat ${read.recurrence.replace(/^every!?\s*/i, 'every ')}${/^every!/i.test(read.recurrence) ? ', counted from when you last did it' : ''}`
         : span.kind === 'priority' ? `Priority: ${PRIORITY_NAMES[read.priority]}`
-        : span.kind === 'plan' && read.plan ? `Plan it for ${{ month: 'this month', year: 'this year', next: 'next year', someday: 'someday' }[bucketOf(read.plan) ?? 'someday']}`
+        : span.kind === 'plan' && read.plan ? `Plan it for ${read.plan.length === 7 && bucketOf(read.plan, now) !== 'month' ? dayjs(`${read.plan}-01`).format('MMMM') : { month: 'this month', year: 'this year', next: 'next year', someday: 'someday' }[bucketOf(read.plan, now) ?? 'someday']}`
         : span.kind === 'notify' && read.notify ? `Remind ${{ pull: 'only when you look', quiet: 'quietly', alerts: 'with an alert' }[read.notify]}`
         : null
       if (effect) tokens.push(token(span.kind, pos(span.from), pos(span.to), effect))

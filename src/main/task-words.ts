@@ -191,6 +191,14 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
     add(ordinal.index, ordinal[0].length, month.date(Math.min(day, month.daysInMonth())).toDate(), false)
     onDay = dates[dates.length - 1]
   }
+  // How long it takes is not when: "10 min walk every day", "read 20 min
+  // tomorrow". A bare length is covered while the dates are read, and kept in
+  // the name; "in 10 min" is still a time from now.
+  const lengths: { from: number; to: number }[] = []
+  for (const match of rest.matchAll(/(?<!\b(?:in|within|after)\s+)\b\d+(?:[.,]\d+)?\s*(?:m|mins?|minutes?|h|hrs?|hours?|secs?|seconds?)\b/gi)) {
+    lengths.push({ from: match.index, to: match.index + match[0].length })
+    rest = rest.slice(0, match.index) + ''.repeat(match[0].length) + rest.slice(match.index + match[0].length)
+  }
   for (const found of chrono.parse(rest, at, { forwardDate: true }).slice(0, 2)) {
     // "on the 1st at 3pm": the day from the ordinal, the time from chrono.
     const timeOnly = found.start.isCertain('hour') && !found.start.isCertain('day') && !found.start.isCertain('weekday')
@@ -225,7 +233,7 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
 
   // A word left hanging where a date was taken out: "email Sam on". Only
   // then, so "sign up for" keeps its "for".
-  for (const one of kept) rest = rest.slice(0, one.from) + text.slice(one.from, one.to) + rest.slice(one.to)
+  for (const one of [...kept, ...lengths]) rest = rest.slice(0, one.from) + text.slice(one.from, one.to) + rest.slice(one.to)
   let title = rest.replace(/\s+/g, ' ').trim()
   if (dates.length) title = title.replace(/\s+(?:by|on|at|due|before|for|from)$/i, '').trim()
   // Punctuation that only joined a taken word to the rest: "Someday: learn

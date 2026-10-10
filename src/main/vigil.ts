@@ -553,6 +553,9 @@ function addTask(text: string, origin: string | null = null, today = false, plai
     if (origin) db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(twin.id, origin)
     // A reminder word said again ("!alert") is still heard.
     if (task.notify) db.prepare('update tasks set notify = ? where id = ?').run(task.notify, twin.id)
+    // So is a priority said again ("call mum p1"): the open task takes it, as the box's This will line says.
+    if (task.spans.some((span) => span.kind === 'priority'))
+      db.prepare('update tasks set priority = ?, important = ? where id = ?').run(task.priority, [1, 2].includes(task.priority) ? 1 : 0, twin.id)
     return { ...twin, existed: true }
   }
   const id = randomUUID()

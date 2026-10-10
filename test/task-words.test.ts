@@ -125,3 +125,32 @@ test('words kept as plain text are not read, and stay in the title', () => {
   assert.equal(day(plainP1.due), 'Tue Oct 06 2026')
   assert.equal(plainP1.title, 'call mom p1')
 })
+
+test('a bare length is how long, not when: "10 min walk every day"', () => {
+  const read = readTask('10 min walk every day', at)
+  assert.equal(read.title, '10 min walk')
+  assert.equal(read.recurrence, 'every day')
+  // All day from today, not ten minutes from now.
+  assert.equal(read.allDay, true)
+  assert.equal(day(read.due), 'Mon Oct 05 2026')
+  assert.ok(!read.spans.some((span) => span.kind === 'date'))
+})
+
+test('a length beside a day keeps the day: "read 20 min tomorrow"', () => {
+  const read = readTask('read 20 min tomorrow', at)
+  assert.equal(read.title, 'read 20 min')
+  assert.equal(day(read.due), 'Tue Oct 06 2026')
+  assert.equal(read.allDay, true)
+})
+
+test('"in 10 min" is still a time from now', () => {
+  const read = readTask('stretch in 10 minutes', at)
+  assert.equal(read.title, 'stretch')
+  assert.equal(new Date(read.due!).toString().slice(0, 21), 'Mon Oct 05 2026 10:10')
+})
+
+test('a length alone is no date at all', () => {
+  const read = readTask('10 min walk', at)
+  assert.equal(read.due, null)
+  assert.equal(read.title, '10 min walk')
+})

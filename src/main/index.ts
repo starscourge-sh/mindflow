@@ -194,9 +194,6 @@ let expandedNow = false
 const boxHeight = (): number =>
   expandedNow ? SIZES.expanded.height : panelOpen ? SIZES.compact.height : Math.round(Math.min(SIZES.compact.height, Math.max(FIT_MIN, fit)))
 
-/** What summons the window. */
-const SUMMON = 'Command+.'
-
 /** Keys as Settings writes them (⌥⌘S) in Electron's words (Alt+Command+S); null for none, or two in a row. */
 function accelerator(keys: string | null | undefined): string | null {
   if (!keys || keys.includes(' ')) return null
@@ -206,6 +203,11 @@ function accelerator(keys: string | null | undefined): string | null {
   const words = [['⌃', 'Control'], ['⌥', 'Alt'], ['⇧', 'Shift'], ['⌘', 'Command']].filter(([glyph]) => mods.includes(glyph)).map(([, word]) => word)
   return [...words, names[base] ?? base].join('+')
 }
+
+/** The keys you chose in Settings (default keys: yours, or null for none), for the menus' labels. */
+let chosenKeys: Record<string, string | null> = {}
+/** A menu item's key as you press it now: your own if you changed it, none if you cleared it. */
+const chordFor = (made: string): string | undefined => accelerator(made in chosenKeys ? chosenKeys[made] : made) ?? undefined
 
 /**
  * Where the window was when it was last put away.
@@ -785,7 +787,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
       : params.selectionText ? [{ role: 'copy' }, { type: 'separator' }] : []
     Menu.buildFromTemplate([
       ...writing,
-      { label: 'Tidy stickies', accelerator: 'Control+Alt+Command+T', click: () => void tidyStickies(win.webContents) },
+      { label: 'Tidy stickies', accelerator: chordFor('⌃⌥⌘T'), click: () => void tidyStickies(win.webContents) },
       ...(canUntidy() ? [{ label: 'Put them back', click: untidyStickies }] : [])
     ]).popup({ window: win })
   })
@@ -2132,7 +2134,7 @@ function updateTray(): void {
       // In the sandbox the way out comes first; from your notes, the way in.
       // A reset cannot be undone, so it is asked in the main window, where Start over is held.
       ...(SANDBOX ? [{ label: 'Back to my notes', click: () => relaunch('real') }, { label: 'Reset the sandbox…', click: () => (openHome(), makeHome().webContents.send('sandbox:ask-reset')) }, { type: 'separator' } as const] : []),
-      { label: 'Show Vigil', accelerator: SUMMON, click: () => toggleWindow() },
+      { label: 'Show Vigil', accelerator: chordFor('⌘.'), click: () => toggleWindow() },
       { label: 'Open the main window', click: openHome },
       // The book open now, ticked, and the way to each of the others.
       {
@@ -2149,10 +2151,10 @@ function updateTray(): void {
       ...(SANDBOX ? [] : [{ label: 'Import into another book…', click: () => inHome('vigil:book-import') }]),
       ...(SANDBOX ? [] : [{ label: 'Restore from a backup…', click: () => void restore() }, { label: 'Open the sandbox', click: openSandbox }]),
       { type: 'separator' },
-      { label: 'Safe mode', type: 'checkbox', checked: safe, click: () => (toggleSafeMode(), updateTray()) },
-      { label: 'Show sticky notes', type: 'checkbox', checked: stickyPrefs().shown, click: () => showStickies() },
+      { label: 'Safe mode', type: 'checkbox', checked: safe, accelerator: chordFor('⌥⌘S'), click: () => (toggleSafeMode(), updateTray()) },
+      { label: 'Show sticky notes', type: 'checkbox', checked: stickyPrefs().shown, accelerator: chordFor('⌃⌥⌘N'), click: () => showStickies() },
       { label: 'Bring sticky notes here', enabled: !safe && stickies.size > 0, click: () => gatherStickies() },
-      { label: 'Tidy stickies', accelerator: 'Control+Alt+Command+T', enabled: !safe && stickies.size > 0, click: () => void tidyStickies() },
+      { label: 'Tidy stickies', accelerator: chordFor('⌃⌥⌘T'), enabled: !safe && stickies.size > 0, click: () => void tidyStickies() },
       ...(canUntidy() ? [{ label: 'Put stickies back', click: untidyStickies }] : []),
       { type: 'separator' },
       { label: 'Quit Vigil', accelerator: 'Command+Q', click: quit }
@@ -2996,6 +2998,9 @@ app.whenReady().then(() => {
   // the menu bar says it took. Both keys can be changed in Settings, so they
   // are taken again whenever the keys change.
   const anywhere = (keys: Record<string, string | null>): void => {
+    // The menus say the keys as they are now.
+    chosenKeys = keys
+    updateTray()
     globalShortcut.unregisterAll()
     const take = (made: string, run: () => void): void => {
       const now = made in keys ? keys[made] : made
