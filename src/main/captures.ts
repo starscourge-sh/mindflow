@@ -9,6 +9,7 @@ import { hostname } from 'os'
 import { backUp, checkMarkdown, writeMarkdown } from './backup'
 import { markdown } from './vigil'
 import { celebrateAfter } from './celebrate'
+import { syncLineCards } from './line-cards'
 import { RETIRED, tagged, withTag } from './kinds'
 import { chunks, createdOf, firstLine, guessKind, isBit, kindOf, propertiesOf, titleOfMarkdown, unstamp, withoutNotionId } from './import'
 
@@ -407,7 +408,7 @@ export function registerCaptures(): void {
          select 'capture' as type, id, number, kind, status, source, attribution, ${LABEL} as label, captured_at as capturedAt
            from captures where status != 'discarded' and ${match(`(${LABEL} || ' ' || words(id, body) || ' ' || coalesce(medium, '') || ' ' || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, ''))`)}
          union all
-         select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), created_at from nuggets where ${match("(title || ' ' || words(id, body) || ' ' || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, ''))")}
+         select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), created_at from nuggets where tier != 'card' and ${match("(title || ' ' || words(id, body) || ' ' || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, ''))")}
          union all
          select 'task', id, number, 'todo', status, '', null, title, created_at from tasks where ${match("(title || ' ' || coalesce(notes, ''))")}
        ) ${kind ? 'where kind = ?' : ''} order by capturedAt desc limit 60`
@@ -464,6 +465,7 @@ export function registerCaptures(): void {
       db.prepare(`update captures set origin_id = ?, attribution = coalesce(
         (select attribution from captures where id = ?), (select attribution from nuggets where id = ?)) where id = ?`).run(patch.origin, patch.origin, patch.origin, id)
     if (patch.markdown !== undefined) void writeMarkdown(number, patch.markdown)
+    if (patch.body !== undefined) syncLineCards(`capture:${id}`, patch.body, (db.prepare('select private from captures where id = ?').get(id) as { private: number }).private)
     changed()
     celebrateAfter('captures:create', event.sender, [raw], id)
     return id
@@ -513,6 +515,8 @@ export function registerCaptures(): void {
     // #bit written in makes it private, once: taken off by hand, it stays off.
     if (row && patch.body !== undefined && tagged(JSON.stringify(patch.body), 'bit') && !tagged(before?.body, 'bit'))
       db.prepare('update captures set private = 1 where id = ?').run(String(id))
+    // Its "question :: answer" lines kept as review cards.
+    if (row && patch.body !== undefined) syncLineCards(`capture:${String(id)}`, patch.body, (db.prepare('select private from captures where id = ?').get(String(id)) as { private: number }).private)
     if (row && (patch.markdown !== undefined || patch.body !== undefined)) void writeMarkdown(row.number as number, patch.markdown ?? markdown(patch.body))
     else if (patch.status) checkMarkdown(String(id))
     changed({ kind: 'capture', id: String(id) })

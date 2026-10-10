@@ -742,6 +742,13 @@ export function SettingsView(): React.JSX.Element {
             <NumberSetting value={settings.reviewsPerDay} onSave={(reviewsPerDay) => set({ reviewsPerDay })} /> reviews
           </Setting>
           <CapTuning />
+          <Setting title="Review reminder" note="**A Mac notification at the time you pick, like 12 cards, about 6 minutes.** Clicking it opens Review. Once a day, never in quiet hours or safe mode, and not at all when nothing is due. Miss a day and nothing is owed: the cards wait." keywords="review reminder notification study time daily">
+            {settings.reviewReminder && (
+              <Input type="time" aria-label="Reminder time" className={`${field} w-28`} value={settings.reviewReminder}
+                onChange={(event) => event.target.value && set({ reviewReminder: event.target.value })} />
+            )}
+            <Switch aria-label="Review reminder" checked={!!settings.reviewReminder} onCheckedChange={(on) => set({ reviewReminder: on ? '09:00' : null })} />
+          </Setting>
         </Group>
         <Group section="Review" title="Exams">
           <Setting title="Exam nudges" note="**A tag with an exam date says so in quick capture when its cards fall behind.** Set the date on its page in Tags; once a day at most, never in quiet hours.">

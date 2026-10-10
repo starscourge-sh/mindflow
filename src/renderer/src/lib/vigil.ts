@@ -5,6 +5,7 @@ import { MotionGlobalConfig } from 'motion/react'
 import { chime, installTicks, setPack, setVolume, soundOn, type PackName } from './sound'
 import { useEditorSetup } from './editor-setup'
 import { watchBands } from './video-bands'
+import type { Bucket } from '../../../main/study'
 
 /** The kinds of milestone, as src/main/celebrate.ts names them. */
 export type MomentKind = 'kept' | 'streak' | 'inbox' | 'tasks' | 'year' | 'answered' | 'goalHalf' | 'goal30' | 'goal7' | 'goalDay' | 'goalMade' | 'stickyDone' | 'started' | 'taskDone'
@@ -47,6 +48,8 @@ export type Settings = {
   retention: number
   newPerDay: number
   reviewsPerDay: number
+  /** A Mac notification at this time ("09:00") when cards are due; null is off. */
+  reviewReminder?: string | null
   quietStart: string
   quietEnd: string
   safeMode: boolean
@@ -167,7 +170,8 @@ export type Scene = { id: string; url: string; mood: Mood; width: number; height
 /** A nugget or an article: the same row, told apart by `tier`. */
 export type Item = {
   id: string
-  tier: 'nugget' | 'article' | 'question' | 'goal'
+  /** A card is a "question :: answer" line written in a note (lineOf says which). */
+  tier: 'nugget' | 'article' | 'question' | 'goal' | 'card'
   kind: string
   title: string
   prompt: string | null
@@ -204,6 +208,8 @@ export type Item = {
   beacon: 'always' | 'sometimes' | 'off' | null
   /** When its newest gloss was written. */
   lastLog: string | null
+  /** A card written in a note: that note, as `capture:…`, `nugget:…` or `day:2026-10-10`. */
+  lineOf?: string | null
 }
 /** On a question, a gloss is a clue; one kept from a capture says which (`MF-12`). */
 export type Gloss = { id: string; body: string; author: 'user' | 'ai'; createdAt: string; sourceId?: string | null; sourceKey?: string | null }
@@ -476,6 +482,24 @@ export const vigil = {
   unusedStop: () => call('unused:stop'),
   unusedBin: (names: string[], extra: string[]) => call<{ moved: number; size: number }>('unused:bin', names, extra),
   bury: (id: string) => call('review:bury', id),
+  /** How many cards each practice round holds now. */
+  buckets: () => call<Record<Bucket, number>>('review:buckets'),
+  /** A short extra round of one kind of card, from all your gems. */
+  round: (bucket: Bucket) => call<Due[]>('review:round', bucket),
+  /** Gems missed again and again, set aside or not. */
+  slipping: () => call<Item[]>('review:slipping'),
+  /** This card asks something narrower, and the rest becomes a new card; `unsplit` takes it back. */
+  split: (id: string, narrower: string, question: string, answer: string) => call<{ fresh: string; was: string | null } | null>('review:split', id, narrower, question, answer),
+  unsplit: (id: string, fresh: string, was: string | null) => call('review:unsplit', id, fresh, was),
+  /** The gems a blurt left out, brought forward in Review; how many moved. */
+  blurtSooner: (ids: string[]) => call<number>('blurt:sooner', ids),
+  /** A blurt kept on today's page; gives back the day. */
+  blurtKeep: (tag: string, text: string, missed: string[]) => call<string>('blurt:keep', tag, text, missed),
+  /** The Learn Vigil deck: how many of its cards you have, and adding them (0 when already there). */
+  learnCount: () => call<number>('learn:count'),
+  learnAdd: () => call<number>('learn:add'),
+  /** The review reminder, checked now: what it said, or null when it stayed silent. */
+  remindNow: () => call<string | null>('review:reminder:now'),
   taskFrom: (ids: string[], text: string) => call<Made | null>('tasks:from', ids, text),
   bulk: (ids: string[], change: { tag?: string; capturedAt?: string }) => call<number>('captures:bulk', ids, change),
   setCapture: (id: string, field: 'attribution' | 'medium' | 'capturedAt' | 'origin', value: string | number | null) => call('capture:set', id, field, value),

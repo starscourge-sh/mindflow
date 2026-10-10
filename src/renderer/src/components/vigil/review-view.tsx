@@ -23,6 +23,8 @@ import { num } from '../../../../main/dates'
 import { Avatar } from './avatar'
 import { Signed } from './signature'
 import { useHere } from '@/lib/split'
+import { FocusChips, RoundLine, Slipping, StrugglingShelf, openLine, setAside } from './study'
+import { isLeech, type Bucket } from '../../../../main/study'
 
 /** The four grades, as the plan defines them: how the retrieval felt, not whether it was right. */
 const GRADES = [
@@ -57,6 +59,26 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   const [said, setSaid] = useState('')
   const started = useRef(Date.now())
   useEffect(() => void vigil.queue().then(setQueue), [])
+  // A practice round from the chips above: its own short queue, then back to today's.
+  const [round, setRound] = useState<Bucket | null>(null)
+  // The card that keeps slipping, held up after its miss until you say what to do with it.
+  const [slipping, setSlipping] = useState<{ card: Due; splitting: boolean } | null>(null)
+  const heading = useRef<HTMLHeadingElement>(null)
+  const fresh = (cards: Due[], bucket: Bucket | null): void => {
+    setQueue(cards)
+    setRound(bucket)
+    setAt(0)
+    setReviewed(new Set())
+    setShown(false)
+    setOver(false)
+    setSaid('')
+    setMissed(null)
+    setSlipping(null)
+    setCameBack(false)
+    started.current = Date.now()
+  }
+  const startRound = (bucket: Bucket): void => void vigil.round(bucket).then((cards) => (chime('riffle'), fresh(cards, bucket)))
+  const leaveRound = (): void => void vigil.queue().then((cards) => (chime('fold'), fresh(cards, null)))
   // Nothing has a question to be tested on yet: an example card shows what Review does with one.
   const ideas = useLive(() => vigil.items('nugget'), [] as Item[], [], ['item'])
   const card = queue?.[at]
@@ -105,6 +127,10 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     if (value !== 1 && queue && at + 1 === queue.length) setTimeout(() => chime('reviewed'), 380)
     // Again is not failure, it is a short gap: the card comes round once more
     // before the session ends.
+    // A miss on a card already seen counts; its fourth and after, it is slipping.
+    if (value === 1 && card.reviewed) card.lapses += 1
+    card.reviewed = 1
+    if (value === 1 && isLeech(card.lapses) && !card.suspended) setSlipping({ card, splitting: false })
     if (value === 1) {
       setQueue((cards) => [...(cards ?? []), card])
       // Missed: the place it came from is offered, to read it again in context.
@@ -129,13 +155,51 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   const bury = (): void => {
     if (!card) return
     setMissed(null)
-    void vigil.bury(card.id).then(() => (chime('later'), toast('Buried until tomorrow')))
+    // In a practice round, Not today only skips: an extra round moves nothing you did not grade.
+    if (round) chime('later')
+    else void vigil.bury(card.id).then(() => (chime('later'), toast('Buried until tomorrow')))
     setShown(false)
     setOver(false)
     setSaid('')
     setCameBack(false)
     setAt((index) => index + 1)
   }
+  // The slipping card's three ways on. Its second showing is already at the
+  // end of the queue (Again put it there).
+  const lastCopy = (cards: Due[], id: string): number => cards.findLastIndex((one, n) => n >= at && one.id === id)
+  const rewrite = (): void => {
+    if (!slipping) return
+    const { card: slipped } = slipping
+    setSlipping(null)
+    // The card back in front now, its question ready to rewrite.
+    setQueue((cards) => {
+      if (!cards) return cards
+      const last = lastCopy(cards, slipped.id)
+      const rest = last >= 0 ? cards.filter((_, n) => n !== last) : cards
+      return [...rest.slice(0, at), slipped, ...rest.slice(at)]
+    })
+    chime('tap')
+    setTimeout(() => {
+      const h = heading.current
+      if (!h) return
+      h.focus()
+      getSelection()?.selectAllChildren(h)
+    }, 80)
+  }
+  const aside = (): void => {
+    if (!slipping) return
+    const { card: slipped } = slipping
+    setSlipping(null)
+    slipped.suspended = 1
+    setQueue((cards) => {
+      const last = cards ? lastCopy(cards, slipped.id) : -1
+      return cards && last >= 0 ? cards.filter((_, n) => n !== last) : cards
+    })
+    setAside(slipped, true)
+  }
+  // A card written in a note: R opens the note at its line.
+  const lineCard = card?.lineOf ? card : null
+  const lineFrom = useLive(() => (lineCard?.lineOf ? vigil.linkTitle(lineCard.lineOf) : Promise.resolve(null)), null as Awaited<ReturnType<typeof vigil.linkTitle>> | null, [lineCard?.lineOf])
   // Split, only the pane in front answers keys.
   const here = useHere()
   useEffect(() => {
@@ -153,6 +217,19 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
       }
       // Never while typing: in the prompt the editor sits beside the review.
       if (typing()) return
+      // The slipping card's choices take the keys until one is made.
+      if (slipping) {
+        if (slipping.splitting) return
+        const way = { '1': rewrite, '2': () => setSlipping({ ...slipping, splitting: true }), '3': aside, Escape: () => setSlipping(null) }[event.key]
+        if (!way) return
+        event.preventDefault()
+        event.stopPropagation()
+        return way()
+      }
+      if (event.key === 'r' && lineCard?.lineOf) {
+        event.preventDefault()
+        return openLine(lineCard.lineOf, lineCard.prompt)
+      }
       if (event.key === 'r' && missed) {
         event.preventDefault()
         chime('read')
@@ -183,9 +260,31 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
         <SourcePanel source={source} onClose={leaveSource} />
       </Page>
     )
+  if (slipping)
+    return (
+      <Page title="Review">
+        <div className="mx-auto w-full max-w-2xl">
+          <Slipping card={slipping.card} splitting={slipping.splitting} onRewrite={rewrite} onSplit={() => (chime('tap'), setSlipping({ ...slipping, splitting: true }))}
+            onAside={aside} onKeep={() => setSlipping(null)} onSplitDone={() => setSlipping(null)} />
+        </div>
+      </Page>
+    )
+  if (!card && round)
+    return (
+      <Page title="Review">
+        <Rest seed="review-round" compact={compact}>
+          <Empty compact={compact} shaped shape={['star', 3]} title={<>Round done: <Rolling text={reviewed.size} /> practised</>}
+            action={<Button variant="outline" size="sm" onClick={leaveRound}>Back to today’s cards</Button>}>
+            The cards you graded keep their new dates; the rest are where they were.
+          </Empty>
+        </Rest>
+      </Page>
+    )
   if (!card)
     return (
       <Page title="Review">
+        <div className="mx-auto w-full max-w-2xl">
+        <FocusChips round={null} onPick={startRound} />
         {queue.length ? (
           <Rest seed="review-done" compact={compact}>
             <Empty compact={compact} shaped shape={['star', 2]} title={<>Done: <Rolling text={reviewed.size} /> reviewed</>}>
@@ -206,6 +305,8 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
           )
         )}
         <Exams exams={exams} />
+        <StrugglingShelf />
+        </div>
       </Page>
     )
 
@@ -213,7 +314,8 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     <Page title="Review">
       {/* One card at a time in the middle of the page, never a narrow card with an empty half beside it. */}
       <div className="mx-auto w-full max-w-2xl">
-      {at === 0 && <Exams exams={exams} />}
+      {round ? <RoundLine round={round} onLeave={leaveRound} /> : at === 0 && <FocusChips round={null} onPick={startRound} />}
+      {at === 0 && !round && <Exams exams={exams} />}
       <Through at={at} total={queue.length} />
       {missed && (
         <p className="px-5 pt-3 -mb-1 text-xs text-muted-foreground">
@@ -240,6 +342,12 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
         transition={{ duration: 0.22, ease: EASE }}
         className="flex flex-col gap-6 px-5 pt-4 pb-8"
       >
+        {lineCard && (
+          <p data-line-from className="-mb-4 flex items-center gap-1.5 text-sm text-muted-foreground">
+            <span className="min-w-0 truncate">From <span className="text-foreground">{lineFrom?.title || 'a note'}</span>, a line written as a card.</span>
+            <span className="shrink-0">Open it at the line</span> <Pressed keys="R" />
+          </p>
+        )}
         {card.exam && (
           <p className="-mb-4 text-xs text-muted-foreground">
             For #{card.exam}{(() => {
@@ -258,6 +366,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
                   is usually asking the wrong thing, and this is where you notice. */}
               <h2
                 key={`${card.id}-${rewrites}`}
+                ref={heading}
                 contentEditable
                 suppressContentEditableWarning
                 // One line: Enter keeps it rather than starting a second.
@@ -306,7 +415,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
             </BorderBeam>
           )}
         />
-        {card.lapses >= 4 && (
+        {isLeech(card.lapses) && (
           <p className="-mt-3 text-sm text-[var(--tt-color-text-orange)]">
             <Typed text={`Forgotten ${card.lapses} times. Rewrite the question above rather than drilling it: click it to edit.`} step={28} delay={300} />
           </p>
@@ -378,11 +487,12 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
         )}
         {!shown && (
           <Button variant="ghost" size="sm" onClick={bury} className="-mt-3 self-start text-muted-foreground">
-            Not today <Pressed keys="B" />
+            {round ? 'Skip' : 'Not today'} <Pressed keys="B" />
           </Button>
         )}
       </motion.div>
       </AnimatePresence>
+      {at === 0 && !round && !shown && <StrugglingShelf />}
       </div>
     </Page>
   )

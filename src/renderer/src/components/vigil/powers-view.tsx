@@ -12,6 +12,7 @@ import { PlaceIcon, SECTIONS, type Place } from './places'
 import { Pressed, SmoothScroll, toast } from './ui'
 import { ProgressBar } from './progress-bar'
 import { Highlight, useFluidHover } from './glide'
+import { LearnOffer } from './study'
 import './powers.css'
 
 /**
@@ -54,6 +55,8 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
             </p>
             <ProgressBar value={tried / POWERS.length} label={`${tried} of ${POWERS.length} tried`} thick={3} />
           </div>
+          {/* The same, as cards: about twenty questions on what is here, asked in Review a few a day. */}
+          <LearnOffer className="-ml-2 mt-3" />
         </header>
         {/* One light over the chips, gliding to the nearest, as the sidebar's does. */}
         <nav ref={chipRow} {...chipHover.handlers} aria-label="Groups" className="relative isolate mt-7 flex flex-wrap gap-1.5">

@@ -109,6 +109,18 @@ export const POWERS: Power[] = [
     show: { view: 'nuggets', at: ROW, text: 'Open a gem: under Comes back, choose Often or Not at all.' }, used: (s) => s.items.some((item) => !!item.suspended) },
   { id: 'questions', group: 'Remembering', name: 'Questions you are holding', tryIt: 'Open a question and add a clue.', line: 'Keep a question open for weeks while clues gather under it, until you can answer it.',
     show: { view: 'questions', at: ROW, text: 'Every open question, with its clues.' }, used: (s) => s.items.some((item) => item.tier === 'question') },
+  { id: 'linecards', group: 'Remembering', name: 'Cards written in a note', tryIt: 'Type a line like Capital of Peru :: Lima in any note.', line: 'Write a line as question :: answer in any note and it becomes a review card, marked at the line’s end and kept in step as you edit it.',
+    show: { view: 'day', at: '.tiptap.ProseMirror', text: 'Type a line like Capital of Peru :: Lima. Review asks the words before ::, and R there opens the note at that line.' } },
+  { id: 'slipping', group: 'Remembering', name: 'Cards that keep slipping', line: 'Miss a card a fourth time and Review offers to rewrite it, split it in two or set it aside; the Struggling shelf keeps them.', keys: ['1', '2', '3'],
+    show: { view: 'review', at: '[data-struggling]', text: 'Every card missed four times or more, with a way to rest it or bring it back.' }, used: (s) => s.items.some((item) => item.lapses >= 4) },
+  { id: 'practice', group: 'Remembering', name: 'Practise by focus', line: 'Five chips above Review start a short extra round from all your gems: weak spots, ones still being learnt, old ones, ones you know, or new ones.',
+    show: { view: 'review', at: '[data-focus-chips]', text: 'Pick a chip for a round of up to ten. Only a grade moves a card’s next date.' } },
+  { id: 'blurt', group: 'Remembering', name: 'Blurt a tag', tryIt: 'Open a tag and choose Blurt.', line: 'Write everything you remember about a tag in five minutes, then see its gems with the ones you left out lit, and those come up sooner in Review.',
+    show: { view: 'tags', at: ROW, text: 'Open a tag and choose Blurt at the top. What you write is kept on today’s page.' } },
+  { id: 'reviewreminder', group: 'Remembering', name: 'A reminder to review', tryIt: 'In Settings, turn on Review reminder and pick a time.', line: 'At the time you pick, a notification says how many cards are due and about how long they take; it stays quiet when none are.',
+    show: { view: 'settings', settings: 'Review', find: 'Review reminder', at: '[data-setting]', text: 'Turn it on and pick a time. Never in quiet hours.' } },
+  { id: 'learnvigil', group: 'Remembering', name: 'Learn Vigil by reviewing it', line: 'One click adds about twenty cards on what Vigil does without showing it, tagged #learn-vigil; they come a few a day.',
+    show: { view: 'powers', at: '[data-learn]', text: 'Add the deck here, or from Getting started.' }, used: (s) => s.tags.includes('learn-vigil') },
 
   // Planning
   { id: 'decision', group: 'Planning', name: 'A decision comes back', line: 'Write down what you decided and when to look again, and on that day it asks if it still holds.',

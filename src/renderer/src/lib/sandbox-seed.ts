@@ -197,6 +197,24 @@ export async function seedSandbox(read: Read): Promise<SeedCounts> {
   await v('item:save', redPill, { title: 'Red pill or blue pill?', prompt: 'Red pill or blue pill: which one does Neo take, and what does it cost him?' })
   nuggets++
 
+  // Missed four times: Review offered to rewrite it, split it or set it aside, and it waits on the Struggling shelf.
+  const lagrange = await v<string>('nugget:from', 'Five points where a small body can sit still between two large ones, held there by both pulls and its orbit. The Webb telescope sits at L2, a million miles beyond the Earth. #astrophysics', {})
+  await v('item:save', lagrange, { title: 'Lagrange points', prompt: 'What are the Lagrange points, how many are there, and which one does Webb use?' })
+  for (const grade of [3, 1, 1, 1, 1, 2]) await v('review:grade', lagrange, grade, 9000)
+  nuggets++
+
+  // Cards written inside a note: every line with a question, two colons and an answer is a card of its own.
+  const kepler = await capture({}, at(-3, '20:10'))
+  await write(kepler, `
+Kepler's three laws, for the #astrophysics exam. A line written as a question, two colons and its answer is a review card of its own, marked at its end.
+
+**Try it:** add a line of your own the same way, then find it in Review, where R opens this note at that line.
+
+- First law :: Every planet moves in an ellipse, with the Sun at one focus.
+- Second law :: A line from the Sun to a planet sweeps out equal areas in equal times.
+- Third law :: The square of a planet's year is proportional to the cube of its orbit's size.
+`)
+
   // Corrected, not erased.
   const pluto = await v<string>('nugget:from', 'Pluto is the ninth planet.', {})
   const plutoFixed = await v<string>('supersede', pluto, 'Pluto is a dwarf planet, since the vote in Prague in 2006.')

@@ -3636,3 +3636,15 @@ html[data-motion="off"] .tiptap.ProseMirror.mindflow-editor .mf-contents-landed 
     background-color: color-mix(in srgb, var(--tt-brand-color-500) 12%, transparent);
   }
 }
+
+// A line written as "question :: answer" is a review card: a small card at
+// its end says so (extensions/line-cards.ts). Muted, never a button.
+.tiptap.ProseMirror.mindflow-editor .mf-line-card {
+  display: inline-flex;
+  vertical-align: -0.12em;
+  margin-left: 0.4em;
+  color: var(--tt-color-text-purple, var(--muted-foreground));
+  opacity: 0.8;
+  user-select: none;
+  cursor: default;
+}

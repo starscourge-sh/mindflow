@@ -1041,6 +1041,113 @@ const EmbedsDemo: Demo = ({ live }) => {
   )
 }
 
+// ---------------------------------------------------------------- Studying
+
+const LINE_CARD = 'Capital of Peru :: Lima'
+const LineCardsDemo: Demo = ({ live }) => {
+  const at = useSteps([typeMs(LINE_CARD, 60), 2200], live, 1)
+  const text = useTyped(LINE_CARD, at === 0, 60)
+  return (
+    <Col>
+      <div className="rounded-lg border bg-background px-3 py-2 text-control text-foreground">
+        <div className="text-muted-foreground">Trip notes</div>
+        <div className="mt-1 flex items-center gap-1.5">
+          <span>{at === 0 ? text : LINE_CARD}</span>{at === 0 && <Caret />}
+          <motion.span initial={false} animate={{ opacity: at === 1 ? 1 : 0, scale: at === 1 ? 1 : 0.6 }} transition={spring.moderate} className="inline-flex"><Chip tint="purple">card</Chip></motion.span>
+        </div>
+      </div>
+      <div className={`px-1 text-meta text-muted-foreground transition-opacity ${at === 1 ? 'opacity-100' : 'opacity-0'}`}>In Review: Capital of Peru?</div>
+    </Col>
+  )
+}
+
+const SLIP_WAYS = ['Rewrite it', 'Split it', 'Set it aside']
+const SlippingDemo: Demo = ({ live }) => {
+  const at = useSteps([1300, 1100, 1100, 1700], live, 3)
+  return (
+    <Col>
+      <div className="rounded-lg border px-3 py-2" style={{ borderColor: 'color-mix(in srgb, var(--tt-color-text-orange) 35%, var(--border))' }}>
+        <div className="text-control font-semibold" style={{ color: 'var(--tt-color-text-orange)' }}>This one keeps slipping</div>
+        <div className="text-meta text-muted-foreground">Missed 4 times</div>
+      </div>
+      <div className="grid grid-cols-3 gap-1">
+        {SLIP_WAYS.map((way, i) => (
+          <span key={way} className={`flex items-center justify-center rounded-md border px-1 py-1 text-center text-meta transition-colors duration-200 ${at === i + 1 ? 'border-transparent bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>{way}</span>
+        ))}
+      </div>
+    </Col>
+  )
+}
+
+const ROUNDS = [{ name: 'Weak spots', n: 3 }, { name: 'Finish learning', n: 7 }, { name: 'Revive old', n: 12 }, { name: 'Keep fresh', n: 40 }, { name: 'New', n: 5 }]
+const PracticeDemo: Demo = ({ live }) => {
+  const at = useSteps([900, 900, 900, 900, 900, 1400], live, 0)
+  return (
+    <div className="flex w-full max-w-[17rem] flex-wrap justify-center gap-1">
+      {ROUNDS.map((round, i) => (
+        <span key={round.name} className={`rounded-md px-2 py-0.5 text-meta transition-colors duration-200 ${at % ROUNDS.length === i ? 'bg-accent text-foreground' : 'text-muted-foreground'}`}>
+          {round.name} <span className="tabular-nums">{round.n}</span>
+        </span>
+      ))}
+      <div className="mt-2 w-full text-center text-meta text-muted-foreground">Nothing moves unless you grade it</div>
+    </div>
+  )
+}
+
+const BLURT = 'event horizon, light cannot escape, Hawking'
+const BlurtDemo: Demo = ({ live }) => {
+  const at = useSteps([typeMs(BLURT, 45), 2400], live, 1)
+  const text = useTyped(BLURT, at === 0, 45)
+  return (
+    <Col>
+      {at === 0 ? (
+        <div className="rounded-lg border bg-background px-3 py-2 text-control text-foreground">
+          <div className="flex text-meta text-muted-foreground"><span className="flex-1">#astrophysics</span><span className="tabular-nums">4:12</span></div>
+          <div className="mt-1">{text}<Caret /></div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1 text-meta">
+          <Row className="text-muted-foreground"><Check className="size-3" /> Event horizon</Row>
+          <Row style={{ background: 'color-mix(in srgb, var(--tt-color-text-orange) 12%, transparent)' }}><span className="size-1.5 rounded-full" style={{ background: 'var(--tt-color-text-orange)' }} /> Schwarzschild radius</Row>
+          <Row className="text-muted-foreground"><Check className="size-3" /> Hawking radiation</Row>
+        </div>
+      )}
+    </Col>
+  )
+}
+
+const ReminderDemo: Demo = ({ live }) => {
+  const at = useSteps([1200, 2600], live, 1)
+  return (
+    <Col>
+      <AnimatePresence initial={false}>
+        {at === 1 && (
+          <motion.div key="note" {...rise} className="rounded-xl border bg-popover px-3 py-2 shadow-[0_1px_2px_rgb(0_0_0/0.08),0_6px_16px_-6px_rgb(0_0_0/0.18)]">
+            <div className="flex items-center gap-1.5 text-control font-semibold text-foreground"><Bell className="size-3.5" /> Time to review</div>
+            <div className="text-meta text-muted-foreground">12 cards, about 6 minutes</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <div className="px-1 text-meta text-muted-foreground">Every day at 9:00</div>
+    </Col>
+  )
+}
+
+const LEARN = ['Which key turns a note into a board?', 'What does every! do on a task?', 'How do you mark a day?']
+const LearnDemo: Demo = ({ live }) => {
+  const at = useSteps([1600, 1600, 1600], live, 0)
+  return (
+    <Col>
+      <div className="rounded-lg border bg-background px-3 py-2.5">
+        <div className="text-meta text-muted-foreground">#learn-vigil</div>
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.div key={at} {...rise} className="mt-1 text-control text-foreground">{LEARN[at]}</motion.div>
+        </AnimatePresence>
+      </div>
+    </Col>
+  )
+}
+
 export const DEMOS: Record<string, Demo> = {
   box: BoxDemo, timer: TimerDemo, clue: ClueDemo, tagtask: TagTaskDemo, remind: RemindDemo, comingback: ComingBackDemo, onetask: OneTaskDemo, merge: MergeDemo,
   board: BoardDemo, versions: VersionsDemo, find: FindDemo, aliases: AliasesDemo, calc: CalcDemo, fold: FoldDemo, bit: BitDemo, glossary: GlossaryDemo,
@@ -1048,5 +1155,6 @@ export const DEMOS: Record<string, Demo> = {
   decision: DecisionDemo, experiment: ExperimentDemo, goals: GoalsDemo, matrix: MatrixDemo, routines: RoutinesDemo, focus: FocusDemo, later: LaterDemo,
   pages: PagesDemo, year: YearDemo, milestones: MilestonesDemo, book: BookDemo, wrapped: WrappedDemo, map: MapDemo,
   stickies: StickiesDemo, recordings: RecordingsDemo, window: WindowDemo, safe: SafeDemo, lock: LockDemo,
-  vault: VaultDemo, files: FilesDemo, embeds: EmbedsDemo
+  vault: VaultDemo, files: FilesDemo, embeds: EmbedsDemo,
+  linecards: LineCardsDemo, slipping: SlippingDemo, practice: PracticeDemo, blurt: BlurtDemo, reviewreminder: ReminderDemo, learnvigil: LearnDemo
 }

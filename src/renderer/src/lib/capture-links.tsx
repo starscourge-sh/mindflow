@@ -208,4 +208,4 @@ export const follow = (link: string, open: (type: string, id: string) => void, h
 
 /** Land on a heading in a note just opened, by the editor id every view gives it. */
 export const headingIn = (type: string, id: string, heading: string): void =>
-  showHeading(`${type === 'capture' || type === 'task' ? type : 'item'}-${id}`, heading)
+  showHeading(`${type === 'capture' || type === 'task' || type === 'day' ? type : 'item'}-${id}`, heading)

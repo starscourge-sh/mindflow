@@ -78,9 +78,23 @@ export function land(editor: Editor, heading: Heading): void {
  */
 export function goToHeading(editor: Editor, text: string): boolean {
   const wanted = text.trim().toLowerCase()
-  const found = headingsOf(editor).find((one) => one.text.toLowerCase() === wanted)
-  if (found) jumpTo(editor as Parameters<typeof jumpTo>[0], found.pos)
-  return !!found
+  // No heading by that name: the first line that starts with the words, as a
+  // card written in a note ("question :: answer") is found by its question.
+  const found = headingsOf(editor).find((one) => one.text.toLowerCase() === wanted)?.pos ?? lineStarting(editor.state.doc, wanted)
+  if (found !== undefined) jumpTo(editor as Parameters<typeof jumpTo>[0], found)
+  return found !== undefined
+}
+
+/** Where the first text line starting with these words (lower case) is. */
+function lineStarting(doc: ProseMirrorNode, wanted: string): number | undefined {
+  let at: number | undefined
+  doc.descendants((node, pos) => {
+    if (at !== undefined) return false
+    if (!node.isTextblock) return true
+    if (wanted && node.textContent.trim().toLowerCase().startsWith(wanted)) at = pos
+    return false
+  })
+  return at
 }
 
 /** Asks the outline beside this editor to take the keys. */

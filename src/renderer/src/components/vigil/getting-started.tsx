@@ -6,6 +6,7 @@ import { keyFor, useKeyChanges } from '@/lib/keys'
 import { onboarding, useOnboarding } from '@/lib/onboarding'
 import { vigil } from '@/lib/vigil'
 import { MenuButton } from './collection-header'
+import { LearnOffer } from './study'
 import { Kbd, Rolling, toast } from './ui'
 import { ProgressBar } from './progress-bar'
 
@@ -118,7 +119,10 @@ export function GettingStarted({ onOpen, onView }: { onOpen: (type: string, id: 
           })}
         </ol>
       )}
-      <button type="button" onClick={() => (chime('tap'), onView('powers'))} className="self-start rounded-md px-2 py-0.5 text-control text-muted-foreground underline decoration-foreground/20 underline-offset-4 transition-colors hover:text-foreground">See everything else Vigil can do</button>
+      <div className="flex flex-wrap items-center gap-x-2">
+        <button type="button" onClick={() => (chime('tap'), onView('powers'))} className="self-start rounded-md px-2 py-0.5 text-control text-muted-foreground underline decoration-foreground/20 underline-offset-4 transition-colors hover:text-foreground">See everything else Vigil can do</button>
+        <LearnOffer />
+      </div>
     </section>
   )
 }

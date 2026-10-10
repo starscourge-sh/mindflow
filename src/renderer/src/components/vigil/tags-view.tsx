@@ -28,6 +28,7 @@ import { BookOpen, EyeOff, SquareCheck } from 'lucide-react'
 import { motion } from 'motion/react'
 import { dayMonth } from '../../../../main/dates'
 import { TAG_DOES } from '../capture-kinds/kind-fields'
+import { Blurt } from './study'
 import { exampleTags } from '@/lib/examples'
 import { Example } from './example'
 
@@ -75,6 +76,8 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
   const [chosen, setChosen] = useState<string | null>(focus ?? null)
   // A tag opens to be read; looking after it (colour, alias, exam date) is the other tab.
   const [tab, setTab] = useState<'read' | 'manage'>('read')
+  // A blurt on the open tag: a blank page in place of its notes, until done.
+  const [blurting, setBlurting] = useState<string | null>(null)
   // A tag picked is a step Back returns from; Read or Manage is kept in it.
   useOpened(chosen ?? undefined, focus, setChosen, () => setChosen(null))
   useKept('tab', tab, setTab, 'read')
@@ -154,6 +157,9 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
           <Tip label="All tags">
             <Button variant="ghost" size="icon-sm" aria-label="All tags" className="@[56rem]/page:hidden" onClick={() => (chime('tap'), setChosen(null))}><ArrowLeft className="size-3.5" /></Button>
           </Tip>
+          <Tip label="Write everything you remember about it, then see what you left out">
+            <Button variant="ghost" size="sm" data-blurt-open onClick={() => (chime('open'), setBlurting(chosen))}>Blurt</Button>
+          </Tip>
           <span role="tablist" className="flex rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
             {(['read', 'manage'] as const).map((one) => (
               <button key={one} type="button" role="tab" aria-selected={tab === one}
@@ -166,7 +172,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
           </span>
           </span>
         }>
-          {tab === 'read' ? <TagStream key={chosen} tag={chosen} color={current?.color} onOpen={onOpen} onTag={setChosen} onManage={() => (chime('tap'), setTab('manage'))} /> : (<>
+          {blurting === chosen ? <Blurt key={chosen} tag={chosen} onClose={() => (chime('fold'), setBlurting(null))} /> : tab === 'read' ? <TagStream key={chosen} tag={chosen} color={current?.color} onOpen={onOpen} onTag={setChosen} onManage={() => (chime('tap'), setTab('manage'))} /> : (<>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-5 py-3">
             {/* A colour, and whether writing this tag makes a task, the way
                 #bug does. Labels, not kinds: a colour and one behaviour. */}

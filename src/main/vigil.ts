@@ -14,6 +14,9 @@ import { SANDBOX } from './sandbox'
 import { retireKinds, tagged as hasTag, withTag } from './kinds'
 import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrate'
 import { daysBetween, daysLeft, leftSaid } from './goal-days'
+import { LEECH_AT, bucketOf, minutesFor, struggling, type Bucket } from './study'
+import { syncLineCards } from './line-cards'
+import { LEARN_DECK, LEARN_TAG } from './learn-deck'
 
 /**
  * Everything past the capture: nuggets and articles, the review queue, tasks,
@@ -287,6 +290,8 @@ const DEFAULTS = {
   dailyTidy: true,
   // A tag with an exam date says so in the box when its cards fall behind.
   examNudges: true,
+  // A Mac notification at this time ("09:00") when cards are due; null is off.
+  reviewReminder: null as string | null,
   // Hints can be memories: this day last year, things from one source.
   memories: true,
   // The weather outside, kept with each capture as context. It asks a weather
@@ -681,6 +686,8 @@ export function registerVigil(): void {
   column('nuggets', 'superseded_by text')
   column('nuggets', 'revisions integer not null default 0')
   column('nuggets', 'edited_since_review integer not null default 0')
+  // A card written inside a note ("question :: answer"): the note it lives in. See line-cards.ts.
+  column('nuggets', 'line_of text')
   // What lineage looks up on every change: where each nugget and task came from.
   db.exec('create index if not exists nuggets_by_capture on nuggets(capture_id); create index if not exists tasks_by_capture on tasks(origin_capture_id); create index if not exists captures_by_origin on captures(origin_id)')
   // Every list of nuggets counts each one's lapses and clues, and review counts
@@ -980,7 +987,7 @@ export function registerVigil(): void {
   type Mention = { type: string; id: string; title: string; snippet: string; private: number }
   const everything = (): { type: string; id: string; title: string; body: string; private: number }[] => [
     ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title, body, private from captures where status != 'discarded'`).all() as never[]),
-    ...(db.prepare("select tier as type, id, title, body, private from nuggets where superseded_by is null").all() as never[])
+    ...(db.prepare("select tier as type, id, title, body, private from nuggets where superseded_by is null and tier != 'card'").all() as never[])
   ]
   const around = (text: string, at: number, length: number): string => {
     const start = Math.max(0, text.lastIndexOf('\n', at) + 1, at - 80)
@@ -1096,7 +1103,7 @@ export function registerVigil(): void {
 
   // What @ offers besides captures: nuggets and articles by name.
   handle('items:find', (query: unknown) =>
-    db.prepare("select id, tier, coalesce(nullif(title, ''), label('', body)) as name, coalesce(nullif(title, ''), label('', body)) as title from nuggets where (name like ? escape '\\' or coalesce(aliases, '') like ? escape '\\') and superseded_by is null order by updated_at desc limit 6").all(`%${like(String(query))}%`, `%${like(String(query))}%`))
+    db.prepare("select id, tier, coalesce(nullif(title, ''), label('', body)) as name, coalesce(nullif(title, ''), label('', body)) as title from nuggets where tier != 'card' and (name like ? escape '\\' or coalesce(aliases, '') like ? escape '\\') and superseded_by is null order by updated_at desc limit 6").all(`%${like(String(query))}%`, `%${like(String(query))}%`))
   // A page of your own from nothing: notes on linear algebra, say. An article
   // with no nuggets behind it, there to be written in.
   handle('article:new', () => {
@@ -1157,7 +1164,7 @@ export function registerVigil(): void {
     // A third of the time, a note-to-self on rotation: the one that has gone
     // longest unseen, unconditionally. Otherwise a weighted random encounter.
     const pushed = Math.random() < 1 / 3
-      ? (db.prepare(`select id, capture_id as captureId, kind, tier, title, body from nuggets where mode = 'pushed' and tier not in ('question', 'goal') and suspended = 0 and archived_at is null and coalesce(capture_id, '') not in (select id from captures where surfaced_at >= ?) and private = 0
+      ? (db.prepare(`select id, capture_id as captureId, kind, tier, title, body from nuggets where mode = 'pushed' and tier not in ('question', 'goal', 'card') and suspended = 0 and archived_at is null and coalesce(capture_id, '') not in (select id from captures where surfaced_at >= ?) and private = 0
           order by coalesce(last_visited_at, '') limit 1`).get(ago(3)) as Record<string, string> | undefined)
       : undefined
     // Half the time, or always while there are few nuggets, an old capture
@@ -1180,7 +1187,7 @@ export function registerVigil(): void {
           order by (julianday('now') - julianday(${AGED})) * surfacing_weight * (abs(random()) % 1000) desc limit 1`).get(ago(3), ago(7), ago(3), kind) as Record<string, string> | undefined)
       : undefined
     // Nuggets the same way: a kind drawn first, then one of its own.
-    const kept = `from nuggets where suspended = 0 and archived_at is null and mode != 'pushed' and tier not in ('question', 'goal') and coalesce(capture_id, '') not in (select id from captures where surfaced_at >= ?) and private = 0`
+    const kept = `from nuggets where suspended = 0 and archived_at is null and mode != 'pushed' and tier not in ('question', 'goal', 'card') and coalesce(capture_id, '') not in (select id from captures where surfaced_at >= ?) and private = 0`
     const keptKinds = (db.prepare(`select distinct kind ${kept}`).all(ago(3)) as { kind: string }[]).map((row) => row.kind)
     const keptKind = keptKinds[Math.floor(Math.random() * keptKinds.length)]
     const hint = pushed ?? old ?? (keptKind === undefined ? undefined : db
@@ -1198,7 +1205,7 @@ export function registerVigil(): void {
   })
   // The Luhmann move: two unrelated things side by side, for the connection
   // you would never have gone looking for.
-  handle('random', () => db.prepare("select id, kind, title, body from nuggets where archived_at is null and superseded_by is null and private = 0 and tier not in ('question', 'goal') order by random() limit 2").all().map(body))
+  handle('random', () => db.prepare("select id, kind, title, body from nuggets where archived_at is null and superseded_by is null and private = 0 and tier not in ('question', 'goal', 'card') order by random() limit 2").all().map(body))
   // Dwell: how long the hint was in front of you before the window went. The
   // signal every hint produces, where a vote is the rare one.
   ipcMain.handle('hints:dwell', (_event, event: number, ms: number) =>
@@ -1229,7 +1236,7 @@ export function registerVigil(): void {
     state is not null as reviewed, created_at as createdAt, updated_at as updatedAt, capture_id as captureId, remind_at as remindAt,
     (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses, attribution, context, mode, superseded_by as supersededBy, archived_at as archivedAt, revisions, why,
     closed_at as closedAt, closed_how as closedHow, (select count(*) from glosses where item_id = nuggets.id) as clues,
-    goal_at as goalAt, goal_from as goalFrom, goal_beacon as beacon, (select max(created_at) from glosses where item_id = nuggets.id) as lastLog`
+    goal_at as goalAt, goal_from as goalFrom, goal_beacon as beacon, (select max(created_at) from glosses where item_id = nuggets.id) as lastLog, line_of as lineOf`
   handle('items', (tier: string) =>
     db.prepare(`select ${ITEM} from nuggets where tier = ? order by created_at desc`).all(tier)
   )
@@ -1281,6 +1288,11 @@ export function registerVigil(): void {
     // #bit written in makes it private, once, as it would a capture.
     if (patch.body !== undefined && !moved && hasTag(JSON.stringify(patch.body), 'bit') && !hasTag(before?.body, 'bit'))
       db.prepare('update nuggets set private = 1 where id = ?').run(id)
+    // Its "question :: answer" lines kept as cards; a card's own body is only its answer.
+    if (patch.body !== undefined && !moved) {
+      const own = db.prepare('select tier, private from nuggets where id = ?').get(id) as { tier: string; private: number } | undefined
+      if (own && own.tier !== 'card') syncLineCards(`nugget:${id}`, patch.body, own.private)
+    }
     // Said to be this item, so lists of captures do not read every body again.
     return write(moved ? { conflict: true, body: moved.body } : true, { kind: 'item', id })
   })
@@ -1625,12 +1637,144 @@ export function registerVigil(): void {
   // Where a card came from, to reread after missing it: the capture it was
   // kept from, or the first nugget an article was made of.
   handle('review:source', (id: string) => {
+    // A card written in a note comes from the note it is written in.
+    const line = (db.prepare('select line_of from nuggets where id = ?').get(id) as { line_of: string | null } | undefined)?.line_of
+    if (line) return lineSource(line)
     const capture = db.prepare(`select 'capture' as type, c.id, label(c.title, c.body) as title, c.body from captures c join nuggets n on n.capture_id = c.id where n.id = ?`).get(id) as Record<string, unknown> | undefined
     if (capture) return body(capture)
     const origin = (JSON.parse((db.prepare('select origins from nuggets where id = ?').get(id) as { origins: string | null } | undefined)?.origins ?? '[]') as string[])[0]
     const nugget = origin && (db.prepare('select tier as type, id, title, body from nuggets where id = ?').get(origin) as Record<string, unknown> | undefined)
     return nugget ? body(nugget) : null
   })
+
+  // --- cards written in notes: the note a card lives in, as a source to open or reread
+  const lineSource = (line: string): Record<string, unknown> | null => {
+    const [type, key] = [line.slice(0, line.indexOf(':')), line.slice(line.indexOf(':') + 1)]
+    const row = type === 'day'
+      ? (db.prepare("select 'day' as type, day as id, day as title, body from day_pages where day = ?").get(key) as Record<string, unknown> | undefined)
+      : type === 'capture'
+        ? (db.prepare(`select 'capture' as type, id, ${LABEL} as title, body from captures where id = ?`).get(key) as Record<string, unknown> | undefined)
+        : (db.prepare("select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, body from nuggets where id = ?").get(key) as Record<string, unknown> | undefined)
+    return row ? body(row) : null
+  }
+
+  // --- practice by focus: a short extra round of one kind of card, drawn
+  // from all your gems, on top of the day's queue. Only a grade moves a
+  // schedule: opening a round, or skipping a card in it, leaves every due date alone.
+  const practice = (): { row: Record<string, unknown>; bucket: Bucket; recall: number; since: number }[] => {
+    const { retention } = settings()
+    const risk = scheduler()
+    const rows = db.prepare(`select ${ITEM}, body, state, (select grade from review_log where item_id = nuggets.id order by reviewed_at desc limit 1) as last,
+        (select body from glosses where item_id = nuggets.id and author = 'user' order by created_at desc limit 1) as gloss
+      from nuggets where coalesce(prompt, '') != '' and suspended = 0 and archived_at is null and superseded_by is null`).all() as Record<string, unknown>[]
+    return rows.map((row) => {
+      const card = row.state ? cardOf(row.state as string) : null
+      const recall = card ? risk.get_retrievability(card, new Date(), false) : 0
+      const since = card?.last_review ? (Date.now() - card.last_review.getTime()) / 86400000 : Infinity
+      return { row, recall, since, bucket: bucketOf({ seen: !!card, last: (row.last as number | null) ?? null, lapses: Number(row.lapses), recall, daysSince: since }, retention) }
+    })
+  }
+  handle('review:buckets', () => {
+    const counts: Record<Bucket, number> = { weak: 0, learning: 0, old: 0, fresh: 0, new: 0 }
+    for (const one of practice()) counts[one.bucket]++
+    return counts
+  })
+  type Practised = ReturnType<typeof practice>[number]
+  // Each round's order: the most missed, the least sure, the longest
+  // untouched, the least sure of the known, the oldest new.
+  const ROUND_ORDER: Record<Bucket, (a: Practised, b: Practised) => number> = {
+    weak: (a, b) => Number(b.row.lapses) - Number(a.row.lapses) || a.recall - b.recall,
+    learning: (a, b) => a.recall - b.recall,
+    old: (a, b) => b.since - a.since,
+    fresh: (a, b) => a.recall - b.recall,
+    new: (a, b) => String(a.row.createdAt).localeCompare(String(b.row.createdAt))
+  }
+  const ROUND = 10
+  handle('review:round', (bucket: Bucket) => {
+    if (!ROUND_ORDER[bucket]) return []
+    const exam = examOf()
+    return practice().filter((one) => one.bucket === bucket).sort(ROUND_ORDER[bucket]).slice(0, ROUND).map(({ row }) => ({
+      ...body(row), state: undefined, exam: exam(row)?.tag ?? null, intervals: preview(row.state as string | null, (when) => capped(when, exam(row)))
+    }))
+  })
+
+  // --- slipping: a gem missed again and again is usually asking the wrong
+  // thing. Review offers to rewrite it, split it or set it aside; these are
+  // the ones that have slipped, set aside or not.
+  handle('review:slipping', () =>
+    db.prepare(`select ${ITEM} from nuggets where coalesce(prompt, '') != '' and archived_at is null and superseded_by is null
+      and (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) >= ? order by lapses desc, created_at`).all(LEECH_AT))
+  // Split: this card asks something narrower (its own answer unchanged), and
+  // the rest becomes a new card, carrying the same tags and pointing back here.
+  handle('review:split', (id: string, narrower: string, question: string, answer: string) => {
+    const old = db.prepare('select title, body, prompt, attribution, private from nuggets where id = ?').get(id) as
+      { title: string; body: string; prompt: string | null; attribution: string | null; private: number } | undefined
+    if (!old || !String(question ?? '').trim() || !String(answer ?? '').trim()) return write(null)
+    const was = old.prompt
+    if (narrower?.trim() && narrower.trim() !== old.prompt) db.prepare('update nuggets set prompt = ?, updated_at = ? where id = ?').run(narrower.trim(), now(), id)
+    const tags = tagsIn(`${old.title} ${plain(JSON.parse(old.body ?? 'null'))}`)
+    const words = [answer.trim(), tags.map((tag) => `#${tag}`).join(' ')].filter(Boolean).join('\n\n')
+    const fresh = randomUUID()
+    db.prepare("insert into nuggets (id, kind, title, body, prompt, attribution, private, origins, created_at, updated_at) values (?, 'note', ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(fresh, question.trim().slice(0, 160), JSON.stringify(words), question.trim(), old.attribution, old.private, JSON.stringify([id]), now(), now())
+    return write({ fresh, was })
+  })
+  handle('review:unsplit', (id: string, fresh: string, was: string | null) => {
+    db.prepare("delete from nuggets where id = ? and tier = 'nugget' and state is null").run(fresh)
+    db.prepare('update nuggets set prompt = ? where id = ?').run(was, id)
+    return write(true)
+  })
+
+  // --- blurting: everything you remember about a tag on a blank page, then
+  // the tag's gems with the ones you left out lit. Those come up sooner in
+  // Review (due now, if they were due later), and the blurt is kept on the day's page.
+  handle('blurt:sooner', (ids: string[]) => {
+    let moved = 0
+    for (const id of ids ?? []) {
+      const row = db.prepare("select due_at from nuggets where id = ? and coalesce(prompt, '') != '' and state is not null and suspended = 0").get(id) as { due_at: string | null } | undefined
+      if (!row || (row.due_at && row.due_at <= now())) continue
+      db.prepare('update nuggets set due_at = ? where id = ?').run(now(), id)
+      moved++
+    }
+    return write(moved)
+  })
+  handle('blurt:keep', (tag: string, text: string, missed: string[]) => {
+    const day = dayKey()
+    const page = db.prepare('select body from day_pages where day = ?').get(day) as { body: string | null } | undefined
+    let doc = JSON.parse(page?.body ?? 'null') as { type: string; content?: unknown[] } | string | null
+    if (typeof doc === 'string') doc = { type: 'doc', content: doc.split('\n\n').map((one) => para(one)) }
+    if (!doc?.content) doc = { type: 'doc', content: [] }
+    const content = doc.content as { type: string; content?: unknown[] }[]
+    // An empty first line is written over rather than left above the blurt.
+    while (content.length && content[content.length - 1].type === 'paragraph' && !content[content.length - 1].content?.length) content.pop()
+    const time = new Date().toTimeString().slice(0, 5)
+    content.push({ type: 'heading', attrs: { level: 3 }, content: [{ type: 'text', text: `Blurt on #${tag}, ${time}` }] } as never)
+    for (const line of String(text).split('\n').filter((one) => one.trim())) content.push(para(line))
+    if (missed?.length) content.push(para(`Left out: ${missed.join('; ')}`))
+    db.prepare(`insert into day_pages (day, body, reviewed, updated_at) values (?, ?, 0, ?)
+      on conflict (day) do update set body = excluded.body, updated_at = excluded.updated_at`).run(day, JSON.stringify(doc), now())
+    return write(day)
+  })
+  const para = (text: string): { type: string; content?: unknown[] } => (text ? { type: 'paragraph', content: [{ type: 'text', text }] } : { type: 'paragraph' })
+
+  // --- the deck that teaches Vigil: a tag of gems, each a question about
+  // something the app does without showing it. Only ever added when asked.
+  const learnCount = (): number => (db.prepare("select count(*) n from nuggets where body like ? and archived_at is null").get(`%#${LEARN_TAG}%`) as { n: number }).n
+  handle('learn:count', learnCount)
+  handle('learn:add', () => {
+    if (learnCount()) return write(0)
+    // The first one asked first: each a moment after the last, as the queue takes new cards oldest first.
+    const start = Date.now()
+    LEARN_DECK.forEach(({ question, answer }, at) => {
+      const when = new Date(start + at * 1000).toISOString()
+      db.prepare("insert into nuggets (id, kind, title, body, prompt, created_at, updated_at) values (?, 'note', ?, ?, ?, ?, ?)")
+        .run(randomUUID(), question, JSON.stringify(`${answer}\n\n#${LEARN_TAG}`), question, when, when)
+    })
+    return write(LEARN_DECK.length)
+  })
+
+  // --- the review reminder, at the time set in Settings
+  handle('review:reminder:now', () => remindNow())
 
   // --- exams: a date on a tag. Intervals are capped so nothing falls past
   // it, new cards are paced to all be met in time, and the last few days are
@@ -1678,8 +1822,8 @@ export function registerVigil(): void {
     return exams.map(({ tag, day, sweep }) => {
       const mine = rows.filter((one) => one.exam?.tag === tag).map(({ row }) => row)
       const unseen = mine.filter((row) => !row.state).length
-      const struggling = mine.filter((row) => row.state && (row.last === 1 || Number(row.lapses) >= 3)).length
-      const solid = mine.filter((row) => row.state && row.last !== 1 && Number(row.lapses) < 3 &&
+      const weak = mine.filter((row) => row.state && struggling(row.last as number | null, Number(row.lapses))).length
+      const solid = mine.filter((row) => row.state && !struggling(row.last as number | null, Number(row.lapses)) &&
         risk.get_retrievability(cardOf(row.state as string), new Date(Math.max(day, Date.now())), false) >= retention).length
       // Behind: reviews left from before today, and in the sweep, anything still unseen.
       const late = mine.filter((row) => row.state && row.dueAt && new Date(String(row.dueAt)).getTime() < startOfToday).length
@@ -1687,7 +1831,7 @@ export function registerVigil(): void {
       const days = Math.max(0, daysFromToday(day))
       // Paced like the queue: everything met by the sweep, then within the days left.
       const pace = Date.now() < sweep ? Math.ceil(dayjs(sweep).diff(dayjs(), 'day', true)) : days
-      return { tag, at: new Date(day).toISOString(), days, total: mine.length, solid, learning: mine.length - unseen - struggling - solid, struggling, unseen, behind, perDay: Math.ceil((late + unseen) / Math.max(1, pace)) }
+      return { tag, at: new Date(day).toISOString(), days, total: mine.length, solid, learning: mine.length - unseen - weak - solid, struggling: weak, unseen, behind, perDay: Math.ceil((late + unseen) / Math.max(1, pace)) }
     })
   }
   handle('exams', readiness)
@@ -2097,7 +2241,7 @@ export function registerVigil(): void {
   const tagged = (): { tag: string; id: string; type: string; title: string; private: boolean }[] => {
     const rows = [
       ...(db.prepare(`select id, 'capture' as type, ${LABEL} as title, body, private from captures where status != 'discarded' and archived_at is null`).all() as Record<string, string>[]),
-      ...(db.prepare('select id, tier as type, title, body, private from nuggets where archived_at is null and superseded_by is null').all() as Record<string, string>[]),
+      ...(db.prepare("select id, tier as type, title, body, private from nuggets where archived_at is null and superseded_by is null and tier != 'card'").all() as Record<string, string>[]),
       ...(db.prepare("select id, 'task' as type, title, notes as body, 0 as private from tasks").all() as Record<string, string>[])
     ]
     // An alias counts as the tag it stands for, without the words changing.
@@ -2144,7 +2288,7 @@ export function registerVigil(): void {
     const alias = new Map((db.prepare('select tag, alias_of from tag_meta where alias_of is not null').all() as { tag: string; alias_of: string }[]).map((row) => [row.tag, row.alias_of]))
     const rows = [
       ...db.prepare(`select id, 'capture' as type, kind, status, '' as title, ${LABEL} as label, body, private, captured_at as at, coalesce(edited_at, captured_at) as changed from captures where status != 'discarded' and archived_at is null`).all(),
-      ...db.prepare("select id, tier as type, kind, 'open' as status, title, label('', body) as label, body, private, created_at as at, coalesce(updated_at, created_at) as changed from nuggets where archived_at is null and superseded_by is null").all()
+      ...db.prepare("select id, tier as type, kind, 'open' as status, title, label('', body) as label, body, private, created_at as at, coalesce(updated_at, created_at) as changed from nuggets where archived_at is null and superseded_by is null and tier != 'card'").all()
     ] as Record<string, string>[]
     const was = readOf
     readOf = new Map()
@@ -2327,6 +2471,7 @@ export function registerVigil(): void {
       db.prepare('update tasks set notified_at = ? where id = ?').run(now(), task.id)
     }
   }, 30_000)
+  setInterval(remindNow, 30_000)
 
   // --- the numbers: observations with a comparison, never a score to keep up
   handle('stats', () => {
@@ -2500,7 +2645,7 @@ export function registerVigil(): void {
       select distinct t.id, t.type, s.tag from note_tag t join spelled s on s.raw = t.tag
       where case when t.type = 'capture'
         then exists (select 1 from captures c where c.id = t.id and c.status != 'discarded' and c.archived_at is null)
-        else exists (select 1 from nuggets n where n.id = t.id and n.archived_at is null and n.superseded_by is null) end
+        else exists (select 1 from nuggets n where n.id = t.id and n.archived_at is null and n.superseded_by is null and n.tier != 'card') end
     ),
     spread as (select tag, count(*) as n from alive group by tag)
     select a.type, a.id, sum(1.0 / ln(1 + s.n)) as score, json_group_array(json_array(s.tag, s.n)) as shared
@@ -2553,6 +2698,39 @@ export function badge(): { due: number; tasks: number; safe: boolean } {
   return { due: n, tasks, safe: settings().safeMode }
 }
 
+/**
+ * The review reminder, once a day at the time set in Settings: a Mac
+ * notification saying how many cards are due and about how long they take,
+ * which opens Review. Silent in safe mode and quiet hours, and when nothing
+ * is due; up to two hours late if Vigil was not running at the time. Gives
+ * back what it said, or null.
+ */
+export function remindNow(): string | null {
+  const { reviewReminder: at, sounds } = settings()
+  if (!at || !/^\d{2}:\d{2}$/.test(at)) return null
+  const [hours, minutes] = at.split(':').map(Number)
+  const set = new Date().setHours(hours, minutes, 0, 0)
+  if (Date.now() < set || Date.now() - set > 2 * 3600000) return null
+  const { blackout, hidePrivate } = gate()
+  if (blackout || hidePrivate) return null
+  const db = database()
+  const day = dayKey()
+  if ((db.prepare("select day from nudges where key = 'review-reminder'").get() as { day: string } | undefined)?.day === day) return null
+  const cards = reviewQueue().length
+  if (!cards) return null
+  db.prepare("insert or replace into nudges (key, day) values ('review-reminder', ?)").run(day)
+  const ms = (db.prepare('select avg(ms) as ms from (select ms from review_log where ms is not null order by reviewed_at desc limit 200)').get() as { ms: number | null }).ms
+  const time = minutesFor(cards, ms)
+  const text = `${num(cards)} ${cards === 1 ? 'card' : 'cards'}, about ${num(time)} ${time === 1 ? 'minute' : 'minutes'}`
+  if (Notification.isSupported()) {
+    const note = new Notification({ title: 'Time to review', body: `${text}. They keep, if now is not a good time.`, silent: !sounds })
+    // Opens Review in the main window, the way any other part of Vigil sends you there.
+    note.on('click', () => void ipcMain.emit('home:open', {}, 'view', 'review'))
+    note.show()
+  }
+  return text
+}
+
 /** An open goal, as the menu bar, nudges and milestones read it. */
 export type OpenGoal = { id: string; title: string; goalAt: string; goalFrom: string; private: number; createdAt: string; lastLog: string | null; beacon: 'always' | 'sometimes' | 'off' | null }
 /** The goals still open (not settled, not archived), nearest first. */
@@ -2598,7 +2776,7 @@ export function registerHome(): void {
 
   // Every note in view, as a shelf shows it: newest change first.
   const NOTES = `select id, 'capture' as type, ${LABEL} as title, kind, private, coalesce(edited_at, captured_at) as at, captured_at as made, body, attribution as who from captures where status != 'discarded' and archived_at is null
-    union all select id, tier, coalesce(nullif(title, ''), label('', body)), kind, private, coalesce(updated_at, created_at), created_at, body, attribution from nuggets where archived_at is null and superseded_by is null`
+    union all select id, tier, coalesce(nullif(title, ''), label('', body)), kind, private, coalesce(updated_at, created_at), created_at, body, attribution from nuggets where archived_at is null and superseded_by is null and tier != 'card'`
   // Who said it, only for a quote: its card signs it.
   const strip = ({ type, id, title, kind, private: hidden, at, who }: Shelved): Shelved => ({ type, id, title, kind, private: hidden, at, ...(kind === 'quote' && who ? { who } : {}) })
 
@@ -2650,7 +2828,7 @@ export function registerHome(): void {
     const due = (db.prepare("select id from nuggets where tier = 'nugget' and suspended = 0 and archived_at is null and superseded_by is null and due_at is not null and due_at <= ? order by due_at limit 12").all(now()) as { id: string }[])
       .flatMap(({ id }) => { const row = byId.get(id); return row && offered(row) ? [strip(row)] : [] })
     // Unseen means old too: made over three weeks ago and not opened for as long, so nothing new reads "not seen in a while".
-    const unseen = blackout ? [] : (db.prepare("select id from nuggets where tier not in ('question', 'goal') and suspended = 0 and archived_at is null and superseded_by is null and private = 0 and created_at < ? and coalesce(last_visited_at, '') < ? and id not in (select id from note_opens where at >= ?) order by coalesce(last_visited_at, '') limit 8").all(ago(21), ago(21), ago(21)) as { id: string }[])
+    const unseen = blackout ? [] : (db.prepare("select id from nuggets where tier not in ('question', 'goal', 'card') and suspended = 0 and archived_at is null and superseded_by is null and private = 0 and created_at < ? and coalesce(last_visited_at, '') < ? and id not in (select id from note_opens where at >= ?) order by coalesce(last_visited_at, '') limit 8").all(ago(21), ago(21), ago(21)) as { id: string }[])
       .flatMap(({ id }) => { const row = byId.get(id); return row && !due.some((one) => one.id === id) ? [strip(row)] : [] })
     const article = all.filter((row) => row.type === 'article' && offered(row)).sort((a, b) => b.made.localeCompare(a.made))[0]
 

@@ -1,0 +1,338 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { motion } from 'motion/react'
+import { Check } from 'lucide-react'
+
+import { chime } from '@/lib/sound'
+import { EASE, shift } from '@/lib/motion'
+import { vigil, useLive, type Item, type TagRead } from '@/lib/vigil'
+import { BUCKETS, keyWords, mentions, type Bucket } from '../../../../main/study'
+import { num } from '../../../../main/dates'
+import { textOf } from '../rot-cards'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Chips } from './display'
+import { Kbd, Rolling, Typed, refuse, toast } from './ui'
+
+/**
+ * Studying beyond the day's queue: the practice rounds above Review, the
+ * card that keeps slipping and what to do with it, the shelf of the ones that
+ * have slipped, a blurt on a tag's page, and the deck that teaches Vigil.
+ * The rules behind them (the threshold, the buckets, the word match) are in
+ * src/main/study.ts, shared with the main process and the tests.
+ */
+
+/** A card's question, or its name when it has none. */
+const asked = (item: Pick<Item, 'prompt' | 'title'>): string => item.prompt || item.title || 'Untitled'
+
+/**
+ * The five practice rounds, a chip each with how many cards it holds: a
+ * short extra round from all your gems. Choosing one moves no due date;
+ * only grading a card does.
+ */
+export function FocusChips({ round, onPick }: { round: Bucket | null; onPick: (bucket: Bucket) => void }): React.JSX.Element | null {
+  const counts = useLive(vigil.buckets, null as Record<Bucket, number> | null, [], ['item'])
+  if (!counts) return null
+  return (
+    <div data-focus-chips className="flex flex-wrap items-center gap-x-2 gap-y-1 px-5 pt-5 text-xs text-muted-foreground">
+      <span className="text-foreground">Practise</span>
+      <Chips
+        options={BUCKETS.map((one) => ({ id: one.id, label: `${one.label} ${num(counts[one.id])}` }))}
+        on={(id) => id === round}
+        pick={(id) => {
+          const bucket = id as Bucket
+          if (!counts[bucket]) return refuse(`Nothing in ${BUCKETS.find((one) => one.id === bucket)?.label} right now`, 'info')
+          onPick(bucket)
+        }}
+      />
+    </div>
+  )
+}
+
+/** What a practice round is, said once at its top. */
+export function RoundLine({ round, onLeave }: { round: Bucket; onLeave: () => void }): React.JSX.Element {
+  return (
+    <div className="flex items-center gap-3 px-5 pt-4 text-sm">
+      <p className="flex-1">
+        <strong className="font-semibold">{BUCKETS.find((one) => one.id === round)?.label}.</strong>{' '}
+        <span className="text-muted-foreground">An extra round. Nothing moves unless you grade it.</span>
+      </p>
+      <Button variant="ghost" size="sm" onClick={onLeave}>Back to today’s cards</Button>
+    </div>
+  )
+}
+
+/**
+ * The card that keeps slipping, on its fourth miss and after: three ways on.
+ * Rewrite it (ask it better), split it (two smaller cards), or set it aside
+ * (out of Review until it is brought back). 1, 2 and 3 choose; Esc keeps going.
+ */
+export function Slipping({ card, splitting, onRewrite, onSplit, onAside, onKeep, onSplitDone }: {
+  card: Item
+  splitting: boolean
+  onRewrite: () => void
+  onSplit: () => void
+  onAside: () => void
+  onKeep: () => void
+  onSplitDone: () => void
+}): React.JSX.Element {
+  const ways = [
+    { key: '1', name: 'Rewrite it', line: 'Ask it a better way.', run: onRewrite },
+    { key: '2', name: 'Split it', line: 'Two smaller cards.', run: onSplit },
+    { key: '3', name: 'Set it aside', line: 'Out of Review until you bring it back.', run: onAside }
+  ]
+  return (
+    <motion.section aria-label="This one keeps slipping" data-slipping
+      initial={{ opacity: 0, transform: shift('translateY(8px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ duration: 0.24, ease: EASE }}
+      className="flex flex-col gap-4 px-5 pt-6 pb-8">
+      <div className="rounded-lg border border-[color-mix(in_srgb,var(--tt-color-text-orange)_35%,var(--border))] bg-[color-mix(in_srgb,var(--tt-color-text-orange)_7%,var(--background))] px-5 py-5">
+        <h2 className="font-heading text-title font-semibold tracking-[-0.018em] text-[var(--tt-color-text-orange)]">
+          <Typed text="This one keeps slipping" step={28} delay={60} />
+        </h2>
+        <p className="mt-2 text-base leading-relaxed">“{asked(card)}”</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          <strong className="font-semibold text-foreground">Missed {num(card.lapses)} times.</strong> A card missed again and again is usually asking too much at once, or the wrong thing.
+        </p>
+      </div>
+      {splitting ? <SplitForm card={card} onDone={onSplitDone} onCancel={onKeep} /> : (
+        <>
+          <div className="@container grid grid-cols-1 gap-2 @md:grid-cols-3">
+            {ways.map((way) => (
+              <button key={way.key} type="button" onClick={way.run}
+                className="relative flex min-h-16 flex-col items-start justify-center rounded-md border bg-background px-3 py-2 text-left transition-colors hover:bg-accent/50">
+                <span className="text-control font-semibold">{way.name}</span>
+                <span className="text-xs text-muted-foreground">{way.line}</span>
+                <Kbd className="absolute top-2 right-2">{way.key}</Kbd>
+              </button>
+            ))}
+          </div>
+          <Button variant="ghost" size="sm" onClick={onKeep} className="self-start text-muted-foreground">Keep going <Kbd>Esc</Kbd></Button>
+        </>
+      )}
+    </motion.section>
+  )
+}
+
+/** Split: this card asks something narrower, and the rest becomes a new card with its own answer. */
+function SplitForm({ card, onDone, onCancel }: { card: Item; onDone: () => void; onCancel: () => void }): React.JSX.Element {
+  const [narrower, setNarrower] = useState(card.prompt ?? '')
+  const [question, setQuestion] = useState('')
+  const [answer, setAnswer] = useState('')
+  const first = useRef<HTMLInputElement>(null)
+  useEffect(() => first.current?.select(), [])
+  const save = (): void => {
+    if (!narrower.trim() || !question.trim() || !answer.trim()) return refuse('Write both questions and the new card’s answer first')
+    void vigil.split(card.id, narrower, question, answer).then((made) => {
+      if (!made) return refuse('Not split: the card is gone')
+      chime('separate')
+      card.prompt = narrower.trim()
+      toast('Split in two: the new card joins Review as a new one', () => void vigil.unsplit(card.id, made.fresh, made.was).then(() => {
+        card.prompt = made.was
+        chime('undo')
+      }))
+      onDone()
+    })
+  }
+  const keys = (event: React.KeyboardEvent): void => {
+    if (event.key === 'Enter' && event.metaKey) {
+      event.preventDefault()
+      save()
+    } else if (event.key === 'Escape') {
+      event.preventDefault()
+      event.stopPropagation()
+      onCancel()
+    }
+  }
+  return (
+    <div data-split className="flex flex-col gap-3" onKeyDown={keys}>
+      <label className="flex flex-col gap-1 text-sm">
+        <span><strong className="font-semibold">This card asks</strong> <span className="text-muted-foreground">something narrower; its answer stays as it is.</span></span>
+        <Input ref={first} value={narrower} onChange={(event) => setNarrower(event.target.value)} className="text-base" />
+      </label>
+      <label className="flex flex-col gap-1 text-sm">
+        <span><strong className="font-semibold">A new card asks</strong> <span className="text-muted-foreground">the rest.</span></span>
+        <Input value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="The other half of the question" className="text-base" />
+      </label>
+      <label className="flex flex-col gap-1 text-sm">
+        <span><strong className="font-semibold">Its answer</strong></span>
+        <Textarea value={answer} onChange={(event) => setAnswer(event.target.value)} rows={3} className="resize-none text-base" />
+      </label>
+      <div className="flex items-center gap-2">
+        <Button size="sm" onClick={save}>Split in two <Kbd>⌘↵</Kbd></Button>
+        <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
+      </div>
+    </div>
+  )
+}
+
+/** Set aside with an Undo, said once whichever place asked. */
+export function setAside(item: Pick<Item, 'id'>, on: boolean, then?: () => void): void {
+  void vigil.saveItem(item.id, { suspended: on }).then(() => {
+    chime(on ? 'shelve' : 'unshelve')
+    toast(on ? 'Set aside: out of Review until you bring it back' : 'Back in Review', () => void vigil.saveItem(item.id, { suspended: !on }).then(() => chime('undo')))
+    then?.()
+  })
+}
+
+/** The note a card written in a note lives in: `capture:…`, `nugget:…` or `day:…`, opened at the card's line. */
+export function openLine(lineOf: string, question: string | null): void {
+  void vigil.linkTitle(lineOf).then((found) => {
+    if (!found) return refuse('Its note is gone')
+    chime('open')
+    window.api.openInHome(found.type, found.id, question ?? undefined)
+  })
+}
+
+/**
+ * Struggling: every card missed four times or more, set aside or not, each
+ * with a way to open it and to rest it or bring it back.
+ */
+export function StrugglingShelf(): React.JSX.Element | null {
+  const rows = useLive(vigil.slipping, [] as Item[], [], ['item'])
+  if (!rows.length) return null
+  const open = (item: Item): void => {
+    if (item.lineOf) return openLine(item.lineOf, item.prompt)
+    chime('open')
+    window.api.openInHome(item.tier, item.id)
+  }
+  return (
+    <section aria-label="Struggling" data-struggling className="mx-5 mt-8 mb-6 flex flex-col gap-2 border-t pt-5">
+      <h3 className="text-base font-semibold">Struggling</h3>
+      <p className="text-sm text-muted-foreground">Missed four times or more. Rewrite or split each to make it stick, or rest it for now.</p>
+      <ul className="flex flex-col">
+        {rows.map((item) => (
+          <li key={item.id} className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-accent/40" data-private={item.private ? '' : undefined}>
+            <button type="button" onClick={() => open(item)} className="private-text min-w-0 flex-1 truncate text-left text-sm">{asked(item)}</button>
+            <span className={`shrink-0 text-sm tabular-nums ${item.suspended ? 'text-muted-foreground' : 'text-[var(--tt-color-text-orange)]'}`}>
+              {item.suspended ? 'Set aside' : `Missed ${num(item.lapses)} times`}
+            </span>
+            <Button variant="ghost" size="sm" className="shrink-0" onClick={() => setAside(item, !item.suspended)}>{item.suspended ? 'Bring back' : 'Set aside'}</Button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+const BLURT_MINUTES = 5
+const clock = (ms: number): string => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`
+
+/**
+ * Blurting: a blank page and a few minutes to write everything you remember
+ * about a tag, without looking. Then its gems, the ones you left out lit
+ * (by the words they share with what you wrote), brought forward in Review,
+ * and the blurt kept on today's page.
+ */
+export function Blurt({ tag, onClose }: { tag: string; onClose: () => void }): React.JSX.Element {
+  const [text, setText] = useState('')
+  const [left, setLeft] = useState(BLURT_MINUTES * 60000)
+  const [gems, setGems] = useState<TagRead[] | null>(null)
+  const [checked, setChecked] = useState<{ missed: TagRead[]; said: TagRead[]; sooner: number } | null>(null)
+  const end = useRef(Date.now() + BLURT_MINUTES * 60000)
+  const box = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => void vigil.tagRead(tag).then((rows) => setGems(rows.filter((one) => one.type === 'nugget'))), [tag])
+  useEffect(() => box.current?.focus(), [])
+  const finish = (): void => {
+    if (checked) return
+    const words = keyWords(text)
+    const all = gems ?? []
+    const said = all.filter((one) => mentions(words, `${one.title} ${textOf(one.body)}`))
+    const missed = all.filter((one) => !said.includes(one))
+    chime('finish')
+    void Promise.all([
+      vigil.blurtSooner(missed.map((one) => one.id)),
+      text.trim() ? vigil.blurtKeep(tag, text, missed.map((one) => one.title || one.label)) : Promise.resolve(null)
+    ]).then(([sooner, day]) => {
+      setChecked({ missed, said, sooner })
+      if (day) toast('Your blurt is kept on today’s page', undefined, 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('day', day) })
+    })
+  }
+  // The clock runs down; at nought the page is checked as it stands.
+  useEffect(() => {
+    if (checked) return
+    const timer = setInterval(() => {
+      const now = end.current - Date.now()
+      setLeft(Math.max(0, now))
+      if (now <= 0) {
+        clearInterval(timer)
+        finish()
+      }
+    }, 250)
+    return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checked, gems, text])
+  const lit = useMemo(() => new Set(checked?.missed.map((one) => one.id)), [checked])
+
+  if (checked) {
+    const total = checked.missed.length + checked.said.length
+    return (
+      <section aria-label="Blurt" data-blurt="checked" className="flex flex-col gap-4 px-5 py-6">
+        <h2 className="font-heading text-title font-semibold tracking-[-0.018em]">
+          {total ? <>You mentioned <Rolling text={checked.said.length} /> of {num(total)}</> : 'Kept'}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          {!total ? `No gems carry #${tag} yet, so there is nothing to check your blurt against.`
+            : !checked.missed.length ? 'Nothing left out, by the words you used.'
+              : <><strong className="font-semibold text-foreground">The {num(checked.missed.length)} you left out are lit.</strong> {checked.sooner ? `${num(checked.sooner)} of them now come up in Review today.` : 'Any with a question were due already; the rest need a question to be asked.'}</>}
+          {' '}A match is by shared words, so it is a nudge, not a mark.
+        </p>
+        <ul className="flex flex-col gap-1">
+          {[...checked.missed, ...checked.said].map((one) => (
+            <li key={one.id} data-missed={lit.has(one.id) || undefined} data-private={one.private ? '' : undefined}
+              className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm ${lit.has(one.id) ? 'bg-[color-mix(in_srgb,var(--tt-color-text-orange)_12%,var(--background))] text-foreground' : 'text-muted-foreground'}`}>
+              {lit.has(one.id) ? <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-[var(--tt-color-text-orange)]" /> : <Check className="size-3.5 shrink-0" />}
+              <button type="button" className="private-text min-w-0 flex-1 truncate text-left" onClick={() => (chime('open'), window.api.openInHome('nugget', one.id))}>{one.title || one.label || 'Untitled'}</button>
+            </li>
+          ))}
+        </ul>
+        <Button variant="outline" size="sm" className="self-start" onClick={onClose}>Done</Button>
+      </section>
+    )
+  }
+  return (
+    <section aria-label="Blurt" data-blurt="writing" className="flex min-h-0 flex-1 flex-col gap-3 px-5 py-6">
+      <div className="flex items-baseline gap-3">
+        <h2 className="flex-1 font-heading text-title font-semibold tracking-[-0.018em]">Write everything you remember about #{tag}</h2>
+        <span className={`text-lg font-medium tabular-nums ${left < 30000 ? 'text-[var(--tt-color-text-orange)]' : 'text-foreground'}`} aria-label="Time left">{clock(left)}</span>
+      </div>
+      <p className="text-sm text-muted-foreground">Without looking. Anything at all: names, numbers, half a sentence. When the time is up, or you are done, it shows what you left out.</p>
+      <Textarea ref={box} value={text} onChange={(event) => setText(event.target.value)} placeholder="Start anywhere…"
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' && event.metaKey) (event.preventDefault(), finish())
+          else if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), onClose())
+        }}
+        className="min-h-[16rem] flex-1 resize-none text-base leading-relaxed" />
+      <div className="flex items-center gap-2">
+        <Button size="sm" onClick={finish} disabled={!gems}>Done <Kbd>⌘↵</Kbd></Button>
+        <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+      </div>
+    </section>
+  )
+}
+
+/**
+ * Learn Vigil by reviewing it: one click adds about twenty cards about what
+ * the app does without showing it, tagged #learn-vigil. Never added on its
+ * own; once they are there it says where they are.
+ */
+export function LearnOffer({ className = '' }: { className?: string }): React.JSX.Element | null {
+  const have = useLive(vigil.learnCount, null as number | null, [], ['item'])
+  if (have === null) return null
+  if (have)
+    return (
+      <button type="button" data-learn="have" onClick={() => (chime('open'), window.api.openInHome('tag', 'learn-vigil'))}
+        className={`self-start rounded-md px-2 py-0.5 text-control text-muted-foreground underline decoration-foreground/20 underline-offset-4 transition-colors hover:text-foreground ${className}`}>
+        Learn Vigil: {num(have)} cards, tagged #learn-vigil
+      </button>
+    )
+  return (
+    <button type="button" data-learn="offer"
+      onClick={() => void vigil.learnAdd().then((added) => {
+        chime('promote')
+        toast(`${num(added)} cards about Vigil are in Review, a few new ones a day`, undefined, 'success', { label: 'Review', key: 'R', run: () => window.api.openInHome('view', 'review') })
+      })}
+      className={`self-start rounded-md px-2 py-0.5 text-control text-foreground underline decoration-foreground/25 underline-offset-4 transition-colors hover:decoration-foreground/60 ${className}`}>
+      Learn Vigil by reviewing it
+    </button>
+  )
+}

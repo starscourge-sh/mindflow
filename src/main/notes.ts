@@ -6,6 +6,7 @@ import { LABEL, atomically, changed, database } from './captures'
 import { celebrateAfter, watches } from './celebrate'
 import { known } from './pictures'
 import { gate, plain } from './vigil'
+import { syncLineCards } from './line-cards'
 
 /**
  * What a note carries beyond its words, for captures and nuggets alike: its
@@ -318,7 +319,7 @@ export function registerNotes({ load, guard }: Windows): void {
     const out = linksIn(row?.body)
     // In: every note whose words hold a link to this one.
     const into = db.prepare(`select 'capture' as type, id, ${LABEL} as title, private from captures where status != 'discarded' and (body like ? or body like ? or body like ? or body like ?)
-      union all select tier, id, coalesce(nullif(title, ''), label('', body)), private from nuggets where body like ? or body like ? or body like ? or body like ?`)
+      union all select tier, id, coalesce(nullif(title, ''), label('', body)), private from nuggets where tier != 'card' and (body like ? or body like ? or body like ? or body like ?)`)
       .all(...[0, 1].flatMap(() => [`%"id":"${id}"%`, `%"id":"%:${id}"%`, `%[[@%${id}|%`, `%[[@%${id}#%`])) as Node[]
     return {
       out: [...out].map(nodeOf).filter((node): node is Node => !!node && node.id !== id),
@@ -333,7 +334,7 @@ export function registerNotes({ load, guard }: Windows): void {
   handle('notes:graph:all', () => {
     const rows = [
       ...db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, body from captures where status != 'discarded' and private = 0`).all(),
-      ...db.prepare("select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, kind, body from nuggets where private = 0").all()
+      ...db.prepare("select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, kind, body from nuggets where private = 0 and tier != 'card'").all()
     ] as (Node & { kind: string; body: string | null })[]
     const known = new Set(rows.map((row) => row.id))
     // Each pair once, weighed by how often either one links to the other.
@@ -457,7 +458,7 @@ export function registerNotes({ load, guard }: Windows): void {
       // Everything caught that day stays listed, let go or not: the page shows it struck through.
       captured: db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, status, private from captures where archived_at is null and ${on('captured_at')} order by captured_at`).all(day),
       resolved: db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, status, private from captures where status != 'open' and archived_at is null and ${on('exited_at')} order by exited_at`).all(day),
-      studied: db.prepare(`select distinct n.tier as type, n.id, coalesce(nullif(n.title, ''), label('', n.body)) as title, n.kind, n.private from review_log r join nuggets n on n.id = r.item_id where n.archived_at is null and ${on('r.reviewed_at')}`).all(day),
+      studied: db.prepare(`select distinct n.tier as type, n.id, coalesce(nullif(n.title, ''), label('', n.body)) as title, n.kind, n.private from review_log r join nuggets n on n.id = r.item_id where n.archived_at is null and n.tier != 'card' and ${on('r.reviewed_at')}`).all(day),
       done: db.prepare(`select distinct 'task' as type, t.id, t.title, 0 as private from task_done d join tasks t on t.id = d.task_id where ${on('d.done_at')}`).all(day)
     }
   })
@@ -476,6 +477,8 @@ export function registerNotes({ load, guard }: Windows): void {
     // An update, not a replace, so the page's version trigger sees it.
     else db.prepare(`insert into day_pages (day, body, reviewed, updated_at) values (?, ?, ?, ?)
       on conflict (day) do update set body = excluded.body, reviewed = excluded.reviewed, updated_at = excluded.updated_at`).run(day, body, reviewed, now())
+    // Its "question :: answer" lines kept as review cards.
+    if (patch.body !== undefined) syncLineCards(`day:${day}`, empty ? '' : patch.body)
     changed()
     return true
   })
