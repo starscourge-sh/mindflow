@@ -12,6 +12,9 @@
  *   turn to cuneiform for the rest of the session, 𒀭 and 𒆠 (An and Ki,
  *   heaven and earth), for Nisaba's scribes, who pressed the first lists
  *   into clay.
+ * - Type "play" on an empty Review (all caught up): Ink line, a calm game of
+ *   a pen line that grows with each blot it reaches (ink-line.tsx). Esc
+ *   leaves; its sounds follow the sound setting.
  */
 export const EGGS = true
 

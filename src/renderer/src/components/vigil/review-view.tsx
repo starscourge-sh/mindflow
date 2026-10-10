@@ -25,6 +25,7 @@ import { Signed } from './signature'
 import { useHere } from '@/lib/split'
 import { FocusChips, RoundLine, Slipping, StrugglingShelf, openLine, setAside } from './study'
 import { isLeech, type Bucket } from '../../../../main/study'
+import { InkLine } from './ink-line'
 
 /** The four grades, as the plan defines them: how the retrieval felt, not whether it was right. */
 const GRADES = [
@@ -306,6 +307,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
         )}
         <Exams exams={exams} />
         <StrugglingShelf />
+        <InkLine />
         </div>
       </Page>
     )
