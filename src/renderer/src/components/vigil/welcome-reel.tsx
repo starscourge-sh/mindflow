@@ -14,7 +14,8 @@ import { MemoryPostcard } from './memory-postcard'
 import { Signed } from './signature'
 import { Flip } from './review-view'
 import { Rolling } from './ui'
-import { Scenery } from './scenery'
+// Dunes at sunset, Great Sand Dunes National Park: NPS, Debra Miller, public domain. The sandbox's Dune link wears the same picture.
+import dunesUrl from '@/assets/welcome/dunes.webp'
 
 /**
  * The welcome's reel: the parts it is filmed with.
@@ -179,7 +180,7 @@ export function Stage({ box }: { box: Box }): React.JSX.Element {
         {/* A link: the page answers with its name and picture (a stored example here: nothing is fetched). */}
         {box.page && !box.fold && (
           <motion.span className="flex items-center gap-2 rounded-lg border border-foreground/10 py-1 pr-3 pl-1 text-meta" initial={{ opacity: 0, filter: 'blur(3px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }} transition={{ duration: 0.35, ease: EASE }}>
-            <span className="relative size-7 overflow-hidden rounded-md bg-[color-mix(in_oklab,var(--tt-color-text-brown)_35%,var(--background))]"><Scenery place="recap" seed="welcome-link" mood={['dusk']} wide={false} soft className="absolute inset-0" rounded="rounded-md" /></span>
+            <span className="relative size-7 overflow-hidden rounded-md bg-[color-mix(in_oklab,var(--tt-color-text-brown)_35%,var(--background))]"><img src={dunesUrl} alt="" draggable={false} className="absolute inset-0 size-full object-cover" /></span>
             <span className="font-medium text-foreground">{LINK_PAGE.title}</span><span className="text-muted-foreground">{LINK_PAGE.site}</span>
           </motion.span>
         )}
@@ -378,7 +379,7 @@ export function PostcardResult({ words, who, where, signed, id = 'reel-item-quot
                 <Signed who={who} />
               </motion.span>
             )}
-            {where && signed && <span className="shrink-0">in {where}</span>}
+            {where && signed && <span className="min-w-0">in {where}</span>}
           </p>
         </MemoryPostcard>
       </div>
@@ -400,11 +401,12 @@ export function NoteResult({ words }: { words: string }): React.JSX.Element {
 export function LinkResult(): React.JSX.Element {
   return (
     <motion.div layoutId="reel-item-link" transition={CAM} style={{ borderRadius: 12 }} className={`${PANEL} w-full`} initial={{ filter: 'blur(4px)' }} animate={{ filter: 'blur(0px)' }}>
-      <div className="relative h-20 w-full bg-[color-mix(in_oklab,var(--tt-color-text-brown)_30%,var(--background))]"><Scenery place="recap" seed="welcome-link" mood={['dusk']} wide soft className="absolute inset-0" rounded="rounded-none" /></div>
+      {/* The page's own picture, as a kept link shows it: Dune is a desert planet. */}
+      <div className="relative h-20 w-full bg-[color-mix(in_oklab,var(--tt-color-text-brown)_30%,var(--background))]"><img src={dunesUrl} alt="" draggable={false} className="absolute inset-0 size-full object-cover" /></div>
       <div className="px-4 py-3">
-        <p className="text-[0.9375rem] font-medium text-foreground">{LINK_PAGE.title}</p>
-        {/* A narrow card shortens the site with an ellipsis rather than letting it run past the edge. */}
-        <p className="truncate text-[0.8125rem] text-muted-foreground">{LINK_PAGE.site}</p>
+        {/* Title and site each on one line. */}
+        <p className="truncate text-[0.9375rem] font-medium whitespace-nowrap text-foreground">{LINK_PAGE.title}</p>
+        <p className="truncate text-[0.75rem] whitespace-nowrap text-muted-foreground">{LINK_PAGE.site}</p>
       </div>
     </motion.div>
   )
@@ -412,11 +414,12 @@ export function LinkResult(): React.JSX.Element {
 
 /** A word, as Review asks it: the question on its face, the meaning on its back. */
 export function CardResult({ term, meaning, over, onTurn }: { term: string; meaning: string; over: boolean; onTurn: (over: boolean) => void }): React.JSX.Element {
-  const face = 'flex h-full min-h-[9.5rem] flex-col justify-center rounded-xl border bg-popover px-5 py-5 text-popover-foreground shadow-(--mf-panel-shadow)'
+  // Sized to the narrowest column it gets: the term on its face never pushes the card wider than its place.
+  const face = 'flex h-full min-h-[9.5rem] flex-col justify-center rounded-xl border bg-popover px-4 py-5 text-popover-foreground shadow-(--mf-panel-shadow)'
   return (
     <motion.div layoutId="reel-item-word" transition={CAM} style={{ borderRadius: 12 }} className="w-full" data-ghost="card" initial={{ filter: 'blur(4px)' }} animate={{ filter: 'blur(0px)' }}>
       <Flip over={over} onTurn={onTurn}
-        front={<div className={face}><p className="text-xs text-muted-foreground">Review</p><h2 className="mt-1.5 font-heading text-[1.25rem] leading-snug font-semibold tracking-[-0.015em] text-balance text-foreground">What does “{term}” mean?</h2></div>}
+        front={<div className={face}><p className="text-xs text-muted-foreground">Review</p><h2 className="mt-1.5 font-heading text-[clamp(1rem,1.5vw,1.25rem)] leading-snug font-semibold tracking-[-0.015em] text-balance text-foreground">What does “{term}” mean?</h2></div>}
         back={<div className={face}><p className="text-xs text-muted-foreground">What does “{term}” mean?</p><p className="mt-1.5 font-heading text-[1.0625rem] leading-snug text-foreground">{meaning}</p></div>} />
     </motion.div>
   )

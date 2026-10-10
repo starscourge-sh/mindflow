@@ -1,6 +1,8 @@
 import type { JSONContent } from '@tiptap/core'
 import { EXAMPLES, STARTERS } from '@/lib/welcome-box'
 import { FLOW_WORDS } from '@/components/vigil/welcome-flow'
+// The same desert the welcome's Dune card shows (welcome-reel.tsx).
+import dunesUrl from '@/assets/welcome/dunes.webp'
 
 import tabletUrl from '@/assets/sandbox/cuneiform-tablet.webp'
 import plaqueUrl from '@/assets/sandbox/odysseus-plaque.webp'
@@ -1204,7 +1206,7 @@ url: ${starter('link')}
 title: "Dune (novel)"
 description: "Frank Herbert's 1965 novel of the desert planet Arrakis."
 host: en.wikipedia.org
-image: ${await picture(prairieUrl)}
+image: ${await picture(dunesUrl)}
 \`\`\`
 `)
   await task(starter('todo'))

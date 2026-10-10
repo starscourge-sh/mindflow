@@ -896,7 +896,7 @@ function Results({ cards, landed, signed, over, onTurn, pick, onPick, kept, quie
   const live = !!onPick
   // Two rows on one grid: the three set down on one baseline, their lines under them on one line.
   return (
-    <div className="grid w-full max-w-[72rem] grid-cols-[minmax(0,0.85fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,0.85fr)_minmax(0,1.2fr)] gap-x-[clamp(0.75rem,1.8vw,1.75rem)] gap-y-3">
+    <div className="grid w-full max-w-[72rem] grid-cols-[minmax(11.5rem,1.5fr)_minmax(10.5rem,1.15fr)_minmax(8.5rem,0.85fr)_minmax(9rem,0.9fr)_minmax(11.25rem,1.1fr)] gap-x-[clamp(0.5rem,1vw,1.75rem)] gap-y-3">
       {BECOMES.map((kind) => {
         const card = cards.includes(kind)
         const chosen = pick === kind
