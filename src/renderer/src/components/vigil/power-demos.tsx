@@ -211,7 +211,7 @@ const TagTaskDemo: Demo = ({ live }) => {
 
 const MODES = [
   { said: '!alert', label: 'Interrupts you', icon: Bell, tint: 'orange' },
-  { said: '!quiet', label: 'A quiet note', icon: BellOff, tint: 'blue' },
+  { said: '!quiet', label: 'Counted in the menu bar', icon: BellOff, tint: 'blue' },
   { said: '!pull', label: 'Only when you look', icon: Eye, tint: 'gray' }
 ] as const
 const RemindDemo: Demo = ({ live }) => {
@@ -251,9 +251,9 @@ const ComingBackDemo: Demo = ({ live }) => {
       <AnimatePresence>
         {at === 2 && (
           <motion.div key="card" className="absolute inset-x-0 top-3 rounded-xl border bg-popover px-3 py-2.5 shadow-[0_6px_16px_-6px_rgb(0_0_0/0.25)]" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={spring.slow}>
-            <div className="flex items-center gap-1.5 text-meta" style={{ color: 'var(--tt-color-text-orange)' }}><Repeat className="size-3" /> Coming back</div>
+            <div className="flex items-center gap-1.5 text-meta" style={{ color: 'var(--tt-color-text-orange)' }}><Repeat className="size-3" /> You keep coming back to this</div>
             <div className="mt-1 text-control text-foreground">Walk after lunch</div>
-            <div className="mt-1 flex items-center gap-1 text-meta text-muted-foreground">{[0, 1, 2].map((i) => <span key={i} className="size-1.5 rounded-full" style={{ background: 'var(--tt-color-text-orange)' }} />)} caught 3 times</div>
+            <div className="mt-1 flex items-center gap-1 text-meta text-muted-foreground">{[0, 1, 2].map((i) => <span key={i} className="size-1.5 rounded-full" style={{ background: 'var(--tt-color-text-orange)' }} />)} 3×</div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -399,16 +399,16 @@ const AliasesDemo: Demo = ({ live }) => {
     <Col>
       <div className="rounded-lg border bg-background px-3 py-2">
         <div className="font-heading text-control font-semibold text-foreground">Samwise Gamgee</div>
-        <div className="mt-1 flex h-5 items-center gap-1 text-meta text-muted-foreground">Other names
+        <div className="mt-1 flex h-5 items-center gap-1 text-meta text-muted-foreground">Also called
           <AnimatePresence>{at >= 1 && <motion.span key="a" {...rise}><Chip tint="purple">Sam</Chip></motion.span>}{at >= 2 && <motion.span key="b" {...rise}><Chip tint="purple">Sam G.</Chip></motion.span>}</AnimatePresence>
         </div>
       </div>
-      <p className="px-1 text-control text-muted-foreground">Ask <span className={`transition-colors duration-300 ${at === 3 ? 'text-foreground underline decoration-[var(--tt-color-text-purple)] decoration-2 underline-offset-2' : ''}`}>Sam</span> about the vegetable patch.</p>
+      <p className="flex items-center gap-1.5 px-1 text-control text-muted-foreground"><Kbd>⌘K</Kbd> Sam <span className={`ml-auto transition-colors duration-300 ${at === 3 ? 'text-foreground' : 'opacity-0'}`}>Samwise Gamgee</span></p>
     </Col>
   )
 }
 
-const SUM = 'Flights 420 + hotel 3 × 95 ='
+const SUM = 'Trip: 420 + 3 × 95 ='
 const CalcDemo: Demo = ({ live }) => {
   const at = useSteps([typeMs(SUM, 55), 1300, 2000], live, 2)
   const text = useTyped(SUM, at === 0, 55)
@@ -459,21 +459,17 @@ const BitDemo: Demo = ({ live }) => {
 }
 
 const GlossaryDemo: Demo = ({ live }) => {
-  const at = useSteps([1200, 2200, 600], live, 1)
-  const open = at === 1
+  const at = useSteps([1600, 2400], live, 1)
   return (
-    <div className="relative w-full max-w-[17rem] pt-12">
-      <AnimatePresence>
-        {open && (
-          <motion.div key="tip" initial={{ opacity: 0, y: 4, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0 }} transition={spring.moderate}
-            className="absolute top-0 left-10 w-48 rounded-lg border bg-popover px-2.5 py-1.5 text-meta shadow-[0_6px_16px_-6px_rgb(0_0_0/0.3)]">
-            <span className="font-medium text-foreground">petrichor</span><span className="text-muted-foreground"> the smell of rain on dry earth</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      <p className="rounded-lg border bg-background px-3 py-2 text-control text-foreground">After the storm, that lovely <span className="underline decoration-foreground/40 decoration-dotted underline-offset-[3px]">petrichor</span> again.</p>
-      <Pointer x={open ? 128 : 200} y={open ? 66 : 92} />
-    </div>
+    <Col>
+      <div className="rounded-xl border bg-background px-3 py-2.5">
+        <div className="text-meta text-muted-foreground">Word</div>
+        <div className="text-control text-foreground">What does petrichor mean?</div>
+        <motion.div initial={false} animate={{ height: at === 1 ? 'auto' : 0, opacity: at === 1 ? 1 : 0 }} transition={{ duration: 0.35, ease: EASE }} className="overflow-hidden">
+          <div className="pt-1.5 text-meta text-muted-foreground">The smell of rain on dry earth.</div>
+        </motion.div>
+      </div>
+    </Col>
   )
 }
 
@@ -513,7 +509,7 @@ const ClozeDemo: Demo = ({ live }) => {
   )
 }
 
-const WHY = { context: 'On a train, reading Deep Work', why: 'My mornings go on email' }
+const WHY = { context: 'Cal Newport, Deep Work, 2016', why: 'Willpower runs down through the day' }
 const ContextDemo: Demo = ({ live }) => {
   const at = useSteps([500, typeMs(WHY.context, 30), typeMs(WHY.why, 30), 1800], live, 3)
   const context = useTyped(WHY.context, at === 1, 30)
@@ -585,7 +581,7 @@ const WrongDemo: Demo = ({ live }) => {
     <Col>
       <div className="rounded-lg border bg-background px-3 py-2">
         <p className={`text-control transition-colors duration-300 ${at >= 1 ? 'text-muted-foreground' : 'text-foreground'}`}>
-          {at >= 1 ? <span className="mf-hand-struck line-through"><Struck seed="pluto" draw={live}>Pluto is the ninth planet.</Struck></span> : 'Pluto is the ninth planet.'}
+          Pluto is the ninth planet.{at >= 1 && <span className="ml-2 text-meta text-[var(--tt-color-text-orange)]">Superseded</span>}
         </p>
         <AnimatePresence>
           {at === 2 && <motion.div key="true" {...rise} className="mt-1.5 flex items-center gap-2 text-control text-foreground"><Chip tint="green">Now true</Chip>A dwarf planet, since 2006.</motion.div>}
@@ -644,9 +640,9 @@ const DecisionDemo: Demo = ({ live }) => {
       <AnimatePresence>
         {at === 2 && (
           <motion.div key="back" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={spring.slow} className="rounded-xl border bg-popover px-3 py-2.5 shadow-[0_6px_16px_-6px_rgb(0_0_0/0.25)]">
-            <div className="text-meta" style={{ color: 'var(--tt-color-text-red)' }}>Does this still hold?</div>
+            <div className="text-meta" style={{ color: 'var(--tt-color-text-red)' }}>Look again today</div>
             <div className="mt-0.5 text-control text-foreground">Keep the old laptop two more years</div>
-            <div className="mt-2 flex gap-1.5"><span className="rounded-md bg-primary px-2 py-0.5 text-meta text-primary-foreground">It holds</span><span className="rounded-md border px-2 py-0.5 text-meta text-muted-foreground">Reopen</span></div>
+            <div className="mt-2 flex gap-1.5"><span className="rounded-md bg-primary px-2 py-0.5 text-meta text-primary-foreground">Still holds</span><span className="rounded-md border px-2 py-0.5 text-meta text-muted-foreground">Reopen</span></div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -675,7 +671,7 @@ const ExperimentDemo: Demo = ({ live }) => {
         </div>
       </div>
       <div className={`rounded-lg border bg-popover px-3 py-1.5 text-meta transition-opacity duration-300 ${at === 0 ? 'opacity-0' : 'opacity-100'}`}>
-        <span className="text-muted-foreground">How did it go? </span><span className="text-foreground">{at === 1 ? text : OUTCOME}</span>{at === 1 && <Caret />}
+        <span className="text-muted-foreground">What did you find? </span><span className="text-foreground">{at === 1 ? text : OUTCOME}</span>{at === 1 && <Caret />}
       </div>
     </Col>
   )
@@ -690,13 +686,14 @@ const GoalsDemo: Demo = ({ live }) => {
       <Box text={at === 0 ? text : LOG} caret={at === 0} className={`transition-opacity duration-300 ${at === 0 ? '' : 'opacity-40'}`} />
       <div className="rounded-lg border bg-background px-3 py-2">
         <div className="flex items-baseline gap-2 text-control text-foreground">Finish Dune before film night<span className="ml-auto text-meta" style={{ color: 'var(--tt-color-text-blue)' }}>12 days left</span></div>
-        <ProgressBar value={at === 1 ? 0.68 : 0.52} label="Goal" className="mt-2" thick={3} duration={700} as="plain" fill="var(--tt-color-text-blue)" />
+        <ProgressBar value={0.6} label="Goal" className="mt-2" thick={3} duration={700} as="plain" fill="var(--tt-color-text-blue)" />
+        <div className="mt-1.5 text-meta text-muted-foreground tabular-nums"><Rolling text={at === 1 ? '9' : '8'} /> steps logged</div>
       </div>
     </Col>
   )
 }
 
-const BOXES = [{ label: 'Do now', tint: 'red' }, { label: 'Plan', tint: 'blue' }, { label: 'Hand off', tint: 'orange' }, { label: 'Let go', tint: 'gray' }]
+const BOXES = [{ label: 'Do now', tint: 'red' }, { label: 'Plan', tint: 'blue' }, { label: 'Hand off or batch', tint: 'orange' }, { label: 'Drop or later', tint: 'gray' }]
 const MatrixDemo: Demo = ({ live }) => {
   const at = useSteps([1200, 1200, 1200, 1200], live, 1)
   // Round the four boxes in turn: top left, top right, bottom right, bottom left.
@@ -852,7 +849,7 @@ const BookDemo: Demo = ({ live }) => {
   )
 }
 
-const WRAPPED = [{ n: '214', said: 'things caught this year' }, { n: 'Tuesday', said: 'your busiest day' }, { n: '4', said: 'books finished' }]
+const WRAPPED = [{ n: '214', said: 'things caught this year' }, { n: '14 March', said: 'your busiest day' }, { n: '4', said: 'books finished' }]
 const WrappedDemo: Demo = ({ live }) => {
   const at = useSteps([1600, 1600, 1600], live, 0)
   return (
@@ -944,15 +941,15 @@ const WindowDemo: Demo = ({ live }) => {
 }
 
 const SafeDemo: Demo = ({ live }) => {
-  const at = useSteps([1400, 2200], live, 1)
+  const at = useSteps([1600, 2200], live, 1)
   const safe = at === 1
   return (
     <Col className="items-center">
-      <div className="w-full rounded-lg border bg-background py-1">
-        {[['Dinner with Ana, Friday', false], ['Salary talk notes', true], ['Tickets for Django', false], ['What I think of the plan', true]].map(([text, secret]) => (
-          <Row key={text as string}><span className={`truncate transition-[filter] duration-300 ${safe && secret ? 'blur-[4px]' : ''}`}>{text as string}</span></Row>
-        ))}
+      <div className={`w-full rounded-xl border bg-popover px-3 py-2.5 shadow-[0_6px_16px_-6px_rgb(0_0_0/0.25)] transition-opacity duration-500 ${safe ? 'opacity-0' : 'opacity-100'}`}>
+        <div className="text-meta text-muted-foreground">Coming back to you</div>
+        <div className="mt-0.5 text-control text-foreground">Salary talk notes</div>
       </div>
+      <span className={`text-meta text-muted-foreground transition-opacity duration-300 ${safe ? 'opacity-100' : 'opacity-0'}`}>Safe mode is on, so nothing comes back on its own.</span>
     </Col>
   )
 }
@@ -1009,7 +1006,7 @@ const FilesDemo: Demo = ({ live }) => {
   )
 }
 
-const EMBED = '![[Trip plan]]'
+const EMBED = '![[route-map.png]]'
 const EmbedsDemo: Demo = ({ live }) => {
   const at = useSteps([typeMs(EMBED, 70), 600, 2400], live, 2)
   const text = useTyped(EMBED, at === 0, 70)
@@ -1022,8 +1019,8 @@ const EmbedsDemo: Demo = ({ live }) => {
             <motion.div key="raw" exit={{ opacity: 0 }} className="mt-1"><Said text={at === 0 ? text : EMBED} />{at === 0 && <Caret />}</motion.div>
           ) : (
             <motion.div key="card" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={spring.slow} className="mt-1.5 rounded-md border border-[color-mix(in_srgb,var(--tt-color-text-green)_22%,transparent)] bg-[color-mix(in_srgb,var(--tt-color-text-green)_6%,transparent)] px-2.5 py-1.5">
-              <div className="text-meta font-medium text-foreground">Trip plan</div>
-              <div className="mt-1 flex flex-col gap-1"><Line w="85%" /><Line w="60%" /></div>
+              <div className="h-12 rounded-sm bg-[color-mix(in_srgb,var(--tt-color-text-green)_18%,transparent)]" />
+              <div className="mt-1 text-meta text-muted-foreground">route-map.png</div>
             </motion.div>
           )}
         </AnimatePresence>
