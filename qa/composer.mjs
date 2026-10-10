@@ -51,6 +51,15 @@ try {
     await wait(800)
     let glosses = await v('glosses', idea)
     check(`${theme}: Enter keeps it as a gloss`, glosses.some((one) => one.body === said))
+    // The toast that says so never covers the composer.
+    await wait(400)
+    const overlap = async () => {
+      const toast = await h.locator('[role="status"]').filter({ hasText: /kept/ }).last().boundingBox().catch(() => null)
+      const bar = await h.locator('[data-composer]').last().boundingBox()
+      return toast && bar ? !(toast.y + toast.height <= bar.y || toast.y >= bar.y + bar.height || toast.x + toast.width <= bar.x || toast.x >= bar.x + bar.width) : null
+    }
+    const covered = await overlap()
+    check(`${theme}: the "kept" toast does not cover the composer`, covered === false, String(covered))
     // The composer sits under the editor, never over its words.
     const editorBox = await h.locator('[data-pane] .mindflow-editor-wrapper').first().boundingBox()
     const barBox = await composer().boundingBox()
@@ -88,6 +97,9 @@ try {
     await h.keyboard.press('Enter')
     await wait(800)
     check(`${theme}: Enter keeps it as a clue`, (await v('glosses', question)).some((one) => one.body === clue))
+    await wait(300)
+    const clueCovered = await overlap()
+    check(`${theme}: the clue toast does not cover the composer`, clueCovered === false, String(clueCovered))
     const numbers = await h.locator('[data-pane] li.group\\/track > span:first-child').evaluateAll((spans) => spans.map((one) => `${one.textContent}|${one.querySelectorAll('svg').length}`))
     check(`${theme}: every clue row shows its number, no play mark`, numbers.length > 0 && numbers.every((one) => /^\d+\|0$/.test(one)), numbers.join(' '))
 
@@ -114,6 +126,8 @@ try {
       return !!document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest('[aria-label="Reading"]')
     }))
     check(`${theme}: every pane is covered while reading`, paneHidden)
+    const heading = (await reading.locator('article h1').first().innerText().catch(() => '')).trim()
+    check(`${theme}: read mode heads the page with the question's title`, heading.length > 0, heading.slice(0, 50))
     const readComposer = reading.locator('[data-composer] textarea')
     check(`${theme}: read mode has the composer, "Add a clue…" on a question`, (await readComposer.getAttribute('placeholder')) === 'Add a clue…')
     await h.mouse.move(size.w / 2, size.h / 2)

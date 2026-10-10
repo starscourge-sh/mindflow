@@ -335,6 +335,8 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo }: {
   // Private words blur like everywhere else, clear where you point or write.
   const hidden = shown?.private ? '' : undefined
   const lead = !!shown && leads(shown)
+  // No words of its own yet (a question only asked): the thoughts follow the title closely, with no empty page between.
+  const blank = !!shown && (typeof shown.body === 'string' ? !shown.body.trim() : !JSON.stringify(shown.body ?? null).includes('"text":"'))
   const write = (event?: React.MouseEvent): void => {
     if (writing || !own) return
     // Words being selected to copy are being read, not written.
@@ -459,7 +461,7 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo }: {
             {shown?.who && <p data-private={hidden} className="mt-5 text-control text-muted-foreground"><Signed who={shown.who} className="private-text" /></p>}
             {/* Thoughts kept on it stay with the words; a new one goes in the
                 composer under the page. */}
-            {shown && own && <div data-private={hidden} className="mt-16"><GlossComposer id={item.id} field={false} /></div>}
+            {shown && own && <div data-private={hidden} className={blank && !writing ? 'mt-2' : 'mt-16'}><GlossComposer id={item.id} field={false} /></div>}
           </motion.article>
         </AnimatePresence>
       </div>

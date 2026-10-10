@@ -830,8 +830,9 @@ function Asker(): React.JSX.Element | null {
 let lastEdit = 0
 
 // What a toast must never cover: an open dialog, sheet or menu, and the
-// footer (and its Keys panel) of a view that fills the window, like Read through.
-const PANELS = '[role="dialog"],[role="alertdialog"],[role="menu"],[data-slot="sheet-content"],[data-slot="popover-content"]'
+// footer (and its Keys panel) of a view that fills the window, like Read through,
+// and the composer pinned under a page, where you are typing.
+const PANELS = '[role="dialog"],[role="alertdialog"],[role="menu"],[data-slot="sheet-content"],[data-slot="popover-content"],[data-composer]'
 
 /**
  * Where the toast goes, clear of open panels: its usual place at the bottom
