@@ -24,6 +24,8 @@ export const THEMES = [
   "paper",
   "dark",
   "light",
+  "brutal",
+  "brutal-dark",
   "catppuccin",
   "dracula",
   "gruvbox",
@@ -42,7 +44,7 @@ export const DEFAULT_THEME = "github"
 export type Theme = (typeof THEMES)[number] | `custom-${string}`
 
 /** The ones with dark ink on a light page: the window behind them is made solid. */
-const LIGHT: Theme[] = ["light", "paper"]
+const LIGHT: Theme[] = ["light", "paper", "brutal"]
 export const isLight = (theme: Theme): boolean => LIGHT.includes(theme) || !!customThemes().find((one) => one.id === theme)?.light
 
 /** Names the kebab case cannot spell. Everything else is title case. */

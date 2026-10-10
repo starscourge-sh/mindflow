@@ -374,6 +374,21 @@ $mf-themes: (
     "bg": #000000, "ink": #d4d4d4, "accent": #8ab4f8,
     "gray": #8a8a8a, "brown": #b08a6a, "orange": #f0a060, "yellow": #e8c46a,
     "green": #7cc492, "blue": #8ab4f8, "purple": #b39ddb, "pink": #f08cba, "red": #f2766e
+  ),
+  /* Brutal, after neobrutalism.com: a cream page, black ink, and a few loud
+     colours at full strength. Its shapes (black outlines, hard shadows, square
+     corners) are in brutal.css. The accent here is the one words are written
+     in, so it is a blue that reads on cream; the yellow fills are set there. */
+  "brutal": (
+    "bg": #fff7e8, "ink": #000000, "accent": #1f4bff,
+    "gray": #5f5a52, "brown": #8a5a3c, "orange": #d9480f, "yellow": #9a6b00,
+    "green": #0b7a3e, "blue": #1f4bff, "purple": #6f2bd9, "pink": #c2186b, "red": #d62828
+  ),
+  /* Brutal, dark: neobrutalism's own dark page, with the yellow as the accent. */
+  "brutal-dark": (
+    "bg": #1a1815, "ink": #f5f0e6, "accent": #ffdc58,
+    "gray": #a8a196, "brown": #c9a06a, "orange": #ff9f43, "yellow": #ffdc58,
+    "green": #5ee08f, "blue": #74a7ff, "purple": #b892ff, "pink": #ff7ac6, "red": #ff6b6b
   )
 );
 
