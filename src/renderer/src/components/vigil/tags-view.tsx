@@ -12,7 +12,6 @@ import FileDescriptionIcon from '@/components/ui/file-description-icon'
 import LibraryIcon from '@/components/ui/library-icon'
 import StackIcon from '@/components/ui/stack-icon'
 import CheckedIcon from '@/components/ui/checked-icon'
-import HashtagIcon from '@/components/ui/hashtag-icon'
 
 import { splitTags, unloaded, useLive, vigil } from '@/lib/vigil'
 import { useKept, useOpened } from '@/lib/nav'
@@ -23,6 +22,7 @@ import { DatePicker } from './date-picker'
 import { Readiness } from './review-view'
 import { openWindow } from '@/lib/notes'
 import { TagStream, prefetchTag, useLiveFor } from './tag-read'
+import { TagIcon } from './tag-icon'
 import { motion } from 'motion/react'
 import { dayMonth } from '../../../../main/dates'
 import { TAG_DOES } from '../capture-kinds/kind-fields'
@@ -35,7 +35,6 @@ const FileText = alive(FileDescriptionIcon)
 const Gem = alive(LibraryIcon)
 const Inbox = alive(StackIcon)
 const ListTodo = alive(CheckedIcon)
-const Tag = alive(HashtagIcon)
 
 const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo }
 
@@ -107,7 +106,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 onPointerEnter={() => prefetchTag(tag)}
                 className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-accent/50 ${chosen === tag ? 'bg-accent' : index === cursor ? 'bg-accent/50' : ''}`}
               >
-                <Tag className="size-4" style={{ color: color ? `var(--tt-color-text-${color})` : undefined }} />
+                <TagIcon tag={tag} color={color} />
                 <span className={chosen ? 'min-w-0 flex-1 truncate' : 'w-40 truncate'}>{tag}</span>
                 {/* A tag that does something says what, quietly. */}
                 {does(tag, !!action) && !chosen && (

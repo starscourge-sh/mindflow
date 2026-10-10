@@ -8,6 +8,7 @@ import {
 import { linkKind, noteLinkPluginKey, tagPluginKey, wikiPluginKey, type NoteSuggestion } from "@/extensions/note-link"
 import { listDirection, step } from "@/lib/menu-keys"
 import { realMove } from "@/lib/real-move"
+import { TagIcon } from "@/components/vigil/tag-icon"
 
 /** The `@` menu: which note to link to. */
 const NoteList = forwardRef<SuggestionListHandle, SuggestionProps<NoteSuggestion>>(
@@ -53,7 +54,7 @@ const NoteList = forwardRef<SuggestionListHandle, SuggestionProps<NoteSuggestion
                 onClick={() => command(item)}
               >
                 {/* A heading row is the heading: its note is the group above. */}
-                {item.heading ? null : item.icon}
+                {item.heading ? null : item.icon ?? (item.group === 'Tags' ? <TagIcon tag={item.id} tint={item.tint} className="size-4" /> : null)}
                 {item.key && !item.heading ? <span className="tiptap-note-link-key">{item.key}</span> : null}
                 <span className="tiptap-slash-menu-title tiptap-note-link-title" style={item.tint ? { color: item.tint } : undefined}>
                   {item.heading ? `# ${item.heading}` : item.label || "Untitled"}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { Archive, Merge } from 'lucide-react'
+import { Archive, Merge, Tag } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
 import EyeIcon from '@/components/ui/eye-icon'
@@ -23,7 +23,7 @@ import { motion } from 'motion/react'
 import { MindflowEditor, TAGS } from '../mindflow'
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { CaptureList, captureEntry, captureMenu, useCaptures, whereFrom, type CaptureMeta } from '../capture-list'
-import { tagColors, spread } from '@/extensions/tokens'
+import { tagTint } from './tag-icon'
 import { AGES, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
@@ -679,7 +679,7 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
     ...(statuses.length > 1 ? [{ key: 'status', label: 'Status', options: ['open', 'promoted', 'resolved', 'discarded'].filter((one) => statuses.includes(one)).map((id) => ({ id, label: id[0].toUpperCase() + id.slice(1), icon: STATUS_ICON[id as keyof typeof STATUS_ICON] })), test: (one: CaptureMeta, status: string) => one.status === status }] : []),
     { key: 'kind', label: 'Kind', options: CAPTURE_TYPES.filter((type) => kept.some((one) => one.kind === type.id)).map(({ id, label, icon, tint }) => ({ id, label, icon, tint })), test: (one, kind) => one.kind === kind },
     { key: 'when', label: 'Captured', options: AGES, test: (one, when) => period(one.capturedAt) === when },
-    { key: 'tag', label: 'Tag', options: [...new Set(kept.flatMap((one) => splitTags(one.label).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}`, tint: `var(--tt-color-text-${tagColors.get(tag) ?? spread(tag)})` })), test: (one, tag) => splitTags(one.label).tags.includes(tag) },
+    { key: 'tag', label: 'Tag', options: [...new Set(kept.flatMap((one) => splitTags(one.label).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}`, icon: Tag, tint: tagTint(tag) })), test: (one, tag) => splitTags(one.label).tags.includes(tag) },
     { key: 'from', label: 'Came from', options: [{ id: 'typed', label: 'Typed here' }, { id: 'imported', label: 'Imported' }], test: (one, from) => (one.source ? 'imported' : 'typed') === from },
     { key: 'who', label: 'Who said it', options: [{ id: 'mine', label: 'My words' }, { id: 'theirs', label: 'Someone else' }], test: (one, who) => (one.attribution ? 'theirs' : 'mine') === who },
     { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Pinned' }, { id: 'private', label: 'Private' }, ...(archived ? [] : [{ id: 'archived', label: 'Archived' }])], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : flag === 'archived' ? !!one.archivedAt : !!one.private) }

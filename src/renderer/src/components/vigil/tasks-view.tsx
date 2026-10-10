@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as chrono from 'chrono-node'
 import type { JSONContent } from '@tiptap/core'
-import { CalendarDays, CircleX, Plus, Square, Ban } from 'lucide-react'
+import { CalendarDays, CircleX, Plus, Square, Ban, Tag } from 'lucide-react'
+import { tagTint } from './tag-icon'
 import { alive } from '@/components/ui/alive-icon'
 import FilledBellIcon from '@/components/ui/filled-bell-icon'
 import ClockIcon from '@/components/ui/clock-icon'
@@ -819,7 +820,7 @@ export function taskFacets(tasks: Task[]): Facet<Task>[] {
     { key: 'marked', label: 'Marked', options: [{ id: 'important', label: 'Urgent or High' }, { id: 'deadline', label: 'Has a deadline' }, { id: 'blocked', label: 'Blocked' }, { id: 'estimate', label: 'Estimated' }],
       test: (task, mark) => (mark === 'important' ? !!task.important : mark === 'deadline' ? !!task.deadline : mark === 'blocked' ? !!task.blocker : task.estimate !== null) },
     { key: 'priority', label: 'Priority', options: [1, 2, 3, 4, 0].map((level) => ({ id: String(level), label: PRIORITY_NAMES[level] })), test: (task, level) => task.priority === Number(level) },
-    { key: 'tag', label: 'Tag', options: [...new Set(tasks.flatMap((task) => splitTags(task.title).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}` })), test: (task, tag) => splitTags(task.title).tags.includes(tag) },
+    { key: 'tag', label: 'Tag', options: [...new Set(tasks.flatMap((task) => splitTags(task.title).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}`, icon: Tag, tint: tagTint(tag) })), test: (task, tag) => splitTags(task.title).tags.includes(tag) },
     { key: 'from', label: 'Came from', options: [{ id: 'capture', label: 'A note' }, { id: 'typed', label: 'Typed here' }], test: (task, from) => (task.fromId ? 'capture' : 'typed') === from }
   ]
 }

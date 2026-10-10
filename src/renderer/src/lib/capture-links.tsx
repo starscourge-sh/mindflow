@@ -9,6 +9,7 @@ import { openWindow } from '@/lib/notes'
 import { headingsIn } from '@/components/toc/headings'
 import type { JSONContent } from '@tiptap/core'
 import { vigil } from '@/lib/vigil'
+import { TagIcon } from '@/components/vigil/tag-icon'
 import type { SaveResult } from '../../../main/captures'
 
 /** The short handle a capture goes by, like Linear's `REE-30`. */
@@ -176,7 +177,7 @@ export async function findCaptures(query: string): Promise<NoteSuggestion[]> {
       .map((task) => row('task', { id: `task:${task.id}`, label: task.title || 'Untitled', key: `T-${task.number}` })),
     // Who your quotes are from: a link opens every note by them.
     ...people.filter((name) => name.toLowerCase().includes(words)).slice(0, 3).map((name) => row('person', { id: `person:${name}`, label: name })),
-    ...tags.filter(({ tag }) => tag.includes(words.replace(/^#/, ''))).slice(0, 3).map(({ tag }) => row('tag', { id: `tag:${tag}`, label: `#${tag}` }))
+    ...tags.filter(({ tag }) => tag.includes(words.replace(/^#/, ''))).slice(0, 3).map(({ tag, color }) => ({ ...row('tag', { id: `tag:${tag}`, label: `#${tag}` }), icon: <TagIcon tag={tag} color={color} /> }))
   ]
   const order = Object.keys(linkKinds())
   return rows.sort((a, b) => order.indexOf(a.kind!) - order.indexOf(b.kind!))

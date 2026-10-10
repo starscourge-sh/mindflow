@@ -8,7 +8,6 @@ import InfoCircleIcon from '@/components/ui/info-circle-icon'
 import BookmarkIcon from '@/components/ui/bookmark-icon'
 import CameraIcon from '@/components/ui/camera-icon'
 import CameraOffIcon from '@/components/ui/camera-off-icon'
-import HashtagIcon from '@/components/ui/hashtag-icon'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, byKeys, shift, spring } from './lib/motion'
@@ -31,6 +30,7 @@ import { StatsView } from './components/vigil/stats-view'
 import { MapView } from './components/vigil/map-view'
 import { PowersView } from './components/vigil/powers-view'
 import { TagsView } from './components/vigil/tags-view'
+import { TagIcon } from './components/vigil/tag-icon'
 import { prefetchTag, usePinnedTags } from './components/vigil/tag-read'
 import { TasksView } from './components/vigil/tasks-view'
 import { WeekView } from './components/vigil/week-view'
@@ -91,7 +91,6 @@ import XIcon from '@/components/ui/x-icon'
 const ChevronRight = alive(RightChevronIcon)
 const CircleHelp = alive(InfoCircleIcon)
 const PinMark = alive(BookmarkIcon)
-const Tag = alive(HashtagIcon)
 
 // A nonce makes asking again a fresh visit: the recap reopens each time.
 type View = Step
@@ -1145,7 +1144,7 @@ export function Home(): React.JSX.Element {
               onPointerEnter={() => prefetchTag(tag)}
               className={`flex w-full items-center gap-2.5 rounded-md px-2 py-1 ${view.id === 'tags' && view.focus === tag ? '' : 'text-foreground/80'}`}
             >
-              <Tag className="size-4 text-muted-foreground" style={color ? { color: `var(--tt-color-text-${color})` } : undefined} />
+              <TagIcon tag={tag} color={color} />
               <Weighted on={view.id === 'tags' && view.focus === tag} className="flex-1 text-left">{tag}</Weighted>
               {pinnedTags.includes(tag) && <PinMark className="size-3 text-muted-foreground" aria-label="Pinned" />}
               <span className="text-xs text-muted-foreground tabular-nums"><Rolling text={count} /></span>
