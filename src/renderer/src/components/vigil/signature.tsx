@@ -1,3 +1,5 @@
+import { Avatar } from './avatar'
+
 /**
  * A quote's signature: "said by" in the app's font, then the name in a pen's
  * hand, like the names that sign Dia's changelog. Only for a quote shown as a
@@ -10,6 +12,7 @@ export function Signed({ who, className = '' }: { who: string | null | undefined
   return (
     <span className={`mf-signed ${className}`}>
       <span className="mf-signed-by">said by</span>
+      <Avatar name={name} size={15} />
       <span className="mf-signature" dir="auto" title={name}>{name}</span>
     </span>
   )

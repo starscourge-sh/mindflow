@@ -1,5 +1,5 @@
 import { pathToFileURL } from 'url'
-import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, net, powerMonitor, protocol, screen, session, systemPreferences, Tray } from 'electron'
+import { app, shell, BrowserWindow, clipboard, ClipboardItem, desktopCapturer, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, net, powerMonitor, protocol, screen, session, systemPreferences, Tray } from 'electron'
 /*
  * app - Control your application's event lifecycle.
  *     - app.on('window-all-closed', () => { app.quit() })
@@ -54,6 +54,7 @@ import { firstRun, isWelcoming, noteChord, pretendTaken, registerOnboarding, whe
 import { registerUnused } from './unused'
 import { registerObsidian } from './obsidian'
 import { lookAhead, registerPictures } from './pictures'
+import { registerSessionLog } from './session-log'
 import { frostWindow, registerFrost, retellFrost } from './frost'
 import { BOOK, SANDBOX, arrived, windingDown, onHandOff, registerSandbox, relaunch, restartNow, useDataFolder } from './sandbox'
 import { books, here, nameOf, nextImport, registerBooks } from './books'
@@ -559,6 +560,8 @@ function sendHome(type: string, id: string, heading?: string): void {
  * Focus shows one, until the session ends. Dragged anywhere; remembered.
  */
 let focusPill: BrowserWindow | null = null
+/** The pill's window at rest; it grows down while the pill opens into the island, and back after. */
+const PILL_REST = 64
 /** Whether a session wants the pill up: safe mode hides it without forgetting. */
 let focusWanted = false
 /** The pill on screen: a session wants it, Settings has the bubble showing, and safe mode is off. */
@@ -568,14 +571,19 @@ function showFocus(on: boolean): void {
   // With the time in the note only, the pill is still made and kept hidden:
   // it is what rings and glows when the time is up.
   if (!on || !focusBubbleShown()) focusPill?.hide()
+  // Put away, its window goes back to the pill's own size for next time.
+  if (!on && focusPill && !focusPill.isDestroyed()) focusPill.setBounds({ ...focusPill.getBounds(), height: PILL_REST })
   if (!on) return
   if (focusPill && !focusPill.isDestroyed()) return void (pillUp() && focusPill.showInactive())
-  const { workArea } = screen.getPrimaryDisplay()
+  // Top centre of the screen you are on, hung just under the menu bar the way
+  // the island hangs under the notch: the work area starts below both, so
+  // the notch is never covered.
+  const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
   focusPill = new BrowserWindow({
     width: 340,
-    height: 64,
+    height: PILL_REST,
     x: Math.round(workArea.x + workArea.width / 2 - 170),
-    y: workArea.y + 12,
+    y: workArea.y + 6,
     frame: false,
     transparent: true,
     // Nothing of the window's own around the pill: no backing colour, and no
@@ -2031,6 +2039,7 @@ app.whenReady().then(() => {
   registerCaptures()
   registerImportConversion()
   registerVigil()
+  registerSessionLog()
   registerSandbox()
   atLogin()
   registerHome()
@@ -2187,6 +2196,42 @@ app.whenReady().then(() => {
       Menu.buildFromTemplate([{ label: 'Tick while it runs', type: 'checkbox', checked: Boolean(ticking), click: () => resolve('tick') }]).popup({ window: win, callback: () => setTimeout(() => resolve(null), 100) })
     })
   )
+  // The pill opening into the island: its window grows down first, from
+  // the top it hangs from, and goes back once the pill has closed again.
+  ipcMain.handle('focus:size', (event, height: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== focusPill) return false
+    const bounds = win.getBounds()
+    const next = Math.round(Math.max(PILL_REST, Math.min(480, Number(height) || PILL_REST)))
+    if (next !== bounds.height) win.setBounds({ ...bounds, height: next })
+    return true
+  })
+  // A screenshot for the session's log: the screen the pill is on, without
+  // the pill. It needs Screen Recording; refused or never granted, the pill
+  // says so and offers paste or drop instead.
+  ipcMain.handle('focus:shot', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const display = win ? screen.getDisplayMatching(win.getBounds()) : screen.getPrimaryDisplay()
+    const allowed = (): string => (process.platform === 'darwin' ? systemPreferences.getMediaAccessStatus('screen') : 'granted')
+    if (allowed() === 'denied' || allowed() === 'restricted') return { denied: true }
+    win?.setOpacity(0)
+    try {
+      await new Promise((done) => setTimeout(done, 60))
+      const thumbnailSize = { width: Math.round(display.size.width * display.scaleFactor), height: Math.round(display.size.height * display.scaleFactor) }
+      const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize })
+      // Without the permission macOS still answers, with the wallpaper alone.
+      if (allowed() !== 'granted') return { denied: true }
+      const source = sources.find((one) => one.display_id === String(display.id)) ?? sources[0]
+      if (!source || source.thumbnail.isEmpty()) return { denied: true }
+      const url = await storeImage('image/png', new Uint8Array(source.thumbnail.toPNG()))
+      return url ? { url } : null
+    } catch {
+      return { denied: true }
+    } finally {
+      win?.setOpacity(1)
+    }
+  })
+  ipcMain.on('focus:screen-settings', () => void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'))
   // The end of a session or timer, said around the edge of the screen.
   ipcMain.on('glow', (_event, tone: unknown) => showGlow(tone === 'cancel' ? 'cancel' : 'done'))
   ipcMain.handle('glow:waiting', () => {

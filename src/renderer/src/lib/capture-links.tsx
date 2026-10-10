@@ -1,5 +1,6 @@
 import { CircleArrowUp, CircleCheck, CircleDashed, CircleX, FileText, Flag, Gem, Hash, ListChecks, Orbit, UserRound } from 'lucide-react'
 
+import { Avatar } from '@/components/vigil/avatar'
 import { ask, askQuestion, refuse, toast } from '@/components/vigil/ui'
 import { chime, tear } from '@/lib/sound'
 import { lift, shred, type Home } from '@/lib/fly-home'
@@ -176,7 +177,7 @@ export async function findCaptures(query: string): Promise<NoteSuggestion[]> {
     ...tasks.filter((task) => task.title.toLowerCase().includes(words)).slice(0, 4)
       .map((task) => row('task', { id: `task:${task.id}`, label: task.title || 'Untitled', key: `T-${task.number}` })),
     // Who your quotes are from: a link opens every note by them.
-    ...people.filter((name) => name.toLowerCase().includes(words)).slice(0, 3).map((name) => row('person', { id: `person:${name}`, label: name })),
+    ...people.filter((name) => name.toLowerCase().includes(words)).slice(0, 3).map((name) => ({ ...row('person', { id: `person:${name}`, label: name }), icon: <Avatar name={name} size={16} /> })),
     ...tags.filter(({ tag }) => tag.includes(words.replace(/^#/, ''))).slice(0, 3).map(({ tag, color }) => ({ ...row('tag', { id: `tag:${tag}`, label: `#${tag}` }), icon: <TagIcon tag={tag} color={color} /> }))
   ]
   const order = Object.keys(linkKinds())

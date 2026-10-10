@@ -1,0 +1,87 @@
+/* A person's face: small, round, a hairline ring; their initials in a soft
+   circle tinted by their name's own colour when there is no picture. */
+.mf-avatar {
+  --s: var(--mf-avatar-size, 16px);
+  position: relative;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: var(--s);
+  height: var(--s);
+  border-radius: 999px;
+  overflow: hidden;
+  vertical-align: middle;
+  background: oklch(0.92 0.04 var(--mf-avatar-hue));
+  color: oklch(0.45 0.09 var(--mf-avatar-hue));
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: calc(var(--s) * 0.42);
+  font-weight: 600;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  user-select: none;
+}
+.dark .mf-avatar {
+  background: oklch(0.36 0.05 var(--mf-avatar-hue));
+  color: oklch(0.9 0.05 var(--mf-avatar-hue));
+}
+.mf-avatar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--foreground) 16%, transparent);
+  pointer-events: none;
+}
+.mf-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.mf-signed > .mf-avatar { align-self: center; }
+
+/* The box's border beam: a light that travels round the window's edge to say
+   what the box is doing. Faint and slow while something is fetched, one sweep
+   on a send, a brief warm one when a lit word is about to act. Nothing at
+   rest. Only a transform turns (a conic light under a 1.5px ring of mask), so
+   no frame lays anything out or paints the page again. */
+.mf-box-beam {
+  --mf-beam-color: var(--tt-brand-color-400, var(--primary));
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  pointer-events: none;
+  border-radius: var(--mf-box-radius, 16px);
+  padding: 1.5px;
+  overflow: hidden;
+  contain: strict;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+}
+.mf-box-beam::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 150vmax;
+  height: 150vmax;
+  margin: -75vmax 0 0 -75vmax;
+  background: conic-gradient(from 0turn, transparent 0turn 0.7turn, color-mix(in oklab, var(--mf-beam-color) 0%, transparent) 0.7turn, var(--mf-beam-color) 0.97turn, transparent 1turn);
+  will-change: transform;
+}
+.mf-box-beam[data-beam='fetching'] { opacity: 0.5; transition: opacity 0.5s ease; }
+.mf-box-beam[data-beam='fetching']::before { animation: mf-box-beam-turn 3.6s linear infinite; }
+.mf-box-beam[data-beam='sent'] { animation: mf-box-beam-flash 0.9s ease-out forwards; }
+.mf-box-beam[data-beam='sent']::before { animation: mf-box-beam-turn 0.9s cubic-bezier(0.3, 0.6, 0.3, 1) forwards; }
+.mf-box-beam[data-beam='warm'] { --mf-beam-color: var(--tt-color-text-orange, #d9822b); animation: mf-box-beam-flash 1.2s ease-out forwards; }
+.mf-box-beam[data-beam='warm']::before { animation: mf-box-beam-turn 1.2s cubic-bezier(0.3, 0.6, 0.3, 1) forwards; }
+@keyframes mf-box-beam-turn { from { transform: rotate(0turn); } to { transform: rotate(1turn); } }
+@keyframes mf-box-beam-flash { 0% { opacity: 0; } 15% { opacity: 0.9; } 70% { opacity: 0.7; } 100% { opacity: 0; } }
+
+/* Motion off or reduced: a still, faint ring while something is fetched; no sweep at all. */
+:root[data-motion='off'] .mf-box-beam::before { animation: none !important; background: var(--mf-beam-color); }
+:root[data-motion='off'] .mf-box-beam[data-beam='fetching'] { opacity: 0.3; }
+:root[data-motion='off'] .mf-box-beam:is([data-beam='sent'], [data-beam='warm']) { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .mf-box-beam::before { animation: none !important; background: var(--mf-beam-color); }
+  .mf-box-beam[data-beam='fetching'] { opacity: 0.3; }
+  .mf-box-beam:is([data-beam='sent'], [data-beam='warm']) { display: none; }
+}

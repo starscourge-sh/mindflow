@@ -39,6 +39,9 @@ import CheckedIcon from '@/components/ui/checked-icon'
 import InfoCircleIcon from '@/components/ui/info-circle-icon'
 import TriangleAlertIcon from '@/components/ui/triangle-alert-icon'
 import { GHOST } from './ghost'
+import { Avatar, PersonMenu } from './avatar'
+import { pickAvatar, setAvatar } from '@/lib/people'
+import { near } from '../../../../main/near'
 import { useHere, usePane } from '@/lib/split'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -1145,7 +1148,7 @@ export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX
 }
 
 /** What you have typed before in a field, most used first, for its autocomplete. */
-export function Remembered({ field, value, onChange, placeholder, className = 'field-sizing-content min-w-16 max-w-48 px-1.5 py-0.5', complete = true, onKeyDown, onBlur, ...rest }: {
+export function Remembered({ field, value, onChange, placeholder, className: given = 'field-sizing-content min-w-16 max-w-48 px-1.5 py-0.5', complete = true, onKeyDown, onBlur, onPaste, ...rest }: {
   field: 'attribution' | 'medium'
   value: string
   onChange: (value: string) => void
@@ -1162,16 +1165,26 @@ export function Remembered({ field, value, onChange, placeholder, className = 'f
   const typed = complete ? value.trim().toLowerCase() : ''
   const match = typed ? values.find((one) => one.toLowerCase().startsWith(typed) && one.length > typed.length) : undefined
   const ahead = match ? match.slice(value.length) : ''
+  // A who with a name wears that person's face at its start: a click on it
+  // adds a picture, as does a picture pasted in, or a right click.
+  const person = field === 'attribution' ? value.trim() : ''
+  const className = person ? cn(given, 'pl-6') : given
   const known = (): string | undefined => {
     if (!typed) return undefined
     const same = values.find((one) => one.toLowerCase() === typed)
     if (same) return same
     return typed.length >= 4 ? values.find((one) => near(one.toLowerCase(), typed)) : undefined
   }
-  return (
+  const chip = (
     <span className={cn('relative inline-grid [&>*]:col-start-1 [&>*]:row-start-1', /\bw-full\b/.test(className) && 'w-full')}>
       <input
         {...rest}
+        onPaste={(event) => {
+          const picture = person ? [...event.clipboardData.files].find((file) => file.type.startsWith('image/')) : undefined
+          if (!picture) return onPaste?.(event)
+          event.preventDefault()
+          void setAvatar(person, picture).then((done) => done && toast(`A picture for ${person}`))
+        }}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => {
@@ -1201,21 +1214,19 @@ export function Remembered({ field, value, onChange, placeholder, className = 'f
           <span className="invisible">{value}</span><span className="text-muted-foreground/45">{ahead}</span>
         </span>
       )}
+      {person && (
+        <Tip label="Add a picture… or paste one in">
+          <button type="button" data-who-avatar tabIndex={-1} onMouseDown={(event) => event.preventDefault()} onClick={() => void pickAvatar(person).then((done) => done && toast(`A picture for ${person}`))}
+            className="z-10 ml-1 cursor-pointer self-center justify-self-start rounded-full transition-transform hover:scale-110">
+            <Avatar name={person} size={16} />
+          </button>
+        </Tip>
+      )}
     </span>
   )
+  return field === 'attribution' ? <PersonMenu name={person}>{chip}</PersonMenu> : chip
 }
 
-/** Within a slip of a key or two of each other, for names of a few letters or more. */
-function near(a: string, b: string): boolean {
-  if (Math.abs(a.length - b.length) > 2) return false
-  let row = Array.from({ length: b.length + 1 }, (_, i) => i)
-  for (let i = 1; i <= a.length; i++) {
-    const next = [i]
-    for (let j = 1; j <= b.length; j++) next[j] = Math.min(row[j] + 1, next[j - 1] + 1, row[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
-    row = next
-  }
-  return row[b.length] <= (b.length < 8 ? 1 : 2)
-}
 
 /**
  * Who said it, asked in place: one key from a rot card or a search result

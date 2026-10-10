@@ -20,6 +20,7 @@ import { GlossLine, keepGloss, openGloss } from './gloss-line'
 import { BorderBeam } from 'border-beam'
 import { useAlive, useSurface } from '@/lib/use-alive'
 import { num } from '../../../../main/dates'
+import { Avatar } from './avatar'
 import { Signed } from './signature'
 import { useHere } from '@/lib/split'
 
@@ -431,8 +432,9 @@ function Origin({ id, quote, attribution, said }: { id: string; quote?: boolean;
   // A quote is signed: the name in a pen's hand, then where it came from.
   if (quote && who) return <p className="-mt-2 flex min-w-0 items-baseline text-xs text-muted-foreground"><Signed who={who} className="private-text" />{whence && <span className="truncate">, {whence}</span>}</p>
   return (
-    <p className="-mt-2 text-xs text-muted-foreground">
-      {[who && `Said by ${who}`, source && `from ${/^["“‘'«]/.test(source) ? source : `“${source}”`}`].filter(Boolean).join(', ')}
+    <p className="-mt-2 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+      {who && <Avatar name={who} size={14} />}
+      <span className="min-w-0">{[who && `Said by ${who}`, source && `from ${/^["“‘'«]/.test(source) ? source : `“${source}”`}`].filter(Boolean).join(', ')}</span>
     </p>
   )
 }
