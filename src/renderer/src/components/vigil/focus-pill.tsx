@@ -300,7 +300,6 @@ function Pill({ focus, settings, now, onEnded }: { focus: Focus; settings: Setti
   const more = entries.length - newest.length
 
   const button = 'flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)] [&_svg]:size-3'
-  const icon = 'flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)]'
   const end = (): void => void vigil.endSession(focus.id, '', false).then(() => (over ? chime('done') : glowEnd('done'), onEnded(focus.id)))
   const shown = stage === 'capsule' || stage === 'above'
   const spring = still ? { duration: 0 } : SPRING
@@ -309,6 +308,8 @@ function Pill({ focus, settings, now, onEnded }: { focus: Focus; settings: Setti
   // unreachable), so its height is known before it opens; and kept as it was
   // between the clock's ticks while closed, so a tick redraws only the pill.
   const timeText = open ? clock(left ?? done) : ''
+  // Break early is offered from halfway: kept apart so the panel redraws once, as it turns.
+  const halfway = focus.plannedMs ? done >= focus.plannedMs / 2 : done >= 15 * 60_000
   const panel = useMemo(() => (
     <div
       inert={!open}
@@ -328,20 +329,22 @@ function Pill({ focus, settings, now, onEnded }: { focus: Focus; settings: Setti
             {paused ? <Play className="fill-current" /> : <Pause className="fill-current" />} {paused ? 'Resume' : 'Pause'}
           </button>
         )}
-        {(!timer || over) && (
-          <button
+        <button
             type="button"
-            title={timer ? undefined : 'End the session, and keep it'}
+            title={timer && !over ? 'Stop the timer' : timer ? undefined : 'End the session, and keep it (⌥-click: throw it away, no record kept)'}
             // Past its time it has already glowed: ending it is only the tick.
             // A session asks how it went before the pill goes; a timer just goes.
-            onClick={() => (timer ? void vigil.cancelSession(focus.id).then(() => chime('done')) : end())}
+            // One way to stop: the × beside it went. A timer just goes; ⌥ on a
+            // session throws it away, as the × did, with no record kept.
+            onClick={(event) => (timer && !over ? void vigil.cancelSession(focus.id).then(() => glowEnd('cancel')) : timer ? void vigil.cancelSession(focus.id).then(() => chime('done')) : event.altKey ? void vigil.cancelSession(focus.id).then(() => (over ? chime('away') : glowEnd('cancel'))) : end())}
             className={over ? 'flex h-7 items-center rounded-full bg-[var(--tt-brand-color-400)] px-3 text-[12px] font-semibold text-white transition-[filter] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tt-brand-color-400)]' : button}
           >
             {over ? 'Done' : <><Square className="fill-current" /> Stop</>}
           </button>
-        )}
-        {/* Break early: this session kept, and five minutes away from it on the clock. */}
-        {!timer && (
+        {/* Break early: this session kept, and five minutes away from it on the
+            clock. Only past halfway (or a quarter hour in, with no planned
+            length): before that it is a third button to read past. */}
+        {!timer && (over || halfway) && (
           <button
             type="button"
             title="End the session, kept, and start a five-minute break"
@@ -351,15 +354,6 @@ function Pill({ focus, settings, now, onEnded }: { focus: Focus; settings: Setti
             <Coffee /> {over ? 'Break' : 'Break early'}
           </button>
         )}
-        <button
-          type="button"
-          aria-label={timer ? 'Cancel the timer' : 'Cancel the session'}
-          title="Cancel: no record kept"
-          onClick={() => void vigil.cancelSession(focus.id).then(() => (over ? chime('away') : glowEnd('cancel')))}
-          className={`${icon} ml-auto`}
-        >
-          <X className="size-3.5" />
-        </button>
       </div>
 
       {/* The session's log so far, newest first: the last three, then how many more. */}
@@ -439,7 +433,7 @@ function Pill({ focus, settings, now, onEnded }: { focus: Focus; settings: Setti
       )}
     </div>
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [open, timeText, over, last, paused, timer, focus.id, focus.plannedMs, focus.taskId, entries, words, attached, carried, denied])
+  ), [open, timeText, over, last, paused, timer, focus.id, focus.plannedMs, focus.taskId, entries, words, attached, carried, denied, halfway])
 
   return (
     // In pixels, not rem: the pill's window is a fixed 340 wide, and at Large
