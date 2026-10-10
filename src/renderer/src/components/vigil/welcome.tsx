@@ -110,6 +110,7 @@ export function Welcome(): React.JSX.Element | null {
   // The chapters watched once: going back to one shows it settled.
   const [played, setPlayed] = useState<Set<number>>(new Set())
   const reel = useRef<Reel>({ done: true, settle: () => undefined })
+  const shown = useRef(-1)
   const [kept, setKept] = useState<Set<string>>(new Set())
   const [newcomer, setNewcomer] = useState(false)
   const [earlier, setEarlier] = useState(0)
@@ -124,13 +125,6 @@ export function Welcome(): React.JSX.Element | null {
   const quiet = still()
   // When the box last went away: an Esc a moment after is the same Esc, pressed twice out of habit.
   const awayAt = useRef(0)
-  // Skip asks once before it goes: a stray click should not cost the welcome.
-  const [sure, setSure] = useState(false)
-  useEffect(() => {
-    if (!sure) return
-    const timer = setTimeout(() => setSure(false), 3000)
-    return () => clearTimeout(timer)
-  }, [sure])
   // A second press of Next within 400ms is one press, not two.
   const pressedAt = useRef(0)
   const dialog = useRef<HTMLDivElement>(null)
@@ -138,7 +132,6 @@ export function Welcome(): React.JSX.Element | null {
   const go = (to: number): void => {
     if (to < 0 || to > LAST || performance.now() - pressedAt.current < 400) return
     pressedAt.current = performance.now()
-    setSure(false)
     reel.current = { done: true, settle: () => undefined }
     setPlayed((now) => (at > 0 ? new Set(now).add(at) : now))
     setAt(to)
@@ -251,9 +244,9 @@ export function Welcome(): React.JSX.Element | null {
     chime('page')
     return false
   }
+  // One click: it only goes to the last page, where Back still brings the chapters back.
   const skip = (): void => {
     if (at === LAST) return leave('closed')
-    if (!sure) return void (chime('tap'), setSure(true))
     chime('page')
     setSkipped(at === 0 ? 'first' : 'later')
     go(LAST)
@@ -359,7 +352,10 @@ export function Welcome(): React.JSX.Element | null {
 
   if (at < 0) return null
   const play = !quiet && !played.has(at)
-  const report = (now: Reel): void => void (reel.current = now)
+  // Only the chapter on screen says how far it has got: one still fading out
+  // after Back keeps playing, and must not leave the next press settling it.
+  shown.current = at
+  const report = (now: Reel): void => void (shown.current === at && (reel.current = now))
   const name = replay ? '' : (state?.name ?? '')
   return (
     <MotionConfig reducedMotion={quiet ? 'always' : 'never'}>
@@ -403,14 +399,15 @@ export function Welcome(): React.JSX.Element | null {
               </motion.p>
             )}
           </AnimatePresence>
+          {/* The ways past a page, worded alike: Skip the welcome, or, on Your turn, Skip trying it. */}
           {(at === LAST || !caught.length) && !(at === BECOME && turn !== 'kept') && (
-            <button type="button" onClick={skip} className={`flex h-[clamp(2rem,4.2vmin,2.5rem)] items-center gap-2 rounded-[0.6rem] px-3 text-[clamp(0.8125rem,1.8vmin,1rem)] transition-colors hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97] ${sure ? 'text-foreground' : 'text-(--mf-wl-quiet)'}`}>
-              {at === LAST ? 'Close' : sure ? 'Skip to the end? Click again' : 'Skip the welcome'}
+            <button type="button" onClick={skip} className={QUIET_BUTTON}>
+              {at === LAST ? 'Close' : 'Skip the welcome'}
             </button>
           )}
           {at === BECOME && turn !== 'kept' && (
-            <button type="button" onClick={next} className="rounded-sm px-1 text-[clamp(0.8125rem,1.8vmin,1rem)] text-(--mf-wl-quiet) underline decoration-current/30 underline-offset-4 transition-colors hover:text-foreground">
-              Not now
+            <button type="button" onClick={next} className={QUIET_BUTTON}>
+              Skip trying it
             </button>
           )}
           {at === 0 && <Primary onClick={next}>Show me</Primary>}
@@ -809,7 +806,7 @@ function BecomeChapter({ play, report, pick, onPick, turn, mine }: { play: boole
   return (
     <>
       <Words title="Then it becomes something." docked={s.docked} still={!play} done={show.done} tight={!!s.look && !show.done}>
-        Each kind goes where it is useful. These four were only a show.
+        Each kind goes where it is useful.
       </Words>
       <div ref={scene} className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-[clamp(0.75rem,3vh,1.75rem)] pb-2">
         {/* No push-in here: four across fill the window, so the one shown comes forward instead. */}
@@ -875,12 +872,12 @@ function Pairs({ play, report, onward }: { play: boolean; report: (now: Reel) =>
     <div className="absolute inset-0 z-10 flex items-center justify-center">
       <AnimatePresence mode="wait" initial={false}>
         {s.row ? (
-          <motion.ul key="row" className="grid w-full max-w-[74rem] grid-cols-4 grid-rows-[auto_auto_auto] gap-x-[clamp(0.75rem,2.5vw,2.25rem)] gap-y-2 px-6" initial={play ? { opacity: 0, scale: 0.96 } : false} animate={{ opacity: 1, scale: 1 }} transition={spring.slow}>
-            {GAPS.map(([Icon, was, now], i) => (
-              <motion.li key={now} className="row-span-3 grid grid-rows-subgrid justify-items-center text-center" initial={play ? { opacity: 0, y: 8 } : false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE, delay: i * 0.08 }}>
-                <Icon className="size-5 text-primary" />
-                <span className="self-end text-[clamp(0.875rem,min(1.5vw,2.2vh),1.0625rem)] leading-snug text-balance text-(--mf-wl-quiet) line-through decoration-primary/60">{was}</span>
-                <span className="font-heading text-[clamp(1.0625rem,min(2vw,3vh),1.5rem)] leading-tight text-balance text-foreground">{now}</span>
+          // All four as a plain list, read down like a page: each one struck, and under it, large, what Vigil does instead.
+          <motion.ul key="row" className="flex w-full max-w-[48rem] flex-col gap-[clamp(0.625rem,2.2vh,1.25rem)] px-6" initial={play ? { opacity: 0 } : false} animate={{ opacity: 1 }} transition={{ duration: 0.3, ease: EASE }}>
+            {GAPS.map(([, was, now], i) => (
+              <motion.li key={now} className="flex flex-col" initial={play ? { opacity: 0, y: 8 } : false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE, delay: i * 0.08 }}>
+                <span className="text-[clamp(0.875rem,min(1.5vw,2.2vh),1.0625rem)] leading-snug text-(--mf-wl-quiet) line-through decoration-primary/60">{was}</span>
+                <span className="font-heading text-[clamp(1.25rem,min(2.6vw,3.8vh),2rem)] leading-tight text-foreground">{now}</span>
               </motion.li>
             ))}
           </motion.ul>
@@ -1080,7 +1077,7 @@ function DayChapter({ play, report }: { play: boolean; report: (now: Reel) => vo
   return (
     <>
       <Words title="A day with Vigil." docked={dock} still={!play} done={stage === 'day' && done}>
-        {stage === 'day' ? 'A normal day, once you have kept a few things.' : stage === 'pairs' ? 'What a commonplace book does that they leave out.' : null}
+        {stage === 'day' ? 'A normal day, once you have kept a few things.' : stage === 'pairs' ? 'What changes once it is all one book.' : null}
       </Words>
       <div className="relative min-h-0 flex-1 overflow-hidden">
         {stage === 'tools'
@@ -1190,14 +1187,16 @@ function ReturnChapter({ play, report }: { play: boolean; report: (now: Reel) =>
       <Words title="And it all comes back to you." docked={s.docked} still={!play} done={show.done}>
         Ask any time, and Vigil reads your year back to you.
       </Words>
-      <figure aria-label="An example year, read back" className="relative mb-2 grid min-h-0 flex-1 grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] grid-rows-[auto_minmax(0,1fr)] items-center gap-x-[clamp(1.5rem,4vw,4rem)] rounded-2xl border border-foreground/10 bg-popover/60 px-[clamp(1rem,3vw,2rem)] py-[clamp(0.75rem,2vh,1.25rem)]">
+      {/* The card as tall as what it holds, in the middle of the room left: no empty band above the chart. */}
+      <figure aria-label="An example year, read back" className="relative my-auto grid min-h-0 grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] grid-rows-[auto_minmax(0,1fr)] items-center gap-x-[clamp(1.5rem,4vw,4rem)] rounded-2xl border border-foreground/10 bg-popover/60 px-[clamp(1rem,3vw,2rem)] py-[clamp(0.75rem,2vh,1.25rem)]">
         <figcaption className="col-span-2 flex items-baseline gap-3">
           <span className="font-heading text-[clamp(1.0625rem,min(1.9vw,2.8vh),1.375rem)] font-medium text-foreground">An example year</span>
           <span className="text-[0.875rem] text-(--mf-wl-quiet)">Someone else’s, read back, to show how yours will look.</span>
         </figcaption>
-        <div className="flex min-h-0 justify-center [&_svg]:max-h-[min(26rem,40vh)]">
+        {/* As large as the room allows, its kinds named at a readable size. */}
+        <div className="flex min-h-0 justify-center [&_svg]:max-h-[min(30rem,50vh)] [&_text]:text-[0.875rem]">
           {s.radar && (
-            <motion.div className="w-full max-w-[24rem]" initial={play ? { opacity: 0, scale: 0.94 } : false} animate={{ opacity: 1, scale: 1 }} transition={LAND}>
+            <motion.div className="w-full max-w-[30rem]" initial={play ? { opacity: 0, scale: 0.94 } : false} animate={{ opacity: 1, scale: 1 }} transition={LAND}>
               <RecapRadar kinds={YEAR} before={YEAR_BEFORE} />
             </motion.div>
           )}
@@ -1565,6 +1564,8 @@ const BODY = 'max-w-[32ch] text-[clamp(1.0625rem,min(2.5vw,3.6vh),1.75rem)] lead
 const QUIET = 'text-[clamp(0.9375rem,min(2.2vw,3.2vh),1.5rem)] leading-snug text-(--mf-wl-quiet)'
 /** Keys inside a line of the larger type: sized to it, not to the app's small caps. */
 const LINE_KEY = 'h-[1.3em] min-w-[1.3em] rounded-[0.3em] px-[0.3em] text-[0.62em]'
+/** A way past a page, beside the one accent button: quiet until pointed at. */
+const QUIET_BUTTON = 'flex h-[clamp(2rem,4.2vmin,2.5rem)] items-center gap-2 rounded-[0.6rem] px-3 text-[clamp(0.8125rem,1.8vmin,1rem)] text-(--mf-wl-quiet) transition-colors hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97]'
 /** A date or a count set in the type: figures that line up, in the quiet ink. */
 const FIGURES = 'text-[clamp(0.875rem,min(1.9vw,2.8vh),1.25rem)] tabular-nums text-(--mf-wl-quiet)'
 
@@ -1586,11 +1587,17 @@ function Hello({ replay, kept, calm, newcomer, today }: { replay: boolean; kept:
   }, [replay, calm])
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col justify-between gap-[clamp(1.5rem,5vh,3rem)]">
-      <div className="flex max-w-[min(100%,46rem)] flex-col gap-[clamp(0.75rem,2.6vh,1.75rem)] pt-[clamp(0rem,4vh,3rem)]">
-        <p className={FIGURES}>{when}</p>
-        {replay ? <h1 className={`${HEADLINE_XL} max-w-[17ch]`}>{line}</h1> : <TypeLine text={line} className={`${HEADLINE_XL} max-w-[17ch]`} onDone={() => setSaid(true)} />}
-        <p className={`${BODY} max-w-[28ch]`}>Your commonplace book: long notes and quick thoughts that come back to you.</p>
-        <p className={`${QUIET} max-w-[40ch]`}>For students, researchers and anyone who reads and writes to think.</p>
+      <div className="grid items-center gap-x-[clamp(2rem,5vw,5rem)] @min-[64rem]:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+        <div className="flex flex-col gap-[clamp(0.75rem,2.6vh,1.75rem)] pt-[clamp(0rem,4vh,3rem)]">
+          <p className={FIGURES}>{when}</p>
+          {replay ? <h1 className={`${HEADLINE_XL} max-w-[17ch]`}>{line}</h1> : <TypeLine text={line} className={`${HEADLINE_XL} max-w-[17ch]`} onDone={() => setSaid(true)} />}
+          <p className={`${BODY} max-w-[28ch]`}>Your commonplace book: long notes and quick thoughts that come back to you.</p>
+        </div>
+        {/* The other side of the line: once it is said, something kept comes back, a year on, as Vigil brings it back. */}
+        <motion.div aria-hidden className="hidden w-full max-w-[22rem] justify-self-center @min-[64rem]:block" initial={false}
+          animate={{ opacity: said ? 1 : 0, y: said ? 0 : 12, rotate: said ? -2.5 : 0 }} transition={calm || still() ? { duration: 0 } : { type: 'spring', duration: 0.7, bounce: 0.15, delay: 0.5 }}>
+          <PostcardResult id="hello-quote" words={QUOTE.text} who={QUOTE.who!} where={QUOTE.where} signed={said} />
+        </motion.div>
       </div>
       <div className="[@media(max-height:520px)]:hidden">
         <YearRule calm={calm} kept={kept} faded={said} newcomer={newcomer} today={today} />
@@ -1709,7 +1716,7 @@ function RollingYear({ from }: { from: number }): React.JSX.Element {
 /**
  * The end: a decision already made for you, with two quieter ways round it.
  * Your empty book is ready and the button below opens it; the sandbox and
- * your old notes are a line of small links, each with its number key. The
+ * your old notes are a line of small links (2 and 3 on the keys). The
  * arrow at the top of the window points at Vigil in the menu bar, so the
  * words do not have to.
  */
@@ -1731,7 +1738,6 @@ function Start({ name, kept, skipped, importing, still, onPick, onFiles, onPower
         {others.map((row) => (
           <button key={row.key} type="button" onClick={() => onPick(row.key)} className={link}>
             {row.title}
-            <Kbd className="text-(--mf-wl-quiet)">{row.key}</Kbd>
           </button>
         ))}
       </div>

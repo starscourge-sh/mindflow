@@ -229,6 +229,12 @@ export function Chip({ kind }: { kind: Kind }): React.JSX.Element {
   )
 }
 
+/** An empty slot's size: the chip that will land in it, unseen. */
+function ChipSize({ kind }: { kind: Kind }): React.JSX.Element {
+  const Icon = typeOf(kind).icon
+  return <span aria-hidden className="invisible flex h-9 items-center gap-1.5 border border-transparent px-3 text-[0.8125rem] whitespace-nowrap"><Icon className="size-4 shrink-0" />{shortOf(kind)}</span>
+}
+
 /** A slot a kind under the box, dashed till a thing lands in each, and the count beside them. */
 export function Slots({ filled }: { filled: Kind[] }): React.JSX.Element {
   const said = ['Four things to catch', 'One caught', 'Two caught', 'Three caught', 'Four caught'][filled.length]
@@ -236,10 +242,11 @@ export function Slots({ filled }: { filled: Kind[] }): React.JSX.Element {
     <div className="flex flex-wrap items-center justify-center gap-2">
       {KINDS.map((kind) => (
         // The slot answers once, as the words land in it.
-        <motion.div key={kind} data-slot={kind} className={`flex h-9 min-w-[8.5rem] items-center justify-center rounded-full border border-dashed transition-colors duration-300 ${filled.includes(kind) ? 'border-transparent' : 'border-foreground/20'}`}
+        // Each slot the size of what lands in it, empty or filled, so the gaps between them match.
+        <motion.div key={kind} data-slot={kind} className={`flex h-9 items-center justify-center rounded-full border border-dashed transition-colors duration-300 ${filled.includes(kind) ? 'border-transparent' : 'border-foreground/20'}`}
           initial={false} animate={filled.includes(kind) ? { scale: [1, 1, 1.08, 1], boxShadow: ['0 0 0 0px transparent', '0 0 0 0px transparent', '0 0 0 6px color-mix(in oklab, var(--primary) 22%, transparent)', '0 0 0 0px transparent'] } : { scale: 1 }}
           transition={{ duration: 1.05, times: [0, 0.62, 0.78, 1], ease: EASE }}>
-          {filled.includes(kind) && <Chip kind={kind} />}
+          {filled.includes(kind) ? <Chip kind={kind} /> : <ChipSize kind={kind} />}
         </motion.div>
       ))}
       <span className="ml-2 min-w-[8.5rem] text-[0.875rem] text-(--mf-wl-quiet) tabular-nums"><Rolling text={said} by="word" /></span>
@@ -537,9 +544,9 @@ export function LinkScene({ shot, quiet, onLight, hint = null }: { shot: MapShot
             const r = radius(dot.links) + 6
             const left = litDot ? x <= px(litDot)[0] : dot.id === 'note'
             return (
-              <motion.span key={dot.id} className="pointer-events-none absolute -translate-y-1/2 text-[0.75rem] font-medium whitespace-nowrap text-foreground [paint-order:stroke] [-webkit-text-stroke:3px_var(--background)]"
+              <motion.span key={dot.id} data-dot-label className="pointer-events-none absolute -translate-y-1/2 text-[0.75rem] font-medium whitespace-nowrap text-foreground [paint-order:stroke] [-webkit-text-stroke:3px_var(--background)]"
                 style={left ? { right: size.w - x + r, top: y } : { left: x + r, top: y }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={spring.fast}>
-                {dot.title.length > 30 ? `${dot.title.slice(0, 29)}…` : dot.title}
+                {dot.title}
               </motion.span>
             )
           })}
@@ -555,7 +562,7 @@ export function LinkScene({ shot, quiet, onLight, hint = null }: { shot: MapShot
           }), ...dots.filter((dot) => around!.has(dot.id)).flatMap((dot) => {
             const [x, y] = px(dot)
             const r = radius(dot.links) + 6
-            const words = dot.id === lit ? 0 : Math.min(30, dot.title.length) * 6.8
+            const words = dot.id === lit ? 0 : dot.title.length * 7
             const left = x < px(litDot)[0]
             const [lx, ly] = px(litDot)
             // Its line to the lit dot, as a row of small boxes the card must not sit on.
@@ -630,9 +637,17 @@ function MapCard({ dot, at, links, frame, blocked }: { dot: Dot; at: [number, nu
       [x - gap - w, y - gap - h], [x - w / 2, y - gap - h], [x + gap, y - gap - h], [x - gap - w, y - h / 2],
       [x + gap, y - h / 2], [x - gap - w, y + gap], [x - w / 2, y + gap], [x + gap, y + gap]
     ]
+    // The names as drawn, measured: what the card must cover least of, beside the estimates it was given.
+    const box = el.parentElement!.getBoundingClientRect()
+    // Measured on the screen, put back into the frame's own pixels (the page may still be easing in, scaled).
+    const k = box.width / (el.parentElement!.offsetWidth || box.width || 1)
+    const names = [...el.parentElement!.querySelectorAll('[data-dot-label]')].map((one) => {
+      const r = one.getBoundingClientRect()
+      return [(r.left - box.left) / k - 4, (r.top - box.top) / k - 2, (r.right - box.left) / k + 4, (r.bottom - box.top) / k + 2]
+    })
     const cost = ([sx, sy]: number[]): number => {
       let covered = 0
-      for (const [x0, y0, x1, y1] of blocked) covered += Math.max(0, Math.min(sx + w, x1) - Math.max(sx, x0)) * Math.max(0, Math.min(sy + h, y1) - Math.max(sy, y0))
+      for (const [x0, y0, x1, y1] of [...blocked, ...names, ...names]) covered += Math.max(0, Math.min(sx + w, x1) - Math.max(sx, x0)) * Math.max(0, Math.min(sy + h, y1) - Math.max(sy, y0))
       const outside = Math.max(0, 8 - sx) + Math.max(0, sx + w - frame.w + 8) + Math.max(0, 8 - sy) + Math.max(0, sy + h - frame.h + 8)
       return covered + outside * 1000
     }
@@ -641,7 +656,7 @@ function MapCard({ dot, at, links, frame, blocked }: { dot: Dot; at: [number, nu
   return (
     <motion.div ref={card} key={dot.id} className="pointer-events-none absolute z-10 w-max max-w-[16rem] rounded-lg border bg-popover px-3 py-2 text-popover-foreground shadow-(--mf-panel-shadow)"
       style={{ left: spot?.[0] ?? 0, top: spot?.[1] ?? 0, visibility: spot ? 'visible' : 'hidden' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={spring.fast}>
-      <p className="flex items-center gap-1.5 text-[0.8125rem] font-medium text-foreground"><Icon className="size-3.5 shrink-0" style={{ color: type.tint }} /><span className="truncate">{dot.title}</span></p>
+      <div className="flex items-center gap-1.5 text-[0.8125rem] font-medium text-foreground"><Icon className="size-3.5 shrink-0" style={{ color: type.tint }} /><span className="text-balance">{dot.title}</span></div>
       <p className="text-[0.75rem] text-muted-foreground">{links} {links === 1 ? 'link' : 'links'}</p>
     </motion.div>
   )

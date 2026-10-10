@@ -18,13 +18,14 @@ import { Scenery } from './scenery'
  * nothing here takes a click or reads your data.
  */
 
-/** A beat's words: the hour, the problem, struck through once answered, and the answer. */
+/** A beat's words: the hour leading the problem's line, the problem struck through once answered, and the answer. */
 export function Moment({ hour, problem, answer, answered, children }: { hour: string; problem: string; answer: ReactNode; answered: boolean; children: ReactNode }): React.JSX.Element {
   return (
     <div className="grid h-full w-full grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] items-center gap-x-[clamp(1.5rem,4vw,4rem)] px-[clamp(1.5rem,5vw,4rem)]">
       <div className="flex flex-col gap-3">
-        <p className="text-[0.875rem] font-medium text-(--mf-wl-quiet)">{hour}</p>
         <p className={`font-heading text-[clamp(1.25rem,min(2.4vw,3.4vh),1.875rem)] leading-tight transition-colors duration-500 ${answered ? 'text-(--mf-wl-quiet)' : 'text-foreground'}`}>
+          {/* The hour starts the line, never struck: it is when, not the problem. */}
+          <span className="text-foreground">{hour}.</span>{' '}
           {/* Answered: struck through in the accent, as a crossed-off line. */}
           <span className={`decoration-primary/70 decoration-2 transition-[text-decoration-color] duration-500 ${answered ? 'line-through' : 'decoration-transparent'}`}>{problem}</span>
         </p>
