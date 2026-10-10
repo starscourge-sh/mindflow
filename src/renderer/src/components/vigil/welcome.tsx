@@ -993,6 +993,10 @@ const TOOLS: [string, string][] = [['Obsidian', 'linked notes'], ['Notion', 'lon
 
 type ToolsState = { shown: number; merged: boolean; line: boolean }
 
+/** The four, named once more as one line over what they became. */
+const GATHERED_LINE = 'Obsidian’s links · Notion’s pages · Anki’s memory · Todoist’s tasks'
+const GATHERED = 'font-heading text-[clamp(1.0625rem,min(2.2vw,3.2vh),1.625rem)] leading-tight text-balance text-center text-foreground/80'
+
 /**
  * The chapter's opening, as large as the welcome sets anything: the four
  * tools a reader may have lived in, one at a time, each with what Vigil takes
@@ -1042,10 +1046,12 @@ function Tools({ play, report, onward }: { play: boolean; report: (now: Reel) =>
           </motion.div>
         ))}
         {/* What they become: one book. */}
-        <motion.div className="pointer-events-none absolute inset-0 flex items-center justify-center" initial={false}
-          animate={{ opacity: s.merged ? 1 : 0, scale: s.merged ? 1 : 0.85, filter: s.merged ? 'blur(0px)' : 'blur(6px)' }} transition={{ type: 'spring', duration: 0.8, bounce: 0.1, delay: s.merged && play ? 0.25 : 0 }}>
-          <span className={`${big} text-[clamp(2.75rem,min(6.4vw,9.5vh),6rem)]`}>One book.</span>
-        </motion.div>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-[clamp(0.5rem,2vh,1rem)]">
+          {/* The four stay named once they have merged, so whoever looks up late still sees them. */}
+          <motion.p className={GATHERED} initial={false} animate={{ opacity: s.merged ? 1 : 0, y: s.merged ? 0 : 10 }} transition={{ type: 'spring', duration: 0.6, bounce: 0, delay: s.merged ? 0.55 : 0 }}>{GATHERED_LINE}</motion.p>
+          <motion.span className={`${big} text-[clamp(2.75rem,min(6.4vw,9.5vh),6rem)]`} initial={false}
+            animate={{ opacity: s.merged ? 1 : 0, scale: s.merged ? 1 : 0.85, filter: s.merged ? 'blur(0px)' : 'blur(6px)' }} transition={{ type: 'spring', duration: 0.8, bounce: 0.1, delay: s.merged ? 0.25 : 0 }}>One book.</motion.span>
+        </div>
       </div>
       <motion.p className="text-[clamp(1.125rem,min(2.2vw,3.2vh),1.625rem)] text-(--mf-wl-body)" initial={false} animate={{ opacity: s.line ? 1 : 0, y: s.line ? 0 : 8 }} transition={{ duration: 0.4, ease: EASE }}>
         All of it, in one place.
