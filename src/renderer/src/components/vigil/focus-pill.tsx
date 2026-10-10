@@ -1,25 +1,28 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { Pause, Square, GripVertical as Grip } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { motion } from 'motion/react'
+import { Coffee, Pause, Paperclip, Square, GripVertical as Grip, X as XSmall } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 import PlayerIcon from '@/components/ui/player-icon'
 import XIcon from '@/components/ui/x-icon'
+import CameraIcon from '@/components/ui/camera-icon'
 
 // The theme's colours: this window has no editor, which is what usually brings them.
 import '@/assets/styles/_variables.scss'
 import { alarm, chime, sessionClock } from '@/lib/sound'
-import { useAppearance, useLive, vigil, type Focus, type Settings } from '@/lib/vigil'
+import { useAppearance, useLive, vigil, type Focus, type LogEntry, type Settings } from '@/lib/vigil'
 import { useAlive, useSurface } from '@/lib/use-alive'
 import { BorderBeam } from 'border-beam'
-import { Liquid } from 'liquid-gooey'
-import { Typed } from './ui'
+import { Kbd, Typed } from './ui'
 import { DotMatrix } from './dot-matrix'
 import { ProgressBar } from './progress-bar'
+import { clockTime } from './session-timeline'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Check = alive(SimpleCheckedIcon)
 const Play = alive(PlayerIcon)
 const X = alive(XIcon)
+const Camera = alive(CameraIcon)
 
 /** 59:55, or 1:02:03 past the hour. */
 export const clock = (ms: number): string => {
@@ -59,39 +62,19 @@ export function ScreenGlow(): React.JSX.Element | null {
 }
 
 /**
- * The focus timer, floating over everything in a window of its own, the way
- * Raycast Focus shows one: the time left and the goal, and on hover the three
- * things you would do with it. The whole pill drags; the buttons do not.
+ * The focus timer, floating over everything in a window of its own, hung
+ * from the top of the screen the way the island hangs from the notch. A new
+ * session drops in as a small black capsule and springs open to its task and
+ * time, then settles into the pill. Under the pointer (or a file carried over
+ * it) it opens again: the time large, Pause, Stop and Break early, the
+ * session's log so far and a line to add to it. The grip drags it anywhere.
  */
 export function FocusPill(): React.JSX.Element | null {
   // Your Sounds, pack, volume and Motion here too: a window of its own still obeys them.
   useAppearance()
   const focus = useLive(vigil.focusNow, undefined as Focus | null | undefined)
   const settings = useLive(vigil.settings, null as Settings | null)
-  const bubble = settings?.focusBubble ?? 'circle'
   const [now, setNow] = useState(Date.now())
-  const rang = useRef<string | null>(null)
-  // Hover told by the pointer itself: a window's drag area never reports it.
-  const [hover, setHover] = useState(false)
-  // The beam and the goo run frame loops of their own: only with Motion on
-  // and the pill on screen.
-  const alive = useAlive()
-  const surface = useSurface()
-  // The right-hand end is as wide as what it shows: the time at rest, the
-  // buttons under the pointer. Both are measured, and the end eases between
-  // them, so the goal gets every pixel the time does not need. Each is drawn
-  // at its own full width (w-max), so the slot never squeezes what it measures.
-  const [timeBox, setTimeBox] = useState<HTMLSpanElement | null>(null)
-  const [toolBox, setToolBox] = useState<HTMLSpanElement | null>(null)
-  const [wide, setWide] = useState<{ time: number; tools: number } | null>(null)
-  useEffect(() => {
-    if (!timeBox || !toolBox) return
-    const measure = (): void => setWide({ time: timeBox.offsetWidth, tools: toolBox.offsetWidth })
-    const watch = new ResizeObserver(measure)
-    watch.observe(timeBox)
-    watch.observe(toolBox)
-    return () => watch.disconnect()
-  }, [timeBox, toolBox])
 
   // A see-through window: only the pill is drawn.
   useEffect(() => {
@@ -108,21 +91,6 @@ export function FocusPill(): React.JSX.Element | null {
   const timeLeft = focus?.plannedMs ? focus.plannedMs - worked(focus, now) : null
   useEffect(() => sessionClock({ running, left: timeLeft, tick: !!settings?.sessionTick, level: settings?.sessionTickVolume ?? 0.5 }), [running, timeLeft, settings?.sessionTick, settings?.sessionTickVolume])
   useEffect(() => () => sessionClock({ running: false, left: null, tick: false, level: 0 }), [])
-  // The gleam: now and then a light glides across the pill, so a session left
-  // running is not forgotten. Every 45 seconds, every 15 in the last minute
-  // and past the time; never under the pointer, nor hidden, nor while nobody
-  // is at the computer. Each one is a new key, which plays it once.
-  const [gleam, setGleam] = useState(0)
-  const gleamOn = !!focus && !focus.pausedAt && settings?.sessionGleam !== false && !hover
-  const urgent = timeLeft !== null && timeLeft <= 60_000
-  useEffect(() => {
-    if (!gleamOn) return
-    const every = setInterval(() => {
-      if (document.hidden) return
-      void window.api.idleSeconds().then((idle) => idle < 60 && !document.hidden && setGleam((n) => n + 1))
-    }, urgent ? 15_000 : 45_000)
-    return () => clearInterval(every)
-  }, [gleamOn, urgent])
   // A session just ended: the pill stays a moment to ask how it went.
   const [asked, setAsked] = useState<string | null>(null)
   // Another session started meanwhile: that question has gone by.
@@ -132,8 +100,154 @@ export function FocusPill(): React.JSX.Element | null {
 
   if (asked) return <HowDidItGo id={asked} onDone={() => setAsked(null)} />
   if (!focus) return null
+  // Each session its own pill, so each one drops in.
+  return <Pill key={focus.id} focus={focus} settings={settings} now={now} onEnded={setAsked} />
+}
+
+/** The pill's width at rest and open, and the capsule it starts as. */
+const WIDE = 324
+const REST = 44
+const CAPSULE = { width: 132, height: 30 }
+/** Above the pill, inside its window: where it hangs from. */
+const TOP = 8
+/** Below it: room for its shadow (64 in all at rest, the window main.ts makes). */
+const BELOW = 12
+/**
+ * The island's spring: about 4% past where it is going, settled in about
+ * 450ms (a damping ratio of 0.72 at 12.3 rad/s).
+ */
+const SPRING = { type: 'spring', stiffness: 152, damping: 17.8, mass: 1 } as const
+/** The drop from under the menu bar: quicker, with the same little give. */
+const DROP = { type: 'spring', stiffness: 420, damping: 30, mass: 1 } as const
+/** How long the new session's card stays open before it settles into the pill. */
+const SHOWN = 1900
+
+const calm = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+
+/** A file kept for the next thought: a picture shown small, anything else by its name. */
+type Attachment = { url: string; name: string; picture: boolean }
+const PICTURE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif', 'image/bmp', 'image/svg+xml', 'image/heic'])
+
+function Pill({ focus, settings, now, onEnded }: { focus: Focus; settings: Settings | null; now: number; onEnded: (id: string) => void }): React.JSX.Element {
+  const bubble = settings?.focusBubble ?? 'circle'
+  const rang = useRef<string | null>(null)
+  // Hover told by the pointer itself: a window's drag area never reports it.
+  const [hover, setHover] = useState(false)
+  // The beam and the goo run frame loops of their own: only with Motion on
+  // and the pill on screen.
+  const alive = useAlive()
+  const surface = useSurface()
+  const light = surface === 'light'
+  const still = useRef(calm()).current
+
+  // --- the island: dropped in, opened, settled, and opened again on hover
+  // 'above' is out of sight under the menu bar; 'capsule' has dropped in;
+  // 'shown' is the new session's card; 'rest' is the pill.
+  const [stage, setStage] = useState<'above' | 'capsule' | 'shown' | 'rest'>(still ? 'rest' : 'above')
+  // Under the pointer for a moment (not only passing over), or a file carried onto it.
+  const [opened, setOpened] = useState(false)
+  const [carried, setCarried] = useState(false)
+  // Escape closes it, even with the pointer still on it, until the pointer leaves.
+  const [shut, setShut] = useState(false)
+  const [typing, setTyping] = useState(false)
+  const [words, setWords] = useState('')
+  const [attached, setAttached] = useState<Attachment | null>(null)
+  const [denied, setDenied] = useState(false)
+  const engaged = typing || !!words.trim() || !!attached || denied || carried
+  const open = stage === 'shown' || (stage === 'rest' && !shut && (opened || engaged))
+  const field = useRef<HTMLInputElement>(null)
+  const intent = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  // How tall it is open: measured, since the log and an attachment change it.
+  const [inner, setInner] = useState<HTMLDivElement | null>(null)
+  const [full, setFull] = useState(0)
+  useEffect(() => {
+    if (!inner) return
+    // Its borders too: the shell is that much taller than what is inside it.
+    const measure = (): void => setFull(inner.offsetHeight + 2)
+    measure()
+    const watch = new ResizeObserver(measure)
+    watch.observe(inner)
+    return () => watch.disconnect()
+  }, [inner])
+
+  // The window grows down before the pill opens, and goes back once it has
+  // closed: it is only ever as tall as the pill needs, so nothing around it
+  // stops taking clicks.
+  const target = open || stage === 'capsule' || stage === 'above' ? Math.max(REST, full) : REST
+  // Open, room for the spring to overshoot as well as for the shadow.
+  const want = Math.ceil(target + TOP + BELOW + (target > REST ? 16 : 0))
+  // Asked for once as it mounts, whatever size an earlier session left it.
+  const [room, setRoom] = useState(0)
+  useEffect(() => {
+    if (want > room) return void window.api.focusSize(want).then(() => setRoom(want))
+    if (want === room) return
+    if (!room) return void window.api.focusSize(want).then(() => setRoom(want))
+    const later = setTimeout(() => void window.api.focusSize(want).then(() => setRoom(want)), still ? 0 : 650)
+    return () => clearTimeout(later)
+  }, [want, room, still])
+  const height = Math.max(REST, Math.min(target, room - TOP - BELOW - (target > REST ? 16 : 0)))
+
+  // A new session: up from under the menu bar as a capsule, then open, then
+  // after a moment the pill. With Motion off or Reduce motion, a fade.
+  useEffect(() => {
+    if (still || !full) return
+    if (stage === 'above') return void requestAnimationFrame(() => setStage('capsule'))
+    if (stage === 'capsule') {
+      // Opened only once the window has grown to hold it.
+      if (room < want) return
+      const next = setTimeout(() => setStage('shown'), 170)
+      return () => clearTimeout(next)
+    }
+    if (stage === 'shown') {
+      const next = setTimeout(() => setStage('rest'), SHOWN)
+      return () => clearTimeout(next)
+    }
+    return undefined
+  }, [stage, full, still, room, want])
+
+  const enter = (): void => {
+    setHover(true)
+    clearTimeout(intent.current)
+    intent.current = setTimeout(() => setOpened(true), 90)
+  }
+  const leave = (): void => {
+    setHover(false)
+    setShut(false)
+    clearTimeout(intent.current)
+    intent.current = setTimeout(() => setOpened(false), 220)
+  }
+  useEffect(() => () => clearTimeout(intent.current), [])
+  const collapse = (): void => {
+    field.current?.blur()
+    setDenied(false)
+    setShut(true)
+    setOpened(false)
+    chime('fold')
+  }
+
+  // The gleam: now and then a light glides across the pill, so a session left
+  // running is not forgotten. Every 45 seconds, every 15 in the last minute
+  // and past the time; never under the pointer, nor hidden, nor while nobody
+  // is at the computer. Each one is a new key, which plays it once.
+  const [gleam, setGleam] = useState(0)
   const done = worked(focus, now)
   const left = focus.plannedMs ? focus.plannedMs - done : null
+  const gleamOn = !focus.pausedAt && settings?.sessionGleam !== false && !hover && !open
+  const urgent = left !== null && left <= 60_000
+  useEffect(() => {
+    if (!gleamOn) return
+    const every = setInterval(() => {
+      if (document.hidden) return
+      void window.api.idleSeconds().then((idle) => idle < 60 && !document.hidden && setGleam((n) => n + 1))
+    }, urgent ? 15_000 : 45_000)
+    return () => clearInterval(every)
+  }, [gleamOn, urgent])
+
+  // This session's log, as it grows.
+  const timer = !focus.taskId
+  const entries = useLive(() => (timer ? Promise.resolve([] as LogEntry[]) : vigil.sessionLog(focus.id)), [] as LogEntry[], [focus.id])
+
   const over = left !== null && left <= 0
   // Time is up: the screen's edge glows with a bell, once, and the pill keeps saying so until you act.
   if (over && rang.current !== focus.id) {
@@ -143,9 +257,6 @@ export function FocusPill(): React.JSX.Element | null {
     window.api.glow('done')
   }
   const paused = !!focus.pausedAt
-  // A timer set from the box has no task behind it, and leaves no record.
-  const timer = !focus.taskId
-
   // How far through: the ring is the session itself, filled as it goes.
   const share = focus.plannedMs ? Math.min(1, done / focus.plannedMs) : null
   const last = left !== null && left > 0 && left <= 60000
@@ -153,28 +264,218 @@ export function FocusPill(): React.JSX.Element | null {
   // running in place, hopping a cactus now and then. A session with no length
   // has no line to fill, so it only runs.
   const along = bubble === 'progress' && share !== null
-  const icon = 'flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)]'
+
+  // --- the log: a thought, maybe with a picture or a file, stamped now
+  const keepFile = async (file: File): Promise<void> => {
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    const picture = PICTURE_TYPES.has(file.type)
+    const url = picture ? await window.api.saveImage(file.type, bytes) : await window.api.saveFile(file.name || 'file', bytes)
+    if (!url) return chime('nope')
+    setAttached({ url, name: file.name || (picture ? 'Picture' : 'File'), picture })
+    setDenied(false)
+    chime('pin')
+    field.current?.focus()
+  }
+  const shoot = async (): Promise<void> => {
+    chime('tap')
+    const shot = await window.api.focusShot()
+    if (shot && 'url' in shot) {
+      setAttached({ url: shot.url, name: `Screenshot ${clockTime(new Date().toISOString())}`, picture: true })
+      setDenied(false)
+      chime('pin')
+    } else setDenied(true)
+    field.current?.focus()
+  }
+  const add = async (): Promise<void> => {
+    const text = words.trim()
+    if (!text && !attached) return
+    const entry = await vigil.logToSession(focus.id, text, attached?.url ?? null, attached?.name ?? null)
+    if (!entry) return chime('nope')
+    setWords('')
+    setAttached(null)
+    setDenied(false)
+    chime('logged')
+  }
+  const newest = [...entries].reverse().slice(0, 3)
+  const more = entries.length - newest.length
+
+  const button = 'flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)] [&_svg]:size-3'
+  const icon = 'flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)]'
+  const end = (): void => void vigil.endSession(focus.id, '', false).then(() => (over ? chime('done') : glowEnd('done'), onEnded(focus.id)))
+  const shown = stage === 'capsule' || stage === 'above'
+  const spring = still ? { duration: 0 } : SPRING
+
+  // Open: what the island shows. Kept drawn at rest (clipped away and
+  // unreachable), so its height is known before it opens; and kept as it was
+  // between the clock's ticks while closed, so a tick redraws only the pill.
+  const timeText = open ? clock(left ?? done) : ''
+  const panel = useMemo(() => (
+    <div
+      inert={!open}
+      data-island-panel
+      onMouseDown={(event) => event.target === event.currentTarget && !timer && (event.preventDefault(), field.current?.focus())}
+      className={`px-3 pb-3 transition-opacity duration-150 ${open ? 'opacity-100' : 'opacity-0'}`}
+    >
+      <div className="flex items-end justify-between gap-2 pt-0.5 pb-2">
+        <span className={`flex items-baseline gap-2 ${over || last ? 'text-[var(--tt-brand-color-400)]' : paused ? 'text-muted-foreground' : ''}`}>
+          {over ? <span className="text-[20px] leading-[24px] font-semibold">Time's up</span> : <DotMatrix text={timeText || '00:00'} className="h-[24px]" />}
+          <span className="text-[12px] text-muted-foreground">{paused ? 'Paused' : over ? '' : focus.plannedMs ? `of ${Math.round(focus.plannedMs / 60000)} min` : 'so far'}</span>
+        </span>
+      </div>
+      <div className="-ml-1.5 flex items-center gap-0.5">
+        {!over && (
+          <button type="button" onClick={() => void (paused ? vigil.resumeSession(focus.id) : vigil.pauseSession(focus.id)).then(() => chime(paused ? 'on' : 'off'))} className={button}>
+            {paused ? <Play className="fill-current" /> : <Pause className="fill-current" />} {paused ? 'Resume' : 'Pause'}
+          </button>
+        )}
+        {(!timer || over) && (
+          <button
+            type="button"
+            title={timer ? undefined : 'End the session, and keep it'}
+            // Past its time it has already glowed: ending it is only the tick.
+            // A session asks how it went before the pill goes; a timer just goes.
+            onClick={() => (timer ? void vigil.cancelSession(focus.id).then(() => chime('done')) : end())}
+            className={over ? 'flex h-7 items-center rounded-full bg-[var(--tt-brand-color-400)] px-3 text-[12px] font-semibold text-white transition-[filter] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tt-brand-color-400)]' : button}
+          >
+            {over ? 'Done' : <><Square className="fill-current" /> Stop</>}
+          </button>
+        )}
+        {/* Break early: this session kept, and five minutes away from it on the clock. */}
+        {!timer && (
+          <button
+            type="button"
+            title="End the session, kept, and start a five-minute break"
+            onClick={() => void vigil.endSession(focus.id, '', false).then(() => vigil.startTimer('Break', 5 * 60_000)).then(() => (chime('done'), window.api.glow('done')))}
+            className={button}
+          >
+            <Coffee /> {over ? 'Break' : 'Break early'}
+          </button>
+        )}
+        <button
+          type="button"
+          aria-label={timer ? 'Cancel the timer' : 'Cancel the session'}
+          title="Cancel: no record kept"
+          onClick={() => void vigil.cancelSession(focus.id).then(() => (over ? chime('away') : glowEnd('cancel')))}
+          className={`${icon} ml-auto`}
+        >
+          <X className="size-3.5" />
+        </button>
+      </div>
+
+      {/* The session's log so far, newest first: the last three, then how many more. */}
+      {newest.length > 0 && (
+        <ol data-island-log className="mt-2 border-t border-border/60 pt-1.5">
+          {newest.map((entry) => (
+            <li key={entry.id} className="group/entry flex h-[22px] items-center gap-2 text-[12px]">
+              <time dateTime={entry.at} className="w-9 shrink-0 text-muted-foreground tabular-nums">{clockTime(entry.at)}</time>
+              <span className="min-w-0 flex-1 truncate">{entry.text || entry.assetName || 'Picture'}</span>
+              {entry.asset && /\.(png|jpe?g|gif|webp|avif|bmp|heic|svg)$/i.test(entry.asset)
+                ? <img src={entry.asset} alt="" draggable={false} className="size-4 shrink-0 rounded-[3px] border object-cover" />
+                : entry.asset ? <Paperclip className="size-3 shrink-0 text-muted-foreground" /> : null}
+              <button type="button" aria-label="Take this out of the log" onClick={() => void vigil.unlogFromSession(entry.id).then(() => chime('away'))}
+                className="flex size-4 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity group-hover/entry:opacity-100 hover:text-foreground focus-visible:opacity-100">
+                <XSmall className="size-3" />
+              </button>
+            </li>
+          ))}
+          {more > 0 && (
+            <li>
+              <button type="button" onClick={() => window.api.openInHome('task', focus.taskId)} className="h-[18px] text-[11px] text-muted-foreground hover:text-foreground">
+                {more} more
+              </button>
+            </li>
+          )}
+        </ol>
+      )}
+
+      {/* Add a thought: Enter keeps it in this session's log, with the
+          picture or file pasted, dropped or shot for it. Esc closes. */}
+      {!timer && (
+        <div className="mt-2">
+          <label className={`flex h-8 items-center gap-1.5 rounded-full border bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)] pr-1 pl-3 transition-colors focus-within:border-foreground/25 ${carried ? 'border-[var(--tt-brand-color-400)]' : ''}`}>
+            <span className="relative min-w-0 flex-1">
+              {!words && <span aria-hidden className="pointer-events-none absolute inset-0 truncate text-[12.5px] leading-[20px] text-muted-foreground">{carried ? 'Drop it into the log' : attached ? 'Say what it is, or just press Enter' : 'Add a thought'}</span>}
+              <input
+                ref={field}
+                value={words}
+                aria-label="Add a thought to this session's log"
+                onChange={(event) => setWords(event.target.value)}
+                onFocus={() => (setTyping(true), setShut(false))}
+                onBlur={() => setTyping(false)}
+                onPaste={(event) => {
+                  const file = [...event.clipboardData.files].find((one) => PICTURE_TYPES.has(one.type)) ?? event.clipboardData.files[0]
+                  if (!file) return
+                  event.preventDefault()
+                  void keepFile(file)
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.nativeEvent.isComposing) (event.preventDefault(), void add())
+                  if (event.key === 'Escape') (event.preventDefault(), collapse())
+                }}
+                className="block h-5 w-full bg-transparent text-[12.5px] outline-none"
+              />
+            </span>
+            <button type="button" aria-label="Add a screenshot" title="Add a screenshot of this screen" onClick={() => void shoot()} className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-3.5">
+              <Camera />
+            </button>
+            <Kbd className={`shrink-0 transition-opacity ${words.trim() || attached ? 'opacity-100' : 'opacity-40'}`}>↵</Kbd>
+          </label>
+          {attached && (
+            <span data-island-attached className="mt-1.5 flex h-7 items-center gap-2 pl-1 text-[12px] text-muted-foreground">
+              {attached.picture ? <img src={attached.url} alt="" className="h-7 w-10 shrink-0 rounded-[5px] border object-cover" /> : <Paperclip className="size-3.5 shrink-0" />}
+              <span className="min-w-0 flex-1 truncate">{attached.name}</span>
+              <button type="button" aria-label="Leave it out" onClick={() => (setAttached(null), chime('away'), field.current?.focus())} className="flex size-5 items-center justify-center rounded-full hover:bg-accent hover:text-foreground">
+                <XSmall className="size-3" />
+              </button>
+            </span>
+          )}
+          {denied && (
+            <span role="status" className="mt-1.5 flex items-center gap-2 pl-1 text-[11.5px] leading-4 text-muted-foreground">
+              <span className="min-w-0 flex-1">Vigil can't see the screen yet. Paste or drop a picture instead.</span>
+              <button type="button" onClick={() => window.api.screenSettings()} className="shrink-0 rounded-full px-2 py-0.5 font-medium text-foreground hover:bg-accent">Allow</button>
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [open, timeText, over, last, paused, timer, focus.id, focus.plannedMs, focus.taskId, entries, words, attached, carried, denied])
 
   return (
-    // In pixels, not rem: the pill's window is a fixed 340 by 64, and at Large
-    // Interface size a rem-sized pill outgrew it and was cut off top and bottom.
-    <div className="mf-floating flex h-screen items-center justify-center p-[8px]">
+    // In pixels, not rem: the pill's window is a fixed 340 wide, and at Large
+    // Interface size a rem-sized pill outgrew it and was cut off.
+    <div className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: TOP }}>
       {/* While the session runs, a slow mono glow breathes inside the pill's
           edge: alive, never asking to be looked at. Still when paused or over,
           and between times: it runs for its first moments, under the pointer
           and in the last minute, since a beam all session kept a core busy. */}
-      {/* The mono beam's inks are pale greys in every theme, lost on a light
-          pill: there they are dimmed to graphite and drawn on the edge, with
-          the inner glow kept low, which on a pale pill only smudged it. */}
-      {/* The smoke: kept on at a whisper all session (Settings can turn it
-          back to only the first moments, hover and the last minute), a step
-          stronger once past the time, and full under the pointer, easing
-          between them. It is the beam's own breathing. */}
-      <div className="relative w-full">
+      <motion.div
+        className="relative"
+        initial={still ? { opacity: 0, width: WIDE, height: REST } : { y: -(CAPSULE.height + TOP + 4), width: CAPSULE.width, height: CAPSULE.height }}
+        animate={{
+          opacity: 1,
+          y: 0,
+          width: shown ? CAPSULE.width : WIDE,
+          height: shown ? CAPSULE.height : height
+        }}
+        transition={still ? { opacity: { duration: 0.2 }, default: { duration: 0 } } : { y: DROP, width: SPRING, height: spring, opacity: { duration: 0.12 } }}
+      >
       <div
         data-gleams={gleam}
-        onPointerEnter={() => setHover(true)}
-        onPointerLeave={() => setHover(false)}
+        data-island={stage === 'rest' ? (open ? 'open' : 'rest') : stage}
+        onPointerEnter={enter}
+        onPointerLeave={leave}
+        // A file carried over it opens it, ready to be dropped into the log.
+        onDragEnter={(event) => !timer && event.dataTransfer.types.includes('Files') && (event.preventDefault(), setCarried(true))}
+        onDragOver={(event) => !timer && event.dataTransfer.types.includes('Files') && event.preventDefault()}
+        onDragLeave={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && setCarried(false)}
+        onDrop={(event) => {
+          setCarried(false)
+          const file = event.dataTransfer.files[0]
+          if (!file || timer) return
+          event.preventDefault()
+          void keepFile(file)
+        }}
         // Right-click: a quick switch for the ticking, the one Settings has too.
         onContextMenu={(event) => {
           event.preventDefault()
@@ -185,96 +486,75 @@ export function FocusPill(): React.JSX.Element | null {
         // window behind show through the pill, lines and text and all.
         // Time up: an accent wash over the solid, so the pill says so from across the room.
         style={{ backgroundImage: `${over ? 'linear-gradient(color-mix(in oklab, var(--tt-brand-color-400) 14%, transparent), color-mix(in oklab, var(--tt-brand-color-400) 14%, transparent)), ' : ''}linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))`, backgroundColor: 'Canvas' }}
-        className={`relative flex h-[44px] w-full items-center gap-2.5 rounded-full border pr-1.5 pl-2 font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_3px_8px_-2px_rgb(0_0_0/0.12)] transition-colors duration-300 ${over ? 'mf-timeup border-[color-mix(in_oklab,var(--tt-brand-color-400)_55%,var(--border))]' : ''}`}
+        className={`absolute inset-0 overflow-hidden rounded-[22px] border font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_3px_8px_-2px_rgb(0_0_0/0.12)] transition-colors duration-300 ${over ? 'mf-timeup border-[color-mix(in_oklab,var(--tt-brand-color-400)_55%,var(--border))]' : ''}`}
       >
+        {/* The capsule it drops in as: black, the island's own colour, fading to the theme's as it opens. */}
+        {!still && <motion.span aria-hidden className="pointer-events-none absolute inset-0 z-10 bg-black" initial={{ opacity: 1 }} animate={{ opacity: shown ? 1 : 0 }} transition={{ duration: 0.32, delay: shown ? 0 : 0.08 }} />}
         {/* At rest, the smoke is a few soft wisps drifting on the compositor:
             the beam's own loop restyles thirty times a second, too much to
             run all session, so it takes over only under the pointer, in the
             first and last moments, and past the time. */}
-        {alive && !paused && settings?.sessionSmoke !== false && <Wisps light={surface === 'light'} />}
-        {gleam > 0 && <Gleam key={gleam} light={surface === 'light'} />}
-        <Ring share={over ? 1 : share} over={over} paused={paused} />
-        {/* The goal stays put; only the right-hand end changes under the pointer. */}
-        <button
-          type="button"
-          onClick={() => !timer && window.api.openInHome('task', focus.taskId)}
-          className={`min-w-0 flex-1 truncate text-left font-medium tracking-[-0.005em] ${timer ? 'cursor-default' : ''}`}
+        {alive && !paused && settings?.sessionSmoke !== false && <Wisps light={light} />}
+        {gleam > 0 && <Gleam key={gleam} light={light} />}
+        <motion.div
+          ref={setInner}
+          className="absolute top-0 left-1/2 w-[322px] -translate-x-1/2"
+          animate={{ opacity: shown ? 0 : 1 }}
+          transition={{ duration: still ? 0 : 0.18, delay: shown || still ? 0 : 0.1 }}
         >
-          {focus.goal || (timer ? 'Timer' : 'Focus')}
-        </button>
-        {/* It runs all session, looked at or not, unlike the bars in the app,
-            which run only while their window is (main.css). Paused, or time up
-            in place, it stands; reaching the end of its line, it jumps for joy.
-            Paused, it steps out: "Paused" needs the room, and the goal keeps its words. */}
-        {bubble !== 'circle' && !paused && (
-          <span className={`shrink-0 ${(over && !along) ? 'mf-bubble-still' : alive ? 'mf-bubble-run' : ''} ${over && along && alive ? 'mf-bubble-cheer' : ''}`}>
-            <ProgressBar as="dino" value={along ? (over ? 1 : share!) : 0} label="The session so far" duration={0} className={along ? 'w-[64px]' : 'w-[44px]'} />
-          </span>
-        )}
-        <span className="relative grid h-7 shrink-0 grid-cols-[minmax(0,1fr)] place-items-center transition-[width] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]" style={wide ? { width: hover ? wide.tools : wide.time } : undefined}>
-          {/* At rest: the time, in figures that do not jiggle as they count. */}
-          <span
-            ref={setTimeBox}
-            aria-live="off"
-            className={`col-start-1 row-start-1 flex w-max items-center gap-1.5 justify-self-end pr-1.5 text-[13px] whitespace-nowrap font-semibold transition-opacity duration-150 ${hover ? 'opacity-0' : 'opacity-100'} ${over || last ? 'text-[var(--tt-brand-color-400)]' : paused ? 'text-muted-foreground' : ''}`}
-          >
-            {/* The time on a clock's dot grid, the one figure in the app that ticks. */}
-            {over ? "Time's up" : <>{paused && 'Paused ·'}<DotMatrix text={clock(left ?? done)} className="h-[13px]" /></>}
-          </span>
-          {/* Under the pointer: what you would do with it, in the same place.
-              The one rare moment that gets the goo: the time melts into its
-              controls, droplets splitting off from where the figures were. */}
-          <span ref={setToolBox} className={`col-start-1 row-start-1 flex w-max justify-self-end transition-opacity duration-150 ${hover ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
-          <Goo on={alive && !over} open={hover} light={surface === 'light'} className="flex items-center gap-0.5">
-            {!over && (
-              <button
-                type="button"
-                aria-label={paused ? 'Resume' : 'Pause'}
-                title={paused ? 'Resume' : 'Pause'}
-                onClick={() => void (paused ? vigil.resumeSession(focus.id) : vigil.pauseSession(focus.id)).then(() => chime(paused ? 'on' : 'off'))}
-                className={icon}
-              >
-                {paused ? <Play className="size-3.5 fill-current" /> : <Pause className="size-3.5 fill-current" />}
-              </button>
-            )}
-            {(!timer || over) && (
-              <button
-                type="button"
-                aria-label={timer ? 'Done' : 'End the session'}
-                title={over ? undefined : timer ? 'Done' : 'End the session, and keep it'}
-                // Past its time it has already glowed: ending it is only the tick.
-                // A session asks how it went before the pill goes; a timer just goes.
-                onClick={() => void (timer ? vigil.cancelSession(focus.id) : vigil.endSession(focus.id, '', false)).then(() => (over ? chime('done') : glowEnd('done'), timer || setAsked(focus.id)))}
-                className={over ? 'flex h-7 items-center rounded-full bg-[var(--tt-brand-color-400)] px-3 text-[12px] font-semibold text-white transition-[filter] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tt-brand-color-400)]' : icon}
-              >
-                {over ? 'Done' : <Square className="size-3 fill-current" />}
-              </button>
-            )}
+          <div className="flex h-[42px] items-center gap-2.5 pr-1.5 pl-2">
+            <Ring share={over ? 1 : share} over={over} paused={paused} />
+            {/* The goal: a click opens its task. */}
             <button
               type="button"
-              aria-label={timer ? 'Cancel the timer' : 'Cancel the session'}
-              title="Cancel: no record kept"
-              onClick={() => void vigil.cancelSession(focus.id).then(() => (over ? chime('away') : glowEnd('cancel')))}
-              className={icon}
+              onClick={() => !timer && window.api.openInHome('task', focus.taskId)}
+              className={`min-w-0 flex-1 truncate text-left font-medium tracking-[-0.005em] ${timer ? 'cursor-default' : ''}`}
             >
-              <X className="size-3.5" />
+              {focus.goal || (timer ? 'Timer' : 'Focus')}
             </button>
-          </Goo>
-          </span>
-        </span>
-        {/* The one place that moves the window, as Raycast's grip does: faint until you reach for it. */}
-        <span aria-hidden className={`-ml-1 flex h-7 w-4 shrink-0 cursor-grab items-center justify-center text-muted-foreground transition-opacity duration-150 ${hover ? 'opacity-70' : 'opacity-25'}`} style={DRAG}>
-          <Grip className="size-3.5" />
-        </span>
+            {/* It runs all session, looked at or not, unlike the bars in the app,
+                which run only while their window is (main.css). Paused, or time up
+                in place, it stands; reaching the end of its line, it jumps for joy.
+                Paused, it steps out: "Paused" needs the room, and the goal keeps its words. */}
+            {bubble !== 'circle' && !paused && (
+              <span className={`shrink-0 ${(over && !along) ? 'mf-bubble-still' : alive ? 'mf-bubble-run' : ''} ${over && along && alive ? 'mf-bubble-cheer' : ''}`}>
+                <ProgressBar as="dino" value={along ? (over ? 1 : share!) : 0} label="The session so far" duration={0} className={along ? 'w-[64px]' : 'w-[44px]'} />
+              </span>
+            )}
+            {/* At rest: the time, in figures that do not jiggle as they count.
+                Open, it steps aside for the large one below. */}
+            <span
+              aria-live="off"
+              aria-hidden={open}
+              className={`flex shrink-0 items-center gap-1.5 pr-1 text-[13px] whitespace-nowrap font-semibold transition-opacity duration-150 ${open ? 'opacity-0' : 'opacity-100'} ${over || last ? 'text-[var(--tt-brand-color-400)]' : paused ? 'text-muted-foreground' : ''}`}
+            >
+              {/* The time on a clock's dot grid, the one figure in the app that ticks. */}
+              {over ? "Time's up" : <>{paused && 'Paused ·'}<DotMatrix text={clock(left ?? done)} className="h-[13px]" /></>}
+            </span>
+            {/* The one place that moves the window, as Raycast's grip does: faint until you reach for it. */}
+            <span aria-hidden className={`-ml-1 flex h-7 w-4 shrink-0 cursor-grab items-center justify-center text-muted-foreground transition-opacity duration-150 ${hover ? 'opacity-70' : 'opacity-25'}`} style={DRAG}>
+              <Grip className="size-3.5" />
+            </span>
+          </div>
+
+          {panel}
+        </motion.div>
       </div>
       {/* Laid over the pill rather than around it: the beam sets a dozen
           inherited values thirty times a second, and wrapped around the pill
           every dot of the clock was restyled with them. Over it, they reach
           only this empty shape. */}
-      <BorderBeam size="pulse-inner" colorVariant="mono" strength={over && !hover ? 0.3 : 0.4} css={SMOKE_EASE} brightness={surface === 'light' ? 0.5 : undefined} style={surface === 'light' ? ({ '--beam-stroke-opacity': 9, '--beam-inner-opacity': 0.75 } as CSSProperties) : undefined} duration={3.4} theme={surface} borderRadius={22} active={alive && !paused && (hover || done < 8000 || last || (over && settings?.sessionSmoke !== false))} className="pointer-events-none absolute inset-0">
-        <div className="h-full w-full rounded-full" />
+      {/* The mono beam's inks are pale greys in every theme, lost on a light
+          pill: there they are dimmed to graphite and drawn on the edge, with
+          the inner glow kept low, which on a pale pill only smudged it. */}
+      {/* The smoke: kept on at a whisper all session (Settings can turn it
+          back to only the first moments, hover and the last minute), a step
+          stronger once past the time, and full under the pointer, easing
+          between them. It is the beam's own breathing. */}
+      <BorderBeam size="pulse-inner" colorVariant="mono" strength={over && !hover ? 0.3 : 0.4} css={SMOKE_EASE} brightness={light ? 0.5 : undefined} style={light ? ({ '--beam-stroke-opacity': 9, '--beam-inner-opacity': 0.75 } as CSSProperties) : undefined} duration={3.4} theme={surface} borderRadius={22} active={alive && !paused && stage === 'rest' && (hover || done < 8000 || last || (over && settings?.sessionSmoke !== false))} className="pointer-events-none absolute inset-0">
+        <div className="h-full w-full rounded-[22px]" />
       </BorderBeam>
-      </div>
+      </motion.div>
     </div>
   )
 }
@@ -299,9 +579,11 @@ function HowDidItGo({ id, onDone }: { id: string; onDone: () => void }): React.J
     if (!words.trim()) return skip()
     void vigil.recapSession(id, words.trim()).then((was) => (chime('logged'), setKept(was)))
   }
+  // Back to the pill's own size, whatever the island had grown it to.
+  useEffect(() => void window.api.focusSize(TOP + REST + BELOW), [])
   const icon = 'flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)]'
   return (
-    <div className="mf-floating flex h-screen items-center justify-center p-[8px]">
+    <div className="mf-floating flex h-screen items-start justify-center px-[8px]" style={{ paddingTop: TOP }}>
       <div
         style={{ backgroundImage: 'linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' }}
         className="flex h-[44px] w-full items-center gap-2.5 rounded-full border pr-1.5 pl-2 font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_3px_8px_-2px_rgb(0_0_0/0.12)]"
@@ -362,7 +644,8 @@ function Wisps({ light }: { light: boolean }): React.JSX.Element {
     animation: `${name} ${seconds}s ease-in-out infinite`, willChange: 'transform, opacity'
   })
   return (
-    <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-full">
+    // Along the pill's own band, its top 44px, so the island's open card is not smoked all over.
+    <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[44px] overflow-hidden rounded-[22px]">
       <style>{WISPS}</style>
       <span className="absolute" style={blot('2%', '38%', 'mf-wisp-a', 9)} />
       <span className="absolute" style={blot('35%', '34%', 'mf-wisp-b', 11)} />
@@ -395,7 +678,7 @@ function Gleam({ light }: { light: boolean }): React.JSX.Element {
   // A pale pill takes a brighter light to show at all.
   const ink = light ? 'rgb(255 255 255 / 0.95)' : 'rgb(255 255 255 / 0.2)'
   return (
-    <span aria-hidden data-gleam className="pointer-events-none absolute inset-0 overflow-hidden rounded-full">
+    <span aria-hidden data-gleam className="pointer-events-none absolute inset-0 overflow-hidden rounded-[22px]">
       <span
         ref={shine}
         className="absolute inset-y-0 left-0"
@@ -404,30 +687,6 @@ function Gleam({ light }: { light: boolean }): React.JSX.Element {
           : { width: '22%', transform: 'translateX(-110%) skewX(-20deg)', background: `linear-gradient(90deg, transparent, ${ink} 50%, transparent)`, maskImage: 'linear-gradient(transparent, black 20%, black 80%, transparent)' }}
       />
     </span>
-  )
-}
-
-/**
- * The pill's controls, each a droplet: gathered at the right-hand end at
- * rest, they split apart under the pointer and merge back as it leaves. Off,
- * a plain row.
- */
-function Goo({ on, open, light, className, children }: { on: boolean; open: boolean; light: boolean; className: string; children: React.ReactNode }): React.JSX.Element {
-  const items = (Array.isArray(children) ? children : [children]).filter(Boolean)
-  if (!on) return <span className={className}>{items}</span>
-  // Each 28px button and an 8px gap, so once split they stand apart as
-  // droplets rather than staying bridged into one bar.
-  const SLOT = 36
-  return (
-    // On a light pill the accent is close to the pill itself: a touch of ink
-    // gives the droplets an edge to read by.
-    <Liquid fill={light ? 'color-mix(in oklab, var(--accent), var(--foreground) 7%)' : 'color-mix(in oklab, var(--accent) 80%, transparent)'} blur={4} className={`${className} gap-2!`}>
-      {items.map((item, index) => (
-        <Liquid.Item key={index} x={open ? 0 : (items.length - 1 - index) * SLOT} scale={open ? 1 : 0.6} transition="snappy" delay={open ? (items.length - 1 - index) * 25 : 0}>
-          {item}
-        </Liquid.Item>
-      ))}
-    </Liquid>
   )
 }
 
