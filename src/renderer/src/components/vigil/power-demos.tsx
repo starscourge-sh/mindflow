@@ -553,7 +553,8 @@ const ReadThroughDemo: Demo = ({ live }) => {
   )
 }
 
-const QUEUED = ['Pale Blue Dot, Voyager 1, 1990', 'The Picture of Dorian Gray', 'Why Pluto is a dwarf planet', 'The Kessel Run, in parsecs']
+// Short enough to fit beside Play next, four rows short enough to fit the stage.
+const QUEUED = ['Pale Blue Dot', 'Dorian Gray', 'Why Pluto is a dwarf', 'The Kessel Run']
 const QueueDemo: Demo = ({ live }) => {
   // Play next lifts the last one to the top; then each is read and the next comes up.
   const at = useSteps([1300, 1100, 1100, 1100, 1600], live, 4)
@@ -566,7 +567,7 @@ const QueueDemo: Demo = ({ live }) => {
         <div className="flex flex-col gap-1">
           {order.map((title, i) => (
             <motion.div key={title} layout transition={spring.moderate}
-              className={`flex h-7 items-center gap-2 rounded-md border bg-background px-2 text-control transition-opacity duration-300 ${i < read ? 'opacity-35' : ''}`}>
+              className={`flex h-6 items-center gap-2 rounded-md border bg-background px-2 text-control transition-opacity duration-300 ${i < read ? 'opacity-35' : ''}`}>
               <span className="w-3 text-right text-meta text-muted-foreground tabular-nums">{i + 1}</span>
               <span className={`truncate ${i < read ? 'line-through decoration-foreground/40' : 'text-foreground'}`}>{title}</span>
               {at === 0 && i === 3 && <Chip className="ml-auto">Play next</Chip>}
@@ -818,7 +819,8 @@ const MilestonesDemo: Demo = ({ live }) => {
           <path d="M122 56V30" stroke="var(--primary)" strokeWidth={2} />
         </svg>
         {MARKED.map((mark, i) => (
-          <motion.span key={mark.name} className="absolute bottom-0 flex flex-col items-start" style={{ left: `${mark.d * 100}%` }}
+          // Past the middle, a mark's name hangs to the left of its line, so it never runs off the stage.
+          <motion.span key={mark.name} className={`absolute bottom-0 flex flex-col ${mark.d > 0.6 ? 'items-end' : 'items-start'}`} style={{ left: `${mark.d * 100}%`, translate: mark.d > 0.6 ? '-100% 0' : undefined }}
             initial={false} animate={{ opacity: at > i ? 1 : 0, y: at > i ? 0 : 6 }} transition={{ duration: 0.35, ease: EASE }}>
             <span className="-ml-px text-[0.625rem] leading-none font-medium whitespace-nowrap" style={{ color: `var(--tt-color-text-${mark.tint})` }}>{mark.name}</span>
             <span className="mt-1 block h-10 w-[1.75px]" style={{ background: `var(--tt-color-text-${mark.tint})` }} />
