@@ -244,12 +244,23 @@ export function Typed({ text, className, step = 40, delay: asked = 700, story = 
   const line = useRef<HTMLSpanElement>(null)
   // Its place in the queue, found once the page it is on is the one showing
   // (a page just left no longer counts), and before anything is painted.
+  // Once for each set of words: React's development checks stop and start
+  // every effect, and asked twice the line would queue behind itself and its
+  // words would start late twice over.
+  const queued = useRef<string | null>(null)
   useLayoutEffect(() => {
-    if (story || !speaks) return
+    if (story || !speaks || queued.current === text) return
+    queued.current = text
     const wait = speakAfter(id, long) ?? 0
     if (wait) line.current?.querySelectorAll<HTMLElement>('.mf-typed').forEach((one) => void (one.style.animationDelay = `${parseFloat(one.style.animationDelay) + wait}ms`))
   }, [text]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => () => hush(id), [id])
+  // Its turn given up a moment after it goes, not at once: the same checks
+  // stop this effect while the line is still on screen and start it again.
+  const going = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => {
+    clearTimeout(going.current)
+    return () => void (going.current = setTimeout(() => hush(id)))
+  }, [id])
   return (
     <span key={text} ref={line} data-line={id} className={className} aria-label={text}>
       {words.map((word, index) =>

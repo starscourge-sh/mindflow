@@ -175,7 +175,7 @@ function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, shar
     return () => root?.removeEventListener('scroll', onScroll, true)
   }, [])
   const restore = useRef<[string, number][] | null>(null)
-  apis.current.set(pane.key, {
+  const api: PaneApi = {
     scrolled: () => {
       const root = pageRef.current
       if (!root) return []
@@ -185,8 +185,15 @@ function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, shar
       return [...tops].filter(([, top]) => top > 0)
     },
     restore: (scroll) => void (restore.current = scroll)
-  })
-  useEffect(() => () => void apis.current.delete(pane.key), []) // eslint-disable-line react-hooks/exhaustive-deps
+  }
+  apis.current.set(pane.key, api)
+  // Set again whenever it starts, not only while drawing: React's development
+  // checks stop and start every effect, and a pane only taken off would have
+  // no way to keep its scroll until it next drew.
+  useEffect(() => {
+    apis.current.set(pane.key, api)
+    return () => void apis.current.delete(pane.key)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // Put back where the page was scrolled, frame by frame while it loads.
   useEffect(() => {
     const want = restore.current
