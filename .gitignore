@@ -22,3 +22,6 @@ out-*
 
 # The developer's own celebration picks, read only when run from source.
 dev-picks.json
+
+# Local secrets, such as the Giphy key built into a local build (src/main/giphy.ts).
+.env.local
