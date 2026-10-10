@@ -18,6 +18,14 @@ const SANDBOX = process.argv.includes('--sandbox')
 
 type Marks = Record<string, string>
 type Progress = { marks: Marks; hidden: boolean; doneAt: string | null }
+/**
+ * What the welcome asked before anything else: what Vigil is for, what you
+ * used before, your first space (a #tag, with an exam date for a course) and
+ * a goal. Each is optional; what was answered shapes the sidebar, Getting
+ * started and the importer offered.
+ */
+export type Setup = { use: 'study' | 'work' | 'writing' | 'life' | null; from: string[]; space: string | null; exam: string | null; goal: string | null; goalBy: string | null }
+const NO_SETUP: Setup = { use: null, from: [], space: null, exam: null, goal: null, goalBy: null }
 
 const read = <T>(key: string, fallback: T): T => {
   try {
@@ -93,7 +101,13 @@ function steps(marks: Marks): Record<string, boolean> {
     focus: any("select 1 from sessions where task_id != '' limit 1"),
     hold: any("select 1 from nuggets where tier in ('question', 'goal') limit 1"),
     stick: stuckNotes(),
-    search: !!marks.search
+    search: !!marks.search,
+    // From the welcome's questions and the checklist's longer list.
+    card: any("select 1 from nuggets where tier = 'nugget' and coalesce(prompt, '') != '' limit 1"),
+    space: !!read<Setup>('setup', NO_SETUP).space || !!marks.space,
+    import: any('select 1 from captures where imported_at is not null limit 1') || any("select 1 from nuggets where source != '' limit 1"),
+    goal: any("select 1 from nuggets where tier = 'goal' limit 1"),
+    tour: !!marks.tour
   }
 }
 
@@ -119,11 +133,12 @@ function state(): unknown {
     // The box's key, if another app has it.
     boxTaken: taken.has('⌘.'),
     name: read<boolean>('safeMode', false) ? '' : nameOf(),
+    setup: { ...NO_SETUP, ...read<Partial<Setup>>('setup', {}) },
     tray: tray && { x: tray.x + tray.width / 2, y: tray.y + tray.height }
   }
 }
 
-const PATCHABLE = new Set(['welcomed', 'newsSeen', 'hintsSeen', 'pageHints', 'welcoming'])
+const PATCHABLE = new Set(['welcomed', 'newsSeen', 'hintsSeen', 'pageHints', 'welcoming', 'setup'])
 
 /** Whether the welcome is open now, for the box to say something warmer while it is. */
 let welcoming = false

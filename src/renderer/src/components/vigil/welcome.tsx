@@ -6,7 +6,11 @@ import { EASE, byKeys, hush, spring, speak } from '@/lib/motion'
 import { chime, click, fold } from '@/lib/sound'
 import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
 import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
-import { onboarding, type Onboarding } from '@/lib/onboarding'
+import { NO_SETUP, onboarding, type Onboarding, type Setup } from '@/lib/onboarding'
+import { vigil } from '@/lib/vigil'
+import { Button } from '@/components/ui/button'
+import { ImportMap, sourceFrom } from './welcome-import'
+import { applySetup, YouPage } from './welcome-you'
 import { enterSandbox } from '@/lib/sandbox'
 import { STARTERS, fillBox, holdKeys, tellBox } from '@/lib/welcome-box'
 import keycapsUrl from '@/assets/welcome/keycaps.webp'
@@ -52,16 +56,18 @@ import {
  */
 
 // Writing and keeping lead; tasks come later, inside a day.
-const CHAPTERS = ['Catch', 'Write', 'The flow', 'Become', 'A day', 'Connect', 'Return', 'Make it yours', 'Ready']
-const CATCH = 1
-const WRITE = 2
-const FLOW = 3
-const BECOME = 4
-const DAY = 5
-const CONNECT = 6
-const RETURN = 7
-const DIAL = 8
-const LAST = 9
+// Two questions first, so it starts out shaped for you; then writing and keeping lead, and tasks come later, inside a day.
+const CHAPTERS = ['You', 'Catch', 'Write', 'The flow', 'Become', 'A day', 'Connect', 'Return', 'Make it yours', 'Ready']
+const YOU = 1
+const CATCH = 2
+const WRITE = 3
+const FLOW = 4
+const BECOME = 5
+const DAY = 6
+const CONNECT = 7
+const RETURN = 8
+const DIAL = 9
+const LAST = 10
 const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 const capsOf = (keys: string): string[] => keys.match(/[⌃⌥⇧⌘]|[^⌃⌥⇧⌘]+/g) ?? []
 /** The window's size, kept fresh: the keycaps and the dial are sized to it. */
@@ -106,6 +112,12 @@ export function Welcome(): React.JSX.Element | null {
   // Skipped ahead, and from where: the last page gets a line of its own.
   const [skipped, setSkipped] = useState<false | 'first' | 'later'>(false)
   const [state, setState] = useState<Onboarding | null>(null)
+  // The first questions' answers, kept as they are given and acted on when the welcome ends.
+  const [setup, setSetup] = useState<Setup>(NO_SETUP)
+  const answer = (next: Setup): void => {
+    setSetup(next)
+    void onboarding.set({ setup: next })
+  }
   // Everything caught since the welcome opened, oldest first.
   const [caught, setCaught] = useState<CaptureMeta[]>([])
   const before = useRef<Set<string>>(new Set())
@@ -147,6 +159,7 @@ export function Welcome(): React.JSX.Element | null {
       setEarlier(list.filter((one) => dayjs(one.capturedAt).isSame(dayjs(), 'day')).length)
       veteran.current = !now.welcomed && list.length > 0
       setState(now)
+      setSetup(now.setup ?? NO_SETUP)
     })
     picked.current = null
     setCaught([])
@@ -223,6 +236,7 @@ export function Welcome(): React.JSX.Element | null {
   const leave = (how: 'fresh' | 'sandbox' | 'notes' | 'closed'): void => {
     if (picked.current) applyTheme(picked.current)
     fillBox(null)
+    void applySetup(setup).catch(() => undefined)
     void onboarding.set({ welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, ...(veteran.current && how !== 'fresh' ? { hidden: true } : {}) })
     setAt(-1)
     if (how === 'fresh') {
@@ -379,6 +393,7 @@ export function Welcome(): React.JSX.Element | null {
               // A click on the picture while it plays: its end, as a key does.
               onPointerDown={(event) => void (event.isTrusted && !(event.target as HTMLElement).closest('button, a, [role="slider"]') && !reel.current.done && settled())}>
               {at === 0 && <Hello replay={replay} kept={kept} calm={!play} newcomer={newcomer} today={earlier + caught.length} />}
+              {at === YOU && <YouChapter setup={setup} onChange={answer} still={!play} report={report} />}
               {at === CATCH && <CatchChapter play={play} report={report} state={state} onState={setState} />}
               {at === WRITE && <WriteChapter play={play} report={report} />}
               {at === FLOW && <FlowChapter play={play} report={report} />}
@@ -387,7 +402,7 @@ export function Welcome(): React.JSX.Element | null {
               {at === CONNECT && <ConnectChapter play={play} report={report} />}
               {at === RETURN && <ReturnChapter play={play} report={report} />}
               {at === DIAL && <DialChapter play={play} report={report} onPick={(theme) => (picked.current = theme)} />}
-              {at === LAST && <Start name={name} kept={before.current.size + caught.length} skipped={skipped} importing={importing} still={!play} onPick={start} onFiles={() => (leave('notes'), void window.api.importFrom('files'))} onPowers={() => (leave('notes'), window.api.openInHome('view', 'powers'))} />}
+              {at === LAST && <Start name={name} kept={before.current.size + caught.length} skipped={skipped} importing={importing} still={!play} onPick={start} setup={setup} onImport={(what) => (leave('notes'), void window.api.importFrom(what))} onPowers={() => (leave('notes'), window.api.openInHome('view', 'powers'))} />}
             </motion.section>
           </AnimatePresence>
         </main>
@@ -495,6 +510,23 @@ function Action({ done = false, className = '', children }: { done?: boolean; cl
 /** Tells the welcome how far the chapter has got, every render. */
 function useReport(report: (now: Reel) => void, done: boolean, settle: () => void): void {
   report({ done, settle })
+}
+
+// --- 1 You ------------------------------------------------------------------------
+
+/** Two questions before anything else, then a first space and a goal: all optional (welcome-you.tsx). */
+function YouChapter({ setup, onChange, still, report }: { setup: Setup; onChange: (next: Setup) => void; still: boolean; report: (now: Reel) => void }): React.JSX.Element {
+  useReport(report, true, () => undefined)
+  return (
+    <>
+      <Words title="First, two questions." docked still={still} done>
+        So Vigil starts out shaped for you. Skip any of them.
+      </Words>
+      <div className="relative flex min-h-0 flex-1 flex-col justify-center overflow-y-auto pb-2">
+        <YouPage setup={setup} onChange={onChange} still={still} />
+      </div>
+    </>
+  )
 }
 
 // --- 1 Catch ------------------------------------------------------------------------
@@ -1833,19 +1865,21 @@ function RollingYear({ from }: { from: number }): React.JSX.Element {
  * arrow at the top of the window points at Vigil in the menu bar, so the
  * words do not have to.
  */
-function Start({ name, kept, skipped, importing, still, onPick, onFiles, onPowers }: { name: string; kept: number; skipped: false | 'first' | 'later'; importing: boolean; still: boolean; onPick: (pick: 1 | 2 | 3) => void; onFiles: () => void; onPowers: () => void }): React.JSX.Element {
+function Start({ name, kept, skipped, importing, still, onPick, setup, onImport, onPowers }: { name: string; kept: number; skipped: false | 'first' | 'later'; importing: boolean; still: boolean; onPick: (pick: 1 | 2 | 3) => void; setup: Setup; onImport: (what: 'vault' | 'files') => void; onPowers: () => void }): React.JSX.Element {
   const others: { key: 2 | 3; title: string }[] = [
     { key: 2, title: 'Try the sandbox first' },
-    { key: 3, title: 'Bring my notes' }
+    // Named for the app you said you came from, when Vigil can bring things in from it.
+    { key: 3, title: sourceFrom(setup.from) && sourceFrom(setup.from) !== 'Other files' ? `Bring my notes from ${sourceFrom(setup.from)}` : 'Bring my notes' }
   ]
   const link = 'group flex items-center gap-2 rounded-[0.6rem] px-3 py-1.5 -mx-3 text-foreground transition-colors hover:bg-foreground/[0.06] active:scale-[0.98]'
   return (
-    <div className="my-auto mr-auto flex w-full max-w-[58rem] flex-col gap-[clamp(1rem,4.5vh,3rem)] overflow-y-auto">
+    <div className="my-auto mr-auto flex w-full max-w-[58rem] flex-col gap-[clamp(1rem,4vh,2.5rem)] overflow-y-auto">
       <div className="flex flex-col gap-[clamp(0.5rem,1.8vh,1rem)]">
         <h1 className={`${HEADLINE_XL} max-w-[14ch]`}><Rise text={name ? `Your commonplace book is ready, ${name}.` : 'Your commonplace book is ready.'} still={still} /></h1>
         <p className={`${BODY} max-w-[30ch]`}>{kept ? `${counted(kept)} ${kept === 1 ? 'thing' : 'things'} in it already.` : 'Empty for now.'} <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> {kept ? 'adds the next' : 'fills it'}, from any app.</p>
         {skipped && <p role="status" className={`${QUIET} max-w-[48ch]`}>The welcome waits in the Vigil menu and ⌘K.</p>}
       </div>
+      {importing ? <ImportMap start={sourceFrom(setup.from)} onImport={onImport} still={still} /> : <FirstCard space={setup.space} />}
       <div className={`flex flex-wrap items-center gap-x-6 gap-y-2 ${QUIET}`}>
         <span className="-mr-3">Or</span>
         {others.map((row) => (
@@ -1854,15 +1888,41 @@ function Start({ name, kept, skipped, importing, still, onPick, onFiles, onPower
           </button>
         ))}
       </div>
-      {importing && (
-        <div className="-mt-[clamp(0.5rem,2vh,1.5rem)] flex flex-wrap gap-2">
-          <button type="button" onClick={() => onPick(3)} className="h-9 rounded-[0.6rem] bg-primary px-4 text-[0.875rem] font-semibold text-primary-foreground active:scale-[0.97]">A folder: Obsidian or Notion…</button>
-          <button type="button" onClick={onFiles} className="h-9 rounded-[0.6rem] border px-4 text-[0.875rem] font-medium text-foreground hover:bg-foreground/[0.05] active:scale-[0.97]">Files: Markdown, Readwise, Kindle, Anki…</button>
-        </div>
-      )}
       {/* Quietest of all: every power, a card each, for whoever wants the whole map first. */}
       <button type="button" onClick={onPowers} className={`${QUIET} -mx-1 self-start rounded-sm px-1 underline decoration-current/30 underline-offset-4 transition-colors hover:text-foreground`}>See everything Vigil can do</button>
     </div>
+  )
+}
+
+/**
+ * Your first card, so Review is not empty tomorrow: one thing worth
+ * remembering and the question it answers, kept as a gem (in your first
+ * space, if you picked one). Optional: Start fresh goes on without it.
+ */
+function FirstCard({ space }: { space: string | null }): React.JSX.Element {
+  const [words, setWords] = useState('')
+  const [question, setQuestion] = useState('')
+  const [made, setMade] = useState(false)
+  const keep = async (): Promise<void> => {
+    if (!words.trim() || !question.trim() || made) return void chime('nope')
+    const id = await vigil.nuggetFrom(space ? `${words.trim()} #${space}` : words.trim(), {})
+    await vigil.saveItem(id, { prompt: question.trim() })
+    chime('settled')
+    setMade(true)
+  }
+  const field = 'h-10 min-w-0 flex-1 rounded-lg border border-foreground/15 bg-popover px-3 text-[0.9375rem] text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-primary/60 focus-visible:shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_18%,transparent)]'
+  if (made) return <p role="status" className="font-heading text-[clamp(1.125rem,min(2.2vw,3.2vh),1.5rem)] text-foreground">Your first gem is kept{space ? ` in #${space}` : ''}. Review will ask you: “{question.trim()}”</p>
+  return (
+    <form className="flex w-full max-w-[44rem] flex-col gap-2.5" onSubmit={(event) => (event.preventDefault(), void keep())}>
+      <p className="font-heading text-[clamp(1.125rem,min(2.2vw,3.2vh),1.5rem)] leading-tight text-foreground">
+        Make your first card, so Review has something tomorrow <span className="ml-1 text-[0.8em] text-(--mf-wl-quiet)">Optional</span>
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <input aria-label="Something worth remembering" className={field} placeholder="Something worth remembering" value={words} maxLength={300} onChange={(event) => setWords(event.target.value)} />
+        <input aria-label="The question it answers" className={field} placeholder="The question it answers" value={question} maxLength={200} onChange={(event) => setQuestion(event.target.value)} />
+        <Button type="submit" variant="secondary" className="h-10" disabled={!words.trim() || !question.trim()}>Keep it</Button>
+      </div>
+    </form>
   )
 }
 

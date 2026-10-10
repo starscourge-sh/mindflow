@@ -10,7 +10,7 @@ export type Onboarding = {
   firstRun: boolean
   welcomed: string | null
   news: boolean
-  steps: Record<'catch' | 'keep' | 'review' | 'task' | 'focus' | 'hold' | 'stick' | 'search', boolean>
+  steps: Record<'catch' | 'keep' | 'review' | 'task' | 'focus' | 'hold' | 'stick' | 'search' | 'card' | 'space' | 'import' | 'goal' | 'tour', boolean>
   marks: Record<string, string>
   hidden: boolean
   doneAt: string | null
@@ -21,13 +21,18 @@ export type Onboarding = {
   boxTaken: boolean
   name: string
   tray: { x: number; y: number } | null
+  /** The welcome's first questions, as answered (src/main/onboarding.ts, Setup). */
+  setup: Setup
 }
+
+/** What Vigil is for, what you used before, your first #tag and a goal: each optional. */
+export type Setup = { use: 'study' | 'work' | 'writing' | 'life' | null; from: string[]; space: string | null; exam: string | null; goal: string | null; goalBy: string | null }
 
 const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
 
 export const onboarding = {
   state: () => call<Onboarding>('onboarding:state'),
-  set: (patch: Partial<{ welcomed: string; newsSeen: boolean; hintsSeen: string[]; pageHints: boolean; hidden: boolean; welcoming: boolean }>) =>
+  set: (patch: Partial<{ welcomed: string; newsSeen: boolean; hintsSeen: string[]; pageHints: boolean; hidden: boolean; welcoming: boolean; setup: Setup }>) =>
     call<Onboarding>('onboarding:set', patch).then((now) => (tell(), now)),
   mark: (step: string) => call<Onboarding>('onboarding:mark', step).then((now) => (tell(), now)),
   finish: (name: string) => call<unknown>('onboarding:finish', name)
@@ -53,3 +58,5 @@ export function useOnboarding(): Onboarding | null {
 
 /** The welcome, from anywhere: the Vigil menu, ⌘K, Settings. */
 export const playWelcome = (): void => void window.dispatchEvent(new CustomEvent('vigil:welcome'))
+
+export const NO_SETUP: Setup = { use: null, from: [], space: null, exam: null, goal: null, goalBy: null }
