@@ -19,7 +19,7 @@ export type Shortcut = {
 export const SHORTCUTS: Shortcut[] = [
   // From anywhere on the Mac, Vigil in front or not.
   { group: 'Anywhere', keys: '⌘.', does: 'Open or hide the box', where: 'Anywhere' },
-  { group: 'Anywhere', keys: '⌥⌘S', does: 'Safe mode on or off: no hints, rot cards or pins', where: 'Anywhere' },
+  { group: 'Anywhere', keys: '⌥⌘S', does: 'Safe mode on or off, for sharing your screen: nothing comes up on its own (no hints, old captures or pinned notes)', where: 'Anywhere' },
   { group: 'Anywhere', keys: '⌃⌥⌘N', does: 'Show or hide every sticky note on the desktop', where: 'Anywhere' },
   { group: 'Anywhere', keys: '⌃⌥⌘T', does: 'Tidy the sticky notes down the right middle of the screen', where: 'Anywhere' },
 
@@ -47,7 +47,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: 'G R', does: 'Go to Review', where: 'Main window' },
   { group: 'Getting around', keys: 'G T', does: 'Go to Today', where: 'Main window' },
   { group: 'Getting around', keys: 'G U', does: 'Go to Upcoming', where: 'Main window' },
-  { group: 'Getting around', keys: 'G W', does: 'Go to Week', where: 'Main window' },
+  { group: 'Getting around', keys: 'G W', does: "Go to this week's tasks", where: 'Main window' },
   { group: 'Getting around', keys: 'G Q', does: 'Go to Matrix: tasks by urgent and important', where: 'Main window' },
   { group: 'Getting around', keys: 'G O', does: 'Go to Routines', where: 'Main window' },
   { group: 'Getting around', keys: 'G Z', does: 'Go to Later: this month, this year, someday', where: 'Main window' },
@@ -92,13 +92,14 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Writing', keys: '⌘↵', does: 'Selected words: a capture just as they are (in the box, the whole note selected still sends it)', where: 'Writing' },
   { group: 'Writing', keys: '⇧⌘D', does: 'Details of the open capture', where: 'The box' },
   { group: 'Writing', keys: '⌘F', does: 'Find in the note', where: 'Writing' },
-  { group: 'Writing', keys: '⌃F', does: 'Find in the note, the same as ⌘F', where: 'Writing' },
+  { group: 'Writing', keys: '⌃F', does: 'Find in the note, the same as ⌘F (with Vim keys, in normal mode ⌃F pages down instead)', where: 'Writing' },
   { group: 'Writing', keys: '⌥⌘F', does: 'Find and replace in the note', where: 'Writing' },
   { group: 'Writing', keys: '#', does: 'Tag: offers the tags you already use, most used first', where: 'Writing' },
   { group: 'Writing', keys: '⇧⌘O', does: 'Outline: move with arrows, ↵ to go there', where: 'Writing' },
   { group: 'Writing', keys: '⌥⌘↓', does: 'Next heading', where: 'Writing' },
   { group: 'Writing', keys: '⌥⌘↑', does: 'Heading before', where: 'Writing' },
   { group: 'Writing', keys: '⇥', does: 'Write in the answer after a line ending in =', where: 'Writing' },
+  { group: 'Writing', keys: '⇥', does: 'On a Word: keep the meaning offered under it', where: 'The box' },
   { group: 'Writing', keys: '⌘+', does: 'Bigger text in notes', where: 'Both windows' },
   { group: 'Writing', keys: '⌘−', does: 'Smaller text in notes', where: 'Both windows' },
   { group: 'Writing', keys: '⌘0', does: 'Text back to normal size', where: 'Both windows' },
@@ -120,6 +121,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Writing', keys: '⌥⌘0', does: 'Math block', where: 'Writing' },
   { group: 'Writing', keys: '⌥⌘T', does: 'Table', where: 'Writing' },
   { group: 'Writing', keys: '⌘Z', does: 'Undo the last thing, from its notice', where: 'Both windows' },
+  { group: 'Writing', keys: 'O', does: 'While a notice offers a next step, its letter does it: O to open, B to put stickies back, and so on (not while typing)', where: 'Both windows' },
 
   { group: 'Lists', keys: 'J', does: 'Next row', where: 'Lists' },
   { group: 'Lists', keys: 'K', does: 'Row before', where: 'Lists' },
@@ -129,11 +131,13 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Lists', keys: '↓', does: 'Next item, with one open', where: 'Lists' },
   { group: 'Lists', keys: 'X', does: 'Select the row, for one action on several', where: 'Lists' },
   { group: 'Lists', keys: 'F', does: 'Display: filter, sort and group', where: 'Lists' },
+  { group: 'Lists', keys: '1', does: 'With Display open: how the list looks, the first to the fourth (1 to 4)', where: 'Lists' },
   { group: 'Lists', keys: '⇧⌘R', does: 'Read through the list, one at a time', where: 'Lists' },
   { group: 'Lists', keys: 'P', does: 'Promote: save it as an idea', where: 'Lists' },
   { group: 'Lists', keys: 'R', does: 'Resolve: done with it', where: 'Lists' },
   { group: 'Lists', keys: 'D', does: 'Discard: let it go', where: 'Lists' },
   { group: 'Lists', keys: 'H', does: 'On a capture: hold it as a question, its words the first clue', where: 'Lists' },
+  { group: 'Lists', keys: 'J', does: 'Next rot card (K the one before; past the last, on into the list)', where: 'The box' },
   { group: 'Lists', keys: 'W', does: 'On a rot card: say who said it', where: 'The box' },
   { group: 'Lists', keys: 'T', does: 'On a rot card: add a tag', where: 'The box' },
   { group: 'Lists', keys: 'F', does: 'On a rot card: tidy it (bold, fold, cross off)', where: 'The box' },
@@ -163,31 +167,33 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Lists', keys: '!alert', does: 'Typed in a task: a notification at its time, whatever Settings says', where: 'Both windows' },
   { group: 'Lists', keys: '!quiet', does: 'Typed in a task: counted in the menu bar at its time', where: 'Both windows' },
   { group: 'Lists', keys: '!pull', does: 'Typed in a task: only rises to the top of Today at its time', where: 'Both windows' },
-  { group: 'Week', keys: 'H', does: 'Day before (L for the day after)', where: 'Main window' },
-  { group: 'Week', keys: 'J', does: 'Next task in the day (K for the one before)', where: 'Main window' },
-  { group: 'Week', keys: '⇧H', does: 'Move the task a day earlier', where: 'Main window' },
-  { group: 'Week', keys: '⇧L', does: 'Move the task a day later', where: 'Main window' },
-  { group: 'Week', keys: '[', does: 'Week before', where: 'Main window' },
-  { group: 'Week', keys: ']', does: 'Week after', where: 'Main window' },
-  { group: 'Week', keys: '↵', does: 'Open the task', where: 'Main window' },
-  { group: 'Week', keys: 'E', does: 'Complete the task', where: 'Main window' },
-  { group: 'Week', keys: 'T', does: 'Move the task to today', where: 'Main window' },
-  { group: 'Week', keys: 'M', does: 'Move the task to tomorrow', where: 'Main window' },
-  { group: 'Week', keys: 'W', does: 'Move the task to a week from today', where: 'Main window' },
-  { group: 'Week', keys: '1', does: 'Task priority: Urgent, High, Medium, Low (1 to 4; 0 for none)', where: 'Main window' },
-  { group: 'Week', keys: '⌥↑', does: 'Move the task up in its day (⌥↓ down)', where: 'Main window' },
+  { group: "This week's tasks", keys: 'H', does: 'Day before (L for the day after)', where: 'Main window' },
+  { group: "This week's tasks", keys: 'J', does: 'Next task in the day (K for the one before)', where: 'Main window' },
+  { group: "This week's tasks", keys: '⇧H', does: 'Move the task a day earlier', where: 'Main window' },
+  { group: "This week's tasks", keys: '⇧L', does: 'Move the task a day later', where: 'Main window' },
+  { group: "This week's tasks", keys: '[', does: 'Week before', where: 'Main window' },
+  { group: "This week's tasks", keys: ']', does: 'Week after', where: 'Main window' },
+  { group: "This week's tasks", keys: '↵', does: 'Open the task', where: 'Main window' },
+  { group: "This week's tasks", keys: 'E', does: 'Complete the task', where: 'Main window' },
+  { group: "This week's tasks", keys: 'T', does: 'Move the task to today', where: 'Main window' },
+  { group: "This week's tasks", keys: 'M', does: 'Move the task to tomorrow', where: 'Main window' },
+  { group: "This week's tasks", keys: 'W', does: 'Move the task to a week from today', where: 'Main window' },
+  { group: "This week's tasks", keys: '1', does: 'Task priority: Urgent, High, Medium, Low (1 to 4; 0 for none)', where: 'Main window' },
+  { group: "This week's tasks", keys: '⌥↑', does: 'Move the task up in its day (⌥↓ down)', where: 'Main window' },
 
   { group: 'Matrix', keys: 'H', does: 'The box to the left (L to the right; ← → too)', where: 'Main window' },
   { group: 'Matrix', keys: 'J', does: 'Next task (K the one before; ↓ ↑ too, and on into the box below or above)', where: 'Main window' },
   { group: 'Matrix', keys: '1', does: 'Move the task to Do now, Plan, Hand off or batch, Drop or later (1 to 4)', where: 'Main window' },
   { group: 'Matrix', keys: '↵', does: 'Open the task', where: 'Main window' },
   { group: 'Matrix', keys: 'E', does: 'Complete the task', where: 'Main window' },
+  { group: 'Matrix', keys: '↵', does: 'A task moved out of the urgent boxes: push it a week (Esc keeps its date)', where: 'Main window' },
 
   { group: 'Board', keys: '⌥⌘B', does: 'Show a note of headings and lists as a board, or back', where: 'Main window' },
   { group: 'Board', keys: 'H', does: 'List to the left (L to the right)', where: 'Main window' },
   { group: 'Board', keys: 'J', does: 'Next card (K the one before)', where: 'Main window' },
   { group: 'Board', keys: 'X', does: 'Tick the card (a to-do; a bullet has no box)', where: 'Main window' },
   { group: 'Board', keys: '↵', does: 'Edit the card', where: 'Main window' },
+  { group: 'Board', keys: '⌘↵', does: 'Done writing the card (Esc too)', where: 'Main window' },
   { group: 'Board', keys: 'N', does: 'Add a card to the list', where: 'Main window' },
   { group: 'Board', keys: '⌥J', does: 'Carry the card down (⌥K up, ⌥H ⌥L to the next list)', where: 'Main window' },
   { group: 'Board', keys: '⌫', does: 'Delete the card', where: 'Main window' },
@@ -208,6 +214,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Review', keys: 'Space', does: 'Next page of your year, wrapped (↵, L or J too)', where: 'Main window' },
   { group: 'Review', keys: 'H', does: 'Page before in your year, wrapped (K too)', where: 'Main window' },
   { group: 'Review', keys: 'Esc', does: 'Close the recap', where: 'Main window' },
+  { group: 'Review', keys: '⌘[', does: 'Out of a month wrapped from ⌘K, back where you were (⌘] forward)', where: 'Main window' },
 
   { group: 'Reading', keys: 'J', does: 'Next', where: 'Reading' },
   { group: 'Reading', keys: 'K', does: 'Back', where: 'Reading' },
@@ -250,6 +257,15 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Settings', keys: 'L', does: 'Slider up', where: 'Main window' },
   { group: 'Settings', keys: '↑ ↓', does: 'Next or previous section, in the section list (J and K too)', where: 'Main window' }
 ]
+
+/** Groups that only exist in the main window: their rows need not say so. */
+const MAIN_ONLY = ["This week's tasks", 'Matrix', 'Board', 'Settings']
+/** Where a key works, said only when it is limited, in plain words: '' when it works wherever you would press it. */
+export function whereSaid(one: Shortcut): string {
+  if (one.where === 'Both windows' || one.where === 'Anywhere' || one.where === one.group) return ''
+  if (one.where === 'Main window' && MAIN_ONLY.includes(one.group)) return ''
+  return ({ 'Main window': 'Main window only', 'The box': 'In the box', Lists: 'In lists', Writing: 'While writing', Review: 'In Review', Reading: 'While reading', Tidy: 'While tidying', Deciding: 'While deciding', 'The focus pill': 'In the focus pill' } as Record<string, string>)[one.where] ?? one.where
+}
 
 /** The list in its groups, in the order they first appear. */
 export function grouped(list: Shortcut[] = SHORTCUTS): [string, Shortcut[]][] {

@@ -27,7 +27,7 @@ import { BUCKETS, bucket, closeTask, makeTask, placed } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, TaskInput, planFor, setPriority } from './task-input'
 import { useArrivals } from './note-list'
-import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper, Pressed } from './ui'
+import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper } from './ui'
 import { Display, arrange, useView, type Facet } from './display'
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
@@ -300,7 +300,6 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
       <Page aside={!!open}
  title={mode} count={example ? undefined : shown.length} unit={mode === 'today' ? ['to do', 'to do'] : undefined} actions={
         <span className="flex items-center gap-2">
-          {shown.length > 0 && !example && <span className="hidden text-xs whitespace-nowrap @[48rem]/page:inline"><Pressed keys="?" /> or <Pressed keys="⌘/" /> for keys</span>}
           <Display
             view={view}
             onChange={setView}

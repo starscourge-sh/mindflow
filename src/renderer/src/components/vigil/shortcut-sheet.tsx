@@ -5,7 +5,7 @@ import LockIcon from '@/components/ui/lock-icon'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import XIcon from '@/components/ui/x-icon'
 import { chime, click } from '@/lib/sound'
-import { SHORTCUTS, findShortcuts, grouped, type Shortcut } from '@/lib/shortcuts'
+import { SHORTCUTS, findShortcuts, grouped, whereSaid, type Shortcut } from '@/lib/shortcuts'
 import { clashes, comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
 import { Button } from '@/components/ui/button'
 import { Kbd, Tip, Typed, toast, typing } from './ui'
@@ -45,7 +45,7 @@ export function ShortcutList({ query, columns = false, quiet = false }: { query:
             <div key={one.keys + one.does} data-setting className="flex items-center gap-3 rounded-md px-1 py-1 text-control">
               <span className="min-w-0 flex-1 text-foreground"><Marked text={one.does} query={query} /></span>
               {/* Where it works, only when the heading above has not said it already. */}
-              {one.where !== group && <span className="hidden text-meta text-muted-foreground min-[28rem]:inline">{one.where}</span>}
+              {whereSaid(one) && <span className="hidden text-meta text-muted-foreground min-[28rem]:inline">{whereSaid(one)}</span>}
               <Keys keys={keyFor(one.keys)} />
             </div>
           ))}
@@ -222,7 +222,7 @@ export function KeysEditor({ search = '' }: { search?: string }): React.JSX.Elem
                   {tone && <span className="block text-meta" style={{ color: TONE[tone] }}>Same keys as {others.map((other) => `${other.does} (${other.where})`).join(', ')}</span>}
                 </span>
                 {/* Where it works, only when the heading above has not said it already. */}
-                {one.where !== group && <span className="hidden text-meta text-muted-foreground/80 @min-[30rem]:inline">{one.where}</span>}
+                {whereSaid(one) && <span className="hidden text-meta text-muted-foreground/80 @min-[30rem]:inline">{whereSaid(one)}</span>}
                 {fixed(one.keys) ? (
                   <Tip label="Fixed: this key does its job by being the key">
                     <span className="flex items-center"><Keys keys={one.keys} /><span className="flex w-10 justify-end pr-1"><Lock className="size-3 text-muted-foreground" /></span></span>

@@ -24,15 +24,15 @@ const HINTS: Record<string, string> = {
   review: '**Cards come back just before you would forget them.** Space turns one over; 1 to 4 says how well you knew it.',
   day: '**A page a day.** Write a line, and what you caught, finished and reviewed today gathers underneath.',
   weekpage: '**One page a week.** What matters this week, and how it went.',
-  today: "**Type a task the way you would say it.** Vigil reads the when in 'call Mum friday 6pm'.",
+  today: '**Type a task the way you would say it.** Vigil reads the when in ‘call Mum friday 6pm’.',
   questions: '**Questions you are not ready to answer.** Add clues as they turn up; nothing needs settling.',
   goals: '**A day you are aiming for, and the road of days to it.** Log what you did, and the beacon keeps it in sight.',
   nuggets: '**What you kept, in your own words.** These come back as hints, and as Review cards once you give them a question.',
   tags: '**Every #tag has a page.** Give it a colour, or a date to be ready by.',
   home: '**What is coming back to you today.** Under it, shelves of what you kept.',
   matrix: '**Your tasks by urgent and important.** Drag one to another square to change it.',
-  routines: "**What you do again and again.** Write 'every week' as you type a task, and it comes round.",
-  later: "**For what has no day yet.** Say 'this month', 'this year' or 'someday' as you type it, and it waits here.",
+  routines: '**What you do again and again.** Write ‘every week’ as you type a task, and it comes round.',
+  later: '**For what has no day yet.** Say ‘this month’, ‘this year’ or ‘someday’ as you type it, and it waits here.',
   upcoming: '**Every task after today, day by day, then the ones with no date.** T, M or W on a row moves it to today, tomorrow or next week.',
   stats: '**How you have been using Vigil, in sentences.** Your month and Your year play it back.',
   map: '**Every note you linked, as dots joined by lines.** Type @ in a note to link it.',
@@ -68,7 +68,7 @@ export function PageHint({ page }: { page: string }): React.JSX.Element | null {
   if (arrival && !welcomeUp) {
     return (
       <Line name="sandbox-arrival" onDone={() => (chime('tap'), setArrival(false))} done="Got it">
-        <strong>You're in the sandbox, a practice copy. Your own notes are safe.</strong> Try anything here.
+        <strong>You’re in the sandbox, a practice copy. Your own notes are safe.</strong> Try anything here.
       </Line>
     )
   }
@@ -103,7 +103,7 @@ export function PageHint({ page }: { page: string }): React.JSX.Element | null {
     }
     return (
       <Line name="style" onDone={() => (chime('tap'), done())} done="Got it">
-        <strong>There's a louder style too.</strong>{' '}
+        <strong>There’s a louder style too.</strong>{' '}
         <button type="button" onClick={() => (done(), (() => { try { localStorage.setItem('settings:section', 'Appearance') } catch {} })(), window.api.openInHome('view', 'settings'))} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Settings, Appearance</button>.
       </Line>
     )
@@ -121,7 +121,7 @@ export function PageHint({ page }: { page: string }): React.JSX.Element | null {
   }
   // The lead-in is there with the line, so it reads at a glance; the rest types in after it.
   const { lead, rest } = splitLead(text)
-  return <Line key={page} name={page} onDone={done} done="Got it"><strong>{lead}</strong> <Typed text={rest} step={22} delay={250} /></Line>
+  return <Line key={page} name={page} onDone={done} done="Got it"><strong>{lead}</strong> <Typed text={rest} delay={0} within={220} /></Line>
 }
 
 function Line({ name, children, onDone, done }: { name: string; children: React.ReactNode; onDone: () => void; done: string }): React.JSX.Element {
@@ -134,7 +134,7 @@ function Line({ name, children, onDone, done }: { name: string; children: React.
     <motion.div role="note"
       initial={enter ? { opacity: 0, transform: shift(first ? 'translateY(-4px)' : 'translateY(0px)') } : false}
       animate={{ opacity: 1, transform: shift('translateY(0px)') }}
-      transition={{ duration: 0.3, delay: 0.6, ease: EASE }}
+      transition={{ duration: 0.2, ease: EASE }}
       className="flex shrink-0 items-start gap-3 rounded-xl border border-foreground/[0.07] bg-[color-mix(in_oklab,var(--foreground)_3%,transparent)] py-2 pr-1.5 pl-3.5 text-control text-muted-foreground">
       <Lightbulb aria-hidden className="mt-[0.4rem] size-3.5 shrink-0 text-primary" strokeWidth={2} />
       <p className="mf-prose min-w-0 flex-1 py-px text-[0.9375rem]">{children}</p>

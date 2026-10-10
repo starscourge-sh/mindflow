@@ -84,8 +84,10 @@ const matches = (query: string, ...texts: string[]): boolean => !query.trim() ||
  * them instead. Anything set under it (`below`) takes the full width.
  * Searched for and not matching, it is not there at all.
  */
-function Setting({ title, children, note, below, keywords = '', under = false }: {
+function Setting({ title, aka, children, note, below, keywords = '', under = false }: {
   title: string
+  /** Vigil's own word for it, after the plain name: clicked, it opens what the word means. */
+  aka?: string
   children?: ReactNode
   note: string
   below?: ReactNode
@@ -95,13 +97,13 @@ function Setting({ title, children, note, below, keywords = '', under = false }:
   under?: boolean
 }): React.JSX.Element | null {
   const { query, all } = useContext(Query)
-  if (!all && !matches(query, title, plain(note), keywords)) return null
+  if (!all && !matches(query, title, plain(note), `${keywords} ${aka ?? ''}`)) return null
   const shown = all ? '' : query
   return (
     <div data-setting className={`py-3 pr-4 ${under ? 'pl-9' : 'pl-4'}`}>
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <div className="min-w-0 flex-[1_1_13rem]">
-          <div className="text-body font-medium text-foreground"><Marked text={title} query={shown} /></div>
+          <div className="text-body font-medium text-foreground"><Marked text={title} query={shown} />{aka && <span className="ml-1.5 font-normal text-muted-foreground">(<Term>{aka}</Term>)</span>}</div>
           {/* Dia's way: the lead-in in bold says it, the rest is there for whoever wants it. */}
           <p className="mf-prose mt-1 max-w-md text-[0.8125rem] text-muted-foreground [&_strong]:font-medium [&_strong]:text-foreground/80"><Lead text={note} show={(words) => <Marked text={words} query={shown} />} /></p>
         </div>
@@ -329,17 +331,17 @@ export function SettingsView(): React.JSX.Element {
   const searching = !!query.trim()
 
   // The section list and the search over it on the left, the section on the
-  // right. Under 44rem of page the list folds to its tiles, like the main
+  // right. Under 34rem of page (a window under about 850px) the list folds to its tiles, like the main
   // sidebar, and the search moves over the settings. Not in the page column,
   // so Full width changes nothing here.
   return (
-    <section className={`grid min-h-0 min-w-0 flex-1 grid-cols-[3.5rem_1fr] grid-rows-[auto_1fr] @[44rem]/page:grid-cols-[14rem_1fr]`}>
+    <section className={`grid min-h-0 min-w-0 flex-1 grid-cols-[3.5rem_1fr] grid-rows-[auto_1fr] @[34rem]/page:grid-cols-[12.5rem_1fr] @[52rem]/page:grid-cols-[14rem_1fr]`}>
       <nav
         ref={sectionList}
         {...sectionHover.handlers}
         data-sections
         aria-label="Settings sections"
-        className={`relative isolate col-start-1 row-span-2 row-start-1 flex flex-col gap-px overflow-y-auto px-2 pt-4 pb-4 @[44rem]/page:row-span-1 @[44rem]/page:row-start-2 @[44rem]/page:pt-0`}
+        className={`relative isolate col-start-1 row-span-2 row-start-1 flex flex-col gap-px overflow-y-auto px-2 pt-4 pb-4 @[34rem]/page:row-span-1 @[34rem]/page:row-start-2 @[34rem]/page:pt-0`}
         onKeyDown={(event) => {
           const by = { ArrowDown: 1, j: 1, ArrowUp: -1, k: -1 }[event.key]
           if (!by || event.metaKey || event.ctrlKey || event.altKey) return
@@ -362,18 +364,18 @@ export function SettingsView(): React.JSX.Element {
                 setSection(one.title)
                 if (searching) (chime('fold'), setQuery(''))
               }}
-              className={`group flex items-center justify-center gap-2.5 rounded-md p-1.5 text-left text-body transition-colors duration-80 @[44rem]/page:justify-start @[44rem]/page:px-2 ${!searching && section === one.title ? 'text-foreground' : 'text-foreground/80'}`}
+              className={`group flex items-center justify-center gap-2.5 rounded-md p-1.5 text-left text-body transition-colors duration-80 @[34rem]/page:justify-start @[34rem]/page:px-2 ${!searching && section === one.title ? 'text-foreground' : 'text-foreground/80'}`}
             >
               <one.icon
                 className={`size-4 shrink-0 transition-colors duration-80 ${!searching && section === one.title ? 'text-[var(--tint)]' : 'text-[color-mix(in_oklab,var(--tint)_55%,var(--muted-foreground))] group-hover:text-[var(--tint)] group-data-[fluid-hover-active]:text-[var(--tint)]'}`}
                 style={{ '--tint': `var(--tt-color-text-${one.tint})` } as CSSProperties}
               />
-              <Weighted on={!searching && section === one.title} className="hidden @[44rem]/page:inline-grid">{one.title}</Weighted>
+              <Weighted on={!searching && section === one.title} className="hidden @[34rem]/page:inline-grid">{one.title}</Weighted>
             </button>
           </Tip>
         ))}
       </nav>
-      <label className={`col-start-2 row-start-1 mx-5 mt-4 mb-2 flex items-center gap-2 rounded-lg border bg-accent/25 px-3 py-1.5 text-muted-foreground focus-within:border-ring @[44rem]/page:col-start-1 @[44rem]/page:mx-2`}>
+      <label className={`col-start-2 row-start-1 mx-5 mt-4 mb-2 flex items-center gap-2 rounded-lg border bg-accent/25 px-3 py-1.5 text-muted-foreground focus-within:border-ring @[34rem]/page:col-start-1 @[34rem]/page:mx-2`}>
         <SearchIcon className="size-4 shrink-0" />
         <input
           value={query}
@@ -394,7 +396,7 @@ export function SettingsView(): React.JSX.Element {
         />
         {query && <Kbd>Esc</Kbd>}
       </label>
-      <div className={`relative col-start-2 row-start-2 flex min-h-0 min-w-0 flex-col @[44rem]/page:row-span-2 @[44rem]/page:row-start-1`}>
+      <div className={`relative col-start-2 row-start-2 flex min-h-0 min-w-0 flex-col @[34rem]/page:row-span-2 @[34rem]/page:row-start-1`}>
       <div ref={setScroller} className="min-h-0 flex-1 overflow-y-auto">
       <Query.Provider value={{ query, all: false }}>
       <Shown.Provider value={section}>
@@ -622,7 +624,7 @@ export function SettingsView(): React.JSX.Element {
             <span className="w-16 text-right tabular-nums"><Rolling text={settings.hintRate ? `1 in ${Math.round(1 / settings.hintRate)}` : 'never'} /></span>
           </Setting>
           <HintTuning />
-          <Setting title="Rot cards" note="**How many unhandled captures come back when you open the box.** A few, never the whole pile.">
+          <Setting title="Old captures that come back" aka="rot cards" note="**How many captures you never dealt with come back as cards when you open the box.** A few, never the whole pile.">
             <SettingSlider min={0} max={6} step={1} rest={3} value={settings.rotCount} onSave={(rotCount) => set({ rotCount })} />
             <span className="w-16 text-right tabular-nums"><Rolling text={settings.rotCount} /></span>
           </Setting>
@@ -664,7 +666,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Once a week">
-          <Setting title="Deciding day" note="**On the day you pick, the deciding pass.** What you set aside and what has waited longest, each with its exits; rot cards only ask for a tidy, and never in quiet hours.">
+          <Setting title="Deciding day" note="**On the day you pick, the deciding pass.** What you set aside and what has waited longest, each with its exits; old captures that come back only ask for a tidy, and never in quiet hours.">
             {settings.weeklyReview && (
               <div className="flex rounded-md border p-0.5">
                 {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((letter, day) => (
@@ -693,10 +695,10 @@ export function SettingsView(): React.JSX.Element {
             <span className="text-muted-foreground">to</span>
             <Input type="time" className={`${field} w-28`} value={settings.quietEnd} onChange={(event) => set({ quietEnd: event.target.value })} />
           </Setting>
-          <Setting title="Safe mode" note="**Nothing comes up unasked at all, for screen shares.** No hints, rot cards or pins; ⌥⌘S from anywhere.">
+          <Setting title="Safe mode" note="**Nothing comes up unasked at all, for screen shares.** No hints, old captures coming back (rot cards) or pinned notes; ⌥⌘S from anywhere.">
             <Switch checked={settings.safeMode} onCheckedChange={(safeMode) => {
               set({ safeMode })
-              toast(safeMode ? 'Safe mode: no hints, rot cards or pins come up' : 'Safe mode off')
+              toast(safeMode ? 'Safe mode: no hints, old captures or pinned notes come up' : 'Safe mode off')
             }} />
           </Setting>
           <Setting title="Open at login" note="**Vigil starts with your Mac, quietly in the menu bar.** ⌘. works straight away, and your sticky notes are back where you left them.">
@@ -890,8 +892,9 @@ function ImportedThemes(): React.JSX.Element {
   const refresh = (): void => setThemes(customThemes())
   return (
     <Setting
-      title="Imported themes"
-      note="**A theme from a file joins the list above.** JSON with bg, ink and accent (and the nine hues if you like), or CSS variables."
+      title="Colours from a file"
+      keywords="imported themes json css bg ink accent"
+      note="**Load a theme file, and it joins the list above.** A theme file names a background, a text colour and an accent colour; a CSS file of colour variables works too."
       below={themes.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {themes.map((one) => (
@@ -924,7 +927,7 @@ function ImportedThemes(): React.JSX.Element {
           toast(`Imported ${made.name} and switched to it`, () => (made.undo(), refresh()))
         })
       }} />
-      <Button variant="outline" size="sm" onClick={() => file.current?.click()}>Import a theme…</Button>
+      <Button variant="outline" size="sm" onClick={() => file.current?.click()}>Load a theme file…</Button>
     </Setting>
   )
 }

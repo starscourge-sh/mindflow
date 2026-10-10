@@ -208,7 +208,7 @@ export function Page({ title, count, unit = ['item', 'items'], actions, children
  * label (textmotion.dev's word reveal). Typed again when the words change.
  * Plain text when Motion is off.
  */
-export function Typed({ text, className, step = 40, delay: asked = 700, story = false }: { text: string; className?: string; step?: number; delay?: number; story?: boolean }): React.JSX.Element {
+export function Typed({ text, className, step = 40, delay: asked = 700, story = false, within }: { text: string; className?: string; step?: number; delay?: number; story?: boolean; /** Every word under way by this many ms: a line that has to be read at once (a page's hint). */ within?: number }): React.JSX.Element {
   // Never sooner than a beat after it appears: typed with the first paint it
   // reads as noise, not as something said to you. Only a line that answers
   // what you just did (delay 0) starts at once.
@@ -224,6 +224,12 @@ export function Typed({ text, className, step = 40, delay: asked = 700, story = 
     starts.push(at)
     if (/^\s+$/.test(word)) continue
     at += word.length * step * 0.7 + 70 + (/[.!?:]$/.test(word) ? 200 : /[,;]$/.test(word) ? 100 : 0)
+  }
+  // Squeezed to fit, the same rhythm faster: the last word starts by `within`.
+  const last = starts.at(-1) ?? 0
+  if (within !== undefined && last > within) {
+    for (let i = 0; i < starts.length; i += 1) starts[i] = Math.round((starts[i] * within) / last)
+    at = within
   }
   // One voice at a time (lib/motion.ts): settled when the words arrive, so a
   // later render never starts it again. A second line waits its turn.
@@ -886,7 +892,7 @@ export function Toaster(): React.JSX.Element | null {
   // sticky's right click), said in the one window main picks, with the way back.
   useEffect(() => window.api.onStickiesTidied((count) => {
     chime('gather')
-    toast(count === 1 ? 'Sticky tidied' : `${count} stickies tidied`, undefined, 'success', { label: 'Put them back', key: 'B', run: () => (chime('back'), window.api.untidyStickies()) })
+    toast(count === 1 ? 'Sticky tidied to the right of your screen' : `${count} stickies tidied down the right of your screen`, undefined, 'success', { label: 'Put them back', key: 'B', run: () => (chime('back'), window.api.untidyStickies()) })
   }), [])
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
