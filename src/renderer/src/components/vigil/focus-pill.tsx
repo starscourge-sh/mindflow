@@ -187,6 +187,11 @@ export function FocusPill(): React.JSX.Element | null {
         style={{ backgroundImage: `${over ? 'linear-gradient(color-mix(in oklab, var(--tt-brand-color-400) 14%, transparent), color-mix(in oklab, var(--tt-brand-color-400) 14%, transparent)), ' : ''}linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))`, backgroundColor: 'Canvas' }}
         className={`relative flex h-[44px] w-full items-center gap-2.5 rounded-full border pr-1.5 pl-2 font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_3px_8px_-2px_rgb(0_0_0/0.12)] transition-colors duration-300 ${over ? 'mf-timeup border-[color-mix(in_oklab,var(--tt-brand-color-400)_55%,var(--border))]' : ''}`}
       >
+        {/* At rest, the smoke is a few soft wisps drifting on the compositor:
+            the beam's own loop restyles thirty times a second, too much to
+            run all session, so it takes over only under the pointer, in the
+            first and last moments, and past the time. */}
+        {alive && !paused && settings?.sessionSmoke !== false && <Wisps light={surface === 'light'} />}
         {gleam > 0 && <Gleam key={gleam} light={surface === 'light'} />}
         <Ring share={over ? 1 : share} over={over} paused={paused} />
         {/* The goal stays put; only the right-hand end changes under the pointer. */}
@@ -266,7 +271,7 @@ export function FocusPill(): React.JSX.Element | null {
           inherited values thirty times a second, and wrapped around the pill
           every dot of the clock was restyled with them. Over it, they reach
           only this empty shape. */}
-      <BorderBeam size="pulse-inner" colorVariant="mono" strength={hover ? 0.4 : over ? 0.26 : 0.14} css={SMOKE_EASE} brightness={surface === 'light' ? 0.5 : undefined} style={surface === 'light' ? ({ '--beam-stroke-opacity': 9, '--beam-inner-opacity': 0.75 } as CSSProperties) : undefined} duration={3.4} theme={surface} borderRadius={22} active={alive && !paused && (settings?.sessionSmoke !== false ? true : !over && (hover || done < 8000 || last))} className="pointer-events-none absolute inset-0">
+      <BorderBeam size="pulse-inner" colorVariant="mono" strength={over && !hover ? 0.3 : 0.4} css={SMOKE_EASE} brightness={surface === 'light' ? 0.5 : undefined} style={surface === 'light' ? ({ '--beam-stroke-opacity': 9, '--beam-inner-opacity': 0.75 } as CSSProperties) : undefined} duration={3.4} theme={surface} borderRadius={22} active={alive && !paused && (hover || done < 8000 || last || (over && settings?.sessionSmoke !== false))} className="pointer-events-none absolute inset-0">
         <div className="h-full w-full rounded-full" />
       </BorderBeam>
       </div>
@@ -339,6 +344,30 @@ function HowDidItGo({ id, onDone }: { id: string; onDone: () => void }): React.J
         )}
       </div>
     </div>
+  )
+}
+
+/**
+ * The idle smoke: three soft blots of light, already blurred by their own
+ * gradients, drifting and breathing on transform and opacity alone, so the
+ * compositor runs them with no work on the page. Faint, on purpose.
+ */
+const WISPS = `@keyframes mf-wisp-a { 0%, 100% { transform: translate(-10%, 10%) scale(1); opacity: .5 } 50% { transform: translate(35%, -12%) scale(1.25); opacity: 1 } }
+@keyframes mf-wisp-b { 0%, 100% { transform: translate(20%, -8%) scale(1.15); opacity: .9 } 50% { transform: translate(-25%, 12%) scale(.9); opacity: .4 } }
+@keyframes mf-wisp-c { 0%, 100% { transform: translate(0, 6%) scale(.9); opacity: .4 } 50% { transform: translate(-30%, -10%) scale(1.2); opacity: .9 } }`
+function Wisps({ light }: { light: boolean }): React.JSX.Element {
+  const ink = light ? 'rgb(60 60 60 / 0.07)' : 'rgb(255 255 255 / 0.07)'
+  const blot = (left: string, width: string, name: string, seconds: number): CSSProperties => ({
+    left, width, top: '-30%', height: '160%', background: `radial-gradient(closest-side, ${ink}, transparent)`,
+    animation: `${name} ${seconds}s ease-in-out infinite`, willChange: 'transform, opacity'
+  })
+  return (
+    <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-full">
+      <style>{WISPS}</style>
+      <span className="absolute" style={blot('2%', '38%', 'mf-wisp-a', 9)} />
+      <span className="absolute" style={blot('35%', '34%', 'mf-wisp-b', 11)} />
+      <span className="absolute" style={blot('62%', '36%', 'mf-wisp-c', 13)} />
+    </span>
   )
 }
 
