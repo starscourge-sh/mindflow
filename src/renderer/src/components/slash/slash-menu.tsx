@@ -16,6 +16,10 @@ import {
 import type { SlashItem } from "@/extensions/slash-command"
 import { listDirection, step } from "@/lib/menu-keys"
 import { realMove } from "@/lib/real-move"
+import { SlashPeek } from "./slash-peek"
+
+/** How long the menu stays open, untouched, before the chosen block's preview shows. */
+const REST = 450
 
 const SlashList = forwardRef(function SlashList(
   { items, command, query }: SuggestionProps<SlashItem>,
@@ -25,6 +29,16 @@ const SlashList = forwardRef(function SlashList(
   const selectedRef = useRef<HTMLButtonElement>(null)
   const [pending, setPending] = useState<SlashItem | null>(null)
   const [value, setValue] = useState("")
+  // The preview beside the menu: up once the pointer or the arrows move
+  // through it, or once it has been open a moment. Fades in only the first time.
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [peeking, setPeeking] = useState(false)
+  const seen = useRef(false)
+  useEffect(() => {
+    const timer = setTimeout(() => setPeeking(true), REST)
+    return () => clearTimeout(timer)
+  }, [])
+  useEffect(() => void (peeking && (seen.current = true)))
 
   useEffect(() => {
     setSelected(0)
@@ -54,6 +68,7 @@ const SlashList = forwardRef(function SlashList(
       const direction = listDirection(event)
       if (direction) {
         setSelected((current) => step(current, direction, items.length))
+        setPeeking(true)
         return true
       }
       if (event.key === "Enter" || event.key === "Tab") {
@@ -95,7 +110,10 @@ const SlashList = forwardRef(function SlashList(
   let lastGroup: string | null = null
 
   return (
-    <div className="tiptap-slash-menu">
+    <div className="tiptap-slash-menu" ref={menuRef}>
+      {peeking && items[selected] ? (
+        <SlashPeek title={items[selected].title} menuRef={menuRef} fresh={!seen.current} />
+      ) : null}
       <div className="tiptap-slash-menu-list">
         {items.map((item, index) => {
           // Found by a search, best first: the groups no longer hold together.
@@ -111,7 +129,7 @@ const SlashList = forwardRef(function SlashList(
                 type="button"
                 ref={index === selected ? selectedRef : undefined}
                 className={index === selected ? "is-selected" : undefined}
-                onMouseMove={(event) => realMove(event) && setSelected(index)}
+                onMouseMove={(event) => realMove(event) && (setSelected(index), setPeeking(true))}
                 onClick={() => choose(index)}
               >
                 {item.icon}
