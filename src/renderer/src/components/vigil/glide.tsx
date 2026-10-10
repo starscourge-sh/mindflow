@@ -148,16 +148,26 @@ export function useFluidHover(box: RefObject<HTMLElement | null>, { items, axis 
     const py = y - at.top - el.clientTop + el.scrollTop
     let nearest: HTMLElement | null = null
     let best = Infinity
+    // The rows' own reach: the gaps between them belong to the nearest, but
+    // the empty part of a box wider than its rows (a row of chips in a full
+    // width bar) is no one's, so a click out there picks nothing.
+    const reach = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity }
     for (const row of el.querySelectorAll<HTMLElement>(items)) {
       if (!shown(row) || row.matches(':disabled, [aria-disabled="true"]')) continue
       const s = spotOf(row, el)
       const inside = px >= s.left && px <= s.left + s.width && py >= s.top && py <= s.top + s.height
       if (inside) return row
+      reach.left = Math.min(reach.left, s.left)
+      reach.top = Math.min(reach.top, s.top)
+      reach.right = Math.max(reach.right, s.left + s.width)
+      reach.bottom = Math.max(reach.bottom, s.top + s.height)
       const dx = px - (s.left + s.width / 2)
       const dy = py - (s.top + s.height / 2)
       const far = axis === 'x' ? Math.abs(dx) : axis === 'y' ? Math.abs(dy) : Math.hypot(dx, dy)
       if (far < best) (best = far), (nearest = row)
     }
+    const SLACK = 6
+    if (px < reach.left - SLACK || px > reach.right + SLACK || py < reach.top - SLACK || py > reach.bottom + SLACK) return null
     return nearest
   }, [box, items, axis])
 
