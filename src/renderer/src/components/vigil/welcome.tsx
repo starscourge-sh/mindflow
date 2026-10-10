@@ -732,8 +732,10 @@ function Caption({ kind }: { kind: Kind }): React.JSX.Element {
 }
 
 /** The things caught as what they became, side by side; a chip until its turn comes. */
-function Results({ cards, landed, signed, over, onTurn, pick, onPick, kept, quiet, captions }: {
+function Results({ cards, landed, signed, over, onTurn, pick, onPick, kept, quiet, captions, look = null }: {
   cards: Kind[]; landed: boolean; signed: boolean; over: boolean; onTurn: (over: boolean) => void; quiet: boolean
+  /** The one being shown: it comes forward and the rest step back, all inside the window. */
+  look?: Kind | null
   pick?: Kind | null; onPick?: (kind: Kind) => void; kept?: boolean; captions: boolean
 }): React.JSX.Element {
   const live = !!onPick
@@ -745,7 +747,8 @@ function Results({ cards, landed, signed, over, onTurn, pick, onPick, kept, quie
         const chosen = pick === kind
         return (
           <div key={kind} data-frame={kind} onClick={live ? () => onPick(kind) : undefined} data-ghost={kind === 'word' ? 'card' : undefined}
-            style={{ rotate: kind === 'quote' && landed ? '-2.5deg' : '0deg', transition: 'rotate 450ms cubic-bezier(0.34, 1.4, 0.64, 1)' }}
+            style={{ rotate: kind === 'quote' && landed ? '-2.5deg' : '0deg', opacity: look && look !== kind ? 0.32 : 1, scale: look === kind ? '1.05' : '1', translate: look === kind ? '0 -6px' : '0 0', filter: look && look !== kind ? 'blur(1px)' : 'none',
+              transition: 'rotate 450ms cubic-bezier(0.34, 1.4, 0.64, 1), opacity 500ms var(--mf-ease), scale 600ms var(--mf-ease), translate 600ms var(--mf-ease), filter 500ms var(--mf-ease)' }}
             className={`relative min-w-0 self-end rounded-2xl p-1.5 transition-[box-shadow,background-color] duration-200 ${live ? 'cursor-pointer hover:bg-foreground/[0.03]' : ''} ${chosen ? 'shadow-[0_0_0_2px_var(--primary)]' : 'shadow-[0_0_0_2px_transparent]'}`}>
             {!card ? (
               <div className="flex justify-center py-6"><Chip kind={kind} /></div>
@@ -802,9 +805,10 @@ function BecomeChapter({ play, report, pick, onPick, turn, mine }: { play: boole
         Each kind goes where it is useful. These four were only a show.
       </Words>
       <div ref={scene} className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-[clamp(0.75rem,3vh,1.75rem)] pb-2">
-        <Camera shot={s.look && !show.done ? frameOn(world.current, s.look, 1.35) : WIDE} className="w-full max-w-[64rem]">
+        {/* No push-in here: four across fill the window, so the one shown comes forward instead. */}
+        <Camera shot={WIDE} className="w-full max-w-[64rem]">
         <div ref={world} className="relative w-full">
-        <Results cards={s.cards} landed={s.landed} signed={s.signed} over={over ?? s.over} quiet={!play} captions={s.docked}
+        <Results cards={s.cards} landed={s.landed} signed={s.signed} over={over ?? s.over} quiet={!play} captions={s.docked} look={show.done ? null : s.look}
           onTurn={(to) => (show.done ? (chime('tap'), setOver(to)) : undefined)}
           pick={show.done ? pick : null} onPick={show.done ? onPick : undefined} kept={turn === 'kept'} />
         </div>
