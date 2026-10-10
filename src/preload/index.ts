@@ -140,6 +140,13 @@ const api = {
     ipcRenderer.on('stickies:tidied', relay)
     return () => ipcRenderer.off('stickies:tidied', relay)
   },
+  /** How many stickies are out on the screen, so Tidy stickies is offered only when there is something to tidy. */
+  stickiesOut: (): Promise<number> => ipcRenderer.invoke('stickies:out'),
+  onStickiesOut: (listen: (count: number) => void): (() => void) => {
+    const relay = (_event: unknown, count: number): void => listen(count)
+    ipcRenderer.on('stickies:out', relay)
+    return () => ipcRenderer.off('stickies:out', relay)
+  },
   showFolder: (path: string): void => ipcRenderer.send('folder:show', path),
   /** A sticky's pictures in Vigil's own Quick Look, in a window over its screen rather than inside the small one. */
   look: (pictures: LookPicture[], at: number): void => ipcRenderer.send('look', pictures, at),

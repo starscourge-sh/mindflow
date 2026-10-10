@@ -1,4 +1,5 @@
 import { themeActions } from '@/lib/theme'
+import { useStickiesOut } from '@/lib/stickies-out'
 import React, { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
@@ -409,6 +410,8 @@ export default function App(): React.JSX.Element {
   // Hidden from screen recordings and shares unless let in, for a demo or a
   // Loom; remembered, and put back on every start.
   const appSettings = useLive(vigil.settings, null as Settings | null)
+  // Tidy stickies only with a sticky out to tidy.
+  const stickiesOut = useStickiesOut()
   // What the side panel's Inbox has waiting on you: rot cards (as many as it
   // would show) and pins, for the chip at the top while the panel is shut.
   const oldCount = useLive(vigil.rotWaiting, 0)
@@ -1221,7 +1224,7 @@ export default function App(): React.JSX.Element {
             { label: recordable ? 'Hide from screen recordings' : 'Show in screen recordings', cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => setRecordable(!recordable) },
             { label: appSettings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', keys: '⌃⌥⌘N', cue: null, run: () => void vigil.setSettings({ stickiesShown: appSettings?.stickiesShown === false }) },
             { label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() },
-            { label: 'Tidy stickies', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() },
+            ...(stickiesOut > 0 && !appSettings?.safeMode ? [{ label: 'Tidy stickies', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }] : []),
             { label: reveal ? 'Blur private titles again' : 'Show private titles for now', cue: reveal ? 'off' : 'on', run: () => setReveal(!reveal) },
             { label: 'Open the main window', keys: '⌘O', run: () => window.api.openInHome('view', 'home') },
             { label: "Open the week's page", cue: 'season', run: () => window.api.openInHome('view', 'weekpage') },

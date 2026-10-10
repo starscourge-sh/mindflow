@@ -736,6 +736,19 @@ const keepStuck = (): void => void writeFile(stickyFile(), JSON.stringify(stuck)
 const stuckAs = (key: string): Stuck | undefined => stuck.find((one) => `${one.type}:${one.id}` === key)
 /** Whether a sticky is on the desktop now: not in safe mode, the stickies shown, and not put away on its own. */
 const stickyUp = (key: string): boolean => !gate().blackout && stickyPrefs().shown && !stuckAs(key)?.hidden && (key === STACK ? stackIds().length > 0 : (tucked.get(key) ?? 0) <= Date.now())
+/** How many stickies are out on the screen: Tidy stickies is offered only when there is one to tidy. */
+const stickiesOut = (): number => [...stickies].filter(([key, win]) => !win.isDestroyed() && stickyUp(key) && win.isVisible()).length
+let toldOut = -1
+/** Each window told when that count changes, and the menu bar rebuilt to match. */
+function tellStickiesOut(): void {
+  setTimeout(() => {
+    const now = stickiesOut()
+    if (now === toldOut) return
+    toldOut = now
+    updateTray()
+    for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.webContents.send('stickies:out', now)
+  }, 0)
+}
 /** Kept out of screen shares and recordings when either setting says so. */
 const shield = (win: BrowserWindow): void => win.setContentProtection(!recordable || stickyPrefs().unshared)
 /** Every sticky as the settings say now: shown or away, shared or not. */
@@ -751,6 +764,7 @@ function applyStickies(): void {
   if (pile && !pile.isDestroyed()) pile.webContents.send('beacon:stack', stackIds())
   // Frosted or plain paper, as the setting says now.
   retellFrost()
+  tellStickiesOut()
 }
 /** Which stickies were made as real glass, so a change of the setting remakes the rest. */
 const builtGlass = new Map<string, boolean>()
@@ -857,6 +871,8 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     if (type === 'goal') changed({ kind: 'item', id })
   })
   stickies.set(key, win)
+  for (const event of ['show', 'hide', 'closed'] as const) win.on(event as 'show', tellStickiesOut)
+  tellStickiesOut()
   if (!stuck.some((one) => `${one.type}:${one.id}` === key)) stuck.push({ type, id, bounds: place })
   keepStuck()
   guard(win)
@@ -2213,7 +2229,8 @@ function updateTray(): void {
       { label: 'What’s new', click: () => inHome('vigil:whats-new') },
       { label: 'Show sticky notes', type: 'checkbox', checked: stickyPrefs().shown, accelerator: chordFor('⌃⌥⌘N'), click: () => showStickies() },
       { label: 'Bring sticky notes here', enabled: !safe && stickies.size > 0, click: () => gatherStickies() },
-      { label: 'Tidy stickies', accelerator: chordFor('⌃⌥⌘T'), enabled: !safe && stickies.size > 0, click: () => void tidyStickies() },
+      // Only with a sticky out to tidy; the key does nothing then either.
+      ...(!safe && stickiesOut() > 0 ? [{ label: 'Tidy stickies', accelerator: chordFor('⌃⌥⌘T'), click: () => void tidyStickies() }] : []),
       ...(canUntidy() ? [{ label: 'Put stickies back', click: untidyStickies }] : []),
       { type: 'separator' },
       { label: 'Quit Vigil', accelerator: 'Command+Q', click: quit }
@@ -2443,6 +2460,7 @@ app.whenReady().then(() => {
   // A note stuck to the desktop, or taken down.
   ipcMain.on('stickies:gather', () => gatherStickies())
   ipcMain.on('stickies:tidy', (event) => void tidyStickies(event.sender))
+  ipcMain.handle('stickies:out', () => stickiesOut())
   ipcMain.on('stickies:untidy', () => untidyStickies())
   ipcMain.on('sticky', (_event, type: unknown, id: unknown, on: unknown) => {
     if (typeof type === 'string' && typeof id === 'string') stick(type, id, Boolean(on))

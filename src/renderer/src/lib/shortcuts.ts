@@ -21,7 +21,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Anywhere', keys: '⌘.', does: 'Open or hide quick capture', where: 'Anywhere' },
   { group: 'Anywhere', keys: '⌥⌘S', does: 'Safe mode on or off, for sharing your screen: nothing comes up on its own (no hints, old captures or pinned notes)', where: 'Anywhere' },
   { group: 'Anywhere', keys: '⌃⌥⌘N', does: 'Show or hide every sticky note on the desktop', where: 'Anywhere' },
-  { group: 'Anywhere', keys: '⌃⌥⌘T', does: 'Tidy the sticky notes down the right middle of the screen', where: 'Anywhere' },
+  { group: 'Anywhere', keys: '⌃⌥⌘T', does: 'Tidy the sticky notes down the right middle of the screen, when stickies are open', where: 'Anywhere' },
 
   { group: 'Getting around', keys: '⌘K', does: 'Search everything, and every action', where: 'Both windows' },
   { group: 'Getting around', keys: '⌘P', does: 'Open a note by name: search only, no actions', where: 'Both windows' },

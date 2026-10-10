@@ -1,4 +1,5 @@
-import { useState, type CSSProperties, type ReactElement, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import type { LucideIcon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { realMove } from '@/lib/real-move'
@@ -63,6 +64,65 @@ export function Peek({ art, text, keys, children }: { art: () => ReactNode; text
         {open && <PeekCard art={art()} text={text} keys={keys} />}
       </TooltipContent>
     </Tooltip>
+  )
+}
+
+/**
+ * A card beside a menu that is already open (the `/` menu, the Vigil menu),
+ * level with its chosen row: on the right where there is room, else on the
+ * left, else under or over it, and never past the window's edges.
+ */
+export function BesidePeek({ menu: find, row, fresh, slashed = false, children }: {
+  menu: () => HTMLElement | null; row: (menu: HTMLElement) => Element | null; fresh: boolean; slashed?: boolean; children: ReactNode
+}): React.JSX.Element {
+  const card = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const el = card.current
+    if (!el) return
+    const place = (): void => {
+      // Read each time: the menu can be laid out after this card is.
+      const menu = find()
+      if (!menu) return
+      const box = menu.getBoundingClientRect()
+      const width = el.offsetWidth
+      const height = el.offsetHeight
+      const gap = 6
+      const edge = 8
+      const right = box.right + gap
+      const left = box.left - gap - width
+      const beside = right + width <= innerWidth - edge ? 'right' : left >= edge ? 'left' : null
+      let x: number
+      let y: number
+      if (beside) {
+        // Level with the chosen row, slid up or down to stay in the window.
+        x = beside === 'right' ? right : left
+        const at = row(menu)?.getBoundingClientRect().top ?? box.top
+        y = Math.min(Math.max(edge, at - 8), innerHeight - edge - height)
+      } else {
+        // A window too narrow for either side: under the menu, or over it.
+        x = Math.min(Math.max(edge, box.left), innerWidth - edge - width)
+        y = box.bottom + gap + height <= innerHeight - edge ? box.bottom + gap : box.top - gap - height
+      }
+      el.style.left = `${Math.max(edge, x)}px`
+      el.style.top = `${Math.max(edge, y)}px`
+      el.dataset.side = beside ?? (y > box.top ? 'bottom' : 'top')
+    }
+    place()
+    // Once more after the menu has been moved into place.
+    const frame = requestAnimationFrame(place)
+    const watch = new ResizeObserver(place)
+    const menu = find()
+    if (menu) watch.observe(menu)
+    addEventListener('scroll', place, true)
+    addEventListener('resize', place)
+    return () => (cancelAnimationFrame(frame), watch.disconnect(), removeEventListener('scroll', place, true), removeEventListener('resize', place))
+  })
+  return createPortal(
+    <div ref={card} data-slash-peek={slashed ? '' : undefined} data-menu-peek={slashed ? undefined : ''} role="tooltip"
+      className={`pointer-events-none fixed z-[60] ${PEEK_SURFACE} ${fresh ? 'mf-peek-in' : ''}`}>
+      {children}
+    </div>,
+    document.body
   )
 }
 

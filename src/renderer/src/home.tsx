@@ -43,6 +43,8 @@ import { Rolling, Toaster, toast, typing, FocusNote, useFocusMode, SoundToggle }
 import { FocusScenery } from './components/vigil/scenery'
 import { TooltipProvider } from './components/ui/tooltip'
 import { SidePeek } from './components/vigil/page-peeks'
+import { MenuPeek } from './components/vigil/menu-peeks'
+import { useStickiesOut } from './lib/stickies-out'
 import { useAppearance, useLive, vigil, type Item, type Pin, type Settings, type Task } from './lib/vigil'
 import { Tip, showTopTitle, useTopTitle, Pressed, useEscapeLeavesEditor } from '@/components/vigil/ui'
 import { Celebrations, tryCelebration } from '@/components/vigil/celebrate'
@@ -545,6 +547,9 @@ export function Home(): React.JSX.Element {
     queue: queued.queue.length
   }
 
+  // Tidy stickies is offered only with a sticky out to tidy.
+  const stickiesOut = useStickiesOut()
+
   const safeMode = (): void => {
     const on = !settings?.safeMode
     chime(on ? 'on' : 'off')
@@ -908,7 +913,7 @@ export function Home(): React.JSX.Element {
             { label: recordable ? 'Hide Vigil from screen recordings' : 'Show Vigil in screen recordings', cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => (setRecordable(!recordable), void window.api.setRecordable(!recordable)) },
             // Not in safe mode: the notes it would bring are meant to be put away then.
             ...(settings?.safeMode ? [] : [{ label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() }]),
-            ...(settings?.safeMode ? [] : [{ label: 'Tidy stickies', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }]),
+            ...(settings?.safeMode || !stickiesOut ? [] : [{ label: 'Tidy stickies', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }]),
             { label: 'reveal' in document.documentElement.dataset ? 'Blur private titles again' : 'Show private titles for now', cue: 'reveal' in document.documentElement.dataset ? 'off' : 'on', run: () => {
               const root = document.documentElement
               if ('reveal' in root.dataset) delete root.dataset.reveal
@@ -1202,32 +1207,34 @@ export function Home(): React.JSX.Element {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent side="top" align="start" className="w-60">
-              <DropdownMenuItem onSelect={() => setView({ id: 'settings' })}>Settings<DropdownMenuShortcut>⌘,</DropdownMenuShortcut></DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void window.api.importFrom('vault')}>Import from Obsidian or Notion…</DropdownMenuItem>
+              {/* Each row's card beside the menu: what it does, before you choose it. */}
+              <MenuPeek />
+              <DropdownMenuItem data-peek="settings" onSelect={() => setView({ id: 'settings' })}>Settings<DropdownMenuShortcut>⌘,</DropdownMenuShortcut></DropdownMenuItem>
+              <DropdownMenuItem data-peek="import" onSelect={() => void window.api.importFrom('vault')}>Import from Obsidian or Notion…</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuCheckboxItem checked={!!settings?.safeMode} onSelect={(event) => event.preventDefault()} onCheckedChange={() => safeMode()}>
+              <DropdownMenuCheckboxItem data-peek="safe" checked={!!settings?.safeMode} onSelect={(event) => event.preventDefault()} onCheckedChange={() => safeMode()}>
                 Safe mode<DropdownMenuShortcut>⌥⌘S</DropdownMenuShortcut>
               </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem checked={settings?.blur !== false} onSelect={(event) => event.preventDefault()} onCheckedChange={() => blurring()}>
+              <DropdownMenuCheckboxItem data-peek="blur" checked={settings?.blur !== false} onSelect={(event) => event.preventDefault()} onCheckedChange={() => blurring()}>
                 Blurring
               </DropdownMenuCheckboxItem>
-              {/* Every sticky down the right middle of its screen, clear of other apps' buttons at the top right. */}
-              {!settings?.safeMode && <DropdownMenuItem onSelect={() => window.api.tidyStickies()}>Tidy stickies<DropdownMenuShortcut>⌃⌥⌘T</DropdownMenuShortcut></DropdownMenuItem>}
+              {/* Every sticky down the right middle of its screen, clear of other apps' buttons at the top right. Only with one out to tidy. */}
+              {!settings?.safeMode && stickiesOut > 0 && <DropdownMenuItem data-peek="tidy" onSelect={() => window.api.tidyStickies()}>Tidy stickies<DropdownMenuShortcut>⌃⌥⌘T</DropdownMenuShortcut></DropdownMenuItem>}
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => window.dispatchEvent(new CustomEvent('vigil:shortcuts'))}>Keyboard shortcuts<DropdownMenuShortcut>?</DropdownMenuShortcut></DropdownMenuItem>
-              <DropdownMenuItem onSelect={playWelcome}>Show the welcome again</DropdownMenuItem>
+              <DropdownMenuItem data-peek="shortcuts" onSelect={() => window.dispatchEvent(new CustomEvent('vigil:shortcuts'))}>Keyboard shortcuts<DropdownMenuShortcut>?</DropdownMenuShortcut></DropdownMenuItem>
+              <DropdownMenuItem data-peek="welcome" onSelect={playWelcome}>Show the welcome again</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => askBook('switch')}>Switch book…</DropdownMenuItem>
-              {!SANDBOX && <DropdownMenuItem onSelect={() => void askNewBook()}>New book…</DropdownMenuItem>}
+              <DropdownMenuItem data-peek="switch" onSelect={() => askBook('switch')}>Switch book…</DropdownMenuItem>
+              {!SANDBOX && <DropdownMenuItem data-peek="newbook" onSelect={() => void askNewBook()}>New book…</DropdownMenuItem>}
               {SANDBOX ? (<>
-                <DropdownMenuItem onSelect={() => void leaveSandbox()}>Back to my notes</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => void resetSandbox()}>Reset the sandbox</DropdownMenuItem>
+                <DropdownMenuItem data-peek="back" onSelect={() => void leaveSandbox()}>Back to my notes</DropdownMenuItem>
+                <DropdownMenuItem data-peek="reset" onSelect={() => void resetSandbox()}>Reset the sandbox</DropdownMenuItem>
               </>) : (
-                <DropdownMenuItem onSelect={() => void enterSandbox()}>Open the sandbox…</DropdownMenuItem>
+                <DropdownMenuItem data-peek="sandbox" onSelect={() => void enterSandbox()}>Open the sandbox…</DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
               {/* Used once, so it waits here rather than taking a row of the sidebar; each group's ··· has it too. */}
-              <DropdownMenuItem onSelect={() => setTimeout(() => setCustomizing(true), 0)}>Customize sidebar…</DropdownMenuItem>
+              <DropdownMenuItem data-peek="customize" onSelect={() => setTimeout(() => setCustomizing(true), 0)}>Customize sidebar…</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           {settings?.safeMode && (

@@ -1,7 +1,6 @@
-import { useLayoutEffect, useRef, type ReactNode, type RefObject } from 'react'
-import { createPortal } from 'react-dom'
+import type { ReactNode, RefObject } from 'react'
 import { ChevronDown, FileDown, Image as ImageIcon, Paperclip, Play } from 'lucide-react'
-import { MCard, MCheck, MLines, PEEK_SURFACE, PeekCard, tinted } from '@/components/vigil/peek'
+import { BesidePeek, MCard, MCheck, MLines, PeekCard, tinted } from '@/components/vigil/peek'
 
 /**
  * Beside the `/` menu, the block under the pointer or the keys: a small
@@ -96,61 +95,14 @@ export function blockPeek(title: string): BlockPeek | undefined {
   return PEEKS[title]
 }
 
-/**
- * The card, placed beside the menu level with the chosen row: on the right
- * where there is room, else on the left, and never past the window's edges.
- */
+/** The chosen block's card, beside the `/` menu and level with its row. */
 export function SlashPeek({ title, menuRef, fresh }: { title: string; menuRef: RefObject<HTMLElement | null>; fresh: boolean }): React.JSX.Element | null {
-  const card = useRef<HTMLDivElement>(null)
   const peek = blockPeek(title)
-
-  useLayoutEffect(() => {
-    const el = card.current
-    if (!el) return
-    const place = (): void => {
-      // Read each time: the menu can be laid out after this card is.
-      const menu = menuRef.current?.isConnected ? menuRef.current : document.querySelector<HTMLElement>('.tiptap-slash-menu')
-      if (!menu) return
-      const box = menu.getBoundingClientRect()
-      const width = el.offsetWidth
-      const height = el.offsetHeight
-      const gap = 6
-      const edge = 8
-      const right = box.right + gap
-      const left = box.left - gap - width
-      const beside = right + width <= innerWidth - edge ? 'right' : left >= edge ? 'left' : null
-      let x: number
-      let y: number
-      if (beside) {
-        // Level with the chosen row, slid up or down to stay in the window.
-        x = beside === 'right' ? right : left
-        const at = menu.querySelector('.is-selected')?.getBoundingClientRect().top ?? box.top
-        y = Math.min(Math.max(edge, at - 8), innerHeight - edge - height)
-      } else {
-        // A window too narrow for either side: under the menu, or over it.
-        x = Math.min(Math.max(edge, box.left), innerWidth - edge - width)
-        y = box.bottom + gap + height <= innerHeight - edge ? box.bottom + gap : box.top - gap - height
-      }
-      el.style.left = `${Math.max(edge, x)}px`
-      el.style.top = `${Math.max(edge, y)}px`
-      el.dataset.side = beside ?? (y > box.top ? 'bottom' : 'top')
-    }
-    place()
-    // Once more after the plugin has moved the menu to the caret.
-    const frame = requestAnimationFrame(place)
-    const watch = new ResizeObserver(place)
-    if (menuRef.current) watch.observe(menuRef.current)
-    addEventListener('scroll', place, true)
-    addEventListener('resize', place)
-    return () => (cancelAnimationFrame(frame), watch.disconnect(), removeEventListener('scroll', place, true), removeEventListener('resize', place))
-  })
-
   if (!peek) return null
-  return createPortal(
-    <div ref={card} data-slash-peek data-slot="slash-peek" role="tooltip"
-      className={`pointer-events-none fixed z-[60] ${PEEK_SURFACE} ${fresh ? 'mf-peek-in' : ''}`}>
+  return (
+    <BesidePeek menu={() => (menuRef.current?.isConnected ? menuRef.current : document.querySelector<HTMLElement>('.tiptap-slash-menu'))}
+      row={(menu) => menu.querySelector('.is-selected')} fresh={fresh} slashed>
       <PeekCard art={peek.art()} text={peek.text} fit />
-    </div>,
-    document.body
+    </BesidePeek>
   )
 }

@@ -1443,3 +1443,11 @@ html:is([data-dragging], [data-split-drag]) :is([data-peek-card], [data-slash-pe
 @keyframes mf-peek-in-left { from { opacity: 0; transform: translateX(3px); } }
 @media (prefers-reduced-motion: reduce) { .mf-peek-in { animation: none; } }
 :root[data-motion='off'] .mf-peek-in { animation: none; }
+/* Tidy stickies' preview (menu-peeks.tsx): three scattered stickies glide into a column on the right. Still, they sit in it. */
+.mf-sticky-tidy { left: calc(100% - 5.5rem - 6px); top: var(--to-top); animation: mf-sticky-tidy 1.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes mf-sticky-tidy {
+  0%, 30% { left: var(--from-left); top: var(--from-top); rotate: var(--from-tilt); }
+  100% { left: calc(100% - 5.5rem - 6px); top: var(--to-top); rotate: 0deg; }
+}
+@media (prefers-reduced-motion: reduce) { .mf-sticky-tidy { animation: none; } }
+:root[data-motion='off'] .mf-sticky-tidy { animation: none; }

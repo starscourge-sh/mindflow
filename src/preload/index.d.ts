@@ -70,6 +70,8 @@ export interface Api {
   tidyStickies: () => void
   untidyStickies: () => void
   onStickiesTidied: (listen: (count: number) => void) => () => void
+  stickiesOut: () => Promise<number>
+  onStickiesOut: (listen: (count: number) => void) => () => void
   showFolder: (path: string) => void
   look: (pictures: LookPicture[], at: number) => void
   lookWhat: () => Promise<{ pictures: LookPicture[]; at: number } | null>
