@@ -63,7 +63,7 @@ try {
   id = await start('Tick test', 16000)
   await pill.waitForTimeout(1800)
   let log = await heard(pill)
-  check('ticking starts with the session', log.includes('clock-tick'), log.join(' '))
+  check('ticking starts with the session', log.some((one) => one.startsWith('clock-tick')), log.join(' '))
   await v('session:pause', id)
   await pill.waitForTimeout(1200)
   log = await heard(pill)
@@ -77,17 +77,28 @@ try {
   check('time up rings the alarm', log.includes('clock-alarm'), log.join(' '))
   await v('session:cancel', id)
 
+  // The tick chosen in Settings is the one a session plays.
+  await v('settings:set', { sessionTickSound: 'watch' })
+  await pill.waitForTimeout(800)
+  let before = (await heard(pill)).length
+  id = await start('Pocket watch', 60000)
+  await pill.waitForTimeout(1500)
+  log = (await heard(pill)).slice(before)
+  check('a session plays the tick chosen in Settings', log.includes('clock-tick watch'), log.join(' '))
+  await v('session:cancel', id)
+  await v('settings:set', { sessionTickSound: 'old' })
+
   // Ticking off: no tick at all, the last ten seconds included.
   await v('settings:set', { sessionTick: false })
   await pill.waitForTimeout(2500)
-  let before = (await heard(pill)).length
+  before = (await heard(pill)).length
   id = await start('No tick', 12000)
   await pill.waitForTimeout(1500)
   log = (await heard(pill)).slice(before)
-  check('with ticking off, no tick', !log.includes('clock-tick'), log.join(' '))
+  check('with ticking off, no tick', !log.some((one) => one.startsWith('clock-tick')), log.join(' '))
   await pill.waitForTimeout(2500)
   log = (await heard(pill)).slice(before)
-  check('with ticking off, the last ten seconds are silent too', !log.includes('clock-tense') && !log.includes('clock-tick'), log.join(' '))
+  check('with ticking off, the last ten seconds are silent too', !log.includes('clock-tense') && !log.some((one) => one.startsWith('clock-tick')), log.join(' '))
   await v('session:cancel', id)
 
   // Sounds off: nothing at all, start to alarm.
@@ -107,7 +118,7 @@ try {
   id = await start('Safe', 30000)
   await pill.waitForTimeout(2000)
   log = (await heard(pill)).slice(before)
-  check('in safe mode, no ticking', !log.includes('clock-tick'), log.join(' '))
+  check('in safe mode, no ticking', !log.some((one) => one.startsWith('clock-tick')), log.join(' '))
   await v('session:cancel', id)
   await v('settings:set', { safeMode: false, sessionTick: false })
 

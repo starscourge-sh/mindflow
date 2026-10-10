@@ -90,7 +90,7 @@ export function FocusPill(): React.JSX.Element | null {
   // tenser, nothing paused, over or in safe mode. Silenced as the pill goes.
   const running = !!focus && !focus.pausedAt && !settings?.safeMode
   const timeLeft = focus?.plannedMs ? focus.plannedMs - worked(focus, now) : null
-  useEffect(() => sessionClock({ running, left: timeLeft, tick: !!settings?.sessionTick, level: settings?.sessionTickVolume ?? 0.5 }), [running, timeLeft, settings?.sessionTick, settings?.sessionTickVolume])
+  useEffect(() => sessionClock({ running, left: timeLeft, tick: !!settings?.sessionTick, level: settings?.sessionTickVolume ?? 0.5, sound: settings?.sessionTickSound }), [running, timeLeft, settings?.sessionTick, settings?.sessionTickVolume, settings?.sessionTickSound])
   useEffect(() => () => sessionClock({ running: false, left: null, tick: false, level: 0 }), [])
   // Under the notch, where Settings puts it and the Mac has one: how tall the notch is, 0 for none.
   // Null until asked, so a pill never drops in at the top and then jumps to the notch.

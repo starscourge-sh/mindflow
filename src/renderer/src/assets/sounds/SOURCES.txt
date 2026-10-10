@@ -2,9 +2,13 @@ paper-rip.m4a: "Paper Ripping", supplied by the project owner (the shredder's di
 paper-fold.m4a: one fold cut from "Paper Folding", supplied by the project owner (a review card turning over).
 clock-tick.m4a: four tick-tocks cut as a loop from "Old Clock Ticking" by universfield (Pixabay, sound 352288), supplied by the project owner (the tick while a session runs).
 clock-tense.m4a: one second cut from "Slow Cinematic Clock Ticking Tension 2" by u_mx4xkr2bzy (Pixabay, sound 323078), supplied by the project owner (a session's last ten seconds).
+clock-wall.m4a: twelve ticks cut as a loop from "The Mechanical Wall Clock Ticks One Minute" by spinopel (Pixabay, sound 253101), supplied by the project owner (Wall clock, a choice of tick in Settings).
+clock-watch.m4a: twelve ticks cut as a loop from "Clock Ticking" by reddog0607 (Pixabay, sound 365218), supplied by the project owner (Pocket watch: small, dry ticks, five a second).
+clock-desk.m4a: twelve ticks cut as a loop from "Clock Ticking Sound Effect" by 11325622 (Pixabay, sound 240503), supplied by the project owner (Desk clock: brighter ticks, about four a second).
+All three brought to the loudness of clock-tick.m4a (Old clock, the default).
 clock-alarm.m4a: three rings cut from "Alarm Clock" by freesound_community (Pixabay, sound 90867), supplied by the project owner (a session's time up).
 saber-on.m4a: "Swing3" (Pixabay, sound 94210) into a moment of "Saber Humming.wav" (Pixabay, sound 14651), both by freesound_community, supplied by the project owner (into the sandbox).
 saber-off.m4a: a moment of "Saber Humming.wav" played backwards, from the same file (out of the sandbox).
-The five above came with no licence text in the files. Their file names follow Pixabay's download naming, whose Content License allows use in an app without credit; the sources are named here anyway.
+The eight above came with no licence text in the files. Their file names follow Pixabay's download naming, whose Content License allows use in an app without credit; the sources are named here anyway.
 page-turn.m4a: the first 0.3s of paper-fold.m4a, faded and brought up to a level you can hear (a piece of writing opened, a note opened in a new pane; played faster and softer when stepping with the arrow keys). The first cut was so quiet it could not be heard.
 paper-slide.m4a: 0.28s from the middle of paper-rip.m4a, made mono, its rasp filtered off and faded in and out (read mode opening, the reading queue moving on). A pane closing plays paper-fold.m4a faster and softer.

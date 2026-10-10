@@ -3,6 +3,9 @@ import foldUrl from '@/assets/sounds/paper-fold.m4a'
 import pageUrl from '@/assets/sounds/page-turn.m4a'
 import slideUrl from '@/assets/sounds/paper-slide.m4a'
 import tickUrl from '@/assets/sounds/clock-tick.m4a'
+import wallUrl from '@/assets/sounds/clock-wall.m4a'
+import watchUrl from '@/assets/sounds/clock-watch.m4a'
+import deskUrl from '@/assets/sounds/clock-desk.m4a'
 import tenseUrl from '@/assets/sounds/clock-tense.m4a'
 import alarmUrl from '@/assets/sounds/clock-alarm.m4a'
 import saberOnUrl from '@/assets/sounds/saber-on.m4a'
@@ -599,25 +602,41 @@ export async function saberLength(up: boolean): Promise<number> {
  * or not, an alarm clock's three rings. All of it stops the moment the
  * session pauses, ends or is called off, and none of it plays in safe mode.
  */
-type Clock = { running: boolean; left: number | null; tick: boolean; level: number }
+type Clock = { running: boolean; left: number | null; tick: boolean; level: number; sound?: TickSound }
+/** The ticks to choose from in Settings, each a short loop (assets/sounds/SOURCES.txt). */
+export const TICKS = [
+  { id: 'old', label: 'Old clock', url: tickUrl },
+  { id: 'wall', label: 'Wall clock', url: wallUrl },
+  { id: 'watch', label: 'Pocket watch', url: watchUrl },
+  { id: 'desk', label: 'Desk clock', url: deskUrl }
+] as const
+export type TickSound = (typeof TICKS)[number]['id']
+const tickOf = (sound?: TickSound): string => (TICKS.find((one) => one.id === sound) ?? TICKS[0]).url
 let ticking: { key: string; source: Promise<AudioBufferSourceNode | null> } | null = null
 const hush = (): void => {
   if (!ticking) return
   void ticking.source.then((source) => source && (source.stop(), hear('clock-stop')))
   ticking = null
 }
-export function sessionClock({ running, left, tick, level }: Clock): void {
+export function sessionClock({ running, left, tick, level, sound }: Clock): void {
   const last = left !== null && left > 0 && left <= 10_000
   const kind = !running || !tick || !enabled || !volume ? null : last ? 'tense' : left === null || left > 0 ? 'calm' : null
   // Started again only when what should play changes, or how loud.
-  const key = kind && `${kind} ${level} ${volume}`
+  const key = kind && `${kind} ${level} ${volume} ${sound}`
   if (key === (ticking?.key ?? null)) return
   hush()
   if (!kind || !key) return
   // The tense tick lands as the seconds turn over on the clock, which rounds
   // to the nearest second: at each half second left.
   const at = kind === 'tense' && left !== null ? (((left - 500) % 1000) + 1000) % 1000 / 1000 : 0
-  ticking = { key, source: recording(kind === 'tense' ? tenseUrl : tickUrl, (kind === 'tense' ? 0.5 : 0.35) * level, kind === 'tense' ? 'clock-tense' : 'clock-tick', { loop: true, at }) }
+  ticking = { key, source: recording(kind === 'tense' ? tenseUrl : tickOf(sound), (kind === 'tense' ? 0.5 : 0.35) * level, kind === 'tense' ? 'clock-tense' : `clock-tick ${sound ?? 'old'}`, { loop: true, at }) }
+}
+let sample: Promise<AudioBufferSourceNode | null> | null = null
+/** A tick picked in Settings, heard for a second and a half at the ticking volume, so you know it before a session. */
+export function tickSample(sound: TickSound, level: number): void {
+  void sample?.then((source) => source?.stop())
+  const playing = (sample = recording(tickOf(sound), 0.35 * level, `tick-sample ${sound}`, { loop: true }))
+  setTimeout(() => void playing.then((source) => source?.stop()), 1500)
 }
 /** Time up: the alarm clock, short; the drawn bell if it cannot load. */
 export function alarm(): void {

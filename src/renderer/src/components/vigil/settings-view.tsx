@@ -1,6 +1,6 @@
 import { calendar } from '@/lib/mac-calendar'
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { PACKS, chime, click, soundOn, step } from '@/lib/sound'
+import { PACKS, TICKS, chime, click, soundOn, step, tickSample, type TickSound } from '@/lib/sound'
 import { NOTE_FONTS } from '@/lib/editor-setup'
 import { FolderPlus, Keyboard, Shuffle, Star, type LucideIcon } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
@@ -618,6 +618,15 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
           <Setting under title="Ticking volume" note="How loud the ticking is, under the Volume above.">
             <SettingSlider disabled={!settings.sounds || !settings.sessionTick} min={0} max={1} step={0.05} value={settings.sessionTickVolume ?? 0.5} onSave={(sessionTickVolume) => set({ sessionTickVolume })} />
+          </Setting>
+          <Setting under title="Ticking sound" note="**Which clock ticks.** Pick one to hear it." keywords="tick ticking clock sound watch wall desk focus session">
+            <div inert={!settings.sounds || !settings.sessionTick} className={settings.sounds && settings.sessionTick ? '' : 'opacity-50'}>
+              <Chips className="shrink-0" options={TICKS} on={(id) => id === (settings.sessionTickSound ?? 'old')} pick={(id) => {
+                const sessionTickSound = id as TickSound
+                tickSample(sessionTickSound, settings.sessionTickVolume ?? 0.5)
+                set({ sessionTickSound })
+              }} />
+            </div>
           </Setting>
           <Setting title="Gleam on the session bubble" note="**Now and then a light glides across the bubble, in case you forgot it.** About every 45 seconds, every 15 in the last minute and past the time; never under the pointer or while you are away. With Motion off, a soft glow instead." keywords="gleam shine reflection sweep glint focus session bubble pill timer attention remind">
             <Switch checked={settings.sessionGleam !== false} onCheckedChange={(sessionGleam) => set({ sessionGleam })} />

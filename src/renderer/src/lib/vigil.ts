@@ -30,6 +30,8 @@ export type Settings = {
   /** A clock ticks while a focus session runs, and how loud, 0 to 1. */
   sessionTick: boolean
   sessionTickVolume: number
+  /** Which tick: one of TICKS in lib/sound.ts. */
+  sessionTickSound?: 'old' | 'wall' | 'watch' | 'desk'
   /** Now and then a light glides across the session bubble. */
   sessionGleam: boolean
   /** The session bubble's smoke on all session, faint; off, only at its start, under the pointer and in the last minute. */

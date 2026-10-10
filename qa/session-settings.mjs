@@ -40,6 +40,21 @@ try {
   check('with both, a session counts in first', await held('both'))
   await v('settings:set', { countIn: false, focusShows: 'bubble' })
 
+  // --- Ticking sound: picked in Settings, heard at once, kept; greyed with ticking off.
+  await v('settings:set', { sounds: true, sessionTick: true, sessionTickSound: 'old' })
+  await h.click('[data-section="Sound"]')
+  await h.waitForTimeout(600)
+  const chip = (label) => h.locator('[data-setting]').filter({ hasText: 'Ticking sound' }).locator(`button:has([aria-label="${label}"])`)
+  await chip('Pocket watch').click()
+  await h.waitForTimeout(700)
+  check('picking a tick keeps it', (await v('settings')).sessionTickSound === 'watch')
+  const sampled = await h.evaluate(() => [...(window.vigilHeard ?? [])])
+  check('picking a tick plays a sample of it', sampled.includes('tick-sample watch'), sampled.join(' '))
+  await v('settings:set', { sessionTick: false })
+  await h.waitForTimeout(600)
+  check('with ticking off, the tick choice is greyed', await h.locator('[data-setting]').filter({ hasText: 'Ticking sound' }).locator('[inert]').count() === 1)
+  await v('settings:set', { sessionTickSound: 'old' })
+
   // --- Screen recordings: a sticky kept out of shares never shows on the way.
   await v('settings:set', { stickiesUnshared: true, stickiesShown: true })
   for (let i = 0; i < 30 && !(await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some((w) => w.webContents.getURL().includes('view=sticky')))); i++) await h.waitForTimeout(300)
