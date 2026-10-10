@@ -14,7 +14,7 @@ export const SANDBOX = new URLSearchParams(location.search).has('sandbox')
  * your celebrations, the GIFs and pictures that make a milestone yours. Its
  * scenery stays its own public-domain landscapes.
  */
-const CARRY_SETTINGS = ['motion', 'sounds', 'volume', 'soundPack', 'keys', 'marks', 'textSize', 'interfaceSize', 'progressBars', 'celebrationsFolder', 'celebrationPicks'] as const
+const CARRY_SETTINGS = ['motion', 'sounds', 'volume', 'soundPack', 'keys', 'marks', 'textSize', 'interfaceSize', 'progressBars', 'celebrationsFolder', 'celebrationPicks', 'giphy', 'giphyKey', 'giphyWords', 'giphyStars'] as const
 /** And from the window's own storage: the theme, Vim, and whether Vigil shows in screen recordings. */
 const CARRY_LOCAL = ['theme', 'custom-themes', 'frosted', 'style', 'recordable', 'vim'] as const
 

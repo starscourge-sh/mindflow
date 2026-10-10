@@ -7,6 +7,7 @@ import { dayKey, dayjs, startOfDay } from './dates'
 import { celebrationPrefs, gate, openGoals } from './vigil'
 import { daysBetween, daysLeft, wayThrough } from './goal-days'
 import { isSprite } from './sprite'
+import { giphyFile, giphyList, giphyNow, giphyOne, giphyPrefs, warmGiphy } from './giphy'
 
 /**
  * Celebrations: a small card for the rare milestones (a 100th capture, an
@@ -18,7 +19,7 @@ import { isSprite } from './sprite'
  */
 
 /** The kinds of milestone, each of which can have files of its own to play. */
-export const MOMENTS = ['kept', 'streak', 'inbox', 'tasks', 'year', 'answered', 'goalHalf', 'goal30', 'goal7', 'goalDay', 'goalMade', 'stickyDone', 'started'] as const
+export const MOMENTS = ['kept', 'streak', 'inbox', 'tasks', 'year', 'answered', 'goalHalf', 'goal30', 'goal7', 'goalDay', 'goalMade', 'stickyDone', 'started', 'taskDone'] as const
 export type MomentKind = (typeof MOMENTS)[number]
 /** A milestone, as the window shows it. `rank` decides between two at once. */
 export type Moment = { id: string; kind: MomentKind; rank: number; headline: string; line?: string; mark: string; tint: string
@@ -112,7 +113,7 @@ async function picks(): Promise<Partial<Record<MomentKind, Media[]>>> {
 }
 
 /** Where a name the protocol was asked for lives, if it came from the folder or a pick. */
-export const celebrationFile = (name: string): string | null => served.get(name) ?? picked.get(name) ?? null
+export const celebrationFile = (name: string): string | null => served.get(name) ?? picked.get(name) ?? giphyFile(name) ?? null
 
 // The windows that can show one: the box and the main window. A milestone
 // reached anywhere else (a note in its own window, a sticky) waits for one of
@@ -321,9 +322,14 @@ export function celebrateAfter(channel: string, sender: WebContents, args: unkno
     const { on } = celebrationPrefs()
     if (!on || gate().blackout) return
     const last = (database().prepare('select max(at) as at from celebrations').get() as { at: string | null }).at
-    if (last && Date.now() - new Date(last).getTime() < APART) return
-    const best = WATCH[channel](args, result).filter((one): one is Moment => !!one).sort((a, b) => b.rank - a.rank)[0]
-    if (!best) return
+    const best = last && Date.now() - new Date(last).getTime() < APART ? undefined
+      : WATCH[channel](args, result).filter((one): one is Moment => !!one).sort((a, b) => b.rank - a.rank)[0]
+    if (!best) {
+      // No milestone: a task done still gets its own small one, with Giphy on.
+      const done = channel === 'task:done' ? taskDone(args[0]) : null
+      if (done && !hushed()) sender.send('celebrate', done)
+      return
+    }
     const at = new Date().toISOString()
     database().prepare('insert or ignore into celebrations (id, at) values (?, ?)').run(best.id, at)
     for (const id of best.also ?? []) database().prepare('insert or ignore into celebrations (id, at) values (?, ?)').run(id, at)
@@ -335,6 +341,20 @@ export function celebrateAfter(channel: string, sender: WebContents, args: unkno
   } catch {
     // A milestone is never worth a failed save.
   }
+}
+
+/** Two tasks ticked in a breath get one card, not two. */
+let taskAt = 0
+/**
+ * A task done, with Giphy on: a card of its own, every time, never written
+ * down and never holding a milestone back. It plays a GIF from Giphy, or
+ * (offline, no key) what any card would. Its name only when nothing private may show.
+ */
+function taskDone(id: unknown): Moment | null {
+  if (!giphyPrefs().on || Date.now() - taskAt < 3000) return null
+  taskAt = Date.now()
+  const row = typeof id === 'string' ? (database().prepare('select title from tasks where id = ?').get(id) as { title: string } | undefined) : undefined
+  return { id: `task:${Date.now()}`, kind: 'taskDone', rank: 0, headline: 'Done', line: row && !gate().hidePrivate ? row.title : undefined, mark: '✓', tint: TINT.green }
 }
 
 /** A sticky's list done shows every time it is finished; only a double firing (within 3 seconds) is stopped. */
@@ -407,6 +427,11 @@ export function registerCelebrations(): void {
     media(typeof folder === 'string' ? folder : celebrationPrefs().folder))
   // The files picked for each moment, from the settings, each followed and checked by picks().
   ipcMain.handle('vigil:celebrations:picks', () => picks())
+  // A GIF from Giphy for a card now (null: play what it would anyway), the day's results to star, and one to see.
+  ipcMain.handle('vigil:celebrations:giphy', () => giphyNow().catch(() => null))
+  ipcMain.handle('vigil:celebrations:giphy:list', () => giphyList().catch(() => ({ gifs: [], why: 'offline' as const })))
+  ipcMain.handle('vigil:celebrations:giphy:one', (_event, id: unknown) => giphyOne(id).catch(() => null))
+  warmGiphy()
   ipcMain.handle('vigil:celebrations:sticky', (_event, id: unknown) => stickyDone(id))
   ipcMain.handle('vigil:celebrations:choose', async () => {
     const { filePaths } = await dialog.showOpenDialog({

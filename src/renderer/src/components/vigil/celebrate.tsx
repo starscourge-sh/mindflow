@@ -22,7 +22,9 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 export type Moment = { id: string; kind: MomentKind; rank: number; headline: string; line?: string; mark: string; tint: string
   /** A preview of one file in particular, from Settings. */
   play?: Media }
-type Media = { url: string; video: boolean; name: string; sprite?: boolean }
+type Media = { url: string; video: boolean; name: string; sprite?: boolean
+  /** From Giphy: said so on the card, as its terms ask, with its still frame for when nothing should move. */
+  giphy?: true; still?: string; width?: number; height?: number }
 /** A sprite's size on screen, worked out from its own once it has loaded. */
 type Size = { width: number; height: number; pixel: boolean }
 
@@ -40,7 +42,8 @@ const SAMPLES: Record<MomentKind, Omit<Moment, 'id' | 'kind' | 'rank' | 'line'>>
   goalDay: { headline: 'The day is here', mark: '14', tint: 'var(--tt-color-text-purple)' },
   goalMade: { headline: 'You made it', mark: '✓', tint: 'var(--tt-color-text-green)' },
   stickyDone: { headline: 'All done', mark: '✓', tint: 'var(--tt-color-text-green)' },
-  started: { headline: 'You are all set.', mark: '✓', tint: 'var(--tt-color-text-orange)' }
+  started: { headline: 'You are all set.', mark: '✓', tint: 'var(--tt-color-text-orange)' },
+  taskDone: { headline: 'Done', mark: '✓', tint: 'var(--tt-color-text-green)' }
 }
 /** One now, in this window, to see what they look like: nothing is counted. Any kind, unless one is named, playing `play` if given. */
 export function tryCelebration(kind?: MomentKind, play?: Media): void {
@@ -73,6 +76,19 @@ function pick(items: Media[]): Media | null {
     // Not remembered; a repeat is no harm.
   }
   return one
+}
+
+/**
+ * A GIF from Giphy, when it is on (main says null when it is not, or has no
+ * key, or is offline). Never waited on for long: past three seconds the card
+ * plays what it would have anyway, and the GIF is kept for the next one.
+ */
+const fromGiphy = (): Promise<Media | null> =>
+  Promise.race([vigil.celebrationGiphy().catch(() => null), new Promise<null>((done) => setTimeout(() => done(null), 3000))])
+
+/** What a card plays: one given to it, then this kind's own, then a GIF from Giphy, then any from the folder. */
+async function chooseMedia(moment: Moment, own: Media[], items: Media[]): Promise<Media | null> {
+  return moment.play ?? pickOwn(moment.kind, own) ?? (await fromGiphy()) ?? pick(items)
 }
 
 const LAST = 'celebrated-last'
@@ -119,7 +135,7 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
       shownAt.current = Date.now()
       // One of the files picked for this kind of moment, passing over any that ran too long, or else one from the folder.
       own.current = (picks as Partial<Record<MomentKind, Media[]>>)[moment.kind] ?? []
-      const media = moment.play ?? pickOwn(moment.kind, own.current) ?? pick(items.current)
+      const media = await chooseMedia(moment, own.current, items.current)
       // A sprite is loaded first, so it comes on at its size; one that will not load goes on a card.
       const sprite = media?.sprite ? await measure(media.url) : undefined
       setShown({ moment, media, key: Date.now(), sprite })
@@ -210,7 +226,7 @@ export function StickyCelebration({ moment, onDone }: { moment: Moment; onDone: 
       const [all, picks] = await Promise.all([vigil.celebrations().catch(() => []), vigil.celebrationPicks().catch(() => ({}))])
       items.current = all
       own.current = (picks as Partial<Record<MomentKind, Media[]>>)[moment.kind] ?? []
-      const media = moment.play ?? pickOwn(moment.kind, own.current) ?? pick(items.current)
+      const media = await chooseMedia(moment, own.current, items.current)
       const sprite = media?.sprite ? await measure(media.url, SMALL) : undefined
       if (!live) return
       setShown({ media, sprite })
@@ -320,6 +336,11 @@ function Card({ moment, media, origin, fill, onDone, onTooLong }: {
   }, [media?.url])
 
   const quick = still() ? 0 : 1
+  // A GIF from Giphy is shown whole-ish, at its own shape (within reason), and
+  // with Motion off or Reduce motion as its still frame.
+  const giphy = !!media?.giphy && !broken
+  const tall = giphy && !fill && media?.width && media.height ? Math.round(Math.min(220, Math.max(130, (276 * media.height) / media.width))) : undefined
+  const frozen = giphy && quick === 0 && !!media?.still
   return (
     <motion.div
       role="status"
@@ -338,9 +359,11 @@ function Card({ moment, media, origin, fill, onDone, onTooLong }: {
         ? 'pointer-events-auto absolute inset-0 flex cursor-default flex-col overflow-hidden rounded-[inherit] bg-popover text-popover-foreground select-none'
         : 'pointer-events-auto w-72 cursor-default rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-(--mf-panel-shadow) select-none'}
     >
-      <div className={`relative overflow-hidden ${fill ? 'min-h-0 flex-1' : 'h-40 rounded-lg'}`} style={{ background: `color-mix(in oklab, ${moment.tint} 30%, var(--popover))` }}>
+      <div className={`relative overflow-hidden ${fill ? 'min-h-0 flex-1' : 'h-40 rounded-lg'}`} style={{ background: `color-mix(in oklab, ${moment.tint} 30%, var(--popover))`, height: tall }}>
         {media && !broken ? (
-          media.video ? (
+          frozen ? (
+            <img src={media.still} alt="" draggable={false} onError={() => setBroken(true)} className="absolute inset-0 size-full object-cover" />
+          ) : media.video ? (
             <video
               src={media.url}
               autoPlay
@@ -368,7 +391,13 @@ function Card({ moment, media, origin, fill, onDone, onTooLong }: {
             <X className="size-3.5" />
           </button>
         </Tip>
-        {media?.video && !broken && (
+        {giphy && (
+          // Giphy's terms ask for this wherever one of theirs is shown.
+          <span data-giphy-attribution className="absolute bottom-1.5 left-1.5 rounded-[4px] bg-black/55 px-1.5 py-0.5 text-[0.625rem] leading-none font-semibold tracking-[0.02em] text-white/90 backdrop-blur-sm">
+            Powered by GIPHY
+          </span>
+        )}
+        {media?.video && !broken && !giphy && (
           <Tip label={loud ? 'Sound off' : 'Sound on'}>
             <button type="button" tabIndex={-1} aria-label={loud ? 'Sound off' : 'Sound on'} className={`${OVER} right-1.5 bottom-1.5`} onClick={(event) => {
               event.stopPropagation()

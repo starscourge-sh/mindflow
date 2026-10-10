@@ -11,9 +11,12 @@ import { watchBands } from './video-bands'
  * preload, the shapes here, so a new channel is one line on each side.
  */
 /** The kinds of milestone, as src/main/celebrate.ts names them. */
-export type MomentKind = 'kept' | 'streak' | 'inbox' | 'tasks' | 'year' | 'answered' | 'goalHalf' | 'goal30' | 'goal7' | 'goalDay' | 'goalMade' | 'stickyDone' | 'started'
+export type MomentKind = 'kept' | 'streak' | 'inbox' | 'tasks' | 'year' | 'answered' | 'goalHalf' | 'goal30' | 'goal7' | 'goalDay' | 'goalMade' | 'stickyDone' | 'started' | 'taskDone'
 
 const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
+
+/** A GIF from Giphy, downloaded and ready to play (see src/main/giphy.ts). */
+export type GiphyMedia = { url: string; video: boolean; name: string; giphy: true; id: string; still?: string; width: number; height: number }
 
 export type Settings = {
   fullWidth: boolean
@@ -102,6 +105,11 @@ export type Settings = {
   celebrationsFolder: string
   /** A file of its own for a kind of milestone, played in place of one from the folder. */
   celebrationPicks: Partial<Record<MomentKind, string[]>>
+  /** A GIF from Giphy on each task done (and the milestones), with your own key, searched with these words; starred ones come more often. */
+  giphy: boolean
+  giphyKey: string
+  giphyWords: string
+  giphyStars: string[]
   /** A question you are holding comes back now and then as a hint card. */
   questionsBack: boolean
   /** Open goals in a slim strip at the top of Home and Today's page. */
@@ -350,6 +358,12 @@ export const vigil = {
   celebrationPicks: () => call<Partial<Record<MomentKind, { url: string; video: boolean; name: string; sprite?: boolean; path?: string }[]>>>('celebrations:picks'),
   /** A sticky's list just done: its celebration, or null when none may show now. */
   stickyDone: (id: string) => call<{ id: string; kind: MomentKind; rank: number; headline: string; mark: string; tint: string } | null>('celebrations:sticky', id),
+  /** A GIF from Giphy for a card now, or null to play what it would anyway. */
+  celebrationGiphy: () => call<GiphyMedia | null>('celebrations:giphy'),
+  /** The day's Giphy results with their still pictures, to star; why there are none, if none. */
+  giphyList: () => call<{ gifs: { id: string; title: string; still: string }[]; why?: 'off' | 'key' | 'offline' }>('celebrations:giphy:list'),
+  /** One of them, downloaded, to see in a card. */
+  giphyOne: (id: string) => call<GiphyMedia | null>('celebrations:giphy:one', id),
   /** GIFs, pictures or clips, picked in the system's own chooser. */
   celebrationFiles: () => call<string[]>('celebrations:choose'),
   // Up for private, down for not, from whichever menu or button switched it.

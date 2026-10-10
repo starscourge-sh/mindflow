@@ -317,6 +317,13 @@ const DEFAULTS = {
   // Files of its own for each kind of milestone, one played at random in
   // place of one from the folder. A file no longer there is passed over.
   celebrationPicks: DEV_PICKS,
+  // A GIF from Giphy on a task done (and on the milestones), found with your
+  // own key and these words, and the ones you starred to see more often. The
+  // key is kept here, in your settings, and nowhere else.
+  giphy: false,
+  giphyKey: '',
+  giphyWords: 'ed edd n eddy celebrate',
+  giphyStars: [] as string[],
   // A question you are holding comes back now and then as a hint card: still
   // open, how long, how many clues. Off in Settings.
   questionsBack: true,
@@ -452,9 +459,13 @@ function spellingLanguages(): string[] {
 }
 
 /** Whether milestones are celebrated, from which folder, and the files picked for each kind. */
-export const celebrationPrefs = (): { on: boolean; folder: string; picks: Picks } => {
+export const celebrationPrefs = (): { on: boolean; folder: string; picks: Picks; giphy: boolean; giphyKey: string; giphyWords: string; giphyStars: string[] } => {
   const now = settings()
-  return { on: now.celebrate !== false, folder: now.celebrationsFolder || '', picks: now.celebrationPicks ?? {} }
+  return {
+    on: now.celebrate !== false, folder: now.celebrationsFolder || '', picks: now.celebrationPicks ?? {},
+    giphy: now.giphy === true, giphyKey: typeof now.giphyKey === 'string' ? now.giphyKey : '',
+    giphyWords: typeof now.giphyWords === 'string' ? now.giphyWords : '', giphyStars: Array.isArray(now.giphyStars) ? now.giphyStars : []
+  }
 }
 
 /** The Motion setting, for the window's own arrival. */

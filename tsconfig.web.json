@@ -17,6 +17,7 @@
     "src/main/video-thumbs.ts",
     "src/main/goal-days.ts",
     "src/main/celebrate.ts",
+    "src/main/giphy.ts",
     "src/main/sprite.ts",
     "src/main/near.ts",
     "src/main/names.ts",

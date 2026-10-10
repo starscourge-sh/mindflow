@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { PACKS, chime, click, soundOn, step } from '@/lib/sound'
 import { NOTE_FONTS } from '@/lib/editor-setup'
-import { FolderPlus, Keyboard, Shuffle, type LucideIcon } from 'lucide-react'
+import { FolderPlus, Keyboard, Shuffle, Star, type LucideIcon } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
 import SaveIcon from '@/components/ui/save-icon'
@@ -537,6 +537,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
           <CelebrationsFolder folder={settings.celebrationsFolder ?? ''} on={settings.celebrate !== false} onSave={(celebrationsFolder) => set({ celebrationsFolder })} />
           <CelebrationPicks picks={settings.celebrationPicks ?? {}} on={settings.celebrate !== false} onSave={(celebrationPicks) => set({ celebrationPicks })} />
+          <GiphySettings settings={settings} on={settings.celebrate !== false} set={set} />
         </Group>
         <Group section="Scenery" title="Where they show">
           {([
@@ -1103,7 +1104,8 @@ const MOMENT_NAMES: [MomentKind, string][] = [
   ['goalDay', "A goal's day"],
   ['goalMade', 'A goal made'],
   ['stickyDone', "A sticky's list done"],
-  ['started', 'Getting started, all done']
+  ['started', 'Getting started, all done'],
+  ['taskDone', 'A task done, with Giphy on']
 ]
 
 /**
@@ -1189,6 +1191,93 @@ function CelebrationPicks({ picks, on, onSave }: { picks: Partial<Record<MomentK
         </div>
       }
     />
+  )
+}
+
+/** A line of text that saves as you type, and never has a save coming back undo a key. */
+function TextSetting({ value, onSave, ...rest }: { value: string; onSave: (value: string) => void } & Omit<React.ComponentProps<typeof Input>, 'value' | 'onChange'>): React.JSX.Element {
+  const [text, setText] = useState(value)
+  const typing = useRef(false)
+  useEffect(() => void (!typing.current && setText(value)), [value])
+  return (
+    <Input {...rest} value={text} spellCheck={false} autoComplete="off"
+      onChange={(event) => (setText(event.target.value), onSave(event.target.value))}
+      onFocus={() => void (typing.current = true)}
+      onBlur={() => void (typing.current = false)} />
+  )
+}
+
+/**
+ * A GIF from Giphy on each task done: on or off, your own key (kept in your
+ * settings on this Mac, nowhere else), the words it searches with, and the
+ * day's results to star the ones you like best.
+ */
+function GiphySettings({ settings, on, set }: { settings: Settings; on: boolean; set: (patch: Partial<Settings>) => void }): React.JSX.Element {
+  const live = on && settings.giphy === true
+  return (
+    <>
+      <Setting title="Celebrate with a GIF from Giphy" note="**A GIF on every task you finish, and on the milestones.** Found on Giphy with your own key and words; offline or with no key, the folder plays instead." keywords="giphy gif task done finish meme ed edd eddy">
+        <Switch checked={settings.giphy === true} disabled={!on} onCheckedChange={(giphy) => set({ giphy })} />
+      </Setting>
+      <Setting under title="Giphy key" note="**Your own, free from developers.giphy.com.** Kept in your settings on this Mac and sent only to Giphy." keywords="giphy key api token">
+        <TextSetting type="password" placeholder="Paste your key" className="h-8 w-56" disabled={!on} value={settings.giphyKey ?? ''} onSave={(giphyKey) => set({ giphyKey: giphyKey.trim() })} />
+      </Setting>
+      <Setting under title="Search words" note="**What it looks for on Giphy.** A new list comes once a day." keywords="giphy search words query">
+        <TextSetting placeholder="ed edd n eddy celebrate" className="h-8 w-56" disabled={!on} value={settings.giphyWords ?? ''} onSave={(giphyWords) => set({ giphyWords })} />
+      </Setting>
+      <GiphyFavourites stars={settings.giphyStars ?? []} live={live} onSave={(giphyStars) => set({ giphyStars })} />
+    </>
+  )
+}
+
+/** The day's results, small, each with a star: starred ones play more often. Click one to see it in a card. */
+function GiphyFavourites({ stars, live, onSave }: { stars: string[]; live: boolean; onSave: (stars: string[]) => void }): React.JSX.Element {
+  const [list, setList] = useState<Awaited<ReturnType<typeof vigil.giphyList>> | null>(null)
+  const [busy, setBusy] = useState(false)
+  const load = (): void => {
+    setBusy(true)
+    void vigil.giphyList().then(setList, () => setList({ gifs: [], why: 'offline' })).finally(() => setBusy(false))
+  }
+  const why = list?.why === 'key' ? 'Add a key first.' : list?.why === 'offline' ? 'Giphy could not be reached; try again later.' : ''
+  return (
+    <Setting
+      under
+      title="Pick favourites"
+      note={`**Star the ones you like; they come up most.** The rest still play now and then.${stars.length ? ` ${stars.length} starred.` : ''}`}
+      keywords="giphy favourites favorites star pick gif"
+      below={list && (
+        <div data-giphy-picker className="mt-2">
+          {why ? <p className="text-control text-muted-foreground">{why}</p> : (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-1.5">
+              {list.gifs.map((gif) => {
+                const starred = stars.includes(gif.id)
+                return (
+                  <span key={gif.id} className="group/gif relative">
+                    <button type="button" aria-label={`See ${gif.title || 'this GIF'}`} title={gif.title} className="block aspect-[4/3] w-full overflow-hidden rounded-[5px] bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring/50 hover:opacity-85"
+                      onClick={() => void vigil.giphyOne(gif.id).then((one) => one && tryCelebration('taskDone', one))}>
+                      <img src={gif.still} alt="" draggable={false} className="size-full object-cover" />
+                    </button>
+                    <button type="button" data-giphy-star={gif.id} aria-pressed={starred} aria-label={starred ? 'Unstar' : 'Star'}
+                      className={`absolute top-1 right-1 grid size-6 place-items-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-opacity hover:bg-black/65 ${starred ? '' : 'opacity-0 group-hover/gif:opacity-100 focus-visible:opacity-100'}`}
+                      onClick={() => {
+                        onSave(starred ? stars.filter((id) => id !== gif.id) : [...stars, gif.id])
+                        chime(starred ? 'away' : 'settled')
+                      }}>
+                      <Star className="size-3.5" style={starred ? { fill: 'var(--tt-color-text-yellow)', color: 'var(--tt-color-text-yellow)' } : undefined} />
+                    </button>
+                  </span>
+                )
+              })}
+            </div>
+          )}
+          <p className="mt-1.5 text-meta font-semibold text-muted-foreground">Powered by GIPHY</p>
+        </div>
+      )}
+    >
+      {busy ? <Orb label="Looking…" /> : (
+        <Button variant="outline" size="sm" disabled={!live} onClick={load}>{list ? 'Look again' : 'Show them'}</Button>
+      )}
+    </Setting>
   )
 }
 
