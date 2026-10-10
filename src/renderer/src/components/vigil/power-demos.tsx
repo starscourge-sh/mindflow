@@ -507,8 +507,8 @@ const ClozeDemo: Demo = ({ live }) => {
   return (
     <Col>
       <Flip over={at === 1} onTurn={() => {}}
-        front={<div className={face}><span>The Great Pyramid was built for <span className="whitespace-nowrap"><span className="mx-0.5 inline-block w-10 border-b-2 border-foreground/40 align-baseline">&nbsp;</span>.</span></span><span className="mt-1 text-meta text-muted-foreground">Fill in the blank</span></div>}
-        back={<div className={face}><span>The Great Pyramid was built for <span className="rounded bg-[var(--tt-color-highlight-green)] px-1">Khufu</span>.</span><span className="mt-1 text-meta text-muted-foreground">Around 2560 BC</span></div>} />
+        front={<div className={face}><span>The Rosetta Stone was found in <span className="whitespace-nowrap"><span className="mx-0.5 inline-block w-10 border-b-2 border-foreground/40 align-baseline">&nbsp;</span>.</span></span><span className="mt-1 text-meta text-muted-foreground">Fill in the blank</span></div>}
+        back={<div className={face}><span>The Rosetta Stone was found in <span className="rounded bg-[var(--tt-color-highlight-green)] px-1">1799</span>.</span><span className="mt-1 text-meta text-muted-foreground">By French soldiers in Egypt</span></div>} />
     </Col>
   )
 }
@@ -531,7 +531,7 @@ const ContextDemo: Demo = ({ live }) => {
   )
 }
 
-const PAGES = ['Pale Blue Dot, Voyager 1, 1990', 'Never interrupt your enemy', 'Pluto is a dwarf planet', 'Kessel Run maths']
+const PAGES = ['Pale Blue Dot, Voyager 1, 1990', 'Never interrupt your enemy', 'Red pill or blue pill?', 'Kessel Run maths']
 const ReadThroughDemo: Demo = ({ live }) => {
   const at = useSteps([1300, 1300, 1300, 1300], live, 0)
   return (
@@ -554,7 +554,7 @@ const ReadThroughDemo: Demo = ({ live }) => {
 }
 
 // Short enough to fit beside Play next, four rows short enough to fit the stage.
-const QUEUED = ['Pale Blue Dot', 'Dorian Gray', 'Why Pluto is a dwarf', 'The Kessel Run']
+const QUEUED = ['Pale Blue Dot', 'Dorian Gray', "Lovelace's Note G", 'The Kessel Run']
 const QueueDemo: Demo = ({ live }) => {
   // Play next lifts the last one to the top; then each is read and the next comes up.
   const at = useSteps([1300, 1100, 1100, 1100, 1600], live, 4)
@@ -654,7 +654,7 @@ const DecisionDemo: Demo = ({ live }) => {
   )
 }
 
-const OUTCOME = 'Calmer afternoons'
+const OUTCOME = 'Lectures made sense'
 const ExperimentDemo: Demo = ({ live }) => {
   const at = useSteps([2400, typeMs(OUTCOME), 1800], live, 2)
   const [day, setDay] = useState(14)
@@ -668,7 +668,7 @@ const ExperimentDemo: Demo = ({ live }) => {
   return (
     <Col>
       <div className="rounded-lg border bg-background px-3 py-2">
-        <div className="text-control text-foreground">Walk after lunch for two weeks</div>
+        <div className="text-control text-foreground">Hermione's method, two weeks</div>
         <div className="mt-2 flex items-center gap-2">
           <ProgressBar value={day / 14} label="Experiment" className="flex-1" thick={3} duration={150} as="plain" fill="var(--tt-color-text-red)" />
           <span className="w-16 text-right text-meta text-muted-foreground tabular-nums">Day {day} of 14</span>
@@ -949,7 +949,7 @@ const SafeDemo: Demo = ({ live }) => {
   return (
     <Col className="items-center">
       <div className="w-full rounded-lg border bg-background py-1">
-        {[['Dinner with Ana, Friday', false], ['Salary talk notes', true], ['Book the ferry', false], ['What I think of the plan', true]].map(([text, secret]) => (
+        {[['Dinner with Ana, Friday', false], ['Salary talk notes', true], ['Tickets for Django', false], ['What I think of the plan', true]].map(([text, secret]) => (
           <Row key={text as string}><span className={`truncate transition-[filter] duration-300 ${safe && secret ? 'blur-[4px]' : ''}`}>{text as string}</span></Row>
         ))}
       </div>

@@ -9,8 +9,8 @@ import type { Day, NoteMap } from './notes'
  * and never saved: nothing here goes near the database, every id starts with
  * `example:`, and the rows cannot be clicked or reached by the keys.
  *
- * The same voice as the sandbox (lib/sandbox-seed.ts): books, plays and films
- * everyone half knows. Dates are counted from now, so the examples always
+ * The same voice as the sandbox (lib/sandbox-seed.ts): books, plays, films
+ * and history everyone half knows. Dates are counted from now, so the examples always
  * look current.
  */
 
@@ -48,14 +48,14 @@ export const exampleInbox = (): CaptureMeta[] => [
   capture(6, { kind: 'todo', label: 'Return Frankenstein to the library by Friday' }),
   capture(5, { kind: 'decision', label: 'Decided: read Dune before the film. Look again after the first chapter' }),
   capture(4, { kind: 'word', label: 'Soliloquy: speaking your thoughts aloud, alone on stage' }),
-  capture(3, { kind: 'experiment', label: 'Write 300 words before breakfast, for two weeks' }),
-  capture(2, { kind: 'link', label: 'The Folger Shakespeare: Hamlet, Act 3', medium: 'Website' }),
+  capture(3, { kind: 'experiment', label: "Hermione's method for two weeks: read the chapter before the lecture" }),
+  capture(2, { kind: 'link', label: 'The Rosetta Stone, found in 1799: one decree in three scripts', medium: 'Website' }),
   capture(1, { kind: 'note', label: 'Yoda never explains the Force. Maybe the best teachers show, then stop talking #writing' })
 ]
 
 /** Discarded: what was let go, still there to bring back. */
 export const exampleDiscarded = (): CaptureMeta[] => [
-  capture(3, { kind: 'todo', label: 'Buy a quill, like Mary Shelley', status: 'discarded', closedAt: minutesAgo(400) }),
+  capture(3, { kind: 'todo', label: "Buy a long black coat, like Neo's", status: 'discarded', closedAt: minutesAgo(400) }),
   capture(2, { kind: 'note', label: 'Rename the cat Mr Darcy?', status: 'discarded', closedAt: minutesAgo(900) }),
   capture(1, { kind: 'link', label: 'Ten facts about sandworms', status: 'discarded', closedAt: minutesAgo(2000) })
 ]
@@ -81,7 +81,7 @@ export const exampleTasks = (): Task[] => [
   task(2, { title: 'Call Mum about Sunday lunch', dueAt: at(0, '18:00'), priority: 3 }),
   task(3, { title: 'Finish chapter 4 of Pride and Prejudice #book', dueAt: at(0), allDay: 1, subtasks: [{ text: 'The ball at Netherfield', done: true }, { text: 'Mr Collins proposes', done: false }, { text: 'Notes', done: false }] }),
   task(4, { title: 'Book seats for Hamlet at the Globe', dueAt: at(2, '12:00'), deadline: at(5), priority: 1, important: 1 }),
-  task(5, { title: 'Send the book club the reading list', dueAt: at(3), allDay: 1, estimate: 15 }),
+  task(5, { title: 'Send film club the list: Goodfellas, then Django Unchained', dueAt: at(3), allDay: 1, estimate: 15 }),
   task(6, { title: 'Learn the Litany Against Fear by heart', priority: 4 }),
   task(7, { title: 'Hear back about the Austen walking tour', waitingOn: 'Bath tourist office' }),
   task(8, { title: 'Water the plants', recurrence: 'every! 3 days', dueAt: at(1), allDay: 1 }),
@@ -105,10 +105,11 @@ const item = (n: number, part: Partial<Item> & { tier: Item['tier']; title: stri
 
 /** Ideas: kept in your own words, each with how it comes back. */
 export const exampleIdeas = (): Item[] => [
-  item(1, { tier: 'nugget', kind: 'quote', title: 'First impressions are often wrong: the whole of Pride and Prejudice turns on it.', attribution: 'Jane Austen', prompt: 'What does Elizabeth get wrong about Darcy at first?', dueAt: at(2) }),
+  item(1, { tier: 'nugget', title: 'Neo takes the red pill: the truth, and no way back to the comfortable lie. #film', prompt: 'Red pill or blue pill: which one does Neo take, and what does it cost him?', dueAt: at(2) }),
   item(2, { tier: 'nugget', title: 'Victor never names his creature. Leaving something nameless is a way of refusing to own it.', mode: 'pushed' }),
   item(3, { tier: 'nugget', kind: 'word', title: 'Soliloquy: a speech made alone, so we hear what a character really thinks.', prompt: 'What is a soliloquy?', dueAt: at(0) }),
-  item(4, { tier: 'nugget', title: 'Fear is the mind-killer: naming a fear out loud makes it smaller. #dune' })
+  item(4, { tier: 'nugget', title: 'Fear is the mind-killer: naming a fear out loud makes it smaller. #dune' }),
+  item(5, { tier: 'nugget', kind: 'quote', title: 'All we have to decide is what to do with the time that is given us.', attribution: 'Gandalf, The Fellowship of the Ring', mode: 'pushed' })
 ]
 
 /** Writing: your own pages, built from ideas. */
@@ -122,6 +123,7 @@ export const exampleWriting = (): Item[] => [
 export const exampleQuestions = (): Item[] => [
   item(1, { tier: 'question', title: 'Why do I finish books I am not enjoying?', clues: 3, createdAt: at(-40) }),
   item(2, { tier: 'question', title: 'Is Hamlet mad, or only pretending?', clues: 5, createdAt: at(-200) }),
+  item(5, { tier: 'question', title: 'Did the Library of Alexandria burn, or slowly fade away?', clues: 2, createdAt: at(-12) }),
   item(3, { tier: 'question', title: 'What would Elizabeth Bennet make of dating apps?', clues: 0, createdAt: at(-3) }),
   item(4, { tier: 'question', title: 'Why does Gatsby keep watching the green light?', clues: 6, createdAt: at(-90), closedAt: at(-5), closedHow: 'answered' })
 ]
@@ -131,7 +133,7 @@ export const exampleGoals = (): Item[] => [
   item(1, { tier: 'goal', title: 'Read twelve classics this year', goalFrom: dayKey(-120), goalAt: dayKey(80), clues: 7 }),
   item(2, { tier: 'goal', title: 'Learn the Hamlet soliloquy by heart', goalFrom: dayKey(-10), goalAt: dayKey(20), clues: 2 }),
   item(3, { tier: 'goal', title: 'Finish the first draft of the essay', goalFrom: dayKey(-30), goalAt: dayKey(6), clues: 4 }),
-  item(4, { tier: 'goal', title: 'Read War and Peace before the summer', goalFrom: dayKey(-150), goalAt: dayKey(-20), clues: 9, closedAt: at(-20), closedHow: 'made it' })
+  item(4, { tier: 'goal', title: 'Watch all three Lord of the Rings, extended editions', goalFrom: dayKey(-150), goalAt: dayKey(-20), clues: 9, closedAt: at(-20), closedHow: 'made it' })
 ]
 
 // --- tags, stats, the map
@@ -141,6 +143,7 @@ export const exampleTags = (): { tag: string; count: number; color: string | nul
   { tag: 'writing', count: 9, color: 'blue', action: false, examAt: null },
   { tag: 'hamlet', count: 6, color: 'purple', action: false, examAt: null },
   { tag: 'bit', count: 4, color: null, action: false, examAt: null },
+  { tag: 'history', count: 5, color: 'green', action: false, examAt: null },
   { tag: 'dune', count: 3, color: 'orange', action: false, examAt: null },
   { tag: 'fix', count: 2, color: 'red', action: true, examAt: null }
 ]
@@ -170,15 +173,16 @@ export const exampleStats = (): Stats => ({
 export const exampleMap = (): NoteMap => {
   const node = (id: string, title: string, kind: string, type = 'capture'): NoteMap['nodes'][number] => ({ type, id: `${EXAMPLE}${id}`, title, kind, links: 0 })
   const nodes = [
-    node('austen', 'Pride and Prejudice', 'note'), node('first', 'First impressions are often wrong', 'quote', 'nugget'),
+    node('austen', 'Pride and Prejudice', 'note'), node('first', 'First impressions are often wrong', 'note', 'nugget'),
     node('darcy', 'Mr Darcy, misjudged', 'note'), node('bath', 'Visit Bath', 'todo'), node('ball', 'The Netherfield ball', 'note'),
     node('frank', 'Frankenstein', 'note'), node('nameless', 'The creature has no name', 'note', 'nugget'), node('ambition', 'What Frankenstein gets right about ambition', 'note', 'article'),
     node('hamlet', 'Hamlet', 'note'), node('waits', 'Why Hamlet waits', 'note', 'article'), node('soliloquy', 'Soliloquy', 'word'), node('mad', 'Is Hamlet mad?', 'note', 'question'),
-    node('dune', 'Decided: read Dune before the film', 'decision'), node('fear', 'Fear is the mind-killer', 'quote', 'nugget'), node('yoda', 'Yoda shows, then stops talking', 'note')
+    node('dune', 'Decided: read Dune before the film', 'decision'), node('fear', 'Fear is the mind-killer', 'quote', 'nugget'), node('yoda', 'Yoda shows, then stops talking', 'note'),
+    node('matrix', 'The Matrix', 'note'), node('pill', 'Red pill or blue pill?', 'note', 'nugget')
   ]
   const pairs: [string, string][] = [['austen', 'first'], ['austen', 'darcy'], ['first', 'darcy'], ['austen', 'bath'], ['austen', 'ball'], ['darcy', 'ball'],
     ['frank', 'nameless'], ['frank', 'ambition'], ['nameless', 'ambition'], ['hamlet', 'waits'], ['hamlet', 'soliloquy'], ['hamlet', 'mad'], ['waits', 'mad'],
-    ['dune', 'fear'], ['fear', 'yoda'], ['ambition', 'waits'], ['first', 'yoda']]
+    ['dune', 'fear'], ['fear', 'yoda'], ['ambition', 'waits'], ['first', 'yoda'], ['matrix', 'pill'], ['pill', 'yoda']]
   const edges = pairs.map(([a, b]): [string, string] => [`${EXAMPLE}${a}`, `${EXAMPLE}${b}`])
   for (const one of nodes) one.links = edges.filter((edge) => edge.includes(one.id)).length
   return { nodes, edges, alone: 0 }
@@ -193,7 +197,7 @@ export const exampleDay = (day: string): Day => {
     day, exists: false, body: null, reviewed: false,
     captured: [entry('d1', 'It is a truth universally acknowledged…', 'capture', 'quote'), entry('d2', 'Return Frankenstein to the library', 'capture', 'todo', 'resolved'), entry('d3', 'Soliloquy', 'capture', 'word')],
     resolved: [entry('d4', 'Decided: read Dune before the film', 'capture', 'decision', 'resolved')],
-    studied: [entry('d5', 'What does Elizabeth get wrong about Darcy at first?', 'nugget', 'quote', 'good')],
+    studied: [entry('d5', 'Red pill or blue pill: which one does Neo take?', 'nugget', 'note', 'good')],
     done: [entry('d6', 'Call Mum about Sunday lunch', 'task')]
   }
 }
@@ -210,7 +214,7 @@ export const exampleYear = (year: string, months: number): ({ month: string } & 
 }
 
 /** One card, front and back, the way Review turns it. */
-export const exampleCard = { prompt: 'What does Elizabeth get wrong about Darcy at first?', answer: 'She takes his pride for the whole of him. The first impression, made at a dance, is wrong, and the book is her finding that out.', from: 'Pride and Prejudice' }
+export const exampleCard = { prompt: 'Red pill or blue pill: which one does Neo take, and what does it cost him?', answer: 'The red. He wakes up in a pod, and the comfortable world he knew is gone for good. Cypher later wants it back: ignorance is bliss.', from: 'The Matrix (1999)' }
 
 /** The month's two fields, filled in. */
 export const exampleMonth = { season: 'The month I stopped waiting for permission', focus: 'Finish the Frankenstein essay; read in the mornings, not the evenings' }

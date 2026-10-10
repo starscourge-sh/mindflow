@@ -177,10 +177,21 @@ export async function seedSandbox(read: Read): Promise<SeedCounts> {
   const wilde = await v<string>('promote', wildeCapture, 'He says it to be clever. The rest of the book is the bill.')
   nuggets++
 
+  // And one from Middle-earth, said by the wizard, inside the book it is from.
+  const gandalfCapture = await capture({ kind: 'quote', attribution: 'Gandalf, in J.R.R. Tolkien', medium: 'The Fellowship of the Ring, Book 1, chapter 2 (1954)' }, at(-7, '22:15'))
+  await write(gandalfCapture, 'All we have to decide is what to do with the time that is given us.')
+  const gandalf = await v<string>('promote', gandalfCapture, 'The film puts it in Moria. The book has it at Bag End, before anyone has left home: advice for an ordinary Tuesday.')
+  nuggets++
+
   // A card with a history: reviewed three times over three weeks, due again today.
   const schwarzschild = await v<string>('nugget:from', 'How small a mass must be squeezed to become a black hole. For Earth, about 9 mm: a marble. #astrophysics', {})
   await v('item:save', schwarzschild, { title: 'What is a Schwarzschild radius?', prompt: 'What is a Schwarzschild radius?' })
   for (const grade of [3, 3, 4]) await v('review:grade', schwarzschild, grade, 6000)
+  nuggets++
+
+  // A film card, new this week, waiting in Review today.
+  const redPill = await v<string>('nugget:from', 'The red. He wakes up in a pod, and the comfortable lie is gone for good. Cypher later wants it back: ignorance is bliss. #film', {})
+  await v('item:save', redPill, { title: 'Red pill or blue pill?', prompt: 'Red pill or blue pill: which one does Neo take, and what does it cost him?' })
   nuggets++
 
   // Corrected, not erased.
@@ -230,12 +241,17 @@ What you keep, rather than what you read, is what returns: ${link(petrichor, 'Pe
   await write(bronzeClue, 'Drought, earthquakes and the Sea Peoples, all at once?')
   const bronze = await v<string>('question:new', 'Why did the Bronze Age collapse around 1177 BC?')
   await v('clue', bronze, '', bronzeClue)
+  const alexandria = await v<string>('question:new', 'Did the Library of Alexandria burn, or slowly fade away?')
+  const alexandriaClues = [
+    [await v<string>('clue', alexandria, "Caesar's fire in 48 BC burnt part of the city by the harbour. Books, or only warehouses? Nobody agrees."), at(-14, '21:10')],
+    [await v<string>('clue', alexandria, 'Hypatia taught maths in Alexandria until 415 AD, long after the great Library had dwindled. No single fire: centuries of less money and fewer scholars.'), at(-5, '22:00')]
+  ] as const
   const paul = await v<string>('question:new', 'Is Paul the hero of Dune?')
   const paulClues = [
     [await v<string>('clue', paul, 'He sees the holy war coming, in every future, and walks toward it anyway.'), at(-8, '22:40')],
     [await v<string>('clue', paul, 'Herbert said he wrote him as a warning about following a leader like that, not as a model.'), at(-1, '22:55')]
   ] as const
-  nuggets += 3
+  nuggets += 4
 
   // --- goals ---------------------------------------------------------------------------
   const mars = await v<string>('goal:new', 'Get to Mars before the dust storm', day(68), day(-30), "The Hab won't hold forever.")
@@ -292,6 +308,8 @@ What you keep, rather than what you read, is what returns: ${link(petrichor, 'Pe
   await v('task:done', await task('Water the potatoes today 8am'))
   const kick = await task('Plan the kick tomorrow')
   await v('task:save', kick, { subtasks: [{ text: 'Music cue: one minute before', done: true }, { text: 'Fill the bathtub', done: false }, { text: 'Get the van off the bridge', done: false }] })
+  const django = await task('Rewatch Django Unchained on Saturday 8pm')
+  await v('task:save', django, { notes: doc('The D is silent. Bring the good popcorn, and Sam, who has never seen it.') })
   // A task that remembers the capture it came from.
   const plane = await capture({}, earlier(160))
   await write(plane, 'Follow the white rabbit. Probably a tattoo, but you never know.')
@@ -783,6 +801,7 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
     [275, 5, '08:15', 'Walk at lunch, no phone. The plane trees have bark like a map. #walks'],
     [270, 0, '21:05', 'Meditations was never meant to be read. It is a man writing notes to himself, which is why it works. #reading'],
     [262, 2, '13:05', 'Two-minute rule: if it takes less than two minutes, do it now. Works for dishes, not for letters. #work', 'kept'],
+    [254, 0, '21:00', 'Rosetta Stone, found in 1799: one decree in three scripts, hieroglyphs, Demotic and Greek. The Greek was the key to the rest. #history'],
     [258, 3, '07:30', 'Twelve books of Meditations, one a week. On Book 3 and slowing down on purpose. #reading'],
     [250, 4, '18:40', 'Bread, third try: more water than feels right. It was right. #cooking'],
     [243, 6, '11:00', 'The library has a seed library. You borrow seeds, and bring back seeds. #ideas'],
@@ -794,33 +813,45 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
     [208, 0, '21:15', "Pemberley changes Elizabeth's mind, and she admits it is partly the house. Austen lets her be that honest. #reading"],
     [203, 5, '17:30', 'Write the email you would want to get: short, one ask, the date in the first line. #work', 'kept'],
     [200, 6, '10:20', 'Finished Pride and Prejudice. Reread the first chapter straight after: every line is a different joke now. #reading'],
+    [196, 0, '20:45', 'Apollo 11, 20 July 1969: the guidance computer had about 4 KB of working memory. The alarms on the way down were it running out of room. #history'],
     [190, 4, '08:05', 'Every city has a street the locals walk and visitors never find. #walks'],
     [184, 0, '09:30', 'Ideas come in the shower because there is nothing to write them down with. A waterproof notepad? #ideas', 'task'],
     [178, 0, '21:00', 'Frankenstein began as a ghost story contest by Lake Geneva in 1816, the year without a summer. #reading'],
+    [170, 0, '22:00', "Ada Lovelace's Note G, 1843: steps for the Analytical Engine to work out Bernoulli numbers. The first program, for a machine never built. #history", 'kept'],
     [166, 1, '22:40', 'Cannot sleep. The fridge hums in B flat, I think.', 'gone'],
     [156, 4, '23:05', "The creature learns to read from books found in the woods. A better education than Victor's. #reading"],
     [152, 3, '07:20', 'Rain all week. The canal is higher than the path.'],
     [141, 0, '21:20', 'Finished Frankenstein. The creature is the one I will remember, and he never gets a name. #reading'],
+    [140, 3, '19:05', 'Sunday sauce, the Goodfellas way: Paulie slices the garlic with a razor, so thin it melts in the pan. Used a knife. It still melted. #cooking'],
     [137, 6, '15:10', 'Market: a man selling forty kinds of tomato, and arguing about all of them. #cooking'],
+    [134, 0, '21:10', 'Gutenberg, about 1440: a press with movable metal type. By 1500, Europe had printed millions of books. #history'],
     [130, 2, '18:25', 'Ask for the decision, not the meeting. #work', 'kept'],
     [124, 6, '22:30', 'Saw Hamlet in the park. The ghost came on while a dog barked, and nobody laughed. #reading'],
     [117, 4, '21:50', 'Long light this time of year: walked home the long way, twice. #walks'],
     [110, 0, '21:45', 'Hamlet thinks about every move so long that the play happens to him instead. #reading'],
     [103, 1, '08:40', 'Started a list of the words I look up. Three today. #ideas'],
     [97, 0, '20:30', 'Ophelia gets the fewest lines, and the saddest. #reading'],
+    [94, 0, '21:30', 'Magna Carta, 1215: annulled by the Pope within ten weeks, and still the charter everyone quotes. Being right later counts. #history'],
     [90, 5, '19:00', 'The best part of a trip is the first morning, before you know where anything is. #walks'],
     [84, 0, '21:10', 'Finished Hamlet. Five acts of deciding, then everything at once. #reading'],
     [78, 3, '12:30', 'Lunch with Sam: he reads the last page first, always. #reading', 'gone'],
+    [74, 0, '21:15', 'The Antikythera mechanism: bronze gears, over 2,000 years old, that predicted eclipses. Nothing that fine turns up again for a thousand years. #history'],
     [72, 6, '09:15', 'Swam in the lake at 7am. Cold enough to make the day short and clear.'],
     [66, 2, '17:45', 'Write the plan on one page, or it is not a plan yet. #work'],
+    [64, 0, '21:40', 'A Remembrall turns red when you have forgotten something, and never says what. Review is the half Neville needed. #study'],
     [60, 0, '21:00', 'Odyssey, Book 12: tied to the mast, so he can hear the song and not drown. Wanting the thing, and arranging not to have it. #reading'],
     [55, 4, '22:20', "Planted the seed library's beans. Two came up. #ideas"],
+    [52, 0, '21:05', 'Wright Flyer, 17 December 1903: the first flight lasted 12 seconds and went 120 feet, less than the wingspan of a jumbo jet. #history'],
     [48, 1, '07:35', "First cold morning. Gloves in last year's coat, with a ticket in them."],
     [45, 0, '21:30', "Started Dorian Gray. Every line of Lord Henry's is a quote, which is the trouble with him. #reading"],
+    [36, 0, '21:20', "Hermione's method: read the book first. Read the chapter before the astrophysics lecture, and the lecture was a second reading. #study", 'kept'],
     [38, 3, '13:10', 'A good question keeps for months. Most answers do not. #ideas', 'kept'],
+    [33, 4, '08:40', "Hunch: the 3pm slump is the lunch, not the hour. Minority Report: the future isn't fixed if you know it. #precog"],
     [30, 0, '21:15', 'Finished Dorian Gray. The ending is one page, and it is enough. #reading'],
+    [24, 0, '21:40', "Marie Curie's notebooks are still radioactive. They sit in lead-lined boxes in Paris, and readers sign a waiver first. #history"],
     [26, 5, '18:20', 'Bread, fourteenth try: finally the holes. #cooking'],
     [19, 2, '08:50', 'Sorted the bookshelf by colour. Now I cannot find anything, and it looks wonderful.', 'gone'],
+    [15, 0, '22:10', 'Darwin, 1837: wrote "I think" above his first sketch of a tree of life. Two words, then the tree. #history'],
     [12, 0, '21:00', 'Reading on Sunday evenings has become the best hour of the week. #reading']
   ]
   // Each note caught in passing by its words, for the links written in below.
@@ -844,6 +875,17 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
       yearAges.push({ exitedAt: at(-back + 1, '09:00'), captureId: id })
     }
   }
+
+  // A decision made with help from a film, the call kept with what would reopen it.
+  const party = await capture({ kind: 'decision' }, at(-12, '19:40'))
+  await write(party, `
+Not saying who spoilt the surprise party
+
+Jimmy's rule in Goodfellas: never rat on your friends, and always keep your mouth shut. A terrible role model with one good rule.
+`)
+  await field(party, 'state', 'Decided')
+  await field(party, 'call', 'Say nothing. The cake was still a surprise.')
+  await field(party, 'reopen', 'Only if it happens at my party.')
 
   // A question held for a month, then answered: its clues become an article.
   const monster = await v<string>('question:new', 'Who is the monster in Frankenstein?')
@@ -919,7 +961,15 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
     ['Started a list of the words', [link(apophenia, 'Apophenia'), link(petrichor, 'Petrichor', 'nugget')]],
     ['A good question keeps', [madLink, link(top, 'Is the top still spinning?', 'question'), monsterLink]],
     ['Rain all week', [link(petrichor, 'Petrichor', 'nugget')]],
-    ['Swam in the lake', [noteLink('First cold morning')]]
+    ['Swam in the lake', [noteLink('First cold morning')]],
+    ['Hunch: the 3pm slump', [link(walk, 'Does a ten-minute walk shrink the slump?'), noteLink('Ten-minute walk')]],
+    ["Hermione's method", [link(article, "Mnemosyne's problem", 'article'), noteLink('Started a list of the words')]],
+    ['A Remembrall', [link(schwarzschild, 'What is a Schwarzschild radius?', 'nugget'), noteLink("Hermione's method")]],
+    ['Rosetta Stone', [link(gilgamesh, 'Gilgamesh came home with a story'), link(akkadian, 'Learn enough Akkadian?')]],
+    ["Ada Lovelace's Note G", [noteLink('The Antikythera mechanism'), link(overfitting, 'Overfitting', 'nugget')]],
+    ['Apollo 11', [noteLink('Wright Flyer'), link(blueDot, 'The Pale Blue Dot')]],
+    ['Gutenberg', [noteLink('Magna Carta'), noteLink('Rosetta Stone')]],
+    ['Darwin, 1837', [noteLink("Ada Lovelace's Note G"), noteLink("Marie Curie's notebooks")]]
   ]
   for (const [start, to] of joins) {
     const [words, id] = [...passed].find(([one]) => one.startsWith(start))!
@@ -961,6 +1011,7 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
     ...marsGlosses.map(([id, when]) => ({ glossAt: when, id })),
     ...homerGlosses.map(([id, when]) => ({ glossAt: when, id })),
     ...paulClues.map(([id, when]) => ({ glossAt: when, id })),
+    ...alexandriaClues.map(([id, when]) => ({ glossAt: when, id })),
     ...duneGlosses.map(([id, when]) => ({ glossAt: when, id })),
     ...done,
     { reviewedAt: at(-21, '08:10'), itemId: schwarzschild, nth: 0 },
@@ -973,10 +1024,15 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
     { createdAt: at(-2, '07:41'), nuggetId: petrichor },
     { createdAt: at(-5, '06:56'), nuggetId: aurelius },
     { createdAt: at(-10, '23:03'), nuggetId: wilde },
+    { createdAt: at(-7, '22:16'), nuggetId: gandalf },
+    { createdAt: at(-6, '21:30'), nuggetId: redPill },
+    { dueAt: at(0, '00:00'), nuggetId: redPill },
+    { createdAt: at(-16, '20:50'), nuggetId: alexandria },
     // Kept on the day they were caught, not the day the seed ran.
     { exitedAt: at(-2, '07:41'), captureId: petrichorCapture },
     { exitedAt: at(-5, '06:56'), captureId: aureliusCapture },
     { exitedAt: at(-10, '23:03'), captureId: wildeCapture },
+    { exitedAt: at(-7, '22:16'), captureId: gandalfCapture },
     { createdAt: at(-9, '22:10'), nuggetId: paul },
     { createdAt: at(-18, '21:00'), nuggetId: duneGoal },
     // Held, aimed at and written for some while: their pages say since when.
