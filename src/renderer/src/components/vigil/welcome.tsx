@@ -519,7 +519,7 @@ function YouChapter({ setup, onChange, still, report }: { setup: Setup; onChange
   useReport(report, true, () => undefined)
   return (
     <>
-      <Words title="First, two questions." docked still={still} done>
+      <Words title="A few questions first." docked still={still} done>
         So Vigil starts out shaped for you. Skip any of them.
       </Words>
       <div className="relative flex min-h-0 flex-1 flex-col justify-center overflow-y-auto pb-2">

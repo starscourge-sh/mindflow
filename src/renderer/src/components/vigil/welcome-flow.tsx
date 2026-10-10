@@ -86,7 +86,8 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
   const cw = size.w / SLOTS
   const mid = size.h / 2
   const at = (kin: Kin): { x: number; y: number; w: number } => {
-    const w = Math.min(kin.span * cw - 28, kin.span > 1 ? 300 : 240)
+    // The note a little wider than the rest, so each of its lines stays on one line.
+    const w = kin.id === 'note' ? Math.min(cw - 10, 260) : Math.min(kin.span * cw - 28, kin.span > 1 ? 300 : 240)
     return { x: kin.slot * cw + (kin.span * cw - w) / 2, y: mid + kin.row * ROW, w }
   }
   useLayoutEffect(() => {
@@ -152,9 +153,12 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
                       </motion.span>
                       <span className="min-w-0">{kin.title}</span>
                     </p>
+                    <motion.p key={turned ? 'then' : 'is'} className="pl-5 text-[0.75rem] leading-tight text-muted-foreground" initial={quiet || !turned ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={land}>
+                      {turned ? kin.then!.is : kin.is}
+                    </motion.p>
                     {/* The note's own lines, written in as it grows; the two a thought was caught from, lit. */}
                     {kin.id === 'note' && (
-                      <div className="flex flex-col gap-0.5 pl-5 text-[0.75rem] leading-snug text-foreground/80">
+                      <div className="mt-1 flex flex-col gap-0.5 border-t border-foreground/10 pt-1.5 text-[0.75rem] leading-snug whitespace-nowrap text-foreground/80">
                         {LINES.map(([line, from], i) => (
                           <motion.span key={line} data-from={from ?? undefined} className={`rounded-[3px] px-0.5 -mx-0.5 transition-colors duration-300 ${from && shot.step >= 4 ? 'bg-primary/15 text-foreground' : ''}`}
                             initial={false} animate={{ opacity: shot.grown ? 1 : 0 }} transition={quiet ? { duration: 0 } : { duration: 0.3, ease: EASE, delay: 0.1 + i * 0.18 }}>
@@ -163,9 +167,6 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
                         ))}
                       </div>
                     )}
-                    <motion.p key={turned ? 'then' : 'is'} className="pl-5 text-[0.75rem] leading-tight text-muted-foreground" initial={quiet || !turned ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={land}>
-                      {turned ? kin.then!.is : kin.is}
-                    </motion.p>
                   </div>
                 </motion.div>
               )
