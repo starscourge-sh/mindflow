@@ -6,10 +6,11 @@ import MessageCircleIcon from '@/components/ui/message-circle-icon'
 import ClockIcon from '@/components/ui/clock-icon'
 
 import { chime } from '@/lib/sound'
-import { useLive, vigil, when, type Gloss, type Session } from '@/lib/vigil'
+import { useLive, vigil, when, type Gloss, type LogEntry, type Session } from '@/lib/vigil'
 import { cn } from '@/lib/cn'
 import { GlossLine, useGlossKey } from './gloss-line'
 import { Island, Kbd, Rolling, toast, Typed } from './ui'
+import { SessionTimeline } from './session-timeline'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const MessageSquareText = alive(MessageCircleIcon)
@@ -100,6 +101,8 @@ type Entry = { key: string; at: string; text: string | null; session?: Session; 
 export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
   const sessions = useLive(() => vigil.sessions(taskId), null as Session[] | null, [taskId])
   const glosses = useLive(() => vigil.glosses(taskId), null as Gloss[] | null, [taskId])
+  // What each session logged from the pill while it ran: its timeline, under it.
+  const logged = useLive(() => vigil.taskSessionLog(taskId), [] as LogEntry[], [taskId])
   useGlossKey(taskId)
   const [asking, setAsking] = useState<string | null>(null)
 
@@ -151,6 +154,7 @@ export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
                 How did it go?
               </button>
             ) : null}
+            {one.session && <SessionTimeline entries={logged.filter((entry) => entry.sessionId === one.session!.id)} className="mb-1" />}
             <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
               {one.session ? (
                 <>

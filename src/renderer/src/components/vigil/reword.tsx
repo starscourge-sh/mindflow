@@ -22,7 +22,7 @@ import { Kbd, refuse, toast, whyFailed } from './ui'
  */
 
 export type Kind = 'capture' | 'nugget'
-export type Origin = { captureId?: string; attribution?: string | null; from?: string; onLifted?: (id: string) => void }
+export type Origin = { captureId?: string; attribution?: string | null; from?: string; onLifted?: (id: string) => void; said?: string }
 
 const Gem = alive(LibraryIcon)
 const Inbox = alive(StackIcon)
@@ -64,7 +64,7 @@ export async function keep(kind: Kind, text: string, question: string, origin: O
       // From a note not saved yet: it is linked back once that note is.
       if (!origin.from) origin.onLifted?.(id)
       land?.()
-      toast(origin.from ? 'In your inbox, linked back to here' : 'In your inbox, linked once this note is saved',
+      toast(origin.said ?? (origin.from ? 'In your inbox, linked back to here' : 'In your inbox, linked once this note is saved'),
         () => void vigil.unlift('capture', id).then(() => forget(kind, words)),
         'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('capture', id) })
       return true
@@ -163,6 +163,19 @@ export function reword(kind: Kind, editor: Editor, origin: Origin): void {
   chime('open')
   drafts.forEach((one) => one.anchor?.editor !== editor && release(one))
   set([...drafts.map((one) => ({ ...one, open: false, anchor: null })), { key: crypto.randomUUID(), kind, text, question: '', first: text, origin, anchor: { editor, from, to }, open: true }])
+}
+
+/**
+ * A card on words that are not in an editor (a session's logged thought):
+ * open in the corner, as a card reopened from the stack is.
+ */
+export function rewordText(kind: Kind, text: string, origin: Origin = {}): void {
+  const words = text.trim()
+  if (!words) return
+  mount()
+  chime('open')
+  drafts.forEach((one) => release(one))
+  set([...drafts.map((one) => ({ ...one, open: false, anchor: null })), { key: crypto.randomUUID(), kind, text: words, question: '', first: words, origin, anchor: null, open: true }])
 }
 
 /** The selection kept just as it is, no card: for when it is already right. */
