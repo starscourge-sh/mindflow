@@ -2,7 +2,7 @@ import { app, BrowserWindow, globalShortcut, ipcMain, session } from 'electron'
 import { spawn, type ChildProcess } from 'child_process'
 import { randomUUID } from 'crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'fs'
-import { copyFile, mkdir, rm, writeFile } from 'fs/promises'
+import { copyFile, mkdir, rename, rm, writeFile } from 'fs/promises'
 import { join } from 'path'
 
 import { changed, database } from './captures'
@@ -392,7 +392,7 @@ export function registerSandbox(): void {
           const from = join(sandboxRoot(), 'assets', name)
           // Into whichever book you came back to.
           const to = join(dataRoot(), 'assets', name)
-          if (existsSync(from) && !existsSync(to)) await mkdir(join(dataRoot(), 'assets'), { recursive: true }).then(() => copyFile(from, to)).catch(() => undefined)
+          if (existsSync(from) && !existsSync(to)) await mkdir(join(dataRoot(), 'assets'), { recursive: true }).then(() => copyFile(from, `${to}.part`)).then(() => rename(`${to}.part`, to)).catch(() => undefined)
         }
         db.prepare(`insert into captures (id, number, title, kind, body, captured_at, source, private, attribution)
           values (?, (select coalesce(max(number), 0) + 1 from captures), ?, ?, ?, ?, '', ?, ?)`)

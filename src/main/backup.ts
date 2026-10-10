@@ -1,6 +1,6 @@
 import { app } from 'electron'
 import { existsSync } from 'fs'
-import { copyFile, mkdir, readdir, rm, writeFile } from 'fs/promises'
+import { copyFile, mkdir, readdir, rename, rm, writeFile } from 'fs/promises'
 import type { DatabaseSync } from 'node:sqlite'
 import { homedir } from 'os'
 import { join } from 'path'
@@ -60,7 +60,9 @@ export async function backUp(db: DatabaseSync): Promise<void> {
   await mkdir(to, { recursive: true })
   const have = new Set(await readdir(to))
   for (const name of existsSync(from) ? await readdir(from) : []) {
-    if (!have.has(name)) await copyFile(join(from, name), join(to, name))
+    // Copied beside and renamed in: a copy cut short (Vigil quit mid-way) would
+    // otherwise count as backed up and never be copied again.
+    if (!have.has(name)) await copyFile(join(from, name), join(to, `${name}.part`)).then(() => rename(join(to, `${name}.part`), join(to, name)))
   }
 
   // A Markdown copy whose capture has since gone private, been discarded or

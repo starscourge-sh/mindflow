@@ -1672,7 +1672,11 @@ async function bringVault(root: string, quiet: boolean): Promise<void> {
     if (!bytes) return null
     const name = `${createHash('sha256').update(bytes).digest('hex')}.${extension}`
     await mkdir(assetsDir(), { recursive: true })
-    await stat(join(assetsDir(), name)).catch(() => writeFile(join(assetsDir(), name), bytes))
+    // Written beside and renamed in, as a pasted picture is: a file there only
+    // half written (Vigil quit mid-import) would count as kept and never be
+    // written again.
+    const temporary = join(assetsDir(), `${name}.${randomUUID()}.tmp`)
+    await stat(join(assetsDir(), name)).catch(() => writeFile(temporary, bytes).then(() => rename(temporary, join(assetsDir(), name))))
     if (IMAGE[ending]) (pictures += 1, lookAhead(name))
     else attached += 1
     return { url: `mindflow://assets/${name}`, size: bytes.byteLength, image: !!IMAGE[ending] }

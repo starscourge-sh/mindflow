@@ -95,7 +95,8 @@ async function copyInto(refs: unknown, id: BookId): Promise<number> {
   const to = join(folder, 'assets')
   await mkdir(to, { recursive: true })
   for (const [, name] of JSON.stringify(items).matchAll(ASSET)) {
-    if (existsSync(join(store, name)) && !existsSync(join(to, name))) await copyFile(join(store, name), join(to, name))
+    // Copied beside and renamed in, so one cut short is never taken for the whole file.
+    if (existsSync(join(store, name)) && !existsSync(join(to, name))) await copyFile(join(store, name), join(to, `${name}.part`)).then(() => rename(join(to, `${name}.part`), join(to, name)))
   }
   await mkdir(join(folder, ARRIVING), { recursive: true })
   const parcel: Parcel = { from: nameOf(here()), at: new Date().toISOString(), items }
