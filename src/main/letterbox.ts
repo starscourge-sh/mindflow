@@ -2,14 +2,19 @@
  * Black bands baked into a picture, top and bottom, the way YouTube's 4:3
  * thumbnails carry a 16:9 frame: as fractions of its height, or null.
  *
- * Only clear ones count: every row of a band near-black across the whole
+ * Only on a 4:3 picture, the one shape that carries them: a photo or a
+ * screenshot of any other shape keeps its top and bottom, however dark. And
+ * only clear ones count: every row of a band near-black across the whole
  * width, the two bands the same height, 10% to 30% of the picture between
  * them, and the picture starting sharply where they end. A dark photo, even
  * one with a black sky and black ground, fades rather than stops, so it is
  * never cropped.
  */
+/** 4:3, within a hair: a thumbnail made smaller rounds its sides. */
+export const fourThree = (width: number, height: number): boolean => Math.abs(width / height - 4 / 3) < 0.02
+
 export function bandsOf(rgba: ArrayLike<number>, width: number, height: number): { top: number; bottom: number } | null {
-  if (width < 8 || height < 8) return null
+  if (width < 8 || height < 8 || !fourThree(width, height)) return null
   const brightest = (at: number): number => Math.max(rgba[at], rgba[at + 1], rgba[at + 2])
   // Near-black across the row, a speck or two of compression noise allowed.
   // Clear is not black: a cut-out's empty edges are never bands.

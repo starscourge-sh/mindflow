@@ -61,6 +61,10 @@ export type Settings = {
   fontNotesOnly: boolean
   headingFont: string
   postcards: boolean
+  /** A picture in a note tips toward the pointer; always in Focus and full screen. */
+  tiltPictures: boolean
+  /** A picture's caption rides beside the pointer while it is on the picture. */
+  captionFollows: boolean
   /** A few marks drawn by hand; see components/vigil/marks.tsx. */
   marks: boolean
   blur: boolean

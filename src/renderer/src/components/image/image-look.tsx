@@ -18,6 +18,7 @@ import { Toolbar, ToolbarGroup, ToolbarSeparator } from "@/components/tiptap-ui-
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { host } from "@/lib/host"
 import { chime } from "@/lib/sound"
+import { useLive, vigil, type Settings } from "@/lib/vigil"
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ChevronLeft = alive(RightChevronIcon, 'rotate-180')
@@ -247,9 +248,18 @@ const TYPED = 900
  * Never on a picture that is selected (its toolbar is over it), held, dragged,
  * while you type or write its caption, for a touch, or with Motion off: the
  * plain caption only.
+ * Two switches in Settings: Tilt pictures in notes (off by default; in Focus
+ * or full screen, where a picture has the page to itself, it always tilts),
+ * and Caption follows the pointer (on by default), which works on a flat
+ * picture too.
  */
 function PictureTilt({ editor }: { editor: Editor }): React.ReactNode {
   const tilt = useTilt(6, 1.015)
+  const settings = useLive(vigil.settings, null as Settings | null)
+  const tilting = useRef(false)
+  tilting.current = !!settings?.tiltPictures
+  const following = useRef(true)
+  following.current = settings?.captionFollows !== false
   const name = useFollowLabel({ wrap: true, most: 3 })
   const [caption, setCaption] = useState<string | null>(null)
   const on = useRef<HTMLImageElement | null>(null)
@@ -272,10 +282,13 @@ function PictureTilt({ editor }: { editor: Editor }): React.ReactNode {
   useEffect(() => {
     const dom = editor.view.dom
     let typed = 0
+    // Tilted with the switch on, or in Focus (⇧⌘F) or full screen.
+    const tips = (): boolean =>
+      tilting.current || document.documentElement.dataset.focus === "on" || !!document.fullscreenElement || (innerWidth >= screen.width && innerHeight >= screen.height)
     const resting = (): boolean => Math.abs(tilt.x.get()) < 0.01 && Math.abs(tilt.y.get()) < 0.01 && Math.abs(tilt.grow.get() - 1) < 0.0005
     // Written on the picture in the frame the springs moved in: one transform, nothing measured.
     const unsubscribe = transform.on("change", (value) => {
-      if (on.current) on.current.style.transform = resting() ? "" : value
+      if (on.current) on.current.style.transform = resting() || !tips() ? "" : value
     })
     // Flat at once, not on its spring: a press means the picture is about to
     // be selected, lifted into Look or dragged, each from its real place.
@@ -306,6 +319,12 @@ function PictureTilt({ editor }: { editor: Editor }): React.ReactNode {
       return !!box && event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom
     }
     const onMove = (event: PointerEvent): void => {
+      if (!tips() && !following.current) {
+        if (on.current) (snap(), name.hide(), fade(null))
+        on.current = null
+        area.current = null
+        return
+      }
       // Still its place while the pointer is over the picture or what lies
       // under it (a corner tipped away shows its line or the page), never over
       // something on top of it, such as its toolbar.
@@ -320,8 +339,10 @@ function PictureTilt({ editor }: { editor: Editor }): React.ReactNode {
       if (!img) return
       area.current ??= flatRect(img)
       if (chosen(img) || performance.now() - typed < TYPED || document.activeElement?.closest(".mf-caption") || dom.classList.contains("dragging")) return tilt.flat()
+      // Leant even when the picture stays flat: the same rules (a mouse, no
+      // button held, Motion on) then decide whether its caption follows.
       if (!tilt.lean(event, area.current!)) return
-      const line = lineUnder(img)
+      const line = following.current ? lineUnder(img) : null
       if (!line) return void (name.hide(), fade(null))
       const text = line.textContent!.trim()
       setCaption(text)

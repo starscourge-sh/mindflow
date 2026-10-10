@@ -4,7 +4,7 @@ import { join } from 'path'
 import { rgbaToThumbHash } from 'thumbhash'
 
 import { database } from './captures'
-import { bandsOf } from './letterbox'
+import { bandsOf, fourThree } from './letterbox'
 
 /**
  * Each stored picture's size and a few bytes of its colours (a ThumbHash), so
@@ -41,7 +41,9 @@ const db = (): ReturnType<typeof database> => {
 }
 
 type Row = { width: number; height: number; hash: string; top: number; bottom: number }
-const lookFrom = (row: Row): PictureLook => [row.width, row.height, row.hash, row.top, row.bottom]
+// Bands kept by an earlier build for a picture that is not 4:3 are not used:
+// only a 4:3 picture is ever cropped (letterbox.ts).
+const lookFrom = (row: Row): PictureLook => (fourThree(row.width, row.height) ? [row.width, row.height, row.hash, row.top, row.bottom] : [row.width, row.height, row.hash, 0, 0])
 /** A picture's look if already worked out, without waiting for it. */
 export const known = (name: string): PictureLook | undefined => {
   const row = db().prepare('select width, height, hash, top, bottom from picture_looks where name = ?').get(name) as Row | undefined

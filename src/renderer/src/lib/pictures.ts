@@ -114,6 +114,17 @@ export function holdPlace(img: HTMLImageElement, soon = false): void {
   // Seen through a box without the bands, the picture is as if it never had them.
   if (top || bottom) img.style.setProperty("object-view-box", `inset(${top * 100}% 0 ${bottom * 100}%)`)
   img.dataset.held = ""
+  // Kept from the file's first bytes, its shape can be wrong (a camera's turn
+  // read one way here and another by the browser): once drawn, the picture's
+  // own shape wins, so its box is never another shape than it is.
+  const own = (): void => {
+    if (top || bottom || !img.naturalWidth || Math.abs((img.naturalWidth / img.naturalHeight) / (width / tall) - 1) < 0.02) return
+    img.style.setProperty("aspect-ratio", `auto ${img.naturalWidth} / ${img.naturalHeight}`)
+    img.style.setProperty("--mf-pic-w", `${img.naturalWidth}px`)
+    img.style.setProperty("--mf-pic-r", String(img.naturalWidth / img.naturalHeight))
+  }
+  if (img.complete) own()
+  else img.addEventListener("load", own, { once: true })
   if ((img.complete && img.naturalWidth) || !hash || img.dataset.waiting !== undefined) return
   img.dataset.waiting = ""
   let blur = ""

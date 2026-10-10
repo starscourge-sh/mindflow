@@ -438,6 +438,12 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Postcards" note="Pictures in notes sit in a white border with rounded corners and a soft shadow, like a print laid on the desk." keywords="images pictures photos border frame white">
             <Switch checked={!!settings.postcards} onCheckedChange={(postcards) => set({ postcards })} />
           </Setting>
+          <Setting title="Tilt pictures in notes" note="**A picture tips a few degrees toward the pointer.** In Focus and full screen pictures always tilt." keywords="tilt picture image photo hover move 3d motion">
+            <Switch checked={!!settings.tiltPictures} onCheckedChange={(tiltPictures) => set({ tiltPictures })} />
+          </Setting>
+          <Setting title="Caption follows the pointer" note="**A picture's caption rides beside the pointer while it is on the picture.** Off, the caption stays under it." keywords="caption picture image label follow pointer cursor hover">
+            <Switch checked={settings.captionFollows !== false} onCheckedChange={(captionFollows) => set({ captionFollows })} />
+          </Setting>
           <Setting title="Link pictures" note="**The picture on a link card, such as a video's thumbnail.** Fill crops it to its box; Whole shows all of it, its own colours blurred around it." keywords="bookmark link card youtube video thumbnail image picture crop cover contain fit">
             <Chips className="shrink-0" options={[{ id: 'fill', label: 'Fill' }, { id: 'whole', label: 'Whole' }]}
               on={(id) => id === (settings.linkPictures ?? 'fill')} pick={(linkPictures) => set({ linkPictures: linkPictures as Settings['linkPictures'] })} />

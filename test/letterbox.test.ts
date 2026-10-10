@@ -85,23 +85,32 @@ test('a dark photo with only a black top is not banded', { skip: !sips && 'needs
   assert.equal(bandsOf(rgba, 480, 360), null)
 })
 
-test('bands too thin, too thick or uneven are left alone', () => {
-  const make = (top: number, bottom: number): Uint8Array => {
-    const rgba = new Uint8Array(100 * 100 * 4)
-    for (let y = 0; y < 100; y++) for (let x = 0; x < 100; x++) {
-      const dark = y < top || y >= 100 - bottom
-      rgba.set(dark ? [0, 0, 0, 255] : [200, 150, 90, 255], (y * 100 + x) * 4)
-    }
-    return rgba
+/** A picture `width` by `height`, black rows over and under a plain lit middle. */
+const plain = (width: number, height: number, top: number, bottom: number): Uint8Array => {
+  const rgba = new Uint8Array(width * height * 4)
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    const dark = y < top || y >= height - bottom
+    rgba.set(dark ? [0, 0, 0, 255] : [200, 150, 90, 255], (y * width + x) * 4)
   }
-  assert.ok(bandsOf(make(10, 10), 100, 100))
-  assert.equal(bandsOf(make(3, 3), 100, 100), null)
-  assert.equal(bandsOf(make(20, 20), 100, 100), null)
-  assert.equal(bandsOf(make(12, 4), 100, 100), null)
+  return rgba
+}
+
+test('bands too thin, too thick or uneven are left alone', () => {
+  assert.ok(bandsOf(plain(100, 75, 9, 9), 100, 75))
+  assert.equal(bandsOf(plain(100, 75, 2, 2), 100, 75), null)
+  assert.equal(bandsOf(plain(100, 75, 15, 15), 100, 75), null)
+  assert.equal(bandsOf(plain(100, 75, 9, 3), 100, 75), null)
+})
+
+// A film still in a 3:2 or 16:9 frame, or a square, black over and under: the bands are its own, kept.
+test('a picture that is not 4:3 is never cropped, however clear its bands', () => {
+  assert.equal(bandsOf(plain(120, 80, 10, 10), 120, 80), null)
+  assert.equal(bandsOf(plain(160, 90, 11, 11), 160, 90), null)
+  assert.equal(bandsOf(plain(100, 100, 12, 12), 100, 100), null)
 })
 
 test('the clear edges of a cut-out are not bands', () => {
-  const rgba = new Uint8Array(100 * 100 * 4)
-  for (let y = 0; y < 100; y++) for (let x = 0; x < 100; x++) rgba.set(y < 10 || y >= 90 ? [0, 0, 0, 0] : [200, 150, 90, 255], (y * 100 + x) * 4)
-  assert.equal(bandsOf(rgba, 100, 100), null)
+  const rgba = new Uint8Array(100 * 75 * 4)
+  for (let y = 0; y < 75; y++) for (let x = 0; x < 100; x++) rgba.set(y < 9 || y >= 66 ? [0, 0, 0, 0] : [200, 150, 90, 255], (y * 100 + x) * 4)
+  assert.equal(bandsOf(rgba, 100, 75), null)
 })
