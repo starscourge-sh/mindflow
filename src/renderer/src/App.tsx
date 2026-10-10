@@ -937,6 +937,14 @@ export default function App(): React.JSX.Element {
       if (!more) window.api.hideWindow()
       return
     }
+    // "!milestone Exam on 3 Dec": that day marked, and nothing captured.
+    if (plan?.milestone) {
+      beam('success')
+      void markFromBox(plan.milestone, () => (putDraft(doc), fresh(true)))
+      fresh()
+      if (!more) window.api.hideWindow()
+      return
+    }
     // "5m tea", "timer 25m": a countdown in the floating timer, not a capture.
     // Not when a kind was picked or it is a todo, nor when the rest has a date,
     // a repeat or a tag: "10 min walk every day #health" is a task to keep.
@@ -952,14 +960,6 @@ export default function App(): React.JSX.Element {
           void vigil.cancelSession(id)
           putDraft(doc)
           fresh(true)
-    // "!milestone Exam on 3 Dec": that day marked, and nothing captured.
-    if (plan?.milestone) {
-      beam('success')
-      void markFromBox(plan.milestone, () => (putDraft(doc), fresh(true)))
-      fresh()
-      if (!more) window.api.hideWindow()
-      return
-    }
         })
       })
       fresh()

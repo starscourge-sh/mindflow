@@ -979,10 +979,10 @@ export function Toaster(): React.JSX.Element | null {
     <QuestionAsker />
     <BookAsker />
     <GoalAsker />
+    <MilestoneAsker />
     <Beam />
     {wait && !shown && <div style={spot} className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex justify-center">
       <Orb state={wait.state} label={wait.label} className="bg-popover shadow-(--mf-panel-shadow) animate-in fade-in-0 slide-in-from-bottom-2 duration-200" />
-    <MilestoneAsker />
     </div>}
     {/* Centred along the bottom, where the eye drops after acting. It
         leaves the way it came, and a new one takes its place at once. */}

@@ -2100,6 +2100,7 @@ function updateTray(): void {
   // of one width, so the four line up whatever their words.
   const time = tempus()
   const hidden = safe || gate().hidePrivate
+  const marked = nextMilestones()
   const goalItems: Electron.MenuItemConstructorOptions[] = goals.slice(0, 6).map((goal) => {
     const left = daysLeft(goal.goalAt)
     const name = goal.private && hidden ? 'A private goal' : goal.title.length > 34 ? `${goal.title.slice(0, 34)}…` : goal.title
@@ -2110,7 +2111,6 @@ function updateTray(): void {
   })
   // Each row as one picture the menu's width: the unit at the left, the bar or
   // dots across, the percent at the right edge. Drawn by a page, since the
-  const marked = nextMilestones()
   // main process cannot set text; until it is, the plain bar stands in.
   const rows = (['day', 'week', 'month', 'year'] as const).map((unit) => ({ label: `${unit[0].toUpperCase()}${unit.slice(1)}`, share: Math.round(time[unit] * 100) / 100 }))
   const widest = [...goalItems.flatMap((item) => [item.label ?? '', item.sublabel ?? '']), 'Import from Obsidian or Notion…']
@@ -2123,6 +2123,11 @@ function updateTray(): void {
         const drawn = tempusDrawn?.key === tempusKey ? tempusDrawn.images[at] : null
         return drawn ? { label: '', icon: drawn, enabled: false } : { label: `${percent(time[unit])} of the ${unit}`, icon: tempusBar(time[unit]), enabled: false }
       }),
+      // The next marked days under the bars, each with its count of days: off in Settings, none.
+      ...marked.flatMap((one, at) => [
+        ...(at === 0 ? [{ type: 'separator' } as const, { label: 'Marked days', enabled: false }] : []),
+        { label: `${one.icon ? `${one.icon}  ` : ''}${hidden ? 'A marked day' : one.title.length > 34 ? `${one.title.slice(0, 34)}…` : one.title}`, sublabel: `${dayMonth(`${one.day}T12:00`)}  ·  ${daysLeft(one.day) === 0 ? 'today' : `${num(daysLeft(one.day))} ${daysLeft(one.day) === 1 ? 'day' : 'days'} to go`}`, click: () => (daysLeft(one.day) > 0 ? sendHome('view', 'yearpage') : sendHome('day', one.day)) }
+      ]),
       { type: 'separator' },
       // In the sandbox the way out comes first; from your notes, the way in.
       // A reset cannot be undone, so it is asked in the main window, where Start over is held.
@@ -2133,11 +2138,6 @@ function updateTray(): void {
       {
         label: SANDBOX ? 'Book: Sandbox' : `Book: ${nameOf(here())}`,
         submenu: [
-      // The next marked days under the bars, each with its count of days: off in Settings, none.
-      ...marked.flatMap((one, at) => [
-        ...(at === 0 ? [{ type: 'separator' } as const, { label: 'Marked days', enabled: false }] : []),
-        { label: `${one.icon ? `${one.icon}  ` : ''}${hidden ? 'A marked day' : one.title.length > 34 ? `${one.title.slice(0, 34)}…` : one.title}`, sublabel: `${dayMonth(`${one.day}T12:00`)}  ·  ${daysLeft(one.day) === 0 ? 'today' : `${num(daysLeft(one.day))} ${daysLeft(one.day) === 1 ? 'day' : 'days'} to go`}`, click: () => (daysLeft(one.day) > 0 ? sendHome('view', 'yearpage') : sendHome('day', one.day)) }
-      ]),
           ...books().map((book) => ({ label: book.name, type: 'radio' as const, checked: book.current, click: () => void (book.current || inHome('vigil:book-switch', book.id)) })),
           { label: 'Sandbox', type: 'radio' as const, checked: SANDBOX, click: () => void (SANDBOX || openSandbox()) },
           { type: 'separator' as const },
@@ -2175,6 +2175,8 @@ app.whenReady().then(() => {
   registerNotes({ load, guard })
   registerGroups()
   registerPeriods()
+  registerMilestones()
+  registerReadingQueue()
   registerIssues()
   registerScenery()
   registerCelebrations()
@@ -2182,14 +2184,12 @@ app.whenReady().then(() => {
   registerUnused()
   registerObsidian()
   registerPictures()
+  registerPeople()
+  registerDefine()
   // Last, once every table is there: what other books sent this one is taken in.
   registerBooks(backupBase, () => updateTray())
   const first = fromCli(process.argv)
   if (first) captureText(first)
-  registerMilestones()
-  registerReadingQueue()
-  registerPeople()
-  registerDefine()
   createTray()
 
   // Serve the asset store. The pathname is the only thing trusted: anything
