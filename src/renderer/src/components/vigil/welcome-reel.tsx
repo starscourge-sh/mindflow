@@ -42,7 +42,8 @@ export const LAND = { type: 'spring' as const, duration: 0.45, bounce: 0.18 }
 export const DRAWER = [0.32, 0.72, 0, 1] as const
 
 export type Kind = Starter['kind']
-export const KINDS: Kind[] = ['todo', 'quote', 'word', 'link']
+/** In the order they are caught: a thought first, the todo last. */
+export const KINDS: Kind[] = ['quote', 'word', 'link', 'todo']
 export const starterOf = (kind: Kind): Starter => STARTERS.find((one) => one.kind === kind) as Starter
 export const typeOf = (kind: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === kind) ?? CAPTURE_TYPES[0]
 
@@ -56,8 +57,8 @@ export type Beat<S> = { at: number; to: Partial<S>; cue?: () => void }
  * end, silent. What is on screen is the state folded up to the beat reached,
  * so any frame can be jumped to.
  */
-/** How fast the reel plays: 0.8 is a fifth quicker than it was written. Write keeps 1, its pace is right for following. */
-export const PACE = 0.8
+/** How fast the reel plays: 0.68 is about a third quicker than it was written. Write keeps 1, its pace is right for following; Catch is timed in real milliseconds. */
+export const PACE = 0.68
 
 export function useScript<S extends object>(start: S, beats: Beat<S>[], play: boolean, pace = PACE): { state: S; done: boolean; settle: () => void } {
   const [at, setAt] = useState(play ? -1 : beats.length - 1)
@@ -690,4 +691,4 @@ export function Rise({ text, still, delay = 0 }: { text: string; still: boolean;
 
 /** The starters' parts, as the stage and the results show them. */
 export const QUOTE = starterOf('quote')
-export const WORD = { term: STARTERS[2].text.split('\n')[0], meaning: STARTERS[2].text.split('\n')[1] }
+export const WORD = { term: starterOf('word').text.split('\n')[0], meaning: starterOf('word').text.split('\n')[1] }

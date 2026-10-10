@@ -20,15 +20,16 @@ import { dayjs } from '../../../main/dates'
 
 export type Starter = { kind: 'todo' | 'quote' | 'word' | 'link'; text: string; who?: string; where?: string }
 
-/** Three things to catch, one of each kind, each showing off what its kind does. */
+/** Four things to catch, one of each kind, each showing off what its kind does: thoughts first, the todo last. */
 export const STARTERS: Starter[] = [
-  // Two days from now by name, so the day read back is that day and never "today".
-  { kind: 'todo', text: `Book tickets for the Star Wars marathon on ${dayjs().add(2, 'day').format('dddd')} 7pm` },
+  // A thought first, never a chore: Vigil is a book of things worth keeping before it is a task list.
   // Yoda, to Luke on Dagobah, in The Empire Strikes Back (1980).
   { kind: 'quote', text: '“Do or do not. There is no try.”', who: 'Yoda', where: 'The Empire Strikes Back' },
   { kind: 'word', text: 'petrichor\nThe smell of rain falling on dry earth.' },
   // Its name and picture are fetched when it is kept (cardUp); the welcome shows them from LINK_PAGE.
-  { kind: 'link', text: 'https://en.wikipedia.org/wiki/Dune_(novel)' }
+  { kind: 'link', text: 'https://en.wikipedia.org/wiki/Dune_(novel)' },
+  // Two days from now by name, so the day read back is that day and never "today".
+  { kind: 'todo', text: `Book tickets for the Star Wars marathon on ${dayjs().add(2, 'day').format('dddd')} 7pm` }
 ]
 
 const FILL = 'welcome-fill'
