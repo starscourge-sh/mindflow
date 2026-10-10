@@ -8,6 +8,7 @@
 //
 // SHOTS=dir saves light and dark pictures of the box with tokens lit.
 import { mkdirSync, mkdtempSync } from 'fs'
+import { execSync } from 'child_process'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { open } from './harness.mjs'
@@ -15,7 +16,31 @@ import { open } from './harness.mjs'
 // One data folder for the whole run, so a quit and relaunch comes back to the same box.
 process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'vigil-tokens-'))
 
-let qa = await open()
+const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+// Under load the first window can be slow to show its box: tried again, a few times.
+// The welcome is marked done, so the box is the everyday one: the welcome holds ⌘K back.
+async function launch() {
+  for (let i = 0; ; i++) {
+    try {
+      const first = await open()
+      const welcomed = await first.page.evaluate(() => window.api.vigil('onboarding:state').then((state) => !!state?.welcomed))
+      if (welcomed) return first
+      // Marked welcomed, then opened again: the welcome no longer starts.
+      await first.page.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date().toISOString(), welcoming: false }))
+      const child = first.electron.process()
+      await first.close?.()
+      try { child.kill('SIGKILL') } catch {}
+      await new Promise((done) => setTimeout(done, 1500))
+      return await open()
+    } catch (error) {
+      if (i === 2) throw error
+      // A launch that never showed its box still holds the one-copy lock: put it down first.
+      try { execSync(`pkill -9 -f '${process.env.QA_ENTRY ?? 'out-tokens/main/index.js'}'`) } catch {}
+      await new Promise((done) => setTimeout(done, 1500))
+    }
+  }
+}
+let qa = await launch()
 let { page } = qa
 const errors = []
 const listen = () => page.on('pageerror', (error) => errors.push(`PAGEERROR ${error.message}`))
@@ -24,7 +49,6 @@ listen()
 const warnings = []
 page.on('console', (message) => ['error', 'warning'].includes(message.type()) && warnings.push(message.text().slice(0, 240)))
 const results = []
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
 const wait = (ms = 300) => page.waitForTimeout(ms)
 const v = (channel, ...args) => page.evaluate(([c, a]) => window.api.vigil(c, ...a), [channel, args])
 const captures = async () => (await page.evaluate(() => window.api.captures.list())) ?? []
@@ -278,6 +302,101 @@ await check('hover: the hint says what it does and how to keep it plain', async 
   expect(hint.includes('Start a 25 min timer') && hint.includes('Click to keep as plain text'), `hint: ${hint}`)
 })
 
+// --- ⌘K, then ⌃J ---------------------------------------------------------------
+// The window is parked off screen, so the palette's field is given the keys as a click would.
+const openPalette = async () => {
+  if (process.env.DEBUG) console.log('before ⌘K', await page.evaluate(() => [document.documentElement.hasAttribute('data-welcome-ph'), document.documentElement.hasAttribute('data-welcoming'), document.activeElement?.className?.toString().slice(0, 30)]))
+  await page.keyboard.press('Meta+k')
+  await page.waitForSelector('[role="dialog"][aria-label="Search"] input', { state: 'attached' })
+  await page.evaluate(() => document.querySelector('[role="dialog"][aria-label="Search"] input')?.focus())
+  await wait(200)
+}
+const panelOpen = () => page.locator('button[aria-label="Hide the side panel"]').count()
+const inNote = () => page.evaluate(() => !!document.activeElement?.closest?.('.ProseMirror'))
+await check('⌘K, Escape, then ⌃J leaves the note for the list', async () => {
+  await type('a thought')
+  expect(!(await panelOpen()), 'the panel was open before')
+  await openPalette()
+  await page.keyboard.press('Escape')
+  await wait(500)
+  expect(await inNote(), 'the caret did not come back to the note')
+  await page.keyboard.press('Control+j')
+  await wait(700)
+  expect(await panelOpen(), '⌃J did not open the list')
+  expect(!(await inNote()), '⌃J left the caret in the note')
+  await page.keyboard.press('Meta+\\')
+  await wait(500)
+})
+await check('⌘K, pick an action, then ⌃J', async () => {
+  await type('another thought')
+  await openPalette()
+  await page.keyboard.type('New capture', { delay: 10 })
+  await wait(300)
+  await page.keyboard.press('Enter')
+  await wait(700)
+  expect(!(await page.locator('[role="dialog"][aria-label="Search"]').count()), 'the palette stayed open')
+  expect(await inNote(), 'the caret did not come back to the note')
+  await page.keyboard.press('Control+j')
+  await wait(700)
+  expect(await panelOpen(), '⌃J did not open the list')
+  await page.keyboard.press('Meta+\\')
+  await wait(500)
+})
+
+// --- link cards, made by themselves -------------------------------------------
+const cards = () => page.evaluate((e) => [...document.querySelectorAll(`${e} .tiptap-bookmark`)].map((one) => ({ loading: one.hasAttribute('data-loading'), title: one.querySelector('.tiptap-bookmark-title')?.textContent ?? '', description: one.querySelector('.tiptap-bookmark-description')?.textContent ?? '' })), EDITOR)
+await check('a pasted link becomes its card at once, fills in, and ⌘Z gives the plain link back', async () => {
+  await qa.paste('https://example.com/')
+  await wait(100)
+  const first = await cards()
+  expect(first.length === 1, `no card right after the paste: ${JSON.stringify(first)}`)
+  await type('typing goes on')
+  for (let i = 0; i < 40 && (await cards())[0]?.loading; i++) await wait(250)
+  const filled = (await cards())[0]
+  expect(filled && !filled.loading && filled.title.includes('Example'), `not filled in: ${JSON.stringify(filled)}`)
+  expect((await page.evaluate((e) => document.querySelector(e)?.textContent, EDITOR)).includes('typing goes on'), 'the typing was lost')
+  // Back to the plain link: ⌘Z until the card is gone (the typing is undone first).
+  for (let i = 0; i < 6 && (await cards()).length; i++) {
+    await page.keyboard.press('Meta+z')
+    await wait(200)
+  }
+  expect(!(await cards()).length, 'undo did not take the card away')
+  expect((await page.evaluate((e) => document.querySelector(e)?.textContent, EDITOR)).includes('https://example.com/'), 'the plain link did not come back')
+})
+await check('a link whose page does not answer quietly stays a plain link', async () => {
+  await qa.paste('https://nothing-here.invalid/page')
+  await wait(100)
+  for (let i = 0; i < 60 && (await cards()).length; i++) await wait(250)
+  expect(!(await cards()).length, 'the card stayed')
+  expect((await page.evaluate((e) => document.querySelector(e)?.textContent, EDITOR)).includes('https://nothing-here.invalid/page'), 'the link went')
+  expect(!(await page.evaluate(() => document.body.innerText)).includes('Not saved'), 'an error was said')
+})
+await check('typed, then Enter: the link becomes its card', async () => {
+  await type('https://example.com/typed')
+  await page.keyboard.press('Enter')
+  await wait(300)
+  expect((await cards()).length === 1, 'no card after Enter')
+})
+await check('a lone link card is sent as a link named after its page', async () => {
+  await qa.paste('https://example.com/')
+  for (let i = 0; i < 40 && (await cards())[0]?.loading !== false; i++) await wait(250)
+  expect((await willDo()).includes('Save as a link from example.com'), `This will says: ${await willDo()}`)
+  await send()
+  const kept = (await captures())[0]
+  expect(kept?.kind === 'link' && kept.label.includes('Example'), `sent as ${JSON.stringify(kept && { kind: kept.kind, label: kept.label })}`)
+})
+await check('a card kept with entities in it reads them decoded', async () => {
+  await page.evaluate((e) => {
+    const target = document.querySelector(e)
+    const data = new DataTransfer()
+    data.setData('text/html', '<a data-bookmark href="https://example.com/dia" title="What&amp;#x27;s new in Dia" description="It&amp;#39;s here &amp;amp; ready" site="Dia">x</a>')
+    target.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }))
+  }, EDITOR)
+  await wait(400)
+  const card = (await cards()).find((one) => one.title.includes('Dia'))
+  expect(card && card.title === "What's new in Dia" && card.description === "It's here & ready", `reads: ${JSON.stringify(card)}`)
+})
+
 // --- kept plain, with the draft ---------------------------------------------
 await check('kept plain survives a reload of the box and a quit and relaunch', async () => {
   await type('5m exercise')
@@ -292,7 +411,7 @@ await check('kept plain survives a reload of the box and a quit and relaunch', a
   const child = qa.electron.process()
   await qa.close?.()
   try { child.kill('SIGKILL') } catch {}
-  qa = await open()
+  qa = await launch()
   page = qa.page
   listen()
   await wait(1500)
@@ -306,6 +425,7 @@ await check('kept plain survives a reload of the box and a quit and relaunch', a
 })
 
 // --- pictures ------------------------------------------------------------------
+console.log(results.join('\n'))
 if (process.env.SHOTS) {
   mkdirSync(process.env.SHOTS, { recursive: true })
   for (const theme of ['github', 'light']) {
@@ -313,6 +433,14 @@ if (process.env.SHOTS) {
     await page.reload()
     await page.waitForSelector(EDITOR)
     await wait(1200)
+    // A link's card, selected with the keys: a calm ring, no inner frame.
+    await qa.reset()
+    await page.evaluate(() => (document.documentElement.dataset.solid = ''))
+    await qa.paste('https://example.com/')
+    for (let i = 0; i < 40 && (await cards())[0]?.loading !== false; i++) await wait(250)
+    await page.keyboard.press('ArrowUp')
+    await wait(400)
+    await page.screenshot({ path: `${process.env.SHOTS}/card-${theme === 'light' ? 'light' : 'dark'}.png` })
     for (const [name, words] of [['task', 'Call mom tomorrow 5pm p1 every week #bug'], ['timer', '5m tea'], ['clue', '+How are Luke and Leia related?: They share a father'], ['miss', '+Who is Rey: nobody knows']]) {
       await qa.reset()
       // Off screen the frosted window has nothing behind it: drawn solid, as the light theme is.
@@ -329,7 +457,6 @@ if (process.env.SHOTS) {
   }
 }
 
-console.log(results.join('\n'))
 if (errors.length) console.log(errors.join('\n'))
 if (warnings.length) console.log(`console:\n${[...new Set(warnings)].join('\n')}`)
 const child = qa.electron.process()

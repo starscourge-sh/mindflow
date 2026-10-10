@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { decodeHTML } from "entities"
 import { NodeViewWrapper, useEditorState, type NodeViewProps } from "@tiptap/react"
 import { alive } from "@/components/ui/alive-icon"
 import SimpleCheckedIcon from "@/components/ui/simple-checked-icon"
@@ -26,8 +27,10 @@ const Copy = alive(CopyIcon)
  * clipboard and in an export, where a card is just a link.
  */
 export function BookmarkView(props: NodeViewProps): React.JSX.Element {
-  const { href, title, description, image: saved, icon, site, loading } = props.node
-    .attrs as BookmarkAttributes
+  const attrs = props.node.attrs as BookmarkAttributes
+  const { href, image: saved, icon, loading } = attrs
+  // Cards kept before entities were decoded on fetching ("What&#x27;s new") read right too.
+  const [title, description, site] = [attrs.title, attrs.description, attrs.site].map((text) => decodeHTML(text ?? ""))
   // A card made before thumbnails were taken in 16:9 still points at YouTube's
   // banded 4:3 one: shown as the 16:9 one instead, which has no black bands.
   const image = (saved && wideThumb(saved)) || saved

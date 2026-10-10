@@ -56,6 +56,7 @@ import { frostWindow, registerFrost, retellFrost } from './frost'
 import { BOOK, SANDBOX, arrived, windingDown, onHandOff, registerSandbox, relaunch, restartNow, useDataFolder } from './sandbox'
 import { books, here, nameOf, nextImport, registerBooks } from './books'
 import { wideThumb } from './video-thumbs'
+import { decodeHTML } from 'entities'
 
 
 /* The standard electron app file structure:
@@ -2660,7 +2661,7 @@ app.whenReady().then(() => {
           const value = (data as Record<string, unknown>)?.[name]
           return typeof value === 'string' ? value : ''
         }
-        return { title: field('title'), description: field('author_name'), image: field('thumbnail_url') }
+        return { title: decodeHTML(field('title')), description: decodeHTML(field('author_name')), image: field('thumbnail_url') }
       } catch {
         return null
       }
@@ -2684,15 +2685,8 @@ app.whenReady().then(() => {
       // Redirects are followed, so relative URLs belong to wherever we landed.
       const base = new URL(response.url || target.href)
 
-      const decode = (text: string): string =>
-        text
-          .replace(/&quot;/g, '"')
-          .replace(/&#0?39;|&apos;/g, "'")
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          // Last, so that an escaped entity such as `&amp;lt;` stays text.
-          .replace(/&amp;/g, '&')
-          .trim()
+      // Every entity a page may write, named or numbered: "What&#x27;s new" reads "What's new".
+      const decode = (text: string): string => decodeHTML(text).trim()
 
       // Match the whole tag, then pull the value with the quote character
       // back-referenced: one pattern covers either attribute order, and a

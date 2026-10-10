@@ -2805,13 +2805,27 @@ $media-brand: var(--tt-brand-color-500, currentColor);
   }
 }
 
-// The same mark on a link card. It is the whole element here rather than an
-// inner one, so the tint goes on with it: a card is mostly picture, and an
-// outline alone reads as a hover.
+// A link card, selected: calm, not a thick ring. A 1px ring in the border's
+// own colour, a touch stronger, and the surface it gets on hover. No inner
+// frame: the picture and the generic selected-node tint are left alone.
 .tiptap.ProseMirror.mindflow-editor .tiptap-bookmark.is-selected {
-  border-color: transparent;
-  outline: 0.125rem solid var(--tt-brand-color-500);
-  background-color: var(--tt-selection-color);
+  border-color: color-mix(in srgb, var(--foreground, currentColor) 28%, transparent);
+  outline: none;
+  box-shadow: none;
+  background-color: var(--mf-surface);
+
+  &.ProseMirror-selectednode,
+  .tiptap-bookmark-frame,
+  .tiptap-bookmark-image {
+    outline: none;
+    box-shadow: none;
+  }
+}
+.tiptap.ProseMirror.mindflow-editor .ProseMirror-selectednode:has(> .tiptap-bookmark),
+.tiptap.ProseMirror.mindflow-editor .react-renderer.ProseMirror-selectednode:has(.tiptap-bookmark) {
+  outline: none;
+  box-shadow: none;
+  background-color: transparent;
 }
 
 // A rule divides, so the space around it is the whole of its job. At zero it

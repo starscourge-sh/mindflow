@@ -66,6 +66,8 @@ export type BoxPlan = {
   signature: { who: string; where: string } | null
   /** The quote's "- Name" was kept as plain text. */
   signatureKept: boolean
+  /** A link already made its card, and nothing else written: sent as that link. */
+  card: { pos: number; href: string; title: string; loading: boolean } | null
 }
 
 type Kept = { kind: TokenKind; from: number; to: number; seq: number }
@@ -131,7 +133,7 @@ export function keptMessage(tokens: Pick<BoxToken, 'kind' | 'text'>[]): string {
   return `“${shown}” stays as words, ${lost}`
 }
 
-const EMPTY: BoxPlan = { tokens: [], kind: 'note', clue: null, miss: null, timer: null, url: null, task: false, taskPlain: [], plainTags: [], signature: null, signatureKept: false }
+const EMPTY: BoxPlan = { tokens: [], kind: 'note', clue: null, miss: null, timer: null, url: null, task: false, taskPlain: [], plainTags: [], signature: null, signatureKept: false, card: null }
 
 /** What the box will do with these words, given what was kept plain. */
 export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = [], now = new Date()): BoxPlan {
@@ -150,7 +152,22 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
     }
     if (line) break
   }
-  if (!line) return { ...EMPTY, kind: ctx.chosen ? ctx.kind : 'note' }
+  if (!line) {
+    // A pasted link that became its card: a link, named after its page.
+    const cards: { pos: number; node: ProseMirrorNode }[] = []
+    doc.forEach((node, offset) => void (node.type.name === 'bookmark' && cards.push({ pos: offset, node })))
+    const only = cards.length === 1 && doc.childCount - cards.length === doc.content.content.filter((one) => one.type.name === 'paragraph' && !one.content.size).length ? cards[0] : null
+    if (only && !(ctx.chosen && ctx.kind !== 'note' && ctx.kind !== 'link')) {
+      const href = String(only.node.attrs.href)
+      try {
+        const url = new URL(href)
+        return { ...EMPTY, kind: ctx.chosen ? ctx.kind : 'link', url, card: { pos: only.pos, href, title: String(only.node.attrs.title ?? ''), loading: !!only.node.attrs.loading } }
+      } catch {
+        // Not an address after all: a card like any other.
+      }
+    }
+    return { ...EMPTY, kind: ctx.chosen ? ctx.kind : 'note' }
+  }
   const first = line
   const pos = (index: number): number => first.block.at[first.start + index]
   const isKept = (kind: TokenKind | TokenKind[], from: number, to: number): boolean =>
@@ -290,7 +307,7 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
     }
   }
 
-  return { tokens: tokens.sort((a, b) => a.from - b.from), kind, clue: null, miss, timer: null, url, task, taskPlain, plainTags: plainOnly, signature, signatureKept }
+  return { tokens: tokens.sort((a, b) => a.from - b.from), kind, clue: null, miss, timer: null, url, task, taskPlain, plainTags: plainOnly, signature, signatureKept, card: null }
 }
 
 // --- the plugin -------------------------------------------------------------
@@ -340,7 +357,7 @@ export function replan(editor: Editor | null | undefined): void {
 }
 
 /** What a plan says, for telling whether it changed: everything but where. */
-const said = (plan: BoxPlan): string => JSON.stringify({ ...plan, tokens: plan.tokens.map((one) => [one.id, one.effect]), clue: plan.clue && [plan.clue.question.id, plan.clue.rest], url: plan.url?.href })
+const said = (plan: BoxPlan): string => JSON.stringify({ ...plan, card: plan.card && [plan.card.href, plan.card.title, plan.card.loading], tokens: plan.tokens.map((one) => [one.id, one.effect]), clue: plan.clue && [plan.clue.question.id, plan.clue.rest], url: plan.url?.href })
 
 export type BoxTokensOptions = {
   context: () => BoxContext

@@ -607,11 +607,13 @@ export default function App(): React.JSX.Element {
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.metaKey || event.altKey) return
-      const inNote = !!(document.activeElement as HTMLElement | null)?.closest?.('.ProseMirror')
+      // Nothing holding the keys (a palette just closed) counts as the note: ⌃J still leaves for the list.
+      const active = document.activeElement as HTMLElement | null
+      const inNote = !!active?.closest?.('.ProseMirror') || !active || active === document.body
       const key = event.key.toLowerCase()
       if (event.ctrlKey && inNote && (key === 'j' || key === 'k')) {
         if (document.querySelector('.tiptap-suggestion-popup, [cmdk-root], [role="menu"], [role="dialog"]')) return
-        ;(document.activeElement as HTMLElement).blur()
+        active?.blur()
         if (!panel) setPanel(true)
         // The cards waiting on you come first, then the list under them.
         if (tab !== 'inbox') return
@@ -672,6 +674,19 @@ export default function App(): React.JSX.Element {
   // ⌘K: search everything from the prompt, and open what it finds here.
   // ⌘K: notes and every action. ⌘P, Obsidian's quick open: notes only.
   const [searching, setSearching] = useState<boolean | 'notes'>(false)
+  // ⌘K put away, by Escape or an action picked: the caret goes back into the
+  // note, so the box's keys (⌃J, typing) work at once. Not when the action
+  // opened something that took the keys itself.
+  const wasSearching = useRef(false)
+  useEffect(() => {
+    const was = wasSearching.current
+    wasSearching.current = !!searching
+    if (!was || searching) return
+    requestAnimationFrame(() => {
+      const active = document.activeElement
+      if ((!active || active === document.body) && !document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"]')) editorRef.current?.commands.focus()
+    })
+  }, [searching])
   // What search opens with: a clicked tag, or nothing.
   const [searchFrom, setSearchFrom] = useState('')
   useEffect(() => {
@@ -872,7 +887,7 @@ export default function App(): React.JSX.Element {
     // it: the plan, read again now, with every word kept as plain text left be.
     replan(editorRef.current)
     const plan = planNow(editorRef.current)
-    const raw = editorRef.current?.getJSON() ?? body
+    const raw = cardsSettled(editorRef.current?.getJSON() ?? body)
     const doc = plan?.signatureKept ? raw : withoutTail(raw, attribution.trim())
     const text = textOf(doc).trim()
     // Nothing to keep: said with the "not allowed" sound, not in silence. A
@@ -956,7 +971,7 @@ export default function App(): React.JSX.Element {
       localStorage.removeItem('capture-draft')
     }
     void window.api.captures
-      .create({ title: '', kind: sorted, elapsedMs: Date.now() - openedAt.current, body: hasContent(doc) ? doc : null, markdown,
+      .create({ title: plan?.card && !plan.card.loading ? plan.card.title : '', kind: sorted, elapsedMs: Date.now() - openedAt.current, body: hasContent(doc) ? doc : null, markdown,
         attribution: attribution.trim(), medium: where || undefined, private: secret, plainTags: plan?.plainTags.length ? plan.plainTags : undefined })
       .then(async (id) => {
         land?.()
@@ -1303,6 +1318,16 @@ export default function App(): React.JSX.Element {
                   toast(keptMessage(tokens), () => seqs.forEach((seq) => rearm(view, seq)))
                 }}
                 onNotTask={() => pick('note')}
+                onUncard={() => {
+                  const editor = editorRef.current
+                  const card = planNow(editor)?.card
+                  if (!editor || !card) return
+                  const node = editor.state.doc.nodeAt(card.pos)
+                  if (node?.type.name !== 'bookmark') return
+                  const { schema } = editor.state
+                  editor.view.dispatch(editor.state.tr.replaceWith(card.pos, card.pos + node.nodeSize, schema.nodes.paragraph.create(null, schema.text(card.href))))
+                  chime('off')
+                }}
                 onNewQuestion={(name) => void vigil.newQuestion(name).then((id) => {
                   chime('hold')
                   toast(`Saved as a question: “${name.length > 36 ? `${name.slice(0, 36)}…` : name}”`, () => void vigil.dropQuestion(id))
@@ -1457,6 +1482,20 @@ export default function App(): React.JSX.Element {
  * A quote whose line ends "- Name" (or "- Name, Source") with that name in Who said it: kept
  * without the tail, so the name is said once, as its signature.
  */
+/**
+ * A link card still fetching its page when the note is sent goes as its plain
+ * address: the fetch that would fill it is left behind with the box, and the
+ * saved link is made its card afterwards (lib/link-card.ts).
+ */
+function cardsSettled(doc: JSONContent | null): JSONContent | null {
+  if (!doc?.content) return doc
+  const walk = (node: JSONContent): JSONContent =>
+    node.type === 'bookmark' && node.attrs?.loading
+      ? { type: 'paragraph', content: [{ type: 'text', text: String(node.attrs.href) }] }
+      : node.content ? { ...node, content: node.content.map(walk) } : node
+  return walk(doc)
+}
+
 function withoutTail(doc: JSONContent | null, who: string): JSONContent | null {
   if (!doc?.content || !who) return doc
   const at = doc.content.findIndex((node) => node.content?.some((one) => one.text?.trim()))

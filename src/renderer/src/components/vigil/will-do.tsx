@@ -4,7 +4,7 @@ import { X } from 'lucide-react'
 import type { BoxPlan, BoxToken } from '@/lib/box-tokens'
 import { Tip } from './ui'
 
-type Item = { key: string; effect: string; color: string; tokens: BoxToken[]; notTask?: true }
+type Item = { key: string; effect: string; color: string; tokens: BoxToken[]; notTask?: true; card?: true }
 
 /**
  * Under the box, what sending it will do, in plain words: "Start a 5 min
@@ -12,12 +12,14 @@ type Item = { key: string; effect: string; color: string; tokens: BoxToken[]; no
  * words as plain text, as a click on them does. A "+name" that matches
  * nothing offers to start that question, or to leave the words be.
  */
-export function WillDo({ plan, onKeep, onNotTask, onNewQuestion }: {
+export function WillDo({ plan, onKeep, onNotTask, onNewQuestion, onUncard }: {
   plan: BoxPlan | null
   onKeep: (tokens: BoxToken[]) => void
   /** A todo by its wording: the × makes it a note. */
   onNotTask: () => void
   onNewQuestion: (name: string) => void
+  /** The link's card back to its plain address. */
+  onUncard: () => void
 }): React.JSX.Element | null {
   if (!plan) return null
   const items: Item[] = []
@@ -30,6 +32,8 @@ export function WillDo({ plan, onKeep, onNotTask, onNewQuestion }: {
   // A todo by its wording, with no tag making it one: it still goes to the tasks.
   if (plan.task && plan.kind === 'todo' && !plan.tokens.some((one) => one.kind === 'task-tag'))
     items.unshift({ key: 'task', effect: 'Add to your tasks', color: 'green', tokens: [], notTask: true })
+  // A link that already made its card: kept as that link, or × for the plain address.
+  if (plan.card && plan.url) items.push({ key: 'card', effect: `Save as a link from ${plan.url.hostname.replace(/^www\./, '')}`, color: 'blue', tokens: [], card: true })
   const miss = plan.tokens.find((one) => one.kind === 'clue-miss')
   if (!items.length && !miss) return null
   return (
@@ -40,14 +44,14 @@ export function WillDo({ plan, onKeep, onNotTask, onNewQuestion }: {
           {index > 0 && <span aria-hidden className="mr-0.5 text-muted-foreground/50">·</span>}
           <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: `var(--tt-color-text-${item.color})` }} />
           <span className="min-w-0 truncate text-foreground/80">{item.effect}</span>
-          <Tip label={item.notTask ? 'Keep it as a note, not a task' : 'Keep as plain text'}>
+          <Tip label={item.notTask ? 'Keep it as a note, not a task' : item.card ? 'Back to the plain address' : 'Keep as plain text'}>
             <button
               type="button"
               data-will-off
               aria-label={item.notTask ? `Not a task` : `Keep as plain text: ${item.effect}`}
               className="flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent/60 hover:text-foreground"
               onMouseDown={(event) => event.preventDefault()}
-              onClick={() => (item.notTask ? onNotTask() : onKeep(item.tokens))}
+              onClick={() => (item.notTask ? onNotTask() : item.card ? onUncard() : onKeep(item.tokens))}
             >
               <X className="size-3" />
             </button>

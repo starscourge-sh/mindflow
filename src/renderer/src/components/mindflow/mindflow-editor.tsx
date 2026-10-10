@@ -56,6 +56,7 @@ import { OutdentLists } from "@/extensions/outdent-lists"
 import { CurrentItem } from "@/extensions/current-item"
 import { FullLineHighlight } from "@/extensions/full-line-highlight"
 import { CardLink } from "@/extensions/card-link"
+import { AutoCard } from "@/extensions/auto-card"
 import { SelectedNodes } from "@/extensions/selected-nodes"
 import { Bookmark } from "@/extensions/bookmark"
 import { Callout } from "@/extensions/callout"
@@ -1261,6 +1262,8 @@ function Surface({
       CurrentItem,
       Typewriter.configure({ on: () => typingRef.current }),
       CardLink,
+      // A link on its own line becomes its card, fetched in the background.
+      AutoCard,
       LongDocument,
       SelectedNodes,
       ObsidianShortcuts.configure({
@@ -1431,6 +1434,13 @@ function Surface({
     // address is only a hash, which says nothing.
     const missing = (img: HTMLImageElement): void => {
       if (img.dataset.missing || img.src.startsWith("data:")) return
+      // A link card's site icon or picture that does not load is simply left out: a
+      // missing favicon is not a missing picture of yours.
+      if (img.closest(".tiptap-bookmark")) {
+        img.dataset.missing = "1"
+        ;((img.closest(".tiptap-bookmark-frame") as HTMLElement | null) ?? img).style.display = "none"
+        return
+      }
       const end = decodeURIComponent(img.src.split(/[?#]/)[0].split("/").pop() ?? "")
       const name = img.alt || (/^[a-f0-9]{64}\./.test(end) || !end ? "A picture" : end)
       const label = `${name.length > 48 ? `${name.slice(0, 47)}…` : name} isn’t here`
