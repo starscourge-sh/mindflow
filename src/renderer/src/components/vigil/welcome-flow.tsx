@@ -134,17 +134,14 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
               const turned = !!kin.then && shot.step >= 5
               const look = turned ? kin.then!.kind : kin.kind
               const { Icon, tint } = LOOK[look]
-              const Was = LOOK[kin.kind].Icon
               const face = `flex flex-col gap-1 rounded-lg border bg-popover px-2.5 py-2 text-popover-foreground shadow-(--mf-panel-shadow) ${kin.kind === 'spark' ? 'border-dashed border-foreground/25' : 'border-foreground/10'}`
               return (
                 <motion.div key={kin.id} data-flow={kin.id} className="absolute -translate-y-1/2" style={{ left: x, top: y, width: w }}
                   initial={false} animate={{ opacity: shown(kin) ? 1 : 0, scale: shown(kin) ? 1 : 0.92 }} transition={land}>
-                  {/* What it was, left faint behind it once it has changed kind. */}
+                  {/* What it was, left faint behind it once it has changed kind: the card's edge only, so nothing of it is cut off by the card in front. */}
                   {kin.then && (
                     <motion.div aria-hidden className={`${face} absolute inset-0 border-dashed`} initial={false}
-                      animate={{ opacity: turned ? 0.7 : 0, x: turned ? -14 : 0, y: turned ? -14 : 0 }} transition={land}>
-                      <p className="flex items-center gap-1.5 text-[0.75rem] text-muted-foreground"><Was className="size-3.5 shrink-0" style={{ color: `var(--tt-color-text-${LOOK[kin.kind].tint})` }} />{kin.is}</p>
-                    </motion.div>
+                      animate={{ opacity: turned ? 0.7 : 0, x: turned ? -14 : 0, y: turned ? -14 : 0 }} transition={land} />
                   )}
                   <div className={`${face} relative`}>
                     <p className="flex items-start gap-1.5 text-[0.8125rem] leading-snug font-medium text-foreground">
