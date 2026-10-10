@@ -29,6 +29,8 @@ const soft = (page) => page.evaluate(() => {
     if (!box.width || !box.height) continue
     const style = getComputedStyle(el)
     if (style.visibility === 'hidden' || style.opacity === '0') continue
+    // A sample of the other style (Settings' Soft choice) is meant to look soft.
+    if (el.closest('[data-keep-soft]')) continue
     if (blurred(style.boxShadow)) out.blurred[name(el)] = (out.blurred[name(el)] ?? 0) + 1
     if (el.classList.contains('app-container')) continue
     if (style.borderRadius && !/^0px( 0px)*$/.test(style.borderRadius)) out.rounded[name(el)] = (out.rounded[name(el)] ?? 0) + 1

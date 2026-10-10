@@ -124,6 +124,7 @@ export function TodaySticky(): React.JSX.Element {
         <Tape inside={GLASS} />
         <div className="flex items-center gap-1 px-3 pt-2">
           <p className="min-w-0 grow truncate font-medium">Today</p>
+          <SandboxStamp inline />
           {todos.length > 0 && (
             <span className="shrink-0 pl-1 text-xs tabular-nums" style={{ color: allDone ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }} aria-label={todaySaid(todos.length - finished, finished)}>
               <Rolling text={todaySaid(todos.length - finished, finished)} by="word" />

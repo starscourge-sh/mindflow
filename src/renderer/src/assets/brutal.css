@@ -316,3 +316,45 @@ html:root[data-style='brutal']:not([data-light]) {
 :root[data-style='brutal'] :is([class~='border'], [class~='border-t'], [class~='border-y']) > :is([class~='border-t'], [class~='border-y']):first-child {
   border-top-width: 0;
 }
+
+/* ---- The goal stack -----------------------------------------------------
+   The cards behind the top one are plain paper, outlined like it, each an
+   equal step down and right (goal-beacon.tsx), with no shadow of their own:
+   the stack is the depth, so the top card stands on it, not on a shadow. */
+:root[data-style='brutal'] div[data-stack-card='behind'][data-stack-card] {
+  background-image: none !important;
+  background-color: var(--card) !important;
+  border: var(--mf-line-width) solid var(--mf-line) !important;
+  box-shadow: none !important;
+}
+:root[data-style='brutal'] div[data-stack-card='front'][data-stacked] {
+  box-shadow: none !important;
+}
+
+/* ---- Secondary chips ----------------------------------------------------
+   A small pill offered beside the work (a question to add a clue to, a goal
+   to log to) is a suggestion, not a button to press: flat, a hairline round
+   it, standing on nothing, so a row of them never reads as a wall of
+   buttons. The box's word count is a reading, not a control: no box at all. */
+:root[data-style='brutal'] :is(button, a)[class*='rounded-full'][class~='border'][class*='py-0.5']:not([class*='bg-primary']) {
+  border-width: 1px;
+  box-shadow: none !important;
+}
+:root[data-style='brutal'] :is(button, a)[class*='rounded-full'][class~='border'][class*='py-0.5']:not([class*='bg-primary']):active:not(:disabled) {
+  transform: none !important;
+}
+:root[data-style='brutal'] span.tiptap-word-count[class][class][class] {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* ---- The welcome --------------------------------------------------------
+   The welcome is a film set in the app's own type: its serif headlines and
+   their weights stay as drawn, whatever the style, so Brutal changes its
+   buttons and boxes but never its voice. */
+:root[data-style='brutal'] .mf-welcome :is(h1, h2, [class*='font-heading']) {
+  font-family: revert-layer !important;
+  font-weight: revert-layer !important;
+  letter-spacing: revert-layer !important;
+}

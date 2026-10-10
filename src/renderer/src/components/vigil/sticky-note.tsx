@@ -449,6 +449,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
         <Tape inside={GLASS} />
         <div className="flex items-center gap-1 px-3 pt-2">
           <p className="private-text min-w-0 grow truncate font-medium">{title}</p>
+          <SandboxStamp inline />
           {/* How far through its to-dos: green once all are done, settling rather than celebrating.
               "All done" gives way first when the title needs the room, down to a ✓. */}
           {todos.length > 0 && (left ? (

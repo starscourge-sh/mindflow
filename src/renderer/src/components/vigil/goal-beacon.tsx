@@ -35,7 +35,10 @@ const TILT = [0, 1.3, -1, 1.8]
 const pose = (depth: number): string => GLASS
   // As glass: straight, each one lower by an edge and a little narrower, as a stack seen from the front.
   ? `translate(0px, ${Math.min(depth, BEHIND) * EDGE}px) rotate(0deg) scale(${1 - Math.min(depth, BEHIND) * 0.035})`
-  : `translate(${Math.min(depth, BEHIND) * 2}px, ${Math.min(depth, BEHIND) * 8}px) rotate(${TILT[Math.min(depth, BEHIND)]}deg) scale(1)`
+  // Brutal: square, each one an equal step down and right, outlined (brutal.css), a stack of printed cards.
+  : document.documentElement.dataset.style === 'brutal'
+    ? `translate(${Math.min(depth, BEHIND) * 5}px, ${Math.min(depth, BEHIND) * 5}px) rotate(0deg) scale(1)`
+    : `translate(${Math.min(depth, BEHIND) * 2}px, ${Math.min(depth, BEHIND) * 8}px) rotate(${TILT[Math.min(depth, BEHIND)]}deg) scale(1)`
 /** The top card picked up: towards you, turned a little, kept inside the window. */
 const LIFT = GLASS ? 'translate(0px, -3px) rotate(0deg) scale(0.985)' : 'translate(8px, -2px) rotate(-2.5deg) scale(1.025)'
 /** Motion off or Reduce motion: the stack changes at once, nothing travels. */
@@ -209,6 +212,9 @@ function Card({ id, today, front, shows, stacked, count, flip }: { id: string; t
   return (
     <div
       data-private={goal.private ? '' : undefined}
+      // Brutal draws the cards behind as plain outlined paper (brutal.css).
+      data-stack-card={front ? 'front' : 'behind'}
+      data-stacked={stacked || undefined}
       // Solid, as a sticky is: lit from the top, never see-through; on top, frosted over the desktop picture.
       style={{
         ...(front ? DRAG : {}),
@@ -233,10 +239,11 @@ function Card({ id, today, front, shows, stacked, count, flip }: { id: string; t
       {front && !GLASS && <Frost />}
       {shows && (
         <>
-          <div className="flex items-start gap-1.5">
+          <div className={`flex items-start gap-1.5 ${stacked ? 'pr-8' : ''}`}>
             <Flag className="mt-[0.2em] size-3.5 shrink-0" style={{ color: warm }} />
             {/* The whole goal, over two lines if it needs them: a goal cut short is not the goal. */}
-            <p className={`private-text line-clamp-2 min-w-0 flex-1 leading-snug font-medium text-balance ${stacked ? 'pr-8' : ''}`}>{goal.title}</p>
+            <p className="private-text line-clamp-2 min-w-0 flex-1 leading-snug font-medium text-balance">{goal.title}</p>
+            {front && <SandboxStamp inline />}
             {/* Where this card is in the stack, till the controls take the corner. */}
             {count && <span className="absolute top-3 right-3.5 text-[11px] leading-none font-medium text-foreground/70 tabular-nums transition-opacity duration-200 group-hover:opacity-0">{count}</span>}
             {/* Over the end of the title, only while pointed at: the title has the whole row the rest of the time. */}
