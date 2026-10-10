@@ -143,7 +143,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Lists', keys: 'F', does: 'On a rot card: tidy it (bold, fold, cross off)', where: 'Quick capture' },
   { group: 'Lists', keys: 'C', does: 'On a rot card: come back to it on deciding day', where: 'Quick capture' },
   { group: 'Lists', keys: ';', does: 'Add a thought (a dated gloss) on the row, card or page in front of you; on a task it goes in its log', where: 'Lists' },
-  { group: 'Lists', keys: 'Esc', does: 'After a focus session, in the pill: skip "How did it go?" (↵ keeps it as the recap)', where: 'The focus pill' },
+  { group: 'Lists', keys: 'Esc', does: 'After a focus session, in the pill: skip “How did it go?” (↵ keeps it as the recap)', where: 'The focus pill' },
   { group: 'Lists', keys: '⌘;', does: 'Add a thought while a field has the keys: the hint card, or the highlighted search result', where: 'Both windows' },
   { group: 'Lists', keys: 'E', does: 'Complete the task', where: 'Lists' },
   { group: 'Lists', keys: 'T', does: 'Move the task to today', where: 'Lists' },

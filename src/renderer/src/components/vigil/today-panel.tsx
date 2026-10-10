@@ -155,7 +155,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
           placeholder="Add a task, with the date in the words"
         />
       </form>
-      <Example on={example && due.length > 0} compact tryIt="type a task in the line above with the day in the words, like 'call Mum Friday 6pm'.">
+      <Example on={example && due.length > 0} compact tryIt="type a task in the line above with the day in the words, like ‘call Mum Friday 6pm’.">
       <AnimatePresence initial={false}>
         {due.map((task, index) => {
           const late = (placed(task) ?? Infinity) < startOfToday()

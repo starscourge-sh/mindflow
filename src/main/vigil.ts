@@ -918,7 +918,7 @@ export function registerVigil(): void {
           ? `${String(parsed ?? '').trim()}\n\n${more}`
           : { ...(parsed as Doc), content: [...((parsed as Doc).content ?? []), { type: 'paragraph', content: [{ type: 'text', text: more }] }] })
       }
-      prompt = `What does "${term.trim()}" mean?`
+      prompt = `What does “${term.trim()}” mean?`
     }
     const nugget = randomUUID()
     db.prepare(

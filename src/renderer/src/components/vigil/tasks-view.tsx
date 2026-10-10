@@ -77,10 +77,10 @@ const tone = (task: Task): string | undefined => {
 
 /** The one thing to try on each list while it shows its example. */
 const TRY_TASKS = {
-  today: "type 'call Mum Friday 6pm' in the line above. Vigil reads the day and the time.",
-  upcoming: "type 'book seats for Hamlet on the 14th' above. It lands on that day.",
-  routines: "type 'bins every week' above. It comes back each week on the same day.",
-  later: "type 'learn German someday' above. It waits here until you give it a day."
+  today: "type ‘call Mum Friday 6pm’ in the line above. Vigil reads the day and the time.",
+  upcoming: "type ‘book seats for Hamlet on the 14th’ above. It lands on that day.",
+  routines: "type ‘bins every week’ above. It comes back each week on the same day.",
+  later: "type ‘learn German someday’ above. It waits here until you give it a day."
 }
 
 /** The Scheduled island's buttons: one size, and a faint fill so each reads as a button on a light page too. */

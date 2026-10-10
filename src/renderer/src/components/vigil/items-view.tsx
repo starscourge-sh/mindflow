@@ -732,7 +732,7 @@ export function RemindMe({ table, id, at }: { table: 'captures' | 'nuggets'; id:
     setOpen(false)
     setWords('')
     void vigil.remind(table, id, date ? date.toISOString() : null).then(() =>
-      (chime(date ? 'pin' : 'off'), toast(date ? `Pins itself in quick capture's Inbox ${whenInLine(date.toISOString(), false)}, with a "waiting" chip at the top of quick capture` : 'Reminder cleared')))
+      (chime(date ? 'pin' : 'off'), toast(date ? `Pins itself in quick capture's Inbox ${whenInLine(date.toISOString(), false)}, with a “waiting” chip at the top of quick capture` : 'Reminder cleared')))
   }
   return (
     <Popover open={open} onOpenChange={setOpen}>

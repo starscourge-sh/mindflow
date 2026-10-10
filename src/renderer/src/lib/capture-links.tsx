@@ -114,7 +114,7 @@ export async function takeExit(id: string, status: string): Promise<unknown> {
   }
   // A word is tested on its meaning: asked for here, so its card can be answered.
   if (result === 'needs-meaning') {
-    const meaning = await ask(`What does "${(await window.api.captures.get(id))?.label ?? 'it'}" mean?`, 'Its meaning, in a line')
+    const meaning = await ask(`What does “${(await window.api.captures.get(id))?.label ?? 'it'}” mean?`, 'Its meaning, in a line')
     return meaning ? vigil.promote(id, meaning) : 'cancelled'
   }
   if (result !== 'needs-words') return result
