@@ -57,14 +57,17 @@ const at = (n: number, time = '09:00'): string => {
   return when.toISOString()
 }
 /**
- * Earlier today, `minutes` before now, and never before 00:05: the Inbox
- * reads newest first, so the order the examples were "caught" in is the
- * order they are read in.
+ * Earlier today, on the last hour or half hour, so no time reads like the
+ * moment the sandbox was set out ("7:41"). The Inbox reads newest first, so
+ * each is a moment apart in the order given (`minutes` the smaller, the
+ * newer), all within that same minute.
  */
 const earlier = (minutes: number): string => {
-  const morning = new Date()
-  morning.setHours(0, 5, 0, 0)
-  return new Date(Math.max(morning.getTime() + (240 - minutes), Date.now() - minutes * 60_000)).toISOString()
+  const now = Date.now()
+  const midnight = new Date().setHours(0, 0, 0, 0)
+  let base = Math.floor(now / 1_800_000) * 1_800_000
+  if (now - base < 60_000) base = Math.max(midnight, base - 1_800_000)
+  return new Date(base + Math.max(0, 200 - minutes) * 250).toISOString()
 }
 /** The Monday of this week, as week pages are keyed. */
 const monday = (): string => {
@@ -299,7 +302,7 @@ What you keep, rather than what you read, is what returns: ${link(petrichor, 'Pe
   const wall = await task('Chip at the wall for ten minutes every day')
   await task('Send the Los Alamos budget by Friday')
   const blackHole = await task('Black hole data from the probe')
-  await v('task:save', blackHole, { waitingOn: 'TARS' })
+  await v('task:save', blackHole, { waitingOn: 'TARS', due: at(3, '09:00') })
   await v('task:save', wall, { due: at(0, '21:00'), reschedules: 0 })
   await task('Learn to read cuneiform someday')
   // Important and not yet urgent: the matrix's Plan box.
