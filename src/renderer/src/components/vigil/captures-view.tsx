@@ -28,10 +28,10 @@ import { AGES, Display, FilterChips, arrange, period, useView, type Density, typ
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
 import { Mentions } from './mentions'
-import { EXITS, NOT_OPEN, STATUS_ICON, captureKey, exit, findCaptures, findHeadings, flying, takeExit, follow, unpromote } from '@/lib/capture-links'
+import { EXITS, NOT_OPEN, STATUS_ICON, captureKey, noteLinkText, exit, findCaptures, findHeadings, flying, takeExit, follow, unpromote } from '@/lib/capture-links'
 import type { SaveResult } from '../../../../main/captures'
 import { toMarkdown } from '@/lib/export'
-import { splitTags, unloaded, vigil } from '@/lib/vigil'
+import { splitTags, unloaded, useLive, vigil, type Settings } from '@/lib/vigil'
 import { makeTask, oneTask, picked } from '@/lib/tasks'
 import { useSameWords } from '@/lib/same-words'
 import { chime, tear } from '@/lib/sound'
@@ -42,7 +42,9 @@ import { RemindMe } from './items-view'
 import { addToQuestion } from './questions-view'
 import { ReadThrough } from './read-through'
 import { enqueue } from '@/lib/reading-queue'
-import { PassLinks } from './pass'
+import { decideDay, openPass } from './pass'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { keyFor } from '@/lib/keys'
 import { selectionActions } from './selection-actions'
 import { Tip } from '@/components/vigil/ui'
 import { Button } from '@/components/ui/button'
@@ -308,10 +310,13 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
             <span className="flex items-center gap-2">
               {spread && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder={`Search in ${title}`} />}
               {shown.length > 1 && !spread && !open && <span className="hidden text-xs whitespace-nowrap @[48rem]/page:inline"><Pressed keys="X" /> to select</span>}
-              {title === 'Inbox' && <PassLinks className="shrink-0 flex-nowrap!" />}
-              <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R">
-                <Button variant="ghost" size={open ? 'icon-sm' : 'sm'} aria-label="Read through" onClick={() => setReadFrom(startAt(shown, open?.id, cursor))} disabled={!shown.length}><AliveIcon icon={BookIcon} size={14} />{!open && ' Read through'}</Button>
-              </Tip>
+              {title === 'Inbox' ? (
+                <GoThrough compact={!!open} canRead={shown.length > 0} onRead={() => setReadFrom(startAt(shown, open?.id, cursor))} />
+              ) : (
+                <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R">
+                  <Button variant="ghost" size={open ? 'icon-sm' : 'sm'} aria-label="Read through" onClick={() => setReadFrom(startAt(shown, open?.id, cursor))} disabled={!shown.length}><AliveIcon icon={BookIcon} size={14} />{!open && ' Read through'}</Button>
+                </Tip>
+              )}
               {display}
               <PaneButtons pane={spread ? 'wide' : 'list'} onPane={setPane} fold={!!open && !boardShown} />
             </span>
@@ -388,7 +393,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
               })}
               left={<Stepper at={shown.findIndex((one) => one.id === open.id)} total={shown.length} onStep={(to) => pick(shown[to].id)} />}
               edited={meta.editedAt} captured={meta.capturedAt}
-              pinned={!!meta.pinnedAt} onPin={() => pin('captures', meta.id, !meta.pinnedAt)} copyKey={captureKey(meta.number)}
+              pinned={!!meta.pinnedAt} onPin={() => pin('captures', meta.id, !meta.pinnedAt)} copyKey={noteLinkText(meta.id, meta.label)}
               menu={[
                 open.original ? { label: 'As first written', run: () => (chime('rewind'), setFirst(open.original)) } : null,
                 ...(boardShown ? [
@@ -477,9 +482,35 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
   )
 }
 
+/**
+ * The Inbox's ways through it, in one button: Tidy and Decide when there is
+ * something for them (never with a count of what is left), and Read through.
+ */
+function GoThrough({ compact, canRead, onRead }: { compact: boolean; canRead: boolean; onRead: () => void }): React.JSX.Element {
+  const waiting = useLive(vigil.passWaiting, { tidy: 0, decide: 0 })
+  const settings = useLive(vigil.settings, null as Settings | null)
+  const today = settings?.weeklyReview !== false && dayjs().day() === settings?.weeklyDay
+  return (
+    <DropdownMenu modal={false}>
+      <Tip label={today && waiting.decide ? 'Today is deciding day' : 'Tidy, decide, or read them one at a time'}>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size={compact ? 'icon-sm' : 'sm'} aria-label="Go through…" className={today && waiting.decide ? 'text-[var(--tt-color-text-purple)]' : ''}>
+            <AliveIcon icon={BookIcon} size={14} />{!compact && ' Go through…'}
+          </Button>
+        </DropdownMenuTrigger>
+      </Tip>
+      <DropdownMenuContent align="end" className="w-64">
+        {waiting.tidy > 0 && <DropdownMenuItem onSelect={() => openPass('tidy')}>Tidy the last few days</DropdownMenuItem>}
+        {waiting.decide > 0 && <DropdownMenuItem onSelect={() => openPass('decide')}>{today ? 'Decide: today is deciding day' : `Decide (its day is ${decideDay(settings)})`}</DropdownMenuItem>}
+        <DropdownMenuItem disabled={!canRead} onSelect={onRead}>Read through, one at a time<DropdownMenuShortcut>{keyFor('⇧⌘R')}</DropdownMenuShortcut></DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 /** A capture's row menu in its note's dots, less what the row over it already shows: opening, the star, the link. */
 export const captureDots = (capture: CaptureMeta): MenuItem[] =>
-  captureMenu(capture).filter((item) => !item || item === 'separator' || !['Open', 'Unpin', 'Pin to the box', `Copy ${captureKey(capture.number)}`].includes(item.label))
+  captureMenu(capture).filter((item) => !item || item === 'separator' || !['Open', 'Unpin', 'Pin to the box', 'Copy link to this note'].includes(item.label))
 
 /** Status and the exits, then what the capture is, then where it came from. */
 export function CaptureProps({ capture, onOpen, className, fold, onExit }: { capture: CaptureMeta; onOpen?: (type: string, id: string) => void; className?: string; /** Beside the open note: put away until asked for. */ fold?: boolean; /** Once it has taken a way out: on to the next one. */ onExit?: () => void }): React.JSX.Element {
@@ -494,7 +525,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit }: { cap
     setWhere(capture.medium ?? '')
   }, [capture.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const exits = [
-    { icon: ArrowUpRight, tint: 'purple', label: 'Save as an idea', run: () => flying(capture.id, 'nugget', () => takeExit(capture.id, 'promoted')), said: 'Promoted' },
+    { icon: ArrowUpRight, tint: 'purple', label: 'Save as an idea', run: () => flying(capture.id, 'nugget', () => takeExit(capture.id, 'promoted')), said: 'Saved as an idea' },
     { icon: ListTodo, tint: 'orange', label: 'Make it a task', run: () => makeTask({ capture: capture.id }), said: 'Now a task' },
     { icon: CheckCircle2, tint: 'green', label: 'Resolve', run: () => window.api.captures.save(capture.id, { status: 'resolved' }), said: 'Resolved' },
     { icon: Trash2, alive: TrashIcon, tint: 'red', label: 'Discard', run: () => flying(capture.id, 'away', () => window.api.captures.save(capture.id, { status: 'discarded' })), said: 'Discarded' }
@@ -579,7 +610,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit }: { cap
 
       <Island compact title={<Term>Surfacing</Term>}>
         <Prop icon={capture.private ? EyeOff : Eye} active={!!capture.private} onClick={() => void vigil.setPrivate('captures', capture.id, !capture.private)}>
-          {capture.private ? 'Private' : 'Can surface any time'}
+          {capture.private ? 'Private' : 'Not private'}
         </Prop>
         <Prop icon={Pin} active={!!capture.pinnedAt} onClick={() => pin('captures', capture.id, !capture.pinnedAt)}>
           {capture.pinnedAt ? 'Pinned' : 'Pin to the box'}

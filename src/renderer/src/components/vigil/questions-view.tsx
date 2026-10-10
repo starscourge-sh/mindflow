@@ -283,6 +283,13 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
   )
 }
 
+/**
+ * A question's tile, warmer the more clues it has: grey with none, a little
+ * blue with one or two, full blue from three, so the ones coming clear stand out.
+ */
+const clueTint = (n: number): string | undefined =>
+  !n ? undefined : n < 3 ? 'color-mix(in srgb, var(--tt-color-text-blue) 55%, var(--muted-foreground))' : 'var(--tt-color-text-blue)'
+
 /** A question as any list draws it: its words, then how long it has been held and its clues. */
 export const questionEntry = (item: Item, inView = false, menu?: MenuItem[]): Entry => ({
   id: item.id,
@@ -290,6 +297,7 @@ export const questionEntry = (item: Item, inView = false, menu?: MenuItem[]): En
   title: item.title,
   tags: [],
   icon: Orbit,
+  tint: clueTint(item.clues),
   sub: item.closedAt ? `${item.closedHow === 'let go' ? 'Let go' : 'Answered'} ${whenLower(item.closedAt)} · ${cluesSaid(item.clues)}` : `${heldFor(item.createdAt)[0].toUpperCase()}${heldFor(item.createdAt).slice(1)} · ${cluesSaid(item.clues)}`,
   marks: (
     <>
@@ -437,7 +445,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
 
       <Props fold>
         <Island compact title="Open question">
-          <Prop icon={Orbit} active>{settled ?? <Rolling by="word" text={heldFor(item.createdAt).replace(/^h/, 'H')} />}</Prop>
+          <Prop icon={Orbit} active>{settled ?? <Rolling by="word" text={heldFor(item.createdAt).replace(/^o/, 'O')} />}</Prop>
           {!item.closedAt && (
             <Prop icon={inView ? Pin : PinOff} active={inView} onClick={() => void pinQuestion(item.id, item.title, !inView)}>
               {inView ? 'In view: shows while you capture' : 'Keep in view while capturing'}

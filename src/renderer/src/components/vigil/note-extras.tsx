@@ -471,7 +471,7 @@ export function Aliases({ table, id }: { table: NoteTable; id: string }): React.
         <Plus className="size-4 shrink-0" />
         <input
           key={`${id}-${list.length}`}
-          placeholder={list.length ? 'Another name…' : 'e.g. Lizzy, Miss Bennet'}
+          placeholder={list.length ? 'Another name…' : 'A nickname, or a short name'}
           aria-label="Another name for this note"
           onKeyDown={(event) => {
             if (event.key === 'Escape') return event.currentTarget.blur()
@@ -649,6 +649,7 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
   pinned?: boolean
   onPin?: () => void
   /** Its short handle, MF-123, to copy. */
+  /** A link to this note, as `noteLinkText` writes it. */
   copyKey?: string
   menu: MenuItem[]
   looking?: React.ReactNode
@@ -701,7 +702,7 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
               </Tip>
               <DropdownMenuContent align="end" className="w-56">
                 {onPin && <DropdownMenuItem onSelect={onPin}>{pinned ? 'Unpin' : 'Pin'}</DropdownMenuItem>}
-                {copyKey && <DropdownMenuItem onSelect={() => copy(copyKey, `Copied ${copyKey}`)}>Copy {copyKey}</DropdownMenuItem>}
+                {copyKey && <DropdownMenuItem onSelect={() => copy(copyKey, 'Copied a link: paste it into any note')}>Copy link to this note</DropdownMenuItem>}
                 <DropdownMenuItem onSelect={open}>Version history</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 {board && (

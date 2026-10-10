@@ -59,12 +59,12 @@ export const WORDS: Word[] = [
   },
   {
     id: 'promote',
-    forms: ['Promote', 'Promoted'],
+    forms: ['Save as an idea', 'Saved as an idea'],
     line: 'Save a capture for good, as an idea',
-    origin: 'Latin promovere, to move forward',
+    origin: 'Plain words: it is kept, as one of your ideas',
     here: '**Saving a capture for good, as an idea.** It moves out of the Inbox into what you save, and can come back to you later.',
     try: 'Press P on one in the Inbox.',
-    history: 'From Latin pro-, forward, and movere, to move. A soldier promoted moves up a rank.',
+    history: 'A commonplace book kept only what was worth copying out; the rest of the day’s scraps were let go. Saving one as an idea is that copying out.',
     see: ['nugget', 'inbox', 'kept']
   },
   {

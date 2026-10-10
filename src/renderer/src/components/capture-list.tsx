@@ -5,7 +5,7 @@ import EyeOffIcon from '@/components/ui/eye-off-icon'
 import BookmarkIcon from '@/components/ui/bookmark-icon'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
-import { EXITS, captureKey, exit } from '@/lib/capture-links'
+import { EXITS, captureKey, exit, noteLinkText } from '@/lib/capture-links'
 import { splitTags, unread, vigil } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
 import { Tip, pin } from './vigil/ui'
@@ -102,7 +102,7 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   { label: 'Save its pictures and files…', run: () => void saveAttachments([{ table: 'captures', id: capture.id }]) },
   copyToBookItem([{ table: 'captures', id: capture.id }]),
   'separator',
-  { label: `Copy ${captureKey(capture.number)}`, run: () => copy(captureKey(capture.number), `Copied ${captureKey(capture.number)}`) },
+  { label: 'Copy link to this note', run: () => copy(noteLinkText(capture.id, capture.label), 'Copied a link: paste it into any note') },
   { label: 'Copy text', run: () => copy(capture.label) }
 ]
 

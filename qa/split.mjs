@@ -265,6 +265,9 @@ try {
   // Row menu: Open to the side.
   const keysBefore = (await panes(h)).map((one) => one.key)
   await h.locator('[data-pane] [data-row][data-id]:visible').first().click({ button: 'right' }); await wait(400)
+  // Open to the side sits under Open in… beside Open in a new window.
+  const openIn = h.locator('[role="menuitem"]', { hasText: 'Open in…' })
+  if (await openIn.count()) { await openIn.first().click(); await wait(400) }
   const offered = await h.locator('[role="menuitem"]', { hasText: 'Open to the side' }).count()
   if (offered) await h.locator('[role="menuitem"]', { hasText: 'Open to the side' }).first().click()
   await wait(1000)

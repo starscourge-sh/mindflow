@@ -16,6 +16,9 @@ import type { SaveResult } from '../../../main/captures'
 /** The short handle a capture goes by, like Linear's `REE-30`. */
 export const captureKey = (number: number): string => `MF-${number}`
 
+/** A link to a note that any note reads as one when it is pasted in: `[[@id|its words]]`. */
+export const noteLinkText = (id: string, words: string): string => `[[@${id}|${(words || 'Untitled').replace(/[[\]|\n]+/g, ' ').trim().slice(0, 80)}]]`
+
 export const STATUS_ICON = {
   open: CircleDashed,
   promoted: CircleArrowUp,
@@ -26,7 +29,7 @@ export const STATUS_ICON = {
 /** The three ways out of a capture, each one key where a card has the focus. */
 export const EXITS = [
   // Their colours mean the same everywhere: kept, done, let go.
-  { key: 'p', status: 'promoted', label: 'Promote', done: 'Promoted', tint: 'purple', what: 'Save it as an idea: it can come back to you, and be tested' },
+  { key: 'p', status: 'promoted', label: 'Save as an idea', done: 'Saved as an idea', tint: 'purple', what: 'Save it as an idea: it can come back to you, and be tested' },
   { key: 'r', status: 'resolved', label: 'Resolve', done: 'Resolved', tint: 'green', what: 'Done with it: dealt with, or no longer needed' },
   { key: 'd', status: 'discarded', label: 'Discard', done: 'Discarded', tint: 'red', what: 'Let it go: into Discarded, where it can come back' },
   // Not a status of its own: the capture is kept, inside a new question. H for

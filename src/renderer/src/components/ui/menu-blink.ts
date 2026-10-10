@@ -32,6 +32,14 @@ export function blinkThen<E extends Event>(onSelect?: (event: E) => void): (even
     setTimeout(() => {
       blinking.delete(item)
       item.removeAttribute("data-blink")
+      // A menu that went away during the blink (a submenu closing as the
+      // page under it redraws): the choice still counts.
+      if (!item.isConnected) {
+        onSelect?.(event)
+        // and the menu it came from is put away, as a choice always does.
+        document.querySelectorAll('[role="menu"]').forEach((menu) => menu.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })))
+        return
+      }
       chosen.add(item)
       item.click()
     }, 160)

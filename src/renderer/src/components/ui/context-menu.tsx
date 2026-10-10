@@ -221,7 +221,7 @@ function ContextMenuSubTrigger({
       onPointerMove={onlyRealMoves(props.onPointerMove)}
     >
       {withMenuIcon(children)}
-      <ChevronRightIcon className="ml-auto" />
+      <ChevronRightIcon className="ml-auto size-3.5 text-muted-foreground" />
     </ContextMenuPrimitive.SubTrigger>
   )
 }

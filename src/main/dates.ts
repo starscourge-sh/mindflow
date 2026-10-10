@@ -116,14 +116,14 @@ export function ago(at: ConfigType): string {
   if (said.unit === 'day') return 'yesterday'
   return `${said.n} ${said.unit} ago`
 }
-/** How long a question has been held: "held since today", "held since yesterday", "held since Monday", "held 2 weeks". */
+/** How long a question has been open: "open since today", "open since yesterday", "open since Monday", "open for 2 weeks". */
 export function heldFor(at: ConfigType): string {
   const days = daysAgo(at)
-  if (days < 1) return 'held since today'
-  if (days === 1) return 'held since yesterday'
-  if (days < 7) return `held since ${dayjs(at).format('dddd')}`
+  if (days < 1) return 'open since today'
+  if (days === 1) return 'open since yesterday'
+  if (days < 7) return `open since ${dayjs(at).format('dddd')}`
   const said = spoken(at)!
-  return `held ${said.n} ${said.unit}`
+  return `open for ${said.n} ${said.unit}`
 }
 
 const NUMBER = new Intl.NumberFormat('en')

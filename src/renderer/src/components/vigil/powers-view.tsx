@@ -10,6 +10,8 @@ import { AliveIcon } from './alive-icon'
 import { DEMOS } from './power-demos'
 import { PlaceIcon, SECTIONS, type Place } from './places'
 import { Pressed, SmoothScroll, toast } from './ui'
+import { ProgressBar } from './progress-bar'
+import { Highlight, useFluidHover } from './glide'
 import './powers.css'
 
 /**
@@ -31,28 +33,34 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
     }
   }, [])
   const tried = used ? POWERS.filter((power) => used.has(power.id)).length : 0
+  const chipRow = useRef<HTMLElement>(null)
+  const chipHover = useFluidHover(chipRow, { items: ':scope > button', axis: 'xy' })
   const jump = (id: string): void => {
     chime('tap')
     document.getElementById(`powers-${id}`)?.scrollIntoView({ block: 'start', behavior: still() ? 'auto' : 'smooth' })
   }
   return (
     <SmoothScroll wide>
-      <div className="mx-auto w-full max-w-[72rem] px-5 pt-10 pb-24 @[44rem]/page:px-10">
+      <div className="mx-auto w-full max-w-[60rem] px-5 pt-10 pb-24 @[44rem]/page:px-10">
         <header className="max-w-[40rem]">
           <h1 className="font-heading text-[2rem] leading-[1.1] font-semibold tracking-[-0.02em] text-foreground">What Vigil can do</h1>
           <p className="mf-prose mt-3 text-[1.1875rem] text-muted-foreground">
             <strong>Most of Vigil stays out of sight until you need it.</strong> Press Show me on a card to see it {SANDBOX ? 'in a real example.' : 'where it lives.'}
           </p>
-          {used && (
-            <p className="mt-3 flex items-center gap-2 text-control text-muted-foreground">
-              <Tick /> You have used {tried} of {POWERS.length}.
+          {/* How far through, always: from 0, so there is something to fill. */}
+          <div data-powers-tried className="mt-4 flex max-w-[22rem] flex-col gap-1.5">
+            <p className="flex items-center gap-2 text-control text-muted-foreground">
+              <span className="font-semibold text-foreground tabular-nums">{tried} of {POWERS.length}</span> tried
             </p>
-          )}
+            <ProgressBar value={tried / POWERS.length} label={`${tried} of ${POWERS.length} tried`} thick={3} />
+          </div>
         </header>
-        <nav aria-label="Groups" className="mt-7 flex flex-wrap gap-1.5">
+        {/* One light over the chips, gliding to the nearest, as the sidebar's does. */}
+        <nav ref={chipRow} {...chipHover.handlers} aria-label="Groups" className="relative isolate mt-7 flex flex-wrap gap-1.5">
+          <Highlight spot={chipHover.spot} session={chipHover.session} snap={chipHover.snap} className="rounded-full bg-foreground/[0.06]" />
           {[...GROUPS.map((group) => group.id), 'Every page'].map((id) => (
             <button key={id} type="button" onClick={() => jump(slug(id))}
-              className="rounded-full border px-3 py-1 text-control text-muted-foreground transition-colors duration-150 hover:bg-foreground/[0.05] hover:text-foreground active:scale-[0.97]">
+              className="rounded-full border px-3 py-1 text-control text-muted-foreground transition-[color,scale] duration-150 active:scale-[0.97] data-[fluid-hover-active]:text-foreground">
               {id}
             </button>
           ))}
@@ -61,7 +69,8 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
           <section key={group.id} id={`powers-${slug(group.id)}`} aria-label={group.id} className="mt-14 scroll-mt-6">
             <h2 className="font-heading text-heading font-semibold tracking-[-0.01em] text-foreground">{group.id}</h2>
             <p className="mf-aside mt-1 text-body text-muted-foreground">{group.line}</p>
-            <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-3 @[40rem]/page:grid-cols-2 @[66rem]/page:grid-cols-3">
+            {/* One column a group: each card its picture beside its words, read down like a list. */}
+            <div className="mt-5 flex flex-col gap-3">
               {POWERS.filter((power) => power.group === group.id).map((power) => (
                 <Card key={power.id} power={power} used={!!used?.has(power.id)} onView={onView} />
               ))}
@@ -74,8 +83,8 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
   )
 }
 
-/** Lower-cased to follow "Try it:", unless it opens on a key or a name. */
-const lower = (text: string): string => /^(I|Vigil|Settings)\b/.test(text) ? text : text[0].toLowerCase() + text.slice(1)
+/** A sentence of its own after "Try it.": its first letter a capital. */
+const upper = (text: string): string => text[0].toUpperCase() + text.slice(1)
 const slug = (text: string): string => text.toLowerCase().replace(/\W+/g, '-')
 const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -93,19 +102,21 @@ function Card({ power, used, onView }: { power: Power; used: boolean; onView: (i
   const [calm] = useState(still)
   const Demo = DEMOS[power.id]
   return (
-    <article data-power={power.id} className="flex flex-col rounded-2xl border bg-[color-mix(in_oklab,var(--foreground)_2.5%,transparent)] p-1.5">
-      <div className="relative">
-        <div ref={stage} aria-hidden className="pw-stage relative flex h-44 items-center justify-center overflow-hidden rounded-xl border border-border/50 bg-background px-5">
+    <article data-power={power.id} className="flex flex-col rounded-2xl border bg-[color-mix(in_oklab,var(--foreground)_2.5%,transparent)] p-1.5 @[40rem]/page:flex-row">
+      <div className="relative @[40rem]/page:w-[20rem] @[40rem]/page:shrink-0">
+        {/* 9px: the card's 16px corner less its 6px edge and 1px line, so the corners nest. */}
+        <div ref={stage} aria-hidden className="pw-stage relative flex h-44 items-center justify-center overflow-hidden rounded-[9px] border border-border/50 bg-background px-5">
           {Demo && <Demo live={seen && !calm} />}
         </div>
         {used && <span className="absolute top-2.5 right-2.5" title="You have used this"><Tick /><span className="sr-only">You have used this</span></span>}
       </div>
-      <div className="flex flex-1 flex-col px-3 pt-3.5 pb-2">
+      <div className="flex min-w-0 flex-1 flex-col px-3 pt-3.5 pb-2 @[40rem]/page:px-4 @[40rem]/page:pt-3">
         {/* Dia's way: the name, bold, is the sentence's start; the rest only for whoever wants it. */}
         <div className="mf-prose text-[0.9375rem] text-muted-foreground">
           <h3 className="inline font-semibold text-foreground">{power.name}.</h3> {power.line}
         </div>
-        <p className="mf-aside mt-1.5 text-[0.84375rem] text-muted-foreground/85">Try it: {lower(power.tryIt ?? power.show.text)}</p>
+        {/* The instruction, so it leads at full ink: a skimmer finds it. */}
+        <p className="mt-2 text-control text-muted-foreground"><strong className="font-semibold text-foreground">Try it.</strong> {upper(power.tryIt ?? power.show.text)}</p>
         <div className="mt-auto flex items-center gap-1.5 pt-4">
           {power.keys?.map((keys) => <span key={keys} className="flex gap-0.5"><Pressed keys={keys} each={!keys.includes(' ')} /></span>)}
           <button type="button" onClick={() => void showMe(power, onView)}

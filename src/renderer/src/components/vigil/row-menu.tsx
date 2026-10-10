@@ -15,6 +15,33 @@ type Shown = Exclude<RowItem, false | null | undefined>
 export const tidy = <T,>(items: (T | 'separator')[]): (T | 'separator')[] =>
   items.filter((item, index) => item !== 'separator' || (index > 0 && index < items.length - 1 && items[index - 1] !== 'separator'))
 
+/**
+ * Lines that belong together, folded into one line that opens them beside it,
+ * so a long menu reads as a few choices: where to open it, the queue, and the
+ * copies. Only where two or more of a kind are there; one alone stays a line.
+ */
+const NESTS: [string, RegExp][] = [
+  ['Open in…', /^open (in a new window|to the side)$/i],
+  ['Queue', /^(add to queue|play next)$/i],
+  ['Copy', /^copy\b/i]
+]
+export function nest(items: RowItem[]): RowItem[] {
+  const out: RowItem[] = [...items]
+  for (const [label, rule] of NESTS) {
+    const fits = (item: RowItem): boolean => !!item && item !== 'separator' && 'run' in item && rule.test(item.label)
+    const found = out.filter(fits)
+    if (found.length < 2) continue
+    const at = out.findIndex(fits)
+    out.splice(at, 1, { label, items: found })
+    for (let index = out.length - 1; index > at; index--) if (fits(out[index])) out.splice(index, 1)
+  }
+  return out
+}
+
+/** A menu with its nested lines laid out flat again, for a menu that cannot open one beside it. */
+export const flat = (items: RowItem[]): MenuItem[] =>
+  items.flatMap((item): MenuItem[] => (item && item !== 'separator' && 'items' in item ? flat(item.items) : item && item !== 'separator' && 'heading' in item ? [] : [item as MenuItem]))
+
 /** The lines of a menu, drawn: shared by the menu and the ones that open beside it. */
 const lines = (items: Shown[]): React.ReactNode =>
   tidy(items).map((item, index) =>
@@ -42,7 +69,7 @@ const lines = (items: Shown[]): React.ReactNode =>
  * do, gathered where a mouse looks for them first.
  */
 export function RowMenu({ items, children }: { items: RowItem[]; children: ReactElement }): React.JSX.Element {
-  const shown = items.filter(Boolean) as Shown[]
+  const shown = nest(items).filter(Boolean) as Shown[]
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>

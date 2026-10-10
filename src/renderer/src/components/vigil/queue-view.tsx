@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { ListVideo, Play, RotateCcw, SkipForward } from 'lucide-react'
+import { GripVertical, ListVideo, Play, RotateCcw, SkipForward } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import XIcon from '@/components/ui/x-icon'
 
@@ -11,6 +11,7 @@ import { dequeue, enqueue, openLink, readQueue, readingQueue, useQueue, type Que
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { Button } from '@/components/ui/button'
 import { ProgressBar } from './progress-bar'
+import { Highlight, useFluidHover } from './glide'
 import { ReadThrough } from './read-through'
 import { RowMenu, type MenuItem } from './row-menu'
 import { SortableList, SortableRow } from './sortable'
@@ -93,9 +94,13 @@ function QueueLine({ row, at, rows }: { row: QueueRow; at: number; rows: QueueRo
   return (
     <RowMenu items={menu}>
       <div data-row data-id={row.itemId} data-queue-row={row.id} data-private={row.private ? '' : undefined} onWheel={swipe.onWheel}
-        className="group/q relative flex items-center gap-3 rounded-md px-3 py-2 transition-[background-color,transform,opacity] duration-150 hover:bg-accent/50"
+        className="group/q relative flex cursor-grab items-center gap-3 rounded-md px-3 py-2 transition-[background-color,transform,opacity] duration-150 hover:bg-accent/50"
         style={{ transform: swipe.x ? `translateX(${swipe.x}px)` : undefined, opacity: swipe.x ? 1 - Math.min(0.6, Math.abs(swipe.x) / 300) : undefined, transition: swipe.x ? 'none' : undefined }}>
-        <span className="w-5 shrink-0 text-right text-xs text-muted-foreground tabular-nums">{at + 1}</span>
+        {/* Its place in line; pointed at, a grip in its place, since the row drags. */}
+        <span className="relative w-5 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
+          <span className="transition-opacity duration-150 group-hover/q:opacity-0">{at + 1}</span>
+          <GripVertical aria-hidden className="absolute top-1/2 right-0 size-3.5 -translate-y-1/2 opacity-0 transition-opacity duration-150 group-hover/q:opacity-100" />
+        </span>
         <button type="button" onClick={() => play(rows, at)} className="flex min-w-0 flex-1 items-center gap-2.5 text-left outline-none">
           {kind ? <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} /> : <ListVideo className="size-4 shrink-0 text-muted-foreground" />}
           <span className="min-w-0 flex-1">
@@ -138,7 +143,7 @@ export function QueueView(): React.JSX.Element {
               <div data-queue-progress className="mb-5 flex flex-col gap-2">
                 <p className="flex items-baseline gap-2 text-body">
                   <span className="font-semibold text-foreground tabular-nums"><Rolling text={done} /> of <Rolling text={total} /></span>
-                  <span className="text-muted-foreground">read · {num(queue.length)} to go</span>
+                  <span className="text-muted-foreground">read</span>
                 </p>
                 <ProgressBar value={total ? done / total : 0} label={`${num(done)} of ${num(total)} read`} thick={3} />
               </div>
@@ -146,7 +151,7 @@ export function QueueView(): React.JSX.Element {
               <p className="mb-5 text-body text-muted-foreground">The queue is empty: everything in it has been read.</p>
             )}
             {queue.length > 0 && (
-              <Island title={<span className="flex items-center gap-2">Up next <span className="text-xs font-normal text-muted-foreground">drag to reorder</span></span>}>
+              <Island title="Up next">
                 <SortableList items={queue} keyOf={(row) => row.id} onMove={(id, target, after) => void readingQueue.move(id, target, after).then(() => chime('settled'))}>
                   {(rows) => rows.map((row, at) => (
                     <SortableRow key={row.id} id={row.id}><QueueLine row={row} at={at} rows={rows} /></SortableRow>
@@ -192,25 +197,28 @@ export function QueueView(): React.JSX.Element {
 export function QueuePanel({ onView, className = '' }: { onView: (id: string) => void; className?: string }): React.JSX.Element | null {
   const all = useQueue()
   const { queue } = all
-  const { done, total } = progressOf(all)
+  // One light over the rows, gliding to the nearest, as Home's other lists do.
+  const rows = useRef<HTMLOListElement>(null)
+  const hover = useFluidHover(rows, { items: '[data-queue-next]' })
   if (!queue.length) return null
   return (
     <section data-queue-panel aria-label="Your reading queue" className={`flex flex-col gap-1 rounded-xl border bg-[color-mix(in_oklab,var(--foreground)_2.5%,transparent)] p-2 ${className}`}>
       <div className="flex items-center gap-2 px-1.5 pt-0.5">
         <ListVideo className="size-4 shrink-0 text-[var(--tt-color-text-blue)]" />
-        <button type="button" onClick={() => (chime('open'), onView('queue'))} className="text-control font-semibold text-foreground hover:underline hover:decoration-foreground/30 hover:underline-offset-4">Up next to read</button>
-        <span className="text-xs text-muted-foreground tabular-nums">{num(done)} of {num(total)}</span>
+        <button type="button" onClick={() => (chime('open'), onView('queue'))} className="truncate text-control font-semibold whitespace-nowrap text-foreground hover:underline hover:decoration-foreground/30 hover:underline-offset-4">Up next to read</button>
+        <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums">{num(queue.length)} to read</span>
         <Tip label={<span className="flex items-center gap-2">Read the queue, one after the other</span>}>
           <Button size="sm" className="ml-auto" onClick={() => readQueue(0)}><Play className="size-3" fill="currentColor" /> Start reading</Button>
         </Tip>
       </div>
-      <ol className="flex flex-col">
+      <ol ref={rows} {...hover.handlers} className="relative isolate flex flex-col">
+        <Highlight spot={hover.spot} session={hover.session} snap={hover.snap} className="bg-foreground/[0.045]" />
         {queue.slice(0, 3).map((row, at) => {
           const kind = kindOf(row)
           return (
             <li key={row.id}>
-              <button type="button" data-private={row.private ? '' : undefined} onClick={() => play(queue, at)}
-                className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1.5 text-left text-control hover:bg-foreground/[0.045]">
+              <button type="button" data-queue-next data-private={row.private ? '' : undefined} onClick={() => play(queue, at)}
+                className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1.5 text-left text-control">
                 <span className="w-3 shrink-0 text-right text-xs text-muted-foreground tabular-nums">{at + 1}</span>
                 {kind ? <kind.icon className="size-3.5 shrink-0" style={{ color: kind.tint }} /> : <ListVideo className="size-3.5 shrink-0 text-muted-foreground" />}
                 <span className="private-text min-w-0 flex-1 truncate text-foreground">{row.title}</span>

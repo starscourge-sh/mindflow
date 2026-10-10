@@ -4,8 +4,8 @@ import {
   CalendarClock, CalendarDays, CalendarPlus, Camera, CameraOff, ChartBar, CheckCheck, ChevronsDownUp, ChevronsUpDown, CircleCheck, CircleOff,
   CircleX, Clipboard, Clock, Columns2, Copy, CopyPlus, Dice5, Dot, Download, Eraser, ExternalLink, Eye, EyeOff, FilePlus, FileText, Files, Flag,
   FolderInput, FolderMinus, FolderPlus, Footprints, Gift, GraduationCap, Hash, History, Hourglass, House, Image, Inbox, Keyboard, LayoutGrid,
-  Library, Lightbulb, Link, List, ListChecks, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
-  MonitorUp, MoveRight, Palette, PanelLeft, PanelRight, Pencil, Pin, PinOff, Play, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
+  Library, Lightbulb, Link, List, ListChecks, ListVideo, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
+  MonitorUp, MoveRight, Palette, Scale, PanelLeft, PanelRight, Pencil, Pin, PinOff, Play, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
   ShieldCheck, Smile, Sparkles, SquareCheck, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
   User, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, type LucideIcon
 } from 'lucide-react'
@@ -22,6 +22,8 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^pin\b|^keep .*on screen|^pin the layout/i, Pin],
   [/to the side|as split|^split|beside it|^add (left|right) split|pane to the (left|right)/i, Columns2],
   [/^separate/i, Ungroup],
+  [/^decide/i, Scale],
+  [/^queue$/i, ListVideo],
   [/close other panes/i, CircleX],
   [/^close (this )?pane|^close without/i, X],
   [/new window|own window|in a window/i, AppWindow],
@@ -55,7 +57,8 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^show|^keep .* in view|^reveal/i, Eye],
   // Tasks and time.
   [/task|^complete|^done|^mark done/i, SquareCheck],
-  [/^resolve|^promote|^made it|answered/i, CircleCheck],
+  [/^save as an idea/i, Lightbulb],
+  [/^resolve|^made it|answered/i, CircleCheck],
   [/^remind|^alarm/i, AlarmClock],
   [/^due|deadline|exam date/i, CalendarClock],
   [/today|tomorrow|this week|next week|^later|^someday|come back|^plan|^schedule|^snooze/i, CalendarDays],
@@ -101,7 +104,7 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^fold|^collapse/i, ChevronsDownUp],
   [/^unfold|^expand/i, ChevronsUpDown],
   [/^search|^find/i, Search],
-  [/^tidy|^decide|^sweep/i, WandSparkles],
+  [/^tidy|^sweep/i, WandSparkles],
   [/^two at random|random|shuffle/i, Dice5],
   [/sort|order/i, ArrowUpDown],
   [/^select|^unselect|^pick/i, CheckCheck],

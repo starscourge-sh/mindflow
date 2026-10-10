@@ -468,7 +468,7 @@ function PaneMark({ id }: { id: string }): React.JSX.Element | null {
   const side = mark === 'L' ? 'left' : mark === 'R' ? 'right' : 'middle'
   return (
     <span data-pane-mark={mark} aria-label={`Open in the ${side} pane`} title={`Open in the ${side} pane`}
-      className="pointer-events-none absolute top-1/2 -left-1.5 z-10 flex size-3.5 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--tt-brand-color-400)] text-[8px] leading-none font-semibold text-white shadow-[0_0_0_2px_var(--background)]">
+      className="pointer-events-none absolute top-1/2 -left-3 z-10 flex size-4 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--tt-brand-color-400)] text-[10px] leading-none font-semibold text-white shadow-[0_0_0_2px_var(--background)]">
       {mark}
     </span>
   )

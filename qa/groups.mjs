@@ -142,7 +142,10 @@ if (c) try {
   await frames(c, 'f-picked', 1, 0)
   await row(c, 'Reading list for October').click({ button: 'right' })
   await c.h.waitForTimeout(250)
-  const lines = await c.h.locator('[data-slot="context-menu-content"] [role="menuitem"]').allTextContents()
+  // The copies sit under Copy: open it so its lines are read too.
+  await c.h.locator('[data-slot="context-menu-content"] [role="menuitem"]', { hasText: /^Copy$/ }).hover().catch(() => {})
+  await c.h.waitForTimeout(300)
+  const lines = await c.h.locator('[data-slot="context-menu-content"] [role="menuitem"], [data-slot="context-menu-sub-content"] [role="menuitem"]').allTextContents()
   check('the menu speaks for the two picked', lines.some((one) => one.startsWith('New group with 2 notes')) && lines.some((one) => one.startsWith('Duplicate 2 notes')) && lines.some((one) => one.startsWith('Copy 2 links')) && lines.some((one) => one.startsWith('Archive 2 notes')), lines.join(' | '))
   await frames(c, 'g-menu', 1, 0)
   await c.h.locator('[data-slot="context-menu-sub-trigger"]', { hasText: 'Move to group' }).hover()

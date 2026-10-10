@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { fieldKeys } from '@/components/capture-kinds/kind-fields'
@@ -138,10 +138,23 @@ export function useOpenNote(note: OpenNote | null): void {
   useEffect(() => {
     if (note) opened.set(pane, note)
     else opened.delete(pane)
+    window.dispatchEvent(new Event('vigil:note-open'))
     // Home's "Jump back in" reads these.
     if (note) void call('home:opened', note.type, note.id)
-    return () => void (opened.get(pane) === note && opened.delete(pane))
+    return () => void (opened.get(pane) === note && (opened.delete(pane), window.dispatchEvent(new Event('vigil:note-open'))))
   }, [note?.id, note?.kind, note?.archived]) // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+/** Whether any pane has a note open now: a list's hint is about the list, not the note over it. */
+export function useAnyNoteOpen(): boolean {
+  const [open, setOpen] = useState(() => opened.size > 0)
+  useEffect(() => {
+    const read = (): void => setOpen(opened.size > 0)
+    read()
+    window.addEventListener('vigil:note-open', read)
+    return () => window.removeEventListener('vigil:note-open', read)
+  }, [])
+  return open
 }
 
 // --- the actions, each with its sound and its way back

@@ -21,7 +21,7 @@ import { themeActions } from '@/lib/theme'
 import { chime } from '@/lib/sound'
 import { toast, typing } from './ui'
 import { EXITS, exit } from '@/lib/capture-links'
-import { captureKey, findCaptures, findHeadings, follow, headingIn } from '@/lib/capture-links'
+import { noteLinkText, findCaptures, findHeadings, follow, headingIn } from '@/lib/capture-links'
 import { toMarkdown } from '@/lib/export'
 import { useSameWords } from '@/lib/same-words'
 import { useAppearance, vigil, type ItemFull } from '@/lib/vigil'
@@ -136,7 +136,7 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
             setRev((n) => n + 1)
           })}
           edited={meta.editedAt} captured={meta.capturedAt} pinned={!!meta.pinnedAt} onPin={() => pin('captures', id, !meta.pinnedAt)}
-          copyKey={captureKey(meta.number)} board={board.fits || board.on ? board : undefined} details={!boardShown}
+          copyKey={noteLinkText(meta.id, meta.label)} board={board.fits || board.on ? board : undefined} details={!boardShown}
           menu={[...(boardShown ? [{ label: propsOut ? 'Hide properties' : 'Show properties', run: () => setPropsOut(!propsOut) }, 'separator' as const] : []), ...captureDots(meta).filter((item) => !item || item === 'separator' || item.label !== 'Open in a new window')]}
           tools={boardShown ? <span ref={setTools} className="contents" /> : undefined} />
         {past ? (

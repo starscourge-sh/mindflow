@@ -48,6 +48,8 @@ try {
       await go(id)
       await h.waitForTimeout(700)
       const seen = await example()
+      // Home: Getting started is the one guide while it shows, so no Example under it (checked again below without it).
+      if (id === 'home') { check(`${theme} home: no Example under Getting started`, !seen.on, seen.label.slice(0, 60)); await h.screenshot({ path: `${dir}/${id}-${theme}.png` }); continue }
       check(`${theme} ${id}: shows an example, labelled, with Try it`, seen.on && seen.inert && seen.text > 20 && /^Example\s*Try it:/.test(seen.label), seen.label.slice(0, 90))
       // Seen without scrolling: its label inside the window.
       const top = await h.evaluate(() => document.querySelector('[data-example-frame] [role="note"]')?.getBoundingClientRect().bottom ?? Infinity)
@@ -69,6 +71,14 @@ try {
       await page.screenshot({ path: `${dir}/box-${tab}-${theme}.png` })
     }
   }
+
+  // Getting started put away: Home shows its Example again.
+  await v('onboarding:set', { hidden: true })
+  await go('home')
+  await h.waitForTimeout(900)
+  const homeSeen = await example()
+  check('home without Getting started: shows an example, labelled, with Try it', homeSeen.on && homeSeen.inert && /^Example\s*Try it:/.test(homeSeen.label), homeSeen.label.slice(0, 90))
+  await v('onboarding:set', { hidden: false })
 
   // Keys pressed over the examples reach nothing.
   for (const id of ['inbox', 'today', 'matrix', 'week', 'nuggets', 'tags']) {

@@ -1,7 +1,7 @@
 import { chime, pageTurn } from '@/lib/sound'
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { Archive, ArrowLeft, Calendar, Pause, Plus, SquareDashed } from 'lucide-react'
+import { Archive, ArrowLeft, Calendar, Plus, SquareDashed } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
 import EyeIcon from '@/components/ui/eye-icon'
@@ -10,7 +10,6 @@ import FileDescriptionIcon from '@/components/ui/file-description-icon'
 import HistoryCircleIcon from '@/components/ui/history-circle-icon'
 import LayersIcon from '@/components/ui/layers-icon'
 import BookmarkIcon from '@/components/ui/bookmark-icon'
-import PlayerIcon from '@/components/ui/player-icon'
 import MessageCircleIcon from '@/components/ui/message-circle-icon'
 import RefreshIcon from '@/components/ui/refresh-icon'
 import TriangleAlertIcon from '@/components/ui/triangle-alert-icon'
@@ -36,7 +35,7 @@ import { makeTask } from '@/lib/tasks'
 import { useSameWords } from '@/lib/same-words'
 import { Empty, Island, Page, Prop, Props, refuse, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Rolling, Typed, showTopTitle, Pressed } from './ui'
 import { Term } from './term'
-import { AGES, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
+import { AGES, Chips, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
 import { copy, type MenuItem, type RowItem } from './row-menu'
 import { stickOnDesktop } from './sticky-note'
 import { Lineage } from './lineage'
@@ -77,7 +76,6 @@ const FileText = alive(FileDescriptionIcon)
 const History = alive(HistoryCircleIcon)
 const Layers = alive(LayersIcon)
 const Pin = alive(BookmarkIcon)
-const Play = alive(PlayerIcon)
 const Quote = alive(MessageCircleIcon)
 const RefreshCw = alive(RefreshIcon)
 const TriangleAlert = alive(TriangleAlertIcon)
@@ -97,7 +95,8 @@ export const itemEntry = (item: Item, menu?: RowItem[]): Entry => {
   const recall = !!item.prompt
   const article = item.tier === 'article'
   const due = recall && !!item.dueAt && new Date(item.dueAt) <= new Date()
-  const comes = recall ? (item.dueAt ? `Recall · ${new Date(item.dueAt) <= new Date() ? 'due' : `in ${interval(item.dueAt)}`}` : 'Recall · new') : item.mode === 'pushed' ? 'On rotation' : 'Now and then'
+  // How it comes back, in plain words: tested on a day, or shown as a hint.
+  const comes = recall ? (item.dueAt ? (new Date(item.dueAt) <= new Date() ? 'Due for review' : `Review in ${interval(item.dueAt)}`) : 'Not reviewed yet') : item.mode === 'pushed' ? 'Comes back often' : 'Comes back now and then'
   return {
     id: item.id,
     type: item.tier,
@@ -578,21 +577,22 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
         )}
         <Aliases table="nuggets" id={item.id} />
 
-        <Island compact title={<Term>Review</Term>}>
-          <Prop icon={item.prompt ? Brain : item.mode === 'pushed' ? RefreshCw : Eye} active>
-            <Rolling by="word" text={item.prompt ? 'Tested, on a schedule' : item.mode === 'pushed' ? 'On rotation, always' : 'Now and then, as a hint'} />
-          </Prop>
-          {!item.prompt && (
-            // Pushed: a standing principle that should keep coming round, the
-            // note-to-self's way, rather than turning up by chance.
-            <Prop
-              icon={item.mode === 'pushed' ? Eye : RefreshCw}
-              onClick={() => void vigil.saveItem(item.id, { mode: item.mode === 'pushed' ? 'encounter' : 'pushed' }).then(() =>
-                (chime(item.mode === 'pushed' ? 'off' : 'on'), toast(item.mode === 'pushed' ? 'Back to turning up by chance' : 'On rotation: it will keep coming back')))}
-            >
-              {item.mode === 'pushed' ? 'Only now and then' : 'Keep showing me this'}
-            </Prop>
-          )}
+        {/* How it comes back, one choice: with a question it is tested in
+            Review; without one, a hint now and then, or often (a standing
+            principle, the note-to-self's way); or not at all (suspended). */}
+        <Island compact title="Comes back">
+          <Chips className="flex-wrap px-1 pb-1"
+            options={item.prompt
+              ? [{ id: 'tested', label: 'In Review, on a schedule' }, { id: 'off', label: 'Not at all' }]
+              : [{ id: 'encounter', label: 'Now and then' }, { id: 'pushed', label: 'Often' }, { id: 'off', label: 'Not at all' }]}
+            on={(id) => (item.suspended ? id === 'off' : item.prompt ? id === 'tested' : id === (item.mode === 'pushed' ? 'pushed' : 'encounter'))}
+            pick={(id) => {
+              const now = item.suspended ? 'off' : item.prompt ? 'tested' : item.mode === 'pushed' ? 'pushed' : 'encounter'
+              if (id === now) return
+              const said: Record<string, string> = { off: 'It will not come back until you choose again', tested: 'Back in Review', encounter: 'It comes back now and then', pushed: 'It comes back often' }
+              void vigil.saveItem(item.id, id === 'off' ? { suspended: true } : { suspended: false, ...(id === 'tested' ? {} : { mode: id }) })
+                .then(() => (chime(id === 'off' ? 'off' : 'on'), toast(said[id])))
+            }} />
           <Does does="A question this idea answers. Filled in, it is tested in Review on a schedule; empty, it comes back on its own now and then" set={!!prompt}>
           <Textarea
             value={prompt}
@@ -615,17 +615,11 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
               <Typed text={`Forgotten ${item.lapses} times. That is usually the question, not you: try rewriting it.`} step={28} />
             </p>
           )}
-          <Prop
-            icon={item.suspended ? Play : Pause}
-            onClick={() => void vigil.saveItem(item.id, { suspended: !item.suspended }).then(() => (chime(item.suspended ? 'on' : 'off'), toast(item.suspended ? 'Back in rotation' : 'Suspended until you bring it back')))}
-          >
-            {item.suspended ? 'Bring back into rotation' : 'Suspend'}
-          </Prop>
         </Island>
 
         <Island compact title={<Term>Surfacing</Term>}>
           <Prop icon={item.private ? EyeOff : Eye} active={!!item.private} onClick={() => void vigil.setPrivate('nuggets', item.id, !item.private)}>
-            {item.private ? 'Private' : 'Can surface any time'}
+            {item.private ? 'Private' : 'Not private'}
           </Prop>
           <Prop icon={Pin} active={!!item.pinnedAt} onClick={() => pin('nuggets', item.id, !item.pinnedAt)}>
             {item.pinnedAt ? 'Pinned' : 'Pin to the box'}
@@ -678,11 +672,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
               <StudyThis item={item} />
             </Island>
           </>
-        ) : (
-          <Island compact title="Made from">
-            <Prop icon={Layers}>{item.origins.length ? `${num(item.origins.length)} idea${item.origins.length === 1 ? '' : 's'}` : 'Written from scratch'}</Prop>
-          </Island>
-        )}
+        ) : null}
         <Lineage id={item.id} onOpen={onOpen} />
         <LocalGraph id={item.id} title={item.title} onOpen={onOpen} />
         <Island compact title="Wrong?">
@@ -705,6 +695,8 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
         </Island>
         <Island compact title="Details">
           <Prop icon={Calendar}>Saved {when(item.createdAt)}</Prop>
+          {/* An article made from ideas says so here, with the rest of what it is; one written from scratch needs no line. */}
+          {item.tier === 'article' && item.origins.length > 0 && <Prop icon={Layers}>Made from {num(item.origins.length)} idea{item.origins.length === 1 ? '' : 's'}</Prop>}
           {item.revisions > 0 && <Prop icon={History}>Rewritten {item.revisions === 1 ? 'once' : `${item.revisions} times`}</Prop>}
           <Prop icon={Download} onClick={() => void saveAttachments([{ table: 'nuggets', id: item.id }])}>Save its pictures and files…</Prop>
         </Island>

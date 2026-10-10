@@ -105,8 +105,8 @@ export const POWERS: Power[] = [
     show: { view: 'queue', at: '[data-queue-row]', text: 'Drag to reorder, then Start reading. ] skips on, ⇧→ marks one read and goes to the next.' } },
   { id: 'wrong', group: 'Remembering', name: 'Wrong? Keep the truth', line: 'When something you saved turns out wrong, write what is true, and the old one stays, marked Superseded.',
     show: { view: 'nuggets', at: ROW, text: 'Open an idea and, under Wrong?, choose This turned out wrong… to write what is true now.' }, used: (s) => s.items.some((item) => !!item.supersededBy) },
-  { id: 'suspend', group: 'Remembering', name: 'Keep showing me, or rest it', tryIt: 'Open an idea and choose Keep showing me this, or Suspend.', line: 'Ask for an idea more often, or pause it until you want it back.',
-    show: { view: 'nuggets', at: ROW, text: 'Open an idea: Keep showing me this, or Suspend.' }, used: (s) => s.items.some((item) => !!item.suspended) },
+  { id: 'suspend', group: 'Remembering', name: 'Keep showing me, or rest it', tryIt: 'Open an idea and, under Comes back, choose Often or Not at all.', line: 'Ask for an idea more often, or pause it until you want it back.',
+    show: { view: 'nuggets', at: ROW, text: 'Open an idea: under Comes back, choose Often or Not at all.' }, used: (s) => s.items.some((item) => !!item.suspended) },
   { id: 'questions', group: 'Remembering', name: 'Questions you are holding', tryIt: 'Open a question and add a clue.', line: 'Keep a question open for weeks while clues gather under it, until you can answer it.',
     show: { view: 'questions', at: ROW, text: 'Every open question, with its clues.' }, used: (s) => s.items.some((item) => item.tier === 'question') },
 

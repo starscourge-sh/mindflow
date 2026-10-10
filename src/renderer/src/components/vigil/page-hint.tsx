@@ -6,6 +6,7 @@ import { EASE, shift, useFirstVisit } from '@/lib/motion'
 import { onboarding, playWelcome, useOnboarding } from '@/lib/onboarding'
 import { SANDBOX, enterSandbox } from '@/lib/sandbox'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
+import { useAnyNoteOpen } from '@/lib/notes'
 import { styleNudgeDue, styleNudged } from '@/lib/theme'
 import { splitLead } from './lead'
 import { Typed, toast } from './ui'
@@ -40,6 +41,9 @@ const HINTS: Record<string, string> = {
   articles: "**Your own words on one idea.** In Ideas, select a few with X, then Start an article."
 }
 
+/** Pages of notes: their line is not shown while one of their notes is open. */
+const LISTS = ['inbox', 'nuggets', 'articles', 'questions', 'goals', 'tags']
+
 /** Said once a launch in the sandbox, in this line's place: shown, then gone on its own. */
 let arrived = false
 const ARRIVAL_MS = 9000
@@ -56,6 +60,7 @@ export function PageHint({ page }: { page: string }): React.JSX.Element | null {
     return () => clearTimeout(gone)
   }, [arrival])
   const settings = useLive(vigil.settings, null as Settings | null)
+  const noteOpen = useAnyNoteOpen()
   // Put away here at once, before the main process has said so.
   const [gone, setGone] = useState<string[]>([])
   const busy = (): boolean => document.documentElement.hasAttribute('data-welcoming') || document.documentElement.hasAttribute('data-touring')
@@ -110,6 +115,8 @@ export function PageHint({ page }: { page: string }): React.JSX.Element | null {
   }
 
   const text = HINTS[page]
+  // A list's line is about the list: not over a note open on it.
+  if (noteOpen && LISTS.includes(page)) return null
   // Home has Getting started under it while that is there: one guide at a time.
   if (page === 'home' && !state.sandbox && !state.hidden && !state.doneAt) return null
   // The sandbox is never welcomed (it has its own way in), but its pages say what they are for too.

@@ -35,7 +35,8 @@ import { KindBack, backLine, type Returning } from './kind-back'
 import { GoalStrip } from './goals-view'
 import { NextMark } from './milestones'
 import { QueuePanel } from './queue-view'
-import { GettingStarted } from './getting-started'
+import { GettingStarted, LINGER } from './getting-started'
+import { useOnboarding } from '@/lib/onboarding'
 import { PowersLine } from './powers-view'
 import { Tilt } from './tilt'
 import { asideItem, useHere } from '@/lib/split'
@@ -194,7 +195,7 @@ function Tile({ card, pinned, actions, onHover }: { card: Card; pinned: boolean;
             ? <span className="aspect-square h-full shrink-0 overflow-hidden rounded-l-md shadow-[2px_0_10px_-4px_rgb(0_0_0/0.3)]"><Picture src={src} onBroken={() => setBroken(true)} /></span>
             : <KindMark card={card} className="aspect-square h-full shrink-0 rounded-l-md" />}
           <span className="private-text line-clamp-2 min-w-0 flex-1 text-control leading-tight font-medium [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
-          {pinned && <Pin className="absolute right-3 size-3.5 rotate-45 text-muted-foreground transition-opacity group-focus-within/tile:opacity-0 group-hover/tile:opacity-0" aria-label="Pinned" />}
+          {pinned && <Pin className="absolute right-3 size-3.5 text-muted-foreground transition-opacity group-focus-within/tile:opacity-0 group-hover/tile:opacity-0" aria-label="Pinned" />}
         </button>
         {readable(card) && (
           <RoundRead onRead={() => actions.read([card], 0)}
@@ -505,7 +506,7 @@ function ExampleHome(): React.JSX.Element {
   const held = exampleQuestions().filter((one) => !one.closedAt).slice(0, 3).map((one) => card(one, 'question', one.title, one.createdAt, { clue: null }))
   return (
     <div className="flex flex-col gap-8 pt-2 pb-10">
-      <div className="grid grid-cols-2 gap-2 px-5 @[44rem]/page:px-8 @[80rem]/page:grid-cols-4">
+      <div className="grid grid-cols-1 gap-2 px-5 @[30rem]/page:grid-cols-2 @[44rem]/page:px-8 @[80rem]/page:grid-cols-4">
         {tiles.map((one) => <Tile key={one.id} card={one} pinned={false} actions={none} onHover={() => undefined} />)}
       </div>
       <div className="grid gap-x-6 gap-y-8 px-3 @[44rem]/page:grid-cols-2 @[44rem]/page:px-6">
@@ -682,6 +683,9 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   // page's one voice from its hint (lib/motion.ts).
   const loading = [data, captures, tasks, pins].some(unloaded)
   const empty = !loading && !captures.length && !data.edited.length && !tasks.length && !pins.length
+  // Getting started on screen (GettingStarted's own rule): one guide at a time, so no Example under it.
+  const guide = useOnboarding()
+  const starting = !!guide && !guide.sandbox && !!guide.welcomed && !guide.hidden && !(guide.doneAt && Date.now() - new Date(guide.doneAt).getTime() > LINGER)
   // Four tiles across with room for them, two in a small window.
   const [wide, setWide] = useState(true)
   useLayoutEffect(() => {
@@ -709,7 +713,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       {/* After the welcome: the firsts, ticking themselves, until they are done. */}
       <div className="page-column relative w-full pt-4 empty:hidden"><GettingStarted onOpen={onOpen} onView={onView} /></div>
       <div className="page-column relative w-full pt-3 empty:hidden"><PowersLine onView={onView} /></div>
-      {empty ? (
+      {empty && starting ? null : empty ? (
         // Nothing yet: Home as it will look, with a few made-up shelves, dimmed and out of reach.
         <Example className="page-column relative w-full" tryIt={<>
           <strong><button type="button" onClick={() => (chime('open'), window.api.showPrompt())} className="text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">catch a thought</button> with ⌘. from anywhere, or <button type="button" onClick={() => void window.api.importFrom('vault')} className="text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">bring your notes in</button>.</strong> What you open, keep and wonder about gathers here.
@@ -732,7 +736,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
               ))}
             </div>
             {shownTiles.length > 0 && (
-              <div className="grid grid-cols-2 gap-2 px-5 @[44rem]/page:px-8 @[80rem]/page:grid-cols-4">
+              <div className="grid grid-cols-1 gap-2 px-5 @[30rem]/page:grid-cols-2 @[44rem]/page:px-8 @[80rem]/page:grid-cols-4">
                 {shownTiles.map((card) => <Tile key={card.id} card={card} pinned={pinned.has(card.id)} actions={actions} onHover={setHover} />)}
               </div>
             )}
