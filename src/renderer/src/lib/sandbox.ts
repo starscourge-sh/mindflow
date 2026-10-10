@@ -16,7 +16,7 @@ export const SANDBOX = new URLSearchParams(location.search).has('sandbox')
  */
 const CARRY_SETTINGS = ['motion', 'sounds', 'volume', 'soundPack', 'keys', 'marks', 'textSize', 'interfaceSize', 'progressBars', 'celebrationsFolder', 'celebrationPicks', 'giphy', 'giphyKey', 'giphyWords', 'giphyStars'] as const
 /** And from the window's own storage: the theme, Vim, and whether Vigil shows in screen recordings. */
-const CARRY_LOCAL = ['theme', 'custom-themes', 'frosted', 'style', 'recordable', 'vim'] as const
+const CARRY_LOCAL = ['theme', 'custom-themes', 'style', 'recordable', 'vim'] as const
 
 export type Carry = { local: Record<string, string>; settings: Record<string, unknown> }
 

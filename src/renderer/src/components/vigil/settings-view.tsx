@@ -17,7 +17,7 @@ import SparklesIcon from '@/components/ui/sparkles-icon'
 import Volume2Icon from '@/components/ui/volume-2-icon'
 import XIcon from '@/components/ui/x-icon'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
-import { allThemes, applyTheme, customThemes, frosted, importTheme, removeTheme, restoreTheme, setFrosted, themeName } from '@/lib/theme'
+import { allThemes, applyTheme, customThemes, importTheme, removeTheme, restoreTheme, themeName } from '@/lib/theme'
 import { KeysEditor, Marked } from './shortcut-sheet'
 import { keyFor } from '@/lib/keys'
 import { Swatch } from '../theme/theme-picker'
@@ -413,7 +413,6 @@ export function SettingsView(): React.JSX.Element {
             <StylePicker className="-mr-1" />
           </Setting>
           <ImportedThemes />
-          <Frosted />
         </Group>
         <Group section="Appearance" title="Layout">
           <Setting title="Page width" note="**How wide notes and pages are, also in a note's ⋯ menu.** Narrow is an easy column to read, Wide gives more room, Full runs edge to edge." keywords="full width wide narrow column page layout">
@@ -731,7 +730,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Show sticky notes" note="**Every sticky note out, or all put away, keeping their places.** Goal cards go with them. ⌃⌥⌘N from anywhere.">
             <Switch checked={settings.stickiesShown} onCheckedChange={(stickiesShown) => set({ stickiesShown })} />
           </Setting>
-          <Setting title="Sticky notes are made of" note="**Paper, wallpaper frost or glass.** Paper is solid; frost blurs your desktop picture behind each note, and they keep their lean; glass, the default, shows what is behind blurred and dimmed, and the notes sit straight. Goal cards too. The See-through setting does not change them." keywords="sticky notes frosted glass blur wallpaper desktop transparent paper vibrancy">
+          <Setting title="Sticky notes are made of" note="**Paper, wallpaper frost or glass.** Paper is solid; frost blurs your desktop picture behind each note, and they keep their lean; glass, the default, shows what is behind blurred and dimmed, and the notes sit straight. Goal cards too." keywords="sticky notes frosted glass blur wallpaper desktop transparent paper vibrancy">
             <Chips className="shrink-0" options={[{ id: 'paper', label: 'Paper' }, { id: 'frost', label: 'Wallpaper frost' }, { id: 'glass', label: 'Glass' }]}
               on={(id) => id === (settings.stickiesFrosted === false ? 'paper' : settings.stickiesGlass ? 'glass' : 'frost')}
               pick={(id) => set({ stickiesFrosted: id !== 'paper', stickiesGlass: id === 'glass' })} />
@@ -1352,23 +1351,6 @@ function ImportButton({ what, children }: { what: 'vault' | 'files'; children: R
     }}>
       <AliveIcon icon={UploadIcon} size={16} />{children}
     </Button>
-  )
-}
-
-/** Quick capture frosted and see-through, or solid in the theme's colour (main.css .app-container). */
-function Frosted(): React.JSX.Element {
-  const [on, setOn] = useState(frosted)
-  return (
-    <Setting title="See-through quick capture" note="**On, your desktop shows through quick capture, frosted.** Only with a dark theme: Paper, light themes and Midnight stay solid so the words stay readable. Off, it is solid in your theme's colour. The main window is always solid." keywords="see-through windows frosted glass transparent blur vibrancy quick capture">
-      <Switch
-        checked={on}
-        onCheckedChange={(next) => {
-          setFrosted(next)
-          setOn(next)
-          chime(next ? 'on' : 'off')
-        }}
-      />
-    </Setting>
   )
 }
 

@@ -63,25 +63,6 @@ export function themeName(theme: Theme): string {
   )
 }
 
-/** Whether windows let the desktop show through, frosted. Off, every theme is solid. */
-export function frosted(): boolean {
-  try {
-    return localStorage.getItem("frosted") !== "off"
-  } catch {
-    return true
-  }
-}
-
-/** Turn the frosting on or off; the other windows follow through storage. */
-export function setFrosted(on: boolean): void {
-  try {
-    localStorage.setItem("frosted", on ? "on" : "off")
-  } catch {
-    // This window only.
-  }
-  applyTheme(currentTheme(), false)
-}
-
 /**
  * How things are drawn, apart from their colours: Soft (rounded, lifted on
  * soft shadows) or Brutal (square, outlined in the theme's ink, standing on
@@ -165,7 +146,7 @@ export function applyTheme(theme: Theme, remember = true): void {
     // blurs nothing behind a window this small and tilted. Its frost is drawn
     // instead, from the desktop picture (components/vigil/frost.tsx).
     const sticky = new URLSearchParams(location.search).get("view") === "sticky" && !new URLSearchParams(location.search).has("glass")
-    if ((theme.startsWith("custom-") && isLight(theme)) || !frosted() || sticky) document.documentElement.dataset.solid = ""
+    if ((theme.startsWith("custom-") && isLight(theme)) || sticky) document.documentElement.dataset.solid = ""
     else delete document.documentElement.dataset.solid
     // Native bits (a time field, a scrollbar) follow light or dark, imported themes included.
     if (isLight(theme)) document.documentElement.dataset.light = ""
