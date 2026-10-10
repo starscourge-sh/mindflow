@@ -590,9 +590,6 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Volume" note="How loud every sound is, from silent to as loud as they were made.">
             <SettingSlider disabled={!settings.sounds} min={0} max={1} step={0.05} value={settings.volume} onSave={(volume) => set({ volume })} />
           </Setting>
-          <Setting
-            title="Sound pack"
-            note="**Nine characters for the same sounds.** Point at one to hear it, click to make it yours; the pieces on the right play the one you have."
           <Setting title="Tick while a session runs" note="**A clock ticks quietly while you focus.** Paused, it stops. The last ten seconds tick slower and tenser either way, and an alarm clock rings at the end. Right-click the session bubble to switch it too." keywords="tick ticking clock focus session timer countdown alarm">
             <Switch disabled={!settings.sounds} checked={settings.sessionTick === true} onCheckedChange={(sessionTick) => set({ sessionTick })} />
           </Setting>
@@ -605,6 +602,9 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Smoke on the session bubble" note="**A faint smoke breathes inside the bubble all session, so it stays hard to forget.** Stronger under the pointer and once past the time. Off, it shows only as a session starts, under the pointer and in the last minute; with Motion off, never." keywords="smoke glow breathe beam focus session bubble pill timer attention remind">
             <Switch checked={settings.sessionSmoke !== false} onCheckedChange={(sessionSmoke) => set({ sessionSmoke })} />
           </Setting>
+          <Setting
+            title="Sound pack"
+            note="**Nine characters for the same sounds.** Point at one to hear it, click to make it yours; the pieces on the right play the one you have."
             keywords={Object.values(PACKS).map((one) => `${one.label} ${one.feel}`).join(' ')}
             below={<div inert={!settings.sounds} className={settings.sounds ? '' : 'opacity-50'}><SoundPacks chosen={settings.soundPack} /></div>}
           />
