@@ -1,4 +1,6 @@
 import type { JSONContent } from '@tiptap/core'
+import { EXAMPLES, STARTERS } from '@/lib/welcome-box'
+import { FLOW_WORDS } from '@/components/vigil/welcome-flow'
 
 import tabletUrl from '@/assets/sandbox/cuneiform-tablet.webp'
 import plaqueUrl from '@/assets/sandbox/odysseus-plaque.webp'
@@ -1185,6 +1187,52 @@ The same move works on anything hard. Put what you know beside what you do not. 
     const row = queue.find((one) => one.itemId === id)
     if (row) await v('queue:done', row.id, at(-n, '22:00'))
   }
+
+  // --- the welcome's own examples, word for word, so whatever it shows can be found here ---
+  // Its cards (welcome-box.ts STARTERS), quick capture's typed examples (EXAMPLES) and How a thought grows (welcome-flow.tsx).
+  const starter = (kind: string): string => STARTERS.find((one) => one.kind === kind)!.text
+  const thought = await capture({}, at(-3, '08:12'))
+  await write(thought, `${starter('note')}\n\nA plain thought, kept as written: most of what anyone catches is one of these.`)
+  const yoda = await capture({ kind: 'quote', attribution: 'Yoda', medium: 'The Empire Strikes Back (1980)' }, at(-6, '21:30'))
+  await write(yoda, `${starter('quote')}\n\nA quote keeps who said it and where. A year from today it can come back to you as a postcard.`)
+  const duneLink = await capture({ kind: 'link', title: 'Dune (novel)' }, at(-9, '19:10'))
+  await write(duneLink, `
+Dune (novel)
+
+\`\`\`cardlink
+url: ${starter('link')}
+title: "Dune (novel)"
+description: "Frank Herbert's 1965 novel of the desert planet Arrakis."
+host: en.wikipedia.org
+image: ${await picture(prairieUrl)}
+\`\`\`
+`)
+  await task(starter('todo'))
+  const frodoThought = await capture({}, at(-4, '23:10'))
+  await write(frodoThought, EXAMPLES.note)
+  const anagnorisis = await capture({ kind: 'word' }, at(-8, '07:55'))
+  await write(anagnorisis, `Anagnorisis: the moment a character sees the truth of their situation.`)
+  await field(anagnorisis, 'definition', 'The moment in a story when a character sees the truth, from the Greek for recognition.')
+  const rosettaLink = await capture({ kind: 'link', title: 'Rosetta Stone' }, at(-27, '20:05'))
+  await write(rosettaLink, `
+Rosetta Stone
+
+\`\`\`cardlink
+url: ${EXAMPLES.link}
+title: "Rosetta Stone"
+description: "One decree from 196 BC in hieroglyphs, Demotic and Greek: the key to reading hieroglyphs."
+host: en.wikipedia.org
+\`\`\`
+`)
+  await task(EXAMPLES.todo)
+  // How a thought grows: the question caught at the bus stop, the note it became, and what branched off it.
+  const story = await capture({}, at(-5, '08:13'))
+  await write(story, `${FLOW_WORDS.caught}\n\nWalton writes the letters, Victor tells his story inside them, and the creature tells his inside Victor's.`)
+  await essay(FLOW_WORDS.note, FLOW_WORDS.lines.join('\n\n'))
+  await task(`${FLOW_WORDS.task} on Saturday`)
+  const speaks = await v<string>('nugget:from', `${FLOW_WORDS.gem}: by listening to a family through a wall, before anyone has spoken to him.`, {})
+  await v('item:save', speaks, { title: FLOW_WORDS.gem, prompt: 'How does the creature learn to speak?' })
+  nuggets++
 
   // The deck that teaches Vigil itself, tagged #learn-vigil: a few new cards a day in Review.
   nuggets += await v<number>('learn:add')
