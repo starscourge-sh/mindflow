@@ -26,7 +26,7 @@ import type { CaptureType } from '@/components/capture-kinds/capture-kind-picker
  * only. The send reads the same plan, so what is lit is what happens.
  */
 
-export type TokenKind = 'clue' | 'clue-miss' | 'timer' | Span['kind'] | 'task-tag' | 'book' | 'bit' | 'signature' | 'link' | 'milestone'
+export type TokenKind = 'clue' | 'clue-miss' | 'timer' | Span['kind'] | 'task-tag' | 'book' | 'bit' | 'signature' | 'link' | 'milestone' | 'milestone-miss'
 
 export type BoxToken = {
   /** Stable while you type: the kind and the words. */
@@ -80,7 +80,7 @@ type Meta = { keep?: Kept; rearm?: number; refresh?: true }
 
 const COLOR: Record<TokenKind, BlockColor> = {
   clue: 'purple', 'clue-miss': 'gray', timer: 'yellow', date: 'blue', deadline: 'red', repeat: 'purple', priority: 'orange', plan: 'green', notify: 'pink',
-  'task-tag': 'green', book: 'brown', bit: 'gray', signature: 'pink', link: 'blue', milestone: 'orange'
+  'task-tag': 'green', book: 'brown', bit: 'gray', signature: 'pink', link: 'blue', milestone: 'orange', 'milestone-miss': 'gray'
 }
 
 /**
@@ -126,7 +126,7 @@ const trimTitle = (title: string): string => (title.length > 36 ? `${title.slice
 const DROPPED: Record<TokenKind, string> = {
   clue: 'no clue added', 'clue-miss': 'it will be a capture', timer: 'no timer', date: 'no date', deadline: 'no deadline',
   repeat: 'no repeat', priority: 'no priority', plan: 'no plan', notify: 'no reminder', 'task-tag': 'not a task',
-  book: 'not a book', bit: 'not private', signature: 'no speaker', link: 'not saved as a link', milestone: 'no day marked'
+  book: 'not a book', bit: 'not private', signature: 'no speaker', link: 'not saved as a link', milestone: 'no day marked', 'milestone-miss': 'no day marked'
 }
 
 /** The toast for words kept plain: "“5m” stays as words, no timer". */
@@ -218,6 +218,17 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
   if (marked) {
     const [from, to] = [pos(0), pos(first.text.length)]
     if (!isKept('milestone', from, to)) return { ...EMPTY, kind: ctx.kind, milestone: marked, tokens: [token('milestone', from, to, `Mark ${dayMonth(`${marked.day}T12:00`)}: ${trimTitle(marked.title)}`)] }
+  }
+  // "!milestone" that marks nothing: after other words, on a later line, or
+  // with no day. Greyed, with what it needs, so it never looks like it worked.
+  for (const block of blocks) {
+    for (const match of block.text.matchAll(/(?:^|\s)(!(?:milestone|mark))(?=\s|$)/gi)) {
+      const index = (match.index ?? 0) + match[0].length - match[1].length
+      const [from, to] = [block.at[index], block.at[index + match[1].length]]
+      if (marked && block === first.block || isKept('milestone-miss', from, to)) continue
+      const atStart = block === first.block && index === first.start
+      tokens.push(token('milestone-miss', from, to, atStart ? `${match[1]} needs a name and a day, like “${match[1]} Exam on 3 Dec”` : `${match[1]} works only at the start of the first line`))
+    }
   }
 
   const full = blocks.map((block) => block.text).join('\n').trim()

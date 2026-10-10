@@ -400,7 +400,8 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
     const onKey = (event: KeyboardEvent): void => {
       if (!here()) return
       if (event.key !== 'f' || event.metaKey || event.ctrlKey || event.altKey) return
-      if (typing()) return
+      // Already taken by what had the keys (a rot card's F tidies it).
+      if (typing() || event.defaultPrevented) return
       event.preventDefault()
       show(!openNow.current)
     }

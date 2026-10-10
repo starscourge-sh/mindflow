@@ -10,7 +10,8 @@ import { Kbd } from './ui'
  * A Word's meaning, offered while you write it: looked up in the background
  * once the line is a single word, shown faint under it, and kept only when
  * you take it (Tab or a click). Never saved on its own. A word the
- * dictionary does not know is offered its nearest spelling, in one click.
+ * dictionary does not know is offered its nearest spelling, in one click,
+ * or said plainly to be unknown. "Looking up…" shows while it is asked.
  * Offline, nothing is said.
  */
 
@@ -23,7 +24,8 @@ export const defineable = (text: string): string | null => {
 
 export type Definition = {
   word: string
-  state: 'looking' | 'found' | 'fix' | 'quiet'
+  /** `none`: the dictionary does not know it and has no nearer spelling. `quiet`: offline, nothing said. */
+  state: 'looking' | 'found' | 'fix' | 'none' | 'quiet'
   found?: Defined
   fix?: string
   /** Taken with Tab or a click: saved with the note as its definition and example. */
@@ -43,6 +45,7 @@ export function useDefinition(word: string | null): { definition: Definition | n
         if (!live) return
         if (answer && 'found' in answer) setDefinition({ word: key, state: 'found', found: answer.found, kept: false })
         else if (answer && 'miss' in answer && answer.fix) setDefinition({ word: key, state: 'fix', fix: answer.fix, kept: false })
+        else if (answer && 'miss' in answer) setDefinition({ word: key, state: 'none', kept: false })
         else setDefinition({ word: key, state: 'quiet', kept: false })
       }, () => live && setDefinition({ word: key, state: 'quiet', kept: false }))
     }, 450)
@@ -138,6 +141,17 @@ export function DefineGhost({ definition, onKeep, onFix }: { definition: Definit
   if (!definition) return null
   // Inside the writing's own surface, lined up with its words (as the mentions under a kept note are).
   const LINE = 'absolute inset-x-0 pr-[4.75rem]'
+  // While it is asked, and when nothing comes back: said, so the glow is not the only sign.
+  // One short line in the room under the words: no room of its own to keep (that kept the page measuring every frame).
+  if (definition.state === 'looking' || definition.state === 'none') {
+    return (
+      <><div ref={box} data-define={definition.state} className={`${LINE} pt-1 pb-2 text-xs text-muted-foreground animate-in fade-in-0 duration-200`}>
+        {definition.state === 'looking'
+          ? <>Looking up “{definition.word}”…</>
+          : <>No meaning found for “{definition.word}”.</>}
+      </div></>
+    )
+  }
   if (definition.state === 'fix' && definition.fix) {
     return (
       <><div ref={room} aria-hidden />

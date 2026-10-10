@@ -45,9 +45,10 @@ export async function clueInto(question: PinnedQuestion, from: { captureId?: str
  * what you are actually trying to work out. Nothing at all with none in
  * view, or with the setting off.
  */
-export function PinnedQuestions({ onPick, className = '' }: { onPick: (question: PinnedQuestion) => void; className?: string }): React.JSX.Element | null {
+export function PinnedQuestions({ onPick, className = '', only }: { onPick: (question: PinnedQuestion) => void; className?: string; /** Only the ones this says yes to: the box offers those its words are about. */ only?: (title: string) => boolean }): React.JSX.Element | null {
   const settings = useLive(vigil.settings, null as Settings | null)
-  const pinned = useLive(vigil.pinnedQuestions, [] as PinnedQuestion[])
+  const every = useLive(vigil.pinnedQuestions, [] as PinnedQuestion[])
+  const pinned = only ? every.filter((one) => only(one.title)) : every
   if (!pinned.length || settings?.pinnedQuestions === false) return null
   return (
     <div className={`flex min-w-0 flex-wrap items-center gap-1 text-xs text-muted-foreground ${className}`}>

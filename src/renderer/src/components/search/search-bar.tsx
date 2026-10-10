@@ -72,6 +72,8 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
     const onKeyDown = (event: KeyboardEvent): void => {
       // Take over find-in-page, which is meaningless in an app window. ⌥⌘F
       // opens it with replace showing.
+      // ⌃F already taken by the note (Vim's normal mode pages down with it) is not find too.
+      if (event.ctrlKey && event.defaultPrevented) return
       if ((event.metaKey || event.ctrlKey) && event.code === "KeyF" && !event.shiftKey) {
         // One page can hold several editors, each with a find bar. The one
         // you are typing in answers; with the caret in none, the first does.

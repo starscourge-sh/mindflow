@@ -42,8 +42,9 @@ import { assetsOf } from './lib/document'
 import { tagsOf, type TokenPattern } from './extensions/tokens'
 import { KeptPanel } from './components/vigil/kept-panel'
 import { startQuestion } from './components/vigil/questions-view'
-import { PinnedQuestions, clueInto } from './components/vigil/pinned-questions'
-import { GoalChips, logInto } from './components/vigil/goals-view'
+import { clueInto } from './components/vigil/pinned-questions'
+import { logInto } from './components/vigil/goals-view'
+import { BoxOffers } from './components/vigil/box-offers'
 import { RecentPanel } from './components/vigil/recent-panel'
 import { BOX_TABS, useShown, type Place } from './components/vigil/places'
 import { RowMenu } from './components/vigil/row-menu'
@@ -1194,7 +1195,7 @@ export default function App(): React.JSX.Element {
               chime(appSettings?.sounds ? 'off' : 'on')
               void vigil.setSettings({ sounds: !appSettings?.sounds })
             } },
-            { label: appSettings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', cue: appSettings?.safeMode ? 'off' : 'on', run: () => void vigil.setSettings({ safeMode: !appSettings?.safeMode }).then(() => toast(appSettings?.safeMode ? 'Safe mode off' : 'Safe mode: no hints, rot cards or pins come up')) },
+            { label: appSettings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', cue: appSettings?.safeMode ? 'off' : 'on', run: () => void vigil.setSettings({ safeMode: !appSettings?.safeMode }).then(() => toast(appSettings?.safeMode ? 'Safe mode off' : 'Safe mode: no hints, old captures or pinned notes come up')) },
             { label: recordable ? 'Hide from screen recordings' : 'Show in screen recordings', cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => setRecordable(!recordable) },
             { label: appSettings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', keys: '⌃⌥⌘N', cue: null, run: () => void vigil.setSettings({ stickiesShown: appSettings?.stickiesShown === false }) },
             { label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() },
@@ -1247,7 +1248,7 @@ export default function App(): React.JSX.Element {
         startOver()
       }} title={appSettings?.topTitle === false ? null : topTitle}
       // Safe mode says so beside the pill, or the quiet looks like nothing happening.
-      aside={appSettings?.safeMode ? <Tip label="Safe mode: no hints, rot cards or pins come up  ⌥⌘S"><span className="flex h-5 items-center rounded-full bg-accent px-2 text-key leading-none text-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,var(--foreground))]">Safe</span></Tip>
+      aside={appSettings?.safeMode ? <Tip label="Safe mode: no hints, old captures or pinned notes come up  ⌥⌘S"><span className="flex h-5 items-center rounded-full bg-accent px-2 text-key leading-none text-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,var(--foreground))]">Safe</span></Tip>
         // Rot cards and reminder pins live in the side panel's Inbox; with the
         // panel shut, a chip up here says they are there, and opens it on them.
         // Kept with the panel open too, so it never pops out as the panel slides in.
@@ -1259,10 +1260,12 @@ export default function App(): React.JSX.Element {
                 setTab('inbox')
                 setPanel(true)
               }}
-              className="flex h-5 items-center gap-1 rounded-full bg-accent px-2 text-key leading-none text-muted-foreground hover:text-foreground">
-              {oldCount > 0 && <span><Rolling text={oldCount} /> to revisit</span>}
+              className="group/waiting flex h-5 items-center gap-1 rounded-full bg-accent pr-1 pl-2 text-key leading-none text-muted-foreground transition-colors hover:text-foreground">
+              {oldCount > 0 && <span><Rolling text={oldCount} /> {oldCount === 1 ? 'old capture' : 'old captures'}</span>}
               {oldCount > 0 && pinned.length > 0 && <span>·</span>}
-              {pinned.length > 0 && <span><Rolling text={pinned.length} /> waiting</span>}
+              {pinned.length > 0 && <span><Rolling text={pinned.length} /> pinned</span>}
+              {/* Says it opens something: a chevron that leans on hover. */}
+              <ChevronRight aria-hidden className="size-3 transition-transform group-hover/waiting:translate-x-0.5" />
             </button>
           </Tip>
         ) : null}
@@ -1482,10 +1485,7 @@ export default function App(): React.JSX.Element {
             {/* Where else it could go, the questions kept in view and the open goals, on
                 one quiet line, and only once a few words are written: an empty box asks nothing. */}
             {started && !plus && !focus && !lesson && textOf(body).trim().split(/\s+/).length >= 3 && (
-              <div data-chrome className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 px-[4.75rem] pb-1">
-                <PinnedQuestions onPick={clueToPinned} />
-                <GoalChips onPick={logToGoal} />
-              </div>
+              <BoxOffers words={textOf(body)} onClue={clueToPinned} onLog={logToGoal} />
             )}
             {/* A hint sits at the foot of the box: a glance at something you
                 wrote once, while you are here to write. Usually empty. */}

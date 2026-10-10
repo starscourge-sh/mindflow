@@ -24,7 +24,7 @@ export function WillDo({ plan, onKeep, onNotTask, onNewQuestion, onUncard }: {
   if (!plan) return null
   const items: Item[] = []
   for (const token of plan.tokens) {
-    if (token.kind === 'clue-miss') continue
+    if (token.kind === 'clue-miss' || token.kind === 'milestone-miss') continue
     const same = items.find((item) => item.effect === token.effect)
     if (same) same.tokens.push(token)
     else items.push({ key: token.id, effect: token.effect, color: token.color, tokens: [token] })
@@ -35,7 +35,9 @@ export function WillDo({ plan, onKeep, onNotTask, onNewQuestion, onUncard }: {
   // A link that already made its card: kept as that link, or × for the plain address.
   if (plan.card && plan.url) items.push({ key: 'card', effect: `Save as a link from ${plan.url.hostname.replace(/^www\./, '')}`, color: 'blue', tokens: [], card: true })
   const miss = plan.tokens.find((one) => one.kind === 'clue-miss')
-  if (!items.length && !miss) return null
+  // "!milestone" that marks nothing: said in grey, with what it needs.
+  const unmarked = plan.tokens.find((one) => one.kind === 'milestone-miss')
+  if (!items.length && !miss && !unmarked) return null
   return (
     <div data-chrome data-will-do className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-1 px-[4.75rem] pt-1.5 text-xs text-muted-foreground animate-in fade-in-0 duration-200">
       {items.length > 0 && <span className="mr-0.5 text-muted-foreground/70">This will:</span>}
@@ -72,6 +74,13 @@ export function WillDo({ plan, onKeep, onNotTask, onNewQuestion, onUncard }: {
             onMouseDown={(event) => event.preventDefault()} onClick={() => onKeep([miss])}>
             Keep as plain text
           </button>
+        </span>
+      )}
+      {unmarked && (
+        <span data-will="milestone-miss" className="inline-flex min-w-0 flex-wrap items-center gap-1.5 animate-in fade-in-0 duration-200">
+          {(items.length > 0 || miss) && <span aria-hidden className="text-muted-foreground/50">·</span>}
+          <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: 'var(--tt-color-text-gray)' }} />
+          <span className="min-w-0">{unmarked.effect}: no day is marked.</span>
         </span>
       )}
     </div>

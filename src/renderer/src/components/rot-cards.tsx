@@ -184,7 +184,8 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
               setTagging(card.id)
             }
             else if (event.key === 'c') setAside(card)
-            else if (event.key === 'f') openPass('tidy', [card.id])
+            // Taken, so the list's own F (Display) behind the cards does not open too.
+            else if (event.key === 'f') (event.preventDefault(), openPass('tidy', [card.id]))
             else if (event.key === 'w') {
               event.preventDefault()
               setAsking(card.id)

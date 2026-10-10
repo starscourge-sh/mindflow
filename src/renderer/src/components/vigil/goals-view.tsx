@@ -750,14 +750,17 @@ export function GoalStrip({ onOpen, className = '' }: { onOpen?: (type: string, 
   )
 }
 
+/** The goals a log can go to: the three nearest still ahead (one past its day wants an answer, not a log). */
+export const goalsToLog = (all: Item[]): Item[] => openOnes(all).filter((one) => daysLeft(one.goalAt!) >= 0).slice(0, 3)
+
 /**
  * The open goals, small, under the writing in the box: one click logs what
  * you wrote against that goal, nothing captured.
  */
-export function GoalChips({ onPick, className = '' }: { onPick: (goal: Item) => void; className?: string }): React.JSX.Element | null {
+export function GoalChips({ onPick, className = '', only }: { onPick: (goal: Item) => void; className?: string; /** Only the ones this says yes to: the box offers those its words are about. */ only?: (title: string) => boolean }): React.JSX.Element | null {
   const all = useLive(() => vigil.items('goal'), [] as Item[], [], ['item'])
   // The three nearest still ahead: one past its day wants an answer, not a log.
-  const open = openOnes(all).filter((one) => daysLeft(one.goalAt!) >= 0).slice(0, 3)
+  const open = goalsToLog(all).filter((one) => !only || only(one.title))
   if (!open.length) return null
   const short = (text: string): string => (text.length > 24 ? `${text.slice(0, 24)}…` : text) || 'Untitled'
   return (

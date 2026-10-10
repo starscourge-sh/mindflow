@@ -44,6 +44,11 @@ export function useCounts(editor: Editor | null): { words: number; characters: n
   return counts
 }
 
+/** The box: its window is the one opened with nothing named in its address. */
+const BOX = !/[?&](?:view|note|drawing)=/.test(window.location.search)
+/** In the box a short capture needs no count: it shows from this many words. */
+const BOX_FROM = 40
+
 /**
  * Words and characters for the whole document.
  *
@@ -89,8 +94,9 @@ export function WordCount({ editor }: { editor: Editor | null }) {
 
   if (!editor || !counts) return null
   const { words, characters } = counts
-  // Nothing to count says nothing: an empty box stays empty.
-  if (!words) return null
+  // Nothing to count says nothing: an empty box stays empty. In the box, a
+  // few lines say nothing either: the count turns up once it is long.
+  if (!words || (BOX && words < BOX_FROM)) return null
 
   return (
     <span
@@ -98,7 +104,8 @@ export function WordCount({ editor }: { editor: Editor | null }) {
       data-clear={clear || undefined}
       // Centred under the page on a soft pill, the way Raycast Notes shows it.
       // Tinted from the ink, so it shows on a page the colour of the background too (Paper).
-      className="tiptap-word-count pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-foreground/[0.07] px-2 py-0.5 text-xs whitespace-nowrap text-foreground/70 tabular-nums opacity-0 transition-opacity duration-200 data-clear:opacity-100">
+      // In the box, plain words with no pill: nothing there that looks like a button (Brutal outlines pills).
+      className={`tiptap-word-count pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 text-xs whitespace-nowrap tabular-nums opacity-0 transition-opacity duration-200 data-clear:opacity-100 ${BOX ? 'text-muted-foreground' : 'rounded-full bg-foreground/[0.07] text-foreground/70'}`}>
       {num(words)} {words === 1 ? "word" : "words"} · {num(characters)} {characters === 1 ? "character" : "characters"}
     </span>
   )
