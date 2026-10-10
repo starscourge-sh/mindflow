@@ -24,8 +24,6 @@ export const THEMES = [
   "paper",
   "dark",
   "light",
-  "brutal",
-  "brutal-dark",
   "catppuccin",
   "dracula",
   "gruvbox",
@@ -44,7 +42,7 @@ export const DEFAULT_THEME = "github"
 export type Theme = (typeof THEMES)[number] | `custom-${string}`
 
 /** The ones with dark ink on a light page: the window behind them is made solid. */
-const LIGHT: Theme[] = ["light", "paper", "brutal"]
+const LIGHT: Theme[] = ["light", "paper"]
 export const isLight = (theme: Theme): boolean => LIGHT.includes(theme) || !!customThemes().find((one) => one.id === theme)?.light
 
 /** Names the kebab case cannot spell. Everything else is title case. */
@@ -84,8 +82,58 @@ export function setFrosted(on: boolean): void {
   applyTheme(currentTheme(), false)
 }
 
+/**
+ * How things are drawn, apart from their colours: Soft (rounded, lifted on
+ * soft shadows) or Brutal (square, outlined in the theme's ink, standing on
+ * hard shadows; brutal.css). Any theme can wear either.
+ */
+export type Style = "soft" | "brutal"
+
+export function currentStyle(): Style {
+  try {
+    return localStorage.getItem("style") === "brutal" ? "brutal" : "soft"
+  } catch {
+    return "soft"
+  }
+}
+
+/** Wear a style; the other windows follow through storage. */
+export function setStyle(style: Style): void {
+  try {
+    localStorage.setItem("style", style)
+  } catch {
+    // This window only.
+  }
+  applyTheme(currentTheme())
+}
+
+/**
+ * Whether to say, once ever, that there is a louder style: after three
+ * changes of theme, to someone still on Soft who has not been told.
+ */
+export function styleNudgeDue(): boolean {
+  try {
+    return currentStyle() === "soft" && !localStorage.getItem("style-nudged") && Number(localStorage.getItem("theme-changes") ?? 0) >= 3
+  } catch {
+    return false
+  }
+}
+export const styleNudged = (): void => {
+  try {
+    localStorage.setItem("style-nudged", "1")
+  } catch {
+    // Said again next time, which is no harm.
+  }
+}
+
 /** The one last chosen, or the default (GitHub). */
 export function currentTheme(): Theme {
+  // Brutal was briefly a pair of themes; it is a style now, worn over Paper or GitHub.
+  const old = localStorage.getItem("theme")
+  if (old === "brutal" || old === "brutal-dark") {
+    localStorage.setItem("theme", old === "brutal" ? "paper" : "github")
+    localStorage.setItem("style", "brutal")
+  }
   const saved = localStorage.getItem("theme")
   return allThemes().includes(saved as Theme) ? (saved as Theme) : DEFAULT_THEME
 }
@@ -107,6 +155,9 @@ export function applyTheme(theme: Theme, remember = true): void {
     classList.add("dark")
     paintCustom()
     for (const other of allThemes()) if (other !== "dark") classList.toggle(other, theme === other)
+    // The style rides along with the theme, so it turns over in the same picture.
+    if (currentStyle() === "brutal") document.documentElement.dataset.style = "brutal"
+    else delete document.documentElement.dataset.style
     // An imported light theme has no class of its own in the stylesheet to make
     // the window solid, so it says so here.
     // A sticky note is paper on the desktop: always solid. Frosted, it showed
@@ -131,7 +182,11 @@ export function applyTheme(theme: Theme, remember = true): void {
   if (fade) document.startViewTransition(paint).ready.catch(() => {})
   else paint()
   // A preview is worn, not kept, so the other window does not follow it.
-  if (remember) localStorage.setItem("theme", theme)
+  if (remember) {
+    // Kept themes are counted, for the one nudge toward the Brutal style (page-hint.tsx).
+    if (localStorage.getItem("theme") !== theme) localStorage.setItem("theme-changes", String(Number(localStorage.getItem("theme-changes") ?? 0) + 1))
+    localStorage.setItem("theme", theme)
+  }
   // The window is see-through over macOS's frosted backing: it has to be
   // dark frosting under a dark theme, or the text lands on white.
   // Told only when it changes: each telling redraws the frosting.
@@ -293,6 +348,8 @@ export function themeActions(said: (text: string) => void): { label: string; run
   return [
     { label: 'Change theme…', run: () => {}, themes: wear },
     { label: 'Next theme', typed: true, run: () => wear(all[(all.indexOf(currentTheme()) + 1) % all.length]) },
+    { label: 'Brutal style', run: () => (setStyle("brutal"), said("Brutal: square, outlined, on hard shadows")) },
+    { label: 'Soft style', run: () => (setStyle("soft"), said("Soft: rounded, on soft shadows")) },
     ...all.map((theme) => ({ label: `Theme: ${themeName(theme)}`, typed: true, run: () => wear(theme) }))
   ]
 }

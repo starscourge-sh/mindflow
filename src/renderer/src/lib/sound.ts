@@ -310,7 +310,11 @@ const CLICKS = {
   // Hovering a rot card, something asking for you: lower and rounder, a knock.
   knock: { duration: 0.012, frequency: 1100, q: 2, volume: 0.16, decay: 45 },
   // Opening a note: its "confirm", a little brighter than the hover.
-  tick: { duration: 0.008, frequency: 2800, q: 3, volume: 0.14, decay: 24 }
+  tick: { duration: 0.008, frequency: 2800, q: 3, volume: 0.14, decay: 24 },
+  // The Brutal sticker in Settings, pointed at: a low, heavy block set down.
+  clunk: { duration: 0.022, frequency: 520, q: 1.4, volume: 0.24, decay: 70 },
+  // Brutal chosen: the same block, dropped from higher.
+  slam: { duration: 0.04, frequency: 300, q: 1.2, volume: 0.34, decay: 110 }
 }
 /**
  * sensory-ui's nine packs, from its published table: the waveform under each

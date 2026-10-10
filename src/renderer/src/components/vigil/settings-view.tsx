@@ -20,6 +20,7 @@ import { allThemes, applyTheme, customThemes, frosted, importTheme, removeTheme,
 import { KeysEditor, Marked } from './shortcut-sheet'
 import { keyFor } from '@/lib/keys'
 import { Swatch } from '../theme/theme-picker'
+import { StylePicker } from '../theme/style-picker'
 
 import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
@@ -402,6 +403,9 @@ export function SettingsView(): React.JSX.Element {
         <Group section="Appearance" title="Theme">
           <Setting title="Theme" note="**The colours of every window, the box and this one together.** Point at one to try it, click to keep it." keywords={allThemes().map(themeName).join(' ')}>
             <ThemePicker className="-mr-2 h-8 gap-1.5 rounded-full px-2 hover:bg-accent" />
+          </Setting>
+          <Setting title="Style" note="**How things are drawn, in any theme.** Soft is rounded and lifted on soft shadows. Brutal is square, outlined in the theme's ink, and stands on hard shadows." keywords="style brutal soft neobrutalism square corners outline hard shadow">
+            <StylePicker className="-mr-1" />
           </Setting>
           <ImportedThemes />
           <Frosted />

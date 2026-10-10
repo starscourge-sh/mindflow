@@ -1,12 +1,15 @@
-/* Brutal, after neobrutalism.com: black outlines, hard shadows that do not
-   blur, square corners, and flat loud fills. Its colours are in the theme map
-   (styles/_variables.scss, "brutal" and "brutal-dark"); this is its shape.
+/* Brutal, a style after neobrutalism.com: outlines thick in the theme's own
+   ink, hard shadows that do not blur, square corners, flat fills in its
+   accent, titles in Archivo Black, and buttons that sink into their shadow.
+   It is worn over any theme (Settings, Style), as `data-style="brutal"` on
+   the root, so Paper, Dracula or GitHub each keep their colours and take
+   this shape.
 
    The app draws its corners and depths with Tailwind classes in hundreds of
    places (rounded-full, rounded-[14px], shadow-[0_6px_16px...]). Rather than
-   rewrite each, they are routed through the tokens below, and only while a
-   Brutal theme is on: every other theme never matches these rules, so it
-   looks exactly as before.
+   rewrite each, they are routed through the tokens below, and only while the
+   style is Brutal: Soft never matches these rules, so it looks exactly as
+   before.
 
      --mf-pill-radius     what a pill (rounded-full) is rounded by
      --mf-corner-radius   what every other corner is rounded by
@@ -15,18 +18,16 @@
      --mf-press-shift     how far a pressed button sinks into its shadow
      --mf-line            the outline colour, and --mf-line-width its width */
 
-html:root.brutal,
-html:root.brutal-dark {
-  --mf-line: #000;
+html:root[data-style='brutal'] {
+  --mf-line: var(--foreground);
   --mf-line-width: 2px;
   --mf-pill-radius: 0px;
   --mf-corner-radius: 0px;
   --mf-press-shift: 3px;
   --mf-card-shadow: 4px 4px 0 0 var(--mf-line);
   --mf-control-shadow: var(--mf-press-shift) var(--mf-press-shift) 0 0 var(--mf-line);
-  --mf-fill: #ffdc58;
-  --mf-fill-hover: #ffd12e;
-  --mf-fill-ink: #000;
+  --mf-fill: var(--primary);
+  --mf-fill-hover: color-mix(in oklab, var(--primary) 85%, var(--foreground));
   --mf-heading-weight: 400;
 
   /* The app's own depth tokens, so everything that already reads them is hard. */
@@ -40,82 +41,67 @@ html:root.brutal-dark {
   /* A solid page: Brutal is printed, not frosted. */
   --mf-window-tint: 100%;
 
-  /* The loud fill: filled buttons and the chosen chip are yellow with black words. */
-  --primary: var(--mf-fill);
-  --primary-foreground: var(--mf-fill-ink);
   --border: var(--mf-line);
   /* A field's fill (bg-input/30); its outline is the line, below. */
   --input: var(--card);
   --ring: var(--mf-line);
+  /* A card pointed at: a wash of the theme's accent. */
+  --accent: color-mix(in oklab, var(--primary) 22%, var(--card));
 }
 
-html:root.brutal {
-  color-scheme: light;
-  --card: #ffffff;
-  --popover: #ffffff;
-  --secondary: #efe7d6;
-  --muted: #efe7d6;
-  --accent: #ffe7a3;
-  --muted-foreground: #4f4a42;
-  --sidebar: #fff1d6;
-  /* Headings in black; the theme's blue is for links and the caret. */
-  --mf-heading: #000;
-  --tt-card-bg-color: #ffffff;
-}
-
-html:root.brutal-dark {
-  /* Black lines vanish on a dark page, so here they are drawn in the ink:
-     the same thick outline and hard shadow, light on dark. */
-  --mf-line: #f0e9da;
-  --card: #262320;
-  --popover: #262320;
-  --secondary: #3a352f;
-  --muted: #2e2a24;
-  --accent: #38342b;
-  --muted-foreground: #b3ac9e;
-  --sidebar: #211e1a;
-  --tt-card-bg-color: #262320;
+/* On a dark page full-strength ink outlines shout over the words they hold:
+   there the line is the ink at about 60%, and a little finer. */
+html:root[data-style='brutal']:not([data-light]) {
+  --mf-line: color-mix(in oklab, var(--foreground) 60%, var(--background));
+  --mf-line-width: 1.5px;
 }
 
 /* ---- Corners ------------------------------------------------------------
    Everything square. The window keeps its own rounding, which macOS draws. */
-:root:is(.brutal, .brutal-dark) :where(*:not(.app-container, .mf-glow)),
-:root:is(.brutal, .brutal-dark) :where(*:not(.app-container, .mf-glow))::before,
-:root:is(.brutal, .brutal-dark) :where(*:not(.app-container, .mf-glow))::after {
+:root[data-style='brutal'] :where(*:not(.app-container, .mf-glow, [data-keep-soft])),
+:root[data-style='brutal'] :where(*:not(.app-container, .mf-glow, [data-keep-soft]))::before,
+:root[data-style='brutal'] :where(*:not(.app-container, .mf-glow, [data-keep-soft]))::after {
   border-radius: var(--mf-corner-radius) !important;
 }
-:root:is(.brutal, .brutal-dark) [class*='rounded-full'] {
+:root[data-style='brutal'] [class*='rounded-full'] {
   border-radius: var(--mf-pill-radius) !important;
 }
 
 /* ---- Depth --------------------------------------------------------------
    Any shadow a class gives becomes a hard one. A ring (0 0 0 Npx) and an
    inner shadow are outlines, not depth, so they stay as they are. */
-:root:is(.brutal, .brutal-dark) :is([class~='shadow'], [class*='shadow-'], [class*=':shadow-']):not([class*='shadow-none'], [class*='shadow-[0_0_0'], [class*='shadow-[inset']) {
+:root[data-style='brutal'] :is([class~='shadow'], [class*='shadow-'], [class*=':shadow-']):is([class~='border'], [class*=' bg-'], [class^='bg-'], [data-slot]):not([class*='shadow-none'], [class*='shadow-[0_0_0'], [class*='shadow-[inset'], [class*='h-[2px]'], [class*='h-px'], [class*='h-0.5'], [class*='h-1 ']) {
   --tw-shadow: var(--mf-card-shadow) !important;
 }
-:root:is(.brutal, .brutal-dark) :is([class~='shadow'], [class~='shadow-sm'], [class~='shadow-xs'], [class*='shadow-[0_1px'], [class*='shadow-[0_2px']):not([class*='shadow-none']) {
+:root[data-style='brutal'] :is([class~='shadow'], [class~='shadow-sm'], [class~='shadow-xs'], [class*='shadow-[0_1px'], [class*='shadow-[0_2px']):is([class~='border'], [class*=' bg-'], [class^='bg-'], [data-slot]):not([class*='shadow-none'], [class*='h-[2px]'], [class*='h-px']) {
   --tw-shadow: var(--mf-control-shadow) !important;
 }
+/* A shadow on a bare wrapper (no outline, no fill) or on a hairline would
+   draw a hard line out of nothing: it goes. */
+:root[data-style='brutal'] :is([class~='shadow'], [class*=' shadow-'], [class^='shadow-']):not([class~='border'], [class*=' bg-'], [class^='bg-'], [data-slot], [style*='box-shadow']),
+:root[data-style='brutal'] :is([class*='h-[2px]'], [class*='h-px'])[class*='shadow'] {
+  --tw-shadow: 0 0 #0000 !important;
+}
+
 /* A shadow set in the element's own style, the same. */
-:root:is(.brutal, .brutal-dark) [style*='box-shadow']:not([style*='0px 0px 0px'], [style*='9999px'], [class*='inset-0']) {
+:root[data-style='brutal'] [style*='box-shadow']:not([style*='0px 0px 0px'], [style*='9999px'], [class*='inset-0']) {
   box-shadow: var(--mf-card-shadow) !important;
 }
 
 /* ---- Outlines -----------------------------------------------------------
    Every box drawn with a border is drawn thick, in black. */
-:root:is(.brutal, .brutal-dark) :is([class~='border'], [class*=' border-2'], [data-slot='input'], [data-slot='textarea']) {
+:root[data-style='brutal'] :is([class~='border'], [class*=' border-2'], [data-slot='input'], [data-slot='textarea']) {
   border-width: var(--mf-line-width);
 }
-:root:is(.brutal, .brutal-dark) :is([class~='border-t']) { border-top-width: var(--mf-line-width); }
-:root:is(.brutal, .brutal-dark) :is([class~='border-b']) { border-bottom-width: var(--mf-line-width); }
-:root:is(.brutal, .brutal-dark) :is([class~='border-l']) { border-left-width: var(--mf-line-width); }
-:root:is(.brutal, .brutal-dark) :is([class~='border-r']) { border-right-width: var(--mf-line-width); }
+:root[data-style='brutal'] :is([class~='border-t']) { border-top-width: var(--mf-line-width); }
+:root[data-style='brutal'] :is([class~='border-b']) { border-bottom-width: var(--mf-line-width); }
+:root[data-style='brutal'] :is([class~='border-l']) { border-left-width: var(--mf-line-width); }
+:root[data-style='brutal'] :is([class~='border-r']) { border-right-width: var(--mf-line-width); }
 
 /* An outline drawn in a faint ink (border-foreground/[0.07] and the like)
    is drawn in the line colour; one in a colour of its own keeps it. */
-:root:is(.brutal, .brutal-dark) :is([class~='border'], [class~='border-t'], [class~='border-b'], [class~='border-l'], [class~='border-r']):is([class*=' border-foreground/'], [class*=' border-border'], [class*=' border-input']),
-:root:is(.brutal, .brutal-dark) :is([class~='border'], [class~='border-t'], [class~='border-b'], [class~='border-l'], [class~='border-r']):not([class*=' border-'], [class^='border-']) {
+:root[data-style='brutal'] :is([class~='border'], [class~='border-t'], [class~='border-b'], [class~='border-l'], [class~='border-r']):is([class*=' border-foreground/'], [class*=' border-border'], [class*=' border-input']),
+:root[data-style='brutal'] :is([class~='border'], [class~='border-t'], [class~='border-b'], [class~='border-l'], [class~='border-r']):not([class*=' border-'], [class^='border-']) {
   border-color: var(--mf-line);
 }
 
@@ -124,32 +110,32 @@ html:root.brutal-dark {
    muted fill on a rounded box. Here each is a white card with a black
    outline on its hard shadow, and a button made that way sinks when pressed.
    A hair of a thing (a rule, a dot, a thin track) is left as it is. */
-:root:is(.brutal, .brutal-dark) :is([class*=' bg-foreground/'], [class^='bg-foreground/'], [class*=' bg-muted'], [class^='bg-muted'], [class*=' bg-secondary'], [class*=' bg-card'], [class^='bg-card']):is([class*='rounded-'], button):not([class*='h-px'], [class*='w-px'], [class*='h-0.5'], [class*='w-0.5'], [class*='size-1'], [class*='size-2 '], [class*='h-1 '], [class*='h-1.5'], [class*='rounded-none'], [data-slot$='-content'], [role='menuitem'], [role='option'], [role='menu'], [role='listbox']) {
+:root[data-style='brutal'] :is([class*=' bg-foreground/'], [class^='bg-foreground/'], [class*=' bg-muted'], [class^='bg-muted'], [class*=' bg-secondary'], [class*=' bg-card'], [class^='bg-card']):is([class*='rounded-'], button):not([class*='h-px'], [class*='w-px'], [class*='h-0.5'], [class*='w-0.5'], [class*='size-1'], [class*='size-2 '], [class*='h-1 '], [class*='h-1.5'], [class*='rounded-none'], [data-slot$='-content'], [role='menuitem'], [role='option'], [role='menu'], [role='listbox']) {
   background-color: var(--card);
   border: var(--mf-line-width) solid var(--mf-line) !important;
   box-shadow: var(--mf-card-shadow) !important;
 }
-:root:is(.brutal, .brutal-dark) :is(button, a, [role='button']):is([class*=' bg-foreground/'], [class^='bg-foreground/'], [class*=' bg-muted'], [class^='bg-muted'], [class*=' bg-secondary'], [class*=' bg-card'], [class^='bg-card']):not([class*='h-px'], [class*='size-1'], [class*='size-2 '], [class*='rounded-none'], [role='menuitem'], [role='option']) {
+:root[data-style='brutal'] :is(button, a, [role='button']):is([class*=' bg-foreground/'], [class^='bg-foreground/'], [class*=' bg-muted'], [class^='bg-muted'], [class*=' bg-secondary'], [class*=' bg-card'], [class^='bg-card']):not([class*='h-px'], [class*='size-1'], [class*='size-2 '], [class*='rounded-none'], [role='menuitem'], [role='option']) {
   box-shadow: var(--mf-control-shadow) !important;
   transition: transform 90ms ease, box-shadow 90ms ease, background-color 120ms ease !important;
 }
-:root:is(.brutal, .brutal-dark) :is(button, a, [role='button']):is([class*=' bg-foreground/'], [class^='bg-foreground/'], [class*=' bg-muted'], [class^='bg-muted'], [class*=' bg-secondary'], [class*=' bg-card'], [class^='bg-card']):not([class*='h-px'], [class*='size-1'], [class*='size-2 '], [class*='rounded-none'], [role='menuitem'], [role='option']):hover {
+:root[data-style='brutal'] :is(button, a, [role='button']):is([class*=' bg-foreground/'], [class^='bg-foreground/'], [class*=' bg-muted'], [class^='bg-muted'], [class*=' bg-secondary'], [class*=' bg-card'], [class^='bg-card']):not([class*='h-px'], [class*='size-1'], [class*='size-2 '], [class*='rounded-none'], [role='menuitem'], [role='option']):hover {
   background-color: var(--accent);
 }
 /* An outlined button (a border and no fill) stands on the small shadow too. */
-:root:is(.brutal, .brutal-dark) :is(button, a)[class~='border']:not([class*='border-transparent'], [class*='border-0'], [class*='border-none'], [role='menuitem']) {
+:root[data-style='brutal'] :is(button, a)[class~='border']:not([class*='border-transparent'], [class*='border-0'], [class*='border-none'], [role='menuitem']) {
   box-shadow: var(--mf-control-shadow) !important;
   transition: transform 90ms ease, box-shadow 90ms ease, background-color 120ms ease !important;
 }
 /* Pressed, any of them sinks into its shadow. */
-:root:is(.brutal, .brutal-dark) :is(button, a, [role='button']):is([class~='border'], [class*=' bg-foreground/'], [class^='bg-foreground/'], [class*=' bg-muted'], [class^='bg-muted'], [class*=' bg-secondary'], [class*=' bg-card'], [class^='bg-card']):not([class*='border-transparent'], [class*='h-px'], [role='menuitem'], [role='option']):active:not(:disabled) {
+:root[data-style='brutal'] :is(button, a, [role='button']):is([class~='border'], [class*=' bg-foreground/'], [class^='bg-foreground/'], [class*=' bg-muted'], [class^='bg-muted'], [class*=' bg-secondary'], [class*=' bg-card'], [class^='bg-card']):not([class*='border-transparent'], [class*='h-px'], [role='menuitem'], [role='option']):active:not(:disabled) {
   transform: translate(var(--mf-press-shift), var(--mf-press-shift)) !important;
   box-shadow: none !important;
 }
 
 /* Panels that float (menus, popovers, tooltips, dialogs, sheets): a black
    outline and the card shadow, in place of the soft ring and lift. */
-:root:is(.brutal, .brutal-dark) :is([data-slot$='-content'], [role='menu'], [role='dialog'], [role='listbox'], .tiptap-popover, .tiptap-dropdown-menu, .tiptap-card, .tiptap-tooltip) {
+:root[data-style='brutal'] :is([data-slot$='-content'], [role='menu'], [role='dialog'], [role='listbox'], .tiptap-popover, .tiptap-dropdown-menu, .tiptap-card, .tiptap-tooltip) {
   border: var(--mf-line-width) solid var(--mf-line) !important;
   box-shadow: var(--mf-card-shadow) !important;
 }
@@ -157,16 +143,16 @@ html:root.brutal-dark {
 /* ---- Buttons ------------------------------------------------------------
    A filled or outlined button stands on a small hard shadow and sinks into
    it when pressed: moved by the shadow's offset, and the shadow gone. */
-:root:is(.brutal, .brutal-dark) :is(button, [role='button'], a):is([class*='bg-primary'], [data-variant='default'], [data-variant='outline'], [data-variant='secondary']):not([class*='bg-primary/']) {
+:root[data-style='brutal'] :is(button, [role='button'], a):is([class*='bg-primary'], [data-variant='default'], [data-variant='outline'], [data-variant='secondary']):not([class*='bg-primary/']) {
   border: var(--mf-line-width) solid var(--mf-line) !important;
   box-shadow: var(--mf-control-shadow) !important;
   transition: transform 90ms ease, box-shadow 90ms ease, background-color 120ms ease !important;
 }
-:root:is(.brutal, .brutal-dark) :is(button, [role='button'], a):is([class*='bg-primary'], [data-variant='default'], [data-variant='outline'], [data-variant='secondary']):not([class*='bg-primary/']):active:not(:disabled) {
+:root[data-style='brutal'] :is(button, [role='button'], a):is([class*='bg-primary'], [data-variant='default'], [data-variant='outline'], [data-variant='secondary']):not([class*='bg-primary/']):active:not(:disabled) {
   transform: translate(var(--mf-press-shift), var(--mf-press-shift)) !important;
   box-shadow: none !important;
 }
-:root:is(.brutal, .brutal-dark) :is(button, [role='button'], a)[class*='bg-primary']:not([class*='bg-primary/']):hover {
+:root[data-style='brutal'] :is(button, [role='button'], a)[class*='bg-primary']:not([class*='bg-primary/']):hover {
   background-color: var(--mf-fill-hover);
 }
 
@@ -174,41 +160,159 @@ html:root.brutal-dark {
    Titles in Archivo Black, the face neobrutalism.com sets its headings in,
    shipped with the app so it is there offline. Smaller headings and labels
    keep the text font at a heavier weight. */
-:root:is(.brutal, .brutal-dark) :is(h1, h2, h3, h4):is(.text-title, .text-xl, .text-2xl, .text-3xl, .text-4xl),
-:root:is(.brutal, .brutal-dark) h1,
-:root:is(.brutal, .brutal-dark) [class*='font-heading'],
-:root:is(.brutal, .brutal-dark) .tiptap.ProseMirror :is(h1, h2, h3) {
+:root[data-style='brutal'] :is(h1, h2, h3, h4):is(.text-title, .text-xl, .text-2xl, .text-3xl, .text-4xl),
+:root[data-style='brutal'] h1,
+:root[data-style='brutal'] [class*='font-heading'],
+:root[data-style='brutal'] .tiptap.ProseMirror :is(h1, h2, h3) {
   font-family: 'Archivo Black', var(--mf-heading-font, inherit) !important;
   font-weight: var(--mf-heading-weight) !important;
   letter-spacing: -0.01em;
 }
-:root:is(.brutal, .brutal-dark) :is(h1, h2, h3, h4, h5, h6, th, [class~='font-medium']) {
+:root[data-style='brutal'] :is(h1, h2, h3, h4, h5, h6, th, [class~='font-medium']) {
   font-weight: 700;
 }
-:root:is(.brutal, .brutal-dark) [class~='font-semibold'] {
+:root[data-style='brutal'] [class~='font-semibold'] {
   font-weight: 800;
 }
 
 /* A key cap is a label, not a button: outlined, but it stands on nothing. */
-:root:is(.brutal, .brutal-dark) :is(kbd, [data-slot='kbd']) {
+:root[data-style='brutal'] :is(kbd, [data-slot='kbd']) {
   box-shadow: none !important;
   transform: none !important;
 }
 
 /* Tape on a sticky or a card: a flat strip of the loud yellow, no lift. */
-:root:is(.brutal, .brutal-dark) .mf-tape {
+:root[data-style='brutal'] .mf-tape {
   background: var(--mf-fill);
   backdrop-filter: none;
   box-shadow: none !important;
 }
-:root:is(.brutal, .brutal-dark) .mf-tape::after { display: none; }
+:root[data-style='brutal'] .mf-tape::after { display: none; }
 
 /* A sticky note is a window of its own: outlined at its edge like a card. */
-:root:is(.brutal, .brutal-dark) body[data-sticky]::after {
+:root[data-style='brutal'] body[data-sticky]::after {
   content: '';
   position: fixed;
   inset: 0;
   border: var(--mf-line-width) solid var(--mf-line);
   pointer-events: none;
   z-index: 40;
+}
+
+/* ---- The style picker ---------------------------------------------------
+   Each option drawn in its own style, whichever style is on. Soft is a
+   rounded chip; Brutal is a sticker stuck on askew, outlined in the ink on a
+   hard shadow, in Archivo Black, that clunks into its shadow when pointed at:
+   a hard step, no ease. */
+.mf-style-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.mf-style-soft {
+  height: 1.625rem;
+  padding: 0 0.75rem;
+  border-radius: 999px;
+  font-size: var(--text-control);
+  color: color-mix(in oklab, var(--foreground) 80%, transparent);
+  background: color-mix(in oklab, var(--foreground) 6%, transparent);
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--mf-shadow-ink, #000) 14%, transparent), 0 4px 10px -4px color-mix(in oklab, var(--mf-shadow-ink, #000) 22%, transparent) !important;
+  transition: background-color 150ms var(--mf-ease), color 150ms var(--mf-ease);
+}
+.mf-style-soft:hover { background: color-mix(in oklab, var(--foreground) 10%, transparent); }
+.mf-style-soft[aria-checked='true'] {
+  color: var(--background);
+  background: var(--foreground);
+  font-weight: 600;
+}
+.mf-style-brutal {
+  height: 1.625rem;
+  padding: 0 0.7rem;
+  border: 2px solid var(--foreground) !important;
+  border-radius: 0 !important;
+  font-family: 'Archivo Black', sans-serif !important;
+  font-size: 0.8125rem;
+  font-weight: 400 !important;
+  letter-spacing: 0.01em;
+  color: var(--foreground);
+  background: var(--card, var(--background));
+  box-shadow: 3px 3px 0 0 var(--foreground) !important;
+  transform: rotate(-4deg);
+  transition: transform 60ms steps(1, end), box-shadow 60ms steps(1, end) !important;
+}
+.mf-style-brutal[aria-checked='true'] {
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+.mf-style-brutal:hover,
+.mf-style-brutal:active {
+  transform: translate(3px, 3px) rotate(-4deg) !important;
+  box-shadow: 0 0 0 0 var(--foreground) !important;
+}
+.mf-style-pick :focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+
+/* An island (a group of settings, a tray of rows) is outlined, not lifted:
+   the light themes' soft lift under it is dropped. */
+:root[data-style='brutal'] .mf-island {
+  box-shadow: none !important;
+}
+
+/* ---- The capture box ----------------------------------------------------
+   The window keeps macOS's rounded corners, so a rule across it stops short
+   of them: the note's bottom edge is drawn inset, and never doubled by a
+   shadow (a region, not a card). */
+:root[data-style='brutal'] .mf-faded[class*='border-b'] {
+  border-bottom-color: transparent;
+  --tw-shadow: 0 0 #0000 !important;
+}
+:root[data-style='brutal'] .mf-faded[class*='border-b']::after {
+  content: '';
+  position: absolute;
+  left: var(--mf-rule-inset, 1.25rem);
+  right: var(--mf-rule-inset, 1.25rem);
+  bottom: 0;
+  height: var(--mf-line-width);
+  background: var(--mf-line);
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* A switch: a plain rectangle with a square knob that jumps across, no
+   glide, and the accent filling it when on. */
+:root[data-style='brutal'] [data-slot='switch'] {
+  width: 2.125rem !important;
+  height: 1.125rem !important;
+  padding: 1.5px;
+  border: var(--mf-line-width) solid var(--mf-line) !important;
+  background: var(--card) !important;
+  box-shadow: 2px 2px 0 0 var(--mf-line) !important;
+  transform: none !important;
+}
+:root[data-style='brutal'] [data-slot='switch'][data-state='checked'] {
+  background: var(--primary) !important;
+}
+:root[data-style='brutal'] [data-slot='switch-thumb'] {
+  width: 0.75rem !important;
+  height: 0.75rem !important;
+  background: var(--mf-line) !important;
+  transition: transform 80ms steps(1, end) !important;
+  translate: none !important;
+  transform: translateX(0) !important;
+}
+:root[data-style='brutal'] [data-slot='switch-thumb'][data-state='checked'] {
+  background: var(--primary-foreground) !important;
+  transform: translateX(calc(2.125rem - 0.75rem - 3px - 2 * var(--mf-line-width))) !important;
+}
+
+/* One line per edge: a top rule straight under a bottom rule, or a first
+   child's top rule against its outlined parent's, is the same edge drawn
+   twice, so the second goes. */
+:root[data-style='brutal'] :is([class~='border-b'], [class~='border-y'], [class~='border']) + :is([class~='border-t'], [class~='border-y']) {
+  border-top-width: 0;
+}
+:root[data-style='brutal'] :is([class~='border'], [class~='border-t'], [class~='border-y']) > :is([class~='border-t'], [class~='border-y']):first-child {
+  border-top-width: 0;
 }
