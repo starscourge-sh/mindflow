@@ -440,6 +440,43 @@ if (c) try {
   await carry(c, row(c, loose[0]), c.h.locator('[data-group-block]').first().locator('[data-row]').first(), 0.5)
   await c.h.waitForTimeout(700)
   check('sorted, a row still joins a group, and the sort stays', (await c.h.evaluate(() => JSON.parse(localStorage.getItem('view:article')).sort)) === 'newest' && (await groupsNow(c)).reduce((sum, one) => sum + one.members.length, 0) === grouped + 1)
+  // ⌥↓ while sorted some other way asks, and leaves the sort alone.
+  await c.h.mouse.move(900, 700)
+  await c.h.keyboard.press('j')
+  await c.h.keyboard.press('Alt+ArrowDown')
+  await c.h.waitForTimeout(400)
+  const asked = await c.h.evaluate(() => document.body.textContent.includes('Moving rows needs Custom order'))
+  check('⌥↓ in another sort asks to switch, and the sort stays', asked && (await c.h.evaluate(() => JSON.parse(localStorage.getItem('view:article')).sort)) === 'newest')
+  await frames(c, 'p-ask-dark', 1, 0)
+
+  // As tiles: each group a folder card; a click opens it in place with a chip back.
+  const tilesView = async (patch) => {
+    await c.h.evaluate((patch) => localStorage.setItem('view:article', JSON.stringify({ sort: 'newest', group: 'none', filter: {}, density: 'grid', ...patch })), patch)
+    await c.h.reload()
+    await c.h.waitForTimeout(1500)
+    await articles(c)
+    await c.h.mouse.move(900, 700)
+  }
+  await tilesView({})
+  check('in a grid, each group is a folder card', (await c.h.locator('[data-folder]').count()) === 2)
+  await frames(c, 'q-folders-dark', 1, 0)
+  await c.h.locator('[data-folder]').first().click()
+  await c.h.waitForTimeout(500)
+  const insideTiles = await c.h.locator('button[data-row]').count()
+  check('a folder opens in place, with a chip back', (await c.h.locator('[data-folder-back]').count()) === 1 && insideTiles >= 2 && insideTiles <= 4 && (await c.h.locator('[data-folder]').count()) === 0, `${insideTiles} tiles`)
+  await frames(c, 'r-folder-open-dark', 1, 0)
+  await c.h.locator('[data-folder-back]').click()
+  await c.h.waitForTimeout(500)
+  check('and the chip goes back to the folders', (await c.h.locator('[data-folder]').count()) === 2)
+  await c.theme('light')
+  await c.size(1100, 760)
+  await tilesView({ density: 'small' })
+  await frames(c, 's-folders-small-light', 1, 0)
+  await tilesView({})
+  await frames(c, 't-folders-light', 1, 0)
+  // Grouped by kind, the list is flat and says where the groups are.
+  await tilesView({ density: 'list', group: 'kind' })
+  check('grouped by kind, a quiet note says the groups show in the list view', (await c.h.locator('[data-groups-note]').count()) === 1)
   if (c.errors.length) console.log('errors:', c.errors.slice(0, 5))
   check('no errors in the page', !c.errors.some((one) => /PAGEERROR/.test(one)), c.errors.find((one) => /PAGEERROR/.test(one)) ?? '')
 } catch (error) {

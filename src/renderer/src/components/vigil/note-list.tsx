@@ -20,7 +20,7 @@ import { useLive } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
 import { RowMenu, type RowItem } from './row-menu'
 import { SortableList, SortableRow } from './sortable'
-import { GroupedList, type Folds } from './kept-groups'
+import { GroupIcon, GroupedList, type Folds } from './kept-groups'
 import { Tags, Tip, VirtualList, typing } from './ui'
 import { Button } from '@/components/ui/button'
 import type { Density, Pane } from './display'
@@ -62,6 +62,8 @@ export type Entry = {
   /** Its own words rather than a name (a nugget): two lines of them in a list, not one. */
   wrap?: boolean
   menu?: RowItem[]
+  /** A group drawn as a tile: a folder in its colour, its first notes small inside it. */
+  folder?: { icon: string | null; color: string | null; count: number; members: Entry[] }
 }
 
 /** A note's first picture, made small (or tile-sized) once. Undefined: it has none; null: on its way; '': too big to show. */
@@ -411,6 +413,8 @@ export function NoteList({
           <CompactRow entry={entry} lit={at || open} />
         ) : density === 'list' ? (
           <ListRow entry={entry} lit={at || open} />
+        ) : entry.folder ? (
+          <FolderTile entry={entry} large={density === 'grid'} />
         ) : density === 'small' ? (
           <SmallTile entry={entry} words={words} />
         ) : (
@@ -542,6 +546,40 @@ function Under({ entry }: { entry: Entry }): React.JSX.Element {
       {entry.tags.length > 0 && (entry.age || entry.sub) && <Dot />}
       <Tags tags={entry.tags} max={2} />
     </span>
+  )
+}
+
+/**
+ * A group as a tile: a folder tinted in the group's colour holding its first
+ * four notes as small pictures, two by two, and under it the group's icon,
+ * name and how many it holds. A click opens it in place.
+ */
+function FolderTile({ entry, large }: { entry: Entry; large: boolean }): React.JSX.Element {
+  const folder = entry.folder!
+  const tint = folder.color ? `var(--tt-color-text-${folder.color})` : 'var(--foreground)'
+  return (
+    <>
+      <span data-folder="" className={`grid w-full grid-cols-2 grid-rows-2 gap-1 ${large ? 'aspect-[4/3] p-2.5' : 'aspect-square p-1.5'}`}
+        style={{ background: `color-mix(in srgb, ${tint} ${folder.color ? 12 : 6}%, var(--accent))` }}>
+        {Array.from({ length: 4 }, (_, at) => folder.members[at] ? (
+          <Lead key={folder.members[at].id} entry={folder.members[at]} className="size-full rounded-[5px] shadow-[0_1px_2px_rgb(0_0_0/0.12)]" />
+        ) : (
+          <span key={at} className="rounded-[5px] border border-dashed border-foreground/10" />
+        ))}
+      </span>
+      {large ? (
+        <span className="flex min-w-0 items-center gap-1.5 px-2.5 pt-2 pb-2.5 text-sm">
+          <GroupIcon icon={folder.icon} color={folder.color} className="size-4" />
+          <span className="min-w-0 flex-1 truncate font-semibold">{entry.title}</span>
+          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{folder.count}</span>
+        </span>
+      ) : (
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center gap-1 truncate bg-linear-to-t from-black/70 to-transparent px-2 pt-4 pb-1.5 text-[11px] font-semibold text-white">
+          <span className="min-w-0 flex-1 truncate">{entry.title}</span>
+          <span className="tabular-nums opacity-80">{folder.count}</span>
+        </span>
+      )}
+    </>
   )
 }
 

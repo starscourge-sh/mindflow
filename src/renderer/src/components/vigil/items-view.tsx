@@ -1,7 +1,7 @@
 import { chime } from '@/lib/sound'
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { Archive, Calendar, Pause, Plus, SquareDashed } from 'lucide-react'
+import { Archive, ArrowLeft, Calendar, Pause, Plus, SquareDashed } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import BrainCircuitIcon from '@/components/ui/brain-circuit-icon'
 import EyeIcon from '@/components/ui/eye-icon'
@@ -143,11 +143,24 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   // Groups show as groups in every sort, as rows (not tiles, and not when Display groups the list by kind or date).
   const folding = useFolding(tier, all, ownOrder, view.group === 'none' && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? groups.flatMap(([, list]) => list) : null,
     view.sort === 'manual', () => setChosen([]), chosen)
-  const items = folding.rows ?? groups.flatMap(([, list]) => list)
+  // As tiles, each group is one folder card; opened, the grid shows only its notes, under a chip back.
+  const noteGroups = useGroups(tier)
+  const tiled = (density === 'grid' || density === 'small') && view.group === 'none' && !(spread && query.trim())
+  const [inGroup, setInGroup] = useState<string | null>(null)
+  const folder = tiled && inGroup ? noteGroups.find((one) => one.id === inGroup) : undefined
+  const flat = groups.flatMap(([, list]) => list)
+  const tiles = tiled && !folder ? folding.tiles(flat) : null
+  const folders = new Map(tiles?.flatMap((one) => ('group' in one ? [[KEY + one.group.id, one] as const] : [])))
+  const items = folding.rows
+    ?? (folder ? flat.filter((one) => folder.members.includes(one.id))
+      : tiles ? tiles.map((one) => ('group' in one ? ({ ...one.items[0], id: KEY + one.group.id, title: one.group.name } as Item) : one.item))
+      : flat)
   const onMove = (id: string, target: string, after: boolean): void => move(all.map((one) => one.id), id, target, after)
   // Spread out, a click looks at a note beside the list; Enter opens it.
   const [peek, setPeek] = useState<string | null>(null)
   const pick = (id: string): void => {
+    // A folder card opens its group in place.
+    if (isGroup(id)) return (chime('untuck'), setInGroup(groupId(id)), setCursor(0))
     // Opening a note brings the list back beside it.
     if (view.pane === 'wide') setView({ ...view, pane: 'list' })
     void vigil.item(id).then(setOpen)
@@ -170,7 +183,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
     onOpen: (index) => pick(items[index].id),
     // Spread out, Escape empties the search, and that is all: it never puts
     // the note away or changes the layout. ⌘[ is the way back.
-    onEscape: () => spread && query && setQuery('')
+    onEscape: () => (folder ? (chime('tuck'), setInGroup(null)) : spread && query && setQuery(''))
   })
   useEffect(() => void (spread && items[cursor] && setPeek(items[cursor].id)), [cursor, spread]) // eslint-disable-line react-hooks/exhaustive-deps
   // ; on the row under the cursor, with nothing open: a thought written under it.
@@ -187,6 +200,9 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
       const row = items[cursor]
       if (!by || !row) return
       event.preventDefault()
+      // Sorted some other way, moving a row would change the sort under you: ask instead.
+      if (view.sort !== 'manual')
+        return toast('Moving rows needs Custom order. Switch?', undefined, 'info', { label: 'Switch', key: 'S', run: () => (chime('shift'), setView({ ...view, sort: 'manual' })) })
       // Among groups, a step can go into one or out of it: the row is followed wherever it lands.
       if (folding.rows) {
         const to = folding.step(row.id, by)
@@ -207,6 +223,8 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   // Where ⇧-click picks from: the last row picked.
   const from = useRef<string | null>(null)
   const toggle = (id: string): void => {
+    // A folder is not a note to pick.
+    if (isGroup(id)) return
     from.current = id
     setChosen((ids) => (chime(ids.includes(id) ? 'off' : 'on'), ids.includes(id) ? ids.filter((one) => one !== id) : [...ids, id]))
   }
@@ -247,6 +265,8 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   })
   // Opening one, or putting it away, is a step Back returns from.
   const hush = useOpened(open?.id, focus, pick, () => setOpen(null))
+  // Writing opened: a page turned, as a book is.
+  useEffect(() => void (tier === 'article' && open?.id && pageTurn()), [tier, open?.id])
   // Re-read the open one when anything changes, so a gloss or a prompt shows.
   useEffect(() => window.api.captures.onChange(() => open && pick(open.id)), [open?.id])
   // The right-click menu: the same on a row and on a card.
@@ -267,7 +287,15 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
     { label: 'Copy title', run: () => copy(item.title) }
   ]
 
-  const entries = groups.map(([name, list]) => [name, list.map((one) => itemEntry(one, menuFor(one)))] as [string, Entry[]])
+  const entries: [string, Entry[]][] = tiles || folder
+    ? [['', items.map((one) => {
+        const card = folders.get(one.id)
+        if (!card) return itemEntry(one, menuFor(one))
+        // A folder: the group's own colour and icon, and its first notes small inside it.
+        return { ...itemEntry(card.items[0]), id: one.id, title: card.group.name, tags: [], menu: undefined, sub: `${num(card.items.length)} notes`, marks: undefined, private: false, wrap: false,
+          folder: { icon: card.group.icon, color: card.group.color, count: card.items.length, members: card.items.slice(0, 4).map((item) => itemEntry(item)) } }
+      })]]
+    : groups.map(([name, list]) => [name, list.map((one) => itemEntry(one, menuFor(one)))] as [string, Entry[]])
   return (
     <>
       {open && pane === 'rail' ? (
@@ -348,10 +376,22 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
             </motion.div>
           )}
         </AnimatePresence>
-        <div className="px-5 pt-2.5 pb-2 empty:hidden">{chips}</div>
+        <div className="px-5 pt-2.5 pb-2 empty:hidden">
+          {folder && (
+            <button type="button" data-folder-back="" onClick={() => (chime('tuck'), setInGroup(null))}
+              className="mb-2 flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground">
+              <ArrowLeft className="size-3.5" />
+              <GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" />
+              <span className="font-medium text-foreground">{folder.name}</span>
+            </button>
+          )}
+          {chips}
+          {/* Grouped by kind or date, the list is already sorted into sections: the groups wait in the plain list. */}
+          {view.group !== 'none' && noteGroups.length > 0 && <p data-groups-note="" className="mt-1.5 text-xs text-muted-foreground/70">Your groups show in the list view</p>}
+        </div>
         {items.length ? (
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
-            onPick={spread ? (id) => (setPeek(id), setCursor(items.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined}
+            onPick={spread ? (id) => (isGroup(id) ? pick(id) : (setPeek(id), setCursor(items.findIndex((one) => one.id === id)))) : pick} onOpen={spread ? pick : undefined}
             onChoose={toggle} onRange={range} pickWithCommand onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'}
             folds={folding.rows ? { ...folding.folds(menuFor), onNewNote: pick } : undefined} />
         ) : all.length && query.trim() ? (
@@ -375,7 +415,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
       {peeked && <Peek entry={itemEntry(peeked)} table="nuggets" onOpen={() => pick(peeked.id)} />}
       {readFrom !== null && (
         <ReadThrough
-          items={items.map((one) => ({ type: tier, id: one.id }))}
+          items={items.filter((one) => !isGroup(one.id)).map((one) => ({ type: tier, id: one.id }))}
           start={readFrom}
           onClose={() => setReadFrom(null)}
           onEdit={(_, id) => {
@@ -858,6 +898,8 @@ export function useItemDisplay(name: string, every: Item[]): {
  */
 function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, shown: Item[] | null, ordered: boolean, done: () => void, chosen: string[]): {
   rows: Item[] | null
+  /** The list as tiles: each group as one folder, at the top, then the loose notes. */
+  tiles: (list: Item[]) => ({ group: NoteGroup; items: Item[] } | { item: Item })[]
   step: (id: string, by: number) => number | null
   /** The group lines of a row's menu: for that row, or every row picked. */
   menu: (ids: string[]) => RowItem[]
@@ -896,14 +938,14 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   const layout = held ?? saved
   const info = new Map([...known.current].filter(([id]) => list.some((one) => one.id === id) || parting.includes(id)))
   const isOpen = (id: string): boolean => opened[id] ?? !info.get(id)?.folded
-  const visible = new Map((shown ?? every).map((one) => [one.id, one]))
   const shut = new Set(list.filter((one) => !isOpen(one.id)).map((one) => one.id))
   // In your own order, as you laid it out. In any other sort, the groups stay
   // together at the top in your own order, and the sort orders the notes in
   // each and the loose rows under them.
-  const rank = new Map((shown ?? []).map((one, at) => [one.id, at]))
-  const bySort = (a: Item, b: Item): number => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0)
-  const blocks = (from: Layout): { group?: string; items: Item[] }[] => {
+  const blocks = (from: Layout, list = shown ?? every): { group?: string; items: Item[] }[] => {
+    const visible = new Map(list.map((one) => [one.id, one]))
+    const rank = new Map(list.map((one, at) => [one.id, at]))
+    const bySort = (a: Item, b: Item): number => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0)
     const laid = from.top.flatMap((key): { group?: string; items: Item[] }[] => {
       if (!isGroup(key)) return visible.has(key) ? [{ items: [visible.get(key)!] }] : []
       const items = (from.groups[groupId(key)] ?? []).flatMap((id) => (visible.has(id) ? [visible.get(id)!] : []))
@@ -1048,5 +1090,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     onRenaming: setRenaming,
     born
   })
-  return { rows: shown ? rowsOf(layout) : null, step, menu, gatherNew, folds }
+  const tiles = (list: Item[]): ({ group: NoteGroup; items: Item[] } | { item: Item })[] =>
+    blocks(layout, list).flatMap((one): ({ group: NoteGroup; items: Item[] } | { item: Item })[] => (one.group && info.get(one.group) ? [{ group: info.get(one.group)!, items: one.items }] : one.items.map((item) => ({ item }))))
+  return { rows: shown ? rowsOf(layout) : null, tiles, step, menu, gatherNew, folds }
 }
