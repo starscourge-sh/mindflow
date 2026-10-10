@@ -1144,6 +1144,11 @@ const TOOLS: [string, string][] = [['Obsidian', 'linked notes'], ['Notion', 'lon
 
 type ToolsState = { shown: number; merged: boolean; line: boolean }
 
+/** Where the book lives, said as it is (main/backup.ts): one database on this Mac, no account, and a daily copy in your own iCloud Drive when the Mac has one. Nothing else sends your notes anywhere. */
+const WHERE = 'text-[clamp(1.125rem,min(2.2vw,3.2vh),1.625rem)] text-foreground'
+const WHERE_SAID = 'max-w-[44ch] text-center text-[clamp(1rem,min(1.9vw,2.7vh),1.375rem)] leading-snug text-balance text-(--mf-wl-body)'
+const WHERE_TRUE = 'No account. A copy goes to your own iCloud Drive each day, if you use it.'
+
 /** The four, named once more as one line over what they became. */
 const GATHERED_LINE = 'Obsidian’s links · Notion’s pages · Anki’s memory · Todoist’s tasks'
 const GATHERED = 'font-heading text-[clamp(1.0625rem,min(2.2vw,3.2vh),1.625rem)] leading-tight text-balance text-center text-foreground/80'
@@ -1160,8 +1165,8 @@ function Tools({ play, report, onward }: { play: boolean; report: (now: Reel) =>
     ...TOOLS.map((_, i): Beat<ToolsState> => ({ at: 300 + i * 900, to: { shown: i + 1 }, cue: cue('bead') })),
     { at: 300 + 4 * 900 + 900, to: { merged: true }, cue: cue('gather') },
     { at: 300 + 4 * 900 + 1500, to: { line: true } },
-    // The merged state and its line held over 2.5s to read (3700 at PACE); then the day's pairs follow on their own.
-    { at: 300 + 4 * 900 + 5200, to: {}, cue: onward }
+    // The merged state and its two lines held about 3.5s to read (5200 at PACE); then the day's pairs follow on their own.
+    { at: 300 + 4 * 900 + 6700, to: {}, cue: onward }
   ])
   const show = useScript<ToolsState>({ shown: 0, merged: false, line: false }, beats, play)
   report({ done: show.done, settle: show.settle, more: () => (onward(), true) })
@@ -1180,7 +1185,10 @@ function Tools({ play, report, onward }: { play: boolean; report: (now: Reel) =>
           ))}
         </div>
         <span className={`${big} text-[clamp(2.75rem,min(6.4vw,9.5vh),6rem)]`}>One book.</span>
-        <p className="text-[clamp(1.125rem,min(2.2vw,3.2vh),1.625rem)] text-(--mf-wl-body)">All of it, in one place.</p>
+        <div className="flex flex-col items-center gap-[clamp(0.25rem,1vh,0.625rem)] text-center">
+          <p className={WHERE}>All of it, in one place, on your own Mac.</p>
+          <p className={WHERE_SAID}>{WHERE_TRUE}</p>
+        </div>
       </div>
     )
   }
@@ -1204,9 +1212,14 @@ function Tools({ play, report, onward }: { play: boolean; report: (now: Reel) =>
             animate={{ opacity: s.merged ? 1 : 0, scale: s.merged ? 1 : 0.85, filter: s.merged ? 'blur(0px)' : 'blur(6px)' }} transition={{ type: 'spring', duration: 0.8, bounce: 0.1, delay: s.merged ? 0.25 : 0 }}>One book.</motion.span>
         </div>
       </div>
-      <motion.p className="text-[clamp(1.125rem,min(2.2vw,3.2vh),1.625rem)] text-(--mf-wl-body)" initial={false} animate={{ opacity: s.line ? 1 : 0, y: s.line ? 0 : 8 }} transition={{ duration: 0.4, ease: EASE }}>
-        All of it, in one place.
-      </motion.p>
+      <div className="flex flex-col items-center gap-[clamp(0.25rem,1vh,0.625rem)] text-center">
+        <motion.p className={WHERE} initial={false} animate={{ opacity: s.line ? 1 : 0, y: s.line ? 0 : 8 }} transition={{ duration: 0.4, ease: EASE }}>
+          All of it, in one place, on your own Mac.
+        </motion.p>
+        <motion.p className={WHERE_SAID} initial={false} animate={{ opacity: s.line ? 1 : 0, y: s.line ? 0 : 8 }} transition={{ duration: 0.4, ease: EASE, delay: s.line ? 0.35 : 0 }}>
+          {WHERE_TRUE}
+        </motion.p>
+      </div>
     </div>
   )
 }
