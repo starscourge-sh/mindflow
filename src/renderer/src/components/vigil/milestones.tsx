@@ -232,11 +232,11 @@ export function DayGrid({ days, onOpenDay, label }: { days: string[]; onOpenDay?
               <button type="button" data-grid-day={day} aria-current={now ? 'date' : undefined}
                 aria-label={`${dayName(noon(day))}${here.length ? `, ${here.map((one) => one.title).join(', ')}` : ''}${kept.get(day) ? `, ${kept.get(day)} kept` : ''}`}
                 onClick={() => (chime('tap'), gone || now ? onOpenDay?.(day) : void markDay(day, here[0]))}
-                className={`flex min-h-12 min-w-0 flex-col items-start gap-0.5 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-accent/60 ${now ? 'bg-accent/40' : ''}`}
+                className={`@container flex min-h-12 min-w-0 flex-col items-start gap-0.5 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-accent/60 ${now ? 'bg-accent/40' : ''}`}
                 style={here.length ? { background: `color-mix(in oklab, ${inkOf(here[0])} ${now ? 16 : 9}%, transparent)` } : undefined}>
                 <span className="flex w-full items-baseline gap-1">
                   <span className={`text-xs tabular-nums ${now ? 'font-semibold text-[var(--tt-brand-color-400)]' : gone ? 'text-muted-foreground' : 'text-foreground'}`}>{noon(day).date()}</span>
-                  {!!kept.get(day) && <span className="ml-auto truncate text-[0.6875rem] text-muted-foreground tabular-nums">{num(kept.get(day)!)} kept</span>}
+                  {!!kept.get(day) && <span className="ml-auto shrink-0 text-[0.6875rem] text-muted-foreground tabular-nums">{num(kept.get(day)!)}<span className="hidden @min-[4.75rem]:inline"> kept</span></span>}
                 </span>
                 <DayFlags marks={here} named className="max-w-full" />
               </button>

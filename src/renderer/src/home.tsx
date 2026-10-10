@@ -1308,7 +1308,7 @@ export function Home(): React.JSX.Element {
         <Tip label={keyed('New capture, in quick capture', '⌘N')}>
           <button type="button" onClick={() => (chime('open'), window.api.showPrompt())}
             style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-            className={`${PILL} ml-1.5 gap-1.5 pr-1.5 pl-3 text-control font-medium text-foreground/90 transition-colors hover:bg-accent/60 hover:text-foreground`}>
+            className={`${PILL} ml-1.5 shrink-0 gap-1.5 pr-1.5 pl-3 text-control font-medium text-foreground/90 transition-colors hover:bg-accent/60 hover:text-foreground`}>
             <AliveIcon icon={PenIcon} size={14} />
             New
             <Pressed keys="C" className="ml-1 h-[18px] min-w-[18px] rounded-[5px]" />
