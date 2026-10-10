@@ -291,7 +291,7 @@ export function SettingsView(): React.JSX.Element {
       // Only what you can see and reach: the hidden file input behind "Import a
       // theme…" would otherwise take the focus and keep it.
       const controls = [...(page.current?.querySelectorAll<HTMLElement>('button, [role="slider"], input') ?? [])].filter(
-        (one) => one.tabIndex >= 0 && !one.matches(':disabled') && one.checkVisibility()
+        (one) => one.tabIndex >= 0 && !one.matches(':disabled') && one.checkVisibility() && !one.matches('input:not([type]), input[type="text"], input[type="search"]')
       )
       const at = controls.indexOf(active as HTMLElement)
       if (event.key === 'j' || event.key === 'k') {
