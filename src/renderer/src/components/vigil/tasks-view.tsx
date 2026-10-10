@@ -12,7 +12,6 @@ import LibraryIcon from '@/components/ui/library-icon'
 import HashtagIcon from '@/components/ui/hashtag-icon'
 import HistoryCircleIcon from '@/components/ui/history-circle-icon'
 import CheckedIcon from '@/components/ui/checked-icon'
-import PlayerIcon from '@/components/ui/player-icon'
 import RefreshIcon from '@/components/ui/refresh-icon'
 import BookmarkIcon from '@/components/ui/bookmark-icon'
 import XIcon from '@/components/ui/x-icon'
@@ -57,7 +56,6 @@ const Gem = alive(LibraryIcon)
 const Hash = alive(HashtagIcon)
 const History = alive(HistoryCircleIcon)
 const ListChecks = alive(CheckedIcon)
-const Play = alive(PlayerIcon)
 const Repeat = alive(RefreshIcon)
 const Telescope = alive(BookmarkIcon)
 const X = alive(XIcon)
@@ -446,7 +444,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
           <Rest seed="today" off={mode !== 'today'}>
           <Empty shape={mode === 'today' ? ['star', 6] : mode === 'routines' ? ['flower', 5] : mode === 'later' ? ['moon', 3] : ['ellipse', 4]} title={mode === 'today' ? 'Nothing due today' : mode === 'routines' ? 'No routines' : mode === 'later' ? 'Nothing put off' : 'Nothing coming up'}>
             {mode === 'routines'
-              ? 'A routine is a task that repeats, kept here so it does not crowd Today. To make one, type it in the box above with how often: “bins every week”, or “water the plants every! 3 days” to count from when you last did it.'
+              ? 'A routine is a task that repeats, kept here so it does not crowd Today. To make one, type it in quick capture with how often: “bins every week”, or “water the plants every! 3 days” to count from when you last did it.'
               : mode === 'today'
               ? 'A clear day. Anything with a date lands here on the day, and anything late stays on top until it is done.'
               : mode === 'later'
@@ -644,7 +642,7 @@ function StartFocus({ taskId, title }: { taskId: string; title: string }): React
   }
   // Opening the form winds up; each length has a note of its own, so the
   // choice is heard as well as seen.
-  if (!open) return <Prop icon={Play} onClick={() => {
+  if (!open) return <Prop icon={Timer} onClick={() => {
     chime('windup')
     setOpen(true)
   }}>Start a focus session</Prop>

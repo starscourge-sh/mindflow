@@ -7,7 +7,7 @@ import { SANDBOX } from './sandbox'
 /**
  * The reading queue, Spotify's way: an ordered list of what you mean to read
  * next, any note, idea, piece of writing or link. Add to queue puts one at
- * the end, Play next at the front. Read, it leaves the queue for Read, with
+ * the end, Read next at the front. Read, it leaves the queue for Read, with
  * the day it was finished. Every channel starts `vigil:`.
  */
 
@@ -99,7 +99,7 @@ export function registerReadingQueue(): void {
   handle('queue', read)
 
   // In by their ids, at the end (Add to queue) or at the front in the order
-  // given (Play next). One already waiting moves rather than coming twice.
+  // given (Read next). One already waiting moves rather than coming twice.
   // Gives back how many went in, and the queue as it was, for an undo.
   handle('queue:add', (ids: string[], next = false) => {
     const list = [...new Set((Array.isArray(ids) ? ids : [ids]).map(String))]
@@ -118,7 +118,7 @@ export function registerReadingQueue(): void {
     if (added) told()
     return { added, before }
   })
-  // Put back as it was before an add: the undo of Add to queue and Play next.
+  // Put back as it was before an add: the undo of Add to queue and Read next.
   handle('queue:put', (rows: { id: string; item_type: string; item_id: string; position: number; added_at: string; done_at: string | null }[]) => {
     db.prepare('delete from reading_queue where done_at is null').run()
     const put = db.prepare('insert or replace into reading_queue (id, item_type, item_id, position, added_at, done_at) values (?, ?, ?, ?, ?, ?)')

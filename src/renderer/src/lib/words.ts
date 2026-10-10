@@ -40,9 +40,9 @@ export const WORDS: Word[] = [
   {
     id: 'capture',
     forms: ['Capture', 'Captures'],
-    line: 'Anything you write in the box, before you decide what it is',
+    line: 'Anything you write in quick capture, before you decide what it is',
     origin: 'Latin captura, a taking',
-    here: '**Whatever you caught in the box.** A line, a link, a quote or half a thought; it does not have to be good or finished.',
+    here: '**Whatever you caught in quick capture.** A line, a link, a quote or half a thought; it does not have to be good or finished.',
     try: 'Press ⌘., type, and press ⌘↵. It waits in the Inbox.',
     history: 'From Latin capere, to take or seize, the same root as captive and capable.',
     see: ['inbox', 'promote', 'tidy']
@@ -83,7 +83,7 @@ export const WORDS: Word[] = [
     line: 'Everything you chose to keep: ideas, writing, questions and goals',
     origin: 'Latin salvare, to make safe',
     here: '**The shelf of what you meant to hold on to.** It makes Vigil a commonplace book of your own.',
-    try: 'In the box, the Saved tab shows your ideas, writing and questions beside whatever you are writing.',
+    try: 'In quick capture, the Saved tab shows your ideas, writing and questions beside whatever you are writing.',
     history: 'Save comes through Old French sauver from Latin salvare, to make safe. Readers in the Renaissance kept commonplace books: notebooks of passages worth saving, filed under headings, so they could find them again and think with them.',
     see: ['nugget', 'holding', 'surfacing']
   },
@@ -102,7 +102,7 @@ export const WORDS: Word[] = [
     forms: ['Surfacing', 'Surface'],
     line: 'Whether this may come back to you unasked, as a hint or a card',
     origin: 'Rising from below',
-    here: '**Whether a kept thing may come up to meet you, in the box and on Home.** Private keeps it out of hints; a pin keeps it in view.',
+    here: '**Whether a kept thing may come up to meet you, in quick capture and on Home.** Private keeps it out of hints; a pin keeps it in view.',
     try: 'Mark something private if you never want it offered as a hint.',
     history: 'To surface is to come up from underneath, as a diver or a whale does. The noun is older: French sur, over, and face, the outer side of a thing.',
     see: ['rot', 'kept', 'review']
@@ -123,7 +123,7 @@ export const WORDS: Word[] = [
     line: 'Something that turned up toward a question you are holding',
     origin: 'A ball of thread',
     here: '**Something you found that bears on a question you are holding.** It needs no conclusion.',
-    try: 'Drop one in from the box while a question is in view.',
+    try: 'Drop one in from quick capture while a question shows there.',
     history: 'A clue, or clew, was a ball of thread. In the Greek story, Theseus unwound Ariadne’s thread through the Labyrinth and followed it back out, so a clue came to mean anything that leads you through a puzzle.',
     see: ['holding', 'gloss', 'capture']
   },
@@ -170,9 +170,9 @@ export const WORDS: Word[] = [
   {
     id: 'rot',
     forms: ['Rot cards', 'Rot card', 'Rot'],
-    line: 'A few unhandled captures that come back each time you open the box',
+    line: 'A few unhandled captures that come back each time you open quick capture',
     origin: 'Old English rotian, to decay',
-    here: '**A few old captures that come back each time you open the box.** Never the whole pile, and they ask only for a tidy.',
+    here: '**A few old captures that come back each time you open quick capture.** Never the whole pile, and they ask only for a tidy.',
     try: 'Settings, What comes back to you, says how many.',
     history: 'Rot is Old English rotian, to decay. A note left untouched does not spoil, but it does lose the reason you wrote it.',
     see: ['tidy', 'surfacing', 'inbox']

@@ -271,7 +271,7 @@ function RelatedCard({ card, onOpen }: { card: Related[number]; onOpen?: (type: 
           <DropdownMenuItem onSelect={() => openWindow(card.type, card.id)}>Open in a new window</DropdownMenuItem>
           {canSplit() && <DropdownMenuItem onSelect={() => openAside(card.type, card.id)}>Open to the side<DropdownMenuShortcut>⌥-click</DropdownMenuShortcut></DropdownMenuItem>}
           <DropdownMenuItem onSelect={() => void enqueue([card.id])}>Add to queue</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => void enqueue([card.id], true)}>Play next</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void enqueue([card.id], true)}>Read next</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

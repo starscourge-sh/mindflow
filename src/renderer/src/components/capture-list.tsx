@@ -90,7 +90,7 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   capture.status === 'open' && { label: 'Make it a task', run: () => void makeTask({ capture: capture.id }) },
   capture.status === 'open' && { label: 'Add to a question…', run: () => void addToQuestion(capture.id) },
   'separator',
-  { label: capture.pinnedAt ? 'Unpin' : 'Pin to the box', run: () => pin('captures', capture.id, !capture.pinnedAt) },
+  { label: capture.pinnedAt ? 'Unpin' : 'Show in quick capture', run: () => pin('captures', capture.id, !capture.pinnedAt) },
   { label: capture.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('captures', capture.id, !capture.private) },
   { label: 'Stick on the desktop', run: () => stickOnDesktop('capture', capture.id) },
   { label: 'Open in a new window', keys: '⌘-click', run: () => openWindow('capture', capture.id) },

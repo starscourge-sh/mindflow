@@ -88,7 +88,7 @@ export function PageHint({ page }: { page: string }): React.JSX.Element | null {
     return (
       <Line name="news" onDone={done} done="Not now">
         <strong>New: a welcome tour, and a sandbox.</strong> The sandbox is full of examples to try, apart from your notes.{' '}
-        <button type="button" onClick={() => (done(), playWelcome())} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Play the welcome</button>
+        <button type="button" onClick={() => (done(), playWelcome())} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Show the welcome</button>
         {' or '}
         <button type="button" onClick={() => {
           done()

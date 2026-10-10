@@ -2,10 +2,10 @@ import { Children, type ReactNode } from 'react'
 import {
   AlarmClock, AppWindow, Archive, ArchiveRestore, ArrowDown, ArrowUp, ArrowUpDown, Ban, Bell, BookCopy, BookOpen, Bookmark, Brain, Calendar,
   CalendarClock, CalendarDays, CalendarPlus, Camera, CameraOff, ChartBar, CheckCheck, ChevronsDownUp, ChevronsUpDown, CircleCheck, CircleOff,
-  CircleX, Clipboard, Clock, Columns2, Copy, CopyPlus, Dice5, Dot, Download, Eraser, ExternalLink, Eye, EyeOff, FilePlus, FileText, Files, Flag,
+  CircleX, Clipboard, Clock, Columns2, Copy, CopyPlus, Dice5, DoorOpen, Dot, Download, Eraser, ExternalLink, Eye, EyeOff, FilePlus, FileText, Files, Flag,
   FolderInput, FolderMinus, FolderPlus, Footprints, Gift, GraduationCap, Hash, History, Hourglass, House, Image, Inbox, Keyboard, LayoutGrid,
-  Library, Lightbulb, Link, List, ListChecks, ListVideo, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
-  MonitorUp, MoveRight, Palette, Scale, PanelLeft, PanelRight, Pencil, Pin, PinOff, Play, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
+  Library, Lightbulb, Link, List, ListChecks, ListStart, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
+  MonitorUp, MoveRight, Palette, Scale, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
   ShieldCheck, Smile, Sparkles, SquareCheck, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
   User, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, type LucideIcon
 } from 'lucide-react'
@@ -18,12 +18,13 @@ import {
  */
 const RULES: [RegExp, LucideIcon][] = [
   // Pins and splits first: "Unpin" must not read as "Pin", nor "Open to the side" as "Open".
-  [/^unpin|^pin off/i, PinOff],
+  [/^unpin|^pin off|^stop showing in quick capture/i, PinOff],
+  [/in quick capture/i, Pin],
   [/^pin\b|^keep .*on screen|^pin the layout/i, Pin],
   [/to the side|as split|^split|beside it|^add (left|right) split|pane to the (left|right)/i, Columns2],
   [/^separate/i, Ungroup],
   [/^decide/i, Scale],
-  [/^queue$/i, ListVideo],
+  [/^queue$|^read next/i, ListStart],
   [/close other panes/i, CircleX],
   [/^close (this )?pane|^close without/i, X],
   [/new window|own window|in a window/i, AppWindow],
@@ -87,7 +88,7 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^customi[sz]e/i, Wrench],
   [/settings/i, Settings],
   [/keyboard|shortcut|vim/i, Keyboard],
-  [/welcome|^play/i, Play],
+  [/welcome/i, DoorOpen],
   [/celebrat|wrapped/i, Gift],
   [/^what .*vigil|power/i, Sparkles],
   [/words|meaning/i, Type],

@@ -22,7 +22,7 @@ export const tidy = <T,>(items: (T | 'separator')[]): (T | 'separator')[] =>
  */
 const NESTS: [string, RegExp][] = [
   ['Open in…', /^open (in a new window|to the side)$/i],
-  ['Queue', /^(add to queue|play next)$/i],
+  ['Queue', /^(add to queue|read next)$/i],
   ['Copy', /^copy\b/i]
 ]
 export function nest(items: RowItem[]): RowItem[] {

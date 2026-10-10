@@ -209,7 +209,7 @@ export function RotCards({ onOpen }: { onOpen: (id: string) => void }): React.JS
             ...clues.map((question) => ({ label: `A clue to “${question.title.length > 32 ? `${question.title.slice(0, 32)}…` : question.title}”`, run: () =>
               void clueInto(question, { captureId: card.id }, () => putBack(card)).then((ok) => ok && (drop(card.id), count())) })),
             'separator',
-            { label: 'Pin to the box', run: () => pin('captures', card.id, true) },
+            { label: 'Show in quick capture', run: () => pin('captures', card.id, true) },
             { label: `Copy ${captureKey(card.number)}`, run: () => copy(captureKey(card.number)) }
           ]}>
             {/* Blurred as a whole box: blur inside a clamped box was cut at its edges. */}

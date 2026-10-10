@@ -102,7 +102,7 @@ export function NotePreview(): React.JSX.Element | null {
         {shown.queue && (
           <span className="flex shrink-0 gap-1">
             <button type="button" onClick={() => (void enqueue([shown.id]), setShown(null))} className="rounded px-1.5 py-0.5 text-foreground/80 hover:bg-accent hover:text-foreground">Add to queue</button>
-            <button type="button" onClick={() => (void enqueue([shown.id], true), setShown(null))} className="rounded px-1.5 py-0.5 text-foreground/80 hover:bg-accent hover:text-foreground">Play next</button>
+            <button type="button" onClick={() => (void enqueue([shown.id], true), setShown(null))} className="rounded px-1.5 py-0.5 text-foreground/80 hover:bg-accent hover:text-foreground">Read next</button>
           </span>
         )}
       </div>

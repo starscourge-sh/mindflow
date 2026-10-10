@@ -691,7 +691,7 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
         </ol>
       ) : (
         <p className="px-2 pb-2 text-control text-muted-foreground">
-          {picked ? 'No log that day.' : <Typed text="No logs yet. Add one here, or from the box with + and the goal's name." step={28} />}
+          {picked ? 'No log that day.' : <Typed text="No logs yet. Add one here, or from quick capture with + and the goal's name." step={28} />}
         </p>
       )}
     </section>

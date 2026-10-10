@@ -5,7 +5,7 @@ import type { MenuItem } from '@/components/vigil/row-menu'
 
 /**
  * The reading queue, as the windows see it: what you mean to read next, in
- * order, Spotify's way. Add to queue puts something at the end, Play next at
+ * order, Spotify's way. Add to queue puts something at the end, Read next at
  * the front. The table is src/main/reading-queue.ts; the page is
  * components/vigil/queue-view.tsx.
  */
@@ -45,7 +45,7 @@ export function useQueue(): Queue {
   return useLive(readingQueue.list, { queue: [], read: [] } as Queue)
 }
 
-/** Add to queue (the end) or Play next (the front), said in a toast with an Undo. */
+/** Add to queue (the end) or Read next (the front), said in a toast with an Undo. */
 export async function enqueue(ids: string[], next = false): Promise<void> {
   if (!ids.length) return
   const { added, before } = await readingQueue.add(ids, next)
@@ -70,10 +70,10 @@ export async function finish(row: QueueRow, quiet = false): Promise<void> {
   toast(`Read: ${row.title.length > 40 ? `${row.title.slice(0, 40)}…` : row.title}`, () => void readingQueue.undone(row.id).then(() => chime('undo')))
 }
 
-/** The two verbs, for any row's or note's menu: Add to queue and Play next. */
+/** The two verbs, for any row's or note's menu: Add to queue and Read next. */
 export const queueItems = (id: string): MenuItem[] => [
   { label: 'Add to queue', run: () => void enqueue([id]) },
-  { label: 'Play next', run: () => void enqueue([id], true) }
+  { label: 'Read next', run: () => void enqueue([id], true) }
 ]
 
 /** Read the queue from `start`, in read mode, wherever the main window is. */

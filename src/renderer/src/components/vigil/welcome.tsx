@@ -412,7 +412,7 @@ export function Welcome(): React.JSX.Element | null {
           )}
           {at === 0 && <Primary onClick={next}>Show me</Primary>}
           {at > 0 && at < LAST && (at === BECOME && turn !== 'kept'
-            ? <Primary onClick={openBox} keys={<BoxKeys />}>Try it in the box</Primary>
+            ? <Primary onClick={openBox} keys={<BoxKeys />}>Try it in quick capture</Primary>
             : <Primary onClick={next}>Next</Primary>)}
           {at === LAST && <Primary onClick={() => start(1)}>Start fresh</Primary>}
         </footer>
@@ -611,7 +611,7 @@ function CatchChapter({ play, report, state, onState }: { play: boolean; report:
           <KeyPicker taken={!!state?.boxTaken} onState={onState} />
         ) : (
           <>
-            <InlineKeys keys={keys} /> opens this box over any app, and Vigil sorts what you write.{' '}
+            <InlineKeys keys={keys} /> opens quick capture over any app, and Vigil sorts what you write.{' '}
             <button type="button" onClick={() => (chime('tap'), setChoosing(true))} className={`${QUIET} rounded-sm underline decoration-current/30 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current/60`}>
               Use a different key
             </button>
@@ -799,8 +799,8 @@ function BecomeChapter({ play, report, pick, onPick, turn, mine }: { play: boole
   const send = <InlineKeys keys={keyFor('⌘↵') || '⌘↵'} />
   const said: Record<Turn, ReactNode> = {
     idle: <Action>Your turn: pick one, then press {box}</Action>,
-    open: <Action>Now press {send} in the box to keep it</Action>,
-    away: <Action>Press {box} to bring the box back</Action>,
+    open: <Action>Now press {send} in quick capture to keep it</Action>,
+    away: <Action>Press {box} to bring quick capture back</Action>,
     kept: <>Saved{mine && mine.kind !== pick ? `: “${(mine.label.split('\n')[0] ?? '').slice(0, 40)}”` : ''}. It is yours now, {mine?.kind === 'todo' ? 'in your tasks' : 'in your Inbox'}.</>
   }
   return (
@@ -957,9 +957,9 @@ function DayScene({ play, report }: { play: boolean; report: (now: Reel) => void
   const [framed, setFramed] = useState(false)
   useEffect(() => void requestAnimationFrame(() => setFramed(true)), [])
   const moments: [string, string, ReactNode][] = [
-    ['Morning', 'You saved it, then never saw it again.', <>Now and then, opening the box brings back something you kept, on its own. Worth knowing? Thumbs up, write the question, and Review will test you on it.</>],
+    ['Morning', 'You saved it, then never saw it again.', <>Now and then, opening quick capture brings back something you kept, on its own. Worth knowing? Thumbs up, write the question, and Review will test you on it.</>],
     ['While you work', 'Your plan is in a tab you closed.', <>Today’s tasks can stay on your desktop as a sticky note, over whatever you are working in. Tick them off right there.</>],
-    ['The long run', 'Big goals get lost in small days.', <>A goal keeps its road in sight. Start a line in the box with + and the goal’s name, then a colon and the step, and it is logged. Small days, added up, get you there.</>],
+    ['The long run', 'Big goals get lost in small days.', <>A goal keeps its road in sight. Start a line in quick capture with + and the goal’s name, then a colon and the step, and it is logged. Small days, added up, get you there.</>],
     ['Evening', 'You read it, and a week later it is gone.', <>Review asks you just before you would forget, further apart each time you know it.</>]
   ]
   return (
@@ -1636,7 +1636,7 @@ function KeyPicker({ taken, onState }: { taken: boolean; onState: (now: Onboardi
       if (!combo) return
       if (combo === 'Esc') return void (setListening(false), listen(null))
       // A key for every app has to hold a ⌘, ⌥ or ⌃, or typing a letter would open the box.
-      if (!/[⌃⌥⌘]/.test(combo)) return void (chime('nope'), setSaid('Hold ⌘, ⌥ or ⌃ with it, so typing never opens the box.'))
+      if (!/[⌃⌥⌘]/.test(combo)) return void (chime('nope'), setSaid('Hold ⌘, ⌥ or ⌃ with it, so typing never opens quick capture.'))
       // Keys every Mac app already uses (Bold, Copy, Paste, Quit…) would be lost everywhere else.
       if (combo !== '⌘.' && (fixed(combo) || COMMON.includes(combo))) return void (chime('nope'), setSaid(`${combo} is one every app already uses. Try one with ⌥ or ⌃ in it.`))
       chime('tap')
@@ -1670,7 +1670,7 @@ function KeyPicker({ taken, onState }: { taken: boolean; onState: (now: Onboardi
   return (
     <motion.div className="flex flex-col items-start gap-3" initial={false} exit={{ opacity: 0, transition: { duration: 0.1 } }}>
       <p className={`${BODY} max-w-[34ch]`}>
-        {taken ? <><InlineKeys keys={keyFor('⌘.') || '⌘.'} /> is already taken by another app on this Mac. Press the keys you would like instead.</> : <>Press the keys you would like for the box instead.</>}
+        {taken ? <><InlineKeys keys={keyFor('⌘.') || '⌘.'} /> is already taken by another app on this Mac. Press the keys you would like instead.</> : <>Press the keys you would like for quick capture instead.</>}
       </p>
       <div className="flex flex-wrap items-center justify-center gap-3">
         <button type="button" onClick={() => (chime('tap'), setListening(true))}
@@ -1680,7 +1680,7 @@ function KeyPicker({ taken, onState }: { taken: boolean; onState: (now: Onboardi
       </div>
       {asked && (
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={() => keep(asked)} className="flex h-9 items-center gap-2 rounded-[0.6rem] bg-primary px-4 text-[0.875rem] font-semibold text-primary-foreground active:scale-[0.97]">Use <InlineKeys keys={asked} /> for the box</button>
+          <button type="button" onClick={() => keep(asked)} className="flex h-9 items-center gap-2 rounded-[0.6rem] bg-primary px-4 text-[0.875rem] font-semibold text-primary-foreground active:scale-[0.97]">Use <InlineKeys keys={asked} /> for quick capture</button>
           <button type="button" onClick={() => (chime('tap'), setAsked(null), setListening(true))} className="h-9 rounded-[0.6rem] border px-4 text-[0.875rem] font-medium text-foreground hover:bg-foreground/[0.05] active:scale-[0.97]">Try another</button>
         </div>
       )}

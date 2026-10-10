@@ -867,7 +867,7 @@ export function Home(): React.JSX.Element {
               { label: 'Open the sandbox: examples to try, apart from your notes', cue: null, run: () => void enterSandbox() }
             ]),
             { label: 'What can Vigil do? Every power, with a way to try it', cue: null, run: () => setView({ id: 'powers' }) },
-            { label: 'Play the welcome again', cue: null, run: playWelcome },
+            { label: 'Show the welcome again', cue: null, run: playWelcome },
             { label: 'Try a celebration', cue: null, run: () => tryCelebration() },
             ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),
             { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘B', cue: sidebar ? 'fold' : 'slide', run: () => setSidebar(!sidebar) },
@@ -1195,7 +1195,7 @@ export function Home(): React.JSX.Element {
               {!settings?.safeMode && <DropdownMenuItem onSelect={() => window.api.tidyStickies()}>Tidy stickies<DropdownMenuShortcut>⌃⌥⌘T</DropdownMenuShortcut></DropdownMenuItem>}
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={() => window.dispatchEvent(new CustomEvent('vigil:shortcuts'))}>Keyboard shortcuts<DropdownMenuShortcut>?</DropdownMenuShortcut></DropdownMenuItem>
-              <DropdownMenuItem onSelect={playWelcome}>Play the welcome again</DropdownMenuItem>
+              <DropdownMenuItem onSelect={playWelcome}>Show the welcome again</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={() => askBook('switch')}>Switch book…</DropdownMenuItem>
               {!SANDBOX && <DropdownMenuItem onSelect={() => void askNewBook()}>New book…</DropdownMenuItem>}
@@ -1297,7 +1297,7 @@ export function Home(): React.JSX.Element {
           </Tip>
         </span>
         {/* The one thing the window is for, so the one with an edge: the same pill as back and forward, its key beside it. */}
-        <Tip label={keyed('New capture, in the box', '⌘N')}>
+        <Tip label={keyed('New capture, in quick capture', '⌘N')}>
           <button type="button" onClick={() => (chime('open'), window.api.showPrompt())}
             style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
             className={`${PILL} ml-1.5 gap-1.5 pr-1.5 pl-3 text-control font-medium text-foreground/90 transition-colors hover:bg-accent/60 hover:text-foreground`}>

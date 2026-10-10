@@ -94,7 +94,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     ...(tier === 'nugget' ? [{ label: 'Start an article', run: () => article([item.id]) }] : []),
     { label: 'Study this', run: () => void ask('When will you study it?', 'e.g. read it again on Thursday').then((when) => { if (when) void makeTask({ item: item.id, text: `Study “${item.title}” ${when}` }, 'A task, with this linked') }) },
     'separator',
-    { label: item.pinnedAt ? 'Unpin' : 'Pin to the box', run: () => pin('nuggets', item.id, !item.pinnedAt) },
+    { label: item.pinnedAt ? 'Unpin' : 'Show in quick capture', run: () => pin('nuggets', item.id, !item.pinnedAt) },
     { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
     { label: 'Archive', run: () => void archive('nuggets', [item.id], true) },
     'separator',

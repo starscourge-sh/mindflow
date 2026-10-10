@@ -1,5 +1,5 @@
 // The reading queue, in the sandbox: the seeded queue and its Read history;
-// Add to queue and Play next from a row's right-click; reorder by drag; take
+// Add to queue and Read next from a row's right-click; reorder by drag; take
 // one off with × (and Undo); Start reading opens read mode with Up next under
 // the page, ] goes on, ⇧→ counts one read and goes on; the history and the
 // "x of y" progress follow. SHOTS=dir keeps pictures in light and dark.
@@ -35,7 +35,7 @@ try {
   check('the sidebar has a Queue row with its count', (await h.locator('[data-queue-drop]').innerText()).includes('5'))
   await shot('queue-page-light')
 
-  // --- Add to queue and Play next, from a row's right-click
+  // --- Add to queue and Read next, from a row's right-click
   await c.go('nuggets')
   await wait(900)
   const row = h.locator('[data-pane] [data-row][data-id]').first()
@@ -43,7 +43,7 @@ try {
   const name = (await v('item', id))?.title
   await row.click({ button: 'right' })
   await wait()
-  // Add to queue and Play next sit under Queue in a row's menu.
+  // Add to queue and Read next sit under Queue in a row's menu.
   await h.getByRole('menuitem', { name: 'Queue' }).hover(); await wait(400)
   await h.getByRole('menuitem', { name: 'Add to queue' }).click()
   await wait(700)
@@ -54,10 +54,10 @@ try {
   await second.click({ button: 'right' })
   await wait()
   await h.getByRole('menuitem', { name: 'Queue' }).hover(); await wait(400)
-  await h.getByRole('menuitem', { name: 'Play next' }).click()
+  await h.getByRole('menuitem', { name: 'Read next' }).click()
   await wait(700)
   now = await queue()
-  check('Play next puts it at the front', now.queue[0]?.itemId === id2, now.queue[0]?.title)
+  check('Read next puts it at the front', now.queue[0]?.itemId === id2, now.queue[0]?.title)
 
   // --- the queue: drag to reorder, × to take off and Undo
   await c.go('queue')

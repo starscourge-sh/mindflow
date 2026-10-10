@@ -549,10 +549,10 @@ const ReadThroughDemo: Demo = ({ live }) => {
   )
 }
 
-// Short enough to fit beside Play next, four rows short enough to fit the stage.
+// Short enough to fit beside Read next, four rows short enough to fit the stage.
 const QUEUED = ['Pale Blue Dot', 'Dorian Gray', "Lovelace's Note G", 'The Kessel Run']
 const QueueDemo: Demo = ({ live }) => {
-  // Play next lifts the last one to the top; then each is read and the next comes up.
+  // Read next lifts the last one to the top; then each is read and the next comes up.
   const at = useSteps([1300, 1100, 1100, 1100, 1600], live, 4)
   const order = at === 0 ? QUEUED : [QUEUED[3], ...QUEUED.slice(0, 3)]
   const read = Math.max(0, at - 1)
@@ -566,7 +566,7 @@ const QueueDemo: Demo = ({ live }) => {
               className={`flex h-6 items-center gap-2 rounded-md border bg-background px-2 text-control transition-opacity duration-300 ${i < read ? 'opacity-35' : ''}`}>
               <span className="w-3 text-right text-meta text-muted-foreground tabular-nums">{i + 1}</span>
               <span className={`truncate ${i < read ? 'line-through decoration-foreground/40' : 'text-foreground'}`}>{title}</span>
-              {at === 0 && i === 3 && <Chip className="ml-auto">Play next</Chip>}
+              {at === 0 && i === 3 && <Chip className="ml-auto">Read next</Chip>}
             </motion.div>
           ))}
         </div>

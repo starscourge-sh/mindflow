@@ -404,7 +404,7 @@ export function SettingsView(): React.JSX.Element {
         {!searching && <h1 className="px-1 text-lg font-semibold text-foreground"><Term>{section}</Term></h1>}
         <p data-none className="px-1 text-body text-muted-foreground">Nothing here matches “{query}”. Try fewer letters, or what it changes.</p>
         <Group section="Appearance" title="Theme">
-          <Setting title="Theme" note="**The colours of every window, the box and this one together.** Point at one to try it, click to keep it." keywords={allThemes().map(themeName).join(' ')}>
+          <Setting title="Theme" note="**The colours of every window, quick capture and this one together.** Point at one to try it, click to keep it." keywords={allThemes().map(themeName).join(' ')}>
             <ThemePicker className="-mr-2 h-8 gap-1.5 rounded-full px-2 hover:bg-accent" />
           </Setting>
           <Setting title="Style" note="**How things are drawn, in any theme.** Soft is rounded and lifted on soft shadows. Brutal is square, outlined in the theme's ink, and stands on hard shadows." keywords="style brutal soft neobrutalism square corners outline hard shadow">
@@ -475,24 +475,24 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="Appearance" title="Window placement">
-          <Setting title="Keep the box centred" note="**The side panel grows the box on both sides, so it stays centred.** Off, it grows to the right; either way it grows down from its top, never past the screen's edge, and closing the panel puts it back." keywords="box window centre center grow panel expand position place">
+          <Setting title="Keep quick capture centred" note="**The side panel grows quick capture on both sides, so it stays centred.** Off, it grows to the right; either way it grows down from its top, never past the screen's edge, and closing the panel puts it back." keywords="box window centre center grow panel expand position place">
             <Switch checked={settings.boxCentred !== false} onCheckedChange={(boxCentred) => set({ boxCentred })} />
           </Setting>
-          <Setting title="Close the box when you click away" note="**Click into another app and the box puts itself away, like Raycast.** What you wrote is kept; off, it stays up until Esc or the key again." keywords="box window close hide blur focus click away raycast auto">
+          <Setting title="Close quick capture when you click away" note="**Click into another app and quick capture puts itself away, like Raycast.** What you wrote is kept; off, it stays up until Esc or the key again." keywords="box window close hide blur focus click away raycast auto">
             <Switch checked={settings.boxAutoHide !== false} onCheckedChange={(boxAutoHide) => set({ boxAutoHide })} />
           </Setting>
-          <Setting title="Where the box appears" note="**Where it comes when you summon it.** Where you left it brings it back there; the others place it fresh, near the top like Spotlight or in the middle." keywords="box window summon open position place top middle centre last">
+          <Setting title="Where quick capture appears" note="**Where it comes when you summon it.** Where you left it brings it back there; the others place it fresh, near the top like Spotlight or in the middle." keywords="box window summon open position place top middle centre last">
             <Chips className="shrink-0" options={[{ id: 'last', label: 'Where you left it' }, { id: 'top', label: 'Near the top' }, { id: 'centre', label: 'Middle' }]}
               on={(id) => id === (settings.boxPlace ?? 'last')} pick={(boxPlace) => set({ boxPlace: boxPlace as Settings['boxPlace'] })} />
           </Setting>
-          <Setting title="Which screen" note="With more than one screen: the box comes to the screen the pointer is on, or stays on the one it was last on." keywords="box window display monitor screen pointer second">
+          <Setting title="Which screen" note="With more than one screen: quick capture comes to the screen the pointer is on, or stays on the one it was last on." keywords="box window display monitor screen pointer second">
             <Chips className="shrink-0" options={[{ id: 'pointer', label: 'Where the pointer is' }, { id: 'same', label: 'Where it was' }]}
               on={(id) => id === (settings.boxScreen ?? 'pointer')} pick={(boxScreen) => set({ boxScreen: boxScreen as Settings['boxScreen'] })} />
           </Setting>
         </Group>
         <Group section="Appearance" title="Sidebar and tabs">
           <Setting title="Sidebar" note="**The sections the main window lists.** The rest wait under More, and G with their letter still goes to them." keywords="customize sections menu more hide show" below={<div className="-mx-2 mt-2"><ShowList places={PLACES} setting="sidebarShown" /></div>} />
-          <Setting title="Box tabs" note="**The tabs beside the box.** A hidden one is still ⌃ and its number away, and shows while it is open." keywords="prompt panel inbox tasks review kept recent hide show" below={<div className="-mx-2 mt-2"><ShowList places={BOX_TABS} setting="boxTabs" /></div>} />
+          <Setting title="Quick capture tabs" note="**The tabs beside quick capture.** A hidden one is still ⌃ and its number away, and shows while it is open." keywords="prompt panel inbox tasks review kept recent hide show" below={<div className="-mx-2 mt-2"><ShowList places={BOX_TABS} setting="boxTabs" /></div>} />
         </Group>
         <Group section="Appearance" title="Text">
           <Setting title="Text font" note="**What notes, lists and menus are written in.** The Mac's own font to start, Fraunces, a few others or any font on this Mac; OpenDyslexic is easier for some to read." keywords={`note text body font ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
@@ -582,7 +582,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Vim keys" note="Move and edit with Vim's keys in every note." keywords="vim keys keyboard bindings modal normal insert">
             <Switch checked={vim} onCheckedChange={setVim} />
           </Setting>
-          <Setting title="Typewriter scrolling" note="**The line you type on stays a little above the middle, and the page moves instead.** Clicking, selecting and scrolling leave it alone; not in the box, and also in ⌘K." keywords="typewriter scroll scrolling center centre caret cursor line focus writing">
+          <Setting title="Typewriter scrolling" note="**The line you type on stays a little above the middle, and the page moves instead.** Clicking, selecting and scrolling leave it alone; not in quick capture, and also in ⌘K." keywords="typewriter scroll scrolling center centre caret cursor line focus writing">
             <Switch checked={typewriter} onCheckedChange={setTypewriter} />
           </Setting>
         </Group>
@@ -619,12 +619,12 @@ export function SettingsView(): React.JSX.Element {
         </Group>
 
         <Group section="What comes back to you" title="Hints and cards">
-          <Setting title="Hints" note="**How often the box shows you something you kept.** Rare is the point: a hint every time is one you learn to ignore.">
+          <Setting title="Hints" note="**How often quick capture shows you something you kept.** Rare is the point: a hint every time is one you learn to ignore.">
             <SettingSlider min={0} max={0.5} step={0.05} rest={0.1} value={settings.hintRate} onSave={(hintRate) => set({ hintRate })} />
             <span className="w-16 text-right tabular-nums"><Rolling text={settings.hintRate ? `1 in ${Math.round(1 / settings.hintRate)}` : 'never'} /></span>
           </Setting>
           <HintTuning />
-          <Setting title="Old captures that come back" aka="rot cards" note="**How many captures you never dealt with come back as cards when you open the box.** A few, never the whole pile.">
+          <Setting title="Old captures that come back" aka="rot cards" note="**How many captures you never dealt with come back as cards when you open quick capture.** A few, never the whole pile.">
             <SettingSlider min={0} max={6} step={1} rest={3} value={settings.rotCount} onSave={(rotCount) => set({ rotCount })} />
             <span className="w-16 text-right tabular-nums"><Rolling text={settings.rotCount} /></span>
           </Setting>
@@ -649,14 +649,14 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Time as dots" note="**How far through the day, week, month and year you are, in the menu bar's menu.** As dots like a line of beads, or as plain bars." keywords="tempus menu bar day week month year dots bars progress">
             <Switch checked={settings.tempusDots === true} onCheckedChange={(tempusDots) => set({ tempusDots })} />
           </Setting>
-          <Setting title="Marked days in the menu bar" note="**The next three marked days under the bars in the menu bar's menu, each with the days to go.** A day is marked from its page, a right-click on any day, or !milestone in the box." keywords="milestones marked days exam launch birthday menu bar countdown">
+          <Setting title="Marked days in the menu bar" note="**The next three marked days under the bars in the menu bar's menu, each with the days to go.** A day is marked from its page, a right-click on any day, or !milestone in quick capture." keywords="milestones marked days exam launch birthday menu bar countdown">
             <Switch checked={settings.milestonesInMenu !== false} onCheckedChange={(milestonesInMenu) => set({ milestonesInMenu })} />
           </Setting>
           <Setting title="Goal on screen" note="**Each goal's beacon, unless the goal picks its own: a small card on every Space with the days left.** Several share one stack, nearest goal on top, the top card moving back every 45 seconds or so unless pointed at. Now and then means out the first time you unlock or open Vigil each day and every few hours, tucked away after a minute; in the last week it stays." keywords="goals beacon on screen window stack cards always sometimes off">
             <Chips className="shrink-0" options={[{ id: 'always', label: 'Always' }, { id: 'sometimes', label: 'Now and then' }, { id: 'off', label: 'Off' }]}
               on={(id) => id === (settings.goalBeacon ?? 'sometimes')} pick={(goalBeacon) => set({ goalBeacon: goalBeacon as Settings['goalBeacon'] })} />
           </Setting>
-          <Setting title="Goal nudges" note="**A goal with no log for a week says so in the box.** More often as the quiet goes on or the day comes near; never in quiet hours." keywords="goals nudge reminder log">
+          <Setting title="Goal nudges" note="**A goal with no log for a week says so in quick capture.** More often as the quiet goes on or the day comes near; never in quiet hours." keywords="goals nudge reminder log">
             <Switch checked={settings.goalNudges !== false} onCheckedChange={(goalNudges) => set({ goalNudges })} />
           </Setting>
         </Group>
@@ -740,7 +740,7 @@ export function SettingsView(): React.JSX.Element {
           <CapTuning />
         </Group>
         <Group section="Review" title="Exams">
-          <Setting title="Exam nudges" note="**A tag with an exam date says so in the box when its cards fall behind.** Set the date on its page in Tags; once a day at most, never in quiet hours.">
+          <Setting title="Exam nudges" note="**A tag with an exam date says so in quick capture when its cards fall behind.** Set the date on its page in Tags; once a day at most, never in quiet hours.">
             <Switch checked={settings.examNudges} onCheckedChange={(examNudges) => set({ examNudges })} />
           </Setting>
         </Group>
@@ -774,7 +774,7 @@ export function SettingsView(): React.JSX.Element {
 
         <Group section="Help" title="Getting started">
           <Setting title="Welcome" note="The two-minute start: the one key, your first capture, and how things come back." keywords="tour welcome onboarding start intro replay">
-            <Button variant="outline" size="sm" onClick={playWelcome}>Play it again</Button>
+            <Button variant="outline" size="sm" onClick={playWelcome}>Show it again</Button>
           </Setting>
           <Setting title="Sandbox" note={SANDBOX ? "**You're in it now: a practice copy of Vigil, full of examples.** Your own notes stay exactly as they are." : '**A practice copy of Vigil, full of examples to try.** Your own notes stay exactly as they are.'} keywords="sandbox practice examples demo try sample playground">
             {SANDBOX ? (<>

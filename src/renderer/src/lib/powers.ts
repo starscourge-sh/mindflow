@@ -43,7 +43,7 @@ export type Power = {
 }
 
 export const GROUPS: { id: Group; line: string }[] = [
-  { id: 'Catching', line: 'A few small signs make the box do more than keep words.' },
+  { id: 'Catching', line: 'A few small signs make quick capture do more than keep words.' },
   { id: 'Writing', line: 'A note is more than a page of text.' },
   { id: 'Remembering', line: 'What you keep comes back, so it stays with you.' },
   { id: 'Planning', line: 'Tasks, choices and goals that check in on you.' },
@@ -57,12 +57,12 @@ const ROW = '[data-row]'
 
 export const POWERS: Power[] = [
   // Catching
-  { id: 'box', group: 'Catching', name: 'The box, from any app', line: 'One key opens a small box over whatever you are doing, and ⌘↵ puts it away.', keys: ['⌘.'],
+  { id: 'box', group: 'Catching', name: 'Quick capture, from any app', line: 'One key opens quick capture over whatever you are doing, and ⌘↵ puts it away.', keys: ['⌘.'],
     show: { box: true, text: 'Write anything and press ⌘↵.' }, used: (s) => s.steps.catch },
-  { id: 'timer', group: 'Catching', name: 'Timers in plain words', line: 'Type 5m tea in the box and a timer starts, with a bell when it is done.', keys: ['⌘.'],
+  { id: 'timer', group: 'Catching', name: 'Timers in plain words', line: 'Type 5m tea in quick capture and a timer starts, with a bell when it is done.', keys: ['⌘.'],
     show: { box: true, text: 'Type 5m tea and press ⌘↵.' } },
-  { id: 'clue', group: 'Catching', name: 'Add a clue to a question', tryIt: 'In the box, type + and the start of a question’s name.', line: 'Start with + and a question’s or goal’s name, and what you type joins it as a clue or a log entry.', keys: ['⌘.'],
-    show: { view: 'questions', at: ROW, text: 'Each question here gathers clues. In the box, type + and the start of its name.' }, used: (s) => s.items.some((item) => item.tier === 'question' && item.clues > 0) },
+  { id: 'clue', group: 'Catching', name: 'Add a clue to a question', tryIt: 'In quick capture, type + and the start of a question’s name.', line: 'Start with + and a question’s or goal’s name, and what you type joins it as a clue or a log entry.', keys: ['⌘.'],
+    show: { view: 'questions', at: ROW, text: 'Each question here gathers clues. In quick capture, type + and the start of its name.' }, used: (s) => s.items.some((item) => item.tier === 'question' && item.clues > 0) },
   { id: 'tagtask', group: 'Catching', name: 'Tags that make a task', tryIt: 'Open a tag, choose Manage, and turn on Makes a task.', line: 'Mark a tag as one that makes a task, and anything you write with #bug lands in your tasks.',
     show: { view: 'tags', at: ROW, text: 'Open a tag, choose Manage, and turn on Makes a task. Anything tagged with it becomes a task.' }, used: (s) => s.actionTag },
   { id: 'remind', group: 'Catching', name: 'Reminders, loud or quiet', line: 'End a task with !alert to be interrupted, !quiet to have it counted quietly in the menu bar, or !pull to only see it when you look.',
@@ -101,7 +101,7 @@ export const POWERS: Power[] = [
     show: { view: 'nuggets', at: ROW, text: 'Open an idea and fill in Context and Why.' }, used: (s) => s.items.some((item) => !!item.context || !!item.why) },
   { id: 'readthrough', group: 'Remembering', name: 'Read through a list', line: 'Go through a list of notes or ideas one at a time, full size, with nothing else on screen.', keys: ['⇧⌘R'],
     show: { view: 'nuggets', at: '[aria-label="Read through"]', text: 'Press ⇧⌘R on a list of notes or ideas.' } },
-  { id: 'queue', group: 'Remembering', name: 'A reading queue', tryIt: 'Right-click a note and choose Add to queue, or Play next.', line: 'Line up what you mean to read, Spotify’s way, then read it one after the other with Up next under the page.', keys: ['G B'],
+  { id: 'queue', group: 'Remembering', name: 'A reading queue', tryIt: 'Right-click a note and choose Add to queue, or Read next.', line: 'Line up what you mean to read, Spotify’s way, then read it one after the other with Up next under the page.', keys: ['G B'],
     show: { view: 'queue', at: '[data-queue-row]', text: 'Drag to reorder, then Start reading. ] skips on, ⇧→ marks one read and goes to the next.' } },
   { id: 'wrong', group: 'Remembering', name: 'Wrong? Keep the truth', line: 'When something you saved turns out wrong, write what is true, and the old one stays, marked Superseded.',
     show: { view: 'nuggets', at: ROW, text: 'Open an idea and, under Wrong?, choose This turned out wrong… to write what is true now.' }, used: (s) => s.items.some((item) => !!item.supersededBy) },
@@ -115,7 +115,7 @@ export const POWERS: Power[] = [
     show: { view: 'kind:decision', at: ROW, text: 'Open a decision and give it a Look again date.' }, used: (s) => s.kinds.has('decision') },
   { id: 'experiment', group: 'Planning', name: 'Experiments that report back', tryIt: 'Open an experiment to see its date and how it went.', line: 'Try something until a date, and when the day comes Vigil asks how it went.',
     show: { view: 'kind:experiment', at: ROW, text: 'An experiment runs until its date, then asks for the outcome.' }, used: (s) => s.kinds.has('experiment') },
-  { id: 'goals', group: 'Planning', name: 'Goals with a road there', tryIt: 'Open a goal and log a step.', line: 'A goal has a day, a line that fills as the day comes closer, and steps you log from the box with + and its name.', keys: ['G E'],
+  { id: 'goals', group: 'Planning', name: 'Goals with a road there', tryIt: 'Open a goal and log a step.', line: 'A goal has a day, a line that fills as the day comes closer, and steps you log from quick capture with + and its name.', keys: ['G E'],
     show: { view: 'goals', at: ROW, text: 'Each goal, with how far along it is.' }, used: (s) => s.items.some((item) => item.tier === 'goal') },
   { id: 'matrix', group: 'Planning', name: 'Urgent and important', line: 'Your tasks in four boxes, by how soon and how much they matter.', keys: ['G Q'],
     show: { view: 'matrix', at: '[data-quadrant]', text: 'Drag a task to another box, or press 1 to 4.' } },
@@ -131,7 +131,7 @@ export const POWERS: Power[] = [
     show: { view: 'day', at: '[aria-label="Week"]', text: 'Switch between Day, Week, Month and Year here.' } },
   { id: 'year', group: 'Seeing your year', name: 'Your year in seasons', line: 'Name each month’s season of life, and see the year as the story it was.',
     show: { view: 'yearpage', text: 'Name a month’s season on its page, and it shows here.' }, used: (s) => s.season },
-  { id: 'milestones', group: 'Seeing your year', name: 'Mark a day', tryIt: 'Right-click any day on the year, month or week, or type !milestone Exam on 3 Dec in the box.', line: 'Give any day a purpose, like Exam, Launch or Mum’s birthday, and count down to it from Home and the menu bar.',
+  { id: 'milestones', group: 'Seeing your year', name: 'Mark a day', tryIt: 'Right-click any day on the year, month or week, or type !milestone Exam on 3 Dec in quick capture.', line: 'Give any day a purpose, like Exam, Launch or Mum’s birthday, and count down to it from Home and the menu bar.',
     show: { view: 'yearpage', at: '[data-year-marks]', text: 'Each marked day stands tall here. Right-click any day to mark it.' } },
   { id: 'book', group: 'Seeing your year', name: '#book: stars and a takeaway', tryIt: 'Tag a note #book and give it stars.', line: 'Tag a note #book to give it a reading status, a rating out of five and what you will keep from it.',
     show: { view: 'tags', find: '#book', at: ROW, text: 'Notes tagged #book get a status, stars and a takeaway.' }, used: (s) => s.rated },
@@ -150,7 +150,7 @@ export const POWERS: Power[] = [
   { id: 'safe', group: 'Windows', name: 'Safe mode', line: 'One key stops hints, rot cards and pins coming up on their own, for when someone is looking over your shoulder.', keys: ['⌥⌘S'],
     show: { view: 'inbox', at: ROW, text: 'Press ⌥⌘S, and again to come back.' } },
   { id: 'lock', group: 'Windows', name: 'Lock a note', line: 'Make a note read only, so a stray key cannot change it.',
-    show: { box: true, text: 'In the box, open the ··· menu and choose Lock: read only.' } },
+    show: { box: true, text: 'In quick capture, open the ··· menu and choose Lock: read only.' } },
 
   // Bringing notes in
   { id: 'vault', group: 'Bringing notes in', name: 'An Obsidian vault or Notion export', tryIt: 'In Settings, Import, pick the folder; nothing in it is changed.', line: 'Bring a whole folder of notes in at once, links and properties kept.',

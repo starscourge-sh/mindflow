@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { GripVertical, ListVideo, Play, RotateCcw, SkipForward } from 'lucide-react'
+import { BookOpen, GripVertical, ListEnd, ListStart, RotateCcw } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import XIcon from '@/components/ui/x-icon'
 
@@ -85,7 +85,7 @@ function QueueLine({ row, at, rows }: { row: QueueRow; at: number; rows: QueueRo
   const swipe = useSwipeOff(() => void dequeue(row))
   const menu: MenuItem[] = [
     { label: row.bare ? 'Open the page' : 'Read from here', keys: '↵', run: () => play(rows, at) },
-    at > 0 && { label: 'Play next', run: () => void enqueue([row.itemId], true) },
+    at > 0 && { label: 'Read next', run: () => void enqueue([row.itemId], true) },
     { label: 'Open', run: () => window.api.openInHome(row.type, row.itemId) },
     'separator',
     { label: 'Read', run: () => void readingQueue.done(row.id).then(() => (chime('done'), toast('Moved to Read', () => void readingQueue.undone(row.id)))) },
@@ -102,7 +102,7 @@ function QueueLine({ row, at, rows }: { row: QueueRow; at: number; rows: QueueRo
           <GripVertical aria-hidden className="absolute top-1/2 right-0 size-3.5 -translate-y-1/2 opacity-0 transition-opacity duration-150 group-hover/q:opacity-100" />
         </span>
         <button type="button" onClick={() => play(rows, at)} className="flex min-w-0 flex-1 items-center gap-2.5 text-left outline-none">
-          {kind ? <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} /> : <ListVideo className="size-4 shrink-0 text-muted-foreground" />}
+          {kind ? <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} /> : <ListStart className="size-4 shrink-0 text-muted-foreground" />}
           <span className="min-w-0 flex-1">
             <span className="private-text block truncate text-body text-foreground">{row.title}</span>
             <span className="block truncate text-xs text-muted-foreground">{saidOf(row)} · added {ago(row.addedAt)}{row.bare ? ' · opens in your browser' : ''}</span>
@@ -129,13 +129,13 @@ export function QueueView(): React.JSX.Element {
     <Page title="Queue" count={queue.length} unit={['to read', 'to read']}
       actions={queue.length > 0 && (
         <span className="flex items-center gap-1">
-          <Button size="sm" onClick={() => readQueue(0)}><Play className="size-3.5" fill="currentColor" /> Start reading</Button>
+          <Button size="sm" onClick={() => readQueue(0)}><BookOpen className="size-3.5" /> Start reading</Button>
         </span>
       )}>
       <div className="page-narrow mx-auto w-full px-5 pt-6 pb-16">
         {!loading && !queue.length && !read.length ? (
           <Empty shape={['ellipse', 1]} title="Nothing queued yet">
-            Right-click any note, idea or piece of writing and choose Add to queue, or Play next to read it first. Then read them one after the other, like a playlist.
+            Right-click any note, idea or piece of writing and choose Add to queue, or Read next to read it first. Then read them one after the other.
           </Empty>
         ) : (
           <>
@@ -168,7 +168,7 @@ export function QueueView(): React.JSX.Element {
                     return (
                       <motion.div key={row.id} layout="position" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.16, ease: EASE }}
                         data-read-row data-private={row.private ? '' : undefined} className="group/r flex items-center gap-3 px-3 py-2">
-                        {kind ? <kind.icon className="size-4 shrink-0 opacity-60" style={{ color: kind.tint }} /> : <ListVideo className="size-4 shrink-0 text-muted-foreground" />}
+                        {kind ? <kind.icon className="size-4 shrink-0 opacity-60" style={{ color: kind.tint }} /> : <ListStart className="size-4 shrink-0 text-muted-foreground" />}
                         <button type="button" onClick={() => window.api.openInHome(row.type, row.itemId)} className="private-text min-w-0 flex-1 truncate text-left text-body text-muted-foreground hover:text-foreground">{row.title}</button>
                         <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{dayMonth(row.doneAt!)}</span>
                         <Tip label="Back on the queue, to read next">
@@ -204,11 +204,11 @@ export function QueuePanel({ onView, className = '' }: { onView: (id: string) =>
   return (
     <section data-queue-panel aria-label="Your reading queue" className={`flex flex-col gap-1 rounded-xl border bg-[color-mix(in_oklab,var(--foreground)_2.5%,transparent)] p-2 ${className}`}>
       <div className="flex items-center gap-2 px-1.5 pt-0.5">
-        <ListVideo className="size-4 shrink-0 text-[var(--tt-color-text-blue)]" />
+        <ListStart className="size-4 shrink-0 text-[var(--tt-color-text-blue)]" />
         <button type="button" onClick={() => (chime('open'), onView('queue'))} className="truncate text-control font-semibold whitespace-nowrap text-foreground hover:underline hover:decoration-foreground/30 hover:underline-offset-4">Up next to read</button>
         <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums">{num(queue.length)} to read</span>
         <Tip label={<span className="flex items-center gap-2">Read the queue, one after the other</span>}>
-          <Button size="sm" className="ml-auto" onClick={() => readQueue(0)}><Play className="size-3" fill="currentColor" /> Start reading</Button>
+          <Button size="sm" className="ml-auto" onClick={() => readQueue(0)}><BookOpen className="size-3" /> Start reading</Button>
         </Tip>
       </div>
       <ol ref={rows} {...hover.handlers} className="relative isolate flex flex-col">
@@ -220,7 +220,7 @@ export function QueuePanel({ onView, className = '' }: { onView: (id: string) =>
               <button type="button" data-queue-next data-private={row.private ? '' : undefined} onClick={() => play(queue, at)}
                 className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1.5 text-left text-control">
                 <span className="w-3 shrink-0 text-right text-xs text-muted-foreground tabular-nums">{at + 1}</span>
-                {kind ? <kind.icon className="size-3.5 shrink-0" style={{ color: kind.tint }} /> : <ListVideo className="size-3.5 shrink-0 text-muted-foreground" />}
+                {kind ? <kind.icon className="size-3.5 shrink-0" style={{ color: kind.tint }} /> : <ListStart className="size-3.5 shrink-0 text-muted-foreground" />}
                 <span className="private-text min-w-0 flex-1 truncate text-foreground">{row.title}</span>
                 <span className="shrink-0 text-xs text-muted-foreground">{saidOf(row)}</span>
               </button>
@@ -230,7 +230,7 @@ export function QueuePanel({ onView, className = '' }: { onView: (id: string) =>
       </ol>
       {queue.length > 3 && (
         <button type="button" onClick={() => (chime('open'), onView('queue'))} className="flex items-center gap-1.5 self-start rounded-md px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground">
-          <SkipForward className="size-3" /> and {num(queue.length - 3)} more
+          <ListEnd className="size-3" /> and {num(queue.length - 3)} more
         </button>
       )}
     </section>

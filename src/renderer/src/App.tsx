@@ -1052,7 +1052,7 @@ export default function App(): React.JSX.Element {
         if (!more) return refuse(`${why} Your note is still here.`, 'error')
         if (!latestEditing.current && !hasContent(editorRef.current?.getJSON() ?? null)) {
           restore()
-          return refuse(`${why} Your note is back in the box.`, 'error')
+          return refuse(`${why} Your note is back in quick capture.`, 'error')
         }
         chime('nope')
         toast(why, undefined, 'error', { label: 'Bring it back', key: 'B', run: restore })
@@ -1516,7 +1516,7 @@ export default function App(): React.JSX.Element {
               <span data-under-toast className="inline-flex"><SandboxChip /></span>
               {/* Beside Create, as in Linear: on, a save keeps the box open for the next one. */}
               {!editing && (
-                <Tip label="Keep the box open after each save  ⌥C">
+                <Tip label="Keep quick capture open after each save  ⌥C">
                 <label data-lesson="hide" data-under-toast className="mr-2 flex cursor-pointer items-center gap-2 text-control text-muted-foreground">
                   <Switch size="sm" checked={createMore} onCheckedChange={setCreateMore} tabIndex={-1} />
                   Create more
