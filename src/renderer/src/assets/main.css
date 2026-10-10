@@ -1457,11 +1457,11 @@ input[type='number']::-webkit-outer-spin-button {
 .mf-tape { transition: rotate 400ms cubic-bezier(0.34, 1.36, 0.64, 1), translate 400ms cubic-bezier(0.34, 1.36, 0.64, 1); }
 :root[data-motion='off'] .mf-tape { transition: none; }
 
-/* At rest a row that can be dragged shows the plain arrow, as any row does;
-   the hand closes only once it is pressed or carried. A faint grip in the
-   margin says it can be dragged, after a moment's rest on it. */
+/* A row that can be dragged shows the plain arrow, as any row does, pressed
+   too: a click opens it, and a hand there for every click was odd. The hand
+   closes only once the row is really carried. A faint grip in the margin says
+   it can be dragged, after a moment's rest on it. */
 [data-sortable-id], [data-sortable-id] *, [data-sortable-id] button:not(:disabled) { cursor: default; }
-[data-sortable-id]:active, [data-sortable-id]:active * { cursor: grabbing; }
 html[data-dragging] [data-grip] { display: none; }
 html[data-dragging], html[data-dragging] * { cursor: grabbing !important; }
 [data-sortable-id] :is(input, textarea, [contenteditable="true"], [contenteditable="true"] *) { cursor: text; }

@@ -172,11 +172,11 @@ if (c) try {
   // 7b. Several picked move together. ⌘-click one, ⇧-click a range, then carry one of them, ⇧ still down.
   await c.h.mouse.move(900, 700)
   await row(c, "Mnemosyne's problem").click({ modifiers: ['Meta'] })
-  await row(c, 'Who is the monster').click({ modifiers: ['Shift'] })
+  await row(c, 'What The Matrix gets right').click({ modifiers: ['Shift'] })
   await row(c, 'Interleaving beats blocking').click({ modifiers: ['Meta'] })
   await c.h.waitForTimeout(200)
   check('⌘-click and ⇧-click pick three', (await picked(c)).length === 3, JSON.stringify(await picked(c)))
-  await carry(c, row(c, 'Who is the monster'), row(c, 'Spaced repetition, a primer'), 0.5, {
+  await carry(c, row(c, 'What The Matrix gets right'), row(c, 'Spaced repetition, a primer'), 0.5, {
     shift: true,
     hold: async () => {
       await c.h.waitForTimeout(200)
@@ -196,7 +196,7 @@ if (c) try {
   })
   await c.h.waitForTimeout(700)
   let members = await memberTitles(c, 'Memory')
-  check('all three join the group, in their order', members.length === 6 && members.slice(1, 4).join('|') === 'Interleaving beats blocking|' + "Mnemosyne's problem: how memory fades|Who is the monster in Frankenstein?", members.join(' | '))
+  check('all three join the group, in their order', members.length === 6 && members.slice(1, 4).join('|') === 'Interleaving beats blocking|' + "Mnemosyne's problem: how memory fades|What The Matrix gets right about choosing", members.join(' | '))
   check('and the picks are let go', (await picked(c)).length === 0)
   await c.h.keyboard.press('Meta+z')
   await c.h.waitForTimeout(800)
@@ -204,13 +204,13 @@ if (c) try {
 
   // 7c. Near an edge, the picked rows land there together, in their order.
   await row(c, "Mnemosyne's problem").click({ modifiers: ['Meta'] })
-  await row(c, 'Who is the monster').click({ modifiers: ['Meta'] })
-  await carry(c, row(c, 'Who is the monster'), row(c, 'Interleaving beats blocking'), 0.1, {
+  await row(c, 'What The Matrix gets right').click({ modifiers: ['Meta'] })
+  await carry(c, row(c, 'What The Matrix gets right'), row(c, 'Interleaving beats blocking'), 0.1, {
     hold: async () => (await c.h.waitForTimeout(200), await frames(c, 'q-stack-edge', 3, 40))
   })
   await c.h.waitForTimeout(700)
   const rows = await order(c)
-  check('two picked rows move to the edge together', rows.slice(0, 3).join('|') === "Mnemosyne's problem: how memory fades|Who is the monster in Frankenstein?|Interleaving beats blocking", rows.slice(0, 3).join(' | '))
+  check('two picked rows move to the edge together', rows.slice(0, 3).join('|') === "Mnemosyne's problem: how memory fades|What The Matrix gets right about choosing|Interleaving beats blocking", rows.slice(0, 3).join(' | '))
 
   // 7d. Two picked in a group, carried out: both leave it.
   await row(c, 'Spaced repetition, a primer').click({ modifiers: ['Meta'] })
@@ -233,12 +233,12 @@ if (c) try {
   await carry(c, row(c, "Mnemosyne's problem"), row(c, 'Interleaving beats blocking'), 0.9)
   await c.h.waitForTimeout(700)
   const alone = await order(c)
-  check('an unpicked row goes alone and the picks are let go', (await picked(c)).length === 0 && alone.slice(0, 3).join('|') === "Who is the monster in Frankenstein?|Interleaving beats blocking|Mnemosyne's problem: how memory fades", alone.slice(0, 3).join(' | '))
+  check('an unpicked row goes alone and the picks are let go', (await picked(c)).length === 0 && alone.slice(0, 3).join('|') === "What The Matrix gets right about choosing|Interleaving beats blocking|Mnemosyne's problem: how memory fades", alone.slice(0, 3).join(' | '))
 
   // 7f. Picked rows let go on the middle of a row outside any group: a new group of all of them.
   await row(c, 'Interleaving beats blocking').click({ modifiers: ['Meta'] })
   await row(c, "Mnemosyne's problem").click({ modifiers: ['Meta'] })
-  await carry(c, row(c, "Mnemosyne's problem"), row(c, 'Who is the monster'), 0.5, {
+  await carry(c, row(c, "Mnemosyne's problem"), row(c, 'What The Matrix gets right'), 0.5, {
     hold: async () => {
       await c.h.waitForTimeout(200)
       check('over a lone row, the label says a group of three', (await said(c)) === 'New group of 3', await said(c))
@@ -271,7 +271,7 @@ if (c) try {
     check(`${how}: one ⌘Z brings the group and both notes back`, back?.members.length === 2 && (await c.h.locator('[data-group-row]', { hasText: 'Reading' }).count()) === 1, JSON.stringify(back ?? null))
   }
   await apart('dragged out', async () => {
-    await carry(c, row(c, 'Notes on Zettelkasten'), row(c, 'Who is the monster'), 0.9, { hold: async () => (await c.h.waitForTimeout(200), await frames(c, 'z-dissolve-drag', 2, 40)) })
+    await carry(c, row(c, 'Notes on Zettelkasten'), row(c, 'What The Matrix gets right'), 0.9, { hold: async () => (await c.h.waitForTimeout(200), await frames(c, 'z-dissolve-drag', 2, 40)) })
     await frames(c, 'z-dissolve-going', 5, 40)
   })
   await apart('Remove from group', async () => {
@@ -371,6 +371,15 @@ if (c) try {
   const late = await row(c, 'Interleaving beats blocking').evaluate((el) => Number(getComputedStyle(el.closest('[data-sortable-id]').querySelector('[data-grip]')).opacity))
   check('the grip comes in only after resting a moment', early < 0.2 && late > 0.8, `${early} then ${late}`)
   await frames(c, 'grip-light', 1, 0)
+  // Pressed but not moved, as a click to open it: still the plain arrow.
+  const box = await row(c, 'Interleaving beats blocking').boundingBox()
+  await c.h.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await c.h.mouse.down()
+  const pressed = await c.h.evaluate(([x, y]) => getComputedStyle(document.elementFromPoint(x, y)).cursor, [box.x + box.width / 2, box.y + box.height / 2])
+  await c.h.keyboard.press('Escape')
+  await c.h.mouse.up()
+  await c.h.waitForTimeout(400)
+  check('a row pressed to open it keeps the plain arrow', pressed === 'default', pressed)
   let carrying = ''
   let sprung = false
   await carry(c, row(c, 'Interleaving beats blocking'), head(c, 'Memory'), 0.15, {
@@ -390,14 +399,14 @@ if (c) try {
   await c.theme('dark')
   await c.size(1100, 760)
   await articles(c)
-  await carry(c, row(c, 'Interleaving beats blocking'), row(c, 'Who is the monster'), 0.5, {
+  await carry(c, row(c, 'Interleaving beats blocking'), row(c, 'What The Matrix gets right'), 0.5, {
     up: false,
     hold: async () => (await c.h.waitForTimeout(250), await frames(c, 'a-middle-dark', 4, 40))
   })
   await c.h.keyboard.press('Escape')
   await c.h.mouse.up()
   await c.h.waitForTimeout(400)
-  await carry(c, row(c, 'How memory palaces work'), row(c, 'Who is the monster'), 0.85, {
+  await carry(c, row(c, 'How memory palaces work'), row(c, 'What The Matrix gets right'), 0.85, {
     up: false,
     hold: async () => (await c.h.waitForTimeout(250), await frames(c, 'e-out-dark', 4, 40))
   })
@@ -409,8 +418,8 @@ if (c) try {
   await frames(c, 'n-hover-dark', 1, 0)
   // Several carried, in the dark: the stack at an edge, and the chip over a middle.
   await row(c, 'Interleaving beats blocking').click({ modifiers: ['Meta'] })
-  await row(c, 'Who is the monster').click({ modifiers: ['Meta'] })
-  await carry(c, row(c, 'Who is the monster'), row(c, "Mnemosyne's problem"), 0.1, { up: false, hold: async () => (await c.h.waitForTimeout(250), await frames(c, 's-stack-dark', 2, 40)) })
+  await row(c, 'What The Matrix gets right').click({ modifiers: ['Meta'] })
+  await carry(c, row(c, 'What The Matrix gets right'), row(c, "Mnemosyne's problem"), 0.1, { up: false, hold: async () => (await c.h.waitForTimeout(250), await frames(c, 's-stack-dark', 2, 40)) })
   await c.h.mouse.move(400, 300, { steps: 6 })
   const lone = await row(c, 'Spaced repetition, a primer').boundingBox()
   await c.h.mouse.move(lone.x + 60, lone.y + lone.height / 2, { steps: 12 })
