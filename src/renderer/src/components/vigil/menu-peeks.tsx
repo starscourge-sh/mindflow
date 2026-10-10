@@ -18,21 +18,34 @@ const Toggle = ({ on }: { on: boolean }): React.JSX.Element => (
   </span>
 )
 
-/** What comes up on its own, and the same with Safe mode on: each one gone. */
+/**
+ * A little Home, with Safe mode off and on: off, a hint, an old capture and a
+ * pinned note come up among the day; on, the same page with those three
+ * simply not there. Every chip's words are short enough to end on a whole word.
+ */
 function SafeSide({ on }: { on: boolean }): React.JSX.Element {
-  const gone = (children: ReactNode, key: string): React.JSX.Element => on
-    ? <div key={key} className="mb-1 h-[22px] rounded border border-dashed border-foreground/15" />
-    : <MCard key={key} className="mb-1 px-1.5 py-0.5">{children}</MCard>
+  const chip = (icon: ReactNode, words: string): React.JSX.Element => (
+    <div className="mb-0.5 flex items-center gap-1 rounded border px-1 text-[9.5px] leading-[15px] whitespace-nowrap" style={{ borderColor: 'color-mix(in oklab, var(--tt-color-text-orange) 35%, transparent)', backgroundColor: 'color-mix(in oklab, var(--tt-color-text-orange) 9%, transparent)' }}>
+      {icon}{words}
+    </div>
+  )
   return (
-    <div className="min-w-0 flex-1">
-      <div className="mb-1 flex items-center gap-1 text-[9.5px] font-semibold">Safe mode <Toggle on={on} /></div>
-      {gone(<div className="flex items-center gap-1 truncate text-[9.5px]"><Lightbulb className="size-2.5 shrink-0" style={tinted('yellow')} />Hint: Fear is the mind-killer</div>, 'hint')}
-      {gone(<div className="truncate text-[9.5px]"><span className="text-muted-foreground">From 3 weeks ago · </span>Rename the cat?</div>, 'old')}
-      {gone(<div className="flex items-center gap-1 truncate text-[9.5px]"><Pin className="size-2.5 shrink-0 text-muted-foreground" />Why Hamlet waits</div>, 'pin')}
-      <div className="truncate text-[9.5px] text-muted-foreground">What you open, as it is</div>
+    <div className="flex min-w-0 flex-1 flex-col">
+      <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold">{on ? 'On' : 'Off'} <Toggle on={on} /></div>
+      <div className="flex-1 rounded-md border border-foreground/10 px-1.5 py-1">
+        <div className="mb-1 text-[10px] font-semibold">Home</div>
+        {!on && (<>
+          {chip(<Lightbulb className="size-2.5 shrink-0" style={tinted('yellow')} />, 'A hint')}
+          {chip(<RotateCcw className="size-2.5 shrink-0 text-muted-foreground" />, 'Old capture')}
+          {chip(<Pin className="size-2.5 shrink-0 text-muted-foreground" />, 'Pinned note')}
+        </>)}
+        <div className="flex items-center gap-1 py-px text-[9.5px]"><MCheckLite />Call Mum</div>
+        <div className="flex items-center gap-1 py-px text-[9.5px]"><MCheckLite />Read Act 3</div>
+      </div>
     </div>
   )
 }
+const MCheckLite = (): React.JSX.Element => <span className="size-2 shrink-0 rounded-full border border-foreground/40" />
 
 /** Three stickies, scattered, gliding into a column down the right (still with Reduce motion). */
 function Stickies(): React.JSX.Element {
