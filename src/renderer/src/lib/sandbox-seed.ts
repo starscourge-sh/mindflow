@@ -979,6 +979,101 @@ Jimmy's rule in Goodfellas: never rat on your friends, and always keep your mout
     await write(id, `${words}\n\n${to.join(' · ')}`)
   }
 
+  // A question from Middle-earth, still open, its clues from the book.
+  const frodo = await v<string>('question:new', 'Did Frodo fail at Mount Doom?')
+  const frodoClues = [
+    [await v<string>('clue', frodo, 'At the edge of the fire he says it plainly: "I will not do this deed. The Ring is mine!"'), at(-4, '22:30')],
+    [await v<string>('clue', frodo, 'The Ring is only destroyed because Gollum is there, and Gollum is only there because Bilbo and then Frodo spared him.'), at(-3, '21:50')],
+    [await v<string>('clue', frodo, 'Tolkien wrote in a letter that by then no one could have given the Ring up of their own will. He failed a test nobody could pass.'), at(-1, '22:05')]
+  ] as const
+  nuggets++
+
+  // --- writing of your own: short pieces, each built from things kept ------------------
+  const essay = async (title: string, markdown: string): Promise<string> => {
+    const id = await v<string>('article:new')
+    await v('item:save', id, { title, body: doc(markdown) })
+    nuggets++
+    return id
+  }
+  const matrix = await essay('What The Matrix gets right about choosing', `
+Morpheus holds out two pills and asks Neo to choose. Most people remember the choice. I keep thinking about what comes after it.
+
+> All I'm offering is the truth. Nothing more.
+>
+> Morpheus, The Matrix (1999)
+
+## The red pill is not the reward
+
+Neo takes the red pill and wakes up cold, bald and weak, in a pod, in a world that is mostly ruins. Nothing about the truth is comfortable. That is the point of ${link(redPill, 'the card I keep coming back to', 'nugget')}: the choice costs him, and he cannot take it back.
+
+## Cypher is the honest one
+
+Cypher eats a steak he knows is not real and says ignorance is bliss. He is the villain, but he says out loud what most of us do quietly: we pick the comfortable story and stop checking.
+
+> [!note] Why this is in my notes
+> A list of things I believe that I have never checked would be a long list. ${link(plutoFixed, 'Pluto', 'nugget')} was on it for twenty years.
+
+## The small version
+
+Nobody offers me pills. The small version is the note I would rather not reread, the question I keep open instead of answering. ${link(top, 'Is the top still spinning?', 'question')} is a film asking the same thing with a spinning top.
+`)
+  const hermione = await essay("Hermione's method, a term later", `
+At the start of term I wrote down ${noteLink("Hermione's method")}: read the book before the lecture. A term later, here is what happened.
+
+## What she actually does
+
+In the third book Hermione is given a Time-Turner so she can take more classes than one day has room for. By the end she has given two of them up and handed it back. Even she ran out of hours. The trick was never more hours. It was meeting everything twice.
+
+## What I did
+
+- Read the chapter the night before each lecture, slowly, without notes.
+- In the lecture, wrote down only what surprised me.
+- Turned each surprise into a card, so it came back before I forgot it.
+
+> [!tip] What worked
+> The lecture stopped being the first time I heard anything. It was the second reading, and the second time is when things stick.
+
+## What did not
+
+Reading ahead does not stop forgetting. ${noteLink('A Remembrall')} turns red and never says what you forgot. That is where Review comes in, the way ${link(article, "Mnemosyne's problem", 'article')} says: ${link(schwarzschild, 'What is a Schwarzschild radius?', 'nugget')} has come back three times and still holds.
+`)
+  const timeGiven = await essay('On Gandalf and the time given us', `
+Frodo, at Bag End, wishes none of this had happened in his time. Gandalf does not argue with the wish. He answers with ${link(gandalf, 'the line I kept', 'nugget')}:
+
+> All we have to decide is what to do with the time that is given us.
+>
+> Gandalf, in J.R.R. Tolkien, The Fellowship of the Ring (1954)
+
+## Not chosen, only used
+
+Nobody picks their time. Frodo did not ask for the Ring, and Gandalf does not pretend he did. What is left to decide is smaller and more useful: what to do on an ordinary Tuesday.
+
+## Where I see it now
+
+${link(aurelius, 'Very little is needed for a happy life', 'nugget')}, says Marcus Aurelius, an emperor writing notes to himself. Same advice, less wizard. And ${link(mars, 'Get to Mars before the dust storm', 'goal')} is only ever one day of steps at a time.
+
+> [!note] Still open
+> ${link(frodo, 'Did Frodo fail at Mount Doom?', 'question')} He did not choose the time either, and at the very end he could not choose at all.
+`)
+  const rosetta = await essay('The Rosetta Stone and the key in plain sight', `
+${noteLink('Rosetta Stone')} was the note. This is the longer version, because the story is better than the stone.
+
+## One decree, three scripts
+
+French soldiers found the stone in 1799 near Rashid, which Europeans called Rosetta. It carries one decree from 196 BC, for the young king Ptolemy V, written three times: in hieroglyphs, in Demotic, and in Ancient Greek. Scholars could read the Greek. So they knew what the other two said, long before they could read them.
+
+## Twenty years to read it
+
+The British took the stone in 1801, and it has been in the British Museum since 1802. Thomas Young worked out that the oval rings, the cartouches, held royal names. In 1822 Jean-François Champollion showed that hieroglyphs spell sounds as well as ideas, and the whole script opened up.
+
+> [!info] What made it work
+> Not a genius alone: a text everyone could already read, sitting beside the ones nobody could.
+
+## Why it is in my notes
+
+The same move works on anything hard. Put what you know beside what you do not. ${link(gilgamesh, 'Gilgamesh came home with a story')}, and ${link(akkadian, 'Learn enough Akkadian?')} is still a someday. And for what was lost instead of found: ${link(alexandria, 'Did the Library of Alexandria burn?', 'question')}
+`)
+
   // Reviewed as Review asks, each gap longer than the last, so the days add
   // up across the year: a day, three, eight, eighteen, forty, then months.
   const GAPS = [1, 3, 8, 18, 40, 80, 150, 260]
@@ -1015,6 +1110,7 @@ Jimmy's rule in Goodfellas: never rat on your friends, and always keep your mout
     ...homerGlosses.map(([id, when]) => ({ glossAt: when, id })),
     ...paulClues.map(([id, when]) => ({ glossAt: when, id })),
     ...alexandriaClues.map(([id, when]) => ({ glossAt: when, id })),
+    ...frodoClues.map(([id, when]) => ({ glossAt: when, id })),
     ...duneGlosses.map(([id, when]) => ({ glossAt: when, id })),
     ...done,
     { reviewedAt: at(-21, '08:10'), itemId: schwarzschild, nth: 0 },
@@ -1030,6 +1126,12 @@ Jimmy's rule in Goodfellas: never rat on your friends, and always keep your mout
     { createdAt: at(-7, '22:16'), nuggetId: gandalf },
     { createdAt: at(-6, '21:30'), nuggetId: redPill },
     { dueAt: at(0, '00:00'), nuggetId: redPill },
+    { createdAt: at(-5, '22:00'), nuggetId: frodo },
+    // Writing, newest first: the Matrix piece last night, the Rosetta Stone a month ago.
+    { createdAt: at(-1, '21:40'), nuggetId: matrix },
+    { createdAt: at(-4, '22:50'), nuggetId: timeGiven },
+    { createdAt: at(-12, '20:30'), nuggetId: hermione },
+    { createdAt: at(-26, '21:15'), nuggetId: rosetta },
     { createdAt: at(-16, '20:50'), nuggetId: alexandria },
     // Kept on the day they were caught, not the day the seed ran.
     { exitedAt: at(-2, '07:41'), captureId: petrichorCapture },
@@ -1065,6 +1167,13 @@ Jimmy's rule in Goodfellas: never rat on your friends, and always keep your mout
     const row = queue.find((one) => one.itemId === id)
     if (row) await v('queue:done', row.id, at(-n, '22:00'))
   }
+
+  // The deck that teaches Vigil itself, tagged #learn-vigil: a few new cards a day in Review.
+  nuggets += await v<number>('learn:add')
+
+  // Opened this morning, so Home's first tiles are the Matrix piece and the card it grew from.
+  await v('home:opened', 'nugget', redPill)
+  await v('home:opened', 'article', matrix)
 
   return { captures, nuggets, tasks }
 }
