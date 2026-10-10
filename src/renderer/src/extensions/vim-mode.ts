@@ -88,7 +88,6 @@ interface VimState {
   operator: Pending | null
   /** Whether `g` was just pressed, for `gg`, `gU` and `gu`. */
   pendingG: boolean
-  /** Whether `i` was just pressed, for the `iw` text object. */
   /** `i` or `a` was just pressed, for `iw` and `aw`. */
   pendingTextObject: "i" | "a" | null
   /** Where a visual selection started. */
@@ -150,11 +149,11 @@ const CLEARED = {
   pendingReplace: false,
 } as const
 
-/** Is a command half typed: a count, an operator, a prefix waiting for more? */
 /** The waiting operator, if it is one a find can be a target for. */
 const rangeOperator = (vim: VimState): Operator | null =>
   vim.operator === ">" || vim.operator === "<" ? null : vim.operator
 
+/** Is a command half typed: a count, an operator, a prefix waiting for more? */
 const isPending = (vim: VimState): boolean =>
   !!(
     vim.count ||
@@ -655,10 +654,6 @@ function textStream(
 // onto the line above.
 const WORD_CHAR_RE = /[\p{L}\p{N}_\uFFFC]/u
 
-/**
- * w, e and b. Punctuation counts as a separator rather than its own word,
- * which is the one place this differs from vim.
- */
 /** `r`: put one character in place of what is under the cursor. */
 function replaceChars(view: EditorView, char: string, count: number): void {
   const { $head, head } = view.state.selection
@@ -747,6 +742,10 @@ function runFind(
 const WORD_WINDOW = 4000
 
 /** Where a word motion lands, as an index into the stream it was given. */
+/**
+ * w, e and b. Punctuation counts as a separator rather than its own word,
+ * which is the one place this differs from vim.
+ */
 function walkWords(
   stream: { pos: number; ch: string }[],
   head: number,
@@ -844,7 +843,6 @@ function isolatingDepth($pos: ResolvedPos): number {
   return 0
 }
 
-/** { and } - jump to the previous or next block. */
 /**
  * `}` and `{`: to the next blank line, not the next block.
  *
@@ -960,7 +958,6 @@ function scrollParent(node: HTMLElement | null): HTMLElement | null {
   return null
 }
 
-/** How many visual rows fit on screen, for Ctrl-f and friends. */
 /**
  * One line, measured from the editor's own styling.
  *
@@ -975,6 +972,7 @@ function lineHeight(view: EditorView): number {
   return size > 0 ? size * 1.5 : 20
 }
 
+/** How many visual rows fit on screen, for Ctrl-f and friends. */
 function rowsPerPage(view: EditorView): number {
   const scroller = scrollParent(view.dom as HTMLElement)
   const height = scroller ? scroller.clientHeight : window.innerHeight
@@ -1086,10 +1084,6 @@ function runMotion(
 
 // --- operators -------------------------------------------------------------
 
-/**
- * Every operator funnels through here, whatever picked the range: a text
- * object, a whole line, or a visual selection.
- */
 /** The inline nodes in a range, as JSON, so a put can build them again. */
 function inlineRange(state: EditorState, from: number, to: number): unknown[] {
   const nodes: unknown[] = []
@@ -1120,6 +1114,10 @@ function withoutSubList(item: ProseMirrorNode, sub: ProseMirrorNode): ProseMirro
   return item.copy(Fragment.fromArray(kept))
 }
 
+/**
+ * Every operator funnels through here, whatever picked the range: a text
+ * object, a whole line, or a visual selection.
+ */
 function applyToRange(
   view: EditorView,
   operator: Operator,

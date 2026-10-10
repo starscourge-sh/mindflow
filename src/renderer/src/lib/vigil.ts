@@ -135,7 +135,6 @@ export type Settings = {
   pinnedQuestions: boolean
   /** A heading folds away what is under it; only how the note is shown. */
   foldHeadings: boolean
-  /** The sections the main window's sidebar lists; the rest sit under More. */
   /** Every sticky note on the desktop shown, or all put away; ⌃⌥⌘N from anywhere. */
   stickiesShown: boolean
   openAtLogin: boolean
@@ -145,6 +144,7 @@ export type Settings = {
   stickiesFrosted: boolean
   stickiesGlass: boolean
   stickiesStir: boolean
+  /** The sections the main window's sidebar lists; the rest sit under More. */
   sidebarShown: string[]
   /** The box's tabs, of inbox, today, review, kept and recent. */
   boxTabs: string[]
@@ -276,14 +276,14 @@ export type Task = {
   subtasks?: Subtask[]
 }
 export type Subtask = { text: string; done: boolean }
-/** What a task was before it was done, so it can be put back. */
 /** What a save changed on its own, for an undo to put back: the reschedule count and when it was last told about. */
 export type TaskWas = { reschedules: number; notifiedAt: string | null }
+/** What a task was before it was done, so it can be put back. */
 export type Finished = { dueAt: string | null; doneAt: string; notifiedAt: string | null; deadlineAt?: string | null }
-/** A task made, or the open one with that name already there, which it joined. */
 /** What a merge changed, for its undo: the other capture, its words before and after, and this one's status. */
 export type Merged = { into: string; was: unknown; joined: unknown; status: string }
 /** `resolved`: the captures this took out of the inbox, for its undo to open again. */
+/** A task made, or the open one with that name already there, which it joined. */
 export type Made = { id: string; number: number; existed: boolean; resolved?: string[] }
 /** What to say after making a task: the usual words, or that it joined one. */
 export const taskSaid = (made: Made | null | undefined, fresh: string): string =>
@@ -469,8 +469,7 @@ export const vigil = {
   passTag: (id: string, tag: string, on: boolean) => call<unknown>('pass:tag', id, tag, on),
   stats: () => call<Stats>('stats'),
   exportAll: () => call<string | null>('export'),
-  /** Stored pictures and files no note points at; `extra` is text only a window holds, like the box's draft. */
-  /** Null when stopped, or overtaken by a newer look. */
+  /** Stored pictures and files no note points at; `extra` is text only a window holds, like the box's draft. Null when stopped, or overtaken by a newer look. */
   unusedFind: (extra: string[]) => call<{ name: string; size: number; image: boolean; at: number }[] | { error: string } | null>('unused:find', extra),
   unusedStop: () => call('unused:stop'),
   unusedBin: (names: string[], extra: string[]) => call<{ moved: number; size: number }>('unused:bin', names, extra),
