@@ -11,7 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { openLook } from '@/components/image/image-look'
 import { RowMenu, type MenuItem } from './row-menu'
 import { Tip } from './ui'
-import { GrainFill, useCover } from './grain'
+import { GrainFill, PAPER_INK, useNoteCover } from './grain'
 import { Tilt } from './tilt'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -135,7 +135,7 @@ export function useTint(src: string | null | undefined, colour: string | null | 
  */
 export function Cover({ src, colour, seed, children, caption = '' }: { src?: string | null; colour: string; seed?: string; children?: ReactNode; caption?: string }): React.JSX.Element {
   const [broken, setBroken] = useState(false)
-  const grain = useCover(seed)
+  const grain = useNoteCover(seed)
   useEffect(() => setBroken(false), [src])
   const box = 'relative aspect-square w-24 shrink-0 overflow-hidden rounded-lg shadow-[0_10px_30px_-8px_rgb(0_0_0/0.45),0_2px_8px_rgb(0_0_0/0.18)] [container-type:inline-size] @[30rem]/band:w-32 @[44rem]/band:w-44 @[60rem]/band:w-52'
   if (src && !broken) {
@@ -151,7 +151,7 @@ export function Cover({ src, colour, seed, children, caption = '' }: { src?: str
   return (
     <div className={box} style={grain ? undefined : { background: `linear-gradient(140deg, color-mix(in oklab, ${colour} 78%, white), color-mix(in oklab, ${colour} 72%, black))` }}>
       {grain && <GrainFill cover={grain} tint={colour} />}
-      <div className="absolute inset-0 flex items-end p-[9cqi] font-heading text-[clamp(0.75rem,14cqi,2.5rem)] leading-none font-bold tracking-[-0.03em] break-all text-white drop-shadow-[0_1px_2px_rgb(0_0_0/0.25)]">{children}</div>
+      <div className={`absolute inset-0 flex items-end p-[9cqi] font-heading text-[clamp(0.75rem,14cqi,2.5rem)] leading-none font-bold tracking-[-0.03em] break-all ${grain?.paper ? '' : 'text-white drop-shadow-[0_1px_2px_rgb(0_0_0/0.25)]'}`} style={grain?.paper ? { color: PAPER_INK } : undefined}>{children}</div>
     </div>
   )
 }

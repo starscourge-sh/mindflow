@@ -20,7 +20,7 @@ import { startOfDay } from '../../../../main/dates'
 import { splitTags, unloaded, useLive, vigil, whenInLine, type Pin as Pinned, type Settings, type Task } from '@/lib/vigil'
 import { useKept } from '@/lib/nav'
 import { MenuButton, useTint } from './collection-header'
-import { GrainFill, useCover } from './grain'
+import { GrainFill, onPaper, PAPER_INK, useNoteCover } from './grain'
 import { ReadThrough, type Readable } from './read-through'
 import { RowMenu, type MenuItem } from './row-menu'
 import { tagColour } from './tag-read'
@@ -127,12 +127,12 @@ function Picture({ src, className = '', onBroken }: { src: string; className?: s
 function KindMark({ card, className = '', grain = true }: { card: Card; className?: string; grain?: boolean }): React.JSX.Element {
   const Icon = card.type === 'question' ? Orbit : kindOf(card).icon
   const tint = tintOf(card)
-  const cover = useCover(grain ? card.id : null)
+  const cover = useNoteCover(grain ? card.id : null)
   if (cover)
     return (
       <span className={`relative flex items-center justify-center overflow-hidden ${className}`}>
-        <GrainFill cover={cover} tint={tint} shade="none" />
-        <KindIcon card={card} className="relative size-4 text-white/60 drop-shadow-[0_1px_2px_rgb(0_0_0/0.35)]" />
+        <GrainFill cover={cover} tint={tint} shade={cover.paper ? 'all' : 'none'} />
+        <KindIcon card={card} paper={cover.paper} className="relative size-4 text-white/60 drop-shadow-[0_1px_2px_rgb(0_0_0/0.35)]" />
       </span>
     )
   return (
@@ -143,9 +143,10 @@ function KindMark({ card, className = '', grain = true }: { card: Card; classNam
 }
 
 /** The kind's icon alone. */
-function KindIcon({ card, className = '' }: { card: Card; className?: string }): React.JSX.Element {
+function KindIcon({ card, className = '', paper = false }: { card: Card; className?: string; paper?: boolean }): React.JSX.Element {
   const Icon = card.type === 'question' ? Orbit : kindOf(card).icon
-  return <Icon className={className} aria-hidden />
+  // On a paper drawing: in ink, not white.
+  return <Icon className={paper ? className.replace(/\S*(text-white|drop-shadow)\S*/g, '') : className} style={paper ? onPaper(tintOf(card)) : undefined} aria-hidden />
 }
 
 /** Read, as a round button: what a card or tile offers on hover. 30px, its tip kept clear of it. */
@@ -218,7 +219,7 @@ function RowCard({ card, list, at, actions, tag }: { card: Card; list: Card[]; a
   const [broken, setBroken] = useState(false)
   const real = !!src && !broken
   // No picture of its own: its grain cover stands in, so a row of cards reads as one shelf.
-  const grain = useCover(real ? null : card.id)
+  const grain = useNoteCover(real ? null : card.id)
   const picture = real || !!grain
   return (
     <RowMenu items={menuFor(card, actions, list, at)}>
@@ -238,9 +239,9 @@ function RowCard({ card, list, at, actions, tag }: { card: Card; list: Card[]; a
                   <>
                     <GrainFill cover={grain} tint={tintOf(card)} shade={wordsOf(card.excerpt) ? 'foot' : 'none'} />
                     {/* Its kind, and its first words where a picture would be: white on the dark of the cover. */}
-                    <span className="absolute inset-0 flex flex-col justify-between p-3 text-white">
-                      <KindIcon card={card} className="size-4 text-white/80 drop-shadow-[0_1px_2px_rgb(0_0_0/0.35)]" />
-                      {wordsOf(card.excerpt) && <span className="private-text line-clamp-4 text-xs leading-snug [overflow-wrap:anywhere] text-white/90 [text-shadow:0_1px_2px_rgb(0_0_0/0.4)]">{wordsOf(card.excerpt)}</span>}
+                    <span className={`absolute inset-0 flex flex-col justify-between p-3 ${grain.paper ? '' : 'text-white'}`}>
+                      <KindIcon card={card} paper={grain.paper} className="size-4 text-white/80 drop-shadow-[0_1px_2px_rgb(0_0_0/0.35)]" />
+                      {wordsOf(card.excerpt) && <span className={`private-text line-clamp-4 text-xs leading-snug [overflow-wrap:anywhere] ${grain.paper ? '' : 'text-white/90 [text-shadow:0_1px_2px_rgb(0_0_0/0.4)]'}`} style={grain.paper ? { color: PAPER_INK } : undefined}>{wordsOf(card.excerpt)}</span>}
                     </span>
                   </>
                 )}
@@ -444,7 +445,7 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
   const real = !!src && !broken
   const tint = tintOf(card)
   // No picture of its own: its grain cover, behind it and as its square.
-  const grain = useCover(real ? null : card.id)
+  const grain = useNoteCover(real ? null : card.id)
   const picture = real || !!grain
   const backdrop = real ? src : grain?.small
   return (
@@ -460,8 +461,8 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
               className="aspect-square w-20 shrink-0 overflow-hidden rounded-lg shadow-[0_10px_30px_-10px_rgb(0_0_0/0.5)] transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:scale-[1.02] active:scale-[0.98] @[44rem]/page:w-28">
               {real ? <Picture src={src!} onBroken={() => setBroken(true)} /> : grain && (
                 <span className="relative flex size-full items-center justify-center">
-                  <GrainFill cover={grain} tint={tint} shade="none" />
-                  <KindIcon card={card} className="relative size-7 text-white/75 drop-shadow-[0_1px_2px_rgb(0_0_0/0.35)] @[44rem]/page:size-9" />
+                  <GrainFill cover={grain} tint={tint} shade={grain.paper ? 'all' : 'none'} />
+                  <KindIcon card={card} paper={grain.paper} className="relative size-7 text-white/75 drop-shadow-[0_1px_2px_rgb(0_0_0/0.35)] @[44rem]/page:size-9" />
                 </span>
               )}
             </button>

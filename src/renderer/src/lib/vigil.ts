@@ -99,6 +99,8 @@ export type Settings = {
   sceneryShuffle: number
   /** Pictures behind what has none of its own; '' for plain tiles. See components/vigil/grain.tsx. */
   coversFolder: string
+  /** A note's cover with no picture of its own: a bundled paper drawing, or the Covers folder's gradients. */
+  coverStyle?: 'paper' | 'gradients'
   /** A card on the rare milestones; see components/vigil/celebrate.tsx. */
   celebrate: boolean
   /** GIFs, pictures and short clips it plays from; '' for a grainy cover. */

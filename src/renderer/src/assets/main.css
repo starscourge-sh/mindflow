@@ -1429,3 +1429,7 @@ html[data-dragging], html[data-dragging] * { cursor: grabbing !important; }
   opacity: 1;
   transition-duration: 140ms;
 }
+
+/* A paper drawing standing in for a note's picture (grain.tsx, PaperFill):
+   on a dark page it dims, like paper in a low room, so it does not glare. */
+:root:not([data-light]) .mf-paper-cover { filter: brightness(0.8); }

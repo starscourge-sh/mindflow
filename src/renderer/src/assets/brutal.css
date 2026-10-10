@@ -357,3 +357,12 @@ html:root[data-style='brutal']:not([data-light]) {
   font-weight: revert-layer !important;
   letter-spacing: revert-layer !important;
 }
+
+/* A paper drawing standing in for a note's picture gets the thick outline. */
+:root[data-style='brutal'] [data-paper-cover]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: var(--mf-line-width) solid var(--mf-line);
+  pointer-events: none;
+}

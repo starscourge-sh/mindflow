@@ -1,0 +1,24 @@
+Paper drawings: the covers a note with no picture of its own wears when
+Settings > Appearance > Covers is Paper drawings (components/vigil/grain.tsx).
+
+Source: the developer's own folder of drawings, ~/Documents/img/drawings, as
+supplied by the user. Copied out, trimmed about 5% on each side so no mount
+edge shows, resized to 520px on the short side and saved as webp; the
+originals were not changed. File names keep the number of the original:
+
+  38199.webp   from 38199drsdl.jpg   figures and angels, pen and wash
+  38892.webp   from 38892drsdl.jpg   ruins on a hillside, grey wash
+  41866.webp   from 41866drsdl.jpg   an Annunciation, line drawing
+  46415.webp   from 46415drsdl.jpg   a capriccio of ruins, brown ink
+  47598.webp   from 47598drsdl.jpg   a group of figures, pencil on buff paper
+  48967.webp   from 48967drsdl.jpg   trees by a fence, pencil
+  50005.webp   from 50005drsdl.jpg   a castle above a river, grey wash
+  62998.webp   from 62998drsdl.jpg   a mountain lake, pencil and white
+  63538.webp   from 63538drsdl.jpg   ruins and a bridge, pen
+  79358.webp   from 79358drsdl.jpg   a village, pencil, dated 1944
+  85423.webp   from 85423drsdl.jpg   a house among trees, charcoal
+
+The other 11 drawings in that folder were left out as too busy or too dark for
+a quiet cover (battles, a lion hunt, crowded scenes, a sheet of studies).
+The "drsdl" names look like museum open-access downloads; check each
+drawing's licence before shipping the app outside this machine.

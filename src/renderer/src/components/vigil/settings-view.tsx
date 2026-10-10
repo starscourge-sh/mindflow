@@ -473,6 +473,10 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Pictures in lists" note="A note with a picture in it shows the first one, small, at the end of its row and on its card.">
             <Switch checked={settings.thumbnails !== false} onCheckedChange={(thumbnails) => set({ thumbnails })} />
           </Setting>
+          <Setting title="Covers" note="**What a note with no picture of its own shows on its tile and in its row.** Paper drawings are old pen and pencil sketches, muted to sit on the page and touched with the kind's colour; Gradients are the soft grainy pictures from the Covers folder in Scenery." keywords="covers cover drawings paper sketch gradients tiles thumbnails grid cards placeholder">
+            <Chips className="shrink-0" options={[{ id: 'paper', label: 'Paper drawings' }, { id: 'gradients', label: 'Gradients' }]}
+              on={(id) => id === (settings.coverStyle ?? 'paper')} pick={(coverStyle) => set({ coverStyle: coverStyle as Settings['coverStyle'] })} />
+          </Setting>
         </Group>
         <Group section="Appearance" title="Window placement">
           <Setting title="Keep quick capture centred" note="**The side panel grows quick capture on both sides, so it stays centred.** Off, it grows to the right; either way it grows down from its top, never past the screen's edge, and closing the panel puts it back." keywords="box window centre center grow panel expand position place">
@@ -527,7 +531,7 @@ export function SettingsView(): React.JSX.Element {
           <SceneryFolders
             use="covers"
             title="Covers folder"
-            note="**Soft, grainy pictures behind whatever has none of its own.** A tag's page, a note of only words or a tile on Home always gets the same one, tinted toward its colour; with no folder, plain colour tiles."
+            note="**Soft, grainy pictures behind whatever has none of its own.** The day's brief and a celebration always; a tag's page, a note of only words or a tile on Home when Appearance › Covers is Gradients. Each gets the same one, tinted toward its colour; with no folder, plain colour tiles."
             folders={settings.coversFolder ? [settings.coversFolder] : []}
             on
             onSave={(folders) => set({ coversFolder: folders.at(-1) ?? '' })}

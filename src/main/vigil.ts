@@ -310,6 +310,9 @@ const DEFAULTS = {
   // picture of its own (a tag, a text-only note), each thing always the same
   // one. Empty is none: the plain colour tiles.
   coversFolder: devFolder('Documents/img/gradients'),
+  // A note's own cover: one of the paper drawings bundled with the app, or
+  // 'gradients', the Covers folder above.
+  coverStyle: 'paper' as 'paper' | 'gradients',
   // Celebrations: a card on the rare milestones, playing something from this
   // folder (a GIF, a picture, a short clip). Empty is none: a grainy cover.
   celebrate: true,

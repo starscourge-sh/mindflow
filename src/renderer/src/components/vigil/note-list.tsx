@@ -24,7 +24,7 @@ import { GroupIcon, GroupedList, type Folds } from './kept-groups'
 import { Tags, Tip, VirtualList, typing } from './ui'
 import { Button } from '@/components/ui/button'
 import type { Density, Pane } from './display'
-import { GrainFill, useCover } from './grain'
+import { GrainFill, onPaper, PAPER_INK, useNoteCover } from './grain'
 import { Tilt } from './tilt'
 import { useHere, usePaneMark } from '@/lib/split'
 import { knowRow } from './row-card'
@@ -103,7 +103,8 @@ function Cover({
   // A tile is a tile whichever grid it is in: always the tile-sized picture, or a small grid blurs.
   const [picture, broken] = usePicture(entry.id, true)
   // No picture of its own: its grain cover, its words in white on it.
-  const grain = useCover(picture === undefined ? entry.id : null)
+  const grain = useNoteCover(picture === undefined ? entry.id : null)
+  const paper = !!grain?.paper
   if (picture)
     return (
       <Tilt caption={entry.title || undefined} className={`private-text overflow-hidden bg-accent ${className}`}>
@@ -125,12 +126,13 @@ function Cover({
     >
       {grain && <GrainFill cover={grain} tint={entry.tint} shade="all" />}
       <entry.icon
-        className={`relative ${large ? 'size-4' : 'size-3.5'} shrink-0 ${grain ? 'text-white/80' : ''}`}
-        style={grain ? undefined : { color: entry.tint }}
+        className={`relative ${large ? 'size-4' : 'size-3.5'} shrink-0 ${grain && !paper ? 'text-white/80' : ''}`}
+        style={paper ? onPaper(entry.tint) : grain ? undefined : { color: entry.tint }}
       />
       {picture !== null && (
         <span
-          className={`private-text relative whitespace-pre-line ${grain ? 'text-white/90 [text-shadow:0_1px_2px_rgb(0_0_0/0.4)]' : 'text-muted-foreground'} ${large ? 'line-clamp-5 text-xs leading-snug' : 'line-clamp-4 text-[10px] leading-tight'}`}
+          style={paper ? { color: PAPER_INK } : undefined}
+          className={`private-text relative whitespace-pre-line ${paper ? '' : grain ? 'text-white/90 [text-shadow:0_1px_2px_rgb(0_0_0/0.4)]' : 'text-muted-foreground'} ${large ? 'line-clamp-5 text-xs leading-snug' : 'line-clamp-4 text-[10px] leading-tight'}`}
         >
           {(large ? rest(words, entry.title) : words) || entry.title || 'Untitled'}
         </span>
@@ -160,7 +162,7 @@ export function Lead({
   className?: string
 }): React.JSX.Element {
   const [picture, broken] = usePicture(entry.id, false)
-  const grain = useCover(picture === undefined ? entry.id : null)
+  const grain = useNoteCover(picture === undefined ? entry.id : null)
   return (
     <span
       className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-md ${picture ? 'private-text bg-accent' : ''} ${className}`}
@@ -178,8 +180,9 @@ export function Lead({
         />
       ) : grain ? (
         <>
-          <GrainFill cover={grain} tint={entry.tint} shade="none" />
-          <entry.icon className="relative size-4 text-white/80" />
+          {/* On paper, a wash so the small icon stands clear of the drawing's lines. */}
+          <GrainFill cover={grain} tint={entry.tint} shade={grain.paper ? 'all' : 'none'} />
+          <entry.icon className={`relative size-4 ${grain.paper ? '' : 'text-white/80'}`} style={grain.paper ? onPaper(entry.tint) : undefined} />
         </>
       ) : (
         <entry.icon className="size-4" style={{ color: entry.tint }} />
