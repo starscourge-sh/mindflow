@@ -338,7 +338,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
               </div>
               {tidy ? (
                 <>
-                <TagRow tags={tags} field={tagField} onAdd={(name) => void tag(item.id, name, true)} onRemove={(name) => void tag(item.id, name, false)} onDone={() => editor.current?.commands.focus()} />
+                <TagRow key={item.id} tags={tags} field={tagField} onAdd={(name) => void tag(item.id, name, true)} onRemove={(name) => void tag(item.id, name, false)} onDone={() => editor.current?.commands.focus()} />
                 {/* Matched against what you are trying to work out, one click; undone, it is back as it was. */}
                 {!became[item.id] && <PinnedQuestions className="mb-3" onPick={(question) => {
                   const id = item.id
