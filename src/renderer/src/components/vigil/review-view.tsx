@@ -289,7 +289,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
         {queue.length ? (
           <Rest seed="review-done" compact={compact}>
             <Empty compact={compact} shaped shape={['star', 2]} title={<>Done: <Rolling text={reviewed.size} /> reviewed</>}>
-              That is today’s queue finished. What you could not recall comes back soonest; the rest waits until just before you would forget it.
+              <strong>A little most days outlasts one long cram.</strong> That is today’s queue finished. What you could not recall comes back soonest; the rest waits until just before you would forget it.
             </Empty>
           </Rest>
         ) : (

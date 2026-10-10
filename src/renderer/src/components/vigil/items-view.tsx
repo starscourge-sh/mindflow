@@ -416,7 +416,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           </Example>
         ) : tier === 'nugget' ? (
           <Empty shape={['star', 3]} title="No gems yet">
-            A gem is a note worth keeping, in your own words. Pick one in your Inbox and press P, and it lands here, ready to come back to you.
+            <strong>Your words stick where a copied line slides off.</strong> A gem is a note worth keeping, in your own words. Pick one in your Inbox and press P, and it lands here, ready to come back to you.
           </Empty>
         ) : (
           <Empty shape={['rectangle', 2]} title="No writing yet">

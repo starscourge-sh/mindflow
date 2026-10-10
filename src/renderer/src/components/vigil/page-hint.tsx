@@ -28,7 +28,7 @@ const HINTS: Record<string, string> = {
   today: '**Type a task the way you would say it.** Vigil reads the when in ‘call Mum friday 6pm’.',
   questions: '**Questions you are not ready to answer.** Add clues as they turn up; nothing needs settling.',
   goals: '**A day you are aiming for, and the road of days to it.** Log what you did, and the beacon keeps it in sight.',
-  nuggets: '**What you kept, in your own words.** These come back as hints, and as Review cards once you give them a question.',
+  nuggets: '**Keeping a thought is not knowing it.** Your gems come back as hints, and as Review cards once you give them a question.',
   tags: '**Every #tag has a page.** Give it a colour, or a date to be ready by.',
   home: '**What is coming back to you today.** Under it, shelves of what you kept.',
   matrix: '**Your tasks by urgent and important.** Drag one to another square to change it.',

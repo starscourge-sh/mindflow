@@ -347,7 +347,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
             {/* A new install has nothing that could have left yet. */}
             {title === 'Inbox' ? (
               <Empty shape={['flower', 2]} title={all.length ? 'Nothing waiting' : 'Your Inbox'}>
-                {all.length ? 'Every capture has taken its exit. ⌘. catches the next thought, from anywhere.' : 'Press ⌘. in any app, write the thought, and send it with ⌘↵. It waits here until you tidy or decide.'}
+                {all.length ? <><strong>Written down, a thought can leave your head.</strong> Every capture has taken its exit. ⌘. catches the next one, from anywhere.</> : 'Press ⌘. in any app, write the thought, and send it with ⌘↵. It waits here until you tidy or decide.'}
               </Empty>
             ) : title === 'Discarded' ? (
               <Empty shape={['flower', 2]} title="Nothing let go">
