@@ -17,7 +17,6 @@ import { useLive, vigil, type PassItem, type Settings } from '@/lib/vigil'
 import { Button } from '@/components/ui/button'
 import { Kbd, Rolling, Tip, Typed, toast, Pressed } from './ui'
 import { Term } from './term'
-import { Scenery } from './scenery'
 import { textOf } from '../rot-cards'
 import { PinnedQuestions, clueInto } from './pinned-questions'
 import { dayjs, moment, weekdayName } from '../../../../main/dates'
@@ -288,7 +287,6 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
 
   return (
     <div data-pass role="dialog" aria-label={tidy ? 'Tidy' : 'Deciding'} tabIndex={-1} className="fixed inset-0 z-[55] isolate flex flex-col bg-background outline-none">
-      <Scenery place="focus" seed={`${mode}:${new Date().toDateString()}`} text="middle" className="absolute inset-0 -z-10" />
       <header className="flex shrink-0 items-center gap-2 px-4 pt-3 text-sm">
         <span className="flex items-center gap-1.5 rounded-full border bg-accent/40 px-2.5 py-1 font-medium">
           <Icon className="size-3.5" style={{ color: `var(--tt-color-text-${tidy ? 'green' : 'purple'})` }} />
