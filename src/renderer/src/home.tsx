@@ -41,7 +41,8 @@ import { picked, placed } from './lib/tasks'
 import { stickOnDesktop } from './components/vigil/sticky-note'
 import { Rolling, Toaster, toast, typing, FocusNote, useFocusMode, SoundToggle } from './components/vigil/ui'
 import { FocusScenery } from './components/vigil/scenery'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
+import { TooltipProvider } from './components/ui/tooltip'
+import { SidePeek } from './components/vigil/page-peeks'
 import { useAppearance, useLive, vigil, type Item, type Pin, type Settings, type Task } from './lib/vigil'
 import { Tip, showTopTitle, useTopTitle, Pressed, useEscapeLeavesEditor } from '@/components/vigil/ui'
 import { Celebrations, tryCelebration } from '@/components/vigil/celebrate'
@@ -961,6 +962,8 @@ export function Home(): React.JSX.Element {
           </button>
         </div>
         <div ref={sideList} {...sideHover.handlers} className="mf-fade-end relative isolate flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pt-1 pb-3">
+        {/* Rows' previews: once one is up, the next swaps in at once, even after a short pause between rows. */}
+        <TooltipProvider delayDuration={600} skipDelayDuration={900}>
         <Highlight spot={sideChosen.spot} snap={sideChosen.snap} travel={spring.moderate} className="bg-accent" />
         <Highlight spot={sideHover.spot} session={sideHover.session} snap={sideHover.snap} from={sideChosen.spot} />
         <nav className="flex flex-col gap-px">
@@ -970,8 +973,8 @@ export function Home(): React.JSX.Element {
             // A fold's heading stands in for the rows it holds while they are shut away.
             const homesIn = (list: typeof SECTIONS): string | undefined => list.map((section) => homeOf(section.id)).filter(Boolean).join(' ') || undefined
             const row = (section: (typeof SECTIONS)[number]): React.JSX.Element => (
-              <Tooltip key={section.id}>
-              <TooltipTrigger asChild>
+              // Its preview: a picture of the page, a line on what it is for, and its keys.
+              <SidePeek key={section.id} id={section.id} keys={`G ${section.key.toUpperCase()}`}>
               <button
                 type="button"
                 data-home={homeOf(section.id)}
@@ -994,12 +997,7 @@ export function Home(): React.JSX.Element {
                   />
                 ) : null}
               </button>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="flex items-center gap-1.5">
-                {/* The name only when the icon stands alone; beside its name, just the keys. */}
-                {narrow && <>{section.label} </>}<Pressed keys={`G ${section.key.toUpperCase()}`} />
-              </TooltipContent>
-              </Tooltip>
+              </SidePeek>
             )
             // A group's name, small: click folds it; pointed at, it offers Customize.
             const heading = (label: string, open: boolean, fold: (open: boolean) => void, customize = true, near?: string): React.JSX.Element =>
@@ -1129,8 +1127,8 @@ export function Home(): React.JSX.Element {
           {CAPTURE_TYPES.map((type) => {
             const count = captures.filter((capture) => capture.kind === type.id && capture.status !== 'discarded' && !capture.archivedAt).length
             return (
+              <SidePeek key={type.id} id={`kind:${type.id}`}>
               <button
-                key={type.id}
                 type="button"
                 data-side-row
                 aria-current={view.id === `kind:${type.id}` ? 'page' : undefined}
@@ -1141,6 +1139,7 @@ export function Home(): React.JSX.Element {
                 <Weighted on={view.id === `kind:${type.id}`} className="flex-1 text-left">{type.label}</Weighted>
                 <span className="text-xs text-muted-foreground tabular-nums">{count ? <Rolling text={count} /> : ''}</span>
               </button>
+              </SidePeek>
             )
           })}
           </Branches>
@@ -1180,6 +1179,7 @@ export function Home(): React.JSX.Element {
           </Branches>
         </Unfold>
         </>)}
+        </TooltipProvider>
 
         </div>
         {/* One row at the foot, the way Notion keeps its workspace menu: Settings,

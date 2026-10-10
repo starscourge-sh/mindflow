@@ -1433,3 +1433,13 @@ html[data-dragging], html[data-dragging] * { cursor: grabbing !important; }
 /* A paper drawing standing in for a note's picture (grain.tsx, PaperFill):
    on a dark page it dims, like paper in a low room, so it does not glare. */
 :root:not([data-light]) .mf-paper-cover { filter: brightness(0.8); }
+
+/* A preview card (components/vigil/peek.tsx): nothing to preview while something is carried. */
+html:is([data-dragging], [data-split-drag]) :is([data-peek-card], [data-slash-peek]) { display: none; }
+/* The `/` menu's preview fades in the first time only; moving through the menu swaps it at once. */
+@keyframes mf-peek-in { from { opacity: 0; transform: translateX(-3px); } }
+.mf-peek-in { animation: mf-peek-in 120ms ease-out; }
+[data-side='left'].mf-peek-in { animation-name: mf-peek-in-left; }
+@keyframes mf-peek-in-left { from { opacity: 0; transform: translateX(3px); } }
+@media (prefers-reduced-motion: reduce) { .mf-peek-in { animation: none; } }
+:root[data-motion='off'] .mf-peek-in { animation: none; }
