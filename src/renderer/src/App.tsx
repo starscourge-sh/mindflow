@@ -2051,8 +2051,9 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
         {tab === 'inbox' && (
           <div className="relative z-10 shrink-0 shadow-xl [clip-path:inset(0_0_-3rem_0)]">
             <Pins onOpen={onOpenAny} />
-            {/* The passes are things to do; the cards under them are a section: a rule and room between the two. */}
-            <PassLinks className="mb-3 border-b border-border/50 px-1 pb-2" />
+            {/* The passes are things to do; the cards under them are a section: a rule and room between the two,
+                and neither when there are no cards under them. */}
+            <PassLinks className="px-1 pb-2 [&:not(:last-child)]:mb-3 [&:not(:last-child)]:border-b [&:not(:last-child)]:border-border/50" />
             <RotCards onOpen={onOpen} />
           </div>
         )}
