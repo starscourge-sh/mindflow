@@ -22,7 +22,9 @@ import { DatePicker } from './date-picker'
 import { Readiness } from './review-view'
 import { openWindow } from '@/lib/notes'
 import { TagStream, prefetchTag, useLiveFor } from './tag-read'
-import { TagIcon } from './tag-icon'
+import { TagIcon, tagTint } from './tag-icon'
+import { tagColors } from '@/extensions/tokens'
+import { BookOpen, EyeOff, SquareCheck } from 'lucide-react'
 import { motion } from 'motion/react'
 import { dayMonth } from '../../../../main/dates'
 import { TAG_DOES } from '../capture-kinds/kind-fields'
@@ -38,10 +40,26 @@ const ListTodo = alive(CheckedIcon)
 
 const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo }
 
-/** What a tag does, if anything: a word for its row and a line for its tooltip. */
-const does = (tag: string, action: boolean): { short: string; long: string } | null =>
-  TAG_DOES[tag] ? { short: tag === 'bit' ? 'private' : 'a book', long: TAG_DOES[tag] }
-    : action ? { short: 'makes a task', long: 'Makes a task: anything tagged with it goes to your tasks' } : null
+/** What a tag does, if anything: an icon and a word for its row, and a line for its tooltip. */
+const does = (tag: string, action: boolean): { icon: typeof EyeOff; short: string; long: string } | null =>
+  TAG_DOES[tag] ? { icon: tag === 'bit' ? EyeOff : BookOpen, short: tag === 'bit' ? 'Private' : 'Book', long: TAG_DOES[tag] }
+    : action ? { icon: SquareCheck, short: 'Makes a task', long: 'Makes a task: anything tagged with it goes to your tasks' } : null
+
+/** What a tag does, as a chip in the tag's own colour beside its name: seen at a glance, not read in small grey. */
+function DoesChip({ tag, color, action }: { tag: string; color?: string | null; action: boolean }): React.JSX.Element | null {
+  const what = does(tag, action)
+  if (!what) return null
+  const tint = (color ?? tagColors.get(tag.toLowerCase())) ? tagTint(tag, color) : 'var(--foreground)'
+  const Icon = what.icon
+  return (
+    <Tip label={what.long}>
+      <span className="flex h-5 shrink-0 items-center gap-1 rounded-full px-2 text-xs font-medium whitespace-nowrap"
+        style={{ color: tint, background: `color-mix(in oklab, ${tint} 13%, transparent)` }}>
+        <Icon className="size-3" strokeWidth={2.2} />{what.short}
+      </span>
+    </Tip>
+  )
+}
 
 /**
  * Every `#tag` in use, with how often: the retrospective index the plan asks
@@ -108,10 +126,8 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               >
                 <TagIcon tag={tag} color={color} />
                 <span className={chosen ? 'min-w-0 flex-1 truncate' : 'w-40 truncate'}>{tag}</span>
-                {/* A tag that does something says what, quietly. */}
-                {does(tag, !!action) && !chosen && (
-                  <Tip label={does(tag, !!action)!.long}><span className="shrink-0 text-xs text-muted-foreground">{does(tag, !!action)!.short}</span></Tip>
-                )}
+                {/* A tag that does something says what, in its own colour. */}
+                {!chosen && <DoesChip tag={tag} color={color} action={!!action} />}
                 {!chosen && (
                   <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-border/50">
                     <span className="block h-full rounded-full bg-muted-foreground/40" style={{ width: `${(count / top) * 100}%` }} />
