@@ -509,7 +509,7 @@ const ClozeDemo: Demo = ({ live }) => {
   )
 }
 
-const WHY = { context: 'Cal Newport, Deep Work, 2016', why: 'Willpower runs down through the day' }
+const WHY = { context: 'Deep Work, Cal Newport', why: 'Willpower fades by dusk' }
 const ContextDemo: Demo = ({ live }) => {
   const at = useSteps([500, typeMs(WHY.context, 30), typeMs(WHY.why, 30), 1800], live, 3)
   const context = useTyped(WHY.context, at === 1, 30)

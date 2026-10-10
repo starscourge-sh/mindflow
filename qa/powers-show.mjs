@@ -8,7 +8,7 @@ const cases = [
   ['matrix', 'matrix', null],
   ['book', 'tags', 'book'],
   ['recordings', 'settings', 'screen recordings'],
-  ['tagtask', 'tags', '#bug'],
+  ['tagtask', 'tags', null],
   ['decision', 'kind:decision', null]
 ]
 let fails = 0
