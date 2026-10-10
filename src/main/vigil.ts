@@ -348,7 +348,7 @@ const DEFAULTS = {
   // Headings fold away what is under them, as a view: the note never changes.
   foldHeadings: true,
   // What the main window's sidebar lists; the rest wait under More, a G away.
-  sidebarShown: ['inbox', 'review', 'day', 'today', 'week', 'nuggets', 'articles', 'questions', 'goals'] as string[],
+  sidebarShown: ['inbox', 'review', 'day', 'today', 'week', 'nuggets', 'articles', 'questions', 'goals', 'queue'] as string[],
   // The box's tabs; Recent is a ⇧⌘Y or ⌘K away until shown.
   boxTabs: ['inbox', 'today', 'review', 'kept'] as string[],
   // Sticky notes on the desktop: shown or all put away (⌃⌥⌘N), and kept out of
@@ -1777,7 +1777,11 @@ export function registerVigil(): void {
   })
 
   // Whether any capture is still old enough to rot: none, and the rot area says so.
-  handle('rot:left', () => (db.prepare(`select count(*) n from captures where status = 'open' and archived_at is null and ${AGED} < ?`).get(ago(1)) as { n: number }).n)
+  // A book with no old captures at all (a new one) has nothing to have cleared: -1.
+  handle('rot:left', () => {
+    const ever = (db.prepare(`select count(*) n from captures where ${AGED} < ?`).get(ago(1)) as { n: number }).n
+    return ever ? (db.prepare(`select count(*) n from captures where status = 'open' and archived_at is null and ${AGED} < ?`).get(ago(1)) as { n: number }).n : -1
+  })
   // How many rot cards would come up now: none in safe mode or quiet hours,
   // when the cards themselves hold back. For the box's "3 old" chip.
   handle('rot:waiting', () => {

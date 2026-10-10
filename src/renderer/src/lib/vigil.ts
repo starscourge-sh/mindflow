@@ -106,6 +106,8 @@ export type Settings = {
   questionsBack: boolean
   /** Open goals in a slim strip at the top of Home and Today's page. */
   goalStrip: boolean
+  /** The next marked days in the menu bar's menu, under the bars. */
+  milestonesInMenu?: boolean
   /** A goal with no log for a week says so in the box. */
   goalNudges: boolean
   /** Each goal's beacon unless it says otherwise. */
@@ -281,6 +283,10 @@ export const taskSaid = (made: Made | null | undefined, fresh: string): string =
 export type TaskFull = Task & { notes: unknown; done: { at: string; recap: string | null }[]; subtasks: Subtask[]; linked: { id: string; tier: string; kind: string; title: string }[] }
 
 export type Session = { id: string; startedAt: string; endedAt: string | null; recap: string | null; goal?: string | null; pausedMs: number; pausedAt: string | null }
+/** A thought, some context or a picture added to a session while it ran: its timeline, one moment at a time. */
+export type LogEntry = { id: string; sessionId: string; at: string; text: string; asset: string | null; assetName: string | null }
+/** A session ended on a day, with its task and what was logged in it. */
+export type DaySession = { id: string; taskId: string; title: string; startedAt: string; endedAt: string; pausedMs: number; recap: string | null; entries: LogEntry[] }
 /** The session running now, as the floating timer shows it. */
 export type Focus = { id: string; taskId: string; goal: string; startedAt: string; plannedMs: number | null; pausedMs: number; pausedAt: string | null }
 
@@ -418,6 +424,7 @@ export const vigil = {
   source: (id: string) => call<{ type: string; id: string; title: string; body: unknown } | null>('review:source', id),
   nudge: () => call<{ kind: 'exam' | 'weekly' | 'tidy' | 'goal'; view: string; id?: string; label: string; text: string } | null>('nudge'),
   memory: () => call<{ id: string; captureId: string; kind: string; title: string; body: unknown; event: number; memory: string } | null>('memory'),
+  /** Old captures still open; -1 when the book has never had one old enough to rot. */
   rotLeft: () => call<number>('rot:left'),
   rotWaiting: () => call<number>('rot:waiting'),
   recap: (period: 'month' | 'year') => call<Recap>('recap', period),
@@ -474,7 +481,15 @@ export const vigil = {
   cancelSession: (id: string) => call('session:cancel', id),
   endSession: (id: string, recap: string, keep: boolean, close = false) => call('session:end', id, recap, keep, close),
   /** The recap of a session already ended; gives back the one it had, for undo. */
-  recapSession: (id: string, recap: string) => call<string>('session:recap', id, recap)
+  recapSession: (id: string, recap: string) => call<string>('session:recap', id, recap),
+  /** A session's log, oldest first; add to it from the pill, take an entry back out. */
+  sessionLog: (sessionId: string) => call<LogEntry[]>('session-log', sessionId),
+  logToSession: (sessionId: string, text: string, asset?: string | null, assetName?: string | null) => call<LogEntry | null>('session-log:add', sessionId, text, asset, assetName),
+  unlogFromSession: (id: string) => call('session-log:remove', id),
+  /** What every session of a task logged, oldest first. */
+  taskSessionLog: (taskId: string) => call<LogEntry[]>('session-log:task', taskId),
+  /** The sessions that ended on a day, each with its log. */
+  daySessions: (day: string) => call<DaySession[]>('session-log:day', day)
 }
 
 /**
