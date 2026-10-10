@@ -308,7 +308,12 @@ const openPalette = async () => {
   if (process.env.DEBUG) console.log('before ⌘K', await page.evaluate(() => [document.documentElement.hasAttribute('data-welcome-ph'), document.documentElement.hasAttribute('data-welcoming'), document.activeElement?.className?.toString().slice(0, 30)]))
   await page.keyboard.press('Meta+k')
   await page.waitForSelector('[role="dialog"][aria-label="Search"] input', { state: 'attached' })
-  await page.evaluate(() => document.querySelector('[role="dialog"][aria-label="Search"] input')?.focus())
+  // Until it holds the keys: the box may still be growing to fit it.
+  await page.waitForFunction(() => {
+    const field = document.querySelector('[role="dialog"][aria-label="Search"] input')
+    field?.focus()
+    return !!field && document.activeElement === field
+  }, null, { timeout: 5000 })
   await wait(200)
 }
 const panelOpen = () => page.locator('button[aria-label="Hide the side panel"]').count()
