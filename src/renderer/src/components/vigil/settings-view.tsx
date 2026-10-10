@@ -562,7 +562,7 @@ export function SettingsView(): React.JSX.Element {
             ['sceneryRest', 'When there is nothing to do', '**A wide picture when there is nothing left to do.** Inbox empty, review done, nothing due today, no old captures waiting.', 'empty inbox zero review done'],
             ['sceneryToday', "Today's page", "**A painted picture at the top of each day's, week's and month's page.** Today's sits behind the brief; other pages get a strip, in a white frame with Postcards on. The same picture all day.", 'banner header day daily'],
             ['sceneryRecap', 'Recaps', '**Each page of a month or year recap over its own picture.** Morning light for the opening, night for the close.', 'wrapped month year'],
-            ['sceneryFocus', 'Focus and passes', '**Behind ⇧⌘F Focus and the Tidy and Deciding passes.** Dimmed far enough that the words read as well as on a plain page.', 'read mode focus backdrop']
+            ['sceneryFocus', 'Focus', '**Behind ⇧⌘F Focus.** Dimmed far enough that the words read as well as on a plain page.', 'read mode focus backdrop']
           ] as const).map(([key, title, note, keywords]) => (
             <Setting key={key} title={title} note={note} keywords={`scenery pictures ${keywords}`}>
               <Switch disabled={!settings.scenery} checked={settings[key] !== false} onCheckedChange={(on) => set({ [key]: on })} />
