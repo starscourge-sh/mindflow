@@ -347,11 +347,21 @@ body {
   height: 0.875rem;
 }
 
-/* A drawing given a window to itself: the canvas is the whole page, since
-   there is nothing else in here to make room for. */
+/* A drawing given a window to itself: the canvas is the whole page under a
+   slim bar for the window's dots, which is also what you drag it by. On the
+   page's own colour: the canvas is see-through, and the window under it is dark
+   whatever the theme, so a light theme's drawing sat on black. */
 .drawing-window {
   position: fixed;
-  inset: 0;
+  inset: 2.25rem 0 0;
+  background: var(--background);
+}
+.drawing-bar {
+  position: fixed;
+  inset: 0 0 auto;
+  height: 2.25rem;
+  background: var(--background);
+  -webkit-app-region: drag;
 }
 
 /* Excalidraw's chrome in the app's clothes, in a note or a window of its
@@ -360,6 +370,12 @@ body {
 :is(.drawing-window, .tiptap-excalidraw-canvas) .excalidraw.excalidraw {
   --ui-font: inherit;
   --island-bg-color: var(--popover);
+  /* Its buttons (menu, zoom, undo) and the picked tool, which were a cold
+     blue-grey and lavender on a warm page. */
+  --color-surface-low: var(--popover);
+  --color-surface-mid: var(--accent);
+  --color-surface-primary-container: color-mix(in srgb, var(--tt-brand-color-400) 22%, var(--popover));
+  --color-on-primary-container: var(--foreground);
 }
 
 /* The shape library has no off switch; a drawing in a note has no use for it. */

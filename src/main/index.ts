@@ -441,6 +441,9 @@ function openDrawing(id: string, scene: unknown, note: Electron.WebContents): vo
     title: 'Drawing',
     backgroundColor: '#1c1c1c',
     autoHideMenuBar: true,
+    // The app's own bar, as the main window has, not a grey system strip saying "Drawing".
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 14, y: 11 },
     webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
   })
 

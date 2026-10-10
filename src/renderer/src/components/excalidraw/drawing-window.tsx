@@ -43,13 +43,16 @@ export function DrawingWindow({ id }: { id: string }): React.JSX.Element {
   // Closing the window mid-stroke still keeps the stroke.
   useEffect(() => () => clearTimeout(timer.current), [])
 
-  if (!ready) return <div className="drawing-window" />
-
   return (
-    <div className="drawing-window">
-      <Suspense fallback={null}>
-        <ExcalidrawCanvas scene={scene} onChange={onChange} />
-      </Suspense>
-    </div>
+    <>
+      <div className="drawing-bar" />
+      <div className="drawing-window">
+        {ready && (
+          <Suspense fallback={null}>
+            <ExcalidrawCanvas scene={scene} onChange={onChange} />
+          </Suspense>
+        )}
+      </div>
+    </>
   )
 }
