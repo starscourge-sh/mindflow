@@ -166,7 +166,7 @@ export function UnusedFiles(): React.JSX.Element | null {
         </div>
 
         <div className="flex items-center gap-2 border-t px-4 py-3">
-          <p className="min-w-0 flex-1 text-meta text-muted-foreground">They go to the Mac's Bin, so any can be put back.</p>
+          <p className="min-w-0 flex-1 text-control text-foreground/85"><strong className="font-semibold text-foreground">Nothing is deleted.</strong> They go to the Mac's Bin, so any can be put back.</p>
           <Button variant="ghost" size="sm" onClick={close}>Cancel <Kbd>Esc</Kbd></Button>
           {list.length > 0 && (
             <Button size="sm" disabled={!chosen.length || moving} onClick={move}>
