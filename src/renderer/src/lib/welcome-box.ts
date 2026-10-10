@@ -6,9 +6,13 @@ import { dayjs } from '../../../main/dates'
  * The box, while the welcome runs. The welcome lives in the main window and
  * the box in its own, so they talk through the storage both windows share:
  *
- * - its empty line types out the starters still to try, in turn, instead of
- *   "Type / for commands…" (the stylesheet does the rest, main.css)
- * - the starter picked for "Your turn" is waiting in the box when it opens,
+ * - its empty line types out examples of each kind in turn, a note first,
+ *   instead of "Type / for commands…" (the stylesheet does the rest,
+ *   main.css): new ones, never the ones on the welcome's cards behind it
+ * - it opens without taking the caret, so those lines can be watched typing
+ *   in; a click, or the first key pressed, puts the caret in (that key is
+ *   the first letter written)
+ * - a starter asked for with `fillBox` is waiting in the box when it opens,
  *   written in whole, with who said it and where it is from already filled
  * - the kind chip wears the accent, gives a small pulse each time its guess
  *   changes, and the first time says what it is
@@ -18,19 +22,40 @@ import { dayjs } from '../../../main/dates'
  * Only while the welcome is open.
  */
 
-export type Starter = { kind: 'todo' | 'quote' | 'word' | 'link'; text: string; who?: string; where?: string }
+export type Starter = { kind: 'note' | 'todo' | 'quote' | 'word' | 'link'; text: string; who?: string; where?: string }
 
-/** Four things to catch, one of each kind, each showing off what its kind does: thoughts first, the todo last. */
+/** One of each kind, each showing off what its kind does: a plain thought first, the todo last. The note is Become's only (Catch catches the other four). */
 export const STARTERS: Starter[] = [
+  // The most common thing caught: a thought of your own, here about the book How a thought grows follows.
+  { kind: 'note', text: 'Victor never names the creature. Maybe that is the point.' },
   // A thought first, never a chore: Vigil is a book of things worth keeping before it is a task list.
   // Yoda, to Luke on Dagobah, in The Empire Strikes Back (1980).
   { kind: 'quote', text: '“Do or do not. There is no try.”', who: 'Yoda', where: 'The Empire Strikes Back' },
-  { kind: 'word', text: 'petrichor\nThe smell of rain falling on dry earth.' },
+  // The sandbox keeps the same word in the same words (sandbox-seed.ts).
+  { kind: 'word', text: 'petrichor\nThe smell of rain on dry earth.' },
   // Its name and picture are fetched when it is kept (cardUp); the welcome shows them from LINK_PAGE.
   { kind: 'link', text: 'https://en.wikipedia.org/wiki/Dune_(novel)' },
   // Two days from now by name, so the day read back is that day and never "today".
-  { kind: 'todo', text: `Book tickets for the Star Wars marathon on ${dayjs().add(2, 'day').format('dddd')} 7pm` }
+  { kind: 'todo', text: `Book tickets for Hamlet at the Globe on ${dayjs().add(2, 'day').format('dddd')} 7pm` }
 ]
+
+/**
+ * What quick capture's empty line types out while the welcome is up: one of
+ * each kind, never the examples on the welcome's own cards, so opening it
+ * teaches something new. Only the first line of each is shown.
+ */
+export const EXAMPLES: Record<Starter['kind'], string> = {
+  note: 'Frodo never wanted the ring. Maybe that is why he could carry it.',
+  quote: '“All we have to decide is what to do with the time that is given us.” - Gandalf, The Fellowship of the Ring',
+  word: 'anagnorisis',
+  link: 'https://en.wikipedia.org/wiki/Rosetta_Stone',
+  todo: 'Ask Hermione for the potions notes tomorrow 5pm'
+}
+/** The examples in order, a note first; with a kind, that kind leads and the rest follow. */
+export const examples = (first: Starter['kind'] = 'note'): string[] => {
+  const order: Starter['kind'][] = ['note', 'quote', 'word', 'link', 'todo']
+  return [first, ...order.filter((one) => one !== first)].map((one) => EXAMPLES[one])
+}
 
 const FILL = 'welcome-fill'
 const LEFT = 'welcome-left'
@@ -137,15 +162,15 @@ export function useWelcomePlaceholder(onFields?: (who: string, where: string, ki
     const show = (text: string): void => root.style.setProperty('--mf-welcome-ph', JSON.stringify(text))
     const lines = (): string[] => {
       const left = read<{ lines: string[] }>(LEFT)?.lines
-      return left?.length ? left : STARTERS.map((one) => one.text.split('\n')[0])
+      return left?.length ? left : examples()
     }
     const run = (n: number): void => {
       const all = lines()
       const line = all[n % all.length]
-      // The first is there the moment the box opens, so the line is never blank; the rest type in.
-      if (quiet() || n === 0) show(line)
-      else for (let i = 1; i <= line.length; i++) timers.push(setTimeout(() => show(line.slice(0, i)), i * 38))
-      timers.push(setTimeout(() => run(n + 1), (quiet() || n === 0 ? 0 : line.length * 38) + 3000))
+      // Every line types in, the first too, as soon as the box is up: it opens without the caret so they can be watched.
+      if (quiet()) show(line)
+      else for (let i = 0; i <= line.length; i++) timers.push(setTimeout(() => show(line.slice(0, i)), i * 38))
+      timers.push(setTimeout(() => run(n + 1), (quiet() ? 0 : line.length * 38) + 3000))
     }
 
     // The starter picked in the welcome, waiting in the box: written in whole
@@ -162,6 +187,8 @@ export function useWelcomePlaceholder(onFields?: (who: string, where: string, ki
       localStorage.removeItem(FILL)
       if (now === asked.text) return void fields.current?.(asked.who ?? '', asked.where ?? '', asked.kind)
       const lines = asked.text.split('\n').map((line) => ({ type: 'paragraph', content: [{ type: 'text', text: line }] }))
+      // Written in on purpose: the caret goes with it.
+      touched = true
       editor.chain().setContent({ type: 'doc', content: lines }, { emitUpdate: true }).focus('end').run()
       fields.current?.(asked.who ?? '', asked.where ?? '', asked.kind)
     }
@@ -185,11 +212,45 @@ export function useWelcomePlaceholder(onFields?: (who: string, where: string, ki
       now.dataset.lit = ''
     })
 
+    // While the welcome is up the box opens without the caret, so its lines can be
+    // watched typing in. A click puts the caret in; so does the first key, which is
+    // written as the first letter. Until then any focus the box gives itself is let go.
+    let touched = false
+    const editorOf = (): Editor | null => {
+      const editor = (document.querySelector(EDITOR) as (HTMLElement & { editor?: Editor }) | null)?.editor
+      return editor && !editor.isDestroyed ? editor : null
+    }
+    const inEditor = (): boolean => !!document.activeElement?.closest?.(EDITOR)
+    const letGo = (): void => {
+      if (on && !touched && inEditor()) (document.activeElement as HTMLElement).blur()
+    }
+    const onFocus = (): void => void (on && !touched && setTimeout(letGo, 0))
+    const onPointer = (): void => void (touched = true)
+    const onKey = (event: KeyboardEvent): void => {
+      if (!on || touched) return
+      touched = true
+      if (inEditor()) return
+      const editor = editorOf()
+      if (!editor) return
+      // A letter, a number or a mark: written in, as the first one. Any other key (Esc, ⌘↵) does what it always does.
+      if (event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault()
+        editor.chain().focus('end').insertContent(event.key).run()
+      } else editor.commands.focus('end')
+    }
+    document.addEventListener('focusin', onFocus, true)
+    window.addEventListener('pointerdown', onPointer, true)
+    window.addEventListener('keydown', onKey, true)
+
     const start = (): void =>
       void (window.api.vigil('onboarding:welcoming') as Promise<boolean>).then((welcoming) => {
         stop()
         if (!welcoming) return
         on = true
+        touched = false
+        letGo()
+        // The box takes the caret a frame after it shows: let that go too.
+        requestAnimationFrame(() => setTimeout(letGo, 30))
         // Watched only while the welcome is up: the rest of the time the box owes it nothing.
         watchChip.observe(document.body, { subtree: true, childList: true, characterData: true })
         root.dataset.welcomePh = ''
@@ -207,6 +268,9 @@ export function useWelcomePlaceholder(onFields?: (who: string, where: string, ki
     const offHiding = window.api.onHiding(stop)
     return () => {
       stop()
+      document.removeEventListener('focusin', onFocus, true)
+      window.removeEventListener('pointerdown', onPointer, true)
+      window.removeEventListener('keydown', onKey, true)
       watchChip.disconnect()
       window.removeEventListener('storage', onStorage)
       offShown()

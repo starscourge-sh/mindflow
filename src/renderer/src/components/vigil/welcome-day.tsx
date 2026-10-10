@@ -106,7 +106,7 @@ export function MorningBox({ shown, tip, asking, question, kept }: { shown: bool
 }
 
 /** The day's three tasks on the sticky note, the second struck through once ticked. */
-const TODAY = ['Send the deck to Priya', 'Book the Star Wars marathon', 'Call the dentist back']
+const TODAY = ['Send the deck to Priya', 'Book tickets for Hamlet', 'Call the dentist back']
 
 /**
  * Today's sticky on the desktop, over another app's window, drawn as plain
@@ -394,7 +394,8 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
             )}
           </motion.div>
           <h2 data-at="story" className={h2}>{heads[heads.length - 2]}</h2>
-          <p data-at="hovel" className={`${p} relative`}>
+          {/* A block, not a paragraph: the reword card it holds is a block of its own. */}
+          <div data-at="hovel" className={`${p} relative`}>
             Hidden in the hovel, <span className={`rounded-[2px] transition-colors duration-300 ${s.picked ? 'bg-primary/30 text-foreground' : ''}`}>{PICKED}</span>, and reads Milton, Plutarch and Goethe.
             <AnimatePresence>
               {s.bar && !s.card && (
@@ -418,7 +419,7 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
                 </motion.div>
               )}
             </AnimatePresence>
-          </p>
+          </div>
           <p className={p}>Language is what lets him see himself, and what makes the rejection unbearable.</p>
           <h2 className={h2}>{heads[heads.length - 1]}</h2>
           <p className={p}>Victor runs from what he made. The creature asks for one companion. Which one is the monster?</p>

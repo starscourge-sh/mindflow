@@ -60,6 +60,9 @@ const SAID: [string, string][] = [
   ['Put to work:', 'one becomes a task, one a gem for Review.']
 ]
 
+/** The family's words, for the sandbox to keep the same story (sandbox-seed.ts). */
+export const FLOW_WORDS = { caught: FAMILY[1].title, note: FAMILY[2].title, lines: LINES.map(([line]) => line), task: FAMILY[3].title, gem: FAMILY[4].title }
+
 export const FLOW_LAST = 'Most notes start as a passing thought. Vigil keeps the whole family.'
 
 export type FlowShot = { step: number; grown: boolean; last: boolean }
@@ -144,12 +147,13 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
                       animate={{ opacity: turned ? 0.7 : 0, x: turned ? -14 : 0, y: turned ? -14 : 0 }} transition={land} />
                   )}
                   <div className={`${face} relative`}>
-                    <p className="flex items-start gap-1.5 text-[0.8125rem] leading-snug font-medium text-foreground">
+                    {/* A block, not a paragraph: the drawn icons are blocks of their own. */}
+                    <div className="flex items-start gap-1.5 text-[0.8125rem] leading-snug font-medium text-foreground">
                       <motion.span key={look} className="mt-[0.15em] shrink-0" initial={quiet ? false : { scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', duration: 0.4, bounce: 0.3 }}>
                         <Icon className="size-3.5" style={{ color: `var(--tt-color-text-${tint})` }} />
                       </motion.span>
                       <span className="min-w-0">{kin.title}</span>
-                    </p>
+                    </div>
                     <motion.p key={turned ? 'then' : 'is'} className="pl-5 text-[0.75rem] leading-tight text-muted-foreground" initial={quiet || !turned ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={land}>
                       {turned ? kin.then!.is : kin.is}
                     </motion.p>

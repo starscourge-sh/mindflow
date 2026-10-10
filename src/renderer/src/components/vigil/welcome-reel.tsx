@@ -42,8 +42,10 @@ export const LAND = { type: 'spring' as const, duration: 0.45, bounce: 0.18 }
 export const DRAWER = [0.32, 0.72, 0, 1] as const
 
 export type Kind = Starter['kind']
-/** In the order they are caught: a thought first, the todo last. */
+/** The four Catch catches, in order: a thought first, the todo last. */
 export const KINDS: Kind[] = ['quote', 'word', 'link', 'todo']
+/** What Become shows: a plain note first, the thing most often caught, then the four. */
+export const BECOMES: Kind[] = ['note', ...KINDS]
 export const starterOf = (kind: Kind): Starter => STARTERS.find((one) => one.kind === kind) as Starter
 export const typeOf = (kind: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === kind) ?? CAPTURE_TYPES[0]
 
@@ -212,7 +214,7 @@ function KindChip({ kind }: { kind: CaptureType }): React.JSX.Element {
 }
 
 /** A short name for a thing caught, for a chip or a dot. */
-export const shortOf = (kind: Kind): string => ({ todo: 'Book Star Wars tickets', quote: 'Do or do not…', word: 'petrichor', link: LINK_PAGE.title })[kind]
+export const shortOf = (kind: Kind): string => ({ note: 'Victor never names…', todo: 'Book Hamlet tickets', quote: 'Do or do not…', word: 'petrichor', link: LINK_PAGE.title })[kind]
 
 /** The link's page as Vigil would fetch it, kept here so the welcome works offline. */
 export const LINK_PAGE = { title: 'Dune (novel)', site: 'en.wikipedia.org' }
@@ -384,6 +386,16 @@ export function PostcardResult({ words, who, where, signed, id = 'reel-item-quot
   )
 }
 
+/** A note, as the Inbox keeps it: your words as you wrote them, waiting to grow into something longer. */
+export function NoteResult({ words }: { words: string }): React.JSX.Element {
+  return (
+    <motion.div layoutId="reel-item-note" transition={CAM} style={{ borderRadius: 12 }} className={`${PANEL} w-full`} initial={{ filter: 'blur(4px)' }} animate={{ filter: 'blur(0px)' }}>
+      <p className="flex items-baseline gap-2 px-4 pt-3 pb-1 text-[0.8125rem] font-medium text-foreground">Inbox <span className="font-normal text-muted-foreground">Note</span></p>
+      <p className="px-4 pt-1 pb-3.5 text-[0.9375rem] leading-snug text-pretty text-foreground" style={EDITOR_FONT}>{words}</p>
+    </motion.div>
+  )
+}
+
 /** A link, as it is kept: the page's picture, its name and where it lives, not its address. */
 export function LinkResult(): React.JSX.Element {
   return (
@@ -391,7 +403,8 @@ export function LinkResult(): React.JSX.Element {
       <div className="relative h-20 w-full bg-[color-mix(in_oklab,var(--tt-color-text-brown)_30%,var(--background))]"><Scenery place="recap" seed="welcome-link" mood={['dusk']} wide soft className="absolute inset-0" rounded="rounded-none" /></div>
       <div className="px-4 py-3">
         <p className="text-[0.9375rem] font-medium text-foreground">{LINK_PAGE.title}</p>
-        <p className="text-[0.8125rem] text-muted-foreground">{LINK_PAGE.site}</p>
+        {/* A narrow card shortens the site with an ellipsis rather than letting it run past the edge. */}
+        <p className="truncate text-[0.8125rem] text-muted-foreground">{LINK_PAGE.site}</p>
       </div>
     </motion.div>
   )
@@ -419,12 +432,12 @@ type Edge = SimulationLinkDatum<Dot>
  * to it, and around them an example of a year's links, each one a reader made.
  */
 const NODES: [string, string, string][] = [
-  ['todo', 'Book tickets for the Star Wars marathon', 'todo'], ['link', 'Dune (novel)', 'link'], ['quote', 'Do or do not. There is no try.', 'quote'], ['word', 'petrichor', 'word'],
+  ['todo', 'Book tickets for Hamlet at the Globe', 'todo'], ['link', 'Dune (novel)', 'link'], ['quote', 'Do or do not. There is no try.', 'quote'], ['word', 'petrichor', 'word'],
   ['note', 'Rewatching this tonight', 'note'], ['meditations', 'The Empire Strikes Back', 'note'],
   ['stoics', 'Films that stayed with me', 'note'], ['kinder', 'Try the thing you are scared of', 'note'], ['sorrows', 'Words for weather', 'note'],
-  ['lisbon', 'Friday night plans', 'note'], ['birthday', 'Films to see this year', 'note'], ['walk', 'What the long walk was about', 'note'],
+  ['lisbon', 'Friday night plans', 'note'], ['birthday', 'Plays to see this year', 'note'], ['walk', 'What the long walk was about', 'note'],
   ['seneca', 'Fear is the path to the dark side.', 'quote'], ['letters', 'The Phantom Menace', 'note'], ['mono', 'apricity', 'word'],
-  ['flights', 'Book a table after the film', 'todo'], ['cook', 'Cooking for friends', 'note'], ['read', 'How to read a book', 'link'], ['hiraeth', 'virga', 'word']
+  ['flights', 'Book a table after the play', 'todo'], ['cook', 'Cooking for friends', 'note'], ['read', 'How to read a book', 'link'], ['hiraeth', 'virga', 'word']
 ]
 /** The link made in the scene itself: the note written beside the quote, to it. */
 const MADE: [string, string][] = [['note', 'quote']]

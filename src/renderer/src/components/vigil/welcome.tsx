@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { ImportMap, sourceFrom } from './welcome-import'
 import { applySetup, YouPage } from './welcome-you'
 import { enterSandbox } from '@/lib/sandbox'
-import { STARTERS, fillBox, holdKeys, tellBox } from '@/lib/welcome-box'
+import { examples, fillBox, holdKeys, tellBox } from '@/lib/welcome-box'
 import keycapsUrl from '@/assets/welcome/keycaps.webp'
 import type { CaptureMeta } from '@/components/capture-list'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
@@ -28,7 +28,7 @@ import { WelcomeBackdrop, type Family } from './welcome-backdrop'
 import { CAPTION, DeskSticky, EveningReview, GoalRoad, LINK_LINE, LongNote, Moment, MorningBox, NOTE_START, PICKED, REWORDED, type NoteShot } from './welcome-day'
 import { FlowTree, type FlowShot } from './welcome-flow'
 import {
-  CAM, Camera, Chip, DRAWER, EMPTY_BOX, WIDE, frameOn, GhostHand, KINDS, LAND, LinkScene, PostcardResult, QUOTE, Rise, Slots, Stage, TaskResult, CardResult, LinkResult, WORD,
+  BECOMES, CAM, Camera, Chip, DRAWER, EMPTY_BOX, WIDE, frameOn, GhostHand, LAND, NoteResult, LinkScene, PostcardResult, QUOTE, Rise, Slots, Stage, TaskResult, CardResult, LinkResult, WORD,
   cue, PACE, seeded, starterOf, typed, useScript, type Beat, type Box, type Kind, type MapShot
 } from './welcome-reel'
 
@@ -131,7 +131,8 @@ export function Welcome(): React.JSX.Element | null {
   const picked = useRef<Theme | null>(null)
   const veteran = useRef(false)
   // Your turn: the thing picked to try, how far it has got, and the one you kept.
-  const [pick, setPick] = useState<Kind>('quote')
+  // A plain note first: the thing most people catch.
+  const [pick, setPick] = useState<Kind>('note')
   const [turn, setTurn] = useState<Turn>('idle')
   const [mine, setMine] = useState<CaptureMeta | null>(null)
   // A key held back (lib main: heldInWelcome), said for a moment.
@@ -164,7 +165,7 @@ export function Welcome(): React.JSX.Element | null {
     picked.current = null
     setCaught([])
     setPlayed(new Set())
-    setPick('quote')
+    setPick('note')
     setTurn('idle')
     setMine(null)
     setSkipped(false)
@@ -190,12 +191,13 @@ export function Welcome(): React.JSX.Element | null {
   useEffect(() => {
     void onboarding.set({ welcoming: at >= 0 })
     document.documentElement.toggleAttribute('data-welcoming', at >= 0)
-    if (at >= 0) tellBox(STARTERS.map((one) => one.text.split('\n')[0]), true)
+    if (at >= 0) tellBox(examples(), true)
   }, [at >= 0]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Your turn: the thing picked waits in the box, ready for ⌘. from anywhere; gone again once you move on.
   useEffect(() => {
-    fillBox(at === BECOME && turn !== 'kept' ? starterOf(pick) : null)
+    // Nothing written in for you: the box opens empty, its examples typing in, the kind you picked first.
+    tellBox(examples(pick), true)
   }, [at, pick, turn])
 
   // The box, coming and going, while Your turn waits on it.
@@ -281,7 +283,7 @@ export function Welcome(): React.JSX.Element | null {
   }
   const openBox = (): void => {
     if (!settled()) return
-    fillBox(starterOf(pick))
+    tellBox(examples(pick), true)
     chime('open')
     window.api.showPrompt()
   }
@@ -347,7 +349,7 @@ export function Welcome(): React.JSX.Element | null {
         if (at !== LAST) next()
       } else if (event.key === 'ArrowLeft') back()
       else if (at === LAST && /^[123]$/.test(event.key)) start(Number(event.key) as 1 | 2 | 3)
-      else if (at === BECOME && reel.current.done && /^[1-4]$/.test(event.key)) choose(KINDS[Number(event.key) - 1])
+      else if (at === BECOME && reel.current.done && /^[1-5]$/.test(event.key)) choose(BECOMES[Number(event.key) - 1])
       else if (at === DIAL && reel.current.done && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
         const dial = document.querySelector<HTMLElement>('[role="slider"][aria-label="Theme"]')
         if (!dial || dial.contains(target)) return
@@ -842,33 +844,39 @@ function FlowChapter({ play, report }: { play: boolean; report: (now: Reel) => v
 
 type BecomeState = { docked: boolean; cards: Kind[]; landed: boolean; signed: boolean; over: boolean; hand: string | null; down: boolean; look: Kind | null }
 
-// In the order they were caught: the quote, the word, the link, and the todo last.
+// A plain note first, then in the order Catch caught them: the quote, the word, the link, and the todo last.
 const BECOME_BEATS: Beat<BecomeState>[] = [
   { at: 0, to: {} },
   { at: 1450, to: { docked: true }, cue: cue('slide') },
-  { at: 2100, to: { cards: ['quote'] }, cue: cue('riffle') },
-  { at: 2850, to: { look: 'quote' } },
-  { at: 3600, to: { landed: true }, cue: () => (click('tick'), chime('memory')) },
-  { at: 3700, to: { signed: true } },
-  { at: 5850, to: { look: null } },
-  { at: 6350, to: { cards: ['quote', 'word'] }, cue: cue('reveal') },
-  { at: 7150, to: { look: 'word' } },
-  { at: 7800, to: { hand: 'card' } },
-  { at: 8650, to: { down: true }, cue: () => click('tick') },
-  { at: 8700, to: { down: false, over: true }, cue: () => fold() },
-  { at: 10750, to: { hand: null, look: null } },
-  { at: 11250, to: { cards: ['quote', 'word', 'link'] }, cue: cue('reveal') },
-  { at: 11900, to: { look: 'link' } },
-  { at: 13700, to: { look: null } },
-  { at: 14200, to: { cards: ['quote', 'word', 'link', 'todo'] }, cue: cue('noted') },
-  { at: 14950, to: { look: 'todo' } },
+  // A plain note first: the thing most often caught.
+  { at: 2100, to: { cards: ['note'] }, cue: cue('noted') },
+  { at: 2850, to: { look: 'note' } },
+  { at: 4300, to: { look: null } },
+  { at: 4800, to: { cards: ['note', 'quote'] }, cue: cue('riffle') },
+  { at: 5550, to: { look: 'quote' } },
+  { at: 6300, to: { landed: true }, cue: () => (click('tick'), chime('memory')) },
+  { at: 6400, to: { signed: true } },
+  { at: 8550, to: { look: null } },
+  { at: 9050, to: { cards: ['note', 'quote', 'word'] }, cue: cue('reveal') },
+  { at: 9850, to: { look: 'word' } },
+  { at: 10500, to: { hand: 'card' } },
+  { at: 11350, to: { down: true }, cue: () => click('tick') },
+  { at: 11400, to: { down: false, over: true }, cue: () => fold() },
+  { at: 13450, to: { hand: null, look: null } },
+  { at: 13950, to: { cards: ['note', 'quote', 'word', 'link'] }, cue: cue('reveal') },
+  { at: 14600, to: { look: 'link' } },
   { at: 16400, to: { look: null } },
-  { at: 17500, to: {} }
+  { at: 16900, to: { cards: ['note', 'quote', 'word', 'link', 'todo'] }, cue: cue('noted') },
+  { at: 17650, to: { look: 'todo' } },
+  { at: 19100, to: { look: null } },
+  { at: 20200, to: {} }
 ]
 
 /** What each kind does, in a line under it. */
 function Caption({ kind }: { kind: Kind }): React.JSX.Element {
   const now = dayjs()
+  // A note is kept as written, in the Inbox, until it is sorted or grown into a longer piece.
+  if (kind === 'note') return <>In your Inbox as you wrote it, ready to grow into a longer note.</>
   if (kind === 'todo') return <>In your tasks, and in Today on the day.</>
   // True of every kind: the year-later memory picks from anything kept (vigil.ts, memory).
   if (kind === 'quote') return <>Anything you catch can come back a year later, on <span className="whitespace-nowrap text-foreground">{now.format('D MMM')} <RollingYear from={now.year()} /></span>.</>
@@ -888,8 +896,8 @@ function Results({ cards, landed, signed, over, onTurn, pick, onPick, kept, quie
   const live = !!onPick
   // Two rows on one grid: the three set down on one baseline, their lines under them on one line.
   return (
-    <div className="grid w-full max-w-[72rem] grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1fr)] gap-x-[clamp(0.75rem,1.8vw,1.75rem)] gap-y-3">
-      {KINDS.map((kind) => {
+    <div className="grid w-full max-w-[72rem] grid-cols-[minmax(0,0.85fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,0.85fr)_minmax(0,1.2fr)] gap-x-[clamp(0.75rem,1.8vw,1.75rem)] gap-y-3">
+      {BECOMES.map((kind) => {
         const card = cards.includes(kind)
         const chosen = pick === kind
         return (
@@ -899,6 +907,8 @@ function Results({ cards, landed, signed, over, onTurn, pick, onPick, kept, quie
             className={`relative min-w-0 self-end rounded-2xl p-1.5 transition-[box-shadow,background-color] duration-200 ${live ? 'cursor-pointer hover:bg-foreground/[0.03]' : ''} ${chosen ? 'shadow-[0_0_0_2px_var(--primary)]' : 'shadow-[0_0_0_2px_transparent]'}`}>
             {!card ? (
               <div className="flex justify-center py-6"><Chip kind={kind} /></div>
+            ) : kind === 'note' ? (
+              <NoteResult words={starterOf('note').text} />
             ) : kind === 'todo' ? (
               <TaskResult line={starterOf('todo').text} />
             ) : kind === 'quote' ? (
@@ -918,7 +928,7 @@ function Results({ cards, landed, signed, over, onTurn, pick, onPick, kept, quie
           </div>
         )
       })}
-      {captions && KINDS.map((kind, i) => (
+      {captions && BECOMES.map((kind, i) => (
         <motion.p key={kind} className="flex items-start gap-2 px-1.5 text-left text-[clamp(0.8125rem,min(1.5vw,2.2vh),1rem)] leading-snug text-(--mf-wl-quiet)"
           initial={false} animate={{ opacity: cards.includes(kind) ? 1 : 0 }} transition={{ duration: 0.3, ease: EASE, delay: cards.includes(kind) && !quiet ? 0.35 : 0 }}>
           {live && <Kbd className="mt-px shrink-0">{i + 1}</Kbd>}
@@ -941,8 +951,8 @@ function BecomeChapter({ play, report, pick, onPick, turn, mine }: { play: boole
   const box = <InlineKeys keys={keyFor('⌘.') || '⌘.'} />
   const send = <InlineKeys keys={keyFor('⌘↵') || '⌘↵'} />
   const said: Record<Turn, ReactNode> = {
-    idle: <Action>Your turn: pick one, then press {box}</Action>,
-    open: <Action>Now press {send} in quick capture to keep it</Action>,
+    idle: <Action>Your turn: pick a kind, then press {box}</Action>,
+    open: <Action>Now write one in quick capture, and press {send}</Action>,
     away: <Action>Press {box} to bring quick capture back</Action>,
     kept: <>Saved{mine && mine.kind !== pick ? `: “${(mine.label.split('\n')[0] ?? '').slice(0, 40)}”` : ''}. It is yours now, {mine?.kind === 'todo' ? 'in your tasks' : 'in your Inbox'}.</>
   }
@@ -1279,7 +1289,7 @@ function ConnectChapter({ play, report }: { play: boolean; report: (now: Reel) =
         <AnimatePresence>
           {s.cards && (
             <motion.div key="cards" className="w-full max-w-[64rem] origin-center" exit={{ opacity: 0, scale: 0.15, filter: 'blur(2px)', transition: { duration: 0.4, ease: DRAWER } }}>
-              <Results cards={KINDS} landed signed over quiet={!play} captions={false} onTurn={() => undefined} />
+              <Results cards={BECOMES} landed signed over quiet={!play} captions={false} onTurn={() => undefined} />
             </motion.div>
           )}
         </AnimatePresence>
