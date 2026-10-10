@@ -25,21 +25,32 @@ function N({ children }: { children: ReactNode }): React.JSX.Element {
   return <strong className="font-semibold text-foreground proportional-nums">{typeof children === 'string' || typeof children === 'number' ? <Rolling text={children} /> : children}</strong>
 }
 
-/** One island per section, each sentence or chart a row of its own; a row left out leaves no gap. */
-function Section({ title, children }: { title: string; children: ReactNode }): React.JSX.Element {
+/**
+ * One island per section, led by its one number set large, then each
+ * sentence or chart a row of its own; a row left out leaves no gap.
+ */
+function Section({ title, big, children }: { title: string; big?: { value: string | number; label: string }; children: ReactNode }): React.JSX.Element {
   return (
     <Island title={title} className="mt-8 first:mt-6">
       {Children.toArray(children).map((row, index) => (
-        <div key={index} className="space-y-3 px-4 py-3 leading-relaxed text-muted-foreground">{row}</div>
+        <div key={index} className="space-y-3 px-4 py-3 leading-relaxed text-muted-foreground">
+          {index === 0 && big && (
+            <p className="flex items-baseline gap-2 pt-1">
+              <span className="text-[2rem] leading-none font-semibold tracking-tight text-foreground tabular-nums"><Rolling text={big.value} /></span>
+              <span className="text-sm">{big.label}</span>
+            </p>
+          )}
+          {row}
+        </div>
       ))}
     </Island>
   )
 }
 
 /**
- * The numbers, written as a scientist would and never as a judge: sentences
- * that set each one beside something, rather than a dashboard of big figures
- * that read as a score. No streaks, no targets. The two the plan calls
+ * The numbers, written as a scientist would and never as a judge: each card
+ * leads with its one number, then sentences that set it beside something,
+ * so nothing reads as a score. No streaks, no targets. The two the plan calls
  * load-bearing are here: days opened, the only one that notices the app being
  * abandoned, and time to first use, which says whether it works at all.
  */
@@ -90,7 +101,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
     }>
       <Example on={example} tryIt="catch a few thoughts with ⌘. and tidy them. By the end of the week this page tells you how it went, in sentences.">
       <div className="px-5 pb-20 [&>section]:max-w-[62ch]">
-        <Section title="Today">
+        <Section title="Today" big={{ value: stats.day.captured, label: stats.day.captured === 1 ? 'thing caught' : 'things caught' }}>
           <p>
             {today.length ? (
               <>
@@ -102,22 +113,25 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           </p>
         </Section>
 
-        <Section title="This week">
+        <Section title="This week" big={{ value: stats.week, label: stats.week === 1 ? 'thing captured' : 'things captured' }}>
           <p>
-            You captured <N>{stats.week}</N> {stats.week === 1 ? 'thing' : 'things'}
+            You captured <N>{stats.week}</N> {stats.week === 1 ? 'thing' : 'things'} in the last seven days
             {change === null ? ', with nothing the week before to set it against.' : change === 0 ? ', the same as the week before.' : <>, {change > 0 ? 'up' : 'down'} <N>{`${Math.abs(change)}%`}</N> on the week before.</>}{' '}
-            You closed <N>{plural(stats.tasksDone, 'task', 'tasks')}</N>
-            {stats.reviews.n ? (
-              <>
-                {' '}and recalled <N>{percent(stats.reviews.recalled ?? 0, stats.reviews.n)}</N> of <N>{plural(stats.reviews.n, 'review', 'reviews')}</N> over the last 30 days.
-              </>
-            ) : (
-              '. Nothing has been reviewed yet.'
-            )}
+            You closed <N>{plural(stats.tasksDone, 'task', 'tasks')}</N>.
           </p>
         </Section>
 
-        <Section title="The week, in the work">
+        <Section title="Remembering, the last 30 days" big={stats.reviews.n ? { value: percent(stats.reviews.recalled ?? 0, stats.reviews.n), label: 'remembered' } : undefined}>
+          <p>
+            {stats.reviews.n ? (
+              <>
+                You remembered <N>{percent(stats.reviews.recalled ?? 0, stats.reviews.n)}</N> of <N>{plural(stats.reviews.n, 'review', 'reviews')}</N>, and you aim to remember <N>{Math.round(stats.retention * 100)}%</N>.
+              </>
+            ) : 'Nothing has been reviewed yet.'}
+          </p>
+        </Section>
+
+        <Section title="The week, in the work" big={{ value: spent(stats.sessions.minutes ?? 0), label: 'of focus' }}>
           <p>
             {stats.sessions.n ? (
               <>
@@ -133,11 +147,6 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
               </>
             ) : 'Nothing you captured carried a tag.'}
           </p>
-          {stats.reviews.n > 0 && (
-            <p>
-              You aim to remember <N>{Math.round(stats.retention * 100)}%</N> and actually remembered <span className="whitespace-nowrap"><N>{percent(stats.reviews.recalled ?? 0, stats.reviews.n)}</N>.</span>
-            </p>
-          )}
           {stats.estimates.estimated ? (
             <p>
               Tasks you estimated at <N>{`${num(stats.estimates.estimated)} minutes`}</N> took <N>{spent(stats.estimates.spent ?? 0)}</N> in sessions.
@@ -145,7 +154,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           ) : null}
         </Section>
 
-        <Section title="The doing, this week">
+        <Section title="The doing, this week" big={{ value: stats.lead.exits, label: stats.lead.exits === 1 ? 'capture dealt with' : 'captures dealt with' }}>
           <p>
             No target here, only the trend. This week: <span className="whitespace-nowrap"><N>{`${plural(stats.lead.exits, 'capture', 'captures')} dealt with`}</N>,</span> <span className="whitespace-nowrap"><N>{`${plural(stats.lead.glosses, 'note', 'notes')} added`}</N>,</span>{' '}
             reviews on <N>{plural(stats.lead.reviewDays, 'day', 'days')}</N> and <N>{plural(stats.lead.articles, 'article', 'articles')}</N> started.
@@ -161,7 +170,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           </p>
         </Section>
 
-        <Section title="Where captures go">
+        <Section title="Where captures go" big={total ? { value: percent(total - (by.open ?? 0), total), label: 'have taken an exit' } : undefined}>
           {/* No bar until something has taken an exit: an empty one reads as a failing grade. */}
           {exits.some((exit) => by[exit.status]) && (
             <div className="flex h-2 overflow-hidden rounded-full bg-border/60">
@@ -182,7 +191,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           </p>
         </Section>
 
-        <Section title="Days you opened it">
+        <Section title="Days you opened it" big={{ value: opened.size, label: 'of the last 84 days' }}>
           {opened.size > 0 && <div className="grid w-fit grid-flow-col grid-rows-7 gap-[3px]">
             {days.map((day) => (
               <Tip key={day} label={day}>
@@ -195,7 +204,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           </p>
         </Section>
 
-        <Section title="Is it working">
+        <Section title="Is it working" big={stats.firstUse === null ? undefined : { value: `${stats.firstUse.toFixed(1)} days`, label: 'to first use' }}>
           <p>
             {stats.firstUse === null ? (
               'Nothing has been opened, acted on or given an exit since it was captured, so there is no time to first use to measure yet.'
@@ -219,7 +228,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           </p>
         </Section>
 
-        <Section title={`${dayjs().year()} so far`}>
+        <Section title={`${dayjs().year()} so far`} big={{ value: stats.year.captured, label: stats.year.captured === 1 ? 'capture' : 'captures' }}>
           <p>
             <span className="whitespace-nowrap"><N>{plural(stats.year.captured, 'capture', 'captures')}</N>,</span> <N>{plural(stats.year.nuggets, 'idea', 'ideas')}</N> kept and{' '}
             <N>{plural(stats.year.articles, 'article', 'articles')}</N> written.
@@ -227,7 +236,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           </p>
         </Section>
 
-        <Section title="When you capture">
+        <Section title="When you capture" big={busiest ? { value: `${busiest.hour}:00`, label: 'your busiest hour' } : undefined}>
           {busiest ? <>
           <div className="flex h-14 items-end gap-[3px]">
             {Array.from({ length: 24 }, (_, hour) => {
@@ -246,7 +255,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           </> : <p>Nothing captured yet, so no hours to show.</p>}
         </Section>
 
-        <Section title="What you capture">
+        <Section title="What you capture" big={stats.kinds[0] ? { value: stats.kinds[0].n, label: `${(CAPTURE_TYPES.find((one) => one.id === stats.kinds[0].kind) ?? CAPTURE_TYPES[0]).label.toLowerCase()}${stats.kinds[0].n === 1 ? '' : 's'}, the most of any kind` } : undefined}>
           <div className="space-y-2">
             {stats.kinds.map(({ kind, n }) => {
               const type = CAPTURE_TYPES.find((one) => one.id === kind) ?? CAPTURE_TYPES[0]
