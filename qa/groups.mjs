@@ -45,7 +45,8 @@ async function carry(c, from, to, at = 0.5, { hold, up = true, shift = false } =
   await c.h.mouse.move(a.x + 60, a.y + a.height / 2)
   if (shift) await c.h.keyboard.down('Shift')
   await c.h.mouse.down()
-  await c.h.mouse.move(a.x + 60, a.y + a.height / 2 + 8, { steps: 4 })
+  // The first nudge already heads for the target, as a hand's would: a nudge the other way scrolls the list away from it.
+  await c.h.mouse.move(a.x + 60, a.y + a.height / 2 + (b.y + b.height * at < a.y + a.height / 2 ? -8 : 8), { steps: 4 })
   await c.h.mouse.move(b.x + 60, b.y + b.height * at, { steps: 24 })
   if (hold) await hold()
   else await c.h.waitForTimeout(250)
@@ -196,7 +197,7 @@ if (c) try {
   })
   await c.h.waitForTimeout(700)
   let members = await memberTitles(c, 'Memory')
-  check('all three join the group, in their order', members.length === 6 && members.slice(1, 4).join('|') === 'Interleaving beats blocking|' + "Mnemosyne's problem: how memory fades|What The Matrix gets right about choosing", members.join(' | '))
+  check('all three join the group, in their order', members.length === 6 && members.slice(1, 4).join('|') === 'Interleaving beats blocking|What The Matrix gets right about choosing|' + "Mnemosyne's problem: how memory fades", members.join(' | '))
   check('and the picks are let go', (await picked(c)).length === 0)
   await c.h.keyboard.press('Meta+z')
   await c.h.waitForTimeout(800)
@@ -210,7 +211,7 @@ if (c) try {
   })
   await c.h.waitForTimeout(700)
   const rows = await order(c)
-  check('two picked rows move to the edge together', rows.slice(0, 3).join('|') === "Mnemosyne's problem: how memory fades|What The Matrix gets right about choosing|Interleaving beats blocking", rows.slice(0, 3).join(' | '))
+  check('two picked rows move to the edge together', rows.slice(0, 3).join('|') === "What The Matrix gets right about choosing|Mnemosyne's problem: how memory fades|Interleaving beats blocking", rows.slice(0, 3).join(' | '))
 
   // 7d. Two picked in a group, carried out: both leave it.
   await row(c, 'Spaced repetition, a primer').click({ modifiers: ['Meta'] })
@@ -380,6 +381,9 @@ if (c) try {
   await c.h.mouse.up()
   await c.h.waitForTimeout(400)
   check('a row pressed to open it keeps the plain arrow', pressed === 'default', pressed)
+  // That press opened it, as a click does: back to the list.
+  await c.go('home')
+  await articles(c)
   let carrying = ''
   let sprung = false
   await carry(c, row(c, 'Interleaving beats blocking'), head(c, 'Memory'), 0.15, {
@@ -551,11 +555,42 @@ try {
     await c.h.waitForTimeout(800)
   }
   await unfiltered(false)
+  // Two of them, far down the list (it draws only the rows near what shows): scrolled to, and moved by the menu, as a hand would from there.
   const hide = others.slice(0, 2)
-  await carry(c, row(c, titleOf(hide[0])), c.h.locator('[data-group-block]').first().locator('[data-row]').first(), 0.5)
+  const reveal = async (title) => {
+    if (!(await row(c, title).count())) await c.h.evaluate(() => { const box = document.querySelector('[data-row]')?.closest('.overflow-y-auto'); if (box) box.scrollTop = 0 })
+    for (let i = 0; i < 40 && !(await row(c, title).count()); i++) {
+      await c.h.evaluate(() => { const box = document.querySelector('[data-row]')?.closest('.overflow-y-auto'); if (box) box.scrollTop += box.clientHeight * 0.8 })
+      await c.h.waitForTimeout(120)
+    }
+    await row(c, title).scrollIntoViewIfNeeded()
+  }
+  const moveTo = async (title, down) => {
+    await reveal(title)
+    await row(c, title).click({ button: 'right' })
+    await c.h.waitForTimeout(250)
+    await c.h.locator('[data-slot="context-menu-sub-trigger"]', { hasText: 'Move to group' }).hover()
+    await c.h.waitForTimeout(350)
+    await c.h.keyboard.press('ArrowRight')
+    await c.h.waitForTimeout(150)
+    for (let i = 0; i < down; i++) await c.h.keyboard.press('ArrowDown')
+    await c.h.keyboard.press('Enter')
+    await c.h.waitForTimeout(700)
+  }
+  // Into the first group.
+  await moveTo(titleOf(hide[0]), 0)
+  // Between the groups: into the second, then out of it, which leaves it just after.
+  await moveTo(titleOf(hide[1]), 1)
+  await reveal(titleOf(hide[1]))
+  await row(c, titleOf(hide[1])).click({ button: 'right' })
+  await c.h.waitForTimeout(250)
+  await c.h.locator('[role="menuitem"]', { hasText: 'Remove from group' }).click()
   await c.h.waitForTimeout(700)
-  await carry(c, row(c, titleOf(hide[1])), c.h.locator('[data-group-row]').nth(1), 0.1)
-  await c.h.waitForTimeout(700)
+  check('a hidden row sits between the groups', await c.h.evaluate((id) => {
+    const at = document.querySelector(`[data-row][data-id="${id}"]`)
+    const blocks = [...document.querySelectorAll('[data-group-block]')]
+    return !!at && !at.closest('[data-group-block]') && blocks.some((b) => b.compareDocumentPosition(at) & Node.DOCUMENT_POSITION_FOLLOWING) && blocks.some((b) => b.compareDocumentPosition(at) & Node.DOCUMENT_POSITION_PRECEDING)
+  }, hide[1].id))
   await unfiltered(true)
   let groupsHere = await c.v('groups', 'nugget')
   check('a hidden row sits in the first group', groupsHere.some((one) => one.members.includes(hide[0].id)))
