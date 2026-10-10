@@ -313,7 +313,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
         <Example on={example} className="min-h-0 flex-1" tryIt="give a task a day, like ‘send the reading list Thursday’, in Today or Upcoming. It shows here on that day.">
         <div ref={strip} onScroll={measure}
           style={{ maskImage: edges.left || edges.right ? `linear-gradient(to right, ${edges.left ? 'transparent, black 3rem' : 'black'}, ${edges.right ? 'black calc(100% - 3rem), transparent' : 'black'})` : undefined }}
-          className="grid min-h-0 flex-1 gap-px overflow-x-auto p-3 [grid-template-columns:repeat(7,minmax(6rem,1fr))]">
+          className="grid min-h-0 flex-1 gap-px overflow-x-auto p-3 [grid-template-columns:repeat(7,minmax(5rem,1fr))]">
           {days.map((day, col) => {
             const date = new Date(day.start)
             const today = day.start === dayStart(0)

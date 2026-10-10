@@ -62,6 +62,10 @@ const blurred = (on: boolean) => (): void => void (document.documentElement.data
 // blurs the page but not the window, and that should not dim it.
 window.addEventListener('blur', () => setTimeout(() => blurred(!document.hasFocus())(), 0))
 window.addEventListener('focus', blurred(false))
+// A window never scrolls as a whole: each page scrolls inside itself. Something
+// reaching past the edge, brought into view by focus, would otherwise slide the
+// sidebar and title bar off the window; no CSS stops a scroll asked for that way.
+window.addEventListener('scroll', () => (window.scrollX || window.scrollY) && window.scrollTo(0, 0))
 
 // A window opened on one drawing says so in its own URL, which is the only
 // thing a fresh renderer knows about itself before any of this has run.
