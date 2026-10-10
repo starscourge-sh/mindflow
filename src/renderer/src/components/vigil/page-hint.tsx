@@ -4,7 +4,7 @@ import { Lightbulb, X } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { EASE, shift, useFirstVisit } from '@/lib/motion'
 import { onboarding, playWelcome, useOnboarding } from '@/lib/onboarding'
-import { enterSandbox } from '@/lib/sandbox'
+import { SANDBOX, enterSandbox } from '@/lib/sandbox'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
 import { styleNudgeDue, styleNudged } from '@/lib/theme'
 import { splitLead } from './lead'
@@ -20,7 +20,7 @@ import { Typed, toast } from './ui'
  * place, that there is a welcome and a sandbox to try.
  */
 const HINTS: Record<string, string> = {
-  inbox: '**Everything you catch waits here.** Tidy it once a day, and once a week Decide: P keeps it, R finishes it, D lets it go.',
+  inbox: '**Everything you catch waits here.** Tidy it once a day; once a week, Decide.',
   review: '**Cards come back just before you would forget them.** Space turns one over; 1 to 4 says how well you knew it.',
   day: '**A page a day.** Write a line, and what you caught, finished and reviewed today gathers underneath.',
   weekpage: '**One page a week.** What matters this week, and how it went.',
@@ -30,18 +30,31 @@ const HINTS: Record<string, string> = {
   nuggets: '**What you kept, in your own words.** These are what come back as hints and cards.',
   tags: '**Every #tag has a page.** Give it a colour, or a date to be ready by.',
   home: '**What is coming back to you today.** Under it, shelves of what you kept.',
-  matrix: "**Your tasks by urgent and important.** Drag one to another square and it takes that square's importance.",
-  routines: "**What you do again and again.** Write 'every!' for 'every' and the next one counts from when you last did it.",
+  matrix: '**Your tasks by urgent and important.** Drag one to another square to change it.',
+  routines: "**What you do again and again.** Write 'every week' as you type a task, and it comes round.",
   later: "**For what has no day yet.** Say 'this month', 'this year' or 'someday' as you type it, and it waits here.",
   upcoming: '**Every task with a day, in order.** T, M or W on a row moves it to today, tomorrow or next week.',
-  stats: '**How you have been using Vigil, in sentences.** Your month and Your year play the whole stretch back, a page at a time.',
-  map: '**Every note you linked, as dots joined by lines.** Type @ in any note to link it to another.',
-  monthpage: '**One page a month: what it was for, and how it went.** The year page lines the months up as seasons.',
-  articles: "**Your own words on one idea.** In Ideas, press X on a few and 'Start an article' puts them on one page to write from."
+  stats: '**How you have been using Vigil, in sentences.** Your month and Your year play it back.',
+  map: '**Every note you linked, as dots joined by lines.** Type @ in a note to link it.',
+  monthpage: '**One page a month: what it was for, and how it went.**',
+  articles: "**Your own words on one idea.** In Ideas, select a few with X, then Start an article."
 }
+
+/** Said once a launch in the sandbox, in this line's place: shown, then gone on its own. */
+let arrived = false
+const ARRIVAL_MS = 9000
 
 export function PageHint({ page }: { page: string }): React.JSX.Element | null {
   const state = useOnboarding()
+  // Into the sandbox: where you are and that your notes are safe, docked
+  // under the top bar rather than a toast over the page, then out of the way.
+  const [arrival, setArrival] = useState(() => SANDBOX && !arrived)
+  useEffect(() => {
+    if (!arrival) return
+    arrived = true
+    const gone = setTimeout(() => setArrival(false), ARRIVAL_MS)
+    return () => clearTimeout(gone)
+  }, [arrival])
   const settings = useLive(vigil.settings, null as Settings | null)
   // Put away here at once, before the main process has said so.
   const [gone, setGone] = useState<string[]>([])
@@ -52,6 +65,13 @@ export function PageHint({ page }: { page: string }): React.JSX.Element | null {
     watch.observe(document.documentElement, { attributes: true, attributeFilter: ['data-welcoming', 'data-touring'] })
     return () => watch.disconnect()
   }, [])
+  if (arrival && !welcomeUp) {
+    return (
+      <Line name="sandbox-arrival" onDone={() => (chime('tap'), setArrival(false))} done="Got it">
+        <strong>You're in the sandbox, a practice copy. Your own notes are safe.</strong> Try anything here.
+      </Line>
+    )
+  }
   if (!state || !settings || welcomeUp || settings.safeMode) return null
 
   // Here before the welcome: told about it once.

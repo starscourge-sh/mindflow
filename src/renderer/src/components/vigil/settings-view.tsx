@@ -775,7 +775,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Sandbox" note={SANDBOX ? "**You're in it now: a practice copy of Vigil, full of examples.** Your own notes stay exactly as they are." : '**A practice copy of Vigil, full of examples to try.** Your own notes stay exactly as they are.'} keywords="sandbox practice examples demo try sample playground">
             {SANDBOX ? (<>
               <Button variant="outline" size="sm" onClick={() => void leaveSandbox()}>Back to my notes</Button>
-              <HoldButton hint="Hold to reset" done="Resetting…" onHold={() => void startSandboxOver()}>Reset</HoldButton>
+              <HoldButton hint="Every example back to how it began" done="Resetting…" onHold={() => void startSandboxOver()}>Hold to reset</HoldButton>
             </>) : (
               <Button variant="outline" size="sm" onClick={() => void enterSandbox()}>Open the sandbox</Button>
             )}
@@ -857,7 +857,7 @@ function BookRows(): React.JSX.Element {
           <Button variant="ghost" size="sm" onClick={() => void revealBook(book.id)}>Show in Finder</Button>
           {!book.current && <Button variant="ghost" size="sm" onClick={() => void switchBook(book.id)}>Open</Button>}
           {!SANDBOX && book.id !== 'default' && !book.current && (
-            <HoldButton hint={`Hold to delete ${book.name}`} done="Deleting…" onHold={() => void remove(book.id, book.name)}>Delete</HoldButton>
+            <HoldButton hint={`${book.name} and everything in it, for good`} done="Deleting…" onHold={() => void remove(book.id, book.name)}>Hold to delete</HoldButton>
           )}
         </Setting>
       ))}

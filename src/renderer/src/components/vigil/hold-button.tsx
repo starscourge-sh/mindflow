@@ -21,13 +21,14 @@ const keyed = (key: string): boolean => key === ' ' || key === 'Enter'
  * Space or Return held on it does the same. With Motion off the wash still
  * sweeps, since it says how long is left, but the words simply change.
  *
- * Clicked rather than held, it says so: the button gives a quick shake and
- * its hint ("Hold to start over") springs in under it for a few seconds, so a
+ * Its words say so on its face ("Hold to reset"), so the one thing to know
+ * is never only in a tip. Clicked rather than held, it gives a quick shake and
+ * "Keep holding until it fills" springs in under it for a few seconds, so a
  * click that seemed to do nothing explains itself.
  */
 export function HoldButton({ onHold, hint, done, cue = null, variant = 'outline', size = 'sm', className, disabled, ref, children }: {
   onHold: () => void
-  /** Said in its tip, plainly: "Hold to reset". */
+  /** Said in its tip: what holding it does. */
   hint: string
   /** Its words once held: "Resetting…". */
   done: ReactNode
@@ -140,7 +141,7 @@ export function HoldButton({ onHold, hint, done, cue = null, variant = 'outline'
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, transition: { duration: 0.15 } }}
             transition={still() ? { duration: 0.12 } : { type: 'spring', stiffness: 520, damping: 26 }}>
-            {hint}
+            Keep holding until it fills
           </motion.span>
         )}
       </AnimatePresence>,

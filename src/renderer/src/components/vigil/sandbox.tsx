@@ -84,9 +84,9 @@ export function SandboxPill(): React.JSX.Element | null {
     <span data-sandbox-pill role="group" aria-label="Sandbox" style={{ ...TAPE, ...NO_DRAG }}
       className="ml-2 flex h-7 shrink-0 items-center overflow-hidden rounded-full border border-dashed text-control">
       <Tip label={SAID}>
-        {/* A label, not a button: a filled strip of tape with small capitals, so the
+        {/* A label, not a button: a filled strip of tape in bold, so the
             two answers after it read as the only things to press. Only the flask once the bar is tight. */}
-        <span tabIndex={0} className={`${asking ? 'hidden @min-[720px]/bar:flex' : 'hidden @min-[600px]/bar:flex'} h-full cursor-default items-center gap-1.5 bg-[color-mix(in_srgb,var(--tt-color-text-yellow)_16%,transparent)] pr-2.5 pl-2.5 text-[0.6875rem] font-semibold tracking-[0.1em] uppercase outline-none`}>
+        <span tabIndex={0} className={`${asking ? 'hidden @min-[720px]/bar:flex' : 'hidden @min-[600px]/bar:flex'} h-full cursor-default items-center gap-1.5 bg-[color-mix(in_srgb,var(--tt-color-text-yellow)_16%,transparent)] pr-2.5 pl-2.5 font-semibold outline-none`}>
           <FlaskConical className="size-3 shrink-0" strokeWidth={2.25} />
           Sandbox
         </span>
@@ -118,10 +118,10 @@ export function SandboxPill(): React.JSX.Element | null {
       <AnimatePresence mode="popLayout" initial={false}>
         {asking ? (
           <motion.span key="ask" {...swap} className="flex h-full items-center">
-            <span className="hidden truncate px-2.5 text-foreground/85 @min-[900px]/bar:inline">Hold to start over, as it began</span>
-            {/* The answer that does something is the one in the tape's colour; Cancel is quiet. */}
-            <HoldButton ref={sure} variant={null} hint="Hold to start over" done="Starting over…" disabled={busy} onHold={() => go(startSandboxOver)} className={`${PART} font-semibold`}>
-              Start over
+            {/* The answer that does something is the one in the tape's colour, and
+                says on its face that it is held; Cancel is quiet. */}
+            <HoldButton ref={sure} variant={null} hint="Every example back to how it began" done="Starting over…" disabled={busy} onHold={() => go(startSandboxOver)} className={`${PART} font-semibold`}>
+              Hold to start over
             </HoldButton>
             {RULE}
             <Tip label="Cancel">
@@ -177,7 +177,7 @@ export function SandboxStamp(): React.JSX.Element | null {
   return (
     <span aria-label="Sandbox" title={SAID}
       style={{ ...TAPE, backgroundColor: 'color-mix(in srgb, var(--tt-color-text-yellow) 14%, var(--popover))' }}
-      className={`pointer-events-none absolute ${glass ? 'bottom-1 left-2' : '-top-[7px] left-3'} z-10 rounded-[3px] border border-dashed px-1 py-px text-[9px] leading-none font-semibold tracking-[0.14em] uppercase opacity-80`}>
+      className={`pointer-events-none absolute ${glass ? 'bottom-1 left-2' : '-top-[7px] left-3'} z-10 rounded-[3px] border border-dashed px-1 py-px text-[10px] leading-none font-semibold opacity-80`}>
       Sandbox
     </span>
   )
@@ -278,7 +278,8 @@ export function SandboxHost(): React.JSX.Element | null {
       // Then it may show once; nothing worse.
     }
     // Said on arrival too, so the restart's own message never has to be caught in passing.
-    setTimeout(() => toast("You're in the sandbox: a practice Vigil. Your own notes are safe; Back to my notes is up top.", undefined, 'info'), 900)
+    // The arrival is said in a line docked under the top bar (PageHint), not a
+    // toast: a toast sat over Home's own rows while it was read.
     void sandboxState().then(async (state) => {
       if (state.seeded) {
         const days = state.seededOn ? Math.round((Date.now() - new Date(`${state.seededOn}T12:00`).getTime()) / 86_400_000) : 0
