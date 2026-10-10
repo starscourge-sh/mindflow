@@ -130,7 +130,7 @@ export function ReadThrough({ items, start = 0, onClose, queue }: {
     wake()
     return () => clearTimeout(sleep.current)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  // The first few times, a line at the top says how to get out, then goes.
+  // The first few times, the way out stays at full strength a while before it quietens.
   const [told, setTold] = useState(() => !firstReads())
   useEffect(() => {
     if (told) return
@@ -322,35 +322,20 @@ export function ReadThrough({ items, start = 0, onClose, queue }: {
     >
       {/* The way out, always there: quiet in the corner while you read,
           plain as soon as the pointer moves. Esc does the same. */}
-      <Tip label={<span className="flex items-center gap-2">Stop reading<Kbd>Esc</Kbd></span>}>
+      <Tip label="Stop reading">
         <button
           type="button"
           onClick={() => onClose()}
           className={cn(
             'absolute top-3 right-3 z-10 flex h-7 items-center gap-1.5 rounded-full border bg-background/80 px-3 text-control text-muted-foreground backdrop-blur-sm transition-[opacity,background-color,color] duration-200 ease-out [-webkit-app-region:no-drag] hover:bg-accent hover:text-foreground focus-visible:opacity-100',
-            awake || keysOpen || writing ? 'opacity-100' : 'opacity-50'
+            awake || keysOpen || writing || !told ? 'opacity-100' : 'opacity-50'
           )}
         >
           <ReadDone className="size-3.5" />
           Done reading
+          <Kbd className="ml-0.5">Esc</Kbd>
         </button>
       </Tip>
-      {/* Said the first few times only: how reading ends. */}
-      <AnimatePresence>
-        {!told && (
-          <motion.p
-            role="status"
-            initial={{ opacity: 0, transform: shift('translateY(-4px)') }}
-            animate={{ opacity: 1, transform: shift('translateY(0px)') }}
-            exit={{ opacity: 0, transition: { duration: 0.2, ease: EASE } }}
-            transition={{ duration: 0.2, ease: EASE, delay: 0.3 }}
-            className="pointer-events-none absolute top-3.5 left-1/2 z-10 rounded-full bg-popover px-3 py-1 text-meta whitespace-nowrap text-muted-foreground shadow-sm ring-1 ring-border"
-            style={{ translate: '-50% 0' }}
-          >
-            <span className="flex items-center gap-1.5">Press <Kbd>Esc</Kbd> or click Done reading to stop</span>
-          </motion.p>
-        )}
-      </AnimatePresence>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {/* j and k turn the page hundreds of times: by key the next one is
             simply there; by the arrows it rises in. */}
@@ -470,7 +455,6 @@ export function ReadThrough({ items, start = 0, onClose, queue }: {
         ) : (
           <>
             {own && <span className="hidden items-center gap-1.5 sm:flex">Click or <Pressed keys="E" /> to write</span>}
-            <span className="flex items-center gap-1.5"><Kbd>Esc</Kbd> stop reading</span>
           </>
         )}
         <button type="button" aria-expanded={keysOpen} onClick={() => (chime('tap'), setKeysOpen(!keysOpen))} className={cn('flex h-6 items-center gap-1.5 rounded-md px-1.5 hover:bg-accent hover:text-foreground', keysOpen && 'bg-accent text-foreground')}>
@@ -494,11 +478,11 @@ function UpNext({ queue, at, read, onSkip, onDone, onOpen }: { queue: QueueRow[]
   return (
     <div data-up-next className="relative z-10 flex shrink-0 justify-center px-4 pb-1">
       <div className="flex max-w-full min-w-0 items-center gap-1 rounded-full border bg-background/85 py-1 pr-1 pl-3.5 text-control text-muted-foreground shadow-sm backdrop-blur-sm">
-        <span className="shrink-0 text-xs font-medium tracking-wide uppercase">{next ? 'Up next' : 'Last in the queue'}</span>
+        <span className="shrink-0">{next ? 'Up next:' : 'Last in the queue'}</span>
         {next && (
           <span className="flex min-w-0 items-center gap-1.5 pl-1.5 text-foreground">
             {kind && <kind.icon className="size-3.5 shrink-0" style={{ color: kind.tint }} />}
-            <span data-private={next.private ? '' : undefined} className="private-text max-w-[22ch] truncate">{next.title}</span>
+            <span data-private={next.private ? '' : undefined} className="private-text max-w-[22ch] truncate font-medium">{next.title}</span>
           </span>
         )}
         <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-border" />
