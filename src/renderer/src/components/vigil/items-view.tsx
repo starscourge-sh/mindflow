@@ -1,4 +1,4 @@
-import { chime } from '@/lib/sound'
+import { chime, pageTurn } from '@/lib/sound'
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { Archive, ArrowLeft, Calendar, Pause, Plus, SquareDashed } from 'lucide-react'

@@ -23,6 +23,13 @@ export type Settings = {
   linkPictures?: 'fill' | 'whole'
   sounds: boolean
   volume: number
+  /** A clock ticks while a focus session runs, and how loud, 0 to 1. */
+  sessionTick: boolean
+  sessionTickVolume: number
+  /** Now and then a light glides across the session bubble. */
+  sessionGleam: boolean
+  /** The session bubble's smoke on all session, faint; off, only at its start, under the pointer and in the last minute. */
+  sessionSmoke: boolean
   motion: boolean
   /** The box grows about its middle when the panel opens or it expands; off, right and down. */
   boxCentred: boolean

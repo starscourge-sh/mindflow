@@ -2167,6 +2167,16 @@ app.whenReady().then(() => {
 
   // Seen by screen recorders and shares, or kept out of them (the default).
   ipcMain.on('focus:show', (_event, on: unknown) => showFocus(Boolean(on)))
+  // The pill's gleam rests while nobody is at the computer.
+  ipcMain.handle('idle:seconds', () => powerMonitor.getSystemIdleTime())
+  // The pill's right-click: a quick switch for its ticking. The menu's close
+  // can come before its click, so the close waits a moment before saying none.
+  ipcMain.handle('focus:menu', (event, ticking: unknown) =>
+    new Promise<'tick' | null>((resolve) => {
+      const win = BrowserWindow.fromWebContents(event.sender) ?? undefined
+      Menu.buildFromTemplate([{ label: 'Tick while it runs', type: 'checkbox', checked: Boolean(ticking), click: () => resolve('tick') }]).popup({ window: win, callback: () => setTimeout(() => resolve(null), 100) })
+    })
+  )
   // The end of a session or timer, said around the edge of the screen.
   ipcMain.on('glow', (_event, tone: unknown) => showGlow(tone === 'cancel' ? 'cancel' : 'done'))
   ipcMain.handle('glow:waiting', () => {

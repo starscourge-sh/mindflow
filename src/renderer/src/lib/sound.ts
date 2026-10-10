@@ -1,5 +1,11 @@
 import tearUrl from '@/assets/sounds/paper-rip.m4a'
 import foldUrl from '@/assets/sounds/paper-fold.m4a'
+import pageUrl from '@/assets/sounds/page-turn.m4a'
+import tickUrl from '@/assets/sounds/clock-tick.m4a'
+import tenseUrl from '@/assets/sounds/clock-tense.m4a'
+import alarmUrl from '@/assets/sounds/clock-alarm.m4a'
+import saberOnUrl from '@/assets/sounds/saber-on.m4a'
+import saberOffUrl from '@/assets/sounds/saber-off.m4a'
 /**
  * Small sounds for the things you do, synthesised on the spot the way
  * sensory-ui does it: no files, no latency, a few lines of Web Audio. A click
@@ -477,35 +483,113 @@ export function installTicks(): () => void {
  * kept; played through the same switch and volume as every other sound.
  */
 const recordings = new Map<string, Promise<AudioBuffer | null>>()
-function recording(url: string, level: number): void {
-  if (!enabled || !volume) return
-  const context = audio()
-  if (!context) return
+function load(context: AudioContext, url: string): Promise<AudioBuffer | null> {
   let buffer = recordings.get(url)
-  if (!buffer) recordings.set(url, (buffer = fetch(url).then((r) => r.arrayBuffer()).then((data) => context.decodeAudioData(data)).catch(() => null)))
-  void buffer.then((sound) => {
-    if (!sound) return
+  // A file small enough is built into the page as a data: address, which the
+  // page's rules will not fetch: read straight from its letters instead.
+  const bytes = (): Promise<ArrayBuffer> =>
+    url.startsWith('data:') ? Promise.resolve(Uint8Array.from(atob(url.slice(url.indexOf(',') + 1)), (char) => char.charCodeAt(0)).buffer) : fetch(url).then((r) => r.arrayBuffer())
+  if (!buffer) recordings.set(url, (buffer = bytes().then((data) => context.decodeAudioData(data)).catch(() => null)))
+  return buffer
+}
+
+/**
+ * The recorded sounds that played, newest last, by name: what the QA runs
+ * read to see a sound fire (or not, with Sounds off). A few dozen at most.
+ */
+const heard: string[] = []
+;(window as unknown as { vigilHeard?: string[] }).vigilHeard = heard
+const hear = (name: string): void => void (heard.push(name), heard.length > 50 && heard.shift())
+
+/**
+ * Play a recording once (or on a loop), through the same switch and volume as
+ * every other sound. Resolves to what is playing, so a loop can be stopped,
+ * or to null when nothing could be (sounds off, or the file would not load).
+ */
+function recording(url: string, level: number, name: string, options: { loop?: boolean; at?: number } = {}): Promise<AudioBufferSourceNode | null> {
+  if (!enabled || !volume) return Promise.resolve(null)
+  const context = audio()
+  if (!context) return Promise.resolve(null)
+  return load(context, url).then((sound) => {
+    // Turned off while it loaded: nothing after all.
+    if (!sound || !enabled || !volume) return null
     const source = context.createBufferSource()
     source.buffer = sound
+    source.loop = Boolean(options.loop)
     const gain = context.createGain()
     // A recording is louder than the drawn sounds: brought down to sit with them.
     gain.gain.value = level * volume
     source.connect(gain).connect(context.destination)
-    source.start()
+    source.start(context.currentTime + (options.at ?? 0))
+    hear(name)
+    return source
   })
 }
-export const tear = (): void => recording(tearUrl, 0.55)
+export const tear = (): void => void recording(tearUrl, 0.55, 'tear')
 /** A review card turned over. */
-export const fold = (): void => recording(foldUrl, 0.5)
+export const fold = (): void => void recording(foldUrl, 0.5, 'fold')
+
+let turnedAt = -Infinity
+/**
+ * An article or a piece of writing opened: a page turned, short and soft.
+ * Stepping down a list faster than one every 400ms turns no pages.
+ */
+export function pageTurn(): void {
+  const now = performance.now()
+  const quick = now - turnedAt < 400
+  turnedAt = now
+  if (!quick) void recording(pageUrl, 0.35, 'page-turn')
+}
 
 /**
- * Into the sandbox: a low hum that rises and ignites, then settles, about
- * 0.8s. Out of it (`up` false): the same hum falling away, softer and
- * shorter. Drawn here like every other sound, two slightly apart saw waves
+ * Into the sandbox: a lightsaber swung, then its hum swelling and settling,
+ * just over a second. Out of it: the hum drawn back in, softer. Recorded; the
+ * drawn hum below stands in if the file will not load.
+ */
+export function hum(up = true): void {
+  void recording(up ? saberOnUrl : saberOffUrl, up ? 0.3 : 0.2, up ? 'saber-on' : 'saber-off').then((playing) => playing || drawnHum(up))
+}
+
+/**
+ * A focus session's clock. Ticking, if you asked for it, while it runs; the
+ * last ten seconds a slower, tenser tick, one a second, whether or not; and
+ * at the end an alarm clock's three rings. All of it stops the moment the
+ * session pauses, ends or is called off, and none of it plays in safe mode.
+ */
+type Clock = { running: boolean; left: number | null; tick: boolean; level: number }
+let ticking: { key: string; source: Promise<AudioBufferSourceNode | null> } | null = null
+const hush = (): void => {
+  if (!ticking) return
+  void ticking.source.then((source) => source && (source.stop(), hear('clock-stop')))
+  ticking = null
+}
+export function sessionClock({ running, left, tick, level }: Clock): void {
+  const last = left !== null && left > 0 && left <= 10_000
+  const kind = !running || !enabled || !volume ? null : last ? 'tense' : tick && (left === null || left > 0) ? 'calm' : null
+  // Started again only when what should play changes, or how loud.
+  const key = kind && `${kind} ${level} ${volume}`
+  if (key === (ticking?.key ?? null)) return
+  hush()
+  if (!kind || !key) return
+  // The tense tick lands as the seconds turn over on the clock, which rounds
+  // to the nearest second: at each half second left.
+  const at = kind === 'tense' && left !== null ? (((left - 500) % 1000) + 1000) % 1000 / 1000 : 0
+  ticking = { key, source: recording(kind === 'tense' ? tenseUrl : tickUrl, (kind === 'tense' ? 0.5 : 0.35) * level, kind === 'tense' ? 'clock-tense' : 'clock-tick', { loop: true, at }) }
+}
+/** Time up: the alarm clock, short; the drawn bell if it cannot load. */
+export function alarm(): void {
+  hush()
+  void recording(alarmUrl, 0.3, 'clock-alarm').then((playing) => playing || chime('finish'))
+}
+
+/**
+ * The sandbox's hum drawn, for when its recordings will not load: a low hum
+ * that rises and ignites, then settles, about 0.8s. Out of it (`up` false):
+ * the same hum falling away, softer and shorter. Drawn here like every other sound, two slightly apart saw waves
  * under a filter that opens as the pitch climbs, with a breath of noise at
  * the strike. Same switch and volume as the rest.
  */
-export function hum(up = true): void {
+function drawnHum(up: boolean): void {
   const context = audio()
   if (!context) return
   const at = context.currentTime + 0.01

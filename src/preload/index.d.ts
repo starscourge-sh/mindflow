@@ -56,6 +56,8 @@ export interface Api {
   onFilled: (listen: (filled: boolean) => void) => () => void
   setRecordable: (on: boolean) => Promise<boolean>
   showFocus: (on: boolean) => void
+  idleSeconds: () => Promise<number>
+  focusMenu: (ticking: boolean) => Promise<'tick' | null>
   glow: (tone: 'done' | 'cancel') => void
   onGlow: (listen: (tone: 'done' | 'cancel') => void) => () => void
   stick: (type: string, id: string, on: boolean) => void

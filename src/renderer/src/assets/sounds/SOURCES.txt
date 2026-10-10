@@ -1,2 +1,9 @@
 paper-rip.m4a: "Paper Ripping", supplied by the project owner (the shredder's discard).
 paper-fold.m4a: one fold cut from "Paper Folding", supplied by the project owner (a review card turning over).
+clock-tick.m4a: four tick-tocks cut as a loop from "Old Clock Ticking" by universfield (Pixabay, sound 352288), supplied by the project owner (the tick while a session runs).
+clock-tense.m4a: one second cut from "Slow Cinematic Clock Ticking Tension 2" by u_mx4xkr2bzy (Pixabay, sound 323078), supplied by the project owner (a session's last ten seconds).
+clock-alarm.m4a: three rings cut from "Alarm Clock" by freesound_community (Pixabay, sound 90867), supplied by the project owner (a session's time up).
+saber-on.m4a: "Swing3" (Pixabay, sound 94210) into a moment of "Saber Humming.wav" (Pixabay, sound 14651), both by freesound_community, supplied by the project owner (into the sandbox).
+saber-off.m4a: a moment of "Saber Humming.wav" played backwards, from the same file (out of the sandbox).
+The five above came with no licence text in the files. Their file names follow Pixabay's download naming, whose Content License allows use in an app without credit; the sources are named here anyway.
+page-turn.m4a: the first 0.3s of paper-fold.m4a, faded and quieter (an article or a piece of writing opened).

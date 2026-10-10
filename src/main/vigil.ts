@@ -213,6 +213,14 @@ const DEFAULTS = {
   sounds: true,
   // How loud they are, from silent to full.
   volume: 1,
+  // A clock ticking while a focus session runs: off unless asked for, and
+  // how loud, under the Volume above. Its last ten seconds tick regardless.
+  sessionTick: false,
+  sessionTickVolume: 0.5,
+  // Now and then a light glides across the session bubble, in case it was forgotten.
+  sessionGleam: true,
+  // The bubble's soft smoke kept on all session, faint, stronger under the pointer.
+  sessionSmoke: true,
   // Things ease in and out rather than appearing at once.
   motion: true,
   // Where the box sits. Centred: opening the side panel grows it out on both

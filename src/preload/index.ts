@@ -100,6 +100,10 @@ const api = {
   setRecordable: (on: boolean): Promise<boolean> => ipcRenderer.invoke('window:recordable', on),
   /** The floating focus timer, shown or put away. */
   showFocus: (on: boolean): void => ipcRenderer.send('focus:show', on),
+  /** How long the computer has gone untouched, in seconds. */
+  idleSeconds: (): Promise<number> => ipcRenderer.invoke('idle:seconds'),
+  /** The focus pill's right-click menu: resolves to what was chosen, or null. */
+  focusMenu: (ticking: boolean): Promise<'tick' | null> => ipcRenderer.invoke('focus:menu', ticking),
   /** Light around the edge of the screen: a session or timer finished, or called off. */
   glow: (tone: 'done' | 'cancel'): void => ipcRenderer.send('glow', tone),
   /** In the glow's own window: each glow, including one asked for while it loaded. */

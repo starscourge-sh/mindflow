@@ -587,6 +587,18 @@ export function SettingsView(): React.JSX.Element {
           <Setting
             title="Sound pack"
             note="**Nine characters for the same sounds.** Point at one to hear it, click to make it yours; the pieces on the right play the one you have."
+          <Setting title="Tick while a session runs" note="**A clock ticks quietly while you focus.** Paused, it stops. The last ten seconds tick slower and tenser either way, and an alarm clock rings at the end. Right-click the session bubble to switch it too." keywords="tick ticking clock focus session timer countdown alarm">
+            <Switch disabled={!settings.sounds} checked={settings.sessionTick === true} onCheckedChange={(sessionTick) => set({ sessionTick })} />
+          </Setting>
+          <Setting under title="Ticking volume" note="How loud the ticking is, under the Volume above.">
+            <SettingSlider disabled={!settings.sounds || !settings.sessionTick} min={0} max={1} step={0.05} value={settings.sessionTickVolume ?? 0.5} onSave={(sessionTickVolume) => set({ sessionTickVolume })} />
+          </Setting>
+          <Setting title="Gleam on the session bubble" note="**Now and then a light glides across the bubble, in case you forgot it.** About every 45 seconds, every 15 in the last minute and past the time; never under the pointer or while you are away. With Motion off, a soft glow instead." keywords="gleam shine reflection sweep glint focus session bubble pill timer attention remind">
+            <Switch checked={settings.sessionGleam !== false} onCheckedChange={(sessionGleam) => set({ sessionGleam })} />
+          </Setting>
+          <Setting title="Smoke on the session bubble" note="**A faint smoke breathes inside the bubble all session, so it stays hard to forget.** Stronger under the pointer and once past the time. Off, it shows only as a session starts, under the pointer and in the last minute; with Motion off, never." keywords="smoke glow breathe beam focus session bubble pill timer attention remind">
+            <Switch checked={settings.sessionSmoke !== false} onCheckedChange={(sessionSmoke) => set({ sessionSmoke })} />
+          </Setting>
             keywords={Object.values(PACKS).map((one) => `${one.label} ${one.feel}`).join(' ')}
             below={<div inert={!settings.sounds} className={settings.sounds ? '' : 'opacity-50'}><SoundPacks chosen={settings.soundPack} /></div>}
           />
