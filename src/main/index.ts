@@ -52,6 +52,8 @@ import { registerScenery, sceneryDir } from './scenery'
 import { celebrationFile, registerCelebrations } from './celebrate'
 import { firstRun, isWelcoming, noteChord, pretendTaken, registerOnboarding, whereTray } from './onboarding'
 import { registerUnused } from './unused'
+import { registerPeople } from './people'
+import { registerDefine } from './define'
 import { registerObsidian } from './obsidian'
 import { lookAhead, registerPictures } from './pictures'
 import { registerSessionLog } from './session-log'
@@ -2059,6 +2061,8 @@ app.whenReady().then(() => {
   if (first) captureText(first)
   registerMilestones()
   registerReadingQueue()
+  registerPeople()
+  registerDefine()
   createTray()
 
   // Serve the asset store. The pathname is the only thing trusted: anything

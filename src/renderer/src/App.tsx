@@ -94,6 +94,9 @@ import { FocusScenery, Rest } from './components/vigil/scenery'
 import { num } from '../../main/dates'
 import { holdKeys, useLesson, useWelcomePlaceholder } from './lib/welcome-box'
 import { SandboxChip } from '@/components/vigil/sandbox'
+import { BoxBeam, boxBeam } from '@/components/vigil/box-beam'
+import { DefineGhost, defineable, fixIn, useDefinition } from '@/components/vigil/word-define'
+import { notes } from './lib/notes'
 import { useFitBox } from './lib/fit-box'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
@@ -506,6 +509,13 @@ export default function App(): React.JSX.Element {
   useEffect(() => replan(editorRef.current), [editing, kind, chosen, held, actionTags])
   // "+name" read as a clue, or as a name nothing matches yet.
   const plus = editing || !plan ? null : plan.clue ?? plan.miss
+  // A Word that is one word: its meaning looked up in the background and
+  // offered faint under it. Not for an open note, the welcome, a private one,
+  // or words lit to do something else (a timer, a clue, a task).
+  const { definition, keep: keepDefinition } = useDefinition(!editing && !lesson && !secret && kind === 'word' && !plan?.timer && !plan?.clue && !plan?.task ? defineable(boxText) : null)
+  // A timer newly lit is about to act: a brief warm light round the box says so.
+  const timerLit = !editing && !!plan?.timer
+  useEffect(() => void (timerLit && boxBeam('warm')), [timerLit])
   const plusGoal = plan?.clue?.question.tier === 'goal'
   // A quote's "- Name" fills Who said it, unless you wrote one there; kept
   // as plain text, the name it filled goes again.
@@ -800,6 +810,9 @@ export default function App(): React.JSX.Element {
     setBody(draft ?? null)
     setAttribution('')
     setMedium('')
+    // The names read from the last quote's tail go with it, or the next quote's never fills in.
+    autoWho.current = ''
+    autoWhere.current = ''
     setSecret(false)
     setKind('note')
     setChosen(false)
@@ -905,6 +918,7 @@ export default function App(): React.JSX.Element {
       if (!clue) return refuse(goal ? 'Write the log after a colon, or on the lines under the goal’s name' : 'Write the clue after a colon, or on the lines under the question’s name')
       chime(goal ? 'mark' : 'clue')
       beam('success')
+      boxBeam('sent')
       void vigil.addClue(question.id, clue).then((id) => toast(`${goal ? 'Logged to' : 'A clue in'} “${question.title.length > 36 ? `${question.title.slice(0, 36)}…` : question.title}”`, () => {
         if (id) void vigil.dropClue(id)
         putDraft(doc)
@@ -921,6 +935,7 @@ export default function App(): React.JSX.Element {
     if (timer) {
       chime('timer')
       beam('success')
+      boxBeam('sent')
       void vigil.startTimer(timer.goal, timer.ms).then((id) => {
         window.api.showFocus(true)
         // Undone, the words come back into the box as they were typed.
@@ -955,8 +970,11 @@ export default function App(): React.JSX.Element {
     // todo wearing a label: it goes to the task list at once, as a todo does.
     const action = sorted === 'todo' || !!plan?.task
     chime('send')
-    // The top edge lights green: kept, without a word.
+    // The top edge lights green: kept, without a word; and one sweep round the box.
     beam('success')
+    boxBeam('sent')
+    // A meaning taken with Tab goes with it as the Word's own fields.
+    const meaning = sorted === 'word' && definition?.kept ? definition.found : undefined
     const markdown = editorRef.current ? toMarkdown(editorRef.current) : undefined
     // With the panel open, the note is seen going into the Inbox tab.
     const land = panel ? liftFrom(document.querySelector<HTMLElement>('.mindflow-editor-content'), 'capture') : undefined
@@ -990,6 +1008,10 @@ export default function App(): React.JSX.Element {
         for (const piece of pieces) await vigil.setCapture(piece, 'origin', id)
         // A link shows as its card, filled in once the page answers.
         if (sorted === 'link') void cardUp({ id, kind: sorted, body: hasContent(doc) ? doc : null })
+        if (meaning) {
+          await notes.setField('captures', id, 'definition', meaning.definition)
+          if (meaning.example) await notes.setField('captures', id, 'example', meaning.example)
+        }
         if (action) {
           // The welcome shows the task it became itself; the box says nothing over it.
           await makeTask({ capture: id, plain: plan?.taskPlain }, 'Added to your tasks', { quiet: document.documentElement.hasAttribute('data-welcome-ph') })
@@ -1079,6 +1101,8 @@ export default function App(): React.JSX.Element {
       {/* Toasts over the note, above its footer: clear of Create and of the panel. */}
       <div className={`contents [--toast-bottom:6.5rem] ${panel ? `[--toast-right:${PANEL_WIDTH}px]` : ''}`}><Toaster /></div>
       <Celebrations place="box" />
+      {/* Light round the box's edge: a slow faint one while a link's card or a word's meaning is fetched. */}
+      <BoxBeam fetching={!editing && (definition?.state === 'looking' || !!plan?.card?.loading)} />
       <NotePreview />
       <ShortcutSheet />
       <WordNotes />
@@ -1344,6 +1368,7 @@ export default function App(): React.JSX.Element {
               />
             )}
             <TokenHint hover={tokenHover} />
+            {!editing && <DefineGhost definition={definition} onKeep={keepDefinition} onFix={(fix) => definition && fixIn(editorRef.current, definition.word, fix)} />}
             {/* Under the writing: what it is, who said it and where you met it. */}
             {/* Wraps onto a second line rather than squeezing a field or a chip. */}
             <div data-chrome className="flex flex-wrap items-center gap-1 px-[4.75rem] py-2">
