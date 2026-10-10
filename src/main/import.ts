@@ -198,9 +198,19 @@ const textBlocks = (node: Node): Node[] =>
 
 export function firstLine(body: unknown): string {
   if (typeof body === 'string') return titleOfMarkdown(body.replace(/^\s*\n/, ''))
+  // A line of tags alone ("#bit" over a joke) names nothing: the first line
+  // with words does, its tags kept after it so lists still show them.
+  let tags = ''
   for (const block of body ? textBlocks(body as Node) : []) {
-    const line = wordsOf(block).split('\n').find((one) => one.trim())
-    if (line) return line.trim()
+    for (const one of wordsOf(block).split('\n')) {
+      const line = one.trim()
+      if (!line) continue
+      if (!line.replace(/(?:^|\s)#[a-z][\w/-]*/gi, '').trim()) {
+        tags ||= line
+        continue
+      }
+      return tags ? `${line} ${tags}` : line
+    }
   }
-  return ''
+  return tags
 }

@@ -702,7 +702,7 @@ export async function waiting<T>(label: string, state: OrbState, work: Promise<T
 
 /** Give a nugget its question, so review can test it: asked in place. */
 export const askQuestion = (id: string): Promise<void> =>
-  ask('The question it answers, for review', 'e.g. What does MVCC stand for?').then((prompt) => {
+  ask('The question it answers, for review', 'A question this answers').then((prompt) => {
     if (prompt) void vigil.saveItem(id, { prompt }).then(() => toast('Now tested: it will come up in review'))
   })
 

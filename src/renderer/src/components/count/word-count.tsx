@@ -46,7 +46,7 @@ export function useCounts(editor: Editor | null): { words: number; characters: n
 
 /** The box: its window is the one opened with nothing named in its address. */
 const BOX = !/[?&](?:view|note|drawing)=/.test(window.location.search)
-/** In the box a short capture needs no count: it shows from this many words. */
+/** A short note needs no count: it shows from this many words, in the box and on a page. */
 const BOX_FROM = 40
 
 /**
@@ -74,7 +74,14 @@ export function WordCount({ editor }: { editor: Editor | null }) {
         let end = dom.getBoundingClientRect().bottom - parseFloat(getComputedStyle(dom).paddingBottom || "0")
         // Whatever the page puts after the words (its mentions) counts as words too.
         for (let next = dom.nextElementSibling; next; next = next.nextElementSibling) if (next.childElementCount) end = Math.max(end, next.getBoundingClientRect().bottom)
-        setClear(top !== undefined && end <= top - 4)
+        // And nothing else drawn there either (Related cards under a note):
+        // whatever sits under its two ends and middle must be bare page.
+        const at = pill.current?.getBoundingClientRect()
+        const bare = !!at && [at.left + 2, at.left + at.width / 2, at.right - 2].every((x) => {
+          const under = document.elementsFromPoint(x, at.top + at.height / 2).find((el) => el !== pill.current)
+          return !under?.closest('p, h1, h2, h3, h4, li, img, figure, button, a, input, textarea, [role="button"], [data-row]')
+        })
+        setClear(top !== undefined && end <= top - 4 && bare)
       })
     }
     check()
@@ -96,7 +103,8 @@ export function WordCount({ editor }: { editor: Editor | null }) {
   const { words, characters } = counts
   // Nothing to count says nothing: an empty box stays empty. In the box, a
   // few lines say nothing either: the count turns up once it is long.
-  if (!words || (BOX && words < BOX_FROM)) return null
+  // Anywhere else too: a short note needs no count under it.
+  if (!words || words < BOX_FROM) return null
 
   return (
     <span

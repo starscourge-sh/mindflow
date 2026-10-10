@@ -90,7 +90,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
   const menuFor = (item: Item): MenuItem[] => [
     { label: 'Open', keys: '↵', run: () => onOpen(tier, item.id) },
     { label: 'Add a thought', keys: ';', run: () => setGlossing(item.id) },
-    { label: item.prompt ? 'Change the question' : 'Test me on this', run: () => void ask('The question it answers', item.prompt ?? 'e.g. What does MVCC stand for?').then((prompt) => { if (prompt) void vigil.saveItem(item.id, { prompt }).then(() => toast('Now tested: it will come up in review')) }) },
+    { label: item.prompt ? 'Change the question' : 'Test me on this', run: () => void ask('The question it answers', item.prompt ?? 'A question this answers').then((prompt) => { if (prompt) void vigil.saveItem(item.id, { prompt }).then(() => toast('Now tested: it will come up in review')) }) },
     ...(tier === 'nugget' ? [{ label: 'Start an article', run: () => article([item.id]) }] : []),
     { label: 'Study this', run: () => void ask('When will you study it?', 'e.g. read it again on Thursday').then((when) => { if (when) void makeTask({ item: item.id, text: `Study “${item.title}” ${when}` }, 'A task, with this linked') }) },
     'separator',

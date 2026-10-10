@@ -599,7 +599,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
             onChange={(event) => setPrompt(event.target.value)}
             onBlur={savePrompt}
             rows={3}
-            placeholder="e.g. Who wrote Frankenstein, and how old was she?"
+            placeholder="A question this answers"
             data-ghost-field={prompt ? undefined : ""}
             aria-label="A question this answers"
             className={`resize-none text-control ${GHOST}`}
@@ -638,7 +638,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
                 defaultValue={item.context ?? ''}
                 onBlur={(event) => void vigil.saveItem(item.id, { context: event.target.value.trim() || null })}
                 rows={2}
-                placeholder="e.g. Written in a wet summer by Lake Geneva, for a ghost story contest"
+                placeholder="What makes the answer make sense"
                 data-ghost-field={item.context ? undefined : ""}
                 aria-label="Context"
                 className={`resize-none text-control ${GHOST}`}
@@ -651,7 +651,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
                 defaultValue={item.why ?? ''}
                 onBlur={(event) => void vigil.saveItem(item.id, { why: event.target.value.trim() || null })}
                 rows={1}
-                placeholder="e.g. Mary Shelley was eighteen when she began it"
+                placeholder="Why it is so, in a line"
                 data-ghost-field={item.why ? undefined : ""}
                 aria-label="Why"
                 className={`resize-none text-control ${GHOST}`}
