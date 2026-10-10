@@ -18,6 +18,7 @@ import { openPass } from './pass'
 import { KindBack, backLine, returning, type Returning } from './kind-back'
 import { NextMark } from './milestones'
 import { todaySaid } from '@/lib/tasks'
+import { frogFirst, frogOn } from '@/lib/day-plan'
 import { countdown, nextOf, useMilestones } from '@/lib/milestones'
 import { ago, clock, dayjs, dayKey, num } from '../../../../main/dates'
 
@@ -140,7 +141,9 @@ export function DayBrief({ day, onOpen, onListed }: {
   const doneToday = tasks.filter((task) => task.status === 'done' && task.completedAt && dayKey(task.completedAt) === today && (dueDay(task) ?? '9') <= today)
   const byId = new Map([...doneToday, ...open].map((task) => [task.id, task]))
   for (const [id, one] of Object.entries(ticked)) if (!byId.has(id)) byId.set(id, one.task)
-  const todos = [...byId.values()].sort((a, b) => b.important - a.important || (a.dueAt ?? a.deadline ?? '').localeCompare(b.dueAt ?? b.deadline ?? '') || a.number - b.number)
+  // The frog, picked last night to do first, leads; the rest by importance and time.
+  const frog = frogOn(settings, today)
+  const todos = frogFirst([...byId.values()].sort((a, b) => b.important - a.important || (a.dueAt ?? a.deadline ?? '').localeCompare(b.dueAt ?? b.deadline ?? '') || a.number - b.number), frog)
   const struck = (task: Task): boolean => !!ticked[task.id] || task.status === 'done'
   const shown = todos.slice(0, 5)
   const finished = todos.filter(struck).length
@@ -303,7 +306,7 @@ export function DayBrief({ day, onOpen, onListed }: {
             </div>
             <ul className="min-w-0 divide-y divide-border/50">
               {shown.map((task) => (
-                <TaskRow key={task.id} task={task} today={today} done={struck(task)} pen={!!ticked[task.id]?.pen} onTick={() => tick(task)} />
+                <TaskRow key={task.id} task={task} today={today} first={task.id === frog} done={struck(task)} pen={!!ticked[task.id]?.pen} onTick={() => tick(task)} />
               ))}
               {todos.length > shown.length && (
                 <li>
@@ -335,12 +338,12 @@ export function DayBrief({ day, onOpen, onListed }: {
 }
 
 /** A to-do as a line of the list: a round tick, its title, and when it is for. */
-function TaskRow({ task, today, done, pen, onTick }: { task: Task; today: string; done: boolean; pen: boolean; onTick: () => void }): React.JSX.Element {
+function TaskRow({ task, today, first, done, pen, onTick }: { task: Task; today: string; first?: boolean; done: boolean; pen: boolean; onTick: () => void }): React.JSX.Element {
   const due = dueDay(task)
   const late = !!due && due < today
   const when = late ? `From ${whenInLine(task.dueAt ?? task.deadline, !task.dueAt || !!task.allDay)}, still open`
     : task.dueAt && !task.allDay ? `Today at ${clock(task.dueAt)}` : 'Today, any time'
-  const text = [done ? 'Done' : when, task.blocker ? `In the way: ${task.blocker}` : task.waitingOn ? `Waiting on ${task.waitingOn}` : ''].filter(Boolean).join(' · ')
+  const text = [done ? 'Done' : first ? `First, as you picked last night · ${when}` : when, task.blocker ? `In the way: ${task.blocker}` : task.waitingOn ? `Waiting on ${task.waitingOn}` : ''].filter(Boolean).join(' · ')
   return (
     <li className="flex items-start gap-3 py-3">
       <Tip label={done ? 'Not done after all' : 'Done'}>

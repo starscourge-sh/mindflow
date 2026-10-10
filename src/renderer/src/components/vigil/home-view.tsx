@@ -38,6 +38,8 @@ import { QueuePanel } from './queue-view'
 import { GettingStarted, LINGER } from './getting-started'
 import { useOnboarding } from '@/lib/onboarding'
 import { PowersLine } from './powers-view'
+import { WhatsNewCard } from './whats-new'
+import { CloseDayOffer } from './close-day'
 import { Tilt } from './tilt'
 import { asideItem, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
@@ -714,6 +716,10 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       {/* After the welcome: the firsts, ticking themselves, until they are done. */}
       <div className="page-column relative w-full pt-4 empty:hidden"><GettingStarted onOpen={onOpen} onView={onView} /></div>
       <div className="page-column relative w-full pt-3 empty:hidden"><PowersLine onView={onView} /></div>
+      {/* In the evening, once: the offer to close the day. */}
+      <div className="page-column relative w-full pt-3 empty:hidden"><CloseDayOffer /></div>
+      {/* After an update, once: what is new since you last looked. */}
+      <div className="page-column relative w-full pt-3 empty:hidden"><WhatsNewCard onView={onView} /></div>
       {empty && starting ? null : empty ? (
         // Nothing yet: Home as it will look, with a few made-up shelves, dimmed and out of reach.
         <Example className="page-column relative w-full" tryIt={<>

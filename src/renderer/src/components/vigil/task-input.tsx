@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { CalendarDays } from 'lucide-react'
+import { CalendarDays, Timer } from 'lucide-react'
 import { alive } from '@/components/ui/alive-icon'
 import ClockIcon from '@/components/ui/clock-icon'
 import RefreshIcon from '@/components/ui/refresh-icon'
@@ -10,6 +10,7 @@ import FilledBellIcon from '@/components/ui/filled-bell-icon'
 import { chime, step } from '@/lib/sound'
 import { vigil, type Task } from '@/lib/vigil'
 import { BUCKETS, bucket, planKey } from '@/lib/tasks'
+import { hoursSaid } from '@/lib/day-plan'
 import { PRIORITY_NAMES, bucketOf, readTask, type ReadTask, type Span } from '../../../../main/task-words'
 import { Rolling, toast } from './ui'
 import type { TokenPattern } from '@/extensions/tokens'
@@ -75,7 +76,7 @@ export function planFor(task: Pick<Task, 'id' | 'dueAt' | 'deadline' | 'planFor'
   })
 }
 
-const TINT: Record<Span['kind'], BlockColor> = { date: 'blue', deadline: 'red', repeat: 'purple', priority: 'orange', plan: 'green', notify: 'pink' }
+const TINT: Record<Span['kind'], BlockColor> = { date: 'blue', deadline: 'red', repeat: 'purple', priority: 'orange', plan: 'green', notify: 'pink', length: 'gray' }
 
 /**
  * The same lighting for a task typed in the box's editor, as token patterns
@@ -114,6 +115,7 @@ export function TaskChips({ read }: { read: ReadTask | null }): React.JSX.Elemen
   if (read?.recurrence) chips.push({ key: 'repeat', icon: <Repeat className="size-3" />, label: read.recurrence.replace(/^every!?\s*/i, 'Every '), tint: TINT.repeat })
   if (read?.plan) chips.push({ key: 'plan', icon: <Telescope className="size-3" />, label: BUCKETS[bucketOf(read.plan)!], tint: TINT.plan })
   if (read?.priority) chips.push({ key: 'priority', icon: <PriorityIcon level={read.priority} className="size-3" />, label: PRIORITY_NAMES[read.priority], tint: TINT.priority })
+  if (read?.estimate) chips.push({ key: 'length', icon: <Timer className="size-3" />, label: `~${hoursSaid(read.estimate)}`, tint: TINT.length })
   if (read?.notify) chips.push({ key: 'notify', icon: <Bell className="size-3" />, label: { pull: 'Pull', quiet: 'Quiet', alerts: 'Alert' }[read.notify], tint: TINT.notify })
   return (
     <span className="flex shrink-0 items-center gap-1">
@@ -121,6 +123,7 @@ export function TaskChips({ read }: { read: ReadTask | null }): React.JSX.Elemen
         {chips.map((chip) => (
           <motion.span
             key={chip.key}
+            data-task-chip={chip.key}
             layout
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}

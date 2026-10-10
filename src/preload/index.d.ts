@@ -59,6 +59,8 @@ export interface Api {
   idleSeconds: () => Promise<number>
   focusMenu: (ticking: boolean) => Promise<'tick' | null>
   focusSize: (height: number) => Promise<boolean>
+  focusPlace: () => Promise<{ notch: number }>
+  onFocusPlaced: (listen: () => void) => () => void
   focusShot: () => Promise<{ url: string } | { denied: true } | null>
   screenSettings: () => void
   glow: (tone: 'done' | 'cancel') => void

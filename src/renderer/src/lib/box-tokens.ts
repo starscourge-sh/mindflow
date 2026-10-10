@@ -10,7 +10,7 @@ import { kindOf } from '../../../main/import'
 import { dayKey, dayMonth, short } from '../../../main/dates'
 import * as chrono from 'chrono-node'
 import dayjs from 'dayjs'
-import { lengthSaid, timerFrom } from './timer'
+import { lengthSaid, roundsFrom, timerFrom, type Rounds } from './timer'
 import { saidBy } from './welcome-box'
 import { clueTarget } from '@/components/vigil/questions-view'
 import { TAG_DOES } from '@/components/capture-kinds/kind-fields'
@@ -26,7 +26,7 @@ import type { CaptureType } from '@/components/capture-kinds/capture-kind-picker
  * only. The send reads the same plan, so what is lit is what happens.
  */
 
-export type TokenKind = 'clue' | 'clue-miss' | 'timer' | Span['kind'] | 'task-tag' | 'book' | 'bit' | 'signature' | 'link' | 'milestone' | 'milestone-miss'
+export type TokenKind = 'clue' | 'clue-miss' | 'timer' | 'rounds' | Span['kind'] | 'task-tag' | 'book' | 'bit' | 'signature' | 'link' | 'milestone' | 'milestone-miss'
 
 export type BoxToken = {
   /** Stable while you type: the kind and the words. */
@@ -59,6 +59,8 @@ export type BoxPlan = {
   /** "+name" that matches nothing: offered as a new question. */
   miss: { name: string } | null
   timer: { ms: number; goal: string } | null
+  /** "4x25": pomodoro rounds, not a capture. */
+  rounds?: Rounds | null
   url: URL | null
   /** It goes to the task list, and the words in its first line kept plain for that. */
   task: boolean
@@ -79,7 +81,7 @@ type State = { kept: Kept[]; plan: BoxPlan; deco: DecorationSet; edits: number; 
 type Meta = { keep?: Kept; rearm?: number; refresh?: true }
 
 const COLOR: Record<TokenKind, BlockColor> = {
-  clue: 'purple', 'clue-miss': 'gray', timer: 'yellow', date: 'blue', deadline: 'red', repeat: 'purple', priority: 'orange', plan: 'green', notify: 'pink',
+  clue: 'purple', 'clue-miss': 'gray', timer: 'yellow', rounds: 'red', date: 'blue', deadline: 'red', repeat: 'purple', priority: 'orange', plan: 'green', notify: 'pink', length: 'gray',
   'task-tag': 'green', book: 'brown', bit: 'gray', signature: 'pink', link: 'blue', milestone: 'orange', 'milestone-miss': 'gray'
 }
 
@@ -124,7 +126,7 @@ const trimTitle = (title: string): string => (title.length > 36 ? `${title.slice
 
 /** What keeping a kind of token as words gives up, for the toast: "no timer". */
 const DROPPED: Record<TokenKind, string> = {
-  clue: 'no clue added', 'clue-miss': 'it will be a capture', timer: 'no timer', date: 'no date', deadline: 'no deadline',
+  clue: 'no clue added', 'clue-miss': 'it will be a capture', timer: 'no timer', rounds: 'no rounds', date: 'no date', deadline: 'no deadline', length: 'no length',
   repeat: 'no repeat', priority: 'no priority', plan: 'no plan', notify: 'no reminder', 'task-tag': 'not a task',
   book: 'not a book', bit: 'not private', signature: 'no speaker', link: 'not saved as a link', milestone: 'no day marked', 'milestone-miss': 'no day marked'
 }
@@ -251,6 +253,17 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
   // The kind the wording suggests until one is picked; a link kept as plain text is a note.
   const kind: CaptureType = ctx.chosen ? ctx.kind : guessed === 'link' ? (url ? 'link' : 'note') : (guessed ?? 'note')
 
+  // "4x25 essay": pomodoro rounds, not a capture. The same rule as a timer below.
+  const rounds = !ctx.chosen && kind !== 'todo' && single ? roundsFrom(full) : null
+  if (rounds) {
+    const [from, to] = [pos(rounds.span.from), pos(rounds.span.to)]
+    if (!isKept('rounds', from, to)) {
+      const breaks = `${lengthSaid(rounds.breakMs)} breaks`
+      const effect = `${rounds.rounds} ${rounds.rounds === 1 ? 'round' : 'rounds'} of ${lengthSaid(rounds.workMs)}${rounds.rounds > 1 ? `, ${breaks}` : ''}${rounds.rounds >= 4 ? ', a long break after four' : ''}${rounds.goal === 'Focus' ? '' : ` for ${trimTitle(rounds.goal)}`}`
+      return { ...EMPTY, kind, rounds, tokens: [token('rounds', from, to, effect)] }
+    }
+  }
+
   // "5m tea", "timer 25m": a countdown, not a capture. Not when a kind was
   // picked or it is a todo, nor when the rest has a date, a repeat or a tag.
   const timed = !ctx.chosen && kind !== 'todo' && single ? timerFrom(full) : null
@@ -299,7 +312,7 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
       return index < 0 ? -1 : index - first.start
     }
     for (const one of kept) {
-      if (!['date', 'deadline', 'repeat', 'priority', 'plan', 'notify'].includes(one.kind) || one.from < lineFrom || one.to > lineTo) continue
+      if (!['date', 'deadline', 'repeat', 'priority', 'plan', 'notify', 'length'].includes(one.kind) || one.from < lineFrom || one.to > lineTo) continue
       const [from, to] = [offset(one.from), offset(one.to)]
       if (from >= 0 && to > from) taskPlain.push({ from, to, text: first.text.slice(from, to) })
     }
@@ -316,6 +329,7 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
         : span.kind === 'priority' ? `Priority: ${PRIORITY_NAMES[read.priority]}`
         : span.kind === 'plan' && read.plan ? `Plan it for ${read.plan.length === 7 && bucketOf(read.plan, now) !== 'month' ? dayjs(`${read.plan}-01`).format('MMMM') : { month: 'this month', year: 'this year', next: 'next year', someday: 'someday' }[bucketOf(read.plan, now) ?? 'someday']}`
         : span.kind === 'notify' && read.notify ? `Remind ${{ pull: 'only when you look', quiet: 'quietly', alerts: 'with an alert' }[read.notify]}`
+        : span.kind === 'length' && read.estimate ? `Takes about ${lengthSaid(read.estimate * 60_000)}`
         : null
       if (effect) tokens.push(token(span.kind, pos(span.from), pos(span.to), effect))
     }

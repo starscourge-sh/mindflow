@@ -46,6 +46,7 @@ import { Example } from './example'
 import { exampleTasks } from '@/lib/examples'
 import { GhostText } from './ghost'
 import { useHere } from '@/lib/split'
+import { budgetSaid, frogOn, hoursSaid, minutesLeft, plannedMinutes } from '@/lib/day-plan'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Bell = alive(FilledBellIcon)
@@ -102,6 +103,26 @@ const setReminder = (task: Pick<Task, 'id' | 'notify'>, level: Task['notify']): 
     chime(level === 'alerts' ? 'on' : level ? 'tap' : 'off')
     toast(level ? `Reminder: ${level === 'alerts' ? 'alert' : level}` : 'Reminder: as Settings says', () => void vigil.saveTask(task.id, { notify: was }))
   })
+}
+
+/** How long a task should take, from "~30m": a small grey chip after its name. */
+export function LengthChip({ minutes }: { minutes: number }): React.JSX.Element {
+  return (
+    <span data-length-chip className="shrink-0 rounded-md px-1.5 py-px text-xs tabular-nums" style={{ background: 'var(--tt-color-highlight-gray)', color: 'var(--tt-color-text-gray)' }}>
+      ~{hoursSaid(minutes)}
+    </span>
+  )
+}
+
+/** The frog: the task picked last night to do first today. */
+export function FrogChip(): React.JSX.Element {
+  return (
+    <Tip label="Picked last night to do first">
+      <span data-frog className="shrink-0 rounded-md px-1.5 py-px text-xs font-medium" style={{ background: 'var(--tt-color-highlight-green)', color: 'var(--tt-color-text-green)' }}>
+        First
+      </span>
+    </Tip>
+  )
 }
 
 /** Move a task to a day from now, and say where: one wording for keys, menus and buttons. */
@@ -185,7 +206,10 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   const base = mode === 'today' ? live.filter((task) => dayOf(task) < startOfDay(1)) : live
   // Pull, the gentlest of the three: a task whose time has come rises to the
   // top of Today instead of making a noise. Looked at again each minute.
-  const notify = useLive(vigil.settings, null as Awaited<ReturnType<typeof vigil.settings>> | null)?.notify
+  const settings = useLive(vigil.settings, null as Awaited<ReturnType<typeof vigil.settings>> | null)
+  const notify = settings?.notify
+  // Tomorrow's first task, picked when the day was closed: it leads Today on its day.
+  const frog = mode === 'today' ? frogOn(settings) : null
   const [, minute] = useState(0)
   useEffect(() => {
     const every = setInterval(() => minute((n) => n + 1), 60_000)
@@ -206,8 +230,10 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
       ? (Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => [BUCKETS[which], live.filter((task) => bucket(task) === which)])
       : mode === 'today'
       ? [
-          ['Overdue', base.filter((task) => dayOf(task) < startOfDay())],
-          ['Today', [...today.filter(come), ...today.filter((task) => !come(task))]]
+          // The frog, picked last night, above everything, late or not.
+          ['First', base.filter((task) => task.id === frog)],
+          ['Overdue', base.filter((task) => dayOf(task) < startOfDay() && task.id !== frog)],
+          ['Today', [...today.filter(come), ...today.filter((task) => !come(task))].filter((task) => task.id !== frog)]
         ]
       : [
           // By day, in the order of the days, whatever the order inside each.
@@ -329,6 +355,19 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
           />
           <Kbd>↵</Kbd>
         </form>
+        {/* The day as a budget: what today's tasks are planned to take, and the time left before the day ends. */}
+        {mode === 'today' && !example && !unloaded(tasks) && (() => {
+          const planned = plannedMinutes(base)
+          const left = minutesLeft(settings?.dayEnd)
+          const over = planned > left
+          return (
+            <p data-day-budget data-said={budgetSaid(planned, left)} className="mx-3 mt-3 px-2 text-[0.9375rem] font-medium tabular-nums" style={{ color: over ? 'var(--tt-color-text-orange)' : 'var(--foreground)' }}>
+              <Rolling text={budgetSaid(planned, left)} by="word" />
+              {over && <span className="font-normal text-muted-foreground"> · {hoursSaid(planned - left)} more than the day holds</span>}
+              {!planned && <span className="font-normal text-muted-foreground"> · write ~30m on a task to plan it</span>}
+            </p>
+          )
+        })()}
 
         {shown.length ? (
           <Example on={example} tryIt={TRY_TASKS[mode]}>
@@ -386,8 +425,10 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                         <button type="button" data-row data-id={task.id} onClick={() => pick(task.id)} className="flex w-full min-w-0 flex-col items-start gap-1 text-left">
                           <span className="flex max-w-full items-center gap-2">
                             {task.priority ? <PriorityIcon level={task.priority} className="size-3.5 shrink-0" /> : null}
+                            {task.id === frog && <FrogChip />}
                             <span className="truncate">{splitTags(task.title).text}</span>
                             <Tags tags={splitTags(task.title).tags} />
+                            {task.estimate ? <LengthChip minutes={task.estimate} /> : null}
                           </span>
                           {(task.dueAt || task.recurrence || task.waitingOn || task.deadline || task.blocker || later || subtasks.length > 0) && (
                             <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
@@ -734,7 +775,7 @@ function Sessions({ taskId, title }: { taskId: string; title: string }): React.J
 }
 
 /** A date that many days from today, at the time it had, or nine with none. */
-function shiftTo(days: number, from?: string | null): string {
+export function shiftTo(days: number, from?: string | null): string {
   const time = from ? dayjs(from) : null
   return dayjs().add(days, 'day').hour(time ? time.hour() : 9).minute(time ? time.minute() : 0).startOf('minute').toISOString()
 }

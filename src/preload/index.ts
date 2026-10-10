@@ -106,6 +106,14 @@ const api = {
   focusMenu: (ticking: boolean): Promise<'tick' | null> => ipcRenderer.invoke('focus:menu', ticking),
   /** The pill's window, as tall as the island needs: it grows down from where it hangs. */
   focusSize: (height: number): Promise<boolean> => ipcRenderer.invoke('focus:size', height),
+  /** Put the pill where Settings says it sits; the notch's height, or 0 where it is not under one. */
+  focusPlace: (): Promise<{ notch: number }> => ipcRenderer.invoke('focus:place'),
+  /** Told when where the pill sits has changed. */
+  onFocusPlaced: (listen: () => void): (() => void) => {
+    const relay = (): void => listen()
+    ipcRenderer.on('focus:placed', relay)
+    return () => ipcRenderer.off('focus:placed', relay)
+  },
   /** A screenshot of the pill's screen for the session's log, stored; denied without Screen Recording. */
   focusShot: (): Promise<{ url: string } | { denied: true } | null> => ipcRenderer.invoke('focus:shot'),
   /** macOS's Screen Recording settings, for the way back from a denied screenshot. */

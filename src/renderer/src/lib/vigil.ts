@@ -134,6 +134,15 @@ export type Settings = {
   focusShows: 'bubble' | 'note' | 'both'
   /** A plain Markdown copy of each capture beside the backups; never a private one. */
   markdownCopies: boolean
+  /** The session pill under the notch (on a Mac with one), or wherever you put it. */
+  pillSits: 'notch' | 'free'
+  /** When the working day ends, "22:00": Today counts the hours left until then. */
+  dayEnd: string
+  /** Closing the day, offered once an evening after `closeDayAt`. */
+  closeDay: boolean
+  closeDayAt: string
+  /** Tomorrow's first task, picked when the day was closed: it leads Today and the day brief on `day`. */
+  frog: { id: string; day: string } | null
   /** How far back the Recent panel reaches, in days. */
   recentDays: number
   /** The questions kept in view, shown small while you capture and tidy. */
@@ -304,7 +313,7 @@ export type LogEntry = { id: string; sessionId: string; at: string; text: string
 /** A session ended on a day, with its task and what was logged in it. */
 export type DaySession = { id: string; taskId: string; title: string; startedAt: string; endedAt: string; pausedMs: number; recap: string | null; entries: LogEntry[] }
 /** The session running now, as the floating timer shows it. */
-export type Focus = { id: string; taskId: string; goal: string; startedAt: string; plannedMs: number | null; pausedMs: number; pausedAt: string | null }
+export type Focus = { id: string; taskId: string; goal: string; startedAt: string; plannedMs: number | null; pausedMs: number; pausedAt: string | null; /** Pomodoro rounds, as JSON (lib/timer.ts RoundsAt); null for any other session. */ rounds?: string | null }
 
 export type Pin = { id: string; type: 'capture' | 'nugget' | 'article'; kind: string; title: string; pinnedAt: string; private: number }
 export type Stats = {
@@ -344,6 +353,8 @@ export const vigil = {
   /** A year's months, each with what its page says. */
   year: (year: string) => call<({ month: string } & Record<string, string>)[]>('periods:year', year),
   pinnedQuestions: () => call<PinnedQuestion[]>('questions:pinned'),
+  /** For a month's calendar: the days with a page, and how many reviews each day had. */
+  dayMarks: (from: string, to: string) => call<{ pages: string[]; reviews: Record<string, number> }>('days:marks', from, to),
   /** False when twelve are kept in view already. */
   pinQuestion: (id: string, on: boolean) => call<boolean>('question:pin', id, on),
   /** Where a link held in a field leads: `day:2026-10-05`, `nugget:…`, or a capture's id. */
@@ -539,6 +550,9 @@ export const vigil = {
  * The stand-in a list starts as, before its first answer comes back. An empty
  * list then means "not read yet", not "there is none": a view asks `unloaded`
  * before saying "No articles yet", so the empty page never flashes on the way
+  /** Pomodoro rounds ("4x25"): one timer that runs each stretch in turn. */
+  startRounds: (goal: string, plan: { rounds: number; workMs: number; breakMs: number; longMs: number }) => call<string>('rounds:start', goal, plan),
+  nextRound: (id: string, next: { round: number; phase: string; ms: number }) => call<boolean>('rounds:next', id, next),
  * to a full one. Kept by the object itself, so nothing else has to be passed on.
  */
 const STAND_INS = new WeakSet<object>()

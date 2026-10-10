@@ -155,7 +155,8 @@ const waitFor = (at: string, words?: string): Promise<Element | null> => new Pro
   setTimeout(look, 250)
 })
 
-async function showMe(power: Power, onView: (id: string, focus?: string) => void): Promise<void> {
+/** Take you there and point at it: What Vigil can do's Show me, and What's new's. */
+export async function showMe(power: Pick<Power, 'name' | 'keys' | 'show'>, onView: (id: string, focus?: string) => void): Promise<void> {
   const show = power.show
   chime('tap')
   if (show.box) {

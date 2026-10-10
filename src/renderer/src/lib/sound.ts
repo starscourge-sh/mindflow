@@ -202,7 +202,10 @@ const CUES = {
   // A log against a goal: two soft steps forward, the second a tone higher.
   mark: [[587, 0, 0.07, 0.04], [659, 0.09, 0.14, 0.04]],
   // A week or a month turned over: a page, slower and lower than a day's.
-  season: [[330, 0, 0.3, 0.035, 349, 0.03], [494, 0.08, 0.4, 0.03]]
+  season: [[330, 0, 0.3, 0.035, 349, 0.03], [494, 0.08, 0.4, 0.03]],
+  // A pomodoro round over and its break begun: a slow falling third and a
+  // soft low note held, the opposite of the bell that starts work again.
+  rest: [[659, 0, 0.5, 0.035], [523, 0.16, 0.6, 0.035], [392, 0.34, 1, 0.03, undefined, 0.08]]
 } satisfies Record<string, Note[]>
 
 export type Cue = keyof typeof CUES

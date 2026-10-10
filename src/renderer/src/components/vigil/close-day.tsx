@@ -1,0 +1,288 @@
+import { useEffect, useMemo, useState } from 'react'
+import { X } from 'lucide-react'
+import { chime } from '@/lib/sound'
+import { byKeys } from '@/lib/motion'
+import { notes, type Day } from '@/lib/notes'
+import { unloaded, useLive, vigil, whenInLine, type Settings, type Task } from '@/lib/vigil'
+import { placed } from '@/lib/tasks'
+import { frogOn } from '@/lib/day-plan'
+import { Button } from '@/components/ui/button'
+import { Kbd, toast } from './ui'
+import { shiftTo } from './tasks-view'
+import { dayjs, dayKey, num, startOfDay } from '../../../../main/dates'
+
+/**
+ * Closing the day, an evening pass in four short parts: what got done; each
+ * task still open sent to Tomorrow, moved to next week, or let go (T, M, W);
+ * one line for today's page; and tomorrow's first task, the frog, which leads
+ * Today and the day brief in the morning. Offered on Home once an evening
+ * after the hour Settings gives, and from ⌘K any time.
+ */
+
+const DONE_KEY = 'close-day:done'
+const AWAY_KEY = 'close-day:away'
+const read = (key: string): string | null => {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+const write = (key: string, value: string): void => {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    // Offered again, then.
+  }
+}
+
+/** Open the pass, from ⌘K or the offer on Home. */
+export const openCloseDay = (): void => void window.dispatchEvent(new CustomEvent('vigil:close-day'))
+
+/** Whether the evening offer is due: on, past its hour, and not closed or put away today. */
+export function offerDue(settings: Pick<Settings, 'closeDay' | 'closeDayAt'> | null, now = new Date()): boolean {
+  if (!settings || settings.closeDay === false) return false
+  const [h, m] = (settings.closeDayAt ?? '18:00').split(':').map(Number)
+  if (now.getHours() * 60 + now.getMinutes() < h * 60 + (m || 0)) return false
+  const today = dayKey(now)
+  return read(DONE_KEY) !== today && read(AWAY_KEY) !== today
+}
+
+/** On Home in the evening, once: a calm line offering the pass. */
+export function CloseDayOffer(): React.JSX.Element | null {
+  const settings = useLive(vigil.settings, null as Settings | null)
+  const [, tick] = useState(0)
+  useEffect(() => {
+    const every = setInterval(() => tick((n) => n + 1), 60_000)
+    const again = (): void => tick((n) => n + 1)
+    window.addEventListener('vigil:day-closed', again)
+    return () => (clearInterval(every), window.removeEventListener('vigil:day-closed', again))
+  }, [])
+  if (!offerDue(settings)) return null
+  const away = (): void => {
+    chime('fold')
+    write(AWAY_KEY, dayKey())
+    tick((n) => n + 1)
+  }
+  return (
+    <section data-close-day-offer aria-label="Close the day" className="mx-3 flex items-center gap-3 rounded-xl border bg-background px-4 py-3 @[44rem]/page:mx-6">
+      <p className="min-w-0 flex-1 text-body text-muted-foreground">
+        <strong className="font-semibold text-foreground">The evening.</strong> Close the day: what got done, where the rest goes and the first thing for tomorrow.
+      </p>
+      <Button size="sm" onClick={() => (chime('open'), openCloseDay())}>Close the day</Button>
+      <button type="button" aria-label="Not today" onClick={away} className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground">
+        <X className="size-3.5" />
+      </button>
+    </section>
+  )
+}
+
+type Choice = 'tomorrow' | 'move' | 'letgo'
+const CHOICES: { id: Choice; label: string; key: string }[] = [
+  { id: 'tomorrow', label: 'Tomorrow', key: 'T' },
+  { id: 'move', label: 'Next week', key: 'M' },
+  { id: 'letgo', label: 'Let go', key: 'W' }
+]
+
+/** A paragraph added to the foot of a day's page. */
+function withLine(body: unknown, line: string): unknown {
+  const doc = body && typeof body === 'object' && Array.isArray((body as { content?: unknown[] }).content) ? (body as { type: string; content: unknown[] }) : { type: 'doc', content: [] }
+  const content = doc.content.filter((node, at, all) => !(at === all.length - 1 && (node as { type?: string; content?: unknown[] }).type === 'paragraph' && !(node as { content?: unknown[] }).content?.length))
+  return { ...doc, content: [...content, { type: 'paragraph', content: [{ type: 'text', text: line }] }] }
+}
+
+/** The pass itself, over the window. */
+export function CloseDaySheet(): React.JSX.Element | null {
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    const ask = (): void => (chime('open'), setOpen(true))
+    window.addEventListener('vigil:close-day', ask)
+    return () => window.removeEventListener('vigil:close-day', ask)
+  }, [])
+  if (!open) return null
+  return <Pass onClose={() => setOpen(false)} />
+}
+
+function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
+  const today = dayKey()
+  const tomorrow = dayKey(dayjs().add(1, 'day'))
+  const tasks = useLive(vigil.tasks, [] as Task[])
+  const settings = useLive(vigil.settings, null as Settings | null)
+  const day = useLive(() => notes.day(today), null as Day | null, [today])
+  // What each open task was when the pass opened: the list stays put as you choose.
+  const [still, setStill] = useState<Task[] | null>(null)
+  useEffect(() => {
+    if (still || unloaded(tasks)) return
+    setStill(tasks.filter((task) => task.status === 'open' && !task.waitingOn && (placed(task) ?? Infinity) < startOfDay(1)))
+  }, [tasks, still])
+  const open = useMemo(() => still ?? [], [still])
+  const [chosen, setChosen] = useState<Record<string, Choice>>({})
+  const [cursor, setCursor] = useState(0)
+  const [line, setLine] = useState('')
+  const [lineKept, setLineKept] = useState(false)
+  const frog = frogOn(settings, tomorrow)
+
+  // Tomorrow's candidates: what you just sent there, and what was already on it.
+  const fresh = new Map(tasks.map((task) => [task.id, task]))
+  const forTomorrow = [
+    ...open.filter((task) => chosen[task.id] === 'tomorrow').map((task) => fresh.get(task.id) ?? task),
+    ...tasks.filter((task) => task.status === 'open' && !open.some((one) => one.id === task.id) && dayKey(new Date(placed(task) ?? 0)) === tomorrow)
+  ]
+
+  const choose = async (task: Task, choice: Choice): Promise<void> => {
+    const was = chosen[task.id]
+    if (was === choice) return chime('nope')
+    // Back to how it was first, then the new choice: changing your mind is free.
+    if (was) await vigil.saveTask(task.id, { status: 'open', due: task.dueAt, plan: task.planFor })
+    if (choice === 'letgo') await vigil.saveTask(task.id, { status: 'dropped' })
+    else await vigil.saveTask(task.id, { due: shiftTo(choice === 'tomorrow' ? 1 : 7, task.dueAt) })
+    chime(choice === 'letgo' ? 'away' : choice === 'tomorrow' ? 'later' : 'move')
+    setChosen((all) => ({ ...all, [task.id]: choice }))
+    // A frog let go or moved past tomorrow is no longer tomorrow's.
+    if (frog === task.id && choice !== 'tomorrow') void vigil.setSettings({ frog: null })
+    const next = open.findIndex((one, at) => at > open.indexOf(task) && !chosen[one.id] && one.id !== task.id)
+    if (next >= 0) setCursor(next)
+  }
+  const pickFrog = (task: Task): void => {
+    const off = frog === task.id
+    void vigil.setSettings({ frog: off ? null : { id: task.id, day: tomorrow } })
+    chime(off ? 'off' : 'pin')
+  }
+  const keepLine = async (): Promise<void> => {
+    const text = line.trim()
+    if (!text) return
+    const now = await notes.day(today)
+    await notes.saveDay(today, { body: withLine(now.body, text) })
+    chime('noted')
+    setLineKept(true)
+  }
+  const finish = (): void => {
+    write(DONE_KEY, today)
+    window.dispatchEvent(new CustomEvent('vigil:day-closed'))
+    chime('settled')
+    onClose()
+    toast(frog ? 'Day closed. Tomorrow starts with the one you picked' : 'Day closed')
+  }
+  const close = (): void => (chime('fold'), onClose())
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') return void (event.preventDefault(), event.stopImmediatePropagation(), close())
+      if (event.key === 'Enter' && event.metaKey) return void (event.preventDefault(), finish())
+      const field = (document.activeElement as HTMLElement | null)?.closest?.('input, textarea, [contenteditable="true"]')
+      if (field || event.metaKey || event.ctrlKey || event.altKey) return
+      const task = open[cursor]
+      if (event.key === 'j' || event.key === 'ArrowDown') (event.preventDefault(), setCursor((at) => Math.min(open.length - 1, at + 1)))
+      else if (event.key === 'k' || event.key === 'ArrowUp') (event.preventDefault(), setCursor((at) => Math.max(0, at - 1)))
+      else if (task && ['t', 'm', 'w'].includes(event.key.toLowerCase())) (event.preventDefault(), void choose(task, ({ t: 'tomorrow', m: 'move', w: 'letgo' } as const)[event.key.toLowerCase() as 't' | 'm' | 'w']))
+      else return
+      event.stopPropagation()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  })
+
+  const done = day?.done ?? []
+  const caught = day?.captured.length ?? 0
+  const studied = day?.studied.length ?? 0
+  const heading = 'text-control font-semibold tracking-[0.01em] text-foreground'
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[6vh]" onMouseDown={close}>
+      <div
+        role="dialog"
+        aria-label="Close the day"
+        data-close-day
+        className={`flex max-h-[86vh] w-[min(36rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow) ${byKeys() ? '' : 'animate-in fade-in-0 slide-in-from-bottom-2 duration-200'}`}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-baseline gap-2 border-b px-5 py-3">
+          <h2 className="font-heading text-heading font-semibold text-foreground">Close the day</h2>
+          <span className="text-meta text-muted-foreground">{dayjs().format('dddd D MMMM')}</span>
+          <span className="flex-1" />
+          <Kbd>Esc</Kbd>
+        </div>
+        <div className="flex flex-col gap-6 overflow-y-auto px-5 py-4">
+          {/* 1. What got done. */}
+          <section data-close-done>
+            <h3 className={heading}>What got done</h3>
+            {done.length ? (
+              <ul className="mt-1.5 flex flex-col gap-1">
+                {done.slice(0, 6).map((one) => <li key={one.id} className="truncate text-body text-foreground"><span aria-hidden className="mr-2 text-[var(--tt-color-text-green)]">✓</span>{one.title}</li>)}
+                {done.length > 6 && <li className="text-control text-muted-foreground">and {num(done.length - 6)} more</li>}
+              </ul>
+            ) : <p className="mt-1 text-body text-muted-foreground">No tasks ticked off today. Days like that count too.</p>}
+            {(caught > 0 || studied > 0) && (
+              <p className="mt-1.5 text-control text-muted-foreground">
+                {[caught && `${num(caught)} ${caught === 1 ? 'thing' : 'things'} caught`, studied && `${num(studied)} reviewed`].filter(Boolean).join(', ')}.
+              </p>
+            )}
+          </section>
+
+          {/* 2. Each open task: Tomorrow, Move or Let go. */}
+          <section data-close-open>
+            <h3 className={heading}>Still open <span className="font-normal text-muted-foreground">{open.length ? `${num(Object.keys(chosen).length)} of ${num(open.length)} decided` : ''}</span></h3>
+            {open.length ? (
+              <ul className="mt-1.5 flex flex-col">
+                {open.map((task, at) => (
+                  <li key={task.id} data-close-task={task.id} data-cursor={at === cursor || undefined} onMouseEnter={() => setCursor(at)}
+                    className={`flex items-center gap-2 rounded-md px-2 py-1.5 ${at === cursor ? 'bg-accent/50' : ''}`}>
+                    <span className={`min-w-0 flex-1 truncate text-body ${chosen[task.id] === 'letgo' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{task.title}</span>
+                    <span className="flex shrink-0 items-center gap-1">
+                      {CHOICES.map((one) => (
+                        <button key={one.id} type="button" aria-pressed={chosen[task.id] === one.id} onClick={() => void choose(task, one.id)}
+                          className={`flex h-6 items-center gap-1 rounded-md px-2 text-control transition-colors ${chosen[task.id] === one.id ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
+                          {one.label}{at === cursor && <span className="text-[0.6875rem] opacity-70">{one.key}</span>}
+                        </button>
+                      ))}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : <p className="mt-1 text-body text-muted-foreground">Nothing left open today.</p>}
+          </section>
+
+          {/* 3. One line for today's page. */}
+          <section data-close-line>
+            <h3 className={heading}>One line for today's page</h3>
+            {lineKept ? (
+              <p className="mt-1.5 text-body text-foreground">“{line.trim()}” <span className="text-muted-foreground">is on today's page.</span></p>
+            ) : (
+              <form className="mt-1.5 flex items-center gap-2 rounded-md border px-2.5 py-1.5 focus-within:border-ring" onSubmit={(event) => (event.preventDefault(), void keepLine())}>
+                <input value={line} onChange={(event) => setLine(event.target.value)} placeholder="What today was, in a line" aria-label="One line for today's page"
+                  className="min-w-0 flex-1 bg-transparent text-body outline-none placeholder:text-muted-foreground" />
+                <Kbd>↵</Kbd>
+              </form>
+            )}
+          </section>
+
+          {/* 4. Tomorrow's first task: the frog. */}
+          <section data-close-frog>
+            <h3 className={heading}>Tomorrow starts with</h3>
+            {forTomorrow.length ? (
+              <ul className="mt-1.5 flex flex-col">
+                {forTomorrow.map((task) => (
+                  <li key={task.id}>
+                    <button type="button" role="radio" aria-checked={frog === task.id} onClick={() => pickFrog(task)}
+                      className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/50">
+                      <span aria-hidden className="grid size-4 shrink-0 place-items-center rounded-full border-[1.5px]" style={{ borderColor: frog === task.id ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }}>
+                        {frog === task.id && <span className="size-2 rounded-full bg-[var(--tt-color-text-green)]" />}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-body text-foreground">{task.title}</span>
+                      {task.dueAt && <span className="shrink-0 text-control text-muted-foreground">{whenInLine(task.dueAt, !!task.allDay)}</span>}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : <p className="mt-1 text-body text-muted-foreground">Send a task to Tomorrow above, and pick the one to do first.</p>}
+            {frog && <p className="mt-1.5 text-control text-muted-foreground">It leads Today and the morning's brief.</p>}
+          </section>
+        </div>
+        <div className="flex items-center gap-2 border-t px-5 py-3">
+          <span className="text-control text-muted-foreground">T, M and W decide the row you are on</span>
+          <span className="flex-1" />
+          <Button size="sm" onClick={finish}>Close the day <Kbd>⌘↵</Kbd></Button>
+        </div>
+      </div>
+    </div>
+  )
+}

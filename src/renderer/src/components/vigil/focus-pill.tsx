@@ -17,6 +17,7 @@ import { Kbd, Typed } from './ui'
 import { DotMatrix } from './dot-matrix'
 import { ProgressBar } from './progress-bar'
 import { clockTime } from './session-timeline'
+import { nextStretch, stretchMs, type RoundsAt } from '@/lib/timer'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Check = alive(SimpleCheckedIcon)
@@ -91,6 +92,14 @@ export function FocusPill(): React.JSX.Element | null {
   const timeLeft = focus?.plannedMs ? focus.plannedMs - worked(focus, now) : null
   useEffect(() => sessionClock({ running, left: timeLeft, tick: !!settings?.sessionTick, level: settings?.sessionTickVolume ?? 0.5 }), [running, timeLeft, settings?.sessionTick, settings?.sessionTickVolume])
   useEffect(() => () => sessionClock({ running: false, left: null, tick: false, level: 0 }), [])
+  // Under the notch, where Settings puts it and the Mac has one: how tall the notch is, 0 for none.
+  // Null until asked, so a pill never drops in at the top and then jumps to the notch.
+  const [notch, setNotch] = useState<number | null>(null)
+  useEffect(() => {
+    const place = (): void => void window.api.focusPlace().then((at) => setNotch(at.notch))
+    place()
+    return window.api.onFocusPlaced(place)
+  }, [])
   // A session just ended: the pill stays a moment to ask how it went.
   const [asked, setAsked] = useState<string | null>(null)
   // Another session started meanwhile: that question has gone by.
@@ -98,10 +107,10 @@ export function FocusPill(): React.JSX.Element | null {
   // Nothing running and nothing asked: the pill goes away.
   useEffect(() => void (focus === null && !asked && window.api.showFocus(false)), [focus, asked])
 
-  if (asked) return <HowDidItGo id={asked} onDone={() => setAsked(null)} />
-  if (!focus) return null
+  if (asked) return <HowDidItGo id={asked} top={notch ? notch + 6 : TOP} onDone={() => setAsked(null)} />
+  if (!focus || notch === null) return null
   // Each session its own pill, so each one drops in.
-  return <Pill key={focus.id} focus={focus} settings={settings} now={now} onEnded={setAsked} />
+  return <Pill key={`${focus.id}:${notch}`} focus={focus} settings={settings} now={now} notch={notch} onEnded={setAsked} />
 }
 
 /** The pill's width at rest and open, and the capsule it starts as. */
@@ -128,7 +137,27 @@ const calm = (): boolean => document.documentElement.dataset.motion === 'off' ||
 type Attachment = { url: string; name: string; picture: boolean }
 const PICTURE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif', 'image/bmp', 'image/svg+xml', 'image/heic'])
 
-function Pill({ focus, settings, now, onEnded }: { focus: Focus; settings: Settings | null; now: number; onEnded: (id: string) => void }): React.JSX.Element {
+/**
+ * Under the notch, the pill is the notch's own black, a little wider than it:
+ * the ring and the rounds at its left, the time at its right, the notch itself
+ * between them. Pointed at, it opens down into the island. Its colours are a
+ * dark theme's in every theme, light and Brutal too, since the notch is black.
+ */
+const NOTCH_INKS = {
+  '--foreground': 'rgb(245 245 245)',
+  '--muted-foreground': 'rgb(163 163 163)',
+  '--border': 'rgb(255 255 255 / 0.12)',
+  '--popover': 'rgb(0 0 0)',
+  '--background': 'rgb(0 0 0)',
+  '--accent': 'rgb(255 255 255 / 0.1)'
+} as CSSProperties
+/** The notch's width, near enough on every notched Mac, left clear between the wings. */
+const NOTCH_WIDTH = 200
+
+function Pill({ focus, settings, now, notch, onEnded }: { focus: Focus; settings: Settings | null; now: number; notch: number; onEnded: (id: string) => void }): React.JSX.Element {
+  const tucked = notch > 0
+  const top = tucked ? 0 : TOP
+  const restH = tucked ? notch : REST
   const bubble = settings?.focusBubble ?? 'circle'
   const rang = useRef<string | null>(null)
   // Hover told by the pointer itself: a window's drag area never reports it.
@@ -143,7 +172,8 @@ function Pill({ focus, settings, now, onEnded }: { focus: Focus; settings: Setti
   // --- the island: dropped in, opened, settled, and opened again on hover
   // 'above' is out of sight under the menu bar; 'capsule' has dropped in;
   // 'shown' is the new session's card; 'rest' is the pill.
-  const [stage, setStage] = useState<'above' | 'capsule' | 'shown' | 'rest'>(still ? 'rest' : 'above')
+  // Under the notch it comes straight out of it: no drop from the menu bar.
+  const [stage, setStage] = useState<'above' | 'capsule' | 'shown' | 'rest'>(still || tucked ? 'rest' : 'above')
   // Under the pointer for a moment (not only passing over), or a file carried onto it.
   const [opened, setOpened] = useState(false)
   const [carried, setCarried] = useState(false)
@@ -174,9 +204,9 @@ function Pill({ focus, settings, now, onEnded }: { focus: Focus; settings: Setti
   // The window grows down before the pill opens, and goes back once it has
   // closed: it is only ever as tall as the pill needs, so nothing around it
   // stops taking clicks.
-  const target = open || stage === 'capsule' || stage === 'above' ? Math.max(REST, full) : REST
+  const target = open || stage === 'capsule' || stage === 'above' ? Math.max(restH, full) : restH
   // Open, room for the spring to overshoot as well as for the shadow.
-  const want = Math.ceil(target + TOP + BELOW + (target > REST ? 16 : 0))
+  const want = Math.ceil(Math.max(REST, target) + top + BELOW + (target > restH ? 16 : 0))
   // Asked for once as it mounts, whatever size an earlier session left it.
   const [room, setRoom] = useState(0)
   useEffect(() => {
@@ -186,7 +216,7 @@ function Pill({ focus, settings, now, onEnded }: { focus: Focus; settings: Setti
     const later = setTimeout(() => void window.api.focusSize(want).then(() => setRoom(want)), still ? 0 : 650)
     return () => clearTimeout(later)
   }, [want, room, still])
-  const height = Math.max(REST, Math.min(target, room - TOP - BELOW - (target > REST ? 16 : 0)))
+  const height = Math.max(restH, Math.min(target, room - top - BELOW - (target > restH ? 16 : 0)))
 
   // A new session: up from under the menu bar as a capsule, then open, then
   // after a moment the pill. With Motion off or Reduce motion, a fade.
@@ -248,13 +278,32 @@ function Pill({ focus, settings, now, onEnded }: { focus: Focus; settings: Setti
   const timer = !focus.taskId
   const entries = useLive(() => (timer ? Promise.resolve([] as LogEntry[]) : vigil.sessionLog(focus.id)), [] as LogEntry[], [focus.id])
 
+  // Pomodoro rounds ("4x25"): which round, and work or a break.
+  const rounds = useMemo((): RoundsAt | null => {
+    try {
+      return focus.rounds ? (JSON.parse(focus.rounds) as RoundsAt) : null
+    } catch {
+      return null
+    }
+  }, [focus.rounds])
+  const resting = !!rounds && rounds.phase !== 'work'
   const over = left !== null && left <= 0
   // Time is up: the screen's edge glows with a bell, once, and the pill keeps saying so until you act.
-  if (over && rang.current !== focus.id) {
-    rang.current = focus.id
-    // The alarm clock's rings rather than the bell: the end of a countdown that ticked.
-    alarm()
-    window.api.glow('done')
+  // A round that is not the last goes straight on to its break, or a break to the next round.
+  const stretch = `${focus.id}:${rounds ? `${rounds.round}${rounds.phase}` : ''}`
+  if (over && rang.current !== stretch) {
+    rang.current = stretch
+    const next = rounds && nextStretch(rounds)
+    if (next) {
+      // The break has its own sound, softer and falling; work starts again with the timer's bell.
+      chime(next.phase === 'work' ? 'timer' : 'rest')
+      window.api.glow('done')
+      void vigil.nextRound(focus.id, { round: next.round, phase: next.phase, ms: stretchMs(next) })
+    } else {
+      // The alarm clock's rings rather than the bell: the end of a countdown that ticked.
+      alarm()
+      window.api.glow('done')
+    }
   }
   const paused = !!focus.pausedAt
   // How far through: the ring is the session itself, filled as it goes.
@@ -438,14 +487,15 @@ function Pill({ focus, settings, now, onEnded }: { focus: Focus; settings: Setti
   return (
     // In pixels, not rem: the pill's window is a fixed 340 wide, and at Large
     // Interface size a rem-sized pill outgrew it and was cut off.
-    <div className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: TOP }}>
+    <div className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: top, ...(tucked ? NOTCH_INKS : {}) }}>
       {/* While the session runs, a slow mono glow breathes inside the pill's
           edge: alive, never asking to be looked at. Still when paused or over,
           and between times: it runs for its first moments, under the pointer
           and in the last minute, since a beam all session kept a core busy. */}
       <motion.div
         className="relative"
-        initial={still ? { opacity: 0, width: WIDE, height: REST } : { y: -(CAPSULE.height + TOP + 4), width: CAPSULE.width, height: CAPSULE.height }}
+        data-tucked={tucked || undefined}
+        initial={still ? { opacity: 0, width: WIDE, height: restH } : tucked ? { width: NOTCH_WIDTH, height: notch } : { y: -(CAPSULE.height + TOP + 4), width: CAPSULE.width, height: CAPSULE.height }}
         animate={{
           opacity: 1,
           y: 0,
@@ -480,7 +530,7 @@ function Pill({ focus, settings, now, onEnded }: { focus: Focus; settings: Setti
         // window behind show through the pill, lines and text and all.
         // Time up: an accent wash over the solid, so the pill says so from across the room.
         style={{ backgroundImage: `${over ? 'linear-gradient(color-mix(in oklab, var(--tt-brand-color-400) 14%, transparent), color-mix(in oklab, var(--tt-brand-color-400) 14%, transparent)), ' : ''}linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))`, backgroundColor: 'Canvas' }}
-        className={`absolute inset-0 overflow-hidden rounded-[22px] border font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_3px_8px_-2px_rgb(0_0_0/0.12)] transition-colors duration-300 ${over ? 'mf-timeup border-[color-mix(in_oklab,var(--tt-brand-color-400)_55%,var(--border))]' : ''}`}
+        className={`absolute inset-0 overflow-hidden ${tucked ? 'rounded-t-none rounded-b-[18px] border-x border-b' : 'rounded-[22px] border'} font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_3px_8px_-2px_rgb(0_0_0/0.12)] transition-colors duration-300 ${over ? 'mf-timeup border-[color-mix(in_oklab,var(--tt-brand-color-400)_55%,var(--border))]' : ''}`}
       >
         {/* The capsule it drops in as: black, the island's own colour, fading to the theme's as it opens. */}
         {!still && <motion.span aria-hidden className="pointer-events-none absolute inset-0 z-10 bg-black" initial={{ opacity: 1 }} animate={{ opacity: shown ? 1 : 0 }} transition={{ duration: 0.32, delay: shown ? 0 : 0.08 }} />}
@@ -488,7 +538,7 @@ function Pill({ focus, settings, now, onEnded }: { focus: Focus; settings: Setti
             the beam's own loop restyles thirty times a second, too much to
             run all session, so it takes over only under the pointer, in the
             first and last moments, and past the time. */}
-        {alive && !paused && settings?.sessionSmoke !== false && <Wisps light={light} />}
+        {alive && !paused && !tucked && settings?.sessionSmoke !== false && <Wisps light={light} />}
         {gleam > 0 && <Gleam key={gleam} light={light} />}
         <motion.div
           ref={setInner}
@@ -496,6 +546,18 @@ function Pill({ focus, settings, now, onEnded }: { focus: Focus; settings: Setti
           animate={{ opacity: shown ? 0 : 1 }}
           transition={{ duration: still ? 0 : 0.18, delay: shown || still ? 0 : 0.1 }}
         >
+          {/* Under the notch: the ring and rounds in the left wing, the time in the right, the notch clear between. */}
+          {tucked && (
+            <div data-notch-band className="flex items-center justify-between px-3" style={{ height: notch }}>
+              <span className="flex items-center gap-1.5">
+                <Ring share={over ? 1 : share} over={over} paused={paused} />
+                {rounds && rounds.rounds > 1 && <RoundDots at={rounds} />}
+              </span>
+              <span className={`flex items-center text-[12px] font-semibold ${over || last ? 'text-[var(--tt-brand-color-400)]' : paused ? 'text-muted-foreground' : ''}`}>
+                {over ? 'Up' : <DotMatrix text={clock(left ?? done)} className="h-[12px]" />}
+              </span>
+            </div>
+          )}
           <div className="flex h-[42px] items-center gap-2.5 pr-1.5 pl-2">
             <Ring share={over ? 1 : share} over={over} paused={paused} />
             {/* The goal: a click opens its task. */}
@@ -504,8 +566,10 @@ function Pill({ focus, settings, now, onEnded }: { focus: Focus; settings: Setti
               onClick={() => !timer && window.api.openInHome('task', focus.taskId)}
               className={`min-w-0 flex-1 truncate text-left font-medium tracking-[-0.005em] ${timer ? 'cursor-default' : ''}`}
             >
-              {focus.goal || (timer ? 'Timer' : 'Focus')}
+              {resting ? (rounds!.phase === 'long' ? 'Long break' : 'Break') : focus.goal || (timer ? 'Timer' : 'Focus')}
             </button>
+            {/* A dot a round: done ones filled, this one ringed, the rest to come. */}
+            {rounds && rounds.rounds > 1 && <RoundDots at={rounds} />}
             {/* It runs all session, looked at or not, unlike the bars in the app,
                 which run only while their window is (main.css). Paused, or time up
                 in place, it stands; reaching the end of its line, it jumps for joy.
@@ -526,9 +590,11 @@ function Pill({ focus, settings, now, onEnded }: { focus: Focus; settings: Setti
               {over ? "Time's up" : <>{paused && 'Paused ·'}<DotMatrix text={clock(left ?? done)} className="h-[13px]" /></>}
             </span>
             {/* The one place that moves the window, as Raycast's grip does: faint until you reach for it. */}
-            <span aria-hidden className={`-ml-1 flex h-7 w-4 shrink-0 cursor-grab items-center justify-center text-muted-foreground transition-opacity duration-150 ${hover ? 'opacity-70' : 'opacity-25'}`} style={DRAG}>
-              <Grip className="size-3.5" />
-            </span>
+            {!tucked && (
+              <span aria-hidden className={`-ml-1 flex h-7 w-4 shrink-0 cursor-grab items-center justify-center text-muted-foreground transition-opacity duration-150 ${hover ? 'opacity-70' : 'opacity-25'}`} style={DRAG}>
+                <Grip className="size-3.5" />
+              </span>
+            )}
           </div>
 
           {panel}
@@ -545,9 +611,9 @@ function Pill({ focus, settings, now, onEnded }: { focus: Focus; settings: Setti
           back to only the first moments, hover and the last minute), a step
           stronger once past the time, and full under the pointer, easing
           between them. It is the beam's own breathing. */}
-      <BorderBeam size="pulse-inner" colorVariant="mono" strength={over && !hover ? 0.3 : 0.4} css={SMOKE_EASE} brightness={light ? 0.5 : undefined} style={light ? ({ '--beam-stroke-opacity': 9, '--beam-inner-opacity': 0.75 } as CSSProperties) : undefined} duration={3.4} theme={surface} borderRadius={22} active={alive && !paused && stage === 'rest' && (hover || done < 8000 || last || (over && settings?.sessionSmoke !== false))} className="pointer-events-none absolute inset-0">
+      {!tucked && <BorderBeam size="pulse-inner" colorVariant="mono" strength={over && !hover ? 0.3 : 0.4} css={SMOKE_EASE} brightness={light ? 0.5 : undefined} style={light ? ({ '--beam-stroke-opacity': 9, '--beam-inner-opacity': 0.75 } as CSSProperties) : undefined} duration={3.4} theme={surface} borderRadius={22} active={alive && !paused && stage === 'rest' && (hover || done < 8000 || last || (over && settings?.sessionSmoke !== false))} className="pointer-events-none absolute inset-0">
         <div className="h-full w-full rounded-[22px]" />
-      </BorderBeam>
+      </BorderBeam>}
       </motion.div>
     </div>
   )
@@ -559,7 +625,7 @@ function Pill({ focus, settings, now, onEnded }: { focus: Focus; settings: Setti
  * way: Escape or the cross skips it, and left alone it lets itself go.
  * Kept, it says so with a way back, then goes.
  */
-function HowDidItGo({ id, onDone }: { id: string; onDone: () => void }): React.JSX.Element {
+function HowDidItGo({ id, top, onDone }: { id: string; top: number; onDone: () => void }): React.JSX.Element {
   const [words, setWords] = useState('')
   const [kept, setKept] = useState<string | null>(null)
   // Untouched for a minute, it is skipped; once kept, it says so for a few seconds.
@@ -574,10 +640,10 @@ function HowDidItGo({ id, onDone }: { id: string; onDone: () => void }): React.J
     void vigil.recapSession(id, words.trim()).then((was) => (chime('logged'), setKept(was)))
   }
   // Back to the pill's own size, whatever the island had grown it to.
-  useEffect(() => void window.api.focusSize(TOP + REST + BELOW), [])
+  useEffect(() => void window.api.focusSize(top + REST + BELOW), [top])
   const icon = 'flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)]'
   return (
-    <div className="mf-floating flex h-screen items-start justify-center px-[8px]" style={{ paddingTop: TOP }}>
+    <div className="mf-floating flex h-screen items-start justify-center px-[8px]" style={{ paddingTop: top }}>
       <div
         style={{ backgroundImage: 'linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' }}
         className="flex h-[44px] w-full items-center gap-2.5 rounded-full border pr-1.5 pl-2 font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_3px_8px_-2px_rgb(0_0_0/0.12)]"
@@ -699,6 +765,26 @@ function Gleam({ light }: { light: boolean }): React.JSX.Element {
           <span ref={band} className="absolute -inset-y-2 left-0 w-[60%]" style={{ transform: 'translateX(-100%) skewX(-20deg)', willChange: 'transform', background: brutal ? hard : `${soft}, ${glint}` }} />
         </>
       )}
+    </span>
+  )
+}
+
+/** One dot a round of a pomodoro set: what is done filled, this round ringed (filled on its break), the rest hollow. */
+function RoundDots({ at }: { at: RoundsAt }): React.JSX.Element {
+  return (
+    <span data-round-dots aria-label={`Round ${at.round} of ${at.rounds}${at.phase === 'work' ? '' : ', on a break'}`} className="flex shrink-0 items-center gap-[3px]">
+      {Array.from({ length: at.rounds }, (_, index) => {
+        const n = index + 1
+        const done = n < at.round || (n === at.round && at.phase !== 'work')
+        const now = n === at.round && at.phase === 'work'
+        return (
+          <span key={n} className="block size-[6px] rounded-full"
+            style={{
+              background: done ? 'var(--tt-brand-color-400)' : 'transparent',
+              border: `1.25px solid ${done || now ? 'var(--tt-brand-color-400)' : 'color-mix(in oklab, var(--muted-foreground) 55%, transparent)'}`
+            }} />
+        )
+      })}
     </span>
   )
 }

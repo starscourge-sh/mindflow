@@ -205,8 +205,13 @@ const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
  * Days in rows of seven, Monday first: a month (with the days before its first
  * left blank) or a week. Each day wears its flag; a click opens a day gone by
  * (or marks one ahead), a right-click marks it.
+ *
+ * As the month's calendar (`calendar`), each day also says what it held, read
+ * by the key under it: a dot for a page written, a tint for reviews done (the
+ * more, the deeper), a ring for a marked day, a flag for an exam, and ahead of
+ * today, how many cards fall due.
  */
-export function DayGrid({ days, onOpenDay, label }: { days: string[]; onOpenDay?: (day: string) => void; label: string }): React.JSX.Element {
+export function DayGrid({ days, onOpenDay, label, calendar = false }: { days: string[]; onOpenDay?: (day: string) => void; label: string; calendar?: boolean }): React.JSX.Element {
   const all = useMilestones(days[0], days[days.length - 1])
   const today = dayKey()
   const lead = (noon(days[0]).day() + 6) % 7
@@ -216,6 +221,13 @@ export function DayGrid({ days, onOpenDay, label }: { days: string[]; onOpenDay?
     [] as Recent[], [days[0], last], ['capture', 'item'])
   const kept = new Map<string, number>()
   for (const one of made) if (one.type !== 'task') kept.set(dayKey(one.at), (kept.get(dayKey(one.at)) ?? 0) + 1)
+  // The calendar's own marks: pages and reviews on the days gone, cards due on the days ahead.
+  const marked = useLive(() => (calendar ? vigil.dayMarks(days[0], days[days.length - 1]) : Promise.resolve({ pages: [] as string[], reviews: {} as Record<string, number> })),
+    { pages: [] as string[], reviews: {} as Record<string, number> }, [calendar, days[0], days[days.length - 1]])
+  const ahead = days[days.length - 1] >= today ? daysBetween(today, days[days.length - 1]) + 1 : 0
+  const load = useLive(() => (calendar && ahead > 0 ? vigil.reviewLoad(ahead) : Promise.resolve([] as number[])), [] as number[], [calendar, ahead], ['item'])
+  const pages = new Set(marked.pages)
+  const most = Math.max(1, ...Object.values(marked.reviews))
   return (
     <div role="grid" aria-label={label} className="select-none">
       <div className="grid grid-cols-7 gap-1 pb-1 text-center text-[0.6875rem] text-muted-foreground">
@@ -227,23 +239,67 @@ export function DayGrid({ days, onOpenDay, label }: { days: string[]; onOpenDay?
           const here = onDay(all, day)
           const now = day === today
           const gone = day < today
+          const exams = here.filter((one) => one.exam)
+          const own = here.filter((one) => !one.exam)
+          const reviews = calendar ? (marked.reviews[day] ?? 0) : 0
+          const due = calendar && day >= today ? (load[daysBetween(today, day)] ?? 0) : 0
+          const page = calendar && pages.has(day)
+          // A calendar day: reviews done tint it, a marked day rings it; elsewhere a mark tints it, as before.
+          const style: React.CSSProperties | undefined = calendar
+            ? {
+                background: reviews ? `color-mix(in oklab, var(--tt-color-text-purple) ${Math.round(6 + (reviews / most) * 16)}%, transparent)` : undefined,
+                // An outline, not a shadow: Brutal turns a drawn shadow into its hard one.
+                outline: own.length ? `1.5px solid ${inkOf(own[0])}` : undefined,
+                outlineOffset: own.length ? '-1.5px' : undefined
+              }
+            : here.length ? { background: `color-mix(in oklab, ${inkOf(here[0])} ${now ? 16 : 9}%, transparent)` } : undefined
+          const said = [
+            here.length && here.map((one) => one.title).join(', '),
+            !calendar && kept.get(day) && `${kept.get(day)} kept`,
+            page && 'a page written',
+            reviews && `${num(reviews)} ${reviews === 1 ? 'review' : 'reviews'} done`,
+            due && `${num(due)} ${due === 1 ? 'card' : 'cards'} due`
+          ].filter(Boolean)
           return (
             <DayMarkMenu key={day} day={day} all={all} onOpenDay={onOpenDay}>
-              <button type="button" data-grid-day={day} aria-current={now ? 'date' : undefined}
-                aria-label={`${dayName(noon(day))}${here.length ? `, ${here.map((one) => one.title).join(', ')}` : ''}${kept.get(day) ? `, ${kept.get(day)} kept` : ''}`}
+              <button type="button" data-grid-day={day} data-page={page || undefined} data-reviews={reviews || undefined} data-due={due || undefined} aria-current={now ? 'date' : undefined}
+                aria-label={`${dayName(noon(day))}${said.length ? `, ${said.join(', ')}` : ''}`}
                 onClick={() => (chime('tap'), gone || now ? onOpenDay?.(day) : void markDay(day, here[0]))}
-                className={`@container flex min-h-12 min-w-0 flex-col items-start gap-0.5 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-accent/60 ${now ? 'bg-accent/40' : ''}`}
-                style={here.length ? { background: `color-mix(in oklab, ${inkOf(here[0])} ${now ? 16 : 9}%, transparent)` } : undefined}>
+                className={`@container relative flex min-h-12 min-w-0 flex-col items-start gap-0.5 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-accent/60 ${now && !(calendar && reviews) ? 'bg-accent/40' : ''}`}
+                style={style}>
                 <span className="flex w-full items-baseline gap-1">
                   <span className={`text-xs tabular-nums ${now ? 'font-semibold text-[var(--tt-brand-color-400)]' : gone ? 'text-muted-foreground' : 'text-foreground'}`}>{noon(day).date()}</span>
-                  {!!kept.get(day) && <span className="ml-auto shrink-0 text-[0.6875rem] text-muted-foreground tabular-nums">{num(kept.get(day)!)}<span className="hidden @min-[4.75rem]:inline"> kept</span></span>}
+                  {!calendar && !!kept.get(day) && <span className="ml-auto shrink-0 text-[0.6875rem] text-muted-foreground tabular-nums">{num(kept.get(day)!)}<span className="hidden @min-[4.75rem]:inline"> kept</span></span>}
+                  {due > 0 && <span data-due-count className="ml-auto shrink-0 text-[0.6875rem] text-muted-foreground tabular-nums">{num(due)}<span className="hidden @min-[4.75rem]:inline"> due</span></span>}
                 </span>
-                <DayFlags marks={here} named className="max-w-full" />
+                {calendar ? (
+                  <>
+                    {exams.length > 0 && <DayFlags marks={exams} named className="max-w-full" />}
+                    {own.length > 0 && <span className="line-clamp-2 max-w-full text-[0.6875rem] leading-tight font-medium break-words" style={{ color: inkOf(own[0]) }}>{own[0].icon ? `${own[0].icon} ` : ''}{own[0].title}</span>}
+                    {page && <span data-page-dot aria-hidden className="absolute bottom-1.5 left-1.5 size-[5px] rounded-full" style={{ background: 'color-mix(in oklab, var(--foreground) 55%, transparent)' }} />}
+                  </>
+                ) : <DayFlags marks={here} named className="max-w-full" />}
               </button>
             </DayMarkMenu>
           )
         })}
       </div>
+      {calendar && <CalendarKey />}
+    </div>
+  )
+}
+
+/** What the month's marks mean, small, under the days. */
+function CalendarKey(): React.JSX.Element {
+  const item = 'flex items-center gap-1.5'
+  return (
+    <div data-month-legend className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[0.75rem] text-muted-foreground">
+      <span className={item}><span aria-hidden className="size-[6px] rounded-full" style={{ background: 'color-mix(in oklab, var(--foreground) 55%, transparent)' }} />A page written</span>
+      <span className={item}><span aria-hidden className="h-3 w-4 rounded-[3px]" style={{ background: 'color-mix(in oklab, var(--tt-color-text-purple) 18%, transparent)' }} />Reviews done</span>
+      <span className={item}><span aria-hidden className="h-3 w-4 rounded-[3px]" style={{ outline: '1.5px solid var(--tt-brand-color-400)', outlineOffset: '-1.5px' }} />A marked day</span>
+      <span className={item}><FlagTriangleRight aria-hidden className="size-3 text-[var(--tt-brand-color-400)]" fill="currentColor" />An exam</span>
+      <span className={item}><span aria-hidden className="font-medium text-foreground tabular-nums">12</span>Cards due</span>
+      <span>Click a day to open it</span>
     </div>
   )
 }

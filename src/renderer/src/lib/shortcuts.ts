@@ -262,6 +262,12 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Settings', keys: 'H', does: 'Slider down', where: 'Main window' },
   { group: 'Settings', keys: 'L', does: 'Slider up', where: 'Main window' },
   { group: 'Settings', keys: '↑ ↓', does: 'Next or previous section, in the section list (J and K too)', where: 'Main window' }
+  { group: 'Closing the day', keys: 'T', does: 'Send the task to tomorrow', where: 'Close the day' },
+  { group: 'Closing the day', keys: 'M', does: 'Move the task to next week', where: 'Close the day' },
+  { group: 'Closing the day', keys: 'W', does: 'Let the task go', where: 'Close the day' },
+  { group: 'Closing the day', keys: 'J', does: 'Next open task (K the one before)', where: 'Close the day' },
+  { group: 'Closing the day', keys: '⌘↵', does: 'Close the day', where: 'Close the day' },
+
 ]
 
 /** Groups that only exist in the main window: their rows need not say so. */

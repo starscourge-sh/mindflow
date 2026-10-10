@@ -52,3 +52,39 @@ export function lengthSaid(ms: number): string {
   const [h, m, sec] = [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60]
   return [h && `${h} h`, m && `${m} min`, sec && `${sec} s`].filter(Boolean).join(' ')
 }
+
+/**
+ * Pomodoro rounds said in the box: "4x25" is four 25-minute rounds with a
+ * 5-minute break between them, "4x25/5" says the break too. Every fourth
+ * round is followed by a long break. The words after it name what the rounds
+ * are for. Null for anything else; a round under 5 minutes is not one, so
+ * "2x4 lumber" stays a note.
+ */
+export type Rounds = { rounds: number; workMs: number; breakMs: number; longMs: number; goal: string; span: { from: number; to: number } }
+const ROUNDS = /(?:^|\s)((\d{1,2})\s*[x×]\s*(\d{1,3})(?:\s*m(?:in)?)?(?:\s*\/\s*(\d{1,2})(?:\s*m(?:in)?)?)?)(?=\s|$)/i
+export function roundsFrom(text: string): Rounds | null {
+  const line = text.trim()
+  if (!line || line.includes('\n') || line.length > 80) return null
+  const said = ROUNDS.exec(line)
+  if (!said) return null
+  const [rounds, work, rest] = [Number(said[2]), Number(said[3]), said[4] === undefined ? 5 : Number(said[4])]
+  if (rounds < 1 || rounds > 12 || work < 5 || work > 180 || rest < 1 || rest > 60) return null
+  const from = said.index + said[0].length - said[1].length
+  const goal = (line.slice(0, from) + line.slice(from + said[1].length)).replace(/\s+/g, ' ').replace(/^\s*(?:for|of|-|:)\s+/i, '').trim()
+  return { rounds, workMs: work * 60_000, breakMs: rest * 60_000, longMs: Math.max(15, rest * 3) * 60_000, goal: goal || 'Focus', span: { from, to: from + said[1].length } }
+}
+
+/** Where a set of rounds stands: which round, and whether this stretch is work or a break. */
+export type RoundsAt = { rounds: number; round: number; phase: 'work' | 'break' | 'long'; workMs: number; breakMs: number; longMs: number }
+
+/** What comes after this stretch, or null once the last one is over. A long break follows every fourth round. */
+export function nextStretch(at: RoundsAt): RoundsAt | null {
+  if (at.phase === 'work') {
+    if (at.round % 4 === 0) return { ...at, phase: 'long' }
+    return at.round >= at.rounds ? null : { ...at, phase: 'break' }
+  }
+  return at.round >= at.rounds ? null : { ...at, round: at.round + 1, phase: 'work' }
+}
+
+/** How long a stretch lasts. */
+export const stretchMs = (at: RoundsAt): number => (at.phase === 'work' ? at.workMs : at.phase === 'long' ? at.longMs : at.breakMs)

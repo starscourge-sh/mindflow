@@ -72,7 +72,8 @@ try {
   await wait(900)
   const mock = (await marks()).find((one) => one.title === 'Mock exam')
   check('a right-click on a day marks it', mock?.day === target && mock?.color === 'red', JSON.stringify(mock))
-  check('its flag shows on the grid', (await cell.locator('[data-mark-flag]').count()) === 1)
+  // The month is a calendar now: a marked day is ringed and named (a flag is for an exam).
+  check('it shows on the grid, ringed and named', (await cell.textContent()).includes('Mock exam') && (await cell.evaluate((one) => getComputedStyle(one).outlineStyle)) === 'solid')
   await shot('milestones-month-light')
 
   // --- the year's ruler: tall, named ticks

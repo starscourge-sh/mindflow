@@ -61,6 +61,8 @@ export const POWERS: Power[] = [
     show: { box: true, text: 'Write anything and press ⌘↵.' }, used: (s) => s.steps.catch },
   { id: 'timer', group: 'Catching', name: 'Timers in plain words', line: 'Type 5m tea in quick capture and a timer starts, with a bell when it is done.', keys: ['⌘.'],
     show: { box: true, text: 'Type 5m tea and press ⌘↵.' } },
+  { id: 'rounds', group: 'Catching', name: 'Pomodoro rounds', line: 'Type 4x25 in quick capture for four 25-minute rounds with 5-minute breaks and a long one after the fourth; 4x25/10 sets the break. The pill shows a dot a round, and each break has its own sound.', keys: ['⌘.'],
+    show: { box: true, text: 'Type 4x25 essay and press ⌘↵.' } },
   { id: 'clue', group: 'Catching', name: 'Add a clue to a question', tryIt: 'In quick capture, type + and the start of a question’s name.', line: 'Start with + and a question’s or goal’s name, and what you type joins it as a clue or a log entry.', keys: ['⌘.'],
     show: { view: 'questions', at: ROW, text: 'Each question here gathers clues. In quick capture, type + and the start of its name.' }, used: (s) => s.items.some((item) => item.tier === 'question' && item.clues > 0) },
   { id: 'tagtask', group: 'Catching', name: 'Tags that make a task', tryIt: 'Open a tag, choose Manage, and turn on Makes a task.', line: 'Mark a tag as one that makes a task, and anything you write with #bug lands in your tasks.',
@@ -155,6 +157,10 @@ export const POWERS: Power[] = [
   // Windows
   { id: 'stickies', group: 'Windows', name: 'Sticky notes on your desktop', line: 'Put a note or today’s tasks on your desktop, over everything, like paper, and ⌃⌥⌘N hides or shows them all.', keys: ['⌃⌥⌘N'],
     show: { view: 'all', at: ROW, text: 'Right-click a note and choose Stick on the desktop; today’s page has Keep on screen for its to-dos.' }, used: (s) => s.steps.stick },
+  { id: 'lengths', group: 'Planning', name: 'How long a task takes', tryIt: 'Type a task that ends with ~30m.', line: 'Write ~30m or ~1h on a task, and Today sets the hours planned beside the hours left before your day ends.',
+    show: { view: 'today', at: '[data-day-budget]', text: 'Planned against what is left of the day. Write ~30m on a task to plan it.' }, used: (s) => s.tasks.some((task) => !!task.estimate) },
+  { id: 'closeday', group: 'Planning', name: 'Close the day', tryIt: 'Press ⌘K and choose Close the day.', line: 'Each evening, a short pass: what got done, each open task sent to tomorrow, next week or let go, a line for today’s page and the one task to start tomorrow with.', keys: ['⌘K'],
+    show: { view: 'settings', settings: 'What comes back to you', find: 'Close the day', at: '[data-setting]', text: 'Pick when it is offered each evening, or press ⌘K and choose Close the day.' } },
   { id: 'recordings', group: 'Windows', name: 'Hidden from screen recordings', tryIt: 'Turn on Show Vigil in screen recordings for a demo.', line: 'Share your screen and Vigil shows as blank to everyone else, while you still see it.',
     show: { view: 'settings', settings: 'What comes back to you', find: 'screen recordings', at: '[data-setting]', text: 'Vigil is hidden from recordings unless this is on. Turn it on for a demo.' } },
   { id: 'window', group: 'Windows', name: 'A note in its own window', line: '⌘-click a note in your Inbox to open it in a window of its own, beside whatever you are doing.',
@@ -165,6 +171,8 @@ export const POWERS: Power[] = [
     show: { box: true, text: 'In quick capture, open the ··· menu and choose Lock: read only.' } },
 
   // Bringing notes in
+  { id: 'calendar', group: 'Seeing your year', name: 'The month at a glance', line: 'Each day on the Month page shows whether it has a page, how much you reviewed, its marked days and exams, and the cards still to come.', keys: ['G M'],
+    show: { view: 'monthpage', at: '[data-month-legend]', text: 'What each mark means. Click a day to open it.' } },
   { id: 'vault', group: 'Bringing notes in', name: 'An Obsidian vault or Notion export', tryIt: 'In Settings, Import, pick the folder; nothing in it is changed.', line: 'Bring a whole folder of notes in at once, links and properties kept.',
     show: { view: 'settings', settings: 'Import and backups', find: 'Obsidian', at: '[data-setting]', text: 'Pick the folder. Nothing in it is changed.' } },
   { id: 'files', group: 'Bringing notes in', name: 'Highlights and cards', tryIt: 'In Settings, Import, choose Files….', line: 'Readwise and Kindle highlights, Markdown files, bookmarks and Anki cards.',
@@ -177,10 +185,14 @@ export const POWERS: Power[] = [
 export type Signs = {
   steps: Record<string, boolean>
   items: Item[]
-  tasks: { notify: string | null; recurrence: string | null }[]
+  tasks: { notify: string | null; recurrence: string | null; estimate?: number | null }[]
   tags: string[]
   actionTag: boolean
   kinds: Set<string>
+  { id: 'notch', group: 'Windows', name: 'The pill in the notch', tryIt: 'In Settings, set Pill sits to Under the notch.', line: 'On a Mac with a notch, the session pill can sit tucked around it, the time beside it, and open when you point at it.',
+    show: { view: 'settings', settings: 'Appearance', find: 'Pill sits', at: '[data-setting]', text: 'Choose Under the notch. On a Mac without one, the pill stays where you put it.' } },
+  { id: 'news', group: 'Windows', name: 'What’s new', tryIt: 'Press ⌘K and choose What’s new.', line: 'After an update, Home shows what changed once, each with a Show me; ⌘K and the menu bar open the whole list any time.', keys: ['⌘K'],
+    show: { view: 'home', text: 'Press ⌘K and choose What’s new.' } },
   board: boolean
   season: boolean
   rated: boolean

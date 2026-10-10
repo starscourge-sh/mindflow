@@ -318,7 +318,7 @@ export function MonthPage({ onScale, start, onDay }: { onScale?: (scale: Scale) 
           </Example>
         )}
         {/* The month's days, each wearing its mark: right-click one to mark it. */}
-        <div className="mt-5"><DayGrid key={month} label={`${monthName(month)}, day by day`} days={Array.from({ length: dayjs(`${month}-01`).daysInMonth() }, (_, at) => `${month}-${String(at + 1).padStart(2, '0')}`)} onOpenDay={onDay} /></div>
+        <div className="mt-5"><DayGrid key={month} calendar label={`${monthName(month)}, day by day`} days={Array.from({ length: dayjs(`${month}-01`).daysInMonth() }, (_, at) => `${month}-${String(at + 1).padStart(2, '0')}`)} onOpenDay={onDay} /></div>
         {page && (
           <Island key={key} className="mt-6">
             <Field label="Focus" long hint="Looking ahead: where to put your energy this month." value={fields.focus ?? ''}

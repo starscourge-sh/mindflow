@@ -354,6 +354,16 @@ const DEFAULTS = {
   focusShows: 'bubble' as 'bubble' | 'note' | 'both',
   // The menu bar's day, week, month and year as rows of dots instead of bars.
   tempusDots: false,
+  // Where the session pill sits: tucked under the notch on a Mac that has
+  // one, compact until pointed at, or wherever you dragged it.
+  pillSits: 'free' as 'notch' | 'free',
+  // When the working day ends, for Today's "4 h left today".
+  dayEnd: '22:00',
+  // Closing the day: offered once an evening, after this hour.
+  closeDay: true,
+  closeDayAt: '18:00',
+  // Tomorrow's first task, picked when the day was closed: it leads Today and the day brief that day.
+  frog: null as { id: string; day: string } | null,
   // A plain-text copy of each capture beside the backups (never a private one).
   markdownCopies: true,
   // How far back the Recent panel reaches, in days.
@@ -422,6 +432,8 @@ export const whenFocusShows = (tell: () => void): void => void (focusShowsTold =
 export const focusBubbleShown = (): boolean => settings().focusShows !== 'note'
 
 /** Told when the stickies are shown or put away, or kept in or out of screen shares. */
+/** The pill tucked under the notch, where the Mac has one. */
+export const pillInNotch = (): boolean => settings().pillSits === 'notch'
 let stickiesTold: () => void = () => undefined
 export const whenStickies = (tell: () => void): void => void (stickiesTold = tell)
 /** Open at login, as the setting says. Only the installed app: in development it would register Electron itself. */
@@ -569,13 +581,15 @@ function addTask(text: string, origin: string | null = null, today = false, plai
   const id = randomUUID()
   // Typed into Today with no date, it is for today, as in Todoist: all day,
   // not dropped into a backlog the list you typed it in does not show.
+    // And a length said again ("~30m").
+    if (task.estimate) db.prepare('update tasks set estimate = ? where id = ?').run(task.estimate, twin.id)
   if (today && !task.due && !task.plan) Object.assign(task, { due: dayjs().hour(9).startOf('hour').toISOString(), allDay: true })
   const { number } = db
     .prepare(
-      `insert into tasks (id, number, title, due_at, all_day, recurrence, repeat_until, origin_capture_id, created_at, deadline_at, priority, important, plan_for, deadline_timed, notify)
-       values (?, (select coalesce(max(number), 0) + 1 from tasks), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) returning number`
+      `insert into tasks (id, number, title, due_at, all_day, recurrence, repeat_until, origin_capture_id, created_at, deadline_at, priority, important, plan_for, deadline_timed, notify, estimate)
+       values (?, (select coalesce(max(number), 0) + 1 from tasks), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) returning number`
     )
-    .get(id, title, task.due, task.allDay ? 1 : 0, task.recurrence, task.until, origin, now(), task.deadline, task.priority, [1, 2].includes(task.priority) ? 1 : 0, task.plan, task.deadlineTimed ? 1 : 0, task.notify) as { number: number }
+    .get(id, title, task.due, task.allDay ? 1 : 0, task.recurrence, task.until, origin, now(), task.deadline, task.priority, [1, 2].includes(task.priority) ? 1 : 0, task.plan, task.deadlineTimed ? 1 : 0, task.notify, task.estimate) as { number: number }
   return { id, number, existed: false }
 }
 
@@ -794,7 +808,7 @@ export function registerVigil(): void {
     if ('spellcheck' in patch || 'spellLanguages' in patch) spelling()
     if ('openAtLogin' in patch) atLogin()
     if ('goalBeacon' in patch || 'tempusDots' in patch) goalsTold()
-    if ('focusShows' in patch) focusShowsTold()
+    if ('focusShows' in patch || 'pillSits' in patch) focusShowsTold()
     return write(settings())
   })
   // Spelling: the languages there are and the ones in use, and a word kept as
@@ -2412,7 +2426,7 @@ export function registerVigil(): void {
   /** The session running now, with its task's name, for the floating timer. */
   handle('focus:now', () =>
     db.prepare(`select s.id, s.task_id as taskId, coalesce(s.goal, t.title, 'Timer') as goal, s.started_at as startedAt, s.planned_ms as plannedMs,
-      s.paused_ms as pausedMs, s.paused_at as pausedAt from sessions s left join tasks t on t.id = s.task_id
+      s.paused_ms as pausedMs, s.paused_at as pausedAt, s.rounds from sessions s left join tasks t on t.id = s.task_id
       where s.ended_at is null and (t.id is not null or s.task_id = '') order by s.started_at desc limit 1`).get() ?? null)
   // A timer from the box ("5m tea"): a session with no task behind it, so the
   // floating timer shows it as it shows any other. Ending it deletes it: a
@@ -2496,6 +2510,8 @@ export function registerVigil(): void {
       // Wrapped: what the week was, in the work itself.
       sessions: one<{ n: number; minutes: number | null }>(
         "select count(*) n, sum((julianday(ended_at) - julianday(started_at)) * 1440 - paused_ms / 60000.0) minutes from sessions where ended_at is not null and started_at >= ?", ago(7)),
+  // Pomodoro rounds ("4x25" in the box): where the set stands, as JSON, on the timer that runs them.
+  column('sessions', 'rounds text')
       // Private notes' tags are not counted: a tag can say as much as a title.
       tagsWeek: (db.prepare('select title, body from captures where captured_at >= ? and private = 0').all(ago(7)) as { title: string; body: string }[])
         .flatMap((row) => tagsIn(`${row.title} ${plain(JSON.parse(row.body ?? 'null'))}`))
@@ -2535,6 +2551,23 @@ export function registerVigil(): void {
         "select title from nuggets where private = 0 and (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) >= 4").map((row) => row.title),
       // A hint "stopped you" if you voted it up, or it stayed on screen four
       // seconds or more: the rare signal and the universal one together.
+  // Pomodoro rounds: one timer row that runs each stretch in turn, work and
+  // break, so the pill stays the same pill from the first round to the last.
+  handle('rounds:start', (goal: string, plan: { rounds: number; workMs: number; breakMs: number; longMs: number }) => {
+    db.prepare("delete from sessions where task_id = '' and ended_at is null").run()
+    const id = randomUUID()
+    const rounds = { rounds: plan.rounds, round: 1, phase: 'work', workMs: plan.workMs, breakMs: plan.breakMs, longMs: plan.longMs }
+    db.prepare("insert into sessions (id, task_id, started_at, goal, planned_ms, rounds) values (?, '', ?, ?, ?, ?)").run(id, now(), goal.trim() || null, plan.workMs, JSON.stringify(rounds))
+    return write(id)
+  })
+  // The next stretch, started now: what the pill asks for as one runs out.
+  handle('rounds:next', (id: string, next: { round: number; phase: string; ms: number }) => {
+    const row = db.prepare('select rounds from sessions where id = ? and ended_at is null').get(id) as { rounds: string | null } | undefined
+    if (!row?.rounds) return false
+    const rounds = { ...JSON.parse(row.rounds), round: next.round, phase: next.phase }
+    db.prepare('update sessions set started_at = ?, planned_ms = ?, paused_ms = 0, paused_at = null, rounds = ? where id = ?').run(now(), next.ms, JSON.stringify(rounds), id)
+    return write(true)
+  })
       stopped: one<{ n: number }>("select count(*) n from hint_events where shown_at >= ? and (reaction = 'up' or dwell_ms >= 4000)", ago(30)).n,
       unprocessed: one<{ now: number; weekAgo: number }>(
         "select coalesce(sum(status = 'open'), 0) now, coalesce(sum(captured_at < ? and (status = 'open' or exited_at >= ?)), 0) weekAgo from captures", ago(7), ago(7))

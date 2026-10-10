@@ -154,3 +154,21 @@ test('a length alone is no date at all', () => {
   assert.equal(read.due, null)
   assert.equal(read.title, '10 min walk')
 })
+
+test('~30m and ~1h set how long a task takes', () => {
+  const half = readTask('write the report ~30m tomorrow', at)
+  assert.equal(half.estimate, 30)
+  assert.equal(half.title, 'write the report')
+  assert.equal(day(half.due), 'Tue Oct 06 2026')
+  assert.ok(half.spans.some((span) => span.kind === 'length' && 'write the report ~30m tomorrow'.slice(span.from, span.to) === '~30m'))
+  assert.equal(readTask('plan the trip ~1h', at).estimate, 60)
+  assert.equal(readTask('plan the trip ~1h30m', at).estimate, 90)
+  assert.equal(readTask('plan the trip ~1.5h', at).estimate, 90)
+  assert.equal(readTask('stretch ~ 10 min', at).estimate, 10)
+})
+
+test('a length without a tilde stays in the name', () => {
+  const read = readTask('read 20 min tomorrow', at)
+  assert.equal(read.estimate, null)
+  assert.equal(read.title, 'read 20 min')
+})

@@ -521,7 +521,7 @@ export default function App(): React.JSX.Element {
   // or words lit to do something else (a timer, a clue, a task).
   const { definition, keep: keepDefinition } = useDefinition(!editing && !lesson && !secret && kind === 'word' && !plan?.timer && !plan?.clue && !plan?.task ? defineable(boxText) : null)
   // A timer newly lit is about to act: a brief warm light round the box says so.
-  const timerLit = !editing && !!plan?.timer
+  const timerLit = !editing && (!!plan?.timer || !!plan?.rounds)
   useEffect(() => void (timerLit && boxBeam('warm')), [timerLit])
   const plusGoal = plan?.clue?.question.tier === 'goal'
   // A quote's "- Name" fills Who said it, unless you wrote one there; kept
@@ -956,6 +956,24 @@ export default function App(): React.JSX.Element {
     const timer = plan?.timer
     if (timer) {
       chime('timer')
+    // "4x25 essay": pomodoro rounds in the floating timer, each break with its own sound.
+    const rounds = plan?.rounds
+    if (rounds) {
+      chime('timer')
+      beam('success')
+      boxBeam('sent')
+      void vigil.startRounds(rounds.goal, rounds).then((id) => {
+        window.api.showFocus(true)
+        toast(`${rounds.rounds} ${rounds.rounds === 1 ? 'round' : 'rounds'} of ${lengthSaid(rounds.workMs)} started`, () => {
+          void vigil.cancelSession(id)
+          putDraft(doc)
+          fresh(true)
+        })
+      })
+      fresh()
+      if (!more) window.api.hideWindow()
+      return
+    }
       beam('success')
       boxBeam('sent')
       void vigil.startTimer(timer.goal, timer.ms).then((id) => {

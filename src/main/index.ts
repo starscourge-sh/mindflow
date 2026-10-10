@@ -38,7 +38,7 @@ import icon from '../../resources/icon.png?asset'
 import { alreadyImported, captureText, changed, database, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { backupBase, backupDir } from './backup'
-import { activeSession, atLogin, badge, beaconDefault, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, whenFocusShows } from './vigil'
+import { activeSession, atLogin, badge, beaconDefault, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, whenFocusShows, pillInNotch } from './vigil'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
@@ -570,6 +570,59 @@ const PILL_REST = 64
 let focusWanted = false
 /** The pill on screen: a session wants it, Settings has the bubble showing, and safe mode is off. */
 const pillUp = (): boolean => focusWanted && focusBubbleShown() && !gate().blackout
+/**
+ * The notch, where the screen has one: a Mac's own display whose menu bar is
+ * taller than the 24 points a plain one has (37 or so beside the notch).
+ * MINDFLOW_QA_NOTCH stands one in, for testing on a Mac without.
+ */
+function notchOf(display: Electron.Display): { height: number } | null {
+  const bar = display.workArea.y - display.bounds.y
+  if (process.env.MINDFLOW_QA_NOTCH) return { height: Math.max(bar, 32) }
+  return process.platform === 'darwin' && display.internal && bar >= 30 ? { height: bar } : null
+}
+/** The screen with the notch, if the pill is to sit under one: the Mac's own display. */
+const notchScreen = (): { display: Electron.Display; height: number } | null => {
+  if (!pillInNotch()) return null
+  for (const display of screen.getAllDisplays()) {
+    const notch = notchOf(display)
+    if (notch) return { display, ...notch }
+  }
+  return null
+}
+/**
+ * Put the pill where it sits: hugging the notch, over the menu bar, or back
+ * under the menu bar at the top middle of the screen you are on.
+ */
+function placeFocus(): { notch: number } {
+  if (!focusPill || focusPill.isDestroyed()) return { notch: 0 }
+  const placed = placeFocusOn(focusPill)
+  // Test runs park windows out of sight: where the pill was put is kept for them to read.
+  if (process.env.MINDFLOW_QA_NOTCH) (globalThis as { pillPlaced?: unknown }).pillPlaced = { ...placed, at: focusPillAt }
+  return { notch: placed.notch }
+}
+let focusPillAt: Electron.Rectangle | null = null
+function placeFocusOn(focusPill: BrowserWindow): { notch: number } {
+  const tucked = notchScreen()
+  const { height } = focusPill.getBounds()
+  if (tucked) {
+    const { bounds } = tucked.display
+    focusPill.setAlwaysOnTop(true, 'screen-saver')
+    focusPillAt = { x: Math.round(bounds.x + bounds.width / 2 - 170), y: bounds.y, width: 340, height }
+    focusPill.setBounds(focusPillAt)
+    focusTucked = true
+    return { notch: tucked.height }
+  }
+  focusPill.setAlwaysOnTop(true, 'floating')
+  // Coming out of the notch: back to the top middle, under the menu bar.
+  if (focusTucked) {
+    const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+    focusPillAt = { x: Math.round(workArea.x + workArea.width / 2 - 170), y: workArea.y + 6, width: 340, height }
+    focusPill.setBounds(focusPillAt)
+  }
+  focusTucked = false
+  return { notch: 0 }
+}
+let focusTucked = false
 function showFocus(on: boolean): void {
   focusWanted = on
   // With the time in the note only, the pill is still made and kept hidden:
@@ -578,7 +631,7 @@ function showFocus(on: boolean): void {
   // Put away, its window goes back to the pill's own size for next time.
   if (!on && focusPill && !focusPill.isDestroyed()) focusPill.setBounds({ ...focusPill.getBounds(), height: PILL_REST })
   if (!on) return
-  if (focusPill && !focusPill.isDestroyed()) return void (pillUp() && focusPill.showInactive())
+  if (focusPill && !focusPill.isDestroyed()) return void (placeFocus(), pillUp() && focusPill.showInactive())
   // Top centre of the screen you are on, hung just under the menu bar the way
   // the island hangs under the notch: the work area starts below both, so
   // the notch is never covered.
@@ -602,10 +655,14 @@ function showFocus(on: boolean): void {
     skipTaskbar: true,
     hasShadow: false,
     alwaysOnTop: true,
+    // Under the notch it sits over the menu bar, where a window is otherwise kept from.
+    enableLargerThanScreen: true,
     show: false,
     webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
   })
   focusPill.setAlwaysOnTop(true, 'floating')
+  focusTucked = false
+  placeFocus()
   focusPill.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   focusPill.once('ready-to-show', () => pillUp() && focusPill?.showInactive())
   guard(focusPill)
@@ -2152,6 +2209,8 @@ function updateTray(): void {
       ...(SANDBOX ? [] : [{ label: 'Restore from a backup…', click: () => void restore() }, { label: 'Open the sandbox', click: openSandbox }]),
       { type: 'separator' },
       { label: 'Safe mode', type: 'checkbox', checked: safe, accelerator: chordFor('⌥⌘S'), click: () => (toggleSafeMode(), updateTray()) },
+      { label: 'Close the day…', click: () => inHome('vigil:close-day') },
+      { label: 'What’s new', click: () => inHome('vigil:whats-new') },
       { label: 'Show sticky notes', type: 'checkbox', checked: stickyPrefs().shown, accelerator: chordFor('⌃⌥⌘N'), click: () => showStickies() },
       { label: 'Bring sticky notes here', enabled: !safe && stickies.size > 0, click: () => gatherStickies() },
       { label: 'Tidy stickies', accelerator: chordFor('⌃⌥⌘T'), enabled: !safe && stickies.size > 0, click: () => void tidyStickies() },
@@ -2342,6 +2401,9 @@ app.whenReady().then(() => {
     if (!win || win !== focusPill) return false
     const bounds = win.getBounds()
     const next = Math.round(Math.max(PILL_REST, Math.min(480, Number(height) || PILL_REST)))
+  // Where the pill sits, asked by the pill as it starts and as the setting
+  // changes: put there, and told how tall the notch is (0 for none).
+  ipcMain.handle('focus:place', () => placeFocus())
     if (next !== bounds.height) win.setBounds({ ...bounds, height: next })
     return true
   })
@@ -2390,7 +2452,7 @@ app.whenReady().then(() => {
   void restoreStickies().then(beacons)
   whenGoals(() => (beacons(), updateTray()))
   // The bubble comes or goes with Settings' "Session timer shows in".
-  whenFocusShows(() => focusWanted && showFocus(true))
+  whenFocusShows(() => (focusWanted ? showFocus(true) : placeFocus(), focusPill?.webContents.send('focus:placed')))
   powerMonitor.on('unlock-screen', () => beaconMoment('wake'))
   powerMonitor.on('resume', () => beaconMoment('wake'))
   // At the Mac (touched in the last two minutes) and three hours since the last: out again.

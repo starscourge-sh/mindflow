@@ -87,6 +87,14 @@ export function registerPeriods(): void {
       ) order by at desc limit 400`).all(...range, ...range, ...range)
   })
 
+  // --- a month as a calendar: which days have a page, and how many reviews each day had
+  handle('days:marks', (from: string, to: string) => {
+    const [a, b] = [String(from).slice(0, 10), String(to).slice(0, 10)]
+    const pages = (db.prepare(`select day from day_pages where day >= ? and day <= ? and (reviewed = 1 or coalesce(body, '') not in ('', 'null'))`).all(a, b) as { day: string }[]).map((row) => row.day)
+    const reviews = Object.fromEntries((db.prepare(`select date(reviewed_at, 'localtime') as day, count(*) as n from review_log where date(reviewed_at, 'localtime') between ? and ? group by day`).all(a, b) as { day: string; n: number }[]).map((row) => [row.day, row.n]))
+    return { pages, reviews }
+  })
+
   // --- a page a week, a page a month
   handle('period', (period: string) => {
     const row = db.prepare('select fields, body from period_pages where period = ?').get(period) as { fields: string | null; body: string | null } | undefined

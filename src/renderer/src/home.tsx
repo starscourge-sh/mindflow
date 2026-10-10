@@ -91,6 +91,8 @@ import { asideClick, keepTitle, roomFor, setPaneNotes, setPanes, spendAsideClick
 import XIcon from '@/components/ui/x-icon'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
+import { WhatsNewSheet, openWhatsNew } from '@/components/vigil/whats-new'
+import { CloseDaySheet, openCloseDay } from '@/components/vigil/close-day'
 const ChevronRight = alive(RightChevronIcon)
 const CircleHelp = alive(InfoCircleIcon)
 const PinMark = alive(BookmarkIcon)
@@ -835,6 +837,8 @@ export function Home(): React.JSX.Element {
       <FocusScenery />
       {searching && (
         <Search
+      <WhatsNewSheet onView={(id, focus) => setView({ id, focus })} />
+      <CloseDaySheet />
           key={searchFor}
           initial={searchFor}
           // The same palette as the box's: places to go and things to switch.
@@ -882,6 +886,8 @@ export function Home(): React.JSX.Element {
             ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),
             { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘B', cue: sidebar ? 'fold' : 'slide', run: () => setSidebar(!sidebar) },
             { label: sidebar || detailsShown() ? 'Hide every sidebar' : 'Show every sidebar', keys: '⇧⌘B', cue: null, run: () => { const open = sidebar || detailsShown(); chime(open ? 'fold' : 'slide'); showDetails(!open); setSidebar(!open) } },
+            { label: "What's new: the latest in Vigil, with a way to try each", cue: null, run: openWhatsNew },
+            { label: "Close the day: what got done, and tomorrow's first task", cue: null, run: openCloseDay },
             { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', cue: null, run: () => setFill(!fill) },
             { label: 'Split: this page again, beside it', keys: '⌥⌘\\', cue: null, run: splitFront },
             ...(split.panes.length > 1 ? [

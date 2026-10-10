@@ -61,7 +61,7 @@ export function bucketOf(plan: string | null, at = new Date()): 'month' | 'year'
 }
 
 /** A part of the words that was read as something, by where it sits in them. */
-export type Span = { from: number; to: number; kind: 'date' | 'deadline' | 'repeat' | 'priority' | 'plan' | 'notify' }
+export type Span = { from: number; to: number; kind: 'date' | 'deadline' | 'repeat' | 'priority' | 'plan' | 'notify' | 'length' }
 /** How a task tells you its time has come, over the setting: "!pull", "!quiet" or "!alert". */
 export type Notify = 'pull' | 'quiet' | 'alerts'
 export type ReadTask = {
@@ -80,7 +80,22 @@ export type ReadTask = {
   plan: string | null
   /** Its own reminder level, from a trailing "!alert", "!quiet" or "!pull"; null keeps the setting. */
   notify: Notify | null
+  /** How long it should take, in minutes, from "~30m" or "~1h": null when not said. */
+  estimate: number | null
   spans: Span[]
+}
+
+/**
+ * "~30m", "~1h", "~1h30m", "~1.5h", "~90 min": how long a task should take,
+ * in minutes. The tilde is what says it, so "read 20 min" stays in the name.
+ */
+export const LENGTH_SAID = /(?:^|\s)(~\s?(\d+(?:\.\d+)?)\s*(h|hrs?|hours?|m|mins?|minutes?)(?:\s*(\d+)\s*(?:m|mins?|minutes?))?)(?=\s|$|[,.;!])/i
+export function minutesOf(said: string): number | null {
+  const match = LENGTH_SAID.exec(` ${said.trim()}`)
+  if (!match) return null
+  const n = Number(match[2])
+  const minutes = Math.round(/^h/i.test(match[3]) ? n * 60 + Number(match[4] ?? 0) : n)
+  return minutes >= 1 && minutes <= 24 * 60 ? minutes : null
 }
 
 /**
@@ -138,6 +153,19 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
     notify = level[2].toLowerCase().startsWith('alert') ? 'alerts' : (level[2].toLowerCase() as Notify)
     const from = level.index + level[0].length - level[1].length
     take(from, from + level[1].length, 'notify')
+  }
+
+  // How long it takes, said with a tilde: "~30m", "~1h". Read before the bare
+  // lengths below, which only keep a length in the name.
+  let estimate: number | null = null
+  const sized = find(LENGTH_SAID)
+  if (sized) {
+    const minutes = minutesOf(sized[1])
+    if (minutes) {
+      estimate = minutes
+      const from = sized.index + sized[0].length - sized[1].length
+      take(from, from + sized[1].length, 'length')
+    }
   }
 
   // Priority as Todoist types it: p1 to p4, or one to three !s on their own.
@@ -256,6 +284,7 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
     // A day wins over a vaguer when.
     plan: due ? null : plan,
     notify,
+    estimate,
     spans: spans.sort((a, b) => a.from - b.from)
   }
 }

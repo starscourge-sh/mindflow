@@ -471,6 +471,10 @@ export function SettingsView(): React.JSX.Element {
               on={(id) => id === (settings.focusShows ?? 'bubble')} pick={(focusShows) => set({ focusShows: focusShows as Settings['focusShows'] })} />
           </Setting>
           <Setting title="Pictures in lists" note="A note with a picture in it shows the first one, small, at the end of its row and on its card.">
+          <Setting title="Pill sits" note="**Under the notch, the session pill is a slim black band around it,** the time at its right, and opens when you point at it. Only on a Mac with a notch; elsewhere it stays where you put it." keywords="focus session pill bubble notch island menu bar top dynamic where place">
+            <Chips className="shrink-0" options={[{ id: 'notch', label: 'Under the notch' }, { id: 'free', label: 'Where I put it' }]}
+              on={(id) => id === (settings.pillSits ?? 'free')} pick={(pillSits) => set({ pillSits: pillSits as Settings['pillSits'] })} />
+          </Setting>
             <Switch checked={settings.thumbnails !== false} onCheckedChange={(thumbnails) => set({ thumbnails })} />
           </Setting>
           <Setting title="Covers" note="**What a note with no picture of its own shows on its tile and in its row.** Paper drawings are old pen and pencil sketches, muted to sit on the page and touched with the kind's colour; Gradients are the soft grainy pictures from the Covers folder in Scenery." keywords="covers cover drawings paper sketch gradients tiles thumbnails grid cards placeholder">
@@ -666,6 +670,13 @@ export function SettingsView(): React.JSX.Element {
         </Group>
         <Group section="What comes back to you" title="Every day">
           <Setting title="Daily tidy" note="**Once a day, a few minutes over the last days' captures, deciding nothing.** Add tags, bold a line, fold a section, cross off what is done; never in quiet hours.">
+          <Setting title="Close the day" note="**Once an evening, after this time, Vigil offers to close the day:** what got done, where each open task goes, a line for today's page and tomorrow's first task. ⌘K has it any time." keywords="evening close day shutdown wrap up review plan tomorrow frog first task">
+            {settings.closeDay !== false && <Input type="time" aria-label="Offer it after" className={`${field} w-28`} value={settings.closeDayAt ?? '18:00'} onChange={(event) => set({ closeDayAt: event.target.value })} />}
+            <Switch checked={settings.closeDay !== false} onCheckedChange={(closeDay) => set({ closeDay })} />
+          </Setting>
+          <Setting title="Day ends at" note="**Today counts the hours left until then,** beside the hours your tasks are planned to take: write ~30m or ~1h on a task to give it a length." keywords="day end evening hours left planned estimate length time budget">
+            <Input type="time" aria-label="Day ends at" className={`${field} w-28`} value={settings.dayEnd ?? '22:00'} onChange={(event) => set({ dayEnd: event.target.value })} />
+          </Setting>
             <Switch checked={settings.dailyTidy} onCheckedChange={(dailyTidy) => set({ dailyTidy })} />
           </Setting>
         </Group>
