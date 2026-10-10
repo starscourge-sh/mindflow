@@ -394,6 +394,10 @@ export default function App(): React.JSX.Element {
   const first = firstLine(body)
   // Whether anything is written yet: who and where wait until there is.
   const started = hasContent(body)
+  // The questions and goals the words did not match: one line in the ⋯ menu shows them all.
+  const [offersHidden, setOffersHidden] = useState(0)
+  const [offersAll, setOffersAll] = useState(false)
+  useEffect(() => void (!started && setOffersAll(false)), [started])
   // Who and where, as this kind (or a #book) asks; and what a tag that does something will do.
   const boxText = textOf(body)
   const asks = asksFor(kind, boxText)
@@ -1431,7 +1435,10 @@ export default function App(): React.JSX.Element {
                     if (editing) void vigil.setPrivate('captures', editing.id, on, true)
                   } }
                 ]}
-                actions={[{ label: 'New capture', keys: '⌘N', run: () => startOver() }]}
+                actions={[
+                  { label: 'New capture', keys: '⌘N', run: () => startOver() },
+                  ...(offersHidden > 0 ? [{ label: 'Clue or log: every question and goal', run: () => setOffersAll(true) }] : [])
+                ]}
               />
               </span>
               {/* Only what this kind asks for, unless it already holds something. */}
@@ -1485,7 +1492,7 @@ export default function App(): React.JSX.Element {
             {/* Where else it could go, the questions kept in view and the open goals, on
                 one quiet line, and only once a few words are written: an empty box asks nothing. */}
             {started && !plus && !focus && !lesson && textOf(body).trim().split(/\s+/).length >= 3 && (
-              <BoxOffers words={textOf(body)} onClue={clueToPinned} onLog={logToGoal} />
+              <BoxOffers words={textOf(body)} all={offersAll} onHidden={setOffersHidden} onClue={clueToPinned} onLog={logToGoal} />
             )}
             {/* A hint sits at the foot of the box: a glance at something you
                 wrote once, while you are here to write. Usually empty. */}
