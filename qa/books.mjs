@@ -206,6 +206,8 @@ let throwaway
     await c.theme(look)
     await c.go('inbox')
     await row(c, 'Wall map of Rome').click({ button: 'right' })
+    // Copy to book… sits one level in, under Copy.
+    await c.h.locator('[role="menuitem"]', { hasText: /^Copy$/ }).hover()
     await c.h.locator('[role="menuitem"]', { hasText: 'Copy to book…' }).click()
     await picker(c).waitFor({ timeout: 4000 })
     // Once the row's menu has finished going.
