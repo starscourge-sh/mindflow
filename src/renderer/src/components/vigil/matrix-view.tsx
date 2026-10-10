@@ -28,10 +28,10 @@ const Repeat = alive(RefreshIcon)
 
 /** The four boxes, in reading order: top row important, left column urgent. */
 const QUADS: { id: Quadrant; title: string; said: string; tint: string }[] = [
-  { id: 'do', title: 'Do now', said: 'Urgent and important. These come first, today if you can.', tint: 'red' },
-  { id: 'plan', title: 'Plan', said: 'Important, not urgent. Give each a day before it turns urgent.', tint: 'blue' },
-  { id: 'handoff', title: 'Hand off or batch', said: 'Urgent, not important. Ask someone else, or do them together in one go.', tint: 'orange' },
-  { id: 'drop', title: 'Drop or later', said: 'Neither. Let them go, or put them in Later.', tint: 'gray' }
+  { id: 'do', title: 'Do now', said: 'Urgent and important. Today, if you can.', tint: 'red' },
+  { id: 'plan', title: 'Plan', said: 'Important, not urgent. Give each a day.', tint: 'blue' },
+  { id: 'handoff', title: 'Hand off or batch', said: 'Urgent, not important. Pass on, or do in one go.', tint: 'orange' },
+  { id: 'drop', title: 'Drop or later', said: 'Neither. Let go, or put in Later.', tint: 'gray' }
 ]
 const important = (q: Quadrant): boolean => q === 'do' || q === 'plan'
 const urgent = (q: Quadrant): boolean => q === 'do' || q === 'handoff'
@@ -191,7 +191,7 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
               <Box key={quad.id} id={quad.id}
                 className={`flex min-h-[12rem] min-w-0 flex-col @[34rem]/page:min-h-[calc(50vh-4.5rem)] gap-1 rounded-lg border p-2 transition-colors ${over === quad.id ? 'bg-accent/60 ring-1 ring-ring' : q === at.q ? 'bg-accent/25' : ''}`}>
                 <header className="mb-1 px-1">
-                  <h3 className="flex items-baseline gap-2 text-meta font-medium" style={{ color: `var(--tt-color-text-${quad.tint})` }}>
+                  <h3 className="flex items-baseline gap-2 text-heading font-semibold" style={{ color: `var(--tt-color-text-${quad.tint})` }}>
                     <span>{quad.title}</span>
                     <span className="text-xs font-normal text-muted-foreground tabular-nums"><Rolling text={boxes[q].length} /></span>
                     <Tip label={`Send the task here  ${q + 1}`}><span className="ml-auto"><Pressed keys={String(q + 1)} /></span></Tip>

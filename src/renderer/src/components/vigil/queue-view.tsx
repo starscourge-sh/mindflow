@@ -146,7 +146,7 @@ export function QueueView(): React.JSX.Element {
               <p className="mb-5 text-body text-muted-foreground">The queue is empty: everything in it has been read.</p>
             )}
             {queue.length > 0 && (
-              <Island title={<span className="flex items-center gap-2">Up next <span className="text-xs font-normal text-muted-foreground">drag to reorder · swipe sideways or × to take off</span></span>}>
+              <Island title={<span className="flex items-center gap-2">Up next <span className="text-xs font-normal text-muted-foreground">drag to reorder</span></span>}>
                 <SortableList items={queue} keyOf={(row) => row.id} onMove={(id, target, after) => void readingQueue.move(id, target, after).then(() => chime('settled'))}>
                   {(rows) => rows.map((row, at) => (
                     <SortableRow key={row.id} id={row.id}><QueueLine row={row} at={at} rows={rows} /></SortableRow>

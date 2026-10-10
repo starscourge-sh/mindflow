@@ -41,7 +41,7 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
         <header className="max-w-[40rem]">
           <h1 className="font-heading text-[2rem] leading-[1.1] font-semibold tracking-[-0.02em] text-foreground">What Vigil can do</h1>
           <p className="mf-prose mt-3 text-[1.1875rem] text-muted-foreground">
-            <strong>Most of Vigil stays out of sight until you need it.</strong> Here it is, one card each, and Show me {SANDBOX ? 'takes you to a real example in the sandbox and points at it.' : 'takes you to where it lives.'}
+            <strong>Most of Vigil stays out of sight until you need it.</strong> Press Show me on a card to see it {SANDBOX ? 'in a real example.' : 'where it lives.'}
           </p>
           {used && (
             <p className="mt-3 flex items-center gap-2 text-control text-muted-foreground">

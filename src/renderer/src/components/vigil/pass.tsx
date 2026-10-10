@@ -416,7 +416,7 @@ function Action({ label, keys, tip, tint, on, run }: { label: string; keys: stri
   return (
     <Tip label={tip}>
       <Button variant="ghost" size="sm" onMouseDown={(event) => event.preventDefault()} onClick={run} aria-pressed={on}
-        className={`text-muted-foreground transition-colors hover:text-[var(--tint)] ${on ? 'bg-accent text-[var(--tint)]' : ''}`}
+        className={`font-medium text-foreground/85 transition-colors hover:text-[var(--tint)] ${on ? 'bg-accent text-[var(--tint)]' : ''}`}
         style={{ '--tint': tint ? `var(--tt-color-text-${tint})` : 'var(--foreground)' } as React.CSSProperties}>
         <Rolling text={label} by="word" /> <Pressed className="ml-1" keys={keys} />
       </Button>

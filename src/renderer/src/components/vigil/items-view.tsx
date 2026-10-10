@@ -96,6 +96,7 @@ export const itemEntry = (item: Item, menu?: RowItem[]): Entry => {
   const { text, tags } = splitTags(item.title)
   const recall = !!item.prompt
   const article = item.tier === 'article'
+  const due = recall && !!item.dueAt && new Date(item.dueAt) <= new Date()
   const comes = recall ? (item.dueAt ? `Recall · ${new Date(item.dueAt) <= new Date() ? 'due' : `in ${interval(item.dueAt)}`}` : 'Recall · new') : item.mode === 'pushed' ? 'On rotation' : 'Now and then'
   return {
     id: item.id,
@@ -108,7 +109,9 @@ export const itemEntry = (item: Item, menu?: RowItem[]): Entry => {
     sub: article ? item.attribution ?? undefined : (
       <span className="flex min-w-0 items-center gap-1.5">
         {recall ? <Brain className="size-3 shrink-0" /> : item.mode === 'pushed' ? <RefreshCw className="size-3 shrink-0" /> : <Eye className="size-3 shrink-0" />}
-        <span className="truncate">{[comes, item.attribution].filter(Boolean).join(' · ')}</span>
+        {/* A card due now says so in bold orange: the one word in the row that asks for something. */}
+        {due ? <span className="shrink-0 font-semibold text-[var(--tt-color-text-orange)]">Due for review</span> : null}
+        <span className="truncate">{due ? (item.attribution ? `· ${item.attribution}` : '') : [comes, item.attribution].filter(Boolean).join(' · ')}</span>
       </span>
     ),
     marks: (

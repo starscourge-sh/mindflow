@@ -169,7 +169,8 @@ const goalEntry = (item: Item, today: string, menu?: MenuItem[]): Entry => {
     tint: item.closedAt ? undefined : warmth(left),
     sub: item.closedAt
       ? `${settledSaid(item)} · ${logsSaid(item.clues)}`
-      : `${left < 0 ? `${leftSaid(left)}: did you make it?` : `${leftSaid(left)} · ${percent(wayThrough(item.goalFrom ?? today, item.goalAt ?? today))} of the way`} · ${logsSaid(item.clues)}`,
+      // The days left lead, in the goal's own warmth and bold: the one thing a glance down the list is for.
+      : <><span className="font-semibold" style={{ color: left > 30 ? 'var(--foreground)' : warmth(left) }}>{left < 0 ? `${leftSaid(left)}: did you make it?` : leftSaid(left)}</span>{left < 0 ? '' : ` · ${percent(wayThrough(item.goalFrom ?? today, item.goalAt ?? today))} of the way`} · {logsSaid(item.clues)}</>,
     marks: item.private ? <EyeOff className="size-3 shrink-0 text-muted-foreground" aria-label="Private" /> : null,
     dim: !!item.closedAt,
     private: !!item.private,

@@ -40,11 +40,12 @@ export function ShortcutList({ query, columns = false, quiet = false }: { query:
     <div className={columns ? 'columns-1 gap-6 sm:columns-2' : ''}>
       {grouped(found).map(([group, list]) => (
         <section key={group} className="mb-4 break-inside-avoid">
-          <h3 className="mb-1 px-1 text-meta font-medium text-muted-foreground">{group}</h3>
+          <h3 className="mb-1 px-1 text-control font-semibold text-foreground">{group}</h3>
           {list.map((one: Shortcut) => (
             <div key={one.keys + one.does} data-setting className="flex items-center gap-3 rounded-md px-1 py-1 text-control">
               <span className="min-w-0 flex-1 text-foreground"><Marked text={one.does} query={query} /></span>
-              <span className="hidden text-meta text-muted-foreground min-[28rem]:inline">{one.where}</span>
+              {/* Where it works, only when the heading above has not said it already. */}
+              {one.where !== group && <span className="hidden text-meta text-muted-foreground min-[28rem]:inline">{one.where}</span>}
               <Keys keys={keyFor(one.keys)} />
             </div>
           ))}
@@ -208,7 +209,7 @@ export function KeysEditor({ search = '' }: { search?: string }): React.JSX.Elem
       {grouped(list).map(([group, rows]) => (
         // Where each works shows only while the rows have room for it beside the words.
         <section key={group} className="@container mb-4">
-          <h3 className="mb-1 px-1 text-meta font-medium text-muted-foreground">{group}</h3>
+          <h3 className="mb-1 px-1 text-control font-semibold text-foreground">{group}</h3>
           {rows.map((one) => {
             const now = keyFor(one.keys)
             const tone = toneOf(one)
@@ -220,7 +221,8 @@ export function KeysEditor({ search = '' }: { search?: string }): React.JSX.Elem
                   <span className="text-foreground"><Marked text={one.does} query={query} /></span>
                   {tone && <span className="block text-meta" style={{ color: TONE[tone] }}>Same keys as {others.map((other) => `${other.does} (${other.where})`).join(', ')}</span>}
                 </span>
-                <span className="hidden text-meta text-muted-foreground @min-[30rem]:inline">{one.where}</span>
+                {/* Where it works, only when the heading above has not said it already. */}
+                {one.where !== group && <span className="hidden text-meta text-muted-foreground/80 @min-[30rem]:inline">{one.where}</span>}
                 {fixed(one.keys) ? (
                   <Tip label="Fixed: this key does its job by being the key">
                     <span className="flex items-center"><Keys keys={one.keys} /><span className="flex w-10 justify-end pr-1"><Lock className="size-3 text-muted-foreground" /></span></span>

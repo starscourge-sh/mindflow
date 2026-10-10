@@ -305,14 +305,10 @@ export function MonthPage({ onScale, start, onDay }: { onScale?: (scale: Scale) 
         <DayBanner day={`${month}-01`} seed={`month:${month}`} />
         <Masthead parts={[dayjs(`${month}-01`).format("MMMM 'YY"), `${dayjs(`${month}-01`).daysInMonth()} days`, current && 'This month']}
           headline={fields.season || monthName(month)} named={!!fields.season} />
-        <p className="mt-2 text-meta text-muted-foreground">
-          <Typed key={key} text="Two fields, no numbers: a name for this stretch of time." step={28} />
-        </p>
-        {/* The month's days, each wearing its mark: right-click one to mark it. */}
-        <div className="mt-5"><DayGrid key={month} label={`${monthName(month)}, day by day`} days={Array.from({ length: dayjs(`${month}-01`).daysInMonth() }, (_, at) => `${month}-${String(at + 1).padStart(2, '0')}`)} onOpenDay={onDay} /></div>
-        {/* Both fields empty: the same two, filled in, to show the kind of thing that goes in them. */}
+        {/* Both fields empty: the same two, filled in, to show the kind of thing
+            that goes in them. Above the days, so it is seen without scrolling. */}
         {page && !fields.focus && !fields.season && (
-          <Example flush className="mt-6" tryIt="write a few words in Focus as the month starts, and name its Season of life as it ends. The year page lines the seasons up.">
+          <Example flush className="mt-4" tryIt="write a Focus as the month starts, and name its Season of life as it ends.">
             <Island>
               {([['Focus', exampleMonth.focus], ['Season of life', exampleMonth.season]] as const).map(([label, text]) => (
                 <p key={label} className="flex flex-col gap-0.5 px-4 py-2.5">
@@ -323,6 +319,13 @@ export function MonthPage({ onScale, start, onDay }: { onScale?: (scale: Scale) 
             </Island>
           </Example>
         )}
+        {(!page || fields.focus || fields.season) && (
+          <p className="mt-2 text-meta text-muted-foreground">
+            <Typed key={key} text="Two fields, no numbers: a name for this stretch of time." step={28} />
+          </p>
+        )}
+        {/* The month's days, each wearing its mark: right-click one to mark it. */}
+        <div className="mt-5"><DayGrid key={month} label={`${monthName(month)}, day by day`} days={Array.from({ length: dayjs(`${month}-01`).daysInMonth() }, (_, at) => `${month}-${String(at + 1).padStart(2, '0')}`)} onOpenDay={onDay} /></div>
         {page && (
           <Island key={key} className="mt-6">
             <Field label="Focus" long hint="Looking ahead: where to put your energy this month." value={fields.focus ?? ''}

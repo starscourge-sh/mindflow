@@ -84,8 +84,8 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
       <Page title="Tags" count={example ? undefined : tags.length} unit={['tag', 'tags']}>
         {/* The tags that do something, said before you need them: they work from the first time you write one. */}
         {!chosen && (
-          <p className="mx-5 mt-3 text-xs text-muted-foreground">
-            Some tags do something. <span className="text-foreground">#bit</span> keeps a note private, <span className="text-foreground">#book</span> adds a reading status, a rating and a takeaway, and a tag set to Makes a task (#bug, #fix) sends it to your tasks.
+          <p className="mx-5 mt-3 text-control text-muted-foreground">
+            <strong className="text-foreground">Some tags do something.</strong> #bit keeps a note private; #book adds a reading status and a rating.
           </p>
         )}
         {tags.length ? (
