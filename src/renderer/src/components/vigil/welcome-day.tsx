@@ -328,12 +328,12 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
                   <span aria-hidden>💡</span>Mary Shelley began it at eighteen, at Lake Geneva in 1816, the year without a summer.
                 </motion.div>
               ) : s.slash ? (
-                <p className={p}><span className="rounded-[0.2em] bg-primary/12 px-[0.1em] text-primary">{s.slash}</span>{caret}</p>
+                <p className={`${p} !mb-1`}>{s.slash}{caret}</p>
               ) : null}
-              {/* The block menu, as "/" opens it, narrowing as the name is typed. */}
+              {/* The block menu, as "/" opens it, under the line, narrowing as the name is typed; the lines below make room. */}
               <AnimatePresence>
                 {s.slash && !s.callout && (
-                  <motion.div key="menu" className="absolute top-[calc(100%-0.5rem)] left-0 z-10 w-52 rounded-lg border bg-popover p-1 font-sans text-popover-foreground shadow-(--mf-panel-shadow)"
+                  <motion.div key="menu" className="relative z-10 mb-3 w-52 rounded-lg border bg-popover p-1 font-sans text-popover-foreground shadow-(--mf-panel-shadow)"
                     initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: spring.fast.exit }} transition={spring.fast}>
                     {blocks.map(([Icon, title], i) => (
                       <div key={title} className={`flex h-8 items-center gap-2 rounded-md px-2 text-[0.8125rem] ${i === 0 ? 'bg-accent text-foreground' : 'text-muted-foreground'}`}>

@@ -82,9 +82,9 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
   const at = (kin: Kin): { x: number; y: number } => ({ x: kin.col * cw + (cw - nw) / 2, y: mid + kin.row * ROW })
   const byId = new Map(FAMILY.map((kin) => [kin.id, kin]))
   const shown = (kin: Kin): boolean => shot.step >= kin.step
-  // A line draws first; what it leads to lands as it arrives.
-  const draw = quiet ? { duration: 0 } : { duration: 0.5, ease: EASE }
-  const land = quiet ? { duration: 0 } : { duration: 0.35, ease: EASE, delay: 0.38 }
+  // A line and what it leads to arrive together: no line ever runs on to nothing.
+  const draw = quiet ? { duration: 0 } : { duration: 0.4, ease: EASE }
+  const land = quiet ? { duration: 0 } : { duration: 0.35, ease: EASE }
   return (
     <figure aria-label="How a thought grows: a spark, caught, written out, branching into new ideas, then a task and a gem for Review" className="flex min-h-0 w-full flex-1 flex-col">
       <div ref={box} className="relative min-h-[12rem] flex-1">
