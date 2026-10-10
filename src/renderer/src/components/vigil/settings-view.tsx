@@ -1355,11 +1355,11 @@ function ImportButton({ what, children }: { what: 'vault' | 'files'; children: R
   )
 }
 
-/** The frosted, see-through window, or a solid one in the theme's colour. */
+/** Quick capture frosted and see-through, or solid in the theme's colour (main.css .app-container). */
 function Frosted(): React.JSX.Element {
   const [on, setOn] = useState(frosted)
   return (
-    <Setting title="See-through windows" note="**On, the desktop shows through every window, frosted.** Off, windows are solid in your theme's colour.">
+    <Setting title="See-through quick capture" note="**On, your desktop shows through quick capture, frosted.** Only with a dark theme: Paper, light themes and Midnight stay solid so the words stay readable. Off, it is solid in your theme's colour. The main window is always solid." keywords="see-through windows frosted glass transparent blur vibrancy quick capture">
       <Switch
         checked={on}
         onCheckedChange={(next) => {
