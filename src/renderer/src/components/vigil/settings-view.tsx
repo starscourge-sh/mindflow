@@ -467,17 +467,20 @@ export function SettingsView(): React.JSX.Element {
             <Chips className="shrink-0" options={[{ id: 'circle', label: 'Circle' }, { id: 'runner', label: 'Runner' }, { id: 'progress', label: 'Runner as progress' }]}
               on={(id) => id === (settings.focusBubble ?? 'circle')} pick={(focusBubble) => set({ focusBubble: focusBubble as Settings['focusBubble'] })} />
           </Setting>
-          <Setting title="Session timer shows in" note="**Where a focus session's time shows.** The note gets a quiet line at its foot with the time left (or so far, with no set length), dots that light as it goes and the words written since; with the note alone, no bubble." keywords="focus session timer footer note foot dots words count bubble pill where">
+          <Setting title="Session timer shows in" note="**Where a focus session's time shows.** The note gets a quiet line at its foot with the time left (or so far, with no set length), dots that light as it goes and the words written since; with the note alone, no bubble and no count in." keywords="focus session timer footer note foot dots words count bubble pill where">
             <Chips className="shrink-0" options={[{ id: 'bubble', label: 'The bubble' }, { id: 'note', label: 'The note' }, { id: 'both', label: 'Both' }]}
               on={(id) => id === (settings.focusShows ?? 'bubble')} pick={(focusShows) => set({ focusShows: focusShows as Settings['focusShows'] })} />
           </Setting>
           <Setting title="Count in a session" note="**The five-second rule: a session counts 5, 4, 3, 2, 1 with a tick each,** then its clock starts. Off, it starts at once." keywords="five second rule count countdown 5 4 3 2 1 start session focus tick launch">
             <Switch checked={!!settings.countIn} onCheckedChange={(countIn) => set({ countIn })} />
           </Setting>
-          <Setting title="Pill sits" note="**Under the notch, the session pill is a slim black band around it,** the time at its right, and opens when you point at it. Only on a Mac with a notch; elsewhere it stays where you put it." keywords="focus session pill bubble notch island menu bar top dynamic where place">
-            <Chips className="shrink-0" options={[{ id: 'notch', label: 'Under the notch' }, { id: 'free', label: 'Where I put it' }]}
-              on={(id) => id === (settings.pillSits ?? 'free')} pick={(pillSits) => set({ pillSits: pillSits as Settings['pillSits'] })} />
-          </Setting>
+          {/* With the time in the note alone there is no bubble to place. */}
+          {settings.focusShows !== 'note' && (
+            <Setting title="Bubble sits" note="**Under the notch, the session bubble is a slim black band around it,** the time at its right, and opens when you point at it. Only on a Mac with a notch; elsewhere it stays where you put it." keywords="focus session pill bubble notch island menu bar top dynamic where place">
+              <Chips className="shrink-0" options={[{ id: 'notch', label: 'Under the notch' }, { id: 'free', label: 'Where I put it' }]}
+                on={(id) => id === (settings.pillSits ?? 'free')} pick={(pillSits) => set({ pillSits: pillSits as Settings['pillSits'] })} />
+            </Setting>
+          )}
           <Setting title="Pictures in lists" note="A note with a picture in it shows the first one, small, at the end of its row and on its card.">
             <Switch checked={settings.thumbnails !== false} onCheckedChange={(thumbnails) => set({ thumbnails })} />
           </Setting>
@@ -610,7 +613,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Volume" note="How loud every sound is, from silent to as loud as they were made.">
             <SettingSlider disabled={!settings.sounds} min={0} max={1} step={0.05} value={settings.volume} onSave={(volume) => set({ volume })} />
           </Setting>
-          <Setting title="Tick while a session runs" note="**A clock ticks quietly while you focus.** Paused, it stops. The last ten seconds tick slower and tenser either way, and an alarm clock rings at the end. Right-click the session bubble to switch it too." keywords="tick ticking clock focus session timer countdown alarm">
+          <Setting title="Tick while a session runs" note="**A clock ticks quietly while you focus.** Paused, it stops, and the last ten seconds tick slower and tenser. Off, there is no tick at all; the alarm clock still rings at the end. Right-click the session bubble to switch it too." keywords="tick ticking clock focus session timer countdown alarm">
             <Switch disabled={!settings.sounds} checked={settings.sessionTick === true} onCheckedChange={(sessionTick) => set({ sessionTick })} />
           </Setting>
           <Setting under title="Ticking volume" note="How loud the ticking is, under the Volume above.">
@@ -779,7 +782,7 @@ export function SettingsView(): React.JSX.Element {
         </Group>
 
         <Group section="Tasks" title="Reminders">
-          <Setting title="When a task's time comes" note="**Pull, Quiet or Alerts, unless a task picks its own.** Pull moves it to the top of Today; Quiet only counts it in the menu bar, without a sound; Alerts counts it there too and sends a notification with a sound, once, at its time; never in quiet hours or for an all-day task.">
+          <Setting title="When a task's time comes" note="**Pull, Quiet or Alerts, unless a task picks its own.** Pull moves it to the top of Today; Quiet only counts it in the menu bar, without a sound; Alerts counts it there too and sends a notification once, at its time, with a sound if Sounds is on; one due in quiet hours waits until they end. Never for an all-day task.">
             <div className="flex rounded-md border p-0.5">
               {(['pull', 'quiet', 'alerts'] as const).map((level, index) => (
                 <button

@@ -17,6 +17,7 @@ import { daysBetween, daysLeft, leftSaid } from './goal-days'
 import { LEECH_AT, bucketOf, daysInARow, fitFirstDays, minutesFor, struggling, type Bucket } from './study'
 import { syncLineCards } from './line-cards'
 import { LEARN_DECK, LEARN_TAG } from './learn-deck'
+import { ALERT_AT, dueAlerts } from './task-alerts'
 
 /**
  * Everything past the capture: nuggets and articles, the review queue, tasks,
@@ -217,7 +218,7 @@ const DEFAULTS = {
   // How loud they are, from silent to full.
   volume: 1,
   // A clock ticking while a focus session runs: off unless asked for, and
-  // how loud, under the Volume above. Its last ten seconds tick regardless.
+  // how loud, under the Volume above. Off, its last ten seconds are silent too.
   sessionTick: false,
   sessionTickVolume: 0.5,
   // Now and then a light glides across the session bubble, in case it was forgotten.
@@ -2616,7 +2617,9 @@ export function registerVigil(): void {
     const id = randomUUID()
     const at = now()
     // The five-second rule: it starts held, and the pill lets it go after counting 5 to 1.
-    db.prepare('insert into sessions (id, task_id, started_at, goal, planned_ms, paused_at) values (?, ?, ?, ?, ?, ?)').run(id, taskId, at, goal?.trim() || null, plannedMs ?? null, settings().countIn ? at : null)
+    // Only with the pill on screen: a count nobody can see would only hold the session up.
+    const countIn = settings().countIn && focusBubbleShown() && !gate().blackout
+    db.prepare('insert into sessions (id, task_id, started_at, goal, planned_ms, paused_at) values (?, ?, ?, ?, ?, ?)').run(id, taskId, at, goal?.trim() || null, plannedMs ?? null, countIn ? at : null)
     return write(id)
   })
   /** The session running now, with its task's name, for the floating timer. */
@@ -2684,19 +2687,22 @@ export function registerVigil(): void {
   // --- a time of day means something happens at that time
   // Pull: it is already first in Today. Quiet: the menu bar counts it. Alerts:
   // a notification, once per due time. All-day tasks never alert.
+  // Held while the screen is shared or in quiet hours, and shown once that ends.
+  let heldSince: number | null = null
   setInterval(() => {
-    // Not over a shared screen, nor in quiet hours: held, and shown once they
-    // end if the time is still within the hour.
     const { blackout, hidePrivate } = gate()
-    if (!Notification.isSupported() || blackout || hidePrivate) return
+    if (!Notification.isSupported()) return
+    if (blackout || hidePrivate) {
+      heldSince ??= Date.now()
+      return
+    }
     // A task's own level wins over the setting: most never set one.
-    const due = db.prepare(
-      `select id, title from tasks where status = 'open' and ${ALERT_AT} <= ? and ${ALERT_AT} > ? and notified_at is null and coalesce(notify, ?) = 'alerts'`
-    ).all(now(), new Date(Date.now() - 3600000).toISOString(), settings().notify) as { id: string; title: string }[]
-    for (const task of due) {
-      new Notification({ title: task.title, body: 'Due now', silent: false }).show()
+    const { notify, sounds } = settings()
+    for (const task of dueAlerts(db, Date.now(), notify, heldSince)) {
+      new Notification({ title: task.title, body: 'Due now', silent: !sounds }).show()
       db.prepare('update tasks set notified_at = ? where id = ?').run(now(), task.id)
     }
+    heldSince = null
   }, 30_000)
   setInterval(remindNow, 30_000)
 
@@ -2907,9 +2913,6 @@ export function registerVigil(): void {
       })
   })
 }
-
-/** When a task's time comes: its timed date, or else a timed "by", as "by 5pm". All-day ones never come. */
-const ALERT_AT = 'case when due_at is not null and all_day = 0 then due_at when deadline_timed = 1 then deadline_at end'
 
 /** Today's review queue, set once the handlers are registered; the badge counts it too. */
 let reviewQueue: () => unknown[] = () => []

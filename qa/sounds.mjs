@@ -77,7 +77,7 @@ try {
   check('time up rings the alarm', log.includes('clock-alarm'), log.join(' '))
   await v('session:cancel', id)
 
-  // Ticking off: no tick, but the tense last seconds still play.
+  // Ticking off: no tick at all, the last ten seconds included.
   await v('settings:set', { sessionTick: false })
   await pill.waitForTimeout(2500)
   let before = (await heard(pill)).length
@@ -87,11 +87,8 @@ try {
   check('with ticking off, no tick', !log.includes('clock-tick'), log.join(' '))
   await pill.waitForTimeout(2500)
   log = (await heard(pill)).slice(before)
-  check('with ticking off, the last ten seconds still tick', log.includes('clock-tense'), log.join(' '))
+  check('with ticking off, the last ten seconds are silent too', !log.includes('clock-tense') && !log.includes('clock-tick'), log.join(' '))
   await v('session:cancel', id)
-  await pill.waitForTimeout(800)
-  log = (await heard(pill)).slice(before)
-  check('cancelling stops the tense tick', log.at(-1) === 'clock-stop', log.join(' '))
 
   // Sounds off: nothing at all, start to alarm.
   await v('settings:set', { sounds: false, sessionTick: true })

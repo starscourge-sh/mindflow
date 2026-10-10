@@ -87,7 +87,7 @@ export function FocusPill(): React.JSX.Element | null {
     return () => clearInterval(timer)
   }, [])
   // The session's clock, heard: ticking if asked for, the last ten seconds
-  // always, nothing paused, over or in safe mode. Silenced as the pill goes.
+  // tenser, nothing paused, over or in safe mode. Silenced as the pill goes.
   const running = !!focus && !focus.pausedAt && !settings?.safeMode
   const timeLeft = focus?.plannedMs ? focus.plannedMs - worked(focus, now) : null
   useEffect(() => sessionClock({ running, left: timeLeft, tick: !!settings?.sessionTick, level: settings?.sessionTickVolume ?? 0.5 }), [running, timeLeft, settings?.sessionTick, settings?.sessionTickVolume])

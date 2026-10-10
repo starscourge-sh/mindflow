@@ -594,9 +594,9 @@ export async function saberLength(up: boolean): Promise<number> {
 }
 
 /**
- * A focus session's clock. Ticking, if you asked for it, while it runs; the
- * last ten seconds a slower, tenser tick, one a second, whether or not; and
- * at the end an alarm clock's three rings. All of it stops the moment the
+ * A focus session's clock. Ticking, if you asked for it, while it runs, the
+ * last ten seconds a slower, tenser tick, one a second; and at the end, ticking
+ * or not, an alarm clock's three rings. All of it stops the moment the
  * session pauses, ends or is called off, and none of it plays in safe mode.
  */
 type Clock = { running: boolean; left: number | null; tick: boolean; level: number }
@@ -608,7 +608,7 @@ const hush = (): void => {
 }
 export function sessionClock({ running, left, tick, level }: Clock): void {
   const last = left !== null && left > 0 && left <= 10_000
-  const kind = !running || !enabled || !volume ? null : last ? 'tense' : tick && (left === null || left > 0) ? 'calm' : null
+  const kind = !running || !tick || !enabled || !volume ? null : last ? 'tense' : left === null || left > 0 ? 'calm' : null
   // Started again only when what should play changes, or how loud.
   const key = kind && `${kind} ${level} ${volume}`
   if (key === (ticking?.key ?? null)) return

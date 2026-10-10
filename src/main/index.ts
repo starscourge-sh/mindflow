@@ -750,8 +750,10 @@ function tellStickiesOut(): void {
     for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.webContents.send('stickies:out', now)
   }, 0)
 }
+/** The stickies and the Look over one: kept by their own rule, never the plain one. */
+const shielded = new WeakSet<BrowserWindow>()
 /** Kept out of screen shares and recordings when either setting says so. */
-const shield = (win: BrowserWindow): void => win.setContentProtection(!recordable || stickyPrefs().unshared)
+const shield = (win: BrowserWindow): void => (shielded.add(win), win.setContentProtection(!recordable || stickyPrefs().unshared))
 /** Every sticky as the settings say now: shown or away, shared or not. */
 function applyStickies(): void {
   for (const [key, win] of stickies) {
@@ -2669,7 +2671,8 @@ app.whenReady().then(() => {
 
   ipcMain.handle('window:recordable', (_event, on: unknown) => {
     recordable = Boolean(on)
-    for (const win of BrowserWindow.getAllWindows()) win.setContentProtection(!recordable)
+    // Each window set once, to where it ends up: a sticky kept from shares never shows in between.
+    for (const win of BrowserWindow.getAllWindows()) if (shielded.has(win)) shield(win); else win.setContentProtection(!recordable)
     applyStickies()
     return recordable
   })
