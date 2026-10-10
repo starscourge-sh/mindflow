@@ -58,6 +58,9 @@ export interface Api {
   showFocus: (on: boolean) => void
   idleSeconds: () => Promise<number>
   focusMenu: (ticking: boolean) => Promise<'tick' | null>
+  focusSize: (height: number) => Promise<boolean>
+  focusShot: () => Promise<{ url: string } | { denied: true } | null>
+  screenSettings: () => void
   glow: (tone: 'done' | 'cancel') => void
   onGlow: (listen: (tone: 'done' | 'cancel') => void) => () => void
   stick: (type: string, id: string, on: boolean) => void

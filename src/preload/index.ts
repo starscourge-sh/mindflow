@@ -104,6 +104,12 @@ const api = {
   idleSeconds: (): Promise<number> => ipcRenderer.invoke('idle:seconds'),
   /** The focus pill's right-click menu: resolves to what was chosen, or null. */
   focusMenu: (ticking: boolean): Promise<'tick' | null> => ipcRenderer.invoke('focus:menu', ticking),
+  /** The pill's window, as tall as the island needs: it grows down from where it hangs. */
+  focusSize: (height: number): Promise<boolean> => ipcRenderer.invoke('focus:size', height),
+  /** A screenshot of the pill's screen for the session's log, stored; denied without Screen Recording. */
+  focusShot: (): Promise<{ url: string } | { denied: true } | null> => ipcRenderer.invoke('focus:shot'),
+  /** macOS's Screen Recording settings, for the way back from a denied screenshot. */
+  screenSettings: (): void => ipcRenderer.send('focus:screen-settings'),
   /** Light around the edge of the screen: a session or timer finished, or called off. */
   glow: (tone: 'done' | 'cancel'): void => ipcRenderer.send('glow', tone),
   /** In the glow's own window: each glow, including one asked for while it loaded. */
