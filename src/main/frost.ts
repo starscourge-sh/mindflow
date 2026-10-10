@@ -33,7 +33,11 @@ const pictures = new Map<number, { path: string; stamp: string; image?: Promise<
 const windows = new Map<BrowserWindow, { up: () => boolean; display?: number; paper?: boolean }>()
 
 /** Ask which picture each screen shows now. Quiet on failure: no picture is the fallback. */
-function ask(): Promise<void> {
+let asking: Promise<void> | null = null
+// One question at a time: several stickies shown together after a while away
+// each asked at once, a pile of osascript runs for the same answer.
+const ask = (): Promise<void> => (asking ??= askNow().finally(() => void (asking = null)))
+function askNow(): Promise<void> {
   if (process.platform !== 'darwin') return Promise.resolve()
   return new Promise((done) =>
     execFile('osascript', ['-l', 'JavaScript', '-e', ASK], { timeout: 5000 }, async (error, stdout) => {
