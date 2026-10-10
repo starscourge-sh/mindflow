@@ -7,6 +7,8 @@ import dunesUrl from '@/assets/welcome/dunes.webp'
 import tabletUrl from '@/assets/sandbox/cuneiform-tablet.webp'
 import plaqueUrl from '@/assets/sandbox/odysseus-plaque.webp'
 import headUrl from '@/assets/sandbox/marble-head.webp'
+import frankensteinUrl from '@/assets/sandbox/frankenstein-1831.webp'
+import champollionUrl from '@/assets/sandbox/champollion.webp'
 import dotUrl from '@/assets/sandbox/pale-blue-dot.webp'
 import monaUrl from '@/assets/sandbox/mona-lisa.webp'
 import annunciationUrl from '@/assets/sandbox/annunciation.webp'
@@ -1088,6 +1090,8 @@ French soldiers found the stone in 1799 near Rashid, which Europeans called Rose
 
 The British took the stone in 1801, and it has been in the British Museum since 1802. Thomas Young worked out that the oval rings, the cartouches, held royal names. In 1822 Jean-François Champollion showed that hieroglyphs spell sounds as well as ideas, and the whole script opened up.
 
+![Jean-François Champollion, painted by Léon Cogniet in 1831|300](${await picture(champollionUrl)})
+
 > [!info] What made it work
 > Not a genius alone: a text everyone could already read, sitting beside the ones nobody could.
 
@@ -1230,7 +1234,9 @@ host: en.wikipedia.org
   // How a thought grows: the question caught at the bus stop, the note it became, and what branched off it.
   const story = await capture({}, at(-5, '08:13'))
   await write(story, `${FLOW_WORDS.caught}\n\nWalton writes the letters, Victor tells his story inside them, and the creature tells his inside Victor's.`)
-  await essay(FLOW_WORDS.note, FLOW_WORDS.lines.join('\n\n'))
+  await essay(FLOW_WORDS.note, `${FLOW_WORDS.lines.join('\n\n')}
+
+![The 1831 frontispiece: the creature wakes and Victor runs|300](${await picture(frankensteinUrl)})`)
   await task(`${FLOW_WORDS.task} on Saturday`)
   const speaks = await v<string>('nugget:from', `${FLOW_WORDS.gem}: by listening to a family through a wall, before anyone has spoken to him.`, {})
   await v('item:save', speaks, { title: FLOW_WORDS.gem, prompt: 'How does the creature learn to speak?' })

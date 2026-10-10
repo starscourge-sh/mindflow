@@ -45,3 +45,10 @@ NASA (public domain; no NASA logo, no endorsement implied), downloaded 2026-10-0
 
 Not bundled, on purpose: ~/Documents/img/gradients (source not verified), and every
 picture listed under "Not bundled" or "Never bundle" in the sandbox design.
+
+Added 2026-10-10, public domain (Wikimedia Commons, PD-Art / PD-old):
+  frankenstein-1831.webp  Theodor von Holst, drawn, and William Chevalier, engraved: frontispiece to
+                          Frankenstein, London: Colburn and Bentley, 1831.
+                          From Frankenstein.1831.inside-cover.jpg (Wikimedia Commons)
+  champollion.webp        Léon Cogniet (1794 to 1880), Jean-François Champollion, 1831. Louvre.
+                          From Leon_Cogniet_-_Jean-Francois_Champollion.jpg (Wikimedia Commons)
