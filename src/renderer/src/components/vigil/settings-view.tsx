@@ -1256,11 +1256,11 @@ function GiphySettings({ settings, on, set }: { settings: Settings; on: boolean;
   const live = on && settings.giphy === true
   return (
     <>
-      <Setting title="Celebrate with a GIF from Giphy" note="**A GIF on each task you finish, and on milestones with no files of their own.** Found on Giphy with your own key and words; offline or with no key, the folder plays instead." keywords="giphy gif task done finish meme ed edd eddy">
+      <Setting title="Celebrate with a GIF from Giphy" note="**A GIF on each task you finish, and on milestones with no files of their own.** Found on Giphy with your words; offline, the folder plays instead." keywords="giphy gif task done finish meme ed edd eddy">
         <Switch checked={settings.giphy === true} disabled={!on} onCheckedChange={(giphy) => set({ giphy })} />
       </Setting>
-      <Setting under title="Giphy key" note="**Your own, free from developers.giphy.com.** Kept in your settings and their backups, and sent only to Giphy." keywords="giphy key api token">
-        <TextSetting type="password" placeholder="Paste your key" className="h-8 w-56" disabled={!on} value={settings.giphyKey ?? ''} onSave={(giphyKey) => set({ giphyKey: giphyKey.trim() })} />
+      <Setting under title="Giphy key" note="**Optional: Vigil has its own key built in.** Paste yours, free from developers.giphy.com, and Vigil uses yours instead, kept in your settings and their backups and sent only to Giphy." keywords="giphy key api token">
+        <TextSetting type="password" placeholder="Optional: your own key" className="h-8 w-56" disabled={!on} value={settings.giphyKey ?? ''} onSave={(giphyKey) => set({ giphyKey: giphyKey.trim() })} />
       </Setting>
       <Setting under title="Search words" note="**What it looks for on Giphy.** A new list comes once a day." keywords="giphy search words query">
         <TextSetting placeholder="ed edd n eddy celebrate" className="h-8 w-56" disabled={!on} value={settings.giphyWords ?? ''} onSave={(giphyWords) => set({ giphyWords })} />
