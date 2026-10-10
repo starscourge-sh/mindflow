@@ -21,7 +21,7 @@ import { questionEntry, startQuestion } from './questions-view'
 import { num } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
 
-const TIERS = [{ id: 'nugget', label: 'Ideas' }, { id: 'article', label: 'Writing' }, { id: 'question', label: 'Questions' }] as const
+const TIERS = [{ id: 'nugget', label: 'Gems' }, { id: 'article', label: 'Writing' }, { id: 'question', label: 'Questions' }] as const
 
 /**
  * What you kept, in the prompt: nuggets, articles and the questions you are
@@ -72,7 +72,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     void vigil.article(ids).then((id) => {
       chime('promote')
       setChosen([])
-      toast(ids.length > 1 ? `An article, from ${num(ids.length)} ideas` : 'An article, from this idea')
+      toast(ids.length > 1 ? `An article, from ${num(ids.length)} gems` : 'An article, from this gem')
       onOpen('article', id)
     })
   // A question is held, not tested: its own short menu.
@@ -141,13 +141,13 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
         />
       ) : unloaded(all) ? null : !all.length ? (
         // Nothing kept yet: the tab as it will look, with a few made-up ones.
-        <Example compact tryIt={tier === 'nugget' ? 'pick a note in your Inbox list and press P. It lands here, ready to come back to you.' : tier === 'question' ? 'press H on a note in your Inbox. It is held here, gathering clues.' : 'press New article above, or start one from an idea.'}>
+        <Example compact tryIt={tier === 'nugget' ? 'pick a note in your Inbox list and press P. It lands here, ready to come back to you.' : tier === 'question' ? 'press H on a note in your Inbox. It is held here, gathering clues.' : 'press New article above, or start one from a gem.'}>
           <NoteList groups={[['', (tier === 'nugget' ? exampleIdeas() : tier === 'question' ? exampleQuestions().filter((one) => !one.closedAt) : exampleWriting()).map((one) => (tier === 'question' ? questionEntry(one) : itemEntry(one)))]]}
             density={tier === 'question' ? 'list' : density} table="nuggets" cursor={-1} onPick={() => undefined} />
         </Example>
       ) : (
-        <Empty compact shape={tier === 'nugget' ? ['star', 3] : tier === 'question' ? ['ellipse', 3] : ['polygon', 4]} title={tier === 'nugget' ? 'No ideas yet' : tier === 'question' ? 'No questions yet' : 'No writing yet'}>
-          {tier === 'nugget' ? 'Keep one from your Inbox with P and it lands here, to come back to you.' : tier === 'question' ? 'For what you keep thinking about and cannot answer yet. Press H on a note in your Inbox to make it a question.' : 'Your own words on one idea. Start one with New article, or from one of your ideas.'}
+        <Empty compact shape={tier === 'nugget' ? ['star', 3] : tier === 'question' ? ['ellipse', 3] : ['polygon', 4]} title={tier === 'nugget' ? 'No gems yet' : tier === 'question' ? 'No questions yet' : 'No writing yet'}>
+          {tier === 'nugget' ? 'Keep one from your Inbox with P and it lands here, to come back to you.' : tier === 'question' ? 'For what you keep thinking about and cannot answer yet. Press H on a note in your Inbox to make it a question.' : 'Your own words on one idea. Start one with New article, or from one of your gems.'}
         </Empty>
       )}
     </div>

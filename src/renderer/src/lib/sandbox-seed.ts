@@ -477,7 +477,7 @@ A word keeps its meaning and an example. Keep it and it comes back in Review as 
   await write(odyssey, `
 Tell me, O muse, of that ingenious hero who travelled far and wide after he had sacked the famous town of Troy. Many cities did he visit, and many were the nations with whose manners and customs he was acquainted; moreover he suffered much by sea while trying to save his own life and bring his men safely home; but do what he might he could not save his men, for they perished through their own sheer folly in eating the cattle of the Sun-god Hyperion; so the god prevented them from ever reaching home.
 
-A long quote is a passage you mean to mine. **Try it:** select one sentence and choose **Idea** in the bar that appears. It is kept on its own, and once something is lifted out, the long quote steps aside.
+A long quote is a passage you mean to mine. **Try it:** select one sentence and choose **Gem** in the bar that appears. It is kept on its own, and once something is lifted out, the long quote steps aside.
 
 ![A clay plaque from Melos showing Odysseus|360](${plaque})
 

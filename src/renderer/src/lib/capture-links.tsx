@@ -29,7 +29,7 @@ export const STATUS_ICON = {
 /** The three ways out of a capture, each one key where a card has the focus. */
 export const EXITS = [
   // Their colours mean the same everywhere: kept, done, let go.
-  { key: 'p', status: 'promoted', label: 'Save as an idea', done: 'Saved as an idea', tint: 'purple', what: 'Save it as an idea: it can come back to you, and be tested' },
+  { key: 'p', status: 'promoted', label: 'Save as a gem', done: 'Saved as a gem', tint: 'purple', what: 'Save it as a gem: it can come back to you, and be tested' },
   { key: 'r', status: 'resolved', label: 'Resolve', done: 'Resolved', tint: 'green', what: 'Done with it: dealt with, or no longer needed' },
   { key: 'd', status: 'discarded', label: 'Discard', done: 'Discarded', tint: 'red', what: 'Let it go: into Discarded, where it can come back' },
   // Not a status of its own: the capture is kept, inside a new question. H for
@@ -133,7 +133,7 @@ let kinds: Record<string, LinkKind & { group: string }> | null = null
 // Made when first asked for, not as this file loads: the kind picker it reads may not have loaded yet.
 export const linkKinds = (): Record<string, LinkKind & { group: string }> => (kinds ??= {
   ...Object.fromEntries(CAPTURE_TYPES.map((type) => [type.id, { label: type.label, group: `${type.label}s`, icon: type.icon, color: /text-(\w+)/.exec(type.tint)?.[1] ?? 'gray' }])),
-  idea: { label: 'Idea', group: 'Ideas', icon: Gem, color: 'pink' },
+  idea: { label: 'Gem', group: 'Gems', icon: Gem, color: 'pink' },
   article: { label: 'Writing', group: 'Writing', icon: FileText, color: 'brown' },
   question: { label: 'Question', group: 'Questions', icon: Orbit, color: 'gray' },
   goal: { label: 'Goal', group: 'Goals', icon: Flag, color: 'orange' },

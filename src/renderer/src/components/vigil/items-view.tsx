@@ -307,7 +307,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
         <NoteRail entries={entries.flatMap(([, list]) => list)} cursor={cursor} selected={open.id} onPick={pick} onShow={() => setPane('list')} />
       ) : (
       <Page aside={!!open}
-        title={tier === 'nugget' ? 'Ideas' : 'Writing'}
+        title={tier === 'nugget' ? 'Gems' : 'Writing'}
         // Every note on show, a folded group's too.
         count={groups.reduce((sum, [, list]) => sum + list.length, 0)}
         actions={
@@ -325,7 +325,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
  onClick={() => void vigil.article(chosen).then((id) => {
  // The same words and the same landing as the prompt's: the article opens.
  chime('promote')
- toast(chosen.length > 1 ? `An article, from ${num(chosen.length)} ideas` : 'An article, from this idea')
+ toast(chosen.length > 1 ? `An article, from ${num(chosen.length)} gems` : 'An article, from this gem')
  setChosen([])
  pick(id)
  })}
@@ -340,7 +340,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
             </span>
           ) : (
             <span className="flex items-center gap-2 text-xs">
-              {spread && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder={`Search in ${tier === 'nugget' ? 'Ideas' : 'Writing'}`} />}
+              {spread && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder={`Search in ${tier === 'nugget' ? 'Gems' : 'Writing'}`} />}
               {tier === 'nugget' && items.length > 1 && !spread && !open && (
                 <>
                   <span className="hidden whitespace-nowrap @[48rem]/page:inline"><Pressed keys="X" /> to select</span>
@@ -406,16 +406,16 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           <Empty shape={['ellipse', 3]} title="Nothing matches">No title here has those words. Escape clears the search.</Empty>
         ) : unloaded(all) ? null : !all.length ? (
           // Nothing kept yet: the page as it will look, with a few made-up ones.
-          <Example tryIt={tier === 'nugget' ? 'pick a note in your Inbox list and press P. It lands here, ready to come back to you.' : 'press New article above, or pick a few ideas with X and choose Start an article.'}>
+          <Example tryIt={tier === 'nugget' ? 'pick a note in your Inbox list and press P. It lands here, ready to come back to you.' : 'press New article above, or pick a few gems with X and choose Start an article.'}>
             <NoteList groups={[['', (tier === 'nugget' ? exampleIdeas() : exampleWriting()).map((one) => itemEntry(one))]]} density={density} table="nuggets" cursor={-1} onPick={() => undefined} className="mx-3 my-2" />
           </Example>
         ) : tier === 'nugget' ? (
-          <Empty shape={['star', 3]} title="No ideas yet">
-            An idea is a note worth keeping, in your own words. Pick one in your Inbox and press P, and it lands here, ready to come back to you.
+          <Empty shape={['star', 3]} title="No gems yet">
+            A gem is a note worth keeping, in your own words. Pick one in your Inbox and press P, and it lands here, ready to come back to you.
           </Empty>
         ) : (
           <Empty shape={['rectangle', 2]} title="No writing yet">
-            Your own words on one idea: notes on a subject, an essay, a guide. Start one from nothing with New article, or from your ideas with “Start an article”.
+            Your own words on one idea: notes on a subject, an essay, a guide. Start one from nothing with New article, or from your gems with “Start an article”.
           </Empty>
         )}
       </Page>
@@ -595,7 +595,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
               void vigil.saveItem(item.id, id === 'off' ? { suspended: true } : { suspended: false, ...(id === 'tested' ? {} : { mode: id }) })
                 .then(() => (chime(id === 'off' ? 'off' : 'on'), toast(said[id])))
             }} />
-          <Does does="A question this idea answers. Filled in, it is tested in Review on a schedule; empty, it comes back on its own now and then" set={!!prompt}>
+          <Does does="A question this gem answers. Filled in, it is tested in Review on a schedule; empty, it comes back on its own now and then" set={!!prompt}>
           <Textarea
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
@@ -668,7 +668,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
                   Your glosses here run to {num(glossWords)} words: that is an article already. Start one and they come with it.
                 </p>
               )}
-              <Prop icon={Plus} onClick={() => void vigil.article([item.id]).then((id) => { chime('promote'); toast('An article, from this idea'); onOpen?.('article', id) })}>
+              <Prop icon={Plus} onClick={() => void vigil.article([item.id]).then((id) => { chime('promote'); toast('An article, from this gem'); onOpen?.('article', id) })}>
                 Start an article
               </Prop>
               <StudyThis item={item} />
@@ -698,7 +698,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
         <Island compact title="Details">
           <Prop icon={Calendar}>Saved {when(item.createdAt)}</Prop>
           {/* An article made from ideas says so here, with the rest of what it is; one written from scratch needs no line. */}
-          {item.tier === 'article' && item.origins.length > 0 && <Prop icon={Layers}>Made from {num(item.origins.length)} idea{item.origins.length === 1 ? '' : 's'}</Prop>}
+          {item.tier === 'article' && item.origins.length > 0 && <Prop icon={Layers}>Made from {num(item.origins.length)} gem{item.origins.length === 1 ? '' : 's'}</Prop>}
           {item.revisions > 0 && <Prop icon={History}>Rewritten {item.revisions === 1 ? 'once' : `${item.revisions} times`}</Prop>}
           <Prop icon={Download} onClick={() => void saveAttachments([{ table: 'nuggets', id: item.id }])}>Save its pictures and files…</Prop>
         </Island>
@@ -801,7 +801,7 @@ function Supersede({ item }: { item: ItemFull }): React.JSX.Element {
         if (event.key === 'Escape') setOpen(false)
         if (event.key !== 'Enter' || event.shiftKey || !event.currentTarget.value.trim()) return
         event.preventDefault()
-        void vigil.supersede(item.id, event.currentTarget.value.trim()).then(() => toast('Corrected: the new version is an idea, this one is out of review'))
+        void vigil.supersede(item.id, event.currentTarget.value.trim()).then(() => toast('Corrected: the new version is a gem, this one is out of review'))
       }}
       className="resize-none text-control"
     />

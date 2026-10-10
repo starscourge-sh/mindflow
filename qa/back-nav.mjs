@@ -116,7 +116,7 @@ try {
   await run('G and a letter: Home → G I', async () => {}, () => keys('g', 'i'))
   await run('Vigil menu: Settings', async () => {}, async () => { await go('settings') })
   await run('Home scrolled, a card opened', async () => { await wait(800); await scrollPage(600) }, () => click('[class*="@container/page"] [data-nav]'))
-  await run('Home: a filter chip, then a section', async () => { await click('[role="tab"]', 'Ideas') }, () => side('Inbox'))
+  await run('Home: a filter chip, then a section', async () => { await click('[role="tab"]', 'Gems') }, () => side('Inbox'))
   await run('Home: See all on a shelf', async () => {}, () => click('[class*="@container/page"] button', 'Show all'))
 
   // --- Captures --------------------------------------------------------------------------
@@ -143,7 +143,7 @@ try {
   await run('A kind: one open, another row', async () => { await go('kind:quote'); await row(0) }, () => row(1))
 
   // --- Kept --------------------------------------------------------------------------------
-  await run('Ideas: one open, another row', async () => { await side('Ideas'); await row(0) }, () => row(1))
+  await run('Gems: one open, another row', async () => { await side('Gems'); await row(0) }, () => row(1))
   await run('Questions: Answered, then a section', async () => { await side('Questions'); await click('[class*="@container/page"] button', 'Answered') }, () => side('Home'))
   await run('Questions: one open, then a section', async () => { await side('Questions'); await row(0) }, () => side('Home'))
   await run('Goals: one open, then a section', async () => { await go('goals'); await row(0) }, () => side('Today'))

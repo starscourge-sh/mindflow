@@ -28,7 +28,7 @@ const Gem = alive(LibraryIcon)
 const Inbox = alive(StackIcon)
 const KINDS: Record<Kind, { label: string; icon: typeof Gem; hue: string; home: 'capture' | 'nugget' }> = {
   capture: { label: 'Capture', icon: Inbox, hue: 'var(--tt-color-text-blue)', home: 'capture' },
-  nugget: { label: 'Idea', icon: Gem, hue: 'var(--tt-color-text-purple)', home: 'nugget' }
+  nugget: { label: 'Gem', icon: Gem, hue: 'var(--tt-color-text-purple)', home: 'nugget' }
 }
 
 // --- keeping it ----------------------------------------------------------------
@@ -41,7 +41,7 @@ const lifted = new Set<string>()
 export const once = (kind: Kind | 'task', text: string): boolean => {
   const key = `${kind}\n${text}`
   if (!lifted.has(key)) return !!lifted.add(key)
-  refuse({ capture: 'Already in your inbox', nugget: 'Already an idea', task: 'Already a task' }[kind], 'info')
+  refuse({ capture: 'Already in your inbox', nugget: 'Already a gem', task: 'Already a task' }[kind], 'info')
   return false
 }
 const forget = (kind: Kind, text: string): void => void lifted.delete(`${kind}\n${text}`)
@@ -75,7 +75,7 @@ export async function keep(kind: Kind, text: string, question: string, origin: O
     if (asked) await vigil.saveItem(id, { prompt: asked })
     chime('promote')
     land?.()
-    toast(asked ? 'Saved as an idea, with its question for review' : 'Saved as an idea',
+    toast(asked ? 'Saved as a gem, with its question for review' : 'Saved as a gem',
       () => void vigil.unlift('nugget', id).then(() => forget(kind, words)),
       'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('nugget', id) })
     return true
@@ -244,7 +244,7 @@ const still = (): boolean => document.documentElement.dataset.motion === 'off'
 function Chip({ kind, onClick }: { kind: Kind; onClick?: () => void }): React.JSX.Element {
   const { label, icon: Icon, hue } = KINDS[kind]
   return (
-    <button type="button" onClick={onClick} title="Switch between Capture and Idea  ⌃⌘C ⌃⌘I" aria-label={`Kind: ${label}. Switch`}
+    <button type="button" onClick={onClick} title="Switch between Capture and Gem  ⌃⌘C ⌃⌘I" aria-label={`Kind: ${label}. Switch`}
       className="inline-flex h-6 items-center gap-1 rounded-full border px-2 text-meta font-medium transition-colors duration-150 [&_svg]:size-3.5"
       style={{ color: hue, borderColor: `color-mix(in srgb, ${hue} 30%, transparent)`, background: `color-mix(in srgb, ${hue} 10%, transparent)` }}>
       <Icon /> {label}
@@ -320,7 +320,7 @@ function Card({ draft, by }: { draft: Draft; by: boolean }): React.JSX.Element {
       ref={ref}
       data-reword={draft.key}
       role="dialog"
-      aria-label={draft.kind === 'nugget' ? 'Reword as an idea' : 'Reword as a capture'}
+      aria-label={draft.kind === 'nugget' ? 'Reword as a gem' : 'Reword as a capture'}
       initial={{ opacity: 0, transform: shift('scale(0.96)') }}
       animate={{ opacity: 1, transform: 'scale(1)' }}
       exit={{ opacity: 0, transform: shift('scale(0.97)'), transition: { duration: quick ? 0 : 0.12, ease: EASE } }}

@@ -77,7 +77,7 @@ check('main: Undo removes the capture', !(await captureWith('quick brown fox is 
 await select(h, 'lazy dog'); await h.waitForTimeout(200)
 await h.keyboard.press('Control+Meta+i'); await h.waitForTimeout(300)
 now = await card(h)
-check('main: ⌃⌘I opens an idea card with its question field', now?.value === 'lazy dog' && now.question && /idea/.test(now.kind), JSON.stringify(now))
+check('main: ⌃⌘I opens a gem card with its question field', now?.value === 'lazy dog' && now.question && /gem/.test(now.kind), JSON.stringify(now))
 await replaceWords(h, 'Dogs rest most of the day')
 await h.locator('[data-reword] input').fill('How much of the day do dogs rest?')
 await shot(h, 'main-light-idea')
@@ -156,7 +156,7 @@ let nw
 for (let i = 0; i < 40 && !nw; i++) { nw = electron.windows().find((w) => w.url().includes('note=capture')); await h.waitForTimeout(250) }
 await nw.waitForSelector('.ProseMirror'); await nw.waitForTimeout(1200)
 await select(nw, 'rivers'); await nw.waitForTimeout(400)
-await nw.locator('[aria-label="Idea"]:visible').first().click(); await nw.waitForTimeout(300)
+await nw.locator('[aria-label="Gem"]:visible').first().click(); await nw.waitForTimeout(300)
 now = await card(nw)
 check('note window: card opens', now?.value === 'rivers', JSON.stringify(now))
 await nw.keyboard.type(' run to the sea', { delay: 10 })

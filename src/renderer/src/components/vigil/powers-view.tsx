@@ -183,7 +183,7 @@ async function showMe(power: Power, onView: (id: string, focus?: string) => void
 const PAGE_LINES: Record<string, string> = {
   home: 'What comes back to you today, and shelves of what you kept.',
   inbox: 'Everything you catch, waiting to be looked at.',
-  review: 'Ideas asking to be remembered, a few a day.',
+  review: 'Gems asking to be remembered, a few a day.',
   day: 'A page to write on for each day.',
   weekpage: 'The week in a few lines.',
   monthpage: 'The month, and the season of life it was.',
@@ -195,7 +195,7 @@ const PAGE_LINES: Record<string, string> = {
   routines: 'What repeats.',
   later: 'This month, this year, someday.',
   nuggets: 'What you kept, in your own words.',
-  articles: 'What you write from your ideas.',
+  articles: 'What you write from your gems.',
   questions: 'Questions you are holding open.',
   goals: 'Days you are working toward.',
   tags: 'Every tag, and what some of them do.',

@@ -58,7 +58,7 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^show|^keep .* in view|^reveal/i, Eye],
   // Tasks and time.
   [/task|^complete|^done|^mark done/i, SquareCheck],
-  [/^save as an idea/i, Lightbulb],
+  [/^save as a gem/i, Lightbulb],
   [/^resolve|^made it|answered/i, CircleCheck],
   [/^remind|^alarm/i, AlarmClock],
   [/^due|deadline|exam date/i, CalendarClock],
@@ -72,7 +72,7 @@ const RULES: [RegExp, LucideIcon][] = [
   [/question|clue|^test me|^ask/i, MessageCircleQuestion],
   [/^study|^review|tested/i, GraduationCap],
   [/thought|^comment/i, MessageSquare],
-  [/idea/i, Lightbulb],
+  [/idea|\bgems?\b/i, Lightbulb],
   [/^goal/i, Target],
   [/quote|who said/i, Quote],
   [/article|^read/i, BookOpen],

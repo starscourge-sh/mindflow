@@ -703,7 +703,7 @@ function Sessions({ taskId, title }: { taskId: string; title: string }): React.J
       chime(close ? 'done' : keep && recap.trim() ? 'promote' : 'resolve')
       // And the edge of the screen lights, as when the floating timer ends one.
       window.api.glow('done')
-      toast(close ? 'Done, with this session as how' : keep && recap.trim() ? 'Session saved, and the recap saved as an idea' : 'Session saved')
+      toast(close ? 'Done, with this session as how' : keep && recap.trim() ? 'Session saved, and the recap saved as a gem' : 'Session saved')
     })
 
   return (

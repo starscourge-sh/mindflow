@@ -38,7 +38,7 @@ const HINTS: Record<string, string> = {
   stats: '**How you have been using Vigil, in sentences.** Your month and Your year play it back.',
   map: '**Every note you linked, as dots joined by lines.** Type @ in a note to link it.',
   monthpage: '**One page a month: what to aim for, and a name for it looking back.**',
-  articles: "**Your own words on one idea.** In Ideas, select a few with X, then Start an article."
+  articles: "**Your own words on one idea.** In Gems, select a few with X, then Start an article."
 }
 
 /** Pages of notes: their line is not shown while one of their notes is open. */

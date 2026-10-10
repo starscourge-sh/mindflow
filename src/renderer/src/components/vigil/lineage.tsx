@@ -20,7 +20,7 @@ const ListTodo = alive(CheckedIcon)
 const Orbit = alive(QuestionMarkIcon)
 
 const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo, question: Orbit }
-const NAME: Record<string, string> = { capture: 'capture', nugget: 'idea', article: 'article', task: 'task', question: 'question' }
+const NAME: Record<string, string> = { capture: 'capture', nugget: 'gem', article: 'article', task: 'task', question: 'question' }
 
 type Lin = Awaited<ReturnType<typeof vigil.lineage>>
 

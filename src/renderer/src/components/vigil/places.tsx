@@ -79,7 +79,7 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'routines', label: 'Routines', icon: Repeat, alive: RefreshIcon, key: 'o', tint: 'yellow', group: 'Tasks' },
   // This month, This year and Someday: what has no day yet.
   { id: 'later', label: 'Later', icon: Telescope, key: 'z', tint: 'purple', group: 'Tasks' },
-  { id: 'nuggets', label: 'Ideas', icon: Gem, key: 'n', tint: 'pink', group: 'Saved' },
+  { id: 'nuggets', label: 'Gems', icon: Gem, key: 'n', tint: 'pink', group: 'Saved' },
   { id: 'articles', label: 'Writing', icon: FileText, alive: FileDescriptionIcon, key: 'a', tint: 'brown', group: 'Saved' },
   // Questions you are holding open: what you keep circling and cannot name yet.
   { id: 'questions', label: 'Questions', icon: Orbit, key: 'h', tint: 'gray', group: 'Saved' },

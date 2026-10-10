@@ -259,7 +259,7 @@ export function Search({ onOpen, onAside, onClose, initial = '', actions = [], p
           {choosing ? <span className="px-2 py-0.5 text-xs text-muted-foreground">⌫ or Esc goes back to every action</span> : picking ? <span className="px-2 py-0.5 text-xs text-muted-foreground">Each one is worn as you pass it</span> : <>
           <Chips options={[{ id: 'name', label: 'Name only' }]} on={() => titleOnly} pick={() => setTitleOnly(!titleOnly)} />
           <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />
-          <Chips options={[{ id: 'capture', label: 'Captures' }, { id: 'nugget', label: 'Ideas' }, { id: 'task', label: 'Tasks' }]} on={(id) => types.includes(id)} pick={(id) => setTypes(flip(types, id))} />
+          <Chips options={[{ id: 'capture', label: 'Captures' }, { id: 'nugget', label: 'Gems' }, { id: 'task', label: 'Tasks' }]} on={(id) => types.includes(id)} pick={(id) => setTypes(flip(types, id))} />
           <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />
           <Chips options={[{ id: 'kind', label: kinds.length ? `Kind · ${kinds.length}` : 'Kind' }]} on={() => kindsOpen || kinds.length > 0} pick={() => setKindsOpen(!kindsOpen)} />
           {kindsOpen && <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />}
@@ -322,7 +322,7 @@ export function Search({ onOpen, onAside, onClose, initial = '', actions = [], p
               </button>
             ))}
             {!query.trim() && !doing.length && (
-              <p className="px-2 py-3 text-body text-muted-foreground"><Typed text="Type to search notes, ideas, writing and tasks. kind:quote narrows to one kind." /></p>
+              <p className="px-2 py-3 text-body text-muted-foreground"><Typed text="Type to search notes, gems, writing and tasks. kind:quote narrows to one kind." /></p>
             )}
             {slow && query.trim() && (
               // The orb only if it is a real wait: a search back at once never shows it.

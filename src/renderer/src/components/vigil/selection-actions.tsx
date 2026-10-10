@@ -64,14 +64,14 @@ export function selectionActions(origin: Origin) {
             <Inbox /> <span className="tiptap-button-text">Capture</span>
           </button>
           </Tip>
-          <Tip does="Idea, reworded first" keys="⌃⌘I">
+          <Tip does="Gem, reworded first" keys="⌃⌘I">
           <button
             type="button"
             className={button}
-            aria-label="Idea"
+            aria-label="Gem"
             onClick={(event) => (event.metaKey ? keepAsIs : reword)('nugget', editor, origin)}
           >
-            <Gem /> <span className="tiptap-button-text">Idea</span>
+            <Gem /> <span className="tiptap-button-text">Gem</span>
           </button>
           </Tip>
           <button

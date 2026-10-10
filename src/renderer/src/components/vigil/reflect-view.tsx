@@ -67,7 +67,7 @@ function prose(told: MonthTold, name: string, before: string): string {
   const shown = topics(told).filter((one) => one.name !== 'Other').slice(0, 3)
   if (shown.length) said.push(`It gathered around ${list(shown.map((one, index) => (index < 2 ? `${one.name} (${percent(one.share)})` : one.name)))}.`)
   if (told.sources.length) said.push(`You listened most to ${list(told.sources.slice(0, 2).map((one) => one.name))}.`)
-  if (told.kept || told.letGo) said.push(told.kept ? `You kept ${plural(told.kept, 'idea')}${told.letGo ? ` and let ${num(told.letGo)} go` : ''}.` : `You let ${num(told.letGo)} go, which keeps the promise as well as keeping does.`)
+  if (told.kept || told.letGo) said.push(told.kept ? `You kept ${plural(told.kept, 'gem')}${told.letGo ? ` and let ${num(told.letGo)} go` : ''}.` : `You let ${num(told.letGo)} go, which keeps the promise as well as keeping does.`)
   if (told.articles.length) said.push(`You started ${told.articles.length === 1 ? `an article, ${quoted(told.articles[0])}` : `${num(told.articles.length)} articles, the first ${quoted(told.articles[0])}`}.`)
   if (told.questions.length) said.push(`You began holding ${told.questions.length === 1 ? `a question: ${quoted(told.questions[0])}` : `${num(told.questions.length)} questions, the newest ${quoted(told.questions.at(-1)!)}`}.`)
   if (told.reviewed) said.push(`The one you came back to most was ${quoted(told.reviewed.title)}, ${plural(told.reviewed.n, 'time')}.`)

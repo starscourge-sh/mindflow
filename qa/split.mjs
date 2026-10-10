@@ -296,7 +296,7 @@ c = await sandbox({ width: 1500, height: 900 }); ({ h, send } = c)
 try {
   let list
   /** A pane's name is the note it shows: its title is somewhere in that pane, and it is not the list's name. */
-  const named = (name, text) => !!name && !['Ideas', 'Questions', 'Page'].includes(name) && text.includes(name.slice(0, 24))
+  const named = (name, text) => !!name && !['Gems', 'Questions', 'Page'].includes(name) && text.includes(name.slice(0, 24))
   /** Every word in each pane, typed fields too, hidden or not. */
   const texts = () => h.evaluate(() => [...document.querySelectorAll('[data-pane]')].map((el) => (el.querySelector('[data-pane-card]') ?? el).textContent + [...el.querySelectorAll('textarea, input')].map((one) => one.value).join(' ')))
   const v = (channel, ...args) => h.evaluate(([ch, a]) => window.api.vigil(ch, ...a), [channel, args])
@@ -395,7 +395,7 @@ try {
   await c.size(820, 760); await wait(800)
   list = await panes(h)
   s1 = await seen()
-  check('report 1: narrow, each tab is named by its pane\'s note, not all after the list', s1.tabs.length === 3 && new Set(s1.tabs).size === 3 && s1.tabs.join('|') === wide.join('|') && s1.tabs[0] === 'Ideas', `${JSON.stringify(s1.tabs)} vs ${list.map((one) => one.note)}`)
+  check('report 1: narrow, each tab is named by its pane\'s note, not all after the list', s1.tabs.length === 3 && new Set(s1.tabs).size === 3 && s1.tabs.join('|') === wide.join('|') && s1.tabs[0] === 'Gems', `${JSON.stringify(s1.tabs)} vs ${list.map((one) => one.note)}`)
   await h.screenshot({ path: `${shots}/report-tabs-dark.png` })
   await c.size(1500, 900); await wait(600)
 

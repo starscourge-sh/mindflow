@@ -114,7 +114,7 @@ export const exampleIdeas = (): Item[] => [
 
 /** Writing: your own pages, built from ideas. */
 export const exampleWriting = (): Item[] => [
-  item(1, { tier: 'article', title: 'What Frankenstein gets right about ambition', attribution: 'From 3 ideas' }),
+  item(1, { tier: 'article', title: 'What Frankenstein gets right about ambition', attribution: 'From 3 gems' }),
   item(2, { tier: 'article', title: 'Why Hamlet waits', attribution: 'An essay, half done' }),
   item(3, { tier: 'article', title: 'A beginner\'s guide to reading Dune' })
 ]

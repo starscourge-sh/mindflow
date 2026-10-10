@@ -72,7 +72,7 @@ export function MorningBox({ shown, tip, asking, question, kept }: { shown: bool
                 </div>
               ) : (
                 <div className="mt-2 flex items-center gap-1 text-muted-foreground [&_svg]:size-3.5">
-                  <span className="mr-auto text-xs">Saved · a note idea</span>
+                  <span className="mr-auto text-xs">Saved · a gem</span>
                   {actions.map((Icon, i) => (
                     <span key={i} data-ghost={Icon === ThumbsUp ? 'thumbs' : undefined} className="relative flex size-7 items-center justify-center rounded-md">
                       <Icon />

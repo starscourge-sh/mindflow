@@ -194,13 +194,13 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
           </Rest>
         ) : (
           !unloaded(ideas) && !ideas.some((one) => one.prompt) ? (
-            <Example compact={compact} tryIt="open an idea and write the question it answers, under Review. It joins today’s queue, and comes back just before you would forget it.">
+            <Example compact={compact} tryIt="open a gem and write the question it answers, under Review. It joins today’s queue, and comes back just before you would forget it.">
               <ExampleCard />
             </Example>
           ) : (
           <Rest seed="review-none" compact={compact}>
             <Empty compact={compact} shape={['moon', 1]} title="Nothing to review">
-              Review holds only what you choose to be tested on. Open an idea and write the question it answers, under Review: it joins today’s queue.
+              Review holds only what you choose to be tested on. Open a gem and write the question it answers, under Review: it joins today’s queue.
             </Empty>
           </Rest>
           )
@@ -591,7 +591,7 @@ export function Readiness({ exam, named = true }: { exam: Exam; named?: boolean 
     <div className="space-y-1.5 text-xs text-muted-foreground">
       {named && <p className="text-sm text-foreground">#{exam.tag} <span className="text-muted-foreground">· {day}, {when(exam.at)}</span></p>}
       {!exam.total ? (
-        <p>No tested cards carry #{exam.tag} yet. Give its ideas a question and they are paced to be ready in time.</p>
+        <p>No tested cards carry #{exam.tag} yet. Give its gems a question and they are paced to be ready in time.</p>
       ) : !seen ? (
         <p><Rolling text={exam.total} /> {exam.total === 1 ? 'card' : 'cards'}, none seen yet. About <Rolling text={exam.perDay} /> a day from today has them all met in time.</p>
       ) : (

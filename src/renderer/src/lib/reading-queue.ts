@@ -49,7 +49,7 @@ export function useQueue(): Queue {
 export async function enqueue(ids: string[], next = false): Promise<void> {
   if (!ids.length) return
   const { added, before } = await readingQueue.add(ids, next)
-  if (!added) return refuse('Only notes, ideas and writing can wait in the queue')
+  if (!added) return refuse('Only notes, gems and writing can wait in the queue')
   chime(next ? 'stick' : 'tuck')
   const what = added === 1 ? 'It' : `${added} notes`
   toast(next ? `${what} ${added === 1 ? 'plays' : 'play'} next in your queue` : `${what} ${added === 1 ? 'is' : 'are'} in your queue`, () => void readingQueue.put(before).then(() => chime('undo')))
