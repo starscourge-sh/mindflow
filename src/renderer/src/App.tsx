@@ -1550,23 +1550,6 @@ export default function App(): React.JSX.Element {
 }
 
 /**
- * Escape puts the window away, the way it does in Raycast's notes.
- *
- * Only once nothing else wants it. A menu closes, the find bar closes, vim
- * leaves visual mode - each of those says so by preventing the default, and
- * this asks rather than keeping its own list of what might be open. The list
- * was always going to be missing whatever was added last.
- *
- * With Vim on, Escape in insert mode goes to normal mode first, as it does in
- * vim, so hiding the box takes a second press. Normal mode, vim's resting
- * state, does not claim it, or Escape could never reach the window from
- * inside the editor. Vim is off unless turned on.
- */
-/**
- * A quote whose line ends "- Name" (or "- Name, Source") with that name in Who said it: kept
- * without the tail, so the name is said once, as its signature.
- */
-/**
  * A link card still fetching its page when the note is sent goes as its plain
  * address: the fetch that would fill it is left behind with the box, and the
  * saved link is made its card afterwards (lib/link-card.ts).
@@ -1580,6 +1563,10 @@ function cardsSettled(doc: JSONContent | null): JSONContent | null {
   return walk(doc)
 }
 
+/**
+ * A quote whose line ends "- Name" (or "- Name, Source") with that name in Who said it: kept
+ * without the tail, so the name is said once, as its signature.
+ */
 function withoutTail(doc: JSONContent | null, who: string): JSONContent | null {
   if (!doc?.content || !who) return doc
   const at = doc.content.findIndex((node) => node.content?.some((one) => one.text?.trim()))
@@ -1591,6 +1578,19 @@ function withoutTail(doc: JSONContent | null, who: string): JSONContent | null {
   return { ...doc, content: doc.content.map((node, i) => (i === at ? { ...block, content } : node)) }
 }
 
+/**
+ * Escape puts the window away, the way it does in Raycast's notes.
+ *
+ * Only once nothing else wants it. A menu closes, the find bar closes, vim
+ * leaves visual mode - each of those says so by preventing the default, and
+ * this asks rather than keeping its own list of what might be open. The list
+ * was always going to be missing whatever was added last.
+ *
+ * With Vim on, Escape in insert mode goes to normal mode first, as it does in
+ * vim, so hiding the box takes a second press. Normal mode, vim's resting
+ * state, does not claim it, or Escape could never reach the window from
+ * inside the editor. Vim is off unless turned on.
+ */
 function useEscapeToHide(): void {
   useEffect(() => {
     // The editor marks every Escape as handled, so whether it was spent is
@@ -1622,14 +1622,6 @@ function useEscapeToHide(): void {
 }
 
 
-/**
- * The document as JSON, in a drawer off the right edge.
- *
- * Beside the note rather than over it: the editor's own source panel takes the
- * window, and reading the shape of what you wrote while you cannot see what you
- * wrote is not much use. It is fed by `onChange`, so it is whatever the editor
- * last handed over.
- */
 /**
  * An open capture's details in the prompt, the same panel the main window
  * shows beside it: exits, kind, surfacing, who and where, lineage, merge,
@@ -1672,6 +1664,14 @@ function DetailsDrawer({ open, id, captures, onOpenChange, onOpen }: {
   )
 }
 
+/**
+ * The document as JSON, in a drawer off the right edge.
+ *
+ * Beside the note rather than over it: the editor's own source panel takes the
+ * window, and reading the shape of what you wrote while you cannot see what you
+ * wrote is not much use. It is fed by `onChange`, so it is whatever the editor
+ * last handed over.
+ */
 const SourceDrawer = ({
   open,
   doc,

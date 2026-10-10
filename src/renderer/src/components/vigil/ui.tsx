@@ -372,7 +372,6 @@ export function Empty({ shape, shaped = false, title, children, action, compact 
   )
 }
 
-/** A key, the way a menu shows a shortcut. */
 /** A key, as shadcn draws one, with a hairline edge so it reads as a cap. */
 export function Kbd({ children, className }: { children: ReactNode; className?: string }): React.JSX.Element {
   return <ShadKbd className={cn('rounded border border-border/80 text-key', className)}>{children}</ShadKbd>
@@ -675,14 +674,14 @@ export function Strip({ className, children }: { className?: string; children: R
   return slot ? createPortal(bar, slot) : bar
 }
 
-/**
- * Say what an action did, briefly, with a way back. The answer to "did that
- * work?" and the plan's undo-everywhere in one: three seconds, then gone.
- */
 /** One next step a toast can offer beside its undo, with a key: Q, for a question. */
 export type ToastAction = { label: string; key: string; run: () => void }
 /** What a toast means, so its colour and mark say it too: done, only news, careful, or not done. */
 export type ToastTone = 'success' | 'info' | 'warning' | 'error'
+/**
+ * Say what an action did, briefly, with a way back. The answer to "did that
+ * work?" and the plan's undo-everywhere in one: three seconds, then gone.
+ */
 export const toast = (text: string, undo?: () => void, tone: ToastTone = 'success', action?: ToastAction): void => {
   beam(tone)
   window.dispatchEvent(new CustomEvent('vigil:toast', { detail: { text, undo, tone, action } }))

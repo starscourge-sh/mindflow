@@ -104,11 +104,6 @@ const ALL_MARKS: MarkName[] = [
  */
 const LINE_MARKS: MarkName[] = ["bold", "italic", "strike", "code"]
 
-/**
- * Keep the caret clear of the window edges when an edit scrolls it into view.
- * The bottom figure has to clear the fixed toolbar, which otherwise covers the
- * very strip ProseMirror scrolls the caret into.
- */
 /** How long typing has to stop before the document is handed to the caller. */
 const SAVE_DEBOUNCE_MS = 500
 
@@ -123,6 +118,11 @@ const LIST_ITEMS = ["listItem", "taskItem"]
 // are writing sits near the middle rather than at an edge. A third of the
 // capture box at its full size, even when it opens short.
 const third = Math.round((typeof window === "undefined" ? 600 : Math.max(600, window.innerHeight)) * 0.32)
+/**
+ * Keep the caret clear of the window edges when an edit scrolls it into view.
+ * The bottom figure has to clear the fixed toolbar, which otherwise covers the
+ * very strip ProseMirror scrolls the caret into.
+ */
 const CARET_MARGIN = { top: Math.max(64, third), right: 0, bottom: Math.max(112, third), left: 0 }
 
 /**
@@ -238,11 +238,6 @@ import "@/components/mindflow/mindflow-editor.scss"
 const GripVertical = alive(DotsVerticalIcon)
 
 
-/**
- * A ref holding the newest value, for callbacks that outlive the render that
- * made them. Written in an effect rather than during the render, which React
- * treats as a side effect and warns about.
- */
 /** The page's document editors, any of which can read Markdown for `readMarkdown`. */
 const readers = new Set<Editor>()
 
@@ -259,6 +254,11 @@ export function readMarkdown(markdown: string): JSONContent | null {
   return null
 }
 
+/**
+ * A ref holding the newest value, for callbacks that outlive the render that
+ * made them. Written in an effect rather than during the render, which React
+ * treats as a side effect and warns about.
+ */
 function useLatest<T>(value: T): { readonly current: T } {
   const ref = useRef(value)
   useEffect(() => {
@@ -516,6 +516,9 @@ export interface MindflowEditorProps {
   onReady?: (editor: Editor) => void
 }
 
+/** Each editor's drag handle, once found. */
+const gripOf = new WeakMap<Editor, HTMLElement>()
+
 /**
  * The editor.
  *
@@ -529,9 +532,6 @@ export interface MindflowEditorProps {
  * nothing is rendered until it is. Leaving it out keeps a single editor that
  * never remounts, so nobody who never had an id is caught by this.
  */
-/** Each editor's drag handle, once found. */
-const gripOf = new WeakMap<Editor, HTMLElement>()
-
 export function MindflowEditor({
   documentId,
   ...props

@@ -149,10 +149,6 @@ const tagsIn = (text: string): string[] =>
 
 // --- settings and the privacy gate ----------------------------------------
 
-/**
- * The settings and their defaults. The plan budgeted five; the argument for
- * the rest is that you asked for them, and each is one value read in one place.
- */
 /** A folder of the developer's own, used only while Vigil is run from its source: an installed app starts with none. */
 function devFolder(path: string): string {
   const full = join(homedir(), path)
@@ -206,6 +202,10 @@ function withDevPicks(saved: Picks): Picks {
   return out
 }
 
+/**
+ * The settings and their defaults. The plan budgeted five; the argument for
+ * the rest is that you asked for them, and each is one value read in one place.
+ */
 const DEFAULTS = {
   // Pages sit in a centred column, as Notion lays them out, unless this is on.
   fullWidth: false,

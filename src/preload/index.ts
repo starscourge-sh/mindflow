@@ -168,7 +168,6 @@ const api = {
     ipcRenderer.on('frost', relay)
     return () => ipcRenderer.off('frost', relay)
   },
-  /** Where the sticky's window is now, as it is dragged. */
   /** Told now and then to stir, so a sticky is seen again. */
   onStir: (listen: () => void): (() => void) => {
     const relay = (): void => listen()

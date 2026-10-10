@@ -187,15 +187,15 @@ export const wordsOf = (node: Node): string =>
     : node.type === 'emoji'
       ? (shortcodeToEmoji(node.attrs?.name ?? '', gitHubEmojis)?.emoji ?? '')
       : (node.text ?? node.attrs?.latex ?? (node.content ?? []).map(wordsOf).join(''))
+/** The blocks that hold words directly: paragraphs and headings, however deep. */
+const textBlocks = (node: Node): Node[] =>
+  node.content?.some((child) => child.text !== undefined || child.type === 'hardBreak' || child.type === 'emoji' || child.type === 'noteLink' || child.attrs?.latex !== undefined) ? [node] : (node.content ?? []).flatMap(textBlocks)
+
 /**
  * The first line with words in it: what a capture is called. From the
  * editor's JSON, a line runs to the end of its block or a line break, with its
  * bold and links kept whole; from Markdown, its first line without markers.
  */
-/** The blocks that hold words directly: paragraphs and headings, however deep. */
-const textBlocks = (node: Node): Node[] =>
-  node.content?.some((child) => child.text !== undefined || child.type === 'hardBreak' || child.type === 'emoji' || child.type === 'noteLink' || child.attrs?.latex !== undefined) ? [node] : (node.content ?? []).flatMap(textBlocks)
-
 export function firstLine(body: unknown): string {
   if (typeof body === 'string') return titleOfMarkdown(body.replace(/^\s*\n/, ''))
   // A line of tags alone ("#bit" over a joke) names nothing: the first line
