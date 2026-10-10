@@ -2078,18 +2078,13 @@ $nested-ul: "ul:not([data-type='taskList'])";
 }
 
 // The page goes nearly dark behind it, its own pictures drained to grey, so
-// the one lifted out is the only colour left (Spotify's cover view). One
-// filter on this layer, not on each picture. Blurring off keeps the dim and
-// the grey and drops the softening.
+// the one lifted out is the only colour left (Spotify's cover view). A
+// plain dark layer, no backdrop filter: the main window does not draw one,
+// so the page would show through bright instead of dimmed.
 .mf-look-backdrop {
   position: absolute;
   inset: 0;
-  background: rgb(0 0 0 / 0.8);
-  backdrop-filter: grayscale(1) brightness(0.6) blur(4px);
-}
-
-html[data-noblur] .mf-look-backdrop {
-  backdrop-filter: grayscale(1) brightness(0.6);
+  background: rgb(0 0 0 / 0.88);
 }
 
 @media (prefers-reduced-transparency: reduce) {

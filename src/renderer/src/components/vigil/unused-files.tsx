@@ -150,7 +150,7 @@ export function UnusedFiles(): React.JSX.Element | null {
                         ? <img src={`mindflow://assets/${one.name}`} alt="" loading="lazy" decoding="async" className="size-full object-cover"
                             onError={() => setBroken((was) => new Set(was).add(one.name))} />
                         : <span className="flex flex-col items-center gap-1 text-muted-foreground"><FileText className="size-6" /><span className="text-meta uppercase">{one.name.split('.').pop()}</span></span>}
-                      <span className={`absolute top-1.5 right-1.5 flex size-4.5 items-center justify-center rounded-full border transition-colors ${keep ? 'border-foreground/30 bg-background/80' : 'border-transparent bg-primary text-primary-foreground'}`}>
+                      <span className={`absolute top-1.5 right-1.5 flex size-4.5 items-center justify-center rounded-full border transition-colors ${keep ? 'border-foreground/30 bg-background' : 'border-transparent bg-primary text-primary-foreground'}`}>
                         {!keep && <Check className="size-3" strokeWidth={3} />}
                       </span>
                     </span>

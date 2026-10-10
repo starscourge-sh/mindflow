@@ -302,7 +302,7 @@ export function TrackList({ columns, tracks }: { columns: { label: string; size:
   const shown = (wide?: boolean): string => (wide ? 'hidden @[40rem]/page:block' : '')
   return (
     <div role="table" className="page-column px-3 @[44rem]/page:px-6">
-      <div role="row" className={`sticky top-0 z-10 grid items-center gap-x-3 border-b border-border/60 bg-background/90 px-2 py-1.5 text-xs text-muted-foreground backdrop-blur-sm @[40rem]/page:gap-x-4 ${shape}`} style={grid}>
+      <div role="row" className={`sticky top-0 z-10 grid items-center gap-x-3 border-b border-border/60 bg-background px-2 py-1.5 text-xs text-muted-foreground @[40rem]/page:gap-x-4 ${shape}`} style={grid}>
         <span role="columnheader" className="text-right tabular-nums">#</span>
         <span role="columnheader">Title</span>
         {columns.map((one) => <span key={one.label} role="columnheader" className={`text-right ${shown(one.wide)}`}>{one.label}</span>)}

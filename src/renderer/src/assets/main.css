@@ -1330,7 +1330,6 @@ input[type='number']::-webkit-outer-spin-button {
     repeating-linear-gradient(90deg, rgb(255 255 255 / 0.05) 0 1px, transparent 1px 3px),
     linear-gradient(180deg, rgb(255 255 255 / 0.22), rgb(255 255 255 / 0.06) 45%, rgb(0 0 0 / 0.04)),
     color-mix(in oklab, var(--foreground) 16%, color-mix(in oklab, var(--tt-color-text-yellow) 12%, transparent));
-  backdrop-filter: blur(1.5px) saturate(1.1);
   box-shadow: 0 1px 1.5px rgb(0 0 0 / 0.18), inset 0 0 0 0.5px rgb(255 255 255 / 0.12);
   /* Torn ends: a ragged edge left and right, straight top and bottom. */
   clip-path: polygon(3% 0, 97% 0, 100% 12%, 96% 26%, 99.5% 40%, 96.5% 55%, 100% 70%, 96% 86%, 98.5% 100%, 2% 100%, 0 86%, 3.5% 72%, 0 57%, 3% 42%, 0.5% 27%, 3.5% 13%);

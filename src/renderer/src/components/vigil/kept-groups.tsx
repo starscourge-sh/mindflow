@@ -592,7 +592,7 @@ function GroupBlock({ group, entries, start, row, carried, renaming, born, onRen
         className="grid transition-[grid-template-rows,opacity] duration-200 motion-reduce:transition-none"
         style={{ transitionTimingFunction: OUT, gridTemplateRows: arrived && !parting ? '1fr' : '0fr', opacity: arrived && !parting ? 1 : 0, transitionDelay: parting ? `${count * 40}ms` : undefined }}
       >
-        <div className={cn('min-h-0', (!arrived || parting) && 'overflow-hidden')}>
+        <div className={cn('min-h-0 min-w-0', (!arrived || parting) && 'overflow-hidden')}>
           <Node id={key}>
             <Popover open={picking} onOpenChange={setPicking}>
               <ContextMenu onOpenChange={setMenu}>
@@ -818,7 +818,8 @@ function Fold({ open, children }: { open: boolean; children: ReactNode }): React
       style={{ transitionTimingFunction: OUT, gridTemplateRows: open ? '1fr' : '0fr', opacity: open ? 1 : 0 }}
     >
       {/* Cut only while it moves: open and still, a row lifted past its edge shows whole. */}
-      <div className={cn('min-h-0', !(open && settled) && 'overflow-hidden')}>
+      {/* min-w-0: a grid item is as wide as its longest title otherwise, and the rows' titles ran past the panel instead of ending in an ellipsis. */}
+      <div className={cn('min-h-0 min-w-0', !(open && settled) && 'overflow-hidden')}>
         <div className="transition-[translate] duration-200 motion-reduce:transition-none" style={{ transitionTimingFunction: OUT, translate: open ? '0 0' : '0 -8px' }}>
           {kept && children}
         </div>

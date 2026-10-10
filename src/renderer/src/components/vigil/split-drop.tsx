@@ -297,8 +297,8 @@ function ZoneBox({ zone, hot, replace, lean, grow }: { zone: Zone; hot: boolean;
       aria-label={label}
       className={`absolute flex flex-col items-center justify-start gap-2 rounded-xl border-2 border-dashed pt-[min(30%,12rem)] transition-[background-color,border-color,color] duration-150 ${
         hot
-          ? 'border-[var(--tt-brand-color-400)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,transparent)] text-foreground'
-          : 'border-foreground/20 bg-[color-mix(in_srgb,var(--background)_30%,transparent)] text-muted-foreground'
+          ? 'border-[var(--tt-brand-color-400)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,var(--background))] text-foreground'
+          : 'border-foreground/20 bg-background text-muted-foreground'
       }`}
       style={{ left: zone.left, top: zone.top, width: zone.width, height: zone.height, x: lean, scale: grow, transformOrigin: zone.side === 'left' ? 'left center' : 'right center' }}
       initial={{ opacity: 0 }}
@@ -308,7 +308,7 @@ function ZoneBox({ zone, hot, replace, lean, grow }: { zone: Zone; hot: boolean;
       <span className={`flex size-8 items-center justify-center rounded-lg ${hot ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] text-[var(--tt-brand-color-400)]' : 'bg-foreground/5'}`}>
         {replace ? <Replace className="size-4" /> : <SplitMark side={zone.side} />}
       </span>
-      <span className="rounded-md bg-background/90 px-2 py-0.5 text-center text-control font-medium shadow-sm">{label}</span>
+      <span className="rounded-md bg-popover px-2 py-0.5 text-center text-control font-medium shadow-sm">{label}</span>
     </motion.div>
   )
 }

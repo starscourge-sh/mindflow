@@ -184,7 +184,6 @@ html:root[data-style='brutal']:not([data-light]) {
 /* Tape on a sticky or a card: a flat strip of the loud yellow, no lift. */
 :root[data-style='brutal'] .mf-tape {
   background: var(--mf-fill);
-  backdrop-filter: none;
   box-shadow: none !important;
 }
 :root[data-style='brutal'] .mf-tape::after { display: none; }

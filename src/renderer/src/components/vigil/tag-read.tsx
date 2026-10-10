@@ -368,7 +368,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
           {days.map(([day, list]) => (
             <section key={day || 'all'}>
               {/* The day stays in view while its notes scroll under it. */}
-              {day && <h2 className="sticky top-0 z-10 -mx-1 bg-background/90 px-1 pt-4 pb-1.5 text-meta font-semibold text-muted-foreground backdrop-blur-sm">{named(day)}</h2>}
+              {day && <h2 className="sticky top-0 z-10 -mx-1 bg-background px-1 pt-4 pb-1.5 text-meta font-semibold text-muted-foreground">{named(day)}</h2>}
               {list.map((item) => <Entry key={`${item.type}-${item.id}`} item={item} onOpen={onOpen} />)}
             </section>
           ))}

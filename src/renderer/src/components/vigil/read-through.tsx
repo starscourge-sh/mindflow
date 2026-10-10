@@ -327,7 +327,7 @@ export function ReadThrough({ items, start = 0, onClose, queue }: {
           type="button"
           onClick={() => onClose()}
           className={cn(
-            'absolute top-3 right-3 z-10 flex h-7 items-center gap-1.5 rounded-full border bg-background/80 px-3 text-control text-muted-foreground backdrop-blur-sm transition-[opacity,background-color,color] duration-200 ease-out [-webkit-app-region:no-drag] hover:bg-accent hover:text-foreground focus-visible:opacity-100',
+            'absolute top-3 right-3 z-10 flex h-7 items-center gap-1.5 rounded-full border bg-background px-3 text-control text-muted-foreground transition-[opacity,background-color,color] duration-300 ease-out [-webkit-app-region:no-drag] hover:bg-accent hover:text-foreground focus-visible:opacity-100',
             awake || keysOpen || writing || !told ? 'opacity-100' : 'opacity-50'
           )}
         >
@@ -477,7 +477,7 @@ function UpNext({ queue, at, read, onSkip, onDone, onOpen }: { queue: QueueRow[]
   const button = 'flex h-7 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-control transition-colors hover:bg-accent hover:text-foreground'
   return (
     <div data-up-next className="relative z-10 flex shrink-0 justify-center px-4 pb-1">
-      <div className="flex max-w-full min-w-0 items-center gap-1 rounded-full border bg-background/85 py-1 pr-1 pl-3.5 text-control text-muted-foreground shadow-sm backdrop-blur-sm">
+      <div className="flex max-w-full min-w-0 items-center gap-1 rounded-full border bg-popover py-1 pr-1 pl-3.5 text-control text-muted-foreground shadow-sm">
         <span className="shrink-0">{next ? 'Up next:' : 'Last in the queue'}</span>
         {next && (
           <span className="flex min-w-0 items-center gap-1.5 pl-1.5 text-foreground">

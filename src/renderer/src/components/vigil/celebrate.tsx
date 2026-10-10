@@ -308,7 +308,7 @@ function usePutAway(onDone: () => void): { done: React.RefObject<() => void>; pr
 
 const still = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 /** The small round buttons over the picture: dark glass, so they read on any of them. */
-const OVER = 'absolute flex size-6 items-center justify-center rounded-full bg-black/45 text-white/90 backdrop-blur-sm transition-colors hover:bg-black/65 hover:text-white'
+const OVER = 'absolute flex size-6 items-center justify-center rounded-full bg-black/70 text-white/90 transition-colors hover:bg-black/85 hover:text-white'
 
 function Card({ moment, media, origin, fill, onDone, onTooLong }: {
   moment: Moment
@@ -393,7 +393,7 @@ function Card({ moment, media, origin, fill, onDone, onTooLong }: {
         </Tip>
         {giphy && (
           // Giphy's terms ask for this wherever one of theirs is shown.
-          <span data-giphy-attribution className="absolute bottom-1.5 left-1.5 rounded-[4px] bg-black/55 px-1.5 py-0.5 text-[0.625rem] leading-none font-semibold tracking-[0.02em] text-white/90 backdrop-blur-sm">
+          <span data-giphy-attribution className="absolute bottom-1.5 left-1.5 rounded-[4px] bg-black/75 px-1.5 py-0.5 text-[0.625rem] leading-none font-semibold tracking-[0.02em] text-white/90">
             Powered by GIPHY
           </span>
         )}

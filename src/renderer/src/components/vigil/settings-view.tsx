@@ -1262,7 +1262,7 @@ function GiphyFavourites({ stars, live, onSave }: { stars: string[]; live: boole
                       <img src={gif.still} alt="" draggable={false} className="size-full object-cover" />
                     </button>
                     <button type="button" data-giphy-star={gif.id} aria-pressed={starred} aria-label={starred ? 'Unstar' : 'Star'}
-                      className={`absolute top-1 right-1 grid size-6 place-items-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-opacity hover:bg-black/65 ${starred ? '' : 'opacity-0 group-hover/gif:opacity-100 focus-visible:opacity-100'}`}
+                      className={`absolute top-1 right-1 grid size-6 place-items-center rounded-full bg-black/70 text-white transition-opacity hover:bg-black/85 ${starred ? '' : 'opacity-0 group-hover/gif:opacity-100 focus-visible:opacity-100'}`}
                       onClick={() => {
                         onSave(starred ? stars.filter((id) => id !== gif.id) : [...stars, gif.id])
                         chime(starred ? 'away' : 'settled')

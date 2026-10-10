@@ -1188,7 +1188,7 @@ function ReturnChapter({ play, report }: { play: boolean; report: (now: Reel) =>
         Ask any time, and Vigil reads your year back to you.
       </Words>
       {/* The card as tall as what it holds, in the middle of the room left: no empty band above the chart. */}
-      <figure aria-label="An example year, read back" className="relative my-auto grid min-h-0 grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] grid-rows-[auto_minmax(0,1fr)] items-center gap-x-[clamp(1.5rem,4vw,4rem)] rounded-2xl border border-foreground/10 bg-popover/60 px-[clamp(1rem,3vw,2rem)] py-[clamp(0.75rem,2vh,1.25rem)]">
+      <figure aria-label="An example year, read back" className="relative my-auto grid min-h-0 grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] grid-rows-[auto_minmax(0,1fr)] items-center gap-x-[clamp(1.5rem,4vw,4rem)] rounded-2xl border border-foreground/10 bg-popover px-[clamp(1rem,3vw,2rem)] py-[clamp(0.75rem,2vh,1.25rem)]">
         <figcaption className="col-span-2 flex items-baseline gap-3">
           <span className="font-heading text-[clamp(1.0625rem,min(1.9vw,2.8vh),1.375rem)] font-medium text-foreground">An example year</span>
           <span className="text-[0.875rem] text-(--mf-wl-quiet)">Someone else’s, read back, to show how yours will look.</span>
