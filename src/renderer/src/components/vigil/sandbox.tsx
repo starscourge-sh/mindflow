@@ -14,7 +14,7 @@ import { applyTheme, currentTheme } from '@/lib/theme'
 import { EASE, shift } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { vigil } from '@/lib/vigil'
-import { GOING_MS, SANDBOX, enterSandbox, leaveSandbox, resetSandbox, sandboxState, startSandboxOver, type Carry } from '@/lib/sandbox'
+import { SANDBOX, enterSandbox, leaveSandbox, resetSandbox, sandboxState, startSandboxOver, type Carry, type Going as GoingTo } from '@/lib/sandbox'
 import { builtInScenery, seedSandbox } from '@/lib/sandbox-seed'
 
 /**
@@ -191,43 +191,40 @@ let started = false
 
 /**
  * The way into (or out of) the sandbox, as a moment: the window goes quiet,
- * the words in the middle, and a blade lights across under them as Vigil
- * gets ready, until it starts again. Always a blade, whatever bars you chose.
+ * the words in the middle, and under them a blade lit (or put away) by
+ * saberOn and saberOff in lib/sandbox.ts, which also play its sound and time
+ * the two together. Always a blade, whatever bars you chose.
  */
-// Arrived by that restart: the window opens on the blade fully lit, and lets it go.
+// Arrived by that restart: the window opens on the blade as it was left (lit
+// in the sandbox, put away back home), and lets it go.
 const ARRIVED = new URLSearchParams(location.search).has('arrived')
 
 function Going(): React.JSX.Element | null {
-  const [text, setText] = useState<string | null>(ARRIVED ? (SANDBOX ? 'Opening the sandbox' : 'Back to your notes') : null)
-  const [lit, setLit] = useState(ARRIVED ? 1 : 0)
+  const [going, setGoing] = useState<GoingTo | null>(ARRIVED ? { text: SANDBOX ? 'Opening the sandbox' : 'Back to your notes', up: SANDBOX, ms: 0 } : null)
+  const motionOn = document.documentElement.dataset.motion !== 'off'
   useEffect(() => {
-    const on = (event: Event): void => (setLit(0), setText((event as CustomEvent<string>).detail))
+    const on = (event: Event): void => setGoing((event as CustomEvent<GoingTo>).detail)
     window.addEventListener('vigil:going', on)
     // Long enough to be seen as the same moment going on, then into the app.
-    const off = ARRIVED ? setTimeout(() => setText(null), 700) : undefined
+    const off = ARRIVED ? setTimeout(() => setGoing(null), 700) : undefined
     return () => (window.removeEventListener('vigil:going', on), clearTimeout(off))
   }, [])
-  // In small steps, each a quick slide, so it reads as one steady burn.
-  useEffect(() => {
-    if (text === null || lit === 1) return
-    const start = performance.now()
-    const timer = setInterval(() => setLit(Math.min(1, (performance.now() - start) / (GOING_MS - 200))), 90)
-    return () => clearInterval(timer)
-  }, [text])
   return (
     <AnimatePresence>
-      {text !== null && (
+      {going !== null && (
         <motion.div
           key="going"
           role="status"
+          data-going={going.up ? 'on' : 'off'}
           className="fixed inset-0 z-[200] flex flex-col items-center justify-center gap-6 bg-background"
-          initial={ARRIVED && lit === 1 ? false : { opacity: 0 }}
+          initial={ARRIVED && going.ms === 0 ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0, transition: { duration: 0.35, ease: EASE } }}
           transition={{ duration: 0.2, ease: EASE }}
         >
-          <p className="font-heading text-[clamp(1.5rem,4vw,2.5rem)] font-medium tracking-[-0.02em] text-foreground">{text}</p>
-          <ProgressBar as="saber" value={lit} label={text} thick={4} blade="var(--primary)" ignite={!ARRIVED} className="w-[min(26rem,70vw)]" />
+          <p className="font-heading text-[clamp(1.5rem,4vw,2.5rem)] font-medium tracking-[-0.02em] text-foreground">{going.text}</p>
+          {/* At rest where it starts (put away to light, lit to put away); saber() moves it, on the sound's clock. With Motion off, none. */}
+          {motionOn && <ProgressBar as="saber" value={going.ms === 0 ? (going.up ? 1 : 0) : going.up ? 0 : 1} label={going.text} thick={4} blade="var(--primary)" className="w-[min(26rem,70vw)]" />}
         </motion.div>
       )}
     </AnimatePresence>
@@ -244,9 +241,12 @@ export function SandboxHost(): React.JSX.Element | null {
   const [stale, setStale] = useState<number | null>(null)
 
   useEffect(() => {
+    // From the menu bar: the same ways in and out as everywhere else.
     const onEnter = (): void => void enterSandbox()
+    const onLeave = (): void => void leaveSandbox()
     window.addEventListener('vigil:sandbox-enter', onEnter)
-    return () => window.removeEventListener('vigil:sandbox-enter', onEnter)
+    window.addEventListener('vigil:sandbox-leave', onLeave)
+    return () => (window.removeEventListener('vigil:sandbox-enter', onEnter), window.removeEventListener('vigil:sandbox-leave', onLeave))
   }, [])
 
   useEffect(() => {

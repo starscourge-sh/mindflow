@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { hum } from './sound'
-import { SANDBOX, enterSandbox, gatherCarry, going, leaveSandbox } from './sandbox'
+import { SANDBOX, enterSandbox, gatherCarry, leaveSandbox, saberOn } from './sandbox'
 
 /**
  * Books, as a window sees them: more than one Vigil of your own, each its own
@@ -46,7 +45,7 @@ export async function switchBook(id: string, then?: 'vault' | 'files'): Promise<
   // Already here: nothing to restart.
   if (now.current === id) return
   const name = now.books.find((one) => one.id === id)?.name ?? 'the book'
-  const said = going(`Opening ${name}`, () => hum(true))
+  const said = saberOn(`Opening ${name}`)
   const carry = await gatherCarry(CARRY_MORE)
   await said
   await call('switch', id, carry, then)

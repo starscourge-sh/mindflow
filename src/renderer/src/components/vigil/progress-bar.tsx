@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import { byKeys } from '@/lib/motion'
+import { SABER_OUT } from '@/lib/sandbox'
 
 /**
  * Every bar that fills in Vigil, in the style picked under Settings ›
@@ -30,8 +31,8 @@ root.addEventListener('pointerenter', () => ((over = true), wake()))
 root.addEventListener('pointerleave', () => ((over = false), wake()))
 wake()
 
-/** The ignition: quick and out, as a blade does. */
-const IGNITE = 'transform 220ms cubic-bezier(0.23, 1, 0.32, 1)'
+/** The ignition: quick and out, on the sandbox blade's own curve. */
+const IGNITE = `transform 220ms ${SABER_OUT}`
 
 export function ProgressBar({
   value, label, className = '', thick = 4, fill = 'color-mix(in oklab, var(--foreground) 45%, transparent)',

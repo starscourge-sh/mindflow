@@ -58,7 +58,7 @@ import { registerObsidian } from './obsidian'
 import { lookAhead, registerPictures } from './pictures'
 import { registerSessionLog } from './session-log'
 import { frostWindow, registerFrost, retellFrost } from './frost'
-import { BOOK, SANDBOX, arrived, windingDown, onHandOff, registerSandbox, relaunch, restartNow, useDataFolder } from './sandbox'
+import { BOOK, SANDBOX, arrived, windingDown, onHandOff, registerSandbox, restartNow, useDataFolder } from './sandbox'
 import { books, here, nameOf, nextImport, registerBooks } from './books'
 import { wideThumb } from './video-thumbs'
 import { decodeHTML } from 'entities'
@@ -866,15 +866,12 @@ let sentTo: [string, string, string?] | null = null
 let homeAsked = false
 
 /**
- * The sandbox from the menu bar: the main window carries your look in and
- * restarts, the same as its own way in, so there is one way it happens.
+ * The sandbox from the menu bar, in or out: the main window comes up and goes
+ * the same way as its own buttons do (the blade and its sound, your look
+ * carried), so there is one way it happens.
  */
-function openSandbox(): void {
-  const win = makeHome()
-  const go = (): void => void win.webContents.executeJavaScript("window.dispatchEvent(new CustomEvent('vigil:sandbox-enter'))").catch(() => undefined)
-  if (homePainted) go()
-  else win.once('ready-to-show', go)
-}
+const openSandbox = (): void => inHome('vigil:sandbox-enter')
+const leaveSandbox = (): void => inHome('vigil:sandbox-leave')
 
 /** Something the main window does, asked for from the menu bar: a book switched to, a new one named. */
 function inHome(event: string, detail: unknown = null): void {
@@ -2130,7 +2127,7 @@ function updateTray(): void {
       { type: 'separator' },
       // In the sandbox the way out comes first; from your notes, the way in.
       // A reset cannot be undone, so it is asked in the main window, where Start over is held.
-      ...(SANDBOX ? [{ label: 'Back to my notes', click: () => relaunch('real') }, { label: 'Reset the sandbox…', click: () => (openHome(), makeHome().webContents.send('sandbox:ask-reset')) }, { type: 'separator' } as const] : []),
+      ...(SANDBOX ? [{ label: 'Back to my notes', click: leaveSandbox }, { label: 'Reset the sandbox…', click: () => (openHome(), makeHome().webContents.send('sandbox:ask-reset')) }, { type: 'separator' } as const] : []),
       { label: 'Show Vigil', accelerator: chordFor('⌘.'), click: () => toggleWindow() },
       { label: 'Open the main window', click: openHome },
       // The book open now, ticked, and the way to each of the others.

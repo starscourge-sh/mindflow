@@ -1,4 +1,4 @@
-import { chime, hum } from './sound'
+import { hum, saberLength } from './sound'
 import { vigil } from './vigil'
 
 /**
@@ -20,19 +20,52 @@ const CARRY_LOCAL = ['theme', 'custom-themes', 'frosted', 'style', 'recordable',
 
 export type Carry = { local: Record<string, string>; settings: Record<string, unknown> }
 
-/** How long the blade takes to light across, before the restart. */
-export const GOING_MS = 2200
+/** The blade's curves. Lit: fast out of the hilt, then settling as the hum does. Put away: the same, reversed, gathering speed into the hilt. */
+export const SABER_OUT = 'cubic-bezier(0.16, 1, 0.3, 1)'
+export const SABER_IN = 'cubic-bezier(0.7, 0, 0.84, 0)'
+
+/** What the overlay is told: its words, which way the blade goes, and for how long. */
+export type Going = { text: string; up: boolean; ms: number }
+
+/** Each saber moment, newest last: what the QA runs read to see one ran, and how long its sound and blade took. */
+type Swung = { up: boolean; text: string; soundMs: number; bladeMs: number | null; blade: boolean }
+const swung: Swung[] = []
+;(window as unknown as { vigilSaber?: Swung[] }).vigilSaber = swung
+
+/** A frame, or a moment when the window is hidden and frames do not come. */
+const frame = (): Promise<void> => new Promise((done) => (requestAnimationFrame(() => done()), setTimeout(done, 60)))
 
 /**
- * Said over the whole window, a blade lighting across as Vigil gets ready,
- * then the restart. Over everything, so what lies under it (an empty Home
- * behind a closing welcome) never flashes up first.
+ * The one way the saber is lit or put away, wherever it happens (into or out
+ * of the sandbox, starting it over, another book): the words over the
+ * window, the blade, and its sound, started on the same frame. The sound is
+ * the clock: the blade runs exactly as long as the decoded recording, so the
+ * sound never ends before it does. With Motion off there is no blade, but
+ * the moment lasts as long; Sounds and the volume decide whether it is heard.
  */
-export const going = (text: string, sound: () => void): Promise<void> => {
-  sound()
-  window.dispatchEvent(new CustomEvent('vigil:going', { detail: text }))
-  return new Promise((done) => setTimeout(done, GOING_MS))
+async function saber(up: boolean, text: string): Promise<void> {
+  const ms = await saberLength(up)
+  window.dispatchEvent(new CustomEvent<Going>('vigil:going', { detail: { text, up, ms } }))
+  // The overlay drawn, blade at rest, before anything starts.
+  await frame()
+  await frame()
+  const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+  const blade = still ? null : document.querySelector<HTMLElement>('[data-going] .pb-blade > span')
+  const seen: Swung = { up, text, soundMs: ms, bladeMs: null, blade: !!blade }
+  swung.push(seen)
+  hum(up)
+  if (blade) {
+    const begun = performance.now()
+    const away = 'translateX(calc(-100% - 16px))'
+    const run = blade.animate([{ transform: up ? away : 'translateX(0)' }, { transform: up ? 'translateX(0)' : away }], { duration: ms, easing: up ? SABER_OUT : SABER_IN, fill: 'forwards' })
+    void run.finished.then(() => void (seen.bladeMs = Math.round(performance.now() - begun))).catch(() => undefined)
+  }
+  await new Promise((done) => setTimeout(done, ms))
 }
+/** The blade lit, with its sound. */
+export const saberOn = (text: string): Promise<void> => saber(true, text)
+/** The blade put away, with its sound. */
+export const saberOff = (text: string): Promise<void> => saber(false, text)
 
 /** Your look, written down to carry: into the sandbox, or into another book with `more` (its scenery too). */
 export async function gatherCarry(more: readonly string[] = []): Promise<Carry> {
@@ -57,7 +90,7 @@ export async function gatherCarry(more: readonly string[] = []): Promise<Carry> 
 export async function enterSandbox(): Promise<void> {
   if (SANDBOX) return
   // Up at once: your look is gathered behind it.
-  const said = going('Opening the sandbox', () => hum(true))
+  const said = saberOn('Opening the sandbox')
   const carry = await gatherCarry()
   await said
   await window.api.vigil('sandbox:enter', carry)
@@ -69,7 +102,7 @@ export async function leaveSandbox(): Promise<void> {
   const now = new Date()
   // At 11:11 exactly, one more line.
   const wish = now.getHours() % 12 === 11 && now.getMinutes() === 11 ? '. Make a wish' : ''
-  await going(`Back to your notes${wish}`, () => hum(false))
+  await saberOff(`Back to your notes${wish}`)
   await window.api.vigil('sandbox:leave')
 }
 
@@ -85,7 +118,7 @@ export async function resetSandbox(): Promise<void> {
 /** The sandbox as it began: its folder cleared, and the examples set out again. Only from a held button. */
 export async function startSandboxOver(): Promise<void> {
   if (!SANDBOX) return
-  await going('Starting the sandbox over', () => chime('rewind'))
+  await saberOn('Starting the sandbox over')
   await window.api.vigil('sandbox:reset')
 }
 

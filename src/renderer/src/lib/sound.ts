@@ -487,7 +487,7 @@ export function installTicks(): () => void {
  * kept; played through the same switch and volume as every other sound.
  */
 const recordings = new Map<string, Promise<AudioBuffer | null>>()
-function load(context: AudioContext, url: string): Promise<AudioBuffer | null> {
+function load(context: BaseAudioContext, url: string): Promise<AudioBuffer | null> {
   let buffer = recordings.get(url)
   // A file small enough is built into the page as a data: address, which the
   // page's rules will not fetch: read straight from its letters instead.
@@ -552,6 +552,21 @@ export function pageTurn(): void {
  */
 export function hum(up = true): void {
   void recording(up ? saberOnUrl : saberOffUrl, up ? 0.3 : 0.2, up ? 'saber-on' : 'saber-off').then((playing) => playing || drawnHum(up))
+}
+
+/** The drawn hum's own lengths, ms, for when the recordings will not load. */
+const DRAWN_MS = { on: 860, off: 610 }
+let reader: OfflineAudioContext | null = null
+/**
+ * How long the saber's sound runs, in ms, read from the decoded recording
+ * itself: the clock the blade is timed by. Read whether or not Sounds is on
+ * (decoding plays nothing), so the moment lasts the same either way. Decoding
+ * here also means `hum` then starts at once, on the frame the blade does.
+ */
+export async function saberLength(up: boolean): Promise<number> {
+  const decoder = context ?? (reader ??= new OfflineAudioContext(1, 1, 44100))
+  const sound = await load(decoder, up ? saberOnUrl : saberOffUrl)
+  return sound ? Math.round(sound.duration * 1000) : up ? DRAWN_MS.on : DRAWN_MS.off
 }
 
 /**
