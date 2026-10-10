@@ -56,7 +56,10 @@ export type Beat<S> = { at: number; to: Partial<S>; cue?: () => void }
  * end, silent. What is on screen is the state folded up to the beat reached,
  * so any frame can be jumped to.
  */
-export function useScript<S extends object>(start: S, beats: Beat<S>[], play: boolean): { state: S; done: boolean; settle: () => void } {
+/** How fast the reel plays: 0.8 is a fifth quicker than it was written. Write keeps 1, its pace is right for following. */
+export const PACE = 0.8
+
+export function useScript<S extends object>(start: S, beats: Beat<S>[], play: boolean, pace = PACE): { state: S; done: boolean; settle: () => void } {
   const [at, setAt] = useState(play ? -1 : beats.length - 1)
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
   useEffect(() => {
@@ -64,7 +67,7 @@ export function useScript<S extends object>(start: S, beats: Beat<S>[], play: bo
     timers.current = beats.map((beat, i) => setTimeout(() => {
       setAt(i)
       beat.cue?.()
-    }, beat.at))
+    }, beat.at * pace))
     return () => timers.current.forEach(clearTimeout)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const settle = (): void => {

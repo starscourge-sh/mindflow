@@ -24,7 +24,7 @@ import { WelcomeBackdrop, type Family } from './welcome-backdrop'
 import { DeskSticky, EveningReview, GoalRoad, LongNote, Moment, MorningBox, PICKED, REWORDED } from './welcome-day'
 import {
   CAM, Camera, Chip, DRAWER, EMPTY_BOX, WIDE, frameOn, GhostHand, KINDS, LAND, LinkScene, PostcardResult, QUOTE, Rise, Slots, Stage, TaskResult, CardResult, LinkResult, WORD,
-  cue, seeded, starterOf, typed, useScript, type Beat, type Box, type Kind, type MapShot
+  cue, PACE, seeded, starterOf, typed, useScript, type Beat, type Box, type Kind, type MapShot
 } from './welcome-reel'
 
 /**
@@ -81,7 +81,8 @@ const since = (list: CaptureMeta[], before: Set<string>): CaptureMeta[] =>
   list.filter((one) => !before.has(one.id) && !one.source).sort((a, b) => a.capturedAt.localeCompare(b.capturedAt))
 
 /** How long a line needs to be read before the film moves on: a quarter second a word, never under 1.2s. */
-const readFor = (text: string): number => Math.max(1200, text.trim().split(/\s+/).length * 250)
+// A quarter second a word, never under 0.9s; divided by PACE so it is real time. Lines that matter (the four tools) hold longer in their own beats.
+const readFor = (text: string): number => Math.max(900, text.trim().split(/\s+/).length * 250) / PACE
 
 /** A count in words, as a sentence says it. */
 const counted = (n: number): string => ['None', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'][n] ?? String(n)
@@ -363,7 +364,7 @@ export function Welcome(): React.JSX.Element | null {
     <MotionConfig reducedMotion={quiet ? 'always' : 'never'}>
     <div ref={dialog} tabIndex={-1} role="dialog" aria-modal aria-label="Welcome to Vigil" onKeyDown={(event) => event.stopPropagation()}
       className="mf-welcome fixed inset-0 z-[70] flex outline-none flex-col overflow-hidden bg-background text-foreground [container-type:inline-size]">
-      <Backdrop plain={at === LAST} family={at === WRITE ? 'ruled' : at === CONNECT ? 'threads' : at === RETURN || at === LAST ? 'none' : 'dots'} />
+      <Backdrop plain={at === LAST} family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} />
       <div className="relative h-11 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
       {at === LAST && <TrayArrow tray={state?.tray ?? null} />}
       <div className="relative mx-auto flex min-h-0 w-full max-w-[84rem] flex-1 flex-col">
@@ -522,13 +523,17 @@ function catchBeats(): Beat<CatchState>[] {
   // read them; what Vigil read lifts out; the chip turns to its kind and holds;
   // the camera eases back; Create; and the words themselves shrink into their slot.
   const catchOne = (item: Kind, landed: Partial<Box>, sorted: Partial<Box> | null, kind: Box['kind'], filled: Kind[], sortCue: () => void): void => {
-    const first = { ...EMPTY_BOX, item, ...landed }
-    // A link reads as one the moment it lands, as the box guesses a bare address at once.
-    const then = { ...first, ...sorted, ...(item === 'link' ? { kind } : {}) }
-    // Time to read the words that landed before anything moves on: a quarter second a word, never under 1.2s.
+    // A link or a lone word reads as one the moment it lands, as the box guesses them at once:
+    // the word comes first with its chip already Word, and its meaning follows on the next line.
+    const known = item === 'link' || item === 'word'
+    const first = { ...EMPTY_BOX, item, ...landed, ...(known ? { kind } : {}) }
+    const then = { ...first, ...sorted }
+    // Time to read the words that landed before anything moves on.
     const read = readFor([landed.text, landed.lit, landed.tail?.who, landed.tail?.where].filter(Boolean).join(' '))
     const flip = sorted ? read + (item === 'link' ? 0 : 900) : read
-    beats.push({ at: t, to: { box: first, close: true }, cue: () => click('tick') })
+    const term = item === 'word' ? first.text.split('\n')[0] : null
+    beats.push({ at: t, to: { box: term ? { ...first, text: term } : first, close: true }, cue: () => click('tick') })
+    if (term) beats.push({ at: t + 500, to: { box: first } })
     if (sorted) beats.push({ at: t + read, to: { box: then }, cue: sortCue })
     beats.push({ at: t + flip, to: { box: { ...then, kind } }, cue: cue('shift') })
     // What it became, still, long enough to read, before it is sent.
@@ -672,7 +677,7 @@ function writeBeats(): Beat<WriteState>[] {
 
 function WriteChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
   const [beats] = useState(writeBeats)
-  const show = useScript<WriteState>({ docked: false, page: false, scroll: 0, picked: false, bar: false, hand: null, down: false, card: false, edited: '', saved: false }, beats, play)
+  const show = useScript<WriteState>({ docked: false, page: false, scroll: 0, picked: false, bar: false, hand: null, down: false, card: false, edited: '', saved: false }, beats, play, 1)
   useReport(report, show.done, show.settle)
   const s = show.state
   const scene = useRef<HTMLDivElement>(null)
@@ -983,13 +988,79 @@ function DayScene({ play, report }: { play: boolean; report: (now: Reel) => void
 }
 
 /** A day with Vigil: first what a commonplace book adds, then a day of it. */
+/** What Vigil takes from each tool, said plainly: the names only, no logos. */
+const TOOLS: [string, string][] = [['Obsidian', 'linked notes'], ['Notion', 'long pages'], ['Anki', 'remembering'], ['Todoist', 'tasks']]
+
+type ToolsState = { shown: number; merged: boolean; line: boolean }
+
+/**
+ * The chapter's opening, as large as the welcome sets anything: the four
+ * tools a reader may have lived in, one at a time, each with what Vigil takes
+ * from it; then they slide together into one book. A first press only
+ * finishes it, and it holds on the merged state; still, it is that state.
+ */
+function Tools({ play, report, onward }: { play: boolean; report: (now: Reel) => void; onward: () => void }): React.JSX.Element {
+  const [beats] = useState<Beat<ToolsState>[]>(() => [
+    { at: 0, to: {} },
+    ...TOOLS.map((_, i): Beat<ToolsState> => ({ at: 300 + i * 750, to: { shown: i + 1 }, cue: cue('bead') })),
+    { at: 300 + 4 * 750 + 900, to: { merged: true }, cue: cue('gather') },
+    { at: 300 + 4 * 750 + 1500, to: { line: true } },
+    // The merged state and its line held over 2.5s to read; then the day's pairs follow on their own.
+    { at: 300 + 4 * 750 + 4800, to: {}, cue: onward }
+  ])
+  const show = useScript<ToolsState>({ shown: 0, merged: false, line: false }, beats, play)
+  report({ done: show.done, settle: show.settle, more: () => (onward(), true) })
+  const s = show.state
+  const big = 'font-heading text-[clamp(2rem,min(4.6vw,7vh),4.25rem)] leading-none font-medium tracking-[-0.03em] text-foreground'
+  // Still: the whole of it at once, large, nothing moving: the four, what they become, and the line.
+  if (!play) {
+    return (
+      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-[clamp(1rem,3.5vh,2.25rem)]">
+        <div className="flex w-full max-w-[72rem] items-start justify-center gap-[clamp(1.5rem,4vw,3.5rem)]">
+          {TOOLS.map(([name, takes]) => (
+            <div key={name} className="flex flex-col items-center gap-2">
+              <span className={big}>{name}</span>
+              <span className="text-[clamp(0.875rem,min(1.6vw,2.4vh),1.125rem)] text-(--mf-wl-quiet)">{takes}</span>
+            </div>
+          ))}
+        </div>
+        <span className={`${big} text-[clamp(2.75rem,min(6.4vw,9.5vh),6rem)]`}>One book.</span>
+        <p className="text-[clamp(1.125rem,min(2.2vw,3.2vh),1.625rem)] text-(--mf-wl-body)">All of it, in one place.</p>
+      </div>
+    )
+  }
+  return (
+    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-[clamp(1rem,4vh,2.5rem)]">
+      <div className="relative flex w-full max-w-[72rem] items-start justify-center gap-[clamp(1.5rem,4vw,3.5rem)]">
+        {TOOLS.map(([name, takes], i) => (
+          <motion.div key={name} className="flex flex-col items-center gap-2"
+            initial={false}
+            animate={{ opacity: i < s.shown ? (s.merged ? 0 : 1) : 0, x: s.merged ? `${(1.5 - i) * 110}%` : '0%', y: i < s.shown ? 0 : 14, scale: s.merged ? 0.7 : 1, filter: s.merged ? 'blur(6px)' : 'blur(0px)' }}
+            transition={{ type: 'spring', duration: s.merged ? 0.8 : 0.55, bounce: 0 }}>
+            <span className={big}>{name}</span>
+            <span className="text-[clamp(0.875rem,min(1.6vw,2.4vh),1.125rem)] text-(--mf-wl-quiet)">{takes}</span>
+          </motion.div>
+        ))}
+        {/* What they become: one book. */}
+        <motion.div className="pointer-events-none absolute inset-0 flex items-center justify-center" initial={false}
+          animate={{ opacity: s.merged ? 1 : 0, scale: s.merged ? 1 : 0.85, filter: s.merged ? 'blur(0px)' : 'blur(6px)' }} transition={{ type: 'spring', duration: 0.8, bounce: 0.1, delay: s.merged && play ? 0.25 : 0 }}>
+          <span className={`${big} text-[clamp(2.75rem,min(6.4vw,9.5vh),6rem)]`}>One book.</span>
+        </motion.div>
+      </div>
+      <motion.p className="text-[clamp(1.125rem,min(2.2vw,3.2vh),1.625rem)] text-(--mf-wl-body)" initial={false} animate={{ opacity: s.line ? 1 : 0, y: s.line ? 0 : 8 }} transition={{ duration: 0.4, ease: EASE }}>
+        All of it, in one place.
+      </motion.p>
+    </div>
+  )
+}
+
 function DayChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
-  const [stage, setStage] = useState<'pairs' | 'day'>('pairs')
+  const [stage, setStage] = useState<'tools' | 'pairs' | 'day'>('tools')
   const [docked] = useState(() => !play)
   const [dock, setDock] = useState(docked)
   useEffect(() => {
     if (dock) return
-    const timer = setTimeout(() => setDock(true), 900)
+    const timer = setTimeout(() => setDock(true), 900 * PACE)
     return () => clearTimeout(timer)
   }, [dock])
   const [done, setDone] = useState(false)
@@ -1002,11 +1073,13 @@ function DayChapter({ play, report }: { play: boolean; report: (now: Reel) => vo
   return (
     <>
       <Words title="A day with Vigil." docked={dock} still={!play} done={stage === 'day' && done}>
-        {stage === 'pairs' ? 'Obsidian, Notion, Anki and a bit of Todoist, in one place.' : 'A normal day, once you have kept a few things.'}
+        {stage === 'day' ? 'A normal day, once you have kept a few things.' : stage === 'pairs' ? 'What a commonplace book does that they leave out.' : null}
       </Words>
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        {stage === 'pairs'
-          ? dock && <Pairs play={play} report={relay} onward={() => setStage('day')} />
+        {stage === 'tools'
+          ? dock && <Tools play={play} report={relay} onward={() => setStage('pairs')} />
+          : stage === 'pairs'
+          ? <Pairs play={play} report={relay} onward={() => setStage('day')} />
           : <DayScene play={play} report={relay} />}
       </div>
     </>
@@ -1240,14 +1313,14 @@ function TypeLine({ text, className, onDone }: { text: string; className?: strin
     if (n >= text.length) {
       hush(voice)
       onDone?.()
-      const timer = setTimeout(() => setResting(true), 1200)
+      const timer = setTimeout(() => setResting(true), 1200 * PACE)
       return () => clearTimeout(timer)
     }
     const timer = setTimeout(() => {
       setN((now) => now + 1)
       if (text[n] !== ' ') click('soft')
     // The first letter once the year has come in: one thing at a time.
-    }, n === 0 ? 680 : text[n - 1] === '.' ? 180 : 38)
+    }, (n === 0 ? 680 : text[n - 1] === '.' ? 180 : 38) * PACE)
     return () => clearTimeout(timer)
   }, [n, text]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -1436,14 +1509,14 @@ function BoxKeys(): React.JSX.Element {
 
 /**
  * Behind it all: the scenery the empty Inbox uses, dimmed for reading and
- * drifting very slowly, under a film of grain. With no scenery, the grain
+ * standing still, under a film of grain. With no scenery, the grain
  * on the page's own colour.
  */
 function Backdrop({ plain, family }: { plain: boolean; family: Family }): React.JSX.Element {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0">
       {/* The last screen is a plain page: the scenery steps back for the choice. */}
-      <div className={`mf-drift absolute -inset-[2%] transition-opacity duration-300 ease-(--mf-ease) ${plain ? 'opacity-0' : 'opacity-100'}`}>
+      <div className={`absolute -inset-[2%] transition-opacity duration-300 ease-(--mf-ease) ${plain ? 'opacity-0' : 'opacity-100'}`}>
         <Scenery place="rest" seed="welcome" text="all" className="absolute inset-0" />
       </div>
       <div className="absolute inset-0 opacity-[0.035] mix-blend-overlay" style={{ backgroundImage: NOISE, backgroundSize: '160px' }} />
@@ -1501,7 +1574,7 @@ function Hello({ replay, kept, calm, newcomer, today }: { replay: boolean; kept:
   // Opened again, nothing types: the days fade once the ruler has been drawn.
   useEffect(() => {
     if (!replay) return
-    const timer = setTimeout(() => setSaid(true), calm || still() ? 0 : 900)
+    const timer = setTimeout(() => setSaid(true), calm || still() ? 0 : 900 * PACE)
     return () => clearTimeout(timer)
   }, [replay, calm])
   return (
