@@ -205,7 +205,8 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
   const scheduled = dates.find((one) => !one.by)
   let due = scheduled?.date ?? null
   // A series of named days starts on the first of them, today included.
-  const named = namedDays(recurrence ? (RECURRENCE.exec(recurrence)?.[2] ?? '') : '')
+  const rule = recurrence ? (RECURRENCE.exec(recurrence)?.[2] ?? '') : ''
+  const named = /^weekdays?$/i.test(rule) ? [1, 2, 3, 4, 5] : namedDays(rule)
   if (!due && named.length) {
     let day = dayjs(at)
     while (!named.includes(day.day())) day = day.add(1, 'day')

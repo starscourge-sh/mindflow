@@ -45,7 +45,7 @@ const capture = (n: number, part: Partial<CaptureMeta> & { label: string }): Cap
 /** The Inbox: one of most kinds, the way a first week's catches look. */
 export const exampleInbox = (): CaptureMeta[] => [
   capture(7, { kind: 'quote', label: 'It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.', attribution: 'Jane Austen' }),
-  capture(6, { kind: 'todo', label: 'Return Frankenstein to the library by Friday' }),
+  capture(6, { kind: 'note', label: 'Frankenstein began as a ghost story, one wet summer by Lake Geneva' }),
   capture(5, { kind: 'decision', label: 'Decided: read Dune before the film. Look again after the first chapter' }),
   capture(4, { kind: 'word', label: 'Soliloquy: speaking your thoughts aloud, alone on stage' }),
   capture(3, { kind: 'experiment', label: "Hermione's method for two weeks: read the chapter before the lecture" }),
@@ -55,7 +55,7 @@ export const exampleInbox = (): CaptureMeta[] => [
 
 /** Discarded: what was let go, still there to bring back. */
 export const exampleDiscarded = (): CaptureMeta[] => [
-  capture(3, { kind: 'todo', label: "Buy a long black coat, like Neo's", status: 'discarded', closedAt: minutesAgo(400) }),
+  capture(3, { kind: 'note', label: "A long black coat, like Neo's?", status: 'discarded', closedAt: minutesAgo(400) }),
   capture(2, { kind: 'note', label: 'Rename the cat Mr Darcy?', status: 'discarded', closedAt: minutesAgo(900) }),
   capture(1, { kind: 'link', label: 'Ten facts about sandworms', status: 'discarded', closedAt: minutesAgo(2000) })
 ]

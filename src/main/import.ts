@@ -164,7 +164,7 @@ export function kindOf(line: string): string | null {
   if (/^(todo|to do|fix|add|buy|call|phone|ring|book|email|mail|ask|tell|ping|text|message|reply|respond|chase|follow up|check|look into|look up|find|remind|cancel|pay|get|send|order|renew|schedule|arrange|organise|organize|plan|prepare|return|pick up|drop off|collect|finish|start|sort out|set up|install|update|clean|tidy|move|write|read|watch|try|visit|meet|contact|confirm|sign|submit|file|build|make|create|design|draft|research|learn|study|practi[cs]e|review|refactor|deploy|ship|implement|test|debug|publish|post|upload|download|back up|prep|apply|register|sign up|wash|cook|bake|repair|replace|print|scan|share|invite|thank|figure out|work on|need to|have to|must|should|remember to|don'?t forget)\b(?!\s*:)/i.test(text) && !/\?\s*$/.test(text)) return 'todo'
   // "Book: Thinking, Fast and Slow" is a label, not something to do; but
   // anything that comes round again ("water the plants every 3 days") is.
-  if (/\b(every (other )?(\d+ )?(day|week|month|year|morning|evening|night|weekday|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday)s?|daily|weekly|fortnightly|monthly|yearly)\b/i.test(text) && !/\?\s*$/.test(text)) return 'todo'
+  if (/\b(every!?\s+(other )?(\d+ )?(day|week|month|year|morning|evening|night|weekday|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday)s?|daily|weekly|fortnightly|monthly|yearly)\b/i.test(text) && !/\?\s*$/.test(text)) return 'todo'
   if (/^(decided|decision|going with|chose|we('ll| will) go with)\b/i.test(text)) return 'decision'
   // A question is a question, not a todo; "Name: words" is a quote only when
   // there are words enough to be said, not a label like "Shopping list: eggs".

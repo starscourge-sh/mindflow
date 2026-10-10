@@ -344,7 +344,7 @@ Every note here teaches one thing, and asks you to try it.
 
 ## Catch
 
-Press ⌘. in any app. A small box opens; write, press ⌘↵, and you are back where you were. It all lands in the Inbox, each thing with a kind: a note, a quote, a word, a link, a book.
+Press ⌘. in any app. A small box opens; write, press ⌘↵, and you are back where you were. It all lands in the Inbox, each thing with a kind: a note, a todo, a quote, a word, a link.
 
 ${link(kessel, 'Kessel Run maths')} · ${link(napoleon, 'A quote, kept with your own words')} · ${link(blueDot, 'The Pale Blue Dot')}
 
@@ -418,7 +418,7 @@ Kessel Run maths
 
 A line ending in = shows its answer, faint. Name a number once and use it below. Units and money convert as you type.
 
-**Try it:** put the caret after any = and press Tab to write the answer in.
+**Try it:** put the caret at the end of any line ending in = and press Tab to write the answer in.
 
 run = 12 parsec
 
@@ -442,7 +442,7 @@ A Royale with Cheese, four times, in dollars. Money needs the internet once a da
   await write(napoleon, `
 Never interrupt your enemy when he is making a mistake.
 
-**Try it:** press P to keep it. Vigil asks what it means to you first: a quote kept with nothing of yours beside it is one you collected, not one you understood.
+**Try it:** find it in the Inbox list and press P to keep it. Vigil asks what it means to you first: a quote kept with nothing of yours beside it is one you collected, not one you understood.
 `)
 
   await write(blueDot, `
@@ -458,7 +458,7 @@ image: ${dot}
 
 A link becomes a card like this one, picture and all, kept with your notes so it works offline. Sagan's point about this picture, in two words: be kind.
 
-**Try it:** paste any link into a note.
+**Try it:** paste any link into a note, on a line of its own.
 `)
 
   await write(apophenia, `
@@ -466,7 +466,7 @@ Apophenia: seeing patterns in noise.
 
 A word keeps its meaning and an example. Keep it and it comes back in Review as a card: the word on the front, the meaning behind.
 
-**Try it:** press P.
+**Try it:** find it in the Inbox list and press P.
 `)
   await field(apophenia, 'definition', 'Seeing meaningful patterns in random things.')
   await field(apophenia, 'example', 'Faces in clouds; a model that finds a cat in static.')
@@ -577,13 +577,13 @@ There's no place like 127.0.0.1 #bit
 
 Tagged #bit (a joke, a line for later), a note starts private: blurred in lists until you point at it, and never brought up unasked.
 
-**Try it:** press ⌥⌘S for safe mode, from any app, and watch everything private leave the screen. Press it again to bring it all back.
+**Try it:** press ⌥⌘S for safe mode, from any app, and watch the stickies, pins and hints leave the screen. Press it again to bring them all back.
 `)
 
   await write(book, `
 The Odyssey #book
 
-Tagged #book, a note keeps where you are with a book and what you made of it. This one feeds ${link(homer, 'a goal of 24 books', 'goal')} and ${link(odyssey, 'a passage from Book 1')}.
+Tagged #book, a note keeps where you are with a book and what you made of it. This one feeds ${link(homer, 'a goal to read all 24 of its books', 'goal')} and ${link(odyssey, 'a passage from Book 1')}.
 
 **Try it:** open its details and set it to Finished: a place for what you will keep from it appears.
 `)
@@ -682,7 +682,7 @@ The Picture of Dorian Gray #book
 
 A book set to Finished asks one more thing: what you will keep from it, a line or two under Takeaway.
 
-**Try it:** press ⌘K and type *Dorian*: the book and ${link(wilde, 'the line kept from it', 'nugget')} come up together, one by its title, the other by where it is from.
+**Try it:** press ⌘K and type *Dorian*: the book and the quote ${link(wilde, 'this line', 'nugget')} was kept from come up together, one by its title, the other by where it is from.
 `)
   await field(dorian, 'status', 'Finished')
   await field(dorian, 'rating', 4)
@@ -707,7 +707,7 @@ Morning: three coffees, one idea.
 
 A page a day. What you catch, finish and review today gathers underneath it on its own.
 
-**Try it:** write one line about how today went, then tick **Reviewed**.
+**Try it:** write one line about how today went, then tick **Mark reviewed**.
 `)
   })
   await v('notes:day:save', day(-1), {
@@ -1015,8 +1015,8 @@ Jimmy's rule in Goodfellas: never rat on your friends, and always keep your mout
     ...duneGlosses.map(([id, when]) => ({ glossAt: when, id })),
     ...done,
     { reviewedAt: at(-21, '08:10'), itemId: schwarzschild, nth: 0 },
-    { reviewedAt: at(-12, '08:05'), itemId: schwarzschild, nth: 1 },
-    { reviewedAt: at(-4, '07:58'), itemId: schwarzschild, nth: 2 },
+    { reviewedAt: at(-17, '08:05'), itemId: schwarzschild, nth: 1 },
+    { reviewedAt: at(-9, '07:58'), itemId: schwarzschild, nth: 2 },
     // Due from midnight, not 08:00: opened before eight, it must already wait in Review.
     { dueAt: at(0, '00:00'), nuggetId: schwarzschild },
     { createdAt: at(-150, '10:00'), nuggetId: overfitting },

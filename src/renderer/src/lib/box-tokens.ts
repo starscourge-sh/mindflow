@@ -300,9 +300,9 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
         span.kind === 'date' && read.due ? `For ${when(read.due, read.allDay)}`
         : span.kind === 'deadline' && read.deadline ? `Due by ${when(read.deadline, !read.deadlineTimed)}`
         : span.kind === 'repeat' && /^until\b/i.test(words) && read.until ? `Until ${when(read.until, true)}`
-        : span.kind === 'repeat' && read.recurrence ? `Repeat ${read.recurrence.replace(/^every!?\s*/i, 'every ')}`
+        : span.kind === 'repeat' && read.recurrence ? `Repeat ${read.recurrence.replace(/^every!?\s*/i, 'every ')}${/^every!/i.test(read.recurrence) ? ', counted from when you last did it' : ''}`
         : span.kind === 'priority' ? `Priority: ${PRIORITY_NAMES[read.priority]}`
-        : span.kind === 'plan' && read.plan ? `Plan it for ${{ month: 'this month', year: 'this year', next: 'later', someday: 'someday' }[bucketOf(read.plan) ?? 'someday']}`
+        : span.kind === 'plan' && read.plan ? `Plan it for ${{ month: 'this month', year: 'this year', next: 'next year', someday: 'someday' }[bucketOf(read.plan) ?? 'someday']}`
         : span.kind === 'notify' && read.notify ? `Remind ${{ pull: 'only when you look', quiet: 'quietly', alerts: 'with an alert' }[read.notify]}`
         : null
       if (effect) tokens.push(token(span.kind, pos(span.from), pos(span.to), effect))

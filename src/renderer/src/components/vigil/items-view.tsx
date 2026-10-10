@@ -406,7 +406,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           <Empty shape={['ellipse', 3]} title="Nothing matches">No title here has those words. Escape clears the search.</Empty>
         ) : unloaded(all) ? null : !all.length ? (
           // Nothing kept yet: the page as it will look, with a few made-up ones.
-          <Example tryIt={tier === 'nugget' ? 'open a note in your Inbox and press P. It lands here in your own words, ready to come back to you.' : 'press New article above, or pick a few ideas with X and choose Start an article.'}>
+          <Example tryIt={tier === 'nugget' ? 'pick a note in your Inbox list and press P. It lands here, ready to come back to you.' : 'press New article above, or pick a few ideas with X and choose Start an article.'}>
             <NoteList groups={[['', (tier === 'nugget' ? exampleIdeas() : exampleWriting()).map((one) => itemEntry(one))]]} density={density} table="nuggets" cursor={-1} onPick={() => undefined} className="mx-3 my-2" />
           </Example>
         ) : tier === 'nugget' ? (
