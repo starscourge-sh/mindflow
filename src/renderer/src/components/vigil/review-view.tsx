@@ -210,16 +210,13 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     )
 
   return (
-    <Page title="Review" count={queue.length - at}>
-      {/* No empty bar before the first card is done. */}
-      {at > 0 && (
-        <div className="h-0.5 bg-border">
-          <div className="h-full w-full origin-left bg-[var(--tt-brand-color-400)] transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]" style={{ transform: `scaleX(${at / queue.length})` }} />
-        </div>
-      )}
+    <Page title="Review">
+      {/* One card at a time in the middle of the page, never a narrow card with an empty half beside it. */}
+      <div className="mx-auto w-full max-w-2xl">
       {at === 0 && <Exams exams={exams} />}
+      <Through at={at} total={queue.length} />
       {missed && (
-        <p className="px-5 pt-4 -mb-6 text-xs text-muted-foreground">
+        <p className="px-5 pt-3 -mb-1 text-xs text-muted-foreground">
           <Typed text="Missed that one? Reread where it came from:" step={28} delay={100} /> <Pressed keys="R" />
         </p>
       )}
@@ -241,7 +238,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
         animate="here"
         exit="gone"
         transition={{ duration: 0.22, ease: EASE }}
-        className="flex flex-col gap-6 px-5 py-8"
+        className="flex flex-col gap-6 px-5 pt-4 pb-8"
       >
         {card.exam && (
           <p className="-mb-4 text-xs text-muted-foreground">
@@ -386,7 +383,28 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
         )}
       </motion.div>
       </AnimatePresence>
+      </div>
     </Page>
+  )
+}
+
+/** Where you are in today's cards: "1 of 3", with a dot for each card while they fit on one line. */
+function Through({ at, total }: { at: number; total: number }): React.JSX.Element {
+  return (
+    <div className="flex items-center justify-center gap-3 px-5 pt-6 text-xs text-muted-foreground tabular-nums">
+      {total <= 12 ? (
+        <span aria-hidden className="flex items-center gap-1.5">
+          {Array.from({ length: total }, (_, index) => (
+            <span key={index} className={`size-1.5 rounded-full transition-colors duration-300 ${index < at ? 'bg-[var(--tt-brand-color-400)]' : index === at ? 'bg-foreground' : 'bg-border'}`} />
+          ))}
+        </span>
+      ) : (
+        <span aria-hidden className="h-0.5 w-24 overflow-hidden rounded-full bg-border">
+          <span className="block h-full w-full origin-left bg-[var(--tt-brand-color-400)] transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]" style={{ transform: `scaleX(${at / total})` }} />
+        </span>
+      )}
+      <Rolling text={`${num(at + 1)} of ${num(total)}`} by="word" />
+    </div>
   )
 }
 
