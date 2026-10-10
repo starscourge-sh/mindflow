@@ -23,7 +23,7 @@ export type NoteTable = 'captures' | 'nuggets'
 export type GraphNode = { type: string; id: string; title: string; private: number }
 export type MapNode = {
   type: string; id: string; title: string; kind: string; links: number
-  /** Its main tag, and the colour the Tags page gave it, if any. */
+  /** Its main tag, and that tag's colour on the map: the Tags page's, else one no other tag there has. */
   tag?: string; tint?: string
   /** The first picture in it. */
   picture?: string

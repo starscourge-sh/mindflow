@@ -359,11 +359,22 @@ export function registerNotes({ load, guard }: Windows): void {
     const used = new Map<string, number>()
     for (const tags of tagsOf.values()) for (const tag of tags) used.set(tag, (used.get(tag) ?? 0) + 1)
     const main = (tags: string[]): string | undefined => [...tags].sort((a, b) => Number(!!colours.get(b)) - Number(!!colours.get(a)) || used.get(b)! - used.get(a)!)[0]
+    // Each main tag its own colour: one chosen on the Tags page kept, the rest
+    // given the hues still free, the commonest first, so two tags rarely match.
+    const mains = new Map(linked.map((row) => [row.id, main(tagsOf.get(row.id)!)]))
+    const counted = new Map<string, number>()
+    for (const tag of mains.values()) if (tag) counted.set(tag, (counted.get(tag) ?? 0) + 1)
+    const hue = new Map([...counted.keys()].filter((tag) => colours.get(tag)).map((tag) => [tag, colours.get(tag)!]))
+    const HUES = ['purple', 'green', 'blue', 'orange', 'pink', 'red', 'yellow']
+    const free = HUES.filter((one) => ![...hue.values()].includes(one))
+    let next = 0
+    for (const [tag] of [...counted].sort((a, b) => b[1] - a[1]))
+      if (!hue.has(tag)) hue.set(tag, free.length ? free[next++ % free.length] : HUES[next++ % HUES.length])
     return {
       nodes: linked.map(({ type, id, title, kind, body }) => {
-        const tag = main(tagsOf.get(id)!)
+        const tag = mains.get(id)
         const picture = body?.includes('mindflow://assets/') ? PICTURE.exec(body)?.[0] : undefined
-        return { type, id, title, kind, links: links.get(id)!, ...(tag ? { tag, ...(colours.get(tag) ? { tint: colours.get(tag)! } : {}) } : {}), ...(picture ? { picture } : {}) }
+        return { type, id, title, kind, links: links.get(id)!, ...(tag ? { tag, tint: hue.get(tag)! } : {}), ...(picture ? { picture } : {}) }
       }),
       edges: [...pairs.values()],
       alone: rows.length - links.size,

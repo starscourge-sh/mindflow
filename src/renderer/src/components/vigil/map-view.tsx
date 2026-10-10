@@ -30,16 +30,17 @@ export function MapView({ onOpen }: { onOpen: (type: string, id: string) => void
   const map = example ? examples : real
   const fit = useRef<() => void>(() => undefined)
 
-  // Kinds on the map, and the tags that colour its notes, for the key in the corner.
-  const { kinds, tags } = useMemo(() => {
+  // The tags that colour the map and the kinds on it, for the key in the corner.
+  const { kinds, tags, untagged } = useMemo(() => {
     const seen = new Set<string>()
     const tagged = new Map<string, { count: number; tint: string }>()
+    let untagged = false
     for (const node of map?.nodes ?? []) {
-      const kind = kindOf(node.kind)?.id ?? 'note'
-      if (kind === 'note' && node.tag) tagged.set(node.tag, { count: (tagged.get(node.tag)?.count ?? 0) + 1, tint: tintOf(node) })
-      else seen.add(kind)
+      seen.add(kindOf(node.kind)?.id ?? 'note')
+      if (node.tag) tagged.set(node.tag, { count: (tagged.get(node.tag)?.count ?? 0) + 1, tint: tintOf(node) })
+      else untagged = true
     }
-    return { kinds: CAPTURE_TYPES.filter((type) => seen.has(type.id)), tags: [...tagged].sort((a, b) => b[1].count - a[1].count).slice(0, 5) }
+    return { kinds: CAPTURE_TYPES.filter((type) => seen.has(type.id)), tags: [...tagged].sort((a, b) => b[1].count - a[1].count).slice(0, 6), untagged }
   }, [map])
 
   const count = map?.nodes.length ?? 0
@@ -58,16 +59,20 @@ export function MapView({ onOpen }: { onOpen: (type: string, id: string) => void
       {count ? (
         <Example on={example} className="min-h-0 flex-1" tryIt="type @ in any note and pick another one. The two show up here as dots, joined by a line.">
         <GraphCanvas map={map!} onOpen={onOpen} fit={fit} className="flex-1">
-          {/* What each colour means, and what was left off. */}
-          <div className="pointer-events-none absolute bottom-3 left-4 flex max-w-[calc(100%-18rem)] flex-wrap items-center gap-x-3 gap-y-1 text-meta text-muted-foreground">
-            {kinds.map((type) => (
-              <span key={type.id} className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: type.id === 'note' ? NOTE_TINT : type.tint }} />{type.id === 'note' && tags.length ? 'Note, no tag' : type.label}</span>
-            ))}
-            {/* A note wears its main tag's colour: the commonest few named. */}
-            {tags.length ? <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="whitespace-nowrap">Notes by tag</span>
+          {/* What the colours and icons mean: the colour is the tag, the icon the kind. */}
+          <div className="pointer-events-none absolute bottom-3 left-4 flex max-w-[calc(100%-18rem)] flex-col gap-1 text-meta text-muted-foreground">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="whitespace-nowrap text-foreground">Colour is the tag</span>
               {tags.map(([tag, { tint }]) => <span key={tag} className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: tint }} />#{tag}</span>)}
-            </span> : null}
+              {untagged && <span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: NOTE_TINT }} />No tag</span>}
+            </div>
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="whitespace-nowrap text-foreground">The icon is the kind</span>
+              {kinds.map((type) => {
+                const Icon = type.icon
+                return <span key={type.id} className="flex items-center gap-1"><Icon className="size-3" />{type.label}</span>
+              })}
+            </div>
           </div>
           {/* The notes left off, one click away: each opens, ready for an @ to put it on the map. */}
           {map!.alone && !example ? <Lonely count={map!.alone} notes={map!.lonely ?? []} onOpen={onOpen} /> : null}

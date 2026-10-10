@@ -24,14 +24,10 @@ const ease = (t: number): number => 1 - (1 - t) ** 3
 /** A busy note wears a faint ring for each band of links it reaches. */
 const ringsOf = (links: number, small: boolean): number => (small ? [8, 20, 60] : [6, 12, 24]).filter((band) => links >= band).length
 
-/** A plain note with no tag: a warm sand, so the map is not all grey. */
-export const NOTE_TINT = 'color-mix(in oklab, var(--tt-color-text-brown) 65%, color-mix(in oklab, var(--tt-color-text-orange) 20%, var(--tt-color-text-gray)))'
-/** What colour a dot is: a note its main tag's (as the tag shows in a note), else its kind's. */
-export const tintOf = (node: Pick<MapNode, 'kind' | 'tag' | 'tint'>): string => {
-  const kind = kindOf(node.kind)?.id ?? 'note'
-  if (kind !== 'note') return kindOf(kind)!.tint
-  return node.tag ? `var(--tt-color-text-${node.tint ?? spread(node.tag)})` : NOTE_TINT
-}
+/** A dot with no tag: a warm grey, kept apart from every tag's hue. */
+export const NOTE_TINT = 'color-mix(in oklab, var(--tt-color-text-brown) 45%, var(--tt-color-text-gray))'
+/** What colour a dot is: its main tag's, else a warm sand. The kind is told by its icon, not its colour. */
+export const tintOf = (node: Pick<MapNode, 'tag' | 'tint'>): string => (node.tag ? `var(--tt-color-text-${node.tint ?? spread(node.tag)})` : NOTE_TINT)
 
 // Each kind's icon as lines on a 24-square, for drawing inside a dot.
 const ICONS: Record<string, string> = {
@@ -217,8 +213,9 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
       return found
     }
     // A private note's title stays hidden on the map unless titles are shown.
+    // Its tags left out: the colour already says them.
     const titleOf = (dot: Dot): string => {
-      const words = dot.private && !('reveal' in document.documentElement.dataset) ? 'Private note' : dot.title || 'Untitled'
+      const words = dot.private && !('reveal' in document.documentElement.dataset) ? 'Private note' : dot.title.replace(/(^|\s)#[\w-]+/g, '').replace(/\s+/g, ' ').trim() || dot.title || 'Untitled'
       const most = small ? 22 : 32
       return words.length > most ? `${words.slice(0, most - 1).trimEnd()}…` : words
     }
@@ -481,9 +478,9 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
       const say = shown ? [...around!].map((id) => byId.get(id)!).sort((a, b) => b.links - a.links) : named
       const from = shown ?? middle
       const reachOf = (dot: Dot): number => dot.r + (shown ? 0 : dot.rings * ringGap)
-      // At rest on the Map a name keeps off every dot, not only the named ones.
-      const clear = !shown && !middle
-      const taken = [...(shown ? [shown] : []), ...(clear ? [] : say)].map((dot) => ({ dot, box: [dot.x! - reachOf(dot), dot.y! - reachOf(dot), dot.x! + reachOf(dot), dot.y! + reachOf(dot)] }))
+      // On the Map a name keeps off every dot, not only the named ones, or is left out.
+      const clear = !small
+      const taken = [...(shown ? [shown] : []), ...(clear && !shown ? [] : say)].map((dot) => ({ dot, box: [dot.x! - reachOf(dot), dot.y! - reachOf(dot), dot.x! + reachOf(dot), dot.y! + reachOf(dot)] }))
       const overlaps = (a: number[], b: number[]): boolean => !(a[2] < b[0] || a[0] > b[2] || a[3] < b[1] || a[1] > b[3])
       const strength = shown ? amount : 1 - amount
       context.font = `500 ${11 / view.k}px ${font}`
@@ -496,7 +493,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
       const frame = [-width / 2 - view.x, -height / 2 - view.y, width / 2 - view.x, height / 2 - view.y].map((at) => at / view.k)
       let said = 0
       for (const dot of say) {
-        if (clear && said >= 12) break
+        if (clear && !shown && said >= 12) break
         const words = titleOf(dot)
         const wide = context.measureText(words).width
         const away = from ? dot.x! < from.x! || (dot === from && dot.x! > 0) : false
@@ -508,15 +505,16 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, className, child
         // itself, whatever dots are there: the others keep off its name.
         const lead = dot === middle && !shown
         const spots = lead ? [above, below] : [...(away ? [left, right] : [right, left]), above, below]
-        // Strict, a name keeps off every dot; else only off the hubs.
-        const fits = (strict: boolean) => (box: number[]): boolean =>
+        // A dot's circle, ring and all, against a name's box: the nearest point of the box inside it.
+        const touches = (box: number[], other: Dot): boolean => {
+          const reach = reachOf(other) + 1 / view.k
+          return Math.hypot(Math.max(box[0], Math.min(other.x!, box[2])) - other.x!, Math.max(box[1], Math.min(other.y!, box[3])) - other.y!) < reach
+        }
+        const spot = spots.map(([x, y]) => [x, y - half, x + wide, y + half]).find((box) =>
           !taken.some((one) => one.dot !== dot && (!lead || one.dot === shown) && overlaps(box, one.box)) &&
           // A name cut off by the frame's edge is left out on a small map.
           !(small && (box[0] < frame[0] || box[2] > frame[2] || box[1] < frame[1] || box[3] > frame[3])) &&
-          !(clear && dots.some((other) => other !== dot && (strict || other.rings > 0 || other.r >= 7) && overlaps(box, [other.x! - reachOf(other), other.y! - reachOf(other), other.x! + reachOf(other), other.y! + reachOf(other)])))
-        const boxes = spots.map(([x, y]) => [x, y - half, x + wide, y + half])
-        // The six busiest are named even over a small dot, when nowhere is clear.
-        const spot = boxes.find(fits(true)) ?? (clear && named.indexOf(dot) < 6 ? boxes.find(fits(false)) : undefined)
+          !(clear && dots.some((other) => other !== dot && touches(box, other))))
         if (!spot) continue
         said++
         taken.push({ dot: shown ?? dot, box: spot })
