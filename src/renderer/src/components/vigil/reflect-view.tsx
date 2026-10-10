@@ -74,9 +74,9 @@ function prose(told: MonthTold, name: string, before: string): string {
   return said.join(' ')
 }
 
-/** A label in small spaced capitals, over a hairline when it heads a section. */
+/** A section's name in plain bold words, over a hairline when it heads a section. */
 function Label({ children, rule = false }: { children: React.ReactNode; rule?: boolean }): React.JSX.Element {
-  return <h3 className={`text-[0.6875rem] font-medium tracking-[0.12em] text-muted-foreground uppercase ${rule ? 'border-b border-border/70 pb-2' : 'mt-1.5'}`}>{children}</h3>
+  return <h3 className={`text-control font-semibold text-foreground ${rule ? 'border-b border-border/70 pb-2' : 'mt-1.5'}`}>{children}</h3>
 }
 
 /**
