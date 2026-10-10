@@ -1,0 +1,117 @@
+/* Vigil's Paper look: old paper, brown ink, Fraunces for the headings. */
+@font-face {
+  font-family: 'Fraunces';
+  src: url('fonts/fraunces-latin-wght-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Fraunces';
+  src: url('fonts/fraunces-latin-wght-italic.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+:root {
+  --bg: #f3ead7;
+  --card: #f8f1e2;
+  --ink: #4a4034;
+  --strong: #2f281f;
+  --soft: #6b6152;
+  --line: #ddd0b6;
+  --accent: #9a5a2c;
+  --serif: 'Fraunces', Georgia, serif;
+  --sans: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1d1915;
+    --card: #26211b;
+    --ink: #ddd2bf;
+    --strong: #f3ead7;
+    --soft: #b3a792;
+    --line: #3a3229;
+    --accent: #d89466;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 18px/1.6 var(--sans);
+}
+a { color: inherit; text-decoration-color: color-mix(in srgb, currentColor 35%, transparent); text-underline-offset: 3px; }
+a:hover { text-decoration-color: currentColor; }
+img { max-width: 100%; height: auto; display: block; }
+strong { color: var(--strong); font-weight: 650; }
+
+.wrap { width: min(68rem, 100% - 2rem); margin-inline: auto; }
+.narrow { width: min(44rem, 100% - 2rem); margin-inline: auto; }
+
+/* The top bar */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.25rem 0; flex-wrap: wrap; }
+.mark { font: 600 1.5rem/1 var(--serif); color: var(--strong); text-decoration: none; }
+.top nav { display: flex; gap: 1.25rem; flex-wrap: wrap; font-size: 1rem; }
+.top nav a { text-decoration: none; color: var(--ink); }
+.top nav a:hover, .top nav a[aria-current] { color: var(--accent); }
+
+/* Headings: Fraunces, with a bold sans lead where a headline mixes the two. */
+h1, h2, h3 { font-family: var(--serif); color: var(--strong); font-weight: 500; line-height: 1.12; margin: 0; }
+h1 { font-size: clamp(2.4rem, 6vw, 4rem); letter-spacing: -0.01em; }
+h2 { font-size: clamp(1.8rem, 4vw, 2.6rem); }
+h3 { font-size: 1.35rem; }
+.mix b { font-family: var(--sans); font-weight: 750; letter-spacing: -0.03em; }
+
+.hero { padding: 3.5rem 0 2rem; }
+.hero p.lede { font-size: 1.3rem; max-width: 38rem; margin: 1.25rem 0 0; }
+.shot { margin: 2rem 0 0; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 18px 50px -24px rgb(60 40 20 / 0.45); background: var(--card); }
+.shot.small { max-width: 34rem; }
+figure { margin: 0; }
+figcaption { font-size: 1rem; color: var(--soft); margin-top: 0.6rem; }
+
+section { padding: 3.5rem 0; }
+section + section { border-top: 1px solid var(--line); }
+p { margin: 1rem 0 0; }
+.lead-in { font-size: 1.2rem; }
+
+/* The gap: what each tool does, and what it leaves out. */
+.gap-intro { max-width: 44rem; font-size: 1.2rem; }
+.tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; margin-top: 2rem; }
+.tool { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1.25rem 1.25rem 1.4rem; }
+.tool h3 { font-family: var(--sans); font-weight: 700; font-size: 1.1rem; }
+.tool .does { margin: 0.5rem 0 0; }
+.tool .lacks { margin: 0.75rem 0 0; font-size: 1.05rem; color: var(--strong); }
+.tool .lacks::before { content: '✕ '; color: var(--accent); }
+.tool.ours { border: 2px solid var(--accent); grid-column: 1 / -1; }
+.tool.ours .does, .tool.ours .lacks { font-size: 1.15rem; }
+.tool.ours .lacks::before { content: '✓ '; }
+.tool.ours h3 { color: var(--accent); }
+
+/* Lists of features and pages */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 1rem; margin-top: 2rem; }
+.card { display: block; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1.25rem; text-decoration: none; }
+.card:hover { border-color: var(--accent); }
+.card h3 { font-size: 1.3rem; }
+.card p { margin-top: 0.5rem; }
+.card .go { display: inline-block; margin-top: 0.75rem; color: var(--accent); font-weight: 600; }
+
+.points { list-style: none; padding: 0; margin: 1.5rem 0 0; display: grid; gap: 1rem; }
+.points li { padding-left: 1.25rem; border-left: 3px solid var(--line); }
+
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; align-items: center; }
+@media (max-width: 760px) { .split { grid-template-columns: 1fr; } }
+
+kbd { font: 600 0.9em var(--sans); background: var(--card); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; padding: 0.05em 0.4em; }
+
+.next { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; font-size: 1.05rem; }
+.next a { color: var(--accent); font-weight: 600; text-decoration: none; }
+
+footer { border-top: 1px solid var(--line); padding: 2rem 0 3rem; font-size: 1rem; color: var(--soft); }
+footer p { margin: 0.3rem 0 0; }
