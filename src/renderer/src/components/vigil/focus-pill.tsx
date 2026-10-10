@@ -659,33 +659,46 @@ const SMOKE_EASE = `@property --beam-strength { syntax: '<number>'; inherits: tr
 [data-beam="{id}"] { transition: --beam-strength 320ms cubic-bezier(0.16, 1, 0.3, 1); }`
 
 /**
- * One gleam across the pill: a soft diagonal light gliding from left to right
- * in 700ms, its edges masked away so it reads as a reflection, not a bar.
- * With Motion off or reduced motion, one soft glow that comes and goes instead.
+ * One gleam across the pill, like light sliding over glossy glass: a wide
+ * soft band, angled, with a feathered falloff and a faint glint trailing it,
+ * eased across in 1.25s on transform alone and clipped to the pill. The top
+ * edge's sheen brightens as it passes. Screened onto the pill, so it lifts a
+ * dark or a light one alike. Brutal wears a flat, hard-edged band instead.
+ * With Motion off or reduced motion, one soft glow that comes and goes.
  */
 function Gleam({ light }: { light: boolean }): React.JSX.Element {
-  const shine = useRef<HTMLSpanElement>(null)
+  const band = useRef<HTMLSpanElement>(null)
+  const sheen = useRef<HTMLSpanElement>(null)
+  const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
+  const brutal = document.documentElement.dataset.style === 'brutal'
   useEffect(() => {
-    const element = shine.current
-    if (!element) return
-    const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
-    const run = still
-      ? element.animate([{ opacity: 0 }, { opacity: 1 }, { opacity: 0 }], { duration: 1200, easing: 'ease-in-out' })
-      : element.animate([{ transform: 'translateX(-110%) skewX(-20deg)' }, { transform: 'translateX(330%) skewX(-20deg)' }], { duration: 700, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' })
-    return () => run.cancel()
-  }, [])
-  const still = typeof document !== 'undefined' && (document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches)
-  // A pale pill takes a brighter light to show at all.
-  const ink = light ? 'rgb(255 255 255 / 0.95)' : 'rgb(255 255 255 / 0.2)'
+    const runs: Animation[] = []
+    if (still) {
+      if (band.current) runs.push(band.current.animate([{ opacity: 0 }, { opacity: 1 }, { opacity: 0 }], { duration: 1200, easing: 'ease-in-out' }))
+    } else {
+      const timing = { duration: 1250, easing: brutal ? 'cubic-bezier(0.65, 0, 0.35, 1)' : 'cubic-bezier(0.45, 0, 0.55, 1)' }
+      // The band is 60% of the pill wide: from wholly off the left to wholly off the right.
+      if (band.current) runs.push(band.current.animate([{ transform: 'translateX(-100%) skewX(-20deg)' }, { transform: 'translateX(175%) skewX(-20deg)' }], timing))
+      if (sheen.current && !brutal) runs.push(sheen.current.animate([{ opacity: 0 }, { opacity: 0, offset: 0.2 }, { opacity: 1, offset: 0.5 }, { opacity: 0, offset: 0.85 }, { opacity: 0 }], timing))
+    }
+    return () => runs.forEach((run) => run.cancel())
+  }, [still, brutal])
+  // A pale pill needs more light to show through a screen at all.
+  const white = (alpha: number): string => `rgb(255 255 255 / ${Math.min(1, alpha * (light ? 2.4 : 1))})`
+  const soft = `linear-gradient(90deg, transparent 0%, ${white(0.18)} 30%, ${white(0.28)} 50%, ${white(0.18)} 70%, transparent 100%)`
+  // The glint: a thin second light behind the band, fainter.
+  const glint = `linear-gradient(90deg, transparent 4%, ${white(0.14)} 8%, transparent 12%)`
+  const hard = `linear-gradient(90deg, transparent 30%, ${white(0.3)} 30%, ${white(0.3)} 55%, transparent 55%)`
   return (
-    <span aria-hidden data-gleam className="pointer-events-none absolute inset-0 overflow-hidden rounded-[22px]">
-      <span
-        ref={shine}
-        className="absolute inset-y-0 left-0"
-        style={still
-          ? { right: 0, opacity: 0, background: `color-mix(in oklab, var(--tt-brand-color-400) ${light ? 10 : 14}%, transparent)` }
-          : { width: '22%', transform: 'translateX(-110%) skewX(-20deg)', background: `linear-gradient(90deg, transparent, ${ink} 50%, transparent)`, maskImage: 'linear-gradient(transparent, black 20%, black 80%, transparent)' }}
-      />
+    <span aria-hidden data-gleam className="pointer-events-none absolute inset-0 overflow-hidden" style={{ mixBlendMode: 'screen', borderRadius: 'inherit' }}>
+      {still ? (
+        <span ref={band} className="absolute inset-0" style={{ opacity: 0, background: `color-mix(in oklab, var(--tt-brand-color-400) ${light ? 10 : 14}%, transparent)` }} />
+      ) : (
+        <>
+          {!brutal && <span ref={sheen} className="absolute inset-x-[8%] top-0 h-[45%]" style={{ opacity: 0, background: `linear-gradient(${white(0.16)}, transparent)`, borderRadius: 'inherit' }} />}
+          <span ref={band} className="absolute -inset-y-2 left-0 w-[60%]" style={{ transform: 'translateX(-100%) skewX(-20deg)', willChange: 'transform', background: brutal ? hard : `${soft}, ${glint}` }} />
+        </>
+      )}
     </span>
   )
 }
