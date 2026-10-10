@@ -8,7 +8,6 @@ import EyeOffIcon from '@/components/ui/eye-off-icon'
 import EyeIcon from '@/components/ui/eye-icon'
 import QuestionMarkIcon from '@/components/ui/question-mark'
 import BookmarkIcon from '@/components/ui/bookmark-icon'
-import PlayerIcon from '@/components/ui/player-icon'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE } from '@/lib/motion'
 
@@ -32,9 +31,10 @@ import { pinQuestion } from './pinned-questions'
 import { Mentions } from './mentions'
 import { Aliases, LocalGraph, NoteHeader } from './note-extras'
 import { RowMenu, copy, type MenuItem } from './row-menu'
-import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Tip, Typed, ask, refuse, showTopTitle, toast, useListKeys } from './ui'
+import { Empty, Island, Page, Prop, Props, Rolling, Stepper, Tip, Typed, ask, refuse, showTopTitle, toast, useListKeys } from './ui'
 import { Term } from './term'
-import { useRowGloss } from './gloss-line'
+import { openGloss, useRowGloss } from './gloss-line'
+import { ThoughtDock } from './thought-bar'
 import { ago, dayMonth, dayName, heldFor, num } from '../../../../main/dates'
 import { ReadThrough } from './read-through'
 import { CollectionHeader, Cover, MenuButton, PlayButton, QuietAction, pictureIn, useTint } from './collection-header'
@@ -48,7 +48,6 @@ const Eye = alive(EyeIcon)
 const Orbit = alive(QuestionMarkIcon)
 const Pin = alive(BookmarkIcon)
 const PinOff = alive(BookmarkIcon)
-const Play = alive(PlayerIcon)
 const RotateCcw = alive(ArrowBackUpIcon)
 
 /**
@@ -301,7 +300,7 @@ export const questionEntry = (item: Item, inView = false, menu?: MenuItem[]): En
   sub: item.closedAt ? `${item.closedHow === 'let go' ? 'Let go' : 'Answered'} ${whenLower(item.closedAt)} · ${cluesSaid(item.clues)}` : `${heldFor(item.createdAt)[0].toUpperCase()}${heldFor(item.createdAt).slice(1)} · ${cluesSaid(item.clues)}`,
   marks: (
     <>
-      {inView ? <Pin className="size-3 shrink-0 text-muted-foreground" aria-label="In view" /> : null}
+      {inView ? <Pin className="size-3 shrink-0 text-muted-foreground" aria-label="Showing in quick capture" /> : null}
       {item.private ? <EyeOff className="size-3 shrink-0 text-muted-foreground" aria-label="Private" /> : null}
     </>
   ),
@@ -316,13 +315,16 @@ export const questionEntry = (item: Item, inView = false, menu?: MenuItem[]): En
  * however it asks to be written, and its clues, newest first. Down the right,
  * how long it has been held and the two ways it can end.
  */
+/** What Show in quick capture does, said where it is offered. */
+const QUICK_TIP = 'Shows this question in quick capture, so you can add a clue the moment one comes to you.'
+
 /** What a question offers besides opening it: its row menu and its note's dots share it. */
 const questionMenu = (item: Item, shown: boolean): MenuItem[] => [
   { label: 'Open in a new window', keys: '⌘-click', run: () => openWindow('question', item.id) },
   asideItem('question', item.id),
   ...queueItems(item.id),
   'separator',
-  ...(item.closedAt ? [] : [{ label: shown ? 'Out of view' : 'Keep in view while capturing', run: () => void pinQuestion(item.id, item.title, !shown) }]),
+  ...(item.closedAt ? [] : [{ label: shown ? 'Stop showing in quick capture' : 'Show in quick capture', run: () => void pinQuestion(item.id, item.title, !shown) }]),
   { label: item.private ? 'Not private' : 'Private', run: () => void vigil.setPrivate('nuggets', item.id, !item.private) },
   { label: item.archivedAt ? 'Unarchive' : 'Archive', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
   'separator',
@@ -358,11 +360,8 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
   const [reading, setReading] = useState<number | null>(null)
   const clues = [...item.glosses].reverse()
   const readClues = (from = 0): void => (clues.length ? setReading(from) : refuse('No clues yet: add one first', 'info'))
-  const addClue = (): void => {
-    const field = document.querySelector<HTMLTextAreaElement>('[data-clue-field]')
-    field?.scrollIntoView({ block: 'center', behavior: document.documentElement.dataset.motion === 'off' ? 'instant' : 'smooth' })
-    field?.focus({ preventScroll: true })
-  }
+  // The composer under the page takes it.
+  const addClue = (): void => openGloss(item.id)
   const cover = pictureIn(item.body)
   const tint = useTint(cover, 'var(--primary)')
   const lastClue = clues[0]?.createdAt
@@ -373,7 +372,7 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
           onRestored={() => void vigil.item(item.id).then((fresh) => fresh && setRestored((was) => ({ body: fresh.body, rev: (was?.rev ?? 0) + 1 })))}
           edited={item.updatedAt} captured={item.createdAt} made="Asked" menu={questionMenu(item, inView)} />
         {reading !== null && (
-          <ReadThrough items={clues.map((clue) => ({ type: 'clue', id: clue.id, body: clue.body, title: dayName(clue.createdAt) }))} start={reading} onClose={() => setReading(null)} />
+          <ReadThrough items={clues.map((clue) => ({ type: 'clue', id: clue.id, body: clue.body, title: dayName(clue.createdAt) }))} start={reading} onClose={() => setReading(null)} clueTo={item.id} />
         )}
         <CollectionHeader
           tint={tint}
@@ -441,15 +440,21 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
             }}
           />
         )}
+        {/* A clue the moment it comes, pinned under the page; the ones so far a click away. */}
+        <ThoughtDock id={item.id} clue />
       </div>
 
       <Props fold>
         <Island compact title="Open question">
           <Prop icon={Orbit} active>{settled ?? <Rolling by="word" text={heldFor(item.createdAt).replace(/^o/, 'O')} />}</Prop>
           {!item.closedAt && (
-            <Prop icon={inView ? Pin : PinOff} active={inView} onClick={() => void pinQuestion(item.id, item.title, !inView)}>
-              {inView ? 'In view: shows while you capture' : 'Keep in view while capturing'}
-            </Prop>
+            <Tip label={QUICK_TIP}>
+              <div>
+                <Prop icon={inView ? Pin : PinOff} active={inView} onClick={() => void pinQuestion(item.id, item.title, !inView)}>
+                  {inView ? 'Showing in quick capture' : 'Show in quick capture'}
+                </Prop>
+              </div>
+            </Tip>
           )}
           <Prop icon={Calendar}>Asked {dayMonth(item.createdAt)}</Prop>
         </Island>
@@ -492,42 +497,12 @@ const whenLower = (at: string): string => {
  * your thinking moved stays readable. A line at the top takes the next one.
  */
 function Clues({ item, onRead }: { item: ItemFull; onRead: (from: number) => void }): React.JSX.Element {
-  const [words, setWords] = useState('')
   const clues = [...item.glosses].reverse()
-  const keep = (): void => {
-    const text = words.trim()
-    if (!text) return
-    setWords('')
-    void vigil.addClue(item.id, text).then((clue) => {
-      chime('clue')
-      toast('A clue, kept', clue ? () => void vigil.dropClue(clue) : undefined)
-    })
-  }
   return (
     <section data-chrome className="page-narrow mx-auto mt-6 w-full border-t px-10 pt-4 text-body">
       <h3 className="mb-2 flex items-baseline gap-1.5 px-2 text-meta text-muted-foreground">
         <Term>Clues</Term> {clues.length > 0 && <Rolling text={clues.length} className="tabular-nums" />}
       </h3>
-      <div className="mx-2 mb-3 flex items-start gap-2 rounded-lg border bg-accent/30 px-3 py-2 focus-within:border-foreground/25">
-        <Plus className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
-        <textarea
-          data-clue-field
-          rows={1}
-          value={words}
-          onChange={(event) => setWords(event.target.value)}
-          onKeyDown={(event) => {
-            event.stopPropagation()
-            if (event.key === 'Enter' && !event.shiftKey) {
-              event.preventDefault()
-              keep()
-            }
-            if (event.key === 'Escape') event.currentTarget.blur()
-          }}
-          placeholder="A clue: something you noticed, felt, or heard"
-          className="min-w-0 flex-1 resize-none bg-transparent text-control outline-none [field-sizing:content] placeholder:text-foreground/60"
-        />
-        {words.trim() && <span className="mt-0.5 flex shrink-0 items-center gap-1 text-xs text-muted-foreground"><Kbd>↵</Kbd></span>}
-      </div>
       {clues.length ? (
         <ol className="flex flex-col">
           <AnimatePresence initial={false}>
@@ -544,17 +519,10 @@ function Clues({ item, onRead }: { item: ItemFull; onRead: (from: number) => voi
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, transition: { duration: 0.12 } }}
                     transition={{ duration: 0.18, ease: EASE }}
-                    // Pointed at, its number becomes a play mark (read from here) and its ··· shows, as in the tag's list.
+                    // Pointed at, its ··· shows (Read from here is in it), as in the tag's list. Its number stays a number.
                     className="group/track relative grid grid-cols-[1.25rem_4.25rem_1fr] items-start gap-2.5 rounded-md px-2 py-1.5 pr-9 hover:bg-foreground/[0.055] has-[[data-state=open]]:bg-foreground/[0.055]"
                   >
-                    <span className="relative pt-px text-right text-xs text-muted-foreground tabular-nums">
-                      <span className="group-focus-within/track:opacity-0 group-hover/track:opacity-0">{clues.length - index}</span>
-                      <Tip label="Read from here">
-                        <button type="button" onClick={() => onRead(index)} className="absolute inset-y-0 right-0 flex items-center text-foreground opacity-0 group-focus-within/track:opacity-100 group-hover/track:opacity-100">
-                          <Play className="size-3 fill-current" />
-                        </button>
-                      </Tip>
-                    </span>
+                    <span className="pt-px text-right text-xs text-muted-foreground tabular-nums">{clues.length - index}</span>
                     <span className="pt-px text-xs text-muted-foreground tabular-nums">{clueDate(clue.createdAt)}</span>
                     <span className="min-w-0">
                       <span className="private-text block whitespace-pre-line">{clue.body}</span>
@@ -569,7 +537,7 @@ function Clues({ item, onRead }: { item: ItemFull; onRead: (from: number) => voi
         </ol>
       ) : (
         <p className="px-2 pb-2 text-control text-muted-foreground">
-          <Typed text="No clues yet. Add one whenever it crosses your mind, from here, from the box with + and the question's name, or from any capture with H." step={28} />
+          <Typed text="No clues yet. Add one whenever it crosses your mind: in the field at the foot of the page, in quick capture with + and the question's name, or from any capture with H." step={28} />
         </p>
       )}
     </section>

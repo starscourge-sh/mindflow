@@ -1369,6 +1369,15 @@ export function registerVigil(): void {
     db.prepare('insert into glosses (id, item_id, body, created_at) values (?, ?, ?, ?)').run(id, itemId, text, now())
     return write(id)
   })
+  // The weather now, for the line under Today's title: only when the weather
+  // setting is on, and nothing at all when offline.
+  handle('weather:now', () => (settings().weather ? weatherNow() : null))
+  // Reworded from the composer's history: the same row, its words put right.
+  handle('gloss:edit', (gloss: string, text: string) => {
+    const words = String(text ?? '').trim()
+    if (!words) return write(false)
+    return write(db.prepare('update glosses set body = ? where id = ?').run(words, gloss).changes > 0)
+  })
   // The timeline of what you thought of it, newest first: what every surface
   // shows the latest of, and a detail panel shows whole.
   handle('glosses', (itemId: string) =>

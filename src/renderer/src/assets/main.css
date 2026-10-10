@@ -1418,3 +1418,14 @@ html[data-dragging], html[data-dragging] * { cursor: grabbing !important; }
   color: color-mix(in oklab, var(--primary-foreground) 75%, transparent) !important;
   box-shadow: none !important;
 }
+
+/* Read's composer: always there to reach, a step quieter while you read. */
+.mf-read [data-composer] {
+  opacity: 0.6;
+  transition: opacity 450ms var(--mf-ease);
+}
+.mf-read:is([data-awake], :has([data-composer] :focus)) [data-composer],
+.mf-read [data-composer]:is(:hover, :focus-within) {
+  opacity: 1;
+  transition-duration: 140ms;
+}

@@ -94,6 +94,15 @@ export function DayBrief({ day, onOpen, onListed }: {
   onListed?: (ids: string[]) => void
 }): React.JSX.Element {
   const now = useMinute()
+  // Today's weather, from the same source each capture's comes from; asked
+  // again every half hour, and simply left out when off or offline.
+  const [sky, setSky] = useState<string | null>(null)
+  const half = Math.floor(now.getTime() / 1_800_000)
+  useEffect(() => {
+    let current = true
+    void vigil.weatherNow().then((said) => current && setSky(said), () => undefined)
+    return () => void (current = false)
+  }, [half])
   const scene = useDayScene(day)
   // Scenery off, or no pictures: the day's grain cover, the same all day.
   const grain = useCover(scene ? null : `day:${day}`)
@@ -253,12 +262,14 @@ export function DayBrief({ day, onOpen, onListed }: {
             }}>
             {/* The title is simply there: the greeting below is the line that speaks (lib/motion.ts). */}
             <span className="font-semibold tracking-[-0.02em] text-[clamp(2rem,5.6vw,4.25rem)] text-balance">The {weekday} Brief</span>
+            {/* The date, the time (each new minute) and the weather: one calm line under the title. */}
+            <span data-today-line className="mt-3 font-sans text-[clamp(0.9375rem,1.5vw,1.125rem)] leading-normal font-medium tracking-normal tabular-nums" style={{ opacity: picture ? 0.92 : 0.8 }}>
+              {[dayjs(now).format('D MMMM'), time, sky].filter(Boolean).join(' · ')}
+            </span>
           </h2>
         </div>
       </div>
       <div className="pt-2.5">
-        {/* The date and time, on one plain line under the picture. */}
-        <p className="mb-0.5 text-xs font-medium text-foreground tabular-nums">{dayjs(now).format('D MMMM')}, {time}</p>
         <div className="flex items-start gap-6">
           <p className="line-clamp-2 min-w-0 flex-1 text-[0.9375rem] leading-snug text-pretty text-muted-foreground">
             {/* Not before the day is read: "Nothing is due" typed over a full day was wrong for a moment. */}

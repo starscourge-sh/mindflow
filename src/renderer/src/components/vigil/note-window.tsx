@@ -10,6 +10,7 @@ import { Mentions } from './mentions'
 import { selectionActions } from './selection-actions'
 import { Toaster, pin, useEscapeLeavesEditor } from './ui'
 import { NoteHeader } from './note-extras'
+import { ThoughtDock } from './thought-bar'
 import { Board, useBoard } from './board-view'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Search } from '../search'
@@ -162,6 +163,7 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
         </div>
         )}
         {boardShown && <Board key={`${id}-${rev}`} editor={editor} id={id} tools={tools} />}
+        <ThoughtDock id={id} hidden={boardShown} />
       </div>
       {(!boardShown || propsOut) && <CaptureProps capture={meta} onOpen={elsewhere} fold={!boardShown} />}
     </div>

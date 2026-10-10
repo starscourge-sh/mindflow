@@ -38,6 +38,7 @@ import { chime, tear } from '@/lib/sound'
 import { Empty, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle, Pressed } from './ui'
 import { Term } from './term'
 import { GlossTimeline, useRowGloss } from './gloss-line'
+import { ThoughtDock } from './thought-bar'
 import { RemindMe } from './items-view'
 import { addToQuestion } from './questions-view'
 import { ReadThrough } from './read-through'
@@ -469,6 +470,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
             </div>
             )}
             {boardShown && <Board key={`${open.id}-${rev}`} editor={editor} id={open.id} tools={tools} />}
+            {/* A thought on it, pinned under the page, its earlier ones a click away. */}
+            <ThoughtDock id={open.id} hidden={boardShown} />
           </div>
           {(!boardShown || propsOut) && <CaptureProps capture={meta} onOpen={onOpen} fold={!boardShown} onExit={() => {
             const at = shown.findIndex((one) => one.id === meta.id)
@@ -510,7 +513,7 @@ function GoThrough({ compact, canRead, onRead }: { compact: boolean; canRead: bo
 
 /** A capture's row menu in its note's dots, less what the row over it already shows: opening, the star, the link. */
 export const captureDots = (capture: CaptureMeta): MenuItem[] =>
-  captureMenu(capture).filter((item) => !item || item === 'separator' || !['Open', 'Unpin', 'Pin to the box', 'Copy link to this note'].includes(item.label))
+  captureMenu(capture).filter((item) => !item || item === 'separator' || !['Open', 'Unpin', 'Show in quick capture', 'Copy link to this note'].includes(item.label))
 
 /** Status and the exits, then what the capture is, then where it came from. */
 export function CaptureProps({ capture, onOpen, className, fold, onExit }: { capture: CaptureMeta; onOpen?: (type: string, id: string) => void; className?: string; /** Beside the open note: put away until asked for. */ fold?: boolean; /** Once it has taken a way out: on to the next one. */ onExit?: () => void }): React.JSX.Element {
@@ -613,7 +616,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit }: { cap
           {capture.private ? 'Private' : 'Not private'}
         </Prop>
         <Prop icon={Pin} active={!!capture.pinnedAt} onClick={() => pin('captures', capture.id, !capture.pinnedAt)}>
-          {capture.pinnedAt ? 'Pinned' : 'Pin to the box'}
+          {capture.pinnedAt ? 'Showing in quick capture' : 'Show in quick capture'}
         </Prop>
         <RemindMe table="captures" id={capture.id} at={capture.remindAt} />
         {/* Out of sight, apart from the exits: whatever became of it, it can be put away. */}

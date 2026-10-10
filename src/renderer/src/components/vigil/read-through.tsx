@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { chime } from '@/lib/sound'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { toMarkdown } from '@/lib/export'
@@ -17,6 +18,7 @@ import ArrowNarrowUpIcon from '@/components/ui/arrow-narrow-up-icon'
 import XIcon from '@/components/ui/x-icon'
 import { exit } from '@/lib/capture-links'
 import { GlossComposer, openGloss } from './gloss-line'
+import { ThoughtBar } from './thought-bar'
 import { Signed } from './signature'
 import { finish, openLink, readingQueue, type QueueRow } from '@/lib/reading-queue'
 
@@ -102,10 +104,12 @@ const KEYS: { keys: string[]; label: string; when?: 'own' | 'capture' | 'queue' 
  * buttons. j and k (or the arrows) turn the page, e opens the one in front of
  * you to change it, Escape goes back to where you were.
  */
-export function ReadThrough({ items, start = 0, onClose, queue }: {
+export function ReadThrough({ items, start = 0, onClose, queue, clueTo }: {
   items: Readable[]
   start?: number
   onClose: () => void
+  /** Reading a question's clues: the question, which the composer adds new clues to. */
+  clueTo?: string
   /** Reading the queue: its entries, one for each item, for the Up next bar under the page. */
   queue?: QueueRow[]
   /** No longer used: a note is changed in place, here. */
@@ -142,6 +146,30 @@ export function ReadThrough({ items, start = 0, onClose, queue }: {
   const reader = useRef<Editor | null>(null)
   const caret = useRef<number | null>(null)
   const item = items[at]
+  // What the composer under the page adds to: the question whose clues these
+  // are, or the note in front of you. A question's own page takes clues.
+  const composerFor = clueTo ?? (item && item.body === undefined ? item.id : undefined)
+  const clueMode = !!clueTo || item?.type === 'question'
+  // The way out shows when the pointer comes near the top, as a video's
+  // controls do, and the soft line at the top says how far down you are.
+  const [near, setNear] = useState(false)
+  const [progress, setProgress] = useState<number | null>(null)
+  const scroller = useRef<HTMLDivElement>(null)
+  const measure = (): void => {
+    const box = scroller.current
+    if (!box) return
+    const room = box.scrollHeight - box.clientHeight
+    setProgress(room > 48 ? Math.min(1, box.scrollTop / room) : null)
+  }
+  useEffect(() => {
+    const box = scroller.current
+    if (!box) return
+    measure()
+    const watch = new ResizeObserver(measure)
+    watch.observe(box)
+    if (box.firstElementChild) watch.observe(box.firstElementChild)
+    return () => watch.disconnect()
+  }, [item?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   // Reading the queue: which entries were read here, and the moves the Up next bar and its keys make.
   const [read, setRead] = useState<Set<string>>(new Set())
   const upNext = {
@@ -198,7 +226,7 @@ export function ReadThrough({ items, start = 0, onClose, queue }: {
     if (item.body !== undefined) return setPage({ id: item.id, title: item.title, body: item.body })
     const load: Promise<Omit<Page, 'id'> | null> = item.type === 'capture'
       ? window.api.captures.get(item.id).then((found) => found && { body: found.body as JSONContent, private: !!found.private, ...said(found.kind, found.attribution), meta: metaOf(found.kind, found.capturedAt, [said(found.kind, found.attribution).who ? null : found.attribution, found.medium, found.source], found.body) })
-      : vigil.item(item.id).then((found) => found && { title: found.tier === 'article' ? found.title : undefined, body: found.body as JSONContent, private: !!found.private, ...said(found.kind, found.attribution), meta: metaOf(found.kind, found.createdAt, [said(found.kind, found.attribution).who ? null : found.attribution, found.context], found.body) })
+      : vigil.item(item.id).then((found) => found && { title: found.tier === 'article' || found.tier === 'question' ? found.title : undefined, body: found.body as JSONContent, private: !!found.private, ...said(found.kind, found.attribution), meta: metaOf(found.kind, found.createdAt, [said(found.kind, found.attribution).who ? null : found.attribution, found.context], found.body) })
     let current = true
     void load.then((next) => current && setPage({ id: item.id, ...(next ?? { body: null }) }))
     return () => void (current = false)
@@ -219,6 +247,12 @@ export function ReadThrough({ items, start = 0, onClose, queue }: {
       }
       // A thought being written on the page has the keys, Escape too.
       if (document.activeElement?.closest('[data-gloss]')) return
+      // ⌘; as well as ;: the composer under the page.
+      if (event.key === ';' && event.metaKey && !event.ctrlKey && !event.altKey && composerFor) {
+        event.preventDefault()
+        event.stopPropagation()
+        return openGloss(composerFor)
+      }
       if (event.metaKey || event.ctrlKey || event.altKey) return
       // A question asked over the page (who said it?) has the keys.
       if (document.querySelector('[role="dialog"]:not([aria-label="Reading"])')) return
@@ -259,7 +293,7 @@ export function ReadThrough({ items, start = 0, onClose, queue }: {
       else if (back) setAt((n) => Math.max(0, n - 1))
       else if (event.key === 'Escape') onClose()
       // ; a thought on the page in front of you, kept beside it, dated.
-      else if (event.key === ';' && item && item.body === undefined) openGloss(item.id)
+      else if (event.key === ';' && composerFor) openGloss(composerFor)
       else if ((event.key === 'e' || event.key === 'Enter') && item && item.body === undefined) {
         event.preventDefault()
         chime('on')
@@ -310,25 +344,40 @@ export function ReadThrough({ items, start = 0, onClose, queue }: {
     setWriting(true)
   }
   const meta = shown?.meta?.length ? shown.meta.join(' · ') : ''
-  return (
+  // Over the whole window, not inside the pane it was opened from: no
+  // sidebar, no other pane, no header. Nothing underneath moves, so leaving
+  // puts back the layout exactly as it was.
+  return createPortal(
     <div
       ref={box}
       tabIndex={-1}
       data-awake={awake || keysOpen || undefined}
-      onPointerMove={wake}
-      className="mf-read fixed inset-0 z-[55] isolate flex flex-col bg-background outline-none"
+      onPointerMove={(event) => {
+        wake()
+        setNear(event.clientY < 96)
+      }}
+      onPointerLeave={() => setNear(false)}
+      className="mf-read fixed inset-0 z-[45] isolate flex flex-col bg-background text-foreground outline-none"
       role="dialog"
       aria-label="Reading"
     >
-      {/* The way out, always there: quiet in the corner while you read,
-          plain as soon as the pointer moves. Esc does the same. */}
+      {/* Somewhere to hold the window by, where its title bar was. */}
+      <div aria-hidden className="absolute inset-x-0 top-0 h-10 [-webkit-app-region:drag]" />
+      {/* How far down the page you are: a hairline, only on a page long enough to scroll. */}
+      {progress !== null && (
+        <div aria-hidden data-read-progress className="pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5">
+          <div className="h-full origin-left bg-foreground/20" style={{ transform: `scaleX(${progress})` }} />
+        </div>
+      )}
+      {/* The way out: unseen while you read, there as soon as the pointer
+          comes near the top (or the keys reach it). Esc does the same. */}
       <Tip label="Stop reading">
         <button
           type="button"
           onClick={() => onClose()}
           className={cn(
             'absolute top-3 right-3 z-10 flex h-7 items-center gap-1.5 rounded-full border bg-background px-3 text-control text-muted-foreground transition-[opacity,background-color,color] duration-300 ease-out [-webkit-app-region:no-drag] hover:bg-accent hover:text-foreground focus-visible:opacity-100',
-            awake || keysOpen || writing || !told ? 'opacity-100' : 'opacity-50'
+            near || keysOpen || writing || !told ? 'opacity-100' : 'opacity-0'
           )}
         >
           <ReadDone className="size-3.5" />
@@ -336,7 +385,7 @@ export function ReadThrough({ items, start = 0, onClose, queue }: {
           <Kbd className="ml-0.5">Esc</Kbd>
         </button>
       </Tip>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={scroller} onScroll={measure} className="min-h-0 flex-1 overflow-y-auto">
         {/* j and k turn the page hundreds of times: by key the next one is
             simply there; by the arrows it rises in. */}
         <AnimatePresence mode="wait" initial={false} custom={byKeys()}>
@@ -352,7 +401,7 @@ export function ReadThrough({ items, start = 0, onClose, queue }: {
             // column the note's own text sets (36em of it, about seventy
             // characters), the title over it. A short note sits in the upper
             // third, not lost in the middle of an empty page.
-            className="mx-auto flex w-full max-w-[calc(36em+3rem)] flex-col px-6 pt-[clamp(3rem,13vh,7.5rem)] pb-24 text-[length:calc(1.125rem*var(--mf-text-scale,1))] sm:max-w-[calc(36em+5rem)] sm:px-10"
+            className="mx-auto flex w-full max-w-[calc(36em+3rem)] flex-col px-6 pt-[clamp(4rem,15vh,8.5rem)] pb-16 text-[length:calc(1.1875rem*var(--mf-text-scale,1))] sm:max-w-[calc(36em+8rem)] sm:px-16"
           >
             {shown?.title && <h1 data-private={hidden} className="private-text font-heading text-[2.25rem] leading-[1.15] font-semibold tracking-[-0.022em] text-balance">{shown.title}</h1>}
             {/* What it is, when, from where, its tags: under the title. With no
@@ -408,12 +457,14 @@ export function ReadThrough({ items, start = 0, onClose, queue }: {
               </div>
             )}
             {shown?.who && <p data-private={hidden} className="mt-5 text-control text-muted-foreground"><Signed who={shown.who} className="private-text" /></p>}
-            {/* Thoughts kept on it stay with the words; the field for a new
-                one comes up with the rest of the furniture. */}
-            {shown && own && <div data-private={hidden} className="mt-16"><GlossComposer id={item.id} /></div>}
+            {/* Thoughts kept on it stay with the words; a new one goes in the
+                composer under the page. */}
+            {shown && own && <div data-private={hidden} className="mt-16"><GlossComposer id={item.id} field={false} /></div>}
           </motion.article>
         </AnimatePresence>
       </div>
+      {/* A thought (or a clue) the moment it comes, without leaving the page. */}
+      {composerFor && <div className="shrink-0 px-6 pt-1 pb-2 sm:px-16"><ThoughtBar key={composerFor} id={composerFor} clue={clueMode} /></div>}
       {queue && <UpNext queue={queue} at={at} read={read} onSkip={upNext.skip} onDone={upNext.done} onOpen={upNext.open} />}
       {/* The only furniture: where you are, how to move, how to write, and the
           rest of the keys when asked. Quiet until the pointer moves. */}
@@ -461,7 +512,8 @@ export function ReadThrough({ items, start = 0, onClose, queue }: {
           <Kbd>?</Kbd> Keys
         </button>
       </footer>
-    </div>
+    </div>,
+    document.body
   )
 }
 

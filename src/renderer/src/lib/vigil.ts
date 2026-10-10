@@ -411,6 +411,10 @@ export const vigil = {
   /** A dated thought on any item or capture; gives back its id, for `dropGloss`. */
   gloss: (id: string, text: string) => call<string>('gloss', id, text),
   dropGloss: (gloss: string) => call('clue:drop', gloss),
+  /** The weather where you are now ("12°C, light rain"), or null when it is off or offline. */
+  weatherNow: () => call<string | null>('weather:now'),
+  /** A gloss or clue reworded in place. */
+  editGloss: (gloss: string, text: string) => call<boolean>('gloss:edit', gloss, text),
   /** Every gloss on it, newest first. */
   glosses: (id: string) => call<Gloss[]>('glosses', id),
   queue: () => call<Due[]>('review:queue'),

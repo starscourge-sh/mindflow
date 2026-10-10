@@ -58,6 +58,7 @@ import { copyToBookItem } from '@/lib/books'
 import { useOpened } from '@/lib/nav'
 import { QuestionDetail } from './questions-view'
 import { GlossTimeline, useRowGloss } from './gloss-line'
+import { ThoughtDock } from './thought-bar'
 import { dayjs, moment, num } from '../../../../main/dates'
 import { Signed } from './signature'
 import { groups as noteGroupsApi, tintOf, useGroups, type NoteGroup } from '@/lib/groups'
@@ -282,7 +283,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   ] : [
     { label: 'Open', keys: '↵', run: () => pick(item.id) },
     'separator',
-    { label: item.pinnedAt ? 'Unpin' : 'Pin to the box', run: () => pin('nuggets', item.id, !item.pinnedAt) },
+    { label: item.pinnedAt ? 'Unpin' : 'Show in quick capture', run: () => pin('nuggets', item.id, !item.pinnedAt) },
     ...itemMenu(item),
     { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(item.id) },
     'separator',
@@ -563,7 +564,8 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
           }}
         />
         )}
-
+        {/* A thought on it, pinned under the page, its earlier ones a click away. */}
+        <ThoughtDock id={item.id} />
       </div>
 
       <Props fold>
@@ -622,7 +624,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
             {item.private ? 'Private' : 'Not private'}
           </Prop>
           <Prop icon={Pin} active={!!item.pinnedAt} onClick={() => pin('nuggets', item.id, !item.pinnedAt)}>
-            {item.pinnedAt ? 'Pinned' : 'Pin to the box'}
+            {item.pinnedAt ? 'Showing in quick capture' : 'Show in quick capture'}
           </Prop>
           <RemindMe table="nuggets" id={item.id} at={item.remindAt} />
           <Prop icon={item.archivedAt ? ArchiveRestore : Archive} active={!!item.archivedAt} onClick={() => void archive('nuggets', [item.id], !item.archivedAt)}>
@@ -730,7 +732,7 @@ export function RemindMe({ table, id, at }: { table: 'captures' | 'nuggets'; id:
     setOpen(false)
     setWords('')
     void vigil.remind(table, id, date ? date.toISOString() : null).then(() =>
-      (chime(date ? 'pin' : 'off'), toast(date ? `Pins itself in the box's Inbox ${whenInLine(date.toISOString(), false)}, with a "waiting" chip at the top of the box` : 'Reminder cleared')))
+      (chime(date ? 'pin' : 'off'), toast(date ? `Pins itself in quick capture's Inbox ${whenInLine(date.toISOString(), false)}, with a "waiting" chip at the top of quick capture` : 'Reminder cleared')))
   }
   return (
     <Popover open={open} onOpenChange={setOpen}>
