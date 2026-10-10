@@ -63,7 +63,10 @@ export function DayView({ onOpen, start, onScale }: {
   const [day, setDay] = useState(valid(start))
   // The day on show is kept in the step, so Back finds the day you left.
   useKept('focus', day, (to) => setDay(valid(to)), dayOf())
-  const data = useLive(() => notes.day(day), null as Day | null, [day])
+  // Only this day's answer: on a quick ← or → the day before's lists, counts
+  // and Reviewed would otherwise sit under this day's name for a moment.
+  const read = useLive(() => notes.day(day), null as Day | null, [day])
+  const data = read?.day === day ? read : null
   const today = dayOf()
   // The row a thought is being written under: one at a time, by its section,
   // since the same note can be both captured and dealt with in a day.

@@ -530,15 +530,23 @@ export function useLive<T>(read: () => Promise<T>, initial: T, deps: unknown[] =
     // Every write anywhere reloads every list, a note being typed in included:
     // an answer the same as the last keeps the old value, so nothing redraws.
     let last: string | undefined
+    // An answer that comes back after the deps changed (another day, another
+    // id) is dropped: arriving after the new one, it would stay on screen
+    // under the new header until something next changed.
+    let gone = false
     const load = (): void => void read().then((next) => {
       const now = JSON.stringify(next)
-      if (now === last) return
+      if (gone || now === last) return
       last = now
       setValue(next)
     })
     load()
     // `kinds`: what it shows, so a save of something else leaves it be.
-    return window.api.captures.onChange(load, kinds)
+    const off = window.api.captures.onChange(load, kinds)
+    return () => {
+      gone = true
+      off()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps)
   return value

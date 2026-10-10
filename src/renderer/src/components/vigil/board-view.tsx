@@ -157,7 +157,10 @@ export function useBoard(table: NoteTable, id: string | undefined, editor: Edito
       // Not remembered: the note decides.
     }
     if (said !== null) return setOn(said === 'on')
-    void notes.fields(table, id).then((fields) => setOn(fields['kanban-plugin'] === 'board'))
+    // The note before's answer, come back late, is not this note's.
+    let current = true
+    void notes.fields(table, id).then((fields) => current && setOn(fields['kanban-plugin'] === 'board'))
+    return () => void (current = false)
   }, [table, id])
   useEffect(() => {
     if (!editor || editor.isDestroyed) return setFits(false)
