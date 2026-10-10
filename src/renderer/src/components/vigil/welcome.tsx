@@ -666,13 +666,13 @@ const powers = (): Record<Power, ReactNode> => ({
   link: <><Kbd className={STEP_KEY}>@</Kbd> links to anything you kept, its kind’s icon beside it</>,
   fold: <>Fold a heading to tuck its part away</>,
   outline: <>On this page takes you to any heading</>,
-  pick: <>Pick out any line, and keep it as an idea</>
+  pick: <>Pick out any line, and save it as a gem</>
 })
 
 /**
  * A long note, its powers shown one after another (a heading, a callout, a
  * table, a picture, a link, a fold, the outline), then a line in it kept as
- * an idea. Played at pace 1: Write's speed is the one that reads right.
+ * a gem. Played at pace 1: Write's speed is the one that reads right.
  */
 function writeBeats(): Beat<WriteState>[] {
   const random = seeded(31)
@@ -719,7 +719,7 @@ function writeBeats(): Beat<WriteState>[] {
   beats.push({ at: t, to: { step: 'outline', hand: 'outline-story' } })
   beats.push({ at: t + 600, to: { down: true }, cue: () => click('tick') })
   beats.push({ at: t + 680, to: { down: false, hand: null, focus: 'story', lit: 2 }, cue: cue('slide') })
-  // A line picked out, kept as an idea.
+  // A line picked out, kept as a gem.
   t += 1300
   beats.push({ at: t, to: { step: 'pick', picked: true }, cue: () => click('soft') })
   beats.push({ at: t + 700, to: { bar: true }, cue: cue('open') })
@@ -743,7 +743,7 @@ function WriteChapter({ play, report }: { play: boolean; report: (now: Reel) => 
   return (
     <>
       <Words title="Write it out at length." docked={s.docked} still={!play} done={show.done}>
-        Long notes live here too, with everything a page needs, and any line in them can become an idea.
+        Long notes live here too, with everything a page needs, and any line in them can become a gem.
       </Words>
       <div ref={scene} className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-[clamp(0.5rem,1.6vh,1rem)] pb-2">
         {/* What the page is showing now, large, on its own line over it. */}
@@ -841,7 +841,7 @@ function Caption({ kind }: { kind: Kind }): React.JSX.Element {
   // True of every kind: the year-later memory picks from anything kept (vigil.ts, memory).
   if (kind === 'quote') return <>Anything you catch can come back a year later, on <span className="whitespace-nowrap text-foreground">{now.format('D MMM')} <RollingYear from={now.year()} /></span>.</>
   // A word is asked in Review once it is kept from the Inbox with its meaning (vigil.ts, promote).
-  if (kind === 'word') return <>Kept as an idea, Review asks what it means.</>
+  if (kind === 'word') return <>Kept as a gem, Review asks what it means.</>
   // A link's card is filled in once the page answers (cardUp).
   return <>Kept with the page’s name and picture.</>
 }
@@ -1283,7 +1283,7 @@ const RETURN_BEATS: Beat<ReturnState>[] = [
 const FOUND: [string, string][] = [
   ['Saved the most from Frankenstein.', '11 lines, more than from any other book'],
   ['Busiest on 14 March.', '23 things caught that day'],
-  ['Reviewed one idea most.', '“Who is the monster?”, 9 times'],
+  ['Reviewed one gem most.', '“Who is the monster?”, 9 times'],
   ['Reviewed on 112 different days.', '1,240 cards in all']
 ]
 const YEAR = [{ kind: 'note', n: 142 }, { kind: 'todo', n: 96 }, { kind: 'quote', n: 64 }, { kind: 'word', n: 41 }, { kind: 'link', n: 52 }]

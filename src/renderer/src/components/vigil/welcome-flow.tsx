@@ -1,10 +1,9 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
-import { Sparkles } from 'lucide-react'
+import { Gem, Sparkles } from 'lucide-react'
 import { EASE } from '@/lib/motion'
 import { alive } from '@/components/ui/alive-icon'
 import FileDescriptionIcon from '@/components/ui/file-description-icon'
-import LibraryIcon from '@/components/ui/library-icon'
 import StackIcon from '@/components/ui/stack-icon'
 import CheckedIcon from '@/components/ui/checked-icon'
 
@@ -14,7 +13,7 @@ import CheckedIcon from '@/components/ui/checked-icon'
  * axis. A spark at the bus stop; caught in quick capture; written out into a
  * note, the line growing into a page; two new ideas branching off it while
  * writing, each caught and linked back; then one becomes a task and the
- * other an idea Review asks about. Each line draws in order, and each step's
+ * other a gem Review asks about. Each line draws in order, and each step's
  * label lands under its column with a bold lead-in. Still (a skip, Motion
  * off, Reduce motion), it is the whole tree at once.
  */
@@ -23,13 +22,12 @@ import CheckedIcon from '@/components/ui/checked-icon'
 const Capture = alive(StackIcon)
 const Article = alive(FileDescriptionIcon)
 const Task = alive(CheckedIcon)
-const Idea = alive(LibraryIcon)
 const LOOK = {
   spark: { Icon: Sparkles, tint: 'orange' },
   capture: { Icon: Capture, tint: 'blue' },
   article: { Icon: Article, tint: 'brown' },
   task: { Icon: Task, tint: 'green' },
-  nugget: { Icon: Idea, tint: 'pink' }
+  nugget: { Icon: Gem, tint: 'pink' }
 } as const
 
 type Kin = { id: string; col: number; row: -1 | 0 | 1; kind: keyof typeof LOOK; title: string; is: string; step: number; parent?: string }
@@ -42,7 +40,7 @@ const FAMILY: Kin[] = [
   { id: 'read', col: 3, row: -1, kind: 'capture', title: 'Read Paradise Lost', is: 'Capture, links back', step: 4, parent: 'note' },
   { id: 'wall', col: 3, row: 1, kind: 'capture', title: 'He learns to speak through a wall', is: 'Capture, links back', step: 4, parent: 'note' },
   { id: 'task', col: 4, row: -1, kind: 'task', title: 'Read Paradise Lost', is: 'Task, due Saturday', step: 5, parent: 'read' },
-  { id: 'idea', col: 4, row: 1, kind: 'nugget', title: 'He learns to speak through a wall', is: 'Idea, asked in Review', step: 5, parent: 'wall' }
+  { id: 'gem', col: 4, row: 1, kind: 'nugget', title: 'He learns to speak through a wall', is: 'Gem, asked in Review', step: 5, parent: 'wall' }
 ]
 
 /** When each column happened, along the axis. */
@@ -54,7 +52,7 @@ const SAID: [string, string][] = [
   ['Caught', 'in quick capture, before it goes.'],
   ['Fleshed out', 'into a note, when there is time.'],
   ['New ideas', 'branch off while you write, each linked back.'],
-  ['Put to work:', 'one a task, one an idea for Review.']
+  ['Put to work:', 'one becomes a task, one a gem for Review.']
 ]
 
 export const FLOW_LAST = 'Most notes start as a passing thought. Vigil keeps the whole family.'
@@ -88,7 +86,7 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
   const draw = quiet ? { duration: 0 } : { duration: 0.5, ease: EASE }
   const land = quiet ? { duration: 0 } : { duration: 0.35, ease: EASE, delay: 0.38 }
   return (
-    <figure aria-label="How a thought grows: a spark, caught, written out, branching into new ideas, then a task and an idea for Review" className="flex min-h-0 w-full flex-1 flex-col">
+    <figure aria-label="How a thought grows: a spark, caught, written out, branching into new ideas, then a task and a gem for Review" className="flex min-h-0 w-full flex-1 flex-col">
       <div ref={box} className="relative min-h-[12rem] flex-1">
         {size.w > 0 && (
           <>

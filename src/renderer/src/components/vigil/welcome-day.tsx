@@ -254,8 +254,8 @@ const TABLE = [['Who', 'Wants', 'Gets'], ['Victor', 'To know everything', 'Ruin'
  * power at a time (## makes a heading, / a callout, a table, a picture and
  * its caption, @ a link to a kept quote, a heading folded and opened, the
  * outline taking you down the page); then a line in it is picked out, the
- * selection bar offers Capture, Idea and Task, and the small card rewords it
- * before it is kept as an idea that remembers this note.
+ * selection bar offers Capture, Gem and Task, and the small card rewords it
+ * before it is kept as a gem that remembers this note.
  */
 export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
   const s = shot
@@ -401,7 +401,7 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
                 <motion.span key="bar" className="absolute -top-11 left-24 z-10 flex items-center gap-0.5 rounded-lg border bg-popover p-1 font-sans text-control text-muted-foreground shadow-(--mf-panel-shadow)"
                   initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: spring.fast.exit }} transition={spring.fast}>
                   <span className="flex h-7 items-center gap-1.5 px-2"><Inbox className="size-4" />Capture</span>
-                  <span data-ghost="idea" className={`flex h-7 items-center gap-1.5 rounded-md px-2 ${s.card ? 'bg-accent text-foreground' : ''}`}><Gem className="size-4" />Idea</span>
+                  <span data-ghost="idea" className={`flex h-7 items-center gap-1.5 rounded-md px-2 ${s.card ? 'bg-accent text-foreground' : ''}`}><Gem className="size-4" />Gem</span>
                   <span className="flex h-7 items-center gap-1.5 px-2"><ListTodo className="size-4" />Task</span>
                 </motion.span>
               )}
@@ -412,7 +412,7 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
                 <motion.div key="card" className="absolute top-[calc(100%+8px)] left-0 z-20 w-[min(24rem,80%)] rounded-xl border bg-popover p-3 font-sans text-popover-foreground shadow-(--mf-panel-shadow)"
                   initial={{ opacity: 0, y: 8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, x: 260, y: -120, scale: 0.4, filter: 'blur(2px)', transition: { duration: 0.5, ease: EASE } }} transition={spring.slow}>
-                  <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--tt-color-text-purple)' }}><Gem className="size-3.5" />Idea</p>
+                  <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--tt-color-text-purple)' }}><Gem className="size-3.5" />Gem</p>
                   <p className="min-h-[3em] text-[0.9375rem] leading-snug text-foreground" style={{ fontFamily: 'var(--font-sans, system-ui)' }}>{s.edited}{caret}</p>
                   <p className="mt-2 flex items-center justify-between text-xs text-muted-foreground"><span>From Frankenstein, as I read it</span><span>Save ⌘↵</span></p>
                 </motion.div>
@@ -435,7 +435,7 @@ export function LongNote({ shot }: { shot: NoteShot }): React.JSX.Element {
         <AnimatePresence>
           {s.saved && (
             <motion.div key="kept" className="mt-4 rounded-lg border bg-popover p-2.5 text-xs text-popover-foreground shadow-(--mf-panel-shadow)" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={LAND}>
-              <p className="mb-1 flex items-center gap-1 font-medium" style={{ color: 'var(--tt-color-text-purple)' }}><Gem className="size-3.5" />In Ideas</p>
+              <p className="mb-1 flex items-center gap-1 font-medium" style={{ color: 'var(--tt-color-text-purple)' }}><Gem className="size-3.5" />In Gems</p>
               <p className="leading-snug text-foreground">{REWORDED}</p>
               <p className="mt-1 text-muted-foreground">↩ From Frankenstein, as I read it</p>
             </motion.div>
