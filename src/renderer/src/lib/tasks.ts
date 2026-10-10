@@ -102,3 +102,13 @@ export function closeTask(id: string, then?: () => void): void {
     toast('Closed', () => void vigil.saveTask(id, { status: 'open' }))
   })
 }
+
+/**
+ * Today counted one way everywhere: the sidebar, the Today list, the sticky
+ * and today's page all lead with what is left to do, and say what is done
+ * beside it.
+ */
+export function todaySaid(left: number, done: number): string {
+  if (!left) return done ? 'All done' : 'Nothing to do'
+  return done ? `${num(left)} to do · ${num(done)} done` : `${num(left)} to do`
+}

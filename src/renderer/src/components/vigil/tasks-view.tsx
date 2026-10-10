@@ -81,7 +81,7 @@ const tone = (task: Task): string | undefined => {
 const TRY_TASKS = {
   today: "type 'call Mum Friday 6pm' in the line above. Vigil reads the day and the time.",
   upcoming: "type 'book seats for Hamlet on the 14th' above. It lands on that day.",
-  routines: "type 'water the plants every! 3 days' above. The next one counts from when you last did it.",
+  routines: "type 'bins every week' above. It comes back each week on the same day.",
   later: "type 'learn German someday' above. It waits here until you give it a day."
 }
 
@@ -298,7 +298,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
   return (
     <>
       <Page aside={!!open}
- title={mode} count={example ? undefined : shown.length} actions={
+ title={mode} count={example ? undefined : shown.length} unit={mode === 'today' ? ['to do', 'to do'] : undefined} actions={
         <span className="flex items-center gap-2">
           {shown.length > 0 && !example && <span className="hidden text-xs whitespace-nowrap @[48rem]/page:inline"><Pressed keys="?" /> or <Pressed keys="⌘/" /> for keys</span>}
           <Display
@@ -447,7 +447,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
           <Rest seed="today" off={mode !== 'today'}>
           <Empty shape={mode === 'today' ? ['star', 6] : mode === 'routines' ? ['flower', 5] : mode === 'later' ? ['moon', 3] : ['ellipse', 4]} title={mode === 'today' ? 'Nothing due today' : mode === 'routines' ? 'No routines' : mode === 'later' ? 'Nothing put off' : 'Nothing coming up'}>
             {mode === 'routines'
-              ? 'A routine is a task that repeats, kept here so it does not crowd Today. To make one, type it in the box above with how often: “water the plants every! 3 days”, “bins every week”.'
+              ? 'A routine is a task that repeats, kept here so it does not crowd Today. To make one, type it in the box above with how often: “bins every week”, or “water the plants every! 3 days” to count from when you last did it.'
               : mode === 'today'
               ? 'A clear day. Anything with a date lands here on the day, and anything late stays on top until it is done.'
               : mode === 'later'

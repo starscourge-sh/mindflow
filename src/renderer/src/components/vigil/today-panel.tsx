@@ -36,7 +36,7 @@ type Scope = 'today' | 'upcoming' | 'routines' | keyof typeof BUCKETS | 'backlog
 const EMPTY: Record<Scope, { shape: [Parameters<typeof Empty>[0]['shape'][0], number]; title: string; text: string }> = {
   today: { shape: ['star', 6], title: 'Nothing due today', text: 'A clear day. Anything with a date lands here on the day, and anything late stays on top until it is done.' },
   upcoming: { shape: ['ellipse', 4], title: 'Nothing coming up', text: 'Put a day in the words, “friday” or “in 3 days”, and it waits here until then.' },
-  routines: { shape: ['flower', 5], title: 'No routines', text: '“every week” follows the calendar; “every! 3 days” counts from when you last did it.' },
+  routines: { shape: ['flower', 5], title: 'No routines', text: '“bins every week” comes back each week on the same day. “every! 3 days” counts from when you last did it.' },
   month: { shape: ['polygon', 4], title: 'Nothing this month', text: 'Say “this month” in the words for something with no day yet that should still happen soon.' },
   year: { shape: ['flower', 3], title: 'Nothing this year', text: '“this year” or “next month” keeps a task here, without a day, until you give it one.' },
   next: { shape: ['polygon', 5], title: 'Nothing next year', text: '“next year” keeps a task here, without a day, until the year comes round.' },

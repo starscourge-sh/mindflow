@@ -19,6 +19,7 @@ import { SandboxStamp } from '@/components/vigil/sandbox'
 import { Frost } from './frost'
 import { Tape } from './tape'
 import { CARD, DRAG, GLASS, GRACE, PAPER, STILL, stir, tiltOf } from './sticky-note'
+import { todaySaid } from '@/lib/tasks'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const X = alive(XIcon)
@@ -124,8 +125,8 @@ export function TodaySticky(): React.JSX.Element {
         <div className="flex items-center gap-1 px-3 pt-2">
           <p className="min-w-0 grow truncate font-medium">Today</p>
           {todos.length > 0 && (
-            <span className="shrink-0 pl-1 text-xs tabular-nums" style={{ color: allDone ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }} aria-label={`${finished} of ${todos.length} done`}>
-              <Rolling text={allDone ? 'All done' : `${finished}/${todos.length} done`} by="word" />
+            <span className="shrink-0 pl-1 text-xs tabular-nums" style={{ color: allDone ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }} aria-label={todaySaid(todos.length - finished, finished)}>
+              <Rolling text={todaySaid(todos.length - finished, finished)} by="word" />
             </span>
           )}
           {/* Shown on hover, so at rest it is only the list. */}

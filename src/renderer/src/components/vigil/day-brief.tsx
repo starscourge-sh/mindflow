@@ -1,5 +1,4 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { motion } from 'motion/react'
 import { byKeys } from '@/lib/motion'
 import { alive } from '@/components/ui/alive-icon'
 import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
@@ -18,6 +17,7 @@ import { GrainFill, useCover } from './grain'
 import { openPass } from './pass'
 import { KindBack, backLine, returning, type Returning } from './kind-back'
 import { NextMark } from './milestones'
+import { todaySaid } from '@/lib/tasks'
 import { countdown, nextOf, useMilestones } from '@/lib/milestones'
 import { ago, clock, dayjs, dayKey, num } from '../../../../main/dates'
 
@@ -205,10 +205,6 @@ export function DayBrief({ day, onOpen, onListed }: {
       run: () => window.api.openInHome('view', 'review')
     }] : [])
   ]
-  // The seal starts on the first thing not yet done.
-  const first = shown.find((task) => !struck(task))
-  const start = first ? () => window.api.openInHome('task', first.id) : rows[0]?.run
-
   // One sentence, calm and short: what lands when, then what else is waiting.
   const parts: string[] = []
   const morning = now.getHours() < 12
@@ -233,13 +229,11 @@ export function DayBrief({ day, onOpen, onListed }: {
 
   const named = credit(scene?.name, scene?.folder)
   const picture = !!scene || !!grain
-  const date = dayjs(now).format('DD MMM YYYY').toUpperCase()
   const time = dayjs(now).format('HH:mm')
 
   return (
     <div className="pt-5 @min-[66rem]/page:pt-8">
       <div className="relative">
-        <Upright text={date} side="left" />
         <div className={`relative isolate overflow-hidden rounded-2xl ${picture ? 'h-[clamp(8.5rem,34vh,24rem)]' : 'py-6 min-[900px]:py-10'}`}>
           {picture && (
             <>
@@ -254,25 +248,23 @@ export function DayBrief({ day, onOpen, onListed }: {
           <h2 className={`flex size-full flex-col justify-center px-6 leading-[0.92] ${picture ? 'items-center text-center' : 'items-start'}`}
             style={{
               fontFamily: 'var(--font-heading)',
-              color: picture ? 'color-mix(in oklab, var(--tt-brand-color-400) 42%, white)' : 'var(--tt-brand-color-400)',
+              color: picture ? 'white' : 'var(--foreground)',
               textShadow: picture ? '0 1px 2px rgb(0 0 0 / 0.25), 0 4px 28px rgb(0 0 0 / 0.35)' : undefined
             }}>
             {/* The title is simply there: the greeting below is the line that speaks (lib/motion.ts). */}
-            <span className="-mb-[0.1em] text-[clamp(1.25rem,3.2vw,2.5rem)] italic" style={{ marginInlineStart: picture ? '-3.5em' : undefined }}>The</span>
-            <span className="font-semibold tracking-[-0.02em] text-[clamp(2.4rem,7.4vw,5.75rem)] text-balance">{weekday} Brief</span>
+            <span className="font-semibold tracking-[-0.02em] text-[clamp(2rem,5.6vw,4.25rem)] text-balance">The {weekday} Brief</span>
           </h2>
         </div>
-        <Upright text={time} side="right" />
       </div>
       <div className="pt-2.5">
-        {/* The margins' date and time, on one plain line when there are no margins to stand in. */}
-        <p className="mb-0.5 text-xs font-medium text-foreground tabular-nums @min-[66rem]/page:hidden">{dayjs(now).format('dddd D MMMM')}, {time}</p>
+        {/* The date and time, on one plain line under the picture. */}
+        <p className="mb-0.5 text-xs font-medium text-foreground tabular-nums">{dayjs(now).format('D MMMM')}, {time}</p>
         <div className="flex items-start gap-6">
-          <p className="line-clamp-2 min-w-0 flex-1 text-[0.9375rem] leading-snug text-pretty text-muted-foreground italic" style={{ fontFamily: 'var(--font-heading)' }}>
+          <p className="line-clamp-2 min-w-0 flex-1 text-[0.9375rem] leading-snug text-pretty text-muted-foreground">
             {/* Not before the day is read: "Nothing is due" typed over a full day was wrong for a moment. */}
             {!unloaded(tasks) && <Typed text={greeting} delay={350} step={22} />}
           </p>
-          {named && <span className="max-w-[35%] min-w-0 truncate pt-0.5 text-right font-mono text-[0.625rem] tracking-wide text-muted-foreground/80" title={named}>{named}</span>}
+          {named && <span className="max-w-[35%] min-w-0 truncate pt-0.5 text-right text-xs text-muted-foreground/80" title={named}>{named}</span>}
         </div>
       </div>
       {/* The next marked day, counted down: a click changes it. */}
@@ -283,21 +275,20 @@ export function DayBrief({ day, onOpen, onListed }: {
           <div className="grid gap-x-10 gap-y-4 @[34rem]:grid-cols-[minmax(0,12rem)_minmax(0,1fr)]">
             <div className="flex items-center justify-between gap-4 @[34rem]:flex-col @[34rem]:items-start @[34rem]:justify-start">
               <div>
-                <p className="text-[1.375rem] leading-tight text-foreground italic" style={{ fontFamily: 'var(--font-heading)' }}>{todos.length ? 'Today’s to-dos' : 'Coming back to you'}</p>
+                <p className="text-lg leading-tight font-semibold text-foreground">{todos.length ? 'Today’s to-dos' : 'Coming back to you'}</p>
                 {todos.length > 0 && (
-                  <p className="mt-1 font-mono text-[0.6875rem] tracking-wide text-muted-foreground tabular-nums">
-                    <Rolling text={finished} /> / {num(todos.length)} done
+                  <p className="mt-1 text-sm tabular-nums" style={{ color: finished === todos.length ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }}>
+                    <Rolling text={todaySaid(todos.length - finished, finished)} by="word" />
                   </p>
                 )}
                 {/* The same list as a sticky, ticked off on the desktop through the day. */}
                 {todos.length > 0 && (
                   <button type="button" onClick={() => stickOnDesktop('today', 'today')}
-                    className="mt-1 font-mono text-[0.6875rem] tracking-wide text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+                    className="mt-1 text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
                     Keep on screen
                   </button>
                 )}
               </div>
-              {todos.length > 0 && finished === todos.length ? <DoneSeal /> : start && <Seal onClick={start} />}
             </div>
             <ul className="min-w-0 divide-y divide-border/50">
               {shown.map((task) => (
@@ -361,66 +352,5 @@ function TaskRow({ task, today, done, pen, onTick }: { task: Task; today: string
         <span className="mt-0.5 block truncate text-sm text-muted-foreground">{text}</span>
       </button>
     </li>
-  )
-}
-
-/** Date or time set on its side in the page's margin, centred on the picture and in the margin, as a newspaper's spine. */
-function Upright({ text, side }: { text: string; side: 'left' | 'right' }): React.JSX.Element {
-  return (
-    <span aria-hidden className={`absolute inset-y-0 hidden w-[calc((100cqw-100%)/2)] items-center justify-center @min-[66rem]/page:flex ${side === 'left' ? 'right-full' : 'left-full'}`}>
-      <span className={`leading-none whitespace-nowrap text-foreground/80 italic tabular-nums [writing-mode:vertical-rl] ${side === 'left' ? 'rotate-180' : ''}`}
-        style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.75rem, min(3.1cqw, 5.4vh), 3.25rem)' }}>
-        {text}
-      </span>
-    </span>
-  )
-}
-
-/** The seal's outline: a round with soft points, like a sticker off a sheet. */
-const SEAL = (() => {
-  const points = 22
-  const path: string[] = []
-  for (let i = 0; i < points * 2; i++) {
-    const angle = (Math.PI * i) / points - Math.PI / 2
-    const r = i % 2 ? 43 : 50
-    path.push(`${(50 + r * Math.cos(angle)).toFixed(2)},${(50 + r * Math.sin(angle)).toFixed(2)}`)
-  }
-  return `M${path.join('L')}Z`
-})()
-
-/** "Let's do it": a sticker off a sheet, starting on the first thing still to do. */
-/** Every to-do done: the seal stamped, a mark of the day and nothing more to press. */
-function DoneSeal(): React.JSX.Element {
-  return (
-    <motion.div role="img" aria-label="All done" initial={{ rotate: -9, scale: 0.9 }} animate={{ rotate: -9, scale: 1 }} transition={{ type: 'spring', stiffness: 520, damping: 17, mass: 0.7 }}
-      className="relative grid size-[4.75rem] shrink-0 place-items-center text-[var(--tt-brand-color-400)] @[34rem]:mt-5">
-      <svg aria-hidden viewBox="0 0 100 100" className="absolute inset-0 size-full">
-        <path d={SEAL} fill="color-mix(in oklab, var(--tt-brand-color-400) 12%, transparent)" stroke="var(--tt-brand-color-400)" strokeWidth="3" strokeLinejoin="round" />
-      </svg>
-      <span className="relative text-center text-[0.875rem] leading-[1.05] font-semibold italic" style={{ fontFamily: 'var(--font-heading)' }}>
-        All<br />done <Check className="inline size-3.5 translate-y-[-1px]" />
-      </span>
-    </motion.div>
-  )
-}
-
-function Seal({ onClick }: { onClick: () => void }): React.JSX.Element {
-  return (
-    <motion.button
-      type="button"
-      onClick={() => (chime('open'), onClick())}
-      initial={{ rotate: -9 }}
-      whileHover={{ rotate: -3, scale: 1.05 }}
-      whileTap={{ scale: 0.95, rotate: -6 }}
-      transition={{ type: 'spring', stiffness: 520, damping: 17, mass: 0.7 }}
-      className="relative grid size-[4.75rem] shrink-0 place-items-center rounded-full text-primary-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background @[34rem]:mt-5"
-    >
-      <svg aria-hidden viewBox="0 0 100 100" className="absolute inset-0 size-full drop-shadow-[0_2px_3px_color-mix(in_oklab,var(--mf-shadow-ink,black)_22%,transparent)]">
-        <path d={SEAL} fill="var(--tt-brand-color-400)" stroke="var(--tt-brand-color-400)" strokeWidth="5" strokeLinejoin="round" />
-      </svg>
-      <span className="relative text-center text-[0.875rem] leading-[1.05] font-semibold italic" style={{ fontFamily: 'var(--font-heading)' }}>
-        Let’s<br />do it <ArrowRight className="inline size-3.5 translate-y-[-1px]" strokeWidth={2.25} />
-      </span>
-    </motion.button>
   )
 }
