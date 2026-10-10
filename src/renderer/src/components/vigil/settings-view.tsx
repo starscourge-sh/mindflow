@@ -731,7 +731,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Show sticky notes" note="**Every sticky note out, or all put away, keeping their places.** Goal cards go with them. ⌃⌥⌘N from anywhere.">
             <Switch checked={settings.stickiesShown} onCheckedChange={(stickiesShown) => set({ stickiesShown })} />
           </Setting>
-          <Setting title="Sticky notes are made of" note="**Paper, wallpaper frost or glass.** Paper is solid; frost blurs your desktop picture behind each note, and they keep their lean; glass, the default, blurs and dims what is behind so it never reads through, and the notes sit straight." keywords="sticky notes frosted glass blur wallpaper desktop transparent paper vibrancy">
+          <Setting title="Sticky notes are made of" note="**Paper, wallpaper frost or glass.** Paper is solid; frost blurs your desktop picture behind each note, and they keep their lean; glass, the default, shows what is behind blurred and dimmed, and the notes sit straight. Goal cards too. The See-through setting does not change them." keywords="sticky notes frosted glass blur wallpaper desktop transparent paper vibrancy">
             <Chips className="shrink-0" options={[{ id: 'paper', label: 'Paper' }, { id: 'frost', label: 'Wallpaper frost' }, { id: 'glass', label: 'Glass' }]}
               on={(id) => id === (settings.stickiesFrosted === false ? 'paper' : settings.stickiesGlass ? 'glass' : 'frost')}
               pick={(id) => set({ stickiesFrosted: id !== 'paper', stickiesGlass: id === 'glass' })} />
