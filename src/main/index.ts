@@ -54,7 +54,7 @@ import { firstRun, isWelcoming, noteChord, pretendTaken, registerOnboarding, whe
 import { registerUnused } from './unused'
 import { registerPeople } from './people'
 import { registerDefine } from './define'
-import { registerObsidian } from './obsidian'
+import { isVault, registerObsidian, vaultChoices } from './obsidian'
 import { lookAhead, registerPictures } from './pictures'
 import { registerSessionLog } from './session-log'
 import { frostWindow, registerFrost, retellFrost } from './frost'
@@ -1598,8 +1598,14 @@ app.on('second-instance', (_event, argv) => {
  * too, into the app's own store, and its [[links]] become links to what those
  * pages became here. A note imported before, by the same path, is left as it is.
  */
-async function importVault(given?: string): Promise<void> {
-  const root = given ?? (await dialog.showOpenDialog({ title: SANDBOX ? 'Import into the sandbox: an Obsidian vault or a Notion export (unzipped)' : BOOK ? `Import into ${nameOf(here())}: an Obsidian vault or a Notion export (unzipped)` : 'Import an Obsidian vault or a Notion export (unzipped)', properties: ['openDirectory'] })).filePaths[0]
+async function importVault(given?: string, picked?: string | null): Promise<void> {
+  // Obsidian's own vaults first, in a picker in the main window; the folder
+  // dialog is for anything else (picked is null when it asks for it).
+  if (given === undefined && picked === undefined) {
+    const found = await vaultChoices()
+    if (found.length) return inHome('vigil:vault-pick', { into: SANDBOX ? 'the sandbox' : BOOK ? nameOf(here()) : null, vaults: found })
+  }
+  const root = given ?? picked ?? (await dialog.showOpenDialog({ title: SANDBOX ? 'Import into the sandbox: an Obsidian vault or a Notion export (unzipped)' : BOOK ? `Import into ${nameOf(here())}: an Obsidian vault or a Notion export (unzipped)` : 'Import an Obsidian vault or a Notion export (unzipped)', properties: ['openDirectory'] })).filePaths[0]
   if (!root) return
   // Its notes wait to become documents until their links are in; then every
   // window hears of it, and one of them turns them into documents.
@@ -2265,7 +2271,13 @@ app.whenReady().then(() => {
   // From the welcome: the box put away, as its own Esc would.
   ipcMain.on('prompt:hide', () => void (prompt?.isVisible() && hideWindow(prompt)))
   // The first-run step and Settings import the way the menu bar does.
-  ipcMain.handle('import:run', (_event, what: unknown) => (what === 'vault' ? importVault() : importFiles()))
+  // From the vault picker too: one of the vaults it showed, or null for the folder dialog.
+  ipcMain.handle('import:run', async (_event, what: unknown, from?: unknown) => {
+    if (what !== 'vault') return importFiles()
+    if (from === null) return importVault(undefined, null)
+    if (typeof from === 'string') return (await isVault(from)) ? importVault(undefined, from) : undefined
+    return importVault()
+  })
   ipcMain.handle('backup:restore', () => restore())
   // The app's theme decides the frosting behind every window, not the system's.
   ipcMain.on('appearance', (_event, mode: string) => void (nativeTheme.themeSource = mode === 'light' ? 'light' : 'dark'))

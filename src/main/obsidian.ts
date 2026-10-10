@@ -40,6 +40,41 @@ async function vaults(): Promise<Vault[]> {
   }
 }
 
+/** One vault as the import picker shows it: its name, where it is and how many notes it holds. */
+export type VaultChoice = { name: string; path: string; notes: number; more: boolean; open: boolean }
+
+/** A vault's notes, counted the way the import walks it: hidden folders stepped over, a huge one cut short. */
+async function countNotes(root: string): Promise<{ notes: number; more: boolean }> {
+  const started = Date.now()
+  const queue = [root]
+  let notes = 0
+  while (queue.length) {
+    if (notes >= 50_000 || Date.now() - started > 1500) return { notes, more: true }
+    const folder = queue.shift()!
+    const entries = await readdir(folder, { withFileTypes: true }).catch(() => [])
+    for (const entry of entries) {
+      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue
+      if (entry.isDirectory()) queue.push(join(folder, entry.name))
+      else if (entry.isFile() && entry.name.endsWith('.md')) notes += 1
+    }
+  }
+  return { notes, more: false }
+}
+
+/** The vaults Obsidian knows that are still there, for the import picker. */
+export async function vaultChoices(): Promise<VaultChoice[]> {
+  const found = await Promise.all((await vaults()).map(async (vault) => {
+    const there = await stat(vault.path).then((info) => info.isDirectory()).catch(() => false)
+    if (!there) return null
+    const { notes, more } = await countNotes(vault.path)
+    return { name: nameOf(vault.path), path: vault.path, notes, more, open: vault.open }
+  }))
+  return found.filter((one): one is VaultChoice => one !== null)
+}
+
+/** Whether a folder is one of Obsidian's vaults: the picker may only import those without the folder dialog. */
+export const isVault = async (path: string): Promise<boolean> => (await vaults()).some((vault) => vault.path === path)
+
 /** Each vault's files Vigil can show, by lowercased name. */
 const indexes = new Map<string, { at: number; byName: Map<string, string[]>; capped: boolean }>()
 

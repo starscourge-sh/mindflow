@@ -24,6 +24,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { KindAsker } from './note-extras'
 import { QuestionAsker } from './questions-view'
 import { BookAsker } from './books'
+import { VaultPicker } from './vault-picker'
 import { GoalAsker } from './goals-view'
 import { MilestoneAsker } from './milestones'
 import { num } from '../../../../main/dates'
@@ -995,6 +996,7 @@ export function Toaster(): React.JSX.Element | null {
     <KindAsker />
     <QuestionAsker />
     <BookAsker />
+    <VaultPicker />
     <GoalAsker />
     <MilestoneAsker />
     <Beam />

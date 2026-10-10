@@ -89,7 +89,8 @@ export interface Api {
   hideWindow: () => void
   showPrompt: () => void
   hidePrompt: () => void
-  importFrom: (what: 'vault' | 'files') => Promise<void>
+  /** A vault: the picker's choice, a path, or null for the folder dialog; left out, the picker asks. */
+  importFrom: (what: 'vault' | 'files', from?: string | null) => Promise<void>
   restoreBackup: () => Promise<void>
   setAppearance: (mode: 'light' | 'dark') => void
   openInHome: (type: string, id: string, heading?: string) => void

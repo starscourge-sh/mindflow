@@ -253,7 +253,7 @@ const api = {
   showPrompt: (): void => ipcRenderer.send('prompt:show'),
   hidePrompt: (): void => ipcRenderer.send('prompt:hide'),
   /** The menu bar's importers, from a window: an Obsidian vault, or files (Readwise, Kindle and the rest). */
-  importFrom: (what: 'vault' | 'files'): Promise<void> => ipcRenderer.invoke('import:run', what),
+  importFrom: (what: 'vault' | 'files', from?: string | null): Promise<void> => ipcRenderer.invoke('import:run', what, from),
   /** The menu bar's restore, from a window: pick a day's copy, and the app starts again on it. */
   restoreBackup: (): Promise<void> => ipcRenderer.invoke('backup:restore'),
   /** The frosted backing follows the theme: dark under a dark theme. */
