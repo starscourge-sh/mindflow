@@ -22,7 +22,7 @@ const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.
 export type NoteTable = 'captures' | 'nuggets'
 export type GraphNode = { type: string; id: string; title: string; private: number }
 export type MapNode = { type: string; id: string; title: string; kind: string; links: number }
-export type NoteMap = { nodes: MapNode[]; edges: [string, string][]; alone: number }
+export type NoteMap = { nodes: MapNode[]; edges: [string, string][]; alone: number; /** The notes left off for having no links (the first 300). */ lonely?: Omit<MapNode, 'links'>[] }
 export type Version = { id: number; savedAt: string; size: number }
 export type DayEntry = { type: string; id: string; title: string; kind?: string; status?: string; private: number }
 export type Day = { day: string; exists: boolean; body: unknown; reviewed: boolean; captured: DayEntry[]; resolved: DayEntry[]; studied: DayEntry[]; done: DayEntry[] }

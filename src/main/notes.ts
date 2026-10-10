@@ -345,7 +345,9 @@ export function registerNotes({ load, guard }: Windows): void {
     return {
       nodes: rows.filter((row) => links.has(row.id)).map(({ type, id, title, kind }) => ({ type, id, title, kind, links: links.get(id)! })),
       edges: [...pairs.values()],
-      alone: rows.length - links.size
+      alone: rows.length - links.size,
+      // The ones left off, for the list the map opens of them.
+      lonely: rows.filter((row) => !links.has(row.id)).slice(0, 300).map(({ type, id, title, kind }) => ({ type, id, title, kind }))
     }
   })
 

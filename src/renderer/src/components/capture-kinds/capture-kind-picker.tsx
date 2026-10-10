@@ -56,7 +56,7 @@ export const CAPTURE_TYPES = [
   { id: "word", label: "Word", icon: Bookmark, tint: tint("green"), does: "Comes back in review asking what it means" },
   { id: "link", label: "Link", icon: Link, tint: tint("blue"), does: "Shows the page as a card, with why it is worth reading" },
   { id: "decision", label: "Decision", icon: Split, tint: tint("red"), does: "Comes back on the date you set to check it still holds" },
-  { id: "experiment", label: "Experiment", icon: FlaskConical, tint: tint("green"), does: "Runs until a date, then asks what you found" },
+  { id: "experiment", label: "Experiment", icon: FlaskConical, tint: tint("pink"), does: "Runs until a date, then asks what you found" },
 ] as const
 
 export type CaptureType = (typeof CAPTURE_TYPES)[number]["id"]

@@ -10,6 +10,8 @@ import { exampleMap } from '@/lib/examples'
 import { Example } from './example'
 import { chime } from '@/lib/sound'
 import { Empty, Rolling, Tip } from './ui'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Unlink } from 'lucide-react'
 
 const Fit = alive(ExpandIcon)
 
@@ -52,12 +54,13 @@ export function MapView({ onOpen }: { onOpen: (type: string, id: string) => void
         <Example on={example} className="min-h-0 flex-1" tryIt="type @ in any note and pick another one. The two show up here as dots, joined by a line.">
         <GraphCanvas map={map!} onOpen={onOpen} fit={fit} className="flex-1">
           {/* What each colour means, and what was left off. */}
-          <div className="pointer-events-none absolute bottom-3 left-4 flex max-w-[calc(100%-2rem)] flex-wrap items-center gap-x-3 gap-y-1 text-meta text-muted-foreground">
+          <div className="pointer-events-none absolute bottom-3 left-4 flex max-w-[calc(100%-18rem)] flex-wrap items-center gap-x-3 gap-y-1 text-meta text-muted-foreground">
             {kinds.map((type) => (
               <span key={type.id} className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: type.tint }} />{type.label}</span>
             ))}
-            {map!.alone ? <span>{map!.alone} {map!.alone === 1 ? 'note has' : 'notes have'} no links and {map!.alone === 1 ? 'is' : 'are'} left off</span> : null}
           </div>
+          {/* The notes left off, one click away: each opens, ready for an @ to put it on the map. */}
+          {map!.alone && !example ? <Lonely count={map!.alone} notes={map!.lonely ?? []} onOpen={onOpen} /> : null}
         </GraphCanvas>
         </Example>
       ) : !map ? null : (
@@ -68,5 +71,42 @@ export function MapView({ onOpen }: { onOpen: (type: string, id: string) => void
         </div>
       )}
     </section>
+  )
+}
+
+/**
+ * The notes with no links, which the map leaves off: a button in the map's
+ * corner that says how many, and opens the list of them. One clicked opens,
+ * to be linked with an @.
+ */
+function Lonely({ count, notes: list, onOpen }: { count: number; notes: NonNullable<NoteMap['lonely']>; onOpen: (type: string, id: string) => void }): React.JSX.Element {
+  return (
+    <Popover onOpenChange={(open) => open && chime('open')}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="absolute right-4 bottom-3 gap-1.5 bg-background/80 text-control backdrop-blur-sm">
+          <Unlink className="size-3.5" />
+          {count} {count === 1 ? 'note has' : 'notes have'} no links
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" side="top" className="w-80 gap-0 p-0 text-control">
+        <p className="border-b px-3 py-2 text-muted-foreground"><strong className="text-foreground">Left off the map.</strong> Open one and type @ to link it.</p>
+        <ul className="max-h-72 overflow-y-auto p-1">
+          {list.map((one) => {
+            const kind = kindOf(one.kind) ?? CAPTURE_TYPES[0]
+            const Icon = kind.icon
+            return (
+              <li key={one.id}>
+                <button type="button" onClick={() => (chime('open'), onOpen(one.type, one.id))}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent">
+                  <Icon className="size-3.5 shrink-0" style={{ color: kind.tint }} />
+                  <span className="min-w-0 flex-1 truncate">{one.title || 'Untitled'}</span>
+                </button>
+              </li>
+            )
+          })}
+          {count > list.length && <li className="px-2 py-1.5 text-muted-foreground">and {count - list.length} more</li>}
+        </ul>
+      </PopoverContent>
+    </Popover>
   )
 }
