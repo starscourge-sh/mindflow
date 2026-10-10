@@ -463,6 +463,8 @@ export default function App(): React.JSX.Element {
   useEffect(() => setDetails(false), [editing?.id])
 
   const editorRef = useRef<Editor | null>(null)
+  // The editor a fresh box replaced, until the new one is ready: its plans are no longer this box's.
+  const retired = useRef<Editor | null>(null)
   // The box's command words, lit as you type, Todoist's way: a timer, a clue,
   // a task's day and priority, a tag that does something, a signature, a link.
   // Each can be kept as plain text; what is lit is what the send does (see
@@ -506,7 +508,7 @@ export default function App(): React.JSX.Element {
   // which one the name means.
   const held = useLive(() => Promise.all([vigil.items('question'), vigil.items('goal')]).then((lists) => lists.flat().filter((one) => !one.closedAt && !one.archivedAt)), [] as Item[], [], ['item'])
   boxContext.current = { off: !!editing, kind, chosen, held, actionTags }
-  useEffect(() => replan(editorRef.current), [editing, kind, chosen, held, actionTags])
+  useEffect(() => void (editorRef.current !== retired.current && replan(editorRef.current)), [editing, kind, chosen, held, actionTags])
   // "+name" read as a clue, or as a name nothing matches yet.
   const plus = editing || !plan ? null : plan.clue ?? plan.miss
   // A Word that is one word: its meaning looked up in the background and
@@ -524,11 +526,15 @@ export default function App(): React.JSX.Element {
     // A link kept as plain text is a note at once, not after the next key.
     if (!chosen && plan.kind !== kind) setKind(plan.kind)
     const by = plan.signature ?? { who: '', where: '' }
-    if (attribution === autoWho.current && by.who !== attribution && (by.who || plan.signatureKept)) {
+    // The box emptied by hand: a who and where read from a quote's tail go
+    // with the words, so the next note does not start signed by someone else.
+    // Read from the editor, not the saved words, which wait for a pause.
+    const emptied = !lesson && !!editorRef.current?.isEmpty
+    if (attribution === autoWho.current && by.who !== attribution && (by.who || plan.signatureKept || emptied)) {
       autoWho.current = by.who
       setAttribution(by.who)
     }
-    if (medium === autoWhere.current && by.where !== medium && (by.where || plan.signatureKept)) {
+    if (medium === autoWhere.current && by.where !== medium && (by.where || plan.signatureKept || emptied)) {
       autoWhere.current = by.where
       setMedium(by.where)
     }
@@ -813,6 +819,9 @@ export default function App(): React.JSX.Element {
     // The names read from the last quote's tail go with it, or the next quote's never fills in.
     autoWho.current = ''
     autoWhere.current = ''
+    // The editor going is let go now: read again before the new one is ready
+    // (the kind changing replans), the old words would sign the fresh note.
+    retired.current = editorRef.current
     setSecret(false)
     setKind('note')
     setChosen(false)
@@ -1094,12 +1103,45 @@ export default function App(): React.JSX.Element {
   }, [])
 
 
+  // A toast says its piece in the footer's own row, between the kind and
+  // Create, never over the writing or its fields; Create more and the sandbox
+  // chip step back while it is up (box-extras.css).
+  const footer = useRef<HTMLElement>(null)
+  const [toastLane, setToastLane] = useState<CSSProperties | undefined>(undefined)
+  useEffect(() => {
+    const row = footer.current
+    if (!row) return setToastLane(undefined)
+    const place = (): void => {
+      const first = row.firstElementChild?.getBoundingClientRect()
+      const last = row.lastElementChild?.getBoundingClientRect()
+      if (!first || !last || !last.width) return
+      // A toast is about 34px tall: centred on the Create button.
+      const next = { '--toast-left': `${Math.round(first.right)}px`, '--toast-right': `${Math.round(window.innerWidth - last.left)}px`, '--toast-bottom': `${Math.max(4, Math.round(window.innerHeight - last.bottom - (34 - last.height) / 2))}px` } as CSSProperties
+      setToastLane((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next))
+    }
+    place()
+    const watch = new ResizeObserver(place)
+    watch.observe(row)
+    for (const child of row.children) watch.observe(child)
+    window.addEventListener('resize', place)
+    return () => (watch.disconnect(), window.removeEventListener('resize', place))
+  }, [reading, kind, editing, panel, chosen])
+  // The footer is told while a toast is up, so what shares its row steps back.
+  const toasts = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const lane = toasts.current
+    if (!lane) return
+    const tell = (): void => void footer.current?.toggleAttribute('data-toast-up', !!lane.querySelector('[role=status]'))
+    const watch = new MutationObserver(tell)
+    watch.observe(lane, { childList: true, subtree: true })
+    return () => watch.disconnect()
+  }, [])
   return (
     <TooltipProvider delayDuration={500}>
     <div className={`app-container ${pointerIn ? 'pointer-in' : ''} isolate flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-10 color-white`}>
       {/* Toasts sit above the box's footer here, clear of Create. */}
       {/* Toasts over the note, above its footer: clear of Create and of the panel. */}
-      <div className={`contents [--toast-bottom:6.5rem] ${panel ? `[--toast-right:${PANEL_WIDTH}px]` : ''}`}><Toaster /></div>
+      <div ref={toasts} className={toastLane ? 'contents' : `contents [--toast-bottom:6.5rem] ${panel ? `[--toast-right:${PANEL_WIDTH}px]` : ''}`} style={toastLane}><Toaster /></div>
       <Celebrations place="box" />
       {/* Light round the box's edge: a slow faint one while a link's card or a word's meaning is fetched. */}
       <BoxBeam fetching={!editing && (definition?.state === 'looking' || !!plan?.card?.loading)} />
@@ -1300,7 +1342,7 @@ export default function App(): React.JSX.Element {
                 if (!planNow(editor))
                   editor.registerPlugin(boxTokensPlugin({
                     context: () => boxContext.current,
-                    onPlan: (next) => editorRef.current === editor && setPlan(next),
+                    onPlan: (next) => editorRef.current === editor && editor !== retired.current && setPlan(next),
                     onKept: (token, seq) => latestKept.current(token, seq),
                     onHover: setTokenHover
                   }), (plugin, plugins) => [plugin, ...plugins])
@@ -1310,7 +1352,8 @@ export default function App(): React.JSX.Element {
               onOpenNote={(link, heading) => (heading && link === editing?.id && editorRef.current ? void goToHeading(editorRef.current, heading) : follow(link, (type, id) => openAny(type, id), heading))}
               from={editing?.id}
               // A kept note's mentions under it; a new draft has none yet.
-              after={editing ? <Mentions id={editing.id} compact onOpen={(type, id) => openAny(type, id)} /> : undefined}
+              // A new Word's meaning, faint under the word itself, where it lands once kept.
+              after={editing ? <Mentions id={editing.id} compact onOpen={(type, id) => openAny(type, id)} /> : definition && <DefineGhost definition={definition} onKeep={keepDefinition} onFix={(fix) => definition && fixIn(editorRef.current, definition.word, fix)} />}
               onSource={() => setSource((open) => !open)}
               // A tag opens everything carrying it, in search.
               onTag={(tag) => {
@@ -1368,7 +1411,6 @@ export default function App(): React.JSX.Element {
               />
             )}
             <TokenHint hover={tokenHover} />
-            {!editing && <DefineGhost definition={definition} onKeep={keepDefinition} onFix={(fix) => definition && fixIn(editorRef.current, definition.word, fix)} />}
             {/* Under the writing: what it is, who said it and where you met it. */}
             {/* Wraps onto a second line rather than squeezing a field or a chip. */}
             <div data-chrome className="flex flex-wrap items-center gap-1 px-[4.75rem] py-2">
@@ -1453,7 +1495,7 @@ export default function App(): React.JSX.Element {
             </>
             )}
             {!reading && (
-            <main data-chrome className="flex items-center gap-1 pt-2 pb-3 px-[4.75rem] bg-linear-to-t from-[var(--accent)]/40">
+            <main ref={footer} data-chrome className="flex items-center gap-1 pt-2 pb-3 px-[4.75rem] bg-linear-to-t from-[var(--accent)]/40">
               {/* What matters first is the writing and Create; every other
                   switch is in here, each keeping its own key. */}
               <CaptureKindPicker
@@ -1463,11 +1505,11 @@ export default function App(): React.JSX.Element {
               />
               <span className="flex-1" />
               {/* In the sandbox, said here too: a practice box, not your own. */}
-              <SandboxChip />
+              <span data-under-toast className="inline-flex"><SandboxChip /></span>
               {/* Beside Create, as in Linear: on, a save keeps the box open for the next one. */}
               {!editing && (
                 <Tip label="Keep the box open after each save  ⌥C">
-                <label data-lesson="hide" className="mr-2 flex cursor-pointer items-center gap-2 text-control text-muted-foreground">
+                <label data-lesson="hide" data-under-toast className="mr-2 flex cursor-pointer items-center gap-2 text-control text-muted-foreground">
                   <Switch size="sm" checked={createMore} onCheckedChange={setCreateMore} tabIndex={-1} />
                   Create more
                 </label>

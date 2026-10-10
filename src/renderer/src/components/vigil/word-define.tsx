@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/core'
 import { Volume2 } from 'lucide-react'
 
@@ -104,37 +104,74 @@ export function DefineGhost({ definition, onKeep, onFix }: { definition: Definit
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [])
+  // Up against the word and lined up with it: the editor keeps room under its
+  // last line, and the ghost sits after all of it, so it is drawn back up.
+  const box = useRef<HTMLDivElement>(null)
+  const room = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const el = box.current
+    const prose = el?.closest('.mf-faded')?.querySelector<HTMLElement>('.tiptap.ProseMirror')
+    if (!el || !prose) return
+    // Laid over the room the editor keeps below its last line, just under the
+    // word: that room stretches to fill the surface, so the ghost is placed on
+    // it rather than after it, and takes no room of its own.
+    const surface = prose.parentElement!
+    const place = (): void => {
+      const last = [...prose.children].filter((line) => line.textContent?.trim()).at(-1)
+      if (!last) return
+      const word = last.getBoundingClientRect()
+      const box = surface.getBoundingClientRect()
+      el.style.top = `${Math.round(word.bottom - box.top + surface.scrollTop + 4)}px`
+      el.style.paddingLeft = `${Math.round(word.left - box.left)}px`
+      // Room kept after the writing for as much of the ghost as hangs below it, so the surface holds it whole.
+      if (room.current) room.current.style.height = `${Math.max(0, Math.round(el.getBoundingClientRect().bottom + 40 - prose.getBoundingClientRect().bottom))}px`
+    }
+    place()
+    // Again whenever the writing or its surface changes size.
+    let frame = 0
+    const later = (): void => (cancelAnimationFrame(frame), void (frame = requestAnimationFrame(place)))
+    const watch = new ResizeObserver(later)
+    watch.observe(prose)
+    watch.observe(surface)
+    return () => (watch.disconnect(), cancelAnimationFrame(frame))
+  })
   if (!definition) return null
+  // Inside the writing's own surface, lined up with its words (as the mentions under a kept note are).
+  const LINE = 'absolute inset-x-0 pr-[4.75rem]'
   if (definition.state === 'fix' && definition.fix) {
     return (
-      <div data-chrome data-define="fix" className="flex items-center gap-1.5 px-[4.75rem] pt-1.5 text-xs text-muted-foreground animate-in fade-in-0 duration-200">
+      <><div ref={room} aria-hidden />
+      <div ref={box} data-define="fix" className={`${LINE} flex items-center gap-1.5 pt-1 pb-2 text-xs text-muted-foreground animate-in fade-in-0 duration-200`}>
         <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => onFix(definition.fix!)}
           className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-foreground/10 px-2 py-0.5 text-foreground/80 transition-colors hover:border-foreground/20 hover:bg-accent">
           Did you mean <span className="font-medium text-foreground">{definition.fix}</span>?
         </button>
-      </div>
+      </div></>
     )
   }
   if (definition.state !== 'found' || !definition.found) return null
   const { found, kept } = definition
   return (
-    <div data-chrome data-define={kept ? 'kept' : 'ghost'} className="flex min-w-0 flex-col gap-0.5 px-[4.75rem] pt-1.5 text-xs animate-in fade-in-0 duration-200">
-      <div className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+    <><div ref={room} aria-hidden />
+    <div ref={box} data-define={kept ? 'kept' : 'ghost'} className={`${LINE} flex min-w-0 flex-col gap-0.5 pt-0.5 pb-3 animate-in fade-in-0 duration-200`}>
+      <div className="flex min-w-0 items-baseline gap-3">
+        <button type="button" disabled={kept} onMouseDown={(event) => event.preventDefault()} onClick={onKeep}
+          className={`min-w-0 flex-1 cursor-pointer text-left text-body leading-snug transition-colors disabled:cursor-default ${kept ? 'text-foreground' : 'italic text-muted-foreground/55 hover:text-muted-foreground'}`}>
+          {found.definition}
+        </button>
+        <span className="shrink-0 text-xs text-muted-foreground/70">{kept ? 'Kept as its definition' : <span className="inline-flex items-center gap-1"><Kbd>Tab</Kbd> to keep</span>}</span>
+      </div>
+      {found.example && <p className={`text-control leading-snug ${kept ? 'text-muted-foreground' : 'italic text-muted-foreground/45'}`}>“{found.example}”</p>}
+      <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground/80">
         {found.part && <span className="italic">{found.part}</span>}
-        {found.phonetic && <span className="truncate font-mono text-[0.92em] text-muted-foreground/80">{found.phonetic}</span>}
+        {found.phonetic && <span className="truncate font-mono text-[0.92em]">{found.phonetic}</span>}
         {found.audio && (
           <button type="button" aria-label={`Say ${found.word}`} onMouseDown={(event) => event.preventDefault()} onClick={() => void say(found.audio)}
             className="flex size-5 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
             <Volume2 className="size-3.5" />
           </button>
         )}
-        <span className="ml-auto shrink-0 text-muted-foreground/70">{kept ? 'Kept as its definition' : <span className="inline-flex items-center gap-1"><Kbd>Tab</Kbd> to keep</span>}</span>
       </div>
-      <button type="button" disabled={kept} onMouseDown={(event) => event.preventDefault()} onClick={onKeep}
-        className={`min-w-0 cursor-pointer text-left text-control leading-snug transition-colors disabled:cursor-default ${kept ? 'text-foreground' : 'italic text-muted-foreground/60 hover:text-muted-foreground'}`}>
-        {found.definition}
-        {found.example && <span className={`mt-0.5 block text-xs ${kept ? 'text-muted-foreground' : 'text-muted-foreground/50'}`}>“{found.example}”</span>}
-      </button>
-    </div>
+    </div></>
   )
 }

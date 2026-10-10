@@ -85,3 +85,7 @@
   .mf-box-beam[data-beam='fetching'] { opacity: 0.3; }
   .mf-box-beam:is([data-beam='sent'], [data-beam='warm']) { display: none; }
 }
+
+/* A toast in the box sits in the footer's row: what shares the row with it steps back. */
+[data-under-toast] { transition: opacity 0.15s ease; }
+[data-toast-up] [data-under-toast] { opacity: 0; pointer-events: none; }
