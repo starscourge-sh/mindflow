@@ -123,6 +123,26 @@ export const POWERS: Power[] = [
     show: { view: 'settings', settings: 'Review', find: 'Review reminder', at: '[data-setting]', text: 'Turn it on and pick a time. Never in quiet hours.' } },
   { id: 'learnvigil', group: 'Remembering', name: 'Learn Vigil by reviewing it', line: 'One click adds about twenty cards on what Vigil does without showing it, tagged #learn-vigil; they come a few a day.',
     show: { view: 'powers', at: '[data-learn]', text: 'Add the deck here, or from Getting started.' }, used: (s) => s.tags.includes('learn-vigil') },
+  { id: 'learnmode', group: 'Remembering', name: 'Learn mode', tryIt: 'In Review, choose Learn the new.', line: 'New cards asked twice, first as a choice of answers and then written out, with a bar that fills, until each is learnt and joins the schedule.', keys: ['1', '2', '3', '4'],
+    show: { view: 'review', at: '[data-learn-new]', text: 'Learn the new cards before they join the schedule.' } },
+  { id: 'typed', group: 'Remembering', name: 'Type the answer', tryIt: 'In Review, type your answer before turning the card, then press ⌘↵.', line: 'Type the answer before you look, and Review says how close it was, suggests a grade, and keeps what you wrote as a thought on the card.', keys: ['⌘↵'],
+    show: { view: 'review', text: 'Type in the box under the question, then ⌘↵.' } },
+  { id: 'practisetag', group: 'Remembering', name: 'Practise without counting', tryIt: 'Open a tag and choose Practise.', line: 'Go through a tag’s cards one after another, the answer on Space, with nothing graded or scheduled.', keys: ['Space', 'J', 'K'],
+    show: { view: 'tags', at: ROW, text: 'Open a tag and choose Practise at the top.' } },
+  { id: 'star', group: 'Remembering', name: 'Star a card', tryIt: 'Press S on a card in Review.', line: 'Press S on a card in Review to star it, and the Starred chip gives those cards a round of their own.', keys: ['S'],
+    show: { view: 'review', at: '[data-focus-chips]', text: 'Starred is the last chip. S stars the card in front.' }, used: (s) => s.items.some((item) => !!item.starredAt) },
+  { id: 'howitdecides', group: 'Remembering', name: 'How it decides', tryIt: 'Turn a card over in Review and open How it decides.', line: 'Under the grades, a fold says in plain words what Review aims for and why this card comes back when it does.',
+    show: { view: 'review', text: 'Turn a card over, then open How it decides under the grades.' } },
+  { id: 'tagpriority', group: 'Remembering', name: 'Pause a tag, or keep it ticking', tryIt: 'Open a tag, choose Manage, then Maintaining or Paused.', line: 'Set a tag to Maintaining and its cards keep coming back but no new ones start; Paused rests all of them.',
+    show: { view: 'tags', at: ROW, text: 'Open a tag, choose Manage, and pick Learning, Maintaining or Paused.' }, used: (s) => s.priority },
+  { id: 'listcards', group: 'Remembering', name: 'Paste a list, get cards', tryIt: 'Paste a few lines like Ephemeral - lasting a very short time.', line: 'Paste lines of “term - meaning” into any note and a toast offers to make each one a card.',
+    show: { view: 'day', at: '.tiptap.ProseMirror', text: 'Paste three or more lines of term - meaning, then choose Make cards.' } },
+  { id: 'strength', group: 'Remembering', name: 'A card’s own history', tryIt: 'Open a gem you have reviewed and look under Review.', line: 'Every gem you review keeps its dated grades, and a line of how long it would hold after each one.',
+    show: { view: 'nuggets', at: ROW, text: 'Open a reviewed gem: its history and strength line are under Review.' } },
+  { id: 'fit', group: 'Remembering', name: 'Fit the scheduler to you', tryIt: 'In Settings, Review, choose Fit now once you have a thousand reviews.', line: 'After a thousand reviews, Vigil works out how long a new card lasts for you, from whether you remembered it next time.',
+    show: { view: 'settings', settings: 'Review', find: 'Fit to how I remember', at: '[data-setting]', text: 'It counts your reviews until there are enough.' } },
+  { id: 'daysinarow', group: 'Remembering', name: 'Days in a row, rest days banked', line: 'Review quietly counts the days in a row you reviewed; each week in a row banks a rest day, so a day off never breaks it.',
+    show: { view: 'review', text: 'The count sits under the chips once you have two days in a row.' } },
 
   // Planning
   { id: 'decision', group: 'Planning', name: 'A decision comes back', line: 'Write down what you decided and when to look again, and on that day it asks if it still holds.',
@@ -196,6 +216,8 @@ export type Signs = {
   board: boolean
   season: boolean
   rated: boolean
+  /** A tag set to Maintaining or Paused. */
+  priority: boolean
 }
 
 async function read(): Promise<Signs> {
@@ -237,7 +259,8 @@ async function read(): Promise<Signs> {
     kinds: new Set(captures.filter((one) => one.status !== 'discarded').map((one) => one.kind)),
     board,
     season: year.some((month) => !!month.season?.trim()),
-    rated
+    rated,
+    priority: tags.some((one) => !!one.priority)
   }
 }
 

@@ -30,31 +30,112 @@ const asked = (item: Pick<Item, 'prompt' | 'title'>): string => item.prompt || i
  * short extra round from all your gems. Choosing one moves no due date;
  * only grading a card does.
  */
-export function FocusChips({ round, onPick }: { round: Bucket | null; onPick: (bucket: Bucket) => void }): React.JSX.Element | null {
-  const counts = useLive(vigil.buckets, null as Record<Bucket, number> | null, [], ['item'])
+export function FocusChips({ round, onPick, onLearn }: { round: Round | null; onPick: (bucket: Round) => void; onLearn?: () => void }): React.JSX.Element | null {
+  const counts = useLive(vigil.buckets, null as Record<Round, number> | null, [], ['item'])
   if (!counts) return null
+  const rounds = [...BUCKETS, { id: 'starred' as const, label: 'Starred' }]
   return (
     <div data-focus-chips className="flex flex-wrap items-center gap-x-2 gap-y-1 px-5 pt-5 text-xs text-muted-foreground">
       <span className="text-foreground">Practise</span>
       <Chips
-        options={BUCKETS.map((one) => ({ id: one.id, label: `${one.label} ${num(counts[one.id])}` }))}
+        options={rounds.map((one) => ({ id: one.id, label: `${one.label} ${num(counts[one.id])}` }))}
         on={(id) => id === round}
         pick={(id) => {
-          const bucket = id as Bucket
-          if (!counts[bucket]) return refuse(`Nothing in ${BUCKETS.find((one) => one.id === bucket)?.label} right now`, 'info')
+          const bucket = id as Round
+          if (!counts[bucket]) return refuse(bucket === 'starred' ? 'No starred cards yet: press S on a card in Review' : `Nothing in ${BUCKETS.find((one) => one.id === bucket)?.label} right now`, 'info')
           onPick(bucket)
         }}
       />
+      {onLearn && counts.new > 0 && (
+        <Button variant="outline" size="sm" data-learn-new className="ml-auto h-7 text-xs" onClick={() => (chime('open'), onLearn())}>Learn the {num(Math.min(8, counts.new))} new</Button>
+      )}
     </div>
   )
 }
 
+/** A practice round: one of the five buckets, or the cards you starred. */
+export type Round = Bucket | 'starred'
+
+/** Days in a row with something reviewed, said quietly; nothing at all until there are two. */
+export function DaysInARow(): React.JSX.Element | null {
+  const days = useLive(vigil.daysInARow, null as { run: number; banked: number } | null, [], ['item'])
+  if (!days || days.run < 2) return null
+  return (
+    <p data-days-in-a-row className="px-5 pt-3 text-xs text-muted-foreground tabular-nums">
+      {num(days.run)} days in a row{days.banked ? `, ${num(days.banked)} rest ${days.banked === 1 ? 'day' : 'days'} banked` : ''}
+    </p>
+  )
+}
+
+/** Days as you would say them: "9 days", "3 hours", "20 minutes". */
+const span = (days: number): string =>
+  days >= 1.5 ? `${num(Math.round(days))} days` : days >= 1 ? 'a day' : days * 24 >= 1.5 ? `${num(Math.round(days * 24))} hours` : days * 1440 >= 1.5 ? `${num(Math.round(days * 1440))} minutes` : 'a minute'
+
+/**
+ * How it decides, said plainly, folded under the grades: the target you set,
+ * how long this card holds, how sure you would be of it now, and why Good
+ * brings it back when it does.
+ */
+export function HowItDecides({ id, good }: { id: string; good: string }): React.JSX.Element {
+  const [open, setOpen] = useState(false)
+  const why = useLive(() => (open ? vigil.why(id) : Promise.resolve(null)), null as Awaited<ReturnType<typeof vigil.why>>, [id, open])
+  const target = why ? Math.round(why.retention * 100) : 90
+  return (
+    <details data-how open={open} onToggle={(event) => setOpen((event.currentTarget as HTMLDetailsElement).open)} className="-mt-2 text-sm text-muted-foreground">
+      <summary className="cursor-pointer select-none text-xs hover:text-foreground">How it decides</summary>
+      {why && (
+        <div className="mt-2 flex flex-col gap-1.5 leading-relaxed">
+          <p><strong className="font-semibold text-foreground">Vigil aims for you to still know {target}% of what comes back.</strong> You set that in Settings, Review: higher means more reviews.</p>
+          {why.seen && why.stability !== null && why.recall !== null ? (
+            <p>
+              You have seen this card {num(why.reviews)} {why.reviews === 1 ? 'time' : 'times'}. It holds about {span(why.stability)} now: that long after a review you would still know it 9 times in 10.
+              {why.lastDays !== null && ` You last saw it ${span(why.lastDays)} ago, so you would know it now about ${Math.round(why.recall * 100)}% of the time.`}
+              {' '}Good brings it back {good}, when it would have faded to about {target}%; Hard sooner, Easy later, and Again in a few minutes.
+            </p>
+          ) : (
+            <p>A new card: its first grade sets how long it lasts. Good brings it back {good}.</p>
+          )}
+          {why.fitted && <p>How long a new card lasts is fitted to your own reviews (Settings, Review).</p>}
+        </div>
+      )}
+    </details>
+  )
+}
+
+/**
+ * Fit the scheduler to you: after a thousand reviews, how long a new card
+ * lasts after each first grade is worked out from your own next reviews,
+ * and can be put back to the defaults.
+ */
+export function FitToMe(): React.JSX.Element | null {
+  const state = useLive(vigil.fitState, null as Awaited<ReturnType<typeof vigil.fitState>> | null, [], ['item'])
+  if (!state) return null
+  const ready = state.reviews >= state.after
+  const good = state.fitted?.[2]
+  return (
+    <span className="flex items-center gap-2" data-fit>
+      <span className="text-muted-foreground tabular-nums">
+        {state.fitted ? `Fitted: Good lasts ${good !== undefined ? span(good) : 'its own time'}` : ready ? `${num(state.reviews)} reviews` : `${num(state.reviews)} of ${num(state.after)} reviews`}
+      </span>
+      {state.fitted ? (
+        <Button variant="ghost" size="sm" onClick={() => void vigil.setSettings({ fsrsFirst: null }).then(() => (chime('undo'), toast('Back to the defaults')))}>Use the defaults</Button>
+      ) : (
+        <Button variant="outline" size="sm" disabled={!ready} onClick={() => void vigil.fit().then((made) => {
+          if (!made) return refuse('Not yet: it needs a thousand reviews')
+          chime('settled')
+          toast(`Fitted from ${num(made.pairs)} cards: a new card graded Good now lasts about ${span(made.fitted[2])}, where the default is ${span(made.defaults[2])}`)
+        })}>Fit now</Button>
+      )}
+    </span>
+  )
+}
+
 /** What a practice round is, said once at its top. */
-export function RoundLine({ round, onLeave }: { round: Bucket; onLeave: () => void }): React.JSX.Element {
+export function RoundLine({ round, onLeave }: { round: Round; onLeave: () => void }): React.JSX.Element {
   return (
     <div className="flex items-center gap-3 px-5 pt-4 text-sm">
       <p className="flex-1">
-        <strong className="font-semibold">{BUCKETS.find((one) => one.id === round)?.label}.</strong>{' '}
+        <strong className="font-semibold">{round === 'starred' ? 'Starred' : BUCKETS.find((one) => one.id === round)?.label}.</strong>{' '}
         <span className="text-muted-foreground">An extra round. Nothing moves unless you grade it.</span>
       </p>
       <Button variant="ghost" size="sm" onClick={onLeave}>Back to today’s cards</Button>

@@ -29,6 +29,8 @@ import { motion } from 'motion/react'
 import { dayMonth } from '../../../../main/dates'
 import { TAG_DOES } from '../capture-kinds/kind-fields'
 import { Blurt } from './study'
+import { PractiseTag } from './learn-mode'
+import { Chips } from './display'
 import { exampleTags } from '@/lib/examples'
 import { Example } from './example'
 
@@ -78,6 +80,8 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
   const [tab, setTab] = useState<'read' | 'manage'>('read')
   // A blurt on the open tag: a blank page in place of its notes, until done.
   const [blurting, setBlurting] = useState<string | null>(null)
+  // Its cards gone through without counting, in place of its notes.
+  const [practising, setPractising] = useState<string | null>(null)
   // A tag picked is a step Back returns from; Read or Manage is kept in it.
   useOpened(chosen ?? undefined, focus, setChosen, () => setChosen(null))
   useKept('tab', tab, setTab, 'read')
@@ -158,7 +162,10 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
             <Button variant="ghost" size="icon-sm" aria-label="All tags" className="@[56rem]/page:hidden" onClick={() => (chime('tap'), setChosen(null))}><ArrowLeft className="size-3.5" /></Button>
           </Tip>
           <Tip label="Write everything you remember about it, then see what you left out">
-            <Button variant="ghost" size="sm" data-blurt-open onClick={() => (chime('open'), setBlurting(chosen))}>Blurt</Button>
+            <Button variant="ghost" size="sm" data-blurt-open onClick={() => (chime('open'), setPractising(null), setBlurting(chosen))}>Blurt</Button>
+          </Tip>
+          <Tip label="Go through its cards, nothing counted or scheduled">
+            <Button variant="ghost" size="sm" data-practise-open onClick={() => (chime('open'), setBlurting(null), setPractising(chosen))}>Practise</Button>
           </Tip>
           <span role="tablist" className="flex rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
             {(['read', 'manage'] as const).map((one) => (
@@ -172,7 +179,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
           </span>
           </span>
         }>
-          {blurting === chosen ? <Blurt key={chosen} tag={chosen} onClose={() => (chime('fold'), setBlurting(null))} /> : tab === 'read' ? <TagStream key={chosen} tag={chosen} color={current?.color} onOpen={onOpen} onTag={setChosen} onManage={() => (chime('tap'), setTab('manage'))} /> : (<>
+          {practising === chosen ? <PractiseTag key={chosen} tag={chosen} onClose={() => (chime('fold'), setPractising(null))} /> : blurting === chosen ? <Blurt key={chosen} tag={chosen} onClose={() => (chime('fold'), setBlurting(null))} /> : tab === 'read' ? <TagStream key={chosen} tag={chosen} color={current?.color} onOpen={onOpen} onTag={setChosen} onManage={() => (chime('tap'), setTab('manage'))} /> : (<>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-5 py-3">
             {/* A colour, and whether writing this tag makes a task, the way
                 #bug does. Labels, not kinds: a colour and one behaviour. */}
@@ -198,6 +205,13 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
             {TAG_DOES[chosen] && <span className="text-xs text-muted-foreground">#{chosen}: {TAG_DOES[chosen]}</span>}
             {/* An exam or deadline: everything with this tag is paced to be ready by then. */}
             <DatePicker key={`exam-${chosen}`} value={current?.examAt ?? null} placeholder="Exam date" onChange={(at) => examOn(chosen, at, current?.examAt ?? null)} />
+            {/* How Review treats its cards: learning new ones, keeping what you know, or resting all of it. */}
+            <span data-tag-priority className="flex items-center gap-1.5 text-xs">
+              <Chips options={[{ id: 'learning', label: 'Learning' }, { id: 'maintaining', label: 'Maintaining' }, { id: 'paused', label: 'Paused' }]}
+                on={(id) => id === ((current && 'priority' in current ? current.priority : null) ?? 'learning')}
+                pick={(id) => void vigil.setTag(chosen, { priority: id === 'learning' ? null : (id as 'maintaining' | 'paused') }).then(() =>
+                  toast(id === 'paused' ? `#${chosen} is paused: none of its cards come up in Review` : id === 'maintaining' ? `#${chosen} is maintained: its cards come back, no new ones start` : `#${chosen} is learning: new cards start as usual`))} />
+            </span>
             {/* An alias: this tag counts as another without the words changing. */}
             <Input
               key={`alias-${chosen}`}

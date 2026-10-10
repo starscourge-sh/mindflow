@@ -4,7 +4,7 @@ import { cp, mkdir, writeFile } from 'fs/promises'
 import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
-import { createEmptyCard, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
+import { createEmptyCard, default_w, forgetting_curve, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
 
 import { LABEL, LIST, atomically, changed, database, like, movedOn, type Change } from './captures'
 import { advance, readTask } from './task-words'
@@ -14,7 +14,7 @@ import { SANDBOX } from './sandbox'
 import { retireKinds, tagged as hasTag, withTag } from './kinds'
 import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrate'
 import { daysBetween, daysLeft, leftSaid } from './goal-days'
-import { LEECH_AT, bucketOf, minutesFor, struggling, type Bucket } from './study'
+import { LEECH_AT, bucketOf, daysInARow, fitFirstDays, minutesFor, struggling, type Bucket } from './study'
 import { syncLineCards } from './line-cards'
 import { LEARN_DECK, LEARN_TAG } from './learn-deck'
 
@@ -292,6 +292,8 @@ const DEFAULTS = {
   examNudges: true,
   // A Mac notification at this time ("09:00") when cards are due; null is off.
   reviewReminder: null as string | null,
+  // How long a new card lasts after each first grade, fitted to your own reviews (Settings, Fit to how I remember); null is the defaults.
+  fsrsFirst: null as number[] | null,
   // Hints can be memories: this day last year, things from one source.
   memories: true,
   // The weather outside, kept with each capture as context. It asks a weather
@@ -543,7 +545,12 @@ const cardOf = (state: string | null): Card => {
 // The plan's learning steps, ten minutes then a day, and fuzz so cards learnt
 // together spread over the days around their due date instead of landing at once.
 const scheduler = (): ReturnType<typeof fsrs> =>
-  fsrs(generatorParameters({ request_retention: settings().retention, learning_steps: ['10m', '1d'], enable_fuzz: true }))
+  fsrs(generatorParameters({ request_retention: settings().retention, learning_steps: ['10m', '1d'], enable_fuzz: true, w: weights() }))
+/** The scheduler's parameters: its defaults, with how long a new card lasts fitted to you once Settings has done it. */
+const weights = (): number[] => {
+  const first = settings().fsrsFirst
+  return Array.isArray(first) && first.length === 4 ? [...first, ...default_w.slice(4)] : [...default_w]
+}
 
 /** When each of the four grades would bring an item back, for the buttons. */
 const preview = (state: string | null, cap: (due: Date) => Date = (due) => due): Record<number, string> => {
@@ -702,6 +709,8 @@ export function registerVigil(): void {
   column('nuggets', 'edited_since_review integer not null default 0')
   // A card written inside a note ("question :: answer"): the note it lives in. See line-cards.ts.
   column('nuggets', 'line_of text')
+  // Starred in Review (S): a card you want to come back to, with a round of its own.
+  column('nuggets', 'starred_at text')
   // What lineage looks up on every change: where each nugget and task came from.
   db.exec('create index if not exists nuggets_by_capture on nuggets(capture_id); create index if not exists tasks_by_capture on tasks(origin_capture_id); create index if not exists captures_by_origin on captures(origin_id)')
   // Every list of nuggets counts each one's lapses and clues, and review counts
@@ -719,6 +728,8 @@ export function registerVigil(): void {
   column('tag_meta', 'alias_of text')
   // An exam or deadline on a tag: review paces everything carrying it to be ready by then.
   column('tag_meta', 'exam_at text')
+  // How Review treats a tag's cards: null learns them, 'maintaining' brings no new ones, 'paused' none at all.
+  column('tag_meta', 'priority text')
   // Why the answer is so, one line under it in review.
   column('nuggets', 'why text')
   // A question held open: when it was settled, and how ('answered' or 'let go').
@@ -1250,7 +1261,7 @@ export function registerVigil(): void {
     state is not null as reviewed, created_at as createdAt, updated_at as updatedAt, capture_id as captureId, remind_at as remindAt,
     (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses, attribution, context, mode, superseded_by as supersededBy, archived_at as archivedAt, revisions, why,
     closed_at as closedAt, closed_how as closedHow, (select count(*) from glosses where item_id = nuggets.id) as clues,
-    goal_at as goalAt, goal_from as goalFrom, goal_beacon as beacon, (select max(created_at) from glosses where item_id = nuggets.id) as lastLog, line_of as lineOf`
+    goal_at as goalAt, goal_from as goalFrom, goal_beacon as beacon, (select max(created_at) from glosses where item_id = nuggets.id) as lastLog, line_of as lineOf, starred_at as starredAt`
   handle('items', (tier: string) =>
     db.prepare(`select ${ITEM} from nuggets where tier = ? order by created_at desc`).all(tier)
   )
@@ -1581,6 +1592,7 @@ export function registerVigil(): void {
     // Most at risk: the lowest chance of recall now, by the card's own memory.
     const risk = scheduler()
     const exam = examOf()
+    const tagRule = tagRules()
     // Everything tested, so a card with an exam ahead can be called in for the
     // last look even when its own schedule would wait past the date.
     const tested = (db
@@ -1588,6 +1600,11 @@ export function registerVigil(): void {
         from nuggets where coalesce(prompt, '') != '' and suspended = 0 and archived_at is null`)
       .all() as Record<string, unknown>[])
       .map((row) => ({ row, exam: exam(row) }))
+      // A paused tag's cards wait; a maintained tag's keep coming, but no new ones start.
+      .filter((one) => {
+        const rule = tagRule(one.row)
+        return rule !== 'paused' && (!!one.row.state || rule !== 'maintaining')
+      })
     const swept = ({ row, exam }: { row: Record<string, unknown>; exam: Exam | null }): boolean => {
       if (!exam || Date.now() < exam.sweep) return false
       const last = cardOf(row.state as string).last_review
@@ -1661,6 +1678,93 @@ export function registerVigil(): void {
     return nugget ? body(nugget) : null
   })
 
+  // --- a tag's priority in Review: the strongest rule among a card's tags, paused over maintaining
+  const tagRules = (): ((row: Record<string, unknown>) => 'paused' | 'maintaining' | null) => {
+    const rules = new Map((db.prepare('select tag, priority from tag_meta where priority is not null').all() as { tag: string; priority: 'paused' | 'maintaining' }[]).map((one) => [one.tag, one.priority]))
+    return (row) => (rules.size ? ruleOf(rules, row) : null)
+  }
+  const ruleOf = (rules: Map<string, 'paused' | 'maintaining'>, row: Record<string, unknown>): 'paused' | 'maintaining' | null => {
+    const words = typeof row.body === 'string' ? JSON.parse(row.body ?? 'null') : row.body
+    const found = tagsIn(`${row.title ?? ''} ${row.prompt ?? ''} ${plain(words)}`).map((tag) => rules.get(tag)).filter(Boolean)
+    return found.includes('paused') ? 'paused' : found.includes('maintaining') ? 'maintaining' : null
+  }
+
+  // --- a star on a card (S in Review), and how Review decides when it comes back
+  handle('review:star', (id: string, on: boolean) => write(db.prepare('update nuggets set starred_at = ? where id = ?').run(on ? now() : null, id).changes > 0))
+  handle('review:why', (id: string) => {
+    const row = db.prepare('select state from nuggets where id = ?').get(id) as { state: string | null } | undefined
+    if (!row) return null
+    const card = cardOf(row.state)
+    const reviews = (db.prepare('select count(*) n from review_log where item_id = ?').get(id) as { n: number }).n
+    return {
+      retention: settings().retention,
+      reviews,
+      seen: !!row.state,
+      stability: row.state ? card.stability : null,
+      difficulty: row.state ? card.difficulty : null,
+      recall: row.state ? scheduler().get_retrievability(card, new Date(), false) : null,
+      lastDays: card.last_review ? (Date.now() - card.last_review.getTime()) / 86400000 : null,
+      fitted: !!settings().fsrsFirst
+    }
+  })
+  // A card's own history as a line: how long it would hold after each review, replayed from its grades.
+  handle('review:strength', (id: string) => {
+    const log = db.prepare('select reviewed_at as at, grade from review_log where item_id = ? order by reviewed_at').all(id) as { at: string; grade: number }[]
+    const run = scheduler()
+    let card = createEmptyCard(log[0] ? new Date(log[0].at) : new Date())
+    return log.map(({ at, grade }) => {
+      card = run.next(card, new Date(at), grade as Grade).card
+      return { at, grade, days: Math.round(card.stability * 10) / 10 }
+    })
+  })
+
+  // --- days in a row with something reviewed, rest days banked (study.ts)
+  handle('review:days', () => {
+    const days = (db.prepare("select distinct date(reviewed_at, 'localtime') as day from review_log").all() as { day: string }[]).map((one) => one.day)
+    return daysInARow(days, dayKey())
+  })
+
+  // --- fit the scheduler to you: after a thousand reviews, how long a new
+  // card lasts after each first grade, from when you next remembered it or not.
+  const FIT_AFTER = 1000
+  handle('review:fit:state', () => ({ reviews: (db.prepare('select count(*) n from review_log').get() as { n: number }).n, after: FIT_AFTER, fitted: settings().fsrsFirst }))
+  handle('review:fit', () => {
+    const total = (db.prepare('select count(*) n from review_log').get() as { n: number }).n
+    if (total < FIT_AFTER) return null
+    const rows = db.prepare(`select item_id as id, grade, reviewed_at as at from review_log order by item_id, reviewed_at`).all() as { id: string; grade: number; at: string }[]
+    const pairs: { first: number; days: number; recalled: boolean }[] = []
+    for (let i = 0; i + 1 < rows.length; i++) {
+      if (rows[i].id !== rows[i + 1].id || (i > 0 && rows[i - 1].id === rows[i].id)) continue
+      pairs.push({ first: rows[i].grade, days: (new Date(rows[i + 1].at).getTime() - new Date(rows[i].at).getTime()) / 86400000, recalled: rows[i + 1].grade > 1 })
+    }
+    const fitted = fitFirstDays(pairs, [...default_w.slice(0, 4)], (t, s) => forgetting_curve([...default_w], t, s))
+    db.prepare('insert or replace into settings (key, value) values (?, ?)').run('fsrsFirst', JSON.stringify(fitted))
+    return write({ fitted, pairs: pairs.length, defaults: [...default_w.slice(0, 4)] })
+  })
+
+  // --- a pasted list of "term - meaning" lines, made into cards at once
+  handle('cards:list', (pairs: { term: string; meaning: string }[]) => {
+    const ids = (pairs ?? []).filter((one) => one.term?.trim() && one.meaning?.trim()).map(({ term, meaning }) => {
+      const id = randomUUID()
+      db.prepare("insert into nuggets (id, kind, title, body, prompt, created_at, updated_at) values (?, 'note', ?, ?, ?, ?, ?)")
+        .run(id, term.trim().slice(0, 160), JSON.stringify(meaning.trim()), term.trim(), now(), now())
+      return id
+    })
+    return write(ids)
+  })
+  handle('cards:list:undo', (ids: string[]) => {
+    for (const id of ids ?? []) db.prepare("delete from nuggets where id = ? and tier = 'nugget' and state is null").run(id)
+    return write(true)
+  })
+
+  // --- practise a tag without counting: its cards, in order, nothing scheduled
+  handle('tag:cards', (tag: string) => {
+    const alias = new Map((db.prepare('select tag, alias_of from tag_meta where alias_of is not null').all() as { tag: string; alias_of: string }[]).map((row) => [row.tag, row.alias_of]))
+    return (db.prepare(`select ${ITEM}, body from nuggets where coalesce(prompt, '') != '' and archived_at is null and superseded_by is null order by created_at`).all() as Record<string, unknown>[])
+      .filter((row) => tagsIn(`${row.title ?? ''} ${row.prompt ?? ''} ${plain(JSON.parse((row.body as string) ?? 'null'))}`).some((one) => (alias.get(one) ?? one) === tag))
+      .map(body)
+  })
+
   // --- cards written in notes: the note a card lives in, as a source to open or reread
   const lineSource = (line: string): Record<string, unknown> | null => {
     const [type, key] = [line.slice(0, line.indexOf(':')), line.slice(line.indexOf(':') + 1)]
@@ -1689,8 +1793,11 @@ export function registerVigil(): void {
     })
   }
   handle('review:buckets', () => {
-    const counts: Record<Bucket, number> = { weak: 0, learning: 0, old: 0, fresh: 0, new: 0 }
-    for (const one of practice()) counts[one.bucket]++
+    const counts: Record<Bucket | 'starred', number> = { weak: 0, learning: 0, old: 0, fresh: 0, new: 0, starred: 0 }
+    for (const one of practice()) {
+      counts[one.bucket]++
+      if (one.row.starredAt) counts.starred++
+    }
     return counts
   })
   type Practised = ReturnType<typeof practice>[number]
@@ -1704,10 +1811,13 @@ export function registerVigil(): void {
     new: (a, b) => String(a.row.createdAt).localeCompare(String(b.row.createdAt))
   }
   const ROUND = 10
-  handle('review:round', (bucket: Bucket) => {
-    if (!ROUND_ORDER[bucket]) return []
+  handle('review:round', (bucket: Bucket | 'starred') => {
+    if (bucket !== 'starred' && !ROUND_ORDER[bucket]) return []
     const exam = examOf()
-    return practice().filter((one) => one.bucket === bucket).sort(ROUND_ORDER[bucket]).slice(0, ROUND).map(({ row }) => ({
+    const mine = bucket === 'starred'
+      ? practice().filter((one) => one.row.starredAt).sort((a, b) => String(b.row.starredAt).localeCompare(String(a.row.starredAt)))
+      : practice().filter((one) => one.bucket === bucket).sort(ROUND_ORDER[bucket])
+    return mine.slice(0, ROUND).map(({ row }) => ({
       ...body(row), state: undefined, exam: exam(row)?.tag ?? null, intervals: preview(row.state as string | null, (when) => capped(when, exam(row)))
     }))
   })
@@ -2276,12 +2386,13 @@ export function registerVigil(): void {
   handle('tags', () => {
     const counts = new Map<string, number>()
     for (const { tag } of tagged()) counts.set(tag, (counts.get(tag) ?? 0) + 1)
-    const meta = new Map((db.prepare('select tag, color, action, exam_at from tag_meta').all() as { tag: string; color: string | null; action: number; exam_at: string | null }[]).map((row) => [row.tag, row]))
-    return [...counts].map(([tag, count]) => ({ tag, count, color: meta.get(tag)?.color ?? null, action: !!meta.get(tag)?.action, examAt: meta.get(tag)?.exam_at ?? null })).sort((a, b) => b.count - a.count)
+    const meta = new Map((db.prepare('select tag, color, action, exam_at, priority from tag_meta').all() as { tag: string; color: string | null; action: number; exam_at: string | null; priority: string | null }[]).map((row) => [row.tag, row]))
+    return [...counts].map(([tag, count]) => ({ tag, count, color: meta.get(tag)?.color ?? null, action: !!meta.get(tag)?.action, examAt: meta.get(tag)?.exam_at ?? null, priority: meta.get(tag)?.priority ?? null })).sort((a, b) => b.count - a.count)
   })
   handle('tag:meta', () => db.prepare('select tag, color, action from tag_meta').all())
-  handle('tag:set', (tag: string, patch: { color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null }) => {
+  handle('tag:set', (tag: string, patch: { color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null }) => {
     db.prepare('insert or ignore into tag_meta (tag) values (?)').run(tag)
+    if (patch.priority !== undefined) db.prepare('update tag_meta set priority = ? where tag = ?').run(['maintaining', 'paused'].includes(patch.priority ?? '') ? patch.priority : null, tag)
     if (patch.examAt !== undefined) db.prepare('update tag_meta set exam_at = ? where tag = ?').run(patch.examAt, tag)
     if (patch.color !== undefined) db.prepare('update tag_meta set color = ? where tag = ?').run(patch.color, tag)
     if (patch.action !== undefined) db.prepare('update tag_meta set action = ? where tag = ?').run(patch.action ? 1 : 0, tag)

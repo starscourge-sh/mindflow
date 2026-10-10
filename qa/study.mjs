@@ -208,7 +208,7 @@ try {
   await go('home')
   await go('review')
   await wait(1200)
-  check('five chips above Review', (await h.evaluate(() => document.querySelectorAll('[data-focus-chips] button').length)) === 5)
+  check('five chips above Review, and Starred', (await h.evaluate(() => [...document.querySelectorAll('[data-focus-chips] button')].filter((one) => !one.hasAttribute('data-learn-new')).length)) === 6)
   // The fifth is New; its label rolls in, so it is found by place.
   await h.evaluate(() => document.querySelectorAll('[data-focus-chips] button')[4]?.click())
   await wait(1200)
@@ -295,6 +295,181 @@ try {
   }
   await look('paper')
 
+  // --- star a card, type the answer, how it decides ---------------------------------------------
+  const peru = await gem('Lima, on the Pacific coast', 'Capital of Peru?', [3])
+  await v('blurt:sooner', [peru])
+  // Only this one due: the rest of the morning's cards out of the way.
+  for (const one of await v('review:queue')) if (one.id !== peru) await v('review:bury', one.id)
+  await reviewTo('Capital of Peru?')
+  await h.keyboard.press('s')
+  await wait(600)
+  check('S stars the card', !!(await v('item', peru)).starredAt)
+  check('the Starred round counts it', (await v('review:buckets')).starred === 1)
+  await h.focus('textarea')
+  await h.keyboard.type('Lima on the coast')
+  await h.keyboard.press('Meta+Enter')
+  await wait(900)
+  check('a typed answer says how close it was and suggests a grade', /suggests (Good|Easy|Hard)/.test(await text('[data-typed]')), await text('[data-typed]'))
+  check('the suggested grade is marked', await has('[data-suggested]'))
+  await h.evaluate(() => document.querySelector('[data-how] summary')?.click())
+  await wait(900)
+  check('How it decides says the target and this card’s days', (await text('[data-how]')).includes('Vigil aims for you to still know 90%') && (await text('[data-how]')).includes('Good brings it back'), (await text('[data-how]')).slice(0, 160))
+  for (const [theme, brutal, name] of [['paper', false, 'typed-how-paper'], ['github', false, 'typed-how-dark'], ['paper', true, 'typed-how-brutal']]) {
+    if (theme !== 'paper' || brutal) {
+      await look(theme, brutal)
+      await v('blurt:sooner', [peru])
+      await reviewTo('Capital of Peru?')
+      await h.focus('textarea')
+      await h.keyboard.type('Lima on the coast')
+      await h.keyboard.press('Meta+Enter')
+      await wait(700)
+      await h.evaluate(() => document.querySelector('[data-how] summary')?.click())
+      await wait(900)
+    }
+    await shot(name)
+  }
+  await look('paper')
+  await v('blurt:sooner', [peru])
+  await reviewTo('Capital of Peru?')
+  await h.focus('textarea')
+  await h.keyboard.type('Lima')
+  await h.keyboard.press('Meta+Enter')
+  await wait(500)
+  const glossesBefore = (await v('glosses', peru)).length
+  await blur()
+  await h.keyboard.press('3')
+  await wait(900)
+  check('what you typed is kept as a thought on the card', (await v('glosses', peru)).length === glossesBefore + 1)
+
+  // --- learn mode ----------------------------------------------------------------------------
+  const newOnes = await v('review:round', 'new')
+  const answers = Object.fromEntries(newOnes.map((one) => [one.prompt, String(typeof one.body === 'string' ? one.body : '').replace(/#[\w-]+/g, '').replace(/\s+/g, ' ').trim().slice(0, 140)]))
+  const newBefore = (await v('review:buckets')).new
+  await go('home')
+  await go('review')
+  await wait(1200)
+  await h.evaluate(() => document.querySelector('[data-learn-new]')?.click())
+  await wait(1000)
+  check('Learn the new opens learn mode', await has('[data-learn-mode]'))
+  let shotLearn = false
+  for (let i = 0; i < 60 && !(await has('[data-learn-done]')); i++) {
+    const asked = (await text('[data-learn-mode] h2')).trim()
+    if (await has('[data-choices]')) {
+      if (!shotLearn) (await shot('learn-mode'), (shotLearn = true))
+      // One miss on purpose, to see it come round again.
+      const choices = await h.evaluate(() => [...document.querySelectorAll('[data-choices] button')].map((one) => one.textContent?.replace(/^\d/, '').trim()))
+      const pick = i === 0 ? choices.findIndex((one) => one !== answers[asked]) : choices.findIndex((one) => one === answers[asked])
+      await h.keyboard.press(String(pick + 1))
+    } else {
+      await h.focus('[data-learn-mode] input')
+      await h.keyboard.type(answers[asked] ?? '')
+      await h.keyboard.press('Enter')
+    }
+    await wait(250)
+    await h.keyboard.press('Enter')
+    await wait(250)
+  }
+  check('learn mode ends with each new card learnt', await has('[data-learn-done]'), await text('[data-learn-mode]'))
+  check('the learnt cards join the schedule', (await v('review:buckets')).new === Math.max(0, newBefore - Math.min(8, newBefore)), `${newBefore} → ${(await v('review:buckets')).new}`)
+  await h.keyboard.press('Escape')
+  await wait(600)
+
+  // --- practise a tag without counting -------------------------------------------------------
+  const spaceDue = Object.fromEntries((await v('tag:cards', 'astro')).map((one) => [one.id, one.dueAt]))
+  await send('tag', 'astro')
+  await wait(1500)
+  await h.evaluate(() => document.querySelector('[data-practise-open]')?.click())
+  await wait(900)
+  check('Practise opens on the tag’s cards', (await text('[data-practise]')).includes('Nothing here is counted or scheduled'))
+  await blur()
+  await h.keyboard.press(' ')
+  await wait(500)
+  check('Space shows the answer', await has('[data-practise-answer]'))
+  await shot('practise-tag')
+  await h.keyboard.press('j')
+  await wait(500)
+  check('J goes to the next card', (await text('[data-practise]')).includes('2 of'))
+  const spaceAfter = Object.fromEntries((await v('tag:cards', 'astro')).map((one) => [one.id, one.dueAt]))
+  check('practising moves no due date', Object.keys(spaceDue).every((id) => spaceDue[id] === spaceAfter[id]))
+  await h.keyboard.press('Escape')
+  await wait(500)
+
+  // --- tag priority ---------------------------------------------------------------------------
+  const planet = await gem('Mercury is closest to the Sun #moons', 'Closest planet?', [3])
+  await gem('Io has volcanoes #moons', 'Moon with volcanoes?')
+  await v('blurt:sooner', [planet])
+  const inQueue = async () => (await v('review:queue')).map((one) => one.prompt)
+  await send('tag', 'moons')
+  await wait(1500)
+  await h.evaluate(() => [...document.querySelectorAll('[role="tab"]')].find((one) => one.textContent?.includes('Manage'))?.click())
+  await wait(800)
+  // The chips' words roll in, so they are found by place: Learning, Maintaining, Paused.
+  await h.evaluate(() => document.querySelectorAll('[data-tag-priority] button')[2]?.click())
+  await wait(800)
+  await shot('tag-priority')
+  let q = await inQueue()
+  check('a paused tag’s cards stay out of Review', !q.includes('Closest planet?') && !q.includes('Moon with volcanoes?'), q.join(' | '))
+  check('the tag says it is paused', (await v('tags')).find((one) => one.tag === 'moons')?.priority === 'paused')
+  await h.evaluate(() => document.querySelectorAll('[data-tag-priority] button')[1]?.click())
+  await wait(800)
+  q = await inQueue()
+  check('a maintained tag keeps its reviews and starts no new cards', q.includes('Closest planet?') && !q.includes('Moon with volcanoes?'), q.join(' | '))
+  await v('tag:set', 'moons', { priority: null })
+  q = await inQueue()
+  check('Learning brings new cards again', q.includes('Moon with volcanoes?') || (await v('review:buckets')).new > 0)
+
+  // --- paste a list, get cards ----------------------------------------------------------------
+  const listNote = await h.evaluate((body) => window.api.captures.create({ body }), doc('Words'))
+  await send('capture', listNote)
+  await wait(1500)
+  await h.evaluate(() => {
+    const target = [...document.querySelectorAll('.tiptap.ProseMirror')].find((one) => one.textContent?.includes('Words'))
+    target?.focus()
+    const data = new DataTransfer()
+    data.setData('text/plain', 'Ephemeral - lasting a very short time\nLaconic - using few words\nSanguine - hopeful in a bad time')
+    target?.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }))
+  })
+  await wait(1200)
+  await shot('paste-list')
+  const offered = await h.evaluate(() => {
+    const button = [...document.querySelectorAll('button')].find((one) => one.textContent?.includes('Make 3 cards'))
+    button?.click()
+    return !!button
+  })
+  check('a pasted list offers Make 3 cards', offered)
+  await wait(900)
+  const made = (await v('items', 'nugget')).filter((one) => ['Ephemeral', 'Laconic', 'Sanguine'].includes(one.prompt))
+  check('Make 3 cards makes three cards', made.length === 3, made.map((one) => one.prompt).join(' | '))
+
+  // --- a card's own history -------------------------------------------------------------------
+  const strength = await v('review:strength', peru)
+  check('a card’s history replays how long it holds', strength.length >= 2 && strength.every((one) => one.days > 0), JSON.stringify(strength))
+  await h.evaluate(() => (localStorage.setItem('noteDetails', 'open'), window.dispatchEvent(new Event('mf:details'))))
+  await send('nugget', peru)
+  await wait(1500)
+  await h.evaluate(() => document.querySelector('[data-strength]')?.scrollIntoView({ block: 'center' }))
+  await wait(400)
+  check('the gem shows its strength line', await has('[data-strength] polyline'))
+  await shot('strength-line')
+
+  // --- days in a row ----------------------------------------------------------------------------
+  check('days in a row counts today', (await v('review:days')).run === 1, JSON.stringify(await v('review:days')))
+
+  // --- fit the scheduler to you -----------------------------------------------------------------
+  check('fitting waits for a thousand reviews', (await v('review:fit')) === null)
+  for (let i = 0; i < 1000; i += 50) await h.evaluate(async ([id, n]) => { for (let k = 0; k < n; k++) await window.api.vigil('review:grade', id, 3, 4000) }, [peru, 50])
+  const fit = await v('review:fit')
+  check('Fit now fits and keeps it', !!fit && (await v('settings')).fsrsFirst?.length === 4, JSON.stringify(fit))
+  await h.evaluate(() => localStorage.setItem('settings:section', 'Review'))
+  await go('home')
+  await go('settings')
+  await wait(1200)
+  await h.evaluate(() => document.querySelector('[data-fit]')?.scrollIntoView({ block: 'center' }))
+  await wait(500)
+  check('Settings says it is fitted', (await text('[data-fit]')).includes('Fitted'), await text('[data-fit]'))
+  await shot('fit-setting')
+  await v('settings:set', { fsrsFirst: null })
+
   // --- Learn Vigil: offered, never forced ----------------------------------------------------
   check('no Learn Vigil cards until asked', (await v('learn:count')) === 0)
   await go('powers')
@@ -318,7 +493,7 @@ try {
   await go('powers')
   await wait(1500)
   const powers = await h.evaluate(() => [...document.querySelectorAll('[data-power]')].map((one) => one.getAttribute('data-power')))
-  check('each feature is on What Vigil can do', ['linecards', 'slipping', 'practice', 'blurt', 'reviewreminder', 'learnvigil'].every((id) => powers.includes(id)))
+  check('each feature is on What Vigil can do', ['linecards', 'slipping', 'practice', 'blurt', 'reviewreminder', 'learnvigil', 'learnmode', 'typed', 'practisetag', 'star', 'howitdecides', 'tagpriority', 'listcards', 'strength', 'fit', 'daysinarow'].every((id) => powers.includes(id)))
   check('no page errors', !c.errors.some((one) => one.includes('PAGEERROR')), c.errors.filter((one) => one.includes('PAGEERROR')).join(' | '))
 } finally {
   await c.close()

@@ -29,5 +29,7 @@ export const LEARN_DECK: { question: string; answer: string }[] = [
   { question: 'A gem turns out to be wrong. How do you fix it without losing it?', answer: 'Open it and choose This turned out wrong… under Wrong?. You write what is true, and the old one stays, marked Superseded and out of Review.' },
   { question: 'In Review, what do B and ; do?', answer: 'B is Not today: the card is back tomorrow, its schedule untouched. ; once the answer shows adds a thought on the card.' },
   { question: 'How do you make a review card without leaving the note you are writing?', answer: 'Write a line as “question :: answer”. It becomes a card, marked at the end of the line, and stays in step as you edit the line.' },
-  { question: 'Which key shows everything made lately, beside the page?', answer: '⇧⌘Y opens Recent.' }
+  { question: 'Which key shows everything made lately, beside the page?', answer: '⇧⌘Y opens Recent.' },
+  { question: 'In Review, what does S do?', answer: 'It stars the card. The Starred chip above Review then gives your starred cards a round of their own.' },
+  { question: 'How do you go through a tag’s cards without anything being scheduled?', answer: 'Open the tag and choose Practise: Space shows the answer, J goes on, and nothing is graded.' }
 ]

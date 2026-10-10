@@ -26,6 +26,7 @@ import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
 import { ThemePicker } from '../theme/theme-picker'
 import { Switch } from '@/components/ui/switch'
+import { FitToMe } from './study'
 import { onboarding, playWelcome, useOnboarding } from '@/lib/onboarding'
 import { useLive, vigil, type MomentKind, type Settings } from '@/lib/vigil'
 import { Chips } from './display'
@@ -759,6 +760,9 @@ export function SettingsView(): React.JSX.Element {
                 onChange={(event) => event.target.value && set({ reviewReminder: event.target.value })} />
             )}
             <Switch aria-label="Review reminder" checked={!!settings.reviewReminder} onCheckedChange={(on) => set({ reviewReminder: on ? '09:00' : null })} />
+          </Setting>
+          <Setting title="Fit to how I remember" note="**After a thousand reviews, Vigil can work out how long a new card lasts for you** after each first grade, from whether you remembered it next time. Put back to the defaults whenever you like." keywords="fsrs optimise optimize fit parameters scheduler memory">
+            <FitToMe />
           </Setting>
         </Group>
         <Group section="Review" title="Exams">

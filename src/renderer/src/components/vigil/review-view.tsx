@@ -23,8 +23,10 @@ import { num } from '../../../../main/dates'
 import { Avatar } from './avatar'
 import { Signed } from './signature'
 import { useHere } from '@/lib/split'
-import { FocusChips, RoundLine, Slipping, StrugglingShelf, openLine, setAside } from './study'
-import { isLeech, type Bucket } from '../../../../main/study'
+import { DaysInARow, FocusChips, HowItDecides, RoundLine, Slipping, StrugglingShelf, openLine, setAside, type Round } from './study'
+import { LearnMode } from './learn-mode'
+import { closeness, isLeech, suggestGrade } from '../../../../main/study'
+import { Star } from 'lucide-react'
 import { InkLine } from './ink-line'
 
 /** The four grades, as the plan defines them: how the retrieval felt, not whether it was right. */
@@ -61,11 +63,15 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   const started = useRef(Date.now())
   useEffect(() => void vigil.queue().then(setQueue), [])
   // A practice round from the chips above: its own short queue, then back to today's.
-  const [round, setRound] = useState<Bucket | null>(null)
+  const [round, setRound] = useState<Round | null>(null)
+  // Learn mode over the new cards, in place of the queue until it is left.
+  const [learning, setLearning] = useState(false)
+  // A star put on or taken off the card in front, drawn at once.
+  const [, setStars] = useState(0)
   // The card that keeps slipping, held up after its miss until you say what to do with it.
   const [slipping, setSlipping] = useState<{ card: Due; splitting: boolean } | null>(null)
   const heading = useRef<HTMLHeadingElement>(null)
-  const fresh = (cards: Due[], bucket: Bucket | null): void => {
+  const fresh = (cards: Due[], bucket: Round | null): void => {
     setQueue(cards)
     setRound(bucket)
     setAt(0)
@@ -78,7 +84,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     setCameBack(false)
     started.current = Date.now()
   }
-  const startRound = (bucket: Bucket): void => void vigil.round(bucket).then((cards) => (chime('riffle'), fresh(cards, bucket)))
+  const startRound = (bucket: Round): void => void vigil.round(bucket).then((cards) => (chime('riffle'), fresh(cards, bucket)))
   const leaveRound = (): void => void vigil.queue().then((cards) => (chime('fold'), fresh(cards, null)))
   // Nothing has a question to be tested on yet: an example card shows what Review does with one.
   const ideas = useLive(() => vigil.items('nugget'), [] as Item[], [], ['item'])
@@ -118,6 +124,8 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   const grade = (value: 1 | 2 | 3 | 4): void => {
     if (!card || !shown) return
     setMissed(null)
+    // What you typed before turning it over is kept, as a dated thought on the card.
+    if (said.trim()) void keepGloss(card.id, said)
     void vigil.grade(card.id, value, Date.now() - started.current)
     // Counted by card, so one seen twice after Again counts once, and a
     // buried one not at all.
@@ -201,6 +209,18 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   // A card written in a note: R opens the note at its line.
   const lineCard = card?.lineOf ? card : null
   const lineFrom = useLive(() => (lineCard?.lineOf ? vigil.linkTitle(lineCard.lineOf) : Promise.resolve(null)), null as Awaited<ReturnType<typeof vigil.linkTitle>> | null, [lineCard?.lineOf])
+  // S: a star on the card, for a round of its own.
+  const star = (): void => {
+    if (!card) return
+    const on = !card.starredAt
+    card.starredAt = on ? new Date().toISOString() : null
+    setStars((n) => n + 1)
+    chime(on ? 'pin' : 'unpin')
+    void vigil.star(card.id, on)
+  }
+  // The typed answer, set against the real one once it is shown: how close, and the grade that suggests.
+  const typedScore = shown && said.trim() && card ? closeness(said, answer ?? textOf(card.body)) : null
+  const suggested = typedScore === null ? null : suggestGrade(typedScore)
   // Split, only the pane in front answers keys.
   const here = useHere()
   useEffect(() => {
@@ -244,6 +264,10 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
       }
       if (['1', '2', '3', '4'].includes(event.key)) grade(Number(event.key) as 1 | 2 | 3 | 4)
       if (event.key === 'b') bury()
+      if (event.key === 's' && card) {
+        event.preventDefault()
+        star()
+      }
       // ; once the answer shows: a thought on it, without leaving the card.
       if (event.key === ';' && card && shown) {
         event.preventDefault()
@@ -259,6 +283,14 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     return (
       <Page title="Review">
         <SourcePanel source={source} onClose={leaveSource} />
+      </Page>
+    )
+  if (learning)
+    return (
+      <Page title="Review">
+        <div className="mx-auto w-full max-w-2xl">
+          <LearnMode onDone={() => void vigil.queue().then((cards) => (setLearning(false), fresh(cards, null)))} />
+        </div>
       </Page>
     )
   if (slipping)
@@ -285,7 +317,8 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     return (
       <Page title="Review">
         <div className="mx-auto w-full max-w-2xl">
-        <FocusChips round={null} onPick={startRound} />
+        <FocusChips round={null} onPick={startRound} onLearn={() => setLearning(true)} />
+        <DaysInARow />
         {queue.length ? (
           <Rest seed="review-done" compact={compact}>
             <Empty compact={compact} shaped shape={['star', 2]} title={<>Done: <Rolling text={reviewed.size} /> reviewed</>}>
@@ -316,7 +349,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     <Page title="Review">
       {/* One card at a time in the middle of the page, never a narrow card with an empty half beside it. */}
       <div className="mx-auto w-full max-w-2xl">
-      {round ? <RoundLine round={round} onLeave={leaveRound} /> : at === 0 && <FocusChips round={null} onPick={startRound} />}
+      {round ? <RoundLine round={round} onLeave={leaveRound} /> : at === 0 && <><FocusChips round={null} onPick={startRound} onLearn={() => setLearning(true)} /><DaysInARow /></>}
       {at === 0 && !round && <Exams exams={exams} />}
       <Through at={at} total={queue.length} />
       {missed && (
@@ -363,7 +396,14 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
           over={over}
           onTurn={turnTo}
           front={
-            <div className="h-full rounded-lg border bg-accent/30 px-5 py-6">
+            <div className="relative h-full rounded-lg border bg-accent/30 px-5 py-6">
+              {/* S stars it, for a round of its own. */}
+              <Tip label={card.starredAt ? 'Starred: S takes it off' : 'Star it: S'}>
+                <button type="button" aria-label={card.starredAt ? 'Unstar' : 'Star'} aria-pressed={!!card.starredAt} data-star onClick={star}
+                  className={`absolute top-2 right-2 rounded-md p-1 transition-colors hover:bg-foreground/[0.06] ${card.starredAt ? 'text-[var(--tt-color-text-yellow)]' : 'text-muted-foreground/60'}`}>
+                  <Star className="size-4" fill={card.starredAt ? 'currentColor' : 'none'} />
+                </button>
+              </Tip>
               {/* The question is editable in place: a card forgotten again and again
                   is usually asking the wrong thing, and this is where you notice. */}
               <h2
@@ -425,12 +465,10 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
 
         {shown ? (
           <>
-            {said.trim() && (
-              <div className="-mb-2 flex items-start gap-3 text-sm text-muted-foreground">
-                <p className="flex-1 whitespace-pre-line">You said: {said}</p>
-                <Button variant="ghost" size="sm" className="shrink-0" onClick={() =>
-                  void keepGloss(card.id, said).then(() => setSaid(''))
-                }>Keep as a gloss</Button>
+            {said.trim() && suggested && (
+              <div data-typed className="-mb-2 flex flex-col gap-1 text-sm">
+                <p className="whitespace-pre-line text-muted-foreground">You wrote: {said}</p>
+                <p><strong className="font-semibold" style={{ color: GRADES[suggested - 1].tone }}>About {Math.round((typedScore ?? 0) * 100)}% the same: that suggests {GRADES[suggested - 1].label}.</strong> <span className="text-muted-foreground">Kept as a thought on the card when you grade it.</span></p>
               </div>
             )}
             {/* Context: what makes the answer learnable, shown only after it, or
@@ -452,9 +490,10 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
                   // Under the pointer the grade takes on its own colour, edge and wash,
                   // so the four read as four answers rather than four grey boxes.
                   style={{ '--tone': tone } as React.CSSProperties}
+                  data-suggested={suggested === value || undefined}
                   // The grade on its own line and when it comes back under it, so
                   // "in 10 min" never runs out of its button into the next one.
-                  className="relative flex min-h-12 w-full min-w-0 flex-col items-center justify-center rounded-md border px-2 py-1.5 text-control transition-colors hover:border-[color-mix(in_srgb,var(--tone)_45%,var(--border))] hover:bg-[color-mix(in_srgb,var(--tone)_10%,transparent)]"
+                  className="relative flex min-h-12 w-full min-w-0 flex-col items-center justify-center rounded-md border px-2 py-1.5 text-control transition-colors hover:border-[color-mix(in_srgb,var(--tone)_45%,var(--border))] hover:bg-[color-mix(in_srgb,var(--tone)_10%,transparent)] data-[suggested]:border-[color-mix(in_srgb,var(--tone)_60%,var(--border))] data-[suggested]:bg-[color-mix(in_srgb,var(--tone)_10%,transparent)]"
                 >
                   <span className="font-semibold" style={{ color: tone }}>{label}</span>
                   <span className="max-w-full truncate text-xs text-muted-foreground tabular-nums">{backIn(card.intervals[value])}</span>
@@ -463,6 +502,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
                 </Tip>
               ))}
             </div>
+            <HowItDecides id={card.id} good={backIn(card.intervals[3])} />
           </>
         ) : (
           <>
@@ -476,7 +516,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
               } else if (event.key === 'Escape') event.currentTarget.blur()
             }}
             rows={3}
-            placeholder="Say it back in your own words first, if you like. ⌘↵ to check."
+            placeholder="Type the answer first, if you like: ⌘↵ checks it against the card."
             className="resize-none text-heading"
           />
           <Button variant="outline" size="lg"
@@ -743,6 +783,7 @@ export function ReviewHistory({ id }: { id: string }): React.JSX.Element | null 
   })
   return (
     <div className="space-y-1 text-xs">
+      <StrengthLine id={id} />
       <p className="tabular-nums">{gaps.filter(Boolean).join(' → ')}</p>
       {reviews.map((one, n) => ({ ...one, gap: gaps[n] })).slice(-6).reverse().map((one) => {
         const grade = GRADES[one.grade - 1]
@@ -754,6 +795,30 @@ export function ReviewHistory({ id }: { id: string }): React.JSX.Element | null 
           </p>
         )
       })}
+    </div>
+  )
+}
+
+/**
+ * How strong a card is, as a line: after each review, how many days it would
+ * hold (log scale, so a week and a year both read), a dot in that review's
+ * grade colour. The latest said in words beside it.
+ */
+function StrengthLine({ id }: { id: string }): React.JSX.Element | null {
+  const points = useLive(() => vigil.strength(id), [] as { at: string; grade: number; days: number }[], [id])
+  if (points.length < 1) return null
+  const W = 180
+  const H = 36
+  const top = Math.log10(Math.max(2, ...points.map((one) => one.days)) + 1)
+  const xy = points.map((one, n) => [points.length === 1 ? W / 2 : 4 + (n / (points.length - 1)) * (W - 8), H - 4 - (Math.log10(one.days + 1) / top) * (H - 8)] as const)
+  const last = points[points.length - 1].days
+  return (
+    <div data-strength className="flex flex-col gap-1 pb-1">
+      <svg viewBox={`0 0 ${W} ${H}`} aria-label="Strength after each review" className="h-9 w-full max-w-[16rem] overflow-visible">
+        <polyline points={xy.map(([x, y]) => `${x},${y}`).join(' ')} fill="none" stroke="currentColor" strokeOpacity={0.45} strokeWidth={1.5} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        {xy.map(([x, y], n) => <circle key={points[n].at} cx={x} cy={y} r={2.5} fill={GRADES[points[n].grade - 1]?.tone ?? 'currentColor'} />)}
+      </svg>
+      <span className="text-foreground">Holds about {last >= 1.5 ? `${num(Math.round(last))} days` : last >= 1 ? 'a day' : 'under a day'} now</span>
     </div>
   )
 }

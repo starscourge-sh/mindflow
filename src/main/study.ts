@@ -138,3 +138,116 @@ export function minutesFor(cards: number, msPerCard: number | null | undefined):
   const each = msPerCard && msPerCard > 3000 && msPerCard < 300000 ? msPerCard : 30000
   return Math.max(1, Math.round((cards * each) / 60000))
 }
+
+/**
+ * How close a typed answer is to the real one, 0 to 1: for a short answer
+ * (three words or fewer) the letters, so a typo still counts; for a longer
+ * one the share of its key words you used.
+ */
+export function closeness(typed: string, answer: string): number {
+  const flat = (text: string): string => text.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
+  const a = flat(typed)
+  const b = flat(answer)
+  if (!a || !b) return 0
+  if (b.split(' ').length <= 3) {
+    // Edit distance, as a share of the longer one.
+    const row = Array.from({ length: b.length + 1 }, (_, i) => i)
+    for (let i = 1; i <= a.length; i++) {
+      let last = row[0]
+      row[0] = i
+      for (let j = 1; j <= b.length; j++) {
+        const was = row[j]
+        row[j] = Math.min(row[j] + 1, row[j - 1] + 1, last + (a[i - 1] === b[j - 1] ? 0 : 1))
+        last = was
+      }
+    }
+    return Math.max(0, 1 - row[b.length] / Math.max(a.length, b.length))
+  }
+  const want = keyWords(b)
+  if (!want.size) return 0
+  const have = keyWords(a)
+  let hits = 0
+  for (const word of want) if (have.has(word)) hits++
+  return hits / want.size
+}
+
+/** The grade a typed answer suggests: Easy for a match, Good for close, Hard for part of it, Again for little. */
+export function suggestGrade(score: number): 1 | 2 | 3 | 4 {
+  return score >= 0.95 ? 4 : score >= 0.75 ? 3 : score >= 0.4 ? 2 : 1
+}
+
+/**
+ * "term - meaning" lines, as pasted from a glossary or a vocabulary list:
+ * a dash, en dash, colon or equals sign between the two, each side short.
+ * Empty unless at least three lines read that way and most of the list does.
+ */
+export function termLines(text: string): { term: string; meaning: string }[] {
+  const lines = text.split('\n').map((line) => line.trim()).filter(Boolean)
+  const found = lines.flatMap((line) => {
+    const match = /^(?:[-*•]\s+|\d+[.)]\s+)?(.{1,60}?)(?:\s+[-–—=]|\s*:)\s+(.{1,300})$/.exec(line)
+    return match && !/::/.test(line) ? [{ term: match[1].trim(), meaning: match[2].trim() }] : []
+  })
+  return found.length >= 3 && found.length >= lines.length * 0.7 ? found : []
+}
+
+/**
+ * Days in a row with something reviewed, rest days banked: every seven days
+ * in a row bank a rest day (three at most), and a day without reviews spends
+ * one rather than ending the run. Today, not yet reviewed, does not count
+ * against it. `days` are the local days reviewed ("2026-10-08"); `today` the
+ * same. Nothing here is ever a loss: a run that ends simply starts again.
+ */
+export function daysInARow(days: string[], today: string): { run: number; banked: number } {
+  const seen = new Set(days)
+  if (!seen.size) return { run: 0, banked: 0 }
+  const step = (day: string, n: number): string => {
+    const at = new Date(`${day}T12:00:00Z`)
+    at.setUTCDate(at.getUTCDate() + n)
+    return at.toISOString().slice(0, 10)
+  }
+  let day = [...seen].sort()[0]
+  let run = 0
+  let banked = 0
+  let streak = 0
+  while (day <= today) {
+    if (seen.has(day)) {
+      run++
+      streak++
+      if (streak % 7 === 0) banked = Math.min(3, banked + 1)
+    } else if (day !== today) {
+      if (banked > 0) banked--
+      else {
+        run = 0
+        streak = 0
+      }
+    }
+    day = step(day, 1)
+  }
+  return { run, banked }
+}
+
+/**
+ * How long a new card lasts after its first grade, fitted to your own
+ * reviews: for each first grade (Again to Easy), the stability that best
+ * explains whether the next look, a day or more later, was remembered.
+ * `curve(t, s)` is the scheduler's forgetting curve. A grade with fewer than
+ * `least` reviews keeps the default. Gives back the four stabilities, in days.
+ */
+export function fitFirstDays(pairs: { first: number; days: number; recalled: boolean }[], defaults: number[], curve: (t: number, s: number) => number, least = 20): number[] {
+  const grid = Array.from({ length: 120 }, (_, i) => 0.05 * Math.pow(1.08, i))
+  return [1, 2, 3, 4].map((grade, at) => {
+    const mine = pairs.filter((one) => one.first === grade && one.days >= 1)
+    if (mine.length < least) return defaults[at]
+    let best = defaults[at]
+    let score = -Infinity
+    for (const s of grid) {
+      let sum = 0
+      for (const one of mine) {
+        const r = Math.min(0.9999, Math.max(0.0001, curve(one.days, s)))
+        sum += Math.log(one.recalled ? r : 1 - r)
+      }
+      if (sum > score) (score = sum), (best = s)
+    }
+    return Math.round(best * 1000) / 1000
+  })
+}

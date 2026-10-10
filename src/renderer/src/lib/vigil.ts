@@ -50,6 +50,8 @@ export type Settings = {
   reviewsPerDay: number
   /** A Mac notification at this time ("09:00") when cards are due; null is off. */
   reviewReminder?: string | null
+  /** How long a new card lasts after each first grade, fitted to your reviews; null is the defaults. */
+  fsrsFirst?: number[] | null
   quietStart: string
   quietEnd: string
   safeMode: boolean
@@ -219,6 +221,8 @@ export type Item = {
   lastLog: string | null
   /** A card written in a note: that note, as `capture:…`, `nugget:…` or `day:2026-10-10`. */
   lineOf?: string | null
+  /** Starred in Review (S): when, or null. */
+  starredAt?: string | null
 }
 /** On a question, a gloss is a clue; one kept from a capture says which (`MF-12`). */
 export type Gloss = { id: string; body: string; author: 'user' | 'ai'; createdAt: string; sourceId?: string | null; sourceKey?: string | null }
@@ -453,9 +457,9 @@ export const vigil = {
   unmakeTask: (id: string, existed: boolean, links: string[], reopen: string[]) => call('task:unmake', id, existed, links, reopen),
   /** Reviews falling on each of the next `days` days, today with what is late. */
   reviewLoad: (days: number) => call<number[]>('review:load', days),
-  tags: () => call<{ tag: string; count: number; color: string | null; action: boolean; examAt: string | null }[]>('tags'),
+  tags: () => call<{ tag: string; count: number; color: string | null; action: boolean; examAt: string | null; priority?: 'maintaining' | 'paused' | null }[]>('tags'),
   tagMeta: () => call<{ tag: string; color: string | null; action: number }[]>('tag:meta'),
-  setTag: (tag: string, patch: { color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null }) => call('tag:set', tag, patch),
+  setTag: (tag: string, patch: { color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null }) => call('tag:set', tag, patch),
   exams: () => call<Exam[]>('exams'),
   history: (id: string) => call<{ reviews: { at: string; grade: number }[]; dueAt: string | null }>('review:history', id),
   source: (id: string) => call<{ type: string; id: string; title: string; body: unknown } | null>('review:source', id),
@@ -494,9 +498,25 @@ export const vigil = {
   unusedBin: (names: string[], extra: string[]) => call<{ moved: number; size: number }>('unused:bin', names, extra),
   bury: (id: string) => call('review:bury', id),
   /** How many cards each practice round holds now. */
-  buckets: () => call<Record<Bucket, number>>('review:buckets'),
-  /** A short extra round of one kind of card, from all your gems. */
-  round: (bucket: Bucket) => call<Due[]>('review:round', bucket),
+  buckets: () => call<Record<Bucket | 'starred', number>>('review:buckets'),
+  /** A short extra round of one kind of card, from all your gems, or the starred ones. */
+  round: (bucket: Bucket | 'starred') => call<Due[]>('review:round', bucket),
+  /** A star on a card, or off. */
+  star: (id: string, on: boolean) => call<boolean>('review:star', id, on),
+  /** What Review knows about a card, to say how it decides when it comes back. */
+  why: (id: string) => call<{ retention: number; reviews: number; seen: boolean; stability: number | null; difficulty: number | null; recall: number | null; lastDays: number | null; fitted: boolean } | null>('review:why', id),
+  /** How long a card would hold after each of its reviews, replayed from its grades. */
+  strength: (id: string) => call<{ at: string; grade: number; days: number }[]>('review:strength', id),
+  /** Days in a row with something reviewed, and rest days banked. */
+  daysInARow: () => call<{ run: number; banked: number }>('review:days'),
+  /** Fitting the scheduler to you: how many reviews there are, how many it needs, and the fit if made. */
+  fitState: () => call<{ reviews: number; after: number; fitted: number[] | null }>('review:fit:state'),
+  fit: () => call<{ fitted: number[]; pairs: number; defaults: number[] } | null>('review:fit'),
+  /** Pasted "term - meaning" lines made into cards; `unlistCards` takes them back. */
+  listCards: (pairs: { term: string; meaning: string }[]) => call<string[]>('cards:list', pairs),
+  unlistCards: (ids: string[]) => call('cards:list:undo', ids),
+  /** A tag's cards, to practise without counting. */
+  tagCards: (tag: string) => call<(Item & { body: unknown })[]>('tag:cards', tag),
   /** Gems missed again and again, set aside or not. */
   slipping: () => call<Item[]>('review:slipping'),
   /** This card asks something narrower, and the rest becomes a new card; `unsplit` takes it back. */

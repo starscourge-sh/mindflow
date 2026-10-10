@@ -3,7 +3,7 @@ import { Plugin, PluginKey } from "@tiptap/pm/state"
 import { Decoration, DecorationSet } from "@tiptap/pm/view"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 
-import { lineCard } from "../../../main/study"
+import { lineCard, termLines } from "../../../main/study"
 
 /** A small card, drawn: what marks a line that Review asks you. */
 const mark = (): HTMLElement => {
@@ -27,6 +27,19 @@ function marks(doc: ProseMirrorNode): DecorationSet {
   return DecorationSet.create(doc, found)
 }
 
+/** The toast after a pasted list: Make 12 cards, then Undo. Said the way every toast is (components/vigil/ui.tsx). */
+function offerCards(pairs: { term: string; meaning: string }[]): void {
+  const say = (text: string, undo?: () => void, action?: { label: string; key: string; run: () => void }): void =>
+    void window.dispatchEvent(new CustomEvent("vigil:toast", { detail: { text, undo, tone: "info", action } }))
+  const call = <T,>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
+  say(`That reads as a list of ${pairs.length} terms`, undefined, {
+    label: `Make ${pairs.length} cards`,
+    key: "M",
+    run: () => void call<string[]>("cards:list", pairs).then((ids) =>
+      say(`${ids.length} cards made: Review asks each term`, () => void call("cards:list:undo", ids))),
+  })
+}
+
 /**
  * A line written as "question :: answer" is a review card (the main process
  * makes it one on save, src/main/line-cards.ts): a small card at the line's
@@ -44,7 +57,16 @@ export const LineCards = Extension.create({
           init: (_, state) => marks(state.doc),
           apply: (tr, set) => (tr.docChanged ? marks(tr.doc) : set),
         },
-        props: { decorations: (state) => key.getState(state) },
+        props: {
+          decorations: (state) => key.getState(state),
+          // A pasted list of "term - meaning" lines goes in as it is, and a
+          // toast offers to make each one a card.
+          handlePaste: (_view, event) => {
+            const pairs = termLines(event.clipboardData?.getData("text/plain") ?? "")
+            if (pairs.length) setTimeout(() => offerCards(pairs), 300)
+            return false
+          },
+        },
       }),
     ]
   },

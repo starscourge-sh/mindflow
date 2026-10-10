@@ -1148,6 +1148,135 @@ const LearnDemo: Demo = ({ live }) => {
   )
 }
 
+const LEARN_CHOICES = ['Lima', 'Quito', 'La Paz']
+const LearnModeDemo: Demo = ({ live }) => {
+  const at = useSteps([1200, 1300, 1800], live, 2)
+  return (
+    <Col>
+      <ProgressBar value={[0.25, 0.5, 0.75][at]} label="Learnt" thick={3} />
+      <div className="text-control text-foreground">Capital of Peru?</div>
+      <div className="flex flex-col gap-1">
+        {LEARN_CHOICES.map((choice, i) => (
+          <Row key={choice} className={`border transition-colors duration-200 ${at >= 1 && i === 0 ? 'border-[var(--tt-color-text-green)]' : ''}`}><Kbd>{i + 1}</Kbd> {choice}</Row>
+        ))}
+      </div>
+    </Col>
+  )
+}
+
+const TYPED = 'the smell of rain'
+const TypedDemo: Demo = ({ live }) => {
+  const at = useSteps([typeMs(TYPED, 60), 2200], live, 1)
+  const text = useTyped(TYPED, at === 0, 60)
+  return (
+    <Col>
+      <div className="text-control text-foreground">What is petrichor?</div>
+      <Box text={at === 0 ? text : TYPED} caret={at === 0} />
+      <div className={`px-1 text-meta font-semibold transition-opacity ${at === 1 ? 'opacity-100' : 'opacity-0'}`} style={{ color: 'var(--tt-color-text-green)' }}>About 80% the same: that suggests Good</div>
+    </Col>
+  )
+}
+
+const PRACTISE = ['First law?', 'Second law?', 'Third law?']
+const PractiseDemo: Demo = ({ live }) => {
+  const at = useSteps([1300, 1300, 1300], live, 0)
+  return (
+    <Col>
+      <div className="flex text-meta text-muted-foreground"><span className="flex-1">#astrophysics</span><span className="tabular-nums">{at + 1} of 3</span></div>
+      <div className="rounded-lg border bg-background px-3 py-2.5">
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.div key={at} {...rise} className="text-control text-foreground">{PRACTISE[at]}</motion.div>
+        </AnimatePresence>
+      </div>
+      <div className="px-1 text-meta text-muted-foreground">Nothing counted, nothing scheduled</div>
+    </Col>
+  )
+}
+
+const StarDemo: Demo = ({ live }) => {
+  const at = useSteps([1200, 2000], live, 1)
+  return (
+    <Col>
+      <div className="relative rounded-lg border bg-background px-3 py-2.5 text-control text-foreground">
+        Red pill or blue pill?
+        <Star className="absolute top-2 right-2 size-3.5 transition-colors duration-200" style={{ color: at === 1 ? 'var(--tt-color-text-yellow)' : 'var(--muted-foreground)' }} fill={at === 1 ? 'currentColor' : 'none'} />
+      </div>
+      <div className="flex items-center gap-1.5 px-1 text-meta text-muted-foreground"><Kbd>S</Kbd> Starred {at === 1 ? 1 : 0}</div>
+    </Col>
+  )
+}
+
+const HowDemo: Demo = ({ live }) => {
+  const at = useSteps([1000, 2600], live, 1)
+  return (
+    <Col>
+      <div className="text-meta text-muted-foreground">How it decides</div>
+      <motion.div initial={false} animate={{ opacity: at === 1 ? 1 : 0.2 }} className="rounded-lg border bg-background px-3 py-2 text-meta leading-snug text-foreground">
+        Aims for 90%. This card holds about 12 days, so Good brings it back in 12 days.
+      </motion.div>
+    </Col>
+  )
+}
+
+const PRIORITIES = ['Learning', 'Maintaining', 'Paused']
+const PriorityDemo: Demo = ({ live }) => {
+  const at = useSteps([1300, 1300, 1300], live, 1)
+  return (
+    <Col>
+      <div className="text-control text-foreground">#spanish</div>
+      <div className="flex gap-1">{PRIORITIES.map((one, i) => <span key={one} className={`rounded-md px-2 py-0.5 text-meta transition-colors ${at === i ? 'bg-accent text-foreground' : 'text-muted-foreground'}`}>{one}</span>)}</div>
+      <div className="px-1 text-meta text-muted-foreground">{['New cards start as usual', 'Reviews only, no new cards', 'Resting: none come up'][at]}</div>
+    </Col>
+  )
+}
+
+const LIST = ['Ephemeral - short-lived', 'Laconic - using few words', 'Sanguine - hopeful']
+const ListDemo: Demo = ({ live }) => {
+  const at = useSteps([1300, 2200], live, 1)
+  return (
+    <Col>
+      <div className="rounded-lg border bg-background px-3 py-2 text-meta text-foreground">{LIST.map((one) => <div key={one}>{one}</div>)}</div>
+      <div className={`flex items-center gap-2 rounded-lg border bg-popover px-3 py-1.5 text-meta transition-opacity ${at === 1 ? 'opacity-100' : 'opacity-0'}`}>
+        <span className="flex-1 text-muted-foreground">A list of 3 terms</span><span className="font-semibold text-foreground">Make 3 cards</span>
+      </div>
+    </Col>
+  )
+}
+
+const StrengthDemo: Demo = ({ live }) => {
+  const at = useSteps([700, 700, 700, 1800], live, 3)
+  const ys = [30, 22, 12, 5]
+  return (
+    <Col>
+      <svg viewBox="0 0 180 36" className="h-10 w-full overflow-visible">
+        <polyline points={ys.slice(0, at + 1).map((y, i) => `${10 + i * 52},${y}`).join(' ')} fill="none" stroke="currentColor" strokeOpacity={0.45} strokeWidth={1.5} />
+        {ys.slice(0, at + 1).map((y, i) => <circle key={i} cx={10 + i * 52} cy={y} r={3} fill={['var(--tt-color-text-green)', 'var(--tt-color-text-orange)', 'var(--tt-color-text-green)', 'var(--tt-color-text-blue)'][i]} />)}
+      </svg>
+      <div className="px-1 text-meta text-foreground">Holds about {[2, 4, 11, 30][at]} days now</div>
+    </Col>
+  )
+}
+
+const FitDemo: Demo = ({ live }) => {
+  const at = useSteps([1600, 2200], live, 1)
+  return (
+    <Col>
+      <div className="flex items-center gap-2 text-meta text-muted-foreground"><span className="flex-1 tabular-nums">{at === 0 ? '1,204 reviews' : 'Fitted'}</span><span className="rounded-md border px-2 py-0.5 text-foreground">Fit now</span></div>
+      <div className={`px-1 text-meta text-foreground transition-opacity ${at === 1 ? 'opacity-100' : 'opacity-0'}`}>A new card graded Good lasts about 5 days for you</div>
+    </Col>
+  )
+}
+
+const DaysDemo: Demo = ({ live }) => {
+  const at = useSteps([900, 900, 1800], live, 2)
+  return (
+    <Col className="items-center">
+      <div className="flex gap-1">{Array.from({ length: 9 }, (_, i) => <span key={i} className="size-3 rounded-sm" style={{ background: i === 6 ? 'transparent' : 'var(--tt-color-text-green)', border: i === 6 ? '1px dashed var(--muted-foreground)' : 'none', opacity: i <= 6 + at ? 1 : 0.2 }} />)}</div>
+      <div className="text-meta text-muted-foreground tabular-nums">{7 + at} days in a row, 1 rest day banked</div>
+    </Col>
+  )
+}
+
 export const DEMOS: Record<string, Demo> = {
   box: BoxDemo, timer: TimerDemo, clue: ClueDemo, tagtask: TagTaskDemo, remind: RemindDemo, comingback: ComingBackDemo, onetask: OneTaskDemo, merge: MergeDemo,
   board: BoardDemo, versions: VersionsDemo, find: FindDemo, aliases: AliasesDemo, calc: CalcDemo, fold: FoldDemo, bit: BitDemo, glossary: GlossaryDemo,
@@ -1156,5 +1285,6 @@ export const DEMOS: Record<string, Demo> = {
   pages: PagesDemo, year: YearDemo, milestones: MilestonesDemo, book: BookDemo, wrapped: WrappedDemo, map: MapDemo,
   stickies: StickiesDemo, recordings: RecordingsDemo, window: WindowDemo, safe: SafeDemo, lock: LockDemo,
   vault: VaultDemo, files: FilesDemo, embeds: EmbedsDemo,
-  linecards: LineCardsDemo, slipping: SlippingDemo, practice: PracticeDemo, blurt: BlurtDemo, reviewreminder: ReminderDemo, learnvigil: LearnDemo
+  linecards: LineCardsDemo, slipping: SlippingDemo, practice: PracticeDemo, blurt: BlurtDemo, reviewreminder: ReminderDemo, learnvigil: LearnDemo,
+  learnmode: LearnModeDemo, typed: TypedDemo, practisetag: PractiseDemo, star: StarDemo, howitdecides: HowDemo, tagpriority: PriorityDemo, listcards: ListDemo, strength: StrengthDemo, fit: FitDemo, daysinarow: DaysDemo
 }
