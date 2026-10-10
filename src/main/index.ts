@@ -44,6 +44,8 @@ import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
 import { registerGroups } from './groups'
 import { registerPeriods } from './periods'
+import { nextMilestones, registerMilestones } from './milestones'
+import { registerReadingQueue } from './reading-queue'
 import { registerIssues } from './issues'
 import { dayKey, dayMonth, num } from './dates'
 import { registerScenery, sceneryDir } from './scenery'
@@ -1973,6 +1975,7 @@ function updateTray(): void {
   })
   // Each row as one picture the menu's width: the unit at the left, the bar or
   // dots across, the percent at the right edge. Drawn by a page, since the
+  const marked = nextMilestones()
   // main process cannot set text; until it is, the plain bar stands in.
   const rows = (['day', 'week', 'month', 'year'] as const).map((unit) => ({ label: `${unit[0].toUpperCase()}${unit.slice(1)}`, share: Math.round(time[unit] * 100) / 100 }))
   const widest = [...goalItems.flatMap((item) => [item.label ?? '', item.sublabel ?? '']), 'Import from Obsidian or Notion…']
@@ -1995,6 +1998,11 @@ function updateTray(): void {
       {
         label: SANDBOX ? 'Book: Sandbox' : `Book: ${nameOf(here())}`,
         submenu: [
+      // The next marked days under the bars, each with its count of days: off in Settings, none.
+      ...marked.flatMap((one, at) => [
+        ...(at === 0 ? [{ type: 'separator' } as const, { label: 'Marked days', enabled: false }] : []),
+        { label: `${one.icon ? `${one.icon}  ` : ''}${hidden ? 'A marked day' : one.title.length > 34 ? `${one.title.slice(0, 34)}…` : one.title}`, sublabel: `${dayMonth(`${one.day}T12:00`)}  ·  ${daysLeft(one.day) === 0 ? 'today' : `${num(daysLeft(one.day))} ${daysLeft(one.day) === 1 ? 'day' : 'days'} to go`}`, click: () => (daysLeft(one.day) > 0 ? sendHome('view', 'yearpage') : sendHome('day', one.day)) }
+      ]),
           ...books().map((book) => ({ label: book.name, type: 'radio' as const, checked: book.current, click: () => void (book.current || inHome('vigil:book-switch', book.id)) })),
           { label: 'Sandbox', type: 'radio' as const, checked: SANDBOX, click: () => void (SANDBOX || openSandbox()) },
           { type: 'separator' as const },
@@ -2040,6 +2048,8 @@ app.whenReady().then(() => {
   registerBooks(backupBase, () => updateTray())
   const first = fromCli(process.argv)
   if (first) captureText(first)
+  registerMilestones()
+  registerReadingQueue()
   createTray()
 
   // Serve the asset store. The pathname is the only thing trusted: anything
