@@ -36,8 +36,14 @@ export async function open() {
   // app can park it past the screen's edge.
   if (process.env.MINDFLOW_QA_AWAY !== '0') {
     const floated = new Set()
+    // One ask at a time, and none that hangs: a stuck AeroSpace once piled up
+    // thousands of waiting calls until no process could start.
+    let asking = false
     const float = setInterval(() => {
-      execFile('aerospace', ['list-windows', '--all', '--format', '%{window-id}|%{app-pid}'], (error, out) => {
+      if (asking) return
+      asking = true
+      execFile('aerospace', ['list-windows', '--all', '--format', '%{window-id}|%{app-pid}'], { timeout: 2000 }, (error, out) => {
+        asking = false
         if (error) return clearInterval(float)
         for (const line of out.split('\n')) {
           const [id, pid] = line.split('|')
