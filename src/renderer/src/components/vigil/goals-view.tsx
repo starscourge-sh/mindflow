@@ -27,7 +27,7 @@ import { DatePicker } from './date-picker'
 import { ago, dayKey, dayMonth, dayName, num } from '../../../../main/dates'
 import { ProgressBar } from './progress-bar'
 import { inkOf, useMilestones, type Milestone } from '@/lib/milestones'
-import { daysBetween, daysLeft, journey, leftSaid, percent, tempus, wayThrough, type Dot } from '../../../../main/goal-days'
+import { daysBetween, daysLeft, journey, leftSaid, percent, wayThrough, type Dot } from '../../../../main/goal-days'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const ArchiveRestore = alive(ArrowBackUpIcon)
@@ -106,9 +106,12 @@ export function GoalAsker(): React.JSX.Element | null {
   const [title, setTitle] = useState('')
   const [target, setTarget] = useState<string | null>(null)
   const [why, setWhy] = useState('')
+  // What is still missing, said beside the button once it is pressed too soon; it shakes each time.
+  const [missing, setMissing] = useState<{ text: string; n: number } | null>(null)
   useEffect(() => {
     const onAsk = (event: Event): void => {
       chime('open')
+      setMissing(null)
       setTitle('')
       setTarget(null)
       setWhy('')
@@ -123,11 +126,11 @@ export function GoalAsker(): React.JSX.Element | null {
     setAsked(null)
   }
   const keep = (): void => {
-    if (!title.trim()) return refuse('Name the goal first')
-    if (!target) return refuse('Pick the day it is for')
-    if (dayKey(target) < dayKey()) return refuse('That day has passed. Pick one ahead')
-    done({ title: title.trim(), target: dayKey(target), why: why.trim() })
+    const lack = !title.trim() ? (target ? 'Name the goal first' : 'Name the goal and pick its day') : !target ? 'Pick the day it is for' : dayKey(target) < dayKey() ? 'That day has passed. Pick one ahead' : null
+    if (lack) return (chime('nope'), setMissing((was) => ({ text: lack, n: (was?.n ?? 0) + 1 })))
+    done({ title: title.trim(), target: dayKey(target!), why: why.trim() })
   }
+  const ready = !!title.trim() && !!target
   const left = target ? daysLeft(dayKey(target)) : null
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[18vh]" onMouseDown={() => done(null)}>
@@ -148,9 +151,13 @@ export function GoalAsker(): React.JSX.Element | null {
         </div>
         <Input value={why} onChange={(event) => setWhy(event.target.value)} placeholder="Why it matters (if you want to say)" aria-label="Why it matters" />
         <div className="mt-1 flex items-center gap-2">
-          <p className="mr-auto text-xs text-muted-foreground">Enter to set it · Escape to leave it</p>
+          {missing && !ready
+            ? <p role="alert" className="mr-auto text-xs font-medium text-[var(--tt-color-text-orange)]">{missing.text}</p>
+            : <p className="mr-auto text-xs text-muted-foreground">Enter to set it · Escape to leave it</p>}
           <Button variant="ghost" size="sm" onClick={() => done(null)}>Cancel</Button>
-          <Button size="sm" onClick={keep} disabled={!title.trim() || !target}>Set the goal</Button>
+          <motion.span key={missing?.n ?? 0} animate={missing ? { x: [0, -6, 6, -4, 4, 0] } : undefined} transition={{ duration: 0.32, ease: 'easeOut' }}>
+            <Button size="sm" onClick={keep} aria-disabled={!ready} className={ready ? '' : 'opacity-60'}>Set the goal</Button>
+          </motion.span>
         </div>
       </div>
     </div>
@@ -688,26 +695,6 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
         </p>
       )}
     </section>
-  )
-}
-
-/** Each of Tempus's bars a blade of its own colour, the year the dark side. */
-const BLADES = { day: 'var(--tt-color-text-blue)', week: 'var(--tt-color-text-green)', month: 'var(--tt-color-text-purple)', year: 'var(--tt-color-text-red)' }
-
-/** Tempus: how far through the day, the week, the month and the year, a thin bar each. */
-export function TempusBars({ className = '', ignite = false }: { className?: string; ignite?: boolean }): React.JSX.Element {
-  useToday(true)
-  const time = tempus()
-  return (
-    <div className={`grid grid-cols-[2.75rem_1fr_2.25rem] items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground ${className}`}>
-      {(['day', 'week', 'month', 'year'] as const).map((unit) => (
-        <div key={unit} className="contents">
-          <span className="first-letter:uppercase">{unit}</span>
-          <ProgressBar value={time[unit]} label={`The ${unit}`} blade={BLADES[unit]} ignite={ignite} />
-          <span className="text-right tabular-nums">{percent(time[unit])}</span>
-        </div>
-      ))}
-    </div>
   )
 }
 

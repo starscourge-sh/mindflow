@@ -11,7 +11,7 @@ import { EASE, shift } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { useAppearance, useLive, vigil } from '@/lib/vigil'
 import { DotMatrix } from './dot-matrix'
-import { Journey, TempusBars, useToday, warmth } from './goals-view'
+import { Journey, useToday, warmth } from './goals-view'
 import { dayKey, dayMonth } from '../../../../main/dates'
 import { daysLeft, percent, wayThrough } from '../../../../main/goal-days'
 import { SandboxStamp } from '@/components/vigil/sandbox'
@@ -43,7 +43,7 @@ const still = (): boolean => document.documentElement.dataset.motion === 'off' |
 /** A goal in its last week, due today or past its day: it stays on top and is drawn warm. */
 const pressing = (goalAt: string | null | undefined, today: string): boolean => Boolean(goalAt) && daysLeft(goalAt!, today) <= 7
 
-/** The card's foot: on glass in the sandbox, room under Tempus's bars for the stamp. */
+/** The card's foot: on glass in the sandbox, room for the stamp. */
 const FOOT = GLASS && SANDBOX ? 'pb-6' : 'pb-4'
 
 /** The paper of a card behind: the theme's own, a shade off the top card so its edge reads. */
@@ -181,9 +181,6 @@ export function GoalStack(): React.JSX.Element | null {
             </motion.div>
           )
         })}
-        {/* Tempus's bars are the same for every goal, so they are drawn once, over the top card's foot:
-            the cards roll beneath them and they never move. They light up as the stack arrives. */}
-        <div className={`pointer-events-none absolute inset-x-0 bottom-0 px-4 ${FOOT}`} style={{ zIndex: n + 2 }}><TempusBars ignite /></div>
         <div className="pointer-events-none absolute inset-0" style={{ zIndex: n + 2 }}><SandboxStamp /></div>
         {/* The tape holding the stack to the desk; the cards roll beneath it. */}
         <div className="pointer-events-none absolute inset-0" style={{ zIndex: n + 3 }}><Tape inside={GLASS} /></div>
@@ -198,7 +195,7 @@ export function GoalStack(): React.JSX.Element | null {
 /**
  * One goal's card. On top (`front`): frosted, with the days left as the hero,
  * in the focus timer's dot figures and warming as the day nears, then the
- * road, and room at its foot for Tempus's bars (drawn once by the stack). Behind: plain paper tinted by the theme, its
+ * road. Behind: plain paper tinted by the theme, its
  * bottom edge in the goal's warmth, its words drawn only while it is
  * moving (`shows`), so nothing under the top card catches the pointer.
  */
@@ -287,8 +284,6 @@ function Card({ id, today, front, shows, stacked, count, flip }: { id: string; t
             </div>
           )}
           <div className="min-h-0 flex-1 text-foreground">{front ? <Journey compact from={from} target={goal.goalAt} today={today} logs={goal.glosses} /> : null}</div>
-          {/* Room for Tempus's bars, which the stack draws once over whichever card is on top. */}
-          <TempusBars className="invisible" />
         </>
       )}
     </div>
