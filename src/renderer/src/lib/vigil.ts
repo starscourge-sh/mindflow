@@ -134,10 +134,14 @@ export type Settings = {
   focusBubble: 'circle' | 'runner' | 'progress'
   /** Where a session's time shows: the bubble, a footer under the note, or both. */
   focusShows: 'bubble' | 'note' | 'both'
-  /** A plain Markdown copy of each capture beside the backups; never a private one. */
-  markdownCopies: boolean
   /** The session pill under the notch (on a Mac with one), or wherever you put it. */
   pillSits: 'notch' | 'free'
+  /** The five-second rule: a session counts 5 to 1, with ticks, before it starts. */
+  countIn: boolean
+  /** On Sundays, Home sums up the week. */
+  weeklyDigest: boolean
+  /** Your Mac's calendar events on Today and the week, read only. */
+  macCalendar: boolean
   /** When the working day ends, "22:00": Today counts the hours left until then. */
   dayEnd: string
   /** Closing the day, offered once an evening after `closeDayAt`. */
@@ -145,6 +149,8 @@ export type Settings = {
   closeDayAt: string
   /** Tomorrow's first task, picked when the day was closed: it leads Today and the day brief on `day`. */
   frog: { id: string; day: string } | null
+  /** A plain Markdown copy of each capture beside the backups; never a private one. */
+  markdownCopies: boolean
   /** How far back the Recent panel reaches, in days. */
   recentDays: number
   /** The questions kept in view, shown small while you capture and tidy. */
@@ -309,7 +315,7 @@ export type Made = { id: string; number: number; existed: boolean; resolved?: st
 /** What to say after making a task: the usual words, or that it joined one. */
 export const taskSaid = (made: Made | null | undefined, fresh: string): string =>
   made?.existed ? `Already a task: T-${made.number}. Linked to it, not added twice` : fresh
-export type TaskFull = Task & { notes: unknown; done: { at: string; recap: string | null }[]; subtasks: Subtask[]; linked: { id: string; tier: string; kind: string; title: string }[] }
+export type TaskFull = Task & { /** Where to pick up, said as its last session ended. */ pickup?: string | null; notes: unknown; done: { at: string; recap: string | null }[]; subtasks: Subtask[]; linked: { id: string; tier: string; kind: string; title: string }[] }
 
 export type Session = { id: string; startedAt: string; endedAt: string | null; recap: string | null; goal?: string | null; pausedMs: number; pausedAt: string | null }
 /** A thought, some context or a picture added to a session while it ran: its timeline, one moment at a time. */
@@ -353,12 +359,12 @@ export const vigil = {
   /** Everything made in the `days` before `until` (now), newest first. */
   recent: (days: number, until?: string | null) => call<Recent[]>('recent', days, until),
   period: (period: string) => call<PeriodPage>('period', period),
+  /** For a month's calendar: the days with a page, and how many reviews each day had. */
+  dayMarks: (from: string, to: string) => call<{ pages: string[]; reviews: Record<string, number> }>('days:marks', from, to),
   savePeriod: (period: string, patch: { fields?: Record<string, string | null>; body?: unknown }) => call('period:save', period, patch),
   /** A year's months, each with what its page says. */
   year: (year: string) => call<({ month: string } & Record<string, string>)[]>('periods:year', year),
   pinnedQuestions: () => call<PinnedQuestion[]>('questions:pinned'),
-  /** For a month's calendar: the days with a page, and how many reviews each day had. */
-  dayMarks: (from: string, to: string) => call<{ pages: string[]; reviews: Record<string, number> }>('days:marks', from, to),
   /** False when twelve are kept in view already. */
   pinQuestion: (id: string, on: boolean) => call<boolean>('question:pin', id, on),
   /** Where a link held in a field leads: `day:2026-10-05`, `nugget:…`, or a capture's id. */
@@ -550,6 +556,17 @@ export const vigil = {
   focusMissed: () => call<string | null>('focus:missed'),
   /** A countdown with no task behind it, shown in the floating timer: "5m tea". */
   startTimer: (goal: string, ms: number) => call<string>('timer:start', goal, ms),
+  /** Pomodoro rounds ("4x25"): one timer that runs each stretch in turn. */
+  startRounds: (goal: string, plan: { rounds: number; workMs: number; breakMs: number; longMs: number }) => call<string>('rounds:start', goal, plan),
+  nextRound: (id: string, next: { round: number; phase: string; ms: number }) => call<boolean>('rounds:next', id, next),
+  /** The Bin: discarded captures, tasks closed without doing, and gems and the rest put in it. */
+  bin: () => call<{ type: string; id: string; title: string; kind: string; at: string }[]>('bin:list'),
+  toBin: (id: string) => call('bin:put', id),
+  restore: (type: string, id: string) => call('bin:restore', type, id),
+  emptyBin: () => call<number>('bin:empty'),
+  /** The unfinished symphony: where to pick up next time, kept on the session's task; null clears it. */
+  pickUp: (sessionId: string, text: string) => call<boolean>('session:pickup', sessionId, text),
+  clearPickUp: (taskId: string) => call('task:pickup', taskId, null),
   pauseSession: (id: string) => call('session:pause', id),
   resumeSession: (id: string) => call('session:resume', id),
   cancelSession: (id: string) => call('session:cancel', id),
@@ -570,9 +587,6 @@ export const vigil = {
  * The stand-in a list starts as, before its first answer comes back. An empty
  * list then means "not read yet", not "there is none": a view asks `unloaded`
  * before saying "No articles yet", so the empty page never flashes on the way
-  /** Pomodoro rounds ("4x25"): one timer that runs each stretch in turn. */
-  startRounds: (goal: string, plan: { rounds: number; workMs: number; breakMs: number; longMs: number }) => call<string>('rounds:start', goal, plan),
-  nextRound: (id: string, next: { round: number; phase: string; ms: number }) => call<boolean>('rounds:next', id, next),
  * to a full one. Kept by the object itself, so nothing else has to be passed on.
  */
 const STAND_INS = new WeakSet<object>()

@@ -454,7 +454,9 @@ const itemMenu = (item: Item): MenuItem[] => [
   item.tier === 'nugget' && { label: 'Change kind…', run: () => void changeKind('nuggets', item.id, item.kind) },
   { label: item.archivedAt ? 'Unarchive' : 'Archive', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
   { label: 'Save its pictures and files…', run: () => void saveAttachments([{ table: 'nuggets', id: item.id }]) },
-  copyToBookItem([{ table: 'nuggets', id: item.id }])
+  copyToBookItem([{ table: 'nuggets', id: item.id }]),
+  'separator',
+  { label: 'Move to the Bin', danger: true, run: () => void vigil.toBin(item.id).then(() => (chime('away'), toast('In the Bin', () => void vigil.restore(item.tier, item.id)))) }
 ]
 
 export function ItemDetail(props: { item: ItemFull; onOpen?: (type: string, id: string) => void; top?: React.ReactNode }): React.JSX.Element {

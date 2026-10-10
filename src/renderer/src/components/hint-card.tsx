@@ -203,7 +203,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
                   chime('away')
                   setHint(null)
                   void (capture ? window.api.captures.save(id, { status: 'discarded' }) : vigil.saveItem(id, { suspended: true })).then(() =>
-                    toast(capture ? 'Discarded: it is in Discarded if you want it back' : 'It will not come up again', () =>
+                    toast(capture ? 'Discarded: it is in the Bin if you want it back' : 'It will not come up again', () =>
                       void (capture ? window.api.captures.save(id, { status: 'open' }) : vigil.saveItem(id, { suspended: false }))))
                 } }
 ]

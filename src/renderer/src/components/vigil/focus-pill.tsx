@@ -102,12 +102,15 @@ export function FocusPill(): React.JSX.Element | null {
   }, [])
   // A session just ended: the pill stays a moment to ask how it went.
   const [asked, setAsked] = useState<string | null>(null)
+  // Then where to pick up next time: the unfinished symphony.
+  const [pickup, setPickup] = useState<string | null>(null)
   // Another session started meanwhile: that question has gone by.
-  useEffect(() => void (focus && focus.id !== asked && setAsked(null)), [focus]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => void (focus && focus.id !== asked && focus.id !== pickup && (setAsked(null), setPickup(null))), [focus]) // eslint-disable-line react-hooks/exhaustive-deps
   // Nothing running and nothing asked: the pill goes away.
-  useEffect(() => void (focus === null && !asked && window.api.showFocus(false)), [focus, asked])
+  useEffect(() => void (focus === null && !asked && !pickup && window.api.showFocus(false)), [focus, asked, pickup])
 
-  if (asked) return <HowDidItGo id={asked} top={notch ? notch + 6 : TOP} onDone={() => setAsked(null)} />
+  if (asked) return <HowDidItGo id={asked} top={notch ? notch + 6 : TOP} onDone={() => (setPickup(asked), setAsked(null))} />
+  if (pickup) return <PickUp id={pickup} top={notch ? notch + 6 : TOP} onDone={() => setPickup(null)} />
   if (!focus || notch === null) return null
   // Each session its own pill, so each one drops in.
   return <Pill key={`${focus.id}:${notch}`} focus={focus} settings={settings} now={now} notch={notch} onEnded={setAsked} />
@@ -168,6 +171,25 @@ function Pill({ focus, settings, now, notch, onEnded }: { focus: Focus; settings
   const surface = useSurface()
   const light = surface === 'light'
   const still = useRef(calm()).current
+
+  // The five-second rule (Settings): a session just begun counts 5, 4, 3, 2, 1
+  // with a tick each, its clock held until the count is done.
+  const [count, setCount] = useState<number | null>(null)
+  const counted = useRef(false)
+  useEffect(() => {
+    if (counted.current || !settings) return
+    counted.current = true
+    if (!settings.countIn || Date.now() - new Date(focus.startedAt).getTime() > 3000) return
+    void vigil.pauseSession(focus.id)
+    setCount(5)
+  }, [settings]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (count === null) return
+    if (count === 0) return void vigil.resumeSession(focus.id).then(() => (chime('on'), setCount(null)))
+    chime('tick')
+    const next = setTimeout(() => setCount(count - 1), 1000)
+    return () => clearTimeout(next)
+  }, [count]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // --- the island: dropped in, opened, settled, and opened again on hover
   // 'above' is out of sight under the menu bar; 'capsule' has dropped in;
@@ -587,7 +609,7 @@ function Pill({ focus, settings, now, notch, onEnded }: { focus: Focus; settings
               className={`flex shrink-0 items-center gap-1.5 pr-1 text-[13px] whitespace-nowrap font-semibold transition-opacity duration-150 ${open ? 'opacity-0' : 'opacity-100'} ${over || last ? 'text-[var(--tt-brand-color-400)]' : paused ? 'text-muted-foreground' : ''}`}
             >
               {/* The time on a clock's dot grid, the one figure in the app that ticks. */}
-              {over ? "Time's up" : <>{paused && 'Paused ·'}<DotMatrix text={clock(left ?? done)} className="h-[13px]" /></>}
+              {count !== null ? <span data-count-in className="flex items-center gap-1.5"><span className="font-medium text-muted-foreground">Starting in</span><DotMatrix text={String(Math.max(1, count))} className="h-[13px]" /></span> : over ? "Time's up" : <>{paused && 'Paused ·'}<DotMatrix text={clock(left ?? done)} className="h-[13px]" /></>}
             </span>
             {/* The one place that moves the window, as Raycast's grip does: faint until you reach for it. */}
             {!tucked && (
@@ -684,6 +706,46 @@ function HowDidItGo({ id, top, onDone }: { id: string; top: number; onDone: () =
             </button>
           </>
         )}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * "Where do you pick up?": the line after How did it go, Hemingway's trick of
+ * stopping mid-sentence. Kept on the task, it greets you when the task next
+ * opens. Escape or the cross skips it; left alone for a minute it goes.
+ */
+function PickUp({ id, top, onDone }: { id: string; top: number; onDone: () => void }): React.JSX.Element {
+  const [words, setWords] = useState('')
+  useEffect(() => {
+    if (words) return
+    const gone = setTimeout(onDone, 60_000)
+    return () => clearTimeout(gone)
+  }, [words]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => void window.api.focusSize(top + REST + BELOW), [top])
+  const skip = (): void => (chime('fold'), onDone())
+  const keep = (): void => {
+    if (!words.trim()) return skip()
+    void vigil.pickUp(id, words.trim()).then(() => (chime('logged'), onDone()))
+  }
+  return (
+    <div className="mf-floating flex h-screen items-start justify-center px-[8px]" style={{ paddingTop: top }}>
+      <div data-pickup
+        style={{ backgroundImage: 'linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' }}
+        className="flex h-[44px] w-full items-center gap-2.5 rounded-full border pr-1.5 pl-3.5 font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_3px_8px_-2px_rgb(0_0_0/0.12)]">
+        <label className="relative min-w-0 flex-1">
+          {!words && <span aria-hidden className="pointer-events-none absolute inset-0 truncate text-muted-foreground"><Typed text="Where do you pick up next time?" step={40} delay={200} /></span>}
+          <input autoFocus value={words} aria-label="Where do you pick up next time?" onChange={(event) => setWords(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') (event.preventDefault(), keep())
+              if (event.key === 'Escape') (event.preventDefault(), skip())
+            }}
+            className="w-full bg-transparent font-medium outline-none" />
+        </label>
+        <button type="button" aria-label="Skip" onClick={skip} className="flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+          <X className="size-3.5" />
+        </button>
       </div>
     </div>
   )

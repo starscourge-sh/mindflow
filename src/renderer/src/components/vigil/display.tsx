@@ -533,7 +533,7 @@ export function Display<T>({ view, onChange, facets, sorts, groups = [], default
     <Popover open={open && !sheet} onOpenChange={show}>
       <Tip label={`${onDensity ? 'Sort and view' : 'Sort and filter'}  F`}>
       <PopoverTrigger asChild>
-        <button ref={button} type="button" className={`flex h-7 items-center gap-1.5 rounded-md px-2 text-control whitespace-nowrap hover:bg-accent hover:text-foreground ${open ? 'bg-accent text-foreground' : ''} ${active ? 'text-foreground' : ''}`}>
+        <button ref={button} type="button" data-display className={`flex h-7 items-center gap-1.5 rounded-md px-2 text-control whitespace-nowrap hover:bg-accent hover:text-foreground ${open ? 'bg-accent text-foreground' : ''} ${active ? 'text-foreground' : ''}`}>
           {!compact && sorts.length > 1 && <Rolling by="word" text={sortName} />}
           {filtered > 0 && <span className="rounded bg-accent px-1 text-xs tabular-nums text-muted-foreground"><Rolling text={filtered} /></span>}
           {Shown ? <Shown className="size-3.5" /> : <AliveIcon icon={SlidersHorizontalIcon} size={14} />}

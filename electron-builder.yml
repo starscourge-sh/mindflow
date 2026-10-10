@@ -25,6 +25,8 @@ mac:
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+    - NSCalendarsUsageDescription: Vigil reads your calendar's events to show them on Today and the week. It never changes them.
+    - NSCalendarsFullAccessUsageDescription: Vigil reads your calendar's events to show them on Today and the week. It never changes them.
   notarize: false
 dmg:
   artifactName: ${name}-${version}.${ext}

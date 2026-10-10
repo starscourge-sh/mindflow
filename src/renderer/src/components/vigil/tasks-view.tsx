@@ -46,7 +46,7 @@ import { Example } from './example'
 import { exampleTasks } from '@/lib/examples'
 import { GhostText } from './ghost'
 import { useHere } from '@/lib/split'
-import { budgetSaid, frogOn, hoursSaid, minutesLeft, plannedMinutes } from '@/lib/day-plan'
+import { budgetSaid, frogOn, markFrog, hoursSaid, minutesLeft, plannedMinutes } from '@/lib/day-plan'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
 const Bell = alive(FilledBellIcon)
@@ -228,6 +228,13 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
       ? [['Every so often', live]]
       : mode === 'later'
       ? (Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => [BUCKETS[which], live.filter((task) => bucket(task) === which)])
+      : mode === 'today' && view.group === '135'
+      ? (() => {
+          // 1-3-5: one big thing, three medium, five small, in the order shown; the rest if there is time.
+          const order = [...base.filter((task) => task.id === frog), ...base.filter((task) => task.id !== frog)]
+          const slot = (name: string, from: number, size: number): [string, Task[]] => [name, order.slice(from, from + size)]
+          return [slot('One big thing', 0, 1), slot('Three medium', 1, 3), slot('Five small', 4, 5), ['If there is time', order.slice(9)]] as [string, Task[]][]
+        })()
       : mode === 'today'
       ? [
           // The frog, picked last night, above everything, late or not.
@@ -329,7 +336,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
             onChange={setView}
             facets={facets}
             sorts={[{ id: 'manual', label: 'Your order' }, { id: 'priority', label: 'Priority' }, { id: 'name', label: 'Name' }, { id: 'due', label: 'Scheduled' }, { id: 'deadline', label: 'Due by' }, { id: 'added', label: 'Date added' }]}
-            groups={[{ id: 'when', label: mode === 'later' ? 'By list' : 'By date' }, { id: 'note', label: 'By note' }, { id: 'none', label: 'None' }]}
+            groups={[{ id: 'when', label: mode === 'later' ? 'By list' : 'By date' }, ...(mode === 'today' ? [{ id: '135', label: '1-3-5' }] : []), { id: 'note', label: 'By note' }, { id: 'none', label: 'None' }]}
           />
           {/* Today's list on the desktop, ticked off there through the day. */}
           {mode === 'today' && <OptionsMenu label="More" side="bottom" align="end" options={[]} actions={[{ label: 'Keep today on screen', run: () => stickOnDesktop('today', 'today') }]} />}
@@ -393,6 +400,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'upcoming' 
                         { label: 'Open', keys: '↵', run: () => pick(task.id) },
                         { label: 'Complete', keys: 'E', run: () => complete(task) },
                         'separator',
+                        { label: frogOn(settings) === task.id ? 'Not the frog after all' : 'Eat the frog: do this first today', run: () => void (frogOn(settings) === task.id ? markFrog(null, task.id) : ((placed(task) ?? Infinity) >= startOfDay(1) && moveTo(task, 0), markFrog(task.id, frogOn(settings)))) },
                         { label: 'Today', keys: 'T', run: () => moveTo(task, 0) },
                         { label: 'Tomorrow', keys: 'M', run: () => moveTo(task, 1) },
                         { label: 'Next week', keys: 'W', run: () => moveTo(task, 7) },
@@ -509,6 +517,13 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
     <div className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[22rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
         {top && <div className="-mt-3 mb-1 flex px-3 @[40rem]/page:px-[4.25rem]">{top}</div>}
+        {/* Where you said you would pick up, as the last session ended: on its own line, plain to see. */}
+        {task.pickup && task.status === 'open' && (
+          <div data-pickup-note className="page-narrow mx-auto mb-3 flex w-full items-start gap-3 px-12">
+            <p className="min-w-0 flex-1 text-[0.9375rem] leading-snug text-foreground"><strong className="font-semibold">Pick up here.</strong> {task.pickup}</p>
+            <Button variant="ghost" size="sm" onClick={() => void vigil.clearPickUp(task.id).then(() => chime('away'))}>Done with it</Button>
+          </div>
+        )}
         {/* Pushed back three times: the plan's question, once, without a verdict. */}
         {task.reschedules >= 3 && task.status === 'open' && (
           <div className="page-narrow mx-auto mb-3 flex w-full flex-wrap items-center gap-x-1 gap-y-1 px-12 text-sm text-muted-foreground">

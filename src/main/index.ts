@@ -1,3 +1,4 @@
+import { registerMacCalendar } from './mac-calendar'
 import { pathToFileURL } from 'url'
 import { app, shell, BrowserWindow, clipboard, ClipboardItem, desktopCapturer, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, net, powerMonitor, protocol, screen, session, systemPreferences, Tray } from 'electron'
 /*
@@ -2209,6 +2210,8 @@ function updateTray(): void {
       ...(SANDBOX ? [{ label: 'Back to my notes', click: leaveSandbox }, { label: 'Reset the sandbox…', click: () => (openHome(), makeHome().webContents.send('sandbox:ask-reset')) }, { type: 'separator' } as const] : []),
       { label: 'Show Vigil', accelerator: chordFor('⌘.'), click: () => toggleWindow() },
       { label: 'Open the main window', click: openHome },
+      { label: 'Close the day…', click: () => inHome('vigil:close-day') },
+      { label: 'What’s new', click: () => inHome('vigil:whats-new') },
       // The book open now, ticked, and the way to each of the others.
       {
         label: SANDBOX ? 'Book: Sandbox' : `Book: ${nameOf(here())}`,
@@ -2225,8 +2228,6 @@ function updateTray(): void {
       ...(SANDBOX ? [] : [{ label: 'Restore from a backup…', click: () => void restore() }, { label: 'Open the sandbox', click: openSandbox }]),
       { type: 'separator' },
       { label: 'Safe mode', type: 'checkbox', checked: safe, accelerator: chordFor('⌥⌘S'), click: () => (toggleSafeMode(), updateTray()) },
-      { label: 'Close the day…', click: () => inHome('vigil:close-day') },
-      { label: 'What’s new', click: () => inHome('vigil:whats-new') },
       { label: 'Show sticky notes', type: 'checkbox', checked: stickyPrefs().shown, accelerator: chordFor('⌃⌥⌘N'), click: () => showStickies() },
       { label: 'Bring sticky notes here', enabled: !safe && stickies.size > 0, click: () => gatherStickies() },
       // Only with a sticky out to tidy; the key does nothing then either.
@@ -2264,6 +2265,7 @@ app.whenReady().then(() => {
   registerPictures()
   registerPeople()
   registerDefine()
+  registerMacCalendar()
   // Last, once every table is there: what other books sent this one is taken in.
   registerBooks(backupBase, () => updateTray())
   const first = fromCli(process.argv)
@@ -2401,6 +2403,9 @@ app.whenReady().then(() => {
 
   // Seen by screen recorders and shares, or kept out of them (the default).
   ipcMain.on('focus:show', (_event, on: unknown) => showFocus(Boolean(on)))
+  // Where the pill sits, asked by the pill as it starts and as the setting
+  // changes: put there, and told how tall the notch is (0 for none).
+  ipcMain.handle('focus:place', () => placeFocus())
   // The pill's gleam rests while nobody is at the computer.
   ipcMain.handle('idle:seconds', () => powerMonitor.getSystemIdleTime())
   // The pill's right-click: a quick switch for its ticking. The menu's close
@@ -2418,9 +2423,6 @@ app.whenReady().then(() => {
     if (!win || win !== focusPill) return false
     const bounds = win.getBounds()
     const next = Math.round(Math.max(PILL_REST, Math.min(480, Number(height) || PILL_REST)))
-  // Where the pill sits, asked by the pill as it starts and as the setting
-  // changes: put there, and told how tall the notch is (0 for none).
-  ipcMain.handle('focus:place', () => placeFocus())
     if (next !== bounds.height) win.setBounds({ ...bounds, height: next })
     return true
   })

@@ -40,6 +40,7 @@ import { useOnboarding } from '@/lib/onboarding'
 import { PowersLine } from './powers-view'
 import { WhatsNewCard } from './whats-new'
 import { CloseDayOffer } from './close-day'
+import { WeeklyDigest } from './weekly-digest'
 import { Tilt } from './tilt'
 import { asideItem, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
@@ -718,6 +719,8 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       <div className="page-column relative w-full pt-3 empty:hidden"><PowersLine onView={onView} /></div>
       {/* In the evening, once: the offer to close the day. */}
       <div className="page-column relative w-full pt-3 empty:hidden"><CloseDayOffer /></div>
+      {/* On Sundays: the week in four numbers. */}
+      <div className="page-column relative w-full pt-3 empty:hidden"><WeeklyDigest onView={onView} /></div>
       {/* After an update, once: what is new since you last looked. */}
       <div className="page-column relative w-full pt-3 empty:hidden"><WhatsNewCard onView={onView} /></div>
       {empty && starting ? null : empty ? (

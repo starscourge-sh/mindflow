@@ -19,6 +19,7 @@ import { KindBack, backLine, returning, type Returning } from './kind-back'
 import { NextMark } from './milestones'
 import { todaySaid } from '@/lib/tasks'
 import { frogFirst, frogOn } from '@/lib/day-plan'
+import { EventLine, useMacEvents } from '@/lib/mac-calendar'
 import { countdown, nextOf, useMilestones } from '@/lib/milestones'
 import { ago, clock, dayjs, dayKey, num } from '../../../../main/dates'
 
@@ -124,6 +125,9 @@ export function DayBrief({ day, onOpen, onListed }: {
   const coming = nextOf(useMilestones(dayKey(now), dayjs(now).add(14, 'day').format('YYYY-MM-DD')), dayKey(now))
 
   const today = dayKey(now)
+  // Your Mac's calendar for the day, read only, when Settings has it on.
+  const dayFrom = dayjs(day).startOf('day')
+  const mac = useMacEvents(dayFrom.toDate(), dayFrom.add(1, 'day').toDate())
   const open = tasks.filter((task) => task.status === 'open' && (dueDay(task) ?? '9') <= today)
   const late = open.filter((task) => (dueDay(task) ?? '') < today)
   const dueToday = open.filter((task) => dueDay(task) === today)
@@ -283,6 +287,15 @@ export function DayBrief({ day, onOpen, onListed }: {
       </div>
       {/* The next marked day, counted down: a click changes it. */}
       <NextMark className="mt-3 -mx-1 px-1 py-1 hover:bg-foreground/[0.035]" />
+      {/* The day's events from your Mac's calendar: read only, as they are there. */}
+      {mac.events.length > 0 && (
+        <section data-brief-calendar aria-label="Your calendar" className="mt-5">
+          <p className="mb-1.5 text-sm font-semibold text-foreground">On your calendar</p>
+          <ul className="flex flex-col gap-1">
+            {mac.events.slice(0, 8).map((event, at) => <li key={at}><EventLine event={event} /></li>)}
+          </ul>
+        </section>
+      )}
       {(shown.length > 0 || rows.length > 0) && (
         <section className="@container mf-hand-ruled relative mt-8 border-t border-border/70 pt-6">
           <Rule seed={day} />

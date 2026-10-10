@@ -60,7 +60,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: 'G X', does: 'Go to Map: your linked notes as dots', where: 'Main window' },
   { group: 'Getting around', keys: 'G F', does: 'Go to What Vigil can do: every power, with a way to try it', where: 'Main window' },
   { group: 'Getting around', keys: 'G L', does: 'Go to All captures', where: 'Main window' },
-  { group: 'Getting around', keys: 'G D', does: 'Go to Discarded', where: 'Main window' },
+  { group: 'Getting around', keys: 'G D', does: 'Go to the Bin: everything let go, to restore or empty', where: 'Main window' },
   { group: 'Getting around', keys: 'G P', does: "Go to today's page", where: 'Main window' },
   { group: 'Getting around', keys: 'G K', does: "Go to the week's page", where: 'Main window' },
   { group: 'Getting around', keys: 'G M', does: "Go to the month's page", where: 'Main window' },
@@ -262,17 +262,17 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Deciding', keys: 'J', does: 'Next (↓, → or Space too); K for the one before', where: 'Deciding' },
   { group: 'Deciding', keys: 'Esc', does: 'Stop for now', where: 'Deciding' },
 
-  { group: 'Settings', keys: 'J', does: 'Next setting', where: 'Main window' },
-  { group: 'Settings', keys: 'K', does: 'Setting before', where: 'Main window' },
-  { group: 'Settings', keys: 'H', does: 'Slider down', where: 'Main window' },
-  { group: 'Settings', keys: 'L', does: 'Slider up', where: 'Main window' },
-  { group: 'Settings', keys: '↑ ↓', does: 'Next or previous section, in the section list (J and K too)', where: 'Main window' }
   { group: 'Closing the day', keys: 'T', does: 'Send the task to tomorrow', where: 'Close the day' },
   { group: 'Closing the day', keys: 'M', does: 'Move the task to next week', where: 'Close the day' },
   { group: 'Closing the day', keys: 'W', does: 'Let the task go', where: 'Close the day' },
   { group: 'Closing the day', keys: 'J', does: 'Next open task (K the one before)', where: 'Close the day' },
   { group: 'Closing the day', keys: '⌘↵', does: 'Close the day', where: 'Close the day' },
 
+  { group: 'Settings', keys: 'J', does: 'Next setting', where: 'Main window' },
+  { group: 'Settings', keys: 'K', does: 'Setting before', where: 'Main window' },
+  { group: 'Settings', keys: 'H', does: 'Slider down', where: 'Main window' },
+  { group: 'Settings', keys: 'L', does: 'Slider up', where: 'Main window' },
+  { group: 'Settings', keys: '↑ ↓', does: 'Next or previous section, in the section list (J and K too)', where: 'Main window' }
 ]
 
 /** Groups that only exist in the main window: their rows need not say so. */

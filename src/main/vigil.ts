@@ -354,8 +354,6 @@ const DEFAULTS = {
   // Where a session's time shows: the floating bubble, a quiet footer under
   // the note being written in (the bubble then stays away), or both.
   focusShows: 'bubble' as 'bubble' | 'note' | 'both',
-  // The menu bar's day, week, month and year as rows of dots instead of bars.
-  tempusDots: false,
   // Where the session pill sits: tucked under the notch on a Mac that has
   // one, compact until pointed at, or wherever you dragged it.
   pillSits: 'free' as 'notch' | 'free',
@@ -372,6 +370,8 @@ const DEFAULTS = {
   closeDayAt: '18:00',
   // Tomorrow's first task, picked when the day was closed: it leads Today and the day brief that day.
   frog: null as { id: string; day: string } | null,
+  // The menu bar's day, week, month and year as rows of dots instead of bars.
+  tempusDots: false,
   // A plain-text copy of each capture beside the backups (never a private one).
   markdownCopies: true,
   // How far back the Recent panel reaches, in days.

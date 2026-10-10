@@ -157,6 +157,18 @@ export const POWERS: Power[] = [
     show: { view: 'routines', at: ROW, text: 'Every task that repeats.' }, used: (s) => s.tasks.some((task) => !!task.recurrence) },
   { id: 'focus', group: 'Planning', name: 'Focus on one task', line: 'Start a session on a task, and a small timer floats over your screen until you are done.',
     show: { view: 'today', at: ROW, text: 'Open a task and choose Start a focus session.' }, used: (s) => s.steps.focus },
+  { id: 'lengths', group: 'Planning', name: 'How long a task takes', tryIt: 'Type a task that ends with ~30m.', line: 'Write ~30m or ~1h on a task, and Today sets the hours planned beside the hours left before your day ends.',
+    show: { view: 'today', at: '[data-day-budget]', text: 'Planned against what is left of the day. Write ~30m on a task to plan it.' }, used: (s) => s.tasks.some((task) => !!task.estimate) },
+  { id: 'closeday', group: 'Planning', name: 'Close the day', tryIt: 'Press ⌘K and choose Close the day.', line: 'Each evening, a short pass: what got done, each open task sent to tomorrow, next week or let go, a line for today’s page and the one task to start tomorrow with.', keys: ['⌘K'],
+    show: { view: 'settings', settings: 'What comes back to you', find: 'Close the day', at: '[data-setting]', text: 'Pick when it is offered each evening, or press ⌘K and choose Close the day.' } },
+  { id: 'frog', group: 'Planning', name: 'Eat the frog', tryIt: 'Right-click a task and choose Eat the frog.', line: 'Mark the one task to do first, and it leads Today and the day brief until the day is out.',
+    show: { view: 'today', at: ROW, text: 'Right-click a task and choose Eat the frog.' } },
+  { id: '135', group: 'Planning', name: '1-3-5', tryIt: 'In Today, press F and pick 1-3-5 under grouping.', line: 'Lay Today out as one big thing, three medium and five small, in the order you give them.',
+    show: { view: 'today', at: '[data-display]', text: 'Press F or click here, and pick 1-3-5 under grouping.' } },
+  { id: 'pickup', group: 'Planning', name: 'Where you pick up', line: 'As a focus session ends, say where you will pick up, and the task shows it at the top when you next open it.',
+    show: { view: 'today', at: ROW, text: 'Finish a focus session, and answer Where do you pick up next time?' } },
+  { id: 'countin', group: 'Planning', name: 'The five-second rule', tryIt: 'In Settings, turn on Count in a session.', line: 'A session can count 5, 4, 3, 2, 1 with a tick each before its clock starts.',
+    show: { view: 'settings', settings: 'Appearance', find: 'Count in a session', at: '[data-setting]', text: 'Turn it on, then start a session.' } },
   { id: 'later', group: 'Planning', name: 'Later, not lost', tryIt: 'Type a task that ends with someday.', line: 'What has no day yet waits in This month, This year or Someday.', keys: ['G Z'],
     show: { view: 'later', at: ROW, text: 'Tasks without a day.' } },
 
@@ -167,6 +179,12 @@ export const POWERS: Power[] = [
     show: { view: 'yearpage', text: 'Name a month’s season on its page, and it shows here.' }, used: (s) => s.season },
   { id: 'milestones', group: 'Seeing your year', name: 'Mark a day', tryIt: 'Right-click any day on the year, month or week, or type !milestone Exam on 3 Dec in quick capture.', line: 'Give any day a purpose, like Exam, Launch or Mum’s birthday, and count down to it from Home and the menu bar.',
     show: { view: 'yearpage', at: '[data-year-marks]', text: 'Each marked day stands tall here. Right-click any day to mark it.' } },
+  { id: 'calendar', group: 'Seeing your year', name: 'The month at a glance', line: 'Each day on the Month page shows whether it has a page, how much you reviewed, its marked days and exams, and the cards still to come.', keys: ['G M'],
+    show: { view: 'monthpage', at: '[data-month-legend]', text: 'What each mark means. Click a day to open it.' } },
+  { id: 'maccalendar', group: 'Seeing your year', name: 'Your Mac’s calendar', tryIt: 'In Settings, turn on Your Mac’s calendar.', line: 'Your calendar’s events in Today’s brief and the week, read only, once macOS has asked you.',
+    show: { view: 'settings', settings: 'What comes back to you', find: 'calendar', at: '[data-setting]', text: 'Turn it on; macOS asks once.' } },
+  { id: 'digest', group: 'Seeing your year', name: 'A weekly digest', line: 'On Sundays, Home sums up your week: caught, kept, reviewed and finished. Nothing is sent anywhere.',
+    show: { view: 'settings', settings: 'What comes back to you', find: 'Weekly digest', at: '[data-setting]', text: 'On by default; turn it off here.' } },
   { id: 'book', group: 'Seeing your year', name: '#book: stars and a takeaway', tryIt: 'Tag a note #book and give it stars.', line: 'Tag a note #book to give it a reading status, a rating out of five and what you will keep from it.',
     show: { view: 'tags', find: '#book', at: ROW, text: 'Notes tagged #book get a status, stars and a takeaway.' }, used: (s) => s.rated },
   { id: 'wrapped', group: 'Seeing your year', name: 'Your month and year, wrapped', tryIt: 'Press ⌘K and choose Your month, wrapped.', line: 'What you caught, your busiest day, the books you finished, played back like a story.',
@@ -177,22 +195,22 @@ export const POWERS: Power[] = [
   // Windows
   { id: 'stickies', group: 'Windows', name: 'Sticky notes on your desktop', line: 'Put a note or today’s tasks on your desktop, over everything, like paper, and ⌃⌥⌘N hides or shows them all.', keys: ['⌃⌥⌘N'],
     show: { view: 'all', at: ROW, text: 'Right-click a note and choose Stick on the desktop; today’s page has Keep on screen for its to-dos.' }, used: (s) => s.steps.stick },
-  { id: 'lengths', group: 'Planning', name: 'How long a task takes', tryIt: 'Type a task that ends with ~30m.', line: 'Write ~30m or ~1h on a task, and Today sets the hours planned beside the hours left before your day ends.',
-    show: { view: 'today', at: '[data-day-budget]', text: 'Planned against what is left of the day. Write ~30m on a task to plan it.' }, used: (s) => s.tasks.some((task) => !!task.estimate) },
-  { id: 'closeday', group: 'Planning', name: 'Close the day', tryIt: 'Press ⌘K and choose Close the day.', line: 'Each evening, a short pass: what got done, each open task sent to tomorrow, next week or let go, a line for today’s page and the one task to start tomorrow with.', keys: ['⌘K'],
-    show: { view: 'settings', settings: 'What comes back to you', find: 'Close the day', at: '[data-setting]', text: 'Pick when it is offered each evening, or press ⌘K and choose Close the day.' } },
   { id: 'recordings', group: 'Windows', name: 'Hidden from screen recordings', tryIt: 'Turn on Show Vigil in screen recordings for a demo.', line: 'Share your screen and Vigil shows as blank to everyone else, while you still see it.',
     show: { view: 'settings', settings: 'What comes back to you', find: 'screen recordings', at: '[data-setting]', text: 'Vigil is hidden from recordings unless this is on. Turn it on for a demo.' } },
   { id: 'window', group: 'Windows', name: 'A note in its own window', line: '⌘-click a note in your Inbox to open it in a window of its own, beside whatever you are doing.',
     show: { view: 'inbox', at: ROW, text: '⌘-click a row to open it in its own window.' } },
   { id: 'safe', group: 'Windows', name: 'Safe mode', line: 'One key stops hints, old captures and pinned notes coming up on their own, for when someone is looking over your shoulder.', keys: ['⌥⌘S'],
     show: { view: 'inbox', at: ROW, text: 'Press ⌥⌘S, and again to come back.' } },
+  { id: 'notch', group: 'Windows', name: 'The pill in the notch', tryIt: 'In Settings, set Pill sits to Under the notch.', line: 'On a Mac with a notch, the session pill can sit tucked around it, the time beside it, and open when you point at it.',
+    show: { view: 'settings', settings: 'Appearance', find: 'Pill sits', at: '[data-setting]', text: 'Choose Under the notch. On a Mac without one, the pill stays where you put it.' } },
+  { id: 'news', group: 'Windows', name: 'What’s new', tryIt: 'Press ⌘K and choose What’s new.', line: 'After an update, Home shows what changed once, each with a Show me; ⌘K and the menu bar open the whole list any time.', keys: ['⌘K'],
+    show: { view: 'home', text: 'Press ⌘K and choose What’s new.' } },
+  { id: 'bin', group: 'Windows', name: 'One Bin, with Restore', tryIt: 'Press G D.', line: 'Discarded captures, tasks closed without doing and notes moved to the Bin wait in one place, each with Restore, until you hold to empty it.', keys: ['G D'],
+    show: { view: 'discarded', at: '[data-bin]', text: 'Restore brings one back; Hold to empty lets them all go for good.' } },
   { id: 'lock', group: 'Windows', name: 'Lock a note', line: 'Make a note read only, so a stray key cannot change it.',
     show: { box: true, text: 'In quick capture, open the ··· menu and choose Lock: read only.' } },
 
   // Bringing notes in
-  { id: 'calendar', group: 'Seeing your year', name: 'The month at a glance', line: 'Each day on the Month page shows whether it has a page, how much you reviewed, its marked days and exams, and the cards still to come.', keys: ['G M'],
-    show: { view: 'monthpage', at: '[data-month-legend]', text: 'What each mark means. Click a day to open it.' } },
   { id: 'vault', group: 'Bringing notes in', name: 'An Obsidian vault or Notion export', tryIt: 'In Settings, Import, pick the folder; nothing in it is changed.', line: 'Bring a whole folder of notes in at once, links and properties kept.',
     show: { view: 'settings', settings: 'Import and backups', find: 'Obsidian', at: '[data-setting]', text: 'Pick the folder. Nothing in it is changed.' } },
   { id: 'files', group: 'Bringing notes in', name: 'Highlights and cards', tryIt: 'In Settings, Import, choose Files….', line: 'Readwise and Kindle highlights, Markdown files, bookmarks and Anki cards.',
@@ -209,10 +227,6 @@ export type Signs = {
   tags: string[]
   actionTag: boolean
   kinds: Set<string>
-  { id: 'notch', group: 'Windows', name: 'The pill in the notch', tryIt: 'In Settings, set Pill sits to Under the notch.', line: 'On a Mac with a notch, the session pill can sit tucked around it, the time beside it, and open when you point at it.',
-    show: { view: 'settings', settings: 'Appearance', find: 'Pill sits', at: '[data-setting]', text: 'Choose Under the notch. On a Mac without one, the pill stays where you put it.' } },
-  { id: 'news', group: 'Windows', name: 'What’s new', tryIt: 'Press ⌘K and choose What’s new.', line: 'After an update, Home shows what changed once, each with a Show me; ⌘K and the menu bar open the whole list any time.', keys: ['⌘K'],
-    show: { view: 'home', text: 'Press ⌘K and choose What’s new.' } },
   board: boolean
   season: boolean
   rated: boolean

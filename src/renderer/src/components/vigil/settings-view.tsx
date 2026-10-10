@@ -1,3 +1,4 @@
+import { calendar } from '@/lib/mac-calendar'
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { PACKS, chime, click, soundOn, step } from '@/lib/sound'
 import { NOTE_FONTS } from '@/lib/editor-setup'
@@ -471,11 +472,14 @@ export function SettingsView(): React.JSX.Element {
             <Chips className="shrink-0" options={[{ id: 'bubble', label: 'The bubble' }, { id: 'note', label: 'The note' }, { id: 'both', label: 'Both' }]}
               on={(id) => id === (settings.focusShows ?? 'bubble')} pick={(focusShows) => set({ focusShows: focusShows as Settings['focusShows'] })} />
           </Setting>
-          <Setting title="Pictures in lists" note="A note with a picture in it shows the first one, small, at the end of its row and on its card.">
+          <Setting title="Count in a session" note="**The five-second rule: a session counts 5, 4, 3, 2, 1 with a tick each,** then its clock starts. Off, it starts at once." keywords="five second rule count countdown 5 4 3 2 1 start session focus tick launch">
+            <Switch checked={!!settings.countIn} onCheckedChange={(countIn) => set({ countIn })} />
+          </Setting>
           <Setting title="Pill sits" note="**Under the notch, the session pill is a slim black band around it,** the time at its right, and opens when you point at it. Only on a Mac with a notch; elsewhere it stays where you put it." keywords="focus session pill bubble notch island menu bar top dynamic where place">
             <Chips className="shrink-0" options={[{ id: 'notch', label: 'Under the notch' }, { id: 'free', label: 'Where I put it' }]}
               on={(id) => id === (settings.pillSits ?? 'free')} pick={(pillSits) => set({ pillSits: pillSits as Settings['pillSits'] })} />
           </Setting>
+          <Setting title="Pictures in lists" note="A note with a picture in it shows the first one, small, at the end of its row and on its card.">
             <Switch checked={settings.thumbnails !== false} onCheckedChange={(thumbnails) => set({ thumbnails })} />
           </Setting>
           <Setting title="Covers" note="**What a note with no picture of its own shows on its tile and in its row.** Paper drawings are old pen and pencil sketches, muted to sit on the page and touched with the kind's colour; Gradients are the soft grainy pictures from the Covers folder in Scenery." keywords="covers cover drawings paper sketch gradients tiles thumbnails grid cards placeholder">
@@ -670,14 +674,18 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Every day">
-          <Setting title="Daily tidy" note="**Once a day, a few minutes over the last days' captures, deciding nothing.** Add tags, bold a line, fold a section, cross off what is done; never in quiet hours.">
           <Setting title="Close the day" note="**Once an evening, after this time, Vigil offers to close the day:** what got done, where each open task goes, a line for today's page and tomorrow's first task. ⌘K has it any time." keywords="evening close day shutdown wrap up review plan tomorrow frog first task">
             {settings.closeDay !== false && <Input type="time" aria-label="Offer it after" className={`${field} w-28`} value={settings.closeDayAt ?? '18:00'} onChange={(event) => set({ closeDayAt: event.target.value })} />}
             <Switch checked={settings.closeDay !== false} onCheckedChange={(closeDay) => set({ closeDay })} />
           </Setting>
+          <MacCalendarSetting on={!!settings.macCalendar} set={(macCalendar) => set({ macCalendar })} />
+          <Setting title="Weekly digest" note="**On Sundays, Home sums up your week:** what you caught, kept, reviewed and finished, with the week's page a click away. Nothing is sent anywhere." keywords="weekly digest sunday summary week review caught kept reviewed finished">
+            <Switch checked={settings.weeklyDigest !== false} onCheckedChange={(weeklyDigest) => set({ weeklyDigest })} />
+          </Setting>
           <Setting title="Day ends at" note="**Today counts the hours left until then,** beside the hours your tasks are planned to take: write ~30m or ~1h on a task to give it a length." keywords="day end evening hours left planned estimate length time budget">
             <Input type="time" aria-label="Day ends at" className={`${field} w-28`} value={settings.dayEnd ?? '22:00'} onChange={(event) => set({ dayEnd: event.target.value })} />
           </Setting>
+          <Setting title="Daily tidy" note="**Once a day, a few minutes over the last days' captures, deciding nothing.** Add tags, bold a line, fold a section, cross off what is done; never in quiet hours.">
             <Switch checked={settings.dailyTidy} onCheckedChange={(dailyTidy) => set({ dailyTidy })} />
           </Setting>
         </Group>
@@ -1360,6 +1368,35 @@ function Frosted(): React.JSX.Element {
           chime(next ? 'on' : 'off')
         }}
       />
+    </Setting>
+  )
+}
+
+/**
+ * Your Mac's calendar on Today and the week, read only. Turned on, macOS asks
+ * once, in its own words; refused, the row says so and offers the way to
+ * Privacy settings.
+ */
+function MacCalendarSetting({ on, set }: { on: boolean; set: (on: boolean) => void }): React.JSX.Element {
+  const [status, setStatus] = useState<string | null>(null)
+  const span = (): [string, string] => [new Date().toISOString(), new Date(Date.now() + 86400000).toISOString()]
+  useEffect(() => {
+    if (on) void calendar.events(...span()).then((said) => setStatus(said.status))
+  }, [on])
+  const turn = (next: boolean): void => {
+    set(next)
+    if (!next) return setStatus(null)
+    setStatus('asking')
+    void calendar.ask(...span()).then((said) => (setStatus(said.status), chime(said.status === 'on' ? 'on' : 'nope')))
+  }
+  const line = status === 'asking' ? 'Waiting for macOS to ask you…' : status === 'denied' ? 'macOS has not let Vigil read your calendar.' : status === 'on' ? 'Reading your calendar: today’s events show in the brief and the week.' : null
+  return (
+    <Setting title="Your Mac's calendar" note="**Your calendar's events on Today's brief and the week, read only.** macOS asks once before Vigil can see them; nothing is ever changed or sent." keywords="calendar mac apple ical events meetings eventkit today week">
+      <span className="flex items-center gap-2">
+        {on && line && <span data-calendar-status className="text-control text-muted-foreground">{line}</span>}
+        {on && status === 'denied' && <Button size="sm" variant="outline" onClick={() => void window.api.vigil('calendar:privacy')}>Open Privacy settings</Button>}
+        <Switch checked={on} onCheckedChange={turn} />
+      </span>
     </Setting>
   )
 }

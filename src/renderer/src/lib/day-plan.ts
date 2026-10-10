@@ -1,4 +1,6 @@
-import type { Settings, Task } from './vigil'
+import { vigil, type Settings, type Task } from './vigil'
+import { chime } from './sound'
+import { toast } from '@/components/vigil/ui'
 import { dayKey } from '../../../main/dates'
 
 /**
@@ -40,3 +42,10 @@ export const frogOn = (settings: Pick<Settings, 'frog'> | null | undefined, day 
 /** The frog first, the rest as they were. */
 export const frogFirst = <T extends { id: string }>(list: T[], frog: string | null): T[] =>
   frog && list.some((one) => one.id === frog) ? [list.find((one) => one.id === frog)!, ...list.filter((one) => one.id !== frog)] : list
+
+/** Eat the frog: this task leads Today (and the day brief) for the rest of today, or no task does. */
+export async function markFrog(id: string | null, was: string | null): Promise<void> {
+  await vigil.setSettings({ frog: id ? { id, day: dayKey() } : null })
+  chime(id ? 'pin' : 'unpin')
+  toast(id ? 'The frog: it leads Today' : 'No frog today', () => void vigil.setSettings({ frog: was ? { id: was, day: dayKey() } : null }))
+}

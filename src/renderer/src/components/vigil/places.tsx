@@ -92,7 +92,7 @@ export const SECTIONS: (Place & { key: string })[] = [
   // Every note you have linked, as a map of dots and lines.
   { id: 'map', label: 'Map', icon: Links, alive: LinkIcon, key: 'x', tint: 'purple' },
   { id: 'all', label: 'All captures', icon: Layers, alive: LayersIcon, key: 'l', tint: 'gray' },
-  { id: 'discarded', label: 'Discarded', icon: Trash2, alive: TrashIcon, key: 'd', tint: 'gray' },
+  { id: 'discarded', label: 'Bin', icon: Trash2, alive: TrashIcon, key: 'd', tint: 'gray' },
   // Out of sight, not let go: apart from the exits.
   { id: 'archived', label: 'Archived', icon: Archive, key: 'v', tint: 'gray' },
   // Every power Vigil keeps out of sight, a card each (powers-view.tsx).

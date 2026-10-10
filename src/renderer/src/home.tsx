@@ -91,10 +91,11 @@ import type { BookRef } from '@/lib/books'
 import type { RowItem } from '@/components/vigil/row-menu'
 import { asideClick, keepTitle, roomFor, setPaneNotes, setPanes, spendAsideClick, titleOf, type PaneWidth } from '@/lib/split'
 import XIcon from '@/components/ui/x-icon'
+import { WhatsNewPage, openWhatsNew } from '@/components/vigil/whats-new'
+import { BinView } from '@/components/vigil/bin-view'
+import { CloseDaySheet, openCloseDay } from '@/components/vigil/close-day'
 
 // itshover drawings in lucide's place, moving when their control is pointed at.
-import { WhatsNewSheet, openWhatsNew } from '@/components/vigil/whats-new'
-import { CloseDaySheet, openCloseDay } from '@/components/vigil/close-day'
 const ChevronRight = alive(RightChevronIcon)
 const CircleHelp = alive(InfoCircleIcon)
 const PinMark = alive(BookmarkIcon)
@@ -166,7 +167,7 @@ const SPLIT = 'split'
 let made = 0
 const fresh = (views: View[] = [{ id: 'home' }]): PaneState => ({ key: `p${Date.now().toString(36)}${made++}`, trail: { views, at: views.length - 1 } })
 /** Pages that hold one note open beside their list, its id as the step's focus. */
-const holdsNotes = (id: string): boolean => !['home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'stats', 'map', 'powers', 'settings', 'review', 'queue'].includes(id)
+const holdsNotes = (id: string): boolean => !['home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'stats', 'map', 'powers', 'whatsnew', 'settings', 'review', 'queue'].includes(id)
 /** Where one thing opens: a view by name, a day's page, or a note or task in its section. */
 const stepOf = (type: string, id: string): View =>
   type === 'view' ? { id } : type === 'day' ? { id: 'day', focus: id } : { id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id }
@@ -416,6 +417,12 @@ export function Home(): React.JSX.Element {
       setTrail(pane.key, (trail) => ({ ...trail, views: trail.views.map((one, index) => (index === trail.at ? { ...one, focus: undefined } : one)) }))
     }
   }, [split]) // eslint-disable-line react-hooks/exhaustive-deps
+  // What's new, asked for by the card, ⌘K or the Vigil menu: its built-in pages.
+  useEffect(() => {
+    const onNews = (): void => (chime('page'), setView({ id: 'whatsnew' }))
+    window.addEventListener('vigil:whats-new', onNews)
+    return () => window.removeEventListener('vigil:whats-new', onNews)
+  })
   // Opened to the side from anywhere in the window: a row's menu, a note's ⋯, an @ link's card.
   useEffect(() => {
     const onAside = (event: Event): void => {
@@ -669,7 +676,7 @@ export function Home(): React.JSX.Element {
 
   const kind = (view: View): (typeof CAPTURE_TYPES)[number] | undefined => CAPTURE_TYPES.find((type) => `kind:${type.id}` === view.id)
   /** A page's name, for the top bar; a pane is named by its note first (paneName). */
-  const labelOf = (view: View): string => SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'settings' ? 'Settings' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
+  const labelOf = (view: View): string => SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'settings' ? 'Settings' : view.id === 'whatsnew' ? "What's new" : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
   const paneWidth = (key: string, width: PaneWidth): void => {
     chime(width === 'narrow' ? 'fold' : 'slide')
     setSplit((now) => ({ ...now, panes: now.panes.map((one) => (one.key === key ? { ...one, width } : one)) }))
@@ -778,7 +785,9 @@ export function Home(): React.JSX.Element {
       >
         {view.id === 'home' ? (
           <HomeView onOpen={go} onView={(id, focus) => setView({ id, focus }, key)} />
-        ) : view.id === 'inbox' || view.id === 'all' || view.id === 'discarded' || view.id === 'archived' ? (
+        ) : view.id === 'discarded' ? (
+          <BinView onOpen={go} />
+        ) : view.id === 'inbox' || view.id === 'all' || view.id === 'archived' ? (
           <CapturesView title={SECTIONS.find((section) => section.id === view.id)!.label} keep={keep[view.id]} focus={view.focus} onOpen={go} archived={view.id === 'archived'} />
         ) : view.id === 'day' ? (
           <DayView start={view.focus} onOpen={go} onScale={scale} />
@@ -812,6 +821,8 @@ export function Home(): React.JSX.Element {
           <StatsView key={`${view.focus}-${view.nonce}`} recap={view.focus} />
         ) : view.id === 'map' ? (
           <MapView onOpen={go} />
+        ) : view.id === 'whatsnew' ? (
+          <WhatsNewPage focus={view.focus} onView={(id, focus) => setView({ id, focus }, key)} />
         ) : view.id === 'powers' ? (
           <PowersView onView={(id, focus) => setView({ id, focus }, key)} />
         ) : (
@@ -837,13 +848,12 @@ export function Home(): React.JSX.Element {
       <QueueReader />
       <Welcome />
       <Tour />
+      <CloseDaySheet />
       <SandboxHost />
       <FocusNote />
       <FocusScenery />
       {searching && (
         <Search
-      <WhatsNewSheet onView={(id, focus) => setView({ id, focus })} />
-      <CloseDaySheet />
           key={searchFor}
           initial={searchFor}
           // The same palette as the box's: places to go and things to switch.
@@ -886,13 +896,13 @@ export function Home(): React.JSX.Element {
               { label: 'Open the sandbox: examples to try, apart from your notes', cue: null, run: () => void enterSandbox() }
             ]),
             { label: 'What can Vigil do? Every power, with a way to try it', cue: null, run: () => setView({ id: 'powers' }) },
+            { label: "What's new: the latest in Vigil, with a way to try each", cue: null, run: openWhatsNew },
+            { label: "Close the day: what got done, and tomorrow's first task", cue: null, run: openCloseDay },
             { label: 'Show the welcome again', cue: null, run: playWelcome },
             { label: 'Try a celebration', cue: null, run: () => tryCelebration() },
             ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),
             { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘B', cue: sidebar ? 'fold' : 'slide', run: () => setSidebar(!sidebar) },
             { label: sidebar || detailsShown() ? 'Hide every sidebar' : 'Show every sidebar', keys: '⇧⌘B', cue: null, run: () => { const open = sidebar || detailsShown(); chime(open ? 'fold' : 'slide'); showDetails(!open); setSidebar(!open) } },
-            { label: "What's new: the latest in Vigil, with a way to try each", cue: null, run: openWhatsNew },
-            { label: "Close the day: what got done, and tomorrow's first task", cue: null, run: openCloseDay },
             { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', cue: null, run: () => setFill(!fill) },
             { label: 'Split: this page again, beside it', keys: '⌥⌘\\', cue: null, run: splitFront },
             ...(split.panes.length > 1 ? [

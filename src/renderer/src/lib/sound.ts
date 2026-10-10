@@ -205,7 +205,9 @@ const CUES = {
   season: [[330, 0, 0.3, 0.035, 349, 0.03], [494, 0.08, 0.4, 0.03]],
   // A pomodoro round over and its break begun: a slow falling third and a
   // soft low note held, the opposite of the bell that starts work again.
-  rest: [[659, 0, 0.5, 0.035], [523, 0.16, 0.6, 0.035], [392, 0.34, 1, 0.03, undefined, 0.08]]
+  rest: [[659, 0, 0.5, 0.035], [523, 0.16, 0.6, 0.035], [392, 0.34, 1, 0.03, undefined, 0.08]],
+  // The five-second rule's count, 5 to 1: a dry wooden tick, one a second.
+  tick: [[1568, 0, 0.025, 0.035], [784, 0.004, 0.03, 0.02]]
 } satisfies Record<string, Note[]>
 
 export type Cue = keyof typeof CUES

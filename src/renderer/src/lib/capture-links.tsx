@@ -31,7 +31,7 @@ export const EXITS = [
   // Their colours mean the same everywhere: kept, done, let go.
   { key: 'p', status: 'promoted', label: 'Save as a gem', done: 'Saved as a gem', tint: 'purple', what: 'Save it as a gem: it can come back to you, and be tested' },
   { key: 'r', status: 'resolved', label: 'Resolve', done: 'Resolved', tint: 'green', what: 'Done with it: dealt with, or no longer needed' },
-  { key: 'd', status: 'discarded', label: 'Discard', done: 'Discarded', tint: 'red', what: 'Let it go: into Discarded, where it can come back' },
+  { key: 'd', status: 'discarded', label: 'Discard', done: 'Discarded', tint: 'red', what: 'Let it go: into the Bin, where it can come back' },
   // Not a status of its own: the capture is kept, inside a new question. H for
   // hold: Q is already the promote toast's "Add a question" for review.
   { key: 'h', status: 'question', label: 'Hold as a question', done: 'Added to a question', tint: 'gray', what: 'You keep circling this and cannot say what it is yet: hold it open as a question, and its words become the first clue' }

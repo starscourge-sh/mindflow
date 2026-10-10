@@ -1,3 +1,4 @@
+import { EventLine, useMacEvents } from '@/lib/mac-calendar'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { DndContext, MeasuringStrategy, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors, type CollisionDetection } from '@dnd-kit/core'
@@ -120,6 +121,8 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
 
   // The marked days in the seven on show.
   const marked = useMilestones(dayKey(dayStart(from)), dayKey(dayStart(from + 6)))
+  // Your Mac's calendar across the seven, read only, when Settings has it on.
+  const mac = useMacEvents(new Date(dayStart(from)), new Date(dayStart(from + 7)))
   const live = tasks.filter((task) => task.status === 'open')
   const days = Array.from({ length: 7 }, (_, index) => {
     const start = dayStart(from + index)
@@ -342,6 +345,10 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
                   )}
                 </header>
                 </DayMarkMenu>
+                {/* The day's events from your Mac's calendar, read only, above the tasks. */}
+                {mac.events.filter((event) => new Date(event.start).getTime() < dayStart(from + col + 1) && new Date(event.end).getTime() > day.start).slice(0, 6).map((event, at) => (
+                  <span key={`mac-${at}`} className="px-1"><EventLine event={event} compact /></span>
+                ))}
                 {day.cards.map((card) => {
                   const id = `${card.kind}:${card.task.id}`
                   const late = card.kind === 'scheduled' ? new Date(card.task.dueAt!).getTime() < dayStart(0) : new Date(card.task.deadline!).getTime() < dayStart(0)

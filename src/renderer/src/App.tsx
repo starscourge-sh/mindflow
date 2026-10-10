@@ -956,9 +956,6 @@ export default function App(): React.JSX.Element {
     // "5m tea", "timer 25m": a countdown in the floating timer, not a capture.
     // Not when a kind was picked or it is a todo, nor when the rest has a date,
     // a repeat or a tag: "10 min walk every day #health" is a task to keep.
-    const timer = plan?.timer
-    if (timer) {
-      chime('timer')
     // "4x25 essay": pomodoro rounds in the floating timer, each break with its own sound.
     const rounds = plan?.rounds
     if (rounds) {
@@ -977,6 +974,9 @@ export default function App(): React.JSX.Element {
       if (!more) window.api.hideWindow()
       return
     }
+    const timer = plan?.timer
+    if (timer) {
+      chime('timer')
       beam('success')
       boxBeam('sent')
       void vigil.startTimer(timer.goal, timer.ms).then((id) => {
