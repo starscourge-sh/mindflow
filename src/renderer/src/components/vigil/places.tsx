@@ -72,7 +72,7 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'monthpage', label: "Month's page", icon: Sprout, key: 'm', tint: 'yellow' },
   // The same two words as the box's tabs: what to do, what you saved.
   { id: 'today', label: 'Today', icon: Sun, key: 't', tint: 'green', group: 'Tasks' },
-  { id: 'week', label: 'Week', icon: CalendarRange, key: 'w', tint: 'blue', group: 'Tasks' },
+  { id: 'week', label: "This week's tasks", icon: CalendarRange, key: 'w', tint: 'blue', group: 'Tasks' },
   { id: 'upcoming', label: 'Upcoming', icon: CalendarDays, key: 'u', tint: 'orange', group: 'Tasks' },
   // Eisenhower's four boxes: urgent by date, important by the flag.
   { id: 'matrix', label: 'Matrix', icon: Grid2x2, key: 'q', tint: 'red', group: 'Tasks' },

@@ -193,8 +193,9 @@ export function MatrixView({ focus, onOpen }: { focus?: string; onOpen?: (type: 
                 <header className="mb-1 px-1">
                   <h3 className="flex items-baseline gap-2 text-heading font-semibold" style={{ color: `var(--tt-color-text-${quad.tint})` }}>
                     <span>{quad.title}</span>
-                    <span className="text-xs font-normal text-muted-foreground tabular-nums"><Rolling text={boxes[q].length} /></span>
-                    <Tip label={`Send the task here  ${q + 1}`}><span className="ml-auto"><Pressed keys={String(q + 1)} /></span></Tip>
+                    <span className="text-xs font-normal text-muted-foreground tabular-nums"><Rolling text={`${boxes[q].length} ${boxes[q].length === 1 ? 'task' : 'tasks'}`} by="word" /></span>
+                    {/* The key only while a task is picked, and said in words: a bare 1 to 4 read as a count. */}
+                    {chosen && q !== at.q && <span className="ml-auto flex items-center gap-1.5 text-xs font-normal text-muted-foreground">Send it here <Pressed keys={String(q + 1)} /></span>}
                   </h3>
                   <p className="text-xs text-muted-foreground">{quad.said}</p>
                 </header>
