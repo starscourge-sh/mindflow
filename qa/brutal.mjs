@@ -1,16 +1,17 @@
-// The Brutal theme, page by page: anything soft left over (a blurred shadow,
+// The Brutal style, page by page, over any theme: anything soft left over (a blurred shadow,
 // a rounded corner) is listed by its classes, and every page is saved as a
 // picture for looking at.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-brutal/main/index.js SHOTS=<dir> THEME=brutal node qa/brutal.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-brutal/main/index.js SHOTS=<dir> THEME=paper node qa/brutal.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
-const theme = process.env.THEME ?? 'brutal'
+const theme = process.env.THEME ?? 'paper'
 const dir = process.env.SHOTS ?? `${process.env.QA_DATA}/brutal`
 const pages = (process.env.PAGES ?? 'home,inbox,review,today,goals,questions,nuggets,articles,week,weekpage,monthpage,yearpage,day,tags,stats,settings,powers,map').split(',')
 mkdirSync(dir, { recursive: true })
 const c = await sandbox({ width: 1000, height: 700 })
 const { h, go } = c
+await h.evaluate(() => localStorage.setItem('style', 'brutal'))
 await c.theme(theme)
 await c.size(1000, 700)
 
@@ -73,7 +74,7 @@ for (const win of c.electron.windows()) {
   const kind = url.includes('view=sticky') ? `sticky-${new URL(url).searchParams.get('type')}` : url.includes('view=focus') ? 'pill' : url.includes('view=home') ? null : 'box'
   if (!kind || (!want(kind) && !want(kind.split('-')[0]))) continue
   if (kind === 'box') continue
-  await win.evaluate((t) => { localStorage.setItem('theme', t); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }, theme).catch(() => {})
+  await win.evaluate((t) => { localStorage.setItem('style', 'brutal'); localStorage.setItem('theme', t); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }, theme).catch(() => {})
   await win.waitForTimeout(600)
   await win.screenshot({ path: `${dir}/${kind}-${theme}.png` }).catch(() => {})
   const found = await soft(win).catch(() => null)
@@ -81,6 +82,7 @@ for (const win of c.electron.windows()) {
 }
 // The box: the first window, shown, with a thought being typed into it.
 if (want('box')) {
+  await c.page.evaluate((t) => { localStorage.setItem('style', 'brutal'); localStorage.setItem('theme', t); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }, theme)
   await c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].show())
   await c.page.waitForTimeout(800)
   await c.page.keyboard.type('Ring the plumber about the boiler', { delay: 10 }).catch(() => {})
