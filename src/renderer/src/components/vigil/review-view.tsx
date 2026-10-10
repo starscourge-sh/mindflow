@@ -344,11 +344,13 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
                   // Under the pointer the grade takes on its own colour, edge and wash,
                   // so the four read as four answers rather than four grey boxes.
                   style={{ '--tone': tone } as React.CSSProperties}
-                  className="flex h-9 min-w-0 items-center justify-center gap-2 rounded-md border px-2 text-control transition-colors hover:border-[color-mix(in_srgb,var(--tone)_45%,var(--border))] hover:bg-[color-mix(in_srgb,var(--tone)_10%,transparent)]"
+                  // The grade on its own line and when it comes back under it, so
+                  // "in 10 min" never runs out of its button into the next one.
+                  className="relative flex min-h-12 w-full min-w-0 flex-col items-center justify-center rounded-md border px-2 py-1.5 text-control transition-colors hover:border-[color-mix(in_srgb,var(--tone)_45%,var(--border))] hover:bg-[color-mix(in_srgb,var(--tone)_10%,transparent)]"
                 >
-                  <span className="font-medium" style={{ color: tone }}>{label}</span>
-                  <span className="text-xs whitespace-nowrap text-muted-foreground tabular-nums">{backIn(card.intervals[value])}</span>
-                  <Kbd className="hidden @lg:inline-flex">{value}</Kbd>
+                  <span className="font-semibold" style={{ color: tone }}>{label}</span>
+                  <span className="max-w-full truncate text-xs text-muted-foreground tabular-nums">{backIn(card.intervals[value])}</span>
+                  <Kbd className="absolute top-1.5 right-1.5 hidden @2xl:inline-flex">{value}</Kbd>
                 </button>
                 </Tip>
               ))}
@@ -402,9 +404,9 @@ function ExampleCard(): React.JSX.Element {
       </div>
       <div className="@container grid grid-cols-4 gap-2">
         {GRADES.map(({ grade, label, tone }, at) => (
-          <span key={grade} className="flex h-9 min-w-0 items-center justify-center gap-2 rounded-md border px-2 text-control">
-            <span className="font-medium" style={{ color: tone }}>{label}</span>
-            <span className="text-xs whitespace-nowrap text-muted-foreground tabular-nums">{back[at]}</span>
+          <span key={grade} className="flex min-h-12 min-w-0 flex-col items-center justify-center rounded-md border px-2 py-1.5 text-control">
+            <span className="font-semibold" style={{ color: tone }}>{label}</span>
+            <span className="max-w-full truncate text-xs text-muted-foreground tabular-nums">{back[at]}</span>
           </span>
         ))}
       </div>
