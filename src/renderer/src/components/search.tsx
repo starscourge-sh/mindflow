@@ -30,7 +30,10 @@ type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 /** Something to do from the palette, with the key that does it anywhere. */
 /** `cue` is its sound, on/off for a switch; a tap when it says nothing. */
 /** `typed`: kept out of the list until something is typed. `themes`: opens the theme list in place, and is handed the one kept. */
-export type Action = { label: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean; typed?: boolean; themes?: (theme: Theme) => void; icon?: ComponentProps<typeof AliveIcon>['icon'] }
+/** `choices`: one action that opens a short list in place, "Goal on screen…" and then which goal and how. */
+export type Action = { label: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean; typed?: boolean; themes?: (theme: Theme) => void; choices?: () => Choice[]; icon?: ComponentProps<typeof AliveIcon>['icon'] }
+/** One of an action's choices: what it does, and a quiet word on where it stands now. */
+export type Choice = { label: string; note?: string; run: () => void }
 
 /** Room for the preview beside the list: the box's 640px window has none, so there it never shows. */
 const ROOMY = '(min-width: 700px)'
@@ -118,11 +121,15 @@ export function Search({ onOpen, onAside, onClose, initial = '', actions = [], p
   }, [at, results.length])
   const current = at >= doing.length ? results[at - doing.length] : undefined
   const action = at < doing.length ? doing[at] : undefined
+  // An action's own short list, opened in place: typed to narrow, Enter picks.
+  const [choosing, setChoosing] = useState<{ action: Action; list: Choice[] } | null>(null)
+  const [choiceQuery, setChoiceQuery] = useState('')
+  const [choiceAt, setChoiceAt] = useState(0)
   const total = doing.length + results.length
   // One size and one shape from the moment it opens: the filters are always
   // there, and the preview half stays put whatever is highlighted, so
   // nothing grows or jumps as the arrows move or a letter is typed.
-  const shown = pane && roomy
+  const shown = pane && roomy && !choosing
   const preview = shown && !!current
   // A gloss on anything found, a task included: there it lands in the task's log.
   const glossable = !!current
@@ -133,6 +140,12 @@ export function Search({ onOpen, onAside, onClose, initial = '', actions = [], p
   // "Change theme…" turns the palette into the themes, each worn as the
   // highlight passes it; Enter keeps one, Escape puts the old one back.
   const [picking, setPicking] = useState<Action | null>(null)
+  const choices = choosing ? choosing.list.filter((one) => choiceQuery.trim().toLowerCase().split(/\s+/).every((word) => `${one.label} ${one.note ?? ''}`.toLowerCase().includes(word))) : []
+  const unchoose = (): void => (chime('fold'), setChoosing(null))
+  const choose = (one: Choice): void => {
+    onClose()
+    one.run()
+  }
   const [themeQuery, setThemeQuery] = useState('')
   const [themeAt, setThemeAt] = useState(0)
   // The theme worn before the list opened; cleared once one is kept.
@@ -171,11 +184,19 @@ export function Search({ onOpen, onAside, onClose, initial = '', actions = [], p
     onClose()
     picking?.themes?.(one)
   }
+  // An action with nothing more to say than its name: a word asked about says what it means instead.
+  const plain = !picking && !current && action && !(asked && action === doing[0]) ? action : undefined
   // One light for the rows, travelling to the one the pointer or the arrows reach.
   const rows = useRef<HTMLDivElement>(null)
-  const lit = useChosen(rows, '[data-search-at], [data-theme-at]', `${picking ? 'theme' : 'row'}:${picking ? themeAt : at}`)
+  const lit = useChosen(rows, '[data-search-at], [data-theme-at], [data-choice-at]', `${picking ? 'theme' : choosing ? 'choice' : 'row'}:${picking ? themeAt : choosing ? choiceAt : at}`)
   const run = (action: Action): void => {
     if (action.themes) return pickTheme(action)
+    if (action.choices) {
+      chime('slide')
+      setChoiceQuery('')
+      setChoiceAt(0)
+      return setChoosing({ action, list: action.choices() })
+    }
     // null: the action sounds for itself (the sound switch, the panel).
     if (action.cue !== null) chime(action.cue ?? 'tap')
     onClose()
@@ -192,11 +213,19 @@ export function Search({ onOpen, onAside, onClose, initial = '', actions = [], p
             ref={box}
             autoFocus
             className="flex-1 bg-transparent text-heading outline-none"
-            placeholder={picking ? 'Pick a theme…' : placeholder ?? (actions.length ? 'Do something, or search everything…' : 'Search everything… kind:quote to narrow')}
-            value={picking ? themeQuery : query}
-            onChange={(event) => picking ? (setThemeQuery(event.target.value), setThemeAt(0)) : setQuery(event.target.value)}
+            placeholder={picking ? 'Pick a theme…' : choosing ? `${choosing.action.label.replace(/…$/, '')}: pick one…` : placeholder ?? (actions.length ? 'Do something, or search everything…' : 'Search everything… kind:quote to narrow')}
+            value={picking ? themeQuery : choosing ? choiceQuery : query}
+            onChange={(event) => picking ? (setThemeQuery(event.target.value), setThemeAt(0)) : choosing ? (setChoiceQuery(event.target.value), setChoiceAt(0)) : setQuery(event.target.value)}
             onKeyDown={(event) => {
-              if (picking) {
+              if (choosing) {
+                if (event.key === 'Escape' || (event.key === 'Backspace' && !choiceQuery)) unchoose()
+                else if (event.key === 'Enter') { if (choices[choiceAt]) choose(choices[choiceAt]) }
+                else if (event.key === 'ArrowDown' || (event.ctrlKey && event.key === 'j')) { click('soft'); setChoiceAt((n) => Math.min(n + 1, choices.length - 1)) }
+                else if (event.key === 'ArrowUp' || (event.ctrlKey && event.key === 'k')) { click('soft'); setChoiceAt((n) => Math.max(n - 1, 0)) }
+                else return
+                event.preventDefault()
+              }
+              else if (picking) {
                 if (event.key === 'Escape' || (event.key === 'Backspace' && !themeQuery)) unpick()
                 else if (event.key === 'Enter') { if (theme) keep(theme) }
                 else if (event.key === 'ArrowDown' || (event.ctrlKey && event.key === 'j')) setThemeAt((n) => Math.min(n + 1, themes.length - 1))
@@ -227,7 +256,7 @@ export function Search({ onOpen, onAside, onClose, initial = '', actions = [], p
         </label>
         {/* One gap everywhere; the groups are told apart by a hairline, not by wider gaps. */}
         <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5 border-b px-2 py-1.5">
-          {picking ? <span className="px-2 py-0.5 text-xs text-muted-foreground">Each one is worn as you pass it</span> : <>
+          {choosing ? <span className="px-2 py-0.5 text-xs text-muted-foreground">⌫ or Esc goes back to every action</span> : picking ? <span className="px-2 py-0.5 text-xs text-muted-foreground">Each one is worn as you pass it</span> : <>
           <Chips options={[{ id: 'name', label: 'Name only' }]} on={() => titleOnly} pick={() => setTitleOnly(!titleOnly)} />
           <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />
           <Chips options={[{ id: 'capture', label: 'Captures' }, { id: 'nugget', label: 'Ideas' }, { id: 'task', label: 'Tasks' }]} on={(id) => types.includes(id)} pick={(id) => setTypes(flip(types, id))} />
@@ -242,7 +271,23 @@ export function Search({ onOpen, onAside, onClose, initial = '', actions = [], p
               padding keeps a row the arrows reach clear of that fade. */}
           <div ref={rows} className={`mf-more relative isolate min-h-0 min-w-0 flex-1 scroll-pt-8 scroll-pb-12 overflow-y-auto p-2 ${shown ? 'w-1/2 flex-none' : ''}`}>
             <Highlight spot={lit.spot} snap={lit.snap} className="rounded-sm bg-accent" />
-            {picking ? <>
+            {choosing ? <>
+              <div className="px-2 pt-1 pb-1 text-xs text-muted-foreground">{choosing.action.label.replace(/…$/, '')}</div>
+              {choices.map((one, index) => (
+                <button
+                  key={one.label}
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left"
+                  data-choice-at={index === choiceAt || undefined}
+                  onMouseMove={(event) => realMove(event) && setChoiceAt(index)}
+                  onClick={() => choose(one)}
+                >
+                  <span className="min-w-0 flex-1 truncate">{one.label}</span>
+                  {one.note && <span className="shrink-0 text-xs text-muted-foreground">{one.note}</span>}
+                </button>
+              ))}
+              {!choices.length && <p className="px-2 py-3 text-sm text-muted-foreground"><Typed text="None by that name." /></p>}
+            </> : picking ? <>
               {themes.map((one, index) => (
                 <button
                   key={one}
@@ -333,7 +378,15 @@ export function Search({ onOpen, onAside, onClose, initial = '', actions = [], p
           {/* The capture as it reads, not its raw text: the same editor, read
               only. An action shows what it does and its keys instead, so the
               half never empties or closes as the arrows pass over it. */}
-          {shown && (
+          {shown && plain ? (
+            // A plain action has nothing to preview: one line saying it, and its keys, not an empty frame.
+            <div className="m-3 ml-0 w-1/2 min-w-0">
+              <div key={plain.label} data-action-line className="flex items-center gap-3 rounded-lg border px-4 py-2.5 animate-in fade-in-0 duration-150">
+                <span className="min-w-0 flex-1 text-body text-pretty text-foreground">{plain.label}</span>
+                {plain.keys && keyFor(plain.keys) && <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground"><span className="flex gap-0.5"><Pressed keys={plain.keys} each /></span> any time</span>}
+              </div>
+            </div>
+          ) : shown && (
             <div className="m-3 ml-0 flex w-1/2 min-w-0 flex-col overflow-hidden rounded-lg border">
               <div className="min-h-0 flex-1 overflow-y-auto [--mf-padding:1rem_1.25rem]">
                 {picking
@@ -380,9 +433,9 @@ export function Search({ onOpen, onAside, onClose, initial = '', actions = [], p
         {/* How to drive it, always there; the Enter word follows what is highlighted. */}
         <div className="flex shrink-0 items-center gap-4 border-t px-4 py-1.5 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5"><span className="flex gap-0.5"><Kbd>↑</Kbd><Kbd>↓</Kbd></span> navigate</span>
-          <span className="flex items-center gap-1.5"><Kbd>↵</Kbd> <Rolling text={picking ? 'keep' : action ? 'use' : 'open'} /></span>
-          {onAside && !picking && !action && current && <span className="flex items-center gap-1.5"><Kbd>⌥↵</Kbd> to the side</span>}
-          <span className="flex items-center gap-1.5"><Kbd>esc</Kbd> <Rolling text={picking ? 'back' : 'close'} /></span>
+          <span className="flex items-center gap-1.5"><Kbd>↵</Kbd> <Rolling text={picking ? 'keep' : choosing ? 'pick' : action ? 'use' : 'open'} /></span>
+          {onAside && !picking && !choosing && !action && current && <span className="flex items-center gap-1.5"><Kbd>⌥↵</Kbd> to the side</span>}
+          <span className="flex items-center gap-1.5"><Kbd>esc</Kbd> <Rolling text={picking || choosing ? 'back' : 'close'} /></span>
         </div>
       </div>
     </div>

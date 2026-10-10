@@ -537,7 +537,7 @@ export function Home(): React.JSX.Element {
   const safeMode = (): void => {
     const on = !settings?.safeMode
     chime(on ? 'on' : 'off')
-    void vigil.setSettings({ safeMode: on }).then(() => toast(on ? 'Safe mode: no hints, rot cards or pins come up' : 'Safe mode off'))
+    void vigil.setSettings({ safeMode: on }).then(() => toast(on ? 'Safe mode: no hints, old captures or pinned notes come up' : 'Safe mode off'))
   }
 
   // Blurring, beside Safe mode: private words blurred, the dim when you leave
@@ -832,17 +832,21 @@ export function Home(): React.JSX.Element {
             { label: 'New capture', keys: 'C', run: () => window.api.showPrompt() },
             { label: 'New question', cue: null, run: () => void startQuestion(open) },
             { label: 'New goal', cue: null, run: () => void startGoal(open) },
-            // Each open goal's beacon: the two settings it is not on, named as the goal's page names them.
-            ...goals.filter((one) => !one.archivedAt && !one.closedAt).flatMap((goal) => {
-              const now = goal.beacon ?? settings?.goalBeacon ?? 'sometimes'
-              return (['always', 'sometimes', 'off'] as const).filter((mode) => mode !== now).map((mode) => ({
-                label: `Goal on screen, ${mode === 'always' ? 'always' : mode === 'sometimes' ? 'now and then' : 'off'}: ${goal.title}`, cue: null,
-                run: () => void vigil.setBeacon(goal.id, mode).then(() => {
-                  chime(mode === 'off' ? 'unstick' : 'stick')
-                  toast(mode === 'always' ? 'On screen, on every Space' : mode === 'sometimes' ? 'On screen now and then: it comes out a few times a day' : 'Off screen: the menu bar and Home still show it', () => void vigil.setBeacon(goal.id, goal.beacon))
-                })
-              }))
-            }),
+            // One action for every open goal's beacon, then a short list: each goal, and the two settings it is not on.
+            ...(goals.some((one) => !one.archivedAt && !one.closedAt) ? [{
+              label: 'Goal on screen…', cue: null, run: () => {},
+              choices: () => goals.filter((one) => !one.archivedAt && !one.closedAt).flatMap((goal) => {
+                const now = goal.beacon ?? settings?.goalBeacon ?? 'sometimes'
+                const said = (mode: string): string => (mode === 'always' ? 'always on screen' : mode === 'sometimes' ? 'on screen now and then' : 'off screen')
+                return (['always', 'sometimes', 'off'] as const).filter((mode) => mode !== now).map((mode) => ({
+                  label: `${said(mode).charAt(0).toUpperCase()}${said(mode).slice(1)}: ${goal.title}`, note: `now ${said(now)}`,
+                  run: () => void vigil.setBeacon(goal.id, mode).then(() => {
+                    chime(mode === 'off' ? 'unstick' : 'stick')
+                    toast(mode === 'always' ? 'On screen, on every Space' : mode === 'sometimes' ? 'On screen now and then: it comes out a few times a day' : 'Off screen: the menu bar and Home still show it', () => void vigil.setBeacon(goal.id, goal.beacon))
+                  })
+                }))
+              })
+            }] : []),
             ...(picked.ids.length > 1 ? [{ label: `Make one task from the ${picked.ids.length} selected captures`, cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:one-task')) }] : []),
             { label: "Keep today's tasks on screen", cue: null, run: () => stickOnDesktop('today', 'today') },
             { label: 'Tidy: a few minutes over the latest captures', run: () => openPass('tidy') },
@@ -1207,7 +1211,7 @@ export function Home(): React.JSX.Element {
             </DropdownMenuContent>
           </DropdownMenu>
           {settings?.safeMode && (
-            <Tip label="Safe mode is on: no hints, rot cards or pins  ⌥⌘S">
+            <Tip label="Safe mode is on: no hints, old captures or pinned notes come up  ⌥⌘S">
               <button type="button" aria-label="Turn safe mode off" onClick={safeMode}
                 className="flex size-7 items-center justify-center rounded-md text-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,var(--foreground))] transition-colors hover:bg-accent/60">
                 <AliveIcon icon={ShieldCheck} size={16} />
