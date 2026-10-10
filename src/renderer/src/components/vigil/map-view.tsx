@@ -64,8 +64,8 @@ export function MapView({ onOpen }: { onOpen: (type: string, id: string) => void
               <span key={type.id} className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: type.id === 'note' ? NOTE_TINT : type.tint }} />{type.id === 'note' && tags.length ? 'Note, no tag' : type.label}</span>
             ))}
             {/* A note wears its main tag's colour: the commonest few named. */}
-            {tags.length ? <span className="flex items-center gap-x-3 gap-y-1">
-              <span>Notes by tag</span>
+            {tags.length ? <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="whitespace-nowrap">Notes by tag</span>
               {tags.map(([tag, { tint }]) => <span key={tag} className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: tint }} />#{tag}</span>)}
             </span> : null}
           </div>
