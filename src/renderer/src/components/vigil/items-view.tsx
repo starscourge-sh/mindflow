@@ -33,7 +33,7 @@ import { exampleIdeas, exampleWriting } from '@/lib/examples'
 import { Example } from './example'
 import { makeTask } from '@/lib/tasks'
 import { useSameWords } from '@/lib/same-words'
-import { Empty, Island, Page, Prop, Props, refuse, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Rolling, Typed, showTopTitle, Pressed } from './ui'
+import { Empty, Island, Page, Prop, Props, refuse, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed } from './ui'
 import { Term } from './term'
 import { AGES, Chips, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
 import { copy, type MenuItem, type RowItem } from './row-menu'
@@ -314,11 +314,12 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
       <Page aside={!!open}
         title={tier === 'nugget' ? 'Gems' : 'Writing'}
         // Every note on show, a folded group's too.
-        count={groups.reduce((sum, [, list]) => sum + list.length, 0)}
+        count={chosen.length || groups.reduce((sum, [, list]) => sum + list.length, 0)}
+        // What is picked always shows: the buttons may fold into ⋯ in a narrow window, the count never does.
+        unit={chosen.length ? ['selected', 'selected'] : undefined}
         actions={
           chosen.length ? (
             <span className="flex items-center gap-2 text-muted-foreground">
-              <Rolling text={chosen.length} /> selected
               <Tip label="At the end of your reading queue; ⌥-click to read them next">
                 <Button variant="ghost" size="sm" onClick={(event) => void enqueue(chosen, event.altKey)}>Add to queue</Button>
               </Tip>

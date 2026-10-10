@@ -277,11 +277,12 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false }: {
       <Page aside={!!open}
         title={title}
         // The Inbox is a place to set things down, never a queue with a number on it.
-        count={title === 'Inbox' ? undefined : shown.length}
+        // What is picked always shows: the buttons may fold into ⋯ in a narrow window, the count never does.
+        count={chosen.length || (title === 'Inbox' ? undefined : shown.length)}
+        unit={chosen.length ? ['selected', 'selected'] : undefined}
         actions={
           chosen.length ? (
             <span className="flex items-center gap-1">
-              <span className="mr-1"><Rolling text={chosen.length} /> selected</span>
               <Button variant="ghost" size="sm" onClick={() => bulk('resolved')}>Resolve</Button>
               <Button variant="ghost" size="sm" onClick={() => bulk('discarded')}>Discard</Button>
               <Button variant="ghost" size="sm" onClick={() => void archive('captures', chosen, !archived).then(() => setChosen([]))}>{archived ? 'Unarchive' : 'Archive'}</Button>
