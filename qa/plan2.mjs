@@ -137,8 +137,8 @@ try {
   const ours = made.map((one) => one.id).filter((id) => rows.includes(id))
   check("today's open tasks are listed", ours.length === 3, `${ours.length} of 3`)
   const at = (id) => rows.indexOf(id)
-  // T on the report, M on the trip, W on the plants.
-  for (const [id, key] of [[made[0].id, 't'], [made[1].id, 'm'], [made[2].id, 'w']]) {
+  // T on the report, N on the trip, L on the plants.
+  for (const [id, key] of [[made[0].id, 't'], [made[1].id, 'n'], [made[2].id, 'l']]) {
     await h.locator(`[data-close-task="${id}"]`).hover()
     await wait(150)
     await h.keyboard.press(key)
@@ -147,8 +147,8 @@ try {
   void at
   const [r, t, p] = await Promise.all(made.map((one) => v('task', one.id)))
   check('T sends it to tomorrow', r.dueAt?.startsWith?.(day(1)) || new Date(r.dueAt).getDate() === new Date(day(1) + 'T12:00').getDate(), r.dueAt)
-  check('M moves it to next week', new Date(t.dueAt).getDate() === new Date(day(7) + 'T12:00').getDate(), t.dueAt)
-  check('W lets it go', p.status === 'dropped', p.status)
+  check('N moves it to next week', new Date(t.dueAt).getDate() === new Date(day(7) + 'T12:00').getDate(), t.dueAt)
+  check('L lets it go', p.status === 'dropped', p.status)
   await h.getByLabel("One line for today's page").fill('A quiet day, the report nearly there')
   await h.keyboard.press('Enter')
   await wait(700)
@@ -159,10 +159,22 @@ try {
   const frog = (await v('settings')).frog
   check("tomorrow's first task is kept as the frog", frog?.id === made[0].id && frog?.day === day(1), JSON.stringify(frog))
   await shot('close-day')
+  // One more open task, so the dark and Brutal pictures show a row and its keys.
+  await v('task:add', 'sort the post', undefined, true)
   await looks('soft', 'github')
   await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-day')))
   await wait(900)
   await shot('close-day-github')
+  await h.keyboard.press('Escape')
+  await looks('brutal', 'paper')
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-day')))
+  await wait(900)
+  await shot('close-day-brutal')
+  await h.keyboard.press('Escape')
+  await looks('soft', 'github')
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-day')))
+  await wait(900)
+  check('every row shows its keys on its chips', (await h.locator('[data-close-task] kbd').count()) === 3 * (await h.locator('[data-close-task]').count()))
   await h.keyboard.press('Meta+Enter')
   await wait(600)
   check('⌘↵ closes the day, and the offer goes for today', (await h.locator('[data-close-day]').count()) === 0 && (await h.evaluate(() => localStorage.getItem('close-day:done'))) === day(0))

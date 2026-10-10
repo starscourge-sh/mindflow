@@ -177,12 +177,12 @@ function Pill({ focus, settings, now, notch, onEnded }: { focus: Focus; settings
   const [count, setCount] = useState<number | null>(null)
   const counted = useRef(false)
   useEffect(() => {
-    if (counted.current || !settings) return
+    if (counted.current) return
     counted.current = true
-    if (!settings.countIn || Date.now() - new Date(focus.startedAt).getTime() > 3000) return
-    void vigil.pauseSession(focus.id)
+    // Held since the moment it began: how the main process starts one with the rule on.
+    if (focus.pausedAt !== focus.startedAt || focus.pausedMs) return
     setCount(5)
-  }, [settings]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (count === null) return
     if (count === 0) return void vigil.resumeSession(focus.id).then(() => (chime('on'), setCount(null)))

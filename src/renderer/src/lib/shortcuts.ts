@@ -263,8 +263,8 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Deciding', keys: 'Esc', does: 'Stop for now', where: 'Deciding' },
 
   { group: 'Closing the day', keys: 'T', does: 'Send the task to tomorrow', where: 'Close the day' },
-  { group: 'Closing the day', keys: 'M', does: 'Move the task to next week', where: 'Close the day' },
-  { group: 'Closing the day', keys: 'W', does: 'Let the task go', where: 'Close the day' },
+  { group: 'Closing the day', keys: 'N', does: 'Move the task to next week', where: 'Close the day' },
+  { group: 'Closing the day', keys: 'L', does: 'Let the task go', where: 'Close the day' },
   { group: 'Closing the day', keys: 'J', does: 'Next open task (K the one before)', where: 'Close the day' },
   { group: 'Closing the day', keys: '⌘↵', does: 'Close the day', where: 'Close the day' },
 

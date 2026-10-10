@@ -2614,7 +2614,9 @@ export function registerVigil(): void {
     // A timer from the box keeps running underneath: only a focus session ends.
     db.prepare("update sessions set ended_at = ? where ended_at is null and task_id != ''").run(now())
     const id = randomUUID()
-    db.prepare('insert into sessions (id, task_id, started_at, goal, planned_ms) values (?, ?, ?, ?, ?)').run(id, taskId, now(), goal?.trim() || null, plannedMs ?? null)
+    const at = now()
+    // The five-second rule: it starts held, and the pill lets it go after counting 5 to 1.
+    db.prepare('insert into sessions (id, task_id, started_at, goal, planned_ms, paused_at) values (?, ?, ?, ?, ?, ?)').run(id, taskId, at, goal?.trim() || null, plannedMs ?? null, settings().countIn ? at : null)
     return write(id)
   })
   /** The session running now, with its task's name, for the floating timer. */

@@ -13,7 +13,7 @@ import { dayjs, dayKey, num, startOfDay } from '../../../../main/dates'
 
 /**
  * Closing the day, an evening pass in four short parts: what got done; each
- * task still open sent to Tomorrow, moved to next week, or let go (T, M, W);
+ * task still open sent to Tomorrow, moved to Next week, or Let go (T, N, L);
  * one line for today's page; and tomorrow's first task, the frog, which leads
  * Today and the day brief in the morning. Offered on Home once an evening
  * after the hour Settings gives, and from ⌘K any time.
@@ -80,8 +80,8 @@ export function CloseDayOffer(): React.JSX.Element | null {
 type Choice = 'tomorrow' | 'move' | 'letgo'
 const CHOICES: { id: Choice; label: string; key: string }[] = [
   { id: 'tomorrow', label: 'Tomorrow', key: 'T' },
-  { id: 'move', label: 'Next week', key: 'M' },
-  { id: 'letgo', label: 'Let go', key: 'W' }
+  { id: 'move', label: 'Next week', key: 'N' },
+  { id: 'letgo', label: 'Let go', key: 'L' }
 ]
 
 /** A paragraph added to the foot of a day's page. */
@@ -174,7 +174,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
       const task = open[cursor]
       if (event.key === 'j' || event.key === 'ArrowDown') (event.preventDefault(), setCursor((at) => Math.min(open.length - 1, at + 1)))
       else if (event.key === 'k' || event.key === 'ArrowUp') (event.preventDefault(), setCursor((at) => Math.max(0, at - 1)))
-      else if (task && ['t', 'm', 'w'].includes(event.key.toLowerCase())) (event.preventDefault(), void choose(task, ({ t: 'tomorrow', m: 'move', w: 'letgo' } as const)[event.key.toLowerCase() as 't' | 'm' | 'w']))
+      else if (task && ['t', 'n', 'l'].includes(event.key.toLowerCase())) (event.preventDefault(), void choose(task, ({ t: 'tomorrow', n: 'move', l: 'letgo' } as const)[event.key.toLowerCase() as 't' | 'n' | 'l']))
       else return
       event.stopPropagation()
     }
@@ -231,7 +231,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
                       {CHOICES.map((one) => (
                         <button key={one.id} type="button" aria-pressed={chosen[task.id] === one.id} onClick={() => void choose(task, one.id)}
                           className={`flex h-6 items-center gap-1 rounded-md px-2 text-control transition-colors ${chosen[task.id] === one.id ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
-                          {one.label}{at === cursor && <span className="text-[0.6875rem] opacity-70">{one.key}</span>}
+                          {one.label}<kbd className={`font-sans text-[0.6875rem] ${at === cursor ? 'opacity-80' : 'opacity-45'}`}>{one.key}</kbd>
                         </button>
                       ))}
                     </span>
@@ -278,7 +278,6 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
           </section>
         </div>
         <div className="flex items-center gap-2 border-t px-5 py-3">
-          <span className="text-control text-muted-foreground">T, M and W decide the row you are on</span>
           <span className="flex-1" />
           <Button size="sm" onClick={finish}>Close the day <Kbd>⌘↵</Kbd></Button>
         </div>
