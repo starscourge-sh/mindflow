@@ -1402,3 +1402,13 @@ html[data-dragging], html[data-dragging] * { cursor: grabbing !important; }
   line-height: 1.6;
 }
 }
+
+/* A keycap on a filled accent button (Next, Done, Save, Create and the rest):
+   part of the button, never a pale box pasted on it. A slightly darker tint
+   of the button, a faint outline in the button's own ink, its key at 75%. */
+:is([data-slot='button']:not([data-variant]), [data-slot='button'][data-variant='default'], .bg-primary) :is([data-slot='kbd'], kbd) {
+  background: color-mix(in oklab, black 14%, transparent) !important;
+  border-color: color-mix(in oklab, var(--primary-foreground) 26%, transparent) !important;
+  color: color-mix(in oklab, var(--primary-foreground) 75%, transparent) !important;
+  box-shadow: none !important;
+}

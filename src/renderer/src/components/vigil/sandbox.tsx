@@ -288,13 +288,23 @@ export function SandboxHost(): React.JSX.Element | null {
       setSeeding(true)
       const carry = (await window.api.vigil('sandbox:carry')) as Carry | null
       for (const [key, value] of Object.entries(carry?.local ?? {})) {
+        // The sandbox wears Paper: a practice copy that looks unlike your own book. Its theme is its own once changed there.
+        if (key === 'theme') continue
         try {
           localStorage.setItem(key, value)
         } catch {
           // Worn for now, not remembered.
         }
       }
-      if (carry?.local?.theme) applyTheme(currentTheme(), false)
+      try {
+        if (!localStorage.getItem('sandbox-theme-chosen')) {
+          localStorage.setItem('theme', 'paper')
+          localStorage.setItem('sandbox-theme-chosen', 'paper')
+        }
+      } catch {
+        // Worn for now, not remembered.
+      }
+      applyTheme(currentTheme(), false)
       // Its own pictures, whatever yours are: four public-domain landscapes for
       // Scenery and Vigil's own grain for covers; your celebrations come along.
       // Bars as yours are, plain if you never chose: playful ones are found in Settings, not met first.
