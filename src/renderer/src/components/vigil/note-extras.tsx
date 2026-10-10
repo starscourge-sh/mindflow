@@ -25,7 +25,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { chime, step, type Cue } from '@/lib/sound'
 import { tintFor } from '@/lib/pictures'
-import { notes, smallPicture, useThumb, type GraphNode, type NoteTable, type Version } from '@/lib/notes'
+import { notes, smallPicture, useThumb, type GraphNode, type MapEdge, type NoteTable, type Version } from '@/lib/notes'
 import { useLive, vigil } from '@/lib/vigil'
 import { Chips } from './display'
 import { copy, type MenuItem } from './row-menu'
@@ -755,12 +755,15 @@ export function LocalGraph({ id, title, onOpen }: { id: string; title: string; o
       const known = new Map(all.nodes.map((node) => [node.id, node]))
       const around = new Map<string, GraphNode>()
       for (const node of [...own.out, ...own.in]) around.set(node.id, node)
-      const edges: [string, string][] = [...around.keys()].map((other) => [id, other])
-      for (const [a, b] of all.edges) if (a !== id && b !== id && around.has(a) && around.has(b)) edges.push([a, b])
+      // Each link weighed as on the Map, by how often the two link.
+      const weight = new Map(all.edges.map(([a, b, times]) => [`${a} ${b}`, times ?? 1]))
+      const edges: MapEdge[] = [...around.keys()].map((other) => [id, other, weight.get(id < other ? `${id} ${other}` : `${other} ${id}`) ?? 1])
+      for (const [a, b, times] of all.edges) if (a !== id && b !== id && around.has(a) && around.has(b)) edges.push([a, b, times])
       const next = {
         nodes: [
-          { type: 'capture', id, title: named.current, kind: known.get(id)?.kind ?? 'note', links: around.size },
-          ...[...around.values()].map((node) => ({ type: node.type, id: node.id, title: node.title, kind: known.get(node.id)?.kind ?? 'note', links: known.get(node.id)?.links ?? 1, private: !!node.private }))
+          { type: 'capture', id, title: named.current, kind: known.get(id)?.kind ?? 'note', links: around.size, picture: known.get(id)?.picture },
+          // With its tag's colour and its picture, as on the Map.
+          ...[...around.values()].map((node) => ({ type: node.type, id: node.id, title: node.title, kind: known.get(node.id)?.kind ?? 'note', links: known.get(node.id)?.links ?? 1, private: !!node.private, tag: known.get(node.id)?.tag, tint: known.get(node.id)?.tint, picture: node.private ? undefined : known.get(node.id)?.picture }))
         ],
         edges, alone: 0, out: own.out.length, in: own.in.length
       }

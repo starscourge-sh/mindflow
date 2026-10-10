@@ -82,6 +82,8 @@ try {
   await h.evaluate(() => localStorage.setItem('noteDetails', 'open'))
   const G = '[data-local-graph] canvas'
   const openHub = async () => {
+    // Details start put away each time the window loads, so they are asked for again.
+    await h.evaluate(() => (localStorage.setItem('noteDetails', 'open'), window.dispatchEvent(new Event('mf:details'))))
     await send('capture', hub)
     await h.waitForSelector(G, { timeout: 15000 })
     await h.waitForTimeout(2500)

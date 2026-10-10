@@ -114,8 +114,18 @@ try {
       const clear = ctx.clearRect.bind(ctx); ctx.clearRect = (...a) => (draws++, clear(...a))
       setTimeout(() => done(draws), 1000)
     }))
-    console.log('redraws in a second once settled:', busy)
-    if (busy) fail.push('still drawing once settled')
+    // Settled, the dots only breathe: about 25 drawings a second, none with reduced motion.
+    console.log('redraws in a second once settled (breathing):', busy)
+    if (busy > 30) fail.push(`drawing ${busy} times a second once settled`)
+    await h.emulateMedia({ reducedMotion: 'reduce' })
+    await h.waitForTimeout(300)
+    const resting = await h.evaluate(() => new Promise((done) => {
+      const ctx = document.querySelector('canvas').getContext('2d'); let draws = 0
+      const clear = ctx.clearRect.bind(ctx); ctx.clearRect = (...a) => (draws++, clear(...a))
+      setTimeout(() => done(draws), 1000)
+    }))
+    console.log('redraws in a second with reduced motion:', resting)
+    if (resting) fail.push('still drawing with reduced motion')
   }
   if (c.errors.length) console.log('errors:', c.errors.slice(0, 5))
 } finally {

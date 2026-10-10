@@ -298,17 +298,20 @@ export function registerNotes({ load, guard }: Windows): void {
       : db.prepare("select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, private from nuggets where id = ?").get(id)) as Node | undefined
   }
   // The links written in a note's words, as the editor keeps them or an import left them.
-  const linksIn = (body: string | null | undefined): Set<string> => {
-    const out = new Set<string>()
+  // Each note linked to, with how many times the words link to it.
+  const mentionsIn = (body: string | null | undefined): Map<string, number> => {
+    const out = new Map<string, number>()
+    const add = (id: string): void => void out.set(id, (out.get(id) ?? 0) + 1)
     const walk = (node: Doc | string | null): void => {
       if (!node) return
-      if (typeof node === 'string') return void [...node.matchAll(/\[\[@([^|#\]]+)/g)].forEach((match) => out.add(match[1]))
-      if (node.type === 'noteLink' && node.attrs?.id) out.add(String(node.attrs.id))
+      if (typeof node === 'string') return void [...node.matchAll(/\[\[@([^|#\]]+)/g)].forEach((match) => add(match[1]))
+      if (node.type === 'noteLink' && node.attrs?.id) add(String(node.attrs.id))
       node.content?.forEach(walk)
     }
     walk(parse(body) as Doc | string | null)
     return out
   }
+  const linksIn = (body: string | null | undefined): Set<string> => new Set(mentionsIn(body).keys())
   handle('notes:graph', (id: string) => {
     const row = (db.prepare('select body from captures where id = ?').get(id) ?? db.prepare('select body from nuggets where id = ?').get(id)) as { body: string } | undefined
     // Out: the links written in it.
@@ -325,32 +328,49 @@ export function registerNotes({ load, guard }: Windows): void {
 
   // --- every note's links at once, for the map: each note with a link to or
   // from another, and each pair once. Private and discarded notes stay off it.
+  // Each note's tags, worked out once per wording.
+  const tagged: Kept<string[]> = new Map()
   handle('notes:graph:all', () => {
     const rows = [
       ...db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, body from captures where status != 'discarded' and private = 0`).all(),
       ...db.prepare("select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, kind, body from nuggets where private = 0").all()
     ] as (Node & { kind: string; body: string | null })[]
     const known = new Set(rows.map((row) => row.id))
-    const pairs = new Map<string, [string, string]>()
+    // Each pair once, weighed by how often either one links to the other.
+    const pairs = new Map<string, [string, string, number]>()
     for (const row of rows)
-      for (const link of linksIn(row.body)) {
+      for (const [link, times] of mentionsIn(row.body)) {
         // A link names its note as `id` or `tier:id`.
         const to = link.includes(':') ? link.split(':')[1] : link
         if (to === row.id || !known.has(to)) continue
-        const pair: [string, string] = row.id < to ? [row.id, to] : [to, row.id]
-        pairs.set(pair.join(' '), pair)
+        const [a, b] = row.id < to ? [row.id, to] : [to, row.id]
+        const pair = pairs.get(`${a} ${b}`)
+        if (pair) pair[2] += times
+        else pairs.set(`${a} ${b}`, [a, b, times])
       }
     const links = new Map<string, number>()
     for (const [a, b] of pairs.values()) (links.set(a, (links.get(a) ?? 0) + 1), links.set(b, (links.get(b) ?? 0) + 1))
+    const linked = rows.filter((row) => links.has(row.id))
+    // A note's main tag, for its colour on the map: one given a colour on the
+    // Tags page first, then the one most linked notes share.
+    const colours = new Map((db.prepare('select tag, color from tag_meta').all() as { tag: string; color: string | null }[]).map((row) => [row.tag, row.color]))
+    const tagsOf = new Map(linked.map((row) => [row.id, remember(tagged, row.id, `${row.title}\n${row.body}`, () =>
+      [...new Set([...`${row.title ?? ''} ${plain(parse(row.body))}`.matchAll(/(?:^|\s)#([a-z][\w-]*)/gi)].map((match) => match[1].toLowerCase()))])]))
+    const used = new Map<string, number>()
+    for (const tags of tagsOf.values()) for (const tag of tags) used.set(tag, (used.get(tag) ?? 0) + 1)
+    const main = (tags: string[]): string | undefined => [...tags].sort((a, b) => Number(!!colours.get(b)) - Number(!!colours.get(a)) || used.get(b)! - used.get(a)!)[0]
     return {
-      nodes: rows.filter((row) => links.has(row.id)).map(({ type, id, title, kind }) => ({ type, id, title, kind, links: links.get(id)! })),
+      nodes: linked.map(({ type, id, title, kind, body }) => {
+        const tag = main(tagsOf.get(id)!)
+        const picture = body?.includes('mindflow://assets/') ? PICTURE.exec(body)?.[0] : undefined
+        return { type, id, title, kind, links: links.get(id)!, ...(tag ? { tag, ...(colours.get(tag) ? { tint: colours.get(tag)! } : {}) } : {}), ...(picture ? { picture } : {}) }
+      }),
       edges: [...pairs.values()],
       alone: rows.length - links.size,
       // The ones left off, for the list the map opens of them.
       lonely: rows.filter((row) => !links.has(row.id)).slice(0, 300).map(({ type, id, title, kind }) => ({ type, id, title, kind }))
     }
   })
-
   // --- every picture and file, under the names they came with
   handle('notes:attachments', async (notes?: { table: string; id: string }[]) => {
     const rows = (notes?.length
